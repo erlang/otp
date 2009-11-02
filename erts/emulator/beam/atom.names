@@ -65,6 +65,7 @@ atom EXIT='EXIT'
 atom aborted
 atom abs_path
 atom absoluteURI
+atom ac
 atom active
 atom all
 atom all_but_first
@@ -102,6 +103,7 @@ atom bif_return_trap
 atom binary
 atom block
 atom blocked
+atom bm
 atom bnot
 atom bor
 atom bxor

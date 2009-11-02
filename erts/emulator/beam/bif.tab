@@ -754,6 +754,40 @@ bif erlang:load_nif/2
 bif erlang:call_on_load_function/1
 bif erlang:finish_after_on_load/2
 
+# The binary match bifs (New in R13B04 - EEP9)
+#
+
+#
+# The searching/splitting/substituting thingies
+#
+bif binary:match_compile/1
+bif binary:match/2
+bif binary:match/3
+bif binary:matches/2
+bif binary:matches/3
+# bif binary:split/2
+# bif binary:split/3
+# bif binary:substitute/3
+# bif binary:globally_substitute/3
+# bif binary:duplicate/2
+
+#
+# XXX:PaN Usecase for these two? Creeping Biffilism?
+#
+# bif binary:from_unsigned/1
+# bif binary:to_unsigned/1
+
+#
+# XXX:PaN The following are suggested to be implemented in the erlang code...
+# - or are they meant to be guard bif's?
+#
+# binary:first/1
+# binary:first/2
+# binary:last/1
+# binary:last/2
+# binary:nth/2
+# binary:extract/3
+
 #
 # New Bifs in R13B4
 #
