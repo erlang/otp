@@ -760,7 +760,7 @@ bif erlang:finish_after_on_load/2
 #
 # The searching/splitting/substituting thingies
 #
-bif binary:match_compile/1
+bif binary:compile_pattern/1
 bif binary:match/2
 bif binary:match/3
 bif binary:matches/2

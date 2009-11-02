@@ -19,8 +19,8 @@
 -module(binary).
 %%
 %% The following functions implemented as BIF's
-%%  binary:match_compile/1
-%%  binary:match/3
+%%  binary:compile_pattern/1
+%%  binary:find/3
 %% XXX:PaN more to come...
 
 -export([first/1,first/2,last/1,last/2,nth/2,extract/3]).

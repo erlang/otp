@@ -802,13 +802,12 @@ static void cleanup_my_data(Binary *bp)
  * Initiate a (allocated) micro allocator and fill in the base
  * for an Aho-Corasick search trie, given the accumulated length of the search strings.
  */
-static ACTrie *create_acdata(MyAllocator *my, Process *p, Uint len,
-			     ACNode ***qbuff /* out */,Eterm *the_bin /* out */)
+static ACTrie *create_acdata(MyAllocator *my, Uint len,
+			     ACNode ***qbuff /* out */,Binary **the_bin /* out */)
 {
     Uint datasize = AC_SIZE(len);
     ACTrie *act;
     ACNode *acn;
-    Eterm *hp;
     Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data);
     byte *data = ERTS_MAGIC_BIN_DATA(mb);
 
@@ -826,19 +825,17 @@ static ACTrie *create_acdata(MyAllocator *my, Process *p, Uint len,
     acn->id = 0;
 #endif
     *qbuff = erts_alloc(ERTS_ALC_T_TMP, sizeof(ACNode *) * len);
-    hp = HAlloc(p, PROC_BIN_SIZE);
-    *the_bin = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+    *the_bin = mb;
     return act;
 }
 
 /*
  * The same initialization of allocator and basic data for Boyer-More.
  */
-static BMData *create_bmdata(MyAllocator *my, Process *p, byte *x, Uint len, Eterm *the_bin /* out */)
+static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len, Binary **the_bin /* out */)
 {
     Uint datasize = BM_SIZE(len);
     BMData *bmd;
-    Eterm *hp;
     Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data);
     byte *data = ERTS_MAGIC_BIN_DATA(mb);
     init_my_allocator(my, datasize, data);
@@ -848,8 +845,7 @@ static BMData *create_bmdata(MyAllocator *my, Process *p, byte *x, Uint len, Ete
     bmd->len = len;
     bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
     bmd->ret_tuple = 0;
-    hp = HAlloc(p, PROC_BIN_SIZE);
-    *the_bin = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+    *the_bin = mb;
     return bmd;
 }
 
@@ -998,7 +994,8 @@ static Uint ac_find_first_match(ACTrie *act, byte *haystack, Uint len,
 	    while (r->final < 0)
 		r = r->h;
 	    rstart = i - r->d;
-	    if (candidate == NULL || rstart < candidate_start) {
+	    if (candidate == NULL || rstart < candidate_start ||
+		(rstart == candidate_start && candidate->d < q->d)) {
 		candidate_start = rstart;
 		candidate = r;
 	    }
@@ -1063,12 +1060,21 @@ static Uint ac_find_all_non_overlapping(ACTrie *act, byte *haystack, Uint len,
 #endif
 		rstart = i - r->d;
 		save_m = m;
-		while (m > 0 && out[m-1].pos > rstart) {
+		while (m > 0 && (out[m-1].pos > rstart ||
+				 (out[m-1].pos == rstart &&
+				  out[m-1].len < r->d))) {
 #ifdef HARDDEBUG
 		    erts_printf("Popping %u\n",(unsigned) out[m-1].id);
 #endif
 		    --m;
 		}
+#ifdef HARDDEBUG
+		if (m > 0) {
+		    erts_printf("Pos %u\n",out[m-1].pos);
+		    erts_printf("Len %u\n",out[m-1].len);
+		}
+		erts_printf("Rstart %u\n",rstart);
+#endif
 		if (m == 0 ||  out[m-1].pos + out[m-1].len <= rstart) {
 		    if (m >= allocated) {
 			if (!allocated) {
@@ -1213,7 +1219,8 @@ static Sint bm_find_first_match(BMData *bmd, byte *haystack, Uint len)
 /*
  * Search functionality interfaces
  */
-BIF_RETTYPE binary_match_compile_1(BIF_ALIST_1)
+
+static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 {
     Eterm t, b, comp_term = NIL;
     Uint characters;
@@ -1223,9 +1230,9 @@ BIF_RETTYPE binary_match_compile_1(BIF_ALIST_1)
     characters = 0;
     words = 0;
 
-    if (is_list(BIF_ARG_1)) {
+    if (is_list(argument)) {
 	return_tuple = 1;
-	t = BIF_ARG_1;
+	t = argument;
 	while (is_list(t)) {
 	    b = CAR(list_val(t));
 	    t = CDR(list_val(t));
@@ -1242,17 +1249,17 @@ BIF_RETTYPE binary_match_compile_1(BIF_ALIST_1)
 	    goto badarg;
 	}
 	if (words > 1) {
-	    comp_term = BIF_ARG_1;
+	    comp_term = argument;
 	} else {
-	    comp_term = CAR(list_val(BIF_ARG_1));
+	    comp_term = CAR(list_val(argument));
 	}
-    } else if (is_binary(BIF_ARG_1)) {
-	if (binary_bitsize(BIF_ARG_1) != 0) {
+    } else if (is_binary(argument)) {
+	if (binary_bitsize(argument) != 0) {
 	    goto badarg;
 	}
 	words = 1;
-	comp_term = BIF_ARG_1;
-	characters = binary_size(BIF_ARG_1);
+	comp_term = argument;
+	characters = binary_size(argument);
     }
 
     if (characters == 0) {
@@ -1261,35 +1268,33 @@ BIF_RETTYPE binary_match_compile_1(BIF_ALIST_1)
     ASSERT(words > 0);
 
     if (words == 1) {
-	Eterm ret;
 	byte *bytes;
 	Uint bitoffs, bitsize;
 	byte *temp_alloc = NULL;
 	MyAllocator my;
 	BMData *bmd;
-	Eterm *hp;
+	Binary *bin;
 
 	ERTS_GET_BINARY_BYTES(comp_term, bytes, bitoffs, bitsize);
 	if (bitoffs != 0) {
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
-	bmd = create_bmdata(&my, BIF_P, bytes, characters, &ret);
+	bmd = create_bmdata(&my, bytes, characters, &bin);
 	bmd->ret_tuple = return_tuple;
 	compute_badshifts(bmd);
 	compute_goodshifts(bmd);
 	erts_free_aligned_binary_bytes(temp_alloc);
 	CHECK_ALLOCATOR(my);
-	hp = HAlloc(BIF_P,3);
-	ret = TUPLE2(hp, am_bm, ret);
-	BIF_RET(ret);
+	*tag = am_bm;
+	*binp = bin;
+	return 0;
     } else {
-	Eterm ret;
 	ACTrie *act;
 	MyAllocator my;
-	Eterm *hp;
 	ACNode **qbuff;
+	Binary *bin;
 
-	act = create_acdata(&my, BIF_P, characters, &qbuff, &ret);
+	act = create_acdata(&my, characters, &qbuff, &bin);
 	t = comp_term;
 	while (is_list(t)) {
 	    byte *bytes;
@@ -1307,18 +1312,37 @@ BIF_RETTYPE binary_match_compile_1(BIF_ALIST_1)
 	ac_compute_failure_functions(act,qbuff);
 	CHECK_ALLOCATOR(my);
 	erts_free(ERTS_ALC_T_TMP,qbuff);
-	hp = HAlloc(BIF_P,3);
-	ret = TUPLE2(hp, am_ac, ret);
-	BIF_RET(ret);
+	*tag = am_ac;
+	*binp = bin;
+	return 0;
     }
  badarg:
-    BIF_ERROR(BIF_P,BADARG);
+    return -1;
 }
+
+BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
+{
+    Binary *bin;
+    Eterm tag, ret;
+    Eterm *hp;
+
+    if (do_binary_match_compile(BIF_ARG_1,&tag,&bin)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    hp = HAlloc(BIF_P, PROC_BIN_SIZE+3);
+    ret = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), bin);
+    ret = TUPLE2(hp, tag, ret);
+    BIF_RET(ret);
+}
+
 
 BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 {
     Uint hsstart, hslen;
     Eterm *tp;
+    Eterm type;
+    Binary *bin;
+    Eterm bin_term = NIL;
     if (is_not_binary(BIF_ARG_1)) {
 	goto badarg;
     }
@@ -1355,85 +1379,90 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
 	    goto badarg;
 	}
-	if (tp[1] == am_bm && ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
-	    Binary *mbp;
-	    BMData *bm;
-	    Sint pos;
-	    byte *bytes;
-	    Uint bitoffs, bitsize;
-	    byte *temp_alloc = NULL;
-	    Eterm ret;
-	    Eterm *hp;
-	    mbp = ((ProcBin *) binary_val(tp[2]))->val;
-	    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbp) != cleanup_my_data) {
-		goto badarg;
-	    }
-	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(mbp);
-#ifdef HARDDEBUG
-	    dump_bm_data(bm);
-#endif
-	    ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
-	    if (bitsize != 0) {
-		goto badarg;
-	    }
-	    if (bitoffs != 0) {
-		bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	    }
-	    pos = bm_find_first_match(bm, bytes + hsstart, hslen);
-	    if (pos < 0) {
-		ret = am_nomatch;
-	    } else {
-		Eterm erlen = erts_make_integer((Uint) bm->len, BIF_P);
-		ret = erts_make_integer(pos+hsstart,BIF_P);
-		if (bm->ret_tuple) {
-		    hp = HAlloc(BIF_P,3);
-		    ret = TUPLE2(hp, ret, erlen);
-		}
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_RET(ret);
-	} else if (tp[1] == am_ac && ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
-	    Binary *mbp;
-	    ACTrie *act;
-	    Uint pos, msn,rlen;
-	    byte *bytes;
-	    Uint bitoffs, bitsize;
-	    byte *temp_alloc = NULL;
-	    Eterm ret;
-	    Eterm *hp;
-
-	    mbp = ((ProcBin *) binary_val(tp[2]))->val;
-	    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbp) != cleanup_my_data) {
-		goto badarg;
-	    }
-	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(mbp);
-#ifdef HARDDEBUG
-	    dump_ac_trie(act);
-#endif
-	    ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
-	    if (bitsize != 0) {
-		goto badarg;
-	    }
-	    if (bitoffs != 0) {
-		bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	    }
-	    msn = ac_find_first_match(act, bytes + hsstart,
-				      hslen, &pos, &rlen);
-	    if (msn == 0) {
-		ret = am_nomatch;
-	    } else {
-		Eterm epos = erts_make_integer(pos+hsstart,BIF_P);
-		Eterm erlen = erts_make_integer(rlen,BIF_P);
-		hp = HAlloc(BIF_P,3);
-		ret = TUPLE2(hp, epos, erlen);
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_RET(ret);
-	} else {
+	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
 	    goto badarg;
 	}
-    } else {
-	goto badarg; /* Compilation on the fly NYI */
+	type = tp[1];
+	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data) {
+	    goto badarg;
+	}
+	bin_term = tp[2];
+    } else if (do_binary_match_compile(BIF_ARG_2,&type,&bin)) {
+	goto badarg;
+    }
+
+    if (type == am_bm) {
+	BMData *bm;
+	Sint pos;
+	byte *bytes;
+	Uint bitoffs, bitsize;
+	byte *temp_alloc = NULL;
+	Eterm ret;
+	Eterm *hp;
+	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	dump_bm_data(bm);
+#endif
+	ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    goto badarg;
+	}
+	if (bitoffs != 0) {
+	    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	}
+	pos = bm_find_first_match(bm, bytes + hsstart, hslen);
+	if (pos < 0) {
+	    ret = am_nomatch;
+	} else {
+	    Eterm erlen = erts_make_integer((Uint) bm->len, BIF_P);
+	    ret = erts_make_integer(pos+hsstart,BIF_P);
+	    if (bm->ret_tuple) {
+		hp = HAlloc(BIF_P,3);
+		ret = TUPLE2(hp, ret, erlen);
+	    }
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	if (bin_term == NIL) {
+	    erts_bin_free(bin);
+	}
+	BIF_RET(ret);
+    } else if (type == am_ac) {
+	ACTrie *act;
+	Uint pos, msn,rlen;
+	byte *bytes;
+	Uint bitoffs, bitsize;
+	byte *temp_alloc = NULL;
+	Eterm ret;
+	Eterm *hp;
+
+	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	dump_ac_trie(act);
+#endif
+	ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    goto badarg;
+	}
+	if (bitoffs != 0) {
+	    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	}
+	msn = ac_find_first_match(act, bytes + hsstart,
+				  hslen, &pos, &rlen);
+	if (msn == 0) {
+	    ret = am_nomatch;
+	} else {
+	    Eterm epos = erts_make_integer(pos+hsstart,BIF_P);
+	    Eterm erlen = erts_make_integer(rlen,BIF_P);
+	    hp = HAlloc(BIF_P,3);
+	    ret = TUPLE2(hp, epos, erlen);
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	if (bin_term == NIL) {
+	    erts_bin_free(bin);
+	}
+	BIF_RET(ret);
     }
  badarg:
     BIF_ERROR(BIF_P,BADARG);
@@ -1447,6 +1476,9 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 {
     Uint hsstart, hslen;
     Eterm *tp;
+    Eterm type;
+    Binary *bin;
+    Eterm bin_term = NIL;
     if (is_not_binary(BIF_ARG_1)) {
 	goto badarg;
     }
@@ -1483,98 +1515,103 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 	if (arityval(*tp) != 2 || is_not_atom(tp[1])) {
 	    goto badarg;
 	}
-	if (tp[1] == am_bm && ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
-	    Binary *mbp;
-	    BMData *bm;
-	    Sint pos;
-	    byte *bytes;
-	    Uint bitoffs, bitsize;
-	    byte *temp_alloc = NULL;
-	    Eterm ret;
-	    Eterm *hp;
-	    mbp = ((ProcBin *) binary_val(tp[2]))->val;
-	    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbp) != cleanup_my_data) {
-		goto badarg;
-	    }
-	    bm = (BMData *) ERTS_MAGIC_BIN_DATA(mbp);
-#ifdef HARDDEBUG
-	    dump_bm_data(bm);
-#endif
-	    ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
-	    if (bitsize != 0) {
-		goto badarg;
-	    }
-	    if (bitoffs != 0) {
-		bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	    }
-	    pos = bm_find_first_match(bm, bytes + hsstart, hslen);
-	    if (pos < 0) {
-		ret = am_nomatch;
-	    } else {
-		Eterm erlen = erts_make_integer((Uint) bm->len, BIF_P);
-		ret = erts_make_integer(pos,BIF_P);
-		if (bm->ret_tuple) {
-		    hp = HAlloc(BIF_P,3);
-		    ret = TUPLE2(hp, ret, erlen);
-		}
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    BIF_RET(ret);
-	} else if (tp[1] == am_ac && ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
-	    Binary *mbp;
-	    ACTrie *act;
-	    Uint rlen;
-	    Sint i;
-	    FindallData *fad;
-	    byte *bytes;
-	    Uint bitoffs, bitsize;
-	    byte *temp_alloc = NULL;
-	    Eterm ret,tpl;
-	    Eterm *hp;
-
-	    mbp = ((ProcBin *) binary_val(tp[2]))->val;
-	    if (ERTS_MAGIC_BIN_DESTRUCTOR(mbp) != cleanup_my_data) {
-		goto badarg;
-	    }
-	    act = (ACTrie *) ERTS_MAGIC_BIN_DATA(mbp);
-#ifdef HARDDEBUG
-	    dump_ac_trie(act);
-#endif
-	    ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
-	    if (bitsize != 0) {
-		goto badarg;
-	    }
-	    if (bitoffs != 0) {
-		bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
-	    }
-	    rlen = ac_find_all_non_overlapping(act, bytes + hsstart,
-					      hslen, &fad);
-	    if (rlen == 0) {
-		ret = am_nomatch;
-	    } else {
-		for (i = 0; i < rlen; ++i) {
-		    fad[i].epos = erts_make_integer(fad[i].pos,BIF_P);
-		    fad[i].elen = erts_make_integer(fad[i].len,BIF_P);
-		}
-		hp = HAlloc(BIF_P,rlen * (3 + 2));
-		ret = NIL;
-		for (i = rlen - 1; i >= 0; --i) {
-		    tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
-		    hp +=3;
-		    ret = CONS(hp,tpl,ret);
-		    hp += 2;
-		}
-	    }
-	    erts_free_aligned_binary_bytes(temp_alloc);
-	    if (fad != NULL) {
-		erts_free(ERTS_ALC_T_TMP,fad);
-	    }
-	    BIF_RET(ret);
-	} else {
+	if (((tp[1] != am_bm) && (tp[1] != am_ac)) ||
+	    !ERTS_TERM_IS_MAGIC_BINARY(tp[2])) {
 	    goto badarg;
 	}
-    } else {
-	goto badarg; /* Compilation on the fly NYI */
+	type = tp[1];
+	bin = ((ProcBin *) binary_val(tp[2]))->val;
+	if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data) {
+	    goto badarg;
+	}
+	bin_term = tp[2];
+    } else if (do_binary_match_compile(BIF_ARG_2,&type,&bin)) {
+	goto badarg;
+    }
+
+    if (type == am_bm) {
+	BMData *bm;
+	Sint pos;
+	byte *bytes;
+	Uint bitoffs, bitsize;
+	byte *temp_alloc = NULL;
+	Eterm ret;
+	Eterm *hp;
+	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	dump_bm_data(bm);
+#endif
+	ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    goto badarg;
+	}
+	if (bitoffs != 0) {
+	    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	}
+	pos = bm_find_first_match(bm, bytes + hsstart, hslen);
+	if (pos < 0) {
+	    ret = am_nomatch;
+	} else {
+	    Eterm erlen = erts_make_integer((Uint) bm->len, BIF_P);
+	    ret = erts_make_integer(pos,BIF_P);
+	    if (bm->ret_tuple) {
+		hp = HAlloc(BIF_P,3);
+		ret = TUPLE2(hp, ret, erlen);
+	    }
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	if (bin_term == NIL) {
+	    erts_bin_free(bin);
+	}
+	BIF_RET(ret);
+    } else if (type == am_ac) {
+	ACTrie *act;
+	Uint rlen;
+	Sint i;
+	FindallData *fad;
+	byte *bytes;
+	Uint bitoffs, bitsize;
+	byte *temp_alloc = NULL;
+	Eterm ret,tpl;
+	Eterm *hp;
+
+	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
+#ifdef HARDDEBUG
+	dump_ac_trie(act);
+#endif
+	ERTS_GET_BINARY_BYTES(BIF_ARG_1, bytes, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    goto badarg;
+	}
+	if (bitoffs != 0) {
+	    bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc);
+	}
+	rlen = ac_find_all_non_overlapping(act, bytes + hsstart,
+					   hslen, &fad);
+	if (rlen == 0) {
+	    ret = am_nomatch;
+	} else {
+	    for (i = 0; i < rlen; ++i) {
+		fad[i].epos = erts_make_integer(fad[i].pos,BIF_P);
+		fad[i].elen = erts_make_integer(fad[i].len,BIF_P);
+	    }
+	    hp = HAlloc(BIF_P,rlen * (3 + 2));
+	    ret = NIL;
+	    for (i = rlen - 1; i >= 0; --i) {
+		tpl = TUPLE2(hp, fad[i].epos, fad[i].elen);
+		hp +=3;
+		ret = CONS(hp,tpl,ret);
+		hp += 2;
+	    }
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	if (fad != NULL) {
+	    erts_free(ERTS_ALC_T_TMP,fad);
+	}
+	if (bin_term == NIL) {
+	    erts_bin_free(bin);
+	}
+	BIF_RET(ret);
     }
  badarg:
     BIF_ERROR(BIF_P,BADARG);
