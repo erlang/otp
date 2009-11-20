@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2009</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>zlib</title>
+    <prepared>support@erlang.ericsson.se</prepared>
+    <docno></docno>
+    <date>2008-12-16</date>
+    <rev>A</rev>
+  </header>
+  <module>zlib</module>
+  <modulesummary>Zlib Compression interface.</modulesummary>
+  <description><p>
+
+  The module zlib is moved to the runtime system
+  application.  Please see <seealso
+  marker="erts:zlib">zlib(3)</seealso> in the
+  erts reference manual instead.
+
+  </p></description>
+</erlref>

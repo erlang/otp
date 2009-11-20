@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>CosNotifyChannelAdmin_&shy;EventChannelFactory</title>
+    <shorttitle>..._EventChannelFactory</shorttitle>
+    <prepared></prepared>
+    <docno></docno>
+    <checked></checked>
+    <date>2000-02-01</date>
+    <rev>1.0</rev>
+  </header>
+  <module>CosNotifyChannelAdmin_EventChannelFactory</module>
+  <modulesummary>This module implements the OMG  CosNotifyChannelAdmin::EventChannelFactory interface.</modulesummary>
+  <description>
+    <p>To get access to the record definitions for the structures use:      <br></br>
+<c>-include_lib("cosNotification/include/*.hrl").</c></p>
+  </description>
+  <funcs>
+    <func>
+      <name>create_channel(ChannelFactory, InitialQoS, InitialAdmin) -> Return</name>
+      <fsummary>Create a new channel</fsummary>
+      <type>
+        <v>ChannelFactory = #objref</v>
+        <v>InitialQoS = CosNotification::QoSProperties</v>
+        <v>InitialAdmin = CosNotification::AdminProperties</v>
+        <v>Return = {EventChannel, ChannelID}</v>
+        <v>EventChannel = #objref</v>
+        <v>ChannelID = long()</v>
+      </type>
+      <desc>
+        <p>This operation creates a new event channel. Along with the channel
+          reference an id is returned which can be used when invoking other
+          operations exported by this module. The Quality of Service argument
+          supplied will be inherited by objects created by the channel. For more
+          information about QoS settings see the <c>User's Guide</c>.</p>
+        <p>If no QoS- and/or Admin-properties are supplied (i.e. empty list),
+          the <em>default</em> settings will be used. For more information, see the 
+          User's Guide.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_all_channels(ChannelFactory) -> ChannelIDSeq</name>
+      <fsummary>Return all Id:s for channels, currently alive, created by the target object</fsummary>
+      <type>
+        <v>ChannelFactory = #objref</v>
+        <v>ChannelIDSeq = [long()]</v>
+      </type>
+      <desc>
+        <p>This operation returns a id sequence of all channel's created by this ChannelFactory.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_event_channel(ChannelFactory, ChannelID) -> Return</name>
+      <fsummary>Return the channel object associated with the given Id</fsummary>
+      <type>
+        <v>ChannelFactory = #objref</v>
+        <v>ChannelID = long()</v>
+        <v>Retrurn = EventChannel | {'EXCEPTION', #'CosNotifyChannelAdmin_ChannelNotFound'{}}</v>
+        <v>EventChannel = #objref</v>
+      </type>
+      <desc>
+        <p>This operation returns the EventChannel associated with the given id. If no channel is
+          associated with the id, i.e., never existed or have been terminated, an exception is raised.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

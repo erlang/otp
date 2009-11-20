@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ERTS Reference Manual</title>
+    <prepared>Lars Thors&eacute;n</prepared>
+    <docno></docno>
+    <date>1997-05-15</date>
+    <rev>4.5.2</rev>
+    <file>application.xml</file>
+  </header>
+  <description>
+    <p>The Erlang Runtime System Application <em>ERTS</em>.</p>
+    <note>
+      <p>By default, the <c><![CDATA[erts]]></c> is only guaranteed to be compatible
+        with other Erlang/OTP components from the same release as
+        the <c><![CDATA[erts]]></c> itself. See the documentation of the system flag
+        <seealso marker="erl#compat_rel">+R</seealso> on how to communicate
+        with Erlang/OTP components from earlier releases.</p>
+    </note>
+  </description>
+  <xi:include href="erl_prim_loader.xml"/>
+  <xi:include href="erlang.xml"/>
+  <xi:include href="init.xml"/>
+  <xi:include href="zlib.xml"/>
+  <xi:include href="epmd.xml"/>
+  <xi:include href="erl.xml"/>
+  <xi:include href="erlc.xml"/>
+  <xi:include href="werl.xml"/>
+  <xi:include href="escript.xml"/>
+  <xi:include href="erlsrv.xml"/>
+  <xi:include href="start_erl.xml"/>
+  <xi:include href="erl_set_memory_block.xml"/>
+  <xi:include href="run_erl.xml"/>
+  <xi:include href="start.xml"/>
+  <xi:include href="erl_driver.xml"/>
+  <xi:include href="driver_entry.xml"/>
+  <xi:include href="erts_alloc.xml"/>
+  <xi:include href="erl_nif.xml"/>
+</application>
+

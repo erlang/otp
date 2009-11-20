@@ -1,0 +1,55 @@
+% This is an -*- erlang -*- file.
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+
+{application, common_test,
+ [{description, "The OTP Common Test application"},
+  {vsn, "%VSN%"},
+  {modules, [ct_cover,
+	     ct,
+	     ct_event,
+	     ct_framework,
+	     ct_ftp,
+	     ct_gen_conn,
+	     ct_line,
+	     ct_logs,
+	     ct_make,
+	     ct_master,
+	     ct_master_event,
+	     ct_master_logs,
+	     ct_master_status,
+	     ct_repeat,
+	     ct_rpc,
+	     ct_run,
+	     ct_snmp,
+	     ct_ssh,
+	     ct_telnet_client,
+	     ct_telnet,
+	     ct_testspec,
+	     ct_util,
+	     unix_telnet,
+	     vts
+	    ]},
+  {registered, [ct_logs,
+		ct_util_server,
+		ct_make_ref,
+		vts,
+		ct_master,
+		ct_master_logs]},
+  {applications, [kernel,stdlib]},
+  {env, []}]}.
+

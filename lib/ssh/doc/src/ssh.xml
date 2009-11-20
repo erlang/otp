@@ -1,0 +1,337 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+    
+    <title>ssh</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date>2007-10-06</date>
+    <rev>PA1</rev>
+  </header>
+  <module>ssh</module>
+  <modulesummary>Main API of the SSH application</modulesummary>
+  <description>
+    <p>Interface module for the SSH application</p>
+  </description>
+
+  
+  <section>
+    <title>COMMON DATA TYPES </title>
+    <p>Type definitions that are used more than once in
+    this module:</p>
+    <p><c>boolean() = true | false </c></p>
+    <p><c>string() = list of ASCII characters</c></p>
+    <p><c>ssh_daemon_ref() - opaque to the user
+    returned by ssh:daemon/[1,2,3]</c></p>
+    <p><c>ssh_connection_ref() - opaque to the user
+    returned by ssh:connect/3</c></p>
+    <p><c>ip_address() - {N1,N2,N3,N4} % IPv4 |
+    {K1,K2,K3,K4,K5,K6,K7,K8} % IPv6</c></p>
+    <p><c>subsystem_spec() = {subsystem_name(), {channel_callback(), channel_init_args()}} </c></p>  
+    <p><c>subsystem_name() = string() </c></p>
+    <p><c>channel_callback() = atom() - Name of the erlang module
+    implementing the subsystem using the ssh_channel behavior see</c>
+    <seealso marker="ssh_channel">ssh_channel(3)</seealso></p>
+    <p><c>channel_init_args() = list()</c></p>
+ </section>
+  
+ <funcs>
+   
+   <func>
+     <name>close(ConnectionRef) -> ok </name>
+      <fsummary>Closes a ssh connection</fsummary>
+      <type>
+	<v>ConnectionRef = ssh_connection_ref()</v>
+      </type>
+      <desc><p>Closes a ssh connection.</p> 
+      </desc>
+    </func>
+    
+    <func>
+      <name>connect(Host, Port, Options) -> </name>
+      <name>connect(Host, Port, Options, Timeout) -> {ok, ssh_connection_ref()}
+      | {error, Reason}</name>
+      <fsummary>Connect to an ssh server.</fsummary>
+      <type>
+        <v>Host = string()</v>
+	<v>Port = integer()</v>
+	<d>The default is <c><![CDATA[22]]></c>, the registered port for SSH.</d>
+	<v>Options = [{Option, Value}]</v>
+	<v>Timeout = infinity | integer(milliseconds)</v>
+      </type>
+      <desc>
+	<p>Connects to an SSH server. No channel is started this is done
+	by calling ssh_connect:session_channel/2.</p>
+	<p>Options are:</p>
+	<taglist>
+          <tag><c><![CDATA[{user_dir, String}]]></c></tag>
+	  <item>
+	    <p>Sets the user directory e.i. the directory containing
+	    ssh configuration files for the user such as
+	    <c><![CDATA[known_hosts]]></c>, <c><![CDATA[id_rsa, id_dsa]]></c> and
+	    <c><![CDATA[authorized_key]]></c>. Defaults to the directory normally
+	    referred to as <c><![CDATA[~/.ssh]]></c> </p>
+	  </item>
+          <tag><c><![CDATA[{silently_accept_hosts, boolean()}]]></c></tag>
+	  <item>
+	    <p>When true hosts are added to the
+	    file <c><![CDATA[known_hosts]]></c> without asking the user.
+	    Defaults to false.
+	    </p>
+	  </item>
+	  <tag><c><![CDATA[{user_interaction, boolean()}]]></c></tag>
+	  <item>
+	    <p>If false disables the client to connect to the server
+	    if any user interaction is needed such as accepting that
+	    the server will be added to the <c>known_hosts</c> file or
+	    supplying a password. Defaults to true.
+	    Even if user interaction is allowed it can be
+	    suppressed by other options such as silently_accept_hosts and
+	    password. Do note that it may not always be desirable to use
+	    those options from a security point of view.</p>
+	  </item>
+	  <tag><c><![CDATA[{public_key_alg, ssh_rsa | ssh_dsa}]]></c></tag>
+	  <item>
+            <p>Sets the preferred public key algorithm to use for user
+	    authentication. If the the preferred algorithm fails of
+	    some reason, the other algorithm is tried. The  default is
+	    to try <c><![CDATA[ssh_rsa]]></c> first.</p>
+	  </item>
+	  <tag><c><![CDATA[{connect_timeout, timeout()}]]></c></tag>
+	  <item>
+	    <p>Sets a timeout on the transport layer connection. Defaults to infinity.</p>
+	  </item>
+	  <tag><c><![CDATA[{user, String}]]></c></tag>
+          <item>
+	    <p>Provide a user name. If this option is not given, ssh
+	    reads from the environment (<c><![CDATA[LOGNAME]]></c> or
+	    <c><![CDATA[USER]]></c> on unix,
+	    <c><![CDATA[USERNAME]]></c> on Windows).</p>
+          </item>
+	  <tag><c><![CDATA[{password, string()}]]></c></tag>
+          <item>
+	    <p>Provide a password for password authentication.  If
+	    this option is not given, the user will be asked for a
+	    password if the password authentication method is
+	    attempted.</p>
+          </item>
+          <tag><c><![CDATA[{user_auth, Fun/3}]]></c></tag>
+          <item>
+	    <p>Provide a fun for password authentication. The fun
+	    will be called as <c><![CDATA[fun(User, Password, Opts)]]></c> and
+	    should return <c><![CDATA[true]]></c> or <c><![CDATA[false]]></c>.</p>
+	  </item>
+	  <tag><c><![CDATA[{key_cb, atom() = KeyCallbackModule}]]></c></tag>
+	  <item>
+	    <p>Provide a special call-back module for key handling.
+	    The call-back module should be modeled after the
+	    <c><![CDATA[ssh_file]]></c> module. The functions that must
+	    be exported are:
+	    <c><![CDATA[private_host_rsa_key/2]]></c>,
+	    <c><![CDATA[private_host_dsa_key/2]]></c>,
+	    <c><![CDATA[lookup_host_key/3]]></c> and
+	    <c><![CDATA[add_host_key/3]]></c>. This is considered
+	    somewhat experimental and will be better documented later on.</p>
+	  </item>
+	  <tag><c><![CDATA[{fd, file_descriptor()}]]></c></tag>
+	  <item>
+	    <p>Allow an existing file-descriptor to be used
+	  (simply passed on to the transport protocol).</p></item>
+	</taglist>
+      </desc>   
+    </func>
+
+    <func>
+      <name>connection_info(ConnectionRef, [Option]) ->[{Option, Value}] </name>
+      <fsummary> Retrieves information about a connection. </fsummary>
+      <type>
+        <v>Option = client_version | server_version | peer</v>
+	<v>Value = term() </v>
+      </type>
+      <desc>
+        <p> Retrieves information about a connection. 
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>daemon(Port) -> </name>
+      <name>daemon(Port, Options) -> </name>
+      <name>daemon(HostAddress, Port, Options) -> ssh_daemon_ref()</name>
+      <fsummary>Starts a server listening for SSH connections 
+      on the given port.</fsummary>
+      <type>
+        <v>Port = integer()</v>
+	<v>HostAddress = ip_address() | any</v>
+	<v>Options = [{Option, Value}]</v>
+        <v>Option = atom()</v>
+	<v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Starts a server listening for SSH connections on the given port.</p>
+      
+        <p>Options are:</p>
+        <taglist>
+	  <tag><c><![CDATA[{subsystems, [subsystem_spec()]]]></c></tag>
+	  <item>
+	    Provides specifications for handling of subsystems.  The
+	    "sftp" subsystem-spec can be retrieved by calling
+	    ssh_sftd:subsystem_spec/1. If the subsystems option in not present
+	    the value of <c>[ssh_sftd:subsystem_spec([])]</c> will be used.
+	    It is of course possible to set the option to the empty list
+	    if you do not want the daemon to run any subsystems at all.
+	  </item>
+	  <tag><c><![CDATA[{shell, {Module, Function, Args} | fun(string() = User) - > pid() |
+	  fun(string() = User, ip_address() = PeerAddr) -> pid()}]]></c></tag>
+	  <item>
+	    Defines the read-eval-print loop used when a shell is requested
+	    by the client. Example use the
+	    erlang shell: <c><![CDATA[{shell, start, []}]]></c> which is
+	    the default behavior.
+	  </item>
+	  <tag><c><![CDATA[{ssh_cli,{channel_callback(), channel_init_args()}}]]></c></tag>
+	  <item>
+	    Provide your own cli implementation, e.i. a channel callback
+	    module that implements a shell and command execution. Note
+	    that you may customize the shell read-eval-print loop using the
+	    option <c>shell</c> which is much less work than implementing
+	    your own cli channel.
+	  </item>
+          <tag><c><![CDATA[{system_dir, string()}]]></c></tag>
+          <item>
+            <p>Sets the system directory, containing the host files
+            that identifies the host for ssh. The default is
+            <c><![CDATA[/etc/ssh]]></c>, note that SSH normally
+            requires the host files there to be readable only by
+            root.</p>
+          </item>
+          <tag><c><![CDATA[{user_passwords, [{string() = User, string() = Password}]}]]></c></tag>
+          <item>
+	    <p>Provide passwords for password authentication.They will
+	    be used when someone tries to connect to the server and
+	    public key user authentication fails. The option provides
+	    a list of valid user names and the corresponding password.
+	    </p>
+          </item>
+          <tag><c><![CDATA[{password, string()}]]></c></tag>
+          <item>
+            <p>Provide a global password that will authenticate any
+              user. From a security perspective this option makes
+	      the server very vulnerable.</p>
+	  </item>
+	  <tag><c><![CDATA[{pwdfun, fun/2}]]></c></tag>
+	  <item>
+	    <p>Provide a function for password validation. This is called
+	      with user and password as strings, and should return
+	      <c><![CDATA[true]]></c> if the password is valid and
+	      <c><![CDATA[false]]></c> otherwise.</p>
+	  </item>
+	  <tag><c><![CDATA[{fd, file_descriptor()}]]></c></tag>
+	  <item>
+	    <p>Allow an existing file-descriptor to be used
+	  (simply passed on to the transport protocol).</p></item>
+        </taglist>
+      </desc>
+    </func>
+
+    <func>
+      <name>shell(Host) -> </name>
+      <name>shell(Host, Option) -> </name>
+      <name>shell(Host, Port, Option) -> _</name>
+      <fsummary> </fsummary>
+      <type>
+        <v> Host = string()</v>
+	<v> Port = integer()</v>
+	<v> Options - see ssh:connect/3</v>
+      </type>
+      <desc>
+        <p>Starts an interactive shell to an SSH server on the
+	given <c>Host</c>. The function waits for user input,
+	and will not return until the remote shell is ended (e.g. on
+	exit from the shell).
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>start() -> </name>
+      <name>start(Type) -> ok | {error, Reason}</name>
+      <fsummary>Starts the Ssh application. </fsummary>
+      <type>
+        <v>Type =  permanent | transient | temporary</v>
+	<v>Reason = term() </v>
+      </type>
+      <desc>
+        <p>Starts the Ssh application. Default type
+          is temporary. See also
+          <seealso marker="kernel:application">application(3)</seealso>
+	  Requires that the crypto application has been started.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stop() -> ok </name>
+      <fsummary>Stops the Ssh application.</fsummary>
+      <desc>
+        <p>Stops the Ssh application. See also
+          <seealso marker="kernel:application">application(3)</seealso></p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>stop_daemon(DaemonRef) -> </name>
+      <name>stop_daemon(Address, Port) -> ok </name>
+      <fsummary>Stops the listener and all connections started by 
+      the listener.</fsummary>
+      <type>
+	<v>DaemonRef = ssh_daemon_ref()</v>
+	<v>Address = ip_address()</v>
+	<v>Port = integer()</v>
+      </type>
+      <desc>
+	<p>Stops the listener and all connections started by 
+	the listener.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stop_listener(DaemonRef) -> </name>
+      <name>stop_listener(Address, Port) -> ok </name>
+      <fsummary>Stops the listener, but leaves existing connections started
+	by the listener up and running.</fsummary>
+      <type>
+	<v>DaemonRef = ssh_daemon_ref()</v>
+        <v>Address = ip_address()</v>
+	<v>Port = integer()</v>
+      </type>
+      <desc>
+	<p>Stops the listener, but leaves existing connections started
+	by the listener up and running.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>

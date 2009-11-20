@@ -1,0 +1,26 @@
+          Oid1-error DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+          klas1       OBJECT IDENTIFIER ::= { private 7 }
+ 
+          ok OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      ""
+              ::= { klas1 0 1 }
+
+          error OBJECT-TYPE
+              SYNTAX  TestOfUndefinedType (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      ""
+              ::= { klas1 1 0}
+
+          END
+ 

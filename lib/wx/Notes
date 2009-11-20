@@ -1,0 +1,60 @@
+- [Dgud] Added wx_object implementation so user can create callback api 
+  	 as gen_server like process/objects which gets destroyed 
+	 when the real objects are destroyed.
+- [Dgud] Added clienData to controlWithItems functions
+- [Dgud] Improved error handling, i.e. if 'This' is NULL gives a badarg
+  	 and connect to non existing event type gives badarg.
+- [Dgud] Added wxCalendarEvent, wx*PickerEvents, wxTreeEvent wxNotebookEvent
+- [Dgud] Added wxStaticLine wxArtProvider wxClipboard
+- [Dgud] Reworked test directory
+- [RichardC] Fixed documentation Makefile
+- [Dgud] Fixed dialyzer warnings (Thanks Kostis)
+  	 Fixed Bugs in wxBitmap and wxCursor
+- [RichardC] Fixed a lot of warnings in the demos and examples.
+- [Dgud] Fixed the internal event handling so that callbacks,
+  	 and batch functions can not deadlock by using wxwidgets.
+- [Dgud] **Changed** backwards incompatible: 
+  	 Changed code generator so that enum and defines will be more
+  	 stable in the future. This requires that your code will have
+	 to be recompiled.
+- [HarryH]  wxMenuItem:GetBitmap/SetBitmap.
+- [HarryH]  Started with the samples, menu.erl
+
+Old: 2008-05-26
+- [Dgud] **Changed** backwards incompatible: 
+	wxListBox, wxComboBox wxChoice wxCheckListBox
+	function 'new': to use more optional values.
+- [Dgud] Added Notebook class
+- [Dgud] Added missing append/insert to ctrlWithItems
+- [Dgud] Added CalenderCtrl class
+- [Dgud] Added SizerItem functions
+- [Dgud] Add wxMDI* classes and wxLayoutAlgorithm
+- [Dgud] Added wxWindow:getHandle() -> integer() to be able to 
+	  use platform dependent 3party libs
+- [Dgud] **Changed** backwards incompatible: 
+	  #wx.user_data to #wx.userData to conform with wx api.
+- [Dgud] Fixed array of string bugs (in several functions).
+- [Dgud] Added data to command events
+- [Dgud] Added wxList(Ctrl) events
+
+- [Dgud] Fixed installer
+- [Dgud] **Changed** the wxEvtHandler:connect api
+- [Dgud] Fixed an event callback glitch.
+- [Dgud] Removed a memory leak, and optimized the object pointers.
+- [Dgud] Added wxMiniFrame and wxSash classes
+- [Dgud] Added wxStyledTextControl, requires larger binary but is nice
+         for code viewing and editors.
+
+- [Dgud] Printing functionality, test implementation see sudoku demo
+- [Dgud] Added wxHtmlEasyPrinting, and classless functions to module wx_misc
+- [Dgud] Fixed Colors to actually work
+- [Dgud] Fixed enum guard tests
+
+
+- [Dgud] Fixed defines and added some global vars, incompatible
+- [Dgud] Fixed Colors to be {R,G,B,A} everywhere (optional in args)
+- [Dgud] Fixed memory cleaning and xrc (external dialog editor) support
+- [Dgud] Reworked event handling
+- [Dgud] Added GLU module and some functions
+- [Dgud] Fixed statusbar functions.
+- [Dgud] Prefix all records in wx.hrl with wx.

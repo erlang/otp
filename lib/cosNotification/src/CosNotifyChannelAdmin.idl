@@ -1,0 +1,275 @@
+#ifndef _COS_NOTIFYCHANNELADMIN_IDL_
+#define _COS_NOTIFYCHANNELADMIN_IDL_
+
+#pragma prefix "omg.org"
+
+#include<cosNotificationAppComm.idl>
+#include<CosNotifyFilter.idl>
+#include<CosNotifyComm.idl>
+#include<CosNotification.idl>
+
+module CosNotifyChannelAdmin {
+  exception ConnectionAlreadyActive {};
+  exception ConnectionAlreadyInactive {};
+  exception NotConnected {};
+  // Forward declarations
+  interface ConsumerAdmin;
+  interface SupplierAdmin;
+  interface EventChannel;
+  interface EventChannelFactory;
+  
+  enum ProxyType {
+    PUSH_ANY,
+    PULL_ANY,
+    PUSH_STRUCTURED,
+    PULL_STRUCTURED,
+    PUSH_SEQUENCE,
+    PULL_SEQUENCE};
+
+  enum ObtainInfoMode {
+    ALL_NOW_UPDATES_OFF,
+    ALL_NOW_UPDATES_ON,
+    NONE_NOW_UPDATES_OFF,
+    NONE_NOW_UPDATES_ON};
+
+  interface ProxyConsumer : CosNotification::QoSAdmin, CosNotifyFilter::FilterAdmin {
+    readonly attribute ProxyType MyType;
+    readonly attribute SupplierAdmin MyAdmin;
+
+    CosNotification::EventTypeSeq obtain_subscription_types(in ObtainInfoMode mode);
+
+    void validate_event_qos (in CosNotification::QoSProperties required_qos,
+			     out CosNotification::NamedPropertyRangeSeq available_qos)
+      raises (CosNotification::UnsupportedQoS);
+  }; // ProxyConsumer
+
+  interface ProxySupplier : CosNotification::QoSAdmin, CosNotifyFilter::FilterAdmin {
+    readonly attribute ProxyType MyType;
+    readonly attribute ConsumerAdmin MyAdmin;
+    attribute CosNotifyFilter::MappingFilter priority_filter;
+    attribute CosNotifyFilter::MappingFilter lifetime_filter;
+
+    CosNotification::EventTypeSeq obtain_offered_types(in ObtainInfoMode mode);
+
+    void validate_event_qos (in CosNotification::QoSProperties required_qos,
+			     out CosNotification::NamedPropertyRangeSeq available_qos)
+      raises (CosNotification::UnsupportedQoS);
+  }; // ProxySupplier
+
+  interface ProxyPushConsumer : ProxyConsumer, CosNotifyComm::PushConsumer,
+    CosEventChannelAdmin::ProxyPushConsumer {
+    void connect_any_push_supplier (in CosEventComm::PushSupplier push_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // ProxyPushConsumer
+
+  interface StructuredProxyPushConsumer : ProxyConsumer, CosNotifyComm::StructuredPushConsumer {
+    void connect_structured_push_supplier (in CosNotifyComm::StructuredPushSupplier push_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // StructuredProxyPushConsumer
+
+  interface SequenceProxyPushConsumer : ProxyConsumer, CosNotifyComm::SequencePushConsumer {
+    void connect_sequence_push_supplier (in CosNotifyComm::SequencePushSupplier push_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // SequenceProxyPushConsumer
+
+  interface ProxyPullSupplier : ProxySupplier, CosNotifyComm::PullSupplier,
+    CosEventChannelAdmin::ProxyPullSupplier, oe_CosNotificationComm::Event {
+    void connect_any_pull_consumer (in CosEventComm::PullConsumer pull_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // ProxyPullSupplier
+
+  interface StructuredProxyPullSupplier : ProxySupplier, CosNotifyComm::StructuredPullSupplier,
+    oe_CosNotificationComm::Event {
+    void connect_structured_pull_consumer (in CosNotifyComm::StructuredPullConsumer pull_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // StructuredProxyPullSupplier
+
+  interface SequenceProxyPullSupplier : ProxySupplier, CosNotifyComm::SequencePullSupplier,
+    oe_CosNotificationComm::Event {
+    void connect_sequence_pull_consumer (in CosNotifyComm::SequencePullConsumer pull_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected);
+  }; // SequenceProxyPullSupplier
+
+  interface ProxyPullConsumer : ProxyConsumer, CosNotifyComm::PullConsumer,
+    CosEventChannelAdmin::ProxyPullConsumer {
+    void connect_any_pull_supplier (in CosEventComm::PullSupplier pull_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // ProxyPullConsumer
+
+  interface StructuredProxyPullConsumer : ProxyConsumer, CosNotifyComm::StructuredPullConsumer {
+    void connect_structured_pull_supplier (in CosNotifyComm::StructuredPullSupplier pull_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // StructuredProxyPullConsumer
+
+  interface SequenceProxyPullConsumer : ProxyConsumer, CosNotifyComm::SequencePullConsumer {
+    void connect_sequence_pull_supplier (in CosNotifyComm::SequencePullSupplier pull_supplier)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // SequenceProxyPullConsumer
+  
+  interface ProxyPushSupplier : ProxySupplier, CosNotifyComm::PushSupplier,
+    CosEventChannelAdmin::ProxyPushSupplier, oe_CosNotificationComm::Event {
+    void connect_any_push_consumer (in CosEventComm::PushConsumer push_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // ProxyPushSupplier
+
+  interface StructuredProxyPushSupplier : ProxySupplier, CosNotifyComm::StructuredPushSupplier,
+    oe_CosNotificationComm::Event {
+    void connect_structured_push_consumer (in CosNotifyComm::StructuredPushConsumer push_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // StructuredProxyPushSupplier
+
+  interface SequenceProxyPushSupplier : ProxySupplier, CosNotifyComm::SequencePushSupplier,
+    oe_CosNotificationComm::Event {
+    void connect_sequence_push_consumer (in CosNotifyComm::SequencePushConsumer push_consumer)
+      raises(CosEventChannelAdmin::AlreadyConnected, CosEventChannelAdmin::TypeError);
+
+    void suspend_connection()
+      raises(ConnectionAlreadyInactive, NotConnected);
+
+    void resume_connection()
+      raises(ConnectionAlreadyActive, NotConnected);
+  }; // SequenceProxyPushSupplier
+
+
+  typedef long ProxyID;
+  typedef sequence <ProxyID> ProxyIDSeq;
+
+  enum ClientType {
+    ANY_EVENT,
+    STRUCTURED_EVENT,
+    SEQUENCE_EVENT};
+
+  enum InterFilterGroupOperator {
+    AND_OP, 
+    OR_OP };
+
+  typedef long AdminID;
+  typedef sequence<AdminID> AdminIDSeq;
+
+  exception AdminNotFound {};
+  exception ProxyNotFound {};
+
+  struct AdminLimit {
+    CosNotification::PropertyName name;
+    CosNotification::PropertyValue value;
+  };
+
+  exception AdminLimitExceeded { AdminLimit admin_property_err; };
+
+  interface ConsumerAdmin : CosNotification::QoSAdmin, CosNotifyComm::NotifySubscribe, 
+    CosNotifyFilter::FilterAdmin, CosEventChannelAdmin::ConsumerAdmin,
+    oe_CosNotificationComm::Event {
+    readonly attribute AdminID MyID;
+    readonly attribute EventChannel MyChannel;
+    readonly attribute InterFilterGroupOperator MyOperator;
+    attribute CosNotifyFilter::MappingFilter priority_filter;
+    attribute CosNotifyFilter::MappingFilter lifetime_filter;
+    readonly attribute ProxyIDSeq pull_suppliers;
+    readonly attribute ProxyIDSeq push_suppliers;
+
+    ProxySupplier get_proxy_supplier (in ProxyID proxy_id)
+      raises (ProxyNotFound);
+
+    ProxySupplier obtain_notification_pull_supplier (in ClientType ctype, out ProxyID proxy_id)
+      raises (AdminLimitExceeded);
+
+    ProxySupplier obtain_notification_push_supplier (in ClientType ctype, out ProxyID proxy_id)
+      raises (AdminLimitExceeded);
+
+    void destroy();
+  }; // ConsumerAdmin
+
+  interface SupplierAdmin : CosNotification::QoSAdmin, CosNotifyComm::NotifyPublish, 
+    CosNotifyFilter::FilterAdmin, CosEventChannelAdmin::SupplierAdmin ,
+    oe_CosNotificationComm::Event {
+    readonly attribute AdminID MyID;
+    readonly attribute EventChannel MyChannel;
+    readonly attribute InterFilterGroupOperator MyOperator;
+    readonly attribute ProxyIDSeq pull_consumers;
+    readonly attribute ProxyIDSeq push_consumers;
+
+    ProxyConsumer get_proxy_consumer (in ProxyID proxy_id)
+      raises (ProxyNotFound);
+
+    ProxyConsumer obtain_notification_pull_consumer (in ClientType ctype, out ProxyID proxy_id)
+      raises (AdminLimitExceeded);
+
+    ProxyConsumer obtain_notification_push_consumer (in ClientType ctype, out ProxyID proxy_id)
+      raises (AdminLimitExceeded);
+
+    void destroy();
+  }; // SupplierAdmin
+
+  interface EventChannel : CosNotification::QoSAdmin, CosNotification::AdminPropertiesAdmin, 
+    CosEventChannelAdmin::EventChannel,
+    oe_CosNotificationComm::Event {
+    readonly attribute EventChannelFactory MyFactory;
+    readonly attribute ConsumerAdmin default_consumer_admin;
+    readonly attribute SupplierAdmin default_supplier_admin;
+    readonly attribute CosNotifyFilter::FilterFactory default_filter_factory;
+
+    ConsumerAdmin new_for_consumers(in InterFilterGroupOperator op, out AdminID id);
+
+    SupplierAdmin new_for_suppliers(in InterFilterGroupOperator op, out AdminID id);
+
+    ConsumerAdmin get_consumeradmin (in AdminID id)
+      raises (AdminNotFound);
+
+    SupplierAdmin get_supplieradmin (in AdminID id)
+      raises (AdminNotFound);
+
+    AdminIDSeq get_all_consumeradmins();
+
+    AdminIDSeq get_all_supplieradmins();
+  }; // EventChannel
+
+  typedef long ChannelID;
+  typedef sequence<ChannelID> ChannelIDSeq;
+  exception ChannelNotFound {};
+
+  interface EventChannelFactory {
+    EventChannel create_channel (in CosNotification::QoSProperties initial_qos, 
+				 in CosNotification::AdminProperties initial_admin,
+				 out ChannelID id)
+      raises(CosNotification::UnsupportedQoS, CosNotification::UnsupportedAdmin);
+
+    ChannelIDSeq get_all_channels();
+
+    EventChannel get_event_channel (in ChannelID id)
+      raises (ChannelNotFound);
+  }; // EventChannelFactory
+}; // CosNotifyChannelAdmin
+
+
+#endif /* ifndef _COS_NOTIFYCHANNELADMIN_IDL_ */
+

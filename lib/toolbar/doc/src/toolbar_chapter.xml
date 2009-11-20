@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Toolbar</title>
+    <prepared>Gunilla Hugosson, Kenneth Lundin</prepared>
+    <docno></docno>
+    <date>1997-04-21</date>
+    <rev>A</rev>
+    <file>toolbar_chapter.xml</file>
+  </header>
+  <p>Toolbar provides an interface to the various Erlang tools which are available. Toolbar can also provide access to user supplied tools which are included with the Erlang software release. These tools are called GS Contributions.</p>
+  <p>All tools included in Toolbar must have a configuration file which contains information about the tool, such as its start function and the location of help information. The name of a configuration file must include the suffix <c>.tool</c>.
+    </p>
+  <p>Start the Toolbar application with one of the following commands:
+    </p>
+  <list type="bulleted">
+    <item>enter the command <c>toolbar:start().</c> from the command line after Erlang has been started.</item>
+    <item>start Erlang with the command <c>erl -s toolbar</c>.</item>
+  </list>
+  <p>When started, Toolbar automatically checks for <c>*.tool</c> files in the current path and adds the corresponding tools. For each <c>ebin</c> directory found in the path, it will also look in a <c>priv</c> directory next to it. This is a function of the Erlang file structure.
+    </p>
+  <p>You can update Toolbar with menu commands on Toolbar window. Refer to the File Menu and Tools Menu sections below for details.
+    </p>
+
+  <section>
+    <title>Toolbar Window</title>
+    <p>The following illustration shows <seealso marker="#fig_1">The Toolbar Window</seealso>.
+      </p>
+    <marker id="fig_1"></marker>
+    <image file="bar.gif">
+      <icaption>The Toolbar Window</icaption>
+    </image>
+    <p>Each icon on Toolbar represents a separate tool, which is started by clicking on the icon. You can also display place the mouse pointer over an icon to display the name of the tool at the bottom of Toolbar window.
+      </p>
+    <p>The Toolbar window also has a menu which includes the following menu items:
+      </p>
+    <list type="bulleted">
+      <item>File menu</item>
+      <item>Tools menu</item>
+      <item>Help menu</item>
+    </list>
+    <p>These menu are described in the following sections.
+      </p>
+
+    <section>
+      <marker id="file_menu"></marker>
+      <title>The File menu</title>
+      <p>The File menu has the following two menu items:
+        </p>
+      <taglist>
+        <tag>Update Toolbar</tag>
+        <item>Select this menu item to search for new tool files in the current path and add the corresponding tools to the Toolbar window. This action is performed automatically every the Toolbar application is started.</item>
+        <tag>Quit</tag>
+        <item>Select this menu item to exit the oolbar application.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <marker id="tools_menu"></marker>
+      <title>The Tools menu</title>
+      <p>The Tool menu has the following menu items:
+        </p>
+      <taglist>
+        <tag>Create Tool File</tag>
+        <item>Choose this menu item to display the Create Tools File Window, where you create a new tools file, or edit an existing tools file. This window is described in detail below.</item>
+        <tag>Add GS Contributions</tag>
+        <item>Choose this menu item to add GS contributions by entering the path to the directory where these tools are situated. GS contributions are user supplied tools which are included with the Erlang software release. These tools are not supported by Erlang/OTP.</item>
+      </taglist>
+
+      <section>
+        <title>The Create Tool File Window</title>
+        <p>This window is displayed when you select <em>Create Tool File</em> from the <em>Tools</em> menu. The following illustration shows <seealso marker="#fig_2">The Create Tool File  Window</seealso>.
+          </p>
+	<marker id="fig_2"></marker>
+        <image file="create_tool.gif">
+          <icaption>The Create Tool File Window</icaption>
+        </image>
+        <p>Follow these steps to create a new tool file, or to edit an existing tool file:</p>
+        <list type="bulleted">
+          <item>To edit an existing tools file, enter the file name of the tools file into the field <em>File name</em> and press <em>Enter</em>. The contents of the tool file are displayed in the information fields. Edit the information in the following fields as required.</item>
+          <item>To create a new tools file, enter information into the following fields.</item>
+          <item>When finished, select <em>Update Toolbar</em> from the <em>File</em> menu.</item>
+        </list>
+        <list type="ordered">
+          <item><em>File name</em>. Enter the name of the tools file. The application will add the <c>.tool</c> suffix if omitted.</item>
+          <item><em>Tool name</em>. Enter the name of the tool. This field defaults to the name entered into the File name field. For example, if you enter <c>mytool.tool</c> as a file name, this field defaults to <c>mytool</c>.</item>
+          <item><em>Start function</em>. Enter a module name and a function name into the fields titled module and function respectively. The function must exist and take zero arguments.</item>
+          <item><em>Icon file</em>. Enter the file name of the icon to be displayed in the Toolbar. The file must be a bitmap file or a GIF image with the file extension <c>.xbm</c> or <c>.gif</c> respectively. If no path name is entered, the system assumes that the file is located in the same directory as the tools file. This field is optional.</item>
+          <item><em>Message</em>. Enter a descriptive string of maximum 30 characters for the tool.  This field is optional. The information entered here is displayed at the bottom of the Toolbar window when the mouse pointer is placed on the Toolbar icon.</item>
+          <item><em>HTML</em>. Enter an URL, a HTML file name, or a plain text file name, which points to the help text file for the tool. An URL should be given in the form <c>http://...</c>. If no path is given, the system assumes that the file is located in the same directory as the tool file. For an HTML file name ending with <c>.html</c>, it is possible to add an index which points to a specific location in the file. This is written as <c>.html#index</c>. This field is optional.</item>
+        </list>
+        <p>The window has the following command buttons:
+          </p>
+        <list type="bulleted">
+          <item><em>Clear</em>. Click on this button to clear the information fields.</item>
+          <item><em>Save</em>. Click on this button to save the information. A new tool file can be saved only when mandatory information such as file name, tool name and start function has been entered.</item>
+          <item><em>Stop</em>. Click on this button to quit the Create Tool File window.</item>
+        </list>
+        <note>
+          <p>No error check is performed on the information entered.</p>
+          <p>You must select <em>Update Toolbar</em> from the <em>File</em> menu to update the configuration and make the tool visible on the Toolbar.</p>
+        </note>
+      </section>
+    </section>
+
+    <section>
+      <marker id="help_menu"></marker>
+      <title>The Help menu</title>
+      <p>The Help Menu has the following two menu items, plus additional help menu items for those tools which have a help system.
+        </p>
+      <taglist>
+        <tag>About</tag>
+        <item>This menu item displays a short message about accessing the help information.</item>
+        <tag>Toolbar</tag>
+        <item>This menu item provides access to the Toolbar documentation.</item>
+      </taglist>
+    </section>
+  </section>
+</chapter>
+

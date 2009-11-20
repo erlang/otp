@@ -1,0 +1,1331 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Compiler Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Compiler
+    application.</p>
+
+<section><title>Compiler 4.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler's 'E' option now works with modules with
+	    types and specifications.</p>
+          <p>
+	    Own Id: OTP-8238 Aux Id: OTP-8150 </p>
+        </item>
+        <item>
+          <p>
+	    Certain uses of binary matching in a
+	    <c>begin</c>-<c>end</c> in a list comprehension could
+	    cause the compiler to crash or generate incorrect code.</p>
+          <p>
+	    Own Id: OTP-8271</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+        <item>
+          <p>
+	    The compiler could crash if invalid calls to is_record/2
+	    was used in (for example) a list comprehension. (Thanks
+	    to Tobias Lindahl.)</p>
+          <p>
+	    Own Id: OTP-8269</p>
+        </item>
+        <item>
+	    <p>The -on_load() directive can be used to run a function
+	    when a module is loaded. It is documented in the section
+	    about code loading in the Reference Manual.</p>
+          <p>
+	    Own Id: OTP-8295</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Corrected liveness optimization to eliminate a
+	    compiler crash that could occur when compiling bit syntax
+	    construction code. (Thanks to Mikage Sawatari.)</p>
+	    <p>Calling BIFs such as <c>length/1</c> in guard context
+	    in a try/catch block could cause a compiler crash.
+	    (Thanks to Paul Fisher.)</p>
+	    <p>Using filter expressions containing <c>andalso</c> or
+	    <c>orelse</c> in a list comprehension could cause a
+	    compiler crash. (Thanks to Martin Engström.)</p>
+          <p>
+	    Own Id: OTP-8054</p>
+        </item>
+        <item>
+          <p>
+	    A guard with nested 'not' operators could cause the
+	    compiler to crash. (Thanks to Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8131</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The compiler would crash while compiling certain complex
+	    function bodies containing <c>receive after</c> due to a
+	    bug in the jump optimizer (a label that had only had
+	    backward references could still be removed). (Thanks to
+	    Vincent de Phily.)</p>
+          <p>
+	    Own Id: OTP-7980</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous minor bugs fixed.</p>
+          <p>
+	    Own Id: OTP-7937</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    There will be more efficient code if there is a clause
+	    that matches the empty binary and no other clauses that
+	    matches non-empty binaries.</p>
+          <p>
+	    Own Id: OTP-7924</p>
+        </item>
+        <item>
+	    <p>There is new option to allow a module to have a module
+	    name other than the filename. Do not use it unless you
+	    know what you are doing.</p>
+          <p>
+	    Own Id: OTP-7927</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.6.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p>Using <c>andalso</c>/<c>orelse</c> or record access in
+            a <c>try</c>...<c>catch</c> could cause a compiler
+            crash.</p>
+            <p>Som large and complex functions could require
+            extremely long compilation times (hours or days).</p>
+          <p>
+            Own Id: OTP-7905</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    For some complex guards which used
+	    <c>andalso</c>/<c>orelse</c>, the compiler would crash.
+	    (Thanks to Hunter Morris.)</p>
+          <p>
+	    Own Id: OTP-7679</p>
+        </item>
+        <item>
+          <p>
+	    Code that (incorrectly) used the the value of nested
+	    applications of <c>setelement/3</c> in bit syntax
+	    construction could crash the compiler.</p>
+          <p>
+	    Own Id: OTP-7690</p>
+        </item>
+        <item>
+	    <p>Modules containing huge integers (consisting of
+	    several hundreds of thousands of digits or more) could be
+	    slow to compile. This problem has been corrected.</p>
+          <p>
+	    Own Id: OTP-7707 Aux Id: seq11129 </p>
+        </item>
+        <item>
+	    <p>If the generator in a list comprehension is given a
+	    non-list term, there will now be <c>function_clause</c>
+	    exception instead of a <c>case_clause</c> exception (as
+	    it was in all releases before R12B).</p>
+          <p>
+	    Own Id: OTP-7844</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler could crash if the size for a binary segment
+	    in matching was a complex literal such as binary or
+	    tuple.</p>
+          <p>
+	    Own Id: OTP-7650</p>
+        </item>
+        <item>
+          <p>
+	    The compiler generates more compact and faster code for
+	    matching of complex constants (such as constant lists and
+	    tuples).</p>
+          <p>
+	    Own Id: OTP-7655</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented, unsupported, and deprecated guard BIF
+	    <c>is_constant/1</c> has been removed.</p>
+          <p>
+	    *** INCOMPATIBILITY with R12B ***</p>
+          <p>
+	    Own Id: OTP-7673</p>
+        </item>
+        <item>
+	    <p>The compiler generates better code for many guard
+	    expressions, and especially for guards that use
+	    <c>andalso</c>/<c>orelse</c> or record fields.</p>
+	    <p>(In technical terms, <c>andalso</c>/<c>orelse</c> in a
+	    guard would case the creation of a stack frame and saving
+	    of all x registers that could potentially be alive after
+	    the guard and restoring all x registers before leaving
+	    the guard. For certain guards, far too many x registers
+	    were saved and subsequently restored. In this version of
+	    the compiler, no stack frame is created and no x
+	    registers are saved and restored.)</p>
+          <p>
+	    Own Id: OTP-7718</p>
+        </item>
+        <item>
+	    <p>The default size for the resulting binary created by a
+	    binary comprehension was 64Kb in R12B (it would grow if
+	    needed). This was often far too much. In this release,
+	    the default is changed to 256 bytes. Furthermore, for
+	    most binary comprehensions without filters, the exact
+	    size of the resulting binary can be calculated beforehand
+	    and the compiler now generates code that does that
+	    calculation.</p>
+          <p>
+	    Own Id: OTP-7737</p>
+        </item>
+        <item>
+	    <p>The short-circuit operators <c>andalso</c> and
+	    <c>orelse</c> no longer guarantees that their second
+	    argument is either <c>true</c> or <c>false</c>. As a
+	    consequence, <c>andalso</c>/<c>orelse</c> are now
+	    tail-recursive.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7748</p>
+        </item>
+        <item>
+	    <p>The compiler will refuse to a compile file where the
+	    module name in the file differs from the output file
+	    name.</p>
+	    <p>When compiling using <c>erlc</c>, the current working
+	    directory will no be included in the code path (unless
+	    explicitly added using "-pa .").</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7793</p>
+        </item>
+        <item>
+	    <p>There will no longer be any warnings for list
+	    comprehensions without generators, as such list
+	    comprehension have turned out to be useful.</p>
+          <p>
+	    Own Id: OTP-7846</p>
+        </item>
+        <item>
+	    <p>Warnings for obsolete guard tests are now turned on.
+	    (That is, writing <c>list(L)</c> in a guard instead of
+	    <c>is_list(L)</c> will generate a warning.)</p>
+	    <p>The warnings can be turned off using the
+	    <c>nowarn_obsolete_guard</c> option.</p>
+          <p>
+	    Own Id: OTP-7850</p>
+        </item>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+        <item>
+	    <p>If a module contains an exported function with the
+	    same name as an auto-imported BIF (such as
+	    <c>length/1</c>), any calls to the BIF must have an
+	    explicit <c>erlang:</c> prefix, or there will be a
+	    compilation error (such calls would only generate a
+	    warning in previous releases).</p>
+	    <p>(The reason for the change is to avoid breaking code
+	    in a future major release, R14 or R15, in which we plan
+	    to make calls without a module prefix always call the
+	    local function in the same module even if there is an
+	    auto-imported BIF with the same name.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7873</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Matching on a zero-width segment in the bit syntax
+	    would crash the compiler. (Thanks to Will.)</p>
+          <p>
+	    Own Id: OTP-7591</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    In bit syntax expressions which started with a binary
+	    segment, and was followed by at least two segments of
+	    variable size, too little space could be allocated for
+	    the binary, leading to memory corruption.</p>
+          <p>
+	    Own Id: OTP-7556</p>
+        </item>
+        <item>
+	    <p>In user-defined attributes, <c>Name/Arity</c> is now
+	    allowed and will be translated to <c>{Name,Arity}</c>.
+	    (An implementation of EEP-24 by Richard O'Keefe.)</p>
+	    <p>The <c>module_info/{0,1}</c> functions automatically
+	    inserted into each compiled modules are now documented in
+	    the Modules section in the Reference Manual.</p>
+          <p>
+	    Own Id: OTP-7586</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Certain complex bit syntax matching operations matching
+	    out binaries and having several clauses could give
+	    incorrect results (the matched out binaries were too
+	    short). (Thanks to Christian von Roques for bug report
+	    and correction.)</p>
+          <p>
+	    Own Id: OTP-7498</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    New option <c>warn_export_all</c> to warn for a module
+	    using <c>export_all</c>. (Thanks to Richard Carlsson.)</p>
+          <p>
+	    Own Id: OTP-7392</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5.2.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            In rare circumstances, the length/1 BIF (and a few other
+            guard BIFs) would seem to return an incorrect value (of
+            any type).</p>
+          <p>
+            Own Id: OTP-7345 Aux Id: seq10962 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+<section><title>Compiler 4.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in the old inliner has been fixed. Some
+	    undocumented functionality has been removed.</p>
+          <p>
+	    Own Id: OTP-7223</p>
+        </item>
+        <item>
+	    <p>Matching several binary patterns in parallel using the
+	    '=' operator is not allowed (an implementation
+	    limitation), but the compiler did not reject all such
+	    attempts (depending on the patterns, the generated code
+	    might or might not work correctly). Now the compiler
+	    rejects all binary patterns joined by '='.</p>
+          <p>
+	    Own Id: OTP-7227</p>
+        </item>
+        <item>
+	    <p>Complex combinations of record operations and binary
+	    matching could cause the compiler to crash. (Thanks to
+	    Vladimir Klebansky.)</p>
+          <p>
+	    Own Id: OTP-7233</p>
+        </item>
+        <item>
+          <p>
+	    In rare circumstances, mixing binary matching clauses
+	    with clauses matching other data types, the compiler
+	    could crash.</p>
+          <p>
+	    Own Id: OTP-7240 Aux Id: seq10916 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Corrected a compiler bug that could cause a complex
+	    binary matching operation to fail when it shouldn't.
+	    (Thanks to Tomas Stejskal.)</p>
+          <p>
+	    Own Id: OTP-7188</p>
+        </item>
+        <item>
+          <p>
+	    In unusual circumstances, the environment for a fun could
+	    bind wrong values.</p>
+          <p>
+	    Own Id: OTP-7202 Aux Id: seq10887 </p>
+        </item>
+        <item>
+	    <p>Long sequences of list comprehensions without
+	    generators joined by the '++' operator would cause a code
+	    expansion explosion, which could cause the compiler to
+	    run out of memory. To resolve this problem, in
+	    '<c>[...||...]++Expr</c>', <c>Expr</c> is now evaluated
+	    before the list comprehension. This change <em>is</em>
+	    backwards compatible (see the following note about
+	    evaluation order if you have doubts).</p>
+	    <p>Note about evaluation order: The Reference manual says
+	    that subexpressions are evaluated <em>in any order</em>
+	    before the expression itself. Therefore, in an expression
+	    such as '<c>LeftExpr++RightExpr</c>', you should not
+	    depend on <c>LeftExpr</c> being evaluated before
+	    <c>RightExpr</c> or vice versa. The evaluation order is
+	    only important if the expressions contains and/or depends
+	    on operations with side-effects, such as message passing
+	    or <c>ets</c> operations.</p>
+          <p>
+	    Own Id: OTP-7206</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Compiler 4.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A match expression inside a function call could cause a
+	    false "a term is constructed but never used" warning.</p>
+          <p>
+	    Own Id: OTP-7018 Aux Id: seq10824 </p>
+        </item>
+        <item>
+	    <p>The compiler could crash if a binary tail was matched
+	    out, and then used in a binary append operation. (Thanks
+	    to Oleg Avdeev.)</p>
+	    <p>Similarly, the compiler could crash if a binary tail
+	    was matched out, and then used (incorrectly) in binary
+	    construction in an integer field. (Thanks to Fredrik
+	    Svahn.) Or was incorrectly used in a float field. Or was
+	    used in a binary field with a given length. (Thanks to
+	    Chih - Wei Yu.) </p>
+          <p>
+	    Own Id: OTP-7022</p>
+        </item>
+        <item>
+          <p>
+	    Matching an empty binary in a record and then using the
+	    same record again could cause a compiler crash. (Thanks
+	    to Fredrik Thulin.)</p>
+          <p>
+	    Own Id: OTP-7029</p>
+        </item>
+        <item>
+	    <p>In rare circumstances, constants containing floating
+	    points and integers could be confused. Example:</p>
+	    <p><c>f(a) -> [1]; f(b) -> [1.0].</c></p>
+	    <p>Both <c>f(a)</c> and <c>f(b)</c> would return
+	    <c>[1]</c>.</p>
+          <p>
+	    Own Id: OTP-7073</p>
+        </item>
+        <item>
+	    <p>Some bit syntax code such as</p>
+	    <p><c>matching d(_,&lt;$lt;$gt;$gt;) -> one; d(0,&lt;$lt;D$gt;$gt;)
+	    ->two.</c></p>
+	    <p>could crash the compiler. (Thanks to Simon
+	    Cornish.)</p>
+          <p>
+	    Own Id: OTP-7094</p>
+        </item>
+        <item>
+          <p>
+	    In unusual circumstances, a call to a fun could fail due
+	    to an unsafe optimization. (Thanks to Simon Cornish.)</p>
+          <p>
+	    Own Id: OTP-7102</p>
+        </item>
+        <item>
+          <p>
+	    Bit syntax matching with a guard containing two or more
+	    uses of andalso/orelse could cause the compiler to crash.
+	    (Thanks to Mateusz Berezecki.)</p>
+          <p>
+	    Own Id: OTP-7113</p>
+        </item>
+        <item>
+          <p>
+	    This was only a problem if you generated or wrote your
+	    own Core Erlang code: The Core Erlang optimizer code
+	    could move nested calls such as
+	    <c>erlang:'$lt;'(erlang:length(L), 2)</c> as case expression
+	    into a guard, which would change the semantics. (Thanks
+	    to Robert Virding.)</p>
+          <p>
+	    Own Id: OTP-7117</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The compiler could generate suboptimal code for record
+	    updates if the record update code consisted of multiple
+	    source code lines.</p>
+          <p>
+	    Own Id: OTP-7101</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Compiler 4.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The compiler used to allow that a binary field without
+	    size could be used in other positions than at the end in
+	    bit syntax pattern. For instance,
+	    <c><![CDATA[<<B/binary,EmptyBinary/binary>> = Bin]]></c>
+	    used to compile, but now the compilation will fail with
+	    an an error message.</p>
+	    <p>Also, it is now longer permitted to give a literal
+	    string in a binary pattern a type or a size; for
+	    instance, <c><![CDATA[<<"abc"/binary>> = Bin]]></c> will
+	    no longer compile. (In previous releases, there would
+	    always be a <c>badmatch</c> exception at run-time.)</p>
+          <p>
+	    Own Id: OTP-6885</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Bitstrings (bit-level) binaries and binary comprehensions
+	    are now part of the language. See the Reference Manual.</p>
+          <p>
+	    Own Id: OTP-6558</p>
+        </item>
+        <item>
+          <p>
+	    The '<c>compressed</c>' option for the compiler has been
+	    documented.</p>
+          <p>
+	    Own Id: OTP-6801</p>
+        </item>
+        <item>
+	    <p>If the value of a list comprehension is not used, such
+	    as in '<c>[do_something(X) || X &lt;- List], ok</c>', a
+	    result list will no longer be built. For more details,
+	    see the Efficiency Guide.</p>
+	    <p>If the value of an expression is not used, and the
+	    expression has no side effects except for possibly
+	    throwing an exception, a warning will be generated.
+	    Examples: '<c>self(),ok</c>' and
+	    '<c>{error,Reason},ok</c>'.</p>
+          <p>
+	    Own Id: OTP-6824</p>
+        </item>
+        <item>
+          <p>
+	    Three new functions have been added to the <c>compile</c>
+	    module: <c>noenv_file/2</c>, <c>noenv_forms/2</c>, and
+	    <c>noenv_output_generated/1</c>.</p>
+          <p>
+	    Own Id: OTP-6829</p>
+        </item>
+        <item>
+	    <p>Many bit syntax operations, both construction and
+	    matching, are faster. For further information, see the
+	    Efficiency Guide.</p>
+          <p>
+	    Own Id: OTP-6838</p>
+        </item>
+        <item>
+	    <p>Literal lists, tuples, and binaries are no longer
+	    constructed at run-time as they used to be, but are
+	    stored in a per-module constant pool. Literals that are
+	    used more than once are stored only once.</p>
+	    <p>This is not a change to the language, only in the
+	    details of its implementation. Therefore, the
+	    implications of this change is described in the
+	    Efficiency Guide.</p>
+	    <p>Example 1: In the expression <c>element(BitNum-1,
+	    {1,2,4,8,16,32,64,128})</c>, the tuple used to be
+	    constructed every time the expression was executed, which
+	    could be detrimental to performance in two ways if the
+	    expression was executed in a loop: the time to build the
+	    tuple itself and the time spent in garbage collections
+	    because the heap filled up with garbage faster.</p>
+	    <p>Example 2: Literal strings, such as <c>"abc"</c>, used
+	    to be stored in the compiled code compactly as a byte
+	    string and expanded to a list at run-time. Now all
+	    strings will be stored expanded to lists (such as
+	    <c>[$a,$b,$c]</c>) in the constant pool. That means that
+	    the string will be faster to use at run-time, but that it
+	    will require more space even when not used. If space is
+	    an issue, you might want to use binary literals (that is,
+	    <c>&lt;&lt;"abc"&lt;&lt;</c>) instead of string literals for
+	    infrequently used long strings (such as error
+	    messages).</p>
+          <p>
+	    Own Id: OTP-6850</p>
+        </item>
+        <item>
+          <p>
+	    Recursive calls now usually consume less stack than in
+	    R11B. See the Efficiency Guide.</p>
+          <p>
+	    Own Id: OTP-6862 Aux Id: seq10746 </p>
+        </item>
+        <item>
+	    <p>Two new guard BIFs have been introduced as a
+	    recommended replacement for <c>size/1</c>. (The
+	    <c>size/1</c> BIF will be removed no earlier than in
+	    R14B.) The BIFs are <c>tuple_size/1</c> to calculate the
+	    size of a tuple and <c>byte_size/1</c> to calculate the
+	    number of bytes needed for the contents of the binary or
+	    bitstring (rounded up to the nearest number of bytes if
+	    necessary).</p>
+	    <p>There is also a new <c>bit_size/1</c> BIF that returns
+	    the exact number of bits that a binary or bitstring
+	    contains.</p>
+          <p>
+	    Own Id: OTP-6902</p>
+        </item>
+        <item>
+          <p>
+	    The two internal functions <c>erl_bifs:is_bif/3</c> and
+	    <c>erl_bifs:is_guard/3</c> have been removed. They were
+	    unsupported, undocumented, and unmaintained.</p>
+          <p>
+	    Own Id: OTP-6966</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Compiler 4.4.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler would crash if you tried to combine to
+            non-list literals with '<c><![CDATA[++]]></c>' (for instance,
+            <c><![CDATA[an_atom++"string"]]></c>).</p>
+          <p>Own Id: OTP-6630 Aux Id: seq10635 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Incorrect code could be generated for bit syntax matching
+            if the old inliner was used with aggressive settings.</p>
+          <p>Own Id: OTP-6461</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The R10B compiler could generate unsafe
+            <c><![CDATA[bs_save/bs_restore]]></c> instructions that could cause
+            memory corruption. (The R11B compiler does not have that
+            problem.) The erlang emulator will now refuse to load
+            R10B-compiled modules that contain such unsafe
+            <c><![CDATA[bs_save/bs_restore]]></c> instructions. In addition, the
+            beam_validator module in the compiler will also reject
+            such instructions (in case it is used to validate R10B
+            code). (Thanks to Matthew Reilly.)</p>
+          <p>Own Id: OTP-6386</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Directives for parse transforms that have been run are
+            now removed from the abstract code stored when the
+            debug_info option is given, to prevent the parse
+            transforms to be run again.</p>
+          <p>Own Id: OTP-5344</p>
+        </item>
+        <item>
+          <p>Minor improvements in code generation for some guards
+            expression involving boolean expressions.</p>
+          <p>Own Id: OTP-6347</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4.2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler could generate incorrect code for bit syntax
+            matching consisting of several clauses.</p>
+          <p>Own Id: OTP-6392 Aux Id: seq10539 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Defining a fun itself containing a fun in an
+            <c><![CDATA[after]]></c> block of a <c><![CDATA[try]]></c> would cause the
+            compiler to crash or generate incorrect code. (Thanks to
+            Tim Rath.)</p>
+          <p>Shorter compilation times for modules containing with
+            an extreme number of functions (10000 functions or more).</p>
+          <p>(The compiled could generate deprecated instructions
+            for certain bit syntax matching operations.)</p>
+          <p>Own Id: OTP-6212 Aux Id: seq10446 </p>
+        </item>
+        <item>
+          <p>Fixed several bugs that would cause warnings to be shown
+            without file name and line number.</p>
+          <p>Own Id: OTP-6260 Aux Id: seq10461 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c><![CDATA[strict_record_tests]]></c> option is now default;
+            that is, reading a field from a record using the
+            <c><![CDATA[Record#record_tag.field]]></c> syntax will fail if
+            <c><![CDATA[Record]]></c> is not a record of the correct type.</p>
+          <p>If necessary, the record tests can be turned off by
+            giving the <c><![CDATA[no_strict_record_tests]]></c> option. To avoid
+            editing Makefiles, the environment variable
+            <c><![CDATA[ERL_COMPILER_OPTIONS]]></c> can be set to
+            "<c><![CDATA[no_strict_record_tests]]></c>".</p>
+          <p>The <c><![CDATA[no_strict_record_tests]]></c> option will probably
+            be removed in the R12B release.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6294</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler used to crash if a module contained code
+            similar to '<c><![CDATA[fun(1=0) -> ok end]]></c>'. (Thanks to
+            Richard Carlsson.)</p>
+          <p>The compiler would spend really long time compiling
+            bit syntax expressions such as
+            '<c><![CDATA[<<1:(50*1024*1024)>>]]></c>' and produce a huge .beam
+            file. Corrected.</p>
+          <p>The compiler would compile list comprehensions with
+            many generators really, really slow. (Thanks to Thomas
+            Raes.)</p>
+          <p>Module attributes would be stored in reverse order
+            compared to the order in the source code. (Thus,
+            <c><![CDATA[M:module_info(attributes)]]></c> would also return the
+            attributes in reversed order.)</p>
+          <p>Defining a fun in an <c><![CDATA[after]]></c> block of a
+            <c><![CDATA[try]]></c> would cause the compiler to crash or generate
+            incorrect code. (Thanks to Martin Bjorklund.)</p>
+          <p>The combination of binary pattern and a guard with
+            andalso/orelse could cause the compiler to crash.</p>
+          <p>Own Id: OTP-6121 Aux Id: seq10400 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When a <c><![CDATA[.hrl]]></c> file is included using
+            <c><![CDATA[-include_lib]]></c>, the include path is temporarily
+            updated to include the directory the <c><![CDATA[.hrl]]></c> file was
+            found in, which will allow that <c><![CDATA[.hrl]]></c> file to itself
+            include files from the same directory using
+            <c><![CDATA[-include]]></c>. (Thanks to Richard Carlsson.)</p>
+          <p>Own Id: OTP-5944</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c><![CDATA[andalso]]></c> and <c><![CDATA[orelse]]></c> operators are
+            now allowed to be used in guards. That also applies to
+            match specifications.</p>
+          <p>Own Id: OTP-5894 Aux Id: OTP-5149 </p>
+        </item>
+        <item>
+          <p>When given the new option
+            <c><![CDATA[strict_record_tests]]></c>, the compiler will generate
+            code that verifies the record type for
+            <c><![CDATA[R#record.field]]></c> operations in guards. Code that
+            verifies record types in bodies has already been
+            generated since R10B, but in this release there will be a
+            <c><![CDATA[{badrecord,RecordTag}]]></c> instead of a
+            <c><![CDATA[badmatch]]></c> if the record verification test fails.
+            See <c><![CDATA[compile(3)]]></c> for more information.</p>
+          <p>The Erlang shell always applies strict record tests.</p>
+          <p>Own Id: OTP-5915 Aux Id: OTP-5714 </p>
+        </item>
+        <item>
+          <p>The BIF <c><![CDATA[is_record/3]]></c> can now be used in guards.
+            Also, <c><![CDATA[is_record/3]]></c> can now be called without an
+            <c><![CDATA[erlang:]]></c> module prefix for consistency with the other
+            <c><![CDATA[is_*]]></c> functions.</p>
+          <p>Own Id: OTP-5916</p>
+        </item>
+        <item>
+          <p>The compiler options <c><![CDATA[ignore_try]]></c> and
+            <c><![CDATA[ignore_cond]]></c>, which allowed code that used
+            unquoted <c><![CDATA[try]]></c> or <c><![CDATA[cond]]></c> as atoms or record
+            tags, has been removed. Old code that depended on the
+            options need to be revised to have occurrences of
+            <c><![CDATA[try]]></c> or <c><![CDATA[cond]]></c> as atom or record tags
+            single-quoted. (Note: Although <c><![CDATA[cond]]></c> is a reserved
+            keyword, there is no <c><![CDATA[cond]]></c> statement. It might be
+            introduced in a future release.)</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6058</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.12</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The following code would crash the compiler: <c><![CDATA[case T of #r{s = ""} -> T #r{s = "x"} end]]></c>. (Thanks to
+            Richard Carlsson.)</p>
+          <p>The compiler could crash if binaries were constructed
+            in certain guards involving boolean operators (including
+            semicolon). (Thanks to Torbjorn Tornkvist.)</p>
+          <p>Own Id: OTP-5872</p>
+        </item>
+        <item>
+          <p>The compiler will now warn that the
+            <c><![CDATA[megaco:format_versions/1]]></c> function is deprecated.</p>
+          <p>Own Id: OTP-5976</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.11</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler would assume that some patterns with
+            aliases ('=') would not match if they were split into
+            several lines. (Thanks to Peter Nagy/Mats Cronqvist.)</p>
+          <p>Minor cleanups to eliminate Dialyzer warnings.</p>
+          <p>Own Id: OTP-5791 Aux Id: seq10141 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.10</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When given the new option
+            <c><![CDATA[strict_record_tests]]></c>, the compiler will generate
+            code that verifies the record type for
+            <c><![CDATA[R#record.field]]></c> operations (in body context only,
+            not in guards). See the documentation for the
+            <c><![CDATA[compile]]></c> module for more information.</p>
+          <p>The beam validator pass of the compiler could crash
+            given in rare circumstances when given certain
+            combinations of catches and record operations. (Thanks to
+            Mats Cronqvist.)</p>
+          <p>Attributes containing binaries (such as -a(&lt;&lt;1,2,3&gt;&gt;))
+            would crash the compiler. (Thanks to Roger Price.)</p>
+          <p>Multiple behaviours in the same module will no longer
+            generate a warning, unless one or more callbacks for the
+            behaviours overlap. For instance, using both the
+            <c><![CDATA[application]]></c> and <c><![CDATA[supervisor]]></c> behaviours
+            in the same module will NOT generate any warning, but
+            using <c><![CDATA[gen_server]]></c> and <c><![CDATA[gen_fsm]]></c> will.</p>
+          <p>Own Id: OTP-5714 Aux Id: seq10073 </p>
+        </item>
+        <item>
+          <p>The pre-processor used to complain that the macro
+            definition <c><![CDATA[-define(S(S), ??S).]]></c> was circular,
+            which it isn't. (Thanks to Richard Carlsson.)</p>
+          <p>Own Id: OTP-5777</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Updating at least two fields of a record with a literal
+            string could cause the compiler to generate dangerous
+            code that could cause a crash at run-time (e.g.
+            <c><![CDATA[R#r{a="abc",b=1}]]></c>). (Thanks to Mikael Karlsson.)</p>
+          <p>Unecessary tests (such as a 'case' with two case
+            branches that were identical) could cause the compiler to
+            crash. (Thanks to Fredrik Thulin.)</p>
+          <p>The validation pass of the compiler could generate an
+            error for correct code when floating point operations
+            were used in try/catch statements.</p>
+          <p>In bit syntax construction, any field following a
+            binary field would always be marked as "aligned" (which
+            may or may not be correct). That would cause the hipe
+            native compiler to generate incorrect code if the field
+            was in fact unaligned. (Thanks to Per Gustafsson.)</p>
+          <p>Some complex guard expressions (such as <c><![CDATA[A#a.b==""; A#a.b==undefined]]></c>) would crash the compiler. (Thanks
+            to Sean Hinde.)</p>
+          <p>Compilation speed has been increased for modules with
+            many functions and/or atoms (such as modules generated by
+            the Asn1 application or other code generators).</p>
+          <p>Own Id: OTP-5632 Aux Id: seq10057 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In some circumstances, having two try/catch constructs
+            following each in a function body, would cause an
+            internal error to be generated (when in fact the
+            generated code was correct). (Thanks to Fredrik Thulin.)</p>
+          <p>Incorrect calls such as <c><![CDATA[M:42()]]></c> would crash the
+            compiler. The compiler now generates a warning. (Thanks
+            to Ulf Wiger.)</p>
+          <p>Own Id: OTP-5553</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The new <c><![CDATA[fun M:F/A]]></c> construct creates a fun that
+            refers to the latest version of <c><![CDATA[M:F/A]]></c>. This syntax is
+            meant to replace tuple funs <c><![CDATA[{M,F}]]></c> which have many
+            problems.</p>
+          <p>The new type test <c><![CDATA[is_function(Fun, A)]]></c> (which may be
+            used in guards) test whether <c><![CDATA[Fun]]></c> is a fun that can be
+            applied with <c><![CDATA[A]]></c> arguments. (Currently, <c><![CDATA[Fun]]></c> can
+            also be a tuple fun.)</p>
+          <p>Own Id: OTP-5584</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.7</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Further improvements of encrypted debug info: New option
+            <c><![CDATA[encrypt_debug_info]]></c> for compiler.</p>
+          <p>Own Id: OTP-5541 Aux Id: seq9837 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed a bug in the validator of the generated code
+            (beam_validator) which caused an internal compiler error
+            even though the generated code was indeed correct.</p>
+          <p>Own Id: OTP-5481 Aux Id: seq9798 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to encrypt the debug information in
+            Beam files, to help keep the source code secret. See the
+            documentation for <c><![CDATA[compile]]></c> on how to provide the key
+            for encrypting, and the documentation for <c><![CDATA[beam_lib]]></c>
+            on how to provide the key for decryption so that tools such
+            as the Debugger, Xref, or Cover can be used.</p>
+          <p>The <c><![CDATA[beam_lib:chunks/2]]></c> functions now accepts an
+            additional chunk type <c><![CDATA[compile_info]]></c> to retrieve
+            the compilation information directly as a term. (Thanks
+            to Tobias Lindahl.)</p>
+          <p>Own Id: OTP-5460 Aux Id: seq9787 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Complex functions could cause the internal validator in
+            the compiler to generate an internal error even though
+            the generated code was correct.</p>
+          <p>Own Id: OTP-5436 Aux Id: seq9781 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In rare circumstances, incorrect code for record or
+            tuple access could be generated. The incorrect code would
+            either trigger an internal error in the compiler or cause
+            an exception at run time. (Thanks to Martin Bjorklund.)</p>
+          <p>Corrected a bug in in bit syntax matching where
+            clauses could match in the wrong order. (Thanks to Ulf
+            Wiger.)</p>
+          <p>Own Id: OTP-5404 Aux Id: seq9767 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Given bit syntax construction in certain complex
+            contexts involving a catch, the compiler would either
+            crash or terminate due to failure in an internal
+            consistency check. (Thanks to Fredrik Thulin.)</p>
+          <p>Matches such as
+            <c><![CDATA[<<103133:64/float>> = <<103133:64/float>>]]></c>
+            used to fail. Now they succeed.</p>
+          <p>Shadowing of variables in bit syntax matches in fun heads
+            such as in
+            <c><![CDATA[L = 8, F = fun(<<L:L,B:L>>) -> B end]]></c> was
+            handled incorrectly by the compiler. The fun used to be
+            compiled as if it was written
+            '<c><![CDATA[>fun(<<8:8,B:8>>)]]></c>, while it should be
+            compiled in the same way as <c><![CDATA[fun(<<L:8,B:L>>)]]></c>.</p>
+          <p>A bug in the validation pass has been corrected. It
+            sometimes occurred when the compiler optimized by reusing
+            code for causing an exception when the reused code was
+            called from within catch or try-catch statements. Then the
+            validator refused to approve the code and complained about
+            <c><![CDATA[fun(<<L:L,B:L>>) -> B end]]></c> was handled
+            incorrectly by the in the same way as
+            <c><![CDATA[fun(<<L:8,B:L>>)]]></c>.</p>
+          <p>A bug in the unknown_catch_try_state.</p>
+          <p>Corrected a bug in the optimizer that would cause
+            the compiler to crash. (Thanks to Peter-Henry Mander.)</p>
+          <p>There are now warnings generated if a bit syntax
+            construction will fail at run-time because of a type
+            mismatch (e.g. <c><![CDATA[<<an_atom:8>>]]></c>).</p>
+          <p>Own Id: OTP-5342 Aux Id: OTP-5118, OTP-5270, OTP-5323 </p>
+        </item>
+        <item>
+          <p>Binary pattern matching such as
+            <c><![CDATA[t(<<A:8>> = <<A:8>)]]></c> used to silently
+            fail at runtime (i.e. never match). The compiler now
+            generates an error for any such patterns.</p>
+          <p>Own Id: OTP-5371</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In rare cases, the code compiler code generate code
+            for a tuple match that could crash the emulator if passed
+            a term that was not a tuple.</p>
+          <p>If a bit syntax construction failed within a catch,
+            previously assigned variables could get the wrong value.</p>
+          <p>The compiler now runs a validation pass on the
+            generated code and aborts before writing a Beam file if
+            any suspect code is found. In particular, the validation
+            pass checks for incorrect code that may cause emulator
+            crashes or other strange symptoms in the emulator.</p>
+          <p>Some corrections to the unsupported feature
+            parameterized modules by Richard Carlsson (HiPE).</p>
+          <p>Own Id: OTP-5247 Aux Id: OTP-5235 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Compiler 4.3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected the release note regarding <c><![CDATA[try/catch]]></c> below.
+            <c><![CDATA[try/catch]]></c> DOES work in the initial R10B release.</p>
+          <p>A few minor issues code generation issues were corrected.
+            Although the generated code was correct, it was slightly
+            slower and larger than it needed to be.</p>
+          <p>A debug printout (that could be seen in rare
+            circumstances) has been removed.</p>
+          <p><c><![CDATA[not record_test(not_a_tuple, RecordTag)]]></c> and
+            similar expressions in a guard would fail.</p>
+          <p>New options <c><![CDATA[basic_validation]]></c> and
+            <c><![CDATA[strong_validation]]></c> to do a quick check of the code
+            of a module.</p>
+          <p>The <c><![CDATA[inline]]></c> option was not recognized if it
+            appeared in a <c><![CDATA[-compile()]]></c> directive inside the
+            module.</p>
+          <p>Corrected some bugs in the undocumented feature
+            "parameterized modules".</p>
+          <p>Own Id: OTP-5198</p>
+        </item>
+        <item>
+          <p>When the undocumented feature "parameterized modules" was
+            used, the <c><![CDATA[?MODULE]]></c> macro did not work correctly.</p>
+          <p>Own Id: OTP-5224</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

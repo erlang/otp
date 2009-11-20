@@ -1,0 +1,410 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Orber Release Notes</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>99-02-12</date>
+    <rev>A</rev>
+    <file>notes.xml</file>
+  </header>
+
+  <section>
+    <title>Orber 3.6.14</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            The documentation is now built with open source tools (xsltproc and fop) 
+            that exists on most platforms. One visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8201 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.13</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Obsolete guards, e.g. record vs is_record, has been changed 
+             to avoid compiler warnings.</p>
+          <p>Own id: OTP-7987</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.12</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Only the source instance of InitialReference.java is now
+             included. Users are adviced to use the Interoperable
+             Naming Service (INS) instead. INS is a part of the OMG
+             standard specification.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own id: OTP-7906 Aux Id: seq11243</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.11</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Updated file headers.</p>
+          <p>Own id: OTP-7837</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.10</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Documentation source included in open source releases.</p>
+          <p>Own id: OTP-7595</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.9</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Updated file headers.</p>
+          <p>Own id: OTP-7011</p>
+        </item>
+        <item>
+          <p>Now compliant with the new behavior of stdlib.</p>
+          <p>Own id: OTP-7030 Aux Id: seq10827</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>When a local port range has been defined (i.e. iiop_out_ports),
+	     Orber set the socket option reuseaddr to true and after one
+	     timed out connection attempt no other port in the given range
+	     is used for that particular connect attempt.</p>
+          <p>Own Id: OTP-6844 Aux Id: </p>
+        </item>
+        <item>
+          <p>Possible to override global SSL parameters when using
+             local interfaces.</p>
+          <p>Own Id: OTP-6869 Aux Id: seq10742</p>
+        </item>
+      </list>
+    </section>
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The parameter ssl_client_ciphers was used on the server side as well
+             instead of ssl_server_ciphers.</p>
+          <p>Own Id: OTP-6868 Aux Id:</p>
+        </item>
+        <item>
+          <p>The configuration parameter iiop_max_in_requests was ignored, until
+             the first incoming request arrived, if iiop_packet_size was set.</p>
+          <p>Own Id: OTP-6912 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.7</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation source has been converted from SGML to XML.</p>
+          <p>Own Id: OTP-6754 Aux Id: </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to configure incoming connections which
+            overrides some global configuration parameters. See
+            orber:add_listen_interface/2/3.</p>
+          <p>Own Id: OTP-6696 Aux Id: </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed some unused code.</p>
+          <p>Own Id: OTP-6527 Aux Id: </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber can now be configured so that different NAT parameters
+            can be specified for different interfaces.</p>
+          <p>Own Id: OTP-6165 Aux Id: </p>
+        </item>
+        <item>
+          <p>It is now possible to set the keepalive option for incoming
+            and outgoing IIOP connections. For more information, see the
+            Configuration chapter in the User's Guide.</p>
+          <p>Own Id: OTP-6370 Aux Id: seq10532</p>
+        </item>
+        <item>
+          <p>The new function orber:close_connection/1/2 allows a client
+            to close connections to an object residing on a remote ORB.</p>
+          <p>Own Id: OTP-6371 Aux Id: seq10532</p>
+        </item>
+        <item>
+          <p>Orber now use the SSL two-phase accept strategy to avoid
+            that new incoming connections via SSL are not blocked
+            by a previous connect attempt that never initiated the
+            SSL handshake. Note, the configuration parameter
+            iiop_ssl_accept_timeout should be set (default infinity).
+            For more information, see the Configuration chapter in the
+            User's Guide. If Orber is started in secure mode, the
+            installed SSL version must support ssl:ssl_accept/1/2 and
+            ssl:transport_accept/1/2.</p>
+          <p>Own Id: OTP-6372 Aux Id: seq10105</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The operation orber_ifr:contents/2 could only handle dk_All.</p>
+          <p>Own Id: OTP-6385 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>When installing Orber it is now possible to set the priority
+            for Orber internal Mnesia tables. For more information, see the
+            Reference Manual regarding orber:install/2.</p>
+          <p>Own Id: OTP-5907 Aux Id: seq10156</p>
+        </item>
+        <item>
+          <p>The operation corba_object:is_a/2/3 now only connect to a remote
+            ORB if necessary (i.e. the target object inherits from objects
+            associated with the given IFR id).</p>
+          <p>Own Id: OTP-5908</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The operation corba_object:is_remote/1 always returned
+            true, which was introduced in orber-3.2.10.</p>
+          <p>Own Id: OTP-5909</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Native interceptors may now export new_in_connection and 
+            new_out_connection operations with arity 5. If this is the
+            case, information about the local interface and port is
+            passed to the interceptor. Orber's built in interceptors
+            have been changed to include this information as well.</p>
+          <p>Own Id: OTP-5671</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In some cases, e.g. incorrect GIOP headers or a CancelRequest
+            containing a non-existing RequestId, the incoming connection 
+            would be terminated.</p>
+          <p>Own Id: OTP-5672 Aux Id: seq10037</p>
+        </item>
+        <item>
+          <p>If combining the 'Use Current Interface in IOR' and
+            'Use IPv6' flags, exported IOR:s contained an incorrect
+            host address.</p>
+          <p>Own Id: OTP-5673</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Reduced overhead when using outgoing ACL with a local interface
+            defined.</p>
+          <p>Own Id: OTP-5659</p>
+        </item>
+        <item>
+          <p>Added guards to ensure that, when so required, a list
+            of IOP_ServiceContext's is passed instead of, for example,
+            just the context record.</p>
+          <p>Own Id: OTP-5660</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation referred to two different context definitions,
+            the incorrect ServiceContext and the correct IOP_ServiceContext.
+            The hrl file PATH/include/corba.hrl also contained the incorrect
+            record definition. This has now been updated so that only
+            IOP_ServiceContext is used and referred to.</p>
+          <p>Own Id: OTP-5658</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to define a Access Control List (ACL),
+            which limits the host and ports Orber may connect to or
+            accept connections from.</p>
+          <p>Own Id: OTP-5567</p>
+        </item>
+        <item>
+          <p>It is now possible to add, and remove, listen interfaces.
+            For more information, consult the User's Guide and the 
+            orber module Reference Manual.</p>
+          <p>Own Id: OTP-5568</p>
+        </item>
+        <item>
+          <p>It is now possible to activate and deactivate Audit/Trail
+            logging. One of the three built in interceptors will be used
+            depending on the requested verbosity.</p>
+          <p>Own Id: OTP-5569</p>
+        </item>
+        <item>
+          <p>It is now possible to configure Orber to add the interface,
+            to exported local IOR:s, a Request came via.</p>
+          <p>Own Id: OTP-5570</p>
+        </item>
+        <item>
+          <p>It is now possible to instruct Orber which local interface an outgoing Request
+            shall be sent via. To accomplish this the Orber generic context must be
+            added added to each invocation.</p>
+          <p>Own Id: OTP-5571</p>
+        </item>
+        <item>
+          <p>It is now possible to define a default local interface,
+            which Orber will use when connecting to another ORB.</p>
+          <p>Own Id: OTP-5583</p>
+        </item>
+      </list>
+    </section>
+    <!-- p>For information about older versions see
+      <url href="part_notes_history_frame.html">release notes history</url>.</p -->
+  </section>
+</chapter>
+

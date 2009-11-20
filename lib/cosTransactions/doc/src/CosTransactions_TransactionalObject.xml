@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>CosTransactions_TransactionalObject</title>
+    <prepared></prepared>
+    <docno></docno>
+    <checked></checked>
+    <date>1999-04-12</date>
+    <rev>PA1</rev>
+  </header>
+  <module>CosTransactions_TransactionalObject</module>
+  <modulesummary>This module implements the OMG CosTransactions::TransactionalObject interface.</modulesummary>
+  <description>
+    <p>To get access to the record definitions for the structures use:      <br></br>
+<c>-include_lib("cosTransactions/CosTransactions.hrl").</c></p>
+    <p>The TransactionalObject interface is used by an object to indicate that it is transactional.
+      By supporting this interface, an object indicates that it wants the transaction context associated with 
+      the client to be associated with all operation on its interface. No operations are defined.</p>
+  </description>
+  
+</erlref>
+

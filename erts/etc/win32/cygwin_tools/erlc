@@ -1,0 +1,61 @@
+#! /bin/sh
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+# 
+# Note! This shellscript expects to be run in a cygwin environment,
+# it converts erlc command lines to native windows erlc commands, which
+# basically means running the command cygpath on whatever is a path...
+
+CMD=""
+ECHO_ONLY=false
+for x in "$@"; do 
+    case "$x" in
+	--echo_only)
+	    ECHO_ONLY=true;;
+	-I/*|-o/*)
+	    y=`echo $x | sed 's,^-[Io]\(/.*\),\1,g'`;
+	    z=`echo $x | sed 's,^-\([Io]\)\(/.*\),\1,g'`;
+	    MPATH=`cygpath -m $y`;
+	    CMD="$CMD -$z$MPATH";;
+	-pa/*)
+	    y=`echo $x | sed 's,^-pa\(/.*\),\1,g'`;
+	    MPATH=`cygpath -m $y`;
+	    CMD="$CMD -pa $MPATH";;
+	/*)
+	    MPATH=`cygpath -m $x`;
+	    CMD="$CMD \"$MPATH\"";; 
+# Needed for  +'{preproc_flags,whatever}'
+	+{preproc_flags,*})
+	     y=`echo $x | sed 's,^+{preproc_flags\,"\(.*\)"},\1,g'`;
+	     z=`eval $0 --echo_only $y`;
+	     case "$z" in # Dont "doubledoublequote"
+		 \"*\") 
+		 CMD="$CMD +'{preproc_flags,$z}'";;
+		 *)
+		 CMD="$CMD +'{preproc_flags,\"$z\"}'";;
+	     esac;;
+	*)
+	    y=`echo $x | sed 's,",\\\",g'`;
+	    CMD="$CMD \"$y\"";;
+    esac
+done
+if [ $ECHO_ONLY = true ]; then
+    echo $CMD
+else
+    eval erlc.exe $CMD
+fi

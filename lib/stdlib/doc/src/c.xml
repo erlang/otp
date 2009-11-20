@@ -1,0 +1,320 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>c</title>
+    <prepared>Joe Armstrong</prepared>
+    <docno>1</docno>
+    <date>96-10-30</date>
+    <rev>B</rev>
+  </header>
+  <module>c</module>
+  <modulesummary>Command Interface Module</modulesummary>
+  <description>
+    <p>The <c>c</c> module enables users to enter the short form of
+      some commonly used commands.</p>
+    <note>
+      <p>These functions are are intended for interactive use in
+        the Erlang shell only. The module prefix may be omitted.</p>
+    </note>
+  </description>
+  <funcs>
+    <func>
+      <name>bt(Pid) -> void()</name>
+      <fsummary>Stack backtrace for a process</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Stack backtrace for a process. Equivalent to
+          <c>erlang:process_display(Pid, backtrace)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>c(File) -> {ok, Module} | error</name>
+      <name>c(File, Options) -> {ok, Module} | error</name>
+      <fsummary>Compile and load code in a file</fsummary>
+      <type>
+        <v>File = name() -- see filename(3)</v>
+        <v>Options = [Opt] -- see compile:file/2</v>
+      </type>
+      <desc>
+        <p><c>c/1,2</c> compiles and then purges and loads the code for
+          a file. <c>Options</c> defaults to []. Compilation is
+          equivalent to:</p>
+        <code type="none">
+compile:file(File, Options ++ [report_errors, report_warnings])</code>
+        <p>Note that purging the code means that any processes
+          lingering in old code for the module are killed without
+          warning. See <c>code/3</c> for more information.</p>
+      </desc>
+    </func>
+    <func>
+      <name>cd(Dir) -> void()</name>
+      <fsummary>Change working directory</fsummary>
+      <type>
+        <v>Dir = name() -- see filename(3)</v>
+      </type>
+      <desc>
+        <p>Changes working directory to <c>Dir</c>, which may be a
+          relative name, and then prints the name of the new working
+          directory.</p>
+        <pre>
+2> <input>cd("../erlang").</input>
+/home/ron/erlang</pre>
+      </desc>
+    </func>
+    <func>
+      <name>flush() -> void()</name>
+      <fsummary>Flush any messages sent to the shell</fsummary>
+      <desc>
+        <p>Flushes any messages sent to the shell.</p>
+      </desc>
+    </func>
+    <func>
+      <name>help() -> void()</name>
+      <fsummary>Help information</fsummary>
+      <desc>
+        <p>Displays help information: all valid shell internal commands,
+          and commands in this module.</p>
+      </desc>
+    </func>
+    <func>
+      <name>i() -> void()</name>
+      <name>ni() -> void()</name>
+      <fsummary>Information about the system</fsummary>
+      <desc>
+        <p><c>i/0</c> displays information about the system, listing
+          information about all processes. <c>ni/0</c> does the same,
+          but for all nodes the network.</p>
+      </desc>
+    </func>
+    <func>
+      <name>i(X, Y, Z) -> void()</name>
+      <fsummary>Information about pid &lt;X.Y.Z&gt;</fsummary>
+      <type>
+        <v>X = Y = Z = int()</v>
+      </type>
+      <desc>
+        <p>Displays information about a process, Equivalent to
+          <c>process_info(pid(X, Y, Z))</c>, but location transparent.</p>
+      </desc>
+    </func>
+    <func>
+      <name>l(Module) -> void()</name>
+      <fsummary>Load or reload module</fsummary>
+      <type>
+        <v>Module = atom()</v>
+      </type>
+      <desc>
+        <p>Purges and loads, or reloads, a module by calling
+          <c>code:purge(Module)</c> followed by
+          <c>code:load_file(Module)</c>.</p>
+        <p>Note that purging the code means that any processes
+          lingering in old code for the module are killed without
+          warning. See <c>code/3</c> for more information.</p>
+      </desc>
+    </func>
+    <func>
+      <name>lc(Files) -> ok</name>
+      <fsummary>Compile a list of files</fsummary>
+      <type>
+        <v>Files = [File]</v>
+        <v>&nbsp;File = name() -- see filename(3)</v>
+      </type>
+      <desc>
+        <p>Compiles a list of files by calling <c>compile:file(File, [report_errors, report_warnings])</c> for each <c>File</c>
+          in <c>Files</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>ls() -> void()</name>
+      <fsummary>List files in the current directory</fsummary>
+      <desc>
+        <p>Lists files in the current directory.</p>
+      </desc>
+    </func>
+    <func>
+      <name>ls(Dir) -> void()</name>
+      <fsummary>List files in a directory</fsummary>
+      <type>
+        <v>Dir = name() -- see filename(3)</v>
+      </type>
+      <desc>
+        <p>Lists files in directory <c>Dir</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>m() -> void()</name>
+      <fsummary>Which modules are loaded</fsummary>
+      <desc>
+        <p>Displays information about the loaded modules, including
+          the files from which they have been loaded.</p>
+      </desc>
+    </func>
+    <func>
+      <name>m(Module) -> void()</name>
+      <fsummary>Information about a module</fsummary>
+      <type>
+        <v>Module = atom()</v>
+      </type>
+      <desc>
+        <p>Displays information about <c>Module</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>memory() -> [{Type, Size}]</name>
+      <fsummary>Memory allocation information</fsummary>
+      <type>
+        <v>Type, Size -- see erlang:memory/0</v>
+      </type>
+      <desc>
+        <p>Memory allocation information. Equivalent to
+          <c>erlang:memory/0</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>memory(Type) -> Size</name>
+      <name>memory([Type]) -> [{Type, Size}]</name>
+      <fsummary>Memory allocation information</fsummary>
+      <type>
+        <v>Type, Size -- see erlang:memory/0</v>
+      </type>
+      <desc>
+        <p>Memory allocation information. Equivalent to
+          <c>erlang:memory/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>nc(File) -> {ok, Module} | error</name>
+      <name>nc(File, Options) -> {ok, Module} | error</name>
+      <fsummary>Compile and load code in a file on all nodes</fsummary>
+      <type>
+        <v>File = name() -- see filename(3)</v>
+        <v>Options = [Opt] -- see compile:file/2</v>
+      </type>
+      <desc>
+        <p>Compiles and then loads the code for a file on all nodes.
+          <c>Options</c> defaults to []. Compilation is equivalent to:</p>
+        <code type="none">
+compile:file(File, Opts ++ [report_errors, report_warnings])</code>
+      </desc>
+    </func>
+    <func>
+      <name>nl(Module) -> void()</name>
+      <fsummary>Load module on all nodes</fsummary>
+      <type>
+        <v>Module = atom()</v>
+      </type>
+      <desc>
+        <p>Loads <c>Module</c> on all nodes.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pid(X, Y, Z) -> pid()</name>
+      <fsummary>Convert X,Y,Z to a pid</fsummary>
+      <type>
+        <v>X = Y = Z = int()</v>
+      </type>
+      <desc>
+        <p>Converts <c>X</c>, <c>Y</c>, <c>Z</c> to the pid
+          <c><![CDATA[<X.Y.Z>]]></c>. This function should only be used when
+          debugging.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pwd() -> void()</name>
+      <fsummary>Print working directory</fsummary>
+      <desc>
+        <p>Prints the name of the working directory.</p>
+      </desc>
+    </func>
+    <func>
+      <name>q() -> void()</name>
+      <fsummary>Quit - shorthand for <c>init:stop()</c></fsummary>
+      <desc>
+        <p>This function is shorthand for <c>init:stop()</c>, that is,
+          it causes the node to stop in a controlled fashion.</p>
+      </desc>
+    </func>
+    <func>
+      <name>regs() -> void()</name>
+      <name>nregs() -> void()</name>
+      <fsummary>Information about registered processes</fsummary>
+      <desc>
+        <p><c>regs/0</c> displays information about all registered
+          processes. <c>nregs/0</c> does the same, but for all nodes
+          in the network.</p>
+      </desc>
+    </func>
+    <func>
+      <name>xm(ModSpec) -> void()</name>
+      <fsummary>Cross reference check a module</fsummary>
+      <type>
+        <v>ModSpec = Module | Filename</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>&nbsp;Filename = string()</v>
+      </type>
+      <desc>
+        <p>This function finds undefined functions, unused functions,
+          and calls to deprecated functions in a module by calling
+          <c>xref:m/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>y(File) -> YeccRet</name>
+      <fsummary>Generate an LALR-1 parser</fsummary>
+      <type>
+        <v>File = name() -- see filename(3)</v>
+        <v>YeccRet = -- see yecc:file/2</v>
+      </type>
+      <desc>
+        <p>Generates an LALR-1 parser. Equivalent to:</p>
+        <code type="none">
+yecc:file(File)</code>
+      </desc>
+    </func>
+    <func>
+      <name>y(File, Options) -> YeccRet</name>
+      <fsummary>Generate an LALR-1 parser</fsummary>
+      <type>
+        <v>File = name() -- see filename(3)</v>
+        <v>Options, YeccRet = -- see yecc:file/2</v>
+      </type>
+      <desc>
+        <p>Generates an LALR-1 parser. Equivalent to:</p>
+        <code type="none">
+yecc:file(File, Options)</code>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="compiler:compile">compile(3)</seealso>,
+      <seealso marker="filename">filename(3)</seealso>, 
+      <seealso marker="erts:erlang">erlang(3)</seealso>, 
+      <seealso marker="parsetools:yecc">yecc(3)</seealso>,
+      <seealso marker="tools:xref">xref(3)</seealso></p>
+  </section>
+</erlref>
+

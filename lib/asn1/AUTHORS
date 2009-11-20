@@ -1,0 +1,12 @@
+
+Original Authors:
+This asn.1 application was created by
+Kenneth Lundin (kenneth@erix.ericsson.se)
+with help from Esko Vierumäki.
+The work was initially inspired by a previous ASN.1 compiler for Erlang
+written by Claes Wikström.
+Version 1.1.1 - 1.2.6
+additional functionality and bugfixes by:
+Kenneth Lundin (kenneth@erix.ericsson.se)
+
+Contributors:

@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>overload</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>(Joe Armstrong)</approved>
+    <checked></checked>
+    <date>1996-10-29</date>
+    <rev>A</rev>
+    <file>overload.sgml</file>
+  </header>
+  <module>overload</module>
+  <modulesummary>An Overload Regulation Process</modulesummary>
+  <description>
+    <p><c>overload</c> is a process which indirectly regulates CPU
+      usage in the system. The idea is that a main application calls
+      the <c>request/0</c> function before starting a major job, and
+      proceeds with the job if the return value is positive; otherwise
+      the job must not be started.
+      </p>
+    <p><c>overload</c> is part of the <c>sasl</c> application, and all
+      configuration parameters are defined there.
+      </p>
+    <p>A set of two intensities are maintained, the <c>total intensity</c> and the <c>accept intensity</c>. For that purpose
+      there are two configuration parameters, the <c>MaxIntensity</c>
+      and the <c>Weight</c> value (both are measured in 1/second).
+      </p>
+    <p>Then total and accept intensities are calculated as
+      follows. Assume that the time of the current call to
+      <c>request/0</c> is <c>T(n)</c>, and that the time of the
+      previous call was <c>T(n-1)</c>.
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>The current <c>total intensity</c>, denoted
+          <c>TI(n)</c>, is calculated according to the formula,
+          </p>
+        <p><c>TI(n) = exp(-Weight*(T(n) - T(n-1)) * TI(n-1) +  Weight</c>,
+          </p>
+        <p>where <c>TI(n-1)</c> is the previous total intensity.
+          </p>
+      </item>
+      <item>
+        <p>The current <c>accept intensity</c>, denoted
+          <c>AI(n)</c>, is determined by the formula,
+          </p>
+        <p><c>AI(n) = exp(-Weight*(T(n) - T(n-1)) * AI(n-1) + Weight</c>,
+          </p>
+        <p>where <c>AI(n-1)</c> is the previous accept intensity,
+          provided that the value of <c>exp(-Weight*(T(n) - T(n-1)) * AI(n-1)</c> is less than <c>MaxIntensity</c>; otherwise the
+          value is
+          </p>
+        <p><c>AI(n) = exp(-Weight*(T(n) - T(n-1)) * AI(n-1)</c>.
+          </p>
+      </item>
+    </list>
+    <p>The value of configuration parameter <c>Weight</c> controls the
+      speed with which the calculations of intensities will react to
+      changes in the underlying input intensity. The inverted value of
+      <c>Weight</c>,
+      </p>
+    <p><c>T = 1/Weight</c></p>
+    <p>can be thought of as the "time constant"
+      of the intensity calculation formulas. For example, if <c>Weight = 0.1</c>, then a change in the underlying input intensity will be
+      reflected in the <c>total</c> and <c>accept intensities</c> within
+      approximately 10 seconds.
+      </p>
+    <p>The overload process defines one alarm, which it sets using
+      <c>alarm_handler:set_alarm(Alarm)</c>.  <c>Alarm</c> is defined
+      as:
+      </p>
+    <taglist>
+      <tag><c>{overload, []}</c></tag>
+      <item>
+        <p>This alarm is set when the current accept intensity exceeds
+          <c>MaxIntensity</c>. 
+          </p>
+      </item>
+    </taglist>
+    <p>A new overload alarm is not set until the current accept
+      intensity has fallen below <c>MaxIntensity</c>. To prevent the
+      overload process from generating a lot of set/reset alarms, the
+      alarm is not reset until the current accept intensity has fallen
+      below 75% of <c>MaxIntensity</c>, and it is not until then that
+      the alarm can be set again.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>request() -> accept | reject</name>
+      <fsummary>Request to proceed with current job</fsummary>
+      <desc>
+        <p>Returns <c>accept</c> or <c>reject</c> depending on the
+          current value of the accept intensity.  </p>
+        <p>The application
+          calling this function should be processed with the job in
+          question if the return value is <c>accept</c>; otherwise it
+          should not continue with that job.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_overload_info() -> OverloadInfo</name>
+      <fsummary>Return current overload information data</fsummary>
+      <type>
+        <v>OverloadInfo = [{total_intensity, TotalIntensity}, {accept_intensity, AcceptIntensity}, {max_intensity, MaxIntensity}, {weight, Weight}, {total_requests, TotalRequests}, {accepted_requests, AcceptedRequests}].</v>
+        <v>TotalIntensity = float() > 0</v>
+        <v>AcceptIntensity = float() > 0</v>
+        <v>MaxIntensity = float() > 0</v>
+        <v>Weight = float() > 0</v>
+        <v>TotalRequests = integer()</v>
+        <v>AcceptedRequests = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the current total and accept intensities, the
+          configuration parameters, and absolute counts of the total
+          number of requests, and accepted number of requests (since
+          the overload process was started).</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>alarm_handler(3), sasl(3)
+      </p>
+  </section>
+</erlref>
+

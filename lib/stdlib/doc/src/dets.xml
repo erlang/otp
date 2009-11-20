@@ -1,0 +1,1255 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>dets</title>
+    <prepared>Claes Wikstr&ouml;m</prepared>
+    <responsible>Claes Wikstr&ouml;m</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked>no</checked>
+    <date>2001-06-06</date>
+    <rev>B</rev>
+    <file>dets.sgml</file>
+  </header>
+  <module>dets</module>
+  <modulesummary>A Disk Based Term Storage</modulesummary>
+  <description>
+    <p>The module <c>dets</c> provides a term storage on file. The
+      stored terms, in this module called <em>objects</em>, are tuples
+      such that one element is defined to be the key. A Dets
+      <em>table</em> is a collection of objects with the key at the same
+      position stored on a file.</p>
+    <p>Dets is used by the Mnesia application, and is provided as is
+      for users who are interested in an efficient storage of Erlang
+      terms on disk only. Many applications just need to store some
+      terms in a file. Mnesia adds transactions, queries, and
+      distribution. The size of Dets files cannot exceed 2 GB. If larger
+      tables are needed, Mnesia's table fragmentation can be used.</p>
+    <p>There are three types of Dets tables: set, bag and
+      duplicate_bag. A table of type <em>set</em> has at most one object
+      with a given key. If an object with a key already present in the
+      table is inserted, the existing object is overwritten by the new
+      object. A table of type <em>bag</em> has zero or more different
+      objects with a given key. A table of type <em>duplicate_bag</em>
+      has zero or more possibly matching objects with a given key.</p>
+    <p>Dets tables must be opened before they can be updated or read,
+      and when finished they must be properly closed. If a table has not
+      been properly closed, Dets will automatically repair the table.
+      This can take a substantial time if the table is large. A Dets
+      table is closed when the process which opened the table
+      terminates. If several Erlang processes (users) open the same Dets
+      table, they will share the table. The table is properly closed
+      when all users have either terminated or closed the table. Dets
+      tables are not properly closed if the Erlang runtime system is
+      terminated abnormally.</p>
+    <note>
+      <p>A ^C command abnormally terminates an Erlang runtime
+        system in a Unix environment with a break-handler.</p>
+    </note>
+    <p>Since all operations performed by Dets are disk operations, it
+      is important to realize that a single look-up operation involves a
+      series of disk seek and read operations. For this reason, the Dets
+      functions are much slower than the corresponding Ets functions,
+      although Dets exports a similar interface.</p>
+    <p>Dets organizes data as a linear hash list and the hash list
+      grows gracefully as more data is inserted into the table. Space
+      management on the file is performed by what is called a buddy
+      system. The current implementation keeps the entire buddy system
+      in RAM, which implies that if the table gets heavily fragmented,
+      quite some memory can be used up. The only way to defragment a
+      table is to close it and then open it again with the <c>repair</c>
+      option set to <c>force</c>.</p>
+    <p>It is worth noting that the ordered_set type present in Ets is
+      not yet implemented by Dets, neither is the limited support for
+      concurrent updates which makes a sequence of <c>first</c> and
+      <c>next</c> calls safe to use on fixed Ets tables. Both these
+      features will be implemented by Dets in a future release of
+      Erlang/OTP. Until then, the Mnesia application (or some user
+      implemented method for locking) has to be used to implement safe
+      concurrency. Currently, no library of Erlang/OTP has support for
+      ordered disk based term storage.</p>
+    <p>Two versions of the format used for storing objects on file are
+      supported by Dets. The first version, 8, is the format always used
+      for tables created by OTP R7 and earlier. The second version, 9,
+      is the default version of tables created by OTP R8 (and later OTP
+      releases). OTP R8 can create version 8 tables, and convert version
+      8 tables to version 9, and vice versa, upon request.
+      </p>
+    <p>All Dets functions return <c>{error, Reason}</c> if an error
+      occurs (<c>first/1</c> and <c>next/2</c> are exceptions, they exit
+      the process with the error tuple). If given badly formed
+      arguments, all functions exit the process with a <c>badarg</c>
+      message.</p>
+    <p><em>Types</em></p>
+    <pre>
+access() = read | read_write
+auto_save() = infinity | int()
+bindings_cont() = tuple()
+bool() = true | false
+file() = string()
+int() = integer() >= 0
+keypos() = integer() >= 1
+name() = atom() | ref()
+no_slots() = integer() >= 0 | default
+object() = tuple()
+object_cont() = tuple()
+select_cont() = tuple()
+type() = bag | duplicate_bag | set
+version() = 8 | 9 | default    </pre>
+  </description>
+  <funcs>
+    <func>
+      <name>all() -> [Name]</name>
+      <fsummary>Return a list of the names of all open Dets tables on this node.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Returns a list of the names of all open tables on this
+          node.</p>
+      </desc>
+    </func>
+    <func>
+      <name>bchunk(Name, Continuation) -> {Continuation2, Data} | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Return a chunk of objects stored in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Continuation = start | cont()</v>
+        <v>Continuation2 = cont()</v>
+        <v>Data = binary() | tuple()</v>
+      </type>
+      <desc>
+        <p>Returns a list of objects stored in a table. The exact
+          representation of the returned objects is not public. The
+          lists of data can be used for initializing a table by giving
+          the value <c>bchunk</c> to the <c>format</c> option of the
+          <c>init_table/3</c> function. The Mnesia application uses this
+          function for copying open tables.</p>
+        <p>Unless the table is protected using <c>safe_fixtable/2</c>,
+          calls to <c>bchunk/2</c> may not work as expected if
+          concurrent updates are made to the table.</p>
+        <p>The first time <c>bchunk/2</c> is called, an initial
+          continuation, the atom <c>start</c>, must be provided.</p>
+        <p>The <c>bchunk/2</c> function returns a tuple
+          <c>{Continuation2, Data}</c>, where <c>Data</c> is a list of
+          objects. <c>Continuation2</c> is another continuation which is
+          to be passed on to a subsequent call to <c>bchunk/2</c>. With
+          a series of calls to <c>bchunk/2</c> it is possible to extract
+          all objects of the table.
+          </p>
+        <p><c>bchunk/2</c> returns <c>'$end_of_table'</c> when all
+          objects have been returned, or <c>{error, Reason}</c> if an
+          error occurs.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>close(Name) -> ok | {error, Reason} </name>
+      <fsummary>Close a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Closes a table. Only processes that have opened a table are
+          allowed to close it.
+          </p>
+        <p>All open tables must be closed before the system is
+          stopped. If an attempt is made to open a table which has not
+          been properly closed, Dets automatically tries to repair the
+          table.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Name, Key) -> ok | {error, Reason}</name>
+      <fsummary>Delete all objects with a given key from a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Deletes all objects with the key <c>Key</c> from the table
+          <c>Name</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_all_objects(Name) -> ok | {error, Reason}</name>
+      <fsummary>Delete all objects from a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Deletes all objects from a table in almost constant time.
+          However, if the table if fixed, <c>delete_all_objects(T)</c>
+          is equivalent to <c>match_delete(T, '_')</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_object(Name, Object) -> ok | {error, Reason}</name>
+      <fsummary>Delete a given object from a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Deletes all instances of a given object from a table. If a
+          table is of type <c>bag</c> or <c>duplicate_bag</c>, the
+          <c>delete/2</c> function cannot be used to delete only some of
+          the objects with a given key. This function makes this
+          possible.</p>
+      </desc>
+    </func>
+    <func>
+      <name>first(Name) -> Key | '$end_of_table'</name>
+      <fsummary>Return the first key stored in a Dets table.</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Returns the first key stored in the table <c>Name</c>
+          according to the table's internal order, or
+          <c>'$end_of_table'</c> if the table is empty.</p>
+        <p>Unless the table is protected using <c>safe_fixtable/2</c>,
+          subsequent calls to <c>next/2</c> may not work as expected if
+          concurrent updates are made to the table.</p>
+        <p>Should an error occur, the process is exited with an error
+          tuple <c>{error, Reason}</c>. The reason for not returning the
+          error tuple is that it cannot be distinguished from a key.</p>
+        <p>There are two reasons why <c>first/1</c> and <c>next/2</c>
+          should not be used: they are not very efficient, and they
+          prevent the use of the key <c>'$end_of_table'</c> since this
+          atom is used to indicate the end of the table. If possible,
+          the <c>match</c>, <c>match_object</c>, and <c>select</c>
+          functions should be used for traversing tables.</p>
+      </desc>
+    </func>
+    <func>
+      <name>foldl(Function, Acc0, Name) -> Acc1 | {error, Reason}</name>
+      <fsummary>Fold a function over a Dets table.</fsummary>
+      <type>
+        <v>Function = fun(Object, AccIn) -> AccOut</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>Name = name()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Calls <c>Function</c> on successive elements of the table
+          <c>Name</c> together with an extra argument <c>AccIn</c>. The
+          order in which the elements of the table are traversed is
+          unspecified. <c>Function</c> must return a new accumulator
+          which is passed to the next call. <c>Acc0</c> is returned if
+          the table is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>foldr(Function, Acc0, Name) -> Acc1 | {error, Reason}</name>
+      <fsummary>Fold a function over a Dets table.</fsummary>
+      <type>
+        <v>Function = fun(Object, AccIn) -> AccOut</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>Name = name()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Calls <c>Function</c> on successive elements of the table
+          <c>Name</c> together with an extra argument <c>AccIn</c>. The
+          order in which the elements of the table are traversed is
+          unspecified. <c>Function</c> must return a new accumulator
+          which is passed to the next call. <c>Acc0</c> is returned if
+          the table is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_ets(Name, EtsTab) -> ok | {error, Reason}</name>
+      <fsummary>Replace the objects of a Dets table with the objects of an Ets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>EtsTab = -&nbsp;see ets(3)&nbsp;-</v>
+      </type>
+      <desc>
+        <p>Deletes all objects of the table <c>Name</c> and then
+          inserts all the objects of the Ets table <c>EtsTab</c>. The
+          order in which the objects are inserted is not specified.
+          Since <c>ets:safe_fixtable/2</c> is called the Ets table must
+          be public or owned by the calling process.</p>
+      </desc>
+    </func>
+    <func>
+      <name>info(Name) -> InfoList | undefined</name>
+      <fsummary>Return information about a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>InfoList = [{Item, Value}]</v>
+      </type>
+      <desc>
+        <p>Returns information about the table <c>Name</c> as a list of
+          <c>{Item, Value}</c> tuples:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{file_size, int()}</c>, the size of the file in
+              bytes.</p>
+          </item>
+          <item>
+            <p><c>{filename, file()}</c>, the name of the file
+              where objects are stored.</p>
+          </item>
+          <item>
+            <p><c>{keypos, keypos()}</c>, the position of the
+              key.</p>
+          </item>
+          <item>
+            <p><c>{size, int()}</c>, the number of objects stored
+              in the table.</p>
+          </item>
+          <item>
+            <p><c>{type, type()}</c>, the type of the table.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>info(Name, Item) -> Value | undefined</name>
+      <fsummary>Return the information associated with a given item for a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Returns the information associated with <c>Item</c> for the
+          table <c>Name</c>. In addition to the <c>{Item, Value}</c>
+          pairs defined for <c>info/1</c>, the following items are
+          allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{access, access()}</c>, the access mode.</p>
+          </item>
+          <item>
+            <p><c>{auto_save, auto_save()}</c>, the auto save
+              interval.</p>
+          </item>
+          <item>
+            <p><c>{bchunk_format, binary()}</c>, an opaque binary
+              describing the format of the objects returned by
+              <c>bchunk/2</c>. The binary can be used as argument to
+              <c>is_compatible_chunk_format/2</c>. Only available for
+              version 9 tables.</p>
+          </item>
+          <item>
+            <p><c>{hash,</c> Hash<c>}</c>. Describes which BIF is
+              used to calculate the hash values of the objects stored in
+              the Dets table. Possible values of Hash are <c>hash</c>,
+              which implies that the <c>erlang:hash/2</c> BIF is used,
+              <c>phash</c>, which implies that the <c>erlang:phash/2</c>
+              BIF is used, and <c>phash2</c>, which implies that the
+              <c>erlang:phash2/1</c> BIF is used.</p>
+          </item>
+          <item>
+            <p><c>{memory, int()}</c>, the size of the file in
+              bytes. The same value is associated with the item
+              <c>file_size</c>.</p>
+          </item>
+          <item>
+            <p><c>{no_keys, int()}</c>, the number of different
+              keys stored in the table. Only available for version 9
+              tables.</p>
+          </item>
+          <item>
+            <p><c>{no_objects, int()}</c>, the number of objects
+              stored in the table.</p>
+          </item>
+          <item>
+            <p><c>{no_slots, {Min, Used, Max}}</c>, the number of
+              slots of the table. <c>Min</c> is the minimum number of
+              slots, <c>Used</c> is the number of currently used slots,
+              and <c>Max</c> is the maximum number of slots. Only
+              available for version 9 tables.</p>
+          </item>
+          <item>
+            <p><c>{owner, pid()}</c>, the pid of the process that
+              handles requests to the Dets table.</p>
+          </item>
+          <item>
+            <p><c>{ram_file, bool()}</c>, whether the table is
+              kept in RAM.</p>
+          </item>
+          <item>
+            <p><c>{safe_fixed,</c> SafeFixed<c>}</c>. If the table
+              is fixed, SafeFixed is a tuple <c>{FixedAtTime, [{Pid,RefCount}]}</c>. <c>FixedAtTime</c> is the time when
+              the table was first fixed, and <c>Pid</c> is the pid of
+              the process that fixes the table <c>RefCount</c> times.
+              There may be any number of processes in the list. If the
+              table is not fixed, SafeFixed is the atom <c>false</c>.</p>
+          </item>
+          <item>
+            <p><c>{version, int()}</c>, the version of the format
+              of the table.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>init_table(Name, InitFun [, Options]) -> ok  | {error, Reason}</name>
+      <fsummary>Replace all objects of a Dets table.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>InitFun = fun(Arg) -> Res</v>
+        <v>Arg = read | close</v>
+        <v>Res = end_of_input | {[object()], InitFun} | {Data, InitFun}  | term()</v>
+        <v>Data = binary() | tuple()</v>
+      </type>
+      <desc>
+        <p>Replaces the existing objects of the table <c>Name</c> with
+          objects created by calling the input function <c>InitFun</c>,
+          see below. The reason for using this function rather than
+          calling <c>insert/2</c> is that of efficiency. It should be
+          noted that the input functions are called by the process that
+          handles requests to the Dets table, not by the calling
+          process.</p>
+        <p>When called with the argument <c>read</c> the function
+          <c>InitFun</c> is assumed to return <c>end_of_input</c> when
+          there is no more input, or <c>{Objects, Fun}</c>, where
+          <c>Objects</c> is a list of objects and <c>Fun</c> is a new
+          input function. Any other value Value is returned as an error
+          <c>{error, {init_fun, Value}}</c>. Each input function will be
+          called exactly once, and should an error occur, the last
+          function is called with the argument <c>close</c>, the reply
+          of which is ignored.</p>
+        <p>If the type of the table is <c>set</c> and there is more
+          than one object with a given key, one of the objects is
+          chosen. This is not necessarily the last object with the given
+          key in the sequence of objects returned by the input
+          functions. Duplicate keys should be avoided, or the file 
+	  will be unnecessarily fragmented. This holds also for duplicated
+          objects stored in tables of type <c>bag</c>.</p>
+        <p>It is important that the table has a sufficient number of
+          slots for the objects. If not, the hash list will start to
+          grow when <c>init_table/2</c> returns which will significantly
+          slow down access to the table for a period of time. The
+          minimum number of slots is set by the <c>open_file/2</c>
+          option <c>min_no_slots</c> and returned by the <c>info/2</c>
+          item <c>no_slots</c>. See also the <c>min_no_slots</c> option
+          below.
+          </p>
+        <p>The <c>Options</c> argument is a list of <c>{Key, Val}</c>
+          tuples where the following values are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{min_no_slots, no_slots()}</c>. Specifies the
+              estimated number of different keys that will be stored
+              in the table. The <c>open_file</c> option with the same
+              name is ignored unless the table is created, and in that
+              case performance can be enhanced by supplying an
+              estimate when initializing the table.</p>
+          </item>
+          <item>
+            <p><c>{format, Format}</c>. Specifies the format of the
+              objects returned by the function <c>InitFun</c>. If
+              <c>Format</c> is <c>term</c> (the default),
+              <c>InitFun</c> is assumed to return a list of tuples. If
+              <c>Format</c> is <c>bchunk</c>, <c>InitFun</c> is
+              assumed to return <c>Data</c> as returned by
+              <c>bchunk/2</c>. This option overrides the
+              <c>min_no_slots</c> option.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>insert(Name, Objects) -> ok | {error, Reason}</name>
+      <fsummary>Insert one or more objects into a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Objects = object() | [object()]</v>
+      </type>
+      <desc>
+        <p>Inserts one or more objects into the table <c>Name</c>. If
+          there already exists an object with a key matching the key of
+          some of the given objects and the table type is <c>set</c>,
+          the old object will be replaced.</p>
+      </desc>
+    </func>
+    <func>
+      <name>insert_new(Name, Objects) -> Bool</name>
+      <fsummary>Insert one or more objects into a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Objects = object() | [object()]</v>
+        <v>Bool = bool()</v>
+      </type>
+      <desc>
+        <p>Inserts one or more objects into the table <c>Name</c>. If
+          there already exists some object with a key matching the key
+          of any of the given objects the table is not updated and
+          <c>false</c> is returned, otherwise the objects are inserted
+          and <c>true</c> returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_compatible_bchunk_format(Name, BchunkFormat) -> Bool</name>
+      <fsummary>Test compatibility of a table's chunk data.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>BchunkFormat = binary()</v>
+        <v>Bool = bool()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if it would be possible to initialize
+          the table <c>Name</c>, using <c>init_table/3</c> with the
+          option <c>{format,&nbsp;bchunk}</c>, with objects read with
+          <c>bchunk/2</c> from some table <c>T</c> such that calling
+          <c>info(T,&nbsp;bchunk_format)</c> returns
+          <c>BchunkFormat</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_dets_file(FileName) -> Bool | {error, Reason}</name>
+      <fsummary>Test for a Dets table.</fsummary>
+      <type>
+        <v>FileName = file()</v>
+        <v>Bool = bool()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if the file <c>FileName</c> is a Dets
+          table, <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>lookup(Name, Key) -> [Object] | {error, Reason}</name>
+      <fsummary>Return all objects with a given key stored in a Dets table.</fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Name = name()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Returns a list of all objects with the key <c>Key</c>
+          stored in the table <c>Name</c>. For example:</p>
+        <pre>
+2> <input>dets:open_file(abc, [{type, bag}]).</input>
+{ok,abc}
+3> <input>dets:insert(abc, {1,2,3}).</input>
+ok
+4> <input>dets:insert(abc, {1,3,4}).</input>
+ok
+5> <input>dets:lookup(abc, 1).</input>
+[{1,2,3},{1,3,4}]        </pre>
+        <p>If the table is of type <c>set</c>, the function returns
+          either the empty list or a list with one object, as there
+          cannot be more than one object with a given key. If the table
+          is of type <c>bag</c> or <c>duplicate_bag</c>, the function
+          returns a list of arbitrary length.</p>
+        <p>Note that the order of objects returned is unspecified. In
+          particular, the order in which objects were inserted is not
+          reflected.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match(Continuation) -> {[Match], Continuation2} | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Match a chunk of objects stored in a Dets table and return a list of variable bindings.</fsummary>
+      <type>
+        <v>Continuation = Continuation2 = bindings_cont()</v>
+        <v>Match = [term()]</v>
+      </type>
+      <desc>
+        <p>Matches some objects stored in a table and returns a
+          non-empty list of the bindings that match a given pattern in
+          some unspecified order. The table, the pattern, and the number
+          of objects that are matched are all defined by
+          <c>Continuation</c>, which has been returned by a prior call
+          to <c>match/1</c> or <c>match/3</c>.</p>
+        <p>When all objects of the table have been matched,
+          <c>'$end_of_table'</c> is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match(Name, Pattern) -> [Match] | {error, Reason}</name>
+      <fsummary>Match the objects stored in a Dets table and return a list of variable bindings.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pattern = tuple()</v>
+        <v>Match = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns for each object of the table <c>Name</c> that
+          matches <c>Pattern</c> a list of bindings in some unspecified
+          order. See <seealso marker="ets">ets(3)</seealso> for a
+          description of patterns. If the keypos'th element of
+          <c>Pattern</c> is unbound, all objects of the table are
+          matched. If the keypos'th element is bound, only the
+          objects with the right key are matched.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match(Name, Pattern, N) -> {[Match], Continuation}  | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Match the first chunk of objects stored in a Dets table and return a list of variable bindings.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pattern = tuple()</v>
+        <v>N = default | int()</v>
+        <v>Match = [term()]</v>
+        <v>Continuation = bindings_cont()</v>
+      </type>
+      <desc>
+        <p>Matches some or all objects of the table <c>Name</c> and
+          returns a non-empty list of the bindings that match
+          <c>Pattern</c> in some unspecified order. See <seealso marker="ets">ets(3)</seealso> for a description of
+          patterns.</p>
+        <p>A tuple of the bindings and a continuation is returned,
+          unless the table is empty, in which case
+          <c>'$end_of_table'</c> is returned. The continuation is to be
+          used when matching further objects by calling
+          <c>match/1</c>.</p>
+        <p>If the keypos'th element of <c>Pattern</c> is bound, all
+          objects of the table are matched. If the keypos'th element is
+          unbound, all objects of the table are matched, <c>N</c>
+          objects at a time, until at least one object matches or the
+          end of the table has been reached. The default, indicated by
+          giving <c>N</c> the value <c>default</c>, is to let the number
+          of objects vary depending on the sizes of the objects. If
+          <c>Name</c> is a version 9 table, all objects with the same
+          key are always matched at the same time which implies that
+          more than N objects may sometimes be matched.
+          </p>
+        <p>The table should always be protected using
+          <c>safe_fixtable/2</c> before calling <c>match/3</c>, or
+          errors may occur when calling <c>match/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match_delete(Name, Pattern) -> ok | {error, Reason}</name>
+      <fsummary>Delete all objects that match a given pattern from a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pattern = tuple()</v>
+      </type>
+      <desc>
+        <p>Deletes all objects that match <c>Pattern</c> from the
+          table <c>Name</c>. 
+          See <seealso marker="ets#match/2">ets:match/2</seealso> for a
+          description of patterns.</p>
+        <p>If the keypos'th element of <c>Pattern</c> is bound,
+          only the objects with the right key are matched.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match_object(Continuation) -> {[Object], Continuation2}  | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Match a chunk of objects stored in a Dets table and return a list of objects.</fsummary>
+      <type>
+        <v>Continuation = Continuation2 = object_cont()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Returns a non-empty list of some objects stored in a table
+          that match a given pattern in some unspecified order. The
+          table, the pattern, and the number of objects that are matched
+          are all defined by <c>Continuation</c>, which has been
+          returned by a prior call to <c>match_object/1</c> or
+          <c>match_object/3</c>.</p>
+        <p>When all objects of the table have been matched,
+          <c>'$end_of_table'</c> is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match_object(Name, Pattern) -> [Object] | {error, Reason}</name>
+      <fsummary>Match the objects stored in a Dets table and return a list of objects.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pattern = tuple()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>Returns a list of all objects of the table <c>Name</c> that
+          match <c>Pattern</c> in some unspecified order. See <seealso marker="ets">ets(3)</seealso> for a description of patterns.
+          </p>
+        <p>If the keypos'th element of <c>Pattern</c> is
+          unbound, all objects of the table are matched. If the
+          keypos'th element of <c>Pattern</c> is bound, only the
+          objects with the right key are matched.</p>
+        <p>Using the <c>match_object</c> functions for traversing all
+          objects of a table is more efficient than calling
+          <c>first/1</c> and <c>next/2</c> or <c>slot/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>match_object(Name, Pattern, N) -> {[Object], Continuation}  | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Match the first chunk of objects stored in a Dets table and return a list of objects.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pattern = tuple()</v>
+        <v>N = default | int()</v>
+        <v>Object = object()</v>
+        <v>Continuation = object_cont()</v>
+      </type>
+      <desc>
+        <p>Matches some or all objects stored in the table <c>Name</c>
+          and returns a non-empty list of the objects that match
+          <c>Pattern</c> in some unspecified order. See <seealso marker="ets">ets(3)</seealso> for a description of
+          patterns.</p>
+        <p>A list of objects and a continuation is returned, unless
+          the table is empty, in which case <c>'$end_of_table'</c>
+          is returned. The continuation is to be used when matching
+          further objects by calling <c>match_object/1</c>.</p>
+        <p>If the keypos'th element of <c>Pattern</c> is bound, all
+          objects of the table are matched. If the keypos'th element is
+          unbound, all objects of the table are matched, <c>N</c>
+          objects at a time, until at least one object matches or the
+          end of the table has been reached. The default, indicated by
+          giving <c>N</c> the value <c>default</c>, is to let the number
+          of objects vary depending on the sizes of the objects. If
+          <c>Name</c> is a version 9 table, all matching objects with
+          the same key are always returned in the same reply which
+          implies that more than N objects may sometimes be returned.
+          </p>
+        <p>The table should always be protected using
+          <c>safe_fixtable/2</c> before calling <c>match_object/3</c>,
+          or errors may occur when calling <c>match_object/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>member(Name, Key) -> Bool | {error, Reason}</name>
+      <fsummary>Test for occurrence of a key in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Key = term()</v>
+        <v>Bool = bool()</v>
+      </type>
+      <desc>
+        <p>Works like <c>lookup/2</c>, but does not return the
+          objects. The function returns <c>true</c> if one or more
+          elements of the table has the key <c>Key</c>, <c>false</c>
+          otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>next(Name, Key1) -> Key2 | '$end_of_table'</name>
+      <fsummary>Return the next key in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Key1 = Key2 = term()</v>
+      </type>
+      <desc>
+        <p>Returns the key following <c>Key1</c> in the table
+          <c>Name</c> according to the table's internal order, or
+          <c>'$end_of_table'</c> if there is no next key.</p>
+        <p>Should an error occur, the process is exited with an error
+          tuple <c>{error, Reason}</c>.</p>
+        <p>Use <c>first/1</c> to find the first key in the table.</p>
+      </desc>
+    </func>
+    <func>
+      <name>open_file(Filename) -> {ok, Reference} | {error, Reason}</name>
+      <fsummary>Open an existing Dets table.</fsummary>
+      <type>
+        <v>FileName = file()</v>
+        <v>Reference = ref()</v>
+      </type>
+      <desc>
+        <p>Opens an existing table. If the table has not been properly
+          closed, it will be repaired. The returned reference is to be
+          used as the name of the table. This function is most useful
+          for debugging purposes.</p>
+      </desc>
+    </func>
+    <func>
+      <name>open_file(Name, Args) -> {ok, Name} | {error, Reason}</name>
+      <fsummary>Open a Dets table.</fsummary>
+      <type>
+        <v>Name = atom()</v>
+      </type>
+      <desc>
+        <p>Opens a table. An empty Dets table is created if no file
+          exists.</p>
+        <p>The atom <c>Name</c> is the name of the table. The table
+          name must be provided in all subsequent operations on the
+          table. The name can be used by other processes as well, and
+          several process can share one table.
+          </p>
+        <p>If two processes open the same table by giving the same
+          name and arguments, then the table will have two users. If one
+          user closes the table, it still remains open until the second
+          user closes the table.</p>
+        <p>The <c>Args</c> argument is a list of <c>{Key, Val}</c>
+          tuples where the following values are allowed:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{access, access()}</c>. It is possible to open
+              existing tables in read-only mode. A table which is opened
+              in read-only mode is not subjected to the automatic file
+              reparation algorithm if it is later opened after a crash.
+              The default value is <c>read_write</c>.</p>
+          </item>
+          <item>
+            <p><c>{auto_save, auto_save()}</c>, the auto save
+              interval. If the interval is an integer <c>Time</c>, the
+              table is flushed to disk whenever it is not accessed for
+              <c>Time</c> milliseconds. A table that has been flushed
+              will require no reparation when reopened after an
+              uncontrolled emulator halt. If the interval is the atom
+              <c>infinity</c>, auto save is disabled. The default value
+              is 180000 (3 minutes).</p>
+          </item>
+          <item>
+            <p><c>{estimated_no_objects, int()}</c>. Equivalent to the
+              <c>min_no_slots</c> option.</p>
+          </item>
+          <item>
+            <p><c>{file, file()}</c>, the name of the file to be
+              opened. The default value is the name of the table.</p>
+          </item>
+          <item>
+            <p><c>{max_no_slots, no_slots()}</c>, the maximum number
+              of slots that will be used. The default value is 2 M, and
+              the maximal value is 32 M. Note that a higher value may
+              increase the fragmentation of the table, and conversely,
+              that a smaller value may decrease the fragmentation, at
+              the expense of execution time. Only available for version
+              9 tables.</p>
+          </item>
+          <item>
+            <p><c>{min_no_slots, no_slots()}</c>. Application
+              performance can be enhanced with this flag by specifying,
+              when the table is created, the estimated number of
+              different keys that will be stored in the table. The
+              default value as well as the minimum value is 256.</p>
+          </item>
+          <item>
+            <p><c>{keypos, keypos()}</c>, the position of the
+              element of each object to be used as key. The default
+              value is 1. The ability to explicitly state the key
+              position is most convenient when we want to store Erlang
+              records in which the first position of the record is the
+              name of the record type.</p>
+          </item>
+          <item>
+            <p><c>{ram_file, bool()}</c>, whether the table is to
+              be kept in RAM. Keeping the table in RAM may sound like an
+              anomaly, but can enhance the performance of applications
+              which open a table, insert a set of objects, and then
+              close the table. When the table is closed, its contents
+              are written to the disk file. The default value is
+              <c>false</c>.</p>
+          </item>
+          <item>
+            <p><c>{repair, Value}</c>. <c>Value</c> can be either
+              a <c>bool()</c> or the atom <c>force</c>. The flag
+              specifies whether the Dets server should invoke the
+              automatic file reparation algorithm. The default is
+              <c>true</c>. If <c>false</c> is specified, there is no
+              attempt to repair the file and <c>{error, {needs_repair,
+              FileName}}</c> is returned if the table needs to be
+              repaired.</p>
+            <p>The value <c>force</c> means that a reparation will
+              take place even if the table has been properly closed.
+              This is how to convert tables created by older versions of
+              STDLIB. An example is tables hashed with the deprecated
+              <c>erlang:hash/2</c> BIF. Tables created with Dets from a
+              STDLIB version of 1.8.2 and later use the
+              <c>erlang:phash/2</c> function or the
+              <c>erlang:phash2/1</c> function, which is preferred.</p>
+            <p>The <c>repair</c> option is ignored if the table is
+              already open.</p>
+          </item>
+          <item>
+            <p><c>{type, type()}</c>, the type of the table. The
+              default value is <c>set</c>.</p>
+          </item>
+          <item>
+            <p><c>{version, version()}</c>, the version of the format
+              used for the table. The default value is <c>9</c>. Tables
+              on the format used before OTP R8 can be created by giving
+              the value <c>8</c>. A version 8 table can be converted to
+              a version 9 table by giving the options <c>{version,9}</c>
+              and <c>{repair,force}</c>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>pid2name(Pid) -> {ok, Name} | undefined</name>
+      <fsummary>Return the name of the Dets table handled by a pid.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Returns the name of the table given the pid of a process
+          that handles requests to a table, or <c>undefined</c> if
+          there is no such table.</p>
+        <p>This function is meant to be used for debugging only.</p>
+      </desc>
+    </func>
+    <func>
+      <name>repair_continuation(Continuation, MatchSpec) -> Continuation2</name>
+      <fsummary>Repair a continuation from select/1 or select/3.</fsummary>
+      <type>
+        <v>Continuation = Continuation2 = select_cont()</v>
+        <v>MatchSpec = match_spec()</v>
+      </type>
+      <desc>
+        <p>This function can be used to restore an opaque continuation
+          returned by <c>select/3</c> or <c>select/1</c> if the
+          continuation has passed through external term format (been
+          sent between nodes or stored on disk).</p>
+        <p>The reason for this function is that continuation terms
+          contain compiled match specifications and therefore will be
+          invalidated if converted to external term format. Given that
+          the original match specification is kept intact, the
+          continuation can be restored, meaning it can once again be
+          used in subsequent <c>select/1</c> calls even though it has
+          been stored on disk or on another node.</p>
+        <p>See also <c>ets(3)</c> for further explanations and
+          examples.
+          </p>
+        <note>
+          <p>This function is very rarely needed in application code. It
+            is used by Mnesia to implement distributed <c>select/3</c>
+            and <c>select/1</c> sequences. A normal application would
+            either use Mnesia or keep the continuation from being
+            converted to external format.</p>
+          <p>The reason for not having an external representation of
+            compiled match specifications is performance. It may be
+            subject to change in future releases, while this interface
+            will remain for backward compatibility.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name>safe_fixtable(Name, Fix)</name>
+      <fsummary>Fix a Dets table for safe traversal.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Fix = bool()</v>
+      </type>
+      <desc>
+        <p>If <c>Fix</c> is <c>true</c>, the table <c>Name</c> is
+          fixed (once more) by the calling process, otherwise the table
+          is released. The table is also released when a fixing process
+          terminates.
+          </p>
+        <p>If several processes fix a table, the table will remain
+          fixed until all processes have released it or terminated. A
+          reference counter is kept on a per process basis, and N
+          consecutive fixes require N releases to release the table.</p>
+        <p>It is not guaranteed that calls to <c>first/1</c>,
+          <c>next/2</c>, select and match functions work as expected
+          even if the table has been fixed; the limited support for
+          concurrency implemented in Ets has not yet been implemented
+          in Dets. Fixing a table currently only disables resizing of
+          the hash list of the table.</p>
+        <p>If objects have been added while the table was fixed, the
+          hash list will start to grow when the table is released which
+          will significantly slow down access to the table for a period
+          of time.</p>
+      </desc>
+    </func>
+    <func>
+      <name>select(Continuation) -> {Selection, Continuation2}  | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Apply a match specification to some objects stored in a Dets table.</fsummary>
+      <type>
+        <v>Continuation = Continuation2 = select_cont()</v>
+        <v>Selection = [term()]</v>
+      </type>
+      <desc>
+        <p>Applies a match specification to some objects stored in a
+          table and returns a non-empty list of the results. The
+          table, the match specification, and the number of objects
+          that are matched are all defined by <c>Continuation</c>,
+          which has been returned by a prior call to <c>select/1</c>
+          or <c>select/3</c>.</p>
+        <p>When all objects of the table have been matched,
+          <c>'$end_of_table'</c> is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>select(Name, MatchSpec) -> Selection | {error, Reason}</name>
+      <fsummary>Apply a match specification to all objects stored in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>Selection = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the results of applying the match specification
+          <c>MatchSpec</c> to all or some objects stored in the table
+          <c>Name</c>. The order of the objects is not specified. See
+          the ERTS User's Guide for a description of match
+          specifications.</p>
+        <p>If the keypos'th element of <c>MatchSpec</c> is
+          unbound, the match specification is applied to all objects of
+          the table. If the keypos'th element is bound, the match
+          specification is applied to the objects with the right key(s)
+          only.</p>
+        <p>Using the <c>select</c> functions for traversing all
+          objects of a table is more efficient than calling
+          <c>first/1</c> and <c>next/2</c> or <c>slot/2</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>select(Name, MatchSpec, N) -> {Selection, Continuation}  | '$end_of_table' | {error, Reason}</name>
+      <fsummary>Apply a match specification to the first chunk of objects stored in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>N = default | int()</v>
+        <v>Selection = [term()]</v>
+        <v>Continuation = select_cont()</v>
+      </type>
+      <desc>
+        <p>Returns the results of applying the match specification
+          <c>MatchSpec</c> to some or all objects stored in the table
+          <c>Name</c>. The order of the objects is not specified. See
+          the ERTS User's Guide for a description of match
+          specifications.</p>
+        <p>A tuple of the results of applying the match specification
+          and a continuation is returned, unless the table is empty,
+          in which case <c>'$end_of_table'</c> is returned. The
+          continuation is to be used when matching further objects by
+          calling <c>select/1</c>.</p>
+        <p>If the keypos'th element of <c>MatchSpec</c> is bound, the
+          match specification is applied to all objects of the table
+          with the right key(s). If the keypos'th element of
+          <c>MatchSpec</c> is unbound, the match specification is
+          applied to all objects of the table, <c>N</c> objects at a
+          time, until at least one object matches or the end of the
+          table has been reached. The default, indicated by giving
+          <c>N</c> the value <c>default</c>, is to let the number of
+          objects vary depending on the sizes of the objects. If
+          <c>Name</c> is a version 9 table, all objects with the same
+          key are always handled at the same time which implies that the
+          match specification may be applied to more than N objects.
+          </p>
+        <p>The table should always be protected using
+          <c>safe_fixtable/2</c> before calling <c>select/3</c>, or
+          errors may occur when calling <c>select/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>select_delete(Name, MatchSpec) -> N | {error, Reason}</name>
+      <fsummary>Delete all objects that match a given pattern from a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>MatchSpec = match_spec()</v>
+        <v>N = int()</v>
+      </type>
+      <desc>
+        <p>Deletes each object from the table <c>Name</c> such that
+          applying the match specification <c>MatchSpec</c> to the
+          object returns the value <c>true</c>. See the ERTS
+          User's Guide for a description of match
+          specifications. Returns the number of deleted objects.</p>
+        <p>If the keypos'th element of <c>MatchSpec</c> is
+          bound, the match specification is applied to the objects
+          with the right key(s) only.</p>
+      </desc>
+    </func>
+    <func>
+      <name>slot(Name, I) -> '$end_of_table' | [Object] | {error, Reason}</name>
+      <fsummary>Return the list of objects associated with a slot of a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>I = int()</v>
+        <v>Object = object()</v>
+      </type>
+      <desc>
+        <p>The objects of a table are distributed among slots,
+          starting with slot <c>0</c> and ending with slot n. This
+          function returns the list of objects associated with slot
+          <c>I</c>. If <c>I</c> is greater than n <c>'$end_of_table'</c>
+          is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sync(Name) -> ok | {error, Reason}</name>
+      <fsummary>Ensure that all updates made to a Dets table are written to disk.</fsummary>
+      <type>
+        <v>Name = name()</v>
+      </type>
+      <desc>
+        <p>Ensures that all updates made to the table <c>Name</c> are
+          written to disk. This also applies to tables which have been
+          opened with the <c>ram_file</c> flag set to <c>true</c>. In
+          this case, the contents of the RAM file are flushed to
+          disk.</p>
+        <p>Note that the space management data structures kept in RAM,
+          the buddy system, is also written to the disk. This may take
+          some time if the table is fragmented.</p>
+      </desc>
+    </func>
+    <func>
+      <name>table(Name [, Options]) -> QueryHandle</name>
+      <fsummary>Return a QLC query handle.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>QueryHandle = -&nbsp;a query handle, see qlc(3)&nbsp;-</v>
+        <v>Options = [Option] | Option</v>
+        <v>Option = {n_objects, Limit} | {traverse, TraverseMethod}</v>
+        <v>Limit = default | integer() >= 1</v>
+        <v>TraverseMethod = first_next | select | {select, MatchSpec}</v>
+        <v>MatchSpec = match_spec()</v>
+      </type>
+      <desc>
+        <p>          <marker id="qlc_table"></marker>
+Returns a QLC (Query List
+          Comprehension) query handle. The module <c>qlc</c>
+          implements a query language aimed mainly at Mnesia but Ets
+          tables, Dets tables, and lists are also recognized by <c>qlc</c>
+          as sources of data. Calling <c>dets:table/1,2</c> is the
+          means to make the Dets table <c>Name</c> usable to <c>qlc</c>.</p>
+        <p>When there are only simple restrictions on the key position
+          <c>qlc</c> uses <c>dets:lookup/2</c> to look up the keys, but when
+          that is not possible the whole table is traversed. The
+          option <c>traverse</c> determines how this is done:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>first_next</c>. The table is traversed one key at
+              a time by calling <c>dets:first/1</c> and
+              <c>dets:next/2</c>.</p>
+          </item>
+          <item>
+            <p><c>select</c>. The table is traversed by calling
+              <c>dets:select/3</c> and <c>dets:select/1</c>. The option
+              <c>n_objects</c> determines the number of objects
+              returned (the third argument of <c>select/3</c>). The
+              match specification (the second argument of
+              <c>select/3</c>) is assembled by <c>qlc</c>: simple filters are
+              translated into equivalent match specifications while
+              more complicated filters have to be applied to all
+              objects returned by <c>select/3</c> given a match
+              specification that matches all objects.</p>
+          </item>
+          <item>
+            <p><c>{select, MatchSpec}</c>. As for <c>select</c>
+              the table is traversed by calling <c>dets:select/3</c>
+              and <c>dets:select/1</c>. The difference is that the
+              match specification is explicitly given. This is how to
+              state match specifications that cannot easily be
+              expressed within the syntax provided by <c>qlc</c>.</p>
+          </item>
+        </list>
+        <p>The following example uses an explicit match specification
+          to traverse the table:</p>
+        <pre>
+1> <input>dets:open_file(t, []),</input>
+<input>ok = dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),</input>
+<input>MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X &lt; 5) -> {Y} end),</input>
+<input>QH1 = dets:table(t, [{traverse, {select, MS}}]).</input>        </pre>
+        <p>An example with implicit match specification:</p>
+        <pre>
+2> <input>QH2 = qlc:q([{Y} || {X,Y} &lt;- dets:table(t), (X > 1) or (X &lt; 5)]).</input>        </pre>
+        <p>The latter example is in fact equivalent to the former which 
+          can be verified using the function <c>qlc:info/1</c>:</p>
+        <pre>
+3> <input>qlc:info(QH1) =:= qlc:info(QH2).</input>
+true        </pre>
+        <p><c>qlc:info/1</c> returns information about a query handle,
+          and in this case identical information is returned for the
+          two query handles.</p>
+      </desc>
+    </func>
+    <func>
+      <name>to_ets(Name, EtsTab) -> EtsTab | {error, Reason}</name>
+      <fsummary>Insert all objects of a Dets table into an Ets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>EtsTab = -&nbsp;see ets(3)&nbsp;-</v>
+      </type>
+      <desc>
+        <p>Inserts the objects of the Dets table <c>Name</c> into the
+          Ets table <c>EtsTab</c>. The order in which the objects are
+          inserted is not specified. The existing objects of the Ets
+          table are kept unless overwritten.</p>
+      </desc>
+    </func>
+    <func>
+      <name>traverse(Name, Fun) -> Return | {error, Reason}</name>
+      <fsummary>Apply a function to all or some objects stored in a Dets table.</fsummary>
+      <type>
+        <v>Fun = fun(Object) -> FunReturn</v>
+        <v>FunReturn = continue | {continue, Val} | {done, Value}</v>
+        <v>Val = Value = term()</v>
+        <v>Name = name()</v>
+        <v>Object = object()</v>
+        <v>Return = [term()]</v>
+      </type>
+      <desc>
+        <p>Applies <c>Fun</c> to each object stored in the table
+          <c>Name</c> in some unspecified order. Different actions are
+          taken depending on the return value of <c>Fun</c>. The
+          following <c>Fun</c> return values are allowed:</p>
+        <taglist>
+          <tag><c>continue</c></tag>
+          <item>
+            <p>Continue to perform the traversal. For example, the
+              following function can be used to print out the contents
+              of a table:</p>
+            <pre>
+fun(X) -> io:format("~p~n", [X]), continue end.            </pre>
+          </item>
+          <tag><c>{continue, Val}</c></tag>
+          <item>
+            <p>Continue the traversal and accumulate <c>Val</c>. The
+              following function is supplied in order to collect all
+              objects of a table in a list: </p>
+            <pre>
+fun(X) -> {continue, X} end.            </pre>
+          </item>
+          <tag><c>{done, Value}</c></tag>
+          <item>
+            <p>Terminate the traversal and return <c>[Value | Acc]</c>.</p>
+          </item>
+        </taglist>
+        <p>Any other value returned by <c>Fun</c> terminates the
+          traversal and is immediately returned.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>update_counter(Name, Key, Increment) -> Result</name>
+      <fsummary>Update a counter object stored in a Dets table.</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Key = term()</v>
+        <v>Increment = {Pos, Incr} | Incr</v>
+        <v>Pos = Incr = Result = integer()</v>
+      </type>
+      <desc>
+        <p>Updates the object with key <c>Key</c> stored in the table
+          <c>Name</c> of type <c>set</c> by adding <c>Incr</c> to the
+          element at the <c>Pos</c>:th position. The new counter value
+          is returned. If no position is specified, the element directly
+          following the key is updated.</p>
+        <p>This functions provides a way of updating a counter,
+          without having to look up an object, update the object by
+          incrementing an element and insert the resulting object into
+          the table again.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="ets">ets(3)</seealso>, 
+      mnesia(3), 
+      <seealso marker="qlc">qlc(3)</seealso></p>
+  </section>
+</erlref>
+

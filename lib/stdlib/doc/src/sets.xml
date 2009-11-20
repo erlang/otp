@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>sets</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>99-07-27</date>
+    <rev>A</rev>
+    <file>sets.sgml</file>
+  </header>
+  <module>sets</module>
+  <modulesummary>Functions for Set Manipulation</modulesummary>
+  <description>
+    <p>Sets are collections of elements with no duplicate elements.
+      The representation of a set is not defined.</p>
+    <p>This module provides exactly the same interface as the module
+      <c>ordsets</c> but with a defined representation. One difference is
+      that while this module considers two elements as different if they
+      do not match (<c>=:=</c>), <c>ordsets</c> considers two elements as
+      different if and only if they do not compare equal (<c>==</c>).</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+set()
+  as returned by new/0</code>
+  </section>
+  <funcs>
+    <func>
+      <name>new() -> Set</name>
+      <fsummary>Return an empty set</fsummary>
+      <type>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Returns a new empty set.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_set(Set) -> bool()</name>
+      <fsummary>Test for an <c>Set</c></fsummary>
+      <type>
+        <v>Set = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Set</c> is a set of
+          elements, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>size(Set) -> int()</name>
+      <fsummary>Return the number of elements in a set</fsummary>
+      <type>
+        <v>Set = term()</v>
+      </type>
+      <desc>
+        <p>Returns the number of elements in <c>Set</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>to_list(Set) -> List</name>
+      <fsummary>Convert an <c>Set</c>into a list</fsummary>
+      <type>
+        <v>Set = set()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the elements of <c>Set</c> as a list.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_list(List) -> Set</name>
+      <fsummary>Convert a list into an <c>Set</c></fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Returns an set of the elements in <c>List</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_element(Element, Set) -> bool()</name>
+      <fsummary>Test for membership of an <c>Set</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Element</c> is an element of
+          <c>Set</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add_element(Element, Set1) -> Set2</name>
+      <fsummary>Add an element to an <c>Set</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = set()</v>
+      </type>
+      <desc>
+        <p>Returns a new set formed from <c>Set1</c> with
+          <c>Element</c> inserted.</p>
+      </desc>
+    </func>
+    <func>
+      <name>del_element(Element, Set1) -> Set2</name>
+      <fsummary>Remove an element from an <c>Set</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>Set1</c>, but with <c>Element</c> removed.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(Set1, Set2) -> Set3</name>
+      <fsummary>Return the union of two <c>Sets</c></fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) set of <c>Set1</c> and
+          <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(SetList) -> Set</name>
+      <fsummary>Return the union of a list of <c>Sets</c></fsummary>
+      <type>
+        <v>SetList = [set()]</v>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) set of the list of sets.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(Set1, Set2) -> Set3</name>
+      <fsummary>Return the intersection of two <c>Sets</c></fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of <c>Set1</c> and
+          <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(SetList) -> Set</name>
+      <fsummary>Return the intersection of a list of <c>Sets</c></fsummary>
+      <type>
+        <v>SetList = [set()]</v>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of the non-empty list of sets.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_disjoint(Set1, Set2) -> bool()</name>
+      <fsummary>Check whether two <c>Sets</c> are disjoint</fsummary>
+      <type>
+        <v>Set1 = Set2 = set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Set1</c> and
+          <c>Set2</c> are disjoint (have no elements in common),
+	  and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>subtract(Set1, Set2) -> Set3</name>
+      <fsummary>Return the difference of two <c>Sets</c></fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = set()</v>
+      </type>
+      <desc>
+        <p>Returns only the elements of <c>Set1</c> which are not
+          also elements of <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_subset(Set1, Set2) -> bool()</name>
+      <fsummary>Test for subset</fsummary>
+      <type>
+        <v>Set1 = Set2 = set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> when every element of <c>Set</c>1 is
+          also a member of <c>Set2</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>fold(Function, Acc0, Set) -> Acc1</name>
+      <fsummary>Fold over set elements</fsummary>
+      <type>
+        <v>Function = fun (E, AccIn) -> AccOut</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>Set = set()</v>
+      </type>
+      <desc>
+        <p>Fold <c>Function</c> over every element in <c>Set</c>
+          returning the final value of the accumulator.</p>
+      </desc>
+    </func>
+    <func>
+      <name>filter(Pred, Set1) -> Set2</name>
+      <fsummary>Filter set elements</fsummary>
+      <type>
+        <v>Pred = fun (E) -> bool()</v>
+        <v>Set1 = Set2 = set()</v>
+      </type>
+      <desc>
+        <p>Filter elements in <c>Set1</c> with boolean function
+          <c>Fun</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="ordsets">ordsets(3)</seealso>,
+      <seealso marker="gb_sets">gb_sets(3)</seealso></p>
+  </section>
+</erlref>
+

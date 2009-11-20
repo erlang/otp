@@ -1,0 +1,1026 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>io</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>io</module>
+  <modulesummary>Standard IO Server Interface Functions</modulesummary>
+  <description>
+    <p>This module provides an interface to standard Erlang IO servers.
+      The output functions all return <c>ok</c> if they are successful,
+      or exit if they are not.</p>
+    <p>In the following description, all functions have an optional
+      parameter <c>IoDevice</c>. If included, it must be the pid of a
+      process which handles the IO protocols. Normally, it is the
+      <c>IoDevice</c> returned by
+      <seealso marker="kernel:file#open/2">file:open/2</seealso>.</p>
+    <p>For a description of the IO protocols refer to the STDLIB Users Guide.</p>
+    <warning>
+
+    <p>As of R13A, data supplied to the <seealso
+    marker="#put_chars/2">put_chars</seealso> function should be in the
+    <c>chardata()</c> format described below. This means that programs
+    supplying binaries to this function need to convert them to UTF-8
+    before trying to output the data on an
+    <c>io_device()</c>.</p>
+
+    <p>If an io_device() is set in binary mode, the functions <seealso
+    marker="#get_chars/3">get_chars</seealso> and <seealso
+    marker="#get_line/2">get_line</seealso> may return binaries
+    instead of lists. The binaries will, as of R13A, be encoded in
+    UTF-8.</p>
+
+    <p>To work with binaries in ISO-latin-1 encoding, use the <seealso
+    marker="kernel:file">file</seealso> module instead.</p>
+
+    <p>For conversion functions between character encodings, see the <seealso
+    marker="stdlib:unicode">unicode</seealso> module.</p>
+
+    </warning>
+
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+io_device()
+  as returned by file:open/2, a process handling IO protocols</code>
+
+    <code type="none">
+unicode_binary() = binary() with characters encoded in UTF-8 coding standard
+unicode_char() = integer() representing valid unicode codepoint
+
+chardata() = charlist() | unicode_binary()
+
+charlist() = [unicode_char() | unicode_binary() | charlist()]
+  a unicode_binary is allowed as the tail of the list</code>
+  </section>
+  <funcs>
+    <func>
+      <name>columns([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <fsummary>Get the number of columns of a device</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+      </type>
+      <desc>
+          <p>Retrieves the number of columns of the 
+          <c>IoDevice</c> (i.e. the width of a terminal). The function
+          only succeeds for terminal devices, for all other devices
+          the function returns <c>{error, enotsup}</c></p>
+      </desc>
+    </func>
+    <func>
+      <name>put_chars([IoDevice,] IoData) -> ok</name>
+      <fsummary>Write a list of characters</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>IoData = chardata()</v>
+      </type>
+      <desc>
+        <p>Writes the characters of <c>IoData</c> to the io_server()
+          (<c>IoDevice</c>).</p>
+      </desc>
+    </func>
+    <func>
+      <name>nl([IoDevice]) -> ok</name>
+      <fsummary>Write a newline</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+      </type>
+      <desc>
+        <p>Writes new line to the standard output (<c>IoDevice</c>).</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_chars([IoDevice,] Prompt, Count) -> Data | eof</name>
+      <fsummary>Read a specified number of characters</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>Count = int()</v>
+	<v>Data = [ unicode_char() ] | unicode_binary()</v>
+      </type>
+      <desc>
+        <p>Reads <c>Count</c> characters from standard input
+          (<c>IoDevice</c>), prompting it with <c>Prompt</c>. It
+          returns:</p>
+        <taglist>
+          <tag><c>Data</c></tag>
+          <item>
+            <p>The input characters. If the device supports Unicode,
+            the data may represent codepoints larger than 255 (the
+            latin1 range). If the io_server() is set to deliver
+            binaries, they will be encoded in UTF-8 (regardless of if
+            the device actually supports Unicode or not).</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+	  <tag><c>{error,Reason}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>get_line([IoDevice,] Prompt) -> Data | eof | {error,Reason}</name>
+      <fsummary>Read a line</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+	<v>Data = [ unicode_char() ] | unicode_binary()</v>
+      </type>
+      <desc>
+        <p>Reads a line from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. It returns:</p>
+        <taglist>
+          <tag><c>Data</c></tag>
+          <item>
+            <p>The characters in the line terminated by a LF (or end of
+              file). If the device supports Unicode,
+            the data  may represent codepoints larger than 255 (the
+            latin1 range). If the io_server() is set to deliver
+            binaries, they will be encoded in UTF-8 (regardless of if
+            the device actually supports Unicode or not).</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+	  <tag><c>{error,Reason}</c></tag>
+	  <item>
+	    <p>Other (rare) error condition, for instance <c>{error,estale}</c>
+	    if reading from an NFS file system.</p>
+	  </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>getopts([IoDevice]) -> Opts</name>
+      <fsummary>Get the supported options and values from an I/O-server</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Opts = [Opt]</v>
+        <v>&nbsp;&nbsp;Opt = {atom(),Value}</v>
+	<v>&nbsp;&nbsp;Value = term()</v>
+      </type>
+      <desc>
+      <p>This function requests all available options and their current values for a specific io_device(). Example:</p>
+<pre>
+1> <input>{ok,F} = file:open("/dev/null",[read]).</input>
+{ok,&lt;0.42.0&gt;}
+2> <input>io:getopts(F).</input>
+[{binary,false},{encoding,latin1}]</pre>
+      <p>Here the file I/O-server returns all available options for a file,
+      which are the expected ones, <c>encoding</c> and <c>binary</c>. The standard shell however has some more options:</p>
+<pre>
+3> io:getopts().
+[{expand_fun,#Fun&lt;group.0.120017273&gt;},
+ {echo,true},
+ {binary,false},
+ {encoding,unicode}]</pre>
+      <p>This example is, as can be seen, run in an environment where the terminal supports Unicode input and output.</p>
+      </desc>
+    </func>
+    <func>
+      <name>setopts([IoDevice,] Opts) -> ok | {error, Reason}</name>
+      <fsummary>Set options</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Opts = [Opt]</v>
+        <v>&nbsp;&nbsp;Opt = atom() | {atom(),Value}</v>
+	<v>&nbsp;&nbsp;Value = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Set options for the io_device() (<c>IoDevice</c>).</p>
+
+        <p>Possible options and values vary depending on the actual
+        io_device(). For a list of supported options and their current values
+        on a specific device, use the <seealso
+        marker="#getopts/1">getopts/1</seealso> function.</p>
+
+	<p>The options and values supported by the current OTP io_devices are:</p>
+        <taglist>
+          <tag><c>binary, list or {binary, bool()}</c></tag>
+          <item>
+            <p>If set in binary mode (binary or {binary,true}), the io_server() sends binary data (encoded in UTF-8) as answers to the get_line, get_chars and, if possible, get_until requests (see the I/O protocol description in STDLIB User's Guide for details). The immediate effect is that <c>get_chars/2,3</c> and <c>get_line/1,2</c> return UTF-8 binaries instead of lists of chars for the affected device.</p>
+	    <p>By default, all io_devices in OTP are set in list mode, but the io functions can handle any of these modes and so should other, user written, modules behaving as clients to I/O-servers.</p>
+	    <p>This option is supported by the standard shell (group.erl), the 'oldshell' (user.erl) and the file I/O servers.</p>
+          </item>
+          <tag><c>{echo, bool()}</c></tag>
+	  <item>
+	  <p>Denotes if the terminal should echo input. Only supported for the standard shell I/O-server (group.erl)</p>
+	  </item>
+          <tag><c>{expand_fun, fun()}</c></tag>
+          <item>
+            <p>Provide a function for tab-completion (expansion)
+              like the erlang shell. This function is called
+              when the user presses the Tab key. The expansion is
+              active when calling line-reading functions such as
+              <c>get_line/1,2</c>.</p>
+            <p>The function is called with the current line, upto
+              the cursor, as a reversed string. It should return a
+              three-tuple: <c>{yes|no, string(), [string(), ...]}</c>. The
+              first element gives a beep if <c>no</c>, otherwise the
+              expansion is silent, the second is a string that will be
+              entered at the cursor position, and the third is a list of
+              possible expansions. If this list is non-empty, the list
+              will be printed and the current input line will be written
+              once again.</p>
+            <p>Trivial example (beep on anything except empty line, which
+              is expanded to "quit"):</p>
+            <code type="none">
+ fun("") -> {yes, "quit", []};
+    (_) -> {no, "", ["quit"]} end</code>
+            <p>This option is supported by the standard shell only (group.erl).</p>
+          </item>
+          <tag><c>{encoding, latin1 | unicode}</c></tag>
+	  <item>
+	  <p>Specifies how characters are input or output from or to the actual device, implying that i.e. a terminal is set to handle Unicode input and output or a file is set to handle UTF-8 data encoding.</p>
+	  <p>The option <em>does not</em> affect how data is returned from the io-functions or how it is sent in the I/O-protocol, it only affects how the io_device() is to handle Unicode characters towards the &quot;physical&quot; device.</p>
+	  <p>The standard shell will be set for either unicode or latin1 encoding when the system is started. The actual encoding is set with the help of the "LANG" or "LC_CTYPE" environment variables on Unix-like system or by other means on other systems. The bottom line is that the user can input Unicode characters and the device will be in {encoding, unicode} mode if the device supports it. The mode can be changed, if the assumption of the runtime system is wrong, by setting this option.</p>
+	  <p>The io_device() used when Erlang is started with the "-oldshell" or "-noshell" flags is by default set to latin1 encoding, meaning that any characters beyond codepoint 255 will be escaped and that input is expected to be plain 8-bit ISO-latin-1. If the encoding is changed to Unicode, input and output from the standard file descriptors will be in UTF-8 (regardless of operating system).</p>
+	  <p>Files can also be set in {encoding, unicode}, meaning that data is written and read as UTF-8. More encodings are possible for files, see below.</p>
+	  <p>{encoding, unicode | latin1} is supported by both the standard shell (group.erl including werl on windows), the 'oldshell' (user.erl) and the file I/O servers.</p>
+ 	  </item>
+          <tag><c>{encoding, utf8 | utf16 | utf32 | {utf16,big} | {utf16,little} | {utf32,big} | {utf32,little}}</c></tag>
+	  <item>
+	  <p>For disk files, the encoding can be set to various UTF variants. This will have the effect that data is expected to be read as the specified encoding from the file and the data will be written in the specified encoding to the disk file.</p>
+	  <p>{encoding, utf8} will have the same effect as {encoding,unicode} on files.</p>
+	  <p>The extended encodings are only supported on disk files (opened by the <seealso marker="kernel:file#open/2">file:open/2</seealso> function)</p>
+ 	  </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>write([IoDevice,] Term) -> ok</name>
+      <fsummary>Write a term</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Writes the term <c>Term</c> to the standard output
+          (<c>IoDevice</c>).</p>
+      </desc>
+    </func>
+    <func>
+      <name>read([IoDevice,] Prompt) -> Result</name>
+      <fsummary>Read a term</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>Result = {ok, Term} | eof | {error, ErrorInfo}</v>
+        <v>&nbsp;Term = term()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads a term <c>Term</c> from the standard input
+          (<c>IoDevice</c>), prompting it with <c>Prompt</c>. It
+          returns:</p>
+        <taglist>
+          <tag><c>{ok, Term}</c></tag>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <tag><c>{error, ErrorInfo}</c></tag>
+          <item>
+            <p>The parsing failed.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read(IoDevice, Prompt, StartLine) -> Result</name>
+      <fsummary>Read a term</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>StartLine = int()</v>
+        <v>Result = {ok, Term, EndLine} | {eof, EndLine} |  {error, ErrorInfo, EndLine}</v>
+        <v>&nbsp;Term = term()</v>
+        <v>&nbsp;EndLine = int()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads a term <c>Term</c> from <c>IoDevice</c>, prompting it
+          with <c>Prompt</c>. Reading starts at line number
+          <c>StartLine</c>. It returns:</p>
+        <taglist>
+          <tag><c>{ok, Term, EndLine}</c></tag>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <tag><c>{eof, EndLine}</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <item>
+            <p>The parsing failed.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>fwrite(Format) -></name>
+      <name>fwrite([IoDevice,] Format, Data) -> ok</name>
+      <name>format(Format) -></name>
+      <name>format([IoDevice,] Format, Data) -> ok</name>
+      <fsummary>Write formatted output</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Format = atom() | string() | binary()</v>
+        <v>Data = [term()]</v>
+      </type>
+      <desc>
+        <p>Writes the items in <c>Data</c> (<c>[]</c>) on the standard
+          output (<c>IoDevice</c>) in accordance with <c>Format</c>.
+          <c>Format</c> contains plain characters which are copied to
+          the output device, and control sequences for formatting, see
+          below. If <c>Format</c> is an atom or a binary, it is first 
+          converted to a list with the aid of <c>atom_to_list/1</c>
+          or <c>binary_to_list/1</c>.</p>
+        <pre>
+1> <input>io:fwrite("Hello world!~n", []).</input>
+Hello world!
+ok</pre>
+        <p>The general format of a control sequence is <c>~F.P.PadModC</c>.
+          The character <c>C</c> determines the type of control sequence
+          to be used, <c>F</c> and <c>P</c> are optional numeric
+          arguments. If <c>F</c>, <c>P</c>, or <c>Pad</c> is <c>*</c>,
+          the next argument in <c>Data</c> is used as the numeric value
+          of <c>F</c> or <c>P</c>.</p>
+        <p><c>F</c> is the <c>field width</c> of the printed argument. A
+          negative value means that the argument will be left justified
+          within the field, otherwise it will be right justified. If no
+          field width is specified, the required print width will be
+          used. If the field width specified is too small, then the
+          whole field will be filled with <c>*</c> characters.</p>
+        <p><c>P</c> is the <c>precision</c> of the printed argument. A
+          default value is used if no precision is specified. The
+          interpretation of precision depends on the control sequences.
+          Unless otherwise specified, the argument <c>within</c> is used
+          to determine print width.</p>
+        <p><c>Pad</c> is the padding character. This is the character
+          used to pad the printed representation of the argument so that
+          it conforms to the specified field width and precision. Only
+          one padding character can be specified and, whenever
+          applicable, it is used for both the field width and precision.
+          The default padding character is <c>' '</c> (space).</p>
+        <p><c>Mod</c> is the control sequence modifier. It is either a
+	single character (currently only 't', for unicode translation,
+	is supported) that changes the interpretation of Data.</p>
+
+         <p>The following control sequences are available:</p>
+        <taglist>
+          <tag><c>~</c></tag>
+          <item>
+            <p>The character <c>~</c> is written.</p>
+          </item>
+          <tag><c>c</c></tag>
+          <item>
+            <p>The argument is a number that will be interpreted as an
+              ASCII code. The precision is the number of times the
+              character is printed and it defaults to the field width,
+              which in turn defaults to 1. The following example
+              illustrates:</p>
+            <pre>
+2> <input>io:fwrite("|~10.5c|~-10.5c|~5c|~n", [$a, $b, $c]).</input>
+|     aaaaa|bbbbb     |ccccc|
+ok</pre>
+            <p>If the Unicode translation modifier ('t') is in effect,
+	    the integer argument can be any number representing a
+	    valid unicode codepoint, otherwise it should be an integer
+	    less than or equal to 255, otherwise it is masked with 16#FF:</p>
+<pre>
+1> <input>io:fwrite("~tc~n",[1024]).</input>
+\x{400}
+ok
+2> <input>io:fwrite("~c~n",[1024]).</input>
+^@
+ok</pre>
+
+          </item>
+          <tag><c>f</c></tag>
+          <item>
+            <p>The argument is a float which is written as
+              <c>[-]ddd.ddd</c>, where the precision is the number of
+              digits after the decimal point. The default precision is 6
+              and it cannot be less than 1.</p>
+          </item>
+          <tag><c>e</c></tag>
+          <item>
+            <p>The argument is a float which is written as
+              <c>[-]d.ddde+-ddd</c>, where the precision is the number
+              of digits written. The default precision is 6 and it
+              cannot be less than 2.</p>
+          </item>
+          <tag><c>g</c></tag>
+          <item>
+            <p>The argument is a float which is written as <c>f</c>, if
+              it is &gt;= 0.1 and &lt; 10000.0. Otherwise, it is written
+              in the <c>e</c> format. The precision is the number of
+              significant digits. It defaults to 6 and should not be
+              less than 2. If the absolute value of the float does not
+              allow it to be written in the <c>f</c> format with the
+              desired number of significant digits, it is also written
+              in the <c>e</c> format.</p>
+          </item>
+          <tag><c>s</c></tag>
+          <item>
+            <p>Prints the argument with the <c>string</c> syntax. The
+              argument is, if no Unicode translation modifier is present, an 
+	      <seealso marker="erts:erlang#iolist_definition">I/O list</seealso>, a binary, or an atom. If the Unicode translation modifier ('t') is in effect, the argument is chardata(), meaning that binaries are in UTF-8. The characters
+              are printed without quotes. In this format, the printed
+              argument is truncated to the given precision and field
+              width.</p>
+            <p>This format can be used for printing any object and
+              truncating the output so it fits a specified field:</p>
+            <pre>
+3> <input>io:fwrite("|~10w|~n", [{hey, hey, hey}]).</input>
+|**********|
+ok
+4> <input>io:fwrite("|~10s|~n", [io_lib:write({hey, hey, hey})]).</input>
+|{hey,hey,h|
+ok</pre>
+          <p>A list with integers larger than 255 is considered an error if the Unicode translation modifier is not given:</p>
+<pre>
+1> <input>io:fwrite("~ts~n",[[1024]]).</input>
+\x{400}
+ok
+2> io:fwrite("~s~n",[[1024]]).
+** exception exit: {badarg,[{io,format,[&lt;0.26.0&gt;,"~s~n",[[1024]]]},
+   ...</pre>
+          </item>
+          <tag><c>w</c></tag>
+          <item>
+            <p>Writes data with the standard syntax. This is used to
+              output Erlang terms. Atoms are printed within quotes if
+              they contain embedded non-printable characters, and
+              floats are printed accurately as the shortest, correctly
+              rounded string.</p>
+          </item>
+          <tag><c>p</c></tag>
+          <item>
+            <p>Writes the data with standard syntax in the same way as
+              <c>~w</c>, but breaks terms whose printed representation
+              is longer than one line into many lines and indents each
+              line sensibly. It also tries to detect lists of printable
+              characters and to output these as strings. For example:</p>
+            <pre>
+5> <input>T = [{attributes,[[{id,age,1.50000},{mode,explicit},</input>
+<input>{typename,"INTEGER"}], [{id,cho},{mode,explicit},{typename,'Cho'}]]},</input>
+<input>{typename,'Person'},{tag,{'PRIVATE',3}},{mode,implicit}].</input>
+...
+6> <input>io:fwrite("~w~n", [T]).</input>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,
+[73,78,84,69,71,69,82]}],[{id,cho},{mode,explicit},{typena
+me,'Cho'}]]},{typename,'Person'},{tag,{'PRIVATE',3}},{mode
+,implicit}]
+ok
+7> <input>io:fwrite("~62p~n", [T]).</input>
+[{attributes,[[{id,age,1.5},
+               {mode,explicit},
+               {typename,"INTEGER"}],
+              [{id,cho},{mode,explicit},{typename,'Cho'}]]},
+ {typename,'Person'},
+ {tag,{'PRIVATE',3}},
+ {mode,implicit}]
+ok</pre>
+            <p>The field width specifies the maximum line length. It
+              defaults to 80. The precision specifies the initial
+              indentation of the term. It defaults to the number of
+              characters printed on this line in the <c>same</c> call to
+              <c>io:fwrite</c> or <c>io:format</c>. For example, using
+              <c>T</c> above:</p>
+            <pre>
+8> <input>io:fwrite("Here T = ~62p~n", [T]).</input>
+Here T = [{attributes,[[{id,age,1.5},
+                        {mode,explicit},
+                        {typename,"INTEGER"}],
+                       [{id,cho},
+                        {mode,explicit},
+                        {typename,'Cho'}]]},
+          {typename,'Person'},
+          {tag,{'PRIVATE',3}},
+          {mode,implicit}]
+ok</pre>
+          </item>
+          <tag><c>W</c></tag>
+          <item>
+            <p>Writes data in the same way as <c>~w</c>, but takes an
+              extra argument which is the maximum depth to which terms
+              are printed. Anything below this depth is replaced with
+              <c>...</c>. For example, using <c>T</c> above:</p>
+            <pre>
+9> <input>io:fwrite("~W~n", [T,9]).</input>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
+[{id,cho},{mode,...},{...}]]},{typename,'Person'},
+{tag,{'PRIVATE',3}},{mode,implicit}]
+ok</pre>
+            <p>If the maximum depth has been reached, then it is
+              impossible to read in the resultant output. Also, the
+              <c>,...</c> form in a tuple denotes that there are more
+              elements in the tuple but these are below the print depth.</p>
+          </item>
+          <tag><c>P</c></tag>
+          <item>
+            <p>Writes data in the same way as <c>~p</c>, but takes an
+              extra argument which is the maximum depth to which terms
+              are printed. Anything below this depth is replaced with
+              <c>...</c>. For example:</p>
+            <pre>
+10> <input>io:fwrite("~62P~n", [T,9]).</input>
+[{attributes,[[{id,age,1.5},{mode,explicit},{typename,...}],
+              [{id,cho},{mode,...},{...}]]},
+ {typename,'Person'},
+ {tag,{'PRIVATE',3}},
+ {mode,implicit}]
+ok</pre>
+          </item>
+          <tag><c>B</c></tag>
+          <item>
+            <p>Writes an integer in base 2..36, the default base is
+              10. A leading dash is printed for negative integers.</p>
+            <p>The precision field selects base. For example:</p>
+            <pre>
+11> <input>io:fwrite("~.16B~n", [31]).</input>
+1F
+ok
+12> <input>io:fwrite("~.2B~n", [-19]).</input>
+-10011
+ok
+13> <input>io:fwrite("~.36B~n", [5*36+35]).</input>
+5Z
+ok</pre>
+          </item>
+          <tag><c>X</c></tag>
+          <item>
+            <p>Like <c>B</c>, but takes an extra argument that is a
+              prefix to insert before the number, but after the leading
+              dash, if any.</p>
+            <p>The prefix can be a possibly deep list of characters or
+              an atom.</p>
+            <pre>
+14> <input>io:fwrite("~X~n", [31,"10#"]).</input>
+10#31
+ok
+15> <input>io:fwrite("~.16X~n", [-31,"0x"]).</input>
+-0x1F
+ok</pre>
+          </item>
+          <tag><c>#</c></tag>
+          <item>
+            <p>Like <c>B</c>, but prints the number with an Erlang style
+              '#'-separated base prefix.</p>
+            <pre>
+16> <input>io:fwrite("~.10#~n", [31]).</input>
+10#31
+ok
+17> <input>io:fwrite("~.16#~n", [-31]).</input>
+-16#1F
+ok</pre>
+          </item>
+          <tag><c>b</c></tag>
+          <item>
+            <p>Like <c>B</c>, but prints lowercase letters.</p>
+          </item>
+          <tag><c>x</c></tag>
+          <item>
+            <p>Like <c>X</c>, but prints lowercase letters.</p>
+          </item>
+          <tag><c>+</c></tag>
+          <item>
+            <p>Like <c>#</c>, but prints lowercase letters.</p>
+          </item>
+          <tag><c>n</c></tag>
+          <item>
+            <p>Writes a new line.</p>
+          </item>
+          <tag><c>i</c></tag>
+          <item>
+            <p>Ignores the next term.</p>
+          </item>
+        </taglist>
+        <p>Returns:</p>
+        <taglist>
+          <tag><c>ok</c></tag>
+          <item>
+            <p>The formatting succeeded.</p>
+          </item>
+        </taglist>
+        <p>If an error occurs, there is no output. For example:</p>
+        <pre>
+18> <input>io:fwrite("~s ~w ~i ~w ~c ~n",['abc def', 'abc def', {foo, 1},{foo, 1}, 65]).</input>
+abc def 'abc def'  {foo,1} A
+ok
+19> <input>io:fwrite("~s", [65]).</input>
+** exception exit: {badarg,[{io,format,[&lt;0.22.0>,"~s","A"]},
+                            {erl_eval,do_apply,5},
+                            {shell,exprs,6},
+                            {shell,eval_exprs,6},
+                            {shell,eval_loop,3}]}
+     in function  io:o_request/2</pre>
+        <p>In this example, an attempt was made to output the single
+          character '65' with the aid of the string formatting directive
+          "~s".</p>
+      </desc>
+    </func>
+    <func>
+      <name>fread([IoDevice,] Prompt, Format) -> Result</name>
+      <fsummary>Read formatted input</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>Format = string()</v>
+        <v>Result = {ok, Terms} | eof | {error, What}</v>
+        <v>&nbsp;Terms = [term()]</v>
+        <v>&nbsp;What = term()</v>
+      </type>
+      <desc>
+        <p>Reads characters from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. Interprets the characters in
+          accordance with <c>Format</c>. <c>Format</c> contains control
+          sequences which directs the interpretation of the input.</p>
+        <p><c>Format</c> may contain:</p>
+        <list type="bulleted">
+          <item>
+            <p>White space characters (SPACE, TAB and NEWLINE) which
+              cause input to be read to the next non-white space
+              character.</p>
+          </item>
+          <item>
+            <p>Ordinary characters which must match the next input
+              character.</p>
+          </item>
+          <item>
+
+            <p>Control sequences, which have the general format
+              <c>~*FMC</c>. The character <c>*</c> is an optional
+              return suppression character. It provides a method to
+              specify a field which is to be omitted. <c>F</c> is the
+              <c>field width</c> of the input field, <c>M</c> is an optional
+              translation modifier (of which 't' is the only currently
+              supported, meaning Unicode translation) and <c>C</c>
+              determines the type of control sequence.</p>
+
+            <p>Unless otherwise specified, leading white-space is
+              ignored for all control sequences. An input field cannot
+              be more than one line wide. The following control
+              sequences are available:</p>
+            <taglist>
+              <tag><c>~</c></tag>
+              <item>
+                <p>A single <c>~</c> is expected in the input.</p>
+              </item>
+              <tag><c>d</c></tag>
+              <item>
+                <p>A decimal integer is expected.</p>
+              </item>
+              <tag><c>u</c></tag>
+              <item>
+                <p>An unsigned integer in base 2..36 is expected. The
+                  field width parameter is used to specify base. Leading
+                  white-space characters are not skipped.</p>
+              </item>
+              <tag><c>-</c></tag>
+              <item>
+                <p>An optional sign character is expected. A sign
+                  character '-' gives the return value <c>-1</c>. Sign
+                  character '+' or none gives <c>1</c>. The field width
+                  parameter is ignored. Leading white-space characters
+                  are not skipped.</p>
+              </item>
+              <tag><c>#</c></tag>
+              <item>
+                <p>An integer in base 2..36 with Erlang-style base
+                  prefix (for example <c>"16#ffff"</c>) is expected.</p>
+              </item>
+              <tag><c>f</c></tag>
+              <item>
+                <p>A floating point number is expected. It must follow
+                  the Erlang floating point number syntax.</p>
+              </item>
+              <tag><c>s</c></tag>
+              <item>
+                <p>A string of non-white-space characters is read. If a
+                  field width has been specified, this number of
+                  characters are read and all trailing white-space
+                  characters are stripped. An Erlang string (list of
+                  characters) is returned.</p>
+
+		  <p>If Unicode translation is in effect (~ts),
+		  characters larger than 255 are accepted, otherwise
+		  not. With the translation modifier, the list
+		  returned may as a consequence also contain
+		  integers larger than 255:</p>
+
+<pre>
+1> <input>io:fread("Prompt> ","~s").</input>
+Prompt> <input>&lt;Characters beyond latin1 range not printable in this medium&gt;</input>
+{error,{fread,string}}
+2> <input>io:fread("Prompt> ","~ts").</input>
+Prompt> <input>&lt;Characters beyond latin1 range not printable in this medium&gt;</input>
+{ok,[[1091,1085,1080,1094,1086,1076,1077]]}</pre>
+
+              </item>
+              <tag><c>a</c></tag>
+              <item>
+                <p>Similar to <c>s</c>, but the resulting string is
+                  converted into an atom.</p>
+		  <p>The Unicode translation modifier is not allowed (atoms can not contain characters beyond the latin1 range).</p>
+              </item>
+              <tag><c>c</c></tag>
+              <item>
+                <p>The number of characters equal to the field width are
+                  read (default is 1) and returned as an Erlang string.
+                  However, leading and trailing white-space characters
+                  are not omitted as they are with <c>s</c>. All
+                  characters are returned.</p>
+		  <p>The Unicode translation modifier works as with <c>s</c>:</p>
+<pre>
+1> <input>io:fread("Prompt> ","~c").</input>
+Prompt> <input>&lt;Character beyond latin1 range not printable in this medium&gt;</input>
+{error,{fread,string}}
+2> <input>io:fread("Prompt> ","~tc").</input>
+Prompt> <input>&lt;Character beyond latin1 range not printable in this medium&gt;</input>
+{ok,[[1091]]}</pre>
+
+              </item>
+              <tag><c>l</c></tag>
+              <item>
+                <p>Returns the number of characters which have been
+                  scanned up to that point, including white-space
+                  characters.</p>
+              </item>
+            </taglist>
+            <p>It returns:</p>
+            <taglist>
+              <tag><c>{ok, Terms}</c></tag>
+              <item>
+                <p>The read was successful and <c>Terms</c> is the list
+                  of successfully matched and read items.</p>
+              </item>
+              <tag><c>eof</c></tag>
+              <item>
+                <p>End of file was encountered.</p>
+              </item>
+              <tag><c>{error, What}</c></tag>
+              <item>
+                <p>The read operation failed and the parameter
+                  <c>What</c> gives a hint about the error.</p>
+              </item>
+            </taglist>
+          </item>
+        </list>
+        <p>Examples:</p>
+        <pre>
+20> <input>io:fread('enter>', "~f~f~f").</input>
+enter><input>1.9 35.5e3 15.0</input>
+{ok,[1.9,3.55e4,15.0]}
+21> <input>io:fread('enter>', "~10f~d").</input>
+enter>     <input>5.67899</input>
+{ok,[5.678,99]}
+22> <input>io:fread('enter>', ":~10s:~10c:").</input>
+enter><input>:</input>   <input>alan</input>   <input>:</input>   <input>joe</input>    <input>:</input>
+{ok, ["alan", "   joe    "]}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>rows([IoDevice]) -> {ok,int()} | {error, enotsup}</name>
+      <fsummary>Get the number of rows of a device</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+      </type>
+      <desc>
+          <p>Retrieves the number of rows of the 
+          <c>IoDevice</c> (i.e. the height of a terminal). The function
+          only succeeds for terminal devices, for all other devices
+          the function returns <c>{error, enotsup}</c></p>
+      </desc>
+    </func>
+    <func>
+      <name>scan_erl_exprs(Prompt) -></name>
+      <name>scan_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <fsummary>Read and tokenize Erlang expressions</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>StartLine = int()</v>
+        <v>Result = {ok, Tokens, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
+        <v>&nbsp;Tokens -- see erl_scan(3)</v>
+        <v>&nbsp;EndLine = int()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads data from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. Reading starts at line number
+          <c>StartLine</c> (1). The data is tokenized as if it were a
+          sequence of Erlang expressions until a final <c>'.'</c> is
+          reached. This token is also returned. It returns:</p>
+        <taglist>
+          <tag><c>{ok, Tokens, EndLine}</c></tag>
+          <item>
+            <p>The tokenization succeeded.</p>
+          </item>
+          <tag><c>{eof, EndLine}</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <pre>
+23> <input>io:scan_erl_exprs('enter>').</input>
+enter><input>abc(), "hey".</input>
+{ok,[{atom,1,abc},{'(',1},{')',1},{',',1},{string,1,"hey"},{dot,1}],2}
+24> <input>io:scan_erl_exprs('enter>').</input>
+enter><input>1.0er.</input>
+{error,{1,erl_scan,{illegal,float}},2}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>scan_erl_form(Prompt) -></name>
+      <name>scan_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <fsummary>Read and tokenize an Erlang form</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>StartLine = int()</v>
+        <v>Result = {ok, Tokens, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
+        <v>&nbsp;Tokens -- see erl_scan(3)</v>
+        <v>&nbsp;EndLine = int()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads data from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. Starts reading at line number
+          <c>StartLine</c> (1). The data is tokenized as if it were an
+          Erlang form - one of the valid Erlang expressions in an
+          Erlang source file - until a final <c>'.'</c> is reached.
+          This last token is also returned. The return values are the
+          same as for <c>scan_erl_exprs/1,2,3</c> above.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parse_erl_exprs(Prompt) -></name>
+      <name>parse_erl_exprs([IoDevice,] Prompt, StartLine) -> Result</name>
+      <fsummary>Read, tokenize and parse Erlang expressions</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>StartLine = int()</v>
+        <v>Result = {ok, Expr_list, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
+        <v>&nbsp;Expr_list -- see erl_parse(3)</v>
+        <v>&nbsp;EndLine = int()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads data from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. Starts reading at line number
+          <c>StartLine</c> (1). The data is tokenized and parsed as if
+          it were a sequence of Erlang expressions until a final '.' is
+          reached. It returns:</p>
+        <taglist>
+          <tag><c>{ok, Expr_list, EndLine}</c></tag>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <tag><c>{eof, EndLine}</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <pre>
+25> <input>io:parse_erl_exprs('enter>').</input>
+enter><input>abc(), "hey".</input>
+{ok, [{call,1,{atom,1,abc},[]},{string,1,"hey"}],2}
+26> <input>io:parse_erl_exprs ('enter>').</input>
+enter><input>abc("hey".</input>
+{error,{1,erl_parse,["syntax error before: ",["'.'"]]},2}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>parse_erl_form(Prompt) -></name>
+      <name>parse_erl_form([IoDevice,] Prompt, StartLine) -> Result</name>
+      <fsummary>Read, tokenize and parse an Erlang form</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Prompt = atom() | string()</v>
+        <v>StartLine = int()</v>
+        <v>Result = {ok, AbsForm, EndLine} | {eof, EndLine} | {error, ErrorInfo, EndLine}</v>
+        <v>&nbsp;AbsForm -- see erl_parse(3)</v>
+        <v>&nbsp;EndLine = int()</v>
+        <v>&nbsp;ErrorInfo -- see section Error Information below</v>
+      </type>
+      <desc>
+        <p>Reads data from the standard input (<c>IoDevice</c>),
+          prompting it with <c>Prompt</c>. Starts reading at line number
+          <c>StartLine</c> (1). The data is tokenized and parsed as if
+          it were an Erlang form - one of the valid Erlang expressions
+          in an Erlang source file - until a final '.' is reached. It
+          returns:</p>
+        <taglist>
+          <tag><c>{ok, AbsForm, EndLine}</c></tag>
+          <item>
+            <p>The parsing was successful.</p>
+          </item>
+          <tag><c>{eof, EndLine}</c></tag>
+          <item>
+            <p>End of file was encountered.</p>
+          </item>
+          <tag><c>{error, ErrorInfo, EndLine}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Standard Input/Output</title>
+    <p>All Erlang processes have a default standard IO device. This
+      device is used when no <c>IoDevice</c> argument is specified in
+      the above function calls. However, it is sometimes desirable to
+      use an explicit <c>IoDevice</c> argument which refers to the
+      default IO device. This is the case with functions that can
+      access either a file or the default IO device. The atom
+      <c>standard_io</c> has this special meaning. The following example
+      illustrates this:</p>
+    <pre>
+27> <input>io:read('enter>').</input>
+enter><input>foo.</input>
+{ok,foo}
+28> <input>io:read(standard_io, 'enter>').</input>
+enter><input>bar.</input>
+{ok,bar}</pre>
+    <p>There is always a process registered under the name of
+      <c>user</c>. This can be used for sending output to the user.</p>
+  </section>
+ <section>
+    <title>Standard Error</title>
+    <p>In certain situations, especially when the standard output is redirected, access to an io_server() specific for error messages might be convenient. The io_device 'standard_error' can be used to direct output to whatever the current operating system considers a suitable device for error output. Example on a Unix-like operating system:</p>
+<pre>
+$ <input>erl -noshell -noinput -eval 'io:format(standard_error,"Error: ~s~n",["error 11"]),init:stop().' > /dev/null</input>
+Error: error 11</pre>
+
+
+
+  </section>
+
+  <section>
+    <title>Error Information</title>
+    <p>The <c>ErrorInfo</c> mentioned above is the standard
+      <c>ErrorInfo</c> structure which is returned from all IO modules.
+      It has the format:</p>
+    <code type="none">
+{ErrorLine, Module, ErrorDescriptor}</code>
+    <p>A string which describes the error is obtained with the following
+      call:</p>
+    <code type="none">
+apply(Module, format_error, ErrorDescriptor)</code>
+  </section>
+</erlref>
+

@@ -1,0 +1,116 @@
+          Klas1 DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  mib-2 FROM RFC1213-MIB
+                  RowStatus FROM STANDARD-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+          klas1       OBJECT IDENTIFIER ::= { mib-2 7 }
+ 
+           DisplayString ::=
+              OCTET STRING
+
+          fname OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      printable ASCII characters."
+              ::= { klas1 1 }
+ 
+          friendsTable OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas1 4 }
+ 
+          friendsEntry OBJECT-TYPE
+              SYNTAX  FriendsEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex }
+              ::= { friendsTable 1 }
+ 
+          FriendsEntry ::=
+              SEQUENCE {
+			fIndex
+                      INTEGER,
+                   fName
+                      DisplayString,
+                   fStatus
+                      RowStatus              }
+ 
+          fIndex OBJECT-TYPE
+              SYNTAX  INTEGER
+              ACCESS  not-accessible
+              STATUS  mandatory
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry 1 }
+ 
+          fName OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "Name of friend"
+              ::= { friendsEntry 2 }
+
+           fStatus OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry 3 }
+
+          kompissTable OBJECT-TYPE
+              SYNTAX  SEQUENCE OF KompissEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "A list of klas kompiss."
+              ::= { klas1 5 }
+ 
+          kompissEntry OBJECT-TYPE
+              SYNTAX  KompissEntry
+              ACCESS  not-accessible
+              STATUS  mandatory
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex }
+              ::= { kompissTable 1 }
+ 
+          KompissEntry ::=
+              SEQUENCE {
+                   kName
+                      DisplayString,
+                   kStatus
+                      RowStatus              }
+ 
+          kName OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "Name of kompis"
+              ::= { kompissEntry 1 }
+
+           kStatus OBJECT-TYPE
+              SYNTAX      RowStatus
+              ACCESS      read-write
+              STATUS      mandatory
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { kompissEntry 2 }
+
+	
+
+          END
+ 

@@ -1,0 +1,2957 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2008</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved on line at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>re</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2008-05-27</date>
+    <rev>A</rev>
+    <file>re.xml</file>
+  </header>
+  <module>re</module>
+  <modulesummary>Perl like regular expressions for Erlang</modulesummary>
+  <description>
+
+    <p>This module contains functions for regular expression
+      matching for strings and binaries.</p>
+
+    <p>The regular expression syntax and semantics resemble that of
+    Perl.  This library in many ways replaces the old regexp library
+    written purely in Erlang, as it has a richer syntax as well as
+    many more options. The library is also faster than the
+    older regexp implementation.</p>
+
+    <p>Although the library's matching algorithms are currently based
+    on the PCRE library, it is not to be viewed as an Erlang to PCRE
+    mapping. Only parts of the PCRE library is interfaced and the re
+    library in some ways extend PCRE. The PCRE documentation contains
+    many parts of no interest to the Erlang programmer, why only the
+    relevant part of the documentation is included here. There should
+    bee no need to go directly to the PCRE library documentation.</p>
+
+    <note>
+    <p>The Erlang literal syntax for strings give special
+    meaning to the &quot;\\&quot; (backslash) character. To literally write
+    a regular expression or a replacement string containing a
+    backslash in your code or in the shell, two backslashes have to be written:
+    &quot;\\\\&quot;.</p>
+    </note>
+
+
+  </description>
+  <section>
+      <title>DATA TYPES</title>
+      <code type="none">
+    iodata() = iolist() | binary()
+    iolist() = [char() | binary() | iolist()]
+      - a binary is allowed as the tail of the list</code>
+      <code type="none">
+    unicode_binary() = binary() with characters encoded in UTF-8 coding standard
+    unicode_char() = integer() representing valid unicode codepoint
+
+    chardata() = charlist() | unicode_binary()
+
+    charlist() = [unicode_char() | unicode_binary() | charlist()]
+      - a unicode_binary is allowed as the tail of the list</code>
+    
+      <code type="none">
+    mp() = Opaque datatype containing a compiled regular expression.</code>
+  </section>
+  <funcs>
+    <func>
+      <name>compile(Regexp) -> {ok, MP} | {error, ErrSpec}</name>
+      <fsummary>Compile a regular expression into a match program</fsummary>
+      <type>
+        <v>Regexp = iodata()</v>
+      </type>
+      <desc>
+      <p>The same as <c>compile(Regexp,[])</c></p>
+      </desc>
+    </func> 
+    <func>
+      <name>compile(Regexp,Options) -> {ok, MP} | {error, ErrSpec}</name>
+      <fsummary>Compile a regular expression into a match program</fsummary>
+      <type>
+        <v>Regexp = iodata() | charlist()</v>
+	<v>Options = [ Option ]</v>
+	<v>Option = unicode | anchored | caseless | dollar_endonly | dotall | extended | firstline | multiline | no_auto_capture | dupnames | ungreedy | {newline, NLSpec}| bsr_anycrlf | bsr_unicode</v>
+	<v>NLSpec = cr | crlf | lf | anycrlf | any </v>
+	<v>MP = mp()</v>
+	<v>ErrSpec = {ErrString, Position}</v>
+	<v>ErrString = string()</v>
+	<v>Position = int()</v> 	
+      </type>
+      <desc>
+      <p>This function compiles a regular expression with the syntax
+      described below into an internal format to be used later as a
+      parameter to the run/2,3 functions.</p>
+      <p>Compiling the regular expression before matching is useful if
+      the same expression is to be used in matching against multiple
+      subjects during the program's lifetime. Compiling once and
+      executing many times is far more efficient than compiling each
+      time one wants to match.</p>
+      <p>When the unicode option is given, the regular expression should be given as a valid unicode <c>charlist()</c>, otherwise as any valid <c>iodata()</c>.</p>
+
+      <p>The options have the following meanings:</p>
+      <taglist>
+      <tag><c>unicode</c></tag>
+      <item>The regular expression is given as a unicode <c>charlist()</c> and the resulting regular expression code is to be run against a valid unicode <c>charlist()</c> subject.</item>
+      <tag><c>anchored</c></tag>
+      <item>The pattern is forced to be "anchored", that is, it is constrained to match only at the first matching point in the string that is being searched (the "subject string"). This effect can also be achieved by appropriate constructs in the pattern itself.</item>
+      <tag><c>caseless</c></tag>
+      <item>Letters in the pattern match both upper and lower case letters. It is equivalent to Perl's /i option, and it can be changed within a pattern by a (?i) option setting. Uppercase and lowercase letters are defined as in the ISO-8859-1 character set.</item>
+      <tag><c>dollar_endonly</c></tag>
+      <item>A dollar metacharacter in the pattern matches only at the end of the subject string. Without this option, a dollar also matches immediately before a newline at the end of the string (but not before any other newlines). The <c>dollar_endonly</c> option is ignored if <c>multiline</c> is given. There is no equivalent option in Perl, and no way to set it within a pattern.</item>
+      <tag><c>dotall</c></tag>
+      <item>A dot maturate in the pattern matches all characters, including those that indicate newline. Without it, a dot does not match when the current position is at a newline. This option is equivalent to Perl's /s option, and it can be changed within a pattern by a (?s) option setting. A negative class such as [^a] always matches newline characters, independent of the setting of this option.</item>
+      <tag><c>extended</c></tag>
+      <item>Whitespace data characters in the pattern are ignored except when escaped or inside a character class. Whitespace does not include the VT character (ASCII 11). In addition, characters between an unescaped # outside a character class and the next newline, inclusive, are also ignored. This is equivalent to Perl's /x option, and it can be changed within a pattern by a (?x) option setting.
+
+This option makes it possible to include comments inside complicated patterns. Note, however, that this applies only to data characters. Whitespace characters may never appear within special character sequences in a pattern, for example within the sequence <c>(?(</c> which introduces a conditional subpattern.</item>
+      <tag><c>firstline</c></tag>
+      <item>An unanchored pattern is required to match before or at the first newline in the subject string, though the matched text may continue over the newline.</item>
+      <tag><c>multiline</c></tag>
+      <item><p>By default, PCRE treats the subject string as consisting of a single line of characters (even if it actually contains newlines). The "start of line" metacharacter (^) matches only at the start of the string, while the "end of line" metacharacter ($) matches only at the end of the string, or before a terminating newline (unless <c>dollar_endonly</c> is given). This is the same as Perl.</p>
+
+<p>When <c>multiline</c> it is given, the "start of line" and "end of line" constructs match immediately following or immediately before internal newlines in the subject string, respectively, as well as at the very start and end. This is equivalent to Perl's /m option, and it can be changed within a pattern by a (?m) option setting. If there are no newlines in a subject string, or no occurrences of ^ or $ in a pattern, setting <c>multiline</c> has no effect.</p> </item>
+      <tag><c>no_auto_capture</c></tag>
+      <item>Disables the use of numbered capturing parentheses in the pattern. Any opening parenthesis that is not followed by ? behaves as if it were followed by ?: but named parentheses can still be used for capturing (and they acquire numbers in the usual way). There is no equivalent of this option in Perl.
+</item>
+      <tag><c>dupnames</c></tag>
+      <item>Names used to identify capturing subpatterns need not be unique. This can be helpful for certain types of pattern when it is known that only one instance of the named subpattern can ever be matched. There are more details of named subpatterns below</item>
+      <tag><c>ungreedy</c></tag>
+      <item>This option inverts the "greediness" of the quantifiers so that they are not greedy by default, but become greedy if followed by "?". It is not compatible with Perl. It can also be set by a (?U) option setting within the pattern.</item>
+      <tag><c>{newline, NLSpec}</c></tag>
+      <item>
+      <p>Override the default definition of a newline in the subject string, which is LF (ASCII 10) in Erlang.</p>
+      <taglist>
+        <tag><c>cr</c></tag>
+        <item>Newline is indicated by a single character CR (ASCII 13)</item>
+        <tag><c>lf</c></tag>
+        <item>Newline is indicated by a single character LF (ASCII 10), the default</item>
+        <tag><c>crlf</c></tag>
+        <item>Newline is indicated by the two-character CRLF (ASCII 13 followed by ASCII 10) sequence.</item>
+        <tag><c>anycrlf</c></tag>
+        <item>Any of the three preceding sequences should be recognized.</item>
+        <tag><c>any</c></tag>
+        <item>Any of the newline sequences above, plus the Unicode sequences VT (vertical tab, U+000B), FF (formfeed, U+000C), NEL (next line, U+0085), LS (line separator, U+2028), and PS (paragraph separator, U+2029). </item>
+      </taglist>
+      </item>
+      <tag><c>bsr_anycrlf</c></tag>
+      <item>Specifies specifically that \\R is to match only the cr, lf or crlf sequences, not the Unicode specific newline characters.</item>
+      <tag><c>bsr_unicode</c></tag>
+      <item>Specifies specifically that \\R is to match all the Unicode newline characters (including crlf etc, the default).</item>
+      </taglist>
+    </desc>
+    </func> 
+
+    <func>
+      <name>run(Subject,RE) -> {match, Captured} | nomatch</name>
+      <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata() | charlist()</v>
+	<v>Captured = [ CaptureData ]</v>
+	<v>CaptureData = {int(),int()}</v>
+      </type>
+      <desc>
+      <p>The same as <c>run(Subject,RE,[])</c>.</p>
+      </desc>
+    </func> 
+    <func>
+      <name>run(Subject,RE,Options) -> {match, Captured} | match | nomatch</name>
+      <fsummary>Match a subject against regular expression and capture subpatterns</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata() | charlist()</v>
+	<v>Options = [ Option ]</v>
+	<v>Option = anchored | global | notbol | noteol | notempty | {offset, int()} | {newline, NLSpec} | bsr_anycrlf | bsr_unicode | {capture, ValueSpec} | {capture, ValueSpec, Type} | CompileOpt</v>
+	<v>Type = index | list | binary</v>
+	<v>ValueSpec = all | all_but_first | first | none | ValueList</v>
+	<v>ValueList = [ ValueID ]</v>
+	<v>ValueID = int() | string() | atom()</v>
+	<v>CompileOpt = see compile/2 above</v>
+	<v>NLSpec = cr | crlf | lf | anycrlf | any</v>
+	<v>Captured = [ CaptureData ] | [ [ CaptureData ] ... ]</v>
+	<v>CaptureData = {int(),int()} | ListConversionData | binary()</v>
+	<v>ListConversionData = string() | {error, string(), binary()} | {incomplete, string(), binary()}</v>
+      </type>
+      <desc>
+
+      <p>Executes a regexp matching, returning <c>match/{match,
+      Captured}</c> or <c>nomatch</c>. The regular expression can be
+      given either as <c>iodata()</c> in which case it is
+      automatically compiled (as by <c>re:compile/2</c>) and executed,
+      or as a pre compiled <c>mp()</c> in which case it is executed
+      against the subject directly.</p>
+
+      <p>When compilation is involved, the exception <c>badarg</c> is thrown if
+      a compilation error occurs. To locate the error in the regular
+      expression, use the function <c>re:compile/2</c> to get more information.</p>
+
+      <p>If the regular expression is previously compiled, the option
+      list can only contain the options <c>anchored</c>,
+      <c>global</c>, <c>notbol</c>, <c>noteol</c>,
+      <c>notempty</c>, <c>{offset, int()}</c>, <c>{newline,
+      NLSpec}</c> and <c>{capture, ValueSpec}/{capture, ValueSpec,
+      Type}</c>.  Otherwise all options valid for the
+      <c>re:compile/2</c> function are allowed as well. Options
+      allowed both for compilation and execution of a match, namely
+      <c>anchored</c> and <c>{newline, NLSpec}</c>, will affect both
+      the compilation and execution if present together with a non
+      pre-compiled regular expression.</p>
+
+      <p>If the regular expression was previously compiled with the
+      option <c>unicode</c>, the <c>Subject</c> should be provided as
+      a valid Unicode <c>charlist()</c>, otherwise any <c>iodata()</c>
+      will do. If compilation is involved and the option
+      <c>unicode</c> is given, both the <c>Subject</c> and the regular
+      expression should be given as valid Unicode
+      <c>charlists()</c>.</p>
+
+      <p>The <c>{capture, ValueSpec}/{capture, ValueSpec, Type}</c>
+      defines what to return from the function upon successful
+      matching. The <c>capture</c> tuple may contain both a
+      value specification telling which of the captured
+      substrings are to be returned, and a type specification, telling
+      how captured substrings are to be returned (as index tuples,
+      lists or binaries). The <c>capture</c> option makes the function
+      quite flexible and powerful. The different options are described
+      in detail below</p>
+
+      <p>If the capture options describe that no substring capturing
+      at all is to be done (<c>{capture, none}</c>), the function will
+      return the single atom <c>match</c> upon successful matching,
+      otherwise the tuple
+      <c>{match, ValueList}</c> is returned. Disabling capturing can
+      be done either by specifying <c>none</c> or an empty list as
+      <c>ValueSpec</c>.</p>
+
+      <p>A description of all the options relevant for execution follows:</p>
+
+      <taglist>
+      <tag><c>anchored</c></tag>
+
+      <item>Limits <c>re:run/3</c> to matching at the first matching
+      position. If a pattern was compiled with <c>anchored</c>, or
+      turned out to be anchored by virtue of its contents, it cannot
+      be made unanchored at matching time, hence there is no
+      <c>unanchored</c> option.</item>
+
+      <tag><c>global</c></tag>
+      <item>
+
+      <p>Implements global (repetitive) search as the <c>g</c> flag in
+      i.e. Perl. Each match found is returned as a separate
+      <c>list()</c> containing the specific match as well as any
+      matching subexpressions (or as specified by the <c>capture
+      option</c>). The <c>Captured</c> part of the return value will
+      hence be a <c>list()</c> of <c>list()</c>'s when this
+      option is given.</p>
+
+      <p>When the regular expression matches an empty string, the
+      behaviour might seem non-intuitive, why the behaviour requites
+      some clarifying.  With the global option, <c>re:run/3</c>
+      handles empty matches in the same way as Perl, meaning that a
+      match at any point giving an empty string (with length 0) will
+      be retried with the options
+      <c>[anchored, notempty]</c> as well. If that 
+      search gives a result of length &gt; 0, the result is included. 
+      An example:</p>
+      
+<code>    re:run("cat","(|at)",[global]).</code>
+
+      <p>The matching will be performed as following:</p>
+      <taglist>
+      <tag>At offset <c>0</c></tag>
+      <item>The regexp <c>(|at)</c> will first match at the initial
+      position of the string <c>cat</c>, giving the result set
+      <c>[{0,0},{0,0}]</c> (the second <c>{0,0}</c> is due to the
+      subexpression marked by the parentheses). As the length of the
+      match is 0, we don't advance to the next position yet.</item>
+      <tag>At offset <c>0</c> with <c>[anchored, notempty]</c></tag>
+      <item> The search is retried
+      with the options <c>[anchored, notempty]</c> at the same
+      position, which does not give any interesting result of longer
+      length, why the search position is now advanced to the next
+      character (<c>a</c>).</item>
+      <tag>At offset <c>1</c></tag>
+      <item>Now the search results in
+      <c>[{1,0},{1,0}]</c> meaning this search will also be repeated
+      with the extra options.</item>
+      <tag>At offset <c>1</c> with <c>[anchored, notempty]</c></tag>
+      <item>Now the <c>ab</c> alternative
+      is found and the result will be [{1,2},{1,2}]. The result is
+      added to the list of results and the position in the
+      search string is advanced two steps.</item>
+      <tag>At offset <c>3</c></tag>
+      <item>The search now once again
+      matches the empty string, giving <c>[{3,0},{3,0}]</c>.</item>
+      <tag>At offset <c>1</c> with <c>[anchored, notempty]</c></tag>
+      <item>This will give no result of length &gt; 0 and we are at
+      the last position, so the global search is complete.</item>
+      </taglist>
+      <p>The result of the call is:</p>
+
+<code>     {match,[[{0,0},{0,0}],[{1,0},{1,0}],[{1,2},{1,2}],[{3,0},{3,0}]]}</code>
+</item>
+
+      <tag><c>notempty</c></tag>
+      <item>
+      <p>An empty string is not considered to be a valid match if this
+      option is given. If there are alternatives in the pattern, they
+      are tried. If all the alternatives match the empty string, the
+      entire match fails. For example, if the pattern</p>
+<code>    a?b?</code>
+      <p>is applied to a string not beginning with "a" or "b", it
+      matches the empty string at the start of the subject. With
+      <c>notempty</c> given, this match is not valid, so re:run/3 searches
+      further into the string for occurrences of "a" or "b".</p>
+
+      <p>Perl has no direct equivalent of <c>notempty</c>, but it does
+      make a special case of a pattern match of the empty string
+      within its split() function, and when using the /g modifier. It
+      is possible to emulate Perl's behavior after matching a null
+      string by first trying the match again at the same offset with
+      <c>notempty</c> and <c>anchored</c>, and then if that fails by
+      advancing the starting offset (see below) and trying an ordinary
+      match again.</p>
+      </item>
+      <tag><c>notbol</c></tag>
+
+      <item>This option specifies that the first character of the subject
+      string is not the beginning of a line, so the circumflex
+      metacharacter should not match before it. Setting this without
+      <c>multiline</c> (at compile time) causes circumflex never to
+      match. This option affects only the behavior of the circumflex
+      metacharacter. It does not affect \A.</item>
+
+      <tag><c>noteol</c></tag>
+
+      <item>This option specifies that the end of the subject string
+      is not the end of a line, so the dollar metacharacter should not
+      match it nor (except in multiline mode) a newline immediately
+      before it. Setting this without <c>multiline</c> (at compile time)
+      causes dollar never to match. This option affects only the
+      behavior of the dollar metacharacter. It does not affect \Z or
+      \z.</item>
+
+      <tag><c>{offset, int()}</c></tag>
+
+      <item>Start matching at the offset (position) given in the
+      subject string. The offset is zero-based, so that the default is
+      <c>{offset,0}</c> (all of the subject string).</item>
+
+      <tag><c>{newline, NLSpec}</c></tag>
+      <item>
+      <p>Override the default definition of a newline in the subject string, which is LF (ASCII 10) in Erlang.</p>
+      <taglist>
+        <tag><c>cr</c></tag>
+        <item>Newline is indicated by a single character CR (ASCII 13)</item>
+        <tag><c>lf</c></tag>
+        <item>Newline is indicated by a single character LF (ASCII 10), the default</item>
+        <tag><c>crlf</c></tag>
+        <item>Newline is indicated by the two-character CRLF (ASCII 13 followed by ASCII 10) sequence.</item>
+        <tag><c>anycrlf</c></tag>
+        <item>Any of the three preceding sequences should be recognized.</item>
+        <tag><c>any</c></tag>
+        <item>Any of the newline sequences above, plus the Unicode sequences VT (vertical tab, U+000B), FF (formfeed, U+000C), NEL (next line, U+0085), LS (line separator, U+2028), and PS (paragraph separator, U+2029). </item>
+      </taglist>
+      </item>
+      <tag><c>bsr_anycrlf</c></tag>
+      <item>Specifies specifically that \\R is to match only the cr, lf or crlf sequences, not the Unicode specific newline characters.(overrides compilation option)</item>
+      <tag><c>bsr_unicode</c></tag>
+      <item>Specifies specifically that \\R is to match all the Unicode newline characters (including crlf etc, the default).(overrides compilation option)</item>
+
+      <tag><c>{capture, ValueSpec}</c>/<c>{capture, ValueSpec, Type}</c></tag>
+      <item>
+
+      <p>Specifies which captured substrings are returned and in what
+      format. By default,
+      <c>re:run/3</c> captures all of the matching part of the
+      substring as well as all capturing subpatterns (all of the
+      pattern is automatically captured). The default return type is
+      (zero-based) indexes of the captured parts of the string, given as
+      <c>{Offset,Length}</c> pairs (the <c>index</c> <c>Type</c> of
+      capturing).</p>
+
+      <p>As an example of the default behavior, the following call:</p>
+
+      <code>    re:run("ABCabcdABC","abcd",[]).</code>
+      
+      <p>returns, as first and only captured string the matching part of the subject ("abcd" in the middle) as a index pair <c>{3,4}</c>, where character positions are zero based, just as in offsets. The return value of the call above would then be:</p>
+      <code>    {match,[{3,4}]}</code>
+      <p>Another (and quite common) case is where the regular expression matches all of the subject, as in:</p>
+      <code>    re:run("ABCabcdABC",".*abcd.*",[]).</code>
+      <p>where the return value correspondingly will point out all of the string, beginning at index 0 and being 10 characters long:</p>
+      <code>    {match,[{0,10}]}</code>
+
+      <p>If the regular expression contains capturing subpatterns,
+      like in the following case:</p>
+
+      <code>    re:run("ABCabcdABC",".*(abcd).*",[]).</code>
+      
+      <p>all of the matched subject is captured, as
+      well as the captured substrings:</p>
+
+      <code>    {match,[{0,10},{3,4}]}</code>
+
+      <p>the complete matching pattern always giving the first return value in the
+      list and the rest of the subpatterns being added in the
+      order they occurred in the regular expression.</p>
+
+      <p>The capture tuple is built up as follows:</p>
+      <taglist>
+      <tag><c>ValueSpec</c></tag>
+      <item><p>Specifies which captured (sub)patterns are to be returned. The ValueSpec can either be an atom describing a predefined set of return values, or a list containing either the indexes or the names of specific subpatterns to return.</p>
+      <p>The predefined sets of subpatterns are:</p>
+        <taglist>
+        <tag><c>all</c></tag>
+        <item>All captured subpatterns including the complete matching string. This is the default.</item>
+        <tag><c>first</c></tag>
+        <item>Only the first captured subpattern, which is always the complete matching part of the subject. All explicitly captured subpatterns are discarded.</item>
+        <tag><c>all_but_first</c></tag>
+        <item>All but the first matching subpattern, i.e. all explicitly captured subpatterns, but not the complete matching part of the subject string. This is useful if the regular expression as a whole matches a large part of the subject, but the part you're interested in is in an explicitly captured subpattern. If the return type is <c>list</c> or <c>binary</c>, not returning subpatterns you're not interested in is a good way to optimize.</item>
+        <tag><c>none</c></tag>
+        <item>Do not return matching subpatterns at all, yielding the single atom <c>match</c> as the return value of the function when matching successfully instead of the <c>{match, list()}</c> return. Specifying an empty list gives the same behavior.</item>
+        </taglist>
+      <p>The value list is a list of indexes for the subpatterns to return, where index 0 is for all of the pattern, and 1 is for the first explicit capturing subpattern in the regular expression, and so forth. When using named captured subpatterns (see below) in the regular expression, one can use <c>atom()</c>'s or <c>string()</c>'s to specify the subpatterns to be returned. This deserves an example, consider the following regular expression:</p>
+      <code>    ".*(abcd).*"</code>
+      <p>matched against the string ""ABCabcdABC", capturing only the "abcd" part (the first explicit subpattern):</p>
+      <code>    re:run("ABCabcdABC",".*(abcd).*",[{capture,[1]}]).</code>
+      <p>The call will yield the following result:</p>
+      <code>    {match,[{3,4}]}</code>
+      <p>as the first explicitly captured subpattern is "(abcd)", matching "abcd" in the subject, at (zero-based) position 3, of length 4.</p>
+      <p>Now consider the same regular expression, but with the subpattern explicitly named 'FOO':</p>
+      <code>    ".*(?&lt;FOO&gt;abcd).*"</code>
+      <p>With this expression, we could still give the index of the subpattern with the following call:</p>
+      <code>    re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,[1]}]).</code>
+      <p>giving the same result as before. But as the subpattern is named, we can also give its name in the value list:</p>
+      <code>    re:run("ABCabcdABC",".*(?&lt;FOO&gt;abcd).*",[{capture,['FOO']}]).</code>
+      <p>which would yield the same result as the earlier examples, namely:</p>
+      <code>    {match,[{3,4}]}</code>
+
+      <p>The values list might specify indexes or names not present in
+      the regular expression, in which case the return values vary
+      depending on the type. If the type is <c>index</c>, the tuple
+      <c>{-1,0}</c> is returned for values having no corresponding
+      subpattern in the regexp, but for the other types
+      (<c>binary</c> and <c>list</c>), the values are the empty binary
+      or list respectively.</p>
+
+      </item>      
+      <tag><c>Type</c></tag>
+      <item><p>Optionally specifies how captured substrings are to be returned. If omitted, the default of <c>index</c> is used. The <c>Type</c> can be one of the following:</p>
+        <taglist>
+        <tag><c>index</c></tag> 
+        <item>Return captured substrings as pairs of byte indexes into the subject string and length of the matching string in the subject (as if the subject string was flattened with <c>iolist_to_binary/1</c> or <c>unicode:characters_to_binary/2</c> prior to matching). Note that the <c>unicode</c> option results in <em>byte-oriented</em> indexes in a (possibly imagined) <em>UTF-8 encoded</em> binary. A byte index tuple <c>{0,2}</c> might therefore represent one or two characters when <c>unicode</c> is in effect. This might seem contra-intuitive, but has been deemed the most effective and useful way to way to do it. To return lists instead might result in simpler code if that is desired. This return type is the default.</item>
+        <tag><c>list</c></tag> 
+        <item>Return matching substrings as lists of characters (Erlang <c>string()</c>'s). It the <c>unicode</c> option is used in combination with the \\C sequence in the regular expression, a captured subpattern can contain bytes that has is not valid UTF-8 (\\C matches bytes regardless of character encoding). In that case the <c>list</c> capturing may result in the same types of tuples that <c>unicode:characters_to_list/2</c> can return, namely three-tuples with the tag <c>incomplete</c> or <c>error</c>, the successfully converted characters and the invalid UTF-8 tail of the conversion as a binary. The best strategy is to avoid using the\\C sequence when capturing lists.</item>
+        <tag><c>binary</c></tag> 
+        <item>Return matching substrings as binaries. If the <c>unicode</c> option is used, these binaries is in UTF-8. If the \\C sequence is used together with <c>unicode</c> the binaries may be invalid UTF-8.</item>
+        </taglist>
+      </item>
+      </taglist>
+      <p>In general, subpatterns that got assigned no value in the match are returned as the tuple <c>{-1,0}</c> when <c>type</c> is <c>index</c>. Unassigned subpatterns are returned as the empty binary or list respectively for other return types. Consider the regular expression:</p>
+<code>    ".*((?&lt;FOO&gt;abdd)|a(..d)).*"</code>
+      <p>There are three explicitly capturing subpatterns, where the opening parenthesis position determines the order in the result, hence <c>((?&lt;FOO&gt;abdd)|a(..d))</c> is subpattern index 1, <c>(?&lt;FOO&gt;abdd)</c> is subpattern index 2 and <c>(..d)</c> is subpattern index 3. When matched against the following string:</p>
+<code>    "ABCabcdABC"</code>
+      <p>the subpattern at index 2 won't match, as "abdd" is not present in the string, but the complete pattern matches (due to the alternative <c>a(..d)</c>. The subpattern at index 2 is therefore unassigned and the default return value will be:</p>
+<code>    {match,[{0,10},{3,4},{-1,0},{4,3}]}</code>
+      <p>Setting the capture <c>Type</c> to <c>binary</c> would give the following:</p>
+<code>    {match,[&lt;&lt;"ABCabcdABC"&gt;&gt;,&lt;&lt;"abcd"&gt;&gt;,&lt;&lt;&gt;&gt;,&lt;&lt;"bcd"&gt;&gt;]}</code>
+      <p>where the empty binary (<c>&lt;&lt;&gt;&gt;</c>) represents the unassigned subpattern. In the <c>binary</c> case, some information about the matching is therefore lost, the <c>&lt;&lt;&gt;&gt;</c> might just as well be an empty string captured.</p>
+      <p>If differentiation between empty matches and non existing subpatterns is necessary, use the <c>type</c> <c>index</c>
+      and do the conversion to the final type in Erlang code.</p>
+      
+      <p>When the option <c>global</c> is given, the <c>capture</c>
+      specification affects each match separately, so that:</p>
+
+      <code>    re:run("cacb","c(a|b)",[global,{capture,[1],list}]).</code>
+
+      <p>gives the result:</p>
+
+      <code>    {match,[["a"],["b"]]}</code>      
+
+      </item>
+      </taglist>
+      <p>The options solely affecting the compilation step are described in the <c>re:compile/2</c> function.</p>
+      </desc>
+    </func>
+   <func>
+      <name>replace(Subject,RE,Replacement) -> iodata() | charlist()</name>
+      <fsummary>Match a subject against regular expression and replace matching elements with Replacement</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata()</v>
+	<v>Replacement = iodata() | charlist()</v> 
+      </type>
+      <desc>
+      <p>The same as <c>replace(Subject,RE,Replacement,[])</c>.</p>
+      </desc>
+    </func> 
+    <func>
+      <name>replace(Subject,RE,Replacement,Options) -> iodata() | charlist() | binary() | list()</name>
+      <fsummary>Match a subject against regular expression and replace matching elements with Replacement</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata() | charlist()</v>
+	<v>Replacement = iodata() | charlist()</v> 
+	<v>Options = [ Option ]</v>
+	<v>Option = anchored | global | notbol | noteol | notempty | {offset, int()} | {newline, NLSpec} | bsr_anycrlf | bsr_unicode | {return, ReturnType} | CompileOpt</v>
+	<v>ReturnType = iodata | list | binary</v>
+	<v>CompileOpt = see compile/2 above</v>
+	<v>NLSpec = cr | crlf | lf | anycrlf | any </v>
+      </type>
+      <desc>
+      <p>Replaces the matched part of the <c>Subject</c> string with the content of <c>Replacement</c>.</p>
+      <p>Options are given as to the <c>re:run/3</c> function except that the <c>capture</c> option of <c>re:run/3</c> is not allowed. 
+      Instead a <c>{return, ReturnType}</c> is present. The default return type is <c>iodata</c>, constructed in a 
+      way to minimize copying. The <c>iodata</c> result can be used directly in many i/o-operations. If a flat <c>list()</c> is
+      desired, specify <c>{return, list}</c> and if a binary is preferred, specify <c>{return, binary}</c>.</p>
+
+      <p>As in the <c>re:run/3</c> function, an <c>mp()</c> compiled
+      with the <c>unicode</c> option requires the <c>Subject</c> to be
+      a Unicode <c>charlist()</c>. If compilation is done implicitly
+      and the <c>unicode</c> compilation option is given to this
+      function, both the regular expression and the <c>Subject</c>
+      should be given as valid Unicode <c>charlist()</c>'s.</p>
+
+      <p>The replacement string can contain the special character
+      <c>&amp;</c>, which inserts the whole matching expression in the
+      result, and the special sequence <c>\\</c>N (where N is an
+      integer &gt; 0), resulting in the subexpression number N will be
+      inserted in the result. If no subexpression with that number is
+      generated by the regular expression, nothing is inserted.</p>
+      <p>To insert an <c>&amp;</c> or <c>\\</c> in the result, precede it
+      with a <c>\\</c>. Note that Erlang already gives a special
+      meaning to <c>\\</c> in literal strings, why a single <c>\\</c>
+      has to be written as <c>"\\\\"</c> and therefore a double <c>\\</c>
+      as <c>"\\\\\\\\"</c>. Example:</p>
+      <code>    re:replace("abcd","c","[&amp;]",[{return,list}]).</code>
+      <p>gives</p>
+      <code>    "ab[c]d"</code>
+      <p>while</p>
+      <code>    re:replace("abcd","c","[\\\&amp;]",[{return,list}]).</code>
+      <p>gives</p>
+      <code>    "ab[&amp;]d"</code>
+      <p>As with <c>re:run/3</c>, compilation errors raise the <c>badarg</c>
+      exception, <c>re:compile/2</c> can be used to get more information
+      about the error.</p>
+      </desc>
+    </func>
+    <func>
+      <name>split(Subject,RE) -> SplitList</name>
+      <fsummary>Split a string by tokens specified as a regular expression</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata()</v>
+	<v>SplitList = [ iodata() | charlist() ]</v>
+      </type>
+      <desc>
+      <p>The same as <c>split(Subject,RE,[])</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>split(Subject,RE,Options) -> SplitList</name>
+      <fsummary>Split a string by tokens specified as a regular expression</fsummary>
+      <type>
+	<v>Subject = iodata() | charlist()</v> 
+        <v>RE = mp() | iodata() | charlist()</v>
+	<v>Options = [ Option ]</v>
+	<v>Option = anchored | global | notbol | noteol | notempty | {offset, int()} | {newline, NLSpec} | bsr_anycrlf | bsr_unicode | {return, ReturnType} | {parts, NumParts} | group | trim | CompileOpt</v>
+	<v>NumParts = int() | infinity</v>
+	<v>ReturnType = iodata | list | binary</v>
+	<v>CompileOpt = see compile/2 above</v>
+	<v>NLSpec = cr | crlf | lf | anycrlf | any </v>
+	<v>SplitList = [ RetData ] | [ GroupedRetData ]</v>
+	<v>GroupedRetData = [ RetData ]</v>
+	<v>RetData = iodata() charlist() | binary() | list()</v>
+      </type>
+      <desc>
+      <p>This function splits the input into parts by finding tokens
+      according to the regular expression supplied.</p>
+
+      <p>The splitting is done basically by running a global regexp match and 
+      dividing the initial string wherever a match occurs. The matching part 
+      of the string is removed from the output.</p>
+
+      <p>As in the <c>re:run/3</c> function, an <c>mp()</c> compiled
+      with the <c>unicode</c> option requires the <c>Subject</c> to be
+      a Unicode <c>charlist()</c>. If compilation is done implicitly
+      and the <c>unicode</c> compilation option is given to this
+      function, both the regular expression and the <c>Subject</c>
+      should be given as valid Unicode <c>charlist()</c>'s.</p>
+
+      <p>The result is given as a list of &quot;strings&quot;, the
+      preferred datatype given in the <c>return</c> option (default iodata).</p> 
+      <p>If subexpressions are given in the regular expression, the
+      matching subexpressions are returned in the resulting list as
+      well. An example:</p>
+
+<code>    re:split("Erlang","[ln]",[{return,list}]).</code>
+
+      <p>will yield the result:</p>
+
+<code>    ["Er","a","g"]</code>
+
+      <p>while</p>
+
+<code>    re:split("Erlang","([ln])",[{return,list}]).</code>
+
+      <p>will yield</p>
+
+<code>    ["Er","l","a","n","g"]</code>
+
+      <p>The text matching the subexpression (marked by the parentheses 
+      in the regexp) is 
+      inserted in the result list where it was found. In effect this means 
+      that concatenating the result of a split where the whole regexp is a 
+      single subexpression (as in the example above) will always result in 
+      the original string.</p>
+
+      <p>As there is no matching subexpression for the last part in
+      the example (the &quot;g&quot;), there is nothing inserted after
+      that. To make the group of strings and the parts matching the
+      subexpressions more obvious, one might use the <c>group</c>
+      option, which groups together the part of the subject string with the
+      parts matching the subexpressions when the string was split:</p>
+
+<code>    re:split("Erlang","([ln])",[{return,list},group]).</code>
+
+      <p>gives:</p>
+
+<code>    [["Er","l"],["a","n"],["g"]]</code>      
+
+      <p>Here the regular expression matched first the &quot;l&quot;,
+      causing &quot;Er&quot; to be the first part in the result. When
+      the regular expression matched, the (only) subexpression was
+      bound to the &quot;l&quot;, why the &quot;l&quot; is inserted
+      in the group together with &quot;Er&quot;. The next match is of
+      the &quot;n&quot;, making &quot;a&quot; the next part to be
+      returned. As the subexpression is bound to the substring
+      &quot;n&quot; in this case, the &quot;n&quot; is inserted into
+      this group. The last group consists of the rest of the string,
+      as no more matches are found.</p>
+
+
+      <p>By default, all parts of the string, including the empty
+      strings are returned from the function. As an example:</p>      
+
+<code>    re:split("Erlang","[lg]",[{return,list}]).</code>
+
+      <p>The result will be:</p>
+
+<code>    ["Er","an",[]]</code>
+
+      <p>as the matching of the &quot;g&quot; in the end of the string
+      leaves an empty rest which is also returned. This behaviour
+      differs from the default behaviour of the split function in
+      Perl, where empty strings at the end are by default removed. To
+      get the
+      &quot;trimming&quot; default behavior of Perl, specify
+      <c>trim</c> as an option:</p>
+
+<code>    re:split("Erlang","[lg]",[{return,list},trim]).</code>
+
+      <p>The result will be:</p>
+
+<code>    ["Er","an"]</code>
+      
+      <p>The &quot;trim&quot; option in effect says; &quot;give me as
+      many parts as possible except the empty ones&quot;, which might
+      be useful in some circumstances. You can also specify how many
+      parts you want, by specifying <c>{parts,</c>N<c>}</c>:</p>
+
+<code>    re:split("Erlang","[lg]",[{return,list},{parts,2}]).</code>
+          
+      <p>This will give:</p>
+
+<code>    ["Er","ang"]</code>
+
+      <p>Note that the last part is &quot;ang&quot;, not
+      &quot;an&quot;, as we only specified splitting into two parts,
+      and the splitting stops when enough parts are given, why the
+      result differs from that of <c>trim</c>.</p>
+
+      <p>More than three parts are not possible with this indata, why</p>
+
+<code>    re:split("Erlang","[lg]",[{return,list},{parts,4}]).</code>
+
+      <p>will give the same result as the default, which is to be
+      viewed as &quot;an infinite number of parts&quot;.</p> 
+
+      <p>Specifying <c>0</c> as the number of parts gives the same
+      effect as the option <c>trim</c>. If subexpressions are
+      captured, empty subexpression matches at the end are also
+      stripped from the result if <c>trim</c> or <c>{parts,0}</c> is
+      specified.</p>
+
+      <p>If you are familiar with Perl, the <c>trim</c>
+      behaviour corresponds exactly to the Perl default, the
+      <c>{parts,N}</c> where N is a positive integer corresponds
+      exactly to the Perl behaviour with a positive numerical third
+      parameter and the default behaviour of <c>re:split/3</c> corresponds
+      to that when the Perl routine is given a negative integer as the
+      third parameter.</p>
+
+      <p>Summary of options not previously described for the <c>re:run/3</c> function:</p>
+      <taglist>
+      <tag>{return,ReturnType}</tag>
+      <item><p>Specifies how the parts of the original string are presented in the result list. The possible types are:</p>
+      <taglist>
+        <tag>iodata</tag>
+	<item>The variant of <c>iodata()</c> that gives the least copying of data with the current implementation (often a binary, but don't depend on it).</item>
+	<tag>binary</tag>
+	<item>All parts returned as binaries.</item>
+	<tag>list</tag>
+	<item>All parts returned as lists of characters (&quot;strings&quot;).</item>
+	</taglist>
+      </item>
+      <tag>group</tag>
+      <item>
+
+      <p>Groups together the part of the string with
+      the parts of the string matching the subexpressions of the
+      regexp.</p>
+      <p>The return value from the function will in this case be a
+      <c>list()</c> of <c>list()</c>'s.  Each sublist begins with the
+      string picked out of the subject string, followed by the parts
+      matching each of the subexpressions in order of occurrence in the
+      regular expression.</p>
+
+      </item>
+      <tag>{parts,N}</tag>
+      <item>
+
+      <p>Specifies the number of parts the subject string is to be
+      split into.</p>
+
+      <p>The number of parts should be a positive integer for a specific maximum on the
+      number of parts and <c>infinity</c> for the maximum number of
+      parts possible (the default). Specifying <c>{parts,0}</c> gives as many parts as
+      possible disregarding empty parts at the end, the same as
+      specifying <c>trim</c></p>
+      </item>
+      <tag>trim</tag>
+      <item>
+
+      <p>Specifies that empty parts at the end of the result list are
+      to be disregarded. The same as specifying <c>{parts,0}</c>. This
+      corresponds to the default behaviour of the <c>split</c>
+      built in function in Perl.</p>
+      </item>
+      </taglist>
+
+      </desc>
+    </func>     
+    </funcs>
+    
+
+  <section>
+    <title>PERL LIKE REGULAR EXPRESSIONS SYNTAX</title>
+    <p>The following sections contain reference material for the
+    regular expressions used by this module. The regular expression
+    reference is taken from the PCRE documentation, but converted as
+    needed.</p>
+    <p>The documentation is altered where appropriate and where the re 
+    module behaves differently than the PCRE library.</p>
+  </section>
+
+<section><title>PCRE regular expression details</title>
+
+<p>The syntax and semantics of the regular expressions that are supported by PCRE
+are described in detail below. Perl's regular expressions are described in its own documentation, and
+regular expressions in general are covered in a number of books, some of which
+have copious examples. Jeffrey Friedl's "Mastering Regular Expressions",
+published by O'Reilly, covers regular expressions in great detail. This
+description of PCRE's regular expressions is intended as reference material.</p>
+<p>The reference material is divided into the following sections:</p>
+<list>
+<item><seealso marker="#sect1">Newline conventions</seealso></item>
+<item><seealso marker="#sect2">Characters and metacharacters</seealso></item>
+<item><seealso marker="#sect3">Backslash</seealso></item>
+<item><seealso marker="#sect4">Circumflex and dollar</seealso></item>
+<item><seealso marker="#sect5">Full stop (period, dot)</seealso></item>
+<item><seealso marker="#sect6">Matching a single byte</seealso></item>
+<item><seealso marker="#sect7">Square brackets and character classes</seealso></item>
+<item><seealso marker="#sect8">POSIX character classes</seealso></item>
+<item><seealso marker="#sect9">Vertical bar</seealso></item>
+<item><seealso marker="#sect10">Internal option setting</seealso></item>
+<item><seealso marker="#sect11">Subpatterns</seealso></item>
+<item><seealso marker="#sect12">Duplicate subpattern numbers</seealso></item>
+<item><seealso marker="#sect13">Named subpatterns</seealso></item>
+<item><seealso marker="#sect14">Repetition</seealso></item>
+<item><seealso marker="#sect15">Atomic grouping and possessive quantifiers</seealso></item>
+<item><seealso marker="#sect16">Back references</seealso></item>
+<item><seealso marker="#sect17">Assertions</seealso></item>
+<item><seealso marker="#sect18">Conditional subpatterns</seealso></item>
+<item><seealso marker="#sect19">Comments</seealso></item>
+<item><seealso marker="#sect20">Recursive patterns</seealso></item>
+<item><seealso marker="#sect21">Subpatterns as subroutines</seealso></item>
+<!-- XXX C Interface
+<item><seealso marker="#sect22">Callouts</seealso></item>
+-->
+<item><seealso marker="#sect23">Backtracking control</seealso></item>
+</list>
+
+</section>
+
+
+<section><marker id="sect1"></marker><title>Newline conventions</title>
+
+<p>PCRE supports 
+five 
+different conventions for indicating line breaks in
+strings: a single CR (carriage return) character, a single LF (linefeed)
+character, the two-character sequence CRLF
+, any of the three preceding, or any
+Unicode newline sequence.</p> 
+
+<p>It is also possible to specify a newline convention by starting a pattern
+string with one of the following five sequences:</p>
+
+<taglist>
+  <tag>(*CR)</tag>        <item>carriage return</item>
+  <tag>(*LF)</tag>        <item>linefeed</item>
+  <tag>(*CRLF)</tag>      <item>carriage return, followed by linefeed</item>
+  <tag>(*ANYCRLF)</tag>   <item>any of the three above</item>
+  <tag>(*ANY)</tag>       <item>all Unicode newline sequences</item>
+</taglist>
+
+<p>These override the default and the options given to <c>re:compile/2</c>. For
+example, the pattern:</p>
+
+<quote>  
+<p>    (*CR)a.b</p>
+</quote>
+
+<p>changes the convention to CR. That pattern matches "a\\nb" because LF is no
+longer a newline. Note that these special settings, which are not
+Perl-compatible, are recognized only at the very start of a pattern, and that
+they must be in upper case. If more than one of them is present, the last one
+is used.</p>
+
+<p>The newline convention does not affect what the \\R escape sequence matches. By
+default, this is any Unicode newline sequence, for Perl compatibility. However,
+this can be changed; see the description of \\R in the section entitled
+
+"Newline sequences"
+
+below. A change of \\R setting can be combined with a change of newline
+convention.</p>
+
+</section>
+
+ 
+<section><marker id="sect2"></marker><title>Characters and metacharacters</title>
+<!-- .rs -->
+
+<p>A regular expression is a pattern that is matched against a subject
+string from left to right. Most characters stand for themselves in a
+pattern, and match the corresponding characters in the subject. As a
+trivial example, the pattern</p>
+
+<quote>  
+<p>    The quick brown fox</p>
+</quote>
+
+<p>matches a portion of a subject string that is identical to
+itself. When caseless matching is specified (the <c>caseless</c>
+option), letters are matched independently of case.</p>
+
+<p>The power of regular expressions comes from the ability to include
+alternatives and repetitions in the pattern. These are encoded in the
+pattern by the use of <em>metacharacters</em>, which do not stand for
+themselves but instead are interpreted in some special way.</p>
+
+<p>There are two different sets of metacharacters: those that are recognized
+anywhere in the pattern except within square brackets, and those that are
+recognized within square brackets. Outside square brackets, the metacharacters
+are as follows:</p>
+
+<taglist>
+  <tag>\\</tag>      <item>general escape character with several uses</item>
+  <tag>^</tag>      <item>assert start of string (or line, in multiline mode)</item>
+  <tag>$</tag>      <item>assert end of string (or line, in multiline mode)</item>
+  <tag>.</tag>      <item>match any character except newline (by default)</item>
+  <tag>[</tag>      <item>start character class definition</item>
+  <tag>|</tag>      <item>start of alternative branch</item>
+  <tag>(</tag>      <item>start subpattern</item>
+  <tag>)</tag>      <item>end subpattern</item>
+  <tag>?</tag>      <item>extends the meaning of (,
+                          also 0 or 1 quantifier,
+                          also quantifier minimizer</item>
+  <tag>*</tag>      <item>0 or more quantifier</item>
+  <tag>+</tag>      <item>1 or more quantifier,
+                          also "possessive quantifier"</item>
+  <tag>{</tag>      <item>start min/max quantifier</item>
+</taglist>
+
+<p>Part of a pattern that is in square brackets is called a "character class". In
+a character class the only metacharacters are:</p>
+
+<taglist>
+  <tag>\\</tag>      <item>general escape character</item>
+  <tag>^</tag>      <item>negate the class, but only if the first character</item>
+  <tag>-</tag>      <item>indicates character range</item>
+  <tag>[</tag>      <item>POSIX character class (only if followed by POSIX
+           syntax)</item>
+  <tag>]</tag>      <item>terminates the character class</item>
+</taglist>
+
+<p>The following sections describe the use of each of the metacharacters.</p>
+
+
+</section>
+
+<section><marker id="sect3"></marker><title>Backslash</title>
+
+
+<p>The backslash character has several uses. Firstly, if it is followed by a
+non-alphanumeric character, it takes away any special meaning that character
+may have. This use of backslash as an escape character applies both inside and
+outside character classes.</p>
+
+<p>For example, if you want to match a * character, you write \\* in the pattern.
+This escaping action applies whether or not the following character would
+otherwise be interpreted as a metacharacter, so it is always safe to precede a
+non-alphanumeric with backslash to specify that it stands for itself. In
+particular, if you want to match a backslash, you write \\\\.</p>
+
+<p>If a pattern is compiled with the <c>extended</c> option, whitespace in the
+pattern (other than in a character class) and characters between a # outside
+a character class and the next newline are ignored. An escaping backslash can
+be used to include a whitespace or # character as part of the pattern.</p>
+
+<p>If you want to remove the special meaning from a sequence of characters, you
+can do so by putting them between \\Q and \\E. This is different from Perl in
+that $ and @ are handled as literals in \\Q...\\E sequences in PCRE, whereas in
+Perl, $ and @ cause variable interpolation. Note the following examples:</p>
+<code type="none">
+  Pattern           PCRE matches   Perl matches
+
+  \\Qabc$xyz\\E       abc$xyz        abc followed by the contents of $xyz
+  \\Qabc\\$xyz\\E      abc\\$xyz       abc\\$xyz
+  \\Qabc\\E\\$\\Qxyz\\E  abc$xyz        abc$xyz</code>
+
+
+<p>The \\Q...\\E sequence is recognized both inside and outside character classes.</p>
+
+
+<p><em>Non-printing characters</em></p>
+
+<p>A second use of backslash provides a way of encoding non-printing characters
+in patterns in a visible manner. There is no restriction on the appearance of
+non-printing characters, apart from the binary zero that terminates a pattern,
+but when a pattern is being prepared by text editing, it is usually easier to
+use one of the following escape sequences than the binary character it
+represents:</p>
+
+<taglist>  
+  <tag>\\a</tag>        <item>alarm, that is, the BEL character (hex 07)</item>
+  <tag>\\cx</tag>       <item>"control-x", where x is any character</item>
+  <tag>\\e </tag>       <item>escape (hex 1B)</item>
+  <tag>\\f</tag>        <item>formfeed (hex 0C)</item>
+  <tag>\\n</tag>        <item>linefeed (hex 0A)</item>
+  <tag>\\r</tag>        <item>carriage return (hex 0D)</item>
+  <tag>\\t </tag>       <item>tab (hex 09)</item>
+  <tag>\\ddd</tag>      <item>character with octal code ddd, or backreference</item>
+  <tag>\\xhh </tag>     <item>character with hex code hh</item>
+  <tag>\\x{hhh..}</tag> <item>character with hex code hhh..</item>
+</taglist>
+
+<p>The precise effect of \\cx is as follows: if x is a lower case letter, it
+is converted to upper case. Then bit 6 of the character (hex 40) is inverted.
+Thus \\cz becomes hex 1A, but \\c{ becomes hex 3B, while \\c; becomes hex
+7B.</p>
+
+<p>After \\x, from zero to two hexadecimal digits are read (letters can be in
+upper or lower case). Any number of hexadecimal digits may appear between \\x{
+and }, but the value of the character code must be less than 256 in non-UTF-8
+mode, and less than 2**31 in UTF-8 mode. That is, the maximum value in
+hexadecimal is 7FFFFFFF. Note that this is bigger than the largest Unicode code
+point, which is 10FFFF.</p>
+
+<p>If characters other than hexadecimal digits appear between \\x{ and }, or if
+there is no terminating }, this form of escape is not recognized. Instead, the
+initial \\x will be interpreted as a basic hexadecimal escape, with no
+following digits, giving a character whose value is zero.</p>
+
+<p>Characters whose value is less than 256 can be defined by either of the two
+syntaxes for \\x. There is no difference in the way they are handled. For
+example, \\xdc is exactly the same as \\x{dc}.</p>
+
+<p>After \\0 up to two further octal digits are read. If there are fewer than two
+digits, just those that are present are used. Thus the sequence \\0\\x\\07
+specifies two binary zeros followed by a BEL character (code value 7). Make
+sure you supply two digits after the initial zero if the pattern character that
+follows is itself an octal digit.</p>
+
+<p>The handling of a backslash followed by a digit other than 0 is complicated.
+Outside a character class, PCRE reads it and any following digits as a decimal
+number. If the number is less than 10, or if there have been at least that many
+previous capturing left parentheses in the expression, the entire sequence is
+taken as a <em>back reference</em>. A description of how this works is given
+later, following the discussion of parenthesized subpatterns.</p>
+
+
+<p>Inside a character class, or if the decimal number is greater than 9 and there
+have not been that many capturing subpatterns, PCRE re-reads up to three octal
+digits following the backslash, and uses them to generate a data character. Any
+subsequent digits stand for themselves. 
+The value of a
+character specified in octal must be less than \\400.
+In non-UTF-8 mode, the value of a
+character specified in octal must be less than \\400. In UTF-8 mode, values up
+to \\777 are permitted. 
+
+For example:</p>
+
+<taglist>  
+  <tag>\\040</tag>   <item>is another way of writing a space</item>
+
+  <tag>\\40</tag>    <item>is the same, provided there are fewer than 40
+            previous capturing subpatterns</item>
+  <tag>\\7</tag>     <item>is always a back reference</item>
+
+  <tag>\\11</tag>   <item> might be a back reference, or another way of
+            writing a tab</item>
+  <tag>\\011</tag>   <item>is always a tab</item>
+  <tag>\\0113</tag>  <item>is a tab followed by the character "3"</item>
+
+  <tag>\\113</tag>   <item>might be a back reference, otherwise the
+            character with octal code 113</item>
+
+  <tag>\\377</tag>   <item>might be a back reference, otherwise
+            the byte consisting entirely of 1 bits</item>
+
+  <tag>\\81</tag>    <item>is either a back reference, or a binary zero
+            followed by the two characters "8" and "1"</item>
+</taglist>
+
+<p>Note that octal values of 100 or greater must not be introduced by
+a leading zero, because no more than three octal digits are ever
+read.</p>
+
+<p>All the sequences that define a single character value can be used
+both inside and outside character classes. In addition, inside a
+character class, the sequence \\b is interpreted as the backspace
+character (hex 08), and the sequences \\R and \\X are interpreted as
+the characters "R" and "X", respectively. Outside a character class,
+these sequences have different meanings (see below).</p>
+
+<p><em>Absolute and relative back references</em></p>
+
+<p>The sequence \\g followed by an unsigned or a negative number,
+optionally enclosed in braces, is an absolute or relative back
+reference. A named back reference can be coded as \\g{name}. Back
+references are discussed later, following the discussion of
+parenthesized subpatterns.</p>
+
+<p><em>Generic character types</em></p>
+
+<p>Another use of backslash is for specifying generic character types. The
+following are always recognized:</p>
+
+<taglist>  
+  <tag>\\d</tag>     <item>any decimal digit</item>
+  <tag>\\D</tag>     <item>any character that is not a decimal digit</item>
+  <tag>\\h</tag>     <item>any horizontal whitespace character</item>
+  <tag>\\H</tag>     <item>any character that is not a horizontal whitespace character</item>
+  <tag>\\s</tag>     <item>any whitespace character</item>
+  <tag>\\S</tag>     <item>any character that is not a whitespace character</item>
+  <tag>\\v</tag>     <item>any vertical whitespace character</item>
+  <tag>\\V</tag>     <item>any character that is not a vertical whitespace character</item>
+  <tag>\\w</tag>     <item>any "word" character</item>
+  <tag>\\W</tag>     <item>any "non-word" character</item>
+</taglist>
+
+<p>Each pair of escape sequences partitions the complete set of characters into
+two disjoint sets. Any given character matches one, and only one, of each pair.</p>
+
+<p>These character type sequences can appear both inside and outside character
+classes. They each match one character of the appropriate type. If the current
+matching point is at the end of the subject string, all of them fail, since
+there is no character to match.</p>
+
+<p>For compatibility with Perl, \\s does not match the VT character (code 11).
+This makes it different from the POSIX "space" class. The \\s characters
+are HT (9), LF (10), FF (12), CR (13), and space (32). If "use locale;" is
+included in a Perl script, \\s may match the VT character. In PCRE, it never
+does.</p>
+
+<p>In UTF-8 mode, characters with values greater than 128 never match \\d, \\s, or
+\\w, and always match \\D, \\S, and \\W. This is true even when Unicode
+character property support is available. These sequences retain their original
+meanings from before UTF-8 support was available, mainly for efficiency
+reasons.</p>
+
+<p>The sequences \\h, \\H, \\v, and \\V are Perl 5.10 features. In contrast to the
+other sequences, these do match certain high-valued codepoints in UTF-8 mode.
+The horizontal space characters are:</p>
+
+<taglist>
+  <tag>U+0009</tag>     <item>Horizontal tab</item>
+  <tag>U+0020</tag>     <item>Space</item>
+  <tag>U+00A0</tag>     <item>Non-break space</item>
+  <tag>U+1680</tag>     <item>Ogham space mark</item>
+  <tag>U+180E</tag>     <item>Mongolian vowel separator</item>
+  <tag>U+2000</tag>     <item>En quad</item>
+  <tag>U+2001</tag>     <item>Em quad</item>
+  <tag>U+2002</tag>     <item>En space</item>
+  <tag>U+2003</tag>     <item>Em space</item>
+  <tag>U+2004</tag>     <item>Three-per-em space</item>
+  <tag>U+2005</tag>     <item>Four-per-em space</item>
+  <tag>U+2006</tag>     <item>Six-per-em space</item>
+  <tag>U+2007</tag>     <item>Figure space</item>
+  <tag>U+2008</tag>     <item>Punctuation space</item>
+  <tag>U+2009</tag>     <item>Thin space</item>
+  <tag>U+200A</tag>     <item>Hair space</item>
+  <tag>U+202F</tag>     <item>Narrow no-break space</item>
+  <tag>U+205F</tag>     <item>Medium mathematical space</item>
+  <tag>U+3000</tag>     <item>Ideographic space</item>
+</taglist>
+
+<p>The vertical space characters are:</p>
+
+<taglist>
+  <tag>U+000A</tag>     <item>Linefeed</item>
+  <tag>U+000B</tag>     <item>Vertical tab</item>
+  <tag>U+000C</tag>     <item>Formfeed</item>
+  <tag>U+000D</tag>     <item>Carriage return</item>
+  <tag>U+0085</tag>     <item>Next line</item>
+  <tag>U+2028</tag>     <item>Line separator</item>
+  <tag>U+2029</tag>     <item>Paragraph separator</item>
+</taglist>
+
+<p>A "word" character is an underscore or any character less than 256 that is a
+letter or digit. The definition of letters and digits is controlled by PCRE's
+low-valued character tables, which are always ISO-8859-1.</p>
+
+<p><em>Newline sequences</em></p>
+
+<p>Outside a character class, by default, the escape sequence \\R matches any
+Unicode newline sequence. This is a Perl 5.10 feature. In non-UTF-8 mode \\R is
+equivalent to the following:</p>
+
+<quote><p>  (?&gt;\\r\\n|\\n|\\x0b|\\f|\\r|\\x85)</p></quote>
+
+<p>This is an example of an "atomic group", details of which are given below.</p>
+
+<p>This particular group matches either the two-character sequence CR followed by
+LF, or one of the single characters LF (linefeed, U+000A), VT (vertical tab,
+U+000B), FF (formfeed, U+000C), CR (carriage return, U+000D), or NEL (next
+line, U+0085). The two-character sequence is treated as a single unit that
+cannot be split.</p>
+
+<p>In UTF-8 mode, two additional characters whose codepoints are greater than 255
+are added: LS (line separator, U+2028) and PS (paragraph separator, U+2029).
+Unicode character property support is not needed for these characters to be
+recognized.</p>
+
+
+<p>It is possible to restrict \\R to match only CR, LF, or CRLF (instead of the
+complete set of Unicode line endings) by setting the option <c>bsr_anycrlf</c>
+either at compile time or when the pattern is matched. (BSR is an abbreviation
+for "backslash R".) This can be made the default when PCRE is built; if this is
+the case, the other behaviour can be requested via the <c>bsr_unicode</c> option.
+It is also possible to specify these settings by starting a pattern string with
+one of the following sequences:</p>
+
+<p>  (*BSR_ANYCRLF)   CR, LF, or CRLF only
+  (*BSR_UNICODE)   any Unicode newline sequence</p>
+
+<p>These override the default and the options given to <c>re:compile/2</c>, but
+they can be overridden by options given to <c>re:run/3</c>. Note that these
+special settings, which are not Perl-compatible, are recognized only at the
+very start of a pattern, and that they must be in upper case. If more than one
+of them is present, the last one is used. They can be combined with a change of
+newline convention, for example, a pattern can start with:</p>
+
+<p>  (*ANY)(*BSR_ANYCRLF)</p>
+
+<p>Inside a character class, \\R matches the letter "R".</p>
+
+
+<p><em>Unicode character properties</em></p>
+
+<p>When PCRE is built with Unicode character property support, three additional
+escape sequences that match characters with specific properties are available.
+When not in UTF-8 mode, these sequences are of course limited to testing
+characters whose codepoints are less than 256, but they do work in this mode.
+The extra escape sequences are:</p>
+
+<p>  \\p{<em>xx</em>}   a character with the <em>xx</em> property
+  \\P{<em>xx</em>}   a character without the <em>xx</em> property
+  \\X       an extended Unicode sequence</p>
+
+<p>The property names represented by <em>xx</em> above are limited to the Unicode
+script names, the general category properties, and "Any", which matches any
+character (including newline). Other properties such as "InMusicalSymbols" are
+not currently supported by PCRE. Note that \\P{Any} does not match any
+characters, so always causes a match failure.</p>
+
+<p>Sets of Unicode characters are defined as belonging to certain scripts. A
+character from one of these sets can be matched using a script name. For
+example:</p>
+
+<p>  \\p{Greek}
+  \\P{Han}</p>
+
+<p>Those that are not part of an identified script are lumped together as
+"Common". The current list of scripts is:</p>
+
+<list>
+<item>Arabic</item>
+<item>Armenian</item>
+<item>Balinese</item>
+<item>Bengali</item>
+<item>Bopomofo</item>
+<item>Braille</item>
+<item>Buginese</item>
+<item>Buhid</item>
+<item>Canadian_Aboriginal</item>
+<item>Cherokee</item>
+<item>Common</item>
+<item>Coptic</item>
+<item>Cuneiform</item>
+<item>Cypriot</item>
+<item>Cyrillic</item>
+<item>Deseret</item>
+<item>Devanagari</item>
+<item>Ethiopic</item>
+<item>Georgian</item>
+<item>Glagolitic</item>
+<item>Gothic</item>
+<item>Greek</item>
+<item>Gujarati</item>
+<item>Gurmukhi</item>
+<item>Han</item>
+<item>Hangul</item>
+<item>Hanunoo</item>
+<item>Hebrew</item>
+<item>Hiragana</item>
+<item>Inherited</item>
+<item>Kannada</item>
+<item>Katakana</item>
+<item>Kharoshthi</item>
+<item>Khmer</item>
+<item>Lao</item>
+<item>Latin</item>
+<item>Limbu</item>
+<item>Linear_B</item>
+<item>Malayalam</item>
+<item>Mongolian</item>
+<item>Myanmar</item>
+<item>New_Tai_Lue</item>
+<item>Nko</item>
+<item>Ogham</item>
+<item>Old_Italic</item>
+<item>Old_Persian</item>
+<item>Oriya</item>
+<item>Osmanya</item>
+<item>Phags_Pa</item>
+<item>Phoenician</item>
+<item>Runic</item>
+<item>Shavian</item>
+<item>Sinhala</item>
+<item>Syloti_Nagri</item>
+<item>Syriac</item>
+<item>Tagalog</item>
+<item>Tagbanwa</item>
+<item>Tai_Le</item>
+<item>Tamil</item>
+<item>Telugu</item>
+<item>Thaana</item>
+<item>Thai</item>
+<item>Tibetan</item>
+<item>Tifinagh</item>
+<item>Ugaritic</item>
+<item>Yi</item>
+</list>
+
+<p>Each character has exactly one general category property, specified by a
+two-letter abbreviation. For compatibility with Perl, negation can be specified
+by including a circumflex between the opening brace and the property name. For
+example, \\p{^Lu} is the same as \\P{Lu}.</p>
+
+<p>If only one letter is specified with \\p or \\P, it includes all the general
+category properties that start with that letter. In this case, in the absence
+of negation, the curly brackets in the escape sequence are optional; these two
+examples have the same effect:</p>
+
+<list><item>\\p{L}</item>
+  <item>\\pL</item></list>
+
+<p>The following general category property codes are supported:</p>
+
+<taglist>  
+  <tag>C</tag>     <item>Other</item>
+  <tag>Cc</tag>    <item>Control</item>
+  <tag>Cf</tag>    <item>Format</item>
+  <tag>Cn</tag>    <item>Unassigned</item>
+  <tag>Co</tag>    <item>Private use</item>
+  <tag>Cs</tag>    <item>Surrogate</item>
+</taglist>
+
+<taglist>  
+  <tag>L</tag>     <item>Letter</item>
+  <tag>Ll</tag>    <item>Lower case letter</item>
+  <tag>Lm</tag>    <item>Modifier letter</item>
+  <tag>Lo</tag>    <item>Other letter</item>
+  <tag>Lt</tag>    <item>Title case letter</item>
+  <tag>Lu</tag>    <item>Upper case letter</item>
+</taglist>
+
+
+<taglist>  
+  <tag>M</tag>     <item>Mark</item>
+  <tag>Mc</tag>    <item>Spacing mark</item>
+  <tag>Me</tag>    <item>Enclosing mark</item>
+  <tag>Mn</tag>    <item>Non-spacing mark</item>
+</taglist>
+
+<taglist>  
+  <tag>N</tag>     <item>Number</item>
+  <tag>Nd</tag>    <item>Decimal number</item>
+  <tag>Nl</tag>    <item>Letter number</item>
+  <tag>No</tag>    <item>Other number</item>
+</taglist>
+
+<taglist>  
+  <tag>P</tag>     <item>Punctuation</item>
+  <tag>Pc</tag>    <item>Connector punctuation</item>
+  <tag>Pd</tag>    <item>Dash punctuation</item>
+  <tag>Pe</tag>    <item>Close punctuation</item>
+  <tag>Pf</tag>    <item>Final punctuation</item>
+  <tag>Pi</tag>    <item>Initial punctuation</item>
+  <tag>Po</tag>    <item>Other punctuation</item>
+  <tag>Ps</tag>    <item>Open punctuation</item>
+</taglist>
+
+<taglist>  
+  <tag>S</tag>     <item>Symbol</item>
+  <tag>Sc</tag>    <item>Currency symbol</item>
+  <tag>Sk</tag>    <item>Modifier symbol</item>
+  <tag>Sm</tag>    <item>Mathematical symbol</item>
+  <tag>So</tag>    <item>Other symbol</item>
+</taglist>
+
+<taglist>  
+  <tag>Z</tag>     <item>Separator</item>
+  <tag>Zl</tag>    <item>Line separator</item>
+  <tag>Zp</tag>    <item>Paragraph separator</item>
+  <tag>Zs</tag>    <item>Space separator</item>
+</taglist>
+
+<p>The special property L&amp; is also supported: it matches a character that has
+the Lu, Ll, or Lt property, in other words, a letter that is not classified as
+a modifier or "other".</p>
+
+<p>The Cs (Surrogate) property applies only to characters in the range U+D800 to
+U+DFFF. Such characters are not valid in UTF-8 strings (see RFC 3629) and so
+cannot be tested by PCRE, unless UTF-8 validity checking has been turned off
+(see the discussion of <c>no_utf8_check</c> in the
+<em>pcreapi</em>
+page).</p>
+
+<p>The long synonyms for these properties that Perl supports (such as \\p{Letter})
+are not supported by PCRE, nor is it permitted to prefix any of these
+properties with "Is".</p>
+
+<p>No character that is in the Unicode table has the Cn (unassigned) property.
+Instead, this property is assumed for any code point that is not in the
+Unicode table.</p>
+
+<p>Specifying caseless matching does not affect these escape sequences. For
+example, \\p{Lu} always matches only upper case letters.</p>
+
+<p>The \\X escape matches any number of Unicode characters that form an extended
+Unicode sequence. \\X is equivalent to</p>
+
+<quote><p>  (?&gt;\\PM\\pM*)</p></quote>
+
+<p>That is, it matches a character without the "mark" property, followed by zero
+or more characters with the "mark" property, and treats the sequence as an
+atomic group
+(see below).
+Characters with the "mark" property are typically accents that affect the
+preceding character. None of them have codepoints less than 256, so in
+non-UTF-8 mode \\X matches any one character.</p>
+
+<p>Matching characters by Unicode property is not fast, because PCRE has to search
+a structure that contains data for over fifteen thousand characters. That is
+why the traditional escape sequences such as \\d and \\w do not use Unicode
+properties in PCRE.</p>
+
+<p><em>Resetting the match start</em></p>
+
+<p>The escape sequence \\K, which is a Perl 5.10 feature, causes any previously
+matched characters not to be included in the final matched sequence. For
+example, the pattern:</p>
+
+<quote><p>  foo\\Kbar</p></quote>
+
+<p>matches "foobar", but reports that it has matched "bar". This feature is
+similar to a lookbehind assertion
+<!--  HTML &lt;a href="#lookbehind"&gt; -->
+<!--  &lt;/a&gt; -->
+(described below).
+
+However, in this case, the part of the subject before the real match does not
+have to be of fixed length, as lookbehind assertions do. The use of \\K does
+not interfere with the setting of
+captured substrings.
+For example, when the pattern</p>
+
+<quote><p>  (foo)\\Kbar</p></quote>
+
+<p>matches "foobar", the first substring is still set to "foo".</p>
+
+<p><em>Simple assertions</em></p>
+
+<p>The final use of backslash is for certain simple assertions. An
+assertion specifies a condition that has to be met at a particular
+point in a match, without consuming any characters from the subject
+string. The use of subpatterns for more complicated assertions is
+described below. The backslashed assertions are:</p>
+
+<taglist>
+  <tag>\\b</tag>     <item>matches at a word boundary</item>
+  <tag>\\B</tag>     <item>matches when not at a word boundary</item>
+  <tag>\\A</tag>     <item>matches at the start of the subject</item>
+  <tag>\\Z</tag>     <item>matches at the end of the subject
+                           also matches before a newline at the end of 
+                           the subject</item>
+  <tag>\\z</tag>     <item>matches only at the end of the subject</item>
+  <tag>\\G</tag>     <item>matches at the first matching position in the 
+                           subject</item>
+</taglist>
+
+<p>These assertions may not appear in character classes (but note that \\b has a
+different meaning, namely the backspace character, inside a character class).</p>
+
+<p>A word boundary is a position in the subject string where the current character
+and the previous character do not both match \\w or \\W (i.e. one matches
+\\w and the other matches \\W), or the start or end of the string if the
+first or last character matches \\w, respectively.</p>
+
+<p>The \\A, \\Z, and \\z assertions differ from the traditional circumflex and
+dollar (described in the next section) in that they only ever match at the very
+start and end of the subject string, whatever options are set. Thus, they are
+independent of multiline mode. These three assertions are not affected by the
+<c>notbol</c> or <c>noteol</c> options, which affect only the behaviour of the
+circumflex and dollar metacharacters. However, if the <em>startoffset</em>
+argument of <c>re:run/3</c> is non-zero, indicating that matching is to start
+at a point other than the beginning of the subject, \\A can never match. The
+difference between \\Z and \\z is that \\Z matches before a newline at the end
+of the string as well as at the very end, whereas \\z matches only at the end.</p>
+
+<p>The \\G assertion is true only when the current matching position is at the
+start point of the match, as specified by the <em>startoffset</em> argument of
+<c>re:run/3</c>. It differs from \\A when the value of <em>startoffset</em> is
+non-zero. By calling <c>re:run/3</c> multiple times with appropriate
+arguments, you can mimic Perl's /g option, and it is in this kind of
+implementation where \\G can be useful.</p>
+
+<p>Note, however, that PCRE's interpretation of \\G, as the start of the current
+match, is subtly different from Perl's, which defines it as the end of the
+previous match. In Perl, these can be different when the previously matched
+string was empty. Because PCRE does just one match at a time, it cannot
+reproduce this behaviour.</p>
+
+<p>If all the alternatives of a pattern begin with \\G, the expression is anchored
+to the starting match position, and the "anchored" flag is set in the compiled
+regular expression.</p>
+
+</section>
+
+<section><marker id="sect4"></marker><title>Circumflex and dollar</title>
+
+<p>Outside a character class, in the default matching mode, the circumflex
+character is an assertion that is true only if the current matching point is
+at the start of the subject string. If the <em>startoffset</em> argument of
+<c>re:run/3</c> is non-zero, circumflex can never match if the <c>multiline</c>
+option is unset. Inside a character class, circumflex has an entirely different
+meaning (see below).</p>
+
+<p>Circumflex need not be the first character of the pattern if a number of
+alternatives are involved, but it should be the first thing in each alternative
+in which it appears if the pattern is ever to match that branch. If all
+possible alternatives start with a circumflex, that is, if the pattern is
+constrained to match only at the start of the subject, it is said to be an
+"anchored" pattern. (There are also other constructs that can cause a pattern
+to be anchored.)</p>
+
+<p>A dollar character is an assertion that is true only if the current matching
+point is at the end of the subject string, or immediately before a newline
+at the end of the string (by default). Dollar need not be the last character of
+the pattern if a number of alternatives are involved, but it should be the last
+item in any branch in which it appears. Dollar has no special meaning in a
+character class.</p>
+
+<p>The meaning of dollar can be changed so that it matches only at the
+very end of the string, by setting the <c>dollar_endonly</c> option at
+compile time. This does not affect the \\Z assertion.</p>
+
+<p>The meanings of the circumflex and dollar characters are changed if the
+<c>multiline</c> option is set. When this is the case, a circumflex matches
+immediately after internal newlines as well as at the start of the subject
+string. It does not match after a newline that ends the string. A dollar
+matches before any newlines in the string, as well as at the very end, when
+<c>multiline</c> is set. When newline is specified as the two-character
+sequence CRLF, isolated CR and LF characters do not indicate newlines.</p>
+
+<p>For example, the pattern /^abc$/ matches the subject string
+"def\\nabc" (where \\n represents a newline) in multiline mode, but
+not otherwise. Consequently, patterns that are anchored in single line
+mode because all branches start with ^ are not anchored in multiline
+mode, and a match for circumflex is possible when the
+<em>startoffset</em> argument of <c>re:run/3</c> is non-zero. The
+<c>dollar_endonly</c> option is ignored if <c>multiline</c> is set.</p>
+
+<p>Note that the sequences \\A, \\Z, and \\z can be used to match the start and
+end of the subject in both modes, and if all branches of a pattern start with
+\\A it is always anchored, whether or not <c>multiline</c> is set.</p>
+
+
+</section>
+
+<section><marker id="sect5"></marker><title>Full stop (period, dot)</title>
+
+<p>Outside a character class, a dot in the pattern matches any one character in
+the subject string except (by default) a character that signifies the end of a
+line.
+ In UTF-8 mode, the matched character may be more than one byte long.
+</p>
+
+<p>When a line ending is defined as a single character, dot never matches that
+character; when the two-character sequence CRLF is used, dot does not match CR
+if it is immediately followed by LF, but otherwise it matches all characters
+(including isolated CRs and LFs). 
+When any Unicode line endings are being
+recognized, dot does not match CR or LF or any of the other line ending
+characters.
+</p>
+
+<p>The behaviour of dot with regard to newlines can be changed.  If
+the <c>dotall</c> option is set, a dot matches any one character,
+without exception. If the two-character sequence CRLF is present in
+the subject string, it takes two dots to match it.</p>
+
+<p>The handling of dot is entirely independent of the handling of
+circumflex and dollar, the only relationship being that they both
+involve newlines. Dot has no special meaning in a character class.</p>
+
+</section>
+
+<section><marker id="sect6"></marker><title>Matching a single byte</title>
+
+<p>Outside a character class, the escape sequence \\C matches any one byte, both
+in and out of UTF-8 mode. Unlike a dot, it always matches any line-ending
+characters. The feature is provided in Perl in order to match individual bytes
+in UTF-8 mode. Because it breaks up UTF-8 characters into individual bytes,
+what remains in the string may be a malformed UTF-8 string. For this reason,
+the \\C escape sequence is best avoided.</p>
+
+<p>PCRE does not allow \\C to appear in lookbehind assertions (described below),
+because in UTF-8 mode this would make it impossible to calculate the length of
+the lookbehind.</p>
+
+</section>
+
+<section><marker id="sect7"></marker><title>Square brackets and character classes</title>
+
+<p>An opening square bracket introduces a character class, terminated
+by a closing square bracket. A closing square bracket on its own is
+not special. If a closing square bracket is required as a member of
+the class, it should be the first data character in the class (after
+an initial circumflex, if present) or escaped with a backslash.</p>
+
+<p>A character class matches a single character in the subject. 
+In
+UTF-8 mode, the character may occupy more than one byte. 
+A matched
+character must be in the set of characters defined by the class,
+unless the first character in the class definition is a circumflex, in
+which case the subject character must not be in the set defined by the
+class. If a circumflex is actually required as a member of the class,
+ensure it is not the first character, or escape it with a
+backslash.</p>
+
+<p>For example, the character class [aeiou] matches any lower case vowel, while
+[^aeiou] matches any character that is not a lower case vowel. Note that a
+circumflex is just a convenient notation for specifying the characters that
+are in the class by enumerating those that are not. A class that starts with a
+circumflex is not an assertion: it still consumes a character from the subject
+string, and therefore it fails if the current pointer is at the end of the
+string.</p>
+
+<p>In UTF-8 mode, characters with values greater than 255 can be included in a
+class as a literal string of bytes, or by using the \\x{ escaping mechanism.</p>
+
+<p>When caseless matching is set, any letters in a class represent both their
+upper case and lower case versions, so for example, a caseless [aeiou] matches
+"A" as well as "a", and a caseless [^aeiou] does not match "A", whereas a
+caseful version would. 
+In UTF-8 mode, PCRE always understands the concept of
+case for characters whose values are less than 128, so caseless matching is
+always possible. For characters with higher values, the concept of case is
+supported if PCRE is compiled with Unicode property support, but not otherwise.
+If you want to use caseless matching for characters 128 and above, you must
+ensure that PCRE is compiled with Unicode property support as well as with
+UTF-8 support.
+</p>
+
+<p>Characters that might indicate line breaks are never treated in any
+special way when matching character classes, whatever line-ending
+sequence is in use, and whatever setting of the <c>dotall</c> and
+<c>multiline</c> options is used. A class such as [^a] always matches
+one of these characters.</p>
+
+<p>The minus (hyphen) character can be used to specify a range of
+characters in a character class. For example, [d-m] matches any letter
+between d and m, inclusive. If a minus character is required in a
+class, it must be escaped with a backslash or appear in a position
+where it cannot be interpreted as indicating a range, typically as the
+first or last character in the class.</p>
+
+<p>It is not possible to have the literal character "]" as the end
+character of a range. A pattern such as [W-]46] is interpreted as a
+class of two characters ("W" and "-") followed by a literal string
+"46]", so it would match "W46]" or "-46]". However, if the "]" is
+escaped with a backslash it is interpreted as the end of range, so
+[W-\\]46] is interpreted as a class containing a range followed by two
+other characters. The octal or hexadecimal representation of "]" can
+also be used to end a range.</p>
+
+<p>Ranges operate in the collating sequence of character values. They can also be
+used for characters specified numerically, for example [\\000-\\037]. 
+In UTF-8
+mode, ranges can include characters whose values are greater than 255, for
+example [\\x{100}-\\x{2ff}].
+</p>
+
+<p>If a range that includes letters is used when caseless matching is set, it
+matches the letters in either case. For example, [W-c] is equivalent to
+[][\\\\^_`wxyzabc], matched caselessly
+, and in non-UTF-8 mode, if character
+tables for a French locale are in use, [\\xc8-\\xcb] matches accented E
+characters in both cases. In UTF-8 mode, PCRE supports the concept of case for
+characters with values greater than 128 only when it is compiled with Unicode
+property support.</p>
+
+<p>The character types \\d, \\D, \\p, \\P, \\s, \\S, \\w, and \\W may
+also appear in a character class, and add the characters that they
+match to the class. For example, [\\dABCDEF] matches any hexadecimal
+digit. A circumflex can conveniently be used with the upper case
+character types to specify a more restricted set of characters than
+the matching lower case type. For example, the class [^\\W_] matches
+any letter or digit, but not underscore.</p>
+
+<p>The only metacharacters that are recognized in character classes
+are backslash, hyphen (only where it can be interpreted as specifying
+a range), circumflex (only at the start), opening square bracket (only
+when it can be interpreted as introducing a POSIX class name - see the
+next section), and the terminating closing square bracket. However,
+escaping other non-alphanumeric characters does no harm.</p>
+</section>
+
+
+<section><marker id="sect8"></marker><title>POSIX character classes</title>
+
+<p>Perl supports the POSIX notation for character classes. This uses names
+enclosed by [: and :] within the enclosing square brackets. PCRE also supports
+this notation. For example,</p>
+
+<quote><p>  [01[:alpha:]%]</p></quote>
+
+<p>matches "0", "1", any alphabetic character, or "%". The supported class names
+are</p>
+
+<taglist>  
+  <tag>alnum</tag>    <item>letters and digits</item>
+  <tag>alpha</tag>    <item>letters</item>
+  <tag>ascii</tag>    <item>character codes 0 - 127</item>
+  <tag>blank</tag>    <item>space or tab only</item>
+  <tag>cntrl</tag>    <item>control characters</item>
+  <tag>digit</tag>    <item>decimal digits (same as \\d)</item>
+  <tag>graph</tag>    <item>printing characters, excluding space</item>
+  <tag>lower</tag>    <item>lower case letters</item>
+  <tag>print</tag>    <item>printing characters, including space</item>
+  <tag>punct</tag>    <item>printing characters, excluding letters and digits</item>
+  <tag>space</tag>    <item>whitespace (not quite the same as \\s)</item>
+  <tag>upper</tag>    <item>upper case letters</item>
+  <tag>word</tag>     <item>"word" characters (same as \\w)</item>
+  <tag>xdigit</tag>   <item>hexadecimal digits</item>
+</taglist>
+
+<p>The "space" characters are HT (9), LF (10), VT (11), FF (12), CR (13), and
+space (32). Notice that this list includes the VT character (code 11). This
+makes "space" different to \\s, which does not include VT (for Perl
+compatibility).</p>
+
+<p>The name "word" is a Perl extension, and "blank" is a GNU extension
+from Perl 5.8. Another Perl extension is negation, which is indicated
+by a ^ character after the colon. For example,</p>
+
+<quote><p>  [12[:^digit:]]</p></quote>
+
+<p>matches "1", "2", or any non-digit. PCRE (and Perl) also recognize the POSIX
+syntax [.ch.] and [=ch=] where "ch" is a "collating element", but these are not
+supported, and an error is given if they are encountered.</p>
+
+<p>In UTF-8 mode, characters with values greater than 128 do not match any of
+the POSIX character classes.</p>
+
+</section>
+
+
+<section><marker id="sect9"></marker><title>Vertical bar</title>
+
+<p>Vertical bar characters are used to separate alternative
+patterns. For example, the pattern</p>
+
+<quote><p>  gilbert|sullivan</p></quote>
+
+<p>matches either "gilbert" or "sullivan". Any number of alternatives
+may appear, and an empty alternative is permitted (matching the empty
+string). The matching process tries each alternative in turn, from
+left to right, and the first one that succeeds is used. If the
+alternatives are within a subpattern (defined below), "succeeds" means
+matching the rest of the main pattern as well as the alternative in
+the subpattern.</p>
+
+</section>
+
+<section><marker id="sect10"></marker><title>Internal option setting</title>
+
+<p>The settings of the <c>caseless</c>, <c>multiline</c>, <c>dotall</c>, and
+<c>extended</c> options (which are Perl-compatible) can be changed from within
+the pattern by a sequence of Perl option letters enclosed between "(?" and ")".
+The option letters are</p>
+
+<taglist>
+  <tag>i</tag>  <item>for <c>caseless</c></item>
+  <tag>m</tag>  <item>for <c>multiline</c></item>
+  <tag>s</tag>  <item>for <c>dotall</c></item>
+  <tag>x</tag>  <item>for <c>extended</c></item>
+</taglist>
+
+<p>For example, (?im) sets caseless, multiline matching. It is also possible to
+unset these options by preceding the letter with a hyphen, and a combined
+setting and unsetting such as (?im-sx), which sets <c>caseless</c> and
+<c>multiline</c> while unsetting <c>dotall</c> and <c>extended</c>, is also
+permitted. If a letter appears both before and after the hyphen, the option is
+unset.</p>
+
+<p>The PCRE-specific options <c>dupnames</c>, <c>ungreedy</c>, and
+<c>extra</c> can be changed in the same way as the Perl-compatible
+options by using the characters J, U and X respectively.</p>
+
+<p>When an option change occurs at top level (that is, not inside subpattern
+parentheses), the change applies to the remainder of the pattern that follows.
+If the change is placed right at the start of a pattern, PCRE extracts it into
+the global options 
+<!-- XXX C Interface
+(and it will therefore show up in data extracted by the
+<c>pcre_fullinfo()</c> function).
+-->
+</p>
+
+<p>An option change within a subpattern (see below for a description
+of subpatterns) affects only that part of the current pattern that
+follows it, so</p>
+
+<quote><p>  (a(?i)b)c</p></quote>
+
+<p>matches abc and aBc and no other strings (assuming <c>caseless</c>
+is not used).  By this means, options can be made to have different
+settings in different parts of the pattern. Any changes made in one
+alternative do carry on into subsequent branches within the same
+subpattern. For example,</p>
+
+<quote><p>  (a(?i)b|c)</p></quote>
+
+<p>matches "ab", "aB", "c", and "C", even though when matching "C" the first
+branch is abandoned before the option setting. This is because the effects of
+option settings happen at compile time. There would be some very weird
+behaviour otherwise.</p>
+
+<p><em>Note:</em> There are other PCRE-specific options that can be set by the
+application when the compile or match functions are called. In some cases the
+pattern can contain special leading sequences to override what the application
+has set or what has been defaulted. Details are given in the section entitled
+"Newline sequences" above.</p>
+
+
+</section>
+
+<section><marker id="sect11"></marker><title>Subpatterns</title>
+
+<p>Subpatterns are delimited by parentheses (round brackets), which
+can be nested.  Turning part of a pattern into a subpattern does two
+things:</p>
+
+<p>1. It localizes a set of alternatives. For example, the pattern</p>
+
+<quote><p>  cat(aract|erpillar|)</p></quote>
+
+<p>matches one of the words "cat", "cataract", or "caterpillar". Without the
+parentheses, it would match "cataract", "erpillar" or an empty string.</p>
+
+<p>2. It sets up the subpattern as a capturing subpattern. This means that, when
+the complete pattern matches, that portion of the subject string that matched the
+subpattern is passed back to the caller via the return value of
+<c>re:run/3</c>. Opening parentheses are counted from left to right (starting
+from 1) to obtain numbers for the capturing subpatterns.</p>
+
+<p>For example, if the string "the red king" is matched against the pattern</p>
+
+<quote><p>  the ((red|white) (king|queen))</p></quote>
+
+<p>the captured substrings are "red king", "red", and "king", and are numbered 1,
+2, and 3, respectively.</p>
+
+<p>The fact that plain parentheses fulfil two functions is not always helpful.
+There are often times when a grouping subpattern is required without a
+capturing requirement. If an opening parenthesis is followed by a question mark
+and a colon, the subpattern does not do any capturing, and is not counted when
+computing the number of any subsequent capturing subpatterns. For example, if
+the string "the white queen" is matched against the pattern</p>
+
+<quote><p>  the ((?:red|white) (king|queen))</p></quote>
+
+<p>the captured substrings are "white queen" and "queen", and are numbered 1 and
+2. The maximum number of capturing subpatterns is 65535.</p>
+
+<p>As a convenient shorthand, if any option settings are required at the start of
+a non-capturing subpattern, the option letters may appear between the "?" and
+the ":". Thus the two patterns</p>
+
+<list>  
+<item>(?i:saturday|sunday)</item>
+<item>(?:(?i)saturday|sunday)</item>
+</list>
+
+<p>match exactly the same set of strings. Because alternative branches are tried
+from left to right, and options are not reset until the end of the subpattern
+is reached, an option setting in one branch does affect subsequent branches, so
+the above patterns match "SUNDAY" as well as "Saturday".</p>
+
+
+</section>
+
+<section><marker id="sect12"></marker><title>Duplicate subpattern numbers</title>
+
+<p>Perl 5.10 introduced a feature whereby each alternative in a subpattern uses
+the same numbers for its capturing parentheses. Such a subpattern starts with
+(?| and is itself a non-capturing subpattern. For example, consider this
+pattern:</p>
+
+<quote><p>  (?|(Sat)ur|(Sun))day</p></quote>
+
+<p>Because the two alternatives are inside a (?| group, both sets of capturing
+parentheses are numbered one. Thus, when the pattern matches, you can look
+at captured substring number one, whichever alternative matched. This construct
+is useful when you want to capture part, but not all, of one of a number of
+alternatives. Inside a (?| group, parentheses are numbered as usual, but the
+number is reset at the start of each branch. The numbers of any capturing
+buffers that follow the subpattern start after the highest number used in any
+branch. The following example is taken from the Perl documentation.
+The numbers underneath show in which buffer the captured content will be
+stored.</p>
+
+<code type="none">
+  # before  ---------------branch-reset----------- after
+  / ( a )  (?| x ( y ) z | (p (q) r) | (t) u (v) ) ( z ) /x
+  # 1            2         2  3        2     3     4</code>
+
+<p>A backreference or a recursive call to a numbered subpattern always
+refers to the first one in the pattern with the given number.</p>
+
+<p>An alternative approach to using this "branch reset" feature is to use
+duplicate named subpatterns, as described in the next section.</p>
+
+</section>
+
+<section><marker id="sect13"></marker><title>Named subpatterns</title>
+
+<p>Identifying capturing parentheses by number is simple, but it can be very hard
+to keep track of the numbers in complicated regular expressions. Furthermore,
+if an expression is modified, the numbers may change. To help with this
+difficulty, PCRE supports the naming of subpatterns. This feature was not
+added to Perl until release 5.10. Python had the feature earlier, and PCRE
+introduced it at release 4.0, using the Python syntax. PCRE now supports both
+the Perl and the Python syntax.</p>
+
+<p>In PCRE, a subpattern can be named in one of three ways:
+(?&lt;name&gt;...) or (?'name'...) as in Perl, or (?P&lt;name&gt;...)
+as in Python. References to capturing parentheses from other parts of
+the pattern, such as backreferences, recursion, and conditions, can be
+made by name as well as by number.</p>
+
+<p>Names consist of up to 32 alphanumeric characters and underscores. Named
+capturing parentheses are still allocated numbers as well as names, exactly as
+if the names were not present. 
+<!-- XXX C Interface
+The PCRE API provides function calls for
+extracting the name-to-number translation table from a compiled pattern. There
+is also a convenience function for extracting a captured substring by name.
+-->
+The <c>capture</c> specification to <c>re:run/3</c> can use named values if they are present in the regular expression. 
+</p>
+
+<p>By default, a name must be unique within a pattern, but it is possible to relax
+this constraint by setting the <c>dupnames</c> option at compile time. This can
+be useful for patterns where only one instance of the named parentheses can
+match. Suppose you want to match the name of a weekday, either as a 3-letter
+abbreviation or as the full name, and in both cases you want to extract the
+abbreviation. This pattern (ignoring the line breaks) does the job:</p>
+
+<code type="none">  
+  (?&lt;DN&gt;Mon|Fri|Sun)(?:day)?|
+  (?&lt;DN&gt;Tue)(?:sday)?|
+  (?&lt;DN&gt;Wed)(?:nesday)?|
+  (?&lt;DN&gt;Thu)(?:rsday)?|
+  (?&lt;DN&gt;Sat)(?:urday)?</code>
+
+<p>There are five capturing substrings, but only one is ever set after a match.
+(An alternative way of solving this problem is to use a "branch reset"
+subpattern, as described in the previous section.)</p>
+
+<!-- XXX C Interface
+
+<p>The convenience function for extracting the data by name returns the substring
+for the first (and in this example, the only) subpattern of that name that
+matched. This saves searching to find which numbered subpattern it was. If you
+make a reference to a non-unique named subpattern from elsewhere in the
+pattern, the one that corresponds to the lowest number is used. For further
+details of the interfaces for handling named subpatterns, see the
+<em>pcreapi</em>
+
+documentation.</p>
+-->
+
+<p>In case of capturing named subpatterns which are not unique, the first occurrence is returned from <c>re:exec/3</c>, if the name is specified int the <c>values</c> part of the <c>capture</c> statement.</p>
+
+</section>
+
+<section><marker id="sect14"></marker><title>Repetition</title>
+
+<p>Repetition is specified by quantifiers, which can follow any of the
+following items:</p>
+
+<list>
+  <item>a literal data character</item>
+  <item>the dot metacharacter</item>
+  <item>the \\C escape sequence</item>
+  <item>the \\X escape sequence 
+(in UTF-8 mode with Unicode properties)
+  </item>
+  <item>the \\R escape sequence</item>
+  <item>an escape such as \\d that matches a single character</item>
+  <item>a character class</item>
+  <item>a back reference (see next section)</item>
+  <item>a parenthesized subpattern (unless it is an assertion)</item>
+</list>
+
+<p>The general repetition quantifier specifies a minimum and maximum number of
+permitted matches, by giving the two numbers in curly brackets (braces),
+separated by a comma. The numbers must be less than 65536, and the first must
+be less than or equal to the second. For example:</p>
+
+<quote><p>  z{2,4}</p></quote>
+
+<p>matches "zz", "zzz", or "zzzz". A closing brace on its own is not a special
+character. If the second number is omitted, but the comma is present, there is
+no upper limit; if the second number and the comma are both omitted, the
+quantifier specifies an exact number of required matches. Thus</p>
+
+<quote><p>  [aeiou]{3,}</p></quote>
+
+<p>matches at least 3 successive vowels, but may match many more, while</p>
+
+<quote><p>  \\d{8}</p></quote>
+
+<p>matches exactly 8 digits. An opening curly bracket that appears in a position
+where a quantifier is not allowed, or one that does not match the syntax of a
+quantifier, is taken as a literal character. For example, {,6} is not a
+quantifier, but a literal string of four characters.</p>
+
+<p>In UTF-8 mode, quantifiers apply to UTF-8 characters rather than to individual
+bytes. Thus, for example, \\x{100}{2} matches two UTF-8 characters, each of
+which is represented by a two-byte sequence. Similarly, when Unicode property
+support is available, \\X{3} matches three Unicode extended sequences, each of
+which may be several bytes long (and they may be of different lengths).</p>
+
+<p>The quantifier {0} is permitted, causing the expression to behave as if the
+previous item and the quantifier were not present.</p>
+
+<p>For convenience, the three most common quantifiers have single-character
+abbreviations:</p>
+
+<taglist>  
+  <tag>*</tag>    <item>is equivalent to {0,}</item>
+  <tag>+</tag>     <item>is equivalent to {1,}</item>
+  <tag>?</tag>     <item>is equivalent to {0,1}</item>
+</taglist>
+
+<p>It is possible to construct infinite loops by following a
+subpattern that can match no characters with a quantifier that has no
+upper limit, for example:</p>
+
+<quote><p>  (a?)*</p></quote>
+
+<p>Earlier versions of Perl and PCRE used to give an error at compile time for
+such patterns. However, because there are cases where this can be useful, such
+patterns are now accepted, but if any repetition of the subpattern does in fact
+match no characters, the loop is forcibly broken.</p>
+
+<p>By default, the quantifiers are "greedy", that is, they match as much as
+possible (up to the maximum number of permitted times), without causing the
+rest of the pattern to fail. The classic example of where this gives problems
+is in trying to match comments in C programs. These appear between /* and */
+and within the comment, individual * and / characters may appear. An attempt to
+match C comments by applying the pattern</p>
+
+<quote><p>  /\\*.*\\*/</p></quote>
+
+<p>to the string</p>
+
+<quote><p>  /* first comment */  not comment  /* second comment */</p></quote>
+
+<p>fails, because it matches the entire string owing to the greediness of the .*
+item.</p>
+
+<p>However, if a quantifier is followed by a question mark, it ceases to be
+greedy, and instead matches the minimum number of times possible, so the
+pattern</p>
+
+<quote><p>  /\\*.*?\\*/</p></quote>
+
+<p>does the right thing with the C comments. The meaning of the various
+quantifiers is not otherwise changed, just the preferred number of matches.
+Do not confuse this use of question mark with its use as a quantifier in its
+own right. Because it has two uses, it can sometimes appear doubled, as in</p>
+
+<quote><p>  \\d??\\d</p></quote>
+
+<p>which matches one digit by preference, but can match two if that is the only
+way the rest of the pattern matches.</p>
+
+<p>If the <c>ungreedy</c> option is set (an option that is not available in Perl),
+the quantifiers are not greedy by default, but individual ones can be made
+greedy by following them with a question mark. In other words, it inverts the
+default behaviour.</p>
+
+<p>When a parenthesized subpattern is quantified with a minimum repeat count that
+is greater than 1 or with a limited maximum, more memory is required for the
+compiled pattern, in proportion to the size of the minimum or maximum.</p>
+
+<p>If a pattern starts with .* or .{0,} and the <c>dotall</c> option (equivalent
+to Perl's /s) is set, thus allowing the dot to match newlines, the pattern is
+implicitly anchored, because whatever follows will be tried against every
+character position in the subject string, so there is no point in retrying the
+overall match at any position after the first. PCRE normally treats such a
+pattern as though it were preceded by \\A.</p>
+
+<p>In cases where it is known that the subject string contains no newlines, it is
+worth setting <c>dotall</c> in order to obtain this optimization, or
+alternatively using ^ to indicate anchoring explicitly.</p>
+
+<p>However, there is one situation where the optimization cannot be used. When .*
+is inside capturing parentheses that are the subject of a backreference
+elsewhere in the pattern, a match at the start may fail where a later one
+succeeds. Consider, for example:</p>
+
+<quote><p>  (.*)abc\\1</p></quote>
+
+<p>If the subject is "xyz123abc123" the match point is the fourth character. For
+this reason, such a pattern is not implicitly anchored.</p>
+
+<p>When a capturing subpattern is repeated, the value captured is the substring
+that matched the final iteration. For example, after</p>
+
+<quote><p>  (tweedle[dume]{3}\\s*)+</p></quote>
+
+<p>has matched "tweedledum tweedledee" the value of the captured substring is
+"tweedledee". However, if there are nested capturing subpatterns, the
+corresponding captured values may have been set in previous iterations. For
+example, after</p>
+
+<quote><p>  /(a|(b))+/</p></quote>
+
+<p>matches "aba" the value of the second captured substring is "b".</p>
+
+
+</section>
+
+<section><marker id="sect15"></marker><title>Atomic grouping and possessive quantifiers</title>
+
+<p>With both maximizing ("greedy") and minimizing ("ungreedy" or "lazy")
+repetition, failure of what follows normally causes the repeated item to be
+re-evaluated to see if a different number of repeats allows the rest of the
+pattern to match. Sometimes it is useful to prevent this, either to change the
+nature of the match, or to cause it fail earlier than it otherwise might, when
+the author of the pattern knows there is no point in carrying on.</p>
+
+<p>Consider, for example, the pattern \\d+foo when applied to the subject line</p>
+
+<quote><p>  123456bar</p></quote>
+
+<p>After matching all 6 digits and then failing to match "foo", the normal
+action of the matcher is to try again with only 5 digits matching the \\d+
+item, and then with 4, and so on, before ultimately failing. "Atomic grouping"
+(a term taken from Jeffrey Friedl's book) provides the means for specifying
+that once a subpattern has matched, it is not to be re-evaluated in this way.</p>
+
+<p>If we use atomic grouping for the previous example, the matcher gives up
+immediately on failing to match "foo" the first time. The notation is a kind of
+special parenthesis, starting with (?&gt; as in this example:</p>
+
+<quote><p>  (?&gt;\\d+)foo</p></quote>
+
+<p>This kind of parenthesis "locks up" the  part of the pattern it contains once
+it has matched, and a failure further into the pattern is prevented from
+backtracking into it. Backtracking past it to previous items, however, works as
+normal.</p>
+
+<p>An alternative description is that a subpattern of this type matches the string
+of characters that an identical standalone pattern would match, if anchored at
+the current point in the subject string.</p>
+
+<p>Atomic grouping subpatterns are not capturing subpatterns. Simple cases such as
+the above example can be thought of as a maximizing repeat that must swallow
+everything it can. So, while both \\d+ and \\d+? are prepared to adjust the
+number of digits they match in order to make the rest of the pattern match,
+(?&gt;\\d+) can only match an entire sequence of digits.</p>
+
+<p>Atomic groups in general can of course contain arbitrarily complicated
+subpatterns, and can be nested. However, when the subpattern for an atomic
+group is just a single repeated item, as in the example above, a simpler
+notation, called a "possessive quantifier" can be used. This consists of an
+additional + character following a quantifier. Using this notation, the
+previous example can be rewritten as</p>
+
+<quote><p>  \\d++foo</p></quote>
+
+<p>Note that a possessive quantifier can be used with an entire group, for
+example:</p>
+
+<quote><p>  (abc|xyz){2,3}+</p></quote>
+
+<p>Possessive quantifiers are always greedy; the setting of the <c>ungreedy</c>
+option is ignored. They are a convenient notation for the simpler forms of
+atomic group. However, there is no difference in the meaning of a possessive
+quantifier and the equivalent atomic group, though there may be a performance
+difference; possessive quantifiers should be slightly faster.</p>
+
+<p>The possessive quantifier syntax is an extension to the Perl 5.8 syntax.
+Jeffrey Friedl originated the idea (and the name) in the first edition of his
+book. Mike McCloskey liked it, so implemented it when he built Sun's Java
+package, and PCRE copied it from there. It ultimately found its way into Perl
+at release 5.10.</p>
+
+<p>PCRE has an optimization that automatically "possessifies" certain simple
+pattern constructs. For example, the sequence A+B is treated as A++B because
+there is no point in backtracking into a sequence of A's when B must follow.</p>
+
+<p>When a pattern contains an unlimited repeat inside a subpattern that can itself
+be repeated an unlimited number of times, the use of an atomic group is the
+only way to avoid some failing matches taking a very long time indeed. The
+pattern</p>
+
+<quote><p>  (\\D+|&lt;\\d+&gt;)*[!?]</p></quote>
+
+<p>matches an unlimited number of substrings that either consist of non-digits, or
+digits enclosed in &lt;&gt;, followed by either ! or ?. When it matches, it runs
+quickly. However, if it is applied to</p>
+
+<quote><p>  aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa</p></quote>
+
+<p>it takes a long time before reporting failure. This is because the string can
+be divided between the internal \\D+ repeat and the external * repeat in a
+large number of ways, and all have to be tried. (The example uses [!?] rather
+than a single character at the end, because both PCRE and Perl have an
+optimization that allows for fast failure when a single character is used. They
+remember the last single character that is required for a match, and fail early
+if it is not present in the string.) If the pattern is changed so that it uses
+an atomic group, like this:</p>
+
+<quote><p>  ((?&gt;\\D+)|&lt;\\d+&gt;)*[!?]</p></quote>
+
+<p>sequences of non-digits cannot be broken, and failure happens quickly.</p>
+
+</section>
+
+<section><marker id="sect16"></marker><title>Back references</title>
+
+<p>Outside a character class, a backslash followed by a digit greater than 0 (and
+possibly further digits) is a back reference to a capturing subpattern earlier
+(that is, to its left) in the pattern, provided there have been that many
+previous capturing left parentheses.</p>
+
+<p>However, if the decimal number following the backslash is less than 10, it is
+always taken as a back reference, and causes an error only if there are not
+that many capturing left parentheses in the entire pattern. In other words, the
+parentheses that are referenced need not be to the left of the reference for
+numbers less than 10. A "forward back reference" of this type can make sense
+when a repetition is involved and the subpattern to the right has participated
+in an earlier iteration.</p>
+
+<p>It is not possible to have a numerical "forward back reference" to
+a subpattern whose number is 10 or more using this syntax because a
+sequence such as \\50 is interpreted as a character defined in
+octal. See the subsection entitled "Non-printing characters" above for
+further details of the handling of digits following a backslash. There
+is no such problem when named parentheses are used. A back reference
+to any subpattern is possible using named parentheses (see below).</p>
+
+<p>Another way of avoiding the ambiguity inherent in the use of digits
+following a backslash is to use the \\g escape sequence, which is a
+feature introduced in Perl 5.10. This escape must be followed by an
+unsigned number or a negative number, optionally enclosed in
+braces. These examples are all identical:</p>
+
+<list>  
+  <item>(ring), \\1</item>
+  <item>(ring), \\g1</item>
+  <item>(ring), \\g{1}</item>
+</list>
+
+<p>An unsigned number specifies an absolute reference without the
+ambiguity that is present in the older syntax. It is also useful when
+literal digits follow the reference. A negative number is a relative
+reference. Consider this example:</p>
+
+<quote><p>  (abc(def)ghi)\\g{-1}</p></quote>
+
+<p>The sequence \\g{-1} is a reference to the most recently started capturing
+subpattern before \\g, that is, is it equivalent to \\2. Similarly, \\g{-2}
+would be equivalent to \\1. The use of relative references can be helpful in
+long patterns, and also in patterns that are created by joining together
+fragments that contain references within themselves.</p>
+
+<p>A back reference matches whatever actually matched the capturing
+subpattern in the current subject string, rather than anything
+matching the subpattern itself (see "Subpatterns as subroutines" below
+for a way of doing that). So the pattern</p>
+
+<quote><p>  (sens|respons)e and \\1ibility</p></quote>
+
+<p>matches "sense and sensibility" and "response and responsibility", but not
+"sense and responsibility". If caseful matching is in force at the time of the
+back reference, the case of letters is relevant. For example,</p>
+
+<quote><p>  ((?i)rah)\\s+\\1</p></quote>
+
+<p>matches "rah rah" and "RAH RAH", but not "RAH rah", even though the original
+capturing subpattern is matched caselessly.</p>
+
+<p>There are several different ways of writing back references to named
+subpatterns. The .NET syntax \\k{name} and the Perl syntax \\k&lt;name&gt; or
+\\k'name' are supported, as is the Python syntax (?P=name). Perl 5.10's unified
+back reference syntax, in which \\g can be used for both numeric and named
+references, is also supported. We could rewrite the above example in any of
+the following ways:</p>
+
+<list>  
+  <item>(?&lt;p1&gt;(?i)rah)\\s+\\k&lt;p1&gt;</item>
+  <item>(?'p1'(?i)rah)\\s+\\k{p1}</item>
+  <item>(?P&lt;p1&gt;(?i)rah)\\s+(?P=p1)</item>
+  <item>(?&lt;p1&gt;(?i)rah)\\s+\\g{p1}</item>
+</list>
+
+<p>A subpattern that is referenced by name may appear in the pattern before or
+after the reference.</p>
+
+<p>There may be more than one back reference to the same subpattern. If a
+subpattern has not actually been used in a particular match, any back
+references to it always fail. For example, the pattern</p>
+
+<quote><p>  (a|(bc))\\2</p></quote>
+
+<p>always fails if it starts to match "a" rather than "bc". Because
+there may be many capturing parentheses in a pattern, all digits
+following the backslash are taken as part of a potential back
+reference number. If the pattern continues with a digit character,
+some delimiter must be used to terminate the back reference. If the
+<c>extended</c> option is set, this can be whitespace.  Otherwise an
+empty comment (see "Comments" below) can be used.</p>
+
+<p>A back reference that occurs inside the parentheses to which it refers fails
+when the subpattern is first used, so, for example, (a\\1) never matches.
+However, such references can be useful inside repeated subpatterns. For
+example, the pattern</p>
+
+<quote><p>  (a|b\\1)+</p></quote>
+
+<p>matches any number of "a"s and also "aba", "ababbaa" etc. At each iteration of
+the subpattern, the back reference matches the character string corresponding
+to the previous iteration. In order for this to work, the pattern must be such
+that the first iteration does not need to match the back reference. This can be
+done using alternation, as in the example above, or by a quantifier with a
+minimum of zero.</p>
+
+</section>
+
+<section><marker id="sect17"></marker><title>Assertions</title>
+
+<p>An assertion is a test on the characters following or preceding the current
+matching point that does not actually consume any characters. The simple
+assertions coded as \\b, \\B, \\A, \\G, \\Z, \\z, ^ and $ are described
+above.</p>
+
+
+<p>More complicated assertions are coded as subpatterns. There are two kinds:
+those that look ahead of the current position in the subject string, and those
+that look behind it. An assertion subpattern is matched in the normal way,
+except that it does not cause the current matching position to be changed.</p>
+
+<p>Assertion subpatterns are not capturing subpatterns, and may not be repeated,
+because it makes no sense to assert the same thing several times. If any kind
+of assertion contains capturing subpatterns within it, these are counted for
+the purposes of numbering the capturing subpatterns in the whole pattern.
+However, substring capturing is carried out only for positive assertions,
+because it does not make sense for negative assertions.</p>
+
+<p><em>Lookahead assertions</em></p>
+
+<p>Lookahead assertions start with (?= for positive assertions and (?! for
+negative assertions. For example,</p>
+
+<quote><p>  \\w+(?=;)</p></quote>
+
+<p>matches a word followed by a semicolon, but does not include the semicolon in
+the match, and</p>
+
+<quote><p>  foo(?!bar)</p></quote>
+
+<p>matches any occurrence of "foo" that is not followed by "bar". Note that the
+apparently similar pattern</p>
+
+<quote><p>  (?!foo)bar</p></quote>
+
+<p>does not find an occurrence of "bar" that is preceded by something other than
+"foo"; it finds any occurrence of "bar" whatsoever, because the assertion
+(?!foo) is always true when the next three characters are "bar". A
+lookbehind assertion is needed to achieve the other effect.</p>
+
+<p>If you want to force a matching failure at some point in a pattern, the most
+convenient way to do it is with (?!) because an empty string always matches, so
+an assertion that requires there not to be an empty string must always fail.</p>
+
+
+<p><em>Lookbehind assertions</em></p>
+
+<p>Lookbehind assertions start with (?&lt;= for positive assertions and (?&lt;! for
+negative assertions. For example,</p>
+
+<quote><p>  (?&lt;!foo)bar</p></quote>
+
+<p>does find an occurrence of "bar" that is not preceded by "foo". The contents of
+a lookbehind assertion are restricted such that all the strings it matches must
+have a fixed length. However, if there are several top-level alternatives, they
+do not all have to have the same fixed length. Thus</p>
+
+<quote><p>  (?&lt;=bullock|donkey)</p></quote>
+
+<p>is permitted, but</p>
+
+<quote><p>  (?&lt;!dogs?|cats?)</p></quote>
+
+<p>causes an error at compile time. Branches that match different length strings
+are permitted only at the top level of a lookbehind assertion. This is an
+extension compared with Perl (at least for 5.8), which requires all branches to
+match the same length of string. An assertion such as</p>
+
+<quote><p>  (?&lt;=ab(c|de))</p></quote>
+
+<p>is not permitted, because its single top-level branch can match two different
+lengths, but it is acceptable if rewritten to use two top-level branches:</p>
+
+<quote><p>  (?&lt;=abc|abde)</p></quote>
+
+<p>In some cases, the Perl 5.10 escape sequence \\K (see above) can be
+used instead of a lookbehind assertion; this is not restricted to a
+fixed-length.</p>
+
+<p>The implementation of lookbehind assertions is, for each alternative, to
+temporarily move the current position back by the fixed length and then try to
+match. If there are insufficient characters before the current position, the
+assertion fails.</p>
+
+<p>PCRE does not allow the \\C escape (which matches a single byte in UTF-8 mode)
+to appear in lookbehind assertions, because it makes it impossible to calculate
+the length of the lookbehind. The \\X and \\R escapes, which can match
+different numbers of bytes, are also not permitted.</p>
+
+<p>Possessive quantifiers can be used in conjunction with lookbehind assertions to
+specify efficient matching at the end of the subject string. Consider a simple
+pattern such as</p>
+
+<quote><p>  abcd$</p></quote>
+
+<p>when applied to a long string that does not match. Because matching proceeds
+from left to right, PCRE will look for each "a" in the subject and then see if
+what follows matches the rest of the pattern. If the pattern is specified as</p>
+
+<quote><p>  ^.*abcd$</p></quote>
+
+<p>the initial .* matches the entire string at first, but when this fails (because
+there is no following "a"), it backtracks to match all but the last character,
+then all but the last two characters, and so on. Once again the search for "a"
+covers the entire string, from right to left, so we are no better off. However,
+if the pattern is written as</p>
+
+<quote><p>  ^.*+(?&lt;=abcd)</p></quote>
+
+<p>there can be no backtracking for the .*+ item; it can match only the entire
+string. The subsequent lookbehind assertion does a single test on the last four
+characters. If it fails, the match fails immediately. For long strings, this
+approach makes a significant difference to the processing time.</p>
+
+<p><em>Using multiple assertions</em></p>
+
+<p>Several assertions (of any sort) may occur in succession. For example,</p>
+
+<quote><p>  (?&lt;=\\d{3})(?&lt;!999)foo</p></quote>
+
+<p>matches "foo" preceded by three digits that are not "999". Notice
+that each of the assertions is applied independently at the same point
+in the subject string. First there is a check that the previous three
+characters are all digits, and then there is a check that the same
+three characters are not "999".  This pattern does <em>not</em> match
+"foo" preceded by six characters, the first of which are digits and
+the last three of which are not "999". For example, it doesn't match
+"123abcfoo". A pattern to do that is</p>
+
+<quote><p>  (?&lt;=\\d{3}...)(?&lt;!999)foo</p></quote>
+
+<p>This time the first assertion looks at the preceding six
+characters, checking that the first three are digits, and then the
+second assertion checks that the preceding three characters are not
+"999".</p>
+
+<p>Assertions can be nested in any combination. For example,</p>
+
+<quote><p>  (?&lt;=(?&lt;!foo)bar)baz</p></quote>
+
+<p>matches an occurrence of "baz" that is preceded by "bar" which in
+turn is not preceded by "foo", while</p>
+
+<quote><p>  (?&lt;=\\d{3}(?!999)...)foo</p></quote>
+
+<p>is another pattern that matches "foo" preceded by three digits and any three
+characters that are not "999".</p>
+
+</section>
+
+<section><marker id="sect18"></marker><title>Conditional subpatterns</title>
+
+<p>It is possible to cause the matching process to obey a subpattern
+conditionally or to choose between two alternative subpatterns, depending on
+the result of an assertion, or whether a previous capturing subpattern matched
+or not. The two possible forms of conditional subpattern are</p>
+
+<list>  
+<item>(?(condition)yes-pattern)</item>
+<item>(?(condition)yes-pattern|no-pattern)</item>
+</list>
+
+<p>If the condition is satisfied, the yes-pattern is used; otherwise the
+no-pattern (if present) is used. If there are more than two alternatives in the
+subpattern, a compile-time error occurs.</p>
+
+<p>There are four kinds of condition: references to subpatterns, references to
+recursion, a pseudo-condition called DEFINE, and assertions.</p>
+
+
+<p><em>Checking for a used subpattern by number</em></p>
+
+<p>If the text between the parentheses consists of a sequence of
+digits, the condition is true if the capturing subpattern of that
+number has previously matched. An alternative notation is to precede
+the digits with a plus or minus sign. In this case, the subpattern
+number is relative rather than absolute.  The most recently opened
+parentheses can be referenced by (?(-1), the next most recent by
+(?(-2), and so on. In looping constructs it can also make sense to
+refer to subsequent groups with constructs such as (?(+2).</p>
+
+<p>Consider the following pattern, which contains non-significant
+whitespace to make it more readable (assume the <c>extended</c>
+option) and to divide it into three parts for ease of discussion:</p>
+
+<quote><p>  ( \\( )?    [^()]+    (?(1) \\) )</p></quote>
+
+<p>The first part matches an optional opening parenthesis, and if that
+character is present, sets it as the first captured substring. The second part
+matches one or more characters that are not parentheses. The third part is a
+conditional subpattern that tests whether the first set of parentheses matched
+or not. If they did, that is, if subject started with an opening parenthesis,
+the condition is true, and so the yes-pattern is executed and a closing
+parenthesis is required. Otherwise, since no-pattern is not present, the
+subpattern matches nothing. In other words, this pattern matches a sequence of
+non-parentheses, optionally enclosed in parentheses.</p>
+
+<p>If you were embedding this pattern in a larger one, you could use a relative
+reference:</p>
+
+<quote><p>  ...other stuff... ( \\( )?    [^()]+    (?(-1) \\) ) ...</p></quote>
+
+<p>This makes the fragment independent of the parentheses in the larger pattern.</p>
+
+<p><em>Checking for a used subpattern by name</em></p>
+
+<p>Perl uses the syntax (?(&lt;name&gt;)...) or (?('name')...) to test
+for a used subpattern by name. For compatibility with earlier versions
+of PCRE, which had this facility before Perl, the syntax (?(name)...)
+is also recognized. However, there is a possible ambiguity with this
+syntax, because subpattern names may consist entirely of digits. PCRE
+looks first for a named subpattern; if it cannot find one and the name
+consists entirely of digits, PCRE looks for a subpattern of that
+number, which must be greater than zero. Using subpattern names that
+consist entirely of digits is not recommended.</p>
+
+<p>Rewriting the above example to use a named subpattern gives this:</p>
+
+<quote><p>  (?&lt;OPEN&gt; \\( )?    [^()]+    (?(&lt;OPEN&gt;) \\) )</p></quote>
+
+<p><em>Checking for pattern recursion</em></p>
+
+<p>If the condition is the string (R), and there is no subpattern with
+the name R, the condition is true if a recursive call to the whole
+pattern or any subpattern has been made. If digits or a name preceded
+by ampersand follow the letter R, for example:</p>
+
+<quote><p>  (?(R3)...) or (?(R&amp;name)...)</p></quote>
+
+<p>the condition is true if the most recent recursion is into the
+subpattern whose number or name is given. This condition does not
+check the entire recursion stack.</p>
+
+<p>At "top level", all these recursion test conditions are false. Recursive
+patterns are described below.</p>
+
+<p><em>Defining subpatterns for use by reference only</em></p>
+
+<p>If the condition is the string (DEFINE), and there is no subpattern with the
+name DEFINE, the condition is always false. In this case, there may be only one
+alternative in the subpattern. It is always skipped if control reaches this
+point in the pattern; the idea of DEFINE is that it can be used to define
+"subroutines" that can be referenced from elsewhere. (The use of "subroutines"
+is described below.) For example, a pattern to match an IPv4 address could be
+written like this (ignore whitespace and line breaks):</p>
+
+<quote><p>  (?(DEFINE) (?&lt;byte&gt; 2[0-4]\\d | 25[0-5] | 1\\d\\d | [1-9]?\\d) )
+  \\b (?&amp;byte) (\\.(?&amp;byte)){3} \\b</p></quote>
+
+<p>The first part of the pattern is a DEFINE group inside which a another group
+named "byte" is defined. This matches an individual component of an IPv4
+address (a number less than 256). When matching takes place, this part of the
+pattern is skipped because DEFINE acts like a false condition.</p>
+
+<p>The rest of the pattern uses references to the named group to match the four
+dot-separated components of an IPv4 address, insisting on a word boundary at
+each end.</p>
+
+<p><em>Assertion conditions</em></p>
+
+<p>If the condition is not in any of the above formats, it must be an
+assertion.  This may be a positive or negative lookahead or lookbehind
+assertion. Consider this pattern, again containing non-significant
+whitespace, and with the two alternatives on the second line:</p>
+
+<code type="none">  
+  (?(?=[^a-z]*[a-z])
+  \\d{2}-[a-z]{3}-\\d{2}  |  \\d{2}-\\d{2}-\\d{2} )</code>
+
+<p>The condition is a positive lookahead assertion that matches an optional
+sequence of non-letters followed by a letter. In other words, it tests for the
+presence of at least one letter in the subject. If a letter is found, the
+subject is matched against the first alternative; otherwise it is matched
+against the second. This pattern matches strings in one of the two forms
+dd-aaa-dd or dd-dd-dd, where aaa are letters and dd are digits.</p>
+
+
+</section>
+
+<section><marker id="sect19"></marker><title>Comments</title>
+
+<p>The sequence (?# marks the start of a comment that continues up to the next
+closing parenthesis. Nested parentheses are not permitted. The characters
+that make up a comment play no part in the pattern matching at all.</p>
+
+<p>If the <c>extended</c> option is set, an unescaped # character outside a
+character class introduces a comment that continues to immediately after the
+next newline in the pattern.</p>
+
+
+</section>
+
+<section><marker id="sect20"></marker><title>Recursive patterns</title>
+
+<p>Consider the problem of matching a string in parentheses, allowing for
+unlimited nested parentheses. Without the use of recursion, the best that can
+be done is to use a pattern that matches up to some fixed depth of nesting. It
+is not possible to handle an arbitrary nesting depth.</p>
+
+<p>For some time, Perl has provided a facility that allows regular
+expressions to recurse (amongst other things). It does this by
+interpolating Perl code in the expression at run time, and the code
+can refer to the expression itself. A Perl pattern using code
+interpolation to solve the parentheses problem can be created like
+this:</p>
+
+<quote><p>  $re = qr{\\( (?: (?&gt;[^()]+) | (?p{$re}) )* \\)}x;</p></quote>
+
+<p>The (?p{...}) item interpolates Perl code at run time, and in this
+case refers recursively to the pattern in which it appears.</p>
+
+<p>Obviously, PCRE cannot support the interpolation of Perl code. Instead, it
+supports special syntax for recursion of the entire pattern, and also for
+individual subpattern recursion. After its introduction in PCRE and Python,
+this kind of recursion was introduced into Perl at release 5.10.</p>
+
+<p>A special item that consists of (? followed by a number greater
+than zero and a closing parenthesis is a recursive call of the
+subpattern of the given number, provided that it occurs inside that
+subpattern. (If not, it is a "subroutine" call, which is described in
+the next section.) The special item (?R) or (?0) is a recursive call
+of the entire regular expression.</p>
+
+<p>In PCRE (like Python, but unlike Perl), a recursive subpattern call
+is always treated as an atomic group. That is, once it has matched
+some of the subject string, it is never re-entered, even if it
+contains untried alternatives and there is a subsequent matching
+failure.</p>
+
+<p>This PCRE pattern solves the nested parentheses problem (assume the
+<c>extended</c> option is set so that whitespace is ignored):</p>
+
+<quote><p>  \\( ( (?&gt;[^()]+) | (?R) )* \\)</p></quote>
+
+<p>First it matches an opening parenthesis. Then it matches any number
+of substrings which can either be a sequence of non-parentheses, or a
+recursive match of the pattern itself (that is, a correctly
+parenthesized substring).  Finally there is a closing parenthesis.</p>
+
+<p>If this were part of a larger pattern, you would not want to
+recurse the entire pattern, so instead you could use this:</p>
+
+<quote><p>  ( \\( ( (?&gt;[^()]+) | (?1) )* \\) )</p></quote>
+
+<p>We have put the pattern into parentheses, and caused the recursion
+to refer to them instead of the whole pattern.</p>
+
+<p>In a larger pattern, keeping track of parenthesis numbers can be
+tricky. This is made easier by the use of relative references. (A Perl
+5.10 feature.)  Instead of (?1) in the pattern above you can write
+(?-2) to refer to the second most recently opened parentheses
+preceding the recursion. In other words, a negative number counts
+capturing parentheses leftwards from the point at which it is
+encountered.</p>
+
+<p>It is also possible to refer to subsequently opened parentheses, by
+writing references such as (?+2). However, these cannot be recursive
+because the reference is not inside the parentheses that are
+referenced. They are always "subroutine" calls, as described in the
+next section.</p>
+
+<p>An alternative approach is to use named parentheses instead. The
+Perl syntax for this is (?&amp;name); PCRE's earlier syntax
+(?P&gt;name) is also supported. We could rewrite the above example as
+follows:</p>
+
+<quote><p>  (?&lt;pn&gt; \\( ( (?&gt;[^()]+) | (?&amp;pn) )* \\) )</p></quote>
+
+<p>If there is more than one subpattern with the same name, the earliest one is
+used.</p>
+
+<p>This particular example pattern that we have been looking at contains nested
+unlimited repeats, and so the use of atomic grouping for matching strings of
+non-parentheses is important when applying the pattern to strings that do not
+match. For example, when this pattern is applied to</p>
+
+<quote><p>  (aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa()</p></quote>
+
+<p>it yields "no match" quickly. However, if atomic grouping is not used,
+the match runs for a very long time indeed because there are so many different
+ways the + and * repeats can carve up the subject, and all have to be tested
+before failure can be reported.</p>
+
+<p>At the end of a match, the values set for any capturing subpatterns are those
+from the outermost level of the recursion at which the subpattern value is set.
+
+<!-- XXX C Interface
+If you want to obtain intermediate values, a callout function can be used (see
+below and the
+
+<em>pcrecallout</em>
+
+documentation). 
+-->
+If the pattern above is matched against</p>
+
+<quote><p>  (ab(cd)ef)</p></quote>
+
+<p>the value for the capturing parentheses is "ef", which is the last value taken
+on at the top level. If additional parentheses are added, giving</p>
+
+<code type="none">
+  \\( ( ( (?&gt;[^()]+) | (?R) )* ) \\)
+     ^                        ^
+     ^                        ^</code>
+
+<p>the string they capture is "ab(cd)ef", the contents of the top level
+parentheses. 
+<!-- XXX C interface
+If there are more than 15 capturing parentheses in a pattern, PCRE
+has to obtain extra memory to store data during a recursion, which it does by
+using <em>pcre_malloc</em>, freeing it via <em>pcre_free</em> afterwards. If no
+memory can be obtained, the match fails with the <c>error_nomemory</c> error.</p>
+-->
+</p>
+
+<p>Do not confuse the (?R) item with the condition (R), which tests
+for recursion.  Consider this pattern, which matches text in angle
+brackets, allowing for arbitrary nesting. Only digits are allowed in
+nested brackets (that is, when recursing), whereas any characters are
+permitted at the outer level.</p>
+
+<quote><p>  &lt; (?: (?(R) \\d++  | [^&lt;&gt;]*+) | (?R)) * &gt;</p></quote>
+
+<p>In this pattern, (?(R) is the start of a conditional subpattern,
+with two different alternatives for the recursive and non-recursive
+cases. The (?R) item is the actual recursive call.</p>
+
+</section>
+
+<section><marker id="sect21"></marker><title>Subpatterns as subroutines</title>
+
+<p>If the syntax for a recursive subpattern reference (either by number or by
+name) is used outside the parentheses to which it refers, it operates like a
+subroutine in a programming language. The "called" subpattern may be defined
+before or after the reference. A numbered reference can be absolute or
+relative, as in these examples:</p>
+
+<list>
+  <item>(...(absolute)...)...(?2)...</item>
+  <item>(...(relative)...)...(?-1)...</item>
+  <item>(...(?+1)...(relative)...</item>
+</list>
+
+<p>An earlier example pointed out that the pattern</p>
+
+<quote><p>  (sens|respons)e and \\1ibility</p></quote>
+
+<p>matches "sense and sensibility" and "response and responsibility", but not
+"sense and responsibility". If instead the pattern</p>
+
+<quote><p>  (sens|respons)e and (?1)ibility</p></quote>
+
+<p>is used, it does match "sense and responsibility" as well as the other two
+strings. Another example is given in the discussion of DEFINE above.</p>
+
+<p>Like recursive subpatterns, a "subroutine" call is always treated
+as an atomic group. That is, once it has matched some of the subject
+string, it is never re-entered, even if it contains untried
+alternatives and there is a subsequent matching failure.</p>
+
+<p>When a subpattern is used as a subroutine, processing options such as
+case-independence are fixed when the subpattern is defined. They cannot be
+changed for different calls. For example, consider this pattern:</p>
+
+<quote><p>  (abc)(?i:(?-1))</p></quote>
+
+<p>It matches "abcabc". It does not match "abcABC" because the change of
+processing option does not affect the called subpattern.</p>
+
+
+</section>
+
+<!-- XXX C interface
+
+<section> <marker id="sect22"><title>Callouts</title></marker>
+
+<p>Perl has a feature whereby using the sequence (?{...}) causes arbitrary Perl
+code to be obeyed in the middle of matching a regular expression. This makes it
+possible, amongst other things, to extract different substrings that match the
+same pair of parentheses when there is a repetition.</p>
+
+<p>PCRE provides a similar feature, but of course it cannot obey arbitrary Perl
+code. The feature is called "callout". The caller of PCRE provides an external
+function by putting its entry point in the global variable <em>pcre_callout</em>.
+By default, this variable contains NULL, which disables all calling out.</p>
+
+<p>Within a regular expression, (?C) indicates the points at which the external
+function is to be called. If you want to identify different callout points, you
+can put a number less than 256 after the letter C. The default value is zero.
+For example, this pattern has two callout points:</p>
+
+<quote><p>  (?C1)abc(?C2)def</p></quote>
+
+
+<p>If the <c>AUTO_CALLOUT</c> flag is passed to <c>re:compile/2</c>, callouts are
+automatically installed before each item in the pattern. They are all numbered
+255.</p>
+
+<p>During matching, when PCRE reaches a callout point (and <em>pcre_callout</em> is
+set), the external function is called. It is provided with the number of the
+callout, the position in the pattern, and, optionally, one item of data
+originally supplied by the caller of <c>re:run/3</c>. The callout function
+may cause matching to proceed, to backtrack, or to fail altogether. A complete
+description of the interface to the callout function is given in the
+<em>pcrecallout</em>
+documentation.</p>
+
+
+</section>
+-->
+
+<section><marker id="sect23"></marker><title>Backtracking control</title>
+
+<p>Perl 5.10 introduced a number of "Special Backtracking Control Verbs", which
+are described in the Perl documentation as "experimental and subject to change
+or removal in a future version of Perl". It goes on to say: "Their usage in
+production code should be noted to avoid problems during upgrades." The same
+remarks apply to the PCRE features described in this section.</p>
+
+<!-- XXX C interface
+<p>Since these verbs are specifically related to backtracking, they can be used
+only when the pattern is to be matched using <c>re:run/3</c>, which uses a
+backtracking algorithm. They cause an error if encountered by
+<c>pcre_dfa_exec()</c>.</p>
+-->
+
+<p>The new verbs make use of what was previously invalid syntax: an opening
+parenthesis followed by an asterisk. In Perl, they are generally of the form
+(*VERB:ARG) but PCRE does not support the use of arguments, so its general
+form is just (*VERB). Any number of these verbs may occur in a pattern. There
+are two kinds:</p>
+
+
+<p><em>Verbs that act immediately</em></p>
+
+<p>The following verbs act as soon as they are encountered:</p>
+
+<quote><p>   (*ACCEPT)</p></quote>
+
+<p>This verb causes the match to end successfully, skipping the remainder of the
+pattern. When inside a recursion, only the innermost pattern is ended
+immediately. PCRE differs from Perl in what happens if the (*ACCEPT) is inside
+capturing parentheses. In Perl, the data so far is captured: in PCRE no data is
+captured. For example:</p>
+
+<quote><p>  A(A|B(*ACCEPT)|C)D</p></quote>
+
+<p>This matches "AB", "AAD", or "ACD", but when it matches "AB", no data is
+captured.</p>
+
+<quote><p>  (*FAIL) or (*F)</p></quote>
+
+<p>This verb causes the match to fail, forcing backtracking to occur. It is
+equivalent to (?!) but easier to read. The Perl documentation notes that it is
+probably useful only when combined with (?{}) or (??{}). Those are, of course,
+Perl features that are not present in PCRE. The nearest equivalent is the
+callout feature, as for example in this pattern:</p>
+
+<quote><p>  a+(?C)(*FAIL)</p></quote>
+
+<p>A match with the string "aaaa" always fails, but the callout is taken before
+each backtrack happens (in this example, 10 times).</p>
+
+
+
+<p><em>Verbs that act after backtracking</em></p>
+
+<p>The following verbs do nothing when they are encountered. Matching continues
+with what follows, but if there is no subsequent match, a failure is forced.
+The verbs differ in exactly what kind of failure occurs.</p>
+
+<quote><p>  (*COMMIT)</p></quote>
+
+<p>This verb causes the whole match to fail outright if the rest of the pattern
+does not match. Even if the pattern is unanchored, no further attempts to find
+a match by advancing the start point take place. Once (*COMMIT) has been
+passed, <c>re:run/3</c> is committed to finding a match at the current
+starting point, or not at all. For example:</p>
+
+<quote><p>  a+(*COMMIT)b</p></quote>
+
+<p>This matches "xxaab" but not "aacaab". It can be thought of as a kind of
+dynamic anchor, or "I've started, so I must finish."</p>
+
+<quote><p>  (*PRUNE)</p></quote>
+
+<p>This verb causes the match to fail at the current position if the rest of the
+pattern does not match. If the pattern is unanchored, the normal "bumpalong"
+advance to the next starting character then happens. Backtracking can occur as
+usual to the left of (*PRUNE), or when matching to the right of (*PRUNE), but
+if there is no match to the right, backtracking cannot cross (*PRUNE).
+In simple cases, the use of (*PRUNE) is just an alternative to an atomic
+group or possessive quantifier, but there are some uses of (*PRUNE) that cannot
+be expressed in any other way.</p>
+
+<quote><p>  (*SKIP)</p></quote>
+
+<p>This verb is like (*PRUNE), except that if the pattern is unanchored, the
+"bumpalong" advance is not to the next character, but to the position in the
+subject where (*SKIP) was encountered. (*SKIP) signifies that whatever text
+was matched leading up to it cannot be part of a successful match. Consider:</p>
+
+<quote><p>  a+(*SKIP)b</p></quote>
+
+<p>If the subject is "aaaac...", after the first match attempt fails (starting at
+the first character in the string), the starting point skips on to start the
+next attempt at "c". Note that a possessive quantifier does not have the same
+effect in this example; although it would suppress backtracking during the
+first match attempt, the second attempt would start at the second character
+instead of skipping on to "c".</p>
+
+<quote><p>  (*THEN)</p></quote>
+
+<p>This verb causes a skip to the next alternation if the rest of the pattern does
+not match. That is, it cancels pending backtracking, but only within the
+current alternation. Its name comes from the observation that it can be used
+for a pattern-based if-then-else block:</p>
+
+<quote><p>  ( COND1 (*THEN) FOO | COND2 (*THEN) BAR | COND3 (*THEN) BAZ ) ...</p></quote>
+
+<p>If the COND1 pattern matches, FOO is tried (and possibly further items after
+the end of the group if FOO succeeds); on failure the matcher skips to the
+second alternative and tries COND2, without backtracking into COND1. If (*THEN)
+is used outside of any alternation, it acts exactly like (*PRUNE).</p>
+
+</section>
+
+</erlref>
+

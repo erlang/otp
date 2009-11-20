@@ -1,0 +1,652 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>The Table Visualizer</title>
+    <prepared>EPK/TK Fredrik Gustafson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved>EPK/TK (Fredrik Gustafson)</approved>
+    <checked></checked>
+    <date>1998-01-19</date>
+    <rev>C</rev>
+    <file>table_visualizer.xml</file>
+  </header>
+  <p>The TV, TV, is a tool that enables the user to examine 
+    ETS and Mnesia tables on any (connected) node in the currently running Erlang
+    system. Once a certain table has been opened in the tool, the content may be
+    viewed in various levels of detail. The content may also be edited, as well as
+    sorted, using any element as key. It is also possible to search for a specified object or
+    element. The table may be polled anytime, either regularly, at specified
+    intervals, or manually. New and deleted objects, as well as those altered, are
+    marked with characteristic colours.</p>
+  <p>Information about the table itself (permissions, storage type, and so on) may
+    also be obtained.
+    </p>
+
+  <section>
+    <title>Terminology and Background</title>
+    <p>To avoid confusion, we have to distinguish between the <em>actual table</em>, i.e.,
+      the data stored in ETS or Mnesia, and the <em>image of the table</em>, i.e., the
+      data shown in the TV. The <em>image of the table</em> is simply a copy
+      of the <em>actual table</em>, and can be manipulated in a number of ways, for example
+      sorted. It follows that these manipulations in no way affects the <em>actual table</em>!</p>
+    <p>The expression <em>poll the table</em> is used for the operation of scanning through the
+      content of the actual table (in order to keep the image of the table consistent with the
+      actual table).</p>
+    <p>The ETS and Mnesia modules provides the user with the ability to store vast quantities
+      of data in, the data organized as dynamic, unordered tables. The ETS
+      facility stores <em>tuples</em>, while Mnesia stores <em>records</em>.
+      Each tuple consists of one or more <em>elements</em>; each record consists of one or
+      more <em>fields</em>. It should be noted that, since records are implemented as tuples,
+      with the record name as the first element, the first field of a record becomes the second
+      element in the corresponding tuple!
+            <br></br>
+
+      In the following, all table objects are mainly referred to as tuples, regardless of the
+      table type.</p>
+    <p>For further information about ETS and Mnesia, please see the manual pages and Mnesia User's Guide.</p>
+  </section>
+
+  <section>
+    <title>Starting the TV</title>
+    <p>The TV tool is started by giving the command</p>
+    <pre>
+      tv:start().
+    </pre>
+    <p>The window that appears, is hereafter referred to as <em>the TV main window</em>. It consists of:</p>
+    <list type="bulleted">
+      <item>
+        <p>a <em>menubar</em>.</p>
+      </item>
+      <item>
+        <p>a <em>grid</em>, i.e., a multicolumnar array, where tables existing on
+          the current node is shown. Each square in the grid is called a <em>cell</em>.</p>
+      </item>
+    </list>
+    <image file="tv_start.gif">
+      <icaption>The TV Main Window at startup.</icaption>
+    </image>
+    <p>For each table, the following information is shown, in order:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>the <em>table name</em>. If the table is accessible through this name, as is the
+          case with Mnesia tables and named ETS tables, the table name is shown in
+          black, otherwise in medium grey.</p>
+      </item>
+      <item>
+        <p>the <em>table identifier</em>, if there is one; since Mnesia tables are accessed
+          solely through the table name, this cell will in those cases be blank.</p>
+      </item>
+      <item>
+        <p>the <em>process identifier (PID) of the process owning the table</em>.</p>
+      </item>
+      <item>
+        <p>the <em>name of the process owning the table</em>, provided the process
+          is registered.</p>
+      </item>
+      <item>
+        <p>the <em>table size</em>, i.e., the number of objects currently stored in
+          the table.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Changing View</title>
+    <p>The TV will by default show currently existing ETS tables,
+      but the user may easily switch to a Mnesia table view, by choosing the
+      <em>Mnesia Tables</em> option in the <em>View</em> menu:
+      </p>
+    <image file="tv_start_mnesia.gif">
+      <icaption>The TV Main Window, showing Mnesia tables.</icaption>
+    </image>
+    <p>Normally, system tables (i.e., tables used by system applications) and unreadable
+      tables are not shown. The menu option <em>System Tables</em>, in the <em>Options</em>
+      menu, makes the system tables visible:
+      </p>
+    <image file="tv_start_system.gif">
+      <icaption>The TV Main Window, showing readable user and system tables.</icaption>
+    </image>
+    <p>Still unreadable tables are hidden, but the menu option <em>Unreadable Tables</em>,
+      also in the <em>Options</em> menu, makes even those tables visible. It shall be noted
+      that rows containing unreadable tables are shaded, using a grey colour:
+      </p>
+    <image file="tv_start_system_unreadable.gif">
+      <icaption>The TV Main Window, showing both readable and unreadable user and system tables.</icaption>
+    </image>
+    <p>Once a table view has been opened, the user may choose how to view it: it may be sorted
+      by the table names, by the table identifiers, by the process identifiers of the owner
+      processes, or by the names of the owning processes. These sorting options are found in the
+      <em>Options</em> menu.
+      </p>
+    <image file="tv_start_pid_sorted.gif">
+      <icaption>The TV Main Window, tables sorted by owner PID.</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Changing the Current Node</title>
+    <p>By default, the Table Vizualizer will show tables residing on the node
+      it was started from. However, the user may easily view tables on other nodes.
+      By choosing the <em>Nodes</em> option, in the <em>File</em> menu, a window showing
+      all connected nodes will appear. Clicking on any of the nodes in the list will cause
+      the main window to immediately show the tables residing on the specified node:
+      </p>
+    <image file="tv_start_other_node.gif">
+      <icaption>The Connected Nodes window, and the TV Main Window, showing tables on the selected node.</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Opening a Table in the Table Browser</title>
+    <p>Whenever a table shall be opened, the first step is to choose the corresponding
+      <em>Table Name</em> or <em>Table ID</em> cell. Secondly, the <em>Open Table</em>
+      menu item, in the <em>File</em> menu, has to be chosen. (Or, one may directly
+      double-click on a <em>Table Name</em> or <em>Table Id</em> cell.)</p>
+    <p>If the table selected table is readable, a window will appear after a short delay. This new
+      window is hereafter denoted the <em>Table Browser</em> window. Should the table be
+      unreadable, the Table Information window will appear instead (see further description
+      below).
+      </p>
+
+    <section>
+      <title>The Table Browser Window</title>
+      <p>The Table Browser window consists of:</p>
+      <list type="bulleted">
+        <item>
+          <p>a <em>menubar</em>.</p>
+        </item>
+        <item>
+          <p>a <em>toolbar</em> with buttons providing shortcuts to the menubar options. If the
+            cursor rests on any button, a so-called toolbar tip, explaining the button,
+            will appear.             <br></br>
+ 
+            (In the picture below, the cursor has lingered on the <em>Open Table</em>
+            button for a while.)</p>
+        </item>
+        <item>
+          <p>a <em>content and edit field</em>, showing the content of a specified row or cell.
+            Through this field the row, or cell, may also be edited (see below for a detailed
+            description).</p>
+        </item>
+        <item>
+          <p>a <em>grid</em>, i.e., a multicolumnar array, where the content of the
+            opened table will be shown. (As above, each square in the grid is called a cell.</p>
+        </item>
+      </list>
+      <image file="tv_table_browser.gif">
+        <icaption>The Table Browser Window.</icaption>
+      </image>
+      <p>The successful appearance of the Table Browser window means that an image of
+        the selected table has been created in the TV. It is this image
+        that is shown in the Table Browser.
+        </p>
+
+      <section>
+        <title>How Table Data Is Presented</title>
+        <p>Each object in the table is presented on a row of its own in the grid.
+          Each element in the object is presented in a cell of its own.          <br></br>
+
+          The colours on the <em>vertical</em> buttons to the left of the grid show the status
+          of the object on that very row: a bright red colour indicates that the object just
+          has been inserted (when the table is opened, all objects are regarded as being
+          just inserted), while a bright green colour indicates that the object has been
+          changed. The colour fades away, shade by shade, every time the actual table is polled,
+          until the normal background colour is encountered.          <br></br>
+
+          When an object has been deleted, the colour of the corresponding
+          <em>vertical button</em> turns to black. The next time the table is polled, the
+          object will be removed from the grid.</p>
+        <image file="tv_table_browser_updated.gif">
+          <icaption>The Table Browser Window, with new, changed, and deleted objects.</icaption>
+        </image>
+        <p>Normally, new objects are placed at the end of the grid, while all other objects
+          maintain their positions between successive polls. However, when sorting mode has
+          been ordered, all objects, even new ones, are placed at the correct position
+          according to the sorting ordered (see also below).</p>
+        <p>Immediately above the <em>horizontal buttons</em>, one or more <em>keys</em> may
+          appear. These keys indicates which elements that are used as indices in the
+          ETS/Mnesia table, i.e., which fields that are used by ETS/Mnesia as search keys when
+          looking up data.</p>
+        <p>The grid columns may be resized, by clicking and dragging on the small black <em>resize areas</em> between any two horizontal buttons.</p>
+        <p>The rows are enumerated, as a help when navigating through the table. Note: it shall
+          not be assumed that these numbers correspond to the placement of the objects in the
+          <em>actual table</em>! The row numbers, as presented in the TV, are
+          only temporary, and only valid within the TV!
+                    <br></br>
+
+          The number on the <em>vertical scrollbar</em> corresponds to the number the
+          uppermost row has (or will have).</p>
+        <p>The number shown on the horizontal scrollbar relates to the leftmost column shown.</p>
+      </section>
+
+      <section>
+        <title>How to Poll the Table</title>
+        <p>The table is polled whenever the <em>Poll Table</em> option in the <em>Options</em>
+          menu is chosen (or the <em>Poll Table</em> toolbar button is pressed).           <br></br>
+
+          The user may also choose to let the TV poll the table at regular
+          intervals. This is done via the <em>Set Poll Interval...</em> option in the
+          <em>Options</em> menu, which causes the <em>Set Poll Interval window</em> to appear. </p>
+        <p>In the Set Poll Interval window the user selects whether manual or automatic
+          polling shall be used, and, in the automatic polling case, the poll interval.</p>
+        <image file="set_poll_int.gif">
+          <icaption>The Set Poll Interval Window.</icaption>
+        </image>
+        <p>It shall be noted that, in the case of a large table (or a slow computer/operating
+          system), a short poll interval may cause the TV to be flooded, i.e., the
+          data resulting from one poll has not been fully treated and presented when the data from
+          the next poll arrives. The user is therefore kindly requested to use the automatic
+          polling facility with care!</p>
+      </section>
+
+      <section>
+        <title>How to Edit Objects in the Table</title>
+        <p>Provided that the table is writable for other processes than the owning process,
+          the user may insert, change and delete objects.</p>
+        <p>To <em>delete</em> an object, the corresponding row, or a single cell in the
+          corresponding row, has to be chosen, by clicking either on the vertical button
+          to the left of the row, or on a cell. Thereafter the <em>Delete Object</em>
+          option in the <em>Edit Menu</em>
+          is chosen. (Should the user regret the delete operation, the row may once again
+          be selected, whereupon the <em>Return</em> button simply is pressed.)</p>
+        <p>To <em>insert</em> an object, the user may use the <em>Record Editor</em>, or simply
+          enter the object in the content and edit field, and then press the <em>Return</em>
+          button.          <br></br>
+
+          The <em>Record Editor</em> is started via the <em>Edit Object</em> option in the
+          <em>Edit</em> menu, or via the <em>Edit Object</em> toolbar button. The editor that
+          appears looks different depending on the kind of table: for Mnesia tables,
+          a writable field is shown for each record entry, as well as the name of the entry.
+          For ETS tables, only a writable field is shown; this is due to the fact that the
+          size of the tuples inserted in ETS tables may vary, whereas the size of the records
+          inserted in a Mnesia table (more or less) is fixed.
+          One may select the next field in the record editor by pressing
+          the 'Tab' (or 'Arrow Down') button, and select the previous field by pressing
+          'Shift'+'Tab' (or 'Arrow Up').          <br></br>
+
+          When the editing is finished, the <em>OK</em> button may be clicked, or
+          'Return' pressed. The TV will then try to insert the new object.
+          </p>
+        <image file="tv_record_editor_mnesia.gif">
+          <icaption>The Record Editor (shown for a Mnesia table).</icaption>
+        </image>
+        <p>To <em>change</em> an already existing object, the corresponding row, or a single cell
+          in the corresponding row, has to be selected first (see below). Then one may edit the
+          whole object (or the selected field in the object), either using the record editor
+          or the content and edit field, whereupon 'Return' may be pressed (or the 'OK' button
+          clicked).
+          </p>
+        <p>It shall be noted that it is hard to edit objects containing
+          <em>process identifiers</em>, <em>references</em>, <em>binaries</em> and <em>ports</em>,
+          since it is only a textual representation of these terms that is shown on the screen.
+          It is in the general case impossible for the TV to correctly
+          convert this textual representation back to the original term. As a courtesy to
+          the user, an attempt to do this will nevertheless be done if the edited field
+          consists of a single process identifier; however, this conversion will only be
+          correct provided
+          that the process identifier originates from the current Erlang session. (On
+          the other hand, why on earth should any user want to store old process identifiers?)
+          </p>
+        <p>It shall also be noted that it may be more or less confusing to edit the table,
+          depending on whether the table type is <em>set</em>, <em>bag</em>, or
+          <em>duplicate_bag</em>, i.e., depending on whether or not objects having the
+          same key (or even duplicate objects) are allowed. Please study the ETS or Mnesia
+          manual pages, should confusion arise!
+          </p>
+      </section>
+
+      <section>
+        <title>How to Search For Objects</title>
+        <p>One may search for an object, by choosing the <em>Search Object</em>
+          option in the <em>Options</em> menu (or by pressing the <em>Search Object</em>
+          toolbar button). In the <em>Search Object window</em> that appears, any valid
+          Erlang term or regular expression may be entered, whereupon all objects
+          containing (or consisting of) this term, or matching the regular expression,
+          will be shown.</p>
+        <image file="tv_search_window.gif">
+          <icaption>The Search Object Window.</icaption>
+        </image>
+        <p>In the search result list, by clicking on any object, the Table Browser will
+          immediately scroll to the corresponding row in the table shown. This enables
+          the user to in a very powerful way quickly find the objects he's interested in.</p>
+        <image file="tv_search_result.gif">
+          <icaption>The Search Object Window interworking with the Table Browser.</icaption>
+        </image>
+      </section>
+
+      <section>
+        <title>How to Mark Table Data</title>
+        <p>One may mark a row or a column by clicking on the buttons to the left and above
+          the grid, respectively. A single cell is marked by clicking on it. Even empty
+          rows and columns may be marked; an empty cell cannot be marked - on the contrary,
+          by clicking on an empty cell, all marks are removed.</p>
+        <p>Marks are indicated by a cyan blue colour.</p>
+        <image file="tv_row_marked.gif">
+          <icaption>The TV Main Window: a row has been marked.</icaption>
+        </image>
+        <p>When a row or a cell has been marked, the content will be shown in the content field,
+          together with an indication of the row (and column when applicable) the marked area
+          corresponds to. Should the object be very big, only a fraction of it may be shown in
+          this field. By clicking on the down-arrow button to the right of the content and
+          edit field, a pop-up content field will be shown, where the whole marked object
+          may be viewed. The content of this pop-up field may be marked and copied to
+          other windows; however, this field cannot be edited.</p>
+        <image file="tv_row_marked_popup.gif">
+          <icaption>The Table Browser: the pop-up content field.</icaption>
+        </image>
+        <p>It shall be noted that the user may choose whether lists shall be shown as
+          strings or lists; this is done via the <em>View</em> menu.
+          </p>
+        <p>A marked column may be subject to sorting, see below. When sorting is ordered,
+          marks are removed at each polling of the table (because of the difficulties to
+          keep track of a certain object, or element, in this case).</p>
+      </section>
+
+      <section>
+        <title>How to Sort Table Data</title>
+        <p>The image of the table may be sorted in rising or falling order, using any element as
+          sorting key. The element desired is chosen by marking the corresponding column, and
+          then choose (either via the <em>Options</em> menu, or via the toolbar buttons) any
+          of the sorting options available, i.e., sorting in ascending or descending order.
+          The colour of the column button will then change to gold, to indicate that this
+          column is the basis for the sorting currently chosen.</p>
+        <p>Should no column have been marked, when sorting is ordered, the first element in each
+          object (i.e, tuple) will be used as sorting key if the table is an ETS table; the
+          second element (i.e., the first field in the record) will be used if the table is a
+          Mnesia table.</p>
+        <p>Even columns with no elements in them may be subject to sorting. In this case the
+          whole object is used as the sorting key.</p>
+        <p>When sorting is ordered, new elements will be inserted according to the current
+          sorting mode. When the sorting is interrupted (via the <em>No Sorting</em> option),
+          the current image of the table keep the current order, but new elements will from
+          now on once again be inserted at the end of the image of the table.</p>
+      </section>
+
+      <section>
+        <title>How to Obtain Table Information</title>
+        <p>Information about the actual table is obtained via the <em>File</em> menu (or via the
+          <em>Table Info</em> toolbar button). The information is printed in a separate window,
+          with similar pieces of information grouped together on "flap cards" of their own.
+          By clicking on a flap, the information on the corresponding card is made visible.</p>
+        <image file="info_window.gif">
+          <icaption>The Table Information Window, showing information about a Mnesia table.</icaption>
+        </image>
+        <p>The Table Information window may also be opened from the TV Main
+          Window, by selecting a table and then choose the <em>Table Info</em> option
+          in the <em>File</em> menu (or by double-clicking on the <em>Table Size</em>
+          field.</p>
+        <p>Note: The Table Information window will automatically be opened if the user tries
+          to open an unreadable table, since this is the only information available in this
+          case.</p>
+      </section>
+    </section>
+
+    <section>
+      <title>The Table Browser Menus</title>
+      <p>The Table Browser offers the following menus:</p>
+      <p></p>
+
+      <section>
+        <title>The File Menu</title>
+        <taglist>
+          <tag><em>Table Info</em></tag>
+          <item>
+            <p>Opens the Table Information window, which shows the available information
+              about the current table. </p>
+          </item>
+          <tag><em>Close</em></tag>
+          <item>
+            <p>Closes the Table Browser window.</p>
+          </item>
+        </taglist>
+      </section>
+
+      <section>
+        <title>The Edit Menu</title>
+        <taglist>
+          <tag><em>Edit Object...</em></tag>
+          <item>
+            <p>Opens the Record Editor. If an object is marked, it will be shown in
+              the Record Editor.</p>
+          </item>
+          <tag><em>Delete Object</em></tag>
+          <item>
+            <p>Deletes a marked object.</p>
+          </item>
+        </taglist>
+      </section>
+
+      <section>
+        <title>The View Menu</title>
+        <taglist>
+          <tag><em>Lists As Lists</em></tag>
+          <item>
+            <p>Causes lists in the table to be shown as lists.</p>
+          </item>
+          <tag><em>Lists As Strings</em></tag>
+          <item>
+            <p>Causes lists in the table to be shown as strings.</p>
+          </item>
+        </taglist>
+      </section>
+
+      <section>
+        <title>The Options Menu</title>
+        <taglist>
+          <tag><em>Poll Table</em></tag>
+          <item>
+            <p>An explicit order to poll the table, i.e., to scan the content.</p>
+          </item>
+          <tag><em>Poll Interval...</em></tag>
+          <item>
+            <p>Choose between manual and automatic polling. In the case of automatic
+              polling, the user gets the opportunity to choose the polling interval.</p>
+          </item>
+          <tag><em>Search Object</em></tag>
+          <item>
+            <p>Enables search for objects containing (or consisting of) a specified
+              Erlang term, or matching a regular pattern. The search result may be used
+              for quick navigation in the table.</p>
+          </item>
+          <tag><em>Sort Ascending Order</em></tag>
+          <item>
+            <p>Shows the table content sorted in ascending (i.e., rising) order.
+              New objects will be shown with correct placement as long the as the sorting
+              is going on.              <br></br>
+
+              Please note that it is only the image of the table that is affected,
+              <em>not</em> the table itself!</p>
+          </item>
+          <tag><em>Sort Descending Order</em></tag>
+          <item>
+            <p>Shows the table content sorted in descending (i.e., falling) order.
+              New objects will be shown with correct placement as long the as the
+              sorting is going on.</p>
+          </item>
+          <tag><em>No Sorting</em></tag>
+          <item>
+            <p>Sorting mode is left. New objects will be shown last in the
+              table. However, older objects will remain in the position they had when
+              the sorting mode was left, i.e., their placement will not reflect their
+              actual placement in the ETS/Mnesia table.</p>
+          </item>
+        </taglist>
+      </section>
+
+      <section>
+        <title>The Help Menu</title>
+        <taglist>
+          <tag><em>Help</em></tag>
+          <item>
+            <p>Shows the help (about TV usage) that is available.
+              (The help will be shown in the Netscape Internet browser, if available.)</p>
+          </item>
+          <tag><em>OTP Documentation</em></tag>
+          <item>
+            <p>Shows the Documentation about all OTP components that is available
+              in the local installation of OTP.</p>
+          </item>
+        </taglist>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Tracing the Owner Process</title>
+    <p>The process owning the table may easily be traced, by selecting either
+      the <em>Owner Pid</em> or the <em>Owner Name</em> field, and then choosing
+      the <em>Trace Process</em> option in the <em>File</em> menu.       <br></br>
+
+      (It is also possible to double-click on any of these fields.)</p>
+  </section>
+
+  <section>
+    <title>Creating a New Table</title>
+    <p>A new table may easily be created using the <em>New Table window</em>.
+      Currently only ETS tables may be created. Since ETS tables
+      dies together with the parent process, a special process, registered
+      as <em>tv_table_owner</em>, will be the owner of tables created this way.
+      This process will not be affected by any termination of the TV,
+      i.e., the ETS tables created will live on until they are explicitly killed.
+      </p>
+    <image file="tv_create_table.gif">
+      <icaption>The New Table Window, enabling easy creation of ETS tables.</icaption>
+    </image>
+    <p>Note: the <em>tv_table_owner</em> is local to each node, meaning
+      that the creation of a table on a new node also will start such a process
+      on that node. This way only the tables on a specific node dies, should that
+      specific node crash.</p>
+  </section>
+
+  <section>
+    <title>The TV Main Window Menus</title>
+    <p>The Main Window offers the following menus:</p>
+    <p></p>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Open Table</em></tag>
+        <item>
+          <p>Open a selected table in a new Table Browser.</p>
+        </item>
+        <tag><em>New Table</em></tag>
+        <item>
+          <p>Open the New Table window, enabling easy creation of ETS tables.</p>
+        </item>
+        <tag><em>Table Info</em></tag>
+        <item>
+          <p>Opens the Table Information window, showing the available
+            information about a selected table. </p>
+        </item>
+        <tag><em>Nodes...</em></tag>
+        <item>
+          <p>Open the Connected Nodes window, enabling the user to view
+            tables residing on remote nodes.</p>
+        </item>
+        <tag><em>Trace Process</em></tag>
+        <item>Opens a trace window, where the process owning a selected table can
+         be traced.</item>
+        <tag><em>Exit</em></tag>
+        <item>
+          <p>Terminates the TV.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The View Menu</title>
+      <taglist>
+        <tag><em>ETS Tables</em></tag>
+        <item>
+          <p>Shows ETS tables on the current node.</p>
+        </item>
+        <tag><em>Mnesia tables</em></tag>
+        <item>
+          <p>Shows Mnesia tables on the current node.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Options Menu</title>
+      <taglist>
+        <tag><em>Refresh</em></tag>
+        <item>
+          <p>An explicit order to once again check the current node for existing
+            tables, and list them.</p>
+        </item>
+        <tag><em>Unreadable Tables</em></tag>
+        <item>
+          <p>Option to choose whether or not unreadable tables shall be shown.</p>
+        </item>
+        <tag><em>System Tables</em></tag>
+        <item>
+          <p>Option to choose whether or not system tables shall be shown.</p>
+        </item>
+        <tag><em>Sort by Name</em></tag>
+        <item>
+          <p>Shows the tables sorted by their names.</p>
+        </item>
+        <tag><em>Sort by Id</em></tag>
+        <item>
+          <p>Shows the tables sorted by their table identifiers.</p>
+        </item>
+        <tag><em>Sort by Owner PID</em></tag>
+        <item>
+          <p>Shows the tables sorted by the process identifiers of the owning
+            processes.</p>
+        </item>
+        <tag><em>Sort by Owner Name</em></tag>
+        <item>
+          <p>Shows the tables sorted by the registered names of the owning processes.</p>
+        </item>
+        <tag><em>Error Messages in Haiku</em></tag>
+        <item>
+          <p>Option to choose whether or not error messages shall be shown
+            in the Japanes poetry style called <em>Haiku</em>.</p>
+        </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Help Menu</title>
+      <taglist>
+        <tag><em>Help</em></tag>
+        <item>
+          <p>Shows the help (about TV usage) that is available.
+            (The help will be shown in the Netscape Internet browser, if available.)</p>
+        </item>
+        <tag><em>OTP Documentation</em></tag>
+        <item>
+          <p>Shows the Documentation about all OTP components that is available
+            in the local installation of OTP.</p>
+        </item>
+      </taglist>
+    </section>
+  </section>
+</chapter>
+
+

@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>sasl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <app>sasl</app>
+  <appsummary>The SASL Application</appsummary>
+  <description>
+    <p>This section describes the SASL (System Architecture Support Libraries)
+      application which provides the following services:</p>
+    <list type="bulleted">
+      <item><c>alarm_handler</c></item>
+      <item><c>overload</c></item>
+      <item><c>rb</c></item>
+      <item><c>release_handler</c></item>
+      <item><c>systools</c></item>
+    </list>
+    <p>The SASL application also includes <c>error_logger</c> event
+      handlers for formatting SASL error and crash reports.</p>
+
+    <note>
+       <p>The SASL application in OTP has nothing to do with
+          "Simple Authentication and Security Layer" (RFC 4422).</p>
+    </note>
+
+  </description>
+
+  <section>
+    <title>Error Logger Event Handlers</title>
+    <p>The following error logger event handlers are defined in
+      the SASL application.</p>
+    <taglist>
+      <tag><c>sasl_report_tty_h</c></tag>
+      <item>
+        <p>Formats and writes <em>supervisor reports</em>, <em>crash reports</em> and <em>progress reports</em> to <c>stdio</c>.</p>
+      </item>
+      <tag><c>sasl_report_file_h</c></tag>
+      <item>
+        <p>Formats and writes <em>supervisor reports</em>, <em>crash report</em> and <em>progress report</em> to a single file.</p>
+      </item>
+      <tag><c>error_logger_mf_h</c></tag>
+      <item>
+        <p>This error logger writes <em>all</em> events sent to
+          the error logger to disk. It installs the <c>log_mf_h</c>
+          event handler in the <c>error_logger</c> process.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+    <p>The following configuration parameters are defined for the SASL
+      application. See <c>app(4)</c> for more information about
+      configuration parameters:</p>
+    <taglist>
+      <tag><c><![CDATA[sasl_error_logger = Value <optional>]]></c></tag>
+      <item>
+        <p><c>Value</c> is one of:</p>
+        <taglist>
+          <tag><c>tty</c></tag>
+          <item>Installs <c>sasl_report_tty_h</c> in the error logger.
+           This is the default option.</item>
+          <tag><c>{file,FileName}</c></tag>
+          <item>Installs <c>sasl_report_file_h</c> in the error logger.
+           This makes all reports go to the file <c>FileName</c>.
+          <c>FileName</c> is a string.</item>
+          <tag><c>false</c></tag>
+          <item>
+            <p>No SASL error logger handler is installed.</p>
+          </item>
+        </taglist>
+      </item>
+      <tag><c><![CDATA[errlog_type = error | progress | all <optional>]]></c></tag>
+      <item>
+        <p>Restricts the error logging performed by the specified
+          <c>sasl_error_logger</c> to error reports, progress reports,
+          or both. Default is <c>all</c>.</p>
+      </item>
+      <tag><c><![CDATA[error_logger_mf_dir = string() | false<optional>]]></c></tag>
+      <item>
+        <p>Specifies in which directory the files are stored. If this
+          parameter is undefined or <c>false</c>,
+          the <c>error_logger_mf_h</c> is not installed.</p>
+      </item>
+      <tag><c><![CDATA[error_logger_mf_maxbytes = integer() <optional>]]></c></tag>
+      <item>
+        <p>Specifies how large each individual file can be. If this
+          parameter is undefined, the <c>error_logger_mf_h</c> is not
+          installed.</p>
+      </item>
+      <tag><c><![CDATA[error_logger_mf_maxfiles = 0<integer()<256 <optional>]]></c></tag>
+      <item>
+        <p>Specifies how many files are used. If this parameter is
+          undefined, the <c>error_logger_mf_h</c> is not installed.</p>
+      </item>
+      <tag><c><![CDATA[overload_max_intensity = float() > 0 <optional>]]></c></tag>
+      <item>
+        <p>Specifies the maximum intensity for <c>overload</c>. Default
+          is <c>0.8</c>.</p>
+      </item>
+      <tag><c><![CDATA[overload_weight = float() > 0 <optional>]]></c></tag>
+      <item>
+        <p>Specifies the <c>overload</c> weight. Default is <c>0.1</c>.</p>
+      </item>
+      <tag><c><![CDATA[start_prg = string() <optional>]]></c></tag>
+      <item>
+        <p>Specifies which program should be used when restarting
+          the system. Default is <c>$OTP_ROOT/bin/start</c>.</p>
+      </item>
+      <tag><c><![CDATA[masters = [atom()] <optional>]]></c></tag>
+      <item>
+        <p>Specifies which nodes this node uses to read/write release
+          information. This parameter is ignored if
+          the <c>client_directory</c> parameter is not set.</p>
+      </item>
+      <tag><c><![CDATA[client_directory = string() <optional>]]></c></tag>
+      <item>
+        <p>This parameter specifies the client directory at the master
+          nodes. Refer to Release Handling in <em>OTP Design Principles</em> for more information.  This parameter is
+          ignored if the <c>masters</c> parameter is not set.</p>
+      </item>
+      <tag><c><![CDATA[static_emulator = true | false <optional>]]></c></tag>
+      <item>
+        <p>Indicates if the Erlang emulator is statically installed. A
+          node with a static emulator cannot switch dynamically to a
+          new emulator as the executable files are written into memory
+          statically.  This parameter is ignored if the <c>masters</c>
+          and <c>client_directory</c> parameters are not set.</p>
+      </item>
+      <tag><c><![CDATA[releases_dir = string() <optional>]]></c></tag>
+      <item>
+        <p>Indicates where the <c>releases</c> directory is located.
+          The release handler writes all its files to this directory.
+          If this parameter is not set, the OS environment parameter
+          <c>RELDIR</c> is used. By default, this is
+          <c>$OTP_ROOT/releases</c>.</p>
+      </item>
+      <tag><c><![CDATA[utc_log = true | false <optional>]]></c></tag>
+      <item>
+        <p>If set to <c>true</c>, all dates in textual log outputs are
+          displayed in Universal Coordinated Time with the string
+          <c>UTC</c> appended.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="alarm_handler">alarm_handler(3)</seealso>,
+      error_logger(3),
+      log_mf_h(3),
+      <seealso marker="overload">overload(3)</seealso>,
+      <seealso marker="rb">rb(3)</seealso>,
+      <seealso marker="release_handler">release_handler(3)</seealso>,
+      <seealso marker="systools">systools(3)</seealso></p>
+  </section>
+</appref>
+

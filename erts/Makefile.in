@@ -1,0 +1,157 @@
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2006-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+# 
+include $(ERL_TOP)/make/target.mk
+include vsn.mk
+
+# ----------------------------------------------------------------------
+
+# Other erts dirs than the emulator dir...
+ERTSDIRS = doc/src etc epmd lib_src
+XINSTDIRS = preloaded
+ifeq ($(NO_START_SCRIPTS),)
+ERTSDIRS += start_scripts
+endif
+
+# Until hybrid is nofrag, don't build it.
+#BUILD_HYBRID_EMU=@ERTS_BUILD_HYBRID_EMU@
+BUILD_HYBRID_EMU=no
+
+EXTRA_FLAVORS=smp
+ifeq ($(BUILD_HYBRID_EMU),yes)
+EXTRA_FLAVORS += hybrid
+endif
+
+#
+# Some byggy 'make's get confused when a directory is created and used
+# for storing files which other files depend on during the same "make
+# session". As a workaround we do a 'make generate' (which creates
+# all directories) before doing 'make opt', etc...
+#
+
+ifneq ($(BUILD_HYBRID_EMU),yes)
+all: smp opt
+else
+all: hybrid smp opt
+endif
+
+debug opt docs clean:
+	@ case $@ in \
+	    docs|clean) ;; \
+	    *) ( cd emulator && $(MAKE) generate TYPE=$@ FLAVOR=$(FLAVOR)) ;; \
+	  esac
+	@ ( cd emulator && $(MAKE) $@ FLAVOR=$(FLAVOR))
+	@for d in $(ERTSDIRS); do \
+		if test -d $$d; then \
+			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
+		fi ; \
+	 done
+
+# ----------------------------------------------------------------------
+# These are "convenience targets", provided as shortcuts for developers
+# - don't use them in scripts or assume they will always stay like this!
+#
+
+$(EXTRA_FLAVORS):
+	@ ( cd emulator \
+	    && $(MAKE) generate TYPE=opt FLAVOR=$@ \
+	    && $(MAKE) opt FLAVOR=$@ )
+
+ifneq ($(BUILD_HYBRID_EMU),yes)
+hybrid:
+	@echo '*** Omitted build of hybrid heap emulator'
+	@echo '*** since target is $(TARGET)'
+endif
+
+# Make erl script and erlc in $(ERL_TOP)/bin which runs the compiled version
+# Note that erlc is not a script and requires extra handling on cygwin.
+# also note that this file is not created by autoconf, that's why @EXEEXT@
+# is not used.
+
+# The copying of beam.dll should be removed when the beam dll need no longer be
+# in the same directory...
+local_setup:
+	@cd start_scripts && $(MAKE)
+	@rm -f $(ERL_TOP)/bin/erl $(ERL_TOP)/bin/erlc $(ERL_TOP)/bin/cerl \
+		$(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
+		$(ERL_TOP)/bin/escript $(ERL_TOP)/bin/escript.exe \
+		$(ERL_TOP)/bin/dialyzer $(ERL_TOP)/bin/dialyzer.exe \
+		$(ERL_TOP)/bin/typer $(ERL_TOP)/bin/typer.exe \
+		$(ERL_TOP)/bin/start*.boot $(ERL_TOP)/bin/start*.script
+	@if [ "X$(TARGET)" = "Xwin32" ]; then \
+		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer.exe $(ERL_TOP)/bin/dialyzer.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/typer.exe $(ERL_TOP)/bin/typer.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe $(ERL_TOP)/bin/erlc.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erl.exe $(ERL_TOP)/bin/erl.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/werl.exe $(ERL_TOP)/bin/werl.exe; \
+		cp $(ERL_TOP)/bin/$(TARGET)/escript.exe $(ERL_TOP)/bin/escript.exe; \
+	 	chmod 755 $(ERL_TOP)/bin/erl.exe $(ERL_TOP)/bin/erlc.exe \
+			 $(ERL_TOP)/bin/werl.exe; \
+		$(ERL_TOP)/erts/etc/win32/cygwin_tools/make_local_ini.sh \
+			$(ERL_TOP); \
+	else \
+	sed	-e "s;%FINAL_ROOTDIR%;$(ERL_TOP);"   \
+		-e "s;erts-.*/bin;bin/$(TARGET);"    \
+		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+	        $(ERL_TOP)/erts/etc/unix/erl.src.src > $(ERL_TOP)/bin/erl; \
+	sed	-e "s;%SRC_ROOTDIR%;$(ERL_TOP);"   \
+		-e "s;%TARGET%;$(TARGET);"    \
+		-e "s;%VSN%;$(VSN);"    \
+	        $(ERL_TOP)/erts/etc/unix/cerl.src > $(ERL_TOP)/bin/cerl; \
+		cp $(ERL_TOP)/bin/$(TARGET)/dialyzer $(ERL_TOP)/bin/dialyzer; \
+		cp $(ERL_TOP)/bin/$(TARGET)/typer $(ERL_TOP)/bin/typer; \
+		cp $(ERL_TOP)/bin/$(TARGET)/erlc $(ERL_TOP)/bin/erlc; \
+		cp $(ERL_TOP)/bin/$(TARGET)/escript $(ERL_TOP)/bin/escript; \
+	 	chmod 755 $(ERL_TOP)/bin/erl $(ERL_TOP)/bin/erlc \
+			$(ERL_TOP)/bin/cerl; \
+	fi
+	@cd start_scripts && $(MAKE) $(ERL_TOP)/bin/start.script \
+		$(ERL_TOP)/bin/start_sasl.script \
+		$(ERL_TOP)/bin/start_clean.script
+
+# Run the configure script
+configure:
+	@set -e ; cd autoconf && $(MAKE)
+
+# Remake the makefiles, if you already have configured but you have edited
+# a "Makefile.in".
+makefiles:
+	@set -e ; cd autoconf && $(MAKE) $@
+
+# ----------------------------------------------------------------------
+# Release targets
+#
+
+release release_docs:
+ifeq ($(BUILD_HYBRID_EMU),yes)
+	@if test $@ = release; then ( cd emulator && $(MAKE) $@ FLAVOR=hybrid) fi
+else
+	@if test $@ = release; then ( $(MAKE) hybrid ) fi
+endif
+	@if test $@ = release; then ( cd emulator && $(MAKE) $@ FLAVOR=smp) fi
+	@ (cd emulator && $(MAKE) $@ FLAVOR=plain)
+	@for d in $(ERTSDIRS) $(XINSTDIRS); do \
+		if test -d $$d; then \
+			( cd $$d && $(MAKE) $@ ) || exit $$? ; \
+		fi ; \
+	 done
+
+# ----------------------------------------------------------------------
+
+.PHONY: debug opt docs clean local_setup configure release \
+	release_docs run_test_cases hybrid smp

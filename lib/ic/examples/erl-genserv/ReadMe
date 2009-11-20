@@ -1,0 +1,30 @@
+This is a short description on the use of the c-client demo,
+a client that initiates and uses a random number generator
+that lies on an  Erlang-genserver.
+
+Instructions.
+               
+    On the erlang shell type :
+    --------------------------
+
+    ic:gen(random,[{be,erl_genserv}]).  ( generates the plain code )
+
+    make:all().                         ( compiles the erlang code )
+
+    {ok,R} = rmod_random:oe_create().   ( initializes the server )
+
+    
+    Running the example :
+    ---------------------
+ 
+    rmod_random:init(R,1,2,3).           ( initializes the generator )
+
+    rmod_random:produce(R).              ( generates a random number )  
+
+
+
+
+
+
+
+

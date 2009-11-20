@@ -1,0 +1,59 @@
+#ifndef _COS_TIME_IDL_
+#define _COS_TIME_IDL_
+
+#pragma prefix "omg.org"
+
+#include<TimeBase.idl>
+
+module CosTime { 
+  enum TimeComparison { 
+    TCEqualTo, 
+    TCLessThan, 
+    TCGreaterThan, 
+    TCIndeterminate 
+  }; 
+  enum ComparisonType{ 
+    IntervalC, 
+    MidC }; 
+  enum OverlapType { 
+    OTContainer, 
+    OTContained, 
+    OTOverlap, 
+    OTNoOverlap 
+  };
+
+  exception TimeUnavailable {}; 
+  interface TIO; // forward declaration 
+
+  interface UTO { 
+    readonly attribute TimeBase::TimeT time; 
+    readonly attribute TimeBase::InaccuracyT inaccuracy; 
+    readonly attribute TimeBase::TdfT tdf; 
+    readonly attribute TimeBase::UtcT utc_time; 
+
+    UTO absolute_time(); 
+    TimeComparison compare_time( in ComparisonType comparison_type, in UTO uto ); 
+    TIO time_to_interval( in UTO uto ); 
+    TIO interval(); 
+  }; 
+
+  interface TIO { 
+    readonly attribute TimeBase::IntervalT time_interval; 
+
+    OverlapType spans ( in UTO time, out TIO overlap ); 
+    OverlapType overlaps ( in TIO interval, out TIO overlap ); 
+    UTO time (); 
+  }; 
+
+  interface TimeService { 
+    UTO universal_time() 
+      raises(TimeUnavailable ); 
+    UTO secure_universal_time() 
+      raises(TimeUnavailable ); 
+    UTO new_universal_time( in TimeBase::TimeT time, in TimeBase::InaccuracyT inaccuracy, in TimeBase::TdfT tdf ); 
+    UTO uto_from_utc( in TimeBase::UtcT utc ); 
+    TIO new_interval( in TimeBase::TimeT lower, in TimeBase::TimeT upper ); 
+  };
+};
+
+#endif

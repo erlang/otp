@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2009</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+      </legalnotice>
+
+    <title>Reltool Release Notes</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Reltool system
+    from version to version. The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Reltool. Each release of Reltool
+    thus constitutes one section in this document. The title of each
+    section is the version number of Reltool.</p>
+
+
+    <section><title>Reltool 0.5.2</title>
+
+        <section><title>Improvements and New Features</title>
+          <list>
+            <item>
+              <p>
+                The documentation is now built with open source tools
+                (xsltproc and fop) that exists on most platforms. One
+                visible change is that the HTML frames are removed.</p>
+              <p>
+                Own Id: OTP-8254</p>
+            </item>
+          </list>
+        </section>
+
+    </section>
+
+    <section><title>Reltool 0.5.1</title>
+
+	<section><title>Fixed Bugs and Malfunctions</title>
+          <list>
+            <item>
+              <p>
+                In the new release of Reltool (0.5) there is a severe bug
+                that may cause your source files to be deleted. The bug
+                is triggered when you generate a target system WITH
+                archive files AND your library directories are given with
+                absolute paths. (Library directories are given with the
+                ERL_LIBS environment variable or with the lib_dirs
+                configuration parameter.)</p>
+              <p>
+                Own Id: OTP-8199</p>
+            </item>
+          </list>
+        </section>
+
+    </section>
+
+    <section><title>Reltool 0.5</title>
+
+        <section><title>Improvements and New Features</title>
+          <list>
+            <item>
+              <p>
+                The tool is still experimental. Feedback is appreciated. </p>
+              <p>
+                Major improvements of the target system generation has
+                been performed. Now it is possible to generate a
+                relocatable target system that does not need to be
+                re-installed if it is moved to a new location. Archive
+                files are automatically generated. A detailed
+                specification of the target system can be generated
+                without actually creating the target system. Relocatable
+                escripts are put in the bin directory of the target
+                system. etc. etc.</p>
+              <p>
+                Some new functions has been introduced in the
+                <c>reltool</c> module: <c>start/1, start_link/1,
+                get_config/3, get_target_spec/1 and
+                eval_target_spec/3</c>.</p>
+              <p>
+                Some new configuration parameters has been introduced:
+                <c>profile, incl_sys_filters, excl_sys_filters,
+                incl_app_filters, excl_app_filters, incl_archive_filters,
+                excl_archive_filters, archive_opts, escript and
+                relocatable</c>.</p>
+              <p>
+                Some parameters have been obsoleted and given new
+                semantics: <c>incl_erts_dirs (incl_sys_filters),
+                excl_erts_dirs (excl_sys_filters), incl_app_dirs
+                (incl_app_filters), excl_app_dirs (excl_app_filters) and
+                escripts (escript).</c></p>
+              <p>
+                *** POTENTIAL INCOMPATIBILITY ***</p>
+              <p>
+                Own Id: OTP-7949</p>
+            </item>
+          </list>
+        </section>
+
+     <section>
+      <title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            The application is experimental. Feedback is appreciated.</p>
+        </item>
+      </list>
+    </section>
+
+    </section>
+
+    <section>
+      <title>Reltool 0.2.2</title>
+      
+      <section>
+	<title>Fixed Bugs and Malfunctions</title>
+	<list>
+	  <item>
+	    <p>
+	      The tool crashed when rel, script and boot files were
+	    generated via the GUI. This has been fixed.</p>
+	    <p>
+	    Own Id: OTP-7999</p>
+	  </item>
+	</list>
+      </section>
+      
+    </section>
+
+  <section>
+    <title>Reltool 0.2.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+
+      <list>
+	<item>
+	  <p>
+	  Minor GUI fixes</p>
+	  <p>
+	  Own Id: OTP-7840</p>
+	</item>
+      </list>
+    </section>
+  
+  </section>
+  
+  <section>
+    <title>Reltool 0.2</title>
+    <section>
+      <title>Improvements and new features</title>
+      <p>This is the first (experimental) release of Reltool.</p>
+    </section>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            The application is experimental.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>

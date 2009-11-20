@@ -1,0 +1,21 @@
+% This is an -*- erlang -*- file.
+
+{application, eunit,
+ [{description, "EUnit"},
+  {vsn, "%VSN%"},
+  {modules, [eunit,
+	     eunit_autoexport,
+	     eunit_striptests,
+	     eunit_server,
+	     eunit_proc,
+	     eunit_serial,
+	     eunit_test,
+	     eunit_tests,
+	     eunit_lib,
+	     eunit_listener,
+	     eunit_data,
+	     eunit_tty,
+	     eunit_surefire]},
+  {registered,[]},
+  {applications, [stdlib]},
+  {env, []}]}.

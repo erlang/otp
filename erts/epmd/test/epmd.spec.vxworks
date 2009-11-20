@@ -1,0 +1,2 @@
+{topcase, {dir, "../epmd_test"}}.
+{skip,{epmd_rx_SUITE,"EPMD RX does simply not work on VxWorks"}}.

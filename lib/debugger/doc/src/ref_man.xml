@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Debugger Reference Manual</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <description>
+    <p><em>Debugger</em> is a graphical tool which can be used for
+      debugging and testing of Erlang programs. For example, breakpoints
+      can be set, code can be single stepped and variable values can be
+      displayed and changed.</p>
+  </description>
+  <xi:include href="debugger.xml"/>
+  <xi:include href="i.xml"/>
+  <xi:include href="int.xml"/>
+</application>
+
+

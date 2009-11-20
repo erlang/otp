@@ -1,0 +1,450 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>error_logger</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>error_logger</module>
+  <modulesummary>Erlang Error Logger</modulesummary>
+  <description>
+    <p>The Erlang <em>error logger</em> is an event manager (see
+      <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso> and
+      <seealso marker="stdlib:gen_event">gen_event(3)</seealso>),
+      registered as <c>error_logger</c>. Error, warning and info events
+      are sent to the error logger from the Erlang runtime system and
+      the different Erlang/OTP applications. The events are, by default,
+      logged to tty. Note that an event from a process <c>P</c> is
+      logged at the node of the group leader of <c>P</c>. This means
+      that log output is directed to the node from which a process was
+      created, which not necessarily is the same node as where it is
+      executing.</p>
+    <p>Initially, <c>error_logger</c> only has a primitive event
+      handler, which buffers and prints the raw event messages. During
+      system startup, the application Kernel replaces this with a
+      <em>standard event handler</em>, by default one which writes
+      nicely formatted output to tty. Kernel can also be configured so
+      that events are logged to file instead, or not logged at all, see
+      <seealso marker="kernel_app">kernel(6)</seealso>.</p>
+    <p>Also the SASL application, if started, adds its own event
+      handler, which by default writes supervisor-, crash- and progress
+      reports to tty. See
+      <seealso marker="sasl:sasl_app">sasl(6)</seealso>.</p>
+    <p>It is recommended that user defined applications should report
+      errors through the error logger, in order to get uniform reports.
+      User defined event handlers can be added to handle application
+      specific events. (<c>add_report_handler/1,2</c>). Also, there is
+      a useful event handler in STDLIB for multi-file logging of events,
+      see <c>log_mf_h(3)</c>.</p>
+    <p>Warning events was introduced in Erlang/OTP R9C. To retain
+      backwards compatibility, these are by default tagged as errors,
+      thus showing up as error reports in the logs. By using
+      the command line flag <c><![CDATA[+W <w | i>]]></c>, they can instead
+      be tagged as warnings or info. Tagging them as warnings may
+      require rewriting existing user defined event handlers.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>error_msg(Format) -> ok</name>
+      <name>error_msg(Format, Data) -> ok</name>
+      <name>format(Format, Data) -> ok</name>
+      <fsummary>Send an standard error event to the error logger</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Data = [term()]</v>
+      </type>
+      <desc>
+        <p>Sends a standard error event to the error logger.
+          The <c>Format</c> and <c>Data</c> arguments are the same as
+          the arguments of <c>io:format/2</c>. The event is handled by
+          the standard event handler.</p>
+        <pre>
+1> <input>error_logger:error_msg("An error occurred in ~p~n", [a_module]).</input>
+
+=ERROR REPORT==== 11-Aug-2005::14:03:19 ===
+An error occurred in a_module
+ok</pre>
+        <warning>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <c>error_report/1</c> instead.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>error_report(Report) -> ok</name>
+      <fsummary>Send a standard error report event to the error logger</fsummary>
+      <type>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a standard error report event to the error logger.
+          The event is handled by the standard event handler.</p>
+        <pre>
+2> <input>error_logger:error_report([{tag1,data1},a_term,{tag2,data}]).</input>
+
+=ERROR REPORT==== 11-Aug-2005::13:45:41 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3> <input>error_logger:error_report("Serious error in my module").</input>
+
+=ERROR REPORT==== 11-Aug-2005::13:45:49 ===
+Serious error in my module
+ok</pre>
+      </desc>
+    </func>
+    <func>
+      <name>error_report(Type, Report) -> ok</name>
+      <fsummary>Send a user defined error report event to the error logger</fsummary>
+      <type>
+        <v>Type = term()</v>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a user defined error report event to the error logger.
+          An event handler to handle the event is supposed to have been
+          added. The event is ignored by the standard event handler.</p>
+        <p>It is recommended that <c>Report</c> follows the same
+          structure as for <c>error_report/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>warning_map() -> Tag</name>
+      <fsummary>Return the current mapping for warning events</fsummary>
+      <type>
+        <v>Tag = error | warning | info</v>
+      </type>
+      <desc>
+        <p>Returns the current mapping for warning events. Events sent
+          using <c>warning_msg/1,2</c> or <c>warning_report/1,2</c>
+          are tagged as errors (default), warnings or info, depending
+          on the value of the command line flag <c>+W</c>.</p>
+        <pre>
+os$ <input>erl</input>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1> <input>error_logger:warning_map().</input>
+error
+2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [error]).</input>
+
+=ERROR REPORT==== 11-Aug-2005::15:31:23 ===
+Warnings tagged as: error
+ok
+3> 
+User switch command
+ --> q
+os$ <input>erl +W w</input>
+Erlang (BEAM) emulator version 5.4.8 [hipe] [threads:0] [kernel-poll]
+
+Eshell V5.4.8  (abort with ^G)
+1> <input>error_logger:warning_map().</input>
+warning
+2> <input>error_logger:warning_msg("Warnings tagged as: ~p~n", [warning]).</input>
+
+=WARNING REPORT==== 11-Aug-2005::15:31:55 ===
+Warnings tagged as: warning
+ok</pre>
+      </desc>
+    </func>
+    <func>
+      <name>warning_msg(Format) -> ok</name>
+      <name>warning_msg(Format, Data) -> ok</name>
+      <fsummary>Send a standard warning event to the error logger</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Data = [term()]</v>
+      </type>
+      <desc>
+        <p>Sends a standard warning event to the error logger.
+          The <c>Format</c> and <c>Data</c> arguments are the same as
+          the arguments of <c>io:format/2</c>. The event is handled by
+          the standard event handler. It is tagged either as an error,
+          warning or info, see
+          <seealso marker="#warning_map/0">warning_map/0</seealso>.</p>
+        <warning>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <c>warning_report/1</c> instead.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>warning_report(Report) -> ok</name>
+      <fsummary>Send a standard warning report event to the error logger</fsummary>
+      <type>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a standard warning report event to the error logger.
+          The event is handled by the standard event handler. It is
+          tagged either as an error, warning or info, see
+          <seealso marker="#warning_map/0">warning_map/0</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>warning_report(Type, Report) -> ok</name>
+      <fsummary>Send a user defined warning report event to the error logger</fsummary>
+      <type>
+        <v>Type = term()</v>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a user defined warning report event to the error
+          logger. An event handler to handle the event is supposed to
+          have been added. The event is ignored by the standard event
+          handler. It is tagged either as an error, warning or info,
+          depending on the value of
+          <seealso marker="#warning_map/0">warning_map/0</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>info_msg(Format) -> ok</name>
+      <name>info_msg(Format, Data) -> ok</name>
+      <fsummary>Send a standard information event to the error logger</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Data = [term()]</v>
+      </type>
+      <desc>
+        <p>Sends a standard information event to the error logger.
+          The <c>Format</c> and <c>Data</c> arguments are the same as
+          the arguments of <c>io:format/2</c>. The event is handled by
+          the standard event handler.</p>
+        <pre>
+1> <input>error_logger:info_msg("Something happened in ~p~n", [a_module]).</input>
+
+=INFO REPORT==== 11-Aug-2005::14:06:15 ===
+Something happened in a_module
+ok</pre>
+        <warning>
+          <p>If called with bad arguments, this function can crash
+            the standard event handler, meaning no further events are
+            logged. When in doubt, use <c>info_report/1</c> instead.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>info_report(Report) -> ok</name>
+      <fsummary>Send a standard information report event to the error logger</fsummary>
+      <type>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a standard information report event to the error
+          logger. The event is handled by the standard event handler.</p>
+        <pre>
+2> <input>error_logger:info_report([{tag1,data1},a_term,{tag2,data}]).</input>
+
+=INFO REPORT==== 11-Aug-2005::13:55:09 ===
+    tag1: data1
+    a_term
+    tag2: data
+ok
+3> <input>error_logger:info_report("Something strange happened").</input>
+
+=INFO REPORT==== 11-Aug-2005::13:55:36 ===
+Something strange happened
+ok</pre>
+      </desc>
+    </func>
+    <func>
+      <name>info_report(Type, Report) -> ok</name>
+      <fsummary>Send a user defined information report event to the error logger</fsummary>
+      <type>
+        <v>Type = term()</v>
+        <v>Report = [{Tag, Data} | term()] | string() | term()</v>
+        <v>&nbsp;Tag = Data = term()</v>
+      </type>
+      <desc>
+        <p>Sends a user defined information report event to the error
+          logger. An event handler to handle the event is supposed to
+          have been added. The event is ignored by the standard event
+          handler.</p>
+        <p>It is recommended that <c>Report</c> follows the same
+          structure as for <c>info_report/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add_report_handler(Handler) -> Result</name>
+      <name>add_report_handler(Handler, Args) -> Result</name>
+      <fsummary>Add an event handler to the error logger</fsummary>
+      <type>
+        <v>Handler, Args, Result -- see gen_event:add_handler/3</v>
+      </type>
+      <desc>
+        <p>Adds a new event handler to the error logger. The event
+          handler must be implemented as a <c>gen_event</c> callback
+          module, see
+          <seealso marker="stdlib:gen_event">gen_event(3)</seealso>.</p>
+        <p><c>Handler</c> is typically the name of the callback module
+          and <c>Args</c> is an optional term (defaults to []) passed
+          to the initialization callback function <c>Module:init/1</c>.
+          The function returns <c>ok</c> if successful.</p>
+        <p>The event handler must be able to handle the
+          <seealso marker="#events">events</seealso> described below.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_report_handler(Handler) -> Result</name>
+      <fsummary>Delete an event handler from the error logger</fsummary>
+      <type>
+        <v>Handler, Result -- see gen_event:delete_handler/3</v>
+      </type>
+      <desc>
+        <p>Deletes an event handler from the error logger by calling
+          <c>gen_event:delete_handler(error_logger, Handler, [])</c>,
+          see <seealso marker="stdlib:gen_event">gen_event(3)</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>tty(Flag) -> ok</name>
+      <fsummary>Enable or disable printouts to the tty</fsummary>
+      <type>
+        <v>Flag = bool()</v>
+      </type>
+      <desc>
+        <p>Enables (<c>Flag == true</c>) or disables
+          (<c>Flag == false</c>) printout of standard events to the tty.</p>
+        <p>This is done by adding or deleting the standard event handler
+          for output to tty, thus calling this function overrides
+          the value of the Kernel <c>error_logger</c> configuration
+          parameter.</p>
+      </desc>
+    </func>
+    <func>
+      <name>logfile(Request) -> ok | Filename | {error, What}</name>
+      <fsummary>Enable or disable error printouts to a file</fsummary>
+      <type>
+        <v>Request = {open, Filename} | close | filename</v>
+        <v>&nbsp;Filename = atom() | string()</v>
+        <v>What = allready_have_logfile | no_log_file | term()</v>
+      </type>
+      <desc>
+        <p>Enables or disables printout of standard events to a file.</p>
+        <p>This is done by adding or deleting the standard event handler
+          for output to file, thus calling this function overrides
+          the value of the Kernel <c>error_logger</c> configuration
+          parameter.</p>
+        <p>Enabling file logging can be used in combination with calling
+          <c>tty(false)</c>, in order to have a silent system, where
+          all standard events are logged to a file only.
+          There can only be one active log file at a time.</p>
+        <p><c>Request</c> is one of:</p>
+        <taglist>
+          <tag><c>{open, Filename}</c></tag>
+          <item>
+            <p>Opens the log file <c>Filename</c>. Returns <c>ok</c> if
+              successful, or <c>{error, allready_have_logfile}</c> if
+              logging to file is already enabled, or an error tuple if
+              another error occurred. For example, if <c>Filename</c>
+              could not be opened.</p>
+          </item>
+          <tag><c>close</c></tag>
+          <item>
+            <p>Closes the current log file. Returns <c>ok</c>, or
+              <c>{error, What}</c>.</p>
+          </item>
+          <tag><c>filename</c></tag>
+          <item>
+            <p>Returns the name of the log file <c>Filename</c>, or
+              <c>{error, no_log_file}</c> if logging to file is not
+              enabled.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="events"></marker>
+    <title>Events</title>
+    <p>All event handlers added to the error logger must handle
+      the following events. <c>Gleader</c> is the group leader pid of
+      the process which sent the event, and <c>Pid</c> is the process
+      which sent the event.</p>
+    <taglist>
+      <tag><c>{error, Gleader, {Pid, Format, Data}}</c></tag>
+      <item>
+        <p>Generated when <c>error_msg/1,2</c> or <c>format</c> is
+          called.</p>
+      </item>
+      <tag><c>{error_report, Gleader, {Pid, std_error, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>error_report/1</c> is called.</p>
+      </item>
+      <tag><c>{error_report, Gleader, {Pid, Type, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>error_report/2</c> is called.</p>
+      </item>
+      <tag><c>{warning_msg, Gleader, {Pid, Format, Data}}</c></tag>
+      <item>
+        <p>Generated when <c>warning_msg/1,2</c> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <tag><c>{warning_report, Gleader, {Pid, std_warning, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>warning_report/1</c> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <tag><c>{warning_report, Gleader, {Pid, Type, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>warning_report/2</c> is called, provided
+          that warnings are set to be tagged as warnings.</p>
+      </item>
+      <tag><c>{info_msg, Gleader, {Pid, Format, Data}}</c></tag>
+      <item>
+        <p>Generated when <c>info_msg/1,2</c> is called.</p>
+      </item>
+      <tag><c>{info_report, Gleader, {Pid, std_info, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>info_report/1</c> is called.</p>
+      </item>
+      <tag><c>{info_report, Gleader, {Pid, Type, Report}}</c></tag>
+      <item>
+        <p>Generated when <c>info_report/2</c> is called.</p>
+      </item>
+    </taglist>
+    <p>Note that also a number of system internal events may be
+      received, a catch-all clause last in the definition of
+      the event handler callback function <c>Module:handle_event/2</c>
+      is necessary. This also holds true for
+      <c>Module:handle_info/2</c>, as there are a number of system
+      internal messages the event handler must take care of as well.</p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p>gen_event(3), log_mf_h(3), kernel(6), sasl(6)</p>
+  </section>
+</erlref>
+

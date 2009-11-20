@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>mnesia_registry</title>
+    <prepared>Dan Gudmundsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>98-04-24</date>
+    <rev>A</rev>
+    <file>mnesia_registry.sgml</file>
+  </header>
+  <module>mnesia_registry</module>
+  <modulesummary>Dump support for registries in erl_interface. </modulesummary>
+  <description>
+    <p>The module <c>mnesia_registry</c> is usually  part of
+      <c>erl_interface</c>, but for the time being, it is a part of the
+      Mnesia application.
+      </p>
+    <p><c>mnesia_registry</c> is mainly an module intended for
+      internal usage within OTP, but it has two functions that
+      are exported for public use.
+      </p>
+    <p>On C-nodes <c>erl_interface</c> has support for registry
+      tables. These reside in RAM on the C-node but they may also be
+      dumped into Mnesia tables. By default, the dumping of registry
+      tables via <c>erl_interface</c> causes a corresponding Mnesia
+      table to be created with <c>mnesia_registry:create_table/1</c>
+      if necessary.
+      </p>
+    <p>The tables that are created with these functions can be
+      administered as all other Mnesia tables. They may be included in
+      backups or replicas may be added etc. The tables are in fact
+      normal Mnesia tables owned by the user of the corresponding
+      <c>erl_interface</c> registries.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>create_table(Tab) -> ok | exit(Reason)</name>
+      <fsummary>Creates a registry table in Mnesia.</fsummary>
+      <desc>
+        <p>This is a wrapper function for
+          <c>mnesia:create_table/2</c> which creates a table (if there is no existing table)
+          with an appropriate set of <c>attributes</c>. The table will
+          only reside on the local node and its storage type will be
+          the same as the <c>schema</c> table on the local
+          node, ie. <c>{ram_copies,[node()]}</c> or
+          <c>{disc_copies,[node()]}</c>.
+          </p>
+        <p>It is this function that is used by <c>erl_interface</c> to
+          create the Mnesia table if it did not already exist.</p>
+      </desc>
+    </func>
+    <func>
+      <name>create_table(Tab, TabDef) -> ok | exit(Reason)</name>
+      <fsummary>Creates a customized registry table in Mnesia. </fsummary>
+      <desc>
+        <p>This is a wrapper function for
+          <c>mnesia:create_table/2</c> which creates a table (if there is no existing table)
+          with an appropriate set of <c>attributes</c>. The attributes
+          and <c>TabDef</c> are forwarded to
+          <c>mnesia:create_table/2</c>.  For example, if the table should
+          reside as <c>disc_only_copies</c> on all nodes a call would
+          look like:</p>
+        <code type="none">
+          TabDef = [{{disc_only_copies, node()|nodes()]}],
+          mnesia_registry:create_table(my_reg, TabDef)
+        </code>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>mnesia(3), erl_interface(3)
+      </p>
+  </section>
+  
+</erlref>
+

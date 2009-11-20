@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>etop</title>
+    <prepared>Siri hansen</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2002-03-27</date>
+    <rev>PA1</rev>
+    <file>etop.sgml</file>
+  </header>
+  <module>etop</module>
+  <modulesummary>Erlang Top is a tool for presenting information about erlang processes similar to the information presented by "top" in UNIX.</modulesummary>
+  <description>
+    <p><c>etop</c> should be started with the provided scripts
+      <c>etop</c> and <c>getop</c> for text based and graphical
+      presentation respectively. Under Windows the batch files
+      <c>etop.bat</c> and <c>getop.bat</c> can be used.
+      </p>
+    <p>All interaction with <c>etop</c> when running the graphical
+      presentation should happen via the menus. For the text based
+      presentation the functions described below can be used.
+      </p>
+    <p>The following configuration parameters exist for <c>etop</c>.
+      </p>
+    <taglist>
+      <tag>node</tag>
+      <item>The measured node.
+            <br></br>
+Value: atom()
+            <br></br>
+Mandatory</item>
+      <tag>setcookie</tag>
+      <item>Cookie to use for the etop node - must be the same
+       as the cookie on the measured node.
+            <br></br>
+Value: atom()</item>
+      <tag>lines</tag>
+      <item>Number of lines (processes) to display. 
+            <br></br>
+Value: integer()
+            <br></br>
+Default: 10</item>
+      <tag>interval</tag>
+      <item>The time interval (in seconds) between each update of
+       the display. 
+            <br></br>
+Value: integer()
+            <br></br>
+Default: 5</item>
+      <tag>accumulate</tag>
+      <item>If <c>true</c> the execution time and reductions are
+       accumulated. 
+            <br></br>
+Value: boolean()
+            <br></br>
+Default: <c>false</c></item>
+      <tag>sort</tag>
+      <item>Identifies what information to sort by. 
+            <br></br>
+Value: <c>runtime | reductions | memory | msg_q</c>      <br></br>
+Default: <c>runtime</c> (<c>reductions</c> if 
+      <c>tracing=off</c>)</item>
+      <tag>tracing</tag>
+      <item><c>etop</c> uses the erlang trace facility, and thus no
+       other tracing is possible on the measured node while
+      <c>etop</c> is running, unless this option is set to
+      <c>off</c>. Also helpful if the <c>etop</c> tracing causes too
+       high load on the measured node. With tracing off, runtime is
+       not measured.
+            <br></br>
+Value: <c>on | off</c>      <br></br>
+Default: <c>on</c></item>
+    </taglist>
+  </description>
+  <funcs>
+    <func>
+      <name>config(Key,Value) -> Result</name>
+      <fsummary>Change tool's configuration</fsummary>
+      <type>
+        <v>Result = ok | {error,Reason}</v>
+        <v>Key = lines | interval | accumulate | sort</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>This function is used to change the tool's configuration
+          parameters during runtime. The table above indicates the
+          allowed values for each parameter.</p>
+      </desc>
+    </func>
+    <func>
+      <name>dump(File) -> Result</name>
+      <fsummary>Dump the current display to a file.</fsummary>
+      <type>
+        <v>Result = ok | {error,Reason}</v>
+        <v>File = string()</v>
+      </type>
+      <desc>
+        <p>This function dumps the current display to a text file.</p>
+      </desc>
+    </func>
+    <func>
+      <name>stop() -> stop</name>
+      <fsummary>Terminate etop</fsummary>
+      <desc>
+        <p>This function terminates <c>etop</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

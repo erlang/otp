@@ -1,0 +1,535 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Erl_interface Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.6.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The manual states that erl_receive() return the reason in
+	    the <c>ErlMessage</c> struct. This was not the case and
+	    the function is now corrected.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-4969</p>
+        </item>
+        <item>
+          <p>
+	    In <c>send_exit.c</c> an errorneous size of memory
+	    allocation could occur when reallocating a buffer.</p>
+          <p>
+	    In <c>ei_decode_trace.c</c> the index could be updated
+	    when the decoding failed.</p>
+          <p>
+	    In <c>ei_printterm.c</c> the index could be updated when
+	    the decoding failed in lists and tuples.</p>
+          <p>
+	    In <c>ei_decode_term.c</c> when decoding a double
+	    (ERL_FLOAT_EXT) no check was done to ensure that the last
+	    of the 31 bytes was null terminated.</p>
+          <p>
+	    In <c>ei_decode_term.c</c> when decoding references, only
+	    the first 3 bytes are read, but the index did not
+	    increment by the total size.</p>
+          <p>
+	    In <c>ei_decode_fun.c</c> no check of correct buffer
+	    allocation or data length was done.</p>
+          <p>
+	    In <c>ei_decode_string.c</c> the integer list string case
+	    did not decode the NIL tail correctly.</p>
+          <p>
+	    These errors has now been fixed. (Thanks to Romain
+	    Lenglet, Paul Mineiro and Paul Guyot).</p>
+          <p>
+	    Own Id: OTP-6117</p>
+        </item>
+        <item>
+          <p>
+	    <c>ei_decode_big</c> could be decoded with a garbage
+	    byte.</p>
+          <p>
+	    <c>ei_encode_big</c> and <c>ei_x_encode_big</c> is now
+	    available.</p>
+          <p>
+	    Own Id: OTP-7554</p>
+        </item>
+        <item>
+          <p>
+	    The function <c>erl_init_resolve()</c> did not conform to
+	    C99 standard which caused a build error on some
+	    platforms. This has now been fixed.</p>
+          <p>
+	    Own Id: OTP-8093</p>
+        </item>
+        <item>
+          <p>
+	    <c>Makefile.in</c> has been updated to use the LDFLAGS
+	    environment variable (if set). (Thanks to Davide
+	    Pesavento.)</p>
+          <p>
+	    Own Id: OTP-8157</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added support for 64-bit integers in encoding/decoding.</p>
+          <p>
+	    Added support for better printouts of binaries.</p>
+          <p>
+	    Own Id: OTP-6091</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A problem with <c>gethostbyname</c> in <c>erl_start.c</c>
+	    could cause a buffer overflow. This has now been fixed.</p>
+          <p>
+	    Clean up of code and removed compiler warnings.</p>
+          <p>
+	    Own Id: OTP-7978</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A faulty validation in <c>ei_reg_getpval</c> caused it
+	    to never return the key-value. This has now been fixed.
+	    (Thanks to Matt Stancliff)</p>
+          <p>
+	    Own Id: OTP-7960</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Minor update to the <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-7959</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Minor update to the <c>configure</c> script.</p>
+          <p>
+	    Own Id: OTP-7959</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Nodes belonging to different independent clusters can now
+	    co-exist on the same host with the help of a new
+	    environment variable setting ERL_EPMD_PORT.</p>
+          <p>
+	    Own Id: OTP-7826</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.5.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A type-casting bug in ei_skip_term and ei_printterm on
+	    64bit platforms rendering undefined results is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-7577</p>
+        </item>
+        <item>
+          <p>
+	    A bug in the hostent copying code of erl_interface on
+	    MacOS X/Darwin is now corrected.</p>
+          <p>
+	    Own Id: OTP-7593</p>
+        </item>
+        <item>
+	    <p>A problem with building <c>erl_interface</c> on
+	    FreeBSD has been fixed (Thanks to Akira Kitada).</p>
+          <p>
+	    Own Id: OTP-7611</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.5.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fixed bug in erl_interface when decoding broken data</p>
+          <p>
+	    Own Id: OTP-7448</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Erl_Interface 3.5.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    An erroneous freeing of memory could occur when using
+	    <c>ei_x_format_wo_ver</c> in erl_interface, resulting in
+	    a segmentation fault.</p>
+          <p>
+	    Own Id: OTP-6795</p>
+        </item>
+        <item>
+          <p>
+	    A faulty compare in <c>erl_marshal</c> has now been
+	    fixed. (Thanks to Simon Cornish and Paul Mineiro)</p>
+          <p>
+	    Own Id: OTP-7368</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.5.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Minor documentation fixes.</p>
+          <p>
+	    Own Id: OTP-7183 Aux Id: OTP-7118 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Erl_Interface 3.5.5.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The symbol __erl_errno was undefined in the single thread
+	    version of the ei library, but is now defined.</p>
+          <p>
+	    Own Id: OTP-6887</p>
+        </item>
+        <item>
+          <p>
+	    Corrected FreeBSD build error.</p>
+          <p>
+	    Own Id: OTP-7093</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Erl_Interface 3.5.5.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Calls to alloca in erl_marshal.c have been removed. A
+            static buffer is now used instead to store node names
+            temporarily.</p>
+          <p>Own Id: OTP-6331 Aux Id: seq10468 </p>
+        </item>
+        <item>
+          <p>ei_print_term interprets a list of integers with values
+            from 0 to 255 as a string. If the original list contains
+            the integer 0, this is considered terminator of the
+            string. This is incorrect. The function has now been
+            modified to not look for '\\0' in a string, but always
+            print all characters.</p>
+          <p>Own Id: OTP-6339 Aux Id: seq10492 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.5.5.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The combination of xeon processors with 64bit x86
+            extensions and a 32bit linux could cause ei_decode_long
+            and ei_decode_longlong to fail for the value LONG_MIN and
+            LONGLONG_MIN. The conversion is now made more portable.</p>
+          <p>Own Id: OTP-6216</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.5.5.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Portability enhancements.</p>
+          <p>Own Id: OTP-6132</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_Interface 3.5.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Different (and old) <c><![CDATA[config.guess]]></c> files in the
+            <c><![CDATA[erts]]></c> and <c><![CDATA[erl_interface]]></c> applications would
+            cause build problems on the new Intel-based iMacs.
+            (Thanks to Sebastion Strollo.)</p>
+          <p>Own Id: OTP-5967</p>
+        </item>
+        <item>
+          <p>pthread header and library mismatch on linux systems (at
+            least some SuSE and Debian) with both NPTL and
+            Linuxthreads libraries installed.</p>
+          <p>Own Id: OTP-5981</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Support for a C node to connect to an Erlang node on a
+            standalone host has been added.</p>
+          <p>Own Id: OTP-5883 Aux Id: seq10170 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.5.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>A configuration test error caused erl_interface to be
+            built without support for threads. This has been
+            corrected.</p>
+          <p>Own Id: OTP-5456</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.5.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Changes and improvements have been made to the build and
+            test environment to solve problems with failing
+            erl_interface test cases.</p>
+          <p>Own Id: OTP-5295 Aux Id: OTP-5387 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Process identifiers and port identifiers have been
+            made more unique. Previously 18 bits were used as id in
+            the internal representation of process and port
+            identifiers. Now 28 bits are used. </p>
+          <p>The maximum
+            limit on the number of concurrently existing processes
+            due to the representation of pids has been increased to
+            268435456 processes. The same is true for ports. This
+            limit will at least on a 32-bit architecture be
+            impossible to reach due to memory shortage. </p>
+          <p><em>NOTE:</em> By default, the <c><![CDATA[ERTS]]></c>, and the
+            <c><![CDATA[erl_interface]]></c>, <c><![CDATA[ei]]></c>, and <c><![CDATA[jinterface]]></c>
+            libraries are now only guaranteed to be compatible with
+            other Erlang/OTP components from the same release. It is
+            possible to set each component in compatibility mode of
+            an earlier release, though. See the documentation for
+            respective component on how to set it in compatibility
+            mode. </p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-4968 Aux Id: OTP-4196 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.4.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrections for mistakes done for patch erl_605/OTP-4874.</p>
+          <p>Own Id: OTP-4995 Aux Id: OTP-4874 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.4.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A small optimization in ei_rpc*() was added and a bug in
+            ei_decode_longlong() was corrected.</p>
+          <p>Own Id: OTP-4784</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.4.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Strings longer than 65535 bytes were encoded wrong in
+            ei/erl_interface.</p>
+          <p>Own Id: OTP-4865 Aux Id: EABln07451 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Erl_interface 3.4.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>erl_call -a parsed erlang terms incorrectly due to a bug
+            in ei_format, which is now corrected.</p>
+          <p>Own Id: OTP-4777 Aux Id: seq8099 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

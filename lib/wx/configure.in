@@ -1,0 +1,592 @@
+
+AC_INIT()
+
+AC_CONFIG_AUX_DIRS($srcdir/autoconf)
+
+AC_PREREQ(2.59)
+
+## Delete previous failed configure results
+if test -f ./CONF_INFO; then
+   rm ./CONF_INFO
+fi
+
+if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
+  AC_CONFIG_AUX_DIRS(autoconf)
+  WX_BUILDING_INSIDE_ERLSRC=false    
+else
+  erl_top=${ERL_TOP}
+  if test -d $erl_top/erts/autoconf; then 
+     AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
+     WX_BUILDING_INSIDE_ERLSRC=true
+  else
+     AC_CONFIG_AUX_DIRS(autoconf)
+     WX_BUILDING_INSIDE_ERLSRC=false
+  fi
+fi
+
+if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
+    AC_CANONICAL_HOST
+else
+    host_os=win32
+fi
+
+case $host_os in
+    mingw32)
+	if test "X$host" = "X"; then
+	   host=win32
+	fi
+	;;
+    *)
+	;;
+esac
+
+TARGET=$host
+AC_SUBST(TARGET)
+
+AC_PROG_CC
+AC_PROG_CXX
+AC_PROG_RANLIB
+AC_PROG_CPP
+
+AC_MSG_NOTICE(Building for [$host_os])
+MIXED_CYGWIN=no
+WXERL_CAN_BUILD_DRIVER=true
+
+AC_MSG_CHECKING(for mixed cygwin and native VC++ environment)
+if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" != x"yes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-Owx"		
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([yes])
+		MIXED_CYGWIN_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_VC=no
+fi
+AC_SUBST(MIXED_CYGWIN_VC)
+
+AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
+if test "X$CC" = "Xcc.sh" -a "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([yes])
+		MIXED_CYGWIN_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_MINGW=no
+fi
+AC_SUBST(MIXED_CYGWIN_MINGW)
+
+AC_MSG_CHECKING(if we mix cygwin with any native compiler)
+if test "X$MIXED_CYGWIN" = "Xyes" ; then
+	AC_MSG_RESULT([yes])	
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_SUBST(MIXED_CYGWIN)
+
+
+## Check that we are in 32 bits mode on darwin 
+## (wxWidgets require that it currently uses 32-bits Carbon)
+## Otherwise skip building wxErlang
+AC_CHECK_SIZEOF(void *, 4)
+
+case $ac_cv_sizeof_void_p-$host_os in
+    8-darwin*)
+	if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+		AC_MSG_ERROR([Can not use 64bits wxWidgets on Darwin])
+	else
+		echo "Can not combine 64bits erlang with wxWidgets on MacOSX, wx will not be useable" > ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
+		AC_MSG_WARN([Can not combine 64bits erlang with wxWidgets on MacOSX, wx will not be useable])
+	fi
+	WXERL_CAN_BUILD_DRIVER=false
+	;;
+    *)
+	;;
+esac
+
+PTHR_CFLAGS="-D_THREAD_SAFE -D_REENTRANT"
+
+dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
+case $host_os in
+    darwin*)
+        C_ONLY_FLAGS="-ObjC"
+	CPPFLAGS="$CPPFLAGS -D_MACOSX $PTHR_CFLAGS"
+	;;
+    mingw32)
+	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0500 -D_WINDOWS -D_UNICODE -DUNICODE"
+	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500"	
+	AC_MSG_WARN([Reverting to 32-bit time_t])
+	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
+	;;
+    win32)
+	CFLAGS="$CFLAGS -DWIN32 -DWINVER=0x0500 -D_WINDOWS -D_UNICODE -DUNICODE"
+	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500"
+	;;
+    *)
+	CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE $PTHR_CFLAGS"
+	;;
+esac
+
+case $host_os in
+    darwin*)
+	CFLAGS="-no-cpp-precomp $CFLAGS"
+	LDFLAGS="-bundle -flat_namespace -undefined warning -fPIC -framework OpenGL $LDFLAGS"
+	;;
+    win32)
+        LDFLAGS="-dll $LDFLAGS"
+	;;
+    mingw32)
+	LDFLAGS="-shared -fPIC $LDFLAGS"
+	;;
+    *)
+	LDFLAGS="-shared -fPIC $LDFLAGS"
+	;;
+esac
+
+dnl ----------------------------------------------------------------------
+dnl Include CPPFLAGS in CFLAGS
+dnl ----------------------------------------------------------------------
+
+case $host_os in
+    mingw32)
+	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
+	CFLAGS="-g -Wall -O2 -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	;;
+    win32)
+	DEBUG_CFLAGS="-g -Wall -DDEBUG $CFLAGS"
+	CFLAGS="-g -Wall -O2 $CFLAGS"
+	;;
+    *)
+	DEBUG_CFLAGS="-g -Wall -fPIC -DDEBUG $CFLAGS"
+	CFLAGS="-g -Wall -O2 -fPIC -fomit-frame-pointer -fno-strict-aliasing $CFLAGS"
+	;;
+esac
+
+CXXFLAGS="$CFLAGS $CPPFLAGS" 
+CFLAGS="$CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
+
+DEBUG_CXXFLAGS="$DEBUG_CFLAGS $CPPFLAGS"
+DEBUG_CFLAGS="$DEBUG_CFLAGS $CPPFLAGS $C_ONLY_FLAGS"
+AC_SUBST(DEBUG_CFLAGS)
+AC_SUBST(DEBUG_CXXFLAGS)
+
+
+if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+    AC_MSG_CHECKING(for erl)
+    if test X$ERL != X; then 
+       AC_MSG_RESULT([yes; using $ERL])
+    else 
+       type erl >/dev/null 2>&1
+       if test $? -eq 0 ; then 
+          ERL=erl
+          AC_MSG_RESULT([yes])
+       else 
+	  AC_MSG_ERROR([Cannot find erl in path])
+       fi
+    fi
+    AC_MSG_CHECKING(for erlc)
+    if test X$ERLC != X; then 
+       AC_MSG_RESULT([yes; using $ERLC])
+    else 
+       type erlc >/dev/null 2>&1
+       if test $? -eq 0 ; then 
+          ERLC=erlc
+          AC_MSG_RESULT([yes])
+       else 
+	  AC_MSG_ERROR([Cannot find erlc in path])
+       fi
+    fi
+    ERLANG_ROOT_DIR=`erl -noshell -eval 'io:format("~s~n",[[code:root_dir()]])' -s erlang halt`
+    AC_MSG_NOTICE(ERL ROOT DIR: [$ERLANG_ROOT_DIR])
+    ERLWX_VSN=`grep WX_VSN $srcdir/vsn.mk | sed 's/^.*=[ ]*//'`
+else
+    ERLC=erlc
+    ERL=erl
+    ERLANG_ROOT_DIR=$ERL_TOP
+    AC_SUBST(ERLC)
+fi
+
+AC_SUBST(WX_BUILDING_INSIDE_ERLSRC)
+AC_SUBST(ERLANG_ROOT_DIR)
+
+dnl
+dnl  Check for wxwidgets
+dnl 
+if test X"$MIXED_CYGWIN_VC" != X"yes" ; then
+    m4_include(wxwin.m4)
+
+    AM_OPTIONS_WXCONFIG
+    reqwx=2.8.4
+    # Try to find debug libs first 
+    # wxelibs=core,base,gl,aui,adv
+
+    AC_MSG_CHECKING(for debug build of wxWidgets)
+
+    AM_PATH_WXCONFIG($reqwx, wxWinWithGLDBG=1, wxWinWithGLDBG=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=yes])
+    DEBUG_WX_CFLAGS=$WX_CFLAGS
+    DEBUG_WX_CXXFLAGS=$WX_CXXFLAGS
+    DEBUG_WX_LIBS=$WX_LIBS
+    DEBUG_WX_LIBS_STATIC=$WX_LIBS_STATIC
+    AC_SUBST(DEBUG_WX_CFLAGS)
+    AC_SUBST(DEBUG_WX_CXXFLAGS)
+    AC_SUBST(DEBUG_WX_LIBS)
+    AC_SUBST(DEBUG_WX_LIBS_STATIC)
+    
+    AC_MSG_CHECKING(for standard build of wxWidgets)
+    AM_PATH_WXCONFIG($reqwx, wxWinWithGL=1, wxWinWithGL=0, [stc,xrc,html,adv,xml,core,base,gl,aui], [--unicode --debug=no])
+
+    if test "x$WX_LIBS_STATIC" = "x"; then
+       WX_HAVE_STATIC_LIBS=false
+    else
+       WX_HAVE_STATIC_LIBS=true
+    fi
+
+    wxWin=0
+
+    if test "$wxWinWithGLDBG" = 1; then
+        if test "$wxWinWithGL" = 1; then
+    	   wxWin=1
+	   FORCED_DEBUG_BUILD=false
+    	else 
+    	   wxWin=1
+	   FORCED_DEBUG_BUILD=debug
+	   WX_CFLAGS=$DEBUG_WX_CFLAGS
+	   WX_CXXFLAGS=$DEBUG_WX_CXXFLAGS
+	   WX_LIBS=$DEBUG_WX_LIBS
+	   WX_LIBS_STATIC=$DEBUG_WX_LIBS_STATIC
+	fi
+    elif test "$wxWinWithGL" = 1; then
+    	wxWin=1
+	FORCED_DEBUG_BUILD=false
+    fi    
+    AC_SUBST(FORCED_DEBUG_BUILD)
+    RC_FILE_TYPE=o
+define(wx_warn_text,[
+                wxWidgets must be installed on your system.
+ 
+		Please check that wx-config is in path, the directory
+		where wxWidgets libraries are installed (returned by
+		'wx-config --libs' or 'wx-config --static --libs' command)
+		is in LD_LIBRARY_PATH or equivalent variable and
+		wxWidgets version is $reqwx or above.])
+
+    if test "$wxWin" != 1; then
+        if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+	   AC_MSG_ERROR([wx_warn_text])
+	else
+	   echo "wxWidgets not found, wx will NOT be useable" > ./CONF_INFO
+	   WXERL_CAN_BUILD_DRIVER=false
+	   AC_MSG_WARN([wx_warn_text])
+	fi
+    fi
+else
+    AC_MSG_CHECKING(for wxWidgets in standard locations)
+		  
+    CWXWIN_CONFIG=`cygpath $wx_config_name 2>/dev/null`
+    CWXWIN1=`dirname $CWXWIN_CONFIG 2>/dev/null`
+    CWXWIN2=`dirname $CWXWIN1 2>/dev/null`
+
+    if test -z "$PROGRAMFILES" ; then 
+       PROGRAMFILES=c:/Program Files
+    fi
+
+    CWXWIN_PROG=`cygpath -d "$PROGRAMFILES" | cygpath -f - 2>/dev/null`
+    CWXWIN3=$CWXWIN_PROG/wxWidgets-2.8
+    CWXWIN4=$CWXWIN_PROG/wxMSW-2.8
+    CWX_DOCUMENTED="/opt/local/pgm/wxMSW-2.8.* /opt/local/pgm/wxWidgets-2.8.*"
+    CWXPATH="$CWXWIN1 $CWXWIN2 $CWX_DOCUMENTED $CWXWIN3.* $CWXWIN4.*"
+
+    for dir in $CWXPATH; do
+	if test -f $dir/include/wx/wx.h; then
+	    WXINCLUDE_MSVC=$dir/include/msvc
+	    WXINCLUDE_PLAIN=$dir/include
+	    WXINCLUDE_CONTRIB=$dir/contrib/include
+	    WX_CFLAGS="-EHsc -D_UNICODE -DUNICODE -I$WXINCLUDE_MSVC -I$WXINCLUDE_PLAIN -I$WXINCLUDE_CONTRIB -D__WXMSW__"
+	    WX_CXXFLAGS=$WX_CFLAGS
+	    WX_LIBDIR=$dir/lib/vc_lib
+	    WX_RESCOMP="rc.sh -I$WXINCLUDE_PLAIN -D __WIN32__"
+	    RC_FILE_TYPE=res
+	    for lib in $WX_LIBDIR/wxbase*.lib; do
+		maybe=`echo $lib | egrep 'wxbase[[0-9]]*u\.lib'`
+		if test '!' -z "$maybe"; then
+		   corelib_number=`echo $maybe | sed 's,.*\([[0-9]].\)u\.lib,\1,'`
+		   break
+		fi
+	    done
+	    if test '!' -z "$corelib_number"; then
+		WXLIBNO=$corelib_number
+		WX_LIBS0="wxmsw${WXLIBNO}u_stc wxmsw${WXLIBNO}u_xrc wxmsw${WXLIBNO}u_html"
+		WX_LIBS1="wxmsw${WXLIBNO}u_adv wxbase${WXLIBNO}u_xml wxmsw${WXLIBNO}u_core"
+		WX_LIBS2="wxbase${WXLIBNO}u wxmsw${WXLIBNO}u_gl wxmsw${WXLIBNO}u_aui"
+		WX_LIBS3="wxregexu wxexpat wxtiff wxjpeg wxpng wxzlib"
+		WX_SYSLIBS="winspool winmm oleaut32 ole32 gdiplus"
+		WX_LIBS_STATIC="-L$WX_LIBDIR"
+		for lib in $WX_LIBS0 $WX_LIBS1 $WX_LIBS2 $WX_LIBS3 $WX_SYSLIBS; do
+		   WX_LIBS_STATIC="$WX_LIBS_STATIC -l$lib"
+		done
+		AC_MSG_RESULT([$dir])
+		break
+	    fi
+	fi
+    done
+    if test -z "$WX_LIBS_STATIC"; then
+	AC_MSG_RESULT([failed])
+        if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+		AC_MSG_ERROR([Cannot find core lib version for wxWidgets])
+	else
+		echo "No usable wxWidgets not found, wx will not be useable" > ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
+		AC_MSG_WARN([Cannot find core lib version for wxWidgets])
+	fi
+    fi
+    WX_HAVE_STATIC_LIBS=true
+    AC_SUBST(WX_CFLAGS)
+    AC_SUBST(WX_CXXFLAGS)
+    AC_SUBST(WX_LIBS_STATIC)
+    AC_SUBST(WX_RESCOMP)
+fi
+
+AC_SUBST(WX_HAVE_STATIC_LIBS)
+AC_SUBST(RC_FILE_TYPE)
+
+dnl  
+dnl  Opengl tests
+dnl
+
+if test X"$host_os" != X"win32" ; then
+    AC_CHECK_HEADERS([GL/gl.h])
+    AC_CHECK_HEADERS([OpenGL/gl.h])
+else
+    AC_CHECK_HEADERS([gl/gl.h],[],[],[#include <windows.h>])
+fi
+
+AC_MSG_CHECKING(if wxwidgets have opengl support)
+AC_LANG_PUSH(C++)
+saved_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
+
+AC_COMPILE_IFELSE(
+ [AC_LANG_PROGRAM([[
+  #ifdef WIN32
+  # include <windows.h>
+  #endif
+  #include "wx/wx.h"
+  ]], [[
+  #if wxUSE_GLCANVAS
+  ;
+  #else
+  #error barf
+  #endif
+  ]])],
+[HAVE_GL_SUPPORT=yes
+ AC_DEFINE(HAVE_GL_SUPPORT, [1], [Define if wxwidgets have gl support])],
+ HAVE_GL_SUPPORT=no)
+
+CXXFLAGS=$saved_CXXFLAGS
+AC_LANG_POP(C++)
+AC_MSG_RESULT($HAVE_GL_SUPPORT)
+AC_SUBST(HAVE_GL_SUPPORT)
+
+if test X"$HAVE_GL_SUPPORT" != X"yes" ; then
+   		echo "wxWidgets don't have gl support, wx will NOT be useable" > ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
+fi
+
+dnl Check for GLintptr
+dnl We define the types glext.h so we don't depend on glext.h is updated
+dnl to the latest version, but some systems defined them in gl.h 
+dnl i.e Darwin and Solaris.
+
+AC_CHECK_TYPES([GLintptr, GLintptrARB, GLchar, 
+                GLcharARB, GLhalfARB, GLint64EXT], 
+	       [], [], 
+	       [#ifdef WIN32
+		# include <windows.h>
+	        # include <gl/gl.h>
+	        #elif defined(HAVE_GL_GL_H)
+	        # include <GL/gl.h>
+                #elif defined(HAVE_OPENGL_GL_H)
+		# include <OpenGL/gl.h>
+		#endif 
+		])
+ 
+dnl
+
+AC_MSG_CHECKING(GLU Callbacks uses Tiger Style)
+AC_LANG_PUSH(C++)
+saved_CXXFLAGS=$CXXFLAGS
+CXXFLAGS="$CXXFLAGS $WX_CXXFLAGS"
+
+AC_TRY_COMPILE([
+                #ifdef WIN32
+		# include <windows.h>
+	        # include <gl/glu.h>
+	        #elif defined(HAVE_GL_GL_H)
+	        # include <GL/glu.h>
+                #elif defined(HAVE_OPENGL_GL_H)
+		# include <OpenGL/glu.h>
+		#endif 
+		#ifndef CALLBACK
+		# define CALLBACK
+		#endif
+		void CALLBACK foo() {};
+	       ],
+		[
+		   GLUtesselator* tess;                   
+		   gluTessCallback(tess,GLU_TESS_VERTEX,(GLvoid (*)(...)) foo);
+		],
+		[TESS_CB_TIGER_STYLE=yes
+		 AC_DEFINE(TESS_CB_TIGER_STYLE, [1], [GLU Callbacks are Tiger style])],
+		TESS_CB_TIGER_STYLE=no)
+AC_MSG_RESULT($TESS_CB_TIGER_STYLE)
+AC_SUBST(TESS_CB_TIGER_STYLE)
+
+dnl 
+dnl Check that we wx have stc (wxStyledTextControl) headers 
+dnl 
+
+AC_CHECK_HEADERS([wx/stc/stc.h],
+        [],
+    	[WXERL_CAN_BUILD_DRIVER=false
+	 echo "wxWidgets don't have wxStyledTextControl (stc.h), wx will NOT be useable" > ./CONF_INFO
+     	 AC_MSG_WARN([Can not find wx/stc/stc.h])      
+     	],
+	[#ifdef WIN32
+	 # include <windows.h>
+         #endif
+         #include "wx/wx.h"])
+
+dnl 
+dnl Check that we can link all the libraries
+dnl 
+
+AC_MSG_CHECKING(if we can link wxwidgets programs)
+saved_LIBS=$LIBS
+
+if test X"$WX_HAVE_STATIC_LIBS" = X"true" ; then
+   LIBS=$WX_LIBS_STATIC   
+fi
+
+AC_LINK_IFELSE([
+		#ifdef WIN32
+		# include <windows.h>
+	        # include <gl/gl.h>
+	        #elif defined(HAVE_GL_GL_H)
+	        # include <GL/gl.h>
+                #elif defined(HAVE_OPENGL_GL_H)
+		# include <OpenGL/gl.h>
+		#endif 
+                #include "wx/wx.h"
+		#include "wx/stc/stc.h"
+		#include "wx/glcanvas.h"
+
+		class MyApp : public wxApp
+		{
+		   virtual bool OnInit() {
+		   	   // Test that we have a FromUTF8
+			   // it isn't in too old wxWidgets versions
+		   	   wxString test = wxString::FromUTF8((const char *)"foo");
+		   	   wxStyledTextCtrl * foo = new wxStyledTextCtrl();
+		   	   wxGLCanvas * bar = new wxGLCanvas((wxWindow *) NULL, -1, 
+			   	      wxDefaultPosition,wxDefaultSize,0);
+			   return true;
+                  };
+		};
+		IMPLEMENT_APP(MyApp)
+	       ],
+	       [
+		CAN_LINK_WX=yes
+	       ],
+	       [
+		CAN_LINK_WX=no
+	       ])
+
+CXXFLAGS=$saved_CXXFLAGS
+LIBS=$saved_LIBS
+AC_LANG_POP(C++)
+AC_MSG_RESULT($CAN_LINK_WX)
+
+if test X"$CAN_LINK_WX" != X"yes" ; then
+   		echo "Can not link the wx driver, wx will NOT be useable" > ./CONF_INFO
+		WXERL_CAN_BUILD_DRIVER=false
+		AC_MSG_WARN([Can not link wx program are all developer packages installed?])
+fi
+
+AC_SUBST(WXERL_CAN_BUILD_DRIVER)
+
+#############################################################################
+
+dnl 
+
+case $host_os in
+    mingw32|win32)
+	RUN_ERL=werl
+	SO_EXT=.dll;;
+    *)
+	RUN_ERL=erl
+	SO_EXT=.so;;
+esac
+
+AC_SUBST(SO_EXT)
+AC_SUBST(RUN_ERL)
+
+
+if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+    dnl  Find driver directory name according to erlang
+    WXERL_SYS_TYPE=`erl -noshell -eval 'io:format("~s~n",[[erlang:system_info(system_architecture)]])' -s erlang halt`
+else
+    WXERL_SYS_TYPE=$TARGET
+fi
+
+AC_SUBST(WXERL_SYS_TYPE)
+
+mkdir -p $WXERL_SYS_TYPE
+CONFIG_STATUS=$WXERL_SYS_TYPE/config.status
+
+dnl
+
+if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+   if test X"$WXERL_CAN_BUILD_DRIVER" != X"true" ; then 
+      AC_MSG_ERROR([Cannot build wxErlang driver, see ./CONF_INFO for information])
+   fi
+fi
+
+AC_CONFIG_FILES([ 
+	config.mk
+	c_src/Makefile 
+        ])
+
+AC_OUTPUT
+
+if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
+   AC_MSG_NOTICE()
+   AC_MSG_NOTICE(--------------------------------------------------)
+   AC_MSG_NOTICE(Using erlang compiler: [$ERLC])
+   AC_MSG_NOTICE(wxErlang Install in: [$ERLANG_ROOT_DIR/lib/wx-$ERLWX_VSN])
+   AC_MSG_NOTICE(Erlang driver in priv/[$WXERL_SYS_TYPE]/wxe_driver[$SO_EXT])
+   AC_MSG_NOTICE(--------------------------------------------------)
+fi
+
+if test X"$WX_BUILDING_INSIDE_ERLSRC" = X"true" ; then
+   CORES=`ls core* 2>/dev/null`
+   if test X"$CORES" != X"" ; then
+      echo "Configure dumped core files" > ignore_core_files
+   fi
+fi
+
+
+

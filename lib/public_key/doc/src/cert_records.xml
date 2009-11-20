@@ -1,0 +1,612 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2008</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Certificate records</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2008-02-06</date>
+    <rev>A</rev>
+    <file>cert_records.xml</file>
+  </header>
+
+  <p>This chapter briefly describes erlang records derived from asn1
+  specifications used to handle X509 certificates. The intent is to
+  describe the data types and not to specify the meaning of each
+  component for this we refer you to RFC 3280.
+  </p>
+
+  <p>Use the following include directive to get access to the
+  records and constant macros described in the following sections.</p>
+  
+  <code> -include_lib("public_key/include/public_key.hrl"). </code>
+
+  <section>
+    <title>Common Data Types</title>   
+
+    <p>Common non standard erlang
+    data types used to described the record fields in the
+    below sections are defined in <seealso
+     marker="public_key">public key reference manual </seealso> or
+    follows here.</p>
+
+    <p><c>time() = uct_time() | general_time()</c></p>
+    
+    <p><c>uct_time() = {utcTime, "YYMMDDHHMMSSZ"} </c></p>
+    
+    <p><c>general_time() = {generalTime, "YYYYMMDDHHMMSSZ"} </c></p>
+    
+    <p><c>
+      general_name() = {rfc822Name, string()} | {dNSName, string()}
+      | {x400Address, string()} | {directoryName,
+      {rdnSequence, [#AttributeTypeAndValue'{}]}} | 
+      | {eidPartyName, special_string()}
+      | {eidPartyName, special_string(), special_string()}
+      | {uniformResourceIdentifier, string()} | {ipAddress, string()} |
+      {registeredId, oid()} | {otherName, term()}
+    </c></p>
+    
+    <p><c>
+      special_string() =
+      {teletexString, string()} | {printableString, string()} |
+      {universalString, string()} | {utf8String, string()} |
+      {bmpString, string()}     
+    </c></p>
+    
+    <p><c>
+      dist_reason() = unused | keyCompromise | cACompromise |
+      affiliationChanged | superseded | cessationOfOperation |
+      certificateHold | privilegeWithdrawn |
+      aACompromise        
+    </c></p>
+  </section>
+
+ <section>
+    <title> PKIX Certificates</title>   
+<code>
+#'Certificate'{
+		tbsCertificate,        % #'TBSCertificate'{}
+		signatureAlgorithm,    % #'AlgorithmIdentifier'{} 
+		signature              % {0, binary()} - asn1 compact bitstring
+	       }.
+
+#'TBSCertificate'{
+	  version,              % v1 | v2 | v3 
+	  serialNumber,         % integer() 
+	  signature,            % #'AlgorithmIdentifier'{} 
+	  issuer,               % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  validity,             % #'Validity'{}
+	  subject,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+	  subjectPublicKeyInfo, % #'SubjectPublicKeyInfo'{}
+	  issuerUniqueID,       % binary() | asn1_novalue
+	  subjectUniqueID,      % binary() | asn1_novalue
+	  extensions            % [#'Extension'{}] 
+	 }.
+	  
+#'AlgorithmIdentifier'{
+	  algorithm,  % oid() 
+	  parameters  % asn1_der_encoded()
+	 }.
+#'SignatureAlgorithm'{
+	  algorithm,  % id_signature_algorithm()
+	  parameters  % public_key_params()
+	 }.
+</code>
+
+<p><c> id_signature_algorithm() = ?oid_name_as_erlang_atom</c> for available
+oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
+<table>
+  <row>
+    <cell align="left" valign="middle">OID name</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-dsa-with-sha1</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">md2WithRSAEncryption</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">md5WithRSAEncryption</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">sha1WithRSAEncryption</cell>
+      </row>
+       <row>
+	<cell align="left" valign="middle">ecdsa-with-SHA1</cell>
+      </row>
+      <tcaption>Signature algorithm oids </tcaption>
+</table>
+    
+<code>
+#'AttributeTypeAndValue'{
+	  type,   % id_attributes()
+	  value   % term() 
+	 }.
+</code>
+
+<p><c>id_attributes() =  ?oid_name_as_erlang_atom</c>
+for available oid names see table below. Ex: ?'id-at-name'</p>
+<table>
+  <row>
+    <cell align="left" valign="middle">OID name</cell>
+    <cell align="left" valign="middle">Value type</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-name</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>      
+  <row>
+    <cell align="left" valign="middle">id-at-surname</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-givenName</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-initials </cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-generationQualifier</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-commonName</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>   
+  <row>
+    <cell align="left" valign="middle">id-at-localityName</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-stateOrProvinceName</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-organizationName</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-title</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-dnQualifier</cell>
+    <cell align="left" valign="middle">{printableString, string()}</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-countryName</cell>
+    <cell align="left" valign="middle">{printableString, string()}</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-at-serialNumber</cell>
+    <cell align="left" valign="middle">{printableString, string()}</cell>
+  </row>      
+  <row>
+    <cell align="left" valign="middle">id-at-pseudonym</cell>
+    <cell align="left" valign="middle">special_string()</cell>
+  </row>
+  <tcaption>Attribute oids </tcaption>
+</table>
+    
+<code>
+#'Validity'{ 
+	  notBefore, % time()
+	  notAfter   % time()
+	 }.
+	 
+#'SubjectPublicKeyInfo'{
+	  algorithm,       % #AlgorithmIdentifier{} 
+	  subjectPublicKey % binary() 
+	 }.
+
+#'SubjectPublicKeyInfoAlgorithm'{
+	  algorithm,  % id_public_key_algorithm()
+	  parameters  % public_key_params()
+	 }.
+</code>
+
+<p><c> id_public_key_algorithm() = ?oid_name_as_erlang_atom</c> for available
+oid names see table below. Ex: ?'id-dsa'</p>
+<table>
+  <row>
+    <cell align="left" valign="middle">OID name</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">rsaEncryption</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-dsa</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">dhpublicnumber</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">ecdsa-with-SHA1</cell>
+      </row>
+       <row>
+	<cell align="left" valign="middle">id-keyExchangeAlgorithm</cell>
+      </row>
+      <tcaption>Public key algorithm oids </tcaption>
+</table>
+    
+
+<code>
+#'Extension'{
+	  extnID,    % id_extensions() | oid() 
+	  critical,  % boolean()
+	  extnValue  % asn1_der_encoded() 
+	 }.
+</code>
+
+<p><c>id_extensions() = ?oid_name_as_erlang_atom</c> for
+available oid names see tables. Ex:  ?'id-ce-authorityKeyIdentifier'<seealso
+marker="#StdCertExt">Standard Certificate Extensions</seealso>,
+    <seealso
+	marker="#PrivIntExt">Private Internet Extensions</seealso>, <seealso
+	marker="#CRLCertExt">CRL Extensions</seealso> and
+    <seealso
+	marker="#CRLEntryExt">CRL Entry Extensions</seealso>.
+</p>
+    
+</section>
+  
+<section>
+  <marker id="StdCertExt"></marker>
+  <title>Standard certificate extensions</title>
+      
+  <table>
+      <row>
+	<cell align="left" valign="middle">OID name</cell>
+	<cell align="left" valign="middle">Value type</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-authorityKeyIdentifier</cell>
+	<cell align="left" valign="middle">#'AuthorityKeyIdentifier'{}</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-subjectKeyIdentifier</cell>
+	<cell align="left" valign="middle">oid()</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-keyUsage</cell>
+	<cell align="left" valign="middle"> [key_usage()]</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-privateKeyUsagePeriod</cell>
+	<cell align="left" valign="middle">#'PrivateKeyUsagePeriod'{}</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-certificatePolicies</cell>
+	<cell align="left" valign="middle">#'PolicyInformation'{}</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-policyMappings</cell>
+	<cell align="left" valign="middle">#'PolicyMappings_SEQOF'{}</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-subjectAltName</cell>
+	<cell align="left" valign="middle">general_name()</cell>
+      </row>
+
+      <row>
+	<cell align="left" valign="middle">id-ce-issuerAltName</cell>
+	<cell align="left" valign="middle">general_name()</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-subjectDirectoryAttributes</cell>
+	<cell align="left" valign="middle"> [#'Attribute'{}]</cell>
+      </row>
+
+      <row>
+          <cell align="left" valign="middle">id-ce-basicConstraints</cell>
+	  <cell align="left" valign="middle">#'BasicConstraints'{}</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-nameConstraints</cell>
+	<cell align="left" valign="middle">#'NameConstraints'{}</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-policyConstraints</cell>
+	<cell align="left" valign="middle">#'PolicyConstraints'{}</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-ce-extKeyUsage</cell>
+	<cell align="left" valign="middle">[id_key_purpose()]</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-cRLDistributionPoints</cell>
+	<cell align="left" valign="middle">#'DistributionPoint'{}</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-inhibitAnyPolicy</cell>
+	<cell align="left" valign="middle">integer()</cell>
+      </row>
+      
+      <row>
+	<cell align="left" valign="middle">id-ce-freshestCRL</cell>
+	<cell align="left" valign="middle">[#'DistributionPoint'{}]</cell>
+      </row>
+      
+      
+      <tcaption>Standard Certificate Extensions</tcaption>
+    </table>
+
+    <p><c>
+      key_usage() =  digitalSignature | nonRepudiation | keyEncipherment|
+      dataEncipherment | keyAgreement | keyCertSign | cRLSign | encipherOnly |
+      decipherOnly 
+    </c></p>
+   
+    <p><c> id_key_purpose() = ?oid_name_as_erlang_atom</c> for available
+oid names see table below. Ex: ?'id-kp-serverAuth'</p>
+
+<table>
+  <row>
+    <cell align="left" valign="middle">OID name</cell>
+  </row>
+  <row>
+    <cell align="left" valign="middle">id-kp-serverAuth</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-kp-clientAuth</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-kp-codeSigning</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">id-kp-emailProtection</cell>
+      </row>
+       <row>
+	<cell align="left" valign="middle">id-kp-timeStamping</cell>
+      </row>
+       <row>
+	<cell align="left" valign="middle">id-kp-OCSPSigning</cell>
+      </row>
+      <tcaption>Key purpose oids </tcaption>
+</table>
+    
+    <code>
+#'AuthorityKeyIdentifier'{
+	  keyIdentifier,	    % oid()
+	  authorityCertIssuer,      % general_name()
+	  authorityCertSerialNumber % integer() 
+	 }.
+
+#'PrivateKeyUsagePeriod'{
+	  notBefore,   % general_time()
+	  notAfter     % general_time()
+	 }.
+
+#'PolicyInformation'{
+	  policyIdentifier,  % oid()
+	  policyQualifiers   % [#PolicyQualifierInfo{}]
+	 }.
+
+#'PolicyQualifierInfo'{
+	  policyQualifierId,   % oid()
+	  qualifier            % string() | #'UserNotice'{}
+	 }.
+
+#'UserNotice'{
+         noticeRef,   % #'NoticeReference'{}
+	 explicitText % string()
+	 }.
+
+#'NoticeReference'{
+         organization,    % string()
+	 noticeNumbers    % [integer()]
+	 }.
+
+#'PolicyMappings_SEQOF'{
+	  issuerDomainPolicy,  % oid()
+	  subjectDomainPolicy  % oid()
+	 }.
+
+#'Attribute'{
+          type,  % oid()
+	  values % [asn1_der_encoded()]
+	  }).
+
+#'BasicConstraints'{
+	  cA,		    % boolean()
+	  pathLenConstraint % integer()
+	 }).
+
+#'NameConstraints'{
+	  permittedSubtrees, % [#'GeneralSubtree'{}]
+	  excludedSubtrees   % [#'GeneralSubtree'{}]
+	 }).
+
+#'GeneralSubtree'{
+	  base,    % general_name()
+	  minimum, % integer()
+	  maximum  % integer()
+	 }).
+
+#'PolicyConstraints'{
+	  requireExplicitPolicy, % integer()
+	  inhibitPolicyMapping   % integer()
+	 }).
+
+#'DistributionPoint'{
+	  distributionPoint, % general_name() | [#AttributeTypeAndValue{}]
+	  reasons,           % [dist_reason()]
+	  cRLIssuer          % general_name()
+	 }).
+</code>
+
+</section>
+
+ <section>
+   <marker id="PrivIntExt"></marker>
+   <title>Private Internet Extensions</title>   
+
+   <table>
+        <row>
+          <cell align="left" valign="middle">OID name</cell>
+          <cell align="left" valign="middle">Value type</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">id-pe-authorityInfoAccess</cell>
+          <cell align="left" valign="middle">[#'AccessDescription'{}]</cell>
+        </row>
+	<row>
+          <cell align="left" valign="middle">id-pe-subjectInfoAccess</cell>
+          <cell align="left" valign="middle">[#'AccessDescription'{}]</cell>
+        </row>
+        <tcaption>Private Internet Extensions</tcaption>
+      </table>   
+ 
+<code>
+#'AccessDescription'{
+           accessMethod,    % oid()
+	   accessLocation   % general_name()
+	 }).
+</code>
+
+ </section>
+ 
+<section>
+    <title> CRL and CRL Extensions Profile</title>   
+
+ <code>
+#'CertificateList'{
+          tbsCertList,        % #'TBSCertList{}
+          signatureAlgorithm, % #'AlgorithmIdentifier'{} 
+          signature           % {0, binary()} - asn1 compact bitstring
+	  }).
+
+#'TBSCertList'{
+      version,             % v2 (if defined)
+      signature,           % #AlgorithmIdentifier{}
+      issuer,              % {rdnSequence, [#AttributeTypeAndValue'{}]} 
+      thisUpdate,          % time()
+      nextUpdate,          % time() 
+      revokedCertificates, % [#'TBSCertList_revokedCertificates_SEQOF'{}]
+      crlExtensions        % [#'Extension'{}]
+      }).
+
+#'TBSCertList_revokedCertificates_SEQOF'{
+         userCertificate,      % integer()
+ 	 revocationDate,       % timer()
+	 crlEntryExtensions    % [#'Extension'{}]
+	 }).
+ </code>
+ 
+ <section>
+   <marker id="CRLCertExt"></marker>
+   <title>CRL Extensions </title>
+   
+        <table>
+        <row>
+          <cell align="left" valign="middle">OID name</cell>
+          <cell align="left" valign="middle">Value type</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">id-ce-authorityKeyIdentifier</cell>
+          <cell align="left" valign="middle">#'AuthorityKeyIdentifier{}</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">id-ce-issuerAltName</cell>
+          <cell align="left" valign="middle">{rdnSequence, [#AttributeTypeAndValue'{}]}</cell>
+           </row>
+	    <row>
+          <cell align="left" valign="middle">id-ce-cRLNumber</cell>
+          <cell align="left" valign="middle">integer()</cell>
+           </row>
+	    <row>
+          <cell align="left" valign="middle">id-ce-deltaCRLIndicator</cell>
+          <cell align="left" valign="middle">integer()</cell>
+           </row>
+	    <row>
+          <cell align="left" valign="middle">id-ce-issuingDistributionPoint</cell>
+          <cell align="left" valign="middle">#'IssuingDistributionPoint'{}</cell>
+           </row>
+	   <row>
+          <cell align="left" valign="middle">id-ce-freshestCRL</cell>
+          <cell align="left" valign="middle">[#'Distributionpoint'{}]</cell>
+           </row>
+	   
+        <tcaption>CRL Extensions</tcaption>
+      </table>
+      
+      <code>
+#'IssuingDistributionPoint'{
+          distributionPoint,         % general_name() | [#AttributeTypeAndValue'{}]
+	  onlyContainsUserCerts,     % boolean()
+	  onlyContainsCACerts,       % boolean()
+	  onlySomeReasons,           % [dist_reason()]
+	  indirectCRL,               % boolean()
+	  onlyContainsAttributeCerts % boolean()
+	  }).
+      </code> 
+ </section>
+ 
+ <section>
+   <marker id="CRLEntryExt"></marker>
+   <title> CRL Entry Extensions </title>
+
+       <table>
+        <row>
+          <cell align="left" valign="middle">OID name</cell>
+          <cell align="left" valign="middle">Value type</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">id-ce-cRLReason</cell>
+          <cell align="left" valign="middle">crl_reason()</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">id-ce-holdInstructionCode</cell>
+          <cell align="left" valign="middle">oid()</cell>
+           </row>
+	    <row>
+          <cell align="left" valign="middle">id-ce-invalidityDate</cell>
+          <cell align="left" valign="middle">general_time()</cell>
+           </row>
+	    <row>
+          <cell align="left" valign="middle">id-ce-certificateIssuer</cell>
+          <cell align="left" valign="middle">general_name()</cell>
+           </row>
+	   <tcaption>CRL Entry Extensions</tcaption>
+       </table>
+       <p><c>
+	 crl_reason() = unspecified | keyCompromise | cACompromise |
+	 affiliationChanged | superseded | cessationOfOperation |
+	 certificateHold | removeFromCRL | privilegeWithdrawn |
+	 aACompromise        
+       </c></p>
+ </section>
+ 
+</section>
+</chapter>

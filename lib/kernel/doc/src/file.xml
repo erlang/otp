@@ -1,0 +1,2002 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>file</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>file</module>
+  <modulesummary>File Interface Module</modulesummary>
+  <description>
+    <p>The module <c>file</c> provides an interface to the file system.</p>
+    <p>On operating systems with thread support, it is possible to let
+      file operations be performed in threads of their own, allowing
+      other Erlang processes to continue executing in parallel with
+      the file operations. See the command line flag
+      <c>+A</c> in <seealso marker="erts:erl">erl(1)</seealso>.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+iodata() = iolist() | binary()
+  iolist() = [char() | binary() | iolist()]
+
+io_device()
+  as returned by file:open/2, a process handling IO protocols
+
+name() = string() | atom() | DeepList
+  DeepList = [char() | atom() | DeepList]
+
+posix()
+  an atom which is named from the POSIX error codes used in
+  Unix, and in the runtime libraries of most C compilers
+
+ext_posix() = posix() | badarg
+
+time() = {{Year, Month, Day}, {Hour, Minute, Second}}
+  Year = Month = Day = Hour = Minute = Second = int()
+  Must denote a valid date and time</code>
+  </section>
+  <funcs>
+    <func>
+      <name>change_group(Filename, Gid) -> ok | {error, Reason}</name>
+      <fsummary>Change group of a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Gid = int()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Changes group of a file. See
+          <seealso marker="#write_file_info/2">write_file_info/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_owner(Filename, Uid) -> ok | {error, Reason}</name>
+      <fsummary>Change owner of a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Uid = int()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Changes owner of a file. See
+          <seealso marker="#write_file_info/2">write_file_info/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_owner(Filename, Uid, Gid) -> ok | {error, Reason}</name>
+      <fsummary>Change owner and group of a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Uid = int()</v>
+        <v>Gid = int()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Changes owner and group of a file. See
+          <seealso marker="#write_file_info/2">write_file_info/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_time(Filename, Mtime) -> ok | {error, Reason}</name>
+      <fsummary>Change the modification time of a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Mtime = time()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Changes the modification and access times of a file. See
+          <seealso marker="#write_file_info/2">write_file_info/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_time(Filename, Mtime, Atime) -> ok | {error, Reason}</name>
+      <fsummary>Change the modification and last access time of a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Mtime = Atime = time()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Changes the modification and last access times of a file. See
+          <seealso marker="#write_file_info/2">write_file_info/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>close(IoDevice) -> ok | {error, Reason}</name>
+      <fsummary>Close a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Closes the file referenced by <c>IoDevice</c>. It mostly
+          returns <c>ok</c>, expect for some severe errors such as out
+          of memory.</p>
+        <p>Note that if the option <c>delayed_write</c> was
+          used when opening the file, <c>close/1</c> might return an
+          old write error and not even try to close the file. See
+          <seealso marker="#open/2">open/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>consult(Filename) -> {ok, Terms} | {error, Reason}</name>
+      <fsummary>Read Erlang terms from a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Terms = [term()]</v>
+        <v>Reason = ext_posix() | terminated | system_limit
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Reads Erlang terms, separated by '.', from <c>Filename</c>.
+          Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, Terms}</c></tag>
+          <item>
+            <p>The file was successfully read.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <seealso marker="#open/2">open/2</seealso> for a list
+              of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang terms in
+              the file. Use <c>format_error/1</c> to convert
+              the three-element tuple to an English description of
+              the error.</p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <code type="none">
+f.txt:  {person, "kalle", 25}.
+        {person, "pelle", 30}.</code>
+        <pre>
+1> <input>file:consult("f.txt").</input>
+{ok,[{person,"kalle",25},{person,"pelle",30}]}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>copy(Source, Destination) -></name>
+      <name>copy(Source, Destination, ByteCount) -> {ok, BytesCopied} | {error, Reason}</name>
+      <fsummary>Copy file contents</fsummary>
+      <type>
+        <v>Source = Destination = io_device() | Filename | {Filename, Modes}</v>
+        <v>&nbsp;Filename = name()</v>
+        <v>&nbsp;Modes = [Mode] -- see open/2</v>
+        <v>ByteCount = int() >= 0 | infinity</v>
+        <v>BytesCopied = int()</v>
+      </type>
+      <desc>
+        <p>Copies <c>ByteCount</c> bytes from <c>Source</c> to
+          <c>Destination</c>. <c>Source</c> and <c>Destination</c> refer
+          to either filenames or IO devices from e.g. <c>open/2</c>.
+          <c>ByteCount</c> defaults <c>infinity</c>, denoting an
+          infinite number of bytes.</p>
+        <p>The argument <c>Modes</c> is a list of possible modes, see
+          <seealso marker="#open/2">open/2</seealso>, and defaults to
+          [].</p>
+        <p>If both <c>Source</c> and <c>Destination</c> refer to
+          filenames, the files are opened with <c>[read, binary]</c>
+          and <c>[write, binary]</c> prepended to their mode lists,
+          respectively, to optimize the copy.</p>
+        <p>If <c>Source</c> refers to a filename, it is opened with
+          <c>read</c> mode prepended to the mode list before the copy,
+          and closed when done.</p>
+        <p>If <c>Destination</c> refers to a filename, it is opened
+          with <c>write</c> mode prepended to the mode list before
+          the copy, and closed when done.</p>
+        <p>Returns <c>{ok, BytesCopied}</c> where <c>BytesCopied</c> is
+          the number of bytes that actually was copied, which may be
+          less than <c>ByteCount</c> if end of file was encountered on
+          the source. If the operation fails, <c>{error, Reason}</c> is
+          returned.</p>
+        <p>Typical error reasons: As for <c>open/2</c> if a file had to
+          be opened, and as for <c>read/2</c> and <c>write/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>del_dir(Dir) -> ok | {error, Reason}</name>
+      <fsummary>Delete a directory</fsummary>
+      <type>
+        <v>Dir = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Tries to delete the directory <c>Dir</c>. The directory must
+          be empty before it can be deleted. Returns <c>ok</c> if
+          successful.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing search or write permissions for the parent
+              directories of <c>Dir</c>.</p>
+          </item>
+          <tag><c>eexist</c></tag>
+          <item>
+            <p>The directory is not empty.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of <c>Dir</c> is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+          <tag><c>einval</c></tag>
+          <item>
+            <p>Attempt to delete the current directory. On some
+              platforms, <c>eacces</c> is returned instead.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Filename) -> ok | {error, Reason}</name>
+      <fsummary>Delete a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Tries to delete the file <c>Filename</c>. Returns <c>ok</c>
+          if successful.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing permission for the file or one of its parents.</p>
+          </item>
+          <tag><c>eperm</c></tag>
+          <item>
+            <p>The file is a directory and the user is not super-user.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+          <tag><c>einval</c></tag>
+          <item>
+            <p><c>Filename</c> had an improper type, such as tuple.</p>
+          </item>
+        </taglist>
+        <warning>
+          <p>In a future release, a bad type for the <c>Filename</c>
+            argument will probably generate an exception.</p>
+          <p></p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>eval(Filename) -> ok | {error, Reason}</name>
+      <fsummary>Evaluate Erlang expressions in a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Reason = ext_posix() | terminated | system_limit 
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Reads and evaluates Erlang expressions, separated by '.' (or
+          ',', a sequence of expressions is also an expression), from
+          <c>Filename</c>. The actual result of the evaluation is not
+          returned; any expression sequence in the file must be there
+          for its side effect. Returns one of the following:</p>
+        <taglist>
+          <tag><c>ok</c></tag>
+          <item>
+            <p>The file was read and evaluated.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <c>open/2</c> for a list of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use <c>format_error/1</c> to
+              convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>eval(Filename, Bindings) -> ok | {error, Reason}</name>
+      <fsummary>Evaluate Erlang expressions in a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Bindings -- see erl_eval(3)</v>
+        <v>Reason = ext_posix() | terminated | system_limit 
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see eval/1</v>
+      </type>
+      <desc>
+        <p>The same as <c>eval/1</c> but the variable bindings
+          <c>Bindings</c> are used in the evaluation. See
+          <seealso marker="stdlib:erl_eval">erl_eval(3)</seealso> about
+          variable bindings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>file_info(Filename) -> {ok, FileInfo} | {error, Reason}</name>
+      <fsummary>Get information about a file (deprecated)</fsummary>
+      <desc>
+        <p>This function is obsolete. Use <c>read_file_info/1</c>
+          instead.</p>
+      </desc>
+    </func>
+    <func>
+      <name>format_error(Reason) -> Chars</name>
+      <fsummary>Return a descriptive string for an error reason</fsummary>
+      <type>
+        <v>Reason = atom() | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see eval/1</v>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Given the error reason returned by any function in this
+          module, returns a descriptive string of the error in English.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_cwd() -> {ok, Dir} | {error, Reason}</name>
+      <fsummary>Get the current working directory</fsummary>
+      <type>
+        <v>Dir = string()</v>
+        <v>Reason = posix()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{ok, Dir}</c>, where <c>Dir</c> is the current
+          working directory of the file server.</p>
+        <note>
+          <p>In rare circumstances, this function can fail on Unix.
+            It may happen if read permission does not exist for
+            the parent directories of the current directory.</p>
+        </note>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing read permission for one of the parents of
+              the current directory.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>get_cwd(Drive) -> {ok, Dir} | {error, Reason}</name>
+      <fsummary>Get the current working directory for the drive specified</fsummary>
+      <type>
+        <v>Drive = string() -- see below</v>
+        <v>Dir = string()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p><c>Drive</c> should be of the form "<c>Letter</c><c>:</c>",
+          for example "c:". Returns <c>{ok, Dir}</c> or
+          <c>{error, Reason}</c>, where <c>Dir</c> is the current
+          working directory of the drive specified.</p>
+        <p>This function returns <c>{error, enotsup}</c> on platforms
+          which have no concept of current drive (Unix, for example).</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>enotsup</c></tag>
+          <item>
+            <p>The operating system have no concept of drives.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>The drive does not exist.</p>
+          </item>
+          <tag><c>einval</c></tag>
+          <item>
+            <p>The format of <c>Drive</c> is invalid.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>list_dir(Dir) -> {ok, Filenames} | {error, Reason}</name>
+      <fsummary>List files in a directory</fsummary>
+      <type>
+        <v>Dir = name()</v>
+        <v>Filenames = [Filename]</v>
+        <v>&nbsp;Filename = string()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Lists all the files in a directory. Returns
+          <c>{ok, Filenames}</c> if successful. Otherwise, it returns
+          <c>{error, Reason}</c>. <c>Filenames</c> is a list of
+          the names of all the files in the directory. The names are
+          not sorted.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing search or write permissions for <c>Dir</c> or
+              one of its parent directories.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>make_dir(Dir) -> ok | {error, Reason}</name>
+      <fsummary>Make a directory</fsummary>
+      <type>
+        <v>Dir = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Tries to create the directory <c>Dir</c>. Missing parent
+          directories are <em>not</em> created. Returns <c>ok</c> if
+          successful.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing search or write permissions for the parent
+              directories of <c>Dir</c>.</p>
+          </item>
+          <tag><c>eexist</c></tag>
+          <item>
+            <p>There is already a file or directory named <c>Dir</c>.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>A component of <c>Dir</c> does not exist.</p>
+          </item>
+          <tag><c>enospc</c></tag>
+          <item>
+            <p>There is a no space left on the device.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of <c>Dir</c> is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>make_link(Existing, New) -> ok | {error, Reason}</name>
+      <fsummary>Make a hard link to a file</fsummary>
+      <type>
+        <v>Existing = New = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Makes a hard link from <c>Existing</c> to <c>New</c>, on
+          platforms that support links (Unix). This function returns
+          <c>ok</c> if the link was successfully created, or
+          <c>{error, Reason}</c>. On platforms that do not support
+          links, <c>{error,enotsup}</c> is returned.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing read or write permissions for the parent
+              directories of <c>Existing</c> or <c>New</c>.</p>
+          </item>
+          <tag><c>eexist</c></tag>
+          <item>
+            <p><c>New</c> already exists.</p>
+          </item>
+          <tag><c>enotsup</c></tag>
+          <item>
+            <p>Hard links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>make_symlink(Name1, Name2) -> ok | {error, Reason}</name>
+      <fsummary>Make a symbolic link to a file or directory</fsummary>
+      <type>
+        <v>Name1 = Name2 = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>This function creates a symbolic link <c>Name2</c> to
+          the file or directory <c>Name1</c>, on platforms that support
+          symbolic links (most Unix systems). <c>Name1</c> need not
+          exist. This function returns <c>ok</c> if the link was
+          successfully created, or <c>{error, Reason}</c>. On platforms
+          that do not support symbolic links, <c>{error, enotsup}</c>
+          is returned.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing read or write permissions for the parent
+              directories of <c>Name1</c> or <c>Name2</c>.</p>
+          </item>
+          <tag><c>eexist</c></tag>
+          <item>
+            <p><c>Name2</c> already exists.</p>
+          </item>
+          <tag><c>enotsup</c></tag>
+          <item>
+            <p>Symbolic links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>open(Filename, Modes) -> {ok, IoDevice} | {error, Reason}</name>
+      <fsummary>Open a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Modes = [Mode]</v>
+        <v>&nbsp;Mode = read | write | append | raw | binary | {delayed_write, Size, Delay} | delayed_write | {read_ahead, Size} | read_ahead | compressed</v>
+        <v>&nbsp;&nbsp;Size = Delay = int()</v>
+        <v>IoDevice = io_device()</v>
+        <v>Reason = ext_posix() | system_limit</v>
+      </type>
+      <desc>
+        <p>Opens the file <c>Filename</c> in the mode determined by
+          <c>Modes</c>, which may contain one or more of the following
+          items:</p>
+        <taglist>
+          <tag><c>read</c></tag>
+          <item>
+            <p>The file, which must exist, is opened for reading.</p>
+          </item>
+          <tag><c>write</c></tag>
+          <item>
+            <p>The file is opened for writing. It is created if it does
+              not exist. If the file exists, and if <c>write</c> is not
+              combined with <c>read</c>, the file will be truncated.</p>
+          </item>
+          <tag><c>append</c></tag>
+          <item>
+            <p>The file will be opened for writing, and it will be
+              created if it does not exist. Every write operation to a
+              file opened with <c>append</c> will take place at
+              the end of the file.</p>
+          </item>
+          <tag><c>raw</c></tag>
+          <item>
+            <p>The <c>raw</c> option allows faster access to a file,
+              because no Erlang process is needed to handle the file.
+              However, a file opened in this way has the following
+              limitations:</p>
+            <list type="bulleted">
+              <item>The functions in the <c>io</c> module cannot be used,
+               because they can only talk to an Erlang process.
+               Instead, use the <c>read/2</c>, <c>read_line/1</c> and 
+	       <c>write/2</c>
+               functions.</item>
+	      <item>Especially if <c>read_line/1</c> is to be used on a <c>raw</c> file, it is recommended to combine this option with the <c>{read_ahead, Size}</c> option as line oriented I/O is inefficient without buffering.</item>
+              <item>Only the Erlang process which opened the file can use
+               it.</item>
+              <item>A remote Erlang file server cannot be used;
+               the computer on which the Erlang node is running must
+               have access to the file system (directly or through
+               NFS).</item>
+            </list>
+          </item>
+          <tag><c>binary</c></tag>
+          <item>
+            <p>When this option has been given, read operations on the file
+	       will return binaries rather than lists.</p>
+          </item>
+          <tag><c>{delayed_write, Size, Delay}</c></tag>
+          <item>
+            <p>If this option is used, the data in subsequent
+              <c>write/2</c> calls is buffered until there are at least
+              <c>Size</c> bytes buffered, or until the oldest buffered
+              data is <c>Delay</c> milliseconds old. Then all buffered
+              data is written in one operating system call.
+              The buffered data is also flushed before some other file
+              operation than <c>write/2</c> is executed.</p>
+            <p>The purpose of this option is to increase performance
+              by reducing the number of operating system calls, so the
+              <c>write/2</c> calls should be for sizes significantly
+              less than <c>Size</c>, and not interspersed by to many
+              other file operations, for this to happen.</p>
+            <p>When this option is used, the result of <c>write/2</c>
+              calls may prematurely be reported as successful, and if
+              a write error should actually occur the error is
+              reported as the result of the next file operation, which
+              is not executed.</p>
+            <p>For example, when <c>delayed_write</c> is used, after a
+              number of <c>write/2</c> calls, <c>close/1</c> might
+              return <c>{error, enospc}</c> because there was not enough
+              space on the disc for previously written data, and
+              <c>close/1</c> should probably be called again since the
+              file is still open.</p>
+          </item>
+          <tag><c>delayed_write</c></tag>
+          <item>
+            <p>The same as <c>{delayed_write, Size, Delay}</c> with
+              reasonable default values for <c>Size</c> and
+              <c>Delay</c>. (Roughly some 64 KBytes, 2 seconds)</p>
+          </item>
+          <tag><c>{read_ahead, Size}</c></tag>
+          <item>
+            <p>This option activates read data buffering. If
+              <c>read/2</c> calls are for significantly less than
+              <c>Size</c> bytes, read operations towards the operating
+              system are still performed for blocks of <c>Size</c>
+              bytes. The extra data is buffered and returned in
+              subsequent <c>read/2</c> calls, giving a performance gain
+              since the number of operating system calls is reduced.</p>
+	    <p>The <c>read_ahead</c> buffer is also highly utilized
+	      by the <c>read_line/1</c> function in <c>raw</c> mode,
+	      why this option is recommended (for performance reasons)
+	      when accessing raw files using that function.</p>
+            <p>If <c>read/2</c> calls are for sizes not significantly
+              less than, or even greater than <c>Size</c> bytes, no
+              performance gain can be expected.</p>
+          </item>
+          <tag><c>read_ahead</c></tag>
+          <item>
+            <p>The same as <c>{read_ahead, Size}</c> with a reasonable
+              default value for <c>Size</c>. (Roughly some 64 KBytes)</p>
+          </item>
+          <tag><c>compressed</c></tag>
+          <item>
+            <p>Makes it possible to read or write gzip compressed
+              files. The <c>compressed</c> option must be combined
+	      with either <c>read</c> or <c>write</c>, but not both.
+	      Note that the file size obtained with
+              <c>read_file_info/1</c> will most probably not match the
+              number of bytes that can be read from a compressed file.</p>
+          </item>
+          <tag><c>{encoding, Encoding}</c></tag>
+          <item>
+            <p>Makes the file perform automatic translation of characters to and from a specific (Unicode) encoding. Note that the data supplied to file:write or returned by file:read still is byte oriented, this option only denotes how data is actually stored in the disk file.</p>
+	    <p>Depending on the encoding, different methods of reading and writing data is preferred. The default encoding of <c>latin1</c> implies using this (the file) module for reading and writing data, as the interfaces provided here work with byte-oriented data, while using other (Unicode) encodings makes the  <seealso marker="stdlib:io">io(3)</seealso> module's <c>get_chars</c>, <c>get_line</c> and <c>put_chars</c> functions more suitable, as they can work with the full Unicode range.</p>
+	    <p>If data is sent to an <c>io_device()</c> in a format that cannot be converted to the specified encoding, or if data is read by a function that returns data in a format that cannot cope with the character range of the data, an error occurs and the file will be closed.</p> 
+	    <p>The allowed values for <c>Encoding</c> are:</p>
+	    <taglist>
+	    <tag><c>latin1</c></tag>
+	    <item>
+	    <p>The default encoding. Bytes supplied to i.e. file:write are written as is on the file, likewise bytes read from the file are returned to i.e. file:read as is. If the <seealso marker="stdlib:io">io(3)</seealso> module is used for writing, the file can only cope with Unicode characters up to codepoint 255 (the ISO-latin-1 range).</p>
+	    </item>
+	    <tag><c>unicode</c> or <c>utf8</c></tag>
+	    <item>
+	    <p>Characters are translated to and from the UTF-8 encoding before being written to or read from the file. A file opened in this way might be readable using the file:read function, as long as no data stored on the file lies beyond the ISO-latin-1 range (0..255), but failure will occur if the data contains Unicode codepoints beyond that range. The file is best read with the functions in the Unicode aware   <seealso marker="stdlib:io">io(3)</seealso> module.</p>
+	    <p>Bytes written to the file by any means are translated to UTF-8 encoding before actually being stored on the disk file.</p>
+	    </item>
+	    <tag><c>utf16</c> or <c>{utf16,big}</c></tag>
+	    <item>
+	    <p>Works like <c>unicode</c>, but translation is done to and from big endian UTF-16 instead of UTF-8.</p>
+	    </item>
+	    <tag><c>{utf16,little}</c></tag>
+	    <item>
+	    <p>Works like <c>unicode</c>, but translation is done to and from little endian UTF-16 instead of UTF-8.</p>
+	    </item>
+	    <tag><c>utf32</c> or <c>{utf32,big}</c></tag>
+	    <item>
+	    <p>Works like <c>unicode</c>, but translation is done to and from big endian UTF-32 instead of UTF-8.</p>
+	    </item>
+	    <tag><c>{utf32,little}</c></tag>
+	    <item>
+	    <p>Works like <c>unicode</c>, but translation is done to and from little endian UTF-32 instead of UTF-8.</p>
+	    </item>
+	    </taglist>
+	    <p>The Encoding can be changed for a file "on the fly" by using the <seealso marker="stdlib:io#setopts/2">io:setopts/2</seealso> function, why a file can be analyzed in latin1 encoding for i.e. a BOM, positioned beyond the BOM and then be set for the right encoding before further reading.See the <seealso marker="stdlib:unicode">unicode(3)</seealso> module for functions identifying BOM's.</p>
+	    <p>This option is not allowed on <c>raw</c> files.</p>
+          </item>
+        </taglist>
+        <p>Returns:</p>
+        <taglist>
+          <tag><c>{ok, IoDevice}</c></tag>
+          <item>
+            <p>The file has been opened in the requested mode.
+              <c>IoDevice</c> is a reference to the file.</p>
+          </item>
+          <tag><c>{error, Reason}</c></tag>
+          <item>
+            <p>The file could not be opened.</p>
+          </item>
+        </taglist>
+        <p><c>IoDevice</c> is really the pid of the process which
+          handles the file. This process is linked to the process
+          which originally opened the file. If any process to which
+          the <c>IoDevice</c> is linked terminates, the file will be
+          closed and the process itself will be terminated.
+          An <c>IoDevice</c> returned from this call can be used as an
+          argument to the IO functions (see
+          <seealso marker="stdlib:io">io(3)</seealso>).</p>
+        <note>
+          <p>In previous versions of <c>file</c>, modes were given
+            as one of the atoms <c>read</c>, <c>write</c>, or
+            <c>read_write</c> instead of a list. This is still allowed
+            for reasons of backwards compatibility, but should not be
+            used for new code. Also note that <c>read_write</c> is not
+            allowed in a mode list.</p>
+        </note>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing permission for reading the file or searching one
+              of the parent directories.</p>
+          </item>
+          <tag><c>eisdir</c></tag>
+          <item>
+            <p>The named file is not a regular file. It may be a
+              directory, a fifo, or a device.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+          <tag><c>enospc</c></tag>
+          <item>
+            <p>There is a no space left on the device (if <c>write</c>
+              access was specified).</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>path_consult(Path, Filename) -> {ok, Terms, FullName} | {error, Reason}</name>
+      <fsummary>Read Erlang terms from a file</fsummary>
+      <type>
+        <v>Path = [Dir]</v>
+        <v>&nbsp;Dir = name()</v>
+        <v>Filename = name()</v>
+        <v>Terms = [term()]</v>
+        <v>FullName = string()</v>
+        <v>Reason = ext_posix() | terminated | system_limit
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Searches the path <c>Path</c> (a list of directory names)
+          until the file <c>Filename</c> is found. If <c>Filename</c>
+          is an absolute filename, <c>Path</c> is ignored.
+          Then reads Erlang terms, separated by '.', from the file.
+          Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, Terms, FullName}</c></tag>
+          <item>
+            <p>The file was successfully read. <c>FullName</c> is
+              the full name of the file.</p>
+          </item>
+          <tag><c>{error, enoent}</c></tag>
+          <item>
+            <p>The file could not be found in any of the directories in
+              <c>Path</c>.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <seealso marker="#open/2">open/2</seealso> for a list
+              of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang terms in
+              the file. Use <c>format_error/1</c> to convert
+              the three-element tuple to an English description of
+              the error.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>path_eval(Path, Filename) -> {ok, FullName} | {error, Reason}</name>
+      <fsummary>Evaluate Erlang expressions in a file</fsummary>
+      <type>
+        <v>Path = [Dir]</v>
+        <v>&nbsp;Dir = name()</v>
+        <v>Filename = name()</v>
+        <v>FullName = string()</v>
+        <v>Reason = ext_posix() | terminated | system_limit
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Searches the path <c>Path</c> (a list of directory names)
+          until the file <c>Filename</c> is found. If <c>Filename</c>
+          is an absolute file name, <c>Path</c> is ignored. Then reads
+          and evaluates Erlang expressions, separated by '.' (or ',', a
+          sequence of expressions is also an expression), from the file.
+          The actual result of evaluation is not returned; any
+          expression sequence in the file must be there for its side
+          effect. Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, FullName}</c></tag>
+          <item>
+            <p>The file was read and evaluated. <c>FullName</c> is
+              the full name of the file.</p>
+          </item>
+          <tag><c>{error, enoent}</c></tag>
+          <item>
+            <p>The file could not be found in any of the directories in
+              <c>Path</c>.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <seealso marker="#open/2">open/2</seealso> for a list
+              of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use <c>format_error/1</c> to
+              convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>path_open(Path, Filename, Modes) -> {ok, IoDevice, FullName} | {error, Reason}</name>
+      <fsummary>Open a file</fsummary>
+      <type>
+        <v>Path = [Dir]</v>
+        <v>&nbsp;Dir = name()</v>
+        <v>Filename = name()</v>
+        <v>Modes = [Mode] -- see open/2</v>
+        <v>IoDevice = io_device()</v>
+        <v>FullName = string()</v>
+        <v>Reason = ext_posix() | system_limit</v>
+      </type>
+      <desc>
+        <p>Searches the path <c>Path</c> (a list of directory names)
+          until the file <c>Filename</c> is found. If <c>Filename</c>
+          is an absolute file name, <c>Path</c> is ignored.
+          Then opens the file in the mode determined by <c>Modes</c>.
+          Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, IoDevice, FullName}</c></tag>
+          <item>
+            <p>The file has been opened in the requested mode.
+              <c>IoDevice</c> is a reference to the file and
+              <c>FullName</c> is the full name of the file.</p>
+          </item>
+          <tag><c>{error, enoent}</c></tag>
+          <item>
+            <p>The file could not be found in any of the directories in
+              <c>Path</c>.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>The file could not be opened.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>path_script(Path, Filename) -> {ok, Value, FullName} | {error, Reason}</name>
+      <fsummary>Evaluate and return the value of Erlang expressions in a file</fsummary>
+      <type>
+        <v>Path = [Dir]</v>
+        <v>&nbsp;Dir = name()</v>
+        <v>Filename = name()</v>
+        <v>Value = term()</v>
+        <v>FullName = string()</v>
+        <v>Reason = ext_posix() | terminated | system_limit 
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Searches the path <c>Path</c> (a list of directory names)
+          until the file <c>Filename</c> is found. If <c>Filename</c>
+          is an absolute file name, <c>Path</c> is ignored. Then reads
+          and evaluates Erlang expressions, separated by '.' (or ',', a
+          sequence of expressions is also an expression), from the file.
+          Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, Value, FullName}</c></tag>
+          <item>
+            <p>The file was read and evaluated. <c>FullName</c> is
+              the full name of the file and <c>Value</c> the value of
+              the last expression.</p>
+          </item>
+          <tag><c>{error, enoent}</c></tag>
+          <item>
+            <p>The file could not be found in any of the directories in
+              <c>Path</c>.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <seealso marker="#open/2">open/2</seealso> for a list
+              of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use <c>format_error/1</c> to
+              convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>path_script(Path, Filename, Bindings) -> {ok, Value, FullName} | {error, Reason}</name>
+      <fsummary>Evaluate and return the value of Erlang expressions in a file</fsummary>
+      <type>
+        <v>Path = [Dir]</v>
+        <v>&nbsp;Dir = name()</v>
+        <v>Filename = name()</v>
+        <v>Bindings -- see erl_eval(3)</v>
+        <v>Value = term()</v>
+        <v>FullName = string()</v>
+        <v>Reason = posix() | terminated | system_limit
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see path_script/2</v>
+      </type>
+      <desc>
+        <p>The same as <c>path_script/2</c> but the variable bindings
+          <c>Bindings</c> are used in the evaluation. See
+          <seealso marker="stdlib:erl_eval">erl_eval(3)</seealso> about
+          variable bindings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pid2name(Pid) -> string() | undefined</name>
+      <fsummary>Return the name of the file handled by a pid</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>If <c>Pid</c> is an IO device, that is, a pid returned from
+          <c>open/2</c>, this function returns the filename, or rather:</p>
+        <taglist>
+          <tag><c>{ok, Filename}</c></tag>
+          <item>
+            <p>If this node's file server is not a slave, the file was
+              opened by this node's file server, (this implies that
+              <c>Pid</c> must be a local pid) and the file is not
+              closed. <c>Filename</c> is the filename in flat string
+              format.</p>
+          </item>
+          <tag><c>undefined</c></tag>
+          <item>
+            <p>In all other cases.</p>
+          </item>
+        </taglist>
+        <warning>
+          <p>This function is intended for debugging only.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>position(IoDevice, Location) -> {ok, NewPosition} | {error, Reason}</name>
+      <fsummary>Set position in a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
+        <v>&nbsp;Offset = int()</v>
+        <v>NewPosition = int()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Sets the position of the file referenced by <c>IoDevice</c>
+          to <c>Location</c>. Returns <c>{ok, NewPosition}</c> (as
+          absolute offset) if successful, otherwise
+          <c>{error, Reason}</c>. <c>Location</c> is one of
+          the following:</p>
+        <taglist>
+          <tag><c>Offset</c></tag>
+          <item>
+            <p>The same as <c>{bof, Offset}</c>.</p>
+          </item>
+          <tag><c>{bof, Offset}</c></tag>
+          <item>
+            <p>Absolute offset.</p>
+          </item>
+          <tag><c>{cur, Offset}</c></tag>
+          <item>
+            <p>Offset from the current position.</p>
+          </item>
+          <tag><c>{eof, Offset}</c></tag>
+          <item>
+            <p>Offset from the end of file.</p>
+          </item>
+          <tag><c>bof | cur | eof</c></tag>
+          <item>
+            <p>The same as above with <c>Offset</c> 0.</p>
+          </item>
+        </taglist>
+	<p>Note that offsets are counted in bytes, not in characters. If the file is opened using some other <c>encoding</c> than <c>latin1</c>, one byte does not correspond to one character. Positioning in such a file can only be done to known character boundaries, i.e. to a position earlier retrieved by getting a current position, to the beginning/end of the file or to some other position <em>known</em> to be on a correct character boundary by some other means (typically beyond a byte order mark in the file, which has a known byte-size).</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>einval</c></tag>
+          <item>
+            <p>Either <c>Location</c> was illegal, or it evaluated to a
+              negative offset in the file. Note that if the resulting
+              position is a negative value, the result is an error, and
+              after the call the file position is undefined.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>pread(IoDevice, LocNums) -> {ok, DataL} | eof | {error, Reason}</name>
+      <fsummary>Read from a file at certain positions</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>LocNums = [{Location, Number}]</v>
+        <v>&nbsp;Location -- see position/2</v>
+        <v>&nbsp;Number = int()</v>
+        <v>DataL = [Data]</v>
+        <v>&nbsp;Data = [char()] | binary()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Performs a sequence of <c>pread/3</c> in one operation, 
+          which is more efficient than calling them one at a time.
+          Returns <c>{ok, [Data, ...]}</c> or <c>{error, Reason}</c>,
+          where each <c>Data</c>, the result of the corresponding
+          <c>pread</c>, is either a list or a binary depending on
+          the mode of the file, or <c>eof</c> if the requested position
+          was beyond end of file.</p>
+	  <p>As the position is given as a byte-offset, special caution has to be taken when working with files where <c>encoding</c> is set to something else than <c>latin1</c>, as not every byte position will be a valid character boundary on such a file.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pread(IoDevice, Location, Number) -> {ok, Data} | eof | {error, Reason}</name>
+      <fsummary>Read from a file at a certain position</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Location -- see position/2</v>
+        <v>Number = int()</v>
+        <v>Data = [char()] | binary()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Combines <c>position/2</c> and <c>read/2</c> in one
+          operation, which is more efficient than calling them one at a
+          time. If <c>IoDevice</c> has been opened in raw mode, some
+          restrictions apply: <c>Location</c> is only allowed to be an
+          integer; and the current position of the file is undefined
+          after the operation.</p>
+	  <p>As the position is given as a byte-offset, special caution has to be taken when working with files where <c>encoding</c> is set to something else than <c>latin1</c>, as not every byte position will be a valid character boundary on such a file.</p>
+        </desc>
+    </func>
+    <func>
+      <name>pwrite(IoDevice, LocBytes) -> ok | {error, {N, Reason}}</name>
+      <fsummary>Write to a file at certain positions</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>LocBytes = [{Location, Bytes}]</v>
+        <v>&nbsp;Location -- see position/2</v>
+        <v>&nbsp;Bytes = iodata()</v>
+        <v>N = int()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Performs a sequence of <c>pwrite/3</c> in one operation, 
+          which is more efficient than calling them one at a time.
+          Returns <c>ok</c> or <c>{error, {N, Reason}}</c>, where
+          <c>N</c> is the number of successful writes that was done
+          before the failure.</p>
+	<p>When positioning in a file with other <c>encoding</c> than <c>latin1</c>, caution must be taken to set the position on a correct character boundary, see <seealso marker="#position/2">position/2</seealso> for details.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pwrite(IoDevice, Location, Bytes) -> ok | {error, Reason}</name>
+      <fsummary>Write to a file at a certain position</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Location -- see position/2</v>
+        <v>Bytes = iodata()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Combines <c>position/2</c> and <c>write/2</c> in one
+          operation, which is more efficient than calling them one at a
+          time. If <c>IoDevice</c> has been opened in raw mode, some
+          restrictions apply: <c>Location</c> is only allowed to be an
+          integer; and the current position of the file is undefined
+          after the operation.</p>
+	<p>When positioning in a file with other <c>encoding</c> than <c>latin1</c>, caution must be taken to set the position on a correct character boundary, see <seealso marker="#position/2">position/2</seealso> for details.</p>
+      </desc>
+    </func>
+    <func>
+      <name>read(IoDevice, Number) -> {ok, Data} | eof | {error, Reason}</name>
+      <fsummary>Read from a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Number = int()</v>
+        <v>Data = [char()] | binary()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Reads <c>Number</c> bytes/characters from the file referenced by
+          <c>IoDevice</c>. The functions <c>read/2</c>, <c>pread/3</c>
+          and <c>read_line/1</c> are the only ways to read from a file
+          opened in raw mode (although they work for normally opened
+          files, too).</p>
+	  <p>For files where <c>encoding</c> is set to something else than <c>latin1</c>, one character might be represented by more than one byte on the file. The parameter <c>Number</c> always denotes the number of <em>characters</em> read from the file, why the position in the file might be moved a lot more than this number when reading a Unicode file.</p>
+	  <p>Also if <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read/3</c> call will fail if the data contains characters larger than 255, why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
+	  <p>The function returns:</p>
+        <taglist>
+          <tag><c>{ok, Data}</c></tag>
+          <item>
+            <p>If the file was opened in binary mode, the read bytes are
+              returned in a binary, otherwise in a list. The list or
+              binary will be shorter than the number of bytes requested
+              if end of file was reached.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>Returned if <c>Number>0</c> and end of file was reached
+              before anything at all could be read.</p>
+          </item>
+          <tag><c>{error, Reason}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>ebadf</c></tag>
+          <item>
+            <p>The file is not opened for reading.</p>
+          </item>
+          <tag><c>{no_translation, unicode, latin1}</c></tag>
+          <item>
+            <p>The file is was opened with another <c>encoding</c> than <c>latin1</c> and the data on the file can not be translated to the byte-oriented data that this function returns.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_file(Filename) -> {ok, Binary} | {error, Reason}</name>
+      <fsummary>Read a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Binary = binary()</v>
+        <v>Reason = ext_posix() | terminated | system_limit</v>
+      </type>
+      <desc>
+        <p>Returns <c>{ok, Binary}</c>, where <c>Binary</c> is a binary
+          data object that contains the contents of <c>Filename</c>, or
+          <c>{error, Reason}</c> if an error occurs.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing permission for reading the file, or for
+              searching one of the parent directories.</p>
+          </item>
+          <tag><c>eisdir</c></tag>
+          <item>
+            <p>The named file is a directory.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+          <tag><c>enomem</c></tag>
+          <item>
+            <p>There is not enough memory for the contents of the file.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_file_info(Filename) -> {ok, FileInfo} | {error, Reason}</name>
+      <fsummary>Get information about a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>FileInfo = #file_info{}</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Retrieves information about a file. Returns
+          <c>{ok, FileInfo}</c> if successful, otherwise
+          <c>{error, Reason}</c>. <c>FileInfo</c> is a record
+          <c>file_info</c>, defined in the Kernel include file
+          <c>file.hrl</c>. Include the following directive in the module
+          from which the function is called:</p>
+        <code type="none">
+-include_lib("kernel/include/file.hrl").</code>
+        <p>The record <c>file_info</c> contains the following fields.</p>
+        <taglist>
+          <tag><c>size = int()</c></tag>
+          <item>
+            <p>Size of file in bytes.</p>
+          </item>
+          <tag><c>type = device | directory | regular | other</c></tag>
+          <item>
+            <p>The type of the file.</p>
+          </item>
+          <tag><c>access = read | write | read_write | none</c></tag>
+          <item>
+            <p>The current system access to the file.</p>
+          </item>
+          <tag><c>atime = time()</c></tag>
+          <item>
+            <p>The last (local) time the file was read.</p>
+          </item>
+          <tag><c>mtime = time()</c></tag>
+          <item>
+            <p>The last (local) time the file was written.</p>
+          </item>
+          <tag><c>ctime = time()</c></tag>
+          <item>
+            <p>The interpretation of this time field depends on
+              the operating system. On Unix, it is the last time
+              the file or the inode was changed. In Windows, it is
+              the create time.</p>
+          </item>
+          <tag><c>mode = int()</c></tag>
+          <item>
+            <p>The file permissions as the sum of the following bit
+              values:</p>
+            <taglist>
+              <tag>8#00400</tag>
+              <item>read permission: owner</item>
+              <tag>8#00200</tag>
+              <item>write permission: owner</item>
+              <tag>8#00100</tag>
+              <item>execute permission: owner</item>
+              <tag>8#00040</tag>
+              <item>read permission: group</item>
+              <tag>8#00020</tag>
+              <item>write permission: group</item>
+              <tag>8#00010</tag>
+              <item>execute permission: group</item>
+              <tag>8#00004</tag>
+              <item>read permission: other</item>
+              <tag>8#00002</tag>
+              <item>write permission: other</item>
+              <tag>8#00001</tag>
+              <item>execute permission: other</item>
+              <tag>16#800</tag>
+              <item>set user id on execution</item>
+              <tag>16#400</tag>
+              <item>set group id on execution</item>
+            </taglist>
+            <p>On Unix platforms, other bits than those listed above
+              may be set.</p>
+          </item>
+          <tag><c>links = int()</c></tag>
+          <item>
+            <p>Number of links to the file (this will always be 1 for
+              file systems which have no concept of links).</p>
+          </item>
+          <tag><c>major_device = int()</c></tag>
+          <item>
+            <p>Identifies the file system where the file is located.
+              In Windows, the number indicates a drive as follows:
+              0 means A:, 1 means B:, and so on.</p>
+          </item>
+          <tag><c>minor_device = int()</c></tag>
+          <item>
+            <p>Only valid for character devices on Unix. In all other
+              cases, this field is zero.</p>
+          </item>
+          <tag><c>inode = int()</c></tag>
+          <item>
+            <p>Gives the <c>inode</c> number. On non-Unix file systems,
+              this field will be zero.</p>
+          </item>
+          <tag><c>uid = int()</c></tag>
+          <item>
+            <p>Indicates the owner of the file. Will be zero for
+              non-Unix file systems.</p>
+          </item>
+          <tag><c>gid = int()</c></tag>
+          <item>
+            <p>Gives the group that the owner of the file belongs to.
+              Will be zero for non-Unix file systems.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing search permission for one of the parent
+              directories of the file.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_line(IoDevice) -> {ok, Data} | eof | {error, Reason}</name>
+      <fsummary>Read a line from a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Data = [char()] | binary()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Reads a line of bytes/characters from the file referenced by
+          <c>IoDevice</c>. Lines are defined to be delimited by the linefeed (LF, <c>\\n</c>) character, but any carriage return (CR, <c>\\r</c>) followed by a newline is also treated as a single LF character (the carriage return is silently ignored). The line is returned <em>including</em> the LF, but excluding any CR immediately followed by a LF. This behaviour is consistent with the behaviour of <seealso marker="stdlib:io#get_line/2">io:get_line/2</seealso>. If end of file is reached without any LF ending the last line, a line with no trailing LF is returned.</p> 
+	  <p>The function can be used on files opened in <c>raw</c> mode. It is however inefficient to use it on <c>raw</c> files if the file is not opened with the option <c>{read_ahead, Size}</c> specified, why combining <c>raw</c> and <c>{read_ahead, Size}</c> is highly recommended when opening a text file for raw line oriented reading.</p> 
+	  <p>If <c>encoding</c> is set to something else than <c>latin1</c>, the <c>read_line/1</c> call will fail if the data contains characters larger than 255, why the <seealso marker="stdlib:io">io(3)</seealso> module is to be preferred when reading such a file.</p> 
+	  <p>The function returns:</p>
+        <taglist>
+          <tag><c>{ok, Data}</c></tag>
+          <item>
+	    <p>One line from the file is returned, including the trailing LF, but with CRLF sequences replaced by a single LF (see above).</p>
+            <p>If the file was opened in binary mode, the read bytes are
+              returned in a binary, otherwise in a list.</p>
+          </item>
+          <tag><c>eof</c></tag>
+          <item>
+            <p>Returned if end of file was reached
+              before anything at all could be read.</p>
+          </item>
+          <tag><c>{error, Reason}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>ebadf</c></tag>
+          <item>
+            <p>The file is not opened for reading.</p>
+          </item>
+          <tag><c>{no_translation, unicode, latin1}</c></tag>
+          <item>
+            <p>The file is was opened with another <c>encoding</c> than <c>latin1</c> and the data on the file can not be translated to the byte-oriented data that this function returns.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_link(Name) -> {ok, Filename} | {error, Reason}</name>
+      <fsummary>See what a link is pointing to</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>Filename = string()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>This function returns <c>{ok, Filename}</c> if <c>Name</c>
+          refers to a symbolic link or <c>{error, Reason}</c> otherwise.
+          On platforms that do not support symbolic links, the return
+          value will be <c>{error,enotsup}</c>.</p>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>einval</c></tag>
+          <item>
+            <p><c>Linkname</c> does not refer to a symbolic link.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>enotsup</c></tag>
+          <item>
+            <p>Symbolic links are not supported on this platform.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_link_info(Name) -> {ok, FileInfo} | {error, Reason}</name>
+      <fsummary>Get information about a link or file</fsummary>
+      <type>
+        <v>Name = name()</v>
+        <v>FileInfo = #file_info{}, see read_file_info/1</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>This function works like <c>read_file_info/1</c>, except that
+          if <c>Name</c> is a symbolic link, information about the link
+          will be returned in the <c>file_info</c> record and
+          the <c>type</c> field of the record will be set to
+          <c>symlink</c>.</p>
+        <p>If <c>Name</c> is not a symbolic link, this function returns
+          exactly the same result as <c>read_file_info/1</c>.
+          On platforms that do not support symbolic links, this function
+          is always equivalent to <c>read_file_info/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>rename(Source, Destination) -> ok | {error, Reason}</name>
+      <fsummary>Rename a file</fsummary>
+      <type>
+        <v>Source = Destination = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Tries to rename the file <c>Source</c> to <c>Destination</c>.
+          It can be used to move files (and directories) between
+          directories, but it is not sufficient to specify
+          the destination only. The destination file name must also be
+          specified. For example, if <c>bar</c> is a normal file and
+          <c>foo</c> and <c>baz</c> are directories,
+          <c>rename("foo/bar", "baz")</c> returns an error, but
+          <c>rename("foo/bar", "baz/bar")</c> succeeds. Returns
+          <c>ok</c> if it is successful.</p>
+        <note>
+          <p>Renaming of open files is not allowed on most platforms
+            (see <c>eacces</c> below).</p>
+        </note>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing read or write permissions for the parent
+              directories of <c>Source</c> or <c>Destination</c>. On
+              some platforms, this error is given if either
+              <c>Source</c> or <c>Destination</c> is open.</p>
+          </item>
+          <tag><c>eexist</c></tag>
+          <item>
+            <p><c>Destination</c> is not an empty directory. On some
+              platforms, also given when <c>Source</c> and
+              <c>Destination</c> are not of the same type.</p>
+          </item>
+          <tag><c>einval</c></tag>
+          <item>
+            <p><c>Source</c> is a root directory, or <c>Destination</c>
+              is a sub-directory of <c>Source</c>.</p>
+          </item>
+          <tag><c>eisdir</c></tag>
+          <item>
+            <p><c>Destination</c> is a directory, but <c>Source</c> is
+              not.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p><c>Source</c> does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p><c>Source</c> is a directory, but <c>Destination</c> is
+              not.</p>
+          </item>
+          <tag><c>exdev</c></tag>
+          <item>
+            <p><c>Source</c> and <c>Destination</c> are on different
+              file systems.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>script(Filename) -> {ok, Value} | {error, Reason}</name>
+      <fsummary>Evaluate and return the value of Erlang expressions in a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Value = term()</v>
+        <v>Reason = ext_posix() | terminated | system_limit 
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>Reads and evaluates Erlang expressions, separated by '.' (or
+          ',', a sequence of expressions is also an expression), from
+          the file. Returns one of the following:</p>
+        <taglist>
+          <tag><c>{ok, Value}</c></tag>
+          <item>
+            <p>The file was read and evaluated. <c>Value</c> is
+              the value of the last expression.</p>
+          </item>
+          <tag><c>{error, atom()}</c></tag>
+          <item>
+            <p>An error occurred when opening the file or reading it.
+              See <seealso marker="#open/2">open/2</seealso> for a list
+              of typical error codes.</p>
+          </item>
+          <tag><c>{error, {Line, Mod, Term}}</c></tag>
+          <item>
+            <p>An error occurred when interpreting the Erlang
+              expressions in the file. Use <c>format_error/1</c> to
+              convert the three-element tuple to an English description
+              of the error.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>script(Filename, Bindings) -> {ok, Value} | {error, Reason}</name>
+      <fsummary>Evaluate and return the value of Erlang expressions in a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Bindings -- see erl_eval(3)</v>
+        <v>Value = term()</v>
+        <v>Reason = ext_posix() | terminated | system_limit 
+                  | {Line, Mod, Term}</v>
+        <v>&nbsp;Line, Mod, Term -- see below</v>
+      </type>
+      <desc>
+        <p>The same as <c>script/1</c> but the variable bindings
+          <c>Bindings</c> are used in the evaluation. See
+          <seealso marker="stdlib:erl_eval">erl_eval(3)</seealso> about
+          variable bindings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>set_cwd(Dir) -> ok | {error,Reason}</name>
+      <fsummary>Set the current working directory</fsummary>
+      <type>
+        <v>Dir = name()</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Sets the current working directory of the file server to
+          <c>Dir</c>. Returns <c>ok</c> if successful.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The directory does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of <c>Dir</c> is not a directory. On some
+              platforms, <c>enoent</c> is returned.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing permission for the directory or one of its
+              parents.</p>
+          </item>
+          <tag><c>badarg</c></tag>
+          <item>
+            <p><c>Filename</c> had an improper type, such as tuple.</p>
+          </item>
+        </taglist>
+        <warning>
+          <p>In a future release, a bad type for the <c>Filename</c>
+            argument will probably generate an exception.</p>
+          <p></p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>sync(IoDevice) -> ok | {error, Reason}</name>
+      <fsummary>Synchronizes the in-memory state of a file with that on the physical medium</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Makes sure that any buffers kept by the operating system
+          (not by the Erlang runtime system) are written to disk. On
+          some platforms, this function might have no effect.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>enospc</c></tag>
+          <item>
+            <p>Not enough space left to write the file.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>truncate(IoDevice) -> ok | {error, Reason}</name>
+      <fsummary>Truncate a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Truncates the file referenced by <c>IoDevice</c> at
+          the current position.  Returns <c>ok</c> if successful,
+          otherwise <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write(IoDevice, Bytes) -> ok | {error, Reason}</name>
+      <fsummary>Write to a file</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Bytes = iodata()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Writes <c>Bytes</c> to the file referenced by
+          <c>IoDevice</c>. This function is the only way to write to a
+          file opened in raw mode (although it works for normally
+          opened files, too). Returns <c>ok</c> if successful, and
+          <c>{error, Reason}</c> otherwise.</p>
+	  <p>If the file is opened with <c>encoding</c> set to something else than <c>latin1</c>, each byte written might result in several bytes actually being written to the file, as the byte range 0..255 might represent anything between one and four bytes depending on value and UTF encoding type.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>ebadf</c></tag>
+          <item>
+            <p>The file is not opened for writing.</p>
+          </item>
+          <tag><c>enospc</c></tag>
+          <item>
+            <p>There is a no space left on the device.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>write_file(Filename, Bytes) -> ok | {error, Reason}</name>
+      <fsummary>Write a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Bytes = iodata()</v>
+        <v>Reason = ext_posix() | terminated | system_limit</v>
+      </type>
+      <desc>
+        <p>Writes the contents of the iodata term <c>Bytes</c> to the
+          file <c>Filename</c>. The file is created if it does not
+          exist. If it exists, the previous contents are
+          overwritten. Returns <c>ok</c>, or <c>{error, Reason}</c>.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>A component of the file name does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+          <tag><c>enospc</c></tag>
+          <item>
+            <p>There is a no space left on the device.</p>
+          </item>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing permission for writing the file or searching one
+              of the parent directories.</p>
+          </item>
+          <tag><c>eisdir</c></tag>
+          <item>
+            <p>The named file is a directory.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>write_file(Filename, Bytes, Modes) -> ok | {error, Reason}</name>
+      <fsummary>Write a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Bytes = iodata()</v>
+        <v>Modes = [Mode] -- see open/2</v>
+        <v>Reason = ext_posix() | terminated | system_limit</v>
+      </type>
+      <desc>
+        <p>Same as <c>write_file/2</c>, but takes a third argument
+          <c>Modes</c>, a list of possible modes, see
+          <seealso marker="#open/2">open/2</seealso>. The mode flags
+          <c>binary</c> and <c>write</c> are implicit, so they should
+          not be used.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write_file_info(Filename, FileInfo) -> ok | {error, Reason}</name>
+      <fsummary>Change information about a file</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>FileInfo = #file_info{} -- see also read_file_info/1</v>
+        <v>Reason = ext_posix()</v>
+      </type>
+      <desc>
+        <p>Change file information. Returns <c>ok</c> if successful,
+          otherwise <c>{error, Reason}</c>. <c>FileInfo</c> is a record
+          <c>file_info</c>, defined in the Kernel include file
+          <c>file.hrl</c>. Include the following directive in the module
+          from which the function is called:</p>
+        <code type="none">
+-include_lib("kernel/include/file.hrl").</code>
+        <p>The following fields are used from the record, if they are
+          given.</p>
+        <taglist>
+          <tag><c>atime = time()</c></tag>
+          <item>
+            <p>The last (local) time the file was read.</p>
+          </item>
+          <tag><c>mtime = time()</c></tag>
+          <item>
+            <p>The last (local) time the file was written.</p>
+          </item>
+          <tag><c>ctime = time()</c></tag>
+          <item>
+            <p>On Unix, any value give for this field will be ignored
+              (the "ctime" for the file will be set to the current
+              time). On Windows, this field is the new creation time to
+              set for the file.</p>
+          </item>
+          <tag><c>mode = int()</c></tag>
+          <item>
+            <p>The file permissions as the sum of the following bit
+              values:</p>
+            <taglist>
+              <tag>8#00400</tag>
+              <item>read permission: owner</item>
+              <tag>8#00200</tag>
+              <item>write permission: owner</item>
+              <tag>8#00100</tag>
+              <item>execute permission: owner</item>
+              <tag>8#00040</tag>
+              <item>read permission: group</item>
+              <tag>8#00020</tag>
+              <item>write permission: group</item>
+              <tag>8#00010</tag>
+              <item>execute permission: group</item>
+              <tag>8#00004</tag>
+              <item>read permission: other</item>
+              <tag>8#00002</tag>
+              <item>write permission: other</item>
+              <tag>8#00001</tag>
+              <item>execute permission: other</item>
+              <tag>16#800</tag>
+              <item>set user id on execution</item>
+              <tag>16#400</tag>
+              <item>set group id on execution</item>
+            </taglist>
+            <p>On Unix platforms, other bits than those listed above
+              may be set.</p>
+          </item>
+          <tag><c>uid = int()</c></tag>
+          <item>
+            <p>Indicates the owner of the file. Ignored for non-Unix
+              file systems.</p>
+          </item>
+          <tag><c>gid = int()</c></tag>
+          <item>
+            <p>Gives the group that the owner of the file belongs to.
+              Ignored non-Unix file systems.</p>
+          </item>
+        </taglist>
+        <p>Typical error reasons:</p>
+        <taglist>
+          <tag><c>eacces</c></tag>
+          <item>
+            <p>Missing search permission for one of the parent
+              directories of the file.</p>
+          </item>
+          <tag><c>enoent</c></tag>
+          <item>
+            <p>The file does not exist.</p>
+          </item>
+          <tag><c>enotdir</c></tag>
+          <item>
+            <p>A component of the file name is not a directory. On some
+              platforms, <c>enoent</c> is returned instead.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>POSIX Error Codes</title>
+    <list type="bulleted">
+      <item><c>eacces</c> - permission denied</item>
+      <item><c>eagain</c> - resource temporarily unavailable</item>
+      <item><c>ebadf</c> - bad file number</item>
+      <item><c>ebusy</c> - file busy</item>
+      <item><c>edquot</c> - disk quota exceeded</item>
+      <item><c>eexist</c> - file already exists</item>
+      <item><c>efault</c> - bad address in system call argument</item>
+      <item><c>efbig</c> - file too large</item>
+      <item><c>eintr</c> - interrupted system call</item>
+      <item><c>einval</c> - invalid argument</item>
+      <item><c>eio</c> - IO error</item>
+      <item><c>eisdir</c> - illegal operation on a directory</item>
+      <item><c>eloop</c> - too many levels of symbolic links</item>
+      <item><c>emfile</c> - too many open files</item>
+      <item><c>emlink</c> - too many links</item>
+      <item><c>enametoolong</c> - file name too long</item>
+      <item><c>enfile</c> - file table overflow</item>
+      <item><c>enodev</c> - no such device</item>
+      <item><c>enoent</c> - no such file or directory</item>
+      <item><c>enomem</c> - not enough memory</item>
+      <item><c>enospc</c> - no space left on device</item>
+      <item><c>enotblk</c> - block device required</item>
+      <item><c>enotdir</c> - not a directory</item>
+      <item><c>enotsup</c> - operation not supported</item>
+      <item><c>enxio</c> - no such device or address</item>
+      <item><c>eperm</c> - not owner</item>
+      <item><c>epipe</c> - broken pipe</item>
+      <item><c>erofs</c> - read-only file system</item>
+      <item><c>espipe</c> - invalid seek</item>
+      <item><c>esrch</c> - no such process</item>
+      <item><c>estale</c> - stale remote file handle</item>
+      <item><c>exdev</c> - cross-domain link</item>
+    </list>
+  </section>
+
+  <section>
+    <title>Performance</title>
+    <p>Some operating system file operations, for example a
+      <c>sync/1</c> or <c>close/1</c> on a huge file, may block their 
+      calling thread for seconds. If this befalls the emulator main
+      thread, the response time is no longer in the order of
+      milliseconds, depending on the definition of "soft" in soft
+      real-time system.</p>
+    <p>If the device driver thread pool is active, file operations are
+      done through those threads instead, so the emulator can go on
+      executing Erlang processes. Unfortunately, the time for serving a
+      file operation increases due to the extra scheduling required
+      from the operating system.</p>
+    <p>If the device driver thread pool is disabled or of size 0, large
+      file reads and writes are segmented into several smaller, which
+      enables the emulator so server other processes during the file
+      operation. This gives the same effect as when using the thread
+      pool, but with larger overhead. Other file operations, for
+      example <c>sync/1</c> or <c>close/1</c> on a huge file, still are
+      a problem.</p>
+    <p>For increased performance, raw files are recommended. Raw files
+      uses the file system of the node's host machine. For normal files
+      (non-raw), the file server is used to find the files, and if
+      the node is running its file server as slave to another node's,
+      and the other node runs on some other host machine, they may have
+      different file systems. This is seldom a problem, but you have
+      now been warned.</p>
+    <p>A normal file is really a process so it can be used as an IO
+      device (see <c>io</c>). Therefore when data is written to a
+      normal file, the sending of the data to the file process, copies 
+      all data that are not binaries. Opening the file in binary mode
+      and writing binaries is therefore recommended. If the file is
+      opened on another node, or if the file server runs as slave to
+      another node's, also binaries are copied.</p>
+    <p>Caching data to reduce the number of file operations, or rather
+      the number of calls to the file driver, will generally increase
+      performance. The following function writes 4 MBytes in 23
+      seconds when tested:</p>
+    <code type="none"><![CDATA[
+create_file_slow(Name, N) when integer(N), N >= 0 ->
+    {ok, FD} = file:open(Name, [raw, write, delayed_write, binary]),
+    ok = create_file_slow(FD, 0, N),
+    ok = ?FILE_MODULE:close(FD),
+    ok.
+      
+create_file_slow(FD, M, M) ->
+    ok;
+create_file_slow(FD, M, N) ->
+    ok = file:write(FD, <<M:32/unsigned>>),
+    create_file_slow(FD, M+1, N).]]></code>
+    <p>The following, functionally equivalent, function collects 1024
+      entries into a list of 128 32-byte binaries before each call to
+      <c>file:write/2</c> and so does the same work in 0.52 seconds,
+      which is 44 times faster.</p>
+    <code type="none"><![CDATA[
+create_file(Name, N) when integer(N), N >= 0 ->
+    {ok, FD} = file:open(Name, [raw, write, delayed_write, binary]),
+    ok = create_file(FD, 0, N),
+    ok = ?FILE_MODULE:close(FD),
+    ok.
+      
+create_file(FD, M, M) ->
+    ok;
+create_file(FD, M, N) when M + 1024 =&lt; N ->
+    create_file(FD, M, M + 1024, []),
+    create_file(FD, M + 1024, N);
+create_file(FD, M, N) ->
+    create_file(FD, M, N, []).
+      
+create_file(FD, M, M, R) ->
+    ok = file:write(FD, R);
+create_file(FD, M, N0, R) when M + 8 =&lt; N0 ->
+    N1  = N0-1,  N2  = N0-2,  N3  = N0-3,  N4  = N0-4, 
+    N5  = N0-5,  N6  = N0-6,  N7  = N0-7,  N8  = N0-8, 
+    create_file(FD, M, N8, 
+                [<<N8:32/unsigned,  N7:32/unsigned, 
+                   N6:32/unsigned,  N5:32/unsigned, 
+                   N4:32/unsigned,  N3:32/unsigned, 
+                   N2:32/unsigned,  N1:32/unsigned>> | R]);
+create_file(FD, M, N0, R) ->
+    N1 = N0-1,
+    create_file(FD, M, N1, [<<N1:32/unsigned>> | R]).]]></code>
+    <note>
+      <p>Trust only your own benchmarks. If the list length in 
+        <c>create_file/2</c> above is increased, it will run slightly
+        faster, but consume more memory and cause more memory
+        fragmentation. How much this affects your application is
+        something that this simple benchmark can not predict.</p>
+      <p>If the size of each binary is increased to 64 bytes, it will
+        also run slightly faster, but the code will be twice as clumsy.
+        In the current implementation are binaries larger than 64 bytes
+        stored in memory common to all processes and not copied when
+        sent between processes, while these smaller binaries are stored
+        on the process heap and copied when sent like any other term.</p>
+      <p>So, with a binary size of 68 bytes <c>create_file/2</c> runs
+        30 percent slower then with 64 bytes, and will cause much more
+        memory fragmentation. Note that if the binaries were to be sent
+        between processes (for example a non-raw file) the results
+        would probably be completely different.</p>
+    </note>
+    <p>A raw file is really a port. When writing data to a port, it is
+      efficient to write a list of binaries. There is no need to
+      flatten a deep list before writing. On Unix hosts, scatter output,
+      which writes a set of buffers in one operation, is used when
+      possible. In this way <c>file:write(FD, [Bin1, Bin2 | Bin3])</c>
+      will write the contents of the binaries without copying the data
+      at all except for perhaps deep down in the operating system
+      kernel.</p>
+    <p>For raw files, <c>pwrite/2</c> and <c>pread/2</c> are
+      efficiently implemented. The file driver is called only once for
+      the whole operation, and the list iteration is done in the file
+      driver.</p>
+    <p>The options <c>delayed_write</c> and <c>read_ahead</c> to 
+      <c>file:open/2</c> makes the file driver cache data to reduce
+      the number of operating system calls. The function
+      <c>create_file/2</c> in the example above takes 60 seconds
+      seconds without the <c>delayed_write</c> option, which is 2.6
+      times slower.</p>
+    <p>And, as a really bad example, <c>create_file_slow/2</c> above
+      without the <c>raw</c>, <c>binary</c> and <c>delayed_write</c>
+      options, that is it calls <c>file:open(Name, [write])</c>, needs
+      1 min 20 seconds for the job, which is 3.5 times slower than
+      the first example, and 150 times slower than the optimized
+      <c>create_file/2</c>. </p>
+  </section>
+
+  <section>
+    <title>Warnings</title>
+    <p>If an error occurs when accessing an open file with the <c>io</c>
+      module, the process which handles the file will exit. The dead
+      file process might hang if a process tries to access it later.
+      This will be fixed in a future release.</p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="stdlib:filename">filename(3)</seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,40 @@
+%%-*-erlang-*-
+%%--------------------------------------------------------------------
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%----------------------------------------------------------------------
+%% File    : xmerl_sax_parser_list.erl
+%% Description : 
+%%
+%% Created : 25 Apr 2008 
+%%----------------------------------------------------------------------
+-module(xmerl_sax_parser_list).
+
+%%----------------------------------------------------------------------
+%% Macros
+%%----------------------------------------------------------------------
+-define(STRING_EMPTY, []).
+-define(STRING(MatchStr), MatchStr).
+-define(STRING_REST(MatchStr, Rest), MatchStr ++ Rest).
+-define(APPEND_STRING(Rest, New), Rest ++ New).
+-define(TO_INPUT_FORMAT(Val), Val).
+
+%%  In the list case we can't use a '++' when matchin against an unbound variable 
+-define(STRING_UNBOUND_REST(MatchChar, Rest), [MatchChar | Rest]).
+-define(BYTE_ORDER_MARK_1, undefined_bom1).
+-define(BYTE_ORDER_MARK_2, undefined_bom2).
+-define(BYTE_ORDER_MARK_REST(Rest), [undefined|Rest]).

@@ -1,0 +1,6 @@
+
+
+
+/home/otptest/bin/otp_wrap_ssh boddington /home/otptest/bin/otp_build_doc -rel r13b02 -view otptest_r13_daily_doc2 -csfile /usr/local/otp/config-specs/r13_dev.cs -insdir /ldisk/daily_build
+_
+                                                                              

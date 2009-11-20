@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Code Coverage Analysis</title>
+    <prepared>Peter Andersson</prepared>
+     <docno></docno>
+     <date></date>
+     <rev></rev>
+    <file>cover_chapter.xml</file>
+  </header>
+  
+  <section>
+    <marker id="cover"></marker>
+      <title>General</title>
+      <p>Although Common Test was created primarly for the purpose of
+	black box testing, nothing prevents it from working perfectly as
+	a white box testing tool as well.  This is especially true when
+	the application to test is written in Erlang. Then the test
+	ports are easily realized by means of Erlang function calls.</p>
+      
+      <p>When white box testing an Erlang application, it is useful to
+	be able to measure the code coverage of the test. Common Test
+	provides simple access to the OTP Cover tool for this
+	purpose. Common Test handles all necessary communication with
+	the Cover tool (starting, compiling, analysing, etc). All the
+	Common Test user needs to do is to specify the extent of the
+	code coverage analysis.</p>
+  </section>
+  
+  <section>
+    <title>Usage</title> 
+    <p>To specify what modules should be included
+    in the code coverage test, you provide a cover specification
+    file. Using this file you can point out specific modules or
+    specify directories that contain modules which should all be
+    included in the analysis. You can also, in the same fashion,
+    specify modules that should be excluded from the analysis.</p>
+    
+    <p>If you are testing a distributed Erlang application, it is
+      likely that code you want included in the code coverage analysis
+      gets executed on an Erlang node other than the one Common Test
+      is running on. If this is the case you need to specify these
+      other nodes in the cover specification file or add them
+      dynamically to the code coverage set of nodes. See the
+      <c>ct_cover</c> page in the reference manual for details on the
+      latter.</p>
+
+    <p>In the cover specification file you can also specify your
+      required level of the code coverage analysis; <c>details</c> or
+      <c>overview</c>. In detailed mode, you get a coverage overview
+      page, showing you per module and total coverage percentages, as
+      well as one HTML file printed for each module included in the
+      analysis that shows exactly what parts of the code have been
+      executed during the test. In overview mode, only the code
+      coverage overview page gets printed.</p>
+
+    <p><em>Note:</em> Currently, for Common Test to be able to print
+      code coverage HTML files for the modules included in the
+      analysis, the source code files of these modules must be
+      located in the same directory as the corresponding <c>.beam</c>
+      files. This is a limitation that will be removed later.</p>
+
+    <p>You can choose to export and import code coverage data between
+      tests. If you specify the name of an export file in the cover
+      specification file, Common Test will export collected coverage
+      data to this file at the end of the test. You may similarly
+      specify that previously exported data should be imported and
+      included in the analysis for a test (you can specify multiple
+      import files). This way it is possible to analyse total code coverage
+      without necessarily running all tests at once. Note that even if
+      you run separate tests in one test run, code coverage data will
+      not be passed on from one test to another unless you specify an
+      export file for Common Test to use for this purpose.</p>
+
+    <p>To activate the code coverage support, you simply specify the
+      name of the cover specification file as you start Common Test.
+      This you do either by using the <c>-cover</c> flag with <c>run_test</c>.
+      Example:</p>
+
+    <p><c>$ run_test -dir $TESTOBJS/db -cover $TESTOBJS/db/config/db.coverspec</c></p>
+    
+    <p>You may also pass the cover specification file name in a
+      call to <c>ct:run_test/1</c>, by adding a <c>{cover,CoverSpec}</c>
+      tuple to the <c>Opts</c> argument. Also, you can of course 
+      enable code coverage in your test specifications (read
+      more in the chapter about 
+      <seealso marker="run_test_chapter#test_specifications">using test
+      specifications</seealso>).</p>
+  </section>
+
+  <section>
+    <title>The cover specification file</title>
+    <p>These are the terms allowed in a cover specification file:</p>
+
+    <pre>
+      %% List of Nodes on which cover will be active during test.
+      %% Nodes = [atom()]
+      {nodes, Nodes}.       
+
+      %% Files with previously exported cover data to include in analysis.
+      %% CoverDataFiles = [string()]
+      {import, CoverDataFiles}.
+
+      %% Cover data file to export from this session.
+      %% CoverDataFile = string()
+      {export, CoverDataFile}.
+
+      %% Cover analysis level.
+      %% Level = details | overview
+      {level, Level}.       
+
+      %% Directories to include in cover.
+      %% Dirs = [string()]
+      {incl_dirs, Dirs}.
+
+      %% Directories, including subdirectories, to include.
+      {incl_dirs_r, Dirs}.
+
+      %% Specific modules to include in cover.
+      %% Mods = [atom()]
+      {incl_mods, Mods}.
+
+      %% Directories to exclude in cover.
+      {excl_dirs, Dirs}.
+
+      %% Directories, including subdirectories, to exclude.
+      {excl_dirs_r, Dirs}.
+
+      %% Specific modules to exclude in cover.
+      {excl_mods, Mods}.
+    </pre>
+
+    <p>The <c>incl_dirs_r</c> and <c>excl_dirs_r</c> terms tell Common
+      Test to search the given directories recursively and include 
+      or exclude any module found during the search. The
+      <c>incl_dirs</c> and <c>excl_dirs</c> terms result in a
+      non-recursive search for modules (i.e. only modules found in 
+      the given directories are included or excluded).</p>
+    <p><em>Note:</em> Directories containing Erlang modules that are
+       to be included in a code coverage test must exist in the code
+       server path, or the cover tool will fail to recompile the modules.
+       (It is not sufficient to specify these directories in the cover 
+       specification file for Common Test).</p>
+  </section>
+
+  <section>
+    <title>Logging</title>
+    <p>To view the result of a code coverage test, follow the
+      "Coverage log" link on the test suite results page. This 
+      takes you to the code coverage overview page. If you have 
+      successfully performed a detailed coverage analysis, you 
+      find links to each individual module coverage page here.</p>
+  </section>
+
+</chapter>
+
+

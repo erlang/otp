@@ -1,0 +1,10 @@
+%% 'bor' operations.
+(-1 bsl 28) bor 0 = -1 bsl 28.
+0 bor (-1 bsl 28) = -1 bsl 28.
+(-1 bsl 28) bor (-1 bsl 28) = -1 bsl 28.
+
+%%(-1 bsl 28) bor -16#FFFFffff = -16#10000001. Not sure about the result yet.
+
+%% 'band' operations.
+(-1 bsl 28) band 16#FFFFffffFFFF = 16#FFFFf0000000.
+

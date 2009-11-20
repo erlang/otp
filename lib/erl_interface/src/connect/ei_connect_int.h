@@ -1,0 +1,114 @@
+/*
+ * %CopyrightBegin%
+ * 
+ * Copyright Ericsson AB 2001-2009. All Rights Reserved.
+ * 
+ * The contents of this file are subject to the Erlang Public License,
+ * Version 1.1, (the "License"); you may not use this file except in
+ * compliance with the License. You should have received a copy of the
+ * Erlang Public License along with this software. If not, it can be
+ * retrieved online at http://www.erlang.org/.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * %CopyrightEnd%
+ */
+/*
+* Purpose: Connect to any node at any host. (EI version)
+*/
+
+/* FIXME far to many includes here... */
+
+/* some send() functions use buffer on heap for "small" messages */
+/* messages larger than this require call to malloc() */
+
+#ifndef _EI_CONNECT_H
+#define _EI_CONNECT_H
+
+#include <stdlib.h>
+#include <sys/types.h>
+#include <fcntl.h>
+
+#ifdef __WIN32__
+#include <winsock2.h>
+#include <windows.h>
+#include <winbase.h>
+
+#elif VXWORKS
+#include <vxWorks.h>
+#include <hostLib.h>
+#include <selectLib.h>
+#include <ifLib.h>
+#include <sockLib.h>
+#include <taskLib.h>
+#include <inetLib.h>
+#include <ioLib.h>
+
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/times.h>
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h> 
+#include <timers.h> 
+
+#define getpid() taskIdSelf()
+extern int h_errno;
+
+#else /* some other unix */
+#include <unistd.h>
+#include <sys/types.h>
+#include <sys/times.h>
+
+#if TIME_WITH_SYS_TIME
+# include <sys/time.h>
+# include <time.h>
+#else
+# if HAVE_SYS_TIME_H
+#  include <sys/time.h>
+# else
+#  include <time.h>
+# endif
+#endif
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/tcp.h> 
+#include <arpa/inet.h>
+#include <netdb.h>
+#include <sys/utsname.h>  /* for gen_challenge (NEED FIX?) */
+#endif
+
+/* FIXME remove duplicate defintions */
+
+#define DEFBUF_SIZ 100
+
+/* rpc_from() uses a buffer this size */
+#ifndef MAX_RECEIVE_BUF
+# define MAX_RECEIVE_BUF 32*1024
+#endif
+
+/* Distribution capability flags */
+#define DFLAG_PUBLISHED           1
+#define DFLAG_ATOM_CACHE          2
+#define DFLAG_EXTENDED_REFERENCES 4
+#define DFLAG_DIST_MONITOR        8
+#define DFLAG_FUN_TAGS            16
+#define DFLAG_NEW_FUN_TAGS        0x80
+#define DFLAG_EXTENDED_PIDS_PORTS 0x100
+
+ei_cnode   *ei_fd_to_cnode(int fd);
+int         ei_distversion(int fd);
+const char* ei_getfdcookie(int fd);
+short       ei_thiscreation(const ei_cnode* ec);
+const char *ei_thiscookie(const ei_cnode* ec);
+
+int ei_do_receive_msg(int fd, int staticbuffer_p, 
+		      erlang_msg* msg, ei_x_buff* x, unsigned ms);
+
+#endif /* _EI_CONNECT_H */

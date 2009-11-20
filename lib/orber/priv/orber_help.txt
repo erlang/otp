@@ -1,0 +1,42 @@
+
+
+
+		Help for the Orber administration tool
+		--------------------------------------
+
+
+
+
+
+	The purpose of this tool is to supply an easy way to 
+        access Orber nodes and via a GUI explore:
+          - NameService
+          - Configuration settings
+          - Interface Repository
+
+	All nodes that are known to this tool is shown in the node
+	window, normally this is all Erlang nodes visible with the
+	[node()|nodes()] commands.
+
+
+The Node window
+---------------
+
+	The node window monitor nodes. 
+
+
+Technical Detail
+----------------
+
+	Trouble shooting
+	----------------
+
+	Q. Why doesn't all my nodes show up in the node window?
+
+	A. Are the nodes visible with the [node()|nodes()] commands 
+        in the shell? If not you must do net:ping(NodeName) to add
+        nodes to the Erlang distribution.
+
+	Q. When trying to access a node I get no valid response?
+
+	A. Make sure that Orber is running on the node.

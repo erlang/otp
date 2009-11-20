@@ -1,0 +1,1422 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Expressions</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>expressions.xml</file>
+  </header>
+  <p>In this chapter, all valid Erlang expressions are listed.
+    When writing Erlang programs, it is also allowed to use macro-
+    and record expressions. However, these expressions are expanded
+    during compilation and are in that sense not true Erlang
+    expressions. Macro- and record expressions are covered in
+    separate chapters: <seealso marker="macros">Macros</seealso> and
+    <seealso marker="records">Records</seealso>.</p>
+
+  <section>
+    <title>Expression Evaluation</title>
+    <p>All subexpressions are evaluated before an expression itself is
+      evaluated, unless explicitly stated otherwise. For example,
+      consider the expression:</p>
+    <code type="none">
+Expr1 + Expr2</code>
+    <p><c>Expr1</c> and <c>Expr2</c>, which are also expressions, are
+      evaluated first - in any order - before the addition is
+      performed.</p>
+    <p>Many of the operators can only be applied to arguments of a
+      certain type. For example, arithmetic operators can only be
+      applied to numbers. An argument of the wrong type will cause
+      a <c>badarg</c> run-time error.</p>
+  </section>
+
+  <section>
+    <marker id="term"></marker>
+    <title>Terms</title>
+    <p>The simplest form of expression is a term, that is an integer,
+      float, atom, string, list or tuple.
+      The return value is the term itself.</p>
+  </section>
+
+  <section>
+    <title>Variables</title>
+    <p>A variable is an expression. If a variable is bound to a value,
+      the return value is this value. Unbound variables are only
+      allowed in patterns.</p>
+    <p>Variables start with an uppercase letter or underscore (_)
+      and may contain alphanumeric characters, underscore and @.
+      Examples:</p>
+    <pre>
+X
+Name1
+PhoneNumber
+Phone_number
+_
+_Height</pre>
+    <p>Variables are bound to values using
+      <seealso marker="patterns">pattern matching</seealso>. Erlang
+      uses <em>single assignment</em>, a variable can only be bound
+      once.</p>
+    <p>The <em>anonymous variable</em> is denoted by underscore (_) and
+      can be used when a variable is required but its value can be
+      ignored. Example:</p>
+    <pre>
+[H|_] = [1,2,3]</pre>
+    <p>Variables starting with underscore (_), for example
+      <c>_Height</c>, are normal variables, not anonymous. They are
+      however ignored by the compiler in the sense that they will not
+      generate any warnings for unused variables. Example: The following
+      code</p>
+    <pre>
+member(_, []) ->
+    [].</pre>
+    <p>can be rewritten to be more readable:</p>
+    <pre>
+member(Elem, []) ->
+    [].</pre>
+    <p>This will however cause a warning for an unused variable
+      <c>Elem</c>, if the code is compiled with the flag
+      <c>warn_unused_vars</c> set. Instead, the code can be rewritten
+      to:</p>
+    <pre>
+member(_Elem, []) ->
+    [].</pre>
+    <p>Note that since variables starting with an underscore are
+      not anonymous, this will match:</p>
+    <pre>
+{_,_} = {1,2}</pre>
+    <p>But this will fail:</p>
+    <pre>
+{_N,_N} = {1,2}</pre>
+    <p>The scope for a variable is its function clause.
+      Variables bound in a branch of an <c>if</c>, <c>case</c>, 
+      or <c>receive</c> expression must be bound in all branches 
+      to have a value outside the expression, otherwise they
+      will be regarded as 'unsafe' outside the expression.</p>
+    <p>For the <c>try</c> expression introduced in 
+      Erlang 5.4/OTP-R10B, variable scoping is limited so that 
+      variables bound in the expression are always 'unsafe' outside 
+      the expression. This will be improved.</p>
+  </section>
+
+  <section>
+    <marker id="pattern"></marker>
+    <title>Patterns</title>
+    <p>A pattern has the same structure as a term but may contain
+      unbound variables. Example:</p>
+    <pre>
+Name1
+[H|T]
+{error,Reason}</pre>
+    <p>Patterns are allowed in clause heads, <c>case</c> and
+      <c>receive</c> expressions, and match expressions.</p>
+
+    <section>
+      <title>Match Operator = in Patterns</title>
+      <p>If <c>Pattern1</c> and <c>Pattern2</c> are valid patterns,
+        then the following is also a valid pattern:</p>
+      <pre>
+Pattern1 = Pattern2</pre>
+      <p>When matched against a term, both <c>Pattern1</c> and
+        <c>Pattern2</c> will be matched against the term. The idea
+        behind this feature is to avoid reconstruction of terms.
+        Example:</p>
+      <pre>
+f({connect,From,To,Number,Options}, To) ->
+    Signal = {connect,From,To,Number,Options},
+    ...;
+f(Signal, To) ->
+    ignore.</pre>
+      <p>can instead be written as</p>
+      <pre>
+f({connect,_,To,_,_} = Signal, To) ->
+    ...;
+f(Signal, To) ->
+    ignore.</pre>
+    </section>
+
+    <section>
+      <title>String Prefix in Patterns</title>
+      <p>When matching strings, the following is a valid pattern:</p>
+      <pre>
+f("prefix" ++ Str) -> ...</pre>
+      <p>This is syntactic sugar for the equivalent, but harder to
+        read</p>
+      <pre>
+f([$p,$r,$e,$f,$i,$x | Str]) -> ...</pre>
+    </section>
+
+    <section>
+      <title>Expressions in Patterns</title>
+      <p>An arithmetic expression can be used within a pattern, if
+        it uses only numeric or bitwise operators, and if its value
+        can be evaluated to a constant at compile-time. Example:</p>
+      <pre>
+case {Value, Result} of
+    {?THRESHOLD+1, ok} -> ...</pre>
+      <p>This feature was added in Erlang 5.0/OTP R7.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Match</title>
+    <pre>
+Expr1 = Expr2</pre>
+    <p>Matches <c>Expr1</c>, a pattern, against <c>Expr2</c>.
+      If the matching succeeds, any unbound variable in the pattern
+      becomes bound and the value of <c>Expr2</c> is returned.</p>
+    <p>If the matching fails, a <c>badmatch</c> run-time error will
+      occur.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>{A, B} = {answer, 42}.</input>
+{answer,42}
+2> <input>A.</input>
+answer
+3> <input>{C, D} = [1, 2].</input>
+** exception error: no match of right hand side value [1,2]</pre>
+  </section>
+
+  <section>
+    <marker id="calls"></marker>
+    <title>Function Calls</title>
+    <pre>
+ExprF(Expr1,...,ExprN)
+ExprM:ExprF(Expr1,...,ExprN)</pre>
+    <p>In the first form of function calls,
+      <c>ExprM:ExprF(Expr1,...,ExprN)</c>, each of <c>ExprM</c> and
+      <c>ExprF</c> must be an atom or an expression that evaluates to
+      an atom. The function is said to be called by using the
+      <em>fully qualified function name</em>. This is often referred
+      to as a <em>remote</em> or <em>external function call</em>.
+      Example:</p>
+    <code type="none">
+lists:keysearch(Name, 1, List)</code>
+    <p>In the second form of function calls,
+      <c>ExprF(Expr1,...,ExprN)</c>, <c>ExprF</c> must be an atom or
+      evaluate to a fun.</p>
+    <p>If <c>ExprF</c> is an atom the function is said to be called by
+      using the <em>implicitly qualified function name</em>. If
+      <c>ExprF/N</c> is the name of a function explicitly or
+      automatically imported from module <c>M</c>, then the call is
+      short for <c>M:ExprF(Expr1,...,ExprN)</c>. Otherwise,
+      <c>ExprF/N</c> must be a locally defined function. Examples:</p>
+    <code type="none">
+handle(Msg, State)
+spawn(m, init, [])</code>
+    <p>Examples where ExprF is a fun:</p>
+    <code type="none">
+Fun1 = fun(X) -> X+1 end
+Fun1(3)
+=> 4
+
+Fun2 = {lists,append}
+Fun2([1,2], [3,4])
+=> [1,2,3,4]
+
+fun lists:append/2([1,2], [3,4])
+=> [1,2,3,4]</code>
+    <p>To avoid possible ambiguities, the fully qualified function
+      name must be used when calling a function with the same name as
+      a BIF, and the compiler does not allow defining a function with
+      the same name as an explicitly imported function.</p>
+    <p>Note that when calling a local function, there is a difference
+      between using the implicitly or fully qualified function name, as
+      the latter always refers to the latest version of the module. See
+      <seealso marker="code_loading">Compilation and Code Loading</seealso>.</p>
+    <p>See also the chapter about
+      <seealso marker="functions#eval">Function Evaluation</seealso>.</p>
+  </section>
+
+  <section>
+    <title>If</title>
+    <pre>
+if
+    GuardSeq1 ->
+        Body1;
+    ...;
+    GuardSeqN ->
+        BodyN
+end</pre>
+    <p>The branches of an <c>if</c>-expression are scanned sequentially
+      until a guard sequence <c>GuardSeq</c> which evaluates to true is
+      found. Then the corresponding <c>Body</c> (sequence of expressions
+      separated by ',') is evaluated.</p>
+    <p>The return value of <c>Body</c> is the return value of
+      the <c>if</c> expression.</p>
+    <p>If no guard sequence is true, an <c>if_clause</c> run-time error
+      will occur. If necessary, the guard expression <c>true</c> can be
+      used in the last branch, as that guard sequence is always true.</p>
+    <p>Example:</p>
+    <pre>
+is_greater_than(X, Y) ->
+    if
+        X>Y ->
+            true;
+        true -> % works as an 'else' branch
+            false
+    end</pre>
+  </section>
+
+  <section>
+    <marker id="case"></marker>
+    <title>Case</title>
+    <pre>
+case Expr of
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+end</pre>
+    <p>The expression <c>Expr</c> is evaluated and the patterns
+      <c>Pattern</c> are sequentially matched against the result. If a
+      match succeeds and the optional guard sequence <c>GuardSeq</c> is
+      true, the corresponding <c>Body</c> is evaluated.</p>
+    <p>The return value of <c>Body</c> is the return value of
+      the <c>case</c> expression.</p>
+    <p>If there is no matching pattern with a true guard sequence,
+      a <c>case_clause</c> run-time error will occur.</p>
+    <p>Example:</p>
+    <pre>
+is_valid_signal(Signal) ->
+    case Signal of
+        {signal, _What, _From, _To} ->
+            true;
+        {signal, _What, _To} ->
+            true;
+        _Else ->
+            false
+    end.</pre>
+  </section>
+
+  <section>
+    <marker id="send"></marker>
+    <title>Send</title>
+    <pre>
+Expr1 ! Expr2</pre>
+    <p>Sends the value of <c>Expr2</c> as a message to the process
+      specified by <c>Expr1</c>. The value of <c>Expr2</c> is also
+      the return value of the expression.</p>
+    <p><c>Expr1</c> must evaluate to a pid, a registered name (atom) or
+      a tuple <c>{Name,Node}</c>, where <c>Name</c> is an atom and
+      <c>Node</c> a node name, also an atom.</p>
+    <list type="bulleted">
+      <item>If <c>Expr1</c> evaluates to a name, but this name is not
+       registered, a <c>badarg</c> run-time error will occur.</item>
+      <item>Sending a message to a pid never fails, even if the pid
+       identifies a non-existing process.</item>
+      <item>Distributed message sending, that is if <c>Expr1</c>
+       evaluates to a tuple <c>{Name,Node}</c> (or a pid located at
+       another node), also never fails.</item>
+    </list>
+  </section>
+
+  <section>
+    <marker id="receive"></marker>
+    <title>Receive</title>
+    <pre>
+receive
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+end</pre>
+    <p>Receives messages sent to the process using the send operator
+      (!). The patterns <c>Pattern</c> are sequentially matched
+      against the first message in time order in the mailbox, then
+      the second, and so on. If a match succeeds and the optional
+      guard sequence <c>GuardSeq</c> is true, the corresponding
+      <c>Body</c> is evaluated. The matching message is consumed, that
+      is removed from the mailbox, while any other messages in
+      the mailbox remain unchanged.</p>
+    <p>The return value of <c>Body</c> is the return value of
+      the <c>receive</c> expression.</p>
+    <p><c>receive</c> never fails. Execution is suspended, possibly
+      indefinitely, until a message arrives that does match one of
+      the patterns and with a true guard sequence. </p>
+    <p>Example:</p>
+    <pre>
+wait_for_onhook() ->
+    receive
+        onhook ->
+            disconnect(),
+            idle();
+        {connect, B} ->
+            B ! {busy, self()},
+            wait_for_onhook()
+    end.</pre>
+    <p>It is possible to augment the <c>receive</c> expression with a
+      timeout:</p>
+    <pre>
+receive
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+after
+    ExprT ->
+        BodyT
+end</pre>
+    <p><c>ExprT</c> should evaluate to an integer. The highest allowed
+      value is 16#ffffffff, that is, the value must fit in 32 bits.
+      <c>receive..after</c> works exactly as <c>receive</c>, except
+      that if no matching message has arrived within <c>ExprT</c>
+      milliseconds, then <c>BodyT</c> is evaluated instead and its
+      return value becomes the return value of the <c>receive..after</c>
+      expression.</p>
+    <p>Example:</p>
+    <pre>
+wait_for_onhook() ->
+    receive
+        onhook ->
+            disconnect(),
+            idle();
+        {connect, B} ->
+            B ! {busy, self()},
+            wait_for_onhook()
+    after
+        60000 ->
+            disconnect(),
+            error()
+    end.</pre>
+    <p>It is legal to use a <c>receive..after</c> expression with no
+      branches:</p>
+    <pre>
+receive
+after
+    ExprT ->
+        BodyT
+end</pre>
+    <p>This construction will not consume any messages, only suspend
+      execution in the process for <c>ExprT</c> milliseconds and can be
+      used to implement simple timers.</p>
+    <p>Example:</p>
+    <pre>
+timer() ->
+    spawn(m, timer, [self()]).
+
+timer(Pid) ->
+    receive
+    after
+        5000 ->
+            Pid ! timeout
+    end.</pre>
+    <p>There are two special cases for the timeout value <c>ExprT</c>:</p>
+    <taglist>
+      <tag><c>infinity</c></tag>
+      <item>The process should wait indefinitely for a matching message
+       -- this is the same as not using a timeout. Can be
+       useful for timeout values that are calculated at run-time.</item>
+      <tag>0</tag>
+      <item>If there is no matching message in the mailbox, the timeout
+       will occur immediately.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Term Comparisons</title>
+    <pre>
+Expr1 <input>op</input> Expr2</pre>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>op</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">==</cell>
+        <cell align="left" valign="middle">equal to</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">/=</cell>
+        <cell align="left" valign="middle">not equal to</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">=&lt;</cell>
+        <cell align="left" valign="middle">less than or equal to</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&lt;</cell>
+        <cell align="left" valign="middle">less than</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&gt;=</cell>
+        <cell align="left" valign="middle">greater than or equal to</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">&gt;</cell>
+        <cell align="left" valign="middle">greater than</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">=:=</cell>
+        <cell align="left" valign="middle">exactly equal to</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">=/=</cell>
+        <cell align="left" valign="middle">exactly not equal to</cell>
+      </row>
+      <tcaption>Term Comparison Operators.</tcaption>
+    </table>
+    <p>The arguments may be of different data types. The following
+      order is defined:</p>
+    <pre>
+number &lt; atom &lt; reference &lt; fun &lt; port &lt; pid &lt; tuple &lt; list &lt; bit string</pre>
+    <p>Lists are compared element by element. Tuples are ordered by
+      size, two tuples with the same size are compared element by
+      element.</p>
+    <p>If one of the compared terms is an integer and the other a
+      float, the integer is first converted into a float, unless the
+      operator is one of =:= and =/=. If the integer is too big to fit
+      in a float no conversion is done, but the order is determined by
+      inspecting the sign of the numbers.</p>
+    <p>Returns the Boolean value of the expression, <c>true</c> or
+      <c>false</c>.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>1==1.0.</input>
+true
+2> <input>1=:=1.0.</input>
+false
+3> <input>1 > a.</input>
+false</pre>
+  </section>
+
+  <section>
+    <title>Arithmetic Expressions</title>
+    <pre>
+<input>op</input> Expr
+Expr1 <input>op</input> Expr2</pre>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>op</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+        <cell align="left" valign="middle"><em>Argument type</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">+</cell>
+        <cell align="left" valign="middle">unary +</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">-</cell>
+        <cell align="left" valign="middle">unary -</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">+</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">-</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">*</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">/</cell>
+        <cell align="left" valign="middle">floating point division</cell>
+        <cell align="left" valign="middle">number</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">bnot</cell>
+        <cell align="left" valign="middle">unary bitwise not</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">div</cell>
+        <cell align="left" valign="middle">integer division</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">rem</cell>
+        <cell align="left" valign="middle">integer remainder of X/Y</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">band</cell>
+        <cell align="left" valign="middle">bitwise and</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">bor</cell>
+        <cell align="left" valign="middle">bitwise or</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">bxor</cell>
+        <cell align="left" valign="middle">arithmetic bitwise xor</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">bsl</cell>
+        <cell align="left" valign="middle">arithmetic bitshift left</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">bsr</cell>
+        <cell align="left" valign="middle">bitshift right</cell>
+        <cell align="left" valign="middle">integer</cell>
+      </row>
+      <tcaption>Arithmetic Operators.</tcaption>
+    </table>
+
+    <p>Examples:</p>
+    <pre>
+1> <input>+1.</input>
+1
+2> <input>-1.</input>
+-1
+3> <input>1+1.</input>
+2
+4> <input>4/2.</input>
+2.0
+5> <input>5 div 2.</input>
+2
+6> <input>5 rem 2.</input>
+1
+7> <input>2#10 band 2#01.</input>
+0
+8> <input>2#10 bor 2#01.</input>
+3
+9> <input>a + 10.</input>
+** exception error: bad argument in an arithmetic expression
+     in operator  +/2
+        called as a + 10
+10> <input>1 bsl (1 bsl 64).</input>
+** exception error: a system limit has been reached
+     in operator  bsl/2
+        called as 1 bsl 18446744073709551616</pre>
+  </section>
+
+  <section>
+    <title>Boolean Expressions</title>
+    <pre>
+<input>op</input> Expr
+Expr1 <input>op</input> Expr2</pre>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>op</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">not</cell>
+        <cell align="left" valign="middle">unary logical not</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">and</cell>
+        <cell align="left" valign="middle">logical and</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">or</cell>
+        <cell align="left" valign="middle">logical or</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">xor</cell>
+        <cell align="left" valign="middle">logical xor</cell>
+      </row>
+      <tcaption>Logical Operators.</tcaption>
+    </table>
+    <p>Examples:</p>
+    <pre>
+1> <input>not true.</input>
+false
+2> <input>true and false.</input>
+false
+3> <input>true xor false.</input>
+true
+4> <input>true or garbage.</input>
+** exception error: bad argument
+     in operator  or/2
+        called as true or garbage</pre>
+  </section>
+
+  <section>
+    <title>Short-Circuit Expressions</title>
+    <pre>
+Expr1 orelse Expr2
+Expr1 andalso Expr2</pre>
+    <p>Expressions where <c>Expr2</c> is evaluated only if
+      necessary. That is, <c>Expr2</c> is evaluated only if <c>Expr1</c>
+      evaluates to <c>false</c> in an <c>orelse</c> expression, or only
+      if <c>Expr1</c> evaluates to <c>true</c> in an <c>andalso</c>
+      expression. Returns either the value of <c>Expr1</c> (that is,
+      <c>true</c> or <c>false</c>) or the value of <c>Expr2</c>
+      (if <c>Expr2</c> was evaluated).</p>
+
+    <p>Example 1:</p>
+    <pre>
+case A >= -1.0 andalso math:sqrt(A+1) > B of</pre>
+    <p>This will work even if <c>A</c> is less than <c>-1.0</c>,
+      since in that case, <c>math:sqrt/1</c> is never evaluated.</p>
+    <p>Example 2:</p>
+    <pre>
+OnlyOne = is_atom(L) orelse
+         (is_list(L) andalso length(L) == 1),</pre>
+
+    <p>From R13A, <c>Expr2</c> is no longer required to evaluate to a
+    boolean value. As a consequence, <c>andalso</c> and <c>orelse</c>
+    are now tail-recursive.  For instance, the following function is
+    tail-recursive in R13A and later:</p>
+
+    <pre>
+all(Pred, [Hd|Tail]) ->
+    Pred(Hd) andalso all(Pred, Tail);
+all(_, []) ->
+    true.</pre>
+  </section>
+
+  <section>
+    <title>List Operations</title>
+    <pre>
+Expr1 ++ Expr2
+Expr1 -- Expr2</pre>
+    <p>The list concatenation operator <c>++</c> appends its second
+      argument to its first and returns the resulting list.</p>
+    <p>The list subtraction operator <c>--</c> produces a list which
+      is a copy of the first argument, subjected to the following
+      procedure: for each element in the second argument, the first
+      occurrence of this element (if any) is removed.</p>
+    <p>Example:</p>
+    <pre>
+1> <input>[1,2,3]++[4,5].</input>
+[1,2,3,4,5]
+2> <input>[1,2,3,2,1,2]--[2,1,2].</input>
+[3,1,2]</pre>
+
+     <warning><p>The complexity of <c>A -- B</c> is
+     proportional to <c>length(A)*length(B)</c>, meaning that it
+     will be very slow if both <c>A</c> and <c>B</c> are
+     long lists.</p></warning>
+   </section>
+
+  <section>
+    <marker id="bit_syntax"></marker>
+    <title>Bit Syntax Expressions</title>
+    <code type="none"><![CDATA[<<>>
+<<E1,...,En>>]]></code>
+    <p>Each element <c>Ei</c> specifies a <em>segment</em> of
+      the bit string. Each element <c>Ei</c> is a value, followed by an
+      optional <em>size expression</em> and an optional <em>type specifier list</em>.</p>
+    <pre>
+Ei = Value |
+     Value:Size |
+     Value/TypeSpecifierList |
+     Value:Size/TypeSpecifierList</pre>
+    <p>Used in a bit string construction, <c>Value</c> is an expression
+    which should evaluate to an integer, float or bit string.  If the
+    expression is something else than a single literal or variable, it
+    should be enclosed in parenthesis.</p>
+
+    <p>Used in a bit string matching, <c>Value</c> must be a variable,
+    or an integer, float or string.</p>
+
+    <p>Note that, for example, using a string literal as in
+    <c><![CDATA[<<"abc">>]]></c> is syntactic sugar for
+    <c><![CDATA[<<$a,$b,$c>>]]></c>.</p>
+
+    <p>Used in a bit string construction, <c>Size</c> is an expression
+    which should evaluate to an integer.</p>
+    
+    <p>Used in a bit string matching, <c>Size</c> must be an integer or a 
+    variable bound to an integer.</p>
+
+    <p>The value of <c>Size</c> specifies the size of the segment in
+    units (see below). The default value depends on the type (see
+    below). For <c>integer</c> it is 8, for
+    <c>float</c> it is 64, for <c>binary</c> and <c>bitstring</c> it is
+    the whole binary or bit string. In matching, this default value is only
+    valid for the very last element. All other bit string or binary 
+    elements in the matching must have a size specification.</p>
+
+    <p>For the <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> types,
+    <c>Size</c> must not be given. The size of the segment is implicitly
+    determined by the type and value itself.</p>
+    
+    <p><c>TypeSpecifierList</c> is a list of type specifiers, in any
+    order, separated by hyphens (-). Default values are used for any
+    omitted type specifiers.</p>
+    <taglist>
+      <tag><c>Type</c>= <c>integer</c> | <c>float</c> | <c>binary</c> |
+             <c>bytes</c> | <c>bitstring</c> | <c>bits</c> |
+	     <c>utf8</c> | <c>utf16</c> | <c>utf32</c> </tag>
+      <item>The default is <c>integer</c>. <c>bytes</c> is a shorthand for 
+      <c>binary</c> and <c>bits</c> is a shorthand for <c>bitstring</c>.
+      See below for more information about the <c>utf</c> types.
+      </item>
+
+      <tag><c>Signedness</c>= <c>signed</c> | <c>unsigned</c></tag>
+      <item>Only matters for matching and when the type is <c>integer</c>. 
+      The default is <c>unsigned</c>.</item>
+
+      <tag><c>Endianness</c>= <c>big</c> | <c>little</c> | <c>native</c></tag>
+      <item>Native-endian means that the endianness will be resolved at load
+       time to be either big-endian or little-endian, depending on
+       what is native for the CPU that the Erlang machine is run on.
+       Endianness only matters when the Type is either <c>integer</c>,
+       <c>utf16</c>, <c>utf32</c>, or <c>float</c>. The default is <c>big</c>.
+       </item>
+
+      <tag><c>Unit</c>= <c>unit:IntegerLiteral</c></tag>
+      <item>The allowed range is 1..256. Defaults to 1 for <c>integer</c>,
+       <c>float</c> and <c>bitstring</c>, and to 8 for <c>binary</c>.
+       No unit specifier must be given for the types 
+       <c>utf8</c>, <c>utf16</c>, and <c>utf32</c>.
+       </item>
+    </taglist>
+    <p>The value of <c>Size</c> multiplied with the unit gives
+      the number of bits. A segment of type <c>binary</c> must have 
+      a size that is evenly divisible by 8.</p>
+
+    <note><p>When constructing binaries, if the size <c>N</c> of an integer
+    segment is too small to contain the given integer, the most significant
+    bits of the integer will be silently discarded and only the <c>N</c> least
+    significant bits will be put into the binary.</p></note>
+
+    <p>The types <c>utf8</c>, <c>utf16</c>, and <c>utf32</c> specifies
+    encoding/decoding of the <em>Unicode Transformation Format</em>s UTF-8, UTF-16,
+    and UTF-32, respectively.</p>
+
+    <p>When constructing a segment of a <c>utf</c> type, <c>Value</c>
+    must be an integer in one of the ranges 0..16#D7FF,
+    16#E000..16#FFFD, or 16#10000..16#10FFFF
+    (i.e. a valid Unicode code point). Construction
+    will fail with a <c>badarg</c> exception if <c>Value</c> is
+    outside the allowed ranges. The size of the resulting binary
+    segment depends on the type and/or <c>Value</c>. For <c>utf8</c>,
+    <c>Value</c> will be encoded in 1 through 4 bytes. For
+    <c>utf16</c>, <c>Value</c> will be encoded in 2 or 4
+    bytes. Finally, for <c>utf32</c>, <c>Value</c> will always be
+    encoded in 4 bytes.</p>
+
+    <p>When constructing, a literal string may be given followed
+    by one of the UTF types, for example: <c><![CDATA[<<"abc"/utf8>>]]></c>
+    which is syntatic sugar for 
+    <c><![CDATA[<<$a/utf8,$b/utf8,$c/utf8>>]]></c>.</p>
+
+    <p>A successful match of a segment of a <c>utf</c> type results
+    in an integer in one of the ranges 0..16#D7FF, 16#E000..16#FFFD,
+    or 16#10000..16#10FFFF
+    (i.e. a valid Unicode code point). The match will fail if returned value
+    would fall outside those ranges.</p>
+
+    <p>A segment of type <c>utf8</c> will match 1 to 4 bytes in the binary,
+    if the binary at the match position contains a valid UTF-8 sequence.
+    (See RFC-2279 or the Unicode standard.)</p>
+
+    <p>A segment of type <c>utf16</c> may match 2 or 4 bytes in the binary.
+    The match will fail if the binary at the match position does not contain
+    a legal UTF-16 encoding of a Unicode code point. (See RFC-2781 or
+    the Unicode standard.)</p>
+
+    <p>A segment of type <c>utf32</c> may match 4 bytes in the binary in the
+    same way as an <c>integer</c> segment matching 32 bits.
+    The match will fail if the resulting integer is outside the legal ranges
+    mentioned above.</p>
+
+    <p>Examples:</p>
+    <pre>
+1> <input>Bin1 = &lt;&lt;1,17,42&gt;&gt;.</input>
+&lt;&lt;1,17,42&gt;&gt;
+2> <input>Bin2 = &lt;&lt;"abc"&gt;&gt;.</input>
+&lt;&lt;97,98,99&gt;&gt;
+3> <input>Bin3 = &lt;&lt;1,17,42:16&gt;&gt;.</input>
+&lt;&lt;1,17,0,42&gt;&gt;
+4> <input>&lt;&lt;A,B,C:16&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</input>
+&lt;&lt;1,17,0,42&gt;&gt;
+5> <input>C.</input>
+42
+6> <input>&lt;&lt;D:16,E,F&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</input>
+&lt;&lt;1,17,0,42&gt;&gt;
+7> <input>D.</input>
+273
+8> <input>F.</input>
+42
+9> <input>&lt;&lt;G,H/binary&gt;&gt; = &lt;&lt;1,17,42:16&gt;&gt;.</input>
+&lt;&lt;1,17,0,42&gt;&gt;
+10> <input>H.</input>
+&lt;&lt;17,0,42&gt;&gt;
+11> <input>&lt;&lt;G,H/bitstring&gt;&gt; = &lt;&lt;1,17,42:12&gt;&gt;.</input>
+&lt;&lt;1,17,1,10:4&gt;&gt;
+12> <input>H.</input>
+&lt;&lt;17,1,10:4&gt;&gt;
+13> <input>&lt;&lt;1024/utf8&gt;&gt;.</input>
+&lt;&lt;208,128&gt;&gt;
+</pre>
+    <p>Note that bit string patterns cannot be nested.</p>
+    <p>Note also that "<c><![CDATA[B=<<1>>]]></c>" is interpreted as
+      "<c><![CDATA[B =<<1>>]]></c>" which is a syntax error. The correct way is
+      to write a space after '=': "<c><![CDATA[B= <<1>>]]></c>.</p>
+    <p>More examples can be found in <em>Programming Examples</em>.</p>
+  </section>
+
+  <section>
+    <marker id="funs"></marker>
+    <title>Fun Expressions</title>
+    <pre>
+fun
+    (Pattern11,...,Pattern1N) [when GuardSeq1] ->
+        Body1;
+    ...;
+    (PatternK1,...,PatternKN) [when GuardSeqK] ->
+        BodyK
+end</pre>
+    <p>A fun expression begins with the keyword <c>fun</c> and ends
+      with the keyword <c>end</c>. Between them should be a function
+      declaration, similar to a
+      <seealso marker="functions#syntax">regular function declaration</seealso>, except that no function name is
+      specified.</p>
+    <p>Variables in a fun head shadow variables in the 
+      function clause surrounding the fun expression, and 
+      variables bound in a fun body are local to the fun body.</p>
+    <p>The return value of the expression is the resulting fun.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>Fun1 = fun (X) -> X+1 end.</input>
+#Fun&lt;erl_eval.6.39074546&gt;
+2> <input>Fun1(2).</input>
+3
+3> <input>Fun2 = fun (X) when X>=5 -> gt; (X) -> lt end.</input>
+#Fun&lt;erl_eval.6.39074546&gt;
+4> <input>Fun2(7).</input>
+gt</pre>
+    <p>The following fun expressions are also allowed:</p>
+    <pre>
+fun Name/Arity
+fun Module:Name/Arity</pre>
+    <p>In <c>Name/Arity</c>, <c>Name</c> is an atom and <c>Arity</c> is an integer.
+      <c>Name/Arity</c> must specify an existing local function. The expression is
+      syntactic sugar for:</p>
+    <pre>
+fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
+    <p>In <c>Module:Name/Arity</c>, <c>Module</c> and <c>Name</c> are atoms
+      and <c>Arity</c> is an integer.
+      A fun defined in this way will refer to the function <c>Name</c>
+      with arity <c>Arity</c> in the <em>latest</em> version of module <c>Module</c>.
+      </p>
+    <p>When applied to a number N of arguments, a tuple
+      <c>{Module,FunctionName}</c> is interpreted as a fun, referring
+      to the function <c>FunctionName</c> with arity N in the module
+      <c>Module</c>. The function must be exported.
+      <em>This usage is deprecated.</em> 
+      See <seealso marker="#calls">Function Calls</seealso> for an example.</p>
+    <p>More examples can be found in <em>Programming Examples</em>.</p>
+  </section>
+
+  <section>
+    <marker id="catch"></marker>
+    <title>Catch and Throw</title>
+    <code type="none">
+catch Expr</code>
+    <p>Returns the value of <c>Expr</c> unless an exception
+      occurs during the evaluation. In that case, the exception is
+      caught. For exceptions of class <c>error</c>, 
+      that is run-time errors: <c>{'EXIT',{Reason,Stack}}</c> 
+      is returned. For exceptions of class <c>exit</c>, that is
+      the code called <c>exit(Term)</c>: <c>{'EXIT',Term}</c> is returned. 
+      For exceptions of class <c>throw</c>, that is
+      the code called <c>throw(Term)</c>: <c>Term</c> is returned.</p>
+    <p><c>Reason</c> depends on the type of error that occurred, and
+      <c>Stack</c> is the stack of recent function calls, see
+      <seealso marker="errors#exit_reasons">Errors and Error Handling</seealso>.</p>
+    <p>Examples:</p>
+    <p></p>
+    <pre>
+1> <input>catch 1+2.</input>
+3
+2> <input>catch 1+a.</input>
+{'EXIT',{badarith,[...]}}</pre>
+    <p>Note that <c>catch</c> has low precedence and catch
+      subexpressions often needs to be enclosed in a block
+      expression or in parenthesis:</p>
+    <pre>
+3> <input>A = catch 1+2.</input>
+** 1: syntax error before: 'catch' **
+4> <input>A = (catch 1+2).</input>
+3</pre>
+    <p>The BIF <c>throw(Any)</c> can be used for non-local return from
+      a function. It must be evaluated within a <c>catch</c>, which will
+      return the value <c>Any</c>. Example:</p>
+    <pre>
+5> <input>catch throw(hello).</input>
+hello</pre>
+    <p>If <c>throw/1</c> is not evaluated within a catch, a
+      <c>nocatch</c> run-time error will occur.</p>
+  </section>
+
+  <section>
+    <marker id="try"></marker>
+    <title>Try</title>
+    <code type="none">
+try Exprs
+catch
+    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+        ExceptionBody1;
+    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+        ExceptionBodyN
+end</code>
+    <p>This is an enhancement of
+      <seealso marker="#catch">catch</seealso> that appeared in
+      Erlang 5.4/OTP-R10B. It gives the possibility do distinguish
+      between different exception classes, and to choose to handle only
+      the desired ones, passing the others on to an enclosing
+      <c>try</c> or <c>catch</c> or to default error handling.</p>
+    <p>Note that although the keyword <c>catch</c> is used in
+      the <c>try</c> expression, there is not a <c>catch</c> expression
+      within the <c>try</c> expression.</p>
+    <p>Returns the value of <c>Exprs</c> (a sequence of expressions
+      <c>Expr1, ..., ExprN</c>) unless an exception occurs during
+      the evaluation. In that case the exception is caught and
+      the patterns <c>ExceptionPattern</c> with the right exception
+      class <c>Class</c> are sequentially matched against the caught
+      exception. An omitted <c>Class</c> is shorthand for <c>throw</c>.
+      If a match succeeds and the optional guard sequence
+      <c>ExceptionGuardSeq</c> is true, the corresponding
+      <c>ExceptionBody</c> is evaluated to become the return value.</p>
+    <p>If an exception occurs during evaluation of <c>Exprs</c> but
+      there is no matching <c>ExceptionPattern</c> of the right
+      <c>Class</c> with a true guard sequence, the exception is passed
+      on as if <c>Exprs</c> had not been enclosed in a <c>try</c>
+      expression.</p>
+    <p>If an exception occurs during evaluation of <c>ExceptionBody</c>
+      it is not caught.</p>
+    <p>The <c>try</c> expression can have an <c>of</c>
+      section:
+      </p>
+    <code type="none">
+try Exprs of
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+catch
+    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+        ExceptionBody1;
+    ...;
+    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+        ExceptionBodyN
+end</code>
+    <p>If the evaluation of <c>Exprs</c> succeeds without an exception,
+      the patterns <c>Pattern</c> are sequentially matched against
+      the result in the same way as for a
+      <seealso marker="#case">case</seealso> expression, except that if
+      the matching fails, a <c>try_clause</c> run-time error will occur.</p>
+    <p>An exception occurring during the evaluation of <c>Body</c> is
+      not caught.</p>
+    <p>The <c>try</c> expression can also be augmented with an
+      <c>after</c> section, intended to be used for cleanup with side
+      effects:</p>
+    <code type="none">
+try Exprs of
+    Pattern1 [when GuardSeq1] ->
+        Body1;
+    ...;
+    PatternN [when GuardSeqN] ->
+        BodyN
+catch
+    [Class1:]ExceptionPattern1 [when ExceptionGuardSeq1] ->
+        ExceptionBody1;
+    ...;
+    [ClassN:]ExceptionPatternN [when ExceptionGuardSeqN] ->
+        ExceptionBodyN
+after
+    AfterBody
+end</code>
+    <p><c>AfterBody</c> is evaluated after either <c>Body</c> or
+      <c>ExceptionBody</c> no matter which one. The evaluated value of
+      <c>AfterBody</c> is lost; the return value of the <c>try</c>
+      expression is the same with an <c>after</c> section as without.</p>
+    <p>Even if an exception occurs during evaluation of <c>Body</c> or
+      <c>ExceptionBody</c>, <c>AfterBody</c> is evaluated. In this case
+      the exception is passed on after <c>AfterBody</c> has been
+      evaluated, so the exception from the <c>try</c> expression is
+      the same with an <c>after</c> section as without.</p>
+    <p>If an exception occurs during evaluation of <c>AfterBody</c>
+      itself it is not caught, so if <c>AfterBody</c> is evaluated after
+      an exception in <c>Exprs</c>, <c>Body</c> or <c>ExceptionBody</c>,
+      that exception is lost and masked by the exception in
+      <c>AfterBody</c>.</p>
+    <p>The <c>of</c>, <c>catch</c> and <c>after</c> sections are all
+      optional, as long as there is at least a <c>catch</c> or an
+      <c>after</c> section, so the following are valid <c>try</c>
+      expressions:</p>
+    <code type="none">
+try Exprs of 
+    Pattern when GuardSeq -> 
+        Body 
+after 
+    AfterBody 
+end
+
+try Exprs
+catch 
+    ExpressionPattern -> 
+        ExpressionBody
+after
+    AfterBody
+end
+
+try Exprs after AfterBody end</code>
+    <p>Example of using <c>after</c>, this code will close the file
+      even in the event of exceptions in <c>file:read/2</c> or in
+      <c>binary_to_term/1</c>, and exceptions will be the same as
+      without the <c>try</c>...<c>after</c>...<c>end</c> expression:</p>
+    <code type="none">
+termize_file(Name) ->
+    {ok,F} = file:open(Name, [read,binary]),
+    try
+        {ok,Bin} = file:read(F, 1024*1024),
+        binary_to_term(Bin)
+    after
+        file:close(F)
+    end.</code>
+    <p>Example: Using <c>try</c> to emulate <c>catch Expr</c>.</p>
+    <code type="none">
+try Expr
+catch
+    throw:Term -> Term;
+    exit:Reason -> {'EXIT',Reason}
+    error:Reason -> {'EXIT',{Reason,erlang:get_stacktrace()}}
+end</code>
+  </section>
+
+  <section>
+    <title>Parenthesized Expressions</title>
+    <pre>
+(Expr)</pre>
+    <p>Parenthesized expressions are useful to override
+      <seealso marker="#prec">operator precedences</seealso>,
+      for example in arithmetic expressions:</p>
+    <pre>
+1> <input>1 + 2 * 3.</input>
+7
+2> <input>(1 + 2) * 3.</input>
+9</pre>
+  </section>
+
+  <section>
+    <title>Block Expressions</title>
+    <pre>
+begin
+   Expr1,
+   ...,
+   ExprN
+end</pre>
+    <p>Block expressions provide a way to group a sequence of
+      expressions, similar to a clause body. The return value is
+      the value of the last expression <c>ExprN</c>.</p>
+  </section>
+
+  <section>
+    <marker id="lcs"></marker>
+    <title>List Comprehensions</title>
+    <p>List comprehensions are a feature of many modern functional
+      programming languages. Subject to certain rules, they provide a
+      succinct notation for generating elements in a list.</p>
+    <p>List comprehensions are analogous to set comprehensions in
+      Zermelo-Frankel set theory and are called ZF expressions in
+      Miranda. They are analogous to the <c>setof</c> and
+      <c>findall</c> predicates in Prolog.</p>
+    <p>List comprehensions are written with the following syntax:</p>
+    <pre>
+[Expr || Qualifier1,...,QualifierN]</pre>
+    <p><c>Expr</c> is an arbitrary expression, and each
+      <c>Qualifier</c> is either a generator or a filter.</p>
+    <list type="bulleted">
+      <item>A <em>generator</em> is written as:      <br></br>
+
+       &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
+<c>ListExpr</c> must be an expression which evaluates to a
+       list of terms.</item>
+<item>A <em>bit string generator</em> is written as:      <br></br>
+
+       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
+<c>BitStringExpr</c> must be an expression which evaluates to a
+       bitstring.</item>
+      <item>A <em>filter</em> is an expression which evaluates to
+      <c>true</c> or <c>false</c>.</item>
+    </list>
+    <p>The variables in the generator patterns shadow variables in the function
+    clause surrounding the list comprehensions.</p> <p>A list comprehension
+    returns a list, where the elements are the result of evaluating <c>Expr</c>
+    for each combination of generator list elements and bit string generator
+    elements for which all filters are true.</p> <p></p> <p>Example:</p>
+    <pre>
+1> <input>[X*2 || X &lt;- [1,2,3]].</input>
+[2,4,6]</pre>
+    <p>More examples can be found in <em>Programming Examples</em>.</p>
+  
+
+  </section>
+
+<section>
+    <title>Bit String Comprehensions</title> 
+   
+    <p>Bit string comprehensions are
+    analogous to List Comprehensions. They are used to generate bit strings
+    efficiently and succinctly.</p> 
+    <p>Bit string comprehensions are written with
+    the following syntax:</p>
+    <pre>
+&lt;&lt; BitString || Qualifier1,...,QualifierN &gt;&gt;</pre>
+    <p><c>BitString</c> is a bit string expression, and each
+      <c>Qualifier</c> is either a generator, a bit string generator or a filter.</p>
+    <list type="bulleted">
+ <item>A <em>generator</em> is written as:      <br></br>
+      &nbsp;&nbsp;<c><![CDATA[Pattern <- ListExpr]]></c>.      <br></br>
+       <c>ListExpr</c> must be an expression which evaluates to a
+       list of terms.</item>
+      <item>A <em>bit string generator</em> is written as:      <br></br>
+
+       &nbsp;&nbsp;<c><![CDATA[BitstringPattern <= BitStringExpr]]></c>.      <br></br>
+<c>BitStringExpr</c> must be an expression which evaluates to a
+       bitstring.</item>
+      <item>A <em>filter</em> is an expression which evaluates to
+      <c>true</c> or <c>false</c>.</item>
+    </list>
+    <p>The variables in the generator patterns shadow variables in
+      the function clause surrounding the bit string comprehensions.</p>
+    <p>A bit string comprehension returns a bit string, which is 
+      created by concatenating the results of evaluating <c>BitString</c> 
+      for each combination of bit string generator elements for which all 
+      filters are true.</p>
+    <p></p>
+    <p>Example:</p>
+    <pre>
+1> <input>&lt;&lt; &lt;&lt; (X*2) &gt;&gt; || 
+&lt;&lt;X&gt;&gt; &lt;= &lt;&lt; 1,2,3 &gt;&gt; &gt;&gt;.</input>
+&lt;&lt;2,4,6&gt;&gt;</pre>
+    <p>More examples can be found in <em>Programming Examples</em>.</p>
+  </section>
+
+  <section>
+    <marker id="guards"></marker>
+    <title>Guard Sequences</title>
+
+    <p>A <em>guard sequence</em> is a sequence of guards, separated
+      by semicolon (;). The guard sequence is true if at least one of
+      the guards is true. (The remaining guards, if any, will not be
+      evaluated.)<br></br>
+<c>Guard1;...;GuardK</c></p>
+    <p>A <em>guard</em> is a sequence of guard expressions, separated
+      by comma (,). The guard is true if all guard expressions
+      evaluate to <c>true</c>.<br></br>
+<c>GuardExpr1,...,GuardExprN</c></p>
+    <p>The set of valid <em>guard expressions</em> (sometimes called
+      guard tests) is a subset of the set of valid Erlang expressions.
+      The reason for restricting the set of valid expressions is that
+      evaluation of a guard expression must be guaranteed to be free
+      of side effects. Valid guard expressions are:</p>
+    <list type="bulleted">
+      <item>the atom <c>true</c>,</item>
+      <item>other constants (terms and bound variables), all regarded
+       as false,</item>
+      <item>calls to the BIFs specified below,</item>
+      <item>term comparisons,</item>
+      <item>arithmetic expressions,</item>
+      <item>boolean expressions, and</item>
+      <item>short-circuit expressions (<c>andalso</c>/<c>orelse</c>).</item>
+    </list>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><c>is_atom/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_binary/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_bitstring/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_float/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_function/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_function/2</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_integer/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_list/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_number/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_pid/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_port/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_record/2</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_record/3</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_reference/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>is_tuple/1</c></cell>
+      </row>
+      <tcaption>Type Test BIFs.</tcaption>
+    </table>
+    <p>Note that most type test BIFs have older equivalents, without
+      the <c>is_</c> prefix. These old BIFs are retained for backwards
+      compatibility only and should not be used in new code. They are
+      also only allowed at top level. For example, they are not allowed
+      in boolean expressions in guards.</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><c>abs(Number)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>bit_size(Bitstring)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>byte_size(Bitstring)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>element(N, Tuple)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>float(Term)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>hd(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>length(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>node()</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>node(Pid|Ref|Port)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>round(Number)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>self()</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>size(Tuple|Bitstring)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>tl(List)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>trunc(Number)</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>tuple_size(Tuple)</c></cell>
+      </row>
+      <tcaption>Other BIFs Allowed in Guard Expressions.</tcaption>
+    </table>
+
+    <p>If an arithmetic expression, a boolean expression, a
+    short-circuit expression, or a call to a guard BIF fails (because
+    of invalid arguments), the entire guard fails. If the guard was
+    part of a guard sequence, the next guard in the sequence (that is,
+    the guard following the next semicolon) will be evaluated.</p>
+
+  </section>
+
+  <section>
+    <marker id="prec"></marker>
+    <title>Operator Precedence</title>
+    <p>Operator precedence in falling priority:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle">:</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">#</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Unary + - bnot not</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">/ * div rem band and</cell>
+        <cell align="left" valign="middle">Left associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">+ - bor bxor bsl bsr or xor</cell>
+        <cell align="left" valign="middle">Left associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">++ --</cell>
+        <cell align="left" valign="middle">Right associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">== /= =&lt; &lt; >= > =:= =/=</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">andalso</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">orelse</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">= !</cell>
+        <cell align="left" valign="middle">Right associative</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">catch</cell>
+        <cell align="left" valign="middle">&nbsp;</cell>
+      </row>
+      <tcaption>Operator Precedence.</tcaption>
+    </table>
+    <p>When evaluating an expression, the operator with the highest
+      priority is evaluated first. Operators with the same priority
+      are evaluated according to their associativity. Example:
+      The left associative arithmetic operators are evaluated left to
+      right:</p>
+    <pre>
+<input>6 + 5 * 4 - 3 / 2</input> evaluates to
+<input>6 + 20 - 1.5</input> evaluates to
+<input>26 - 1.5</input> evaluates to
+<input>24.5</input></pre>
+  </section>
+</chapter>
+

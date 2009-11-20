@@ -1,0 +1,313 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Gen_Fsm Behaviour</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>fsm.xml</file>
+  </header>
+  <p>This chapter should be read in conjunction with <c>gen_fsm(3)</c>,
+    where all interface functions and callback functions are described
+    in detail.</p>
+
+  <section>
+    <title>Finite State Machines</title>
+    <p>A finite state machine, FSM, can be described as a set of
+      relations of the form:</p>
+    <pre>
+State(S) x Event(E) -> Actions(A), State(S')</pre>
+    <p>These relations are interpreted as meaning:</p>
+    <quote>
+      <p>If we are in state <c>S</c> and the event <c>E</c> occurs, we
+        should perform the actions <c>A</c> and make a transition to
+        the state <c>S'</c>.</p>
+    </quote>
+    <p>For an FSM implemented using the <c>gen_fsm</c> behaviour,
+      the state transition rules are written as a number of Erlang
+      functions which conform to the following convention:</p>
+    <pre>
+StateName(Event, StateData) ->
+    .. code for actions here ...
+    {next_state, StateName', StateData'}</pre>
+  </section>
+
+  <section>
+    <title>Example</title>
+    <p>A door with a code lock could be viewed as an FSM. Initially,
+      the door is locked. Anytime someone presses a button, this
+      generates an event. Depending on what buttons have been pressed
+      before, the sequence so far may be correct, incomplete or wrong.</p>
+    <p>If it is correct, the door is unlocked for 30 seconds (30000 ms).
+      If it is incomplete, we wait for another button to be pressed. If
+      it is is wrong, we start all over, waiting for a new button
+      sequence.</p>
+    <p>Implementing the code lock FSM using <c>gen_fsm</c> results in
+      this callback module:</p>
+    <marker id="ex"></marker>
+    <code type="none"><![CDATA[
+-module(code_lock).
+-behaviour(gen_fsm).
+
+-export([start_link/1]).
+-export([button/1]).
+-export([init/1, locked/2, open/2]).
+
+start_link(Code) ->
+    gen_fsm:start_link({local, code_lock}, code_lock, Code, []).
+
+button(Digit) ->
+    gen_fsm:send_event(code_lock, {button, Digit}).
+
+init(Code) ->
+    {ok, locked, {[], Code}}.
+
+locked({button, Digit}, {SoFar, Code}) ->
+    case [Digit|SoFar] of
+        Code ->
+            do_unlock(),
+            {next_state, open, {[], Code}, 3000};
+        Incomplete when length(Incomplete)<length(Code) ->
+            {next_state, locked, {Incomplete, Code}};
+        _Wrong ->
+            {next_state, locked, {[], Code}}
+    end.
+
+open(timeout, State) ->
+    do_lock(),
+    {next_state, locked, State}.]]></code>
+    <p>The code is explained in the next sections.</p>
+  </section>
+
+  <section>
+    <title>Starting a Gen_Fsm</title>
+    <p>In the example in the previous section, the gen_fsm is started by
+      calling <c>code_lock:start_link(Code)</c>:</p>
+    <code type="none">
+start_link(Code) ->
+    gen_fsm:start_link({local, code_lock}, code_lock, Code, []).</code>
+    <p><c>start_link</c> calls the function <c>gen_fsm:start_link/4</c>.
+      This function spawns and links to a new process, a gen_fsm.</p>
+    <list type="bulleted">
+      <item>
+        <p>The first argument <c>{local, code_lock}</c> specifies
+          the name. In this case, the gen_fsm will be locally registered
+          as <c>code_lock</c>.</p>
+        <p>If the name is omitted, the gen_fsm is not registered.
+          Instead its pid must be used. The name could also be given as
+          <c>{global, Name}</c>, in which case the gen_fsm is registered
+          using <c>global:register_name/2</c>.</p>
+      </item>
+      <item>
+        <p>The second argument, <c>code_lock</c>, is the name of
+          the callback module, that is the module where the callback
+          functions are located.</p>
+        <p>In this case, the interface functions (<c>start_link</c> and
+          <c>button</c>) are located in the same module as the callback
+          functions (<c>init</c>, <c>locked</c> and <c>open</c>). This
+          is normally good programming practice, to have the code
+          corresponding to one process contained in one module.</p>
+      </item>
+      <item>
+        <p>The third argument, <c>Code</c>, is a term which is passed
+          as-is to the callback function <c>init</c>. Here, <c>init</c>
+          gets the correct code for the lock as indata.</p>
+      </item>
+      <item>
+        <p>The fourth argument, [], is a list of options. See
+          <c>gen_fsm(3)</c> for available options.</p>
+      </item>
+    </list>
+    <p>If name registration succeeds, the new gen_fsm process calls
+      the callback function <c>code_lock:init(Code)</c>. This function
+      is expected to return <c>{ok, StateName, StateData}</c>, where
+      <c>StateName</c> is the name of the initial state of the gen_fsm.
+      In this case <c>locked</c>, assuming the door is locked to begin
+      with. <c>StateData</c> is the internal state of the gen_fsm. (For
+      gen_fsms, the internal state is often referred to 'state data' to
+      distinguish it from the state as in states of a state machine.)
+      In this case, the state data is the button sequence so far (empty
+      to begin with) and the correct code of the lock.</p>
+    <code type="none">
+init(Code) ->
+    {ok, locked, {[], Code}}.</code>
+    <p>Note that <c>gen_fsm:start_link</c> is synchronous. It does not
+      return until the gen_fsm has been initialized and is ready to
+      receive notifications.</p>
+    <p><c>gen_fsm:start_link</c> must be used if the gen_fsm is part of
+      a supervision tree, i.e. is started by a supervisor. There is
+      another function <c>gen_fsm:start</c> to start a stand-alone
+      gen_fsm, i.e. a gen_fsm which is not part of a supervision tree.</p>
+  </section>
+
+  <section>
+    <title>Notifying About Events</title>
+    <p>The function notifying the code lock about a button event is
+      implemented using <c>gen_fsm:send_event/2</c>:</p>
+    <code type="none">
+button(Digit) ->
+    gen_fsm:send_event(code_lock, {button, Digit}).</code>
+    <p><c>code_lock</c> is the name of the gen_fsm and must agree with
+      the name used to start it. <c>{button, Digit}</c> is the actual
+      event.</p>
+    <p>The event is made into a message and sent to the gen_fsm. When
+      the event is received, the gen_fsm calls
+      <c>StateName(Event, StateData)</c> which is expected to return a
+      tuple <c>{next_state, StateName1, StateData1}</c>.
+      <c>StateName</c> is the name of the current state and
+      <c>StateName1</c> is the name of the next state to go to.
+      <c>StateData1</c> is a new value for the state data of
+      the gen_fsm.</p>
+    <code type="none"><![CDATA[
+locked({button, Digit}, {SoFar, Code}) ->
+    case [Digit|SoFar] of
+        Code ->
+            do_unlock(),
+            {next_state, open, {[], Code}, 30000};
+        Incomplete when length(Incomplete)<length(Code) ->
+            {next_state, locked, {Incomplete, Code}};
+        _Wrong ->
+            {next_state, locked, {[], Code}};
+    end.
+
+open(timeout, State) ->
+    do_lock(),
+    {next_state, locked, State}.]]></code>
+    <p>If the door is locked and a button is pressed, the complete
+      button sequence so far is compared with the correct code for
+      the lock and, depending on the result, the door is either unlocked
+      and the gen_fsm goes to state <c>open</c>, or the door remains in
+      state <c>locked</c>.</p>
+  </section>
+
+  <section>
+    <title>Timeouts</title>
+    <p>When a correct code has been givened, the door is unlocked and
+      the following tuple is returned from <c>locked/2</c>:</p>
+    <code type="none">
+{next_state, open, {[], Code}, 30000};</code>
+    <p>30000 is a timeout value in milliseconds. After 30000 ms, i.e.
+      30 seconds, a timeout occurs. Then <c>StateName(timeout, StateData)</c> is called. In this case, the timeout occurs when
+      the door has been in state <c>open</c> for 30 seconds. After that
+      the door is locked again:</p>
+    <code type="none">
+open(timeout, State) ->
+    do_lock(),
+    {next_state, locked, State}.</code>
+  </section>
+
+  <section>
+    <title>All State Events</title>
+    <p>Sometimes an event can arrive at any state of the gen_fsm.
+      Instead of sending the message with <c>gen_fsm:send_event/2</c>
+      and writing one clause handling the event for each state function,
+      the message can be sent with <c>gen_fsm:send_all_state_event/2</c>
+      and handled with <c>Module:handle_event/3</c>:</p>
+    <code type="none">
+-module(code_lock).
+...
+-export([stop/0]).
+...
+
+stop() ->
+    gen_fsm:send_all_state_event(code_lock, stop).
+
+...
+
+handle_event(stop, _StateName, StateData) ->
+    {stop, normal, StateData}.</code>
+  </section>
+
+  <section>
+    <title>Stopping</title>
+
+    <section>
+      <title>In a Supervision Tree</title>
+      <p>If the gen_fsm is part of a supervision tree, no stop function
+        is needed. The gen_fsm will automatically be terminated by its
+        supervisor. Exactly how this is done is defined by a
+        <seealso marker="sup_princ#shutdown">shutdown strategy</seealso>
+        set in the supervisor.</p>
+      <p>If it is necessary to clean up before termination, the shutdown
+        strategy must be a timeout value and the gen_fsm must be set to
+        trap exit signals in the <c>init</c> function. When ordered
+        to shutdown, the gen_fsm will then call the callback function
+        <c>terminate(shutdown, StateName, StateData)</c>:</p>
+      <code type="none">
+init(Args) ->
+    ...,
+    process_flag(trap_exit, true),
+    ...,
+    {ok, StateName, StateData}.
+
+...
+
+terminate(shutdown, StateName, StateData) ->
+    ..code for cleaning up here..
+    ok.</code>
+    </section>
+
+    <section>
+      <title>Stand-Alone Gen_Fsms</title>
+      <p>If the gen_fsm is not part of a supervision tree, a stop
+        function may be useful, for example:</p>
+      <code type="none">
+...
+-export([stop/0]).
+...
+
+stop() ->
+    gen_fsm:send_all_state_event(code_lock, stop).
+...
+
+handle_event(stop, _StateName, StateData) ->
+    {stop, normal, StateData}.
+
+...
+
+terminate(normal, _StateName, _StateData) ->
+    ok.</code>
+      <p>The callback function handling the <c>stop</c> event returns a
+        tuple <c>{stop,normal,StateData1}</c>, where <c>normal</c>
+        specifies that it is a normal termination and <c>StateData1</c>
+        is a new value for the state data of the gen_fsm. This will
+        cause the gen_fsm to call
+        <c>terminate(normal,StateName,StateData1)</c> and then
+        terminate gracefully:</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Handling Other Messages</title>
+    <p>If the gen_fsm should be able to receive other messages than
+      events, the callback function <c>handle_info(Info, StateName, StateData)</c> must be implemented to handle them. Examples of
+      other messages are exit messages, if the gen_fsm is linked to
+      other processes (than the supervisor) and trapping exit signals.</p>
+    <code type="none">
+handle_info({'EXIT', Pid, Reason}, StateName, StateData) ->
+    ..code to handle exits here..
+    {next_state, StateName1, StateData1}.</code>
+  </section>
+</chapter>
+

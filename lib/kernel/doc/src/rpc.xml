@@ -1,0 +1,499 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>rpc</title>
+    <prepared>Claes Wikstrom</prepared>
+    <docno>1</docno>
+    <date>96-09-10</date>
+    <rev>A</rev>
+  </header>
+  <module>rpc</module>
+  <modulesummary>Remote Procedure Call Services</modulesummary>
+  <description>
+    <p>This module contains services which are similar to remote
+      procedure calls. It also contains broadcast facilities and 
+      parallel evaluators. A remote procedure call is a method to call
+      a function on a remote node and collect the answer. It is used
+      for collecting information on a remote node, or for running a
+      function with some specific side effects on the remote node.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>call(Node, Module, Function, Args) -> Res | {badrpc, Reason}</name>
+      <fsummary>Evaluate a function call on a node</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Res = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c> and returns the corresponding value <c>Res</c>, or
+          <c>{badrpc, Reason}</c> if the call fails.</p>
+      </desc>
+    </func>
+    <func>
+      <name>call(Node, Module, Function, Args, Timeout) -> Res | {badrpc, Reason}</name>
+      <fsummary>Evaluate a function call on a node</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Res = term()</v>
+        <v>Reason = timeout | term()</v>
+        <v>Timeout = int() | infinity</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c> and returns the corresponding value <c>Res</c>, or
+          <c>{badrpc, Reason}</c> if the call fails. <c>Timeout</c> is
+          a timeout value in milliseconds. If the call times out,
+          <c>Reason</c> is <c>timeout</c>.</p>
+        <p>If the reply arrives after the call times out, no message
+          will contaminate the caller's message queue, since this
+          function spawns off a middleman process to act as (a void)
+          destination for such an orphan reply. This feature also makes
+          this function more expensive than <c>call/4</c> at
+          the caller's end.</p>
+      </desc>
+    </func>
+    <func>
+      <name>block_call(Node, Module, Function, Args) -> Res | {badrpc, Reason}</name>
+      <fsummary>Evaluate a function call on a node in the RPC server's context</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Res = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Like <c>call/4</c>, but the RPC server at <c>Node</c> does
+          not create a separate process to handle the call. Thus,
+          this function can be used if the intention of the call is to
+          block the RPC server from any other incoming requests until
+          the request has been handled. The function can also be used 
+          for efficiency reasons when very small fast functions are
+          evaluated, for example BIFs that are guaranteed not to
+          suspend.</p>
+      </desc>
+    </func>
+    <func>
+      <name>block_call(Node, Module, Function, Args, Timeout) -> Res | {badrpc, Reason}</name>
+      <fsummary>Evaluate a function call on a node in the RPC server's context</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Timeout = int() | infinity</v>
+        <v>Res = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Like <c>block_call/4</c>, but with a timeout value in
+          the same manner as <c>call/5</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>async_call(Node, Module, Function, Args) -> Key</name>
+      <fsummary>Evaluate a function call on a node, asynchronous version</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Key -- see below</v>
+      </type>
+      <desc>
+        <p>Implements <em>call streams with promises</em>, a type of
+          RPC which does not suspend the caller until the result is
+          finished. Instead, a key is returned which can be used at a
+          later stage to collect the value. The key can be viewed as a
+          promise to deliver the answer.</p>
+        <p>In this case, the key <c>Key</c> is returned, which can be
+          used in a subsequent call to <c>yield/1</c> or
+          <c>nb_yield/1,2</c> to retrieve the value of evaluating
+          <c>apply(Module, Function, Args)</c> on the node <c>Node</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>yield(Key) -> Res | {badrpc, Reason}</name>
+      <fsummary>Deliver the result of evaluating a function call on a node (blocking)</fsummary>
+      <type>
+        <v>Key -- see async_call/4</v>
+        <v>Res = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns the promised answer from a previous
+          <c>async_call/4</c>. If the answer is available, it is
+          returned immediately. Otherwise, the calling process is
+          suspended until the answer arrives from <c>Node</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>nb_yield(Key) -> {value, Val} | timeout</name>
+      <fsummary>Deliver the result of evaluating a function call on a node (non-blocking)</fsummary>
+      <type>
+        <v>Key -- see async_call/4</v>
+        <v>Val = Res | {badrpc, Reason}</v>
+        <v>&nbsp;Res = term()</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>nb_yield(Key, 0)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>nb_yield(Key, Timeout) -> {value, Val} | timeout</name>
+      <fsummary>Deliver the result of evaluating a function call on a node (non-blocking)</fsummary>
+      <type>
+        <v>Key -- see async_call/4</v>
+        <v>Timeout = int() | infinity</v>
+        <v>Val = Res | {badrpc, Reason}</v>
+        <v>&nbsp;Res = term()</v>
+        <v>&nbsp;Reason = term()</v>
+      </type>
+      <desc>
+        <p>This is a non-blocking version of <c>yield/1</c>. It returns
+          the tuple <c>{value, Val}</c> when the computation has
+          finished, or <c>timeout</c> when <c>Timeout</c> milliseconds
+          has elapsed.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multicall(Module, Function, Args) -> {ResL, BadNodes}</name>
+      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>ResL = [term()]</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>multicall([node()|nodes()], Module, Function, Args, infinity)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multicall(Nodes, Module, Function, Args) -> {ResL, BadNodes}</name>
+      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <type>
+        <v>Nodes = [node()]</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>ResL = [term()]</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>multicall(Nodes, Module, Function, Args, infinity)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multicall(Module, Function, Args, Timeout) -> {ResL, BadNodes}</name>
+      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Timeout = int() | infinity</v>
+        <v>ResL = [term()]</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>multicall([node()|nodes()], Module, Function, Args, Timeout)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multicall(Nodes, Module, Function, Args, Timeout) -> {ResL, BadNodes}</name>
+      <fsummary>Evaluate a function call on a number of nodes</fsummary>
+      <type>
+        <v>Nodes = [node()]</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Timeout = int() | infinity</v>
+        <v>ResL = [term()]</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>In contrast to an RPC, a multicall is an RPC which is sent
+          concurrently from one client to multiple servers. This is
+          useful for collecting some information from a set of nodes,
+          or for calling a function on a set of nodes to achieve some
+          side effects. It is semantically the same as iteratively
+          making a series of RPCs on all the nodes, but the multicall
+          is faster as all the requests are sent at the same time
+          and are collected one by one as they come back.</p>
+        <p>The function evaluates <c>apply(Module, Function, Args)</c> 
+          on the specified nodes and collects the answers. It returns 
+          <c>{ResL, Badnodes}</c>, where <c>Badnodes</c> is a list
+          of the nodes that terminated or timed out during computation,
+          and <c>ResL</c> is a list of the return values.
+          <c>Timeout</c> is a time (integer) in milliseconds, or
+          <c>infinity</c>.</p>
+        <p>The following example is useful when new object code is to
+          be loaded on all nodes in the network, and also indicates
+          some side effects RPCs may produce:</p>
+        <code type="none">
+%% Find object code for module Mod 
+{Mod, Bin, File} = code:get_object_code(Mod), 
+
+%% and load it on all nodes including this one 
+{ResL, _} = rpc:multicall(code, load_binary, [Mod, Bin, File,]),
+
+%% and then maybe check the ResL list.</code>
+      </desc>
+    </func>
+    <func>
+      <name>cast(Node, Module, Function, Args) -> void()</name>
+      <fsummary>Run a function on a node ignoring the result</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on the node
+          <c>Node</c>. No response is delivered and the calling
+          process is not suspended until the evaluation is complete, as
+          is the case with <c>call/4,5</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>eval_everywhere(Module, Funtion, Args) -> void()</name>
+      <fsummary>Run a function on all nodes, ignoring the result</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>eval_everywhere([node()|nodes()], Module, Function, Args)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>eval_everywhere(Nodes, Module, Function, Args) -> void()</name>
+      <fsummary>Run a function on specific nodes, ignoring the result</fsummary>
+      <type>
+        <v>Nodes = [node()]</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Args)</c> on
+          the specified nodes. No answers are collected.</p>
+      </desc>
+    </func>
+    <func>
+      <name>abcast(Name, Msg) -> void()</name>
+      <fsummary>Broadcast a message asynchronously to a registered process on all nodes</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>abcast([node()|nodes()], Name, Msg)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>abcast(Nodes, Name, Msg) -> void()</name>
+      <fsummary>Broadcast a message asynchronously to a registered process on specific nodes</fsummary>
+      <type>
+        <v>Nodes = [node()]</v>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+      </type>
+      <desc>
+        <p>Broadcasts the message <c>Msg</c> asynchronously to
+          the registered process <c>Name</c> on the specified nodes.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sbcast(Name, Msg) -> {GoodNodes, BadNodes}</name>
+      <fsummary>Broadcast a message synchronously to a registered process on all nodes</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+        <v>GoodNodes = BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>sbcast([node()|nodes()], Name, Msg)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sbcast(Nodes, Name, Msg) -> {GoodNodes, BadNodes}</name>
+      <fsummary>Broadcast a message synchronously to a registered process on specific nodes</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+        <v>Nodes = GoodNodes = BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Broadcasts the message <c>Msg</c> synchronously to
+          the registered process <c>Name</c> on the specified nodes.</p>
+        <p>Returns <c>{GoodNodes, BadNodes}</c>, where <c>GoodNodes</c>
+          is the list of nodes which have <c>Name</c> as a registered
+          process.</p>
+        <p>The function is synchronous in the sense that it is known
+          that all servers have received the message when the call
+          returns. It is not possible to know that the servers have
+          actually processed the message.</p>
+        <p>Any further messages sent to the servers, after this
+          function has returned, will be received by all servers after
+          this message.</p>
+      </desc>
+    </func>
+    <func>
+      <name>server_call(Node, Name, ReplyWrapper, Msg) -> Reply | {error, Reason}</name>
+      <fsummary>Interact with a server on a node</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Name = atom()</v>
+        <v>ReplyWrapper = Msg = Reply = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>This function can be used when interacting with a server
+          called <c>Name</c> at node <c>Node</c>. It is assumed that
+          the server receives messages in the format
+          <c>{From, Msg}</c> and replies using <c>From ! {ReplyWrapper, Node, Reply}</c>. This function makes such
+          a server call and ensures that the entire call is packed into
+          an atomic transaction which either succeeds or fails. It
+          never hangs, unless the server itself hangs.</p>
+        <p>The function returns the answer <c>Reply</c> as produced by
+          the server <c>Name</c>, or <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multi_server_call(Name, Msg) -> {Replies, BadNodes}</name>
+      <fsummary>Interact with the servers on a number of nodes</fsummary>
+      <type>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+        <v>Replies = [Reply]</v>
+        <v>&nbsp;Reply = term()</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>multi_server_call([node()|nodes()], Name, Msg)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>multi_server_call(Nodes, Name, Msg) -> {Replies, BadNodes}</name>
+      <fsummary>Interact with the servers on a number of nodes</fsummary>
+      <type>
+        <v>Nodes = [node()]</v>
+        <v>Name = atom()</v>
+        <v>Msg = term()</v>
+        <v>Replies = [Reply]</v>
+        <v>&nbsp;Reply = term()</v>
+        <v>BadNodes = [node()]</v>
+      </type>
+      <desc>
+        <p>This function can be used when interacting with servers
+          called <c>Name</c> on the specified nodes. It is assumed that
+          the servers receive messages in the format <c>{From, Msg}</c>
+          and reply using <c>From ! {Name, Node, Reply}</c>, where
+          <c>Node</c> is the name of the node where the server is
+          located. The function returns <c>{Replies, Badnodes}</c>,
+          where <c>Replies</c> is a list of all <c>Reply</c> values and
+          <c>BadNodes</c> is a list of the nodes which did not exist, or
+          where the server did not exist, or where the server terminated
+          before sending any reply.</p>
+      </desc>
+    </func>
+    <func>
+      <name>safe_multi_server_call(Name, Msg) -> {Replies, BadNodes}</name>
+      <name>safe_multi_server_call(Nodes, Name, Msg) -> {Replies, BadNodes}</name>
+      <fsummary>Interact with the servers on a number of nodes (deprecated)</fsummary>
+      <desc>
+        <warning>
+          <p>This function is deprecated. Use
+            <c>multi_server_call/2,3</c> instead.</p>
+        </warning>
+        <p>In Erlang/OTP R6B and earlier releases,
+          <c>multi_server_call/2,3</c> could not handle the case
+          where the remote node exists, but there is no server called
+          <c>Name</c>. Instead this function had to be used. In
+          Erlang/OTP R7B and later releases, however, the functions are
+          equivalent, except for this function being slightly slower.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parallel_eval(FuncCalls) -> ResL</name>
+      <fsummary>Evaluate several function calls on all nodes in parallel</fsummary>
+      <type>
+        <v>FuncCalls = [{Module, Function, Args}]</v>
+        <v>&nbsp;Module = Function = atom()</v>
+        <v>&nbsp;Args = [term()]</v>
+        <v>ResL = [term()]</v>
+      </type>
+      <desc>
+        <p>For every tuple in <c>FuncCalls</c>, evaluates
+          <c>apply(Module, Function, Args)</c> on some node in
+          the network. Returns the list of return values, in the same
+          order as in <c>FuncCalls</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pmap({Module, Function}, ExtraArgs, List2) -> List1</name>
+      <fsummary>Parallell evaluation of mapping a function over a list </fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>ExtraArgs = [term()]</v>
+        <v>List1 = [Elem]</v>
+        <v>&nbsp;Elem = term()</v>
+        <v>List2 = [term()]</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, [Elem|ExtraArgs])</c>,
+          for every element <c>Elem</c> in <c>List1</c>, in parallel.
+          Returns the list of return values, in the same order as in
+          <c>List1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pinfo(Pid) -> [{Item, Info}] | undefined</name>
+      <fsummary>Information about a process</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+        <v>Item, Info -- see erlang:process_info/1</v>
+      </type>
+      <desc>
+        <p>Location transparent version of the BIF
+          <c>process_info/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>pinfo(Pid, Item) -> {Item, Info} | undefined | []</name>
+      <fsummary>Information about a process</fsummary>
+      <type>
+        <v>Pid = pid()</v>
+        <v>Item, Info -- see erlang:process_info/1</v>
+      </type>
+      <desc>
+        <p>Location transparent version of the BIF
+          <c>process_info/2</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

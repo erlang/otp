@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2008</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+    
+    <title>public_key Release Notes</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible>Ingela Anderton Andin</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2008-01-22</date>
+    <rev>A</rev>
+    <file>notes.xml</file>
+  </header>
+
+
+  <section><title>Public_Key 0.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Public_Key 0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Unknown attributes in certificates are left encoded
+            instead of crashing. Patch by Will "wglozer" thanks.</p>
+          <p>
+            Own Id: OTP-8100</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Allow public_key:pem_to_der/[1,2] to take a binary as
+            argument in addition to a filename. Patch by Geoff Cant,
+            thanks.</p>
+          <p>
+            Own Id: OTP-8142</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+<section><title>Public_Key 0.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            X509 certificate handling has been extended and improved
+            as a result of more extensive testing of both the ssl
+            and public_key application. Even more extensions of the
+            certificate handling is yet to be implemented.</p>
+          <p>
+            Own Id: OTP-7860</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+  
+<section><title>Public_Key 0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            First version.</p>
+          <p>
+            Own Id: OTP-7637</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  
+</chapter>
+

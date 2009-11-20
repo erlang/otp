@@ -1,0 +1,10 @@
+%% TRACECASE_INIT.TRC
+%% -----------------------------------------------------------------------------
+%% This is a test trace case to be used by the inviso_tool_SUITE.
+%% Initial trace case executed at session start.
+%%
+%% Nodes=list(), inviso_tool variable - all traced nodes.
+%% -----------------------------------------------------------------------------
+
+inviso:tpl(Nodes,lists,module_info,1,[]).
+%% END-OF-TRACE-CASE

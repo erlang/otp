@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>error_handler</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>error_handler</module>
+  <modulesummary>Default System Error Handler</modulesummary>
+  <description>
+    <p>The error handler module defines what happens when certain types
+      of errors occur.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>undefined_function(Module, Function, Args) -> term()</name>
+      <fsummary>Called when an undefined function is encountered</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <d>A (possibly empty) list of arguments <c>Arg1,..,ArgN</c></d>
+      </type>
+      <desc>
+        <p>This function is evaluated if a call is made to
+          <c>Module:Function(Arg1,.., ArgN)</c> and
+          <c>Module:Function/N</c> is undefined. Note that
+          <c>undefined_function/3</c> is evaluated inside the process
+          making the original call.</p>
+        <p>If <c>Module</c> is interpreted, the interpreter is invoked
+          and the return value of the interpreted
+          <c>Function(Arg1,.., ArgN)</c> call is returned.</p>
+        <p>Otherwise, it returns, if possible, the value of
+          <c>apply(Module, Function, Args)</c> after an attempt has been
+          made to autoload <c>Module</c>. If this is not possible, the
+          call to <c>Module:Function(Arg1,.., ArgN)</c> fails with
+          exit reason <c>undef</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>undefined_lambda(Module, Fun, Args) -> term()</name>
+      <fsummary>Called when an undefined lambda (fun) is encountered</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <d>A (possibly empty) list of arguments <c>Arg1,..,ArgN</c></d>
+      </type>
+      <desc>
+        <p>This function is evaluated if a call is made to
+          <c>Fun(Arg1,.., ArgN)</c> when the module defining the fun is
+          not loaded. The function is evaluated inside the process
+          making the original call.</p>
+        <p>If <c>Module</c> is interpreted, the interpreter is invoked
+          and the return value of the interpreted
+          <c>Fun(Arg1,.., ArgN)</c> call is returned.</p>
+        <p>Otherwise, it returns, if possible, the value of
+          <c>apply(Fun, Args)</c> after an attempt has been made to
+          autoload <c>Module</c>. If this is not possible, the call
+          fails with exit reason <c>undef</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes</title>
+    <p>The code in <c>error_handler</c> is complex and should not be
+      changed without fully understanding the interaction between
+      the error handler, the <c>init</c> process of the code server,
+      and the I/O mechanism of the code.</p>
+    <p>Changes in the code which may seem small can cause a deadlock
+      as unforeseen consequences may occur. The use of <c>input</c> is
+      dangerous in this type of code.</p>
+  </section>
+</erlref>
+

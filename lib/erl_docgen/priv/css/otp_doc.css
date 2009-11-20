@@ -1,0 +1,117 @@
+
+
+body          { 
+  background: white;
+  font-family: Verdana, Arial, Helvetica, sans-serif;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  overflow: scroll;
+  height: 100%;
+  max-height: 100%;
+}
+
+
+th            { font-family: Verdana, Arial, Helvetica, sans-serif }
+td            { font-family: Verdana, Arial, Helvetica, sans-serif }
+p             { font-family: Verdana, Arial, Helvetica, sans-serif }
+
+.header       { background: #222; color: #fff }
+.top          { background: #efe }
+.otp          { background: #efe }
+.erlang       { background: #ffe }
+.otp2         { background: #efe }
+.app          { background: #ffe }
+
+a:link         { color: blue; text-decoration: none }
+a:active       { color: blue; text-decoration: none }
+a:visited      { color: blue; text-decoration: none }
+
+#container {
+  width: 100%;
+  margin: 0;
+  background-color: #fff;
+}
+
+
+#leftnav  {
+  position: fixed;
+  float: left;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 200px;
+  overflow:auto;
+  margin: 0;
+  padding: 1px;
+  border-right: 1px solid red;
+}
+
+
+#content   {
+  margin-left: 240px; /* set left value to WidthOfFrameDiv */
+}
+
+.frontpage 
+{
+  padding-top: 50px; /* Magins for inner DIV inside each DIV (to provide padding) */
+}
+
+
+.innertube 
+{
+  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+}
+
+.footer 
+{
+  margin: 15px; /* Magins for inner DIV inside each DIV (to provide padding) */
+
+}
+span.bold_code        { font-family: courier;font-weight: bold}
+span.code        { font-family: courier;font-weight: normal}
+
+.note, .warning {
+  border: solid black 1px;
+  margin: 1em 3em;
+}
+
+.note .label {
+  background: #30d42a;
+  color: white;
+  font-weight: bold;
+  padding: 5px 10px;
+}
+.note .content {
+  background: #eafeea;
+  color: black;
+  line-height: 120%;
+  font-size: 90%;
+  padding: 5px 10px;
+}
+.warning .label {
+  background: #C00;
+  color: white;
+  font-weight: bold;
+  padding: 5px 10px;
+}
+.warning .content {
+  background: #FFF0F0;
+  color: black;
+  line-height: 120%;
+  font-size: 90%;
+  padding: 5px 10px;
+}
+
+.example     { 
+  background-color:#eeeeff;
+  padding: 0px 10px;
+} 
+
+pre          { font-family: courier; font-weight: normal }
+
+.REFBODY     { margin-left: 13mm }
+
+.REFTYPES    { margin-left: 8mm }
+
+footer       {  }

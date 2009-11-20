@@ -1,0 +1,4 @@
+group: tools
+short: Event Tracer (ET), uses the built-in trace mechanism in
+short: Erlang and provides tools for collection and graphical
+short: viewing of trace data.

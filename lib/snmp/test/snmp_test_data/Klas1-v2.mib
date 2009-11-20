@@ -1,0 +1,128 @@
+          Klas1-V2 DEFINITIONS ::= BEGIN
+ 
+IMPORTS
+    MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,
+    TimeTicks, Counter32, snmpModules, mib-2, enterprises, IpAddress,
+    Integer32
+        FROM SNMPv2-SMI
+    DisplayString, TestAndIncr, TimeStamp, RowStatus, TruthValue,
+    TEXTUAL-CONVENTION
+        FROM SNMPv2-TC
+    MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+        FROM SNMPv2-CONF;
+
+klas1v2 MODULE-IDENTITY
+    LAST-UPDATED "9511090000Z"
+    ORGANIZATION ""
+    CONTACT-INFO
+	""
+    DESCRIPTION
+            "v2 variant of Klas1.  Used for compatibility testing."
+    ::= { snmpModules 1 }
+
+          klas1       OBJECT IDENTIFIER ::= { mib-2 7 }
+ 
+
+          fname OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              MAX-ACCESS  read-write
+              STATUS  current
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      printable ASCII characters."
+              ::= { klas1 1 }
+ 
+          friendsTable OBJECT-TYPE
+              SYNTAX  SEQUENCE OF FriendsEntry
+              MAX-ACCESS  not-accessible
+              STATUS  current
+              DESCRIPTION
+                      "A list of klas friends."
+              ::= { klas1 4 }
+ 
+          friendsEntry OBJECT-TYPE
+              SYNTAX  FriendsEntry
+              MAX-ACCESS  not-accessible
+              STATUS  current
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex }
+              ::= { friendsTable 1 }
+ 
+          FriendsEntry ::=
+              SEQUENCE {
+			fIndex
+                      Integer32,
+                   fName
+                      DisplayString,
+                   fStatus
+                      RowStatus              }
+ 
+          fIndex OBJECT-TYPE
+              SYNTAX  Integer32
+              MAX-ACCESS  not-accessible
+              STATUS  current
+               DESCRIPTION
+                      "number of friend"
+              ::= { friendsEntry 1 }
+ 
+          fName OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              MAX-ACCESS  read-create
+              STATUS  current
+              DESCRIPTION
+                      "Name of friend"
+              ::= { friendsEntry 2 }
+
+           fStatus OBJECT-TYPE
+              SYNTAX      RowStatus
+              MAX-ACCESS      read-create
+              STATUS      current
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { friendsEntry 3 }
+
+          kompissTable OBJECT-TYPE
+              SYNTAX  SEQUENCE OF KompissEntry
+              MAX-ACCESS  not-accessible
+              STATUS  current
+              DESCRIPTION
+                      "A list of klas kompiss."
+              ::= { klas1 5 }
+ 
+          kompissEntry OBJECT-TYPE
+              SYNTAX  KompissEntry
+              MAX-ACCESS  not-accessible
+              STATUS  current
+              DESCRIPTION
+                      "nope"
+              INDEX   { fIndex }
+              ::= { kompissTable 1 }
+ 
+          KompissEntry ::=
+              SEQUENCE {
+                   kName
+                      DisplayString,
+                   kStatus
+                      RowStatus              }
+ 
+          kName OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              MAX-ACCESS  read-create
+              STATUS  current
+              DESCRIPTION
+                      "Name of kompis"
+              ::= { kompissEntry 1 }
+
+           kStatus OBJECT-TYPE
+              SYNTAX      RowStatus
+              MAX-ACCESS      read-create
+              STATUS      current
+              DESCRIPTION
+                      "The status of this conceptual row."
+              ::= { kompissEntry 2 }
+
+	
+
+          END
+ 

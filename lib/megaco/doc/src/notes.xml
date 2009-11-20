@@ -1,0 +1,1167 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Megaco Release Notes</title>
+    <prepared>Lars Thors&eacute;n, H&aring;kan Mattsson, Micael Karlberg</prepared>
+    <docno></docno>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Megaco system
+    from version to version. The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Megaco. Each release of Megaco
+    thus constitutes one section in this document. The title of each
+    section is the version number of Megaco.</p>
+
+  <section>
+    <title>Megaco 3.13</title>
+
+    <p>Version 3.13 supports code replacement in runtime from/to
+      version 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A minor optimization by using ets:update_element
+            instead of ets:insert for some table updates.</p>
+          <p>Own Id: OTP-8239</p>
+	  <!-- <p>Aux Id: Seq 11332</p> -->
+        </item>
+
+        <item>
+          <p>The documentation is now built with open source tools 
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
+            platforms. One visible change is that the frames are removed.</p>
+          <p>Own Id: OTP-8249</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Replacing obsolete guard tests.</p>
+          <p>Own Id: OTP-8164</p>
+	  <p>Aux Id: Seq 11332</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.13 -->
+
+
+  <section>
+    <title>Megaco 3.12</title>
+
+<!--
+    <p>Version 3.12 supports code replacement in runtime from/to
+      version 3.11.3.</p>
+-->
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Improve handling of async transaction reply. </p>
+          <p>For asynchronous requests, issued using 
+            <seealso marker="megaco#cast">megaco:cast/3</seealso>, 
+            the reply will be delivered using the 
+            <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+            callback function. </p>
+          <p>If a receiver of a request, issued using 
+            <seealso marker="megaco#cast">megaco:cast/3</seealso>, 
+            does not reply in time, megaco re-sends the request. 
+            If the receiver of the request sends the reply at the same 
+            time as megaco re-sends, it may also send a reply to the 
+            resent request (thinking the first reply got lost). These 
+            two replies may arrive more or less at the same time, 
+            causing confusion. </p>
+          <p>In order to improve this situation, a number of 
+            improvements have been done: </p>
+          <list type="bulleted">
+            <item>
+              <p>When the first reply arrives, a timer, request-keep-alive, 
+                is started. This timer is used to decide when to stop 
+                accepting replies as legitimate. </p>
+              <p>The timeout time for the timer is specified by the
+                config option <em>request_keep_alive_timout</em>, 
+                which can be set per 
+                <seealso marker="megaco#ui_request_keep_alive_timeout">user</seealso> 
+                or per 
+                <seealso marker="megaco#ci_request_keep_alive_timeout">connection</seealso>. </p>
+	    </item>
+            <item>
+              <p>We also keep track of how many replies has been received
+                (we do this as long as the request-keep-alive timer is 
+                running). </p>
+            </item>
+            <item>
+              <p>Each reply that arrives while the request-keep-alive timer 
+                is running (including the first) will be delivered using the 
+                <seealso marker="megaco_user#trans_reply">handle_trans_reply/4,5</seealso> 
+                callback function, but with the UserReply augmented to
+                include a serial number indicating which reply number this
+                is. 
+                The <em>first</em> reply to arrive, 
+                will be numbered <em>one (1)</em>. </p>
+            </item>
+            <item>
+              <p>Replies arriving after the timer has expired will be delivered
+                in the same way as before, using the 
+                <seealso marker="megaco_user#unexpected_trans">handle_unexpected_trans/3,4</seealso> 
+                callback function. </p>
+	     </item>  
+            <item>
+              <p>Note that if the timer was <em>not</em> configured, 
+                megaco will act exactly as before! </p>
+            </item>
+          </list>
+          <p>Own Id: OTP-8183</p>
+	  <p>Aux Id: Seq 11393</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>If the megaco app received a transaction reply, for a request 
+            issued using the
+	    <seealso marker="megaco#call">call/3</seealso> function, from 
+            the wrong remote entity (wrong MId)), megaco would still deliver 
+            the reply (<seealso marker="megaco#call">call/3</seealso> 
+            returnes) as if from the correct remote entity (right MId). </p>
+          <p>This has been changed so that the function now returns with
+            an error reason. </p>
+          <p>See <seealso marker="megaco#call">call/3</seealso> for more 
+            info. </p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8212</p>
+	  <p>Aux Id: Seq 11305</p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.12 -->
+
+
+  <section>
+    <title>Megaco 3.11.3</title>
+
+<!--
+    <p>Version 3.11.3 supports code replacement in runtime from/to
+      version 3.11.2, 3.11.1 and 3.11.</p>
+-->
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Replacing obsolete guard tests.</p>
+          <p>Own Id: OTP-8164</p>
+	  <!-- <p>Aux Id: Seq 11332</p> -->
+        </item>
+
+        <item>
+          <p>Added the config option 
+            <seealso marker="megaco#ui_call_proxy_gc_timeout">call_proxy_gc_timeout</seealso>
+            to be able to control the way unexpected replies (when requests issued 
+            via calls to <seealso marker="megaco#call">call/3</seealso>)
+            are handled. </p>
+          <p>See
+            <seealso marker="megaco#user_info">user_info/2</seealso>, 
+            <seealso marker="megaco#conn_info">conn_info/2</seealso> and
+            <seealso marker="megaco#call">call/3</seealso> for more info. </p>
+          <p>Own Id: OTP-8167</p>
+	  <p>Aux Id: Seq 11393</p>
+        </item>
+
+        <item>
+          <p>Make flex scanner c89 compiler compliant.</p>
+	  <p>Akira Kitada</p>
+          <p>Own Id: OTP-8191</p>
+	  <!-- <p>Aux Id: Seq 11332</p> -->
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Replacing obsolete guard tests.</p>
+          <p>Own Id: OTP-8164</p>
+	  <p>Aux Id: Seq 11332</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.11.3 -->
+
+
+  <section>
+    <title>Megaco 3.11.2</title>
+
+    <p>Version 3.11.2 supports code replacement in runtime from/to
+      version 3.11.1 and 3.11.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Megaco was unnecessarily strict when parsing the SDP 
+            attribute <c>maxptime</c> (leading or trailing spaces
+            cased the value parse to fail). </p>
+          <p>This has been improved so that leading and trailing 
+            spaces are stripped before parsing the value. 
+            The same has been done for the attribute <c>ptime</c>.</p>
+          <p>Own Id: OTP-8123</p>
+	  <p>Aux Id: Seq 11364</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[text] The <em>unquoted</em> string BOTH was interpreted as the 
+            <c>'BothToken'</c> token. This was a version 3 (prev3a, prev3b, 
+            prev3c and v3) only. </p>
+          <p>Own Id: OTP-8114</p>
+	  <p>Aux Id: Seq 11353</p>
+        </item>
+
+        <item>
+          <p>The reply proxy could crash if the timeout time calculation
+            results in a negative number. This will result in a function 
+            clause with resulting error report.</p>
+          <p>Own Id: OTP-8081</p>
+	  <p>Aux Id: Seq 11332</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.11.2 -->
+
+
+  <section>
+    <title>Megaco 3.11.1</title>
+
+    <p>Version 3.11.1 supports code replacement in runtime from/to
+      version 3.11.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>In order to better utilize multi-core procs, the 
+            <c>flex</c> (text) scanner has been improved. </p>
+          <p>The <c>flex</c> (text) scanner has been made reentrant,
+            <em>if</em> the flex utility supports this. Note that the version
+            of <c>flex</c> supplied with some OS/distros (Solaris 10, 
+            FreeBSD and OpenBSD to mention a few) may not support this, in which
+            case the flex scanner will be non-reentrant, just as before. </p>
+          <p>Own Id: OTP-7302</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[text] The <em>unquoted</em> string BOTH was interpreted as the 
+            <c>'BothToken'</c> token. This was a version 3 (prev3a, prev3b, 
+            prev3c and v3) only. </p>
+          <p>Own Id: OTP-8114</p>
+	  <p>Aux Id: Seq 11353</p>
+        </item>
+
+        <item>
+          <p>The reply proxy could crash if the timeout time calculation
+            results in a negative number. This will result in a function 
+            clause with resulting error report.</p>
+          <p>Own Id: OTP-8081</p>
+	  <p>Aux Id: Seq 11332</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.11.1 -->
+
+
+  <section>
+    <title>Megaco 3.11</title>
+
+<!--
+    <p>Version 3.11 supports code replacement in runtime from/to
+      version 3.10.1 and 3.10.0.1.</p>
+-->
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>In order to better utilize multi-core procs, the 
+            <c>flex</c> (text) scanner has been improved. </p>
+          <p>The <c>flex</c> (text) scanner has been made reentrant,
+            <em>if</em> the flex utility supports this. Note that the version
+            of <c>flex</c> supplied with some OS/distros (Solaris 10, 
+            FreeBSD and OpenBSD to mention a few) may not support this, in which
+            case the flex scanner will be non-reentrant, just as before. </p>
+          <p>Own Id: OTP-7302</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>The (plain) text scanner could incorrectly identify
+            character strings (any 17 char long string with the
+            char t in the middle) as a TimeStampToken.</p>
+          <p>Own Id: OTP-7249</p>
+	  <p>Aux Id: Seq 10917</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.11 -->
+
+
+  <section>
+    <title>Megaco 3.10.1</title>
+
+    <p>Version 3.10.1 supports code replacement in runtime from/to
+      version 3.10.0.1, 3.10 and 3.9.4.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Updated file headers.</p>
+          <p>Own Id: OTP-7851</p>
+	  <p>Aux Id: Seq 11140</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Unexpected <seealso marker="megaco_user#unexpected_trans">handle_unexpected_reply</seealso> callbacks. </p>
+          <p>The <seealso marker="megaco_user">megaco_user</seealso> callback function 
+            <seealso marker="megaco_user#unexpected_trans">handle_unexpected_reply</seealso> 
+            could during high load be called with unexpected values for the Trans
+            argument, such as an <c>TransactionReply</c> where <c>transactionResult</c> 
+            had the value <c>{error, timeout}</c>. This was a result of a raise condition 
+            and has now been fixed. </p>
+          <p>Own Id: OTP-7926</p>
+	  <p>Aux Id: Seq 11255</p>
+        </item>
+
+        <item>
+          <p>[text] PropertyParm values cannot be quoted. </p>
+          <p>It was not possible to encode a PropertyParm value as a quoted string 
+            (unless it *had* to (has at least one RestChar)). The megaco text codec's 
+            now also accepts quoted strings as PropertyParm values. </p>
+          <p>Own Id: OTP-7936</p>
+	  <p>Aux Id: Seq 11258</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>If the transport module calls the 
+            <seealso marker="megaco#process_received_message">process_received_message/5</seealso> 
+            or 
+            <seealso marker="megaco#receive_message">receive_message/5</seealso> 
+            function(s) for the initial message, then the 
+            <seealso marker="megaco_user#connect">handle_connect/3</seealso> 
+            function will now be called and not the
+            <seealso marker="megaco_user#connect">handle_connect/2</seealso> 
+            function. </p>
+          <p>Own Id: OTP-7713</p>
+	  <p>Aux Id: Seq 11140</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.10.1 -->
+
+
+  <section>
+    <title>Megaco 3.10.0.1</title>
+
+    <p>Version 3.10.0.1 supports code replacement in runtime from/to
+      version 3.10 and 3.9.4 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Updated file headers.</p>
+          <p>Own Id: OTP-7851</p>
+	  <!-- <p>Aux Id: Seq 11140</p> -->
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Memory leak in the flex scanner. There was a memory
+            leak in the flex scanner function handling 
+            Property Parameters. </p>
+          <p>Own Id: OTP-7700</p>
+	  <p>Aux Id: Seq 11126</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>If the transport module calls the 
+            <seealso marker="megaco#process_received_message">process_received_message/5</seealso> 
+            or 
+            <seealso marker="megaco#receive_message">receive_message/5</seealso> 
+            function(s) for the initial message, then the 
+            <seealso marker="megaco_user#connect">handle_connect/3</seealso> 
+            function will now be called and not the
+            <seealso marker="megaco_user#connect">handle_connect/2</seealso> 
+            function. </p>
+          <p>Own Id: OTP-7713</p>
+	  <p>Aux Id: Seq 11140</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.10.0.1 -->
+
+
+  <section>
+    <title>Megaco 3.10</title>
+
+    <p>Version 3.10 supports code replacement in runtime from/to
+      version 3.9.4, 3.9.3, 3.9.2, 3.9.1.1, 3.9.1, 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Added new API function 
+            <seealso marker="megaco#connect">megaco:connect/5</seealso> and
+            the corresponding new <c>megaco_user</c> callback function 
+            <seealso marker="megaco_user#connect">handle_connect/3</seealso>. 
+            The purpose of this is to be able to pass information to the
+            <seealso marker="megaco_user#connect">handle_connect/3</seealso> 
+            function by calling the 
+            <seealso marker="megaco#connect">megaco:connect/5</seealso> 
+            function. </p>
+          <p>Own Id: OTP-7713</p>
+	  <p>Aux Id: Seq 11140</p>
+        </item>
+
+        <item>
+          <p>Update file headers with new copyright notice. </p>
+          <p>Own Id: OTP-7743</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Memory leak in the flex scanner. There was a memory
+            leak in the flex scanner function handling 
+            Property Parameters. </p>
+          <p>Own Id: OTP-7700</p>
+	  <p>Aux Id: Seq 11126</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>If the transport module calls the 
+            <seealso marker="megaco#process_received_message">process_received_message/5</seealso> 
+            or 
+            <seealso marker="megaco#receive_message">receive_message/5</seealso> 
+            function(s) for the initial message, then the 
+            <seealso marker="megaco_user#connect">handle_connect/3</seealso> 
+            function will now be called and not the
+            <seealso marker="megaco_user#connect">handle_connect/2</seealso> 
+            function. </p>
+          <p>Own Id: OTP-7713</p>
+	  <p>Aux Id: Seq 11140</p>
+        </item>
+
+      </list>
+
+    </section>
+  </section> <!-- 3.10 -->
+
+
+  <section>
+    <title>Megaco 3.9.4</title>
+
+    <p>Version 3.9.4 supports code replacement in runtime from/to
+      version 3.9.3, 3.9.2, 3.9.1.1, 3.9.1, 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Miscellaneous dialyzer related and test case cleanup. </p>
+          <p>Own Id: OTP-7614</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Segmenting a reply failed (with a badmatch) if the message 
+            did not actually need to be segmented (e.g. was within the
+            size limit, 
+            <seealso marker="megaco#ui_max_pdu_size">max_pdu_size</seealso>). </p>
+          <p>Own Id: OTP-7733</p>
+	  <p>Aux Id: Seq 11168</p>
+        </item>
+
+        <item>
+          <p>Improve the error handling of megaco_tcp for received 
+            messages. </p>
+          <p>Own Id: OTP-7728</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9.3.1 -->
+
+
+  <section>
+    <title>Megaco 3.9.3</title>
+
+    <p>Version 3.9.3 supports code replacement in runtime from/to
+      version 3.9.2, 3.9.1.1, 3.9.1, 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Miscellaneous dialyzer related and test case cleanup. </p>
+          <p>Own Id: OTP-7614</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Memory leak in the flex scanner. There was a memory
+            leak in the flex scanner function handling 
+            Property Parameters. </p>
+          <p>Own Id: OTP-7700</p>
+	  <p>Aux Id: Seq 11126</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9.3 -->
+
+
+  <section>
+    <title>Megaco 3.9.2</title>
+
+    <p>Version 3.9.2 supports code replacement in runtime from/to
+      version 3.9.1.1, 3.9.1, 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>Miscellaneous dialyzer related and test case cleanup. </p>
+          <p>Own Id: OTP-7614</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>The text encoders (v1, v2, v3, ...) all failed to 
+            properly encode the DigitMapDescriptor. </p>
+          <p>Own Id: OTP-7671</p>
+	  <p>Aux Id: Seq 11113</p>
+        </item>
+
+        <item>
+          <p>The mini decoder some time incorrectly identifies 
+            plain text as tokens. </p>
+          <p>Own Id: OTP-7672</p>
+	  <p>Aux Id: Seq 11103</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9.2 -->
+
+
+  <section>
+    <title>Megaco 3.9.1.1</title>
+
+    <p>Version 3.9.1.1 supports code replacement in runtime from/to
+      version 3.9.1, 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Miscellaneous dialyzer related and test case cleanup. </p>
+          <p>Own Id: OTP-7614</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[text] The flex scanner did not allow an empty quotedString
+            in propertyParm. </p>
+          <p>Own Id: OTP-7573</p>
+	  <p>Aux Id: Seq 11062</p>
+        </item>
+
+        <item>
+          <p>[text] Unable to decode a version 2 message with a
+            topologyTriple containing an (optional) eventStream. </p>
+          <p>Own Id: OTP-7576</p>
+	  <p>Aux Id: Seq 11066</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9.1.1 -->
+
+
+  <section>
+    <title>Megaco 3.9.1</title>
+
+    <p>Version 3.9.1 supports code replacement in runtime from/to
+      version 3.9, 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>[text] The text codec(s) has been optimized. The parsing of 
+            "property parameters" has been moved to the scanner(s). Which means 
+            that when decoding messages containing property parameters, using 
+            the flex scanner, decode time(s) will be reduced. The reduction 
+            depends on the message, but can be as large as 25%. </p>
+          <p>Own Id: OTP-7431</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[text] The flex scanner did not allow an empty quotedString
+            in propertyParm. </p>
+          <p>Own Id: OTP-7573</p>
+	  <p>Aux Id: Seq 11062</p>
+        </item>
+
+        <item>
+          <p>[text] Unable to decode a version 2 message with a
+            topologyTriple containing an (optional) eventStream. </p>
+          <p>Own Id: OTP-7576</p>
+	  <p>Aux Id: Seq 11066</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9.1 -->
+
+
+  <section>
+    <title>Megaco 3.9</title>
+
+    <p>Version 3.9 supports code replacement in runtime from/to
+      version 3.8.2, 3.8.1 and 3.8 except 
+      when using any of the drivers (flex for text or asn1 for binary).</p>
+
+    <section>
+      <title>Improvements and new features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>[text] The text codec(s) has been optimized. The parsing of 
+            "property parameters" has been moved to the scanner(s). Which means 
+            that when decoding messages containing property parameters, using 
+            the flex scanner, decode time(s) will be reduced. The reduction 
+            depends on the message, but can be as large as 25%. </p>
+          <p>Own Id: OTP-7431</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>If a TransactionRequest arrives while a user is
+            connecting (is in the callback function
+            handle_connect as a result of a megaco:connect call),
+            megaco responds with a pending message and then drops
+            the request.</p>
+          <p>These messages will now be silently dropped, forcing the 
+            other side to resend. </p>
+          <p>Own Id: OTP-7192</p>
+	  <p>Aux Id: Seq 10884</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.9 -->
+
+
+  <!-- section>
+    <title>Release notes history</title>
+    <p>For information about older versions see
+      <url href="part_notes_history_frame.html">release notes history</url>.</p 
+  </section> -->
+</chapter>
+

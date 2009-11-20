@@ -1,0 +1,588 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>SSH Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>notes.xml</file>
+  </header>
+
+ <section><title>Ssh 1.1.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Now clear all processes when a connnection is terminated.</p>
+          <p>
+            Own Id: OTP-8121 Aux Id:</p>
+        </item>
+        <item>
+          <p>
+            In some rare cases the connection handler could enter an infinite loop.</p>
+          <p>
+            Own Id: OTP-8277 Aux Id: seq11428</p>
+        </item>
+        <item>
+          <p>
+            If an SFTP server did not respond with EOF, the function 
+            ssh_sftp:list_dir/2/3 would enter an infinite loop.</p>
+          <p>
+            Own Id: OTP-8278 Aux Id: seq11450</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools (xsltproc and fop) 
+            that exists on most platforms. One visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8201 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            ssh_sftp:start_channel did not handle all possible return 
+            values from ssh_channel:start correctly.
+          </p>
+          <p>
+            Own Id: OTP-8176 Aux Id: </p>
+        </item>
+        <item>
+          <p>
+            SFTPD did not handle rename command (version 4) correctly.
+          </p>
+          <p>
+            Own Id: OTP-8175 Aux Id: seq11373</p>
+        </item>
+        <item>
+          <p>
+            If a connection manager already had been terminated it could cause a channel
+            to generate a crash report when it was about to stop.
+          </p>
+          <p>
+            Own Id: OTP-8174 Aux Id: seq11377</p>
+        </item>
+        <item>
+          <p>
+            Requests could result in badarg or badmatch EXIT messages in the connection 
+            manager if the channel no longer existed.</p>
+          <p>
+            Own Id: OTP-8173 Aux Id: seq11379</p>
+        </item>
+        <item>
+          <p>
+            ssh_transport:unpack/3 could cause a badarg error.</p>
+          <p>
+            Own Id: OTP-8162 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The encryption algorithm aes128-cbc is now supported.
+            Requires that crypto-1.6.1 is available.</p>
+          <p>
+            Own Id: OTP-8110 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+
+ <section><title>Ssh 1.1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            ssh_sftp:start_channel/3 did not handle timout correctly.</p>
+          <p>
+            Own Id: OTP-8159 Aux Id: seq11386</p>
+        </item>
+        <item>
+          <p>
+            If a progress message was not recieved after invoking ssh:connect/3
+            the call could hang for ever. A timeout option has also been added.</p>
+          <p>
+            Own Id: OTP-8160 Aux Id: seq11386</p>
+        </item>
+        <item>
+          <p>
+            A comma has been missing in the ssh.appup file since SSH-1.0.2.</p>
+          <p>
+            Own Id: OTP-8161 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            SSH sometimes caused a crash report at disconnect.</p>
+          <p>
+            Own Id: OTP-8071 Aux Id: seq11319</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The operation ssh_sftp:stop_channel/1 returned an 
+            exception if the connection already had been closed.</p>
+          <p>
+            Own Id: OTP-7996 Aux Id: seq11281</p>
+        </item>
+        <item>
+          <p>
+            SSH did not handle if supervisor:start_child/2 returned 
+            {error, already_present}.</p>
+          <p>
+            Own Id: OTP-8034 Aux Id: seq11307</p>
+        </item>
+        <item>
+          <p>
+            SSH no longer cause supervisor reports when a connection is 
+            terminated in a controlled manner.</p>
+          <p>
+            Own Id: OTP-8035 Aux Id: seq11308</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Ssh confused local and remote channel id's, which in some
+            cases resulted in that messages were discarded.</p>
+          <p>
+            Own Id: OTP-7914 Aux Id: seq11234</p>
+        </item>
+        <item>
+          <p>
+            Ssh could not handle echo values other than 0 and 1.</p>
+          <p>
+            Own Id: OTP-7917 Aux Id: seq11238</p>
+        </item>
+        <item>
+          <p>
+            A crash occurred if a non-valid channel reference was received.</p>
+          <p>
+            Own Id: OTP-7918 Aux Id: seq11238</p>
+        </item>
+        <item>
+          <p>
+            Sftpd connections was not closed after receiving eof from a client.</p>
+          <p>
+            Own Id: OTP-7921 Aux Id: seq11222</p>
+        </item>
+        <item>
+          <p>
+            It was not possible to start a SFTP subsystem on certain platforms, 
+            i.e. those who do not support symbolic links.</p>
+          <p>
+            Own Id: OTP-7930 Aux Id: </p>
+        </item>
+        <item>
+          <p>
+            In some cases the message {ssh_cm, ssh_connection_ref(), {closed, ssh_channel_id()}}
+            was not passed to the registered callback module.</p>
+          <p>
+            Own Id: OTP-7957 Aux Id: </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            By using the sftpd option {max_files, Integer}, the message
+            size for READDIR commands can be reduced.</p>
+          <p>
+            Own Id: OTP-7919 Aux Id: seq11230</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+ <section><title>Ssh 1.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The erlang ssh server has presented itself incorrectly,
+            using the special version ssh-1.99, although it never has
+            supported versions below 2.0. Since ssh-1.1 client
+            versions below 2.0 are correctly rejected instead of
+            letting the server crash later on. Alas the problem with
+            the presentation string was not discovered until after
+            ssh.1.1 was released. Now the server will present itself
+            as ssh-2.0.</p>
+          <p>
+            Own Id: OTP-7795</p>
+        </item>
+        <item>
+          <p>
+            An internal function call used an incorrect parameter, which
+            caused problem when the old listen API was used. This was
+            introduced in Ssh-1.1.</p>
+          <p>
+            Own Id: OTP-7920 Aux Id: seq11211</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Ssh timeouts will now behave as expected e.i. defaults to
+            infinity only the user of the ssh application can know of
+            a reasonable timeout value for their application.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7807</p>
+        </item>
+        <item>
+          <p>
+            The implementation of timeouts added as a patch in
+            ssh-1.0.1 was slightly changed and is now documented.</p>
+          <p>
+            Own Id: OTP-7808</p>
+        </item>
+        <item>
+          <p>
+            To honor the multiplexing of channels over one ssh
+            connection concept ssh_sftp:connect/ [1,2,3] is
+            deprecated and replaced by ssh_sftp:start_channel/[1,2,3]
+            and ssh_sftp:stop/1 is deprecated and replaced by
+            ssh_sftp:stop_channel/1 and to stop the ssh connection
+            ssh:close/ 1 should be called.</p>
+          <p>
+            Own Id: OTP-7809</p>
+        </item>
+        <item>
+          <p>
+            Added the message {ssh_channel_up, ChannelId,
+            ConnectionManager} that shall be handled by the channel
+            callback handle_msg/2. This makes the function
+            handle_msg/2 a mandatory function for ssh channels
+            implementations which it was not in ssh-1.1.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7828</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
+  <section><title>Ssh 1.1</title>
+  
+  <section><title>Fixed Bugs and Malfunctions</title>
+  <list>
+    <item>
+      <p>
+	A flaw in the implementation of the supervision tree
+	caused the ssh daemon to close the connections to all
+	currently logged in users if one user logged out. Another
+	problem related to the supervision tree caused the closing
+	down of clients to leak processes e.i. all processes was
+      not shutdown correctly.</p>
+      <p>
+      Own Id: OTP-7676</p>
+    </item>
+    <item>
+      <p>
+	Tabs could cause ssh_cli to print things in a surprising
+      way.</p>
+      <p>
+      Own Id: OTP-7683 Aux Id: seq11102 </p>
+    </item>
+    <item>
+      <p>
+	[sftp, sftpd] - Added patch to make sftp timestamps more
+	correct, in the long run it would be nice to have better
+	support in file to be able to make it always behave
+	correctly now it will be correct 99 % of time instead of
+      almost never correct, at least on unix-based platforms.</p>
+      <p>
+      Own Id: OTP-7685 Aux Id: seq11082 </p>
+    </item>
+    <item>
+      <p>
+	[sftpd] - Added patch to further improve handling of
+      symbolic links in the sftp-server.</p>
+      <p>
+      Own Id: OTP-7766 Aux Id: seq11101 </p>
+    </item>
+    <item>
+      <p>
+	Ssh incorrectly sent the local id instead of the remote
+	id of a channel to the peer. For simpler cases these ids
+	often happen to have the same value. One case when they
+	do not is when the client sends an exec command two times
+	in a raw on the same ssh connection (different channels
+	of course as the channel will be closed when the exec
+      command has been evaluated) .</p>
+      <p>
+      Own Id: OTP-7767</p>
+    </item>
+    <item>
+      <p>
+	Packet data could be lost under high load due to the fact
+	that buffered data was sometimes wrongly discarded before
+      it had been sent.</p>
+      <p>
+      Own Id: OTP-7768</p>
+    </item>
+    <item>
+      <p>
+	Improved ipv6-handling as some assumptions about inet
+      functions where incorrect.</p>
+      <p>
+      Own Id: OTP-7770</p>
+    </item>
+  </list>
+  </section>
+
+  
+  <section><title>Improvements and New Features</title>
+  <list>
+    <item>
+      <p>
+      Added new API function ssh:connection_info/2.</p>
+      <p>
+      Own Id: OTP-7456</p>
+    </item>
+    <item>
+      <p>
+	Now starts ssh channel processes later avoiding
+      synchronization problems between processes.</p>
+      <p>
+      Own Id: OTP-7516</p>
+    </item>
+    <item>
+      <p>
+	Ssh now rejects old versions of the ssh protocol for
+	security reasons. (Even if they where not correctly
+	rejected before the connection would probably have failed
+      anyway due to other reasons.)</p>
+      <p>
+      Own Id: OTP-7645 Aux Id: seq11094 </p>
+    </item>
+    <item>
+      <p>
+	New API module ssh_channel has been added. This is a
+	behaviour to facilitate the implementation of ssh clients
+	and plug in subsystems to the ssh daemon. Note that this
+	slightly changes the options to the API function
+	ssh:daemon/[1,2,3] deprecating all no longer documented
+	options. Note that the new API enforces the "logical way"
+	of using the old API e.i. making the subsystem process
+	part of the ssh applications supervisor tree, so missuses
+      of the old API are not compatible with the new API.</p>
+      <p>
+      *** POTENTIAL INCOMPATIBILITY ***</p>
+      <p>
+      Own Id: OTP-7769</p>
+    </item>
+  </list>
+  </section>
+
+  <section><title>Known Bugs and Problems</title>
+  <list>
+    <item>
+      <p>
+	Public keys protected by a password are currently not
+      handled by the erlang ssh application.</p>
+      <p>
+      Own Id: OTP-6400 Aux Id: 10595 </p>
+    </item>
+  </list>
+  </section>
+  
+  </section>
+    
+    <section><title>Ssh 1.0.2</title>
+    
+    <section><title>Fixed Bugs and Malfunctions</title>
+    <list>
+      <item>
+	<p>
+	  [sftpd] - Listing of symbolic link directories should now
+	  work as expected.</p>
+	  <p>
+	  Own Id: OTP-7141 Aux Id: seq10856 </p>
+        </item>
+    </list>
+    </section>
+    
+    </section>
+    
+   <section><title>Ssh 1.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            [sftp] - When listing a directory with more than 100
+            files only the first 100 where listed. This has now been
+            fixed.</p>
+          <p>
+            Own Id: OTP-7318 Aux Id: seq10953 </p>
+        </item>
+        <item>
+          <p>
+            When restarting an ssh-system the expected return value
+            from ssh_system_sup:restart_acceptor/2 was incorrect,
+            this is no longer the case.</p>
+          <p>
+            Own Id: OTP-7564 Aux Id: seq11055 </p>
+        </item>
+        <item>
+          <p>
+            A few minor bugs where fixed in ssh_userreg.erl and
+            ssh_connection_manager and a a ssh_cli option was added
+            to restore backwards compatibility with the old ssh_cm -
+            API.</p>
+          <p>
+            Own Id: OTP-7565</p>
+        </item>
+        <item>
+          <p>
+            Fixed bug in ipv6 support and added option to disable
+            ipv6 as a workaround for badly configured computers.</p>
+          <p>
+            Own Id: OTP-7566</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            [sftp] - Option added to set timeout value in sftp.</p>
+          <p>
+            Own Id: OTP-7305 Aux Id: seq10945 </p>
+        </item>
+      </list>
+    </section>
+
+   </section>
+
+  <section><title>Ssh 1.0</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Removed some special handling of prompts that made ssh
+            behave differently than openssh.</p>
+          <p>
+            Own Id: OTP-7485 Aux Id: seq11025 </p>
+        </item>
+        <item>
+          <p>
+            Bug in encoding of pty opts has been fixed.</p>
+          <p>
+            Own Id: OTP-7504</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The architecture of the ssh processes has been
+            reconstructed to fit in a supervision tree as to become a
+            real OTP application and benefit from this when starting
+            and stopping.</p>
+          <p>
+            Own Id: OTP-7356 Aux Id: seq10899 </p>
+        </item>
+        <item>
+          <p>
+            Support for pty option echo off added. Requires kernel
+            from R12B-4.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7502 Aux Id: seq10959 </p>
+        </item>
+        <item>
+          <p>
+            The ssh API has been enhanced a lot of old API functions
+            has become deprecated.</p>
+          <p>
+            Own Id: OTP-7503</p>
+        </item>
+      </list>
+    </section>
+
+    <!-- p>For information about older versions see
+      <url href="part_notes_history_frame.html">release notes history</url>.</p -->
+  </section>
+</chapter>
+

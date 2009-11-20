@@ -1,0 +1,76 @@
+
+@author Richard Carlsson <richardc@it.uu.se>
+@copyright 1997-2004 Richard Carlsson
+@version {@vsn}
+@title Erlang Syntax Tools
+
+@doc This package contains modules for handling abstract Erlang syntax
+trees, in a way that is compatible with the "parse trees" of the
+standard library module `erl_parse', together with utilities for reading
+source files in unusual ways and pretty-printing syntax trees. Also
+included is an amazing module merger and renamer called Igor, as well as
+an automatic code-cleaner.
+
+<p>The abstract layer (defined in {@link erl_syntax}) is nicely
+structured and the node types are context-independent. The layer makes
+it possible to transparently attach source-code comments and user
+annotations to nodes of the tree. Using the abstract layer makes
+applications less sensitive to changes in the {@link //stdlib/erl_parse}
+data structures, only requiring the {@link erl_syntax} module to be
+up-to-date.</p>
+
+<p>The pretty printer {@link erl_prettypr} is implemented on top of the
+library module {@link prettypr}: this is a powerful and flexible generic
+pretty printing library, which is also distributed separately.</p>
+
+<p>For a short demonstration of parsing and pretty-printing, simply
+compile the included module <a
+href="../examples/demo.erl"><code>demo.erl</code></a>, and execute
+<code>demo:run()</code> from the Erlang shell. It will compile the
+remaining modules and give you further instructions.</p>
+
+<p>Also try the {@link erl_tidy} module, as follows:
+<pre>
+    erl_tidy:dir("any-erlang-source-dir", [test, old_guard_tests]).</pre>
+("<code>test</code>" assures that no files are modified).</p>
+
+<p>News in 1.4:
+<ul>
+  <li>Added support for {@link erl_syntax:cond_expr/1. cond-expressions},
+      {@link erl_syntax:try_expr/4. try-expressions} and
+      {@link erl_syntax:class_qualifier/2. class-qualifier patterns}.</li>
+  <li>Added support for parameterized modules.</li>
+  <li>{@link igor. Igor} is officially included.</li>
+  <li>Quick-parse functionality added to {@link epp_dodger}.</li>
+</ul>
+</p>
+
+<p>News in 1.3:
+<ul>
+  <li>Added support for qualified names (as used by "packages").</li>
+  <li>Various internal changes.</li>
+</ul>
+</p>
+
+<p>News in 1.2:
+<ul>
+  <li>HTML Documentation (generated with EDoc).</li>
+  <li>A few bug fixes and some minor interface changes (sorry for any
+    inconvenience).</li>
+</ul>
+</p>
+
+<p>News in 1.1:
+<ul>
+  <li>Module {@link erl_tidy}: check or tidy either a single module, or a
+    whole directory tree recursively. Rewrites and reformats the code
+    without losing comments or expanding macros. Safe mode allows
+    generating reports without modifying files.</li>
+  <li>Module {@link erl_syntax_lib}: contains support functions for easier
+    analysis of the source code structure.</li>
+  <li>Module {@link epp_dodger}: Bypasses the Erlang preprocessor - avoids
+    macro expansion, file inclusion, conditional compilation, etc.
+    Allows you to find/modify particular definitions/applications of
+    macros, and other things previously not possible.</li>
+</ul>
+</p>

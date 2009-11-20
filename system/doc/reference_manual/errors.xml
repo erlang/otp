@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Errors and Error Handling</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>errors.xml</file>
+  </header>
+
+  <section>
+    <title>Terminology</title>
+    <p>Errors can roughly be divided into four different types:</p>
+    <list type="bulleted">
+      <item>Compile-time errors</item>
+      <item>Logical errors</item>
+      <item>Run-time errors</item>
+      <item>Generated errors</item>
+    </list>
+    <p>A compile-time error, for example a syntax error, should not
+      cause much trouble as it is caught by the compiler.</p>
+    <p>A logical error is when a program does not behave as intended,
+      but does not crash. An example could be that nothing happens when
+      a button in a graphical user interface is clicked.</p>
+    <p>A run-time error is when a crash occurs. An example could be
+      when an operator is applied to arguments of the wrong type.
+      The Erlang programming language has built-in features for
+      handling of run-time errors.</p>
+    <p>A run-time error can also be emulated by calling
+      <c>erlang:error(Reason)</c>, <c>erlang:error(Reason, Args)</c>
+      (those appeared in Erlang 5.4/OTP-R10),
+      <c>erlang:fault(Reason)</c> or <c>erlang:fault(Reason, Args)</c>
+      (old equivalents).</p>
+    <p>A run-time error is another name for an exception
+      of class <c>error</c>.
+      </p>
+    <p>A generated error is when the code itself calls
+      <c>exit/1</c> or <c>throw/1</c>. Note that emulated run-time
+      errors are not denoted as generated errors here.
+      </p>
+    <p>Generated errors are exceptions of classes <c>exit</c> and
+      <c>throw</c>.
+      </p>
+    <p>When a run-time error or generated error occurs in Erlang, 
+      execution for the process which evaluated 
+      the erroneous expression is stopped.
+      This is referred to as a <em>failure</em>, that execution or
+      evaluation <em>fails</em>, or that the process <em>fails</em>,
+      <em>terminates</em> or <em>exits</em>. Note that a process may
+      terminate/exit for other reasons than a failure.</p>
+    <p>A process that terminates will emit an <em>exit signal</em> with
+      an <em>exit reason</em> that says something about which error
+      has occurred. Normally, some information about the error will
+      be printed to the terminal.</p>
+  </section>
+
+  <section>
+    <title>Exceptions</title>
+    <p>Exceptions are run-time errors or generated errors and 
+      are of three different classes, with different origins. The
+      <seealso marker="expressions#try">try</seealso> expression 
+      (appeared in Erlang 5.4/OTP-R10B)
+      can distinguish between the different classes, whereas the
+      <seealso marker="expressions#catch">catch</seealso>
+      expression can not. They are described in the Expressions chapter.</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Class</em></cell>
+        <cell align="left" valign="middle"><em>Origin</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>error</c></cell>
+        <cell align="left" valign="middle">Run-time error for example <c>1+a</c>, or the process called <c>erlang:error/1,2</c> (appeared in Erlang 5.4/OTP-R10B) or <c>erlang:fault/1,2</c> (old equivalent)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>exit</c></cell>
+        <cell align="left" valign="middle">The process called <c>exit/1</c></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>throw</c></cell>
+        <cell align="left" valign="middle">The process called <c>throw/1</c></cell>
+      </row>
+      <tcaption>Exception Classes.</tcaption>
+    </table>
+    <p>An exception consists of its class, an exit reason
+      (the <seealso marker="#exit_reasons">Exit Reason</seealso>),
+      and a stack trace (that aids in finding the code location of
+      the exception).</p>
+    <p>The stack trace can be retrieved using
+      <c>erlang:get_stacktrace/0</c> (new in Erlang 5.4/OTP-R10B 
+      from within a <c>try</c> expression, and is returned for 
+      exceptions of class <c>error</c> from a <c>catch</c> expression.</p>
+    <p>An exception of class <c>error</c> is also known as a run-time 
+      error.</p>
+  </section>
+
+  <section>
+    <title>Handling of Run-Time Errors in Erlang</title>
+
+    <section>
+      <title>Error Handling Within Processes</title>
+      <p>It is possible to prevent run-time errors and other
+        exceptions from causing
+        the process to terminate by using <c>catch</c> or
+        <c>try</c>, see the Expressions chapter about 
+        <seealso marker="expressions#catch">Catch</seealso>
+        and <seealso marker="expressions#try">Try</seealso>.</p>
+    </section>
+
+    <section>
+      <title>Error Handling Between Processes</title>
+      <p>Processes can monitor other processes and detect process
+        terminations, see
+        the <seealso marker="processes#errors">Processes</seealso>
+        chapter.</p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="exit_reasons"></marker>
+    <title>Exit Reasons</title>
+    <p>When a run-time error occurs, 
+      that is an exception of class <c>error</c>, 
+      the exit reason is a tuple <c>{Reason,Stack}</c>. 
+      <c>Reason</c> is a term indicating the type of error:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Reason</em></cell>
+        <cell align="left" valign="middle"><em>Type of error</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>badarg</c></cell>
+        <cell align="left" valign="middle">Bad argument. The argument is of wrong data type, or is otherwise badly formed.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>badarith</c></cell>
+        <cell align="left" valign="middle">Bad argument in an arithmetic expression.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{badmatch,V}</c></cell>
+        <cell align="left" valign="middle">Evaluation of a match expression failed. The value <c>V</c> did not match.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>function_clause</c></cell>
+        <cell align="left" valign="middle">No matching function clause is found when evaluating a function call.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{case_clause,V}</c></cell>
+        <cell align="left" valign="middle">No matching branch is found when evaluating a <c>case</c> expression. The value <c>V</c> did not match.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>if_clause</c></cell>
+        <cell align="left" valign="middle">No true branch is found when evaluating an <c>if</c> expression.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{try_clause,V}</c></cell>
+        <cell align="left" valign="middle">No matching branch is found when evaluating the of-section of a <c>try</c> expression. The value <c>V</c> did not match.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>undef</c></cell>
+        <cell align="left" valign="middle">The function cannot be found when evaluating a function call.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{badfun,F}</c></cell>
+        <cell align="left" valign="middle">There is something wrong with a fun <c>F</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{badarity,F}</c></cell>
+        <cell align="left" valign="middle">A fun is applied to the wrong number of arguments. <c>F</c> describes the fun and the arguments.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>timeout_value</c></cell>
+        <cell align="left" valign="middle">The timeout value in a <c>receive..after</c> expression is evaluated to something else than an integer or <c>infinity</c>.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>noproc</c></cell>
+        <cell align="left" valign="middle">Trying to link to a non-existing process.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>{nocatch,V}</c></cell>
+        <cell align="left" valign="middle">Trying to evaluate a <c>throw </c>outside a <c>catch</c>. <c>V</c> is the thrown term.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><c>system_limit</c></cell>
+        <cell align="left" valign="middle">A system limit has been reached. See Efficiency Guide for information about system limits.</cell>
+      </row>
+      <tcaption>Exit Reasons.</tcaption>
+    </table>
+    <p><c>Stack</c> is the stack of function calls being evaluated
+      when the error occurred, given as a list of tuples
+      <c>{Module,Name,Arity}</c> with the most recent function call
+      first. The most recent function call tuple may in some
+      cases be <c>{Module,Name,[Arg]}</c>.</p>
+  </section>
+</chapter>
+

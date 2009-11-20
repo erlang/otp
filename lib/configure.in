@@ -1,0 +1,37 @@
+dnl Turn of caching
+define([AC_CACHE_LOAD], )dnl
+define([AC_CACHE_SAVE], )dnl
+
+dnl Process this file with autoconf to produce a configure script.
+AC_INIT
+
+dnl
+dnl This is just to run configure in all applications that need it.
+dnl
+
+if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
+  AC_MSG_ERROR(You need to set the environment variable ERL_TOP!)
+fi
+erl_top=${ERL_TOP}
+AC_CONFIG_AUX_DIRS($erl_top/erts/autoconf)
+
+dnl Version 2.55 of autoconf generate code that assume a
+dnl sub directory isn't a link. Internally at Ericsson
+dnl some OTP application directories are soft links.
+dnl An added "/." solves this problem.
+dnl 
+dnl The arguments to AC_CONFIG_SUBDIRS should be literals
+dnl but a bug in autoconf 2.13 breaks conditional use
+dnl of multiple AC_CONFIG_SUBDIRS so we do it the "wrong"
+dnl way to force correct code.
+
+appdirs=""
+for d in * ; do
+    if test -f "$d/configure" ; then
+	appdirs="$appdirs $d/."
+    fi
+done
+
+AC_CONFIG_SUBDIRS($appdirs)
+
+AC_OUTPUT

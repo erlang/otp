@@ -1,0 +1,540 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1996-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+#
+# File format:
+#
+# Lines starting with '#' are ignored.
+#
+# <atom-decl> ::= "atom" <atom>+
+# <atom> ::= <atom-name> | 
+#            "'" <printname> "'" |
+#            <C-name> "=" "'" <printname> "'"
+# <atom-name> ::= [a-z][a-zA-Z_0-9]*
+# <C-name> ::=  [A-Z][a-zA-Z_0-9]*
+# <printname> ::= .*
+#
+# (although some characters may poison the Perl parser)
+#
+
+#
+# Frequently used atoms.
+#
+atom false true
+atom Underscore='_'
+atom Noname='nonode@nohost'
+atom EOT='$end_of_table'
+atom Cookie=''
+
+#
+# Used in the Beam emulator loop. (Smaller literals usually means tighter code.)
+#
+atom fun infinity timeout normal call return
+atom throw error exit
+atom undefined
+
+#
+# Used in beam_emu.c.
+#
+atom nocatch
+atom undefined_function
+atom undefined_lambda
+
+
+# All other atoms.  Try to keep the order alphabetic.
+#
+atom DOWN='DOWN'
+atom UP='UP'
+atom EXIT='EXIT'
+atom aborted
+atom abs_path
+atom absoluteURI
+atom active
+atom all
+atom all_but_first
+atom allocated
+atom allocated_areas
+atom allocator
+atom allocator_sizes
+atom alloc_util_allocators
+atom allow_passive_connect
+atom already_loaded
+atom anchored
+atom and
+atom andalso
+atom andthen
+atom any
+atom anycrlf
+atom apply
+atom args
+atom arg0
+atom arity
+atom asn1
+atom asynchronous
+atom atom
+atom atom_used
+atom attributes
+atom await_proc_exit
+atom awaiting_load
+atom awaiting_unload
+atom backtrace backtrace_depth
+atom badarg badarith badarity badfile badmatch badsig badfun
+atom bag
+atom band
+atom big
+atom bif_return_trap
+atom binary
+atom block
+atom blocked
+atom bnot
+atom bor
+atom bxor
+atom break_ignored
+atom breakpoint
+atom bsl
+atom bsr
+atom bsr_anycrlf
+atom bsr_unicode
+atom busy_dist_port
+atom busy_port
+atom call
+atom call_count
+atom caller
+atom capture
+atom case_clause
+atom caseless
+atom catchlevel
+atom cd
+atom cdr
+atom characters_to_binary_int
+atom characters_to_list_int
+atom clear
+atom close
+atom closed
+atom code
+atom command
+atom compat_rel
+atom compile
+atom compressed
+atom connect
+atom connected
+atom connection_closed
+atom cons
+atom const
+atom context_switches
+atom copy
+atom cpu
+atom cpu_timestamp
+atom cr
+atom crlf
+atom creation
+atom current_function
+atom data
+atom debug_flags
+atom delay_trap
+atom dexit
+atom depth
+atom dgroup_leader
+atom dictionary
+atom disable_trace
+atom disabled
+atom display_items
+atom dist
+atom Div='/'
+atom div
+atom dlink
+atom dmonitor_node
+atom dmonitor_p
+atom DollarDollar='$$'
+atom DollarUnderscore='$_'
+atom dollar_endonly
+atom dotall
+atom driver
+atom driver_options
+atom dsend
+atom dunlink
+atom duplicate_bag
+atom dupnames
+atom elib_malloc
+atom emulator
+atom enable_trace
+atom enabled
+atom endian
+atom env
+atom eof
+atom eol
+atom exception_from
+atom exception_trace
+atom extended
+atom Eq='=:='
+atom Eqeq='=='
+atom erlang
+atom ERROR='ERROR'
+atom error_handler
+atom error_logger
+atom ets
+atom ETS_TRANSFER='ETS-TRANSFER'
+atom event
+atom exact_reductions
+atom exclusive
+atom exit_status
+atom existing
+atom exiting
+atom exports
+atom external
+atom false
+atom fcgi
+atom fd
+atom first
+atom firstline
+atom flags
+atom flush
+atom flush_monitor_message
+atom force
+atom format_cpu_topology
+atom free
+atom fullsweep_after
+atom fullsweep_if_old_binaries
+atom fun
+atom function
+atom functions
+atom function_clause
+atom garbage_collecting
+atom garbage_collection
+atom gc_end
+atom gc_start
+atom Ge='>='
+atom generational
+atom get_seq_token
+atom get_tcw
+atom getenv
+atom getting_linked
+atom getting_unlinked
+atom global
+atom global_heaps_size
+atom Gt='>'
+atom grun
+atom group_leader
+atom heap_block_size
+atom heap_size
+atom heap_sizes
+atom heap_type
+atom heir
+atom hidden
+atom hide
+atom high
+atom hipe_architecture
+atom http httph https http_response http_request http_header http_eoh http_error http_bin httph_bin
+atom hybrid
+atom id
+atom if_clause
+atom imports
+atom in
+atom in_exiting
+atom inactive
+atom incomplete
+atom inconsistent
+atom index
+atom infinity
+atom info
+atom info_msg
+atom initial_call
+atom input
+atom internal_error
+atom internal_status
+atom instruction_counts
+atom invalid
+atom is_constant
+atom is_seq_trace
+atom io
+atom keypos
+atom kill
+atom killed
+atom kill_ports
+atom known
+atom label
+atom large_heap
+atom last_calls
+atom latin1
+atom Le='=<'
+atom lf
+atom line
+atom line_length
+atom linked_in_driver
+atom links
+atom list
+atom little
+atom loaded
+atom load_cancelled
+atom load_failure
+atom local
+atom long_gc
+atom low
+atom Lt='<'
+atom machine
+atom match
+atom match_spec
+atom max
+atom maximum
+atom max_tables max_processes
+atom mbuf_size
+atom memory
+atom memory_types
+atom message
+atom message_binary
+atom message_queue_len
+atom messages
+atom meta
+atom meta_match_spec
+atom min_heap_size
+atom minor_version
+atom Minus='-'
+atom module
+atom module_info
+atom monitored_by
+atom monitor
+atom monitor_nodes
+atom monitors
+atom more
+atom multi_scheduling
+atom multiline
+atom name
+atom named_table
+atom native_addresses
+atom Neq='=/='
+atom Neqeq='/='
+atom net_kernel
+atom net_kernel_terminated
+atom new
+atom new_index
+atom new_uniq
+atom newline
+atom next
+atom no
+atom nomatch
+atom none
+atom no_auto_capture
+atom noconnect
+atom noconnection
+atom nocookie
+atom node
+atom node_type
+atom nodedown
+atom nodedown_reason
+atom nodeup
+atom noeol
+atom nofile
+atom noproc
+atom normal
+atom nosuspend
+atom no_float
+atom no_integer
+atom no_network
+atom not
+atom not_a_list
+atom not_loaded
+atom not_loaded_by_this_process
+atom not_pending
+atom not_purged
+atom notalive
+atom notbol
+atom noteol
+atom notempty
+atom notify
+atom notsup
+atom nouse_stdio
+atom objects
+atom offset
+atom ok
+atom old_heap_block_size
+atom old_heap_size
+atom on_load
+atom open
+atom open_error
+atom or
+atom ordered_set
+atom orelse
+atom os_type
+atom os_version
+atom ose_bg_proc
+atom ose_int_proc
+atom ose_phantom
+atom ose_pri_proc
+atom ose_process_prio
+atom ose_process_type
+atom ose_ti_proc
+atom out
+atom out_exited
+atom out_exiting
+atom output
+atom overlapped_io
+atom owner
+atom packet
+atom packet_size
+atom Plus='+'
+atom pause
+atom pending
+atom pending_driver
+atom pending_process
+atom pending_reload
+atom permanent
+atom pid
+atom port
+atom ports
+atom port_count
+atom print
+atom priority
+atom private
+atom process
+atom processes
+atom processes_trap
+atom processes_used
+atom process_count
+atom process_display
+atom process_limit
+atom process_dump
+atom procs
+atom profile
+atom protected
+atom protection
+atom public
+atom purify
+atom quantify
+atom queue_size
+atom raw
+atom re
+atom re_pattern
+atom re_run_trap
+atom ready_input
+atom ready_output
+atom ready_async
+atom reason
+atom receive
+atom recent_size
+atom reductions
+atom refc
+atom register
+atom registered_name
+atom reload
+atom rem
+atom reset
+atom restart
+atom return_from
+atom return_to
+atom return_trace
+atom run_queue
+atom runnable
+atom runnable_ports
+atom runnable_procs
+atom running
+atom running_ports
+atom running_procs
+atom runtime
+atom save_calls
+atom scheduler 
+atom scheduler_id
+atom schedulers_online
+atom scheme
+atom sensitive
+atom sequential_tracer
+atom sequential_trace_token
+atom serial
+atom set
+atom set_cpu_topology
+atom set_on_first_link
+atom set_on_first_spawn
+atom set_on_link
+atom set_on_spawn
+atom set_seq_token
+atom set_tcw
+atom set_tcw_fake
+atom separate
+atom shared
+atom silent
+atom size
+atom sl_alloc
+atom spawn_executable
+atom spawn_driver
+atom ssl_tls
+atom stack_size
+atom start
+atom status
+atom static
+atom stderr_to_stdout
+atom stop
+atom stream
+atom sunrm
+atom suspend
+atom suspended
+atom suspending
+atom sys_misc
+atom system
+atom system_error
+atom system_limit
+atom system_version
+atom system_architecture
+atom SYSTEM='SYSTEM'
+atom table
+atom this
+atom thread_pool_size
+atom threads
+atom timeout
+atom timeout_value
+atom Times='*'
+atom timestamp
+atom total
+atom total_heap_size
+atom tpkt
+atom trace trace_ts traced 
+atom trace_control_word
+atom tracer
+atom trap_exit
+atom try_clause
+atom true
+atom tuple
+atom type
+atom ucompile
+atom undef
+atom ungreedy
+atom unicode
+atom unregister
+atom urun
+atom use_stdio
+atom used
+atom utf8
+atom unblock
+atom uniq
+atom unless_suspending
+atom unloaded
+atom unloading
+atom unloaded_only
+atom unload_cancelled
+atom value
+atom values
+atom version
+atom visible
+atom waiting
+atom wall_clock
+atom warning
+atom warning_msg
+atom wordsize
+atom write_concurrency
+atom xor
+atom yes
+atom yield

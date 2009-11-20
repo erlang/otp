@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Installing cosFileTransfer</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2000-08-24</date>
+    <rev></rev>
+    <file>ch_install.xml</file>
+  </header>
+
+  <section>
+    <title>Installation Process </title>
+    <p>This chapter describes how to install 
+      <seealso marker="cosFileTransferApp">cosFileTransferApp</seealso> in an Erlang Environment.
+      </p>
+
+    <section>
+      <title>Preparation</title>
+      <p>Before starting the installation process for cosFileTransfer,
+        the application <c>Orber</c> must be running and <c>cosProperty</c> installed by
+        using <c>cosProperty:install()</c>. Please note that it is <em>NOT</em> necessary
+        to use <c>cosProperty:install_db()</c> for running the cosFileTransfer application.</p>
+    </section>
+
+    <section>
+      <title>Configuration</title>
+      <p>When starting the cosFileTransfer application the following configuration parameters
+        can be used:</p>
+      <list type="bulleted">
+        <item><em>buffert_size</em> - default is 64000. This option determine
+         how many bytes will be read at a time when transferring files.</item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

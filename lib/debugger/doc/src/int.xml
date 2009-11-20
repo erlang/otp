@@ -1,0 +1,528 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>int</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>int</module>
+  <modulesummary>Interpreter Interface</modulesummary>
+  <description>
+    <p>The Erlang interpreter provides mechanisms for breakpoints and
+      stepwise execution of code. It is mainly intended to be used by
+      the <em>Debugger</em>, see Debugger User's Guide and
+      <c>debugger(3)</c>.</p>
+    
+    <p>From the shell, it is possible to:</p>
+    <list>
+      <item>Specify which modules should be interpreted.</item>
+      <item>Specify breakpoints.</item>
+      <item>Monitor the current status of all processes executing code
+	in interpreted modules, also processes at other Erlang nodes.
+      </item>
+    </list>
+
+    <p>By <em>attaching to</em> a process executing interpreted code, it
+      is possible to examine variable bindings and order stepwise
+      execution. This is done by sending and receiving information
+      to/from the process via a third process, called the meta process.
+      It is possible to implement your own attached process. See
+      <c>int.erl</c> for available functions and <c>dbg_ui_trace.erl</c>
+      for possible messages.</p>
+
+    <p>The interpreter depends on the Kernel, STDLIB and GS
+      applications, which means modules belonging to any of these
+      applications are not allowed to be interpreted as it could lead
+      to a deadlock or emulator crash. This also applies to modules
+      belonging to the Debugger application itself.</p>
+  </description>
+
+  <section>
+    <title>Breakpoints</title>
+
+    <p>Breakpoints are specified on a line basis. When a process
+      executing code in an interpreted module reaches a breakpoint, it
+      will stop. This means that that a breakpoint must be set at an
+      executable line, that is, a line of code containing an executable
+      expression.</p>
+
+    <p>A breakpoint have a status, a trigger action and may have a
+      condition associated with it. The status is either <em>active</em>
+      or <em>inactive</em>. An inactive breakpoint is ignored. When a
+      breakpoint is reached, the trigger action specifies if
+      the breakpoint should continue to be active (<em>enable</em>), if
+      it should become inactive (<em>disable</em>), or if it should be
+      removed (<em>delete</em>). A condition is a tuple
+      <c>{Module,Name}</c>. When the breakpoint is reached,
+      <c>Module:Name(Bindings)</c> is called. If this evaluates to
+      <c>true</c>, execution will stop. If this evaluates to
+      <c>false</c>, the breakpoint is ignored. <c>Bindings</c> contains
+      the current variable bindings, use <c>get_binding</c> to retrieve
+      the value for a given variable.</p>
+
+    <p>By default, a breakpoint is active, has trigger action
+      <c>enable</c> and has no condition associated with it. For more
+      detailed information about breakpoints, refer to Debugger User's
+      Guide.</p>
+  </section>
+
+  <funcs>
+    <func>
+      <name>i(AbsModule) -> {module,Module} | error</name>
+      <name>i(AbsModules) -> ok</name>
+      <name>ni(AbsModule) -> {module,Module} | error</name>
+      <name>ni(AbsModules) -> ok</name>
+      <fsummary>Interpret a module</fsummary>
+      <type>
+	<v>AbsModules = [AbsModule]</v>
+	<v>AbsModule = Module | File | [Module | File]</v>
+	<v>&nbsp;Module = atom()</v>
+	<v>&nbsp;File = string()</v>
+      </type>
+      <desc>
+	<p>Interprets the specified module(s). <c>i/1</c> interprets
+	  the module only at the current node. <c>ni/1</c> interprets
+	  the module at all known nodes.</p>
+
+	<p>A module may be given by its module name (atom) or by its
+	  file name. If given by its module name, the object code
+	  <c>Module.beam</c> is searched for in the current path.
+	  The source code <c>Module.erl</c> is searched for first in
+	  the same directory as the object code, then in a <c>src</c>
+	  directory next to it.</p>
+
+	<p>If given by its file name, the file name may include a path
+	  and the <c>.erl</c> extension may be omitted. The object code
+	  <c>Module.beam</c> is searched for first in the same directory
+	  as the source code, then in an <c>ebin</c> directory next to
+	  it, and then in the current path.</p>
+
+	<note>
+	  <p>The interpreter needs both the source code and the object
+	    code, and the object code <em>must</em> include debug
+	    information. That is, only modules compiled with the option
+	    <c>debug_info</c> set can be interpreted.</p>
+	</note>
+
+	<p>The functions returns <c>{module,Module}</c> if the module
+	  was interpreted, or <c>error</c> if it was not.</p>
+
+	<p>The argument may also be a list of modules/file names, in
+	  which case the function tries to interpret each module as
+	  specified above. The function then always returns <c>ok</c>,
+	  but prints some information to stdout if a module could not be
+	  interpreted.</p>
+      </desc>
+    </func>
+	
+    <func>
+      <name>n(AbsModule) -> ok</name>
+      <name>nn(AbsModule) -> ok</name>
+      <fsummary>Stop interpreting a module</fsummary>
+      <type>
+	<v>AbsModule = Module | File | [Module | File]</v>
+	<v>&nbsp;Module = atom()</v>
+	<v>&nbsp;File = string()</v>
+      </type>
+      <desc>
+	<p>Stops interpreting the specified module. <c>n/1</c> stops
+	  interpreting the module only at the current node. <c>nn/1</c>
+	  stops interpreting the module at all known nodes.</p>
+
+	<p>As for <c>i/1</c> and <c>ni/1</c>, a module may be given by
+	  either its module name or its file name.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>interpreted() -> [Module]</name>
+      <fsummary>Get all interpreted modules</fsummary>
+      <type>
+	<v>Module = atom()</v>
+      </type>
+      <desc>
+	<p>Returns a list with all interpreted modules.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>file(Module) -> File | {error,not_loaded}</name>
+      <fsummary>Get the file name for an interpreted module</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>File = string()</v>
+      </type>
+      <desc>
+	<p>Returns the source code file name <c>File</c> for an
+	  interpreted module <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>interpretable(AbsModule) -> true | {error,Reason}</name>
+      <fsummary>Check if a module is possible to interpret</fsummary>
+      <type>
+	<v>AbsModule = Module | File</v>
+	<v>&nbsp;Module = atom()</v>
+	<v>&nbsp;File = string()</v>
+	<v>Reason = no_src | no_beam | no_debug_info | badarg
+	  | {app,App}</v>
+	<v>&nbsp;App = atom()</v>
+      </type>
+      <desc>
+	<p>Checks if a module is possible to interpret. The module can
+	  be given by its module name <c>Module</c> or its source file
+	  name <c>File</c>. If given by a module name, the module is
+	  searched for in the code path.</p>
+
+	<p>The function returns <c>true</c> if both source code and
+	  object code for the module is found, the module has been
+	  compiled with the option <c>debug_info</c> set and does not
+	  belong to any of the applications Kernel, STDLIB, GS or
+	  Debugger itself.</p>
+
+	<p>The function returns <c>{error,Reason}</c> if the module for
+	  some reason is not possible to interpret.</p>
+	
+	<p><c>Reason</c> is <c>no_src</c> if no source code is found or
+	  <c>no_beam</c> if no object code is found. It is assumed that
+	  the source- and object code are located either in the same
+	  directory, or in <c>src</c> and <c>ebin</c> directories next
+	  to each other.</p>
+
+	<p><c>Reason</c> is <c>no_debug_info</c> if the module has not
+	  been compiled with the option <c>debug_info</c> set.</p>
+
+	<p><c>Reason</c> is <c>badarg</c> if <c>AbsModule</c> is not
+	  found. This could be because the specified file does not
+	  exist, or because <c>code:which/1</c> does not return a
+	  beam file name, which is the case not only for non-existing
+	  modules but also for modules which are preloaded or cover
+	  compiled.</p>
+
+	<p><c>Reason</c> is <c>{app,App}</c> where <c>App</c> is
+	  <c>kernel</c>, <c>stdlib</c>, <c>gs</c> or <c>debugger</c> if
+	  <c>AbsModule</c> belongs to one of these applications.</p>
+
+	<p>Note that the function can return <c>true</c> for a module
+	  which in fact is not interpretable in the case where
+	  the module is marked as sticky or resides in a directory
+	  marked as sticky, as this is not discovered until
+	  the interpreter actually tries to load the module.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>auto_attach() -> false | {Flags,Function}</name>
+      <name>auto_attach(false)</name>
+      <name>auto_attach(Flags, Function)</name>
+      <fsummary>Get/set when and how to attach to a process</fsummary>
+      <type>
+	<v>Flags = [init | break | exit]</v>
+	<v>Function = {Module,Name,Args}</v>
+	<v>&nbsp;Module = Name = atom()</v>
+	<v>&nbsp;Args = [term()]</v>
+      </type>
+      <desc>
+	<p>Gets and sets when and how to automatically attach to a
+	  process executing code in interpreted modules. <c>false</c>
+	  means never automatically attach, this is the default.
+	  Otherwise automatic attach is defined by a list of flags and
+	  a function. The following flags may be specified:</p>
+	<list>
+	  <item><c>init</c> - attach when a process for the very first
+	    time calls an interpreted function.</item>
+	  <item><c>break</c> - attach whenever a process reaches a
+	    breakpoint.</item>
+	  <item><c>exit</c> - attach when a process terminates.</item>
+	</list>
+
+	<p>When the specified event occurs, the function <c>Function</c>
+	  will be called as:</p>
+	<pre>
+spawn(Module, Name, [Pid | Args])
+	</pre>
+	<p><c>Pid</c> is the pid of the process executing interpreted
+	  code.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stack_trace() -> Flag</name>
+      <name>stack_trace(Flag)</name>
+      <fsummary>Get/set if and how to save call frames</fsummary>
+      <type>
+	<v>Flag = all | no_tail | false</v>
+      </type>
+      <desc>
+	<p>Gets and sets how to save call frames in the stack. Saving
+	  call frames makes it possible to inspect the call chain of a
+	  process, and is also used to emulate the stack trace if an
+	  error (an exception of class error) occurs.</p>
+	<list>
+	  <item><c>all</c> - save information about all current calls,
+	    that is, function calls that have not yet returned a value.
+	    This is the default.</item>
+	  <item><c>no_tail</c> - save information about current calls,
+	    but discard previous information when a tail recursive call
+	    is made. This option consumes less memory and may be
+	    necessary to use for processes with long lifetimes and many
+	    tail recursive calls.</item>
+	  <item><c>false</c> - do not save any information about current
+	    calls.</item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name>break(Module, Line) -> ok | {error,break_exists}</name>
+      <fsummary>Create a breakpoint</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Creates a breakpoint at <c>Line</c> in <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>delete_break(Module, Line) -> ok</name>
+      <fsummary>Delete a breakpoint</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Deletes the breakpoint located at <c>Line</c> in
+	  <c>Module</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>break_in(Module, Name, Arity) -> ok
+	| {error,function_not_found}</name>
+      <fsummary>Create breakpoints in the specified function</fsummary>
+      <type>
+	<v>Module = Name = atom()</v>
+	<v>Arity = int()</v>
+      </type>
+      <desc>
+	<p>Creates a breakpoint at the first line of every clause of 
+	  the <c>Module:Name/Arity</c> function.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>del_break_in(Module, Name, Arity) -> ok
+	| {error,function_not_found}</name>
+      <fsummary>Delete breakpoints from the specified function
+      </fsummary>
+      <type>
+	<v>Module = Name = atom()</v>
+	<v>Arity = int()</v>
+      </type>
+      <desc>
+	<p>Deletes the breakpoints at the first line of every clause of 
+	  the <c>Module:Name/Arity</c> function.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>no_break() -> ok</name>
+      <name>no_break(Module) -> ok</name>
+      <fsummary>Delete all breakpoints</fsummary>
+      <desc>
+	<p>Deletes all breakpoints, or all breakpoints in <c>Module</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>disable_break(Module, Line) -> ok</name>
+      <fsummary>Make a breakpoint inactive</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c>
+	  inactive.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>enable_break(Module, Line) -> ok</name>
+      <fsummary>Make a breakpoint active</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+      </type>
+      <desc>
+	<p>Makes the breakpoint at <c>Line</c> in <c>Module</c> active.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>action_at_break(Module, Line, Action) -> ok</name>
+      <fsummary>Set the trigger action of a breakpoint</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+	<v>Action = enable | disable | delete</v>
+      </type>
+      <desc>
+	<p>Sets the trigger action of the breakpoint at <c>Line</c> in
+	  <c>Module</c> to <c>Action</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>test_at_break(Module, Line, Function) -> ok</name>
+      <fsummary>Set the conditional test of a breakpoint</fsummary>
+      <type>
+	<v>Module = atom()</v>
+	<v>Line = int()</v>
+	<v>Function = {Module,Name}</v>
+	<v>&nbsp;Name = atom()</v>
+      </type>
+      <desc>
+	<p>Sets the conditional test of the breakpoint at <c>Line</c> in
+	  <c>Module</c> to <c>Function</c>. The function must
+	  fulfill the requirements specified in the section
+	  <em>Breakpoints</em> above.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>get_binding(Var, Bindings) -> {value,Value} | unbound</name>
+      <fsummary>Retrieve a variable binding</fsummary>
+      <type>
+	<v>Var = atom()</v>
+	<v>Bindings = term()</v>
+	<v>Value = term()</v>
+      </type>
+      <desc>
+	<p>Retrieves the binding of <c>Var</c>. This function is
+	  intended to be used by the conditional function of a
+	  breakpoint.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>all_breaks() -> [Break]</name>
+      <name>all_breaks(Module) -> [Break]</name>
+      <fsummary>Get all breakpoints</fsummary>
+      <type>
+	<v>Break = {Point,Options}</v>
+	<v>&nbsp;Point = {Module,Line}</v>
+	<v>&nbsp;&nbsp;Module = atom()</v>
+	<v>&nbsp;&nbsp;Line = int()</v>
+	<v>&nbsp;Options = [Status,Trigger,null,Cond|]</v>
+	<v>&nbsp;&nbsp;Status = active | inactive</v>
+	<v>&nbsp;&nbsp;Trigger = enable | disable | delete</v>
+	<v>&nbsp;&nbsp;Cond = null | Function</v>
+	<v>&nbsp;&nbsp;&nbsp;Function = {Module,Name}</v>
+	<v>&nbsp;&nbsp;&nbsp;&nbsp;Name = atom()</v>
+      </type>
+      <desc>
+	<p>Gets all breakpoints, or all breakpoints in <c>Module</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>snapshot() -> [Snapshot]</name>
+      <fsummary>Get information about all processes executing interpreted
+	code</fsummary>
+      <type>
+	<v>Snapshot = {Pid, Function, Status, Info}</v>
+	<v>&nbsp;Pid = pid()</v>
+	<v>&nbsp;Function = {Module,Name,Args}</v>
+	<v>&nbsp;&nbsp;Module = Name = atom()</v>
+	<v>&nbsp;&nbsp;Args = [term()]</v>
+	<v>&nbsp;Status = idle | running | waiting | break | exit
+	  | no_conn</v>
+	<v>&nbsp;Info = {} | {Module,Line} | ExitReason</v>
+	<v>&nbsp;&nbsp;Line = int()</v>
+	<v>&nbsp;&nbsp;ExitReason = term()</v>
+      </type>
+      <desc>
+	<p>Gets information about all processes executing interpreted code.
+	</p>
+	<list>
+	  <item><c>Pid</c> - process identifier.</item>
+	  <item><c>Function</c> - first interpreted function called by
+	    the process.</item>
+	  <item><c>Status</c> - current status of the process.</item>
+	  <item><c>Info</c> - additional information.</item>
+	</list>
+	<p><c>Status</c> is one of:</p>
+	<list>
+	  <item><c>idle</c> - the process is no longer executing
+	    interpreted code. <c>Info={}</c>.</item>
+	  <item><c>running</c> - the process is running. <c>Info={}</c>.
+	  </item>
+	  <item><c>waiting</c> - the process is waiting at a
+	    <c>receive</c>. <c>Info={}</c>.</item>
+	  <item><c>break</c> - process execution has been stopped,
+	    normally at a breakpoint. <c>Info={Module,Line}</c>.</item>
+	  <item><c>exit</c> - the process has terminated.
+	    <c>Info=ExitReason</c>.</item>
+	  <item><c>no_conn</c> - the connection is down to the node
+	    where the process is running. <c>Info={}</c>.</item>
+	</list>
+      </desc>
+    </func>
+
+    <func>
+      <name>clear() -> ok</name>
+      <fsummary>Clear information about processes executing interpreted
+	code</fsummary>
+      <desc>
+	<p>Clears information about processes executing interpreted code
+	  by removing all information about terminated processes.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>continue(Pid) -> ok | {error,not_interpreted}</name>
+      <name>continue(X,Y,Z) -> ok | {error,not_interpreted}</name>
+      <fsummary>Resume process execution</fsummary>
+      <type>
+	<v>Pid = pid()</v>
+	<v>X = Y = Z = int()</v>
+      </type>
+      <desc>
+	<p>Resume process execution for <c>Pid</c>, or for
+	  <c>c:pid(X,Y,Z)</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+
+

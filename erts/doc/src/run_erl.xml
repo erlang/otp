@@ -1,0 +1,155 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>run_erl</title>
+    <prepared>Kent Boortz</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>99-12-15</date>
+    <rev></rev>
+    <file>run_erl.xml</file>
+  </header>
+  <com>run_erl</com>
+  <comsummary>Redirect Erlang input and output streams on Solaris&reg;</comsummary>
+  <description>
+    <p>This describes the <c><![CDATA[run_erl]]></c> program specific to
+      Solaris/Linux. This program redirect the standard input and standard
+      output streams so that all output can be logged. It also let the
+      program <c><![CDATA[to_erl]]></c> connect to the Erlang console making it
+      possible to monitor and debug an embedded system remotely.</p>
+    <p>You can read more about the use in the <c><![CDATA[Embedded System User's Guide]]></c>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>run_erl [-daemon] pipe_dir/ log_dir "exec command [command_arguments]"</name>
+      <fsummary>Start the Erlang emulator without attached terminal</fsummary>
+      <desc>
+        <p>The <c><![CDATA[run_erl]]></c> program arguments are:</p>
+        <taglist>
+          <tag>-daemon</tag>
+          <item>This option is highly recommended. It makes run_erl run in
+           the background completely detached from any controlling
+           terminal and the command returns to the caller immediately.
+           Without this option, run_erl must be started using several
+           tricks in the shell to detach it completely from the
+           terminal in use when starting it. The option must be the
+           first argument to run_erl on the command line.</item>
+          <tag>pipe_dir</tag>
+          <item>This is where to put the named pipe, usually
+          <c><![CDATA[/tmp/]]></c>. It shall be suffixed by a <c><![CDATA[/]]></c> (slash),
+           i.e. not <c><![CDATA[/tmp/epipies]]></c>, but <c><![CDATA[/tmp/epipes/]]></c>. </item>
+          <tag>log_dir</tag>
+          <item>This is where the log files are written. There will be one
+           log file, <c><![CDATA[run_erl.log]]></c> that log progress and
+           warnings from the <c><![CDATA[run_erl]]></c> program itself and there
+           will be up to five log files at maximum 100KB each (both
+           number of logs and sizes can be
+           changed by environment variables, see below) with
+           the content of the standard streams from and to the
+           command. When the logs are full <c><![CDATA[run_erl]]></c> will delete
+           and reuse the oldest log file.</item>
+          <tag>"exec command [command_arguments]"</tag>
+          <item>In the third argument <c><![CDATA[command]]></c> is the to execute
+           where everything written to stdin and stdout is logged to
+          <c><![CDATA[log_dir]]></c>.</item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes concerning the log files</title>
+    <p>While running, run_erl (as stated earlier) sends all output,
+      uninterpreted, to a log file. The file is called
+      <c><![CDATA[erlang.log.N]]></c>, where N is a number. When the log is "full",
+      default after 100KB, run_erl starts to log in file
+      <c><![CDATA[erlang.log.(N+1)]]></c>, until N reaches a certain number (default
+      5), where after N starts at 1 again and the oldest files start
+      getting overwritten. If no output comes from the erlang shell, but
+      the erlang machine still seems to be alive, an "ALIVE" message is
+      written to the log, it is a timestamp and is written, by default,
+      after 15 minutes of inactivity. Also, if output from erlang is
+      logged but it's been more than 5 minutes (default) since last time
+      we got anything from erlang, a timestamp is written in the
+      log. The "ALIVE" messages look like this:</p>
+    <code type="none"><![CDATA[
+      ===== ALIVE <date-time-string>
+    ]]></code>
+    <p>while the other timestamps look like this:</p>
+    <code type="none"><![CDATA[
+      ===== <date-time-string>
+    ]]></code>
+    <p>The <c><![CDATA[date-time-string]]></c> is the date and time the message is
+      written, default in local time (can be changed to GMT if one wants
+      to) and is formatted with the ANSI-C function <c><![CDATA[strftime]]></c>
+      using the format string <c><![CDATA[%a %b %e %T %Z %Y]]></c>, which produces
+      messages on the line of <c><![CDATA[===== ALIVE Thu May 15 10:13:36 MEST 2003]]></c>, this can be changed, see below.</p>
+  </section>
+
+  <section>
+    <title>Environment variables</title>
+    <p>The following environment variables are recognized by run_erl
+      and change the logging behavior. Also see the notes above to get
+      more info on how the log behaves.</p>
+    <taglist>
+      <tag>RUN_ERL_LOG_ALIVE_MINUTES</tag>
+      <item>How long to wait for output (in minutes) before writing an
+       "ALIVE" message to the log. Default is 15, can never be less
+       than 1.</item>
+      <tag>RUN_ERL_LOG_ACTIVITY_MINUTES</tag>
+      <item>How long erlang need to be inactive before output will be
+       preceded with a timestamp. Default is
+       RUN_ERL_LOG_ALIVE_MINUTES div 3, but never less than 1.</item>
+      <tag>RUN_ERL_LOG_ALIVE_FORMAT</tag>
+      <item>Specifies another format string to be used in the strftime
+       C library call. i.e specifying this to <c><![CDATA["%e-%b-%Y, %T %Z"]]></c>
+       will give log messages with timestamps looking like 
+      <c><![CDATA[15-May-2003, 10:23:04 MET]]></c> etc. See the documentation
+       for the C library function strftime for more
+       information. Default is <c><![CDATA["%a %b %e %T %Z %Y"]]></c>.</item>
+      <tag>RUN_ERL_LOG_ALIVE_IN_UTC</tag>
+      <item>If set to anything else than "0", it will make all
+       times displayed by run_erl to be in UTC (GMT,CET,MET, without
+       DST), rather than
+       in local time. This does not affect data coming from erlang,
+       only the logs output directly by run_erl. The application
+      <c><![CDATA[sasl]]></c> can be modified accordingly by setting the erlang
+       application variable <c><![CDATA[utc_log]]></c> to <c><![CDATA[true]]></c>.</item>
+      <tag>RUN_ERL_LOG_GENERATIONS</tag>
+      <item>Controls the number of log files written before older
+       files are being reused. Default is 5, minimum is 2, maximum is 1000.</item>
+      <tag>RUN_ERL_LOG_MAXSIZE</tag>
+      <item>The size (in bytes) of a log file before switching to a
+       new log file. Default is 100000, minimum is 1000 and maximum is
+       approximately 2^30.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p>start(1), start_erl(1)</p>
+  </section>
+</comref>
+

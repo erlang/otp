@@ -1,0 +1,285 @@
+#!/bin/sh
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+#
+# This is a script to start Erlang/OTP for debugging. PATH is set to
+# include this script so if slave nodes are started they will use this
+# script as well.
+#
+#  usage:  cerl [ OPTIONS ] [ ARGS ]
+#
+#  The OPTIONS are
+#
+#   -rootdir $MYROOTDIR
+#               Run an installed emulator built from this source
+#   -debug      Run debug compiled emulator
+#   -gdb        Run the debug compiled emulator in emacs and gdb.
+#               You have to start beam in gdb using "run".
+#   -break F    Run the debug compiled emulator in emacs and gdb and set break.
+#               The session is started, i.e. "run" is already don for you.
+#   -xxgdb      FIXME currently disabled
+#   -purify     Run emulator compiled for purify
+#   -quantify   Run emulator compiled for quantify
+#   -purecov    Run emulator compiled for purecov
+#   -gcov       Run emulator compiled for gcov
+#   -valgrind   Run emulator compiled for valgrind
+#   -lcnt	Run emulator compiled for lock counting
+#   -nox        Unset the DISPLAY variable to disable us of X Windows
+#
+# FIXME For GDB you can also set the break point using "-break FUNCTION".
+# FIXME For GDB you can also point out your own .gdbini......
+
+# These are marked for export
+export ROOTDIR
+export PROGNAME
+export EMU
+export BINDIR
+export PATH
+
+cargs=
+xargs=
+cxargs_add() {
+    while [ $# -gt 0 ]; do
+	cargs="$cargs $1"
+	xargs="$xargs $1"
+	shift
+    done
+}
+
+core=
+
+GDB=
+GDBBP=
+TYPE=
+EMU_TYPE=
+debug=
+run_valgrind=no
+
+# Default rootdir
+ROOTDIR=%SRC_ROOTDIR%
+BINDIR="$ROOTDIR/bin/`$ROOTDIR/erts/autoconf/config.guess`"
+#BINDIR="$ROOTDIR/bin/%TARGET%"
+PROGNAME=$ROOTDIR/bin/cerl
+EMU=beam
+
+PRELOADED=$ROOTDIR/erts/preloaded/ebin
+
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+	+*)
+      # A system parameter!
+	    cxargs_add $1
+	    shift
+      # If next argument does not begin with a hyphen or a plus,
+      # it is used as the value of the system parameter.
+	    if [ $# -gt 0 ]; then
+		case $1 in
+		    -*|+*)
+			;;
+		    *)
+			cxargs_add $1
+			shift;;
+		esac
+	    fi;;
+	"-instr")
+	    cxargs_add $1
+	    shift
+	    ;;
+	"-target")
+	    shift
+	    BINDIR="$ROOTDIR/bin/$1"
+	    shift
+	    ;;
+	"-rootdir")
+	    shift
+	    cargs="$cargs -rootdir $1"
+	    ROOTDIR="$1"
+	    BINDIR=$ROOTDIR/erts-%VSN%/bin
+	    shift
+	    ;;
+	"-display")
+	    shift
+	    DISPLAY="$1"
+	    export DISPLAY
+	    shift
+	    ;;
+	"-nox")
+	    shift
+	    unset DISPLAY
+	    ;;
+	"-smp")
+	    shift
+	    cargs="$cargs -smp"
+	    EMU_TYPE=.smp
+	    ;;
+	"-lcnt")
+	    shift
+	    cargs="$cargs -lcnt"
+	    TYPE=.lcnt
+	    ;;
+	"-frag")
+	    shift
+	    cargs="$cargs -frag"
+	    EMU_TYPE=.frag
+	    ;;
+	"-smp_frag")
+	    shift
+	    cargs="$cargs -smp_frag"
+	    EMU_TYPE=.smp_frag
+	    ;;
+	"-gprof")
+	    shift
+	    cargs="$cargs -gprof"
+	    TYPE=.gprof
+	    ;;
+	"-hybrid")
+	    shift
+	    cargs="$cargs -hybrid"
+	    EMU_TYPE=.hybrid
+	    ;;
+	"-debug")
+	    shift
+	    cargs="$cargs -debug"
+	    TYPE=.debug
+	    ;;
+	"-gdb")
+	    shift
+	    GDB=gdb
+	    ;;
+	"-break")
+	    shift
+	    GDB=gdb
+	    GDBBP="$GDBBP (insert-string \"break $1\") (comint-send-input)"
+	    shift
+	    ;;
+	"-core")
+	    shift
+	    GDB=gdb
+	    core="$1"
+	    shift
+	    ;;
+#	"-xxgdb")
+#	    shift
+#	    GDB=xxgdb
+#	    ;;
+	"-shared")
+	    shift
+	    cargs="$cargs -shared"
+	    TYPE=.shared
+	    ;;
+	"-purify")
+	    shift
+	    cargs="$cargs -purify"
+	    TYPE=.purify
+	    ;;
+	"-quantify")
+	    shift
+	    cargs="$cargs -quantify"
+	    TYPE=.quantify
+	    ;;
+	"-purecov")
+	    shift
+	    cargs="$cargs -purecov"
+	    TYPE=.purecov
+	    ;;
+	"-gcov")
+	    shift
+	    cargs="$cargs -gcov"
+	    TYPE=.gcov
+	    ;;
+	"-valgrind")
+	    shift
+	    cargs="$cargs -valgrind"
+	    TYPE=.valgrind
+	    run_valgrind=yes
+	    ;;
+	*)
+	    break
+	    ;;
+    esac
+done
+
+
+PATH=$BINDIR:$ROOTDIR/bin:$PATH
+EXEC=$BINDIR/erlexec
+
+PROGNAME="$PROGNAME $cargs"
+EMU=$EMU$TYPE$EMU_TYPE
+if [ $run_valgrind != yes ]; then
+    xargs="$xargs -pz $PRELOADED --"
+fi
+if [ "x$GDB" = "x" ]; then
+    if [ $run_valgrind = yes ]; then
+	emu_xargs=`echo $xargs | sed "s|+|-|g"`
+	if [ "x$VALGRIND_LOG_DIR" = "x" ]; then
+	    valgrind_log=
+	else
+	    valgrind_log="--log-file=$VALGRIND_LOG_DIR/$VALGRIND_LOGFILE_PREFIX$VALGRIND_LOGFILE_INFIX$EMU.log"
+	fi
+	if [ "x$VALGRIND_LOG_XML" = "x" ]; then
+	    valgrind_xml=
+	else
+	    export VALGRIND_LOG_XML
+	    valgrind_xml="--xml=yes"
+	fi
+	if [ "x$VALGRIND_MISC_FLAGS" = "x" ]; then
+	    valgrind_misc_flags=
+	else
+	    valgrind_misc_flags="$VALGRIND_MISC_FLAGS"
+	fi
+	beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	# Ahhhh... Need to quote $PROGNAME...
+	early_beam_args=`echo $beam_args | sed "s|^\(.*-progname\).*$|\1|g"`
+	late_beam_args=`echo $beam_args | sed "s|^$pre_beam_args.*\(-- -home.*\)$|\1|g"`
+	
+	exec valgrind $valgrind_xml $valgrind_log $valgrind_misc_flags $BINDIR/$EMU $emu_xargs $early_beam_args "$PROGNAME" $late_beam_args -pz $PRELOADED
+    else
+	exec $EXEC $xargs ${1+"$@"}
+    fi
+else
+    if [ "x$EMACS" = "x" ]; then
+	EMACS=emacs
+    fi
+    
+    case "x$core" in
+	x)
+	    # Get emu args to use from erlexec...
+	    beam_args=`$EXEC -emu_args_exit ${1+"$@"}`
+	    gdbcmd="(insert-string \"set args $beam_args\") \
+                    (comint-send-input)"
+	    ;;
+	x/*)
+	    gdbcmd="(insert-string \"core ${core}\") (comint-send-input)"
+	    GDBBP=
+	    ;;
+	*)
+	    dir=`pwd`
+	    gdbcmd="(insert-string \"core ${dir}/${core}\") \
+                    (comint-send-input)"
+	    GDBBP=
+	    ;;
+    esac
+
+    gdbcmd="$gdbcmd $GDBBP \
+            (insert-string \"source $ROOTDIR/erts/etc/unix/etp-commands\") \
+            (comint-send-input)"
+    # Fire up gdb in emacs...
+    exec $EMACS --eval "(progn (gdb \"gdb $EMU\") $gdbcmd)"
+fi

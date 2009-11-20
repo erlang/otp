@@ -1,0 +1,45 @@
+#ifndef _COS_TIMEREVENT_IDL_
+#define _COS_TIMEREVENT_IDL_
+
+#pragma prefix "omg.org"
+
+#include"CosEventComm.idl"
+#include<CosTime.idl>
+#include<TimeBase.idl>
+
+module CosTimerEvent{ 
+
+  enum TimeType { 
+    TTAbsolute, 
+    TTRelative, 
+    TTPeriodic 
+  }; 
+  enum EventStatus { 
+    ESTimeSet, 
+    ESTimeCleared, 
+    ESTriggered, 
+    ESFailedTrigger 
+  }; 
+
+  struct TimerEventT { 
+    TimeBase::UtcT utc; 
+    any event_data; 
+  }; 
+
+  interface TimerEventHandler { 
+    readonly attribute EventStatus status; 
+    boolean time_set( out CosTime::UTO uto ); 
+    void set_timer( in TimeType time_type, in CosTime::UTO trigger_time ); 
+    boolean cancel_timer(); 
+    void set_data( in any event_data ); 
+  }; 
+
+  interface TimerEventService { 
+    
+    TimerEventHandler register( in CosEventComm::PushConsumer event_interface, in any data ); 
+    void unregister( in TimerEventHandler timer_event_handler ); 
+    CosTime::UTO event_time( in TimerEventT timer_event ); 
+  }; 
+};
+
+#endif

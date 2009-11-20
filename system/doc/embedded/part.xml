@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Embedded Systems User's Guide</title>
+    <prepared>Kenneth Lundin, Fredrik Tillman</prepared>
+    <responsible>UAB/F (Kenneth Lundin)</responsible>
+    <docno></docno>
+    <approved>UAB/F (Kenneth Lundin)</approved>
+    <checked></checked>
+    <date>2000-10-17</date>
+    <rev>C</rev>
+    <file></file>
+  </header>
+  <description>
+    <p>This manual describes the issues that are specific
+      for running Erlang on an embedded system.
+      It describes the differences in installing and starting
+      Erlang compared to how it is done for a non-embedded system.
+      </p>
+    <p>Note that this is a supplementary document. You still need to
+      read the Installation Guide.
+      </p>
+    <p>There is also target architecture specific information in
+      the top level README file of the Erlang distribution.</p>
+  </description>
+  <xi:include href="embedded_solaris.xml"/>
+  <xi:include href="embedded_nt.xml"/>
+  <xi:include href="vxworks.xml"/>
+</part>
+

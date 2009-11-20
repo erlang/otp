@@ -1,0 +1,40 @@
+          Klas3 DEFINITIONS ::= BEGIN
+ 
+-- This MIB is used for testing the undo phase
+
+          IMPORTS
+                  mib-2 FROM RFC1213-MIB
+                  RowStatus FROM STANDARD-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+          klas3       OBJECT IDENTIFIER ::= { mib-2 8 }
+ 
+           DisplayString ::=
+              OCTET STRING
+
+          fname3 OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      printable ASCII characters."
+              ::= { klas3 1 }
+ 
+          fname4 OBJECT-TYPE
+		SYNTAX INTEGER {
+		none(1),
+		snmpTrap(3)
+		}
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      printable ASCII characters."
+              ::= { klas3 2 }
+ 
+	   
+
+          END
+ 

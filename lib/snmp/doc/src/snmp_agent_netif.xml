@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Definition of Agent Net if</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_agent_netif.xml</file>
+  </header>
+  <p></p>
+  <image file="snmp_agent_netif_1.gif">
+    <icaption>The Purpose of Agent Net if</icaption>
+  </image>
+  <p>The Network Interface (Net if) process delivers SNMP PDUs to a
+    master agent, and receives SNMP PDUs from the master agent. The most
+    common behaviour of a Net if process is that is receives bytes from
+    a network, decodes them into an SNMP PDU, which it sends to a master
+    agent. When the master agent has processed the PDU, it sends a
+    response PDU to the Net if process, which encodes the PDU into bytes
+    and transmits the bytes onto the network.
+    </p>
+  <p>However, that simple behaviour can be modified in numerous
+    ways. For example, the Net if process can apply some kind of
+    encrypting/decrypting scheme on the bytes or
+    act as a proxy filter, which sends some packets to a proxy agent and
+    some packets to the master agent.
+    </p>
+  <p>It is also possible to write your own Net if process. The default
+    Net if process is implemented in the module <c>snmpa_net_if</c> and
+    it uses UDP as the transport protocol.
+    </p>
+  <p>This section describes how to write a Net if process.
+    </p>
+
+  <section>
+    <marker id="mandatory_functions"></marker>
+    <title>Mandatory Functions</title>
+    <p>A Net if process must implement the SNMP agent 
+      <seealso marker="snmpa_network_interface">network interface behaviour</seealso>.
+      </p>
+  </section>
+
+  <section>
+    <title>Messages</title>
+    <p>The section <em>Messages</em> describes mandatory messages, which
+      Net if must send and be able to receive.     
+      </p>
+
+    <section>
+      <title>Outgoing Messages</title>
+      <p>Net if must send the following message when it receives an
+        SNMP PDU from the network that is aimed for the MasterAgent:
+        </p>
+      <pre>
+MasterAgent ! {snmp_pdu, Vsn, Pdu, PduMS, ACMData, From, Extra}
+      </pre>
+      <list type="bulleted">
+        <item><c>Vsn</c> is either <c>'version-1'</c>,
+        <c>'version-2'</c>, or <c>'version-3'</c>.
+        </item>
+        <item><c>Pdu</c> is an SNMP PDU record, as defined in
+        <c>snmp_types.hrl</c>, with the SNMP request.
+        </item>
+        <item><c>PduMS</c> is the Maximum Size of the response Pdu
+         allowed.  Normally this is returned from
+        <c>snmpa_mpd:process_packet</c> (see Reference Manual).
+        </item>
+        <item><c>ACMData</c> is data used by the Access Control Module
+         in use.  Normally this is returned from
+        <c>snmpa_mpd:process_packet</c> (see Reference Manual).
+        </item>
+        <item><c>From</c> is the source address. If UDP over IP is
+         used, this should be a 2-tuple <c>{IP, UDPport}</c>, where
+        <c>IP</c> is a 4-tuple with the IP address, and <c>UDPport</c>
+         is an integer.
+        </item>
+        <item><c>Extra</c> is any term the Net if process wishes to
+         send to the agent. This term can be retrieved by the
+         instrumentation functions by calling
+        <c>snmp:current_net_if_data()</c>. This data is also sent back
+         to the Net if process when the agent generates a response to
+         the request.</item>
+      </list>
+      <p>The following message is used to report that a response to a
+        request has been received.  The only request an agent can send
+        is an Inform-Request.
+        </p>
+      <pre>
+Pid ! {snmp_response_received, Vsn, Pdu, From}
+      </pre>
+      <list type="bulleted">
+        <item><c>Pid</c> is the Process that waits for the response
+         for the request.  The Pid was specified in the
+        <c>send_pdu_req</c> message <seealso marker="#message">(see below)</seealso>.
+        </item>
+        <item><c>Vsn</c> is either <c>'version-1'</c>, <c>'version-2'</c>, or
+        <c>'version-3'</c>.
+        </item>
+        <item><c>Pdu</c> is the SNMP Pdu received
+        </item>
+        <item><c>From</c> is the source address. If UDP over IP is
+         used, this should be a 2-tuple <c>{IP, UDPport}</c>, where
+        <c>IP</c> is a 4-tuple with the IP address, and <c>UDPport</c>
+         is an integer.
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incoming Messages</title>
+      <p>This section describes the incoming messages which a Net if
+        process must be able to receive.
+        </p>
+      <list type="bulleted">
+        <item>
+          <p><c>{snmp_response, Vsn, Pdu, Type, ACMData, To, Extra}</c></p>
+          <p>This message is sent to the Net if process from a master
+            agent as a response to a previously received request.
+            </p>
+          <list type="bulleted">
+            <item><c>Vsn</c> is either <c>'version-1'</c>,
+            <c>'version-2'</c>, or <c>'version-3'</c>.
+            </item>
+            <item><c>Pdu</c> is an SNMP PDU record (as defined in
+             snmp_types.hrl) with the SNMP response.
+            </item>
+            <item><c>Type</c> is the <c>#pdu.type</c> of the original
+             request.
+            </item>
+            <item><c>ACMData</c> is data used by the Access Control
+             Module in use.  Normally this is just sent to
+            <c>snmpa_mpd:generate_response_message</c> (see Reference Manual).
+            </item>
+            <item><c>To</c> is the destination address. If UDP over IP
+             is used, this should be a 2-tuple <c>{IP, UDPport}</c>,
+             where <c>IP</c> is a 4-tuple with the IP address, and
+            <c>UDPport</c> is an integer.
+            </item>
+            <item><c>Extra</c> is the term that the Net if process
+             sent to the agent when the request was sent to the agent.
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><c>{discarded_pdu, Vsn, ReqId, ACMData, Variable, Extra}</c></p>
+          <p>This message is sent from a master agent if it for some
+            reason decided to discard the pdu.
+            </p>
+          <list type="bulleted">
+            <item><c>Vsn</c> is either <c>'version-1'</c>,
+            <c>'version-2'</c>, or <c>'version-3'</c>.
+            </item>
+            <item><c>ReqId</c> is the request id of the original
+             request.
+            </item>
+            <item><c>ACMData</c> is data used by the Access Control
+             Module in use.  Normally this is just sent to
+            <c>snmpa_mpd:generate_response_message</c> (see Reference Manual).
+            </item>
+            <item><c>Variable</c> is the name of an snmp counter that
+             represents the error, e.g. <c>snmpInBadCommunityUses</c>.
+            </item>
+            <item><c>Extra</c> is the term that the Net if process
+             sent to the agent when the request was sent to the agent.
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><c>{send_pdu, Vsn, Pdu, MsgData, To}</c></p>
+          <p>This message is sent from a master agent when a trap is
+            to be sent.
+            </p>
+          <list type="bulleted">
+            <item><c>Vsn</c> is either <c>'version-1'</c>,
+            <c>'version-2'</c>, or <c>'version-3'</c>.
+            </item>
+            <item><c>Pdu</c> is an SNMP PDU record (as defined in
+             snmp_types.hrl) with the SNMP response.
+            </item>
+            <item><c>MsgData</c> is the message specific data used in
+             the SNMP message.  This value is normally sent to
+            <c>snmpa_mpd:generate_message/4</c>.  In SNMPv1 and
+             SNMPv2c, this message data is the community string.  In
+             SNMPv3, it is the context information.
+            </item>
+            <item><c>To</c> is a list of the destination addresses and
+             their corresponding security parameters.  This value is
+             normally sent to <c>snmpa_mpd:generate_message/4</c>.  
+            </item>
+          </list>
+        </item>
+        <item>
+          <p><c>{send_pdu_req, Vsn, Pdu, MsgData, To, Pid}</c></p>
+          <p>This            <marker id="message"></marker>
+ message is sent from a master 
+            agent when a request is
+            to be sent.  The only request an agent can send is
+            Inform-Request.  The net if process needs to remember the
+            request id and the Pid, and when a response is received for
+            the request id, send it to Pid, using a
+            <c>snmp_response_received</c> message.
+            </p>
+          <list type="bulleted">
+            <item><c>Vsn</c> is either <c>'version-1'</c>,
+            <c>'version-2'</c>,  or <c>'version-3'</c>.
+            </item>
+            <item><c>Pdu</c> is an SNMP PDU record (as defined in
+             snmp_types.hrl) with the SNMP response.
+            </item>
+            <item><c>MsgData</c> is the message specific data used in
+             the SNMP message.  This value is normally sent to
+            <c>snmpa_mpd:generate_message/4</c>.  In SNMPv1 and
+             SNMPv2c, this message data is the community string.  In
+             SNMPv3, it is the context information.
+            </item>
+            <item><c>To</c> is a list of the destination addresses and
+             their corresponding security parameters.  This value is
+             normally sent to <c>snmpa_mpd:generate_message/4</c>.  
+            </item>
+            <item><c>Pid</c> is a process identifier.
+            </item>
+          </list>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Notes</title>
+      <p>Since the Net if process is responsible for encoding and
+        decoding of SNMP messages, it must also update the relevant
+        counters in the SNMP group in MIB-II. It can use the functions
+        in the module <c>snmpa_mpd</c> for this purpose (refer to the 
+        Reference Manual, section <c>snmp</c>, 
+        module <seealso marker="snmp_pdus">snmpa_mpd</seealso>
+        for more details.)
+        </p>
+      <p>There are also some useful functions for encoding and
+        decoding of SNMP messages in the module 
+        <seealso marker="snmp_pdus">snmp_pdus</seealso>.
+        </p>
+    </section>
+  </section>
+</chapter>
+

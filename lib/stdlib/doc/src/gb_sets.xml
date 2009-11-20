@@ -1,0 +1,487 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>gb_sets</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>gb_sets</module>
+  <modulesummary>General Balanced Trees</modulesummary>
+  <description>
+    <p>An implementation of ordered sets using Prof. Arne Andersson's
+      General Balanced Trees. This can be much more efficient than
+      using ordered lists, for larger sets, but depends on the
+      application.</p>
+  </description>
+
+  <section>
+    <title>Complexity note</title>
+    <p>The complexity on set operations is bounded by either O(|S|) or
+      O(|T| * log(|S|)), where S is the largest given set, depending
+      on which is fastest for any particular function call. For
+      operating on sets of almost equal size, this implementation is
+      about 3 times slower than using ordered-list sets directly. For
+      sets of very different sizes, however, this solution can be
+      arbitrarily much faster; in practical cases, often between 10
+      and 100 times. This implementation is particularly suited for
+      accumulating elements a few at a time, building up a large set
+      (more than 100-200 elements), and repeatedly testing for
+      membership in the current set.</p>
+    <p>As with normal tree structures, lookup (membership testing),
+      insertion and deletion have logarithmic complexity.</p>
+  </section>
+
+  <section>
+    <title>Compatibility</title>
+    <p>All of the following functions in this module also exist
+      and do the same thing in the <c>sets</c> and <c>ordsets</c>
+      modules. That is, by only changing the module name for each call,
+      you can try out different set representations.</p>
+    <p></p>
+    <list type="bulleted">
+      <item>
+        <p><c>add_element/2</c></p>
+      </item>
+      <item>
+        <p><c>del_element/2</c></p>
+      </item>
+      <item>
+        <p><c>filter/2</c></p>
+      </item>
+      <item>
+        <p><c>fold/3</c></p>
+      </item>
+      <item>
+        <p><c>from_list/1</c></p>
+      </item>
+      <item>
+        <p><c>intersection/1</c></p>
+      </item>
+      <item>
+        <p><c>intersection/2</c></p>
+      </item>
+      <item>
+        <p><c>is_element/2</c></p>
+      </item>
+      <item>
+        <p><c>is_set/1</c></p>
+      </item>
+      <item>
+        <p><c>is_subset/2</c></p>
+      </item>
+      <item>
+        <p><c>new/0</c></p>
+      </item>
+      <item>
+        <p><c>size/1</c></p>
+      </item>
+      <item>
+        <p><c>subtract/2</c></p>
+      </item>
+      <item>
+        <p><c>to_list/1</c></p>
+      </item>
+      <item>
+        <p><c>union/1</c></p>
+      </item>
+      <item>
+        <p><c>union/2</c></p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+gb_set() = a GB set</code>
+  </section>
+  <funcs>
+    <func>
+      <name>add(Element, Set1) -> Set2</name>
+      <name>add_element(Element, Set1) -> Set2</name>
+      <fsummary>Add a (possibly existing) element to a gb_set</fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new gb_set formed from <c>Set1</c> with
+          <c>Element</c> inserted. If <c>Element</c> is already an
+          element in <c>Set1</c>, nothing is changed.</p>
+      </desc>
+    </func>
+    <func>
+      <name>balance(Set1) -> Set2</name>
+      <fsummary>Rebalance tree representation of a gb_set</fsummary>
+      <type>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Rebalances the tree representation of <c>Set1</c>. Note that
+          this is rarely necessary, but may be motivated when a large
+          number of elements have been deleted from the tree without
+          further insertions. Rebalancing could then be forced in order
+          to minimise lookup times, since deletion only does not
+          rebalance the tree.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Element, Set1) -> Set2</name>
+      <fsummary>Remove an element from a gb_set</fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new gb_set formed from <c>Set1</c> with
+          <c>Element</c> removed. Assumes that <c>Element</c> is present
+          in <c>Set1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_any(Element, Set1) -> Set2</name>
+      <name>del_element(Element, Set1) -> Set2</name>
+      <fsummary>Remove a (possibly non-existing) element from a gb_set</fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new gb_set formed from <c>Set1</c> with
+          <c>Element</c> removed. If <c>Element</c> is not an element
+          in <c>Set1</c>, nothing is changed.</p>
+      </desc>
+    </func>
+    <func>
+      <name>difference(Set1, Set2) -> Set3</name>
+      <name>subtract(Set1, Set2) -> Set3</name>
+      <fsummary>Return the difference of two gb_sets</fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns only the elements of <c>Set1</c> which are not also
+          elements of <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>empty() -> Set</name>
+      <name>new() -> Set</name>
+      <fsummary>Return an empty gb_set</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new empty gb_set.</p>
+      </desc>
+    </func>
+    <func>
+      <name>filter(Pred, Set1) -> Set2</name>
+      <fsummary>Filter gb_set elements</fsummary>
+      <type>
+        <v>Pred = fun (E) -> bool()</v>
+        <v>&nbsp;E = term()</v>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Filters elements in <c>Set1</c> using predicate function
+          <c>Pred</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>fold(Function, Acc0, Set) -> Acc1</name>
+      <fsummary>Fold over gb_set elements</fsummary>
+      <type>
+        <v>Function = fun (E, AccIn) -> AccOut</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>&nbsp;E = term()</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Folds <c>Function</c> over every element in <c>Set</c>
+          returning the final value of the accumulator.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_list(List) -> Set</name>
+      <fsummary>Convert a list into a gb_set</fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a gb_set of the elements in <c>List</c>, where
+          <c>List</c> may be unordered and contain duplicates.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_ordset(List) -> Set</name>
+      <fsummary>Make a gb_set from an ordset list</fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Turns an ordered-set list <c>List</c> into a gb_set. The list
+          must not contain duplicates.</p>
+      </desc>
+    </func>
+    <func>
+      <name>insert(Element, Set1) -> Set2</name>
+      <fsummary>Add a new element to a gb_set</fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new gb_set formed from <c>Set1</c> with
+          <c>Element</c> inserted. Assumes that <c>Element</c> is not
+          present in <c>Set1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(Set1, Set2) -> Set3</name>
+      <fsummary>Return the intersection of two gb_sets</fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of <c>Set1</c> and <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(SetList) -> Set</name>
+      <fsummary>Return the intersection of a list of gb_sets</fsummary>
+      <type>
+        <v>SetList = [gb_set()]</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of the non-empty list of gb_sets.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_disjoint(Set1, Set2) -> bool()</name>
+      <fsummary>Check whether two gb_sets are disjoint</fsummary>
+      <type>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Set1</c> and
+          <c>Set2</c> are disjoint (have no elements in common),
+	  and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_empty(Set) -> bool()</name>
+      <fsummary>Test for empty gb_set</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Set</c> is an empty set, and
+          <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_member(Element, Set) -> bool()</name>
+      <name>is_element(Element, Set) -> bool()</name>
+      <fsummary>Test for membership of a gb_set</fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Element</c> is an element of
+          <c>Set</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_set(Term) -> bool()</name>
+      <fsummary>Test for a gb_set</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Set</c> appears to be a gb_set,
+          otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_subset(Set1, Set2) -> bool()</name>
+      <fsummary>Test for subset</fsummary>
+      <type>
+        <v>Set1 = Set2 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> when every element of <c>Set1</c> is
+          also a member of <c>Set2</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>iterator(Set) -> Iter</name>
+      <fsummary>Return an iterator for a gb_set</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+        <v>Iter = term()</v>
+      </type>
+      <desc>
+        <p>Returns an iterator that can be used for traversing the
+          entries of <c>Set</c>; see <c>next/1</c>. The implementation
+          of this is very efficient; traversing the whole set using
+          <c>next/1</c> is only slightly slower than getting the list
+          of all elements using <c>to_list/1</c> and traversing that.
+          The main advantage of the iterator approach is that it does
+          not require the complete list of all elements to be built in
+          memory at one time.</p>
+      </desc>
+    </func>
+    <func>
+      <name>largest(Set) -> term()</name>
+      <fsummary>Return largest element</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the largest element in <c>Set</c>. Assumes that
+          <c>Set</c> is nonempty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>next(Iter1) -> {Element, Iter2} | none</name>
+      <fsummary>Traverse a gb_set with an iterator</fsummary>
+      <type>
+        <v>Iter1 = Iter2 = Element = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{Element, Iter2}</c> where <c>Element</c> is the
+          smallest element referred to by the iterator <c>Iter1</c>,
+          and <c>Iter2</c> is the new iterator to be used for
+          traversing the remaining elements, or the atom <c>none</c> if
+          no elements remain.</p>
+      </desc>
+    </func>
+    <func>
+      <name>singleton(Element) -> gb_set()</name>
+      <fsummary>Return a gb_set with one element</fsummary>
+      <type>
+        <v>Element = term()</v>
+      </type>
+      <desc>
+        <p>Returns a gb_set containing only the element <c>Element</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>size(Set) -> int()</name>
+      <fsummary>Return the number of elements in a gb_set</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the number of elements in <c>Set</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>smallest(Set) -> term()</name>
+      <fsummary>Return smallest element</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the smallest element in <c>Set</c>. Assumes that
+          <c>Set</c> is nonempty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>take_largest(Set1) -> {Element, Set2}</name>
+      <fsummary>Extract largest element</fsummary>
+      <type>
+        <v>Set1 = Set2 = gb_set()</v>
+        <v>Element = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{Element, Set2}</c>, where <c>Element</c> is the
+          largest element in <c>Set1</c>, and <c>Set2</c> is this set
+          with <c>Element</c> deleted. Assumes that <c>Set1</c> is
+          nonempty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>take_smallest(Set1) -> {Element, Set2}</name>
+      <fsummary>Extract smallest element</fsummary>
+      <type>
+        <v>Set1 = Set2 = gb_set()</v>
+        <v>Element = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{Element, Set2}</c>, where <c>Element</c> is the
+          smallest element in <c>Set1</c>, and <c>Set2</c> is this set
+          with <c>Element</c> deleted. Assumes that <c>Set1</c> is
+          nonempty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>to_list(Set) -> List</name>
+      <fsummary>Convert a gb_set into a list</fsummary>
+      <type>
+        <v>Set = gb_set()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the elements of <c>Set</c> as a list.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(Set1, Set2) -> Set3</name>
+      <fsummary>Return the union of two gb_sets</fsummary>
+      <type>
+        <v>Set1 = Set2 = Set3 = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) gb_set of <c>Set1</c> and
+          <c>Set2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(SetList) -> Set</name>
+      <fsummary>Return the union of a list of gb_sets</fsummary>
+      <type>
+        <v>SetList = [gb_set()]</v>
+        <v>Set = gb_set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) gb_set of the list of gb_sets.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="gb_trees">gb_trees(3)</seealso>, 
+      <seealso marker="ordsets">ordsets(3)</seealso>, 
+      <seealso marker="sets">sets(3)</seealso></p>
+  </section>
+</erlref>
+

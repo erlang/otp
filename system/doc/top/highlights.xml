@@ -1,0 +1,238 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Highlights</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev>A</rev>
+    <file>highlights.xml</file>
+  </header>
+  <p>This document lists some highlights of Erlang 5.7/OTP R13A
+    (unpatched), compared to the previous version Erlang 5.6/OTP R12B,
+    with focus on things not already released as R12B patches.</p>
+  <p>Note: This document was compiled at the time when R13A was released
+    and does not list any features introduced in R13 patches.</p>
+
+  <section>
+    <title>Erlang Language and Run-time System</title>
+    <section>
+      <title>Multi-core and SMP performance improvements</title>
+      <p>
+	There SMP performance is significantly improved and will 
+	allow most applications to scale much better on systems with many
+	cores or processors. Listed below are some of the most important improvements:
+      </p>
+    <list type="bulleted">
+      <item>
+      <p>
+	The runtime system with SMP support now uses <em>multiple,
+	scheduler specific run queues</em>, instead of one globally shared
+	run queue.
+      </p>
+      <p>
+	The lock protecting the shared run queue was heavily
+	contended, and the shared run queue also caused Erlang
+	processes to randomly migrate between schedulers with
+	negative cache effects as a result.
+      </p>
+      <p>
+	With the current scheduler specific run queue solution, lock
+	contention due to run queue protection has been reduced, and
+	Erlang processes are only migrated when needed to balance the
+	load between the schedulers. The reduced amount of migration
+	also reduce lock contention on locks protecting the scheduler
+	specific instances of the erts internal memory allocators.
+      </p>
+      <p>
+	The scheduler specific run queues are also a necessity for a
+	lot of future planned NUMA (Non-Uniform Memory Access)
+	specific optimizations.
+      </p>
+      </item>
+      <item>
+	<p>
+	  Message passing has been further optimized for parallell execution.
+	  This makes parallell sending to one common receiver much more efficient.
+	</p>
+      </item>
+      <item>
+	<p>
+	  Scheduler threads can now be bound to logical processors on newer 
+	  Linux ans Solaris systems.
+	</p>
+      </item>
+    </list>
+    </section>
+    <section>
+      <title>Unicode support</title>
+	<p>
+	  Support for Unicode is implemented as described in EEP10.
+	  Formatting and reading of unicode data both from terminals
+	  and files is supported by the <c>io</c> and <c>io_lib</c> modules. 
+	  Files
+	  can be opened in modes with automatic translation to and from
+	  different unicode formats. The module 'unicode' contains
+	  functions for conversion between external and internal
+	  unicode formats and the re module has support for unicode
+	  data. There is also language syntax for specifying string and
+	  character data beyond the ISO-latin-1 range.
+	</p>
+    </section>
+
+    <section>
+      <title>New BIF's</title>
+      <p>
+	The BIFs <c>atom_to_binary/2</c>, <c>binary_to_atom/2</c> and 
+	<c>binary_to_existing_atom/2</c> have been added.
+      </p>
+    </section>
+
+    <section>
+      <title>Independent Erlang clusters on the same host</title>
+      <p>
+	Nodes belonging to different independent clusters can now
+	co-exist on the same host with the help of a new
+	environment variable setting <c>ERL_EPMD_PORT</c>.
+	The environment variable is used by Erl_interface and J_interface 
+	as well.
+      </p>
+    </section>
+  </section>
+
+  <section>
+    <title>New Applications</title>
+
+    <section>
+      <title>Reltool</title>
+
+           <p>
+	     Reltool is a release management tool. 
+	     It analyses a given Erlang/OTP installation and determines 
+	     various dependencies between applications. 
+	     The graphical frontend depicts the dependencies and enables 
+	     interactive customization of a target system. 
+	     The backend provides a batch interface for generation of 
+	     customized target systems.
+	     The application is still somewhat limited and should be regarded 
+	     as experimental in this release. The intention is that this
+	     application will be a valuable tool for making both traditional
+	     Erlang target systems as well as standalone components in Erlang.
+	   </p>
+    </section>
+
+    <section>
+      <title>WxErlang</title>
+      <p>
+	wxErlang is an Erlang binding to the WxWidgets GUI library which 
+	provides support for cross platform GUI applications. 
+	wxErlang is still in beta status and the intention is that it shall 
+	replace GS in a later stage. The Erlang debugger is also shipped in
+	a wxErlang version.
+      </p>
+    </section>
+
+
+  </section>
+
+  <section>
+    <title>New features in Existing Applications</title>
+
+    <section>
+      <title>Common_test</title>
+
+      <p>
+	A support client module for SSH and SFTP, <c>ct_ssh</c>, has
+	been introduced.
+      </p>
+      <p>
+	Test case groups have been introduced. With this feature
+	it's possible to execute groups (possibly nested)
+	of test cases.
+      </p>
+      <p>
+	A group definition contains a name tag, a list of
+	properties and a list of test cases (including possible
+	nested group definitions). The properties make it possible
+	to execute test cases in parallel, in sequence and in
+	shuffled order. It is also possible to repeat test cases
+	according to different criteria. 
+      </p>
+    </section>
+
+
+    <section>
+      <title>Dialyzer</title>
+      <p>
+	The analysis now accepts <em>opaque type declarations</em> and 
+	detects
+	violations of opaqueness of terms of such types. Starting
+	with R13, many Erlang/OTP standard libraries (array, dict,
+	digraph, ets, gb_sets, gb_trees, queue, and sets) contain
+	opaque type declarations of their main data types. Dialyzer
+	will spit out warnings in code that explicitly depends on the
+	structure of these terms.
+      </p>
+      <p>
+	Added support for handling UTF segments in bitstreams and for
+	detecting obvious type errors in these segments. Warning:
+	This code is not terribly tested though since there are very
+	few Erlang programs which use Unicode-based binaries - not
+	surprising since this is a new language feature of R13.
+      </p>
+      <p>
+	Strengthened the discrepancy identification when testing for
+	equality and matching between terms of different types. This
+	detects more bugs in code.
+      </p>
+      <p>
+	See the Dialyzer documentation and release notes for even more 
+	enhancements.
+      </p>
+    </section>
+
+    <section>
+      <title>SSL</title>
+      <p>
+	The "new_ssl" implementation is significantly improved and should be
+	near product status now. 
+	The new SSL is implemented in pure Erlang except for 
+	the crypto routines that are implemented in the crypto driver which
+	is an interface to libcrypto from OpenSSL.
+      </p>
+    </section>
+    
+   <section>
+      <title>STDLIB</title>
+
+      <p>The Erlang scanner has been augmented as to return white-space, 
+      comments and exact location of tokens. 
+      This means that the scanner can easily be used in tools such as editors, 
+      pretty printers, syntax highlighters etc. 
+      where it is important to be able recreate the original source document.
+      </p>
+    </section>
+
+  </section>
+</chapter>
+

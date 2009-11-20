@@ -1,0 +1,74 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>The cosNotification Application</title>
+    <prepared>Niclas Eklund</prepared>
+    <docno></docno>
+    <date>2000-01-31</date>
+    <rev>1.0</rev>
+    <file>ch-contents.xml</file>
+  </header>
+
+  <section>
+    <title>Content Overview</title>
+    <p>The cosNotification documentation is divided into three sections:
+      </p>
+    <list type="bulleted">
+      <item>
+        <p>PART ONE - The User's Guide  
+                    <br></br>
+Description of the cosNotification Application including 
+          services and a small tutorial demonstrating 
+          the development of a simple service.</p>
+      </item>
+      <item>
+        <p>PART TWO - Release Notes
+                    <br></br>
+A concise history of cosNotification.</p>
+      </item>
+      <item>
+        <p>PART THREE - The Reference Manual
+                    <br></br>
+ A quick reference guide, including a
+          brief description, to all the functions available in cosNotification.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Brief Description of the User's Guide</title>
+    <p>The User's Guide  contains the following parts:</p>
+    <list type="bulleted">
+      <item>
+        <p>cosNotification overview</p>
+      </item>
+      <item>
+        <p>cosNotification installation</p>
+      </item>
+      <item>
+        <p>A tutorial example</p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

@@ -1,0 +1,201 @@
+
+OTP R4B b1 UnixWare Release Notes
+------------------------------------
+
+Kent Boortz
+
+This is an *unsupported* release of OTP to UnixWare 2.1.2.
+In fact, it should not be considered a release or a product at all,
+it is a demo what a real release could look like.
+
+Questions should be directed directly to
+
+	Kent Boortz
+	kent@erix.ericsson.se
+
+Changes or problems:
+
+     *	There is no documentation as part of this release.
+	Use the R5B documentation that comes with the
+	Solaris release.
+
+     *	To run older graphical tools based on 'pxw' like
+	'xerl' and 'interpreter' you have to add
+	"/usr/X/lib" to your LD_LIBRARY_PATH.
+
+     *	The OTP test cases looks reasonable well considering the
+	short time I had to do the port. The tests of the base
+	system gives equal results than on Solaris. There are
+	some problems with the 'ic' application (CORBA) and there
+	may be some 'mnesia' problems (the tests where not completed
+	when I wrote this note)
+
+     *	OTP normally try to handle IP host name lookups
+	by itself, parsing /etc/hosts and other configuration
+	files. This is done because the normal calls like
+	gethostbyname() is blocking. In this UnixWare port
+	the normal gethostbyname() is used and if a reply
+	from the name server takes some time this may block
+	the OTP system from doing other tasks (it may be the
+	case that it doesn't block the whole system, it may
+	just keep other Erlang processes that do DNS lookups
+	waiting, I'm not sure).
+
+     *	The erl_interface library support varios types of threading
+	This is not supported in the OTP UnixWare release.
+
+     *	If you use gcc you compile and link dynamic drivers with
+
+		gcc -fPIC -c foo.c
+		ld -G -t text -o foo.so foo.o
+
+	With the UnixWare C compiler I belive it will be
+
+		gcc -KPIC -c foo.c
+		ld -G -t text -o foo.so foo.o
+
+     *	The default shell limits was a problem when I was running
+	some large tests. These limits can be changed by building 
+	a new kernel. To enable unlimited use of virtual memory
+	and data you do as root
+
+		% /etc/conf/bin/idtune SDATLIM 0x7FFFFFFF
+		% /etc/conf/bin/idtune HDATLIM 0x7FFFFFFF
+		% /etc/conf/bin/idtune SVMMLIM 0x7FFFFFFF
+		% /etc/conf/bin/idtune HVMMLIM 0x7FFFFFFF
+		% /etc/conf/bin/idbuild
+
+	When you reboot a new kernel will be built.
+	
+     *	I didn't give the system enough swap space. You can add
+	swap on an ordinary file. To add about 100 MB more swap
+	you do as root
+
+		% dd < /dev/zero > /moreswap bs=512 count=200000
+		% swap -a /moreswap 0 200000
+
+	The first line will create a 100 MB file on the root partition
+	and the second line will add this file as swap space. Note that
+	the "swap" command is a bit buggy and may hang. Reboot UnixWare
+	and try again.
+
+Internel notes on build the release
+
+     *	If the network addresses are changed you enter single user
+	mode by hitting a key after the "Booting UnixWare..." and
+	the beep. At the prompt
+
+		BOOT#				Hit return only to clear line
+		BOOT# INITSTATE=S
+		BOOT# go
+
+	This will put you into single user mode. Find out ip address,
+	default router and DNS server. At the shell prompt
+
+		# /usr/local/bin/tcsh
+		# setenv TERM vt100
+		# cd /etc
+		# vi resolv.conf
+		< edit and save with :x! >
+		# cd /etc/inet
+		# vi hosts
+		< edit and save with :x! >
+		# vi config
+		< edit and save with :x! >
+		# cd /
+		# shutdown now
+
+	Now it should be possible to restart in single user mode.
+	It may still have long timeouts because the NIS information
+	is wrong. As root you do
+
+		# ypinit -c
+
+	and type in "arda" as NIS domain and "gandalf.du.uab.ericsson.se"
+	as NIS server.
+
+     *	Prebuilding the release. Create a view with the -ncaexported option.
+	See "http://otp/product/internal/test/doc/howto/export_view.html".
+	Build a solaris release (optionally using a boostrap compiler)
+
+		# cd /clearcase/otp/erts/autoconf; cm -V; cd ..
+		# cm -V opt EMULATOR=jam BUILD_ALL=1 >& LOG.1
+
+     *	Create the directories for mount points and mount the view on
+	the UnixWare machine.
+
+		# mkdir -p /clearcase/otp; cd /clearcase/otp
+		# mkdir erts internal_tools libraries system tools
+
+	Use s script like
+
+	    #!/bin/sh
+	    HOST=$1
+	    VIEW=$2
+	    MOUNT=$HOST:/view/$VIEW/clearcase/otp
+
+	    mount -F nfs $MOUNT/erts           $DIR/erts
+	    mount -F nfs $MOUNT/libraries      $DIR/libraries
+	    mount -F nfs $MOUNT/tools          $DIR/tools
+	    mount -F nfs $MOUNT/internal_tools $DIR/internal_tools
+	    mount -F nfs $MOUNT/system         $DIR/system
+
+	to mount the ClearCase VOBs.
+
+     *	Building the 
+     *	Building the 
+	
+	"/usr/X/lib" to your LD_LIBRARY_PATH.
+
+	Had to patch the file
+
+	/usr/local/lib/g++-include/_G_config.h
+
+	not to define _G_HAVE_SYS_CDEFS 1
+
+	Problems with pxw yacc
+
+		yacc -dv -b i386-univel-sysv4.2MP/y parse.y
+		UX:yacc: ERROR: Illegal option -- b
+		UX:yacc: TO FIX: Usage: yacc [-wvVdlt] [-Q(y/n)] [-p driver_file] file
+		gmake[6]: *** [i386-univel-sysv4.2MP/y.tab.c] Error 1
+
+	Create some symbolic links (until got compiled libs for UnixWare)
+
+		# cd crypt/src/ssleay
+		# ln -s elibcrypto.so.i386-pc-solaris2.5.1 elibcrypto.so.i386-univel-sysv4.2MP
+		# cd ssl/src/ssleay
+		# ln -s i386-pc-solaris2.5.1 i386-univel-sysv4.2MP
+
+	Run 
+
+		# ntpdate super.du.uab.ericsson.se
+
+	now and then to set the time on the machine.
+
+
+	Disabled HAVE_MULTICAST_SUPPORT from "drv/inet_drv.c", should be set in configure
+
+	UnixWare want two arguments to 'ln'
+
+	SkunkWare gcc, ln, tar, ..... required, make sure PATH points out them first
+
+	The emulator has to be linked with "gcc -r -Wl,-Bexport " to be linkable
+	with dynamic libraries.
+
+	Tcl/Tk was compiled from
+
+	        tcl7.6p2plus.tar.gz 
+	        tk4.2p2plus.tar.gz
+
+	and the make-files where changed, see
+
+		(not needed it seems, if not using gcc at least)		
+
+
+	VILL HA "-ly -ll" BARA PA PXW  ???????
+
+	You can view the limits of the Unix processes in
+
+		/etc/conf/mtune.d/proc
+

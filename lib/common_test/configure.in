@@ -1,0 +1,14 @@
+AC_INIT()
+
+AC_CONFIG_AUX_DIR(priv/auxdir)
+
+if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
+    AC_CANONICAL_HOST
+else
+    host_os=win32
+fi
+
+TARGET=$host
+AC_SUBST(TARGET)
+
+AC_OUTPUT(priv/$host/Makefile:priv/Makefile.in)

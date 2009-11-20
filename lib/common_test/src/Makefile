@@ -1,0 +1,141 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2003-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+include $(ERL_TOP)/make/target.mk
+
+# ----------------------------------------------------
+# Configuration info.
+# ----------------------------------------------------
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../vsn.mk
+VSN=$(COMMON_TEST_VSN)
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/common_test-$(VSN)
+
+# ----------------------------------------------------
+# Target Specs
+# ----------------------------------------------------
+
+MODULES= \
+	ct_line \
+	ct \
+	ct_logs \
+	ct_framework \
+	ct_ftp \
+	ct_ssh \
+	ct_snmp \
+	ct_gen_conn \
+	ct_rpc \
+	ct_run \
+	ct_master \
+	ct_telnet \
+	ct_util \
+	ct_cover \
+	ct_testspec \
+	ct_event \
+	ct_master_event \
+	ct_master_logs \
+	ct_master_status \
+	ct_repeat \
+	ct_telnet_client \
+	ct_make \
+	vts \
+	unix_telnet
+
+TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
+
+ERL_FILES= $(MODULES:=.erl)
+HRL_FILES = \
+	ct_util.hrl
+EXTERNAL_HRL_FILES = \
+	../include/ct.hrl \
+	../include/ct_event.hrl
+
+EXTERNAL_INC_PATH = ../include
+
+DTD_FILES = \
+	mp.dtd
+
+# ----------------------------------------------------
+# FLAGS
+# ----------------------------------------------------
+ERL_COMPILE_FLAGS += -pa ../ebin -I../include -I $(ERL_TOP)/lib/snmp/include/ \
+	-I../../test_server/include -I../../xmerl/inc/ \
+	-I $(ERL_TOP)/lib/kernel/include
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+TARGET_FILES = \
+	$(GEN_ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR)) \
+	$(MODULES:%=$(EBIN)/%.$(EMULATOR)) \
+	$(APP_TARGET) $(APPUP_TARGET)
+
+APP_FILE= common_test.app
+APP_SRC= $(APP_FILE).src
+APP_TARGET= $(EBIN)/$(APP_FILE)
+
+APPUP_FILE= common_test.appup
+APPUP_SRC= $(APPUP_FILE).src
+APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
+
+tests debug opt: $(TARGET_FILES)
+
+docs:
+
+clean:
+	rm -f $(TARGET_FILES) $(GEN_FILES)
+	rm -f core
+
+# ----------------------------------------------------
+# Special Build Targets
+# ----------------------------------------------------
+$(APP_TARGET): $(APP_SRC) ../vsn.mk
+	sed -e 's;%VSN%;$(VSN);' $< > $@
+
+$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
+	sed -e 's;%VSN%;$(VSN);' $< > $@
+
+# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/src
+	$(INSTALL_DATA) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)/src
+	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR) $(RELSYSDIR)/include
+	$(INSTALL_DATA) $(EXTERNAL_HRL_FILES) $(RELSYSDIR)/include
+
+release_tests_spec: opt
+	$(INSTALL_DIR) $(RELEASE_PATH)/common_test_test
+	$(INSTALL_DATA) $(ERL_FILES)  \
+        $(HRL_FILES) $(TARGET_FILES) $(RELEASE_PATH)/common_test_test
+
+release_docs_spec: docs
+

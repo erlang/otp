@@ -1,0 +1,242 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+#
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include $(ERL_TOP)/erts/vsn.mk
+
+APPLICATION=otp-system-documentation
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/doc
+
+GIF_FILES = 
+
+INFO_FILES = ../../README ../../COPYRIGHT PR.template
+
+TOPDOCDIR=.
+
+TOP_HTML_GEN_FILES = \
+	$(HTMLDIR)/incompatible.html \
+	$(HTMLDIR)/highlights.html
+
+TOP_HTML_FILES = \
+	$(TOP_HTML_GEN_FILES)
+
+include ../installation_guide/xmlfiles.mk
+include ../system_principles/xmlfiles.mk
+include ../embedded/xmlfiles.mk
+include ../getting_started/xmlfiles.mk
+include ../reference_manual/xmlfiles.mk
+include ../programming_examples/xmlfiles.mk
+include ../efficiency_guide/xmlfiles.mk
+include ../tutorial/xmlfiles.mk
+include ../design_principles/xmlfiles.mk
+include ../oam/xmlfiles.mk
+
+XML_FILES = \
+	$(INST_GUIDE_CHAPTER_FILES:%=../installation_guide/%) \
+	$(SYSTEM_PRINCIPLES_CHAPTER_FILES:%=../system_principles/%) \
+	$(EMBEDDED_CHAPTER_FILES:%=../embedded/%) \
+	$(GETTING_STARTED_CHAPTER_FILES:%=../getting_started/%) \
+	$(REF_MAN_CHAPTER_FILES:%=../reference_manual/%) \
+	$(PROG_EX_CHAPTER_FILES:%=../programming_examples/%) \
+	$(EFF_GUIDE_CHAPTER_FILES:%=../efficiency_guide/%) \
+	$(TUTORIAL_CHAPTER_FILES:%=../tutorial/%) \
+	$(DESIGN_PRINCIPLES_CHAPTER_FILES:%=../design_principles/%) \
+	$(OAM_CHAPTER_FILES:%=../oam/%) \
+	../installation_guide/part.xml \
+	../system_principles/part.xml \
+	../embedded/part.xml \
+	../getting_started/part.xml \
+	../reference_manual/part.xml \
+	../programming_examples/part.xml \
+	../efficiency_guide/part.xml \
+	../tutorial/part.xml \
+	../design_principles/part.xml \
+	../oam/part.xml
+
+BOOK_FILES = book.xml
+
+HTMLDIR= ../html
+PDFREFDIR= pdf
+
+TOP_PDF_FILE = $(PDFDIR)/$(APPLICATION)-$(VSN).pdf
+TOPDOC=true
+
+#--------------------------------------------------------------------------
+# We generate the index page from the installed system. This make
+# it important that this is done last. The file index.html.src
+# is used as a template for the resulting page.
+
+EBIN = ebin
+
+INDEX_SCRIPT = $(EBIN)/erl_html_tools.$(EMULATOR)
+INDEX_SRC = src/erl_html_tools.erl
+INDEX_FILES = \
+	$(HTMLDIR)/index.html \
+	$(HTMLDIR)/applications.html 
+
+JAVASCRIPT = $(HTMLDIR)/js/erlresolvelinks.js
+JAVASCRIPT_BUILD_SCRIPT = $(EBIN)/erlresolvelinks.$(EMULATOR)
+JAVASCRIPT_BUILD_SCRIPT_SRC = src/erlresolvelinks.erl
+
+MAN_INDEX_SCRIPT = $(ERL_TOP)/system/doc/top/bin/otp_man_index
+MAN_INDEX = $(HTMLDIR)/man_index.html
+
+GLOSSARY  = $(HTMLDIR)/glossary.html
+GLOSSARY_SRC = $(ERL_TOP)/system/internal_tools/doctools/src/glossary.erl
+GLOSSARY_SCRIPT = $(EBIN)/glossary.$(EMULATOR)
+
+#--------------------------------------------------------------------------
+
+$(INDEX_SCRIPT): $(INDEX_SRC)
+	$(ERLC) -o$(EBIN) +warn_unused_vars $<
+
+# We don't list toc_*.html as targets because we don't know
+$(HTMLDIR)/index.html: $(INDEX_SCRIPT)
+ifneq ($(INSTALLROOT),)
+	echo "Generating index $@"
+	$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index $(INSTALLROOT) \
+	$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt
+else
+	@echo "INSTALLROOT unset, no indexes built."
+endif
+
+#--------------------------------------------------------------------------
+
+$(JAVASCRIPT_BUILD_SCRIPT): $(JAVASCRIPT_BUILD_SCRIPT_SRC)
+	$(ERLC) -o$(EBIN) +warn_unused_vars $<
+
+$(JAVASCRIPT): $(JAVASCRIPT_BUILD_SCRIPT)
+ifneq ($(INSTALLROOT),)
+	echo "Generating javascript for resolving HTML links"
+	erl -noshell -pa $(EBIN) -s erlresolvelinks make $(INSTALLROOT) \
+		. -s erlang halt
+	mkdir $(HTMLDIR)/js
+	mv erlresolvelinks.js $(JAVASCRIPT) # not portable !!!
+else
+	@echo "INSTALLROOT unset, no javascript generated."
+endif
+
+#--------------------------------------------------------------------------
+
+$(MAN_INDEX): $(MAN_INDEX_SCRIPT)
+ifneq ($(INSTALLROOT),)
+	echo "Generating index $@"
+	(cd $(INSTALLROOT); perl $< ) > $@
+else
+	@echo "INSTALLROOT unset, no manual index built."
+endif
+#--------------------------------------------------------------------------
+
+$(HTMLDIR)/highlights.html:  highlights.xml
+	date=`date +"%B %e %Y"`; \
+	$(XSLTPROC) --output $(@) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
+		--stringparam pdfdir "$(PDFREFDIR)"  --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" \
+		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/docbuilder_dtd -path  $(DOCGEN)/priv/dtd_html_entities \
+		$(DOCGEN)/priv/xsl/db_html.xsl $<
+
+
+$(HTMLDIR)/incompatible.html:  incompatible.xml
+	date=`date +"%B %e %Y"`; \
+	$(XSLTPROC) --output $(@) --stringparam docgen "$(DOCGEN)" --stringparam topdocdir "$(TOPDOCDIR)" \
+		--stringparam pdfdir "$(PDFREFDIR)"  --stringparam gendate "$$date" --stringparam appname "$(APPLICATION)" \
+		--stringparam appver "$(VSN)" -path  $(DOCGEN)/priv/docbuilder_dtd -path  $(DOCGEN)/priv/dtd_html_entities \
+		$(DOCGEN)/priv/xsl/db_html.xsl $<
+
+#--------------------------------------------------------------------------
+
+$(GLOSSARY_SCRIPT): $(GLOSSARY_SRC)
+	$(ERLC) -o$(EBIN) $(GLOSSARY_SRC)
+
+$(GLOSSARY): $(GLOSSARY_SCRIPT)
+	$(ERL) -noshell -pa $(EBIN) \
+		-s glossary make ../definitions/term.defs -s erlang halt > \
+		$(GLOSSARY)
+
+#--------------------------------------------------------------------------
+
+PR.template: PR.template.src $(ERL_TOP)/erts/vsn.mk
+	sed -e 's;%VSN%;$(VSN);' \
+	    -e 's;%SYSTEM_VSN%;$(SYSTEM_VSN);' \
+	    $< > $@
+
+# ----------------------------------------------------
+# FLAGS 
+# ----------------------------------------------------
+XML_FLAGS += 
+DVIPS_FLAGS += 
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+
+
+docs: pdf html $(INFO_FILES)
+
+local_docs: PDFREFDIR=../pdf
+
+$(TOP_PDF_FILE): $(XML_FILES)
+
+pdf: $(TOP_PDF_FILE)
+
+html:   $(INDEX_FILES) $(TOP_HTML_FILES) \
+	$(MAN_INDEX) $(JAVASCRIPT)
+
+debug opt: 
+
+clean:
+	rm -rf 	../html/js
+	rm -f PR.template 
+	rm -f  $(INDEX_FILES) $(TOP_HTML_FILES) $(MAN_INDEX) 
+	rm -f  $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
+	rm -f $(INDEX_SCRIPT) $(GLOSSARY_SCRIPT) \
+		$(JAVASCRIPT_BUILD_SCRIPT) 
+	rm -f erl_crash.dump errs core *~
+
+# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+
+release_docs_spec: docs
+	$(INSTALL_DIR)  $(RELEASE_PATH)
+	$(INSTALL_DATA) $(INFO_FILES) $(RELEASE_PATH)
+	$(INSTALL_DIR)  $(RELSYSDIR)
+	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
+	$(INSTALL_DATA)  \
+		$(TOP_PDF_FILE) $(RELSYSDIR)/pdf
+#$(TOP_HTML_FILES)
+ifneq ($(INSTALLROOT),)
+	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR) 
+	$(INSTALL_DIR)  $(RELSYSDIR)/js
+	$(INSTALL_DATA)  \
+		$(JAVASCRIPT) $(RELSYSDIR)/js
+endif
+
+
+release_spec:

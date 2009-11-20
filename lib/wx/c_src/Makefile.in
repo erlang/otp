@@ -1,0 +1,177 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2008-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+include ../vsn.mk
+include ../config.mk
+
+# Darwin os have debug default install of wxWidgets 
+FORCED_DEBUG = @FORCED_DEBUG_BUILD@
+ifeq ($(FORCED_DEBUG),debug)
+override TYPE=debug
+endif
+
+ifneq ($(TYPE),debug)
+override TYPE=opt
+endif
+
+SO_EXT    = @SO_EXT@
+
+GENERAL     = wxe_driver wxe_ps_init wxe_impl wxePrintout wxe_return
+GENERAL_H   = wxe_driver.h wxe_impl.h wxe_return.h
+
+GENERATED_F = wxe_funcs wxe_events wxe_init
+GENERATED_H = gen/wxe_macros.h gen/glu_finit.h gen/gl_finit.h gen/gl_fdefs.h 
+
+HAVE_OPENGL = true
+OPENGL_F = gl_funcs wxe_gl
+
+ifneq ($(INSIDE_ERLSRC),true)
+
+ERL_DIR = @ERLANG_ROOT_DIR@
+ERL_INCS = -I$(ERL_DIR)/usr/include
+
+else
+ERLANG_OSTYPE = @WXERL_SYS_TYPE@
+
+ERL_INCS= -I$(ERL_TOP)/erts/emulator/beam \
+	   -I$(ERL_TOP)/erts/emulator/sys/$(ERLANG_OSTYPE) \
+	   -I$(ERL_TOP)/erts/include/internal \
+	   -I$(ERL_TOP)/erts/include/internal/$(ERLANG_OSTYPE) \
+	   -I$(ERL_TOP)/erts/include \
+	   -I$(ERL_TOP)/erts/include/$(ERLANG_OSTYPE)
+
+endif
+
+SYS_TYPE    = @WXERL_SYS_TYPE@
+
+GENERAL_O   = $(GENERAL:%=$(SYS_TYPE)/%.o) 
+GENERATED_O = $(GENERATED_F:%=$(SYS_TYPE)/%.o)
+ifeq ($(HAVE_OPENGL), true)
+	OPENGL_O = $(OPENGL_F:%=$(SYS_TYPE)/%.o)
+else
+	OPENGL_O = 
+endif
+
+RC_FILE_EXT = @RC_FILE_TYPE@
+ifeq ($(SYS_TYPE),win32)
+RC_FILE     = $(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT)
+else 
+RC_FILE     = 
+endif
+
+OBJECTS     = $(GENERAL_O) $(GENERATED_O) $(OPENGL_O) $(RC_FILE)
+
+TARGET_API = wxe_driver
+TARGET_DIR = ../priv/$(SYS_TYPE)
+
+# -O2 -funroll-loops  -ffast-math -fomit-frame-pointer 
+
+COMMON_CFLAGS = @DEFS@ $(ERL_INCS) 
+
+CC		= @CC@
+CPP		= @CXX@
+LD		= $(CPP)
+LDFLAGS		= @LDFLAGS@
+RESCOMP		= @WX_RESCOMP@
+
+
+ifeq (@WX_HAVE_STATIC_LIBS@,true) 
+WX_LIBS	         =  @WX_LIBS_STATIC@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS_STATIC@
+else
+WX_LIBS	         =  @WX_LIBS@
+DEBUG_WX_LIBS    =  @DEBUG_WX_LIBS@
+endif
+
+ifeq ($(TYPE),debug)
+CFLAGS		= @DEBUG_WX_CFLAGS@ @DEBUG_CFLAGS@
+CPP_FLAGS	= @DEBUG_WX_CXXFLAGS@ @DEBUG_CXXFLAGS@
+LIBS		= $(DEBUG_WX_LIBS)
+else
+CFLAGS		= @WX_CFLAGS@ @CFLAGS@
+CPP_FLAGS	= @WX_CXXFLAGS@ @CXXFLAGS@
+LIBS		= $(WX_LIBS)
+endif
+
+CC_O		= $(CC) -c $(CFLAGS) $(COMMON_CFLAGS)
+CPP_O		= $(CPP) -c $(CPP_FLAGS) $(COMMON_CFLAGS) 
+
+# Targets
+
+opt:     $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) 
+
+debug:   
+	@${MAKE} TYPE=debug
+
+clean:  
+	rm -f $(OBJECTS) 
+	rm -f ../priv/$(TARGET_DIR)/$(TARGET_API)$(SO_EXT)
+	rm -f *~ erl_crash.dump
+
+complete_clean: 
+	rm -f $(OBJECTS) 
+	rm -f $(GENERATED_F:%=gen/%.cpp)
+	rm -f gen/gl_funcs.cpp 
+	rm -f $(GENERATED_H)
+	rm -f ../priv/*/*
+	rm -f *~ erl_crash.dump
+	rm -f Makefile
+
+docs:	
+
+
+$(SYS_TYPE)/%.o: %.cpp $(GENERATED_H) $(GENERAL_H) 
+	mkdir -p $(SYS_TYPE)
+	$(CPP_O) $< -o $@
+
+$(SYS_TYPE)/%.o: %.c $(GENERATED_H) $(GENERAL_H)
+	mkdir -p $(SYS_TYPE)
+	$(CC_O) $< -o $@
+
+$(SYS_TYPE)/%.o: gen/%.cpp $(GENERATED_H) $(GENERAL_H)
+	mkdir -p $(SYS_TYPE)
+	$(CPP_O) $< -o $@
+
+$(SYS_TYPE)/%.o: gen/%.c $(GENERATED_H) $(GENERAL_H)
+	mkdir -p $(SYS_TYPE)
+	$(CC_O) $< -o $@
+
+$(SYS_TYPE)/wxe_win32.$(RC_FILE_EXT): wxe_win32.rc
+	mkdir -p $(SYS_TYPE)
+	$(RESCOMP) -o $@ $< 
+
+$(TARGET_DIR)/$(TARGET_API)$(SO_EXT): $(OBJECTS)
+	mkdir -p $(TARGET_DIR)
+	$(LD) $(LDFLAGS)  $(OBJECTS) $(LIBS) -o $@
+
+
+# ----------------------------------------------------
+# Release Target
+# ----------------------------------------------------
+ifeq ($(INSIDE_ERLSRC),true)
+include $(ERL_TOP)/make/otp_release_targets.mk
+release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/priv/$(SYS_TYPE)
+	$(INSTALL_DATA) ../priv/erlang-logo32.png $(RELSYSDIR)/priv/
+	$(INSTALL_DATA) ../priv/erlang-logo64.png $(RELSYSDIR)/priv/
+	$(INSTALL_DATA) $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) $(RELSYSDIR)/priv/$(SYS_TYPE)
+
+release_docs_spec:
+
+endif

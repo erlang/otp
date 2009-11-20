@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>et_selector</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+  </header>
+  <module>et_selector</module>
+  <modulesummary>Define event transforms and trace patterns</modulesummary>
+  <description>
+    <p></p>
+  </description>
+  <funcs>
+    <func>
+      <name>make_pattern(RawPattern) -> TracePattern</name>
+      <fsummary>Makes a trace pattern suitable to feed change_pattern/1</fsummary>
+      <type>
+        <v>RawPattern = detail_level()</v>
+        <v>TracePattern = erlang_trace_pattern_match_spec()</v>
+        <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
+      </type>
+      <desc>
+        <p>Makes a trace pattern suitable to feed change_pattern/1</p>
+        <p>Min detail level deactivates tracing of calls to phone_home/4,5</p>
+        <p>Max detail level activates tracing of all calls to phone_home/4,5</p>
+        <p>integer(X) detail level activates tracing of all calls to
+          phone_home/4,5 whose detail level argument is lesser than X.</p>
+        <p>See also erlang:trace_pattern/2 for more info about its match_spec()</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_pattern(Pattern) -> ok</name>
+      <fsummary>Activates/deactivates tracing by changing the current trace pattern</fsummary>
+      <type>
+        <v>Pattern = detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec()</v>
+        <v>detail_level() = min | max | integer(X) when X =&lt;0, X >= 100</v>
+        <v>empty_match_spec() = [] </v>
+      </type>
+      <desc>
+        <p>Activates/deactivates tracing by changing the current trace pattern.</p>
+        <p>Min detail level deactivates tracing of calls to phone_home/4,5</p>
+        <p>Max detail level activates tracing of all calls to phone_home/4,5</p>
+        <p>integer(X) detail level activates tracing of all calls to
+          phone_home/4,5 whose detail level argument is lesser than X.</p>
+        <p>An empty match spec deactivates tracing of calls to phone_home/4,5</p>
+        <p>Other match specs activates tracing of calls to phone_home/4,5
+          accordingly with erlang:trace_pattern/2.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parse_event(Mod, ValidTraceData) -> false | true | {true, Event}</name>
+      <fsummary>Transforms trace data and makes an event record out of it</fsummary>
+      <type>
+        <v>Mod = module_name() | undefined &lt;v>module_name() = atom() &lt;v>ValidTraceData = erlang_trace_data() | record(event)</v>
+        <v>erlang_trace_data() = {trace, Pid, Label, Info} |  {trace, Pid, Label, Info, Extra} |  {trace_ts, Pid, Label, Info, ReportedTS} |  {trace_ts, Pid, Label, Info, Extra, ReportedTS} |  {seq_trace, Label, Info} |  {seq_trace, Label, Info, ReportedTS} |  {drop, NumberOfDroppedItems}</v>
+      </type>
+      <desc>
+        <p>Transforms trace data and makes an event record out of it.</p>
+        <p>See erlang:trace/3 for more info about the semantics of
+          the trace data.</p>
+        <p>An event record consists of the following fields:
+          detail_level - Noise has a high level as opposed to essentials.
+          trace_ts     - Time when the trace was generated.
+          Same as event_ts if omitted in trace data.
+          event_ts     - Time when the event record was created.
+          from         - From actor, such as sender of a message.
+          to           - To actor, such as receiver of message.
+          label        - Label intended to provide a brief event summary.
+          contents     - All nitty gritty details of the event.</p>
+        <p>See et:phone_home/4 and et:phone_home/5 for details.</p>
+        <p>Returns: 
+          {true, Event} - where Event is an #event{} record representing the
+          trace data
+          true          - means that the trace data already is an event
+          record and that it is valid as it is.
+          No transformation is needed.
+          false         - means that the trace data is uninteresting and
+          should be dropped</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

@@ -1,0 +1,14 @@
+
+NIF_LIBS = nif_SUITE.1@dll@ \
+           nif_mod.1@dll@ \
+           nif_mod.2@dll@ \
+           nif_mod.3@dll@
+
+all: $(NIF_LIBS)
+
+
+@SHLIB_RULES@
+
+$(NIF_LIBS): nif_SUITE.c nif_mod.c nif_mod.h
+
+

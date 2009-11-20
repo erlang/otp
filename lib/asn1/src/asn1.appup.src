@@ -1,0 +1,113 @@
+{"%VSN%",
+ [
+  {"1.6.8", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+  {"1.6.8.1", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+  {"1.6.9", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+  {"1.6.10", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  }
+ ],
+ [ 
+  {"1.6.8", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+  {"1.6.8.1", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+  {"1.6.9", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  },
+ {"1.6.10", 
+   [
+    {load_module, asn1rt, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_per_bin_rt2ct, soft_purge, soft_purge, []},
+    {load_module, asn1rt_uper_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin, soft_purge, soft_purge, []},
+    {load_module, asn1rt_ber_bin_v2, soft_purge, soft_purge, []},
+    {load_module, asn1rt_check, soft_purge, soft_purge, []},
+    {load_module, asn1rt_driver_handler, soft_purge, soft_purge, []},
+    {apply, {asn1rt_driver_handler,unload_driver,[]}}
+   ] 
+  }
+ ]}.
+
+
+
+

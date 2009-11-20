@@ -1,0 +1,385 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>filename</title>
+    <prepared>Kenneth Lundin</prepared>
+    <docno>1</docno>
+    <date>97-11-13</date>
+    <rev>B</rev>
+  </header>
+  <module>filename</module>
+  <modulesummary>Filename Manipulation Functions</modulesummary>
+  <description>
+    <p>The module <c>filename</c> provides a number of useful functions
+      for analyzing and manipulating file names. These functions are
+      designed so that the Erlang code can work on many different
+      platforms with different formats for file names. With file name
+      is meant all strings that can be used to denote a file. They can
+      be short relative names like <c>foo.erl</c>, very long absolute
+      name which include a drive designator and directory names like
+      <c>D:\\usr/local\\bin\\erl/lib\\tools\\foo.erl</c>, or any variations
+      in between.</p>
+    <p>In Windows, all functions return file names with forward slashes
+      only, even if the arguments contain back slashes. Use
+      <c>join/1</c> to normalize a file name by removing redundant
+      directory separators.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+name() = string() | atom() | DeepList
+  DeepList = [char() | atom() | DeepList]</code>
+  </section>
+  <funcs>
+    <func>
+      <name>absname(Filename) -> string()</name>
+      <fsummary>Convert a filename to an absolute name, relative the working directory</fsummary>
+      <type>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Converts a relative <c>Filename</c> and returns an absolute
+          name. No attempt is made to create the shortest absolute name,
+          because this can give incorrect results on file systems which
+          allow links.</p>
+        <p>Unix examples:</p>
+        <pre>
+1> <input>pwd().</input>
+"/usr/local"
+2> <input>filename:absname("foo").</input>
+"/usr/local/foo"
+3> <input>filename:absname("../x").</input>
+"/usr/local/../x"
+4> <input>filename:absname("/").</input>
+"/"</pre>
+        <p>Windows examples:</p>
+        <pre>
+1> <input>pwd().</input>
+"D:/usr/local"
+2> <input>filename:absname("foo").</input>
+"D:/usr/local/foo"
+3> <input>filename:absname("../x").</input>
+"D:/usr/local/../x"
+4> <input>filename:absname("/").</input>
+"D:/"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>absname(Filename, Dir) -> string()</name>
+      <fsummary>Convert a filename to an absolute name, relative a specified directory</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Dir = string()</v>
+      </type>
+      <desc>
+        <p>This function works like <c>absname/1</c>, except that
+          the directory to which the file name should be made relative
+          is given explicitly in the <c>Dir</c> argument.</p>
+      </desc>
+    </func>
+    <func>
+      <name>absname_join(Dir, Filename) -> string()</name>
+      <fsummary>Join an absolute directory with a relative filename</fsummary>
+      <type>
+        <v>Dir = string()</v>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Joins an absolute directory with a relative filename.
+          Similar to <c>join/2</c>, but on platforms with tight
+          restrictions on raw filename length and no support for
+          symbolic links (read: VxWorks), leading parent directory
+          components in <c>Filename</c> are matched against trailing
+          directory components in <c>Dir</c> so they can be removed
+          from the result - minimizing its length.</p>
+      </desc>
+    </func>
+    <func>
+      <name>basename(Filename) -> string()</name>
+      <fsummary>Return the last component of a filename</fsummary>
+      <type>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Returns the last component of <c>Filename</c>, or
+          <c>Filename</c> itself if it does not contain any directory
+          separators.</p>
+        <pre>
+5> <input>filename:basename("foo").</input>
+"foo"
+6> <input>filename:basename("/usr/foo").</input>
+"foo"
+7> <input>filename:basename("/").</input>
+[]</pre>
+      </desc>
+    </func>
+    <func>
+      <name>basename(Filename, Ext) -> string()</name>
+      <fsummary>Return the last component of a filename, stripped of the specified extension</fsummary>
+      <type>
+        <v>Filename = Ext = name()</v>
+      </type>
+      <desc>
+        <p>Returns the last component of <c>Filename</c> with the
+          extension <c>Ext</c> stripped. This function should be used
+          to remove a specific extension which might, or might not, be
+          there. Use <c>rootname(basename(Filename))</c> to remove an
+          extension that exists, but you are not sure which one it is.</p>
+        <pre>
+8> <input>filename:basename("~/src/kalle.erl", ".erl").</input>
+"kalle"
+9> <input>filename:basename("~/src/kalle.beam", ".erl").</input>
+"kalle.beam"
+10> <input>filename:basename("~/src/kalle.old.erl", ".erl").</input>
+"kalle.old"
+11> <input>filename:rootname(filename:basename("~/src/kalle.erl")).</input>
+"kalle"
+12> <input>filename:rootname(filename:basename("~/src/kalle.beam")).</input>
+"kalle"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>dirname(Filename) -> string()</name>
+      <fsummary>Return the directory part of a path name</fsummary>
+      <type>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Returns the directory part of <c>Filename</c>.</p>
+        <pre>
+13> <input>filename:dirname("/usr/src/kalle.erl").</input>
+"/usr/src"
+14> <input>filename:dirname("kalle.erl").</input>
+"."
+
+5> <input>filename:dirname("\\\\usr\\\\src/kalle.erl").</input> % Windows
+"/usr/src"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>extension(Filename) -> string()</name>
+      <fsummary>Return the file extension</fsummary>
+      <type>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Returns the file extension of <c>Filename</c>, including
+          the period. Returns an empty string if there is no extension.</p>
+        <pre>
+15> <input>filename:extension("foo.erl").</input>
+".erl"
+16> <input>filename:extension("beam.src/kalle").</input>
+[]</pre>
+      </desc>
+    </func>
+    <func>
+      <name>flatten(Filename) -> string()</name>
+      <fsummary>Convert a filename to a flat string</fsummary>
+      <type>
+        <v>Filename = name()</v>
+      </type>
+      <desc>
+        <p>Converts a possibly deep list filename consisting of
+          characters and atoms into the corresponding flat string
+          filename.</p>
+      </desc>
+    </func>
+    <func>
+      <name>join(Components) -> string()</name>
+      <fsummary>Join a list of filename components with directory separators</fsummary>
+      <type>
+        <v>Components = [string()]</v>
+      </type>
+      <desc>
+        <p>Joins a list of file name <c>Components</c> with directory
+          separators. If one of the elements of <c>Components</c>
+          includes an absolute path, for example <c>"/xxx"</c>,
+          the preceding elements, if any, are removed from the result.</p>
+        <p>The result is "normalized":</p>
+        <list type="bulleted">
+          <item>Redundant directory separators are removed.</item>
+          <item>In Windows, all directory separators are forward
+           slashes and the drive letter is in lower case.</item>
+        </list>
+        <pre>
+17> <input>filename:join(["/usr", "local", "bin"]).</input>
+"/usr/local/bin"
+18> <input>filename:join(["a/b///c/"]).</input>
+"a/b/c"
+
+6> <input>filename:join(["B:a\\\\b///c/"]).</input> % Windows
+"b:a/b/c"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>join(Name1, Name2) -> string()</name>
+      <fsummary>Join two filename components with directory separators</fsummary>
+      <type>
+        <v>Name1 = Name2 = string()</v>
+      </type>
+      <desc>
+        <p>Joins two file name components with directory separators. 
+          Equivalent to <c>join([Name1, Name2])</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>nativename(Path) -> string()</name>
+      <fsummary>Return the native form of a file path</fsummary>
+      <type>
+        <v>Path = string()</v>
+      </type>
+      <desc>
+        <p>Converts <c>Path</c> to a form accepted by the command shell
+          and native applications on the current platform. On Windows,
+          forward slashes is converted to backward slashes. On all
+          platforms, the name is normalized as done by <c>join/1</c>.</p>
+        <pre>
+19> <input>filename:nativename("/usr/local/bin/").</input> % Unix
+"/usr/local/bin"
+
+7> <input>filename:nativename("/usr/local/bin/").</input> % Windows
+"\\\\usr\\\\local\\\\bin"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>pathtype(Path) -> absolute | relative | volumerelative</name>
+      <fsummary>Return the type of a path</fsummary>
+      <desc>
+        <p>Returns the type of path, one of <c>absolute</c>,
+          <c>relative</c>, or <c>volumerelative</c>.</p>
+        <taglist>
+          <tag><c>absolute</c></tag>
+          <item>
+            <p>The path name refers to a specific file on a specific
+              volume.</p>
+            <p>Unix example: <c>/usr/local/bin</c></p>
+            <p>Windows example: <c>D:/usr/local/bin</c></p>
+          </item>
+          <tag><c>relative</c></tag>
+          <item>
+            <p>The path name is relative to the current working
+              directory on the current volume.</p>
+            <p>Example: <c>foo/bar, ../src</c></p>
+          </item>
+          <tag><c>volumerelative</c></tag>
+          <item>
+            <p>The path name is relative to the current working
+              directory on a specified volume, or it is a specific file
+              on the current working volume.</p>
+            <p>Windows example: <c>D:bar.erl, /bar/foo.erl</c></p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>rootname(Filename) -> string()</name>
+      <name>rootname(Filename, Ext) -> string()</name>
+      <fsummary>Remove a filename extension</fsummary>
+      <type>
+        <v>Filename = Ext = name()</v>
+      </type>
+      <desc>
+        <p>Remove a filename extension. <c>rootname/2</c> works as
+          <c>rootname/1</c>, except that the extension is removed only
+          if it is <c>Ext</c>.</p>
+        <pre>
+20> <input>filename:rootname("/beam.src/kalle").</input>
+/beam.src/kalle"
+21> <input>filename:rootname("/beam.src/foo.erl").</input>
+"/beam.src/foo"
+22> <input>filename:rootname("/beam.src/foo.erl", ".erl").</input>
+"/beam.src/foo"
+23> <input>filename:rootname("/beam.src/foo.beam", ".erl").</input>
+"/beam.src/foo.beam"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>split(Filename) -> Components</name>
+      <fsummary>Split a filename into its path components</fsummary>
+      <type>
+        <v>Filename = name()</v>
+        <v>Components = [string()]</v>
+      </type>
+      <desc>
+        <p>Returns a list whose elements are the path components of
+          <c>Filename</c>.</p>
+        <pre>
+24> <input>filename:split("/usr/local/bin").</input>
+["/","usr","local","bin"]
+25> <input>filename:split("foo/bar").</input>
+["foo","bar"]
+26> <input>filename:split("a:\\\\msdev\\\\include").</input>
+["a:/","msdev","include"]</pre>
+      </desc>
+    </func>
+    <func>
+      <name>find_src(Beam) -> {SourceFile, Options} | {error,{ErrorReason,Module}}</name>
+      <name>find_src(Beam, Rules) -> {SourceFile, Options} | {error,{ErrorReason,Module}}</name>
+      <fsummary>Find the filename and compiler options for a module</fsummary>
+      <type>
+        <v>Beam = Module | Filename</v>
+        <v>&nbsp;Module = atom()</v>
+        <v>&nbsp;Filename = string() | atom()</v>
+        <v>SourceFile = string()</v>
+        <v>Options = [Opt]</v>
+        <v>&nbsp;Opt = {i, string()} | {outdir, string()} | {d, atom()}</v>
+	<v>ErrorReason = non_existing | preloaded | interpreted</v>
+      </type>
+      <desc>
+        <p>Finds the source filename and compiler options for a module.
+          The result can be fed to <c>compile:file/2</c> in order to
+          compile the file again.</p>
+        <p>The <c>Beam</c> argument, which can be a string or an atom,
+          specifies either the module name or the path to the source
+          code, with or without the <c>".erl"</c> extension. In either
+          case, the module must be known by the code server, i.e.
+          <c>code:which(Module)</c> must succeed.</p>
+        <p><c>Rules</c> describes how the source directory can be found,
+          when the object code directory is known. It is a list of
+          tuples <c>{BinSuffix, SourceSuffix}</c> and is interpreted
+          as follows: If the end of the directory name where the object
+          is located matches <c>BinSuffix</c>, then the source code
+          directory has the same name, but with <c>BinSuffix</c>
+          replaced by <c>SourceSuffix</c>. <c>Rules</c> defaults to:</p>
+        <code type="none">
+[{"", ""}, {"ebin", "src"}, {"ebin", "esrc"}]</code>
+        <p>If the source file is found in the resulting directory, then
+          the function returns that location together with
+          <c>Options</c>. Otherwise, the next rule is tried, and so on.</p>
+
+        <p>The function returns <c>{SourceFile, Options}</c> if it succeeds.
+          <c>SourceFile</c> is the absolute path to the source file
+          without the <c>".erl"</c> extension. <c>Options</c> include
+          the options which are necessary to recompile the file with
+          <c>compile:file/2</c>, but excludes options such as
+          <c>report</c> or <c>verbose</c> which do not change the way
+          code is generated. The paths in the <c>{outdir, Path}</c>
+          and <c>{i, Path}</c> options are guaranteed to be
+          absolute.</p>
+
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

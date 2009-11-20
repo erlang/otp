@@ -1,0 +1,63 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+# 
+SHELL=/bin/sh
+
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+ifdef HIPE_ENABLED
+HIPE_SUBDIRS = regalloc sparc ppc x86 amd64 arm opt tools
+else
+HIPE_SUBDIRS =
+endif
+
+ALWAYS_SUBDIRS = misc main cerl icode flow util
+
+ifdef HIPE_ENABLED
+# "rtl" below must be the first directory so that file rtl/hipe_literals.hrl
+# which is needed by many other HiPE files is built first
+SUB_DIRECTORIES = rtl $(ALWAYS_SUBDIRS) $(HIPE_SUBDIRS)
+else
+SUB_DIRECTORIES = $(ALWAYS_SUBDIRS)
+endif
+
+#
+# Default Subdir Targets
+#
+include $(ERL_TOP)/make/otp_subdir.mk
+
+# This overrides the default recursive-make edocs target in otp_subdir.mk
+# It is not pretty, but it will have to do for now.
+docs:
+	@if [ -d $(ERL_TOP)/lib/edoc/ebin ]; then \
+	  erl -noshell -pa $(ERL_TOP)/lib/edoc/ebin $(ERL_TOP)/lib/syntax_tools/ebin $(ERL_TOP)/lib/xmerl/ebin -run edoc_run application 'hipe' '"."' '[new,no_packages]' -s init stop ; \
+	fi
+
+edocs: docs
+
+all-subdirs:
+	-for dir in $(SUB_DIRECTORIES); do \
+		(cd $$dir; $(MAKE) $(MAKETARGET) EBIN=../ebin; cd ..); \
+	done
+
+distclean:
+	$(MAKE) MAKETARGET="distclean" all-subdirs
+realclean:
+	$(MAKE) MAKETARGET="realclean" all-subdirs
+

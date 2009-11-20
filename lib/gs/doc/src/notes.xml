@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>GS Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the GS application.</p>
+
+  <section>
+    <title>GS 1.5.10</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+           Updated the application with new tags for automatic updates 
+           of copyright notices.
+          </p>
+          <p>Own Id: OTP-7851</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>GS 1.5.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>GS 1.5.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixed grid_line crash, which caused tv, debugger and pman
+            crashes. Thanks Jan Jacobs and others.</p>
+          <p>
+            Own Id: OTP-7242</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>GS 1.5.8</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Uses wish85 if available and fixed 'gs error:
+            gstk_port_handler: error in input : unknown option
+            "-sta"' error. Thanks Vance Shipley</p>
+          <p>
+            Own Id: OTP-7115</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>GS 1.5.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed font size and some bugs in the generic file dialog,
+            which is undocumented and mainly intended for internal
+            use (today it is only used by Pman).</p>
+          <p>The file <c><![CDATA[priv/bitmap/fup.bm]]></c> has been added and the
+            module <c><![CDATA[tool_genfd]]></c> removed.</p>
+          <p>Also fixed dialyzer warning in <c><![CDATA[gs_packer]]></c>.</p>
+          <p>Own Id: OTP-6682</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>GS 1.5.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed some dead code from <c><![CDATA[gstk_editor]]></c> and
+            <c><![CDATA[tcl2erl]]></c>.</p>
+          <p>Own Id: OTP-6541</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>GS 1.5.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected some bugs in the examples.</p>
+          <p>Own Id: OTP-5988</p>
+        </item>
+        <item>
+          <p>Removed <c><![CDATA[export_all]]></c> from <c><![CDATA[gs_widgets]]></c>,
+            <c><![CDATA[gs_frontend]]></c>, <c><![CDATA[gstk]]></c>, <c><![CDATA[gstk_db]]></c>,
+            <c><![CDATA[gstk_generic]]></c>, <c><![CDATA[gstk_gs]]></c>, <c><![CDATA[gstk_widgets]]></c>,
+            <c><![CDATA[tcl2erl]]></c>, <c><![CDATA[tool_file_dialog]]></c>,
+            <c><![CDATA[tool_genfd]]></c>.</p>
+          <p>Own Id: OTP-6008</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed the functions for creating help windows
+            (notify/confirm/request) in the internal module
+            <c><![CDATA[tool_utils]]></c>, so that the help window can be
+            centered over its parent window (instead of at a random
+            position).</p>
+          <p>Own Id: OTP-5987</p>
+        </item>
+        <item>
+          <p>Eliminated some dead code from <c><![CDATA[gstk]]></c>, found by
+            Dialyzer.</p>
+          <p>Own Id: OTP-6045</p>
+        </item>
+        <item>
+          <p>Upgraded tcl/tk binaries to version 8.4.13</p>
+          <p>Own Id: OTP-6106</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>GS 1.5.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The graphic applications now search for HTML
+            documentation in the correct place.</p>
+          <p>Own Id: OTP-5381</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

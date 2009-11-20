@@ -1,0 +1,454 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>queue</title>
+    <prepared>Joe</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>97-01-15</date>
+    <rev>B</rev>
+    <file>queue.sgml</file>
+  </header>
+  <module>queue</module>
+  <modulesummary>Abstract Data Type for FIFO Queues</modulesummary>
+  <description>
+    <p>This module implements (double ended) FIFO queues
+      in an efficient manner.</p>
+    <p>All functions fail with reason <c>badarg</c> if arguments
+      are of wrong type, for example queue arguments are not
+      queues, indexes are not integers, list arguments are
+      not lists. Improper lists cause internal crashes.
+      An index out of range for a queue also causes
+      a failure with reason <c>badarg</c>.</p>
+    <p>Some functions, where noted, fail with reason <c>empty</c>
+      for an empty queue.</p>
+    <p>The data representing a queue as used by this module
+      should be regarded as opaque by other modules. Any code
+      assuming knowledge of the format is running on thin ice.</p>
+    <p>All operations has an amortized O(1) running time, except
+      <c>len/1</c>, <c>join/2</c>, <c>split/2</c>, <c>filter/2</c>
+      and <c>member/2</c> that have O(n).
+      To minimize the size of a queue minimizing
+      the amount of garbage built by queue operations, the queues
+      do not contain explicit length information, and that is
+      why <c>len/1</c> is O(n). If better performance for this
+      particular operation is essential, it is easy for
+      the caller to keep track of the length.</p>
+    <p>Queues are double ended. The mental picture of
+      a queue is a line of people (items) waiting for
+      their turn. The queue front is the end with the item
+      that has waited the longest. The queue rear is the end
+      an item enters when it starts to wait. If instead using
+      the mental picture of a list, the front is called head
+      and the rear is called tail.</p>
+    <p>Entering at the front and exiting at the rear
+      are reverse operations on the queue.</p>
+    <p>The module has several sets of interface functions. The
+      "Original API", the "Extended API" and the "Okasaki API".</p>
+    <p>The "Original API" and the "Extended API" both use the
+      mental picture of a waiting line of items. Both also 
+      have reverse operations suffixed "_r".</p>
+    <p>The "Original API" item removal functions return compound
+      terms with both the removed item and the resulting queue.
+      The "Extended API" contain alternative functions that build
+      less garbage as well as functions for just inspecting the
+      queue ends. Also the "Okasaki API" functions build less garbage.</p>
+    <p>The "Okasaki API" is inspired by "Purely Functional Data structures"
+      by Chris Okasaki. It regards queues as lists.
+      The API is by many regarded as strange and avoidable.
+      For example many reverse operations have lexically reversed names,
+      some with more readable but perhaps less understandable aliases.</p>
+  </description>
+
+
+
+  <section>
+    <title>Original API</title>
+  </section>
+
+  <funcs>
+    <func>
+      <name>new() -> Q</name>
+      <fsummary>Create an empty queue</fsummary>
+      <type>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns an empty queue.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_queue(Term) -> true | false</name>
+      <fsummary>Test if a term is a queue</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Tests if <c>Q</c> is a queue and returns <c>true</c> if so and
+          <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_empty(Q) -> true | false</name>
+      <fsummary>Test if a queue is empty</fsummary>
+      <type>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Tests if <c>Q</c> is empty and returns <c>true</c> if so and
+          <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>len(Q) -> N</name>
+      <fsummary>Get the length of a queue</fsummary>
+      <type>
+        <v>Q = queue()</v>
+        <v>N = integer()</v>
+      </type>
+      <desc>
+        <p>Calculates and returns the length of queue <c>Q</c>.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>in(Item, Q1) -> Q2</name>
+      <fsummary>Insert an item at the rear of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Inserts <c>Item</c> at the rear of queue <c>Q1</c>.
+          Returns the resulting queue <c>Q2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>in_r(Item, Q1) -> Q2</name>
+      <fsummary>Insert an item at the front of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Inserts <c>Item</c> at the front of queue <c>Q1</c>.
+          Returns the resulting queue <c>Q2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>out(Q1) -> Result</name>
+      <fsummary>Remove the front item from a queue</fsummary>
+      <type>
+        <v>Result = {{value, Item}, Q2} | {empty, Q1}</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Removes the item at the front of queue <c>Q1</c>. Returns the
+          tuple <c>{{value, Item}, Q2}</c>, where <c>Item</c> is the
+          item removed and <c>Q2</c> is the resulting queue. If <c>Q1</c> is
+          empty, the tuple <c>{empty, Q1}</c> is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>out_r(Q1) -> Result</name>
+      <fsummary>Remove the rear item from a queue</fsummary>
+      <type>
+        <v>Result = {{value, Item}, Q2} | {empty, Q1}</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Removes the item at the rear of the queue <c>Q1</c>. Returns the
+          tuple <c>{{value, Item}, Q2}</c>, where <c>Item</c> is the 
+          item removed and <c>Q2</c> is the new queue. If <c>Q1</c> is
+          empty, the tuple <c>{empty, Q1}</c> is returned.  </p>
+      </desc>
+    </func>
+
+    <func>
+      <name>from_list(L) -> queue()</name>
+      <fsummary>Convert a list to a queue</fsummary>
+      <type>
+        <v>L = list()</v>
+      </type>
+      <desc>
+        <p>Returns a queue containing the items in <c>L</c> in the
+          same order; the head item of the list will become the front
+          item of the queue.</p>
+      </desc>
+    </func>
+    <func>
+      <name>to_list(Q) -> list()</name>
+      <fsummary>Convert a queue to a list</fsummary>
+      <type>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a list of the items in the queue in the same order;
+          the front item of the queue will become the head of the list.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>reverse(Q1) -> Q2</name>
+      <fsummary>Reverse a queue</fsummary>
+      <type>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that contains the items of
+          <c>Q1</c> in the reverse order.</p>
+      </desc>
+    </func>
+    <func>
+      <name>split(N, Q1) -> {Q2,Q3}</name>
+      <fsummary>Split a queue in two</fsummary>
+      <type>
+        <v>N = integer()</v>
+        <v>Q1 = Q2 = Q3 = queue()</v>
+      </type>
+      <desc>
+        <p>Splits <c>Q1</c> in two. The <c>N</c> front items
+          are put in <c>Q2</c> and the rest in <c>Q3</c></p>
+      </desc>
+    </func>
+    <func>
+      <name>join(Q1, Q2) -> Q3</name>
+      <fsummary>Join two queues</fsummary>
+      <type>
+        <v>Q1 = Q2 = Q3 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q3</c> that is the result of joining
+          <c>Q1</c> and <c>Q2</c> with <c>Q1</c> in front of
+          <c>Q2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>filter(Fun, Q1) -> Q2</name>
+      <fsummary>Filter a queue</fsummary>
+      <type>
+        <v>Fun = fun(Item) -> bool() | list()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that is the result of calling
+          <c>Fun(Item)</c> on all items in <c>Q1</c>,
+          in order from front to rear.</p>
+        <p>If <c>Fun(Item)</c> returns <c>true</c>, <c>Item</c>
+          is copied to the result queue. If it returns <c>false</c>,
+          <c>Item</c> is not copied. If it returns a list
+          the list elements are inserted instead of <c>Item</c> in the
+          result queue.</p>
+        <p>So, <c>Fun(Item)</c> returning <c>[Item]</c> is thereby
+          semantically equivalent to returning <c>true</c>, just
+          as returning <c>[]</c> is semantically equivalent to
+          returning <c>false</c>. But returning a list builds
+          more garbage than returning an atom.</p>
+      </desc>
+    </func>
+    <func>
+      <name>member(Item, Q) -> bool()</name>
+      <fsummary>Test if an item is in a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Item</c> matches some element
+          in <c>Q</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+
+
+  <section>
+    <title>Extended API</title>
+  </section>
+
+  <funcs>
+    <func>
+      <name>get(Q) -> Item</name>
+      <fsummary>Return the front item of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns <c>Item</c> at the front of queue <c>Q</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_r(Q) -> Item</name>
+      <fsummary>Return the rear item of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns <c>Item</c> at the rear of queue <c>Q</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>drop(Q1) -> Q2</name>
+      <fsummary>Remove the front item from a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that is the result of removing
+          the front item from <c>Q1</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>drop_r(Q1) -> Q2</name>
+      <fsummary>Remove the rear item from a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that is the result of removing
+          the rear item from <c>Q1</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>peek(Q) -> {value,Item} | empty</name>
+      <fsummary>Return the front item of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns the tuple <c>{value, Item}</c> where <c>Item</c> is the
+          front item of <c>Q</c>, or <c>empty</c> if <c>Q1</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>peek_r(Q) -> {value,Item} | empty</name>
+      <fsummary>Return the rear item of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns the tuple <c>{value, Item}</c> where <c>Item</c> is the
+          rear item of <c>Q</c>, or <c>empty</c> if <c>Q1</c> is empty.</p>
+      </desc>
+    </func>
+  </funcs>
+
+
+  <section>
+    <title>Okasaki API</title>
+  </section>
+
+  <funcs>
+    <func>
+      <name>cons(Item, Q1) -> Q2</name>
+      <fsummary>Insert an item at the head of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Inserts <c>Item</c> at the head of queue <c>Q1</c>. Returns
+          the new queue <c>Q2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>head(Q) -> Item</name>
+      <fsummary>Return the item at the head of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns <c>Item</c> from the head of queue <c>Q</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>tail(Q1) -> Q2</name>
+      <fsummary>Remove the head item from a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that is the result of removing
+          the head item from <c>Q1</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>snoc(Q1, Item) -> Q2</name>
+      <fsummary>Insert an item at the tail of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Inserts <c>Item</c> as the tail item of queue <c>Q1</c>. Returns
+          the new queue <c>Q2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>daeh(Q) -> Item</name>
+      <name>last(Q) -> Item</name>
+      <fsummary>Return the tail item of a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q = queue()</v>
+      </type>
+      <desc>
+        <p>Returns the tail item of queue <c>Q</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q</c> is empty.</p>
+      </desc>
+    </func>
+    <func>
+      <name>liat(Q1) -> Q2</name>
+      <name>init(Q1) -> Q2</name>
+      <name>lait(Q1) -> Q2</name>
+      <fsummary>Remove the tail item from a queue</fsummary>
+      <type>
+        <v>Item = term()</v>
+        <v>Q1 = Q2 = queue()</v>
+      </type>
+      <desc>
+        <p>Returns a queue <c>Q2</c> that is the result of removing
+          the tail item from <c>Q1</c>.</p>
+        <p>Fails with reason <c>empty</c> if <c>Q1</c> is empty.</p>
+        <p>The name <c>lait/1</c> is a misspelling - do not use it anymore.</p>
+      </desc>
+    </func>
+  </funcs>
+
+</erlref>

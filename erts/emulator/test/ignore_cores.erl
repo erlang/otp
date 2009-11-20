@@ -1,0 +1,1 @@
+../../test/ignore_cores.erl

@@ -1,0 +1,5 @@
+group: tools
+short: A utility used to supervise Applications executing on several
+short: Erlang nodes
+
+

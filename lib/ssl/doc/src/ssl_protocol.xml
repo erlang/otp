@@ -1,0 +1,349 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>The SSL Protocol</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-04-28</date>
+    <rev>PA2</rev>
+    <file>ssl_protocol.xml</file>
+  </header>
+  <p>Here we provide a short introduction to the SSL protocol. We only
+    consider those part of the protocol that are important from a
+    programming point of view.
+    </p>
+  <p>For a very good general introduction to SSL and TLS see the book
+    <cite id="rescorla"></cite>.
+    </p>
+  <p><em>Outline:</em></p>
+  <list type="bulleted">
+    <item>Two types of connections - connection: handshake, data transfer, and
+     shutdown - 
+     SSL/TLS protocol - server must have certificate - what the the
+     server sends to the client - client may verify the server -
+     server may ask client for certificate - what the client sends to
+     the server - server may then verify the client - verification -
+     certificate chains - root certificates - public keys - key
+     agreement - purpose of certificate - references</item>
+  </list>
+
+  <section>
+    <title>SSL Connections</title>
+    <p>The SSL protocol is implemented on top of the TCP/IP protocol.
+      From an endpoint view it also has the same type of connections
+      as that protocol, almost always created by calls to socket
+      interface functions <em>listen</em>, <em>accept</em> and
+      <em>connect</em>. The endpoints are <em>servers</em> and
+      <em>clients</em>.
+      </p>
+    <p>A <em>server</em><em>listen</em>s for connections on a
+      specific address and port. This is done once. The server then
+      <em>accept</em>s each connections on that same address and
+      port. This is typically done indefinitely many times.
+      </p>
+    <p>A <em>client</em> connects to a server on a specific address 
+      and port. For each purpose this is done once.
+      </p>
+    <p>For a plain TCP/IP connection the establishment of a connection
+      (through an accept or a connect) is followed by data transfer between
+      the client and server, finally ended by a connection close. 
+      </p>
+    <p>An SSL connection also consists of data transfer and connection
+      close, However, the data transfer contains encrypted data, and
+      in order to establish the encryption parameters, the data
+      transfer is preceded by an SSL <em>handshake</em>. In this
+      handshake the server plays a dominant role, and the main
+      instrument used in achieving a valid SSL connection is the
+      server's <em>certificate</em>. We consider certificates in the
+      next section, and the SSL handshake in a subsequent section.</p>
+  </section>
+
+  <section>
+    <title>Certificates</title>
+    <p>A certificate is similar to a driver's license, or a
+      passport. The holder of the certificate is called the
+      <em>subject</em>.  First of all the certificate identifies the
+      subject in terms of the name of the subject, its postal address,
+      country name, company name (if applicable), etc.
+      </p>
+    <p>Although a driver's license is always issued by a well-known and
+      distinct authority, a certificate may have an <em>issuer</em>
+      that is not so well-known. Therefore a certificate also always
+      contains information on the issuer of the certificate. That
+      information is of the same type as the information on the
+      subject. The issuer of a certificate also signs the certificate
+      with a <em>digital signature</em> (the signature is an inherent
+      part of the certificate), which allow others to verify that the
+      issuer really is the issuer of the certificate.
+      </p>
+    <p>Now that a certificate can be checked by verifying the
+      signature of the issuer, the question is how to trust the
+      issuer. The answer to this question is to require that there is
+      a certificate for the issuer as well. That issuer has in turn an
+      issuer, which must also have a certificate, and so on. This
+      <em>certificate chain</em> has to have en end, which then must
+      be a certificate that is trusted by other means. We shall cover
+      this problem of <em>authentication</em> in a subsequent
+      section.
+      </p>
+  </section>
+
+  <section>
+    <title>Encryption Algorithms</title>
+    <p>An encryption algorithm is a mathematical algorithm for
+      encryption and decryption of messages (arrays of bytes,
+      say). The algorithm as such is always required to be publicly
+      known, otherwise its strength cannot be evaluated, and hence it
+      cannot be used reliably. The secrecy of an encrypted message is
+      not achieved by the secrecy of the algorithm used, but by the
+      secrecy of the <em>keys</em> used as input to the encryption and
+      decryption algorithms. For an account of cryptography in general
+      see <cite id="schneier"></cite>.
+      </p>
+    <p>There are two classes of encryption algorithms: <em>symmetric key</em> algorithms and <em>public key</em> algorithms.  Both
+      types of algorithms are used in the SSL protocol.
+      </p>
+    <p>In the sequel we assume holders of keys keep them secret (except
+      public keys) and that they in that sense are trusted. How a 
+      holder of a secret key is proved to be the one it claims to be
+      is a question of <em>authentication</em>, which, in the context
+      of the SSL protocol, is described in a section further below.
+      </p>
+
+    <section>
+      <title>Symmetric Key Algorithms</title>
+      <p>A <em>symmetric key</em> algorithm has one key only. The key
+        is used for both encryption and decryption. Obviously the key
+        of a symmetric key algorithm must always be kept secret by the
+        users of the key. DES is an example of a symmetric key
+        algorithm.
+        </p>
+      <p>Symmetric key algorithms are fast compared to public key
+        algorithms. They are therefore typically used for encrypting
+        bulk data.
+        </p>
+    </section>
+
+    <section>
+      <title>Public Key Algorithms</title>
+      <p>A <em>public key</em> algorithm has two keys. Any of the two
+        keys can be used for encryption. A message encrypted with one
+        of the keys, can only be decrypted with the other key. One of
+        the keys is public (known to the world), while the other key
+        is private (i.e. kept secret) by the owner of the two keys.
+        </p>
+      <p>RSA is an example of a public key algorithm.
+        </p>
+      <p>Public key algorithms are slow compared to symmetric key
+        algorithms, and they are therefore seldom used for bulk data
+        encryption. They are therefore only used in cases where the
+        fact that one key is public and the other is private, provides
+        features that cannot be provided by symmetric algorithms.
+        </p>
+    </section>
+
+    <section>
+      <title>Digital Signature Algorithms</title>
+      <p>An interesting feature of a public key algorithm is that its
+        public and private keys can both be used for encryption.
+        Anyone can use the public key to encrypt a message, and send
+        that message to the owner of the private key, and be sure of
+        that only the holder of the private key can decrypt the
+        message.
+        </p>
+      <p>On the other hand, the owner of the private key can encrypt a
+        message with the private key, thus obtaining an encrypted
+        message that can decrypted by anyone having the public key.
+        </p>
+      <p>The last approach can be used as a digital signature
+        algorithm.  The holder of the private key signs an array of
+        bytes by performing a specified well-known <em>message digest algorithm</em> to compute a hash of the array, encrypts the
+        hash value with its private key, an then presents the original
+        array, the name of the digest algorithm, and the encryption of
+        the hash value as a <em>signed array of bytes</em>.
+        </p>
+      <p>Now anyone having the public key, can decrypt the encrypted
+        hash value with that key, compute the hash with the specified
+        digest algorithm, and check that the hash values compare equal
+        in order to verify that the original array was indeed signed
+        by the holder of the private key.
+        </p>
+      <p>What we have accounted for so far is by no means all that can
+        be said about digital signatures (see <cite id="schneier"></cite>for
+        further details).
+        </p>
+    </section>
+
+    <section>
+      <title>Message Digests Algorithms</title>
+      <p>A message digest algorithm is a hash function that accepts 
+        an array bytes of arbitrary but finite length of input, and 
+        outputs an array of bytes of fixed length. Such an algorithm
+        is also required to be very hard to invert.  
+        </p>
+      <p>MD5 (16 bytes output) and SHA1 (20 bytes output) are examples
+        of message digest algorithms.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>SSL Handshake</title>
+    <p>The main purpose of the handshake performed before an an SSL
+      connection is established is to negotiate the encryption
+      algorithm and key to be used for the bulk data transfer between
+      the client and the server. We are writing <em>the</em> key,
+      since the algorithm to choose for bulk encryption one of the
+      symmetric algorithms.
+      </p>
+    <p>There is thus only one key to agree upon, and obviously that
+      key has to be kept secret between the client and the server. To
+      obtain that the handshake has to be encrypted as well.
+      </p>
+    <p>The SSL protocol requires that the server always sends its
+      certificate to the client in the beginning of the handshake. The
+      client then retrieves the server's public key from the
+      certificate, which means that the client can use the server's
+      public key to encrypt messages to the server, and the server can
+      decrypt those messages with its private key. Similarly, the
+      server can encrypt messages to the client with its private key,
+      and the client can decrypt messages with the server's public
+      key. It is thus is with the server's public and private keys
+      that messages in the handshake are encrypted and decrypted, and
+      hence the key agreed upon for symmetric encryption of bulk data
+      can be kept secret (there are more things to consider to really
+      keep it secret, see <cite id="rescorla"></cite>).
+      </p>
+    <p>The above indicates that the server does not care who is
+      connecting, and that only the client has the possibility to
+      properly identify the server based on the server's certificate.
+      That is indeed true in the minimal use of the protocol, but it
+      is possible to instruct the server to request the certificate of
+      the client, in order to have a means to identify the client, but
+      it is by no means required to establish an SSL connection.
+      </p>
+    <p>If a server request the client certificate, it verifies, as a
+      part of the protocol, that the client really holds the private
+      key of the certificate by sending the client a string of bytes
+      to encrypt with its private key, which the server then decrypts
+      with the client's public key, the result of which is compared
+      with the original string of bytes (a similar procedure is always
+      performed by the client when it has received the server's
+      certificate).
+      </p>
+    <p>The way clients and servers <em>authenticate</em> each other,
+      i.e. proves that their respective peers are what they claim to
+      be, is the topic of the next section.
+      </p>
+  </section>
+
+  <section>
+    <title>Authentication</title>
+    <p>As we have already seen the reception of a certificate from a
+      peer is not enough to prove that the peer is authentic. More
+      certificates are needed, and we have to consider how certificates
+      are issued and on what grounds.
+      </p>
+    <p>Certificates are issued by <em>certification authorities</em>
+      (<em>CA</em>s) only. They issue certificates both for other CAs
+      and ordinary users (which are not CAs). 
+      </p>
+    <p>Certain CAs are <em>top CAs</em>, i.e. they do not have a
+      certificate issued by another CA. Instead they issue their own
+      certificate, where the subject and issuer part of the
+      certificate are identical (such a certificate is called a
+      self-signed certificate). A top CA has to be well-known, and has
+      to have a publicly available policy telling on what grounds it
+      issues certificates. 
+      </p>
+    <p>There are a handful of top CAs in the world. You can examine the
+      certificates of several of them by clicking through the menus of
+      your web browser. 
+      </p>
+    <p>A top CA typically issues certificates for other CAs, called
+      <em>intermediate CAs</em>, but possibly also to ordinary users. Thus
+      the certificates derivable from a top CA constitute a tree, where
+      the leaves of the tree are ordinary user certificates. 
+      </p>
+    <p>A <em>certificate chain</em> is an ordered sequence of
+      certificates, <c>C1, C2, ..., Cn</c>, say, where <c>C1</c> is a
+      top CA certificate, and where <c>Cn</c> is an ordinary user
+      certificate, and where the holder of <c>C1</c> is the issuer of
+      <c>C2</c>, the holder of <c>C2</c> is the issuer of <c>C3</c>,
+      ..., and the holder of <c>Cn-1</c> is the issuer of <c>Cn</c>,
+      the ordinary user certificate. The holders of <c>C2, C3, ..., Cn-1</c> are then intermediate CAs.
+      </p>
+    <p>Now to verify that a certificate chain is unbroken we have to
+      take the public key from each certificate <c>Ck</c>, and apply
+      that key to decrypt the signature of certificate <c>Ck-1</c>,
+      thus obtaining the message digest computed by the holder of the
+      <c>Ck</c> certificate, compute the real message digest of the
+      <c>Ck-1</c> certificate and compare the results. If they compare
+      equal the link of the chain between <c>Ck</c> and <c>Ck-1</c> is
+      considered to unbroken. This is done for each link k = 1, 2,
+      ..., n-1. If all links are found to be unbroken, the user
+      certificate <c>Cn</c> is considered authenticated.
+      </p>
+
+    <section>
+      <title>Trusted Certificates</title>
+      <p>Now that there is a way to authenticate a certificate by
+        checking that all links of a certificate chain are unbroken,
+        the question is how you can be sure to trust the certificates
+        in the chain, and in particular the top CA certificate of the
+        chain.
+        </p>
+      <p>To provide an answer to that question consider the
+        perspective of a client, which have just received the
+        certificate of the server. In order to authenticate the server
+        the client has to construct a certificate chain and to prove
+        that the chain is unbroken. The client has to have a set of CA
+        certificates (top CA or intermediate CA certificates) not
+        obtained from the server, but obtained by other means. Those
+        certificates are kept <c>locally</c> by the client, and are 
+        trusted by the client.
+        </p>
+      <p>More specifically, the client does not really have to have
+        top CA certificates in its local storage. In order to
+        authenticate a server it is sufficient for the client to
+        posses the trusted certificate of the issuer of the server
+        certificate.
+        </p>
+      <p>Now that is not the whole story. A server can send an
+        (incomplete) certificate chain to its client, and then the
+        task of the client is to construct a certificate chain that
+        begins with a trusted certificate and ends with the server's
+        certificate. (A client can also send a chain to its server, 
+        provided the server requested the client's certificate.)
+        </p>
+      <p>All this means that an unbroken certificate chain begins with
+        a trusted certificate (top CA or not), and ends with the peer
+        certificate. That is the end of the chain is obtained from the
+        peer, but the beginning of the chain is obtained from local
+        storage, which is considered trusted.
+        </p>
+    </section>
+  </section>
+</chapter>
+
+

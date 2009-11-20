@@ -1,0 +1,350 @@
+
+ %CopyrightBegin%
+ 
+ Copyright Ericsson AB 1997-2009. All Rights Reserved.
+ 
+ The contents of this file are subject to the Erlang Public License,
+ Version 1.1, (the "License"); you may not use this file except in
+ compliance with the License. You should have received a copy of the
+ Erlang Public License along with this software. If not, it can be
+ retrieved online at http://www.erlang.org/.
+ 
+ Software distributed under the License is distributed on an "AS IS"
+ basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ the License for the specific language governing rights and limitations
+ under the License.
+ 
+ %CopyrightEnd%
+
+-----------------------------------------------------------------------
+README, Erlang/OTP R11B for VxWorks on PPC860 and PPC603
+-----------------------------------------------------------------------
+20060515 -- Patrik Nyblom, support@erlang.ericsson.se
+
+R11B is a libraries only release for VxWorks. Only the libraries of
+erl_interface (ei+erl_inteface) and ic are expected to be used. Still
+the whole erlang system is distributed, although no support will be
+given for anything else but the libraries. The information in this
+file still applies to the full erlang distribution and parts of it are 
+therefore somewhat irrelevant to commercial users.
+
+
+Included OTP applications
+-------------------------
+
+appmon
+asn1
+compiler
+cosEvent
+cosNotification
+cosTime
+cosTransaction
+debugger
+erl_interface
+erts
+eva [1]
+ic
+inets [2]
+jinterface
+kernel
+mesh
+mnemosyne
+mnesia [1]
+mnesia_session
+orber
+os_mon
+pman
+runtime_tools
+sasl
+snmp
+stdlib
+tools 
+tv
+
+[1]  Only ram_copies work, The VxWorks filesystems are not 
+     reliable enough for disk_copies to be fully supported.
+[2]  CGI scripts do not work on VxWorks.
+
+Omitted applications
+--------------------
+
+crypto
+emacs
+etk
+gs
+odbc
+parsetools
+toolbar
+ssl
+megaco
+webtools
+
+As `crypto' and `ssl' provides cryptographic functionality to `inets'
+and `snmp', the latter applications will not handle cryptography on
+VxWorks.
+
+Graphical interfaces
+--------------------
+
+For applications using graphical interfaces, only the backend part works.
+
+Compilers
+---------
+
+All compilers are expected to be run on a cross host. The VxWorks
+systems memory capabilities are too restricting to allow native
+compiling. The expected host system is a Sun Solaris machine, although
+Erlang compilation may be done on most platforms.
+
+Supported boards and configuration (only libraries supported)
+----------------------------------
+The following boards and configurations are supported:
+
+* Force PowerCore 603 with Force pcore603 BSP and VxWorks 3.5.1 (no
+  SENS or SENS 1.1 + SPR23938) and a minimum of 32 Mb memory.
+
+* Force Powercore 750 with Force pcore750 BSP and VxWorks 3.5.1 (no
+  SENS or SENS 1.1 + SPR23938) and a minimum of 32 Mb memory.
+
+* PSS Core PPC860 processors, only erl_interface (too small main memory).
+
+Most PowerPC boards with FPU are expected to work, but will need to be
+tested by OTP to be fully supported.
+
+The PPC603 build has been compiled with Wind River's `-mlongcall' 
+flag (SPR25893) to support arbitrary function calls across more
+than 32 MB of memory.
+
+The PPC860 (PowerQuicc) has no FPU and requires a separate build.
+
+For Erlang to run, the Wind kernel has to be configured with a minimum
+of these variables defined in config.h (or by the Tornado
+configuration tool):
+
+ INCLUDE_ANSI_ALL
+ INCLUDE_ENV_VARS
+ INCLUDE_EXC_HANDLING
+ INCLUDE_EXC_TASK
+ INCLUDE_FLOATING_POINT
+ INCLUDE_FORMATTED_IO
+ INCLUDE_IO_SYSTEM
+ INCLUDE_LOADER
+ INCLUDE_NETWORK
+ INCLUDE_NET_INIT
+ INCLUDE_NET_SHOW
+ INCLUDE_NET_SYM_TBL or INCLUDE_STANDALONE_SYM_TBL
+ INCLUDE_PIPES
+ INCLUDE_POSIX_FTRUNC
+ INCLUDE_RLOGIN or INCLUDE_TELNET (for pty's only)
+ INCLUDE_SELECT
+ INCLUDE_SEM_BINARY
+ INCLUDE_SEM_COUNTING
+ INCLUDE_SEM_MUTEX
+ INCLUDE_SHELL (*)
+ INCLUDE_SHOW_ROUTINES
+ INCLUDE_SIGNALS
+ INCLUDE_STARTUP_SCRIPT (*)
+ INCLUDE_STDIO
+ INCLUDE_SYM_TBL
+ INCLUDE_TASK_HOOKS
+ INCLUDE_TASK_VARS
+ INCLUDE_TTY_DEV
+ INCLUDE_UNLOADER
+ INCLUDE_NFS or INCLUDE_RAMDRV or INCLUDE_DOSFS (i.e. a file system,
+ possibly read-only) (**)
+
+(*) Needed for the example startup script, not actually needed in production if
+    erlang is set up by a c routine called from usrConfig.c.
+(**) INCLUDE_NFS usually requires the NFS_USER_ID and NFS_GROUP_ID variables 
+     to be set in config.h
+
+As an erlang system may open a lot of files, it is recommended to raise the
+default NUM_FILES variable to something like 256 in config.h like this:
+ #ifdef NUM_FILES
+ #undef NUM_FILES
+ #endif
+ #define NUM_FILES 256
+
+The SENS stack *has* to be of version 1.1 or higher, 1.0 is *not*
+supported and will not work reliably. Upgrades as well as the patch
+for SPR23938 can be found at www.wrs.com (i.e. WindSurf). Also, the
+following constants in $WIND_BASE/target/h/netBufLib.h has to be
+raised to a value of at least four times the default:
+
+ NUM_NET_MBLKS
+ NUM_64
+ NUM_128
+ NUM_256
+ NUM_512
+ NUM_1024
+ NUM_2048
+
+ NUM_SYS_64
+ NUM_SYS_128
+ NUM_SYS_256
+ NUM_SYS_512
+
+Use the show routines mbufShow and netStackSysPoolShow to verify that
+these pools are not exhausted.
+
+Installation
+------------
+
+To install Erlang on a VxWorks card, the following knowledge is
+expected:
+
+* VxWorks installation and configuration.
+
+* Network (TCP/IP) configuration.
+
+* Erlang basic operation and configuration.
+
+There is no specific install script for erlang on the VxWorks
+platform.  There is however an example VxWorks startup file named
+erts-5.0.1/bin/erl_script.sam under the root of an unpacked
+release. There may of course be other things to do in the start
+script, like using the rdate program in the erlang distribution to get
+a correct date and set the TIMEZONE variable.
+
+Please consult the "Embedded System" documentation for further
+information on installation.
+
+Known Bugs and problems
+-----------------------
+
+We have found the VxWorks/NFS client file system to be unreliable.
+Important file operations like rename, ftruncate, cd and unlink
+doesn't always work as expected. Therefore more complex file using
+parts of OTP, like DETS and disk based mnesia tables cannot be used
+reliably with NFS. Lowering the NFS cache size (global variable
+nfsCacheSize) to 512 gives a more reliable NFS client, but to disk
+base the mnesia tables over NFS is still not a good idea, especially
+as disk based mnesia tables are not supported on VxWorks.  Another
+problem with VxWorks file systems is that the error codes they produce
+are not consistent. We have worked around this problem by mapping the
+codes to POSIX ones, by doing this we make the VxWorks Erlang platform
+behave similarly to the UNIX and Windows implementations.
+
+The rename and ftruncate operations over NFS are emulated using
+copying of files. This is mainly for our own test suites and it is not
+recommended to use file:rename and/or file:ftruncate on NFS file
+systems in production.
+
+Floating point operations is somewhat faulty. For instance, testing
+floating point numbers for equality should be done with care. This is
+actually not a bug, IEEE specifies no equality among floating point
+numbers.
+
+Memory handling
+---------------
+
+Please read the erl_set_memory_block(3) manual page in the ERTS
+documentation for information concerning memory handling in the erlang
+emulator.  Also please observe that reclaim.o has to be loaded and
+reclaim_init() called before any other erlang routines are loaded and
+started. If one wish to use the resource reclamation routines in other
+programs, refer to the header file in `erts-5.0.1/include/reclaim.h'.
+Including that file in your C source makes malloc/realloc/free and
+open/fopen/socket/close etc be redefined to routines that makes the
+memory and files be free'd/closed when the task exits. Still,
+reclaim_init() *has* to be called before any program that uses this is
+started.
+
+Using heart
+-----------
+
+The default behavior of the heart object file that is part of the
+distribution is that it reboots the target when the Erlang process
+hasn't given it a heart beat in 60 seconds. The normal heart beat rate
+is one beat per five seconds.  This makes an effective "software
+watchdog" but there is really no substitute for the real thing --- a
+hardware watchdog.  If you want to add a hardware watchdog to the
+system please contact us for directions.  If you want to disable the
+reboot you may set the environment variable HEART_DONT_REBOOT (see the
+example erlang start script, erl). Please note that if you DO want the
+card to reboot you mustn't define HEART_DONT_REBOOT at all.  E.g. to
+disable heart reboot you may include the following line in the start
+script (as is indeed the case with the example start script).
+
+   putenv "HEART_DONT_REBOOT=1"
+
+A few words on writing port program and dynamically loaded drivers for VxWorks
+------------------------------------------------------------------------------
+
+VxWorks has one name-space for all symbols. This makes it harder to
+write C programs whose global symbols doesn't interfere with each
+other.  It is a good rule to avoid all globally visible symbols that
+are not absolutely necessary. Due to these facts we use the following
+naming rules that are crucial to follow. (there are more issues
+involved but the issues described here is a good beginning).
+
+Port programs must have a function with the same name as the object
+file.  E.g. if you have an object file named `port_test.o' it must
+contain a globally visible function named `port_test'. This is the
+function that will be called when you output data from Erlang to the
+port.  (The object file, in this example, should be named
+`port_test.o', but `port_test' will also do).
+
+Also, in an embedded system, it is recommended to load the port
+program into the system before the port program is used. This is to
+avoid the real time degradation dynamical linking in runtime would
+introduce.  Use VxWorks command ld < "port_prg" to accomplish this.
+
+Dynamically linked drivers must have a function with the same name as
+the object file with the added suffix `_init'. We recommend the use of
+the macro DRIVER_INIT in `driver.h'.  E.g. if you have an object file
+named `echo_drv.eld' it must contain a globally visible function
+`echo_drv_init'. (The object file, in this example, should be named
+`echo_drv.eld' (`eld' is short for Erlang Loadable Driver), but
+`echo_drv.o' and `echo_drv' will both also do).  It is also very
+important to initialize all unused function pointer in the
+`driver_entry' struct to NULL (see example below).
+
+Example of dynamically linked driver
+------------------------------------
+
+#include <stdio.h>
+#include "driver.h"
+
+static int erlang_port;
+static long echo_start();
+static int echo_stop(), echo_read();
+
+static struct driver_entry echo_driver_entry = { 
+    null_func,
+    echo_start,
+    echo_stop,
+    echo_read,
+    null_func,
+    null_func,
+    "echo_drv",
+    null_func
+};
+
+int DRIVER_INIT(echo_drv)(void *handle)
+{
+    erlang_port = -1;
+
+    echo_driver_entry.handle = handle;
+    return (int) &echo_driver_entry;
+}
+
+static long echo_start(long port,char *buf)
+{
+    if (erlang_port != -1) {
+	return -1;
+    }
+    
+    erlang_port = port;
+    return port;
+}
+
+static int echo_read(long port, char *buf, int count)
+{
+    return driver_output(erlang_port, buf, count);
+}
+
+static int echo_stop()
+{
+    return erlang_port = -1;
+}

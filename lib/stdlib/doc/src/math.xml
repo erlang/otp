@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>math</title>
+    <prepared>Joe Armstrong</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>97-01-15</date>
+    <rev>B</rev>
+    <file>math.sgml</file>
+  </header>
+  <module>math</module>
+  <modulesummary>Mathematical Functions</modulesummary>
+  <description>
+    <p>This module provides an interface to a number of mathematical
+      functions.</p>
+    <note>
+      <p>Not all functions are implemented on all platforms. In particular,
+        the <c>erf/1</c> and <c>erfc/1</c> functions are not implemented on Windows.</p>
+    </note>
+  </description>
+  <funcs>
+    <func>
+      <name>pi() -> float()</name>
+      <fsummary>A useful number</fsummary>
+      <desc>
+        <p>A useful number.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sin(X)</name>
+      <name>cos(X)</name>
+      <name>tan(X)</name>
+      <name>asin(X)</name>
+      <name>acos(X)</name>
+      <name>atan(X)</name>
+      <name>atan2(Y, X)</name>
+      <name>sinh(X)</name>
+      <name>cosh(X)</name>
+      <name>tanh(X)</name>
+      <name>asinh(X)</name>
+      <name>acosh(X)</name>
+      <name>atanh(X)</name>
+      <name>exp(X)</name>
+      <name>log(X)</name>
+      <name>log10(X)</name>
+      <name>pow(X, Y)</name>
+      <name>sqrt(X)</name>
+      <fsummary>Diverse math functions</fsummary>
+      <type>
+        <v>X = Y = number()</v>
+      </type>
+      <desc>
+        <p>A collection of math functions which return floats. Arguments
+          are numbers. </p>
+      </desc>
+    </func>
+    <func>
+      <name>erf(X) -> float()</name>
+      <fsummary>Error function.</fsummary>
+      <type>
+        <v>X = number()</v>
+      </type>
+      <desc>
+        <p>Returns the error function of <c>X</c>, where</p>
+        <pre>
+erf(X) = 2/sqrt(pi)*integral from 0 to X of exp(-t*t) dt.        </pre>
+      </desc>
+    </func>
+    <func>
+      <name>erfc(X) -> float()</name>
+      <fsummary>Another error function</fsummary>
+      <type>
+        <v>X = number()</v>
+      </type>
+      <desc>
+        <p><c>erfc(X)</c> returns  <c>1.0 - erf(X)</c>, computed  by
+          methods that avoid cancellation for large <c>X</c>. </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Bugs</title>
+    <p>As these are the C library, the bugs are the same.</p>
+  </section>
+</erlref>
+

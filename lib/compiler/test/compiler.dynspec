@@ -1,0 +1,10 @@
+%% -*- erlang -*-
+%% You can test this file using this command.
+%%    file:script("compiler.dynspec", [{'Os',"Unix"}]).
+
+case Os of
+    "VxWorks" ->
+	[{skip,{compile_SUITE,listings,"VxWorks filesystem too slow"}}];
+    _ ->
+	[]
+end.

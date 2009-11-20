@@ -1,0 +1,140 @@
+#ifndef _COS_NOTIFYFILTER_IDL_
+#define _COS_NOTIFYFILTER_IDL_
+
+#pragma prefix "omg.org"
+
+#include<CosNotifyComm.idl>
+#include<CosNotification.idl>
+
+module CosNotifyFilter {
+  typedef long ConstraintID;
+  struct ConstraintExp {
+    CosNotification::EventTypeSeq event_types;
+    string constraint_expr;
+  };
+  
+  typedef sequence<ConstraintID> ConstraintIDSeq;
+  typedef sequence<ConstraintExp> ConstraintExpSeq;
+  struct ConstraintInfo {
+    ConstraintExp constraint_expression;
+    ConstraintID constraint_id;
+  };
+  typedef sequence<ConstraintInfo> ConstraintInfoSeq;
+  struct MappingConstraintPair {
+    ConstraintExp constraint_expression;
+    any result_to_set;
+  };
+  typedef sequence<MappingConstraintPair> MappingConstraintPairSeq;
+  struct MappingConstraintInfo {
+    ConstraintExp constraint_expression;
+    ConstraintID constraint_id;
+    any value;
+  };
+  typedef sequence<MappingConstraintInfo> MappingConstraintInfoSeq;
+  typedef long CallbackID;
+  typedef sequence<CallbackID> CallbackIDSeq;
+  exception UnsupportedFilterableData {};
+  exception InvalidGrammar {};
+  exception InvalidConstraint {ConstraintExp constr;};
+  exception DuplicateConstraintID {ConstraintID id;};
+  exception ConstraintNotFound {ConstraintID id;};
+  exception CallbackNotFound {};
+  exception InvalidValue {ConstraintExp constr; any value;};
+  interface Filter {
+    readonly attribute string constraint_grammar;
+    ConstraintInfoSeq add_constraints (in ConstraintExpSeq constraint_list)
+      raises (InvalidConstraint);
+    
+    void modify_constraints (in ConstraintIDSeq del_list,
+			     in ConstraintInfoSeq modify_list)
+      raises (InvalidConstraint, ConstraintNotFound);
+    
+    ConstraintInfoSeq get_constraints(in ConstraintIDSeq id_list)
+      raises (ConstraintNotFound);
+    
+    ConstraintInfoSeq get_all_constraints();
+    
+    void remove_all_constraints();
+    void destroy();
+    boolean match (in any filterable_data)
+      raises (UnsupportedFilterableData);
+    
+    boolean match_structured (in CosNotification::StructuredEvent filterable_data)
+      raises (UnsupportedFilterableData);
+    
+    boolean match_typed (in CosNotification::PropertySeq filterable_data)
+      raises (UnsupportedFilterableData);
+    
+    CallbackID attach_callback (in CosNotifyComm::NotifySubscribe callback);
+    
+    void detach_callback (in CallbackID callback)
+      raises ( CallbackNotFound );
+    
+    CallbackIDSeq get_callbacks();
+  }; // Filter
+  
+  interface MappingFilter {
+    readonly attribute string constraint_grammar;
+    
+    readonly attribute CORBA::TypeCode value_type;
+    
+    readonly attribute any default_value;
+    
+    MappingConstraintInfoSeq add_mapping_constraints (in MappingConstraintPairSeq pair_list)
+      raises (InvalidConstraint, InvalidValue);
+    
+    void modify_mapping_constraints (in ConstraintIDSeq del_list,
+				     in MappingConstraintInfoSeq modify_list)
+      raises (InvalidConstraint, InvalidValue, ConstraintNotFound);
+    
+    MappingConstraintInfoSeq get_mapping_constraints (in ConstraintIDSeq id_list)
+      raises (ConstraintNotFound);
+    
+    MappingConstraintInfoSeq get_all_mapping_constraints();
+    
+    void remove_all_mapping_constraints();
+    
+    void destroy();
+    
+    boolean match (in any filterable_data, out any result_to_set)
+      raises (UnsupportedFilterableData);
+    
+    boolean match_structured (in CosNotification::StructuredEvent filterable_data, out any result_to_set)
+      raises (UnsupportedFilterableData);
+    
+    boolean match_typed (in CosNotification::PropertySeq filterable_data, out any result_to_set)
+      raises (UnsupportedFilterableData);
+  }; // MappingFilter
+  
+  
+  interface FilterFactory {
+    
+    Filter create_filter (in string constraint_grammar)
+      raises (InvalidGrammar);
+    
+    MappingFilter create_mapping_filter (in string constraint_grammar, in any default_value)
+      raises(InvalidGrammar);
+  }; // FilterFactory
+  
+  typedef long FilterID;
+  typedef sequence<FilterID> FilterIDSeq;
+  exception FilterNotFound {};
+  
+  interface FilterAdmin {
+    FilterID add_filter (in Filter new_filter);
+    
+    void remove_filter (in FilterID filter)
+      raises (FilterNotFound);
+    
+    Filter get_filter (in FilterID filter)
+      raises (FilterNotFound);
+    
+    FilterIDSeq get_all_filters();
+    
+    void remove_all_filters();
+  }; // FilterAdmin
+}; // CosNotifyFilter
+
+
+#endif /* ifndef _COS_NOTIFYFILTER_IDL_ */
+

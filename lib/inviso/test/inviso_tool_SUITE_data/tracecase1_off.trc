@@ -1,0 +1,12 @@
+%% TRACECASE1_OFF.TRC
+%% -----------------------------------------------------------------------------
+%% This is a test trace case to be used by the inviso_tool_SUITE.
+%% Trace case deactivating the trace started by the activation case tracecase1_on.
+%%
+%% ProcessName=atom(), variable set in the test environment.
+%% Nodes=list(), inviso_tool variable - all traced nodes.
+%% -----------------------------------------------------------------------------
+
+inviso:ctf(Nodes,ProcessName,[call]).
+inviso:ctpl(Nodes,math,module_info,1).
+%% END-OF-TRACE-CASE

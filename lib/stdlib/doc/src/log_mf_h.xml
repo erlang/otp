@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>log_mf_h</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Martin Bj&ouml;rklund</checked>
+    <date>1996-10-31</date>
+    <rev>A</rev>
+    <file>log_mf_h.sgml</file>
+  </header>
+  <module>log_mf_h</module>
+  <modulesummary>An Event Handler which Logs Events to Disk</modulesummary>
+  <description>
+    <p>The <c>log_mf_h</c> is a <c>gen_event</c> handler module which
+      can be installed in any <c>gen_event</c> process. It logs onto disk all events
+      which are sent to an event manager. Each event is written as a
+      binary which makes the logging very fast. However, a tool such as the <c>Report Browser</c> (<c>rb</c>) must be used in order to read the files. The events are written to multiple files. When all files have been used, the first one is re-used and overwritten. The directory location, the number of files, and the size of each file are configurable. The directory will include one file called <c>index</c>, and
+      report files <c>1, 2, ....</c>.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>init(Dir, MaxBytes, MaxFiles)</name>
+      <name>init(Dir, MaxBytes, MaxFiles, Pred) -> Args</name>
+      <fsummary>Initiate the event handler</fsummary>
+      <type>
+        <v>Dir = string()</v>
+        <v>MaxBytes = integer()</v>
+        <v>MaxFiles = 0 &lt; integer() &lt; 256</v>
+        <v>Pred = fun(Event) -> boolean()</v>
+        <v>Event = term()</v>
+        <v>Args = args()</v>
+      </type>
+      <desc>
+        <p>Initiates the event handler. This function returns
+          <c>Args</c>, which should be used in a call to
+          <c>gen_event:add_handler(EventMgr, log_mf_h, Args)</c>.
+          </p>
+        <p><c>Dir</c> specifies which directory to use for the log
+          files. <c>MaxBytes</c> specifies the size of each individual
+          file. <c>MaxFiles</c> specifies how many files are
+          used. <c>Pred</c> is a predicate function used to filter the
+          events. If no predicate function is specified, all events are
+          logged.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="gen_event">gen_event(3)</seealso>, rb(3) </p>
+  </section>
+</erlref>
+

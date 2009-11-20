@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:include schemaLocation="common.xsd"/>
+  <xs:include schemaLocation="common.header.xsd"/>
+  <xs:include schemaLocation="common.table.xsd"/>
+  <xs:include schemaLocation="common.image.xsd"/>
+  <!-- Structure -->
+  <xs:element name="chapter">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="header"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="block"/>
+          <xs:element ref="quote"/>
+          <xs:element ref="warning"/>
+          <xs:element ref="note"/>
+          <xs:element ref="br"/>
+          <xs:element ref="image"/>
+          <xs:element ref="marker"/>
+          <xs:element ref="table"/>
+        </xs:choice>
+        <xs:element maxOccurs="unbounded" ref="section"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="section">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="marker"/>
+        <xs:element ref="title"/>
+        <xs:choice minOccurs="0" maxOccurs="unbounded">
+          <xs:element ref="block"/>
+          <xs:element ref="quote"/>
+          <xs:element ref="warning"/>
+          <xs:element ref="note"/>
+          <xs:element ref="br"/>
+          <xs:element ref="image"/>
+          <xs:element ref="marker"/>
+          <xs:element ref="table"/>
+          <xs:element ref="section"/>
+        </xs:choice>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

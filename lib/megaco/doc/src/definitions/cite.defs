@@ -1,0 +1,26 @@
+[
+{"4711","CCITT","CCITT, Red Book Vol.-FASCILE VIII.7, Recomm. X400-X.430, Geneva, 1985","jocke"},
+{"X.680","ITU-T X.680","ITU-T Recommendation X.680 (1994) | ISO/IEC 8824-1: 1995, Abstract Syntax Notation One (ASN.1): Specification of Basic Notation"},
+{"X.682","ITU-T X.682","ITU-T Recommendation X.682 (1994) | ISO/IEC 8824-3: 1995, Abstract Syntax Notation One (ASN.1): Constraint Specification"},
+{"X.690","ITU-T X.690","ITU-T Recommendation X.690 (1994) | ISO/IEC 8825-1: 1995, ASN.1 Encoding Rules: Specification of Basic Encoding Rules (BER), Canonical Encoding Rules (CER) and Distinguished Encoding Rules (DER)"},
+{"X.691","ITU-T X.691","ITU-T Recommendation X.691 (04/95) | ISO/IEC 8825-2: 1995, ASN.1 Encoding Rules: Specification of Packed Encoding Rules (PER)"},
+{"X.681","ITU-T X.681","ITU-T Recommendation X.681 (1994) | ISO/IEC 8824-2: 1995, Abstract Syntax Notation One (ASN.1): Information Object Specification"},
+{"X.683","ITU-T X.683","ITU-T Recommendation X.683 (1994) | ISO/IEC 8824-4: 1995, Abstract Syntax Notation One (ASN.1): Parameterization  of ASN.1 Specifications"}, 
+{
+  "DUBUISSON", 
+  "ASN.1 Communication between Heterogeneous Systems", 
+  "Oliver Dubuisson, ASN.1 Communication between Heterogeneous Systems, "
+  "June 2000 ISBN 0-126333361-0", "nibe"
+ }, 
+ {
+  "erlbook2",
+  "Concurrent Programming in ERLANG",
+  "J. Armstrong, R. Virding, C. Wikstrom, M. Williams, "
+  "Concurrent Programming in ERLANG, Prentice Hall, 1996, ISBN 0-13-508301-X",
+  "kent"
+ },
+ {"practsgml", "Practical SGML",
+  "Eric van Herwijnen: Practical SGML, Kluwer Academic Publishers, 1990.",
+  "peter"
+}
+]. 

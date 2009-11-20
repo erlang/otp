@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2005</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ssh_sftpd</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2005-09-22</date>
+    <rev>PA1</rev>
+    <file>ssh_sftpd.sgml</file>
+  </header>
+  <module>ssh_sftpd</module>
+  <modulesummary>Specifies a channel process to handle a sftp subsystem.</modulesummary>
+  <description>
+    <p>Specifies a channel process to handle a sftp subsystem.</p>
+  </description>
+
+  <section>
+    <title>COMMON DATA TYPES </title>
+    <p><c>subsystem_spec() = {subsystem_name(), {channel_callback(), channel_init_args()}} </c></p>
+    <p><c>subsystem_name() =  "sftp"</c></p>
+    <p><c>channel_callback() = atom()</c> - Name of the erlang module implementing the
+    subsystem using the ssh_channel behavior see
+    <seealso marker="ssh_channel">ssh_channel(3)</seealso></p>
+    <p><c> channel_init_args() = list() - The one given as argument to function
+    subsystem_spec/1.</c></p>  
+  </section>
+  <funcs>
+    <func>
+      <name>subsystem_spec(Options) -> subsystem_spec()</name>
+      <fsummary>Returns the subsystem specification that allows an ssh daemon to handle the subsystem "sftp".</fsummary>
+      <type>
+	<v>Options = [{Option, Value}]</v>
+      </type>
+      <desc>
+        <p>Should be used together with ssh:daemon/[1,2,3]</p>
+        <p>Options are:</p>
+        <taglist>
+          <tag><c><![CDATA[{cwd, String}]]></c></tag>
+          <item>
+            <p>Sets the initial current working directory for the
+              server.</p>
+          </item>
+          <tag><c><![CDATA[{file_handler, CallbackModule}]]></c></tag>
+          <item>
+            <p>Determines which module to call for communicating with
+              the file server. Default value is <c>ssh_sftpd_file</c> that uses the
+              file and filelib API:s to access the standard OTP file
+              server. This option may be used to plug in the use of
+              other file servers.</p>
+          </item>
+          <tag><c><![CDATA[{max_files, Integer}]]></c></tag>
+          <item>
+            <p>The default value is <c>0</c>, which means that there is no upper limit.
+               If supplied, the number of filenames returned to the sftp client per <c>READDIR</c>
+               request, is limited to at most the given value.</p>
+          </item>
+	  <tag><c><![CDATA[{root, String}]]></c></tag>
+	  <item>
+	    <p>Sets the sftp root directory. The user will then not be
+	      able to see any files above this root. If for instance
+	      the root is set to <c>/tmp</c> the user will see this
+	      directory as <c>/</c> and if the user does cd <c>/etc</c>
+	      the user will end up in <c>/tmp/etc</c>.
+	    </p>
+	  </item>
+        </taglist>
+      </desc>
+    </func>
+  </funcs>  
+</erlref>
+

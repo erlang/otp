@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>pg2</title>
+    <prepared>mbj@erlang.ericsson.se</prepared>
+    <responsible>mbj@erlang.ericsson.se</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>mbj@erlang.ericsson.se</checked>
+    <date>1997-08-18</date>
+    <rev>A2</rev>
+    <file>pg2.sgml</file>
+  </header>
+  <module>pg2</module>
+  <modulesummary>Distributed Named Process Groups</modulesummary>
+  <description>
+    <p>This module implements process groups. The groups in this
+      module differ from the groups in the module <c>pg</c> in several
+      ways. In <c>pg</c>, each message is sent to all members in the
+      group. In this module, each message may be sent to one, some, or
+      all members.
+      </p>
+    <p>A group of processes can be accessed by a common name. For
+      example, if there is a group named <c>foobar</c>, there can be a
+      set of processes (which can be located on different nodes) which
+      are all members of the group <c>foobar</c>. There are no special
+      functions for sending a message to the group. Instead, client
+      functions should be written with the functions
+      <c>get_members/1</c> and <c>get_local_members/1</c> to find out
+      which processes are members of the group. Then the message can be
+      sent to one or more members of the group.
+      </p>
+    <p>If a member terminates, it is automatically removed from the
+      group.
+      </p>
+    <warning>
+      <p>This module is used by the <c>disk_log</c> module for
+        managing distributed disk logs. The disk log names are used as
+        group names, which means that some action may need to be taken
+        to avoid name clashes.</p>
+    </warning>
+  </description>
+  <funcs>
+    <func>
+      <name>create(Name) -> void()</name>
+      <fsummary>Create a new, empty process group</fsummary>
+      <type>
+        <v>Name = term()</v>
+      </type>
+      <desc>
+        <p>Creates a new, empty process group. The group is globally
+          visible on all nodes. If the group exists, nothing happens.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Name) -> void()</name>
+      <fsummary>Delete a process group</fsummary>
+      <type>
+        <v>Name = term()</v>
+      </type>
+      <desc>
+        <p>Deletes a process group.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_closest_pid(Name) -> Pid | {error, Reason}</name>
+      <fsummary>Common dispatch function</fsummary>
+      <type>
+        <v>Name = term()</v>
+	<v>Pid = pid()</v>
+	<v>Reason = {no_process, Name} | {no_such_group, Name}</v>
+      </type>
+      <desc>
+        <p>This is a useful dispatch function which can be used from
+          client functions. It returns a process on the local node, if
+          such a process exist. Otherwise, it chooses one randomly.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_members(Name) -> [Pid] | {error, Reason}</name>
+      <fsummary>Return all processes in a group</fsummary>
+      <type>
+        <v>Name = term()</v>
+	<v>Pid = pid()</v>
+	<v>Reason = {no_such_group, Name}</v>
+      </type>
+      <desc>
+        <p>Returns all processes in the group <c>Name</c>. This
+          function should be used from within a client function that
+          accesses the group. It is therefore optimized for speed.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_local_members(Name) -> [Pid] | {error, Reason}</name>
+      <fsummary>Return all local processes in a group</fsummary>
+      <type>
+        <v>Name = term()</v>
+	<v>Pid = pid()</v>
+	<v>Reason = {no_such_group, Name}</v>
+      </type>
+      <desc>
+        <p>Returns all processes running on the local node in the
+          group <c>Name</c>. This function should to be used from
+          within a client function that accesses the group. It is therefore
+          optimized for speed.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>join(Name, Pid) -> ok | {error, Reason}</name>
+      <fsummary>Join a process to a group</fsummary>
+      <type>
+        <v>Name = term()</v>
+	<v>Pid = pid()</v>
+	<v>Reason = {no_such_group, Name}</v>
+      </type>
+      <desc>
+        <p>Joins the process <c>Pid</c> to the group <c>Name</c>.
+	  A process can join a group several times; it must then
+	  leave the group the same number of times.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>leave(Name, Pid) -> ok | {error, Reason}</name>
+      <fsummary>Make a process leave a group</fsummary>
+      <type>
+        <v>Name = term()</v>
+	<v>Pid = pid()</v>
+	<v>Reason = {no_such_group, Name}</v>
+      </type>
+      <desc>
+        <p>Makes the process <c>Pid</c> leave the group <c>Name</c>.
+	  If the process is not a member of the group, <c>ok</c> is
+	  returned.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>which_groups() -> [Name]</name>
+      <fsummary>Return a list of all known groups</fsummary>
+      <type>
+        <v>Name = term()</v>
+      </type>
+      <desc>
+        <p>Returns a list of all known groups.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>start()</name>
+      <name>start_link() -> {ok, Pid} | {error, Reason}</name>
+      <fsummary>Start the pg2 server</fsummary>
+      <type>
+	<v>Pid = pid()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Starts the pg2 server. Normally, the server does not need
+          to be started explicitly, as it is started dynamically if it
+          is needed. This is useful during development, but in a
+          target system the server should be started explicitly. Use
+          configuration parameters for <c>kernel</c> for this.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel_app">kernel(6)</seealso>, 
+       <seealso marker="stdlib:pg">pg(3)</seealso></p>
+  </section>
+</erlref>
+

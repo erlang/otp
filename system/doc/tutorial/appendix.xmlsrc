@@ -1,0 +1,100 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Appendix - Programs</title>
+    <prepared>Bengt Nilsson</prepared>
+    <docno></docno>
+    <date>2000-09-04</date>
+    <rev></rev>
+    <file>appendix.xml</file>
+  </header>
+  <p>This appendix contains the programs referred to in the previous 
+    chapters within Interoperability Tutorial.</p>
+
+  <section>
+    <marker id="complex1"></marker>
+    <title>complex1.erl</title>
+    <codeinclude file="complex1.erl" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="complex2"></marker>
+    <title>complex2.erl</title>
+    <codeinclude file="complex2.erl" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="complex3"></marker>
+    <title>complex3.erl</title>
+    <codeinclude file="complex3.erl" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="complex4"></marker>
+    <title>complex4.erl</title>
+    <codeinclude file="complex4.erl" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="complex5"></marker>
+    <title>complex5.erl</title>
+    <codeinclude file="complex5.erl" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="port"></marker>
+    <title>port.c</title>
+    <codeinclude file="port.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="erl_comm"></marker>
+    <title>erl_comm.c</title>
+    <codeinclude file="erl_comm.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="ei"></marker>
+    <title>ei.c</title>
+    <codeinclude file="ei.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="cnode_s"></marker>
+    <title>cnode_s.c</title>
+    <codeinclude file="cnode_s.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="cnode_s2"></marker>
+    <title>cnode_s2.c</title>
+    <codeinclude file="cnode_s2.c" tag="" type="none"></codeinclude>
+  </section>
+
+  <section>
+    <marker id="cnode_c"></marker>
+    <title>cnode_c.c</title>
+    <codeinclude file="cnode_c.c" tag="" type="none"></codeinclude>
+  </section>
+</chapter>
+

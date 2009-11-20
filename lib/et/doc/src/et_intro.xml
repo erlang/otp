@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+    <file>et_intro.xml</file>
+  </header>
+  <p>The Event Tracer (ET) uses the built-in trace mechanism in Erlang
+    and provides tools for collection and graphical viewing of trace
+    data.</p>
+  <p>The viewed trace data is normally collected from Erlang trace ports
+    or files.</p>
+
+  <section>
+    <title>Scope and Purpose</title>
+    <p>This manual describes the Event Tracer (ET) application, as a component
+      of the Erlang/Open Telecom Platform development environment. It
+      is assumed that the reader is familiar with the Erlang
+      Development Environment, which is described in a separate User's
+      Guide.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>The following prerequisites is required for understanding the
+      material in the Event Tracer (ET) User's Guide:</p>
+    <list type="bulleted">
+      <item>
+        <p>familiarity with the Erlang system and Erlang programming in
+          general and the especially the art of Erlang tracing.</p>
+      </item>
+    </list>
+    <p>The application requires Erlang/OTP release R7B or later.</p>
+  </section>
+
+  <section>
+    <title>About This Manual</title>
+    <p>In addition to this introductory chapter, the Megaco User's
+      Guide contains the following chapters:</p>
+    <list type="bulleted">
+      <item>
+        <p>Chapter 2: "Usage" describes the architecture
+          and typical usage of the application.</p>
+      </item>
+      <item>
+        <p>Chapter 3: "Examples" gives some usage examples</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Where to Find More Information</title>
+    <p>Refer to the following documentation for more information about
+      Event Tracer (ET) and about the Erlang/OTP development system:</p>
+    <list type="bulleted">
+      <item>
+        <p>the Reference Manual of the <c>Event Tracer (ET)</c>.</p>
+      </item>
+      <item>
+        <p>documentation of basic tracing in <c>erlang:trace/4</c> and 
+          <c>erlang:trace_pattern/3</c> and then the utilities derived from
+          these: <c>dbg</c>, <c>observer</c> and <c>et</c>.</p>
+      </item>
+      <item>
+        <p>Concurrent Programming in Erlang, 2nd Edition (1996),
+          Prentice-Hall, ISBN 0-13-508301-X.</p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

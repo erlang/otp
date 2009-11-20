@@ -1,0 +1,8 @@
+{topcase, {dir, "../stdlib_test"}}.
+{skip,{dets_SUITE,"Not runnable VxWorks/NFS"}}.
+{skip,{slave_SUITE,"VxWorks: slave nodes are not supported"}}.
+{skip,{tar_SUITE,errors,"VxWorks filesystem too primitive"}}.
+{skip,{tar_SUITE,create_long_names,"VxWorks names too short"}}.
+{skip,{epp_SUITE,"Test not adopted to VxWorks"}}.
+{skip,{select_SUITE,"Test too memory consuming for VxWorks"}}.
+{skip,{beam_lib_SUITE,error,"All sections not present in stripped beam files"}}.

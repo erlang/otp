@@ -1,0 +1,11 @@
+    {application, topApp2,
+     [{description, "Test of start phase"},
+      {id, "CXC 138 38"},
+      {vsn, "2.0"},
+      {applications, [kernel]},
+      {modules, []},
+      {registered, []},
+      {env, [{own_env1, value1}, {own2, val2}]},
+      {included_applications, [appinc1, appinc2]},
+      {start_phases, [{init, [initArgs]}, {go, [goArgs]}]},
+      {mod, {application_starter, [topApp2, {topApp2, 4, 6}]} }]}. 

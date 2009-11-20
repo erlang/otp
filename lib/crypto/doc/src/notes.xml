@@ -1,0 +1,469 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Crypto Release Notes</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-06-06</date>
+    <rev>B</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Crypto application.</p>
+
+<section><title>Crypto 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Suppressed false valgrind errors caused by libcrypto
+	    using uninitialized data as entropy.</p>
+          <p>
+	    Own Id: OTP-8200</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+        <item>
+          <p>
+	    When the crypto application failed to load the
+	    OpenSSL/LibEAY shared object, error indication was
+	    sparse. Now a more specific error message is sent to the
+	    error logger.</p>
+          <p>
+	    Own Id: OTP-8281</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixed emulator crash caused by crypto using an old
+            openssl version that did not cope with large file
+            descriptors.</p>
+          <p>
+            Own Id: OTP-8261 Aux Id: seq11434 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    <c>Makefile.in</c> has been updated to use the LDFLAGS
+	    environment variable (if set). (Thanks to Davide
+	    Pesavento.)</p>
+          <p>
+	    Own Id: OTP-8157</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Support for Blowfish cfb64 added to <c>crypto</c>.</p>
+          <p>
+	    Own Id: OTP-8096</p>
+        </item>
+        <item>
+          <p>
+	    New function <c>crypto:aes_cbc_ivec</c></p>
+          <p>
+	    Own Id: OTP-8141</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>dh_compute_key</c> sometimes returned a
+	    SharedSecret of incorrect size.</p>
+          <p>
+	    Own Id: OTP-7674</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Optimization for drivers by creating small binaries
+	    direct on process heap.</p>
+          <p>
+	    Own Id: OTP-7762</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added new functions: dss_verify/3, rsa_verify/3,
+            rsa_verify/4, dss_sign/2, rsa_sign/2, rsa_sign/3,
+            rsa_public_encrypt, rsa_private_decrypt/3,
+            rsa_private_encrypt/3, rsa_public_decrypt/3,
+            dh_generate_key/1, dh_generate_key/2, dh_compute_key/3.</p>
+          <p>
+            Own Id: OTP-7545</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.5.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor performance optimization.</p>
+          <p>
+	    Own Id: OTP-7521</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Crypto 1.5.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    ./configure has been improved to find 64-bit OpenSSL
+	    libraries.</p>
+          <p>
+	    Own Id: OTP-7270</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    crypto and zlib drivers improved to allow concurent smp
+	    access.</p>
+          <p>
+	    Own Id: OTP-7262</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Crypto 1.5.1.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The linked in driver for the crypto application is now
+            linked statically against the OpenSSL libraries, to avoid
+            installation and runtime problems in connection to the
+            OpenSSL library locations.</p>
+          <p>Own Id: OTP-6680</p>
+        </item>
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now explicitly checked at start-up that the crypto
+            driver is properly loaded (Thanks to Claes Wikstrom).</p>
+          <p>Own Id: OTP-6109</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The previously undocumented and UNSUPPORTED <c>ssh</c>
+            application has been updated and documented. This release
+            of the <c>ssh</c> application is still considered to be a
+            beta release and (if necessary) there could still be
+            changes in its API before it reaches 1.0.</p>
+          <p>Also, more cryptographic algorithms have been added to
+            the <c>crypto</c> application.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5631</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added support for RFC 3826 - The Advanced Encryption Standard 
+            (AES) Cipher Algorithm in the SNMP User-based Security Model.
+                        <br></br>
+Martin Bj&ouml;rklund</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.2.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Linked in drivers in the crypto, and asn1 applications
+            are now compiled with the -D_THREAD_SAFE and -D_REENTRANT
+            switches on unix when the emulator has thread support
+            enabled.</p>
+          <p>Linked in drivers on MacOSX are not compiled with the
+            undocumented -lbundle1.o switch anymore. Thanks to Sean
+            Hinde who sent us a patch.</p>
+          <p>Linked in driver in crypto, and port programs in ssl, now
+            compiles on OSF1.</p>
+          <p>Minor makefile improvements in runtime_tools.</p>
+          <p>Own Id: OTP-5346</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.2.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected error handling. If the port to the driver that
+            crypto uses is unexpectedly closed (which should not
+            happen during normal operation of crypto), crypto will
+            terminate immediately (rather than crashing the next time
+            crypto is used). Also corrected build problems on Mac OS
+            X.</p>
+          <p>Own Id: OTP-5279</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>It was not possible in R9 to relink the crypto driver.
+            The object file was missing as well as an example
+            makefile. The crypto driver object file is now released
+            with the application (installed in priv/obj). An example
+            makefile has also been added to the priv/obj directory.
+            The makefile serves as an example of how to relink the
+            driver on Unix (crypto_drv.so) or Windows
+            (crypto_drv.dll).</p>
+          <p>Own Id: OTP-4828 Aux Id: seq8193 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Previous versions of Crypto where delivered with
+            statically linked binaries based on SSLeay. That is not
+            longer the case.  The current version of Crypto requires
+            dynamically linked OpenSSL libraries that the user has to
+            install. The library needed is <c>libcrypto.so</c> (Unix)
+            or <c>libeay32.[lib|dll]</c> (Win32). For further details
+            see the crypto(6) application manual page.</p>
+        </item>
+        <item>
+          <p>This version of Crypto uses the new DES interface of
+            OpenSSL 0.9.7, which is not backward compatible with
+            earlier versions of OpenSSL.
+            </p>
+        </item>
+        <item>The functions <c>des_ede3_cbc_encrypt/5</c> and
+        <c>des_ede3_cbc_decrypt/5</c> have been renamed to
+        <c>des3_cbc_encrypt/5</c> and <c>des3_cbc_decrypt/5</c>,
+         respectively. The old functions have been retained (they are
+         deprecated and not listed in the crypto(3) manual page).</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The start of crypto failed on Windows, due to erroneous addition
+            of a DES3 algorithm.</p>
+          <p>Own Id: OTP-4684
+                        <br></br>
+Aux Id: seq7864</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.1.3</title>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>To obtain backward compatibility with the old SSLeay
+         package, and with earlier versions of OpenSSL, the macro
+         OPENSSL_DES_LIBDES_COMPATIBILITY has been added to
+        <c>crypto_drv.c</c>. This is of importance only for the open
+         source version of Crypto.
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.1.2</title>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In the manual page <c>crypto(3)</c> the function names
+            <c>md5_finish</c> and <c>sha_finish</c> have been changed to
+            <c>md5_final</c> and <c>sha_final</c> to correctly document
+            the implementation.</p>
+          <p>Own Id: OTP-3409
+            </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.1.1</title>
+    <p>Code replacement in runtime is supported. Upgrade can be done from
+      from version 1.1 and downgrade to version 1.1.
+      </p>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The driver part of the Crypto application has been
+            updated to use the erl_driver header file. Version 1.1.1
+            requires emulator version 4.9.1 or later.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.1</title>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>On Windows the crypto_drv was incorrectly linked to
+            static run-time libraries instead of dynamic ones.</p>
+          <p>Own Id: OTP-3240
+            </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Crypto 1.0</title>
+    <p>New application.
+      </p>
+  </section>
+</chapter>
+

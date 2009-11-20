@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Windows NT</title>
+    <prepared>Kenneth Lundin</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1997-11-25</date>
+    <rev>PA2</rev>
+    <file>embedded_nt.xml</file>
+  </header>
+  <p>This chapter describes the OS specific parts of OTP which relate
+    to Windows NT.
+    </p>
+
+  <section>
+    <title>Introduction</title>
+    <p>A normal installation of NT 4.0, with service pack 4 or later, 
+      is required for an embedded Windows NT running OTP.</p>
+  </section>
+
+  <section>
+    <title>Memory Usage</title>
+    <p>RAM memory of 96 MBytes is recommended to run OTP on NT.
+      A system with less than 64 Mbytes of RAM is not recommended.</p>
+  </section>
+
+  <section>
+    <title>Disk Space Usage</title>
+    <p>A minimum NT installation with networking needs 250 MB, and 
+      an additional 130 MB for the swap file. </p>
+  </section>
+
+  <section>
+    <title>Installation</title>
+    <p>Normal NT installation is performed. No additional application   
+      programs are needed, such as Internet explorer or web server. Networking
+      with TCP/IP is required.      <br></br>
+
+      Service pack 4 or later must be installed.</p>
+
+    <section>
+      <title>Hardware Watchdog</title>
+      <p>For Windows NT running on standard PCs with ISA and/or PCI bus
+        there is a possibility to install an extension card with a hardware
+        watchdog.
+        </p>
+      <p>See also the <c>heart(3)</c> reference manual page in
+        <em>Kernel</em>.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Starting Erlang</title>
+    <p>On an embedded system, the <c>erlsrv</c> module should be used, 
+      to install the erlang process as a Windows system service. 
+      This service can start
+      after NT has booted. See documentation for <c>erlsrv</c>.</p>
+  </section>
+</chapter>
+

@@ -1,0 +1,737 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <year>2009</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>SSH Release Notes History</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev>A</rev>
+    <file>notes_history.xml</file>
+  </header>
+
+  <section><title>Ssh 0.9.9.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Updated asn1 file due to change in the asn1 compiler.
+            This has no semantical effect on the ssh application.</p>
+          <p>
+            Own Id: OTP-7246</p>
+        </item>
+        <item>
+          <p>
+            Allows for the option {fd, FD} in listen and connect
+            calls. The option is passed on to gen_tcp:listen and
+            gen_tcp:connect</p>
+          <p>
+            Own Id: OTP-7247</p>
+        </item>
+      </list>
+    </section>
+</section>
+
+  <section><title>Ssh 0.9.9.5</title>
+    
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Putty version 0.60 sends ignore messages, which hanged
+	    the OTP ssh server.</p>
+          <p>
+	    Own Id: OTP-7076</p>
+        </item>
+        <item>
+          <p>
+	    ssh_cm hanged when connection was closed during
+	    handshake. (Triggered by putty 0.60 client.)</p>
+          <p>
+	    Own Id: OTP-7089</p>
+        </item>
+        <item>
+          <p>
+	    Fixed crash in server when receiving an empty ignore-msg.
+	    (From the putty 0.60 client.)</p>
+          <p>
+	    Own Id: OTP-7135</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Now uses the base 64 encode/decode function in stdlib.</p>
+          <p>
+	    Own Id: OTP-6486</p>
+        </item>
+        <item>
+          <p>
+	    Removed runtime dependency on asn1.</p>
+          <p>
+	    Own Id: OTP-6570</p>
+        </item>
+        <item>
+          <p>
+	    Documentation update of ssh.</p>
+          <p>
+	    Own Id: OTP-7063 Aux Id: seq10789 </p>
+        </item>
+        <item>
+          <p>
+	    Same listener is used for both sshd and sftpd. Previously
+	    the sftpd server had to be run on a separate port, now
+	    the sshd listener will start an sftpd server when an sftp
+	    client connects.</p>
+          <p>
+	    Own Id: OTP-7090 Aux Id: seq10675 </p>
+        </item>
+        <item>
+          <p>
+	    Kebord-interactive support, according to rfc 4256, has
+	    been added to the ssh client. Also the option
+	    <c>quiet_mode</c> has been added so that unwanted banners
+	    may be suppressed.</p>
+          <p>
+	    Own Id: OTP-7106 Aux Id: seq10841 </p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+    
+    <section><title>Ssh 0.9.9.4</title>
+    
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>
+	  [sftpd] - Root parameter now behaves as expected,
+	instead of making sftpd malfunction.</p>
+	<p>
+	Own Id: OTP-7057 Aux Id: seq10830 </p>
+      </item>
+    </list>
+    </section>
+    </section>
+    
+  <section><title>Ssh 0.9.9.3</title>
+  
+  <section><title>Fixed Bugs and Malfunctions</title>
+  <list>
+    <item>
+      <p>
+	The sftp-server could crash if a "ls" was done on the
+	client, and a file was removed while ssh_sftpd:list_dir
+	was reading the directory, an error code from
+	read_file_info wasn't handled properly. This fix makes ls
+      return an error code instead.</p>
+      <p>
+      Own Id: OTP-6854 Aux Id: seq10740 </p>
+    </item>
+    <item>
+      <p>
+	Fixed bugs in prompting in ssl_cli. Prompts like \003>
+	were written as \300>. Also, newlines and returns was
+      removed.</p>
+      <p>
+      Own Id: OTP-6917 Aux Id: seq10773 </p>
+    </item>
+  </list>
+  </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            [sftpd] - New option "root" to set the root of the
+            sftp-server and the callback module for file handling now
+	  has a state parameter.</p>
+	  <p>
+            Own Id: OTP-7075 Aux Id: seq10675 </p>
+	</item>
+      </list>
+    </section>
+  </section>
+  
+    <section>
+    <title>Ssh 0.9.9.2</title>
+    <section>
+      <title>Better error-handling in ssh_sshd:listen</title>
+      <list type="bulleted">
+        <item>
+	  <p>The caller was hanged when listening with ssh_sshd:listen
+		(or ssh_sftpd:listen) on a port and IP already in use.
+		Now an error is returned instead.</p>
+          <p>Own Id: OTP-6727</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fix in ssh_sftpd</title>
+      <list type="bulleted">
+        <item>
+	  <p>Cd ../.. didn't work when connecting to a ssh_sftpd server.</p>
+          <p>Own Id: OTP-6727</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.9.1</title>
+
+    <section>
+      <title>Minor Makefile changes</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed use of <c><![CDATA[erl_flags]]></c> from Makefile.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A race condition that could make the server crash if a
+            client sent a SSH_MSG_USERAUTH_REQUEST packet immediately
+            after its SSH_MSG_SERVICE_REQUEST, is removed.</p>
+          <p>Own Id: OTP-6379 Aux Id: seq10523 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected minor bugs and removed dead code found by
+            dialyzer.</p>
+          <p>Own Id: OTP-6524</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>[sftp] - The function ssh_sftp:make_symlink/3 was not
+            fully implemented.</p>
+          <p>Own Id: OTP-6446</p>
+        </item>
+        <item>
+          <p>[ssh] - An internal value was, due to a bug, always set
+            to undefined even when it was not, this could lead to
+            connections being wrongly refused.</p>
+          <p>Own Id: OTP-6450</p>
+        </item>
+        <item>
+          <p>A pattern matching was missing "/binary" resulting in
+            that the internal function ssh_xfer:decode_acl/2 did not
+            work as expected.</p>
+          <p>Own Id: OTP-6458</p>
+        </item>
+        <item>
+          <p>[sftp] - read_link/2 did not return the documented value</p>
+          <p>Own Id: OTP-6471</p>
+        </item>
+        <item>
+          <p>Removed debugg printouts from ssh_cli.erl</p>
+          <p>Own Id: OTP-6483</p>
+        </item>
+        <item>
+          <p>[sftp, ssh] - The connection timeout was overridden by an
+            internal gen_server default timeout.</p>
+          <p>Own Id: OTP-6488 Aux Id: seq10569 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed debug printout from production code.</p>
+          <p>Own Id: OTP-6348 Aux Id: seq10510 </p>
+        </item>
+        <item>
+          <p>[sftpd] - When the sftp client ends the session the
+            server will now behave correctly and not leave the client
+            hanging.</p>
+          <p>Own Id: OTP-6349 Aux Id: seq10510 </p>
+        </item>
+        <item>
+          <p>[sftpd] - No longer used files were not closed until the
+            session was ended.</p>
+          <p>Own Id: OTP-6350 Aux Id: seq10514 </p>
+        </item>
+        <item>
+          <p>[sftpd] - File rename requests sent by sftp version 3
+            clients were not handled.</p>
+          <p>Own Id: OTP-6352 Aux Id: seq10513 </p>
+        </item>
+        <item>
+          <p>[sftpd] - Request that did not fit into one ssh message
+            were not handled.</p>
+          <p>Own Id: OTP-6353 Aux Id: seq10515 </p>
+        </item>
+        <item>
+          <p>Removed error logging of auth method none, as this is not
+            an error but rather a feature, that is used to get
+            initial information from the server.</p>
+          <p>Own Id: OTP-6414</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>[sftpd] - Added new option to specify a callback module
+            for the sftpd-server file handling. The default callback
+            module uses file and filelib.</p>
+          <p>Own Id: OTP-6356 Aux Id: seq10519 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The data window in SSH wasn't resized in the ssh_cli
+            receive data, this made the ssh_cli-server hang if more
+            than 64K data was received at one time. The option
+            tcp_nodelay was added, for nodelay in tcp connections.</p>
+          <p>Own Id: OTP-6231</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.4</title>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Unnecessary explicit start of crypto application 
+            in ssh application. This has been removed. The 
+            app-file specifies that ssh depends on the crypto app.
+            This is enough. See also the 
+            <seealso marker="ssh">ssh</seealso> module.</p>
+          <p>Also changed some error reports to info reports.</p>
+          <p>Own Id: OTP-6183</p>
+          <p>Aux Id: Seq 10383</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added way for cli to get peer name</p>
+          <p>Own Id: OTP-6138</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added some options to listen</p>
+          <p>Own Id: OTP-6070</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.1</title>
+    <section><title>Ssh 0.9.9.4</title>
+    
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>
+	  [sftpd] - Root parameter now behaves as expected,
+	instead of making sftpd malfunction.</p>
+	<p>
+	Own Id: OTP-7057 Aux Id: seq10830 </p>
+      </item>
+    </list>
+    </section>
+    </section>
+    
+  <section><title>Ssh 0.9.9.3</title>
+  
+  <section><title>Fixed Bugs and Malfunctions</title>
+  <list>
+    <item>
+      <p>
+	The sftp-server could crash if a "ls" was done on the
+	client, and a file was removed while ssh_sftpd:list_dir
+	was reading the directory, an error code from
+	read_file_info wasn't handled properly. This fix makes ls
+      return an error code instead.</p>
+      <p>
+      Own Id: OTP-6854 Aux Id: seq10740 </p>
+    </item>
+    <item>
+      <p>
+	Fixed bugs in prompting in ssl_cli. Prompts like \003>
+	were written as \300>. Also, newlines and returns was
+      removed.</p>
+      <p>
+      Own Id: OTP-6917 Aux Id: seq10773 </p>
+    </item>
+  </list>
+  </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            [sftpd] - New option "root" to set the root of the
+            sftp-server and the callback module for file handling now
+	  has a state parameter.</p>
+	  <p>
+            Own Id: OTP-7075 Aux Id: seq10675 </p>
+	</item>
+      </list>
+    </section>
+  </section>
+  
+    <section>
+    <title>Ssh 0.9.9.2</title>
+    <section>
+      <title>Better error-handling in ssh_sshd:listen</title>
+      <list type="bulleted">
+        <item>
+	  <p>The caller was hanged when listening with ssh_sshd:listen
+		(or ssh_sftpd:listen) on a port and IP already in use.
+		Now an error is returned instead.</p>
+          <p>Own Id: OTP-6727</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fix in ssh_sftpd</title>
+      <list type="bulleted">
+        <item>
+	  <p>Cd ../.. didn't work when connecting to a ssh_sftpd server.</p>
+          <p>Own Id: OTP-6727</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.9.1</title>
+
+    <section>
+      <title>Minor Makefile changes</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed use of <c><![CDATA[erl_flags]]></c> from Makefile.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A race condition that could make the server crash if a
+            client sent a SSH_MSG_USERAUTH_REQUEST packet immediately
+            after its SSH_MSG_SERVICE_REQUEST, is removed.</p>
+          <p>Own Id: OTP-6379 Aux Id: seq10523 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Corrected minor bugs and removed dead code found by
+            dialyzer.</p>
+          <p>Own Id: OTP-6524</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>[sftp] - The function ssh_sftp:make_symlink/3 was not
+            fully implemented.</p>
+          <p>Own Id: OTP-6446</p>
+        </item>
+        <item>
+          <p>[ssh] - An internal value was, due to a bug, always set
+            to undefined even when it was not, this could lead to
+            connections being wrongly refused.</p>
+          <p>Own Id: OTP-6450</p>
+        </item>
+        <item>
+          <p>A pattern matching was missing "/binary" resulting in
+            that the internal function ssh_xfer:decode_acl/2 did not
+            work as expected.</p>
+          <p>Own Id: OTP-6458</p>
+        </item>
+        <item>
+          <p>[sftp] - read_link/2 did not return the documented value</p>
+          <p>Own Id: OTP-6471</p>
+        </item>
+        <item>
+          <p>Removed debugg printouts from ssh_cli.erl</p>
+          <p>Own Id: OTP-6483</p>
+        </item>
+        <item>
+          <p>[sftp, ssh] - The connection timeout was overridden by an
+            internal gen_server default timeout.</p>
+          <p>Own Id: OTP-6488 Aux Id: seq10569 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed debug printout from production code.</p>
+          <p>Own Id: OTP-6348 Aux Id: seq10510 </p>
+        </item>
+        <item>
+          <p>[sftpd] - When the sftp client ends the session the
+            server will now behave correctly and not leave the client
+            hanging.</p>
+          <p>Own Id: OTP-6349 Aux Id: seq10510 </p>
+        </item>
+        <item>
+          <p>[sftpd] - No longer used files were not closed until the
+            session was ended.</p>
+          <p>Own Id: OTP-6350 Aux Id: seq10514 </p>
+        </item>
+        <item>
+          <p>[sftpd] - File rename requests sent by sftp version 3
+            clients were not handled.</p>
+          <p>Own Id: OTP-6352 Aux Id: seq10513 </p>
+        </item>
+        <item>
+          <p>[sftpd] - Request that did not fit into one ssh message
+            were not handled.</p>
+          <p>Own Id: OTP-6353 Aux Id: seq10515 </p>
+        </item>
+        <item>
+          <p>Removed error logging of auth method none, as this is not
+            an error but rather a feature, that is used to get
+            initial information from the server.</p>
+          <p>Own Id: OTP-6414</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>[sftpd] - Added new option to specify a callback module
+            for the sftpd-server file handling. The default callback
+            module uses file and filelib.</p>
+          <p>Own Id: OTP-6356 Aux Id: seq10519 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Ssh 0.9.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The data window in SSH wasn't resized in the ssh_cli
+            receive data, this made the ssh_cli-server hang if more
+            than 64K data was received at one time. The option
+            tcp_nodelay was added, for nodelay in tcp connections.</p>
+          <p>Own Id: OTP-6231</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.4</title>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Unnecessary explicit start of crypto application 
+            in ssh application. This has been removed. The 
+            app-file specifies that ssh depends on the crypto app.
+            This is enough. See also the 
+            <seealso marker="ssh">ssh</seealso> module.</p>
+          <p>Also changed some error reports to info reports.</p>
+          <p>Own Id: OTP-6183</p>
+          <p>Aux Id: Seq 10383</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added way for cli to get peer name</p>
+          <p>Own Id: OTP-6138</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added some options to listen</p>
+          <p>Own Id: OTP-6070</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>SSH 0.9.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixes in ssh_sftp, changes of timeout handling,
+            expand_fun moved to io:setopts</p>
+          <p>Own Id: OTP-5877 Aux Id: OTP-5781 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+    <section>
+      <title>SSH 0.9</title>
+      
+      <section>
+	<title>Improvements and New Features</title>
+	<list type="bulleted">
+	  <item>
+          <p>The previously undocumented and UNSUPPORTED <c><![CDATA[ssh]]></c>
+            application has been updated and documented. This release
+	      of the <c><![CDATA[ssh]]></c> application is still considered to be a
+            beta release and (if necessary) there could still be
+	      changes in its API before it reaches 1.0.</p>
+	    <p>Also, more cryptographic algorithms have been added to
+	      the <c><![CDATA[crypto]]></c> application.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+	    <p>Own Id: OTP-5631</p>
+	  </item>
+	</list>
+      </section>
+    </section>
+  </section>
+
+</chapter>
+
+

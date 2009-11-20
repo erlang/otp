@@ -1,0 +1,74 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+
+%% This is the syntax (metagrammar) of grammar definitions of the yecc
+%% parser generator.
+
+Nonterminals
+grammar declaration rule head symbol symbols strings attached_code
+token tokens.
+
+Terminals
+atom float integer reserved_symbol reserved_word string char var
+'->' ':' dot.
+
+Rootsymbol grammar.
+
+grammar -> declaration : '$1'.
+grammar -> rule : '$1'.
+declaration -> symbol symbols dot: {'$1', '$2'}.
+declaration -> symbol strings dot: {'$1', '$2'}.
+rule -> head '->' symbols attached_code dot: {rule, ['$1' | '$3'], '$4'}.
+head -> symbol : '$1'.
+symbols -> symbol : ['$1'].
+symbols -> symbol symbols : ['$1' | '$2'].
+strings -> string : ['$1'].
+strings -> string strings : ['$1' | '$2'].
+attached_code -> ':' tokens : {erlang_code, '$2'}.
+attached_code -> '$empty' : {erlang_code, [{atom, 0, '$undefined'}]}.
+tokens -> token : ['$1'].
+tokens -> token tokens : ['$1' | '$2'].
+symbol -> var : symbol('$1').
+symbol -> atom : symbol('$1').
+symbol -> integer : symbol('$1').
+symbol -> reserved_word : symbol('$1').
+token -> var : '$1'.
+token -> atom : '$1'.
+token -> float : '$1'.
+token -> integer : '$1'.
+token -> string : '$1'.
+token -> char : '$1'.
+token -> reserved_symbol : {value_of('$1'), line_of('$1')}.
+token -> reserved_word : {value_of('$1'), line_of('$1')}.
+token -> '->' : {'->', line_of('$1')}. % Have to be treated in this
+token -> ':' : {':', line_of('$1')}.   % manner, because they are also
+				       % special symbols of the metagrammar
+
+Erlang code.
+
+-record(symbol, {line, name}).
+
+symbol(Symbol) ->
+    #symbol{line = line_of(Symbol), name = value_of(Symbol)}.
+
+value_of(Token) ->
+    element(3, Token).
+
+line_of(Token) ->
+    element(2, Token).

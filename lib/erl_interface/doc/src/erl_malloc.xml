@@ -1,0 +1,200 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>erl_malloc</title>
+    <prepared>Torbj&ouml;rn T&ouml;rnkvist</prepared>
+    <responsible>Torbj&ouml;rn T&ouml;rnkvist</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked>Torbj&ouml;rn T&ouml;rnkvist</checked>
+    <date>980703</date>
+    <rev>A</rev>
+    <file>erl_malloc.sgml</file>
+  </header>
+  <lib>erl_malloc</lib>
+  <libsummary>Memory Allocation Functions</libsummary>
+  <description>
+    <p>This module provides functions for allocating and deallocating
+      memory.</p>
+  </description>
+  <funcs>
+    <func>
+      <name><ret>ETERM *</ret><nametext>erl_alloc_eterm(etype)</nametext></name>
+      <fsummary>Allocates an ETERM structure</fsummary>
+      <type>
+        <v>unsigned char etype;</v>
+      </type>
+      <desc>
+        <p>This function allocates an <c><![CDATA[(ETERM)]]></c> structure.
+          Specify <c><![CDATA[etype]]></c> as one of the following constants:</p>
+        <list type="bulleted">
+          <item>
+            <p>ERL_INTEGER</p>
+          </item>
+          <item>
+            <p>ERL_U_INTEGER <c><![CDATA[/* unsigned integer */]]></c></p>
+          </item>
+          <item>
+            <p>ERL_ATOM</p>
+          </item>
+          <item>
+            <p>ERL_PID <c><![CDATA[/* Erlang process identifier */]]></c></p>
+          </item>
+          <item>
+            <p>ERL_PORT</p>
+          </item>
+          <item>
+            <p>ERL_REF <c><![CDATA[/* Erlang reference */]]></c></p>
+          </item>
+          <item>
+            <p>ERL_LIST</p>
+          </item>
+          <item>
+            <p>ERL_EMPTY_LIST</p>
+          </item>
+          <item>
+            <p>ERL_TUPLE</p>
+          </item>
+          <item>
+            <p>ERL_BINARY</p>
+          </item>
+          <item>
+            <p>ERL_FLOAT</p>
+          </item>
+          <item>
+            <p>ERL_VARIABLE</p>
+          </item>
+          <item>
+            <p>ERL_SMALL_BIG <c><![CDATA[/* bignum */]]></c></p>
+          </item>
+          <item>
+            <p>ERL_U_SMALL_BIG <c><![CDATA[/* bignum */]]></c></p>
+          </item>
+        </list>
+        <p><c><![CDATA[ERL_SMALL_BIG]]></c> and <c><![CDATA[ERL_U_SMALL_BIG]]></c> are for
+          creating Erlang <c><![CDATA[bignums]]></c>, which can contain integers of
+          arbitrary size. The size of an integer in Erlang is machine
+          dependent, but in general any integer larger than 2^28
+          requires a bignum.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_eterm_release(void)</nametext></name>
+      <fsummary>Clears the ETERM freelist</fsummary>
+      <desc>
+        <p>Clears the 
+          freelist, where blocks are placed when they are
+          released by <c><![CDATA[erl_free_term()]]></c> and
+          <c><![CDATA[erl_free_compound()]]></c>. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_eterm_statistics(allocated, freed)</nametext></name>
+      <fsummary>Reports term allocation statistics</fsummary>
+      <type>
+        <v>long *allocated;</v>
+        <v>long *freed;</v>
+      </type>
+      <desc>
+        <p><c><![CDATA[allocated]]></c> and <c><![CDATA[freed]]></c> are initialized to
+          contain information about the fix-allocator used to allocate
+          ETERM components. <c><![CDATA[allocated]]></c> is the number of blocks
+          currently allocated to ETERM objects. <c><![CDATA[freed]]></c> is the
+          length of the freelist, where blocks are placed when they are
+          released by <c><![CDATA[erl_free_term()]]></c> and
+          <c><![CDATA[erl_free_compound()]]></c>. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_free_array(array, size)</nametext></name>
+      <fsummary>Frees an array of ETERM structures</fsummary>
+      <type>
+        <v>ETERM **array;</v>
+        <v>int size;</v>
+      </type>
+      <desc>
+        <p>This function frees an array of Erlang terms.</p>
+        <p><c><![CDATA[array]]></c> is an array of ETERM* objects.
+          </p>
+        <p><c><![CDATA[size]]></c> is the number of terms in the array.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_free_term(t)</nametext></name>
+      <fsummary>Frees an ETERM structure</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Use this function to free an Erlang term.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_free_compound(t)</nametext></name>
+      <fsummary>Frees an array of ETERM structures</fsummary>
+      <type>
+        <v>ETERM *t;</v>
+      </type>
+      <desc>
+        <p>Normally it is the programmer's responsibility to free each
+          Erlang term that has been returned from any of the
+          <c><![CDATA[erl_interface]]></c> functions. However since many of the
+          functions that build new Erlang terms in fact share objects
+          with other existing terms, it may be difficult for the
+          programmer to maintain pointers to all such terms in order to
+          free them individually.
+          </p>
+        <p><c><![CDATA[erl_free_compound()]]></c> will recursively free all of the
+          sub-terms associated with a given Erlang term, regardless of
+          whether we are still holding pointers to the sub-terms.
+          </p>
+        <p>There is an example in the User Manual under "Building
+          Terms and Patterns"
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_malloc(size)</nametext></name>
+      <fsummary>Allocates some memory</fsummary>
+      <type>
+        <v>long size;</v>
+      </type>
+      <desc>
+        <p>This function calls the standard 
+          <c><![CDATA[malloc()]]></c> function. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>erl_free(ptr)</nametext></name>
+      <fsummary>Frees some memory</fsummary>
+      <type>
+        <v>void *ptr;</v>
+      </type>
+      <desc>
+        <p>This function calls the standard 
+          <c><![CDATA[free()]]></c> function. </p>
+      </desc>
+    </func>
+  </funcs>
+</cref>
+

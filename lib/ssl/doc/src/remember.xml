@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>PKIX Certificates</title>
+    <prepared>UAB/F/P Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-06-09</date>
+    <rev>A</rev>
+    <file>pkix_certs.sgml</file>
+  </header>
+
+  <section>
+    <title>Introduction to Certificates</title>
+    <p><em>Outline:</em></p>
+    <list type="bulleted">
+      <item>SSL/TLS protocol - server must have certificate - -what
+       the the server sends to the client - client may verify the
+       server - server may ask client for certificate - what the
+       client sends to the server - server may then verify the client
+       - verification - certificate chains - root certificates -
+       public keys - key agreement - purpose of certificate  - main
+       contents of certificate - contents have increased as time went
+       by - common file formats for certificates.
+      </item>
+      <item>private keys - password protection - key generation - file
+       formats.
+      </item>
+      <item>ssl_pkix and alternate decodings.
+      </item>
+      <item>Attribute Certificates (not used by SSL).
+      </item>
+      <item>Certificate requests - certificate authorities - signing of
+       certificates - certificate revocation lists. 
+      </item>
+      <item>standards: ASN.1, X.509, X.520, PKIX, PKCS, PEM.
+      </item>
+      <item>incompatibilities between standards (X.509-1997 vs old) - the
+       ASN.1 problem of ANY, BIT STRING and OCTET STRING - the module
+       ssl_pkix.
+      </item>
+      <item>test suites: NIST
+      </item>
+      <item>Warnings: *creation* of trusted certificate (OpenSSL).
+      </item>
+      <item>Erlang SSL and certificates
+      </item>
+      <item>The need for seeding the random generator. See also John
+       S. Denker: High-Entropy Symbol Generator
+       (http://www.monmouth.com/~jsd). 
+      </item>
+      <item>links to standards and documents. Books (Rescorla).
+      </item>
+      <item>ASN.1 crash course.
+      </item>
+      <item>Nagel algorithm.
+      </item>
+    </list>
+    <p>For an introduction to ASN.1 see <url href="http://asn1.elibel.tm.fr/">ASN.1 Information Site</url>.
+      </p>
+  </section>
+</chapter>
+
+

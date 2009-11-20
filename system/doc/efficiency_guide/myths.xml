@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>The Eight Myths of Erlang Performance</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2007-11-10</date>
+    <rev></rev>
+    <file>myths.xml</file>
+  </header>
+
+  <p>Some truths seem to live on well beyond their best-before date,
+  perhaps because "information" spreads more rapidly from person-to-person
+  faster than a single release note that notes, for instance, that funs
+  have become faster.</p>
+
+  <p>Here we try to kill the old truths (or semi-truths) that have
+  become myths.</p>
+
+  <section>
+    <title>Myth: Funs are slow</title>
+    <p>Yes, funs used to be slow. Very slow. Slower than <c>apply/3</c>.
+    Originally, funs were implemented using nothing more than
+    compiler trickery, ordinary tuples, <c>apply/3</c>, and a great
+    deal of ingenuity.</p>
+
+    <p>But that is ancient history. Funs was given its own data type
+    in the R6B release and was further optimized in the R7B release.
+    Now the cost for a fun call falls roughly between the cost for a call to
+    local function and <c>apply/3</c>.</p>
+  </section>
+
+  <section>
+    <title>Myth: List comprehensions are slow</title>
+
+    <p>List comprehensions used to be implemented using funs, and in the
+    bad old days funs were really slow.</p>
+
+    <p>Nowadays the compiler rewrites list comprehensions into an ordinary
+    recursive function. Of course, using a tail-recursive function with
+    a reverse at the end would be still faster. Or would it?
+    That leads us to the next myth.</p>
+  </section>
+
+  <section>
+    <title>Myth: Tail-recursive functions are MUCH faster
+    than recursive functions</title>
+
+    <p><marker id="tail_recursive"></marker>According to the myth,
+    recursive functions leave references
+    to dead terms on the stack and the garbage collector will have to
+    copy all those dead terms, while tail-recursive functions immediately
+    discard those terms.</p>
+
+    <p>That used to be true before R7B. In R7B, the compiler started
+    to generate code that overwrites references to terms that will never
+    be used with an empty list, so that the garbage collector would not
+    keep dead values any longer than necessary.</p>
+
+    <p>Even after that optimization, a tail-recursive function would
+    still most of the time be faster than a body-recursive function. Why?</p>
+
+    <p>It has to do with how many words of stack that are used in each
+    recursive call. In most cases, a recursive function would use more words
+    on the stack for each recursion than the number of words a tail-recursive
+    would allocate on the heap. Since more memory is used, the garbage
+    collector will be invoked more frequently, and it will have more work traversing
+    the stack.</p>
+
+    <p>In R12B and later releases, there is an optimization that will
+    in many cases reduces the number of words used on the stack in
+    body-recursive calls, so that a body-recursive list function and
+    tail-recursive function that calls <seealso
+    marker="stdlib:lists#reverse/1">lists:reverse/1</seealso> at the
+    end will use exactly the same amount of memory.
+    <c>lists:map/2</c>, <c>lists:filter/2</c>, list comprehensions,
+    and many other recursive functions now use the same amount of space
+    as their tail-recursive equivalents.</p>
+
+    <p>So which is faster?</p>
+
+    <p>It depends. On Solaris/Sparc, the body-recursive function seems to
+    be slightly faster, even for lists with very many elements. On the x86
+    architecture, tail-recursion was up to about 30 percent faster.</p>
+
+    <p>So the choice is now mostly a matter of taste. If you really do need
+    the utmost speed, you must <em>measure</em>. You can no longer be
+    absolutely sure that the tail-recursive list function will be the fastest
+    in all circumstances.</p>
+
+    <p>Note: A tail-recursive function that does not need to reverse the
+    list at the end is, of course, faster than a body-recursive function,
+    as are tail-recursive functions that do not construct any terms at all
+    (for instance, a function that sums all integers in a list).</p>
+  </section>
+
+  <section>
+    <title>Myth: '++' is always bad</title>
+
+    <p>The <c>++</c> operator has, somewhat undeservedly, got a very bad reputation.
+    It probably has something to do with code like</p>
+    
+    <p><em>DO NOT</em></p>
+    <code type="erl">
+naive_reverse([H|T]) ->
+    naive_reverse(T)++[H];
+naive_reverse([]) ->
+    [].</code>
+
+    <p>which is the most inefficient way there is to reverse a list.
+    Since the <c>++</c> operator copies its left operand, the result
+    will be copied again and again and again... leading to quadratic
+    complexity.</p>
+
+    <p>On the other hand, using <c>++</c> like this</p>
+
+    <p><em>OK</em></p>
+    <code type="erl">
+naive_but_ok_reverse([H|T], Acc) ->
+    naive_but_ok_reverse(T, [H]++Acc);
+naive_but_ok_reverse([], Acc) ->
+    Acc.</code>
+
+    <p>is not bad. Each list element will only be copied once.
+    The growing result <c>Acc</c> is the right operand
+    for the <c>++</c> operator, and it will <em>not</em> be copied.</p>
+
+    <p>Of course, experienced Erlang programmers would actually write</p>
+
+    <p><em>DO</em></p>
+    <code type="erl">
+vanilla_reverse([H|T], Acc) ->
+    vanilla_reverse(T, [H|Acc]);
+vanilla_reverse([], Acc) ->
+    Acc.</code>
+
+    <p>which is slightly more efficient because you don't build a
+    list element only to directly copy it. (Or it would be more efficient
+    if the the compiler did not automatically rewrite <c>[H]++Acc</c>
+    to <c>[H|Acc]</c>.)</p>
+  </section>
+
+  <section>
+    <title>Myth: Strings are slow</title>
+
+    <p>Actually, string handling could be slow if done improperly.
+    In Erlang, you'll have to think a little more about how the strings
+    are used and choose an appropriate representation and use
+    the <seealso marker="stdlib:re">re</seealso> instead of the obsolete
+    <c>regexp</c> module if you are going to use regualr expressions.</p>
+  </section>
+
+  <section>
+    <title>Myth: Repairing a Dets file is very slow</title>
+
+    <p>The repair time is still proportional to the number of records
+    in the file, but Dets repairs used to be much, much slower in the past.
+    Dets has been massively rewritten and improved.</p>
+  </section>
+
+  <section>
+    <title>Myth: BEAM is a stack-based byte-code virtual machine (and therefore slow)</title>
+
+    <p>BEAM is a register-based virtual machine. It has 1024 virtual registers
+    that are used for holding temporary values and for passing arguments when
+    calling functions. Variables that need to survive a function call are saved
+    to the stack.</p>
+
+    <p>BEAM is a threaded-code interpreter. Each instruction is word pointing
+    directly to executable C-code, making instruction dispatching very fast.</p>
+  </section>
+
+  <section>
+    <title>Myth: Use '_' to speed up your program when a variable is not used</title>
+
+    <p>That was once true, but since R6B the BEAM compiler is quite capable of seeing itself
+    that a variable is not used.</p>
+  </section>
+
+</chapter>
+

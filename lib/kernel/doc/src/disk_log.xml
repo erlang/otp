@@ -1,0 +1,1162 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>disk_log</title>
+    <prepared>Claes Wikstr&ouml;m</prepared>
+    <responsible>Claes Wikstr&ouml;m</responsible>
+    <docno></docno>
+    <approved>nobody</approved>
+    <checked>no</checked>
+    <date>1999-10-10</date>
+    <rev>D</rev>
+    <file>disk_log.sgml</file>
+  </header>
+  <module>disk_log</module>
+  <modulesummary>A disk based term logging facility</modulesummary>
+  <description>
+    <p><c>disk_log</c> is a disk based term logger which makes
+      it possible to efficiently log items on files. 
+      Two types of logs are supported,
+      <em>halt logs</em> and <em>wrap logs</em>. A halt log
+      appends items to a single file, the size of which may or may
+      not be limited by the disk log module, whereas a wrap log utilizes
+      a sequence of wrap log files of limited size. As a wrap log file
+      has been filled up, further items are logged onto to the next 
+      file in the sequence, starting all over with the first file when 
+      the last file has been filled up. For the sake of efficiency, 
+      items are always written to files as binaries.
+      </p>
+    <p>Two formats of the log files are supported, the <em>internal format</em> and the <em>external format</em>. The internal
+      format supports automatic repair of log files that have not been
+      properly closed, and makes it possible to efficiently read
+      logged items in <em>chunks</em> using a set of functions defined
+      in this module. In fact, this is the only way to read internally
+      formatted logs. The external format leaves it up to the user to
+      read the logged deep byte lists. The disk log module cannot
+      repair externally formatted logs. An item logged to an
+      internally formatted log must not occupy more than 4 GB of disk
+      space (the size must fit in 4 bytes).
+      </p>
+    <p>For each open disk log there is one process that handles requests 
+      made to the disk log; the disk log process is created when <c>open/1</c>
+      is called, provided there exists no process handling the disk log.
+      A process that opens a disk log can either be an <em>owner</em> 
+      or an anonymous <em>user</em> of the disk log. Each owner is 
+      linked to the disk log 
+      process, and the disk log is closed by the owner should the 
+      owner terminate. Owners can subscribe to <em>notifications</em>, 
+      messages of the form <c>{disk_log, Node, Log, Info}</c> that are sent
+      from the disk log process when certain events occur, see 
+      the commands below and in particular the <c>open/1</c> option 
+      <seealso marker="#notify">notify</seealso>. 
+      There can be several owners of a log, but a process cannot own a 
+      log more than once. One and the same process may, however,
+      open the log 
+      as a user more than once. For a disk log process to properly close 
+      its file and terminate, it must be closed by its owners and once by 
+      some non-owner process for each time the log was used anonymously;
+      the users are counted, and there must not be any users left when the
+      disk log process terminates.
+      </p>
+    <p>Items can be logged <em>synchronously</em> by using the functions
+      <c>log/2</c>, <c>blog/2</c>, <c>log_terms/2</c> and 
+      <c>blog_terms/2</c>. For each of these functions, the caller is put
+      on hold until the items have been logged (but not necessarily 
+      written, use <c>sync/1</c> to ensure that). By adding an <c>a</c>
+      to each of the mentioned function names we get functions that log
+      items <em>asynchronously</em>. Asynchronous functions do not wait for
+      the disk log process to actually write the items to the file, but
+      return the control to the caller more or less immediately.
+      </p>
+    <p>When using the internal format for logs, the functions
+      <c>log/2</c>, <c>log_terms/2</c>, <c>alog/2</c>, and
+      <c>alog_terms/2</c> should be used. These functions log one or
+      more Erlang terms. By prefixing each of the functions with
+      a <c>b</c> (for "binary") we get the corresponding <c>blog</c> 
+      functions for the external format. These functions log one or 
+      more deep lists of bytes or, alternatively, binaries of deep lists 
+      of bytes. 
+      For example, to log the string <c>"hello"</c> in ASCII format, we
+      can use <c>disk_log:blog(Log, "hello")</c>, or
+      <c>disk_log:blog(Log, list_to_binary("hello"))</c>. The two
+      alternatives are equally efficient. The <c>blog</c> functions
+      can be used for internally formatted logs as well, but in
+      this case they must be called with binaries constructed with
+      calls to <c>term_to_binary/1</c>. There is no check to ensure
+      this, it is entirely the responsibility of the caller. If these
+      functions are called with binaries that do not correspond to
+      Erlang terms, the <c>chunk/2,3</c> and automatic repair
+      functions will fail. The corresponding terms (not the binaries)
+      will be returned when <c>chunk/2,3</c> is called.
+      </p>
+    <p>A collection of open disk logs with the same name running on
+      different nodes is said to be a <em>a distributed disk log</em>
+      if requests made to any one of the logs are automatically made to
+      the other logs as well. The members of such a collection will be
+      called individual distributed disk logs, or just distributed
+      disk logs if there is no risk of confusion. There is no order
+      between the members of such a collection. For instance, logged
+      terms are not necessarily written onto the node where the
+      request was made before written onto the other nodes. One could
+      note here that there are a few functions that do not make
+      requests to all members of distributed disk logs, namely
+      <c>info</c>, <c>chunk</c>, <c>bchunk</c>, <c>chunk_step</c> and
+      <c>lclose</c>. An open disk log that is not a distributed disk
+      log is said to be a <em>local disk log</em>. A local disk log is
+      accessible only from the node where the disk log process runs,
+      whereas a distributed disk log is accessible from all nodes in
+      the Erlang system, with exception for those nodes where a local
+      disk log with the same name as the distributed disk log exists.
+      All processes on nodes that have access to a local or
+      distributed disk log can log items or otherwise change, inspect
+      or close the log.
+      </p>
+    <p>It is not guaranteed that all log files of a distributed disk log 
+      contain the same log items; there is no attempt made to synchronize
+      the contents of the files. However, as long as at least one of 
+      the involved nodes is alive at each time, all items will be logged. 
+      When logging items to a distributed log, or otherwise trying to
+      change the log, the replies from individual logs are
+      ignored. If all nodes are down, the disk log functions
+      reply with a <c>nonode</c> error.
+      </p>
+    <note>
+      <p>In some applications it may not be acceptable that
+        replies from individual logs are ignored. An alternative in such
+        situations is to use several local disk logs instead of one
+        distributed disk log, and implement the distribution without use
+        of the disk log module.</p>
+    </note>
+    <p>Errors are reported differently for asynchronous log attempts
+      and other uses of the disk log module. When used synchronously
+      the disk log module replies with an error message, but when called
+      asynchronously, the disk log module does not know where to send 
+      the error message. Instead owners subscribing to notifications will 
+      receive an <c>error_status</c> message. 
+      </p>
+    <p>The disk log module itself does not report errors to the
+      <c>error_logger</c> module; it is up to the caller to decide
+      whether the error logger should be employed or not. The function
+      <c>format_error/1</c> can be used to produce readable messages
+      from error replies. Information events are however sent to the
+      error logger in two situations, namely when a log is repaired,
+      or when a file is missing while reading chunks.
+      </p>
+    <p>The error message <c>no_such_log</c> means that the given
+      disk log is not currently open. Nothing is said about 
+      whether the disk log files exist or not.
+      </p>
+    <note>
+      <p>If an attempt to reopen or truncate a log fails (see
+        <c>reopen</c> and <c>truncate</c>) the disk log process
+        immediately terminates. Before the process terminates links to
+        to owners and blocking processes (see <c>block</c>) are removed.
+        The effect is that the links work in one direction only; any
+        process using a disk log has to check for the error message
+        <c>no_such_log</c> if some other process might truncate or
+        reopen the log simultaneously.</p>
+    </note>
+  </description>
+  <funcs>
+    <func>
+      <name>accessible_logs() -> {[LocalLog], [DistributedLog]}</name>
+      <fsummary>Return the accessible disk logs on the  current node.</fsummary>
+      <type>
+        <v>LocalLog = DistributedLog = term()</v>
+      </type>
+      <desc>
+        <p>The <c>accessible_logs/0</c> function returns
+          the names of the disk logs accessible on the current node.
+          The first list contains local disk logs, and the
+          second list contains distributed disk logs.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>alog(Log, Term)</name>
+      <name>balog(Log, Bytes) -> ok | {error, Reason}</name>
+      <fsummary>Asynchronously log an item onto a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Term = term()</v>
+        <v>Bytes = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log</v>
+      </type>
+      <desc>
+        <p>The <c>alog/2</c> and <c>balog/2</c> functions asynchronously
+          append an item to a disk log. The function <c>alog/2</c> is 
+          used for internally formatted logs, and the function <c>balog/2</c>
+          for externally formatted logs. <c>balog/2</c> can be used
+          for internally formatted logs as well provided the binary was
+          constructed with a call to <c>term_to_binary/1</c>.
+          </p>
+        <p>The owners that subscribe to notifications will receive the 
+          message <c>read_only</c>, <c>blocked_log</c> 
+          or <c>format_external</c> in case the item cannot be written
+          on the log, and possibly one of the messages <c>wrap</c>,
+          <c>full</c> and <c>error_status</c> if an item was written 
+          on the log. The message <c>error_status</c> is sent if there
+          is something wrong with the header function or a file error
+          occurred.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>alog_terms(Log, TermList)</name>
+      <name>balog_terms(Log, BytesList) -> ok | {error, Reason}</name>
+      <fsummary>Asynchronously log several items onto a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>TermList = [term()]</v>
+        <v>BytesList = [Bytes]</v>
+        <v>Bytes = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log</v>
+      </type>
+      <desc>
+        <p>The <c>alog_terms/2</c> and <c>balog_terms/2</c> functions 
+          asynchronously append a list of items to a disk log. 
+          The function <c>alog_terms/2</c> is used for internally 
+          formatted logs, and the function <c>balog_terms/2</c>
+          for externally formatted logs. <c>balog_terms/2</c> can be used
+          for internally formatted logs as well provided the binaries were
+          constructed with calls to <c>term_to_binary/1</c>.
+          </p>
+        <p>The owners that subscribe to notifications will receive the 
+          message <c>read_only</c>, <c>blocked_log</c> 
+          or <c>format_external</c> in case the items cannot be written
+          on the log, and possibly one or more of the messages <c>wrap</c>,
+          <c>full</c> and <c>error_status</c> if items were written 
+          on the log. The message <c>error_status</c> is sent if there
+          is something wrong with the header function or a file error 
+          occurred.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>block(Log)</name>
+      <name>block(Log, QueueLogRecords) -> ok | {error, Reason}</name>
+      <fsummary>Block a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>QueueLogRecords = bool()</v>
+        <v>Reason = no_such_log | nonode | {blocked_log, Log}</v>
+      </type>
+      <desc>
+        <p>With a call to <c>block/1,2</c> a process can block a log.
+          If the blocking process is not an owner of the log, a temporary
+          link is created between the disk log process and the blocking
+          process. The link is used to ensure that the disk log is 
+          unblocked should the blocking process terminate without 
+          first closing or unblocking the log.
+          </p>
+        <p>Any process can probe a blocked log with <c>info/1</c> or
+          close it with <c>close/1</c>. The blocking process can also
+          use the functions <c>chunk/2,3</c>, <c>bchunk/2,3</c>,
+          <c>chunk_step/3</c>, and <c>unblock/1</c> without being
+          affected by the block. Any other attempt than those hitherto
+          mentioned to update or read a blocked log suspends the
+          calling process until the log is unblocked or returns an
+          error message <c>{blocked_log, Log}</c>, depending on
+          whether the value of <c>QueueLogRecords</c> is <c>true</c>
+          or <c>false</c>. The default value of <c>QueueLogRecords</c>
+          is <c>true</c>, which is used by <c>block/1</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>change_header(Log, Header) -> ok | {error, Reason}</name>
+      <fsummary>Change the head or head_func option for an owner of  a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Header = {head, Head} | {head_func, {M,F,A}}</v>
+        <v>Head = none | term() | binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {blocked_log, Log} | {badarg, head}</v>
+      </type>
+      <desc>
+        <p>The <c>change_header/2</c> function changes the value of 
+          the <c>head</c> or <c>head_func</c> option of a disk log.</p>
+      </desc>
+    </func>
+    <func>
+      <name>change_notify(Log, Owner, Notify) -> ok | {error, Reason}</name>
+      <fsummary>Change the notify option for an owner of a  disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Owner = pid()</v>
+        <v>Notify = bool()</v>
+        <v>Reason = no_such_log | nonode | {blocked_log, Log} | {badarg, notify} | {not_owner, Owner}</v>
+      </type>
+      <desc>
+        <p>The <c>change_notify/3</c> function changes the value of the
+          <c>notify</c> option for an owner of a disk log. </p>
+      </desc>
+    </func>
+    <func>
+      <name>change_size(Log, Size) -> ok | {error, Reason}</name>
+      <fsummary>Change the size of an open disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Size = integer() > 0 | infinity | {MaxNoBytes, MaxNoFiles}</v>
+        <v>MaxNoBytes = integer() > 0</v>
+        <v>MaxNoFiles = integer() > 0</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {blocked_log, Log}  | {new_size_too_small, CurrentSize} | {badarg, size} | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>change_size/2</c> function changes the size of an open log. 
+          For a halt log it is always possible to increase the size, 
+          but it is not possible to decrease the size to something less than 
+          the current size of the file.
+          </p>
+        <p>For a wrap log it is always possible to increase both the
+          size and number of files, as long as the number of files does not 
+          exceed 65000. If the maximum number of files is decreased, the
+          change will not be valid until the current file is full and the 
+          log wraps to the next file.
+          The redundant files will be removed next time the log wraps around, 
+          i.e. starts to log to file number 1.
+          </p>
+        <p>As an example, assume that the old maximum number of files 
+          is 10 and that the new maximum number of files is 6. If 
+          the current file number is not greater than the new maximum number 
+          of files, the files 7 to 10 will be removed when file number 6 
+          is full and the log starts to write to file number 1 again. 
+          Otherwise the files greater than the current 
+          file will be removed when the current file is full (e.g. if  
+          the current file is 8, the files 9 and 10); the files between 
+          new maximum number of files and the current 
+          file (i.e. files 7 and 8) will be removed next time file number 6
+          is full.
+          </p>
+        <p>If the size of the files is decreased the change will immediately
+          affect the current log. It will not of course change the 
+          size of log files already full until next time they are used.
+          </p>
+        <p>If the log size is decreased for instance to save space, 
+          the function <c>inc_wrap_file/1</c> can be used to force the log 
+          to wrap.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>chunk(Log, Continuation)</name>
+      <name>chunk(Log, Continuation, N) -> {Continuation2, Terms}  | {Continuation2, Terms, Badbytes} | eof | {error, Reason}</name>
+      <name>bchunk(Log, Continuation)</name>
+      <name>bchunk(Log, Continuation, N) -> {Continuation2, Binaries}  | {Continuation2, Binaries, Badbytes} | eof | {error, Reason}</name>
+      <fsummary>Read a chunk of items written to a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Continuation = start | cont()</v>
+        <v>N = integer() > 0 | infinity</v>
+        <v>Continuation2 = cont()</v>
+        <v>Terms = [term()]</v>
+        <v>Badbytes = integer()</v>
+        <v>Reason = no_such_log | {format_external, Log}  | {blocked_log, Log} | {badarg, continuation} | {not_internal_wrap, Log} | {corrupt_log_file, FileName} | {file_error, FileName, FileError}</v>
+        <v>Binaries = [binary()]</v>
+      </type>
+      <desc>
+        <p>The <c>chunk/2,3</c> and <c>bchunk/2,3</c> functions make
+          it possible to efficiently read the terms which have been
+          appended to an internally formatted log. It minimizes disk
+          I/O by reading 64 kilobyte chunks from the file. The
+          <c>bchunk/2,3</c> functions return the binaries read from
+          the file; they do not call <c>binary_to_term</c>. Otherwise
+          the work just like <c>chunk/2,3</c>.
+          </p>
+        <p>The first time <c>chunk</c> (or <c>bchunk</c>) is called,
+          an initial continuation, the atom <c>start</c>, must be
+          provided. If there is a disk log process running on the
+          current node, terms are read from that log, otherwise an
+          individual distributed log on some other node is chosen, if
+          such a log exists.
+          </p>
+        <p>When <c>chunk/3</c> is called, <c>N</c> controls the
+          maximum number of terms that are read from the log in each
+          chunk. Default is <c>infinity</c>, which means that all the
+          terms contained in the 64 kilobyte chunk are read. If less than
+          <c>N</c> terms are returned, this does not necessarily mean
+          that the end of the file has been reached.
+          </p>
+        <p>The <c>chunk</c> function returns a tuple
+          <c>{Continuation2, Terms}</c>, where <c>Terms</c> is a list
+          of terms found in the log. <c>Continuation2</c> is yet
+          another continuation which must be passed on to any
+          subsequent calls to <c>chunk</c>. With a series of calls to
+          <c>chunk</c> it is possible to extract all terms from a log.
+          </p>
+        <p>The <c>chunk</c> function returns a tuple
+          <c>{Continuation2, Terms, Badbytes}</c> if the log is opened
+          in read-only mode and the read chunk is corrupt. <c>Badbytes</c> 
+          is the number of bytes in the file which were found not to be
+          Erlang terms in the chunk. Note also that the log is not repaired.
+          When trying to read chunks from a log opened in read-write mode,
+          the tuple <c>{corrupt_log_file, FileName}</c> is returned if the
+          read chunk is corrupt.
+          </p>
+        <p><c>chunk</c> returns <c>eof</c> when the end of the log is
+          reached, or <c>{error, Reason}</c> if an error occurs. Should
+          a wrap log file be missing, a message is output on the error log.
+          </p>
+        <p>When <c>chunk/2,3</c> is used with wrap logs, the returned
+          continuation may or may not be valid in the next call to
+          <c>chunk</c>. This is because the log may wrap and delete
+          the file into which the continuation points. To make sure
+          this does not happen, the log can be blocked during the
+          search.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>chunk_info(Continuation) -> InfoList | {error, Reason}</name>
+      <fsummary>Return information about a chunk continuation of  a disk log.</fsummary>
+      <type>
+        <v>Continuation = cont()</v>
+        <v>Reason = {no_continuation, Continuation}</v>
+      </type>
+      <desc>
+        <p>The <c>chunk_info/1</c> function returns the following pair
+          describing the chunk continuation returned by
+          <c>chunk/2,3</c>, <c>bchunk/2,3</c>, or <c>chunk_step/3</c>:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{node, Node}</c>. Terms are read from
+              the disk log running on <c>Node</c>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>chunk_step(Log, Continuation, Step) -> {ok, Continuation2} | {error, Reason}</name>
+      <fsummary>Step forward or backward among the wrap log files  of a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Continuation = start | cont()</v>
+        <v>Step = integer()</v>
+        <v>Continuation2 = cont()</v>
+        <v>Reason = no_such_log | end_of_log | {format_external, Log}  | {blocked_log, Log}  | {badarg, continuation}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The function <c>chunk_step</c> can be used in conjunction
+          with <c>chunk/2,3</c> and <c>bchunk/2,3</c> to search
+          through an internally formatted wrap log. It takes as
+          argument a continuation as returned by <c>chunk/2,3</c>,
+          <c>bchunk/2,3</c>, or <c>chunk_step/3</c>, and steps forward
+          (or backward) <c>Step</c> files in the wrap log. The
+          continuation returned points to the first log item in the
+          new current file.
+          </p>
+        <p>If the atom <c>start</c> is given as continuation, a disk log
+          to read terms from is chosen. A local or distributed disk log
+          on the current node is preferred to an
+          individual distributed log on some other node.
+          </p>
+        <p>If the wrap log is not full because all files have not been
+          used yet, <c>{error, end_of_log}</c> is returned if trying to
+          step outside the log.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>close(Log) -> ok | {error, Reason}</name>
+      <fsummary>Close a disk log.</fsummary>
+      <type>
+        <v>Reason = no_such_log | nonode | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>          <marker id="close_1"></marker>
+The function <c>close/1</c> closes a
+          local or distributed disk log properly. An internally
+          formatted log must be closed before the Erlang system is
+          stopped, otherwise the log is regarded as unclosed and the
+          automatic repair procedure will be activated next time the
+          log is opened.
+          </p>
+        <p>The disk log process in not terminated as long as there are
+          owners or users of the log. It should be stressed that each
+          and every owner must close the log, possibly by terminating,
+          and that any other process - not only the processes that have 
+          opened the log anonymously - can decrement the <c>users</c>
+          counter by closing the log. 
+          Attempts to close a log by a process that is 
+          not an owner are simply ignored if there are no users.
+          </p>
+        <p>If the log is blocked by the closing process, the log is also
+          unblocked.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>format_error(Error) -> Chars</name>
+      <fsummary>Return an English description of a disk log  error reply.</fsummary>
+      <type>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Given the error returned by any function in this module, 
+          the function <c>format_error</c> returns a descriptive string
+          of the error in English. For file errors, the function 
+          <c>format_error/1</c> in the <c>file</c> module is called.</p>
+      </desc>
+    </func>
+    <func>
+      <name>inc_wrap_file(Log) -> ok | {error, Reason}</name>
+      <fsummary>Change to the next wrap log file of a disk log.</fsummary>
+      <type>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {blocked_log, Log}  | {halt_log, Log} | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>inc_wrap_file/1</c> function forces the internally formatted 
+          disk log to start logging to the 
+          next log file. It can be used, for instance, in conjunction with
+          <c>change_size/2</c> to reduce the amount of disk space allocated
+          by the disk log.
+          </p>
+        <p>The owners that subscribe to notifications will normally 
+          receive a <c>wrap</c> message, but in case of 
+          an error with a reason tag of <c>invalid_header</c> or 
+          <c>file_error</c> an <c>error_status</c> message will be sent.</p>
+      </desc>
+    </func>
+    <func>
+      <name>info(Log) -> InfoList | {error, no_such_log}</name>
+      <fsummary>Return information about a disk log.</fsummary>
+      <desc>
+        <p>The <c>info/1</c> function returns a list of <c>{Tag, Value}</c> 
+          pairs describing the log. If there is a disk log process running
+          on the current node, that log is used as source of information,
+          otherwise an individual distributed log on
+          some other node is chosen, if such a log exists.
+          </p>
+        <p>The following pairs are returned for all logs:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{name, Log}</c>, where <c>Log</c> is the name of
+              the log as given by the <c>open/1</c> option <c>name</c>.</p>
+          </item>
+          <item>
+            <p><c>{file, File}</c>. For halt logs <c>File</c> is the
+              filename, and for wrap logs <c>File</c> is the base name.</p>
+          </item>
+          <item>
+            <p><c>{type, Type}</c>, where <c>Type</c> is the type of
+              the log as given by the <c>open/1</c> option <c>type</c>.</p>
+          </item>
+          <item>
+            <p><c>{format, Format}</c>, where <c>Format</c> is the format
+              of the log as given by the <c>open/1</c> option <c>format</c>.</p>
+          </item>
+          <item>
+            <p><c>{size, Size}</c>, where <c>Size</c> is the size
+              of the log as given by the <c>open/1</c> option <c>size</c>,
+              or the size set by <c>change_size/2</c>. The value set by 
+              <c>change_size/2</c> is reflected immediately.</p>
+          </item>
+          <item>
+            <p><c>{mode, Mode}</c>, where <c>Mode</c> is the mode
+              of the log as given by the <c>open/1</c> option <c>mode</c>.</p>
+          </item>
+          <item>
+            <p><c>{owners, [{pid(), Notify}]}</c> where <c>Notify</c>
+              is the value set by the <c>open/1</c> option <c>notify</c>
+              or the function <c>change_notify/3</c> for the owners of 
+              the log.</p>
+          </item>
+          <item>
+            <p><c>{users, Users}</c> where <c>Users</c> is the number
+              of anonymous users of the log, see the <c>open/1</c> option
+              <seealso marker="#linkto">linkto</seealso>.</p>
+          </item>
+          <item>
+            <p><c>{status, Status}</c>, where <c>Status</c> is <c>ok</c>
+              or <c>{blocked, QueueLogRecords}</c> as set by the functions
+              <c>block/1,2</c> and <c>unblock/1</c>.</p>
+          </item>
+          <item>
+            <p><c>{node, Node}</c>. The information returned by the
+              current invocation of the <c>info/1</c> function has been
+              gathered from the disk log process running on <c>Node</c>.</p>
+          </item>
+          <item>
+            <p><c>{distributed, Dist}</c>. If the log is local on 
+              the current node, then <c>Dist</c> has the value <c>local</c>,
+              otherwise all nodes where the log is distributed
+              are returned as a list.</p>
+          </item>
+        </list>
+        <p>The following pairs are returned for all logs opened in 
+          <c>read_write</c> mode:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{head, Head}</c>. Depending of the value of
+              the <c>open/1</c> options <c>head</c> and <c>head_func</c>
+              or set by the function <c>change_header/2</c>, the value
+              of <c>Head</c> is <c>none</c> (default), 
+              <c>{head, H}</c> (<c>head</c> option) or <c>{M,F,A}</c> 
+              (<c>head_func</c> option).</p>
+          </item>
+          <item>
+            <p><c>{no_written_items, NoWrittenItems}</c>, where
+              <c>NoWrittenItems</c> is the number of items 
+              written to the log since the disk log process was created.</p>
+          </item>
+        </list>
+        <p>The following pair is returned for halt logs opened in 
+          <c>read_write</c> mode:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{full, Full}</c>, where <c>Full</c> is <c>true</c> or
+              <c>false</c> depending on whether the halt log is full or not.</p>
+          </item>
+        </list>
+        <p>The following pairs are returned for wrap logs opened in 
+          <c>read_write</c> mode:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{no_current_bytes, integer() >= 0}</c> is the number
+              of bytes written to the current wrap log file.</p>
+          </item>
+          <item>
+            <p><c>{no_current_items, integer() >= 0}</c> is the number
+              of items written to the current wrap log file, header
+              inclusive.</p>
+          </item>
+          <item>
+            <p><c>{no_items, integer() >= 0}</c> is the total number
+              of items in all wrap log files.</p>
+          </item>
+          <item>
+            <p><c>{current_file, integer()}</c> is the ordinal for
+              the current wrap log file in the range <c>1..MaxNoFiles</c>,
+              where <c>MaxNoFiles</c> is given by the <c>open/1</c> option
+              <c>size</c> or set by <c>change_size/2</c>.</p>
+          </item>
+          <item>
+            <p><c>{no_overflows, {SinceLogWasOpened, SinceLastInfo}}</c>,
+              where <c>SinceLogWasOpened</c> (<c>SinceLastInfo</c>) is 
+              the number of times a wrap log file has been filled up and a 
+              new one opened or <c>inc_wrap_file/1</c> has been called since 
+              the disk log was last opened (<c>info/1</c> 
+              was last called). The first time <c>info/2</c> is called 
+              after a log was (re)opened or truncated, the two values 
+              are equal.</p>
+          </item>
+        </list>
+        <p>Note that the <c>chunk/2,3</c>, <c>bchunk/2,3</c>, and
+          <c>chunk_step/3</c> functions do not affect any value
+          returned by <c>info/1</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>lclose(Log)</name>
+      <name>lclose(Log, Node) -> ok | {error, Reason}</name>
+      <fsummary>Close a disk log on one node.</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Reason = no_such_log | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The function <c>lclose/1</c> closes a local log or an
+          individual distributed log on the current node.
+          The function <c>lclose/2</c> closes an individual
+          distributed log on the specified node if the node
+          is not the current one.
+          <c>lclose(Log)</c> is equivalent to
+          <c>lclose(Log,&nbsp;node())</c>. 
+          See also <seealso marker="#close_1">close/1</seealso>.
+          </p>
+        <p>If there is no log with the given name
+          on the specified node, <c>no_such_log</c> is returned. 
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>log(Log, Term)</name>
+      <name>blog(Log, Bytes) -> ok | {error, Reason}</name>
+      <fsummary>Log an item onto a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Term = term()</v>
+        <v>Bytes = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {format_external, Log}  | {blocked_log, Log} | {full, Log}  | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>log/2</c> and <c>blog/2</c> functions synchronously
+          append a term to a disk log. They return <c>ok</c> or
+          <c>{error, Reason}</c> when the term has been written to
+          disk. If the log is distributed, <c>ok</c> is always
+          returned, unless all nodes are down. Terms are written by
+          means of the ordinary <c>write()</c> function of the
+          operating system. Hence, there is no guarantee that the term
+          has actually been written to the disk, it might linger in
+          the operating system kernel for a while. To make sure the
+          item is actually written to disk, the <c>sync/1</c> function
+          must be called.
+          </p>
+        <p>The <c>log/2</c> function is used for internally formatted logs,
+          and <c>blog/2</c> for externally formatted logs. 
+          <c>blog/2</c> can be used
+          for internally formatted logs as well provided the binary was
+          constructed with a call to <c>term_to_binary/1</c>.
+          </p>
+        <p>The owners that subscribe to notifications will be notified 
+          of an error with an <c>error_status</c> message if the error 
+          reason tag is <c>invalid_header</c> or <c>file_error</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>log_terms(Log, TermList)</name>
+      <name>blog_terms(Log, BytesList) -> ok | {error, Reason}</name>
+      <fsummary>Log several items onto a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>TermList = [term()]</v>
+        <v>BytesList = [Bytes]</v>
+        <v>Bytes = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {format_external, Log}  | {blocked_log, Log} | {full, Log}  | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>log_terms/2</c> and <c>blog_terms/2</c> functions
+          synchronously append a list of items to the log. The benefit
+          of using these functions rather than the <c>log/2</c> and
+          <c>blog/2</c> functions is that of efficiency: the given
+          list is split into as large sublists as possible (limited by
+          the size of wrap log files), and each sublist is logged as
+          one single item, which reduces the overhead.
+          </p>
+        <p>The <c>log_terms/2</c> function is used for internally formatted
+          logs, and <c>blog_terms/2</c> for externally formatted logs.
+          <c>blog_terms/2</c> can be used
+          for internally formatted logs as well provided the binaries were
+          constructed with calls to <c>term_to_binary/1</c>.
+          </p>
+        <p>The owners that subscribe to notifications will be notified 
+          of an error with an <c>error_status</c> message if the error 
+          reason tag is <c>invalid_header</c> or <c>file_error</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>open(ArgL) -> OpenRet | DistOpenRet</name>
+      <fsummary>Open a disk log file.</fsummary>
+      <type>
+        <v>ArgL = [Opt]</v>
+        <v>Opt = {name, term()} | {file, FileName}, {linkto, LinkTo}  | {repair, Repair} | {type, Type} | {format, Format} | {size, Size}  | {distributed, [Node]} | {notify, bool()} | {head, Head}  | {head_func, {M,F,A}} | {mode, Mode}</v>
+        <v>FileName = string() | atom()</v>
+        <v>LinkTo = pid() | none</v>
+        <v>Repair = true | false | truncate</v>
+        <v>Type = halt | wrap</v>
+        <v>Format = internal | external</v>
+        <v>Size = integer() > 0 | infinity | {MaxNoBytes, MaxNoFiles}</v>
+        <v>MaxNoBytes = integer() > 0</v>
+        <v>MaxNoFiles = 0 &lt; integer() &lt; 65000</v>
+        <v>Rec = integer()</v>
+        <v>Bad = integer()</v>
+        <v>Head = none | term() | binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Mode = read_write | read_only</v>
+        <v>OpenRet = Ret | {error, Reason}</v>
+        <v>DistOpenRet = {[{Node, Ret}], [{BadNode, {error, DistReason}}]}</v>
+        <v>Node = BadNode = atom()</v>
+        <v>Ret = {ok, Log}  | {repaired, Log, {recovered, Rec}, {badbytes, Bad}}</v>
+        <v>DistReason = nodedown | Reason</v>
+        <v>Reason = no_such_log | {badarg, Arg} | {size_mismatch, CurrentSize, NewSize}  | {arg_mismatch, OptionName, CurrentValue, Value}  | {name_already_open, Log} | {open_read_write, Log} | {open_read_only, Log} | {need_repair, Log} | {not_a_log_file, FileName} | {invalid_index_file, FileName} | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError} | {node_already_open, Log}</v>
+      </type>
+      <desc>
+        <p>The <c>ArgL</c> parameter is a list of options which have
+          the following meanings:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>{name, Log}</c> specifies the name of the log.
+              This is the name which must be passed on as a parameter in
+              all subsequent logging operations. A name must always
+              be supplied.
+              </p>
+          </item>
+          <item>
+            <p><c>{file, FileName}</c> specifies the name of the
+              file which will be used for logged terms. If this value is
+              omitted and the name of the log is either an atom or a string, 
+              the file name will default to <c>lists:concat([Log, ".LOG"])</c> for halt logs. For wrap logs, this will be
+              the base name of the files. Each file in a wrap log
+              will be called <c><![CDATA[<base_name>.N]]></c>, where <c>N</c> is an
+              integer. Each wrap log will also have two files called
+              <c><![CDATA[<base_name>.idx]]></c> and <c><![CDATA[<base_name>.siz]]></c>.
+              </p>
+          </item>
+          <item>
+            <p><c>{linkto, LinkTo}</c>.               <marker id="linkto"></marker>
+If
+              <c>LinkTo</c> is a pid, that pid becomes an owner of the
+              log. If <c>LinkTo</c> is <c>none</c> the log records
+              that it is used anonymously by some process by
+              incrementing the <c>users</c> counter. By default, the
+              process which calls <c>open/1</c> owns the log.
+              </p>
+          </item>
+          <item>
+            <p><c>{repair, Repair}</c>. If <c>Repair</c> is <c>true</c>,
+              the current log file will be repaired, if needed. As the
+              restoration is initiated, a message is output on the error log.
+              If <c>false</c> is given,
+              no automatic repair will be attempted. Instead, the
+              tuple <c>{error, {need_repair, Log}}</c> is returned if an
+              attempt is made to open a corrupt log file. 
+              If <c>truncate</c> is given, the log file will
+              be truncated, creating an empty log. Default is 
+              <c>true</c>, which has no effect on logs opened in 
+              read-only mode.
+              </p>
+          </item>
+          <item>
+            <p><c>{type, Type}</c> is the type of the log. Default
+              is <c>halt</c>.
+              </p>
+          </item>
+          <item>
+            <p><c>{format, Format}</c> specifies the format of the
+              disk log. Default is <c>internal</c>. 
+              </p>
+          </item>
+          <item>
+            <p><c>{size, Size}</c> specifies the size of the log.
+              When a halt log has reached its maximum size, all attempts to 
+              log more items are rejected. The default size is 
+              <c>infinity</c>, which for halt implies that there is no
+              maximum size. For wrap logs, the <c>Size</c> parameter 
+              may be either a pair
+              <c>{MaxNoBytes, MaxNoFiles}</c> or <c>infinity</c>. In the
+              latter case, if the files of an already existing wrap log
+              with the same name can be found, the size is read
+              from the existing wrap log, otherwise an error is returned. 
+              Wrap logs write at most <c>MaxNoBytes</c> bytes on each file 
+              and use <c>MaxNoFiles</c> files before starting all over with
+              the first wrap log file. Regardless of <c>MaxNoBytes</c>,
+              at least the header (if there is one) and one
+              item is written on each wrap log file before
+              wrapping to the next file.
+              When opening an existing wrap log, it is not
+              necessary to supply a value for the option <c>Size</c>, but any
+              supplied value must equal the current size of the log, otherwise
+              the tuple <c>{error, {size_mismatch, CurrentSize, NewSize}}</c>
+              is returned.
+              </p>
+          </item>
+          <item>
+            <p><c>{distributed, Nodes}</c>. This option can be used for
+              adding members to a distributed disk log. The
+              default value is <c>[]</c>, which means that
+              the log is local on the current node.
+              </p>
+          </item>
+          <item>
+            <marker id="notify"></marker>
+            <p><c>{notify, bool()}</c>. If <c>true</c>, the owners of the
+              log are notified when certain events occur in the log.
+              Default is <c>false</c>. The owners are sent one of the
+              following messages when an event occurs:
+              </p>
+            <list type="bulleted">
+              <item>
+                <p><c>{disk_log, Node, Log, {wrap, NoLostItems}}</c> is sent when a wrap log has
+                  filled up one of its files and a new file is
+                  opened. <c>NoLostItems</c> is the number of
+                  previously logged items that have been lost when
+                  truncating existing files.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, {truncated, NoLostItems}}</c> is sent when a log has been
+                  truncated or reopened. For halt logs <c>NoLostItems</c>
+                  is the number of items written on the log since the 
+                  disk log process was created. For wrap logs 
+                  <c>NoLostItems</c> is the number of items on all 
+                  wrap log files.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, {read_only, Items}}</c> 
+                  is sent when an asynchronous log attempt is made to 
+                  a log file opened in read-only mode. 
+                  <c>Items</c> is the items from the log attempt.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, {blocked_log, Items}}</c> 
+                  is sent when an asynchronous log attempt is made to
+                  a blocked log that does not queue log attempts.
+                  <c>Items</c> is the items from the log attempt.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, {format_external, Items}}</c> 
+                  is sent when <c>alog/2</c> or <c>alog_terms/2</c> is 
+                  used for internally formatted logs. <c>Items</c> is the 
+                  items from the log attempt.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, full}</c> is sent when
+                  an attempt to log items to a wrap log would write more
+                  bytes than the limit set by the <c>size</c> option.
+                  </p>
+              </item>
+              <item>
+                <p><c>{disk_log, Node, Log, {error_status, Status}}</c> 
+                  is sent when the error status changes. The error status
+                  is defined by the outcome of the last attempt to log
+                  items to a the log or to truncate the log or the last
+                  use of <c>sync/1</c>, <c>inc_wrap_file/1</c> or
+                  <c>change_size/2</c>. <c>Status</c> is one of <c>ok</c> and
+                  <c>{error, Error}</c>, the former being the initial value.
+                  </p>
+              </item>
+            </list>
+          </item>
+          <item>
+            <p><c>{head, Head}</c> specifies a header to be
+              written first on the log file. If the log is a wrap
+              log, the item <c>Head</c> is written first in each new file.
+              <c>Head</c> should be a term if the format is
+              <c>internal</c>, and a deep list of bytes (or a binary)
+              otherwise. Default is <c>none</c>, which means that
+              no header is written first on the file.
+              </p>
+          </item>
+          <item>
+            <p><c>{head_func, {M,F,A}}</c> specifies a function
+              to be called each time a new log file is opened.
+              The call <c>M:F(A)</c> is assumed to return <c>{ok, Head}</c>.
+              The item <c>Head</c> is written first in each file.
+              <c>Head</c> should be a term if the format is
+              <c>internal</c>, and a deep list of bytes (or a binary)
+              otherwise.
+              </p>
+          </item>
+          <item>
+            <p><c>{mode, Mode}</c> specifies if the log is to be 
+              opened in read-only or read-write mode. It defaults to
+              <c>read_write</c>.
+              </p>
+          </item>
+        </list>
+        <p>The <c>open/1</c> function returns <c>{ok, Log}</c> if the
+          log file was successfully opened. If the file was
+          successfully repaired, the tuple <c>{repaired, Log, {recovered, Rec}, {badbytes, Bad}}</c> is returned, where
+          <c>Rec</c> is the number of whole Erlang terms found in the
+          file and <c>Bad</c> is the number of bytes in the file which
+          were non-Erlang terms. If the <c>distributed</c> parameter
+          was given, <c>open/1</c> returns a list of
+          successful replies and a list of erroneous replies. Each
+          reply is tagged with the node name.
+          </p>
+        <p>When a disk log is opened in read-write mode, any existing
+          log file is checked for. If there is none a new empty
+          log is created, otherwise the existing file is opened at the
+          position after the last logged item, and the logging of items
+          will commence from there. If the format is <c>internal</c>
+          and the existing file is not recognized as an internally
+          formatted log, a tuple <c>{error, {not_a_log_file, FileName}}</c>
+          is returned.
+          </p>
+        <p>The <c>open/1</c> function cannot be used for changing the
+          values of options of an already open log; when there are prior
+          owners or users of a log, all option values except <c>name</c>, 
+          <c>linkto</c> and <c>notify</c> are just checked against 
+          the values that have been supplied before as option values
+          to <c>open/1</c>, <c>change_header/2</c>, <c>change_notify/3</c>
+          or <c>change_size/2</c>. As a consequence,
+          none of the options except <c>name</c> is mandatory. If some
+          given value differs from the current value, a tuple
+          <c>{error, {arg_mismatch, OptionName, CurrentValue, Value}}</c> 
+          is returned. Caution: an owner's attempt to open a log 
+          as owner once again is acknowledged with the return value 
+          <c>{ok, Log}</c>, but the state of the disk log is not 
+          affected in any way.
+          </p>
+        <p>If a log with a given name is local on some node,
+          and one tries to open the log distributed on the same node,
+          then the tuple <c>{error, {node_already_open, Name}}</c> is
+          returned. The same tuple is returned if the log is distributed on
+          some node, and one tries to open the log locally on the same node.
+          Opening individual distributed disk logs for the first time
+          adds those logs to a (possibly empty) distributed disk log.
+          The option values supplied are used 
+          on all nodes mentioned by the <c>distributed</c> option. 
+          Individual distributed logs know nothing
+          about each other's option values, so each node can be
+          given unique option values by creating a distributed
+          log with several calls to <c>open/1</c>.
+          </p>
+        <p>It is possible to open a log file more than once by giving
+          different values to the option <c>name</c> or by using the
+          same file when distributing a log on different nodes.
+          It is up to the user of the <c>disk_log</c>
+          module to ensure that no more than one
+          disk log process has write access to any file, or the 
+          the file may be corrupted.
+          </p>
+        <p>If an attempt to open a log file for the first time fails, 
+          the disk log process terminates with the EXIT message 
+          <c>{{failed,Reason},[{disk_log,open,1}]}</c>.
+          The function returns <c>{error, Reason}</c> for all other errors.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>pid2name(Pid) -> {ok, Log} | undefined</name>
+      <fsummary>Return the name of the disk log handled by a pid.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>The <c>pid2name/1</c> function returns the name of the log
+          given the pid of a disk log process on the current node, or
+          <c>undefined</c> if the given pid is not a disk log process.
+          </p>
+        <p>This function is meant to be used for debugging only.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>reopen(Log, File)</name>
+      <name>reopen(Log, File, Head)</name>
+      <name>breopen(Log, File, BHead) -> ok | {error, Reason}</name>
+      <fsummary>Reopen a disk log and save the old log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>File = string()</v>
+        <v>Head = term()</v>
+        <v>BHead = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {blocked_log, Log}  | {same_file_name, Log} | {invalid_index_file, FileName} | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>reopen</c> functions first rename the log file 
+          to <c>File</c> and then re-create a new log file.
+          In case of a wrap log, <c>File</c> is used as the base name
+          of the renamed files.
+          By default the header given to <c>open/1</c> is written first in
+          the newly opened log file, but if the <c>Head</c> or the 
+          <c>BHead</c> argument is given, this item is used instead.
+          The header argument is used once only; next time a wrap log file
+          is opened, the header given to <c>open/1</c> is used.
+          </p>
+        <p>The <c>reopen/2,3</c> functions are used for internally formatted 
+          logs, and <c>breopen/3</c> for externally formatted logs.
+          </p>
+        <p>The owners that subscribe to notifications will receive 
+          a <c>truncate</c> message.
+          </p>
+        <p>Upon failure to reopen the log, the disk log process terminates
+          with the EXIT message <c>{{failed,Error},[{disk_log,Fun,Arity}]}</c>,
+          and other processes that have requests queued receive the message 
+          <c>{disk_log, Node, {error, disk_log_stopped}}</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>sync(Log) -> ok | {error, Reason}</name>
+      <fsummary>Flush the contents of a disk log to the disk.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Reason = no_such_log | nonode  | {read_only_mode, Log} | {blocked_log, Log} | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>sync/1</c> function ensures that the contents of the 
+          log are actually written to the disk. 
+          This is usually a rather expensive operation.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>truncate(Log)</name>
+      <name>truncate(Log, Head)</name>
+      <name>btruncate(Log, BHead) -> ok | {error, Reason}</name>
+      <fsummary>Truncate a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Head = term()</v>
+        <v>BHead = binary() | [Byte]</v>
+        <v>Byte = [Byte] | 0 =&lt; integer() =&lt; 255</v>
+        <v>Reason = no_such_log | nonode | {read_only_mode, Log}  | {blocked_log, Log}  | {invalid_header, InvalidHeader}  | {file_error, FileName, FileError}</v>
+      </type>
+      <desc>
+        <p>The <c>truncate</c> functions remove all items from a disk log.
+          If the <c>Head</c> or the <c>BHead</c> argument is
+          given, this item is written first in the newly truncated
+          log, otherwise the header given to <c>open/1</c> is used.
+          The header argument is only used once; next time a wrap log file 
+          is opened, the header given to <c>open/1</c> is used.
+          </p>
+        <p>The <c>truncate/1,2</c> functions are used for internally 
+          formatted logs, and <c>btruncate/2</c> for externally formatted
+          logs.
+          </p>
+        <p>The owners that subscribe to notifications will receive 
+          a <c>truncate</c> message.
+          </p>
+        <p>If the attempt to truncate the log fails, the disk log process
+          terminates with the EXIT message 
+          <c>{{failed,Reason},[{disk_log,Fun,Arity}]}</c>, and 
+          other processes that have requests queued receive the message 
+          <c>{disk_log, Node, {error, disk_log_stopped}}</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>unblock(Log) -> ok | {error, Reason}</name>
+      <fsummary>Unblock a disk log.</fsummary>
+      <type>
+        <v>Log = term()</v>
+        <v>Reason = no_such_log | nonode | {not_blocked, Log}  | {not_blocked_by_pid, Log}</v>
+      </type>
+      <desc>
+        <p>The <c>unblock/1</c> function unblocks a log. 
+          A log can only be unblocked by the blocking process.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="file">file(3)</seealso>, 
+      <seealso marker="pg2">pg2(3)</seealso>, 
+      <seealso marker="wrap_log_reader">wrap_log_reader(3)</seealso></p>
+  </section>
+</erlref>
+

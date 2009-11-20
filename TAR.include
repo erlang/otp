@@ -1,0 +1,16 @@
+AUTHORS
+EPLICENCE
+Makefile.in
+README
+README.win32
+configure.in
+otp_build
+lib/Makefile
+lib/configure
+lib/configure.in
+prebuild.skip
+prebuild.delete
+bootstrap/lib/*/ebin
+bootstrap/lib/*/include
+bootstrap/bin/start*.script
+bootstrap/bin/start*.boot

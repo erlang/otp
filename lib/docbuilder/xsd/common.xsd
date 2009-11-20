@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- This file contains common stuff for all dtds. -->
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="block" abstract="true"/>
+  <xs:group name="inline">
+    <xs:sequence>
+      <xs:choice minOccurs="0">
+        <xs:element ref="c"/>
+        <xs:element ref="em"/>
+        <xs:element ref="term"/>
+        <xs:element ref="cite"/>
+        <xs:element ref="br"/>
+        <xs:element ref="path"/>
+        <xs:element ref="seealso"/>
+        <xs:element ref="url"/>
+        <xs:element ref="marker"/>
+      </xs:choice>
+    </xs:sequence>
+  </xs:group>
+  <!-- XXX -->
+  <xs:element name="p" substitutionGroup="block">
+    <xs:complexType mixed="true">
+      <xs:group minOccurs="0" maxOccurs="unbounded" ref="inline"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="pre" substitutionGroup="block">
+    <xs:complexType mixed="true">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="seealso"/>
+        <xs:element ref="url"/>
+        <xs:element ref="input"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="input">
+    <xs:complexType mixed="true">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="seealso"/>
+        <xs:element ref="url"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="code" substitutionGroup="block">
+    <xs:complexType mixed="true">
+      <xs:attribute name="type" default="none">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="erl"/>
+            <xs:enumeration value="c"/>
+            <xs:enumeration value="none"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="quote">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="p"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="warning">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="block"/>
+        <xs:element ref="quote"/>
+        <xs:element ref="br"/>
+        <xs:element ref="marker"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="note">
+    <xs:complexType>
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="block"/>
+        <xs:element ref="quote"/>
+        <xs:element ref="br"/>
+        <xs:element ref="marker"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="c" type="xs:string"/>
+  <xs:element name="em">
+    <xs:complexType mixed="true">
+      <xs:sequence>
+        <xs:element minOccurs="0" maxOccurs="unbounded" ref="c"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <!-- XXX -->
+  <xs:element name="term">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="termdef"/>
+      </xs:sequence>
+      <xs:attribute name="id" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="termdef" type="xs:string"/>
+  <xs:element name="cite">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element minOccurs="0" ref="citedef"/>
+      </xs:sequence>
+      <xs:attribute name="id" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="citedef">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element ref="ctitle"/>
+        <xs:element ref="cauthor"/>
+        <xs:element ref="chowpublished"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="ctitle" type="xs:string"/>
+  <xs:element name="cauthor" type="xs:string"/>
+  <xs:element name="chowpublished" type="xs:string"/>
+  <!-- XXX -->
+  <xs:element name="br">
+    <xs:complexType/>
+  </xs:element>
+  <!-- Path -->
+  <xs:element name="path">
+    <xs:complexType mixed="true">
+      <xs:attribute name="unix" default=""/>
+      <xs:attribute name="windows" default=""/>
+    </xs:complexType>
+  </xs:element>
+  <!-- List -->
+  <xs:element name="list" substitutionGroup="block">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element maxOccurs="unbounded" ref="item"/>
+      </xs:sequence>
+      <xs:attribute name="type" default="bulleted">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="ordered"/>
+            <xs:enumeration value="bulleted"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="taglist" substitutionGroup="block">
+    <xs:complexType>
+      <xs:sequence maxOccurs="unbounded">
+        <xs:element ref="tag"/>
+        <xs:element ref="item"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="tag">
+    <xs:complexType mixed="true">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:element ref="c"/>
+        <xs:element ref="em"/>
+        <xs:element ref="seealso"/>
+        <xs:element ref="url"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="item">
+    <xs:complexType mixed="true">
+      <xs:choice minOccurs="0" maxOccurs="unbounded">
+        <xs:group ref="inline"/>
+        <xs:element ref="block"/>
+      </xs:choice>
+    </xs:complexType>
+  </xs:element>
+  <!-- References -->
+  <xs:element name="seealso">
+    <xs:complexType mixed="true">
+      <xs:attribute name="marker" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="url">
+    <xs:complexType mixed="true">
+      <xs:attribute name="href" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="marker">
+    <xs:complexType>
+      <xs:attribute name="id" use="required"/>
+    </xs:complexType>
+  </xs:element>
+  <!-- CodeInclude -->
+  <xs:element name="codeinclude" substitutionGroup="block">
+    <xs:complexType>
+      <xs:attribute name="file" use="required"/>
+      <xs:attribute name="tag" default=""/>
+      <xs:attribute name="type" default="none">
+        <xs:simpleType>
+          <xs:restriction base="xs:token">
+            <xs:enumeration value="erl"/>
+            <xs:enumeration value="c"/>
+            <xs:enumeration value="none"/>
+          </xs:restriction>
+        </xs:simpleType>
+      </xs:attribute>
+    </xs:complexType>
+  </xs:element>
+  <!-- ErlEval -->
+  <xs:element name="erleval" substitutionGroup="block">
+    <xs:complexType>
+      <xs:attribute name="expr" use="required"/>
+    </xs:complexType>
+  </xs:element>
+</xs:schema>

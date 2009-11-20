@@ -1,0 +1,813 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1998-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+
+# Toplevel makefile for building the Erlang system
+#
+
+# ----------------------------------------------------------------------
+
+# And you'd think that this would be obvious... :-)
+SHELL = /bin/sh
+
+# The top directory in which Erlang is unpacked
+ERL_TOP = @ERL_TOP@
+
+# erts (Erlang RunTime System) version
+ERTS = @ERTS@
+
+# ----------------------------------------------------------------------
+
+#
+# The variables below control where Erlang is installed. They are
+# configurable (unless otherwise stated). Some of them are best
+# changed by giving special arguments to configure instead of changing
+# them in this file. Note: If you change them in Makefile, instead of
+# Makefile.in your changes will be lost the next time you run
+# configure.
+#
+
+# prefix from autoconf, default is /usr/local (must be an absolute path)
+prefix      = @prefix@
+exec_prefix = @exec_prefix@
+
+# The following can be set in case you install Erlang in a different
+# location from where you have configured it to run. This can be
+# useful e.g. when installing on a server that stores the files with a
+# different path from where the clients access them. Or when building
+# rpms.
+#INSTALL_PREFIX =
+# Naah...override `prefix' instead.
+
+# The directory in which user executables (ERL_BASE_PUB_FILES) are put
+BINDIR      = $(INSTALL_PREFIX)@bindir@
+
+#
+# Erlang base public files
+#
+ERL_BASE_PUB_FILES=erl erlc epmd run_erl to_erl dialyzer typer escript
+
+# The directory which will contain installed Erlang version.
+# (ILIBDIR is supposed to be LIBDIR *without* the install prefix)
+ERLANG_LIBDIR     = $(INSTALL_PREFIX)@libdir@/erlang
+ERLANG_ILIBDIR    = @libdir@/erlang
+
+# You can *not* change these two, they have to stay this way for now.
+ERLANG_BINDIR     = $(ERLANG_LIBDIR)/bin
+ERLANG_ERTSBINDIR = $(ERLANG_LIBDIR)/$(ERTS)/bin
+
+# The directory in which man pages for above executables are put
+ERL_MAN1DIR      = $(INSTALL_PREFIX)@mandir@/man1
+ERL_MAN1EXT      = 1
+
+# The directory in which Erlang private man pages are put. In order
+# not to clutter up the man namespace these are by default put in the
+# Erlang private directory $(ERLANG_ILIBDIR)/man. If you want to
+# install the man pages together with the rest give the argument
+# "--disable-erlang-mandir" when you run configure, which will set
+# MAN_DIR to @mandir@.
+#   If you want a special suffix on the manpages set ERL_MANEXT to
+# this suffix, e.g. "erl"
+ERL_MANDIR       = $(INSTALL_PREFIX)@erl_mandir@
+ERL_MANEXT       =
+
+# ----------------------------------------------------------------------
+
+# Must be GNU make!
+MAKE		= @MAKE_PROG@
+
+# This should be set to the target "arch-vendor-os"
+export TARGET	= @TARGET@
+
+# A BSD compatible install program
+INSTALL         = @INSTALL@
+INSTALL_PROGRAM = @INSTALL_PROGRAM@
+INSTALL_DATA    = @INSTALL_DATA@
+MKSUBDIRS       = ${INSTALL} -d
+
+# Program to create symbolic links
+LN_S            = @LN_S@
+
+# Ranlib program, if not needed set to e.g. ":"
+RANLIB          = @RANLIB@
+
+# ----------------------------------------------------------------------
+
+#
+# The directory where at least the primary bootstrap is placed under.
+#
+# We need to build to view private files in case we are in clearcase;
+# therefore, we don't want BOOTSTRAP_TOP changed.
+#
+# PRIMARY_BOOTSTRAP_TOP would perhaps have been a better name...
+#
+override BOOTSTRAP_TOP = $(ERL_TOP)/bootstrap
+# BOOTSTRAP_SRC_TOP is normally the same as BOOTSTRAP_TOP but
+# it is allowed to be changed
+BOOTSTRAP_SRC_TOP = $(BOOTSTRAP_TOP)
+
+# Where to install the bootstrap directory.
+#
+# Typically one might want to set this to a fast local filesystem, or,
+# the default, as ERL_TOP
+BOOTSTRAP_ROOT = $(ERL_TOP)
+
+# Directories which you need in the path if you wish to run the
+# locally built system. (This can be put in front or back of the path
+# depending on which system is preferred.)
+LOCAL_PATH     = $(ERL_TOP)/erts/bin/$(TARGET):$(ERL_TOP)/erts/bin
+ifeq ($(TARGET),win32)
+WIN32_WRAPPER_PATH=$(ERL_TOP)/erts/etc/win32/cygwin_tools
+BOOT_PREFIX=$(WIN32_WRAPPER_PATH):$(BOOTSTRAP_ROOT)/bootstrap/bin:
+else
+BOOT_PREFIX=$(BOOTSTRAP_ROOT)/bootstrap/bin:
+endif
+# ----------------------------------------------------------------------
+# Fix up RELEASE_ROOT/TESTROOT havoc
+ifeq ($(RELEASE_ROOT),)
+ifneq ($(TESTROOT),)
+RELEASE_ROOT = $(TESTROOT)
+endif
+endif
+
+
+# ----------------------------------------------------------------------
+
+# A default for the release_tests, not same target dir as release.
+# More TESTROOT havoc...
+ifeq ($(TESTSUITE_ROOT),)
+ifneq ($(TESTROOT),)
+TESTSUITE_ROOT = $(TESTROOT)
+else
+TESTSUITE_ROOT = $(ERL_TOP)/release/tests
+endif
+endif
+
+#
+# The steps to build a working system are:
+#   * build an emulator
+#   * setup the erl and erlc program in bootstrap/bin
+#   * build additional compilers and copy them into bootstrap/lib
+#   * use the bootstrap erl and erlc to build all the libs
+#
+all: all_bootstraps \
+     libs local_setup dialyzer
+
+# With all bootstraps we mean all bootstrapping that is done when
+# the system is delivered in open source, the primary
+# bootstrap is not included, it requires a pre built emulator...
+all_bootstraps: depend emulator \
+     bootstrap_setup \
+     secondary_bootstrap_build secondary_bootstrap_copy \
+     tertiary_bootstrap_build tertiary_bootstrap_copy \
+     fourth_bootstrap_build fourth_bootstrap_copy 
+
+#
+# Use these targets when you want to use the erl and erlc
+# binaries in your PATH instead of those created from the
+# pre-compiled Erlang modules under bootstrap/.
+#
+ifeq ($(findstring ose,$(TARGET)),ose)
+noboot:
+	$(MAKE) BOOT_PREFIX= emulator libs
+else
+noboot:
+	$(MAKE) BOOT_PREFIX= emulator libs local_setup
+endif
+noboot_install:
+	$(MAKE) BOOT_PREFIX= install
+
+.PHONY: release release_docs
+
+release:
+ifeq ($(OTP_SMALL_BUILD),true)
+	cd $(ERL_TOP)/lib  && $(MAKE) TESTROOT=$(RELEASE_ROOT) release
+else
+	cd $(ERL_TOP)/lib  && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release
+ifneq ($(findstring vxworks,$(TARGET)),vxworks)
+	@if test -f lib/dialyzer/SKIP ; then			\
+		echo "=== Skipping dialyzer, reason:" ;		\
+		cat lib/dialyzer/SKIP ;				\
+		echo "===" ;					\
+	else							\
+		cd $(ERL_TOP)/lib/dialyzer &&			\
+		 $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release ; \
+	fi
+endif
+endif
+	cd $(ERL_TOP)/erts && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release
+
+# ---------------------------------------------------------------
+# Target only used when building commercial ERTS patches
+# ---------------------------------------------------------------
+release_docs:
+ifeq ($(OTP_SMALL_BUILD),true)
+	cd $(ERL_TOP)/lib  && $(MAKE) TESTROOT=$(RELEASE_ROOT) release_docs
+else
+	cd $(ERL_TOP)/lib  && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
+	cd $(ERL_TOP)/lib/dialyzer && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
+endif
+	cd $(ERL_TOP)/erts && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
+
+
+# ----------------------------------------------------------------------
+ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
+ELINK=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin/elink
+BOOT_BINDIR=$(BOOTSTRAP_ROOT)/bootstrap/erts/bin
+BEAM_EVM=$(ERL_TOP)/bin/$(TARGET)/beam_evm
+BOOTSTRAP_COMPILER  =  $(BOOTSTRAP_TOP)/primary_compiler
+
+.PHONY: emulator libs kernel stdlib compiler hipe dialyzer typer syntax_tools preloaded
+
+emulator:
+	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) NO_START_SCRIPTS=true $(TYPE) FLAVOR=$(FLAVOR)
+
+libs:
+ifeq ($(OTP_SMALL_BUILD),true)
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt
+else
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true
+endif
+kernel:
+	cd lib/kernel && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true
+
+stdlib:
+	cd lib/stdlib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true
+
+compiler:
+	cd lib/compiler && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true
+
+hipe:
+	cd lib/hipe && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true
+
+dialyzer:
+ifneq ($(OTP_SMALL_BUILD),true)
+	@if test -f lib/dialyzer/SKIP ; then			\
+		echo "=== Skipping dialyzer, reason:" ;		\
+		cat lib/dialyzer/SKIP ;				\
+		echo "===" ;					\
+	else							\
+		cd lib/dialyzer &&				\
+		ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH}  \
+			$(MAKE) opt BUILD_ALL=true ;		\
+	fi
+endif
+
+typer:
+	cd lib/typer && \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	    $(MAKE) opt BUILD_ALL=true
+
+syntax_tools:
+	cd lib/syntax_tools && \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	    $(MAKE) opt BUILD_ALL=true
+
+preloaded:
+	cd erts/preloaded/src && \
+	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt BUILD_ALL=true	
+
+dep depend:
+	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/emulator && ERL_TOP=$(ERL_TOP) $(MAKE) generate depend)
+	test X"$$ERTS_SKIP_DEPEND" = X"true" || (cd erts/lib_src && ERL_TOP=$(ERL_TOP) $(MAKE) depend)
+
+# Creates "erl" and "erlc" in bootstrap/bin which uses the precompiled 
+# libraries in the bootstrap directory
+
+# ----------------------------------------------------------------------
+# Bootstraps... 
+# ----------------------------------------------------------------------
+ifeq ($(TARGET),win32)
+bootstrap_setup: check_recreate_primary_bootstrap
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.ini \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/beam.dll
+	make_bootstrap_ini.sh $(BOOTSTRAP_ROOT)/bootstrap \
+		$(ERL_TOP)/bin/$(TARGET)
+	@cp $(ERL_TOP)/bin/$(TARGET)/erlc.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc.exe
+	@cp $(ERL_TOP)/bin/$(TARGET)/erl.exe \
+		$(BOOTSTRAP_ROOT)/bootstrap/bin/erl.exe
+else
+bootstrap_setup: check_recreate_primary_bootstrap $(BOOTSTRAP_ROOT)/bootstrap/bin/erl $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+
+$(BOOTSTRAP_ROOT)/bootstrap/bin/erl:  $(ERL_TOP)/erts/etc/unix/erl.src.src
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erl 
+	@sed	-e "s;%FINAL_ROOTDIR%;$(BOOTSTRAP_ROOT)/bootstrap;"   \
+		-e "s;\$$ROOTDIR/erts-.*/bin;$(ERL_TOP)/bin/$(TARGET);"    \
+		-e "s;EMU=.*;EMU=beam$(TYPEMARKER);" \
+	        $(ERL_TOP)/erts/etc/unix/erl.src.src > \
+			$(BOOTSTRAP_ROOT)/bootstrap/bin/erl
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erl
+
+$(BOOTSTRAP_ROOT)/bootstrap/bin/erlc:  $(ERL_TOP)/bin/$(TARGET)/erlc
+	@rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+	@cp $(ERL_TOP)/bin/$(TARGET)/erlc $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+	@chmod 755 $(BOOTSTRAP_ROOT)/bootstrap/bin/erlc
+endif
+
+secondary_bootstrap_build:
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt SECONDARY_BOOTSTRAP=true
+
+secondary_bootstrap_copy:
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin ; fi
+	for x in lib/hipe/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	rm -f lib/hipe/ebin/*.beam
+#	if test -f lib/hipe/ebin/hipe.beam ; then cp lib/hipe/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/hipe/ebin; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include ; fi
+	for x in lib/parsetools/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp lib/parsetools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/ebin
+	for x in lib/parsetools/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp -f lib/parsetools/include/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/parsetools/include
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1 ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src ; fi
+	for x in lib/asn1/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp lib/asn1/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/ebin
+	for x in lib/asn1/src/*.[eh]rl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp -f lib/asn1/src/*.erl lib/asn1/src/*.hrl $(BOOTSTRAP_ROOT)/bootstrap/lib/asn1/src
+
+tertiary_bootstrap_build:
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt TERTIARY_BOOTSTRAP=true
+
+tertiary_bootstrap_copy:
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/include ; fi
+	for x in lib/snmp/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp lib/snmp/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/snmp/ebin
+
+fourth_bootstrap_build:
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) opt FOURTH_BOOTSTRAP=true
+
+fourth_bootstrap_copy:
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/include ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
+	for x in lib/ic/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp lib/ic/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin
+	for x in lib/ic/include/*.idl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	for x in lib/ic/include/*.h; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp -f lib/ic/include/*.idl lib/ic/include/*.h $(BOOTSTRAP_ROOT)/bootstrap/lib/ic/include
+	for x in lib/sasl/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+#	cp lib/sasl/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/sasl/ebin
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin ; fi
+	for x in lib/syntax_tools/ebin/*.beam; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	for x in lib/wx/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+
+#	cp lib/syntax_tools/ebin/*.beam $(BOOTSTRAP_ROOT)/bootstrap/lib/syntax_tools/ebin
+
+.PHONY: check_recreate_primary_bootstrap recreate_primary_bootstrap
+
+
+#
+# If the source is a prebuilt delivery, no $(ERL_TOP)/bootstrap/lib
+# directory will exist. All applications part of the primary bootstrap
+# are delivered prebuilt though. If it is a prebuilt delivery we need
+# to recreate the primary bootstrap, from the prebuilt result.
+#
+# A prebuild delivery always contain a $(ERL_TOP)/prebuilt.files file.
+# If no such file exists, we wont try to recreate the primary bootstrap,
+# since it will just fail producing anything useful.
+#
+
+check_recreate_primary_bootstrap:
+	@if test -f $(ERL_TOP)/prebuilt.files ; then \
+	  if test ! -d $(ERL_TOP)/bootstrap/lib ; then \
+	    $(ERL_TOP)/otp_build save_bootstrap ; \
+	  fi ; \
+	fi
+
+#
+# recreate_primary_bootstrap assumes that if $(ERL_TOP)/prebuilt.files
+# exist, all build results needed already exist in the application specific
+# directories of all applications part of the primary bootstrap.
+#
+recreate_primary_bootstrap:
+	$(ERL_TOP)/otp_build save_bootstrap
+
+# The first bootstrap build is rarely (never) used in open source, it's
+# used to build the shipped bootstrap directory. The Open source bootstrap 
+# stages start with secondary bootstrap.
+#
+# These are the ones used, the other ones (prefixed with old_) are for BC.
+
+# These modules should stay in the kernel directory to make building
+# of the emulator possible
+
+.PHONY: primary_bootstrap						\
+	primary_bootstrap_check_make					\
+	primary_bootstrap_build						\
+	primary_bootstrap_compiler					\
+	primary_bootstrap_mkdirs					\
+	primary_bootstrap_copy
+
+primary_bootstrap: primary_bootstrap_check_make
+	@echo "=== Building a bootstrap compiler in $(BOOTSTRAP_ROOT)/bootstrap"
+	cd $(ERL_TOP) && \
+		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
+		primary_bootstrap_build
+	cd $(ERL_TOP) && \
+		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
+		primary_bootstrap_copy
+	cd $(ERL_TOP)/erts/start_scripts && \
+		$(MAKE) TESTROOT=$(BOOTSTRAP_TOP) \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) bootstrap_scripts
+	test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
+		|| $(ERL_TOP)/otp_build \
+			copy_primary_bootstrap \
+			$(BOOTSTRAP_TOP) \
+			$(BOOTSTRAP_ROOT)
+
+#
+# Dependencies are not complete in all makefiles; therefore, remove bootstrap
+# build result and build from scratch if we are not using clearmake (which
+# tracks dependencies itself).
+#
+primary_bootstrap_check_make:
+	@ case "$(MAKE)" in						\
+	    *clearmake*)						\
+		;;							\
+	    *)								\
+		$(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT)		\
+		ERL_TOP=$(ERL_TOP)					\
+		bootstrap_clean						\
+		;;							\
+	esac
+
+primary_bootstrap_build: primary_bootstrap_mkdirs primary_bootstrap_compiler \
+  primary_bootstrap_stdlib
+	cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
+		BOOTSTRAP=1 opt
+
+primary_bootstrap_compiler: 
+	cd lib/compiler && $(MAKE) \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) \
+		BOOTSTRAP_COMPILER=$(BOOTSTRAP_COMPILER) \
+		BOOTSTRAP=1 \
+		opt
+
+primary_bootstrap_stdlib: 
+	cd lib/stdlib/src && $(MAKE) \
+		BOOTSTRAP_COMPILER=$(BOOTSTRAP_COMPILER) \
+		primary_bootstrap_compiler
+
+primary_bootstrap_mkdirs:
+	test -d $(BOOTSTRAP_COMPILER)/egen \
+		|| mkdir -p $(BOOTSTRAP_COMPILER)/egen
+	test -d $(BOOTSTRAP_COMPILER)/ebin \
+		|| mkdir -p $(BOOTSTRAP_COMPILER)/ebin
+	test -d $(BOOTSTRAP_TOP)/lib/kernel/egen \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/egen 
+	test -d $(BOOTSTRAP_TOP)/lib/kernel/ebin \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/ebin 
+	test -d $(BOOTSTRAP_TOP)/lib/kernel/include \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/kernel/include 
+	test -d $(BOOTSTRAP_TOP)/lib/stdlib/egen \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/egen 
+	test -d $(BOOTSTRAP_TOP)/lib/stdlib/ebin \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/ebin 
+	test -d $(BOOTSTRAP_TOP)/lib/stdlib/include \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/stdlib/include 
+	test -d $(BOOTSTRAP_TOP)/lib/compiler/egen \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/compiler/egen 
+	test -d $(BOOTSTRAP_TOP)/lib/compiler/ebin \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/compiler/ebin 
+	test -d $(BOOTSTRAP_TOP)/lib/orber/include \
+		|| mkdir -p $(BOOTSTRAP_TOP)/lib/orber/include
+
+primary_bootstrap_copy:
+	cp -f lib/kernel/include/*.hrl $(BOOTSTRAP_TOP)/lib/kernel/include
+	cp -f lib/stdlib/include/*.hrl $(BOOTSTRAP_TOP)/lib/stdlib/include
+	cp -f lib/orber/include/* $(BOOTSTRAP_TOP)/lib/orber/include
+
+# To remove modules left by the bootstrap building, but leave (restore)
+# the modules in kernel which are needed for an emulator build
+KERNEL_PRELOAD    = otp_ring0 init erl_prim_loader prim_inet prim_file zlib prim_zip erlang
+KERNEL_PRELOAD_BEAMS=$(KERNEL_PRELOAD:%=$(BOOTSTRAP_TOP)/lib/kernel/ebin/%.beam)
+
+# Creates "erl" and "erlc" scripts in bin/erl which uses the libraries in lib
+local_setup:
+	@rm -f erts/bin/erl erts/bin/erlc erts/bin/cerl
+	@cd erts && \
+		ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+		$(MAKE) local_setup
+
+
+
+# ----------------------------------------------------------------------
+# Build tests
+# ---------------------------------------------------------------------
+
+TEST_DIRS := \
+	lib/test_server \
+	$(wildcard lib/*/test) \
+	erts/test \
+	erts/epmd/test \
+	erts/emulator/test
+
+.PHONY: tests release_tests $(TEST_DIRS)
+
+tests release_tests: $(TEST_DIRS)
+
+$(TEST_DIRS):
+	if test -f $@/Makefile; then \
+		(cd $@; $(MAKE) TESTROOT=$(TESTSUITE_ROOT) release_tests) || exit $$?; \
+	fi
+
+# ----------------------------------------------------------------------
+# Obsolete type of bootstrap where all stages where built with installed sytem 
+# shuld no longer be used and is soon to be removed.
+# Abbreviations: OC = Old Compiler, NC = New Compiler,
+# 		 OE = Old Emulator, NE = New Emulator
+
+old_com_bootstrap: old_bootstrap_nc_for_ne_all_stages old_bootstrap_ne old_bootstrap_scripts
+
+#
+# Builds the New Compiler for the New Emulator (using existing erlc
+# and possibly new compiler) then copy everything to the release area.
+# Use to create the commerciall bootstrap version, which should be obsolete.
+#
+old_bootstrap_nc_for_ne_all_stages:
+	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
+	cd lib && $(MAKE) BOOTSTRAP=1 TYPE=release release
+	cd lib && $(MAKE) SECONDARY_BOOTSTRAP=1 TYPE=release release
+	cd lib && $(MAKE) TERTIARY_BOOTSTRAP=1 TYPE=release release
+	cd lib && $(MAKE) FOURTH_BOOTSTRAP=1 TYPE=release release
+
+
+
+old_bootstrap_ne:
+	cd erts && $(MAKE) release
+
+old_bootstrap_scripts:
+	cd erts/start_scripts && $(MAKE) release
+
+
+# This is one strange name for a target, this actually builds and strips only
+# the primary bootstrap, a minimal set of beam files to be able to continue
+# bootstrap builds. It's used by other makefiles, so I refrain from
+# changing the name right now...
+bootstrap_nc_for_ne_no_debug_sym:
+	test -d $(TESTROOT) || mkdir -p $(TESTROOT)
+	cd lib && $(MAKE) ERLC_FLAGS='-pa $(BOOTSTRAP_COMPILER)/ebin' \
+		BOOTSTRAP_TOP=$(BOOTSTRAP_TOP) BOOTSTRAP=1 TYPE=release release
+	$(ERL_TOP)/erts/emulator/utils/beam_strip $(TESTROOT)/lib/*/ebin/*.beam
+
+# ----------------------------------------------------------------------
+
+#
+# Install
+#
+# Order is important here, don't change it!
+#
+install: install.dirs install.emulator install.libs install.Install install.bin
+
+install.emulator:
+	cd erts && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) release
+
+install.libs:
+ifeq ($(OTP_SMALL_BUILD),true)
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) release 
+else
+	cd lib && \
+	  ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH} \
+	  $(MAKE) TESTROOT=$(ERLANG_LIBDIR) BUILD_ALL=true release
+	@if test -f lib/dialyzer/SKIP ; then			\
+		echo "=== Skipping dialyzer, reason:" ;		\
+		cat lib/dialyzer/SKIP ;				\
+		echo "===" ;					\
+	else							\
+		cd lib/dialyzer && 				\
+	  	ERL_TOP=$(ERL_TOP) PATH=$(BOOT_PREFIX)$${PATH}	\
+		$(MAKE) TESTROOT=$(ERLANG_LIBDIR) BUILD_ALL=true release ; \
+	fi
+endif
+
+install.Install:
+	cd $(ERLANG_LIBDIR) && ./Install -minimal $(ERLANG_LIBDIR)
+
+#
+# Install erlang base public files
+#
+install.bin:
+	for file in $(ERL_BASE_PUB_FILES); do \
+		rm -f $(BINDIR)/$$file; \
+		${LN_S} $(ERLANG_BINDIR)/$$file $(BINDIR)/$$file; \
+	done
+
+#
+# Directories needed before we can install
+#
+install.dirs:
+	test -d $(BINDIR) || ${MKSUBDIRS} $(BINDIR)
+	${MKSUBDIRS} $(ERLANG_LIBDIR)
+	${MKSUBDIRS} $(ERLANG_LIBDIR)/usr/lib
+
+# ----------------------------------------------------------------------
+
+.PHONY: clean eclean bootstrap_root_clean bootstrap_clean
+
+#
+# Clean targets
+#
+
+clean: check_recreate_primary_bootstrap
+	rm -f *~ *.bak config.log config.status prebuilt.files
+	find . -type f -name SKIP -print | xargs $(RM)
+	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
+	cd lib  && ERL_TOP=$(ERL_TOP) $(MAKE) clean BUILD_ALL=true
+	cd lib/dialyzer && ERL_TOP=$(ERL_TOP) $(MAKE) clean
+
+#
+# Just wipe out emulator, not libraries
+#
+
+eclean:
+	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
+
+#
+# Clean up bootstrap
+#
+
+bootstrap_root_clean:
+	rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/ebin/*.beam
+	rm -f $(BOOTSTRAP_ROOT)/bootstrap/lib/*/include/*.hrl
+	rm -f $(BOOTSTRAP_ROOT)/bootstrap/bin/*.*
+
+# $(ERL_TOP)/bootstrap *should* equal $(BOOTSTRAP_TOP)
+#
+# We use $(ERL_TOP)/bootstrap instead of $(BOOTSTRAP_TOP) here as an
+# extra safety precaution (we would really make a mess if
+# $(BOOTSTRAP_TOP) for some reason should be empty).
+bootstrap_clean:
+	rm -f $(ERL_TOP)/bootstrap/lib/*/ebin/*.beam
+	rm -f $(ERL_TOP)/bootstrap/lib/*/egen/*
+	rm -f $(ERL_TOP)/bootstrap/lib/*/include/*.hrl
+	rm -f $(ERL_TOP)/bootstrap/primary_compiler/ebin/*
+	rm -f $(ERL_TOP)/bootstrap/primary_compiler/egen/*
+	rm -f $(ERL_TOP)/bootstrap/bin/*.*
+	rm -f $(KERNEL_PRELOAD:%=$(ERL_TOP)/lib/kernel/ebin/%.beam)
+	test $(BOOTSTRAP_ROOT) = $(ERL_TOP) \
+		|| $(MAKE) BOOTSTRAP_ROOT=$(BOOTSTRAP_ROOT) bootstrap_root_clean
+
+# ----------------------------------------------------------------------

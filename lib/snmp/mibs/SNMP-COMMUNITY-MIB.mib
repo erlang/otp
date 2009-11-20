@@ -1,0 +1,377 @@
+SNMP-COMMUNITY-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress
+        FROM RFC1155-SMI
+    MODULE-IDENTITY,
+    OBJECT-TYPE,
+    Integer32,
+    snmpModules
+        FROM SNMPv2-SMI
+    RowStatus,
+    TestAndIncr,
+    StorageType
+        FROM SNMPv2-TC
+    SnmpAdminString,
+    SnmpEngineID
+        FROM SNMP-FRAMEWORK-MIB
+    SnmpTagValue,
+    snmpTargetAddrEntry
+        FROM SNMP-TARGET-MIB
+    MODULE-COMPLIANCE,
+    OBJECT-GROUP
+        FROM SNMPv2-CONF;
+
+snmpCommunityMIB MODULE-IDENTITY
+    LAST-UPDATED "9805110000Z"            -- 11 May 1998, midnight
+    ORGANIZATION "SNMPv3 Working Group"
+    CONTACT-INFO "WG-email:   snmpv3@tis.com
+                  Subscribe:  majordomo@tis.com
+                              In msg body:  subscribe snmpv3
+
+                  Chair:      Russ Mundy
+                              Trusted Information Systems
+                  postal:     3060 Washington Rd
+                              Glenwood MD 21738
+                              USA
+                  email:      mundy@tis.com
+                  phone:      +1-301-854-6889
+
+                  Co-editor:  Rob Frye
+                              MCI Communications Corp.
+                  Postal:     2100 Reston Parkway, Suite 600
+                              Reston, VA 20191
+                              USA
+                  E-mail:     Rob.Frye@mci.com
+                  Phone:      +1 703 715 7225
+
+                  Co-editor:  David B. Levi
+                              SNMP Research, Inc.
+                  Postal:     3001 Kimberlin Heights Road
+                              Knoxville, TN 37920-9716
+                  E-mail:     levi@snmp.com
+                  Phone:      +1 423 573 1434
+
+                  Co-editor:  Shawn A. Routhier
+                              Integrated Systems Inc.
+                  Postal:     333 North Ave 4th Floor
+                              Wakefield, MA 01880
+                  E-mail:     sar@epilogue.com
+                  Phone:      +1 781 245 0804
+
+                  Co-editor:  Bert Wijnen
+                              IBM T. J. Watson Research
+                  postal:     Schagen 33
+                              3461 GL Linschoten
+                              Netherlands
+                  email:      wijnen@vnet.ibm.com
+                  phone:      +31-348-432-794
+                 "
+
+        DESCRIPTION
+            "This MIB module defines objects to help support coexistence
+             between SNMPv1, SNMPv2, and SNMPv3."
+    ::= { snmpModules 18 }
+
+-- Administrative assignments ****************************************
+
+snmpCommunityMIBObjects     OBJECT IDENTIFIER ::= { snmpCommunityMIB 1 }
+snmpCommunityMIBConformance OBJECT IDENTIFIER ::= { snmpCommunityMIB 2 }
+
+--
+-- The snmpCommunityTable contains a database of community strings.
+-- This table provides mappings between community strings, and the
+-- parameters required for View-based Access Control.
+--
+
+snmpCommunityTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF SnmpCommunityEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The table of community strings configured in the SNMP
+         engine's Local Configuration Datastore (LCD)."
+    ::= { snmpCommunityMIBObjects 1 }
+
+snmpCommunityEntry OBJECT-TYPE
+    SYNTAX       SnmpCommunityEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "Information about a particular community string."
+    INDEX       { IMPLIED snmpCommunityIndex }
+    ::= { snmpCommunityTable 1 }
+
+SnmpCommunityEntry ::= SEQUENCE {
+    snmpCommunityIndex               SnmpAdminString,
+    snmpCommunityName                OCTET STRING,
+    snmpCommunitySecurityName        SnmpAdminString,
+    snmpCommunityContextEngineID     SnmpEngineID,
+    snmpCommunityContextName         SnmpAdminString,
+    snmpCommunityTransportTag        SnmpTagValue,
+    snmpCommunityStorageType         StorageType,
+    snmpCommunityStatus              RowStatus
+}
+
+snmpCommunityIndex OBJECT-TYPE
+    SYNTAX      SnmpAdminString (SIZE(1..32))
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "The unique index value of a row in this table."
+    ::= { snmpCommunityEntry 1 }
+
+snmpCommunityName OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..64))
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The community string for which a row in this table
+         represents a configuration."
+    ::= { snmpCommunityEntry 2 }
+
+snmpCommunitySecurityName OBJECT-TYPE
+    SYNTAX       SnmpAdminString
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "A human readable string representing the corresponding
+         value of snmpCommunityName in a Security Model
+         independent format."
+    ::= { snmpCommunityEntry 3 }
+
+snmpCommunityContextEngineID OBJECT-TYPE
+    SYNTAX       SnmpEngineID
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The contextEngineID indicating the location of the
+         context in which management information is accessed
+         when using the community string specified by the
+         corresponding instance of snmpCommunityName.
+
+         The default value is the snmpEngineID of the entity in
+         which this object is instantiated."
+    ::= { snmpCommunityEntry 4 }
+
+snmpCommunityContextName OBJECT-TYPE
+    SYNTAX       SnmpAdminString
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The context in which management information is accessed
+         when using the community string specified by the corresponding
+         instance of snmpCommunityName."
+    DEFVAL      { ''H }   -- the empty string
+    ::= { snmpCommunityEntry 5 }
+
+snmpCommunityTransportTag OBJECT-TYPE
+    SYNTAX       SnmpTagValue
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "This object specifies a set of transport endpoints
+         from which an agent will accept management requests.
+         If a management request containing this community
+         is received on a transport endpoint other than the
+         transport endpoints identified by this object, the
+         request is deemed unauthentic.
+
+         The transports identified by this object are specified
+         in the snmpTargetAddrTable.  Entries in that table
+         whose snmpTargetAddrTagList contains this tag value
+         are identified.
+
+         If the value of this object has zero-length, transport
+         endpoints are not checked when authenticating messages
+         containing this community string."
+    DEFVAL      { ''H }   -- the empty string
+    ::= { snmpCommunityEntry 6 }
+
+snmpCommunityStorageType OBJECT-TYPE
+    SYNTAX       StorageType
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The storage type for this conceptual row in the
+         snmpCommunityTable.  Conceptual rows having the value
+         'permanent' need not allow write-access to any
+         columnar object in the row."
+    ::= { snmpCommunityEntry 7 }
+
+snmpCommunityStatus OBJECT-TYPE
+    SYNTAX       RowStatus
+    MAX-ACCESS   read-create
+    STATUS       current
+    DESCRIPTION
+        "The status of this conceptual row in the snmpCommunityTable.
+
+         An entry in this table is not qualified for activation
+         until instances of all corresponding columns have been
+         initialized, either through default values, or through
+         Set operations.  The snmpCommunityName and
+         snmpCommunitySecurityName objects must be explicitly set."
+    ::= { snmpCommunityEntry 8 }
+
+--
+-- The snmpTargetAddrExtTable augments the snmpTargetAddrTable with
+-- a transport address mask value and a maximum message size value.
+-- The transport address mask allows entries in the
+-- snmpTargetAddrTable to define a set of addresses instead of just
+-- a single address.  The maximum message size value allows the
+-- maximum message size of another SNMP entity to be configured
+-- for use in SNMPv1 (and SNMPv2c) transactions, where the message
+-- format does not specify a maximum message size.
+--
+
+snmpTargetAddrExtTable OBJECT-TYPE
+    SYNTAX       SEQUENCE OF SnmpTargetAddrExtEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "The table of mask and mms values associated with the
+         snmpTargetAddrTable."
+    ::= { snmpCommunityMIBObjects 2 }
+
+snmpTargetAddrExtEntry OBJECT-TYPE
+    SYNTAX       SnmpTargetAddrExtEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+        "Information about a particular mask and mms value."
+    AUGMENTS       { snmpTargetAddrEntry }
+    ::= { snmpTargetAddrExtTable 1 }
+
+SnmpTargetAddrExtEntry ::= SEQUENCE {
+    snmpTargetAddrTMask              OCTET STRING,
+    snmpTargetAddrMMS                Integer32
+}
+
+snmpTargetAddrTMask OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE (0..255))
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The mask value associated with an entry in the
+         snmpTargetAddrTable.  The value of this object must
+         have the same length as the corresponding instance of
+         snmpTargetAddrTAddress, or must have length 0."
+    DEFVAL { ''H }
+    ::= { snmpTargetAddrExtEntry 1 }
+
+snmpTargetAddrMMS OBJECT-TYPE
+    SYNTAX      Integer32 (484..65535)
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The maximum message size value associated with an entry
+         in the snmpTargetAddrTable."
+    DEFVAL { 2048 }
+    ::= { snmpTargetAddrExtEntry 2 }
+
+--
+-- The snmpTrapAddress and snmpTrapCommunity objects are included
+-- in notifications that are forwarded by a proxy, which were
+-- originally received as SNMPv1 Trap messages.
+--
+
+snmpTrapAddress OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of the agent-addr field of a Trap PDU which
+         is forwarded by a proxy forwarder application using
+         an SNMP version other than SNMPv1.  The value of this
+         object SHOULD contain the value of the agent-addr field
+         from the original Trap PDU as generated by an SNMPv1
+         agent."
+    ::= { snmpCommunityMIBObjects 3 }
+
+snmpTrapCommunity OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  accessible-for-notify
+    STATUS      current
+    DESCRIPTION
+        "The value of the community string field of an SNMPv1
+         message containing a Trap PDU which is forwarded by a
+         a proxy forwarder application using an SNMP version
+         other than SNMPv1.  The value of this object SHOULD
+         contain the value of the community string field from
+         the original SNMPv1 message containing a Trap PDU as
+         generated by an SNMPv1 agent."
+    ::= { snmpCommunityMIBObjects 4 }
+
+-- Conformance Information *******************************************
+
+snmpCommunityMIBCompliances OBJECT IDENTIFIER
+                            ::= { snmpCommunityMIBConformance 1 }
+snmpCommunityMIBGroups      OBJECT IDENTIFIER
+                            ::= { snmpCommunityMIBConformance 2 }
+
+-- Compliance statements
+
+snmpCommunityMIBCompliance MODULE-COMPLIANCE
+    STATUS       current
+    DESCRIPTION
+        "The compliance statement for SNMP engines which
+         implement the SNMP-COMMUNITY-MIB."
+
+    MODULE       -- this module
+        MANDATORY-GROUPS { snmpCommunityGroup }
+
+        OBJECT           snmpCommunityName
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunitySecurityName
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunitySecurityLevel
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunityContextEngineID
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunityContextName
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunityTransportTag
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunityStorageType
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+        OBJECT           snmpCommunityStatus
+        MIN-ACCESS       read-only
+        DESCRIPTION     "Write access is not required."
+
+    ::= { snmpCommunityMIBCompliances 1 }
+
+snmpCommunityGroup OBJECT-GROUP
+    OBJECTS {
+        snmpCommunityName,
+        snmpCommunitySecurityName,
+        snmpCommunityContextEngineID,
+        snmpCommunityContextName,
+        snmpCommunityTransportTag,
+        snmpCommunityStorageType,
+        snmpCommunityStatus,
+        snmpTargetAddrTMask,
+        snmpTargetAddrMMS,
+	snmpTrapCommunity,
+	snmpTrapAddress
+    }
+    STATUS       current
+    DESCRIPTION
+        "A collection of objects providing for configuration
+         of community strings for SNMPv1 (and SNMPv2c) usage."
+    ::= { snmpCommunityMIBGroups 1 }
+
+END

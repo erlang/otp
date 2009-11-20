@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Creating Certificates</title>
+    <prepared>UAB/F/P Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-06-16</date>
+    <rev>A</rev>
+    <file>create_certs.xml</file>
+  </header>
+  <p>Here we consider the creation of example certificates. 
+    </p>
+
+  <section>
+    <title>The openssl Command</title>
+    <p>The <c>openssl</c> command is a utility that comes with the
+      OpenSSL distribution. It provides a variety of subcommands. Each
+      subcommand is invoked as</p>
+    <code type="none"><![CDATA[
+      openssl subcmd <options and arguments>    ]]></code>
+    <p>where <c>subcmd</c> denotes the subcommand in question.
+      </p>
+    <p>We shall use the following subcommands to create certificates for
+      the purpose of testing Erlang/OTP SSL:
+      </p>
+    <list type="bulleted">
+      <item><em>req</em> to create certificate requests and a
+       self-signed certificates, 
+      </item>
+      <item><em>ca</em> to create certificates from certificate requests.</item>
+    </list>
+    <p>We create the following certificates:
+      </p>
+    <list type="bulleted">
+      <item>the <em>erlangCA</em> root certificate (a self-signed
+       certificate), </item>
+      <item>the <em>otpCA</em> certificate signed by the <em>erlangCA</em>, </item>
+      <item>a client certificate signed by the <em>otpCA</em>, and</item>
+      <item>a server certificate signed by the <em>otpCA</em>.</item>
+    </list>
+
+    <section>
+      <title>The openssl configuration file</title>
+      <p>An <c>openssl</c> configuration file consist of a number of
+        sections, where each section starts with one line containing
+        <c>[ section_name ]</c>, where <c>section_name</c> is the name
+        of the section. The first section of the file is either
+        unnamed, or is named <c>[ default ]</c>. For further details
+        see the OpenSSL config(5) manual page.
+        </p>
+      <p>The required sections for the subcommands we are going to 
+        use are as follows:
+        </p>
+      <table>
+        <row>
+          <cell align="left" valign="middle">subcommand</cell>
+          <cell align="left" valign="middle">required/default section</cell>
+          <cell align="left" valign="middle">override command line option</cell>
+          <cell align="left" valign="middle">configuration file option</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">req</cell>
+          <cell align="left" valign="middle">[req]</cell>
+          <cell align="left" valign="middle">-</cell>
+          <cell align="left" valign="middle"><c>-config FILE</c></cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">ca</cell>
+          <cell align="left" valign="middle">[ca]</cell>
+          <cell align="left" valign="middle"><c>-name section</c></cell>
+          <cell align="left" valign="middle"><c>-config FILE</c></cell>
+        </row>
+        <tcaption>openssl subcommands to use</tcaption>
+      </table>
+    </section>
+
+    <section>
+      <title>Creating the Erlang root CA</title>
+      <p>The Erlang root CA is created with the command</p>
+      <code type="none">
+\011openssl req -new -x509 -config /some/path/req.cnf \\
+\011    -keyout /some/path/key.pem -out /some/path/cert.pem      </code>
+      <p>where the option <c>-new</c> indicates that we want to create
+        a new certificate request and the option <c>-x509</c> implies
+        that a self-signed certificate is created.
+        </p>
+    </section>
+
+    <section>
+      <title>Creating the OTP CA</title>
+      <p>The OTP CA is created by first creating a certificate request
+        with the command</p>
+      <code type="none">
+\011openssl req -new -config /some/path/req.cnf \\
+\011    -keyout /some/path/key.pem -out /some/path/req.pem      </code>
+      <p>and the ask the Erlang CA to sign it:</p>
+      <code type="none">
+\011openssl ca -batch -notext -config /some/path/req.cnf \\
+\011   -extensions ca_cert -in /some/path/req.pem -out /some/path/cert.pem      </code>
+      <p>where the option <c>-extensions</c> refers to a section in the
+        configuration file saying that it should create a CA certificate, 
+        and not a plain user certificate. 
+        </p>
+      <p>The <c>client</c> and <c>server</c> certificates are created
+        similarly, except that the option <c>-extensions</c> then has the 
+        value <c>user_cert</c>.  
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>An Example</title>
+    <p>The following module <c>create_certs</c> is used by the Erlang/OTP
+      SSL application for generating certificates to be used in tests. The
+      source code is also found in <c>ssl-X.Y.Z/examples/certs/src</c>.
+      </p>
+    <p>The purpose of the <c>create_certs:all/1</c> function is to make
+      it possible to provide from the <c>erl</c> command line, the
+      full path name of the <c>openssl</c> command.
+      </p>
+    <p>Note that the module creates temporary OpenSSL configuration files
+      for the <c>req</c> and <c>ca</c> subcommands. 
+      </p>
+    <codeinclude file="../../examples/certs/src/make_certs.erl" tag="" type="erl"></codeinclude>
+  </section>
+</chapter>
+
+

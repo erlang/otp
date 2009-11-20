@@ -1,0 +1,7 @@
+EFLAGS=+debug_info
+           
+all: wrap_log_test.@EMULATOR@
+
+wrap_log_test.@EMULATOR@: wrap_log_test.erl
+	erlc $(EFLAGS) wrap_log_test.erl
+

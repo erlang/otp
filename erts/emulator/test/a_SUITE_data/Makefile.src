@@ -1,0 +1,10 @@
+#
+# NOTE:
+# Suites with makefiles are run first. We want a_SUITE to be run first;
+# therefore, keep this makefile even if it should be empty.
+#
+
+all: timer_driver@dll@
+
+@SHLIB_RULES@
+

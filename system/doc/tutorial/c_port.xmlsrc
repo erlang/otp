@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Ports</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>c_port.xml</file>
+  </header>
+  <p>This is an example of how to solve the <seealso marker="example">example problem</seealso> by using a port.</p>
+  <image file="../tutorial/port.gif">
+    <icaption>Port Communication.</icaption>
+  </image>
+
+  <section>
+    <title>Erlang Program</title>
+    <p>First of all communication between Erlang and C must be established by creating the port. The Erlang process which creates a port is said to be <em>the connected process</em> of the port. All communication to and from the port should go via the connected process. If the connected process terminates, so will the port (and the external program, if it is written correctly).</p>
+    <p>The port is created using the BIF <c>open_port/2</c> with <c>{spawn,ExtPrg}</c> as the first argument. The string <c>ExtPrg</c> is the name of the external program, including any command line arguments. The second argument is a list of options, in this case only <c>{packet,2}</c>. This option says that a two byte length indicator will be used to simplify the communication between C and Erlang. Adding the length indicator will be done automatically by the Erlang port, but must be done explicitly in the external C program.</p>
+    <p>The process is also set to trap exits which makes it possible to detect if the external program fails.</p>
+    <pre>
+-module(complex1).
+-export([start/1, init/1]).
+
+start(ExtPrg) ->
+  spawn(?MODULE, init, [ExtPrg]).
+
+init(ExtPrg) ->
+  register(complex, self()),
+  process_flag(trap_exit, true),
+  Port = open_port({spawn, ExtPrg}, [{packet, 2}]),
+  loop(Port).</pre>
+    <p>Now it is possible to implement <c>complex1:foo/1</c> and <c>complex1:bar/1</c>. They both send a message to the <c>complex</c> process and receive the reply.</p>
+    <pre>
+foo(X) ->
+  call_port({foo, X}).
+bar(Y) ->
+  call_port({bar, Y}).
+
+call_port(Msg) ->
+  complex ! {call, self(), Msg},
+  receive
+    {complex, Result} ->
+      Result
+  end.</pre>
+    <p>The <c>complex</c> process encodes the message into a sequence of bytes, sends it to the port, waits for a reply, decodes the reply and sends it back to the caller.</p>
+    <pre>
+loop(Port) ->
+  receive
+    {call, Caller, Msg} ->
+      Port ! {self(), {command, encode(Msg)}},
+      receive
+\011{Port, {data, Data}} ->
+          Caller ! {complex, decode(Data)}
+      end,
+      loop(Port)
+ end.</pre>
+    <p>Assuming that both the arguments and the results from the C functions will be less than 256, a very simple encoding/decoding scheme is employed where <c>foo</c> is represented by the byte 1, <c>bar</c> is represented by 2, and the argument/result is represented by a single byte as well.</p>
+    <pre>
+encode({foo, X}) -> [1, X];
+encode({bar, Y}) -> [2, Y].
+      
+decode([Int]) -> Int.</pre>
+    <p>The resulting Erlang program, including functionality for stopping the port and detecting port failures is shown below.
+      </p>
+      <codeinclude file="complex1.erl" type="erl"/>
+  </section>
+
+  <section>
+    <title>C Program</title>
+    <p>On the C side, it is necessary to write functions for receiving and sending 
+      data with two byte length indicators from/to Erlang. By default, the C program
+      should read from standard input (file descriptor 0) and write to standard output
+      (file descriptor 1). Examples of such functions, <c>read_cmd/1</c> and
+      <c>write_cmd/2</c>, are shown below.</p>
+      <codeinclude file="erl_comm.c" type="erl"/>
+    <p>Note that <c>stdin</c> and <c>stdout</c> are for buffered input/output and should not be used for the communication with Erlang!</p>
+    <p>In the <c>main</c> function, the C program should listen for a message from Erlang and, according to the selected encoding/decoding scheme, use the first byte to determine which function to call and the second byte as argument to the function. The result of calling the function should then be sent back to Erlang.</p>
+    <codeinclude file="port.c" tag="" type="none"></codeinclude>
+    <p>Note that the C program is in a <c>while</c>-loop checking for the return value of <c>read_cmd/1</c>. The reason for this is that the C program must detect when the port gets closed and terminate.</p>
+  </section>
+
+  <section>
+    <title>Running the Example</title>
+    <p>1. Compile the C code.</p>
+    <pre>
+unix> <input>gcc -o extprg complex.c erl_comm.c port.c</input></pre>
+    <p>2. Start Erlang and compile the Erlang code.</p>
+    <pre>
+unix> <input>erl</input>
+Erlang (BEAM) emulator version 4.9.1.2
+
+Eshell V4.9.1.2 (abort with ^G)
+1> <input>c(complex1).</input>
+{ok,complex1}</pre>
+    <p>3. Run the example.</p>
+    <pre>
+2> <input>complex1:start("extprg").</input>
+&lt;0.34.0>
+3> <input>complex1:foo(3).</input>
+4
+4> <input>complex1:bar(5).</input>
+10
+5> <input>complex1:stop().</input>
+stop</pre>
+  </section>
+</chapter>
+

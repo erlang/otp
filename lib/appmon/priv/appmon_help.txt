@@ -1,0 +1,154 @@
+
+
+
+		Help for the application monitor system
+		---------------------------------------
+
+
+
+
+
+	The monitor system has two types of windows, the node window
+	which opens when appmon:start() is evaluated, and the
+	application window which opens when an application in the node
+	window is clicked on. 
+
+	All nodes that are known to appmon is shown in the node
+	window, normally this is all Erlang nodes visible with the
+	nodes() command.
+
+
+The Node window
+---------------
+
+	The node window monitors nodes. At the top there is a menubar
+	and below that, each known node is shown separated with a thin
+	line from the others. A node is represented by its name as
+	root of its application tree. The node name pictures the
+	application controller on that node. The name itself is a menu
+	where operations on the node can be performed (rebooting it
+	for instance). To the far left is a load meter (like those on
+	a tape deck) which measures the current load at the
+	node. Below the node name (the application controller) is a
+	tree with applications, clicking on these applications starts
+	the application monitor.
+
+
+	The top window menubar
+	----------------------
+
+	File:Quit	- Stop the monitor.
+
+	Options:
+	  Load: time	- Load is calculated (roughly) as processor time.
+	  Load: queue	- Load is calculated as the length of the ready 
+			  queue.
+	  Load: prog	- A progressive scale is used for load values.
+	  Load: linear	- A linear scale is used for load values.
+
+	Help		- Prints this message.
+
+
+	The application controller menu
+	-------------------------------
+	Reboot		- Reboot the node
+	Restart		- Restart the node
+	Stop		- Stop the node
+
+
+	The load meter
+	--------------
+
+	Load can be measured as processor time / elapsed time or as
+	the length of the runtime queue, depending on the setting in
+	the Options menu.
+
+
+The Application window
+----------------------
+
+	The application window monitors an application. It will
+	automaticly update the window every other second or so if
+	there are any changes in the process tree. At the top there is
+	a menubar followed by a toolbar and then the application
+	tree. Application trees come in two flavours: supervision
+	view, where a strict supervision tree is shown, and process
+	view, where all linked processes in the application is shown.
+
+
+	The application window menubar
+	------------------------------
+
+	File:Quit	- Quit the application window.
+
+	Options:Refresh - Update process information and refresh
+			  screen.
+
+	Options:Sup. view
+		- Show strict supervision tree only.
+
+	Options:Proc. view
+		- Show all linked processes.
+
+	Help	- Prints this message.
+
+
+	The application window toolbar
+	------------------------------
+
+	The application toolbar controls the actions of the mouse
+	pointer. Clicking on a process in the application window have
+	different meaning depending on which tool is selected. The
+	procedure is to first press a button (T for trace for example)
+	and then click on the process that should be traced.
+
+	Info - Process information is printed in the shell. This mode
+	is default and automaticly returned to after a mouse click.
+
+	Send - Send a message to the clicked process. A window will
+	pop up where the message can be written (and you can also
+	change the destination pid). Double clicking on this button
+	pops up a window where pid and message can be filled in.
+
+	Trace - Toggle trace on/off on the process. Note that not all
+	processes respond to the sys:trace call.
+
+	Kill - Send a non-trappable exit signal to the process.
+
+
+Technical Detail
+----------------
+
+	Files and distribution
+	----------------------
+
+	Appmon is a distributed program but all graphics is handled on
+	one node (the one it is started on) so GS need only to be
+	loaded on that single node. All real monitoring is done in a
+	single module (appmon_info) being run on each node which acts
+	as an information centre. The various windows (node and
+	application) then subscribe for information.
+
+	In summary: only the appmon_info module must be accessible by
+	the clients, the rest of the appmon files are only needed at
+	the server.
+
+	Trouble shooting
+	----------------
+
+	Q. Why doesn't all my nodes show up in the node window?
+
+	A 1. Are the nodes visible with the nodes() command in the
+	shell? If not you must do net:ping(NodeName) to add nodes to
+	the Erlang distribution.
+
+	A 2. Is the appmin_info module loadable at the missing
+	node(s)?
+
+	Q. Why doesn't the application window show my application
+	supervision structure?
+
+	A. Does your application have a real application master? It is
+	absolutely necessary that your top process behaves as a
+	supervisor should (a program is not supervised just because it
+	is started with application:start).

@@ -1,0 +1,11 @@
+Type-error DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+	Q ::= INTEGER
+	Q ::= INTEGER
+
+          END
+ 

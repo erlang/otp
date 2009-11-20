@@ -1,0 +1,52 @@
+
+Important modules:
+
+	  module		behaviour	children
+	  ------		---------
+	  ssl_app		application	ssl_sup
+	  ssl_sup		supervisor	ssl_server, ssl_broker_sup
+	  ssl_server		gen_server	-
+	  ssl_broker_sup	supervisor	ssl_broker
+	  ssl_broker		gen_server	-
+
+The ssl_server controls a port program that implements the SSL functionality.
+That port program uses the OpenSSL package.
+
+Each socket has a corresponding broker (listen, accept or connect). A broker
+is created and supervised by the ssl_broker_sup. 
+
+All communication is between a user and a broker. The broker communicates
+with the ssl_server, that sends its commands to the port program and handles
+the port program responses, that are distributed to users through the
+brokers. 
+
+There is a distinction between commands and data flow between the ssl_server
+and the port program. Each established connection between the user and the
+outside world consists of a local erlang socket (owned by the broker) that
+is read from and written to by the broker. At the other end of the local
+connection is a local socket in the port program.
+ 
+The "real" socket that connects to the outside world is in the port program
+(including listen sockets). The main purpose of the port program is to 
+shuffle data between local sockets and outside world sockets, and detect and
+propagate read and write errors (including detection of closed sockets) to
+the ssl_server. 
+
+There is documentation in the ssl_broker.erl module. 
+
+There is also documentation in the esock.c and esock_openssl.c files.  
+
+The ssl_pem.erl, ssl_pkix.erl and ssl_base64.erl modules are support
+modules for reading SSL certificates. Modules for parsing certificates
+are generated from ASN.1 modules in the `pkix' directory. 
+
+The `examples' directory contains functions for generating certificates. 
+Those certificates are used in the test suites. 
+
+
+
+
+
+ 
+
+ 

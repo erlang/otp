@@ -1,0 +1,280 @@
+#ifndef _COS_EVENT_DOMAIN_ADMIN_IDL_
+#define _COS_EVENT_DOMAIN_ADMIN_IDL_
+
+#pragma prefix "omg.org"
+
+// Event Domain Interface
+#include "CosNotification.idl"
+#include "CosEventComm.idl"
+#include "CosNotifyComm.idl"
+#include "CosNotifyChannelAdmin.idl"
+
+
+module CosEventDomainAdmin {
+
+    // The following constant declarations define the Event Domain
+    // QoS property names and the associated values each property can
+    // take on. The name/value pairs for each Event Domain property
+    // are grouped, beginning with a string constant defined for the
+    // property name, followed by the values the property can take on.
+    
+    const string CycleDetection = "CycleDetection";
+    const short AuthorizeCycles = 0; // Default value
+    const short ForbidCycles = 1;
+    
+    const string DiamondDetection = "DiamondDetection";
+    const short AuthorizeDiamonds = 0; // Default value
+    const short ForbidDiamonds = 1;
+
+    
+    // The following enum declaration defines the types that a channel
+    // can be of. It is used to specify channel types while externalizing
+    // and instantiating topologies.
+    enum ChannelType
+	{
+	    CHANNEL,
+	    TYPED_CHANNEL,
+	    LOG_CHANNEL,
+	    TYPED_LOG_CHANNEL
+        };
+    
+    enum NotificationStyle {
+	Push,
+	Pull
+    };
+    
+    typedef long MemberID;
+    typedef sequence <MemberID> MemberIDSeq;
+    typedef long ConnectionID;
+    typedef sequence <ConnectionID> ConnectionIDSeq;
+    
+    struct Connection {
+        MemberID supplier_id;
+        MemberID consumer_id;
+        CosNotifyChannelAdmin::ClientType ctype;
+        NotificationStyle notification_style;
+    };
+    
+
+    typedef MemberIDSeq Route;
+    typedef sequence<Route> RouteSeq;
+    
+    typedef Route Cycle;
+    typedef sequence<Cycle> CycleSeq;
+    
+    typedef RouteSeq Diamond;
+    typedef sequence<Diamond> DiamondSeq;
+    
+    exception CycleCreationForbidden
+    {
+	Cycle cyc;
+    };
+    
+    exception DiamondCreationForbidden
+    {
+	Diamond diam;
+    };
+    
+    // Forward declarations
+    interface ConsumerAdmin;
+    interface SupplierAdmin;
+    
+    
+    typedef long DomainID;
+    typedef sequence <DomainID> DomainIDSeq;
+    typedef long ItemID;
+    
+    
+    // EventDomain administrates EventChannels that reside in the same
+    // administrative domain
+    exception ConnectionNotFound {};
+    exception AlreadyExists {};
+    
+
+    interface EventDomain :
+	CosNotification::QoSAdmin ,
+	CosNotification::AdminPropertiesAdmin {
+	
+        MemberID add_channel ( in CosNotifyChannelAdmin::EventChannel channel );
+
+        MemberIDSeq get_all_channels ();
+
+        CosNotifyChannelAdmin::EventChannel get_channel ( in MemberID channel )
+	    raises ( CosNotifyChannelAdmin::ChannelNotFound );
+	
+        void  remove_channel ( in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        ConnectionID add_connection ( in Connection connection)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound,
+		    CosEventChannelAdmin::TypeError,
+		    AlreadyExists,
+		    CycleCreationForbidden,
+		    DiamondCreationForbidden);
+	
+        ConnectionIDSeq get_all_connections ();
+	
+        Connection get_connection ( in ConnectionID connection )
+	    raises ( ConnectionNotFound );
+
+        void remove_connection ( in ConnectionID connection )
+	    raises ( ConnectionNotFound );
+
+        CosNotifyChannelAdmin::ChannelIDSeq get_offer_channels ( in MemberID channel )
+	    raises ( CosNotifyChannelAdmin::ChannelNotFound );
+	
+        CosNotifyChannelAdmin::ChannelIDSeq get_subscription_channels ( in MemberID channel )
+	    raises ( CosNotifyChannelAdmin::ChannelNotFound );
+	
+        void destroy();
+
+        // Cycle and diamond configurations listing
+	CycleSeq get_cycles();
+	
+        DiamondSeq get_diamonds();
+	
+	
+        // Connection of clients to the domain
+        // - using no specific information
+        //   - for any clients
+        void set_default_consumer_channel(in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        void set_default_supplier_channel(in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        CosNotifyChannelAdmin::ProxyPushSupplier
+        connect_push_consumer(in CosEventComm::PushConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        CosNotifyChannelAdmin::ProxyPullSupplier
+        connect_pull_consumer(in CosEventComm::PullConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::ProxyPushConsumer
+        connect_push_supplier(in CosEventComm::PushSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::ProxyPullConsumer
+        connect_pull_supplier(in CosEventComm::PullSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        //   - for structured clients
+        CosNotifyChannelAdmin::StructuredProxyPushSupplier
+        connect_structured_push_consumer(in CosNotifyComm::StructuredPushConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::StructuredProxyPullSupplier
+        connect_structured_pull_consumer(in CosNotifyComm::StructuredPullConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::StructuredProxyPushConsumer
+        connect_structured_push_supplier(in CosNotifyComm::StructuredPushSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::StructuredProxyPullConsumer
+        connect_structured_pull_supplier(in CosNotifyComm::StructuredPullSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        //   - for sequence clients
+        CosNotifyChannelAdmin::SequenceProxyPushSupplier
+        connect_sequence_push_consumer(in CosNotifyComm::SequencePushConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::SequenceProxyPullSupplier
+        connect_sequence_pull_consumer(in CosNotifyComm::SequencePullConsumer client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        CosNotifyChannelAdmin::SequenceProxyPushConsumer
+        connect_sequence_push_supplier(in CosNotifyComm::SequencePushSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        CosNotifyChannelAdmin::SequenceProxyPullConsumer
+        connect_sequence_pull_supplier(in CosNotifyComm::SequencePullSupplier client)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        // - using a channel id
+        //   - for any clients
+        CosNotifyChannelAdmin::ProxyPushSupplier
+        connect_push_consumer_with_id(in CosEventComm::PushConsumer client,
+				      in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::ProxyPullSupplier
+        connect_pull_consumer_with_id(in CosEventComm::PullConsumer client,
+				      in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::ProxyPushConsumer                
+        connect_push_supplier_with_id(in CosEventComm::PushSupplier client,
+				      in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::ProxyPullConsumer
+        connect_pull_supplier_with_id(in CosEventComm::PullSupplier client,
+				      in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        //   - for structured clients
+        CosNotifyChannelAdmin::StructuredProxyPushSupplier
+        connect_structured_push_consumer_with_id(in CosNotifyComm::StructuredPushConsumer client,
+						 in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::StructuredProxyPullSupplier
+        connect_structured_pull_consumer_with_id(in CosNotifyComm::StructuredPullConsumer client,
+						 in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::StructuredProxyPushConsumer
+        connect_structured_push_supplier_with_id(in CosNotifyComm::StructuredPushSupplier client,
+						 in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+
+        CosNotifyChannelAdmin::StructuredProxyPullConsumer
+        connect_structured_pull_supplier_with_id(in CosNotifyComm::StructuredPullSupplier client,
+						 in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        //   - for sequence clients
+        CosNotifyChannelAdmin::SequenceProxyPushSupplier
+        connect_sequence_push_consumer_with_id(in CosNotifyComm::SequencePushConsumer client,
+					       in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::SequenceProxyPullSupplier
+        connect_sequence_pull_consumer_with_id(in CosNotifyComm::SequencePullConsumer client,
+					       in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::SequenceProxyPushConsumer
+        connect_sequence_push_supplier_with_id(in CosNotifyComm::SequencePushSupplier client,
+					       in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+	
+        CosNotifyChannelAdmin::SequenceProxyPullConsumer
+        connect_sequence_pull_supplier_with_id(in CosNotifyComm::SequencePullSupplier client,
+					       in MemberID channel)
+	    raises (CosNotifyChannelAdmin::ChannelNotFound);
+        };
+    
+        exception DomainNotFound {};
+    
+        interface EventDomainFactory {
+	    
+	    EventDomain create_event_domain( in CosNotification::QoSProperties initialQoS ,
+					     in CosNotification::AdminProperties initialAdmin,
+					     out DomainID id )
+                raises ( CosNotification::UnsupportedQoS,
+			 CosNotification::UnsupportedAdmin );
+	    
+	    DomainIDSeq get_all_domains ();
+	    
+	    EventDomain get_event_domain (
+					  in DomainID id )
+                raises ( DomainNotFound );
+        };
+};
+
+#endif // _COS_EVENT_DOMAIN_ADMIN_IDL_
+        

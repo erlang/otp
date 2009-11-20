@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>tv</title>
+    <prepared>Fredrik Gustafson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>1997-11-17</date>
+    <rev>1.0</rev>
+    <file>table_visualizer.sgml</file>
+  </header>
+  <module>tv</module>
+  <modulesummary>TV graphically examines ETS and Mnesia tables. </modulesummary>
+  <description>
+    <p>TV enables the user to examine ETS and Mnesia tables. Once 
+      a certain table has been opened in the tool, the content may be viewed at 
+      various levels of detail. The content viewed may also be sorted, using any 
+      element as key. The table may be polled anytime; either regularly at 
+      specified intervals, or manually. New and deleted objects, as well as those 
+      altered, are marked with characteristic colors. </p>
+  </description>
+  <funcs>
+    <func>
+      <name>start() -> Pid</name>
+      <fsummary>Start TV.</fsummary>
+      <type>
+        <v>Pid = pid() </v>
+      </type>
+      <desc>
+        <p><c>start/0</c> starts the TV. </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p>For a complete description of the TV, please 
+      see the TV User's Guide. </p>
+  </section>
+</erlref>
+
+

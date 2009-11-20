@@ -1,0 +1,20 @@
+DSS DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+
+-- EXPORTS ALL
+-- All types and values defined in this module are exported for use
+-- in other ASN.1 modules.
+
+DSAPrivateKey ::= SEQUENCE {
+    version           INTEGER,
+    p                 INTEGER,  -- p
+    q                 INTEGER,  -- q
+    g                 INTEGER,  -- q
+    y                 INTEGER,  -- y
+    x                 INTEGER   -- x
+}
+
+END
+
+

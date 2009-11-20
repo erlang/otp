@@ -1,0 +1,43 @@
+%%-*-erlang-*-
+%%--------------------------------------------------------------------
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%----------------------------------------------------------------------
+%% File    : xmerl_sax_parser_utf8.erl
+%% Description : 
+%%
+%% Created : 27 May 2008 
+%%----------------------------------------------------------------------
+-module(xmerl_sax_parser_utf8).
+
+%%----------------------------------------------------------------------
+%% Macros
+%%----------------------------------------------------------------------
+-define(STRING_EMPTY, <<>>).
+-define(STRING(MatchStr), <<MatchStr/utf8>>).
+-define(STRING_REST(MatchStr, Rest), <<MatchStr/utf8, Rest/binary>>).
+-define(APPEND_STRING(Rest, New), <<Rest/binary, New/binary>>).
+-define(TO_INPUT_FORMAT(Val), unicode:characters_to_binary(Val, unicode, utf8)).
+
+
+%% STRING_REST and STRING_UNBOUND_REST is only different in the list case
+-define(STRING_UNBOUND_REST(MatchChar, Rest), <<MatchChar/utf8, Rest/binary>>).
+-define(BYTE_ORDER_MARK_1, <<16#EF>>).
+-define(BYTE_ORDER_MARK_2, <<16#EF, 16#BB>>).
+-define(BYTE_ORDER_MARK_REST(Rest), <<16#EF, 16#BB, 16#BF, Rest/binary>>).
+
+

@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Parsetools Reference Manual</title>
+    <prepared>Carl Velin</prepared>
+    <docno></docno>
+    <date>1997-04-28</date>
+    <rev>1.0</rev>
+    <file>application.sgml</file>
+  </header>
+  <description>
+    <p>The <em>Parsetools</em> application contains utilities for
+      parsing and scanning. Yecc is an <term id="LALR-1"></term>parser
+      generator for Erlang, similar to yacc. Yecc takes a <term
+      id="BNF"></term>grammar definition as input, and produces Erlang
+      code for a parser as output. Leex is a regular expression based
+      lexical analyzer generator for Erlang, similar to lex or flex.</p>
+  </description>
+  <xi:include href="yecc.xml"/>
+  <xi:include href="leex.xml"/>
+</application>
+

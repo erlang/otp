@@ -1,0 +1,2 @@
+{topcase, {dir, "../emulator_test"}}.
+{skip, {obsolete_SUITE, "Not on windows"}}.

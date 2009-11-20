@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Mnesia Release Notes</title>
+    <prepared>Dan Gudmundsson and H&aring;kan Mattsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>05-01-26</date>
+    <rev>AE</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Mnesia system
+    from version to version.  The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bugfixes for every release of Mnesia. Each release of Mnesia
+    thus constitutes one section in this document. The title of each
+    section is the version number of Mnesia.</p>
+  
+  <section><title>Mnesia 4.4.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  <section><title>Mnesia 4.4.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Fixed duplicate results with mnesia:index_read() on
+            ordered_set tables. Reported by Sam Bobroff. </p>
+	  <p>
+	    Fixed locking in mnesia:index_read() which now grabs a read
+            table lock to ensure correctness, this may slow down the
+            operation or block other processes trying to reach the
+            same table. </p>
+	  <p>
+	    Calling mnesia:dump_log() could crash mnesia,
+            Reported by Igor Ribeiro Sucupira.</p>
+          <p> Own Id: OTP-8074</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+  <section><title>Mnesia 4.4.10</title>
+    
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia crashed if a qlc query was running inside a
+            transaction when mnesia stopped at another node. Thanks
+            Teemu Antti-Poika.</p>
+          <p>
+            Own Id: OTP-7968</p>
+        </item>
+        <item>
+          <p>
+            Mnesia could crash when loading local_content tables.</p>
+          <p>
+            Own Id: OTP-8002 Aux Id: seq11277 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Minor (smp) optimizations.</p>
+          <p>
+            Own Id: OTP-7928</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>
+
+
+  <section><title>Mnesia 4.4.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            mnesia:clear_table/1 crashed instead of returning
+            <c>{aborted,..}</c> if it was called inside a
+            transaction.</p>
+          <p>
+            Own Id: OTP-7911</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>
+
+  <section><title>Mnesia 4.4.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            With bad timing several api functions could return or
+            exit with a bad error message when mnesia was shutting
+            down.</p>
+          <p>
+            Own Id: OTP-7753 Aux Id: seq11179 </p>
+        </item>
+        <item>
+          <p>
+            <c>mnesia:clear_table/1</c> cleared all nodes table
+            content even if the table was <c>local_content</c> only
+            type.</p>
+          <p>
+            Own Id: OTP-7835</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>
+
+ <section><title>Mnesia 4.4.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Disallowed match patterns ('_', and '$n') as argument to
+            <c>mnesia:delete_object/1</c> and friends.</p>
+          <p>
+            Own Id: OTP-7524</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Introduced a few new functions in Mnesia: <c>mnesia:read/2</c>,
+            <c>mnesia:first/3</c>, <c>mnesia:last/3</c>, <c>mnesia:prev/4</c>,
+            <c>mnesia:next/4</c>, <c>mnesia_frag:first/1</c>, <c>mnesia_frag:last/1</c>,
+            <c>mnesia_frag:prev/2</c>, <c>mnesia_frag:next/2</c>.</p>
+          <p>
+            Own Id: OTP-7625</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+ <section><title>Mnesia 4.4.6</title>    
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            <c>mnesia:restore/2</c> aborted if a <c>EXIT</c> message
+            appeared in the client message queue.</p>
+          <p>
+            Own Id: OTP-7585 Aux Id: seq11046 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.5</title>
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    mnesia:clear_table/1 does not require that all
+            replicas of the table are available anymore.</p>
+          <p>
+            Own Id: OTP-7466 Aux Id: seq11015</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia did not garbage collect transaction decisions on
+            disk based nodes if no transactions where made on the
+            local node.</p>
+          <p>
+            Own Id: OTP-7419</p>
+        </item>
+      </list>
+    </section>
+
+  </section>
+
+  <section><title>Mnesia 4.4.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Table referred to by foreign key did not have node_pool
+            properly cleaned up when a node was removed from the
+            schema. Thanks Paul Mineiro.</p>
+          <p>
+            Own Id: OTP-7340</p>
+        </item>
+        <item>
+          <p>
+            Mnesia crashed and generated a core dump if a
+            schema_transaction was running when mnesia stopped.</p>
+          <p>
+            Own Id: OTP-7378 Aux Id: seq10964 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            It is now possible to delete a db node even when other
+            disk resident nodes are down. Thanks Paul Mineiro.</p>
+          <p>
+            Own Id: OTP-7383</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Mnesia 4.4.2</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Sticky locks could lead to hanging transactions.</p>
+          <p>
+            Own Id: OTP-7205 Aux Id: seq10793 </p>
+        </item>
+        <item>
+          <p>
+            <c>mnesia:snmp_get_next_index/2</c> didn't work with
+            partial index keys. Argument checking is now done
+            according to documentation, in functions
+            <c>mnesia:snmp_get_row/2</c>,
+            <c>mnesia:snmp_get_mnesia_key/2</c> and
+            <c>mnesia:snmp_get_next_index/2</c>. These functions now
+            require that <c>RowIndex</c> is a list.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7208</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4.1</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Snmp index tables was not initialized correctly in
+            <c>mnesia-4.4</c>.</p>
+          <p>
+            Own Id: OTP-7170 Aux Id: seq10870 </p>
+        </item>
+      </list>
+    </section>
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            Rearranging fragmented tables is an O(N^2) operation.</p>
+          <p>
+            Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Mnesia 4.4</title>
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Mnesia ignored the module argument to
+            <c>mnesia:restore/2</c>. Thanks Paul Minerio.</p>
+          <p>
+            Own Id: OTP-6981</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Mnesia's snmp operations <c>snmp_get_row/2</c>,
+            <c>snmp_get_next_index/2</c> and
+            <c>snmp_get_mnesia_key/2</c> have been made context
+            aware, i.e. inside a transaction they will compensate for
+            table updates made in earlier in the same transaction.
+            This might cause a performance drop if a lot of updates
+            have been made before the invocation of these functions.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-6856 Aux Id: seq10671 </p>
+        </item>
+        <item>
+          <p>
+            Introduced erlang:phash/2 as new default for fragmented
+            tables. Already existing tables will continue to use
+            whatever hash function they where using.</p>
+          <p>
+            Own Id: OTP-6923</p>
+        </item>
+        <item>
+          <p>
+            Introduced <c>mnesia:is_transaction/0</c>.</p>
+          <p>
+            Own Id: OTP-6995 Aux Id: seq10812 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Known Bugs and Problems</title>
+      <list>
+        <item>
+          <p>
+            Rearranging fragmented tables is an O(N^2) operation.</p>
+          <p>
+            Own Id: OTP-6300</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <!-- section>
+    <title>Previous Notes</title>
+    <p>For information about older versions see <url href="part_notes_history_frame.html">release notes history</url>.</p>
+  </section -->
+</chapter>
+

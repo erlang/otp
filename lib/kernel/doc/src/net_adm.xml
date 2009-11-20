@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>net_adm</title>
+    <prepared>Claes Wikstrom</prepared>
+    <docno>1</docno>
+    <date>96-09-10</date>
+    <rev>A</rev>
+  </header>
+  <module>net_adm</module>
+  <modulesummary>Various Erlang Net Administration Routines</modulesummary>
+  <description>
+    <p>This module contains various network utility functions.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>dns_hostname(Host) -> {ok, Name} | {error, Host}</name>
+      <fsummary>Official name of a host</fsummary>
+      <type>
+        <v>Host = atom() | string()</v>
+        <v>Name = string()</v>
+      </type>
+      <desc>
+        <p>Returns the official name of <c>Host</c>, or
+          <c>{error, Host}</c> if no such name is found. See also
+          <c>inet(3)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>host_file() -> Hosts | {error, Reason}</name>
+      <fsummary>Read the <c>.hosts.erlang</c>file</fsummary>
+      <type>
+        <v>Hosts = [Host]</v>
+        <v>&nbsp;Host = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Reads the <c>.hosts.erlang</c> file, see the section
+          <em>Files</em> below. Returns the hosts in this file as a
+          list, or returns <c>{error, Reason}</c> if the file could not
+          be read. See <c>file(3)</c> for possible values of
+          <c>Reason</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>localhost() -> Name</name>
+      <fsummary>Name of the local host</fsummary>
+      <type>
+        <v>Name = string()</v>
+      </type>
+      <desc>
+        <p>Returns the name of the local host. If Erlang was started
+          with the <c>-name</c> command line flag, <c>Name</c> is
+          the fully qualified name.</p>
+      </desc>
+    </func>
+    <func>
+      <name>names() -> {ok, [{Name, Port}]} | {error, Reason}</name>
+      <name>names(Host) -> {ok, [{Name, Port}]} | {error, Reason}</name>
+      <fsummary>Names of Erlang nodes at a host</fsummary>
+      <type>
+        <v>Name = string()</v>
+        <v>Port = int()</v>
+        <v>Reason = address | term()</v>
+      </type>
+      <desc>
+        <p>Similar to <c>epmd -names</c>, see <c>epmd(1)</c>.
+          <c>Host</c> defaults to the local host. Returns the names and
+          associated port numbers of the Erlang nodes that <c>epmd</c>
+          at the specified host has registered.</p>
+        <p>Returns <c>{error, address}</c> if <c>epmd</c> is not
+          running. See <c>inet(3)</c> for other possible values of
+          <c>Reason</c>.</p>
+        <pre>
+(arne@dunn)1> <input>net_adm:names().</input>
+{ok,[{"arne",40262}]}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>ping(Node) -> pong | pang</name>
+      <fsummary>Set up a connection to a node</fsummary>
+      <type>
+        <v>Node = node()</v>
+      </type>
+      <desc>
+        <p>Tries to set up a connection to <c>Node</c>. Returns
+          <c>pang</c> if it fails, or <c>pong</c> if it is successful.</p>
+      </desc>
+    </func>
+    <func>
+      <name>world() -> [node()]</name>
+      <name>world(Arg) -> [node()]</name>
+      <fsummary>Lookup and connect to all nodes at all hosts in <c>.hosts.erlang</c></fsummary>
+      <type>
+        <v>Arg = silent | verbose</v>
+      </type>
+      <desc>
+        <p>This function calls <c>names(Host)</c> for all hosts which
+          are specified in the Erlang host file <c>.hosts.erlang</c>,
+          collects the replies and then evaluates <c>ping(Node)</c> on
+          all those nodes. Returns the list of all nodes that were,
+	  successfully pinged.</p>
+        <p><c>Arg</c> defaults to <c>silent</c>.
+	 If <c>Arg == verbose</c>, the function writes information about which
+          nodes it is pinging to stdout.</p>
+        <p>This function can be useful when a node is started, and
+          the names of the other nodes in the network are not initially
+          known.</p>
+        <p>Failure: <c>{error, Reason}</c> if <c>host_file()</c>
+          returns <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>world_list(Hosts) -> [node()]</name>
+      <name>world_list(Hosts, Arg) -> [node()]</name>
+      <fsummary>Lookup and connect to all nodes at specified hosts</fsummary>
+      <type>
+        <v>Hosts = [Host]</v>
+        <v>&nbsp;Host = atom()</v>
+        <v>Arg = silent | verbose</v>
+      </type>
+      <desc>
+        <p>As <c>world/0,1</c>, but the hosts are given as argument
+          instead of being read from <c>.hosts.erlang</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Files</title>
+    <p>The <c>.hosts.erlang</c> file consists of a number of host names
+      written as Erlang terms. It is looked for in the current work
+      directory, the user's home directory, and <c>$OTP_ROOT</c>
+      (the root directory of Erlang/OTP), in that order.</p>
+    <p>The format of the <c>.hosts.erlang</c> file must be one host
+      name per line. The host names must be within quotes as shown in
+      the following example:</p>
+    <pre>
+'super.eua.ericsson.se'.
+'renat.eua.ericsson.se'.
+'grouse.eua.ericsson.se'.
+'gauffin1.eua.ericsson.se'.
+^ (new line)</pre>
+  </section>
+</erlref>
+

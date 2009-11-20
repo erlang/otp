@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Introduction</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2004-09-28</date>
+    <rev>A</rev>
+    <file>inets_services.xml</file>
+  </header>
+
+  <section>
+    <title>Purpose</title>
+    <p>Inets is a container for Internet clients and
+      servers. Currently, an <term id="HTTP"></term>client and server, a
+      TFPT client and server, and a FTP client has been incorporated
+      into Inets. The HTTP server and client is HTTP 1.1 compliant as
+      defined in <term id="RFC"></term>2616.</p>
+  </section>
+
+  <section>
+    <title>Prerequisites</title>
+    <p>It is assumed that the reader is familiar with the Erlang
+      programming language, concepts of OTP and has a basic
+      understanding of the HTTP, TFTP and FTP protocols.</p>
+  </section>
+
+  <section>
+    <title>The Service Concept</title>
+    <p>Each client and server in inets is viewed as service.  Services
+      may be configured to be started at application startup or
+      started dynamically in runtime. If you want to run inets as an
+      distributed application that should handle application failover
+      and takeover, services should be configured to be started at
+      application startup. When starting the inets application
+      the inets top supervisor will start a number of subsupervisors
+      and worker processes for handling the different services
+      provided. When starting services dynamically new children will
+      be added to the supervision tree, unless the service is started
+      with the stand alone option, in which case the service is linked
+      to the calling process and all OTP application features such as
+      soft upgrade are lost.</p>
+    <p>Services that should be configured for startup at application
+      startup time should be put into the erlang node configuration file
+      on the form: </p>
+    <pre>
+      [{inets, [{services, ListofConfiguredServices}]}].
+    </pre>
+    <p>For details of exactly what to put in the list of configured
+      services see the documentation for the services that should be
+      configured.</p>
+  </section>
+</chapter>
+
+

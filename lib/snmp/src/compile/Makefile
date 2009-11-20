@@ -1,0 +1,125 @@
+#-*-makefile-*-   ; force emacs to enter makefile-mode
+
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+
+include $(ERL_TOP)/make/target.mk
+
+EBIN = ../../ebin
+
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../../vsn.mk
+
+VSN = $(SNMP_VSN)
+
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/snmp-$(VSN)
+
+
+# ----------------------------------------------------
+# Target Specs
+# ----------------------------------------------------
+
+include modules.mk
+
+ERL_FILES = $(MODULES:%=%.erl)
+
+TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+
+GENERATED_PARSER = $(PARSER_MODULE:%=%.erl)
+
+PARSER_TARGET = $(PARSER_MODULE).$(EMULATOR)
+
+
+# ----------------------------------------------------
+# FLAGS
+# ----------------------------------------------------
+ifeq ($(WARN_UNUSED_VARS),true)
+ERL_COMPILE_FLAGS += +warn_unused_vars
+endif
+
+ERL_COMPILE_FLAGS += -I../../include \
+                     -Dversion=\"$(VSN)$(PRE_VSN)\" \
+                     +'{parse_transform,sys_pre_attributes}' \
+                     +'{attribute,insert,app_vsn,$(APP_VSN)}' \
+                     -I$(ERL_TOP)/lib/stdlib
+
+YRL_FLAGS = -o .
+
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+
+debug:
+	@${MAKE} TYPE=debug opt
+
+opt: $(TARGET_FILES)
+
+clean:
+	rm -f $(TARGET_FILES) $(GENERATED_PARSER)
+	rm -f core *~
+
+docs:
+
+info:
+	@echo "PARSER_SRC:       $(PARSER_SRC)"
+	@echo "PARSER_MODULE:    $(PARSER_MODULE)"
+	@echo ""
+	@echo "GENERATED_PARSER: $(GENERATED_PARSER)"
+	@echo "PARSER_TARGET:    $(PARSER_TARGET)"
+	@echo ""
+	@echo "MODULES:      $(MODULES)"
+	@echo ""
+	@echo "TARGET_FILES: $(TARGET_FILES)"
+	@echo ""
+	@echo "EBIN: $(EBIN)"
+	@echo ""
+	@echo ""
+
+# ----------------------------------------------------
+# Special Build Targets
+# ----------------------------------------------------
+
+parser: $(PARSER_TARGET)
+
+$(GENERATED_PARSER): $(PARSER_SRC)
+
+# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/src
+	$(INSTALL_DIR) $(RELSYSDIR)/src/compiler
+	$(INSTALL_DATA) $(PARSER_SRC) $(ERL_FILES) $(INTERNAL_HRL_FILES) $(RELSYSDIR)/src/compiler
+	$(INSTALL_DIR) $(RELSYSDIR)/ebin
+	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+
+release_docs_spec:
+
+include depend.mk
+

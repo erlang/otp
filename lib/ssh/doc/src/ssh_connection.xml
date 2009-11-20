@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2008</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>ssh_connection</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>ssh_connection</module>
+  <modulesummary>This module provides an API to the ssh connection protocol.
+  </modulesummary>
+  <description>
+    <p>This module provides an API to the ssh connection protocol.
+    Not all features of the connection protocol are officially supported yet.
+    Only the ones supported are documented here.</p>
+  </description>
+
+   <section>
+    <title>COMMON DATA TYPES </title>
+    <p>Type definitions that are used more than once in this module and/or
+    abstractions to indicate the intended use of the data type:</p>
+    
+    <p><c>boolean() = true | false </c></p>
+    <p><c>string() = list of ASCII characters</c></p>
+    <p><c>timeout() =  infinity | integer() - in milliseconds.</c></p>
+    <p><c>ssh_connection_ref() - opaque to the user returned by
+    ssh:connect/3 or sent to a ssh channel processes</c></p>
+    <p><c>ssh_channel_id() = integer() </c></p>
+    <p><c>ssh_data_type_code() = 1 ("stderr") | 0 ("normal") are
+    currently valid values see RFC 4254 section 5.2.</c></p>
+    <p><c>ssh_request_status() = success | failure</c></p>
+   </section>
+
+   <section>
+     <title>MESSAGES SENT TO CHANNEL PROCESSES</title>
+     
+     <p>As a result of the ssh connection protocol messages on the form
+     <c><![CDATA[{ssh_cm, ssh_connection_ref(), term()}]]></c>
+     will be sent to a channel process. The term will contain
+     information regarding the ssh connection protocol event,
+     for details see the ssh channel behavior callback <seealso
+     marker="ssh_channel">handle_ssh_msg/2 </seealso> </p>
+   </section>
+   
+ <funcs>
+   
+   <func>
+     <name>adjust_window(ConnectionRef, ChannelId, NumOfBytes) -> ok</name>
+     <fsummary>Adjusts the ssh flowcontrol window. </fsummary>
+     <type>
+       <v> ConnectionRef = ssh_connection_ref() </v>
+       <v> ChannelId = ssh_channel_id() </v>
+       <v> NumOfBytes = integer()</v>
+     </type>
+      <desc>
+	<p>Adjusts the ssh flowcontrol window. </p>
+	
+	<note><p>This will be taken care of by the ssh_channel
+	behavior when the callback <seealso marker="ssh_channel">
+	handle_ssh_msg/2 </seealso> has returned after processing a
+	{ssh_cm, ssh_connection_ref(), {data, ssh_channel_id(),
+	ssh_data_type_code(), binary()}}
+	message, and should normally not be called explicitly.</p></note>
+      </desc>
+   </func>
+   
+   <func>
+     <name>close(ConnectionRef, ChannelId) -> ok</name>
+     <fsummary>Sends a close message on the channel <c>ChannelId</c>. </fsummary>
+     <type>
+       <v> ConnectionRef = ssh_connection_ref() </v>
+       <v> ChannelId = ssh_channel_id()</v>
+     </type>
+     <desc>
+       <p>Sends a close message on the channel <c>ChannelId</c>
+       </p>
+
+       <note><p>This function will be called by the ssh channel
+       behavior when the channel is terminated see <seealso
+       marker="ssh_channel"> ssh_channel(3) </seealso> and should
+       normally not be called explicitly.</p></note>
+     </desc>
+   </func>
+   
+   <func>
+     <name>exec(ConnectionRef, ChannelId, Command, TimeOut) -> ssh_request_status()  </name>
+     <fsummary>Will request that the server start the
+     execution of the given command.  </fsummary>
+     <type>
+       <v> ConnectionRef = ssh_connection_ref() </v>
+       <v> ChannelId = ssh_channel_id()</v>
+       <v> Command = string()</v>
+       <v>Timeout = timeout() </v>
+     </type>
+     <desc>
+       <p>Will request that the server start the execution of the
+       given command, the result will be received as:</p>
+
+       <taglist>
+	 <tag><c> N X {ssh_cm,
+	 ssh_connection_ref(), {data, ssh_channel_id(), ssh_data_type_code(),
+	 binary() = Data}} </c></tag>
+	 <item>The result of executing the command may be only one line
+	 or thousands of lines depending on the command.</item>
+
+	 <tag><c> 1 X {ssh_cm, ssh_connection_ref(), {eof, ssh_channel_id()}}</c></tag>
+	 <item>Indicates that no more data will be sent.</item>
+
+	 <tag><c>0 or 1 X {ssh_cm,
+	 ssh_connection_ref(), {exit_signal,
+	 ssh_channel_id(), string() = ExitSignal, string() = ErrorMsg, string() = LanguageString}}</c></tag>
+	 <item>Not all systems send signals. For details on valid string
+	 values see RFC 4254 section 6.10 </item>
+	 
+	  <tag><c>0 or 1 X {ssh_cm, ssh_connection_ref(), {exit_status,
+	  ssh_channel_id(), integer() = ExitStatus}}</c></tag>
+	  <item>It is recommended by the <c>ssh connection protocol</c> that this
+	  message shall be sent, but that may not always be the case.</item>
+
+	  <tag><c> 1 X {ssh_cm, ssh_connection_ref(),
+	  {closed, ssh_channel_id()}}</c></tag>
+	  <item>Indicates that the ssh channel started for the
+	  execution of the command has now been shutdown.</item>
+       </taglist>
+       
+       <p> These message should be handled by the
+       client. The <seealso marker="ssh_channel">ssh channel
+       behavior</seealso> can be used when writing a client.
+       </p>
+     </desc>
+   </func>
+
+
+   <func>
+     <name>exit_status(ConnectionRef, ChannelId, Status) -> ok</name>
+     <fsummary>Sends the exit status of a command to the client.</fsummary>
+     <type>
+       <v> ConnectionRef = ssh_connection_ref() </v>
+       <v> ChannelId = ssh_channel_id()</v>
+       <v> Status = integer()</v>
+     </type>
+     <desc>
+       <p>Sends the exit status of a command to the client.</p>
+     </desc>
+ </func>
+   
+     <func>
+       <name>reply_request(ConnectionRef, WantReply, Status, CannelId) -> ok</name>
+       <fsummary>Send status replies to requests that want such replies. </fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref() </v>
+	<v> WantReply =  boolean()</v>
+	<v> Status = ssh_request_status() </v>
+	<v> ChannelId = ssh_channel_id()</v>
+      </type>
+      <desc>
+	<p>Sends status replies to requests where the requester has
+	stated that they want a status report e.i .<c> WantReply = true</c>,
+	if <c> WantReply</c> is false calling this function will be a
+	"noop". Should be called after handling an ssh connection
+	protocol message containing a <c>WantReply</c> boolean
+	value. See the ssh_channel behavior callback <seealso
+	marker="ssh_channel"> handle_ssh_msg/2 </seealso>
+	</p>
+      </desc>
+     </func>
+    
+     <func>
+       <name>send(ConnectionRef, ChannelId, Data) -></name>
+       <name>send(ConnectionRef, ChannelId, Data, Timeout) -></name>
+       <name>send(ConnectionRef, ChannelId, Type, Data) -></name>
+       <name>send(ConnectionRef, ChannelId, Type, Data, TimeOut) ->
+       ok | {error, timeout}</name>
+       <fsummary>Sends channel data </fsummary>
+       <type>
+	<v> ConnectionRef = ssh_connection_ref() </v>
+	<v> ChannelId = ssh_channel_id()</v>
+	<v> Data = binary()</v>
+	<v> Type = ssh_data_type_code()</v>
+	<v> Timeout = timeout()</v>
+       </type>
+       <desc>
+	 <p>Sends channel data. 
+	 </p>
+       </desc>
+     </func>
+     
+     <func>
+       <name>send_eof(ConnectionRef, ChannelId) -> ok </name>
+       <fsummary>Sends eof on the channel <c>ChannelId</c>.  </fsummary>
+       <type>
+	<v> ConnectionRef = ssh_connection_ref() </v>
+	<v> ChannelId = ssh_channel_id()</v>
+       </type>
+       <desc>
+	 <p>Sends eof on the channel <c>ChannelId</c>.
+	 </p>
+       </desc>
+     </func>
+
+     <func>
+       <name>session_channel(ConnectionRef, Timeout) -> </name>
+       <name>session_channel(ConnectionRef, InitialWindowSize,
+       MaxPacketSize, Timeout) -> {ok, ssh_channel_id()} | {error, Reason}</name>
+       <fsummary>Opens a channel for a ssh session. A session is a
+       remote execution of a program. The program may be a shell, an
+       application, a system command, or some built-in subsystem. </fsummary>
+       <type>
+	 <v> ConnectionRef = ssh_connection_ref()</v>
+	 <v> InitialWindowSize = integer() </v>
+	 <v> MaxPacketSize = integer() </v>
+	 <v> Timeout = timeout()</v>
+	 <v> Reason = term() </v>
+       </type>
+       <desc>
+	 <p>Opens a channel for a ssh session. A session is a
+	 remote execution of a program. The program may be a shell, an
+	 application, a system command, or some built-in subsystem.
+	</p>
+       </desc>
+     </func>
+
+    <func>
+      <name>setenv(ConnectionRef, ChannelId, Var, Value, TimeOut) -> ssh_request_status()</name>
+      <fsummary> Environment variables may be passed to the
+      shell/command to be started later.</fsummary>
+      <type>
+	<v> ConnectionRef = ssh_connection_ref() </v>
+	<v> ChannelId = ssh_channel_id()</v>
+	<v> Var = string()</v>
+	<v> Value = string()</v>
+	<v> Timeout = timeout()</v>
+      </type>
+      <desc>
+	<p> Environment variables may be passed to the shell/command to be
+	started later.
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>shell(ConnectionRef, ChannelId) -> ssh_request_status()
+      </name>
+      <fsummary> Will request that the user's default shell (typically
+      defined in /etc/passwd in UNIX systems) be started at the other
+      end. </fsummary>
+       <type>
+	 <v> ConnectionRef = ssh_connection_ref() </v>
+	 <v> ChannelId = ssh_channel_id()</v>
+       </type>
+       <desc>
+	 <p> Will request that the user's default shell (typically
+	 defined in /etc/passwd in UNIX systems) be started at the
+	 other end. 
+	 </p>
+       </desc>
+    </func>
+
+    <func>
+      <name>subsystem(ConnectionRef, ChannelId, Subsystem, Timeout) -> ssh_request_status()</name>
+      <fsummary>  </fsummary>
+       <type>
+	 <v> ConnectionRef = ssh_connection_ref() </v>
+	 <v> ChannelId = ssh_channel_id()</v>
+	 <v> Subsystem = string()</v>
+	 <v> Timeout = timeout()</v>
+       </type>
+       <desc>
+	 <p> Sends a request to execute a predefined subsystem.
+	 </p>
+       </desc>
+    </func>
+    
+  </funcs>
+  
+</erlref>

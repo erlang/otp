@@ -1,0 +1,239 @@
+#!/bin/sh
+
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2007-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+
+# Skeleton for a script intended to run the mstone1(N) 
+# performance test.
+#
+
+# Get the name of the program
+program=`echo $0 | sed 's#.*/##g'`
+
+usage="\
+Usage: $program [options]
+
+This shell script is used to run the mstone 1 (factor) performance 
+test. It is not intended to test the megaco stack but instead to 
+give a \"performance value\" of the host on which it is run.
+
+Options:
+ -help                  display this help and exit.
+ -mp <message package>  message package to use for test
+                        default is time_test
+ -h <num>               default process heap size
+ -a <num>               async thread pool size (default is 0)
+ -f <factor>            normally the test is run with 16 processes 
+                        (factor 1), one for each codec config. The test 
+                        can however be run with other factors, e.g. 
+                        factor 10 means that 10 processes will be started 
+                        for each megaco codec config.
+                        The options -s and -f cannot both be present.
+ -s <num sched>         normally the test is run with a fixed factor,
+                        but if this option is given, the number of
+                        schedulers is fixed (to the value set by this option)
+                        and the factor is the variable.
+                        The options -s and -f cannot both be present.
+ -d <drv-mode>          driver mode for the test:
+                        std  - all codec config(s) will be used
+                        flex - only the text codec config(s) utilizing the 
+                               flex scanner will be used
+                        nd   - only codec config(s) without drivers will be used
+                        od   - only codec config(s) with drivers will be used
+ --                     everything after this is just passed on to erl.
+"
+
+ERL_HOME=<path to otp top dir>
+MEGACO_HOME=$ERL_HOME/lib/erlang/lib/<megaco dir>
+MEAS_HOME=$MEGACO_HOME/examples/meas
+PATH=$ERL_HOME/bin:$PATH
+
+MODULE=megaco_codec_mstone1
+STARTF="start"
+FACTOR=""
+MSG_PACK=time_test
+
+while test $# != 0; do
+    # echo "DBG: Value = $1"
+    case  $1 in
+        -help)
+            echo "$usage" ;
+            exit 0;;
+
+        -mp)
+            MSG_PACK="$2";
+            shift ; shift ;;
+
+        -h)
+            PHS="+h $2";
+            shift ; shift ;;
+
+        -a)
+            ATP="+A $2";
+            shift ; shift ;;
+
+        -d)
+	    case $2 in
+		std)
+		    STARTF="start";
+		    shift ; shift ;;
+		flex)
+		    STARTF="start_flex";
+		    shift ; shift ;;
+		nd)
+		    STARTF="start_no_drv";
+		    shift ; shift ;;
+		od)
+		    STARTF="start_only_drv";
+		    shift ; shift ;;
+		*)
+		    echo "unknown driver mode: $2";
+		    echo "$usage" ;
+		    exit 0
+	    esac;;
+	    
+        -f)
+            if [ "x$SCHED" != "x" ]; then
+                echo "option(s) -s and -f cannot both be given" ;
+                echo "$usage" ;
+                exit 0
+            fi
+            FACTOR="$2";
+            TYPE=factor;
+            shift ; shift ;;
+
+        -s)
+            if [ "x$FACTOR" != "x" ]; then
+                echo "option(s) -f and -s cannot both be given" ;
+                echo "$usage" ;
+                exit 0
+            fi
+            SCHED="$2";
+            TYPE=sched;
+            shift ; shift ;;
+
+        --)
+            shift ;
+            break;;
+
+        *)
+            echo "unknown option: $1";
+            echo "$usage" ;
+            exit 0
+    esac
+done
+
+if [ $TYPE = factor ]; then
+
+    MSTONE="-s $MODULE $STARTF $MSG_PACK $FACTOR"
+
+    # SCHEDS="no_smp 01 02 04"
+    # SCHEDS="no_smp 01 02 04 08"
+    # SCHEDS="no_smp 01 02 04 08 16"
+    # SCHEDS="no_smp 01 02 04 08 16 32"
+    # SCHEDS="no_smp 01 02 04 08 16 32 64"
+    SCHEDS="no_smp 01 02 03 04 05 06 07 08"
+
+    for i in `echo $SCHEDS`; do
+        case $i in
+            no_smp)
+                SMP_INFO="No SMP"
+                SMP_OPTS="-smp disable" # THIS IS THE R12B WAY TO DISABLE SMP
+                LOG="mstone1-f$FACTOR-s00.log"
+                ;;
+
+            01)
+                SMP_INFO="SMP: 1 scheduler"
+                SMP_OPTS="-smp +S $i"
+                LOG="mstone1-f$FACTOR-s$i.log"
+                ;;
+
+            *)
+                SMP_INFO="SMP: $i schedulers"
+                SMP_OPTS="-smp +S $i"
+                LOG="mstone1-f$FACTOR-s$i.log"
+                ;;
+        esac
+
+        echo ""
+        echo "---------------------------------------------"
+        echo "$SMP_INFO"
+        echo ""
+
+        ERL="erl \
+          -noshell \
+          $PHS \
+          $ATP \
+          $SMP_OPTS \
+          -pa $MEAS_HOME \
+          $MSTONE \
+          $* \
+          -s init stop"
+
+        echo $ERL
+        $ERL | tee $LOG
+    done
+
+elif [ $TYPE = sched ]; then
+
+    MSTONE="-s $MODULE $STARTF $MSG_PACK"
+
+    # FACTORS="01 02 03 04"
+    # FACTORS="01 02 03 04 05 06 07 08 09 10"
+    FACTORS="01 02 04 08 16 32"
+    # FACTORS="001 010 100"
+
+    case $SCHED in
+        no_smp)
+            SMP_OPTS="-smp disable" # THIS IS THE R12B WAY TO DISABLE SMP
+            ;;
+
+        *)
+            SMP_OPTS="-smp +S $SCHED"
+            ;;
+    esac
+
+    for i in `echo $FACTORS`; do
+        LOG="mstone1-s$SCHED-f$i.log"
+
+        echo ""
+        echo "---------------------------------------------"
+        echo "Factor $i"
+        echo ""
+
+        ERL="erl \
+          -noshell \
+          $PHS \
+          $ATP \
+          $SMP_OPTS \
+          -pa $MEAS_HOME \
+          $MSTONE $i \
+          $* \
+          -s init stop"
+
+        echo $ERL
+        $ERL | tee $LOG
+    done
+
+
+else
+    echo "Either option -f or -s must be specified"
+    echo "$usage" ;
+    exit 0
+    
+fi

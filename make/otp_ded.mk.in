@@ -1,0 +1,22 @@
+#-*-makefile-*-   ; force emacs to enter makefile-mode
+# ----------------------------------------------------
+# Make include file for otp
+#
+# Copyright (C) 1996, Ericsson Telecommunications
+# Author: Lars Thorsen
+# ----------------------------------------------------
+DED_CC = @CC@
+DED_LD = @DED_LD@
+DED_LDFLAGS = @DED_LDFLAGS@
+DED__NOWARN_CFLAGS = @DED_CFLAGS@
+DED_CFLAGS = @WFLAGS@ @DED_CFLAGS@
+DED_LIBS = @LIBS@
+ERLANG_OSTYPE = @ERLANG_OSTYPE@
+TARGET = @host@
+PRIVDIR = ../priv
+OBJDIR = $(PRIVDIR)/obj/$(TARGET)
+LIBDIR = $(PRIVDIR)/lib/$(TARGET)
+DED_SYS_INCLUDE = -I$(ERL_TOP)/erts/emulator/beam \
+	-I$(ERL_TOP)/erts/emulator/sys/$(ERLANG_OSTYPE)
+
+DED_INCLUDES = $(DED_SYS_INCLUDE)

@@ -1,0 +1,84 @@
+<?xml version="1.0"?>
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxMenuBar" name="main_menu">
+<style>wxMB_DOCKABLE</style>
+    <object class="wxMenu" name="file_tool_or_menuitem">
+        <label>_File</label>
+        <style>wxMENU_TEAROFF</style>
+        <object class="wxMenuItem" name="unload_resource_menuitem">
+            <label>_Unload resource\tCtrl-U</label>
+            <help>Unload basic dialog resource</help>
+        </object>
+        <object class="wxMenuItem" name="reload_resource_menuitem">
+            <label>_Reload resource\tCtrl-R</label>
+            <help>Reload basic dialog resource</help>
+        </object>
+
+        <!-- we use wxID_EXIT name here to get the default menu item stock icon -->
+        <object class="wxMenuItem" name="wxID_EXIT">
+            <label>E_xit\tAlt-X</label>
+            <help>Exit this application</help>
+        </object>
+    </object>
+    <object class="wxMenu" name="basic_demos_menu">
+        <label>_Basic</label>
+        <help>Basic techniques with XRC</help>
+         <object class="wxMenuItem" name="non_derived_dialog_tool_or_menuitem">
+            <label>_Non-Derived Dialog Example</label>
+            <bitmap>basicdlg.xpm</bitmap>
+            <help>The basic instance of wxDialog loaded via XRC</help>
+        </object>  
+        <object class="wxMenuItem" name="derived_tool_or_menuitem">
+            <label>_Derived Dialog Example</label>
+            <bitmap>derivdlg.xpm</bitmap>
+            <help>The most important example: load an XRC for a derived dialog</help>
+        </object>
+        <object class="wxMenuItem" name="controls_tool_or_menuitem">
+            <label>_Controls Example</label>
+            <bitmap>controls.xpm</bitmap>
+            <help>A notebook displaying all the wxWidgets controls</help>
+        </object>        
+        <object class="wxMenuItem" name="uncentered_tool_or_menuitem">
+            <label>_Uncentered Example</label>
+            <bitmap>uncenter.xpm</bitmap>
+            <help>Disable autocentering of a dialog on its parent</help>
+        </object>  
+    </object>        
+    <object class="wxMenu" name="advanced_demos_menu">
+        <label>_Advanced</label>
+        <help>Advanced techniques with XRC</help>
+         <object class="wxMenuItem" name="custom_class_tool_or_menuitem">
+            <label>_Custom Class Example</label>
+            <bitmap>custclas.xpm</bitmap>
+            <help>Embed your own custom classes into an XRC</help>
+        </object>  
+        <object class="wxMenuItem" name="platform_property_tool_or_menuitem">
+            <label>_Platform Specific Example</label>
+            <bitmap>platform.xpm</bitmap>
+            <help>Customize parts of an interface for a desired platform</help>
+        </object>
+        <object class="wxMenuItem" name="art_provider_tool_or_menuitem">
+            <label>wx_ArtProvider Example</label>
+            <bitmap>artprov.xpm</bitmap>
+            <help>Use wxArtProvider to insert desired icons at runtime</help>
+        </object>
+        <object class="wxMenuItem" name="variable_expansion_tool_or_menuitem">
+            <label>_Variable Expansion Example</label>
+            <bitmap>variable.xpm</bitmap>
+            <help>Replace variables in the XRC file at runtime</help>
+        </object>        
+    </object>    
+    <object class="wxMenu" name="help_menu">
+        <label>_Help</label>
+
+        <!-- we use wxID_ABOUT name here to get the default menu item stock icon -->
+        <object class="wxMenuItem" name="wxID_ABOUT">
+            <label>_About...</label>
+            <help>About this application</help>
+        </object>
+    </object>
+</object>
+
+</resource>

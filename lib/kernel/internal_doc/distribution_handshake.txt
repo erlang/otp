@@ -1,0 +1,215 @@
+HOW THE DISTRIBUTION HANDSHAKE WORKS
+------------------------------------
+
+This document describes the distribution handshake introduced in 
+the R6 release of Erlang/OTP.
+
+GENERAL
+-------
+
+The TCP/IP distribution uses a handshake which expects a
+connection based protocol, i.e. the protocol does not include
+any authentication after the handshake procedure.
+
+This is not entirelly safe, as it is vulnerable against takeover
+attacks, but it is a tradeoff between fair safety and performance.
+
+The cookies are never sent in cleartext and the handshake procedure
+expects the client (called A) to be the first one to prove that it can 
+generate a sufficient digest. The digest is generated with the 
+MD5 message digest algorithm and the challenges are expected to be very
+random numbers.
+
+DEFINITIONS
+-----------
+
+A challenge is a 32 bit integer number in big endian. Below the function
+gen_challenge() returns a random 32 bit integer used as a challenge.
+
+A digest is a (16 bytes) MD5 hash of [the Challenge (as text) concatenated
+with the cookie (as text)]. Below, the function gen_digest(Challenge, Cookie)
+generates a digest as described above.
+
+An out_cookie is the cookie used in outgoing communication to a certain node,
+so that A's out_cookie for B should correspond with B's in_cookie for A and 
+the other way around. A's out_cookie for B and A's in_cookie for B need *NOT*
+be the same. Below the function out_cookie(Node) returns the current
+node's out_cookie for Node.
+
+An in_cookie is the cookie expected to be used by another node when 
+communicating with us, so that A's in_cookie for B corresponds with B's 
+out_cookie for A. Below the function in_cookie(Node) returns the current
+node's in_cookie for Node.
+
+The cookies are text strings that can be viewed as passwords.
+
+Every message in the handshake starts with a 16 bit big endian integer 
+which contains the length of the message (not counting the two initial bytes).
+In erlang this corresponds to the gen_tcp option {packet, 2}. Note that after 
+the handshake, the distribution switches to 4 byte backet headers.
+
+THE HANDSHAKE IN DETAIL
+-----------------------
+ 
+Imagine two nodes, node A, which initiates the handshake and node B, whitch
+accepts the connection.
+
+1) connect/accept: A connects to B via TCP/IP and B accepts the connection.
+
+2) send_name/receive_name: A sends an initial identification to B. 
+B receives the message. The message looks
+like this (every "square" beeing one byte and the packet header removed):
+
++---+--------+--------+-----+-----+-----+-----+-----+-----+-...-+-----+
+|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Name0|Name1| ... |NameN|
++---+--------+--------+-----+-----+-----+-----+-----+-----+-... +-----+
+
+The 'n' is just a message tag,
+Version0 & Version1 is the distribution version selected by node A,
+                    based on information from EPMD. (16 bit big endian)
+Flag0 ... Flag3 is capability flags, the capabilities defined in dist.hrl.
+                (32 bit big endian)
+Name0 ... NameN is the full nodename of A, as a string of bytes (the
+                packet length denotes how long it is).
+
+3) recv_status/send_status: B sends a status message to A, which indicates
+if the connection is allowed. Four different status codes are defined:
+ok: The handshake will continue.
+ok_simultaneous: The handshake will continue, but A is informed that B
+                 has another ongoing connection attempt that will be
+		 shut down (simultaneous connect where A's name is 
+		 greater than B's name, compared literally),
+nok: The handshake will not continue, as B already has an ongoing handshake
+     which it itself has initiated. (simultaneous connect where B's name is 
+     greater than A's)
+not_allowed: The connection is disallowed for some (unspecified) security 
+             reason.
+alive: A connection to the node is already active, which either means
+       that node A is confused or that the TCP connection breakdown
+       of a previous node with this name has not yet reached node B.
+       See 3B below.
+
+This is the format of the status message:
+
++---+-------+-------+ ... +-------+
+|'s'|Status0|Status1| ... |StatusN|
++---+-------+-------+ ... +-------+
+
+'s' is the message tag
+Status0 ... StatusN is the status as a string (not terminated)
+
+3B) send_status/recv_status: If status was 'alive', node A will answer with
+another status message containing either 'true' which means that the
+connection should continue (The old connection from this node is broken), or
+'false', which simply means that the connection should be closed, the 
+connection attempt was a mistake.
+
+4) recv_challenge/send_challenge: If the status was 'ok' or 'ok_simultaneous',
+The handshake continues with B sending A another message, the challenge.
+The challenge contains the same type of information as the "name" message 
+initially sent from A to B, with the addition of a 32 bit challenge:
+
++---+--------+--------+-----+-----+-----+-----+-----+-----+-----+-----+---
+|'n'|Version0|Version1|Flag0|Flag1|Flag2|Flag3|Chal0|Chal1|Chal2|Chal3|
++---+--------+--------+-----+-----+-----+-----+-----+-----+---- +-----+---
+   ------+-----+-...-+-----+
+    Name0|Name1| ... |NameN|
+   ------+-----+-... +-----+
+
+Where Chal0 ... Chal3 is the challenge as a 32 bit biog endian integer
+and the other fields are B's version, flags and full nodename.
+
+5) send_challenge_reply/recv_challenge_reply: Now A has generated
+a digest and it's own challenge. Those are sent together in a package
+to B:
+
++---+-----+-----+-----+-----+-----+-----+-----+-----+
+|'r'|Chal0|Chal1|Chal2|Chal3|Dige0|Dige1|Dige2|Dige3|
++---+-----+-----+-----+-----+-----+-----+---- +-----+
+
+Where 'r' is the tag, Chal0 ... Chal3 is A's challenge for B to handle and
+Dige0 ... Dige3 is the digest that A constructed from the challenge B sent
+in the previous step.
+
+6) recv_challenge_ack/send_challenge_ack: B checks that the digest received
+from A is correct and generates a digest from the challenge received from 
+A. The digest is then sent to A. The message looks like this:
+
++---+-----+-----+-----+-----+
+|'a'|Dige0|Dige1|Dige2|Dige3|
++---+-----+-----+---- +-----+
+
+Where 'a' is the tag and Dige0 ... Dige3 is the digest calculated by B
+for A's challenge.
+
+7) A checks the digest from B and the connection is up.
+
+SEMIGRAPHIC VIEW
+----------------
+
+A (initiator)						B (acceptor)
+
+TCP connect ----------------------------------------->	
+							TCP accept
+
+send_name   ----------------------------------------->	
+							recv_name
+
+	    <----------------------------------------	send_status
+recv_status
+(if status was 'alive'
+ send_status - - - - - - - - - - - - - - - - - - - ->   
+							recv_status)
+							ChB = gen_challenge()
+		          (ChB)
+	    <----------------------------------------	send_challenge
+recv_challenge
+
+ChA = gen_challenge(),
+OCA = out_cookie(B),
+DiA = gen_digest(ChB,OCA)
+			  (ChA, DiA)
+send_challenge_reply -------------------------------->
+							recv_challenge_reply
+							ICB = in_cookie(A),
+							check:
+							DiA == gen_digest
+								(ChB, ICB) ?
+							- if OK:
+	    						 OCB = out_cookie(A),
+							 DiB = gen_digest
+			(DiB)					(ChA, OCB)
+	    <-----------------------------------------	 send_challenge_ack
+recv_challenge_ack					 DONE
+ICA = in_cookie(B),                                     - else
+check:                                                   CLOSE
+DiB == gen_digest(ChA,ICA) ?
+- if OK
+ DONE
+- else
+ CLOSE
+
+
+THE CURRENTLY DEFINED FLAGS
+---------------------------
+Currently the following capability flags are defined:
+
+%% The node should be published and part of the global namespace
+-define(DFLAG_PUBLISHED,1).
+
+%% The node implements an atom cache
+-define(DFLAG_ATOM_CACHE,2).
+
+%% The node implements extended (3 * 32 bits) references
+-define(DFLAG_EXTENDED_REFERENCES,4).
+
+%% The node implements distributed process monitoring.
+-define(DFLAG_DIST_MONITOR,8).
+ 
+%% The node uses separate tag for fun's (labmdas) in the distribution protocol.
+-define(DFLAG_FUN_TAGS,16).
+ 
+An R6 erlang node implements all of the above, while a C or Java node only
+implements DFLAG_EXTENDED_REFERENCES.
+
+Last modified 1999-11-08 -- Patrik Nyblom, OTP

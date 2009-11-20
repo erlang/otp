@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>start</title>
+    <prepared>Kent Boortz</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>99-12-15</date>
+    <rev></rev>
+    <file>start.xml</file>
+  </header>
+  <com>start</com>
+  <comsummary>OTP start script example for Unix</comsummary>
+  <description>
+    <p>This describes the <c><![CDATA[start]]></c> script that is an example script on
+      how to startup the Erlang system in embedded mode on Unix.</p>
+    <p>You can read more about the use in the <c><![CDATA[Embedded System User's Guide]]></c>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>start [ data_file ]</name>
+      <fsummary>This is an example script on how to startup the Erlang system in embedded mode on Unix.</fsummary>
+      <desc>
+        <p>In the example there is one argument</p>
+        <taglist>
+          <tag>data_file</tag>
+          <item>Optional, specifies what <c><![CDATA[start_erl.data]]></c> file
+           to use.</item>
+        </taglist>
+        <p>There is also an environment variable <c><![CDATA[RELDIR]]></c> that can
+          be set prior to calling this example that set the directory
+          where to find the release files.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p>run_erl(1), start_erl(1)</p>
+  </section>
+</comref>
+

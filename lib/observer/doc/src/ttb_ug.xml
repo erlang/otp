@@ -1,0 +1,798 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Trace Tool Builder</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>ttb_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The Trace Tool Builder is a base for building trace tools for
+      single node or distributed erlang systems. It requires the
+      <c>runtime_tools</c> application to be available on the traced
+      node.
+      </p>
+    <p>The main features of the Trace Tool Builder are:</p>
+    <list type="bulleted">
+      <item>Start tracing to file ports on several nodes with one
+       function call.</item>
+      <item>Write additional information to a trace information file,
+       which is read during formatting.</item>
+      <item>Restoring of previous configuration by maintaining a
+       history buffer and handling configuration files.</item>
+      <item>Some simple support for sequential tracing.</item>
+      <item>Formatting of binary trace logs and merging of logs from
+       multiple nodes.</item>
+    </list>
+    <p>Even though the intention of the Trace Tool Builder is to serve
+      as a base for tailor made trace tools, it is of course possible
+      to use it directly from the erlang shell. The application only
+      allows the use of file port tracer, so if you would like would
+      like to use other types of trace clients you will be better off
+      using <c>dbg</c> directly instead.</p>
+  </section>
+
+  <section>
+    <title>Getting Started</title>
+    <p>The <c>ttb</c> module is the interface to all functions in the
+      Trace Tool Builder. To get started the least you need to do is to
+      start a tracer with <c>ttb:tracer/0/1/2</c>, and set the required
+      trace flags on the processes you want to trace with
+      <c>ttb:p/2</c>. Then, when the tracing is completed, you must stop
+      the tracer with <c>ttb:stop/0/1</c> and format the trace log with
+      <c>ttb:format/1/2</c>.
+      </p>
+    <p><c>ttb:tracer/0/1/2</c> opens a file trace port on each node
+      that shall be traced. All trace messages will be written to this
+      port and end up in a binary file (the binary trace log).
+      </p>
+    <p><c>ttb:p/2</c> specifies which processes that shall be
+      traced. Trace flags given in this call specifies what to trace on
+      each process. You can call this function several times if you like
+      different trace flags to be set on different processes.
+      </p>
+    <p>If you want to trace function calls (i.e. if you have the
+      <c>call</c> trace flag set on any of your processes), you must
+      also set trace patterns on the required function(s) with
+      <c>ttb:tp</c> or <c>ttb:tpl</c>. A function is only traced if it
+      has a trace pattern. The trace pattern specifies how to trace the
+      function by using match specifications. Match specifications are
+      described in the User's Guide for the erlang runtime system
+      <c>erts</c>.
+      </p>
+    <p><c>ttb:stop/0/1</c> stops tracing on all nodes, deletes all
+      trace patterns and flushes the trace port buffer.
+      </p>
+    <p><c>ttb:format/1/2</c> translates the binary trace logs into
+      something readable. By default <c>ttb</c> presents each trace
+      message as a line of text, but you can also write your own handler
+      to make more complex interpretations of the trace information. A
+      trace log can even be presented graphically via the Event Tracer
+      application. Note that if you give the <c>format</c> option to
+      <c>ttb:stop/1</c> the formatting is automatically done when
+      stopping <c>ttb</c>.
+      </p>
+
+    <section>
+      <title>Example: Tracing the local node from the erlang shell</title>
+      <p>This small module is used in the example:</p>
+      <code type="none">
+-module(m).
+-export([f/0]).
+f() ->
+   receive 
+      From when pid(From) -> 
+         Now = erlang:now(),
+         From ! {self(),Now}
+   end.      </code>
+      <p>The following example shows the basic use of <c>ttb</c> from
+        the erlang shell. Default options are used both for starting the
+        tracer and for formatting. This gives a trace log named
+        <c>Node-ttb</c>, where <c>Node</c> is the name of the node.  The
+        default handler prints the formatted trace messages in the
+        shell.</p>
+      <code type="none"><![CDATA[
+(tiger@durin)47> %% First I spawn a process running my test function
+(tiger@durin)47> Pid = spawn(m,f,[]).
+<0.125.0>
+(tiger@durin)48> 
+(tiger@durin)48> %% Then I start a tracer...
+(tiger@durin)48> ttb:tracer().
+{ok,[tiger@durin]}
+(tiger@durin)49> 
+(tiger@durin)49> %% and activate the new process for tracing
+(tiger@durin)49> %% function calls and sent messages.
+(tiger@durin)49> ttb:p(Pid,[call,send]).
+{ok,[{<0.125.0>,[{matched,tiger@durin,1}]}]}
+(tiger@durin)50> 
+(tiger@durin)50> %% Here I set a trace pattern on erlang:now/0
+(tiger@durin)50> %% The trace pattern is a simple match spec
+(tiger@durin)50> %% generated by dbg:fun2ms/1. It indicates that 
+(tiger@durin)50> %% the return value shall be traced.
+(tiger@durin)50> MS = dbg:fun2ms(fun(_) -> return_trace() end).
+[{'_',[],[{return_trace}]}]
+(tiger@durin)51> ttb:tp(erlang,now,MS).
+{ok,[{matched,tiger@durin,1},{saved,1}]}
+(tiger@durin)52> 
+(tiger@durin)52> %% I run my test (i.e. send a message to
+(tiger@durin)52> %% my new process)
+(tiger@durin)52> Pid ! self().
+<0.72.0>
+(tiger@durin)53> 
+(tiger@durin)53> %% And then I have to stop ttb in order to flush
+(tiger@durin)53> %% the trace port buffer
+(tiger@durin)53> ttb:stop().
+stopped
+(tiger@durin)54> 
+(tiger@durin)54> %% Finally I format my trace log
+(tiger@durin)54> ttb:format("tiger@durin-ttb").
+({<0.125.0>,{m,f,0},tiger@durin}) call erlang:now()
+({<0.125.0>,{m,f,0},tiger@durin}) returned from erlang:now/0 ->
+{1031,133451,667611}
+({<0.125.0>,{m,f,0},tiger@durin}) <0.72.0> ! 
+{<0.125.0>,{1031,133451,667611}}
+ok      ]]></code>
+    </section>
+
+    <section>
+      <title>Example: Build your own tool</title>
+      <p>This small example shows a simple tool for "debug tracing",
+        i.e. tracing of function calls with return values.</p>
+      <code type="none"><![CDATA[
+-module(mydebug).
+-export([start/0,trc/1,stop/0,format/1]).
+-export([print/4]).
+
+%% Include ms_transform.hrl so that I can use dbg:fun2ms/2 to
+%% generate match specifications.
+-include_lib("stdlib/include/ms_transform.hrl").
+
+%%% -------------Tool API-------------
+%%% ----------------------------------
+%%% Star the "mydebug" tool
+start() ->
+    %% The options specify that the binary log shall be named
+    %% <Node>-debug_log and that the print/4 function in this
+    %% module shall be used as format handler
+    ttb:tracer(all,[{file,"debug_log"},{handler,{{?MODULE,print},0}}]),
+    %% All processes (existing and new) shall trace function calls
+    %% and include a timestamp in each trace message
+    ttb:p(all,[call,timestamp]).
+
+%%% Set trace pattern on function(s)
+trc(M) when atom(M) ->
+    trc({M,'_','_'});
+trc({M,F}) when atom(M), atom(F) ->
+    trc({M,F,'_'});
+trc({M,F,_A}=MFA) when atom(M), atom(F) ->
+    %% This match spec specifies that return values shall 
+    %% be traced. NOTE that ms_transform.hrl must be included
+    %% if dbg:fun2ms/1 shall be used!
+    MatchSpec = dbg:fun2ms(fun(_) -> return_trace() end),
+    ttb:tpl(MFA,MatchSpec).
+
+%%% Format a binary trace log
+format(File) ->
+    ttb:format(File).
+
+%%% Stop the "mydebug" tool
+stop() ->
+    ttb:stop().
+
+%%% --------Internal functions--------
+%%% ----------------------------------
+%%% Format handler
+print(_Out,end_of_trace,_TI,N) ->
+    N;
+print(Out,Trace,_TI,N) ->
+    do_print(Out,Trace,N),
+    N+1.
+
+do_print(Out,{trace_ts,P,call,{M,F,A},Ts},N) ->
+    io:format(Out,
+              "~w: ~w, ~w:~n"
+              "Call      : ~w:~w/~w~n"
+              "Arguments :~p~n~n",
+              [N,Ts,P,M,F,length(A),A]);
+do_print(Out,{trace_ts,P,return_from,{M,F,A},R,Ts},N) ->
+    io:format(Out,
+              "~w: ~w, ~w:~n"
+              "Return from  : ~w:~w/~w~n"
+              "Return value :~p~n~n",
+              [N,Ts,P,M,F,A,R]).      ]]></code>
+      <p>To distinguish trace logs produced with this tool from other
+        logs, the <c>file</c> option is used in <c>tracer/2</c>. The
+        logs will therefore be named <c>Node-debug_log</c>, where
+        <c>Node</c> is the name of the node where the log is produced.
+        </p>
+      <p>By using the <c>handler</c> option when starting the tracer,
+        the information about how to format the file is stored in the
+        trace information file (<c>.ti</c>). This is not necessary, as
+        it might be given at the time of formatting instead. It can
+        however be useful if you e.g. want to automatically format your
+        trace logs by using the <c>format</c> option in
+        <c>ttb:stop/1</c>. It also means that you don't need any
+        knowledge of the content of a binary log to be able to format it
+        the way it was intended. If the <c>handler</c> option is given
+        both when starting the tracer and when formatting, the one given
+        when formatting is used.
+        </p>
+      <p>The <c>call</c> trace flag is set on all processes. This
+        means that any function activated with the <c>trc/1</c> command
+        will be traced on all existing and new processes.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Running the Trace Tool Builder against a remote node</title>
+    <p>The Observer application might not always be available on the
+      node that shall be traced (in the following called the "traced
+      node"). It is still possible to run the Trace Tool Builder from
+      another node (in the following called the "trace control node") as
+      long as
+      </p>
+    <list type="bulleted">
+      <item>The Observer application is available on the trace control node.</item>
+      <item>The Runtime Tools application is available on both the
+       trace control node and the traced node.</item>
+    </list>
+    <p>If the Trace Tool Builder shall be used against a remote node,
+      it is highly recommended to start the trace control node as
+      <em>hidden</em>. This way it can connect to the traced node
+      without the traced node "seeing" it, i.e. if the <c>nodes()</c>
+      BIF is called on the traced node, the trace control node will not
+      show. To start a hidden node, add the <c>-hidden</c> option to the
+      <c>erl</c> command, e.g.</p>
+    <code type="none">
+% erl -sname trace_control -hidden    </code>
+
+    <section>
+      <title>Diskless node</title>
+      <p>If the traced node is diskless, <c>ttb</c> must be started from
+        a trace control node with disk access, and the <c>file</c> option
+        must be given to the <c>tracer/2</c> function with the value
+        <c>{local, File}</c>, e.g.</p>
+      <code type="none">
+(trace_control@durin)1> ttb:tracer(mynode@diskless,[{file,{local,
+{wrap,"mytrace"}}}]).
+{ok,[mynode@diskless]}      </code>
+    </section>
+  </section>
+
+  <section>
+    <marker id="trace_info"></marker>
+    <title>Trace Information and the .ti File</title>
+    <p>In addition to the trace log file(s), a file with the extension
+      <c>.ti</c> is created when the Trace Tool Builder is started. This
+      is the trace information file. It is a binary file, and it
+      contains the process information, trace flags used, the name of
+      the node to which it belongs and all information written with the
+      <c>write_trace_info/2</c> function.
+      </p>
+    <p>To be able to use all this information during formatting, it is
+      important that the trace information file exists in the same
+      directory as the trace log, and that it has the same name as the
+      trace log with the additional extension <c>.ti</c>.
+      </p>
+    <p>Except for the process information, everything in the trace
+      information file is passed on to the handler function when
+      formatting. The <c>TI</c> parameter is a list of
+      <c>{Key,ValueList}</c> tuples. The keys <c>flags</c>,
+      <c>handler</c>, <c>file</c> and <c>node</c> are used for
+      information written directly by <c>ttb</c>.
+      </p>
+    <p>You can add information to the trace information file by
+      calling <c>write_trace_info/2</c>. Note that <c>ValueList</c>
+      always will be a list, and if you call <c>write_trace_info/2</c>
+      several times with the same <c>Key</c>, the <c>ValueList</c> will
+      be extended with a new value each time. Example:
+      </p>
+    <p><c>ttb:write_trace_info(mykey,1)</c> gives the entry
+      <c>{mykey,[1]}</c> in <c>TI</c>. Another call,
+      <c>ttb:write_trace_info(mykey,2)</c>, changes this entry to
+      <c>{mykey,[1,2]}</c>.
+      </p>
+  </section>
+
+  <section>
+    <title>Wrap Logs</title>
+    <p>If you want to limit the size of the trace logs, you can use
+      wrap logs. This works almost like a circular buffer. You can
+      specify the maximum number of binary logs and the maximum size of
+      each log. <c>ttb</c> will create a new binary log each time a log
+      reaches the maximum size. When the the maximum number of logs are
+      reached, the oldest log is deleted before a new one is created.
+      </p>
+    <p>Wrap logs can be formatted one by one or all at once. See
+      <seealso marker="#format">Formatting</seealso>.
+      </p>
+  </section>
+
+  <section>
+    <marker id="format"></marker>
+    <title>Formatting</title>
+    <p>Formatting can be done automatically when stopping <c>ttb</c>
+      (see <seealso marker="#fetch_format">Automatically collect and format logs from all nodes</seealso>), or explicitly by calling
+      the <c>ttb:format/1/2</c> function.
+      </p>
+    <p>Formatting means to read a binary log and present it in a
+      readable format. You can use the default format handler in
+      <c>ttb</c> to present each trace message as a line of text, or
+      write your own handler to make more complex interpretations of the
+      trace information. You can even use the Event Tracer <c>et</c> to
+      present the trace log graphically (see <seealso marker="#et_viewer">Presenting trace logs with Event Tracer</seealso>).
+      </p>
+    <p>The first argument to <c>ttb:format/1/2</c> specifies which
+      binary log(s) to format. This can be the name of one binary log, a
+      list of such logs or the name of a directory containing one or
+      more binary logs. If this argument indicates more than one log,
+      and the <c>timestamp</c> flag was set when tracing, the trace
+      messages from the different logs will be merged according to the
+      timestamps in each message.
+      </p>
+    <p>The second argument to <c>ttb:format/2</c> is a list of
+      options. The <c>out</c> option specifies the destination where the
+      formatted text shall be written. Default destination is
+      <c>standard_io</c>, but a filename can also be given. The
+      <c>handler</c> option specifies the format handler to use. If this
+      option is not given, the <c>handler</c> option given when starting
+      the tracer is used. If the <c>handler</c> option was not given
+      when starting the tracer either, a default handler is used, which
+      prints each trace message as a line of text.
+      </p>
+    <p>A format handler is a fun taking four arguments. This fun will
+      be called for each trace message in the binary log(s). A simple
+      example which only prints each trace message could be like this:</p>
+    <code type="none">
+fun(Fd, Trace, _TraceInfo, State) ->
+   io:format(Fd, "Trace: ~p~n", [Trace]),
+   State
+end.    </code>
+    <p><c>Fd</c> is the file descriptor for the destination file, or
+      the atom <c>standard_io</c>. <c>_TraceInfo</c> contains information
+      from the trace information file (see <seealso marker="#trace_info">Trace Information and the .ti File</seealso>). <c>State</c> is a state variable for the format
+      handler fun. The initial value of the <c>State</c> variable is
+      given with the handler option, e.g.</p>
+    <code type="none">
+ttb:format("tiger@durin-ttb", [{handler, {{Mod,Fun}, initial_state}}])
+                                                     ^^^^^^^^^^^^^    </code>
+    <p>Another format handler could be used to calculate time spent by
+      the garbage collector:</p>
+    <code type="none">
+fun(_Fd,{trace_ts,P,gc_start,_Info,StartTs},_TraceInfo,State) ->
+      [{P,StartTs}|State];
+   (Fd,{trace_ts,P,gc_end,_Info,EndTs},_TraceInfo,State) ->
+      {value,{P,StartTs}} = lists:keysearch(P,1,State),
+      Time = diff(StartTs,EndTs),
+      io:format("GC in process ~w: ~w milliseconds~n", [P,Time]),
+      State -- [{P,StartTs}]
+end    </code>
+    <p>A more refined version of this format handler is the function
+      <c>handle_gc/4</c> in the module <c>multitrace.erl</c> which can
+      be found in the <c>src</c> directory of the Observer application.
+      </p>
+    <p>By giving the format handler <c>et</c>, you can have the trace
+      log presented graphically with <c>et_viewer</c> in the Event
+      Tracer application (see <seealso marker="#et_viewer">Presenting trace logs with Event Tracer</seealso>).
+      </p>
+    <p>Wrap logs can be formatted one by one or all in one go. To
+      format one of the wrap logs in a set, give the exact name of the
+      file. To format the whole set of wrap logs, give the name with '*'
+      instead of the wrap count. An example:
+      </p>
+    <p>Start tracing:</p>
+    <code type="none">
+(tiger@durin)1> ttb:tracer(node(),[{file,{wrap,"trace"}}]).
+{ok,[tiger@durin]}
+(tiger@durin)2> ttb:p(...)
+...    </code>
+    <p>This will give a set of binary logs, like:</p>
+    <code type="none">
+tiger@durin-trace.0.wrp
+tiger@durin-trace.1.wrp
+tiger@durin-trace.2.wrp
+...    </code>
+    <p>Format the whole set of logs:</p>
+    <code type="none">
+1> ttb:format("tiger@durin-trace.*.wrp").
+....
+ok
+2>    </code>
+    <p>Format only the first log:</p>
+    <code type="none">
+1> ttb:format("tiger@durin-trace.0.wrp").
+....
+ok
+2>    </code>
+    <p>To merge all wrap logs from two nodes:</p>
+    <code type="none">
+1> ttb:format(["tiger@durin-trace.*.wrp","lion@durin-trace.*.wrp"]).
+....
+ok
+2>    </code>
+
+    <section>
+      <marker id="et_viewer"></marker>
+      <title>Presenting trace logs with Event Tracer</title>
+      <p>For detailed information about the Event Tracer, please turn
+        to the User's Guide and Reference Manuals for the <c>et</c>
+        application.
+        </p>
+      <p>By giving the format handler <c>et</c>, you can have the
+        trace log presented graphically with <c>et_viewer</c> in the
+        Event Tracer application. <c>ttb</c> provides a few different
+        filters which can be selected from the Filter menu in the
+        <c>et_viewer</c> window. The filters are names according to the
+        type of actors they present (i.e. what each vertical line in the
+        sequence diagram represent). Interaction between actors is shown
+        as red arrows between two vertical lines, and activities within
+        an actor are shown as blue text to the right of the actors line.
+        </p>
+      <p>The <c>processes</c> filter is the only filter which will
+        show all trace messages from a trace log. Each vertical line in
+        the sequence diagram represents a process. Erlang messages,
+        spawn and link/unlink are typical interactions between
+        processes. Function calls, scheduling and garbage collection are
+        typical activities within a process. <c>processes</c> is the
+        default filter.
+        </p>
+      <p>The rest of the filters will only show function calls and
+        function returns. All other trace message are discarded. To get
+        the most out of these filters, <c>et_viewer</c> needs to known
+        the caller of each function and the time of return. This can be
+        obtained by using both the <c>call</c> and <c>return_to</c>
+        flags when tracing. Note that the <c>return_to</c> flag only
+        works with local call trace, i.e. when trace patterns are set
+        with <c>ttb:tpl</c>.
+        </p>
+      <p>The same result can be obtained by using the <c>call</c> flag
+        only and setting a match specification like this on local or
+        global function calls:</p>
+      <code type="none">
+1> dbg:fun2ms(fun(_) -> return_trace(),message(caller()) end).
+[{'_',[],[{return_trace},{message,{caller}}]}]      </code>
+      <p>This should however be done with care, since the
+        <c>{return_trace}</c> function in the match specification will
+        destroy tail recursiveness.
+        </p>
+      <p>The <c>modules</c> filter shows each module as a vertical
+        line in the sequence diagram. External function calls/returns
+        are shown as interactions between modules and internal function
+        calls/returns are shown as activities within a module.
+        </p>
+      <p>The <c>functions</c> filter shows each function as a vertical
+        line in the sequence diagram. A function calling itself is shown
+        as an activity within a function, and all other function calls
+        are shown as interactions between functions.
+        </p>
+      <p>The <c>mods_and_procs</c> and <c>funcs_and_procs</c> filters
+        are equivalent to the <c>modules</c> and <c>functions</c>
+        filters respectively, except that each module or function can
+        have several vertical lines, one for each process it resides on.
+        </p>
+      <p>As an example this module is used, and the function
+        <c>bar:f1()</c> is called from another module <c>foo</c>.</p>
+      <code type="none">
+-module(bar).
+-export([f1/0,f3/0]).
+f1() ->
+    f2(),
+    ok.
+f2() ->
+    spawn(?MODULE,f3,[]).
+f3() ->
+    ok.      </code>
+      <p>The <c>call</c> and <c>return_to</c> flags are used, and
+        trace pattern is set on local calls in module <c>bar</c>.
+        </p>
+      <p><c>ttb:format("tiger@durin-ttb", [{handler, et}])</c> gives the
+        following result:
+        </p>
+      <p></p>
+      <image file="et_processes.gif">
+        <icaption>Filter: "processes"</icaption>
+      </image>
+      <image file="et_modsprocs.gif">
+        <icaption>Filter: "mods_and_procs"</icaption>
+      </image>
+    </section>
+  </section>
+
+  <section>
+    <marker id="fetch_format"></marker>
+    <title>Automatically collect and format logs from all nodes</title>
+    <p>If the option <c>fetch</c> is given to the <c>ttb:stop/1</c>
+      function, trace logs and trace information files are fetched
+      from all nodes after tracing is stopped. The logs are stored in a
+      new directory named <c>ttb_upload-Timestamp</c> under the working
+      directory of the trace control node.
+      </p>
+    <p>If the option <c>format</c> is given to <c>ttb:stop/1</c>, the
+      trace logs are automatically formatted after tracing is
+      stopped. Note that <c>format</c> also implies <c>fetch</c>,
+      i.e. the trace logs will be collected from all nodes as for the
+      <c>fetch</c> option before they are formatted. All logs in the
+      upload directory are merged during formatting.
+      </p>
+  </section>
+
+  <section>
+    <title>History and Configuration Files</title>
+    <p>For the tracing functionality, <c>dbg</c> could be used instead
+      of the <c>ttb</c> for setting trace flags on processes and trace
+      patterns for call trace, i.e. the functions <c>p</c>, <c>tp</c>,
+      <c>tpl</c>, <c>ctp</c>, <c>ctpl</c> and <c>ctpg</c>. The only
+      thing added by <c>ttb</c> for these functions is that all calls
+      are stored in the history buffer and can be recalled and stored in
+      a configuration file. This makes it easy to setup the same trace
+      environment e.g. if you want to compare two test runs. It also
+      reduces the amount of typing when using <c>ttb</c> from the erlang
+      shell.
+      </p>
+    <p>Use <c>list_history/0</c> to see the content of the history
+      buffer, and <c>run_history/1</c> to re-execute one of the entries.
+      </p>
+    <p>The main purpose of the history buffer is the possibility to
+      create configuration files. Any function stored in the history
+      buffer can be written to a configuration file and used for
+      creating a specific configuration at any time with one single
+      function call.
+      </p>
+    <p>A configuration file is created or extended with
+      <c>write_config/2/3</c>. Configuration files are binary files
+      and can therefore only be read and written with functions provided
+      by <c>ttb</c>.
+      </p>
+    <p>You can write the complete content of the history buffer to a
+      config file by calling
+      <c>ttb:write_config(ConfigFile,all)</c>. And you can write
+      selected entries from the history by calling
+      <c>ttb:write_config(ConfigFile,NumList)</c>, where
+      <c>NumList</c> is a list of integers pointing out the history
+      entries to write.
+      </p>
+    <p>User defined entries can also be written to a config file by
+      calling the function
+      <c>ttb:write_config(ConfigFile,ConfigList)</c> where
+      <c>ConfigList</c> is a list of <c>{Module,Function,Args}</c>.
+      </p>
+    <p>Any existing file <c>ConfigFile</c> is deleted and a new file
+      is created when <c>write_config/2</c> is called. The option
+      <c>append</c> can be used if you wish to add something at the end
+      of an existing config file, e.g.
+      <c>ttb:write_config(ConfigFile,What,[append])</c>.
+      </p>
+
+    <section>
+      <title>Example: History and configuration files</title>
+      <p>See the content of the history buffer</p>
+      <code type="none"><![CDATA[
+(tiger@durin)191> ttb:tracer().                                    
+{ok,[tiger@durin]}
+(tiger@durin)192> ttb:p(self(),[garbage_collection,call]).               
+{ok,{[<0.1244.0>],[garbage_collection,call]}}
+(tiger@durin)193> ttb:tp(ets,new,2,[]).                                  
+{ok,[{matched,1}]}
+(tiger@durin)194> ttb:list_history().
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}}]      ]]></code>
+      <p>Execute an entry from the history buffer:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)195> ttb:ctp(ets,new,2).
+{ok,[{matched,1}]}
+(tiger@durin)196> ttb:list_history().
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}},
+ {4,{ttb,ctp,[ets,new,2]}}]
+(tiger@durin)197> ttb:run_history(3).
+ttb:tp(ets,new,2,[]) ->
+{ok,[{matched,1}]}      ]]></code>
+      <p>Write the content of the history buffer to a configuration
+        file:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)198> ttb:write_config("myconfig",all).
+ok
+(tiger@durin)199> ttb:list_config("myconfig").
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}},
+ {4,{ttb,ctp,[ets,new,2]}},
+ {5,{ttb,tp,[ets,new,2,[]]}}]      ]]></code>
+      <p>Extend an existing configuration:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)200> ttb:write_config("myconfig",[{ttb,tp,[ets,delete,1,[]]}],
+[append]).
+ok
+(tiger@durin)201> ttb:list_config("myconfig").
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}},
+ {4,{ttb,ctp,[ets,new,2]}},
+ {5,{ttb,tp,[ets,new,2,[]]}},
+ {6,{ttb,tp,[ets,delete,1,[]]}}]      ]]></code>
+      <p>Go back to a previous configuration after stopping Trace Tool
+        Builder:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)202> ttb:stop().
+ok
+(tiger@durin)203> ttb:run_config("myconfig").
+ttb:tracer(tiger@durin,[]) ->
+{ok,[tiger@durin]}
+
+ttb:p(<0.1244.0>,[garbage_collection,call]) ->
+{ok,{[<0.1244.0>],[garbage_collection,call]}}
+
+ttb:tp(ets,new,2,[]) ->
+{ok,[{matched,1}]}
+
+ttb:ctp(ets,new,2) ->
+{ok,[{matched,1}]}
+
+ttb:tp(ets,new,2,[]) ->
+{ok,[{matched,1}]}
+
+ttb:tp(ets,delete,1,[]) ->
+{ok,[{matched,1}]}
+
+ok      ]]></code>
+      <p>Write selected entries from the history buffer to a
+        configuration file:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)204> ttb:list_history().          
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}},
+ {4,{ttb,ctp,[ets,new,2]}},
+ {5,{ttb,tp,[ets,new,2,[]]}},
+ {6,{ttb,tp,[ets,delete,1,[]]}}]
+(tiger@durin)205> ttb:write_config("myconfig",[1,2,3,6]).
+ok
+(tiger@durin)206> ttb:list_config("myconfig").
+[{1,{ttb,tracer,[tiger@durin,[]]}},
+ {2,{ttb,p,[<0.1244.0>,[garbage_collection,call]]}},
+ {3,{ttb,tp,[ets,new,2,[]]}},
+ {4,{ttb,tp,[ets,delete,1,[]]}}]
+(tiger@durin)207>       ]]></code>
+    </section>
+  </section>
+
+  <section>
+    <title>Sequential Tracing</title>
+    <p>To learn what sequential tracing is and how it can be used,
+      please turn to the reference manual for the
+      <em><c>seq_trace</c></em> module in the <em><c>kernel</c></em>
+      application.
+      </p>
+    <p>The support for sequential tracing provided by the Trace Tool
+      Builder includes </p>
+    <list type="bulleted">
+      <item>Initiation of the system tracer. This is automatically
+       done when a trace port is started with <c>ttb:tracer/0/1/2</c></item>
+      <item>Creation of match specifications which activates
+       sequential tracing</item>
+    </list>
+    <p>Starting sequential tracing requires that a tracer has been
+      started with the <c>ttb:tracer/0/1/2</c> function. Sequential
+      tracing can then either be started via a trigger function with a
+      match specification created with <c>ttb:seq_trigger_ms/0/1</c>,
+      or directly by using the <c>seq_trace</c> module in the
+      <c>kernel</c> application.
+      </p>
+
+    <section>
+      <title>Example: Sequential tracing</title>
+      <p>In the following example, the function
+        <c>dbg:get_tracer/0</c> is used as trigger for sequential
+        tracing:</p>
+      <code type="none"><![CDATA[
+(tiger@durin)110> ttb:tracer().                               
+{ok,[tiger@durin]}
+(tiger@durin)111> ttb:p(self(),call).                               
+{ok,{[<0.158.0>],[call]}}
+(tiger@durin)112> ttb:tp(dbg,get_tracer,0,ttb:seq_trigger_ms(send)).
+{ok,[{matched,1},{saved,1}]}
+(tiger@durin)113> dbg:get_tracer(), seq_trace:reset_trace().         
+true
+(tiger@durin)114> ttb:stop().                                       
+ok
+(tiger@durin)115> ttb:format("tiger@durin-ttb").                    
+({<0.158.0>,{shell,evaluator,3},tiger@durin}) call dbg:get_tracer()
+SeqTrace [0]: ({<0.158.0>,{shell,evaluator,3},tiger@durin}) 
+{<0.237.0>,dbg,tiger@durin} ! {<0.158.0>,{get_tracer,tiger@durin}} 
+[Serial: {0,1}]
+SeqTrace [0]: ({<0.237.0>,dbg,tiger@durin}) 
+{<0.158.0>,{shell,evaluator,3},tiger@durin} ! {dbg,{ok,#Port<0.222>}} 
+[Serial: {1,2}]
+ok
+(tiger@durin)116>       ]]></code>
+      <p>Starting sequential tracing with a trigger is actually more
+        useful if the trigger function is not called directly from the
+        shell, but rather implicitly within a larger system. When
+        calling a function from the shell, it is simpler to start
+        sequential tracing directly, e.g.</p>
+      <code type="none"><![CDATA[
+(tiger@durin)116> ttb:tracer().                               
+{ok,[tiger@durin]}
+(tiger@durin)117> seq_trace:set_token(send,true), dbg:get_tracer(), 
+seq_trace:reset_trace().
+true
+(tiger@durin)118> ttb:stop().
+ok
+(tiger@durin)119> ttb:format("tiger@durin-ttb").
+SeqTrace [0]: ({<0.158.0>,{shell,evaluator,3},tiger@durin}) 
+{<0.246.0>,dbg,tiger@durin} ! {<0.158.0>,{get_tracer,tiger@durin}} 
+[Serial: {0,1}]
+SeqTrace [0]: ({<0.246.0>,dbg,tiger@durin}) 
+{<0.158.0>,{shell,evaluator,3},tiger@durin} ! {dbg,{ok,#Port<0.229>}} 
+[Serial: {1,2}]
+ok
+(tiger@durin)120>       ]]></code>
+      <p>In both examples above, the <c>seq_trace:reset_trace/0</c>
+        resets the trace token immediately after the traced function in
+        order to avoid lots of trace messages due to the printouts in
+        the erlang shell.
+        </p>
+      <p>All functions in the <c>seq_trace</c> module, except
+        <c>set_system_tracer/1</c>, can be used after the trace port has
+        been started with <c>ttb:tracer/0/1/2</c>.
+        </p>
+    </section>
+  </section>
+
+  <section>
+    <title>Example: Multipurpose trace tool</title>
+    <p>The module <c>multitrace.erl</c> which can be found in the
+      <c>src</c> directory of the Observer application implements a
+      small tool with three possible trace settings. The trace messages
+      are written to binary files which can be formatted with the
+      function <em><c>multitrace:format/1/2</c></em>.
+      </p>
+    <taglist>
+      <tag><em><c>multitrace:debug(What)</c></em></tag>
+      <item>Start calltrace on all processes and trace the given
+       function(s). The format handler used is
+      <c>multitrace:handle_debug/4</c> which prints each call and
+       return. <c>What</c> must be an item or a list of items to trace,
+       given on the format <c>{Module,Function,Arity}</c>,
+      <c>{Module,Function}</c> or just <c>Module</c>.</item>
+      <tag><em><c>multitrace:gc(Procs)</c></em></tag>
+      <item>Trace garbage collection on the given process(es). The
+       format handler used is <c>multitrace:handle_gc/4</c> which
+       prints start and stop and the time spent for each GC.</item>
+      <tag><em><c>multitrace:schedule(Procs)</c></em></tag>
+      <item>Trace in- and out-scheduling on the given process(es). The
+       format handler used is <c>multitrace:handle_schedule/4</c> which
+       prints each in and out scheduling with process, timestamp and
+       current function. It also prints the total time each traced
+       process was scheduled in.</item>
+    </taglist>
+  </section>
+</chapter>
+

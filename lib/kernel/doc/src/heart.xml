@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>heart</title>
+    <prepared>Magnus Fr&ouml;berg</prepared>
+    <docno></docno>
+    <date>1998-01-28</date>
+    <rev>A</rev>
+  </header>
+  <module>heart</module>
+  <modulesummary>Heartbeat Monitoring of an Erlang Runtime System</modulesummary>
+  <description>
+    <p>This modules contains the interface to the <c>heart</c> process.
+      <c>heart</c> sends periodic heartbeats to an external port
+      program, which is also named <c>heart</c>. The purpose of
+      the heart port program is to check that the Erlang runtime system
+      it is supervising is still running. If the port program has not
+      received any heartbeats within <c>HEART_BEAT_TIMEOUT</c> seconds
+      (default is 60 seconds), the system can be rebooted. Also, if
+      the system is equipped with a hardware watchdog timer and is
+      running Solaris, the watchdog can be used to supervise the entire
+      system.</p>
+    <p>An Erlang runtime system to be monitored by a heart program,
+      should be started with the command line flag <c>-heart</c> (see
+      also <seealso marker="erts:erl">erl(1)</seealso>. The <c>heart</c>
+      process is then started automatically:</p>
+    <pre>
+% <input>erl -heart ...</input></pre>
+    <p>If the system should be rebooted because of missing heart-beats,
+      or a terminated Erlang runtime system, the environment variable
+      <c>HEART_COMMAND</c> has to be set before the system is started.
+      If this variable is not set, a warning text will be printed but
+      the system will not reboot. However, if the hardware watchdog is
+      used, it will trigger a reboot <c>HEART_BEAT_BOOT_DELAY</c>
+      seconds later nevertheless (default is 60).</p>
+    <p>To reboot on the WINDOWS platform <c>HEART_COMMAND</c> can be
+      set to <c>heart -shutdown</c> (included in the Erlang delivery)
+      or of course to any other suitable program which can activate a
+      reboot.</p>
+    <p>The hardware watchdog will not be started under Solaris if
+      the environment variable <c>HW_WD_DISABLE</c> is set.</p>
+    <p>The <c>HEART_BEAT_TIMEOUT</c> and <c>HEART_BEAT_BOOT_DELAY</c>
+      environment variables can be used to configure the heart timeouts,
+      they can be set in the operating system shell before Erlang is
+      started or be specified at the command line:</p>
+    <pre>
+% <input>erl -heart -env HEART_BEAT_TIMEOUT 30 ...</input></pre>
+    <p>The value (in seconds) must be in the range 10 &lt; X &lt;= 65535.</p>
+    <p>It should be noted that if the system clock is adjusted with
+      more than <c>HEART_BEAT_TIMEOUT</c> seconds, <c>heart</c> will
+      timeout and try to reboot the system. This can happen, for
+      example, if the system clock is adjusted automatically by use of
+      NTP (Network Time Protocol).</p>
+    <p>In the following descriptions, all function fails with reason
+      <c>badarg</c> if <c>heart</c> is not started.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>set_cmd(Cmd) -> ok | {error, {bad_cmd, Cmd}}</name>
+      <fsummary>Set a temporary reboot command</fsummary>
+      <type>
+        <v>Cmd = string()</v>
+      </type>
+      <desc>
+        <p>Sets a temporary reboot command. This command is used if 
+          a <c>HEART_COMMAND</c> other than the one specified with
+          the environment variable should be used in order to reboot
+          the system. The new Erlang runtime system will (if it
+          misbehaves) use the environment variable
+          <c>HEART_COMMAND</c> to reboot.</p>
+        <p>Limitations: The length of the <c>Cmd</c> command string
+          must be less than 2047 characters.</p>
+      </desc>
+    </func>
+    <func>
+      <name>clear_cmd() -> ok</name>
+      <fsummary>Clear the temporary boot command</fsummary>
+      <desc>
+        <p>Clears the temporary boot command. If the system terminates,
+          the normal <c>HEART_COMMAND</c> is used to reboot.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_cmd() -> {ok, Cmd}</name>
+      <fsummary>Get the temporary reboot command</fsummary>
+      <type>
+        <v>Cmd = string()</v>
+      </type>
+      <desc>
+        <p>Get the temporary reboot command. If the command is cleared,
+          the empty string will be returned.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

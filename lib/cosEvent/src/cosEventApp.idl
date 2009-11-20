@@ -1,0 +1,26 @@
+#ifndef _COS_EVENT_APP_IDL_
+#define _COS_EVENT_APP_IDL_
+ 
+#include<CosEventChannelAdmin.idl>
+ 
+ 
+module oe_CosEventComm {
+ 
+  
+  interface Event {
+    oneway void send(in any event);
+    void send_sync(in any event);
+  };
+ 
+  interface Channel : CosEventChannelAdmin::EventChannel, Event {};
+ 
+  interface CAdmin  : CosEventChannelAdmin::ConsumerAdmin, Event {};
+ 
+  interface PullerS : CosEventChannelAdmin::ProxyPullSupplier, Event {};
+ 
+  interface PusherS : CosEventChannelAdmin::ProxyPushSupplier, Event {};
+ 
+};
+ 
+ 
+#endif

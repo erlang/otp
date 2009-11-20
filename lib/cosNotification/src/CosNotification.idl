@@ -1,0 +1,146 @@
+#ifndef _COS_NOTIFICATION_IDL_
+#define _COS_NOTIFICATION_IDL_
+
+#pragma prefix "omg.org"
+
+#include"CosEventChannelAdmin.idl"
+#include"CosEventComm.idl"
+
+module CosNotification {
+  typedef string Istring;
+  typedef Istring PropertyName;
+  typedef any PropertyValue;
+  struct Property {
+    PropertyName name;
+    PropertyValue value;
+  };
+  typedef sequence<Property> PropertySeq;
+  // The following are the same, but serve different purposes.
+  typedef PropertySeq OptionalHeaderFields;
+  typedef PropertySeq FilterableEventBody;
+  typedef PropertySeq QoSProperties;
+  typedef PropertySeq AdminProperties;
+  struct EventType {
+    string domain_name;
+    string type_name;
+  };
+  typedef sequence<EventType> EventTypeSeq;
+  struct PropertyRange {
+    PropertyValue low_val;
+    PropertyValue high_val;
+  };
+  struct NamedPropertyRange {
+    PropertyName name;
+    PropertyRange range;
+  };
+
+  typedef sequence<NamedPropertyRange> NamedPropertyRangeSeq;
+
+  enum QoSError_code {
+    UNSUPPORTED_PROPERTY,
+    UNAVAILABLE_PROPERTY,
+    UNSUPPORTED_VALUE,
+    UNAVAILABLE_VALUE,
+    BAD_PROPERTY,
+    BAD_TYPE,
+    BAD_VALUE
+  };
+
+  struct PropertyError {
+    QoSError_code code;
+    PropertyName name;
+    PropertyRange available_range;
+  };
+
+  typedef sequence<PropertyError> PropertyErrorSeq;
+  exception UnsupportedQoS { PropertyErrorSeq qos_err; };
+  exception UnsupportedAdmin { PropertyErrorSeq admin_err; };
+  
+  // Define the Structured Event structure 
+  struct FixedEventHeader {
+    EventType event_type;
+    string event_name;
+  };
+  struct EventHeader {
+    FixedEventHeader fixed_header;
+    OptionalHeaderFields variable_header;
+  };
+
+  struct StructuredEvent {
+    EventHeader header;
+    FilterableEventBody filterable_data;
+    any remainder_of_body;
+  }; // StructuredEvent
+
+  typedef sequence<StructuredEvent> EventBatch;
+
+  // The following constant declarations define the standard
+  // QoS property names and the associated values each property
+  // can take on. The name/value pairs for each standard property
+  // are grouped, beginning with a string constant defined for the
+  // property name, followed by the values the property can take on.
+  const string EventReliability = "EventReliability";
+  const short BestEffort = 0;
+  const short Persistent = 1;
+  const string ConnectionReliability = "ConnectionReliability";
+
+  // Can take on the same values as EventReliability
+  const string Priority = "Priority";
+  const short LowestPriority = -32767;
+  const short HighestPriority = 32767;
+  const short DefaultPriority = 0;
+  const string StartTime = "StartTime";
+  
+  // StartTime takes a value of type TimeBase::UtcT.
+  const string StopTime = "StopTime";
+  // StopTime takes a value of type TimeBase::UtcT.
+  const string Timeout = "Timeout";
+  // Timeout takes on a value of type TimeBase::TimeT
+  const string OrderPolicy = "OrderPolicy";
+  const short AnyOrder = 0;
+  const short FifoOrder = 1;
+  const short PriorityOrder = 2;
+  const short DeadlineOrder = 3;
+  const string DiscardPolicy = "DiscardPolicy";
+  // DiscardPolicy takes on the same values as OrderPolicy, plus
+  const short LifoOrder = 4;
+  const short RejectNewEvents = 5;
+  const string MaximumBatchSize = "MaximumBatchSize";
+  // MaximumBatchSize takes on a value of type long
+  const string PacingInterval = "PacingInterval";
+  // PacingInterval takes on a value of type TimeBase::TimeT
+  const string StartTimeSupported = "StartTimeSupported";
+  // StartTimeSupported takes on a boolean value
+  const string StopTimeSupported = "StopTimeSupported";
+  // StopTimeSupported takes on a boolean value
+  const string MaxEventsPerConsumer = "MaxEventsPerConsumer";
+  // MaxEventsPerConsumer takes on a value of type long
+  
+  interface QoSAdmin {
+    QoSProperties get_qos();
+    void set_qos ( in QoSProperties qos)
+      raises ( UnsupportedQoS );
+    void validate_qos (in QoSProperties required_qos,
+		       out NamedPropertyRangeSeq available_qos )
+      raises ( UnsupportedQoS );
+  }; // QosAdmin
+
+  // Admin properties are defined in similar manner as QoS
+  // properties. The only difference is that these properties
+  // are related to channel administration policies, as opposed
+  // message quality of service
+  const string MaxQueueLength = "MaxQueueLength";
+  // MaxQueueLength takes on a value of type long 
+  const string MaxConsumers = "MaxConsumers";
+  // MaxConsumers takes on a value of type long
+  const string MaxSuppliers = "MaxSuppliers";
+  // MaxSuppliers takes on a value of type long
+  interface AdminPropertiesAdmin {
+    AdminProperties get_admin();
+    void set_admin (in AdminProperties admin)
+      raises ( UnsupportedAdmin);
+  };// AdminPropertiesAdmin
+}; // CosNotification
+
+#endif /* ifndef _COS_NOTIFICATION_IDL_ */
+

@@ -1,0 +1,1523 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Orber Release Notes History</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>99-02-12</date>
+    <rev>A</rev>
+  </header>
+
+  <section>
+    <title>Orber 3.5.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>In some cases, it was possible for a user to delete the
+            NameService root context.</p>
+          <p>Own Id: OTP-5202</p>
+        </item>
+        <item>
+          <p>Invoking two, or more, concurrent oe_register operations
+            it could corrupt the IFR. If this is the case, the
+            INTF_REPOS system exception is raised. The risk for this
+            to occur is rather slim.</p>
+          <p>Own Id: OTP-5526</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.5.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>To avoid malicious attacks, it is now possible to configure
+            Orber to only accept incoming requests up to a certain size.
+            To be able to use this option, it must be supported by inet
+            and SSL.</p>
+          <p>Own id: OTP-5129</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.5.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>If a client tried to connect to Orber and immediately
+            closed the connection, then the process accepting new
+            connections could end up with a message in the queue
+            that would never be removed.</p>
+          <p>Own id: OTP-5105</p>
+        </item>
+        <item>
+          <p>The INS corbaloc/corbaname URL:s did only accept DNS style host
+            names. Now it is also possible to use, none compressed, IPv6
+            addresses.</p>
+          <p>Own id: OTP-5108</p>
+        </item>
+        <item>
+          <p>When Orber was configured to use IPv6 for inter-ORB communication, 
+            exported IOR:s did not contain a correct IPv6 address. This did not
+            cause any problems if Orber was configured to use DNS style hostname
+            instead.</p>
+          <p>Own id: OTP-5109</p>
+        </item>
+        <item>
+          <p>Orber used external operations not exported in R9B.</p>
+          <p>Own id: OTP-5111</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.5.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When using Light IFR it was not possible unregister data 
+            (i.e., invoking 'MyModule':oe_unregister()).
+            Introduced in Orber-3.5.0.1.</p>
+          <p>Own id: OTP-5034</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.5.0.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>orber_ifr:contents/3 always returned an empty list when using
+            Light IFR. Little or no effect.</p>
+          <p>Own id: OTP-5018</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to configure Orber to use NAT (Network Address 
+            Translation) friendly parameters. A new section in the User's Guide
+            describes how to handle communication via firewalls.</p>
+          <p>Own id: OTP-4698</p>
+        </item>
+        <item>
+          <p>A new module called <c>orber_diagnostics</c> have been added, which
+            is intended to aid a user during the test and development phase.
+            For more information, see the reference manual.</p>
+          <p>Own id: OTP-4699</p>
+        </item>
+        <item>
+          <p><c>IPv6</c> supported.</p>
+          <p>Own id: OTP-4937</p>
+        </item>
+        <item>
+          <p>Possible to configure Orber so that exported IOR:s contain
+            multiple IIOP components for different interfaces.</p>
+          <p>Own id: OTP-4938</p>
+        </item>
+        <item>
+          <p>Improved typechecking of typecode supplied to the operations
+            <c>orber_tc:check_tc/1</c>, <c>any:create/2</c> and 
+            <c>any:set_typecode/2</c>.</p>
+          <p>Own id: OTP-4939</p>
+        </item>
+        <item>
+          <p>Server objects can now be started as EXIT tolerant.</p>
+          <p>Own id: OTP-4940</p>
+        </item>
+        <item>
+          <p>Possible to use interceptors for local invocations as well.</p>
+          <p>Own id: OTP-4941</p>
+        </item>
+        <item>
+          <p>If the IFR is not explicitly used, Orber can be configured
+            to use a minimal IFR to reduce memory usage and installation
+            time.</p>
+          <p>Own id: OTP-5001</p>
+        </item>
+        <item>
+          <p>To avoid malicious attacks it is now possible to configure
+            Orber to limit the number of concurrent connections and
+            requests and the amount of IIOP fragments.</p>
+          <p>Own id: OTP-5002</p>
+        </item>
+        <item>
+          <p>The operation <c>orber:iiop_connections/0</c> now also include
+            incoming connections.</p>
+          <p>Own id: OTP-5004</p>
+        </item>
+        <item>
+          <p>The function <c>orber:add_node/2</c> now accepts more options.</p>
+          <p>Own id: OTP-5006</p>
+        </item>
+        <item>
+          <p>The module <c>orber_diagnostics</c> now exports a function
+            which list missing modules generated by IC and required by
+            Orber.</p>
+          <p>Own id: OTP-5007</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber's NameService did not return a NIL object reference if the total 
+            number of existing bindings was less than, or equal to, 
+            the <c>HowMany</c> parameter passed to 
+            <c>'CosNaming_NamingContext':list/2</c> operation. This have now been
+            changed to be compliant with the OMG standard. Furthermore, the operation
+            <c>'CosNaming_BindingIterator':next_n/2</c> did not handle the index
+            correctly in all situations.</p>
+          <p>Own id: OTP-4700</p>
+        </item>
+        <item>
+          <p>If the Orber internal gen_server orber_iiop_pm was stopped
+            in such a way that the terminate function was not invoked,
+            then ghost processes would appear.</p>
+          <p>Own id: OTP-5003</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>The work-around introduced in version 3.4.1 (OTP-4608) has
+            now been removed. Make sure you are using IC-4.2 or later.</p>
+        </item>
+        <item>
+          <p>Since the OMG has defined a default port number (2809),
+            Orber no longer support the bootstrap port.</p>
+          <p>Own id: OTP-5005</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.4.2.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Due to IFR DB lock mechanisms, concurrent creation 
+            of non-anonymous IFR types could still result in duplicated
+            entries.</p>
+          <p>Own id: OTP-4781</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.4.2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The operation <c>orber:start()</c> could return before
+            all Mnesia tables were accessible.</p>
+          <p>Own id: OTP-4780</p>
+        </item>
+        <item>
+          <p>Concurrent creation of non-anonymous IFR types
+            could result in duplicates in the DB.</p>
+          <p>Own id: OTP-4781</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.4.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Improved type tests for string, wide string and sequence when
+            passed via IIOP.</p>
+          <p>Own id: OTP-4759</p>
+        </item>
+        <item>
+          <p>Less (internal) processes are needed when Orber act as client-side ORB
+            and communicate with another ORB. Due to this change, closed connections
+            and socket errors are dealt with in a more gentle way. If the latter
+            occurs, the error_logger application is used to generate an error 
+            report containing a description of what went wrong.</p>
+          <p>Own id: OTP-4655</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When communicating with another ORB, via SSL, and a socket error occurred,
+            Orber did not recognize the error message. This occurred when Orber
+            acted as client-side ORB.</p>
+          <p>Own id: OTP-4656</p>
+        </item>
+        <item>
+          <p>If an out-going connection was closed and the receiving process had not
+            been scheduled yet, the close connection message was delivered before
+            the correct message.</p>
+          <p>Own id: OTP-4657</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>Since strstream is deprecated and not accepted by gcc-3.3,
+            Orber no longer includes the InitalReference lib. The source
+            code is still included.</p>
+          <p>Own id: OTP-4767</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.4.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to use IC-versions older than 4.2. But, this is 
+            only temporary so it is still necessary upgrade to a correct 
+            version.</p>
+          <p>Own id: OTP-4608</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>If a call-back module illegally caused an EXIT, clients
+            residing on another ORB was not notified (hanged).</p>
+          <p>Own id: OTP-4577</p>
+        </item>
+        <item>
+          <p>The stub/skeleton-files generated by IC have been improved,
+            i.e., depending on the IDL-files, reduced the size of the
+            erl- and beam-files and decreased dependencies off Orber's
+            Interface Repository. It is necessary to re-compile all IDL-files
+            and use COS-applications, including Orber, compiled with
+            IC-4.2.</p>
+          <p>Own id: OTP-4576</p>
+        </item>
+        <item>
+          <p>It is now possible to configure Orber to use the host name
+            in exported IOR:s instead of the IP-number.</p>
+          <p>Own id: OTP-4541</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When Orber acted as server-side ORB and one tried to setup a 
+            SSL-connection and using native Interceptors at the same time
+            it failed.</p>
+          <p>Own Id: OTP-4542</p>
+        </item>
+        <item>
+          <p>Oneway operations, using a multi-node Orber, failed for inter-node
+            communication.</p>
+          <p>Own Id: OTP-4543</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now supports fragmented IIOP messages for 1.2.</p>
+          <p>Own Id: OTP-4462</p>
+        </item>
+        <item>
+          <p>Orber now has its own set of unique VMCID:s which
+            is used for minor codes in system exceptions. All system exceptions raised
+            by Orber now uses this VMCID base or OMG:s VMCID base. See also the function
+            <c>orber:exception_info/1</c>.</p>
+          <p>Own Id: OTP-4463</p>
+        </item>
+        <item>
+          <p>Since some ORB:s, non-compliant with the OMG specification,
+            have problems using IOR:s which embeds a CodeSet component, it is now
+            possible to configure Orber to exclude it from exported IOR:s.</p>
+          <p>Own Id: OTP-4469</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When combining interceptors and oneway operations, Orber
+            incorrectly sent a MessageError over the connection to the 
+            client ORB.</p>
+          <p>Own Id: OTP-4460</p>
+        </item>
+        <item>
+          <p>After (2^32)-1 requests, Orber used the request number 0 twice
+            in a row.</p>
+          <p>Own Id: OTP-4461</p>
+        </item>
+        <item>
+          <p>The COMM_FAILURE exception should only be raised when connection
+            problems occur. Now Orber raises the correct exceptions. Note, when
+            Orber act as client side ORB you must be able to handle any of the system
+            exceptions defined by the OMG. Some of the COMM_FAILURE exceptions
+            have been replaced with the correct TRANSIENT and TIMEOUT exceptions.</p>
+          <p>Own Id: OTP-4465</p>
+        </item>
+        <item>
+          <p>The default port used for corbaloc and corbaname was
+            incorrect. Now changed to follow the OMG standard (2809).</p>
+          <p>Own Id: OTP-4466</p>
+        </item>
+        <item>
+          <p>When Orber acted as a client-side ORB, it failed to encode
+            unions with a default case (i.e. defined in the IDL-code and a
+            default label used).</p>
+          <p>Own Id: OTP-4472</p>
+        </item>
+        <item>
+          <p>The operation corba:print_object/1/2 did not include host/port
+            data for IIOP-1.0 IOR:s.</p>
+          <p>Own Id: OTP-4483</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>Some of the COMM_FAILURE exceptions have been replaced with the correct
+            TRANSIENT and TIMEOUT exceptions. All minor codes used by Orber
+            is now based on the OMG assigned VMCIDs.</p>
+          <p>Own Id: OTP-4465, OTP-4463</p>
+        </item>
+        <item>
+          <p>The default port used for corbaloc and corbaname have been changed
+            to 2809.</p>
+          <p>Own Id: OTP-4466</p>
+        </item>
+        <item>
+          <p>To reduce extra overhead Orber now uses a flag parameter,
+            which makes it possible to configure Orber's behavior in different ways.
+            Hence, the global activation of Local Typechecking, introduced in the previous
+            version, have now been changed.</p>
+          <p>Own Id: OTP-4467</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.13</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to activate automatic typechecking when
+            invoking operations on CORBA Objects locally. For more
+            information, see the configuration and debugging chapters
+            in the User's Guide regarding the <c>local_typecheck</c>
+            option.</p>
+          <p>Own Id: OTP-4410</p>
+        </item>
+        <item>
+          <p>Due to the success of the pre-compiled IIOP-trace interceptor, a less
+            verbose trace interceptor, called <c>orber_iiop_tracer_silent</c>,
+            have been added as well.</p>
+          <p>Own Id: OTP-4257</p>
+        </item>
+        <item>
+          <p>Orber now support the Fixed datatype defined by the OMG. To be able
+            to define Fixed types in an IDL-specification, check that your current
+            IC version supports this type as well. If not, the only option is
+            to encapsulate it in an <c>any</c> type.</p>
+          <p>Own id: OTP-4375</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>It was not possible to use the function <c>corba:print_object/2</c>,
+            which was introduced in the previous release, only 
+            <c>corba:print_object/1</c>. Now it is also possible to use
+            the <c>error_logger</c> or receive the data in string form.</p>
+          <p>Own Id: OTP-4376</p>
+        </item>
+        <item>
+          <p>The functions <c>orber_tc:principal</c> and <c>orber_tc:exception</c>
+            returned incorrect.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>The function <c>orber_ifr:get_primitive</c> tried to access a
+            non-existing (primitivdefs) table.</p>
+          <p>Own Id: -</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.12</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now check if an external IOR contains any 
+            TAG_ALTERNATE_IIOP_ADDRESS components when trying to setup
+            a connection to another ORB.</p>
+          <p>Own id: OTP-4294</p>
+        </item>
+        <item>
+          <p>It is now possible to add TAG_ALTERNATE_IIOP_ADDRESS components
+            to a local object reference. See corba:add_alternate_iiop_address/3.</p>
+          <p>Own id: OTP-4294</p>
+        </item>
+        <item>
+          <p>Orber now allows unions with no default value defined and a
+            discriminator out of range to be sent via IIOP. The value-field
+            is set to the atom undefined.</p>
+          <p>Own id: OTP-4295</p>
+        </item>
+        <item>
+          <p>The corba module now exports a function, print_object/1/2, which
+            prints IOR's in a more readable form.</p>
+          <p>Own id: OTP-4296</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Since "all" ORB's accept ISO-8859-1 encoding of chars and strings,
+            Orber assumed that it could be used at all time to reduce the overhead.
+            The JDK-1.3 only accepts ISO 646:1991 IRV (US-ASCII), even though
+            ISO-8859-1 is default, which is why Orber now checks which codeset 
+            is accepted.</p>
+          <p>Own Id: OTP-4298</p>
+        </item>
+        <item>
+          <p>When invoking a Locate Request, Orber in some cases did not reply
+            with a Locate Reply header (used a Reply header).</p>
+          <p>Own Id: OTP-4293</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.11</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>If the underlying OS was not configured to allow Erlang to use the
+            fully qualified host name the result could an incorrect IP-address.
+            Hence, if you want to upgrade to Orber-3.2.11 and the fully 
+            qualified name must be used you must upgrade your kernel version.
+            Most likely, this change will NOT cause any problems, but if in doubt
+            please contact support or use the mailing-list. 
+            See also the release notes for Orber-3.2.6.</p>
+          <p>Own id: OTP-3966</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When looking up Initial Service (e.g. using <c>corbaloc</c>,
+            <c>corbaname</c> or <c>corba:resolve_initial_references_remote/2</c>)
+            and communicating via SSL, Orber used the wrong port number.</p>
+          <p>Own Id: OTP-4264</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.10</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to add new initial references, which can,
+            for example, be accessed via <c>corba:resolve_initial_references/1</c>
+            or the <c>corbaloc</c> schema.</p>
+          <p>Own Id: OTP-4258</p>
+        </item>
+        <item>
+          <p>The orber module now exports functions, <c>iiop_connections</c> 
+            and <c>iiop_connections_pending</c>, which, respectively, list
+            all currently open connections to other ORB's and connections
+            which are in process of being set up to another ORB.</p>
+          <p>Own Id: OTP-4262</p>
+        </item>
+        <item>
+          <p>Orber now allows the user to define an interval of ports
+            which Orber is may use (i.e. ports on the local machine)
+            when trying to connect to another ORB. This behavior is useful
+            if Orber resides behind a firewall which only allow applications
+            to use certain ports when communicating with the outside world.
+            If this option is set, it is absolutely necessary to
+            set <c>iiop_connection_timeout</c>. If not, there is risk that
+            Orber run out of ports, which will result in communication failure.
+            This option cannot be used when using SSL since it does not support
+            this feature. The default behavior is that any available port
+            will be used (as before).</p>
+          <p>Own Id: OTP-4260</p>
+        </item>
+        <item>
+          <p>One can now install Orber's NameService as disc_copies, but
+            the default behavior is that Orber uses ram_copies.</p>
+          <p>Own Id: OTP-4259</p>
+        </item>
+        <item>
+          <p>A pre-compiled IIOP-trace interceptor is now
+            included in the Orber release. For more information,
+            see the <c>Debugging</c> chapter in the User's Guide.</p>
+          <p>Own Id: OTP-4257</p>
+        </item>
+        <item>
+          <p>It is now possible to set Orber's configuration parameters
+            in, for example, an Erlang shell. Consult <c>corba:orb_init/1</c> and
+            <c>orber:configure/2</c>.</p>
+          <p>Own Id: OTP-4261</p>
+        </item>
+        <item>
+          <p>The Orber release now include <c>OrberWeb</c>, which is an extension of
+            the <c>WebTool</c> application (first released in R8B). Hence, 
+            <c>WebTool</c> must be installed to enable this feature. For more
+            information, see the chapter <c>OrberWeb</c> in the User's Guide.
+            <c>OrberWeb</c> is intended to be used during test and development.</p>
+          <p>Own Id: OTP-4257</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When setting up two Orber ORB's, where one of the ORB's domain
+            name was a prefix of the other ORB's, communication via IIOP would fail.
+            To eliminate any further configuration problems, one may not
+            use <c>^G</c> (i.e. <c>"\\007"</c>) in the domain name. Due to this
+            change it is not possible to upgrade during run-time.</p>
+          <p>Own Id: OTP-4229</p>
+        </item>
+        <item>
+          <p>When using a mix of IIOP-versions (1.0 vs 1.1/1.2) and 
+            sending/receiving IOR's to/from Orber could result in a
+            MARSHAL exception.</p>
+          <p>Own Id: OTP-4230</p>
+        </item>
+        <item>
+          <p>Encoding/decoding of wchar/wstring when using IIOP-1.2 do now
+            follow the OMG standard. If your ORB do not follow the
+            standard, contact support for information how to make a work-around
+            to solve this problem. In most cases it is sufficient to
+            configure the ORB's to communicate via IIOP-1.1.</p>
+          <p>Own Id: OTP-4263</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>The encoding/decoding of wchar/wstring when using IIOP-1.2
+            have been updated. See above.</p>
+          <p>Own Id: OTP-4263</p>
+        </item>
+        <item>
+          <p>Orber no longer returns a 'EXIT' message when trying
+            to install Orber, i.e., invoking orber:install/1/2,
+            on a disc-less node. But if if the installation fails due
+            to any other reason, Orber still return a 'EXIT' message.</p>
+          <p>Own Id: OTP-4256</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Known bugs and problems</title>
+      <list type="bulleted">
+        <item>
+          <p><c>OrberWeb</c> only tested with <c>Netscape-4.75</c>. Furthermore,
+            until <c>WebTool</c> reaches version 1.0 OrberWeb should also
+            be considered to be a beta version.</p>
+          <p>Own Id: OTP-4257</p>
+        </item>
+        <item>
+          <p><c>OrberWeb</c> do not escape arguments passed when, for example,
+            creating a new context. Hence, for now you are recommended to
+            only use letters.</p>
+          <p>Own Id: OTP-4257</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>External IOR:s containing unsupported or incorrectly placed
+            TaggedComponents was corrupted when Orber forwarded the 
+            IOR via IIOP. This bug was introduced in 3.2.6.</p>
+          <p>Own Id: OTP-4170</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now support interceptors.</p>
+          <p>Own Id: -</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.7</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>When Orber acted as server-side and communicating via IIOP the overhead
+            was unreasonably large and memory consuming (depended on the 
+            IDL-specification). This have now been fixed and will, especially, 
+            improve the performance when invoking operations with no, or simple,
+            arguments on a complex interface. This change will have little effect
+            on objects started as pseudo since this problem did not affect them.</p>
+          <p>Own Id: OTP-4063</p>
+        </item>
+        <item>
+          <p>When Orber tried to set up a connection to another ORB which did not 
+            respond all IIOP access where blocked until the TCP protocol
+            generated a timeout. Now only requests to that particular ORB are
+            queued.</p>
+          <p>Own Id: OTP-4060</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>It was not possible to invoke the operation
+            CosNaming_BindingIterator:next_one via IIOP if no more bindings 
+            existed.</p>
+          <p>Own id: OTP-4004</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Registering data in the IFR overhead reduced.</p>
+          <p>Own id: OTP-3904</p>
+        </item>
+        <item>
+          <p>The overhead for the function <c>is_a/1</c> have been reduced, which also
+            affects remote <c>narrow</c> operations for inherited interfaces
+            (e.g. using Java or C++ ORBs).</p>
+          <p>Own id: OTP-3904</p>
+        </item>
+        <item>
+          <p>If the underlying OS was not configured to allow Erlang to
+            lookup the host-name by using the short-name the result was
+            always the IP-address 127.0.0.1 (loop-back). Now Orber uses
+            the full name. Hence, make sure the <c>net_adm:localhost/0</c> and
+            <c>inet:getaddr/2</c> return proper values.</p>
+          <p>Own id: OTP-3966</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The CONV_FRAME_CodeSetComponentInfo struct was not placed 
+            correctly in IOR:s. Each profile must be self-sustained 
+            which is why this information must be duplicated in each 
+            profile. Currently this only applies for the IIOP-profile 
+            but will also concern future protocols.</p>
+          <p>Own id: OTP-3992</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.5</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now defines the configuration variable, 
+            <c>iiop_setup_connection_timeout</c>, which makes it possible to
+            timeout connection attempts to another ORB before the OS TCP timeout
+            is activated.</p>
+          <p>Own id: OTP-3961</p>
+        </item>
+        <item>
+          <p>It is now possible to configure Orber to generate reports when abnormal
+            situations occurs. For more information consult the User's Guide
+            regarding the configuration parameter <c>orber_debug_level</c>.
+            Note, it is not recommended to use this option for delivered systems 
+            since some of the reports is not to be considered as errors.</p>
+          <p>Own id: OTP-3962</p>
+        </item>
+        <item>
+          <p>Orber now accepts a list of addresses as value for the configuration
+            parameter <c>orbInitRef</c>.</p>
+          <p>Own id: OTP-3945</p>
+        </item>
+        <item>
+          <p>Orber now includes services defined by the configuration parameter
+            <c>orbInitRef</c> when invoking <c>corba:list_initial_services/0</c>.</p>
+          <p>Own id: OTP-3946</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When using the configuration variable 'orbDefaultInitRef' with
+            a value pointing to another Orber-ORB it was not possible to
+            install Orber since Orber used to create default <c>NamingContexts</c>.
+            Orber no longer add these contexts.</p>
+          <p>Own id: OTP-3943</p>
+        </item>
+        <item>
+          <p>Orber accessed <c>corbaloc</c> addresses in reverse order. Now fixed.</p>
+          <p>Own id: OTP-3944</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>When installing Orber no default <c>NamingContext's</c>, i.e.,
+            <c>host</c>, <c>hosts</c>, <c>resources</c>, <c>development</c>, 
+            <c>factories</c> and <c>workgroup</c>, will be added. These contexts
+            was defined in a cancelled specification.</p>
+          <p>Own id: OTP-3942</p>
+        </item>
+        <item>
+          <p><c>corbaloc</c> addresses are now accessed in FIFO order (instead of
+            LIFO).</p>
+          <p>Own id: OTP-3944</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <p>-</p>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When communicating via IIOP using version 1.2 Orber used incorrect
+            offset for reply bodies containing system exceptions, exceptions and
+            location forward.</p>
+          <p>Own id: OTP-3912</p>
+        </item>
+        <item>
+          <p>Orber did not return correct IFR Id:s when raising system exceptions
+            via IIOP.</p>
+          <p>Own id: OTP-3911</p>
+        </item>
+        <item>
+          <p>If two different processes concurrently manipulated a 
+            <c>CosNaming::NamingContext</c> the data could become corrupted.
+            For single-node Orber this error occurred in version 3.2.1, 3.2.2 and
+            3.2.3. For multi-node Orber this behavior have been present at all time.</p>
+          <p>Own id: OTP-3910</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>Since Orber now returns a different, and correct, IFR-id for 
+            systems exceptions other ORB:s and older versions of Orber
+            might raise a different exception, probably MARSHAL or UNKNOWN. 
+            This only occurs when communicating via IIOP. It is not possible to 
+            upgrade during runtime. Use <c>orber:stop()</c>, load new version and
+            restart Orber by invoking <c>orber:start()</c>.</p>
+          <p>Own id: OTP-3911</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Improved performance for all types, simple and complex, when
+            communicating via IIOP. It is not possible to upgrade during
+            runtime. Use <c>orber:stop()</c>, load new version and restart 
+            Orber by invoking <c>orber:start()</c>.</p>
+          <p>Own id: OTP-3905</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>If a pseudo object raises an exception or exits the exception
+            was only returned, not thrown.</p>
+          <p>Own id: OTP-3907</p>
+        </item>
+        <item>
+          <p>Orber defined an incorrect ID for CodeSets. This may cause
+            INV_OBJREF or DATA_CONVERSION exceptions to be thrown, it
+            depends on the other ORB.</p>
+          <p>Own id: OTP-3899</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The behavior of Orber when receiving unsupported or incorrect
+            messages have now been improved.</p>
+          <p>Own id: OTP-3903</p>
+        </item>
+        <item>
+          <p>Time consumed by <c>oe_MyModule:oe_register()</c> decreased.</p>
+          <p>Own id: OTP-3904</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When Orber received a 'location_forward' reply, the result
+            from the second invocation was never delivered to the
+            client. Now fixed.</p>
+          <p>Own id: OTP-3814</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to use external <c>NamingContexts</c>
+            when, for example, using
+            <c>'CosNaming_NamingContextExt':bind_context/3</c>.</p>
+          <p>Own id: OTP-3902</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now supports IIOP-version 1.2.</p>
+          <p>Own id: OTP-3901</p>
+        </item>
+        <item>
+          <p>Improved encoding and decoding performance for IIOP requests containing 
+            <c>struct</c>, <c>union</c> or user defined <c>exceptions</c>.</p>
+          <p>Own id: OTP-3900</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Setting the <c>bootstrap_port</c> configuration parameter to a value
+            less than 1024 made it impossible to start Orber properly.
+            Now fixed.</p>
+          <p>Own id: OTP-3898</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.8</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber now accepts <c>Indirection/Repeated</c><c>CORBA::TypeCode</c> as input and/or
+            return value when communicating via IIOP.</p>
+          <p>Own id: -</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When another ORB replied with <c>location forward</c> Orber
+            failed to decode this. Now fixed.</p>
+          <p>Own id: OTP-3709</p>
+        </item>
+        <item>
+          <p>Orber failed to encode <c>CORBA::TypeCode</c> containing <c>tk_alias</c>, e.g.,
+            sending an <c>#any{}</c> which encapsulates data defined by <c>typedef</c>.</p>
+          <p>Own id: OTP-3689</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.7</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Earlier, Orber did not use the IIOP/GIOP version specified
+            in an external object key when invoking an intra-ORB request.</p>
+          <p>Own id: OTP-3663</p>
+        </item>
+        <item>
+          <p>The OMG standard now support an Interoperable Naming Service.
+            Initially there where two proposals of which Orber earlier
+            supported one of them. Now both standards are supported.</p>
+          <p>Own id: OTP-3664</p>
+        </item>
+        <item>
+          <p>The OMG have redefined the operator, used when encoding requests via IIOP,
+            for the function <c>corba_object:non_existent/1</c>. CORBA version 2.0 and
+            2.2 compliant ORB:s is supposed to support the old definition, while
+            later versions, i.e., 2.3, is supposed to use the new operator 
+            (<c>_non_existent</c> instead of <c>_not_existent</c>). Orber accepts
+            both versions.</p>
+          <p>Own id: OTP-3679</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>If an Orber node crashed and was restarted the object keys could
+            point to other processes than it should, which may cause problems if,
+            for example, the other process terminates due to it does not handle
+            unknown messages. Now Orber GC object keys for objects residing on the
+            crashed node. If Orber is started as a multi-node ORB of which one or 
+            more nodes runs an older Orber version they can still communicate but
+            with an increased overhead. Hence, all nodes should be upgraded during
+            a relatively short time. If Orber is stopped, i.e., orber:stop() or
+            a shutdown is generated, objects residing on that node will be terminated.</p>
+          <p>Own id: OTP-3678</p>
+        </item>
+        <item>
+          <p>If an IDL-file contains two interfaces of which the first one
+            contains an exception and the second interface, which inherits the first
+            one, contain an operation which raises this exception the IFR
+            failed since multiple references where found when invoking 
+            orber_ifr:lookup_id/2. Now fixed.</p>
+          <p>Own id: OTP-3665</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>To be able to start Orber as lightweight the mnesia application
+            cannot be listed in the "orber.app" file. You might find it
+            necessary to add 'mnesia' to the applications-list. 
+            For example, you cannot upgrade an older version
+            of Orber (not started as lightweight) to this version without
+            adding mnesia to the application dependencies list.</p>
+          <p>Own id: OTP-3666</p>
+        </item>
+        <item>
+          <p>The function <c>corba_object:non_existent/1</c> have been updated
+            to follow the CORBA 2.3 standard. Hence, Intra-ORB communication
+            with ORB:s not supporting this standard will fail. The operation 
+            <c>corba_object:not_existent/1</c> allow users to use the old standard.
+            Consult the ORB vendor's documentation to decide which function to use.</p>
+          <p>Own id: OTP-3679</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Cosmetic update of internal functions.</p>
+          <p>Own id: -</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When decoding TypeCode for an object reference, e.g., as a part of 
+            an #any{}, Orber failed. This is no longer the case. </p>
+          <p>Own id: OTP-3631</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The function <c>start_lightweight/1</c> have been added to the
+            <c>orber</c> module. This function allow us to start orber as
+            lightweight without, or override, the configuration parameter 
+            <c>-orber lightweight</c>.</p>
+          <p>Own id: -</p>
+        </item>
+        <item>
+          <p>A new configuration parameter, 'iiop_connection_timeout Secs', is now
+            available. This parameter's purpose, is to terminate the socket 
+            connection on the client side if a time span of Secs seconds have passed.
+            The connection will, however, NOT be terminated if a client still waits
+            for a reply. For the last scenario to happen, the client have been 
+            configured to use a larger timeout value than the configuration 
+            parameter 'iiop_connection_timeout' have been set to.</p>
+          <p>Own id: -</p>
+        </item>
+        <item>
+          <p>Up until now, invoking an an operation with an extra Timeout parameter
+            (using the IC option: ic:gen(IdlFile, [{timeout,"module::interface"}])),
+            only applied to local Objects. Now, using the IC option above, when 
+            compiling the stubs, and adding the extra Timeout parameter, a timeout
+            will also be triggered when calling Objects residing on other ORB:s.
+            The return value, after a timeout has been triggered, have changed from
+            an EXIT message to raising the system exception COMM_FAILURE. For more
+            information, about how this feature interacts with the configuration 
+            parameter 'iiop_timeout', consult the documentation.</p>
+          <p>Own id: -</p>
+        </item>
+        <item>
+          <p>When using invalid intra-ORB configuration, i.e., incorrect 
+            Port/IP-address, when trying to connect to another ORB, 
+            a CRASH REPORT was generated if the configuration
+            parameter '-boot start_sasl' was used. This behavior has now changed.</p>
+          <p>Own id: -</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>If a client-side ORB terminated the IIOP connection immediately there 
+            was a possibility that the server responsible detecting this did not.</p>
+          <p>Own id: OTP-3593</p>
+        </item>
+        <item>
+          <p>Setting the configuration parameter 'iiop_timeout' did not result in a 
+            correct behavior, i.e., no timeout triggered.</p>
+          <p>Own id: OTP-3555</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>When using the IC option, ic:gen(IdlFile, [{timeout,"module::interface"}]),
+            an EXIT was the timeout result. Now, the system exception COMM_FAILURE is
+            raised.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber did not ignore unrecognized TaggedProfiles. Other vendors may have 
+            registered own TAG's with the OMG. These TAG's are valid but not
+            necessarily handled by other vendors.</p>
+          <p>Own id: OTP-3514</p>
+        </item>
+        <item>
+          <p>When passing Object references over IIOP, decoding local references could
+            fail. Now fixed.</p>
+          <p>Own id: OTP-3515</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Previously the OMG have published two suggestions for <c>Interoperable Name Service</c>,
+            of which, the <c>CORBA 3</c> specify <c>orbos/98-10-11</c> to be implemented.
+            Unfortunately, the Interoperable Name Service Orber supports, is the one not chosen.
+            Hence, the <c>InitialReferences.idl</c> will not be according to the future standard. 
+            The modules name is now changed from <c>CORBA</c> to <c>Orber</c>. This will affect 
+            code which are using this interface. The idl specification must be recompiled and 
+            then <c>CORBA</c> must be changed to <c>Orber</c> in the client.</p>
+          <p>Own id: OTP-3468, OTP-3155</p>
+        </item>
+        <item>
+          <p>Now possible to run oe_unregister when the IDL-specification contains 
+            exceptions correctly.</p>
+          <p>Own Id: OTP-3447</p>
+        </item>
+        <item>
+          <p>Now possible to run oe_unregister when the IDL-specification contains 
+            attributes.</p>
+          <p>Own Id: OTP-3439</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>The change in <c>InitialReferences.idl</c> to clash with the Corba standard implies changes
+        in code that use this interface. See the OTP-3468 and OTP-3155 in the <c>Fixed Bugs and Malfunctions</c>
+        chapter above.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When introducing the configuration parameter <c>ip_address</c> 
+            it was no longer possible to have the same default behavior
+            as before. Now fixed.</p>
+          <p>Own Id: OTP-3431</p>
+        </item>
+        <item>
+          <p>The internal request number handling never checked if maximum reached.
+            Now the counter restart at 0 after reaching max.</p>
+          <p>Own Id: OTP-3415</p>
+        </item>
+        <item>
+          <p>Orber did not handle locate-requests correctly, i.e., not able to
+            recognize the new internal representation of object references.</p>
+          <p>Own Id: OTP-3414</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to start Orber as lightweight.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>It is now possible to create pseudo objects, i.e., not server objects.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>One new system exception introduced; 'BAD_QOS'.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>Orber now supports the types 'long long' and 'unsigned long long'</p>
+          <p>Own Id: -</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Encoding typecode for complex exceptions (non-empty body) was not done 
+            correctly.</p>
+          <p>Own Id: OTP-3390</p>
+        </item>
+        <item>
+          <p>orber_iiop_pm crashed when it received an 'EXIT'. Now fixed.</p>
+          <p>Own Id: OTP-3391</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.0.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Orber is now able to handle upgrade properly.</p>
+          <p>Own Id: -</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Orber 3.0</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to use secure IIOP connections to and from Orber.
+            Orber currently only supports security with the help of SSL and not SECIOP.</p>
+          <p>Own Id: OTP-1510</p>
+        </item>
+        <item>
+          <p>It is now possible to start Orber objects as supervisor children using
+            Module_Interface:oe_create_link/2 or corba:create_link/4 as the start function.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>It is now possible to start a Orber object and be able to tell apart if it is in
+            the process of being restarted or has permanently terminated. This is also the reason
+            for introducing <c>objectkeys_gc_time</c> configuration parameter.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>The service CosEvent has been removed from orber and become its own application, called cosEvent.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>The service CosTransactions is now available as a separate application, called cosTransactions.</p>
+          <p>Own Id: OTP-1741</p>
+        </item>
+        <item>
+          <p>Three new system exceptions, 'TRANSACTION_REQUIRED', 'TRANSACTION_ROLLEDBACK' 
+            and 'INVALID_TRANSACTION', introduced. Required by the cosTransactions application.</p>
+          <p>Own Id: -</p>
+        </item>
+        <item>
+          <p>An configuration variable ip_address has been added, so it's possible
+            to listen on a specific ip interface on a multi interface host.
+            The value is the ip address as a string or a tuple of four integers, 
+            default value is all interfaces.</p>
+          <p>Own Id: OTP-3294</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>set- and get-operations for the 'any'-module now behaves properly.</p>
+          <p>Own Id: OTP-3355</p>
+        </item>
+        <item>
+          <p>Orber can now handle IORs which contain more than one "Tagged Profile".</p>
+          <p>Own Id: OTP-3266</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <list type="bulleted">
+        <item>
+          <p>CosEvent include paths have changed since it is now a separate application, called cosEvent.</p>
+        </item>
+        <item>
+          <p>The internal representation of object references have changed. Orber do, however, 
+            recognize the old representation. But object references (created by Orber 2.2.2 or older) 
+            stored and used through several Orber upgrades may not be supported.</p>
+        </item>
+        <item>
+          <p>The functions oe_create/2 and oe_create_link/2 now take an 
+            options list as its second argument. Orber still allow 
+            oe_create*(Env, {Type,RegName}) to be used, but may not in future releases.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

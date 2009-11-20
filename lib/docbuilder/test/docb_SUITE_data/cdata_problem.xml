@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+<chapter>
+  <header>
+    <title>öDocbook&ouml; bug</title>
+    <prepared>Matthias Lang</prepared>
+<docno></docno>
+<date>2008-03-31</date>
+    <rev>1.0</rev>
+  </header>
+
+<section><title>This is a title</title>
+	<code><![CDATA[
+	This works
+	]]></code>
+
+	<code><![CDATA[
+	This does not
+	]]> </code>
+</section>
+</chapter>
+

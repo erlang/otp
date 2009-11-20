@@ -1,0 +1,518 @@
+STANDARD-MIB DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  Counter, TimeTicks, IpAddress
+                      FROM RFC1155-SMI
+                  OBJECT-TYPE
+                      FROM RFC-1212
+                  mgmt, NetworkAddress, IpAddress, Counter, Gauge,
+                          TimeTicks
+                      FROM RFC1155-SMI
+                  DisplayString, mib-2
+                      FROM RFC1213-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+
+          -- Standard Datatypes
+ 
+          -- Represents a boolean value (from rfc1443)
+          TruthValue ::=  INTEGER { true(1), false(2) }
+
+          -- From SNMPv2 (rfc1443)
+	  RowStatus ::= 
+                INTEGER {
+                         -- the following two values are states:
+                         -- these values may be read or written
+                         active(1),
+                         notInService(2),
+
+                         -- the following value is a state:
+                         -- this value may be read, but not written
+                         notReady(3),
+
+                         -- the following three values are
+                         -- actions: these values may be written,
+                         --   but are never read
+                         createAndGo(4),
+                         createAndWait(5),
+                         destroy(6)
+                      }
+
+
+          system       OBJECT IDENTIFIER ::= { mib-2 1 }
+          snmp         OBJECT IDENTIFIER ::= { mib-2 11 }
+
+ 
+          -- the System group
+ 
+          -- Implementation of the System group is mandatory for all
+          -- systems.  If an agent is not configured to have a value
+          -- for any of these variables, a string of length 0 is
+          -- returned.
+ 
+          sysDescr OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      should include the full name and version
+                      identification of the system's hardware type,
+                      software operating-system, and networking
+                      software.  It is mandatory that this only contain
+                      printable ASCII characters."
+              ::= { system 1 }
+ 
+          sysObjectID OBJECT-TYPE
+              SYNTAX  OBJECT IDENTIFIER
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The vendor's authoritative identification of the
+                      network management subsystem contained in the
+                      entity.  This value is allocated within the SMI
+                      enterprises subtree (1.3.6.1.4.1) and provides an
+                      easy and unambiguous means for determining `what
+                      kind of box' is being managed.  For example, if
+                      vendor `Flintstones, Inc.' was assigned the
+                      subtree 1.3.6.1.4.1.4242, it could assign the
+                      identifier 1.3.6.1.4.1.4242.1.1 to its `Fred
+                      Router'."
+              ::= { system 2 }
+ 
+          sysUpTime OBJECT-TYPE
+              SYNTAX  TimeTicks
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The time (in hundredths of a second) since the
+                      network management portion of the system was last
+                      re-initialized."
+              ::= { system 3 }
+ 
+          sysContact OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "The textual identification of the contact person
+                      for this managed node, together with information
+                      on how to contact this person."
+              ::= { system 4 }
+ 
+          sysName OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+ 
+ 
+ 
+ 
+ 
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "An administratively-assigned name for this
+                      managed node.  By convention, this is the node's
+                      fully-qualified domain name."
+              ::= { system 5 }
+ 
+          sysLocation OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "The physical location of this node (e.g.,
+                      `telephone closet, 3rd floor')."
+              ::= { system 6 }
+ 
+          sysServices OBJECT-TYPE
+              SYNTAX  INTEGER (0..127)
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "A value which indicates the set of services that
+                      this entity primarily offers.
+ 
+                      The value is a sum.  This sum initially takes the
+                      value zero, Then, for each layer, L, in the range
+                      1 through 7, that this node performs transactions
+                      for, 2 raised to (L - 1) is added to the sum.  For
+                      example, a node which performs primarily routing
+                      functions would have a value of 4 (2^(3-1)).  In
+                      contrast, a node which is a host offering
+                      application services would have a value of 72
+                      (2^(4-1) + 2^(7-1)).  Note that in the context of
+                      the Internet suite of protocols, values should be
+                      calculated accordingly:
+ 
+                           layer  functionality
+                               1  physical (e.g., repeaters)
+                               2  datalink/subnetwork (e.g., bridges)
+                               3  internet (e.g., IP gateways)
+                               4  end-to-end  (e.g., IP hosts)
+                               7  applications (e.g., mail relays)
+ 
+                      For systems including OSI protocols, layers 5 and
+                      6 may also be counted."
+              ::= { system 7 }
+ 
+
+          -- the SNMP group
+ 
+          -- Implementation of the SNMP group is mandatory for all
+          -- systems which support an SNMP protocol entity.  Some of
+          -- the objects defined below will be zero-valued in those
+          -- SNMP implementations that are optimized to support only
+          -- those functions specific to either a management agent or
+          -- a management station.  In particular, it should be
+          -- observed that the objects below refer to an SNMP entity,
+          -- and there may be several SNMP entities residing on a
+          -- managed node (e.g., if the node is hosting acting as
+          -- a management station).
+ 
+          snmpInPkts OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of Messages delivered to the
+                      SNMP entity from the transport service."
+              ::= { snmp 1 }
+ 
+          snmpOutPkts OBJECT-TYPE
+              SYNTAX  Counter
+ 
+ 
+ 
+ 
+ 
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Messages which were
+                      passed from the SNMP protocol entity to the
+                      transport service."
+              ::= { snmp 2 }
+ 
+          snmpInBadVersions OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Messages which were
+                      delivered to the SNMP protocol entity and were for
+                      an unsupported SNMP version."
+              ::= { snmp 3 }
+ 
+          snmpInBadCommunityNames OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Messages delivered to
+                      the SNMP protocol entity which used a SNMP
+                      community name not known to said entity."
+              ::= { snmp 4 }
+ 
+          snmpInBadCommunityUses OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Messages delivered to
+                      the SNMP protocol entity which represented an SNMP
+                      operation which was not allowed by the SNMP
+                      community named in the Message."
+              ::= { snmp 5 }
+ 
+          snmpInASNParseErrs OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of ASN.1 or BER errors
+                      encountered by the SNMP protocol entity when
+                      decoding received SNMP Messages."
+              ::= { snmp 6 }
+ 
+ 
+ 
+ 
+ 
+          -- { snmp 7 } is not used
+ 
+          snmpInTooBigs OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      delivered to the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `tooBig'."
+              ::= { snmp 8 }
+ 
+          snmpInNoSuchNames OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      delivered to the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `noSuchName'."
+              ::= { snmp 9 }
+ 
+          snmpInBadValues OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      delivered to the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `badValue'."
+              ::= { snmp 10 }
+ 
+          snmpInReadOnlys OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number valid SNMP PDUs which were
+                      delivered to the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `readOnly'.  It should be noted that it is a
+                      protocol error to generate an SNMP PDU which
+                      contains the value `readOnly' in the error-status
+                      field, as such this object is provided as a means
+                      of detecting incorrect implementations of the
+ 
+ 
+ 
+ 
+ 
+                      SNMP."
+              ::= { snmp 11 }
+ 
+          snmpInGenErrs OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      delivered to the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `genErr'."
+              ::= { snmp 12 }
+ 
+          snmpInTotalReqVars OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of MIB objects which have been
+                      retrieved successfully by the SNMP protocol entity
+                      as the result of receiving valid SNMP Get-Request
+                      and Get-Next PDUs."
+              ::= { snmp 13 }
+ 
+          snmpInTotalSetVars OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of MIB objects which have been
+                      altered successfully by the SNMP protocol entity
+                      as the result of receiving valid SNMP Set-Request
+                      PDUs."
+              ::= { snmp 14 }
+ 
+          snmpInGetRequests OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Get-Request PDUs which
+                      have been accepted and processed by the SNMP
+                      protocol entity."
+              ::= { snmp 15 }
+ 
+          snmpInGetNexts OBJECT-TYPE
+              SYNTAX  Counter
+ 
+ 
+ 
+ 
+ 
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Get-Next PDUs which have
+                      been accepted and processed by the SNMP protocol
+                      entity."
+              ::= { snmp 16 }
+ 
+          snmpInSetRequests OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Set-Request PDUs which
+                      have been accepted and processed by the SNMP
+                      protocol entity."
+              ::= { snmp 17 }
+ 
+          snmpInGetResponses OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Get-Response PDUs which
+                      have been accepted and processed by the SNMP
+                      protocol entity."
+              ::= { snmp 18 }
+ 
+          snmpInTraps OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Trap PDUs which have
+                      been accepted and processed by the SNMP protocol
+                      entity."
+              ::= { snmp 19 }
+ 
+          snmpOutTooBigs OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      generated by the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `tooBig.'"
+              ::= { snmp 20 }
+ 
+ 
+ 
+ 
+ 
+          snmpOutNoSuchNames OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      generated by the SNMP protocol entity and for
+                      which the value of the error-status is
+                      `noSuchName'."
+              ::= { snmp 21 }
+ 
+          snmpOutBadValues OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      generated by the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `badValue'."
+              ::= { snmp 22 }
+ 
+          -- { snmp 23 } is not used
+ 
+          snmpOutGenErrs OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP PDUs which were
+                      generated by the SNMP protocol entity and for
+                      which the value of the error-status field is
+                      `genErr'."
+              ::= { snmp 24 }
+ 
+          snmpOutGetRequests OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Get-Request PDUs which
+                      have been generated by the SNMP protocol entity."
+              ::= { snmp 25 }
+ 
+          snmpOutGetNexts OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+ 
+ 
+ 
+ 
+ 
+              DESCRIPTION
+                      "The total number of SNMP Get-Next PDUs which have
+                      been generated by the SNMP protocol entity."
+              ::= { snmp 26 }
+ 
+          snmpOutSetRequests OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Set-Request PDUs which
+                      have been generated by the SNMP protocol entity."
+              ::= { snmp 27 }
+ 
+          snmpOutGetResponses OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Get-Response PDUs which
+                      have been generated by the SNMP protocol entity."
+              ::= { snmp 28 }
+ 
+          snmpOutTraps OBJECT-TYPE
+              SYNTAX  Counter
+              ACCESS  read-only
+              STATUS  mandatory
+              DESCRIPTION
+                      "The total number of SNMP Trap PDUs which have
+                      been generated by the SNMP protocol entity."
+              ::= { snmp 29 }
+ 
+          snmpEnableAuthenTraps OBJECT-TYPE
+              SYNTAX  INTEGER { enabled(1), disabled(2) }
+              ACCESS  read-write
+              STATUS  mandatory
+              DESCRIPTION
+                      "Indicates whether the SNMP agent process is
+                      permitted to generate authentication-failure
+                      traps.  The value of this object overrides any
+                      configuration information; as such, it provides a
+                      means whereby all authentication-failure traps may
+                      be disabled.
+ 
+                      Note that it is strongly recommended that this
+                      object be stored in non-volatile memory so that it
+                      remains constant between re-initializations of the
+                      network management system."
+              ::= { snmp 30 }
+ 
+          authenticationFailure TRAP-TYPE
+              ENTERPRISE  snmp
+              DESCRIPTION
+                          "An authenticationFailure trap signifies that
+                          the sending protocol entity is the addressee
+                          of a protocol message that is not properly
+                          authenticated.  While implementations of the
+                          SNMP must be capable of generating this trap,
+                          they must also be capable of suppressing the
+                          emission of such traps via an implementation-
+                          specific mechanism."
+              ::= 4
+
+          END
+ 

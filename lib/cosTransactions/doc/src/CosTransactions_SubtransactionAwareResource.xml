@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>CosTransactions_&shy;SubtransactionAwareResource</title>
+    <shorttitle>..._SubtransactionAwareResource</shorttitle>
+    <prepared></prepared>
+    <docno></docno>
+    <checked></checked>
+    <date>1999-04-12</date>
+    <rev>PA1</rev>
+  </header>
+  <module>CosTransactions_SubtransactionAwareResource</module>
+  <modulesummary>This module implements the OMG CosTransactions::SubtransactionAwareResource interface.</modulesummary>
+  <description>
+    <p>This interface inherits the CosTransactions::Resource interface. Hence, 
+      it must also support all operations defined in the Resource interface.</p>
+    <p>To get access to the record definitions for the structures use:      <br></br>
+<c>-include_lib("cosTransactions/include/CosTransactions.hrl").</c></p>
+  </description>
+  <funcs>
+    <func>
+      <name>commit_subtransaction(SubtransactionAwareResource, Coordinator) -> Return</name>
+      <fsummary>Notify the target object that the transaction has committed</fsummary>
+      <type>
+        <v>SubtransactionAwareResource = #objref</v>
+        <v>Coordinator = #objref</v>
+        <v>Return = ok</v>
+      </type>
+      <desc>
+        <p>If the <c>SubtransactionAwareResource</c> have been registered with a <em>subtransaction</em>
+          using the operation <c>CosTransactions_Coordinator:register_subtran_aware/2</c>,
+          it will be notified when the transaction has committed.</p>
+        <note>
+          <p>The results of a committed subtransaction are relative to the completion of its ancestor
+            transactions, that is, these results can be undone if any ancestor transaction is rolled back.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name>rollback_subtransaction(SubtransactionAwareResource) -> Return</name>
+      <fsummary>Notify the target object that the transaction has been rolled back</fsummary>
+      <type>
+        <v>SubtransactionAwareResource = #objref</v>
+        <v>Return = ok</v>
+      </type>
+      <desc>
+        <p>If the <c>SubtransactionAwareResource</c> have been registered with a transactions
+          using the operation <c>CosTransactions_Coordinator:register_subtran_aware/2</c>
+          it will be notified when the transaction has rolled back.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

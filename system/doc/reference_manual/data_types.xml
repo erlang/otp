@@ -1,0 +1,399 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Data Types</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>data_types.xml</file>
+  </header>
+
+  <section>
+    <title>Terms</title>
+    <p>Erlang provides a number of data types which are listed in this
+      chapter. A piece of data of any data type is called a
+      <em>term</em>.</p>
+  </section>
+
+  <section>
+    <title>Number</title>
+    <p>There are two types of numeric literals, <em>integers</em> and
+      <em>floats</em>. Besides the conventional notation, there are two
+      Erlang-specific notations:</p>
+    <list type="bulleted">
+      <item><c>$</c><em><c>char</c></em>      <br></br>
+
+       ASCII value of the character <em><c>char</c></em>.</item>
+      <item><em><c>base</c></em><c>#</c><em><c>value</c></em>      <br></br>
+
+       Integer with the base <em><c>base</c></em>, which must be an
+       integer in the range 2..36.      <br></br>
+
+       In Erlang 5.2/OTP R9B and earlier versions, the allowed range
+       is 2..16.</item>
+    </list>
+    <p>Examples:</p>
+    <pre>
+1> <input>42.</input>
+42
+2> <input>$A.</input>
+65
+3> <input>$\ .</input>
+10
+4> <input>2#101.</input>
+5
+5> <input>16#1f.</input>
+31
+6> <input>2.3.</input>
+2.3
+7> <input>2.3e3.</input>
+2.3e3
+8> <input>2.3e-3.</input>
+0.0023</pre>
+  </section>
+
+  <section>
+    <title>Atom</title>
+    <p>An atom is a literal, a constant with name. An atom should be
+      enclosed in single quotes (') if it does not begin with a
+      lower-case letter or if it contains other characters than
+      alphanumeric characters, underscore (_), or @.</p>
+    <p>Examples:</p>
+    <pre>
+hello
+phone_number
+'Monday'
+'phone number'</pre>
+  </section>
+
+  <section>
+    <title>Bit Strings and Binaries</title>
+    <p>A bit string is used to store an area of untyped memory.</p>
+    <p>Bit Strings are expressed using the
+      <seealso marker="expressions#bit_syntax">bit syntax</seealso>.</p>
+    <p>Bit Strings which consists of a number of bits which is evenly 
+      divisible by eight are called Binaries</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>&lt;&lt;10,20&gt;&gt;.</input>
+&lt;&lt;10,20>>
+2> <input>&lt;&lt;"ABC"&gt;&gt;.</input>
+&lt;&lt;"ABC">>
+1> <input>&lt;&lt;1:1,0:1&gt;&gt;.</input>
+&lt;&lt;2:2>></pre>
+    <p>More examples can be found in Programming Examples.</p>
+  </section>
+
+  <section>
+    <title>Reference</title>
+    <p>A reference is a term which is unique in an Erlang runtime
+      system, created by calling <c>make_ref/0</c>.</p>
+  </section>
+
+  <section>
+    <title>Fun</title>
+    <p>A fun is a functional object. Funs make it possible to create
+      an anonymous function and pass the function itself -- not its
+      name -- as argument to other functions.</p>
+    <p>Example:</p>
+    <pre>
+1> <input>Fun1 = fun (X) -> X+1 end.</input>
+#Fun&lt;erl_eval.6.39074546&gt;
+2> <input>Fun1(2).</input>
+3</pre>
+    <p>Read more about funs in <seealso marker="expressions#funs">Fun Expressions</seealso>. More examples can be found in Programming
+      Examples.</p>
+  </section>
+
+  <section>
+    <title>Port Identifier</title>
+    <p>A port identifier identifies an Erlang port. <c>open_port/2</c>,
+      which is used to create ports, will return a value of this type.</p>
+    <p>Read more about ports in <seealso marker="ports">Ports and Port Drivers</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Pid</title>
+    <p>A process identifier, pid, identifies a process.
+      <c>spawn/1,2,3,4</c>, <c>spawn_link/1,2,3,4</c> and
+      <c>spawn_opt/4</c>, which are used to create processes, return
+      values of this type. Example:</p>
+    <pre>
+1> <input>spawn(m, f, []).</input>
+&lt;0.51.0></pre>
+    <p>The BIF <c>self()</c> returns the pid of the calling process.
+      Example:</p>
+    <pre>
+-module(m).
+-export([loop/0]).
+
+loop() ->
+    receive
+        who_are_you ->
+            io:format("I am ~p~n", [self()]),
+            loop()
+    end.
+
+1> <input>P = spawn(m, loop, []).</input>
+&lt;0.58.0>
+2> <input>P ! who_are_you.</input>
+I am &lt;0.58.0>
+who_are_you</pre>
+    <p>Read more about processes in
+      <seealso marker="processes">Processes</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Tuple</title>
+    <p>Compound data type with a fixed number of terms:</p>
+    <pre>
+{Term1,...,TermN}</pre>
+    <p>Each term <c>Term</c> in the tuple is called an
+      <em>element</em>. The number of elements is said to be
+      the <em>size</em> of the tuple.</p>
+    <p>There exists a number of BIFs to manipulate tuples.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>P = {adam,24,{july,29}}.</input>
+{adam,24,{july,29}}
+2> <input>element(1,P).</input>
+adam
+3> <input>element(3,P).</input>
+{july,29}
+4> <input>P2 = setelement(2,P,25).</input>
+{adam,25,{july,29}}
+5> <input>tuple_size(P).</input>
+3
+6> <input>tuple_size({}).</input>
+0</pre>
+  </section>
+
+  <section>
+    <title>List</title>
+    <p>Compound data type with a variable number of terms.</p>
+    <pre>
+[Term1,...,TermN]</pre>
+    <p>Each term <c>Term</c> in the list is called an
+      <em>element</em>. The number of elements is said to be
+      the <em>length</em> of the list.</p>
+    <p>Formally, a list is either the empty list <c>[]</c> or
+      consists of a <em>head</em> (first element) and a <em>tail</em>
+      (remainder of the list) which is also a list. The latter can
+      be expressed as <c>[H|T]</c>. The notation
+      <c>[Term1,...,TermN]</c> above is actually shorthand for
+      the list <c>[Term1|[...|[TermN|[]]]]</c>.</p>
+    <p>Example:      <br></br>
+<c>[]</c> is a list, thus      <br></br>
+<c>[c|[]]</c> is a list, thus      <br></br>
+<c>[b|[c|[]]]</c> is a list, thus      <br></br>
+<c>[a|[b|[c|[]]]]</c> is a list, or in short <c>[a,b,c]</c>.</p>
+    <p></p>
+    <p>A list where the tail is a list is sometimes called a <em>proper list</em>. It is allowed to have a list where the tail is not a
+      list, for example <c>[a|b]</c>. However, this type of list is of
+      little practical use.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>L1 = [a,2,{c,4}].</input>
+[a,2,{c,4}]
+2> <input>[H|T] = L1.</input>
+[a,2,{c,4}]
+3> <input>H.</input>
+a
+4> <input>T.</input>
+[2,{c,4}]
+5> <input>L2 = [d|T].</input>
+[d,2,{c,4}]
+6> <input>length(L1).</input>
+3
+7> <input>length([]).</input>
+0</pre>
+    <p>A collection of list processing functions can be found in
+      the STDLIB module <c>lists</c>.</p>
+  </section>
+
+  <section>
+    <title>String</title>
+    <p>Strings are enclosed in double quotes ("), but is not a
+      data type in Erlang. Instead a string <c>"hello"</c> is
+      shorthand for the list <c>[$h,$e,$l,$l,$o]</c>, that is
+      <c>[104,101,108,108,111]</c>.</p>
+    <p>Two adjacent string literals are concatenated into one. This is
+      done at compile-time and does not incur any runtime overhead.
+      Example:</p>
+    <pre>
+"string" "42"</pre>
+    <p>is equivalent to</p>
+    <pre>
+"string42"</pre>
+  </section>
+
+  <section>
+    <title>Record</title>
+    <p>A record is a data structure for storing a fixed number of
+      elements. It has named fields and is similar to a struct in C.
+      However, record is not a true data type. Instead record
+      expressions are translated to tuple expressions during
+      compilation. Therefore, record expressions are not understood by
+      the shell unless special actions are taken. See <c>shell(3)</c>
+      for details.</p>
+    <p>Examples:</p>
+    <pre>
+-module(person).
+-export([new/2]).
+
+-record(person, {name, age}).
+
+new(Name, Age) ->
+    #person{name=Name, age=Age}.
+
+1> <input>person:new(ernie, 44).</input>
+{person,ernie,44}</pre>
+    <p>Read more about records in
+      <seealso marker="records">Records</seealso>. More examples can be
+      found in Programming Examples.</p>
+  </section>
+
+  <section>
+    <title>Boolean</title>
+    <p>There is no Boolean data type in Erlang. Instead the atoms
+      <c>true</c> and <c>false</c> are used to denote Boolean values.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>2 =&lt; 3</input>.
+true
+2> <input>true or false</input>.
+true</pre>
+  </section>
+
+  <section>
+    <title>Escape Sequences</title>
+    <p>Within strings and quoted atoms, the following escape sequences
+      are recognized:</p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Sequence</em></cell>
+        <cell align="left" valign="middle"><em>Description</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\b</cell>
+        <cell align="left" valign="middle">backspace</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\d</cell>
+        <cell align="left" valign="middle">delete</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\e</cell>
+        <cell align="left" valign="middle">escape</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\f</cell>
+        <cell align="left" valign="middle">form feed</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\</cell>
+        <cell align="left" valign="middle">newline</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\r</cell>
+        <cell align="left" valign="middle">carriage return</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\s</cell>
+        <cell align="left" valign="middle">space</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\t</cell>
+        <cell align="left" valign="middle">tab</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\v</cell>
+        <cell align="left" valign="middle">vertical tab</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\XYZ, \\YZ, \\Z</cell>
+        <cell align="left" valign="middle">character with octal representation XYZ, YZ or Z</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\xXY</cell>
+        <cell align="left" valign="middle">character with hexadecimal representation XY</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\x{X...}</cell>
+        <cell align="left" valign="middle">character with hexadecimal representation; X... is one or more hexadecimal characters</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\^a...\\^z        <br></br>
+\\^A...\\^Z</cell>
+        <cell align="left" valign="middle">control A to control Z</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\'</cell>
+        <cell align="left" valign="middle">single quote</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\"</cell>
+        <cell align="left" valign="middle">double quote</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">\\\\</cell>
+        <cell align="left" valign="middle">backslash</cell>
+      </row>
+      <tcaption>Recognized Escape Sequences.</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>Type Conversions</title>
+    <p>There are a number of BIFs for type conversions. Examples:</p>
+    <pre>
+1> <input>atom_to_list(hello).</input>
+"hello"
+2> <input>list_to_atom("hello").</input>
+hello
+3> <input>binary_to_list(&lt;&lt;"hello">>).</input>
+"hello"
+4> <input>binary_to_list(&lt;&lt;104,101,108,108,111>>).</input>
+"hello"
+5> <input>list_to_binary("hello").</input>
+&lt;&lt;104,101,108,108,111>>
+6> <input>float_to_list(7.0).</input>
+"7.00000000000000000000e+00"
+7> <input>list_to_float("7.000e+00").</input>
+7.0
+8> <input>integer_to_list(77).</input>
+"77"
+9> <input>list_to_integer("77").</input>
+77
+10> <input>tuple_to_list({a,b,c}).</input>
+[a,b,c]
+11> <input>list_to_tuple([a,b,c]).</input>
+{a,b,c}
+12> <input>term_to_binary({a,b,c}).</input>
+&lt;&lt;131,104,3,100,0,1,97,100,0,1,98,100,0,1,99>>
+13> <input>binary_to_term(&lt;&lt;131,104,3,100,0,1,97,100,0,1,98,100,0,1,99>>).</input>
+{a,b,c}</pre>
+  </section>
+</chapter>
+

@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>toolbar</title>
+    <prepared>Gunilla Hugosson</prepared>
+    <docno></docno>
+    <date>1997-04-21</date>
+    <rev>A</rev>
+    <file>toolbar.sgml</file>
+  </header>
+  <module>toolbar</module>
+  <modulesummary>GUI for Starting Tools and User Contributions</modulesummary>
+  <description>
+    <p>Toolbar makes it easier to use
+      the different Erlang tools - and the user contributions - which are provided.
+      It has a graphical user interface with an icon for each tool.
+      Clicking the icon activates the corresponding tool.
+      </p>
+    <p>All tools to be included on Toolbar must
+      have a configuration file containing information about the tool,
+      for example its start function and help information location.
+      Configuration files must have the <c>.tool</c> suffix.
+      </p>
+    <p>When started, Toolbar automatically checks for <c>*.tool</c>
+      files in the current path and adds the corresponding tools. For
+      each <c>ebin</c> directory found in the path, it will also look
+      in a <c>priv</c> directory next to it. This is a feature of the Erlang
+      file structure.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>start() -> ok | already_started</name>
+      <fsummary>Start Toolbar</fsummary>
+      <desc>
+        <p>Creates a window containing tool icons.</p>
+      </desc>
+    </func>
+    <func>
+      <name>version() -> string()</name>
+      <fsummary>Return current version number</fsummary>
+      <desc>
+        <p>Returns the current version number of Toolbar.</p>
+      </desc>
+    </func>
+    <func>
+      <name>update() -> ok | {error,not_started}</name>
+      <fsummary>Update Toolbar</fsummary>
+      <desc>
+        <p>Makes a search for new tool files in the current path and
+          adds the corresponding tools to Toolbar window.</p>
+      </desc>
+    </func>
+    <func>
+      <name>quit() -> ok | {error,not_started}</name>
+      <fsummary>Quit Toolbar.</fsummary>
+    </func>
+    <func>
+      <name>create_tool_file() -> ok | {error,not_started}</name>
+      <fsummary>Create tool files</fsummary>
+      <desc>
+        <p>Starts the GUI used for creating and editing tool files.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add_gs_contribs() -> ok | {error,not_started}</name>
+      <fsummary>Add GS contributions</fsummary>
+      <desc>
+        <p>Adds the path to the directory where the GS contributions are
+          situated and add the tools found there, if any.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

@@ -1,0 +1,148 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Drivers</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <docno></docno>
+    <date>2009-11-16</date>
+    <rev></rev>
+    <file>drivers.xml</file>
+  </header>
+
+  <p>This chapter provides a (very) brief overview on how to write efficient
+  drivers. It is assumed that you already have a good understanding of
+  drivers.</p>
+
+  <section>
+    <title>Drivers and concurrency</title>
+
+    <p>The run-time system will always take a lock before running
+    any code in a driver.</p>
+
+    <p>By default, that lock will be at the driver level, meaning that
+    if several ports has been opened to the same driver, only code for
+    one port at the same time can be running.</p>
+
+    <p>A driver can be configured to instead have one lock for each port.</p>
+
+    <p>If a driver is used in a functional way (i.e. it holds no state,
+    but only does some heavy calculation and returns a result), several
+    ports with registered names can be opened beforehand and the port to
+    be used can be chosen based on the scheduler ID like this:</p>
+
+    <code type="none">
+-define(PORT_NAMES(),
+	{some_driver_01, some_driver_02, some_driver_03, some_driver_04,
+	 some_driver_05, some_driver_06, some_driver_07, some_driver_08,
+	 some_driver_09, some_driver_10, some_driver_11, some_driver_12,
+	 some_driver_13, some_driver_14, some_driver_15, some_driver_16}).
+
+client_port() ->
+    element(erlang:system_info(scheduler_id) rem tuple_size(?PORT_NAMES()) + 1,
+	    ?PORT_NAMES()).</code>
+
+    <p>As long as there are no more than 16 schedulers, there will never
+    be any lock contention on the port lock for the driver.</p>	    
+
+  </section>
+
+  <section>
+    <title>Avoiding copying of binaries when calling a driver</title>
+
+    <p>There are basically two ways to avoid copying a binary that is
+    sent to a driver.</p>
+
+    <p>If the <c>Data</c> argument for
+    <seealso marker="erts:erlang#port_control/3">port_control/3</seealso>
+    is a binary, the driver will be passed a pointer to the contents of
+    the binary and the binary will not be copied.
+    If the <c>Data</c> argument is an iolist (list of binaries and lists),
+    all binaries in the iolist will be copied.</p>
+
+    <p>Therefore, if you want to send both a pre-existing binary and some
+    additional data to a driver without copying the binary, you must call
+    <c>port_control/3</c> twice; once with the binary and once with the
+    additional data. However, that will only work if there is only one
+    process communicating with the port (because otherwise another process
+    could call the driver in-between the calls).</p>
+
+    <p>Another way to avoid copying binaries is to implement an <c>outputv</c>
+    callback (instead of an <c>output</c> callback) in the driver.
+    If a driver has an <c>outputv</c> callback, refc binaries passed
+    in an iolist in the <c>Data</c> argument for
+    <seealso marker="erts:erlang#port_command/2">port_command/2</seealso>
+    will be passed as references to the driver.</p>
+  </section>
+
+  <section>
+    <title>Returning small binaries from a driver</title>
+
+    <p>The run-time system can represent binaries up to 64 bytes as
+    heap binaries. They will always be copied when sent in a messages,
+    but they will require less memory if they are not sent to another
+    process and garbage collection is cheaper.</p>
+
+    <p>If you know that the binaries you return are always small,
+    you should use driver API calls that do not require a pre-allocated
+    binary, for instance
+    <seealso marker="erts:erl_driver#int driver_output-3">driver_output()</seealso>
+    or 
+    <seealso marker="erts:erl_driver#int driver_output_term-3">driver_output_term()</seealso>
+    using the <c>ERL_DRV_BUF2BINARY</c> format,
+    to allow the run-time to construct a heap binary.</p>
+
+  </section>
+
+  <section>
+    <title>Returning big binaries without copying from a driver</title>
+
+    <p>To avoid copying data when a big binary is sent or returned from
+    the driver to an Erlang process, the driver must first allocate the
+    binary and then send it to an Erlang process in some way.</p>
+    
+    <p>Use <seealso marker="erts:erl_driver#ErlDrvBinary* driver_alloc_binary-1">driver_alloc_binary()</seealso> to allocate a binary.</p>
+
+    <p>There are several ways to send a binary created with
+    <c>driver_alloc_binary()</c>.</p>
+
+    <list type="bulleted">
+    <item><p>From the <c>control</c> callback, a binary can be returned provided
+        that
+	<seealso marker="erts:erl_driver#void set_port_control_flags-2">set_port_control()</seealso>
+	 has been called with the flag value <c>PORT_CONTROL_FLAG_BINARY</c>.</p>
+    </item>
+
+    <item><p>A single binary can be sent with
+    <seealso marker="erts:erl_driver#int driver_output_binary-6">driver_output_binary()</seealso>.</p></item>
+
+    <item><p>Using
+    <seealso marker="erts:erl_driver#int driver_output_term-3">driver_output_term()</seealso>
+    or
+    <seealso marker="erts:erl_driver#int driver_send_term-4">driver_send_term()</seealso>,
+    a binary can be included in an Erlang term.</p>
+    </item>
+    </list>
+
+  </section>
+
+</chapter>

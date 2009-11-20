@@ -1,0 +1,21 @@
+#! /bin/sh
+
+#
+# This script creates the test tar file in this directory.
+# Not needed for running any test case, but useful if you need
+# to update the test cases and create a new tar file.
+#
+
+first=original_software/written_by/a_bunch_of_hackers/spending_all_their_nights
+second=still/not_long_enough/but_soon_it_will_be
+base=$first/$second
+
+mkdir -p $base
+
+mkdir $base/empty_directory
+
+echo "Here is the first file." > $base/first_file
+echo "And here is the second file." > $base/second_file
+
+tar cf long_names.tar original_software
+rm -rf original_software

@@ -1,0 +1,246 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>erl_eval</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>97-01-21</date>
+    <rev>B</rev>
+    <file>erl_eval.sgml</file>
+  </header>
+  <module>erl_eval</module>
+  <modulesummary>The Erlang Meta Interpreter</modulesummary>
+  <description>
+    <p>This module provides an interpreter for Erlang expressions. The
+      expressions are in the abstract syntax as returned by
+      <c>erl_parse</c>, the Erlang parser, or a call to
+      <c>io:parse_erl_exprs/2</c>.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>exprs(Expressions, Bindings) -> {value, Value, NewBindings}</name>
+      <name>exprs(Expressions, Bindings, LocalFunctionHandler) ->  {value, Value, NewBindings}</name>
+      <name>exprs(Expressions, Bindings, LocalFunctionHandler, NonlocalFunctionHandler) -> {value, Value, NewBindings}</name>
+      <fsummary>Evaluate expressions</fsummary>
+      <type>
+        <v>Expressions = as returned by erl_parse or io:parse_erl_exprs/2</v>
+        <v>Bindings = as returned by bindings/1</v>
+        <v>LocalFunctionHandler = {value, Func} | {eval, Func} | none</v>
+        <v>NonlocalFunctionHandler = {value, Func} | none</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>Expressions</c> with the set of bindings
+          <c>Bindings</c>, where <c>Expressions</c> is a sequence of
+          expressions (in abstract syntax) of a type which may be
+          returned by <c>io:parse_erl_exprs/2</c>. See below for an
+          explanation of how and when to use the arguments
+          <c>LocalFunctionHandler</c> and <c>NonlocalFunctionHandler</c>.
+          </p>
+        <p>Returns <c>{value, Value, NewBindings}</c></p>
+      </desc>
+    </func>
+    <func>
+      <name>expr(Expression, Bindings) -> { value, Value, NewBindings }</name>
+      <name>expr(Expression, Bindings, LocalFunctionHandler) -> { value, Value, NewBindings }</name>
+      <name>expr(Expression, Bindings, LocalFunctionHandler, NonlocalFunctionHandler) -> { value, Value, NewBindings }</name>
+      <name>expr(Expression, Bindings, LocalFunctionHandler, NonlocalFunctionHandler, ReturnFormat) -> { value, Value, NewBindings } | Value</name>
+      <fsummary>Evaluate expression</fsummary>
+      <type>
+        <v>Expression = as returned by io:parse_erl_form/2, for example</v>
+        <v>Bindings = as returned by bindings/1</v>
+        <v>LocalFunctionHandler = {value, Func} | {eval, Func} | none</v>
+        <v>NonlocalFunctionHandler = {value, Func} | none</v>
+        <v>ReturnFormat = value | none</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>Expression</c> with the set of bindings
+          <c>Bindings</c>. <c>Expression</c> is an expression (in
+          abstract syntax) of a type which may be returned by
+          <c>io:parse_erl_form/2</c>. See below for an explanation of
+          how and when to use the arguments
+          <c>LocalFunctionHandler</c> and
+          <c>NonlocalFunctionHandler</c>.
+          </p>
+        <p>Returns <c>{value, Value, NewBindings}</c> by default. But
+        if the <c>ReturnFormat</c> is <c>value</c> only the <c>Value</c> 
+        is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>expr_list(ExpressionList, Bindings) ->  {ValueList, NewBindings}</name>
+      <name>expr_list(ExpressionList, Bindings, LocalFunctionHandler) ->  {ValueList, NewBindings}</name>
+      <name>expr_list(ExpressionList, Bindings, LocalFunctionHandler,  NonlocalFunctionHandler) -> {ValueList, NewBindings}</name>
+      <fsummary>Evaluate a list of expressions</fsummary>
+      <desc>
+        <p>Evaluates a list of expressions in parallel, using the same
+          initial bindings for each expression. Attempts are made to
+          merge the bindings returned from each evaluation.  This
+          function is useful in the <c>LocalFunctionHandler</c>. See below.
+          </p>
+        <p>Returns <c>{ValueList, NewBindings}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>new_bindings() -> BindingStruct</name>
+      <fsummary>Return a bindings structure</fsummary>
+      <desc>
+        <p>Returns an empty binding structure.</p>
+      </desc>
+    </func>
+    <func>
+      <name>bindings(BindingStruct) -> Bindings</name>
+      <fsummary>Return bindings</fsummary>
+      <desc>
+        <p>Returns the list of bindings contained in the binding
+          structure.</p>
+      </desc>
+    </func>
+    <func>
+      <name>binding(Name, BindingStruct) -> Binding</name>
+      <fsummary>Return bindings</fsummary>
+      <desc>
+        <p>Returns the binding of <c>Name</c> in <c>BindingStruct</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add_binding(Name, Value, Bindings) -> BindingStruct</name>
+      <fsummary>Add a binding</fsummary>
+      <desc>
+        <p>Adds the binding <c>Name = Value</c> to <c>Bindings</c>.
+          Returns an updated binding structure.</p>
+      </desc>
+    </func>
+    <func>
+      <name>del_binding(Name, Bindings) -> BindingStruct</name>
+      <fsummary>Delete a binding</fsummary>
+      <desc>
+        <p>Removes the binding of <c>Name</c> in <c>Bindings</c>.
+          Returns an updated binding structure.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Local Function Handler</title>
+    <p>During evaluation of a function, no calls can be made to local
+      functions. An undefined function error would be
+      generated. However, the optional argument
+      <c>LocalFunctionHandler</c> may be used to define a function
+      which is called when there is a call to a local function. The
+      argument can have the following formats:</p>
+    <taglist>
+      <tag><c>{value,Func}</c></tag>
+      <item>
+        <p>This defines a local function handler which is called with:</p>
+        <code type="none">
+Func(Name, Arguments)        </code>
+        <p><c>Name</c> is the name of the local function (an atom) and
+          <c>Arguments</c> is a list of the <em>evaluated</em>
+          arguments. The function handler returns the value of the
+          local function. In this case, it is not possible to access
+          the current bindings. To signal an error, the function
+          handler just calls <c>exit/1</c> with a suitable exit value.</p>
+      </item>
+      <tag><c>{eval,Func}</c></tag>
+      <item>
+        <p>This defines a local function handler which is called with:</p>
+        <code type="none">
+Func(Name, Arguments, Bindings)        </code>
+        <p><c>Name</c> is the name of the local function (an atom),
+          <c>Arguments</c> is a list of the <em>unevaluated</em>
+          arguments, and <c>Bindings</c> are the current variable
+          bindings. The function handler returns:</p>
+        <code type="none">
+{value,Value,NewBindings}        </code>
+        <p><c>Value</c> is the value of the local function and
+          <c>NewBindings</c> are the updated variable bindings. In
+          this case, the function handler must itself evaluate all the
+          function arguments and manage the bindings. To signal an
+          error, the function handler just calls <c>exit/1</c> with a
+          suitable exit value.</p>
+      </item>
+      <tag><c>none</c></tag>
+      <item>
+        <p>There is no local function handler.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Non-local Function Handler</title>
+    <p>The optional argument <c>NonlocalFunctionHandler</c> may be
+      used to define a function which is called in the following
+      cases: a functional object (fun) is called; a built-in function
+      is called; a function is called using the M:F syntax, where M
+      and F are atoms or expressions; an operator Op/A is called
+      (this is handled as a call to the function <c>erlang:Op/A</c>).
+      Exceptions are calls to <c>erlang:apply/2,3</c>; neither of the
+      function handlers will be called for such calls. 
+      The argument can have the following formats:</p>
+    <taglist>
+      <tag><c>{value,Func}</c></tag>
+      <item>
+        <p>This defines an nonlocal function handler which is called with:</p>
+        <code type="none">
+Func(FuncSpec, Arguments)        </code>
+        <p><c>FuncSpec</c> is the name of the function on the form
+          <c>{Module,Function}</c> or a fun, and <c>Arguments</c> is a
+          list of the <em>evaluated</em> arguments. The function
+          handler returns the value of the function. To
+          signal an error, the function handler just calls
+          <c>exit/1</c> with a suitable exit value.</p>
+      </item>
+      <tag><c>none</c></tag>
+      <item>
+        <p>There is no nonlocal function handler.</p>
+      </item>
+    </taglist>
+    <note>
+      <p>For calls such as <c>erlang:apply(Fun, Args)</c> or
+        <c>erlang:apply(Module, Function, Args)</c> the call of the
+        non-local function handler corresponding to the call to
+        <c>erlang:apply/2,3</c> itself--<c>Func({erlang, apply}, [Fun, Args])</c> or <c>Func({erlang, apply}, [Module, Function, Args])</c>--will never take place. The non-local function
+        handler <em>will</em> however be called with the evaluated
+        arguments of the call to <c>erlang:apply/2,3</c>: <c>Func(Fun, Args)</c> or <c>Func({Module, Function}, Args)</c> (assuming
+        that <c>{Module, Function}</c> is not <c>{erlang, apply}</c>).</p>
+      <p>Calls to functions defined by evaluating fun expressions
+        <c>"fun ... end"</c> are also hidden from non-local function
+        handlers.</p> </note>
+    <p>The nonlocal function handler argument is probably not used as
+      frequently as the local function handler argument. A possible
+      use is to call <c>exit/1</c> on calls to functions that for some
+      reason are not allowed to be called.</p>
+  </section>
+
+  <section>
+    <title>Bugs</title>
+    <p>The evaluator is not complete. <c>receive</c> cannot be
+      handled properly.
+      </p>
+    <p>Any undocumented functions in <c>erl_eval</c> should not be used.</p>
+  </section>
+</erlref>
+

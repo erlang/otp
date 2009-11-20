@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>PKIX Certificates</title>
+    <prepared>UAB/F/P Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-06-09</date>
+    <rev>A</rev>
+    <file>pkix_certs.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction to Certificates</title>
+    <p>Certificates were originally defined by ITU (CCITT) and the latest 
+      definitions are described in <cite id="X.509"></cite>, but those definitions
+      are (as always) not working. 
+      </p>
+    <p>Working certificate definitions for the Internet Community are found
+      in the the PKIX RFCs <cite id="rfc3279"></cite>and <cite id="rfc3280"></cite>. 
+      The parsing of certificates in the Erlang/OTP SSL application is
+      based on those RFCS. 
+      </p>
+    <p>Certificates are defined in terms of ASN.1 (<cite id="X.680"></cite>).
+      For an introduction to ASN.1 see <url href="http://asn1.elibel.tm.fr/">ASN.1 Information Site</url>.
+      </p>
+  </section>
+
+  <section>
+    <title>PKIX Certificates</title>
+    <p>Here we base the PKIX certificate definitions in RFCs <cite id="rfc3279"></cite>and <cite id="rfc3280"></cite>. We however present the
+      definitions according to <c>SSL-PKIX.asn1</c> module, 
+      which is an amelioration of the <c>PKIX1Explicit88.asn1</c>, 
+      <c>PKIX1Implicit88.asn1</c>, and <c>PKIX1Algorithms88.asn1</c>
+      modules. You find all these modules in the <c>pkix</c> subdirectory
+      of SSL. 
+      </p>
+    <p>The Erlang terms that are returned by the functions
+      <c>ssl:peercert/1/2</c>, <c>ssl_pkix:decode_cert/1/2</c>, and
+      <c>ssl_pkix:decode_cert_file/1/2</c> when the option <c>ssl</c>
+      is used in those functions, correspond the ASN.1 structures
+      described in the sequel. 
+      </p>
+
+    <section>
+      <title>Certificate and TBSCertificate</title>
+      <code type="none">
+Certificate  ::=  SEQUENCE  {
+     tbsCertificate       TBSCertificate,
+     signatureAlgorithm   SignatureAlgorithm,
+     signature            BIT STRING }
+
+TBSCertificate  ::=  SEQUENCE  {
+     version         [0]  Version DEFAULT v1,
+     serialNumber         CertificateSerialNumber,
+     signature            SignatureAlgorithm,
+     issuer               Name,
+     validity             Validity,
+     subject              Name,
+     subjectPublicKeyInfo SubjectPublicKeyInfo,
+     issuerUniqueID  [1]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     subjectUniqueID [2]  IMPLICIT UniqueIdentifier OPTIONAL,
+                          -- If present, version MUST be v2 or v3
+     extensions      [3]  Extensions OPTIONAL
+                          -- If present, version MUST be v3 --  }
+
+Version  ::=  INTEGER  {  v1(0), v2(1), v3(2)  }
+
+CertificateSerialNumber  ::=  INTEGER
+
+Validity ::= SEQUENCE {
+     notBefore      Time,
+     notAfter       Time  }
+
+Time ::= CHOICE {
+     utcTime        UTCTime,
+     generalTime    GeneralizedTime }
+      </code>
+      <p>The meaning of the fields <c>version</c>, <c>serialNumber</c>,
+        and <c>validity</c> are quite obvious given the type definitions
+        above, so we do not go further into their details. 
+        </p>
+      <p>The <c>signatureAlgorithm</c> field of <c>Certificate</c> and
+        the <c>signature</c> field of <c>TBSCertificate</c> contain
+        the name and parameters of the algorithm used for signing the
+        certificate. The values of these two fields must be equal.
+        </p>
+      <p>The <c>signature</c> field of <c>Certificate</c> contains the
+        value of the signature that the issuer computed by using the 
+        prescribed algorithm.
+        </p>
+      <p>The <c><![CDATA[issuer<c> and <c>subject]]></c> fields can contain many 
+        different types av data, and is therefore considered in a 
+        separate section. The same holds for the <c>extensions</c>
+        field. 
+        The <c>issuerUniqueID</c> and the <c>subjectUniqueID</c> fields 
+        are not considered further.</p>
+    </section>
+
+    <section>
+      <title>TBSCertificate issuer and subject</title>
+      <p></p>
+      <code type="none"><![CDATA[
+Name ::= CHOICE { -- only one possibility for now --
+      rdnSequence  RDNSequence }
+
+RDNSequence ::= SEQUENCE OF RelativeDistinguishedName
+
+DistinguishedName ::=   RDNSequence
+
+RelativeDistinguishedName  ::=
+                    SET SIZE (1 .. MAX) OF AttributeTypeAndValue
+
+AttributeTypeAndValue ::=  SEQUENCE {
+        type    ATTRIBUTE-TYPE-AND-VALUE-CLASS.&id
+\011\011({SupportedAttributeTypeAndValues}),
+        value   ATTRIBUTE-TYPE-AND-VALUE-CLASS.&Type
+\011\011({SupportedAttributeTypeAndValues}{@type}) }
+
+SupportedAttributeTypeAndValues ATTRIBUTE-TYPE-AND-VALUE-CLASS ::= 
+\011{ name | surname | givenName | initials | generationQualifier |
+\011  commonName | localityName | stateOrProvinceName | organizationName |
+\011  organizationalUnitName | title | dnQualifier | countryName |
+\011  serialNumber | pseudonym | domainComponent | emailAddress }      ]]></code>
+    </section>
+
+    <section>
+      <title>TBSCertificate extensions</title>
+      <p>The <c>extensions</c> field of a <c>TBScertificate</c> is a 
+        sequence of type <c>Extension</c>, defined as follows,</p>
+      <code type="none">
+Extension  ::=  SEQUENCE  {
+     extnID      OBJECT IDENTIFIER,
+     critical    BOOLEAN DEFAULT FALSE,
+     extnValue   ANY }      </code>
+      <p>Each extension has a unique object identifier. An extension
+        with a <c>critical</c> value set to <c>TRUE</c><em>must</em>
+        be recognised by the reader of a certificate, or else the
+        certificate must be rejected.
+        </p>
+      <p>Extensions are divided into two groups: standard extensions
+        and internet certificate extensions. All extensions listed in
+        the table that follows are standard extensions, except for
+        <c>authorityInfoAccess</c> and <c>subjectInfoAccess</c>, which
+        are internet extensions.
+        </p>
+      <p>Depending on the object identifier the <c>extnValue</c> is
+        parsed into an appropriate welldefined structure. 
+        </p>
+      <p>The following table shows the purpose of each extension, but
+        does not specify the structure. To see the structure consult
+        the <c>PKIX1Implicit88.asn1</c> module.
+        </p>
+      <table>
+        <row>
+          <cell align="left" valign="middle">authorityKeyIdentifier</cell>
+          <cell align="left" valign="middle">Used by to identify a certificate signed that has multiple signing keys. </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">subjectKeyIdentifier</cell>
+          <cell align="left" valign="middle">Used to identify certificates that contain a public key.  Must appear i CA certificates.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">keyUsage </cell>
+          <cell align="left" valign="middle">Defines the purpose of the certificate. Can be one or several of<c>digitalSignature</c>, <c>nonRepudiation</c>,<c>keyEncipherment</c>, <c>dataEncipherment</c>,<c>keyAgreement</c>, <c>keyCertSign</c>, <c>cRLSign</c>,<c>encipherOnly</c>, <c>decipherOnly</c>.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">privateKeyUsagePeriod </cell>
+          <cell align="left" valign="middle">Allows certificate issuer to provide a private key usage period to be short than the certificate usage period.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">certificatePolicies</cell>
+          <cell align="left" valign="middle">Contains one or more policy information terms indicating the policies under which the certificate has been issued.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">policyMappings</cell>
+          <cell align="left" valign="middle">Used i CA certificates. </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">subjectAltName</cell>
+          <cell align="left" valign="middle">Allows additional identities to be bound the the subject. </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">issuerAltName</cell>
+          <cell align="left" valign="middle">Allows additional identities to be bound the the issuer.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">subjectDirectoryAttributes</cell>
+          <cell align="left" valign="middle">Conveys identity attributes of the subject.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">basicConstraints</cell>
+          <cell align="left" valign="middle">Tells if the certificate holder is a CA or not.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">nameConstraints</cell>
+          <cell align="left" valign="middle">Used in CA certificates.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">policyConstraints</cell>
+          <cell align="left" valign="middle">Used in CA certificates.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">extKeyUsage</cell>
+          <cell align="left" valign="middle">Indicates for which purposed the public key may be used. </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">cRLDistributionPoints</cell>
+          <cell align="left" valign="middle">Indicates how CRL (Certificate Revokation List) information is obtained.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">inhibitAnyPolicy</cell>
+          <cell align="left" valign="middle">Used i CA certificates.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">freshestCRL</cell>
+          <cell align="left" valign="middle">For CRLs.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">authorityInfoAccess</cell>
+          <cell align="left" valign="middle">How to access CA information of the issuer of the certificate.</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle">subjectInfoAccess</cell>
+          <cell align="left" valign="middle">How to access CA information of the subject of the certificate.</cell>
+        </row>
+        <tcaption>PKIX Extensions</tcaption>
+      </table>
+    </section>
+  </section>
+</chapter>
+
+

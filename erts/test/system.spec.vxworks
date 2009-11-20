@@ -1,0 +1,2 @@
+{topcase, {dir, "../system_test"}}.
+{skip,{erlc_SUITE, "Not on VxWorks, erlc is a HOST tool."}}

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema" elementFormDefault="qualified">
+  <xs:element name="image">
+    <xs:complexType>
+      <xs:complexContent>
+        <xs:extension base="icaption">
+          <xs:attribute name="file" use="required"/>
+        </xs:extension>
+      </xs:complexContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:complexType name="icaption">
+    <xs:sequence>
+      <xs:element ref="icaption"/>
+    </xs:sequence>
+  </xs:complexType>
+  <xs:element name="icaption" type="xs:string"/>
+</xs:schema>

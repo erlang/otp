@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE book SYSTEM "book.dtd">
+
+<book xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header titlestyle="normal">
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Erlang/OTP System Documentation</title>
+    <prepared>OTP Team</prepared>
+    <docno></docno>
+    <date>2009-08-21</date>
+    <rev>A</rev>
+    <file>book.xml</file>
+  </header>
+  <insidecover>
+  </insidecover>
+  <pagetext></pagetext>
+  <preamble>
+    <contents level="2"></contents>
+  </preamble>
+  <parts lift="no">
+    <xi:include href="../installation_guide/part.xml"/>
+    <xi:include href="../system_principles/part.xml"/>
+    <xi:include href="../embedded/part.xml"/>
+    <xi:include href="../getting_started/part.xml"/>
+    <xi:include href="../reference_manual/part.xml"/>
+    <xi:include href="../programming_examples/part.xml"/>
+    <xi:include href="../efficiency_guide/part.xml"/>
+    <xi:include href="../tutorial/part.xml"/>
+    <xi:include href="../design_principles/part.xml"/>
+    <xi:include href="../oam/part.xml"/>
+  </parts>
+  <listofterms></listofterms>
+  <index></index>
+</book>
+

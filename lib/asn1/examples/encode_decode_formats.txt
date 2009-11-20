@@ -1,0 +1,16 @@
+Compile options:	      |		encode output |	decode input	|
+------------------------------+-----------------------+-----------------|
+ber (default)		      |		flat list     | flat list,binary|
+ber_bin			      |		iolist	      | binary		|
+ber_bin,optimize	      | 	iolist	      | binary		|
+ber_bin,optimize,driver	      | 	iolist	      | iolist,binary	|
+per			      | 	flat list     | flat list       |
+per_bin			      | 	deep list     | binary	        |
+per_bin, optimize	      | 	binary	      | binary	        |
+------------------------------+-----------------------+-----------------+   
+								         
+								            
+
+
+
+iolist: deep list with binaries and lists as componets

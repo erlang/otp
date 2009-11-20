@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxDialog" name="art_provider_dialog">
+    <title>wxArtProvider Example</title>
+    <centered>1</centered>
+    <object class="wxFlexGridSizer">
+        <cols>1</cols>
+        <rows>0</rows>
+        <vgap>0</vgap>
+        <hgap>0</hgap>
+        <growablecols>0</growablecols>
+        <growablerows>0</growablerows>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxTextCtrl" name="message_textctrl">
+                <size>500,150</size>
+                <style>wxTE_MULTILINE</style>
+                <value>You can specify wxArtProvider icons in your XRC resources. These icons will be retrieved from the active wxArtProvider (see wxArtProvider in docs and /samples/artprov for more information on wxArtProvider).\n\nThe most common usage for this is that you want a dialog, toolbar or menu item to have the correct platform-specific icon in your interface, such as a custom "Don't show this again" checkbox message dialog that has the appropriate icon, as shown below.\n\nYou can also use it to manage your own custom bitmaps though, too--instead of having to write multiple versions of an XRC file that only differ in their bitmaps, you can instead just write one XRC file with the bitmap to be retrieved from the wxArtProvider at runtime, having your custom wxArtProvider use some code to serve out the desired bitmap based on such things as a wxConfig n entry of a desired icon set, what OS the application is running on, what size or resolution the display is, and so on.\n\nNote that your application's custom bitmaps are the only thing that will differ between OS's in order to ensure proper Look And Feel, as everything else: windows decoration, colors, fonts, widgets, etc already match perfectly since wxWindows runs natively.\n\nTo use a wxArtProvider bitmap instead of usual bitmap, in your XRC, instead of &lt;bitmap&gt;somefile.png&lt;/bitmap&gt;, use &lt;bitmap stock__id="SOME__ART__ID" client="SOME__CLIENT__ID"&gt;somefile.png&lt;/bitmap&gt;. The stock__id parameter is required for a bitmap to be read from wxArtProvider, stock__client is optional. The image filename is also optional, and is just used as a fallback in case the wxArtProvider couldn't return a bitmap for that particular stock__id (and particular stock__client if your wxArtProvider is set up to also filter stock__client).</value>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxFlexGridSizer">
+                <cols>2</cols>
+                <rows>0</rows>
+                <vgap>0</vgap>
+                <hgap>0</hgap>
+                <growablecols>1</growablecols>
+                <growablerows>0</growablerows>
+                <object class="sizeritem">
+                    <flag>wxALIGN_CENTRE|wxALL</flag>
+                    <border>5</border>
+                    <object class="wxStaticBitmap" name="my_bitmap">
+                        <bitmap stock_id="wxART_INFORMATION" stock_client="wxART_MESSAGE_BOX">derivdlg.xpm</bitmap>
+                    </object>
+                </object>                
+                <object class="sizeritem">
+                    <flag>wxALIGN_CENTRE|wxALL</flag>
+                    <border>5</border>
+                    <object class="wxStaticText" name="message_statictext">
+                        <label>Your web connection is optimized perfectly.</label>
+                    </object>
+                </object>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxCheckBox" name="dont_show_checkbox">
+                <label>Don't show this message again</label>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxButton" name="wxID_OK">
+                <label>OK</label>
+            </object>
+        </object>
+    </object>
+</object>
+
+</resource>

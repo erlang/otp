@@ -1,0 +1,3 @@
+%% -*- erlang -*-
+{exclude,[eunit_test]}.
+

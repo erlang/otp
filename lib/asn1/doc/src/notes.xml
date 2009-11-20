@@ -1,0 +1,748 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>asn1 Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the asn1 application.</p>
+
+
+<section><title>Asn1 1.6.12</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8256</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Asn1 1.6.11</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            A new option <c>{n2n,TypeName}</c> can be used to
+	    enable generation of conversion functions from name to number 
+	    and vice versa for selected ENUMERATION types. 
+	    The option can be repeated many times in order to specify several 
+	    types in the same file.<br/>
+	    If the <c>TypeName</c> specified does not exists or is not an 
+	    ENUMERATION type, the compilation will be terminated with an 
+	    error code.<br/>
+	    Below follows an example on how to use the option from the command line with <c>erlc</c>:<br/>
+	    <c>erlc -bper_bin +optimize +driver +"{n2n,'CauseMisc'}" +"{n2n,'CausePcl'}" MyModyle.asn</c>
+	  </p>
+          <p>
+            Own Id: OTP-8136 Aux Id: seq11347 </p>
+        </item>
+        <item>
+          <p>
+            Range checks added for BIT STRING with fixed SIZE
+            constraint.</p>
+          <p>
+            Own Id: OTP-7972 Aux Id: seq11280 </p>
+        </item>
+        <item>
+          <p>
+            Now support multiple-line comments in asn1-specs as
+            specified in ASN1 X.680 (07/2002), section 11.6.4</p>
+          <p>
+            Own Id: OTP-8043</p>
+        </item>
+        <item>
+          <p>
+            Now parses and adds abstract syntax for PATTERN subtype
+            constraint. No other action is taken on this type of
+            constraint.</p>
+          <p>
+            Own Id: OTP-8046</p>
+        </item>
+        <item>
+          <p>
+            The ASN1 subtype constraint <c>CONTAINING Type</c>,
+            <c>CONTAINING Type ENCODED BY Value</c> and <c>ENCODED BY
+            Value</c> now is parsed. Abstract syntax is added but no
+            further action in generated code is taken.</p>
+          <p>
+            Own Id: OTP-8047</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A faulty receive case that catch-ed all messages in the
+            initialization of the driver has been removed, the
+            initialization has been restructured.</p>
+          <p>
+            Own Id: OTP-7954 Aux Id: seq11220 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The anonymous part of the decode that splits the ASN1 TLV
+            into Tag Value tuples has been optimized.</p>
+          <p>
+            Own Id: OTP-7953</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Error that caused crash when drivers were loaded is now
+            corrected. Parallel driver for asn1 now enabled.</p>
+          <p>
+            Own Id: OTP-7904 Aux Id: seq11220 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Optimized code for ENUMERATION type in encoder/decoder.</p>
+          <p>
+            Own Id: OTP-7909</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.8.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Removed parallel-driver functionality due to failure
+            when loading the driver.</p>
+          <p>
+            Own Id: OTP-7900 Aux Id: seq11220 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Generated code now uses guards that is not obsolete, e.g.
+            <c>is_integer/1</c> instead of <c>integer/1</c>.</p>
+          <p>
+            Own Id: OTP-7910</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+ 
+<section><title>Asn1 1.6.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A BIT STRING with a size constraint that has a single
+            value and an extension as in <c> BIT STRING (SIZE
+            (16,...))</c> was erroneous encoded/decoded. This is now
+            corrected and follows X.691 Section 15.6.</p>
+          <p>
+            Own Id: OTP-7876 Aux Id: seq11220 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+ <section><title>Asn1 1.6.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Now asn1 starts multiple drivers to enable simultaneous
+            encode/decode in different processes for the
+            asn1-backends using linked-in driver.</p>
+          <p>
+            Own Id: OTP-7801</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Decode of an open_type when the value was empty tagged
+	    type encoded with indefinite length failed. This is now
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-7759 Aux Id: seq11166 </p>
+        </item>
+        <item>
+          <p>
+	    Encode of BIT STRING with size of exact length, on
+	    compact_bit_string format in UNALIGNED PER failed when
+	    value had the right size, i.e. no padding needed.</p>
+          <p>
+	    Own Id: OTP-7763 Aux Id: seq11182 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            For a BIT STRING with SIZE constraint higher than 255
+            compiled with <c>[per_bin,optimize,
+            compact_bit_string]</c> an improper io-list was created
+            and sent to the c-driver for complete encoding. This
+            error has been resolved.</p>
+          <p>
+            Own Id: OTP-7734 Aux Id: seq11170 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A a SEQUENCE OF with a type that is a CHOICE with
+            ellipses occurred falsely a compile error. The error
+            causing that is now removed.</p>
+          <p>
+            Own Id: OTP-7708 Aux Id: seq11136 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+ 
+<section><title>Asn1 1.6.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            constrained number with a value-range greater than 512 now
+            has the proper interpretation of the values that causes
+            shift to the next number of units (bits), According to
+            limit condition <c>2^m &lt; "range" =&lt; 2^(m + 1)</c> then the
+            number of bits are m + 1.</p>
+          <p>
+            Own Id: OTP-7681 Aux Id: seq11114 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Can now handle default values of simple types that is
+            provided on its own format, i.e. not just as
+            asn1_DEFAULT.</p>
+          <p>
+            Own Id: OTP-7678 Aux Id: seq11114 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            comparison of two value definitions failed due to new
+            module name field in valuedef record. It is now
+            corrected.</p>
+          <p>
+            Own Id: OTP-7608</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+ 
+<section><title>Asn1 1.6.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Bug regarding propagation of parameters of parameterized
+            type fixed.</p>
+          <p>
+            Own Id: OTP-7174 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            A bug, related to instantiation of a parameterized type
+            with a type definition in the parameter-list, has been
+            removed. The definition of the parameter type was in
+            another module than the instance definition causing
+            limited module info.</p>
+          <p>
+            Own Id: OTP-7299 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Removed hard-coded name that may cause name collision.</p>
+          <p>
+            Own Id: OTP-7322 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Object set of a class with id with properties UNIQUE
+            OPTIONAL and the id field is lacking in the object is for
+            now treated as a object without a unique identifier, i.e.
+            no table is generated for this object.</p>
+          <p>
+            Own Id: OTP-7332 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Compiler crashed when failed to handle a OID as
+            ValueFromObject.</p>
+          <p>
+            Own Id: OTP-7476 Aux Id: seq10999 </p>
+        </item>
+        <item>
+          <p>
+            A corrupted encoding may cause a loop when a buffer of at
+            least two bytes of zero matches tag and length of a SET
+            component. This behavior occurred only with decoder
+            generated with <c>ber</c> or <c>ber_bin</c> options. Now a
+            control breaks the loop.</p>
+          <p>
+            Own Id: OTP-7533</p>
+        </item>
+        <item>
+          <p>
+            Encode of BIT STRING longer than 255 bits with a
+            <c>SIZE(integer())</c> constraint caused a crash when
+            spec was compiled with <c>per_bin, optimize</c> options.</p>
+          <p>
+            Own Id: OTP-7602 Aux Id: seq11079 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Now supports REAL type of base 2 and 10</p>
+          <p>
+            Own Id: OTP-7166 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            By the asn1 compiler option <c>{record_name_prefix
+            Name}</c> a prefix is chosen to the name of the record
+            generated in the .hrl and used in the generated .erl
+            files.</p>
+          <p>
+            Own Id: OTP-7204 Aux Id: seq10853 </p>
+        </item>
+        <item>
+          <p>
+            The TypeFromObject production now covered</p>
+          <p>
+            Own Id: OTP-7295 Aux Id: seq10468 </p>
+        </item>
+        <item>
+          <p>
+            Extended support for ObjectSetFromObjects. Production
+            occurred as a part of the RootElementSetSpec of the
+            ObjectSetSpec. Added also support for Exclusion of
+            Element in ObjectSetSpec.</p>
+          <p>
+            Own Id: OTP-7306 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Now implements RELATIVE-OID</p>
+          <p>
+            Own Id: OTP-7334 Aux Id: seq10864 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.6</title>
+ 
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Now is ordering, according to the canonical order, of
+            components in a SET added. Canonical order is described
+            in X.691 9.2 and X.680 8.6</p>
+          <p>
+            Own Id: OTP-7375 Aux Id: unaligned PER </p>
+        </item>
+        <item>
+          <p>
+            The precedence rules for extended constraints have been
+            misinterpreted. The rule says for instance that if there
+            are more than one constraint on a type that have
+            extension-mark, only the last of the extension-marks would
+            be kept. This affects the encoding of PER and is now
+            corrected.</p>
+          <p>
+            Own Id: OTP-7400 Aux Id: OTP-7335 </p>
+        </item>
+        <item>
+          <p>
+            A constrained number with a single-value constraint that
+            is extensible was falsely encoded/decoded in
+            aligned/unaligned PER. This is now corrected.</p>
+          <p>
+            Own Id: OTP-7403</p>
+        </item>
+      </list>
+    </section>
+ 
+ 
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The ASN.1 compiler has got a new backend supporting PER
+            UNALIGNED. Previously it was only support for PER
+            ALIGNED.</p>
+          <p>
+            Own Id: OTP-7335</p>
+        </item>
+        <item>
+          <p>
+            Now the asn1-compiler handles unions and intersections of
+            PermittedAlphabet constraints.</p>
+          <p>
+            Own Id: OTP-7374 Aux Id: unaligned PER </p>
+        </item>
+	<item>
+          <p>
+            With the undocumented option <c>no_final_padding</c> the
+            whole encoded message is not padded to a border of a
+            byte. Thus the returned encoded message is a
+            <c>bitstring</c>.</p>
+          <p>
+            Own Id: OTP-7407</p>
+        </item>
+      </list>
+    </section>
+ 
+</section>
+
+<section><title>Asn1 1.5.2</title>
+ 
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            When duplicates of object fields were removed only one
+            table access function for each unique identifier value
+            was generated. This can occur when several object sets
+            are merged by use of ObjectSetFromObjects.</p>
+          <p>
+            Own Id: OTP-7263 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            DER: For some complex types and components with reference
+            to type in several steps the default value check function
+            was not generated. This is now fixed.</p>
+          <p>
+            Own Id: OTP-7268 Aux Id: seq10684 </p>
+        </item>
+        <item>
+          <p>
+            Now is the tag in a tagged type as parameter propagated
+            to the instance.</p>
+          <p>
+            Own Id: OTP-7273 Aux Id: seq10864 </p>
+        </item>
+      </list>
+    </section>
+ 
+ 
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added type T61String that is similar to TeletexString</p>
+          <p>
+            Own Id: OTP-7264 Aux Id: seq10864 </p>
+        </item>
+      </list>
+    </section>
+ 
+</section>
+
+
+<section><title>Asn1 1.5.1</title>
+ 
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            A bug related to renaming of types has been fixed.This
+            occurred using the .set.asn functionality.</p>
+          <p>
+            Own Id: OTP-7149 Aux Id: seq10853 </p>
+        </item>
+        <item>
+          <p>
+            syntax error in ASN1 value now correctly shown</p>
+          <p>
+            Own Id: OTP-7154 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Now a COMPONENTS OF construct in a parameterized type
+            is expanded correctly</p>
+          <p>
+            Own Id: OTP-7155 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Now the asn1-compiler also handles empty SEQUENCE DEFAULT
+            values as <c>{}</c>.</p>
+          <p>
+            Own Id: OTP-7169 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Now SelectionType gets the tag of the selected type.</p>
+          <p>
+            Own Id: OTP-7171 Aux Id: seq10864 </p>
+        </item>
+        <item>
+          <p>
+            Correction of generated code for decode of an open type
+            in a SEQUECNE OF/ SET OF</p>
+          <p>
+            Own Id: OTP-7193 Aux Id: seq10875 </p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Misc improvements and bug corrections regarding default
+            values.</p>
+          <p>
+            Own Id: OTP-7199 Aux Id: seq10864 </p>
+        </item>
+      </list>
+    </section>
+ 
+
+ 
+</section>
+                                                                                
+<section><title>Asn1 1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Now generating records in .hrl file for instances of
+            parameterized SEQUENCE or SET.</p>
+          <p>
+            Own Id: OTP-6835</p>
+        </item>
+        <item>
+          <p>
+            Optimization using bitstr in encode/decode functions. Active with
+            <c>[per_bin, optimize]</c> options.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-6882</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Asn1 1.4.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Parsing and encoding/decoding of type constrained with
+            SIZE with extension is now recovered.</p>
+          <p>
+            Own Id: OTP-6763</p>
+        </item>
+        <item>
+          <p>
+            <c>inline</c> failed because trying to use a removed
+            module.</p>
+          <p>
+            Own Id: OTP-6769</p>
+        </item>
+        <item>
+          <p>
+            Fixed problem with a reference to a type from an object.
+            The failure was caused bye change of type name when using
+            <c>inline</c> option.</p>
+          <p>
+            Own Id: OTP-6770</p>
+        </item>
+        <item>
+          <p>
+            Handling of decode pattern for exclusive decode was false
+            in the case when an un-decoded component had more than one
+            following elements that should be decoded.</p>
+          <p>
+            Own Id: OTP-6786</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Now the asn1-compiler supports two root lists in SEQUENCE
+            and SET according to alternative three in
+            ComponentTypeLists (X.680 07/2002 section 24.1), i.e.
+            with an extension list between two ellipses.</p>
+          <p>
+            Own Id: OTP-5067 Aux Id: seq8452 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Asn1 1.4.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Merging modules by <c>inline</c> earlier disabled the
+            driver (used in modules generated with
+            [optimized]/[optimized,driver] options). Now this is
+            repaired.</p>
+          <p>Own Id: OTP-6601</p>
+        </item>
+        <item>
+          <p>Checking phase now aware of which module an INSTANCE OF
+            is declared in.</p>
+          <p>Own Id: OTP-6702</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler now handle all forms of ObjectSetSpec
+            according to ITU-T recommendation X.681 (ISO/IEC
+            8824-2:2002).</p>
+          <p>Own Id: OTP-6698</p>
+        </item>
+        <item>
+          <p>Enhanced support of referencing object sets by
+            ObjectSetFromObjects.</p>
+          <p>Own Id: OTP-6707</p>
+        </item>
+        <item>
+          <p>Support for parameterized object in an object set.</p>
+          <p>Own Id: OTP-6717</p>
+        </item>
+      </list>
+    </section>
+
+    <!-- p>There are also release notes for <url href="notes_history.html">older versions</url>.</p -->
+  </section>
+</chapter>
+

@@ -1,0 +1,383 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Potential Incompatibilities</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>incompatible.xml</file>
+  </header>
+  <p>This document contains a list of potential incompatibilities
+    between Erlang 5.7/OTP R12A and Erl 5.6.5/OTP R12B-5,
+    and is an extract from the release notes for the respective applications.</p>
+
+  <section>
+    <title>compiler</title>
+    <list type="bulleted">
+        <item>
+          <p>
+	    The undocumented, unsupported, and deprecated guard BIF
+	    <c>is_constant/1</c> has been removed.</p>
+          <p>
+	    *** INCOMPATIBILITY with R12B ***</p>
+          <p>
+	    Own Id: OTP-7673</p>
+        </item>
+        <item>
+	    <p>The short-circuit operators <c>andalso</c> and
+	    <c>orelse</c> no longer guarantees that their second
+	    argument is either <c>true</c> or <c>false</c>. As a
+	    consequence, <c>andalso</c>/<c>orelse</c> are now
+	    tail-recursive.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7748</p>
+        </item>
+        <item>
+	    <p>The compiler will refuse to a compile file where the
+	    module name in the file differs from the output file
+	    name.</p>
+	    <p>When compiling using <c>erlc</c>, the current working
+	    directory will no be included in the code path (unless
+	    explicitly added using "-pa .").</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7793</p>
+        </item>
+        <item>
+	    <p>If a module contains an exported function with the
+	    same name as an auto-imported BIF (such as
+	    <c>length/1</c>), any calls to the BIF must have an
+	    explicit <c>erlang:</c> prefix, or there will be a
+	    compilation error (such calls would only generate a
+	    warning in previous releases).</p>
+	    <p>(The reason for the change is to avoid breaking code
+	    in a future major release, R14 or R15, in which we plan
+	    to make calls without a module prefix always call the
+	    local function in the same module even if there is an
+	    auto-imported BIF with the same name.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7873</p>
+        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Erts</title>
+    <list type="bulleted">
+        <item>
+	    <p>Support for Unicode is implemented as described in
+	    EEP10. Formatting and reading of unicode data both from
+	    terminals and files is supported by the io and io_lib
+	    modules. Files can be opened in modes with automatic
+	    translation to and from different unicode formats. The
+	    module 'unicode' contains functions for conversion
+	    between external and internal unicode formats and the re
+	    module has support for unicode data. There is also
+	    language syntax for specifying string and character data
+	    beyond the ISO-latin-1 range.</p>
+	    <p>The interactive shell will support input and output of
+	    unicode characters when the terminal and operating system
+	    supports it.</p>
+	    <p>Please see the EEP and the io/io_lib manual pages as
+	    well as the stdlib users guide for details.</p>
+	    <p><em>I/O-protocol incompatibilities:</em></p>
+	    <p>The io_protocol between io_Server and client is
+	    updated to handle protocol data in unicode formats. The
+	    updated protocol is now documented. The specification
+	    resides in the stdlib <em>users manual</em>, which is a
+	    new part of the manual.</p>
+	    <p><em>io module incompatibilities:</em></p>
+	    <p>The io:put_chars, io:get_chars and io:get_line all
+	    handle and return unicode data. In the case where
+	    binaries can be provided (as to io:put_chars), they shall
+	    be encoded in UTF-8. When binaries are returned (as by
+	    io:get_line/get_chars when the io_server is set in
+	    <em>binary mode</em>) the returned data is also
+	    <em>always</em> encoded as UTF-8. The file module however
+	    still returns byte-oriented data, why file:read can be
+	    used instead of io:get_chars to read binary data in
+	    ISO-latin-1.</p>
+	    <p><em>io_lib module incompatibilities:</em></p>
+	    <p>io_lib:format can, given new format directives (i.e
+	    "~ts" and "~tc"), return lists containing integers larger
+	    than 255. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7648 Aux Id: OTP-7580 OTP-7514 OTP-7494
+	    OTP-7443 OTP-7181 EEP10 EEP11 </p>
+        </item>
+        <item>
+          <p>
+	    The undocumented, unsupported, and deprecated guard BIF
+	    <c>is_constant/1</c> has been removed.</p>
+          <p>
+	    *** INCOMPATIBILITY with R12B ***</p>
+          <p>
+	    Own Id: OTP-7673</p>
+        </item>
+        <item>
+	    <p>The short-circuit operators <c>andalso</c> and
+	    <c>orelse</c> no longer guarantees that their second
+	    argument is either <c>true</c> or <c>false</c>. As a
+	    consequence, <c>andalso</c>/<c>orelse</c> are now
+	    tail-recursive.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7748</p>
+        </item>
+        <item>
+	    <p>The compiler will refuse to a compile file where the
+	    module name in the file differs from the output file
+	    name.</p>
+	    <p>When compiling using <c>erlc</c>, the current working
+	    directory will no be included in the code path (unless
+	    explicitly added using "-pa .").</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7793</p>
+        </item>
+        <item>
+	    <p>The deprecated functions <c>erlang:fault/1</c>,
+	    <c>erlang:fault/2</c>, and <c>file:rawopen/2</c> have
+	    been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7812</p>
+        </item>
+        <item>
+	    <p>The escape sequences <c>\x</c> and <c>\{</c> have been
+	    assigned new interpretations (they used to return the
+	    ASCII code for <c>x</c> and <c>{</c> respectively). One
+	    or more octal characters inside curly brackets after a
+	    leading backslash is from now on an alternative to the
+	    existing syntax <c>\NNN</c>, but can also be used for
+	    codes greater than 255. In a similar fashion, one or more
+	    hexadecimal characters can be put inside curly brackets
+	    after a leading <c>\x</c>. Furthermore, the escape
+	    sequences <c>\xH</c> and <c>\xHH</c>, where N is a
+	    hexadecimal character, can be used for codes less than
+	    256.</p>
+	    <p>NOTE: These new escape sequences are still considered
+	    experimental and may be changed in the R13B release.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7855</p>
+        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Inets</title>
+    <list type="bulleted">
+     <item>
+          <p>
+            [httpc] - The inets http client will now use persistent
+            connections without pipelining as default and if a
+            pipeline timeout is set it will pipeline the requests on
+            the persistent connections.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7463</p>
+        </item>
+    </list>
+  </section>
+
+    <section>
+    <title>Jinterface</title>
+      <list>
+        <item>
+          <p>
+	    A number of fixes and improvements from the ErlIDE group;
+	    Vlad Dumitrescu and Jakob Cederlund: JDK 1.5 is now a
+	    minimal requirement for building Jinterface. New method:
+	    OtpEpmd.lookupNames. OtpErlangList is now iterable.
+	    Non-proper lists are now allowed - you have to test if a
+	    list is proper or not. Non-proper lists can also be
+	    created. New methods: isProper, getHead, getTail and
+	    getNthTail. The get tail methods creates a sublist object
+	    that re-uses the original list. OtpErlangPid is now
+	    Comparable. Empty atoms can now be constructed, a missing
+	    feature pointed out by Sebastien Boisgerault on
+	    erlang-questions.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7832</p>
+        </item>
+      </list>
+    </section>
+
+  <section>
+    <title>Kernel</title>
+    <list type="bulleted">
+        <item>
+	    <p>The deprecated functions <c>erlang:fault/1</c>,
+	    <c>erlang:fault/2</c>, and <c>file:rawopen/2</c> have
+	    been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7812</p>
+        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>SSH</title>
+    <list type="bulleted">
+        <item>
+          <p>
+            Ssh timeouts will now behave as expected i.e. defaults to
+            infinity. Only the user of the ssh application can know of
+            a reasonable timeout value for their application.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7807</p>
+        </item>
+        <item>
+          <p>
+            Added the message {ssh_channel_up, ChannelId,
+            ConnectionManager} that shall be handled by the channel
+            callback handle_msg/2. This makes the function
+            handle_msg/2 a mandatory function for ssh channels
+            implementations which it was not in ssh-1.1.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7828</p>
+        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>STDLIB</title>
+    <list type="bulleted">
+        <item>
+	    <p>The functions <c>lists:seq/1,2</c> return the empty
+	    list in a few cases when they used to generate an
+	    exception, for example <c>lists:seq(1, 0)</c>. See
+	    lists(3) for details. (Thanks to Richard O'Keefe.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7230</p>
+        </item>
+        <item>
+	    <p>Support for Unicode is implemented as described in
+	    EEP10. Formatting and reading of unicode data both from
+	    terminals and files is supported by the io and io_lib
+	    modules. Files can be opened in modes with automatic
+	    translation to and from different unicode formats. The
+	    module 'unicode' contains functions for conversion
+	    between external and internal unicode formats and the re
+	    module has support for unicode data. There is also
+	    language syntax for specifying string and character data
+	    beyond the ISO-latin-1 range.</p>
+	    <p>The interactive shell will support input and output of
+	    unicode characters when the terminal and operating system
+	    supports it.</p>
+	    <p>Please see the EEP and the io/io_lib manual pages as
+	    well as the stdlib users guide for details.</p>
+	    <p><em>I/O-protocol incompatibilities:</em></p>
+	    <p>The io_protocol between io_Server and client is
+	    updated to handle protocol data in unicode formats. The
+	    updated protocol is now documented. The specification
+	    resides in the stdlib <em>users manual</em>, which is a
+	    new part of the manual.</p>
+	    <p><em>io module incompatibilities:</em></p>
+	    <p>The io:put_chars, io:get_chars and io:get_line all
+	    handle and return unicode data. In the case where
+	    binaries can be provided (as to io:put_chars), they shall
+	    be encoded in UTF-8. When binaries are returned (as by
+	    io:get_line/get_chars when the io_server is set in
+	    <em>binary mode</em>) the returned data is also
+	    <em>always</em> encoded as UTF-8. The file module however
+	    still returns byte-oriented data, why file:read can be
+	    used instead of io:get_chars to read binary data in
+	    ISO-latin-1.</p>
+	    <p><em>io_lib module incompatibilities:</em></p>
+	    <p>io_lib:format can, given new format directives (i.e
+	    "~ts" and "~tc"), return lists containing integers larger
+	    than 255. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7648 Aux Id: OTP-7580 OTP-7514 OTP-7494
+	    OTP-7443 OTP-7181 EEP10 EEP11 </p>
+        </item>
+        <item>
+          <p>
+	    <c>filelib:fold_files/5</c> now uses the <c>re</c> module
+	    instead of the <c>regexp</c> module for regular
+	    expression matching. In practice, this change will not be
+	    a problem for most regular expressions used for
+	    <c>filelib:fold_files/5</c>. (The major difference in
+	    regular expression is that parenthesis and curly brackets
+	    is treated as literal characters by <c>regexp</c> but as
+	    special characters by <c>re</c>; fortunately, those
+	    characters are rarely used in filenames.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7819</p>
+        </item>
+        <item>
+          <p>
+	    <c>digraph:new(Type)</c> will now cause a <c>badarg</c>
+	    exception if <c>Type</c> is not a valid type. Similarly,
+	    <c>digraph_utils:subgraph/2,3</c> will now cause a
+	    <c>badarg</c> if the arguments are invalid. (Those
+	    functions used to return error tuples if something was
+	    wrong.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7824</p>
+        </item>
+        <item>
+	    <p>The argument passed to <c>random:uniform/1</c> must
+	    now be an integer (as stated in the documentation). In
+	    previous releases, a floating point number was also
+	    allowed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7827</p>
+        </item>
+    </list>
+  </section>
+</chapter>
+

@@ -1,0 +1,761 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1996-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+#
+# File format:
+#
+# Lines starting with '#' are ignored.
+#
+# <bif-decl> ::= "bif" <bif> <C-name>* | "ubif" <bif> <C-name>*
+# <bif> ::= <module> ":" <name> "/" <arity>
+#
+# "ubif" is an unwrapped bif, i.e. a bif without a trace wrapper,
+# or rather; the trace entry point in the export entry is the same
+# as the normal entry point, and no trace wrapper is generated.
+#
+# Important: Use "ubif" for guard BIFs and operators; use "bif" for ordinary BIFs.
+#
+# Add new BIFs to the end of the file. Do not bother adding a "packaged BIF name"
+# (such as 'erl.lang.number'); if/when packages will be supported we will add
+# all those names.
+#
+# Note: Guards BIFs require special support in the compiler (to be able to actually
+# call them from within a guard).
+#
+
+ubif erlang:abs/1
+ubif 'erl.lang.number':abs/1		ebif_abs_1
+bif erlang:adler32/1
+bif 'erl.util.crypt.adler32':sum/1	ebif_adler32_1
+bif erlang:adler32/2
+bif 'erl.util.crypt.adler32':sum/2	ebif_adler32_2
+bif erlang:adler32_combine/3
+bif 'erl.util.crypt.adler32':combine/3	ebif_adler32_combine_3
+bif erlang:apply/3
+bif 'erl.lang':apply/3			ebif_apply_3
+bif erlang:atom_to_list/1
+bif 'erl.lang.atom':to_string/1		ebif_atom_to_string_1 atom_to_list_1
+bif erlang:binary_to_list/1
+bif 'erl.lang.binary':to_list/1		ebif_binary_to_list_1
+bif erlang:binary_to_list/3
+bif 'erl.lang.binary':to_list/3		ebif_binary_to_list_3
+bif erlang:binary_to_term/1	
+bif 'erl.lang.binary':to_term/1		ebif_binary_to_term_1
+bif erlang:check_process_code/2
+bif 'erl.system.code':check_process/2	ebif_check_process_code_2
+bif erlang:crc32/1
+bif 'erl.util.crypt.crc32':sum/1	ebif_crc32_1
+bif erlang:crc32/2
+bif 'erl.util.crypt.crc32':sum/2	ebif_crc32_2
+bif erlang:crc32_combine/3
+bif 'erl.util.crypt.crc32':combine/3	ebif_crc32_combine_3
+bif erlang:date/0
+bif 'erl.util.date':today/0		ebif_date_0
+bif erlang:delete_module/1
+bif 'erl.system.code':delete/1		ebif_delete_module_1
+bif erlang:display/1
+bif 'erl.system.debug':display/1	ebif_display_1
+bif erlang:display_string/1
+bif 'erl.system.debug':display_string/1	ebif_display_string_1
+bif erlang:display_nl/0
+bif 'erl.system.debug':display_nl/0	ebif_display_nl_0
+ubif erlang:element/2
+ubif 'erl.lang.tuple':element/2		ebif_element_2
+bif erlang:erase/0
+bif 'erl.lang.proc.pdict':erase/0	ebif_erase_0
+bif erlang:erase/1
+bif 'erl.lang.proc.pdict':erase/1	ebif_erase_1
+bif erlang:exit/1
+bif 'erl.lang':exit/1			ebif_exit_1
+bif erlang:exit/2
+bif 'erl.lang.proc':signal/2		ebif_signal_2 exit_2
+bif erlang:external_size/1
+bif 'erl.lang.term':external_size/1	ebif_external_size_1
+ubif erlang:float/1
+ubif 'erl.lang.number':to_float/1	ebif_to_float_1 float_1
+bif erlang:float_to_list/1
+bif 'erl.lang.float':to_string/1	ebif_float_to_string_1 float_to_list_1
+bif erlang:fun_info/2
+bif 'erl.lang.function':info/2		ebif_fun_info_2
+bif erlang:garbage_collect/0
+bif 'erl.system':garbage_collect/0	ebif_garbage_collect_0
+bif erlang:garbage_collect/1
+bif 'erl.system':garbage_collect/1	ebif_garbage_collect_1
+bif erlang:garbage_collect_message_area/0
+bif 'erl.system':garbage_collect_message_area/0	ebif_garbage_collect_message_area_0
+bif erlang:get/0
+bif 'erl.lang.proc.pdict':get/0		ebif_get_0
+bif erlang:get/1
+bif 'erl.lang.proc.pdict':get/1		ebif_get_1
+bif erlang:get_keys/1
+bif 'erl.lang.proc.pdict':get_keys/1	ebif_get_keys_1
+bif erlang:group_leader/0
+bif 'erl.lang.proc':group_leader/0	ebif_group_leader_0
+bif erlang:group_leader/2
+bif 'erl.lang.proc':set_group_leader/2	ebif_group_leader_2
+bif erlang:halt/0
+bif 'erl.lang.system':halt/0		ebif_halt_0
+bif erlang:halt/1
+bif 'erl.lang.system':halt/1		ebif_halt_1
+bif erlang:phash/2
+bif erlang:phash2/1
+bif erlang:phash2/2
+bif 'erl.lang.term':hash/1		ebif_phash2_1
+bif 'erl.lang.term':hash/2		ebif_phash2_2
+ubif erlang:hd/1
+ubif 'erl.lang.list':hd/1		ebif_hd_1
+bif erlang:integer_to_list/1
+bif 'erl.lang.integer':to_string/1	ebif_integer_to_string_1 integer_to_list_1
+bif erlang:is_alive/0
+bif 'erl.lang.node':is_alive/0		ebif_is_alive_0
+ubif erlang:length/1
+ubif 'erl.lang.list':length/1		ebif_length_1
+bif erlang:link/1
+bif 'erl.lang.proc':link/1		ebif_link_1
+bif erlang:list_to_atom/1
+bif 'erl.lang.atom':from_string/1	ebif_string_to_atom_1 list_to_atom_1
+bif erlang:list_to_binary/1
+bif 'erl.lang.binary':from_list/1	ebif_list_to_binary_1
+bif erlang:list_to_float/1
+bif 'erl.lang.float':from_string/1	ebif_string_to_float_1 list_to_float_1
+bif erlang:list_to_integer/1
+bif 'erl.lang.integer':from_string/1	ebif_string_to_integer_1 list_to_integer_1
+bif erlang:list_to_pid/1
+bif 'erl.lang.proc':string_to_pid/1	ebif_string_to_pid_1 list_to_pid_1
+bif erlang:list_to_tuple/1
+bif 'erl.lang.tuple':from_list/1	ebif_list_to_tuple_1
+bif erlang:load_module/2
+bif 'erl.system.code':load/2		ebif_load_module_2
+bif erlang:loaded/0
+bif 'erl.system.code':loaded/0		ebif_loaded_0
+bif erlang:localtime/0
+bif 'erl.util.date':local/0		ebif_localtime_0
+bif erlang:localtime_to_universaltime/2
+bif 'erl.util.date':local_to_utc/2	ebif_localtime_to_universaltime_2
+bif erlang:make_ref/0
+bif 'erl.lang.ref':new/0		ebif_make_ref_0
+bif erlang:md5/1
+bif 'erl.util.crypt.md5':digest/1	ebif_md5_1
+bif erlang:md5_init/0
+bif 'erl.util.crypt.md5':init/0		ebif_md5_init_0
+bif erlang:md5_update/2
+bif 'erl.util.crypt.md5':update/2	ebif_md5_update_2
+bif erlang:md5_final/1
+bif 'erl.util.crypt.md5':final/1	ebif_md5_final_1
+bif erlang:memory/0
+bif 'erl.lang':memory/0			ebif_memory_0
+bif erlang:memory/1
+bif 'erl.lang':memory/1			ebif_memory_1
+bif erlang:module_loaded/1
+bif 'erl.system.code':is_loaded/1	ebif_is_loaded_1 module_loaded_1
+bif erlang:function_exported/3
+bif 'erl.system.code':is_loaded/3	ebif_is_loaded_3 function_exported_3
+bif erlang:monitor_node/2
+bif 'erl.lang.node':monitor/2		ebif_monitor_node_2
+bif erlang:monitor_node/3
+bif 'erl.lang.node':monitor/3		ebif_monitor_node_3
+ubif erlang:node/1
+ubif 'erl.lang.node':node/1		ebif_node_1
+ubif erlang:node/0
+ubif 'erl.lang.node':node/0		ebif_node_0
+bif erlang:nodes/1
+bif 'erl.lang.node':nodes/1		ebif_nodes_1
+bif erlang:now/0
+bif 'erl.system':now/0		ebif_now_0
+
+bif erlang:open_port/2
+bif 'erl.lang.port':open/2		ebif_open_port_2 open_port_2
+
+bif erlang:pid_to_list/1
+bif 'erl.lang.proc':pid_to_string/1	ebif_pid_to_string_1 pid_to_list_1
+bif erlang:port_info/1
+bif 'erl.lang.port':info/1		ebif_port_info_1
+bif erlang:port_info/2
+bif 'erl.lang.port':info/2		ebif_port_info_2
+bif erlang:ports/0
+bif 'erl.lang.node':ports/0		ebif_ports_0
+bif erlang:pre_loaded/0
+bif 'erl.system.code':preloaded/0	ebif_pre_loaded_0
+bif erlang:process_flag/2
+bif 'erl.lang.proc':set_flag/2		ebif_process_flag_2
+bif erlang:process_flag/3
+bif 'erl.lang.proc':set_flag/3		ebif_process_flag_3
+bif erlang:process_info/1
+bif 'erl.lang.proc':info/1		ebif_process_info_1
+bif erlang:process_info/2
+bif 'erl.lang.proc':info/2		ebif_process_info_2
+bif erlang:processes/0
+bif 'erl.lang.node':processes/0		ebif_processes_0
+bif erlang:purge_module/1
+bif 'erl.system.code':purge/1		ebif_purge_module_1
+bif erlang:put/2
+bif 'erl.lang.proc.pdict':put/2		ebif_put_2
+bif erlang:register/2
+bif 'erl.lang.node':register/2		ebif_register_2
+bif erlang:registered/0
+bif 'erl.lang.node':registered/0	ebif_registered_0
+ubif erlang:round/1
+ubif 'erl.lang.number':round/1		ebif_round_1
+ubif erlang:self/0
+ubif 'erl.lang.proc':self/0		ebif_self_0
+bif erlang:setelement/3
+bif 'erl.lang.tuple':setelement/3	ebif_setelement_3
+ubif erlang:size/1
+ubif 'erl.lang.term':size/1		ebif_size_1
+bif erlang:spawn/3
+bif 'erl.lang.proc':spawn/3		ebif_spawn_3
+bif erlang:spawn_link/3
+bif 'erl.lang.proc':spawn_link/3	ebif_spawn_link_3
+bif erlang:split_binary/2
+bif 'erl.lang.binary':split/2		ebif_split_binary_2
+bif erlang:statistics/1
+bif 'erl.system':statistics/1		ebif_statistics_1
+bif erlang:term_to_binary/1
+bif 'erl.lang.binary':from_term/1	ebif_term_to_binary_1
+bif erlang:term_to_binary/2
+bif 'erl.lang.binary':from_term/2	ebif_term_to_binary_2
+bif erlang:throw/1
+bif 'erl.lang':throw/1			ebif_throw_1
+bif erlang:time/0
+bif 'erl.util.date':time_of_day/0	ebif_time_0
+ubif erlang:tl/1
+ubif 'erl.lang.list':tl/1		ebif_tl_1
+ubif erlang:trunc/1
+ubif 'erl.lang.number':trunc/1		ebif_trunc_1
+bif erlang:tuple_to_list/1
+bif 'erl.lang.tuple':to_list/1		ebif_tuple_to_list_1
+bif erlang:universaltime/0
+bif 'erl.util.date':utc/0		ebif_universaltime_0
+bif erlang:universaltime_to_localtime/1
+bif 'erl.util.date':utc_to_local/1	ebif_universaltime_to_localtime_1
+bif erlang:unlink/1
+bif 'erl.lang.proc':unlink/1		ebif_unlink_1
+bif erlang:unregister/1
+bif 'erl.lang.node':unregister/1	ebif_unregister_1
+bif erlang:whereis/1
+bif 'erl.lang.node':whereis/1		ebif_whereis_1
+bif erlang:spawn_opt/1
+bif 'erl.lang.proc':spawn_opt/1		ebif_spawn_opt_1
+bif erlang:setnode/2
+bif erlang:setnode/3
+bif erlang:dist_exit/3
+
+bif erlang:port_call/2
+bif 'erl.lang.port':call/2		ebif_port_call_2
+bif erlang:port_call/3
+bif 'erl.lang.port':call/3		ebif_port_call_3
+bif erlang:port_command/2
+bif 'erl.lang.port':command/2		ebif_port_command_2
+bif erlang:port_command/3
+bif 'erl.lang.port':command/3		ebif_port_command_3
+bif erlang:port_control/3
+bif 'erl.lang.port':control/3		ebif_port_control_3
+bif erlang:port_close/1
+bif 'erl.lang.port':close/1		ebif_port_close_1
+bif erlang:port_connect/2
+bif 'erl.lang.port':connect/2		ebif_port_connect_2
+bif erlang:port_set_data/2
+bif 'erl.lang.port':set_data/2		ebif_port_set_data_2
+bif erlang:port_get_data/1
+bif 'erl.lang.port':get_data/1		ebif_port_get_data_1
+
+# Tracing & debugging.
+bif erlang:trace_pattern/2
+bif 'erl.system.debug':trace_pattern/2	ebif_trace_pattern_2
+bif erlang:trace_pattern/3
+bif 'erl.system.debug':trace_pattern/3	ebif_trace_pattern_3
+bif erlang:trace/3
+bif 'erl.system.debug':trace/3		ebif_trace_3
+bif erlang:trace_info/2
+bif 'erl.system.debug':trace_info/2	ebif_trace_info_2
+bif erlang:trace_delivered/1
+bif 'erl.system.debug':trace_delivered/1	ebif_trace_delivered_1
+bif erlang:seq_trace/2
+bif 'erl.system.debug':seq_trace/2	ebif_seq_trace_2
+bif erlang:seq_trace_info/1
+bif 'erl.system.debug':seq_trace_info/1		ebif_seq_trace_info_1
+bif erlang:seq_trace_print/1
+bif 'erl.system.debug':seq_trace_print/1	ebif_seq_trace_print_1
+bif erlang:seq_trace_print/2
+bif 'erl.system.debug':seq_trace_print/2	ebif_seq_trace_print_2
+bif erlang:suspend_process/2
+bif 'erl.system.debug':suspend_process/2	ebif_suspend_process_2
+bif erlang:resume_process/1
+bif 'erl.system.debug':resume_process/1		ebif_resume_process_1
+bif erlang:process_display/2
+bif 'erl.system.debug':process_display/2	ebif_process_display_2
+
+bif erlang:bump_reductions/1
+bif 'erl.lang.proc':bump_reductions/1	ebif_bump_reductions_1
+
+bif math:cos/1
+bif 'erl.lang.math':cos/1		ebif_math_cos_1
+bif math:cosh/1
+bif 'erl.lang.math':cosh/1		ebif_math_cosh_1
+bif math:sin/1
+bif 'erl.lang.math':sin/1		ebif_math_sin_1
+bif math:sinh/1
+bif 'erl.lang.math':sinh/1		ebif_math_sinh_1
+bif math:tan/1
+bif 'erl.lang.math':tan/1		ebif_math_tan_1
+bif math:tanh/1
+bif 'erl.lang.math':tanh/1		ebif_math_tanh_1
+bif math:acos/1
+bif 'erl.lang.math':acos/1		ebif_math_acos_1
+bif math:acosh/1
+bif 'erl.lang.math':acosh/1		ebif_math_acosh_1
+bif math:asin/1
+bif 'erl.lang.math':asin/1		ebif_math_asin_1
+bif math:asinh/1
+bif 'erl.lang.math':asinh/1		ebif_math_asinh_1
+bif math:atan/1
+bif 'erl.lang.math':atan/1		ebif_math_atan_1
+bif math:atanh/1
+bif 'erl.lang.math':atanh/1		ebif_math_atanh_1
+bif math:erf/1
+bif 'erl.lang.math':erf/1		ebif_math_erf_1
+bif math:erfc/1
+bif 'erl.lang.math':erfc/1		ebif_math_erfc_1
+bif math:exp/1
+bif 'erl.lang.math':exp/1		ebif_math_exp_1
+bif math:log/1
+bif 'erl.lang.math':log/1		ebif_math_log_1
+bif math:log10/1
+bif 'erl.lang.math':log10/1		ebif_math_log10_1
+bif math:sqrt/1
+bif 'erl.lang.math':sqrt/1		ebif_math_sqrt_1
+bif math:atan2/2
+bif 'erl.lang.math':atan2/2		ebif_math_atan2_2
+bif math:pow/2
+bif 'erl.lang.math':pow/2		ebif_math_pow_2
+
+bif erlang:start_timer/3
+bif 'erl.lang.timer':start/3		ebif_start_timer_3
+bif erlang:send_after/3
+bif 'erl.lang.timer':send_after/3	ebif_send_after_3
+bif erlang:cancel_timer/1
+bif 'erl.lang.timer':cancel/1		ebif_cancel_timer_1
+bif erlang:read_timer/1
+bif 'erl.lang.timer':read/1		ebif_read_timer_1
+
+bif erlang:make_tuple/2
+bif 'erl.lang.tuple':make/2		ebif_make_tuple_2
+bif erlang:append_element/2
+bif 'erl.lang.tuple':append_element/2	ebif_append_element_2
+bif erlang:make_tuple/3
+
+bif erlang:system_flag/2
+bif 'erl.system':set_flag/2	ebif_system_flag_2
+bif erlang:system_info/1
+bif 'erl.system':info/1		ebif_system_info_1
+# New in R9C
+bif erlang:system_monitor/0
+bif 'erl.system':monitor/0	ebif_system_monitor_0
+bif erlang:system_monitor/1
+bif 'erl.system':monitor/1	ebif_system_monitor_1
+bif erlang:system_monitor/2
+bif 'erl.system':monitor/2	ebif_system_monitor_2
+# Added 2006-11-07
+bif erlang:system_profile/2
+bif 'erl.system':profile/2	ebif_system_profile_2
+# End Added 2006-11-07
+# Added 2007-01-17
+bif erlang:system_profile/0
+bif 'erl.system':profile/0	ebif_system_profile_0
+# End Added 2007-01-17
+bif erlang:ref_to_list/1
+bif 'erl.lang.ref':to_string/1		ebif_ref_to_string_1 ref_to_list_1
+bif erlang:port_to_list/1
+bif 'erl.lang.port':to_string/1		ebif_port_to_string_1 port_to_list_1
+bif erlang:fun_to_list/1
+bif 'erl.lang.function':to_string/1	ebif_fun_to_string_1 fun_to_list_1
+
+bif erlang:monitor/2
+bif 'erl.lang.proc':monitor/2		ebif_monitor_2
+bif erlang:demonitor/1
+bif 'erl.lang.proc':demonitor/1		ebif_demonitor_1
+bif erlang:demonitor/2
+bif 'erl.lang.proc':demonitor/2		ebif_demonitor_2
+
+bif erlang:is_process_alive/1
+bif 'erl.lang.proc':is_alive/1		ebif_proc_is_alive_1 is_process_alive_1
+
+bif erlang:error/1		error_1
+bif 'erl.lang':error/1		ebif_error_1 error_1
+bif erlang:error/2		error_2
+bif 'erl.lang':error/2		ebif_error_2 error_2
+bif erlang:raise/3		raise_3
+bif 'erl.lang':raise/3		ebif_raise_3 raise_3
+bif erlang:get_stacktrace/0
+bif 'erl.lang.proc':get_stacktrace/0	ebif_get_stacktrace_0
+
+bif erlang:is_builtin/3
+bif 'erl.system.code':is_builtin/3	ebif_is_builtin_3
+
+ubif erlang:'and'/2
+ubif 'erl.lang.bool':'and'/2		ebif_and_2
+ubif erlang:'or'/2
+ubif 'erl.lang.bool':'or'/2		ebif_or_2
+ubif erlang:'xor'/2
+ubif 'erl.lang.bool':'xor'/2		ebif_xor_2
+ubif erlang:'not'/1
+ubif 'erl.lang.bool':'not'/1		ebif_not_1
+
+ubif erlang:'>'/2			sgt_2
+ubif 'erl.lang.term':greater/2		ebif_gt_2 sgt_2
+ubif erlang:'>='/2			sge_2
+ubif 'erl.lang.term':greater_or_equal/2	ebif_ge_2 sge_2
+ubif erlang:'<'/2			slt_2
+ubif 'erl.lang.term':less/2		ebif_lt_2 slt_2
+ubif erlang:'=<'/2			sle_2
+ubif 'erl.lang.term':less_or_equal/2	ebif_le_2 sle_2
+ubif erlang:'=:='/2			seq_2
+ubif 'erl.lang.term':equal/2		ebif_eq_2 seq_2
+ubif erlang:'=='/2			seqeq_2
+ubif 'erl.lang.term':arith_equal/2	ebif_areq_2 seqeq_2
+ubif erlang:'=/='/2			sneq_2
+ubif 'erl.lang.term':not_equal/2	ebif_neq_2 sneq_2
+ubif erlang:'/='/2			sneqeq_2
+ubif 'erl.lang.term':not_arith_equal/2	ebif_nareq_2 sneqeq_2
+ubif erlang:'+'/2			splus_2
+ubif 'erl.lang.number':plus/2		ebif_plus_2 splus_2
+ubif erlang:'-'/2			sminus_2
+ubif 'erl.lang.number':minus/2		ebif_minus_2 sminus_2
+ubif erlang:'*'/2			stimes_2
+ubif 'erl.lang.number':multiply/2	ebif_multiply_2 stimes_2
+ubif erlang:'/'/2			div_2
+ubif 'erl.lang.number':divide/2		ebif_divide_2 div_2
+ubif erlang:'div'/2			intdiv_2
+ubif 'erl.lang.integer':'div'/2		ebif_intdiv_2
+ubif erlang:'rem'/2
+ubif 'erl.lang.integer':'rem'/2		ebif_rem_2
+ubif erlang:'bor'/2
+ubif 'erl.lang.integer':'bor'/2		ebif_bor_2
+ubif erlang:'band'/2
+ubif 'erl.lang.integer':'band'/2	ebif_band_2
+ubif erlang:'bxor'/2
+ubif 'erl.lang.integer':'bxor'/2	ebif_bxor_2
+ubif erlang:'bsl'/2
+ubif 'erl.lang.integer':'bsl'/2		ebif_bsl_2
+ubif erlang:'bsr'/2
+ubif 'erl.lang.integer':'bsr'/2		ebif_bsr_2
+ubif erlang:'bnot'/1
+ubif 'erl.lang.integer':'bnot'/1	ebif_bnot_1
+ubif erlang:'-'/1			sminus_1
+ubif 'erl.lang.number':minus/1		ebif_minus_1 sminus_1
+ubif erlang:'+'/1			splus_1
+ubif 'erl.lang.number':plus/1		ebif_plus_1 splus_1
+
+# New operators in R8. These were the only operators missing.
+# erlang:send/2, erlang:append/2 and erlang:subtract/2 are now also
+# defined in erlang.erl, and the C names can be removed when all
+# internal references have been updated to the new ebif_... entries.
+
+bif erlang:'!'/2		ebif_bang_2
+bif 'erl.lang.proc':send/2	ebif_send_2 send_2
+bif erlang:send/2
+bif 'erl.lang':send/3		ebif_send_3 send_3
+bif erlang:send/3
+bif erlang:'++'/2		ebif_plusplus_2
+bif 'erl.lang.list':append/2	ebif_append_2 ebif_plusplus_2
+bif erlang:append/2
+bif erlang:'--'/2		ebif_minusminus_2
+bif 'erl.lang.list':subtract/2	ebif_list_subtract_2 ebif_minusminus_2
+bif erlang:subtract/2
+
+ubif erlang:is_atom/1
+ubif 'erl.lang.term':is_atom/1		ebif_is_atom_1
+ubif erlang:is_list/1
+ubif 'erl.lang.term':is_list/1		ebif_is_list_1
+ubif erlang:is_tuple/1
+ubif 'erl.lang.term':is_tuple/1		ebif_is_tuple_1
+ubif erlang:is_float/1
+ubif 'erl.lang.term':is_float/1		ebif_is_float_1
+ubif erlang:is_integer/1
+ubif 'erl.lang.term':is_integer/1	ebif_is_integer_1
+ubif erlang:is_number/1
+ubif 'erl.lang.term':is_number/1	ebif_is_number_1
+ubif erlang:is_pid/1
+ubif 'erl.lang.term':is_pid/1		ebif_is_pid_1
+ubif erlang:is_port/1
+ubif 'erl.lang.term':is_port/1		ebif_is_port_1
+ubif erlang:is_reference/1
+ubif 'erl.lang.term':is_reference/1	ebif_is_reference_1
+ubif erlang:is_binary/1
+ubif 'erl.lang.term':is_binary/1	ebif_is_binary_1
+ubif erlang:is_function/1
+ubif 'erl.lang.term':is_function/1	ebif_is_function_1
+ubif erlang:is_function/2
+ubif 'erl.lang.term':is_function/2	ebif_is_function_2
+ubif erlang:is_record/2
+ubif 'erl.lang.term':is_record/2	ebif_is_record_2
+ubif erlang:is_record/3
+ubif 'erl.lang.term':is_record/3	ebif_is_record_3
+
+bif erlang:match_spec_test/3
+
+#
+# Bifs in ets module.
+#
+
+bif ets:all/0
+bif 'erl.lang.ets':all/0		ebif_ets_all_0
+bif ets:new/2
+bif 'erl.lang.ets':new/2		ebif_ets_new_2
+bif ets:delete/1
+bif 'erl.lang.ets':delete/1		ebif_ets_delete_1
+bif ets:delete/2
+bif 'erl.lang.ets':delete/2		ebif_ets_delete_2
+bif ets:delete_all_objects/1
+bif 'erl.lang.ets':delete_all_objects/1	ebif_ets_delete_all_objects_1
+bif ets:delete_object/2
+bif 'erl.lang.ets':delete_object/2	ebif_ets_delete_object_2
+bif ets:first/1
+bif 'erl.lang.ets':first/1		ebif_ets_first_1
+bif ets:is_compiled_ms/1
+bif 'erl.lang.ets':is_compiled_ms/1	ebif_ets_is_compiled_ms_1
+bif ets:lookup/2
+bif 'erl.lang.ets':lookup/2		ebif_ets_lookup_2
+bif ets:lookup_element/3
+bif 'erl.lang.ets':lookup_element/3	ebif_ets_lookup_element_3
+bif ets:info/1
+bif 'erl.lang.ets':info/1		ebif_ets_info_1
+bif ets:info/2
+bif 'erl.lang.ets':info/2		ebif_ets_info_2
+bif ets:last/1
+bif 'erl.lang.ets':last/1		ebif_ets_last_1
+bif ets:match/1
+bif 'erl.lang.ets':match/1		ebif_ets_match_1
+bif ets:match/2
+bif 'erl.lang.ets':match/2		ebif_ets_match_2
+bif ets:match/3
+bif 'erl.lang.ets':match/3		ebif_ets_match_3
+bif ets:match_object/1
+bif 'erl.lang.ets':match_object/1	ebif_ets_match_object_1
+bif ets:match_object/2
+bif 'erl.lang.ets':match_object/2	ebif_ets_match_object_2
+bif ets:match_object/3
+bif 'erl.lang.ets':match_object/3	ebif_ets_match_object_3
+bif ets:member/2
+bif 'erl.lang.ets':is_key/2		ebif_ets_member_2
+bif ets:next/2
+bif 'erl.lang.ets':next/2		ebif_ets_next_2
+bif ets:prev/2
+bif 'erl.lang.ets':prev/2		ebif_ets_prev_2
+bif ets:insert/2
+bif 'erl.lang.ets':insert/2		ebif_ets_insert_2
+bif ets:insert_new/2
+bif 'erl.lang.ets':insert_new/2		ebif_ets_insert_new_2
+bif ets:rename/2
+bif 'erl.lang.ets':rename/2		ebif_ets_rename_2
+bif ets:safe_fixtable/2
+bif 'erl.lang.ets':fixtable/2		ebif_ets_safe_fixtable_2
+bif ets:slot/2
+bif 'erl.lang.ets':slot/2		ebif_ets_slot_2
+bif ets:update_counter/3
+bif 'erl.lang.ets':update_counter/3	ebif_ets_update_counter_3
+bif ets:select/1
+bif 'erl.lang.ets':select/1		ebif_ets_select_1
+bif ets:select/2
+bif 'erl.lang.ets':select/2		ebif_ets_select_2
+bif ets:select/3
+bif 'erl.lang.ets':select/3		ebif_ets_select_3
+bif ets:select_count/2
+bif 'erl.lang.ets':select/2		ebif_ets_select_count_2
+bif ets:select_reverse/1
+bif 'erl.lang.ets':select_reverse/1	ebif_ets_select_reverse_1
+bif ets:select_reverse/2
+bif 'erl.lang.ets':select_reverse/2	ebif_ets_select_reverse_2
+bif ets:select_reverse/3
+bif 'erl.lang.ets':select_reverse/3	ebif_ets_select_reverse_3
+bif ets:select_delete/2
+bif 'erl.lang.ets':select_delete/2	ebif_ets_select_delete_2
+bif ets:match_spec_compile/1
+bif 'erl.lang.ets':match_spec_compile/1	ebif_ets_match_spec_compile_1
+bif ets:match_spec_run_r/3
+bif 'erl.lang.ets':match_spec_run_r/3	ebif_ets_match_spec_run_r_3
+
+#
+# Bifs in os module.
+#
+
+bif os:putenv/2
+bif 'erl.system.os':setenv/2	ebif_os_setenv_2 os_putenv_2
+bif os:getenv/0
+bif 'erl.system.os':getenv/0	ebif_os_getenv_0
+bif os:getenv/1
+bif 'erl.system.os':getenv/1	ebif_os_getenv_1
+bif os:getpid/0
+bif 'erl.system.os':pid/0	ebif_os_pid_0 os_getpid_0
+bif os:timestamp/0
+bif 'erl.system.os':timestamp/0	ebif_os_timestamp_0 os_timestamp_0
+
+#
+# Bifs in the erl_ddll module (the module actually does not exist)
+#
+
+bif erl_ddll:try_load/3
+bif erl_ddll:try_unload/2
+bif erl_ddll:loaded_drivers/0
+bif erl_ddll:info/2
+bif erl_ddll:format_error_int/1
+bif erl_ddll:monitor/2
+bif erl_ddll:demonitor/1
+
+#
+# Bifs in the re module 
+#
+bif re:compile/1
+bif re:compile/2
+bif re:run/2
+bif re:run/3
+
+#
+# Bifs in lists module.
+#
+
+bif lists:member/2
+bif 'erl.lang.list':is_element/2	ebif_list_is_element_2 lists_member_2
+bif lists:reverse/2
+bif 'erl.lang.list':reverse/2		ebif_list_reverse_2 lists_reverse_2
+bif lists:keymember/3
+bif 'erl.lang.list.keylist':is_element/3 ebif_keylist_is_element_3 lists_keymember_3
+bif lists:keysearch/3
+bif 'erl.lang.list.keylist':search/3	ebif_keylist_search_3 lists_keysearch_3
+bif lists:keyfind/3
+
+#
+# Bifs for debugging.
+#
+
+bif erts_debug:disassemble/1
+bif 'erl.system.debug':disassemble/1	ebif_erts_debug_disassemble_1
+bif erts_debug:breakpoint/2
+bif 'erl.system.debug':breakpoint/2	ebif_erts_debug_breakpoint_2
+bif erts_debug:same/2
+bif 'erl.system.debug':same/2		ebif_erts_debug_same_2
+bif erts_debug:flat_size/1
+bif 'erl.system.debug':flat_size/1	ebif_erts_debug_flat_size_1
+bif erts_debug:get_internal_state/1
+bif 'erl.system.debug':get_internal_state/1 ebif_erts_debug_get_internal_state_1
+bif erts_debug:set_internal_state/2
+bif 'erl.system.debug':set_internal_state/2 ebif_erts_debug_set_internal_state_2
+bif erts_debug:display/1
+bif 'erl.system.debug':display/1 ebif_erts_debug_display_1
+bif erts_debug:dist_ext_to_term/2
+bif 'erl.system.debug':dist_ext_to_term/2 ebif_erts_debug_dist_ext_to_term_2
+
+#
+# Monitor testing bif's...
+#
+bif erts_debug:dump_monitors/1
+bif erts_debug:dump_links/1
+
+
+#
+# Lock counter bif's
+#
+bif erts_debug:lock_counters/1
+
+#
+# New Bifs in R8.
+#
+
+bif code:get_chunk/2
+bif 'erl.system.code':get_chunk/2	ebif_code_get_chunk_2
+bif code:module_md5/1
+bif 'erl.system.code':module_md5/1	ebif_code_module_md5_1
+bif code:make_stub_module/3
+bif 'erl.system.code':make_stub_module/3	ebif_code_make_stub_module_3
+bif code:is_module_native/1
+bif 'erl.system.code':is_native/1	ebif_code_is_native_1 code_is_module_native_1
+
+bif erlang:blocking_read_file/1
+
+#
+# New Bifs in R9C.
+#
+
+bif erlang:hibernate/3
+bif error_logger:warning_map/0
+
+#
+# New Bifs in R10B.
+#
+bif erlang:get_module_info/1
+bif erlang:get_module_info/2
+ubif erlang:is_boolean/1
+bif string:to_integer/1
+bif string:to_float/1
+bif erlang:make_fun/3
+bif erlang:iolist_size/1
+bif erlang:iolist_to_binary/1
+bif erlang:list_to_existing_atom/1
+
+#
+# New Bifs in R12B-0
+#
+ubif erlang:is_bitstring/1
+ubif erlang:tuple_size/1
+ubif erlang:byte_size/1
+ubif erlang:bit_size/1
+bif erlang:list_to_bitstring/1
+bif erlang:bitstring_to_list/1
+
+#
+# New Bifs in R12B-2
+#
+bif ets:update_element/3
+
+#
+# New Bifs in R12B-4
+#
+bif erlang:decode_packet/3
+
+#
+# New Bifs in R12B-5
+#
+bif unicode:characters_to_binary/2
+bif unicode:characters_to_list/2
+bif unicode:bin_is_7bit/1
+#
+# New Bifs in R13A.
+#
+bif erlang:atom_to_binary/2
+bif erlang:binary_to_atom/2
+bif erlang:binary_to_existing_atom/2
+bif net_kernel:dflag_unicode_io/1
+#
+# New Bifs in R13B-1
+#
+bif ets:give_away/3
+bif ets:setopts/2
+
+#
+# New Bifs in R13B3
+#
+bif erlang:load_nif/2
+bif erlang:call_on_load_function/1
+bif erlang:finish_after_on_load/2
+
+#
+# Obsolete
+#
+
+bif erlang:hash/2

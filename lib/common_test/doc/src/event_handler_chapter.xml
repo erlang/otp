@@ -1,0 +1,310 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Event Handling</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>event_handler_chapter.xml</file>
+  </header>
+
+  <section>
+    <marker id="event_handling"></marker>
+    <title>General</title>
+    <p>It is possible for the operator of a Common Test system to receive
+    event notifications continously during a test run. It is reported e.g. 
+    when a test case starts and stops, what the current count of successful, 
+    failed and skipped cases is, etc. This information can be used for 
+    different purposes such as logging progress and results on 
+    other format than HTML, saving statistics to a database for report
+    generation and test system supervision.</p>
+
+    <p>Common Test has a framework for event handling which is based on
+    the OTP event manager concept and gen_event behaviour. When the Common Test
+    server starts, it spawns an event manager. During test execution the
+    manager gets a notification from the server every time something
+    of potential interest happens. Any event handler plugged into the
+    event manager can match on events of interest, take action, or maybe
+    simply pass the information on. Event handlers are Erlang modules
+    implemented by the Common Test user according to the gen_event 
+    behaviour (see the OTP User's Guide and Reference Manual for more 
+    information).</p>
+
+    <p>As already described, a Common Test server always starts an event manager. 
+    The server also plugs in a default event handler which has as its only
+    purpose to relay notifications to a globally registered CT Master 
+    event manager (if a CT Master server is running in the system). 
+    The CT Master also spawns an event manager at startup.
+    Event handlers plugged into this manager will receive the events from 
+    all the test nodes as well as information from the CT Master server
+    itself.</p>
+  </section>
+  <section>
+    <title>Usage</title>
+    <p>Event handlers may be installed by means of an <c>event_handler</c>
+    start flag (<c>run_test</c>) or option (<c>ct:run_test/1</c>), where the
+    argument specifies the names of one or more event handler modules.
+    Example:</p>
+    <p><c>$ run_test -suite test/my_SUITE -event_handler handlers/my_evh1 
+    handlers/my_evh2 -pa $PWD/handlers</c></p>
+    <p>All event handler modules must have gen_event behaviour. Note also that 
+    these modules must be precompiled, and that their locations must be
+    added explicitly to the Erlang code server search path (like in the
+    example).</p>
+
+    <p>It is not possible to specify start arguments to the event handlers when
+    using the <c>run_test</c> script. You may however pass along start arguments
+    if you use the <c>ct:run_test/1</c> function. An event_handler tuple in the argument 
+    <c>Opts</c> has the following definition (see also <c>ct:run_test/1</c> in the 
+    reference manual):</p>
+
+    <pre>
+    {event_handler,EventHandlers}
+
+    EventHandlers = EH | [EH]
+    EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
+    InitArgs = [term()] 
+    </pre>
+
+    <p>Example:</p>
+    <pre>
+    1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).
+    </pre>
+    <p>This will install two event handlers for the <c>my_SUITE</c> test. Event handler
+    <c>my_evh1</c> is started with <c>[]</c> as argument to the init function. Event handler
+    <c>my_evh2</c> is started with the name of the current node in the init argument list.</p>
+
+    <p>Event handlers can also be plugged in by means of
+    <seealso marker="run_test_chapter#test_specifications">test specification</seealso> 
+    terms:</p>
+
+    <p><c>{event_handler, EventHandlers}</c>, or</p>
+    <p><c>{event_handler, EventHandlers, InitArgs}</c>, or</p>
+    <p><c>{event_handler, NodeRefs, EventHandlers}</c>, or</p>
+    <p><c>{event_handler, NodeRefs, EventHandlers, InitArgs}</c></p>
+  
+    <p><c>EventHandlers</c> is a list of module names. Before a test 
+    session starts, the init function of each plugged in event handler 
+    is called (with the InitArgs list as argument or [] if
+    no start arguments are given).</p>
+
+    <p>To plug a handler into the CT Master event manager, specify 
+    <c>master</c> as the node in <c>NodeRefs</c>.</p>
+
+    <p>For an event handler to be able to match on events, the module must
+    include the header file <c>ct_event.hrl</c>. An event is a record with the
+    following definition:</p>
+
+    <p><c>#event{name, node, data}</c></p>
+
+    <p><c>name</c> is the label (type) of the event. <c>node</c> is the name of the
+    node the event has originated from (only relevant for CT Master event handlers).
+    <c>data</c> is specific for the particular event.</p>
+
+    <p><em>General events:</em></p>
+
+    <list>
+      <item><c>#event{name = start_logging, data = LogDir}</c>
+        <p><c>LogDir = string()</c>, top level log directory for the test run.</p>
+        <p>Indicates that the logging process of Common Test
+	has started successfully and is ready to receive IO
+	messages.</p></item>
+
+      <item><c>#event{name = stop_logging, data = []}</c>
+        <p>Indicates that the logging process of Common Test
+	has been shut down at the end of the test run.
+	</p></item>
+
+      <item><c>#event{name = test_start, data = {StartTime,LogDir}}</c>
+        <p><c>StartTime = {date(),time()}</c>, test run start date and time.</p>
+        <p><c>LogDir = string()</c>, top level log directory for the test run.</p>
+        <p>This event indicates that Common Test has finished initial preparations
+	and will begin executing test cases.
+	</p></item>
+
+      <item><c>#event{name = test_done, data = EndTime}</c>
+        <p><c>EndTime = {date(),time()}</c>, date and time the test run finished.</p>
+        <p>This indicates that the last test case has been executed and 
+	Common Test is shutting down.	
+	</p></item>
+
+      <item><c>#event{name = start_info, data = {Tests,Suites,Cases}}</c>
+        <p><c>Tests = integer()</c>, the number of tests.</p>
+        <p><c>Suites = integer()</c>, the total number of suites.</p>
+        <p><c>Cases = integer() | unknown</c>, the total number of test cases.</p>
+        <p>Initial test run information that can be interpreted as: "This test
+	run will execute <c>Tests</c> separate tests, in total containing
+	<c>Cases</c> number of test cases, in <c>Suites</c> number of suites".
+	Note that if a test case group with a repeat property exists in any test, 
+	the total number of test cases can not be calculated (unknown).
+	</p></item>
+
+      <item><c>#event{name = tc_start, data = {Suite,FuncOrGroup}}</c>
+        <p><c>Suite = atom()</c>, name of the test suite.</p>
+        <p><c>FuncOrGroup = Func | {Conf,GroupName,GroupProperties}</c></p>
+        <p><c>Func = atom()</c>, name of test case or configuration function.</p>
+        <p><c>Conf = init_per_group | end_per_group</c>, group configuration function.</p>
+        <p><c>GroupName = atom()</c>, name of the group.</p>
+        <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
+        <p>This event informs about the start of a test case, or a group configuration
+	function. The event is sent also for <c>init_per_suite</c> and <c>end_per_suite</c>,
+	but not for <c>init_per_testcase</c> and <c>end_per_testcase</c>. If a group
+	configuration function is starting, the group name and execution properties
+	are also given.
+	</p></item>
+
+      <item><c>#event{name = tc_done, data = {Suite,FuncOrGroup,Result}}</c>
+        <p><c>Suite = atom()</c>, name of the suite.</p>
+        <p><c>FuncOrGroup = Func | {Conf,GroupName,GroupProperties}</c></p>
+        <p><c>Func = atom()</c>, name of test case or configuration function.</p>
+        <p><c>Conf = init_per_group | end_per_group</c>, group configuration function.</p>
+        <p><c>GroupName = unknown | atom()</c>, name of the group 
+	      (unknown if init- or end function times out).</p>
+        <p><c>GroupProperties = list()</c>, list of execution properties for the group.</p>
+        <p><c>Result = ok | {skipped,SkipReason} | {failed,FailReason}</c>, the result.</p>
+        <p><c>SkipReason = {require_failed,RequireInfo} | 
+	                   {require_failed_in_suite0,RequireInfo} | 
+	                   {failed,{Suite,init_per_testcase,FailInfo}} | 
+                           UserTerm</c>, 
+	      the reason why the case has been skipped.</p>
+	<p><c>FailReason = {error,FailInfo} | 
+	                   {error,{RunTimeError,StackTrace}} | 
+                           {timetrap_timeout,integer()} | 
+			   {failed,{Suite,end_per_testcase,FailInfo}}</c>, reason for failure.</p>	
+        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>FailInfo = {timetrap_timeout,integer()} | 
+	                 {RunTimeError,StackTrace} | 
+			 UserTerm</c>, 
+	      detailed information about an error.</p>
+        <p><c>RunTimeError = term()</c>, a run-time error, e.g. badmatch, undef, etc.</p>
+        <p><c>StackTrace = list()</c>, list of function calls preceeding a run-time error.</p>
+        <p><c>UserTerm = term()</c>, arbitrary data specified by user, or <c>exit/1</c> info.</p>
+        <p>This event informs about the end of a test case or a configuration function (see the 
+	<c>tc_start</c> event for details on the FuncOrGroup element). With this event comes the 
+	final result of the function in question. It is possible to determine on the top level
+	of <c>Result</c> if the function was successful, skipped (by the user), or if it failed.
+	It is of course possible to dig deeper and also perform pattern matching on the various
+	reasons for skipped or failed. Note that <c>{'EXIT',Reason}</c> tuples have been translated into
+	<c>{error,Reason}</c>. Note also that if a <c>{failed,{Suite,end_per_testcase,FailInfo}</c>
+	result is received, it actually means the test case was successful, but that 
+	<c>end_per_testcase</c> for the case failed.
+	</p></item>
+
+      <item><c>#event{name = tc_auto_skip, data = {Suite,Func,Reason}}</c>
+        <p><c>Suite = atom()</c>, the name of the suite.</p>
+        <p><c>Func = atom()</c>, the name of the test case or configuration function.</p>
+        <p><c>Reason = {failed,FailReason} |
+	               {require_failed_in_suite0,RequireInfo}</c>, 
+	      reason for auto skipping <c>Func</c>.</p>
+        <p><c>FailReason = {Suite,ConfigFunc,FailInfo}} | 
+	                   {Suite,FailedCaseInSequence}</c>, reason for failure.</p>	
+        <p><c>RequireInfo = {not_available,atom()}</c>, why require has failed.</p>
+        <p><c>ConfigFunc = init_per_suite | init_per_group</c></p>
+        <p><c>FailInfo = {timetrap_timeout,integer()} | 
+	                 {RunTimeError,StackTrace} |
+			 bad_return | UserTerm</c>, 
+	      detailed information about an error.</p>
+	<p><c>FailedCaseInSequence = atom()</c>, name of a case that has failed in a sequence.</p>
+        <p><c>RunTimeError = term()</c>, a run-time error, e.g. badmatch, undef, etc.</p>
+        <p><c>StackTrace = list()</c>, list of function calls preceeding a run-time error.</p>
+        <p><c>UserTerm = term()</c>, arbitrary data specified by user, or <c>exit/1</c> info.</p>
+        <p>This event gets sent for every test case or configuration function that Common Test
+	has skipped automatically because of either a failed <c>init_per_suite</c> or 
+	<c>init_per_group</c>, a failed <c>require</c> in <c>suite/0</c>, or a failed test case
+	in a sequence. Note that this event is never received as a result of a test case getting
+	skipped because of <c>init_per_testcase</c> failing, since that information is carried with
+	the <c>tc_done</c> event.
+	</p></item>
+
+      <item><c>#event{name = tc_user_skip, data = {Suite,TestCase,Comment}}</c>
+        <p><c>Suite = atom()</c>, name of the suite.</p>
+        <p><c>TestCase = atom()</c>, name of the test case.</p>
+        <p><c>Comment = string()</c>, reason for skipping the test case.</p>
+        <p>This event specifies that a test case has been skipped by the user. 
+	It is only ever received if the skip was declared in a test specification. 
+	Otherwise, user skip information is received as a <c>{skipped,SkipReason}</c> 
+	result in the <c>tc_done</c> event for the test case.
+	</p></item>
+
+      <item><c>#event{name = test_stats, data = {Ok,Failed,Skipped}}</c>
+        <p><c>Ok = integer()</c>, the current number of successful test cases.</p>
+        <p><c>Failed = integer()</c>, the current number of failed test cases.</p>
+        <p><c>Skipped = {UserSkipped,AutoSkipped}</c></p>
+        <p><c>UserSkipped = integer()</c>, the current number of user skipped test cases.</p>
+        <p><c>AutoSkipped = integer()</c>, the current number of auto skipped test cases.</p>
+        <p>This is a statistics event with the current count of successful, skipped 
+	and failed test cases so far. This event gets sent after the end of each test case,
+	immediately following the <c>tc_done</c> event.
+	</p></item>
+    </list>
+
+     <p><em>Internal events:</em></p>
+
+     <list>
+      <item><c>#event{name = start_make, data = Dir}</c>
+        <p><c>Dir = string()</c>, running make in this directory.</p>
+        <p>An internal event saying that Common Test will start compiling
+	modules in directory <c>Dir</c>.
+	</p></item>
+
+     <item><c>#event{name = finished_make, data = Dir}</c>
+        <p><c>Dir = string()</c>, finished running make in this directory.</p>
+        <p>An internal event saying that Common Test is finished compiling
+	modules in directory <c>Dir</c>.
+	</p></item>
+
+      <item><c>#event{name = start_write_file, data = FullNameFile}</c>
+        <p><c>FullNameFile = string(), full name of the file.</c></p>
+        <p>An internal event used by the Common Test Master process to 
+	synchronize particular file operations.
+	</p></item>
+
+      <item><c>#event{name = finished_write_file, data = FullNameFile}</c>
+        <p><c>FullNameFile = string(), full name of the file.</c></p>
+        <p>An internal event used by the Common Test Master process to 
+	synchronize particular file operations.
+	</p></item>
+
+    </list>
+
+    <p>The events are also documented in <c>ct_event.erl</c>. This module
+    may serve as an example of what an event handler for the CT event 
+    manager can look like.</p>
+
+    <note><p>To ensure that printouts to standard out (or printouts made with
+    <c>ct:log/2/3</c> or <c>ct:pal/2/3</c>) get written to the test case log
+    file, and not to the Common Test framework log, you can syncronize
+    with the Common Test server by matching on the <c>tc_start</c> and <c>tc_done</c>
+    events. In the period between these events, all IO gets directed to the
+    test case log file. These events are sent synchronously to avoid potential
+    timing problems (e.g. that the test case log file gets closed just before
+    an IO message from an external process gets through). Knowing this, you
+    need to be careful that your <c>handle_event/2</c> callback function doesn't
+    stall the test execution, possibly causing unexpected behaviour as a result.</p></note>
+</section>
+</chapter>
+
+
+
+

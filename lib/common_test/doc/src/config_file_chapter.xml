@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Config Files</title>
+    <prepared>Siri Hansen, Peter Andersson</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>config_file_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>General</title>
+
+    <p>The Common Test framework uses configuration files to
+    describe data related to a test and/or an SUT (System Under Test). 
+    The configuration data makes it possible to change properties without 
+    changing the test program itself. Configuration data can for example be:</p>
+
+    <list>
+      <item>Addresses to the test plant or other instruments</item>
+      <item>Filenames for files needed by the test</item>
+      <item>Program names for programs that shall be run by the test</item>
+      <item>Any other variable that is needed by the test</item>
+    </list>
+
+  </section>
+
+  <section>
+    <title>Syntax</title>
+
+    <p>A configuration file can contain any number of elements of the type:</p>
+    <pre>
+      {Key,Value}.</pre>
+
+    <p>where</p>
+    <pre>
+      Key = atom()
+      Value = term() | [{Key,Value}]</pre>
+
+  </section>
+
+  <section>
+    <title>Requiring and reading configuration data</title>
+    <marker id="require_config_data"></marker>
+
+    <p>In a test suite, one must <em>require</em> that a configuration 
+    variable exists before attempting to read the associated 
+    value in a test case.</p>
+
+    <p><c>require</c> is an assert statement that can be part of the <seealso
+    marker="write_test_chapter#suite">test suite info function</seealso> or
+    <seealso marker="write_test_chapter#info_function">test case info
+    function</seealso>. If the required variable is not available, the
+    test is skipped (unless a default value has been specified, see the
+    <seealso marker="write_test_chapter#info_function">test case info
+    function</seealso> chapter for details). There is also a function
+    <c>ct:require/[1,2]</c> which can be called from a test case
+    in order to check if a specific variable is available. The return 
+    value from this function must be checked explicitly and appropriate 
+    action be taken depending on the result (e.g. to skip the test case
+    if the variable in question doesn't exist).</p>
+
+    <p>A <c>require</c> statement in the test suite info- or test case 
+    info-list should look like this:
+    <c>{require,Required}</c> or <c>{require,Name,Required}</c>. The
+    arguments <c>Name</c> and <c>Required</c> are the same as the
+    arguments to <c>ct:require/[1,2]</c> which are described in the
+    reference manual for <seealso marker="ct">ct</seealso>.
+    <c>Name</c> becomes an alias for the configuration variable
+    <c>Required</c>, and can be used as reference to the configuration
+    data value. The configuration variable may be associated with an
+    arbitrary number of alias names, but each name must be unique within
+    the same test suite. There are two main uses for alias names:</p>
+    <list>
+      <item>They may be introduced to identify connections (see below).</item>
+      <item>They may used to help adapt configuration data to a test suite 
+        (or test case) and improve readability.</item>
+    </list>
+    <p>To read the value of a config variable, use the function
+    <c>get_config/[1,2,3]</c> which is also described in the reference
+    manual for <seealso marker="ct">ct</seealso>.</p>
+    <p>Example:</p>
+    <pre>
+      suite() -> 
+          [{require, domain, 'CONN_SPEC_DNS_SUFFIX'}].
+
+      ...
+      
+      testcase(Config) ->
+          Domain = ct:get_config(domain),
+	  ...</pre>      
+  </section>
+
+  <section>
+  <title>Using configuration variables defined in multiple files</title>
+    <p>If a configuration variable is defined in multiple files and you 
+      want to access all possible values, you may use the <c>ct:get_config/3</c>
+      function and specify <c>all</c> in the options list. The values will then
+      be returned in a list and the order of the elements corresponds to the order 
+      that the config files were specified at startup. Please see 
+      the <seealso marker="ct">ct</seealso> reference manual for details.</p>
+  </section>
+
+  <section>
+    <title>Encrypted configuration files</title>
+    <marker id="encrypted_config_files"></marker>
+    <p>It is possible to encrypt configuration files containing sensitive data
+      if these files must be stored in open and shared directories.</p> 
+      <p>Call <c>ct:encrypt_config_file/[2,3]</c> to have Common Test encrypt a 
+      specified file using the DES3 function in the OTP <c>crypto</c> application.
+      The encrypted file can then be used as a regular configuration file,
+      in combination with other encrypted files or normal text files. The key
+      for decrypting the configuration file must be provided when running the test,
+      however. This can be done by means of the <c>decrypt_key</c> or
+      <c>decrypt_file</c> flag/option, or a key file in a predefined location.</p>
+      
+      <p>Common Test also provides decryption functions, 
+      <c>ct:decrypt_config_file/[2,3]</c>, for recreating the original text
+      files.</p> 
+
+      <p>Please see the <seealso marker="ct">ct</seealso> reference manual for
+      more information.</p>
+  </section>
+
+  <section>
+    <title>Opening connections by using configuration data</title>
+    <p>There are two different methods for opening a connection
+      by means of the support functions in e.g. <c>ct_ssh</c>, <c>ct_ftp</c>,
+      and <c>ct_telnet</c>:</p>
+    <list>
+      <item>Using a configuration target name (an alias) as reference.</item>
+      <item>Using the configuration variable as reference.</item>
+    </list>    
+    <p>When a target name is used for referencing the configuration data
+      (that specifies the connection to be opened), the same name may be used 
+      as connection identity in all subsequent calls related to the connection
+      (also for closing it). It's only possible to have one open connection
+      per target name. If attempting to open a new connection using a name
+      already associated with an open connection, Common Test will
+      return the already existing handle so that the previously opened connection
+      will be used. This is a practical feature since it makes it possible to
+      call the function for opening a particular connection whenever 
+      useful. An action like this will not necessarily open any new 
+      connections unless it's required (which could be the case if e.g. the 
+      previous connection has been closed unexpectedly by the server).
+      Another benefit of using named connections is that it's not
+      necessary to pass handle references around in the suite for these 
+      connections.
+    </p>
+    <p>When a configuration variable name is used as reference to the data
+      specifying the connection, the handle returned as a result of opening
+      the connection must be used in all subsequent calls (also for closing
+      the connection). Repeated calls to the open function with the same
+      variable name as reference will result in multiple connections
+      being opened. This can be useful e.g. if a test case needs to open
+      multiple connections to the same server on the target node (using the
+      same configuration data for each connection).
+    </p>
+  </section>
+
+  <section>
+    <title>Examples</title>
+
+    <p>A config file for using the FTP client to access files on a remote
+      host could look like this:</p>
+
+    <pre>
+    {ftp_host, [{ftp,"targethost"},
+                {username,"tester"},
+	        {password,"letmein"}]}.
+
+    {lm_directory, "/test/loadmodules"}.</pre>
+    <p>Example of how to assert that the configuration data is available and 
+      use it for an FTP session:</p>
+    <pre>
+    init_per_testcase(ftptest, Config) ->
+        {ok,_} = ct_ftp:open(ftp),
+	Config.
+
+    end_per_testcase(ftptest, _Config) ->
+        ct_ftp:close(ftp).
+
+    ftptest() ->
+        [{require,ftp,ftp_host},
+	 {require,lm_directory}].
+
+    ftptest(Config) ->
+	Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+        Local = filename:join(?config(priv_dir,Config), "loadmodule"),
+        ok = ct_ftp:recv(ftp, Remote, Local),
+	...</pre>
+    
+    <p>An example of how the above functions could be rewritten
+      if necessary to open multiple connections to the FTP server:</p>
+    <pre>
+    init_per_testcase(ftptest, Config) ->
+        {ok,Handle1} = ct_ftp:open(ftp_host),
+        {ok,Handle2} = ct_ftp:open(ftp_host),
+	[{ftp_handles,[Handle1,Handle2]} | Config].
+
+    end_per_testcase(ftptest, Config) ->
+        lists:foreach(fun(Handle) -> ct_ftp:close(Handle) end, 
+                      ?config(ftp_handles,Config)).
+
+    ftptest() ->
+        [{require,ftp_host},
+	 {require,lm_directory}].
+
+    ftptest(Config) ->
+	Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+        Local = filename:join(?config(priv_dir,Config), "loadmodule"),
+        [Handle | MoreHandles] = ?config(ftp_handles,Config),
+        ok = ct_ftp:recv(Handle, Remote, Local),
+	...</pre>
+      
+  </section>
+
+</chapter>
+
+

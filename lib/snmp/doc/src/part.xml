@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>SNMP User's Guide</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>part.xml</file>
+  </header>
+  <description>
+    <p>A multilingual Simple Network Management Protocol application,
+      featuring an Extensible Agent, a simple manager and a MIB 
+      compiler and facilities for implementing SNMP MIBs etc.</p>
+  </description>
+  <xi:include href="snmp_intro.xml"/>
+  <xi:include href="snmp_agent_funct_descr.xml"/>
+  <xi:include href="snmp_manager_funct_descr.xml"/>
+  <xi:include href="snmp_mib_compiler.xml"/>
+  <xi:include href="snmp_config.xml"/>
+  <xi:include href="snmp_agent_config_files.xml"/>
+  <xi:include href="snmp_manager_config_files.xml"/>
+  <xi:include href="snmp_impl_example_agent.xml"/>
+  <xi:include href="snmp_impl_example_manager.xml"/>
+  <xi:include href="snmp_instr_functions.xml"/>
+  <xi:include href="snmp_def_instr_functions.xml"/>
+  <xi:include href="snmp_agent_netif.xml"/>
+  <xi:include href="snmp_manager_netif.xml"/>
+  <xi:include href="snmp_audit_trail_log.xml"/>
+  <xi:include href="snmp_advanced_agent.xml"/>
+  <xi:include href="snmp_app_a.xml"/>
+  <xi:include href="snmp_app_b.xml"/>
+</part>
+

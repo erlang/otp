@@ -1,0 +1,330 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>appup</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>appup</file>
+  <filesummary>Application upgrade file.</filesummary>
+  <description>
+    <p>The <em>application upgrade file</em> defines how an application
+      is upgraded or downgraded in a running system.</p>
+    <p>This file is used by the functions in <c>systools</c> when
+      generating a release upgrade file <c>relup</c>.</p>
+  </description>
+
+  <section>
+    <title>FILE SYNTAX</title>
+    <p>The application upgrade file should be called
+      <c>Application.appup</c> where <c>Application</c> is the name of
+      the application.  The file should be located in the <c>ebin</c>
+      directory for the application.</p>
+    <p>The <c>.appup</c> file contains one single Erlang term, which
+      defines the instructions used to upgrade or downgrade
+      the application.  The file has the following syntax:</p>
+    <code type="none">
+{Vsn,
+  [{UpFromVsn, Instructions}, ...],
+  [{DownToVsn, Instructions}, ...]}.
+    </code>
+    <list type="bulleted">
+      <item>
+        <p><c>Vsn = string()</c> is the current version of
+          the application.</p>
+      </item>
+      <item>
+        <p><c>UpFromVsn = string()</c> is an earlier version of
+          the application to upgrade from.</p>
+      </item>
+      <item>
+        <p><c>DownToVsn = string()</c> is an earlier version of
+          the application to downgrade to.</p>
+      </item>
+      <item>
+        <p><c>Instructions</c> is a list of <em>release upgrade instructions</em>, see below. It is recommended to use
+          high-level instructions only. These are automatically
+          translated to low-level instructions by <c>systools</c> when
+          creating the <c>relup</c> file.</p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>RELEASE UPGRADE INSTRUCTIONS</title>
+    <p>Release upgrade instructions are interpreted by the release
+      handler when an upgrade or downgrade is made. For more
+      information about release handling, refer to <em>OTP Design Principles</em>.</p>
+    <p>A process is said to <em>use</em> a module <c>Mod</c>, if
+      <c>Mod</c> is listed in the <c>Modules</c> part of the child
+      specification used to start the process, see <c>supervisor(3)</c>.
+      In the case of gen_event, an event manager process is said to use
+      <c>Mod</c> if <c>Mod</c> is an installed event handler.</p>
+    <p><em>High-level instructions</em></p>
+    <pre>
+{update, Mod}
+{update, Mod, supervisor}
+{update, Mod, Change}
+{update, Mod, DepMods}
+{update, Mod, Change, DepMods}
+{update, Mod, Change, PrePurge, PostPurge, DepMods}
+{update, Mod, Timeout, Change, PrePurge, PostPurge, DepMods}
+{update, Mod, ModType, Timeout, Change, PrePurge, PostPurge, DepMods}
+  Mod = atom()
+  ModType = static | dynamic
+  Timeout = int()>0 | default | infinity
+  Change = soft | {advanced,Extra}
+    Extra = term()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+  DepMods = [Mod]
+    </pre>
+    <p>Synchronized code replacement of processes using the module
+      <c>Mod</c>. All those processes are suspended using
+      <c>sys:suspend</c>, the new version of the module is loaded and
+      then the processes are resumed using <c>sys:resume</c>.</p>
+    <p><c>Change</c> defaults to <c>soft</c> and defines the type of
+      code change. If it is set to <c>{advanced,Extra}</c>, processes
+      implemented using gen_server, gen_fsm or gen_event will transform
+      their internal state by calling the callback function
+      <c>code_change</c>. Special processes will call the callback
+      function <c>system_code_change/4</c>. In both cases, the term
+      <c>Extra</c> is passed as an argument to the callback function.</p>
+    <p><c>PrePurge</c> defaults to <c>brutal_purge</c> and controls
+      what action to take with processes that are executing old code
+      before loading the new version of the module. If the value
+      is <c>brutal_purge</c>, the processes are killed. If the value is
+      <c>soft_purge</c>, <c>release_handler:install_release/1</c>
+      returns <c>{error,{old_processes,Mod}}</c>.</p>
+    <p><c>PostPurge</c> defaults to <c>brutal_purge</c> and controls
+      what action to take with processes that are executing old code
+      when the new version of the module has been loaded. If the value
+      is <c>brutal_purge</c>, the code is purged when the release is
+      made permanent and the processes are killed. If the value is
+      <c>soft_purge</c>, the release handler will purge the old code
+      when no remaining processes execute the code.</p>
+    <p><c>DepMods</c> defaults to [] and defines which other modules
+      <c>Mod</c> is dependent on. In <c>relup</c>, instructions for
+      suspending processes using <c>Mod</c> will come before
+      instructions for suspending processes using modules in
+      <c>DepMods</c> when upgrading, and vice versa when downgrading.
+      In case of circular dependencies, the order of the instructions in
+      the <c>appup</c> script is kept.</p>
+    <p><c>Timeout</c> defines the timeout when suspending processes.
+      If no value or <c>default</c> is given, the default value for
+      <c>sys:suspend</c> is used.</p>
+    <p><c>ModType</c> defaults to <c>dynamic</c> and specifies if
+      the code is "dynamic", that is if a process using the module does
+      spontaneously switch to new code, or if it is "static".
+      When doing an advanced update and upgrading, the new version of a
+      dynamic module is loaded before the process is asked to change
+      code. When downgrading, the process is asked to change code before
+      loading the new version. For static modules, the new version is
+      loaded before the process is asked to change code, both in
+      the case of upgrading and downgrading. Callback modules are
+      dynamic.</p>
+    <p><c>update</c> with argument <c>supervisor</c> is used when
+      changing the start specification of a supervisor.</p>
+    <pre>
+{load_module, Mod}
+{load_module, Mod, DepMods}
+{load_module, Mod, PrePurge, PostPurge, DepMods}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+  DepMods = [Mod]
+    </pre>
+    <p>Simple code replacement of the module <c>Mod</c>.</p>
+    <p>See <c>update</c> above for a description of <c>PrePurge</c> and
+      <c>PostPurge</c>.</p>
+    <p><c>DepMods</c> defaults to [] and defines which other modules
+      <c>Mod</c> is dependent on. In <c>relup</c>, instructions for
+      loading these modules will come before the instruction for loading
+      <c>Mod</c> when upgrading, and vice versa when downgrading.</p>
+    <pre>
+{add_module, Mod}
+  Mod = atom()
+    </pre>
+    <p>Loads a new module <c>Mod</c>.</p>
+    <pre>
+{delete_module, Mod}
+  Mod = atom()
+    </pre>
+    <p>Deletes a module <c>Mod</c> using the low-level instructions
+      <c>remove</c> and <c>purge</c>.</p>
+    <pre>
+{add_application, Application}
+  Application = atom()
+    </pre>
+    <p>Adding an application means that the modules defined by
+      the <c>modules</c> key in the <c>.app</c> file are loaded using
+      <c>add_module</c>, then the application is started.</p>
+    <pre>
+{remove_application, Application}
+  Application = atom()
+    </pre>
+    <p>Removing an application means that the application is stopped,
+      the modules are unloaded using <c>delete_module</c> and then
+      the application specification is unloaded from the application
+      controller.</p>
+    <pre>
+{restart_application, Application}
+  Application = atom()
+    </pre>
+    <p>Restarting an application means that the application is
+      stopped and then started again similar to using the instructions
+      <c>remove_application</c> and <c>add_application</c> in sequence.</p>
+    <p><em>Low-level instructions</em></p>
+    <pre>
+{load_object_code, {App, Vsn, [Mod]}}
+  App = Mod = atom()
+  Vsn = string()
+    </pre>
+    <p>Reads each <c>Mod</c> from the directory <c>App-Vsn/ebin</c> as
+      a binary. It does not load the modules. The instruction should be
+      placed first in the script in order to read all new code from file
+      to make the suspend-load-resume cycle less time consuming. After
+      this instruction has been executed, the code server with the new
+      version of <c>App</c>.</p>
+    <pre>
+point_of_no_return
+    </pre>
+    <p>If a crash occurs after this instruction, the system cannot
+      recover and is restarted from the old version of the release.
+      The instruction must only occur once in a script. It should be
+      placed after all <c>load_object_code</c> instructions.</p>
+    <pre>
+{load, {Mod, PrePurge, PostPurge}}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+    </pre>
+    <p>Before this instruction occurs, <c>Mod</c> must have been loaded
+      using <c>load_object_code</c>. This instruction loads the module.
+      <c>PrePurge</c> is ignored. See the high-level instruction
+      <c>update</c> for a description of <c>PostPurge</c>.</p>
+    <pre>
+{remove, {Mod, PrePurge, PostPurge}}
+  Mod = atom()
+  PrePurge = PostPurge = soft_purge | brutal_purge
+    </pre>
+    <p>Makes the current version of <c>Mod</c> old.
+      <c>PrePurge</c> is ignored. See the high-level instruction
+      <c>update</c> for a description of <c>PostPurge</c>.</p>
+    <pre>
+{purge, [Mod]}
+  Mod = atom()
+    </pre>
+    <p>Purges each module <c>Mod</c>, that is removes the old code.
+      Note that any process executing purged code is killed.</p>
+    <pre>
+{suspend, [Mod | {Mod, Timeout}]}
+  Mod = atom()
+  Timeout = int()>0 | default | infinity
+    </pre>
+    <p>Tries to suspend all processes using a module <c>Mod</c>. If a
+      process does not respond, it is ignored. This may cause
+      the process to die, either because it crashes when it
+      spontaneously switches to new code, or as a result of a purge
+      operation. If no <c>Timeout</c> is specified or <c>default</c> is
+      given, the default value for <c>sys:suspend</c> is used.</p>
+    <pre>
+{resume, [Mod]}
+  Mod = atom()
+    </pre>
+    <p>Resumes all suspended processes using a module <c>Mod</c>.</p>
+    <pre>
+{code_change, [{Mod, Extra}]}
+{code_change, Mode, [{Mod, Extra}]}
+  Mod = atom()
+  Mode = up | down
+  Extra = term()
+    </pre>
+    <p><c>Mode</c> defaults to <c>up</c> and specifies if it is an
+      upgrade or downgrade.</p>
+    <p>This instruction sends a <c>code_change</c> system message to
+      all processes using a module <c>Mod</c> by calling the function
+      <c>sys:change_code</c>, passing the term <c>Extra</c> as argument.</p>
+    <pre>
+{stop, [Mod]}
+  Mod = atom()
+    </pre>
+    <p>Stops all processes using a module <c>Mod</c> by calling
+      <c>supervisor:terminate_child/2</c>. The instruction is useful
+      when the simplest way to change code is to stop and restart the
+      processes which run the code.</p>
+    <pre>
+{start, [Mod]}
+  Mod = atom()
+    </pre>
+    <p>Starts all stopped processes using a module <c>Mod</c> by calling
+      <c>supervisor:restart_child/2</c>.</p>
+    <pre>
+{sync_nodes, Id, [Node]}
+{sync_nodes, Id, {M, F, A}}
+  Id = term()
+  Node = node()
+  M = F = atom()
+  A = [term()]
+    </pre>
+    <p><c>apply(M, F, A)</c> must return a list of nodes.</p>
+    <p>The instruction synchronizes the release installation with other
+      nodes. Each <c>Node</c> must evaluate this command, with the same
+      <c>Id</c>. The local node waits for all other nodes to evaluate
+      the instruction before execution continues. In case a node goes
+      down, it is considered to be an unrecoverable error, and
+      the local node is restarted from the old release. There is no
+      timeout for this instruction, which means that it may hang
+      forever.</p>
+    <pre>
+{apply, {M, F, A}}
+  M = F = atom()
+  A = [term()]
+    </pre>
+    <p>Evaluates <c>apply(M, F, A)</c>. If the instruction appears
+      before the <c>point_of_no_return</c> instruction, a failure is
+      caught. <c>release_handler:install_release/1</c> then returns
+      <c>{error,{'EXIT',Reason}}</c>, unless <c>{error,Error}</c> is
+      thrown or returned. Then it returns <c>{error,Error}</c>.</p>
+    <p>If the instruction appears after the <c>point_of_no_return</c>
+      instruction, and the function call fails, the system is
+      restarted.</p>
+    <pre>
+restart_new_emulator
+    </pre>
+    <p>Shuts down the current emulator and starts a ne one. All
+      processes are terminated gracefully. The new release must still
+      be made permanent when the new emulator is up and running.
+      Otherwise, the old emulator is started in case of a emulator
+      restart. This instruction should be used when a new emulator is
+      introduced, or if a complete reboot of the system should be done.</p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="relup">relup(4)</seealso>,
+      <seealso marker="release_handler">release_handler(3)</seealso>,
+      supervisor(3),
+      <seealso marker="systools">systools(3)</seealso></p>
+  </section>
+</fileref>
+

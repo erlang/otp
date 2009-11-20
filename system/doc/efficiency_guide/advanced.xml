@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Advanced</title>
+    <prepared>Kenneth Lundin</prepared>
+    <docno></docno>
+    <date>2001-08-21</date>
+    <rev></rev>
+    <file>advanced.xml</file>
+  </header>
+
+  <section>
+    <title>Memory</title>
+    <p>A good start when programming efficiently is to have knowledge about
+      how much memory different data types and operations require. It is
+      implementation-dependent how much memory the Erlang data types and
+      other items consume, but here are some figures for
+      erts-5.2 system (OTP release R9B). (There have been no significant
+      changes in R13.)</p>
+
+      <p>The unit of measurement is memory words. There exists both a 32-bit
+      and a 64-bit implementation, and a word is therefore, 4 bytes or
+      8 bytes, respectively.</p>
+    <table>
+      <row>
+        <cell align="center" valign="middle">Data type</cell>
+        <cell align="center" valign="middle">Memory size</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Integer (-16#7FFFFFF &lt; i &lt;16#7FFFFFF)</cell>
+        <cell align="left" valign="middle">1 word</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Integer (big numbers)</cell>
+        <cell align="left" valign="middle">3..N words</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Atom</cell>
+        <cell align="left" valign="middle">1 word. Note: an atom refers into
+	an atom table which also consumes memory.
+	The atom text is stored once for each unique atom in this table.
+	The atom table is <em>not</em> garbage-collected.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Float</cell>
+        <cell align="left" valign="middle">On 32-bit architectures: 4 words        <br></br>
+On 64-bit architectures: 3 words</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Binary</cell>
+        <cell align="left" valign="middle">3..6 + data (can be shared)</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">List</cell>
+        <cell align="left" valign="middle">1 word per element + the size of each element</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">String (is the same as a list of integers)</cell>
+        <cell align="left" valign="middle">2 words per character</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Tuple</cell>
+        <cell align="left" valign="middle">2 words + the size of each element</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Pid</cell>
+        <cell align="left" valign="middle">1 word for a process identifier from the current local node, and 5 words for a process identifier from another node. Note: a process identifier refers into a process table and a node table which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Port</cell>
+        <cell align="left" valign="middle">1 word for a port identifier from the current local node, and 5 words for a port identifier from another node. Note: a port identifier refers into a port table and a node table which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Reference</cell>
+        <cell align="left" valign="middle">On 32-bit architectures: 5 words for a reference from the current local node, and 7 words for a reference from another node.        <br></br>
+On 64-bit architectures: 4 words for a reference from the current local node, and 6 words for a reference from another node. Note: a reference refers into a node table which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Fun</cell>
+        <cell align="left" valign="middle">9..13 words + size of environment. Note: a fun refers into a fun table which also consumes memory.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Ets table</cell>
+        <cell align="left" valign="middle">Initially 768 words + the size of each element (6 words + size of Erlang data). The table will grow when necessary.</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">Erlang process</cell>
+        <cell align="left" valign="middle">327 words when spawned including a heap of 233 words.</cell>
+      </row>
+      <tcaption>Memory size of different data types</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>System limits</title>
+    <p>The Erlang language specification puts no limits on number of processes,
+     length of atoms etc., but for performance and memory saving reasons,
+      there will always be limits in a practical implementation of the Erlang
+      language and execution environment.</p>
+    <taglist>
+      <tag><em>Processes</em></tag>
+      <item>
+        <p>The maximum number of simultaneously alive Erlang processes is
+          by default 32768. This limit can be raised up to at most 268435456
+          processes at startup (see documentation of the system flag
+          <seealso marker="erts:erl#max_processes">+P</seealso> in the
+          <seealso marker="erts:erl">erl(1)</seealso> documentation).
+          The maximum limit of 268435456 processes will at least on a 32-bit
+          architecture be impossible to reach due to memory shortage.</p>
+      </item>
+      <tag><em>Distributed nodes</em></tag>
+      <item>
+        <taglist>
+          <tag>Known nodes</tag>
+          <item>
+            <p>A remote node Y has to be known to node X if there exist
+              any pids, ports, references, or funs (Erlang data types) from Y
+              on X, or if X and Y are connected. The maximum number of remote
+              nodes simultaneously/ever known to a node is limited by the
+              <seealso marker="#atoms">maximum number of atoms</seealso>
+              available for node names. All data concerning remote nodes,
+              except for the node name atom, are garbage-collected.</p>
+          </item>
+          <tag>Connected nodes</tag>
+          <item>The maximum number of simultaneously connected nodes is limited by
+           either the maximum number of simultaneously known remote nodes,
+          <seealso marker="#ports">the maximum number of (Erlang) ports</seealso>
+           available, or
+          <seealso marker="#files_sockets">the maximum number of sockets</seealso>
+           available.</item>
+        </taglist>
+      </item>
+      <tag><em>Characters in an atom</em></tag>
+      <item>255</item>
+      <tag><em>Atoms </em></tag>
+      <item>      <marker id="atoms"></marker>
+The maximum number of atoms is 1048576. </item>
+      <tag><em>Ets-tables</em></tag>
+      <item>The default is 1400, can be changed with the environment variable <c>ERL_MAX_ETS_TABLES</c>.</item>
+      <tag><em>Elements in a tuple</em></tag>
+      <item>The maximum number of elements in a tuple is 67108863 (26 bit unsigned integer). Other factors
+       such as the available memory can of course make it hard to create a tuple of that size. </item>
+      <tag><em>Size of binary</em></tag>
+      <item>In the 32-bit implementation of Erlang, 536870911 bytes is the
+       largest binary that can be constructed or matched using the bit syntax.
+       (In the 64-bit implementation, the maximum size is 2305843009213693951 bytes.)
+       If the limit is exceeded, bit syntax construction will fail with a
+      <c>system_limit</c> exception, while any attempt to match a binary that is
+       too large will fail.
+       This limit is enforced starting with the R11B-4 release; in earlier releases,
+       operations on too large binaries would in general either fail or give incorrect
+       results.
+       In future releases of Erlang/OTP, other operations that create binaries (such as
+      <c>list_to_binary/1</c>) will probably also enforce the same limit.</item>
+      <tag><em>Total amount of data allocated by an Erlang node</em></tag>
+      <item>The Erlang runtime system can use the complete 32 (or 64) bit address space,
+       but the operating system often limits a single process to use less than that.</item>
+      <tag><em>length of a node name</em></tag>
+      <item>An Erlang node name has the form host@shortname or host@longname. The node name is 
+       used as an atom within the system so the maximum size of 255 holds for the node name too.</item>
+      <tag><em>Open ports</em></tag>
+      <item>
+        <marker id="ports"></marker>
+        <p>The maximum number of simultaneously open Erlang ports is
+          by default 1024. This limit can be raised up to at most 268435456
+          at startup (see environment variable
+          <seealso marker="erts:erlang#ERL_MAX_PORTS">ERL_MAX_PORTS</seealso>
+          in <seealso marker="erts:erlang">erlang(3)</seealso>)
+          The maximum limit of 268435456 open ports will at least on a 32-bit
+          architecture be impossible to reach due to memory shortage.</p>
+      </item>
+      <tag><em>Open files, and sockets</em></tag>
+      <item>      <marker id="files_sockets"></marker>
+
+       The maximum number of simultaneously open files and sockets
+       depend on
+      <seealso marker="#ports">the maximum number of Erlang ports</seealso>
+       available, and operating system specific settings and limits.</item>
+      <tag><em>Number of arguments to a function or fun</em></tag>
+      <item>256</item>
+    </taglist>
+  </section>
+</chapter>
+

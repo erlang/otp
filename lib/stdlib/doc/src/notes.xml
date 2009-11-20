@@ -1,0 +1,2704 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>STDLIB Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 1.16.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+        <item>
+          <p>
+	    [escript] The restriction that the first line in escripts
+	    must begin with <c>#!</c> has been removed.</p>
+          <p>
+	    [escript] Some command line options to the escript
+	    executable has now been documented. For example you can
+	    run an escript in the debugger by just adding a command
+	    line option.</p>
+          <p>
+	    [escript] The documentation of the escript header syntax
+	    has been clarified. For example the header is optional.
+	    This means that it is possible to directly "execute"
+	    <c>.erl</c>, <c>.beam</c> and<c>.zip</c> files.</p>
+          <p>
+	    Own Id: OTP-8215</p>
+        </item>
+        <item>
+	    <p>Optimized array:from_orddict/1, it is now faster and
+	    uses less memory if the orddict was sparse.</p>
+	    <p>Changed array:reset/2, it will now never expand the
+	    array which it could before for non fixed arrays. See the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8216</p>
+        </item>
+        <item>
+	    <p>The Erlang Pretty Printer (<c>erl_pp</c>) now puts the
+	    leading <c>[</c> of list comprehensions as well as the
+	    leading <c>&lt;&lt;</c> of bit string comprehensions on a
+	    separate line in order to expose the Cover counter of the
+	    template.</p>
+          <p>
+	    Own Id: OTP-8227</p>
+        </item>
+        <item>
+	    <p>The extension ".xrl" used for Leex input files is now
+	    recognized by the compiler.</p>
+          <p>
+	    Own Id: OTP-8232</p>
+        </item>
+        <item>
+          <p>
+	    Some clarifications have been made in the documentation
+	    regarding <c>gen_server</c>, <c>gen_fsm</c>, and
+	    <c>gen_event</c> behavior when handling <c>'EXIT'</c>
+	    messages from the parent process. For more information
+	    see the <seealso
+	    marker="gen_server">gen_server(3)</seealso>, <seealso
+	    marker="gen_fsm">gen_fsm(3)</seealso>, and <seealso
+	    marker="gen_event">gen_event(3)</seealso> documentation.</p>
+          <p>
+	    Own Id: OTP-8255 Aux Id: seq11419 </p>
+        </item>
+        <item>
+	    <p>The -on_load() directive can be used to run a function
+	    when a module is loaded. It is documented in the section
+	    about code loading in the Reference Manual.</p>
+          <p>
+	    Own Id: OTP-8295</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.16.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            An erroneous type spec for <c>gen:start/6</c> caused
+            dialyzer to erroneously issue warnings when
+            <c>{spawn_opt, SpawnOptionList}</c> was passed in the
+            option list to the <c>gen_server</c> and <c>gen_fsm</c>
+            start functions.</p>
+          <p>
+            Own Id: OTP-8068 Aux Id: seq11323, seq11314 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.16.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The linter used to crash on invalid <c>-opaque</c>
+	    declarations.</p>
+          <p>
+	    Own Id: OTP-8051</p>
+        </item>
+        <item>
+	    <p>Bugs in <c>digraph:add_edge/5</c> and
+	    <c>digraph:del_path/3</c> have been fixed. (Thanks to
+	    Crystal Din.)</p>
+          <p>
+	    Own Id: OTP-8066</p>
+        </item>
+        <item>
+	    <p>When trying to insert objects with
+	    <c>dets:insert_new()</c> into a Dets table of type
+	    <c>duplicate_bag</c>, already existing objects would
+	    sometimes be duplicated. This bug has been fixed. (Thanks
+	    to Crystal Din.)</p>
+          <p>
+	    Own Id: OTP-8070</p>
+        </item>
+        <item>
+          <p>
+	    Running erlc in a very deep directory (with a path length
+	    of more 256 or more characters) would cause the emulator
+	    to crash in a call to <c>list_to_atom/1</c>. (Thanks to
+	    Chris Newcombe.)</p>
+          <p>
+	    Own Id: OTP-8124</p>
+        </item>
+        <item>
+	    <p>A few minor bugs have been fixed in the Erlang Code
+	    Preprocessor (<c>epp</c>).</p>
+          <p>
+	    Own Id: OTP-8130</p>
+        </item>
+        <item>
+	    <p>A bug in The Erlang Meta Interpreter (<c>erl_eval</c>)
+	    has been fixed: exceptions generated in the template of
+	    bit string comprehensions were not handled properly.
+	    (Thanks to Ulf Wiger.)</p>
+          <p>
+	    Own Id: OTP-8133</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Option <c>{capture,none}</c> was missing in documentation
+	    for <c>re:run/3</c>.</p>
+          <p>
+	    Own Id: OTP-8113</p>
+        </item>
+        <item>
+	    <p>When <c>erl_scan:tokens()</c> returns an error tuple
+	    <c>{error, ErrorInfo, EndLocation</c>}, the list
+	    <c>LeftOverChars</c> is the remaining characters of the
+	    input data, starting from <c>EndLocation</c>. It used to
+	    be the empty list.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8129</p>
+        </item>
+        <item>
+	    <p>The Erlang Meta Interpreter (<c>erl_eval</c>) has been
+	    somewhat optimized when it comes to interpreting
+	    <c>receive</c>-expressions. (Thanks to Richard
+	    Carlsson.)</p>
+          <p>
+	    Own Id: OTP-8139</p>
+        </item>
+        <item>
+	    <p>The Erlang Pretty Printer (<c>erl_pp</c>) has been
+	    modified as to handle types.</p>
+          <p>
+	    Own Id: OTP-8150</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.16.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The text of tokens returned by the Erlang scanner
+	    (<c>erl_scan</c>) was sometimes empty when the
+	    <c>text</c> option was given and <c>StartLocation</c> was
+	    a line. This bug has been fixed.</p>
+          <p>
+	    Own Id: OTP-7965</p>
+        </item>
+        <item>
+	    <p>The documentation for <c>base64:decode/1</c> has been
+	    updated to point out that it strips whitespace.</p>
+	    <p><c>base64:decode/1</c> and <c>base64:mime_decode/1</c>
+	    would sometimes fail instead of stripping away non-base64
+	    characters.</p>
+          <p>
+	    Own Id: OTP-7984</p>
+        </item>
+        <item>
+          <p>
+	    Two types in the <c>gen</c> module were corrected.</p>
+          <p>
+	    Own Id: OTP-8029 Aux Id: seq11296 </p>
+        </item>
+        <item>
+          <p>
+	    <c>array:from_orddict([])</c> and
+	    <c>array:from_list([])</c> would construct fixed arrays
+	    instead of extendible arrays.</p>
+          <p>
+	    Own Id: OTP-8033</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Interpreted escripts are now tail recursive.</p>
+          <p>
+	    The function erl_eval:expr/5 has been introduced.</p>
+          <p>
+	    Own Id: OTP-7933</p>
+        </item>
+        <item>
+          <p>
+	    <c>gen_server:call/2,3</c> will be somewhat faster if the
+	    calling process has a many messages in its message queue.</p>
+          <p>
+	    Own Id: OTP-7979</p>
+        </item>
+        <item>
+          <p>
+	    Random now supports seed with arity one,
+	    <c>random:seed/1</c>, which takes a three-tuple.</p>
+          <p>
+	    Own Id: OTP-8019</p>
+        </item>
+        <item>
+	    <p>The <c>regexp</c> module now recognizes the escape
+	    sequences <c>\xXY</c> and <c>\x{X...}</c>.</p>
+          <p>
+	    Own Id: OTP-8024</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.16.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The documentation of <c>dets:open_file/1</c> now
+	    states that the file is repaired if it has not been
+	    properly closed. (Thanks to Ulf Wiger.)</p>
+          <p>
+	    Own Id: OTP-7895</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The Erlang scanner no longer returns the text of
+	    tokens when the start location is a pair of a line and
+	    column unless the new option <c>text</c> is supplied
+	    (incompatibility with R13A).</p> <p>There are new
+	    functions to access the attributes of tokens:
+	    <c>attributes_info/1,2</c> and
+	    <c>set_attribute/3</c>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7892 Aux Id: OTP-7810 </p>
+        </item>
+        <item>
+          <p>
+	    Several glitches and performance issues in the Unicode
+	    and I/O-system implementation of R13A have been
+	    corrected.</p>
+          <p>
+	    Own Id: OTP-7896 Aux Id: OTP-7648 OTP-7887 </p>
+        </item>
+        <item>
+          <p>
+	    The type spec of filelib:wildcard/2 has been corrected.</p>
+          <p>
+	    Own Id: OTP-7915</p>
+        </item>
+        <item>
+	    <p>New functions: <c>gb_sets:is_disjoint/2</c>,
+	    <c>ordsets:is_disjoint/2</c>, and
+	    <c>gb_sets:is_disjoint/2</c>.</p>
+          <p>
+	    Own Id: OTP-7947</p>
+        </item>
+        <item>
+	    <p>The function <c>gb_trees:map/2</c> which was added in
+	    R13A is now documented.</p>
+          <p>
+	    Own Id: OTP-7948</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.16</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Fixed a minor race conditions in
+	    <c>gen_server:start*</c>: if one of these functions
+	    returned <c>{error,Reason}</c> or <c>ignore</c>, the name
+	    could still be registered (either locally or in
+	    <c>global</c>).</p>
+	    <p>A process started by <c>proc_lib</c> in some cases
+	    depended on its process dictionary not to be erased, and
+	    would crash when terminating abnormally and not generate
+	    a proper crash report. This has been corrected (but the
+	    initial call will not be shown in the error report if the
+	    process dictionary has been erased). NOTE: There is no
+	    longer any need to erase the process dictionary for
+	    memory conservation reasons, since the actual call
+	    arguments are no longer saved in the process
+	    dictionary.</p>
+          <p>
+	    Own Id: OTP-7669</p>
+        </item>
+        <item>
+	    <p>The Erlang preprocessor used wrong line number when
+	    stringifying macro arguments. (Thanks to John
+	    Hughes.)</p>
+          <p>
+	    Own Id: OTP-7702</p>
+        </item>
+        <item>
+	    <p>A bug in the <c>qlc</c> module has been fixed: merge
+	    join sometimes failed to return all answers. (Thanks to
+	    Bernard Duggan.)</p>
+          <p>
+	    Own Id: OTP-7714</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>A new option, <c>key_equality</c>, has been added to
+	    <c>qlc:table/2</c>. This option makes it possible for
+	    <c>qlc</c> to better handle tables that use <c>==/2</c>
+	    when comparing keys for equality (examples of such tables
+	    are ordered ETS tables and gb_table in qlc(3)).</p>
+          <p>
+	    Own Id: OTP-6674</p>
+        </item>
+        <item>
+	    <p>The functions <c>lists:seq/1,2</c> return the empty
+	    list in a few cases when they used to generate an
+	    exception, for example <c>lists:seq(1, 0)</c>. See
+	    lists(3) for details. (Thanks to Richard O'Keefe.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7230</p>
+        </item>
+        <item>
+          <p>
+	    The order of objects visited in select for ordered_set is
+	    now documented.</p>
+          <p>
+	    Own Id: OTP-7339</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to debug code in escripts and
+	    archives.</p>
+          <p>
+	    Own Id: OTP-7626</p>
+        </item>
+        <item>
+	    <p>Support for Unicode is implemented as described in
+	    EEP10. Formatting and reading of unicode data both from
+	    terminals and files is supported by the io and io_lib
+	    modules. Files can be opened in modes with automatic
+	    translation to and from different unicode formats. The
+	    module 'unicode' contains functions for conversion
+	    between external and internal unicode formats and the re
+	    module has support for unicode data. There is also
+	    language syntax for specifying string and character data
+	    beyond the ISO-latin-1 range.</p>
+	    <p>The interactive shell will support input and output of
+	    unicode characters when the terminal and operating system
+	    supports it.</p>
+	    <p>Please see the EEP and the io/io_lib manual pages as
+	    well as the stdlib users guide for details.</p>
+	    <p><em>I/O-protocol incompatibilities:</em></p>
+	    <p>The io_protocol between io_Server and client is
+	    updated to handle protocol data in unicode formats. The
+	    updated protocol is now documented. The specification
+	    resides in the stdlib <em>users manual</em>, which is a
+	    new part of the manual.</p>
+	    <p><em>io module incompatibilities:</em></p>
+	    <p>The io:put_chars, io:get_chars and io:get_line all
+	    handle and return unicode data. In the case where
+	    binaries can be provided (as to io:put_chars), they shall
+	    be encoded in UTF-8. When binaries are returned (as by
+	    io:get_line/get_chars when the io_server is set in
+	    <em>binary mode</em>) the returned data is also
+	    <em>always</em> encoded as UTF-8. The file module however
+	    still returns byte-oriented data, why file:read can be
+	    used instead of io:get_chars to read binary data in
+	    ISO-latin-1.</p>
+	    <p><em>io_lib module incompatibilities:</em></p>
+	    <p>io_lib:format can, given new format directives (i.e
+	    "~ts" and "~tc"), return lists containing integers larger
+	    than 255. </p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7648 Aux Id: OTP-7580 OTP-7514 OTP-7494
+	    OTP-7443 OTP-7181 EEP10 EEP11 </p>
+        </item>
+        <item>
+          <p>
+	    The function <c>pool:attach/1</c> now returns
+	    <c>already_attached</c> if the node is already attached,
+	    rather than <c>allready_attached</c> (sic!). (Thanks to
+	    Edwin Fine.)</p>
+          <p>
+	    Own Id: OTP-7653 Aux Id: OTP-7603 </p>
+        </item>
+        <item>
+          <p>
+	    Preprocessor directives are now allowed in escripts. This
+	    means that for example macros may be used in escripts.</p>
+          <p>
+	    Own Id: OTP-7662</p>
+        </item>
+        <item>
+	    <p>When a process started with <c>proc_lib</c>,
+	    <c>gen_server</c>, or <c>gen_fsm</c> exits with reason
+	    <c>{shutdown,Term}</c>, a crash report will no longer be
+	    generated (to allow a clean shutdown, but still provide
+	    additional information to process that are linked to the
+	    terminating process).</p>
+          <p>
+	    Own Id: OTP-7740 Aux Id: seq10847 </p>
+        </item>
+        <item>
+          <p>
+	    A new BIF, <c>lists:keyfind/3</c>, has been added. It
+	    works like <c>lists:keysearch/3</c> except that it does
+	    not wrap the returned tuple in a <c>value</c> tuple in
+	    case of success. (Thanks to James Hague for suggesting
+	    this function.)</p>
+          <p>
+	    Own Id: OTP-7752</p>
+        </item>
+        <item>
+	    <p><c>lists:suffix(Suffix, List)</c> used to have a a
+	    complexity of <c>length(Suffix)*length(List)</c> (which
+	    could become quite slow for some inputs). It has now been
+	    re-implemented so that its complexity is
+	    <c>length(Suffix)+length(List)</c>. (Thanks to Richard
+	    O'Keefe for the new implementation.)</p>
+          <p>
+	    Own Id: OTP-7797</p>
+        </item>
+        <item>
+	    <p>The Erlang scanner has been augmented as to return
+	    white spaces, comments, and exact location of tokens. The
+	    functions <c>string/3</c>, <c>tokens/4</c>, and
+	    <c>token_info/1,2</c> are new. See erl_scan(3) for
+	    details.</p>
+	    <p><c>tokens/3,4</c> have been modified as to return a
+	    list of tokens instead of an error when <c>eof</c> is
+	    encountered before the dot.</p>
+          <p>
+	    Own Id: OTP-7810</p>
+        </item>
+        <item>
+          <p>
+	    <c>filelib:fold_files/5</c> now uses the <c>re</c> module
+	    instead of the <c>regexp</c> module for regular
+	    expression matching. In practice, this change will not be
+	    a problem for most regular expressions used for
+	    <c>filelib:fold_files/5</c>. (The major difference in
+	    regular expression is that parenthesis and curly brackets
+	    is treated as literal characters by <c>regexp</c> but as
+	    special characters by <c>re</c>; fortunately, those
+	    characters are rarely used in filenames.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7819</p>
+        </item>
+        <item>
+          <p>
+	    <c>digraph:new(Type)</c> will now cause a <c>badarg</c>
+	    exception if <c>Type</c> is not a valid type. Similarly,
+	    <c>digraph_utils:subgraph/2,3</c> will now cause a
+	    <c>badarg</c> if the arguments are invalid. (Those
+	    functions used to return error tuples if something was
+	    wrong.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7824</p>
+        </item>
+        <item>
+	    <p>The argument passed to <c>random:uniform/1</c> must
+	    now be an integer (as stated in the documentation). In
+	    previous releases, a floating point number was also
+	    allowed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7827</p>
+        </item>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+        <item>
+	    <p>A few missing match spec functions was added to
+	    dbg:fun2ms; exception_trace/0 and trace/2,3.</p>
+	    <p>There is a new function queue:member/2.</p>
+	    <p>A bug in io_lib:fread that made it accidentally
+	    concatenate fields separated by newline has been
+	    corrected. Reported and analyzed by Matthew Palmer to
+	    erlang-patches.</p>
+          <p>
+	    Own Id: OTP-7865</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>STDLIB 1.15.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in the <c>qlc</c> module has been fixed: when
+	    merge joining two query handles the temporary file used
+	    for equivalence classes was not truncated properly which
+	    could result in poor performance.</p>
+          <p>
+	    Own Id: OTP-7552</p>
+        </item>
+        <item>
+          <p>
+	    The characters 16#C0 and 16#E0 ("A" and "a" with grave
+	    accent), were not properly converted by the
+	    <c>string:to_lower/1</c> and <c>string:to_upper/1</c>
+	    functions. (Thanks to Richard O'Keefe.)</p>
+          <p>
+	    Own Id: OTP-7589</p>
+        </item>
+        <item>
+          <p>
+	    The function <c>pool:attach/1</c> now returns
+	    <c>already_attached</c> if the node is already attached,
+	    rather than <c>allready_attached</c> (sic!). (Thanks to
+	    Edwin Fine.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7603</p>
+        </item>
+        <item>
+	    <p>The documentation for <c>io:get_line/1,2</c> now
+	    mentions that the return value can also be
+	    <c>{error,Reason}</c>.</p>
+          <p>
+	    Own Id: OTP-7604 Aux Id: seq11063 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The split function is now added to the re library.
+	    Exceptions and errors from both run, replace and split
+	    are made more consistent.</p>
+          <p>
+	    Own Id: OTP-7514 Aux Id: OTP-7494 </p>
+        </item>
+        <item>
+	    <p>Processes spawned using <c>proc_lib</c> (including
+	    <c>gen_server</c> and other library modules that use
+	    <c>proc_lib</c>) no longer keep the entire argument list
+	    for the initial call, but only the arity.</p>
+	    <p>Also, if <c>proc_lib:spawn/1</c> is used to spawn a
+	    fun, the actual fun is not kept, but only module,
+	    function name, and arity of the function that implements
+	    the fun.</p>
+	    <p>The reason for the change is that keeping the initial
+	    fun (or a fun in an argument list), would prevent
+	    upgrading the code for the module. A secondary reason is
+	    that keeping the fun and function arguments could waste a
+	    significant amount of memory.</p>
+	    <p>The drawback with the change is that the crash reports
+	    will provide less precise information about the initial
+	    call (only <c>Module:Function/Arity</c> instead of
+	    <c>Module:Function(Arguments)</c>). The function
+	    <c>proc_lib:initial_call/1</c> still returns a list, but
+	    each argument has been replaced with a dummy atom.</p>
+          <p>
+	    Own Id: OTP-7531 Aux Id: seq11036 </p>
+        </item>
+        <item>
+          <p>
+	    There is now experimental support for loading of code
+	    from archive files. See the documentation of <c>code</c>,
+	    <c>init</c>, <c>erl_prim_loader </c> and <c>escript</c>
+	    for more info.</p>
+          <p>
+	    The error handling of <c>escripts</c> has been improved.</p>
+          <p>
+	    An <c>escript</c> may now set explicit arguments to the
+	    emulator, such as <c>-smp enabled</c>.</p>
+          <p>
+	    An <c>escript</c> may now contain a precompiled beam
+	    file.</p>
+          <p>
+	    An <c>escript</c> may now contain an archive file
+	    containing one or more applications (experimental).</p>
+          <p>
+	    The internal module <c>code_aux</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-7548 Aux Id: otp-6622 </p>
+        </item>
+        <item>
+          <p>
+	    Enabled explicit control of which types of files that
+	    should be compressed in a ZIP archive.</p>
+          <p>
+	    Own Id: OTP-7549 Aux Id: otp-6622 </p>
+        </item>
+        <item>
+          <p>
+	    In the job control mode, the "s" and "r" commands now
+	    take an optional argument to specify which shell to
+	    start. (Thanks to Robert Virding.)</p>
+          <p>
+	    Own Id: OTP-7617</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.15.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A bug in the calendar module could cause
+	    calendar:local_time_to_universal_time_dst/1 to return
+	    duplicate identical values for local times in timezones
+	    without DST. Multiple values should only be returned when
+	    a local time is within the hour occurring twice due to
+	    shift from DST to non-DST, and certainly only in
+	    timezones with DST. The correct behaviour is now
+	    implemented.</p>
+          <p>
+	    Own Id: OTP-7344 Aux Id: seq10960 </p>
+        </item>
+        <item>
+	    <p>The documentation of <c>(d)ets:init_table()</c> has
+	    been corrected. (Thanks to Paul Mineiro.)</p>
+          <p>
+	    Own Id: OTP-7413</p>
+        </item>
+        <item>
+	    <p>The soft upper limit of 60 on the number of non-white
+	    characters on a line, which was introduced in R12B-0 for
+	    the control sequences <c>p</c> and <c>P</c> of the
+	    functions <c>io:fwrite/2,3</c> and
+	    <c>io_lib:fwrite/2</c>, has been removed. This means that
+	    terms whose printed representation fits on a line will
+	    have no NEWLINEs. The Erlang shell still uses the 60
+	    character limit, though.</p>
+          <p>
+	    Own Id: OTP-7421 Aux Id: OTP-6708 </p>
+        </item>
+        <item>
+	    <p>Some debug code has been removed from Dets.</p>
+          <p>
+	    Own Id: OTP-7424</p>
+        </item>
+        <item>
+	    <p>The documentation of <c>dets:match_delete/2</c> has
+	    been corrected. (Thanks to Paul Mineiro.)</p>
+          <p>
+	    Own Id: OTP-7445</p>
+        </item>
+        <item>
+	    <p>Corrections of digraph(3). (Thanks to Vlad
+	    Dumitrescu.)</p>
+          <p>
+	    Own Id: OTP-7492</p>
+        </item>
+        <item>
+          <p>
+	    For the process that an escript runs in, the
+	    <c>trap_exit</c> process flag is now <c>false</c> instead
+	    of <c>true</c> (as in previous releases). Scripts that
+	    depend on the previous (counter-intuitive) behaviour
+	    might not work. (Thanks to Bengt Kleberg.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-7517</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation of <c>lists:(u)sort/2</c> now states
+	    what is expected of an ordering function.</p>
+          <p>
+	    Own Id: OTP-7489</p>
+        </item>
+        <item>
+          <p>
+	    The re module is extended with repetitive matches (global
+	    option) and replacement function.</p>
+          <p>
+	    Own Id: OTP-7494 Aux Id: OTP-7181 </p>
+        </item>
+        <item>
+	    <p>The Erlang shell now displays a nicer error message
+	    when evaluating an undefined command. (Thanks to Richard
+	    Carlsson.)</p>
+          <p>
+	    Own Id: OTP-7495</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>STDLIB 1.15.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    zip:unzip to/from binary with empty directories did not
+	    work. (Thanks to Martin Dvorak.)</p>
+          <p>
+	    Own Id: OTP-7248</p>
+        </item>
+        <item>
+	    <p>The documentation of the control sequence <c>w</c> of
+	    the <c>io_lib</c> module now states that floating point
+	    numbers are printed accurately.</p>
+          <p>
+	    Own Id: OTP-7324 Aux Id: OTP-7084 </p>
+        </item>
+        <item>
+          <p>
+	    zip:unzip was not supporting a flavour of the zip format
+	    found in jar-files.</p>
+          <p>
+	    Own Id: OTP-7382 Aux Id: seq10970 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    An experimental module "re" is added to the emulator
+	    which interfaces a publicly available regular expression
+	    library for Perl-like regular expressions (PCRE). The
+	    interface is purely experimental and *will* be subject to
+	    change.</p>
+          <p>
+	    The implementation is for reference and testing in
+	    connection to the relevant EEP.</p>
+          <p>
+	    Own Id: OTP-7181</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.15.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p> When inserting many small objects, Dets sometimes
+	    crashed when reaching the maximum number of slots.
+	    (Thanks to Daniel Goertzen.) </p>
+          <p>
+	    Own Id: OTP-7146</p>
+        </item>
+        <item>
+	    <p>Processes linked to the Erlang shell did not get an
+	    exit signal when the evaluator process was killed. This
+	    bug, introduced in R12B-0, has been fixed.</p>
+          <p>
+	    Own Id: OTP-7184 Aux Id: OTP-6554 </p>
+        </item>
+        <item>
+          <p>
+	    Invalid arguments to <c>ets:update_counter/3</c> were not
+	    handled correctly. A tuple position (<c>Pos</c>) less
+	    than 1 caused the element directly following the key to
+	    be updated (as if no position at all had been specified).
+	    All invalid values for <c>Pos</c> will now fail with
+	    <c>badarg</c>.</p>
+          <p>
+	    Own Id: OTP-7226</p>
+        </item>
+        <item>
+          <p>
+	    For certain terminals, io:columns/0 could return 0
+	    instead of enotsup. That is now corrected.</p>
+          <p>
+	    Own Id: OTP-7229 Aux Id: seq10886 </p>
+        </item>
+        <item>
+	    <p><c>qlc:info()</c> can now handle port identifiers,
+	    pids, references, and funs. (Thanks to Wojciech Kaczmare
+	    for reporting this bug.)</p> <p>When evaluating the
+	    <c>parent_fun</c> messages sent to the process calling
+	    <c>qlc:cursor()</c> were sometimes erroneously consumed.
+	    This bug has been fixed.</p>
+          <p>
+	    Own Id: OTP-7232</p>
+        </item>
+        <item>
+	    <p><c>erl_parse:abstract()</c> can now handle bit
+	    strings.</p>
+          <p>
+	    Own Id: OTP-7234</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>queue</c> module has been rewritten to make it
+	    easier to use. Suggestions and discussion from and with
+	    among others Lev Walkin, Anders Ramsell and Rober Virding
+	    in december 2007 on erlang-questions@erlang.org. It was
+	    also discussed to change the internal representation to
+	    contain length information which would speed up
+	    <c>len/1</c> but that change has been postponed. Anyone
+	    interested may write an EEP and try to reach an
+	    acceptable compromise for queue overhead and thereby the
+	    speed of all other operations than <c>len/1</c>. The
+	    <c>queue</c> module is now optimized for fast and minimal
+	    garbage <c>in/2</c> and <c>out/1</c> and such. See the
+	    documentation.</p>
+	    <p>New functions: <c>is_queue/1</c>, <c>get/1</c>,
+	    <c>get_r/1</c>, <c>peek/1</c>, <c>peek_r/1</c>,
+	    <c>drop/1</c>, <c>drop_r/1</c> and <c>liat/1</c>.
+	    <c>is_queue/1</c> is a new predicate, <c>liat/1</c> is a
+	    correction of an old misspelling, and the others
+	    (<c>get</c>*, <c>peek</c>* and <c>drop</c>*) are new
+	    interface functions.</p>
+          <p>
+	    Own Id: OTP-7064</p>
+        </item>
+        <item>
+	    <p>The functions <c>io_lib:write/1,2</c> and
+	    <c>io_lib:print/1,4</c> have been changed when it comes
+	    to writing floating point numbers. This change affects
+	    the control sequences <c>p</c>, <c>P</c>, <c>w</c>, and
+	    <c>W</c> of the <c>io_lib</c> module. (Thanks to Bob
+	    Ippolito for code contribution.) </p>
+          <p>
+	    Own Id: OTP-7084</p>
+        </item>
+        <item>
+          <p>
+	    Updated the documentation for
+	    <c>erlang:function_exported/3</c> and <c>io:format/2</c>
+	    functions to no longer state that those functions are
+	    kept mainly for backwards compatibility.</p>
+          <p>
+	    Own Id: OTP-7186</p>
+        </item>
+        <item>
+          <p>
+	    A new BIF ets:update_element/3. To update individual
+	    elements within an ets-tuple, without having to read,
+	    update and write back the entire tuple.</p>
+          <p>
+	    Own Id: OTP-7200</p>
+        </item>
+        <item>
+	    <p><c>string:join/2</c> now accepts an empty list as
+	    first argument.</p>
+          <p>
+	    Own Id: OTP-7231 Aux Id: OTP-6671 </p>
+        </item>
+        <item>
+	    <p><c>qlc:info/1,2</c> accepts a new option,
+	    <c>depth</c>. The type <c>SelectedObjects</c> used in the
+	    description of <c>qlc:table/2</c> has been augmented.</p>
+          <p>
+	    Own Id: OTP-7238</p>
+        </item>
+        <item>
+	    <p><c>tuple_size/1</c> and <c>byte_size/1</c> have been
+	    substituted for <c>size/1</c> in the documentation.</p>
+          <p>
+	    Own Id: OTP-7244</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.15.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Ets:select/3 in combination with
+	    ets:repair_continuation/2 and ordered_set data tables
+	    could result in function_clause although used as
+	    intended. This is now corrected. Thanks to Paul Mineiro
+	    for finding and isolating the bug!</p>
+          <p>
+	    Own Id: OTP-7025</p>
+        </item>
+        <item>
+	    <p>The compiler warning for the deprecated function
+	    <c>ftp:close/1</c> now mentions the correct replacement
+	    function.</p>
+	    <p>The warning for the removed functions in the
+	    <c>httpd_util</c> module have been changed to say they
+	    have been removed, not merely deprecated. (Thanks to
+	    Fredrik Thulin.)</p>
+          <p>
+	    Own Id: OTP-7034 Aux Id: seq10825 </p>
+        </item>
+        <item>
+	    <p>In <c>(Expr)#r{}</c> (no fields are updated),
+	    <c>Expr</c> is no longer evaluated more than once. There
+	    is also a test that <c>Expr</c> is of the correct record
+	    type. (Thanks to Dominic Williams.)</p>
+          <p>
+	    Own Id: OTP-7078 Aux Id: OTP-4962 </p>
+        </item>
+        <item>
+	    <p>Documentation bugfixes and clarifications.</p> (Thanks
+	    to Joern (opendev@gmail.com), Matthias Lang, and Richard
+	    Carlsson.)
+          <p>
+	    Own Id: OTP-7079</p>
+        </item>
+        <item>
+	    <p>Duplicated objects were sometimes not deleted from the
+	    list of answers when a QLC table was traversed using a
+	    match specification. (Thanks to Dmitri Girenko.)</p>
+          <p>
+	    Own Id: OTP-7114</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation has been updated so as to reflect
+	    the last updates of the Erlang shell as well as the minor
+	    modifications of the control sequence <c>p</c> of the
+	    <c>io_lib</c> module.</p> <p>Superfluous empty lines have
+	    been removed from code examples and from Erlang shell
+	    examples.</p>
+          <p>
+	    Own Id: OTP-6944 Aux Id: OTP-6554, OTP-6911 </p>
+        </item>
+        <item>
+	    <p><c>tuple_size/1</c> and <c>byte_size/1</c> have been
+	    substituted for <c>size/1</c>.</p>
+          <p>
+	    Own Id: OTP-7009</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to hibernate a
+	    gen_server/gen_event/gen_fsm. In gen_server and gen_fsm,
+	    hibernation is triggered by returning the atom
+	    'hibernate' instead of a timeout value. In the gen_event
+	    case hibernation is triggered by a event handler
+	    returning a tuple with an extra element containing the
+	    atom 'hibernate'.</p>
+          <p>
+	    Own Id: OTP-7026 Aux Id: seq10817 </p>
+        </item>
+        <item>
+	    <p>Some undocumented debug functionality has been added
+	    to Dets.</p>
+          <p>
+	    Own Id: OTP-7066</p>
+        </item>
+        <item>
+	    <p>The functions <c>digraph_utils:is_tree/1</c>,
+	    <c>digraph_utils:is_arborescence/1</c>, and
+	    <c>digraph_utils:arborescence_root/1</c> are new.</p>
+          <p>
+	    Own Id: OTP-7081</p>
+        </item>
+        <item>
+          <p>
+	    The compiler could generate suboptimal code for record
+	    updates if the record update code consisted of multiple
+	    source code lines.</p>
+          <p>
+	    Own Id: OTP-7101</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.15</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Bugs have been fixed in <c>qlc</c>:</p> <list
+	    type="bulleted"> <item>Setting the <c>lookup_fun</c>
+	    option of <c>qlc:table/2</c> to <c>undefined</c> could
+	    cause a crash.</item> <item>If a QLC restricted some
+	    column of a table in such a way that a traversal using a
+	    match specification was possible and the QLC also
+	    compared the key column or some indexed column of the the
+	    table with a column of some other table, <c>qlc</c>
+	    always chose to traverse the table first, never
+	    considering lookup join. This has been changed so that
+	    lookup join is always preferred; if an initial traversal
+	    using the match specification is desired, the query needs
+	    to be rewritten introducing an extra QLC with the
+	    filter(s) restricting the column.</item> <item>When
+	    trying to find candidates for match specifications and
+	    lookup, filters using variables from one generator only
+	    are ignored unless they are placed immediately after the
+	    generator and possibly other filters using variables from
+	    the same generator. In particular, filters joining two
+	    tables should not be placed between the generator and the
+	    filters using the generator only.</item> <item>The
+	    call-back function <c>TraverseFun</c> used for
+	    implementing QLC tables is allowed to return a term other
+	    than a list since STDLIB 1.14 (OTP-5195). However, when
+	    the returned term was a fun <c>qlc</c> often tried to
+	    call the fun instead of returning it.</item> </list> <p>A
+	    few minor optimizations have been implemented as
+	    well.</p>
+          <p>
+	    Own Id: OTP-6673</p>
+        </item>
+        <item>
+	    <p>A bug concerning the use of parameterized modules from
+	    the shell has been fixed.</p>
+          <p>
+	    Own Id: OTP-6785</p>
+        </item>
+        <item>
+	    <p>A bug regarding the size expression of the bit syntax
+	    has been fixed in the <c>erl_eval</c> module.</p>
+          <p>
+	    Own Id: OTP-6787</p>
+        </item>
+        <item>
+          <p>
+	    The log_mf_h event handler didn't close the index file
+	    when it was done reading it causing a file descriptor
+	    leak.</p>
+          <p>
+	    Own Id: OTP-6800</p>
+        </item>
+        <item>
+          <p>
+	    Definitions for the <c>filename()</c> and
+	    <c>dirname()</c> types have been added to the
+	    documentation for the <c>filelib</c> module.</p>
+          <p>
+	    Own Id: OTP-6870</p>
+        </item>
+        <item>
+	    <p>file:write_file/3, file:write/2 and file:read/2 could
+	    crash (contrary to documentation) for odd enough file
+	    system problems, e.g write to full file system. This bug
+	    has now been corrected.</p> <p>In this process the file
+	    module has been rewritten to produce better error codes.
+	    Posix error codes now originate from the OS file system
+	    calls or are generated only for very similar causes (for
+	    example 'enomem' is generated if a memory allocation
+	    fails, and 'einval' is generated if the file handle in
+	    Erlang is a file handle but currently invalid).</p>
+	    <p>More Erlang-ish error codes are now generated. For
+	    example <c>{error,badarg}</c> is now returned from
+	    <c>file:close/1</c> if the argument is not of a file
+	    handle type. See file(3).</p> <p>The possibility to write
+	    a single byte using <c>file:write/2</c> instead of a list
+	    or binary of one byte, contradictory to the
+	    documentation, has been removed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-6967 Aux Id: OTP-6597 OTP-6291 </p>
+        </item>
+        <item>
+	    <p>A bug concerning the evaluation of the <c>++/2</c>
+	    operator has been fixed in <c>erl_eval</c>. (Thanks to
+	    Matthew Dempsky.)</p>
+          <p>
+	    Own Id: OTP-6977</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The behaviour of the internal functions gen:call/3,4
+	    has been changed slightly in the rare case that when the
+	    caller was linked to the called server, and the server
+	    crashed during the call; its exit signal was consumed by
+	    the gen:call/3,4 code and converted to an exit exception.
+	    This exit signal is no longer consumed.</p>
+	    <p>To even notice this change, 1) the calling process has
+	    to be linked to the called server.</p>
+          <p>
+	    2) the call must not be remote by name that is it must be
+	    local or remote by pid, local by name or global by name.</p>
+          <p>
+	    3) the calling process has to have set
+	    <c>process_flag(trap_exit, true)</c>.</p>
+          <p>
+	    4) the server has to crash during the call.</p>
+          <p>
+	    5) the calling process has to be sensitive to getting
+	    previously consumed <c>{'EXIT',Pid,Reason}</c> messages
+	    in its message queue.</p>
+	    <p>The old behaviour was once the only way for a client
+	    to notice if the server died, but has since
+	    <c>erlang:monitor(process, {Name,Node})</c> was
+	    introduced and used in gen:call been regarded as an
+	    undesired behaviour if not a bug.</p>
+	    <p>The affected user APIs are:
+	    <c>gen_server:call/2,3</c>,
+	    <c>gen_fsm:sync_send_event/2,3</c>,
+	    <c>gen_fsm:sync_send_all_state_event/2,3</c>,
+	    <c>gen_event:_</c>, <c>sys:_</c> and maybe a few others
+	    that hardly will be noticed.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-3954 Aux Id: Seq 4538 </p>
+        </item>
+        <item>
+	    <p>When an exception occurs the Erlang shell now displays
+	    the class, the reason, and the stacktrace in a clearer
+	    way (rather than dumping the raw EXIT tuples as before).
+	    <c>proc_lib:format/1</c> displays the exception of crash
+	    reports in the same clearer way.</p> <p>The new shell
+	    command <c>catch_exception</c> and the new application
+	    configuration parameter <c>shell_catch_exception</c> can
+	    be used for catching exceptions that would normally exit
+	    the Erlang shell.</p>
+          <p>
+	    Own Id: OTP-6554 Aux Id: OTP-6289 </p>
+        </item>
+        <item>
+	    <p>The function <c>string:join/2</c> joins strings in a
+	    list with a separator. Example: '<c>string:join(["a",
+	    "b", "c"], ", ") gives "a, b, c"</c>'</p>
+          <p>
+	    Own Id: OTP-6671</p>
+        </item>
+        <item>
+	    <p>The control sequence <c>P</c> of the <c>Format</c>
+	    argument of the functions <c>io:fwrite/2,3</c> and
+	    <c>io_lib:fwrite/2</c> now inserts fewer line breaks when
+	    printing tuples and lists. A soft upper limit of 60 on
+	    the number of non-white characters on a line has been
+	    introduced.</p>
+          <p>
+	    Own Id: OTP-6708</p>
+        </item>
+        <item>
+          <p>
+	    The new module <c>array</c> provides a fast functional
+	    array implementation.</p>
+          <p>
+	    Own Id: OTP-6733</p>
+        </item>
+        <item>
+	    <p>Functions that have long been deprecated have now been
+	    removed from the following modules: <c>dict</c>,
+	    <c>erl_eval</c>, <c>erl_pp</c>, <c>io</c>, <c>io_lib</c>,
+	    <c>lists</c>, <c>orddict</c>, <c>ordsets</c>,
+	    <c>sets</c>, and <c>string</c>.</p>
+	    <p>The undocumented function <c>lists:zf/3</c> has also
+	    been removed (use a list comprehension or
+	    <c>lists:zf/2</c> instead).</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-6845</p>
+        </item>
+        <item>
+          <p>
+	    Minor documentation corrections for file:pread/2 and
+	    file:pread/3.</p>
+          <p>
+	    Own Id: OTP-6853</p>
+        </item>
+        <item>
+          <p>
+	    Contract directives for modules in Kernel and STDLIB.</p>
+          <p>
+	    Own Id: OTP-6895</p>
+        </item>
+        <item>
+	    <p>The <c>ets:fixtable/2</c> function, which has been
+	    deprecated for several releases, has been removed.</p>
+	    <p>The <c>ets:info/1</c> function has been reimplemented
+	    as a BIF, which guarantees that information returned is
+	    consistent.</p>
+	    <p>The <c>ets:info/2</c> function now fails with reason
+	    <c>badarg</c> if the second argument is invalid.
+	    (Dialyzer can be used to find buggy code where the second
+	    argument is misspelled.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-6906</p>
+        </item>
+        <item>
+	    <p>The Erlang pretty printer <c>erl_pp</c> now inserts
+	    more newlines in order to facilitate line coverage
+	    analysis by <c>Cover</c>. (Thanks to Thomas Arts.)</p>
+          <p>
+	    Own Id: OTP-6911</p>
+        </item>
+        <item>
+          <p>
+	    The documentation for ets:safe_fixtable/2, ets:foldl/3,
+	    and ets:foldr/3 is now clearer about what will happen if
+	    objects are inserted during table traversals.</p>
+          <p>
+	    Own Id: OTP-6928 Aux Id: seq10779 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to extract files in tar files directly
+	    into binaries. It is also possible to add files to tar
+	    files directly from binaries.</p>
+          <p>
+	    Own Id: OTP-6943</p>
+        </item>
+        <item>
+	    <p>The functions <c>keystore/4</c> and <c>keytake/3</c>
+	    are new in the <c>lists</c> module.</p>
+          <p>
+	    Own Id: OTP-6953</p>
+        </item>
+        <item>
+	    <p>The new <c>qlc</c> option <c>tmpdir_usage</c> can be
+	    used for outputting messages onto the error logger when a
+	    temporary file is about to be created, or to prohibit the
+	    usage of temporary files altogether.</p>
+          <p>
+	    Own Id: OTP-6964</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.14.5.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The allowed syntax for -type() and -spec() was updated.</p>
+          <p>
+	    Own Id: OTP-6861 Aux Id: OTP-6834 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>STDLIB 1.14.5.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            The compiler will for forward compatibility ignore the
+            -type() and -spec() attributes that will be introduced in
+            the R12B release.</p>
+          <p>
+            Own Id: OTP-6834</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+<section><title>STDLIB 1.14.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The log_mf_h event handler didn't close the index file
+	    when it was done reading it causing a file descriptor
+	    leak.</p>
+          <p>
+	    Own Id: OTP-6800</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The dict:size/1 and orddict:size/1 functions have been
+	    documented.</p>
+          <p>
+	    Own Id: OTP-6818</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>STDLIB 1.14.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Bugs have been fixed in Dets concerning comparison
+            (==) and matching (=:=).</p>
+          <p>The STDLIB manual pages
+            have been updated as to more carefully state when terms
+            are matched and when they are compared.</p>
+          <p>Own Id: OTP-4738 Aux Id: OTP-4685 </p>
+        </item>
+        <item>
+          <p>The shell has been updated to fix the following flaws:
+            Shell process exit left you with an unresponsive initial
+            shell if not using oldshell. Starting a restricted shell
+            with a nonexisting callback module resulted in a shell
+            where no commands could be used, not even init:stop/0.
+            Fun's could not be used as parameters to local shell
+            functions (in shell_default or user_default) when
+            restricted_shell was active.</p>
+          <p>Own Id: OTP-6537</p>
+        </item>
+        <item>
+          <p>A bug in QLC's parse transform has been fixed.</p>
+          <p>Own Id: OTP-6590</p>
+        </item>
+        <item>
+          <p>A bug concerning <c>lists:sort/1</c> and
+            <c>lists:keysort/2</c> and a mix of floating point
+            numbers and integers has been fixed.</p>
+          <p>Own Id: OTP-6606</p>
+        </item>
+        <item>
+          <p>When calling <c>erlang:garbage_collect/0</c> in the
+            Erlang shell not only the evaluator process (the one
+            returned by calling <c>self()</c> in the Erlang shell) is
+            garbage collected, but also the process holding the
+            history list.</p>
+          <p>Own Id: OTP-6659</p>
+        </item>
+        <item>
+          <p>Functions of the <c>beam_lib</c> module that used to
+            catch exceptions and return a tuple
+            <c>{'EXIT',Reason}</c> now exit with the reason
+            <c>Reason</c>.</p>
+          <p>Own Id: OTP-6711</p>
+        </item>
+        <item>
+          <p>The <c>erl_eval</c> module now calls the non-local
+            function handler whenever an operator is evaluated
+            (exceptions are <c>andalso</c>, <c>orelse</c>, and
+            <c>catch</c>). The non-local function handler is now also
+            called when the function or operator occurs in a guard
+            test (such calls used to be ignored).</p>
+          <p>These changes affect the Erlang shell when running in
+            restricted mode: the callback function
+            <c>non_local_allowed/3</c> is now called for operators
+            such as <c>'!'/2</c>. This means that
+            <c>non_local_allowed/3</c> may need to be changed as to
+            let operators through. Note that <c>erlang:'!'/2</c> as
+            well as <c>erlang:send/2,3</c> have to be restricted in
+            order to stop message passing in the shell.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6714 Aux Id: seq10374 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The new compiler option <c>warn_obsolete_guard</c> can
+            be used for turning on warnings for calls to old type
+            testing BIFs.</p>
+          <p>Own Id: OTP-6585</p>
+        </item>
+        <item>
+          <p>For scripts written using <c>escript</c>, there is a new
+            function <c>escript:script_name/0</c>, which can be used
+            to retrieve the pathame of the script. The documentation
+            has been clarified regarding pre-defined macros such as
+            ?MODULE and the module name.</p>
+          <p>Own Id: OTP-6593</p>
+        </item>
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689 Aux Id: OTP-6742 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The MD5 calculation of a BEAM file done by
+            <c>code:module_md5/1</c>, <c>beam_lib:md5/1</c>, and by
+            the compiler for the default value of the <c>vsn</c>
+            attribute have all been changed so that its result will
+            be the same on all platforms; modules containing funs
+            could get different MD5s on different platforms.</p>
+          <p>Own Id: OTP-6459</p>
+        </item>
+        <item>
+          <p>When sorting terms using the <c>file_sorter</c> module
+            (the option <c>Format</c> set to <c>term</c>), file
+            errors were not always properly handled. This bug has
+            been fixed.</p>
+          <p>The directory supplied with the
+            <c>tmpdir</c> option is no longer checked unless it is
+            actually used. The error reason <c>not_a_directory</c>
+            can no longer be returned; instead a <c>file_error</c>
+            tuple is returned</p>
+          <p>Own Id: OTP-6526</p>
+        </item>
+        <item>
+          <p>Bugs regarding <c>try</c>/<c>catch</c> have been fixed
+            in the <c>erl_eval</c> module.</p>
+          <p>Own Id: OTP-6539</p>
+        </item>
+        <item>
+          <p>When sorting the operands of a join operation, QLC
+            called <c>file:open/3</c> with bad arguments. This bug
+            has been fixed.</p>
+          <p>Own Id: OTP-6562 Aux Id: seq10606 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The functions <c>beam_lib:cmp/1</c> and
+            <c>beam_lib:strip/1</c> (and similar functions) have been
+            updated to handle optional chunks (such as "FunT") in
+            more general way in order to be future compatible.</p>
+          <p>The function <c>beam_lib:chunks/3</c> has been
+            added.</p>
+          <p>The function <c>beam_lib:md5/1</c> has been added.</p>
+          <p>Own Id: OTP-6443</p>
+        </item>
+        <item>
+          <p>Added base64 as a module to stdlib, encoding and decoding</p>
+          <p>Own Id: OTP-6470</p>
+        </item>
+        <item>
+          <p>Added the functions to_upper/1 and to_lower/1 to the
+            string module. These provide case conversion for ISO/IEC
+            8859-1 characters (Latin1) and strings.</p>
+          <p>Own Id: OTP-6472</p>
+        </item>
+        <item>
+          <p>The callback function <c>non_local_allowed/3</c> used
+            by the restricted shell can now return the value
+            <c>{{restricted,NewFuncSpec,NewArgList},NewState}</c>
+            which can be used for letting the shell call some other
+            function than the one specified.</p>
+          <p>Own Id: OTP-6497 Aux Id: seq10555 </p>
+        </item>
+        <item>
+          <p>There is a new <c>escript</c> program that can be used
+            for writing scripts in Erlang. Erlang scripts don't need
+            to be compiled and any arguments can be passed to them
+            without risk that they are interpreted by the Erlang
+            system.</p>
+          <p>Own Id: OTP-6505</p>
+        </item>
+        <item>
+          <p>The <c>Format</c> argument of the functions
+            <c>io:fwrite/2,3</c> and <c>io_lib:fwrite/2</c> is now
+            allowed to be a binary.</p>
+          <p>Own Id: OTP-6517</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The control sequences <c>p</c> and <c>P</c> of the
+            <c>Format</c> argument of the functions
+            <c>io:fwrite/2,3</c> and <c>io_lib:fwrite/2</c> could
+            cause a <c>badarg</c> failure when applied to binaries.
+            This bug was introduced in STDLIB 1.14.3. (Thanks to
+            Denis Bilenko.)</p>
+          <p>Own Id: OTP-6495</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Added the option {cwd, Dir} to make zip-archives with
+            relative pathnames without having to do (a global)
+            file:set_cwd.</p>
+          <p>Own Id: OTP-6491 Aux Id: seq10551 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>spawn_opt/2,3,4,5</c> option <c>monitor</c> --
+            introduced in Kernel 2.11.2 -- is currently not possible
+            to use when starting a process using <c>proc_lib</c>,
+            that is, also when starting a gen_server, gen_fsm etc. </p>
+          <p>This limitation has now been properly documented and the
+            behavior of the <c>gen_fsm</c>, <c>gen_server</c>, and
+            <c>proc_lib</c><c>start</c> and <c>start_link</c>
+            functions when providing this option has been changed
+            from hanging indefinitely to failing with reason
+            <c>badarg</c>.</p>
+          <p>(Thanks to Fredrik Linder)</p>
+          <p>Own Id: OTP-6345</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The control sequence <c>P</c> of the <c>Format</c>
+            argument of the functions <c>io:fwrite/2,3</c> and
+            <c>io_lib:fwrite/2</c> now replaces the tail of binary
+            strings with <c>...</c> when the maximum depth has been
+            reached. For instance, <c><![CDATA[io:fwrite("~P", [<<"a binary string">>, 3]).]]></c> prints <c><![CDATA[<<"a binary"...>>]]></c>.</p>
+          <p>The indentation takes more care not to exceed the
+            right margin, if possible.</p>
+          <p>If the maximum depth is
+            reached while printing a tuple, <c>,...</c> is printed
+            instead of <c>|...</c> (this change applies to the
+            control sequence <c>W</c> as well).</p>
+          <p>Own Id: OTP-6354</p>
+        </item>
+        <item>
+          <p>The Erlang shell command <c>h/0</c> that prints the
+            history list now avoids printing (huge) terms referred to
+            by <c>v/1</c> but instead just prints the call to
+            <c>v/1</c>.</p>
+          <p>Own Id: OTP-6390</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.2.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The functions <c>dets:select/1,3</c>,
+            <c>dets:match/1,3</c>, and <c>dets:match_object/1,3</c>
+            have been changed as to never return
+            <c>{[],Continuation}</c>. This change affects the
+            corresponding functions in Mnesia.</p>
+          <p>Bugs have been
+            fixed in QLC: <c>qlc:info()</c> could crash if the
+            <c>tmpdir</c> option did not designate a valid directory;
+            the results of looking up keys are kept in RAM, which
+            should improve performance.</p>
+          <p>Own Id: OTP-6359</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.2.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in <c>erl_pp:exprs()</c> has been fixed.</p>
+          <p>Own Id: OTP-6321 Aux Id: seq10497 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The control sequences <c>p</c> and <c>P</c> of the
+            <c>Format</c> argument of the functions
+            <c>io:format/2,3</c> and <c>io_lib:format/2</c> did not
+            handle binaries very well. This bug, introduced in
+            stdlib-1.14, has been fixed.</p>
+          <p>Own Id: OTP-6230</p>
+        </item>
+        <item>
+          <p><c>filelib:wildcard(Wc, PathWithRedundantSlashes)</c>,
+            where <c>PathWithRedundantSlashes</c> is a directory path
+            containing redundant slashes, such as <c>/tmp/</c> or
+            <c>//tmp</c>, could return incorrect results. (Thanks to
+            Martin Bjorklund.)</p>
+          <p>Own Id: OTP-6271</p>
+        </item>
+        <item>
+          <p>The Erlang code preprocessor crashed if the predefined
+            macros ?MODULE or ?MODULE_STRING were used before the
+            module declaration. This bug has been fixed.</p>
+          <p>Own Id: OTP-6277</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Support for faster join of two tables has been added
+            to the <c>qlc</c> module. There are two kinds of fast
+            joins: lookup join that uses existing indices, and merge
+            join that takes two sorted inputs. There is a new
+            <c>join</c> option that can be used to force QLC to use a
+            particular kind of join in some QLC expression.</p>
+          <p>Several other changes have also been included:</p>
+          <p></p>
+          <list type="bulleted">
+            <item>
+              <p>The new <c>tmpdir</c> option of <c>cursor/2</c>,
+                <c>eval/2</c>, <c>fold/4</c>, and <c>info/2</c> can be
+                used to set the directory that join uses for temporary
+                files. The option also overrides the <c>tmpdir</c> option
+                of <c>keysort/3</c> and <c>sort/2</c>.</p>
+            </item>
+            <item>
+              <p>The new <c>lookup</c> option can be used to
+                assert that constants are looked up when evaluating some
+                QLC expression.</p>
+            </item>
+            <item>
+              <p>The <c>cache</c> and <c>cache_all</c> options
+                accept new tags: <c>ets</c>, <c>list</c>, and <c>no</c>.
+                The tag <c>list</c> caches answers in a list using a
+                temporary file if the answers cannot be held in RAM.
+                Combining <c>{cache,list}</c> and <c>{unique, true}</c>
+                is equivalent to calling <c>sort/2</c> with the option
+                <c>unique</c> set to <c>true</c>. The old tags
+                <c>true</c> (equivalent to <c>ets</c>) and <c>false</c>
+                (equivalent to <c>no</c>) are recognized for backward
+                compatibility.</p>
+            </item>
+            <item>
+              <p>The new option <c>max_list_size</c> can be used
+                to set the limit where merge join starts to use temporary
+                files for large equivalence classes and when answers
+                cached in lists are put on temporary files.</p>
+            </item>
+            <item>
+              <p>There is a new callback <c>is_sorted_key</c> to
+                be supplied as an option to <c>table/2</c>.</p>
+            </item>
+            <item>
+              <p>QLC analyzes each and every QLC expression when
+                trying to find constants for the lookup function.
+                Hitherto only QLC expressions with exactly one generator
+                were analyzed.</p>
+              <p>Note that only filters with guard
+                syntax placed immediately after the generator are
+                analyzed. The restriction to guard filters is an
+                incompatible change. See <c>qlc(3)</c> for further
+                details.</p>
+            </item>
+            <item>
+              <p>In a similar way several match specifications
+                for traversal of QLC tables can be utilized for different
+                generators of one single QLC expression.</p>
+            </item>
+            <item>
+              <p>A bug has been fixed: when caching answers to a
+                sufficiently complex query it could happen that some
+                answers were not returned.</p>
+            </item>
+          </list>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6038</p>
+        </item>
+        <item>
+          <p>The Erlang pretty printer (<c>erl_pp</c>) is now much
+            faster when the code is deeply nested. A few minor bugs
+            have been fixed as well.</p>
+          <p>Own Id: OTP-6227 Aux Id: OTP-5924 </p>
+        </item>
+        <item>
+          <p>The Erlang shell now tries to garbage collect large
+            binaries. Under certain circumstances such binaries could
+            otherwise linger on for an indefinite amount of time.</p>
+          <p>Own Id: OTP-6239</p>
+        </item>
+        <item>
+          <p>To help Dialyzer find more bugs, many functions in the
+            Kernel and STDLIB applications now only accept arguments
+            of the type that is documented.</p>
+          <p>For instance, the functions <c>lists:prefix/2</c> and
+            <c>lists:suffix/2</c> are documented to only accept lists
+            as their arguments, but they actually accepted anything
+            and returned <c>false</c>. That has been changed so that
+            the functions cause an exception if one or both arguments
+            are not lists.</p>
+          <p>Also, the <c>string:strip/3</c> function is documented
+            to take a character argument that is a character to strip
+            from one or both ends of the string. Given a list instead
+            of a character, it used to do nothing, but will now cause
+            an exception.</p>
+          <p>Dialyzer will find most cases where those functions
+            are passed arguments of the wrong type.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6295</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The functions <c>c:y/1,2</c> which call
+            <c>yecc:file/1,2</c> are now listed by
+            <c>c:help/0</c>.</p>
+          <p>Documentation of <c>c:y/1,2</c> has been added to
+            <c>c(3)</c>.</p>
+          <p>The fact that the control sequence character <c>s</c>
+            recognizes binaries and deep character lists has been
+            documented in <c>io(3)</c>. This feature was added in
+            R11B-0 (OTP-5403).</p>
+          <p>Own Id: OTP-6140</p>
+        </item>
+        <item>
+          <p>The shell command rr() sometimes failed to read record
+            definitions from file(s). This problem has been fixed.</p>
+          <p>Own Id: OTP-6166 Aux Id: OTP-5878 </p>
+        </item>
+        <item>
+          <p>The nonlocal function handler in <c>erl_eval</c>, which
+            is used for implementing the restricted mode of the
+            Erlang shell, did not handle calls to
+            <c>erlang:apply/3</c> correctly. This bug has been fixed.</p>
+          <p>Own Id: OTP-6169 Aux Id: seq10374 </p>
+        </item>
+        <item>
+          <p>ets:rename/1 could deadlock, or crash the SMP emulator
+            when the table wasn't a named table.</p>
+          <p>ets:next/2, and ets:prev/2 could return erroneous results
+            on the SMP emulator.</p>
+          <p>Own Id: OTP-6198 Aux Id: seq10392, seq10415 </p>
+        </item>
+        <item>
+          <p>When closing a Dets table the space management data was
+            sometimes saved in such a way that opening the table
+            could not be done without repairing the file. This bug
+            has been fixed.</p>
+          <p>Own Id: OTP-6206</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.14</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bugfix in QLC: two of the call-back functions used
+            for implementing QLC tables, <c>TraverseFun</c> and
+            <c>LookupFun</c>, are now allowed to return a term other
+            than a list. Such a term is immediately returned as the
+            results of the current query, and is useful mostly for
+            returning error tuples.</p>
+          <p>Several other minor bugs have been also been fixed.</p>
+          <p>Own Id: OTP-5195</p>
+        </item>
+        <item>
+          <p>The STDLIB modules <c>error_logger_file_h</c> and
+            <c>error_logger_tty_h</c> now read the environment
+            variable <c>utc_log</c> from the SASL application.</p>
+          <p>Own Id: OTP-5535</p>
+        </item>
+        <item>
+          <p><c>ets:info/1</c> has been corrected to behave according
+            to the documentation and return a list of tuples, not a
+            tuple with tuples.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5639</p>
+        </item>
+        <item>
+          <p>Referencing a so far undeclared record from the default
+            value of some record declaration is from now on considered
+            an error by the linter. It is also an error if the default
+            value of a record declaration uses or binds a variable.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5878</p>
+        </item>
+        <item>
+          <p>When a file <c>.hrl</c> file is included using
+            <c>-include_lib</c>, the include path is temporarily
+            updated to include the directory the <c>.hrl</c> file was
+            found in, which will allow that <c>.hrl</c> file to itself
+            include files from the same directory as itself using
+            <c>-include</c>. (Thanks to Richard Carlsson.)</p>
+          <p>Own Id: OTP-5944</p>
+        </item>
+        <item>
+          <p>Corrected <c>filelib:ensure_dir/1</c> which sometimes
+            returned <c>true</c> and sometimes <c>ok</c> to always
+            return <c>ok</c> when successful. This goes against the
+            documentation which said <c>true</c>, but <c>ok</c> was
+            judged to be a more logical return value.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5960 Aux Id: seq10240 </p>
+        </item>
+        <item>
+          <p>The shell now handles records better when used in calls
+            on the form <c>{Module, Function}(ArgList)</c>.</p>
+          <p>Own Id: OTP-5990 Aux Id: OTP-5876 </p>
+        </item>
+        <item>
+          <p>The functions <c>lists:ukeysort/2</c> and
+            <c>lists:ukeymerge/3</c> have been changed in such a way
+            that two tuples are considered equal if their keys
+            match.</p>
+          <p>For the sake of consistency, <c>lists:usort/2</c> and
+            <c>lists:umerge/3</c> have been modified too: two elements
+            are considered equal if they compare equal.</p>
+          <p>The <c>file_sorter</c> module has been modified in a
+            similar way: the <c>unique</c> option now applies to the
+            key (<c>keysort()</c> and <c>keymerge()</c>) and the
+            ordering function (the option <c>{order, Order} </c>).</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-6019</p>
+        </item>
+        <item>
+          <p>Correction in documentation for
+            <c>ets:update_counter/3</c>; failure with <c>badarg</c>
+            also if the counter to be updated is the key.</p>
+          <p>Own Id: OTP-6072</p>
+        </item>
+        <item>
+          <p>When sorting terms using the <c>file_sorter</c> module
+            and an ordering fun, the sort was not always stable. This
+            bug has been fixed.</p>
+          <p>Own Id: OTP-6088</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Improvements of the linter:</p>
+          <list type="bulleted">
+            <item>
+              <p>The <c>compile</c> attribute is recognized after
+                function definitions.</p>
+            </item>
+            <item>
+              <p>The new compiler option
+                <c>nowarn_deprecated_function</c> can be used for
+                turning off warnings for calls to deprecated functions.</p>
+            </item>
+            <item>
+              <p>The new compiler option
+                <c>{nowarn_unused_function,[{Name,Arity}]}</c> turns off
+                warnings for unused local functions for the mentioned
+                functions. The new options
+                <c>{nowarn_deprecated_function,[{Module,Name,Arity}]}</c>
+                and <c>{nowarn_bif_clash,[{Name,Arity}]}</c> work
+                similarly.</p>
+            </item>
+          </list>
+          <p>The Erlang code preprocessor <c>epp</c> now recognizes
+            the <c>file</c> attribute. This attribute is meant to be
+            used by tools such as Yecc that generate source code
+            files.</p>
+          <p>Own Id: OTP-5362</p>
+        </item>
+        <item>
+          <p>The formatting option <c>~s</c> of <c>io:fwrite</c> and
+            <c>io_lib:fwrite</c> has been extended to handle arguments
+            that are binaries or I/O lists.</p>
+          <p>Own Id: OTP-5403</p>
+        </item>
+        <item>
+          <p>The control sequences <c>p</c> and <c>P</c> of the
+            <c>Format</c> argument of the functions
+            <c>io:format/2,3</c> and <c>io_lib:format/2</c> have been
+            changed as to display the contents of binaries containing
+            printable characters as strings.</p>
+          <p>Own Id: OTP-5485</p>
+        </item>
+        <item>
+          <p>The linter emits warnings for functions exported more
+            than once in <c>export</c> attributes.</p>
+          <p>Own Id: OTP-5494</p>
+        </item>
+        <item>
+          <p>A manual for STDLIB has been added, <c>stdlib(6)</c>. It
+            mentions the configuration parameters for the Erlang
+            shell.</p>
+          <p>Own Id: OTP-5530</p>
+        </item>
+        <item>
+          <p>Added the <c>zip</c> module with functions for reading
+            and creating zip archives. See <c>zip(3)</c>.</p>
+          <p>Own Id: OTP-5786</p>
+        </item>
+        <item>
+          <p>Simple-one-for-one supervisors now store the pids of
+            child processes using <c>dict</c> instead of a list. This
+            significantly improves performance when there are many
+            dynamic supervised child processes. (Thanks to Micka&euml;l
+            R&eacute;mond et al.)</p>
+          <p>Own Id: OTP-5898</p>
+        </item>
+        <item>
+          <p>When given the new option '<c>strict_record_tests</c>',
+            the compiler will generate code that verifies the record
+            type for '<c>R#record.field</c>' operations in guards. Code
+            that verifies record types in bodies has already been
+            generated since R10B, but in this release there will be a
+            '<c>{badrecord,RecordTag}</c>' instead of a
+            '<c>badmatch</c>' if the record verification test fails.
+            See the documentation for the <c>compile</c> module for
+            more information.</p>
+          <p>The Erlang shell always applies strict record tests.</p>
+          <p>Own Id: OTP-5915 Aux Id: OTP-5714 </p>
+        </item>
+        <item>
+          <p>The Erlang pretty printer (<c>erl_pp</c>) now tries to
+            insert line breaks at appropriate places.</p>
+          <p>Own Id: OTP-5924</p>
+        </item>
+        <item>
+          <p>The <c>public</c> option has been removed from
+            <c>digraph:new/1</c>. The reason is that several
+            functions in the <c>digraph</c> module are implemented
+            using multiple ETS accesses, which is not thread safe.
+            (Thanks to Ulf Wiger.)</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5985</p>
+        </item>
+        <item>
+          <p>The function <c>lists:keyreplace/4</c> checks that the
+            fourth argument (<c>NewTuple</c>) is a tuple.</p>
+          <p>Own Id: OTP-6023</p>
+        </item>
+        <item>
+          <p>Added an example of how to reconstruct source code from
+            debug info (abstract code) to <c>beam_lib(3)</c>. (Thanks
+            to Mats Cronqvist who wrote the example.)</p>
+          <p>Own Id: OTP-6073</p>
+        </item>
+        <item>
+          <p>The new compiler option <c>warn_unused_record</c> is used
+            for finding unused locally defined record types.</p>
+          <p>Own Id: OTP-6105</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.12</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>shell_default:xm/1</c> has been added. It calls
+            <c>xref:m/1</c>.</p>
+          <p>Own Id: OTP-5405 Aux Id: OTP-4101 </p>
+        </item>
+        <item>
+          <p>Warnings are output whenever so far undeclared records are
+            referenced from some default value of a record
+            declaration. In STDLIB 1.14 (R11B) such forward references
+            will cause a compilation error.</p>
+          <p>Own Id: OTP-5878</p>
+        </item>
+        <item>
+          <p>The linter's check of the <c>deprecated</c> attribute did
+            not take the compile option <c>export_all</c> into
+            account. This bug has been fixed.</p>
+          <p>Own Id: OTP-5917</p>
+        </item>
+        <item>
+          <p>The Erlang pretty printer did not handle <c>try/catch</c>
+            correctly. This bug has been fixed.</p>
+          <p>Own Id: OTP-5926</p>
+        </item>
+        <item>
+          <p>Corrected documentation for <c>lists:nthtail/3</c>.</p>
+          <p>Added documentation for <c>lists:keymap/3</c>.</p>
+          <p>Tried to clarify some other type declarations and
+            function descriptions in <c>lists(3)</c>.</p>
+          <p>Corrected documentation for <c>timer:now_diff/2</c>.</p>
+          <p>Fixed broken links in <c>gen_fsm(3)</c>,
+            <c>gen_server(3)</c>, <c>io_lib(3)</c> and <c>lib(3)</c>.</p>
+          <p>Own Id: OTP-5931</p>
+        </item>
+        <item>
+          <p>Type checks have been added to functions in
+            <c>lists.erl</c>.</p>
+          <p>Own Id: OTP-5939</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The new STDLIB module <c>erl_expand_records</c> expands
+            records in abstract code. It is used by the Erlang shell,
+            which means that Compiler is no longer used by the shell.</p>
+          <p>Own Id: OTP-5876 Aux Id: OTP-5435 </p>
+        </item>
+        <item>
+          <p>The compiler will now warn that the
+            <c>megaco:format_versions/1</c> function is deprecated.</p>
+          <p>Own Id: OTP-5976</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.11</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When calling <c>gen_server:enter_loop</c> with a
+            registered server name, it was only checked that the
+            registered name existed, not that it actually was the
+            name of the calling process.</p>
+          <p>Own Id: OTP-5854</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>More detail on <c>beam_lib:version/1</c> in
+            documentation.</p>
+          <p>Own Id: OTP-5789</p>
+        </item>
+        <item>
+          <p>The new function <c>io:read/3</c> works like
+            <c>io:read/1,2</c> but takes a third argument,
+            <c>StartLine</c>.</p>
+          <p>Own Id: OTP-5813</p>
+        </item>
+        <item>
+          <p>The new function <c>gen_fsm:enter_loop/4,5,6</c>, similar
+            to <c>gen_server:enter_loop/3,4,5</c>, has been added.</p>
+          <p>Own Id: OTP-5846 Aux Id: seq10163 </p>
+        </item>
+        <item>
+          <p>The function <c>c:i/1</c> is now exported.</p>
+          <p>Own Id: OTP-5848 Aux Id: seq10164 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.10</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A couple of type errors have been fixed in <c>sofs</c>.</p>
+          <p>Own Id: OTP-5739</p>
+        </item>
+        <item>
+          <p>The pre-processor used to complain that the macro
+            definition '<c>-define(S(S), ??S).</c>' was circular,
+            which it isn't. (Thanks to Richard Carlsson.)</p>
+          <p>Own Id: OTP-5777</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The linter, QLC and the module <c>erl_pp</c> did not
+            handle the new '<c>fun M:F/A</c>' construct in all
+            situations. This problem has been fixed.</p>
+          <p>Own Id: OTP-5644</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The manual pages for most of the Kernel and some of
+            the STDLIB modules have been updated, in particular
+            regarding type definitions.</p>
+          <p>The documentation of the return value for
+            <c>erts:info/1</c> has been corrected.</p>
+          <p>The documentation for <c>erlang:statistics/1</c> now
+            lists all possible arguments.</p>
+          <p>Own Id: OTP-5360</p>
+        </item>
+        <item>
+          <p>Replaced some tuple funs with the new <c>fun M:F/A</c>
+            construct.</p>
+          <p>The high-order functions in the lists module no longer
+            accept bad funs under any circumstances.
+            '<c>lists:map(bad_fun, [])</c>' used to return
+            '<c>[]</c>' but now causes an exception.</p>
+          <p>Unused, broken compatibility code in the <c>ets</c>
+            module was removed. (Thanks to Dialyzer.)</p>
+          <p>Eliminated 5 discrepancies found by Dialyzer in the
+            Appmon application.</p>
+          <p>Own Id: OTP-5633</p>
+        </item>
+        <item>
+          <p>The <c>c:i/0</c> function will now run in a paged mode if
+            there are more than 100 processes in the system. (Thanks
+            to Ulf Wiger.)</p>
+          <p><c>erlang:system_info(process_count)</c> has been
+            optimized and does now return exactly the same value as
+            <c>length(processes())</c>. Previously
+            <c>erlang:system_info(process_count)</c> did not include
+            exiting processes which are included in
+            <c>length(processes())</c>.</p>
+          <p>The <c>+P</c> flag for <c>erl</c>, which sets the maximum
+            number of processes allowed to exist at the same, no longer
+            accepts values higher than 134217727. (You will still
+            probably run out of memory before you'll be able to reach
+            that limit.)</p>
+          <p>Own Id: OTP-5645 Aux Id: seq9984 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Very minor corrections in <c>beam_lib</c> and its
+            documentation.</p>
+          <p>Own Id: OTP-5589</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>erlang:port_info/1</c> BIF is now documented.
+            Minor corrections of the documentation for
+            <c>erlang:port_info/2</c>.</p>
+          <p>Added a note to the documentation of the <c>math</c>
+            module that all functions are not available on all
+            platforms.</p>
+          <p>Added more information about the '<c>+c</c>' option in
+            the <c>erl</c> man page in the ERTS documentation.</p>
+          <p>Own Id: OTP-5555</p>
+        </item>
+        <item>
+          <p>The new <c>fun M:F/A</c> construct creates a fun that
+            refers to the latest version of <c>M:F/A</c>. This syntax is
+            meant to replace tuple funs <c>{M,F}</c> which have many
+            problems.</p>
+          <p>The new type test <c>is_function(Fun,A)</c> (which may be
+            used in guards) test whether <c>Fun</c> is a fun that can be
+            applied with <c>A</c> arguments. (Currently, <c>Fun</c> can
+            also be a tuple fun.)</p>
+          <p>Own Id: OTP-5584</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>filelib:wildcard/2</c> was broken (it ignored its
+            second argument).</p>
+          <p>Also, <c>filelib:wildcard("Filename")</c> (where the
+            argument does not contain any meta-characters) would
+            always return <c>["Filename"]</c>. Corrected so that an
+            empty list will be returned if <c>"Filename"</c> does not
+            actually exist. (Same correction in
+            <c>filelib:wildcard/2</c>.) (This change is a slight
+            incompatibility.)</p>
+          <p><c>filelib:wildcard/1,2</c> will generate a different
+            exception when given bad patterns such as <c>"{a,"</c>. The
+            exception used to be caused by
+            '<c>exit(missing_delimiter)</c>' but is now
+            '<c>erlang:error({badpattern,missing_delimiter})</c>'.</p>
+          <p>Own Id: OTP-5523 Aux Id: seq9824 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Further improvements of encrypted debug info: New option
+            <c>encrypt_debug_info</c> for compiler.</p>
+          <p>Own Id: OTP-5541 Aux Id: seq9837 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When opening a Dets table read only an attempt was
+            sometimes made to re-hash the table resulting in an error
+            message. This problem has been fixed.</p>
+          <p>Own Id: OTP-5487 Aux Id: OTP-4989 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to encrypt the debug information in
+            Beam files, to help keep the source code secret. See the
+            documentation for <c>compile</c> on how to provide the key
+            for encrypting, and the documentation for <c>beam_lib</c>
+            on how to provide the key for decryption so that tools such
+            as the Debugger, <c>xref</c>, or <c>cover</c> can be used.</p>
+          <p>The <c>beam_lib:chunks/2</c> functions now accepts an
+            additional chunk type <c>compile_info</c> to retrieve
+            the compilation information directly as a term. (Thanks
+            to Tobias Lindahl.)</p>
+          <p>Own Id: OTP-5460 Aux Id: seq9787 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Closing a Dets table kept in RAM would cause a crash if
+            the file could not be written. This problem has been
+            fixed by returning an error tuple.</p>
+          <p>Own Id: OTP-5402</p>
+        </item>
+        <item>
+          <p><c>erl_pp</c> now correctly pretty-prints <c>fun F/A</c>.</p>
+          <p>Own Id: OTP-5412</p>
+        </item>
+        <item>
+          <p>The Erlang shell failed if the compiler was not in the
+            code path. This problem has been fixed, but in order to
+            evaluate records the compiler is still needed.</p>
+          <p>Own Id: OTP-5435</p>
+        </item>
+        <item>
+          <p>Corrected the example in the documentation for
+            <c>ets:match/2</c>. Also clarified that
+            <c>ets:update_counter/3</c> updates the counter atomically.
+            (Thanks to Anders Svensson.)</p>
+          <p>Own Id: OTP-5452 Aux Id: seq9770, seq9789 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The possibility to start the Erlang shell in parallel
+            with the rest of the system was reintroduced for
+            backwards compatibility in STDLIB 1.13.1. The flag to be
+            used for this is now called <c>async_shell_start</c> and has
+            been documented. New shells started from the JCL menu are
+            not synchronized with <c>init</c> anymore. This makes it
+            possible to start a new shell (e.g. for debugging purposes)
+            even if the initial shell has not come up.</p>
+          <p>Own Id: OTP-5406 Aux Id: OTP-5218 </p>
+        </item>
+        <item>
+          <p>The compiler will now produce warnings when using the
+            deprecated functions in the <c>snmp</c> module.</p>
+          <p>Own Id: OTP-5425</p>
+        </item>
+        <item>
+          <p>The function <c>c:zi/0</c> has been removed. Use
+            <c>c:i/0</c> instead.</p>
+          <p>Own Id: OTP-5432</p>
+        </item>
+        <item>
+          <p>Corrected two minor bugs found by the Dialyzer:
+            Calling a parameterized module from a restricted shell
+            (i.e. if <c>shell:start_restricted/1</c> has been used)
+            would crash the shell evaluator. A debug printout in
+            <c>gen_fsm</c> had a clause that would never match; causing
+            less information to be printed.</p>
+          <p>And a somewhat more serious one also found by
+            Dialyzer: <c>rpc:yield/1</c> would crash unless the call
+            started by <c>rpc:async_call/4</c> had already finished;
+            <c>rpc:nb_yield(Key,infinity)</c> would also crash.</p>
+          <p>Cleaned up and removed redundant code found by
+            Dialyzer in <c>erlang:dmonitor_p/2</c>.</p>
+          <p>Own Id: OTP-5462</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Bugs in the Erlang shell have been fixed.</p>
+          <p>Own Id: OTP-5327</p>
+        </item>
+        <item>
+          <p>Some dead code reported by Dialyzer was eliminated.</p>
+          <p>A bug in <c>dbg</c> when tracing to wrap trace files has
+            been corrected. It failed to delete any already existing
+            wrap trace files with the same names when starting a new
+            wrap trace.</p>
+          <p>Own Id: OTP-5329</p>
+        </item>
+        <item>
+          <p>The linter could output invalid warnings about bit
+            patterns in record initializations. This problem has been
+            fixed.</p>
+          <p>Own Id: OTP-5338</p>
+        </item>
+        <item>
+          <p><c>ordsets:is_set(NoList)</c>, where <c>NoList</c> is any
+            term except a list, would crash. For consistency with
+            <c>sets:is_set/1</c> and <c>gb_sets:is_set/1</c>, it now
+            returns <c>false</c>.</p>
+          <p>Own Id: OTP-5341</p>
+        </item>
+        <item>
+          <p>A BIF <c>erlang:raise/3</c> has been added. See the manual
+            for details. It is intended for internal system programming
+            only, advanced error handling.</p>
+          <p>Own Id: OTP-5376 Aux Id: OTP-5257 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>deprecated</c> attribute is now checked by the
+            linter. See <c>xref(3)</c> for a description of the
+            <c>deprecated</c> attribute.</p>
+          <p>Own Id: OTP-5276</p>
+        </item>
+        <item>
+          <p>The restricted shell will now indicate if the return
+            value from a user predicate is on an incorrect form.</p>
+          <p>Own Id: OTP-5335</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Bugs concerning unused and shadowed variables have been
+            fixed in the linter.</p>
+          <p>Own Id: OTP-5091</p>
+        </item>
+        <item>
+          <p>A bug in the evaluator that caused the shell to choke on
+            bit syntax expressions has been fixed.</p>
+          <p>Own Id: OTP-5237</p>
+        </item>
+        <item>
+          <p><c>io:format/2</c> et.al no longer crashes for some
+            combinations of precision and value for format character
+            "g". Previously it crashed if the precision P was 4 or lower
+            and the absolute value of the float to print was lower
+            than 10^4 but 10^(P-1) or higher. Now it will not crash
+            depending on the value of the float.</p>
+          <p>Own Id: OTP-5263</p>
+        </item>
+        <item>
+          <p>Bugs in the handling of the bit syntax have been fixed in
+            the Erlang shell.</p>
+          <p>Own Id: OTP-5269</p>
+        </item>
+        <item>
+          <p><c>gb_sets:del_element/2</c> was changed to do the
+            same as <c>gb_sets:delete_any/2</c> which was the
+            original intention, not as <c>gb_sets:delete/2</c>. Code
+            that relies on <c>gb_sets:del_element/2</c> causing an
+            error if the element does not exist must be changed to
+            call <c>gb_sets:delete/2</c> instead.</p>
+          <p>The documentation was also updated to explicitly
+            document functions that were only referred to as
+            'aliases' of a documented function. Also, a list of all
+            functions common to the <c>gb_sets</c>, <c>sets</c>, and
+            <c>ordsets</c> was added.</p>
+          <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-5277</p>
+        </item>
+        <item>
+          <p>Debug messages have been removed from the QLC module.</p>
+          <p>Own Id: OTP-5283</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The size of continuations returned from
+            <c>dets:match/1,3</c>, <c>dets:match_object/1,3</c>, and
+            <c>dets:select/1,3</c> has been reduced. This affects the
+            amount of data Mnesia sends between nodes while
+            evaluating QLC queries.</p>
+          <p>Own Id: OTP-5232</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>-rsh</c> switch for starting a remote shell
+            (introduced with OTP-5210) clashed with an already existing
+            switch used by <c>slave</c>. Therefore the switch for
+            the remote shell is now instead named <c>-remsh</c>.</p>
+          <p>Own Id: OTP-5248 Aux Id: OTP-5210 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>STDLIB 1.13.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The Pman 'trace shell' functionality was broken as has
+            now been fixed. Furthermore, Pman could not correctly
+            find the pid of the active shell if more than one shell
+            process was running on the node. This has also been
+            corrected.</p>
+          <p>Own Id: OTP-5191</p>
+        </item>
+        <item>
+          <p>When the undocumented feature "parameterized modules" was
+            used, the ?MODULE macro did not work correctly.</p>
+          <p>Own Id: OTP-5224</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>You can now start Erlang with the <c>-rsh</c> flag which
+            gives you a remote initial shell instead of a local one.
+            Example:</p>
+          <pre>
+            erl -sname this_node -rsh other_node@other_host
+          </pre>
+          <p>Own Id: OTP-5210</p>
+        </item>
+        <item>
+          <p>The man page for the <c>lists</c> module has been updated
+            with description of the new <c>zip</c>, <c>unzip</c>,
+            and <c>partition/2</c> functions.</p>
+          <p>Own Id: OTP-5213</p>
+        </item>
+        <item>
+          <p>The top level group leader used to be listed as job #1 in
+            the job list in JCL mode. Since there is no shell
+            associated with this process that can be connected to, it
+            will no longer be listed.</p>
+          <p>Own Id: OTP-5214</p>
+        </item>
+        <item>
+          <p>The possibility to start the Erlang shell in parallel
+            with the rest of the system has been reintroduced for
+            backwards compatibility. Note that this old behaviour is
+            error prone and should not be used unless for some reason
+            necessary.</p>
+          <p>Own Id: OTP-5218 Aux Id: seq9534 </p>
+        </item>
+        <item>
+          <p>The <c>shell</c> commands <c>rr/1,2,3</c> now accepts
+            wildcards when reading record definitions from BEAM
+            files.</p>
+          <p>Own Id: OTP-5226</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

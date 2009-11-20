@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>regexp</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>96-09-28</date>
+    <rev>A</rev>
+    <file>regexp.sgml</file>
+  </header>
+  <module>regexp</module>
+  <modulesummary>Regular Expression Functions for Strings</modulesummary>
+  <description>
+    <note><p>This module has been obsoleted by the
+    <seealso marker="re">re</seealso> module and will be removed in a future
+    release.</p></note>
+    <p>This module contains functions for regular expression
+      matching and substitution.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>match(String, RegExp) -> MatchRes</name>
+      <fsummary>Match a regular expression</fsummary>
+      <type>
+        <v>String = RegExp = string()</v>
+        <v>MatchRes = {match,Start,Length} | nomatch | {error,errordesc()}</v>
+        <v>Start = Length = integer()</v>
+      </type>
+      <desc>
+        <p>Finds the first, longest match of the regular expression <c>RegExp</c> in <c>String</c>. This function searches for the longest possible match and returns the first one found if there are several expressions of the same length. It returns as follows:</p>
+        <taglist>
+          <tag><c>{match,Start,Length}</c></tag>
+          <item>
+            <p>if the match succeeded. <c>Start</c> is the starting
+              position of the match, and <c>Length</c> is the length of
+              the matching string.</p>
+          </item>
+          <tag><c>nomatch</c></tag>
+          <item>
+            <p>if there were no matching characters.</p>
+          </item>
+          <tag><c>{error,Error}</c></tag>
+          <item>
+            <p>if there was an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>first_match(String, RegExp) -> MatchRes</name>
+      <fsummary>Match a regular expression</fsummary>
+      <type>
+        <v>String = RegExp = string()</v>
+        <v>MatchRes = {match,Start,Length} | nomatch | {error,errordesc()}</v>
+        <v>Start = Length = integer()</v>
+      </type>
+      <desc>
+        <p>Finds the first match of the regular expression <c>RegExp</c> in <c>String</c>. This call is
+          usually faster than <c>match</c> and it is also a useful way to ascertain that a match exists. It returns as follows:</p>
+        <taglist>
+          <tag><c>{match,Start,Length}</c></tag>
+          <item>
+            <p>if the match succeeded. <c>Start</c> is the starting
+              position of the match and <c>Length</c> is the length of
+              the matching string.</p>
+          </item>
+          <tag><c>nomatch</c></tag>
+          <item>
+            <p>if there were no matching characters.</p>
+          </item>
+          <tag><c>{error,Error}</c></tag>
+          <item>
+            <p>if there was an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>matches(String, RegExp) -> MatchRes</name>
+      <fsummary>Match a regular expression</fsummary>
+      <type>
+        <v>String = RegExp = string()</v>
+        <v>MatchRes = {match, Matches} | {error, errordesc()}</v>
+        <v>Matches = list()</v>
+      </type>
+      <desc>
+        <p>Finds all non-overlapping matches of the
+          expression <c>RegExp</c> in <c>String</c>.
+          It returns as follows:</p>
+        <taglist>
+          <tag><c>{match, Matches}</c></tag>
+          <item>
+            <p>if the regular expression was correct.
+              The list will be empty if there was no match. Each element in the list looks like <c>{Start, Length}</c>, where <c>Start</c> is the starting position of the match, and <c>Length</c> is the length of the matching string.</p>
+          </item>
+          <tag><c>{error,Error}</c></tag>
+          <item>
+            <p>if there was an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>sub(String, RegExp, New) -> SubRes</name>
+      <fsummary>Substitute the first occurrence of a regular expression</fsummary>
+      <type>
+        <v>String = RegExp = New = string()</v>
+        <v>SubRes = {ok,NewString,RepCount} | {error,errordesc()}</v>
+        <v>RepCount = integer()</v>
+      </type>
+      <desc>
+        <p>Substitutes the first occurrence of a substring matching <c>RegExp</c> in <c>String</c> with the string <c>New</c>. A <c><![CDATA[&]]></c> in the string <c>New</c> is replaced by the matched substring of <c>String</c>.  <c><![CDATA[\\&]]></c> puts a literal <c><![CDATA[&]]></c> into the replacement string. It returns as follows:</p>
+        <taglist>
+          <tag><c>{ok,NewString,RepCount}</c></tag>
+          <item>
+            <p>if <c>RegExp</c> is correct. <c>RepCount</c> is the number of replacements which have been made
+              (this will be either 0 or 1).</p>
+          </item>
+          <tag><c>{error, Error}</c></tag>
+          <item>
+            <p>if there is an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>gsub(String, RegExp, New) -> SubRes</name>
+      <fsummary>Substitute all occurrences of a regular expression</fsummary>
+      <type>
+        <v>String = RegExp = New = string()</v>
+        <v>SubRes = {ok,NewString,RepCount} | {error,errordesc()}</v>
+        <v>RepCount = integer()</v>
+      </type>
+      <desc>
+        <p>The same as <c>sub</c>, except that all non-overlapping
+          occurrences of a substring matching
+          <c>RegExp</c> in <c>String</c> are replaced by the string <c>New</c>. It returns:</p>
+        <taglist>
+          <tag><c>{ok,NewString,RepCount}</c></tag>
+          <item>
+            <p>if <c>RegExp</c> is correct. <c>RepCount</c> is the number of replacements which have been made.</p>
+          </item>
+          <tag><c>{error, Error}</c></tag>
+          <item>
+            <p>if there is an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>split(String, RegExp) -> SplitRes</name>
+      <fsummary>Split a string into fields</fsummary>
+      <type>
+        <v>String = RegExp = string()</v>
+        <v>SubRes = {ok,FieldList} | {error,errordesc()}</v>
+        <v>Fieldlist = [string()]</v>
+      </type>
+      <desc>
+        <p><c>String</c> is split into fields (sub-strings) by the
+          regular expression <c>RegExp</c>.</p>
+        <p>If the separator expression is <c>" "</c> (a single space),
+          then the fields are separated by blanks and/or tabs and
+          leading and trailing blanks and tabs are discarded. For all
+          other values of the separator, leading and trailing blanks
+          and tabs are not discarded. It returns:</p>
+        <taglist>
+          <tag><c>{ok, FieldList}</c></tag>
+          <item>
+            <p>to indicate that the string has been split up into the fields of
+              <c>FieldList</c>.</p>
+          </item>
+          <tag><c>{error, Error}</c></tag>
+          <item>
+            <p>if there is an error in <c>RegExp</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>sh_to_awk(ShRegExp) -> AwkRegExp</name>
+      <fsummary>Convert an <c>sh</c>regular expression into an <c>AWK</c>one</fsummary>
+      <type>
+        <v>ShRegExp AwkRegExp = string()</v>
+        <v>SubRes = {ok,NewString,RepCount} | {error,errordesc()}</v>
+        <v>RepCount = integer()</v>
+      </type>
+      <desc>
+        <p>Converts the <c>sh</c> type regular expression
+          <c>ShRegExp</c> into a full <c>AWK</c> regular
+          expression. Returns the converted regular expression
+          string. <c>sh</c> expressions are used in the shell for
+          matching file names and have the following special
+          characters:</p>
+        <taglist>
+          <tag><c>*</c></tag>
+          <item>
+            <p>matches any string including the null string.</p>
+          </item>
+          <tag><c>?</c></tag>
+          <item>
+            <p>matches any single character.</p>
+          </item>
+          <tag><c>[...]</c></tag>
+          <item>
+            <p>matches any of the enclosed characters. Character
+              ranges are specified by a pair of characters separated
+              by a <c>-</c>. If the first character after <c>[</c> is a
+              <c>!</c>, then any character not enclosed is matched.</p>
+          </item>
+        </taglist>
+        <p>It may sometimes be more practical to use <c>sh</c> type
+          expansions as they are simpler and easier to use, even though they are not as powerful.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parse(RegExp) -> ParseRes</name>
+      <fsummary>Parse a regular expression</fsummary>
+      <type>
+        <v>RegExp = string()</v>
+        <v>ParseRes = {ok,RE} | {error,errordesc()}</v>
+      </type>
+      <desc>
+        <p>Parses the regular expression <c>RegExp</c> and builds the
+          internal representation used in the other regular expression
+          functions. Such representations can be used in all of the
+          other functions instead of a regular expression string. This
+          is more efficient when the same regular expression is used
+          in many strings. It returns:</p>
+        <taglist>
+          <tag><c>{ok, RE}</c>if <c>RegExp</c>is correct and <c>RE</c>is the internal representation.</tag>
+          <item>
+            <p></p>
+          </item>
+          <tag><c>{error, Error}</c>if there is an error in <c>RegExpString</c>.</tag>
+          <item>
+            <p></p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>format_error(ErrorDescriptor) -> Chars</name>
+      <fsummary>Format an error descriptor</fsummary>
+      <type>
+        <v>ErrorDescriptor = errordesc()</v>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Returns a string which describes the error <c>ErrorDescriptor</c>
+          returned when there is an error in a regular expression.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Regular Expressions</title>
+    <p>The regular expressions allowed here is a subset of the set found
+      in <c>egrep</c> and in the <c>AWK</c> programming language, as
+      defined in the book, <c>The AWK Programming Language, by A. V. Aho, B. W. Kernighan, P. J. Weinberger</c>. They are
+      composed of the following characters:</p>
+    <taglist>
+      <tag>c</tag>
+      <item>
+        <p>matches the non-metacharacter <c>c</c>.</p>
+      </item>
+      <tag>\\c</tag>
+      <item>
+        <p>matches the escape sequence or literal character <c>c</c>.</p>
+      </item>
+      <tag>.</tag>
+      <item>
+        <p>matches any character.</p>
+      </item>
+      <tag>^</tag>
+      <item>
+        <p>matches the beginning of a string.</p>
+      </item>
+      <tag>$</tag>
+      <item>
+        <p>matches the end of a string.</p>
+      </item>
+      <tag>[abc...]</tag>
+      <item>
+        <p>character class, which matches any of the characters
+          <c>abc...</c> Character ranges are specified by a pair of
+          characters separated by a <c>-</c>.</p>
+      </item>
+      <tag>[^abc...]</tag>
+      <item>
+        <p>negated character class, which matches any character except
+          <c>abc...</c>.</p>
+      </item>
+      <tag>r1 | r2</tag>
+      <item>
+        <p>alternation. It matches either <c>r1</c> or <c>r2</c>.</p>
+      </item>
+      <tag>r1r2</tag>
+      <item>
+        <p>concatenation. It matches <c>r1</c> and then <c>r2</c>.</p>
+      </item>
+      <tag>r+</tag>
+      <item>
+        <p>matches one or more <c>r</c>s.</p>
+      </item>
+      <tag>r*</tag>
+      <item>
+        <p>matches zero or more <c>r</c>s.</p>
+      </item>
+      <tag>r?</tag>
+      <item>
+        <p>matches zero or one <c>r</c>s.</p>
+      </item>
+      <tag>(r)</tag>
+      <item>
+        <p>grouping. It matches <c>r</c>.</p>
+      </item>
+    </taglist>
+    <p>The escape sequences allowed are the same as for Erlang
+      strings:</p>
+    <taglist>
+      <tag><c>\\b</c></tag>
+      <item>
+        <p>backspace</p>
+      </item>
+      <tag><c>\\f</c></tag>
+      <item>
+        <p>form feed </p>
+      </item>
+      <tag><c>\</c></tag>
+      <item>
+        <p>newline (line feed) </p>
+      </item>
+      <tag><c>\\r</c></tag>
+      <item>
+        <p>carriage return </p>
+      </item>
+      <tag><c>\\t</c></tag>
+      <item>
+        <p>tab </p>
+      </item>
+      <tag><c>\\e</c></tag>
+      <item>
+        <p>escape </p>
+      </item>
+      <tag><c>\\v</c></tag>
+      <item>
+        <p>vertical tab </p>
+      </item>
+      <tag><c>\\s</c></tag>
+      <item>
+        <p>space </p>
+      </item>
+      <tag><c>\\d</c></tag>
+      <item>
+        <p>delete </p>
+      </item>
+      <tag><c>\\ddd</c></tag>
+      <item>
+        <p>the octal value ddd </p>
+      </item>
+      <tag><c>\\xhh</c></tag>
+      <item>
+        <p>The hexadecimal value <c>hh</c>.</p>
+      </item>
+      <tag><c>\\x{h...}</c></tag>
+      <item>
+        <p>The hexadecimal value <c>h...</c>.</p>
+      </item>
+      <tag><c>\\c</c></tag>
+      <item>
+        <p>any other character literally, for example <c>\\\\</c> for backslash,
+          <c>\\"</c> for ")</p>
+      </item>
+    </taglist>
+    <p>To make these functions easier to use, in combination with the
+      function <c>io:get_line</c> which terminates the input line with
+      a new line, the <c>$</c> characters also matches a string ending
+      with <c>"...\ "</c>. The following examples
+      define Erlang data types:</p>
+    <pre>
+Atoms     [a-z][0-9a-zA-Z_]*
+
+Variables [A-Z_][0-9a-zA-Z_]*
+
+Floats    (\\+|-)?[0-9]+\\.[0-9]+((E|e)(\\+|-)?[0-9]+)?</pre>
+    <p>Regular expressions are written as Erlang strings when used with the functions in this module. This means that any <c>\\</c> or <c>"</c> characters in a regular expression
+      string must be written with <c>\\</c> as they are also escape characters for the string. For example, the regular expression string for Erlang floats is:
+      <c>"(\\\\+|-)?[0-9]+\\\\.[0-9]+((E|e)(\\\\+|-)?[0-9]+)?"</c>.</p>
+    <p>It is not really necessary to have the escape sequences as part of the regular expression syntax as they can always be generated directly in the string. They are included for completeness and can they can also be useful when generating regular expressions, or when they are entered other than with Erlang strings.</p>
+  </section>
+</erlref>
+

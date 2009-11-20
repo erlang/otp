@@ -1,0 +1,31 @@
+#
+# /etc/nsswitch.nis:
+#
+# An example file that could be copied over to /etc/nsswitch.conf; it
+# uses NIS (YP) in conjunction with files.
+#
+# "hosts:" and "services:" in this file are used only if the
+# /etc/netconfig file has a "-" for nametoaddr_libs of "inet" transports.
+
+# the following two lines obviate the "+" entry in /etc/passwd and /etc/group.
+passwd:     files nis
+group:      files nis
+
+# consult /etc "files" only if nis is down. 
+hosts:      nis [NOTFOUND=return]
+networks:   nis [NOTFOUND=return] files
+protocols:  nis [NOTFOUND=return] files
+rpc:        nis [NOTFOUND=return] files
+ethers:     nis [NOTFOUND=return] files
+netmasks:   nis [NOTFOUND=return] files	
+bootparams: nis [NOTFOUND=return] files
+publickey:  nis [NOTFOUND=return] files
+
+netgroup:   nis
+
+automount:  files nis
+aliases:    files nis
+
+# for efficient getservbyname() avoid nis
+services:   files nis
+sendmailvars:   files

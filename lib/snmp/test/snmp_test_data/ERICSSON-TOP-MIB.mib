@@ -1,0 +1,36 @@
+-- ERICSSON-TOP-MIB:  Top-level MIB for Ericsson AB's 
+-- 193 branch of the enterprise MIB tree.
+--
+-- ERICSSON-TOP-MIB.mib,v 1.1 2002/06/12 13:14:57 epkpart Exp
+--
+-- ERICSSON-TOP-MIB.mib,v
+-- Revision 1.1  2002/06/12 13:14:57  epkpart
+-- Initial revision
+--
+-- 
+-- Copyright (c) 2002 by Ericsson AB
+-- All rights reserved.
+-- 
+
+ERICSSON-TOP-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    MODULE-IDENTITY, enterprises
+        FROM SNMPv2-SMI;
+
+ericsson MODULE-IDENTITY
+    LAST-UPDATED
+        "200205280000Z"
+    ORGANIZATION
+        "Ericsson AB "
+    CONTACT-INFO
+        "David Partain <david.partain@ericsson.com>
+	 or
+	 whoever is currently responsible for the Ericsson
+	 enterprise MIB tree branch (enterprises.193)."
+    DESCRIPTION
+        "This very small module is made available so that
+	developers within the Ericsson community can import the
+	'ericsson' name into their own MIB modules."
+    ::= { enterprises 193 }
+END

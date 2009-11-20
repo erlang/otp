@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>epp</title>
+    <prepared>Kenneth Lundin</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>97-01-31</date>
+    <rev>B</rev>
+    <file>epp.sgml</file>
+  </header>
+  <module>epp</module>
+  <modulesummary>An Erlang Code Preprocessor</modulesummary>
+  <description>
+    <p>The Erlang code preprocessor includes functions which are used
+      by <c>compile</c> to preprocess macros and include files before
+      the actual parsing takes place.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>open(FileName, IncludePath) -> {ok,Epp} | {error, ErrorDescriptor}</name>
+      <name>open(FileName, IncludePath, PredefMacros) -> {ok,Epp} | {error, ErrorDescriptor}</name>
+      <fsummary>Open a file for preprocessing</fsummary>
+      <type>
+        <v>FileName = atom() | string()</v>
+        <v>IncludePath = [DirectoryName]</v>
+        <v>DirectoryName = atom() | string()</v>
+        <v>PredefMacros = [{atom(),term()}]</v>
+        <v>Epp = pid() -- handle to the epp server</v>
+        <v>ErrorDescriptor = term()</v>
+      </type>
+      <desc>
+        <p>Opens a file for preprocessing.</p>
+      </desc>
+    </func>
+    <func>
+      <name>close(Epp) -> ok</name>
+      <fsummary>Close the preprocessing of the file associated with <c>Epp</c></fsummary>
+      <type>
+        <v>Epp = pid() -- handle to the epp server</v>
+      </type>
+      <desc>
+        <p>Closes the preprocessing of a file.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parse_erl_form(Epp) -> {ok, AbsForm} | {eof, Line} | {error, ErrorInfo}</name>
+      <fsummary>Return the next Erlang form from the opened Erlang source file</fsummary>
+      <type>
+        <v>Epp = pid()</v>
+        <v>AbsForm = term()</v>
+        <v>Line = integer()</v>
+        <v>ErrorInfo = see separate description below.</v>
+      </type>
+      <desc>
+        <p>Returns the next Erlang form from the opened Erlang source file.
+          The tuple <c>{eof, Line}</c> is returned at end-of-file. The first
+          form corresponds to an implicit attribute <c>-file(File,1).</c>, where
+          <c>File</c> is the name of the file.</p>
+      </desc>
+    </func>
+    <func>
+      <name>parse_file(FileName,IncludePath,PredefMacro) -> {ok,[Form]} | {error,OpenError}</name>
+      <fsummary>Preprocesse and parse an Erlang source file</fsummary>
+      <type>
+        <v>FileName = atom() | string()</v>
+        <v>IncludePath = [DirectoryName]</v>
+        <v>DirectoryName = atom() | string()</v>
+        <v>PredefMacros = [{atom(),term()}]</v>
+        <v>Form = term() -- same as returned by erl_parse:parse_form</v>
+      </type>
+      <desc>
+        <p>Preprocesses and parses an Erlang source file.
+          Note that the tuple <c>{eof, Line}</c> returned at end-of-file is
+          included as a "form".</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Error Information</title>
+    <p>The <c>ErrorInfo</c> mentioned above is the standard
+      <c>ErrorInfo</c> structure which is returned from all IO
+      modules. It has the following format:
+      </p>
+    <code type="none">
+    {ErrorLine, Module, ErrorDescriptor}    </code>
+    <p>A string which describes the error is obtained with the following call:
+      </p>
+    <code type="none">
+apply(Module, format_error, ErrorDescriptor)    </code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="erl_parse">erl_parse(3)</seealso></p>
+  </section>
+</erlref>
+

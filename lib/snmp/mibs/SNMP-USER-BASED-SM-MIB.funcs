@@ -1,0 +1,14 @@
+{usmStatsUnsupportedSecLevels,
+	 {snmp_standard_mib, variable_func, [usmStatsUnsupportedSecLevels]}}.
+{usmStatsNotInTimeWindows,
+	 {snmp_standard_mib, variable_func, [usmStatsNotInTimeWindows]}}.
+{usmStatsUnknownUserNames,
+	 {snmp_standard_mib, variable_func, [usmStatsUnknownUserNames]}}.
+{usmStatsUnknownEngineIDs,
+	 {snmp_standard_mib, variable_func, [usmStatsUnknownEngineIDs]}}.
+{usmStatsWrongDigests,
+	 {snmp_standard_mib, variable_func, [usmStatsWrongDigests]}}.
+{usmStatsDecryptionErrors,
+	 {snmp_standard_mib, variable_func, [usmStatsDecryptionErrors]}}.
+{usmUserTable, {snmp_user_based_sm_mib, usmUserTable, []}}.
+{usmUserSpinLock, {snmp_user_based_sm_mib, usmUserSpinLock, []}}.

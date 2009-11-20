@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>proc_lib</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>proc_lib</module>
+  <modulesummary>Functions for asynchronous and synchronous start of processes adhering to the OTP design principles.</modulesummary>
+  <description>
+    <p>This module is used to start processes adhering to
+      the <seealso marker="doc/design_principles:des_princ">OTP Design Principles</seealso>. Specifically, the functions in this
+      module are used by the OTP standard behaviors (<c>gen_server</c>,
+      <c>gen_fsm</c>, ...) when starting new processes. The functions
+      can also be used to start <em>special processes</em>, user
+      defined processes which comply to the OTP design principles. See
+      <seealso marker="doc/design_principles:spec_proc">Sys and Proc_Lib</seealso> in OTP Design Principles for an example.</p>
+    <p>Some useful information is initialized when a process starts.
+      The registered names, or the process identifiers, of the parent
+      process, and the parent ancestors, are stored together with
+      information about the function initially called in the process.</p>
+    <p>While in "plain Erlang" a process is said to terminate normally
+      only for the exit reason <c>normal</c>, a process started
+      using <c>proc_lib</c> is also said to terminate normally if it
+      exits with reason <c>shutdown</c> or <c>{shutdown,Term}</c>.
+      <c>shutdown</c> is the reason used when
+      an application (supervision tree) is stopped.</p>
+    <p>When a process started using <c>proc_lib</c> terminates
+      abnormally -- that is, with another exit reason than <c>normal</c>,
+      <c>shutdown</c>, or <c>{shutdown,Term}</c> -- a <em>crash report</em>
+      is generated, which is written to terminal by the default SASL
+      event handler. That is, the crash report is normally only visible
+      if the SASL application is started. See
+      <seealso marker="sasl:sasl_app">sasl(6)</seealso> and
+      <seealso marker="sasl:error_logging">SASL User's Guide</seealso>.</p>
+    <p>The crash report contains the previously stored information such
+      as ancestors and initial function, the termination reason, and
+      information regarding other processes which terminate as a result
+      of this process terminating.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>spawn(Fun) -> pid()</name>
+      <name>spawn(Node, Fun) -> pid()</name>
+      <name>spawn(Module, Function, Args) -> pid()</name>
+      <name>spawn(Node, Module, Function, Args) -> pid()</name>
+      <fsummary>Spawn a new process.</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Fun = fun() -> void()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Spawns a new process and initializes it as described above.
+          The process is spawned using the
+          <seealso marker="erts:erlang#spawn/1">spawn</seealso> BIFs.</p>
+      </desc>
+    </func>
+    <func>
+      <name>spawn_link(Fun) -> pid()</name>
+      <name>spawn_link(Node, Fun) -> pid()</name>
+      <name>spawn_link(Module, Function, Args) -> pid()</name>
+      <name>spawn_link(Node, Module, Function, Args) -> pid()</name>
+      <fsummary>Spawn and link to a new process.</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Fun = fun() -> void()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Spawns a new process and initializes it as described above.
+          The process is spawned using the
+          <seealso marker="erts:erlang#spawn_link/1">spawn_link</seealso>
+          BIFs.</p>
+      </desc>
+    </func>
+    <func>
+      <name>spawn_opt(Fun, SpawnOpts) -> pid()</name>
+      <name>spawn_opt(Node, Fun, SpawnOpts) -> pid()</name>
+      <name>spawn_opt(Module, Function, Args, SpawnOpts) -> pid()</name>
+      <name>spawn_opt(Node, Module, Func, Args, SpawnOpts) -> pid()</name>
+      <fsummary>Spawn a new process with given options.</fsummary>
+      <type>
+        <v>Node = node()</v>
+        <v>Fun = fun() -> void()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>SpawnOpts -- see erlang:spawn_opt/2,3,4,5</v>
+      </type>
+      <desc>
+        <p>Spawns a new process and initializes it as described above.
+          The process is spawned using the
+          <seealso marker="erts:erlang#spawn_opt/2">spawn_opt</seealso>
+          BIFs.</p>
+        <note>
+          <p>Using the spawn option <c>monitor</c> is currently not
+            allowed, but will cause the function to fail with reason
+            <c>badarg</c>.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name>start(Module, Function, Args) -> Ret</name>
+      <name>start(Module, Function, Args, Time) -> Ret</name>
+      <name>start(Module, Function, Args, Time, SpawnOpts) -> Ret</name>
+      <name>start_link(Module, Function, Args) -> Ret</name>
+      <name>start_link(Module, Function, Args, Time) -> Ret</name>
+      <name>start_link(Module, Function, Args, Time, SpawnOpts) -> Ret</name>
+      <fsummary>Start a new process synchronously.</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+        <v>Time = int() >= 0 | infinity</v>
+        <v>SpawnOpts -- see erlang:spawn_opt/2,3,4,5</v>
+        <v>Ret = term() | {error, Reason}</v>
+      </type>
+      <desc>
+        <p>Starts a new process synchronously. Spawns the process and
+          waits for it to start.  When the process has started, it
+          <em>must</em> call
+          <seealso marker="#init_ack/2">init_ack(Parent,Ret)</seealso>
+          or <seealso marker="#init_ack/1">init_ack(Ret)</seealso>,
+          where <c>Parent</c> is the process that evaluates this
+          function.  At this time, <c>Ret</c> is returned.</p>
+        <p>If the <c>start_link/3,4,5</c> function is used and
+          the process crashes before it has called <c>init_ack/1,2</c>,
+          <c>{error, Reason}</c> is returned if the calling process
+          traps exits.</p>
+        <p>If <c>Time</c> is specified as an integer, this function
+          waits for <c>Time</c> milliseconds for the new process to call
+          <c>init_ack</c>, or <c>{error, timeout}</c> is returned, and
+          the process is killed.</p>
+        <p>The <c>SpawnOpts</c> argument, if given, will be passed
+          as the last argument to the <c>spawn_opt/2,3,4,5</c> BIF.</p>
+        <note>
+          <p>Using the spawn option <c>monitor</c> is currently not
+            allowed, but will cause the function to fail with reason
+            <c>badarg</c>.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name>init_ack(Parent, Ret) -> void()</name>
+      <name>init_ack(Ret) -> void()</name>
+      <fsummary>Used by a process when it has started.</fsummary>
+      <type>
+        <v>Parent = pid()</v>
+        <v>Ret = term()</v>
+      </type>
+      <desc>
+        <p>This function must used by a process that has been started by
+          a <seealso marker="#start/3">start[_link]/3,4,5</seealso>
+          function. It tells <c>Parent</c> that the process has
+          initialized itself, has started, or has failed to initialize
+          itself.</p>
+        <p>The <c>init_ack/1</c> function uses the parent value
+          previously stored by the start function used.</p>
+        <p>If this function is not called, the start function will
+          return an error tuple (if a link and/or a timeout is used) or
+          hang otherwise.</p>
+        <p>The following example illustrates how this function and
+          <c>proc_lib:start_link/3</c> are used.</p>
+        <code type="none">
+-module(my_proc).
+-export([start_link/0]).
+-export([init/1]).
+
+start_link() ->
+    proc_lib:start_link(my_proc, init, [self()]).
+
+init(Parent) ->
+    case do_initialization() of
+        ok ->
+            proc_lib:init_ack(Parent, {ok, self()});
+        {error, Reason} ->
+            exit(Reason)
+    end,
+    loop().
+
+...</code>
+      </desc>
+    </func>
+    <func>
+      <name>format(CrashReport) -> string()</name>
+      <fsummary>Format a crash report.</fsummary>
+      <type>
+        <v>CrashReport = term()</v>
+      </type>
+      <desc>
+        <p>This function can be used by a user defined event handler to
+          format a crash report. The crash report is sent using
+          <c>error_logger:error_report(crash_report, CrashReport)</c>.
+          That is, the event to be handled is of the format
+          <c>{error_report, GL, {Pid, crash_report, CrashReport}}</c>
+          where <c>GL</c> is the group leader pid of the process
+          <c>Pid</c> which sent the crash report.</p>
+      </desc>
+    </func>
+    <func>
+      <name>initial_call(Process) -> {Module,Function,Args} | false</name>
+      <fsummary>Extract the initial call of a <c>proc_lib</c>spawned process.</fsummary>
+      <type>
+        <v>Process = pid() | {X,Y,Z} | ProcInfo</v>
+        <v>&nbsp;X = Y = Z = int()</v>
+        <v>&nbsp;ProcInfo = term()</v>
+        <v>Module = Function = atom()</v>
+        <v>Args = [atom()]</v>
+      </type>
+      <desc>
+        <p>Extracts the initial call of a process that was started
+          using one of the spawn or start functions described above.
+          <c>Process</c> can either be a pid, an integer tuple (from
+          which a pid can be created), or the process information of a
+          process <c>Pid</c> fetched through an
+          <c>erlang:process_info(Pid)</c> function call.</p>
+
+	<note><p>The list <c>Args</c> no longer contains the actual arguments,
+	but the same number of atoms as the number of arguments; the first atom
+	is always <c>'Argument__1'</c>, the second <c>'Argument__2'</c>, and
+	so on. The reason is that the argument list could waste a significant
+	amount of memory, and if the argument list contained funs, it could
+	be impossible to upgrade the code for the module.</p>
+
+	<p>If the process was spawned using a fun, <c>initial_call/1</c> no
+	longer returns the actual fun, but the module, function for the local
+	function implementing the fun, and the arity, for instance
+	<c>{some_module,-work/3-fun-0-,0}</c> (meaning that the fun was
+	created in the function <c>some_module:work/3</c>).
+	The reason is that keeping the fun would prevent code upgrade for the
+	module, and that a significant amount of memory could be wasted.</p>
+	</note>
+      </desc>
+    </func>
+    <func>
+      <name>translate_initial_call(Process) -> {Module,Function,Arity} | Fun</name>
+      <fsummary>Extract and translate the initial call of a <c>proc_lib</c>spawned process.</fsummary>
+      <type>
+        <v>Process = pid() | {X,Y,Z} | ProcInfo</v>
+        <v>&nbsp;X = Y = Z = int()</v>
+        <v>&nbsp;ProcInfo = term()</v>
+        <v>Module = Function = atom()</v>
+        <v>Arity = int()</v>
+        <v>Fun = fun() -> void()</v>
+      </type>
+      <desc>
+        <p>This function is used by the <c>c:i/0</c> and
+          <c>c:regs/0</c> functions in order to present process
+          information.</p>
+        <p>Extracts the initial call of a process that was started
+          using one of the spawn or start functions described above,
+          and translates it to more useful information. <c>Process</c>
+          can either be a pid, an integer tuple (from which a pid can
+          be created), or the process information of a process
+          <c>Pid</c> fetched through an <c>erlang:process_info(Pid)</c>
+          function call.</p>
+        <p>If the initial call is to one of the system defined behaviors
+          such as <c>gen_server</c> or <c>gen_event</c>, it is
+          translated to more useful information. If a <c>gen_server</c>
+          is spawned, the returned <c>Module</c> is the name of
+          the callback module and <c>Function</c> is <c>init</c>
+          (the function that initiates the new server).</p>
+        <p>A <c>supervisor</c> and a <c>supervisor_bridge</c> are also
+          <c>gen_server</c> processes. In order to return information
+          that this process is a supervisor and the name of the
+          call-back module, <c>Module</c> is <c>supervisor</c> and
+          <c>Function</c> is the name of the supervisor callback
+          module. <c>Arity</c> is <c>1</c> since the <c>init/1</c>
+          function is called initially in the callback module.</p>
+        <p>By default, <c>{proc_lib,init_p,5}</c> is returned if no
+          information about the initial call can be found. It is
+          assumed that the caller knows that the process has been
+          spawned with the <c>proc_lib</c> module.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hibernate(Module, Function, Args)</name>
+      <fsummary>Hibernate a process until a message is sent to it</fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>This function does the same as (and does call) the BIF
+          <seealso marker="erts:erlang#erlang:hibernate/3">hibernate/3</seealso>,
+          but ensures that exception handling and logging continues to
+          work as expected when the process wakes up. Always use this
+          function instead of the BIF for processes started using
+          <c>proc_lib</c> functions.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="kernel:error_logger">error_logger(3)</seealso></p>
+  </section>
+</erlref>
+

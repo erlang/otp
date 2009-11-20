@@ -1,0 +1,105 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <title>Erlang/OTP #release#</title>
+  <style type="text/css">
+<!--
+    BODY          { background: white }
+
+    BODY          { font-family: Verdana, Arial, Helvetica, sans-serif }
+    TH            { font-family: Verdana, Arial, Helvetica, sans-serif }
+    TD            { font-family: Verdana, Arial, Helvetica, sans-serif }
+    P             { font-family: Verdana, Arial, Helvetica, sans-serif }
+
+    .header       { background: #222; color: #fff }
+    .top          { background: #efe }
+    .otp          { background: #efe }
+    .erlang       { background: #ffe }
+    .otp2          { background: #efe }
+    .app          { background: #ffe }
+
+    a:link         { color: blue; text-decoration: none }
+    a:active       { color: blue; text-decoration: none }
+    a:visited      { color: blue; text-decoration: none }
+-->
+  </style>
+</head>
+
+<body bgcolor=white text="#000000" link="#0000ff" vlink="#ff00ff"
+      alink="#ff0000">
+<center>
+<font size="+1"><b>Erlang/OTP #release#</b></font><br>
+</center>
+
+<div class=top>
+<small><a href="glossary.html" target=body>Glossary</a> |
+<a href="man_index.html" target=body>Modules</a> |
+<a href="permuted_index/pidxa.html" target=body>Index</a></small>
+<p>
+<small><a href="highlights.html" target=body>Release highlights</a><br>
+<a href="incompatible.html" target=body>Potential incompatibilities</a>
+</small>
+</div>
+
+<p>
+<div class=otp>
+Erlang/OTP
+<br>
+&middot;<small><a href="installation_guide/part_frame.html" target="_top"
+	       name=installation_guide>Installation Guide</a></small>
+
+<br>
+&middot;<small><a href="system_principles/part_frame.html" target="_top"
+	       name=system_principles>System Principles</a></small>
+
+<br>
+&middot;<small><a href="embedded/part_frame.html" target="_top" name=embedded>Embedded System</a></small>
+
+</div>
+
+<p>
+<div class=erlang>
+Erlang Programming
+<br>
+&middot;<small><a href="getting_started/part_frame.html" target="_top" name=getting_started>Getting
+Started</a></small>
+
+<br>
+&middot;<small><a href="reference_manual/part_frame.html" target="_top" name=reference_manual>Erlang
+Reference Manual</a></small>
+
+<br>
+&middot;<small><a href="programming_examples/part_frame.html" target="_top" name=programming_examples>Programming
+Examples</a></small>
+
+<br>
+&middot;<small><a href="efficiency_guide/part_frame.html" target="_top" name=efficiency_guide>Efficiency Guide</a></small>
+
+<br>
+&middot;<small><a href="tutorial/part_frame.html" target="_top" name=tutorial>Interoperability Tutorial</a></small>
+</div>
+
+<p>
+<div class=otp2>
+Working with OTP
+<br>
+&middot;<small><a href="design_principles/part_frame.html" target="_top"
+	       name=design_principles>Design Principles</a>
+</small>
+
+<br>
+&middot;<small><a href="oam/part_frame.html" target="_top" name=oam>OAM Principles</a></small>
+
+</div>
+
+<p>
+<div class=app>
+Applications
+<small>#applinks#</small>
+</div>
+
+<p>
+<a href="http://www.erlang.se/" target=body>http://www.erlang.se</a>
+
+</body>
+</html>

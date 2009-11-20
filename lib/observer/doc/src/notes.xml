@@ -1,0 +1,222 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Observer Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Observer
+    application.</p>
+
+<section><title>Observer 0.9.8.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Major improvements of the Erlang distribution for Erlang
+	    runtime systems with SMP support. Previously distribution
+	    port locks were heavily contended, and all encoding and
+	    decoding for a specific distribution channel had to be
+	    done in sequence. Lock contention due to the distribution
+	    is now negligible and both encoding and decoding of
+	    Erlang messages can be done in parallel.</p>
+          <p>
+	    The old atom cache protocol used by the Erlang
+	    distribution has been dropped since it effectively
+	    prevented all parallel encoding and decoding of messages
+	    passed over the same distribution channel.</p>
+          <p>
+	    A new atom cache protocol has been introduced which
+	    isolates atom cache accesses and makes parallel encoding
+	    and decoding of messages passed over the same
+	    distribution channel possible. The new atom cache
+	    protocol also use an atom cache size 8 times larger than
+	    before. The new atom cache protocol is documented in the
+	    ERTS users guide.</p>
+          <p>
+	    Erlang messages received via the distribution are now
+	    decoded by the receiving Erlang processes without holding
+	    any distribution channel specific locks. Erlang messages
+	    and signals sent over the distribution are as before
+	    encoded by the sending Erlang process, but now without
+	    holding any distribution channel specific locks during
+	    the encoding. That is, both encoding and decoding can be
+	    and are done in parallel regardless of distribution
+	    channel used.</p>
+          <p>
+	    The part that cannot be parallelized is the atom cache
+	    updates. Atom cache updates are therefore now scheduled
+	    on the distribution port. Since it is only one entity per
+	    distribution channel doing this work there is no lock
+	    contention due to the atom cache updates.</p>
+          <p>
+	    The new runtime system does not understand the old atom
+	    cache protocol. New and old runtime systems can however
+	    still communicate, but no atom cache will be used.</p>
+          <p>
+	    Own Id: OTP-7774</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Observer 0.9.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    <c>etop</c> would crash if the emulator's custom
+	    allocators had been turned off (e.g. using the
+	    <c>+Meamin</c> option).</p>
+          <p>
+	    Own Id: OTP-7519</p>
+        </item>
+        <item>
+	    <p>The copyright notices have been updated.</p>
+          <p>
+	    Own Id: OTP-7851</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Observer 0.9.7.4</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>Obsolete guard tests (such as list()) have been replaced
+            with the modern guard tests (such as is_list()).</p>
+          <p>Own Id: OTP-6725</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>This application has been updated to eliminate warnings
+            by Dialyzer.</p>
+          <p>Own Id: OTP-6551</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Several minor bugs and race conditions eliminated in the
+            runtime_tools and observer applications.</p>
+          <p>Own Id: OTP-6265</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Crash dump with large integers could crash the
+            <c>crashdump_viewer</c>.</p>
+          <p>Own Id: OTP-6301</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.7 (R11B)</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed a bug in <c>etop</c> which made the Load and Memory
+            information in the header incorrect -- for example the
+            value shown for <c>binary</c> (memory allocated for
+            binaries) was actually the number of currently running
+            processes. (Thanks to Rikard Johansson.)</p>
+          <p>Own Id: OTP-6075</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.6.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The Observer application has been recompiled because of
+            a compiler bug.</p>
+          <p>Own Id: OTP-5700</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Observer 0.9.6.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>crashdump_viewer</c> is faster when showing message,
+            dictionary, and stack dump for large processes.</p>
+          <p>Own Id: OTP-5408</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

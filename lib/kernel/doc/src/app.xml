@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE fileref SYSTEM "fileref.dtd">
+
+<fileref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>app</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <file>app</file>
+  <filesummary>Application resource file.</filesummary>
+  <description>
+    <p>The <em>application resource file</em> specifies the resources an
+      application uses, and how the application is started. There must
+      always be one application resource file called
+      <c>Application.app</c> for each application <c>Application</c> in
+      the system.</p>
+    <p>The file is read by the application controller when an
+      application is loaded/started. It is also used by the functions in
+      <c>systools</c>, for example when generating start scripts.</p>
+  </description>
+
+  <section>
+    <title>FILE SYNTAX</title>
+    <p>The application resource file should be called
+      <c>Application.app</c> where <c>Application</c> is the name of
+      the application. The file should be located in the <c>ebin</c>
+      directory for the application.</p>
+    <p>It must contain one single Erlang term, which is called an
+      <em>application specification</em>:</p>
+    <code type="none">
+{application, Application,
+  [{description,  Description},
+   {id,           Id},
+   {vsn,          Vsn},
+   {modules,      Modules},
+   {maxP,         MaxP},
+   {maxT,         MaxT},
+   {registered,   Names},
+   {included_applications, Apps},
+   {applications, Apps},
+   {env,          Env},
+   {mod,          Start},
+   {start_phases, Phases}]}.
+
+             Value                Default
+             -----                -------
+Application  atom()               -
+Description  string()             ""
+Id           string()             ""
+Vsn          string()             ""
+Modules      [Module]             []
+MaxP         int()                infinity
+MaxT         int()                infinity
+Names        [Name]               []
+Apps         [App]                []
+Env          [{Par,Val}]          []
+Start        {Module,StartArgs}   undefined
+Phases       [{Phase,PhaseArgs}]  undefined
+  Module = Name = App = Par = Phase = atom()
+  Val = StartArgs = PhaseArgs = term()</code>
+    <p><c>Application</c> is the name of the application.</p>
+    <p>For the application controller, all keys are optional.
+      The respective default values are used for any omitted keys.</p>
+    <p>The functions in <c>systools</c> require more information. If
+      they are used, the following keys are mandatory:
+      <c>description</c>, <c>vsn</c>, <c>modules</c>, <c>registered</c>
+      and <c>applications</c>. The other keys are ignored by
+      <c>systools</c>.</p>
+    <taglist>
+      <tag><c>description</c></tag>
+      <item>
+        <p>A one-line description of the application.</p>
+      </item>
+      <tag><c>id</c></tag>
+      <item>
+        <p>Product identification, or similar.</p>
+      </item>
+      <tag><c>vsn</c></tag>
+      <item>
+        <p>The version of the application.</p>
+      </item>
+      <tag><c>modules</c></tag>
+      <item>
+        <p>All modules introduced by this application. <c>systools</c>
+          uses this list when generating start scripts and tar files. A
+          module can only be defined in one application.</p>
+      </item>
+      <tag><c>maxP</c></tag>
+      <item>
+        <p><em>Deprecated - will be ignored</em>          <br></br>
+
+          The maximum number of processes allowed in the application.</p>
+      </item>
+      <tag><c>maxT</c></tag>
+      <item>
+        <p>The maximum time in milliseconds that the application is
+          allowed to run. After the specified time the application will
+          automatically terminate.</p>
+      </item>
+      <tag><c>registered</c></tag>
+      <item>
+        <p>All names of registered processes started in this
+          application. <c>systools</c> uses this list to detect name
+          clashes between different applications.</p>
+      </item>
+      <tag><c>included_applications</c></tag>
+      <item>
+        <p>All applications which are included by this application.
+          When this application is started, all included application
+          will automatically be loaded, but not started, by
+          the application controller. It is assumed that the topmost
+          supervisor of the included application is started by a
+          supervisor of this application.</p>
+      </item>
+      <tag><c>applications</c></tag>
+      <item>
+        <p>All applications which must be started before this
+          application is allowed to be started. <c>systools</c> uses
+          this list to generate correct start scripts. Defaults to
+          the empty list, but note that all applications have
+          dependencies to (at least) <c>kernel</c> and <c>stdlib</c>.</p>
+      </item>
+      <tag><c>env</c></tag>
+      <item>
+        <p>Configuration parameters used by the application. The value
+          of a configuration parameter is retrieved by calling
+          <c>application:get_env/1,2</c>. The values in the application
+          resource file can be overridden by values in a configuration
+          file (see <c>config(4)</c>) or by command line flags (see
+          <c>erl(1)</c>).</p>
+      </item>
+      <tag><c>mod</c></tag>
+      <item>
+        <p>Specifies the application callback module and a start
+          argument, see <c>application(3)</c>.</p>
+        <p>The <c>mod</c> key is necessary for an application
+          implemented as a supervision tree, or the application
+          controller will not know how to start it. The <c>mod</c> key
+          can be omitted for applications without processes, typically
+          code libraries such as the application STDLIB.</p>
+      </item>
+      <tag><c>start_phases</c></tag>
+      <item>
+        <p>A list of start phases and corresponding start arguments for
+          the application. If this key is present, the application
+          master will - in addition to the usual call to
+          <c>Module:start/2</c> - also call
+          <c>Module:start_phase(Phase,Type,PhaseArgs)</c> for each
+          start phase defined by the <c>start_phases</c> key, and only
+          after this extended start procedure will
+          <c>application:start(Application)</c> return.</p>
+        <p></p>
+        <p>Start phases may be used to synchronize startup of an
+          application and its included applications. In this case,
+          the <c>mod</c> key must be specified as:</p>
+        <code type="none">
+{mod, {application_starter,[Module,StartArgs]}}</code>
+        <p>The application master will then call <c>Module:start/2</c>
+          for the primary application, followed by calls to
+          <c>Module:start_phase/3</c> for each start phase (as defined
+          for the primary application) both for the primary application
+          and for each of its included application, for which the start
+          phase is defined.</p>
+        <p></p>
+        <p>This implies that for an included application, the set of
+          start phases must be a subset of the set of phases defined
+          for the primary application. Refer to <em>OTP Design Principles</em> for more information.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="application">application(3)</seealso>,
+      systools(3)</p>
+  </section>
+</fileref>
+

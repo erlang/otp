@@ -1,0 +1,37 @@
+%% -*- erlang -*-
+{"%VSN%",  
+ [
+  {"4.4.11",
+   [
+    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
+    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
+   ]
+  },
+  {"4.4.10",
+   [
+    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
+    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
+   ]
+  },
+  {"4.4.9", [{restart_application, mnesia}]},
+  {"4.4.8", [{restart_application, mnesia}]},
+  {"4.4.7", [{restart_application, mnesia}]}
+ ],
+ [
+  {"4.4.11",
+   [
+    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
+    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
+   ]
+  },
+  {"4.4.10",
+   [
+    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
+    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
+   ]
+  },
+  {"4.4.9", [{restart_application, mnesia}]},
+  {"4.4.8", [{restart_application, mnesia}]},
+  {"4.4.7", [{restart_application, mnesia}]}
+ ]
+}.

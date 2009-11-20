@@ -1,0 +1,11 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+-include_lib("kernel/include/file.hrl").
+
+main([Filename]) ->
+    {ok,#file_info{size=Size}} = file:read_file_info(Filename),
+    io:format("~p\n", [Size]).
+
+%% Deliberate warning follows so that we can check that line numbers
+%% correct after an -include_lib directive.
+id(I) -> I.

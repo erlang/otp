@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>base64</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <docno></docno>
+    <date>2007-02-22</date>
+    <rev></rev>
+    <file>base64.sgml</file>
+  </header>
+  <module>base64</module>
+  <modulesummary>Implements base 64 encode and decode, see RFC2045.</modulesummary>
+  <description>
+    <p>Implements base 64 encode and decode, see RFC2045. </p>
+  </description>
+  <funcs>
+    <func>
+      <name>encode(Data) -> Base64 </name>
+      <name>encode_to_string(Data) -> Base64String</name>
+      <fsummary>Encodes data into base64. </fsummary>
+      <type>
+        <v>Data = string() | binary()</v>
+        <v>Base64 = binary()</v>
+        <v>Base64String = string()</v>
+      </type>
+      <desc>
+        <p>Encodes a plain ASCII string into base64. The result will
+          be 33% larger than the data.</p>
+      </desc>
+    </func>
+    <func>
+      <name>decode(Base64) -> Data</name>
+      <name>decode_to_string(Base64) -> DataString</name>
+      <name>mime_decode(Base64) -> Data</name>
+      <name>mime_decode_to_string(Base64) -> DataString</name>
+      <fsummary>Decodes a base64 encoded string to data. </fsummary>
+      <type>
+        <v>Base64 = string() | binary()</v>
+        <v>Data = binary()</v>
+        <v>DataString = string()</v>
+      </type>
+      <desc>
+        <p>Decodes a base64 encoded string to plain ASCII. See RFC4648.
+          <c>mime_decode/1</c> and <c>mime_decode_to_string/1</c>
+          strips away illegal characters, while <c>decode/1</c> and
+          <c>decode_to_string/1</c> only strips away whitespace characters.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

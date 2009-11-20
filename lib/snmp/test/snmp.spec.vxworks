@@ -1,0 +1,4 @@
+{topcase, {dir, "../snmp_test"}}.
+{skip, {snmp_SUITE, test_v3, "Requires crypto"}}.
+
+

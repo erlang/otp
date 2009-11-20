@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>pman</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>pman</module>
+  <modulesummary>A graphical process manager.</modulesummary>
+  <description>
+    <p>A graphical tool used to inspect the Erlang processes executing either
+      locally or on remote nodes. It is also possible to trace events in
+      the individual processes.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>start()</name>
+      <name>start(Excluded)</name>
+      <name>start_notimeout()</name>
+      <name>start_notimeout(Excluded)</name>
+      <fsummary>Start Pman.</fsummary>
+      <type>
+        <v>Excluded = [Module]</v>
+        <v>&nbsp;Module = atom()</v>
+      </type>
+      <desc>
+        <p>Starts Pman. It will use the previously saved trace settings
+          in <c>HOME/.erlang_tools/pman.opts</c>, where <c>HOME</c> is
+          the user's home directory, if such a file exists. Otherwise
+          standard trace settings will be used. The return value should
+          be ignored.</p>
+        <p><c>Excluded</c> is a list of module names. If the argument is
+          present, processes currently executing in any of these modules
+          will not be shown by Pman.</p>
+        <p><c>start/0,1</c> will fail unless the start-up succeeds
+          within 20 seconds, whereas <c>start_notimeout/0,1</c> will
+          wait indefinitely.</p>
+      </desc>
+    </func>
+    <func>
+      <name>proc(Process)</name>
+      <name>proc(A, B, C)</name>
+      <fsummary>Start a Pman trace window.</fsummary>
+      <type>
+        <v>Process = pid() | atom()</v>
+        <v>A = B = C = integer()</v>
+      </type>
+      <desc>
+        <p>Starts a Pman trace window for the specified process.
+          The return value should be ignored.</p>
+        <p>The process to trace is given either by its pid or by its
+          registered name. It is also possible to use <c>proc/3</c>
+          to trace the pid represented as <c><![CDATA[<A,B,C>]]></c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

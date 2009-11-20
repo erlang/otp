@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>random</title>
+    <prepared>Joe Armstrong</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>96-09-09</date>
+    <rev>A</rev>
+    <file>random.sgml</file>
+  </header>
+  <module>random</module>
+  <modulesummary>Pseudo random number generation</modulesummary>
+  <description>
+    <p>Random number generator. The method is attributed to
+      B.A. Wichmann and I.D.Hill, in 'An efficient and portable
+      pseudo-random number generator', Journal of Applied
+      Statistics. AS183. 1982. Also Byte March 1987. </p>
+    <p>The current algorithm is a modification of the version attributed
+      to Richard A O'Keefe in the standard Prolog library.</p>
+    <p>Every time a random number is requested, a state is used to calculate
+      it, and a new state produced. The state can either be implicit (kept
+      in the process dictionary) or be an explicit argument and return value.
+      In this implementation, the state (the type <c>ran()</c>) consists of a
+      tuple of three integers.</p>
+    <p>It should be noted that this random number generator is not cryptographically 
+      strong. If a strong cryptographic random number generator is needed for
+      example <c>crypto:rand_bytes/1</c> could be used instead.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>seed() -> ran()</name>
+      <fsummary>Seeds random number generation with default values</fsummary>
+      <desc>
+        <p>Seeds random number generation with default (fixed) values
+          in the process dictionary, and returns the old state.</p>
+      </desc>
+    </func>
+   <func>
+      <name>seed(A1, A2, A3) -> undefined | ran()</name>
+      <fsummary>Seeds random number generator</fsummary>
+      <type>
+        <v>A1 = A2 = A3 = integer()</v>
+      </type>
+      <desc>
+        <p>Seeds random number generation with integer values in the process
+          dictionary, and returns the old state.</p>
+        <p>One way of obtaining a seed is to use the BIF <c>now/0</c>:</p>
+        <code type="none">
+          ...
+          {A1,A2,A3} = now(),
+          random:seed(A1, A2, A3),
+          ...</code>
+      </desc>
+    </func>
+    <func>
+      <name>seed({A1, A2, A3}) -> undefined | ran()</name>
+      <fsummary>Seeds random number generator</fsummary>
+      <type>
+        <v>A1 = A2 = A3 = integer()</v>
+      </type>
+      <desc>
+        <p>
+	<c>seed({A1, A2, A3})</c> is equivalent to <c>seed(A1, A2, A3)</c>.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name>seed0() -> ran()</name>
+      <fsummary>Return default state for random number generation</fsummary>
+      <desc>
+        <p>Returns the default state.</p>
+      </desc>
+    </func>
+    <func>
+      <name>uniform()-> float()</name>
+      <fsummary>Return a random float</fsummary>
+      <desc>
+        <p>Returns a random float uniformly distributed between <c>0.0</c>
+          and <c>1.0</c>, updating the state in the process dictionary.</p>
+      </desc>
+    </func>
+    <func>
+      <name>uniform(N) -> integer()</name>
+      <fsummary>Return a random integer</fsummary>
+      <type>
+        <v>N = integer()</v>
+      </type>
+      <desc>
+        <p>Given an integer <c>N >= 1</c>, <c>uniform/1</c> returns a
+          random integer uniformly distributed between <c>1</c> and
+          <c>N</c>, updating the state in the process dictionary.</p>
+      </desc>
+    </func>
+    <func>
+      <name>uniform_s(State0) -> {float(), State1}</name>
+      <fsummary>Return a random float</fsummary>
+      <type>
+        <v>State0 = State1 = ran()</v>
+      </type>
+      <desc>
+        <p>Given a state, <c>uniform_s/1</c>returns a random float uniformly
+          distributed between <c>0.0</c> and <c>1.0</c>, and a new state.</p>
+      </desc>
+    </func>
+    <func>
+      <name>uniform_s(N, State0) -> {integer(), State1}</name>
+      <fsummary>Return a random integer</fsummary>
+      <type>
+        <v>N = integer()</v>
+        <v>State0 = State1 = ran()</v>
+      </type>
+      <desc>
+        <p>Given an integer <c>N >= 1</c> and a state, <c>uniform_s/2</c>
+          returns a random integer uniformly distributed between <c>1</c> and
+          <c>N</c>, and a new state.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Note</title>
+    <p>Some of the functions use the process dictionary variable
+      <c>random_seed</c> to remember the current seed.</p>
+    <p>If a process calls <c>uniform/0</c> or <c>uniform/1</c> without
+      setting a seed first, <c>seed/0</c> is called automatically.</p>
+  </section>
+</erlref>
+

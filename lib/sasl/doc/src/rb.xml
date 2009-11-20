@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>rb</title>
+    <prepared>Martin Bj&ouml;rklund</prepared>
+    <responsible>Martin Bj&ouml;rklund</responsible>
+    <docno></docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1996-10-16</date>
+    <rev>A</rev>
+    <file>rb.sgml</file>
+  </header>
+  <module>rb</module>
+  <modulesummary>The Report Browser Tool</modulesummary>
+  <description>
+    <p>The Report Browser (RB) tool makes it possible to browse and
+      format error reports written by the error logger handler
+      <c>log_mf_h</c>.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>grep(RegExp)</name>
+      <fsummary>Search the reports for a regular expression</fsummary>
+      <type>
+        <v>RegExp = string()</v>
+      </type>
+      <desc>
+        <p>All reports containing the regular expression <c>RegExp</c>
+          are printed.
+          </p>
+        <p><c>RegExp</c> is a string containing the regular
+          expression. Refer to the module <c>regexp</c> in the STDLIB 
+          reference  manual
+          for a definition of valid regular expressions. They are
+          essentially the same as the UNIX command <c>egrep</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>h()</name>
+      <name>help()</name>
+      <fsummary>Print help information</fsummary>
+      <desc>
+        <p>Prints the on-line help information.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>list()</name>
+      <name>list(Type)</name>
+      <fsummary>List all reports</fsummary>
+      <type>
+        <v>Type = type()</v>
+        <v>type() = crash_report | supervisor_report | error | progress</v>
+      </type>
+      <desc>
+        <p>This function lists all reports loaded in the
+          <c>rb_server</c>. Each report is given a unique number that
+          can be used as a reference to the report in the
+          <c>show/1</c> function.
+          </p>
+        <p>If no <c>Type</c> is given, all reports are listed.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>rescan()</name>
+      <name>rescan(Options)</name>
+      <fsummary>Rescan the report directory</fsummary>
+      <type>
+        <v>Options = [opt()]</v>
+      </type>
+      <desc>
+        <p>Rescans the report directory. <c>Options</c> is the same as
+          for <c>start()</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>show()</name>
+      <name>show(Report)</name>
+      <fsummary>Show reports</fsummary>
+      <type>
+        <v>Report = int() | type()</v>
+      </type>
+      <desc>
+        <p>If a type argument is given, all loaded reports of this
+          type are printed. If an integer argument is given, the
+          report with this reference number is printed. If no argument
+          is given, all reports are shown.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>start()</name>
+      <name>start(Options)</name>
+      <fsummary>Start the RB server</fsummary>
+      <type>
+        <v>Options = [opt()]</v>
+        <v>opt() = {start_log, FileName} | {max, MaxNoOfReports} | {report_dir, DirString} | {type, ReportType} | {abort_on_error, Bool}</v>
+        <v>FileName = string() | standard_io</v>
+        <v>MaxNoOfReports = int() | all</v>
+        <v>DirString = string()</v>
+        <v>ReportType = type() | [type()] | all</v>
+        <v>Bool = true | false</v>
+      </type>
+      <desc>
+        <p>The function <c>start/1</c> starts the <c>rb_server</c>
+          with the specified options, while <c>start/0</c> starts with
+          default options. The <c>rb_server</c> must be started before
+          reports can be browsed. When the <c>rb_server</c> is
+          started, the files in the specified directory are
+          scanned. The other functions assume that the server has
+          started.
+          </p>
+        <p><c>{start_log, FileName}</c> starts logging to file. All
+          reports will be printed to the named file. The default is
+          <c>standard_io</c>.
+          </p>
+        <p><c>{max, MaxNoOfReports}</c>. Controls how many reports the
+          <c>rb_server</c> should read on start-up. This option is
+          useful as the directory may contain 20.000 reports. If this
+          option is given, the <c>MaxNoOfReports</c> latest reports
+          will be read. The default is 'all'.
+          </p>
+        <p><c>{report_dir, DirString}</c>. Defines the directory where
+          the error log files are located. The default is <c>{sasl, error_logger_mf_dir}</c>.  </p>
+        <p><c>{type, ReportType}</c>. Controls what kind of reports the
+          <c>rb_server</c> should read on start-up.  <c>ReportType</c>
+          is a supported type, 'all', or a list of supported
+          types. The default is 'all'.
+          </p>
+        <p><c>{abort_on_error, Bool}</c>. This option specifies whether
+          or not logging should be aborted if rb encounters an unprintable 
+          report. (You may get a report on incorrect form if the 
+          <c>error_logger</c> function <c>error_msg</c> or 
+          <c>info_msg</c> has been called with an invalid format string).
+          If <c>Bool</c> is <c>true</c>, rb will stop logging (and print an
+          error message to stdout) if it encounters a badly formatted report.
+          If logging to file is enabled, an error message will be appended to
+          the log file as well. 
+          If <c>Bool</c> is <c>false</c> (which is the default value), rb will 
+          print an error message to stdout for every bad report it 
+          encounters, but the logging process is never aborted. All printable 
+          reports will be written. If logging to file is enabled, rb prints 
+          <c>* UNPRINTABLE REPORT *</c> in the log file at the location of an 
+          unprintable report.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>start_log(FileName)</name>
+      <fsummary>Redirect all output to <c>FileName</c></fsummary>
+      <type>
+        <v>FileName = string()</v>
+      </type>
+      <desc>
+        <p>Redirects all report output from the RB tool to the
+          specified file.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>stop()</name>
+      <fsummary>Stop the RB server</fsummary>
+      <desc>
+        <p>Stops the <c>rb_server</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>stop_log()</name>
+      <fsummary>Stop logging to file</fsummary>
+      <desc>
+        <p>Closes the log file. The output from the RB tool will be
+          directed to <c>standard_io</c>.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

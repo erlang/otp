@@ -1,0 +1,371 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Pman</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>pman_chapter.xml</file>
+  </header>
+  <marker id="here"></marker>
+
+  <section>
+    <title>Introduction</title>
+    <p>The process manager Pman is a tool for viewing processes executing
+      locally or on remote nodes. Its main purpose is to locate
+      erroneous code by inspecting the state of the processes and by tracing
+      events. Bottlenecks, unread messages, and bad memory handling are 
+      some of the problems that can be solved with Pman.</p>
+    <p>Processes may be inspected individually in a process trace
+      window. There the user may dynamically follow the execution of a
+      process by getting trace output for sent and received messages
+      as well as for called functions and some other process
+      events. Information about source code modules executed by the
+      processes is also accessible. Note that Pman has some effect on
+      the real time behavior of a running system.</p>
+  </section>
+
+  <section>
+    <title>Getting Started with Pman</title>
+    <p>Start Pman by calling <c>pman:start()</c>. It will start
+      the <seealso marker="#main_win">Main Window</seealso>, showing an
+      overview of all processes running at the current node.</p>
+    <p>To trace a certain process, select it by clicking on its line and
+      then chose Trace-&gt;Selected Process, or simply double-click it. This
+      will open a <seealso marker="#trace_win">Trace Window</seealso>.
+      In the Trace Window, there is some information about the process
+      and traced events are added dynamically.</p>
+    <p>Which events to trace are selected in
+      the <seealso marker="#options_win">Options Window</seealso> which
+      is opened by choosing File-&gt;Options... in the Main Window or in a
+      Trace Window. Currently supported trace events are message sending,
+      message receiving, function calls and process events.</p>
+    <p>It is possible to by-pass the Main Window and open a Trace
+      Window directly for the process <c>Pid</c> by calling
+      <c>pman:proc(Pid)</c>.</p>
+  </section>
+
+  <section>
+    <marker id="main_win"></marker>
+    <title>The Main Window</title>
+    <p>The Main Window shows all processes running at the displayed node.
+      The window is automatically updated every 5 seconds.
+      Select which node to display in the window by choosing the node name
+      from the Nodes menu.</p>
+    <image file="main_window.gif">
+      <icaption>The Main Window.</icaption>
+    </image>
+    <p>A process can be selected by clicking on its line. The selected
+      process is highlighted. Use the arrow keys to move up and down in
+      the process overview.</p>
+    <p>The following information is displayed for each process:</p>
+    <list type="bulleted">
+      <item>Pid - process identifier.</item>
+      <item>Current Function - the function (<c>Module:Function/Arity</c>)
+       the process is currently executing.</item>
+      <item>Name - registered name of the process, if any.</item>
+      <item>Msgs - number of messages in the process' mailbox.</item>
+      <item>Reds - number of reductions performed. Gives a rough estimate
+       of the process' work load.</item>
+      <item>Size - estimated size of the process, in words, calculated by
+       adding the stack size and the heap size.</item>
+    </list>
+    <p>At the bottom of the window the following functions and
+      information can be found:</p>
+    <taglist>
+      <tag><em>Hide System Processes</em></tag>
+      <item>This check button controls the display of what Pman consider
+      <em>system processes</em>, that is, processes Pman knows are part
+       of Erlang/OTP rather than the user's application.
+       If the button is selected, these system processes will not be
+       shown.</item>
+      <tag><em>Auto-Hide New</em></tag>
+      <item>This check button controls the treatment of newly created
+       processes. If it is selected, new processes will not be shown.</item>
+      <tag><em># Hidden</em></tag>
+      <item>This label displays the number of processes currently
+       executing that are not shown in the process overview.</item>
+    </taglist>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Options...</em></tag>
+        <item>Open the <seealso marker="#options_win">Options Window</seealso>
+         which allows the user to set the trace options to use.</item>
+        <tag><em>Save Options</em></tag>
+        <item>Save the options set using the Options Window. The options are
+         stored to the file <c>HOME/.erlang_tools/pman.opts</c>, where
+        <c>HOME</c> is the user's home directory, and are automatically
+         loaded the next time Pman is started.</item>
+        <tag><em>Exit</em></tag>
+        <item>Stop Pman.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The View Menu</title>
+      <p>This menu mainly contains buttons for controlling what to
+        display in the Main Window. Note that the View Menu overrides
+        the settings of the check buttons (Hide System processes, Auto-Hide
+        new) in the Main Window.</p>
+      <taglist>
+        <tag><em>Hide All Processes</em></tag>
+        <item>Hide all processes.</item>
+        <tag><em>Hide Modules...</em></tag>
+        <item>Opens a dialog window with all loaded modules. If the user
+         selects a window and clicks OK, the process overview will not
+         show any processes running code from those modules.</item>
+        <tag><em>Hide Selected Processs</em></tag>
+        <item>Hide the selected process.</item>
+        <tag><em>Module Info...</em></tag>
+        <item>Given a selected process currently executing a function in
+         the module <c>Module</c>, this menu button opens a window
+         showing information about the module as returned from
+        <c>Module:module_info()</c>.</item>
+        <tag><em>Refresh</em></tag>
+        <item>Updates the process overview.</item>
+        <tag><em>Show All Processes</em></tag>
+        <item>Show all processes, except system processes and/or new
+         processes if <em>Hide System Processes</em> and/or
+        <em>Auto-Hide New</em> is selected.</item>
+        <tag><em>Show Processes...</em></tag>
+        <item>Opens a dialog window with all hidden processes. If
+         the user selects a process and clicks OK, the process
+         overview will show that process.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Trace Menu</title>
+      <taglist>
+        <tag><em>Kill</em></tag>
+        <item>Terminates the selected process by calling
+        <c>exit(Pid,kill)</c>.</item>
+        <tag><em>Trace Selected Process</em></tag>
+        <item>Opens a Trace Window for the selected process. Tracing
+         will start immediately with the default trace flags set from
+         the Main Window.</item>
+        <tag><em>Shell Process</em></tag>
+        <item>Opens a Trace Window for the shell process of node Pman
+         was started at (not the displayed node). If the shell process
+         dies, the opened Trace Window will find the pid of
+         the automatically started new shell process, and continue to
+         trace that process.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Nodes Menu</title>
+      <p>The Nodes menu contains one entry for each known node.
+        By selecting a node from the Nodes menu, the process overview
+        window will change its view, and display the processes running
+        on that node.</p>
+    </section>
+
+    <section>
+      <title>The Help Menu</title>
+      <taglist>
+        <tag><em>Help</em></tag>
+        <item>Selecting Help from the Help menu will cause the HTML
+         version of the Pman User's Guide (this document) to be
+         displayed. Currently this function requires Netscape to be up
+         and running.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <marker id="trace_win"></marker>
+    <title>The Trace Window</title>
+    <p>A Trace Window outputs trace information for a traced process.
+      A Trace Window automatically uses the trace options set in
+      the Main Window, but it is also possible to change the options for
+      each Trace Window individually.</p>
+    <image file="trace.gif">
+      <icaption>The Trace Window.</icaption>
+    </image>
+    <p>There is no limit to how many Trace Windows can be open at the same
+      time. However, notice that if more processes are traced,
+      the performance degradation of the system will be more noticeable.</p>
+    <p>The following information is displayed, where applicable:</p>
+    <list type="bulleted">
+      <item>initial call - the function (<c>Module:Function/Arity</c>)
+       the process started executing in.</item>
+      <item>current function - the function (<c>Module:Function/Arity</c>)
+       the process is currently executing.</item>
+      <item>messages - the messages in the mailbox.</item>
+      <item>dictionary - the contents of the process dictionary.</item>
+      <item>heap size - heap size in words.</item>
+      <item>stack size - stack size in words.</item>
+      <item>reductions - number of reductions performed. Gives a rough
+       estimate of the process' work load.</item>
+      <item>links - list of pids the process is linked to.</item>
+      <item>trap_exit - <c>true</c> if the process trap exit signals,
+      <c>false</c> otherwise.</item>
+    </list>
+    <p>In the Trace Window, trace output is continuously added. First in
+      each trace message is the pid of the traced process.
+      Note that if the inheritance flags for tracing are set, the trace
+      output for the spawned/linked processes will be shown in the same
+      window as the spawning/linking process.</p>
+    <p>Each trace message also has a mnemonic tag:</p>
+    <taglist>
+      <tag><em>!</em></tag>
+      <item>This tag indicates that a message has been sent. Following
+       the <c>To:</c> tag will be a pid/name of the receiver. Next,
+       following the <c>Msg:</c> tag will be the sent message.</item>
+      <tag><em>rec</em></tag>
+      <item>This tag indicates that a message has been received.
+       Following this will be the received message.</item>
+      <tag><em>call</em></tag>
+      <item>This tag indicates a call to a function. Following this will be
+       the actual call, with all the arguments.</item>
+      <tag><em>link</em></tag>
+      <item>This tag indicates that a link between the traced process and
+       another process has been created. Following this will be the pid
+       of the other process.</item>
+      <tag><em>spawn</em></tag>
+      <item>This tag indicates that the traced process has spawned another
+       process. Following this will be the pid of the spawned process.</item>
+      <tag><em>exit</em></tag>
+      <item>This tag indicates that traced process has exited. Following
+       this will be the exit reason.</item>
+    </taglist>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Options...</em></tag>
+        <item>Opens the <seealso marker="#options_win">Options Window</seealso>
+         which allows the user to set the trace options to use for this
+         specific Trace Window.</item>
+        <tag><em>Save Buffer...</em></tag>
+        <item>Opens a dialog that prompts the user for a file name to
+         save the current Trace Window contents in.</item>
+        <tag><em>Close</em></tag>
+        <item>Stops tracing of the process, and closes the Trace Window.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The View Menu</title>
+      <taglist>
+        <tag><em>Clear Buffer</em></tag>
+        <item>Clears the contents of the Trace Window.</item>
+        <tag><em>Module Info</em></tag>
+        <item>Opens a window showing information about the module
+         the process is currently executing code from, as returned from
+        <c>Module:module_info()</c>.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Trace Menu</title>
+      <taglist>
+        <tag><em>All Linked Processes</em></tag>
+        <item>Opens a Trace Window for each of the processes linked to the
+         process being traced in the current Trace Window.</item>
+        <tag><em>Linked Process -></em></tag>
+        <item>The Linked Process submenu has one entry for each process
+         linked to the process being traced in the current Trace Window.
+         Select one of the processes to open a new Trace Window for that
+         process.</item>
+        <tag><em>Kill</em></tag>
+        <item>Terminates the process being traced in the current Trace
+         Window by calling <c>exit(Pid,kill)</c>.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Help Menu</title>
+      <taglist>
+        <tag><em>Help</em></tag>
+        <item>Selecting Help from the Help menu will cause the HTML version
+         of the Pman User's Guide (this document) to be displayed.
+         Currently this function requires Netscape to be up and running.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <marker id="options_win"></marker>
+    <title>The Options Window</title>
+    <p>The Options Window allows the user to specify the amount of output,
+      and the destination of output for traced processes.</p>
+    <image file="options.gif">
+      <icaption>The Options Window.</icaption>
+    </image>
+    <p>In the upper left corner of the Options Window, there are check
+      buttons for determining what to output in the Trace Window:</p>
+    <taglist>
+      <tag><em>Trace send</em></tag>
+      <item>Select this check button to display information about sent
+       messages.</item>
+      <tag><em>Trace receive</em></tag>
+      <item>Select this check button to display information about received
+       messages.</item>
+      <tag><em>Trace functions</em></tag>
+      <item>Select this check button to display information about
+       function calls.</item>
+      <tag><em>Trace events</em></tag>
+      <item>Select this check button to display information about process
+       events, such as spawn, link and exit.</item>
+    </taglist>
+    <p>In the upper right corner of the dialog, there are options for
+      controlling the behaviour of spawned or linked processes:</p>
+    <taglist>
+      <tag><em>Inherit on spawn</em></tag>
+      <item>
+        <p>The user may select if spawned processes shall also be traced.
+          And if so, if all spawned processes should be traced, or just
+          the first spawned process.</p>
+        <p>If a spawned process is traced, it will get the same trace
+          options that are set for the spawning process. And the output
+          will be shown in the same Trace Window as that of the spawning
+          process.</p>
+        <p>.</p>
+      </item>
+      <tag><em>Inherit on link</em></tag>
+      <item>
+        <p>The user may select if a process that is being linked to
+          shall be traced. And if so, if all linked processes shall be
+          traced, or just the first one linked to.</p>
+        <p>If a linked process is traced, it will get the same trace
+          options that are set for the linking process. And the output
+          will be shown in the same Trace Window as that of the linked
+          process.</p>
+      </item>
+    </taglist>
+    <p>In the lower part of the Options Dialog, the user may select
+      whether the trace information shall be output to a file, or appear in
+      the trace window.</p>
+    <p>Sending trace information to a file is more efficient than displaying
+      it in the Trace Window. Furthermore, if the amount of trace data is
+      large, it will not be lost if tracing to a file. The trace information
+      in the Trace Window has an upper limit (approx. 10,000 lines), after
+      which the output buffer will be cleared.</p>
+  </section>
+</chapter>
+

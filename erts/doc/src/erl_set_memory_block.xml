@@ -1,0 +1,172 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>erl_set_memory_block</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>98-08-05</date>
+    <rev>A</rev>
+    <file>erl_set_memory_block.xml</file>
+  </header>
+  <lib>erl_set_memory_block</lib>
+  <libsummary>Custom memory allocation for Erlang on VxWorks&reg;</libsummary>
+  <description>
+    <p>This documentation is specific to VxWorks.</p>
+    <p>The <c><![CDATA[erl_set_memory_block]]></c> function/command initiates custom
+      memory allocation for the Erlang emulator. It has to be called
+      before the Erlang emulator is started and makes Erlang use one
+      single large memory block for all memory allocation.</p>
+    <p>The memory within the block can be utilized by other tasks than
+      Erlang. This is accomplished by calling the functions
+      <c><![CDATA[sys_alloc]]></c>, <c><![CDATA[sys_realloc]]></c> and <c><![CDATA[sys_free]]></c> instead
+      of <c><![CDATA[malloc]]></c>, <c><![CDATA[realloc]]></c> and <c><![CDATA[free]]></c> respectively.</p>
+    <p>The purpose of this is to avoid problems inherent in the
+      VxWorks systems <c><![CDATA[malloc]]></c> library. The memory allocation within the
+      large memory block avoids fragmentation by using an "address
+      order first fit" algorithm. Another advantage of using a
+      separate memory block is that resource reclamation can be made
+      more easily when Erlang is stopped.</p>
+    <p>The <c><![CDATA[erl_set_memory_block]]></c> function is callable from any C
+      program as an ordinary 10 argument function as well as
+      from the commandline.</p>
+  </description>
+  <funcs>
+    <func>
+      <name><ret>int</ret><nametext>erl_set_memory_block(size_t size,  void *ptr, int warn_mixed_malloc, int realloc_always_moves, int use_reclaim, ...)</nametext></name>
+      <fsummary>Specify parameters for Erlang internal memory allocation.</fsummary>
+      <desc>
+        <p>The function is called before Erlang is
+          started to specify a large memory block where Erlang can
+          maintain memory internally.</p>
+        <p>Parameters:</p>
+        <taglist>
+          <tag>size_t size</tag>
+          <item>The size in bytes of Erlang's internal memory block. Has to
+           be specified. Note that the VxWorks system uses dynamic
+           memory allocation heavily, so leave some memory to the system.</item>
+          <tag>void *ptr</tag>
+          <item>
+            <p>A pointer to the actual memory block of size
+              <c><![CDATA[size]]></c>. If this is specified as 0 (NULL), Erlang will
+              allocate the memory when starting and will reclaim the
+              memory block (as a whole) when stopped.</p>
+            <p>If a memory block is allocated and provided here, the
+              <c><![CDATA[sys_alloc]]></c> etc routines can still be used after
+              the Erlang emulator is stopped. The Erlang emulator can 
+              also be restarted while other tasks using the memory
+              block are running without destroying the memory. If
+              Erlang is to be restarted, also set the
+              <c><![CDATA[use_reclaim]]></c> flag.</p>
+            <p>If 0 is specified here, the Erlang system should not
+              be stopped while some other task uses the memory block
+              (has called <c><![CDATA[sys_alloc]]></c>).</p>
+          </item>
+          <tag>int warn_mixed_malloc</tag>
+          <item>
+            <p>If this flag is set to true (anything else than 0), the
+              system will write a warning message on the console if a
+              program is mixing normal <c><![CDATA[malloc]]></c> with
+              <c><![CDATA[sys_realloc]]></c> or <c><![CDATA[sys_free]]></c>.</p>
+          </item>
+          <tag>int realloc_always_moves</tag>
+          <item>
+            <p>If this flag is set to true (anything else than 0), all
+              calls to <c><![CDATA[sys_realloc]]></c> result in a moved memory
+              block. This can in certain conditions give less
+              fragmentation. This flag may be removed in future releases.</p>
+          </item>
+          <tag>int use_reclaim</tag>
+          <item>
+            <p>If this flag is set to true (anything else than 0), all
+              memory allocated with <c><![CDATA[sys_alloc]]></c> is automatically
+              reclaimed as soon as a task exits. This is very useful
+              to make writing port programs (and other programs as
+              well) easier. Combine this with using the routines 
+              <c><![CDATA[save_open]]></c> etc. specified in the reclaim.h 
+              file delivered in the Erlang distribution.</p>
+          </item>
+        </taglist>
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>erl_memory_show(...)</nametext></name>
+      <fsummary>A utility similar to VxWorks <c><![CDATA[memShow]]></c>, but for the Erlang memory area.</fsummary>
+      <desc>
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>erl_mem_info_get(MEM_PART_STATS *stats)</nametext></name>
+      <fsummary>A utility similar to VxWorks <c><![CDATA[memPartInfoGet]]></c>, but for the Erlang memory area.</fsummary>
+      <desc>
+        <p>Parameter:</p>
+        <taglist>
+          <tag>MEM_PART_STATS *stats</tag>
+          <item>A pointer to a MEM_PART_STATS structure as defined in
+          <c><![CDATA[<memLib.h>]]></c>. A successful call will fill in all
+           fields of the structure, on error all fields are left untouched. </item>
+        </taglist>
+        <p>Return Value:</p>
+        <p>Returns 0 (OK) on success, otherwise a value &lt;&gt; 0</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>NOTES</title>
+    <p>The memory block used by Erlang actually does not need to be
+      inside the area known to ordinary <c><![CDATA[malloc]]></c>. It is possible
+      to set the <c><![CDATA[USER_RESERVED_MEM]]></c> preprocessor symbol when compiling
+      the wind kernel and then use user reserved memory for
+      Erlang. Erlang can therefor utilize memory above the 32 Mb limit
+      of VxWorks on the PowerPC architecture.</p>
+    <p>Example:</p>
+    <p>In config.h for the wind kernel:</p>
+    <code type="none"><![CDATA[
+      #undef LOCAL_MEM_AUTOSIZE
+      #undef LOCAL_MEM_SIZE
+      #undef USER_RESERVED_MEM
+ 
+      #define LOCAL_MEM_SIZE        0x05000000
+      #define USER_RESERVED_MEM     0x03000000
+    ]]></code>
+    <p>In the start-up script/code for the VxWorks node:</p>
+    <code type="none"><![CDATA[
+erl_set_memory_block(sysPhysMemTop()-sysMemTop(),sysMemTop(),0,0,1);
+    ]]></code>
+    <p>Setting the <c><![CDATA[use_reclaim]]></c> flag decreases performance of the
+      system, but makes programming much easier. Other similar
+      facilities are present in the Erlang system even without using a
+      separate memory block. The routines called <c><![CDATA[save_malloc]]></c>,
+      <c><![CDATA[save_realloc]]></c> and <c><![CDATA[save_free]]></c> provide the same
+      facilities by using VxWorks own <c><![CDATA[malloc]]></c>. Similar routines
+      exist for files, see the file <c><![CDATA[reclaim.h]]></c> in the distribution.</p>
+  </section>
+</cref>
+

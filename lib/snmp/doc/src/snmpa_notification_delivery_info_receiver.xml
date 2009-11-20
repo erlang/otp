@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2009</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>snmpa_notification_delivery_info_receiver</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_notification_delivery_info_receiver.xml</file>
+  </header>
+  <module>snmpa_notification_delivery_info_receiver</module>
+  <modulesummary>
+    Behaviour module for the SNMP agent notification delivery 
+    information receiver.
+  </modulesummary>
+  <description>
+    <p>This module defines the behaviour of the notification 
+      delivery information receiver. </p>
+    <p>A <c>snmpa_notification_delivery_info_receiver</c> compliant module 
+      must export the following functions: </p>
+    <list type="bulleted">
+      <item>
+        <p><seealso marker="#delivery_targets">delivery_targets/3</seealso></p>
+      </item>
+      <item>
+        <p><seealso marker="#delivery_info">delivery_info/4</seealso></p>
+      </item>
+    </list>
+    <p>The semantics of them and their exact signatures are explained
+      below. </p>
+
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none"><![CDATA[
+address() = A 4-tuple
+    ]]></code>
+
+     <marker id="delivery_targets"></marker>
+  </section>
+
+  <funcs>
+    <func>
+      <name>delivery_targets(Tag, Targets, Extra) -> void()</name>
+      <fsummary>Inform about target addresses</fsummary>
+      <type>
+        <v>Tag = term()</v>
+        <v>Targets = [target()]</v>
+        <v>target() = {Address, Port}</v>
+        <v>Address = address()</v>
+        <v>Port = integer()</v>
+        <v>Extra = term()</v>
+      </type>
+      <desc>
+        <p>Inform about target addresses. </p>
+        <p>This is the first function called when a notification delivery is
+          in progress. It informs the <c>receiver</c> which targets will
+          get the notification. The result of the delivery will be 
+          provided via successive calls to <c>delivery_info/4</c> function, 
+          see below.</p>
+
+        <marker id="delivery_info"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>delivery_info(Tag, Target, DeliveryResult, Extra) -> void()</name>
+      <fsummary>Inform about delivery result</fsummary>
+      <type>
+        <v>Tag = term()</v>
+        <v>Target = target()</v>
+        <v>target() = {Address, Port}</v>
+        <v>Address = address()</v>
+        <v>Port = integer()</v>
+        <v>DeliveryResult = delivery_result()</v>
+        <v>delivery_result() = no_response | got_response</v>
+        <v>Extra = term()</v>
+      </type>
+      <desc>
+        <p>Inform about delivery result.</p>
+        <p>This function is called for each target in the <c>Targets</c>
+          argument of the <c>delivery_targets/3</c> function, see above. </p>
+        <p>The purpose is to inform the <c>receiver</c> of the 
+          result of the delivery (was the notification acknowledged or 
+          not) for each target.</p>
+
+      </desc>
+    </func>
+
+  </funcs>
+
+  
+</erlref>
+

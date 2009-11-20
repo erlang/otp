@@ -1,0 +1,84 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2000</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>CosTimerEvent_&shy;TimerEventService</title>
+    <shorttitle>..._TimerEventService</shorttitle>
+    <prepared>Niclas Eklund</prepared>
+    <responsible>Niclas Eklund</responsible>
+    <docno></docno>
+    <approved>Niclas Eklund</approved>
+    <checked></checked>
+    <date>2000-02-01</date>
+    <rev>1.0</rev>
+  </header>
+  <module>CosTimerEvent_TimerEventService</module>
+  <modulesummary>This module implements the OMG CosTimerEvent::TimerEventService interface.</modulesummary>
+  <description>
+    <p>To get access to the record definitions for the structures use:      <br></br>
+<c>-include_lib("cosTime/include/*.hrl").</c></p>
+  </description>
+  <funcs>
+    <func>
+      <name>register(TimerEventService, CosEventCommPushConsumer, Data) -> TimerEventHandler</name>
+      <fsummary>Create a new <c>TimerEventHandler</c>object which push the given<c>Data</c>to given <c>CosEventCommPushConsumer</c>after the timer have been set</fsummary>
+      <type>
+        <v>TimerEventService = CosEventCommPushConsumer = TimerEventHandler = #objref</v>
+        <v>Data = #any</v>
+      </type>
+      <desc>
+        <p>This operation will create a new <c>TimerEventHandler</c> object which
+          will push given <c>Data</c> to given <c>CosEventCommPushConsumer</c> after
+          the timer have been set.</p>
+      </desc>
+    </func>
+    <func>
+      <name>unregister(TimerEventService, TimerEventHandler) -> ok</name>
+      <fsummary>Terminate the target TimerEventHandler object</fsummary>
+      <type>
+        <v>TimerEventService = TimerEventHandler = #objref</v>
+      </type>
+      <desc>
+        <p>This operation will terminate the given TimerEventHandler.</p>
+      </desc>
+    </func>
+    <func>
+      <name>event_time(TimerEventService, TimerEvent) -> UTO</name>
+      <fsummary>Return a UTO containing the time at which the associated event was triggered</fsummary>
+      <type>
+        <v>TimerEventService = #objref</v>
+        <v>TimerEvent = #'CosTimerEvent_TimerEvent'{utc, event_data}</v>
+        <v>utc = </v>
+        <v>event_data = #any}</v>
+        <v>UTO = #objref</v>
+      </type>
+      <desc>
+        <p>This operation returns a UTO containing the time at which the associated
+          event was triggered.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

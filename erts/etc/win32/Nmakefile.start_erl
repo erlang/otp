@@ -1,0 +1,33 @@
+# 
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1998-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+# 
+# Example nmakefile to build start_erl.exe from start_erl.c
+# Microsoft Visual C++ is expected to be installed
+# and the PATH, INCLUDE and LIB environment valiables set up correctly.
+# Invoke with nmake -f NMakefile.start_erl.
+
+CC=cl
+CFLAGS=-W3
+LDFLAGS=user32.lib advapi32.lib
+
+start_erl.exe: start_erl.c
+	$(CC) $(CFLAGS) $? -Festart_erl.exe $(LDFLAGS) 
+
+clean:
+	-del start_erl.obj start_erl.exe
+

@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Orber Reference Manual</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>1998-05-05</date>
+    <rev>2.0</rev>
+  </header>
+  <description>
+    <p>The <em>Orber</em> application is an Erlang implementation of a
+      CORBA Object Request Broker.</p>
+  </description>
+  <xi:include href="any.xml"/>
+  <xi:include href="fixed.xml"/>
+  <xi:include href="corba.xml"/>
+  <xi:include href="corba_object.xml"/>
+  <xi:include href="orber.xml"/>
+  <xi:include href="orber_ifr.xml"/>
+  <xi:include href="orber_tc.xml"/>
+  <xi:include href="orber_acl.xml"/>
+  <xi:include href="CosNaming.xml"/>
+  <xi:include href="CosNaming_NamingContext.xml"/>
+  <xi:include href="CosNaming_NamingContextExt.xml"/>
+  <xi:include href="CosNaming_BindingIterator.xml"/>
+  <xi:include href="lname.xml"/>
+  <xi:include href="lname_component.xml"/>
+  <xi:include href="Module_Interface.xml"/>
+  <xi:include href="interceptors.xml"/>
+  <xi:include href="orber_diagnostics.xml"/>
+</application>
+

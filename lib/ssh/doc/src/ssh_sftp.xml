@@ -1,0 +1,501 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2005</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ssh_sftp</title>
+    <prepared>Jakob Cederlund</prepared>
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2005-09-22</date>
+    <rev>PA1</rev>
+    <file>ssh_sftp.sgml</file>
+  </header>
+  <module>ssh_sftp</module>
+  <modulesummary>SFTP client.</modulesummary>
+  <description>
+    <p>This module implements an SFTP (SSH FTP) client. SFTP is a
+      secure, encrypted file transfer service available for
+      SSH.</p>
+  </description>
+  
+ <section>
+    <title>COMMON DATA TYPES </title>
+    <p>Type definitions that are used more than once in this module
+    and/or abstractions to indicate the intended use of the data type:
+    </p>
+    <p><c>ssh_connection_ref() - opaque to the user
+    returned by ssh:connect/3</c></p>
+    <p><c>timeout() =  infinity | integer() - in milliseconds.</c></p>    
+   </section>
+
+ <section>
+    <title>TIMEOUTS </title>
+    <p>If the request functions for the sftp channel return {error, timeout}
+    it does not mean that the request did not reach the server and was
+    not performed, it only means that we did not receive an answer from the
+    server within the time that was expected.</p>
+   </section>
+
+  <funcs>
+    <func>
+      <name>start_channel(ConnectionRef) -> </name>
+      <name>start_channel(ConnectionRef, Options) -> </name>
+      <name>start_channel(Host, Options) -></name>
+      <name>start_channel(Host, Port, Options) -> {ok, Pid} | {ok, Pid, ConnectionRef} |
+      {error, Reason}</name>
+      <fsummary>Starts a sftp client</fsummary>
+      <type>
+        <v>Host = string()</v>
+        <v>ConnectionRef = ssh_connection_ref()</v>
+        <v>Port = integer()</v>
+        <v>Options = [{Option, Value}]</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+	<p>If not provided, setups a ssh connection in this case a
+	connection reference will be returned too. A ssh channel
+	process is started to handle the communication with the SFTP
+	server, the returned pid for this process should be used as
+	input to all other API functions in this module.</p>
+
+	<p>Options are:</p>
+	<taglist>
+          <tag><c><![CDATA[{timeout, timeout()}]]></c></tag>
+	  <item>
+	    <p>The timeout is passed to the ssh_channel start function,
+	    and defaults to infinity.</p>
+	  </item>
+	</taglist>
+	<p>All other options are  directly passed to
+	<seealso marker="ssh">ssh:connect/3</seealso> or ignored if a
+	connection is already provided. </p>
+      </desc>
+    </func>
+
+    <func>
+      <name>stop_channel(ChannelPid) -> ok</name>
+      <fsummary>Stops the sftp client channel.</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+      </type>
+      <desc>
+	<p>Stops a sftp channel. If the ssh connection should be closed
+	call <seealso marker="ssh">ssh:close/1</seealso>.</p>
+      </desc>
+    </func>
+  
+    <func>
+      <name>read_file(ChannelPid, File) -> </name>
+      <name>read_file(ChannelPid, File, Timeout) -> {ok, Data} | {error, Reason}</name>
+      <fsummary>Read a file</fsummary>
+      <type>
+	<v>ChannelPid = pid()</v>
+	<v>File = string()</v>
+        <v>Data = binary()</v>
+	<v>Timeout = timeout()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Reads a file from the server, and returns the data in a binary,
+          like <c><![CDATA[file:read_file/1]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write_file(ChannelPid, File, Iolist) -> </name>
+      <name>write_file(ChannelPid, File, Iolist, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Write a file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>File = string()</v>
+        <v>Iolist = iolist()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Writes a file to the server, like <c><![CDATA[file:write_file/2]]></c>.
+          The file is created if it's not there.</p>
+      </desc>
+    </func>
+    <func>
+      <name>list_dir(ChannelPid, Path) -> </name>
+      <name>list_dir(ChannelPid, Path, Timeout) -> {ok, Filenames} | {error, Reason}</name>
+      <fsummary>List directory</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Path = string()</v>
+        <v>Filenames = [Filename]</v>
+        <v>Filename = string()</v>
+	<v>Timeout = timeout()</v>
+	<v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Lists the given directory on the server, returning the
+          filenames as a list of strings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>open(ChannelPid, File, Mode) -> </name>
+      <name>open(ChannelPid, File, Mode, Timeout) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a file and return a handle</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>File = string()</v>
+        <v>Mode = [Modeflag]</v>
+        <v>Modeflag = read | write | creat | trunc | append | binary</v>
+	<v>Timeout = timeout()</v>
+	<v>Handle = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Opens a file on the server, and returns a handle that
+          is used for reading or writing.</p>
+      </desc>
+    </func>
+    <func>
+      <name>opendir(ChannelPid, Path) -> </name>
+      <name>opendir(ChannelPid, Path, Timeout) -> {ok, Handle} | {error, Reason}</name>
+      <fsummary>Open a directory and return a handle</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Path = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Opens a handle to a directory on the server, the handle
+          is used for reading directory contents.</p>
+      </desc>
+    </func>
+    <func>
+      <name>close(ChannelPid, Handle) -> </name>
+      <name>close(ChannelPid, Handle, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Close an open handle</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Closes a handle to an open file or directory on the server.</p>
+      </desc>
+    </func>
+    <func>
+      <name>read(ChannelPid, Handle, Len) -> </name>
+      <name>read(ChannelPid, Handle, Len, Timeout) -> {ok, Data} | eof | {error, Error}</name>
+      <name>pread(ChannelPid, Handle, Position, Len) -> </name>
+      <name>pread(ChannelPid, Handle, Position, Len, Timeout) -> {ok, Data} | eof | {error, Error}</name>
+      <fsummary>Read from an open file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Position = integer()</v>
+        <v>Len = integer()</v>
+	<v>Timeout = timeout()</v>
+        <v>Data = string() | binary()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Reads <c><![CDATA[Len]]></c> bytes from the file referenced by
+          <c><![CDATA[Handle]]></c>. Returns <c><![CDATA[{ok, Data}]]></c>, or <c><![CDATA[eof]]></c>, or
+          <c><![CDATA[{error, Reason}]]></c>. If the file is opened with <c><![CDATA[binary]]></c>,
+          <c><![CDATA[Data]]></c> is a binary, otherwise it is a string.</p>
+        <p>If the file is read past eof, only the remaining bytes
+          will be read and returned. If no bytes are read, <c><![CDATA[eof]]></c>
+          is returned.</p>
+        <p>The <c><![CDATA[pread]]></c> function reads from a specified position,
+          combining the <c><![CDATA[position]]></c> and <c><![CDATA[read]]></c> functions.</p>
+      </desc>
+    </func>
+    <func>
+      <name>aread(ChannelPid, Handle, Len) -> {async, N} | {error, Error}</name>
+      <name>apread(ChannelPid, Handle, Position, Len) -> {async, N} | {error, Error}</name>
+      <fsummary>Read asynchronously from an open file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Position = integer()</v>
+        <v>Len = integer()</v>
+        <v>N = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Reads from an open file, without waiting for the result. If the
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where N
+          is a term guaranteed to be unique between calls of <c><![CDATA[aread]]></c>. 
+          The actual data is sent as a message to the calling process. This
+          message has the form <c><![CDATA[{async_reply, N, Result}]]></c>, where
+          <c><![CDATA[Result]]></c> is the result from the read, either <c><![CDATA[{ok, Data}]]></c>,
+          or <c><![CDATA[eof]]></c>, or <c><![CDATA[{error, Error}]]></c>.</p>
+        <p>The <c><![CDATA[apread]]></c> function reads from a specified position,
+          combining the <c><![CDATA[position]]></c> and <c><![CDATA[aread]]></c> functions.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write(ChannelPid, Handle, Data) -></name>
+      <name>write(ChannelPid, Handle, Data, Timeout) -> ok | {error, Error}</name>
+      <name>pwrite(ChannelPid, Handle, Position, Data) -> ok </name>
+      <name>pwrite(ChannelPid, Handle, Position, Data, Timeout) -> ok | {error, Error}</name>
+      <fsummary>Write to an open file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Position = integer()</v>
+        <v>Data = iolist()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Write <c><![CDATA[data]]></c> to the file referenced by <c><![CDATA[Handle]]></c>.
+          The file should be opened with <c><![CDATA[write]]></c> or <c><![CDATA[append]]></c>
+          flag. Returns <c><![CDATA[ok]]></c> if successful and <c><![CDATA[{error, Reason}]]></c>
+          otherwise.</p>
+        <p>Typical error reasons are:</p>
+        <taglist>
+          <tag><c><![CDATA[ebadf]]></c></tag>
+          <item>
+            <p>The file is not opened for writing.</p>
+          </item>
+          <tag><c><![CDATA[enospc]]></c></tag>
+          <item>
+            <p>There is a no space left on the device.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>awrite(ChannelPid, Handle, Data) -> ok | {error, Reason} </name>
+      <name>apwrite(ChannelPid, Handle, Position, Data) -> ok | {error, Reason}</name>
+      <fsummary>Write asynchronously to an open file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Position = integer()</v>
+        <v>Len = integer()</v>
+        <v>Data = binary()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Writes to an open file, without waiting for the result. If the
+          handle is valid, the function returns <c><![CDATA[{async, N}]]></c>, where N
+          is a term guaranteed to be unique between calls of
+          <c><![CDATA[awrite]]></c>. The result of the <c><![CDATA[write]]></c> operation is sent
+          as a message to the calling process. This message has the form
+          <c><![CDATA[{async_reply, N, Result}]]></c>, where <c><![CDATA[Result]]></c> is the result
+          from the write, either <c><![CDATA[ok]]></c>, or <c><![CDATA[{error, Error}]]></c>.</p>
+        <p>The <c><![CDATA[apwrite]]></c> writes on a specified position, combining
+          the <c><![CDATA[position]]></c> and <c><![CDATA[awrite]]></c> operations.</p>
+      </desc>
+    </func>
+    <func>
+      <name>position(ChannelPid, Handle, Location) -> </name>
+      <name>position(ChannelPid, Handle, Location, Timeout) -> {ok, NewPosition | {error, Error}</name>
+      <fsummary>Seek position in open file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Handle = term()</v>
+        <v>Location = Offset | {bof, Offset} | {cur, Offset} | {eof, Offset} | bof | cur | eof</v>
+        <v>Offset = int()</v>
+	<v>Timeout = timeout()</v>
+        <v>NewPosition = integer()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Sets the file position of the file referenced by <c><![CDATA[Handle]]></c>.
+          Returns <c><![CDATA[{ok, NewPosition]]></c> (as an absolute offset) if
+          successful, otherwise <c><![CDATA[{error, Reason}]]></c>. <c><![CDATA[Location]]></c> is
+          one of the following:</p>
+        <taglist>
+          <tag><c><![CDATA[Offset]]></c></tag>
+          <item>
+            <p>The same as <c><![CDATA[{bof, Offset}]]></c>.</p>
+          </item>
+          <tag><c><![CDATA[{bof, Offset}]]></c></tag>
+          <item>
+            <p>Absolute offset.</p>
+          </item>
+          <tag><c><![CDATA[{cur, Offset}]]></c></tag>
+          <item>
+            <p>Offset from the current position.</p>
+          </item>
+          <tag><c><![CDATA[{eof, Offset}]]></c></tag>
+          <item>
+            <p>Offset from the end of file.</p>
+          </item>
+          <tag><c><![CDATA[bof | cur | eof]]></c></tag>
+          <item>
+            <p>The same as above with <c><![CDATA[Offset]]></c> 0.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>read_file_info(ChannelPid, Name) -> </name>
+      <name>read_file_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, Reason}</name>
+      <fsummary>Get information about a file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+        <v>Handle = term()</v>
+	<v>Timeout = timeout()</v>
+        <v>FileInfo = record()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns a <c><![CDATA[file_info]]></c> record from the file specified by
+          <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>, like <c><![CDATA[file:read_file_info/2]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>read_link_info(ChannelPid, Name) -> {ok, FileInfo} | {error, Reason}</name>
+      <name>read_link_info(ChannelPid, Name, Timeout) -> {ok, FileInfo} | {error, Reason}</name>
+      <fsummary>Get information about a symbolic link</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+        <v>Handle = term()</v>
+	<v>Timeout = timeout()</v>
+        <v>FileInfo = record()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Returns a <c><![CDATA[file_info]]></c> record from the symbolic
+          link specified by <c><![CDATA[Name]]></c> or <c><![CDATA[Handle]]></c>, like
+          <c><![CDATA[file:read_link_info/2]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write_file_info(ChannelPid, Name, Info) -> </name>
+      <name>write_file_info(ChannelPid, Name, Info, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Write information for a file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+        <v>Info = record()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Writes file information from a <c><![CDATA[file_info]]></c> record to the
+          file specified by <c><![CDATA[Name]]></c>, like <c><![CDATA[file:write_file_info]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>read_link(ChannelPid, Name) -> </name>
+      <name>read_link(ChannelPid, Name, Timeout) -> {ok, Target} | {error, Reason}</name>
+      <fsummary>Read symbolic link</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+        <v>Target = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Read the link target from the symbolic link specified
+          by <c><![CDATA[name]]></c>, like <c><![CDATA[file:read_link/1]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>make_symlink(ChannelPid, Name, Target) -> </name>
+      <name>make_symlink(ChannelPid, Name, Target, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Create symbolic link</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+        <v>Target = string()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates a symbolic link pointing to <c><![CDATA[Target]]></c> with the
+          name <c><![CDATA[Name]]></c>, like <c><![CDATA[file:make_symlink/2]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>rename(ChannelPid, OldName, NewName) ->  </name>
+      <name>rename(ChannelPid, OldName, NewName, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Rename a file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>OldName = string()</v>
+        <v>NewName = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Renames a file named <c><![CDATA[OldName]]></c>, and gives it the name
+          <c><![CDATA[NewName]]></c>, like <c><![CDATA[file:rename/2]]></c></p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(ChannelPid, Name) -> </name>
+      <name>delete(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Delete a file</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Deletes the file specified by <c><![CDATA[Name]]></c>, like
+          <c><![CDATA[file:delete/1]]></c></p>
+      </desc>
+    </func>
+    <func>
+      <name>make_dir(ChannelPid, Name) -> </name>
+      <name>make_dir(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Create a directory</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates a directory specified by <c><![CDATA[Name]]></c>. <c><![CDATA[Name]]></c> should
+          be a full path to a new directory. The directory can only be
+          created in an existing directory.</p>
+      </desc>
+    </func>
+    <func>
+      <name>del_dir(ChannelPid, Name) -> </name>
+      <name>del_dir(ChannelPid, Name, Timeout) -> ok | {error, Reason}</name>
+      <fsummary>Delete an empty directory</fsummary>
+      <type>
+        <v>ChannelPid = pid()</v>
+        <v>Name = string()</v>
+	<v>Timeout = timeout()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Deletes a directory specified by <c><![CDATA[Name]]></c>. The directory
+          should be empty.</p>
+      </desc>
+    </func>
+  
+  </funcs>
+   
+</erlref>
+

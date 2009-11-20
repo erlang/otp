@@ -1,0 +1,1981 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Asn1</title>
+    <prepared>ETX/DN/SP Kenneth. Lundin</prepared>
+    <docno></docno>
+    <date>1999-03-25</date>
+    <rev>D</rev>
+    <file>asn1_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+
+    <section>
+      <title>Features</title>
+      <p>The Asn1 application provides:
+        </p>
+      <list type="bulleted">
+        <item>An ASN.1 compiler for Erlang, which generates encode and
+         decode functions to be used by Erlang programs sending and
+         receiving ASN.1 specified data.</item>
+        <item>Run-time functions used by the generated code.</item>
+        <item>Encoding rules supported are <em>BER</em>, the
+        specialized BER version <em>DER</em> and the basic form of
+        aligned and unaligned variants of <em>PER</em>.</item>
+      </list>
+    </section>
+
+    <section>
+      <title>Overview</title>
+      <p>ASN.1 (Abstract Syntax Notation 1) defines the abstract
+        syntax of information. The purpose of ASN.1 is to have
+        a platform independent language to express types   using a
+        standardized set of rules  for the transformation of values of
+        a defined type, into a stream of bytes. This stream of bytes
+        can then be sent on a communication channel set  up by the
+        lower layers in the stack of communication protocols e.g.
+        TCP/IP or encapsulated within UDP packets. This way, two
+        different applications written in two completely different
+        programming languages running on different computers with
+        different internal representation of data can exchange
+        instances of structured data types  (instead of exchanging
+        bytes or bits). This makes programming faster and easier since no code
+        has to be written to process  the transport format of the
+        data. 
+        </p>
+      <p>To write a network application which processes ASN.1 encoded
+        messages, it is prudent and sometimes essential to have a set
+        of off-line development tools such as an ASN.1 compiler which
+        can generate the encode and decode logic for the specific ASN.1
+        data types. It is also necessary to combine this with some
+        general language-specific runtime support for ASN.1 encoding and
+        decoding. 
+        </p>
+      <p>The ASN.1 compiler must be directed towards a target language
+        or a set  of closely related languages. This manual describes a
+        compiler which is directed towards the functional language
+        Erlang. In order to use this  compiler, familiarity with the
+        language Erlang is essential. Therefore, the runtime support for ASN.1 is
+        also closely related to the language Erlang and
+        consist of a number of functions, which the
+        compiler uses. The types in ASN.1 and how to represent
+        values of those types in Erlang are described in this manual.
+        </p>
+      <p>The following document is structured so that the first part describes 
+        how to use ASN.1 compiler, and then there are descriptions of all
+        the primitive and constructed ASN.1 types and their representation
+        in Erlang,
+        </p>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>It is assumed that the reader is familiar with the ASN.1 notation
+        as documented in the standard definition [<cite id="X.680"></cite>] which is
+        the primary text. It may also be helpful, but not necessary,
+        to read the standard definitions 
+        [<cite id="X.681"></cite>] [<cite id="X.682"></cite>]  [<cite id="X.683"></cite>]
+        [<cite id="X.690"></cite>] [<cite id="X.691"></cite>]. </p>
+      <p>A very good book explaining those reference texts is 
+        [<cite id="DUBUISSON"></cite>], free to download at 
+        <url href="http://www.oss.com/asn1/dubuisson.html">http://www.oss.com/asn1/dubuisson.html </url>.
+        </p>
+      <p>Knowledge of Erlang programming is also essential and reading the book 
+        <em>Concurrent Programming in ERLANG</em>,
+        [<cite id="erlbook2"></cite>], is recommended. Part 1 of this is available on the web in 
+        <url href="http://www.erlang.org/download/erlang-book-part1.pdf">PDF</url> format.
+        </p>
+    </section>
+
+    <section>
+      <title>Capability</title>
+      <p>This application covers all features of ASN.1 up to the 1997
+      edition of the specification. In the 2002 edition some new
+      extensions came up of which there are support only for some of
+      them. ECN (Cncoding Control Notation) and XML notation are still
+      unsupported. Though, the other features of 2002 edition are
+      fully or partly supported as shown below:</p>
+      <list type="bulleted">
+	<item>
+	  <p>Decimal notation (e.g., "1.5e3") for REAL values. The
+	  NR1, NR2 and NR3 formats as explained in ISO6093 are
+	  supported.</p>
+	</item>
+	<item>
+	  <p>The RELATIVE-OID type for relative object identifiers are
+	  fully supported.</p>
+	</item>
+	<item>
+	  <p>The subtype constraint (CONTAINING/ENCODED BY) to
+	  constrain the content of an octet string or a bit string is
+	  parsed when compiling, but no further action is taken. This
+	  constraint is not a PER-visible constraint.</p>
+	</item>
+	<item>
+	  <p>The subtype constraint by regular expressions (PATTERN) for character string types is parsed when compiling, but no further action is taken. This constraint is not a PER-visible constraint.</p>
+	</item>
+	<item>
+	  <p>Multiple-line comments as in C, <c>/* ... */</c>, are
+	  supported.</p>
+	</item>
+      </list>
+      <p>It should also be added here that the encoding formats
+      supported are <em>BER</em>, <em>DER</em>, <em>PER aligned
+      basic</em> variant and <em>PER unaligned basic</em> variant.</p>
+    </section>
+
+  </section>
+
+  <section>
+    <title>Getting Started with Asn1</title>
+
+    <section>
+      <title>A First Example</title>
+      <p>The following example demonstrates the basic functionality used to run 
+        the Erlang ASN.1 compiler.</p>
+      <p>First, create a file called <c>People.asn</c> containing the following:</p>
+      <pre>
+People DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+EXPORTS Person;
+
+Person ::= [PRIVATE 19] SEQUENCE {
+        name PrintableString,
+        location INTEGER {home(0),field(1),roving(2)},
+        age INTEGER OPTIONAL }
+END      </pre>
+      <p>This file (<c>people.asn</c>) must be compiled before it can  be 
+        used. 
+        The ASN.1 compiler checks that the syntax is correct and that the 
+        text represents proper ASN.1 code before generating an abstract
+        syntax tree. The code-generator then uses the abstract syntax 
+        tree in order to generate code.
+        </p>
+      <p>The generated Erlang  files will be placed in the current directory or
+        in the directory specified with the <c>{outdir,Dir}</c> option.
+        The following shows how the compiler
+        can be called from the  Erlang shell:</p>
+      <pre>
+1><input>asn1ct:compile("People",[ber_bin]).</input>
+Erlang ASN.1 compiling "People.asn" 
+--{generated,"People.asn1db"}--
+--{generated,"People.hrl"}--
+--{generated,"People.erl"}--
+ok
+2>      </pre>
+      <p>The ASN.1 module People is now accepted and the abstract syntax tree
+        is saved in the <c>People.asn1db</c> file, the
+        generated Erlang code is compiled using the Erlang compiler and
+        loaded into  the Erlang runtime system. Now there is a user interface
+        of encode/2 and decode/2 in the module People, which is invoked by:
+                <br></br>
+<c><![CDATA['People':encode(<Type name>,<Value>),]]></c>        <br></br>
+
+        or        <br></br>
+<c><![CDATA['People':decode(<Type name>,<Value>),]]></c>        <br></br>
+
+        Alternatively one can use the <c><![CDATA[asn1rt:encode(<Module name> ,<Type name>,<Value>)]]></c> and <c><![CDATA[asn1rt:decode(< Module name>,<Type name>,<Value>)]]></c> calls.
+        However, they are not as efficient as the previous methods since they
+        result in an additional <c>apply/3</c> call.</p>
+      <p>Assume there is a network
+        application which receives instances of the  ASN.1 defined
+        type Person,  modifies and sends them back again:</p>
+      <code type="none">
+receive
+   {Port,{data,Bytes}} ->
+       case 'People':decode('Person',Bytes) of
+           {ok,P} ->
+               {ok,Answer} = 'People':encode('Person',mk_answer(P)),
+               Port ! {self(),{command,Answer}};
+           {error,Reason} ->
+               exit({error,Reason})
+       end
+    end,      </code>
+      <p>In the example above, a  series of bytes is received from an
+        external source and the bytes are then decoded into a valid
+        Erlang term. This was achieved with the call
+        <c>'People':decode('Person',Bytes)</c> which   returned
+        an Erlang value of the ASN.1 type <c>Person</c>.  Then an answer was
+        constructed  and encoded using
+        <c>'People':encode('Person',Answer)</c> which takes an
+        instance of a defined ASN.1 type and transforms it to a
+        (possibly) nested list of bytes  according to the BER or PER
+        encoding-rules. 
+                <br></br>
+The encoder and the decoder can also be run from
+        the shell. The following  dialogue with the shell illustrates
+        how the functions   
+        <c>asn1rt:encode/3</c> and <c>asn1rt:decode/3</c> are used.</p>
+      <pre>
+2> <input>Rockstar = {'Person',"Some Name",roving,50}.</input>
+{'Person',"Some Name",roving,50}
+3> <input>{ok,Bytes} = asn1rt:encode('People','Person',Rockstar).</input>
+{ok,[&lt;&lt;243&gt;&gt;,
+     [17],
+     [19,9,"Some Name"],
+     [2,1,[2]],
+     [2,1,"2"]]}
+4> <input>Bin = list_to_binary(Bytes).</input>
+&lt;&lt;243,17,19,9,83,111,109,101,32,78,97,109,101,2,1,2,2,1,50&gt;&gt;
+5> <input>{ok,Person} = asn1rt:decode('People','Person',Bin).</input>
+{ok,{'Person',"Some Name",roving,50}}
+6>      </pre>
+      <p>Notice that the result from <c>encode</c> is a nested list which
+        must be turned into a binary before the call to <c>decode</c>. A
+        binary is necessary as input to decode since the module was compiled
+        with the <c>ber_bin</c> option
+        The reason for returning a nested list is that it is faster to produce 
+        and  the <c>list_to_binary</c> operation is
+        performed automatically when the list is sent via the Erlang port mechanism.</p>
+    </section>
+
+    <section>
+      <title>Module dependencies</title>
+      <p>It is common that asn1 modules import defined types, values and
+        other entities from another asn1 module.</p>
+      <p>Earlier versions of the asn1 compiler required that modules that
+        were imported from had to be compiled before the module that
+        imported. This caused problems when asn1 modules had circular
+        dependencies.</p>
+      <p>Now are referenced modules parsed when the compiler finds an
+        entity that is imported. There will not be any code generated for
+        the referenced module. However, the compiled module rely on
+        that the referenced modules also will be compiled.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>The Asn1 Application User Interface</title>
+    <p>The Asn1 application provides two separate user interfaces:</p>
+    <list type="bulleted">
+      <item>
+        <p>The module <c>asn1ct</c> which provides the compile-time functions 
+          (including the compiler).</p>
+      </item>
+      <item>
+        <p>The module <c>asn1rt</c> which provides the run-time functions. 
+          However, it is preferable to use the generated <c>encode/2</c> and 
+          <c>decode/2</c> functions in each module, ie. 
+          Module:encode(Type,Value), in favor of the <c>asn1rt</c> 
+          interface.</p>
+      </item>
+    </list>
+    <p>The reason for the division  of the interface into  compile-time 
+      and  run-time 
+      is that only run-time modules (<c>asn1rt*</c>) need to be loaded in
+      an embedded system. 
+      </p>
+
+    <section>
+      <title>Compile-time Functions</title>
+      <p>The ASN.1 compiler can be invoked directly from the command-line
+        by means of the <c>erlc</c> program. This is convenient when compiling
+        many ASN.1 files from the command-line or when using Makefiles.
+        Here are some examples of how the <c>erlc</c> command can be used to invoke the
+        ASN.1 compiler:</p>
+      <pre>
+erlc Person.asn
+erlc -bper_bin Person.asn
+erlc -bber_bin +optimize ../Example.asn
+erlc -o ../asnfiles -I ../asnfiles -I /usr/local/standards/asn1 Person.asn      </pre>
+      <p>The useful options for the ASN.1 compiler are:</p>
+      <taglist>
+        <tag><c>-b[ber | per | ber_bin | per_bin | uper_bin]</c></tag>
+        <item>
+          <p>Choice of encoding rules, if omitted <c>ber</c> is the
+          default. The <c>ber_bin</c> and <c>per_bin</c> options
+          allows for optimizations and are therefore recommended
+          instaed of the <c>ber</c> and <c>per</c> options.</p>
+        </item>
+        <tag><c>-o OutDirectory</c></tag>
+        <item>
+          <p>Where to put the generated files, default is the current
+            directory.</p>
+        </item>
+        <tag><c>-I IncludeDir</c></tag>
+        <item>
+          <p>Where to search for <c>.asn1db</c> files and asn1
+            source specs in order to resolve references to other
+            modules. This option can be repeated many times if there
+            are several places to search in.  The compiler will always
+            search the current directory first.</p>
+        </item>
+        <tag><c>+compact_bit_string</c></tag>
+        <item>
+          <p>Gives the user the option to use a compact format of the BIT
+            STRING type to save memory space, typing space and
+            increase encode/decode performance, for details see 
+            <seealso marker="#BIT STRING">BIT STRING </seealso>type section.</p>
+        </item>
+        <tag><c>+der</c></tag>
+        <item>
+          <p>DER encoding rule. Only when using <c>-ber</c> or 
+            <c>-ber_bin</c> option.</p>
+        </item>
+        <tag><c>+optimize</c></tag>
+        <item>
+          <p>This flag has effect only when used together with one of
+            <c>per_bin</c> or <c>ber_bin</c> flags. It gives time optimized
+            code in the generated modules and it uses another runtime module.
+            In the <c>per_bin</c> case a linked-in driver is used. The
+            result from an encode is a binary.</p>
+          <p><em>When this flag is used you cannot use the old format</em><c>{TypeName,Value}</c> when you encode values. Since it is
+            an unnecessary construct it has been removed in favor of
+            performance. It
+            is neither admitted to construct SEQUENCE or SET component values
+            with the format <c>{ComponentName,Value}</c> since it also is
+            unnecessary. The only case were it is necessary is in a CHOICE,
+            were you have to pass values to the right component by specifying
+            <c>{ComponentName,Value}</c>. See also about
+            <seealso marker="#TypeNameValue">{Typename,Value}</seealso> below 
+            and in the sections for each type.</p>
+        </item>
+        <tag><c>+driver</c></tag>
+        <item>
+          <p>Together with the flags <c>ber_bin</c> and <c>optimize</c>
+            you choose to use a linked in driver for considerable faster
+            decode.</p>
+        </item>
+        <tag><c>+asn1config</c></tag>
+        <item>
+          <p>This functionality works together with the flags
+            <c>ber_bin</c> and <c>optimize</c>. You enables the
+            specialized decodes, see the <seealso marker="asn1_spec">Specialized Decode</seealso> chapter.
+            </p>
+        </item>
+        <tag><c>+undec_rest</c></tag>
+        <item>
+          <p>A buffer that holds a message, being decoded may
+            also have some following bytes. Now it is possible to get
+            those following bytes returned together with the decoded
+            value. If an asn1 spec is compiled with this option a tuple
+            <c>{ok,Value,Rest}</c> is returned. <c>Rest</c> may be a
+            list or a binary. Earlier versions of the compiler ignored
+            those following bytes.</p>
+        </item>
+        <tag><c>{inline,OutputName}</c></tag>
+        <item>
+          <p>Compiling with this option gives one output module
+            containing all asn1 run-time functionality. The asn1 specs
+            are provided in a target module <c>Module.set.asn</c> as
+            described in the <seealso marker="asn1ct#asn1set">reference manual</seealso>. The name of the resulting module
+            containing generated encode/decode functions and inlined
+            run-time functions will be <c>OutputName.erl</c>. The
+            merging/inlining of code is done by the <c>igor</c> module
+            of <c>syntax_tools</c>. By default the functions generated
+            from the first asn1 spec in the <c>.set.asn</c> are
+            exported, unless a <c>{export,[atom()]}</c> or
+            <c>{export_all,true}</c> option are provided. The list of
+            atoms are names of choosen asn1 specs from the
+            <c>.set.asn</c> file. See further examples of usage <seealso marker="#inlineExamples">below</seealso></p>
+        </item>
+        <tag><c>+'Any Erlc Option'</c></tag>
+        <item>
+          <p>You may add any option to the Erlang compiler when
+            compiling the generated Erlang files. Any option
+            unrecognised by the asn1 compiler will be passed to the
+            Erlang compiler.</p>
+        </item>
+      </taglist>
+      <p>For a complete description of <c>erlc</c> see Erts Reference Manual.</p>
+      <p>For preferred option use see <seealso marker="#preferred option use">Preferred Option Use</seealso> section.</p>
+      <p>The compiler and other compile-time functions can also be invoked from 
+        the Erlang shell. Below follows a brief
+        description of the primary functions, for a
+        complete description of each function see 
+        <seealso marker="asn1ct">the Asn1 Reference Manual</seealso>, the
+        <c>asn1ct</c> module.</p>
+      <p>The compiler is invoked by using <c>asn1ct:compile/1</c> with
+        default options, or <c>asn1ct:compile/2</c> if explicit options
+        are given.
+        Example:</p>
+      <pre>
+asn1ct:compile("H323-MESSAGES.asn1").      </pre>
+      <p>which equals:</p>
+      <pre>
+asn1ct:compile("H323-MESSAGES.asn1",[ber]).      </pre>
+      <p>If one wants PER encoding with optimizations:</p>
+      <pre>
+asn1ct:compile("H323-MESSAGES.asn1",[per_bin,optimize]).      </pre>
+      <p>The generic encode and decode functions can be invoked like this:</p>
+      <pre>
+asn1ct:encode('H323-MESSAGES','SomeChoiceType',{call,"octetstring"}).
+asn1ct:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
+      <p>Or, preferable like:</p>
+      <pre>
+'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
+'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
+    </section>
+
+    <section>
+      <marker id="preferred option use"></marker>
+      <title>Preferred Option Use</title>
+      <p>
+	It may not be obvious which compile options best fit a
+	situation. This section describes the format of the result of
+	encode and decode. It also gives some performance statistics
+	when using certain options. Finally there is a recommendation
+	which option combinations should be used.
+      </p>
+      <p>
+	The default option is <c>ber</c>. It is the same backend as
+	<c>ber_bin</c> except that the result of encode is transformed
+	to a flat list. Below is a table that gives the different
+	formats of input and output of encode and decode using the
+	<em>allowed combinations</em> of coding and optimization
+	options: (EAVF stands for how ASN1 values are represented in
+	Erlang which is described in the <seealso
+	marker="#ASN1Types">ASN1 Types chapter</seealso>)
+      </p>
+      <table>
+      <row>
+        <cell align="left" valign="middle"><em>Encoding Rule</em></cell>
+        <cell align="left" valign="middle"><em>Compile options, allowed combinations</em></cell>
+        <cell align="left" valign="middle"><em>encode input</em></cell>
+        <cell align="left" valign="middle"><em>encode output</em></cell>
+        <cell align="left" valign="middle"><em>decode input</em></cell>
+        <cell align="left" valign="middle"><em>decode output</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">BER</cell>
+        <cell align="left" valign="middle">[ber] (default)</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">flat list</cell>
+        <cell align="left" valign="middle">flat list / binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">BER</cell>
+        <cell align="left" valign="middle">[ber_bin]</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">BER</cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">BER</cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">iolist / binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PER aligned variant</cell>
+        <cell align="left" valign="middle">[per]</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">flat list</cell>
+        <cell align="left" valign="middle">flat list</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PER aligned variant</cell>
+        <cell align="left" valign="middle"><em>[per_bin]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist / binary</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PER aligned variant</cell>
+        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">PER unaligned variant</cell>
+        <cell align="left" valign="middle"><em>[uper_bin]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">DER</cell>
+        <cell align="left" valign="middle">[(ber), der]</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">flat list</cell>
+        <cell align="left" valign="middle">flat list / binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">DER</cell>
+        <cell align="left" valign="middle">[ber_bin, der]</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">DER</cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, der]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">DER</cell>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver, der]</em></cell>
+        <cell align="left" valign="middle">EAVF</cell>
+        <cell align="left" valign="middle">iolist</cell>
+        <cell align="left" valign="middle">binary</cell>
+        <cell align="left" valign="middle">EAVF</cell>
+      </row>
+
+
+      <tcaption>The output / input formats for different combinations of compile options.</tcaption>
+    </table>
+    <p>
+      Encode / decode speed comparison in one user case for the above
+      alternatives (except <c>DER</c>) is showed in the table below. The
+      <c>DER</c> alternatives are slower than their corresponding
+      <c>BER</c> alternative.
+    </p>
+
+    <table>
+      <row>
+	<cell align="left" valign="middle"><em>compile options</em></cell>
+	<cell align="left" valign="middle"><em>encode time</em></cell>
+	<cell align="left" valign="middle"><em>decode time</em></cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">[ber]</cell>
+	<cell align="left" valign="middle">120</cell>
+	<cell align="left" valign="middle">162</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">[ber_bin]</cell>
+	<cell align="left" valign="middle">124</cell>
+	<cell align="left" valign="middle">154</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
+	<cell align="left" valign="middle">50</cell>
+	<cell align="left" valign="middle">78</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
+	<cell align="left" valign="middle">50</cell>
+	<cell align="left" valign="middle">62</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">[per]</cell>
+	<cell align="left" valign="middle">141</cell>
+	<cell align="left" valign="middle">133</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle"><em>[per_bin]</em></cell>
+	<cell align="left" valign="middle">125</cell>
+	<cell align="left" valign="middle">123</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
+	<cell align="left" valign="middle">77</cell>
+	<cell align="left" valign="middle">72</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle"><em>[uper_bin]</em></cell>
+	<cell align="left" valign="middle">97</cell>
+	<cell align="left" valign="middle">104</cell>
+      </row>
+      <tcaption>
+	One example of difference in speed for the compile option alternatives.
+      </tcaption>
+    </table>
+
+    <p>
+      The sole compile options <c>ber</c>, <c>ber_bin</c> and <c>per</c>
+      are kept for backwards compatibility and should not be used in
+      new code.
+    </p>
+    <p>
+      You are strongly recommended to use the appropriate alternative
+      of the bold typed options. The <c>optimize</c> and
+      <c>driver</c> options does not affect the encode or decode
+      result, just the time spent in run-time. When <c>ber_bin</c> and
+      <c>driver</c> or <c>per_bin, optimize</c> and <c>driver</c> is
+      combined the C-code driver is used in choosen parts of encode /
+      decode procedure.
+    </p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Compile options, allowed combinations</em></cell>
+        <cell align="left" valign="middle"><em>use of linked-in driver</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">[ber]</cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">[ber_bin]</cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize]</em></cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver]</em></cell>
+        <cell align="left" valign="middle">yes</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">[per]</cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[per_bin]</em></cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[per_bin, optimize]</em></cell>
+        <cell align="left" valign="middle">yes</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[uper_bin]</em></cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+
+      <row>
+        <cell align="left" valign="middle">[(ber), der]</cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">[ber_bin, der]</cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, der]</em></cell>
+        <cell align="left" valign="middle">no</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><em>[ber_bin, optimize, driver, der]</em></cell>
+        <cell align="left" valign="middle">yes</cell>
+      </row>
+
+
+      <tcaption>When the ASN1 linked-in driver is used.</tcaption>
+    </table>
+
+    </section>
+    <section>
+      <title>Run-time Functions</title>
+      <p>A brief description of the major functions is given here. For a
+        complete description of each function see
+        <seealso marker="asn1rt"> the Asn1 Reference Manual</seealso>, the <c>asn1rt</c> module.</p>
+      <p>The generic run-time encode and decode functions can be invoked as below:</p>
+      <pre>
+asn1rt:encode('H323-MESSAGES','SomeChoiceType',{call,"octetstring"}).
+asn1rt:decode('H323-MESSAGES','SomeChoiceType',Bytes).      </pre>
+      <p>Or, preferable like:</p>
+      <pre>
+'H323-MESSAGES':encode('SomeChoiceType',{call,"octetstring"}).
+'H323-MESSAGES':decode('SomeChoiceType',Bytes).      </pre>
+      <p>The asn1 linked-in driver is enabled in two occasions: encoding of
+        asn1 values when the asn1 spec is compiled with <c>per_bin</c> and
+        <c>optimize</c> or decode of encoded asn1 values when the asn1 spec is
+        compiled with <c>ber_bin</c>, <c>optimize</c> and <c>driver</c>. In
+        those cases the driver will be loaded automatically at the first call
+        to <c>encode</c>/<c>decode</c>. If one doesn't want the performance
+        overhead of the driver being loaded at the first call it is possible
+        to load the driver separately by <c>asn1rt:load_driver()</c>.  </p>
+      <p>By invoking the function <c>info/0</c> in a generated module, one
+        gets information about which compiler options were used.</p>
+    </section>
+
+    <section>
+      <title>Errors</title>
+      <p>Errors detected at
+        compile time appear on the screen together with
+        a line number indicating where in the source file the error 
+        was detected. If no errors are found, an Erlang ASN.1 module will
+        be created as default.</p>
+      <p>The run-time encoders and decoders (in the <c>asn1rt</c> module) do
+        execute within a catch and returns <c>{ok, Data}</c> or
+        <c>{error, {asn1, Description}}</c> where
+        <c>Description</c> is
+        an Erlang term describing the error. </p>
+    </section>
+  </section>
+
+  <section>
+    <marker id="inlineExamples"></marker>
+    <title>Multi File Compilation</title>
+    <p>There are various reasons for using a multi file compilation:</p>
+    <list type="bulleted">
+      <item>You want to choose name for the generated module by
+       any reason. Maybe you need to compile the same specs for
+       different encoding/decoding standards.</item>
+      <item>You want only one resulting module.</item>
+      <item>If it is crucial to have a minimal system. Using
+      <c>{inline,OutputModule}</c> includes all necessary run-time
+       functions of the asn1 application, but skips those modules not
+       used.</item>
+      <item>Upgrading issues: Even if you upgrade your Erlang system
+       you may want to continue running the old asn1 run-time
+       functionality.</item>
+      <item>Performance issues: If you have an asn1 system with a lot
+       of cross references you may gain in performance. Meassurements
+       must be done for each case.</item>
+    </list>
+    <p>You may choose either the plain multi file compilation that just
+      merges the choosen asn1 specs or the <c>{inline,OutputModule}</c>
+      that also includes the used asn1 run-time functionality.</p>
+    <p>For both cases you need to specify which asn1 specs you will
+      compile in a module that must have the extension
+      <c>.set.asn</c>. You chose name of the module and provide the
+      names of the asn1 specs. For instance, if you have the specs
+      <c>File1.asn</c>, <c>File2.asn</c> and <c>File3.asn</c> your
+      module <c>MyModule.set.asn</c> will look like:</p>
+    <pre>
+File1.asn
+File2.asn
+File3.asn    </pre>
+    <p>If you compile with:</p>
+    <code type="none">
+~> erlc MyModule.set.asn    </code>
+    <p>the result will be one merged module <c>MyModule.erl</c> with
+      the generated code from the three asn1 specs. But if you compile
+      with:</p>
+    <code type="none">
+~> erlc +"{inline,'OutputModule'}" MyModule.set.asn    </code>
+    <p>the result will be a module <c>OutputModule.erl</c> that
+      contains all encode/decode functions for the three asn1 specs and
+      all used functions from the asn1 run-time modules, in this case
+      <c>asn1rt_ber_bin</c>. In the former case all encode/decode
+      functions are exported but in the latter only the encode/decode
+      functions of the first spec in the <c>.set.asn</c>, i.e. those
+      from <c>File1.asn</c>.
+      </p>
+  </section>
+
+  <section>
+    <marker id="ASN1Types"></marker>
+    <title>The ASN.1 Types</title>
+    <p>This section describes the ASN.1 types including their
+      functionality, purpose and how values are assigned in Erlang.
+      </p>
+    <p>ASN.1 has both primitive and constructed types:</p>
+    <p></p>
+    <table>
+      <row>
+        <cell align="left" valign="middle"><em>Primitive types</em></cell>
+        <cell align="left" valign="middle"><em>Constructed types</em></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#BOOLEAN">BOOLEAN</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#SEQUENCE">SEQUENCE</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#INTEGER">INTEGER</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#SET">SET</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#REAL">REAL</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#CHOICE">CHOICE</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#NULL">NULL</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#SOF">SET OF and SEQUENCE OF</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#ENUMERATED">ENUMERATED</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#ANY">ANY</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#BIT STRING">BIT STRING</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#ANY">ANY DEFINED BY</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#OCTET STRING">OCTET STRING</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">EXTERNAL</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#Character Strings">Character Strings</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">EMBEDDED PDV</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#OBJECT IDENTIFIER">OBJECT IDENTIFIER</seealso></cell>
+        <cell align="left" valign="middle"><seealso marker="#NegotiationTypes">CHARACTER STRING</seealso></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#Object Descriptor">Object Descriptor</seealso></cell>
+        <cell align="left" valign="middle"></cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle"><seealso marker="#The TIME types">The TIME types</seealso></cell>
+        <cell align="left" valign="middle"></cell>
+      </row>
+      <tcaption>The supported ASN.1 types</tcaption>
+    </table>
+    <marker id="TypeNameValue"></marker>
+    <note>
+      <p>Values of each ASN.1 type has its own representation in Erlang
+        described in the following subsections. Users shall provide
+        these values for encoding according to the representation, as
+        in the example below.</p>
+    </note>
+    <pre>
+Operational ::= BOOLEAN --ASN.1 definition    </pre>
+    <p>In Erlang code it may look like:</p>
+    <pre>
+Val = true,
+{ok,Bytes}=asn1rt:encode(MyModule,'Operational',Val),    </pre>
+    <p>For historical reasons it is also possible to assign ASN.1 values 
+      in Erlang using a tuple notation
+      with type and value as this</p>
+    <pre>
+Val = {'Operational',true}    </pre>
+    <warning>
+      <marker id="warning"></marker>
+      <p>The tuple notation, <c>{Typename, Value}</c> is only kept
+        because of backward compatibility and may be withdrawn in a
+        future release. If the notation is used the <c>Typename</c>
+        element must be spelled correctly, otherwise a run-time error
+        will occur. 
+        </p>
+      <p>If the ASN.1 module is compiled with the flags
+        <c>per_bin</c> or <c>ber_bin</c> and <c>optimize</c> it is not
+        allowed to use the tuple notation. That possibility has been
+        removed due to performance reasons. Neither is it allowed to
+        use the <c>{ComponentName,Value}</c> notation in case of a
+        SEQUENCE or SET type.</p>
+    </warning>
+    <p>Below follows a description of how
+      values of each type can be represented in Erlang. 
+      </p>
+
+    <section>
+      <marker id="BOOLEAN"></marker>
+      <title>BOOLEAN</title>
+      <p>Booleans in ASN.1  express values that can be either 
+        TRUE or FALSE.
+        The meanings assigned to TRUE or FALSE is beyond the scope 
+        of this text.          <br></br>
+
+        In ASN.1 it is possible to have:</p>
+      <pre>
+Operational ::= BOOLEAN
+      </pre>
+      <p>Assigning a value to the type Operational in Erlang is possible by 
+        using the following Erlang code:</p>
+      <code type="erl">
+Myvar1 = true,
+      </code>
+      <p>Thus, in Erlang the atoms <c>true</c> and <c>false</c> are used
+        to encode a boolean value.</p>
+    </section>
+
+    <section>
+      <marker id="INTEGER"></marker>
+      <title>INTEGER</title>
+      <p>ASN.1 itself specifies indefinitely large integers, and the Erlang 
+        systems with versions 4.3 and higher, support very large 
+        integers, in practice indefinitely large integers.</p>
+      <p>The concept of sub-typing can be applied to integers as well
+        as to  other ASN.1 types. The details of sub-typing are not
+        explained here, for further info see  [<cite id="X.680"></cite>]. A variety 
+        of syntaxes are allowed when defining a  type as an integer:</p>
+      <pre>
+T1 ::= INTEGER
+T2 ::= INTEGER (-2..7)
+T3 ::= INTEGER (0..MAX)
+T4 ::= INTEGER (0&lt;..MAX)
+T5 ::= INTEGER (MIN&lt;..-99)
+T6 ::= INTEGER {red(0),blue(1),white(2)}
+      </pre>
+      <p>The Erlang representation of an ASN.1 INTEGER is an integer or
+        an atom if a so called \011<c>Named NumberList</c> (see T6 above)
+        is specified.</p>
+      <p>Below is an example of Erlang code which assigns values for the
+        above types: </p>
+      <pre>
+T1value = 0,
+T2value = 6,
+T6value1 = blue,
+T6value2 = 0,
+T6value3 = white
+      </pre>
+      <p>The Erlang variables above are now bound to valid instances of
+        ASN.1 defined types. This style of value can be passed directly 
+        to the encoder for transformation into a series of bytes.</p>
+      <p>The decoder will return an atom if the value corresponds to a
+        symbol in the Named NumberList.</p>
+    </section>
+
+    <section>
+      <marker id="REAL"></marker>
+      <title>REAL</title>
+      <p>In this version reals are not implemented. When they are, 
+        the following
+        ASN.1 type is used:</p>
+      <pre>
+R1 ::= REAL
+      </pre>
+      <p>Can be assigned a value in Erlang as:</p>
+      <pre>
+R1value1 = 2.14,
+R1value2 = {256,10,-2},
+      </pre>
+      <p>In the last line note that the tuple {256,10,-2} is the real number
+        2.56 in a special notation, which will encode faster than simply 
+        stating the number as 2.56. The arity three tuple is 
+        <c>{Mantissa,Base,Exponent}</c> i.e. Mantissa * Base^Exponent.</p>
+    </section>
+
+    <section>
+      <marker id="NULL"></marker>
+      <title>NULL</title>
+      <p>Null is suitable in cases where supply and recognition of a value 
+        is important but the actual value is not.</p>
+      <pre>
+Notype ::= NULL
+      </pre>
+      <p>The NULL type can be assigned in Erlang:</p>
+      <pre>
+N1 = 'NULL',
+      </pre>
+      <p>The actual value is the quoted atom 'NULL'.</p>
+    </section>
+
+    <section>
+      <marker id="ENUMERATED"></marker>
+      <title>ENUMERATED</title>
+      <p>The enumerated type can be used, when the value we wish to 
+        describe, may only take one of a set of predefined values.</p>
+      <pre>
+DaysOfTheWeek ::= ENUMERATED { sunday(1),monday(2),tuesday(3),
+\011wednesday(4),thursday(5),friday(6),saturday(7) }
+      </pre>
+      <p>For example to assign a weekday value in Erlang use the same atom
+        as in the <c>Enumerations</c> of the type definition:</p>
+      <pre>
+Day1 = saturday,
+      </pre>
+      <p>The enumerated type is very similar to an integer type, when
+        defined with a set of predefined values. An enumerated type
+        differs from an integer in that it may only have  specified
+        values, whereas an integer can also have any other value.</p>
+    </section>
+
+    <section>
+      <marker id="BIT STRING"></marker>
+      <title>BIT STRING </title>
+      <p>The BIT STRING type can be used to model information which
+        is made up of  arbitrary length series of bits. It is intended
+        to be used for a selection of flags, not for binary files.        <br></br>
+
+        In ASN.1 BIT STRING definitions may look like:
+        </p>
+      <pre>
+Bits1 ::= BIT STRING
+Bits2 ::= BIT STRING {foo(0),bar(1),gnu(2),gnome(3),punk(14)}
+      </pre>
+      <p>There are four different notations available for representation of
+        BIT STRING values in Erlang and as input to the encode functions.</p>
+      <list type="ordered">
+        <item>A list of binary digits (0 or 1).</item>
+        <item>A hexadecimal number (or an integer). This format should be 
+         avoided, since it is easy to misinterpret a <c>BIT STRING</c> 
+         value in this format. This format may be withdrawn in a future 
+         release.</item>
+        <item>A list of atoms corresponding to atoms in the <c>NamedBitList</c> 
+         in the BIT STRING definition.</item>
+        <item>As <c>{Unused,Binary}</c> where <c>Unused</c> denotes how
+         many trailing zero-bits 0 to 7 that are unused in the least
+         significant byte in <c>Binary</c>. This notation is only
+         available when the ASN.1 files have been compiled with the
+        <em>+compact_bit_string</em> flag in the option list. In
+         this case it is possible to use all kinds of notation when
+         encoding. But the result when decoding is always in the
+         compact form. The benefit from this notation is a more
+         compact notation when one has large BIT STRINGs. The
+         encode/decode performance is also much better in the case of
+         large BIT STRINGs. </item>
+      </list>
+      <note>
+        <p>Note that it is advised not to use the integer format of a
+          BIT STRING, see the second point above.</p>
+      </note>
+      <pre>
+Bits1Val1 = [0,1,0,1,1],
+Bits1Val2 = 16#1A,
+Bits1Val3 = {3,&lt;&lt;0:1,1:1,0:1,1:1,1:1,0:3&gt;&gt;}
+      </pre>
+      <p>Note that <c>Bits1Val1</c>, <c>Bits1Val2</c> and <c>Bits1Val3</c>
+        denote the same value.</p>
+      <pre>
+Bits2Val1 = [gnu,punk],
+Bits2Val2 = 2#1110,
+Bits2Val3 = [bar,gnu,gnome],
+Bits2Val4 = [0,1,1,1]
+      </pre>
+      <p>The above <c>Bits2Val2</c>, <c>Bits2Val3</c> and <c>Bits2Val4</c> 
+        also all denote the same value.</p>
+      <p><c>Bits2Val1</c> is assigned symbolic values. The assignment means 
+        that the bits corresponding to <c>gnu</c> and <c>punk</c> i.e. bits
+        2 and 14 are set to 1 and the rest set to 0. The symbolic values
+        appear as a list of values. If a named value appears, which is not
+        specified in the type definition, a run-time error will occur.</p>
+      <p>The compact notation equivalent to the empty BIT STRING is
+        <c><![CDATA[{0,<<>>}]]></c>, which in the other notations is <c>[]</c> or
+        <c>0</c>.</p>
+      <p>BIT STRINGS may also be sub-typed with for example a SIZE
+        specification:</p>
+      <pre>
+Bits3 ::= BIT STRING (SIZE(0..31))      </pre>
+      <p>This means that no bit higher than 31 can ever be set.</p>
+    </section>
+
+    <section>
+      <marker id="OCTET STRING"></marker>
+      <title>OCTET STRING</title>
+      <p>The OCTET STRING is the simplest of all ASN.1 types The OCTET STRING
+        only moves or transfers e.g. binary files or other unstructured
+        information complying to two rules.
+        Firstly, the bytes consist of octets and secondly, encoding is 
+        not required.</p>
+      <p>It is possible to have the following ASN.1 type definitions:</p>
+      <pre>
+O1 ::= OCTET STRING
+O2 ::= OCTET STRING (SIZE(28))      </pre>
+      <p>With the following example assignments in Erlang:</p>
+      <pre>
+O1Val = [17,13,19,20,0,0,255,254],
+O2Val = "must be exactly 28 chars....",      </pre>
+      <p>Observe that <c>O1Val</c> is assigned a series of numbers between 0 
+        and 255 i.e. octets.
+        <c>O2Val</c> is assigned using the string notation.
+        </p>
+    </section>
+
+    <section>
+      <marker id="Character Strings"></marker>
+      <title>Character Strings</title>
+      <p>ASN.1 supports a wide variety of character sets. The main difference
+        between OCTET STRINGS and the Character strings is that OCTET
+        STRINGS have no imposed semantics on the bytes delivered.</p>
+      <p>However, when using for instance the IA5String (which closely
+        resembles ASCII)  the byte 65 (in decimal
+        notation)  <em>means</em> the character 'A'.
+        </p>
+      <p>For example, if a defined type is to be a VideotexString and
+        an octet is received with the unsigned integer value X, then
+        the octet should be interpreted as specified in the standard
+        ITU-T T.100,T.101. 
+        </p>
+      <p>The  ASN.1 to Erlang compiler
+        will not determine the correct interpretation  of each BER  
+        (Basic Encoding Rules) string octet value with different
+        Character strings. Interpretation of octets is the
+        responsibility of the application. Therefore, from the BER
+        string point of view, octets appear to be very similar to
+        character strings and are compiled in the same way.
+        </p>
+      <p>It should be noted that when PER (Packed Encoding Rules) is
+        used, there is a significant difference in the encoding scheme 
+        between OCTET STRINGS and other strings. The constraints 
+        specified for a type are especially important for PER, where
+        they affect the encoding.
+        </p>
+      <p>Please note that <em>all</em> the Character strings are 
+        supported and it is possible to use the following ASN.1 type 
+        definitions:</p>
+      <pre>
+Digs ::= NumericString (SIZE(1..3))
+TextFile ::= IA5String (SIZE(0..64000))      </pre>
+      <p>and the following Erlang assignments:</p>
+      <pre>
+DigsVal1 = "456",
+DigsVal2 = "123",
+TextFileVal1 = "abc...xyz...",
+TextFileVal2 = [88,76,55,44,99,121 .......... a lot of characters here ....]        </pre>
+      <p>The Erlang representation for "BMPString" and
+        "UniversalString" is either a list of ASCII values or a list
+        of quadruples. The quadruple representation associates to the
+        Unicode standard representation of characters. The ASCII
+        characters are all represented by quadruples beginning with
+        three zeros like {0,0,0,65} for the 'A' character. When
+        decoding a value for these strings the result is a list of
+        quadruples, or integers when the value is an ASCII character.
+        The following example shows how it works:</p>
+      <p>In a file <c>PrimStrings.asn1</c> the type <c>BMP</c> is defined as
+                <br></br>
+<c>BMP ::= BMPString</c> then using BER encoding (<c>ber_bin</c> 
+        option)the input/output format will be:</p>
+      <pre>
+1> <input>{ok,Bytes1} = asn1rt:encode('PrimStrings','BMP',[{0,0,53,53},{0,0,45,56}]).</input>
+{ok,[30,4,"55-8"]}
+2> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes1)).</input>
+{ok,[{0,0,53,53},{0,0,45,56}]}
+3> <input>{ok,Bytes2} = asn1rt:encode('PrimStrings','BMP',[{0,0,53,53},{0,0,0,65}]).</input>
+{ok,[30,4,[53,53,0,65]]}
+4> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes2)).</input>
+{ok,[{0,0,53,53},65]}
+5> <input>{ok,Bytes3} = asn1rt:encode('PrimStrings','BMP',"BMP string").</input>
+{ok,[30,20,[0,66,0,77,0,80,0,32,0,115,0,116,0,114,0,105,0,110,0,103]]}
+6> <input>asn1rt:decode('PrimStrings','BMP',list_to_binary(Bytes3)).</input>
+{ok,"BMP string"}      </pre>
+      <p>The UTF8String is represented in Erlang as a list of integers,
+        where each integer represents the unicode value of one
+        character. When a value shall be encoded one first has to
+        transform it to a UTF8 encoded binary, then it can be encoded by
+        asn1. When decoding the result is a UTF8 encoded binary, which
+        may be transformed to an integer list. The transformation
+        functions, <c>utf8_binary_to_list</c> and
+        <c>utf8_list_to_binary</c>, are in the <c>asn1rt</c> module. In
+        the example below we assume an asn1 definition <c>UTF ::= UTF8String</c> in a module <c>UTF.asn</c>:</p>
+      <pre>
+1> <input>asn1ct:compile('UTF',[ber_bin]).</input>
+Erlang ASN.1 version "1.4.3.3" compiling "UTF.asn" 
+Compiler Options: [ber_bin]
+--{generated,"UTF.asn1db"}--
+--{generated,"UTF.erl"}--
+ok
+2> <input>UTF8Val1 = "hello".</input>
+"hello"
+3> <input>{ok,UTF8bin1} = asn1rt:utf8_list_to_binary(UTF8Val1).</input>
+{ok,&lt;&lt;104,101,108,108,111&gt;&gt;}
+4> <input>{ok,B}='UTF':encode('UTF',UTF8bin1).</input>
+{ok,[12,
+     5,
+     &lt;&lt;104,101,108,108,111&gt;&gt;]}
+5> <input>Bin = list_to_binary(B).</input>
+&lt;&lt;12,5,104,101,108,108,111&gt;&gt;
+6> <input>{ok,UTF8bin1}='UTF':decode('UTF',Bin).</input>
+{ok,&lt;&lt;104,101,108,108,111&gt;&gt;}
+7> <input>asn1rt:utf8_binary_to_list(UTF8bin1).</input>
+{ok,"hello"}           
+8> <input>UTF8Val2 = [16#00,16#100,16#ffff,16#ffffff].</input>
+[0,256,65535,16777215]
+9> <input>{ok,UTF8bin2} = asn1rt:utf8_list_to_binary(UTF8Val2).</input>
+{ok,&lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;}
+10> <input>{ok,B2} = 'UTF':encode('UTF',UTF8bin2).</input>
+{ok,[12,
+     11,
+     &lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;]}
+11> <input>Bin2 = list_to_binary(B2).</input>
+&lt;&lt;12,11,0,196,128,239,191,191,248,191,191,191,191&gt;&gt;
+12> <input>{ok,UTF8bin2} = 'UTF':decode('UTF',Bin2).</input>
+{ok,&lt;&lt;0,196,128,239,191,191,248,191,191,191,191&gt;&gt;}
+13> <input>asn1rt:utf8_binary_to_list(UTF8bin2).</input>
+{ok,[0,256,65535,16777215]}
+14>       </pre>
+    </section>
+
+    <section>
+      <marker id="OBJECT IDENTIFIER"></marker>
+      <title>OBJECT IDENTIFIER</title>
+      <p>The OBJECT IDENTIFIER is used whenever a unique identity is required.
+        An ASN.1 module, a transfer syntax, etc. is identified with an
+        OBJECT IDENTIFIER. Assume the example below:</p>
+      <pre>
+Oid ::= OBJECT IDENTIFIER
+      </pre>
+      <p>Therefore, the example below is a valid Erlang instance of the 
+        type 'Oid'.</p>
+      <pre>
+OidVal1 = {1,2,55},
+      </pre>
+      <p>The OBJECT IDENTIFIER value is simply a tuple with the
+        consecutive values which must be integers. 
+        </p>
+      <p>The first value is limited to the values 0, 1 or 2 and the
+        second value must be in the range 0..39 when the first value
+        is 0 or 1.
+        </p>
+      <p>The OBJECT IDENTIFIER is a very important type and it is
+        widely used within different standards to uniquely identify
+        various objects. In [<cite id="DUBUISSON"></cite>], there is an 
+        easy-to-understand description of the usage of 
+        OBJECT IDENTIFIER.</p>
+      <p></p>
+    </section>
+
+    <section>
+      <marker id="Object Descriptor"></marker>
+      <title>Object Descriptor</title>
+      <p>Values of this type can be assigned a value as an ordinary string i.e.        <br></br>
+
+        "This is the value of an Object descriptor"</p>
+    </section>
+
+    <section>
+      <marker id="The TIME types"></marker>
+      <title>The TIME Types</title>
+      <p>Two different time types are defined within ASN.1, Generalized
+        Time and UTC (Universal Time Coordinated), both are assigned a
+        value as an ordinary string within double quotes i.e.
+        "19820102070533.8".</p>
+      <p>In case of DER encoding the compiler does not check the validity
+        of the time values. The DER requirements upon those strings is 
+        regarded as a matter for the application to fulfill.</p>
+    </section>
+
+    <section>
+      <marker id="SEQUENCE"></marker>
+      <title>SEQUENCE</title>
+      <p>The structured types of ASN.1 are constructed from other types 
+        in a manner similar to the concepts of array and struct in  C.
+                <br></br>
+ A SEQUENCE in ASN.1 is
+        comparable with a struct in C and a record in Erlang. 
+        A SEQUENCE may be defined as:</p>
+      <pre>
+Pdu ::= SEQUENCE {
+   a INTEGER,
+   b REAL,
+   c OBJECT IDENTIFIER,
+   d NULL }      </pre>
+      <p>This is a 4-component structure called 'Pdu'. The major format 
+        for representation of SEQUENCE in Erlang is the record format. 
+        For each SEQUENCE and <c>SET</c> in an ASN.1 module an Erlang 
+        record declaration is generated. For <c>Pdu</c> above, a record 
+        like this is defined:</p>
+      <pre>
+-record('Pdu',{a, b, c, d}).      </pre>
+      <p>The record declarations for a module <c>M</c> are placed in a 
+        separate <c>M.hrl</c> file.</p>
+      <p>Values can be assigned in Erlang as shown below:</p>
+      <pre>
+MyPdu = #'Pdu'{a=22,b=77.99,c={0,1,2,3,4},d='NULL'}.      </pre>
+      <p>It is also possible to specify the value for each component in 
+        a SEQUENCE or a SET as <c>{ComponentName,Value}</c>. It is not
+        recommended and is not supported if the flags <c>per_bin</c> or
+        <c>ber_bin</c> and <c>optimize</c> were used when the module was
+        compiled.</p>
+      <p>The decode functions will return a record as result when decoding 
+        a <c>SEQUENCE</c> or a <c>SET</c>.
+                <marker id="DEFAULT"></marker>
+</p>
+      <p>A <c>SEQUENCE</c> and a <c>SET</c> may contain a component with a
+        <c>DEFAULT</c> key word followed by the actual value that is the
+        default value. In case of BER encoding it is optional to encode the
+        value if it equals the default value. If the application uses the
+        atom asn1_DEFAULT as value or if the value is a primitive value 
+        that equals the default value the encoding omits the bytes for
+        this value, which is more efficient and it results in fever 
+        bytes to send to the receiving application.</p>
+      <p>For instance, if the following types exists in a file "File.asn":</p>
+      <pre>
+Seq1 ::= SEQUENCE {
+\011a  INTEGER DEFAULT 1,
+\011b  Seq2 DEFAULT {aa TRUE, bb 15}
+}
+
+Seq2 ::= SEQUENCE {
+\011aa BOOLEAN,
+\011bb INTEGER
+}
+      </pre>
+      <p>Some values and the corresponding encoding in an Erlang terminal
+        is shown below:</p>
+      <pre>
+1> <input>asn1ct:compile('File').</input>
+Erlang ASN.1 version "1.3.2" compiling "File.asn1" 
+Compiler Options: []
+--{generated,"File.asn1db"}--
+--{generated,"File.hrl"}--
+--{generated,"File.erl"}--
+ok
+2> <input>'File':encode('Seq1',{'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
+{ok,["0",[0],[[],[]]]}
+3> <input>lists:flatten(["0",[0],[[],[]]]).</input>
+[48,0]
+4> <input>'File':encode('Seq1',{'Seq1',1,{'Seq2',true,15}}).</input>
+{ok,["0","\\b",[[],["\\241",[6],[[[128],[1],"\\377"],[[129],[1],[15]]]]]]}
+5> <input>lists:flatten(["0","\\b",[[],["\\241",[6],[[[128],[1],"\\377"],[[129],[1],[15]]]]]]).</input>
+[48,8,161,6,128,1,255,129,1,15]
+6>      </pre>
+      <p>The result after command line 3, in the example above,shows that the
+        encoder omits the encoding of default values when they are specific 
+        by asn1_DEFAULT. Line 5 shows that even primitive values that equals
+        the default value are detected and not encoded. But the constructed
+        value of component <c>b</c> in <c>Seq1</c> is not recognized as the
+        default value. Checking of default values in <c>BER</c> is not done
+        in case of complex values, because it would be to expensive.
+                <marker id="DEFAULT DER"></marker>
+</p>
+      <p>But, the DER encoding format has stronger requirements regarding 
+        default\011values both for SET and SEQUENCE. A more elaborate and time 
+        expensive check of default values will take place. The following is
+        an example with the same types and values as above but with der 
+        encoding format.</p>
+      <pre>
+1> <input>asn1ct:compile('File',[der]).</input>
+Erlang ASN.1 version "1.3.2" compiling "File.asn1" 
+Compiler Options: [der]
+--{generated,"File.asn1db"}--
+--{generated,"File.hrl"}--
+--{generated,"File.erl"}--
+ok
+2> <input>'File':encode('Seq1',{'Seq1',asn1_DEFAULT,asn1_DEFAULT}).</input>
+{ok,["0",[0],[[],[]]]}
+3> <input>lists:flatten(["0",[0],[[],[]]]).</input>
+[48,0]
+4> <input>'File':encode('Seq1',{'Seq1',1,{'Seq2',true,15}}).</input>
+{ok,["0",[0],[[],[]]]}
+5> <input>lists:flatten(["0",[0],[[],[]]]).</input>
+[48,0]
+6> 
+      </pre>
+      <p>Line 5 shows that even values of constructed types is checked and if 
+        it equals the default value it will not be encoded.</p>
+    </section>
+
+    <section>
+      <marker id="SET"></marker>
+      <title>SET</title>
+      <p>The SET type is an unusual construct and normally the SEQUENCE 
+        type is more appropriate to use. Set is also inefficient compared with SEQUENCE, as the components can be in any order. Hence, it must be possible
+        to distinguish every component in 'SET', both when
+        encoding and decoding a value of a type defined to be a SET.
+        The tags of all components must be different from each other
+        in order to  be easily recognizable.</p>
+      <p>A SET may be defined as:</p>
+      <pre>
+Pdu2 ::= SET {
+    a INTEGER,
+    b BOOLEAN,
+    c ENUMERATED {on(0),off(1)} }      </pre>
+      <p>A SET is represented as an Erlang record.
+        For each SEQUENCE and <c>SET</c> in
+        an ASN.1 module an Erlang record declaration is generated. For
+        <c>Pdu2</c> above a record is defined like this:</p>
+      <pre>
+-record('Pdu2',{a, b, c}).      </pre>
+      <p>The record declarations for a module <c>M</c> are placed in a 
+        separate <c>M.hrl</c> file.</p>
+      <p>Values can be assigned in Erlang as demonstrated below:</p>
+      <pre>
+V = #'Pdu2'{a=44,b=false,c=off}.      </pre>
+      <p>The decode functions will return a record as result when decoding 
+        a SET.
+        </p>
+      <p>The difference between SET and SEQUENCE is that the order of
+        the components (in the BER encoded format) is undefined for SET
+        and defined as the lexical order from the ASN.1 definition for
+        SEQUENCE. The ASN.1 compiler for Erlang will always encode a
+        SET in the lexical order. The decode routines can handle SET
+        components encoded in any order but will always return the
+        result as a record. Since all components of the SET must be
+        distinguishable both in the encoding phase as well as the
+        decoding phase the following type is not allowed in a module
+        with EXPLICIT or IMPLICIT as tag-default :</p>
+      <p></p>
+      <pre>
+Bad ::= SET {i INTEGER,
+             j INTEGER }      </pre>
+      <p>The  ASN.1 to Erlang compiler  rejects the above type. We
+        shall not explain the concept of tag further here, we refer to
+        [<cite id="X.680"></cite>].
+        </p>
+      <p>Encoding of a SET with components with DEFAULT values behaves
+        similar as a SEQUENCE, <seealso marker="#DEFAULT">see above</seealso>. The DER encoding format restrictions on DEFAULT 
+        values is the same for SET as for SEQUENCE, and is supported by 
+        the compiler, <seealso marker="#DEFAULT DER">see above</seealso>.</p>
+      <p>Moreover, in DER the elements of a SET will be sorted. If a 
+        component is an untagged choice the sorting have to take place
+        in run-time. This fact emphasizes the following recommendation
+        if DER encoding format is used.</p>
+      <p>The concept of SET is an unusual
+        construct and one  cannot think of one single application
+        where the set type is essential. (Imagine if someone
+        "invented'' the shuffled array in 'C') People tend to think
+        that 'SET' sounds nicer and more mathematical than 'SEQUENCE'
+        and hence use it when  'SEQUENCE' would have been more
+        appropriate. It is also most inefficient, since every correct
+        implementation of SET must always be prepared to accept the
+        components in any order. So, if possible use SEQUENCE instead
+        of SET.</p>
+    </section>
+
+    <section>
+      <title>Notes about Extendability for SEQUENCE and SET</title>
+      <p>When a SEQUENCE or SET contains an extension marker and 
+        extension components like this:</p>
+      <pre>
+SExt ::= SEQUENCE {
+           a INTEGER,
+           ...,
+           b BOOLEAN }
+      </pre>
+      <p>It means that the type may get more components in newer
+        versions of the ASN.1 spec. In this case it has got a new
+        component <c>b</c>. Thus, incoming messages that will be decoded
+        may have more or fever components than this one.  
+        </p>
+      <p>The component <c>b</c> will be treated as
+        an original component when encoding a message. In this case, as
+        it is not an optional element, it must be encoded.
+        </p>
+      <p>During decoding the <c>b</c> field of the record will get the decoded 
+        value of the <c>b</c> 
+        component if present and otherwise the value <c>asn1_NOVALUE</c>.</p>
+    </section>
+
+    <section>
+      <marker id="CHOICE"></marker>
+      <title>CHOICE</title>
+      <p>The CHOICE type is a space saver and is similar to the concept of a
+        'union' in the C-language. As with the previous SET-type, the
+        tags of all components  of a CHOICE need to be distinct. If
+        AUTOMATIC TAGS are defined for the module  (which is
+        preferable) the tags can be omitted completely in the ASN.1
+        specification of a CHOICE.
+        </p>
+      <p>Assume:</p>
+      <pre>
+T ::= CHOICE {
+        x [0] REAL,
+        y [1] INTEGER,
+        z [2] OBJECT IDENTIFIER }
+      </pre>
+      <p>It is then possible to assign values:</p>
+      <pre>
+TVal1 = {y,17},
+TVal2 = {z,{0,1,2}},
+      </pre>
+      <p>A CHOICE value is  always represented as the tuple
+        <c>{ChoiceAlternative, Val}</c> where <c>ChoiceAlternative</c>
+        is an atom denoting the selected choice
+        alternative.
+        </p>
+      <p>It is also allowed to have a CHOICE type tagged as follow:</p>
+      <p></p>
+      <pre>
+C ::= [PRIVATE 111] CHOICE {
+        C1,
+        C2 }
+
+C1 ::= CHOICE { 
+         a [0] INTEGER,
+         b [1] BOOLEAN }
+
+C2 ::= CHOICE {
+         c [2] INTEGER,
+         d [3] OCTET STRING }      </pre>
+      <p>In this case, the top type C appears to have no tags at all in
+        its components, however, both C1 and C2 are also defined as
+        CHOICE types and they have distinct tags among themselves.
+        Hence, the above type C is both legal and allowed.
+        </p>
+
+      <section>
+        <title>Extendable CHOICE</title>
+        <p>When a CHOICE contains an extension marker and the decoder detects
+          an unknown alternative of the CHIOCE the value is represented as:</p>
+        <pre>
+\011  {asn1_ExtAlt, BytesForOpenType}
+        </pre>
+        <p>Where <c>BytesForOpenType</c> is a list of bytes constituting the 
+          encoding of the "unknown" CHOICE alternative. </p>
+      </section>
+    </section>
+
+    <section>
+      <marker id="SOF"></marker>
+      <title>SET OF and SEQUENCE OF</title>
+      <p>The SET OF and SEQUENCE OF types correspond to the concept of an array
+        found in several programming languages. The Erlang syntax for
+        both of these types is straight forward. For example:</p>
+      <pre>
+Arr1 ::= SET SIZE (5) OF INTEGER (4..9) 
+Arr2 ::= SEQUENCE OF OCTET STRING      </pre>
+      <p>We may have the following in Erlang:</p>
+      <pre>
+Arr1Val = [4,5,6,7,8],
+Arr2Val = ["abc",[14,34,54],"Octets"],      </pre>
+      <p>Please note that the definition of the SET OF type implies that 
+        the order of the components is undefined, but in practice there is 
+        no difference between SET OF and SEQUENCE OF. The ASN.1 compiler 
+        for Erlang does not randomize the order of the SET OF components 
+        before encoding.</p>
+      <p>However, in case of a value of the type <c>SET OF</c>, the DER 
+        encoding format requires the elements to be sent in ascending 
+        order of their encoding, which implies an expensive sorting 
+        procedure in run-time. Therefore it is strongly recommended to 
+        use <c>SEQUENCE OF</c> instead of <c>SET OF</c> if it is possible.</p>
+    </section>
+
+    <section>
+      <marker id="ANY"></marker>
+      <title>ANY and ANY DEFINED BY</title>
+      <p>The types <c>ANY</c> and <c>ANY DEFINED BY</c> have been removed 
+        from the standard since 1994. It is recommended not to use
+        these types any more. They may, however, exist in some old ASN.1
+        modules.
+        The idea with this type was to leave a "hole" in a definition where
+        one could put unspecified data of any kind, even non ASN.1 data.</p>
+      <p>A value of this type is encoded as an <c>open type</c>.</p>
+      <p>Instead of <c>ANY</c>/<c>ANY DEFINED BY</c> one should use
+        <c>information object class</c>, <c>table constraints</c> and
+        <c>parameterization</c>. In particular the construct
+        <c>TYPE-IDENTIFIER.@Type</c> accomplish the same as the
+        deprecated <c>ANY</c>.</p>
+      <p>See also <seealso marker="#Information Object">Information object</seealso></p>
+    </section>
+
+    <section>
+      <marker id="NegotiationTypes"></marker>
+      <title>EXTERNAL, EMBEDDED PDV and CHARACTER STRING</title>
+      <p>These types are used in presentation layer negotiation. They are
+        encoded according to their associated type, see [<cite id="X.680"></cite>].</p>
+      <p>The <c>EXTERNAL</c> type had a slightly different associated type
+        before 1994. [<cite id="X.691"></cite>] states that encoding shall follow
+        the older associate type. Therefore does generated encode/decode
+        functions convert values of the newer format to the older format
+        before encoding. This implies that it is allowed to use 
+        <c>EXTERNAL</c> type values of either format for encoding. Decoded
+        values are always returned on the newer format.</p>
+    </section>
+
+    <section>
+      <title>Embedded Named Types</title>
+      <p>The structured types previously described may very well have other named types
+        as their components. The general syntax to assign a value to the component C
+        of a named ASN.1 type T in Erlang is the record syntax
+        <c>#'T'{'C'=Value}</c>. 
+        Where <c>Value</c> may be a value of yet another type T2.</p>
+      <p>For example:</p>
+      <pre>
+B ::= SEQUENCE {
+        a Arr1,
+        b [0] T }
+
+Arr1 ::= SET SIZE (5) OF INTEGER (4..9) 
+
+T ::= CHOICE {
+        x [0] REAL,
+        y [1] INTEGER,
+        z [2] OBJECT IDENTIFIER }      </pre>
+      <p>The above example can be assigned like this in Erlang:</p>
+      <pre>
+V2 = #'B'{a=[4,5,6,7,8], b={x,7.77}}.
+      </pre>
+    </section>
+  </section>
+
+  <section>
+    <title>Naming of Records in .hrl Files</title>
+    <p>When an asn1 specification is compiled all defined types of
+      type SET or SEQUENCE will result in a corresponding record in the
+      generated hrl file. This is because the values for SET/SEQUENCE
+      as mentioned in sections above are represented as records.</p>
+    <p>Though there are some special cases of this functionality that
+      are presented below.</p>
+
+    <section>
+      <title>Embedded Structured Types</title>
+      <p>It is also possible in ASN.1 to have components that are  themselves
+        structured types.
+        For example, it is possible to have:</p>
+      <pre>
+Emb ::= SEQUENCE {
+    a SEQUENCE OF OCTET STRING,
+    b SET {
+       a [0] INTEGER,
+       b [1] INTEGER DEFAULT 66},
+    c CHOICE {
+       a INTEGER,
+       b FooType } }
+
+FooType ::= [3] VisibleString      </pre>
+      <p>The following records are generated because of the type <c>Emb</c>:</p>
+      <pre>
+-record('Emb,{a, b, c}).
+-record('Emb_b',{a, b = asn1_DEFAULT}). % the embedded SET type
+      </pre>
+      <p>Values of the <c>Emb</c> type can be assigned like this:</p>
+      <code type="none">
+V = #'Emb'{a=["qqqq",[1,2,255]], 
+           b = #'Emb_b'{a=99}, 
+           c ={b,"Can you see this"}}.
+      </code>
+      <p>For an embedded type of type SEQUENCE/SET in a SEQUENCE/SET
+        the record name is extended with an underscore and the component
+        name. If the embedded structure is deeper with SEQUENCE, SET or
+        CHOICE types in the line, each component-/alternative-name will
+        be added to the recordname.</p>
+      <p>For example:</p>
+      <pre>
+Seq ::= SEQUENCE{
+    a\011CHOICE{
+\011b SEQUENCE {
+\011   c  INTEGER
+\011   }
+\011}
+}      </pre>
+      <p>will result in the following record:</p>
+      <pre>
+-record('Seq_a_b',{c}).      </pre>
+      <p>If the structured type has a component with an embedded
+        SEQUENCE OF/SET OF which embedded type in turn is a
+        SEQUENCE/SET it will give a record with the SEQOF/SETOF
+        addition as in the following example:</p>
+      <pre>
+Seq ::= SEQUENCE {
+    a SEQUENCE OF SEQUENCE {
+\011       b
+               }
+    c SET OF SEQUENCE {
+\011       d
+               }
+}      </pre>
+      <p>This results in the records:</p>
+      <pre>
+-record('Seq_a_SEQOF'{b}).
+-record('Seq_c_SETOF'{d}).      </pre>
+      <p>A parameterized type should be considered as an embedded
+        type. Each time a such type is referenced an instance of it is
+        defined. Thus in the following example a record with name
+        <c>'Seq_b'</c> is generated in the .hrl file and used to hold
+        values.</p>
+      <pre>
+Seq ::= SEQUENCE {
+    b PType{INTEGER}
+}
+
+PType{T} ::= SEQUENCE{
+    id T
+}      </pre>
+    </section>
+
+    <section>
+      <title>Recursive Types</title>
+      <p>Types may refer to themselves. Suppose:</p>
+      <pre>
+Rec ::= CHOICE {
+     nothing [0] NULL,
+     something SEQUENCE {
+          a INTEGER,
+          b OCTET STRING,
+          c Rec }}      </pre>
+      <p>This type is recursive; that is, it refers to itself. This is allowed 
+        in ASN.1 and the  ASN.1-to-Erlang compiler  supports this recursive
+        type. A value for this type is assigned in Erlang as shown below:</p>
+      <pre>
+V = {something,#'Rec_something'{a = 77, 
+                                b = "some octets here", 
+                                c = {nothing,'NULL'}}}.      </pre>
+    </section>
+  </section>
+
+  <section>
+    <title>ASN.1 Values</title>
+    <p>Values can be assigned to ASN.1 type within the ASN.1 code
+      itself, as opposed to the actions taken in the previous chapter where
+      a value was assigned to an ASN.1 type in Erlang. The full value
+      syntax of ASN.1 is supported and [X.680] describes in detail how
+      to assign values in ASN.1. Below is a short example:</p>
+    <pre>
+TT ::= SEQUENCE {
+   a INTEGER,
+   b SET OF OCTET STRING }
+
+tt TT ::= {a 77,b {"kalle","kula"}}    </pre>
+    <p>The value defined here could be used in several ways. 
+      Firstly, it could be used as the value in some DEFAULT component:</p>
+    <pre>
+SS ::= SET {
+    s [0] OBJECT IDENTIFIER,
+    val TT DEFAULT tt }    </pre>
+    <p>It could also be used from inside an Erlang program. If the above ASN.1
+      code was defined in ASN.1 module <c>Values</c>, then the ASN.1 value
+      <c>tt</c> can be reached from Erlang as
+      a function call to <c>'Values':tt()</c> as in the example below.</p>
+    <pre>
+1> <input>Val = 'Values':tt().</input>
+{'TT',77,["kalle","kula"]}
+2> <input>{ok,Bytes} = 'Values':encode('TT',Val).</input>
+{ok,["0",
+     [18],
+     [[[128],[1],"M"],["\\241","\\r",[[[4],[5],"kalle"],[[4],[4],"kula"]]]]]}
+3> <input>FlatBytes = lists:flatten(Bytes).</input>
+[48,18,128,1,77,161,13,4,5,107,97,108,108,101,4,4,107,117,108,97]
+4> <input>'Values':decode('TT',FlatBytes).</input>
+{ok,{'TT',77,["kalle","kula"]}}
+5>
+    </pre>
+    <p>The above example shows that a function is generated by the compiler 
+      that returns a valid Erlang representation of the value, even though
+      the value is of a complex type.</p>
+    <p>Furthermore, there is a macro generated for each value in the .hrl 
+      file. So, the defined value <c>tt</c> can also be extracted by 
+      <c>?tt</c> in application code.</p>
+  </section>
+
+  <section>
+    <title>Macros</title>
+    <p>MACRO is not supported as the the type is no longer part of the 
+      ASN.1 standard.</p>
+  </section>
+
+  <section>
+    <marker id="Information Object"></marker>
+    <title>ASN.1 Information Objects (X.681)</title>
+    <p>Information Object Classes, Information Objects and Information
+      Object Sets, (in the following called classes, objects and
+      object sets respectively), are defined in the standard
+      definition [<cite id="X.681"></cite>]. In the following only a brief
+      explanation is given. </p>
+    <p>These constructs makes it possible to define open types,
+      i.e. values of that type can be of any ASN.1 type. It is also
+      possible to define relationships between different types and
+      values, since classes can hold types, values, objects, object
+      sets and other classes in its fields.
+      An Information Object Class may be defined in ASN.1 as:</p>
+    <pre>
+GENERAL-PROCEDURE ::= CLASS {
+      &amp;Message,
+      &amp;Reply               OPTIONAL,
+      &amp;Error               OPTIONAL,
+      &amp;id          PrintableString UNIQUE
+}
+WITH SYNTAX {
+      NEW MESSAGE     &amp;Message
+      [REPLY           &amp;Reply]
+      [ERROR           &amp;Error]
+      ADDRESS          &amp;id
+}    </pre>
+    <p>An object is an instance of a class and an object set is a set
+      containing objects of one specified class. A definition may look like
+      below.</p>
+    <p>The object <c>object1</c> is an instance of the CLASS 
+      GENERAL-PROCEDURE and has one type field and one fixed type value 
+      field. The object <c>object2</c> also has an OPTIONAL field ERROR,
+      which is a type field.</p>
+    <pre>
+object1 GENERAL-PROCEDURE ::= {
+    NEW MESSAGE      PrintableString
+    ADDRESS          "home"
+}
+
+object2 GENERAL-PROCEDURE ::= {
+    NEW MESSAGE INTEGER
+    ERROR INTEGER
+    ADDRESS "remote"
+}    </pre>
+    <p>The field ADDRESS is a UNIQUE field. Objects in an object set must
+      have unique values in their UNIQUE field, as in GENERAL-PROCEDURES: </p>
+    <pre>
+GENERAL-PROCEDURES GENERAL-PROCEDURE ::= {
+    object1 | object2}    </pre>
+    <p>One can not encode a class, object or object set, only referring to
+      it when defining other ASN.1 entities. Typically one refers to a
+      class and to object sets by table constraints and component
+      relation constraints [<cite id="X.682"></cite>] in ASN.1 types, as in: </p>
+    <pre>
+StartMessage  ::= SEQUENCE {
+    msgId  GENERAL-PROCEDURE.&amp;id  ({GENERAL-PROCEDURES}),
+    content GENERAL-PROCEDURE.&amp;Message\011({GENERAL-PROCEDURES}{@msgId}),
+    }    </pre>
+    <p>In the type <c>StartMessage</c> the constraint following the
+      <c>content</c> field tells that in a value of type
+      <c>StartMessage</c> the value in the <c>content</c> field must
+      come from the same object that is choosen by the <c>msgId</c>
+      field.</p>
+    <p>So, the value <c>#'StartMessage'{msgId="home",content="Any Printable String"}</c> is legal to encode as a StartMessage
+      value, while the value <c>#'StartMessage'{msgId="remote", content="Some String"}</c> is illegal since the constraint
+      in StartMessage tells that when you have choosen a value from a 
+      specific object in the object set GENERAL-PROCEDURES in the 
+      msgId field you have to choose a value from that same object in
+      the content field too. In this second case it should have been 
+      any INTEGER value.</p>
+    <p><c>StartMessage</c> can in the <c>content</c> field be
+      encoded with a value of any type that an object in the
+      <c>GENERAL-PROCEDURES</c> object set has in its <c>NEW MESSAGE</c> field. This field refers to a type field
+      <c><![CDATA[&amp;Message]]></c> in the class. The <c>msgId</c> field is always
+      encoded as a PrintableString, since the field refers to a fixed type
+      in the class.</p>
+  </section>
+
+  <section>
+    <title>Parameterization (X.683)</title>
+    <p>Parameterization, which is defined in the standard [<cite id="X.683"></cite>], can be used when defining types, values, value
+      sets, information object classes, information objects or
+      information object sets. 
+      A part of a definition can be supplied as a parameter. For
+      instance, if a Type is used in a definition with certain
+      purpose, one want the typename to express the intention. This
+      can be done with parameterization.</p>
+    <p>When many types (or an other ASN.1 entity) only differs in some
+      minor cases, but the structure of the types are similar, only
+      one general type can be defined and the differences may be supplied
+      through parameters. </p>
+    <p>One example of use of parameterization is:</p>
+    <pre>
+General{Type} ::= SEQUENCE
+{
+     number     INTEGER,
+     string     Type
+}
+      
+T1 ::= General{PrintableString}
+
+T2 ::= General{BIT STRING}
+    </pre>
+    <p>An example of a value that can be encoded as type T1 is {12,"hello"}.</p>
+    <p>Observe that the compiler not generates encode/decode functions for
+      parameterized types, only for the instances of the parameterized 
+      types. So, if a file contains the types General{}, T1 and T2 above,
+      encode/decode functions will only be generated for T1 and T2.
+      </p>
+  </section>
+
+  <section>
+    <title>Tags</title>
+    <p>Every built-in ASN.1 type, except CHOICE and ANY have a universal tag.
+      This is a unique number that clearly identifies the type.      <br></br>
+ 
+      It is essential for all users of ASN.1  to
+      understand  all the details about tags.</p>
+    <p>Tags are implicitly encoded in the BER encoding as shown below, but 
+      are hardly not accounted for in the PER encoding. In PER tags are
+      used for instance to sort the components of a SET.</p>
+    <p>There are four different types of tags.</p>
+    <taglist>
+      <tag><em>universal</em></tag>
+      <item>
+        <p>For types whose meaning is the same in all 
+          applications. Such as integers, sequences and so on; that is, all the built in
+          types.</p>
+      </item>
+      <tag><em>application</em></tag>
+      <item>
+        <p>For application specific types for example, the types in
+          X.400 Message handling service have this sort of tag.</p>
+      </item>
+      <tag><em>private</em></tag>
+      <item>
+        <p>For your own private types.</p>
+      </item>
+      <tag><em>context</em></tag>
+      <item>
+        <p>This is used to distinguish otherwise indistinguishable
+          types in a specific context. For example, if we have two
+          components of a 
+          CHOICE type that are both <c>INTEGER</c> values, there is no
+          way for the decoder to 
+          decipher which component was actually chosen, since both
+          components will be
+          tagged as <c>INTEGER</c>. When this or similar situations occur,  
+          one or both of the components should be given a  context specific
+          to resolve the ambiguity.</p>
+      </item>
+    </taglist>
+    <p>The tag in the case of the 'Apdu' type [PRIVATE 1] is encoded to a
+      sequence of bytes  making it possible for  a
+      decoder to  look at the (initial) bytes that arrive and determine
+      whether the rest of the bytes  must be of the type associated
+      with that particular sequence of bytes.  This means that each
+      tag must be uniquely associated with <em>only</em> one  ASN.1
+      type.
+      </p>
+    <p>Immediately following the tag is a sequence of bytes
+      informing the  decoder of the length of the instance. This is
+      sometimes referred to  as TLV  (Tag length value) encoding.
+      Hence, the structure of a BER encoded series of bytes is as shown in the table below.</p>
+    <p></p>
+    <table>
+      <row>
+        <cell align="left" valign="middle">Tag</cell>
+        <cell align="left" valign="middle">Len</cell>
+        <cell align="left" valign="middle">Value</cell>
+      </row>
+      <tcaption>Structure of a BER encoded series of bytes</tcaption>
+    </table>
+  </section>
+
+  <section>
+    <title>Encoding Rules</title>
+    <p>When the first recommendation on ASN.1 was released 1988 it was
+      accompanied with the Basic Encoding Rules, BER, as the only 
+      alternative for encoding.
+      BER is a somewhat verbose protocol. It adopts a so-called TLV (type, 
+      length, value) approach to encoding in which every element of the 
+      encoding carries some type information, some length information and 
+      then the value of that element. Where the element is itself 
+      structured, then the Value part of the element is itself a series of 
+      embedded TLV components, to whatever depth is necessary. In summary, 
+      BER is not a compact encoding but is relatively fast and easy to 
+      produce.</p>
+    <p>The DER (Distinguished Encoding Rule) encoding format was included in
+      the standard in 1994. It is a specialized form of BER, which gives 
+      the encoder the option to encode some entities differently. For
+      instance, is the value for TRUE any octet with any bit set to one. But,
+      DER does not leave any such choices. The value for TRUE in the DER 
+      case is encoded as the octet <c>11111111</c>. So, the same value 
+      encoded by two different DER encoders must result in the same bit 
+      stream.</p>
+    <p>A more compact encoding is achieved with the Packed Encoding
+    Rules PER which was introduced together with the revised
+    recommendation in 1994. PER takes a rather different approach from
+    that taken by BER. The first difference is that the tag part in
+    the TLV is omitted from the encodings, and any tags in the
+    notation are not encoded. The potential ambiguities are resolved
+    as follows:</p>
+    <list type="bulleted">
+      <item>
+        <p>A CHOICE is encoded by first encoding a choice index which
+          identifies the chosen
+          alternative by its position in the notation.</p>
+      </item>
+      <item>
+        <p>The elements of a SEQUENCE are transmitted in textual
+        order. OPTIONAL or DEFAULT elements are preceded by a bit map
+        to identify which elements are present. After sorting the
+        elements of a SET in the "canonical tag order" as defined in
+        X.680 8.6 they are treated as a SEQUENCE regarding OPTIONAL
+        and DEFAULT elements. A SET is transferred in the sorted
+        order.</p>
+      </item>
+    </list>
+    <p>A second difference is that PER takes full account of the sub-typing
+      information in that the encoded bytes are affected by the constraints.
+      The BER encoded bytes are unaffected by the constraints.
+      PER uses the sub-typing information to for example omit length fields 
+      whenever possible. </p>
+    <p>The run-time functions, sometimes take the constraints into account
+      both for BER and PER. For instance are SIZE constrained strings checked.</p>
+    <p>There are two variants of PER, <em>aligned</em> and <em>unaligned</em>.
+      In summary, PER results in compact encodings which require much more
+      computation to produce than  BER.
+      </p>
+  </section>
+</chapter>
+

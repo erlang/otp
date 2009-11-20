@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Error Logging</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>error_logging.xml</file>
+  </header>
+
+  <section>
+    <title>Error Information From the Runtime System</title>
+    <p>Error information from the runtime system, that is, information
+      about a process terminating due to an uncaught error exception,
+      is by default written to terminal (tty):</p>
+    <code type="none"><![CDATA[
+=ERROR REPORT==== 9-Dec-2003::13:25:02 ===
+Error in process <0.27.0> with exit value: {{badmatch,[1,2,3]},[{m,f,1},{shell,eval_loop,2}]}]]></code>
+    <p>The error information is handled by the <em>error logger</em>, a
+      system process registered as <c>error_logger</c>. This process
+      receives all error messages from the Erlang runtime system and
+      also from the standard behaviours and different Erlang/OTP
+      applications.</p>
+    <p>The exit reasons (such as <c>badarg</c> above) used by
+      the runtime system are described in
+      <seealso marker="doc/reference_manual:errors#exit_reasons">Errors and Error Handling</seealso>
+      in the Erlang Reference Manual.</p>
+    <p>The process <c>error_logger</c> and its user interface (with
+      the same name) are described in
+      <seealso marker="kernel:error_logger">error_logger(3)</seealso>.
+      It is possible to configure the system so that error information
+      is written to file instead/as well as tty. Also, it is possible
+      for user defined applications to send and format error
+      information using <c>error_logger</c>.</p>
+  </section>
+
+  <section>
+    <title>SASL Error Logging</title>
+    <p>The standard behaviors (<c>supervisor</c>, <c>gen_server</c>,
+      etc.) sends progress and error information to <c>error_logger</c>.
+      If the SASL application is started, this information is written
+      to tty as well. See
+      <seealso marker="sasl:error_logging">SASL Error Logging</seealso>
+      in the SASL User's Guide for further information.</p>
+    <pre>
+% <input>erl -boot start_sasl</input>
+Erlang (BEAM) emulator version 5.4.13 [hipe] [threads:0] [kernel-poll]
+
+
+=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
+          supervisor: {local,sasl_safe_sup}
+             started: [{pid,&lt;0.33.0>},
+                       {name,alarm_handler},
+                       {mfa,{alarm_handler,start_link,[]}},
+                       {restart_type,permanent},
+                       {shutdown,2000},
+                       {child_type,worker}]
+
+=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
+          supervisor: {local,sasl_safe_sup}
+             started: [{pid,&lt;0.34.0>},
+                       {name,overload},
+                       {mfa,{overload,start_link,[]}},
+                       {restart_type,permanent},
+                       {shutdown,2000},
+                       {child_type,worker}]
+
+=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
+          supervisor: {local,sasl_sup}
+             started: [{pid,&lt;0.32.0>},
+                       {name,sasl_safe_sup},
+                       {mfa,{supervisor,
+                                start_link,
+                                [{local,sasl_safe_sup},sasl,safe]}},
+                       {restart_type,permanent},
+                       {shutdown,infinity},
+                       {child_type,supervisor}]
+
+=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
+          supervisor: {local,sasl_sup}
+             started: [{pid,&lt;0.35.0>},
+                       {name,release_handler},
+                       {mfa,{release_handler,start_link,[]}},
+                       {restart_type,permanent},
+                       {shutdown,2000},
+                       {child_type,worker}]
+
+=PROGRESS REPORT==== 31-Mar-2006::12:45:58 ===
+         application: sasl
+          started_at: nonode@nohost
+Eshell V5.4.13  (abort with ^G)
+1> </pre>
+  </section>
+</chapter>
+

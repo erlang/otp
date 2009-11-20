@@ -1,0 +1,177 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Macros</title>
+    <prepared>Joe Armstrong</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;Ker</approved>
+    <checked></checked>
+    <date>96-09-10</date>
+    <rev>PA1</rev>
+    <file>macros.sgml</file>
+  </header>
+  <p>Macros in Erlang are written with the following syntax:</p>
+  <code type="none">
+
+-define(Const, Replacement).
+-define(Fun(Var1, Var2,.., Var), Replacement).  </code>
+  <p>Macros are expanded when the syntax <c>?MacroName</c> is encountered.</p>
+  <p>Consider the macro definition:</p>
+  <code type="none">
+
+-define(timeout, 200).  </code>
+  <p>The expression <c>?timeout</c>, which can occur anywhere in the code which follows the macro definition, will be replaced by <c>200</c>.</p>
+  <p>Macros with arguments are written as follows:</p>
+  <code type="none">
+
+      -define(macro1(X, Y), {a, X, b, Y}).  </code>
+  <p>This type of macro can be used as follows:</p>
+  <code type="none">
+
+bar(X) ->
+    ?macro1(a, b),
+    ?macro1(X, 123)  </code>
+  <p>This expands to:</p>
+  <code type="none">
+
+bar(X) ->
+    {a,a,b,b},
+    {a,X,b,123}.  </code>
+
+  <section>
+    <title>Macros and Tokens</title>
+    <p>Macro expansion works at a token level. We might define a macro as follows:</p>
+    <code type="none">
+
+-define(macro2(X, Y), {a,X,b,Y).    </code>
+    <p>The replacement value of the macro is not a valid Erlang term because the closing right curly bracket is missing. <c>macro2</c> expands into a sequence of tokens <c>{</c>, <c>a</c>, <c>X</c>  which are then pasted into the place where the macro is used.</p>
+    <p>We might use this macro as follows:</p>
+    <code type="none">
+
+bar() ->
+    ?macro2(x,y)}.    </code>
+    <p>This will expand into the valid sequence of tokens <c>{a,x,y,b}</c> before being parsed and compiled.</p>
+    <note>
+      <p>It is good programming practise to ensure that the replacement text of a macro is a valid Erlang syntactic form.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Pre-Defined Macros</title>
+    <p>The following macros are pre-defined:</p>
+    <taglist>
+      <tag><c>?MODULE</c>. </tag>
+      <item>This macro returns the name of the current module.
+      </item>
+      <tag><c>?MODULE_STRING</c>. </tag>
+      <item>This macro returns the name of the current module, as a string.</item>
+      <tag><c>?FILE</c>.</tag>
+      <item>This macro returns the current file name.</item>
+      <tag><c>?LINE</c>.</tag>
+      <item>This macro returns the current line number.</item>
+      <tag><c>?MACHINE</c>.</tag>
+      <item>This macro returns the current machine name,
+      <c>'BEAM'</c>,</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Stringifying Macro Arguments</title>
+    <p>The construction <c>??Arg</c> for an argument to a macro expands to a
+      string containing the tokens of the argument, similar to the
+      <c>#arg</c> stringifying construction in C. This was added in Erlang
+      5.0 (OTP R7A).</p>
+    <p>Example:</p>
+    <code type="none">
+-define(TESTCALL(Call), io:format("Call ~s: ~w~n", [??Call, Call])).
+
+?TESTCALL(myfunction(1,2)),
+?TESTCALL(you:function(2,1)).</code>
+    <p>results in</p>
+    <code type="none">
+io:format("Call ~s: ~w~n",["myfunction ( 1 , 2 )",m:myfunction(1,2)]),
+io:format("Call ~s: ~w~n",["you : function ( 2 , 1 )",you:function(2,1)]).</code>
+  </section>
+
+  <section>
+    <title>Flow Control in Macros</title>
+    <p>The following macro directives are supplied:</p>
+    <taglist>
+      <tag>-undef(Macro).</tag>
+      <item>Causes the macro to behave as if it had never been defined.</item>
+      <tag>-ifdef(Macro).</tag>
+      <item>Do the following lines if <c>Macro</c> is defined.</item>
+      <tag>-ifndef(Macro).</tag>
+      <item>Do the following lines if <c>Macro</c> is not defined.</item>
+      <tag>-else.</tag>
+      <item>"else" macro</item>
+      <tag>-endif.</tag>
+      <item>"endif" macro.</item>
+    </taglist>
+    <p>The conditional macros must be properly nested. They are usually grouped as follows:</p>
+    <code type="none">
+
+-ifdef(debug)
+-define(....)
+-else
+-define(...)
+-endif    </code>
+    <p>The following example illustrates this grouping:</p>
+    <code type="none">
+
+-define(debug, true).
+-ifdef(debug).
+-define(trace(Str, X), io:format("Mod:~w line:~w ~p ~p~n", 
+                                 [?MODULE,?LINE, Str, X])).
+-else.
+-define(trace(X, Y), true).
+-endif.    </code>
+    <p>Given these definitions, the expression <c>?trace("X=", X).</c> in line 10 of the module <c>foo</c> expands to:</p>
+    <code type="none">
+
+io:format("Mod:~w line:~w ~p ~p~n",[foo,100,"X=",[X]]),    </code>
+    <p>If we remove the <c>-define(debug, true).</c> line, then the same expression expands to <c>true</c>.</p>
+  </section>
+
+  <section>
+    <title>A Macro Expansion Utility</title>
+    <p>The following code can be used to expand a macro and display the result:</p>
+    <code type="none">
+
+-module(mexpand).
+-export([file/1]).
+-import(lists, [foreach/2]).
+file(File) ->
+  case epp:parse_file(File ++ ".erl", [],[]) of
+    {ok, L} ->
+      {ok, Stream} = file:open(File ++ ".out", write),
+      foreach(fun(X) ->
+                io:format(Stream,"~s~n",[erl_pp:form(X)])
+              end, L),
+      file:close(Stream)
+  end.</code>
+    <p>Alternatively, we can compile the file with the <c>'P'</c> option. <c>compile:file(File, ['P'])</c> produces a list file <c>File.P</c>, in which the result of any macro expansions can be seen.</p>
+  </section>
+</chapter>
+

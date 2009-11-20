@@ -1,0 +1,217 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>filelib</title>
+    <prepared>Bjorn Gustavsson</prepared>
+    <responsible>Bjorn Gustavsson</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>03-01-21</date>
+    <rev>A</rev>
+    <file>filelib.sgml</file>
+  </header>
+  <module>filelib</module>
+  <modulesummary>File utilities, such as wildcard matching of filenames</modulesummary>
+  <description>
+    <p>This module contains utilities on a higher level than the <c>file</c>
+      module.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+filename() = string() | atom() | DeepList
+dirname() = filename()
+DeepList = [char() | atom() | DeepList]</code>
+  </section>
+
+  <funcs>
+    <func>
+      <name>ensure_dir(Name) -> ok | {error, Reason}</name>
+      <fsummary>Ensure that all parent directories for a file or directory exist.</fsummary>
+      <type>
+        <v>Name = filename() | dirname()</v>
+        <v>Reason = posix() -- see file(3)</v>
+      </type>
+      <desc>
+        <p>The <c>ensure_dir/1</c> function ensures that all parent
+          directories for the given file or directory name <c>Name</c>
+          exist, trying to create them if necessary.</p>
+        <p>Returns <c>ok</c> if all parent directories already exist
+          or could be created, or <c>{error, Reason}</c> if some parent
+          directory does not exist and could not be created for some
+          reason.</p>
+      </desc>
+    </func>
+    <func>
+      <name>file_size(Filename) -> integer()</name>
+      <fsummary>Return the size in bytes of the file.</fsummary>
+      <desc>
+        <p>The <c>file_size</c> function returns the size of the given file.</p>
+      </desc>
+    </func>
+    <func>
+      <name>fold_files(Dir, RegExp, Recursive, Fun, AccIn) -> AccOut   </name>
+      <fsummary>Fold over all files matching a regular expression.</fsummary>
+      <type>
+        <v>Dir = dirname()</v>
+        <v>RegExp = regular_expression_string()</v>
+        <v>Recursive = true|false</v>
+        <v>Fun = fun(F, AccIn) -> AccOut</v>
+        <v>AccIn = AccOut = term()</v>
+      </type>
+      <desc>
+        <p>The <c>fold_files/5</c> function folds the function
+          <c>Fun</c> over all (regular) files <c>F</c> in the
+          directory <c>Dir</c> that match the regular expression <c>RegExp</c>
+	  (see the <seealso marker="re">re</seealso> module for a description
+	  of the allowed regular expressions).
+          If <c>Recursive</c> is true all sub-directories to <c>Dir</c>
+          are processed. The regular expression matching is done on just
+	  the filename without the directory part.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_dir(Name) -> true | false</name>
+      <fsummary>Test whether Name refer to a directory or not</fsummary>
+      <type>
+        <v>Name = filename() | dirname()</v>
+      </type>
+      <desc>
+        <p>The <c>is_dir/1</c> function returns <c>true</c> if <c>Name</c>
+          refers to a directory, and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_file(Name) -> true | false</name>
+      <fsummary>Test whether Name refer to a file or directory.</fsummary>
+      <type>
+        <v>Name = filename() | dirname()</v>
+      </type>
+      <desc>
+        <p>The <c>is_file/1</c> function returns <c>true</c> if <c>Name</c>
+          refers to a file or a directory, and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_regular(Name) -> true | false</name>
+      <fsummary>Test whether Name refer to a (regular) file.</fsummary>
+      <type>
+        <v>Name = filename()</v>
+      </type>
+      <desc>
+        <p>The <c>is_regular/1</c> function returns <c>true</c> if <c>Name</c>
+          refers to a file (regular file), and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>last_modified(Name) -> {{Year,Month,Day},{Hour,Min,Sec}} | 0</name>
+      <fsummary>Return the local date and time when a file was last modified.</fsummary>
+      <type>
+        <v>Name = filename() | dirname()</v>
+      </type>
+      <desc>
+        <p>The <c>last_modified/1</c> function returns the date and time the
+          given file or directory was last modified, or 0 if the file
+	  does not exist.</p>
+      </desc>
+    </func>
+    <func>
+      <name>wildcard(Wildcard) -> list()</name>
+      <fsummary>Match filenames using Unix-style wildcards.</fsummary>
+      <type>
+        <v>Wildcard = filename() | dirname()</v>
+      </type>
+      <desc>
+        <p>The <c>wildcard/1</c> function returns a list of all files
+          that match Unix-style wildcard-string <c>Wildcard</c>.</p>
+        <p>The wildcard string looks like an ordinary filename, except
+          that certain "wildcard characters" are interpreted in a special
+          way. The following characters are special:
+          </p>
+        <taglist>
+          <tag>?</tag>
+          <item>
+            <p>Matches one character.</p>
+          </item>
+          <tag>*</tag>
+          <item>
+            <p>Matches any number of characters up to the end of
+              the filename, the next dot, or the next slash.</p>
+          </item>
+          <tag>{Item,...}</tag>
+          <item>
+            <p>Alternation. Matches one of the alternatives.</p>
+          </item>
+        </taglist>
+        <p>Other characters represent themselves. Only filenames that
+          have exactly the same character in the same position will match.
+          (Matching is case-sensitive; i.e. "a" will not match "A").
+          </p>
+        <p>Note that multiple "*" characters are allowed
+          (as in Unix wildcards, but opposed to Windows/DOS wildcards).
+          </p>
+        <p>Examples:</p>
+        <p>The following examples assume that the current directory is the
+          top of an Erlang/OTP installation.
+          </p>
+        <p>To find all <c>.beam</c> files in all applications, the following
+          line can be used:</p>
+        <code type="none">
+    filelib:wildcard("lib/*/ebin/*.beam").        </code>
+        <p>To find either <c>.erl</c> or <c>.hrl</c> in all applications
+          <c>src</c> directories, the following</p>
+        <code type="none">
+    filelib:wildcard("lib/*/src/*.?rl")        </code>
+        <p>or the following line</p>
+        <code type="none">
+    filelib:wildcard("lib/*/src/*.{erl,hrl}")        </code>
+        <p>can be used.</p>
+        <p>To find all <c>.hrl</c> files in either <c>src</c> or <c>include</c>
+          directories, use:</p>
+        <code type="none">
+    filelib:wildcard("lib/*/{src,include}/*.hrl").        </code>
+        <p>To find all <c>.erl</c> or <c>.hrl</c> files in either
+          <c>src</c> or <c>include</c> directories, use:</p>
+        <code type="none">
+    filelib:wildcard("lib/*/{src,include}/*.{erl,hrl}")        </code>
+      </desc>
+    </func>
+    <func>
+      <name>wildcard(Wildcard, Cwd) -> list()</name>
+      <fsummary>Match filenames using Unix-style wildcards starting at a specified directory.</fsummary>
+      <type>
+        <v>Wildcard = filename() | dirname()</v>
+        <v>Cwd = dirname()</v>
+      </type>
+      <desc>
+        <p>The <c>wildcard/2</c> function works like <c>wildcard/1</c>,
+          except that instead of the actual working directory, <c>Cwd</c>
+          will be used.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+
+

@@ -1,0 +1,322 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Appmon</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>appmon_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>The application monitor Appmon is a graphical node and application viewer. The tool shows an overview of all applications on all known nodes, and it is possible to view the process tree for an application running on any of the nodes.</p>
+    <note>
+      <p>If the Appmon code is not available at a node, for example an
+        embedded node, this node is ignored by Appmon and is not shown
+        in the Appmon window.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Getting Started with Appmon</title>
+    <p>Start Appmon by calling <c><![CDATA[appmon:start()]]></c>. It will start the <seealso marker="#main_win">main window</seealso> showing a load meter and the applications running at the current node. By clicking on one of the applications a window showing the process tree of the application will be opened, the <seealso marker="#app_win">application window</seealso>.</p>
+    <p>The main window is equipped with a menubar from which it is possible to:</p>
+    <list type="bulleted">
+      <item>exit Appmon</item>
+      <item>perform some operations on the node</item>
+      <item>set how information should be displayed</item>
+      <item>select which node to show</item>
+      <item>open help (this document).</item>
+    </list>
+    <p>The application window shows the process tree for an application with each process displayed as a box. It is possible to view information about the processes, to send messages to them, and to trace and kill them.</p>
+  </section>
+
+  <section>
+    <title>The Main Window</title>
+    <marker id="main_win"></marker>
+    <p>The main window shows a load meter and all applications running at the displayed node. Select which node to display in the window by choosing the node name from the Nodes menu. It is also possible to run Appmon in a many-window mode where a new instance of the main window is opened for each node to be displayed.</p>
+    <image file="main_win.gif">
+      <icaption>The Main Window.</icaption>
+    </image>
+    <p>The load meter shows load measured as processor time, or as the length of the ready queue.</p>
+    <p>Every application running at the node is shown as a button. Clicking the button will open the application window showing the process tree for the application.</p>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Show List Box...</em></tag>
+        <item>This will open the <seealso marker="#listbox_win">listbox window</seealso> which lists all nodes and applications. This window can be more easy to use than the normal, graphical user interface when the system consists of a large number of nodes and/or applications.</item>
+        <tag><em>Close</em></tag>
+        <item>Close the window. If no other instance of the main window exists, Appmon will be stopped.</item>
+        <tag><em>Exit</em></tag>
+        <item>Stop Appmon.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Actions Menu</title>
+      <taglist>
+        <tag><em>Reboot</em></tag>
+        <item>Call <c><![CDATA[init:reboot()]]></c> at the currently displayed node. This will stop the node. If the <c><![CDATA[-heart]]></c> system flag was given, the heart program will try to reboot the system.</item>
+        <tag><em>Restart</em></tag>
+        <item>Call <c><![CDATA[init:restart()]]></c> at the currently displayed node. This will restart the node.</item>
+        <tag><em>Stop</em></tag>
+        <item>Call <c><![CDATA[init:stop()]]></c> at the currently displayed node. This will stop the node.</item>
+        <tag><em>Ping</em></tag>
+        <item>Call <c><![CDATA[net:ping(Node)]]></c> where <c><![CDATA[Node]]></c> is the currently displayed node. This can be useful when the connection to the node has been lost.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Options Menu</title>
+      <taglist>
+        <tag><em>One window/Many windows</em></tag>
+        <item>Select one of these radio button to run Appmon in one-window or many-window mode. In many-windows mode, a new instance of the main window is opened for each node to be displayed. The default value is one-window mode.</item>
+        <tag><em>Load: time/queue</em></tag>
+        <item>Select one of these radio buttons to either calculate load as processor time or as the length of the ready queue, which is the number of processes ready to execute. By default, the load is calculated as processor time.</item>
+        <tag><em>Load: progressive/linear</em></tag>
+        <item>Select one of these radio buttons to show load either according to a progressive or a linear scale. By default, the load is shown according to a progressive scale. </item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Nodes Menu</title>
+      <p>The Nodes menu contains all currently and previously known nodes,
+        where the Appmon code is available. Nodes where the Appmon code is
+        not available, for example embedded nodes, are ignored by Appmon and
+        are not shown.</p>
+      <p>Selecting a node from the Nodes menu will cause that node to be displayed in either the same window, or in a new window, depending on if Appmon is run in one-window or many-windows mode. If the connection to the node has been lost, this will be shown in the window.</p>
+    </section>
+
+    <section>
+      <title>The Help Menu</title>
+      <taglist>
+        <tag><em>Help</em></tag>
+        <item>Selecting Help from the Help menu will cause the HTML version of the Appmon User's Guide (this document) to be displayed. Currently this function requires Netscape to be up and running.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <title>The Application Window</title>
+    <marker id="app_win"></marker>
+    <p>The application window shows the process tree for an application. The window title contains the application name and the node name. The window also contains a menubar and a toolbar.</p>
+    <p>The application window can be opened from the main window by clicking on the button denoting the application, or from the listbox window by selecting the application and clicking on the <em>Load</em> button.
+      </p>
+    <image file="app_win.gif">
+      <icaption>The Application Window.</icaption>
+    </image>
+    <p>The application can be shown either as a strict supervision tree, or as a process view with all linked processes. In supervision mode, the tree-gathering and -building algorithm assumes conformance to the OTP design principles.</p>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Close</em></tag>
+        <item>Close the application window.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Options Menu</title>
+      <taglist>
+        <tag><em>Refresh</em></tag>
+        <item>Refresh the application window.</item>
+        <tag><em>Sup. view/ Proc. view</em></tag>
+        <item>Select one of these radio buttons to show the application as a strict supervision tree, or as a process view with all linked processes. By default, the process view is used.</item>
+      </taglist>
+    </section>
+
+    <section>
+      <title>The Toolbar</title>
+      <p>The toolbar consists of four buttons: <em>Info</em>, <em>Send</em>, <em>Trace</em> and <em>Kill</em>. First select one of these buttons and then select to which process the action should apply by clicking on a process in the process tree. By default <em>Info</em> is selected which means that clicking on a process, without selecting <em>Send</em>, <em>Trace</em> or <em>Kill</em> first, will open the <seealso marker="#pinfo_win">process information window</seealso>.</p>
+      <taglist>
+        <tag><em>Info</em></tag>
+        <item>Open the <seealso marker="#pinfo_win">process information window</seealso>, which displays the information about the process given by <c><![CDATA[process_info(Pid)]]></c>.</item>
+        <tag><em>Send</em></tag>
+        <item>Send a message to a process. A window is opened where the message can be specified. Click <em>Ok</em> to send the message or <em>Cancel</em> to cancel.</item>
+        <tag><em>Trace</em></tag>
+        <item>Switch on OTP tracing of a process. <c><![CDATA[sys:trace(Pid,true)]]></c> is called. Selecting <em>Trace</em> a second time for the same process will switch the tracing off instead.</item>
+        <tag><em>Kill</em></tag>
+        <item>Kill a process. <c><![CDATA[exit(Pid,kill)]]></c> is called.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <title>The Listbox Window</title>
+    <marker id="listbox_win"></marker>
+    <p>The listbox window lists all nodes and applications. This window can be more easy to use than the normal, graphical user interface when the system consists of a large number of nodes and/or applications.</p>
+    <image file="listbox_win.gif">
+      <icaption>The Listbox Window.</icaption>
+    </image>
+    <p>The window contains three buttons:</p>
+    <taglist>
+      <tag><em>Load</em></tag>
+      <item>First selecting an application and then clicking the <em>Load</em> button will open the <seealso marker="#app_win">application window</seealso> for that application.</item>
+      <tag><em>Clear</em></tag>
+      <item>De-select any selected node or application name.</item>
+      <tag><em>Close</em></tag>
+      <item>Close the listbox window.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>The Process Information Window</title>
+    <marker id="pinfo_win"></marker>
+    <p>The process information window shows information about different processes as given by <c><![CDATA[process_info(Pid)]]></c>.</p>
+    <image file="pinfo_win.gif">
+      <icaption>The Process Information Window.</icaption>
+    </image>
+
+    <section>
+      <title>The File Menu</title>
+      <taglist>
+        <tag><em>Close</em></tag>
+        <item>Close the process information window.</item>
+      </taglist>
+    </section>
+  </section>
+
+  <section>
+    <title>Using the Web Based version of Appmon</title>
+
+    <section>
+      <title>Introduction</title>
+      <p>The web based version of Appmon is an alternative version of 
+        Appmon. The main difference between the web based version of
+        Appmon and the original version of Appmon is that the web based
+        version of Appmon can monitor nodes and applications on nodes where
+        Appmon not is installed.</p>
+    </section>
+
+    <section>
+      <title>Start the Web Based version of Appmon</title>
+      <p>To start the web based user interface configure and start 
+        WebTool, see <em>WebTool User's Guide</em>. The web based 
+        version of Appmon is compatible with the browsers 
+        Netscape Navigator and Internet Explorer 4.0 and higher.</p>
+      <p>When WebTool is started, start the Web based version of Appmon via 
+        WebTool. If WebTool succeeded to start the web based version of Appmon 
+        a link named WebAppmon will appear in the topmost frame. Click on the link and
+        the main frame of the browser will show two frames.The left frame will 
+        show a combo box for node selection and a list of all applications on 
+        the currently selected node.   </p>
+      <p>In the left frame it is possible to:</p>
+      <list type="bulleted">
+        <item>Select which node to supervise.</item>
+        <item>Select an application to view it's process tree.</item>
+        <item>Select an application to view it's specification.</item>
+      </list>
+      <p>The right frame shows the selected information, either the application 
+        specification or the process tree and process information.</p>
+    </section>
+
+    <section>
+      <title>Selecting a Different Node</title>
+      <p>In the top of the left frame there is a combo box with all known 
+        nodes. The name of the node that is monitored is the node whose name 
+        is visible in the combo box. At startup the node on which the web 
+        based version of Appmon is running on will be monitored.</p>
+      <p>To change node, select another node in the combo box, and
+        the list of running applications will change to the applications
+        that runs on the selected node.</p>
+    </section>
+
+    <section>
+      <title>Viewing the Process Tree of an Application</title>
+      <p>To view the process tree of an application click on the application 
+        name in the list of applications. The process tree of the selected 
+        application will then appear in the right frame.</p>
+      <p>The processes in the process tree can have three different colors:</p>
+      <taglist>
+        <tag><em>Blue</em></tag>
+        <item>The relation to the process above in the process hierarchy 
+         is a primary relation. That means that the process above is the
+         only process that link to it or the process above is a supervisor. </item>
+        <tag><em>Red</em></tag>
+        <item>The relation to the process above in the process hierarchy is a secondary 
+         relation. This means that more than one process has a relation to it 
+         and the process above in the hierarchy is not a supervisor.</item>
+        <tag><em>Black</em></tag>
+        <item>The process isn't a regular process instead it's a Port. The name of 
+         the process will also begin with <em>Port:</em></item>
+      </taglist>
+      <p>If the process name begins with <em>Runs on another node:</em> The 
+        monitored application runs on more than one node and this process is 
+        the first process on a branch that runs on another node. </p>
+    </section>
+
+    <section>
+      <title>Viewing the Application Specification</title>
+      <p>After the application name in the list of applications there are a 
+        link named <em>Spec</em>, Click on this link and the application 
+        specification will appear in the right frame. The application 
+        specification is the data in the <em>.app</em> file of the selected
+        application. </p>
+    </section>
+
+    <section>
+      <title>Select Process View</title>
+      <p>In the top of the page that shows the process tree, there are three 
+        radio buttons for selecting which processes that shall be included 
+        in the process tree. The default mode is that all processes 
+        that one process in the application tree  has a relation to is 
+        included. It's possible to filter which of the processes 
+        in the process tree that will be included. To reduce the number 
+        of processes in the process tree select one of the radio buttons 
+        on the top of the page </p>
+      <taglist>
+        <tag><em>All processes</em></tag>
+        <item>All processes that at least one process in the application 
+         tree has a link to.</item>
+        <tag><em>Supervised processes</em></tag>
+        <item>All processes that are supervised by one of the supervisors in 
+         the application</item>
+        <tag><em>Supervisors only</em></tag>
+        <item>Only the processes that actually are supervisors in the 
+         applications supervision tree is included</item>
+      </taglist>
+    </section>
+
+    <section>
+      <marker id="proc_info"></marker>
+      <title>Process Information</title>
+      <p>To see more information about a specific process  click on the process
+        name and more information will be loaded under the application tree.</p>
+      <p>The Process information page shows information about a process as given 
+        by the <c><![CDATA[process_info(Pid)]]></c>, but formatted in a more human readable form.</p>
+    </section>
+
+    <section>
+      <title>Trace a process</title>
+      <p>If the link after the process name in the process tree is <em>start trace</em>
+        the process is not traced. If the link is <em>stop trace</em> then the process
+        id traced.</p>
+      <p>To toggle the trace flag for a process click on the link <em>start trace</em> or
+        <em>stop trace</em> after the process name in the process tree.</p>
+    </section>
+  </section>
+</chapter>
+

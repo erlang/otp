@@ -1,0 +1,234 @@
+
+---------------------------------------------
+Factor 01
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 01 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [16] ................ done
+ * await runners ready ................ done
+ * now snooze
+ * release them
+
+16 runners
+Runner heap size data:
+   Min: 75025
+   Max: 1682835
+   Avg: 582577
+Runner reductions data:
+   Min: 927126711
+   Max: 5292487523
+   Avg: 1929935038
+
+MStone: 63283727
+
+---------------------------------------------
+Factor 02
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 02 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [32] ................................ done
+ * await runners ready ................................ done
+ * now snooze
+ * release them
+
+32 runners
+Runner heap size data:
+   Min: 75025
+   Max: 1346269
+   Avg: 388569
+Runner reductions data:
+   Min: 645498054
+   Max: 2774469009
+   Avg: 943407719
+
+MStone: 61441342
+
+---------------------------------------------
+Factor 04
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 04 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [64] ................................................................ done
+ * await runners ready ................................................................ done
+ * now snooze
+ * release them
+
+64 runners
+Runner heap size data:
+   Min: 75025
+   Max: 1682835
+   Avg: 462690
+Runner reductions data:
+   Min: 395464832
+   Max: 916378232
+   Avg: 507760636
+
+MStone: 66958216
+
+---------------------------------------------
+Factor 08
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 08 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [128] ................................................................................................................................ done
+ * await runners ready ................................................................................................................................ done
+ * now snooze
+ * release them
+
+128 runners
+Runner heap size data:
+   Min: 75025
+   Max: 832040
+   Avg: 173900
+Runner reductions data:
+   Min: 236710819
+   Max: 457961244
+   Avg: 269562568
+
+MStone: 72098418
+
+---------------------------------------------
+Factor 16
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 16 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [256] ................................................................................................................................................................................................................................................................ done
+ * await runners ready ................................................................................................................................................................................................................................................................ done
+ * now snooze
+ * release them
+
+256 runners
+Runner heap size data:
+   Min: 75025
+   Max: 317811
+   Avg: 131652
+Runner reductions data:
+   Min: 134104991
+   Max: 163429204
+   Avg: 142654707
+
+MStone: 77139535
+
+---------------------------------------------
+Factor 32
+
+erl -noshell -smp +S 8 -pa /ldisk/bmk/pgm/otp-r13b-m311p08-re/lib/erlang/lib/megaco-3.11/examples/meas -s megaco_codec_mstone1 start_flex time_test 32 -s init stop
+
+OS:                  unix-linux: 2.6.16
+System architecture: x86_64-unknown-linux-gnu
+OTP release:         R13B
+System version:      Erlang R13B (erts-5.7.1) [source] [64-bit] [smp:8:8] [rq:8] [async-threads:0] [hipe] [kernel-poll:false]
+Heap type:           private
+Global heap size:    0
+Thread support:      true
+Thread pool size:    0
+Process limit:       32768
+SMP support:         true
+Num schedulers:      8
+Scheduler bindings:  {0,1,4,5,2,3,6,7}
+Scheduler bind type: thread_no_node_processor_spread
+Cpu topology:        [{processor,[{core,{logical,0}},{core,{logical,4}},{core,{logical,2}},{core,{logical,6}}]},{processor,[{core,{logical,1}},{core,{logical,5}},{core,{logical,3}},{core,{logical,7}}]}]
+Megaco version:      megaco-3.11-p08
+ASN.1 version:       1.6.10
+
+ * starting runners [512] ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................ done
+ * await runners ready ................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................................ done
+ * now snooze
+ * release them
+
+512 runners
+Runner heap size data:
+   Min: 75025
+   Max: 196418
+   Avg: 107328
+Runner reductions data:
+   Min: 71186547
+   Max: 74170110
+   Avg: 72380653
+
+MStone: 78820851

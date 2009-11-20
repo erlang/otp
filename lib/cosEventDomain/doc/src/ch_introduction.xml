@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Introduction to cosEventDomain</title>
+    <prepared>Niclas Eklund</prepared>
+    <docno></docno>
+    <date>2001-08-20</date>
+    <rev></rev>
+    <file>ch_introduction.xml</file>
+  </header>
+
+  <section>
+    <title>Overview</title>
+    <p>The cosEventDomain application is a Event Domain Service compliant with the <url href="http://www.omg.org">OMG</url> 
+      Service CosEventDomainAdmin.
+      </p>
+
+    <section>
+      <title>Purpose and Dependencies</title>
+      <p>CosEventDomain is dependent on  <em>Orber</em>, which provides CORBA functionality in an Erlang environment.</p>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>To fully understand the concepts presented in the
+        documentation, it is recommended that the user is familiar
+        with distributed programming and CORBA.  
+        </p>
+    </section>
+  </section>
+</chapter>
+

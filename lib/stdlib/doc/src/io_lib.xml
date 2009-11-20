@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>io_lib</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>io_lib</module>
+  <modulesummary>IO Library Functions</modulesummary>
+  <description>
+    <p>This module contains functions for converting to and from
+      strings (lists of characters). They are used for implementing the
+      functions in the <c>io</c> module. There is no guarantee that the
+      character lists returned from some of the functions are flat,
+      they can be deep lists. <c>lists:flatten/1</c> can be used for
+      flattening deep lists.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+chars() = [char() | chars()]</code>
+  </section>
+  <funcs>
+    <func>
+      <name>nl() -> chars()</name>
+      <fsummary>Write a newline</fsummary>
+      <desc>
+        <p>Returns a character list which represents a new line
+          character.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write(Term) -></name>
+      <name>write(Term, Depth) -> chars()</name>
+      <fsummary>Write a term</fsummary>
+      <type>
+        <v>Term = term()</v>
+        <v>Depth = int()</v>
+      </type>
+      <desc>
+        <p>Returns a character list which represents <c>Term</c>. The
+          <c>Depth</c> (-1) argument controls the depth of the
+          structures written. When the specified depth is reached,
+          everything below this level is replaced by "...". For
+          example:</p>
+        <pre>
+1> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9})).</input>
+"{1,[2],[3],[4,5],6,7,8,9}"
+2> <input>lists:flatten(io_lib:write({1,[2],[3],[4,5],6,7,8,9}, 5)).</input>
+"{1,[2],[3],[...],...}"</pre>
+      </desc>
+    </func>
+    <func>
+      <name>print(Term) -></name>
+      <name>print(Term, Column, LineLength, Depth) -> chars()</name>
+      <fsummary>Pretty print a term</fsummary>
+      <type>
+        <v>Term = term()</v>
+        <v>Column = LineLenght = Depth = int()</v>
+      </type>
+      <desc>
+        <p>Also returns a list of characters which represents
+          <c>Term</c>, but breaks representations which are longer than
+          one line into many lines and indents each line sensibly. It
+          also tries to detect and output lists of printable characters 
+          as strings. <c>Column</c> is the starting column (1),
+          <c>LineLength</c> the maximum line length (80), and
+          <c>Depth</c> (-1) the maximum print depth.</p>
+      </desc>
+    </func>
+    <func>
+      <name>fwrite(Format, Data) -></name>
+      <name>format(Format, Data) -> chars() | UnicodeList</name>
+      <fsummary>Write formatted output</fsummary>
+      <type>
+        <v>Format = atom() | string() | binary()</v>
+        <v>Data = [term()]</v>
+	<v>UnicodeList = [Unicode]</v>
+	<v>Unicode = int() representing valid unicode codepoint</v>
+      </type>
+      <desc>
+        <p>Returns a character list which represents <c>Data</c>
+          formatted in accordance with <c>Format</c>. See
+          <seealso marker="io#fwrite/1">io:fwrite/1,2,3</seealso> for a detailed
+          description of the available formatting options. A fault is
+          generated if there is an error in the format string or
+          argument list.</p>
+
+	  <p>If (and only if) the Unicode translation modifier is used
+	  in the format string (i.e. ~ts or ~tc), the resulting list
+	  may contain characters beyond the ISO-latin-1 character
+	  range (in other words, numbers larger than 255). If so, the
+	  result is not an ordinary Erlang string(), but can well be
+	  used in any context where Unicode data is allowed.</p>
+	  
+      </desc>
+    </func>
+    <func>
+      <name>fread(Format, String) -> Result</name>
+      <fsummary>Read formatted input</fsummary>
+      <type>
+        <v>Format = String = string()</v>
+        <v>Result = {ok, InputList, LeftOverChars} | {more, RestFormat, Nchars, InputStack} | {error, What}</v>
+        <v>&nbsp;InputList = chars()</v>
+        <v>&nbsp;LeftOverChars = string()</v>
+        <v>&nbsp;RestFormat = string()</v>
+        <v>&nbsp;Nchars = int()</v>
+        <v>&nbsp;InputStack = chars()</v>
+        <v>&nbsp;What = term()</v>
+      </type>
+      <desc>
+        <p>Tries to read <c>String</c> in accordance with the control
+          sequences in <c>Format</c>. See
+          <seealso marker="io#fread/3">io:fread/3</seealso> for a detailed
+          description of the available formatting options. It is
+          assumed that <c>String</c> contains whole lines. It returns:</p>
+        <taglist>
+          <tag><c>{ok, InputList, LeftOverChars}</c></tag>
+          <item>
+            <p>The string was read. <c>InputList</c> is the list of
+              successfully matched and read items, and
+              <c>LeftOverChars</c> are the input characters not used.</p>
+          </item>
+          <tag><c>{more, RestFormat, Nchars, InputStack}</c></tag>
+          <item>
+            <p>The string was read, but more input is needed in order
+              to complete the original format string. <c>RestFormat</c>
+              is the remaining format string, <c>NChars</c> the number
+              of characters scanned, and <c>InputStack</c> is the
+              reversed list of inputs matched up to that point.</p>
+          </item>
+          <tag><c>{error, What}</c></tag>
+          <item>
+            <p>The read operation failed and the parameter <c>What</c>
+              gives a hint about the error.</p>
+          </item>
+        </taglist>
+        <p>Example:</p>
+        <pre>
+3> <input>io_lib:fread("~f~f~f", "15.6 17.3e-6 24.5").</input>
+{ok,[15.6,1.73e-5,24.5],[]}</pre>
+      </desc>
+    </func>
+    <func>
+      <name>fread(Continuation, String, Format) -> Return</name>
+      <fsummary>Re-entrant formatted reader</fsummary>
+      <type>
+        <v>Continuation = see below</v>
+        <v>String = Format = string()</v>
+        <v>Return = {done, Result, LeftOverChars} | {more, Continuation}</v>
+        <v>&nbsp;Result = {ok, InputList} | eof | {error, What}</v>
+        <v>&nbsp;&nbsp;InputList = chars()</v>
+        <v>&nbsp;&nbsp;What = term()()</v>
+        <v>&nbsp;LeftOverChars = string()</v>
+      </type>
+      <desc>
+        <p>This is the re-entrant formatted reader. The continuation of
+          the first call to the functions must be <c>[]</c>. Refer to
+          Armstrong, Virding, Williams, 'Concurrent Programming in
+          Erlang', Chapter 13 for a complete description of how the
+          re-entrant input scheme works.</p>
+        <p>The function returns:</p>
+        <taglist>
+          <tag><c>{done, Result, LeftOverChars}</c></tag>
+          <item>
+            <p>The input is complete. The result is one of the
+              following:</p>
+            <taglist>
+              <tag><c>{ok, InputList}</c></tag>
+              <item>
+                <p>The string was read. <c>InputList</c> is the list of
+                  successfully matched and read items, and
+                  <c>LeftOverChars</c> are the remaining characters.</p>
+              </item>
+              <tag><c>eof</c></tag>
+              <item>
+                <p>End of file has been encountered.
+                  <c>LeftOverChars</c> are the input characters not
+                  used.</p>
+              </item>
+              <tag><c>{error, What}</c></tag>
+              <item>
+                <p>An error occurred and the parameter <c>What</c> gives
+                  a hint about the error.</p>
+              </item>
+            </taglist>
+          </item>
+          <tag><c>{more, Continuation}</c></tag>
+          <item>
+            <p>More data is required to build a term.
+              <c>Continuation</c> must be passed to <c>fread/3</c>,
+              when more data becomes available.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>write_atom(Atom) -> chars()</name>
+      <fsummary>Write an atom</fsummary>
+      <type>
+        <v>Atom = atom()</v>
+      </type>
+      <desc>
+        <p>Returns the list of characters needed to print the atom
+          <c>Atom</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write_string(String) -> chars()</name>
+      <fsummary>Write a string</fsummary>
+      <type>
+        <v>String = string()</v>
+      </type>
+      <desc>
+        <p>Returns the list of characters needed to print <c>String</c>
+          as a string.</p>
+      </desc>
+    </func>
+    <func>
+      <name>write_char(Integer) -> chars()</name>
+      <fsummary>Write a character</fsummary>
+      <type>
+        <v>Integer = int()</v>
+      </type>
+      <desc>
+        <p>Returns the list of characters needed to print a character
+          constant in the ISO-latin-1 character set.</p>
+      </desc>
+    </func>
+    <func>
+      <name>indentation(String, StartIndent) -> int()</name>
+      <fsummary>Indentation after printing string</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>StartIndent = int()</v>
+      </type>
+      <desc>
+        <p>Returns the indentation if <c>String</c> has been printed,
+          starting at <c>StartIndent</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>char_list(Term) -> bool()</name>
+      <fsummary>Test for a list of characters</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Term</c> is a flat list of
+          characters in the ISO-latin-1 range, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>deep_char_list(Term) -> bool()</name>
+      <fsummary>Test for a deep list of characters</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Term</c> is a, possibly deep, list
+          of characters in the ISO-latin-1 range, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>printable_list(Term) -> bool()</name>
+      <fsummary>Test for a list of printable ISO-latin-1 characters</fsummary>
+      <type>
+        <v>Term = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Term</c> is a flat list of
+          printable ISO-latin-1 characters, otherwise it returns <c>false</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

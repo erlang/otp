@@ -1,0 +1,14 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+
+main([]) ->
+    ok.
+main(Args) ->
+    io:format("~p\n", [length(Args)]),
+    halt(ExitCode).
+
+
+
+
+
+	

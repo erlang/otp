@@ -1,0 +1,145 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+
+<resource xmlns="http://www.wxwidgets.org/wxxrc" version="2.3.0.1">
+
+<object class="wxDialog" name="platform_property_dialog">
+    <title>Platform Property Example</title>
+    <centered>1</centered>
+    <object class="wxFlexGridSizer">
+        <cols>1</cols>
+        <rows>0</rows>
+        <vgap>0</vgap>
+        <hgap>0</hgap>
+        <growablecols>0</growablecols>
+        <growablerows>0</growablerows>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxTextCtrl" name="message_textctrl">
+                <size>500,150</size>
+                <style>wxTE_MULTILINE</style>
+                <value>You can specify certain nodes of an XRC file to only be used for a certain platform.\n\nTo do this, there is a "platform" property that can be placed in any node [ie inside an opening tag]. The value of the tag can be any combination of the following: mac, win, unix, or os2. Use a | symbol between multiple platforms, for example &lt;label platform="win|mac"&gt;\n\nAt runtime, if there is a platform property in the tag, if it matches the current operating system, that node will be included, otherwise it won't.\n\nThe notebook example below shows how you can specify a high level node to only appear on a certain platform: the example here being a page of  preferences that only make sense on a certain platform.\n\nThe second example shows how to replace a single attribute of a control: here the label of a download link. It is also very useful for specifying menu item accelerators keystrokes on the target platform.</value>
+            </object>
+        </object>
+        <object class="sizeritem">
+            <flag>wxGROW|wxALIGN_CENTER_VERTICAL|wxALL</flag>
+            <border>5</border>
+            <object class="wxNotebook" name="platform_notebook">
+                <usenotebooksizer>1</usenotebooksizer>
+                <size>200,160</size>
+                <object class="notebookpage">
+                    <label>Shared options</label>
+                    <object class="wxPanel" name="shared_tab">
+                        <object class="wxBoxSizer">
+                            <orient>wxVERTICAL</orient>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="shared_checkbox">
+                                    <label>This preference is for all operating systems</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object platform="mac" class="notebookpage">
+                    <label>Macintosh options</label>
+                    <object class="wxPanel" name="mac_specific">
+                        <object class="wxBoxSizer">
+                            <orient>wxVERTICAL</orient>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="mac_checkbox">
+                                    <label>Save output in iMovie compatible format</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object platform="win" class="notebookpage">
+                    <label>Windows options</label>
+                    <object class="wxPanel" name="win_specific">
+                        <object class="wxBoxSizer">
+                            <orient>wxVERTICAL</orient>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="win_checkbox">
+                                    <label>Show application in icon tray instead of taskbar</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object platform="unix" class="notebookpage">
+                    <label>Linux options</label>
+                    <object class="wxPanel" name="unix_specific">
+                        <object class="wxBoxSizer">
+                            <orient>wxVERTICAL</orient>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="unix_checkbox">
+                                    <label>Check my home directory for previous files</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+                <object platform="os2" class="notebookpage">
+                    <label>OS2 options</label>
+                    <object class="wxPanel" name="os2_specific">
+                        <object class="wxBoxSizer">
+                            <orient>wxVERTICAL</orient>
+                            <object class="sizeritem">
+                                <flag>wxALIGN_CENTRE|wxALL</flag>
+                                <border>5</border>
+                                <object class="wxCheckBox" name="os2_checkbox">
+                                    <label>Use WarpIn installer</label>
+                                </object>
+                            </object>
+                        </object>
+                    </object>
+                </object>
+            </object>
+        </object>
+        <object platform="mac" class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxStaticText" name="download_mac_statictext">
+                <label>Get latest update at www.mycompany.com/download/mac</label>
+            </object>
+        </object>     
+        <object platform="win" class="sizeritem"> 
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxStaticText" name="download_win_statictext">
+                <label>Get latest update at www.mycompany.com/download/win</label>
+            </object>
+        </object>    
+        <object platform="unix" class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxStaticText" name="download_unix_statictext">
+                <label>Get latest update at www.mycompany.com/download/unix</label>
+            </object>
+        </object>    
+        <object platform="os2kurva" class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxStaticText" name="download_os2_statictext">
+                <label>Get latest update at www.mycompany.com/download/os2</label>
+            </object>        
+        </object>
+        <object class="sizeritem">
+            <flag>wxALIGN_CENTRE|wxALL</flag>
+            <border>5</border>
+            <object class="wxButton" name="wxID_OK">
+                <label>OK</label>
+            </object>
+        </object>
+    </object>
+</object>
+
+</resource>

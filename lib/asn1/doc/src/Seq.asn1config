@@ -1,0 +1,3 @@
+{exclusive_decode,{'GUI',
+	[{decode_Window_exclusive,['Window',[{status,[{buttonList,parts},{actions,undecoded}]}]]},
+	 {decode_Button_exclusive,['Button',[{number,undecoded}]]}]}}.

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Running Test Suites</title>
+    <prepared>Siri Hansen</prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>run_test_chapter.xml</file>
+  </header>
+
+  <section>
+    <title>Using the test server controller</title>
+    <p>The test server controller provides a low level interface to
+      all the Test Server functionality. It is possible to use this
+      interface directly, but it is recommended to use a framework
+      such as <em>Common Test</em> instead. If no existing framework
+      suits your needs, you could of course build your own 
+      on top of the test server controller. Some information about how 
+      to do this can be found in the section named "Writing you own 
+      test server framework" in the Test Server User's Guide.
+      </p>
+    <p>For information about using the controller directly, please see 
+      all available functions in the reference manual for
+      <c>test_server_ctrl</c>.
+    </p>
+  </section>
+</chapter>
+

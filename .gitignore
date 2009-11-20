@@ -1,0 +1,23 @@
+# Match at any level.
+*~
+autom4te.cache
+
+# Anchored from $ERL_TOP
+/bin
+
+/lib/*/ebin
+
+/bootstrap/bin
+/bootstrap/lib/asn1
+/bootstrap/lib/hipe
+/bootstrap/lib/ic
+/bootstrap/lib/parsetools
+/bootstrap/lib/sasl
+/bootstrap/lib/snmp
+/bootstrap/lib/syntax_tools
+/bootstrap/lib/wx
+
+/Makefile
+/configure
+
+/release

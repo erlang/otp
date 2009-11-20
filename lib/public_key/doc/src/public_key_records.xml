@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2008</year>
+      <year>2008</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Public key records</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2008-02-06</date>
+    <rev>A</rev>
+    <file>public_key_records.xml</file>
+  </header>
+    
+  <p>This chapter briefly describes Erlang records derived from asn1
+  specifications used to handle public and private keys. The intent
+  is to describe the data types and not to specify the meaning of
+  each component for this we refer you to the relevant standards and RFCs.</p>
+
+  <p>Use the following include directive to get access to the
+  records and constant macros used in the following sections.</p>
+  
+  <code> -include_lib("public_key/include/public_key.hrl"). </code>
+
+  <section>
+    <title>RSA as defined by the PKCS-1 standard and RFC 3447.</title>
+    
+    <code>
+#'RSAPublicKey'{
+	  modulus,       % integer()
+	  publicExponent % integer()
+	  }.
+
+#'RSAPrivateKey'{
+          version,         % two-prime | multi
+	  modulus,         % integer()
+	  publicExponent,  % integer()
+	  privateExponent, % integer()
+	  prime1,          % integer() 
+	  prime2,          % integer()
+	  exponent1,       % integer()
+	  exponent2,       % integer()
+	  coefficient,     % integer()
+	  otherPrimeInfos  % [#OtherPrimeInfo{}] | asn1_NOVALUE
+	 }.
+
+#'OtherPrimeInfo'{
+         prime,           % integer() 
+ 	 exponent,        % integer()
+         coefficient      % integer() 
+ 	 }.	 
+    </code>
+
+  </section>
+
+  <section>
+    <title>DSA as defined by Digital Signature Standard (NIST FIPS PUB 186-2)
+    </title>
+    
+    <code>	 
+#'DSAPrivateKey',{
+	  version,      % integer()
+	  p,            % integer()
+	  q,            % integer()
+	  g,            % integer()
+	  y,            % integer()
+	  x             % integer()
+	  }.
+
+#'Dss-Parms',{
+         p,         % integer()
+	 q,         % integer()
+	 g          % integer()
+	 }. 
+    </code>
+  </section>
+</chapter>

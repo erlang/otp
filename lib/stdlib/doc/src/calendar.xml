@@ -1,0 +1,377 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>calendar</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>1996-11-05</date>
+    <rev>B</rev>
+  </header>
+  <module>calendar</module>
+  <modulesummary>Local and universal time, day-of-the-week, date and time conversions</modulesummary>
+  <description>
+    <p>This module provides computation of local and universal time,
+      day-of-the-week, and several time conversion functions.</p>
+    <p>Time is local when it is adjusted in accordance with the current
+      time zone and daylight saving. Time is universal when it reflects
+      the time at longitude zero, without any adjustment for daylight
+      saving. Universal Coordinated Time (UTC) time is also called
+      Greenwich Mean Time (GMT).</p>
+    <p>The time functions <c>local_time/0</c> and
+      <c>universal_time/0</c> provided in this module both return date
+      and time. The reason for this is that separate functions for date
+      and time may result in a date/time combination which is displaced
+      by 24 hours. This happens if one of the functions is called
+      before midnight, and the other after midnight. This problem also
+      applies to the Erlang BIFs <c>date/0</c> and <c>time/0</c>, and
+      their use is strongly discouraged if a reliable date/time stamp
+      is required.</p>
+    <p>All dates conform to the Gregorian calendar. This calendar was
+      introduced by Pope Gregory XIII in 1582 and was used in all
+      Catholic countries from this year. Protestant parts of Germany
+      and the Netherlands adopted it in 1698, England followed in 1752,
+      and Russia in 1918 (the October revolution of 1917 took place in
+      November according to the Gregorian calendar).</p>
+    <p>The Gregorian calendar in this module is extended back to year 0.
+      For a given date, the <em>gregorian days</em> is the number of
+      days up to and including the date specified. Similarly,
+      the <em>gregorian seconds</em> for a given date and time, is
+      the the number of seconds up to and including the specified date
+      and time.</p>
+    <p>For computing differences between epochs in time, use
+      the functions counting gregorian days or seconds. If epochs are
+      given as local time, they must be converted to universal time, in
+      order to get the correct value of the elapsed time between epochs.
+      Use of the function <c>time_difference/2</c> is discouraged.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+date() = {Year, Month, Day}
+  Year = int()
+  Month = 1..12
+  Day = 1..31
+Year cannot be abbreviated. Example: 93 denotes year 93, not 1993.
+Valid range depends on the underlying OS.
+The date tuple must denote a valid date.
+
+time() = {Hour, Minute, Second}
+  Hour = 0..23
+  Minute = Second = 0..59</code>
+  </section>
+  <funcs>
+    <func>
+      <name>date_to_gregorian_days(Date) -> Days</name>
+      <name>date_to_gregorian_days(Year, Month, Day) -> Days</name>
+      <fsummary>Compute the number of days from year 0 up to the given date</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>Days = int()</v>
+      </type>
+      <desc>
+        <p>This function computes the number of gregorian days starting
+          with year 0 and ending at the given date.</p>
+      </desc>
+    </func>
+    <func>
+      <name>datetime_to_gregorian_seconds({Date, Time}) -> Seconds</name>
+      <fsummary>Compute the number of seconds from year 0 up to the given date and time</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+        <v>Seconds = int()</v>
+      </type>
+      <desc>
+        <p>This function computes the number of gregorian seconds
+          starting with year 0 and ending at the given date and time.</p>
+      </desc>
+    </func>
+    <func>
+      <name>day_of_the_week(Date) -> DayNumber</name>
+      <name>day_of_the_week(Year, Month, Day) -> DayNumber</name>
+      <fsummary>Compute the day of the week</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>DayNumber = 1..7</v>
+      </type>
+      <desc>
+        <p>This function computes the day of the week given <c>Year</c>,
+          <c>Month</c> and <c>Day</c>. The return value denotes the day
+          of the week as <c>1</c>: Monday, <c>2</c>: Tuesday, and so on.</p>
+      </desc>
+    </func>
+    <func>
+      <name>gregorian_days_to_date(Days) -> Date</name>
+      <fsummary>Compute the date given the number of gregorian days</fsummary>
+      <type>
+        <v>Days = int()</v>
+        <v>Date = date()</v>
+      </type>
+      <desc>
+        <p>This function computes the date given the number of
+          gregorian days.</p>
+      </desc>
+    </func>
+    <func>
+      <name>gregorian_seconds_to_datetime(Seconds) -> {Date, Time}</name>
+      <fsummary>Compute the date given the number of gregorian days</fsummary>
+      <type>
+        <v>Seconds = int()</v>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function computes the date and time from the given
+          number of gregorian seconds.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_leap_year(Year) -> bool()</name>
+      <fsummary>Check if a year is a leap year</fsummary>
+      <desc>
+        <p>This function checks if a year is a leap year.</p>
+      </desc>
+    </func>
+    <func>
+      <name>last_day_of_the_month(Year, Month) -> int()</name>
+      <fsummary>Compute the number of days in a month</fsummary>
+      <desc>
+        <p>This function computes the number of days in a month.</p>
+      </desc>
+    </func>
+    <func>
+      <name>local_time() -> {Date, Time}</name>
+      <fsummary>Compute local time</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function returns the local time reported by
+          the underlying operating system.</p>
+      </desc>
+    </func>
+    <func>
+      <name>local_time_to_universal_time({Date1, Time1}) -> {Date2, Time2}</name>
+      <fsummary>Convert from local time to universal time (deprecated)</fsummary>
+      <desc>
+        <p>This function converts from local time to Universal 
+          Coordinated Time (UTC). <c>Date1</c> must refer to a local
+          date after Jan 1, 1970.</p>
+        <warning>
+          <p>This function is deprecated. Use
+            <c>local_time_to_universal_time_dst/1</c> instead, as it
+            gives a more correct and complete result. Especially for
+            the period that does not exist since it gets skipped during
+            the switch <em>to</em> daylight saving time, this function
+            still returns a result.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>local_time_to_universal_time_dst({Date1, Time1}) -> [{Date, Time}]</name>
+      <fsummary>Convert from local time to universal time(s)</fsummary>
+      <type>
+        <v>Date1 = Date = date()</v>
+        <v>Time1 = Time = time()</v>
+      </type>
+      <desc>
+        <p>This function converts from local time to Universal
+          Coordinated Time (UTC). <c>Date1</c> must refer to a local
+          date after Jan 1, 1970.</p>
+        <p>The return value is a list of 0, 1 or 2 possible UTC times:</p>
+        <taglist>
+          <tag><c>[]</c></tag>
+          <item>
+            <p>For a local <c>{Date1, Time1}</c> during the period that
+              is skipped when switching <em>to</em> daylight saving
+              time, there is no corresponding UTC since the local time
+              is illegal - it has never happened.</p>
+          </item>
+          <tag><c>[DstDateTimeUTC, DateTimeUTC]</c></tag>
+          <item>
+            <p>For a local <c>{Date1, Time1}</c> during the period that
+              is repeated when switching <em>from</em> daylight saving
+              time, there are two corresponding UTCs. One for the first
+              instance of the period when daylight saving time is still
+              active, and one for the second instance.</p>
+          </item>
+          <tag><c>[DateTimeUTC]</c></tag>
+          <item>
+            <p>For all other local times there is only one
+              corresponding UTC.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>now_to_local_time(Now) -> {Date, Time}</name>
+      <fsummary>Convert now to local date and time</fsummary>
+      <type>
+        <v>Now -- see erlang:now/0</v>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function returns local date and time converted from
+          the return value from <c>erlang:now()</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>now_to_universal_time(Now) -> {Date, Time}</name>
+      <name>now_to_datetime(Now) -> {Date, Time}</name>
+      <fsummary>Convert now to date and time</fsummary>
+      <type>
+        <v>Now -- see erlang:now/0</v>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function returns Universal Coordinated Time (UTC)
+          converted from the return value from <c>erlang:now()</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>seconds_to_daystime(Seconds) -> {Days, Time}</name>
+      <fsummary>Compute days and time from seconds</fsummary>
+      <type>
+        <v>Seconds = Days = int()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function transforms a given number of seconds into days,
+          hours, minutes, and seconds. The <c>Time</c> part is always
+          non-negative, but <c>Days</c> is negative if the argument
+          <c>Seconds</c> is.</p>
+      </desc>
+    </func>
+    <func>
+      <name>seconds_to_time(Seconds) -> Time</name>
+      <fsummary>Compute time from seconds</fsummary>
+      <type>
+        <v>Seconds = int() &lt; 86400</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function computes the time from the given number of
+          seconds. <c>Seconds</c> must be less than the number of
+          seconds per day (86400).</p>
+      </desc>
+    </func>
+    <func>
+      <name>time_difference(T1, T2) -> {Days, Time}</name>
+      <fsummary>Compute the difference between two times (deprecated)</fsummary>
+      <desc>
+        <p>This function returns the difference between two <c>{Date, Time}</c> tuples. <c>T2</c> should refer to an epoch later
+          than <c>T1</c>.</p>
+        <warning>
+          <p>This function is obsolete. Use the conversion functions for
+            gregorian days and seconds instead.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name>time_to_seconds(Time) -> Seconds</name>
+      <fsummary>Compute the number of seconds since midnight up to  the given time</fsummary>
+      <type>
+        <v>Time = time()</v>
+        <v>Seconds = int()</v>
+      </type>
+      <desc>
+        <p>This function computes the number of seconds since midnight
+          up to the specified time.</p>
+      </desc>
+    </func>
+    <func>
+      <name>universal_time() -> {Date, Time}</name>
+      <fsummary>Compute universal time</fsummary>
+      <type>
+        <v>Date = date()</v>
+        <v>Time = time()</v>
+      </type>
+      <desc>
+        <p>This function returns the Universal Coordinated Time (UTC)
+          reported by the underlying operating system. Local time is
+          returned if universal time is not available.</p>
+      </desc>
+    </func>
+    <func>
+      <name>universal_time_to_local_time({Date1, Time1}) -> {Date2, Time2}</name>
+      <fsummary>Convert from universal time to local time</fsummary>
+      <type>
+        <v>Date1 = Date2 = date()</v>
+        <v>Time1 = Time2 = time()</v>
+      </type>
+      <desc>
+        <p>This function converts from Universal Coordinated Time (UTC)
+          to local time. <c>Date1</c> must refer to a date after Jan 1, 
+          1970.</p>
+      </desc>
+    </func>
+    <func>
+      <name>valid_date(Date) -> bool()</name>
+      <name>valid_date(Year, Month, Day) -> bool()</name>
+      <fsummary>Check if a date is valid</fsummary>
+      <type>
+        <v>Date = date()</v>
+      </type>
+      <desc>
+        <p>This function checks if a date is a valid.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Leap Years</title>
+    <p>The notion that every fourth year is a leap year is not
+      completely true. By the Gregorian rule, a year Y is a leap year if
+      either of the following rules is valid:</p>
+    <list type="bulleted">
+      <item>
+        <p>Y is divisible by 4, but not by 100; or</p>
+      </item>
+      <item>
+        <p>Y is divisible by 400.</p>
+      </item>
+    </list>
+    <p>Accordingly, 1996 is a leap year, 1900 is not, but 2000 is.</p>
+  </section>
+
+  <section>
+    <title>Date and Time Source</title>
+    <p>Local time is obtained from the Erlang BIF <c>localtime/0</c>.
+      Universal time is computed from the BIF <c>universaltime/0</c>.</p>
+    <p>The following facts apply:</p>
+    <list type="bulleted">
+      <item>there are 86400 seconds in a day</item>
+      <item>there are 365 days in an ordinary  year</item>
+      <item>there are 366 days in a leap year</item>
+      <item>there are 1461 days in a 4 year period</item>
+      <item>there are 36524 days in a 100 year period</item>
+      <item>there are 146097 days in a 400 year period</item>
+      <item>there are 719528 days between Jan 1, 0 and Jan 1, 1970.</item>
+    </list>
+  </section>
+</erlref>
+

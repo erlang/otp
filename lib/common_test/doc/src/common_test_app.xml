@@ -1,0 +1,448 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Common Test</title>
+    <prepared>Kenneth Lundin, Peter Andersson</prepared>
+    <responsible>Peter Andersson</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2003-10-21</date>
+    <rev>PA1</rev>
+    <file>common_test_app.sgml</file>
+  </header>
+  <module>common_test</module> 
+  <modulesummary>A framework for automated testing of arbitrary target nodes</modulesummary>
+
+  <description>
+
+    <p>The <em>Common Test</em> framework is an environment for
+      implementing and performing automatic and semi-automatic execution of
+      test cases.
+
+      Common Test uses the OTP Test Server as engine for test case 
+      execution and logging.</p>
+
+    <p>In brief, Common Test supports:</p>
+
+    <list>
+      <item>Automated execution of test suites (sets of test cases).</item>
+      <item>Logging of the events during execution.</item>
+      <item>HTML presentation of test suite results.</item>
+      <item>HTML presentation of test suite code.</item>
+      <item>Support functions for test suite authors.</item>
+      <item>Step by step execution of test cases.</item>
+    </list>
+    
+    <p>The following sections describe the mandatory and optional test suite
+      functions Common Test will call during test execution. For more details
+      see <seealso marker="write_test_chapter">Common Test User's
+      Guide.</seealso> </p>
+    
+  </description>
+
+  <section>
+    <title>TEST CASE CALLBACK FUNCTIONS</title>
+    <p>The following functions define the callback interface
+      for a test suite.</p>
+  </section>
+  
+  <funcs>
+    <func>
+      <name>Module:all() -> TestCases | {skip,Reason} </name>
+      <fsummary>Returns the list of all test cases in the module.</fsummary>
+      <type>
+	<v>TestCases = [atom() | {group,GroupName}]</v>
+	<v>Reason = term()</v>
+	<v>GroupName = atom()</v>
+      </type>
+      
+      <desc>	
+	<p> MANDATORY </p>
+	
+	<p>This function must return the list of all test cases and test
+	  case groups in the test suite module that are to be executed.
+	  This list also specifies the order the cases and groups will
+	  be executed by Common Test. A test case is represented by an atom,
+	  the name of the test case function. A test case group is
+	  represented by a <c>{group,GroupName}</c> tuple, where 
+	  <c>GroupName</c>, an atom, is the name of the group (defined
+	  with <c>groups/0</c>).</p>
+	
+	<p> If <c>{skip,Reason}</c> is returned, all test cases
+          in the module will be skipped, and the <c>Reason</c> will
+          be printed on the HTML result page.</p>
+
+	<p>For details on groups, see 
+	  <seealso marker="write_test_chapter#test_case_groups">Test case 
+	  groups</seealso> in the User's Guide.</p>
+      
+    </desc>
+    </func>
+
+    <func>
+      <name>Module:groups() -> GroupDefs</name>
+      <fsummary>Returns a list of test case group definitions.</fsummary>
+      <type>
+      <v>GroupDefs = [Group]</v>
+      <v>Group = {GroupName,Properties,GroupsAndTestCases}</v>
+      <v>GroupName = atom()</v>
+      <v>Properties = [parallel | sequence | Shuffle | {RepeatType,N}]</v>
+      <v>GroupsAndTestCases = [Group | {group,GroupName} | TestCase]</v>
+      <v>TestCase = atom()</v>
+      <v>Shuffle = shuffle | {shuffle,Seed}</v>
+      <v>Seed = {integer(),integer(),integer()}</v>
+      <v>RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |
+         repeat_until_any_ok | repeat_until_any_fail</v>
+      <v>N = integer() | forever</v>
+      </type>
+      
+      <desc>	
+	<p> OPTIONAL </p>
+	
+	<p>See <seealso marker="write_test_chapter#test_case_groups">Test case 
+	  groups</seealso> in the User's Guide for details.</p>      
+      </desc>
+    </func>
+
+      <func>
+	<name>Module:suite() -> [Info] </name>
+	<fsummary>Test suite info function (providing default data for the suite).</fsummary>
+	<type>
+	<v> Info = {timetrap,Time} | {require,Required} | 
+	    {require,Name,Required} | {userdata,UserData} |
+	    {silent_connections,Conns} | {stylesheet,CSSFile}</v>
+	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
+	  | {hours,integer()}</v>
+	<v> MilliSec = integer()</v>
+	<v> Required = Key | {Key,SubKeys}</v>
+	<v> Key = atom()</v>
+	<v> SubKeys = SubKey | [SubKey]</v>
+	<v> SubKey = atom()</v>
+	<v> Name = atom()</v>
+	<v> UserData = term()</v>
+	<v> Conns = [atom()]</v>
+	<v> CSSFile = string()</v>
+	</type>
+	<desc>	
+	  
+	  <p> OPTIONAL </p>
+	  
+	<p>This is the test suite info function. It is supposed to 
+	  return a list of tagged tuples that specify various properties
+	  regarding the execution of this test suite (common for all
+	  test cases in the suite).</p>
+	  
+	<p>The <c>timetrap</c> tag sets the maximum time each
+	  test case is allowed to take (including <c>init_per_testcase/2</c>
+	  and <c>end_per_testcase/2</c>). If the timetrap time is
+	  exceeded, the test case fails with reason
+	  <c>timetrap_timeout</c>.</p>
+	
+	<p>The <c>require</c> tag specifies configuration variables
+	  that are required by test cases in the suite. If the required
+	  configuration variables are not found in any of the
+	  configuration files, all test cases are skipped. For more
+	  information about the 'require' functionality, see the
+	  reference manual for the function
+	  <c>ct:require/[1,2]</c>.</p>
+
+	<p>With <c>userdata</c>, it is possible for the user to
+	  specify arbitrary test suite related information which can be 
+	  read by calling <c>ct:userdata/2</c>.</p>
+	
+	<p>Other tuples than the ones defined will simply be ignored.</p>
+
+	<p>For more information about the test suite info function,
+	  see <seealso marker="write_test_chapter#suite">Test
+	  suite info function</seealso> in the User's Guide.</p>
+    </desc>      
+    </func>
+
+      <func>
+	<name>Module:init_per_suite(Config) -> NewConfig | {skip,Reason} | {skip_and_save,Reason,SaveConfig}</name>
+	<fsummary>Test suite initialization.</fsummary>
+	<type>
+	  <v> Config = NewConfig = SaveConfig = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>	
+	  
+	  <p> OPTIONAL </p>
+	  
+	  <p>This function is called as the first function in the
+	  suite. It typically contains initialization which is common for
+	  all test cases in the suite, and which shall only be done
+	  once. The <c>Config</c> parameter is the configuration
+	  which can be modified here. Whatever is returned from this
+	  function is given as <c>Config</c> to all configuration functions
+	  and test cases in the suite. If <c>{skip,Reason}</c> 
+	  is returned, all test cases in the suite will be skipped and <c>Reason</c> 
+	  printed in the overview log for the suite.</p>
+	  <p>For information on <c>save_config</c> and <c>skip_and_save</c>, 
+	  please see 
+	  <seealso marker="dependencies_chapter#save_config">Dependencies 
+	  between Test Cases and Suites</seealso> in the User's Guide.</p>
+    </desc>      
+    </func>
+      
+      <func>
+	<name>Module:end_per_suite(Config) -> void() | {save_config,SaveConfig}</name>
+	<fsummary>Test suite finalization. </fsummary>
+	<type>
+	  <v> Config = SaveConfig = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	</type>
+	
+	<desc>	
+	  <p> OPTIONAL </p>
+	  
+	  <p>This function is called as the last test case in the
+	    suite. It is meant to be used for cleaning up after <c>init_per_suite/1</c>.
+	    For information on <c>save_config</c>, please see 
+	    <seealso marker="dependencies_chapter#save_config">Dependencies between 
+	    Test Cases and Suites</seealso> in the User's Guide.</p>
+    </desc>
+    </func>
+
+      <func>
+	<name>Module:init_per_group(GroupName, Config) -> NewConfig | {skip,Reason}</name>
+	<fsummary>Test case group initialization.</fsummary>
+	<type>
+	  <v> GroupName = atom()</v>
+	  <v> Config = NewConfig = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>	
+	  
+	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  
+	  <p>This function is called before execution of a test case group.
+	  It typically contains initialization which is common for
+	  all test cases in the group, and which shall only be performed
+	  once. <c>GroupName</c> is the name of the group, as specified in
+	  the group definition (see <c>groups/0</c>). The <c>Config</c> 
+	  parameter is the configuration which can be modified here. 
+	  Whatever is returned from this function is given as <c>Config</c> 
+	  to all test cases in the group. If <c>{skip,Reason}</c> is returned, 
+	  all test cases in the group will be skipped and <c>Reason</c> printed
+	  in the overview log for the group.</p>
+
+	  <p>For information about test case groups, please see 
+	    <seealso marker="write_test_chapter#test_case_groups">Test case 
+	    groups</seealso> chapter in the User's Guide.</p> 
+    </desc>      
+    </func>
+      
+      <func>
+	<name>Module:end_per_group(GroupName, Config) -> void() | {return_group_result,Status}</name>
+	<fsummary>Test case group finalization.</fsummary>
+	<type>
+	  <v> GroupName = atom()</v>
+	  <v> Config = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	  <v> Status = ok | skipped | failed</v>
+	</type>
+	
+	<desc>	
+	  <p> MANDATORY (only if one or more groups are defined) </p>
+	  
+	  <p>This function is called after the execution of a test case group is finished.
+	    It is meant to be used for cleaning up after <c>init_per_group/2</c>.
+	    By means of <c>{return_group_result,Status}</c>, it is possible to return a 
+	    status value for a nested sub-group. The status can be retrieved in
+	    <c>end_per_group/2</c> for the group on the level above. The status will also
+	    be used by Common Test for deciding if execution of a group should proceed in
+	    case the property <c>sequence</c> or <c>repeat_until_*</c> is set.</p>
+
+	  <p>For more information about test case groups, please see 
+	    <seealso marker="write_test_chapter#test_case_groups">Test case 
+	    groups</seealso> chapter in the User's Guide.</p> 
+       </desc>
+    </func>
+
+      <func>
+	<name>Module:init_per_testcase(TestCase, Config) -> NewConfig | {skip,Reason}</name>
+	<fsummary>Test case initialization.</fsummary>
+	<type>
+	  <v> TestCase = atom()</v>
+	  <v> Config = NewConfig = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>	
+	  
+	  <p>OPTIONAL</p>
+	  
+	  <p>This function is called before each test case. The
+	  <c>TestCase</c> argument is the name of the test case, and
+	  <c>Config</c> is the configuration which can be modified
+	  here. Whatever is returned from this function is given as
+	  <c>Config</c> to the test case. If <c>{skip,Reason}</c> is returned, 
+	  the test case will be skipped and <c>Reason</c> printed
+	  in the overview log for the suite.</p>
+    </desc>
+    </func>
+      
+      <func>
+	<name>Module:end_per_testcase(TestCase, Config) -> void() | {fail,Reason} | {save_config,SaveConfig}</name>
+	<fsummary>Test case finalization.</fsummary>
+	<type>
+	  <v> TestCase = atom()</v>
+	  <v> Config = SaveConfig = [{Key,Value}]</v>
+	  <v> Key = atom()</v>
+	  <v> Value = term()</v>
+	  <v> Reason = term()</v>
+	</type>
+	<desc>	
+	  
+	  <p> OPTIONAL </p>
+	  
+	  <p> This function is called after each test case, and can be used
+	    to clean up after <c>init_per_testcase/2</c> and the test case. 
+	    Any return value (besides <c>{fail,Reason}</c> and <c>{save_config,SaveConfig}</c>) 
+	    is ignored. By returning <c>{fail,Reason}</c>, <c>TestCase</c> will be marked as
+	    failed (even though it was actually successful in the sense that it returned
+	    a value instead of terminating). For information on <c>save_config</c>, please see 
+	    <seealso marker="dependencies_chapter#save_config">Dependencies between 
+	    Test Cases and Suites</seealso> in the User's Guide</p>
+	</desc>
+      </func>
+      
+    <func>
+      <name>Module:testcase() -> [Info] </name>
+      <fsummary>Test case info function. </fsummary>
+      <type>
+	<v> Info = {timetrap,Time} | {require,Required} | 
+	    {require,Name,Required} | {userdata,UserData} |
+	    {silent_connections,Conns}</v>
+	<v> Time = MilliSec | {seconds,integer()} | {minutes,integer()}
+	  | {hours,integer()}</v>
+	<v> MilliSec = integer()</v>
+	<v> Required = Key | {Key,SubKeys}</v>
+	<v> Key = atom()</v>
+	<v> SubKeys = SubKey | [SubKey]</v>
+	<v> SubKey = atom()</v>
+	<v> Name = atom()</v>
+	<v> UserData = term()</v>
+	<v> Conns = [atom()]</v>
+      </type>
+      
+      <desc>	
+	
+	<p>OPTIONAL</p>
+	  
+	<p>This is the test case info function. It is supposed to 
+	  return a list of tagged tuples that specify various properties
+	  regarding the execution of this particular test case.</p>
+	  
+	<p>The <c>timetrap</c> tag sets the maximum time the
+	  test case is allowed to take. If the timetrap time is
+	  exceeded, the test case fails with reason
+	  <c>timetrap_timeout</c>. <c>init_per_testcase/2</c>
+	  and <c>end_per_testcase/2</c> are included in the
+	  timetrap time.</p>
+	
+	<p>The <c>require</c> tag specifies configuration variables
+	  that are required by the test case. If the required
+	  configuration variables are not found in any of the
+	  configuration files, the test case is skipped. For more
+	  information about the 'require' functionality, see the
+	  reference manual for the function
+	  <c>ct:require/[1,2]</c>.</p>
+
+	<p>If <c>timetrap</c> and/or <c>require</c> is not set, the
+	  default values specified in the <c>suite/0</c> return list
+	  will be used.</p>
+
+	<p>With <c>userdata</c>, it is possible for the user to
+	  specify arbitrary test case related information which can be 
+	  read by calling <c>ct:userdata/3</c>.</p>
+	
+	<p>Other tuples than the ones defined will simply be ignored.</p>
+
+	<p>For more information about the test case info function,
+	  see <seealso marker="write_test_chapter#info_function">Test
+	  case info function</seealso> in the User's Guide.</p>
+      </desc>
+    </func>
+      
+    
+    <func>
+	<name>Module:testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+      <fsummary>A test case</fsummary>
+      <type>
+	<v> Config = SaveConfig = [{Key,Value}]</v>
+	<v> Key = atom()</v>
+	<v> Value = term()</v>
+	<v> Reason = term()</v>
+	<v> Comment = string()</v>
+      </type>
+      
+      <desc>	  
+	<p> MANDATORY </p>
+	
+	<p>This is the implementation of a test case. Here you must
+	  call the functions you want to test, and do whatever you
+	  need to check the result. If something fails, make sure the
+	  function causes a runtime error, or call <c>ct:fail/[0,1]</c> 
+	  (which also causes the test case process to crash).</p>
+	
+	<p>Elements from the <c>Config</c> parameter can be read
+	  with the <c>?config</c> macro. The <c>config</c>
+	  macro is defined in <c>ct.hrl</c></p>
+
+	<p>You can return <c>{skip,Reason}</c> if you decide not to
+	  run the test case after all. <c>Reason</c> will then be
+	  printed in 'Comment' field on the HTML result page.</p>
+	
+	<p>You can return <c>{comment,Comment}</c> if you wish to
+	  print some information in the 'Comment' field on the HTML
+	  result page.</p>
+	
+	<p>If the function returns anything else, the test case is 
+	  considered successful. (The return value always gets printed 
+	  in the test case log file).</p>
+
+	<p>For more information about test case implementation, please
+	  see <seealso marker="write_test_chapter#test_cases">Test
+	  cases</seealso> in the User's Guide.</p>
+
+	<p>For information on <c>save_config</c> and <c>skip_and_save</c>, please see 
+	  <seealso marker="dependencies_chapter#save_config">Dependencies between 
+	  Test Cases and Suites</seealso> in the User's Guide.</p>
+      </desc>
+    </func>
+    
+  </funcs>
+
+</erlref>
+
+

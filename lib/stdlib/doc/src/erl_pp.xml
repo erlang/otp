@@ -1,0 +1,178 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>erl_pp</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>97-01-24</date>
+    <rev>B</rev>
+    <file>erl_pp.sgml</file>
+  </header>
+  <module>erl_pp</module>
+  <modulesummary>The Erlang Pretty Printer</modulesummary>
+  <description>
+    <p>The functions in this module are used to generate
+      aesthetically attractive representations of abstract
+      forms, which are suitable for printing. All functions return (possibly deep)
+      lists of characters and generate an error if the form is wrong.</p>
+    <p>All functions can have an optional argument which specifies a hook
+      that is called if an attempt is made to print an unknown form.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>form(Form) -> DeepCharList</name>
+      <name>form(Form, HookFunction) -> DeepCharList</name>
+      <fsummary>Pretty print a form</fsummary>
+      <type>
+        <v>Form = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>Pretty prints a 
+          <c>Form</c> which is an abstract form of a type which is
+          returned by <c>erl_parse:parse_form</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>attribute(Attribute) -> DeepCharList</name>
+      <name>attribute(Attribute, HookFunction) -> DeepCharList</name>
+      <fsummary>Pretty print an attribute</fsummary>
+      <type>
+        <v>Attribute = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>The same as <c>form</c>, but only for the attribute
+          <c>Attribute</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>function(Function) -> DeepCharList</name>
+      <name>function(Function, HookFunction) -> DeepCharList</name>
+      <fsummary>Pretty print a function</fsummary>
+      <type>
+        <v>Function = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>The same as <c>form</c>, but only for the function
+          <c>Function</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>guard(Guard) -> DeepCharList</name>
+      <name>guard(Guard, HookFunction) -> DeepCharList</name>
+      <fsummary>Pretty print a guard</fsummary>
+      <type>
+        <v>Form = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>The same as <c>form</c>, but only for the guard test
+          <c>Guard</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>exprs(Expressions) -> DeepCharList</name>
+      <name>exprs(Expressions, HookFunction) -> DeepCharList</name>
+      <name>exprs(Expressions, Indent, HookFunction) -> DeepCharList</name>
+      <fsummary>Pretty print <c>Expressions</c></fsummary>
+      <type>
+        <v>Expressions = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>Indent = integer()</v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>The same as <c>form</c>, but only for the sequence of
+          expressions in <c>Expressions</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>expr(Expression) -> DeepCharList</name>
+      <name>expr(Expression, HookFunction) -> DeepCharList</name>
+      <name>expr(Expression, Indent, HookFunction) -> DeepCharList</name>
+      <name>expr(Expression, Indent, Precedence, HookFunction) ->-> DeepCharList</name>
+      <fsummary>Pretty print one <c>Expression</c></fsummary>
+      <type>
+        <v>Expression = term()</v>
+        <v>HookFunction = see separate description below.</v>
+        <v>Indent = integer()</v>
+        <v>Precedence = </v>
+        <v>DeepCharList = [char()|DeepCharList]</v>
+      </type>
+      <desc>
+        <p>This function prints one expression. It is useful for implementing hooks (see below).</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Unknown Expression Hooks</title>
+    <p>The optional argument <c>HookFunction</c>, shown in the functions described above,  defines a function which is called when an unknown form occurs where there
+      should be a valid expression. It can have the following formats:</p>
+    <taglist>
+      <tag><c>Function</c></tag>
+      <item>
+        <p>The hook function is called by:</p>
+        <code type="none">
+Function(Expr, 
+         CurrentIndentation,
+         CurrentPrecedence,
+         HookFunction)        </code>
+      </item>
+      <tag><c>none</c></tag>
+      <item>
+        <p>There is no hook function</p>
+      </item>
+    </taglist>
+    <p>The called hook function should return a (possibly deep) list
+      of characters. <c>expr/4</c> is useful in a hook.
+      </p>
+    <p>If <c>CurrentIndentation</c> is negative, there will be no line
+      breaks and only a space is used as a separator.</p>
+  </section>
+
+  <section>
+    <title>Bugs</title>
+    <p>It should be possible to have hook functions for unknown forms
+      at places other than expressions.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="io">io(3)</seealso>,
+      <seealso marker="erl_parse">erl_parse(3)</seealso>,
+      <seealso marker="erl_eval">erl_eval(3)</seealso></p>
+  </section>
+</erlref>
+

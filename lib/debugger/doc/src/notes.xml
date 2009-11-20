@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Debugger Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  
+  <p>This document describes the changes made to the Debugger
+    application.</p>
+
+<section><title>Debugger 3.2.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Added a new gui, start with debugger:start(gs) for old
+	    gui.</p>
+          <p>
+	    Own Id: OTP-7366</p>
+        </item>
+        <item>
+          <p>
+	    The undocumented, unsupported, and deprecated guard BIF
+	    <c>is_constant/1</c> has been removed.</p>
+          <p>
+	    *** INCOMPATIBILITY with R12B ***</p>
+          <p>
+	    Own Id: OTP-7673</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.1.1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    There is now experimental support for loading of code
+	    from archive files. See the documentation of <c>code</c>,
+	    <c>init</c>, <c>erl_prim_loader </c> and <c>escript</c>
+	    for more info.</p>
+          <p>
+	    The error handling of <c>escripts</c> has been improved.</p>
+          <p>
+	    An <c>escript</c> may now set explicit arguments to the
+	    emulator, such as <c>-smp enabled</c>.</p>
+          <p>
+	    An <c>escript</c> may now contain a precompiled beam
+	    file.</p>
+          <p>
+	    An <c>escript</c> may now contain an archive file
+	    containing one or more applications (experimental).</p>
+          <p>
+	    The internal module <c>code_aux</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-7548 Aux Id: otp-6622 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.1.1.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor changes.</p>
+          <p>
+	    Own Id: OTP-7388</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Debugger 3.1.1.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation has been updated so as to reflect
+	    the last updates of the Erlang shell as well as the minor
+	    modifications of the control sequence <c>p</c> of the
+	    <c>io_lib</c> module.</p> <p>Superfluous empty lines have
+	    been removed from code examples and from Erlang shell
+	    examples.</p>
+          <p>
+	    Own Id: OTP-6944 Aux Id: OTP-6554, OTP-6911 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Debugger 3.1.1.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor Makefile changes.</p>
+          <p>
+	    Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>
+	    Obsolete guard tests (such as list()) have been replaced
+	    with the modern guard tests (such as is_list()).</p>
+          <p>
+	    Own Id: OTP-6725</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 3.1.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Removed some dead code from <c>dbg_ieval</c>.</p>
+          <p>
+            Own Id: OTP-6552</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The interpreter could not handle the case where an
+            expression that should evaluate to a fun referred to
+            uninterpreted code.</p>
+          <p>
+            Own Id: OTP-6061 Aux Id: seq10295</p>
+        </item>
+	<item>
+	  <p>
+	    Timeout for <c>gen_server</c> calls within Debugger is
+	    now set to <c>infinity</c>.</p>
+	  <p>
+	    Own Id: OTP-6103</p>
+	</item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Notification windows are now centered over a parent
+            window.</p>
+          <p>
+            Own Id: OTP-6011 Aux Id: OTP-5987</p>
+        </item>
+        <item>
+          <p>
+            When interpreting a module, it is now checked that the
+            module does not belong to the Kernel, STDLIB, GS or
+            Debugger application, as interpreting a module used by
+            the debugger/interpreter itself will lead to a deadlock
+            or emulator crash.</p>
+          <p>
+            Also <c>int:interpretable(Mod)</c> has been extended to
+            return <c>{error,{app,App}}</c> if <c>Mod</c> belongs to
+            one of the above applications.</p>
+          <p>
+            Own Id: OTP-6020</p>
+        </item>
+        <item>
+          <p>
+            <c>andalso</c>/<c>orelse</c> is now supported.</p>
+          <p>
+            Own Id: OTP-6021 Aux Id: OTP-5894</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 3.0.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            When evaluating a guard expression for a fun function
+            clause, the environment variable bindings were not taken
+            into account.</p>
+          <p>
+            Own Id: OTP-5837</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>A number of smaller improvements to the GUI:</p>
+	  <list>
+	    <item>Multiple choices now possible in Function Break
+	      Dialog Window.</item>
+	    <item>Right-clicking the Module entry in a Break Dialog
+	      Window will open a popup menu from which the appropriate
+	      (interpreted) module can be selected.</item>
+	    <item>Auto Attach options can now be changed using
+	      the buttons in the left part of the Monitor Window, not
+	      only by the corresponding menu buttons.</item>
+	    <item>Buttons for enabling and disabling all breakpoints
+	      have been added.</item>
+	    <item>View Module Window keyboard shortcuts corrected.
+	    </item>
+	  </list>
+            Own Id: OTP-4284
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 3.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Debugger can now handle <c>try-catch</c>. This meant
+            large parts of the interpreter had to be rewritten. Also,
+            some small changes to the GUI have been made.</p>
+          <p>
+            Own Id: OTP-5730</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 2.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>It is now possible to encrypt the debug information in
+            Beam files, to help keep the source code secret. See the
+            documentation for compile on how to provide the key for
+            encrypting, and the documentation for beam_lib on how to
+            provide the key for decryption so that tools such as the
+            Debugger, Xref, or Cover can be used.</p>
+            <p>The <c>beam_lib:chunks/2</c> functions now accepts an
+            additional chunk type '<c>compile_info</c>' to retrieve
+            the compilation information directly as a term. (Thanks
+            to Tobias Lindahl.)</p>
+          <p>
+            Own Id: OTP-5460 Aux Id: seq9787</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 2.3.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            The graphic applications now search for HTML
+            documentation in the correct place.</p>
+          <p>
+            Own Id: OTP-5381</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section><title>Debugger 2.3.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Package support has been added to the debugger. Thanks to
+	    Richard Carlsson in the HiPE project.</p>
+          <p>
+	    Own Id: OTP-5255</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Updated to handle the latest version of the compiler.</p>
+          <p>
+	    Own Id: OTP-5265</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+
+

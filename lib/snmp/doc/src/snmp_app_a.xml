@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>SNMP Appendix A</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmp_app_a.xml</file>
+  </header>
+
+  <section>
+    <title>Appendix A</title>
+    <p>This appendix describes the conversion of SNMPv2 to SNMPv1
+      error messages. The instrumentation functions should return v2
+      error messages.
+      </p>
+    <p>Mapping of SNMPv2 error message to SNMPv1:
+      </p>
+    <table>
+      <row>
+        <cell align="left" valign="middle">SNMPv2 message</cell>
+        <cell align="left" valign="middle">SNMPv1 message</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">noError</cell>
+        <cell align="left" valign="middle">noError</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">genErr</cell>
+        <cell align="left" valign="middle">genErr</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">noAccess</cell>
+        <cell align="left" valign="middle">noSuchName</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">wrongType</cell>
+        <cell align="left" valign="middle">badValue</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">wrongLength</cell>
+        <cell align="left" valign="middle">badValue</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">wrongEncoding</cell>
+        <cell align="left" valign="middle">badValue</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">wrongValue</cell>
+        <cell align="left" valign="middle">badValue</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">noCreation</cell>
+        <cell align="left" valign="middle">noSuchName</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">inconsistentValue</cell>
+        <cell align="left" valign="middle">badValue</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">resourceUnavailable</cell>
+        <cell align="left" valign="middle">genErr</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">commitFailed</cell>
+        <cell align="left" valign="middle">genErr</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">undoFailed</cell>
+        <cell align="left" valign="middle">genErr</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">notWritable</cell>
+        <cell align="left" valign="middle">noSuchName</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">inconsistentName</cell>
+        <cell align="left" valign="middle">noSuchName</cell>
+      </row>
+      <tcaption>Error Messages</tcaption>
+    </table>
+  </section>
+</chapter>
+

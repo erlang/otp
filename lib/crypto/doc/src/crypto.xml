@@ -1,0 +1,785 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>crypto</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2000-06-20</date>
+    <rev>B</rev>
+  </header>
+  <module>crypto</module>
+  <modulesummary>Crypto Functions</modulesummary>
+  <description>
+    <p>This module provides a set of cryptographic functions.
+      </p>
+    <p>References:</p>
+    <list type="bulleted">
+      <item>
+        <p>md5: The MD5 Message Digest Algorithm (RFC 1321)</p>
+      </item>
+      <item>
+        <p>sha: Secure Hash Standard (FIPS 180-2)</p>
+      </item>
+      <item>
+        <p>hmac: Keyed-Hashing for Message Authentication (RFC 2104)</p>
+      </item>
+      <item>
+        <p>des: Data Encryption Standard (FIPS 46-3)</p>
+      </item>
+      <item>
+        <p>aes: Advanced Encryption Standard (AES) (FIPS 197) </p>
+      </item>
+      <item>
+        <p>ecb, cbc, cfb, ofb: Recommendation for Block Cipher Modes
+          of Operation (NIST SP 800-38A).</p>
+      </item>
+      <item>
+        <p>rsa: Recommendation for Block Cipher Modes of Operation
+          (NIST 800-38A)</p>
+      </item>
+      <item>
+        <p>dss: Digital Signature Standard (FIPS 186-2)</p>
+      </item>
+    </list>
+    <p>The above publications can be found at <url href="http://csrc.nist.gov/publications">NIST publications</url>, at <url href="http://www.ietf.org">IETF</url>.
+      </p>
+    <p><em>Types</em></p>
+    <pre>
+byte() = 0 ... 255
+ioelem() = byte() | binary() | iolist()
+iolist() = [ioelem()]
+Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
+    </pre>
+    <p></p>
+  </description>
+  <funcs>
+    <func>
+      <name>start() -> ok</name>
+      <fsummary>Start the crypto server.</fsummary>
+      <desc>
+        <p>Starts the crypto server.</p>
+      </desc>
+    </func>
+    <func>
+      <name>stop() -> ok</name>
+      <fsummary>Stop the crypto server.</fsummary>
+      <desc>
+        <p>Stops the crypto server.</p>
+      </desc>
+    </func>
+    <func>
+      <name>info() -> [atom()]</name>
+      <fsummary>Provide a list of available crypto functions.</fsummary>
+      <desc>
+        <p>Provides the available crypto functions in terms of a list
+          of atoms.</p>
+      </desc>
+    </func>
+    <func>
+      <name>info_lib() -> [{Name,VerNum,VerStr}]</name>
+      <fsummary>Provides information about the libraries used by crypto.</fsummary>
+      <type>
+        <v>Name = binary()</v>
+        <v>VerNum = integer()</v>
+        <v>VerStr = binary()</v>
+      </type>
+      <desc>
+        <p>Provides the name and version of the libraries used by crypto.</p>
+        <p><c>Name</c> is the name of the library. <c>VerNum</c> is
+        the numeric version according to the library's own versioning
+        scheme. <c>VerStr</c> contains a text variant of the version.</p>
+        <pre>
+> <input>info_lib().</input>
+[{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
+        </pre>
+      </desc>
+    </func>
+    <func>
+      <name>md5(Data) -> Digest</name>
+      <fsummary>Compute an <c>MD5</c>message digest from <c>Data</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD5</c> message digest from <c>Data</c>, where
+          the length of the digest is 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>md5_init() -> Context</name>
+      <fsummary>Creates an MD5 context</fsummary>
+      <type>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Creates an MD5 context, to be used in subsequent calls to 
+          <c>md5_update/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md5_update(Context, Data) -> NewContext</name>
+      <fsummary>Update an MD5 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Context = NewContext = binary()</v>
+      </type>
+      <desc>
+        <p>Updates an MD5 <c>Context</c> with <c>Data</c>, and returns
+          a <c>NewContext</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md5_final(Context) -> Digest</name>
+      <fsummary>Finish the update of an MD5 <c>Context</c>and return the computed <c>MD5</c>message digest</fsummary>
+      <type>
+        <v>Context = Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finishes the update of an MD5 <c>Context</c> and returns
+          the computed <c>MD5</c> message digest.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha(Data) -> Digest</name>
+      <fsummary>Compute an <c>SHA</c>message digest from <c>Data</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>SHA</c> message digest from <c>Data</c>, where
+          the length of the digest is 160 bits (20 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha_init() -> Context</name>
+      <fsummary>Create an SHA context</fsummary>
+      <type>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Creates an SHA context, to be used in subsequent calls to 
+          <c>sha_update/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha_update(Context, Data) -> NewContext</name>
+      <fsummary>Update an SHA context</fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Context = NewContext = binary()</v>
+      </type>
+      <desc>
+        <p>Updates an SHA <c>Context</c> with <c>Data</c>, and returns
+          a <c>NewContext</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha_final(Context) -> Digest</name>
+      <fsummary>Finish the update of an SHA context</fsummary>
+      <type>
+        <v>Context = Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finishes the update of an SHA <c>Context</c> and returns
+          the computed <c>SHA</c> message digest.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md5_mac(Key, Data) -> Mac</name>
+      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <type>
+        <v>Key = Data = iolist() | binary()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD5 MAC</c> message authentification code
+          from <c>Key</c> and <c>Data</c>, where the the length of the
+          Mac is 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>md5_mac_96(Key, Data) -> Mac</name>
+      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <type>
+        <v>Key = Data = iolist() | binary()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD5 MAC</c> message authentification code
+          from <c>Key</c> and <c>Data</c>, where the length of the Mac
+          is 96 bits (12 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha_mac(Key, Data) -> Mac</name>
+      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <type>
+        <v>Key = Data = iolist() | binary()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>SHA MAC</c> message authentification code
+          from <c>Key</c> and <c>Data</c>, where the length of the Mac
+          is 160 bits (20 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>sha_mac_96(Key, Data) -> Mac</name>
+      <fsummary>Compute an <c>MD5 MAC</c>message authentification code</fsummary>
+      <type>
+        <v>Key = Data = iolist() | binary()</v>
+        <v>Mac = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>SHA MAC</c> message authentification code
+          from <c>Key</c> and <c>Data</c>, where the length of the Mac
+          is 96 bits (12 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cbc_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in CBC mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in CBC
+          mode. <c>Text</c> must be a multiple of 64 bits (8
+          bytes). <c>Key</c> is the DES key, and <c>IVec</c> is an
+          arbitrary initializing vector. The lengths of <c>Key</c> and
+          <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cbc_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in CBC mode.
+          <c>Key</c> is the DES key, and <c>IVec</c> is an arbitrary
+          initializing vector.  <c>Key</c> and <c>IVec</c> must have
+          the same values as those used when encrypting. <c>Cipher</c>
+          must be a multiple of 64 bits (8 bytes).  The lengths of
+          <c>Key</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_cbc_ivec(Data) -> IVec</name>
+      <fsummary>Get <c>IVec</c> to be used in next iteration of
+                <c>des_cbc_[ecrypt|decrypt]</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>IVec = binary()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>IVec</c> to be used in a next iteration of 
+          <c>des_cbc_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
+          data from the previous iteration step.</p>
+      </desc>
+    </func>
+    <func>
+      <name>des3_cbc_encrypt(Key1, Key2, Key3, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES3 in CBC mode</fsummary>
+      <type>
+        <v>Key1 =Key2 = Key3 Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES3 in CBC
+          mode. <c>Text</c> must be a multiple of 64 bits (8
+          bytes). <c>Key1</c>, <c>Key2</c>, <c>Key3</c>, are the DES
+          keys, and <c>IVec</c> is an arbitrary initializing
+          vector. The lengths of each of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c> and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des3_cbc_decrypt(Key1, Key2, Key3, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in CBC mode</fsummary>
+      <type>
+        <v>Key1 = Key2 = Key3 = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES3 in CBC mode.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> are the DES key, and
+          <c>IVec</c> is an arbitrary initializing vector.
+          <c>Key1</c>, <c>Key2</c>, <c>Key3</c> and <c>IVec</c> must
+          and <c>IVec</c> must have the same values as those used when
+          encrypting. <c>Cipher</c> must be a multiple of 64 bits (8
+          bytes).  The lengths of <c>Key1</c>, <c>Key2</c>,
+          <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>blowfish_cfb64_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>using Blowfish in CFB mode with 64
+        bit feedback</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
+          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
+          arbitrary initializing vector. The length of <c>IVec</c>
+          must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>blowfish_cfb64_decrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Decrypt <c>Text</c>using Blowfish in CFB mode with 64
+        bit feedback</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Text</c> using Blowfish in CFB mode with 64 bit
+          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
+          arbitrary initializing vector. The length of <c>IVec</c>
+          must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_cfb_128_encrypt(Key, IVec, Text) -> Cipher</name>
+      <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to AES in Cipher Feedback  mode or Cipher Block Chaining mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to AES in Cipher Feedback 
+          mode (CFB) or Cipher Block Chaining mode (CBC). <c>Text</c>
+          must be a multiple of 128 bits (16 bytes). <c>Key</c> is the
+          AES key, and <c>IVec</c> is an arbitrary initializing vector.
+          The lengths of <c>Key</c> and <c>IVec</c> must be 128 bits
+          (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_cfb_128_decrypt(Key, IVec, Cipher) -> Text</name>
+      <name>aes_cbc_128_decrypt(Key, IVec, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to AES in Cipher Feedback  mode or Cipher Block Chaining mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>IVec = Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to Cipher Feedback Mode (CFB)
+          or Cipher Block Chaining mode (CBC).
+          <c>Key</c> is the AES key, and <c>IVec</c> is an arbitrary
+          initializing vector. <c>Key</c> and <c>IVec</c> must have
+          the same values as those used when encrypting. <c>Cipher</c>
+          must be a multiple of 128 bits (16 bytes).  The lengths of
+          <c>Key</c> and <c>IVec</c> must be 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>aes_cbc_ivec(Data) -> IVec</name>
+      <fsummary>Get <c>IVec</c> to be used in next iteration of
+                <c>aes_cbc_*_[ecrypt|decrypt]</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>IVec = binary()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>IVec</c> to be used in a next iteration of 
+          <c>aes_cbc_*_[encrypt|decrypt]</c>. <c>Data</c> is the encrypted
+          data from the previous iteration step.</p>
+      </desc>
+    </func>
+    <func>
+      <name>erlint(Mpint) -> N</name>
+      <name>mpint(N) -> Mpint</name>
+      <fsummary>Convert between binary multi-precision integer and erlang big integer</fsummary>
+      <type>
+        <v>Mpint = binary()</v>
+        <v>N = integer()</v>
+      </type>
+      <desc>
+        <p>Convert a binary multi-precision integer <c>Mpint</c> to and from
+          an erlang big integer. A multi-precision integer is a binary
+          with the following form:
+          <c><![CDATA[<<ByteLen:32/integer, Bytes:ByteLen/binary>>]]></c> where both
+          <c>ByteLen</c> and <c>Bytes</c> are big-endian. Mpints are used in
+          some of the functions in <c>crypto</c> and are not translated
+          in the API for performance reasons.</p>
+      </desc>
+    </func>
+    <func>
+      <name>rand_bytes(N) -> binary()</name>
+      <fsummary>Generate a binary of random bytes</fsummary>
+      <type>
+        <v>N = integer()</v>
+      </type>
+      <desc>
+        <p>Generates N bytes randomly uniform 0..255, and returns the
+          result in a binary. Uses the <c>crypto</c> library pseudo-random
+          number generator.</p>
+      </desc>
+    </func>
+    <func>
+      <name>rand_uniform(Lo, Hi) -> N</name>
+      <fsummary>Generate a random number</fsummary>
+      <type>
+        <v>Lo, Hi, N = Mpint | integer()</v>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+        <p>Generate a random number <c><![CDATA[N, Lo =< N < Hi.]]></c> Uses the
+          <c>crypto</c> library pseudo-random number generator. The
+          arguments (and result) can be either erlang integers or binary
+          multi-precision integers.</p>
+      </desc>
+    </func>
+    <func>
+      <name>mod_exp(N, P, M) -> Result</name>
+      <fsummary>Perform N ^ P mod M</fsummary>
+      <type>
+        <v>N, P, M, Result = Mpint</v>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+        <p>This function performs the exponentiation <c>N ^ P mod M</c>,
+          using the <c>crypto</c> library.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rsa_sign(Data, Key) -> Signature</name>
+      <name>rsa_sign(DigestType, Data, Key) -> Signature</name> 
+      <fsummary>Sign the data using rsa with the given key.</fsummary>
+      <type>
+        <v>Data = Mpint</v>
+        <v>Key = [E, N, D]</v>
+        <v>E, N, D = Mpint</v>
+        <d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
+	  <c>D</c> is the private exponent.</d>
+	<v>DigestType = md5 | sha</v>
+	<d>The default <c>DigestType</c> is sha.</d>
+        <v>Mpint = binary()</v>
+        <v>Signature = binary()</v>
+      </type>
+      <desc>
+        <p>Calculates a <c>DigestType</c> digest of the <c>Data</c>
+	  and creates a RSA signature with the private key <c>Key</c>
+	  of the digest.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rsa_verify(Data, Signature, Key) -> Verified</name>
+      <name>rsa_verify(DigestType, Data, Signature, Key) -> Verified </name> 
+      <fsummary>Verify the digest and signature using rsa with given public key.</fsummary>
+      <type>
+        <v>Verified = boolean()</v>
+        <v>Data, Signature = Mpint</v>
+        <v>Key = [E, N]</v>
+        <v>E, N = Mpint</v>
+        <d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
+	<v>DigestType = md5 | sha</v>
+	<d> The default <c>DigestType</c> is sha.</d>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+        <p>Calculates a <c>DigestType</c> digest of the <c>Data</c>
+          and verifies that the digest matches the RSA signature using the
+          signer's public key <c>Key</c>.
+	</p>
+      </desc>
+    </func>
+    
+    <func>
+      <name>rsa_public_encrypt(PlainText, PublicKey, Padding) -> ChipherText</name> 
+      <fsummary>Encrypts Msg using the public Key.</fsummary>
+      <type>
+	<v>PlainText = binary()</v>
+	<v>PublicKey = [E, N]</v>
+	<v>E, N = Mpint</v>	
+	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus.</d>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> (usually a session key) using the <c>PublicKey</c>
+	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode and <c>rsa_pkcs1_oaep_padding</c> is EME-OAEP as
+	  defined in PKCS #1 v2.0 with SHA-1, MGF1 and an empty encoding
+	  parameter. This mode is recommended for all new applications.
+	  The size of the <c>Msg</c> must be less
+	  than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, <c>byte_size(N)-41</c> if 
+	  <c>rsa_pkcs1_oaep_padding</c> is used and <c>byte_size(N)</c> if <c>rsa_no_padding</c> 
+	  is used.
+	  Where byte_size(N) is the size part of an <c>Mpint-1</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rsa_private_decrypt(ChipherText, PrivateKey, Padding) -> PlainText</name> 
+      <fsummary>Decrypts ChipherText using the private Key.</fsummary>
+      <type>
+	<v>ChipherText = binary()</v>
+	<v>PrivateKey = [E, N, D]</v>
+	<v>E, N, D = Mpint</v>
+	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus  and 
+	  <c>D</c> is the private exponent.</d>
+	<v>Padding = rsa_pkcs1_padding | rsa_pkcs1_oaep_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
+      </type>
+      <desc>
+	<p>Decrypts the <c>ChipherText</c> (usually a session key encrypted with 
+	  <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>) 
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data, 
+	  see <seealso marker="#rsa_public_encrypt/3">rsa_public_encrypt/3</seealso>.
+	</p>
+      </desc>
+    </func>
+    <func>
+      <name>rsa_private_encrypt(PlainText, PrivateKey, Padding) -> ChipherText</name> 
+      <fsummary>Encrypts Msg using the private Key.</fsummary>
+      <type>
+	<v>PlainText = binary()</v>
+	<v>PrivateKey = [E, N, D]</v>
+	<v>E, N, D = Mpint</v>	
+	<d>Where <c>E</c> is the public exponent, <c>N</c> is public modulus and 
+	  <c>D</c> is the private exponent.</d>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>ChipherText = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts the <c>PlainText</c> using the <c>PrivateKey</c>
+	  and returns the cipher. The <c>Padding</c> decides what padding mode is used,
+	  <c>rsa_pkcs1_padding</c> is PKCS #1 v1.5 currently the most
+	  used mode.
+	  The size of the <c>Msg</c> must be less than <c>byte_size(N)-11</c> if
+	  <c>rsa_pkcs1_padding</c> is used, and <c>byte_size(N)</c> if <c>rsa_no_padding</c> 
+	  is used.  Where byte_size(N) is the size part of an <c>Mpint-1</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rsa_public_decrypt(ChipherText, PublicKey, Padding) -> PlainText</name> 
+      <fsummary>Decrypts ChipherText using the public Key.</fsummary>
+      <type>
+	<v>ChipherText = binary()</v>
+	<v>PublicKey = [E, N]</v>
+	<v>E, N = Mpint</v>
+	<d>Where <c>E</c> is the public exponent and <c>N</c> is public modulus</d>
+	<v>Padding = rsa_pkcs1_padding | rsa_no_padding</v>
+        <v>PlainText = binary()</v>
+      </type>
+      <desc>
+	<p>Decrypts the <c>ChipherText</c> (encrypted with 
+	  <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>) 
+	  using the <c>PrivateKey</c> and returns the
+	  message. The <c>Padding</c> is the padding mode that was
+	  used to encrypt the data, 
+	  see <seealso marker="#rsa_private_encrypt/3">rsa_private_encrypt/3</seealso>.
+	</p>
+      </desc>
+    </func>
+      
+    <func>
+      <name>dss_sign(Data, Key) -> Signature</name>
+      <fsummary>Sign the data using dsa with given private key.</fsummary>
+      <type>
+        <v>Digest = Mpint</v>
+        <v>Key = [P, Q, G, X]</v>
+        <v>P, Q, G, X = Mpint</v>
+	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
+	  parameters and <c>X</c> is the private key.</d>
+        <v>Mpint = binary()</v>
+        <v>Signature = binary()</v>
+      </type>
+      <desc>
+        <p>Calculates the sha digest of the <c>Data</c>
+	  and creates a DSS signature with the private key <c>Key</c>
+	  of the digest.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>dss_verify(Data, Signature, Key) -> Verified</name>
+      <fsummary>Verify the data and signature using dsa with given public key.</fsummary>
+      <type>
+        <v>Verified = boolean()</v>
+        <v>Digest, Signature = Mpint</v>
+        <v>Key = [P, Q, G, Y]</v>
+        <v>P, Q, G, Y = Mpint</v>
+	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
+	  parameters and <c>Y</c> is the public key.</d>
+        <v>Mpint = binary()</v>
+      </type>
+      <desc>
+        <p>Calculates the sha digest of the <c>Data</c> and verifies that the
+          digest matches the DSS signature using the public key <c>Key</c>.
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>rc4_encrypt(Key, Data) -> Result</name>
+      <fsummary>Encrypt data using RC4</fsummary>
+      <type>
+	<v>Key, Data = iolist() | binary()</v>
+	<v>Result = binary()</v>
+      </type>
+      <desc>
+	<p>Encrypts the data with RC4 symmetric stream encryption.
+	  Since it is symmetric, the same function is used for
+	  decryption.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>dh_generate_key(DHParams) -> {PublicKey,PrivateKey} </name>
+      <name>dh_generate_key(PrivateKey, DHParams) -> {PublicKey,PrivateKey} </name>
+      <fsummary>Generates a Diffie-Hellman public key</fsummary>
+      <type>
+	<v>DHParameters = [P, G]</v>
+	<v>P, G = Mpint</v>
+	<d> Where <c>P</c> is the shared prime number and <c>G</c> is the shared generator.</d>
+	<v>PublicKey, PrivateKey = Mpint()</v>
+      </type>
+      <desc>
+	<p>Generates a Diffie-Hellman <c>PublicKey</c> and <c>PrivateKey</c> (if not given).
+	</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>dh_compute_key(OthersPublicKey, MyPrivateKey, DHParams) -> SharedSecret</name>
+      <fsummary>Computes the shared secret</fsummary>
+      <type>
+	<v>DHParameters = [P, G]</v>
+	<v>P, G = Mpint</v>
+	<d> Where <c>P</c> is the shared prime number and <c>G</c> is the shared generator.</d>
+	<v>OthersPublicKey, MyPrivateKey = Mpint()</v>
+	<v>SharedSecret = binary()</v>
+      </type>
+      <desc>
+	<p>Computes the shared secret from the private key and the other party's public key.
+	</p>
+      </desc>
+    </func>
+   
+
+    <func>
+      <name>exor(Data1, Data2) -> Result</name>
+      <fsummary>XOR data</fsummary>
+      <type>
+	<v>Data1, Data2 = iolist() | binary()</v>
+	<v>Result = binary()</v>
+      </type>
+      <desc>
+	<p>Performs bit-wise XOR (exclusive or) on the data supplied.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>DES in CBC mode</title>
+    <p>The Data Encryption Standard (DES) defines an algorithm for
+      encrypting and decrypting an 8 byte quantity using an 8 byte key
+      (actually only 56 bits of the key is used).
+      </p>
+    <p>When it comes to encrypting and decrypting blocks that are
+      multiples of 8 bytes various modes are defined (NIST SP
+      800-38A). One of those modes is the Cipher Block Chaining (CBC)
+      mode, where the encryption of an 8 byte segment depend not only
+      of the contents of the segment itself, but also on the result of
+      encrypting the previous segment: the encryption of the previous
+      segment becomes the initializing vector of the encryption of the
+      current segment.
+      </p>
+    <p>Thus the encryption of every segment depends on the encryption
+      key (which is secret) and the encryption of the previous
+      segment, except the first segment which has to be provided with
+      an initial initializing vector. That vector could be chosen at
+      random, or be a counter of some kind. It does not have to be
+      secret.
+      </p>
+    <p>The following example is drawn from the old FIPS 81 standard
+      (replaced by NIST SP 800-38A), where both the plain text and the
+      resulting cipher text is settled. The following code fragment
+      returns `true'.
+      </p>
+    <pre><![CDATA[
+
+      Key = <<16#01,16#23,16#45,16#67,16#89,16#ab,16#cd,16#ef>>,
+      IVec = <<16#12,16#34,16#56,16#78,16#90,16#ab,16#cd,16#ef>>,
+      P = "Now is the time for all ",
+      C = crypto:des_cbc_encrypt(Key, IVec, P),
+         % Which is the same as 
+      P1 = "Now is t", P2 = "he time ", P3 = "for all ",
+      C1 = crypto:des_cbc_encrypt(Key, IVec, P1),
+      C2 = crypto:des_cbc_encrypt(Key, C1, P2),
+      C3 = crypto:des_cbc_encrypt(Key, C2, P3),
+
+      C = <<C1/binary, C2/binary, C3/binary>>,
+      C = <<16#e5,16#c7,16#cd,16#de,16#87,16#2b,16#f2,16#7c,
+             16#43,16#e9,16#34,16#00,16#8c,16#38,16#9c,16#0f,
+             16#68,16#37,16#88,16#49,16#9a,16#7c,16#05,16#f6>>,
+      <<"Now is the time for all ">> == 
+                        crypto:des_cbc_decrypt(Key, IVec, C).
+    ]]></pre>
+    <p>The following is true for the DES CBC mode. For all
+      decompositions <c>P1 ++ P2 = P</c> of a plain text message
+      <c>P</c> (where the length of all quantities are multiples of 8
+      bytes), the encryption <c>C</c> of <c>P</c> is equal to <c>C1 ++
+      C2</c>, where <c>C1</c> is obtained by encrypting <c>P1</c> with
+      <c>Key</c> and the initializing vector <c>IVec</c>, and where
+      <c>C2</c> is obtained by encrypting <c>P2</c> with <c>Key</c>
+      and the initializing vector <c>last8(C1)</c>,
+      where <c>last(Binary)</c> denotes the last 8 bytes of the
+      binary <c>Binary</c>.
+      </p>
+    <p>Similarly, for all decompositions <c>C1 ++ C2 = C</c> of a
+      cipher text message <c>C</c> (where the length of all quantities
+      are multiples of 8 bytes), the decryption <c>P</c> of <c>C</c>
+      is equal to <c>P1 ++ P2</c>, where <c>P1</c> is obtained by
+      decrypting <c>C1</c> with <c>Key</c> and the initializing vector
+      <c>IVec</c>, and where <c>P2</c> is obtained by decrypting
+      <c>C2</c> with <c>Key</c> and the initializing vector
+      <c>last8(C1)</c>, where <c>last8(Binary)</c> is as above.
+      </p>
+    <p>For DES3 (which uses three 64 bit keys) the situation is the
+      same.
+    </p>
+  </section>
+</erlref>
+

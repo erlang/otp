@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>erl_parse</title>
+    <prepared>Robert</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>97-01-24</date>
+    <rev>B</rev>
+    <file>erl_parse.sgml</file>
+  </header>
+  <module>erl_parse</module>
+  <modulesummary>The Erlang Parser</modulesummary>
+  <description>
+    <p>This module is the basic Erlang parser which converts tokens into
+      the abstract form of either forms (i.e., top-level constructs),
+      expressions, or terms. The Abstract Format is described in the ERTS
+      User's Guide.
+      Note that a token list must end with the <em>dot</em> token in order
+      to be acceptable to the parse functions (see erl_scan).</p>
+  </description>
+  <funcs>
+    <func>
+      <name>parse_form(Tokens) -> {ok, AbsForm} | {error, ErrorInfo}</name>
+      <fsummary>Parse an Erlang form</fsummary>
+      <type>
+        <v>Tokens = [Token]</v>
+        <v>Token = {Tag,Line} | {Tag,Line,term()}</v>
+        <v>Tag = atom()</v>
+        <v>AbsForm = term()</v>
+        <v>ErrorInfo = see section Error Information below.</v>
+      </type>
+      <desc>
+        <p>This function parses <c>Tokens</c> as if it were a form. It returns:</p>
+        <taglist>
+          <tag><c>{ok, AbsForm}</c></tag>
+          <item>
+            <p>The parsing was successful. <c>AbsForm</c> is the
+              abstract form of the parsed form.</p>
+          </item>
+          <tag><c>{error, ErrorInfo}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>parse_exprs(Tokens) -> {ok, Expr_list} | {error, ErrorInfo}</name>
+      <fsummary>Parse Erlang expressions</fsummary>
+      <type>
+        <v>Tokens = [Token]</v>
+        <v>Token = {Tag,Line} | {Tag,Line,term()}</v>
+        <v>Tag = atom()</v>
+        <v>Expr_list = [AbsExpr]</v>
+        <v>AbsExpr = term()</v>
+        <v>ErrorInfo = see section Error Information below.</v>
+      </type>
+      <desc>
+        <p>This function parses <c>Tokens</c> as if it were a list of expressions. It returns:</p>
+        <taglist>
+          <tag><c>{ok, Expr_list}</c></tag>
+          <item>
+            <p>The parsing was successful. <c>Expr_list</c> is a
+              list of the abstract forms of the parsed expressions.</p>
+          </item>
+          <tag><c>{error, ErrorInfo}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>parse_term(Tokens) -> {ok, Term} | {error, ErrorInfo}</name>
+      <fsummary>Parse an Erlang term</fsummary>
+      <type>
+        <v>Tokens = [Token]</v>
+        <v>Token = {Tag,Line} | {Tag,Line,term()}</v>
+        <v>Tag = atom()</v>
+        <v>Term = term()</v>
+        <v>ErrorInfo = see section Error Information below.</v>
+      </type>
+      <desc>
+        <p>This function parses <c>Tokens</c> as if it were a term. It returns:</p>
+        <taglist>
+          <tag><c>{ok, Term}</c></tag>
+          <item>
+            <p>The parsing was successful. <c>Term</c> is
+              the Erlang term corresponding to the token list.</p>
+          </item>
+          <tag><c>{error, ErrorInfo}</c></tag>
+          <item>
+            <p>An error occurred.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>format_error(ErrorDescriptor) -> Chars</name>
+      <fsummary>Format an error descriptor</fsummary>
+      <type>
+        <v>ErrorDescriptor = errordesc()</v>
+        <v>Chars = [char() | Chars]</v>
+      </type>
+      <desc>
+        <p>Uses an <c>ErrorDescriptor</c> and returns a string
+          which describes the error. This function is usually called
+          implicitly when an <c>ErrorInfo</c> structure is processed
+          (see below).</p>
+      </desc>
+    </func>
+    <func>
+      <name>tokens(AbsTerm) -> Tokens</name>
+      <name>tokens(AbsTerm, MoreTokens) -> Tokens</name>
+      <fsummary>Generate a list of tokens for an expression</fsummary>
+      <type>
+        <v>Tokens = MoreTokens = [Token]</v>
+        <v>Token = {Tag,Line} | {Tag,Line,term()}</v>
+        <v>Tag = atom()</v>
+        <v>AbsTerm = term()</v>
+        <v>ErrorInfo = see section Error Information below.</v>
+      </type>
+      <desc>
+        <p>This function generates a list of tokens representing the abstract
+          form <c>AbsTerm</c> of an expression. Optionally, it appends
+          <c>Moretokens</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>normalise(AbsTerm) -> Data</name>
+      <fsummary>Convert abstract form to an Erlang term</fsummary>
+      <type>
+        <v>AbsTerm = Data = term()</v>
+      </type>
+      <desc>
+        <p>Converts the abstract form <c>AbsTerm</c> of a term into a
+          conventional Erlang data structure (i.e., the term itself).
+          This is the inverse of <c>abstract/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>abstract(Data) -> AbsTerm</name>
+      <fsummary>Convert an Erlang term into an abstract form</fsummary>
+      <type>
+        <v>Data = AbsTerm = term()</v>
+      </type>
+      <desc>
+        <p>Converts the Erlang data structure <c>Data</c> into an
+          abstract form of type <c>AbsTerm</c>. This is the inverse of
+          <c>normalise/1</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Error Information</title>
+    <p>The <c>ErrorInfo</c> mentioned above is the standard
+      <c>ErrorInfo</c> structure which is returned from all IO
+      modules. It has the format:
+      </p>
+    <code type="none">
+    {ErrorLine, Module, ErrorDescriptor}    </code>
+    <p>A string which describes the error is obtained with the following call:
+      </p>
+    <code type="none">
+apply(Module, format_error, ErrorDescriptor)    </code>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="io">io(3)</seealso>,
+      <seealso marker="erl_scan">erl_scan(3)</seealso>,
+      ERTS User's Guide</p>
+  </section>
+</erlref>
+

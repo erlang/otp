@@ -1,0 +1,49 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2001-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+# HiPE level 1 bifs: performance analysis support
+#
+# bif hipe_bifs:name/arity
+
+bif hipe_bifs:call_count_on/1
+bif hipe_bifs:call_count_off/1
+bif hipe_bifs:call_count_get/1
+bif hipe_bifs:call_count_clear/1
+bif hipe_bifs:trap_count_get/0
+bif hipe_bifs:trap_count_clear/0
+bif hipe_bifs:process_info/0
+bif hipe_bifs:process_info_clear/0
+bif hipe_bifs:message_info/0
+bif hipe_bifs:message_info_clear/0
+bif hipe_bifs:message_sizes/0
+bif hipe_bifs:gc_info/0
+bif hipe_bifs:shared_gc_info/0
+bif hipe_bifs:incremental_gc_info/0
+bif hipe_bifs:gc_info_clear/0
+bif hipe_bifs:pause_times/0
+bif hipe_bifs:system_timer/0
+bif hipe_bifs:system_timer_clear/0
+bif hipe_bifs:send_timer/0
+bif hipe_bifs:send_timer_clear/0
+bif hipe_bifs:gc_timer/0
+bif hipe_bifs:shared_gc_timer/0
+bif hipe_bifs:gc_timer_clear/0
+bif hipe_bifs:misc_timer/0
+bif hipe_bifs:misc_timer_clear/0
+bif hipe_bifs:get_hrvtime/0
+bif hipe_bifs:stop_hrvtime/0

@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Introduction to cosTransactions</title>
+    <prepared>Niclas Eklund</prepared>
+    <docno></docno>
+    <date>1999-04-26</date>
+    <rev></rev>
+    <file>ch_introduction.xml</file>
+</header>
+
+  <section>
+    <title>Overview</title>
+    <p>The cosTransactions application is a Transaction Service compliant with the <url href="http://www.omg.org">OMG</url> 
+      Transaction Service CosTransactions 1.1.
+      </p>
+
+    <section>
+      <title>Purpose and Dependencies</title>
+      <p><em>cosTransactions</em> is dependent on  <em>Orber version 3.0.1</em> or later(see the Orber
+        documentation), which provides CORBA functionality in an Erlang environment.</p>
+      <p><em>cosTransactions</em> is dependent on  <em>supervisor/stdlib-1.7</em> or later.</p>
+      <p>Basically, cosTransaction implements a <em>two-phase commit protocol</em> and allows objects running
+        on different platforms to participate in a transaction.</p>
+    </section>
+
+    <section>
+      <title>Prerequisites</title>
+      <p>To fully understand the concepts presented in the
+        documentation, it is recommended that the user is familiar
+        with distributed programming, CORBA and the Orber application.
+        </p>
+      <p>Recommended reading includes <em>CORBA, Fundamentals and Programming - Jon Siegel</em> and <em>Open Telecom Platform Documentation Set</em>. It is also helpful to  have read
+        <em>Concurrent Programming in Erlang</em> and, for example, <em>Transaction Processing: concepts and techniques - Jim Gray, Andreas Reuter</em>.</p>
+      <note>
+        <p>The cosTransaction application is compliant with the OMG CosTransactions specification 1.1. Using
+          other vendors transaction service, compliant with the OMG CosTransactions specification 1.0, may
+          not work since the <c>'TRANSACTION_REQUIRED', 'TRANSACTION_ROLLEDBACK'</c> and <c>'INVALID_TRANSACTION'</c>
+          exceptions have been redefined to be system exceptions, i.e., used to be transaction-specific ('CosTransactions_Exc').</p>
+      </note>
+    </section>
+  </section>
+</chapter>
+

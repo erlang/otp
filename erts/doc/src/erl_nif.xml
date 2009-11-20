@@ -1,0 +1,351 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>erl_nif</title>
+    <prepared>Sverker Eriksson</prepared>
+    <responsible>Sverker Eriksson</responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2009-11-17</date>
+    <rev>PA1</rev>
+    <file>erl_nif.xml</file>
+  </header>
+  <lib>erl_nif</lib>
+  <libsummary>API functions for an Erlang NIF library</libsummary>
+  <description>
+     <warning><p>The NIF concept is introduced in R13B03 as an
+	EXPERIMENTAL feature. The interfaces may be changed in any way
+	in coming releases. The API introduced in this release is very
+	sparse and contains only the most basic functions to read and
+	write Erlang terms.
+	</p></warning>
+
+    <p>A NIF library contains native implementation of some functions
+    of an erlang module. The native implemented functions (NIFs) are
+    called like any other functions without any difference to the
+    caller. Each NIF must also have an implementation in Erlang that
+    will be invoked if the function is called before the NIF library
+    has been successfully loaded. A typical such stub implementation
+    is to throw an exception. But it can also be used as a fallback
+    implementation if the NIF library is not implemented for some
+    architecture.</p> 
+    <p>A minimal example of a NIF library can look like this:</p>
+      <p/>
+      <code type="none">
+/* niftest.c */
+#include "erl_nif.h"
+
+static ERL_NIF_TERM hello(ErlNifEnv* env)
+{
+    return enif_make_string(env, "Hello world!");
+}
+
+static ErlNifFunc nif_funcs[] =
+{
+    {"hello", 0, hello}
+};
+
+ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)
+</code>
+
+    <p>and the erlang module would have to look something like
+    this:</p>
+      <p/>
+      <code type="none">
+-module(niftest).
+
+-export([init/0, hello/0]).
+
+init() ->
+      erlang:load_nif("./niftest", 0).
+
+hello() ->
+      "NIF library not loaded".
+</code>
+    <p>and compile and test something like this (on Linux):</p>
+      <p/>
+      <code type="none">
+$> gcc -fPIC -shared -o niftest.so niftest.c -I $ERL_ROOT/usr/include/
+$> erl
+
+1> c(niftest).
+{ok,niftest}
+2> niftest:hello().
+"NIF library not loaded"
+3> niftest:init().
+ok
+4> niftest:hello().
+"Hello world!"
+</code>
+
+     <p>A better solution for a real module is to take advantage of
+     the new attribute <c>on_load</c> to automatically load the NIF
+     library when the module is loaded.</p>
+     <p>A loaded NIF library is tied to the Erlang module code version
+     that loaded it. If the module is upgraded with a new version, the
+     new code will have to load its own NIF library (or maybe choose not
+     to). The new code version can however choose to load the exact
+     same NIF library as the old code if it wants to. Sharing the same
+     dynamic library will mean that static data defined by the library
+     will be shared as well. To avoid unintentionally shared static
+     data, each Erlang module code can keep its own private data. This
+     global private data can be set when the NIF library is loaded and
+     then retrieved by calling <seealso marker="erl_nif#enif_get_data">enif_get_data()</seealso>.</p>
+    <p>There is currently no way to explicitly unload a NIF
+     library. A library will be automatically unloaded when the module
+     code that it belongs to is purged by the code server. A NIF
+     library will can also be unloaded by replacing it with another
+     version of the library by a second call to
+     <c>erlang:load_nif/2</c> from the same module code.</p> 
+  </description>
+
+  <section>
+    <title>INITIALIZATION</title>
+    <taglist>
+      <tag><marker id="ERL_NIF_INIT"/>ERL_NIF_INIT(MODULE, ErlNifFunc funcs[], load, reload, upgrade, unload)</tag>
+      <item><p>This is the magic macro to initialize a NIF library. It
+      should be evaluated in global file scope.</p>
+      <p><c>MODULE</c> is the name of the Erlang module as an
+      identifier without string quotations. It will be stringified by
+      the macro.</p>
+      <p><c>funcs</c> is a static array of function descriptors for
+      all the implemented NIFs in this library.</p>
+      <p><c>load</c>, <c>reload</c>, <c>upgrade</c> and <c>unload</c>
+      are pointers to functions. One of <c>load</c>, <c>reload</c> or
+      <c>upgrade</c> will be called to initialize the library.
+      <c>unload</c> is called to release the library. They are all
+      described individually below.</p>
+      </item>
+
+      <tag><marker id="load"/>int (*load)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</tag>
+       <item><p><c>load</c> is called when the NIF library is loaded
+        and there is no previously loaded library for this module.</p>
+        <p><c>*priv_data</c> can be set to point to some private data
+           that the library needs in able to keep a state between NIF 
+           calls. <c>enif_get_data()</c> will return this pointer.</p> 
+        <p><c>load_info</c> is the second argument to <seealso
+           marker="erlang#erlang:load_nif-2">erlang:load_nif/2</seealso>.</p>
+        <p>The library will fail to load if <c>load</c> returns
+           anything other than 0. <c>load</c> can be NULL in case no
+           initialization is needed.</p> 
+       </item>
+
+      <tag><marker id="reload"/>int (*reload)(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)</tag>
+       <item><p><c>reload</c> is called when the NIF library is loaded
+        and there is already a previously loaded library for this
+        module code.</p>
+        <p>Works the same as <c>load</c>. The only difference is that
+        <c>*priv_data</c> already contains the value set by the
+        previous call to <c>load</c> or <c>reload</c>.</p>
+        <p>The library will fail to load if <c>reload</c> returns
+           anything other than 0 or if <c>reload</c> is NULL.</p> 
+      </item>
+
+      <tag><marker id="upgrade"/>int (*upgrade)(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</tag>
+       <item><p><c>upgrade</c> is called when the NIF library is loaded
+        and there is no previously loaded library for this module
+        code, BUT there is old code of this module with a
+        loaded NIF library.</p>
+        <p>Works the same as <c>load</c>. The only difference is that
+        <c>*old_priv_data</c> already contains the value set by the
+         last call to <c>load</c> or <c>reload</c> for the old module
+         code. It is allowed to write to both *priv_data and
+         *old_priv_data.</p> 
+        <p>The library will fail to load if <c>upgrade</c> returns
+           anything other than 0 or if <c>upgrade</c> is NULL.</p>
+      </item>
+
+      <tag><marker id="unload"/>void (*unload)(ErlNifEnv* env, void* priv_data)</tag>
+       <item><p><c>unload</c> is called when the module code that
+       the NIF library belongs to is purged as old. New code
+       of the same module may or may not exist.</p>
+      </item>
+
+
+    </taglist>
+  </section>
+
+  <section>
+    <title>DATA TYPES</title>
+
+    <taglist>
+     <tag><marker id="ErlDrvEnv"/>ErlDrvEnv</tag>
+      <item>
+        <p><c>ErlNifEnv</c> contains information about the context in
+          which a NIF call is made. This pointer should not be
+          dereferenced in any way, but only passed on to API
+          functions. An <c>ErlNifEnv</c> pointer is only valid until
+          the function, where is what supplied as argument,
+          returns. There is thus useless and dangerous to store <c>ErlNifEnv</c>
+          pointers in between NIF calls.</p>
+      </item>
+    <tag><marker id="ErlNifFunc"/>ErlNifFunc</tag>
+     <item>
+      <p/>
+      <code type="none">
+typedef struct {
+    const char* name;
+    unsigned arity;
+    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, ...);
+} ErlNifFunc;
+</code>
+        <p>Describes a NIF by its name, arity and implementation.
+        <c>fptr</c> is a pointer to the function that implements the
+        NIF. The number of arguments must match the arity. A NIF of
+        arity 2 will thus look like:</p> 
+      <p/>
+      <code type="none">
+ERL_NIF_TERM my_nif(ErlNifEnv* env, ERL_NIF_TERM arg1, ERL_NIF_TERM arg2)
+{
+    /* ... */
+}
+</code>
+        <p>The maximum allowed arity for a NIF is 3 in current implementation.</p>
+      </item>
+    <tag><marker id="ErlNifBinary"/>ErlNifBinary</tag>
+     <item>
+      <p/>
+      <code type="none">
+typedef struct {
+    unsigned size;
+    unsigned char* data;
+} ErlNifBinary;
+</code>
+        <p><c>ErlNifBinary</c> contains transient information about an
+          inspected binary term. <c>data</c> is a pointer to a buffer
+          of <c>size</c> bytes with the raw content of the binary.</p>
+      </item>
+      <tag><marker id="ERL_NIF_TERM"/>ERL_NIF_TERM</tag>
+       <item>
+        <p>Variables of type <c>ERL_NIF_TERM</c> can refere to any
+        Erlang term. This is an opaque type and values of it can only
+        by used either as arguments to API functions or as return
+        values from NIFs. A variable of type <c>ERL_NIF_TERM</c> is
+        only valid until the NIF call, where it was obtained,
+        returns.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <funcs>
+    <func><name><ret>void*</ret><nametext>enif_get_data(ErlNifEnv* env)</nametext></name>
+      <fsummary>Get the private data of a NIF library</fsummary>
+      <desc><p>Returns the pointer to the private data that was set by <c>load</c>, <c>reload</c> or <c>upgrade</c>.</p></desc>
+    </func>
+    <func><name><ret>void*</ret><nametext>enif_alloc(ErlNifEnv* env, size_t size)</nametext></name>
+      <fsummary>Allocate dynamic memory.</fsummary>
+      <desc><p>Allocate memory of <c>size</c> bytes.</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_free(ErlNifEnv* env, void* ptr)</nametext></name>
+      <fsummary>Free dynamic memory</fsummary>
+      <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a binary</fsummary>
+      <desc><p>Return true if <c>term</c> is a binary</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Inspect the content of a binary</fsummary>
+      <desc><p>Initialize the structure pointed to by <c>bin</c> with
+      transient information about the binary term
+      <c>bin_term</c>. Return false if <c>bin_term</c> is not a binary.</p></desc> 
+    </func>
+    <func><name><ret>int</ret><nametext>enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Create a new binary.</fsummary>
+      <desc><p>Allocate a new binary of size of <c>size</c>
+      bytes. Initialize the structure pointed to by <c>bin</c> to
+      refer to the allocated binary.</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Release a binary.</fsummary>
+      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c> or <c>enif_inspect_binary</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)</nametext></name>
+      <fsummary>Read an integer term.</fsummary>
+      <desc><p>Set <c>*ip</c> to the integer value of
+      <c>term</c> or return false if <c>term</c> is not an integer or is
+      outside the bounds of type <c>int</c></p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
+      <fsummary>Read an unsigned long integer</fsummary>
+      <desc><p>Set <c>*ip</c> to the unsigned long integer value of
+      <c>term</c> or return false if <c>term</c> is not an unsigned
+      integer or is outside the bounds of type <c>unsigned long</c></p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
+      <fsummary>Get head and tail from a list</fsummary>
+      <desc><p>Set <c>*head</c> and <c>*tail</c> from
+      <c>list</c> or return false if <c>list</c> is not a non-empty
+      list.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Make a binary term.</fsummary>
+      <desc><p>Make a binary term from <c>bin</c>. Will also release
+      the binary.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
+      <fsummary>Make a badarg exception.</fsummary>
+      <desc><p>Make a badarg exception to be returned from a NIF.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
+      <fsummary>Create an integer term</fsummary>
+      <desc><p>Create an integer term.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
+      <fsummary>Create an integer term from an unsigned long int</fsummary>
+      <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
+      <fsummary>Create an atom term</fsummary>
+      <desc><p>Create an atom term from the C-string <c>name</c>. Atom
+      terms may be saved and used between NIF calls.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
+      <fsummary>Create a tuple term.</fsummary>
+      <desc><p>Create a tuple term of arity <c>cnt</c>. Expects
+      <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
+      elements of the tuple.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
+      <fsummary>Create a list term.</fsummary>
+      <desc><p>Create an ordinary list term of length <c>cnt</c>. Expects
+      <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
+      elements of the list. An empty list is returned if <c>cnt</c> is 0.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
+      <fsummary>Create a list cell.</fsummary>
+      <desc><p>Create a list cell <c>[head | tail]</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string)</nametext></name>
+      <fsummary>Create a string.</fsummary>
+      <desc><p>Creates a list containing the characters of the
+      C-string <c>string</c>.</p></desc>
+    </func>
+  </funcs>
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="erlang#erlang:load_nif-2">load_nif(3)</seealso></p>
+  </section>
+</cref>
+

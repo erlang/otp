@@ -1,0 +1,182 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ssl</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>Peter H&ouml;gfeldt</approved>
+    <checked>Peter H&ouml;gfeldt</checked>
+    <date>2005-03-10</date>
+    <rev>E</rev>
+    <file>ssl_app.sgml</file>
+  </header>
+  <app>ssl</app>
+  <appsummary>The SSL Application</appsummary>
+  <description>
+    <p>The Secure Socket Layer (SSL) application provides secure
+      socket communication over TCP/IP.
+      </p>
+  </description>
+
+  <section>
+    <title>Warning</title>
+    <p>In previous versions of Erlang/OTP SSL it was advised, as a
+      work-around, to set the operating system environment variable
+      <c>SSL_CERT_FILE</c> to point at a file containing CA
+      certificates. That variable is no longer needed, and is not
+      recognised by Erlang/OTP SSL any more.
+      </p>
+    <p>However, the OpenSSL package does interpret that environment
+      variable. Hence a setting of that variable might have
+      unpredictable effects on the Erlang/OTP SSL application. It is
+      therefore adviced to not used that environment variable at all.</p>
+  </section>
+
+  <section>
+    <title>Environment</title>
+    <p>The following application environment configuration parameters
+      are defined for the SSL application. Refer to application(3) for
+      more information about configuration parameters.
+      </p>
+    <p>Note that the environment parameters can be set on the command line,
+      for instance,</p>
+    <p><c>erl ... -ssl protocol_version '[sslv2,sslv3]' ...</c>.
+      </p>
+    <taglist>
+      <tag><c><![CDATA[ephemeral_rsa = true | false <optional>]]></c></tag>
+      <item>
+        <p>Enables all SSL servers (those that listen and accept)
+          to use ephemeral RSA key generation when a clients connect with
+          weak handshake cipher specifications, that need equally weak
+          ciphers from the server (i.e. obsolete restrictions on export
+          ciphers).  Default is <c>false</c>.
+          </p>
+      </item>
+      <tag><c><![CDATA[debug = true | false <optional>]]></c></tag>
+      <item>
+        <p>Causes debug information to be written to standard
+          output. Default is <c>false</c>.
+          </p>
+      </item>
+      <tag><c><![CDATA[debugdir = path() | false <optional>]]></c></tag>
+      <item>
+        <p>Causes debug information output controlled by <c>debug</c>
+          and <c>msgdebug</c> to be printed to a file named 
+          <c><![CDATA[ssl_esock.<pid>.log]]></c> in the directory specified by
+          <c>debugdir</c>, where <c><![CDATA[<pid>]]></c> is the operating system
+          specific textual representation of the process identifier 
+          of the external port program of the SSL application. Default
+          is <c>false</c>, i.e. no log file is produced.
+          </p>
+      </item>
+      <tag><c><![CDATA[msgdebug = true | false <optional>]]></c></tag>
+      <item>
+        <p>Sets <c>debug = true</c> and causes also the contents
+          of low level messages to be printed to standard output.
+          Default is <c>false</c>.
+          </p>
+      </item>
+      <tag><c><![CDATA[port_program = string() | false <optional>]]></c></tag>
+      <item>
+        <p>Name of port program. The default is <c>ssl_esock</c>.
+          </p>
+      </item>
+      <tag><c><![CDATA[protocol_version = [sslv2|sslv3|tlsv1] <optional>]]></c>.</tag>
+      <item>
+        <p>Name of protocols to use. If this option is not set, 
+          all protocols are assumed, i.e. the default value is
+          <c>[sslv2, sslv3, tlsv1]</c>.
+          </p>
+      </item>
+      <tag><c><![CDATA[proxylsport = integer() | false <optional>]]></c></tag>
+      <item>
+        <p>Define the port number of the listen port of the 
+          SSL port program. Almost never is this option needed.
+          </p>
+      </item>
+      <tag><c><![CDATA[proxylsbacklog = integer() | false <optional>]]></c></tag>
+      <item>
+        <p>Set the listen queue size of the listen port of the
+          SSL port program. The default is 128.
+          </p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>OpenSSL libraries</title>
+    <p>The current implementation of the Erlang SSL application is
+      based on the <em>OpenSSL</em> package version 0.9.7 or higher.
+      There are source and binary releases on the web.
+      </p>
+    <p>Source releases of OpenSSL can be downloaded from the <url href="http://www.openssl.org">OpenSSL</url> project home page,
+      or mirror sites listed there.
+      </p>
+    <p>The same URL also contains links to some compiled binaries and
+      libraries of OpenSSL (see the <c>Related/Binaries</c> menu) of
+      which the <url href="http://www.shininglightpro.com/search.php?searchname=Win32+OpenSSL">Shining Light Productions Win32 and OpenSSL</url> pages are of
+      interest for the Win32 user.
+      </p>
+    <p>For some Unix flavours there are binary packages available
+      on the net. 
+      </p>
+    <p>If you cannot find a suitable binary OpenSSL package, you 
+      have to fetch an OpenSSL source release and compile it. 
+      </p>
+    <p>You then have to compile and install the libraries
+      <c>libcrypto.so</c> and <c>libssl.so</c> (Unix), or the
+      libraries <c>libeay32.dll</c> and <c>ssleay32.dll</c> (Win32).
+      </p>
+    <p>For Unix The <c>ssl_esock</c> port program is delivered linked
+      to OpenSSL libraries in <c>/usr/local/lib</c>, but the default
+      dynamic linking will also accept libraries in <c>/lib</c> and
+      <c>/usr/lib</c>.
+      </p>
+    <p>If that is not applicable to the particular Unix operating
+      system used, the example <c>Makefile</c> in the SSL
+      <c>priv/obj</c> directory, should be used as a guide to
+      relinking the final version of the port program.
+      </p>
+    <p>For <c>Win32</c> it is only required that the libraries can be
+      found from the <c>PATH</c> environment variable, or that they
+      reside in the appropriate <c>SYSTEM32</c> directory; hence no
+      particular relinking is need. Hence no example <c>Makefile</c>
+      for Win32 is provided.</p>
+  </section>
+
+  <section>
+    <title>Restrictions</title>
+    <p>Users must be aware of export restrictions and patent rights
+      concerning cryptographic software.
+      </p>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p>application(3)</p>
+  </section>
+  
+</appref>
+
+

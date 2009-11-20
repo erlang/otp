@@ -1,0 +1,13 @@
+AUTHORS
+
+  Contributions - improvements, fixes, new features - from developers
+  make the Erlang 'Open Source' project a success. To give credit
+  where it's due, we've added a file called AUTHORS to each
+  application sub-directory with a list of everyone who has contributed
+  It might also contain the names of the original authors at Ericsson.
+
+  Speaking of original authors, we don't want to forget all the people
+  working full time with Erlang and OTP. So, thanks to everyone
+  working with Erlang at the OTP group, the Computer Science
+  Laboratory and the Software Architecture Laboratory.
+

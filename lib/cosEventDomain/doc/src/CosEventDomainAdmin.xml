@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>CosEventDomainAdmin</title>
+    <prepared>Niclas Eklund</prepared>
+    <responsible>Niclas Eklund</responsible>
+    <docno></docno>
+    <approved>Niclas Eklund</approved>
+    <checked></checked>
+    <date>2001-08-20</date>
+    <rev>PA1</rev>
+  </header>
+  <module>CosEventDomainAdmin</module>
+  <modulesummary>This module export functions which return QoS and Admin Properties constants.</modulesummary>
+  <description>
+    <p>To get access to all definitions include necessary <c><![CDATA[hrl]]></c> files by using:<br></br><c><![CDATA[-include_lib("cosEventDomain/include/*.hrl").]]></c></p>
+  </description>
+  <funcs>
+    <func>
+      <name>'CycleDetection'() -> string()</name>
+      <fsummary>Return the CycleDetection identifier required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the CycleDetection identifier; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+    <func>
+      <name>'AuthorizeCycles'() -> short()</name>
+      <fsummary>Return the AuthorizeCycles value; required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the AuthorizeCycles value; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+    <func>
+      <name>'ForbidCycles'() -> short()</name>
+      <fsummary>Return the ForbidCycles value; required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the ForbidCycles value; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+    <func>
+      <name>'DiamondDetection'() -> string()</name>
+      <fsummary>Return the DiamondDetection identifier required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the DiamondDetection identifier; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+    <func>
+      <name>'AuthorizeDiamonds'() -> short()</name>
+      <fsummary>Return the AuthorizeDiamonds value; required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the AuthorizeDiamonds value; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+    <func>
+      <name>'ForbidDiamonds'() -> short()</name>
+      <fsummary>Return the ForbidDiamonds value; required when defining QoS Properties</fsummary>
+      <desc>
+        <p>This function returns the ForbidDiamonds value; required when 
+          defining QoS Properties.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

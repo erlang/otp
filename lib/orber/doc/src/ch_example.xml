@@ -1,0 +1,170 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Orber Examples</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>1997-05-20</date>
+    <rev>A</rev>
+    <file>ch_example.xml</file>
+  </header>
+
+  <section>
+    <title>A Tutorial on How to Create a Simple Service</title>
+
+    <section>
+      <title>Interface Design</title>
+      <p>This example uses a very simple stack server. The specification
+        contains two interfaces: the first is the Stack itself and the 
+        other is the StackFactory which is used to create new stacks. 
+        The specification is in the file <c>stack.idl</c>.</p>
+      <codeinclude file="../../examples/Stack/stack.idl" tag="" type="c"></codeinclude>
+    </section>
+
+    <section>
+      <title>Generating Erlang Code</title>
+      <p>Run the IDL compiler on this file by calling the <c>ic:gen/1</c> function      </p>
+      <code type="erl">
+\0111> ic:gen("stack").
+      </code>
+      <p>This will produce the client stub and server skeleton. Among other files a stack API module named <c>StackModule_Stack.erl</c>
+        will be produced.
+        This will produce among other files a stack API module called 
+        <c>StackModule_Stack.erl</c> which contains the client stub and
+        the server skeleton. </p>
+    </section>
+
+    <section>
+      <title>Implementation of Interface</title>
+      <p>After generating the API stubs and the server skeletons it is time to 
+        implement the servers and if no special options are sent 
+        to the IDL compiler the file name should be
+        <c><![CDATA[<global interface name>_impl.erl]]></c>, in our case
+        <c>StackModule_Stack_impl.erl</c>.</p>
+      <codeinclude file="../../examples/Stack/StackModule_Stack_impl.erl" tag="" type="erl"></codeinclude>
+      <p>We also have the factory interface which is used to create new stacks
+        and that implementation is in the file 
+        <c>StackModule_StackFactory_impl.erl</c>.</p>
+      <codeinclude file="../../examples/Stack/StackModule_StackFactory_impl.erl" tag="" type="erl"></codeinclude>
+      <p>To start the factory server one executes the function 
+        <c>StackModule_StackFactory:oe_create/0</c> which in this 
+        example is done in the module <c>stack_factory.erl</c> where 
+        the started service is also registered in the name service.</p>
+      <codeinclude file="../../examples/Stack/stack_factory.erl" tag="" type="erl"></codeinclude>
+    </section>
+
+    <section>
+      <title>Writing a Client in Erlang</title>
+      <p>At last we will write a client to access our service.</p>
+      <codeinclude file="../../examples/Stack/stack_client.erl" tag="" type="erl"></codeinclude>
+    </section>
+
+    <section>
+      <title>Writing a Client in Java</title>
+      <p>To write a Java client for Orber you must have another
+        ORB that uses IIOP for client-server communication and supports a
+        Java language mapping. It must also have support for
+        <c>IDL:CosNaming/NamingContext</c> or <c>IDL:CosNaming/NamingContextExt</c>.
+        If the client ORB support Interoperable Naming Service the Java Client
+        can look like:</p>
+      <codeinclude file="../../examples/Stack/StackClient.java" tag="" type="c"></codeinclude>
+      <note>
+        <p>If an ORB does not support CosNaming at all the <c>cos_naming.idl</c> 
+          file must be compiled and imported.</p>
+      </note>
+    </section>
+
+    <section>
+      <title>Building the Example</title>
+      <p>To build the example for access from a Java client you need a Java 
+        enabled ORB (e.g. JavaIDL). The example below is based on JDK-1.4.</p>
+      <code type="none">
+fingolfin 127> erl            
+Erlang (BEAM) emulator version 5.5.4.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.4.3  (abort with ^G)
+1> ic:gen(stack).
+Erlang IDL compiler version 4.2.12
+ok
+2> make:all().
+Recompile: StackModule_EmptyStack
+Recompile: StackModule_Stack
+Recompile: StackModule_StackFactory
+Recompile: StackModule_StackFactory_impl
+Recompile: StackModule_Stack_impl
+Recompile: oe_stack
+Recompile: stack_client
+Recompile: stack_factory
+up_to_date
+3> 
+BREAK: (a)bort (c)ontinue (p)roc info (i)nfo (l)oaded
+       (v)ersion (k)ill (D)b-tables (d)istribution
+a
+fingolfin 128> idlj stack.idl
+fingolfin 129> javac StackModule/*.java
+fingolfin 130> javac *.java
+fingolfin 131> cp StackClient.class StackModule/
+      </code>
+    </section>
+
+    <section>
+      <title>How to Run Everything</title>
+      <p>Below is a short transcript on how to run Orber.</p>
+      <code type="none">
+
+fingolfin 143> erl 
+Erlang (BEAM) emulator version 5.5.4.3 [async-threads:0] [hipe] [kernel-poll:false]
+
+Eshell V5.5.4.3  (abort with ^G)
+1> orber:jump_start([{interceptors, {native, [orber_iiop_tracer_silent]}}]).
+ok
+2> oe_stack:oe_register().     
+ok
+3> stack_factory:start().
+ok
+4> stack_client:run().
+1
+1
+7
+4
+ok
+5> 
+      </code>
+      <p>Before testing the Java part of this example generate and compile Java classes for 
+        <c>orber/examples/stack.idl</c> as seen in the build example. 
+        To run the Java client use the following command:</p>
+      <code type="none">
+
+fingolfin 38> java StackModule.StackClient "corbaname::localhost:4001#StackFactory"
+1
+1
+7
+4
+Empty stack
+fingolfin 39> 
+      </code>
+    </section>
+  </section>
+
+</chapter>
+

@@ -1,0 +1,120 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+-module(float_SUITE).
+-export([all/1,pending/1,bif_calls/1,math_functions/1,mixed_float_and_int/1]).
+
+-include("test_server.hrl").
+
+all(suite) ->
+    test_lib:recompile(?MODULE),
+    [pending,bif_calls,math_functions,mixed_float_and_int].
+
+%% Thanks to Tobias Lindahl <tobias.lindahl@it.uu.se>
+%% Shows the effect of pending exceptions on the x86.
+
+pending(Config) when is_list(Config) ->
+    ?line case catch float_mul(1, 1.1e300, 3.14e300) of
+	      {'EXIT',{badarith,_}} -> ok;
+	      Other -> ?t:fail({expected_exception,Other})
+	  end,
+    ?line 0.0 = float_sub(2.0).
+
+float_sub(A)->
+    catch A - 2.0.
+
+float_mul(0, _, _)->
+    ok;
+float_mul(Iter, A, B) when is_float(A), is_float(B) ->
+    A*B,
+    float_mul(Iter-1, A, B).
+
+%% Thanks to Mikael Pettersson and Tobias Lindahl (HiPE).
+
+bif_calls(Config) when is_list(Config) ->
+    ?line {'EXIT',{badarith,_}} = (catch bad_arith(2.0, 1.7)),
+    ?line {'EXIT',{badarith,_}} = (catch bad_arith_again(2.0, [])),
+    ?line {'EXIT',{badarith,_}} = (catch bad_arith_xor(2.0, [])),
+    ?line {'EXIT',{badarith,_}} = (catch bad_arith_hd(2.0, [])),
+    ?line {'EXIT',{badarith,_}} = (catch bad_negate(2.0, 1.7)),
+    ok.
+
+bad_arith(X, Y) when is_float(X) ->
+    X1 = X * 1.7e+308,
+    X2 = X1 + 1.0,
+    Y1 = Y * 2,					%Calls erts_mixed_times/2.
+						%(A BIF call.)
+    {X2, Y1}.
+
+bad_arith_xor(X, Y) when is_float(X) ->
+    X1 = X * 1.7e+308,
+    Y1 = Y xor true,				%A failing BIF call.
+    {X1 + 1.0, Y1}.
+
+bad_arith_hd(X, Y) when is_float(X) ->
+    X1 = X * 1.7e+308,
+    Y1 = hd(Y),					%A failing BIF call.
+    {X1 + 1.0, Y1}.
+
+bad_arith_again(X, Y) when is_float(X) ->
+    X1 = X * 1.7e+308,
+    Y1 = element(1, Y),				%A failing BIF call.
+    {X1 + 1.0, Y1}.
+
+bad_negate(X, Y) when is_float(X) ->
+    X1 = X * 1.7e+308,
+    X2 = X1 + 1.0,
+    Y1 = -Y,					%BIF call.
+    {X2, Y1}.
+
+math_functions(Config) when is_list(Config) ->
+    %% Mostly silly coverage.
+    ?line 0.0 = math:tan(0),
+    ?line 0.0 = math:atan2(0, 1),
+    ?line 0.0 = math:sinh(0),
+    ?line 1.0 = math:cosh(0),
+    ?line 0.0 = math:tanh(0),
+    ?line 1.0 = math:log10(10),
+    ?line -1.0 = math:cos(math:pi()),
+    ?line 1.0 = math:exp(0),
+    ?line 1.0 = math:pow(math:pi(), 0),
+
+    ?line 0.0 = math:tan(id(0)),
+    ?line 0.0 = math:atan2(id(0), 1),
+    ?line 0.0 = math:sinh(id(0)),
+    ?line 1.0 = math:cosh(id(0)),
+    ?line 0.0 = math:tanh(id(0)),
+    ?line 1.0 = math:log10(id(10)),
+    ?line 1.0 = math:exp(id(0)),
+
+    %% Only for coverage (of beam_type.erl).
+    ?line {'EXIT',{undef,_}} = (catch math:fnurfla(0)),
+    ?line {'EXIT',{undef,_}} = (catch math:fnurfla(0, 0)),
+    ?line {'EXIT',{badarg,_}} = (catch float(kalle)),
+    ?line {'EXIT',{badarith,_}} = (catch name/1),
+    ok.
+
+mixed_float_and_int(Config) when is_list(Config) ->
+    ?line 129.0 = pc(77, 23, 5),
+    ok.
+
+pc(Cov, NotCov, X) ->
+    round(Cov/(Cov+NotCov)*100) + 42 + 2.0*X.
+
+id(I) -> I.
+

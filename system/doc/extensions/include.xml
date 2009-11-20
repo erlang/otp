@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Includes</title>
+    <prepared>Arndt Jonasson</prepared>
+    <docno>1</docno>
+    <date>99-01-25</date>
+    <rev>PA1</rev>
+    <file>include.sgml</file>
+  </header>
+  <p>There are two directives which can be used in Erlang source
+    files to cause the compiler to temporarily read input from another
+    source. They are typically used to provide macro definitions and
+    record definitions from header files. It is recommended to use the
+    file name extension <c>".hrl"</c> for files which are meant to be
+    included (the 'h' can be read as "header").</p>
+  <p>When locating header files a list of directory names, the
+    compiler include path, is used. In short the list contains the current
+    working directory of the file server, the base name of the compiled
+    file, and the directories given by the include option, in that order.
+    See <c>erlc(1)</c> and <c>compile(3)</c> for the details of the
+    compiler include path.</p>
+
+  <section>
+    <title>The -include Directive</title>
+    <p>The first action taken by the <c>-include</c> directive is to
+      check if the format of the first path component of the specified
+      filename is <c>$VAR</c>, for some string <c>VAR</c>. If that is the
+      case, the value of the environment variable <c>VAR</c> as returned by
+      <c>os:getenv(VAR)</c> is substituted for the first path component. If
+      <c>os:getenv/1</c> returns <c>false</c>, the first path component is
+      left as is. If the filename is absolute (possibly after variable
+      substitution), the header file with that name is included. Otherwise,
+      the specified header file is searched for in the directories in the
+      compiler include path, starting with the first directory in the list.
+      The first file found while traversing the list is included. Examples:</p>
+    <code type="none">
+        -include("my_records.hrl").
+        -include("incdir/more_records.hrl").
+        -include("/home/users/proj/recs.hrl").
+        -include("$PROJ_ROOT/app1/defs.hrl").    </code>
+  </section>
+
+  <section>
+    <title>The -include_lib Directive</title>
+    <p>The <c>-include_lib</c> directive first tries to find the
+      specified header file using the procedure employed for the
+      <c>-include</c> directive. If no header file can be found by searching
+      the compiler include path, the first path component of the specified
+      filename (possibly after variable substitution) is regarded as the
+      name of an application, and the directory of the current version of
+      the application is searched. Example:</p>
+    <code type="none">
+        -include_lib("mnesia/include/mnemosyne.hrl").    </code>
+    <p>The compiler is instructed to look for the directory where the
+      current version of the <c>mnesia</c> application is installed, that is
+      <c>code:lib_dir(mnesia)</c>, and then search the subdirectory
+      <c>include</c> for the file <c>mnemosyne.hrl</c>.</p>
+  </section>
+</chapter>
+

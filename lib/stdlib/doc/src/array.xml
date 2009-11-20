@@ -1,0 +1,482 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+<erlref>
+<header>
+    <copyright>
+      <year>2007</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+<title>array</title>
+<prepared></prepared>
+<responsible></responsible>
+<docno>1</docno>
+<approved></approved>
+<checked></checked>
+<date></date>
+<rev>A</rev>
+<file>array.xml</file></header>
+<module>array</module>
+<modulesummary>Functional, extendible arrays.</modulesummary>
+<description>
+<p>Functional, extendible arrays. Arrays can have fixed size, or  
+can grow automatically as needed. A default value is used for entries  
+that have not been explicitly set.</p>
+ 
+  <p>Arrays uses <em>zero</em> based indexing. This is a deliberate design  
+choice and differs from other erlang datastructures, e.g. tuples.</p>
+ 
+  <p>Unless specified by the user when the array is created, the default
+  value is the atom <c>undefined</c>. There is no difference between an
+  unset entry and an entry which has been explicitly set to the same
+  value as the default one (cf. <seealso marker="#reset-2">reset/2</seealso>). If you need to  
+differentiate between unset and set entries, you must make sure that  
+the default value cannot be confused with the values of set entries.</p>
+ 
+  <p>The array never shrinks automatically; if an index <c>I</c> has been used
+  successfully to set an entry, all indices in the range [0,<c>I</c>] will
+  stay accessible unless the array size is explicitly changed by
+  calling <seealso marker="#resize-2">resize/2</seealso>.</p>
+ 
+  <p>Examples:
+  </p><pre>  %% Create a fixed-size array with entries 0-9 set to 'undefined'
+  A0 = array:new(10).
+  10 = array:size(A0).
+ 
+  %% Create an extendible array and set entry 17 to 'true',
+  %% causing the array to grow automatically
+  A1 = array:set(17, true, array:new()).
+  18 = array:size(A1).
+ 
+  %% Read back a stored value
+  true = array:get(17, A1).
+ 
+  %% Accessing an unset entry returns the default value
+  undefined = array:get(3, A1).
+ 
+  %% Accessing an entry beyond the last set entry also returns the
+  %% default value, if the array does not have fixed size
+  undefined = array:get(18, A1).
+ 
+  %% "sparse" functions ignore default-valued entries
+  A2 = array:set(4, false, A1).
+  [{4, false}, {17, true}] = array:sparse_to_orddict(A2).
+ 
+  %% An extendible array can be made fixed-size later
+  A3 = array:fix(A2).
+ 
+  %% A fixed-size array does not grow automatically and does not
+  %% allow accesses beyond the last set entry
+  {'EXIT',{badarg,_}} = (catch array:set(18, true, A3)).
+  {'EXIT',{badarg,_}} = (catch array:get(18, A3)).</pre></description>
+<section><title>DATA TYPES</title><marker id="types"/>
+
+<taglist>
+<tag><c>array()</c></tag>
+<item><marker id="type-array"/>
+<p>A functional, extendible array. The representation is
+  not documented and is subject to change without notice. Note that
+  arrays cannot be directly compared for equality.</p>
+</item>
+</taglist></section>
+<funcs>
+<func>
+<name>default(Array::array()) -&gt; term()</name>
+<fsummary>Get the value used for uninitialized entries.</fsummary>
+
+<desc><marker id="default-1"/>
+
+<p>Get the value used for uninitialized entries.
+ </p>
+<p><em>See also:</em> <seealso marker="#new-2">new/2</seealso>.</p>
+</desc></func>
+<func>
+<name>fix(Array::array()) -&gt; array()</name>
+<fsummary>Fix the size of the array.</fsummary>
+
+<desc><marker id="fix-1"/>
+
+<p>Fix the size of the array. This prevents it from growing
+  automatically upon insertion; see also <seealso marker="#set-3">set/3</seealso>.</p>
+<p><em>See also:</em> <seealso marker="#relax-1">relax/1</seealso>.</p>
+</desc></func>
+<func>
+<name>foldl(Function, InitialAcc::term(), Array::array()) -&gt; term()</name>
+<fsummary>Fold the elements of the array using the given function and
+  initial accumulator value.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term(), Acc::term()) -&gt; term()</v></type>
+<desc><marker id="foldl-3"/>
+
+<p>Fold the elements of the array using the given function and
+  initial accumulator value. The elements are visited in order from the
+  lowest index to the highest. If <c>Function</c> is not a function, the
+  call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#foldr-3">foldr/3</seealso>, <seealso marker="#map-2">map/2</seealso>, <seealso marker="#sparse_foldl-3">sparse_foldl/3</seealso>.</p>
+</desc></func>
+<func>
+<name>foldr(Function, InitialAcc::term(), Array::array()) -&gt; term()</name>
+<fsummary>Fold the elements of the array right-to-left using the given
+  function and initial accumulator value.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term(), Acc::term()) -&gt; term()</v></type>
+<desc><marker id="foldr-3"/>
+
+<p>Fold the elements of the array right-to-left using the given
+  function and initial accumulator value. The elements are visited in
+  order from the highest index to the lowest. If <c>Function</c> is not a
+  function, the call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#foldl-3">foldl/3</seealso>, <seealso marker="#map-2">map/2</seealso>.</p>
+</desc></func>
+<func>
+<name>from_list(List::list()) -&gt; array()</name>
+<fsummary>Equivalent to from_list(List, undefined).
+</fsummary>
+
+<desc><marker id="from_list-1"/>
+<p>Equivalent to <seealso marker="#from_list-2">from_list(List, undefined)</seealso>.</p>
+</desc></func>
+<func>
+<name>from_list(List::list(), Default::term()) -&gt; array()</name>
+<fsummary>Convert a list to an extendible array.</fsummary>
+
+<desc><marker id="from_list-2"/>
+
+<p>Convert a list to an extendible array. <c>Default</c> is used as the value
+  for uninitialized entries of the array. If <c>List</c> is not a proper list,
+  the call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#new-2">new/2</seealso>, <seealso marker="#to_list-1">to_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>from_orddict(Orddict::list()) -&gt; array()</name>
+<fsummary>Equivalent to from_orddict(Orddict, undefined).
+</fsummary>
+
+<desc><marker id="from_orddict-1"/>
+<p>Equivalent to <seealso marker="#from_orddict-2">from_orddict(Orddict, undefined)</seealso>.</p>
+</desc></func>
+<func>
+<name>from_orddict(List::list(), Default::term()) -&gt; array()</name>
+<fsummary>Convert an ordered list of pairs {Index, Value} to a
+  corresponding extendible array.</fsummary>
+
+<desc><marker id="from_orddict-2"/>
+
+<p>Convert an ordered list of pairs <c>{Index, Value}</c> to a
+  corresponding extendible array. <c>Default</c> is used as the value for
+  uninitialized entries of the array. If <c>List</c> is not a proper,
+  ordered list of pairs whose first elements are nonnegative
+  integers, the call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#new-2">new/2</seealso>, <seealso marker="#to_orddict-1">to_orddict/1</seealso>.</p>
+</desc></func>
+<func>
+<name>get(I::integer(), Array::array()) -&gt; term()</name>
+<fsummary>Get the value of entry I.</fsummary>
+
+<desc><marker id="get-2"/>
+
+<p>Get the value of entry <c>I</c>. If <c>I</c> is not a nonnegative
+  integer, or if the array has fixed size and <c>I</c> is larger than the
+  maximum index, the call fails with reason <c>badarg</c>.</p>
+ 
+  <p>If the array does not have fixed size, this function will return the
+  default value for any index <c>I</c> greater than <c>size(Array)-1</c>.</p>
+<p><em>See also:</em> <seealso marker="#set-3">set/3</seealso>.</p>
+</desc></func>
+<func>
+<name>is_array(X::term()) -&gt; bool()</name>
+<fsummary>Returns true if X appears to be an array, otherwise false.</fsummary>
+
+<desc><marker id="is_array-1"/>
+
+<p>Returns <c>true</c> if <c>X</c> appears to be an array, otherwise <c>false</c>.
+  Note that the check is only shallow; there is no guarantee that <c>X</c>
+  is a well-formed array representation even if this function returns
+  <c>true</c>.</p>
+</desc></func>
+<func>
+<name>is_fix(Array::array()) -&gt; bool()</name>
+<fsummary>Check if the array has fixed size.</fsummary>
+
+<desc><marker id="is_fix-1"/>
+
+<p>Check if the array has fixed size.
+  Returns <c>true</c> if the array is fixed, otherwise <c>false</c>.</p>
+<p><em>See also:</em> <seealso marker="#fix-1">fix/1</seealso>.</p>
+</desc></func>
+<func>
+<name>map(Function, Array::array()) -&gt; array()</name>
+<fsummary>Map the given function onto each element of the array.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term()) -&gt; term()</v></type>
+<desc><marker id="map-2"/>
+
+<p>Map the given function onto each element of the array. The
+  elements are visited in order from the lowest index to the highest.
+  If <c>Function</c> is not a function, the call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#foldl-3">foldl/3</seealso>, <seealso marker="#foldr-3">foldr/3</seealso>, <seealso marker="#sparse_map-2">sparse_map/2</seealso>.</p>
+</desc></func>
+<func>
+<name>new() -&gt; array()</name>
+<fsummary>Create a new, extendible array with initial size zero.</fsummary>
+
+<desc><marker id="new-0"/>
+
+<p>Create a new, extendible array with initial size zero.</p>
+<p><em>See also:</em> <seealso marker="#new-1">new/1</seealso>, <seealso marker="#new-2">new/2</seealso>.</p>
+</desc></func>
+<func>
+<name>new(Options::term()) -&gt; array()</name>
+<fsummary>Create a new array according to the given options.</fsummary>
+
+<desc><marker id="new-1"/>
+
+<p>Create a new array according to the given options. By default,  
+the array is extendible and has initial size zero. Array indices  
+start at 0.</p>
+ 
+  <p><c>Options</c> is a single term or a list of terms, selected from the
+  following:
+  </p><taglist>
+    <tag><c>N::integer()</c> or <c>{size, N::integer()}</c></tag>
+    <item><p>Specifies the initial size of the array; this also implies
+    <c>{fixed, true}</c>. If <c>N</c> is not a nonnegative integer, the call
+    fails with reason <c>badarg</c>.</p></item>
+    <tag><c>fixed</c> or <c>{fixed, true}</c></tag>
+    <item><p>Creates a fixed-size array; see also <seealso marker="#fix-1">fix/1</seealso>.</p></item>
+    <tag><c>{fixed, false}</c></tag>
+    <item><p>Creates an extendible (non fixed-size) array.</p></item>
+    <tag><c>{default, Value}</c></tag>
+    <item><p>Sets the default value for the array to <c>Value</c>.</p></item>
+  </taglist><p>  
+Options are processed in the order they occur in the list, i.e.,  
+later options have higher precedence.</p>
+ 
+  <p>The default value is used as the value of uninitialized entries, and  
+cannot be changed once the array has been created.</p>
+ 
+  <p>Examples:
+  </p><pre>     array:new(100)</pre><p> creates a fixed-size array of size 100.
+  </p><pre>     array:new({default,0})</pre><p> creates an empty, extendible array
+  whose default value is 0.
+  </p><pre>     array:new([{size,10},{fixed,false},{default,-1}])</pre><p> creates an
+  extendible array with initial size 10 whose default value is -1.
+ </p>
+<p><em>See also:</em> <seealso marker="#fix-1">fix/1</seealso>, <seealso marker="#from_list-2">from_list/2</seealso>, <seealso marker="#get-2">get/2</seealso>, <seealso marker="#new-0">new/0</seealso>, <seealso marker="#new-2">new/2</seealso>, <seealso marker="#set-3">set/3</seealso>.</p>
+</desc></func>
+<func>
+<name>new(Size::integer(), Options::term()) -&gt; array()</name>
+<fsummary>Create a new array according to the given size and options.</fsummary>
+
+<desc><marker id="new-2"/>
+
+<p>Create a new array according to the given size and options. If
+  <c>Size</c> is not a nonnegative integer, the call fails with reason
+  <c>badarg</c>. By default, the array has fixed size. Note that any size
+  specifications in <c>Options</c> will override the <c>Size</c> parameter.</p>
+ 
+  <p>If <c>Options</c> is a list, this is simply equivalent to <c>new([{size,
+  Size} | Options]</c>, otherwise it is equivalent to <c>new([{size, Size} |
+  [Options]]</c>. However, using this function directly is more efficient.</p>
+ 
+  <p>Example:
+  </p><pre>     array:new(100, {default,0})</pre><p> creates a fixed-size array of size
+  100, whose default value is 0.
+ </p>
+<p><em>See also:</em> <seealso marker="#new-1">new/1</seealso>.</p>
+</desc></func>
+<func>
+<name>relax(Array::array()) -&gt; array()</name>
+<fsummary>Make the array resizable.</fsummary>
+
+<desc><marker id="relax-1"/>
+
+<p>Make the array resizable. (Reverses the effects of <seealso marker="#fix-1">fix/1</seealso>.)</p>
+<p><em>See also:</em> <seealso marker="#fix-1">fix/1</seealso>.</p>
+</desc></func>
+<func>
+<name>reset(I::integer(), Array::array()) -&gt; array()</name>
+<fsummary>Reset entry I to the default value for the array.</fsummary>
+
+<desc><marker id="reset-2"/>
+
+<p>Reset entry <c>I</c> to the default value for the array. 
+  If the value of entry <c>I</c> is the default value the array will be
+  returned unchanged. Reset will never change size of the array.   
+  Shrinking can be done explicitly by calling <seealso marker="#resize-2">resize/2</seealso>.</p>
+ 
+  <p>If <c>I</c> is not a nonnegative integer, or if the array has fixed size
+  and <c>I</c> is larger than the maximum index, the call fails with reason
+  <c>badarg</c>; cf. <seealso marker="#set-3">set/3</seealso>
+ </p>
+<p><em>See also:</em> <seealso marker="#new-2">new/2</seealso>, <seealso marker="#set-3">set/3</seealso>.</p>
+</desc></func>
+<func>
+<name>resize(Array::array()) -&gt; array()</name>
+<fsummary>Change the size of the array to that reported by sparse_size/1.</fsummary>
+
+<desc><marker id="resize-1"/>
+
+<p>Change the size of the array to that reported by <seealso marker="#sparse_size-1">sparse_size/1</seealso>. If the given array has fixed size, the resulting
+  array will also have fixed size.</p>
+<p><em>See also:</em> <seealso marker="#resize-2">resize/2</seealso>, <seealso marker="#sparse_size-1">sparse_size/1</seealso>.</p>
+</desc></func>
+<func>
+<name>resize(Size::integer(), Array::array()) -&gt; array()</name>
+<fsummary>Change the size of the array.</fsummary>
+
+<desc><marker id="resize-2"/>
+
+<p>Change the size of the array. If <c>Size</c> is not a nonnegative
+  integer, the call fails with reason <c>badarg</c>. If the given array has
+  fixed size, the resulting array will also have fixed size.</p>
+</desc></func>
+<func>
+<name>set(I::integer(), Value::term(), Array::array()) -&gt; array()</name>
+<fsummary>Set entry I of the array to Value.</fsummary>
+
+<desc><marker id="set-3"/>
+
+<p>Set entry <c>I</c> of the array to <c>Value</c>. If <c>I</c> is not a
+  nonnegative integer, or if the array has fixed size and <c>I</c> is larger
+  than the maximum index, the call fails with reason <c>badarg</c>.</p>
+ 
+  <p>If the array does not have fixed size, and <c>I</c> is greater than
+  <c>size(Array)-1</c>, the array will grow to size <c>I+1</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#get-2">get/2</seealso>, <seealso marker="#reset-2">reset/2</seealso>.</p>
+</desc></func>
+<func>
+<name>size(Array::array()) -&gt; integer()</name>
+<fsummary>Get the number of entries in the array.</fsummary>
+
+<desc><marker id="size-1"/>
+
+<p>Get the number of entries in the array. Entries are numbered
+  from 0 to <c>size(Array)-1</c>; hence, this is also the index of the first
+  entry that is guaranteed to not have been previously set.</p>
+<p><em>See also:</em> <seealso marker="#set-3">set/3</seealso>, <seealso marker="#sparse_size-1">sparse_size/1</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_foldl(Function, InitialAcc::term(), Array::array()) -&gt; term()</name>
+<fsummary>Fold the elements of the array using the given function and
+  initial accumulator value, skipping default-valued entries.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term(), Acc::term()) -&gt; term()</v></type>
+<desc><marker id="sparse_foldl-3"/>
+
+<p>Fold the elements of the array using the given function and
+  initial accumulator value, skipping default-valued entries. The
+  elements are visited in order from the lowest index to the highest.
+  If <c>Function</c> is not a function, the call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#foldl-3">foldl/3</seealso>, <seealso marker="#sparse_foldr-3">sparse_foldr/3</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_foldr(Function, InitialAcc::term(), Array::array()) -&gt; term()</name>
+<fsummary>Fold the elements of the array right-to-left using the given
+  function and initial accumulator value, skipping default-valued
+  entries.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term(), Acc::term()) -&gt; term()</v></type>
+<desc><marker id="sparse_foldr-3"/>
+
+<p>Fold the elements of the array right-to-left using the given
+  function and initial accumulator value, skipping default-valued
+  entries. The elements are visited in order from the highest index to
+  the lowest. If <c>Function</c> is not a function, the call fails with
+  reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#foldr-3">foldr/3</seealso>, <seealso marker="#sparse_foldl-3">sparse_foldl/3</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_map(Function, Array::array()) -&gt; array()</name>
+<fsummary>Map the given function onto each element of the array, skipping
+  default-valued entries.</fsummary>
+<type>
+<v>Function = (Index::integer(), Value::term()) -&gt; term()</v></type>
+<desc><marker id="sparse_map-2"/>
+
+<p>Map the given function onto each element of the array, skipping
+  default-valued entries. The elements are visited in order from the
+  lowest index to the highest. If <c>Function</c> is not a function, the
+  call fails with reason <c>badarg</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#map-2">map/2</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_size(A::array()) -&gt; integer()</name>
+<fsummary>Get the number of entries in the array up until the last
+  non-default valued entry.</fsummary>
+
+<desc><marker id="sparse_size-1"/>
+
+<p>Get the number of entries in the array up until the last
+  non-default valued entry. In other words, returns <c>I+1</c> if <c>I</c> is the
+  last non-default valued entry in the array, or zero if no such entry
+  exists.</p>
+<p><em>See also:</em> <seealso marker="#resize-1">resize/1</seealso>, <seealso marker="#size-1">size/1</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_to_list(Array::array()) -&gt; list()</name>
+<fsummary>Converts the array to a list, skipping default-valued entries.</fsummary>
+
+<desc><marker id="sparse_to_list-1"/>
+
+<p>Converts the array to a list, skipping default-valued entries.
+ </p>
+<p><em>See also:</em> <seealso marker="#to_list-1">to_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>sparse_to_orddict(Array::array()) -&gt; [{Index::integer(), Value::term()}]</name>
+<fsummary>Convert the array to an ordered list of pairs {Index, Value},
+  skipping default-valued entries.</fsummary>
+
+<desc><marker id="sparse_to_orddict-1"/>
+
+<p>Convert the array to an ordered list of pairs <c>{Index, Value}</c>,
+  skipping default-valued entries.
+ </p>
+<p><em>See also:</em> <seealso marker="#to_orddict-1">to_orddict/1</seealso>.</p>
+</desc></func>
+<func>
+<name>to_list(Array::array()) -&gt; list()</name>
+<fsummary>Converts the array to a list.</fsummary>
+
+<desc><marker id="to_list-1"/>
+
+<p>Converts the array to a list.
+ </p>
+<p><em>See also:</em> <seealso marker="#from_list-2">from_list/2</seealso>, <seealso marker="#sparse_to_list-1">sparse_to_list/1</seealso>.</p>
+</desc></func>
+<func>
+<name>to_orddict(Array::array()) -&gt; [{Index::integer(), Value::term()}]</name>
+<fsummary>Convert the array to an ordered list of pairs {Index, Value}.</fsummary>
+
+<desc><marker id="to_orddict-1"/>
+
+<p>Convert the array to an ordered list of pairs <c>{Index, Value}</c>.
+ </p>
+<p><em>See also:</em> <seealso marker="#from_orddict-2">from_orddict/2</seealso>, <seealso marker="#sparse_to_orddict-1">sparse_to_orddict/1</seealso>.</p>
+</desc></func></funcs>
+
+</erlref>
+

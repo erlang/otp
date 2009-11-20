@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>docbuilder</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <app>docbuilder</app>
+  <appsummary>The DocBuilder Application</appsummary>
+  <description>
+    <p>DocBuilder provides functionality for generating HTML
+       documentation for Erlang modules and Erlang/OTP applications
+       from XML source code and/or EDoc comments in Erlang source code.
+    </p>
+  </description>
+
+  <section>
+    <title>Limitations</title>
+    <p>DocBuilder is primarily intended for generating documentation
+      for Erlang/OTP itself. That is, no attempt has been made to create
+      a tool suitable for generating documentation in general.</p>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>DocBuilder User's Guide,
+      <seealso marker="docb_gen">docb_gen(3)</seealso>,
+      <seealso marker="docb_transform">docb_transform(3)</seealso>
+      <seealso marker="docb_xml_check"></seealso></p>
+  </section>
+
+</appref>
+

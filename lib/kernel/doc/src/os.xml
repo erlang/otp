@@ -1,0 +1,212 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>os</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>os</module>
+  <modulesummary>Operating System Specific Functions</modulesummary>
+  <description>
+    <p>The functions in this module are operating system specific.
+      Careless use of these functions will result in programs that will
+      only run on a specific platform. On the other hand, with careful
+      use these functions can be of help in enabling a program to run on
+      most platforms.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>cmd(Command) -> string()</name>
+      <fsummary>Execute a command in a shell of the target OS</fsummary>
+      <type>
+        <v>Command = string() | atom()</v>
+      </type>
+      <desc>
+        <p>Executes <c>Command</c> in a command shell of the target OS,
+          captures the standard output of the command and returns this
+          result as a string. This function is a replacement of
+          the previous <c>unix:cmd/1</c>; on a Unix platform they are
+          equivalent.</p>
+        <p>Examples:</p>
+        <code type="none">
+LsOut = os:cmd("ls"), % on unix platform
+DirOut = os:cmd("dir"), % on Win32 platform</code>
+        <p>Note that in some cases, standard output of a command when
+          called from another program (for example, <c>os:cmd/1</c>)
+          may differ, compared to the standard output of the command
+          when called directly from an OS command shell.</p>
+      </desc>
+    </func>
+    <func>
+      <name>find_executable(Name) -> Filename | false</name>
+      <name>find_executable(Name, Path) -> Filename | false</name>
+      <fsummary>Absolute filename of a program</fsummary>
+      <type>
+        <v>Name = string()</v>
+        <v>Path = string()</v>
+        <v>Filename = string()</v>
+      </type>
+      <desc>
+        <p>These two functions look up an executable program given its
+          name and a search path, in the same way as the underlying
+          operating system. <c>find_executable/1</c> uses the current
+          execution path (that is, the environment variable PATH on
+          Unix and Windows).</p>
+        <p><c>Path</c>, if given, should conform to the syntax of
+          execution paths on the operating system. The absolute
+          filename of the executable program <c>Name</c> is returned,
+          or <c>false</c> if the program was not found.</p>
+      </desc>
+    </func>
+    <func>
+      <name>getenv() -> [string()]</name>
+      <fsummary>List all environment variables</fsummary>
+      <desc>
+        <p>Returns a list of all environment variables.
+          Each environment variable is given as a single string on
+          the format <c>"VarName=Value"</c>, where <c>VarName</c> is
+          the name of the variable and <c>Value</c> its value.</p>
+      </desc>
+    </func>
+    <func>
+      <name>getenv(VarName) -> Value | false</name>
+      <fsummary>Get the value of an environment variable</fsummary>
+      <type>
+        <v>VarName = string() </v>
+        <v>Value = string()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>Value</c> of the environment variable
+          <c>VarName</c>, or <c>false</c> if the environment variable
+          is undefined.</p>
+      </desc>
+    </func>
+    <func>
+      <name>getpid() -> Value </name>
+      <fsummary>Return the process identifier of the emulator process</fsummary>
+      <type>
+        <v>Value = string()</v>
+      </type>
+      <desc>
+        <p>Returns the process identifier of the current Erlang emulator
+          in the format most commonly used by the operating system
+          environment. <c>Value</c> is returned as a string containing
+          the (usually) numerical identifier for a process. On Unix,
+          this is typically the return value of the <c>getpid()</c>
+          system call. On VxWorks, <c>Value</c> contains the task id
+          (decimal notation) of the Erlang task. On Windows,
+          the process id as returned by the <c>GetCurrentProcessId()</c>
+          system call is used.</p>
+      </desc>
+    </func>
+    <func>
+      <name>putenv(VarName, Value) -> true</name>
+      <fsummary>Set a new value for an environment variable</fsummary>
+      <type>
+        <v>VarName = string() </v>
+        <v>Value = string()</v>
+      </type>
+      <desc>
+        <p>Sets a new <c>Value</c> for the environment variable
+          <c>VarName</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>timestamp() -> {MegaSecs, Secs, MicroSecs}</name>
+      <fsummary>Returna a timestamp from the OS in the erlang:now/0 format</fsummary>
+      <type>
+        <v>MegaSecs = Secs = MicroSecs = int()</v>
+      </type>
+      <desc>
+      <p>Returns a tuple in the same format as <seealso marker="erts:erlang#now/0">erlang:now/0</seealso>. The difference is that this function returns what the operating system thinks (a.k.a. the wall clock time) without any attempts at time correction. The result of two different calls to this function is <em>not</em> guaranteed to be different.</p>
+      <p>The most obvious use for this function is logging. The tuple can be used together with the function <seealso marker="stdlib:calendar#now_to_universal_time/1">calendar:now_to_universal_time/1</seealso> 
+or <seealso marker="stdlib:calendar#now_to_local_time/1">calendar:now_to_local_time/1</seealso> to get calendar time. Using the calendar time together with the <c>MicroSecs</c> part of the return tuple from this function allows you to log timestamps in high resolution and consistent with the time in the rest of the operating system.</p>
+      <p>Example of code formatting a string in the format &quot;DD Mon YYYY HH:MM:SS.mmmmmm&quot;, where DD is the day of month, Mon is the textual month name, YYYY is the year, HH:MM:SS is the time and mmmmmm is the microseconds in six positions:</p>
+<code>
+-module(print_time).
+-export([format_utc_timestamp/0]).
+format_utc_timestamp() ->
+    TS = {_,_,Micro} = os:timestamp(),
+    {{Year,Month,Day},{Hour,Minute,Second}} = 
+	calendar:now_to_universal_time(TS),
+    Mstr = element(Month,{"Jan","Feb","Mar","Apr","May","Jun","Jul",
+			  "Aug","Sep","Oct","Nov","Dec"}),
+    io_lib:format("~2w ~s ~4w ~2w:~2..0w:~2..0w.~6..0w",
+		  [Day,Mstr,Year,Hour,Minute,Second,Micro]).
+</code>
+
+       <p>The module above could be used in the following way:</p>
+<pre>
+1> <input>io:format("~s~n",[print_time:format_utc_timestamp()]).</input>
+29 Apr 2009  9:55:30.051711
+</pre>
+      </desc>
+    </func>
+    <func>
+      <name>type() -> {Osfamily, Osname} | Osfamily</name>
+      <fsummary>Return the OS family and, in some cases, OS name of the current operating system</fsummary>
+      <type>
+        <v>Osfamily = win32 | unix | vxworks</v>
+        <v>Osname = atom()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>Osfamily</c> and, in some cases, <c>Osname</c>
+          of the current operating system.</p>
+        <p>On Unix, <c>Osname</c> will have same value as
+          <c>uname -s</c> returns, but in lower case. For example, on
+          Solaris 1 and 2, it will be <c>sunos</c>.</p>
+        <p>In Windows, <c>Osname</c> will be either <c>nt</c> (on
+          Windows NT), or <c>windows</c> (on Windows 95).</p>
+        <p>On VxWorks the OS family alone is returned, that is
+          <c>vxworks</c>.</p>
+        <note>
+          <p>Think twice before using this function. Use the
+            <c>filename</c> module if you want to inspect or build
+            file names in a portable way.
+            Avoid matching on the <c>Osname</c> atom.</p>
+        </note>
+      </desc>
+    </func>
+    <func>
+      <name>version() -> {Major, Minor, Release} | VersionString</name>
+      <fsummary>Return the Operating System version</fsummary>
+      <type>
+        <v>Major = Minor = Release = integer()</v>
+        <v>VersionString = string()</v>
+      </type>
+      <desc>
+        <p>Returns the operating system version.
+          On most systems, this function returns a tuple, but a string
+          will be returned instead if the system has versions which
+          cannot be expressed as three numbers.</p>
+        <note>
+          <p>Think twice before using this function. If you still need
+            to use it, always <c>call os:type()</c> first.</p>
+        </note>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

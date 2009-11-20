@@ -1,0 +1,122 @@
+Benchmark framework
+-------------------
+
+This benchmark framework consists of the files:
+bench.erl - see bench module below
+bench.hrl - Defines some useful macros
+all.erl   - see all module below
+	
+bench module 
+-----------
+
+The module bench is a generic module that measures execution time 
+of functions in callback modules and writes an html-report on the outcome.
+
+When you execute the function bench:run/0 it will compile and run all
+benchmark modules in the current directory.
+
+all module
+-----------
+
+In the all module there is a function called releases/0 that you can
+edit to contain all your erlang installations and then you can
+run your benchmarks on several erlang versions using only one command i.e.
+all:run().
+
+Requirements on callback modules
+---------------------------------
+
+* A callback module must be named <callbackModuleName>_bm.erl 
+
+* The module must export the function benchmarks/0 that must return:
+  {Iterations, [Name1,Name2...]} where Iterations is the number of
+  times each benchmark should be run.  Name1, Name2 and so one are the
+  name of exported functions in the module.
+
+* The exported functions Name1 etc. must take one argument i.e. the number
+  of iterations and should return the atom ok.
+
+* The functions in a benchmark module should represent different
+  ways/different sequential algorithms for doing something. And the
+  result will be how fast they are compared to each other.
+
+Files created
+--------------
+
+Files that are created in the current directory are *.bmres and
+index.html. The file(s) with the extension "bmres" are an intermediate
+representation of the benchmark results and is only meant to be read
+by the reporting mechanism defined in bench.erl. The index.html file
+is the report telling you how good the benchmarks are in comparison to
+each other.  If you run your test on several erlang releases the
+html-file will include the result for all versions.
+
+
+Pitfalls 
+---------
+To get meaningful measurements, you should make sure that:
+
+* The total execution time is at least several seconds.
+
+* That any time spent in setup before entering the measurement loop is very
+  small compared to the total time.
+
+* That time spent by the loop itself is small compared to the total execution
+  time
+  
+Consider the following example of a benchmark function that does
+a local function call.
+
+local_call(0) -> ok;
+local_call(Iter) ->
+    foo(), % Local function call	 
+    local_call(Iter-1).
+
+The problem is that both "foo()" and "local_call(Iter-1)" takes about
+the same amount of time. To get meaningful figures you'll need to make
+sure that the loop overhead will not be visible. In this case we can
+take help of a macro in bench.hrl to repeat the local function call
+many times, making sure that time spent calling the local function is
+relatively much longer than the time spent iterating. Of course, all
+benchmarks in the same module must be repeated the same number of
+times; thus external_call will look like
+
+external_call(0) -> ok;
+external_call(Iter) ->
+    ?rep20(?MODULE:foo()),
+    external_call(Iter-1).
+
+This technique is only necessary if the operation we are testing executes
+really fast.
+
+If you for instance want to test a sort routine we can keep it simple:
+
+sorted(Iter) ->
+    do_sort(Iter, lists:seq(0, 63)).
+
+do_sort(0, List) -> ok;
+do_sort(Iter, List) ->
+    lists:sort(List),
+    do_sort(Iter-1, List).
+
+The call to lists:seq/2 is only done once. The loop overhead in the
+do_sort/2 function is small compared to the execution time of lists:sort/1.
+
+Error handling
+---------------
+
+Any error enforced by a callback module will result in exit of the benchmark
+program and an errormessage that should give a good idea of what is wrong.
+
+
+
+
+
+
+
+
+
+
+
+
+

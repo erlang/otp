@@ -1,0 +1,802 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2007</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>Distribution Protocol</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>2007-09-21</date>
+    <rev>PA1</rev>
+    <file>erl_dist_protocol.xml</file>
+  </header>
+
+<p>
+The description here is far from complete and will therefore be further
+refined in upcoming releases.
+
+The protocols both from Erlang nodes towards
+EPMD (Erlang Port Mapper Daemon) and between Erlang nodes, however, are
+stable since many years.
+</p>
+
+<p>The distribution protocol can be divided into four (4) parts:</p>
+<list>
+  <item>
+    <p>
+      1. Low level socket connection.
+    </p>
+  </item>
+  <item>
+    2. Handshake, interchange node name and authenticate.
+  </item>
+  <item>
+    3. Authentication (done by net_kernel).
+  </item>
+  <item>
+    4. Connected. 
+  </item>
+</list>
+<p>
+  A node fetches the Port number of another node through the EPMD (at the
+  other host) in order to initiate a connection request.
+</p>
+<p>
+For each host where a distributed Erlang node is running there should also
+be an EPMD running. The EPMD can be started explicitly or automatically
+as a result of the Erlang node startup.
+</p>
+<p>
+By default EPMD listens on port 4369.
+</p>
+<p>
+  3 and 4 are performed at the same level but the net_kernel disconnects the
+  other node if it communicates using an invalid cookie (after one (1) second).
+</p>
+
+<p>The integers in all multi-byte fields are in big-endian order.</p>
+
+  <section>
+    <title>EPMD Protocol</title>
+    <p>
+      The requests served by the EPMD (Erlang Port Mapper Daemon) are 
+      summarized in the figure below.
+    </p>
+
+      <image file="erl_ext_fig.gif">
+	<icaption>
+	  Summary of EPMD requests. 
+	</icaption>
+      </image>
+      <p>
+	Each request <c>*_REQ</c> is preceded by a two-byte length field. 
+	Thus, the overall request format is:
+      </p>
+
+      <table align="left">
+	<row>
+	  <cell align="center">2</cell>
+	  <cell align="center">n</cell>
+	</row>
+	<row>
+	  <cell align="center">Length</cell>
+	  <cell align="center">Request</cell>
+	</row>
+      <tcaption></tcaption></table>
+
+      <section>
+	<title>Register a node in the EPMD</title>
+	<p>
+	  When a distributed node is started it registers itself in EPMD.
+	  The message ALIVE2_REQ described below is sent from the node towards
+	  EPMD. The response from EPMD is ALIVE2_RESP.
+	</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Nlen</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">Elen</cell>
+	  </row>
+	  <row>
+	    <cell align="center">120</cell>
+	    <cell align="center">PortNo</cell>
+	    <cell align="center">NodeType</cell>
+	    <cell align="center">Protocol</cell>
+	    <cell align="center">LowestVersion</cell>
+	    <cell align="center">HighestVersion</cell>
+	    <cell align="center">Nlen</cell>
+	    <cell align="center">NodeName</cell>
+	    <cell align="center">Elen</cell>
+	    <cell align="center">Extra</cell>
+	  </row>
+	<tcaption>ALIVE2_REQ (120)</tcaption></table>
+	  <taglist>
+	    <tag><c>PortNo</c></tag>
+	    <item>
+	      The port number on which the node accept connection requests.
+	    </item>
+	    <tag><c>NodeType</c></tag>
+	    <item>
+	      77 = normal Erlang node, 72 = hidden node (C-node),...
+	    </item>
+	    <tag><c>Protocol</c></tag>
+	    <item>
+	      0 = tcp/ip-v4, ...
+	    </item>
+	    <tag><c>LowestVersion</c></tag>
+	    <item>
+	      The lowest distribution version that this node can handle.
+	      See the next field for possible values.
+	    </item>
+	    <tag><c>HighestVersion</c></tag>
+	    <item>
+	      The highest distribution version that this node can handle.
+	      The value in R6B and later is 5.
+	    </item>
+	    <tag><c>Nlen</c></tag>
+	    <item>
+	      The length of the <c>NodeName</c>.
+	    </item>
+	    <tag><c>NodeName</c></tag>
+	    <item>
+	      The NodeName as a string of length <c>Nlen</c>.
+	    </item>
+	    <tag><c>Elen</c></tag>
+	    <item>
+	      The length of the <c>Extra</c> field.
+	    </item>
+	    <tag><c>Extra</c></tag>
+	    <item>
+	      Extra field of <c>Elen</c> bytes.
+	    </item>
+	  </taglist>
+	<p>
+	  The connection created to the EPMD must be kept as long as the
+	  node is a distributed node. When the connection is closed
+	  the node is automatically unregistered from the EPMD.
+	</p>
+	<p>
+	  The response message ALIVE2_RESP is described below.
+	</p>
+
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	  </row>
+	  <row>
+	    <cell align="center">121</cell>
+	    <cell align="center">Result</cell>
+	    <cell align="center">Creation</cell>
+	  </row>
+	<tcaption>ALIVE2_RESP (121)</tcaption></table>
+	<p>
+	  Result = 0 -> ok, Result > 0 -> error
+	</p>
+      </section>
+
+      <section>
+	<title>Unregister a node from the EPMD</title>
+	<p>
+	  A node unregister itself from the EPMD by simply closing the
+	  TCP connection towards EPMD established when the node was registered.
+	</p>
+      </section>
+
+      <section>
+	<title>Get the distribution port of another node</title>
+	<p>
+	  When one node wants to connect to another node it starts with
+	  a PORT_PLEASE2_REQ request towards EPMD on the host where the 
+	  node resides in order to get the distribution port that the node 
+	  listens to.
+	</p>
+
+	<table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">N</cell>
+	</row>
+	<row>
+	  <cell align="center">122</cell>
+	  <cell align="center">NodeName</cell>
+	</row>
+      <tcaption>PORT_PLEASE2_REQ (122)</tcaption></table>
+      <p>
+	where N = Length - 1
+      </p>
+
+      <p>
+      </p>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	</row>
+	<row>
+	  <cell align="center">119</cell>
+	  <cell align="center">Result</cell>
+	</row>
+	<tcaption>
+	  PORT2_RESP (119) response indicating error, Result > 0.
+	</tcaption>
+      </table>
+      <p>Or</p>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">1</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Nlen</cell>
+	  <cell align="center">2</cell>
+	  <cell align="center">Elen</cell>
+	</row>
+	<row>
+	  <cell align="center">119</cell>
+	  <cell align="center">Result</cell>
+	  <cell align="center">PortNo</cell>
+	  <cell align="center">NodeType</cell>
+	  <cell align="center">Protocol</cell>
+	  <cell align="center">HighestVersion</cell>
+	  <cell align="center">LowestVersion</cell>
+	  <cell align="center">Nlen</cell>
+	  <cell align="center">NodeName</cell>
+	  <cell align="center">Elen</cell>
+	  <cell align="center">Extra</cell>
+	</row>
+      <tcaption>PORT2_RESP when Result = 0.</tcaption></table>
+<p>
+If Result > 0, the packet only consists of [119, Result].
+</p>
+
+        <p>EPMD will close the socket as soon as it has sent the information.</p>
+      </section>
+
+      <section>
+	<title>Get all registered names from EPMD</title>
+	<p>
+	  This request is used via the Erlang function 
+	  <c>net_adm:names/1,2</c>. A TCP connection is opened
+	  towards EPMD and this request is sent.
+	</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">110</cell>
+	  </row>
+	<tcaption>NAMES_REQ (110)</tcaption></table>
+	
+
+	<p>The response for a <c>NAMES_REQ</c> looks like this:</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">4</cell>
+	    <cell align="center">&nbsp;</cell>
+	  </row>
+	  <row>
+	    <cell align="center">EPMDPortNo</cell>
+	    <cell align="center">NodeInfo*</cell>
+	  </row>
+	<tcaption>NAMES_RESP</tcaption></table>
+	<p>
+	  NodeInfo is a string written for each active node.
+	  When all NodeInfo has been written the connection is
+	  closed by EPMD.
+	</p>
+	<p>
+	  NodeInfo is, as expressed in Erlang:
+	</p>
+	<code>
+	io:format("name ~s at port ~p~n", [NodeName, Port]).
+	</code>
+      </section>
+
+
+      <section>
+	<title>Dump all data from EPMD</title>
+	<p>
+	  This request is not really used, it should be regarded as a debug
+	  feature.
+	</p>
+	<table align="left">
+	  <row>
+	  <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">100</cell>
+	  </row>
+	<tcaption>DUMP_REQ</tcaption></table>
+
+	<p>The response for a <c>DUMP_REQ</c> looks like this:</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">4</cell>
+	    <cell align="center">&nbsp;</cell>
+	  </row>
+	  <row>
+	    <cell align="center">EPMDPortNo</cell>
+	    <cell align="center">NodeInfo*</cell>
+	  </row>
+	<tcaption>DUMP_RESP</tcaption></table>
+	<p>
+	  NodeInfo is a string written for each node kept in EPMD.
+	  When all NodeInfo has been written the connection is
+	  closed by EPMD.
+	</p>
+	<p>
+	  NodeInfo is, as expressed in Erlang:
+	</p>
+	<code>
+	io:format("active name     ~s at port ~p, fd = ~p ~n",
+	          [NodeName, Port, Fd]).
+	</code>
+	<p>
+	  or
+	</p>
+	<code>
+	io:format("old/unused name ~s at port ~p, fd = ~p~n",
+	          [NodeName, Port, Fd]).
+	</code>
+
+      </section>
+
+      <section>
+	<title>Kill the EPMD</title>
+	<p>
+	  This request will kill the running EPMD. It is almost never used.
+	</p>
+	<table align="left">
+	  <row>
+	  <cell align="center">1</cell>
+	  </row>
+	  <row>
+	    <cell align="center">107</cell>
+	  </row>
+	<tcaption>KILL_REQ</tcaption></table>
+
+	<p>The response fo a <c>KILL_REQ</c> looks like this:</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">2</cell>
+	  </row>
+	  <row>
+	    <cell align="center">OKString</cell>
+	  </row>
+	<tcaption>KILL_RESP</tcaption></table>
+	<p>
+	  where <c>OKString</c> is "OK".
+	</p>
+      </section>
+
+      <section>
+	<title>STOP_REQ  (Not Used)</title>
+	<p></p>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">n</cell>
+	  </row>
+	  <row>
+	    <cell align="center">115</cell>
+	    <cell align="center">NodeName</cell>
+	  </row>
+	<tcaption>STOP_REQ</tcaption></table>
+	<p>
+	  where n = Length - 1
+	</p>
+	<p>
+	  The current implementation of Erlang does not care if the connection
+	  to the EPMD is broken.
+	</p>
+	<p>The response for a <c>STOP_REQ</c> looks like this.</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">7</cell>
+	  </row>
+	  <row>
+	    <cell align="center">OKString</cell>
+	  </row>
+	<tcaption>STOP_RESP</tcaption></table>
+	<p>
+	  where OKString is "STOPPED".
+	</p>
+	<p>A negative response can look like this.</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">7</cell>
+	  </row>
+	  <row>
+	    <cell align="center">NOKString</cell>
+	  </row>
+	<tcaption>STOP_NOTOK_RESP</tcaption></table>
+	<p>
+	  where NOKString is "NOEXIST".
+	</p>
+      </section>
+<!--
+      <section>
+	<title>ALIVE_REQ (97)</title>
+	<p></p>
+
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	    <cell align="center">n</cell>
+	  </row>
+	  <row>
+	    <cell align="center">97</cell>
+	    <cell align="center">PortNo</cell>
+	    <cell align="center">NodeName</cell>
+	  </row>
+	<tcaption></tcaption></table>
+
+	<p>
+	  where n = Length - 3
+	</p>
+	<p>
+	  The connection created to the EPMD must be kept until the node is
+	  not a distributed node any longer.
+	</p>
+      </section>
+
+      <section>
+	<title>ALIVE_OK_RESP (89)</title>
+	<p></p>
+	<table align="left">
+	  <row>
+	    <cell align="center">1</cell>
+	    <cell align="center">2</cell>
+	  </row>
+	  <row>
+	    <cell align="center">89</cell>
+	    <cell align="center">Creation</cell>
+	  </row>
+	<tcaption></tcaption></table>
+      </section>
+
+
+      <section>
+	<title>ALIVE_NOTOK_RESP  ()</title>
+	<p>
+	  EPMD closed the connection.
+	</p>
+      </section>
+
+      <section>
+	<title>PORT_PLEASE_REQ   (112)</title>
+	<p></p>
+      <table align="left">
+	<row>
+	  <cell align="center">1</cell>
+	  <cell align="center">n</cell>
+	</row>
+	<row>
+	  <cell align="center">112</cell>
+	  <cell align="center">NodeName</cell>
+	</row>
+      <tcaption></tcaption></table>
+      <p>
+	where n = Length - 1
+      </p>
+      </section>
+
+      <section>
+	<title>PORT_OK_RESP ()</title>
+	<p></p>
+	<table align="left">
+	  <row>
+	    <cell align="center">2</cell>
+	  </row>
+	  <row>
+	    <cell align="center">PortNo</cell>
+	  </row>
+	<tcaption></tcaption></table>
+
+      </section>
+
+      <section>
+	<title>PORT_NOTOK_RESP ()</title>
+	<p>
+	  EPMD closed the connection.
+	</p>
+      </section>
+
+
+      <section>
+	<title>PORT_NOTOK_RESP ()</title>
+	<p>
+	  EPMD closed the connection.
+	</p>
+      </section>
+-->
+
+    </section>
+
+      <section>
+	<title>Handshake</title>
+	<p>
+	  The handshake is discussed in detail in the internal documentation for 
+	  the kernel (Erlang) application.
+	</p>
+      </section>
+
+      <section>
+        <marker id="connected_nodes"/>
+	<title>Protocol between connected nodes</title>
+	<p>
+	  As of erts version 5.7.2 the runtime system passes a distribution
+	  flag in the handshake stage that enables the use of a
+	  <seealso marker="erl_ext_dist#distribution_header">distribution
+	  header</seealso> on all messages passed. Messages passed between
+	  nodes are in this case on the following format:
+	</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">4</cell>
+	    <cell align="center">d</cell>
+	    <cell align="center">n</cell>
+	    <cell align="center">m</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>Length</c></cell>
+	    <cell align="center"><c>DistributionHeader</c></cell>
+	    <cell align="center"><c>ControlMessage</c></cell>
+	    <cell align="center"><c>Message</c></cell>
+	  </row>
+	<tcaption></tcaption></table>
+	<p>
+	  where:
+	</p>
+	<p>
+	  <c>Length</c> is equal to d + n + m
+	</p>
+	<p>
+	  <c>ControlMessage</c> is a tuple passed using the external format of
+	  Erlang.
+	</p>
+	<p>
+	  <c>Message</c> is the message sent to another node using the '!'
+	  (in external format). Note that <c>Message</c> is only passed in
+	  combination with a <c>ControlMessage</c> encoding a send ('!').
+	</p>
+	<p>
+	  Also note that <seealso marker="erl_ext_dist#overall_format">the
+	  version number is omitted from the terms that follow a
+	  distribution header</seealso>.
+	</p>
+	<p>
+	  Nodes with an erts version less than 5.7.2 does not pass the
+	  distribution flag that enables the distribution header. Messages
+	  passed between nodes are in this case on the following format:
+	</p>
+	<table align="left">
+	  <row>
+	    <cell align="center">4</cell>
+	    <cell align="center">1</cell>
+	    <cell align="center">n</cell>
+	    <cell align="center">m</cell>
+	  </row>
+	  <row>
+	    <cell align="center"><c>Length</c></cell>
+	    <cell align="center"><c>Type</c></cell>
+	    <cell align="center"><c>ControlMessage</c></cell>
+	    <cell align="center"><c>Message</c></cell>
+	  </row>
+	<tcaption></tcaption></table>
+	<p>
+	  where:
+	</p>
+	<p>
+	  <c>Length</c> is equal to 1 + n + m
+  	</p>
+	<p>
+	  Type is: 112 (pass through)
+	</p>
+	<p>
+	  <c>ControlMessage</c> is a tuple passed using the external format of
+	  Erlang.
+	</p>
+	<p>
+	  <c>Message</c> is the message sent to another node using the '!'
+	  (in external format).  Note that <c>Message</c> is only passed in
+	  combination with a <c>ControlMessage</c> encoding a send ('!').
+	</p>
+	<p>
+	  The <c>ControlMessage</c> is a tuple, where the first element
+	  indicates which distributed operation it encodes.
+	</p>
+	<taglist>
+	  <tag><c>LINK</c></tag>
+	  <item>
+	    <p>
+	      <c>{1, FromPid, ToPid}</c>
+	    </p>
+	  </item>
+	  
+	  <tag><c>SEND</c></tag>
+	  <item>
+	    <p>
+	      <c>{2, Cookie, ToPid}</c>
+	    </p>
+	    <p>
+	    <em>Note</em> followed by <c>Message</c>
+	    </p>
+	  </item>
+
+	  <tag><c>EXIT</c></tag>
+	  <item>
+	    <p>
+	      <c>{3, FromPid, ToPid, Reason}</c>
+	    </p>
+	  </item>
+	  
+	  <tag><c>UNLINK</c></tag>
+	  <item>
+	    <p>
+	      <c>{4, FromPid, ToPid}</c>
+	    </p>
+	  </item>
+	  
+	  <tag><c>NODE_LINK</c></tag>
+	  <item>
+	    <p>
+	      <c>{5}</c>
+	    </p>
+	  </item>
+	  
+	  <tag><c>REG_SEND</c></tag>
+	  <item>
+	    <p>
+	      <c>{6, FromPid, Cookie, ToName}</c>
+	    </p>
+	    <p>
+	    <em>Note</em> followed by <c>Message</c>
+	    </p>
+	  </item>
+
+	  <tag><c>GROUP_LEADER</c></tag>
+	  <item>
+	    <p>
+	      <c>{7, FromPid, ToPid}</c>
+	    </p>
+	  </item>
+	
+	  <tag><c>EXIT2</c></tag>
+	  <item>
+	    <p>
+	      <c>{8, FromPid, ToPid, Reason}</c>
+	    </p>
+	  </item>
+	</taglist>
+      </section>
+
+  
+    <section>
+      <title>New Ctrlmessages for distrvsn = 1 (OTP R4)</title>
+      <taglist>
+	<tag><c>SEND_TT</c></tag>
+	<item>
+	<p>
+	  <c>{12, Cookie, ToPid, TraceToken}</c>
+	</p>
+	<p>
+	<em>Note</em> followed by <c>Message</c>
+	</p>
+	</item>
+
+	<tag><c>EXIT_TT</c></tag>
+	<item>
+	<p>
+	  <c>{13, FromPid, ToPid, TraceToken, Reason}</c>	  
+	</p>
+	</item>
+      
+	<tag><c>REG_SEND_TT</c></tag>
+	<item>
+	<p>
+	  <c>{16, FromPid, Cookie, ToName, TraceToken}</c>
+	</p>
+	<p>
+	<em>Note</em> followed by <c>Message</c>
+	</p>
+	</item>
+      
+	<tag><c>EXIT2_TT</c></tag>
+	<item>
+	<p>
+	  <c>{18, FromPid, ToPid, TraceToken, Reason}</c>
+	</p>
+	</item>
+      </taglist>
+    </section>
+    
+    <section>
+      <title>New Ctrlmessages for distrvsn = 2</title>
+      <p>
+	distrvsn 2 was never used.
+      </p>
+    </section>
+    
+    <section>
+      <title>New Ctrlmessages for distrvsn = 3 (OTP R5C)</title>
+      <p>
+	None, but the version number was increased anyway.
+      </p>
+    </section>
+
+    <section>
+      <title>New Ctrlmessages for distrvsn = 4 (OTP R6)</title>
+      <p>
+	These are only recognized by Erlang nodes, not by hidden nodes.
+      </p>
+      <taglist>
+	<tag><c>MONITOR_P</c></tag>
+	<item>
+	<p>
+	  <c>{19, FromPid, ToProc, Ref}</c>
+	  
+	  <c>FromPid</c> = monitoring process
+	  <c>ToProc</c> = monitored process pid or name (atom)
+	</p>
+	</item>
+      
+	<tag><c>DEMONITOR_P</c></tag>
+	<item>
+	<p>
+	  <c>{20, FromPid, ToProc, Ref}</c>
+	  We include the FromPid just in case we want to trace this.
+	  
+	  <c>FromPid</c> = monitoring process
+	  <c>ToProc</c> = monitored process pid or name (atom)
+	</p>
+	</item>
+
+	<tag><c>MONITOR_P_EXIT</c></tag>
+	<item>
+	<p>
+	  <c>{21, FromProc, ToPid, Ref, Reason}</c>
+	  
+	  <c>FromProc</c> = monitored process pid or name (atom)
+	  <c>ToPid</c> = monitoring process
+	  <c>Reason</c> = exit reason for the monitored process
+	</p>
+	</item>
+      </taglist>
+    </section>
+  </chapter>

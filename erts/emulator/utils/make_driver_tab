@@ -1,0 +1,71 @@
+#!/usr/bin/env perl 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+use File::Basename;
+
+# This program generates driver_tab.c which holds the driver_tab
+# array.  Since the contents of driver_tab will depend on which
+# drivers we wish to include it has to be generated.
+
+# usage: make_driver_tab [-o filename] drivers...
+
+my $file = "";
+my @drivers = ();
+
+while (@ARGV) {
+    my $d = shift;
+    if ( $d =~ /^-o$/ ) {
+	$file = shift or die("-o requires argument");
+	next;
+    }
+    $d = basename $d;
+    $d =~ s/drv(\..*|)$//;	# strip drv.* or just drv
+    push(@drivers, $d);
+}
+
+# Did we want output to a file?
+if ( $file ) {
+    open(STDOUT, ">$file") or die("can't open $file for writing");
+}
+
+print <<EOF;
+#ifdef HAVE_CONFIG_H
+#  include "config.h"
+#endif /* HAVE_CONFIG_H */
+#include <stdio.h>
+#include "global.h"
+
+EOF
+
+# "extern" declarations
+foreach (@drivers) {
+    print "extern ErlDrvEntry ${_}driver_entry;\n";
+}
+
+# The array itself
+print "\nErlDrvEntry *driver_tab[DRIVER_TAB_SIZE] =\n{\n";
+
+foreach (@drivers) {
+    print "    &${_}driver_entry,\n";
+}
+
+print "    NULL\n};\n";
+
+# That's it

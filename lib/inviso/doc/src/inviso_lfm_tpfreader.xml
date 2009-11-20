@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2006</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>inviso_lfm_tpfreader</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>inviso_lfm_tpfreader</module>
+  <modulesummary>Inviso Standard Reader Process to Standard Logfile Merger</modulesummary>
+  <description>
+    <p>Implements the standard reader process to the standard logfile merger <c>inviso_lfm</c>.</p>
+    <p>The reader process reads logfiles belonging to the same set (normally one node) in chronological order and delivers logged trace messages one by one to the output process. Before any trace messages are delivered, the <c>inviso_lfm_tpreader</c> implementation reads the entire trace information file (if in use) and builds a database over pid-to-alias associations.</p>
+    <p>The <c>inviso_lfm_tpreader</c> implementation is capable of considering that an alias may have been used for several processes during different times. An alias may also be in use for several pids at the same time, on purpose. If a process has generated a trace message, all associations between that pid and aliases will be presented as the list <c>PidMappings</c> in the message sent to the output process.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>handle_logfile_sort_wrapset(LogFiles) -> FileList2</name>
+      <fsummary>Sort logfiles in chronological order</fsummary>
+      <type>
+        <v>LogFiles = [{trace_log, FileList}]</v>
+        <v>FileList = FileList2 = [FileName]</v>
+        <v>&nbsp;FileName = string()</v>
+      </type>
+      <desc>
+        <p>Only one <c>{trace_log, FileList}</c> tuple is expected in <c>LogFiles</c>, all other tuples are ignored. <c>FileList</c> must:</p>
+        <list type="bulleted">
+          <item>contain one single file name, or</item>
+          <item>a list of wraplog files, following the naming convention <c><![CDATA[<Prefix><Nr><Suffix>]]></c>.</item>
+        </list>
+        <p>Sorts the files in <c>FileList</c> in chronological order beginning with the oldest. Sorting is only relevant if <c>FileList</c> is a list of wraplogs. The sorting is done on finding the modulo-counter in the filename and not on filesystem timestamps.</p>
+        <p>This function is exported for convenience should an own reader process be implemented.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>The Trace Information File Protocol</title>
+    <p>The format of a trace information file is dictated by the meta tracer process. The <c>inviso_lfm_tpfreader</c> implementation of a reader process understands the following trace information entries. Note that the <c>inviso_rt_meta</c> trace information file is on binary format prefixing every entry with a 4 byte length indicator.</p>
+    <taglist>
+      <tag><c>{Pid, Alias, alias, NowStamp}</c></tag>
+      <item>
+        <p><c>Pid = pid()</c>          <br></br>
+<c>Alias = term()</c>          <br></br>
+<c>NowStamp = term()</c>, but in current implementation as
+          returned from <c>erlang:now/0</c></p>
+        <p>This message indicates that from now on shall <c>Pid</c> be associated with <c>Alias</c>.</p>
+      </item>
+      <tag><c>{MaybePid, Alias, unalias, NowStamp}</c></tag>
+      <item>
+        <p><c>MaybePid = pid() | undefined</c>          <br></br>
+<c>Alias = term()</c>          <br></br>
+<c>NowStamp = term()</c>, see above</p>
+        <p>This message indicates that, if <c>MaybePid</c> is a pid, this pid shall no longer be associated with <c>Alias</c>. If it is <c>undefined</c>, all associations with <c>Alias</c> from now shall be considered invalid.</p>
+        <p>Also note that there are many situations where <c>unalias</c> entries will be missing. For instance if a process terminates without making explicit function calls removing its associations first. This is seldom a problem unless the pid is reused.</p>
+      </item>
+    </taglist>
+  </section>
+</erlref>
+

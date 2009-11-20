@@ -1,0 +1,76 @@
+#!/bin/sh
+# ``The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved via the world wide web at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either expressed or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# The Initial Developer of the Original Code is Ericsson Utvecklings AB.
+# Portions created by Ericsson are Copyright 1999-2000, Ericsson 
+# Utvecklings AB. All Rights Reserved.''
+# 
+#     $Id$
+#
+#
+
+#EDOC_DIR=/clearcase/otp/internal_tools/edoc
+EDOC_DIR=/home/otp/sgml/edoc-%EDOC_VSN%
+SYNTAX_TOOLS_DIR=/home/otp/sgml/syntax_tools-%SYNTAX_TOOLS_VSN%
+XMERL_DIR=/home/otp/sgml/xmerl-%XMERL_VSN%
+
+FILE=
+APP=
+TITLE=
+VSN=
+
+while [ $# -gt 0 ]; do
+    case $1 in
+    -file)
+	FILE=$2;
+	shift;
+	shift;;
+    -app)
+        APP=$2;
+	shift;
+	shift;;
+    -title)
+	TITLE=$2;
+	shift;
+	shift;;
+    -vsn)
+	VSN=$2;
+	shift;
+	shift;;
+    esac
+done
+
+if [ -n "$FILE" ] ; then
+    EDOC_ARGS="[{layout,otpsgml_layout},{dir,\".\"},{file_suffix,\".sgml\"},{preprocess,true},{includes,[\"$XMERL_DIR/include\"]}]"
+    erl -boot start_clean -noshell \
+	-pa $EDOC_DIR/ebin \
+	-pa $SYNTAX_TOOLS_DIR/ebin \
+	-pa $XMERL_DIR/ebin \
+	-run edoc_run file $FILE $EDOC_ARGS \
+	-s erlang halt
+elif [ -n "$APP" -a -n "$TITLE" ] ; then 
+    erl -boot start_clean -noshell \
+	-pa $EDOC_DIR/ebin \
+	-pa $SYNTAX_TOOLS_DIR/ebin \
+	-pa $XMERL_DIR/ebin \
+	-run edoc_run application $APP "\".\"" "[{title,$TITLE}]" \
+	-s erlang halt
+elif [ -n "$APP" -a -n "$VSN" ] ; then 
+    erl -boot start_clean -noshell \
+	-pa $EDOC_DIR/ebin \
+	-pa $SYNTAX_TOOLS_DIR/ebin \
+	-pa $XMERL_DIR/ebin \
+	-run edoc_run application $APP "\".\"" "[{def,{vsn,\"$VSN\"}}]" \
+	-s erlang halt
+else
+    echo "Usage: docb_edoc [-file Filename] | [-app Appname [-title Title |-vsn Vsn]]"
+fi

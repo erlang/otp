@@ -1,0 +1,205 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+#
+# Makefile only for Unix and Win32/Cygwin.
+# 
+
+include $(ERL_TOP)/make/target.mk
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
+# ----------------------------------------------------
+# SSL locations and include options from configure
+# ----------------------------------------------------
+SSL_LIBDIR = @SSL_LIBDIR@
+SSL_INCLUDE = @SSL_INCLUDE@
+
+# ----------------------------------------------------
+# Application version
+# ----------------------------------------------------
+include ../vsn.mk
+VSN=$(SSL_VSN)
+
+# ----------------------------------------------------
+# Commands 
+# ----------------------------------------------------
+CC = @CC@
+LD = @LD@
+SHELL = /bin/sh
+LIBS = @LIBS@
+PLAIN_CFLAGS = @CFLAGS@
+
+# ----------------------------------------------------
+# Includes and libs
+# ----------------------------------------------------
+
+ALL_CFLAGS = @WFLAGS@ @CFLAGS@ @DEFS@ $(TYPE_FLAGS)
+TARGET = @host@
+
+ifeq ($(TYPE),debug)
+TYPEMARKER = .debug
+TYPE_FLAGS = -g -DDEBUG @DEBUG_FLAGS@
+else
+TYPEMARKER =
+TYPE_FLAGS = -O2
+endif
+
+PRIVDIR = ../priv
+BINDIR = $(PRIVDIR)/bin/$(TARGET)
+OBJDIR = $(PRIVDIR)/obj/$(TARGET)
+
+# ----------------------------------------------------
+# File suffixes
+# ----------------------------------------------------
+exe = @EXEEXT@
+obj = .@OBJEXT@
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/ssl-$(VSN)
+
+# ----------------------------------------------------
+# Common Macros
+# ----------------------------------------------------
+OBJS = 	$(OBJDIR)/esock$(obj) \
+	$(OBJDIR)/debuglog$(obj) \
+	$(OBJDIR)/esock_poll$(obj) \
+	$(OBJDIR)/esock_osio$(obj) \
+	$(OBJDIR)/esock_utils$(obj) \
+	$(OBJDIR)/esock_posix_str$(obj) \
+	$(OBJDIR)/esock_openssl$(obj)
+
+PORT_PROGRAM = $(BINDIR)/ssl_esock$(exe)
+
+SKIP_BUILDING_BINARIES := false
+
+# Try to be BC for R10
+ifeq ($(findstring @SSL_,@SSL_DYNAMIC_ONLY@),@SSL_)
+DYNAMIC_CRYPTO_LIB=yes
+else
+DYNAMIC_CRYPTO_LIB=@SSL_DYNAMIC_ONLY@
+endif
+
+
+ifeq ($(DYNAMIC_CRYPTO_LIB),yes)
+
+ifneq ($(findstring win32,$(TARGET)),win32)
+SSL_MAKEFILE = $(OBJDIR)/Makefile
+else
+SSL_MAKEFILE =
+endif
+
+CC_R_FLAG=@CFLAG_RUNTIME_LIBRARY_PATH@
+ifeq ($(findstring @,$(CC_R_FLAG)),@)
+# Old erts configure used which hasn't replaced @CFLAG_RUNTIME_LIBRARY_PATH@;
+# we try our best here instead...
+
+ifeq ($(findstring darwin,$(TARGET)),darwin)	# darwin: no flag
+CC_R_FLAG =
+else
+ifeq ($(findstring osf,$(TARGET)),osf)		# osf1: -Wl,-rpath,
+CC_R_FLAG = -Wl,-rpath,
+else						# Default: -Wl,-R
+CC_R_FLAG = -Wl,-R
+endif
+endif
+endif
+
+ifeq ($(strip $(CC_R_FLAG)),)
+CC_R_OPT =
+else
+CC_R_OPT = $(CC_R_FLAG)$(SSL_LIBDIR)
+endif
+
+SSL_LINK_LIB=-L$(SSL_LIBDIR) -lssl -lcrypto
+else 
+# not dynamic crypto lib (default from R11B-5)
+NEED_KERBEROS=@SSL_LINK_WITH_KERBEROS@
+NEED_ZLIB=@SSL_LINK_WITH_ZLIB@
+SSL_MAKEFILE =
+CC_R_OPT =
+SSL_LINK_LIB = $(SSL_LIBDIR)/libssl.a $(SSL_LIBDIR)/libcrypto.a 
+ifeq ($(NEED_KERBEROS),yes)
+SSL_LINK_LIB += @STATIC_KERBEROS_LIBS@
+endif
+ifeq ($(NEED_ZLIB),yes)
+SSL_LINK_LIB += @STATIC_ZLIB_LIBS@
+endif
+endif
+
+# ----------------------------------------------------
+# Targets
+# ----------------------------------------------------
+
+debug opt: $(OBJDIR) $(BINDIR) $(OBJS) $(PORT_PROGRAM) $(SSL_MAKEFILE)
+
+$(OBJDIR):
+	-@mkdir -p $(OBJDIR)
+
+$(BINDIR):
+	-@mkdir -p $(BINDIR)
+
+$(OBJDIR)/esock_openssl$(obj):	esock_openssl.c
+	$(CC) -c -o $@ $(ALL_CFLAGS) $(SSL_INCLUDE) $<
+
+$(OBJDIR)/%$(obj): %.c
+	$(CC) -c -o $@ $(ALL_CFLAGS) $<
+
+# Unix
+$(BINDIR)/ssl_esock: $(OBJS)
+	$(CC) $(CC_R_OPT) $(PLAIN_CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(SSL_LINK_LIB)
+
+# Win32/Cygwin
+$(BINDIR)/ssl_esock.exe: $(OBJS)
+	$(LD) -L$(SSL_LIBDIR) -o $@ $^ -lwsock32 -llibeay32 -lssleay32
+
+# Unix only, and only when linking statically
+$(SSL_MAKEFILE):
+	sed 	-e "s;%BINDIR%;../../bin/$(TARGET);" \
+		-e "s;%SSL_LIBDIR%;$(SSL_LIBDIR);" \
+		-e "s;%OBJS;$(OBJS);" \
+		-e "s;%LIBS%;$(LIBS);" ./Makefile.dist \
+		> $(OBJDIR)/Makefile
+
+
+clean:
+	rm -f $(PORT_PROGRAM) $(OBJS) core *~ $(SSL_MAKEFILE)
+
+docs:
+
+# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
+include $(ERL_TOP)/make/otp_release_targets.mk
+
+release_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)/priv/bin
+	$(INSTALL_PROGRAM) $(PORT_PROGRAM) $(RELSYSDIR)/priv/bin
+ifneq ($(SSL_MAKEFILE),)
+	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
+	$(INSTALL_DATA) $(OBJS) $(RELSYSDIR)/priv/obj
+	sed 	-e "s;%BINDIR%;../bin;" \
+		-e "s;%SSL_LIBDIR%;$(SSL_LIBDIR);" \
+		-e "s;%OBJS;$(OBJS);" \
+		-e "s;%LIBS%;$(LIBS);" ./Makefile.dist \
+		> $(RELSYSDIR)/priv/obj/Makefile
+endif
+
+release_docs_spec:
+

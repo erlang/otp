@@ -1,0 +1,206 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>List Comprehensions</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>list_comprehensions.xml</file>
+  </header>
+
+  <section>
+    <title>Simple Examples</title>
+    <p>We start with a simple example:</p>
+    <pre>
+> <input>[X || X &lt;- [1,2,a,3,4,b,5,6], X > 3].</input>
+[a,4,b,5,6]</pre>
+    <p>This should be read as follows:</p>
+    <quote>
+      <p>The list of X such that X is taken from the list
+        <c>[1,2,a,...]</c> and X is greater than 3.</p>
+    </quote>
+    <p>The notation <c><![CDATA[X <- [1,2,a,...]]]></c> is a generator and
+      the expression <c>X > 3</c> is a filter.</p>
+    <p>An additional filter can be added in order to restrict
+      the result to integers:</p>
+    <pre>
+> <input>[X || X &lt;- [1,2,a,3,4,b,5,6], integer(X), X > 3].</input>
+[4,5,6]</pre>
+    <p>Generators can be combined. For example, the Cartesian product
+      of two lists can be written as follows:</p>
+    <pre>
+> <input>[{X, Y} || X &lt;- [1,2,3], Y &lt;- [a,b]].</input>
+[{1,a},{1,b},{2,a},{2,b},{3,a},{3,b}]</pre>
+  </section>
+
+  <section>
+    <title>Quick Sort</title>
+    <p>The well known quick sort routine can be written as follows:</p>
+    <code type="none"><![CDATA[
+sort([Pivot|T]) ->
+    sort([ X || X <- T, X < Pivot]) ++
+    [Pivot] ++
+    sort([ X || X <- T, X >= Pivot]);
+sort([]) -> [].]]></code>
+    <p>The expression <c><![CDATA[[X || X <- T, X < Pivot]]]></c> is the list of
+      all elements in <c>T</c>, which are less than <c>Pivot</c>.</p>
+    <p><c><![CDATA[[X || X <- T, X >= Pivot]]]></c> is the list of all elements in
+      <c>T</c>, which are greater or equal to <c>Pivot</c>.</p>
+    <p>To sort a list, we isolate the first element in the list and
+      split the list into two sub-lists. The first sub-list contains
+      all elements which are smaller than the first element in
+      the list, the second contains all elements which are greater
+      than or equal to the first element in the list. We then sort
+      the sub-lists and combine the results.</p>
+  </section>
+
+  <section>
+    <title>Permutations</title>
+    <p>The following example generates all permutations of
+      the elements in a list:</p>
+    <code type="none"><![CDATA[
+perms([]) -> [[]];
+perms(L)  -> [[H|T] || H <- L, T <- perms(L--[H])].]]></code>
+    <p>We take take <c>H</c> from <c>L</c> in all possible ways.
+      The result is the set of all lists <c>[H|T]</c>, where <c>T</c>
+      is the set of all possible permutations of <c>L</c> with
+      <c>H</c> removed.</p>
+    <pre>
+> <input>perms([b,u,g]).</input>
+[[b,u,g],[b,g,u],[u,b,g],[u,g,b],[g,b,u],[g,u,b]]</pre>
+  </section>
+
+  <section>
+    <title>Pythagorean Triplets</title>
+    <p>Pythagorean triplets are sets of integers <c>{A,B,C}</c> such
+      that <c>A**2 + B**2 = C**2</c>.</p>
+    <p>The function <c>pyth(N)</c> generates a list of all integers
+      <c>{A,B,C}</c> such that <c>A**2 + B**2 = C**2</c> and where
+      the sum of the sides is equal to or less than <c>N</c>.</p>
+    <code type="none"><![CDATA[
+pyth(N) ->
+    [ {A,B,C} ||
+        A <- lists:seq(1,N),
+        B <- lists:seq(1,N),
+        C <- lists:seq(1,N),
+        A+B+C =< N,
+        A*A+B*B == C*C 
+    ].]]></code>
+    <pre>
+> <input>pyth(3).</input>
+[].
+> <input>pyth(11).</input>
+[].
+> <input>pyth(12).</input>
+[{3,4,5},{4,3,5}]
+> <input>pyth(50).</input>
+[{3,4,5},
+ {4,3,5},
+ {5,12,13},
+ {6,8,10},
+ {8,6,10},
+ {8,15,17},
+ {9,12,15},
+ {12,5,13},
+ {12,9,15},
+ {12,16,20},
+ {15,8,17},
+ {16,12,20}]</pre>
+    <p>The following code reduces the search space and is more
+      efficient:</p>
+    <code type="none"><![CDATA[
+pyth1(N) ->
+   [{A,B,C} ||
+       A <- lists:seq(1,N-2),
+       B <- lists:seq(A+1,N-1),
+       C <- lists:seq(B+1,N),
+       A+B+C =< N,
+       A*A+B*B == C*C ].]]></code>
+  </section>
+
+  <section>
+    <title>Simplifications with List Comprehensions</title>
+    <p>As an example, list comprehensions can be used to simplify some
+      of the functions in <c>lists.erl</c>:</p>
+    <code type="none"><![CDATA[
+append(L)   ->  [X || L1 <- L, X <- L1].
+map(Fun, L) -> [Fun(X) || X <- L].
+filter(Pred, L) -> [X || X <- L, Pred(X)].]]></code>
+  </section>
+
+  <section>
+    <title>Variable Bindings in List Comprehensions</title>
+    <p>The scope rules for variables which occur in list
+      comprehensions are as follows:</p>
+    <list type="bulleted">
+      <item>all variables which occur in a generator pattern are
+       assumed to be "fresh" variables</item>
+      <item>any variables which are defined before the list
+       comprehension and which are used in filters have the values
+       they had before the list comprehension</item>
+      <item>no variables may be exported from a list comprehension.</item>
+    </list>
+    <p>As an example of these rules, suppose we want to write
+      the function <c>select</c>, which selects certain elements from
+      a list of tuples. We might write
+      <c><![CDATA[select(X, L) ->  [Y || {X, Y} <- L].]]></c> with the intention
+      of extracting all tuples from <c>L</c> where the first item is
+      <c>X</c>.</p>
+    <p>Compiling this yields the following diagnostic:</p>
+    <code type="none">
+./FileName.erl:Line: Warning: variable 'X' shadowed in generate</code>
+    <p>This diagnostic warns us that the variable <c>X</c> in
+      the pattern is not the same variable as the variable <c>X</c>
+      which occurs in the function head.</p>
+    <p>Evaluating <c>select</c> yields the following result:</p>
+    <pre>
+> <input>select(b,[{a,1},{b,2},{c,3},{b,7}]).</input>
+[1,2,3,7]</pre>
+    <p>This result is not what we wanted. To achieve the desired
+      effect we must write <c>select</c> as follows:</p>
+    <code type="none"><![CDATA[
+select(X, L) ->  [Y || {X1, Y} <- L, X == X1].]]></code>
+    <p>The generator now contains unbound variables and the test has
+      been moved into the filter. This now works as expected:</p>
+    <pre>
+> <input>select(b,[{a,1},{b,2},{c,3},{b,7}]).</input>
+[2,7]</pre>
+    <p>One consequence of the rules for importing variables into a
+      list comprehensions is that certain pattern matching operations
+      have to be moved into the filters and cannot be written directly
+      in the generators. To illustrate this, do not write as follows:</p>
+    <code type="none"><![CDATA[
+f(...) ->
+    Y = ...
+    [ Expression || PatternInvolving Y  <- Expr, ...]
+    ...]]></code>
+    <p>Instead, write as follows:</p>
+    <code type="none"><![CDATA[
+f(...) ->
+    Y = ...
+    [ Expression || PatternInvolving Y1  <- Expr, Y == Y1, ...]
+    ...]]></code>
+  </section>
+</chapter>
+

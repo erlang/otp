@@ -1,0 +1,20 @@
+%%% This is an -*- erlang -*- file.
+%%%
+%%% Elements in this file shall be on the form
+%%% {Application,Modules}.
+%%%
+%%% Application is the name of an application or the atom all.
+%%% Modules is a list of module names
+%%%
+%%% The Application shall include the listed Modules in its cover compilation,
+%%% but not in the cover analysis.
+%%% If Application=all it means that all application shall include the listed
+%%% Modules in the cover compilation.
+%%%
+%%% After all tests are completed, the listed modules are analysed with cover
+%%% data from all tests and the result is stored under the application where
+%%% the modules belong.
+
+{all,[]}.
+
+{observer,[dbg]}.

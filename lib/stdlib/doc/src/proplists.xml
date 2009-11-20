@@ -1,0 +1,386 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>proplists</title>
+    <prepared>Patrik Nyblom</prepared>
+    <responsible>Kenneth Lundin</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>2002-09-28</date>
+    <rev>A</rev>
+    <file>proplists.sgml</file>
+  </header>
+  <module>proplists</module>
+  <modulesummary>Support functions for property lists</modulesummary>
+  <description>
+    <p>Property lists are ordinary lists containing entries in the form
+      of either tuples, whose first elements are keys used for lookup and
+      insertion, or atoms, which work as shorthand for tuples <c>{Atom, true}</c>. (Other terms are allowed in the lists, but are ignored
+      by this module.) If there is more than one entry in a list for a
+      certain key, the first occurrence normally overrides any later
+      (irrespective of the arity of the tuples).</p>
+    <p>Property lists are useful for representing inherited properties,
+      such as options passed to a function where a user may specify options
+      overriding the default settings, object properties, annotations,
+      etc.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>append_values(Key, List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Similar to <c>get_all_values/2</c>, but each value is
+          wrapped in a list unless it is already itself a list, and the
+          resulting list of lists is concatenated. This is often useful for
+          "incremental" options; e.g., <c>append_values(a, [{a, [1,2]}, {b, 0}, {a, 3}, {c, -1}, {a, [4]}])</c> will return the list
+          <c>[1,2,3,4]</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>compact(List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Minimizes the representation of all entries in the list. This is
+          equivalent to <c><![CDATA[[property(P) || P <- List]]]></c>.</p>
+        <p>See also: <c>property/1</c>, <c>unfold/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(Key, List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Deletes all entries associated with <c>Key</c> from
+          <c>List</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>expand(Expansions, List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Expansions = [{Property,[term()]}]</v>
+        <v>Property = atom() | tuple()</v>
+      </type>
+      <desc>
+        <p>Expands particular properties to corresponding sets of
+          properties (or other terms). For each pair <c>{Property, Expansion}</c> in <c>Expansions</c>, if <c>E</c> is
+          the first entry in <c>List</c> with the same key as
+          <c>Property</c>, and <c>E</c> and <c>Property</c>
+          have equivalent normal forms, then <c>E</c> is replaced with
+          the terms in <c>Expansion</c>, and any following entries with
+          the same key are deleted from <c>List</c>.</p>
+        <p>For example, the following expressions all return <c>[fie, bar, baz, fum]</c>:</p>
+        <code type="none">
+          expand([{foo, [bar, baz]}],
+          [fie, foo, fum])
+          expand([{{foo, true}, [bar, baz]}],
+          [fie, foo, fum])
+          expand([{{foo, false}, [bar, baz]}],
+          [fie, {foo, false}, fum])</code>
+        <p>However, no expansion is done in the following call:</p>
+        <code type="none">
+          expand([{{foo, true}, [bar, baz]}],
+          [{foo, false}, fie, foo, fum])</code>
+        <p>because <c>{foo, false}</c> shadows <c>foo</c>.</p>
+        <p>Note that if the original property term is to be preserved in the
+          result when expanded, it must be included in the expansion list. The
+          inserted terms are not expanded recursively. If
+          <c>Expansions</c> contains more than one property with the same
+          key, only the first occurrence is used.</p>
+        <p>See also: <c>normalize/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_all_values(Key, List) -> [term()]</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Similar to <c>get_value/2</c>, but returns the list of
+          values for <em>all</em> entries <c>{Key, Value}</c> in
+          <c>List</c>. If no such entry exists, the result is the empty
+          list.</p>
+        <p>See also: <c>get_value/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_bool(Key, List) -> bool()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the value of a boolean key/value option. If
+          <c>lookup(Key, List)</c> would yield <c>{Key, true}</c>,
+          this function returns <c>true</c>; otherwise <c>false</c>
+          is returned.</p>
+        <p>See also: <c>get_value/2</c>, <c>lookup/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_keys(List) -> [term()]</name>
+      <fsummary></fsummary>
+      <type>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns an unordered list of the keys used in <c>List</c>,
+          not containing duplicates.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_value(Key, List) -> term()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Equivalent to <c>get_value(Key, List, undefined)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_value(Key, List, Default) -> term()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Default = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the value of a simple key/value property in
+          <c>List</c>. If <c>lookup(Key, List)</c> would yield
+          <c>{Key, Value}</c>, this function returns the corresponding
+          <c>Value</c>, otherwise <c>Default</c> is returned.</p>
+        <p>See also: <c>get_all_values/2</c>, <c>get_bool/2</c>,
+          <c>get_value/2</c>, <c>lookup/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_defined(Key, List) -> bool()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>List</c> contains at least
+          one entry associated with <c>Key</c>, otherwise
+          <c>false</c> is returned.</p>
+      </desc>
+    </func>
+    <func>
+      <name>lookup(Key, List) -> none | tuple()</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the first entry associated with <c>Key</c> in
+          <c>List</c>, if one exists, otherwise returns
+          <c>none</c>. For an atom <c>A</c> in the list, the tuple
+          <c>{A, true}</c> is the entry associated with <c>A</c>.</p>
+        <p>See also: <c>get_bool/2</c>, <c>get_value/2</c>,
+          <c>lookup_all/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>lookup_all(Key, List) -> [tuple()]</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the list of all entries associated with <c>Key</c>
+          in <c>List</c>. If no such entry exists, the result is the
+          empty list.</p>
+        <p>See also: <c>lookup/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>normalize(List, Stages) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Stages = [Operation]</v>
+        <v>Operation = {aliases, Aliases} | {negations, Negations} |  {expand, Expansions}</v>
+        <v>Aliases = [{Key, Key}]</v>
+        <v>Negations = [{Key, Key}]</v>
+        <v>Key = term()</v>
+        <v>Expansions = [{Property, [term()]}]</v>
+        <v>Property = atom() | tuple()</v>
+      </type>
+      <desc>
+        <p>Passes <c>List</c> through a sequence of
+          substitution/expansion stages. For an <c>aliases</c> operation,
+          the function <c>substitute_aliases/2</c> is applied using the
+          given list of aliases; for a <c>negations</c> operation,
+          <c>substitute_negations/2</c> is applied using the given
+          negation list; for an <c>expand</c> operation, the function
+          <c>expand/2</c> is applied using the given list of expansions.
+          The final result is automatically compacted (cf.
+          <c>compact/1</c>).</p>
+        <p>Typically you want to substitute negations first, then aliases,
+          then perform one or more expansions (sometimes you want to pre-expand
+          particular entries before doing the main expansion). You might want
+          to substitute negations and/or aliases repeatedly, to allow such
+          forms in the right-hand side of aliases and expansion lists.</p>
+        <p>See also: <c>compact/1</c>, <c>expand/2</c>,
+          <c>substitute_aliases/2</c>, <c>substitute_negations/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>property(Property) -> Property</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Property = atom() | tuple()</v>
+      </type>
+      <desc>
+        <p>Creates a normal form (minimal) representation of a property. If
+          <c>Property</c> is <c>{Key, true}</c> where <c>Key</c> is
+          an atom, this returns <c>Key</c>, otherwise the whole term
+          <c>Property</c> is returned.</p>
+        <p>See also: <c>property/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>property(Key, Value) -> Property</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Key = term()</v>
+        <v>Value = term()</v>
+        <v>Property = atom() | tuple()</v>
+      </type>
+      <desc>
+        <p>Creates a normal form (minimal) representation of a simple
+          key/value property. Returns <c>Key</c> if <c>Value</c> is
+          <c>true</c> and <c>Key</c> is an atom, otherwise a tuple
+          <c>{Key, Value}</c> is returned.</p>
+        <p>See also: <c>property/1</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>split(List, Keys) -> {Lists, Rest}</name>
+      <fsummary></fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Keys = [term()]</v>
+        <v>Lists = [[term()]]</v>
+        <v>Rest = [term()]</v>
+      </type>
+      <desc>
+        <p>Partitions <c>List</c> into a list of sublists and a
+          remainder. <c>Lists</c> contains one sublist for each key in
+          <c>Keys</c>, in the corresponding order. The relative order of
+          the elements in each sublist is preserved from the original
+          <c>List</c>. <c>Rest</c> contains the elements in
+          <c>List</c> that are not associated with any of the given keys,
+          also with their original relative order preserved.</p>
+        <p>Example:
+          split([{c, 2}, {e, 1}, a, {c, 3, 4}, d, {b, 5}, b], [a, b, c])</p>
+        <p>returns</p>
+        <p>{[[a], [{b, 5}, b],[{c, 2}, {c, 3, 4}]], [{e, 1}, d]}</p>
+      </desc>
+    </func>
+    <func>
+      <name>substitute_aliases(Aliases, List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Aliases = [{Key, Key}]</v>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Substitutes keys of properties. For each entry in
+          <c>List</c>, if it is associated with some key <c>K1</c>
+          such that <c>{K1, K2}</c> occurs in <c>Aliases</c>, the
+          key of the entry is changed to <c>Key2</c>. If the same
+          <c>K1</c> occurs more than once in <c>Aliases</c>, only
+          the first occurrence is used.</p>
+        <p>Example: <c>substitute_aliases([{color, colour}], L)</c>
+          will replace all tuples <c>{color, ...}</c> in <c>L</c>
+          with <c>{colour, ...}</c>, and all atoms <c>color</c>
+          with <c>colour</c>.</p>
+        <p>See also: <c>normalize/2</c>, <c>substitute_negations/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>substitute_negations(Negations, List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>Negations = [{Key, Key}]</v>
+        <v>Key = term()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Substitutes keys of boolean-valued properties and
+          simultaneously negates their values. For each entry in
+          <c>List</c>, if it is associated with some key <c>K1</c>
+          such that <c>{K1, K2}</c> occurs in <c>Negations</c>, then
+          if the entry was <c>{K1, true}</c> it will be replaced with
+          <c>{K2, false}</c>, otherwise it will be replaced with
+          <c>{K2, true}</c>, thus changing the name of the option and
+          simultaneously negating the value given by
+          <c>get_bool(List)</c>. If the same <c>K1</c> occurs more
+          than once in <c>Negations</c>, only the first occurrence is
+          used.</p>
+        <p>Example: <c>substitute_negations([{no_foo, foo}], L)</c>
+          will replace any atom <c>no_foo</c> or tuple
+          <c>{no_foo, true}</c> in <c>L</c> with <c>{foo, false}</c>,
+          and any other tuple <c>{no_foo, ...}</c> with 
+          <c>{foo, true}</c>.</p>
+        <p>See also: <c>get_bool/2</c>, <c>normalize/2</c>,
+          <c>substitute_aliases/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>unfold(List) -> List</name>
+      <fsummary></fsummary>
+      <type>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Unfolds all occurrences of atoms in <c>List</c> to tuples
+          <c>{Atom, true}</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

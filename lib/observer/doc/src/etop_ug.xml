@@ -1,0 +1,204 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Erlang Top</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>etop_ug.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>Erlang Top, <c>etop</c> is a tool for presenting information
+      about erlang processes similar to the information presented by
+      <c>top</c> in UNIX.
+      </p>
+  </section>
+
+  <section>
+    <title>Output</title>
+    <p>The output from <c>etop</c> can be graphical or text based. 
+      </p>
+    <p>Text based it looks like this:</p>
+    <code type="none"><![CDATA[
+========================================================================================
+ tiger@durin                                                               13:40:32
+ Load:  cpu         0               Memory:  total        1997    binary         33
+        procs     197                        processes       0    code          173
+        runq      135                        atom         1002    ets            95
+
+Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Function
+----------------------------------------------------------------------------------------
+<127.23.0>     code_server                0   59585   78064       0 gen_server:loop/6   
+<127.21.0>     file_server_2              0   36380   44276       0 gen_server:loop/6   
+<127.2.0>      erl_prim_loader            0   27962    3740       0 erl_prim_loader:loop
+<127.9.0>      kernel_sup                 0    6998    4676       0 gen_server:loop/6   
+<127.17.0>     net_kernel                62    6018    3136       0 gen_server:loop/6   
+<127.0.0>      init                       0    4156    4352       0 init:loop/1         
+<127.16.0>     auth                       0    1765    1264       0 gen_server:loop/6   
+<127.18.0>     inet_tcp_dist:accept       0     660    1416       0 prim_inet:accept0/2 
+<127.5.0>      application_controll       0     569    6756       0 gen_server:loop/6   
+<127.137.0>    net_kernel:do_spawn_       0     553    5840       0 dbg:do_relay_1/1    
+========================================================================================
+    ]]></code>
+    <p>And graphically it looks like this:</p>
+    <image file="etop_main.gif">
+      <icaption>Graphical presentation of etop</icaption>
+    </image>
+    <p>The header includes some system information:
+      </p>
+    <taglist>
+      <tag>Load</tag>
+      <item><c>cpu</c> is <c>Runtime/Wallclock</c>, i.e. the
+       percentage of time where the node has been
+       active, <c>procs</c> is the number of processes on the node,
+       and <c>runq</c> is the number of processes that are ready to
+       run.</item>
+      <tag>Memory</tag>
+      <item>This is the memory allocated by the node in kilo bytes.</item>
+    </taglist>
+    <p>For each process the following information is presented:
+      </p>
+    <taglist>
+      <tag>Time</tag>
+      <item>This is the runtime for the process, i.e. the actual
+       time the process has been scheduled in.</item>
+      <tag>Reds</tag>
+      <item>This is the number of reductions that has been executed
+       on the process</item>
+      <tag>Memory</tag>
+      <item>This is the size of the process in bytes, obtained by a
+       call to <c>process_info(Pid,memory)</c>.</item>
+      <tag>MsgQ</tag>
+      <item>This is the length of the message queue for the process.</item>
+    </taglist>
+    <note>
+      <p><em>Time</em> and <em>Reds</em> can be presented as
+        accumulated values or as values since last update.</p>
+    </note>
+  </section>
+
+  <section>
+    <title>Start</title>
+    <p>To start etop with the graphical presentation, use the script
+      <c>getop</c> or the batch file <c>getop.bat</c>, e.g. <c>getop -node tiger@durin</c></p>
+    <p>To start etop with the text based presentation use the script
+      <c>etop</c> or the batch file <c>etop.bat</c>, e.g. <c>etop -node tiger@durin</c>,
+      </p>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+    <p>All configuration parameters can be set at start by adding
+      <c>-OptName Value</c> to the command line, e.g. <c>etop -node tiger@durin -setcookie mycookie -lines 15</c>.
+      </p>
+    <p>The parameters <c>lines</c>, <c>interval</c>, <c>accumulate</c>
+      and <c>sort</c> can be changed during runtime. Use the
+      <em>Options</em> menu with the graphical presentation or the
+      function <c>etop:config/2</c> with the text based presentation.
+      </p>
+    <p>A list of all valid configuration parameters can be found in
+      the reference manual for <c>etop</c>.
+      </p>
+    <p>Note that it is even possible to change which information to
+      sort by by clicking the header line of the table in the graphical
+      presentation.
+      </p>
+
+    <section>
+      <title>Example: Change configuration with graphical presentation</title>
+      <image file="etop_opt.gif">
+        <icaption>Select the option to change from the Options menu.</icaption>
+      </image>
+      <image file="etop_lines.gif">
+        <icaption>Enter the new value in the popup window and click "Ok"</icaption>
+      </image>
+      <image file="etop_5.gif">
+        <icaption>The interface is updated with the new configuration</icaption>
+      </image>
+    </section>
+
+    <section>
+      <title>Example: Change configuration with text based presentation</title>
+      <code type="none"><![CDATA[
+========================================================================================
+ tiger@durin                                                               10:12:39
+ Load:  cpu         0               Memory:  total        1858    binary         33
+        procs     191                        processes       0    code          173
+        runq        2                        atom         1002    ets            95
+
+Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Function
+----------------------------------------------------------------------------------------
+<127.23.0>     code_server                0   60350   71176       0 gen_server:loop/6   
+<127.21.0>     file_server_2              0   36380   44276       0 gen_server:loop/6   
+<127.2.0>      erl_prim_loader            0   27962    3740       0 erl_prim_loader:loop
+<127.17.0>     net_kernel                 0   13808    3916       0 gen_server:loop/6   
+<127.9.0>      kernel_sup                 0    6998    4676       0 gen_server:loop/6   
+<127.0.0>      init                       0    4156    4352       0 init:loop/1         
+<127.18.0>     inet_tcp_dist:accept       0    2196    1416       0 prim_inet:accept0/2 
+<127.16.0>     auth                       0    1893    1264       0 gen_server:loop/6   
+<127.43.0>     ddll_server                0     582    3744       0 gen_server:loop/6   
+<127.5.0>      application_controll       0     569    6756       0 gen_server:loop/6   
+========================================================================================      ]]></code>
+      <p><em><c>etop:config(lines,5).</c></em>        <br></br>
+<em><c>ok</c></em></p>
+      <code type="none"><![CDATA[
+(etop@durin)2> 
+========================================================================================
+ tiger@durin                                                               10:12:44
+ Load:  cpu         0               Memory:  total        1859    binary         33
+        procs     192                        processes       0    code          173
+        runq        2                        atom         1002    ets            95
+
+Pid            Name or Initial Func    Time    Reds  Memory    MsgQ Current Function
+----------------------------------------------------------------------------------------
+<127.17.0>     net_kernel               183      70    4092       0 gen_server:loop/6   
+<127.335.0>    inet_tcp_dist:do_acc     141      22    1856       0 dist_util:con_loop/9
+<127.19.0>     net_kernel:ticker/2      155       6    1244       0 net_kernel:ticker1/2
+<127.341.0>    net_kernel:do_spawn_       0       0    5840       0 dbg:do_relay_1/1    
+<127.43.0>     ddll_server                0       0    3744       0 gen_server:loop/6   
+========================================================================================
+      ]]></code>
+    </section>
+  </section>
+
+  <section>
+    <title>Print to file</title>
+    <p>At any time, the current <c>etop</c> display can be dumped to a
+      text file. Use <em>Dump to file</em> on the <em>File</em> menu
+      with the graphical presentation or the function <c>etop:dump/1</c>
+      with the text based presentation.
+      </p>
+  </section>
+
+  <section>
+    <title>Stop</title>
+    <p>To stop <c>etop</c>, use <em>Exit</em> on the <em>File</em>
+      menu for the graphical presentation, or the function
+      <c>etop:stop/0</c> with the text based presentation.
+      </p>
+  </section>
+</chapter>
+

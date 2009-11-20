@@ -1,0 +1,728 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE cref SYSTEM "cref.dtd">
+
+<cref>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ei</title>
+    <prepared>Jakob Cederlund</prepared>
+    <responsible>Kent Boortz</responsible>
+    <docno>1</docno>
+    <approved>Kenneth Lundin</approved>
+    <checked></checked>
+    <date>2000-11-27</date>
+    <rev>PA1</rev>
+    <file>ei.sgml</file>
+  </header>
+  <lib>ei</lib>
+  <libsummary>routines for handling the erlang binary term format</libsummary>
+  <description>
+    <p>The library <c><![CDATA[ei]]></c> contains macros and functions to encode
+      and decode the erlang binary term format.</p>
+    <p>With <c><![CDATA[ei]]></c>, you can convert atoms, lists, numbers and
+      binaries to and from the binary format. This is useful when
+      writing port programs and drivers. <c><![CDATA[ei]]></c> uses a given
+      buffer, and no dynamic memory (with the exception of
+      <c><![CDATA[ei_decode_fun()]]></c>), and is often quite fast.</p>
+    <p>It also handles C-nodes, C-programs that talks erlang
+      distribution with erlang nodes (or other C-nodes) using the
+      erlang distribution format. The difference between <c><![CDATA[ei]]></c> and
+      <c><![CDATA[erl_interface]]></c> is that <c><![CDATA[ei]]></c> uses the binary format
+      directly when sending and receiving terms. It is also thread
+      safe, and using threads, one process can handle multiple
+      C-nodes. The <c><![CDATA[erl_interface]]></c> library is built on top of
+      <c><![CDATA[ei]]></c>, but of legacy reasons, it doesn't allow for multiple
+      C-nodes. In general, <c><![CDATA[ei]]></c> is the preferred way of doing
+      C-nodes.</p>
+    <p>The decode and encode functions use a buffer an index into the
+      buffer, which points at the point where to encode and
+      decode. The index is updated to point right after the term
+      encoded/decoded. No checking is done whether the term fits in
+      the buffer or not. If encoding goes outside the buffer, the
+      program may crash.</p>
+    <p>All functions takes two parameter, <c><![CDATA[buf]]></c> is a pointer to
+      the buffer where the binary data is / will be, <c><![CDATA[index]]></c> is a
+      pointer to an index into the buffer. This parameter will be
+      incremented with the size of the term decoded / encoded. The
+      data is thus at <c><![CDATA[buf[*index]]]></c> when an <c><![CDATA[ei]]></c> function is
+      called.</p>
+    <p>The encode functions all assumes that the <c><![CDATA[buf]]></c> and
+      <c><![CDATA[index]]></c> parameters points to a buffer big enough for the
+      data. To get the size of an encoded term, without encoding it,
+      pass <c><![CDATA[NULL]]></c> instead of a buffer pointer. The <c><![CDATA[index]]></c>
+      parameter will be incremented, but nothing will be encoded. This
+      is the way in <c><![CDATA[ei]]></c> to "preflight" term encoding.</p>
+    <p>There are also encode-functions that uses a dynamic buffer. It
+      is often more convenient to use these to encode data. All encode
+      functions comes in two versions: those starting with <c><![CDATA[ei_x]]></c>,
+      uses a dynamic buffer.</p>
+    <p>All functions return <c><![CDATA[0]]></c> if successful, and <c><![CDATA[-1]]></c> if
+      not. (For instance, if a term is not of the expected type, or
+      the data to decode is not a valid erlang term.)</p>
+    <p>Some of the decode-functions needs a preallocated buffer. This
+      buffer must be allocated big enough, and for non compound types
+      the <c><![CDATA[ei_get_type()]]></c>
+      function returns the size required (note that for strings an
+      extra byte is needed for the 0 string terminator).</p>
+  </description>
+  <funcs>
+    <func>
+      <name><ret>void</ret><nametext>ei_set_compat_rel(release_number)</nametext></name>
+      <fsummary>Set the ei library in compatibility mode</fsummary>
+      <type>
+        <v>unsigned release_number;</v>
+      </type>
+      <desc>
+        <marker id="ei_set_compat_rel"></marker>
+        <p>By default, the <c><![CDATA[ei]]></c> library is only guaranteed
+          to be compatible with other Erlang/OTP components from the same
+          release as the <c><![CDATA[ei]]></c> library itself. For example, <c><![CDATA[ei]]></c> from
+          the OTP R10 release is not compatible with an Erlang emulator
+          from the OTP R9 release by default.</p>
+        <p>A call to <c><![CDATA[ei_set_compat_rel(release_number)]]></c> sets the
+          <c><![CDATA[ei]]></c> library in compatibility mode of release
+          <c><![CDATA[release_number]]></c>. Valid range of <c><![CDATA[release_number]]></c>
+          is [7, current release]. This makes it possible to
+          communicate with Erlang/OTP components from earlier releases.</p>
+        <note>
+          <p>If this function is called, it may only be called once
+            and must be called before any other functions in the <c><![CDATA[ei]]></c>
+            library is called.</p>
+        </note>
+        <warning>
+          <p>You may run into trouble if this feature is used
+            carelessly. Always make sure that all communicating
+            components are either from the same Erlang/OTP release, or
+            from release X and release Y where all components
+            from release Y are in compatibility mode of release X.</p>
+        </warning>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_version(char *buf, int *index)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_version(ei_x_buff* x)</nametext></name>
+      <fsummary>Encode version</fsummary>
+      <desc>
+        <p>Encodes a version magic number for the binary format. Must
+          be the first token in a binary term.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_long(char *buf, int *index, long p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_long(ei_x_buff* x, long p)</nametext></name>
+      <fsummary>Encode integer</fsummary>
+      <desc>
+        <p>Encodes a long integer in the binary format.
+          Note that if the code is 64 bits the function ei_encode_long() is
+          exactly the same as ei_encode_longlong().</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_ulong(char *buf, int *index, unsigned long p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_ulong(ei_x_buff* x, unsigned long p)</nametext></name>
+      <fsummary>Encode unsigned integer</fsummary>
+      <desc>
+        <p>Encodes an unsigned long integer in the binary format.
+          Note that if the code is 64 bits the function ei_encode_ulong() is
+          exactly the same as ei_encode_ulonglong().</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_longlong(char *buf, int *index, long long p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_longlong(ei_x_buff* x, long long p)</nametext></name>
+      <fsummary>Encode integer</fsummary>
+      <desc>
+        <p>Encodes a GCC <c><![CDATA[long long]]></c> or Visual C++ <c><![CDATA[__int64]]></c> (64 bit)
+          integer in the binary format. Note that this function is missing
+          in the VxWorks port.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_ulonglong(char *buf, int *index, unsigned long long p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_ulonglong(ei_x_buff* x, unsigned long long p)</nametext></name>
+      <fsummary>Encode unsigned integer</fsummary>
+      <desc>
+        <p>Encodes a GCC <c><![CDATA[unsigned long long]]></c> or Visual C++ <c><![CDATA[unsigned __int64]]></c> (64 bit) integer in the binary format.  Note that
+          this function is missing in the VxWorks port.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_bignum(char *buf, int *index, mpz_t obj)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_bignum(ei_x_buff *x, mpz_t obj)</nametext></name>
+      <fsummary>Encode an arbitrary precision integer</fsummary>
+      <desc>
+        <p>Encodes a GMP <c><![CDATA[mpz_t]]></c> integer to binary format.
+          To use this function the ei library needs to be configured and compiled
+          to use the GMP library. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_double(char *buf, int *index, double p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_double(ei_x_buff* x, double p)</nametext></name>
+      <fsummary>Encode a double float</fsummary>
+      <desc>
+        <p>Encodes a double-precision (64 bit) floating point number in
+          the binary format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_boolean(char *buf, int *index, int p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_boolean(ei_x_buff* x, int p)</nametext></name>
+      <fsummary>Encode a boolean</fsummary>
+      <desc>
+        <p>Encodes a boolean value, as the atom <c><![CDATA[true]]></c> if p is not
+          zero or <c><![CDATA[false]]></c> if p is zero.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_char(char *buf, int *index, char p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_char(ei_x_buff* x, char p)</nametext></name>
+      <fsummary>Encode an 8-bit integer between 0-255</fsummary>
+      <desc>
+        <p>Encodes a char (8-bit) as an integer between 0-255 in the binary format.
+          Note that for historical reasons the integer argument is of
+          type <c><![CDATA[char]]></c>. Your C code should consider the
+          given argument to be of type <c><![CDATA[unsigned char]]></c> even if
+          the C compilers and system may define <c><![CDATA[char]]></c> to be
+          signed.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_string(char *buf, int *index, const char *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_encode_string_len(char *buf, int *index, const char *p, int len)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_string(ei_x_buff* x, const char *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_string_len(ei_x_buff* x, const char* s, int len)</nametext></name>
+      <fsummary>Encode a string</fsummary>
+      <desc>
+        <p>Encodes a string in the binary format. (A string in erlang
+          is a list, but is encoded as a character array in the binary
+          format.) The string should be zero-terminated, except for
+          the <c><![CDATA[ei_x_encode_string_len()]]></c> function.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_atom(char *buf, int *index, const char *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_encode_atom_len(char *buf, int *index, const char *p, int len)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom(ei_x_buff* x, const char *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_atom_len(ei_x_buff* x, const char *p, int len)</nametext></name>
+      <fsummary>Encode an atom</fsummary>
+      <desc>
+        <p>Encodes an atom in the binary format. The <c><![CDATA[p]]></c> parameter
+          is the name of the atom. Only upto <c><![CDATA[MAXATOMLEN]]></c> bytes
+          are encoded. The name should be zero-terminated, except for
+          the <c><![CDATA[ei_x_encode_atom_len()]]></c> function.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_binary(char *buf, int *index, const void *p, long len)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_binary(ei_x_buff* x, const void *p, long len)</nametext></name>
+      <fsummary>Encode a binary</fsummary>
+      <desc>
+        <p>Encodes a binary in the binary format. The data is at
+          <c><![CDATA[p]]></c>, of <c><![CDATA[len]]></c> bytes length.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_pid(char *buf, int *index, const erlang_pid *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_pid(ei_x_buff* x, const erlang_pid *p)</nametext></name>
+      <fsummary>Encode a pid</fsummary>
+      <desc>
+        <p>Encodes an erlang process identifier, pid, in the binary
+          format. The <c><![CDATA[p]]></c> parameter points to an
+          <c><![CDATA[erlang_pid]]></c> structure (which should have been obtained
+          earlier with <c><![CDATA[ei_decode_pid()]]></c>).</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_fun(char *buf, int *index, const erlang_fun *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_fun(ei_x_buff* x, const erlang_fun* fun)</nametext></name>
+      <fsummary>Encode a fun</fsummary>
+      <desc>
+        <p>Encodes a fun in the binary format. The <c><![CDATA[p]]></c> parameter
+          points to an <c><![CDATA[erlang_fun]]></c> structure. The
+          <c><![CDATA[erlang_fun]]></c> is not freed automatically, the
+          <c><![CDATA[free_fun]]></c> should be called if the fun is not needed
+          after encoding.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_port(char *buf, int *index, const erlang_port *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_port(ei_x_buff* x, const erlang_port *p)</nametext></name>
+      <fsummary>Encodes a port</fsummary>
+      <desc>
+        <p>Encodes an erlang port in the binary format. The <c><![CDATA[p]]></c>
+          parameter points to a <c><![CDATA[erlang_port]]></c> structure (which
+          should have been obtained earlier with
+          <c><![CDATA[ei_decode_port()]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_ref(char *buf, int *index, const erlang_ref *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_ref(ei_x_buff* x, const erlang_ref *p)</nametext></name>
+      <fsummary>Encodes a ref</fsummary>
+      <desc>
+        <p>Encodes an erlang reference in the binary format. The
+          <c><![CDATA[p]]></c> parameter points to a <c><![CDATA[erlang_ref]]></c> structure
+          (which should have been obtained earlier with
+          <c><![CDATA[ei_decode_ref()]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_term(char *buf, int *index, void *t)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_term(ei_x_buff* x, void *t)</nametext></name>
+      <fsummary>Encode an <c><![CDATA[erl_interface]]></c>term</fsummary>
+      <desc>
+        <p>This function encodes an <c><![CDATA[ETERM]]></c>, as obtained from
+          <c><![CDATA[erl_interface]]></c>. The <c><![CDATA[t]]></c> parameter is actually an
+          <c><![CDATA[ETERM]]></c> pointer. This function doesn't free the
+          <c><![CDATA[ETERM]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_trace(char *buf, int *index, const erlang_trace *p)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_trace(ei_x_buff* x, const erlang_trace *p)</nametext></name>
+      <fsummary>Encode a trace token</fsummary>
+      <desc>
+        <p>This function encodes an erlang trace token in the binary
+          format. The <c><![CDATA[p]]></c> parameter points to a
+          <c><![CDATA[erlang_trace]]></c> structure (which should have been
+          obtained earlier with <c><![CDATA[ei_decode_trace()]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_tuple_header(char *buf, int *index, int arity)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_tuple_header(ei_x_buff* x, int arity)</nametext></name>
+      <fsummary>Encode a tuple</fsummary>
+      <desc>
+        <p>This function encodes a tuple header, with a specified
+          arity. The next <c><![CDATA[arity]]></c> terms encoded will be the
+          elements of the tuple. Tuples and lists are encoded
+          recursively, so that a tuple may contain another tuple or
+          list.</p>
+        <p>E.g. to encode the tuple <c><![CDATA[{a, {b, {}}}]]></c>:</p>
+        <pre>
+ei_encode_tuple_header(buf, &amp;i, 2);
+ei_encode_atom(buf, &amp;i, "a");
+ei_encode_tuple_header(buf, &amp;i, 2);
+ei_encode_atom(buf, &amp;i, "b");
+ei_encode_tuple_header(buf, &amp;i, 0);
+        </pre>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_list_header(char *buf, int *index, int arity)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_list_header(ei_x_buff* x, int arity)</nametext></name>
+      <fsummary>Encode a list</fsummary>
+      <desc>
+        <p>This function encodes a list header, with a specified
+          arity. The next <c><![CDATA[arity+1]]></c> terms are the elements
+          (actually it's <c><![CDATA[arity]]></c> cons cells) and the tail of the
+          list. Lists and tuples are encoded recursively, so that a
+          list may contain another list or tuple.</p>
+        <p>E.g. to encode the list <c><![CDATA[[c, d, [e | f]]]]></c>:</p>
+        <pre>
+ei_encode_list_header(buf, &amp;i, 3);
+ei_encode_atom(buf, &amp;i, "c");
+ei_encode_atom(buf, &amp;i, "d");
+ei_encode_list_header(buf, &amp;i, 1);
+ei_encode_atom(buf, &amp;i, "e");
+ei_encode_atom(buf, &amp;i, "f");
+ei_encode_empty_list(buf, &amp;i);
+        </pre>
+        <note>
+          <p>It may seem that there is no way to create a list without
+            knowing the number of elements in advance. But indeed
+            there is a way. Note that the list <c><![CDATA[[a, b, c]]]></c> can be
+            written as <c><![CDATA[[a | [b | [c]]]]]></c>.  Using this, a list can
+            be written as conses.</p>
+        </note>
+        <p>To encode a list, without knowing the arity in advance:</p>
+        <pre>
+while (something()) {
+    ei_x_encode_list_header(&amp;x, 1);
+    ei_x_encode_ulong(&amp;x, i); /* just an example */
+}
+ei_x_encode_empty_list(&amp;x);
+        </pre>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_encode_empty_list(char* buf, int* index)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_encode_empty_list(ei_x_buff* x)</nametext></name>
+      <fsummary>Encode an empty list (<c><![CDATA[nil]]></c>)</fsummary>
+      <desc>
+        <p>This function encodes an empty list. It's often used at the
+          tail of a list.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_get_type(const char *buf, const int *index, int *type, int *size)</nametext></name>
+      <fsummary>Fetch the type and size of an encoded term</fsummary>
+      <desc>
+        <p>This function returns the type in <c><![CDATA[type]]></c> and size in
+          <c><![CDATA[size]]></c> of the encoded term.
+          For strings and atoms, size
+          is the number of characters <em>not</em> including the
+          terminating 0. For binaries, <c><![CDATA[size]]></c> is the number of
+          bytes. For lists and tuples, <c><![CDATA[size]]></c> is the arity of the
+          object. For other types, <c><![CDATA[size]]></c> is 0. In all cases,
+          <c><![CDATA[index]]></c> is left unchanged.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_version(const char *buf, int *index, int *version)</nametext></name>
+      <fsummary>Encode an empty list (<c><![CDATA[nil]]></c>)</fsummary>
+      <desc>
+        <p>This function decodes the version magic number for the
+          erlang binary term format. It must be the first token in a
+          binary term.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_long(const char *buf, int *index, long *p)</nametext></name>
+      <fsummary>Decode integer</fsummary>
+      <desc>
+        <p>This function decodes a long integer from the binary format.
+          Note that if the code is 64 bits the function ei_decode_long() is
+          exactly the same as ei_decode_longlong().</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_ulong(const char *buf, int *index, unsigned long *p)</nametext></name>
+      <fsummary>Decode unsigned integer</fsummary>
+      <desc>
+        <p>This function decodes an unsigned long integer from
+          the binary format.
+          Note that if the code is 64 bits the function ei_decode_ulong() is
+          exactly the same as ei_decode_ulonglong().</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_longlong(const char *buf, int *index, long long *p)</nametext></name>
+      <fsummary>Decode integer</fsummary>
+      <desc>
+        <p>This function decodes a GCC <c><![CDATA[long long]]></c> or Visual C++ <c><![CDATA[__int64]]></c>
+          (64 bit) integer from the binary format.  Note that this
+          function is missing in the VxWorks port.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_ulonglong(const char *buf, int *index, unsigned long long *p)</nametext></name>
+      <fsummary>Decode unsigned integer</fsummary>
+      <desc>
+        <p>This function decodes a GCC <c><![CDATA[unsigned long long]]></c> or Visual C++
+          <c><![CDATA[unsigned __int64]]></c> (64 bit) integer from the binary format.
+          Note that this function is missing in the VxWorks port.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_bignum(const char *buf, int *index, mpz_t obj)</nametext></name>
+      <fsummary>Decode a GMP arbitrary precision integer</fsummary>
+      <desc>
+        <p>This function decodes an integer in the binary format to a GMP <c><![CDATA[mpz_t]]></c> integer.
+          To use this function the ei library needs to be configured and compiled
+          to use the GMP library. </p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_double(const char *buf, int *index, double *p)</nametext></name>
+      <fsummary>Decode a double</fsummary>
+      <desc>
+        <p>This function decodes an double-precision (64 bit) floating
+          point number from the binary format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_boolean(const char *buf, int *index, int *p)</nametext></name>
+      <fsummary>Decode a boolean</fsummary>
+      <desc>
+        <p>This function decodes a boolean value from the binary
+          format. A boolean is actually an atom, <c><![CDATA[true]]></c> decodes 1
+          and <c><![CDATA[false]]></c> decodes 0.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_char(const char *buf, int *index, char *p)</nametext></name>
+      <fsummary>Decode an 8-bit integer between 0-255</fsummary>
+      <desc>
+        <p>This function decodes a char (8-bit) integer between 0-255
+          from the binary format.
+          Note that for historical reasons the returned integer is of
+          type <c><![CDATA[char]]></c>. Your C code should consider the
+          returned value to be of type <c><![CDATA[unsigned char]]></c> even if
+          the C compilers and system may define <c><![CDATA[char]]></c> to be
+          signed.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_string(const char *buf, int *index, char *p)</nametext></name>
+      <fsummary>Decode a string</fsummary>
+      <desc>
+        <p>This function decodes a string from the binary format. A
+          string in erlang is a list of integers between 0 and
+          255. Note that since the string is just a list, sometimes
+          lists are encoded as strings by <c><![CDATA[term_to_binary/1]]></c>,
+          even if it was not intended.</p>
+        <p>The string is copied to <c><![CDATA[p]]></c>, and enough space must be
+          allocated. The returned string is null terminated so you
+          need to add an extra byte to the memory requirement.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_atom(const char *buf, int *index, char *p)</nametext></name>
+      <fsummary>Decode an atom</fsummary>
+      <desc>
+        <p>This function decodes an atom from the binary format.  The
+          name of the atom is placed at <c><![CDATA[p]]></c>. There can be at most
+          <c><![CDATA[MAXATOMLEN]]></c> bytes placed in the buffer.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_binary(const char *buf, int *index, void *p, long *len)</nametext></name>
+      <fsummary>Decode a binary</fsummary>
+      <desc>
+        <p>This function decodes a binary from the binary format. The
+          <c><![CDATA[len]]></c> parameter is set to the actual size of the
+          binary. Note that <c><![CDATA[ei_decode_binary()]]></c> assumes that there
+          are enough room for the binary. The size required can be
+          fetched by <c><![CDATA[ei_get_type()]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_fun(const char *buf, int *index, erlang_fun *p)</nametext></name>
+      <name><ret>void</ret><nametext>free_fun(erlang_fun* f)</nametext></name>
+      <fsummary>Decode a fun</fsummary>
+      <desc>
+        <p>This function decodes a fun from the binary format. The
+          <c><![CDATA[p]]></c> parameter should be NULL or point to an
+          <c><![CDATA[erlang_fun]]></c> structure. This is the only decode
+          function that allocates memory; when the <c><![CDATA[erlang_fun]]></c>
+          is no longer needed, it should be freed with
+          <c><![CDATA[free_fun]]></c>. (This has to do with the arbitrary size of
+          the environment for a fun.)</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_pid(const char *buf, int *index, erlang_pid *p)</nametext></name>
+      <fsummary>Decode a <c><![CDATA[pid]]></c></fsummary>
+      <desc>
+        <p>Decodes a pid, process identifier, from the binary format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_port(const char *buf, int *index, erlang_port *p)</nametext></name>
+      <fsummary>Decode a port</fsummary>
+      <desc>
+        <p>This function decodes a port identifier from the binary
+          format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_ref(const char *buf, int *index, erlang_ref *p)</nametext></name>
+      <fsummary>Decode a reference</fsummary>
+      <desc>
+        <p>This function decodes a reference from the binary format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_trace(const char *buf, int *index, erlang_trace *p)</nametext></name>
+      <fsummary>Decode a trace token</fsummary>
+      <desc>
+        <p>Decodes an erlang trace token from the binary format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_tuple_header(const char *buf, int *index, int *arity)</nametext></name>
+      <fsummary>Decode a tuple</fsummary>
+      <desc>
+        <p>This function decodes a tuple header, the number of elements
+          is returned in <c><![CDATA[arity]]></c>. The tuple elements follows in order in
+          the buffer.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_list_header(const char *buf, int *index, int *arity)</nametext></name>
+      <fsummary>Decode a list</fsummary>
+      <desc>
+        <p>This function decodes a list header from the binary
+          format. The number of elements is returned in
+          <c><![CDATA[arity]]></c>. The <c><![CDATA[arity+1]]></c> elements follows (the last
+          one is the tail of the list, normally an empty list.) If
+          <c><![CDATA[arity]]></c> is <c><![CDATA[0]]></c>, it's an empty list.</p>
+        <p>Note that lists are encoded as strings, if they consist
+          entirely of integers in the range 0..255. This function will
+          not decode such strings, use <c><![CDATA[ei_decode_string()]]></c>
+          instead.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_ei_term(const char* buf, int* index, ei_term* term)</nametext></name>
+      <fsummary>Decode a term, without prior knowledge of type</fsummary>
+      <desc>
+        <p>This function decodes any term, or at least tries to. If the
+          term pointed at by <c><![CDATA[*index]]></c> in <c><![CDATA[buf]]></c> fits in the
+          <c><![CDATA[term]]></c> union, it is decoded, and the appropriate field
+          in <c><![CDATA[term->value]]></c> is set, and <c><![CDATA[*index]]></c> is
+          incremented by the term size.</p>
+        <p>The function returns 0 on successful encoding, -1 on error,
+          and 1 if the term seems alright, but does not fit in the
+          <c><![CDATA[term]]></c> structure. If it returns 0, the <c><![CDATA[index]]></c>
+          will be incremented, and the <c><![CDATA[term]]></c> contains the
+          decoded term.</p>
+        <p>The <c><![CDATA[term]]></c> structure will contain the arity for a tuple
+          or list, size for a binary, string or atom. It will contains
+          a term if it's any of the following: integer, float, atom,
+          pid, port or ref.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_decode_term(const char *buf, int *index, void *t)</nametext></name>
+      <fsummary>Decode a <c><![CDATA[ETERM]]></c></fsummary>
+      <desc>
+        <p>This function decodes a term from the binary format. The
+          term is return in <c><![CDATA[t]]></c> as a <c><![CDATA[ETERM*]]></c>, so <c><![CDATA[t]]></c>
+          is actually an <c><![CDATA[ETERM**]]></c> (see
+          <c><![CDATA[erl_interface(3)]]></c>. The term should later be
+          deallocated.</p>
+        <p>Note that this function is located in the erl_interface
+          library.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_print_term(FILE* fp, const char* buf, int* index)</nametext></name>
+      <name><ret>int</ret><nametext>ei_s_print_term(char** s, const char* buf, int* index)</nametext></name>
+      <fsummary>Print a term in clear text</fsummary>
+      <desc>
+        <p>This function prints a term, in clear text, to the file
+          given by <c><![CDATA[fp]]></c>, or the buffer pointed to by <c><![CDATA[s]]></c>. It
+          tries to resemble the term printing in the erlang shell.</p>
+        <p>In <c><![CDATA[ei_s_print_term()]]></c>, the parameter <c><![CDATA[s]]></c> should
+          point to a dynamically (malloc) allocated string of
+          <c><![CDATA[BUFSIZ]]></c> bytes or a NULL pointer. The string may be
+          reallocated (and <c><![CDATA[*s]]></c> may be updated) by this function
+          if the result is more than <c><![CDATA[BUFSIZ]]></c> characters. The
+          string returned is zero-terminated.</p>
+        <p>The return value is the number of characters written to the
+          file or string, or -1 if <c><![CDATA[buf[index]]]></c> doesn't contain a
+          valid term. Unfortunately, I/O errors on <c><![CDATA[fp]]></c> is not
+          checked.</p>
+        <p>The argument <c><![CDATA[index]]></c> is updated, i.e. this function can
+          be viewed as en decode function that decodes a term into a
+          human readable format.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_x_format(ei_x_buff* x, const char* fmt, ...)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_format_wo_ver(ei_x_buff* x, const char *fmt, ... )</nametext></name>
+      <fsummary>Format a term from a format string and parameters.</fsummary>
+      <desc>
+        <p>Format a term, given as a string, to a buffer. This
+          functions works like a sprintf for erlang terms. The
+          <c><![CDATA[fmt]]></c> contains a format string, with arguments like
+          <c><![CDATA[~d]]></c>, to insert terms from variables. The following
+          formats are supported (with the C types given):</p>
+        <p></p>
+        <pre>
+~a - an atom, char*
+~s - a string, char*
+~i - an integer, int
+~l - a long integer, long int
+~u - a unsigned long integer, unsigned long int
+~f - a float, float
+~d - a double float, double float
+        </pre>
+        <p>For instance, to encode a tuple with some stuff:</p>
+        <pre>
+ei_x_format("{~a,~i,~d}", "numbers", 12, 3.14159)
+encodes the tuple {numbers,12,3.14159}
+        </pre>
+        <p>The <c><![CDATA[ei_x_format_wo_ver()]]></c> formats into a buffer, without
+          the initial version byte.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_x_new(ei_x_buff* x)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_new_with_version(ei_x_buff* x)</nametext></name>
+      <fsummary>Allocate a new buffer</fsummary>
+      <desc>
+        <p>This function allocates a new <c><![CDATA[ei_x_buff]]></c> buffer. The
+          fields of the structure pointed to by <c><![CDATA[x]]></c> parameter is
+          filled in, and a default buffer is allocated. The
+          <c><![CDATA[ei_x_new_with_version()]]></c> also puts an initial version
+          byte, that is used in the binary format. (So that
+          <c><![CDATA[ei_x_encode_version()]]></c> won't be needed.)</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_x_free(ei_x_buff* x)</nametext></name>
+      <fsummary>Frees a buffer</fsummary>
+      <desc>
+        <p>This function frees an <c><![CDATA[ei_x_buff]]></c> buffer. The memory
+          used by the buffer is returned to the OS.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_x_append(ei_x_buff* x, const ei_x_buff* x2)</nametext></name>
+      <name><ret>int</ret><nametext>ei_x_append_buf(ei_x_buff* x, const char* buf, int len)</nametext></name>
+      <fsummary>Appends a buffer at the end</fsummary>
+      <desc>
+        <p>These functions appends data at the end of the buffer <c><![CDATA[x]]></c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_skip_term(const char* buf, int* index)</nametext></name>
+      <fsummary>skip a term</fsummary>
+      <desc>
+        <p>This function skips a term in the given buffer, it
+          recursively skips elements of lists and tuples, so that a
+          full term is skipped. This is a way to get the size of an
+          erlang term.</p>
+        <p><c><![CDATA[buf]]></c> is the buffer.</p>
+        <p><c><![CDATA[index]]></c> is updated to point right after the term in the
+          buffer.</p>
+        <note>
+          <p>This can be useful when you want to hold arbitrary
+            terms: just skip them and copy the binary term data to some
+            buffer.</p>
+        </note>
+        <p>The function returns <c><![CDATA[0]]></c> on success and <c><![CDATA[-1]]></c> on
+          failure.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Debug Information</title>
+    <p>Some tips on what to check when the emulator doesn't seem to
+      receive the terms that you send.</p>
+    <list type="bulleted">
+      <item>be careful with the version header, use
+      <c><![CDATA[ei_x_new_with_version()]]></c> when appropriate</item>
+      <item>turn on distribution tracing on the erlang node</item>
+      <item>check the result codes from ei_decode_-calls</item>
+    </list>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p>erl_interface(3)</p>
+  </section>
+</cref>
+

@@ -1,0 +1,30 @@
+
+Improve documentation.
+
+Fix all fixme's :-)
+
+Makefiles and configure tests
+	Can always be improved, especially mine.
+
+Port programs instead of drivers.
+	Another backend which doesn't crash the emulator during 
+	developing/testing or at customer site,
+	Option to wx:new().
+
+Cleanup the code!!!!
+
+Platform specific classes/functions
+	wxPrinterDC for example is mac and windows only.
+
+Add user_data now that erl_driver can unpack term_binaries.
+
+Add missing clases, especially the ones used in the api: 
+   wxDropTarget wxXmlResourceHandler wxGLContext 
+
+Testing and debugging.
+
+API stuff: (Stuff I've or others have seen that I don't have time to fix right now)
+	
+================
+
+Patch wxMac with CGwarpMouseCursorPosition

@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1998</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>werl</title>
+    <prepared>Bj&ouml;rn Gustavsson</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>98-01-26</date>
+    <rev>A</rev>
+    <file>werl.xml</file>
+  </header>
+  <com>werl</com>
+  <comsummary>The Erlang Emulator</comsummary>
+  <description>
+    <p>On Windows, the preferred way to start the Erlang system for interactive use is:</p>
+    <p><c><![CDATA[werl <arguments>]]></c></p>
+
+    <p>This will start Erlang in its own window, with fully
+      functioning command-line editing and scrollbars.  All flags
+      except <c><![CDATA[-oldshell]]></c> work as they do for
+      the <seealso marker="erl">erl</seealso> command.</p>
+
+    <p>Ctrl-C is reserved for copying text to the clipboard (Ctrl-V to paste).
+      To interrupt the runtime system or the shell process (depending on what
+      has been specified with the +B system flag), you should use Ctrl-Break.</p>
+    <p>In cases where you want to redirect standard input and/or
+      standard output or use Erlang in a pipeline, the <c>werl</c> is
+      not suitable, and the <c>erl</c> program should be used instead.</p>
+    
+    <p>The <c>werl</c> window is in many ways modelled after the <c>xterm</c> 
+      window present on other platforms, as the <c>xterm</c> model
+      fits well with line oriented command based interaction. This
+      means that selecting text is line oriented rather than rectangle
+      oriented.</p>
+
+    <p>To select text in the <c>werl</c> window , simply press and hold
+      the left mouse button and drag the mouse over the text you want
+      to select. If the selection crosses line boundaries, the
+      selected text will consist of complete lines where applicable
+      (just like in a word processor). To select more text than fits
+      in the window, start by selecting a small portion in the
+      beginning of the text you want, then use the scrollbar
+      to view the end of the desired selection, point to it and press
+      the <em>right</em> mouse-button. The whole area between your
+      first selection and the point where you right-clicked will be
+      included in the selection.</p>
+
+    <p>The selected text is copied to the clipboard by either
+      pressing <c>Ctrl-C</c>, using the menu or pressing the copy 
+      button in the toolbar.</p>
+
+    <p>Pasted text is always inserted at the current prompt position
+      and will be interpreted by Erlang as usual keyboard input.</p>
+
+    <p>Previous command lines can be retrieved by pressing the <c>Up
+      arrow</c> or by pressing <c>Ctrl-P</c>. There is also a drop
+      down box in the toolbar containing the command
+      history. Selecting a command in the drop down box will insert it
+      at the prompt, just as if you used the keyboard to retrieve the
+      command.</p>
+   
+    <p>Closing the <c>werl</c> window will stop the Erlang emulator.</p>
+
+  </description>
+</comref>
+

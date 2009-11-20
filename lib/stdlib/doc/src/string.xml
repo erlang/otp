@@ -1,0 +1,415 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>string</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>96-09-28</date>
+    <rev>A</rev>
+    <file>string.sgml</file>
+  </header>
+  <module>string</module>
+  <modulesummary>String Processing Functions</modulesummary>
+  <description>
+    <p>This module contains functions for string processing.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>len(String) -> Length</name>
+      <fsummary>Return the length of a string</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>Length = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the number of characters in the string.</p>
+      </desc>
+    </func>
+    <func>
+      <name>equal(String1, String2) -> bool()</name>
+      <fsummary>Test string equality</fsummary>
+      <type>
+        <v>String1 = String2 = string()</v>
+      </type>
+      <desc>
+        <p>Tests whether two strings are equal. Returns <c>true</c> if
+          they are, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>concat(String1, String2) -> String3</name>
+      <fsummary>Concatenate two strings</fsummary>
+      <type>
+        <v>String1 = String2 = String3 = string()</v>
+      </type>
+      <desc>
+        <p>Concatenates two strings to form a new string. Returns the
+          new string.</p>
+      </desc>
+    </func>
+    <func>
+      <name>chr(String, Character) -> Index</name>
+      <name>rchr(String, Character) -> Index</name>
+      <fsummary>Return the index of the first/last occurrence of<c>Character</c>in <c>String</c></fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>Character = char()</v>
+        <v>Index = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the index of the first/last occurrence of
+          <c>Character</c> in <c>String</c>. <c>0</c> is returned if <c>Character</c> does not
+          occur.</p>
+      </desc>
+    </func>
+    <func>
+      <name>str(String, SubString) -> Index</name>
+      <name>rstr(String, SubString) -> Index</name>
+      <fsummary>Find the index of a substring</fsummary>
+      <type>
+        <v>String = SubString = string()</v>
+        <v>Index = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the position where the first/last occurrence of
+          <c>SubString</c> begins in <c>String</c>. <c>0</c> is returned if <c>SubString</c>
+          does not exist in <c>String</c>.
+          For example:</p>
+        <code type="none">
+> string:str(" Hello Hello World World ", "Hello World").
+8        </code>
+      </desc>
+    </func>
+    <func>
+      <name>span(String, Chars) -> Length </name>
+      <name>cspan(String, Chars) -> Length</name>
+      <fsummary>Span characters at start of string</fsummary>
+      <type>
+        <v>String = Chars = string()</v>
+        <v>Length = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the length of the maximum initial segment of
+          String, which consists entirely of characters from (not
+          from) Chars.</p>
+        <p>For example:</p>
+        <code type="none">
+> string:span("\\t    abcdef", " \\t").
+5
+> string:cspan("\\t    abcdef", " \\t").
+0        </code>
+      </desc>
+    </func>
+    <func>
+      <name>substr(String, Start) -> SubString</name>
+      <name>substr(String, Start, Length) -> Substring</name>
+      <fsummary>Return a substring of <c>String</c></fsummary>
+      <type>
+        <v>String = SubString = string()</v>
+        <v>Start = Length = integer()</v>
+      </type>
+      <desc>
+        <p>Returns a substring of <c>String</c>, starting at the
+          position <c>Start</c>, and ending at the end of the string or
+          at length <c>Length</c>.</p>
+        <p>For example:</p>
+        <code type="none">
+> substr("Hello World", 4, 5).
+"lo Wo"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>tokens(String, SeparatorList) -> Tokens</name>
+      <fsummary>Split string into tokens</fsummary>
+      <type>
+        <v>String = SeparatorList = string()</v>
+        <v>Tokens = [string()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of tokens in <c>String</c>, separated by the
+          characters in <c>SeparatorList</c>.</p>
+        <p>For example:</p>
+        <code type="none">
+> tokens("abc defxxghix jkl", "x ").
+["abc", "def", "ghi", "jkl"]        </code>
+      </desc>
+    </func>
+    <func>
+      <name>join(StringList, Separator) -> String</name>
+      <fsummary>Join a list of strings with separator</fsummary>
+      <type>
+	<v>StringList = [string()]</v>
+	<v>Separator = string()</v>
+      </type>
+      <desc>
+	<p>Returns a string with the elements of <c>StringList</c>
+	  separated by the string in <c>Seperator</c>.</p>
+	<p>For example:</p>
+	<code type="none">
+> join(["one", "two", "three"], ", ").
+"one, two, three"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>chars(Character, Number) -> String</name>
+      <name>chars(Character, Number, Tail) -> String</name>
+      <fsummary>Returns a string consisting of numbers of characters</fsummary>
+      <type>
+        <v>Character = char()</v>
+        <v>Number = integer()</v>
+        <v>String = string()</v>
+      </type>
+      <desc>
+        <p>Returns a string consisting of <c>Number</c> of characters
+          <c>Character</c>. Optionally, the string can end with the
+          string <c>Tail</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>copies(String, Number) -> Copies</name>
+      <fsummary>Copy a string</fsummary>
+      <type>
+        <v>String = Copies = string()</v>
+        <v>Number = integer()</v>
+      </type>
+      <desc>
+        <p>Returns a string containing <c>String</c> repeated
+          <c>Number</c> times.</p>
+      </desc>
+    </func>
+    <func>
+      <name>words(String) -> Count</name>
+      <name>words(String, Character) -> Count</name>
+      <fsummary>Count blank separated words</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>Character = char()</v>
+        <v>Count = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the number of words in <c>String</c>, separated by
+          blanks or <c>Character</c>.</p>
+        <p>For example:</p>
+        <code type="none">
+> words(" Hello old boy!", $o).
+4        </code>
+      </desc>
+    </func>
+    <func>
+      <name>sub_word(String, Number) -> Word</name>
+      <name>sub_word(String, Number, Character) -> Word</name>
+      <fsummary>Extract subword</fsummary>
+      <type>
+        <v>String = Word = string()</v>
+        <v>Character = char()</v>
+        <v>Number = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the word in position <c>Number</c> of <c>String</c>.
+          Words are separated by blanks or <c>Character</c>s.</p>
+        <p>For example:</p>
+        <code type="none">
+> string:sub_word(" Hello old boy !",3,$o).
+"ld b"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>strip(String) -> Stripped</name>
+      <name>strip(String, Direction) -> Stripped</name>
+      <name>strip(String, Direction, Character) -> Stripped</name>
+      <fsummary>Strip leading or trailing characters</fsummary>
+      <type>
+        <v>String = Stripped = string()</v>
+        <v>Direction = left | right | both</v>
+        <v>Character = char()</v>
+      </type>
+      <desc>
+        <p>Returns a string, where leading and/or trailing blanks or a
+          number of <c>Character</c> have been removed.
+          <c>Direction</c> can be <c>left</c>, <c>right</c>, or
+          <c>both</c> and indicates from which direction blanks are to be
+          removed. The function <c>strip/1</c> is equivalent to
+          <c>strip(String, both)</c>.</p>
+        <p>For example:</p>
+        <code type="none">
+> string:strip("...Hello.....", both, $.).
+"Hello"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>left(String, Number) -> Left</name>
+      <name>left(String, Number, Character) -> Left</name>
+      <fsummary>Adjust left end of string</fsummary>
+      <type>
+        <v>String = Left = string()</v>
+        <v>Character = char</v>
+        <v>Number = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>String</c> with the length adjusted in
+          accordance with <c>Number</c>. The left margin is
+          fixed. If the <c>length(String)</c> &lt; <c>Number</c>,
+          <c>String</c> is padded with blanks or <c>Character</c>s.</p>
+        <p>For example:</p>
+        <code type="none">
+> string:left("Hello",10,$.).
+"Hello....."        </code>
+      </desc>
+    </func>
+    <func>
+      <name>right(String, Number) -> Right</name>
+      <name>right(String, Number, Character) -> Right</name>
+      <fsummary>Adjust right end of string</fsummary>
+      <type>
+        <v>String = Right = string()</v>
+        <v>Character = char</v>
+        <v>Number = integer()</v>
+      </type>
+      <desc>
+        <p>Returns the <c>String</c> with the length adjusted in
+          accordance with <c>Number</c>. The right margin is
+          fixed. If the length of <c>(String)</c> &lt; <c>Number</c>,
+          <c>String</c> is padded with blanks or <c>Character</c>s.</p>
+        <p>For example:</p>
+        <code type="none">
+> string:right("Hello", 10, $.).
+".....Hello"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>centre(String, Number) -> Centered</name>
+      <name>centre(String, Number, Character) -> Centered</name>
+      <fsummary>Center a string</fsummary>
+      <type>
+        <v>String = Centered = string()</v>
+        <v>Character = char</v>
+        <v>Number = integer()</v>
+      </type>
+      <desc>
+        <p>Returns a string, where <c>String</c> is centred in the
+          string and surrounded by blanks or characters. The resulting
+          string will have the length <c>Number</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sub_string(String, Start) -> SubString</name>
+      <name>sub_string(String, Start, Stop) -> SubString</name>
+      <fsummary>Extract a substring</fsummary>
+      <type>
+        <v>String = SubString = string()</v>
+        <v>Start = Stop = integer()</v>
+      </type>
+      <desc>
+        <p>Returns a substring of <c>String</c>, starting at the
+          position <c>Start</c> to the end of the string, or to and
+          including the <c>Stop</c> position.</p>
+        <p>For example:</p>
+        <code type="none">
+sub_string("Hello World", 4, 8).
+"lo Wo"        </code>
+      </desc>
+    </func>
+    <func>
+      <name>to_float(String) -> {Float,Rest} | {error,Reason} </name>
+      <fsummary>Returns a float whose text representation is the integers (ASCII values) in String.</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>Float = float()</v>
+        <v>Rest = string()</v>
+        <v>Reason = no_float | not_a_list</v>
+      </type>
+      <desc>
+        <p>Argument <c>String</c> is expected to start with a valid text
+          represented float (the digits being ASCII values). Remaining characters 
+          in the string after the float are returned in <c>Rest</c>.</p>
+        <p>Example:</p>
+        <code type="none">
+          > {F1,Fs} = string:to_float("1.0-1.0e-1"),
+          > {F2,[]} = string:to_float(Fs),
+          > F1+F2.
+          0.9
+          > string:to_float("3/2=1.5").
+          {error,no_float}
+          > string:to_float("-1.5eX").
+          {-1.5,"eX"}</code>
+      </desc>
+    </func>
+    <func>
+      <name>to_integer(String) -> {Int,Rest} | {error,Reason} </name>
+      <fsummary>Returns an integer whose text representation is the integers (ASCII values) in String.</fsummary>
+      <type>
+        <v>String = string()</v>
+        <v>Int = integer()</v>
+        <v>Rest = string()</v>
+        <v>Reason = no_integer | not_a_list</v>
+      </type>
+      <desc>
+        <p>Argument <c>String</c> is expected to start with a valid text
+          represented integer (the digits being ASCII values). Remaining characters 
+          in the string after the integer are returned in <c>Rest</c>.</p>
+        <p>Example:</p>
+        <code type="none">
+          > {I1,Is} = string:to_integer("33+22"),
+          > {I2,[]} = string:to_integer(Is),
+          > I1-I2.
+          11
+          > string:to_integer("0.5").
+          {0,".5"}
+          > string:to_integer("x=2").
+          {error,no_integer}</code>
+      </desc>
+    </func>
+    <func>
+      <name>to_lower(String) -> Result</name>
+      <name>to_lower(Char) -> CharResult</name>
+      <name>to_upper(String) -> Result</name>
+      <name>to_upper(Char) -> CharResult</name>
+      <fsummary>Convert case of string (ISO/IEC 8859-1)</fsummary>
+      <type>
+        <v>String = Result = string()</v>
+        <v>Char = CharResult = integer()</v>
+      </type>
+      <desc>
+        <p>The given string or character is case-converted. Note that
+          the supported character set is ISO/IEC 8859-1 (a.k.a. Latin 1),
+          all values outside this set is unchanged</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Notes</title>
+    <p>Some of the general string functions may seem to overlap each
+      other. The reason for this is that this string package is the
+      combination of two earlier packages and all the functions of
+      both packages have been retained.
+      </p>
+    <note>
+      <p>Any undocumented functions in <c>string</c> should not be used.</p>
+    </note>
+  </section>
+</erlref>
+

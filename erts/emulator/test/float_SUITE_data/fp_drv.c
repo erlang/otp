@@ -1,0 +1,142 @@
+/* ``The contents of this file are subject to the Erlang Public License,
+ * Version 1.1, (the "License"); you may not use this file except in
+ * compliance with the License. You should have received a copy of the
+ * Erlang Public License along with this software. If not, it can be
+ * retrieved via the world wide web at http://www.erlang.org/.
+ * 
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ * 
+ * The Initial Developer of the Original Code is Ericsson AB. Portions
+ * created by Ericsson are Copyright 2008, Ericsson AB. All Rights
+ * Reserved.''
+ * 
+ *     $Id$
+ */
+
+#if defined(DEBUG) || 0
+#  define PRINTF(X) printf X
+#else
+#  define PRINTF(X)
+#endif
+
+#include <math.h>
+#ifdef __WIN32__
+#include <float.h>
+#if defined (__GNUC__)
+int _finite(double x);
+#endif
+#ifndef finite
+#define finite _finite
+#endif
+#endif
+#include "erl_driver.h"
+
+#define ERTS_FP_CONTROL_TEST 0
+#define ERTS_FP_THREAD_TEST 1
+
+static int control(ErlDrvData, unsigned int, char *, int, char **, int);
+
+static ErlDrvEntry fp_drv_entry = { 
+    NULL /* init */,
+    NULL /* start */,
+    NULL /* stop */,
+    NULL /* output */,
+    NULL /* ready_input */,
+    NULL /* ready_output */,
+    "fp_drv",
+    NULL /* finish */,
+    NULL /* handle */,
+    control,
+    NULL /* timeout */,
+    NULL /* outputv */,
+    NULL /* ready_async */,
+    NULL /* flush */,
+    NULL /* call */,
+    NULL /* event */,
+    ERL_DRV_EXTENDED_MARKER,
+    ERL_DRV_EXTENDED_MAJOR_VERSION,
+    ERL_DRV_EXTENDED_MINOR_VERSION,
+    ERL_DRV_FLAG_USE_PORT_LOCKING,
+    NULL /* handle2 */,
+    NULL /* process_exit */
+};
+
+DRIVER_INIT(fp_drv)
+{
+    return &fp_drv_entry;
+}
+
+void *
+do_test(void *unused)
+{
+    double x, y, z;
+
+    x = 3.23e133;
+    y = 3.57e257;
+    z = x*y;
+    if (finite(z))
+	return "is finite (1)";
+
+    x = 5.0;
+    y = 0.0;
+    z = x/y;
+    if (finite(z))
+	return "is finite (2)";
+
+    z = log(-1.0);
+    if (finite(z))
+	return "is finite (3)";
+
+    z = log(0.0);
+    if (finite(z))
+	return "is finite (4)";
+
+    return "ok";
+}
+
+static int control(ErlDrvData drv_data,
+		   unsigned int command,
+		   char *buf, int len,
+		   char **rbuf, int rlen)
+{
+    char *res_str;
+    PRINTF(("control(%p, %d, ...) called\r\n", drv_data, command));
+
+    switch (command) {
+    case ERTS_FP_THREAD_TEST: {
+	ErlDrvTid tid;
+	ErlDrvSysInfo info;
+	driver_system_info(&info, sizeof(ErlDrvSysInfo));
+	if (!info.thread_support)
+	    res_str = "skip: no thread support";
+	else if (0 != erl_drv_thread_create("test", &tid, do_test, NULL, NULL))
+	    res_str = "failed to create thread";
+	else if (0 != erl_drv_thread_join(tid, &res_str))
+	    res_str = "failed to join thread";
+	break;
+    }
+    case ERTS_FP_CONTROL_TEST:
+	res_str = do_test(NULL);
+	break;
+    default:
+	res_str = "unknown command";
+	break;
+    }
+
+ done: {
+	int res_len = strlen(res_str);
+	if (res_len > rlen) {
+	    char *abuf = driver_alloc(sizeof(char)*res_len);
+	    if (!abuf)
+		return 0;
+	    *rbuf = abuf;
+	}
+
+	memcpy((void *) *rbuf, (void *) res_str, res_len);
+
+	return res_len;
+    }
+}

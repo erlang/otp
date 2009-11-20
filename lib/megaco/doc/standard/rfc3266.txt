@@ -1,0 +1,283 @@
+
+
+
+
+
+
+Network Working Group                                           S. Olson
+Request for Comments: 3266                                     Microsoft
+Updates: 2327                                               G. Camarillo
+Category: Standards Track                                       Ericsson
+                                                             A. B. Roach
+                                                             dynamicsoft
+                                                               June 2002
+
+
+         Support for IPv6 in Session Description Protocol (SDP)
+
+Status of this Memo
+
+   This document specifies an Internet standards track protocol for the
+   Internet community, and requests discussion and suggestions for
+   improvements.  Please refer to the current edition of the "Internet
+   Official Protocol Standards" (STD 1) for the standardization state
+   and status of this protocol.  Distribution of this memo is unlimited.
+
+Copyright Notice
+
+   Copyright (C) The Internet Society (2002).  All Rights Reserved.
+
+Abstract
+
+   This document describes the use of Internet Protocol Version 6 (IPv6)
+   addresses in conjunction with the Session Description Protocol (SDP).
+   Specifically, this document clarifies existing text in SDP with
+   regards to the syntax of IPv6 addresses.
+
+1. Introduction
+
+   SDP is intended for describing multimedia sessions for the purposes
+   of session announcement, session invitation, and other forms of
+   multimedia session initiation.  It is a text format description that
+   provides many details of a multimedia session including: the
+   originator of the session, a URL related to the session, the
+   connection address for the session media(s), and optional attributes
+   for the session media(s).  Each of these pieces of information may
+   involve one or more IPv6 addresses.  The ABNF for IP addresses in SDP
+   currently leaves the syntax for IPv6 addresses undefined.  This
+   document attempts to complete the ABNF to include IPv6 addresses.
+
+   Accordingly, the address type "IP6" indicating an IPv6 address,
+   should be allowed in the connection field, "c=", of the SDP.  The
+   ABNF already reflects this, though the "Connection Data" text under
+   section 6 of RFC 2328 currently only defines the "IP4" address type.
+
+
+
+
+Olson, et. al.              Standards Track                     [Page 1]
+
+RFC 3266    Support for IPv6 in Session Description Protocol   June 2002
+
+
+2. Terminology
+
+   The key words "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT",
+   "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" in this
+   document are to be interpreted as described in RFC 2119 [5].
+
+3. Syntax
+
+   RFC 2373 [1] gives an ABNF for the text representation of IPv6
+   addresses in Appendix B.  RFC 2732 [3] covers the text representation
+   of IPv6 addresses when used within a URL.  Using the ABNF described
+   in these documents, the following updated ABNF for SDP is proposed.
+
+      uri =                 ; defined in RFC1630 and RFC2732
+
+      multicast-address =   IP4-multicast / IP6-multicast
+
+      IP4-multicast =       m1 3*( "." decimal-uchar )
+                            "/" ttl [ "/" integer ]
+                            ; IPv4 multicast addresses may be in the
+                            ; range 224.0.0.0 to 239.255.255.255
+
+      m1 =                  ("22" ("4"/"5"/"6"/"7"/"8"/"9")) /
+                            ("23" DIGIT ))
+
+      IP6-multicast =       hexpart
+                            ; IPv6 address starting with FF
+
+      addr =                FQDN / unicast-address
+
+      FQDN =                4*(alpha-numeric/"-"/".")
+                            ; fully qualified domain name as specified
+                            ; in RFC1035
+      unicast-address =     IP4-address / IP6-address
+
+      IP4-address =         b1 3*("." decimal-uchar) / "0.0.0.0"
+
+      b1 =                  decimal-uchar
+                            ; less than "224"; not "0" or "127"
+
+      ; The following is from RFC2373 Appendix B. It is a direct copy.
+      IP6-address =         hexpart [ ":" IP4-address ]
+
+      hexpart =             hexseq / hexseq "::" [ hexseq ] /
+                            "::" [ hexseq ]
+
+
+
+
+
+
+Olson, et. al.              Standards Track                     [Page 2]
+
+RFC 3266    Support for IPv6 in Session Description Protocol   June 2002
+
+
+      hexseq  =             hex4 *( ":" hex4)
+
+      hex4    =             1*4HEXDIG
+
+4. Example SDP description with IPv6 addresses
+
+   The following is an example SDP description using the above ABNF for
+   IPv6 addresses.  In particular, the origin and connection fields
+   contain IPv6 addresses.
+
+      v=0
+      o=nasa1 971731711378798081 0 IN IP6 2201:056D::112E:144A:1E24
+      s=(Almost) live video feed from Mars-II satellite
+      p=+1 713 555 1234
+      c=IN IP6 FF1E:03AD::7F2E:172A:1E24
+      t=3338481189 3370017201
+      m=audio 6000 RTP/AVP 2
+      a=rtpmap:2 G726-32/8000
+      m=video 6024 RTP/AVP 107
+      a=rtpmap:107 H263-1998/90000
+
+5. Note for implementors
+
+   An implementation may receive an SDP session description with an IPv6
+   address whose format [1] is internally that of an IPv4 mapped
+   address.  Note that such an address is actually the address of an
+   IPv4-only node, and implementors are warned to interpret IPv4 mapped
+   addresses as equivalent to IP4.
+
+6. IANA Considerations
+
+   This document updates the definition of the IP6 addrtype parameter
+   found in RFC 2327.
+
+7. Security Considerations
+
+   No additional considerations above what is stated in section 7 of RFC
+   2327.
+
+8. References
+
+   [1]   Hinden, R. and S. Deering, "IP Version 6 Addressing
+         Architecture", RFC 2373, July 1998.
+
+   [2]   Handley, M. and V. Jacobson, "SDP: Session Description
+         Protocol", RFC 2327, April 1998.
+
+
+
+
+
+Olson, et. al.              Standards Track                     [Page 3]
+
+RFC 3266    Support for IPv6 in Session Description Protocol   June 2002
+
+
+   [3]   Hinden, R., Carpenter, B. and L. Masinter, "Format for Literal
+         IPv6 Addresses in URL's", RFC 2732, December 1999.
+
+   [4]   Crocker, D. and P. Overell, "Augmented BNF for Syntax
+         Specifications: ABNF", RFC 2234, November 1997.
+
+   [5]   Bradner, S., "Key words for Use in RFCs to Indicate Requirement
+         Levels", BCP 14, RFC 2119, March 1997.
+
+9. Authors' Addresses
+
+   Sean Olson
+   Microsoft
+   One Microsoft Way
+   Redmond, WA 98052
+   USA
+
+   EMail: seanol@microsoft.com
+
+
+   Gonzalo Camarillo
+   Ericsson
+   Advanced Signalling Research Lab.
+   FIN-02420 Jorvas
+   Finland
+
+   Phone: +358 9 299 3371
+   Fax: +358 9 299 3118
+   EMail: Gonzalo.Camarillo@ericsson.com
+
+
+   Adam Roach
+   dynamicsoft
+   5100 Tennyson Parkway
+   Suite 1200
+   Plano, TX 75024
+   USA
+
+   EMail: adam@dynamicsoft.com
+   Voice: <sip:adam@dynamicsoft.com>
+
+
+
+
+
+
+
+
+
+
+
+Olson, et. al.              Standards Track                     [Page 4]
+
+RFC 3266    Support for IPv6 in Session Description Protocol   June 2002
+
+
+10.  Full Copyright Statement
+
+   Copyright (C) The Internet Society (2002).  All Rights Reserved.
+
+   This document and translations of it may be copied and furnished to
+   others, and derivative works that comment on or otherwise explain it
+   or assist in its implementation may be prepared, copied, published
+   and distributed, in whole or in part, without restriction of any
+   kind, provided that the above copyright notice and this paragraph are
+   included on all such copies and derivative works.  However, this
+   document itself may not be modified in any way, such as by removing
+   the copyright notice or references to the Internet Society or other
+   Internet organizations, except as needed for the purpose of
+   developing Internet standards in which case the procedures for
+   copyrights defined in the Internet Standards process must be
+   followed, or as required to translate it into languages other than
+   English.
+
+   The limited permissions granted above are perpetual and will not be
+   revoked by the Internet Society or its successors or assigns.
+
+   This document and the information contained herein is provided on an
+   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING
+   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING
+   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION
+   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF
+   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+Acknowledgement
+
+   Funding for the RFC Editor function is currently provided by the
+   Internet Society.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Olson, et. al.              Standards Track                     [Page 5]
+

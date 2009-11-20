@@ -1,0 +1,159 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_mpd</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_mpd.xml</file>
+  </header>
+  <module>snmpa_mpd</module>
+  <modulesummary>Message Processing and Dispatch module for the SNMP agent</modulesummary>
+  <description>
+    <p>The module <c>snmpa_mpd</c> implements the version independent
+      Message Processing and Dispatch functionality in SNMP for the agent. 
+      It is supposed to be used from a Network Interface process 
+      (<seealso marker="snmp_agent_netif">Definition of Agent Net if</seealso>).
+      </p>
+
+    <marker id="init"></marker>
+  </description>
+
+  <funcs>
+    <func>
+      <name>init(Vsns) -> mpd_state()</name>
+      <fsummary>Initialize the MPD module</fsummary>
+      <type>
+        <v>Vsns = [Vsn]</v>
+        <v>Vsn = v1 | v2 | v3</v>
+      </type>
+      <desc>
+        <p>This function can be called from the net_if process at start-up.
+          The options list defines which versions to use.
+          </p>
+        <p>It also initializes some SNMP counters.
+          </p>
+
+        <marker id="process_packet"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>process_packet(Packet, TDomain, TAddress, State) -> {ok, Vsn, Pdu, PduMS, ACMData} | {discarded, Reason} | {discovery, DiscoPacket}</name>
+      <fsummary>Process a packet received from the network</fsummary>
+      <type>
+        <v>Packet = binary()</v>
+        <v>TDomain = snmpUDPDomain</v>
+        <v>TAddress = {Ip, Udp}</v>
+        <v>Ip = {integer(), integer(), integer(), integer()}</v>
+        <v>Udp = integer()</v>
+        <v>State = mpd_state()</v>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>Pdu = #pdu</v>
+        <v>PduMs = integer()</v>
+        <v>ACMData = acm_data()</v>
+        <v>Reason = term()</v>
+        <v>DiscoPacket = binary()</v>
+      </type>
+      <desc>
+        <p>Processes an incoming packet.  Performs authentication and 
+          decryption as necessary.  The return values should be passed the
+          agent.</p>
+
+        <marker id="generate_response_msg"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>generate_response_msg(Vsn, RePdu, Type, ACMData) -> {ok, Packet} | {discarded, Reason}</name>
+      <fsummary>Generate a response packet to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>RePdu = #pdu</v>
+        <v>Type = atom()</v>
+        <v>ACMData = acm_data()</v>
+        <v>Packet = binary()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted response packet to be sent to the
+          network. <c>Type</c> is the <c>#pdu.type</c> of the original
+          request.</p>
+
+        <marker id="generate_msg"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>generate_msg(Vsn, Pdu, MsgData, To) -> {ok, PacketsAndAddresses} | {discarded, Reason}</name>
+      <fsummary>Generate a request message to be sent to the network</fsummary>
+      <type>
+        <v>Vsn = 'version-1' | 'version-2' | 'version-3'</v>
+        <v>Pdu = #pdu</v>
+        <v>MsgData = msg_data()</v>
+        <v>To = [dest_addrs()]</v>
+        <v>PacketsAndAddresses = [{TDomain, TAddress, Packet}]</v>
+        <v>TDomain = snmpUDPDomain</v>
+        <v>TAddress = {Ip, Udp}</v>
+        <v>Ip = {integer(), integer(), integer(), integer()}</v>
+        <v>Udp = integer()</v>
+        <v>Packet = binary()</v>
+      </type>
+      <desc>
+        <p>Generates a possibly encrypted request packet to be sent to the
+          network.
+          </p>
+        <p><c>MsgData</c> is the message specific data used in
+          the SNMP message.  This value is received in a <c>send_pdu</c>
+          or <c>send_pdu_req</c> message from the agent.  In SNMPv1 and
+          SNMPv2c, this message data is the community string.  In
+          SNMPv3, it is the context information.
+          <c>To</c> is a list of the destination addresses and
+          their corresponding security parameters.  This value is
+          also received from the requests mentioned above.
+          </p>
+
+        <marker id="discarded_pdu"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>discarded_pdu(Variable) -> void()</name>
+      <fsummary>Increment the variable associated with a discarded pdu</fsummary>
+      <type>
+        <v>Variable = atom()</v>
+      </type>
+      <desc>
+        <p>Increments the variable associated with a discarded pdu.
+          This function can be used when the net_if process receives a
+          <c>discarded_pdu</c> message from the agent.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

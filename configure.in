@@ -1,0 +1,297 @@
+dnl Process this file with autoconf to produce a configure script.
+AC_PREREQ(2.8)dnl
+
+AC_INIT()
+
+default_cache_file=./config.cache
+
+if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
+    # The no_recursion variable is not documented, but the only
+    # action we take on it is disabling caching which is safe!
+    if test "x$cache_file" != "x$default_cache_file"; then
+	echo "Ignoring the --cache-file argument since it can cause the system to be erroneously configured"
+    fi
+    echo "Disabling caching"
+    if test -f $cache_file; then
+	echo "Removing cache file $cache_file"
+	rm -f $cache_file
+    fi
+    cache_file=/dev/null
+fi
+
+dnl How to set srcdir absolute is taken from the GNU Emacs distribution
+#### Make srcdir absolute, if it isn't already.  It's important to
+#### avoid running the path through pwd unnecessary, since pwd can
+#### give you automounter prefixes, which can go away.
+case "${srcdir}" in
+  /* ) ;;
+  . )
+    ## We may be able to use the $PWD environment variable to make this
+    ## absolute.  But sometimes PWD is inaccurate.
+    ## Make sure CDPATH doesn't affect cd (in case PWD is relative).
+    CDPATH=
+    if test "${PWD}" != "" && test "`(cd ${PWD} ; sh -c pwd)`" = "`pwd`"  ;
+    then
+      srcdir="$PWD"
+    else
+      srcdir="`(cd ${srcdir}; pwd)`"
+    fi
+  ;;
+  *  ) srcdir="`(cd ${srcdir}; pwd)`" ;;
+esac
+
+#
+# Now srcdir is absolute and also the top of Erlang distribution, ERL_TOP.
+#
+ERL_TOP=${srcdir}
+AC_SUBST(ERL_TOP)
+
+dnl
+dnl Aux programs are found in erts/autoconf
+dnl
+AC_CONFIG_AUX_DIR(${srcdir}/erts/autoconf)
+
+dnl
+dnl Figure out what we are running on. And in violation of autoconf
+dnl style assume that $host is also what we are building for. I would
+dnl like to get cross compiling working, since we actually have
+dnl systems we cross compile for!
+dnl
+
+if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
+    AC_CANONICAL_HOST
+fi
+
+TARGET=$host
+AC_SUBST(TARGET)
+
+
+dnl Checks for programs.
+
+AC_PROG_CC
+
+
+#
+# We need GNU make, complain if we can't find it
+#
+AC_MSG_CHECKING(for GNU make)
+# If there is a Makefile created we don't want make to start making, run
+# in a subdirectory and -f /dev/null
+MAKE_PROG=x
+if test X"$CLEARCASE_MAKE_COMPAT" = X"gnu" -a X"$CLEARCASE_ROOT" != X"" ; then
+  eval clearmake -version 2>&1 | grep clearmake > /dev/null 2>&1
+  case $? in
+	0) MAKE_PROG="clearmake -V";;
+	*);;
+  esac
+fi
+if test X"$MAKE_PROG" = X"x"; then
+  mkdir conftestmake
+  if test -d conftestmake; then
+    cd conftestmake
+    for m in make gmake ggmake; do
+      eval $m --version -f /dev/null 2>&1 | grep GNU > /dev/null 2>&1
+      case $? in
+        0) MAKE_PROG=$m ; break ;;
+        *) ;;
+      esac
+    done
+    cd ..
+  else
+    AC_MSG_ERROR(could not create subdirectory)
+  fi
+fi
+rm -rf conftestmake
+case $MAKE_PROG in
+    x) AC_MSG_RESULT(no)
+       AC_MSG_ERROR(GNU make is required!)
+       ;;
+    *) AC_MSG_RESULT(yes ($MAKE_PROG))
+       AC_SUBST(MAKE_PROG)
+       ;;
+esac
+
+AC_PROG_INSTALL
+if test X"${INSTALL}" = "X${ac_aux_dir}/install-sh -c" && test -f /usr/ucb/install ; then
+   case $host_os in
+      osf*) ;;
+      *) INSTALL="/usr/ucb/install -c" ;;
+   esac
+fi
+
+AC_PROG_LN_S
+AC_PROG_RANLIB
+
+#
+# Get erts version from erts/vsn.mk
+#
+[ERTS=erts-`sed -n 's/^VSN[ ]*=[ ]*\([0-9.]\)/\1/p' < erts/vsn.mk`]
+AC_SUBST(ERTS)
+
+
+AC_ARG_ENABLE(threads,
+[  --enable-threads        enable async thread support
+  --disable-threads       disable async thread support])
+
+AC_ARG_ENABLE(smp-support,
+[  --enable-smp-support    enable smp support
+  --disable-smp-support   disable smp support])
+
+AC_ARG_WITH(termcap,
+[  --with-termcap          use termcap (default)
+  --without-termcap       do not use any termcap libraries (ncurses,curses,termcap,termlib)])
+
+AC_ARG_ENABLE(kernel-poll,
+[  --enable-kernel-poll    enable kernel poll support])
+
+AC_ARG_ENABLE(hipe,
+[  --enable-hipe           enable hipe support
+  --disable-hipe          disable hipe support])
+
+AC_ARG_ENABLE(megaco_flex_scanner_lineno,
+[  --enable-megaco-flex-scanner-lineno enable megaco flex scanner lineno
+  --disable-megaco-flex-scanner-lineno disable megaco flex scanner lineno])
+
+AC_ARG_ENABLE(megaco_reentrant_flex_scanner,
+[  --enable-megaco-reentrant-flex-scanner enable reentrans megaco flex scanner
+  --disable-megaco-reentrant-flex-scanner disable reentrans megaco flex scanner])
+
+AC_ARG_WITH(ssl,
+[  --with-ssl=PATH         specify location of OpenSSL include and lib
+  --with-ssl              use SSL (default)
+  --without-ssl           don't use SSL])
+
+AC_ARG_ENABLE(dynamic-ssl-lib,
+[  --enable-dynamic-ssl-lib        force using dynamic openssl libraries
+  --disable-dynamic-ssl-lib       disable using dynamic openssl libraries])
+
+AC_ARG_ENABLE(shared-zlib,
+[  --enable-shared-zlib        enable using shared zlib library
+  --disable-shared-zlib       disable shared zlib, compile own zlib source (default)])
+
+#
+# Set Erlang man page directory
+#
+AC_ARG_ENABLE(erlang-mandir,
+[  --disable-erlang-mandir do not install Erlang man pages in a private directory],
+[ case "$enableval" in
+    no) erl_mandir=$mandir ;;
+    *)  erl_mandir='$(ERLANG_ILIBDIR)/man' ;;
+  esac ], erl_mandir='$(ERLANG_ILIBDIR)/man')
+AC_SUBST(erl_mandir)
+
+AC_ARG_ENABLE(darwin-universal,
+[  --enable-darwin-universal    build universal binaries on darwin i386],
+[ case "$enableval" in
+    no) enable_darwin_universal=no ;;
+    *)  enable_darwin_univeral=yes ;;
+  esac
+],enable_darwin_universal=no)
+
+
+AC_ARG_ENABLE(darwin-64bit,
+[  --enable-darwin-64bit    build 64bit binaries on darwin],
+[ case "$enableval" in
+    no) enable_darwin_64bit=no ;;
+    *)  enable_darwin_64bit=yes ;;
+  esac
+],enable_darwin_64bit=no)
+
+AC_ARG_ENABLE(m64-build,
+[  --enable-m64-build    build 64bit binaries using the -m64 flag to (g)cc],
+[ case "$enableval" in
+    no) enable_m64_build=no ;;
+    *)  enable_m64_build=yes ;;
+  esac
+],enable_m64_build=no)
+
+dnl OK, we might have darwin switches off different kinds, lets 
+dnl check it all before continuing.
+TMPSYS=`uname -s`-`uname -m`
+if test X${enable_darwin_universal} = Xyes; then
+	if test X${enable_darwin_64bit} = Xyes; then
+		AC_MSG_ERROR([--enable-darwin-universal and --enable-darwin-64bit mutually exclusive])
+	fi
+	enable_hipe=no
+	CFLAGS="-arch i386 -arch ppc $CFLAGS"
+	export CFLAGS
+	LDFLAGS="-arch i386 -arch ppc $LDFLAGS"
+	export LDFLAGS
+fi
+if test X${enable_darwin_64bit} = Xyes; then
+	case "$TMPSYS" in
+	    Darwin-i386|Darwin-x86_64)
+		;;
+	    Darwin*)
+		AC_MSG_ERROR([--enable-darwin-64bit only supported on x86 hosts])
+		;;
+	    *)
+		AC_MSG_ERROR([--enable-darwin-64bit only supported on Darwin])
+		;;
+	esac
+	enable_hipe=no
+	CFLAGS="-m64 $CFLAGS"
+	export CFLAGS
+	LDFLAGS="-m64 $LDFLAGS"
+	export LDFLAGS
+elif test X"$TMPSYS" '=' X"Darwin-i386"; then
+	CFLAGS="-m32 $CFLAGS"
+	export CFLAGS
+	LDFLAGS="-m32 $LDFLAGS"
+	export LDFLAGS
+fi
+
+if test X${enable_m64_build} = Xyes; then
+	enable_hipe=no
+	CFLAGS="-m64 $CFLAGS"
+	export CFLAGS
+	LDFLAGS="-m64 $LDFLAGS"
+	export LDFLAGS
+fi
+
+export ERL_TOP
+AC_CONFIG_SUBDIRS(lib erts)
+
+AC_OUTPUT(Makefile)
+
+pattern="lib/*/SKIP"
+files=`echo $pattern`
+if test "$files" != "$pattern"; then
+  echo '*********************************************************************'
+  echo '**********************  APPLICATIONS DISABLED  **********************'
+  echo '*********************************************************************'
+  echo
+  for skipfile in $files; do
+    app=`dirname $skipfile`; app=`basename $app`
+    printf "%-15s: " $app; cat $skipfile
+  done
+  echo
+  echo '*********************************************************************'
+fi
+pattern="lib/*/CONF_INFO"
+files=`echo $pattern`
+if test "$files" != "$pattern"; then
+  echo '*********************************************************************'
+  echo '**********************  APPLICATIONS INFORMATION  *******************'
+  echo '*********************************************************************'
+  echo
+  for infofile in $files; do
+    app=`dirname $infofile`; app=`basename $app`
+    printf "%-15s: " $app; cat $infofile
+  done
+  echo
+  echo '*********************************************************************'
+fi
+if test -f "erts/doc/CONF_INFO"; then
+  echo '*********************************************************************'
+  echo '**********************  DOCUMENTATION INFORMATION  ******************'
+  echo '*********************************************************************'
+  echo
+  printf "%-15s: \n" documentation; 
+  for cmd in `cat erts/doc/CONF_INFO`; do
+	echo "                 $cmd is missing." 
+  done  
+  echo '                 The documentation can not be built.'
+  echo
+  echo '*********************************************************************'
+fi

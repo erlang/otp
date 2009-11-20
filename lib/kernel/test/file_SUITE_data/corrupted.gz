@@ -1,0 +1,5 @@
+‹
+==========================================
+This file has a correct GZIP magic ID, but the rest of the
+header is corrupt.  Reading this file should result in an
+error.

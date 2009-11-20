@@ -1,0 +1,204 @@
+###
+### %CopyrightBegin%
+### 
+### Copyright Ericsson AB 2009. All Rights Reserved.
+### 
+### The contents of this file are subject to the Erlang Public License,
+### Version 1.1, (the "License"); you may not use this file except in
+### compliance with the License. You should have received a copy of the
+### Erlang Public License along with this software. If not, it can be
+### retrieved online at http://www.erlang.org/.
+### 
+### Software distributed under the License is distributed on an "AS IS"
+### basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+### the License for the specific language governing rights and limitations
+### under the License.
+### 
+### %CopyrightEnd%
+###
+### File: erl-xcomp.conf
+### Author: Rickard Green
+###
+
+### ----------------------------------------------------------------------------
+### When cross compiling Erlang/OTP, copy this file and set the variables
+### needed below. Then pass the path to the copy of this file as an argument
+### to "eval `otp_build env_cross <absolute path to erl-xcomp.conf file>`".
+### ----------------------------------------------------------------------------
+
+### ----------------------------------------------------------------------------
+### Variables in the following section *have* to be set.
+###
+
+##
+## Operating system and hardware architecture.
+##
+# Operating system: linux|solaris<ver>|darwin|freebsd|win32|<...>
+erl_xcomp_os=
+# Hardware architecture: x86|x86_64|ultrasparc|sparc64|ppc|arm|tile|<...>
+# Note that this will be the host parameter to configure, so it
+# should be both recognizable by config.sub and a valid prefix for
+# i.e. gcc etc if compiler is not specified further down. 
+erl_xcomp_hw=
+# Manufacturer: (unknown is ok)
+erl_xcomp_man=
+# Extra target info (unknown is ok)
+erl_xcomp_target_xtra=
+
+# Target (change if default isn't satisfactory)
+# Note that this has to correspond to what config.sub thinks the machine is.
+# Edit config.sub if not satisfactory, or set this explicitly 
+# to what output you will get from running 
+# $ERL_TOP/erts/autoconf/config.sub $erl_xcomp_hw
+
+erl_xcomp_target=${erl_xcomp_hw}-${erl_xcomp_man}-${erl_xcomp_os}-${erl_xcomp_target_xtra}
+
+##
+## Sizes (in bytes) of some important types.
+##
+# void *
+erl_xcomp_void_p=
+# short
+erl_xcomp_short=
+# int
+erl_xcomp_int=
+# long
+erl_xcomp_long=
+# long long (use 0 if no 'long long' type exist)
+erl_xcomp_long_long=
+# size_t
+erl_xcomp_sizeof_size_t=
+# off_t
+erl_xcomp_sizeof_off_t=
+
+### ----------------------------------------------------------------------------
+### The variables in the following section have to be set for linux systems
+###
+# linux kernel version (as reported by "uname -r")
+erl_xcomp_linux_kernel=
+
+### ----------------------------------------------------------------------------
+### ---------------------------------------------------------------------------
+### To override the configure flags for a special target system, You
+### can set this variable which overrides configure parameters on the 
+### command line and instead uses the specified options. The variable
+### leaves the build-host system untouched.
+### ---------------------------------------------------------------------------
+erl_xcomp_configure_flags=
+
+###----------------------------------------------------------------------------
+### You can specify a specific CC or LD for the build target (the cross 
+### compiler) here along with magic CFLAGS and/or LDFLAGS if needed
+### ar and ranlib might also be specified if needed.
+###----------------------------------------------------------------------------
+
+erl_xcomp_cc=
+
+erl_xcomp_ld=
+
+erl_xcomp_cflags=
+
+erl_xcomp_cpp=
+
+erl_xcomp_ldflags=
+
+erl_xcomp_ranlib=
+
+erl_xcomp_ar=
+
+###----------------------------------------------------------------------------
+### The ded_ls and ded_ldflags variables control linking of dynamically loaded
+### erlang drivers. On i.e. Linux these are set to
+### $(CC) and "-shared" respectively, but other OS'es might need other
+### programs and flags to build a dynamic library. 
+### erl_xcomp_ded_ld_runtime_library_path is the flag to set a
+### specific runtime library path for the shared library at link time, 
+### usually this should be left empty.
+###----------------------------------------------------------------------------
+
+erl_xcomp_ded_ld=
+
+erl_xcomp_ded_ldflags=
+
+erl_xcomp_ded_ld_runtime_library_path=
+
+### The variables in the following section does not need to be set. Only
+### set these if you really know what you are doing.
+###
+
+##
+## Big endian/little endian can usually be determined by configure correctly, 
+## but if not, set this variable
+##
+erl_xcomp_bigendian=
+
+##
+## If you have a working poll that can be used: yes|no
+##
+erl_xcomp_poll=
+
+##
+## If you have a working kqueue() that can be used: yes|no
+##
+erl_xcomp_kqueue=
+
+##
+## If you have a putenv() that stores a copy of the key-value pair: yes|no
+##
+erl_xcomp_putenv_copy=
+
+##
+## If you have reliable floating point exeptions that can be
+## used: yes|no
+##
+erl_xcomp_reliable_fpe=
+
+##
+## If you have getaddrinfo() usable for ipv6: yes|no
+##
+erl_xcomp_getaddrinfo=
+
+##
+## If you have a gethrvtime() that works and uses ioctl()
+## to /proc/self: yes|no
+##
+erl_xcomp_gethrvtime_procfs_ioctl=
+
+##
+## If you have a working clock_gettime(): yes|no
+##
+erl_xcomp_clock_gettime=
+
+##
+## If you have a __after_morecore_hook that can track malloc()s
+## core memory use: yes|no
+##
+erl_xcomp_after_morecore_hook=
+
+##
+## If you have brk, sbrk and end symbols: yes|no
+##
+# brk
+erl_xcomp_have_brk=
+# _brk
+erl_xcomp_have__brk=
+# __brk
+erl_xcomp_have___brk=
+# sbrk
+erl_xcomp_have_sbrk=
+# _sbrk
+erl_xcomp_have__sbrk=
+# __sbrk
+erl_xcomp_have___sbrk=
+# end
+erl_xcomp_end=
+# _end
+erl_xcomp__end=
+
+##
+## If sbrk/brk wrappers using dlsym(RTLD_NEXT, _) can track malloc()s
+## core memory use: yes|no
+##
+erl_xcomp_brk_wrappers=
+
+### ----------------------------------------------------------------------------

@@ -1,0 +1,25 @@
+This directory contains configuration file templates and examples for
+cross compiling Erlang/OTP. The configuration files should be supplied to
+$ERl_TOP/otp_build in the ./otp_build env_cross command to set up an
+appropriate environment for cross compiling.
+
+Copy the template file erl-xcomp.conf.template to an appropriate name
+and fill in at least the mandatory parts before attempting cross
+compilation. See the template file for details on configuration
+parameters and see the example erl-xcomp-TileraMDE2.0-tilepro.conf for
+an example of a working configuration file.
+
+The support for cross compiling is in it's early stage of development, 
+it works for cross compiling some gnu/linux systems, but has only been partly 
+tested for more esotheric platforms. The vxworks example file is highly 
+dependent on our environment and is here more or less for internal use.
+
+Please submit any patches for cross compiling in a way consistent with
+this system. Variables should be added to the configuration file,
+which is sourced both by $ERL_TOP/otp_build and each configure
+script. If a new configuration variable is needed for your system, add
+it to the template file, use it in otp_build and/or configure and
+submit the patch to erlang-patches for further integration into the
+main branch. All input is welcome as we cannot possibly have all cross
+compiling environments out there to test with.
+

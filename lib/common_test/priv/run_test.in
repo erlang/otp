@@ -1,0 +1,63 @@
+#!/bin/sh 
+
+args=""
+
+while [ $1 ]; do
+    if [ $1 = "-config" ]; then
+	args="$args -ct_config";
+    elif [ $1 = "-decrypt_key" ]; then
+	args="$args -ct_decrypt_key";
+    elif [ $1 = "-decrypt_file" ]; then
+	args="$args -ct_decrypt_file";
+    elif [ $1 = "-vts" ]; then
+	vts=1;
+	args="$args $1";
+    elif [ $1 = "-browser" ]; then
+	browser=$2;
+	args="$args $1";
+    elif [ $1 = "-shell" ]; then
+	shell=1;
+	args="$args $1";
+    elif [ $1 = "-ctname" ]; then
+	ctname=$2;
+	args="$args";
+    elif [ $1 = "-ctmaster" ]; then
+	master=1;
+	args="$args";
+    else
+	args="$args $1"
+    fi
+    shift
+done
+
+if [ $vts ]; then
+    erl -sname ct \
+	-pa @CTPATH@ \
+	-pa @TSPATH@ \
+	-s webtool script_start vts $browser \
+	-s ct_run script_start \
+	$args;
+elif [ $shell ]; then
+    erl -sname ct \
+	-pa @CTPATH@ \
+	-pa @TSPATH@ \
+	-s ct_run script_start \
+	$args;
+elif [ $ctname ]; then
+    erl -sname $ctname \
+	-pa @CTPATH@ \
+	-pa @TSPATH@ \
+	$args;
+elif [ $master ]; then
+    erl -sname ct_master \
+	-pa @CTPATH@ \
+	-pa @TSPATH@ \
+	$args;
+else
+    erl -sname ct \
+	-pa @CTPATH@ \
+	-pa @TSPATH@ \
+	-s ct_run script_start \
+	-s erlang halt \
+	$args
+fi

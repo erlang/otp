@@ -1,0 +1,475 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Tools Release Notes</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the Tools application.</p>
+
+<section><title>Tools 2.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p>The coverage analysis tool <c>cover</c> has been
+            improved when it comes to handling list and bit string
+            comprehensions (a counter for each qualifier), bit syntax
+            expressions (the Value and Size expressions), and try
+            expressions (the body called <c>Exprs</c> in the Reference
+            Manual). A few (not all) situations where several
+            expressions are put on the same line are also handled
+            better than before.</p>
+          <p>Own Id: OTP-8188 Aux Id: seq11397</p>
+        </item>
+        <item>
+            <p>When loading Cover compiled code on remote nodes 
+            running code in the loaded module, a <c>badarg</c>
+            failure was sometimes the result. This bug has been fixed.</p>
+          <p>Own Id: OTP-8270 Aux Id: seq11423</p>
+        </item>
+        <item>
+            <p>The short-circuit operators <c>andalso</c> and
+            <c>orelse</c> are now handled correctly by the coverage
+            analysis tool <c>cover</c> (it is no longer checked
+            that the second argument returns a Boolean value.)</p>
+          <p>Own Id: OTP-8273</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p><c>cover</c> now properly escapes greater-than and
+	    less-than characters in comments in HTML reports. (Thanks
+	    to Magnus Henoch.)</p>
+          <p>
+	    Own Id: OTP-7939</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            xref:start/1 does now allow anonymous XREF processes to
+            be started</p>
+          <p>
+            Own Id: OTP-7831</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A bug in the Xref scanner has been fixed.</p>
+          <p>
+	    Own Id: OTP-7423</p>
+        </item>
+        <item>
+	    <p>A bug in Fprof where the function 'undefined' appeared
+	    to call 'undefined' has been corrected.</p>
+          <p>
+	    Own Id: OTP-7509</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation has been updated so as to reflect
+	    the last updates of the Erlang shell as well as the minor
+	    modifications of the control sequence <c>p</c> of the
+	    <c>io_lib</c> module.</p> <p>Superfluous empty lines have
+	    been removed from code examples and from Erlang shell
+	    examples.</p>
+          <p>
+	    Own Id: OTP-6944 Aux Id: OTP-6554, OTP-6911 </p>
+        </item>
+        <item>
+	    <p><c>tuple_size/1</c> and <c>byte_size/1</c> have been
+	    substituted for <c>size/1</c>.</p>
+          <p>
+	    Own Id: OTP-7009</p>
+        </item>
+        <item>
+	    <p>The coverage analysis tool <c>cover</c> now handles
+	    the short-circuit Boolean expressions <c>andalso/2</c>
+	    and <c>orelse/2</c> properly.</p>
+          <p>
+	    Own Id: OTP-7095</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Tools 2.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    The <c>cover</c> tool could use huge amounts of memory
+	    when used in a distributed system.</p>
+          <p>
+	    Own Id: OTP-6758</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+  <section>
+    <title>Tools 2.5.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Missing buffer-local declaration in erlang.el has been
+            added. Before this fix there could arise problems in
+            other emacs modes after visiting a buffer using the
+            erlang mode.</p>
+          <p>Own Id: OTP-6721</p>
+        </item>
+        <item>
+          <p>Key-map for 'backward-delete-char-untabif updated to work
+            properly with Xemacs.</p>
+          <p>Own Id: OTP-6723</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor updates of Xref.</p>
+          <p>Own Id: OTP-6586</p>
+        </item>
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689 Aux Id: OTP-6742 </p>
+        </item>
+        <item>
+          <p>"C-u C-c C-k" now does a compile with both "debug_info"
+            and "export_all".</p>
+          <p>Own Id: OTP-6741</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5.4.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Changes due to internal interface changes in the erts
+            application which are needed at compile-time. No
+            functionality has been changed.</p>
+          <p>Own Id: OTP-6611 Aux Id: OTP-6580 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Made change to support the function erlang-find-tag for
+            xemacs and emacs-21.</p>
+          <p>Own Id: OTP-6512</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor updates of xref for future compatibility.</p>
+          <p>Own Id: OTP-6513</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5.3</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p><c>eprof</c> did not work reliably in the SMP emulator,
+            because the trace receiver process could not process the
+            trace messages fast enough. Therefore, <c>eprof</c> now
+            blocks the other schedulers while profiling.</p>
+          <p>Own Id: OTP-6373</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fprof traces could become truncated for the SMP emulator.
+            This bug has now been corrected.</p>
+          <p>Own Id: OTP-6246</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>eprof now works somewhat better in the SMP emulator.</p>
+          <p>Own Id: OTP-6152</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Fixed some bugs in <c>make</c>:</p>
+          <p><c>make:files/1,2</c> can now handle a file in another
+            directory as argument, similar to <c>make:all/0,1</c>.</p>
+          <p>When specifying a file name including the <c>.erl</c>
+            extension in <c>Emakefile</c>, <c>make:all/0,1</c> looked
+            for the object code in the wrong place.</p>
+          <p>When specifying a file name including the <c>.erl</c>
+            extension in <c>Emakefile</c> and some compile options
+            for the file, <c>make:files/0,1</c> did not use the
+            options as it should do.</p>
+          <p>Own Id: OTP-6057 Aux Id: seq10299</p>
+        </item>
+        <item>
+          <p><c>cover</c>: When <c>cover:stop()</c> was called,
+            the cover compiled code was not unloaded (as stated in
+            the documentation) but simply marked as 'old'. This
+            meant that processes lingering in (or with funs
+            referencing to) the cover compiled code would survive
+            even when the cover server and its ETS tables was
+            terminated.</p>
+          <p>Now the cover compiled code is unloaded, meaning that
+            processes lingering in/with references to it will be
+            killed when <c>cover:stop</c> is called, instead of
+            later crashing with <c>badarg</c> when trying to bump
+            counters in ETS tables no longer existing.</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Replaced call to deprecated function
+            <c>file:file_info/1</c> with call to
+            <c>filelib:is_dir/1</c> and <c>filelib:is_regular/1</c>
+            in <c>tags.erl</c>.</p>
+          <p>Own Id: OTP-6079</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug in <c>fprof</c> profiling causing erroneous
+            inconsistent trace failure has been corrected.</p>
+          <p>Own Id: OTP-5922 Aux Id: seq10203 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.6</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Emacs: <c>erlang-man-function</c> and
+            <c>erlang-man-module</c> used a pattern matching to find
+            the requested module that sometimes yielded unexpected
+            results. For example, <c>erlang-man-module file</c> would
+            display the man page for <c>CosFileTransfer_File</c>.</p>
+          <p>Own Id: OTP-5746 Aux Id: seq10096</p>
+        </item>
+        <item>
+          <p>Some compiler warnings and Dialyzer warnings were
+            eliminated in the Tools application.</p>
+          <p>When tracing to a port (which <c>fprof</c> does),
+            there could be fake schedule out/schedule in messages
+            sent for a process that had exited.</p>
+          <p>Own Id: OTP-5757</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The cross reference tool <c>xref</c> did not handle the new
+            <c>fun M:F/A</c> construct properly. This problem has been
+            fixed.</p>
+          <p>Own Id: OTP-5653</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>cover</c> tool did not escape '&lt;' and '&gt;' not
+            being part of HTML tags in HTML log files.</p>
+          <p>Own Id: OTP-5588</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>It is now possible to encrypt the debug information in
+            beam files, to help keep the source code secret. See
+            <c>compile(3)</c> for how to provide the key for encrypting,
+            and <c>beam_lib(3)</c> for how to provide the key for
+            decryption so that tools such as Debugger, <c>xref</c>, or
+            <c>cover</c> can be used.</p>
+          <p>The <c>beam_lib:chunks/2</c> functions now accepts an
+            additional chunk type '<c>compile_info</c>' to retrieve
+            the compilation information directly as a term. (Thanks
+            to Tobias Lindahl.)</p>
+          <p>Own Id: OTP-5460 Aux Id: seq9787</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.2</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>cover</c> tool could not analyze empty modules on
+            module level.</p>
+          <p>Own Id: OTP-5418</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Tools 2.4.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>xref</c> analysis <c>locals_not_used</c> could
+            return too many functions. This problem has been fixed.</p>
+          <p>Own Id: OTP-5071</p>
+        </item>
+        <item>
+          <p>The <c>cover</c> tool could not always compile parse
+            transformed modules. This problem has been fixed.</p>
+          <p>Own Id: OTP-5305</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

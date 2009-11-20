@@ -1,0 +1,1782 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ASN1 Release Notes</title>
+    <prepared>Bertil Karlsson</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>06-04-24</date>
+    <rev></rev>
+    <file>notes_history.sgml</file>
+  </header>
+  <p>This document describes the changes made to the asn1 system
+    from version to version.  The intention of this document is to
+    list all incompatibilities as well as all enhancements and
+    bug-fixes for every release of the asn1 application. Each release of asn1
+    thus constitutes one section in this document. The title of each
+    section is the version number of asn1.</p>
+
+
+  <section>
+    <title>Asn1 1.4.4.14</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Data in info/0 in generated code is moved to attribute
+            asn1_info, thus vsn value remains the same if compiler
+            options for asn1-spec differs but the generated code is
+            the same.</p>
+          <p>Own Id: OTP-6462</p>
+        </item>
+        <item>
+          <p>Dialyzer warnings on asn1 are removed, i.e. dead code
+            removed.</p>
+          <p>Own Id: OTP-6506</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.13</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Now it is possible to use 'asn1config' and 'inline'
+            options together. It is also possible to use 'inline' on
+            a single file like:
+            <c>asn1ct:compile("MyASN1spec.asn",[inline])</c>.</p>
+          <p>Own Id: OTP-6405</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.12</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>As a complement to the option "{inline,OutputFile}" it is
+            now possible to use the option "inline". Then asn1 creates
+            an output file with the name of the source .set file.</p>
+          <p>Own Id: OTP-6314</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.11</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When compiling an asn1 source that reference a type in
+            another source the compiler uses the asn1db file of the
+            other source to resolve the reference. It also tests
+            whether the other source has been updated since the
+            asn1db file was generated. This last test was to brutal
+            in that it exits compilation when no source was found,
+            even though a asn1db file existed. Changed behavior from
+            a brutal exit to a warning.</p>
+          <p>Own Id: OTP-6143</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.10</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>asn1 encoding failed on BIT STRING with constraint
+            <c>(SIZE (32..MAX))</c>.</p>
+          <p>Own Id: OTP-5932</p>
+        </item>
+        <item>
+          <p>Race condition removed in server for variable names for
+            generated code.</p>
+          <p>Own Id: OTP-6111</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Now exists a default function clause for table lookup of
+            a table constraint. This causes a nice error instead of a
+            crash. Did also remove some obsolete funs ({Mod,Fun}) in
+            generated code.</p>
+          <p>Own Id: OTP-5783</p>
+        </item>
+        <item>
+          <p>ASN1-compiler failed to derive a value out of an external
+            reference in some certain cases, when compiling specs so
+            that the spec with the reference was compiled before the
+            spec with the defined value.</p>
+          <p>Own Id: OTP-5812 Aux Id: seq10133 </p>
+        </item>
+        <item>
+          <p>The documentation of how records of embedded types are
+            named is extended and made clearer by examples and rules.
+            The section "Naming of Records in .hrl Files" in the
+            User's Guide is added.</p>
+          <p>Own Id: OTP-5831 Aux Id: seq10133 </p>
+        </item>
+        <item>
+          <p>The compiler failed to give right name to record/function
+            of a parameterized type that was referenced through
+            another instance of a parameterized type in another
+            module. The fault occurred when modules were compiled in a
+            certain order. Now the compiler resolves the name
+            correctly.</p>
+          <p>Own Id: OTP-5832 Aux Id: seq10133 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The dynamic sort of SET OF values now correctly handles
+            values encoded in the "ber_bin, der, optimize" mode, the
+            value of a SET OF is a list of binaries.</p>
+          <p>Own Id: OTP-5687</p>
+        </item>
+        <item>
+          <p>Bad code was generated for an INTEGER with value-range. If
+            the value that was encoded had a lower bound with
+            negative value it caused a crash. This bug is now
+            removed.</p>
+          <p>Own Id: OTP-5688 Aux Id: seq10049 </p>
+        </item>
+        <item>
+          <p>Compiler now handles wrong include paths by returning an
+            error if a referenced module is not available.</p>
+          <p>Own Id: OTP-5689</p>
+        </item>
+        <item>
+          <p>The bug causing a runtime error when encoding a type
+            defined by: <c>BIT STRING {a(1),b(2)}</c> with the value
+            [] in <c>per_bin</c> mode is now removed.</p>
+          <p>Own Id: OTP-5710 Aux Id: seq10066 </p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Better handling of filename paths</p>
+          <p>Own Id: OTP-5701</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.7</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Effective constraint for <c>per</c> now corrected. For
+            instance <c>INTEGER (0|15..269)</c> didn't work properly.</p>
+          <p>Own Id: OTP-5477 Aux Id: OTP-5511 </p>
+        </item>
+        <item>
+          <p>Adjusted compiler so that functions in generated code
+            only are exported once.</p>
+          <p>Own Id: OTP-5509</p>
+        </item>
+        <item>
+          <p>Fixed the compiler failure when handling a value range
+            constraint with an extension mark that had the Lower
+            bound and/or Upper bound values as an external reference
+            to a defined value.</p>
+          <p>Own Id: OTP-5511 Aux Id: OTP-5466 </p>
+        </item>
+        <item>
+          <p>Removed sorting of elements for SEQUENCE OF. It shall
+            only be done in SET OF.</p>
+          <p>Own Id: OTP-5602</p>
+        </item>
+        <item>
+          <p>Corrected code that generated code causing badarith
+            warning.</p>
+          <p>Own Id: OTP-5616</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.6</title>
+
+    <section>
+      <title>Known Bugs and Problems</title>
+      <list type="bulleted">
+        <item>
+          <p>Compiler now correctly crashes when compiling bad values.
+            Failed for instance on INTEGER value that was a reference
+            to a defined value. Also solved problem with a union
+            constraint on an INTEGER.</p>
+          <p>Own Id: OTP-5457</p>
+        </item>
+        <item>
+          <p>Additional coverage of object set syntax.</p>
+          <p>Own Id: OTP-5466</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.5</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A bug due to representation of open_type values is now
+            fixed. It could cause problem if one used the EXTERNAL
+            type.</p>
+          <p>Own Id: OTP-5302</p>
+        </item>
+        <item>
+          <p>Due to an internal error the same code could have been
+            generated more than one time. This happened for the
+            exclusive decode functionality.</p>
+          <p>Own Id: OTP-5378</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.4</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Empty objects caused problems. There was trouble when an
+            object set referenced imported objects that in turn
+            referenced imported types. Lacked support of
+            SelectionType in object. All these have been attended.</p>
+          <p>Own Id: OTP-5240</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Now it is possible to inline asn1 run-time functionality
+            in the module generated by the asn1 compiler. Thus, it
+            will be only one module doing all encoding/decoding.</p>
+          <p>Own Id: OTP-5243</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.3</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>A class that was referenced in two steps caused a
+            compiler failure.  It is now corrected.</p>
+          <p>Own Id: OTP-5103</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Optionally make it possible to get the un-decoded rest along with 
+            the return value. Compile with option <em>undec_rest</em>.</p>
+          <p>Own Id: OTP-5104</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.2</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>An error due to unchecked referenced imported type resulted
+            in missing tag in some table constraint cases. This error is
+            now corrected. Error occurred during decode in 
+            <c>ber_bin optimized</c> version.</p>
+          <p>Own Id: OTP-5022</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When a referenced value in another module in turn referenced a
+            defined value the compilation crashed. This is due to the new
+            routines for compilation, that external references are resolved
+            during compilation, and not by the order in which modules are
+            compiled. This error is now corrected.</p>
+          <p>Own Id: OTP-4970</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.4</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Functionality for parameterized class is added. Parsing failures on
+            WithSyntax spec is corrected.</p>
+          <p>Own Id: OTP-4893</p>
+        </item>
+        <item>
+          <p>The failure due to Parameterized Type when parameter is an object
+            set is corrected.</p>
+          <p>Own Id: OTP-4894</p>
+          <p>Aux Id: OTP-4893</p>
+        </item>
+        <item>
+          <p>Object Identifier values with two components and the first was a
+            value reference failed due to parsing conflicts. Now it is
+            corrected.</p>
+          <p>Own Id: OTP-4895</p>
+        </item>
+        <item>
+          <p>The erroneous comparison of file name and asn1 module name could
+            cause compilation failure. The situation for this failure is rare,
+            it requires that other processes modifies the compiled file during
+            the compilation procedure. It is now fixed.</p>
+          <p>Own Id: OTP-4944</p>
+          <p>Aux Id: seq8429</p>
+        </item>
+        <item>
+          <p>Selective decode was ignored when exclusive decode spec in asn1
+            configfile was missing. Selective decode failed when the selected
+            type was the top type. These bugs are now removed.</p>
+          <p>Own Id: OTP-4953</p>
+          <p>Aux Id: seq8436</p>
+        </item>
+        <item>
+          <p>The test interface asn1ct:test/1,2,3 and asn1ct:value/2 failed for
+            open type and EXTERNAL. The bug is now removed.</p>
+          <p>Own Id: OTP-4955</p>
+          <p>Aux Id: seq8438)</p>
+        </item>
+        <item>
+          <p>Two equal functions were generated for two components referencing
+            the same type when they were picked by the action "parts". The bug
+            is now fixed.</p>
+          <p>Own Id: OTP-4957</p>
+          <p>Aux Id: seq8434</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>INTEGER with named number list and ENUMERATED can now be sub
+            constrained with names from the names list.</p>
+          <p>Own Id: OTP-4917</p>
+        </item>
+        <item>
+          <p>Now there is support for SelectionType (X 680 section 29)</p>
+          <p>Own Id: OTP-4918</p>
+        </item>
+        <item>
+          <p>The compiler now resolves circular dependencies. When asn1 specs
+            IMPORTS from each other so that there are circular dependencies.</p>
+          <p>Own Id: OTP-4919</p>
+        </item>
+        <item>
+          <p>Now is the asn1 type UTF8String supported. For user instructions
+            see documentation.</p>
+          <p>Own Id: OTP-4965</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.3.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>{internal_error,...,{ unrecognized_type,...}}</c>
+            error occurring for a SET type when compiling with options
+            <c>[ber_bin,optimize,der]</c> is now corrected.</p>
+          <p>Own Id: OTP-4866</p>
+        </item>
+        <item>
+          <p>False encode of BIT STRING in PER (per_bin,optimize) is fixed. The error occurred when there was a type like BIT STRING (SIZE(C)) and C &gt; 16.</p>
+          <p>Own Id: OTP-4869</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.3</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Functionality to handle parameterized object sets have been added.</p>
+          <p>Own Id: OTP-4832</p>
+        </item>
+        <item>
+          <p>Bug causing duplicated function definitions using exclusive decode is removed.</p>
+          <p>Own Id: OTP-4833)</p>
+        </item>
+        <item>
+          <p>The race condition when loading asn1 driver is solved.</p>
+          <p>Own Id: OTP-4835</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>A specialized decode, <em>selective decode</em> is now available. It decodes a chosen internal sub-type of a constructed type.</p>
+          <p>Own Id: OTP-4856)</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.2.2</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Release of Asn1 1.4.2.1 on R7B, The functionality is the same, but
+            the layer between the driver and the asn1 erlang code is different.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.2.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>ObjectDescriptor does now work as part of a sequence, set or choice.</p>
+          <p>Own Id: OTP-4773</p>
+        </item>
+        <item>
+          <p>When a SEQUENCE that have extension mark was decoded inside a
+            SEQUENCE OF it could cause decode error due to a failure in
+            restbytes2. It is now corrected.</p>
+          <p>Own Id: OTP-4791)</p>
+        </item>
+        <item>
+          <p>Now the bug is fixed that caused the compiler crash on an untagged
+            optional open type.</p>
+          <p>Own Id: OTP-4792</p>
+        </item>
+        <item>
+          <p>The earlier exit caused by bad in-data is now fixed so it will
+            return an {error,Reason} tuple.</p>
+            return an {error,Reason} tuple.</p>
+          <p>Own Id: OTP-4797</p>
+        </item>
+        <item>
+          <p>Open type encoded with indefinite length is now correct decoded.</p>
+          <p>Own Id: OTP-4798</p>
+        </item>
+        <item>
+          <p>Now is absent optional open types handled correctly.</p>
+          <p>Own Id: OTP-4799</p>
+        </item>
+        <item>
+          <p>Now is the necessary functions available for sorting in run-time of
+            SET and SET OF components.</p>
+          <p>Own Id: OTP-4809</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.2</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>When a component in a SEQUENCE is a CHOICE (or reference to a CHOICE)
+            and the SEQUENCE's component and one of the alternatives in the CHOICE
+            have identical names, an error may occur if one doesn't use the
+            'optimized' versions of the compiler. In the older versions (<c>ber, ber_bin, per, per_bin</c>) one could optionally apply a value of a
+            component as <c>{ComponentName,Value}</c>, and the generated code
+            chooses the second element of the tuple. However, a value of a CHOICE
+            must be applied as a tuple: <c>{AlternativeName,Value}</c>. Thus,
+            in the rare case described above and if the value to the SEQUENCE's
+            component is not in a tuple notation the
+            <c>{AlternativeName,Value}</c> will be peeled off in the SEQUENCE
+            and the value fed to the CHOICE will only be the <c>Value</c>
+            part of <c>{AlternativeName,Value}</c>, and the encoder crashes.
+            The best way to avoid this is to use the optimized version of the
+            compiler where the unnecessary tuple notation
+            <c>{ComponentName,Value}</c> no longer is allowed. Since it isn't
+            possible to solve this bug in the compiler.</p>
+          <p>Own Id: OTP-4693</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Exclusive decode is enabled by a compiler option and a configuration
+            file. It makes it possible to leave parts of an ASN.1 encoded message
+            un-decoded.</p>
+          <p>Own Id: OTP-4744</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.1.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation about how extensibility is handled is now corrected.</p>
+          <p>Own Id: OTP-4663</p>
+        </item>
+        <item>
+          <p>Function in object now calls the exported function</p>
+          <p>Own Id: OTP-4665</p>
+        </item>
+        <item>
+          <p>Now is tags for ObjectClassFieldType analyzed correctly.</p>
+          <p>Own Id: OTP-4666</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Now is the Default value for an ENUMERATED returned as the name from
+            the NamedList when decoding.</p>
+          <p>Own Id: OTP-4633</p>
+        </item>
+        <item>
+          <p>It was an internal failure when permitted alphabet constraint existed
+            together with for instance a size constraint. E.g. when a
+            referenced type is constrained by a size constraint and the defined
+            type in turn is constrained by a permitted alphabet constraint.</p>
+          <p>Own Id: OTP-4559</p>
+        </item>
+        <item>
+          <p>Record is generated in hrl file for a CHOICE with extension mark
+            that has an internal SEQUENCE/SET definition.</p>
+          <p>Own Id:  OTP-4560</p>
+        </item>
+        <item>
+          <p>Now is the length of a SEQUENCE/SET OF correctly encoded/decoded (PER).</p>
+          <p>Own Id: OTP-4590</p>
+        </item>
+        <item>
+          <p>The problem with unordered decoded terms when a component is a
+            ObjectClassFieldType has been solved.</p>
+          <p>Own Id: OTP-4591</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>More complex definitions with TableConstraints where the SimpleTable
+            and ComponentRelation are on different levels is now fully
+            supported.</p>
+          <p>Own Id: OTP-4631</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.4</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Each generated .erl file have now a function info/0 that returns
+            information about the used compiler version and options.</p>
+          <p>Own Id: OTP-4373</p>
+        </item>
+        <item>
+          <p>When compiling an ASN.1 module the compiler generates an Erlang module
+            that is compiled by the Erlang compiler. Earlier it was not possible to
+            add options to the final step, the Erlang compilation. By adding any
+            option that is not recognized as a specific ASN.1 option it will be
+            passed to the final step like: <c>erlc +debug_info  Mymodule.asn</c> or
+            <c>asn1ct:compile('Mymodule',[debug_info])</c>.</p>
+          <p>Own Id: OTP-4491</p>
+        </item>
+        <item>
+          <p>Earlier one couldn't multi file compile modules that had different
+            tagdefault, which now is possible. Equal Type/Value names in different
+            modules are resolved by renaming (concatenate type name and module
+            name): If two types with the same name T exist in module A and module B
+            they will get the new names TA and TB.</p>
+          <p>(Own Id: OTP-4492)</p>
+          <p>Aux Id: OTP-3983</p>
+        </item>
+        <item>
+          <p>BER: Encode/decode of data have been significantly improved. By use of
+            the compiler options <c>ber_bin</c> and <c>optimize</c>,
+            optimized code will be generated and the optimized run-time module will
+            be used.</p>
+          <p>Own Id: OTP-4493</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.3.3.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Proper length encoding and padding implemented for a <c>BIT STRING</c> with 
+            NamedNumberList and size constraint as value range. This functionality 
+            didn't work in the rare occasion when the NamedNumberList is shorter
+            than the lower bound of the constraint.As in this example:
+            <c>TestS ::= BIT STRING {a (0),b (1)} (SIZE (3..8))</c></p>
+          <p>(Own Id: OTP-4353)</p>
+        </item>
+        <item>
+          <p>Bug in compiler, when an <c>OBJECT IDENTIFIER</c> value consisting of 
+            two identifiers (Defined values or Name form identifiers) was falsely
+            interpreted causing a compiling error is now corrected.</p>
+          <p>(Own Id: OTP-4354)</p>
+        </item>
+        <item>
+          <p>Internal error in check phase that caused crash on 
+            <c>ObjectClassFieldType</c> in ber_bin is corrected.</p>
+          <p>(Own Id: OTP-4390)</p>
+        </item>
+        <item>
+          <p>Tags for open types are handled according to <c>x.680 30.6c</c>, i.e.
+            open types shall not be tagged <c>IMPLICIT.</c></p>
+          <p>(Own Id: OTP-4395)</p>
+          <p>(Aux Id: OTP-4390)</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.3.3</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Now gives the compiler an appropriate error report when exported 
+            undefined types are detected.</p>
+          <p>(Own Id: OTP-4129)</p>
+        </item>
+        <item>
+          <p>The type <c>ObjectDescriptor</c> is now supported, previously the
+            implementation of encode/decode for this rarely used type was
+            incomplete.</p>
+          <p>(Own Id: OTP-4161)</p>
+          <p>(Aux Id: seq7165)</p>
+        </item>
+        <item>
+          <p>In case of per and compact_bit_string the rightmost byte were erroneous
+            truncated when the rightmost bits of that byte were zeros. This is now
+            corrected.</p>
+          <p>(Own Id: OTP-4200)</p>
+        </item>
+        <item>
+          <p>Bad match of return-value from decode_length in skipvalue/3 has now been
+            fixed.</p>
+          <p>(Own Id: OTP-4232)</p>
+        </item>
+        <item>
+          <p>Now is decode of ENUMERATED handled correctly, when tagged EXPLICIT.</p>
+          <p>(Own Id: OTP-4234)</p>
+        </item>
+        <item>
+          <p>The compiler now parses and handles the ValueFromObject construct.</p>
+          <p>(Own Id: OTP-4242)</p>
+        </item>
+        <item>
+          <p>Now does the compiler handle the case when the object set in simple
+            table and componentrelation constraints is of a CLASS without a UNIQUE
+            field. In this case is the octets, which is assumed to be encoded,
+            encoded as an open type.</p>
+          <p>(Own Id: OTP-4248)</p>
+          <p>(Aux Id: OTP-4242)</p>
+        </item>
+        <item>
+          <p>Compiler handles objects in AdditionalElementSetSpec in ObjectSetSpec,
+            i.e. the objects that are referred to after the ellipses in an object set.</p>
+          <p>(Own Id: OTP-4275)</p>
+        </item>
+        <item>
+          <p>Now are values with a component of type CHOICE encoded with indefinite 
+            length correctly decoded.</p>
+          <p>(Own Id: OTP-4358)</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>The language constructs (from the old 1988 standard) <c>ANY</c>
+            and <c>ANY DEFINED BY</c> are now implemented.</p>
+          <p>(Own Id: OTP-2741)</p>
+          <p>(Aux Id: seq 1188)</p>
+        </item>
+        <item>
+          <p>Now it is checked in run-time if a <c>OBJECT IDENTIFIER</c> value is invalid</p>
+          <p>(Own Id: OTP-4235)</p>
+        </item>
+        <item>
+          <p>The ASN.1 types EXTERNAL,EMBEDDED PDV and CHARACTER STRING now have full support in the compiler.</p>
+          <p>(Own Id: OTP-4247)</p>
+        </item>
+        <item>
+          <p>A driver in C does the final job (complete) of the PER encoding when 
+            files are compiled with <c>per_bin</c> and <c>optimize</c> flags. 
+            It gives significant faster encoding for PER.</p>
+          <p>(Own Id: OTP-4355)</p>
+        </item>
+        <item>
+          <p>Encode and decode of PER encoding has been made faster by moving 
+            analysis done in run-time to compile-time. These optimizations are 
+            available by compiling ASN.1 files with options <c>per_bin</c> and
+            <c>optimize</c>.</p>
+          <p>(Own Id: OTP-4381)</p>
+          <p>(Aux Id: OTP-4355)</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.3.2</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Now does the compiler check values (including referenced values), and
+            formats the value so it is suitable to use as input to encoding
+            functions.</p>
+          <p>(Own Id: OTP-3277)</p>
+          <p>(Aux Id: OTP-4103)</p>
+        </item>
+        <item>
+          <p>Unnecessary external function calls in generated code are now generated
+            as internal function calls.</p>
+          <p>(Own Id: OTP-4073)</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Now is Information Objects supported in BER encoding.</p>
+          <p>(Own Id: OTP-3980)</p>
+          <p>(Aux Id: OTP-3979 OTP-3978)</p>
+          <p></p>
+        </item>
+        <item>
+          <p>PER: A new option <c>per_bin</c> is now supported. When used the
+            generated encode/decode functions use binaries and the bit syntax to
+            get better performance than the old <c>per</c> variant which used
+            lists. All values input to encode and returned from decode are
+            compatible between <c>per</c> and <c>per_bin</c> except for
+            open types which are represented as binaries with per_bin and octet
+            lists with per. We recommend that you use per_bin instead of per from
+            now on, the use of binaries will be the default in coming versions and
+            all improvements and optimizations for PER will be concentrated to that
+            solution.</p>
+          <p>(Own Id: OTP-4094)</p>
+          <p></p>
+        </item>
+        <item>
+          <p>Support for DER implemented. Used by flag +der when compiling. Include
+            the full BER encoding plus: sorting of SET components, sorting of
+            encoded elements in SET OF, full check of default values in SET and
+            SEQUENCE. See new documentation on DER in user_guide sections 1.3.1;
+            1.4.11; 1.4.12; 1.4.14; 1.4.16 and 1.10, in the reference manual for
+            asn1ct.</p>
+          <p>(Own Id: OTP-4103)</p>
+          <p></p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.3.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Do not generate record in .hrl file for SET types</p>
+          <p>Own Id: OTP-4025</p>
+        </item>
+        <item>
+          <p>Fixed internal error when using BIT STRINGs with Named Number List in combination with <c>compact_bit_string</c> and <c>ber_bin</c> options.</p>
+          <p>Own Id: OTP-4026</p>
+          <p>Aux Id: OTP-3982</p>
+        </item>
+        <item>
+          <p>The atom 'com' can now be used in ENUMERATED as an EnumerationItem.</p>
+          <p>Own Id: OTP-4037</p>
+          <p>Aux Id: Seq 7036</p>
+        </item>
+        <item>
+          <p>ber: Now it is possible (again) to encode data format "{Type,Value}" in a SEQUENCE OF  RequestParameter, when RequestParameter is of type ENUMERATED. The {Type,Value}
+            notation is not recommended for use, it is redundant and exist only for very ancient backwards compatibility reasons. The "feature" might be removed in forthcoming versions.</p>
+          <p>Own Id: OTP-4057</p>
+          <p>Aux Id: Seq 7066</p>
+        </item>
+        <item>
+          <p>A bug in the parser, that caused failure on COMPONENTS OF is now removed.</p>
+          <p>Own Id: OTP-4058</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.3</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler will now check that a value referenced by name
+            does exist.</p>
+          <p>Own Id: OTP-3277</p>
+        </item>
+        <item>
+          <p>BER:Decode of a type T ::= SEQUENCE OF C fails if C is encoded with indefinite length.
+            This is know corrected.</p>
+          <p>Own Id: OTP-3811</p>
+          <p>Aux Id: seq5040</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The new parser handles imports when one import ends with FROM, a modulename and a reference to a objectidentifier followed by imports from other modules.</p>
+          <p>Own Id: OTP-3463</p>
+        </item>
+        <item>
+          <p>The compiler did not check that a name mentioned as EXPORTED
+            actually is defined within the module.
+            This is now corrected.</p>
+          <p>Own Id: OTP-3659</p>
+        </item>
+        <item>
+          <p>Removed bug caused by use of nested indefinite length</p>
+          <p>Own Id: OTP-3994</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>Now supporting most common use of parameterization according to X.683</p>
+          <p>(Own Id: OTP-3978)</p>
+        </item>
+        <item>
+          <p>PER: Now supporting most common use of Information Objects according to X.681. A new parser has been implemented. The error messages due to syntax errors are slightly different than previous. TableConstraint part of X.682 now also supported.</p>
+          <p>Own Id: OTP-3979</p>
+        </item>
+        <item>
+          <p>New compiler option added: <c>ber_bin</c>. The compiler generates code with new bit syntax. Run time functions uses bit syntax when feasible. Higher encoding/decoding performance in most cases. Se also comments for Asn1 1.2.9.3.</p>
+          <p>Own Id: OTP-3981</p>
+        </item>
+        <item>
+          <p>A more compact format of BIT STRING in Erlang is now available by use of the compiler option <c>compact_bit_string</c>. It is much faster when large BIT STRINGs are used.</p>
+          <p>Own Id: OTP-3982</p>
+        </item>
+        <item>
+          <p>Now possible to merge many ASN.1 input files to one Erlang file by use of a configuration file that lists the ASN.1 files.</p>
+          <p>Own Id: OTP-3983</p>
+        </item>
+        <item>
+          <p>New documentation in <em>User's Guide</em> in section:</p>
+          <p>3.1: New compile-time functions and options are described.</p>
+          <p>4.6: New compact format of BIT STRING is described.</p>
+          <p>4.8: Additional comments on character strings.</p>
+          <p>7: New section describing ASN.1 Information Objects.</p>
+          <p>8: New section describing Parameterization.</p>
+          <p><em>Reference Manual/asn1ct</em> New compile options are described.</p>
+          <p>Own Id: OTP-3984</p>
+          <p>Aux Id: OTP-3978, OTP-3979, OTP-3981, OTP-3982, OTP-3983</p>
+        </item>
+        <item>
+          <p>Added the functionality to invoke ASN1Mod:encode (and decode).</p>
+          <p>Own Id: OTP-3985</p>
+        </item>
+        <item>
+          <p>Performance improvements by removing not necessary use of apply when calling asn1rt:encode. Also other general improvements.</p>
+          <p>Own Id: OTP-3988</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.9.6</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler does not check that an exported name actually exists in the ASN.1 module.</p>
+          <p>Own Id: OTP-3659</p>
+        </item>
+        <item>
+          <p>The compiler does not check that a value referenced by name does exist.</p>
+          <p>Own Id: OTP-3277</p>
+        </item>
+        <item>
+          <p>BER: The compiler does not take the extensions into account when checking if
+            the tags are unique in a SEQUENCE or SET.</p>
+          <p>Own Id: OTP-3304</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>PER: Trailing zeroes in a BIT STRING declared without named bits
+            should not be removed in the encodings.</p>
+          <p>Own Id: OTP-3830</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.9.5</title>
+
+    <section>
+      <title>Known problems</title>
+      <p>Same as for 1.2.9.3.</p>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>PER: Constraints are not propagated when types are
+            referring to each other. Example:</p>
+          <code type="none">
+ 
+                TBCD-STRING ::= OCTET STRING
+ 
+                LAI ::= TBCD-STRING (SIZE(3))          </code>
+          <p>The size constraint is not passed on during encode,decode
+            resulting in wrong encoding for PER , it is
+            coded with a length determinant which should not be there
+            when the length is fixed. For BER this does not matter because the constraints does
+            not affect the encodings.</p>
+          <p>Own Id: OTP-3713</p>
+        </item>
+        <item>
+          <p>The generated code gets wrong if there are several ENUMERATED fields in a SEQUENCE or SET, this is now corrected.</p>
+          <p>Own Id: OTP-3796</p>
+        </item>
+        <item>
+          <p>BER:Decode of a type T ::= SEQUENCE OF C fails if C is encoded with indefinite length.
+            This is know corrected.</p>
+          <p>Own Id: OTP-3811</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.9.3</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler does not check that an exported name actually exists in the ASN.1 module.</p>
+          <p>Own Id: OTP-3659</p>
+        </item>
+        <item>
+          <p>The compiler does not check that a value referenced by name does exist.</p>
+          <p>Own Id: OTP-3277</p>
+        </item>
+        <item>
+          <p>BER: The compiler does not take the extensions into account when checking if
+            the tags are unique in a SEQUENCE or SET.</p>
+          <p>Own Id: OTP-3304</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>This version supports soft upgrade from versions 1.2.6 1.2.7.</p>
+        </item>
+        <item>
+          <p>In an ENUMERATED type like this:</p>
+          <code type="none">
+\011\011T ::= ENUMERATED { blue, green}          </code>
+          <p>The symbols was encoded/decoded with the wrong values, i.e in
+            reverse order. This is now corrected.</p>
+          <p>Own Id: OTP-3700</p>
+        </item>
+        <item>
+          <p>PER: OCTET STRING with Size constrained to a single value i.e fixed size
+            was treated wrong during encode and decode. This is now corrected.</p>
+          <p>Own Id: OTP-3701</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>There is now a new compiler option <c>ber_bin</c> available that can be used to 
+            generate encode/decode functions for BER that uses the new "bit-syntax" to
+            make the functions more efficient. The <c>ber_bin</c> option is used
+            as an alternative to the <c>ber</c> and <c>per</c> options.</p>
+          <p>The encode function then produces a
+            possibly nested list of binaries and integer lists. The decode function does 
+            in this case require a single binary as input instead of a list.
+            The modules generated with this option require that you have an R7A  or later
+            system, otherwise they will not compile and the runtime module asn1rt_ber_bin
+            can not be executed.</p>
+          <p>The ber_bin option is not officially supported in this version (will be
+            in a later version) but is provided for those who want to try it. 
+            It should be significantly faster at decode and is slightly faster at encode.
+            Exactly how performance differs between this binary approach and the
+            list approach depends highly on the type of input.
+            Another thing worth noting is that both approaches still have a lot of
+            solutions in common which can be improved a lot to gain even better 
+            performance.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.9.2</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>BER: Encode/decode of extension components did not work properly. This is now corrected.</p>
+          <p>Own Id: OTP-3395</p>
+          <p>Aux Id: </p>
+          <p>PER:The encode/decode of NULL as an open type has been corrected. An open type must always have a length of at least 1 byte even if the contained 
+            value (e.g NULL) encodes to nothing.</p>
+          <p>Own Id: OTP-3496</p>
+          <p>Aux Id: </p>
+        </item>
+        <item>
+          <p>BER:In the current implementation extension components of a SEQUENCE are required
+            to be present when they are specified as mandatory. This is an error, all extension
+            components are "optional" even if they are not specified to have the OPTIONAL or
+            DEFAULT property. This is now corrected.</p>
+          <p>Own Id: OTP-3278</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>The ASN.1 language feature <c>COMPONENTS OF</c> is now implemented.</p>
+          <p>Own Id: OTP-2515</p>
+        </item>
+        <item>
+          <p>The encoding and decoding of ENUMERATED and
+            INTEGER with NamedNumbers is made more efficient and thus
+            faster in runtime.</p>
+          <p>Own Id: OTP-3464</p>
+          <p>Aux Id:</p>
+        </item>
+        <item>
+          <p>Added support for encode/decode of open type which is
+            constrained to a specific type. Previously the value of
+            an open type had to be a list of  octets, but now the Erlang
+            representation of the specific type used in the constraint
+            is used both as input to encode and as output from decode.</p>
+          <p>Own Id: OTP-3569</p>
+          <p>Aux Id: </p>
+        </item>
+        <item>
+          <p>PER: GeneralString, GraphicalString etc. i.e all strings
+            that are not so called "known-multiplier character
+            string types" are now supported by the runtime 
+            encode/decode functions.</p>
+          <p>Own Id: OTP-3573</p>
+          <p>Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.6</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The ASN.1 language feature <c>COMPONENTS OF</c> is not implemented.</p>
+          <p>Own Id: OTP-2515</p>
+        </item>
+        <item>
+          <p>The compiler does not check that a value referenced by name does exist.</p>
+          <p>Own Id: OTP-3277</p>
+        </item>
+        <item>
+          <p>BER:In the current implementation extension components of a SEQUENCE are required
+            to be present when they are specified as mandatory. This is an error, all extension
+            components are "optional" even if they are not specified to have the OPTIONAL or
+            DEFAULT property.</p>
+          <p>Own Id: OTP-3278</p>
+        </item>
+        <item>
+          <p>BER: The compiler does not take the extensions into account when checking if
+            the tags are unique in a SEQUENCE or SET.</p>
+          <p>Own Id: OTP-3304</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>This version supports soft upgrade from versions 1.1.1, 1.1.5 and 1.1.6.
+            Two new runtime modules <c>asn1rt_ber_v1</c> and 
+            <c>asn1rt_per_v1</c> are delivered together with the old ones. This makes
+            it possible to continue running applications with modules generated with the
+            previous version of the asn1 compiler while modules generated by this version
+            will use the new runtime modules. Note that it is only advice-able to continue
+            running old generates if they are working perfectly and have no need 
+            for the corrections made in this version of the asn1 application.</p>
+        </item>
+        <item>
+          <p>BER: SEQUENCEs encoded with indefinite length was not correctly decoded.
+            This in now corrected.</p>
+          <p>Own Id: OTP-3352</p>
+          <p>Aux Id: Seq 4100</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.2.4</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler now  detects multiple definitions of values and types and reports this as
+            an error. Previously this was detected when the generated Erlang module was compiled.</p>
+          <p>Own Id: OTP-3105</p>
+        </item>
+        <item>
+          <p>BER: An error regarding encoding of <c>ENUMERATED</c> present in asn1-1.1.1 
+            is corrected. The new version 1.1.2 of asn1 containing this correction is 
+            delivered as a "patch".</p>
+          <p>Own Id: OTP-3169</p>
+        </item>
+        <item>
+          <p>BER: Decoding of <c>SEQUENCE OF</c> and <c>SET OF</c> with indefinite length is corrected.
+            The correction was first delivered in version 1.1.2.</p>
+          <p>Own Id: OTP-3170</p>
+        </item>
+        <item>
+          <p>BER: Encoding and decoding of <c>ENUMERATED</c> 
+            with extensionmark
+            "..." did not work (crashed with a runtime error). This
+            has now been corrected. If an unknown enumerated value is
+            decoded (for an extensible enumerated type) 
+            it is returned as <c>{asn1_enum,Value}</c> where
+            <c>Value</c> is an integer. Enumerated values in this format
+            are also accepted by the encoder.  
+            ASN.1 modules containing 
+            <c>ENUMERATED</c> with extensionmark should be 
+            recompiled with the corrected
+            version of the compiler. The BER runtime functions are also
+            corrected.
+            Note that this correction has already been delivered as a
+            bugfix for R4B (OTP-2951).</p>
+          <p>Own Id: OTP-3202</p>
+          <p>Aux Id: Seq3745</p>
+        </item>
+        <item>
+          <p>BER: The primitive/constructed bit in the tag byte of an encoding
+            is not correct when it comes to user defined tags.
+            For example in </p>
+          <code type="none">
+ T ::= [2] SEQUENCE { a BOOLEAN}           </code>
+          <p>the tag 2 does not get the constructed bit set which it should.
+            This is now corrected.</p>
+          <p>Own Id: OTP-3241</p>
+        </item>
+        <item>
+          <p>The decoder can now detect if there are unexpected bytes 
+            remaining when all components of a sequence are decoded.
+            The decoder will then return <c>{error,{asn1{unexpected,Bytes}}}</c></p>
+          <p>Own Id: OTP-3270</p>
+        </item>
+        <item>
+          <p>Values of type <c>OBJECT IDENTIFIER</c> was sometimes returned as an Erlang list
+            (ASN.1 constants) and  sometimes as a tuple (from the decode functions). This is now
+            changed so that <c>OBJECT IDENTIFIER</c> values always are represented as an Erlang
+            tuple.</p>
+          <p>Own Id: OTP-3280</p>
+        </item>
+        <item>
+          <p>PER:The encode/decode functions could not handle integers with 
+            a range greater than 16#7ffffff. This limit is now removed.</p>
+          <p>Own Id: OTP-3287</p>
+        </item>
+        <item>
+          <p>PER: The encoding/decoding of the length for a SET OF/SEQUENCE OF
+            was wrong if there was a size constraint. This is now corrected.</p>
+          <p>Own Id: OTP-3291</p>
+        </item>
+        <item>
+          <p>PER: Encoding of a constrained INTEGER (range &gt; 16 k) was wrong for
+            the value 0. This is now corrected.</p>
+          <p>Own Id: OTP-3306</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>The ASN.1 module name and the filename where the ASN.1
+            specification resides must match each other (has always been the
+            case). This is now checked by the compiler. The check requires that
+            the names match in a case or case insensitive way depending on the
+            characteristics for the current system.</p>
+          <p>Own Id: OTP-1843</p>
+        </item>
+        <item>
+          <p>PER: Encode/decode of an extension value (i.e not within the root set) for
+            <c>ENUMERATED</c> did not work properly. This is now corrected.
+            If an unknown enumerated value is
+            decoded (for an extensible enumerated type) 
+            it is returned as <c>{asn1_enum,Value}</c> where
+            <c>Value</c> is an integer. Enumerated values in this format
+            are also accepted by the encoder (if the value is &gt;= the number of known 
+            extension values).</p>
+          <p>Own Id: OTP-2930</p>
+        </item>
+        <item>
+          <p>Unnecessary printouts from the compiler are removed.
+            The compiler version and the compiler options are now
+            printed to stdout.</p>
+          <p>Own Id: OTP-3276</p>
+        </item>
+        <item>
+          <p>In order to better suite the use of ASN.1 in embedded systems only 
+            the modules needed in runtime are now listed in the <c>.app</c> file.</p>
+          <p>Own Id: OTP-3279</p>
+        </item>
+        <item>
+          <p>The compiler now supports extensionmarker in constraint specifications.
+            Example:</p>
+          <code type="none">
+INTEGER (0..10, ...)          </code>
+          <p>In previous version this was reported as a syntax error.</p>
+          <p>Own Id: OTP-3281</p>
+        </item>
+        <item>
+          <p>A very limited part of ITU-T recommendation X.681 
+            Abstract Syntax Notation One (ASN.1): Information
+            object specification is now implemented. Specifically \011
+            TYPE IDENTIFIER is recognized by the compiler.</p>
+          <p>Own Id: OTP-3325</p>
+        </item>
+        <item>
+          <p>Parameterization of ASN.1 specifications (ITU-T X.683) is now
+            supported to a limited extent.</p>
+          <p>Own Id: OTP-3326</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.1.3.1</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>BER Encoding and decoding of <c>ENUMERATED</c> 
+            with extensionmark
+            "..." did not work (crashed with a runtime error). This
+            has now been corrected. If an unknown enumerated value is
+            decoded (for an extensible enumerated type) 
+            it is returned as <c>{asn1_enum,Value}</c> where
+            <c>Value</c> is an integer. Enumerated values in this format
+            are also accepted by the encoder.  
+            ASN.1 modules containing 
+            <c>ENUMERATED</c> with extensionmark should be 
+            recompiled with the corrected
+            version of the compiler. The BER runtime functions are also
+            corrected.
+            Note that this correction has already been delivered as a
+            bug-fix for R4B (OTP-2951).</p>
+          <p>Own Id: OTP-3202</p>
+          <p>Aux Id: Seq3745</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.1.1</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The syntactic construct <c>COMPONENTS OF</c> is not
+            implemented.</p>
+          <p>Own Id: OTP-2515</p>
+        </item>
+        <item>
+          <p><c>ANY</c> and <c>ANY DEFINED BY</c> are currently not 
+            supported.</p>
+          <p>Own Id: OTP-2741</p>
+          <p>Aux Id: seq 1188</p>
+        </item>
+        <item>
+          <p>Multiple definitions of the same Type or Value is not detected
+            by the compiler. The error occurs when the generated Erlang
+            module is compiled.</p>
+          <p>Own Id: OTP-3105</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.1</title>
+
+    <section>
+      <title>Known problems</title>
+      <list type="bulleted">
+        <item>
+          <p>The primitive/constructed bit in the tag byte of an encoding
+            is not correct when it comes to user defined tags.
+            For example in</p>
+          <code type="none">
+ T ::= [2] SEQUENCE { a BOOLEAN}           </code>
+          <p>the tag 2 does not get the constructed bit set which it should.
+            This is now corrected.</p>
+          <p>Own Id: OTP-3241</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The BER decoder failed to decode certain nested data types
+            where <c>IMPLICIT</c> tags where involved. 
+            This is now corrected.</p>
+          <p>Own Id: OTP-2719</p>
+          <p>Aux Id: seq 1148</p>
+        </item>
+        <item>
+          <p>The handling of types with extension marker "..." is corrected.
+            Earlier each SEQUENCE and SET with an extension marker got an
+            extra field named <c>asn1_EXT</c> in the generated record.
+            This was a mistake and that field is now removed (concerns
+            both BER and BER).</p>
+          <p>Own Id: OTP-2724</p>
+          <p>Aux Id: seq 1148, OTP-2719</p>
+        </item>
+        <item>
+          <p>The decoder (both BER and PER) could not handle unnamed
+            bits of a <c>BIT STRING</c> if the type had any 
+            named bits declared. This is now corrected and the unnamed
+            bits are returned as <c>{bit,Pos}</c> where Pos is the bit 
+            position. The <c>{bit,Pos}</c> can be used as input to the
+            encoder too.</p>
+          <p>Own Id: OTP-2725</p>
+          <p>Aux Id: seq 1148,OTP-2719,OTP-2724</p>
+        </item>
+        <item>
+          <p>The functions <c>asn1rt:decode</c> and <c>asn1ct:decode</c>
+            did not always return <c>{ok,Result}</c> or 
+            <c>{error,Reason}</c> as documented. This is now corrected.</p>
+          <p>Own Id: OTP-2730</p>
+          <p>Aux Id: seq 1158</p>
+        </item>
+        <item>
+          <p>The compiler did not accept CHOICE types as components 
+            of a SEQUENCE or SET when
+            the modules tag default was IMPLICIT. 
+            Example:</p>
+          <code type="none">
+C ::= CHOICE { ......}
+A ::= SEQUENCE {
+a [1] C, -- This was not accepted
+.....          </code>
+          <p>This was an error
+            caused by a misinterpretation of the ASN.1 standard. This
+            is now corrected.</p>
+          <p>Own Id: OTP-2731</p>
+          <p>Aux Id: seq 1163</p>
+        </item>
+        <item>
+          <p>When decoding a SEQUENCE A which contains an OPTIONAL component
+            b which is a SEQUENCE with mandatory components, the decoder
+            does not detect as an error that a mandatory component of b
+            is missing. The same error could occur also in other cases
+            with nested types and optional components of SEQUENCE or SET.
+            This is now corrected.</p>
+          <p>Own Id: OTP-2738</p>
+          <p>Aux Id: seq 1183</p>
+        </item>
+        <item>
+          <p>BER Encoding and decoding of <c>ENUMERATED</c> 
+            with extensionmark
+            "..." did not work (crashed with a runtime error). This
+            has now been corrected. If an unknown enumerated value is
+            decoded (for an extensible enumerated type) 
+            it is returned as <c>{asn1_enum,Value}</c> where
+            <c>Value</c> is an integer. Enumerated values in this format
+            are also accepted by the encoder.  
+            ASN.1 modules containing 
+            <c>ENUMERATED</c> with extensionmark should be 
+            recompiled with the corrected
+            version of the compiler. The BER runtime functions are also
+            corrected.</p>
+          <p>Own Id: OTP-2951</p>
+          <p>Aux Id: Seq 1446 OTP-2929</p>
+        </item>
+        <item>
+          <p>The compiler does now accept all valid value notations
+            for the OBJECT IDENTIFIER type. The generated code for
+            those values is also corrected.</p>
+          <p>Own Id: OTP-3059</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>The code generated for BER is significantly enhanced resulting
+            in less code and around 300% better performance in runtime 
+            for the encoding of complex ASN.1 values. The performance of
+            decoding is unchanged.</p>
+          <p>Own Id: OTP-2806</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Asn1 1.0.3</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The <c>asn1.app</c> file is corrected.</p>
+          <p>Own Id: OTP-2640</p>
+        </item>
+        <item>
+          <p>The encoding of integers in BER did not comply with the
+            standard for all values. The values was not encoded
+            in the minimum number of octets as required. This is
+            now corrected in the runtime module <c>asn1rt_ber</c>.</p>
+          <p>Own Id: OTP-2666</p>
+        </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Improvements and new features</title>
+      <list type="bulleted">
+        <item>
+          <p>The compiler now generates explicit exports directives for 
+            all generated
+            functions that should be exported (instead of -compile(export_all)). 
+            This eliminates the warnings from the Erlang compiler when 
+            compiling the 
+            generated file.</p>
+          <p>Own Id: OTP-1845</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>R3B02 (Asn1 1.0.2)</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The decoding of a BER encoded SEQUENCE with optional component
+            of type SEQUENCE (also with optional components) could result 
+            in an error or wrong result if the tags are equal.</p>
+          <p>Own Id: OTP-2226</p>
+        </item>
+        <item>
+          <p>The encoding of (PER) SEQUENCE with extensionmark was wrong.
+            This is now corrected.</p>
+          <p>Own Id: OTP-2349</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>R3A (Asn1 0.9)</title>
+
+    <section>
+      <title>Fixed errors and malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The asn1 compiler now detects the use of an implicit tag before <c>CHOICE</c> as an error (in accordance with the standard)</p>
+          <p>Own Id: OTP-1844</p>
+        </item>
+        <item>
+          <p>An OPTIONAL CHOICE embedded in SEQUENCE when BER coding
+            caused an error when generating decode code. This is now
+            corrected.</p>
+          <p>Own Id: OTP-1857</p>
+          <p>Aux Id: OTP-1848</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>1 ASN1 0.8.1</title>
+    <p>This is the first release of the ASN1 application. This version is
+      released for beta-testing. Some functionality will be added until the
+      1.0 version is released. See the release notes for the latest version
+      for the exact details about new features. A list of missing features
+      and restrictions can be found in the chapter below.</p>
+
+    <section>
+      <title>1.1 Missing features and other restrictions</title>
+      <p></p>
+      <list type="bulleted">
+        <item>
+          <p>The encoding rules BER and PER (aligned) is supported. <em>PER (unaligned)  IS NOT SUPPORTED</em>.</p>
+        </item>
+        <item>
+          <p>NOT SUPPORTED types <c>ANY</c> and <c>ANY DEFINED BY</c> 
+            (is not in the standard any more).</p>
+        </item>
+        <item>
+          <p>NOT SUPPORTED types <c>EXTERNAL</c> and <c>EMBEDDED-PDV</c>. </p>
+        </item>
+        <item>
+          <p>NOT SUPPORTED type <c>REAL</c> (planned to be implemented). </p>
+        </item>
+        <item>
+          <p>The code generation support for value definitions in the ASN.1 notation is very limited
+            (planned to be enhanced).</p>
+        </item>
+        <item>
+          <p>The support for constraints is limited to:</p>
+        </item>
+      </list>
+      <list type="bulleted">
+        <item>
+          <p>SizeConstraint  SIZE(X)</p>
+        </item>
+        <item>
+          <p>SingleValue     (1)</p>
+        </item>
+        <item>
+          <p>ValueRange      (X..Y)</p>
+        </item>
+        <item>
+          <p>PermittedAlpabet FROM (but not for BMPString and UniversalString when generating PER).</p>
+        </item>
+        <item>
+          <p>Complex expressions in constraints is not supported (planned to be extended).</p>
+        </item>
+        <item>
+          <p>The current version of the compiler has very limited error checking:</p>
+        </item>
+        <item>
+          <p>Stops at first syntax error.</p>
+        </item>
+        <item>
+          <p>Does not stop when a reference to an undefined type is found , 
+            but prints an error message. Compilation of the generated 
+            Erlang module will then fail.</p>
+        </item>
+        <item>
+          <p>A whole number of other semantical controls is currently
+            missing. This means that the compiler will give little
+            or bad help to detect what's wrong with an ASN.1
+            specification, but will mostly work very well when the
+            ASN.1 specification is correct.</p>
+        </item>
+      </list>
+      <list type="bulleted">
+        <item>
+          <p>The maximum INTEGER supported in this version is a
+            signed 64 bit integer. This limitation is probably quite
+            reasonable. (Planned to be extended).</p>
+        </item>
+        <item>
+          <p>Only AUTOMATIC TAGS supported for PER.</p>
+        </item>
+        <item>
+          <p>Only EXPLICIT and IMPLICIT TAGS supported for BER.</p>
+        </item>
+        <item>
+          <p>The compiler supports decoding of BER-data with indefinite
+            length but it is not possible to produce data with indefinite
+            length with the encoder.</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

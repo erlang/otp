@@ -1,0 +1,99 @@
+module 'dehydrated_itracer' ['dehydrated_itracer'/0,
+			     'module_info'/0,
+			     'module_info'/1]
+    attributes []
+'dehydrated_itracer'/0 =
+    %% Line 5
+    fun () ->
+	case <> of
+	  <> when 'true' ->
+	      %% Line 6
+	      case apply 'itracer'/0
+		       () of
+		<{'vector',65536}> when 'true' ->
+		    %% Line 7
+		    'ok'
+		( <_cor0> when 'true' ->
+		      primop 'match_fail'
+			  ({'badmatch',_cor0})
+		  -| ['compiler_generated'] )
+	      end
+	  ( <> when 'true' ->
+		primop 'match_fail'
+		    ({'function_clause'})
+	    -| ['compiler_generated'] )
+	end
+'itracer'/0 =
+    %% Line 8
+    fun () ->
+	let <Dir> =
+	    %% Line 9
+	    apply 'vcreate'/3
+		(0, 0, 256)
+	in  %% Line 10
+	    apply 'initialize'/1
+		(Dir)
+'initialize'/1 =
+    %% Line 12
+    fun (_cor0) ->
+	%% Line 23
+	case _cor0 of
+	  <{'vector',_pre0}> when 'true' ->
+	      let <_cor4> =
+		  call 'erlang':'*'
+		      (_pre0, 2)
+	      in  let <Up2> = {'vector',_cor4}
+		  in  case Up2 of
+			<{'vector',_pre0}> when 'true' ->
+			    let <_cor4> =
+				call 'erlang':'*'
+				    (_pre0, -1)
+			    in  let <Down> = {'vector',_cor4}
+				in  case _cor0 of
+%%% The case would be optimized away, and pre0 would be used directly,
+%%% only it would be the wrong pre0.
+				      <{'vector',_pre0}> when 'true' ->
+					  let <_cor4> =
+					      call 'erlang':'*'
+						  (_pre0, 256)
+					  in  {'vector',_cor4}
+				      <_cor7> when 'true' ->
+					  call 'erlang':'error'
+					      ({'badrecord','vector'})
+				    end
+			<_cor7> when 'true' ->
+			    call 'erlang':'error'
+				({'badrecord','vector'})
+		      end
+	  <_cor7> when 'true' ->
+	      call 'erlang':'error'
+		  ({'badrecord','vector'})
+	end
+'vcreate'/3 =
+    %% Line 19
+    fun (_cor2,_cor1,_cor0) ->
+	%% Line 20
+	{'vector',_cor0}
+'mul'/2 =
+    %% Line 22
+    fun (_cor1,_cor0) ->
+	%% Line 23
+	case _cor0 of
+	  <{'vector',_pre0}> when 'true' ->
+	      let <_cor4> =
+		  call 'erlang':'*'
+		      (_pre0, _cor1)
+	      in  {'vector',_cor4}
+	  <_cor7> when 'true' ->
+	      call 'erlang':'error'
+		  ({'badrecord','vector'})
+	end
+'module_info'/0 =
+    fun () ->
+	call 'erlang':'get_module_info'
+	    ('dehydrated_itracer')
+'module_info'/1 =
+    fun (_cor0) ->
+	call 'erlang':'get_module_info'
+	    ('dehydrated_itracer', _cor0)
+end

@@ -1,0 +1,375 @@
+
+Mnesia 
+
+1 Introduction
+
+This document aims to give a brief introduction of the implementation
+of mnesia, it's data and functions.
+
+Håkan has written other mnesia papers of interest, (see ~hakan/public_html/):
+o Resource consumption (mnesia_consumption.txt)
+o What to think about when changing mnesia (mnesia_upgrade_policy.txt)
+o Mnesia internals course (mnesia_internals_slides.pdf)
+o Mnesia overview (mnesia_overview.pdf)
+
+1.1. Basic concepts
+
+In a mnesia cluster all nodes are equal, there is no concept off
+master or backup nodes. That said when mixing disc based (uses the
+disc to store meta information) nodes and ram based (do not use disc
+at all) nodes the disc based ones sometimes have precedence over ram
+based nodes.
+
+2 Meta Data
+
+Mnesia has two types of global meta data, static and dynamic.
+All the meta data is stored in the ets table mnesia_gvar.
+
+2.1 Static Meta Data
+The static data is the schema information, usually kept in
+'schema.DAT' file, the data is created with
+mnesia:create_schema(Nodes) for disc nodes (i.e. nodes which uses the
+disc). Ram based mnesia nodes create an empty schema at startup.
+
+The static data i.e. schema, contains information about which nodes
+are involved in the cluster and which type (ram or disc) they have. It
+also contains information about which tables exist on which node and
+so on.
+
+The schema information (static data) must always be the same on all
+active nodes in the mnesia cluster. Schema information is updated via
+schema functions, e.g. mnesia:add_table_copy/3,
+mnesia:change_table_copy/3...
+
+2.2 Dynamic Meta Data
+
+The dynamic data is transient and is local to each mnesia node
+in the cluster. Examples of dynamic data is: currently active mnesia
+nodes, which tables are currently available and where are they
+located. Dynamic data is updated internally by each mnesia during the
+nodes lifetime, i.e. when nodes goes up and down or are added to or
+deleted from the mnesia cluster.
+
+3 Processes and Files
+
+The most important processes in mnesia are mnesia_monitor,
+mnesia_controller, mnesia_tm and mnesia_locker.
+
+Mnesia_monitor acts as supervisor and monitors all resources.  It
+listens for nodeup and nodedown and keeps links to other mnesia nodes,
+if a node goes down it forwards the information to all the necessary
+processes, e.g. mnesia_controller, mnesia_locker, mnesia_tm and all
+transactions.  During start it negotiates the protocol version with
+the other nodes and keep track of which nodes uses which version. The
+monitor process also detects and warns about partioned networks, it is
+then up to the user to deal with them. It is the owner of all open
+files, ets tables and so on.
+
+The mnesia_controller process is responsible for loading tables,
+keeping the dynamic meta data updated, synchronize dangerous work such
+as schema transactions vs dump log operation vs table loading/sending.
+
+The last two processes are involved in all transactions, the
+mnesia_locker process manages transaction locks, and mnesia_tm manages
+all transaction work.
+
+4 Startup and table Loading
+
+The early startup is mostly driven by the mnesia_tm process/module,
+logs are dumped (see log dumping), node-names of other nodes in the
+cluster are retrieved from the static meta data or from environment
+parameters and initial connections are made to the other mnesia
+nodes.
+
+The rest of start up is driven by the mnesia_controller process where
+the schema (static meta data) is merged between each node, this is
+done to keep the schema consistent between all nodes in the
+cluster. When the schema is merged all local tables are put in a
+loading queue, tables which are only available or have local content
+is loaded directly from disc or created if they are type ram_copies.
+
+The other tables are kept in the queue until mnesia decides whether to
+load them from disk or from another node.  If another mnesia node has
+already loaded the table, i.e. got a copy in ram or an open dets file,
+the table is always loaded from that node to keep the data consistent.
+If no other node has a loaded copy of the table, some mnesia node has
+to load it first, and the other nodes can copy the table from the
+first node. Mnesia keeps information about when other nodes went down,
+a starting mnesia will check which nodes have been down, if some of
+the nodes have not been down the starting node will let those nodes
+load the table first. If all other nodes have been down then the
+starting mnesia will load the table. The node that is allowed to load
+the table will load it and the other nodes will copy it from that node.
+
+If a node, which the starter node has not a 'mnesia_down' note from,
+is down the starter node will have to wait until that node comes up
+and decision can be taken, this behavior can be overruled by user
+settings. The order of table loading could be described as:
+
+1. Mnesia downs, Normally decides from where mnesia should load tables.
+2. Master nodes (overrides mnesia downs).
+3. Force load (overrides Master nodes).
+   1) If possible, load table from active master nodes
+   2) if no master nodes is active load from any active nodes,
+   3) if no active node has an active table get local copy 
+      (if ram create empty one) 
+
+Currently mnesia can handle one download and one upload at the same
+time. Dumping and loading/sending may run simultaneously but neither
+of them may run during schema commit. Loaders/senders may not start if
+a schema commit is enqueued. That synchronization is made to prohibit
+that the schema transaction modifies the meta data and the
+prerequisites of the table loading changes.
+
+The actual loading of a table is implemented in 'mnesia_loader.erl'.
+It currently works as follows:
+
+Receiver				Sender
+--------				------
+Spawned
+Find sender node
+Queue sender request    ---->                 
+					Spawned
+*)Spawn real receiver	<----		Send init info
+*)Grab schema lock for			Grab write table lock
+  that table to avoid			Subscribe receiver 
+  deadlock with schema transactions	   to table updates
+Create table (ets or dets)		Release Lock
+
+Get data (with ack	---->            
+   as flow control)     <----		Burst data to receiver
+					Send no_more
+Apply subscription messages
+Store copy on disc			Grab read lock
+Create index, snmp data 		Update meta data info
+and checkpoints if needed		cleanup 
+no_more			---->	
+					Release lock
+
+*) Don't spawn or grab schema lock if operation is add_table_copy, 
+   it's already a schema operation.
+
+
+5 Transaction
+
+Transaction are normally driven from the client process, i.e. the
+process that call 'mnesia:transaction'. The client first acquires a
+globally unique transaction id (tid) and temporary transaction storage
+(ts an ets table) from mnesia_tm and then executes the transaction
+fun. Mnesia-api calls such as 'mnesia:write/1' and 'mnesia:read'
+contains code for acquiring the needed locks. Intermediate database
+states and acquired locks are kept in the transaction storage, and all
+mnesia operations has to be "patched" against that store. I.e. a write
+operation in a transaction should be seen within (and only within)
+that transaction, if the same key is read after the write.
+After the transaction fun is completed the ts is analyzed to see which
+nodes are involved in the transaction, and what type of commit protocol 
+shall be used. Then the result is committed and additional work such as 
+snmp, checkpoints and index updates are performed. The transaction is
+finish by releasing all resources.
+
+An example: 
+
+Example = fun(X) -> 
+	      {table1, key, Value} = mnesia:read(table1, key),
+	      ok = mnesia:write(table1, {table1, key, Value+X}),
+	      {table1, key, Updated} = mnesia:read(table1, key),
+	      Updated
+	  end,
+mnesia:transaction(Example, [10]).
+
+A message overview of a simple successful asynchronous transaction
+                                                               non local
+Client Process		    mnesia_tm(local)	mnesia_locker  mnesia_tm
+------------------------------------------------------------------------
+Get tid          ---->       
+		 <---       Tid and ts
+Get read lock
+from available node  ------------------------------->
+Value	         <----------Value or restart trans---
+Patch value against ts
+
+Get write lock
+from all nodes     ------------------------------->
+                   ------------------------------->
+ok's	          <<---------ok's or restart trans---
+write data in ts
+
+Get read lock,already done.
+Read data Value
+'Patch' data with ts
+Fun return Value+X.
+
+If everything is ok
+commit transaction
+
+Find the nodes that the transaction
+needs to be committed on and
+collect every update from ts. 
+
+Ask for commit  ----------->
+                ----------------------------------------------->
+
+Ok's		<<---------      ------------------------------
+Commit          ----------------------------------------------->
+log commit decision on disk
+Commit locally
+  update snmp
+  update checkpoints
+  notify subscribers
+  update index
+  
+Release locks   ------------------------------->
+Release transaction  ----->
+
+Return trans result
+----------------------
+
+If all needed resources are available, i.e. the needed tables are
+loaded somewhere in the cluster during the transaction, and the user
+code doesn't crash, a transaction in mnesia won't fail. If something
+happens in the mnesia cluster such as node down from the replica the
+transaction was about to read from, or that a lock couldn't be
+acquired and the transaction was not allowed to be queued on that
+lock, the transaction is restarted, i.e. all resources are released
+and the fun is called again. By default a transaction can be
+restarted is infinity many times, but the user may choose to limit
+the number of restarts.
+
+The dirty operations don't do any of the above they just finds out
+where to write the data, logs the operation to disk and casts (or call
+in case of sync_dirty operation) the data to those nodes.  Therefore
+the dirty operations have the drawback that each write or delete sends
+a message per operation to the involved nodes.
+
+There is also a synchronous variant of 2-phase commit protocol which
+waits on an additional ack message after the transaction is committed
+on every node. The intention is to provide the user with a way to
+solve overloading problems.
+
+A 3-phase commit protocol is used for schema transaction or if the
+transaction result is going to be committed in a asymmetrical way,
+i.e. a transaction that writes to table a and b where table a and b
+have replicas on different nodes. The outcome of the transactions are
+stored temporary in an ets table and in the log file.
+
+6 Schema transactions
+
+Schema transactions are handled differently than ordinary
+transactions, they are implemented in mnesia_schema (and in
+mnesia_dumper). The schema operation is always spawned to protect from
+that the client process dies during the transaction.
+
+The actual transaction fun checks the pre-conditions and acquires the
+needed locks and notes the operation in the transaction store. During
+the commit, the schema transaction runs a schema prepare operation (on
+every node) that does the needed prerequisite job. Then the operation
+is logged to disc, and the actual commit work is done by dumping the
+log. Every schema operation has special clause in mnesia_dumper to
+handle the finishing work. Every schema prepare operation has a
+matching undo_prepare operation which needs to be invoked if the
+transaction is aborted.
+
+7 Locks
+
+"The locking algorithm is a traditional 'two-phase locking'* and the
+deadlock prevention is 'wait-die'*, time stamps for the wait-die algorithm
+is 'Lamport clock'* maintained by mnesia_tm. The Lamport clock is kept
+when the transaction is restarted to avoid starving." 
+
+* References can be found in the paper mnesia_overview.pdf
+  Klacke, Håkan and Hans wrote about mnesia.
+
+What the quote above means is that read locks are acquired on the
+replica that mnesia read from, write locks are acquired on all nodes
+which have a replica. Several read lock can lock the same object, but
+write locks are exclusive. The transaction identifier (tid) is a ever
+increasing system uniq counter which have the same sort order on every
+node (a Lamport clock), which enables mnesia_locker to order the lock
+requests. When a lock request arrives, mnesia_locker checks whether
+the lock is available, if it is a 'granted' is sent back to the client
+and the lock is noted as taken in an ets table. If the lock is already
+occupied, it's tid is compared with tid of the transaction holding the
+lock. If the tid of holding transaction is greater than the tid of
+asking transaction it's allowed to be put in the lock queue (another
+ets table) and no response is sent back until the lock is released, if
+not the transaction will get a negative response and mnesia_tm will
+restart the transaction after it has slept for a random time.
+
+Sticky locks works almost as a write lock, the first time a sticky
+lock is acquired a request is sent to all nodes. The lock is marked as
+taken by the requesting node (not transaction), when the lock is later
+released it's only released on the node that has the sticky lock, 
+thus the next time a transaction is requesting the lock it don't need
+to ask the others nodes. If another node wants the lock it has to request
+a lock release first, before it can acquire the lock.
+
+8 Fragmented tables
+
+Fragmented tables are used to split a large table in smaller parts.
+It is implemented as a layer between the client and mnesia which
+extends the meta data with additional properties and maps a {table,
+key} tuple to a table_fragment. 
+
+The default mapping is erlang:phash() but the user may provide his own
+mapping function to be able to predict which records is stored in
+which table fragment, e.g.  the client may want to steer where a
+record generated from a certain device is placed. 
+
+The foreign key is used to co-locate other tables to the same node.
+The other additinal table attributes are also used to distribute the
+table fragments.
+
+9 Log Dumping
+
+All operations on disk tables are stored on a log 'LATEST.LOG' on
+disk, so mnesia can redo the transactions if the node goes down.
+Dumping the log means that mnesia moves the committed data from the
+general log to the table specific disk storage. To avoid that the log
+grows to large and uses a lot of disk space and makes the startup slow,
+mnesia dumps the log during it's uptime. There are two triggers that
+start the log dumping, timeouts and the number of commits since last
+dump, both are user configurable.
+
+Disc copies tables are implemented with two disk_log files, one
+'table.DCD' (disc copies data) and one 'table.DCL' (disc copies log).
+The dcd contains raw records, and the dcl contains operations on that
+table, i.e. '{write, {table, key, value}}' or '{delete, {table,
+key}}'.  First time a record for a specific table is found when
+dumping the table, the size of both the dcd and the dcl files are
+checked. And if the sizeof(dcl)/sizeof(dcd) is greater than a
+threshold, the current ram table is dumped to file 'table.DCD' and the
+corresponding dcl file is deleted, and all other records in the
+general log that belongs to that table are ignored. If the threshold
+is not meet than the operations in the general log to that table are
+appended to the dcl file. On start up both files are read, first the
+contents of the dcd are loaded to an ets table, then it's modified by
+the operations stored in the corresponding dcl file.
+
+Disc only copies tables updates the 'dets' file directly when
+committing the data so those entries can be ignored during normal log
+dumping, they are only added to the 'dets' file during startup when
+mnesia don't know the state of the disk table.
+
+10 Checkpoints and backups 
+
+Checkpoints are created to be able to take snapshots of the database,
+which is pretty good when you want consistent backups, i.e. you don't
+want half of a transaction in the backup. The checkpoint creates a
+shadow table (called retainer) for each table involved in the
+checkpoint. When a checkpoint is requested it will not start until all
+ongoing transactions are completed. The new transactions will update
+both the real table and update the shadow table with operations to
+undo the changes on the real table, when a key is modified the first
+time.  I.e. when write operation '{table, a, 14}' is made, the shadow
+table is checked if key 'a' has a undo operation, if it has, nothing
+more is done. If not a {write, {table, a, OLD_VALUE}} is added to the
+shadow table if the real table had an old value, if not a {delete,
+{table, a}} operation is added to the shadow table.
+
+The backup is taken by copying every record in the real table and then
+appending every operation in the shadow table to the backup, thus
+undoing the changes that where made since the checkpoint where
+started.
+
+

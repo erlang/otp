@@ -1,0 +1,8 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+%%! -smp disable
+
+main(Args) ->
+    io:format("Root dir: ~s\n", [code:root_dir()]),
+    io:format("Script args: ~p\n", [Args]),
+    io:format("Smp: ~p\n", [erlang:system_info(smp_support)]).

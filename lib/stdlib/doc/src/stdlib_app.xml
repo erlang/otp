@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>2005</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>STDLIB</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <app>STDLIB</app>
+  <appsummary>The STDLIB Application</appsummary>
+  <description>
+    <p>The STDLIB is mandatory in the sense that the minimal system
+      based on Erlang/OTP consists of Kernel and STDLIB. The STDLIB
+      application contains no services.</p>
+  </description>
+
+  <section>
+    <title>Configuration</title>
+    <p>The following configuration parameters are defined for the STDLIB
+      application. See <c>app(4)</c> for more information about
+      configuration parameters.</p>
+    <taglist>
+      <tag><c>shell_esc = icl | abort</c></tag>
+      <item>
+        <p>This parameter can be used to alter the behaviour of 
+          the Erlang shell when ^G is pressed.</p>
+      </item>
+      <tag><c>restricted_shell = module()</c></tag>
+      <item>
+        <p>This parameter can be used to run the Erlang shell
+          in restricted mode.</p>
+      </item>
+      <tag><c>shell_catch_exception = bool()</c></tag>
+      <item>
+        <p>This parameter can be used to set the exception handling
+	  of the Erlang shell's evaluator process.</p>
+      </item>
+      <tag><c>shell_history_length = integer() >= 0</c></tag>
+      <item>
+        <p>This parameter can be used to determine how many 
+          commands are saved by the Erlang shell.</p>
+      </item>
+      <tag><c>shell_saved_results = integer() >= 0</c></tag>
+      <item>
+        <p>This parameter can be used to determine how many 
+          results are saved by the Erlang shell.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="kernel:app">app(4)</seealso>,
+      <seealso marker="kernel:application">application(3)</seealso>, 
+      <seealso marker="shell">shell(3)</seealso>, </p>
+  </section>
+</appref>
+

@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>FTP Client</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>ftp_client.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+
+    <p>Ftp clients are consider to be rather temporary and are
+      for that reason only started and stopped during
+      runtime and can not be started at application startup.
+      Due to the design of FTP client API, letting some
+      functions return intermediate results, only the process
+      that started the ftp client will be able to access it in
+      order to preserve sane semantics. (This could be solved
+      by changing the API and using the concept of a controlling
+      process more in line with other OTP applications, but
+      that is perhaps something for the future.) 
+      If the process that started the ftp session 
+      dies the ftp client process will terminate.</p>
+
+    <p>The client supports ipv6 as long as the underlying mechanisms
+      also do so. </p>
+
+    </section>
+
+  <section>
+    <title>Using the FTP Client API</title>
+    <p>The following is a simple example of an ftp session, where
+      the user <c>guest</c> with password <c>password</c> logs on to
+      the remote host <c>erlang.org</c>, and where the file
+      <c>appl.erl</c> is transferred from the remote to the local
+      host.  When the session is opened, the current directory at
+      the remote host is <c>/home/guest</c>, and <c>/home/fred</c>
+      at the local host. Before transferring the file, the current
+      local directory is changed to <c>/home/eproj/examples</c>, and
+      the remote directory is set to
+      <c>/home/guest/appl/examples</c>.</p>
+    <code type="erl"><![CDATA[
+      1> inets:start().
+      ok
+      2> {ok, Pid} = inets:start(ftpc, [{host, "erlang.org"}]).
+      {ok,<0.22.0>}
+      3> ftp:user(Pid, "guest", "password").
+      ok
+      4> ftp:pwd(Pid).
+      {ok, "/home/guest"}
+      5> ftp:cd(Pid, "appl/examples").
+      ok
+      6> ftp:lpwd(Pid).
+      {ok, "/home/fred"}.
+      7> ftp:lcd(Pid, "/home/eproj/examples").
+      ok
+      8> ftp:recv(Pid, "appl.erl").
+      ok
+      9> inets:stop(ftpc, Pid).
+      ok
+    ]]></code>
+  </section>
+</chapter>
+
+

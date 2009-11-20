@@ -1,0 +1,3772 @@
+dnl Process this file with autoconf to produce a configure script. -*-m4-*-
+
+dnl %CopyrightBegin%
+dnl 
+dnl Copyright Ericsson AB 1997-2009. All Rights Reserved.
+dnl 
+dnl The contents of this file are subject to the Erlang Public License,
+dnl Version 1.1, (the "License"); you may not use this file except in
+dnl compliance with the License. You should have received a copy of the
+dnl Erlang Public License along with this software. If not, it can be
+dnl retrieved online at http://www.erlang.org/.
+dnl 
+dnl Software distributed under the License is distributed on an "AS IS"
+dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+dnl the License for the specific language governing rights and limitations
+dnl under the License.
+dnl 
+dnl %CopyrightEnd%
+
+dnl The string "FIXME convbreak" means that there is a break of
+dnl autoconf convention that should be cleaned up.
+
+AC_INIT(vsn.mk)
+AC_PREREQ(2.59)
+
+if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
+    # We do not want to use a common cache!
+    cache_file=/dev/null
+fi
+
+dnl How to set srcdir absolute is taken from the GNU Emacs distribution
+#### Make srcdir absolute, if it isn't already.  It's important to
+#### avoid running the path through pwd unnecessary, since pwd can
+#### give you automounter prefixes, which can go away.
+case "${srcdir}" in
+  /* ) ;;
+  . )
+    ## We may be able to use the $PWD environment variable to make this
+    ## absolute.  But sometimes PWD is inaccurate.
+    ## Make sure CDPATH doesn't affect cd (in case PWD is relative).
+    CDPATH=
+    if test "${PWD}" != "" && test "`(cd ${PWD} ; sh -c pwd)`" = "`pwd`"  ;
+    then
+      srcdir="$PWD"
+    else
+      srcdir="`(cd ${srcdir}; pwd)`"
+    fi
+  ;;
+  *  ) srcdir="`(cd ${srcdir}; pwd)`" ;;
+esac
+
+## Now, make sure that ERL_TOP is set and is the same as srcdir
+##
+if test -z "$ERL_TOP" || test ! -d $ERL_TOP ; then
+  AC_MSG_ERROR(You need to set the environment variable ERL_TOP!)
+fi
+if test x"${ERL_TOP}/erts" != x"$srcdir"; then
+  AC_MSG_ERROR([You need to run configure with argument --srcdir=${ERL_TOP}/erts])
+fi
+erl_top=${ERL_TOP}
+
+# echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+# echo X
+# echo "X srcdir  = $srcdir"
+# echo "X ERL_TOP = $ERL_TOP"
+# echo X
+# echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+
+AC_CONFIG_AUX_DIRS($srcdir/autoconf)
+
+dnl ----------------------------------------------------------------------
+dnl Figure out what system we are running on.
+dnl ----------------------------------------------------------------------
+
+#
+# To configure for free source run ./configure --host=free_source
+#
+dnl
+dnl AC_CANONICAL_HOST does not like free_source as a host specification,
+dnl so we make a little special case.
+dnl
+if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
+    AC_CANONICAL_HOST
+else
+    host_os=$host
+fi
+AC_ISC_POSIX
+
+AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in)
+dnl ----------------------------------------------------------------------
+dnl Optional features.
+dnl ----------------------------------------------------------------------
+enable_child_waiter_thread=no
+ENABLE_ALLOC_TYPE_VARS=
+AC_SUBST(ENABLE_ALLOC_TYPE_VARS)
+
+AC_ARG_WITH(xcomp-conf,
+[  --with-xcompconf=PATH     path to cross compilation configuration])
+if test "x$with_xcompconf" != "xno" -a "x$with_xcompconf" != "x" ; then
+    . $with_xcompconf
+fi
+
+
+AC_ARG_ENABLE(threads,
+[  --enable-threads        enable async thread support
+  --disable-threads       disable async thread support],
+[ case "$enableval" in
+    no) enable_threads=no ;;
+    *)  enable_threads=yes ;;
+  esac ], enable_threads=unknown)
+
+AC_ARG_ENABLE(smp-support,
+[  --enable-smp-support    enable smp support
+  --disable-smp-support   disable smp support],
+[ case "$enableval" in
+    no) enable_smp_support=no ;;
+    *)  enable_smp_support=yes ;;
+  esac ], enable_smp_support=unknown)
+
+AC_ARG_WITH(termcap,
+[  --with-termcap          use termcap (default)
+  --without-termcap       do not use any termcap libraries (ncurses,curses,termcap,termlib)],
+[],
+[with_termcap=yes])
+
+
+AC_ARG_ENABLE(hybrid-heap,
+[  --enable-hybrid-heap    enable hybrid heap
+  --disable-hybrid-heap   disable hybrid heap],
+[ case "$enableval" in
+    no) enable_hybrid_heap=no ;;
+    *)  enable_hybrid_heap=yes ;;
+  esac ], enable_hybrid_heap=unknown)
+
+AC_ARG_ENABLE(lock-checking,
+[  --enable-lock-checking  enable lock checking],
+[ case "$enableval" in
+    no) enable_lock_check=no ;;
+    *)  enable_lock_check=yes ;;
+  esac
+],
+  enable_lock_check=no)
+
+AC_ARG_ENABLE(lock-counter,
+[  --enable-lock-counter    enable lock counters
+  --disable-lock-counter   disable lock counters],
+[ case "$enableval" in
+    no) enable_lock_count=no ;;
+    *)  enable_lock_count=yes ;;
+  esac ], enable_lock_count=no)
+
+AC_ARG_ENABLE(kernel-poll,
+[  --enable-kernel-poll    enable kernel poll support
+  --disable-kernel-poll   disable kernel poll support],
+[ case "$enableval" in
+    no) enable_kernel_poll=no ;;
+    *)  enable_kernel_poll=yes ;;
+  esac ], enable_kernel_poll=unknown)
+
+
+AC_ARG_ENABLE(sctp,
+[  --enable-sctp           enable sctp support
+  --disable-sctp          disable sctp support],
+[ case "$enableval" in
+    no) enable_sctp=no ;;
+    *)  enable_sctp=yes ;;
+  esac ], enable_sctp=unknown)
+
+AC_ARG_ENABLE(hipe,
+[  --enable-hipe           enable hipe support
+  --disable-hipe          disable hipe support])
+
+AC_ARG_ENABLE(native-libs,
+[  --enable-native-libs    compile Erlang libraries to native code])
+
+AC_ARG_ENABLE(tsp,
+[  --enable-tsp            compile tsp app])
+
+AC_ARG_ENABLE(elib-malloc,
+[  --enable-elib-malloc    use elib_malloc instead of normal malloc])
+
+AC_ARG_ENABLE(fp-exceptions,
+[  --enable-fp-exceptions    Use hardware floating point exceptions (default if hipe enabled)],
+[ case "$enableval" in
+    no) enable_fp_exceptions=no ;;
+    *)  enable_fp_exceptions=yes ;;
+  esac
+],enable_fp_exceptions=auto)
+
+AC_ARG_ENABLE(darwin-universal,
+[  --enable-darwin-universal    build universal binaries on darwin i386],
+[ case "$enableval" in
+    no) enable_darwin_universal=no ;;
+    *)  enable_darwin_univeral=yes ;;
+  esac
+],enable_darwin_universal=no)
+
+
+AC_ARG_ENABLE(darwin-64bit,
+[  --enable-darwin-64bit    build 64bit binaries on darwin],
+[ case "$enableval" in
+    no) enable_darwin_64bit=no ;;
+    *)  enable_darwin_64bit=yes ;;
+  esac
+],enable_darwin_64bit=no)
+
+AC_ARG_ENABLE(m64-build,
+[  --enable-m64-build    build 64bit binaries using the -m64 flag to (g)cc],
+[ case "$enableval" in
+    no) enable_m64_build=no ;;
+    *)  enable_m64_build=yes ;;
+  esac
+],enable_m64_build=no)
+
+AC_ARG_ENABLE(fixalloc,
+[  --disable-fixalloc      disable the use of fix_alloc])
+if test x${enable_fixalloc} = xno ; then
+  AC_DEFINE(NO_FIX_ALLOC,[],
+	    [Define if you don't want the fix allocator in Erlang])
+fi
+
+AC_SUBST(PERFCTR_PATH)
+AC_ARG_WITH(perfctr,
+[  --with-perfctr=PATH     specify location of perfctr include and lib
+  --without-perfctr       don't use perfctr (default)])
+
+if test "x$with_perfctr" = "xno" -o "x$with_perfctr" = "x" ; then
+    PERFCTR_PATH=
+else
+    if test ! -f "$with_perfctr/usr.lib/libperfctr.a" ; then
+	AC_MSG_ERROR(Invalid path to option --with-perfctr=PATH)
+    fi
+    PERFCTR_PATH="$with_perfctr"
+    AC_DEFINE(USE_PERFCTR,[1],
+              [Define to enable hrvtime() on Linux systems with perfctr extension])
+fi
+
+AC_ARG_ENABLE(clock-gettime,
+[  --enable-clock-gettime  Use clock-gettime for time correction],
+[ case "$enableval" in
+    no) clock_gettime_correction=no ;;
+    *) clock_gettime_correction=yes ;;
+  esac ], clock_gettime_correction=unknown)
+
+AC_ARG_ENABLE(native-ethr-impls,
+[  --enable-native-ethr-impls enable native ethread implementations
+  --disable-native-ethr-impls disable native ethread implementations],
+[ case "$enableval" in
+    no) disable_native_ethr_impls=yes ;;
+    *)  disable_native_ethr_impls=no ;;
+  esac ], disable_native_ethr_impls=no)
+
+dnl Defined in libraries/megaco/configure.in but we need it here
+dnl also in order to show it to the "top user"
+
+AC_ARG_ENABLE(megaco_flex_scanner_lineno,
+[  --disable-megaco-flex-scanner-lineno disable megaco flex scanner lineno])
+
+dnl Magic test for clearcase.
+OTP_RELEASE=
+if test "${ERLANG_COMMERCIAL_BUILD}" != ""; then
+	OTP_EXTRA_FLAGS=-DOTP_RELEASE
+	OTP_RELEASE=yes
+else
+	OTP_EXTRA_FLAGS=
+fi
+AC_SUBST(OTP_RELEASE)
+
+dnl OK, we might have darwin switches off different kinds, lets 
+dnl check it all before continuing.
+TMPSYS=`uname -s`-`uname -m`
+if test X${enable_darwin_universal} = Xyes; then
+	if test X${enable_darwin_64bit} = Xyes; then
+		AC_MSG_ERROR([--enable-darwin-universal and --enable-darwin-64bit mutually exclusive])
+	fi
+	enable_hipe=no
+	case $CFLAGS in
+		*-arch\ ppc*)
+			;;
+		*)
+			CFLAGS="-arch ppc $CFLAGS"
+			;;
+	esac
+	case $CFLAGS in
+		*-arch\ i386*)
+			;;
+		*)
+			CFLAGS="-arch i386 $CFLAGS"
+			;;
+	esac
+fi
+if test X${enable_darwin_64bit} = Xyes; then
+	case "$TMPSYS" in
+	    Darwin-i386|Darwin-x86_64)
+		;;
+	    Darwin*)
+		AC_MSG_ERROR([--enable-darwin-64bit only supported on x86 hosts])
+		;;
+	    *)
+		AC_MSG_ERROR([--enable-darwin-64bit only supported on Darwin])
+		;;
+	esac
+fi
+if test X${enable_darwin_64bit} = Xyes -o X${enable_m64_build} = Xyes; then
+	enable_hipe=no
+	case $CFLAGS in
+		*-m64*)
+			;;
+		*)
+			CFLAGS="-m64 $CFLAGS"
+			;;
+	esac
+else
+	case $host_os in
+		darwin*)
+			case $CFLAGS in
+			*-m32*)
+				;;
+			*)
+				CFLAGS="-m32 $CFLAGS"
+				;;
+			esac
+			;;
+		*)
+			;;
+	esac
+fi
+
+
+dnl ----------------------------------------------------------------------
+dnl Checks for programs.
+dnl ----------------------------------------------------------------------
+
+AC_PROG_CC
+
+dnl ---------------------------------------------------------------------
+dnl Special stuff regarding CFLAGS and details in the environment...
+dnl ---------------------------------------------------------------------
+
+dnl NOTE: CPPFLAGS will be included in CFLAGS at the end
+case $host_os in
+    linux*) CPPFLAGS="$CPPFLAGS -D_GNU_SOURCE";; 
+    win32)
+	# The ethread library requires _WIN32_WINNT of at least 0x0403.
+	# -D_WIN32_WINNT=* from CPPFLAGS is saved in ETHR_DEFS.
+	CPPFLAGS="$CPPFLAGS -D_WIN32_WINNT=0x0500 -DWINVER=0x0500"
+	# _USE_32BIT_TIME_T is needed when using VC++ 2005 (ctime() will fail
+	# otherwise since we pass it a 32-bit value).
+	#
+	# FIXME: Use time_t all the way and remove _USE_32BIT_TIME_T.
+	AC_MSG_WARN([Reverting to 32-bit time_t])
+	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
+	;;
+    *)
+	;;
+esac
+
+
+
+MIXED_CYGWIN=no
+
+AC_MSG_CHECKING(for mixed cygwin and native VC++ environment)
+if test "X$host" = "Xwin32" -a "x$GCC" != x"yes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([yes])
+		MIXED_CYGWIN_VC=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_VC"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_VC=no
+fi
+AC_SUBST(MIXED_CYGWIN_VC)
+
+AC_MSG_CHECKING(for mixed cygwin and native MinGW environment)
+if test "X$host" = "Xwin32" -a "x$GCC" = x"yes"; then
+	if test -x /usr/bin/cygpath; then
+		CFLAGS="-O2"
+		MIXED_CYGWIN=yes
+		AC_MSG_RESULT([yes])
+		MIXED_CYGWIN_MINGW=yes
+		CPPFLAGS="$CPPFLAGS -DERTS_MIXED_CYGWIN_MINGW"
+	else
+		AC_MSG_RESULT([undeterminable])
+		AC_MSG_ERROR(Seems to be mixed windows but not with cygwin, cannot handle this!)
+	fi
+else
+	AC_MSG_RESULT([no])
+	MIXED_CYGWIN_MINGW=no
+fi
+AC_SUBST(MIXED_CYGWIN_MINGW)
+
+AC_MSG_CHECKING(if we mix cygwin with any native compiler)
+if test "X$MIXED_CYGWIN" = "Xyes" ; then
+	AC_MSG_RESULT([yes])	
+else
+	AC_MSG_RESULT([no])
+fi
+
+AC_SUBST(MIXED_CYGWIN)
+	
+dnl
+dnl Flags to the C compiler
+dnl
+dnl Make sure we find config.h
+dnl
+
+extra_flags="-I${ERL_TOP}/erts/$host $OTP_EXTRA_FLAGS"
+CFLAGS="$CFLAGS $extra_flags"
+DEBUG_CFLAGS="-g $CPPFLAGS $extra_flags"
+DEBUG_FLAGS=-g
+
+CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
+case $host_os in
+  darwin*)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	CFLAGS="$CFLAGS -no-cpp-precomp"
+	;;
+  win32)
+	CFLAG_RUNTIME_LIBRARY_PATH=
+	;;
+  osf*)
+	CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-rpath,"
+	;;
+  *)
+	;;
+esac
+
+
+dnl
+dnl Use the getconf utility if it exists
+dnl to find large file support flags.
+dnl
+if type getconf >/dev/null 2>&1; then
+	CFLAGS="$CFLAGS `getconf LFS_CFLAGS 2>/dev/null`"
+	DEBUG_CFLAGS="$DEBUG_CFLAGS `getconf LFS_CFLAGS 2>/dev/null`"
+	LDFLAGS="$LDFLAGS `getconf LFS_LDFLAGS 2>/dev/null`"
+	LIBS="$LIBS `getconf LFS_LIBS 2>/dev/null`"
+fi
+
+if test "x$GCC" = xyes; then
+  # until the emulator can handle this, I suggest we turn it off!
+  #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"
+  WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes"
+
+  saved_CFLAGS=$CFLAGS
+  CFLAGS="$CFLAGS -Wdeclaration-after-statement"
+  AC_TRY_COMPILE([],[;], warn_decl_after_st=true, warn_decl_after_st=false)
+  if test "X$warn_decl_after_st" = "Xtrue"; then
+    WFLAGS="$WFLAGS -Wdeclaration-after-statement"
+  fi
+  CFLAGS=$saved_CFLAGS
+else
+  WFLAGS=""
+fi
+dnl DEBUG_FLAGS is obsolete (I hope)
+AC_SUBST(DEBUG_FLAGS)
+AC_SUBST(DEBUG_CFLAGS)
+AC_SUBST(WFLAGS)
+AC_SUBST(CFLAG_RUNTIME_LIBRARY_PATH)
+
+AC_CHECK_SIZEOF(void *, $erl_xcomp_void_p) # Needed for ARCH and smp checks below
+
+dnl
+dnl Figure out operating system and cpu architecture
+dnl
+
+if test "x$erl_xcomp_os" != "x"; then
+    chk_opsys_=$erl_xcomp_os
+else
+    if test "x$host_os" = "xwin32"; then
+	chk_opsys_=win32
+    else
+	chk_opsys_=`uname -s`
+	if test "x$chk_opsys_" = "xSunOS"; then
+	    chk_opsys_=$chk_opsys_`uname -r`
+	fi
+    fi
+fi
+case $chk_opsys_ in
+    win32)			OPSYS=win32;;
+    solaris2.*|SunOS5.*)	OPSYS=sol2;;
+    linux|Linux)		OPSYS=linux;;
+    darwin|Darwin)		OPSYS=darwin;;
+    freebsd|FreeBSD)		OPSYS=freebsd;;
+    *)				OPSYS=noopsys
+esac
+
+if test "x$erl_xcomp_hw" != "x"; then
+    chk_arch_=$erl_xcomp_hw
+else
+    chk_arch_=`uname -m`
+fi
+case $chk_arch_ in
+    sun4u)	ARCH=ultrasparc;;
+    sparc64)	ARCH=sparc64;;
+    sun4v)	ARCH=ultrasparc;;
+    i86pc)	ARCH=x86;;
+    i386)	ARCH=x86;;
+    i486)	ARCH=x86;;
+    i586)	ARCH=x86;;
+    i686)	ARCH=x86;;
+    x86_64)	ARCH=amd64;;
+    amd64)	ARCH=amd64;;
+    macppc)	ARCH=ppc;;
+    ppc)	ARCH=ppc;;
+    ppc64)	ARCH=ppc64;;
+    "Power Macintosh")	ARCH=ppc;;
+    armv5b)	ARCH=arm;;
+    armv5teb)	ARCH=arm;;
+    armv5tel)	ARCH=arm;;
+    tile)	ARCH=tile;;
+    *)	 	ARCH=noarch;;
+esac
+
+dnl
+dnl Convert between x86 and amd64 based on the compiler's mode.
+dnl Ditto between ultrasparc and sparc64.
+dnl
+AC_MSG_CHECKING(whether compilation mode forces ARCH adjustment)
+case "$ARCH-$ac_cv_sizeof_void_p" in
+i386-8)
+	AC_MSG_RESULT(yes: adjusting ARCH=x86 to ARCH=amd64)
+	ARCH=amd64
+	;;
+x86-8)
+	AC_MSG_RESULT(yes: adjusting ARCH=x86 to ARCH=amd64)
+	ARCH=amd64
+	;;
+amd64-4)
+	AC_MSG_RESULT(yes: adjusting ARCH=amd64 to ARCH=x86)
+	ARCH=x86
+	;;
+ultrasparc-8)
+	AC_MSG_RESULT(yes: adjusting ARCH=ultrasparc to ARCH=sparc64)
+	ARCH=sparc64
+	;;
+sparc64-4)
+	AC_MSG_RESULT(yes: adjusting ARCH=sparc64 to ARCH=ultrasparc)
+	ARCH=ultrasparc
+	;;
+ppc64-4)
+	AC_MSG_RESULT(yes: adjusting ARCH=ppc64 to ARCH=ppc)
+	ARCH=ppc
+	;;
+*)
+	AC_MSG_RESULT(no)
+	;;
+esac
+
+AC_SUBST(OPSYS)
+AC_SUBST(ARCH)
+
+dnl Check consistency of os and darwin-switches
+
+
+dnl Take care of LDFLAGS on darwin, and disable common_test as it
+dnl has a build/configure system re rx-lib that is not compatible
+dnl First remove common_tests skip file.
+
+dnl Adjust LDFLAGS to allow 64bit linkage on DARWIN
+case $ARCH-$OPSYS in
+	amd64-darwin*)
+		AC_MSG_NOTICE([Adjusting LDFLAGS to cope with 64bit Darwin])
+		case $LDFLAGS in
+			*-m64*)
+				;;
+			*)
+				LDFLAGS="-m64 $LDFLAGS"
+			;;
+		esac
+		;;
+	*-darwin*)
+		if test X${enable_darwin_universal} = Xyes; then
+			AC_MSG_NOTICE([Adjusting LDFLAGS for universal binaries])
+			
+			case $LDFLAGS in
+				*-arch\ ppc*)
+					;;
+				*)
+					LDFLAGS="-arch ppc $LDFLAGS"
+					;;
+			esac
+			case $LDFLAGS in
+				*-arch\ i386*)
+					;;
+				*)
+					LDFLAGS="-arch i386 $LDFLAGS"
+					;;
+			esac
+		else
+			case $LDFLAGS in
+				*-m32*)
+					;;
+				*)
+					LDFLAGS="-m32 $LDFLAGS"
+					;;
+			esac
+		fi
+		;;
+	*)
+		if test X${enable_m64_build} = Xyes; then
+			AC_MSG_NOTICE([Adjusting LDFLAGS to use -m64])
+			case $LDFLAGS in
+				*-m64*)
+					;;
+				*)
+					LDFLAGS="-m64 $LDFLAGS"
+				;;
+			esac
+		fi
+		;;
+esac
+
+AC_MSG_CHECKING(if VM has to be linked with Carbon framework)
+case $ARCH-$OPSYS in
+	amd64-darwin*)
+		LIBCARBON=
+		AC_MSG_RESULT([no])
+		;;
+	*-darwin*)
+		LIBCARBON="-framework Carbon "
+		AC_MSG_RESULT([yes])
+		;;
+	*)
+		LIBCARBON=
+		AC_MSG_RESULT([no])
+		;;
+esac
+	
+AC_SUBST(LIBCARBON)
+
+dnl some tests below will call this if we haven't already - and autoconf
+dnl can't handle those tests being done conditionally at runtime
+AC_PROG_CPP
+
+AC_PROG_RANLIB
+
+AC_PROG_YACC
+LM_PROG_PERL5
+if test "$ac_cv_path_PERL" = false; then
+  AC_MSG_ERROR([Perl version 5 is required to build the emulator!])
+fi
+AC_PROG_LN_S
+
+
+AC_CHECK_PROG(AR, ar, ar, false)
+if test "$ac_cv_prog_AR" = false; then
+  AC_MSG_ERROR([No 'ar' command found in PATH])
+fi
+
+_search_path=/bin:/usr/bin:/usr/local/bin:$PATH
+
+AC_PATH_PROG(RM, rm, false, $_search_path)
+if test "$ac_cv_path_RM" = false; then
+  AC_MSG_ERROR([No 'rm' command found])
+fi
+
+AC_PATH_PROG(MKDIR, mkdir, false, $_search_path)
+if test "$ac_cv_path_MKDIR" = false; then
+  AC_MSG_ERROR([No 'mkdir' command found])
+fi
+
+_search_path=
+
+#
+# Get programs needed for building the documentation 
+#
+
+## Delete previous failed configure results
+if test -f doc/CONF_INFO; then
+   rm doc/CONF_INFO
+fi
+
+AC_CHECK_PROGS(XSLTPROC, xsltproc)
+if test -z "$XSLTPROC"; then
+  echo "xsltproc" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'xsltproc' command found: the documentation can not be built])
+fi
+
+AC_CHECK_PROGS(FOP, fop)
+if test -z "$FOP"; then
+  echo "fop" >> doc/CONF_INFO
+  AC_MSG_WARN([No 'fop' command found: the documentation can not be built])
+fi
+
+dnl
+dnl We can live with Solaris /usr/ucb/install
+dnl
+case $host in
+  *-*-solaris*|free_source)
+    if test -x /usr/ucb/install; then
+      INSTALL="/usr/ucb/install -c"
+    fi
+    ;;
+  *)
+    ;;
+esac
+AC_PROG_INSTALL
+LM_PROG_INSTALL_DIR
+
+case $host_os in
+	darwin*)
+		dnl Need to preserve modification time on archives;
+		dnl otherwise, ranlib has to be run on archives
+		dnl again after installation.
+		INSTALL_DATA="$INSTALL_DATA -p";;
+	*)
+		;;
+esac
+
+dnl
+dnl Fix for Tilera install permissions
+dnl
+
+case $build in
+	*tile*)
+		INSTALL_PROGRAM="$INSTALL_PROGRAM -m755"
+		INSTALL_SCRIPT="$INSTALL_SCRIPT -m755"
+		;;
+	*)
+		;;
+esac
+
+dnl ----------------------------------------------------------------------
+dnl Misc. things (some of them should go away)
+dnl ----------------------------------------------------------------------
+
+dnl
+dnl An attempt to allow cross compiling. This is not the right way,
+dnl nor does it work currently. Some makefiles still needs these
+dnl variables, so we leave them in for now.
+dnl
+HCC='$(CC)'         AC_SUBST(HCC)
+HCFLAGS=""          AC_SUBST(HCFLAGS)
+HCFLAGS="$HCFLAGS -I${ERL_TOP}/erts/$host"
+vxworks_reclaim=""  AC_SUBST(vxworks_reclaim)
+LD='$(CC)'          AC_SUBST(LD)
+
+
+dnl Check for cygwin and object/exe files extension
+dnl AC_CYGWIN is deprecated
+AC_EXEEXT
+AC_OBJEXT
+
+dnl This is the os flavour, should be unix, vxworks or win32
+if test "X$host" = "Xwin32"; then
+	ERLANG_OSTYPE=win32
+else
+	ERLANG_OSTYPE=unix         
+fi
+
+AC_SUBST(ERLANG_OSTYPE)
+
+dnl Which sysv4 would this be, and what is it for???
+dnl XXX: replace with feature tests.
+case $host_os in
+  sysv4*)
+    AC_DEFINE(SOCKOPT_CONNECT_STAT,[],[Obscure SYSV feature])
+    AC_DEFINE(NO_PRAGMA_WEAK,[],[Obscure SYSV feature])
+    LIBS="$LIBS -lgen -lc -L /usr/ucblib -lucb"
+    ;;
+esac
+
+# Check how to export functions from the emulator executable, needed
+# when dynamically loaded drivers are loaded (so that they can find
+# emulator functions).
+# OS'es with ELF executables using the GNU linker (Linux and recent *BSD,
+# in rare cases Solaris) typically need '-Wl,-export-dynamic' (i.e. pass
+# -export-dynamic to the linker - also known as -rdynamic and some other
+# variants); some sysVr4 system(s) instead need(s) '-Wl,-Bexport'.
+# AIX 4.x (perhaps only for x>=2) wants -Wl,-bexpall,-brtl and doesn't
+# reliably return an error for others, thus we separate it out.
+# Otherwise we assume that if the linker accepts the flag, it is needed.
+AC_MSG_CHECKING(for extra flags needed to export symbols)
+DEXPORT=""
+case $host_os in
+	aix4*)
+		DEXPORT=-Wl,-bexpall,-brtl
+	;;
+	bsdi*)
+    		DEXPORT="-rdynamic " 
+    	;;
+	win32)
+    		DEXPORT="" 
+    	;;
+	*)
+		save_ldflags="$LDFLAGS"
+		LDFLAGS=-Wl,-export-dynamic
+		AC_TRY_LINK(,,[DEXPORT=-Wl,-export-dynamic], [
+			LDFLAGS=-Wl,-Bexport
+			AC_TRY_LINK(,,[DEXPORT=-Wl,-Bexport],
+				AC_MSG_RESULT(none))])
+		LDFLAGS="$save_ldflags"
+	;;
+esac
+AC_SUBST(DEXPORT)
+case "x$DEXPORT" in
+	"x")
+		AC_MSG_RESULT([none]);;
+	*)
+		AC_MSG_RESULT([$DEXPORT]);;
+esac
+
+# Check for Solaris/ultrasparc /dev/perfmon interface
+# (also needs gcc specific asm instructions)
+case "${host}:${GCC}" in
+  sparc-*-solaris*:yes)
+    AC_DEFINE(HAVE_SOLARIS_SPARC_PERFMON,[1],
+	[define if you have the Solaris/ultrasparc /dev/perfmon interface])
+    ;;
+  *)
+    ;;
+esac
+
+
+dnl ----------------------------------------------------------------------
+dnl Checks for libraries.
+dnl ----------------------------------------------------------------------
+
+AC_CHECK_LIB(m, sin)
+AC_CHECK_LIB(dl, dlopen)
+AC_CHECK_LIB(inet, main)
+AC_CHECK_LIB(util, openpty)
+
+dnl Try to find a thread library.
+dnl
+dnl ETHR_LIB_NAME, ETHR_LIBS, ETHR_X_LIBS, ETHR_THR_LIB_BASE and ETHR_DEFS
+dnl are set by ERL_FIND_ETHR_LIB
+ERL_FIND_ETHR_LIB
+
+if test "X$ETHR_LIB_NAME" = "X"; then
+    found_threads=no
+else
+    found_threads=yes
+fi
+
+
+ERTS_BUILD_SMP_EMU=$enable_smp_support
+AC_MSG_CHECKING(whether an emulator with smp support should be built)
+case $ERTS_BUILD_SMP_EMU in
+    yes)
+	AC_MSG_RESULT(yes; enabled by user)
+	;;
+    no)
+	AC_MSG_RESULT(no; disabled by user)
+	;;
+    unknown)
+	AC_TRY_COMPILE([],[
+			#if __GNUC__ >= 3 || (__GNUC__ == 2 && __GNUC_MINOR__ >= 95)
+			;
+			#else
+			#error old or no gcc
+			#endif
+			],
+			gcc_smp=okgcc,
+			gcc_smp=oldornogcc)
+	ERTS_BUILD_SMP_EMU=yes
+	case "$enable_threads-$gcc_smp-$found_threads-$host_os" in
+
+	    no-*)
+		AC_MSG_RESULT(no; threads disabled by user)
+		ERTS_BUILD_SMP_EMU=no
+		;;
+
+	    *-okgcc-yes-*)
+		AC_MSG_RESULT(yes)
+		ERTS_BUILD_SMP_EMU=yes
+		;;
+
+	    *-win32)
+		AC_MSG_RESULT(yes)
+		ERTS_BUILD_SMP_EMU=yes
+		;;
+
+	    *-oldornogcc-*)
+		AC_MSG_RESULT(no; old gcc or no gcc found)
+		ERTS_BUILD_SMP_EMU=no
+		;;
+
+	    *)
+		AC_MSG_RESULT(no)
+		ERTS_BUILD_SMP_EMU=no
+		;;
+	esac
+	;;
+esac
+
+if test $ERTS_BUILD_SMP_EMU = yes; then
+
+	if test $found_threads = no; then
+	    AC_MSG_ERROR([cannot build smp enabled emulator since no thread library was found])
+	fi
+
+	AC_DEFINE(ERTS_HAVE_SMP_EMU, 1, [Define if the smp emulator is built])
+	enable_threads=force
+fi
+
+AC_SUBST(ERTS_BUILD_SMP_EMU)
+
+
+
+#
+# Figure out if the emulator should use threads. The default is set above
+# in the enable_threads variable. It can have the following values:
+#
+#   no      single-threaded emulator requested
+#   yes     multi-threaded emulator requested
+#   force   multi-threaded emulator required
+#
+# EMU_THR_LIB_NAME, EMU_THR_LIBS, EMU_THR_X_LIBS, and EMU_THR_DEFS is
+# used by the emulator, and can (but should not) be used by applications
+# that only require thread support when the emulator has thread support.
+# Other applications should use ETHR_LIB_NAME, ETHR_LIBS, ETHR_X_LIBS,
+# and ETHR_DEFS.
+#
+AC_MSG_CHECKING(whether the emulator should use threads)
+
+EMU_THR_LIB_NAME=
+EMU_THR_X_LIBS=
+EMU_THR_LIBS=
+EMU_THR_DEFS=
+emu_threads=no
+
+case "$enable_threads"-"$host_os" in
+	*-win32)
+		# The windows erlang emulator can never run without threads.
+		# It has to be enabled or the emulator will crash. Until that
+		# is fixed we force threads on win32.
+		enable_threads=force ;;
+	yes-osf*)
+		# The emulator hang when threads are enabled on osf
+		AC_MSG_ERROR(unresolved problems exist with threads on this platform) ;;
+	*) ;;
+esac
+
+case "$enable_threads"-"$found_threads" in
+    force-yes)
+	emu_threads=yes
+	AC_MSG_RESULT(yes; thread support required and therefore forced) ;;
+    yes-yes)
+	emu_threads=yes
+	AC_MSG_RESULT(yes; enabled by user) ;;
+    unknown-yes)
+	case $host_os in
+	    solaris*|linux*|darwin*|win32)
+		emu_threads=yes
+		AC_MSG_RESULT(yes; default on this platform)
+		;;
+	    *)
+		AC_MSG_RESULT(no; default on this platform)
+		;;
+	esac
+	;;
+    no-yes)
+	AC_MSG_RESULT(no; thread support found but disabled by user) ;;
+    unknown-no|no-no)
+	AC_MSG_RESULT(no) ;;
+    force-no)
+	AC_MSG_ERROR(thread support required but not found) ;;
+    yes-no)
+	AC_MSG_ERROR(thread support enabled by user but not found) ;;
+    *)
+	AC_MSG_ERROR(internal error) ;;
+esac
+
+if test $emu_threads != yes; then
+	enable_lock_check=no
+	enable_lock_count=no
+else
+	# Threads enabled for emulator
+	EMU_THR_LIB_NAME=$ETHR_LIB_NAME
+	EMU_THR_X_LIBS=$ETHR_X_LIBS
+	EMU_THR_LIBS=$ETHR_LIBS
+	EMU_THR_DEFS=$ETHR_DEFS
+	ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS threads"
+	AC_MSG_CHECKING(whether lock checking should be enabled)
+	AC_MSG_RESULT($enable_lock_check)
+	if test "x$enable_lock_check" != "xno"; then
+	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_ENABLE_LOCK_CHECK"
+	fi
+
+	AC_MSG_CHECKING(whether lock counters should be enabled)
+	AC_MSG_RESULT($enable_lock_count)
+	if test "x$enable_lock_count" != "xno"; then
+	    EMU_THR_DEFS="$EMU_THR_DEFS -DERTS_ENABLE_LOCK_COUNT"
+	fi
+	
+	disable_child_waiter_thread=no
+	case $host_os in
+	    solaris*)
+		enable_child_waiter_thread=yes
+		;;
+	    linux*)
+		AC_DEFINE(USE_RECURSIVE_MALLOC_MUTEX,[1],
+			[Define if malloc should use a recursive mutex])
+		AC_MSG_CHECKING([whether dlopen() needs to be called before first call to dlerror()])
+		if test "x$ETHR_THR_LIB_BASE_NAME" != "xnptl"; then
+		    AC_DEFINE(ERTS_NEED_DLOPEN_BEFORE_DLERROR,[1],
+			[Define if dlopen() needs to be called before first call to dlerror()])
+			AC_MSG_RESULT(yes)
+		else
+			AC_MSG_RESULT(no)
+		fi
+		if test "x$ETHR_THR_LIB_BASE_NAME" != "xnptl"; then
+		    # Child waiter thread cannot be enabled
+		    disable_child_waiter_thread=yes
+		    enable_child_waiter_thread=no
+		fi
+		;;
+	    win32)
+		# Child waiter thread cannot be enabled
+		disable_child_waiter_thread=yes
+		enable_child_waiter_thread=no
+		;;
+	    *)
+		;;
+	esac
+
+	# Remove -D_WIN32_WINNT*, -DWINVER* and -D_GNU_SOURCE from EMU_THR_DEFS
+	# (defined in CFLAGS). Note that we want to keep these flags
+	# in ETHR_DEFS, but not in EMU_THR_DEFS.
+	new_emu_thr_defs=
+	for thr_def in $EMU_THR_DEFS; do
+	    case $thr_def in
+		-D_GNU_SOURCE*|-D_WIN32_WINNT*|-DWINVER*)
+		    ;;
+		*)
+		    new_emu_thr_defs="$new_emu_thr_defs $thr_def"
+		    ;;
+	    esac
+	done
+	EMU_THR_DEFS=$new_emu_thr_defs
+
+	AC_MSG_CHECKING(whether the child waiter thread should be enabled)
+	if test $enable_child_waiter_thread = yes; then
+	    AC_DEFINE(ENABLE_CHILD_WAITER_THREAD,[1],
+		[Define if you want to enable child waiter thread])
+	    AC_MSG_RESULT(yes)
+	else
+	    case $ERTS_BUILD_SMP_EMU-$disable_child_waiter_thread in
+		yes-no)
+		    AC_MSG_RESULT([yes on SMP build, but not on non-SMP build]);;
+		*-yes)
+	    	    AC_DEFINE(DISABLE_CHILD_WAITER_THREAD,[1],
+			[Define if you want to disable child waiter thread])
+		    AC_MSG_RESULT(no);;
+		*)
+		    AC_MSG_RESULT(no);;
+	    esac
+	fi
+fi
+
+AC_SUBST(EMU_THR_LIB_NAME)
+AC_SUBST(EMU_THR_X_LIBS)
+AC_SUBST(EMU_THR_LIBS)
+AC_SUBST(EMU_THR_DEFS)
+
+if test "x$enable_lock_check" = "xno"; then
+    EMU_LOCK_CHECKING=no
+else
+    EMU_LOCK_CHECKING=yes
+fi
+
+AC_SUBST(EMU_LOCK_CHECKING)
+
+ERTS_INTERNAL_X_LIBS=
+
+AC_CHECK_LIB(kstat, kstat_open,
+[AC_DEFINE(HAVE_KSTAT, 1, [Define if you have kstat])
+ERTS_INTERNAL_X_LIBS="$ERTS_INTERNAL_X_LIBS -lkstat"])
+
+AC_SUBST(ERTS_INTERNAL_X_LIBS)
+
+dnl THR_LIBS and THR_DEFS are only used by odbc
+THR_LIBS=$ETHR_X_LIBS
+THR_DEFS=$ETHR_DEFS
+
+AC_SUBST(THR_LIBS)
+AC_SUBST(THR_DEFS)
+
+dnl ----------------------------------------------------------------------
+dnl Try to figure out where to get the termcap functions from.
+dnl We use tgetent(), tgetflag(), tgetnum(), tgetstr() and tputs()
+dnl ----------------------------------------------------------------------
+
+TERMCAP_LIB=
+
+if test "x$with_termcap" != "xno" &&
+   test "X$host" != "Xwin32"; then
+    # try these libs
+    termcap_libs="ncurses curses termcap termlib"
+
+    for termcap_lib in $termcap_libs; do
+	AC_CHECK_LIB($termcap_lib, tgetent, TERMCAP_LIB="-l$termcap_lib")
+	if test "x$TERMCAP_LIB" != "x"; then
+	    break
+	fi
+    done
+
+    if test "x$TERMCAP_LIB" = "x"; then
+	AC_MSG_ERROR([No curses library functions found])
+    fi
+fi
+
+AC_SUBST(TERMCAP_LIB)
+
+if test "x$TERMCAP_LIB" != "x"; then
+
+	AC_DEFINE(HAVE_TERMCAP, 1, [Define if termcap functions exists])
+fi
+
+dnl -------------
+dnl zlib
+dnl -------------
+
+AC_ARG_ENABLE(shared-zlib,
+[  --enable-shared-zlib        enable using shared zlib library
+  --disable-shared-zlib       disable shared zlib, compile own zlib source (default)],
+[ case "$enableval" in
+    no) enable_shared_zlib=no ;;
+    *)  enable_shared_zlib=yes ;;
+  esac ], enable_shared_zlib=no)
+
+Z_LIB=
+
+if test "x$enable_shared_zlib" = "xyes" ; then
+	AC_CHECK_LIB(z, adler32_combine,
+		[Z_LIB="-lz"
+		 AC_DEFINE(HAVE_LIBZ, 1, [Define to 1 if you have the `z' library (-lz).])],
+		[AC_MSG_ERROR([cannot find any shared zlib])])
+else
+	AC_MSG_NOTICE([Using own zlib source])
+fi
+
+AC_SUBST(Z_LIB)
+
+dnl
+dnl This test kindly borrowed from Tcl
+dnl
+#--------------------------------------------------------------------
+#	Check for the existence of the -lsocket and -lnsl libraries.
+#	The order here is important, so that they end up in the right
+#	order in the command line generated by make.  Here are some
+#	special considerations:
+#	1. Use "connect" and "accept" to check for -lsocket, and
+#	   "gethostbyname" to check for -lnsl.
+#	2. Use each function name only once:  can't redo a check because
+#	   autoconf caches the results of the last check and won't redo it.
+#	3. Use -lnsl and -lsocket only if they supply procedures that
+#	   aren't already present in the normal libraries.  This is because
+#	   IRIX 5.2 has libraries, but they aren't needed and they're
+#	   bogus:  they goof up name resolution if used.
+#	4. On some SVR4 systems, can't use -lsocket without -lnsl too.
+#	   To get around this problem, check for both libraries together
+#	   if -lsocket doesn't work by itself.
+#--------------------------------------------------------------------
+
+erl_checkBoth=0
+AC_CHECK_FUNC(connect, erl_checkSocket=0, erl_checkSocket=1)
+if test "$erl_checkSocket" = 1; then
+    AC_CHECK_LIB(socket, main, LIBS="$LIBS -lsocket", erl_checkBoth=1)
+fi
+if test "$erl_checkBoth" = 1; then
+    tk_oldLibs=$LIBS
+    LIBS="$LIBS -lsocket -lnsl"
+    AC_CHECK_FUNC(accept, erl_checkNsl=0, [LIBS=$tk_oldLibs])
+fi
+AC_CHECK_FUNC(gethostbyname, , AC_CHECK_LIB(nsl, main, [LIBS="$LIBS -lnsl"]))
+AC_CHECK_FUNC(gethostbyname_r,have_gethostbyname_r=yes)
+
+dnl
+dnl These gethostbyname thingies use old style AC_DEFINE for BC with ancient 
+dnl autoconf...
+dnl 
+
+if test "$have_gethostbyname_r" = yes; then
+	# OK, so we have gethostbyname_r() - but do we know how to call it...?
+	# (if not, HAVE_GETHOSTBYNAME_R will not be defined at all)
+	case $host_os in
+		solaris2*)
+			AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_SOLARIS,
+				[Define to flavour of gethostbyname_r])
+		;;
+		aix4*)
+			# AIX version also needs "struct hostent_data" defn
+			AC_TRY_COMPILE([#include <netdb.h>],
+				[struct hostent_data hd;],
+				AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_AIX,
+				    [Define to flavour of gethostbyname_r]))
+		;;
+		*)
+			AC_EGREP_CPP(yes,[#include <stdio.h>
+			  #ifdef __GLIBC__
+			  yes
+			  #endif
+			  ], AC_DEFINE(HAVE_GETHOSTBYNAME_R, GHBN_R_GLIBC,
+				[Define to flavour of gethostbyname_r]))
+		;;
+	esac
+fi
+
+AC_MSG_CHECKING(for working posix_openpt implementation)
+AC_TRY_LINK([
+#define _XOPEN_SOURCE 600 
+#include <stdlib.h>
+#include <fcntl.h>
+],
+[
+    int mfd = posix_openpt(O_RDWR);
+    ptsname(mfd);
+    grantpt(mfd);
+    unlockpt(mfd);
+    return mfd;
+], working_posix_openpt=yes, working_posix_openpt=no)
+
+if test "X$working_posix_openpt" = "Xyes"; then
+    AC_DEFINE(HAVE_WORKING_POSIX_OPENPT, [1],
+	      [Define if you have a working posix_openpt implementation])
+    AC_MSG_RESULT(yes)
+else
+    AC_MSG_RESULT(no)
+fi
+
+dnl Check for usage of sockaddr_in in netdb.h
+dnl somewhat ugly check, I check for presence of the string and that 
+dnl compilation works. If either fails I assume it's not needed.
+dnl Seems only to be needed on a patched version of solaris2.5.1, with
+dnl netdb.h  version  1.18.
+AC_MSG_CHECKING([if netdb.h requires netinet/in.h to be previously included])
+AC_EGREP_CPP(sockaddr_in, 
+	     [#include <netdb.h>],
+	     AC_TRY_COMPILE([#include <netinet/in.h>
+			     #include <netdb.h>], 
+			    [return 0;],
+			    need_in_h=yes, 
+                            need_in_h=no),
+             need_in_h=no)
+
+if test $need_in_h = yes; then
+	AC_DEFINE(NETDB_H_NEEDS_IN_H,[1],
+		[Define if netdb.h needs struct sockaddr_in ans in.h CAN be included before])
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
+fi
+
+dnl Check for type socklen_t
+dnl
+AC_MSG_CHECKING([for socklen_t])
+AC_TRY_COMPILE( [#include <sys/socket.h>], 
+		[socklen_t test;],
+		have_socklen_t=yes, 
+                have_socklen_t=no),
+
+if test $have_socklen_t = yes; then
+	AC_DEFINE(HAVE_SOCKLEN_T,[1],[Define if we have socklen_t])
+	AC_MSG_RESULT(yes)
+else
+	AC_MSG_RESULT(no)
+fi
+
+
+dnl h_errno isn't always declared in netdb.h, and with some definitions
+dnl (e.g. function call for thread-safe) a simple 'extern int' may conflict
+dnl (we do assume that h_errno exists at all...)
+AC_CACHE_CHECK([for h_errno declaration in netdb.h],
+  ac_cv_decl_h_errno,
+[AC_TRY_COMPILE([#include <netdb.h>], [int err = h_errno;],
+  ac_cv_decl_h_errno=yes, ac_cv_decl_h_errno=no)])
+if test $ac_cv_decl_h_errno = yes; then
+  AC_DEFINE(H_ERRNO_DECLARED,[1],
+	[define if h_errno is declared (in some way) in a system header file])
+fi
+
+
+dnl ----------------------------------------------------------------------
+dnl Checks for header files.
+dnl ----------------------------------------------------------------------
+
+dnl We sometimes need EMU_THR_DEFS in order to find certain headers.
+saved_cppflags=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $EMU_THR_DEFS"
+
+AC_HEADER_DIRENT
+AC_HEADER_STDC
+AC_HEADER_SYS_WAIT
+AC_HEADER_TIME
+
+dnl Interactive UX needs <net/errno.h> for socket related error codes.
+dnl Some Linuxes needs <sys/socketio.h> instead of <sys/sockio.h>
+dnl
+AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
+                 sys/stropts.h sys/sysctl.h \
+                 sys/ioctl.h sys/time.h sys/uio.h \
+                 sys/socket.h sys/sockio.h sys/socketio.h \
+                 net/errno.h malloc.h mach-o/dyld.h arpa/nameser.h \
+		 pty.h util.h utmp.h langinfo.h)
+
+AC_CHECK_HEADER(sys/resource.h,
+	[AC_DEFINE(HAVE_SYS_RESOURCE_H, 1,
+		[Define to 1 if you have the <sys/resource.h> header file])
+	 AC_CHECK_DECLS([getrlimit, setrlimit, RLIMIT_STACK],
+		[],[],
+		[#include <sys/resource.h>])],
+	[],[])
+
+dnl Check if we have kernel poll support
+have_kernel_poll=no
+AC_CHECK_HEADER(sys/event.h, have_kernel_poll=kqueue)
+AC_CHECK_HEADER(sys/epoll.h, have_kernel_poll=epoll)
+AC_CHECK_HEADER(sys/devpoll.h, have_kernel_poll=/dev/poll)
+
+dnl Check for kernel SCTP support
+AC_SUBST(LIBSCTP)
+if test "x$enable_sctp" == "xyes" ; then
+    AC_CHECK_HEADER(netinet/sctp.h,
+        [LIBSCTP=libsctp.so.1
+	 AC_DEFINE(HAVE_SCTP_H, [1],
+            [Define to 1 if you have the <netinet/sctp.h> header file])],
+	[],
+	[#if HAVE_SYS_SOCKET_H
+	 #include <sys/socket.h>
+	 #endif
+	])
+    AC_CHECK_DECLS([SCTP_UNORDERED, SCTP_ADDR_OVER, SCTP_ABORT,
+                    SCTP_EOF, SCTP_SENDALL, SCTP_ADDR_CONFIRMED], [], [],
+        [#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+        ])
+    AC_CHECK_MEMBERS([struct sctp_paddrparams.spp_pathmtu,
+                      struct sctp_paddrparams.spp_sackdelay,
+                      struct sctp_paddrparams.spp_flags,
+                      struct sctp_remote_error.sre_data,
+                      struct sctp_send_failed.ssf_data], [], [],
+        [#if HAVE_SYS_SOCKET_H
+         #include <sys/socket.h>
+         #endif
+         #include <netinet/sctp.h>
+        ])
+fi
+
+HAVE_VALGRIND=no
+AC_CHECK_HEADER(valgrind/valgrind.h, HAVE_VALGRIND=yes)
+AC_SUBST(HAVE_VALGRIND)
+
+LM_DECL_SO_BSDCOMPAT
+LM_DECL_INADDR_LOOPBACK
+LM_DECL_SYS_ERRLIST
+
+AC_CACHE_CHECK([if windows.h includes winsock2.h],
+		erts_cv_windows_h_includes_winsock2_h,
+		AC_TRY_COMPILE([#include <windows.h>
+				],
+			       [#ifndef _WINSOCK2API_
+				#error winsock2.h not included
+				#endif
+				int i = 1;
+				],
+			       erts_cv_windows_h_includes_winsock2_h=yes,
+			       erts_cv_windows_h_includes_winsock2_h=no))
+if test $erts_cv_windows_h_includes_winsock2_h = yes; then
+	AC_DEFINE(WINDOWS_H_INCLUDES_WINSOCK2_H, 1, \
+[Define if windows.h includes winsock2.h])
+fi
+
+dnl restore CPPFLAGS
+CPPFLAGS=$saved_cppflags
+
+dnl ----------------------------------------------------------------------
+dnl Checks for typedefs, structures, and compiler characteristics.
+dnl ----------------------------------------------------------------------
+
+AC_C_CONST
+AC_TYPE_SIGNAL
+AC_TYPE_OFF_T
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
+
+AC_STRUCT_TM
+LM_STRUCT_SOCKADDR_SA_LEN
+LM_STRUCT_EXCEPTION
+
+AC_CHECK_SIZEOF(char, 1)
+AC_CHECK_SIZEOF(short, $erl_xcomp_short)
+AC_CHECK_SIZEOF(int, $erl_xcomp_int)
+AC_CHECK_SIZEOF(long, $erl_xcomp_long)
+AC_CHECK_SIZEOF(void *, $erl_xcomp_void_p)
+AC_CHECK_SIZEOF(long long, $erl_xcomp_long_long)
+
+BITS64=
+
+if test $ac_cv_sizeof_void_p = 8; then
+  BITS64=yes
+fi
+AC_SUBST(BITS64)
+
+if test "x$ac_compiler_gnu" = "xyes"; then
+AC_MSG_CHECKING([if we should add -fno-tree-copyrename to CFLAGS for computed gotos to work properly])
+AC_TRY_COMPILE([],[
+		#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+			;
+			#else
+			#error old and ok
+			#endif
+			],
+			no_tree_copyrename=yes,
+			no_tree_copyrename=no)
+
+if test "x$no_tree_copyrename" = "xyes"; then
+	CFLAGS="$CFLAGS -fno-tree-copyrename"
+	AC_MSG_RESULT(yes, adjusting CFLAGS)
+else
+	AC_MSG_RESULT(no)
+fi
+
+
+
+AC_MSG_CHECKING([for broken gcc-4.3.0 compiler])
+AC_TRY_RUN([
+/* pr36339.c */
+extern void abort (void);
+
+typedef unsigned long my_uintptr_t;
+
+int check_a(my_uintptr_t tagged_ptr);
+
+int __attribute__((noinline)) try_a(my_uintptr_t x)
+{
+  my_uintptr_t heap[2];
+  my_uintptr_t *hp = heap;
+
+  hp[0] = x;
+  hp[1] = 0;
+  return check_a((my_uintptr_t)(void*)((char*)hp + 1));
+}
+
+int __attribute__((noinline)) check_a(my_uintptr_t tagged_ptr)
+{
+  my_uintptr_t *hp = (my_uintptr_t*)(void*)((char*)tagged_ptr - 1);
+
+  if (hp[0] == 42 && hp[1] == 0)
+    return 0;
+  return -1;
+}
+
+int main(void)
+{
+  if (try_a(42) < 0)
+    abort ();
+  return 0;
+}
+],AC_MSG_RESULT(no)
+,AC_MSG_RESULT(yes)
+AC_MSG_ERROR([This gcc miscompiles the Erlang runtime system; please use a different version])
+,AC_MSG_RESULT(no))
+fi
+
+dnl AC_CHECK_SIZEOF(size_t, 4)dnl Assumes all cross compiling is to 32bit uP
+dnl
+dnl The disabled one above does not include stddef.h, alas!
+dnl
+AC_CACHE_CHECK([size of size_t], ac_cv_sizeof_size_t, 
+AC_TRY_RUN([
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+int main(int argc, char **argv) {
+    FILE *f = fopen("conftestval", "w");
+    if (! f)
+	exit(1); /* Failed */
+    fprintf(f, "%d\n", (int) sizeof(size_t));
+    exit(0); /* OK */
+}
+], ac_cv_sizeof_size_t=`cat conftestval`
+,  ac_cv_sizeof_size_t=0
+,  ac_cv_sizeof_size_t=$erl_xcomp_sizeof_size_t))
+AC_DEFINE_UNQUOTED(SIZEOF_SIZE_T, $ac_cv_sizeof_size_t, [The number of bytes in a size_t])
+
+dnl A standard size check does not include sys/types.h
+dnl
+AC_CACHE_CHECK([size of off_t], ac_cv_sizeof_off_t, 
+AC_TRY_RUN([
+#include <sys/types.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <stddef.h>
+int main(int argc, char **argv) {
+    FILE *f = fopen("conftestval", "w");
+    if (! f)
+	exit(1); /* Failed */
+    fprintf(f, "%d\n", (int) sizeof(off_t));
+    exit(0); /* OK */
+}
+], ac_cv_sizeof_off_t=`cat conftestval`
+,  ac_cv_sizeof_off_t=0
+,  ac_cv_sizeof_off_t=$erl_xcomp_sizeof_off_t))
+AC_DEFINE_UNQUOTED(SIZEOF_OFF_T, $ac_cv_sizeof_off_t,
+	[The number of bytes in an off_t])
+
+AC_MSG_CHECKING([int/long/void*/size_t sizes])
+AC_TRY_RUN([
+#include <stdlib.h>
+#include <stddef.h>
+int main(int argc, char **argv) {
+    if (sizeof(void *) >= 4 &&
+	sizeof(void *) == sizeof(size_t) &&
+	(sizeof(void *) == sizeof(int) || sizeof(void *) == sizeof(long))) {
+	exit(0); /* OK */
+    }
+    exit(1); /* Failed */
+}
+],AC_MSG_RESULT(ok)
+,AC_MSG_RESULT(failed)
+AC_MSG_ERROR([Cannot handle this combination of int/long/void*/size_t sizes])
+,AC_MSG_RESULT(ok))
+
+if test "x$erl_xcomp_bigendian" != "x"; then
+	ac_cv_c_bigendian=$erl_xcomp_bigendian
+fi
+
+AC_C_BIGENDIAN
+
+dnl ----------------------------------------------------------------------
+dnl Checks for library functions.
+dnl ----------------------------------------------------------------------
+
+dnl We may need the thread library and thread flags in order to find right stuff
+saved_cppflags=$CPPFLAGS
+CPPFLAGS="$CPPFLAGS $EMU_THR_DEFS"
+saved_libs=$LIBS
+LIBS="$LIBS $EMU_THR_X_LIBS"
+
+dnl Check if we have these, in which case we'll try to build
+dnl inet_gethost with ipv6 support.
+AC_CHECK_FUNC(getaddrinfo, have_getaddrinfo=yes, have_getaddrinfo=no)
+if test $have_getaddrinfo = yes; then
+        AC_MSG_CHECKING([whether getaddrinfo accepts enough flags])
+        AC_TRY_RUN([
+#include <stdlib.h>
+#include <string.h>
+#include <sys/socket.h>
+#include <netdb.h>
+int main(int argc, char **argv) {
+    struct addrinfo hints, *ai;
+    memset(&hints, 0, sizeof(hints));
+    hints.ai_flags = (AI_CANONNAME|AI_V4MAPPED|AI_ADDRCONFIG);
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_family = AF_INET6;
+    if (getaddrinfo("::", NULL, &hints, &ai) == 0) {
+	freeaddrinfo(ai);
+	exit(0);
+    } else {
+	exit(1);
+    }
+}
+	],, have_getaddrinfo=no,
+	if test "x$erl_xcomp_getaddrinfo" != "x"; then
+	    have_getaddrinfo=$erl_xcomp_getaddrinfo
+	else
+	    have_getaddrinfo=no
+	fi)
+	if test $have_getaddrinfo = yes; then
+		AC_MSG_RESULT(yes)
+		AC_DEFINE(HAVE_GETADDRINFO, [1], 
+		          [Define to 1 if you have a good `getaddrinfo' function.])
+	else
+		AC_MSG_RESULT(no)
+	fi
+fi
+AC_CHECK_FUNCS([getnameinfo getipnodebyname getipnodebyaddr gethostbyname2])
+
+AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlopen \
+		pread pwrite writev memmove strerror strerror_r strncasecmp \
+		gethrtime localtime_r gmtime_r mremap memcpy mallopt \
+		sbrk _sbrk __sbrk brk _brk __brk \
+		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo])
+if test "X$host" = "Xwin32"; then
+	ac_cv_func_setvbuf_reversed=yes
+fi
+AC_FUNC_SETVBUF_REVERSED	
+
+disable_vfork=false
+if test "x$EMU_THR_LIB_NAME" != "x"; then
+	AC_MSG_CHECKING([if vfork is known to hang multithreaded applications])
+	case $host_os in
+		osf*)
+			AC_MSG_RESULT(yes)
+			disable_vfork=true;;
+		*)
+			AC_MSG_RESULT(no);;
+	esac
+fi
+
+if test $disable_vfork = false; then
+	AC_FUNC_VFORK
+	if test $ac_cv_func_vfork_works = no; then
+		disable_vfork=true
+	fi
+fi
+
+if test $disable_vfork = true; then
+	AC_DEFINE(DISABLE_VFORK, 1, [Define if you want to disable vfork.])
+fi
+
+AC_FUNC_VPRINTF
+AC_FUNC_MMAP
+
+dnl The AC_DEFINEs are necessary for autoheader to work. :-(
+dnl for gzio
+LM_CHECK_FUNC_DECL(fread, [extern int fread();],,
+                   AC_DEFINE(HAVE_CONFLICTING_FREAD_DECLARATION,[1],[Define if you have a decl of fread that conflicts with int fread]))
+
+dnl Checking with TRY_LINK since putc_unlocked might be (probably is) a macro
+AC_CACHE_CHECK([for putc_unlocked],
+	erts_cv_putc_unlocked,
+	AC_TRY_LINK([#include <stdio.h>],
+		[int res = putc_unlocked('x',stdout);],
+		erts_cv_putc_unlocked=yes,
+             	erts_cv_putc_unlocked=no))
+if test $erts_cv_putc_unlocked = yes; then
+	AC_DEFINE(HAVE_PUTC_UNLOCKED, 1, [Define if you have putc_unlocked])
+fi
+
+dnl Checking with TRY_LINK since fwrite_unlocked might be a macro
+AC_CACHE_CHECK([for fwrite_unlocked],
+	erts_cv_fwrite_unlocked,
+	AC_TRY_LINK([#include <stdio.h>],
+		[size_t res = fwrite_unlocked(NULL,sizeof(char),0,stdout);],
+		erts_cv_fwrite_unlocked=yes,
+             	erts_cv_fwrite_unlocked=no))
+if test $erts_cv_fwrite_unlocked = yes; then
+	AC_DEFINE(HAVE_FWRITE_UNLOCKED, 1, [Define if you have fwrite_unlocked])
+fi
+
+dnl Need by run_erl.
+AC_CHECK_FUNCS([openpty])
+
+dnl ----------------------------------------------------------------------
+dnl Checks for features/quirks in the system that affects Erlang.
+dnl ----------------------------------------------------------------------
+
+AC_MSG_CHECKING([for sched_getaffinity/sched_setaffinity])
+AC_TRY_COMPILE([#include <sched.h>],
+[
+#ifndef CPU_SETSIZE
+#error no CPU_SETSIZE
+#endif
+	int res;
+	cpu_set_t cpuset;
+	CPU_ZERO(&cpuset);
+	CPU_SET(1, &cpuset);
+	res = sched_setaffinity(0, sizeof(cpu_set_t), &cpuset);
+	res = sched_getaffinity(0, sizeof(cpu_set_t), &cpuset);
+	res = CPU_ISSET(1, &cpuset);
+	CPU_CLR(1, &cpuset);
+],
+		sched_xetaffinity=yes,
+		sched_xetaffinity=no)
+AC_MSG_RESULT([$sched_xetaffinity])
+if test $sched_xetaffinity = yes; then
+	AC_DEFINE(HAVE_SCHED_xETAFFINITY, 1, [Define if you have sched_getaffinity/sched_setaffinity])
+fi
+
+
+AC_MSG_CHECKING([for pset functionality])
+AC_TRY_COMPILE([#include <sys/pset.h>],
+[
+	int res;
+	psetid_t id = PS_MYID;
+	int type = PS_PRIVATE;
+	uint_t numcpus = 1024;
+	processorid_t cpulist[1024];
+
+	res = pset_info(id, &type, &numcpus, &cpulist[0]);
+],
+		pset_functionality=yes,
+		pset_functionality=no)
+AC_MSG_RESULT([$pset_functionality])
+if test $pset_functionality = yes; then
+	AC_DEFINE(HAVE_PSET, 1, [Define if you have pset functionality])
+fi
+
+AC_MSG_CHECKING([for processor_bind functionality])
+AC_TRY_COMPILE([
+#include <sys/types.h>
+#include <sys/processor.h>
+#include <sys/procset.h>
+],
+[
+	int res = processor_bind(P_LWPID, P_MYID, PBIND_NONE, NULL);
+],
+		processor_bind_functionality=yes,
+		processor_bind_functionality=no)
+AC_MSG_RESULT([$processor_bind_functionality])
+if test $processor_bind_functionality = yes; then
+	AC_DEFINE(HAVE_PROCESSOR_BIND, 1, [Define if you have processor_bind functionality])
+fi
+
+
+AC_CACHE_CHECK([for 'end' symbol],
+		erts_cv_have_end_symbol,
+		[AC_TRY_LINK([],
+			[extern char end; {char *x = &end; *x= 0;}],
+			erts_cv_have_end_symbol=yes,
+			erts_cv_have_end_symbol=no)])
+if test $erts_cv_have_end_symbol = yes; then
+	AC_DEFINE(HAVE_END_SYMBOL, 1, [Define if you have the 'end' symbol])
+fi
+
+AC_CACHE_CHECK([for '_end' symbol],
+		erts_cv_have__end_symbol,
+		[AC_TRY_LINK([],
+			[extern char _end; {char *x = &_end; *x= 0;}],
+			erts_cv_have__end_symbol=yes,
+			erts_cv_have__end_symbol=no)])
+if test $erts_cv_have__end_symbol = yes; then
+	AC_DEFINE(HAVE__END_SYMBOL, 1, [Define if you have the '_end' symbol])
+fi
+
+AC_CACHE_CHECK([if __after_morecore_hook can track malloc()s core memory use],
+		erts_cv___after_morecore_hook_can_track_malloc,
+		[AC_TRY_RUN([
+#include <stdlib.h>
+#ifdef HAVE_MALLOC_H
+#  include <malloc.h>
+#endif
+#if defined(HAVE_END_SYMBOL)
+extern char end;
+#elif defined(HAVE__END_SYMBOL)
+extern char _end;
+#endif
+#ifndef USE_THREADS
+#undef ETHR_PTHREADS
+#endif
+
+#ifdef ETHR_PTHREADS
+#  ifdef ETHR_HAVE_PTHREAD_H
+#    include <pthread.h>
+#  else
+#    ifdef ETHR_HAVE_MIT_PTHREAD_H
+#      include <pthread/mit/pthread.h>
+#    endif
+#  endif
+#  define N_THR 5
+#else
+#  define N_THR 1
+#endif
+
+static char *heap_start = NULL;
+static char *heap_end = NULL;
+
+void update_heap_size(void)
+{
+    heap_end = (char *) sbrk(0);
+}
+
+void init_hook(void)
+{
+#if defined(HAVE_END_SYMBOL)
+    heap_start = &end;
+#elif defined(HAVE__END_SYMBOL)
+    heap_start = &_end;
+#else
+    heap_start = sbrk(0);
+#endif
+    __after_morecore_hook = update_heap_size;
+}
+
+void (*__malloc_initialize_hook) (void) = init_hook;
+
+static int
+check_malloc(int size)
+{
+    char *p = (char *) malloc(size);
+    if (!heap_start || !heap_end) return 0;
+    if (!p) return 0;
+    if (p < heap_start || heap_end <= p) return 0;
+    if (p + size < heap_start || heap_end < p + size) return 0;
+    return 1;
+}
+
+#ifdef ETHR_PTHREADS
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+static void *
+do_tests(void *vresp)
+{
+    int i, ok = 0;
+#ifdef ETHR_PTHREADS
+    if (pthread_mutex_lock(&mutex) != 0)
+	return NULL;
+#endif
+
+    for (i = 0; i < 10; i++)
+	if (!check_malloc(1000))
+	    goto failed;
+    for (i = 0; i < 100; i++)
+	if (!check_malloc(1))
+	    goto failed;
+    if (!check_malloc(1024*1024+1))
+	goto failed;
+    if (!check_malloc(10*1024*1024+1))
+	goto failed;
+    ok = 1;
+
+ failed:
+#ifdef ETHR_PTHREADS
+    if (pthread_mutex_unlock(&mutex) != 0)
+	return NULL;
+#endif
+    if (ok)
+	*((int *) vresp) = 0;
+    return NULL;
+}
+
+
+int main(void)
+{
+    int res[N_THR], i;
+#ifdef ETHR_PTHREADS
+    pthread_t tid[N_THR];
+#endif
+
+#if defined(HAVE_MALLOPT) && defined(M_MMAP_MAX)
+    (void) mallopt(M_MMAP_MAX, 0);
+#endif
+
+    for (i = 0; i < N_THR; i++)
+	res[i] = 1;
+#ifdef ETHR_PTHREADS
+    for (i = 1; i < N_THR; i++)
+	if (pthread_create(&tid[i], NULL, do_tests, &res[i]) != 0)
+	    return 1;
+#endif
+    (void) do_tests(&res[0]);
+#ifdef ETHR_PTHREADS
+    for (i = 1; i < N_THR; i++)
+	if (pthread_join(tid[i], NULL) != 0)
+	    return 1;
+#endif
+    for (i = 0; i < N_THR; i++)
+	if (res[i])
+	    return 1;
+    return 0;
+}
+	],
+	erts_cv___after_morecore_hook_can_track_malloc=yes,
+	erts_cv___after_morecore_hook_can_track_malloc=no,
+	if test "x$erl_xcomp_after_morecore_hook" != "x"; then
+		erts_cv___after_morecore_hook_can_track_malloc=$erl_xcomp_after_morecore_hook
+	fi)])
+
+if test "x$erts_cv___after_morecore_hook_can_track_malloc" = "xyes"; then
+	AC_DEFINE(ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC, 1, \
+[Define if __after_morecore_hook can track malloc()s core memory use.])
+fi
+
+if test "x$ac_cv_func_sbrk" = "xyes"; then
+    AC_CACHE_CHECK([types of sbrk()s return value and argument],
+		    erts_cv_sbrk_ret_arg_types,
+		    [
+
+	erts_cv_sbrk_ret_arg_types=unknown
+	ret_types="void *,char *"
+	arg_types="intptr_t,ptrdiff_t,int,long"
+	save_ifs="$IFS"; IFS=","
+	for rtype in $ret_types; do
+	    for atype in $arg_types; do
+		IFS=$save_ifs
+		AC_TRY_COMPILE([#include <sys/types.h>
+				#include <unistd.h>],
+				[$rtype sbrk($atype incr);],
+				[erts_cv_sbrk_ret_arg_types="$rtype,$atype"])
+		IFS=","
+		if test "$erts_cv_sbrk_ret_arg_types" != "unknown"; then
+		    break 2
+		fi
+	    done
+	done
+	IFS=$save_ifs])
+    
+    if test "$erts_cv_sbrk_ret_arg_types" != "unknown"; then
+	save_ifs="$IFS"; IFS=","
+	read ret_type arg_type <<EOF
+$erts_cv_sbrk_ret_arg_types
+EOF
+	IFS=$save_ifs
+	AC_DEFINE_UNQUOTED(SBRK_RET_TYPE, $ret_type, \
+[Define the sbrk() return type.])
+	AC_DEFINE_UNQUOTED(SBRK_ARG_TYPE, $arg_type, \
+[Define the sbrk() argument type.])
+    fi
+fi
+
+if test $ac_cv_func_brk = yes; then
+    AC_CACHE_CHECK([types of brk()s return value and argument],
+		    erts_cv_brk_ret_arg_types,
+		    [
+
+	erts_cv_brk_ret_arg_types=unknown
+	ret_types="int,long,char *,void *"
+	arg_types="void *,const void *,char *,const char *"
+	save_ifs="$IFS"; IFS=","
+	for rtype in $ret_types; do
+	    for atype in $arg_types; do
+		IFS=$save_ifs
+		AC_TRY_COMPILE([#include <sys/types.h>
+				#include <unistd.h>],
+				[$rtype brk($atype endds);],
+				[erts_cv_brk_ret_arg_types="$rtype,$atype"])
+		IFS=","
+		if test "$erts_cv_brk_ret_arg_types" != "unknown"; then
+		    break 2
+		fi
+	    done
+	done
+	IFS=$save_ifs])
+    
+    if test "$erts_cv_brk_ret_arg_types" != "unknown"; then
+	save_ifs="$IFS"; IFS=","
+	read ret_type arg_type <<EOF
+$erts_cv_brk_ret_arg_types
+EOF
+	IFS=$save_ifs
+	AC_DEFINE_UNQUOTED(BRK_RET_TYPE, $ret_type, \
+[Define the brk() return type.])
+	AC_DEFINE_UNQUOTED(BRK_ARG_TYPE, $arg_type, \
+[Define the brk() argument type.])
+    fi
+
+fi
+
+if test $ac_cv_func_sbrk = yes; then
+
+    AC_CACHE_CHECK([if sbrk()/brk() wrappers can track malloc()s core memory use],
+		    erts_cv_brk_wrappers_can_track_malloc,
+		    [AC_TRY_RUN([
+#include <stdlib.h>
+#include <sys/types.h>
+#include <unistd.h>
+#ifdef HAVE_DLFCN_H
+#  include <dlfcn.h>
+#endif
+
+/*
+ * Our implementation requires that we have sbrk(), and 'end' or '_end'.
+ */
+
+#if !defined(HAVE_SBRK)
+#  error no sbrk()
+#endif
+#if defined(HAVE_END_SYMBOL)
+extern char end;
+#elif defined(HAVE__END_SYMBOL)
+extern char _end;
+#else
+#  error no 'end' nor '_end'
+#endif
+
+#ifndef USE_THREADS
+#undef ETHR_PTHREADS
+#endif
+
+#ifdef ETHR_PTHREADS
+#  ifdef ETHR_HAVE_PTHREAD_H
+#    include <pthread.h>
+#  else
+#    ifdef ETHR_HAVE_MIT_PTHREAD_H
+#      include <pthread/mit/pthread.h>
+#    endif
+#  endif
+#  define N_THR 5
+#else
+#  define N_THR 1
+#endif
+
+#define SBRK_IMPL(RET_TYPE, SBRK, ARG_TYPE)				\
+RET_TYPE SBRK (ARG_TYPE);						\
+static RET_TYPE (*real_ ## SBRK)(ARG_TYPE) = NULL;			\
+RET_TYPE								\
+SBRK (ARG_TYPE arg)							\
+{									\
+    RET_TYPE res;							\
+    if (!real_ ## SBRK) real_ ## SBRK = dlsym(RTLD_NEXT, #SBRK);	\
+    res = (*real_ ## SBRK)(arg);					\
+    if (res != (RET_TYPE) -1) heap_end = (char *) (*real_ ## SBRK)(0);	\
+    return res;								\
+}
+
+#define BRK_IMPL(RET_TYPE, BRK, ARG_TYPE)				\
+RET_TYPE BRK (ARG_TYPE);						\
+static RET_TYPE (*real_ ## BRK)(ARG_TYPE) = NULL;			\
+RET_TYPE								\
+BRK (ARG_TYPE arg)							\
+{									\
+    RET_TYPE res;							\
+    if (!real_ ## BRK) real_ ## BRK = dlsym(RTLD_NEXT, #BRK);		\
+    res = (*real_ ## BRK)(arg);						\
+    if (res != (RET_TYPE) -1) heap_end = (char *) arg;			\
+    return res;								\
+}
+
+static char *heap_start = NULL;
+static char *heap_end = NULL;
+
+SBRK_IMPL(SBRK_RET_TYPE, sbrk, SBRK_ARG_TYPE)
+#ifdef HAVE_BRK
+   BRK_IMPL(BRK_RET_TYPE, brk, BRK_ARG_TYPE)
+#endif
+
+#ifdef HAVE__SBRK
+   SBRK_IMPL(SBRK_RET_TYPE, _sbrk, SBRK_ARG_TYPE)
+#endif
+#ifdef HAVE__BRK
+   BRK_IMPL(BRK_RET_TYPE, _brk, BRK_ARG_TYPE)
+#endif
+
+#ifdef HAVE___SBRK
+   SBRK_IMPL(SBRK_RET_TYPE, __sbrk, SBRK_ARG_TYPE)
+#endif
+#ifdef HAVE___BRK
+   BRK_IMPL(BRK_RET_TYPE, __brk, BRK_ARG_TYPE)
+#endif
+
+static int
+check_malloc(int size)
+{
+    char *p = (char *) malloc(size);
+    if (!heap_start || !heap_end) return 0;
+    if (!p) return 0;
+    if (p < heap_start || heap_end <= p) return 0;
+    if (p + size < heap_start || heap_end < p + size) return 0;
+    return 1;
+}
+
+#ifdef ETHR_PTHREADS
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+#endif
+
+static void *
+do_tests(void *vresp)
+{
+    int i, ok = 0;
+#ifdef ETHR_PTHREADS
+    if (pthread_mutex_lock(&mutex) != 0)
+	return NULL;
+#endif
+
+    for (i = 0; i < 10; i++)
+	if (!check_malloc(1000))
+	    goto failed;
+    for (i = 0; i < 100; i++)
+	if (!check_malloc(1))
+	    goto failed;
+    if (!check_malloc(1024*1024+1))
+	goto failed;
+    if (!check_malloc(10*1024*1024+1))
+	goto failed;
+    ok = 1;
+
+ failed:
+#ifdef ETHR_PTHREADS
+    if (pthread_mutex_unlock(&mutex) != 0)
+	return NULL;
+#endif
+    if (ok)
+	*((int *) vresp) = 0;
+    return NULL;
+}
+
+
+int main(void)
+{
+    int res[N_THR], i;
+#ifdef ETHR_PTHREADS
+    pthread_t tid[N_THR];
+#endif
+#if defined(HAVE_END_SYMBOL)
+    heap_start = &end;
+#elif defined(HAVE__END_SYMBOL)
+    heap_start = &_end;
+#endif
+
+#if defined(HAVE_MALLOPT) && defined(M_MMAP_MAX)
+    (void) mallopt(M_MMAP_MAX, 0);
+#endif
+
+    for (i = 0; i < N_THR; i++)
+	res[i] = 1;
+#ifdef ETHR_PTHREADS
+    for (i = 1; i < N_THR; i++)
+	if (pthread_create(&tid[i], NULL, do_tests, &res[i]) != 0)
+	    return 1;
+#endif
+    (void) do_tests(&res[0]);
+#ifdef ETHR_PTHREADS
+    for (i = 1; i < N_THR; i++)
+	if (pthread_join(tid[i], NULL) != 0)
+	    return 1;
+#endif
+    for (i = 0; i < N_THR; i++)
+	if (res[i])
+	    return 1;
+    return 0;
+}
+	],
+	    erts_cv_brk_wrappers_can_track_malloc=yes,
+	    erts_cv_brk_wrappers_can_track_malloc=no,
+	    erts_cv_brk_wrappers_can_track_malloc=no)])
+	if test $erts_cv_brk_wrappers_can_track_malloc = yes; then
+		AC_DEFINE(ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC, 1, \
+[Define if sbrk()/brk() wrappers can track malloc()s core memory use])
+	fi
+fi
+
+dnl Restore LIBS
+LIBS=$saved_libs
+dnl restore CPPFLAGS
+CPPFLAGS=$saved_cppflags
+
+LM_SYS_IPV6
+LM_SYS_MULTICAST
+ERL_TIME_CORRECTION
+AC_CHECK_PROG(M4, m4, m4)
+dnl check to auto-enable hipe here...
+if test X${enable_hipe} != Xno; then
+  if test -z "$M4"; then
+	enable_hipe=no
+   	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
+  else
+  	case "$ARCH-$OPSYS" in
+    	    x86-linux|amd64-linux|ppc-linux|ppc-darwin|arm-linux|amd64-freebsd|x86-freebsd|x86-sol2|amd64-sol2|ultrasparc-linux)
+      		enable_hipe=yes
+      		;;	
+  	esac
+  fi
+fi
+if test X${enable_fp_exceptions} = Xauto ; then
+   if test X${enable_hipe} = Xyes; then
+      enable_fp_exceptions=yes
+   else
+      enable_fp_exceptions=no
+   AC_MSG_NOTICE([Floating point exceptions disabled by default in this configuration])
+   fi
+fi	 
+
+if test X${enable_fp_exceptions} != Xyes ; then
+    AC_DEFINE(NO_FPE_SIGNALS,[],[Define if floating points exceptions are non-existing/not reliable])
+    FPE=unreliable
+else
+
+    AC_MSG_CHECKING([for unreliable floating point execptions])
+
+
+    AC_TRY_RUN([
+/* fpe-test.c */
+#include <stdio.h>
+#include <signal.h>
+#include <stdlib.h>
+
+volatile int erl_fp_exception;
+
+/*
+ * We expect a single SIGFPE in this test program.
+ * Getting many more indicates an inadequate SIGFPE handler,
+ * e.g. using the generic handler on x86.
+ */
+static void new_fp_exception(void)
+{
+    if (++erl_fp_exception > 50) {
+	fprintf(stderr, "SIGFPE loop detected, bailing out\n");
+	exit(1);
+    }
+}
+
+/* Is there no standard identifier for Darwin/MacOSX ? */
+#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+#define __DARWIN__ 1
+#endif
+
+/*
+ * Implement unmask_fpe() and check_fpe() based on CPU/OS combination
+ */
+
+#if (defined(__i386__) || defined(__x86_64__)) && defined(__GNUC__) && !defined(__CYGWIN__)
+
+static void unmask_x87(void)
+{
+    unsigned short cw;
+    __asm__ __volatile__("fstcw %0" : "=m"(cw));
+    cw &= ~(0x01|0x04|0x08);   /* unmask IM, ZM, OM */
+    __asm__ __volatile__("fldcw %0" : : "m"(cw));
+}
+
+static void unmask_sse2(void)
+{
+    unsigned int mxcsr;
+    __asm__ __volatile__("stmxcsr %0" : "=m"(mxcsr));
+    mxcsr &= ~(0x003F|0x0680); /* clear exn flags, unmask OM, ZM, IM (not PM, UM, DM) */
+    __asm__ __volatile__("ldmxcsr %0" : : "m"(mxcsr));
+}
+
+#if defined(__x86_64__)
+
+static inline int cpu_has_sse2(void) { return 1; }
+
+#else /* !__x86_64__ */
+
+/*
+ * Check if an x86-32 processor has SSE2.
+ */
+static unsigned int xor_eflags(unsigned int mask)
+{
+    unsigned int eax, edx;
+
+    eax = mask;			/* eax = mask */
+    __asm__("pushfl\n\t"
+	    "popl %0\n\t"	/* edx = original EFLAGS */
+	    "xorl %0, %1\n\t"	/* eax = mask ^ EFLAGS */
+	    "pushl %1\n\t"
+	    "popfl\n\t"		/* new EFLAGS = mask ^ original EFLAGS */
+	    "pushfl\n\t"
+	    "popl %1\n\t"	/* eax = new EFLAGS */
+	    "xorl %0, %1\n\t"	/* eax = new EFLAGS ^ old EFLAGS */
+	    "pushl %0\n\t"
+	    "popfl"		/* restore original EFLAGS */
+	    : "=d"(edx), "=a"(eax)
+	    : "1"(eax));
+    return eax;
+}
+
+static __inline__ unsigned int cpuid_eax(unsigned int op)
+{
+    unsigned int eax, save_ebx;
+
+    /* In PIC mode i386 reserves EBX. So we must save
+       and restore it ourselves to not upset gcc. */
+    __asm__(
+	"movl %%ebx, %1\n\t"
+	"cpuid\n\t"
+	"movl %1, %%ebx"
+	: "=a"(eax), "=m"(save_ebx)
+	: "0"(op)
+	: "cx", "dx");
+    return eax;
+}
+
+static __inline__ unsigned int cpuid_edx(unsigned int op)
+{
+    unsigned int eax, edx, save_ebx;
+ 
+    /* In PIC mode i386 reserves EBX. So we must save
+       and restore it ourselves to not upset gcc. */
+    __asm__(
+	"movl %%ebx, %2\n\t"
+	"cpuid\n\t"
+	"movl %2, %%ebx"
+	: "=a"(eax), "=d"(edx), "=m"(save_ebx)
+	: "0"(op)
+	: "cx");
+    return edx;
+}
+
+/* The AC bit, bit #18, is a new bit introduced in the EFLAGS
+ * register on the Intel486 processor to generate alignment
+ * faults. This bit cannot be set on the Intel386 processor.
+ */
+static __inline__ int is_386(void)
+{
+    return ((xor_eflags(1<<18) >> 18) & 1) == 0;
+}
+
+/* Newer x86 processors have a CPUID instruction, as indicated by
+ * the ID bit (#21) in EFLAGS being modifiable.
+ */
+static __inline__ int has_CPUID(void)
+{
+    return (xor_eflags(1<<21) >> 21) & 1;
+}
+
+static int cpu_has_sse2(void)
+{
+    unsigned int maxlev, features;
+    static int has_sse2 = -1;
+
+    if (has_sse2 >= 0)
+	return has_sse2;
+    has_sse2 = 0;
+
+    if (is_386())
+	return 0;
+    if (!has_CPUID())
+	return 0;
+    maxlev = cpuid_eax(0);
+    /* Intel A-step Pentium had a preliminary version of CPUID.
+       It also didn't have SSE2. */
+    if ((maxlev & 0xFFFFFF00) == 0x0500)
+	return 0;
+    /* If max level is zero then CPUID cannot report any features. */
+    if (maxlev == 0)
+	return 0;
+    features = cpuid_edx(1);
+    has_sse2 = (features & (1 << 26)) != 0;
+
+    return has_sse2;
+}
+#endif /* !__x86_64__ */
+
+static void unmask_fpe(void)
+{
+    unmask_x87();
+    if (cpu_has_sse2())
+	unmask_sse2();
+}
+
+static __inline__ int check_fpe(double f)
+{
+    __asm__ __volatile__("fwait" : "=m"(erl_fp_exception) : "m"(f));
+    if (!erl_fp_exception)
+       return 0;
+    __asm__ __volatile__("fninit");
+    unmask_fpe();
+    return 1;
+}
+
+#elif defined(__sparc__) && defined(__linux__)
+
+#if defined(__arch64__)
+#define LDX "ldx"
+#define STX "stx"
+#else
+#define LDX "ld"
+#define STX "st"
+#endif
+
+static void unmask_fpe(void)
+{
+    unsigned long fsr;
+
+    __asm__(STX " %%fsr, %0" : "=m"(fsr));
+    fsr &= ~(0x1FUL << 23);	/* clear FSR[TEM] field */
+    fsr |= (0x1AUL << 23);	/* enable NV, OF, DZ exceptions */
+    __asm__ __volatile__(LDX " %0, %%fsr" : : "m"(fsr));
+}
+
+static __inline__ int check_fpe(double f)
+{
+    __asm__ __volatile__("" : "=m"(erl_fp_exception) : "em"(f));
+    return erl_fp_exception;
+}
+
+#elif (defined(__powerpc__) && defined(__linux__)) || (defined(__ppc__) && defined(__DARWIN__))
+
+#if defined(__linux__)
+
+#include <sys/prctl.h>
+
+static void set_fpexc_precise(void)
+{
+    if (prctl(PR_SET_FPEXC, PR_FP_EXC_PRECISE) < 0) {
+	perror("PR_SET_FPEXC");
+	exit(1);
+    }
+}
+
+#elif defined(__DARWIN__)
+
+#include <mach/mach.h>
+#include <pthread.h>
+
+/*
+ * FE0 FE1	MSR bits
+ *  0   0	floating-point exceptions disabled
+ *  0   1	floating-point imprecise nonrecoverable
+ *  1   0	floating-point imprecise recoverable
+ *  1   1	floating-point precise mode
+ *
+ * Apparently:
+ * - Darwin 5.5 (MacOS X <= 10.1) starts with FE0 == FE1 == 0,
+ *   and resets FE0 and FE1 to 0 after each SIGFPE.
+ * - Darwin 6.0 (MacOS X 10.2) starts with FE0 == FE1 == 1,
+ *   and does not reset FE0 or FE1 after a SIGFPE.
+ */
+#define FE0_MASK	(1<<11)
+#define FE1_MASK	(1<<8)
+
+/* a thread cannot get or set its own MSR bits */
+static void *fpu_fpe_enable(void *arg)
+{
+    thread_t t = *(thread_t*)arg;
+    struct ppc_thread_state state;
+    unsigned int state_size = PPC_THREAD_STATE_COUNT;
+
+    if (thread_get_state(t, PPC_THREAD_STATE, (natural_t*)&state, &state_size) != KERN_SUCCESS) {
+	perror("thread_get_state");
+	exit(1);
+    }
+    if ((state.srr1 & (FE1_MASK|FE0_MASK)) != (FE1_MASK|FE0_MASK)) {
+#if 0
+	/* This would also have to be performed in the SIGFPE handler
+	   to work around the MSR reset older Darwin releases do. */
+	state.srr1 |= (FE1_MASK|FE0_MASK);
+	thread_set_state(t, PPC_THREAD_STATE, (natural_t*)&state, state_size);
+#else
+	fprintf(stderr, "srr1 == 0x%08x, your Darwin is too old\n", state.srr1);
+	exit(1);
+#endif
+    }
+    return NULL; /* Ok, we appear to be on Darwin 6.0 or later */
+}
+
+static void set_fpexc_precise(void)
+{
+    thread_t self = mach_thread_self();
+    pthread_t enabler;
+
+    if (pthread_create(&enabler, NULL, fpu_fpe_enable, &self)) {
+	perror("pthread_create");
+    } else if (pthread_join(enabler, NULL)) {
+	perror("pthread_join");
+    }
+}
+
+#endif
+
+static void set_fpscr(unsigned int fpscr)
+{
+    union {
+	double d;
+	unsigned int fpscr[2];
+    } u;
+    u.fpscr[0] = 0xFFF80000;
+    u.fpscr[1] = fpscr;
+    __asm__ __volatile__("mtfsf 255,%0" : : "f"(u.d));
+}
+
+static void unmask_fpe(void)
+{
+    set_fpexc_precise();
+    set_fpscr(0x80|0x40|0x10);	/* VE, OE, ZE; not UE or XE */
+}
+
+static __inline__ int check_fpe(double f)
+{
+    __asm__ __volatile__("" : "=m"(erl_fp_exception) : "fm"(f));
+    return erl_fp_exception;
+}
+
+#else
+
+#include <ieeefp.h>
+
+#define unmask_fpe()   fpsetmask(FP_X_INV | FP_X_OFL | FP_X_DZ)
+
+static __inline__ int check_fpe(double f)
+{
+    __asm__ __volatile__("" : "=m"(erl_fp_exception) : "g"(f));
+    return erl_fp_exception;
+}
+
+#endif
+
+/*
+ * Implement SIGFPE handler based on CPU/OS combination
+ */
+
+#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__i386__) || defined(__x86_64__))) || (defined(__OpenBSD__) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
+
+#if defined(__linux__) && defined(__i386__)
+#if !defined(X86_FXSR_MAGIC)
+#define X86_FXSR_MAGIC 0x0000
+#endif
+#elif defined(__FreeBSD__) && defined(__i386__)
+#include <sys/types.h>
+#include <machine/npx.h>
+#elif defined(__FreeBSD__) && defined(__x86_64__)
+#include <sys/types.h>
+#include <machine/fpu.h>
+#elif defined(__DARWIN__)
+#include <machine/signal.h>
+#elif defined(__OpenBSD__) && defined(__x86_64__)
+#include <sys/types.h>
+#include <machine/fpu.h>
+#endif
+#if !(defined(__OpenBSD__) && defined(__x86_64__))
+#include <ucontext.h>
+#endif
+#include <string.h>
+
+static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
+{
+    ucontext_t *uc = puc;
+#if defined(__linux__)
+#if defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    fpregset_t fpstate = mc->fpregs;
+    fpstate->mxcsr = 0x1F80;
+    fpstate->swd &= ~0xFF;
+#elif defined(__i386__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    fpregset_t fpstate = mc->fpregs;
+    if ((fpstate->status >> 16) == X86_FXSR_MAGIC)
+	((struct _fpstate*)fpstate)->mxcsr = 0x1F80;
+    fpstate->sw &= ~0xFF;
+#elif defined(__sparc__) && defined(__arch64__)
+    /* on SPARC the 3rd parameter points to a sigcontext not a ucontext */
+    struct sigcontext *sc = (struct sigcontext*)puc;
+    sc->sigc_regs.tpc = sc->sigc_regs.tnpc;
+    sc->sigc_regs.tnpc += 4;
+#elif defined(__sparc__)
+    /* on SPARC the 3rd parameter points to a sigcontext not a ucontext */
+    struct sigcontext *sc = (struct sigcontext*)puc;
+    sc->si_regs.pc = sc->si_regs.npc;
+    sc->si_regs.npc = (unsigned long)sc->si_regs.npc + 4;
+#elif defined(__powerpc__)
+#if defined(__powerpc64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    unsigned long *regs = &mc->gp_regs[0];
+#else
+    mcontext_t *mc = uc->uc_mcontext.uc_regs;
+    unsigned long *regs = &mc->gregs[0];
+#endif
+    regs[PT_NIP] += 4;
+    regs[PT_FPSCR] = 0x80|0x40|0x10;	/* VE, OE, ZE; not UE or XE */
+#endif
+#elif defined(__DARWIN__)
+#if defined(__x86_64__)
+    mcontext_t mc = uc->uc_mcontext;
+    struct __darwin_x86_float_state64 *fpstate = &mc->__fs;
+    fpstate->__fpu_mxcsr = 0x1F80;
+    *(unsigned short *)&fpstate->__fpu_fsw &= ~0xFF;
+#elif defined(__i386__)
+    mcontext_t mc = uc->uc_mcontext;
+    struct __darwin_i386_float_state *fpstate = &mc->__fs;
+    fpstate->__fpu_mxcsr = 0x1F80;
+    *(unsigned short *)&fpstate->__fpu_fsw &= ~0xFF;
+#elif defined(__ppc__)
+    mcontext_t mc = uc->uc_mcontext;
+    mc->ss.srr0 += 4;
+    mc->fs.fpscr = 0x80|0x40|0x10;
+#endif
+#elif defined(__FreeBSD__) && defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    struct savefpu *savefpu = (struct savefpu*)&mc->mc_fpstate;
+    struct envxmm *envxmm = &savefpu->sv_env;
+    envxmm->en_mxcsr = 0x1F80;
+    envxmm->en_sw &= ~0xFF;
+#elif defined(__FreeBSD__) && defined(__i386__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    union savefpu *savefpu = (union savefpu*)&mc->mc_fpstate;
+    if (mc->mc_fpformat == _MC_FPFMT_XMM) {
+	struct envxmm *envxmm = &savefpu->sv_xmm.sv_env;
+	envxmm->en_mxcsr = 0x1F80;
+	envxmm->en_sw &= ~0xFF;
+    } else {
+	struct env87 *env87 = &savefpu->sv_87.sv_env;
+	env87->en_sw &= ~0xFF;
+    }
+#elif defined(__OpenBSD__) && defined(__x86_64__)
+    struct fxsave64 *fxsave = uc->sc_fpstate;
+    fxsave->fx_mxcsr = 0x1F80;
+    fxsave->fx_fsw &= ~0xFF;
+#elif defined(__sun__) && defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    struct fpchip_state *fpstate = &mc->fpregs.fp_reg_set.fpchip_state;
+    fpstate->mxcsr = 0x1F80;
+    fpstate->sw &= ~0xFF;
+#endif
+    new_fp_exception();
+}
+
+static void catch_sigfpe(void)
+{
+    struct sigaction act;
+
+    memset(&act, 0, sizeof act);
+    act.sa_sigaction = fpe_sig_action;
+    act.sa_flags = SA_SIGINFO;
+    sigaction(SIGFPE, &act, NULL);
+}
+
+#else
+
+static void fpe_sig_handler(int sig)
+{
+    new_fp_exception();
+}
+
+static void catch_sigfpe(void)
+{
+    signal(SIGFPE, fpe_sig_handler);
+}
+
+#endif
+
+/*
+ * Generic test code
+ */
+
+static void do_init(void)
+{
+    catch_sigfpe();
+    unmask_fpe();
+}
+
+double a = 3.23e133;
+double b = 3.57e257;
+double res;
+
+void do_fmul(void)
+{
+    res = a * b;
+}
+
+int do_check(void)
+{
+    if (check_fpe(res)) {
+       fprintf(stderr, "res = %g, FPE worked\n", res);
+       return 0;
+    } else {
+       fprintf(stderr, "res = %g, FPE failed\n", res);
+       return 1;
+    }
+}
+
+int main(int argc, const char **argv)
+{
+    if (argc == 3) {
+       a = atof(argv[1]);
+       b = atof(argv[2]);
+    }
+    do_init();
+    do_fmul();
+    return do_check();
+}
+], erl_ok=reliable, erl_ok=unreliable, erl_ok=unreliable)
+    if test $erl_ok = unreliable; then
+        AC_DEFINE(NO_FPE_SIGNALS,[],
+	    [Define if floating points exceptions are non-existing/not reliable])
+        AC_MSG_RESULT([unreliable; testing in software instead])
+        FPE=unreliable
+    else
+        AC_MSG_RESULT(reliable)
+        FPE=reliable
+    fi
+fi	
+
+case $ARCH-$OPSYS in
+	amd64-darwin*|x86-darwin*)
+		AC_MSG_CHECKING([For modern (leopard) style mcontext_t])
+		AC_TRY_COMPILE([
+				#include <stdlib.h>
+				#include <sys/types.h>
+				#include <unistd.h>
+				#include <mach/mach.h>
+				#include <pthread.h>
+				#include <machine/signal.h>
+				#include <ucontext.h>
+				],[
+				#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+				#define __DARWIN__ 1
+				#endif
+
+				#ifndef __DARWIN__
+				#error inpossible
+				#else
+
+    				mcontext_t mc = NULL;
+    				int x = mc->__fs.__fpu_mxcsr;
+
+				#endif
+				],darwin_mcontext_leopard=yes,
+				darwin_mcontext_leopard=no)
+				if test X"$darwin_mcontext_leopard" = X"yes"; then
+				   AC_DEFINE(DARWIN_MODERN_MCONTEXT,[],[Modern style mcontext_t in MacOSX])
+				   AC_MSG_RESULT(yes)
+				else
+				   AC_MSG_RESULT(no)
+				fi		
+		;;
+	*)	
+		darwin_mcontext_leopard=no
+		;;
+esac
+	
+	 
+		
+
+
+
+dnl
+dnl Some operating systems allow you to redefine FD_SETSIZE to be able
+dnl to select on more than the default number of file descriptors.
+dnl We first discovered this in BSD/OS where the default is ridiculously
+dnl low (256). But since we use a lot of file descriptors we found the
+dnl need to go over the limit in other os's as well. Since FD_SETSIZE 
+dnl must be defined before pulling in sys/types.h the actual number
+dnl of file descriptors is set in acconfig.h and will thus be in config.h
+dnl which *always* should be included first.
+dnl
+
+AC_MSG_CHECKING([whether to redefine FD_SETSIZE])
+case $host_os in
+  bsdi*)
+	AC_DEFINE(REDEFINE_FD_SETSIZE,[],[Define if you wish to redefine FD_SETSIZE to be able to select on more fd])
+	AC_MSG_RESULT(yes)
+	;;
+  *)
+	AC_MSG_RESULT(no)
+	;;
+esac
+
+
+
+dnl ----------------------------------------------------------------------
+dnl Tests related to configurable options given on command line
+dnl (using the --disable, --enable and --with switches).
+dnl ----------------------------------------------------------------------
+
+#
+# Check if we should compile TSP app
+#
+
+TSP_APP=
+if test X${enable_tsp} = Xyes; then
+  TSP_APP=tsp
+fi
+AC_SUBST(TSP_APP)
+
+#
+# Check if we should build hybrid emulator
+#
+
+AC_MSG_CHECKING([whether a hybrid heap emulator should be built])
+case $enable_hybrid_heap-$host_os in
+    yes-*)
+	AC_MSG_RESULT([yes; enabled by user])
+	ERTS_BUILD_HYBRID_EMU=yes;;
+    no-*)
+	AC_MSG_RESULT([no; disabled by user])
+	ERTS_BUILD_HYBRID_EMU=no;;
+    *-win32|*-vxworks|*-ose) # vxworks and ose have their own "configure scripts"...
+	AC_MSG_RESULT([no; default on this platform])
+	ERTS_BUILD_HYBRID_EMU=no;;
+    *)
+	AC_MSG_RESULT([yes; default on this platform])
+	ERTS_BUILD_HYBRID_EMU=yes;;
+esac
+
+
+if test $ERTS_BUILD_HYBRID_EMU = yes; then
+    AC_DEFINE(ERTS_HAVE_HYBRID_EMU, 1, [Define if the hybrid emulator is built])
+fi
+
+AC_SUBST(ERTS_BUILD_HYBRID_EMU)
+
+#
+# Check if we should enable HiPE.
+#
+
+HIPE_ENABLED=
+HIPE_HELPERS=
+
+dnl if not disabled, autoenable HiPE on known supported platforms
+dnl done up where floating point is checked, need to descide there already...
+
+if test X${enable_hipe} = Xyes; then
+  if test X$ac_cv_sizeof_void_p != X4 -a X$ARCH != Xamd64 -a X$ARCH != Xppc64; then
+	AC_MSG_WARN([HiPE is not supported in 64-bit builds])
+  elif test X$FPE != Xreliable -a X$ARCH != Xarm; then
+	AC_MSG_WARN([HiPE is not supported on $ARCH without reliable floating-point exceptions])
+  else
+     HIPE_ENABLED=yes
+     AC_DEFINE(HIPE,[1],[Define to enable HiPE])
+     HIPE_HELPERS="xmerl syntax_tools edoc"
+     ENABLE_ALLOC_TYPE_VARS="$ENABLE_ALLOC_TYPE_VARS hipe"
+  fi
+fi
+AC_SUBST(HIPE_HELPERS)
+AC_SUBST(HIPE_ENABLED)
+
+#
+# Check if Erlang libraries should be compiled to native code.
+#
+NATIVE_LIBS_ENABLED=
+if test X${enable_native_libs} = Xyes -a X${HIPE_ENABLED} = Xyes; then
+  NATIVE_LIBS_ENABLED=yes
+fi
+AC_SUBST(NATIVE_LIBS_ENABLED)
+
+#
+# Check if HiPE should use a standard installation of perfctr.
+#
+AC_SUBST(USE_PERFCTR)
+if test "x$HIPE_ENABLED" = "xyes" ; then
+  if test "x$with_perfctr" = "x" ; then
+      AC_CHECK_LIB(perfctr, vperfctr_info, [USE_PERFCTR=1
+	  AC_DEFINE(USE_PERFCTR,[1],[Define to enable hrvtime() on Linux systems with perfctr extension])])
+  elif test "x$with_perfctr" != "xno" ; then
+      USE_PERFCTR=1
+  fi
+fi
+
+#
+# Check if we should use elib_malloc.
+#
+
+if test X${enable_elib_malloc} = Xyes; then
+ AC_DEFINE(ENABLE_ELIB_MALLOC,[],[Define to enable use of elib_malloc (a malloc() replacement)])
+ AC_DEFINE(ELIB_HEAP_SBRK,[],[Elib sbrk])
+ AC_DEFINE(ELIB_ALLOC_IS_CLIB,[],[Use elib malloc as clib])
+ AC_DEFINE(ELIB_SORTED_BLOCKS,[],[Define to enable the use of sorted blocks when using elib_malloc])
+fi
+
+#
+# Check for working poll().
+#
+AC_MSG_CHECKING([for working poll()])
+if test "x$erl_xcomp_poll" != "x"; then
+	poll_works=$erl_xcomp_poll
+else
+AC_TRY_RUN([
+#include <poll.h>
+main()
+{
+#ifdef _POLL_EMUL_H_
+  exit(1); /* Implemented using select() -- fail */
+#else
+  struct pollfd fds[1];
+  int fd;
+  fd = open("/dev/null", 1);
+  fds[0].fd = fd;
+  fds[0].events = POLLIN;
+  fds[0].revents = 0;
+  if (poll(fds, 1, 0) < 0 || (fds[0].revents & POLLNVAL) != 0) {
+    exit(1);  /* Does not work for devices -- fail */
+  }
+  exit(0);
+#endif
+}
+], poll_works=true, poll_works=false, poll_works=false)
+fi
+case $poll_works in
+true)
+	AC_DEFINE(ERTS_USE_POLL, 1, [Define if poll() should be used instead of select()])
+	AC_MSG_RESULT(ok)
+	;;
+*)
+	#
+	# The USE_SELECT define is used by the ssl application (should not
+	# be used by erts).
+	#
+	AC_DEFINE(USE_SELECT, 1, [Define if select() should be used instead of poll()])
+	AC_MSG_RESULT(broken or based on select())
+	;;
+esac
+
+#
+# If kqueue() found, check that it can be selected or polled on...
+#
+if test $have_kernel_poll = kqueue; then
+	if test $poll_works = true; then
+		kqueue_with=poll
+	else
+		kqueue_with=select
+	fi
+	AC_MSG_CHECKING([whether kqueue() fd can be ${kqueue_with}()ed on])
+	AC_TRY_RUN([
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/event.h>
+#include <sys/time.h>
+#ifdef ERTS_USE_POLL
+#include <poll.h>
+#else
+#include <unistd.h>
+#endif
+int main(void) {
+    int kq = kqueue();
+    if (kq < 0) return 2;
+    {
+#ifdef ERTS_USE_POLL
+	struct pollfd pfds = {kq, POLLIN, 0};
+	if (poll(&pfds, 1, 0) < 0) return 1;
+#else
+	struct timeval tv = {0, 0};
+	fd_set set; FD_ZERO(&set); FD_SET(kq, &set);
+	if (select(kq+1, &set, NULL, NULL, &tv) < 0) return 1;
+#endif
+    }
+    return 0;
+}
+	], ok_kqueue=true, ok_kqueue=false, ok_kqueue=false)
+	if test $ok_kqueue = true; then
+		AC_MSG_RESULT(yes);
+	else
+		AC_MSG_RESULT(no);
+		have_kernel_poll=no
+	fi
+fi
+
+#
+# If epoll() found, check that it is level triggered.
+#
+if test $have_kernel_poll = epoll; then
+	AC_MSG_CHECKING([whether epoll is level triggered])
+	AC_TRY_COMPILE([#include <sys/epoll.h>],[
+			#ifdef EPOLLET
+			/* Edge triggered option exist, assume level triggered
+			   is default */
+			;
+			#else
+			/* No edge triggered option exist; assume edge
+			   triggered only */
+			#error No EPOLLET
+			#endif
+			],
+			level_triggered_epoll=yes,
+			[level_triggered_epoll=no
+			 have_kernel_poll=no])
+	AC_MSG_RESULT([$level_triggered_epoll])
+fi
+#
+# Check if we should enable kernel poll support
+#
+AC_MSG_CHECKING(whether kernel poll support should be enabled)
+ERTS_ENABLE_KERNEL_POLL=no
+case $enable_kernel_poll-$have_kernel_poll in
+    no-*)
+	AC_MSG_RESULT(no; disabled by user);;
+    yes-no)
+	AC_MSG_ERROR(no; kernel poll support requested but not found);;
+    *-no)
+	AC_MSG_RESULT(no);;
+    *)
+	case $have_kernel_poll in
+	    epoll)
+		AC_DEFINE(HAVE_SYS_EPOLL_H, 1, [Define if you have the <sys/epoll.h> header file.]);;
+	    /dev/poll)
+		AC_DEFINE(HAVE_SYS_DEVPOLL_H, 1, [Define if you have <sys/devpoll.h> header file.]);;
+	    kqueue)
+		AC_DEFINE(HAVE_SYS_EVENT_H, 1, [Define if you have <sys/event.h> header file.]);;
+	    *)
+		AC_MSG_ERROR(configure.in need to be updated);;
+	esac
+	ERTS_ENABLE_KERNEL_POLL=yes
+	AC_DEFINE(ERTS_ENABLE_KERNEL_POLL, 1, [Define if you have kernel poll and want to use it])
+	AC_MSG_RESULT([yes; $have_kernel_poll]);;
+esac
+AC_SUBST(ERTS_ENABLE_KERNEL_POLL)
+
+AC_MSG_CHECKING([whether putenv() stores a copy of the key-value pair])
+AC_TRY_RUN([
+#include <stdlib.h>
+int main(void) {
+    int i;
+    char *env;
+    char buf[10];
+    for (i = 0; i < 7; i++)
+	buf[i] = 'X';
+    buf[i] = '\0';
+    buf[3] = '=';
+    if (putenv(buf) != 0)
+	return 1;
+    for (i = 4; i < 7; i++)
+	buf[i] = 'Y';
+    env = getenv("XXX");
+    if (!env)
+	return 2;
+    for (i = 0; i < 3; i++)
+	if (env[i] != 'X')
+	    return 3;
+    for (i = 0; i < 3; i++)
+	buf[i] = 'Y';
+    env = getenv("XXX");
+    if (!env)
+	return 4;
+    for (i = 0; i < 3; i++)
+	if (env[i] != 'X')
+	    return 5;
+    return 0;
+}
+], copying_putenv=yes, copying_putenv=no, copying_putenv=no)
+if test $copying_putenv = yes; then
+	AC_DEFINE(HAVE_COPYING_PUTENV,[1],[Define if you have a putenv() that stores a copy of the key-value pair])
+fi
+AC_MSG_RESULT($copying_putenv)
+
+dnl ----------------------------------------------------------------------
+dnl Stuff that should be moved into their respective application
+dnl ----------------------------------------------------------------------
+
+dnl crypto
+#--------------------------------------------------------------------
+# Dynamic Erlang Drivers
+#
+# Linking to produce dynamic Erlang drivers to be loaded by Erlang's
+# Dynamic Driver Loader and Linker (DDLL). Below the prefix DED is an
+# abbreviation for `Dynamic Erlang Driver'.
+#
+# For DED we need something quite sloppy, which allows undefined references 
+# (notably driver functions) in the resulting shared library. 
+# Example of Makefile rule (and settings of macros):
+#
+# LIBS = @LIBS@
+# LD = @DED_LD@
+# LDFLAGS = @DED_LDFLAGS@
+# soname = @ldsoname@
+#
+# my_drv.so:   my_drv.o my_utils.o
+#              $(LD) $(LDFLAGS) $(soname) $@ -o $@ $^ -lc $(LIBS)
+#
+#--------------------------------------------------------------------
+
+DED_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host"
+
+DED_CFLAGS="$DED_INCLUDE $CFLAGS $CPPFLAGS $EMU_THR_DEFS"
+if test "x$GCC" = xyes; then
+    DED_CFLAGS="$DED_CFLAGS -fPIC"
+fi
+
+STATIC_CFLAGS=""
+
+# If DED_LD is set in environment, we expect all DED variables to be specified
+# (cross compiling)
+if test "x$DED_LD" = "x"; then
+
+if test "x$LD" = "x"; then
+    DED_LD=ld
+else
+    DED_LD=$LD
+fi	
+DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
+
+case $host_os in
+	win32)
+		DED_LD=ld.sh	
+		DED_LDFLAGS="-dll"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+	;;
+	solaris2*|sysv4*)
+		DED_LDFLAGS="-G"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-64 $DED_LDFLAGS"
+		fi
+	;;
+	aix4*)
+		DED_LDFLAGS="-G -bnoentry -bexpall"
+	;;
+	freebsd2*)
+		# Non-ELF GNU linker
+		DED_LDFLAGS="-Bshareable"
+	;;
+	darwin*)
+		# Mach-O linker: a shared lib and a loadable
+		# object file is not the same thing.
+		DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
+		case $ARCH in
+			amd64)
+				DED_LDFLAGS="-m64 $DED_LDFLAGS"
+				;;
+			*)
+				if test X${enable_darwin_universal} != Xyes; then
+					DED_LDFLAGS="-m32 $DED_LDFLAGS"
+				fi
+				;;
+		esac
+		if test X${enable_darwin_universal} = Xyes; then
+		   	DED_LDFLAGS="-arch ppc -arch i386 $DED_LDFLAGS"
+		fi	
+		DED_CFLAGS="$DED_CFLAGS -fno-common"
+		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+		STATIC_CFLAGS="-mdynamic-no-pic"
+	;;
+	linux*)
+		DED_LD="$CC"
+		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi
+	;;	
+	freebsd*)
+		DED_LD="$CC"
+		DED_LDFLAGS="-shared"
+		if test X${enable_m64_build} = Xyes; then
+			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi
+	;;	
+	osf*)
+		# NOTE! Whitespace after -rpath is important.
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-rpath "
+		DED_LDFLAGS="-shared -expect_unresolved '*'"
+	;;
+	*)
+		# assume GNU linker and ELF
+		DED_LDFLAGS="-shared"
+		# GNU linker has no option for 64bit build, should not propagate -m64
+	;;
+esac
+
+fi
+
+AC_MSG_CHECKING(for compiler flags for loadable drivers)
+AC_MSG_RESULT([$DED_CFLAGS])
+AC_MSG_CHECKING(for linker for loadable drivers)
+AC_MSG_RESULT([$DED_LD])
+AC_MSG_CHECKING(for linker flags for loadable drivers)
+AC_MSG_RESULT([$DED_LDFLAGS])
+AC_MSG_CHECKING(for 'runtime library path' linker flag)
+if test "x$DED_LD_FLAG_RUNTIME_LIBRARY_PATH" != "x"; then
+	AC_MSG_RESULT([$DED_LD_FLAG_RUNTIME_LIBRARY_PATH])
+else
+	AC_MSG_RESULT([not found])
+fi
+
+AC_SUBST(DED_CFLAGS)
+AC_SUBST(DED_LD)
+AC_SUBST(DED_LDFLAGS)
+AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
+AC_SUBST(STATIC_CFLAGS)
+
+dnl
+dnl We should look for a compiler that handles jump tables, for beam_emu 
+dnl to be optimized
+dnl
+
+LM_FIND_EMU_CC
+
+dnl
+dnl SSL, SSH and CRYPTO need the OpenSSL libraries
+dnl
+dnl Check flags --with-ssl, --without-ssl --with-ssl=PATH.
+dnl If no option is given or --with-ssl is set without a path then we
+dnl search for OpenSSL libraries and header files in the standard locations. 
+dnl If set to --without-ssl we disable the use of SSL, SSH and CRYPTO.
+dnl If set to --with-ssl=PATH we use that path as the prefix, i.e. we
+dnl use "PATH/include" and "PATH/lib".
+
+AC_SUBST(SSL_INCLUDE)
+AC_SUBST(SSL_ROOT)
+AC_SUBST(SSL_LIBDIR)
+AC_SUBST(SSL_DYNAMIC_ONLY)
+AC_SUBST(SSL_LINK_WITH_KERBEROS)
+AC_SUBST(STATIC_KERBEROS_LIBS)
+AC_SUBST(SSL_LINK_WITH_ZLIB)
+AC_SUBST(STATIC_ZLIB_LIBS)
+AC_SUBST(OPENSSL_CMD)
+
+AC_ARG_WITH(ssl-zlib,
+[  --with-ssl-zlib=PATH    specify location of ZLib to be used by OpenSSL
+  --with-ssl-zlib         link SSL with  Zlib (default if found)
+  --without-ssl-zlib      don't link SSL with ZLib])
+
+
+if  test "x$with_ssl_zlib" = "xno"; then
+	SSL_LINK_WITH_ZLIB=no
+	STATIC_ZLIB_LIBS=
+elif test "x$with_ssl_zlib" = "xyes" -o "x$with_ssl_zlib" = "x" ;then
+	if  test "x$MIXED_CYGWIN" = "xyes"; then
+		SSL_LINK_WITH_ZLIB=no	
+		STATIC_ZLIB_LIBS=	
+	else
+		SSL_LINK_WITH_ZLIB=no
+		STATIC_ZLIB_LIBS=
+		AC_MSG_CHECKING(for static ZLib to be used by SSL in standard locations) 
+		for dir in /usr/local /usr/sfw /usr /usr/pkg \
+		/usr/local/openssl /usr/lib/openssl /usr/openssl \
+		/usr/local/ssl /usr/lib/ssl /usr/ssl
+		do
+			if test "x$ac_cv_sizeof_void_p" = "x8"; then
+				if test -f "$dir/lib64/libz.a"; then
+					SSL_LINK_WITH_ZLIB=yes
+					STATIC_ZLIB_LIBS="$dir/lib64/libz.a"
+					break
+				elif test -f "$dir/lib/64/libz.a"; then
+					SSL_LINK_WITH_ZLIB=yes
+					STATIC_ZLIB_LIBS="$dir/lib/64/libz.a"
+					break
+				fi
+			fi
+			if test -f "$dir/lib/libz.a"; then
+					SSL_LINK_WITH_ZLIB=yes
+				STATIC_ZLIB_LIBS="$dir/lib/libz.a"
+				break
+			fi
+		done
+		if test "x$SSL_LINK_WITH_ZLIB" = "xno"; then
+		       	AC_MSG_RESULT([no])
+		else
+			AC_MSG_RESULT([$STATIC_ZLIB_LIBS])
+		fi
+	fi				
+else
+	SSL_LINK_WITH_ZLIB=no
+	STATIC_ZLIB_LIBS=
+	if test -f "$with_ssl_zlib/libz.a"; then
+		SSL_LINK_WITH_ZLIB=yes
+		STATIC_ZLIB_LIBS=$with_ssl_zlib/libz.a
+	elif test -f "$with_ssl_zlib/lib/libz.a"; then
+		SSL_LINK_WITH_ZLIB=yes
+		STATIC_ZLIB_LIBS=$with_ssl_zlib/lib/libz.a
+	fi
+	if test "x$ac_cv_sizeof_void_p" = "x8"; then
+		if test -f "$with_ssl_zlib/lib64/libz.a"; then
+			SSL_LINK_WITH_ZLIB=yes
+			STATIC_ZLIB_LIBS=$with_ssl_zlib/lib64/libz.a
+		elif test -f "$with_ssl_zlib/lib/64/libz.a"; then
+			SSL_LINK_WITH_ZLIB=yes
+			STATIC_ZLIB_LIBS=$with_ssl_zlib/lib/64/libz.a
+		fi
+	fi
+	if test "x$SSL_LINK_WITH_ZLIB" = "xno"; then
+	       	AC_MSG_ERROR(Invalid path to option --with-ssl-zlib=PATH)
+	fi
+fi
+		
+			
+AC_ARG_WITH(ssl,
+[  --with-ssl=PATH         specify location of OpenSSL include and lib
+  --with-ssl              use SSL (default)
+  --without-ssl           don't use SSL])
+
+AC_ARG_ENABLE(dynamic-ssl-lib,
+[  --enable-dynamic-ssl-lib        enable using dynamic openssl libraries
+  --disable-dynamic-ssl-lib       disable using dynamic openssl libraries],
+[ case "$enableval" in
+    no) enable_dynamic_ssl=no ;;
+    *)  enable_dynamic_ssl=yes ;;
+  esac ], enable_dynamic_ssl=yes)
+
+#----------------------------------------------------------------------
+# We actually might do the SSL tests twice due to late discovery of 
+# kerberos problems with static linking, in case we redo it all trying
+# dynamic SSL libraries instead.
+#----------------------------------------------------------------------
+
+ssl_done=no
+
+while test "x$ssl_done" != "xyes"; do
+
+ssl_done=yes # Default only one run
+
+# Remove all SKIP files from previous runs
+for a in ssl crypto ssh; do
+  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+done
+
+SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
+
+if test "x$with_ssl" = "xno"; then
+    SSL_APP=
+    CRYPTO_APP=
+    SSH_APP=
+    for a in ssl crypto ssh; do
+        echo "User gave --without-ssl option" > $ERL_TOP/lib/$a/SKIP
+    done
+elif test "x$with_ssl" = "xyes" -o "x$with_ssl" = "x" ;then
+    # On windows, we could try to find the installation
+    # of Shining Light OpenSSL, which can be found by poking in
+    # the uninstall section in the registry, it's worth a try...
+    extra_dir=""
+    if  test "x$MIXED_CYGWIN" = "xyes"; then
+    	AC_CHECK_PROG(REGTOOL, regtool, regtool, false)
+	if test "$ac_cv_prog_REGTOOL" != false; then
+		wrp="/machine/software/microsoft/windows/currentversion/"
+		urp="uninstall/openssl_is1/inno setup: app path"
+		rp="$wrp$urp"
+		if regtool -q get "$rp" > /dev/null; then
+			ssl_install_dir=`regtool -q get "$rp"`
+			# Try hard to get rid of spaces...
+			if cygpath -d "$ssl_install_dir" > /dev/null 2>&1; then
+				ssl_install_dir=`cygpath -d "$ssl_install_dir"`
+			fi
+			extra_dir=`cygpath $ssl_install_dir`
+		fi
+	fi
+    fi
+    # We search for OpenSSL in the common OS standard locations.
+    SSL_APP=ssl
+    CRYPTO_APP=crypto
+    SSH_APP=ssh
+
+    AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations) 
+    for dir in $extra_dir /cygdrive/c/OpenSSL \
+		/usr/local /usr/sfw /opt/local /usr /usr/pkg \
+		/usr/local/openssl /usr/lib/openssl /usr/openssl \
+		/usr/local/ssl /usr/lib/ssl /usr/ssl
+	do
+       if test -f $dir/include/openssl/opensslv.h; then
+		is_real_ssl=yes
+		SSL_ROOT="$dir"
+		if test "x$MIXED_CYGWIN" = "xyes" ; then
+			if test -f "$dir/lib/VC/ssleay32.lib" -o \
+				-f "$dir/lib/VC/openssl.lib"; then 
+				SSL_LIBDIR="$dir/lib/VC"
+			elif test -f "$dir/lib/ssleay32.lib" -o \
+				-f "$dir/lib/openssl.lib"; then
+				SSL_LIBDIR="$dir/lib"
+			else
+				is_real_ssl=no
+			fi
+		else
+			if test "x$ac_cv_sizeof_void_p" = "x8"; then
+				if test -f "$dir/lib64/libcrypto.a"; then
+					SSL_LIBDIR="$dir/lib64"
+				elif test -f "$dir/lib/64/libcrypto.a"; then
+					SSL_LIBDIR="$dir/lib/64"
+				elif test -f "$dir/lib64/libcrypto.so"; then
+					SSL_LIBDIR="$dir/lib64"
+				elif test -f "$dir/lib/64/libcrypto.so"; then
+					SSL_LIBDIR="$dir/lib/64"
+				else
+					SSL_LIBDIR="$dir/lib"
+				fi
+			else	 
+				SSL_LIBDIR="$dir/lib"
+			fi
+		fi
+		if test '!' -f $SSL_LIBDIR/libcrypto.a; then
+			SSL_DYNAMIC_ONLY=yes
+		fi
+		SSL_BINDIR="$dir/bin"
+dnl 		Should one use EXEEXT or ac_exeext?
+		if test -f "$SSL_BINDIR/openssl$EXEEXT"; then
+			if "$SSL_BINDIR/openssl" version > /dev/null 2>&1; then
+				OPENSSL_CMD="$SSL_BINDIR/openssl"
+			else
+				is_real_ssl=no
+			fi
+		else
+			is_real_ssl=no
+		fi
+		if test "x$is_real_ssl" = "xyes" ; then
+			SSL_INCLUDE="-I$dir/include"
+			old_CPPFLAGS=$CPPFLAGS
+			CPPFLAGS=$SSL_INCLUDE
+			AC_EGREP_CPP(yes,[
+#include <openssl/opensslv.h>
+#if OPENSSL_VERSION_NUMBER >= 0x0090700fL
+  yes
+#endif
+			],[
+			ssl_found=yes
+			],[
+			SSL_APP=
+			ssl_found=no
+         		])
+         		CPPFLAGS=$old_CPPFLAGS
+			if test "x$ssl_found" = "xyes"; then
+			   	if test "x$MIXED_CYGWIN" = "xyes" ; then
+				   	ssl_linkable=yes
+				else
+					saveCFLAGS="$CFLAGS"
+ 					saveLDFLAGS="$LDFLAGS"
+					saveLIBS="$LIBS"
+ 					CFLAGS="$CFLAGS $SSL_INCLUDE"
+ 					LDFLAGS="$LDFLAGS -L$SSL_LIBDIR"
+					LIBS="-lcrypto"
+ 					AC_TRY_LINK([
+					#include <stdio.h>
+ 					#include <openssl/hmac.h>],
+ 					[ 
+ 					HMAC_CTX hc;
+ 					HMAC_CTX_init(&hc);		
+ 					],
+ 					[ssl_linkable=yes],
+ 					[ssl_linkable=no])
+ 					CFLAGS="$saveCFLAGS"
+ 					LDFLAGS="$saveLDFLAGS"
+					LIBS="$saveLIBS"
+				fi
+ 			fi
+	 		if test "x$ssl_found" = "xyes" -a "x$ssl_linkable" = "xyes"  ; then
+			 	AC_MSG_RESULT([$dir])
+	   			break;
+         		fi
+		fi	
+       fi
+    done
+
+    if test "x$ssl_found" != "xyes" ; then
+	dnl 
+	dnl If no SSL found above, check whether we are running on OpenBSD.
+	dnl
+	case $host_os in
+	openbsd*)
+	       if test -f /usr/include/openssl/opensslv.h; then
+		  # Trust OpenBSD to have everything the in the correct locations.
+		  ssl_found=yes
+		  ssl_linkable=yes
+		  SSL_ROOT="/usr/sbin"
+	          AC_MSG_RESULT([$SSL_ROOT])
+		  SSL_LIB="/usr/lib"
+		  SSL_BINDIR="/usr/sbin"
+		  OPENSSL_CMD="$SSL_BINDIR/openssl"
+		  dnl OpenBSD requires us to link with -L and -l
+		  SSL_DYNAMIC_ONLY="yes" 
+		fi
+		;;
+	esac
+    fi
+dnl		Now, certain linuxes have a 64bit libcrypto
+dnl		that cannot build shared libraries (i.e. not PIC)
+dnl		One could argue that this is wrong, but
+dnl		so it is - be adoptable
+    if test "x$ssl_found" = "xyes" -a  "x$ssl_linkable" = "xyes" -a "x$SSL_DYNAMIC_ONLY" != "xyes" ; then
+	case $host_os in
+		linux*)
+			saveCFLAGS="$CFLAGS"
+ 			saveLDFLAGS="$LDFLAGS"
+			saveLIBS="$LIBS"
+ 			CFLAGS="$DED_CFLAGS $SSL_INCLUDE"
+ 			LDFLAGS="$DED_LDFLAGS"
+			LIBS="$SSL_LIBDIR/libcrypto.a $STATIC_ZLIB_LIBS"
+ 			AC_TRY_LINK([
+			#include <stdio.h>
+ 			#include <openssl/hmac.h>],
+ 			[ 
+ 			HMAC_CTX hc;
+ 			HMAC_CTX_init(&hc);		
+ 			],
+ 			[ssl_dyn_linkable=yes],
+ 			[ssl_dyn_linkable=no])
+ 			CFLAGS="$saveCFLAGS"
+ 			LDFLAGS="$saveLDFLAGS"
+			LIBS="$saveLIBS"
+			if test "x$ssl_dyn_linkable" != "xyes"; then
+				SSL_DYNAMIC_ONLY=yes
+				AC_MSG_WARN([SSL will be linked against dynamic lib as static lib is not purely relocatable])
+			fi
+			;;
+	esac
+    fi					
+	
+				
+
+
+    if test "x$ssl_found" != "xyes" -o  "x$ssl_linkable" != "xyes"; then
+       if test "x$ssl_found" = "xyes"; then 
+       		AC_MSG_RESULT([found; but not usable])
+       else
+       		AC_MSG_RESULT([no])
+       fi
+       SSL_APP=
+       CRYPTO_APP=
+       SSH_APP=
+       AC_MSG_WARN([No (usable) OpenSSL found, skipping ssl, ssh and crypto applications])
+
+       for a in ssl crypto ssh; do
+           echo "No usable OpenSSL found" > $ERL_TOP/lib/$a/SKIP
+       done
+    fi
+else
+    # Option given with PATH to package
+    if test ! -d "$with_ssl" ; then
+       AC_MSG_ERROR(Invalid path to option --with-ssl=PATH)
+    fi
+    SSL_ROOT="$with_ssl"
+    if test "x$MIXED_CYGWIN" = "xyes" -a -d "$with_ssl/lib/VC"; then
+	SSL_LIBDIR="$with_ssl/lib/VC"
+    elif test "x$ac_cv_sizeof_void_p" = "x8"; then
+	if test -f "$with_ssl/lib64/libcrypto.a"; then
+		SSL_LIBDIR="$with_ssl/lib64"
+	elif test -f "$with_ssl/lib/64/libcrypto.a"; then
+		SSL_LIBDIR="$with_ssl/lib/64"
+	elif test -f "$with_ssl/lib64/libcrypto.so"; then
+		SSL_LIBDIR="$with_ssl/lib64"
+	elif test -f "$with_ssl/lib/64/libcrypto.so"; then
+		SSL_LIBDIR="$with_ssl/lib/64"
+	else
+		SSL_LIBDIR="$with_ssl/lib"
+	fi
+    else	 
+	SSL_LIBDIR="$with_ssl/lib"
+    fi
+    if test '!' -f $SSL_LIBDIR/libcrypto.a; then
+	SSL_DYNAMIC_ONLY=yes
+    fi
+    SSL_INCLUDE="-I$with_ssl/include"
+    OPENSSL_CMD="$with_ssl/bin/openssl"
+    SSL_APP=ssl
+    CRYPTO_APP=crypto
+    SSH_APP=ssh
+fi
+
+if test "x$SSL_APP" != "x" ; then
+    dnl We found openssl, now check if we use kerberos 5 support
+    AC_MSG_CHECKING(for OpenSSL kerberos 5 support)
+    old_CPPFLAGS=$CPPFLAGS
+    CPPFLAGS=$SSL_INCLUDE
+    AC_EGREP_CPP(yes,[
+#include <openssl/opensslconf.h>
+#ifndef OPENSSL_NO_KRB5
+  yes
+#endif
+      ],[
+      AC_MSG_RESULT([yes])
+      ssl_krb5_enabled=yes
+      if test "x$SSL_DYNAMIC_ONLY" != "xyes"; then
+          if test -f $SSL_LIBDIR/libkrb5.a; then
+              SSL_LINK_WITH_KERBEROS=yes
+	      STATIC_KERBEROS_LIBS="$SSL_LIBDIR/libkrb5.a"
+	      if test -f $SSL_LIBDIR/libkrb5support.a; then
+		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libkrb5support.a"
+	      fi
+	      if test -f $SSL_LIBDIR/libk5crypto.a; then
+		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libk5crypto.a"
+	      fi
+	      if test -f $SSL_LIBDIR/libresolv.a; then
+		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libresolv.a"
+	      fi
+	      if test -f $SSL_LIBDIR/libcom_err.a; then
+		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libcom_err.a"
+	      fi
+          else
+	      AC_MSG_WARN([Kerberos needed but no kerberos static libraries found])
+	      AC_MSG_WARN([Rescanning for dynamic SSL libraries])
+	      enable_dynamic_ssl=yes
+	      ssl_done=no
+	      SSL_LINK_WITH_KERBEROS=no
+	      STATIC_KERBEROS_LIBS=""
+	      ssl_krb5_enabled=no
+	      SSL_WITH_KERBEROS=no
+          fi
+      else 	
+	      SSL_LINK_WITH_KERBEROS=no
+	      STATIC_KERBEROS_LIBS=""
+      fi
+      ],[
+      AC_MSG_RESULT([no])
+      ssl_krb5_enabled=no
+      SSL_WITH_KERBEROS=no
+      ])
+    CPPFLAGS=$old_CPPFLAGS
+    SSL_KRB5_INCLUDE=
+    if test "x$ssl_krb5_enabled" = "xyes" ; then
+        AC_MSG_CHECKING(for krb5.h in standard locations)
+	for dir in $extra_dir $SSL_ROOT/include $SSL_ROOT/include/openssl \
+		$SSL_ROOT/include/kerberos /cygdrive/c/kerberos/include \
+		/usr/local/kerberos/include /usr/kerberos/include \
+		/usr/include
+	do
+            if test -f "$dir/krb5.h" ; then
+                SSL_KRB5_INCLUDE="$dir"
+		break
+            fi
+        done
+        if test "x$SSL_KRB5_INCLUDE" = "x" ; then
+	    AC_MSG_RESULT([not found])
+	    SSL_APP=
+	    CRYPTO_APP=
+	    SSH_APP=
+	    AC_MSG_WARN([OpenSSL is configured for kerberos but no krb5.h found])
+	    for a in ssl crypto ssh ; do
+	 	echo "OpenSSL is configured for kerberos but no krb5.h found" > $ERL_TOP/lib/$a/SKIP
+	    done
+        else
+            AC_MSG_RESULT([found in $SSL_KRB5_INCLUDE])
+            SSL_INCLUDE="$SSL_INCLUDE -I$SSL_KRB5_INCLUDE"
+        fi
+    fi
+fi
+
+done # while test ssl_done != yes
+
+#--------------------------------------------------------------------
+# Os mon stuff.
+#--------------------------------------------------------------------
+AC_SUBST(os_mon_programs)
+AC_SUBST(CPU_SUP_LIBS)
+
+AC_CHECK_LIB(kstat, kstat_open, [ 
+	os_mon_programs="$os_mon_programs cpu_sup"	 
+	CPU_SUP_LIBS="$CPU_SUP_LIBS -lkstat"
+	])
+
+case $host_os in
+	solaris2*)
+		os_mon_programs="$os_mon_programs ferrule mod_syslog" ;;
+	linux*)
+		os_mon_programs="$os_mon_programs cpu_sup" ;;
+esac
+
+
+dnl
+dnl Then there are a number of apps which needs a java compiler...
+dnl
+need_java="jinterface ic/java_src"
+
+# Remove all SKIP files from previous runs
+for a in $need_java ; do
+  /bin/rm -f $ERL_TOP/lib/$a/SKIP
+done
+
+AC_CHECK_PROGS(JAVAC, javac.sh javac guavac gcj jikes bock)
+if test -n "$JAVAC"; then
+  dnl Make sure it's at least JDK 1.5
+  AC_CACHE_CHECK(for JDK version 1.5, 
+     ac_cv_prog_javac_ver_1_5,
+     [ERL_TRY_LINK_JAVA([], [for (String i : args);],
+        ac_cv_prog_javac_ver_1_5=yes, ac_cv_prog_javac_ver_1_5=no)])
+  if test $ac_cv_prog_javac_ver_1_5 = no; then
+    unset -v JAVAC
+  fi
+fi
+if test -z "$JAVAC"; then
+  AC_MSG_WARN([Could not find any usable java compiler, will skip: jinterface])
+
+  for a in $need_java ; do
+	echo "No Java compiler found" > $ERL_TOP/lib/$a/SKIP
+  done
+fi
+
+dnl
+dnl Orber has a c++ example, this isn't the right way to check for
+dnl it, but....
+dnl
+CXXFLAGS=
+AC_SUBST(CXXFLAGS)
+dnl this deliberately does not believe that 'gcc' is a C++ compiler
+AC_CHECK_PROGS(CXX, $CCC c++ g++ CC cxx cc++ cl, false)
+
+# Remove SKIP file from previous run
+/bin/rm -f $ERL_TOP/lib/orber/SKIP
+
+if test "$CXX" = false; then
+  echo "No C++ compiler found" > $ERL_TOP/lib/orber/SKIP
+fi
+
+dnl ----------------------------------------------------------------------
+dnl Include CPPFLAGS in CFLAGS
+dnl ----------------------------------------------------------------------
+CFLAGS="$CFLAGS $CPPFLAGS"
+
+#
+# Currently if we compile for 64 bits we want to compile
+# some external port programs using 32 bits
+#
+
+# If not defined we trust the C compiler in $CC to do 32 bits
+if test -z "$CC32"; then
+  CC32="$CC"
+fi
+
+if test -z "$CFLAGS32"; then
+  if test $ac_cv_sizeof_void_p != 4; then
+    # We are compiling default 64 bits and use -m32 for 32 bit compilations
+    CFLAGS32="$CFLAGS -m32"
+  else
+    CFLAGS32="$CFLAGS"
+  fi
+fi
+
+AC_SUBST(CC32)
+AC_SUBST(CFLAGS32)
+
+dnl
+dnl ERTS_EMU_CMDLINE_FLAGS will force modification of config.h when
+dnl the emulator command line flags are modified by configure, which
+dnl in turn will make 'make' detect that files depending on config.h
+dnl needs to be rebuilt.
+dnl
+
+AC_DEFINE_UNQUOTED(ERTS_EMU_CMDLINE_FLAGS,
+"$STATIC_CFLAGS $CFLAGS $DEBUG_CFLAGS $EMU_THR_DEFS $DEFS $WFLAGS",
+[The only reason ERTS_EMU_CMDLINE_FLAGS exists is to force modification of config.h when the emulator command line flags are modified by configure])
+
+dnl ----------------------------------------------------------------------
+dnl Directories needed for the build
+dnl ----------------------------------------------------------------------
+
+erts=${erl_top}/erts
+
+erts_dirs="								
+  $erts/obj $erts/obj.debug
+									
+  $erts/obj/$host
+  $erts/obj.debug/$host
+
+"
+for d in ${erl_top}/bin ${erl_top}/bin/$host $erts_dirs ;
+do
+  if test ! -d $d; then
+    mkdir -p 1>/dev/null 2>&1 $d
+  fi
+done
+
+dnl ---------------------------------------------------------------------
+dnl Autoheader macro for adding code at top and bottom of config.h.in
+dnl ---------------------------------------------------------------------
+AH_TOP([
+#define GHBN_R_SOLARIS  2
+#define GHBN_R_AIX      3
+#define GHBN_R_GLIBC    4
+])
+
+AH_BOTTOM([
+/* Redefine in6_addr. XXX this should be moved to the files where it's used? */
+#ifdef HAVE_IN_ADDR6_STRUCT
+#define in6_addr in_addr6
+#endif
+
+/* Define a reasonable default for INADDR_LOOPBACK */
+/* XXX this should be moved to the files where it's used? */
+#ifdef HAVE_NO_INADDR_LOOPBACK
+#define INADDR_LOOPBACK (u_long)0x7F000001
+#endif
+
+#ifdef REDEFINE_FD_SETSIZE
+#define FD_SETSIZE 1024
+#endif
+ 
+#ifdef HAVE_GETHRVTIME_PROCFS_IOCTL
+#define HAVE_GETHRVTIME
+#endif
+
+#ifndef HAVE_FINITE
+# if defined(HAVE_ISINF) && defined(HAVE_ISNAN)
+#  define USE_ISINF_ISNAN
+# endif
+#endif
+
+#if defined(DEBUG) && defined(USE_THREADS) && !defined(ERTS_ENABLE_LOCK_CHECK)
+#define ERTS_ENABLE_LOCK_CHECK 1
+#endif
+])
+
+
+dnl ----------------------------------------------------------------------
+dnl Output the result.
+dnl ----------------------------------------------------------------------
+
+dnl  Note that the output files are relative to $srcdir
+
+AC_OUTPUT(
+  emulator/$host/Makefile:emulator/Makefile.in
+  emulator/zlib/$host/Makefile:emulator/zlib/Makefile.in
+  emulator/pcre/$host/Makefile:emulator/pcre/Makefile.in
+  epmd/src/$host/Makefile:epmd/src/Makefile.in
+  etc/common/$host/Makefile:etc/common/Makefile.in
+  include/internal/$host/ethread.mk:include/internal/ethread.mk.in
+  include/internal/$host/erts_internal.mk:include/internal/erts_internal.mk.in
+  lib_src/$host/Makefile:lib_src/Makefile.in
+  Makefile:Makefile.in
+  ../make/$host/otp.mk:../make/otp.mk.in
+  ../make/$host/otp_ded.mk:../make/otp_ded.mk.in
+dnl
+dnl The ones below should be moved to their respective lib
+dnl
+  ../lib/ic/c_src/$host/Makefile:../lib/ic/c_src/Makefile.in
+  ../lib/os_mon/c_src/$host/Makefile:../lib/os_mon/c_src/Makefile.in
+  ../lib/ssl/c_src/$host/Makefile:../lib/ssl/c_src/Makefile.in
+  ../lib/ssl/examples/certs/$host/Makefile:../lib/ssl/examples/certs/Makefile.in
+  ../lib/crypto/c_src/$host/Makefile:../lib/crypto/c_src/Makefile.in
+  ../lib/orber/c_src/$host/Makefile:../lib/orber/c_src/Makefile.in
+  ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
+  ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
+  ../lib/asn1/c_src/$host/Makefile:../lib/asn1/c_src/Makefile.in
+  )
+

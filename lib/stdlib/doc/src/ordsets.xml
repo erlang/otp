@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>ordsets</title>
+    <prepared>Robert Virding</prepared>
+    <responsible>Bjarne Dacker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>99-07-27</date>
+    <rev>A</rev>
+    <file>ordsets.sgml</file>
+  </header>
+  <module>ordsets</module>
+  <modulesummary>Functions for Manipulating Sets as Ordered Lists</modulesummary>
+  <description>
+    <p>Sets are collections of elements with no duplicate elements.
+      An <c>ordset</c> is a representation of a set, where an ordered
+      list is used to store the elements of the set. An ordered list
+      is more efficient than an unordered list.</p>
+    <p>This module provides exactly the same interface as the module
+      <c>sets</c> but with a defined representation. One difference is
+      that while <c>sets</c> considers two elements as different if they
+      do not match (<c>=:=</c>), this module considers two elements as
+      different if and only if they do not compare equal (<c>==</c>).</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+ordered_set()
+  as returned by new/0</code>
+  </section>
+  <funcs>
+    <func>
+      <name>new() -> Ordset</name>
+      <fsummary>Return an empty set</fsummary>
+      <type>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new empty ordered set.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_set(Ordset) -> bool()</name>
+      <fsummary>Test for an <c>Ordset</c></fsummary>
+      <type>
+        <v>Ordset = term()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Ordset</c> is an ordered set of
+          elements, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>size(Ordset) -> int()</name>
+      <fsummary>Return the number of elements in a set</fsummary>
+      <type>
+        <v>Ordset = term()</v>
+      </type>
+      <desc>
+        <p>Returns the number of elements in <c>Ordset</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>to_list(Ordset) -> List</name>
+      <fsummary>Convert an <c>Ordset</c>into a list</fsummary>
+      <type>
+        <v>Ordset = ordered_set()</v>
+        <v>List = [term()]</v>
+      </type>
+      <desc>
+        <p>Returns the elements of <c>Ordset</c> as a list.</p>
+      </desc>
+    </func>
+    <func>
+      <name>from_list(List) -> Ordset</name>
+      <fsummary>Convert a list into an <c>Ordset</c></fsummary>
+      <type>
+        <v>List = [term()]</v>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns an ordered set of the elements in <c>List</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_element(Element, Ordset) -> bool()</name>
+      <fsummary>Test for membership of an <c>Ordset</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Element</c> is an element of
+          <c>Ordset</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>add_element(Element, Ordset1) -> Ordset2</name>
+      <fsummary>Add an element to an <c>Ordset</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Ordset1 = Ordset2 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns a new ordered set formed from <c>Ordset1</c> with
+          <c>Element</c> inserted.</p>
+      </desc>
+    </func>
+    <func>
+      <name>del_element(Element, Ordset1) -> Ordset2</name>
+      <fsummary>Remove an element from an <c>Ordset</c></fsummary>
+      <type>
+        <v>Element = term()</v>
+        <v>Ordset1 = Ordset2 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>Ordset1</c>, but with <c>Element</c> removed.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(Ordset1, Ordset2) -> Ordset3</name>
+      <fsummary>Return the union of two <c>Ordsets</c></fsummary>
+      <type>
+        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) set of <c>Ordset1</c> and
+          <c>Ordset2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>union(OrdsetList) -> Ordset</name>
+      <fsummary>Return the union of a list of <c>Ordsets</c></fsummary>
+      <type>
+        <v>OrdsetList = [ordered_set()]</v>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns the merged (union) set of the list of sets.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(Ordset1, Ordset2) -> Ordset3</name>
+      <fsummary>Return the intersection of two <c>Ordsets</c></fsummary>
+      <type>
+        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of <c>Ordset1</c> and
+          <c>Ordset2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>intersection(OrdsetList) -> Ordset</name>
+      <fsummary>Return the intersection of a list of <c>Ordsets</c></fsummary>
+      <type>
+        <v>OrdsetList = [ordered_set()]</v>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns the intersection of the non-empty list of sets.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_disjoint(Ordset1, Ordset2) -> bool()</name>
+      <fsummary>Check whether two <c>Ordsets</c> are disjoint</fsummary>
+      <type>
+        <v>Ordset1 = Ordset2 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> if <c>Ordset1</c> and
+          <c>Ordset2</c> are disjoint (have no elements in common),
+	  and <c>false</c> otherwise.</p>
+      </desc>
+    </func>
+    <func>
+      <name>subtract(Ordset1, Ordset2) -> Ordset3</name>
+      <fsummary>Return the difference of two <c>Ordsets</c></fsummary>
+      <type>
+        <v>Ordset1 = Ordset2 = Ordset3 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns only the elements of <c>Ordset1</c> which are not
+          also elements of <c>Ordset2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>is_subset(Ordset1, Ordset2) -> bool()</name>
+      <fsummary>Test for subset</fsummary>
+      <type>
+        <v>Ordset1 = Ordset2 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Returns <c>true</c> when every element of <c>Ordset</c>1 is
+          also a member of <c>Ordset2</c>, otherwise <c>false</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>fold(Function, Acc0, Ordset) -> Acc1</name>
+      <fsummary>Fold over set elements</fsummary>
+      <type>
+        <v>Function = fun (E, AccIn) -> AccOut</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>Ordset = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Fold <c>Function</c> over every element in <c>Ordset</c>
+          returning the final value of the accumulator.</p>
+      </desc>
+    </func>
+    <func>
+      <name>filter(Pred, Ordset1) -> Set2</name>
+      <fsummary>Filter set elements</fsummary>
+      <type>
+        <v>Pred = fun (E) -> bool()</v>
+        <v>Set1 = Set2 = ordered_set()</v>
+      </type>
+      <desc>
+        <p>Filter elements in <c>Set1</c> with boolean function
+          <c>Fun</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="gb_sets">gb_sets(3)</seealso>,
+      <seealso marker="sets">sets(3)</seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2006</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+  The contents of this file are subject to the Erlang Public License,
+  Version 1.1, (the "License"); you may not use this file except in
+  compliance with the License. You should have received a copy of the
+  Erlang Public License along with this software. If not, it can be
+  retrieved online at http://www.erlang.org/.
+
+  Software distributed under the License is distributed on an "AS IS"
+  basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+  the License for the specific language governing rights and limitations
+  under the License.
+
+  The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+
+    <title>inviso_as_lib</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>inviso_as_lib</module>
+  <modulesummary>The Inviso Autostart Utility Library</modulesummary>
+  <description>
+    <p>The purpose of the Inviso autostart utility library is to facilitate the creation and modification of autostart configuration files used by the standard autostart.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>setup_autostart(Node, R, Opts, TracerData, CmdFiles, Bindings, Transl, RTtag) -> ok | {error, Reason}</name>
+      <fsummary>Create an autostart configuration file</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>R = int()</v>
+        <v>Opts -- see inviso:add_nodes/2,3</v>
+        <v>TracerData -- see inviso:init_tracing/1,2</v>
+        <v>CmdFiles = [CmdFile]</v>
+        <v>&nbsp;CmdFile = string()</v>
+        <v>Bindings = [{Var,Val}]</v>
+        <v>&nbsp;Var = atom()</v>
+        <v>&nbsp;Val = term()</v>
+        <v>Transl = [{{M1,F1,Arity}, {M2,F2,{Mt,Ft}}}]</v>
+        <v>&nbsp;M1 = F1 = M2 = F2 = Mt = Ft = atom()</v>
+        <v>&nbsp;Arity = int()</v>
+        <v>RTtag = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Creates an autostart configuration file on <c>Node</c>. The name of the file is automatically deducted from consulting the Runtime_Tools configuration parameters at <c>Node</c>.</p>
+        <p><c>R</c> is the number of allowed autostarts remaining.</p>
+        <p><c>Opts</c> is the options which shall be given to the runtime component. See <seealso marker="inviso#add_nodes/2">inviso:add_nodes/2,3</seealso>.</p>
+        <p><c>TracerData</c> is used when initiating tracing on this node. See <seealso marker="inviso#init_tracing/1">inviso:init_tracing/1,2</seealso>.</p>
+        <p><c>CmdFiles</c> points out files containing instructions understood by the <c>inviso_autostart_server</c> implementation of an autostart initiator.</p>
+        <p><c>Bindings</c> is a list of <c>{Var, Val}</c> tuples, where <c>Var</c> is the name of a variable and <c>Val</c> the actual value of the variable.</p>
+        <p><c>Transl</c> means that <c>M1:F1/Arity</c> shall be translated into <c>M2:F2</c>.</p>
+        <p><c>RTtag</c> is the incarnation tag of the runtime component. See See <seealso marker="inviso#add_nodes/2">inviso:add_nodes/2,3</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>set_repeat(Node, R) -> ok | {error, Reason}</name>
+      <fsummary>Set the repeat parameter in the autostart file</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>R = int()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Sets the repeat parameter in the autostart file at <c>Node</c> without changing any of its other contents. The autostart configuration file must exist.</p>
+        <p><c>R</c> is the number of allowed autostarts remaining.</p>
+      </desc>
+    </func>
+    <func>
+      <name>inhibit_autostart(Node) -> ok | {error, Reason}</name>
+      <fsummary>Set the repeat parameter in the autostart file to 0</fsummary>
+      <type>
+        <v>Node = atom()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Sets the repeat parameter in the autostart file at <c>Node</c> to 0. Equivalent to <c>set_repeat(Node, 0)</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+

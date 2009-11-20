@@ -1,0 +1,26 @@
+{topcase, {dir, "../emulator_test"}}.
+
+% Added since R11
+{skip,{distribution_SUITE,link_to_dead_new_node,"Does not work in distributed test environments"}}.
+{skip,{binary_SUITE,terms_float,"Floats, VxWorks, PPC = Floating points never equal..."}}.
+{skip,{system_info_SUITE,process_count,"Fix-allocs starving VxWorks cards"}}.
+{skip,{monitor_SUITE,mixer,"Fix-allocs starving VxWorks cards"}}.
+
+{skip,{node_container_SUITE,"Too memory consuming..."}}.
+
+{skip,{trace_SUITE,system_monitor_long_gc_1,"Too memory consuming..."}}.
+{skip,{trace_SUITE,system_monitor_long_gc_2,"Too memory consuming..."}}.
+{skip,{trace_SUITE,system_monitor_large_heap_1,"Too memory consuming..."}}.
+{skip,{trace_SUITE,system_monitor_large_heap_2,"Too memory consuming..."}}.
+% End added since R11
+
+{skip, {distribution_SUITE,stop_dist,"Not written to work on VxWorks."}}.
+{skip, {distribution_SUITE,dist_auto_connect_never,
+	"Not written to work on VxWorks."}}.
+{skip, {distribution_SUITE,dist_auto_connect_once,
+	"Not written to work on VxWorks."}}.
+{skip, {trace_SUITE,system_monitor_long_gc,
+	"Too memory consuming for VxWorks cards."}}.
+{skip, {trace_meta_SUITE,stack_grow,
+        "Too memory consuming for VxWorks cards."}}.
+{skip, {obsolete_SUITE, "Not on vxworks"}}.

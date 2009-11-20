@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Pattern Matching</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>patterns.xml</file>
+  </header>
+
+  <section>
+    <title>Pattern Matching</title>
+    <p>Variables are bound to values through the <em>pattern matching</em> mechanism. Pattern matching occurs when
+      evaluating a function call, <c>case</c>- <c>receive</c>-
+      <c>try</c>- expressions and match operator (=) expressions.</p>
+    <p>In a pattern matching, a left-hand side
+      <seealso marker="expressions#pattern">pattern</seealso> is matched
+      against a right-hand side
+      <seealso marker="expressions#term">term</seealso>. If
+      the matching succeeds, any unbound variables in the pattern
+      become bound. If the matching fails, a run-time error occurs.</p>
+    <p>Examples:</p>
+    <pre>
+1> <input>X.</input>
+** 1: variable 'X' is unbound **
+2> <input>X = 2.</input>
+2
+3> <input>X + 1.</input>
+3
+4> <input>{X, Y} = {1, 2}.</input>
+** exception error: no match of right hand side value {1,2}
+5> <input>{X, Y} = {2, 3}.</input>
+{2,3}
+6> <input>Y.</input>
+3</pre>
+  </section>
+</chapter>
+

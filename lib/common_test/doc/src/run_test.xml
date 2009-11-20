@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>2007</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>The run_test shell script</title>
+    <prepared>Peter Andersson</prepared>
+    <responsible>Peter Andersson</responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date>2007-07-04</date>
+    <rev>PA1</rev>
+    <file>run_test.xml</file>
+  </header>
+  <com>run_test</com> 
+  <comsummary>Shell script used for starting
+  Common Test from the Unix command line.
+  </comsummary>
+
+  <description>
+  <p>The <c>run_test</c> script is automatically generated as Common
+  Test is installed (please see the Installation chapter in the Common
+  Test User's Guide for more information). The script accepts a number 
+  of different start flags. Some flags trigger <c>run_test</c>
+  to start the Common Test application and pass on data to it. Some
+  flags start an Erlang node prepared for running Common Test in a
+  particular mode.</p>
+  <p><c>run_test</c> also accepts Erlang emulator
+  flags. These are used when <c>run_test</c> calls <c>erl</c> to
+  start the Erlang node (making it possible to e.g. add directories to
+  the code server path, change the cookie on the node, start
+  additional applications, etc).</p>
+  <p>If <c>run_test</c> is called without parameters, it prints all valid
+  start flags to stdout.</p>
+  </description>
+
+  <section>
+    <title>Run tests from command line</title>
+    <pre>
+    	run_test [-dir TestDir1 TestDir2 .. TestDirN] |	
+	[-suite Suite1 Suite2 .. SuiteN 
+	 [[-group Group1 Group2 .. GroupN] [-case Case1 Case2 .. CaseN]]]
+	[-step [config | keep_inactive]]
+	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-decrypt_key Key] | [-decrypt_file KeyFile]
+	[-logdir LogDir]
+	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+	[-stylesheet CSSFile]
+	[-cover CoverCfgFile]
+	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]
+	[-include InclDir1 InclDir2 .. InclDirN]
+	[-no_auto_compile]
+        [-repeat N [-force_stop]] |
+        [-duration HHMMSS [-force_stop]] |
+        [-until [YYMoMoDD]HHMMSS [-force_stop]]
+	[-basic_html]</pre>
+  </section>
+  <section>
+    <title>Run tests using test specification</title>
+    <pre>
+	run_test -spec TestSpec1 TestSpec2 .. TestSpecN
+	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-decrypt_key Key] | [-decrypt_file KeyFile]
+	[-logdir LogDir]
+	[-allow_user_terms]
+	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
+	[-stylesheet CSSFile]
+	[-cover CoverCfgFile]
+	[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]
+	[-include InclDir1 InclDir2 .. InclDirN]
+	[-no_auto_compile]
+        [-repeat N [-force_stop]] |
+        [-duration HHMMSS [-force_stop]] |
+        [-until [YYMoMoDD]HHMMSS [-force_stop]]
+	[-basic_html]</pre>
+  </section>
+  <section>
+    <title>Run tests in web based GUI</title>
+    <pre>
+        run_test -vts [-browser Browser]
+	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-decrypt_key Key] | [-decrypt_file KeyFile]
+        [-dir TestDir1 TestDir2 .. TestDirN] |
+        [-suite Suite [[-group Group] [-case Case]]]
+	[-include InclDir1 InclDir2 .. InclDirN]
+	[-no_auto_compile]
+	[-basic_html]</pre>
+  </section>
+  <section>
+    <title>Refresh the HTML index files</title>
+    <pre>
+	run_test -refresh_logs [-logdir LogDir] [-basic_html]</pre>
+  </section>
+  <section>
+    <title>Run CT in interactive mode</title>
+    <pre>
+	run_test -shell 
+	[-config ConfigFile1 ConfigFile2 ... ConfigFileN]
+	[-decrypt_key Key] | [-decrypt_file KeyFile]</pre>
+  </section>
+  <section>
+    <title>Start an Erlang node with a given name</title>
+    <pre>
+	run_test -ctname NodeName</pre>
+  </section>
+  <section>
+    <title>Start a Common Test Master node</title>
+    <pre>
+	run_test -ctmaster</pre>
+  </section>
+
+  <section>
+  <title>See also</title>
+  <p>Please read the <seealso marker="run_test_chapter">Running Test Suites</seealso>
+  chapter in the Common Test User's Guide for information about the meaning of the
+  different start flags.</p>
+  </section>
+
+</comref>
+
+

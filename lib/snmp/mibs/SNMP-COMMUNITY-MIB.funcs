@@ -1,0 +1,2 @@
+{snmpCommunityTable, {snmp_community_mib, snmpCommunityTable, []}}.
+{snmpTargetAddrExtTable, {snmp_community_mib, snmpTargetAddrExtTable, []}}.

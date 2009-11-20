@@ -1,0 +1,601 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>digraph</title>
+    <prepared>Tony</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>2001-08-27</date>
+    <rev>C</rev>
+    <file>digraph.sgml</file>
+  </header>
+  <module>digraph</module>
+  <modulesummary>Directed Graphs</modulesummary>
+  <description>
+    <p>The <c>digraph</c> module implements a version of labeled
+      directed graphs. What makes the graphs implemented here
+      non-proper directed graphs is that multiple edges between
+      vertices are allowed. However, the customary definition of
+      directed graphs will be used in the text that follows.
+      </p>
+    <p>A <marker id="digraph"></marker><em>directed graph</em> (or just
+      "digraph") is a pair (V,&nbsp;E) of a finite set V of 
+      <marker id="vertex"></marker><em>vertices</em> and a finite set E of
+      <marker id="edge"></marker><em>directed edges</em> (or just "edges"). 
+      The set of
+      edges E is a subset of V&nbsp;&times;&nbsp;V (the Cartesian
+      product of V with itself). In this module, V is allowed to be
+      empty; the so obtained unique digraph is called the 
+      <marker id="empty_digraph"></marker><em>empty digraph</em>. 
+      Both vertices and edges are represented by unique Erlang terms.
+      </p>
+    <p>Digraphs can be annotated with additional information. Such
+      information may be attached to the vertices and to the edges of
+      the digraph. A digraph which has been annotated is called a
+      <em>labeled digraph</em>, and the information attached to a
+      vertex or an edge is called a <marker id="label"></marker>
+      <em>label</em>. Labels are Erlang terms.
+      </p>
+    <p>An edge e&nbsp;=&nbsp;(v,&nbsp;w) is said to 
+      <marker id="emanate"></marker><em>emanate</em> from vertex v and 
+      to be <marker id="incident"></marker><em>incident</em> on vertex w. 
+      The <marker id="out_degree"></marker><em>out-degree</em> of a vertex 
+      is the number of edges emanating from that vertex. 
+      The <marker id="in_degree"></marker><em>in-degree</em> of a vertex 
+      is the number of edges incident on that vertex. 
+      If there is an edge emanating from v and incident on w, then w is 
+      said to be an <marker id="out_neighbour"></marker>
+      <em>out-neighbour</em> of v, and v is said to be an 
+      <marker id="in_neighbour"></marker><em>in-neighbour</em> of w. 
+      A <marker id="path"></marker><em>path</em> P from v[1] to v[k] 
+      in a digraph (V,&nbsp;E) is a non-empty sequence
+      v[1],&nbsp;v[2],&nbsp;...,&nbsp;v[k] of vertices in V such that
+      there is an edge (v[i],v[i+1]) in E for
+      1&nbsp;&lt;=&nbsp;i&nbsp;&lt;&nbsp;k. 
+      The <marker id="length"></marker><em>length</em> of the path P is k-1. 
+      P is <marker id="simple_path"></marker><em>simple</em> if all 
+      vertices are distinct, except that the first and the last vertices
+      may be the same. 
+      P is a <marker id="cycle"></marker><em>cycle</em> if the length 
+      of P is not zero and v[1] = v[k]. 
+      A <marker id="loop"></marker><em>loop</em> is a cycle of length one. 
+      A <marker id="simple_cycle"></marker><em>simple cycle</em> is a path
+      that is both a cycle and simple. 
+      An <marker id="acyclic_digraph"></marker><em>acyclic digraph</em>
+      is a digraph that has no cycles.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>add_edge(G, E, V1, V2, Label) -> edge() | {error, Reason}</name>
+      <name>add_edge(G, V1, V2, Label) -> edge() | {error, Reason}</name>
+      <name>add_edge(G, V1, V2) -> edge() | {error, Reason}</name>
+      <fsummary>Add an edge to a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>E = edge()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Label = label()</v>
+        <v>Reason = {bad_edge, Path} | {bad_vertex, V}</v>
+        <v>Path = [vertex()]</v>
+      </type>
+      <desc>
+        <p><c>add_edge/5</c> creates (or modifies) the edge <c>E</c>
+          of the digraph <c>G</c>, using <c>Label</c> as the (new)
+          <seealso marker="#label">label</seealso> of the edge. The
+          edge is <seealso marker="#emanate">emanating</seealso> from
+          <c>V1</c> and <seealso marker="#incident">incident</seealso>
+          on <c>V2</c>. Returns <c>E</c>.
+          </p>
+        <p><c>add_edge(G,&nbsp;V1,&nbsp;V2,&nbsp;Label)</c> is
+          equivalent to
+          <c>add_edge(G,&nbsp;E,&nbsp;V1,&nbsp;V2,&nbsp;Label)</c>,
+          where <c>E</c> is a created edge. The created edge is
+          represented by the term <c>['$e'&nbsp;|&nbsp;N]</c>, where N
+          is an integer&nbsp;&gt;=&nbsp;0.
+          </p>
+        <p><c>add_edge(G,&nbsp;V1,&nbsp;V2)</c> is equivalent to
+          <c>add_edge(G,&nbsp;V1,&nbsp;V2,&nbsp;[])</c>.
+          </p>
+        <p>If the edge would create a cycle in 
+	  an <seealso marker="#acyclic_digraph">acyclic digraph</seealso>,
+	  then <c>{error,&nbsp;{bad_edge,&nbsp;Path}}</c> is returned. If
+          either of <c>V1</c> or <c>V2</c> is not a vertex of the
+          digraph <c>G</c>, then
+          <c>{error,&nbsp;{bad_vertex,&nbsp;</c>V<c>}}</c> is
+          returned, V&nbsp;=&nbsp;<c>V1</c> or
+          V&nbsp;=&nbsp;<c>V2</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>add_vertex(G, V, Label) -> vertex()</name>
+      <name>add_vertex(G, V) -> vertex()</name>
+      <name>add_vertex(G) -> vertex()</name>
+      <fsummary>Add or modify a vertex of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Label = label()</v>
+      </type>
+      <desc>
+        <p><c>add_vertex/3</c> creates (or modifies) the vertex <c>V</c>
+          of the digraph <c>G</c>, using <c>Label</c> as the (new)
+          <seealso marker="#label">label</seealso> of the
+          vertex. Returns <c>V</c>.
+          </p>
+        <p><c>add_vertex(G,&nbsp;V)</c> is equivalent to
+          <c>add_vertex(G,&nbsp;V,&nbsp;[])</c>.
+          </p>
+        <p><c>add_vertex/1</c> creates a vertex using the empty list
+          as label, and returns the created vertex. The created vertex
+          is represented by the term <c>['$v'&nbsp;|&nbsp;N]</c>,
+          where N is an integer&nbsp;&gt;=&nbsp;0.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>del_edge(G, E) -> true</name>
+      <fsummary>Delete an edge from a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>E = edge()</v>
+      </type>
+      <desc>
+        <p>Deletes the edge <c>E</c> from the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>del_edges(G, Edges) -> true</name>
+      <fsummary>Delete edges from a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>Edges = [edge()]</v>
+      </type>
+      <desc>
+        <p>Deletes the edges in the list <c>Edges</c> from the digraph
+          <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>del_path(G, V1, V2) -> true</name>
+      <fsummary>Delete paths from a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V1 = V2 = vertex()</v>
+      </type>
+      <desc>
+        <p>Deletes edges from the digraph <c>G</c> until there are no
+          <seealso marker="#path">paths</seealso> from the vertex
+          <c>V1</c> to the vertex <c>V2</c>.
+          </p>
+        <p>A sketch of the procedure employed: Find an arbitrary
+          <seealso marker="#simple_path">simple path</seealso>
+          v[1],&nbsp;v[2],&nbsp;...,&nbsp;v[k] from <c>V1</c> to
+          <c>V2</c> in <c>G</c>. Remove all edges of 
+	  <c>G</c> <seealso marker="#emanate">emanating</seealso> from v[i] 
+	  and <seealso marker="#incident">incident</seealso> to v[i+1] for
+          1&nbsp;&lt;=&nbsp;i&nbsp;&lt;&nbsp;k (including multiple
+          edges). Repeat until there is no path between <c>V1</c> and
+          <c>V2</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>del_vertex(G, V) -> true</name>
+      <fsummary>Delete a vertex from a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+      </type>
+      <desc>
+        <p>Deletes the vertex <c>V</c> from the digraph <c>G</c>. Any
+          edges <seealso marker="#emanate">emanating</seealso> from
+          <c>V</c> or <seealso marker="#incident">incident</seealso>
+          on <c>V</c> are also deleted.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>del_vertices(G, Vertices) -> true</name>
+      <fsummary>Delete vertices from a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Deletes the vertices in the list <c>Vertices</c> from the
+          digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>delete(G) -> true</name>
+      <fsummary>Delete a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+      </type>
+      <desc>
+        <p>Deletes the digraph <c>G</c>. This call is important
+          because digraphs are implemented with <c>Ets</c>. There is
+          no garbage collection of <c>Ets</c> tables. The digraph
+          will, however, be deleted if the process that created the
+          digraph terminates.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>edge(G, E) -> {E, V1, V2, Label} | false</name>
+      <fsummary>Return the vertices and the label of an edge  of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>E = edge()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Label = label()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{E,&nbsp;V1,&nbsp;V2,&nbsp;Label}</c> where
+          <c>Label</c> is the <seealso marker="#label">label</seealso>
+          of the edge 
+	  <c>E</c> <seealso marker="#emanate">emanating</seealso> from 
+	  <c>V1</c> and <seealso marker="#incident">incident</seealso> on 
+	  <c>V2</c> of the digraph <c>G</c>.
+	  If there is no edge <c>E</c> of the
+          digraph <c>G</c>, then <c>false</c> is returned.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>edges(G) -> Edges</name>
+      <fsummary>Return all edges of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>Edges = [edge()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of all edges of the digraph <c>G</c>, in
+          some unspecified order.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>edges(G, V) -> Edges</name>
+      <fsummary>Return the edges emanating from or incident on  a vertex of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Edges = [edge()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of all 
+	edges <seealso marker="#emanate">emanating</seealso> from 
+	or <seealso marker="#incident">incident</seealso> on <c>V</c> 
+	of the digraph <c>G</c>, in some unspecified order.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_cycle(G, V) -> Vertices | false</name>
+      <fsummary>Find one cycle in a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>If there is 
+	  a <seealso marker="#simple_cycle">simple cycle</seealso> of 
+	  length two or more through the vertex
+          <c>V</c>, then the cycle is returned as a list
+          <c>[V,&nbsp;...,&nbsp;V]</c> of vertices, otherwise if there
+          is a <seealso marker="#loop">loop</seealso> through
+          <c>V</c>, then the loop is returned as a list <c>[V]</c>. If
+          there are no cycles through <c>V</c>, then <c>false</c> is
+          returned.
+          </p>
+        <p><c>get_path/3</c> is used for finding a simple cycle
+          through <c>V</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_path(G, V1, V2) -> Vertices | false</name>
+      <fsummary>Find one path in a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Tries to find 
+	  a <seealso marker="#simple_path">simple path</seealso> from 
+	  the vertex <c>V1</c> to the vertex
+          <c>V2</c> of the digraph <c>G</c>. Returns the path as a
+          list <c>[V1,&nbsp;...,&nbsp;V2]</c> of vertices, or
+          <c>false</c> if no simple path from <c>V1</c> to <c>V2</c>
+          of length one or more exists.
+          </p>
+        <p>The digraph <c>G</c> is traversed in a depth-first manner,
+          and the first path found is returned.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_short_cycle(G, V) -> Vertices | false</name>
+      <fsummary>Find one short cycle in a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Tries to find an as short as 
+	  possible <seealso marker="#simple_cycle">simple cycle</seealso> through
+	  the vertex <c>V</c> of the digraph <c>G</c>. Returns the cycle
+          as a list <c>[V,&nbsp;...,&nbsp;V]</c> of vertices, or
+          <c>false</c> if no simple cycle through <c>V</c> exists.
+          Note that a <seealso marker="#loop">loop</seealso> through
+          <c>V</c> is returned as the list <c>[V,&nbsp;V]</c>.
+          </p>
+        <p><c>get_short_path/3</c> is used for finding a simple cycle
+          through <c>V</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>get_short_path(G, V1, V2) -> Vertices | false</name>
+      <fsummary>Find one short path in a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V1 = V2 = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Tries to find an as short as 
+	  possible <seealso marker="#simple_path">simple path</seealso> from
+	  the vertex <c>V1</c> to the vertex <c>V2</c> of the digraph <c>G</c>.
+          Returns the path as a list <c>[V1,&nbsp;...,&nbsp;V2]</c> of
+          vertices, or <c>false</c> if no simple path from <c>V1</c>
+          to <c>V2</c> of length one or more exists.
+          </p>
+        <p>The digraph <c>G</c> is traversed in a breadth-first
+          manner, and the first path found is returned.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>in_degree(G, V) -> integer()</name>
+      <fsummary>Return the in-degree of a vertex of a digraph.</fsummary>
+      <type>
+        <v>G= digraph()</v>
+        <v>V = vertex()</v>
+      </type>
+      <desc>
+        <p>Returns the <seealso marker="#in_degree">in-degree</seealso> of the vertex
+          <c>V</c> of the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>in_edges(G, V) -> Edges</name>
+      <fsummary>Return all edges incident on a vertex of  a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Edges = [edge()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of all 
+	  edges <seealso marker="#incident">incident</seealso> on
+	  <c>V</c> of the digraph <c>G</c>, in some unspecified order.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>in_neighbours(G, V) -> Vertices</name>
+      <fsummary>Return all in-neighbours of a vertex of  a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of 
+	  all <seealso marker="#in_neighbour">in-neighbours</seealso> of 
+	  <c>V</c> of the digraph <c>G</c>, in some unspecified order.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>info(G) -> InfoList</name>
+      <fsummary>Return information about a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>InfoList = [{cyclicity, Cyclicity}, {memory, NoWords}, {protection, Protection}]</v>
+        <v>Cyclicity = cyclic | acyclic</v>
+        <v>Protection = protected | private</v>
+        <v>NoWords = integer() >= 0</v>
+      </type>
+      <desc>
+        <p>Returns a list of <c>{Tag, Value}</c> pairs describing the
+          digraph <c>G</c>. The following pairs are returned:
+          </p>
+        <list type="bulleted">
+          <item>
+            <p><c>{cyclicity, Cyclicity}</c>, where <c>Cyclicity</c>
+              is <c>cyclic</c> or <c>acyclic</c>, according to the
+              options given to <c>new</c>.</p>
+          </item>
+          <item>
+            <p><c>{memory, NoWords}</c>, where <c>NoWords</c> is 
+              the number of words allocated to the <c>ets</c> tables.</p>
+          </item>
+          <item>
+            <p><c>{protection, Protection}</c>, where <c>Protection</c>
+              is <c>protected</c> or <c>private</c>, according
+              to the options given to <c>new</c>.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>new() -> digraph()</name>
+      <fsummary>Return a protected empty digraph, where cycles  are allowed.</fsummary>
+      <desc>
+        <p>Equivalent to <c>new([])</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>new(Type) -> digraph()</name>
+      <fsummary>Create a new empty digraph.</fsummary>
+      <type>
+        <v>Type = [cyclic | acyclic | private | protected]</v>
+      </type>
+      <desc>
+        <p>Returns 
+	  an <seealso marker="#empty_digraph">empty digraph</seealso> with 
+	  properties according to the options in <c>Type</c>:</p>
+        <taglist>
+          <tag><c>cyclic</c></tag>
+          <item>Allow <seealso marker="#cycle">cycles</seealso> in the
+           digraph (default).</item>
+          <tag><c>acyclic</c></tag>
+          <item>The digraph is to be kept <seealso marker="#acyclic_digraph">acyclic</seealso>.</item>
+          <tag><c>protected</c></tag>
+          <item>Other processes can read the digraph (default).</item>
+          <tag><c>private</c></tag>
+          <item>The digraph can be read and modified by the creating
+           process only.</item>
+        </taglist>
+        <p>If an unrecognized type option <c>T</c> is given or <c>Type</c>
+	   is not a proper list, there will be a <c>badarg</c> exception.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>no_edges(G) -> integer() >= 0</name>
+      <fsummary>Return the number of edges of the a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+      </type>
+      <desc>
+        <p>Returns the number of edges of the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>no_vertices(G) -> integer() >= 0</name>
+      <fsummary>Return the number of vertices of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+      </type>
+      <desc>
+        <p>Returns the number of vertices of the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>out_degree(G, V) -> integer()</name>
+      <fsummary>Return the out-degree of a vertex of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+      </type>
+      <desc>
+        <p>Returns the <seealso marker="#out_degree">out-degree</seealso> of the vertex
+          <c>V</c> of the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>out_edges(G, V) -> Edges</name>
+      <fsummary>Return all edges emanating from a vertex of  a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Edges = [edge()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of all 
+	  edges <seealso marker="#emanate">emanating</seealso> from 
+          <c>V</c> of the digraph <c>G</c>, in some unspecified order.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>out_neighbours(G, V) -> Vertices</name>
+      <fsummary>Return all out-neighbours of a vertex of  a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of 
+	  all <seealso marker="#out_neighbour">out-neighbours</seealso> of 
+	  <c>V</c> of the digraph <c>G</c>, in some unspecified order.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>vertex(G, V) -> {V, Label} | false</name>
+      <fsummary>Return the label of a vertex of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>V = vertex()</v>
+        <v>Label = label()</v>
+      </type>
+      <desc>
+        <p>Returns <c>{V,&nbsp;Label}</c> where <c>Label</c> is the
+          <seealso marker="#label">label</seealso> of the vertex
+          <c>V</c> of the digraph <c>G</c>, or <c>false</c> if there
+          is no vertex <c>V</c> of the digraph <c>G</c>.
+          </p>
+      </desc>
+    </func>
+    <func>
+      <name>vertices(G) -> Vertices</name>
+      <fsummary>Return all vertices of a digraph.</fsummary>
+      <type>
+        <v>G = digraph()</v>
+        <v>Vertices = [vertex()]</v>
+      </type>
+      <desc>
+        <p>Returns a list of all vertices of the digraph <c>G</c>, in
+          some unspecified order.
+          </p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>See Also</title>
+    <p><seealso marker="digraph_utils">digraph_utils(3)</seealso>, 
+      <seealso marker="ets">ets(3)</seealso></p>
+  </section>
+</erlref>
+

@@ -1,0 +1,11 @@
+#! /usr/bin/env escript
+%% -*- erlang -*-
+%%! -nostick -mnesia dir a/directory -mnesia debug verbose
+
+main(MainArgs) ->
+    io:format("main:~p\n",[MainArgs]),
+    ErlArgs = init:get_arguments(),
+    io:format("nostick:~p\n",[[E || E <- ErlArgs, element(1, E) =:= nostick]]),
+    io:format("mnesia:~p\n", [[E || E <- ErlArgs, element(1, E) =:= mnesia]]),
+    io:format("ERL_FLAGS=~p\n", [os:getenv("ERL_FLAGS")]),
+    io:format("unknown:~p\n",[[E || E <- ErlArgs, element(1, E) =:= unknown]]).

@@ -1,0 +1,57 @@
+%% -*- erlang -*-
+%% You can test this file using this command.
+%%    file:script("kernel.dynspec", [{'Os',"Unix"}]).
+
+case Os of
+    "VxWorks" ->
+	FsCantHandle     = "VxWorks filesystem can't handle this",
+	FsOverload       = "VxWorks filesystem would overload",
+	CantHandle       = "VxWorks can't handle this",
+	SlaveMisadaption = "Test not adopted to slaves on different machine",
+	[{skip,{application_SUITE,
+	        "VxWorks: requires manual testing "++
+	        "(requires multiple nodes (OTP-1774))"}},
+	 {skip,{bif_SUITE, spawn_link_race1, "Known bug."}},
+	 {skip,{erl_distribution_SUITE, "VxWorks: More vx nodes needed"}},
+	 {skip,{file_SUITE,read_write_file,FsCantHandle}},
+	 {skip,{file_SUITE,cur_dir_0,FsCantHandle}},
+	 {skip,{file_SUITE,open1,FsCantHandle}},
+	 {skip,{file_SUITE,file_info_times,FsCantHandle}},
+	 {skip,{file_SUITE,file_write_file_info,FsCantHandle}},
+	 {skip,{file_SUITE,truncate,FsCantHandle}},
+	 {skip,{file_SUITE,rename,FsCantHandle}},
+	 {skip,{file_SUITE,e_delete,FsCantHandle}},
+	 {skip,{file_SUITE,e_rename,FsCantHandle}},
+	 {skip,{file_SUITE,delayed_write,FsCantHandle}},
+	 {skip,{file_SUITE,read_ahead,FsCantHandle}},
+	 {skip,{file_SUITE,segment_write,FsOverload}},
+	 {skip,{file_SUITE,segment_read,FsOverload}},
+	 {skip,{file_SUITE,compress_errors,FsCantHandle}},
+	 {skip,{global_SUITE,
+		"To heavy on slavenodes for VxWorks (and more)."}},
+	 {skip,{global_group_SUITE, "To heavy on slavenodes for VxWorks."}},
+	 {skip,{heart_SUITE, "Not for VxWorks heart, it's special"}},
+	 {skip,{init_SUITE,restart,"Uses peer nodes"}},
+	 {skip,{kernel_config_SUITE, "VxWorks does not support slave nodes"}},
+	 {skip,{os_SUITE,space_in_cwd,CantHandle}},
+	 {skip,{os_SUITE,space_in_name,CantHandle}},
+	 {skip,{os_SUITE,quoting,CantHandle}},
+	 {skip,{prim_file_SUITE,open1,FsCantHandle}},
+	 {skip,{prim_file_SUITE,compress_errors,FsCantHandle}},
+	 {skip,{seq_trace_SUITE,distributed_recv,SlaveMisadaption}},
+	 {skip,{seq_trace_SUITE,distributed_exit,SlaveMisadaption}}];
+    _ ->
+	[]
+end ++
+try gen_sctp:open() of
+    {ok,Socket} ->
+	gen_sctp:close(Socket),
+	[];
+    _ ->
+	[]
+catch
+    error:badarg ->
+	[{skip,{gen_sctp_SUITE,"SCTP not supported on this machine"}}];
+    _:_ ->
+	[]
+end.

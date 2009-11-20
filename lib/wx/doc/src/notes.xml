@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>wxErlang Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to the wxErlang
+    application.</p>
+
+<section><title>Wx 0.98.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Added wx_object improvements from Mazen.</p> <p>Fixed
+            pid issues, reported by Mazen.</p> <p>Added wxLogNull
+            class, reported by Amit Murthy.</p> <p>Various configure
+            fixes.</p>
+          <p>
+            Own Id: OTP-8243 Aux Id: seq11418 </p>
+        </item>
+        <item>
+          <p>
+            The documentation is now built with open source tools
+            (xsltproc and fop) that exists on most platforms. One
+            visible change is that the frames are removed.</p>
+          <p>
+            Own Id: OTP-8250</p>
+        </item>
+        <item>
+          <p>
+            wx now builds with wxWidgets 2.8.4 or a later 2.8
+            release, thanks Nico Kruber.</p>
+          <p>
+            Own Id: OTP-8292</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Added wxListCtrl sorting and build fixes supplied by Paul
+            Hampson. Thanks.</p>
+          <p>
+            Own Id: OTP-8126</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>wxHtmlWindow class implemented.</p> <p>All exceptions
+            from callbacks are now catched and written to the
+            log.</p> <p>Some defines where wrong in 'wx.hrl'.</p>
+            <p><c>wx:batch/1</c> and friends could hang forever if
+            for instance a breakpoint was set inside the fun. That
+            caused all wx applications to hang.</p> <p>Added missing
+            wxAuiPaneInfo constructor and destructor.</p> <p>Added
+            wxAuiNotebookEvent and wxAuiManagerEvent.</p> <p>Calling
+            non supported wxWidgets functions hanged instead of
+            crashed.</p> <p>Update OpenGL to version 3.1 and added
+            some of the missing glu functions.</p> <p>Fixed
+            wxRadioBox which inherited the wrong class, thanks Atilla
+            Erdodi.</p>
+          <p>
+            Own Id: OTP-8083</p>
+        </item>
+        <item>
+          <p>
+            Removed some of the automatic garbage collecting after
+            application exit, user will get a warning instead so he
+            can correct the code.</p>
+          <p>
+            Own Id: OTP-8138</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Wx 0.98.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Olle Mattson have made a large demo, see
+            <c>examples/demo/</c>, that triggered the following bugs
+            and new features:</p> <p>New book controls.</p> <p>Added
+            wxToolbar:addTool/6.</p> <p>Empty binaries will be used
+            to indicate NULL where applicable.</p>
+          <p>
+            Own Id: OTP-7943</p>
+        </item>
+	<item>
+          <p>Applied patch from Nico Kruber,
+	    which fixes building on some wxwidgets installations.
+	  </p>
+          <p>Open source</p>            
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section><title>Wx 0.98.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Added <c>xrcctrl/3</c> to wxXmlResource and added a
+            resource example.</p> <p>Added several event types and
+            events records and fixed a couple of event related
+            bugs.</p> <p>Event callbacks can now use
+            <c>wxEvtHandler:connect/2</c>.</p> <p>Error handling and
+            debugging aid have been improved.</p> <p>Added
+            wxSplitterWindow and wxGauge:pulse and a couple of
+            missing macros in <c>wx.hrl</c>.</p> <p>Thanks to Steve
+            Davis for feedback and bug reports.</p>
+          <p>
+            Own Id: OTP-7875</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+  <section><title>Wx 0.98</title>
+    
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            A first beta release of wxErlang.</p>
+          <p>
+            Own Id: OTP-7859</p>
+        </item>
+      </list>
+    </section>
+    
+</section>
+
+</chapter>
+

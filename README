@@ -1,0 +1,472 @@
+===========================================================================
+                          OpenSource Erlang/OTP 
+===========================================================================
+
+
+Please read the whole file before attempting to build and install Erlang.
+You can find more information about OpenSource Erlang at
+
+  http://www.erlang.org/
+
+The source code for Erlang/OTP can also be found in a Git
+repository at
+
+   http://github.com/erlang/otp
+
+%CopyrightBegin%
+
+Copyright Ericsson AB 1998-2009. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
+
+
+Portability
+-----------
+
+Erlang/OTP should be possible to build from source on any Unix
+system, including Mac OS X.
+
+Instructions for building from source on Windows are in the file README.win32.
+Binary releases for Windows can be found at http://www.erlang.org/
+
+At Ericsson we have a "Daily Build and Test" that runs on:
+ 
+    Operating system        Versions
+    -----------------------------------------------------------
+    Solaris/Sparc32         8, 9, 10
+    Solaris/Sparc64         10
+    Solaris/x86             10
+    Linux/Suse x86	    9.4, 10.1
+    Linux/Suse x86_64	    10.0, 10.1, 11.0
+    FreeBSD x86             7.1
+    Mac OS X/Intel          10.4.11 (Tiger), 10.5.8 (Leopard)
+    Windows		    XP SP3, 2003, Vista
+
+We have also done some testing on Mac OS 10.6.0 (Snow Leopard).
+
+
+Versions known *not* to work
+-------------------------------------
+
+Suse linux 9.1 is shipped with a patched GCC version 3.3.3, having the
+rpm named gcc-3.3.3-41. That version has a serious optimization bug
+that makes it unusable for building the Erlang emulator. Please
+upgrade GCC to a newer version before building on Suse 9.1. Suse Linux
+EnterpriSe edition 9 (SLES9) has gcc-3.3.3-43 and is not affected.
+
+gcc-4.3.0 has a serious optimizer bug. It produces an Erlang emulator
+that will crash immediately. The bug is supposed to be fixed in gcc-4.3.1.
+
+FreeBSD had a bug which caused kqueue/poll/select to fail to detect
+that a writev() on a pipe has been made. This bug should have been fixed
+in FreeBSD 6.3 and FreeBSD 7.0. More information can be found at:
+* http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/kern/sys_pipe.c
+* http://lists.freebsd.org/pipermail/freebsd-arch/2007-September/006790.html
+NetBSD and DragonFlyBSD probably have or have had the same bug.
+
+getcwd() on Solaris 9 can cause an emulator crash. If you have async-threads
+enabled you can increase the stack size of the async-threads as a temporary
+workaround. See the +a command-line argument in the documentation of erl(1).
+Without async-threads the emulator isn't as vulnerable to this bug, but if
+you hit it without async-threads the only workaround available is to enable
+async-threads and increase the stack size of the async-threads.
+Sun has however released patches that fixes the issue:
+Problem Description: 6448300 large mnttab can cause stack overrun during
+                     Solaris 9 getcwd
+* http://sunsolve.sun.com/search/document.do?assetkey=1-21-112874-40-1&searchclause=6448300
+* http://sunsolve.sun.com/search/document.do?assetkey=1-21-114432-29-1&searchclause=6448300
+
+Required utilities
+------------------
+
+These are the tools you will need in order to unpack and build Erlang/OTP.
+
+  Unpacking
+  ---------
+
+  GNU unzip, or a modern uncompress.
+
+  A TAR program that understands the GNU TAR format for long
+  filenames (such as GNU TAR).
+  
+
+  Compiling
+  ---------
+
+  GNU make
+
+  GNU C compiler
+
+  Perl 5
+
+  GNU m4		If hipe (native code) support is enabled.
+
+  ncurses		(Or termcap or termlib.) The development headers and
+                        libraries are needed, often known as ncurses-devel.
+			(Use --without-termcap to build without any of these
+			libraries. Only the old shell (without any line
+			editing) can be used.)
+
+  OpenSSL	        Optional, but needed for building the Erlang/OTP
+                        applications 'ssl' and 'crypto'. You need the
+                        "development package" of OpenSSL, i.e. including
+                        the header files. For building the application 'ssl'
+			the OpenSSL binary command program 'openssl' is also
+			needed. 
+
+			At least version 0.9.7 of OpenSSL is required.
+
+  Sun Java jdk-1.5.0    Or higher. Optional but needed for building
+			the Erlang/OTP application 'jinterface' and parts
+			of 'ic' and 'orber'. We have also tested
+			IBM's JDK 1.5.0.
+
+  X Windows             Optional, but development headers and libraries
+                        are needed to build the Erlang/OTP application 'gs'
+			on Unix/Linux.
+
+  sed			There seem to be some problems with some of the
+			'sed' version on Solaris. Make sure "/bin/sed"
+			or "/usr/bin/sed" is used on the Solaris platform.
+
+  Flex                  Optional, headers and libraries are needed to 
+                        build the flex scanner for the megaco application
+                        on Unix/Linux.
+
+
+  Installing
+  ----------
+
+  An 'install' program that can take multiple file names.
+
+
+How to build and install Erlang/OTP
+-----------------------------------
+
+If you are building in a Git reposistory, see
+
+  http://wiki.github.com/erlang/otp
+
+The following instructions are for building using the
+source tar ball.
+
+Start by unpacking the Erlang/OTP distribution file with your
+GNU compatible TAR
+
+  1)    gunzip -c otp_src_R13B03.tar.gz | tar xf -
+  1)    zcat otp_src_R13B03.tar.gz | tar xf -
+
+Now cd into the base directory
+
+  2)    cd otp_src_R13B03
+
+On some platforms Perl may behave strangely if certain locales are set,
+so optionally you may need to set the LANG variable:
+
+  3a) LANG=C; export LANG #Bourne shell
+or
+  3b) setenv LANG C #C-shell
+
+Run the following commands
+
+  4a)    ./configure  [ options ]
+or
+  4b)    ./configure --prefix=<BaseDir> [ other options ]
+
+By default, Erlang/OTP will be installed in /usr/local/{bin,lib/erlang,man/man1}.
+To instead install in <BaseDir>/{bin,lib/erlang,man/man1}, use the --prefix=<BaseDir>
+option.
+
+If you upgraded the source with some patch you may need to clean up
+from previous builds before the new build. Do a "make clean"; see
+"Caveats" below.
+
+  5)    make
+  6)    make install
+
+Let's go through them in some detail:
+
+Step 4 runs a configuration script created by the GNU autoconf
+utility, which checks for system specific features and then creates a
+number of makefiles.
+
+The configure script allows you to customize a number of parameters;
+type "./configure --help" for details.
+
+One of the things you can specify is where Erlang/OTP should be installed: by
+default Erlang/OTP will be installed in /usr/local/{bin,lib/erlang,man/man1};
+to keep the same structure but install in a different place, <Dir> say,
+use the --prefix argument like this:
+"./configure --prefix=<Dir>".
+
+This step will also configure any additional libraries unpacked in step 3
+(if you didn't add any of the extra libraries configure will issue a warning
+saying that there is no configuration information in lib; this warning can
+safely be ignored).
+
+You can also specify where the OpenSSL include and library files are
+located, or alternatively disable the use of SSL and Crypto.
+(The details can be found by typing './configure --help'.)
+
+Other options are:
+
+	--enable-smp-support	See the next section.
+
+	--disable-smp-support	See the next section.
+
+	--disable-threads	Disable support for threaded I/O;
+				this option also disables building
+				of the SMP emulator. (See the next section.)
+
+	--enable-threads	Enable support for threaded I/O.
+				(This is the default if SMP support is enabled.
+				See the next section.)
+				
+	--disable-hipe   	Disable HiPE (High-Performance Erlang).
+				HiPE will automatically be enabled on
+				supported platforms.
+	
+
+    Step 5 builds the Erlang/OTP system. On a fast computer,
+this will take about 5 minutes. After completion of this step,
+you should have a working Erlang/OTP system which you can
+try by typing "bin/erl". This should start up Erlang/OTP and give you
+a prompt.
+
+    Step 6 is optional. It installs Erlang/OTP (if you change your
+mind about where you wish to install you can rerun step 4, without
+having to do step 5 again).
+
+The source tree is delivered with a lot of platform independent
+build results already pre-built. If you want to remove these pre-built
+files, invoke './otp_build remove_prebuilt_files' from the $ERL_TOP
+directory. After you have done this, you can build exactly the same way
+as before, but the build process will take a much longer time.
+
+NOTE: Doing 'make clean' in an arbitrary directory of the source tree,
+may remove files needed for bootstrapping the build. Doing
+'./otp_build save_bootstrap' from the $ERL_TOP directory before
+doing 'make clean' will ensure that it will be possible to build after
+doing 'make clean'. './otp_build save_bootstrap' will be invoked
+automatically when 'make' is invoked from ERL_TOP with either the
+clean target, or the default target. It is also automatically invoked
+if './otp_build remove_prebuilt_files' is invoked.
+
+If you or your system has special requirements please read the
+Makefile for additional configuration information.
+
+Support for SMP (Symmetric Multi Processing)
+--------------------------------------------
+
+An emulator with SMP support will be built by default on most platforms
+if a usable POSIX thread library or native Windows threads is found.
+
+You can force building of an SMP emulator, by using
+"./configure --enable-smp-support". However, if configure doesn't
+automatically enable SMP support, the build is very likely to fail.
+
+Use "./configure --disable-smp-support" if you for some reason don't
+want to have the emulator with SMP support built.
+
+If SMP support is enabled, support for threaded I/O will also be turned on
+(also in the emulator without SMP support).
+
+The 'erl' command will automatically start the SMP emulator if the
+computer has more than one logical processor. You can force a start
+of the emulator with SMP support by passing '-smp enable' as
+command line arguments to erl, and you can force a start of the
+emulator without SMP support by passing '-smp disable'.
+
+How to install the Erlang/OTP documentation
+-------------------------------------------
+
+For some graphical tools to find the on-line help you have to install
+the HTML documentation on top of the installed OTP applications, i.e.
+
+        cd <PrefixDir>/lib/erlang
+        gunzip -c otp_html_R<XY>B-<Z>.tar.gz | tar xf -
+
+For "erl -man <page>" to work the Unix manual pages have to be
+installed in the same way, i.e.
+
+        cd <PrefixDir>/lib/erlang
+        gunzip -c otp_man_R<XY>B-<Z>.tar.gz | tar xf -
+
+
+GS (Graphic System)
+-------------------
+
+GS now Tcl/Tk 8.4. It will be searched for when starting GS.
+
+
+Using HiPE
+----------
+
+HiPE supports the following system configurations:
+
+x86:
+	All 32-bit and 64-bit mode processors should work.
+
+	The following systems are supported:
+
+	Linux:
+		Fedora Core is supported.
+		Both 32-bit and 64-bit modes are supported.
+
+		NPTL glibc is strongly preferred, or a LinuxThreads
+		glibc configured for "floating stacks". Old non-floating
+		stacks glibcs have a fundamental problem that makes HiPE
+		support	and threads support mutually exclusive.
+	Solaris:
+		Solaris 10 (32-bit and 64-bit) and 9 (32-bit) are
+		supported.
+
+		The build requires a version of the GNU C compiler (gcc)
+		that has been configured to use the GNU assembler (gas).
+		Sun's x86 assembler is emphatically /not/ supported.
+	FreeBSD:
+		FreeBSD 6.1 and 6.2 in 32-bit and 64-bit modes should work.
+	MacOSX/Darwin:
+		Darwin 9.8.0 in 32-bit mode should work.
+
+PowerPC:
+	All 32-bit 6xx/7xx(G3)/74xx(G4) processors should work.
+	32-bit mode on 970 (G5) and POWER5 processors should work.
+
+	Linux (Yellow Dog) and Mac OSX 10.4 are supported.
+
+SPARC:
+	All UltraSPARC processors running 32-bit user code should work.
+
+	Solaris 9 and Linux (Aurora) are supported.
+
+	On Solaris the build requires a gcc that has been configured
+	to use Sun's assembler and linker. Using the GNU assembler but
+	Sun's linker has been known to cause problems.
+ARM:
+	ARMv5TE (i.e. XScale) processors should work.
+	Both big-endian and little-endian modes are supported.
+
+	Linux is supported.
+
+HiPE is automatically enabled on the following systems:
+	x86 in 32-bit mode: Linux, Solaris, FreeBSD
+	x86 in 64-bit mode: Linux, Solaris, FreeBSD
+	PowerPC: Linux, MacOSX
+	SPARC: Linux
+	ARM: Linux
+On other supported systems you need to "./configure --enable-hipe".
+
+
+If you are running on a platform supporting HiPE and if
+you have not disabled HiPE, you can compile a module into
+native code like this from the Erlang shell:
+
+	c(Module, native).
+
+or
+
+	c(Module, [native|OtherOptions]).
+
+Using the erlc program, write like this:
+
+	erlc +native Module.erl
+
+The native code will be placed into the beam file and automatically
+loaded when the beam file is loaded.
+
+To add hipe options, write like this from the Erlang shell:
+
+	c(Module, [native,{hipe,HipeOptions}|MoreOptions]).
+
+Use
+
+	hipe:help_options().
+
+to print out the available options.
+
+
+Mac OS X (Darwin)
+-----------------
+
+We test Mac OS X 10.4.11 (Tiger) and Mac OS X 10.5.x (Leopard)
+in our daily builds (but only on Intel processors).
+
+Make sure that the command "hostname" returns a valid fully qualified
+host name (this is configured in "/etc/hostconfig").
+
+If you develop linked-in drivers (shared library) you need to link
+using "gcc" and the flags "-bundle -flat_namespace -undefined
+suppress". You also include "-fno-common" in CFLAGS when
+compiling. Use ".so" as the library suffix.
+
+Universal 32bit binaries can be built on an Intel Mac using the
+--enable-darwin-universal configure option. There still may occur
+problems with certain applications using this option, but the base
+system should run smoothly.
+
+When building universal binaries on a PowerPC Mac (at least on Tiger),
+you must point out a suitable SDK that contains universal binaries.
+For instance, to build universal binaries for Tiger (10.4):
+
+CFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk" LDFLAGS="-isysroot /Developer/SDKs/MacOSX10.4u.sdk" 	./configure --enable-darwin-universal
+
+Also, if you run Leopard, but want to build for Tiger, you must do
+
+export MACOSX_DEPLOYMENT_TARGET=10.4
+
+before running the above configure command.
+
+Experimental support for 64bit x86 darwin binaries can be enabled
+using the --enable-darwin-64bit configure flag. The 64bit binaries are
+best built and run on Leopard, but most of the system also works on
+Tiger (Tiger's 64bit libraries are, however, limited; therefore e.g. odbc,
+crypto, ssl etc. are not supported in Tiger). 64bit PPC binaries are not
+supported and we have no plans to add such support (no machines to
+test on).
+
+Universal binaries and 64bit binaries are mutually exclusive options.
+
+
+Make and the variable "ERL_TOP"
+-------------------------------
+
+All the makefiles in the entire directory tree use the environment
+variable ERL_TOP to find the absolute path of the installation. The
+configure script will figure this out and set it in the top level
+Makefile (which, when building, it will pass on). However, when
+developing it is sometimes convenient to be able to run make in a
+subdirectory. To do this you must set the ERL_TOP variable
+before you run make.
+
+For example, assume your GNU make program is called "make" and you
+want to rebuild the application STDLIB, then you could do:
+
+  cd lib/stdlib; env ERL_TOP=<Dir> make
+
+where <Dir> would be what you find ERL_TOP is set to in the top level
+Makefile.
+
+
+Authors
+-------
+Authors are mostly listed in the application's AUTHORS files,
+that is $ERL_TOP/lib/*/AUTHORS and $ERL_TOP/erts/AUTHORS,
+not in the individual source files.
+
+
+More Information
+----------------
+
+More information can be found at http://www.erlang.org.

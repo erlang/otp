@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Using the SSL application</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <docno></docno>
+    <date>2003-04-23</date>
+    <rev>PA2</rev>
+    <file>using_ssl.xml</file>
+  </header>
+  <p>Here we provide an introduction to using the Erlang/OTP SSL
+    application, which is accessed through the <c>ssl</c> interface
+    module. 
+    </p>
+  <p>We also present example code in the Erlang module
+    <c>client_server</c>, also provided in the directory
+    <c>ssl-X.Y.Z/examples</c>, with source code in <c>src</c> and the
+    compiled module in <c>ebin</c> of that directory.
+    </p>
+
+  <section>
+    <title>The ssl Module</title>
+    <p>The <c>ssl</c> module provides the user interface to the Erlang/OTP
+      SSL application. The interface functions provided are very similar
+      to those provided by the <c>gen_tcp</c> and <c>inet</c> modules. 
+      </p>
+    <p>Servers use the interface functions <c>listen</c> and
+      <c>accept</c>. The <c>listen</c> function specifies a TCP port
+      to to listen to, and each call to the <c>accept</c> function
+      establishes an incoming connection.
+      </p>
+    <p>Clients use the <c>connect</c> function which specifies the address 
+      and port of a server to connect to, and  a successful call establishes
+      such a connection. 
+      </p>
+    <p>The <c>listen</c> and <c>connect</c> functions have almost all
+      the options that the corresponding functions in <c>gen_tcp/</c> have, 
+      but there are also additional options specific to the SSL protocol. 
+      </p>
+    <p>The most important SSL specific option is the <c>cacertfile</c>
+      option which specifies a local file containing trusted CA
+      certificates which are and used for peer authentication. This
+      option is used by clients and servers in case they want to
+      authenticate their peers.
+      </p>
+    <p>The <c>certfile</c> option specifies a local path to a file
+      containing the certificate of the holder of the connection
+      endpoint. In case of a server endpoint this option is mandatory
+      since the contents of the sever certificate is needed in the
+      the handshake preceding the establishment of a connection. 
+      </p>
+    <p>Similarly, the <c>keyfile</c> option points to a local file
+      containing the private key of the holder of the endpoint. If the
+      <c>certfile</c> option is present, this option has to be
+      specified as well, unless the private key is provided in the
+      same file as specified by the <c>certfile</c> option (a
+      certificate and a private key can thus coexist in the same file).
+      </p>
+    <p>The <c>verify</c> option specifies how the peer should be verified:
+      </p>
+    <taglist>
+      <tag>0</tag>
+      <item>Do not verify the peer,</item>
+      <tag>1</tag>
+      <item>Verify peer,</item>
+      <tag>2</tag>
+      <item>Verify peer, fail the verification if the peer has no 
+       certificate. </item>
+    </taglist>
+    <p>The <c>depth</c> option specifies the maximum length of the
+      verification certificate chain. Depth = 0 means the peer
+      certificate, depth = 1 the CA certificate, depth = 2 the next CA
+      certificate etc. If the verification process does not find a
+      trusted CA certificate within the maximum length, the verification
+      fails.
+      </p>
+    <p>The <c>ciphers</c> option specifies which ciphers to use (a
+      string of colon separated cipher names). To obtain a list of
+      available ciphers, evaluate the <c>ssl:ciphers/0</c> function
+      (the SSL application has to be running). 
+      </p>
+  </section>
+
+  <section>
+    <title>A Client-Server Example</title>
+    <p>Here is a simple client server example. 
+      </p>
+    <codeinclude file="../../examples/src/client_server.erl" tag="" type="erl"></codeinclude>
+  </section>
+</chapter>
+
+
+

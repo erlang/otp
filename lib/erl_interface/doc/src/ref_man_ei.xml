@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>EI Library Reference</title>
+    <prepared>Gordon Beaton</prepared>
+    <docno></docno>
+    <date>1998-11-30</date>
+    <rev>1.2</rev>
+    <file>ref_man_ei.xml</file>
+  </header>
+  <description>
+    <p>The <c><![CDATA[ei]]></c> library is a <c><![CDATA[C]]></c> interface library for
+      communication with <c><![CDATA[Erlang]]></c>.</p>
+    <note>
+      <p>By default, the <c><![CDATA[ei]]></c> library is only guaranteed
+        to be compatible with other Erlang/OTP components from the same
+        release as the <c><![CDATA[ei]]></c> library itself. See the documentation of the
+        <seealso marker="ei#ei_set_compat_rel">ei_set_compat_rel()</seealso>
+        function on how to communicate with Erlang/OTP components from earlier
+        releases.</p>
+    </note>
+  </description>
+  <xi:include href="ei.xml"/>
+  <xi:include href="ei_connect.xml"/>
+  <xi:include href="registry.xml"/>
+</application>
+

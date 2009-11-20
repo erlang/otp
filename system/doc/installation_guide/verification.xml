@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Installation Verification</title>
+    <prepared>Peter H&ouml;gfeldt</prepared>
+    <responsible>Peter H&ouml;gfeldt</responsible>
+    <docno></docno>
+    <approved>(Peter H&ouml;gfeldt</approved>
+    <checked></checked>
+    <date>1997-05-26</date>
+    <rev>C</rev>
+    <file>verification.xml</file>
+  </header>
+  <p>This chapter is about verifying your installation by performing
+    a few simple tests to see that your system is properly installed.</p>
+
+  <section>
+    <title>UNIX</title>
+    <list type="bulleted">
+      <item>
+        <p>Start Erlang/OTP from the command line,</p>
+        <pre>
+  unix> erl</pre>
+        <p>Expect the following output:</p>
+        <pre>
+  Erlang (BEAM) emulator version 5.0.1 [threads]
+
+  Eshell V5.0.1  (abort with ^G)
+  1></pre>
+      </item>
+      <item>
+        <p>Start the GS-based toolbar from the Erlang shell, </p>
+        <pre>
+  1> <input>toolbar:start().</input></pre>
+        <p>and check that the toolbar window pops up.
+          </p>
+        <p><em>Note:</em> The trailing full stop (<c>"."</c>) is an end marker
+          for all commands in the Erlang shell, and must be entered for a 
+          command to begin execution.</p>
+      </item>
+      <item>
+        <p>Exit by entering the command <c>halt()</c>,</p>
+        <pre>
+  2> <input>halt().</input></pre>
+        <p>which should end both the toolbar window and the command line window. </p>
+      </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Windows</title>
+    <list type="bulleted">
+      <item>
+        <p>Start Erlang/OTP by double-clicking on the Erlang shortcut icon on the
+          desktop.</p>
+        <p>Expect a command line window to pop up with the following output,</p>
+        <pre>
+  Erlang (BEAM) emulator version 5.0.1 [threads]
+
+  Eshell V5.0.1  (abort with ^G)
+  1></pre>
+      </item>
+      <item>
+        <p>Start the GS-based toolbar from the Erlang shell, </p>
+        <pre>
+  1> <input>toolbar:start().</input></pre>
+        <p>and check that the toolbar window pops up.
+          </p>
+        <p><em>Note:</em> The trailing full stop (<c>"."</c>) is an end marker
+          for all commands in the Erlang shell, and must be entered for a 
+          command to begin execution.</p>
+      </item>
+      <item>
+        <p>Exit by entering the command <c>halt()</c>,</p>
+        <pre>
+  2> <input>halt().</input></pre>
+        <p>which should end both the toolbar window and the command line window. </p>
+      </item>
+    </list>
+  </section>
+</chapter>
+

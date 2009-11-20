@@ -1,0 +1,44 @@
+TestTrap DEFINITIONS ::= BEGIN
+ 
+          IMPORTS
+                  Counter, TimeTicks, IpAddress
+                      FROM RFC1155-SMI
+                  OBJECT-TYPE
+                      FROM RFC-1212
+                  mgmt, NetworkAddress, IpAddress, Counter, Gauge,
+                          TimeTicks
+                      FROM RFC1155-SMI
+                  DisplayString, snmp, system,sysContact, ifIndex
+                      FROM RFC1213-MIB
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+ 
+
+
+          testTrap1 TRAP-TYPE
+              ENTERPRISE  snmp
+              VARIABLES   { sysContact }
+              DESCRIPTION
+		""
+              ::= 1
+ 
+          testTrap2 TRAP-TYPE
+              ENTERPRISE  system
+              VARIABLES   { sysContact }
+              DESCRIPTION
+		""
+              ::= 1
+
+ 
+          linkDown TRAP-TYPE
+              ENTERPRISE  snmp
+              VARIABLES   { ifIndex }
+              DESCRIPTION
+                          "A linkDown trap signifies that the sending
+                          protocol entity recognizes a failure in one of
+                          the communication links represented in the
+                          agent's configuration."
+              ::= 2
+ 
+ 
+END

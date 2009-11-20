@@ -1,0 +1,368 @@
+#!/usr/bin/env perl 
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+use strict;
+use File::Basename;
+
+#
+# Description:
+#   Creates tables for BIFs and atoms.
+#
+# Usage:
+#    make_tables [ Options ] file...
+#
+# Options:
+#    -src directory	Where to write generated C source files (default ".").
+#    -include directory Where to generate generated C header files (default ".").
+#
+# Output:
+#    <-src>/erl_am.c
+#    <-src>/erl_bif_table.c
+#    <-src>/erl_bif_wrap.c
+#    <-src>/erl_pbifs.c
+#    <-include>/erl_atom_table.h
+#    <-include>/erl_bif_table.h
+#
+# Author: Bjorn Gustavsson
+#
+
+my $progname = basename($0);
+my $src = '.';
+my $include = '.';
+
+my @atom;
+my %atom;
+my %atom_alias;
+my %aliases;
+my $auto_alias_num = 0;
+
+my @bif;
+my @implementation;
+my @pbif;
+
+while (@ARGV && $ARGV[0] =~ /^-(\w+)/) {
+    my $opt = shift;
+    if ($opt eq '-src') {
+	$src = shift;
+	die "No directory for -src argument specified"
+	    unless defined $src;
+    } elsif($opt eq '-include') {
+	$include = shift;
+	die "No directory for -include argument specified"
+	    unless defined $include;
+    } else {
+	usage("bad option: $opt");
+    }
+}
+
+
+while (<>) {
+    next if /^#/;
+    next if /^\s*$/;
+    my($type, @args) = split;
+    if ($type eq 'atom') {
+	save_atoms(@args);
+    } elsif ($type eq 'bif' or $type eq 'ubif') {
+	my($bif,$alias,$alias2) = (@args);
+	$bif =~ m@^([a-z_.'0-9]+):(.*)/(\d)$@ or error("invalid BIF");
+	my($mod,$name,$arity) = ($1,$2,$3);
+	save_atoms($mod, $name);
+	unless (defined $alias) {
+	    $alias = "";
+	    $alias = "${mod}_" unless $mod eq 'erlang';
+	    $alias .= "${name}_$arity";
+	}
+	my $wrapper;
+	$wrapper = "wrap_$alias" if $type eq 'bif';
+	$wrapper = $alias if $type eq 'ubif';
+	push(@bif, ["am_$atom_alias{$mod}","am_$atom_alias{$name}",$arity,
+		    $alias,$wrapper]);
+        push(@pbif, $bif =~ m/^'/ && $alias =~ m/^ebif_/);
+        push(@implementation, $alias2);
+    } else {
+	error("invalid line");
+    }
+} continue {
+    close ARGV if eof;
+}
+
+#
+# Generate the atom header file.
+#
+
+open_file("$include/erl_atom_table.h");
+print <<EOF;
+#ifndef __ERL_ATOM_TABLE_H__
+#define __ERL_ATOM_TABLE_H__
+extern char* erl_atom_names[];
+
+EOF
+my $i;
+for ($i = 0; $i < @atom; $i++) {
+    my $alias = $atom_alias{$atom[$i]};
+    print "#define am_$alias make_atom($i)\n"
+	if defined $alias;
+}
+print "#endif\n";
+
+#
+# Generate the atom table file.
+#
+
+open_file("$src/erl_atom_table.c");
+my $i;
+print "char* erl_atom_names[] = {\n";
+
+for ($i = 0; $i < @atom; $i++) {
+    print '  "', $atom[$i], '",', "\n";
+}
+print "  0\n";
+print "};\n";
+
+#
+# Generate the generic bif list file.
+#
+
+open_file("$include/erl_bif_list.h");
+my $i;
+for ($i = 0; $i < @bif; $i++) {
+    # module atom, function atom, arity, C function, table index
+    print "BIF_LIST($bif[$i]->[0],$bif[$i]->[1],$bif[$i]->[2],$bif[$i]->[3],$i)\n";
+}
+
+#
+# Generate the bif header file.
+#
+
+open_file("$include/erl_bif_table.h");
+my $bif_size = @bif;
+print <<EOF;
+#ifndef __ERL_BIF_TABLE_H__
+#define __ERL_BIF_TABLE_H__
+typedef void *BifFunction;
+
+typedef struct bif_entry {
+    Eterm module;
+    Eterm name;
+    int arity;
+    BifFunction f;
+    BifFunction traced;
+} BifEntry;
+
+extern BifEntry bif_table[];
+extern Export* bif_export[];
+extern unsigned char erts_bif_trace_flags[];
+
+#define BIF_SIZE $bif_size
+
+EOF
+
+my $i;
+for ($i = 0; $i < @bif; $i++) {
+    print "#define BIF_$bif[$i]->[3] $i\n";
+}
+
+print "\n";
+
+for ($i = 0; $i < @bif; $i++) {
+    my $arity = $bif[$i]->[2];
+    my $args = join(', ', 'Process*', ('Eterm') x $arity);
+    print "Eterm $bif[$i]->[3]($args);\n";
+    print "Eterm wrap_$bif[$i]->[3]($args, Uint *I);\n";
+}
+print "#endif\n";
+
+#
+# Generate the bif table file.
+#
+
+open_file("$src/erl_bif_table.c");
+my $i;
+includes("export.h", "sys.h", "erl_vm.h", "erl_process.h", "bif.h",
+	 "erl_bif_table.h", "erl_atom_table.h");
+
+print "\nExport* bif_export[BIF_SIZE];\n";
+print "unsigned char erts_bif_trace_flags[BIF_SIZE];\n\n";
+
+print "BifEntry bif_table[] = {\n";
+for ($i = 0; $i < @bif; $i++) {
+    my $func = $bif[$i]->[3];
+    print "  {", join(', ', @{$bif[$i]}), "},\n";
+}
+print "};\n\n";
+
+#
+# Generate the bif wrappers file.
+#
+
+open_file("$src/erl_bif_wrap.c");
+my $i;
+includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
+	 "erl_bif_table.h", "erl_atom_table.h");
+for ($i = 0; $i < @bif; $i++) {
+    next if $bif[$i]->[3] eq $bif[$i]->[4]; # Skip unwrapped bifs
+    my $arity = $bif[$i]->[2];
+    my $func = $bif[$i]->[3];
+    my $arg;
+    print "Eterm\n";
+    print "wrap_$func(Process* p";
+    for ($arg = 1; $arg <= $arity; $arg++) {
+	print ", Eterm arg$arg";
+    }
+    print ", Uint *I)\n";
+    print "{\n";
+    print "    return erts_bif_trace($i, p";
+    for ($arg = 1; $arg <= 3; $arg++) {
+	if ($arg <= $arity) {
+	    print ", arg$arg";
+	} elsif ($arg == ($arity + 1)) { 
+	    # Place I in correct position
+	    print ", (Eterm) I";
+	} else {
+	    print ", 0";
+	}
+    }
+    # I is always last, as well as in the correct position
+    # Note that "last" and "correct position" may be the same...
+    print ", I);\n";
+    print "}\n\n";
+}
+
+#
+# Generate the package bif file.
+#
+
+open_file("$src/erl_pbifs.c");
+my $i;
+includes("export.h", "sys.h", "erl_vm.h", "global.h", "erl_process.h", "bif.h",
+	 "erl_bif_table.h", "erl_atom_table.h");
+for ($i = 0; $i < @bif; $i++) {
+    my $arity = $bif[$i]->[2];
+    my $func = $bif[$i]->[3];
+    my $arg;
+    next unless $pbif[$i];
+    next unless $func =~ m/^ebif_(.*)/;
+    my $orig_func = $1;
+    $orig_func = $implementation[$i] if $implementation[$i];
+    print "Eterm\n";
+    print "$func(Process* p";
+    for ($arg = 1; $arg <= $arity; $arg++) {
+	print ", Eterm arg$arg";
+    }
+    print ")\n";
+    print "{\n";
+    print "    return $orig_func(p";
+    for ($arg = 1; $arg <= 3; $arg++) {
+	if ($arg <= $arity) {
+	    print ", arg$arg";
+        }
+    }
+    print ");\n";
+    print "}\n\n";
+}
+
+sub open_file {			# or die
+    my($name) = @_;
+
+    open(FILE, ">$name") or die "$0: Failed to create $name: $!\n";
+    select(FILE);
+    comment('C');
+}
+
+sub includes {
+    print "#ifdef HAVE_CONFIG_H\n";
+    print "#  include \"config.h\"\n";
+    print "#endif /* HAVE_CONFIG_H */\n";
+    print map { "#include \"$_\"\n"; } @_;
+    print "\n";
+}
+
+sub save_atoms {
+    my $atom;
+    my $alias;
+
+    foreach $atom (@_) {
+	if ($atom =~ /^\w+$/) {
+	    error("$atom: an atom must start with a lowercase letter\n",
+		  "  (use an alias like this: $atom='$atom')")
+		unless $atom =~ /^[a-z]/;
+	    $alias = $atom;
+	} elsif ($atom =~ /^'(.*)'$/) {
+	    $atom = $1;
+	    $alias = "_AtomAlias$auto_alias_num";
+	    $auto_alias_num++;
+	} elsif ($atom =~ /^(\w+)='(.*)'$/) {
+	    $alias = $1;
+	    $atom = $2;
+	    error("$alias: an alias must start with an uppercase letter")
+		unless $alias =~ /^[A-Z]/;
+	} else {
+	    error("invalid atom: $atom");
+	}
+	next if $atom{$atom};
+	push(@atom, $atom);
+	$atom{$atom} = 1;
+
+	if (defined $alias) {
+	    error("$alias: this alias is already in use")
+		if defined $aliases{$alias} && $aliases{$alias} ne $atom;
+	    $aliases{$alias} = $atom;
+	    $atom_alias{$atom} = $alias;
+	}
+    }
+}
+
+sub usage {
+    warn "$progname: ", @_, "\n";
+    die "usage: $progname -src source-dir -include include-dir file...\n";
+}
+
+sub error {
+    die "$ARGV($.): ", @_, "\n";
+}
+
+sub comment {
+    my($lang, @comments) = @_;
+    my($prefix);
+
+    if ($lang eq 'C') {
+	print "/*\n";
+	$prefix = " * ";
+    } elsif ($lang eq 'erlang') {
+	$prefix = '%% ';
+    } else {
+	$prefix = '# ';
+    }
+    my(@prog) = split('/', $0);
+    my($prog) = $prog[$#prog];
+
+    if (@comments) {
+	my $line;
+	foreach $line (@comments) {
+	    print "$prefix$line\n";
+	}
+    } else {
+	print "$prefix Warning: Do not edit this file.  It was automatically\n";
+	print "$prefix generated by '$progname' on ", (scalar localtime), ".\n";
+    }
+    if ($lang eq 'C') {
+	print " */\n";
+    }
+    print "\n";
+}

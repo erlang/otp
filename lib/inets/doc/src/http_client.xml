@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2004</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>HTTP Client</title>
+    <prepared>Ingela Anderton Andin</prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>http_client.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+
+    <p>The HTTP client default profile will be started when the inets
+    application is started and is then available to all processes on
+    that erlang node. Other profiles may also be started at
+    application startup, or profiles can be started and stopped
+    dynamically in runtime. Each client profile will spawn a new
+    process to handle each request unless there is a possibility to use
+    a persistent connection with or without pipelining.
+    The client will add a host header and an empty
+    te header if there are no such headers present in the request.</p>
+
+    <p>The clients supports ipv6 as long as the underlying mechanisms also do
+      so.</p>
+  </section>
+
+  <section>
+    <title>Configuration</title>
+    <p> What to put in the erlang node application configuration file
+      in order to start a profile at application startup.</p>
+    <pre>
+      [{inets, [{services, [{httpc, PropertyList}]}]}]
+    </pre>
+    <p>For valid properties see <seealso
+			       marker="http">http(3)</seealso></p>
+  </section>
+
+  <section>
+    <title>Using the HTTP Client API</title>
+    <code type="erl">
+ 1 > inets:start().
+      ok
+    </code>
+    <p> The following calls uses the default client profile.
+      Use the proxy "www-proxy.mycompany.com:8000",
+      but not for requests to localhost. This will apply to all subsequent
+      requests</p>
+    <code type="erl">
+      2 > http:set_options([{proxy, {{"www-proxy.mycompany.com", 8000},
+      ["localhost"]}}]).
+      ok
+    </code>
+    <p>An ordinary synchronous request. </p>
+    <code type="erl">
+      3 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+      http:request(get, {"http://www.erlang.org", []}, [], []).
+    </code>
+    <p>With all default values, as above, a get request can also be written
+      like this.</p>
+    <code type="erl">
+      4 > {ok, {{Version, 200, ReasonPhrase}, Headers, Body}} =
+      http:request("http://www.erlang.org").
+    </code>
+    <p>An ordinary asynchronous request. The result will be sent
+      to the calling process on the form {http, {ReqestId, Result}}</p>
+    <code type="erl">
+      5 > {ok, RequestId} =
+      http:request(get, {"http://www.erlang.org", []}, [], [{sync, false}]).
+    </code>
+    <p>In this case the calling process is the shell, so we receive the
+      result.</p>
+    <code type="erl">
+      6 >  receive {http, {RequestId, Result}} -> ok after 500 -> error end.
+      ok
+    </code>
+    <p>Send a request with a specified connection header. </p>
+    <code type="erl">
+      7 > {ok, {{NewVersion, 200, NewReasonPhrase}, NewHeaders, NewBody}} =
+      http:request(get, {"http://www.erlang.org", [{"connection", "close"}]},
+      [], []).
+    </code>
+
+    <p>Start a HTTP client profile. </p>
+   
+    <code><![CDATA[
+      8 >  {ok, Pid} = inets:start(httpc, [{profile, foo}]).
+      {ok, <0.45.0>}       
+      ]]></code>
+    
+    <p>The new profile has no proxy settings so the connection will
+      be refused</p>
+      <code type="erl">
+      9 > http:request("http://www.erlang.org", foo).              
+      {error,econnrefused}
+    </code>
+
+    <p>Stop a HTTP client profile. </p>
+    <code type="erl">
+      10 >  inets:stop(httpc, foo).
+      ok
+    </code>
+    
+    <p>Alternatively:</p>
+    <code type="erl">
+      10 >  inets:stop(httpc, Pid).
+      ok
+    </code>
+    
+    
+  </section>
+</chapter>
+
+
+
+

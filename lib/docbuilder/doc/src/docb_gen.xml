@@ -1,0 +1,213 @@
+<?xml version="1.0" encoding="iso-8859-1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1999</year>
+      <year>2007</year>
+      <holder>Ericsson AB, All Rights Reserved</holder>
+    </copyright>
+    <legalnotice>
+ The contents of this file are subject to the Erlang Public License,
+ Version 1.1, (the "License"); you may not use this file except in
+ compliance with the License. You should have received a copy of the
+ Erlang Public License along with this software. If not, it can be
+ retrieved online at http://www.erlang.org/.
+ 
+ Software distributed under the License is distributed on an "AS IS"
+ basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ the License for the specific language governing rights and limitations
+ under the License.
+ 
+ The Initial Developer of the Original Code is Ericsson AB.
+    </legalnotice>
+    <title>docb_gen</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>docb_gen</module>
+  <modulesummary>Generate XML from EDoc comments in Erlang source code.
+  </modulesummary>
+
+  <description>
+    <p><c>docb_gen</c> contains functions for generating XML
+      documentation source code according to the <c>erlref</c> or
+      <c>chapter</c> DTD from
+      <seealso marker="edoc:chapter">EDoc</seealso> comments in Erlang
+      source code or an <c>overview.edoc</c> file, using EDoc.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>module(File) -> ok | {error, Reason}</name>
+      <name>module(File, Options) -> ok | {error, Reason}</name>
+      <fsummary>Generate XML from EDoc comments in Erlang source code.
+      </fsummary>
+      <type>
+	<v>File = string()</v>
+	<v>Options = [Opt]</v>
+	<v>Opt = {def,Defs} | {includes,Dirs} | {preprocess,Bool}
+	  | {sort_functions,Bool}</v>
+	<v>Defs = [{atom(),string()}]</v>
+	<v>Dirs = [string()]</v>
+	<v>Bool = bool()</v>
+	<v>Reason = badfile | {badopt,term()} | term()</v>
+      </type>
+      <desc>
+        <p>Generates XML documentation source code according to
+	  the <c>erlref</c> DTD from EDoc comments <c>File</c>, using
+	  the EDoc application.</p>
+
+        <p><c>File</c> is an Erlang source file, given with or without
+	  the <c>.erl</c> extension as <c>Name.erl</c> or <c>Name</c>.
+	  The resulting XML file is created in the current working
+	  directory and named <c>Name.xml</c>.</p>
+
+	<p><c>Options</c> is a list of options, see below.</p>
+
+	<p>Returns <c>ok</c> if successful, and an error tuple
+	  otherwise.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>users_guide(File) -> ok | {error, Reason}</name>
+      <name>users_guide(File, Options) -> ok | {error, Reason}</name>
+      <fsummary>Generate XML from EDoc comments in Erlang source code
+      </fsummary>
+      <type>
+	<v>File -- see module/1,2</v>
+	<v>Options -- see module/1,2</v>
+	<v>Reason -- see module/1,2</v>
+      </type>
+      <desc>
+        <p>Like <c>module/1,2</c> but generates XML source code
+	  according to the <c>chapter</c> DTD from an
+	  <c>overview.edoc</c> or similar file.</p>
+
+	<p>The resulting file is named <c>chapter.xml</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Options</title>
+    <taglist>
+      <tag><c>{def, [{Name,Text}]}</c></tag>
+      <item>Specifies EDoc macro definitions. See
+	<seealso marker="edoc:edoc">edoc:get_doc/2</seealso>.</item>
+
+      <tag><c>{includes, [Dir]}</c></tag>
+      <item>Specifies directories where EDoc should search for include
+	files. See
+	<seealso marker="edoc:edoc">edoc:read_source/2</seealso>.</item>
+
+      <tag><c>{preprocess, true|false}</c></tag>
+      <item>Specifies if EDoc should read the source file via the Erlang
+	preprocessor. Default is <c>false</c>. See
+	<seealso marker="edoc:edoc">edoc:read_source/2</seealso>.</item>
+
+      <tag><c>{sort_functions, true|false}</c></tag>
+      <item>Specifies if the functions in the resulting XML file should
+	be sorted alphabetically. Default is <c>true</c>.</item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Limitations</title>
+    <p>The mapping from the EDoc XHTML output to valid Erlang/OTP XML
+       is not complete. An attempt has been made to cover the most
+       commonly used XHTML constructs, but there will still be cases
+       where XML generation fails or where the resulting XML is
+       inadequate. This is especially true for <c>users_guide/1,2</c>.
+    </p>
+
+    <p>Known limitations for some XHTML tags:</p>
+    <taglist>
+      <tag><c><![CDATA[<a>]]></c></tag>
+      <item>
+        <p>All attributes except the first <c>href</c> or <c>name</c>
+	  attribute are ignored.</p>
+        <p>A <c>href</c> attribute means the <c><![CDATA[<a>]]></c> tag
+	  will be transformed to a <c><![CDATA[<seealso>]]></c> or
+	  <c><![CDATA[<url>]]></c> tag and an attempt is made to
+	  resolve the reference if necessary.</p>
+
+	<p>A <c>name</c> attribute means the <c><![CDATA[<a>]]></c> tag
+	  will be transformed to a <c><![CDATA[<marker>]]></c> tag.</p>
+      </item>
+
+      <tag><c><![CDATA[<b>, <em>, <pre>]]></c></tag>
+      <item>Cannot contain other tags in Erlang/OTP XML, content is
+	converted to plain text.
+      </item>
+
+      <tag><c><![CDATA[<center>]]></c></tag>
+      <item>No corresponding Erlang/OTP XML tag, converted to plain
+	text.
+      </item>
+
+      <tag><c><![CDATA[<font>]]></c></tag>
+      <item>No corresponding Erlang/OTP XML tag, converted to plain
+	text.
+      </item>
+
+      <tag><c><![CDATA[<h1>, <h2>, ...]]></c></tag>
+      <item>There is no tag corresponding to a header in Erlang/OTP XML,
+	so these are converted to plain text instead, with
+	the exception of <c><![CDATA[<h3>]]></c> and
+	<c><![CDATA[<h4>]]></c> tags within <c>overview.edoc</c>, see
+	part about "<c>chapter</c> DTD" below.
+      </item>
+
+      <tag><c><![CDATA[<sup>]]></c></tag>
+      <item>There is no tag corresponding to superscript in Erlang/OTP
+	XML, so this is converted to plain text within brackets "(..)".
+      </item>
+
+      <tag>References</tag>
+      <item>The markers automatically inserted by EDoc at each heading
+	and function will override the markers automatically inserted
+	by DocBuilder, with the unfortunate result that the links in
+	the left-hand frame of the User's Guide will not work, and
+	also that cross referencing a function in a module the usual
+	Erlang/OTP way
+	"<c><![CDATA[<seealso marker="edoc:edoc#run/3...>]]></c>" does
+	not work. (But
+	"<c><![CDATA[<seealso marker="edoc:edoc#run-3...>]]></c>" does.)
+      </item>
+    </taglist>
+
+    <p><em>erlref DTD</em></p>
+    <taglist>
+      <tag>Tables</tag>
+      <item>Tables are not allowed. The contents of a table is
+	converted to text instead, each row corresponding to one line
+	of text.
+      </item>
+    </taglist>
+
+    <p><em>chapter DTD</em></p>
+    <taglist>
+      <tag>Sections</tag>
+      <item>Only two levels of sections. <c><![CDATA[<h3>]]></c>
+	(equivalent to EDoc headings "<c>== Heading ==</c>") is
+	interpreted as start of top-level section, or if there is no
+	<c><![CDATA[<h3>]]></c> tag, the entire document is made into
+	one top-level section. <c><![CDATA[<h4>]]></c> (equivalent to
+	EDoc sub-headings ("<c><![CDATA[=== Sub-heading ===]]></c>") is
+	interpreted as start of second-level section.
+      </item>
+
+      <tag>Tables</tag>
+      <item>Tables without borders are converted to text in the same
+	manner as for the <c>erlref</c> DTD.
+      </item>
+    </taglist>
+  </section>
+
+</erlref>
+

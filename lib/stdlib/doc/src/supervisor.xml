@@ -1,0 +1,495 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>supervisor</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>supervisor</module>
+  <modulesummary>Generic Supervisor Behaviour</modulesummary>
+  <description>
+    <p>A behaviour module for implementing a supervisor, a process which
+      supervises other processes called child processes. A child
+      process can either be another supervisor or a worker process.
+      Worker processes are normally implemented using one of
+      the <c>gen_event</c>, <c>gen_fsm</c>, or <c>gen_server</c>
+      behaviours. A supervisor implemented using this module will have
+      a standard set of interface functions and include functionality
+      for tracing and error reporting. Supervisors are used to build an
+      hierarchical process structure called a supervision tree, a
+      nice way to structure a fault tolerant application. Refer to
+      <em>OTP Design Principles</em> for more information.</p>
+    <p>A supervisor assumes the definition of which child processes to
+      supervise to be located in a callback module exporting a
+      pre-defined set of functions.</p>
+    <p>Unless otherwise stated, all functions in this module will fail
+      if the specified supervisor does not exist or if bad arguments
+      are given.</p>
+  </description>
+
+  <section>
+    <title>Supervision Principles</title>
+    <p>The supervisor is responsible for starting, stopping and
+      monitoring its child processes. The basic idea of a supervisor is
+      that it should keep its child processes alive by restarting them
+      when necessary.</p>
+    <p>The children of a supervisor is defined as a list of <em>child specifications</em>. When the supervisor is started, the child
+      processes are started in order from left to right according to
+      this list. When the supervisor terminates, it first terminates
+      its child processes in reversed start order, from right to left.</p>
+    <p></p>
+    <p>A supervisor can have one of the following <em>restart strategies</em>:</p>
+    <list type="bulleted">
+      <item>
+        <p><c>one_for_one</c> - if one child process terminates and
+          should be restarted, only that child process is affected.</p>
+      </item>
+      <item>
+        <p><c>one_for_all</c> - if one child process terminates and
+          should be restarted, all other child processes are terminated
+          and then all child processes are restarted.</p>
+      </item>
+      <item>
+        <p><c>rest_for_one</c> - if one child process terminates and
+          should be restarted, the 'rest' of the child processes --
+          i.e. the child processes after the terminated child process
+          in the start order -- are terminated. Then the terminated
+          child process and all child processes after it are restarted.</p>
+      </item>
+      <item>
+        <p><c>simple_one_for_one</c> - a simplified <c>one_for_one</c>
+          supervisor, where all child processes are dynamically added
+          instances of the same process type, i.e. running the same
+          code.</p>
+        <p>The functions <c>terminate_child/2</c>, <c>delete_child/2</c>
+          and <c>restart_child/2</c> are invalid for
+          <c>simple_one_for_one</c> supervisors and will return
+          <c>{error,simple_one_for_one}</c> if the specified supervisor
+          uses this restart strategy.</p>
+      </item>
+    </list>
+    <p>To prevent a supervisor from getting into an infinite loop of
+      child process terminations and restarts, a <em>maximum restart frequency</em> is defined using two integer values <c>MaxR</c>
+      and <c>MaxT</c>. If more than <c>MaxR</c> restarts occur within
+      <c>MaxT</c> seconds, the supervisor terminates all child
+      processes and then itself.
+    </p>
+    <marker id="child_spec"/>
+    <p>This is the type definition of a child specification:</p>
+    <pre>
+child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
+ Id = term()
+ StartFunc = {M,F,A}
+  M = F = atom()
+  A = [term()]
+ Restart = permanent | transient | temporary
+ Shutdown = brutal_kill | int()>=0 | infinity
+ Type = worker | supervisor
+ Modules = [Module] | dynamic
+  Module = atom()</pre>
+    <list type="bulleted">
+      <item>
+        <p><c>Id</c> is a name that is used to identify the child
+          specification internally by the supervisor.</p>
+      </item>
+      <item>
+        <p><c>StartFunc</c> defines the function call used to start
+          the child process. It should be a module-function-arguments
+          tuple <c>{M,F,A}</c> used as <c>apply(M,F,A)</c>.</p>
+        <p>          <br></br>
+</p>
+        <p>The start function <em>must create and link to</em> the child
+          process, and should return <c>{ok,Child}</c> or
+          <c>{ok,Child,Info}</c> where <c>Child</c> is the pid of
+          the child process and <c>Info</c> an arbitrary term which is
+          ignored by the supervisor.</p>
+        <p>          <br></br>
+</p>
+        <p>The start function can also return <c>ignore</c> if the child
+          process for some reason cannot be started, in which case
+          the child specification will be kept by the supervisor but
+          the non-existing child process will be ignored.</p>
+        <p>          <br></br>
+</p>
+        <p>If something goes wrong, the function may also return an
+          error tuple <c>{error,Error}</c>.</p>
+        <p>          <br></br>
+</p>
+        <p>Note that the <c>start_link</c> functions of the different
+          behaviour modules fulfill the above requirements.</p>
+      </item>
+      <item>
+        <p><c>Restart</c> defines when a terminated child process
+          should be restarted. A <c>permanent</c> child process should
+          always be restarted, a <c>temporary</c> child process should
+          never be restarted and a <c>transient</c> child process
+          should be restarted only if it terminates abnormally, i.e.
+          with another exit reason than <c>normal</c>.</p>
+      </item>
+      <item>
+        <p><c>Shutdown</c> defines how a child process should be
+          terminated. <c>brutal_kill</c> means the child process will
+          be unconditionally terminated using <c>exit(Child,kill)</c>.
+          An integer timeout value means that the supervisor will tell
+          the child process to terminate by calling
+          <c>exit(Child,shutdown)</c> and then wait for an exit signal
+          with reason <c>shutdown</c> back from the child process. If
+          no exit signal is received within the specified time,
+          the child process is unconditionally terminated using
+          <c>exit(Child,kill)</c>.</p>
+        <p>If the child process is another supervisor, <c>Shutdown</c>
+          should be set to <c>infinity</c> to give the subtree ample
+          time to shutdown.</p>
+        <p><em>Important note on simple-one-for-one supervisors:</em>
+          The dynamically created child processes of a
+          simple-one-for-one supervisor are not explicitly killed,
+          regardless of shutdown strategy, but are expected to terminate
+          when the supervisor does (that is, when an exit signal from
+          the parent process is received).</p>
+        <p>Note that all child processes implemented using the standard
+          OTP behavior modules automatically adhere to the shutdown
+          protocol.</p>
+      </item>
+      <item>
+        <p><c>Type</c> specifies if the child process is a supervisor or
+          a worker.</p>
+      </item>
+      <item>
+        <p><c>Modules</c> is used by the release handler during code
+          replacement to determine which processes are using a certain
+          module. As a rule of thumb <c>Modules</c> should be a list
+          with one element <c>[Module]</c>, where <c>Module</c> is
+          the callback module, if the child process is a supervisor,
+          gen_server or gen_fsm. If the child process is an event
+          manager (gen_event) with a dynamic set of callback modules,
+          <c>Modules</c> should be <c>dynamic</c>. See <em>OTP Design Principles</em> for more information about release handling.</p>
+      </item>
+      <item>
+        <p>Internally, the supervisor also keeps track of the pid
+          <c>Child</c> of the child process, or <c>undefined</c> if no
+          pid exists.</p>
+      </item>
+    </list>
+  </section>
+  <funcs>
+    <func>
+      <name>start_link(Module, Args) -> Result</name>
+      <name>start_link(SupName, Module, Args) -> Result</name>
+      <fsummary>Create a supervisor process.</fsummary>
+      <type>
+        <v>SupName = {local,Name} | {global,Name}</v>
+        <v>&nbsp;Name = atom()</v>
+        <v>Module = atom()</v>
+        <v>Args = term()</v>
+        <v>Result = {ok,Pid} | ignore | {error,Error}</v>
+        <v>&nbsp;Pid = pid()</v>
+        <v>&nbsp;Error = {already_started,Pid}} | shutdown | term()</v>
+      </type>
+      <desc>
+        <p>Creates a supervisor process as part of a supervision tree.
+          The function will, among other things, ensure that
+          the supervisor is linked to the calling process (its
+          supervisor).</p>
+        <p>The created supervisor process calls <c>Module:init/1</c> to
+          find out about restart strategy, maximum restart frequency
+          and child processes. To ensure a synchronized start-up
+          procedure, <c>start_link/2,3</c> does not return until
+          <c>Module:init/1</c> has returned and all child processes
+          have been started.</p>
+        <p>If <c>SupName={local,Name}</c> the supervisor is registered
+          locally as <c>Name</c> using <c>register/2</c>. If
+          <c>SupName={global,Name}</c> the supervisor is registered
+          globally as <c>Name</c> using <c>global:register_name/2</c>.
+          If no name is provided, the supervisor is not registered.</p>
+        <p><c>Module</c> is the name of the callback module.</p>
+        <p><c>Args</c> is an arbitrary term which is passed as
+          the argument to <c>Module:init/1</c>.</p>
+        <p>If the supervisor and its child processes are successfully
+          created (i.e. if all child process start functions return
+          <c>{ok,Child}</c>, <c>{ok,Child,Info}</c>, or <c>ignore</c>)
+          the function returns <c>{ok,Pid}</c>, where <c>Pid</c> is
+          the pid of the supervisor. If there already exists a process
+          with the specified <c>SupName</c> the function returns
+          <c>{error,{already_started,Pid}}</c>, where <c>Pid</c> is
+          the pid of that process.</p>
+        <p>If <c>Module:init/1</c> returns <c>ignore</c>, this function
+          returns <c>ignore</c> as well and the supervisor terminates
+          with reason <c>normal</c>.
+          If <c>Module:init/1</c> fails or returns an incorrect value,
+          this function returns <c>{error,Term}</c> where <c>Term</c>
+          is a term with information about the error, and the supervisor
+          terminates with reason <c>Term</c>.</p>
+        <p>If any child process start function fails or returns an error
+          tuple or an erroneous value, the function returns
+          <c>{error,shutdown}</c> and the supervisor terminates all
+          started child processes and then itself with reason
+          <c>shutdown</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>start_child(SupRef, ChildSpec) -> Result</name>
+      <fsummary>Dynamically add a child process to a supervisor.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>ChildSpec = child_spec() | [term()]</v>
+        <v>Result = {ok,Child} | {ok,Child,Info} | {error,Error}</v>
+        <v>&nbsp;Child = pid() | undefined</v>
+        <v>&nbsp;Info = term()</v>
+        <v>&nbsp;Error = already_present | {already_started,Child} | term()</v>
+      </type>
+      <desc>
+        <p>Dynamically adds a child specification to the supervisor
+          <c>SupRef</c> which starts the corresponding child process.</p>
+        <p><c>SupRef</c> can be:</p>
+        <list type="bulleted">
+          <item>the pid,</item>
+          <item><c>Name</c>, if the supervisor is locally registered,</item>
+          <item><c>{Name,Node}</c>, if the supervisor is locally
+           registered at another node, or</item>
+          <item><c>{global,Name}</c>, if the supervisor is globally
+           registered.</item>
+        </list>
+        <p><c>ChildSpec</c> should be a valid child specification
+          (unless the supervisor is a <c>simple_one_for_one</c>
+          supervisor, see below). The child process will be started by
+          using the start function as defined in the child
+          specification.</p>
+        <p>If the case of a <c>simple_one_for_one</c> supervisor,
+          the child specification defined in <c>Module:init/1</c> will
+          be used and <c>ChildSpec</c> should instead be an arbitrary
+          list of terms <c>List</c>. The child process will then be
+          started by appending <c>List</c> to the existing start
+          function arguments, i.e. by calling
+          <c>apply(M, F, A++List)</c> where <c>{M,F,A}</c> is the start
+          function defined in the child specification.</p>
+        <p>If there already exists a child specification with
+          the specified <c>Id</c>, <c>ChildSpec</c> is discarded and
+          the function returns <c>{error,already_present}</c> or
+          <c>{error,{already_started,Child}}</c>, depending on if
+          the corresponding child process is running or not.</p>
+        <p>If the child process start function returns <c>{ok,Child}</c>
+          or <c>{ok,Child,Info}</c>, the child specification and pid is
+          added to the supervisor and the function returns the same
+          value.</p>
+        <p>If the child process start function returns <c>ignore</c>,
+          the child specification is added to the supervisor, the pid
+          is set to <c>undefined</c> and the function returns
+          <c>{ok,undefined}</c>.</p>
+        <p>If the child process start function returns an error tuple or
+          an erroneous value, or if it fails, the child specification is
+          discarded and the function returns <c>{error,Error}</c> where
+          <c>Error</c> is a term containing information about the error
+          and child specification.</p>
+      </desc>
+    </func>
+    <func>
+      <name>terminate_child(SupRef, Id) -> Result</name>
+      <fsummary>Terminate a child process belonging to a supervisor.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>Id = term()</v>
+        <v>Result = ok | {error,Error}</v>
+        <v>&nbsp;Error = not_found | simple_one_for_one</v>
+      </type>
+      <desc>
+        <p>Tells the supervisor <c>SupRef</c> to terminate the child
+          process corresponding to the child specification identified
+          by <c>Id</c>. The process, if there is one, is terminated but
+          the child specification is kept by the supervisor. This means
+          that the child process may be later be restarted by
+          the supervisor. The child process can also be restarted
+          explicitly by calling <c>restart_child/2</c>. Use
+          <c>delete_child/2</c> to remove the child specification.</p>
+        <p>See <c>start_child/2</c> for a description of
+          <c>SupRef</c>.</p>
+        <p>If successful, the function returns <c>ok</c>. If there is
+          no child specification with the specified <c>Id</c>,
+          the function returns <c>{error,not_found}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>delete_child(SupRef, Id) -> Result</name>
+      <fsummary>Delete a child specification from a supervisor.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>Id = term()</v>
+        <v>Result = ok | {error,Error}</v>
+        <v>&nbsp;Error = running | not_found | simple_one_for_one</v>
+      </type>
+      <desc>
+        <p>Tells the supervisor <c>SupRef</c> to delete the child
+          specification identified by <c>Id</c>. The corresponding child
+          process must not be running, use <c>terminate_child/2</c> to
+          terminate it.</p>
+        <p>See <c>start_child/2</c> for a description of <c>SupRef</c>.</p>
+        <p>If successful, the function returns <c>ok</c>. If the child
+          specification identified by <c>Id</c> exists but
+          the corresponding child process is running, the function
+          returns <c>{error,running}</c>. If the child specification
+          identified by <c>Id</c> does not exist, the function returns
+          <c>{error,not_found}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>restart_child(SupRef, Id) -> Result</name>
+      <fsummary>Restart a terminated child process belonging to a supervisor.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>Id = term()</v>
+        <v>Result = {ok,Child} | {ok,Child,Info} | {error,Error}</v>
+        <v>&nbsp;Child = pid() | undefined</v>
+        <v>&nbsp;Error = running | not_found | simple_one_for_one | term()</v>
+      </type>
+      <desc>
+        <p>Tells the supervisor <c>SupRef</c> to restart a child process
+          corresponding to the child specification identified by
+          <c>Id</c>. The child specification must exist and
+          the corresponding child process must not be running.</p>
+        <p>See <c>start_child/2</c> for a description of <c>SupRef</c>.</p>
+        <p>If the child specification identified by <c>Id</c> does not
+          exist, the function returns <c>{error,not_found}</c>. If
+          the child specification exists but the corresponding process
+          is already running, the function returns
+          <c>{error,running}</c>.</p>
+        <p>If the child process start function returns <c>{ok,Child}</c>
+          or <c>{ok,Child,Info}</c>, the pid is added to the supervisor
+          and the function returns the same value.</p>
+        <p>If the child process start function returns <c>ignore</c>,
+          the pid remains set to <c>undefined</c> and the function
+          returns <c>{ok,undefined}</c>.</p>
+        <p>If the child process start function returns an error tuple or
+          an erroneous value, or if it fails, the function returns
+          <c>{error,Error}</c> where <c>Error</c> is a term containing
+          information about the error.</p>
+      </desc>
+    </func>
+    <func>
+      <name>which_children(SupRef) -> [{Id,Child,Type,Modules}]</name>
+      <fsummary>Return information about all children specifications and child processes belonging to a supervisor.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>Id = term() | undefined</v>
+        <v>Child = pid() | undefined</v>
+        <v>Type = worker | supervisor</v>
+        <v>Modules = [Module] | dynamic</v>
+        <v>&nbsp;Module = atom()</v>
+      </type>
+      <desc>
+        <p>Returns a list with information about all child
+          specifications and child processes belonging to
+          the supervisor <c>SupRef</c>.</p>
+        <p>See <c>start_child/2</c> for a description of <c>SupRef</c>.</p>
+        <p>The information given for each child specification/process
+          is:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>Id</c> - as defined in the child specification or
+              <c>undefined</c> in the case of a
+              <c>simple_one_for_one</c> supervisor.</p>
+          </item>
+          <item>
+            <p><c>Child</c> - the pid of the corresponding child
+              process, or <c>undefined</c> if there is no such process.</p>
+          </item>
+          <item>
+            <p><c>Type</c> - as defined in the child specification.</p>
+          </item>
+          <item>
+            <p><c>Modules</c> - as defined in the child specification.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>check_childspecs([ChildSpec]) -> Result</name>
+      <fsummary>Check if children specifications are syntactically correct.</fsummary>
+      <type>
+        <v>ChildSpec = child_spec()</v>
+        <v>Result = ok | {error,Error}</v>
+        <v>&nbsp;Error = term()</v>
+      </type>
+      <desc>
+        <p>This function takes a list of child specification as argument
+          and returns <c>ok</c> if all of them are syntactically
+          correct, or <c>{error,Error}</c> otherwise.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>CALLBACK FUNCTIONS</title>
+    <p>The following functions should be exported from a
+      <c>supervisor</c> callback module.</p>
+  </section>
+  <funcs>
+    <func>
+      <name>Module:init(Args) -> Result</name>
+      <fsummary>Return a supervisor specification.</fsummary>
+      <type>
+        <v>Args = term()</v>
+        <v>Result = {ok,{{RestartStrategy,MaxR,MaxT},[ChildSpec]}} | ignore</v>
+        <v>&nbsp;RestartStrategy = one_for_all | one_for_one | rest_for_one | simple_one_for_one</v>
+        <v>&nbsp;MaxR = MaxT = int()>=0</v>
+        <v>&nbsp;ChildSpec = child_spec()</v>
+      </type>
+      <desc>
+        <p>Whenever a supervisor is started using
+          <c>supervisor:start_link/2,3</c>, this function is called by
+          the new process to find out about restart strategy, maximum
+          restart frequency and child specifications.</p>
+        <p><c>Args</c> is the <c>Args</c> argument provided to the start
+          function.</p>
+        <p><c>RestartStrategy</c> is the restart strategy and
+          <c>MaxR</c> and <c>MaxT</c> defines the maximum restart
+          frequency of the supervisor. <c>[ChildSpec]</c> is a list of
+          valid child specifications defining which child processes
+          the supervisor should start and monitor. See the discussion
+          about Supervision Principles above.</p>
+        <p>Note that when the restart strategy is
+          <c>simple_one_for_one</c>, the list of child specifications
+          must be a list with one child specification only.
+          (The <c>Id</c> is ignored). No child process is then started
+          during the initialization phase, but all children are assumed
+          to be started dynamically using
+          <c>supervisor:start_child/2</c>.</p>
+        <p>The function may also return <c>ignore</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="gen_event">gen_event(3)</seealso>, 
+      <seealso marker="gen_fsm">gen_fsm(3)</seealso>, 
+      <seealso marker="gen_server">gen_server(3)</seealso>, 
+      <seealso marker="sys">sys(3)</seealso></p>
+  </section>
+</erlref>
+

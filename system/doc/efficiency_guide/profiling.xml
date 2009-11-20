@@ -1,0 +1,258 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2001</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Profiling</title>
+    <prepared>Ingela Anderton</prepared>
+    <docno></docno>
+    <date>2001-11-02</date>
+    <rev></rev>
+    <file>profiling.xml</file>
+  </header>
+
+  <section>
+    <title>Do not guess about performance - profile</title>
+
+    <p>Even experienced software developers often guess wrong about where
+    the performance bottlenecks are in their programs.</p>
+
+    <p>Therefore, profile your program to see where the performance
+    bottlenecks are and concentrate on optimizing them.</p>
+
+    <p>Erlang/OTP contains several tools to help finding bottlenecks.</p>
+
+    <p><c>fprof</c> and <c>eprof</c> provide the most detailed information
+    about where the time is spent, but they significantly slow downs the
+    programs they profile.</p>
+
+    <p>If the program is too big to be profiled by <c>fprof</c> or <c>eprof</c>,
+    <c>cover</c> and <c>cprof</c> could be used to locate parts of the
+    code that should be more thoroughly profiled using <c>fprof</c> or
+    <c>eprof</c>.</p>
+
+    <p><c>cover</c> provides execution counts per line per process,
+    with less overhead than <c>fprof/eprof</c>. Execution counts can
+    with some caution be used to locate potential performance bottlenecks.
+    The most lightweight tool is <c>cprof</c>, but it only provides execution
+    counts on a function basis (for all processes, not per process).</p>
+  </section>
+
+  <section>
+    <title>Big systems</title>
+    <p>If you have a big system it might be interesting to run profiling
+      on a simulated and limited scenario to start with. But bottlenecks
+      have a tendency to only appear or cause problems when
+      there are many things going on at the same time, and when there
+      are many nodes involved. Therefore it is desirable to also run
+      profiling in a system test plant on a real target system.</p>
+    <p>When your system is big you do not want to run the profiling
+      tools on the whole system. You want to concentrate on processes
+      and modules that you know are central and stand for a big part of the
+      execution.</p>
+  </section>
+
+  <section>
+    <title>What to look for</title>
+    <p>When analyzing the result file from the profiling activity
+      you should look for functions that are called many
+      times and have a long "own" execution time (time excluded calls
+      to other functions). Functions that just are called very
+      many times can also be interesting, as even small things can add
+      up to quite a bit if they are repeated often. Then you need to
+      ask yourself what can I do to reduce this time. Appropriate
+      types of questions to ask yourself are: </p>
+    <list type="bulleted">
+      <item>Can I reduce the number of times the function is called?</item>
+      <item>Are there tests that can be run less often if I change
+       the order of tests?</item>
+      <item>Are there redundant tests that can be removed? </item>
+      <item>Is there some expression calculated giving the same result
+       each time? </item>
+      <item>Is there other ways of doing this that are equivalent and
+       more efficient?</item>
+      <item>Can I use another internal data representation to make
+       things more efficient? </item>
+    </list>
+    <p>These questions are not always trivial to answer. You might
+      need to do some benchmarks to back up your theory, to avoid
+      making things slower if your theory is wrong. See <seealso marker="#benchmark">benchmarking</seealso>.</p>
+  </section>
+
+  <section>
+    <title>Tools</title>
+
+    <section>
+      <title>fprof</title>
+      <p><c>fprof</c> measures the execution time for each function,
+        both own time i.e how much time a function has used for its
+        own execution, and accumulated time i.e. including called
+        functions. The values are displayed per process. You also get
+        to know how many times each function has been
+        called. <c>fprof</c> is based on trace to file in order to
+        minimize runtime performance impact. Using fprof is just a
+        matter of calling a few library functions, see fprof manual
+        page under the application tools.</p>
+      <p><c>fprof</c> was introduced in version R8 of Erlang/OTP. Its
+        predecessor <c>eprof</c> that is based on the Erlang trace BIFs,
+        is still available, see eprof manual page under the
+        application tools. Eprof shows how much time has been used by
+        each process, and in which function calls this time has been
+        spent.  Time is shown as percentage of total time, not as
+        absolute time.</p>
+    </section>
+
+    <section>
+      <title>cover</title>
+      <p><c>cover</c>'s primary use is coverage analysis to verify
+        test cases, making sure all relevant code is covered.
+        <c>cover</c> counts how many times each executable line of
+        code is executed when a program is run. This is done on a per
+        module basis. Of course this information can be used to
+        determine what code is run very frequently and could therefore
+        be subject for optimization. Using cover is just a matter of
+        calling a few library functions, see cover manual
+        page under the application tools.</p>
+    </section>
+
+    <section>
+      <title>cprof</title>
+      <p><c>cprof</c> is something in between <c>fprof</c> and
+        <c>cover</c> regarding features. It counts how many times each
+        function is called when the program is run, on a per module
+        basis. <c>cprof</c> has a low performance degradation (versus
+        <c>fprof</c> and <c>eprof</c>) and does not need to recompile
+        any modules to profile (versus <c>cover</c>).</p>
+    </section>
+
+    <section>
+      <title>Tool summarization</title>
+      <table>
+        <row>
+          <cell align="center" valign="middle">Tool</cell>
+          <cell align="center" valign="middle">Results</cell>
+          <cell align="center" valign="middle">Size of result</cell>
+          <cell align="center" valign="middle">Effects on program execution time</cell>
+          <cell align="center" valign="middle">Records number of calls</cell>
+          <cell align="center" valign="middle">Records Execution time</cell>
+          <cell align="center" valign="middle">Records called by</cell>
+          <cell align="center" valign="middle">Records garbage collection</cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><c>fprof </c></cell>
+          <cell align="left" valign="middle">per process to screen/file </cell>
+          <cell align="left" valign="middle">large </cell>
+          <cell align="left" valign="middle">significant slowdown </cell>
+          <cell align="left" valign="middle">yes  </cell>
+          <cell align="left" valign="middle">total and own</cell>
+          <cell align="left" valign="middle">yes </cell>
+          <cell align="left" valign="middle">yes </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><c>eprof </c></cell>
+          <cell align="left" valign="middle">per process/function to screen/file </cell>
+          <cell align="left" valign="middle">medium </cell>
+          <cell align="left" valign="middle">significant slowdown </cell>
+          <cell align="left" valign="middle">yes </cell>
+          <cell align="left" valign="middle">only total </cell>
+          <cell align="left" valign="middle">no </cell>
+          <cell align="left" valign="middle">no </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><c>cover </c></cell>
+          <cell align="left" valign="middle">per module to screen/file</cell>
+          <cell align="left" valign="middle">small </cell>
+          <cell align="left" valign="middle">moderate slowdown</cell>
+          <cell align="left" valign="middle">yes, per line  </cell>
+          <cell align="left" valign="middle">no </cell>
+          <cell align="left" valign="middle">no </cell>
+          <cell align="left" valign="middle">no </cell>
+        </row>
+        <row>
+          <cell align="left" valign="middle"><c>cprof </c></cell>
+          <cell align="left" valign="middle">per module to caller</cell>
+          <cell align="left" valign="middle">small </cell>
+          <cell align="left" valign="middle">small slowdown </cell>
+          <cell align="left" valign="middle">yes </cell>
+          <cell align="left" valign="middle">no </cell>
+          <cell align="left" valign="middle">no </cell>
+          <cell align="left" valign="middle">no </cell>
+        </row>
+        <tcaption></tcaption>
+      </table>
+    </section>
+  </section>
+
+  <section>
+    <marker id="benchmark"></marker>
+    <title>Benchmarking</title>
+
+    <p>The main purpose of benchmarking is to find out which
+    implementation of a given algorithm or function is the fastest.
+    Benchmarking is far from an exact science. Today's operating systems
+    generally run background tasks that are difficult to turn off.
+    Caches and multiple CPU cores doesn't make it any easier.
+    It would be best to run Unix-computers in single-user mode when
+    benchmarking, but that is inconvenient to say the least for casual
+    testing.</p>
+    
+    <p>Benchmarks can measure wall-clock time or CPU time.</p>
+
+    <p><seealso marker="stdlib:timer#tc/3">timer:tc/3</seealso> measures
+    wall-clock time. The advantage with wall-clock time is that I/O,
+    swapping, and other activities in the operating-system kernel are
+    included in the measurements. The disadvantage is that the
+    the measurements will vary wildly. Usually it is best to run the
+    benchmark several times and note the shortest time - that time should
+    be the minimum time that is possible to achieve under the best of
+    circumstances.</p>
+
+    <p><seealso marker="erts:erlang#statistics/1">statistics/1</seealso>
+    with the argument <c>runtime</c> measures CPU time spent in the Erlang
+    virtual machine. The advantage is that the results are more
+    consistent from run to run. The disadvantage is that the time
+    spent in the operating system kernel (such as swapping and I/O)
+    are not included. Therefore, measuring CPU time is misleading if
+    any I/O (file or sockets) are involved.</p>
+
+    <p>It is probably a good idea to do both wall-clock measurements and
+    CPU time measurements.</p>
+
+    <p>Some additional advice:</p>
+
+    <list type="bulleted">
+    <item>The granularity of both types measurement could be quite
+    high so you should make sure that each individual measurement
+    lasts for at least several seconds.</item>
+
+    <item>To make the test fair, each new test run should run in its own,
+    newly created Erlang process. Otherwise, if all tests runs in the
+    same process, the later tests would start out with larger heap sizes
+    and therefore probably does less garbage collections. You could
+    also consider restarting the Erlang emulator between each test.</item>
+
+    <item>Do not assume that the fastest implementation of a given algorithm
+    on computer architecture X also is the fast on computer architecture Y.</item>
+
+    </list>
+  </section>
+</chapter>
+

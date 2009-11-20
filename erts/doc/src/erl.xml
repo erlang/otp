@@ -1,0 +1,928 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>erl</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>erl.xml</file>
+  </header>
+  <com>erl</com>
+  <comsummary>The Erlang Emulator</comsummary>
+  <description>
+    <p>The <c><![CDATA[erl]]></c> program starts an Erlang runtime system.
+      The exact details (for example, whether <c><![CDATA[erl]]></c> is a script or
+      a program and which other programs it calls) are system-dependent.</p>
+    <p>Windows users probably wants to use the <c><![CDATA[werl]]></c> program
+      instead, which runs in its own window with scrollbars and supports
+      command-line editing. The <c><![CDATA[erl]]></c> program on Windows provides
+      no line editing in its shell, and on Windows 95 there is no way
+      to scroll back to text which has scrolled off the screen.
+      The <c><![CDATA[erl]]></c> program must be used, however, in pipelines or if
+      you want to redirect standard input or output.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>erl &lt;arguments></name>
+      <fsummary>Start an Erlang runtime system</fsummary>
+      <desc>
+        <p>Starts an Erlang runtime system.</p>
+        <p>The arguments can be divided into <em>emulator flags</em>,
+          <em>flags</em> and <em>plain arguments</em>:</p>
+        <list type="bulleted">
+          <item>
+            <p>Any argument starting with the character <c><![CDATA[+]]></c> is
+              interpreted as an <seealso marker="#emu_flags">emulator flag</seealso>.</p>
+            <p>As indicated by the name, emulator flags controls
+              the behavior of the emulator.</p>
+          </item>
+          <item>
+            <p>Any argument starting with the character <c><![CDATA[-]]></c>
+              (hyphen) is interpreted as a
+              <seealso marker="#init_flags">flag</seealso> which should
+              be passed to the Erlang part of the runtime system, more
+              specifically to the <c><![CDATA[init]]></c> system process, see
+              <seealso marker="init">init(3)</seealso>.</p>
+            <p>The <c><![CDATA[init]]></c> process itself interprets some of these
+              flags, the <em>init flags</em>. It also stores any
+              remaining flags, the <em>user flags</em>. The latter can
+              be retrieved by calling <c><![CDATA[init:get_argument/1]]></c>.</p>
+            <p>It can be noted that there are a small number of "-"
+              flags which now actually are emulator flags, see
+              the description below.</p>
+          </item>
+          <item>
+            <p>Plain arguments are not interpreted in any way. They are
+              also stored by the <c><![CDATA[init]]></c> process and can be
+              retrieved by calling <c><![CDATA[init:get_plain_arguments/0]]></c>.
+              Plain arguments can occur before the first flag, or after
+              a <c><![CDATA[--]]></c> flag. Additionally, the flag <c><![CDATA[-extra]]></c>
+              causes everything that follows to become plain arguments.</p>
+          </item>
+        </list>
+        <p>Example:</p>
+        <pre>
+% <input>erl +W w -sname arnie +R 9 -s my_init -extra +bertie</input>
+(arnie@host)1> <input>init:get_argument(sname).</input>
+{ok,[["arnie"]]}
+(arnie@host)2> <input>init:get_plain_arguments().</input>
+["+bertie"]</pre>
+        <p>Here <c><![CDATA[+W w]]></c> and <c><![CDATA[+R 9]]></c> are emulator flags.
+          <c><![CDATA[-s my_init]]></c> is an init flag, interpreted by <c><![CDATA[init]]></c>.
+          <c><![CDATA[-sname arnie]]></c> is a user flag, stored by <c><![CDATA[init]]></c>.
+          It is read by Kernel and will cause the Erlang runtime system
+          to become distributed. Finally, everything after <c><![CDATA[-extra]]></c>
+          (that is, <c><![CDATA[+bertie]]></c>) is considered as plain arguments.</p>
+        <pre>
+% <input>erl -myflag 1</input>
+1> <input>init:get_argument(myflag).</input>
+{ok,[["1"]]}
+2> <input>init:get_plain_arguments().</input>
+[]</pre>
+        <p>Here the user flag <c><![CDATA[-myflag 1]]></c> is passed to and stored
+          by the <c><![CDATA[init]]></c> process. It is a user defined flag,
+          presumably used by some user defined application.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="init_flags"></marker>
+    <title>Flags</title>
+    <p>In the following list, init flags are marked (init flag).
+      Unless otherwise specified, all other flags are user flags, for
+      which the values can be retrieved by calling
+      <c><![CDATA[init:get_argument/1]]></c>. Note that the list of user flags is
+      not exhaustive, there may be additional, application specific
+      flags which instead are documented in the corresponding
+      application documentation.</p>
+    <taglist>
+      <tag><c><![CDATA[--]]></c>(init flag)</tag>
+      <item>
+        <p>Everything following <c><![CDATA[--]]></c> up to the next flag
+          (<c><![CDATA[-flag]]></c> or <c><![CDATA[+flag]]></c>) is considered plain arguments
+          and can be retrieved using <c><![CDATA[init:get_plain_arguments/0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-Application Par Val]]></c></tag>
+      <item>
+        <p>Sets the application configuration parameter <c><![CDATA[Par]]></c> to
+          the value <c><![CDATA[Val]]></c> for the application <c><![CDATA[Application]]></c>,
+          see <seealso marker="kernel:app">app(4)</seealso> and
+          <seealso marker="kernel:application">application(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-args_file FileName]]></c></tag>
+      <item>
+        <marker id="args_file"></marker>
+        <p>Command line arguments are read from the file <c><![CDATA[FileName]]></c>.
+          The arguments read from the file replace the
+          '<c><![CDATA[-args_file FileName]]></c>' flag on the resulting command line.</p>
+        <p>The file <c><![CDATA[FileName]]></c> should be a plain text file and may
+          contain comments and command line arguments. A comment begins
+          with a # character and continues until next end of line character.
+          Backslash (\\) is used as quoting character. All command line
+          arguments accepted by <c><![CDATA[erl]]></c> are allowed, also the
+          <c><![CDATA[-args_file FileName]]></c> flag. Be careful not to cause circular
+          dependencies between files containing the <c><![CDATA[-args_file]]></c> flag,
+          though.</p>
+        <p>The <c><![CDATA[-extra]]></c> flag is treated specially. Its scope ends
+          at the end of the file. Arguments following an <c><![CDATA[-extra]]></c>
+          flag are moved on the command line into the <c><![CDATA[-extra]]></c> section,
+          i.e. the end of the command line following after an <c><![CDATA[-extra]]></c>
+          flag.</p>
+      </item>
+      <tag><c><![CDATA[-async_shell_start]]></c></tag>
+      <item>
+        <p>The initial Erlang shell does not read user input until
+          the system boot procedure has been completed (Erlang 5.4 and
+          later). This flag disables the start synchronization feature
+          and lets the shell start in parallel with the rest of
+          the system.</p>
+      </item>
+      <tag><c><![CDATA[-boot File]]></c></tag>
+      <item>
+        <p>Specifies the name of the boot file, <c><![CDATA[File.boot]]></c>,
+          which is used to start the system. See
+          <seealso marker="init">init(3)</seealso>. Unless
+          <c><![CDATA[File]]></c> contains an absolute path, the system searches
+          for <c><![CDATA[File.boot]]></c> in the current and <c><![CDATA[$ROOT/bin]]></c>
+          directories.</p>
+        <p>Defaults to <c><![CDATA[$ROOT/bin/start.boot]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-boot_var Var Dir]]></c></tag>
+      <item>
+        <p>If the boot script contains a path variable <c><![CDATA[Var]]></c> other
+          than <c><![CDATA[$ROOT]]></c>, this variable is expanded to <c><![CDATA[Dir]]></c>.
+          Used when applications are installed in another directory
+          than <c><![CDATA[$ROOT/lib]]></c>, see
+          <seealso marker="sasl:systools#make_script/1">systools:make_script/1,2</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-code_path_cache]]></c></tag>
+      <item>
+        <p>Enables the code path cache of the code server, see
+          <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-compile Mod1 Mod2 ...]]></c></tag>
+      <item>
+        <p>Compiles the specified modules and then terminates (with
+          non-zero exit code if the compilation of some file did not
+          succeed). Implies <c><![CDATA[-noinput]]></c>. Not recommended - use
+          <seealso marker="erlc">erlc</seealso> instead.</p>
+      </item>
+      <tag><c><![CDATA[-config Config]]></c></tag>
+      <item>
+        <p>Specifies the name of a configuration file,
+          <c><![CDATA[Config.config]]></c>, which is used to configure
+          applications. See
+          <seealso marker="kernel:app">app(4)</seealso> and
+          <seealso marker="kernel:application">application(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-connect_all false]]></c></tag>
+      <item>
+        <marker id="connect_all"></marker>
+        <p>If this flag is present, <c><![CDATA[global]]></c> will not maintain a
+          fully connected network of distributed Erlang nodes, and then
+          global name registration cannot be used. See
+          <seealso marker="kernel:global">global(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-cookie Cookie]]></c></tag>
+      <item>
+        <p>Obsolete flag without any effect and common misspelling for
+          <c><![CDATA[-setcookie]]></c>. Use <c><![CDATA[-setcookie]]></c> instead.</p>
+      </item>
+      <tag><c><![CDATA[-detached]]></c></tag>
+      <item>
+        <p>Starts the Erlang runtime system detached from the system
+          console. Useful for running daemons and backgrounds processes.</p>
+      </item>
+      <tag><c><![CDATA[-emu_args]]></c></tag>
+      <item>
+        <p>Useful for debugging. Prints out the actual arguments
+          sent to the emulator.</p>
+      </item>
+      <tag><c><![CDATA[-env Variable Value]]></c></tag>
+      <item>
+        <p>Sets the host OS environment variable <c><![CDATA[Variable]]></c> to
+          the value <c><![CDATA[Value]]></c> for the Erlang runtime system.
+          Example:</p>
+        <pre>
+% <input>erl -env DISPLAY gin:0</input></pre>
+        <p>In this example, an Erlang runtime system is started with
+          the <c><![CDATA[DISPLAY]]></c> environment variable set to <c><![CDATA[gin:0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-eval Expr]]></c>(init flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> evaluate the expression <c><![CDATA[Expr]]></c>, see
+          <seealso marker="init">init(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-extra]]></c>(init flag)</tag>
+      <item>
+        <p>Everything following <c><![CDATA[-extra]]></c> is considered plain
+          arguments and can be retrieved using
+          <c><![CDATA[init:get_plain_arguments/0]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-heart]]></c></tag>
+      <item>
+        <p>Starts heart beat monitoring of the Erlang runtime system.
+          See <seealso marker="kernel:heart">heart(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-hidden]]></c></tag>
+      <item>
+        <p>Starts the Erlang runtime system as a hidden node, if it is
+          run as a distributed node. Hidden nodes always establish
+          hidden connections to all other nodes except for nodes in the
+          same global group. Hidden connections are not published on
+          neither of the connected nodes, i.e. neither of the connected
+          nodes are part of the result from <c><![CDATA[nodes/0]]></c> on the other
+          node. See also hidden global groups,
+          <seealso marker="kernel:global_group">global_group(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-hosts Hosts]]></c></tag>
+      <item>
+        <p>Specifies the IP addresses for the hosts on which Erlang
+          boot servers are running, see
+          <seealso marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>.
+          This flag is mandatory if the <c><![CDATA[-loader inet]]></c> flag is
+          present.</p>
+        <p>The IP addresses must be given in the standard form (four
+          decimal numbers separated by periods, for example
+          <c><![CDATA["150.236.20.74"]]></c>. Hosts names are not acceptable, but
+          a broadcast address (preferably limited to the local network)
+          is.</p>
+      </item>
+      <tag><c><![CDATA[-id Id]]></c></tag>
+      <item>
+        <p>Specifies the identity of the Erlang runtime system. If it is
+          run as a distributed node, <c><![CDATA[Id]]></c> must be identical to
+          the name supplied together with the <c><![CDATA[-sname]]></c> or
+          <c><![CDATA[-name]]></c> flag.</p>
+      </item>
+      <tag><c><![CDATA[-init_debug]]></c></tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> write some debug information while
+          interpreting the boot script.</p>
+      </item>
+      <tag><c><![CDATA[-instr]]></c>(emulator flag)</tag>
+      <item>
+        <marker id="instr"></marker>
+        <p>Selects an instrumented Erlang runtime system (virtual
+          machine) to run, instead of the ordinary one. When running an
+          instrumented runtime system, some resource usage data can be
+          obtained and analysed using the module <c><![CDATA[instrument]]></c>.
+          Functionally, it behaves exactly like an ordinary Erlang
+          runtime system.</p>
+      </item>
+      <tag><c><![CDATA[-loader Loader]]></c></tag>
+      <item>
+        <p>Specifies the method used by <c><![CDATA[erl_prim_loader]]></c> to load
+          Erlang modules into the system. See
+          <seealso marker="erl_prim_loader">erl_prim_loader(3)</seealso>.
+          Two <c><![CDATA[Loader]]></c> methods are supported, <c><![CDATA[efile]]></c> and
+          <c><![CDATA[inet]]></c>. <c><![CDATA[efile]]></c> means use the local file system,
+          this is the default. <c><![CDATA[inet]]></c> means use a boot server on
+          another machine, and the <c><![CDATA[-id]]></c>, <c><![CDATA[-hosts]]></c> and
+          <c><![CDATA[-setcookie]]></c> flags must be specified as well. If
+          <c><![CDATA[Loader]]></c> is something else, the user supplied
+          <c><![CDATA[Loader]]></c> port program is started.</p>
+      </item>
+      <tag><c><![CDATA[-make]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system invoke <c><![CDATA[make:all()]]></c> in
+          the current working directory and then terminate. See
+          <seealso marker="tools:make">make(3)</seealso>. Implies
+          <c><![CDATA[-noinput]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-man Module]]></c></tag>
+      <item>
+        <p>Displays the manual page for the Erlang module <c><![CDATA[Module]]></c>.
+          Only supported on Unix.</p>
+      </item>
+      <tag><c><![CDATA[-mode interactive | embedded]]></c></tag>
+      <item>
+        <p>Indicates if the system should load code dynamically
+          (<c><![CDATA[interactive]]></c>), or if all code should be loaded
+          during system initialization (<c><![CDATA[embedded]]></c>), see
+          <seealso marker="kernel:code">code(3)</seealso>. Defaults to
+          <c><![CDATA[interactive]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-name Name]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system into a distributed node.
+          This flag invokes all network servers necessary for a node to
+          become distributed. See
+          <seealso marker="kernel:net_kernel">net_kernel(3)</seealso>.
+          It is also ensured that <c><![CDATA[epmd]]></c> runs on the current host
+          before Erlang is started. See
+          <seealso marker="epmd">epmd(1)</seealso>.</p>
+        <p>The name of the node will be <c><![CDATA[Name@Host]]></c>, where
+          <c><![CDATA[Host]]></c> is the fully qualified host name of the current
+          host. For short names, use the <c><![CDATA[-sname]]></c> flag instead.</p>
+      </item>
+      <tag><c><![CDATA[-noinput]]></c></tag>
+      <item>
+        <p>Ensures that the Erlang runtime system never tries to read
+          any input. Implies <c><![CDATA[-noshell]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-noshell]]></c></tag>
+      <item>
+        <p>Starts an Erlang runtime system with no shell. This flag
+          makes it possible to have the Erlang runtime system as a
+          component in a series of UNIX pipes.</p>
+      </item>
+      <tag><c><![CDATA[-nostick]]></c></tag>
+      <item>
+        <p>Disables the sticky directory facility of the Erlang code
+          server, see
+          <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-oldshell]]></c></tag>
+      <item>
+        <p>Invokes the old Erlang shell from Erlang 3.3. The old shell
+          can still be used.</p>
+      </item>
+      <tag><c><![CDATA[-pa Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Adds the specified directories to the beginning of the code
+          path, similar to <c><![CDATA[code:add_pathsa/1]]></c>. See
+          <seealso marker="kernel:code">code(3)</seealso>.
+	  As an alternative to <c>-pa</c>, if several directories are
+	  to be prepended to the code and the directories have a
+	  common parent directory, that parent directory could be
+	  specified in the <c>ERL_LIBS</c> environment variable.
+	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-pz Dir1 Dir2 ...]]></c></tag>
+      <item>
+        <p>Adds the specified directories to the end of the code path,
+          similar to <c><![CDATA[code:add_pathsz/1]]></c>. See
+          <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-remsh Node]]></c></tag>
+      <item>
+        <p>Starts Erlang with a remote shell connected to <c><![CDATA[Node]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-rsh Program]]></c></tag>
+      <item>
+        <p>Specifies an alternative to <c><![CDATA[rsh]]></c> for starting a slave
+          node on a remote host. See
+          <seealso marker="stdlib:slave">slave(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-run Mod [Func [Arg1, Arg2, ...]]]]></c>(init flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> call the specified function. <c><![CDATA[Func]]></c>
+          defaults to <c><![CDATA[start]]></c>. If no arguments are provided,
+          the function is assumed to be of arity 0. Otherwise it is
+          assumed to be of arity 1, taking the list
+          <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are passed
+          as strings. See
+          <seealso marker="init">init(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-s Mod [Func [Arg1, Arg2, ...]]]]></c>(init flag)</tag>
+      <item>
+        <p>Makes <c><![CDATA[init]]></c> call the specified function. <c><![CDATA[Func]]></c>
+          defaults to <c><![CDATA[start]]></c>. If no arguments are provided,
+          the function is assumed to be of arity 0. Otherwise it is
+          assumed to be of arity 1, taking the list
+          <c><![CDATA[[Arg1,Arg2,...]]]></c> as argument. All arguments are passed
+          as atoms. See
+          <seealso marker="init">init(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
+      <item>
+        <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>, see
+          <seealso marker="erlang#erlang:set_cookie/2">erlang:set_cookie/2</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[-shutdown_time Time]]></c></tag>
+      <item>
+        <p>Specifies how long time (in milliseconds) the <c><![CDATA[init]]></c>
+          process is allowed to spend shutting down the system. If
+          <c><![CDATA[Time]]></c> ms have elapsed, all processes still existing are
+          killed. Defaults to <c><![CDATA[infinity]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[-sname Name]]></c></tag>
+      <item>
+        <p>Makes the Erlang runtime system into a distributed node,
+          similar to <c><![CDATA[-name]]></c>, but the host name portion of the node
+          name <c><![CDATA[Name@Host]]></c> will be the short name, not fully
+          qualified.</p>
+        <p>This is sometimes the only way to run distributed Erlang if
+          the DNS (Domain Name System) is not running. There can be no
+          communication between nodes running with the <c><![CDATA[-sname]]></c>
+          flag and those running with the <c><![CDATA[-name]]></c> flag, as node
+          names must be unique in distributed Erlang systems.</p>
+      </item>
+      <tag><c><![CDATA[-smp [enable|auto|disable]]]></c></tag>
+      <item>
+        <marker id="smp"></marker>
+        <p><c>-smp enable</c> and <c>-smp</c> starts the Erlang runtime
+	  system with SMP support enabled. This may fail if no runtime
+	  system with SMP support is available. <c>-smp auto</c> starts
+	  the Erlang runtime system with SMP support enabled if it is
+	  available and more than one logical processor are detected.
+	  <c>-smp disable</c> starts a runtime system without SMP support.
+	  By default <c>-smp auto</c> will be used unless a conflicting
+	  parameter has been passed, then <c>-smp disable</c> will be
+	  used. Currently only the <c>-hybrid</c> parameter conflicts
+	  with <c>-smp auto</c>.</p>
+        <p><em>NOTE</em>: The runtime system with SMP support will not
+          be available on all supported platforms. See also the
+          <seealso marker="#+S">+S</seealso> flag.</p>
+      </item>
+      <tag><c><![CDATA[-version]]></c>(emulator flag)</tag>
+      <item>
+        <p>Makes the emulator print out its version number. The same
+          as <c><![CDATA[erl +V]]></c>.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="emu_flags"></marker>
+    <title>Emulator Flags</title>
+    <p><c><![CDATA[erl]]></c> invokes the code for the Erlang emulator (virtual
+      machine), which supports the following flags:</p>
+    <taglist>
+      <tag><c><![CDATA[+a size]]></c></tag>
+      <item>
+        <marker id="async_thread_stack_size"></marker>
+        <p>Suggested stack size, in kilowords, for threads in the
+          async-thread pool. Valid range is 16-8192 kilowords. The
+          default suggested stack size is 16 kilowords, i.e, 64
+          kilobyte on 32-bit architectures. This small default size
+          has been chosen since the amount of async-threads might
+          be quite large. The default size is enough for drivers
+          delivered with Erlang/OTP, but might not be sufficiently
+          large for other dynamically linked in drivers that use the
+          <seealso marker="erl_driver#driver_async">driver_async()</seealso>
+          functionality. Note that the value passed is only a
+          suggestion, and it might even be ignored on some
+          platforms.</p>
+      </item>
+      <tag><c><![CDATA[+A size]]></c></tag>
+      <item>
+        <marker id="async_thread_pool_size"></marker>
+        <p>Sets the number of threads in async thread pool, valid range
+          is 0-1024. Default is 0.</p>
+      </item>
+      <tag><c><![CDATA[+B [c | d | i]]]></c></tag>
+      <item>
+        <p>The <c><![CDATA[c]]></c> option makes <c><![CDATA[Ctrl-C]]></c> interrupt the current
+          shell instead of invoking the emulator break handler.
+          The <c><![CDATA[d]]></c> option (same as specifying <c><![CDATA[+B]]></c> without an
+          extra option) disables the break handler. The <c><![CDATA[i]]></c> option
+          makes the emulator ignore any break signal.</p>
+        <p>If the <c><![CDATA[c]]></c> option is used with <c><![CDATA[oldshell]]></c> on Unix,
+          <c><![CDATA[Ctrl-C]]></c> will restart the shell process rather than
+          interrupt it.</p>
+        <p>Note that on Windows, this flag is only applicable for 
+          <c><![CDATA[werl]]></c>, not <c><![CDATA[erl]]></c> (<c><![CDATA[oldshell]]></c>). Note also that
+          <c><![CDATA[Ctrl-Break]]></c> is used instead of <c><![CDATA[Ctrl-C]]></c> on Windows.</p>
+      </item>
+      <tag><c><![CDATA[+c]]></c></tag>
+      <item>
+        <p>Disable compensation for sudden changes of system time.</p>
+        <p>Normally, <c><![CDATA[erlang:now/0]]></c> will not immediately reflect
+          sudden changes in the system time, in order to keep timers
+          (including <c><![CDATA[receive-after]]></c>) working. Instead, the time
+          maintained by <c><![CDATA[erlang:now/0]]></c> is slowly adjusted towards
+          the new system time. (Slowly means in one percent adjustments;
+          if the time is off by one minute, the time will be adjusted
+          in 100 minutes.)</p>
+        <p>When the <c><![CDATA[+c]]></c> option is given, this slow adjustment
+          will not take place. Instead <c><![CDATA[erlang:now/0]]></c> will always
+          reflect the current system time. Note that timers are based
+          on <c><![CDATA[erlang:now/0]]></c>. If the system time jumps, timers
+          then time out at the wrong time.</p>
+      </item>
+      <tag><c><![CDATA[+d]]></c></tag>
+      <item>
+        <p>If the emulator detects an internal error (or runs out of memory),
+	it will by default generate both a crash dump and a core dump.
+	The core dump will, however, not be very useful since the content
+	of process heaps is destroyed by the crash dump generation.</p>
+
+	<p>The <c>+d</c> option instructs the emulator to only produce a
+	core dump and no crash dump if an internal error is detected.</p>
+
+	<p>Calling <c>erlang:halt/1</c> with a string argument will still
+	produce a crash dump.</p>
+      </item>
+      <tag><c><![CDATA[+h Size]]></c></tag>
+      <item>
+        <p>Sets the default heap size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[+K true | false]]></c></tag>
+      <item>
+        <p>Enables or disables the kernel poll functionality if
+          the emulator supports it. Default is <c><![CDATA[false]]></c> (disabled).
+          If the emulator does not support kernel poll, and
+          the <c><![CDATA[+K]]></c> flag is passed to the emulator, a warning is
+          issued at startup.</p>
+      </item>
+      <tag><c><![CDATA[+l]]></c></tag>
+      <item>
+        <p>Enables auto load tracing, displaying info while loading
+          code.</p>
+      </item>
+      <tag><c><![CDATA[+MFlag Value]]></c></tag>
+      <item>
+        <marker id="erts_alloc"></marker>
+        <p>Memory allocator specific flags, see
+          <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
+          further information.</p>
+      </item>
+      <tag><c><![CDATA[+P Number]]></c></tag>
+      <item>
+        <marker id="max_processes"></marker>
+        <p>Sets the maximum number of concurrent processes for this
+          system. <c><![CDATA[Number]]></c> must be in the range 16..134217727.
+          Default is 32768.</p>
+      </item>
+      <tag><c><![CDATA[+R ReleaseNumber]]></c></tag>
+      <item>
+        <marker id="compat_rel"></marker>
+        <p>Sets the compatibility mode.</p>
+        <p>The distribution mechanism is not backwards compatible by
+          default. This flags sets the emulator in compatibility mode
+          with an earlier Erlang/OTP release <c><![CDATA[ReleaseNumber]]></c>.
+          The release number must be in the range
+          <c><![CDATA[7..<current release>]]></c>. This limits the emulator,
+          making it possible for it to communicate with Erlang nodes
+          (as well as C- and Java nodes) running that earlier release.</p>
+        <p>For example, an R10 node is not automatically compatible
+          with an R9 node, but R10 nodes started with the <c><![CDATA[+R 9]]></c>
+          flag can co-exist with R9 nodes in the same distributed
+          Erlang system, they are R9-compatible.</p>
+        <p>Note: Make sure all nodes (Erlang-,  C-, and Java nodes) of
+          a distributed Erlang system is of the same Erlang/OTP release,
+          or from two different Erlang/OTP releases X and Y, where
+          <em>all</em> Y nodes have compatibility mode X.</p>
+        <p>For example: A distributed Erlang system can consist of
+          R10 nodes, or of R9 nodes and R9-compatible R10 nodes, but
+          not of R9 nodes, R9-compatible R10 nodes and "regular" R10
+          nodes, as R9 and "regular" R10 nodes are not compatible.</p>
+      </item>
+      <tag><c><![CDATA[+r]]></c></tag>
+      <item>
+        <p>Force ets memory block to be moved on realloc.</p>
+      </item>
+      <tag><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
+      <item>
+        <marker id="+S"></marker>
+        <p>Sets the amount of scheduler threads to create and scheduler
+	  threads to set online when SMP support has been enabled.
+	  Valid range for both values are 1-1024. If the
+          Erlang runtime system is able to determine the amount
+          of logical processors configured and logical processors available,
+	  <c>Schedulers</c> will default to logical processors configured,
+	  and <c>SchedulersOnline</c> will default to logical processors
+	  available; otherwise, the default values will be 1. <c>Schedulers</c>
+	  may be omitted if <c>:SchedulerOnline</c> is not and vice versa. The
+	  amount of schedulers online can be changed at run time via
+	  <seealso marker="erlang#system_flag_schedulers_online">erlang:system_flag(schedulers_online, SchedulersOnline)</seealso>.
+	</p>
+        <p>This flag will be ignored if the emulator doesn't have
+          SMP support enabled (see the <seealso marker="#smp">-smp</seealso>
+          flag).</p>
+      </item>
+      <tag><c><![CDATA[+sFlag Value]]></c></tag>
+      <item>
+        <p>Scheduling specific flags.</p>
+        <taglist>
+          <tag>+sbt BindType</tag>
+          <item>
+	    <marker id="+sbt"></marker>
+            <p>Set scheduler bind type. Currently valid <c>BindType</c>s:
+	    </p>
+	    <taglist>
+	      <tag><c>u</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, unbound)</seealso>.
+	      </p></item>
+	      <tag><c>ns</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, no_spread)</seealso>.
+	      </p></item>
+	      <tag><c>ts</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, thread_spread)</seealso>.
+	      </p></item>
+	      <tag><c>ps</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, processor_spread)</seealso>.
+	      </p></item>
+	      <tag><c>s</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, spread)</seealso>.
+	      </p></item>
+	      <tag><c>nnts</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, no_node_thread_spread)</seealso>.
+	      </p></item>
+	      <tag><c>nnps</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, no_node_processor_spread)</seealso>.
+	      </p></item>
+	      <tag><c>tnnps</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, thread_no_node_processor_spread)</seealso>.
+	      </p></item>
+	      <tag><c>db</c></tag>
+	      <item><p>Same as
+	      <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, default_bind)</seealso>.
+	      </p></item>
+	    </taglist>
+	    <p>Binding of schedulers are currently only supported on newer
+	       Linux and Solaris systems.</p>
+	    <p>If no CPU topology is available when the <c>+sbt</c> flag
+	       is processed and <c>BindType</c> is any other type than
+	       <c>u</c>, the runtime system will fail to start. CPU
+	       topology can be defined using the
+	       <seealso marker="#+sct">+sct</seealso> flag. Note
+	       that the <c>+sct</c> flag may have to be passed before the
+	       <c>+sbt</c> flag on the command line (in case no CPU topology
+	       has been automatically detected).</p>
+	    <p>For more information, see
+	    <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, SchedulerBindType)</seealso>.
+	    </p>
+          </item>
+          <tag><c>+sct CpuTopology</c></tag>
+          <item>
+	    <marker id="+sct"></marker>
+            <list type="bulleted">
+              <item><c><![CDATA[<Id> = integer(); when 0 =< <Id> =< 65535]]></c></item>
+              <item><c><![CDATA[<IdRange> = <Id>-<Id>]]></c></item>
+              <item><c><![CDATA[<IdOrIdRange> = <Id> | <IdRange>]]></c></item>
+              <item><c><![CDATA[<IdList> = <IdOrIdRange>,<IdOrIdRange> | <IdOrIdRange>]]></c></item>
+              <item><c><![CDATA[<LogicalIds> = L<IdList>]]></c></item>
+              <item><c><![CDATA[<ThreadIds> = T<IdList> | t<IdList>]]></c></item>
+              <item><c><![CDATA[<CoreIds> = C<IdList> | c<IdList>]]></c></item>
+              <item><c><![CDATA[<ProcessorIds> = P<IdList> | p<IdList>]]></c></item>
+              <item><c><![CDATA[<NodeIds> = N<IdList> | n<IdList>]]></c></item>
+              <item><c><![CDATA[<IdDefs> = <LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds> | <LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>]]></c></item>
+              <item><c><![CDATA[CpuTopology = <IdDefs>:<IdDefs> | <IdDefs>]]></c></item>
+            </list>
+            <p>Upper-case letters signify real identifiers and lower-case
+	       letters signify fake identifiers only used for description
+	       of the topology. Identifiers passed as real identifiers may
+	       be used by the runtime system when trying to access specific
+	       hardware and if they are not correct the behavior is
+	       undefined. Faked logical CPU identifiers are not accepted
+	       since there is no point in defining the CPU topology without
+	       real logical CPU identifiers. Thread, core, processor, and
+	       node identifiers may be left out. If left out, thread id
+	       defaults to <c>t0</c>, core id defaults to <c>c0</c>,
+	       processor id defaults to <c>p0</c>, and node id will
+	       be left undefined. Either each logical processor must 
+	       belong to one and only one NUMA node, or no logical
+	       processors must belong to any NUMA nodes. 
+	     </p>
+	     <p>Both increasing and decreasing <c><![CDATA[<IdRange>]]></c>s
+	        are allowed.</p>
+	     <p>NUMA node identifiers are system wide. That is, each NUMA
+	        node on the system have to have a unique identifier. Processor
+		identifiers are also system wide. Core identifiers are
+		processor wide. Thread identifiers are core wide.</p>
+	     <p>The order of the identifier types imply the hierarchy of the
+	        CPU topology. Valid orders are either
+		<c><![CDATA[<LogicalIds><ThreadIds><CoreIds><ProcessorIds><NodeIds>]]></c>,
+		or
+		<c><![CDATA[<LogicalIds><ThreadIds><CoreIds><NodeIds><ProcessorIds>]]></c>.
+		That is, thread is part of a core which is part of a processor
+		which is part of a NUMA node, or thread is part of a core which
+		is part of a NUMA node which is part of a processor. A cpu
+		topology can consist of both processor external, and processor
+		internal NUMA nodes as long as each logical processor belongs
+		to one and only one NUMA node. If <c><![CDATA[<ProcessorIds>]]></c>
+		is left out, its default position will be before
+		<c><![CDATA[<NodeIds>]]></c>. That is, the default is
+		processor external NUMA nodes.
+	     </p>
+	     <p>If a list of identifiers is used in an
+	        <c><![CDATA[<IdDefs>]]></c>:</p>
+             <list type="bulleted">
+	       <item><c><![CDATA[<LogicalIds>]]></c> have to be a list
+	             of identifiers.</item>
+	       <item>At least one other identifier type apart from
+		     <c><![CDATA[<LogicalIds>]]></c> also have to have a
+		     list of identifiers.</item>
+	       <item>All lists of identifiers have to produce the
+	             same amount of identifiers.</item>
+             </list>
+	     <p>A simple example. A single quad core processor may be
+	        described this way:</p>
+<pre>
+% <input>erl +sct L0-3c0-3</input>
+1> <input>erlang:system_info(cpu_topology).</input>
+[{processor,[{core,{logical,0}},
+             {core,{logical,1}},
+             {core,{logical,2}},
+             {core,{logical,3}}]}]
+</pre>
+	     <p>A little more complicated example. Two quad core
+	        processors. Each processor in its own NUMA node.
+		The ordering of logical processors is a little weird.
+		This in order to give a better example of identifier
+		lists:</p>
+<pre>
+% <input>erl +sct L0-1,3-2c0-3p0N0:L7,4,6-5c0-3p1N1</input>
+1> <input>erlang:system_info(cpu_topology).</input>
+[{node,[{processor,[{core,{logical,0}},
+                    {core,{logical,1}},
+                    {core,{logical,3}},
+                    {core,{logical,2}}]}]},
+ {node,[{processor,[{core,{logical,7}},
+                    {core,{logical,4}},
+                    {core,{logical,6}},
+                    {core,{logical,5}}]}]}]
+</pre>
+	     <p>As long as real identifiers are correct it is okay
+	        to pass a CPU topology that is not a correct
+		description of the CPU topology. When used with
+		care this can actually be very useful. This in
+		order to trick the emulator to bind its schedulers
+		as you want. For example, if you want to run multiple
+		Erlang runtime systems on the same machine, you
+		want to reduce the amount of schedulers used and
+		manipulate the CPU topology so that they bind to
+		different logical CPUs. An example, with two Erlang
+		runtime systems on a quad core machine:</p>
+<pre>
+% <input>erl +sct L0-3c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname one</input>
+% <input>erl +sct L3-0c0-3 +sbt db +S3:2 -detached -noinput -noshell -sname two</input>
+</pre>
+	     <p>In this example each runtime system have two
+	        schedulers each online, and all schedulers online
+		will run on different cores. If we change to one
+		scheduler online on one runtime system, and three
+		schedulers online on the other, all schedulers
+		online will still run on different cores.</p>
+	     <p>Note that a faked CPU topology that does not reflect
+	        how the real CPU topology looks like is likely to
+		decrease the performance of the runtime system.</p>
+	    <p>For more information, see
+	    <seealso marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.</p>
+          </item>
+        </taglist>
+      </item>
+      <tag><c><![CDATA[+sss size]]></c></tag>
+      <item>
+        <marker id="sched_thread_stack_size"></marker>
+        <p>Suggested stack size, in kilowords, for scheduler threads.
+          Valid range is 4-8192 kilowords. The default stack size
+          is OS dependent.</p>
+      </item>
+      <tag><c><![CDATA[+T Level]]></c></tag>
+      <item>
+        <marker id="+T"></marker>
+        <p>Enables modified timing and sets the modified timing level.
+          Currently valid range is 0-9. The timing of the runtime system
+          will change. A high level usually means a greater change than
+          a low level. Changing the timing can be very useful for finding
+          timing related bugs.</p>
+        <p>Currently, modified timing affects the following:</p>
+        <taglist>
+          <tag>Process spawning</tag>
+          <item>
+            <p>A process calling <c><![CDATA[spawn]]></c>, <c><![CDATA[spawn_link]]></c>,
+              <c><![CDATA[spawn_monitor]]></c>, or <c><![CDATA[spawn_opt]]></c> will be scheduled
+              out immediately after completing the call. When higher modified
+              timing levels are used, the caller will also sleep for a while
+              after being scheduled out.</p>
+          </item>
+          <tag>Context reductions</tag>
+          <item>The amount of reductions a process is a allowed to
+           use before being scheduled out is increased or reduced.</item>
+          <tag>Input reductions</tag>
+          <item>The amount of reductions performed before checking I/O
+           is increased or reduced.</item>
+        </taglist>
+        <p><em>NOTE:</em> Performance will suffer when modified timing
+          is enabled. This flag is <em>only</em> intended for testing and
+          debugging. Also note that <c><![CDATA[return_to]]></c> and <c><![CDATA[return_from]]></c>
+          trace messages will be lost when tracing on the spawn BIFs. This
+          flag may be removed or changed at any time without prior notice.</p>
+      </item>
+      <tag><c><![CDATA[+V]]></c></tag>
+      <item>
+        <p>Makes the emulator print out its version number.</p>
+      </item>
+      <tag><c><![CDATA[+v]]></c></tag>
+      <item>
+        <p>Verbose.</p>
+      </item>
+      <tag><c><![CDATA[+W w | i]]></c></tag>
+      <item>
+        <p>Sets the mapping of warning messages for <c><![CDATA[error_logger]]></c>.
+          Messages sent to the error logger using one of the warning
+          routines can be mapped either to errors (default), warnings 
+          (<c><![CDATA[+W w]]></c>), or info reports (<c><![CDATA[+W i]]></c>). The current
+          mapping can be retrieved using
+          <c><![CDATA[error_logger:warning_map/0]]></c>. See
+          <seealso marker="kernel:error_logger#warning_map/0">error_logger(3)</seealso>
+          for further information.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <marker id="environment_variables"></marker>
+    <title>Environment variables</title>
+    <taglist>
+      <tag><c><![CDATA[ERL_CRASH_DUMP]]></c></tag>
+      <item>
+        <p>If the emulator needs to write a crash dump, the value of this
+          variable will be the file name of the crash dump file.
+          If the variable is not set, the name of the crash dump file will
+          be <c><![CDATA[erl_crash.dump]]></c> in the current directory.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_NICE]]></c></tag>
+      <item>
+        <p><em>Unix systems</em>: If the emulator needs to write a crash dump,
+          it will use the value of this variable to set the nice value
+          for the process, thus lowering its priority. The allowable range is
+          1 through 39 (higher values will be replaced with 39). The highest
+          value, 39, will give the process the lowest priority.</p>
+      </item>
+      <tag><c><![CDATA[ERL_CRASH_DUMP_SECONDS]]></c></tag>
+      <item>
+        <p><em>Unix systems</em>: This variable gives the number of seconds that
+          the emulator will be allowed to spend writing a crash dump. When
+          the given number of seconds have elapsed, the emulator will be
+          terminated by a SIGALRM signal.</p>
+      </item>
+      <tag><c><![CDATA[ERL_AFLAGS]]></c></tag>
+      <item>
+        <p>The content of this environment variable will be added to the
+          beginning of the command line for <c><![CDATA[erl]]></c>.</p>
+        <p>The <c><![CDATA[-extra]]></c> flag is treated specially. Its scope ends
+          at the end of the environment variable content. Arguments
+          following an <c><![CDATA[-extra]]></c> flag are moved on the command line into
+          the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
+          following after an <c><![CDATA[-extra]]></c> flag.</p>
+      </item>
+      <tag><c><![CDATA[ERL_ZFLAGS]]></c>and <c><![CDATA[ERL_FLAGS]]></c></tag>
+      <item>
+        <p>The content of these environment variables will be added to the
+          end of the command line for <c><![CDATA[erl]]></c>.</p>
+        <p>The <c><![CDATA[-extra]]></c> flag is treated specially. Its scope ends
+          at the end of the environment variable content. Arguments
+          following an <c><![CDATA[-extra]]></c> flag are moved on the command line into
+          the <c><![CDATA[-extra]]></c> section, i.e. the end of the command line
+          following after an <c><![CDATA[-extra]]></c> flag.</p>
+      </item>
+      <tag><c><![CDATA[ERL_LIBS]]></c></tag>
+      <item>
+        <p>This environment variable contains a list of additional library
+	  directories that the code server will search for applications and
+	  add to the code path.
+  	  See <seealso marker="kernel:code">code(3)</seealso>.</p>
+      </item>
+      <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
+      <item>
+        <p>This environment variable can contain the port number to use when
+          communicating with <seealso marker="epmd">epmd</seealso>. The default
+          port will work fine in most cases. A different port can be specified
+          to allow nodes of independent clusters to co-exist on the same host.
+          All nodes in a cluster must use the same epmd port number.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>SEE ALSO</title>
+    <p><seealso marker="init">init(3)</seealso>,
+      <seealso marker="erl_prim_loader">erl_prim_loader(3)</seealso>,
+      <seealso marker="kernel:erl_boot_server">erl_boot_server(3)</seealso>,
+      <seealso marker="kernel:code">code(3)</seealso>,
+      <seealso marker="kernel:application">application(3)</seealso>,
+      <seealso marker="kernel:heart">heart(3)</seealso>,
+      <seealso marker="kernel:net_kernel">net_kernel(3)</seealso>,
+      <seealso marker="kernel:auth">auth(3)</seealso>,
+      <seealso marker="tools:make">make(3)</seealso>,
+      <seealso marker="epmd">epmd(1)</seealso>,
+      <seealso marker="erts_alloc">erts_alloc(3)</seealso></p>
+  </section>
+</comref>
+

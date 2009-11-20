@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2006</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>HiPE Release Notes</title>
+    <prepared>otp_appnotes</prepared>
+    <docno>nil</docno>
+    <date>nil</date>
+    <rev>nil</rev>
+    <file>notes.xml</file>
+  </header>
+  <p>This document describes the changes made to HiPE.</p>
+
+<section><title>Hipe 3.7.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The documentation is now built with open source tools
+	    (xsltproc and fop) that exists on most platforms. One
+	    visible change is that the frames are removed.</p>
+          <p>
+	    Own Id: OTP-8201</p>
+        </item>
+        <item>
+          <p>
+	    Misc updates.</p>
+          <p>
+	    Own Id: OTP-8301</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Various small bugs (one involving the handling of large
+	    binaries) were corrected and some additions to its
+	    functionality and/or code cleanups were done.</p>
+          <p>
+	    Own Id: OTP-8189</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellanous updates.</p>
+          <p>
+	    Own Id: OTP-8038</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.7.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates and bug fixes.</p>
+          <p>
+	    Own Id: OTP-7958</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Hipe 3.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Miscellaneous updates.</p>
+          <p>
+	    Own Id: OTP-7877</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.6.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The <c>--disable-hipe</c> option for the
+	    <c>configure</c> will now completely disable the hipe
+	    run-time in the emulator, as is the expected
+	    behaviour.</p>
+          <p>
+	    Own Id: OTP-7631</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.6.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor updates.</p>
+          <p>
+	    Own Id: OTP-7522</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+
+<section><title>Hipe 3.6.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Minor changes.</p>
+          <p>
+	    Own Id: OTP-7388</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A fix for an #include problem which caused the FP
+	    exception test to fail unnecessarily on
+	    debian/glibc-2.7/x86 systems.</p>
+	    <p>Added SIGFPE loop detection to the FP exception test.
+	    This prevents the test from looping indefinitely, which
+	    could happen when the CPU is supported (so we can enable
+	    FP exceptions on it) but the OS isn't (so we can't write
+	    a proper SIGFPE handler). x86 on an unsupported OS is
+	    known to have had this problem.</p>
+          <p>
+	    Own Id: OTP-7254</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    HiPE now also supports little-endian ARM processors.</p>
+          <p>
+	    Own Id: OTP-7255</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+<section><title>Hipe 3.6.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    HIPE: Corrected the choice of interface to the send/3 and
+	    setnode/3 BIFs for native-compiled code. Using the
+	    incorrect interface could, in unusual circumstances, lead
+	    to random runtime errors.</p>
+          <p>
+	    Own Id: OTP-7067</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The HiPE compiler's SPARC backend has been rewritten,
+	    improving its correctness and long-term maintainability.</p>
+          <p>
+	    Own Id: OTP-7133</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
+  <section>
+    <title>Hipe 3.6.3</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Minor Makefile changes.</p>
+          <p>Own Id: OTP-6689</p>
+        </item>
+        <item>
+          <p>Miscellanous updates.</p>
+          <p>Own Id: OTP-6738</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Hipe 3.6.2</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Miscellanous improvements.</p>
+          <p>Own Id: OTP-6577</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Hipe 3.6.1.1</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Dialyzer could fail to analyze certain beam files that
+            used try/catch.</p>
+          <p>Own Id: OTP-6449 Aux Id: seq10563 </p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Hipe 3.6.1</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>HiPE runtime system:</p>
+          <p>* added notes about supported systems to README</p>
+          <p>* support 32-bit x86 on FreeBSD</p>
+          <p>* autoenable HiPE on FreeBSD (32-bit x86) and Solaris
+            (64-bit x86)</p>
+          <p>* updated x86 runtime system to support glibc-2.5</p>
+          <p>* work around probable gcc-4.1.1 bug affecting the x86
+            runtime system</p>
+          <p>HiPE compiler:</p>
+          <p>* improved performance of integer multiplications on
+            all platforms</p>
+          <p>* corrected a code optimisation error in R11B-2 that
+            broke some bsl/bsr operations on all platforms</p>
+          <p>* corrected a type error in the ARM backend which
+            could cause the compiler to crash</p>
+          <p>* corrected an error in the SPARC backend's naive
+            register allocator which could throw the compiler into an
+            infinite loop</p>
+          <p>Own Id: OTP-6423</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Hipe 3.6.0</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Support for native code on Solaris 10/AMD64.</p>
+          <p>Support for native code on FreeBSD/AMD64.</p>
+          <p>Native code now handles external funs (<c><![CDATA[fun M:F/A]]></c>). Native code can now also apply so-called
+            tuple-funs (<c><![CDATA[{M,F}]]></c>). (Tuple funs are NOT
+            recommended for new code; they are deprecated and will be
+            removed in some future release.)</p>
+          <p>Own Id: OTP-6305</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
+    <title>Hipe 3.5.6</title>
+
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>Improved compilation of receives for the SMP runtime
+            system.</p>
+          <p>Improved code quality in HiPE compiler on ARM.</p>
+          <p>Fix bug in handling of re-raised exceptions in
+            try-catch.</p>
+          <p>(HiPE loader) When native code is incompatible with
+            the current runtime system, fall back to loading the BEAM
+            code.</p>
+          <p>Own Id: OTP-6127</p>
+        </item>
+      </list>
+    </section>
+  </section>
+</chapter>
+

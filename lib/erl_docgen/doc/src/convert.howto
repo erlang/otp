@@ -1,0 +1,13 @@
+
+- add  xmlns:xi="http://www.w3.org/2001/XInclude" on top tag 
+  in files whith include directives
+
+- change <include file="notes"></include> <xi:include href="notes.xml"/>
+
+- change <image file="a"/> to <image file="a.gif"/>
+
+- remove chapers directly in the book and put them in the part instead
+
+-change title to just the application name
+
+- fix codeinclude : xml --> xmlsrc

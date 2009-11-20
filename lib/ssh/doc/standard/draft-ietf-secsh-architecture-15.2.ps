@@ -1,0 +1,3315 @@
+%!PS-Adobe-3.0
+%%BoundingBox: 75 0 595 747
+%%Title: Enscript Output
+%%For: Magnus Thoang
+%%Creator: GNU enscript 1.6.1
+%%CreationDate: Fri Oct 31 13:31:26 2003
+%%Orientation: Portrait
+%%Pages: 15 0
+%%DocumentMedia: A4 595 842 0 () ()
+%%DocumentNeededResources: (atend)
+%%EndComments
+%%BeginProlog
+%%BeginProcSet: PStoPS 1 15
+userdict begin
+[/showpage/erasepage/copypage]{dup where{pop dup load
+ type/operatortype eq{1 array cvx dup 0 3 index cvx put
+ bind def}{pop}ifelse}{pop}ifelse}forall
+[/letter/legal/executivepage/a4/a4small/b5/com10envelope
+ /monarchenvelope/c5envelope/dlenvelope/lettersmall/note
+ /folio/quarto/a5]{dup where{dup wcheck{exch{}put}
+ {pop{}def}ifelse}{pop}ifelse}forall
+/setpagedevice {pop}bind 1 index where{dup wcheck{3 1 roll put}
+ {pop def}ifelse}{def}ifelse
+/PStoPSmatrix matrix currentmatrix def
+/PStoPSxform matrix def/PStoPSclip{clippath}def
+/defaultmatrix{PStoPSmatrix exch PStoPSxform exch concatmatrix}bind def
+/initmatrix{matrix defaultmatrix setmatrix}bind def
+/initclip[{matrix currentmatrix PStoPSmatrix setmatrix
+ [{currentpoint}stopped{$error/newerror false put{newpath}}
+ {/newpath cvx 3 1 roll/moveto cvx 4 array astore cvx}ifelse]
+ {[/newpath cvx{/moveto cvx}{/lineto cvx}
+ {/curveto cvx}{/closepath cvx}pathforall]cvx exch pop}
+ stopped{$error/errorname get/invalidaccess eq{cleartomark
+ $error/newerror false put cvx exec}{stop}ifelse}if}bind aload pop
+ /initclip dup load dup type dup/operatortype eq{pop exch pop}
+ {dup/arraytype eq exch/packedarraytype eq or
+  {dup xcheck{exch pop aload pop}{pop cvx}ifelse}
+  {pop cvx}ifelse}ifelse
+ {newpath PStoPSclip clip newpath exec setmatrix} bind aload pop]cvx def
+/initgraphics{initmatrix newpath initclip 1 setlinewidth
+ 0 setlinecap 0 setlinejoin []0 setdash 0 setgray
+ 10 setmiterlimit}bind def
+end
+%%EndProcSet
+%%BeginResource: procset Enscript-Prolog 1.6 1
+%
+% Procedures.
+%
+
+/_S {	% save current state
+  /_s save def
+} def
+/_R {	% restore from saved state
+  _s restore
+} def
+
+/S {	% showpage protecting gstate
+  gsave
+  showpage
+  grestore
+} bind def
+
+/MF {	% fontname newfontname -> -	make a new encoded font
+  /newfontname exch def
+  /fontname exch def
+
+  /fontdict fontname findfont def
+  /newfont fontdict maxlength dict def
+
+  fontdict {
+    exch
+    dup /FID eq {
+      % skip FID pair
+      pop pop
+    } {
+      % copy to the new font dictionary
+      exch newfont 3 1 roll put
+    } ifelse
+  } forall
+
+  newfont /FontName newfontname put
+
+  % insert only valid encoding vectors
+  encoding_vector length 256 eq {
+    newfont /Encoding encoding_vector put
+  } if
+
+  newfontname newfont definefont pop
+} def
+
+/SF { % fontname width height -> -	set a new font
+  /height exch def
+  /width exch def
+
+  findfont
+  [width 0 0 height 0 0] makefont setfont
+} def
+
+/SUF { % fontname width height -> -	set a new user font
+  /height exch def
+  /width exch def
+
+  /F-gs-user-font MF
+  /F-gs-user-font width height SF
+} def
+
+/M {moveto} bind def
+/s {show} bind def
+
+/Box {	% x y w h -> -			define box path
+  /d_h exch def /d_w exch def /d_y exch def /d_x exch def
+  d_x d_y  moveto
+  d_w 0 rlineto
+  0 d_h rlineto
+  d_w neg 0 rlineto
+  closepath
+} def
+
+/bgs {	% x y height blskip gray str -> -	show string with bg color
+  /str exch def
+  /gray exch def
+  /blskip exch def
+  /height exch def
+  /y exch def
+  /x exch def
+
+  gsave
+    x y blskip sub str stringwidth pop height Box
+    gray setgray
+    fill
+  grestore
+  x y M str s
+} def
+
+% Highlight bars.
+/highlight_bars {	% nlines lineheight output_y_margin gray -> -
+  gsave
+    setgray
+    /ymarg exch def
+    /lineheight exch def
+    /nlines exch def
+
+    % This 2 is just a magic number to sync highlight lines to text.
+    0 d_header_y ymarg sub 2 sub translate
+
+    /cw d_output_w cols div def
+    /nrows d_output_h ymarg 2 mul sub lineheight div cvi def
+
+    % for each column
+    0 1 cols 1 sub {
+      cw mul /xp exch def
+
+      % for each rows
+      0 1 nrows 1 sub {
+        /rn exch def
+        rn lineheight mul neg /yp exch def
+        rn nlines idiv 2 mod 0 eq {
+	  % Draw highlight bar.  4 is just a magic indentation.
+	  xp 4 add yp cw 8 sub lineheight neg Box fill
+	} if
+      } for
+    } for
+
+  grestore
+} def
+
+% Line highlight bar.
+/line_highlight {	% x y width height gray -> -
+  gsave
+    /gray exch def
+    Box gray setgray fill
+  grestore
+} def
+
+% Column separator lines.
+/column_lines {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h translate
+    /cw d_output_w cols div def
+    1 1 cols 1 sub {
+      cw mul 0 moveto
+      0 d_output_h rlineto stroke
+    } for
+  grestore
+} def
+
+% Column borders.
+/column_borders {
+  gsave
+    .1 setlinewidth
+    0 d_footer_h moveto
+    0 d_output_h rlineto
+    d_output_w 0 rlineto
+    0 d_output_h neg rlineto
+    closepath stroke
+  grestore
+} def
+
+% Do the actual underlay drawing
+/draw_underlay {
+  ul_style 0 eq {
+    ul_str true charpath stroke
+  } {
+    ul_str show
+  } ifelse
+} def
+
+% Underlay
+/underlay {	% - -> -
+  gsave
+    0 d_page_h translate
+    d_page_h neg d_page_w atan rotate
+
+    ul_gray setgray
+    ul_font setfont
+    /dw d_page_h dup mul d_page_w dup mul add sqrt def
+    ul_str stringwidth pop dw exch sub 2 div ul_h_ptsize -2 div moveto
+    draw_underlay
+  grestore
+} def
+
+/user_underlay {	% - -> -
+  gsave
+    ul_x ul_y translate
+    ul_angle rotate
+    ul_gray setgray
+    ul_font setfont
+    0 0 ul_h_ptsize 2 div sub moveto
+    draw_underlay
+  grestore
+} def
+
+% Page prefeed
+/page_prefeed {		% bool -> -
+  statusdict /prefeed known {
+    statusdict exch /prefeed exch put
+  } {
+    pop
+  } ifelse
+} def
+
+% Wrapped line markers
+/wrapped_line_mark {	% x y charwith charheight type -> -
+  /type exch def
+  /h exch def
+  /w exch def
+  /y exch def
+  /x exch def
+
+  type 2 eq {
+    % Black boxes (like TeX does)
+    gsave
+      0 setlinewidth
+      x w 4 div add y M
+      0 h rlineto w 2 div 0 rlineto 0 h neg rlineto
+      closepath fill
+    grestore
+  } {
+    type 3 eq {
+      % Small arrows
+      gsave
+        .2 setlinewidth
+        x w 2 div add y h 2 div add M
+        w 4 div 0 rlineto
+        x w 4 div add y lineto stroke
+
+        x w 4 div add w 8 div add y h 4 div add M
+        x w 4 div add y lineto
+	w 4 div h 8 div rlineto stroke
+      grestore
+    } {
+      % do nothing
+    } ifelse
+  } ifelse
+} def
+
+% EPSF import.
+
+/BeginEPSF {
+  /b4_Inc_state save def    		% Save state for cleanup
+  /dict_count countdictstack def	% Count objects on dict stack
+  /op_count count 1 sub def		% Count objects on operand stack
+  userdict begin
+  /showpage { } def
+  0 setgray 0 setlinecap
+  1 setlinewidth 0 setlinejoin
+  10 setmiterlimit [ ] 0 setdash newpath
+  /languagelevel where {
+    pop languagelevel
+    1 ne {
+      false setstrokeadjust false setoverprint
+    } if
+  } if
+} bind def
+
+/EndEPSF {
+  count op_count sub { pos } repeat	% Clean up stacks
+  countdictstack dict_count sub { end } repeat
+  b4_Inc_state restore
+} bind def
+
+% Check PostScript language level.
+/languagelevel where {
+  pop /gs_languagelevel languagelevel def
+} {
+  /gs_languagelevel 1 def
+} ifelse
+%%EndResource
+%%BeginResource: procset Enscript-Encoding-88591 1.6 1
+/encoding_vector [
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclam       	/quotedbl     	/numbersign   	
+/dollar       	/percent      	/ampersand    	/quoteright   	
+/parenleft    	/parenright   	/asterisk     	/plus         	
+/comma        	/hyphen       	/period       	/slash        	
+/zero         	/one          	/two          	/three        	
+/four         	/five         	/six          	/seven        	
+/eight        	/nine         	/colon        	/semicolon    	
+/less         	/equal        	/greater      	/question     	
+/at           	/A            	/B            	/C            	
+/D            	/E            	/F            	/G            	
+/H            	/I            	/J            	/K            	
+/L            	/M            	/N            	/O            	
+/P            	/Q            	/R            	/S            	
+/T            	/U            	/V            	/W            	
+/X            	/Y            	/Z            	/bracketleft  	
+/backslash    	/bracketright 	/asciicircum  	/underscore   	
+/quoteleft    	/a            	/b            	/c            	
+/d            	/e            	/f            	/g            	
+/h            	/i            	/j            	/k            	
+/l            	/m            	/n            	/o            	
+/p            	/q            	/r            	/s            	
+/t            	/u            	/v            	/w            	
+/x            	/y            	/z            	/braceleft    	
+/bar          	/braceright   	/tilde        	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/.notdef      	/.notdef      	/.notdef      	/.notdef      	
+/space        	/exclamdown   	/cent         	/sterling     	
+/currency     	/yen          	/brokenbar    	/section      	
+/dieresis     	/copyright    	/ordfeminine  	/guillemotleft	
+/logicalnot   	/hyphen       	/registered   	/macron       	
+/degree       	/plusminus    	/twosuperior  	/threesuperior	
+/acute        	/mu           	/paragraph    	/bullet       	
+/cedilla      	/onesuperior  	/ordmasculine 	/guillemotright	
+/onequarter   	/onehalf      	/threequarters	/questiondown 	
+/Agrave       	/Aacute       	/Acircumflex  	/Atilde       	
+/Adieresis    	/Aring        	/AE           	/Ccedilla     	
+/Egrave       	/Eacute       	/Ecircumflex  	/Edieresis    	
+/Igrave       	/Iacute       	/Icircumflex  	/Idieresis    	
+/Eth          	/Ntilde       	/Ograve       	/Oacute       	
+/Ocircumflex  	/Otilde       	/Odieresis    	/multiply     	
+/Oslash       	/Ugrave       	/Uacute       	/Ucircumflex  	
+/Udieresis    	/Yacute       	/Thorn        	/germandbls   	
+/agrave       	/aacute       	/acircumflex  	/atilde       	
+/adieresis    	/aring        	/ae           	/ccedilla     	
+/egrave       	/eacute       	/ecircumflex  	/edieresis    	
+/igrave       	/iacute       	/icircumflex  	/idieresis    	
+/eth          	/ntilde       	/ograve       	/oacute       	
+/ocircumflex  	/otilde       	/odieresis    	/divide       	
+/oslash       	/ugrave       	/uacute       	/ucircumflex  	
+/udieresis    	/yacute       	/thorn        	/ydieresis    	
+] def
+%%EndResource
+%%EndProlog
+%%BeginSetup
+%%IncludeResource: font Courier-Bold
+%%IncludeResource: font Courier
+/HFpt_w 10 def
+/HFpt_h 10 def
+/Courier-Bold /HF-gs-font MF
+/HF /HF-gs-font findfont [HFpt_w 0 0 HFpt_h 0 0] makefont def
+/Courier /F-gs-font MF
+/F-gs-font 10 10 SF
+/#copies 1 def
+/d_page_w 520 def
+/d_page_h 747 def
+/d_header_x 0 def
+/d_header_y 747 def
+/d_header_w 520 def
+/d_header_h 0 def
+/d_footer_x 0 def
+/d_footer_y 0 def
+/d_footer_w 520 def
+/d_footer_h 0 def
+/d_output_w 520 def
+/d_output_h 747 def
+/cols 1 def
+userdict/PStoPSxform PStoPSmatrix matrix currentmatrix
+ matrix invertmatrix matrix concatmatrix
+ matrix invertmatrix put
+%%EndSetup
+%%Page: (0,1) 1
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 1 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 701 M
+(Network Working Group                                          T. Ylonen) s
+5 690 M
+(Internet-Draft                          SSH Communications Security Corp) s
+5 679 M
+(Expires: March 31, 2004                                   D. Moffat, Ed.) s
+5 668 M
+(                                                   Sun Microsystems, Inc) s
+5 657 M
+(                                                                Oct 2003) s
+5 624 M
+(                       SSH Protocol Architecture) s
+5 613 M
+(                  draft-ietf-secsh-architecture-15.txt) s
+5 591 M
+(Status of this Memo) s
+5 569 M
+(   This document is an Internet-Draft and is in full conformance with) s
+5 558 M
+(   all provisions of Section 10 of RFC2026.) s
+5 536 M
+(   Internet-Drafts are working documents of the Internet Engineering) s
+5 525 M
+(   Task Force \(IETF\), its areas, and its working groups. Note that other) s
+5 514 M
+(   groups may also distribute working documents as Internet-Drafts.) s
+5 492 M
+(   Internet-Drafts are draft documents valid for a maximum of six months) s
+5 481 M
+(   and may be updated, replaced, or obsoleted by other documents at any) s
+5 470 M
+(   time. It is inappropriate to use Internet-Drafts as reference) s
+5 459 M
+(   material or to cite them other than as "work in progress.") s
+5 437 M
+(   The list of current Internet-Drafts can be accessed at http://) s
+5 426 M
+(   www.ietf.org/ietf/1id-abstracts.txt.) s
+5 404 M
+(   The list of Internet-Draft Shadow Directories can be accessed at) s
+5 393 M
+(   http://www.ietf.org/shadow.html.) s
+5 371 M
+(   This Internet-Draft will expire on March 31, 2004.) s
+5 349 M
+(Copyright Notice) s
+5 327 M
+(   Copyright \(C\) The Internet Society \(2003\). All Rights Reserved.) s
+5 305 M
+(Abstract) s
+5 283 M
+(   SSH is a protocol for secure remote login and other secure network) s
+5 272 M
+(   services over an insecure network. This document describes the) s
+5 261 M
+(   architecture of the SSH protocol, as well as the notation and) s
+5 250 M
+(   terminology used in SSH protocol documents. It also discusses the SSH) s
+5 239 M
+(   algorithm naming system that allows local extensions. The SSH) s
+5 228 M
+(   protocol consists of three major components: The Transport Layer) s
+5 217 M
+(   Protocol provides server authentication, confidentiality, and) s
+5 206 M
+(   integrity with perfect forward secrecy. The User Authentication) s
+5 195 M
+(   Protocol authenticates the client to the server. The Connection) s
+5 184 M
+(   Protocol multiplexes the encrypted tunnel into several logical) s
+5 173 M
+(   channels. Details of these protocols are described in separate) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 1]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 2 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   documents.) s
+5 668 M
+(Table of Contents) s
+5 646 M
+(   1.    Contributors . . . . . . . . . . . . . . . . . . . . . . . .  3) s
+5 635 M
+(   2.    Introduction . . . . . . . . . . . . . . . . . . . . . . . .  3) s
+5 624 M
+(   3.    Specification of Requirements  . . . . . . . . . . . . . . .  3) s
+5 613 M
+(   4.    Architecture . . . . . . . . . . . . . . . . . . . . . . . .  3) s
+5 602 M
+(   4.1   Host Keys  . . . . . . . . . . . . . . . . . . . . . . . . .  4) s
+5 591 M
+(   4.2   Extensibility  . . . . . . . . . . . . . . . . . . . . . . .  5) s
+5 580 M
+(   4.3   Policy Issues  . . . . . . . . . . . . . . . . . . . . . . .  5) s
+5 569 M
+(   4.4   Security Properties  . . . . . . . . . . . . . . . . . . . .  6) s
+5 558 M
+(   4.5   Packet Size and Overhead . . . . . . . . . . . . . . . . . .  6) s
+5 547 M
+(   4.6   Localization and Character Set Support . . . . . . . . . . .  7) s
+5 536 M
+(   5.    Data Type Representations Used in the SSH Protocols  . . . .  8) s
+5 525 M
+(   6.    Algorithm Naming . . . . . . . . . . . . . . . . . . . . . . 10) s
+5 514 M
+(   7.    Message Numbers  . . . . . . . . . . . . . . . . . . . . . . 11) s
+5 503 M
+(   8.    IANA Considerations  . . . . . . . . . . . . . . . . . . . . 11) s
+5 492 M
+(   9.    Security Considerations  . . . . . . . . . . . . . . . . . . 12) s
+5 481 M
+(   9.1   Pseudo-Random Number Generation  . . . . . . . . . . . . . . 12) s
+5 470 M
+(   9.2   Transport  . . . . . . . . . . . . . . . . . . . . . . . . . 13) s
+5 459 M
+(   9.2.1 Confidentiality  . . . . . . . . . . . . . . . . . . . . . . 13) s
+5 448 M
+(   9.2.2 Data Integrity . . . . . . . . . . . . . . . . . . . . . . . 16) s
+5 437 M
+(   9.2.3 Replay . . . . . . . . . . . . . . . . . . . . . . . . . . . 16) s
+5 426 M
+(   9.2.4 Man-in-the-middle  . . . . . . . . . . . . . . . . . . . . . 17) s
+5 415 M
+(   9.2.5 Denial-of-service  . . . . . . . . . . . . . . . . . . . . . 19) s
+5 404 M
+(   9.2.6 Covert Channels  . . . . . . . . . . . . . . . . . . . . . . 19) s
+5 393 M
+(   9.2.7 Forward Secrecy  . . . . . . . . . . . . . . . . . . . . . . 20) s
+5 382 M
+(   9.3   Authentication Protocol  . . . . . . . . . . . . . . . . . . 20) s
+5 371 M
+(   9.3.1 Weak Transport . . . . . . . . . . . . . . . . . . . . . . . 21) s
+5 360 M
+(   9.3.2 Debug messages . . . . . . . . . . . . . . . . . . . . . . . 21) s
+5 349 M
+(   9.3.3 Local security policy  . . . . . . . . . . . . . . . . . . . 21) s
+5 338 M
+(   9.3.4 Public key authentication  . . . . . . . . . . . . . . . . . 22) s
+5 327 M
+(   9.3.5 Password authentication  . . . . . . . . . . . . . . . . . . 22) s
+5 316 M
+(   9.3.6 Host based authentication  . . . . . . . . . . . . . . . . . 23) s
+5 305 M
+(   9.4   Connection protocol  . . . . . . . . . . . . . . . . . . . . 23) s
+5 294 M
+(   9.4.1 End point security . . . . . . . . . . . . . . . . . . . . . 23) s
+5 283 M
+(   9.4.2 Proxy forwarding . . . . . . . . . . . . . . . . . . . . . . 23) s
+5 272 M
+(   9.4.3 X11 forwarding . . . . . . . . . . . . . . . . . . . . . . . 24) s
+5 261 M
+(         Normative References . . . . . . . . . . . . . . . . . . . . 24) s
+5 250 M
+(         Informative References . . . . . . . . . . . . . . . . . . . 25) s
+5 239 M
+(         Authors' Addresses . . . . . . . . . . . . . . . . . . . . . 27) s
+5 228 M
+(         Intellectual Property and Copyright Statements . . . . . . . 28) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 2]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (2,3) 2
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 3 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(1. Contributors) s
+5 668 M
+(   The major original contributors of this document were: Tatu Ylonen,) s
+5 657 M
+(   Tero Kivinen, Timo J. Rinne, Sami Lehtinen \(all of SSH Communications) s
+5 646 M
+(   Security Corp\), and Markku-Juhani O. Saarinen \(University of) s
+5 635 M
+(   Jyvaskyla\)) s
+5 613 M
+(   The document editor is: Darren.Moffat@Sun.COM.  Comments on this) s
+5 602 M
+(   internet draft should be sent to the IETF SECSH working group,) s
+5 591 M
+(   details at: http://ietf.org/html.charters/secsh-charter.html) s
+5 569 M
+(2. Introduction) s
+5 547 M
+(   SSH is a protocol for secure remote login and other secure network) s
+5 536 M
+(   services over an insecure network.  It consists of three major) s
+5 525 M
+(   components:) s
+5 514 M
+(   o  The Transport Layer Protocol [SSH-TRANS] provides server) s
+5 503 M
+(      authentication, confidentiality, and integrity. It may optionally) s
+5 492 M
+(      also provide compression. The transport layer will typically be) s
+5 481 M
+(      run over a TCP/IP connection, but might also be used on top of any) s
+5 470 M
+(      other reliable data stream.) s
+5 459 M
+(   o  The User Authentication Protocol [SSH-USERAUTH] authenticates the) s
+5 448 M
+(      client-side user to the server. It runs over the transport layer) s
+5 437 M
+(      protocol.) s
+5 426 M
+(   o  The Connection Protocol [SSH-CONNECT] multiplexes the encrypted) s
+5 415 M
+(      tunnel into several logical channels. It runs over the user) s
+5 404 M
+(      authentication protocol.) s
+5 382 M
+(   The client sends a service request once a secure transport layer) s
+5 371 M
+(   connection has been established. A second service request is sent) s
+5 360 M
+(   after user authentication is complete. This allows new protocols to) s
+5 349 M
+(   be defined and coexist with the protocols listed above.) s
+5 327 M
+(   The connection protocol provides channels that can be used for a wide) s
+5 316 M
+(   range of purposes. Standard methods are provided for setting up) s
+5 305 M
+(   secure interactive shell sessions and for forwarding \("tunneling"\)) s
+5 294 M
+(   arbitrary TCP/IP ports and X11 connections.) s
+5 272 M
+(3. Specification of Requirements) s
+5 250 M
+(   All documents related to the SSH protocols shall use the keywords) s
+5 239 M
+(   "MUST", "MUST NOT", "REQUIRED", "SHALL", "SHALL NOT", "SHOULD",) s
+5 228 M
+(   "SHOULD NOT", "RECOMMENDED", "MAY", and "OPTIONAL" to describe) s
+5 217 M
+(   requirements.  They are to be interpreted as described in [RFC2119].) s
+5 195 M
+(4. Architecture) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 3]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 4 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(4.1 Host Keys) s
+5 668 M
+(   Each server host SHOULD have a host key.  Hosts MAY have multiple) s
+5 657 M
+(   host keys using multiple different algorithms.  Multiple hosts MAY) s
+5 646 M
+(   share the same host key. If a host has keys at all, it MUST have at) s
+5 635 M
+(   least one key using each REQUIRED public key algorithm \(DSS) s
+5 624 M
+(   [FIPS-186]\).) s
+5 602 M
+(   The server host key is used during key exchange to verify that the) s
+5 591 M
+(   client is really talking to the correct server. For this to be) s
+5 580 M
+(   possible, the client must have a priori knowledge of the server's) s
+5 569 M
+(   public host key.) s
+5 547 M
+(   Two different trust models can be used:) s
+5 536 M
+(   o  The client has a local database that associates each host name \(as) s
+5 525 M
+(      typed by the user\) with the corresponding public host key.  This) s
+5 514 M
+(      method requires no centrally administered infrastructure, and no) s
+5 503 M
+(      third-party coordination.  The downside is that the database of) s
+5 492 M
+(      name-to-key associations may become burdensome to maintain.) s
+5 481 M
+(   o  The host name-to-key association is certified by some trusted) s
+5 470 M
+(      certification authority.  The client only knows the CA root key,) s
+5 459 M
+(      and can verify the validity of all host keys certified by accepted) s
+5 448 M
+(      CAs.) s
+5 426 M
+(      The second alternative eases the maintenance problem, since) s
+5 415 M
+(      ideally only a single CA key needs to be securely stored on the) s
+5 404 M
+(      client.  On the other hand, each host key must be appropriately) s
+5 393 M
+(      certified by a central authority before authorization is possible.) s
+5 382 M
+(      Also, a lot of trust is placed on the central infrastructure.) s
+5 360 M
+(   The protocol provides the option that the server name - host key) s
+5 349 M
+(   association is not checked when connecting to the host for the first) s
+5 338 M
+(   time. This allows communication without prior communication of host) s
+5 327 M
+(   keys or certification. The connection still provides protection) s
+5 316 M
+(   against passive listening; however, it becomes vulnerable to active) s
+5 305 M
+(   man-in-the-middle attacks. Implementations SHOULD NOT normally allow) s
+5 294 M
+(   such connections by default, as they pose a potential security) s
+5 283 M
+(   problem. However, as there is no widely deployed key infrastructure) s
+5 272 M
+(   available on the Internet yet, this option makes the protocol much) s
+5 261 M
+(   more usable during the transition time until such an infrastructure) s
+5 250 M
+(   emerges, while still providing a much higher level of security than) s
+5 239 M
+(   that offered by older solutions \(e.g. telnet [RFC-854] and rlogin) s
+5 228 M
+(   [RFC-1282]\).) s
+5 206 M
+(   Implementations SHOULD try to make the best effort to check host) s
+5 195 M
+(   keys.  An example of a possible strategy is to only accept a host key) s
+5 184 M
+(   without checking the first time a host is connected, save the key in) s
+5 173 M
+(   a local database, and compare against that key on all future) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 4]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (4,5) 3
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 5 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   connections to that host.) s
+5 668 M
+(   Implementations MAY provide additional methods for verifying the) s
+5 657 M
+(   correctness of host keys, e.g. a hexadecimal fingerprint derived from) s
+5 646 M
+(   the SHA-1 hash of the public key. Such fingerprints can easily be) s
+5 635 M
+(   verified by using telephone or other external communication channels.) s
+5 613 M
+(   All implementations SHOULD provide an option to not accept host keys) s
+5 602 M
+(   that cannot be verified.) s
+5 580 M
+(   We believe that ease of use is critical to end-user acceptance of) s
+5 569 M
+(   security solutions, and no improvement in security is gained if the) s
+5 558 M
+(   new solutions are not used.  Thus, providing the option not to check) s
+5 547 M
+(   the server host key is believed to improve the overall security of) s
+5 536 M
+(   the Internet, even though it reduces the security of the protocol in) s
+5 525 M
+(   configurations where it is allowed.) s
+5 503 M
+(4.2 Extensibility) s
+5 481 M
+(   We believe that the protocol will evolve over time, and some) s
+5 470 M
+(   organizations will want to use their own encryption, authentication) s
+5 459 M
+(   and/or key exchange methods.  Central registration of all extensions) s
+5 448 M
+(   is cumbersome, especially for experimental or classified features.) s
+5 437 M
+(   On the other hand, having no central registration leads to conflicts) s
+5 426 M
+(   in method identifiers, making interoperability difficult.) s
+5 404 M
+(   We have chosen to identify algorithms, methods, formats, and) s
+5 393 M
+(   extension protocols with textual names that are of a specific format.) s
+5 382 M
+(   DNS names are used to create local namespaces where experimental or) s
+5 371 M
+(   classified extensions can be defined without fear of conflicts with) s
+5 360 M
+(   other implementations.) s
+5 338 M
+(   One design goal has been to keep the base protocol as simple as) s
+5 327 M
+(   possible, and to require as few algorithms as possible.  However, all) s
+5 316 M
+(   implementations MUST support a minimal set of algorithms to ensure) s
+5 305 M
+(   interoperability \(this does not imply that the local policy on all) s
+5 294 M
+(   hosts would necessary allow these algorithms\).  The mandatory) s
+5 283 M
+(   algorithms are specified in the relevant protocol documents.) s
+5 261 M
+(   Additional algorithms, methods, formats, and extension protocols can) s
+5 250 M
+(   be defined in separate drafts.  See Section Algorithm Naming \(Section) s
+5 239 M
+(   6\) for more information.) s
+5 217 M
+(4.3 Policy Issues) s
+5 195 M
+(   The protocol allows full negotiation of encryption, integrity, key) s
+5 184 M
+(   exchange, compression, and public key algorithms and formats.) s
+5 173 M
+(   Encryption, integrity, public key, and compression algorithms can be) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 5]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 6 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   different for each direction.) s
+5 668 M
+(   The following policy issues SHOULD be addressed in the configuration) s
+5 657 M
+(   mechanisms of each implementation:) s
+5 646 M
+(   o  Encryption, integrity, and compression algorithms, separately for) s
+5 635 M
+(      each direction.  The policy MUST specify which is the preferred) s
+5 624 M
+(      algorithm \(e.g. the first algorithm listed in each category\).) s
+5 613 M
+(   o  Public key algorithms and key exchange method to be used for host) s
+5 602 M
+(      authentication.  The existence of trusted host keys for different) s
+5 591 M
+(      public key algorithms also affects this choice.) s
+5 580 M
+(   o  The authentication methods that are to be required by the server) s
+5 569 M
+(      for each user.  The server's policy MAY require multiple) s
+5 558 M
+(      authentication for some or all users.  The required algorithms MAY) s
+5 547 M
+(      depend on the location where the user is trying to log in from.) s
+5 536 M
+(   o  The operations that the user is allowed to perform using the) s
+5 525 M
+(      connection protocol.  Some issues are related to security; for) s
+5 514 M
+(      example, the policy SHOULD NOT allow the server to start sessions) s
+5 503 M
+(      or run commands on the client machine, and MUST NOT allow) s
+5 492 M
+(      connections to the authentication agent unless forwarding such) s
+5 481 M
+(      connections has been requested.  Other issues, such as which TCP/) s
+5 470 M
+(      IP ports can be forwarded and by whom, are clearly issues of local) s
+5 459 M
+(      policy. Many of these issues may involve traversing or bypassing) s
+5 448 M
+(      firewalls, and are interrelated with the local security policy.) s
+5 426 M
+(4.4 Security Properties) s
+5 404 M
+(   The primary goal of the SSH protocol is improved security on the) s
+5 393 M
+(   Internet.  It attempts to do this in a way that is easy to deploy,) s
+5 382 M
+(   even at the cost of absolute security.) s
+5 371 M
+(   o  All encryption, integrity, and public key algorithms used are) s
+5 360 M
+(      well-known, well-established algorithms.) s
+5 349 M
+(   o  All algorithms are used with cryptographically sound key sizes) s
+5 338 M
+(      that are believed to provide protection against even the strongest) s
+5 327 M
+(      cryptanalytic attacks for decades.) s
+5 316 M
+(   o  All algorithms are negotiated, and in case some algorithm is) s
+5 305 M
+(      broken, it is easy to switch to some other algorithm without) s
+5 294 M
+(      modifying the base protocol.) s
+5 272 M
+(   Specific concessions were made to make wide-spread fast deployment) s
+5 261 M
+(   easier.  The particular case where this comes up is verifying that) s
+5 250 M
+(   the server host key really belongs to the desired host; the protocol) s
+5 239 M
+(   allows the verification to be left out \(but this is NOT RECOMMENDED\).) s
+5 228 M
+(   This is believed to significantly improve usability in the short) s
+5 217 M
+(   term, until widespread Internet public key infrastructures emerge.) s
+5 195 M
+(4.5 Packet Size and Overhead) s
+5 173 M
+(   Some readers will worry about the increase in packet size due to new) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 6]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (6,7) 4
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 7 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   headers, padding, and MAC.  The minimum packet size is in the order) s
+5 679 M
+(   of 28 bytes \(depending on negotiated algorithms\).  The increase is) s
+5 668 M
+(   negligible for large packets, but very significant for one-byte) s
+5 657 M
+(   packets \(telnet-type sessions\).  There are, however, several factors) s
+5 646 M
+(   that make this a non-issue in almost all cases:) s
+5 635 M
+(   o  The minimum size of a TCP/IP header is 32 bytes.  Thus, the) s
+5 624 M
+(      increase is actually from 33 to 51 bytes \(roughly\).) s
+5 613 M
+(   o  The minimum size of the data field of an Ethernet packet is 46) s
+5 602 M
+(      bytes [RFC-894]. Thus, the increase is no more than 5 bytes. When) s
+5 591 M
+(      Ethernet headers are considered, the increase is less than 10) s
+5 580 M
+(      percent.) s
+5 569 M
+(   o  The total fraction of telnet-type data in the Internet is) s
+5 558 M
+(      negligible, even with increased packet sizes.) s
+5 536 M
+(   The only environment where the packet size increase is likely to have) s
+5 525 M
+(   a significant effect is PPP [RFC-1134] over slow modem lines \(PPP) s
+5 514 M
+(   compresses the TCP/IP headers, emphasizing the increase in packet) s
+5 503 M
+(   size\). However, with modern modems, the time needed to transfer is in) s
+5 492 M
+(   the order of 2 milliseconds, which is a lot faster than people can) s
+5 481 M
+(   type.) s
+5 459 M
+(   There are also issues related to the maximum packet size.  To) s
+5 448 M
+(   minimize delays in screen updates, one does not want excessively) s
+5 437 M
+(   large packets for interactive sessions.  The maximum packet size is) s
+5 426 M
+(   negotiated separately for each channel.) s
+5 404 M
+(4.6 Localization and Character Set Support) s
+5 382 M
+(   For the most part, the SSH protocols do not directly pass text that) s
+5 371 M
+(   would be displayed to the user. However, there are some places where) s
+5 360 M
+(   such data might be passed. When applicable, the character set for the) s
+5 349 M
+(   data MUST be explicitly specified. In most places, ISO 10646 with) s
+5 338 M
+(   UTF-8 encoding is used [RFC-2279]. When applicable, a field is also) s
+5 327 M
+(   provided for a language tag [RFC-3066].) s
+5 305 M
+(   One big issue is the character set of the interactive session.  There) s
+5 294 M
+(   is no clear solution, as different applications may display data in) s
+5 283 M
+(   different formats.  Different types of terminal emulation may also be) s
+5 272 M
+(   employed in the client, and the character set to be used is) s
+5 261 M
+(   effectively determined by the terminal emulation.  Thus, no place is) s
+5 250 M
+(   provided for directly specifying the character set or encoding for) s
+5 239 M
+(   terminal session data.  However, the terminal emulation type \(e.g.) s
+5 228 M
+(   "vt100"\) is transmitted to the remote site, and it implicitly) s
+5 217 M
+(   specifies the character set and encoding.  Applications typically use) s
+5 206 M
+(   the terminal type to determine what character set they use, or the) s
+5 195 M
+(   character set is determined using some external means.  The terminal) s
+5 184 M
+(   emulation may also allow configuring the default character set.  In) s
+5 173 M
+(   any case, the character set for the terminal session is considered) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 7]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 8 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   primarily a client local issue.) s
+5 668 M
+(   Internal names used to identify algorithms or protocols are normally) s
+5 657 M
+(   never displayed to users, and must be in US-ASCII.) s
+5 635 M
+(   The client and server user names are inherently constrained by what) s
+5 624 M
+(   the server is prepared to accept.  They might, however, occasionally) s
+5 613 M
+(   be displayed in logs, reports, etc.  They MUST be encoded using ISO) s
+5 602 M
+(   10646 UTF-8, but other encodings may be required in some cases.  It) s
+5 591 M
+(   is up to the server to decide how to map user names to accepted user) s
+5 580 M
+(   names.  Straight bit-wise binary comparison is RECOMMENDED.) s
+5 558 M
+(   For localization purposes, the protocol attempts to minimize the) s
+5 547 M
+(   number of textual messages transmitted.  When present, such messages) s
+5 536 M
+(   typically relate to errors, debugging information, or some externally) s
+5 525 M
+(   configured data.  For data that is normally displayed, it SHOULD be) s
+5 514 M
+(   possible to fetch a localized message instead of the transmitted) s
+5 503 M
+(   message by using a numerical code. The remaining messages SHOULD be) s
+5 492 M
+(   configurable.) s
+5 470 M
+(5. Data Type Representations Used in the SSH Protocols) s
+5 459 M
+(   byte) s
+5 437 M
+(      A byte represents an arbitrary 8-bit value \(octet\) [RFC-1700].) s
+5 426 M
+(      Fixed length data is sometimes represented as an array of bytes,) s
+5 415 M
+(      written byte[n], where n is the number of bytes in the array.) s
+5 393 M
+(   boolean) s
+5 371 M
+(      A boolean value is stored as a single byte.  The value 0) s
+5 360 M
+(      represents FALSE, and the value 1 represents TRUE. All non-zero) s
+5 349 M
+(      values MUST be interpreted as TRUE; however, applications MUST NOT) s
+5 338 M
+(      store values other than 0 and 1.) s
+5 316 M
+(   uint32) s
+5 294 M
+(      Represents a 32-bit unsigned integer.  Stored as four bytes in the) s
+5 283 M
+(      order of decreasing significance \(network byte order\). For) s
+5 272 M
+(      example, the value 699921578 \(0x29b7f4aa\) is stored as 29 b7 f4) s
+5 261 M
+(      aa.) s
+5 239 M
+(   uint64) s
+5 217 M
+(      Represents a 64-bit unsigned integer.  Stored as eight bytes in) s
+5 206 M
+(      the order of decreasing significance \(network byte order\).) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 8]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (8,9) 5
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 9 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   string) s
+5 668 M
+(      Arbitrary length binary string.  Strings are allowed to contain) s
+5 657 M
+(      arbitrary binary data, including null characters and 8-bit) s
+5 646 M
+(      characters. They are stored as a uint32 containing its length) s
+5 635 M
+(      \(number of bytes that follow\) and zero \(= empty string\) or more) s
+5 624 M
+(      bytes that are the value of the string.  Terminating null) s
+5 613 M
+(      characters are not used.) s
+5 591 M
+(      Strings are also used to store text.  In that case, US-ASCII is) s
+5 580 M
+(      used for internal names, and ISO-10646 UTF-8 for text that might) s
+5 569 M
+(      be displayed to the user. The terminating null character SHOULD) s
+5 558 M
+(      NOT normally be stored in the string.) s
+5 536 M
+(      For example, the US-ASCII string "testing" is represented as 00 00) s
+5 525 M
+(      00 07 t e s t i n g. The UTF8 mapping does not alter the encoding) s
+5 514 M
+(      of US-ASCII characters.) s
+5 492 M
+(   mpint) s
+5 470 M
+(      Represents multiple precision integers in two's complement format,) s
+5 459 M
+(      stored as a string, 8 bits per byte, MSB first. Negative numbers) s
+5 448 M
+(      have the value 1 as the most significant bit of the first byte of) s
+5 437 M
+(      the data partition. If the most significant bit would be set for a) s
+5 426 M
+(      positive number, the number MUST be preceded by a zero byte.) s
+5 415 M
+(      Unnecessary leading bytes with the value 0 or 255 MUST NOT be) s
+5 404 M
+(      included.  The value zero MUST be stored as a string with zero) s
+5 393 M
+(      bytes of data.) s
+5 371 M
+(      By convention, a number that is used in modular computations in) s
+5 360 M
+(      Z_n SHOULD be represented in the range 0 <= x < n.) s
+5 338 M
+(       Examples:) s
+5 327 M
+(       value \(hex\)        representation \(hex\)) s
+5 316 M
+(       ---------------------------------------------------------------) s
+5 305 M
+(       0                  00 00 00 00) s
+5 294 M
+(       9a378f9b2e332a7    00 00 00 08 09 a3 78 f9 b2 e3 32 a7) s
+5 283 M
+(       80                 00 00 00 02 00 80) s
+5 272 M
+(       -1234              00 00 00 02 ed cc) s
+5 261 M
+(       -deadbeef          00 00 00 05 ff 21 52 41 11) s
+5 217 M
+(   name-list) s
+5 195 M
+(      A string containing a comma separated list of names. A name list) s
+5 184 M
+(      is represented as a uint32 containing its length \(number of bytes) s
+5 173 M
+(      that follow\) followed by a comma-separated list of zero or more) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                 [Page 9]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 10 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(      names. A name MUST be non-zero length, and it MUST NOT contain a) s
+5 679 M
+(      comma \(','\). Context may impose additional restrictions on the) s
+5 668 M
+(      names; for example, the names in a list may have to be valid) s
+5 657 M
+(      algorithm identifier \(see Algorithm Naming below\), or [RFC-3066]) s
+5 646 M
+(      language tags. The order of the names in a list may or may not be) s
+5 635 M
+(      significant, also depending on the context where the list is is) s
+5 624 M
+(      used. Terminating NUL characters are not used, neither for the) s
+5 613 M
+(      individual names, nor for the list as a whole.) s
+5 591 M
+(       Examples:) s
+5 580 M
+(       value              representation \(hex\)) s
+5 569 M
+(       ---------------------------------------) s
+5 558 M
+(       \(\), the empty list 00 00 00 00) s
+5 547 M
+(       \("zlib"\)           00 00 00 04 7a 6c 69 62) s
+5 536 M
+(       \("zlib", "none"\)   00 00 00 09 7a 6c 69 62 2c 6e 6f 6e 65) s
+5 481 M
+(6. Algorithm Naming) s
+5 459 M
+(   The SSH protocols refer to particular hash, encryption, integrity,) s
+5 448 M
+(   compression, and key exchange algorithms or protocols by names.) s
+5 437 M
+(   There are some standard algorithms that all implementations MUST) s
+5 426 M
+(   support. There are also algorithms that are defined in the protocol) s
+5 415 M
+(   specification but are OPTIONAL.  Furthermore, it is expected that) s
+5 404 M
+(   some organizations will want to use their own algorithms.) s
+5 382 M
+(   In this protocol, all algorithm identifiers MUST be printable) s
+5 371 M
+(   US-ASCII non-empty strings no longer than 64 characters. Names MUST) s
+5 360 M
+(   be case-sensitive.) s
+5 338 M
+(   There are two formats for algorithm names:) s
+5 327 M
+(   o  Names that do not contain an at-sign \(@\) are reserved to be) s
+5 316 M
+(      assigned by IETF consensus \(RFCs\).  Examples include `3des-cbc',) s
+5 305 M
+(      `sha-1', `hmac-sha1', and `zlib' \(the quotes are not part of the) s
+5 294 M
+(      name\).  Names of this format MUST NOT be used without first) s
+5 283 M
+(      registering them.  Registered names MUST NOT contain an at-sign) s
+5 272 M
+(      \(@\) or a comma \(,\).) s
+5 261 M
+(   o  Anyone can define additional algorithms by using names in the) s
+5 250 M
+(      format name@domainname, e.g. "ourcipher-cbc@example.com". The) s
+5 239 M
+(      format of the part preceding the at sign is not specified; it MUST) s
+5 228 M
+(      consist of US-ASCII characters except at-sign and comma. The part) s
+5 217 M
+(      following the at-sign MUST be a valid fully qualified internet) s
+5 206 M
+(      domain name [RFC-1034] controlled by the person or organization) s
+5 195 M
+(      defining the name. It is up to each domain how it manages its) s
+5 184 M
+(      local namespace.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 10]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (10,11) 6
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 11 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(7. Message Numbers) s
+5 668 M
+(   SSH packets have message numbers in the range 1 to 255. These numbers) s
+5 657 M
+(   have been allocated as follows:) s
+5 624 M
+(     Transport layer protocol:) s
+5 602 M
+(       1 to 19    Transport layer generic \(e.g. disconnect, ignore, debug,) s
+5 591 M
+(                  etc.\)) s
+5 580 M
+(       20 to 29   Algorithm negotiation) s
+5 569 M
+(       30 to 49   Key exchange method specific \(numbers can be reused for) s
+5 558 M
+(                  different authentication methods\)) s
+5 536 M
+(     User authentication protocol:) s
+5 514 M
+(       50 to 59   User authentication generic) s
+5 503 M
+(       60 to 79   User authentication method specific \(numbers can be) s
+5 492 M
+(                  reused for different authentication methods\)) s
+5 470 M
+(     Connection protocol:) s
+5 448 M
+(       80 to 89   Connection protocol generic) s
+5 437 M
+(       90 to 127  Channel related messages) s
+5 415 M
+(     Reserved for client protocols:) s
+5 393 M
+(       128 to 191 Reserved) s
+5 371 M
+(     Local extensions:) s
+5 349 M
+(       192 to 255 Local extensions) s
+5 305 M
+(8. IANA Considerations) s
+5 283 M
+(   The initial state of the IANA registry is detailed in [SSH-NUMBERS].) s
+5 261 M
+(   Allocation of the following types of names in the SSH protocols is) s
+5 250 M
+(   assigned by IETF consensus:) s
+5 239 M
+(   o  SSH encryption algorithm names,) s
+5 228 M
+(   o  SSH MAC algorithm names,) s
+5 217 M
+(   o  SSH public key algorithm names \(public key algorithm also implies) s
+5 206 M
+(      encoding and signature/encryption capability\),) s
+5 195 M
+(   o  SSH key exchange method names, and) s
+5 184 M
+(   o  SSH protocol \(service\) names.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 11]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 12 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   These names MUST be printable US-ASCII strings, and MUST NOT contain) s
+5 679 M
+(   the characters at-sign \('@'\), comma \(','\), or whitespace or control) s
+5 668 M
+(   characters \(ASCII codes 32 or less\).  Names are case-sensitive, and) s
+5 657 M
+(   MUST NOT be longer than 64 characters.) s
+5 635 M
+(   Names with the at-sign \('@'\) in them are allocated by the owner of) s
+5 624 M
+(   DNS name after the at-sign \(hierarchical allocation in [RFC-2343]\),) s
+5 613 M
+(   otherwise the same restrictions as above.) s
+5 591 M
+(   Each category of names listed above has a separate namespace.) s
+5 580 M
+(   However, using the same name in multiple categories SHOULD be avoided) s
+5 569 M
+(   to minimize confusion.) s
+5 547 M
+(   Message numbers \(see Section Message Numbers \(Section 7\)\) in the) s
+5 536 M
+(   range of 0..191 are allocated via IETF consensus; message numbers in) s
+5 525 M
+(   the 192..255 range \(the "Local extensions" set\) are reserved for) s
+5 514 M
+(   private use.) s
+5 492 M
+(9. Security Considerations) s
+5 470 M
+(   In order to make the entire body of Security Considerations more) s
+5 459 M
+(   accessible, Security Considerations for the transport,) s
+5 448 M
+(   authentication, and connection documents have been gathered here.) s
+5 426 M
+(   The transport protocol [1] provides a confidential channel over an) s
+5 415 M
+(   insecure network.  It performs server host authentication, key) s
+5 404 M
+(   exchange, encryption, and integrity protection.  It also derives a) s
+5 393 M
+(   unique session id that may be used by higher-level protocols.) s
+5 371 M
+(   The authentication protocol [2] provides a suite of mechanisms which) s
+5 360 M
+(   can be used to authenticate the client user to the server.) s
+5 349 M
+(   Individual mechanisms specified in the in authentication protocol use) s
+5 338 M
+(   the session id provided by the transport protocol and/or depend on) s
+5 327 M
+(   the security and integrity guarantees of the transport protocol.) s
+5 305 M
+(   The connection protocol [3] specifies a mechanism to multiplex) s
+5 294 M
+(   multiple streams [channels] of data over the confidential and) s
+5 283 M
+(   authenticated transport. It also specifies channels for accessing an) s
+5 272 M
+(   interactive shell, for 'proxy-forwarding' various external protocols) s
+5 261 M
+(   over the secure transport \(including arbitrary TCP/IP protocols\), and) s
+5 250 M
+(   for accessing secure 'subsystems' on the server host.) s
+5 228 M
+(9.1 Pseudo-Random Number Generation) s
+5 206 M
+(   This protocol binds each session key to the session by including) s
+5 195 M
+(   random, session specific data in the hash used to produce session) s
+5 184 M
+(   keys.  Special care should be taken to ensure that all of the random) s
+5 173 M
+(   numbers are of good quality.  If the random data here \(e.g., DH) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 12]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (12,13) 7
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 13 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   parameters\) are pseudo-random then the pseudo-random number generator) s
+5 679 M
+(   should be cryptographically secure \(i.e., its next output not easily) s
+5 668 M
+(   guessed even when knowing all previous outputs\) and, furthermore,) s
+5 657 M
+(   proper entropy needs to be added to the pseudo-random number) s
+5 646 M
+(   generator.  RFC 1750 [1750] offers suggestions for sources of random) s
+5 635 M
+(   numbers and entropy.  Implementors should note the importance of) s
+5 624 M
+(   entropy and the well-meant, anecdotal warning about the difficulty in) s
+5 613 M
+(   properly implementing pseudo-random number generating functions.) s
+5 591 M
+(   The amount of entropy available to a given client or server may) s
+5 580 M
+(   sometimes be less than what is required.  In this case one must) s
+5 569 M
+(   either resort to pseudo-random number generation regardless of) s
+5 558 M
+(   insufficient entropy or refuse to run the protocol.  The latter is) s
+5 547 M
+(   preferable.) s
+5 525 M
+(9.2 Transport) s
+5 503 M
+(9.2.1 Confidentiality) s
+5 481 M
+(   It is beyond the scope of this document and the Secure Shell Working) s
+5 470 M
+(   Group to analyze or recommend specific ciphers other than the ones) s
+5 459 M
+(   which have been established and accepted within the industry.  At the) s
+5 448 M
+(   time of this writing, ciphers commonly in use include 3DES, ARCFOUR,) s
+5 437 M
+(   twofish, serpent and blowfish.  AES has been accepted by The) s
+5 426 M
+(   published as a US Federal Information Processing Standards [FIPS-197]) s
+5 415 M
+(   and the cryptographic community as being acceptable for this purpose) s
+5 404 M
+(   as well has accepted AES.  As always, implementors and users should) s
+5 393 M
+(   check current literature to ensure that no recent vulnerabilities) s
+5 382 M
+(   have been found in ciphers used within products.  Implementors should) s
+5 371 M
+(   also check to see which ciphers are considered to be relatively) s
+5 360 M
+(   stronger than others and should recommend their use to users over) s
+5 349 M
+(   relatively weaker ciphers.  It would be considered good form for an) s
+5 338 M
+(   implementation to politely and unobtrusively notify a user that a) s
+5 327 M
+(   stronger cipher is available and should be used when a weaker one is) s
+5 316 M
+(   actively chosen.) s
+5 294 M
+(   The "none" cipher is provided for debugging and SHOULD NOT be used) s
+5 283 M
+(   except for that purpose.  It's cryptographic properties are) s
+5 272 M
+(   sufficiently described in RFC 2410, which will show that its use does) s
+5 261 M
+(   not meet the intent of this protocol.) s
+5 239 M
+(   The relative merits of these and other ciphers may also be found in) s
+5 228 M
+(   current literature.  Two references that may provide information on) s
+5 217 M
+(   the subject are [SCHNEIER] and [KAUFMAN,PERLMAN,SPECINER].  Both of) s
+5 206 M
+(   these describe the CBC mode of operation of certain ciphers and the) s
+5 195 M
+(   weakness of this scheme.  Essentially, this mode is theoretically) s
+5 184 M
+(   vulnerable to chosen cipher-text attacks because of the high) s
+5 173 M
+(   predictability of the start of packet sequence.  However, this attack) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 13]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 14 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   is still deemed difficult and not considered fully practicable) s
+5 679 M
+(   especially if relatively longer block sizes are used.) s
+5 657 M
+(   Additionally, another CBC mode attack may be mitigated through the) s
+5 646 M
+(   insertion of packets containing SSH_MSG_IGNORE.  Without this) s
+5 635 M
+(   technique, a specific attack may be successful.  For this attack) s
+5 624 M
+(   \(commonly known as the Rogaway attack) s
+5 613 M
+(   [ROGAWAY],[DAI],[BELLARE,KOHNO,NAMPREMPRE]\) to work, the attacker) s
+5 602 M
+(   would need to know the IV of the next block that is going to be) s
+5 591 M
+(   encrypted.  In CBC mode that is the output of the encryption of the) s
+5 580 M
+(   previous block. If the attacker does not have any way to see the) s
+5 569 M
+(   packet yet \(i.e it is in the internal buffers of the ssh) s
+5 558 M
+(   implementation or even in the kernel\) then this attack will not work.) s
+5 547 M
+(   If the last packet has been sent out to the network \(i.e the attacker) s
+5 536 M
+(   has access to it\) then he can use the attack.) s
+5 514 M
+(   In the optimal case an implementor would need to add an extra packet) s
+5 503 M
+(   only if the packet has been sent out onto the network and there are) s
+5 492 M
+(   no other packets waiting for transmission. Implementors may wish to) s
+5 481 M
+(   check to see if there are any unsent packets awaiting transmission,) s
+5 470 M
+(   but unfortunately it is not normally easy to obtain this information) s
+5 459 M
+(   from the kernel or buffers.  If there are not, then a packet) s
+5 448 M
+(   containing SSH_MSG_IGNORE SHOULD be sent.  If a new packet is added) s
+5 437 M
+(   to the stream every time the attacker knows the IV that is supposed) s
+5 426 M
+(   to be used for the next packet, then the attacker will not be able to) s
+5 415 M
+(   guess the correct IV, thus the attack will never be successfull.) s
+5 393 M
+(   As an example, consider the following case:) s
+5 360 M
+(         Client                                                  Server) s
+5 349 M
+(         ------                                                  ------) s
+5 338 M
+(         TCP\(seq=x, len=500\)            ->) s
+5 327 M
+(         contains Record 1) s
+5 305 M
+(                             [500 ms passes, no ACK]) s
+5 283 M
+(        TCP\(seq=x, len=1000\)            ->) s
+5 272 M
+(         contains Records 1,2) s
+5 250 M
+(                                                                   ACK) s
+5 217 M
+(   1.  The Nagle algorithm + TCP retransmits mean that the two records) s
+5 206 M
+(       get coalesced into a single TCP segment) s
+5 195 M
+(   2.  Record 2 is *not* at the beginning of the TCP segment and never) s
+5 184 M
+(       will be, since it gets ACKed.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 14]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (14,15) 8
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 15 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   3.  Yet, the attack is possible because Record 1 has already been) s
+5 679 M
+(       seen.) s
+5 657 M
+(   As this example indicates, it's totally unsafe to use the existence) s
+5 646 M
+(   of unflushed data in the TCP buffers proper as a guide to whether you) s
+5 635 M
+(   need an empty packet, since when you do the second write\(\), the) s
+5 624 M
+(   buffers will contain the un-ACKed Record 1.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 15]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 16 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   On the other hand, it's perfectly safe to have the following) s
+5 679 M
+(   situation:) s
+5 646 M
+(         Client                                                  Server) s
+5 635 M
+(         ------                                                  ------) s
+5 624 M
+(         TCP\(seq=x, len=500\)           ->) s
+5 613 M
+(            contains SSH_MSG_IGNORE) s
+5 591 M
+(         TCP\(seq=y, len=500\)           ->) s
+5 580 M
+(            contains Data) s
+5 558 M
+(      Provided that the IV for second SSH Record is fixed after the data for) s
+5 547 M
+(      the Data packet is determined -i.e. you do:) s
+5 536 M
+(           read from user) s
+5 525 M
+(           encrypt null packet) s
+5 514 M
+(           encrypt data packet) s
+5 481 M
+(9.2.2 Data Integrity) s
+5 459 M
+(   This protocol does allow the Data Integrity mechanism to be disabled.) s
+5 448 M
+(   Implementors SHOULD be wary of exposing this feature for any purpose) s
+5 437 M
+(   other than debugging.  Users and administrators SHOULD be explicitly) s
+5 426 M
+(   warned anytime the "none" MAC is enabled.) s
+5 404 M
+(   So long as the "none" MAC is not used, this protocol provides data) s
+5 393 M
+(   integrity.) s
+5 371 M
+(   Because MACs use a 32 bit sequence number, they might start to leak) s
+5 360 M
+(   information after 2**32 packets have been sent.  However, following) s
+5 349 M
+(   the rekeying recommendations should prevent this attack.  The) s
+5 338 M
+(   transport protocol [1] recommends rekeying after one gigabyte of) s
+5 327 M
+(   data, and the smallest possible packet is 16 bytes. Therefore,) s
+5 316 M
+(   rekeying SHOULD happen after 2**28 packets at the very most.) s
+5 294 M
+(9.2.3 Replay) s
+5 272 M
+(   The use of a MAC other than 'none' provides integrity and) s
+5 261 M
+(   authentication.  In addition, the transport protocol provides a) s
+5 250 M
+(   unique session identifier \(bound in part to pseudo-random data that) s
+5 239 M
+(   is part of the algorithm and key exchange process\) that can be used) s
+5 228 M
+(   by higher level protocols to bind data to a given session and prevent) s
+5 217 M
+(   replay of data from prior sessions. For example, the authentication) s
+5 206 M
+(   protocol uses this to prevent replay of signatures from previous) s
+5 195 M
+(   sessions.  Because public key authentication exchanges are) s
+5 184 M
+(   cryptographically bound to the session \(i.e., to the initial key) s
+5 173 M
+(   exchange\) they cannot be successfully replayed in other sessions.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 16]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (16,17) 9
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 17 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   Note that the session ID can be made public without harming the) s
+5 679 M
+(   security of the protocol.) s
+5 657 M
+(   If two session happen to have the same session ID [hash of key) s
+5 646 M
+(   exchanges] then packets from one can be replayed against the other.) s
+5 635 M
+(   It must be stressed that the chances of such an occurrence are,) s
+5 624 M
+(   needless to say, minimal when using modern cryptographic methods.) s
+5 613 M
+(   This is all the more so true when specifying larger hash function) s
+5 602 M
+(   outputs and DH parameters.) s
+5 580 M
+(   Replay detection using monotonically increasing sequence numbers as) s
+5 569 M
+(   input to the MAC, or HMAC in some cases, is described in [RFC2085] />) s
+5 558 M
+(   [RFC2246], [RFC2743], [RFC1964], [RFC2025], and [RFC1510].  The) s
+5 547 M
+(   underlying construct is discussed in [RFC2104].  Essentially a) s
+5 536 M
+(   different sequence number in each packet ensures that at least this) s
+5 525 M
+(   one input to the MAC function will be unique and will provide a) s
+5 514 M
+(   nonrecurring MAC output that is not predictable to an attacker.  If) s
+5 503 M
+(   the session stays active long enough, however, this sequence number) s
+5 492 M
+(   will wrap.  This event may provide an attacker an opportunity to) s
+5 481 M
+(   replay a previously recorded packet with an identical sequence number) s
+5 470 M
+(   but only if the peers have not rekeyed since the transmission of the) s
+5 459 M
+(   first packet with that sequence number.  If the peers have rekeyed,) s
+5 448 M
+(   then the replay will be detected as the MAC check will fail.  For) s
+5 437 M
+(   this reason, it must be emphasized that peers MUST rekey before a) s
+5 426 M
+(   wrap of the sequence numbers.  Naturally, if an attacker does attempt) s
+5 415 M
+(   to replay a captured packet before the peers have rekeyed, then the) s
+5 404 M
+(   receiver of the duplicate packet will not be able to validate the MAC) s
+5 393 M
+(   and it will be discarded.  The reason that the MAC will fail is) s
+5 382 M
+(   because the receiver will formulate a MAC based upon the packet) s
+5 371 M
+(   contents, the shared secret, and the expected sequence number.  Since) s
+5 360 M
+(   the replayed packet will not be using that expected sequence number) s
+5 349 M
+(   \(the sequence number of the replayed packet will have already been) s
+5 338 M
+(   passed by the receiver\) then the calculated MAC will not match the) s
+5 327 M
+(   MAC received with the packet.) s
+5 305 M
+(9.2.4 Man-in-the-middle) s
+5 283 M
+(   This protocol makes no assumptions nor provisions for an) s
+5 272 M
+(   infrastructure or means for distributing the public keys of hosts. It) s
+5 261 M
+(   is expected that this protocol will sometimes be used without first) s
+5 250 M
+(   verifying the association between the server host key and the server) s
+5 239 M
+(   host name.  Such usage is vulnerable to man-in-the-middle attacks.) s
+5 228 M
+(   This section describes this and encourages administrators and users) s
+5 217 M
+(   to understand the importance of verifying this association before any) s
+5 206 M
+(   session is initiated.) s
+5 184 M
+(   There are three cases of man-in-the-middle attacks to consider.  The) s
+5 173 M
+(   first is where an attacker places a device between the client and the) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 17]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 18 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   server before the session is initiated.  In this case, the attack) s
+5 679 M
+(   device is trying to mimic the legitimate server and will offer its) s
+5 668 M
+(   public key to the client when the client initiates a session.  If it) s
+5 657 M
+(   were to offer the public key of the server, then it would not be able) s
+5 646 M
+(   to decrypt or sign the transmissions between the legitimate server) s
+5 635 M
+(   and the client unless it also had access to the private-key of the) s
+5 624 M
+(   host.  The attack device will also, simultaneously to this, initiate) s
+5 613 M
+(   a session to the legitimate server masquerading itself as the client.) s
+5 602 M
+(   If the public key of the server had been securely distributed to the) s
+5 591 M
+(   client prior to that session initiation, the key offered to the) s
+5 580 M
+(   client by the attack device will not match the key stored on the) s
+5 569 M
+(   client.  In that case, the user SHOULD be given a warning that the) s
+5 558 M
+(   offered host key does not match the host key cached on the client.) s
+5 547 M
+(   As described in Section 3.1 of [ARCH], the user may be free to accept) s
+5 536 M
+(   the new key and continue the session.  It is RECOMMENDED that the) s
+5 525 M
+(   warning provide sufficient information to the user of the client) s
+5 514 M
+(   device so they may make an informed decision.  If the user chooses to) s
+5 503 M
+(   continue the session with the stored public-key of the server \(not) s
+5 492 M
+(   the public-key offered at the start of the session\), then the session) s
+5 481 M
+(   specific data between the attacker and server will be different) s
+5 470 M
+(   between the client-to-attacker session and the attacker-to-server) s
+5 459 M
+(   sessions due to the randomness discussed above.  From this, the) s
+5 448 M
+(   attacker will not be able to make this attack work since the attacker) s
+5 437 M
+(   will not be able to correctly sign packets containing this session) s
+5 426 M
+(   specific data from the server since he does not have the private key) s
+5 415 M
+(   of that server.) s
+5 393 M
+(   The second case that should be considered is similar to the first) s
+5 382 M
+(   case in that it also happens at the time of connection but this case) s
+5 371 M
+(   points out the need for the secure distribution of server public) s
+5 360 M
+(   keys.  If the server public keys are not securely distributed then) s
+5 349 M
+(   the client cannot know if it is talking to the intended server.  An) s
+5 338 M
+(   attacker may use social engineering techniques to pass off server) s
+5 327 M
+(   keys to unsuspecting users and may then place a man-in-the-middle) s
+5 316 M
+(   attack device between the legitimate server and the clients.  If this) s
+5 305 M
+(   is allowed to happen then the clients will form client-to-attacker) s
+5 294 M
+(   sessions and the attacker will form attacker-to-server sessions and) s
+5 283 M
+(   will be able to monitor and manipulate all of the traffic between the) s
+5 272 M
+(   clients and the legitimate servers.  Server administrators are) s
+5 261 M
+(   encouraged to make host key fingerprints available for checking by) s
+5 250 M
+(   some means whose security does not rely on the integrity of the) s
+5 239 M
+(   actual host keys.  Possible mechanisms are discussed in Section 3.1) s
+5 228 M
+(   of [SSH-ARCH] and may also include secured Web pages, physical pieces) s
+5 217 M
+(   of paper, etc. Implementors SHOULD provide recommendations on how) s
+5 206 M
+(   best to do this with their implementation.  Because the protocol is) s
+5 195 M
+(   extensible, future extensions to the protocol may provide better) s
+5 184 M
+(   mechanisms for dealing with the need to know the server's host key) s
+5 173 M
+(   before connecting.  For example, making the host key fingerprint) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 18]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (18,19) 10
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 19 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   available through a secure DNS lookup, or using kerberos over gssapi) s
+5 679 M
+(   during key exchange to authenticate the server are possibilities.) s
+5 657 M
+(   In the third man-in-the-middle case, attackers may attempt to) s
+5 646 M
+(   manipulate packets in transit between peers after the session has) s
+5 635 M
+(   been established.  As described in the Replay part of this section, a) s
+5 624 M
+(   successful attack of this nature is very improbable.  As in the) s
+5 613 M
+(   Replay section, this reasoning does assume that the MAC is secure and) s
+5 602 M
+(   that it is infeasible to construct inputs to a MAC algorithm to give) s
+5 591 M
+(   a known output.  This is discussed in much greater detail in Section) s
+5 580 M
+(   6 of RFC 2104.  If the MAC algorithm has a vulnerability or is weak) s
+5 569 M
+(   enough, then the attacker may be able to specify certain inputs to) s
+5 558 M
+(   yield a known MAC.  With that they may be able to alter the contents) s
+5 547 M
+(   of a packet in transit.  Alternatively the attacker may be able to) s
+5 536 M
+(   exploit the algorithm vulnerability or weakness to find the shared) s
+5 525 M
+(   secret by reviewing the MACs from captured packets.  In either of) s
+5 514 M
+(   those cases, an attacker could construct a packet or packets that) s
+5 503 M
+(   could be inserted into an SSH stream.  To prevent that, implementors) s
+5 492 M
+(   are encouraged to utilize commonly accepted MAC algorithms and) s
+5 481 M
+(   administrators are encouraged to watch current literature and) s
+5 470 M
+(   discussions of cryptography to ensure that they are not using a MAC) s
+5 459 M
+(   algorithm that has a recently found vulnerability or weakness.) s
+5 437 M
+(   In summary, the use of this protocol without a reliable association) s
+5 426 M
+(   of the binding between a host and its host keys is inherently) s
+5 415 M
+(   insecure and is NOT RECOMMENDED.  It may however be necessary in) s
+5 404 M
+(   non-security critical environments, and will still provide protection) s
+5 393 M
+(   against passive attacks.  Implementors of protocols and applications) s
+5 382 M
+(   running on top of this protocol should keep this possibility in mind.) s
+5 360 M
+(9.2.5 Denial-of-service) s
+5 338 M
+(   This protocol is designed to be used over a reliable transport.  If) s
+5 327 M
+(   transmission errors or message manipulation occur, the connection is) s
+5 316 M
+(   closed.  The connection SHOULD be re-established if this occurs.) s
+5 305 M
+(   Denial of service attacks of this type \("wire cutter"\) are almost) s
+5 294 M
+(   impossible to avoid.) s
+5 272 M
+(   In addition, this protocol is vulnerable to Denial of Service attacks) s
+5 261 M
+(   because an attacker can force the server to go through the CPU and) s
+5 250 M
+(   memory intensive tasks of connection setup and key exchange without) s
+5 239 M
+(   authenticating.  Implementors SHOULD provide features that make this) s
+5 228 M
+(   more difficult.  For example, only allowing connections from a subset) s
+5 217 M
+(   of IPs known to have valid users.) s
+5 195 M
+(9.2.6 Covert Channels) s
+5 173 M
+(   The protocol was not designed to eliminate covert channels.  For) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 19]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 20 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   example, the padding, SSH_MSG_IGNORE messages, and several other) s
+5 679 M
+(   places in the protocol can be used to pass covert information, and) s
+5 668 M
+(   the recipient has no reliable way to verify whether such information) s
+5 657 M
+(   is being sent.) s
+5 635 M
+(9.2.7 Forward Secrecy) s
+5 613 M
+(   It should be noted that the Diffie-Hellman key exchanges may provide) s
+5 602 M
+(   perfect forward secrecy \(PFS\).  PFS is essentially defined as the) s
+5 591 M
+(   cryptographic property of a key-establishment protocol in which the) s
+5 580 M
+(   compromise of a session key or long-term private key after a given) s
+5 569 M
+(   session does not cause the compromise of any earlier session. [ANSI) s
+5 558 M
+(   T1.523-2001]  SSHv2 sessions resulting from a key exchange using) s
+5 547 M
+(   diffie-hellman-group1-sha1 are secure even if private keying/) s
+5 536 M
+(   authentication material is later revealed, but not if the session) s
+5 525 M
+(   keys are revealed. So, given this definition of PFS, SSHv2 does have) s
+5 514 M
+(   PFS.  It is hoped that all other key exchange mechanisms proposed and) s
+5 503 M
+(   used in the future will also provide PFS.  This property is not) s
+5 492 M
+(   commuted to any of the applications or protocols using SSH as a) s
+5 481 M
+(   transport however.  The transport layer of SSH provides) s
+5 470 M
+(   confidentiality for password authentication and other methods that) s
+5 459 M
+(   rely on secret data.) s
+5 437 M
+(   Of course, if the DH private parameters for the client and server are) s
+5 426 M
+(   revealed then the session key is revealed, but these items can be) s
+5 415 M
+(   thrown away after the key exchange completes.  It's worth pointing) s
+5 404 M
+(   out that these items should not be allowed to end up on swap space) s
+5 393 M
+(   and that they should be erased from memory as soon as the key) s
+5 382 M
+(   exchange completes.) s
+5 360 M
+(9.3 Authentication Protocol) s
+5 338 M
+(   The purpose of this protocol is to perform client user) s
+5 327 M
+(   authentication. It assumes that this run over a secure transport) s
+5 316 M
+(   layer protocol, which has already authenticated the server machine,) s
+5 305 M
+(   established an encrypted communications channel, and computed a) s
+5 294 M
+(   unique session identifier for this session.) s
+5 272 M
+(   Several authentication methods with different security) s
+5 261 M
+(   characteristics are allowed.  It is up to the server's local policy) s
+5 250 M
+(   to decide which methods \(or combinations of methods\) it is willing to) s
+5 239 M
+(   accept for each user.  Authentication is no stronger than the weakest) s
+5 228 M
+(   combination allowed.) s
+5 206 M
+(   The server may go into a "sleep" period after repeated unsuccessful) s
+5 195 M
+(   authentication attempts to make key search more difficult for) s
+5 184 M
+(   attackers.  Care should be taken so that this doesn't become a) s
+5 173 M
+(   self-denial of service vector.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 20]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (20,21) 11
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 21 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(9.3.1 Weak Transport) s
+5 668 M
+(   If the transport layer does not provide confidentiality,) s
+5 657 M
+(   authentication methods that rely on secret data SHOULD be disabled.) s
+5 646 M
+(   If it does not provide strong integrity protection, requests to) s
+5 635 M
+(   change authentication data \(e.g. a password change\) SHOULD be) s
+5 624 M
+(   disabled to prevent an attacker from  modifying the ciphertext) s
+5 613 M
+(   without being noticed, or rendering the new authentication data) s
+5 602 M
+(   unusable \(denial of service\).) s
+5 580 M
+(   The assumption as stated above that the Authentication Protocol only) s
+5 569 M
+(   run over a secure transport that has previously authenticated the) s
+5 558 M
+(   server is very important to note.  People deploying SSH are reminded) s
+5 547 M
+(   of the consequences of man-in-the-middle attacks if the client does) s
+5 536 M
+(   not have a very strong a priori association of the server with the) s
+5 525 M
+(   host key of that server.  Specifically for the case of the) s
+5 514 M
+(   Authentication Protocol the client may form a session to a) s
+5 503 M
+(   man-in-the-middle attack device and divulge user credentials such as) s
+5 492 M
+(   their username and password.  Even in the cases of authentication) s
+5 481 M
+(   where no user credentials are divulged, an attacker may still gain) s
+5 470 M
+(   information they shouldn't have by capturing key-strokes in much the) s
+5 459 M
+(   same way that a honeypot works.) s
+5 437 M
+(9.3.2 Debug messages) s
+5 415 M
+(   Special care should be taken when designing debug messages.  These) s
+5 404 M
+(   messages may reveal surprising amounts of information about the host) s
+5 393 M
+(   if not properly designed.  Debug messages can be disabled \(during) s
+5 382 M
+(   user authentication phase\) if high security is required.) s
+5 371 M
+(   Administrators of host machines should make all attempts to) s
+5 360 M
+(   compartmentalize all event notification messages and protect them) s
+5 349 M
+(   from unwarranted observation.  Developers should be aware of the) s
+5 338 M
+(   sensitive nature of some of the normal event messages and debug) s
+5 327 M
+(   messages and may want to provide guidance to administrators on ways) s
+5 316 M
+(   to keep this information away from unauthorized people.  Developers) s
+5 305 M
+(   should consider minimizing the amount of sensitive information) s
+5 294 M
+(   obtainable by users during the authentication phase in accordance) s
+5 283 M
+(   with the local policies.  For this reason, it is RECOMMENDED that) s
+5 272 M
+(   debug messages be initially disabled at the time of deployment and) s
+5 261 M
+(   require an active decision by an administrator to allow them to be) s
+5 250 M
+(   enabled.  It is also RECOMMENDED that a message expressing this) s
+5 239 M
+(   concern be presented to the administrator of a system when the action) s
+5 228 M
+(   is taken to enable debugging messages.) s
+5 206 M
+(9.3.3 Local security policy) s
+5 184 M
+(   Implementer MUST ensure that the credentials provided validate the) s
+5 173 M
+(   professed user and also MUST ensure that the local policy of the) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 21]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 22 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   server permits the user the access requested.  In particular, because) s
+5 679 M
+(   of the flexible nature of the SSH connection protocol, it may not be) s
+5 668 M
+(   possible to determine the local security policy, if any, that should) s
+5 657 M
+(   apply at the time of authentication because the kind of service being) s
+5 646 M
+(   requested is not clear at that instant. For example, local policy) s
+5 635 M
+(   might allow a user to access files on the server, but not start an) s
+5 624 M
+(   interactive shell. However, during the authentication protocol, it is) s
+5 613 M
+(   not known whether the user will be accessing files or attempting to) s
+5 602 M
+(   use an interactive shell, or even both.  In any event, where local) s
+5 591 M
+(   security policy for the server host exists, it MUST be applied and) s
+5 580 M
+(   enforced correctly.) s
+5 558 M
+(   Implementors are encouraged to provide a default local policy and) s
+5 547 M
+(   make its parameters known to administrators and users.  At the) s
+5 536 M
+(   discretion of the implementors, this default policy may be along the) s
+5 525 M
+(   lines of 'anything goes' where there are no restrictions placed upon) s
+5 514 M
+(   users, or it may be along the lines of 'excessively restrictive' in) s
+5 503 M
+(   which case the administrators will have to actively make changes to) s
+5 492 M
+(   this policy to meet their needs.  Alternatively, it may be some) s
+5 481 M
+(   attempt at providing something practical and immediately useful to) s
+5 470 M
+(   the administrators of the system so they don't have to put in much) s
+5 459 M
+(   effort to get SSH working.  Whatever choice is made MUST be applied) s
+5 448 M
+(   and enforced as required above.) s
+5 426 M
+(9.3.4 Public key authentication) s
+5 404 M
+(   The use of public-key authentication assumes that the client host has) s
+5 393 M
+(   not been compromised.  It also assumes that the private-key of the) s
+5 382 M
+(   server host has not been compromised.) s
+5 360 M
+(   This risk can be mitigated by the use of passphrases on private keys;) s
+5 349 M
+(   however, this is not an enforceable policy.  The use of smartcards,) s
+5 338 M
+(   or other technology to make passphrases an enforceable policy is) s
+5 327 M
+(   suggested.) s
+5 305 M
+(   The server could require both password and public-key authentication,) s
+5 294 M
+(   however, this requires the client to expose its password to the) s
+5 283 M
+(   server \(see section on password authentication below.\)) s
+5 261 M
+(9.3.5 Password authentication) s
+5 239 M
+(   The password mechanism as specified in the authentication protocol) s
+5 228 M
+(   assumes that the server has not been compromised.  If the server has) s
+5 217 M
+(   been compromised, using password authentication will reveal a valid) s
+5 206 M
+(   username / password combination to the attacker, which may lead to) s
+5 195 M
+(   further compromises.) s
+5 173 M
+(   This vulnerability can be mitigated by using an alternative form of) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 22]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (22,23) 12
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 23 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   authentication.  For example, public-key authentication makes no) s
+5 679 M
+(   assumptions about security on the server.) s
+5 657 M
+(9.3.6 Host based authentication) s
+5 635 M
+(   Host based authentication assumes that the client has not been) s
+5 624 M
+(   compromised.  There are no mitigating strategies, other than to use) s
+5 613 M
+(   host based authentication in combination with another authentication) s
+5 602 M
+(   method.) s
+5 580 M
+(9.4 Connection protocol) s
+5 558 M
+(9.4.1 End point security) s
+5 536 M
+(   End point security is assumed by the connection protocol.  If the) s
+5 525 M
+(   server has been compromised, any terminal sessions, port forwarding,) s
+5 514 M
+(   or systems accessed on the host are compromised.  There are no) s
+5 503 M
+(   mitigating factors for this.) s
+5 481 M
+(   If the client end point has been compromised, and the server fails to) s
+5 470 M
+(   stop the attacker at the authentication protocol, all services) s
+5 459 M
+(   exposed \(either as subsystems or through forwarding\) will be) s
+5 448 M
+(   vulnerable to attack.  Implementors SHOULD provide mechanisms for) s
+5 437 M
+(   administrators to control which services are exposed to limit the) s
+5 426 M
+(   vulnerability of other services.) s
+5 404 M
+(   These controls might include controlling which machines and ports can) s
+5 393 M
+(   be target in 'port-forwarding' operations, which users are allowed to) s
+5 382 M
+(   use interactive shell facilities, or which users are allowed to use) s
+5 371 M
+(   exposed subsystems.) s
+5 349 M
+(9.4.2 Proxy forwarding) s
+5 327 M
+(   The SSH connection protocol allows for proxy forwarding of other) s
+5 316 M
+(   protocols such as SNMP, POP3, and HTTP.  This may be a concern for) s
+5 305 M
+(   network administrators who wish to control the access of certain) s
+5 294 M
+(   applications by users located outside of their physical location.) s
+5 283 M
+(   Essentially, the forwarding of these protocols may violate site) s
+5 272 M
+(   specific security policies as they may be undetectably tunneled) s
+5 261 M
+(   through a firewall.  Implementors SHOULD provide an administrative) s
+5 250 M
+(   mechanism to control the proxy forwarding functionality so that site) s
+5 239 M
+(   specific security policies may be upheld.) s
+5 217 M
+(   In addition, a reverse proxy forwarding functionality is available,) s
+5 206 M
+(   which again can be used to bypass firewall controls.) s
+5 184 M
+(   As indicated above, end-point security is assumed during proxy) s
+5 173 M
+(   forwarding operations.  Failure of end-point security will compromise) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 23]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 24 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   all data passed over proxy forwarding.) s
+5 668 M
+(9.4.3 X11 forwarding) s
+5 646 M
+(   Another form of proxy forwarding provided by the ssh connection) s
+5 635 M
+(   protocol is the forwarding of the X11 protocol.  If end-point) s
+5 624 M
+(   security has been compromised, X11 forwarding may allow attacks) s
+5 613 M
+(   against the X11 server.  Users and administrators should, as a matter) s
+5 602 M
+(   of course, use appropriate X11 security mechanisms to prevent) s
+5 591 M
+(   unauthorized use of the X11 server.  Implementors, administrators and) s
+5 580 M
+(   users who wish to further explore the security mechanisms of X11 are) s
+5 569 M
+(   invited to read [SCHEIFLER] and analyze previously reported problems) s
+5 558 M
+(   with the interactions between SSH forwarding and X11 in CERT) s
+5 547 M
+(   vulnerabilities VU#363181 and VU#118892 [CERT].) s
+5 525 M
+(   X11 display forwarding with SSH, by itself, is not sufficient to) s
+5 514 M
+(   correct well known problems with X11 security [VENEMA].  However, X11) s
+5 503 M
+(   display forwarding in SSHv2 \(or other, secure protocols\), combined) s
+5 492 M
+(   with actual and pseudo-displays which accept connections only over) s
+5 481 M
+(   local IPC mechanisms authorized by permissions or ACLs, does correct) s
+5 470 M
+(   many X11 security problems as long as the "none" MAC is not used.  It) s
+5 459 M
+(   is RECOMMENDED that X11 display implementations default to allowing) s
+5 448 M
+(   display opens only over local IPC.  It is RECOMMENDED that SSHv2) s
+5 437 M
+(   server implementations that support X11 forwarding default to) s
+5 426 M
+(   allowing display opens only over local IPC.  On single-user systems) s
+5 415 M
+(   it might be reasonable to default to allowing local display opens) s
+5 404 M
+(   over TCP/IP.) s
+5 382 M
+(   Implementors of the X11 forwarding protocol SHOULD implement the) s
+5 371 M
+(   magic cookie access checking spoofing mechanism as described in) s
+5 360 M
+(   [ssh-connect] as an additional mechanism to prevent unauthorized use) s
+5 349 M
+(   of the proxy.) s
+5 327 M
+(Normative References) s
+5 305 M
+(   [SSH-ARCH]) s
+5 294 M
+(              Ylonen, T., "SSH Protocol Architecture", I-D) s
+5 283 M
+(              draft-ietf-architecture-15.txt, Oct 2003.) s
+5 261 M
+(   [SSH-TRANS]) s
+5 250 M
+(              Ylonen, T., "SSH Transport Layer Protocol", I-D) s
+5 239 M
+(              draft-ietf-transport-17.txt, Oct 2003.) s
+5 217 M
+(   [SSH-USERAUTH]) s
+5 206 M
+(              Ylonen, T., "SSH Authentication Protocol", I-D) s
+5 195 M
+(              draft-ietf-userauth-18.txt, Oct 2003.) s
+5 173 M
+(   [SSH-CONNECT]) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 24]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (24,25) 13
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 25 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(              Ylonen, T., "SSH Connection Protocol", I-D) s
+5 679 M
+(              draft-ietf-connect-18.txt, Oct 2003.) s
+5 657 M
+(   [SSH-NUMBERS]) s
+5 646 M
+(              Lehtinen, S. and D. Moffat, "SSH Protocol Assigned) s
+5 635 M
+(              Numbers", I-D draft-ietf-secsh-assignednumbers-05.txt, Oct) s
+5 624 M
+(              2003.) s
+5 602 M
+(   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate) s
+5 591 M
+(              Requirement Levels", BCP 14, RFC 2119, March 1997.) s
+5 569 M
+(Informative References) s
+5 547 M
+(   [FIPS-186]) s
+5 536 M
+(              Federal Information Processing Standards Publication,) s
+5 525 M
+(              "FIPS PUB 186, Digital Signature Standard", May 1994.) s
+5 503 M
+(   [FIPS-197]) s
+5 492 M
+(              National Institue of Standards and Technology, "FIPS 197,) s
+5 481 M
+(              Specification for the Advanced Encryption Standard",) s
+5 470 M
+(              November 2001.) s
+5 448 M
+(   [ANSI T1.523-2001]) s
+5 437 M
+(              American National Standards Insitute, Inc., "Telecom) s
+5 426 M
+(              Glossary 2000", February 2001.) s
+5 404 M
+(   [SCHEIFLER]) s
+5 393 M
+(              Scheifler, R., "X Window System : The Complete Reference) s
+5 382 M
+(              to Xlib, X Protocol, Icccm, Xlfd, 3rd edition.", Digital) s
+5 371 M
+(              Press ISBN 1555580882, Feburary 1992.) s
+5 349 M
+(   [RFC0854]  Postel, J. and J. Reynolds, "Telnet Protocol) s
+5 338 M
+(              Specification", STD 8, RFC 854, May 1983.) s
+5 316 M
+(   [RFC0894]  Hornig, C., "Standard for the transmission of IP datagrams) s
+5 305 M
+(              over Ethernet networks", STD 41, RFC 894, April 1984.) s
+5 283 M
+(   [RFC1034]  Mockapetris, P., "Domain names - concepts and facilities",) s
+5 272 M
+(              STD 13, RFC 1034, November 1987.) s
+5 250 M
+(   [RFC1134]  Perkins, D., "Point-to-Point Protocol: A proposal for) s
+5 239 M
+(              multi-protocol transmission of datagrams over) s
+5 228 M
+(              Point-to-Point links", RFC 1134, November 1989.) s
+5 206 M
+(   [RFC1282]  Kantor, B., "BSD Rlogin", RFC 1282, December 1991.) s
+5 184 M
+(   [RFC1510]  Kohl, J. and B. Neuman, "The Kerberos Network) s
+5 173 M
+(              Authentication Service \(V5\)", RFC 1510, September 1993.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 25]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 26 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   [RFC1700]  Reynolds, J. and J. Postel, "Assigned Numbers", RFC 1700,) s
+5 679 M
+(              October 1994.) s
+5 657 M
+(   [RFC1750]  Eastlake, D., Crocker, S. and J. Schiller, "Randomness) s
+5 646 M
+(              Recommendations for Security", RFC 1750, December 1994.) s
+5 624 M
+(   [RFC3066]  Alvestrand, H., "Tags for the Identification of) s
+5 613 M
+(              Languages", BCP 47, RFC 3066, January 2001.) s
+5 591 M
+(   [RFC1964]  Linn, J., "The Kerberos Version 5 GSS-API Mechanism", RFC) s
+5 580 M
+(              1964, June 1996.) s
+5 558 M
+(   [RFC2025]  Adams, C., "The Simple Public-Key GSS-API Mechanism) s
+5 547 M
+(              \(SPKM\)", RFC 2025, October 1996.) s
+5 525 M
+(   [RFC2085]  Oehler, M. and R. Glenn, "HMAC-MD5 IP Authentication with) s
+5 514 M
+(              Replay Prevention", RFC 2085, February 1997.) s
+5 492 M
+(   [RFC2104]  Krawczyk, H., Bellare, M. and R. Canetti, "HMAC:) s
+5 481 M
+(              Keyed-Hashing for Message Authentication", RFC 2104,) s
+5 470 M
+(              February 1997.) s
+5 448 M
+(   [RFC2246]  Dierks, T., Allen, C., Treese, W., Karlton, P., Freier, A.) s
+5 437 M
+(              and P. Kocher, "The TLS Protocol Version 1.0", RFC 2246,) s
+5 426 M
+(              January 1999.) s
+5 404 M
+(   [RFC2279]  Yergeau, F., "UTF-8, a transformation format of ISO) s
+5 393 M
+(              10646", RFC 2279, January 1998.) s
+5 371 M
+(   [RFC2410]  Glenn, R. and S. Kent, "The NULL Encryption Algorithm and) s
+5 360 M
+(              Its Use With IPsec", RFC 2410, November 1998.) s
+5 338 M
+(   [RFC2434]  Narten, T. and H. Alvestrand, "Guidelines for Writing an) s
+5 327 M
+(              IANA Considerations Section in RFCs", BCP 26, RFC 2434,) s
+5 316 M
+(              October 1998.) s
+5 294 M
+(   [RFC2743]  Linn, J., "Generic Security Service Application Program) s
+5 283 M
+(              Interface Version 2, Update 1", RFC 2743, January 2000.) s
+5 261 M
+(   [SCHNEIER]) s
+5 250 M
+(              Schneier, B., "Applied Cryptography Second Edition:) s
+5 239 M
+(              protocols algorithms and source in code in C", 1996.) s
+5 217 M
+(   [KAUFMAN,PERLMAN,SPECINER]) s
+5 206 M
+(              Kaufman, C., Perlman, R. and M. Speciner, "Network) s
+5 195 M
+(              Security: PRIVATE Communication in a PUBLIC World", 1995.) s
+5 173 M
+(   [CERT]     CERT Coordination Center, The., "http://www.cert.org/nav/) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 26]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (26,27) 14
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 27 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(              index_red.html".) s
+5 668 M
+(   [VENEMA]   Venema, W., "Murphy's Law and Computer Security",) s
+5 657 M
+(              Proceedings of 6th USENIX Security Symposium, San Jose CA) s
+5 646 M
+(              http://www.usenix.org/publications/library/proceedings/) s
+5 635 M
+(              sec96/venema.html, July 1996.) s
+5 613 M
+(   [ROGAWAY]  Rogaway, P., "Problems with Proposed IP Cryptography",) s
+5 602 M
+(              Unpublished paper http://www.cs.ucdavis.edu/~rogaway/) s
+5 591 M
+(              papers/draft-rogaway-ipsec-comments-00.txt, 1996.) s
+5 569 M
+(   [DAI]      Dai, W., "An attack against SSH2 protocol", Email to the) s
+5 558 M
+(              SECSH Working Group ietf-ssh@netbsd.org ftp://) s
+5 547 M
+(              ftp.ietf.org/ietf-mail-archive/secsh/2002-02.mail, Feb) s
+5 536 M
+(              2002.) s
+5 514 M
+(   [BELLARE,KOHNO,NAMPREMPRE]) s
+5 503 M
+(              Bellaire, M., Kohno, T. and C. Namprempre, "Authenticated) s
+5 492 M
+(              Encryption in SSH: Fixing the SSH Binary Packet Protocol",) s
+5 481 M
+(              , Sept 2002.) s
+5 448 M
+(Authors' Addresses) s
+5 426 M
+(   Tatu Ylonen) s
+5 415 M
+(   SSH Communications Security Corp) s
+5 404 M
+(   Fredrikinkatu 42) s
+5 393 M
+(   HELSINKI  FIN-00100) s
+5 382 M
+(   Finland) s
+5 360 M
+(   EMail: ylo@ssh.com) s
+5 327 M
+(   Darren J. Moffat \(editor\)) s
+5 316 M
+(   Sun Microsystems, Inc) s
+5 305 M
+(   17 Network Circle) s
+5 294 M
+(   Menlo Park  CA 94025) s
+5 283 M
+(   USA) s
+5 261 M
+(   EMail: Darren.Moffat@Sun.COM) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 27]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 28 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(Intellectual Property Statement) s
+5 668 M
+(   The IETF takes no position regarding the validity or scope of any) s
+5 657 M
+(   intellectual property or other rights that might be claimed to) s
+5 646 M
+(   pertain to the implementation or use of the technology described in) s
+5 635 M
+(   this document or the extent to which any license under such rights) s
+5 624 M
+(   might or might not be available; neither does it represent that it) s
+5 613 M
+(   has made any effort to identify any such rights. Information on the) s
+5 602 M
+(   IETF's procedures with respect to rights in standards-track and) s
+5 591 M
+(   standards-related documentation can be found in BCP-11. Copies of) s
+5 580 M
+(   claims of rights made available for publication and any assurances of) s
+5 569 M
+(   licenses to be made available, or the result of an attempt made to) s
+5 558 M
+(   obtain a general license or permission for the use of such) s
+5 547 M
+(   proprietary rights by implementors or users of this specification can) s
+5 536 M
+(   be obtained from the IETF Secretariat.) s
+5 514 M
+(   The IETF invites any interested party to bring to its attention any) s
+5 503 M
+(   copyrights, patents or patent applications, or other proprietary) s
+5 492 M
+(   rights which may cover technology that may be required to practice) s
+5 481 M
+(   this standard. Please address the information to the IETF Executive) s
+5 470 M
+(   Director.) s
+5 448 M
+(   The IETF has been notified of intellectual property rights claimed in) s
+5 437 M
+(   regard to some or all of the specification contained in this) s
+5 426 M
+(   document. For more information consult the online list of claimed) s
+5 415 M
+(   rights.) s
+5 382 M
+(Full Copyright Statement) s
+5 360 M
+(   Copyright \(C\) The Internet Society \(2003\). All Rights Reserved.) s
+5 338 M
+(   This document and translations of it may be copied and furnished to) s
+5 327 M
+(   others, and derivative works that comment on or otherwise explain it) s
+5 316 M
+(   or assist in its implementation may be prepared, copied, published) s
+5 305 M
+(   and distributed, in whole or in part, without restriction of any) s
+5 294 M
+(   kind, provided that the above copyright notice and this paragraph are) s
+5 283 M
+(   included on all such copies and derivative works. However, this) s
+5 272 M
+(   document itself may not be modified in any way, such as by removing) s
+5 261 M
+(   the copyright notice or references to the Internet Society or other) s
+5 250 M
+(   Internet organizations, except as needed for the purpose of) s
+5 239 M
+(   developing Internet standards in which case the procedures for) s
+5 228 M
+(   copyrights defined in the Internet Standards process must be) s
+5 217 M
+(   followed, or as required to translate it into languages other than) s
+5 206 M
+(   English.) s
+5 184 M
+(   The limited permissions granted above are perpetual and will not be) s
+5 173 M
+(   revoked by the Internet Society or its successors or assignees.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 28]) s
+_R
+S
+PStoPSsaved restore
+%%Page: (28,29) 15
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 0.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+/showpage{}def/copypage{}def/erasepage{}def
+PStoPSxform concat
+%%BeginPageSetup
+_S
+75 0 translate
+/pagenum 29 def
+/fname () def
+/fdir () def
+/ftail () def
+/user_header_p false def
+%%EndPageSetup
+5 723 M
+(Internet-Draft         SSH Protocol Architecture                Oct 2003) s
+5 690 M
+(   This document and the information contained herein is provided on an) s
+5 679 M
+(   "AS IS" basis and THE INTERNET SOCIETY AND THE INTERNET ENGINEERING) s
+5 668 M
+(   TASK FORCE DISCLAIMS ALL WARRANTIES, EXPRESS OR IMPLIED, INCLUDING) s
+5 657 M
+(   BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF THE INFORMATION) s
+5 646 M
+(   HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED WARRANTIES OF) s
+5 635 M
+(   MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.) s
+5 602 M
+(Acknowledgment) s
+5 580 M
+(   Funding for the RFC Editor function is currently provided by the) s
+5 569 M
+(   Internet Society.) s
+5 129 M
+(Ylonen & Moffat          Expires March 31, 2004                [Page 29]) s
+_R
+S
+PStoPSsaved restore
+userdict/PStoPSsaved save put
+PStoPSmatrix setmatrix
+595.000000 421.271378 translate
+90 rotate
+0.706651 dup scale
+userdict/PStoPSmatrix matrix currentmatrix put
+userdict/PStoPSclip{0 0 moveto
+ 595.000000 0 rlineto 0 842.000000 rlineto -595.000000 0 rlineto
+ closepath}put initclip
+PStoPSxform concat
+showpage
+PStoPSsaved restore
+%%Trailer
+%%Pages: 29
+%%DocumentNeededResources: font Courier-Bold Courier 
+%%EOF

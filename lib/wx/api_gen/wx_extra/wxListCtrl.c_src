@@ -1,0 +1,24 @@
+<<SortItems
+case ~s: { // wxListCtrl::SortItems taylormade
+  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
+  int sortCallback=*(int *) bp; bp += 4;
+  if(!This) throw wxe_badarg(0);
+
+  callbackInfo* cb = new callbackInfo();
+  cb->port = Ecmd.port;
+  cb->callbackID = sortCallback;
+  bool Result = This->SortItems(wxEListCtrlCompare, (long)cb);
+  delete cb;
+
+  /* Destroy the callback, see wxEPrintout::clear_cb */
+  wxeReturn cbrt = wxeReturn(WXE_DRV_PORT, memenv->owner, false);
+  // NOTE: Remove this later when changing from funs to gen_server
+  cbrt.addAtom("wx_delete_cb");
+  cbrt.addInt(sortCallback);
+  cbrt.addTupleCount(2);
+  cbrt.send();
+
+  rt.addBool(Result);
+  break;
+}
+SortItems>>

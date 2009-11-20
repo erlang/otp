@@ -1,0 +1,39 @@
+          GOOD-MIB DEFINITIONS ::= BEGIN
+
+          IMPORTS
+                  mgmt
+                      FROM RFC1155-SMI
+                  OBJECT-TYPE
+                          FROM RFC-1212;
+
+ 
+          -- textual conventions
+ 
+          DisplayString ::=
+              OCTET STRING
+
+          -- This data type is used to model textual information taken
+          -- from the NVT ASCII character set.  By convention, objects
+          -- with this syntax are declared as having
+          -- the System group
+ 
+          -- Implementation of the System group is mandatory for all
+          -- systems.  If an agent is not configured to have a value
+          -- for any of these variables, a string of length 0 is
+          -- returned.
+ 
+          sysDescr OBJECT-TYPE
+              SYNTAX  DisplayString (SIZE (0..255))
+              ACCESS  read-only
+              STATUS  mandatory
+ 
+              DESCRIPTION
+                      "A textual description of the entity.  This value
+                      should include the full name and version
+                      identification of the system's hardware type,
+                      software operating-system, and networking
+                      software.  It is mandatory that this only contain
+                      printable ASCII characters."
+              ::= { mgmt 1 }
+
+          END

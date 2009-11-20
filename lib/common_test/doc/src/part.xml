@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE part SYSTEM "part.dtd">
+
+<part xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Common Test User's Guide</title>
+    <prepared>Peter Andersson</prepared>
+    <docno></docno>
+    <date>2003-10-21</date>
+    <rev></rev>
+    <file>part.xml</file>
+  </header>
+  
+  <description>
+      <p><em>Common Test</em> is a portable application for automated 
+      testing. It is suitable for black-box testing of target
+      systems of any type (i.e. not necessarily implemented in Erlang),
+      as well as for white-box testing of Erlang/OTP programs.
+      Black-box testing is performed via standard O&amp;M 
+      interfaces (such as SNMP, HTTP, Corba, Telnet, etc) and,
+      if required, via user specific interfaces (often called test 
+      ports). White-box testing of Erlang/OTP programs is easily
+      accomplished by calling the target API functions directly
+      from the test case functions. Common Test also integrates 
+      usage of the OTP cover tool for code coverage analysis of 
+      Erlang/OTP programs.</p>
+      
+      <p>Common Test executes test suite programs automatically,
+      without operator interaction. Test progress and results is
+      printed to logs on HTML format, easily browsed with a standard
+      web browser. Common Test also sends notifications about progress
+      and results via an OTP event manager to event handlers plugged
+      in to the system. This way users can integrate their own
+      programs for e.g. logging, database storing or supervision with
+      Common Test.</p>
+
+      <p>Common Test provides libraries that contain useful support 
+      functions to fill various testing needs and requirements. 
+      There is for example support for flexible test declarations 
+      by means of so called test specifications. There is also support 
+      for central configuration and control of multiple 
+      independent test sessions (towards different target systems)
+      running in parallel.</p>
+
+      <p>Common Test is implemented as a framework based on the OTP Test 
+      Server application.</p>
+  </description>
+
+  <xi:include href="basics_chapter.xml"/>
+  <xi:include href="install_chapter.xml"/>
+  <xi:include href="write_test_chapter.xml"/>
+  <xi:include href="test_structure_chapter.xml"/>
+  <xi:include href="example_chapter.xml"/>
+  <xi:include href="run_test_chapter.xml"/>
+  <xi:include href="config_file_chapter.xml"/>
+  <xi:include href="cover_chapter.xml"/>
+  <xi:include href="ct_master_chapter.xml"/>
+  <xi:include href="event_handler_chapter.xml"/>
+  <xi:include href="dependencies_chapter.xml"/>
+  <xi:include href="why_test_chapter.xml"/>
+</part>
+          
+
+
+

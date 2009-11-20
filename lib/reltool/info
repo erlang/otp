@@ -1,0 +1,7 @@
+group: tools
+short: Reltool is a release management tool. It analyses a given
+short: Erlang/OTP installation and determines various dependencies
+short: between applications. The graphical frontend depicts the
+short: dependencies and enables interactive customization of a
+short: target system. The backend provides a batch interface
+short: for generation of customized target systems.

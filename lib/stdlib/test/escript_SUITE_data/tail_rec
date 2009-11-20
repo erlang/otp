@@ -1,0 +1,25 @@
+#!/usr/bin/env escript
+%% -*- erlang -*-
+-mode(interpret).
+
+tail_rec(PrevSize, N) ->
+    {_, Size} = process_info(self(), stack_size),
+    if
+	N =< 0 ->
+	    ok;
+	PrevSize =:= undefined ->
+	    tail_rec(Size, N - 1);
+	PrevSize =:= Size ->
+	    tail_rec(Size, N - 1);
+	true ->
+	    io:format("Not tail recursive (~p): Stack size ~p should be ~p\n",
+		      [N, Size, PrevSize]),
+	    tail_rec(Size, N - 1)
+    end.
+
+main([Repetitions]) ->
+    tail_rec(undefined, list_to_integer(Repetitions)),
+    io:format("ok\n", []);
+main(_) ->
+    io:format("Usage: ~s Repetitions\n", [escript:script_name()]),
+    init:stop(1).

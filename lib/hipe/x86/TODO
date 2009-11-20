@@ -1,0 +1,31 @@
+rtl_to_x86:
+* recognise alub(X,X,sub,1,lt,L1,L2,P) and turn it into 'dec',
+  this might improve the reduction test code slightly (X is
+  the pseudo for FCALLS)
+* recognise alu(Z,X,add,Y) and turn it into 'lea'.
+* rewrite tailcalls as parallel assignments before regalloc
+
+x86:
+* Use separate constructors for real regs (x86_reg) and pseudos (x86_temp).
+
+Frame:
+* drop tailcall rewrite
+
+Registers:
+* make the 2 regs now reserved for frame's tailcall rewrite available for arg passing
+
+Optimizations:
+* replace jcc cc,L1; jmp L0; L1: with jcc <not cc> L0; L1: (length:len/2)
+* Kill move X,X insns, either in frame or finalise
+* Instruction scheduling module
+* We can now choose to not have HP in %esi. However, this currently loses
+  performance due to (a) repeated moves to/from P_HP(P), and (b) spills of
+  the temp that contains a copy of P_HP(P). Both of these problems should be
+  fixed, and then, if we don't have any noticeable performance degradation, we
+  should permanently change to a non-reserved HP strategy.
+
+Loader:
+
+Assembler:
+
+Encode:

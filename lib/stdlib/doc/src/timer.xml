@@ -1,0 +1,300 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>timer</title>
+    <prepared>Sebastian Strollo</prepared>
+    <responsible>Bjarne D&auml;cker</responsible>
+    <docno>1</docno>
+    <approved>Bjarne D&auml;cker</approved>
+    <checked></checked>
+    <date>1998-09-09</date>
+    <rev>D</rev>
+    <file>timer.sgml</file>
+  </header>
+  <module>timer</module>
+  <modulesummary>Timer Functions</modulesummary>
+  <description>
+    <p>This module provides useful functions related to time. Unless otherwise
+      stated, time is always measured in <c>milliseconds</c>.  All
+      timer functions return immediately, regardless of work carried
+      out by another process. 
+      </p>
+    <p>Successful evaluations of the timer functions yield return values
+      containing a timer reference, denoted <c>TRef</c> below. By using 
+      <c>cancel/1</c>, the returned reference can be used to cancel any
+      requested action. A <c>TRef</c> is an Erlang term, the contents
+      of which must not be altered.
+      </p>
+    <p>The timeouts are not exact, but should be <c>at least</c> as long
+      as requested.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>start() -> ok</name>
+      <fsummary>Start a global timer server (named <c>timer_server</c>).</fsummary>
+      <desc>
+        <p>Starts the timer server. Normally, the server does not need
+          to be started explicitly. It is started dynamically if it
+          is needed. This is useful during development, but in a
+          target system the server should be started explicitly.  Use
+          configuration parameters for <c>kernel</c> for this.</p>
+      </desc>
+    </func>
+    <func>
+      <name>apply_after(Time, Module, Function, Arguments) -> {ok, Tref} |  {error, Reason}</name>
+      <fsummary>Apply <c>Module:Function(Arguments)</c>after a  specified <c>Time</c>.</fsummary>
+      <type>
+        <v>Time = integer() in Milliseconds</v>
+        <v>Module = Function = atom()</v>
+        <v>Arguments = [term()]</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(M, F, A)</c> after <c>Time</c> amount of time
+          has elapsed. Returns <c>{ok, TRef}</c>, or <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>send_after(Time, Pid, Message) -> {ok, TRef} | {error,Reason}</name>
+      <name>send_after(Time, Message) -> {ok, TRef} | {error,Reason}</name>
+      <fsummary>Send <c>Message</c>to <c>Pid</c>after a specified <c>Time</c>.</fsummary>
+      <type>
+        <v>Time = integer() in Milliseconds</v>
+        <v>Pid = pid() | atom()</v>
+        <v>Message = term()</v>
+        <v>Result = {ok, TRef} | {error, Reason}</v>
+      </type>
+      <desc>
+        <p></p>
+        <taglist>
+          <tag><c>send_after/3</c></tag>
+          <item>
+            <p>Evaluates <c>Pid ! Message</c> after <c>Time</c> amount
+              of time has elapsed. (<c>Pid</c> can also be an atom of a 
+              registered name.) Returns <c>{ok, TRef}</c>, or 
+              <c>{error, Reason}</c>.</p>
+          </item>
+          <tag><c>send_after/2</c></tag>
+          <item>
+            <p>Same as <c>send_after(Time, self(), Message)</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>exit_after(Time, Pid, Reason1) -> {ok, TRef} | {error,Reason2}</name>
+      <name>exit_after(Time, Reason1) -> {ok, TRef} | {error,Reason2}</name>
+      <name>kill_after(Time, Pid)-> {ok, TRef} | {error,Reason2}</name>
+      <name>kill_after(Time) -> {ok, TRef} | {error,Reason2}</name>
+      <fsummary>Send an exit signal with <c>Reason</c>after a specified <c>Time</c>.</fsummary>
+      <type>
+        <v>Time = integer() in milliseconds</v>
+        <v>Pid = pid() | atom()</v>
+        <v>Reason1 = Reason2  = term()</v>
+      </type>
+      <desc>
+        <p></p>
+        <taglist>
+          <tag><c>exit_after/3</c></tag>
+          <item>
+            <p>Send an exit signal with reason <c>Reason1</c> to Pid 
+              <c>Pid</c>. Returns <c>{ok, TRef}</c>, or 
+              <c>{error, Reason2}</c>.</p>
+          </item>
+          <tag><c>exit_after/2</c></tag>
+          <item>
+            <p>Same as <c>exit_after(Time, self(), Reason1)</c>.     </p>
+          </item>
+          <tag><c>kill_after/2</c></tag>
+          <item>
+            <p>Same as <c>exit_after(Time, Pid, kill)</c>.     </p>
+          </item>
+          <tag><c>kill_after/1</c></tag>
+          <item>
+            <p>Same as <c>exit_after(Time, self(), kill)</c>.     </p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>apply_interval(Time, Module, Function, Arguments) -> {ok, TRef} | {error, Reason}</name>
+      <fsummary>Evaluate <c>Module:Function(Arguments)</c>repeatedly at  intervals of <c>Time</c>.</fsummary>
+      <type>
+        <v>Time = integer() in milliseconds</v>
+        <v>Module = Function = atom()</v>
+        <v>Arguments = [term()]</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Arguments)</c> repeatedly at
+          intervals of  <c>Time</c>. Returns <c>{ok, TRef}</c>, or 
+          <c>{error, Reason}</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>send_interval(Time, Pid, Message) -> {ok, TRef} | {error, Reason}</name>
+      <name>send_interval(Time, Message) -> {ok, TRef} | {error, Reason}</name>
+      <fsummary>Send <c>Message</c>repeatedly at intervals of <c>Time</c>.</fsummary>
+      <type>
+        <v>Time = integer() in milliseconds</v>
+        <v>Pid = pid() | atom()</v>
+        <v>Message = term()</v>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p></p>
+        <taglist>
+          <tag><c>send_interval/3</c></tag>
+          <item>
+            <p>Evaluates <c>Pid ! Message</c> repeatedly after <c>Time</c>
+              amount of time has elapsed. (<c>Pid</c> can also be an atom of
+              a registered name.) Returns <c>{ok, TRef}</c> or 
+              <c>{error, Reason}</c>.</p>
+          </item>
+          <tag><c>send_interval/2</c></tag>
+          <item>
+            <p>Same as <c>send_interval(Time, self(), Message)</c>.</p>
+          </item>
+        </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>cancel(TRef) -> {ok, cancel} | {error, Reason}</name>
+      <fsummary>Cancel a previously requested timeout identified by <c>TRef</c>.</fsummary>
+      <desc>
+        <p>Cancels a previously requested timeout. <c>TRef</c> is a unique 
+          timer reference returned by the timer function in question. Returns
+          <c>{ok, cancel}</c>, or <c>{error, Reason}</c> when <c>TRef</c>
+          is not a timer reference.</p>
+      </desc>
+    </func>
+    <func>
+      <name>sleep(Time) -> ok</name>
+      <fsummary>Suspend the calling process for <c>Time</c>amount of milliseconds.</fsummary>
+      <type>
+        <v>Time = integer() in milliseconds or the atom infinity</v>
+      </type>
+      <desc>
+        <p>Suspends the process calling this function for <c>Time</c> amount
+          of milliseconds and then returns <c>ok</c>, or suspend the process
+	  forever if <c>Time</c> is the atom <c>infinity</c>. Naturally, this 
+          function does <em>not</em> return immediately.</p>
+      </desc>
+    </func>
+    <func>
+      <name>tc(Module, Function, Arguments) -> {Time, Value}</name>
+      <fsummary>Measure the real time it takes to evaluate <c>apply(Module, Function, Arguments)</c></fsummary>
+      <type>
+        <v>Module = Function = atom()</v>
+        <v>Arguments = [term()]</v>
+        <v>Time = integer() in microseconds</v>
+        <v>Value = term()</v>
+      </type>
+      <desc>
+        <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
+          the elapsed real time. Returns <c>{Time, Value}</c>, where 
+          <c>Time</c> is the elapsed real time in <em>microseconds</em>,
+          and <c>Value</c> is what is returned from the apply.</p>
+      </desc>
+    </func>
+    <func>
+      <name>now_diff(T2, T1) -> Tdiff</name>
+      <fsummary>Calculate time difference between <c>now/0</c>timestamps</fsummary>
+      <type>
+        <v>T1 = T2 = {MegaSecs, Secs, MicroSecs}</v>
+        <v>Tdiff = MegaSecs = Secs = MicroSecs = integer()</v>
+      </type>
+      <desc>
+        <p>Calculates the time difference <c>Tdiff = T2 - T1</c> in
+          <em>microseconds</em>, where <c>T1</c> and <c>T2</c> probably
+          are timestamp tuples returned from <c>erlang:now/0</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>seconds(Seconds) -> Milliseconds</name>
+      <fsummary>Convert <c>Seconds</c>to <c>Milliseconds</c>.</fsummary>
+      <desc>
+        <p>Returns the number of milliseconds in <c>Seconds</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>minutes(Minutes) -> Milliseconds</name>
+      <fsummary>Converts <c>Minutes</c>to <c>Milliseconds</c>.</fsummary>
+      <desc>
+        <p>Return the number of milliseconds in <c>Minutes</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hours(Hours) -> Milliseconds</name>
+      <fsummary>Convert <c>Hours</c>to <c>Milliseconds</c>.</fsummary>
+      <desc>
+        <p>Returns the number of milliseconds in <c>Hours</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>hms(Hours, Minutes, Seconds) -> Milliseconds</name>
+      <fsummary>Convert <c>Hours</c>+<c>Minutes</c>+<c>Seconds</c>to <c>Milliseconds</c>.</fsummary>
+      <desc>
+        <p>Returns the number of milliseconds in <c>Hours + Minutes + Seconds</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <title>Examples</title>
+    <p>This example illustrates  how to print out "Hello World!" in 5 seconds:</p>
+    <p></p>
+    <pre>
+      1> <input>timer:apply_after(5000, io, format, ["~nHello World!~n", []]).</input>
+      {ok,TRef}
+      Hello World!</pre>
+    <p>The following coding example illustrates a process which performs a 
+      certain action and if this action is not completed within a certain 
+      limit, then the process is killed.</p>
+    <code type="none">
+      Pid = spawn(mod, fun, [foo, bar]),
+      %% If pid is not finished in 10 seconds, kill him
+      {ok, R} = timer:kill_after(timer:seconds(10), Pid),
+      ...
+      %% We change our mind...
+      timer:cancel(R),
+      ...</code>
+  </section>
+
+  <section>
+    <title>WARNING</title>
+    <p>A timer can always be removed by calling <c>cancel/1</c>.
+      </p>
+    <p>An interval timer, i.e. a timer created by evaluating any of the 
+      functions <c>apply_interval/4</c>, <c>send_interval/3</c>, and 
+      <c>send_interval/2</c>, is linked to the process towards which
+      the timer performs its task.
+      </p>
+    <p>A one-shot timer, i.e. a timer created by evaluating any of the
+      functions <c>apply_after/4</c>, <c>send_after/3</c>, 
+      <c>send_after/2</c>, <c>exit_after/3</c>, <c>exit_after/2</c>, 
+      <c>kill_after/2</c>, and <c>kill_after/1</c> is not linked to any
+      process. Hence, such a timer is removed only when it reaches its 
+      timeout, or if it is explicitly removed by a call to <c>cancel/1</c>.</p>
+  </section>
+</erlref>
+

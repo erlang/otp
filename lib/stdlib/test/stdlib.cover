@@ -1,0 +1,10 @@
+%% -*- erlang -*-
+{exclude,
+	[erl_parse,
+         ets,
+	 filename,
+	 gen_event,
+	 gen_server,
+	 gen,
+	 lists,
+	 proc_lib]}.

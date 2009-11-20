@@ -1,0 +1,69 @@
+This is a short description on the use of the java demo,
+a client that initiates and uses a random number generator
+that lies on a java-server. You will be able to shift the 
+existing client/server with the ones refered to the other
+examples.
+
+Instructions.
+
+1) Start erlang 
+ 
+    On the erlang shell type :
+    --------------------------
+
+    ic:gen(random,[{be,java}]).     ( generates the java code )
+
+
+2) Modify the "SNode" string on file "server.java" to the server
+   node name thet suites for your machine.
+
+
+3) Modify the "SNode" string on file "client.java" to the client 
+   node for your machine and the "PNode" string for the server
+   node ( = the same as the SNode for the "server.java" file ).
+
+
+4) Set and export the CLASSPATH variable to point to the
+   java classes located in java development kit, the
+   Otp's classes and the current directory.
+   Your classpath should look like this :
+
+   .:<OTPROOT>/lib/ic-4.0/priv/ic.jar:<OTPROOT>/lib/jinterface_1.1/priv/OtpErlang.jar
+
+   where :
+
+    <OTPROOT> is the location there OTP is installed
+
+
+5) Start the empd deamon by using the command :
+   
+    epmd -daemon
+
+
+6) Compile the generated java code :
+
+    javac rmod/*.java                   ( compiles all generated java code )
+
+    javac *.java                        ( compiles all manually writen java code )
+
+
+7)  Start the java on an terminal window :
+
+    java server                         ( starts the java-server )
+
+
+8)  Start the client on an terminal window :
+
+    java client                         ( calls the server )
+
+
+	
+
+
+
+   
+
+
+
+
+   

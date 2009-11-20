@@ -1,0 +1,302 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2003</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Releases</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>release_structure.xml</file>
+  </header>
+  <p>This chapter should be read in conjuction with <c>rel(4)</c>,
+    <c>systools(3)</c> and <c>script(4)</c>.</p>
+
+  <section>
+    <title>Release Concept</title>
+    <p>When we have written one or more applications, we might want to
+      create a complete system consisting of these applications and a
+      subset of the Erlang/OTP applications. This is called a
+      <em>release</em>.</p>
+    <p>To do this, we create a <seealso marker="#res_file">release resource file</seealso> which defines which applications
+      are included in the release.</p>
+    <p>The release resource file is used to generate
+      <seealso marker="#boot">boot scripts</seealso> and
+      <seealso marker="#pack">release packages</seealso>. A system
+      which is transfered to and installed at another site is called a
+      <em>target system</em>. How to use a release package to create a
+      target system is described in System Principles.</p>
+  </section>
+
+  <section>
+    <marker id="res_file"></marker>
+    <title>Release Resource File</title>
+    <p>To define a release, we create a <em>release resource file</em>,
+      or in short <c>.rel</c> file, where we specify the name and
+      version of the release, which ERTS version it is based on, and
+      which applications it consists of:</p>
+    <code type="none">
+{release, {Name,Vsn}, {erts, EVsn},
+ [{Application1, AppVsn1},
+   ...
+  {ApplicationN, AppVsnN}]}.</code>
+    <p>The file must be named <c>Rel.rel</c>, where <c>Rel</c> is a
+      unique name.</p>
+    <p><c>Name</c>, <c>Vsn</c> and <c>Evsn</c> are strings.</p>
+    <p>Each <c>Application</c> (atom) and <c>AppVsn</c> (string) is
+      the name and version of an application included in the release.
+      Note the the minimal release based on Erlang/OTP consists of
+      the <c>kernel</c> and <c>stdlib</c> applications, so these
+      applications must be included in the list.</p>
+    <marker id="ch_rel"></marker>
+    <p>Example: We want to make a release of <c>ch_app</c> from
+      the <seealso marker="applications#ch_app">Applications</seealso>
+      chapter. It has the following <c>.app</c> file:</p>
+    <code type="none">
+{application, ch_app,
+ [{description, "Channel allocator"},
+  {vsn, "1"},
+  {modules, [ch_app, ch_sup, ch3]},
+  {registered, [ch3]},
+  {applications, [kernel, stdlib, sasl]},
+  {mod, {ch_app,[]}}
+ ]}.</code>
+    <p>The <c>.rel</c> file must also contain <c>kernel</c>,
+      <c>stdlib</c> and <c>sasl</c>, since these applications are
+      required by <c>ch_app</c>. We call the file <c>ch_rel-1.rel</c>:</p>
+    <code type="none">
+{release,
+ {"ch_rel", "A"},
+ {erts, "5.3"},
+ [{kernel, "2.9"},
+  {stdlib, "1.12"},
+  {sasl, "1.10"},
+  {ch_app, "1"}]
+}.</code>
+  </section>
+
+  <section>
+    <marker id="boot"></marker>
+    <title>Generating Boot Scripts</title>
+    <p>There are tools in the SASL module <c>systools</c> available to
+      build and check releases. The functions read the <c>.rel</c> and
+      <c>.app</c> files and performs syntax and dependency checks.
+      The function <c>systools:make_script/1,2</c> is used to generate
+      a boot script (see System Principles).</p>
+    <pre>
+1> <input>systools:make_script("ch_rel-1", [local]).</input>
+ok</pre>
+    <p>This creates a boot script, both the readable version
+      <c>ch_rel-1.script</c> and the binary version used by the runtime
+      system, <c>ch_rel-1.boot</c>. <c>"ch_rel-1"</c> is the name of
+      the <c>.rel</c> file, minus the extension. <c>local</c> is an
+      option that means that the directories where the applications are
+      found are used in the boot script, instead of <c>$ROOT/lib</c>.
+      (<c>$ROOT</c> is the root directory of the installed release.)
+      This is a useful way to test a generated boot script locally.</p>
+    <p>When starting Erlang/OTP using the boot script, all applications
+      from the <c>.rel</c> file are automatically loaded and started:</p>
+    <pre>
+% <input>erl -boot ch_rel-1</input>
+Erlang (BEAM) emulator version 5.3
+
+Eshell V5.3  (abort with ^G)
+1> 
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+          supervisor: {local,sasl_safe_sup}
+             started: [{pid,&lt;0.33.0>},
+                       {name,alarm_handler},
+                       {mfa,{alarm_handler,start_link,[]}},
+                       {restart_type,permanent},
+                       {shutdown,2000},
+                       {child_type,worker}]
+
+...
+
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+         application: sasl
+          started_at: nonode@nohost
+
+...
+=PROGRESS REPORT==== 13-Jun-2003::12:01:15 ===
+         application: ch_app
+          started_at: nonode@nohost</pre>
+  </section>
+
+  <section>
+    <marker id="pack"></marker>
+    <title>Creating a Release Package</title>
+    <p>There is a function <c>systools:make_tar/1,2</c> which takes
+      a <c>.rel</c> file as input and creates a zipped tar-file with
+      the code for the specified applications, a <em>release package</em>.</p>
+    <pre>
+1> <input>systools:make_script("ch_rel-1").</input>
+ok
+2> <input>systools:make_tar("ch_rel-1").</input>
+ok</pre>
+    <p>The release package by default contains the <c>.app</c> files and
+      object code for all applications, structured according to
+      the <seealso marker="applications#app_dir">application directory structure</seealso>, the binary boot script renamed to
+      <c>start.boot</c>, and the <c>.rel</c> file.</p>
+    <pre>
+% <input>tar tf ch_rel-1.tar</input>
+lib/kernel-2.9/ebin/kernel.app
+lib/kernel-2.9/ebin/application.beam
+...
+lib/stdlib-1.12/ebin/stdlib.app
+lib/stdlib-1.12/ebin/beam_lib.beam
+...
+lib/sasl-1.10/ebin/sasl.app
+lib/sasl-1.10/ebin/sasl.beam
+...
+lib/ch_app-1/ebin/ch_app.app
+lib/ch_app-1/ebin/ch_app.beam
+lib/ch_app-1/ebin/ch_sup.beam
+lib/ch_app-1/ebin/ch3.beam
+releases/A/start.boot
+releases/ch_rel-1.rel</pre>
+    <p>Note that a new boot script was generated, without
+      the <c>local</c> option set, before the release package was made.
+      In the release package, all application directories are placed
+      under <c>lib</c>. Also, we do not know where the release package
+      will be installed, so we do not want any hardcoded absolute paths
+      in the boot script here.</p>
+    <p>If a <c>relup</c> file and/or a system configuration file called
+      <c>sys.config</c> is found, these files are included in
+      the release package as well. See
+      <seealso marker="release_handling#req">Release Handling</seealso>.</p>
+    <p>Options can be set to make the release package include source
+      code and the ERTS binary as well.</p>
+    <p>Refer to System Principles for how to install the first target
+      system, using a release package, and to
+      <seealso marker="release_handling">Release Handling</seealso> for
+      how to install a new release package in an existing system.</p>
+  </section>
+
+  <section>
+    <marker id="reldir"></marker>
+    <title>Directory Structure</title>
+    <p>Directory structure for the code installed by the release handler
+      from a release package:</p>
+    <code type="none">
+$ROOT/lib/App1-AVsn1/ebin
+                    /priv
+         /App2-AVsn2/ebin
+                    /priv
+         ...
+         /AppN-AVsnN/ebin
+                    /priv
+     /erts-EVsn/bin
+     /releases/Vsn
+     /bin</code>
+    <taglist>
+      <tag><c>lib</c></tag>
+      <item>Application directories.</item>
+      <tag><c>erts-EVsn/bin</c></tag>
+      <item>Erlang runtime system executables.</item>
+      <tag><c>releases/Vsn</c></tag>
+      <item><c>.rel</c> file and boot script <c>start.boot</c>.      <br></br>
+
+       If present in the release package,      <br></br>
+<c>relup</c> and/or <c>sys.config</c>.</item>
+      <tag><c>bin</c></tag>
+      <item>Top level Erlang runtime system executables.</item>
+    </taglist>
+    <p>Applications are not required to be located under the
+      <c>$ROOT/lib</c> directory. Accordingly, several installation
+      directories may exist which contain different parts of a
+      system. For example, the previous example could be extended as
+      follows:</p>
+    <pre>
+$SECOND_ROOT/.../SApp1-SAVsn1/ebin
+                             /priv
+                /SApp2-SAVsn2/ebin
+                             /priv
+                ...
+                /SAppN-SAVsnN/ebin
+                             /priv
+
+$THIRD_ROOT/TApp1-TAVsn1/ebin
+                        /priv
+           /TApp2-TAVsn2/ebin
+                        /priv
+           ...
+           /TAppN-TAVsnN/ebin
+                        /priv</pre>
+    <p>The <c>$SECOND_ROOT</c> and <c>$THIRD_ROOT</c> are introduced as
+      <c>variables</c> in the call to the <c>systools:make_script/2</c>
+      function.</p>
+
+    <section>
+      <title>Disk-Less and/or Read-Only Clients</title>
+      <p>If a complete system consists of some disk-less and/or
+        read-only client nodes, a <c>clients</c> directory should be
+        added to the <c>$ROOT</c> directory. By a read-only node we
+        mean a node with a read-only file system.</p>
+      <p>The <c>clients</c> directory should have one sub-directory
+        per supported client node. The name of each client directory
+        should be the name of the corresponding client node. As a
+        minimum, each client directory should contain the <c>bin</c> and
+        <c>releases</c> sub-directories. These directories are used to
+        store information about installed releases and to appoint the
+        current release to the client. Accordingly, the <c>$ROOT</c>
+        directory contains the following:</p>
+      <code type="none">
+$ROOT/...
+    /clients/ClientName1/bin
+                        /releases/Vsn
+            /ClientName2/bin
+                        /releases/Vsn
+            ...
+            /ClientNameN/bin
+                        /releases/Vsn</code>
+      <p>This structure should be used if all clients are running
+        the same type of Erlang machine. If there are clients running
+        different types of Erlang machines, or on different operating
+        systems, the <c>clients</c> directory could be divided into one
+        sub-directory per type of Erlang machine. Alternatively, you
+        can set up one <c>$ROOT</c> per type of machine. For each
+        type, some of the directories specified for the <c>$ROOT</c>
+        directory should be included:</p>
+      <code type="none">
+$ROOT/...
+    /clients/Type1/lib
+                  /erts-EVsn
+                  /bin
+                  /ClientName1/bin
+                              /releases/Vsn
+                  /ClientName2/bin
+                              /releases/Vsn
+                  ...
+                  /ClientNameN/bin
+                              /releases/Vsn
+            ...
+            /TypeN/lib
+                  /erts-EVsn
+                  /bin
+                  ...</code>
+      <p>With this structure, the root directory for clients of
+        <c>Type1</c> is <c>$ROOT/clients/Type1</c>.</p>
+    </section>
+  </section>
+</chapter>
+

@@ -1,0 +1,14 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+all: control_drv@dll@ port_test@exe@
+
+port_test@exe@: port_test@obj@
+	$(LD) $(CROSSLDFLAGS) -o port_test port_test@obj@ @LIBS@
+
+port_test@obj@: port_test.c
+	$(CC) -c -o port_test@obj@ $(CFLAGS) port_test.c
+
+@SHLIB_RULES@

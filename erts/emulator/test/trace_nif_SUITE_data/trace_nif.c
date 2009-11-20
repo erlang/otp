@@ -1,0 +1,46 @@
+#include "erl_nif.h"
+
+
+static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static int reload(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static int upgrade(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)
+{
+    return 0;
+}
+
+static void unload(ErlNifEnv* env, void* priv_data)
+{
+}
+
+static ERL_NIF_TERM nif_0(ErlNifEnv* env)
+{
+    return enif_make_tuple(env,2,
+		    enif_make_atom(env,"ok"),
+		    enif_make_list(env,0));
+}
+
+static ERL_NIF_TERM nif_1(ErlNifEnv* env, ERL_NIF_TERM a1)
+{
+    return enif_make_tuple(env,2,
+		    enif_make_atom(env,"ok"),
+		    enif_make_list(env,1,a1));
+}
+
+
+
+static ErlNifFunc nif_funcs[] =
+{
+    {"nif", 0, nif_0},
+    {"nif", 1, nif_1}
+};
+
+ERL_NIF_INIT(trace_nif_SUITE,nif_funcs,load,reload,upgrade,unload)
+

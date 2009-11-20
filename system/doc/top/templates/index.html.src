@@ -1,0 +1,180 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<!--
+%CopyrightBegin%
+
+Copyright Ericsson AB 2001-2009. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
+-->
+
+<html>
+<head>
+  <link rel="stylesheet" href="otp_doc.css" type="text/css"/>
+  <title>Erlang/OTP #release#</title>
+
+<script id="js" type="text/javascript" language="JavaScript" src="js/flipmenu/flipmenu.js">
+
+</script>
+</head> 
+
+<body bgcolor=white text="#000000" link="#0000ff" vlink="#ff00ff"
+      alink="#ff0000">
+
+<div id="container">
+<div id="leftnav">
+<div class="innertube">
+<img alt="Erlang logo" src="erlang-logo.png"/ >
+<!-- small><a href="glossary.html">Glossary</a> |-->
+<small><a href="applications.html">Applications</a><br>
+<a href="man_index.html">Modules</a></small>
+<p/>
+<small><a href="highlights.html">Release highlights</a><br>
+<a href="incompatible.html">Potential incompatibilities</a><br>
+</small>
+<br>
+<a href="javascript:openAllFlips()">Expand All</a><br>
+<a href="javascript:closeAllFlips()">Contract All</a>
+<p/>
+
+<ul class="flipMenu">
+<li>Erlang/OTP System Documentation
+<ul>
+<li><a href="installation_guide/users_guide.html">Installation Guide</a></li>
+<li><a href="system_principles/users_guide.html">System Principles</a></li>
+<li><a href="embedded/users_guide.html">Embedded System</a></li>
+<li><a href="getting_started/users_guide.html">Getting Started</a></li>
+<li><a href="reference_manual/users_guide.html">Erlang Reference Manual</a></li>
+<li><a href="programming_examples/users_guide.html">Programming Examples</a></li>
+<li><a href="efficiency_guide/users_guide.html">Efficiency Guide</a></li>
+<li><a href="tutorial/users_guide.html">Interoperability Tutorial</a></li>
+<li><a href="design_principles/users_guide.html">Design Principles</a></li>
+<li><a href="oam/users_guide.html">OAM Principles</a></li>
+</ul>
+</li>
+
+#applinks#
+</ul>
+
+</div>
+</div>
+
+
+<div id="content">
+<div class="innertube">
+<center>
+<font size="+1"><b>Erlang/OTP #release#</b></font><br>
+</center>
+<center>
+<p>
+<font size="+1">Welcome to Erlang/OTP, a complete<br>
+development environment<br>
+for concurrent programming.</font>
+</p>
+</center>
+<br>
+<br>
+<br>
+<p><b>
+<font size="+1">
+Some hints that may get you started faster
+</font>
+</b></p>
+
+<ul>
+
+<li>
+The complete Erlang language is described in the 
+<a href="reference_manual/users_guide.html">Erlang Reference Manual</a>. 
+An Erlang tutorial can be found in 
+<a href="getting_started/users_guide.html">
+Getting Started With Erlang</a>.
+<p>
+In addition to the documentation here Erlang is described in several recent books like:
+</p>
+<ul>
+<li>
+<a href="http://oreilly.com/catalog/9780596518189">"Erlang Programming"</a> from O'Reilly.
+</li>
+<li>
+<a href="http://www.pragprog.com/titles/jaerlang">"Programming Erlang"</a> from Pragmatic.
+</li>
+</ul>
+<p>
+These books are highly recommended as a start for learning Erlang. 
+</p>
+</li>
+<li>Erlang/OTP is divided into a number of OTP <a
+href="applications.html">applications</a>. An application normally contains
+Erlang <a href="man_index.html">modules</a>. Some OTP applications,
+such as the C interface <em>erl_interface</em>, are written in other languages and have no Erlang
+modules.
+
+<p>
+<li>On a Unix system you can view the manual pages from the command
+line using
+<pre>
+    % erl -man &lt;module&gt;
+</pre>
+<p>
+
+<li> You can of course use any editor you like to write Erlang
+programs, but if you use Emacs there exists editing support such as
+indentation, syntax highlighting, electric commands, module name
+verification, comment support including paragraph filling, skeletons,
+tags support and more. See the <a href="#tools#/index.html">
+Tools</a> application for details.  
+<p>
+There is also an 
+<a href="http://erlide.sourceforge.net">
+Erlang plugin (ErlIDE) for Eclipse</a> if you prefer a more graphical 
+environment. ErlIDE is under active development with new features in almost every release.
+<li>When developing with Erlang/OTP you usually test your programs
+from the interactive shell (see <a href="getting_started/users_guide.html">
+Getting Started With Erlang</a>) where you can call individual
+functions. There is also a number of tools available, such as the graphical <a
+href="#debugger#/index.html" >Debugger</a>, the process
+manager <a href="#pman#/index.html" >Pman</a> and table
+viewer <a href="#tv#/index.html">TV</a>.
+<p> Also note that there are some shell features like history list
+(control-p and control-n), in line editing (Emacs key bindings) and
+module and function name completion (tab) if the module is loaded.
+<p>
+
+<li>OpenSource users can ask questions
+and share experiences on the <a href="http://www.erlang.org/faq.html">
+Erlang questions mailing list</a>.  <p>
+
+<li>Before asking a question you can browse the <a
+href="http://www.erlang.org/pipermail/erlang-questions/">
+mailing list archive</a> and read the <a
+href="http://www.erlang.org/faq/faq.html" >Frequently
+Asked Questions</a>.  <p>
+
+<li>Additional information and links of interest for Erlang programmers can be found on the Erlang Open Source site 
+<a href="http://www.erlang.org/">http://www.erlang.org</a>.
+<p>
+
+</ul>
+
+<center>
+<small>
+Copyright &copy; 1999-2009
+<a href="http://www.ericsson.com">Ericsson AB</a>
+</small>
+</center>
+</div>
+</div>
+</div>
+</body>
+</html>

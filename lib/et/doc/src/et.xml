@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>et</title>
+    <prepared>H&aring;kan Mattsson</prepared>
+    <responsible>H&aring;kan Mattsson</responsible>
+    <docno></docno>
+    <approved>H&aring;kan Mattsson</approved>
+    <checked></checked>
+    <date></date>
+    <rev>%VSN%</rev>
+  </header>
+  <module>et</module>
+  <modulesummary>Main API of the Event Trace (ET) application</modulesummary>
+  <description>
+    <p>Interface module for the Event Trace (ET) application</p>
+  </description>
+  <funcs>
+    <func>
+      <name>report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name>report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <name>phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name>phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>Reports an event, such as a message</fsummary>
+      <type>
+        <v>DetailLevel = integer(X) when X =&lt; 0, X >= 100</v>
+        <v>From        = actor()</v>
+        <v>To          = actor()</v>
+        <v>FromTo      = actor()</v>
+        <v>Label       = atom() | string() | term()</v>
+        <v>Contents    = [{Key, Value}] | term()</v>
+        <v>actor()  = term()</v>
+      </type>
+      <desc>
+        <p>Reports an event, such as a message.</p>
+        <p>These functions are intended to be invoked at strategic places
+          in user applications in order to enable simplified tracing.
+          The functions are extremely light weight as they do nothing
+          besides returning an atom. These functions are designed for
+          being traced. The global tracing mechanism in et_collector
+          defaults to set its trace pattern to these functions.</p>
+        <p>The label is intended to provide a brief summary of the event.
+          A simple tag would do.</p>
+        <p>The contents can be any term but in order to simplify
+          post processing of the traced events, a plain list
+          of {Key, Value} tuples is preferred.</p>
+        <p>Some events, such as messages, are directed from some actor to another.
+          Other events (termed actions) may be undirected and only have one actor.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+
+

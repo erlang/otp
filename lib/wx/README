@@ -1,0 +1,77 @@
+
+REQUIREMENTS:
+	At least Erlang-R13B with smp enabled. It Requires unicode support.
+
+        Linux, Mac, Solaris-10 or Windows.
+	
+	On linux you will need wxWidgets-2.8 compiled with everything
+	enabled, including unicode and opengl support.
+
+	And I have given up on Solaris-8|9, wxWidgets on my old gtk version
+	doesn't run well, 7 of 10 wxWidgets examples seg fault.
+	Some early tests show that Solaris 10 works, though.
+
+INSTALLING:
+	The prebuilt (windows and mac) version can be installed by invoking:
+	install.es
+	or
+	/PATH/TO/ERL/bin/escript install.es
+	
+BUILDING:
+	You will need wxWidgets-2.8.* 
+
+        On mac I built wxwidgets with:
+
+        mkdir MYBUILD; cd MYBUILD
+	../configure --with-opengl --enable-unicode --enable-graphics_ctx \ 
+                --enable-gnomeprint \    On unix only
+                --disable-shared
+	make && make install
+        cd contrib/src/stc/
+	make && make install
+
+	On linux I have used the wxwidgets-libraries that came with
+	the distribution. It requires wxStyledTextControl which was 
+	prebuilt on my linux, otherwise you have to build wxWidgets
+	by your self as on the mac above.
+
+	On windows I used MinGW and Msys, I build wxwidgets with:
+
+	mkdir MYBUILD; cd MYBUILD
+	../configure --prefix=/c/local/ --with-opengl  --enable-graphics_ctx \ 
+                     --enable-unicode --disable-shared --with-msw
+	make && make install	
+        cd contrib/src/stc/
+	make && make install
+
+        You should also build wxerlang with msys and mingw since 
+	I havn't tested on cygwin at all.
+        You need to use werl on windows, erl (non-gui) hangs wxwidgets startup.
+
+	make 
+	 should work if erl, gcc and g++ and wx-config is found in path.
+
+
+HELPING:
+	See TODO list.
+	Use it, i.e. write code which tests the library, submit tests.
+	See api_gen/Readme for improving the code generation.
+        My C++ knowledge isn't the best, send patches and explain why
+	so I can learn something.
+
+STATUS: 
+	Testing I havn't done more testing than the code in test directory.
+	So please help by testing and writing test suites.
+	Most classes needs some argument tweaking (in wxapi.conf) to
+	work as expected, but I havn't read all the documentation and
+	gone through every argument on every function.
+
+	See (and run) the demo in the examples directory.
+
+	This library is (currently) a driver, so if the you (or I) make errors,
+	such as accessing deleted objects or other things wxWidgets didn't
+	expect you to do, erlang will crash hard.
+
+Cheers
+ Dan Gudmundsson
+

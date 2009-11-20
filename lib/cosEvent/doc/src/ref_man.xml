@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>1999</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>cosEvent Reference Manual</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date>1998-05-05</date>
+    <rev>2.0</rev>
+    <file>ref_man.xml</file>
+  </header>
+  <description>
+    <p>The <em>cosEvent</em> application is an Erlang implementation of
+      a CORBA Service CosEvent.</p>
+  </description>
+  <xi:include href="cosEventApp.xml"/>
+  <xi:include href="CosEventChannelAdmin.xml"/>
+  <xi:include href="CosEventChannelAdmin_ConsumerAdmin.xml"/>
+  <xi:include href="CosEventChannelAdmin_SupplierAdmin.xml"/>
+  <xi:include href="CosEventChannelAdmin_EventChannel.xml"/>
+  <xi:include href="CosEventChannelAdmin_ProxyPullConsumer.xml"/>
+  <xi:include href="CosEventChannelAdmin_ProxyPushConsumer.xml"/>
+  <xi:include href="CosEventChannelAdmin_ProxyPullSupplier.xml"/>
+  <xi:include href="CosEventChannelAdmin_ProxyPushSupplier.xml"/>
+</application>
+

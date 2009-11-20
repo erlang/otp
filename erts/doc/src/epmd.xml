@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE comref SYSTEM "comref.dtd">
+
+<comref>
+  <header>
+    <copyright>
+      <year>1996</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>epmd</title>
+    <prepared>Claes Wikstr&ouml;m</prepared>    
+    <responsible></responsible>
+    <docno>1</docno>
+    <approved></approved>
+    <checked></checked>
+    <date>98-01-05</date>
+    <rev>A</rev>
+    <file>epmd.xml</file>
+  </header>
+  <com>epmd</com>
+  <comsummary>Erlang Port Mapper Daemon </comsummary>
+  <description>
+    <p>This daemon acts as a name server on all hosts  involved  in
+      distributed  Erlang computations. When an Erlang node 
+      starts, the node has a name and it obtains an address from the host 
+      OS kernel.
+      The name and the address are sent to the
+      <c><![CDATA[epmd]]></c> daemon running on the local host.
+      In a TCP/IP environment, the address consists
+      of the IP address and a port number. The name of the node is
+      an atom on the form of <c><![CDATA[Name@Node]]></c>.
+      The job of the <c><![CDATA[epmd]]></c> daemon is to keep track of which
+      node name listens on which address. Hence, <c><![CDATA[epmd]]></c> map
+      symbolic node names to machine addresses.</p>
+    <p>The daemon is started automatically by the Erlang start-up script.</p>
+    <p>The program <c><![CDATA[epmd]]></c> can also be used for a variety of other 
+      purposes, for example checking the DNS (Domain Name System) 
+      configuration of a host.</p>
+  </description>
+  <funcs>
+    <func>
+      <name>epmd [-daemon] </name>
+      <fsummary>Start a name server as a daemon</fsummary>
+      <desc>
+        <p>Starts a name server as a daemon. If it has no argument, the
+          <c><![CDATA[epmd]]></c> runs as a normal program with the controlling terminal 
+          of the shell in which it is started. Normally, it should run as a 
+          daemon.</p>
+      </desc>
+    </func>
+    <func>
+      <name>epmd -names</name>
+      <fsummary>Request the names of the registered Erlang nodes on  this host</fsummary>
+      <desc>
+        <p>Requests the names of the local Erlang nodes <c><![CDATA[epmd]]></c> has 
+          registered.</p>
+      </desc>
+    </func>
+    <func>
+      <name>epmd -kill</name>
+      <fsummary>Kill the <c><![CDATA[epmd]]></c>process</fsummary>
+      <desc>
+        <p>Kills the <c><![CDATA[epmd]]></c> process.</p>
+      </desc>
+    </func>
+    <func>
+      <name>epmd -help</name>
+      <fsummary>List options</fsummary>
+      <desc>
+        <p>Write short info about the usage including some debugging
+          options not listed here.</p>
+      </desc>
+    </func>
+  </funcs>
+
+  <section>
+    <marker id="environment_variables"></marker>
+    <title>Environment variables</title>
+    <taglist>
+      <tag><c><![CDATA[ERL_EPMD_PORT]]></c></tag>
+      <item>
+        <p>This environment variable can contain the port number epmd will use.
+          The default port will work fine in most cases. A different port can
+          be specified to allow several instances of epmd, representing
+          independent clusters of nodes, to co-exist on the same host.
+          All nodes in a cluster must use the same epmd port number.</p>
+      </item>
+    </taglist>
+  </section>
+
+  <section>
+    <title>Logging</title>
+    <p>On some operating systems <em>syslog</em> will be used for
+      error reporting when epmd runs as an daemon. To enable
+      the error logging you have to edit <path unix="" windows="">/etc/syslog.conf</path>
+      file and add an entry</p>
+    <code type="none"><![CDATA[
+      !epmd
+      *.*<TABs>/var/log/epmd.log
+    ]]></code>
+    <p>where &lt;TABs&gt; are at least one real tab character. Spaces will
+      silently be ignored.
+      </p>
+  </section>
+</comref>
+

@@ -1,0 +1,15 @@
+CC = @CC@
+LD = @LD@
+CFLAGS = @CFLAGS@ -I@erl_include@ @DEFS@
+CROSSLDFLAGS = @CROSSLDFLAGS@
+
+PROGS = nfs_check@exe@
+
+all: $(PROGS)
+
+nfs_check@exe@: nfs_check@obj@
+	$(LD) $(CROSSLDFLAGS) -o nfs_check nfs_check@obj@ @LIBS@
+
+nfs_check@obj@: nfs_check.c
+	$(CC) -c -o nfs_check@obj@ $(CFLAGS) nfs_check.c
+

@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>GS - The Graphics System</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>gs_chapter1.xml</file>
+  </header>
+
+  <section>
+    <title>Introduction</title>
+    <p>This section describes the general graphics interface to Erlang. This system was designed with the following requirements in mind:</p>
+    <list type="bulleted">
+      <item>a graphics system which is easy to learn</item>
+      <item>a graphics system which is portable to many different platforms.</item>
+    </list>
+    <p>Erlang has been implemented on a wide range of platforms and the graphics system works on all these platforms. Erlang applications can be written towards the same graphics API and the application can run on all supported platforms without modification.</p>
+    <marker id="gs_fig1"/>
+    <image file="images/gs1-1-image-1.gif">
+      <icaption>Graphics Interface for Erlang</icaption>
+    </image>
+  </section>
+
+  <section>
+    <title>Basic Architecture of GS</title>
+    <p>The basic building block in the graphics system is the graphical object. Objects are created in a hierarchical fashion where each object has a parent. The most common object types are:</p>
+    <list type="bulleted">
+      <item>window</item>
+      <item>button</item>
+      <item>label</item>
+      <item>list box</item>
+      <item>frame.</item>
+    </list>
+    <p>Whenever a new object is created, a unique object identifier is returned. This object identifier makes it possible to configure the object by changing its appearance and behaviour. This configuration of the object is controlled by the <em>Options</em>, also known as attributes or properties. These include width and height. Most options have a value of a specified type, but not all.</p>
+    <p>Whenever an Erlang process creates a graphical object, it is said 
+      to own the object. The graphics system must keep track of the owner 
+      of every graphical object in order to forward incoming events to 
+      the owner-process and kill the appropriate graphics window if the owner 
+      process suddenly dies.</p>
+    <marker id="gs_fig2"/>
+    <image file="images/gs1-1-image-2.gif">
+      <icaption>Owner Process</icaption>
+    </image>
+    <p>Events are messages which are sent from the graphical object to the owner-process. The events the owner-process is informed about may include:</p>
+    <list type="bulleted">
+      <item>the user has clicked on a button</item>
+      <item>the user has entered text into an entry field</item>
+      <item>the user has taken some action on the object, like moving the window.</item>
+    </list>
+    <marker id="gs_fig3"/>
+    <image file="images/gs1-1-image-3.gif">
+      <icaption>Events Delivered to Owner Process</icaption>
+    </image>
+  </section>
+</chapter>
+

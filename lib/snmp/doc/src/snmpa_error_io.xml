@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>snmpa_error_io</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>snmpa_error_io.xml</file>
+  </header>
+  <module>snmpa_error_io</module>
+  <modulesummary>Functions for Reporting SNMP Errors on stdio</modulesummary>
+  <description>
+    <p>The module <c>snmpa_error_io</c> implements the 
+      <c>snmp_error_report</c> behaviour 
+      (see <seealso marker="snmpa_error_report">snmpa_error_report</seealso>) 
+      containing two callback functions which are called in order to 
+      report SNMP errors.
+      </p>
+    <p>This module provides a simple mechanism for reporting SNMP
+      errors. Errors are written to stdout using the <c>io</c> module.
+      It is provided as an simple example.
+      </p>
+    <p>This module needs to be explicitly configured, see
+      <seealso marker="snmpa_error#desc">snmpa_error</seealso> and
+      <seealso marker="snmp_config#configuration_params">configuration parameters</seealso>.
+      </p>
+  </description>
+  <funcs>
+    <func>
+      <name>config_err(Format, Args) -> void()</name>
+      <fsummary>Called if a configuration error occurs</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Args = list()</v>
+      </type>
+      <desc>
+        <p>The function is called if an error occurs during the
+          configuration phase, for example if a syntax error is found in
+          a configuration file.
+          </p>
+        <p><c>Format</c> and <c>Args</c> are as in
+          <c>io:format(Format, Args)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>user_err(Format, Args) -> void()</name>
+      <fsummary>Called if a user related error occurs</fsummary>
+      <type>
+        <v>Format = string()</v>
+        <v>Args = list()</v>
+      </type>
+      <desc>
+        <p>The function is called if a user related error occurs at
+          run-time, for example if a user defined instrumentation
+          function returns erroneous.
+          </p>
+        <p><c>Format</c> and <c>Args</c> are as in
+          <c>io:format(Format, Args)</c>.</p>
+      </desc>
+    </func>
+  </funcs>
+  
+</erlref>
+

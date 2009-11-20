@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>2002</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>debugger</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+  </header>
+  <module>debugger</module>
+  <modulesummary>Erlang Debugger</modulesummary>
+  <description>
+    <p>Erlang Debugger for debugging and testing of Erlang programs.</p>
+  </description>
+
+  <funcs>
+    <func>
+      <name>start()</name>
+      <name>start(File)</name>
+      <name>start(Mode)</name>
+      <name>start(Mode, File)</name>
+      <fsummary>Start Debugger.</fsummary>
+      <type>
+	<v>Mode = local | global</v>
+	<v>File = string()</v>
+      </type>
+      <desc>
+	<p>Starts Debugger.</p>
+	
+	<p>If given a file name as argument, Debugger will try to load
+	  its settings from this file. Refer to Debugger User's Guide
+	  for more information about settings.</p>
+
+	<p>If given <c>local</c> as argument, Debugger will interpret
+	  code only at the current node. If given <c>global</c> as
+	  argument, Debugger will interpret code at all known nodes,
+	  this is the default.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>quick(Module, Name, Args)</name>
+      <fsummary>Debug a process.</fsummary>
+      <type>
+	<v>Module = Name = atom()</v>
+	<v>Args = [term()]</v>
+      </type>
+      <desc>
+	<p>This function can be used to debug a single process.
+	  The module <c>Module</c> is interpreted and
+	  <c>apply(Module,Name,Args)</c> is called. This will open an
+	  Attach Process window, refer to Debugger User's Guide for
+	  more information.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+
+

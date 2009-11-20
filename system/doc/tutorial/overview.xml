@@ -1,0 +1,131 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE chapter SYSTEM "chapter.dtd">
+
+<chapter>
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>Overview</title>
+    <prepared></prepared>
+    <docno></docno>
+    <date></date>
+    <rev></rev>
+    <file>overview.xml</file>
+  </header>
+
+  <section>
+    <title>Built-In Mechanisms</title>
+    <p>There are two interoperability mechanisms built into the Erlang runtime system. One is <em>distributed Erlang</em> and the other one is <em>ports</em>. A variation of ports is <em>linked-in drivers</em>.</p>
+    <marker id="dist"></marker>
+
+    <section>
+      <title>Distributed Erlang</title>
+      <p>An Erlang runtime system is made into a distributed Erlang node by giving it a name. A distributed Erlang node can connect to and monitor other nodes, it is also possible to spawn processes at other nodes. Message passing and error handling between processes at different nodes are transparent. There exists a number of useful <c>stdlib</c> modules intended for use in a distributed Erlang system; for example, <c>global</c> which provides global name registration. The distribution mechanism is implemented using TCP/IP sockets.</p>
+      <p><em>When to use:</em> Distributed Erlang is primarily used for communication Erlang-Erlang. It can also be used for communication between Erlang and C, if the C program is implemented as a <seealso marker="#cnode">C node</seealso>, see below.</p>
+      <p><em>Where to read more:</em> Distributed Erlang and some distributed programming techniques are described in the Erlang book.        <br></br>
+
+        In the Erlang/OTP documentation there is a chapter about distributed Erlang in "Getting Started" (User's Guide).        <br></br>
+
+        Relevant man pages are <c>erlang</c> (describes the BIFs) and <c>global</c>, <c>net_adm</c>, <c>pg2</c>, <c>rpc</c>, <c>pool</c> and <c>slave</c>.</p>
+    </section>
+
+    <section>
+      <title>Ports and Linked-In Drivers</title>
+      <p>Ports provide the basic mechanism for communication with the external world, from Erlang's point of view. They provide a byte-oriented interface to an external program. When a port has been created, Erlang can communicate with it by sending and receiving lists of bytes (not Erlang terms). This means that the programmer may have to invent a suitable encoding and decoding scheme.</p>
+      <p>The actual implementation of the port mechanism depends on the platform. In the Unix case, pipes are used and the external program should as default read from standard input and write to standard output. Theoretically, the external program could be written in any programming language as long as it can handle the interprocess communication mechanism with which the port is implemented.</p>
+      <p>The external program resides in another OS process than the Erlang runtime system. In some cases this is not acceptable, consider for example drivers with very hard time requirements. It is therefore possible to write a program in C according to certain principles and dynamically link it to the Erlang runtime system, this is called a linked-in driver.</p>
+      <p><em>When to use:</em> Being the basic mechanism, ports can be used for all kinds of interoperability situations where the Erlang program and the other program runs on the same machine. Programming is fairly straight-forward.        <br></br>
+
+        Linked-in drivers involves writing certain call-back functions in C. Very good skills are required as the code is linked to the Erlang runtime system.</p>
+      <warning>
+        <p>An erroneous linked-in driver will cause the entire Erlang runtime system to leak memory, hang or crash.</p>
+      </warning>
+      <p><em>Where to read more:</em> Ports are described in the "Miscellaneous Items" chapter of the Erlang book. Linked-in drivers are described in Appendix E.        <br></br>
+
+        The BIF <c>open_port/2</c> is documented in the man page for <c>erlang</c>. For linked-in drivers, the programmer needs to read the information in the man page for <c>erl_ddll</c>.</p>
+      <p><em>Examples:</em><seealso marker="c_port">Port example</seealso>.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>C and Java Libraries</title>
+
+    <section>
+      <title>Erl_Interface</title>
+      <p>Very often the program at the other side of a port is a C program. To help the C programmer a library called Erl_Interface has been developed. It consists of five parts:</p>
+      <list type="bulleted">
+        <item><c>erl_marshal</c>, <c>erl_eterm</c>, <c>erl_format</c>, <c>erl_malloc</c> Handling of the Erlang external term format.</item>
+        <item><c>erl_connect</c> Communication with distributed Erlang, see <seealso marker="#cnode">C nodes</seealso> below.</item>
+        <item><c>erl_error</c> Error print routines.</item>
+        <item><c>erl_global</c> Access globally registered names.</item>
+        <item><c>Registry</c> Store and backup of key-value pairs.</item>
+      </list>
+      <p>The Erlang external term format is a representation of an Erlang term as a sequence of bytes, a binary. Conversion between the two representations is done using BIFs.</p>
+      <pre>
+Binary = term_to_binary(Term)
+Term = binary_to_term(Binary)</pre>
+      <p>A port can be set to use binaries instead of lists of bytes. It is then not necessary to invent any encoding/decoding scheme. Erl_Interface functions are used for unpacking the binary and convert it into a struct similar to an Erlang term. Such a struct can be manipulated in different ways and be converted to the Erlang external format and sent to Erlang.</p>
+      <p><em>When to use:</em> In C code, in conjunction with Erlang binaries.</p>
+      <p><em>Where to read more:</em> Read about the Erl_Interface User's Guide; Command Reference and Library Reference. In R5B and earlier versions the information can be found under the Kernel application.</p>
+    </section>
+    <p><em>Examples:</em><seealso marker="erl_interface">erl_interface example</seealso>.</p>
+    <marker id="cnode"></marker>
+
+    <section>
+      <title>C Nodes</title>
+      <p>A C program which uses the Erl_Interface functions for setting up a connection to and communicating with a distributed Erlang node is called a <em>C node</em>, or a <em>hidden node</em>. The main advantage with a C node is that the communication from the Erlang programmer's point of view is extremely easy, since the C program behaves as a distributed Erlang node.</p>
+      <p><em>When to use:</em> C nodes can typically be used on device processors (as opposed to control processors) where C is a better choice than Erlang due to memory limitations and/or application characteristics.</p>
+      <p><em>Where to read more:</em> In the <c>erl_connect</c> part of the Erl_Interface documentation, see above. The programmer also needs to be familiar with TCP/IP sockets, see <seealso marker="#sockets">below</seealso>, and distributed Erlang, see <seealso marker="#dist">above</seealso>.</p>
+      <p><em>Examples:</em><seealso marker="cnode">C node example</seealso>.</p>
+    </section>
+
+    <section>
+      <title>Jinterface</title>
+      <p>In Erlang/OTP R6B, a library similar to Erl_Interface for Java was added called <em>jinterface</em>.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>Standard Protocols</title>
+    <p>Sometimes communication between an Erlang program and another program using a standard protocol is desirable. Erlang/OTP currently supports TCP/IP and UDP <em>sockets</em>, SNMP, HTTP and IIOP (CORBA). Using one of the latter three requires good knowledge about the protocol and is not covered by this tutorial. Please refer to the documentation for the SNMP, Inets and Orber applications, respectively.</p>
+    <marker id="sockets"></marker>
+
+    <section>
+      <title>Sockets</title>
+      <p>Simply put, connection-oriented socket communication (TCP/IP) consists of an initiator socket ("server") started at a certain host with a certain port number. A connector socket ("client") aware of the initiator's host name and port number can connect to it and data can be sent between them. Connection-less socket communication (UDP) consists of an initiator socket at a certain host with a certain port number and a connector socket sending data to it. For a detailed description of the socket concept, please refer to a suitable book about network programming. A suggestion is <em>UNIX Network Programming, Volume 1: Networking APIs - Sockets and XTI</em> by W. Richard Stevens, ISBN: 013490012X.</p>
+      <p>In Erlang/OTP, access to TCP/IP and UDP sockets is provided by the 
+        Kernel modules <c>gen_tcp</c> and <c>gen_udp</c>. Both are easy to 
+        use and do not require any deeper knowledge about the socket concept.</p>
+      <p><em>When to use:</em> For programs running on the same or on another machine than the Erlang program.</p>
+      <p><em>Where to read more:</em> The man pages for <c>gen_tcp</c> and <c>gen_udp</c>.</p>
+    </section>
+  </section>
+
+  <section>
+    <title>IC</title>
+    <p>IC (IDL Compiler) is an interface generator which given an IDL interface specification automatically generates stub code in Erlang, C or Java. Please refer to the IC User's Guide and IC Reference Manual.</p>
+  </section>
+
+  <section>
+    <title>Old Applications</title>
+    <p>There are two old applications of interest when talking about interoperability: <em>IG</em> which was removed in Erlang/OTP R6B and <em>Jive</em> which was removed in Erlang/OTP R7B. Both applications have been replaced by IC and are mentioned here for reference only.</p>
+    <p>IG (Interface Generator) automatically generated code for port or socket communication between an Erlang program and a C program, given a C header file with certain keywords. Jive provided a simple interface between an Erlang program and a Java program.</p>
+  </section>
+</chapter>
+

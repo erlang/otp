@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE application SYSTEM "application.dtd">
+
+<application xmlns:xi="http://www.w3.org/2001/XInclude">
+  <header>
+    <copyright>
+      <year>2000</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>cosNotification Reference Manual</title>
+    <prepared>Niclas Eklund</prepared>
+    <docno></docno>
+    <date>2000-01-31</date>
+    <rev>1.0</rev>
+  </header>
+  <description>
+    <p>The <em>cosNotification</em> application is an Erlang implementation
+      of the OMG CORBA Notification Service.</p>
+  </description>
+  <xi:include href="cosNotificationApp.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_EventChannelFactory.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_EventChannel.xml"/>
+  <xi:include href="CosNotification.xml"/>
+  <xi:include href="CosNotification_QoSAdmin.xml"/>
+  <xi:include href="CosNotification_AdminPropertiesAdmin.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ConsumerAdmin.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_SupplierAdmin.xml"/>
+  <xi:include href="CosNotifyComm_NotifyPublish.xml"/>
+  <xi:include href="CosNotifyComm_NotifySubscribe.xml"/>
+  <xi:include href="CosNotifyFilter_FilterAdmin.xml"/>
+  <xi:include href="CosNotifyFilter_FilterFactory.xml"/>
+  <xi:include href="CosNotifyFilter_Filter.xml"/>
+  <xi:include href="CosNotifyFilter_MappingFilter.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxyConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxySupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxyPullConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxyPullSupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxyPushConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_ProxyPushSupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_SequenceProxyPullConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_SequenceProxyPullSupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_SequenceProxyPushConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_SequenceProxyPushSupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_StructuredProxyPullConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_StructuredProxyPullSupplier.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_StructuredProxyPushConsumer.xml"/>
+  <xi:include href="CosNotifyChannelAdmin_StructuredProxyPushSupplier.xml"/>
+</application>
+

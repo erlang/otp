@@ -1,0 +1,45 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1999-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+	
+# Makefile.win32.dist for SSL
+# 
+# To be placed in obj directory. 
+#
+
+CC = cl
+
+BINDIR = %BINDIR%
+
+OPENSSL_LIBS = \
+	$(BINDIR)\ssleay32.lib \
+	$(BINDIR)\libeay32.lib 
+
+WINSOCK_LIB = ws2_32.lib 
+
+SSL_BASE_OBJS = esock.obj debuglog.obj esock_osio.obj esock_utils.obj \
+	        esock_posix_str.obj
+
+OPENSSL_OBJS = esock_openssl.obj
+
+$(BINDIR)\ssl_esock.exe:	$(SSL_BASE_OBJS) $(OPENSSL_OBJS)
+	$(CC) /nologo  $(SSL_BASE_OBJS) $(OPENSSL_OBJS) $(OPENSSL_LIBS) \
+		$(WINSOCK_LIB) /Fe$(BINDIR)\ssl_esock.exe
+
+
+

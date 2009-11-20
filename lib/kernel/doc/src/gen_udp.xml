@@ -1,0 +1,179 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE erlref SYSTEM "erlref.dtd">
+
+<erlref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2009</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+    
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+    
+    </legalnotice>
+
+    <title>gen_udp</title>
+    <prepared>tony@erix.ericsson.se</prepared>
+    <docno></docno>
+    <date>1997-12-03</date>
+    <rev>A</rev>
+  </header>
+  <module>gen_udp</module>
+  <modulesummary>Interface to UDP sockets</modulesummary>
+  <description>
+    <p>The <c>gen_udp</c> module provides functions for communicating
+      with sockets using the UDP protocol.</p>
+  </description>
+
+  <section>
+    <title>DATA TYPES</title>
+    <code type="none">
+ip_address()
+  see inet(3)
+
+posix()
+  see inet(3)
+
+socket()
+  as returned by open/1,2</code>
+  </section>
+  <funcs>
+    <func>
+      <name>open(Port) -> {ok, Socket} | {error, Reason}</name>
+      <name>open(Port, Options) -> {ok, Socket} | {error, Reason}</name>
+      <fsummary>Associate a UDP port number with the process calling it</fsummary>
+      <type>
+        <v>Port = 0..65535</v>
+        <v>Options = [Opt]</v>
+        <v>&nbsp;Opt -- see below</v>
+        <v>Socket = socket()</v>
+        <v>Reason = posix()</v>
+      </type>
+      <desc>
+        <p>Associates a UDP port number (<c>Port</c>) with the calling
+          process.</p>
+        <p>The available options are:</p>
+        <taglist>
+          <tag><c>list</c></tag>
+          <item>
+            <p>Received <c>Packet</c> is delivered as a list.</p>
+          </item>
+          <tag><c>binary</c></tag>
+          <item>
+            <p>Received <c>Packet</c> is delivered as a binary.</p>
+          </item>
+          <tag><c>{ip, ip_address()}</c></tag>
+          <item>
+            <p>If the host has several network interfaces, this option
+              specifies which one to use.</p>
+          </item>
+          <tag><c>{fd, int()}</c></tag>
+          <item>
+            <p>If a socket has somehow been opened without using
+              <c>gen_udp</c>, use this option to pass the file
+              descriptor for it.</p>
+          </item>
+          <tag><c>inet6</c></tag>
+          <item>
+            <p>Set up the socket for IPv6.</p>
+          </item>
+          <tag><c>inet</c></tag>
+          <item>
+            <p>Set up the socket for IPv4.</p>
+          </item>
+          <tag><c>Opt</c></tag>
+          <item>
+            <p>See
+              <seealso marker="inet#setopts/2">inet:setopts/2</seealso>.</p>
+          </item>
+        </taglist>
+        <p>The returned socket <c>Socket</c> is used to send packets
+          from this port with <c>send/4</c>. When UDP packets arrive at
+          the opened port, they are delivered as messages:</p>
+        <code type="none">
+{udp, Socket, IP, InPortNo, Packet}</code>
+        <p>Note that arriving UDP packets that are longer than
+          the receive buffer option specifies, might be truncated
+          without warning.</p>
+        <p><c>IP</c> and <c>InPortNo</c> define the address from which
+          <c>Packet</c> came. <c>Packet</c> is a list of bytes if
+          the option <c>list</c> was specified. <c>Packet</c> is a
+          binary if the option <c>binary</c> was specified.</p>
+        <p>Default value for the receive buffer option is
+          <c>{recbuf, 8192}</c>.</p>
+        <p>If <c>Port == 0</c>, the underlying OS assigns a free UDP
+          port, use <c>inet:port/1</c> to retrieve it.</p>
+      </desc>
+    </func>
+    <func>
+      <name>send(Socket, Address, Port, Packet) -> ok | {error, Reason}</name>
+      <fsummary>Send a packet</fsummary>
+      <type>
+        <v>Socket = socket()</v>
+        <v>Address = string() | atom() | ip_address()</v>
+        <v>Port = 0..65535</v>
+        <v>Packet = [char()] | binary()</v>
+        <v>Reason = not_owner | posix()</v>
+      </type>
+      <desc>
+        <p>Sends a packet to the specified address and port.
+          The <c>Address</c> argument can be either a hostname, or an
+          IP address.</p>
+      </desc>
+    </func>
+    <func>
+      <name>recv(Socket, Length) -> {ok, {Address, Port, Packet}} | {error, Reason}</name>
+      <name>recv(Socket, Length, Timeout) -> {ok, {Address, Port, Packet}} | {error, Reason}</name>
+      <fsummary>Receive a packet from a passive socket</fsummary>
+      <type>
+        <v>Socket = socket()</v>
+        <v>Length  = int()</v>
+        <v>Address = ip_address()</v>
+        <v>Port = 0..65535</v>
+        <v>Packet = [char()] | binary()</v>
+        <v>Timeout = int() | infinity</v>
+        <v>Reason = not_owner | posix()</v>
+      </type>
+      <desc>
+        <p>This function receives a packet from a socket in passive
+          mode.</p>
+        <p>The optional <c>Timeout</c> parameter specifies a timeout in
+          milliseconds. The default value is <c>infinity</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>controlling_process(Socket, Pid) -> ok</name>
+      <fsummary>Change controlling process of a socket</fsummary>
+      <type>
+        <v>Socket = socket()</v>
+        <v>Pid = pid()</v>
+      </type>
+      <desc>
+        <p>Assigns a new controlling process <c>Pid</c> to
+          <c>Socket</c>. The controlling process is the process which
+          receives messages from the socket.</p>
+      </desc>
+    </func>
+    <func>
+      <name>close(Socket) -> ok | {error, Reason}</name>
+      <fsummary>Close a UDP socket</fsummary>
+      <type>
+        <v>Socket = socket()</v>
+        <v>Reason = not_owner | posix()</v>
+      </type>
+      <desc>
+        <p>Closes a UDP socket.</p>
+      </desc>
+    </func>
+  </funcs>
+</erlref>
+
