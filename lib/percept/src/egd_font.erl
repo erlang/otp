@@ -131,18 +131,18 @@ parse_glyph({Code,W,H,X0,Y0,Xm,Offset}, Bitmasks) ->
 render_glyph(W, H, X0, Y0, Xm, Bitmask) ->
     render_glyph(W,{0,H},X0,Y0,Xm,Bitmask, []).
 render_glyph(_W, {H,H}, _X0, _Y0, _Xm, _Bitmask, Out) -> Out;
-render_glyph(W, {Hi,H}, X0, Y0,Xm, Bitmask, LSs) ->
+render_glyph(W, {Hi,H}, X0, Y0,Xm, Bitmask , LSs) ->
     N = ((W+7) div 8),
     O = N*Hi,
     <<_:O/binary, Submask/binary>> = Bitmask,
-    LS = render_glyph_horizontal(
+     LS = render_glyph_horizontal(
 	Submask,         % line glyph bitmask
 	{down, W - 1},   % loop state
 	W - 1,           % Width
 	[]),             % Linespans
     render_glyph(W,{Hi+1,H},X0,Y0,Xm, Bitmask, [LS|LSs]).
 
-render_glyph_horizontal(Value, {Pr, Px}, 0,  Spans) ->
+render_glyph_horizontal(Value, {Pr, Px}, 0, Spans) ->
     Cr = bit_spin(Value, 0),
     case {Pr,Cr} of
 	{up  , up  } -> % closure of interval since its last
@@ -173,4 +173,3 @@ bit_spin(Value, Cx) ->
 	1 -> up;
 	0 -> down
     end.
-    

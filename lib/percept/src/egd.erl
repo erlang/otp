@@ -128,13 +128,13 @@ line(Image, P1, P2, Color) ->
 
 %% @spec color( Value | Name ) -> color()
 %% where
-%%	Value = {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} 
-%%	Name  = black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua
+%%  Value = {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} 
+%%  Name  = black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua
 %% @doc Creates a color reference.
 
 -spec(color/1 :: (
-	Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
-	color()).
+    Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
+    color()).
 
 color(Color) ->
     egd_primitives:color(Color).

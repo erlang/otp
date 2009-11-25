@@ -35,7 +35,7 @@ binary(Image, Type) ->
     parallel_binary(precompile(Image),Type).
 
 parallel_binary(Image = #image{ height = Height },Type) ->
-    case lists:min([erlang:system_info(schedulers), Height]) of
+    case erlang:min(erlang:system_info(schedulers), Height) of
         1 ->
 	    % if the height or the number of schedulers is 1
 	    % do the scanlines in this process.
@@ -120,27 +120,15 @@ receive_binaries(H, Bins) when H > 0 ->
 
 
 scanline(Y, Os, {_,_,Width,_}=LSB, Type) ->
-    OLSs  = parse_objects_on_line(Y-1, Width, Os),
-    URLSs = resulting_line_spans([LSB|OLSs],Type),
-
-    % FIXME: Can we keep the list sorted instead of sorting it?
-    % sort descending
-    RLSs = lists:reverse(URLSs),
-
-    resulting_scanline(RLSs,Width).
-
-resulting_scanline(RLSs, Width) -> resulting_scanline(RLSs, Width, []).
-resulting_scanline([], _, Scanlines) -> Scanlines;
-resulting_scanline([{_,Xl, Xr, C} | RLSs], Width, Scanlines) ->
-    {R,G,B,_} = rgb_float2byte(C),
-    Scanline = lists:duplicate(trunc(Xr - Xl + 1), <<R:8,G:8,B:8>>),
-    resulting_scanline(RLSs, Width, [Scanline|Scanlines]).
+    OLSs = parse_objects_on_line(Y-1, Width, Os),
+    RLSs = resulting_line_spans([LSB|OLSs],Type),
+    [ lists:duplicate(Xr - Xl + 1, <<(trunc(R*255)):8,(trunc(G*255)):8,(trunc(B*255)):8>>) || {_,Xl, Xr, {R,G,B,_}} <- RLSs ].
 
 resulting_line_spans(LSs,Type) ->
     %% Build a list of "transitions" from left to right.
     Trans = line_spans_to_trans(LSs),
     %% Convert list of "transitions" to linespans.
-	trans_to_line_spans(Trans,Type).
+    trans_to_line_spans(Trans,Type).
 
 line_spans_to_trans(LSs) ->
     line_spans_to_trans(LSs,[],0).
@@ -194,19 +182,14 @@ color([{_,C}|_],opaque) -> C;
 color(Layers,alpha) -> color1({0,0,0,0},Layers).
 
 color1(Color,[]) -> Color;
-color1(Color,[{_,C}|Layers]) -> color1(blend(Color,C),Layers).
-
-blend(C1,C2) -> alpha_blend(C1,C2).
+color1(Color,[{_,C}|Layers]) -> color1(alpha_blend(Color,C),Layers).
 
 modify_layers(Layers,[]) -> Layers;
-modify_layers(Layers,[{{_,Z,Op},C}|Trans]) ->
-    modify_layers(case Op of
-		      start ->
-			  add_layer(Layers,Z,C);
-		      stop ->
-			  remove_layer(Layers,Z,C)
-		  end,
-		  Trans).
+modify_layers(Layers,[{{_,Z,start},C}|Trans]) ->
+    modify_layers(add_layer(Layers, Z, C), Trans);
+modify_layers(Layers,[{{_,Z,stop },C}|Trans]) ->
+    modify_layers(remove_layer(Layers, Z, C), Trans).
+
 
 add_layer([{Z1,_}=H|Layers],Z,C) when Z1 > Z ->
     [H|add_layer(Layers,Z,C)];
@@ -216,7 +199,7 @@ add_layer(Layers,Z,C) ->
 remove_layer(Layers,Z,C) ->
     Layers -- [{Z,C}].
 
-alpha_blend({R1,G1,B1,A1}, {R2,G2,B2,A2}) ->
+alpha_blend({R1,G1,B1,A1}, {R2,G2,B2,A2}) when is_float(A1), is_float(A2)->
   Beta = A2*(1.0 - A1),
   A = A1 + Beta,
   R = R1*A1 + R2*Beta,
@@ -232,7 +215,7 @@ parse_objects_on_line(Y, Z, Width, [O|Os], Out) ->
     	false ->
 	    parse_objects_on_line(Y, Z + 1, Width, Os, Out);
 	true ->
-	    OLs = object_line_data(Y, Z, O),
+	    OLs  = object_line_data(Y, Z, O),
 	    TOLs = trim_object_line_data(OLs, Width),
 	    parse_objects_on_line(Y, Z + 1, Width, Os, [TOLs|Out])
     end.
@@ -240,15 +223,13 @@ parse_objects_on_line(Y, Z, Width, [O|Os], Out) ->
 trim_object_line_data(OLs, Width) ->
     trim_object_line_data(OLs, Width, []).
 trim_object_line_data([], _, Out) -> Out;
+
+trim_object_line_data([{_, Xl, _, _}|OLs], Width, Out) when Xl > Width ->
+    trim_object_line_data(OLs, Width, Out);
+trim_object_line_data([{_, _, Xr, _}|OLs], Width, Out) when Xr < 0 ->
+    trim_object_line_data(OLs, Width, Out);
 trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
-    if 
-	Xl > Width ->
-            trim_object_line_data(OLs, Width, Out);
-	Xr < 0 ->
-            trim_object_line_data(OLs, Width, Out);
-	true ->
-           trim_object_line_data(OLs, Width, [{Z, lists:max([0,Xl]), lists:min([Xr,Width]), C}|Out])
-    end.
+    trim_object_line_data(OLs, Width, [{Z, erlang:max(0,Xl), erlang:min(Xr,Width), C}|Out]).
 
 % object_line_data
 % In:
@@ -264,7 +245,8 @@ trim_object_line_data([{Z, Xl, Xr, C}|OLs], Width, Out) ->
 %	Calculate the length (start and finish index) of an objects horizontal
 %	line given the height index.
 
-object_line_data(Y, Z, Object) -> object_line_data(Y, Z, Object, Object#image_object.type).
+object_line_data(Y, Z, Object) -> 
+    object_line_data(Y, Z, Object, Object#image_object.type).
 object_line_data(Y, Z, #image_object{ span = {X0, Y0, X1, Y1}, color = C}, rectangle) ->
     if
 	Y0 =:= Y ; Y1 =:= Y ->
@@ -277,70 +259,43 @@ object_line_data(Y, Z, #image_object{ span = {X0, Y0, X1, Y1}, color = C}, recta
 object_line_data(_Y, Z, #image_object{ span = {X0, _, X1, _}, color = C}, filled_rectangle) ->
     [{Z, X0, X1, C}];
 
-object_line_data(Y, Z, #image_object{ span = {X0,Y0,X1,Y1}, color = C}, filled_ellipse) ->
+object_line_data(Y, Z, #image_object{ internals={Xr,Yr,Yr2}, span = {X0,Y0,X1,Y1}, color = C}, filled_ellipse) ->
     if 
-    	X1 - X0 == 0 -> % if the width is exactly one pixel
-	    [{Z, X1, X0, C}];
-	X1 - X0 < 0 -> throw(bad_ellipse_width);
-	Y1 - Y0 == 0 -> % Height exactly one pixel, get width
+    	X1 - X0 == 0; Y1 - Y0 == 0 ->
 	    [{Z, X0, X1, C}];
 	true ->
-	    Xr = (X1 - X0)/2,
-	    Yr = (Y1 - Y0)/2,
-	    Yo = trunc(Y - Y0 - Yr),
+	    Yo  = trunc(Y - Y0 - Yr),
 	    Yo2 = Yo*Yo,
-	    Yr2 = Yr*Yr,
-	    Xo = math:sqrt((1 - Yo2/Yr2))*Xr,
+	    Xo  = math:sqrt((1 - Yo2/Yr2))*Xr,
 	    [{Z, round(X0 - Xo + Xr), round(X0 + Xo + Xr), C}]
     end;
 
 object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, filled_triangle) ->
-    case lists:keysearch(Y, 1, Is) of
-   	{value, {Y, Xl, Xr}} -> [{Z, Xl, Xr, C}];
+    case lists:keyfind(Y, 1, Is) of
+   	{Y, Xl, Xr} -> [{Z, Xl, Xr, C}];
 	false -> []
     end;    
 
 object_line_data(Y, Z, #image_object{ intervals = Is, color = C}, line) ->
     case dict:find(Y, Is) of
-	%{ok, {Xl, Xr}} -> [{Z, Xl, Xr, C}];
 	{ok, Ls} -> [{Z, Xl, Xr, C}||{Xl,Xr} <- Ls];
 	_ -> []
     end;
 
-object_line_data(Y, Z, O, polygon) ->
-    Is = lists:filter(
-	fun({Yp,_,_}) ->
-	    if Yp == Y -> true; true -> false end
-    	end, O#image_object.intervals),
-    [	{Z, Xl, Xr, O#image_object.color} || {_, Xl, Xr} <- Is];
+object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, polygon) ->
+    [{Z, Xl, Xr, C} || {Yp, Xl, Xr} <- Is, Yp =:= Y];
 
-object_line_data(Y, Z, #image_object{ color = C, intervals = Is }, text_horizontal) ->
-    % FIXME: optimize!
-    lists:foldl(
-	fun ({Yg,Xl,Xr}, Out) ->
-	    if 
-		Yg == Y ->
-		    [{Z, Xl, Xr, C}|Out];
-		true ->
-		    Out
-	    end
-	end, [], Is);
+object_line_data(Y, Z, #image_object{ color = C, intervals = Is}, text_horizontal) ->
+    [{Z, Xl, Xr, C} || {Yg, Xl, Xr} <- Is, Yg =:= Y];
+
 object_line_data(_, Z, #image_object{ span = {X0,_,X1,_}, color = C}, _) ->
-    % faked
     [{Z, X0, X1, C}].
 
-is_object_on_line(Y, Object) ->
-    is_object_bounds_on_line(Y, Object#image_object.span). 
+is_object_on_line(Y, #image_object{ span = Span }) ->
+    is_object_bounds_on_line(Y, Span). 
     
-is_object_bounds_on_line(Y, {_,Y0,_,Y1}) ->
-    if 
-    	Y < Y0 -> false;
-	Y > Y1 -> false;
-	true -> true
-    end.
-
-rgb_float2byte({R,G,B,A}) ->
-    {trunc(R*255), trunc(G*255), trunc(B*255), trunc(A*255)}.
+is_object_bounds_on_line(Y, {_,Y0,_,Y1}) when Y < Y0 ; Y > Y1 -> false;
+is_object_bounds_on_line(_, _) -> true.
 
 %%% primitives to line_spans
 
@@ -360,6 +315,12 @@ precompile_objects([O = #image_object{ type = filled_triangle, points = [P0,P1,P
     
 precompile_objects([O = #image_object{ type = polygon, points = Pts } | Os], Out) ->
     precompile_objects(Os, [O#image_object{ intervals = polygon_ls(Pts) } | Out]);
+
+precompile_objects([O = #image_object{ type = filled_ellipse, span = {X0,Y0,X1,Y1} } | Os], Out) ->
+    Xr  = (X1 - X0)/2,
+    Yr  = (Y1 - Y0)/2,
+    Yr2 = Yr*Yr,
+    precompile_objects(Os, [ O#image_object{ internals={Xr,Yr,Yr2} } | Out]);
     
 precompile_objects([O = #image_object{ type = arc, points = [P0,P1], internals = D }| Os], Out) ->
     Es = egd_primitives:arc_to_edges(P0, P1, D),
@@ -579,13 +540,7 @@ line_ls({Xi0, Yi0},{Xi1,Yi1}) ->
 	true -> 1;
 	false -> -1
     end, 
-    case Steep of
-	false ->
-	    line_ls_step_not_steep({X0, X1},Y0, DX, DY, Ystep, Error, X0, []);
-	true -> 
-	    line_ls_step_steep({X0, X1},Y0, DX, DY, Ystep, Error, X0, [])
-    end.
-	 
+    line_ls_step(X0, X1,Y0, DX, DY, Ystep, Error, X0, Steep, []).
 
 %% line_ls_step_(not)_steep
 %% In:
@@ -594,27 +549,17 @@ line_ls({Xi0, Yi0},{Xi1,Yi1}) ->
 %% Purpose:
 %% 	Produce an line_interval for each Yi (Y index)	
 
-% Iterating the X-axis
-
-line_ls_step_not_steep({X,X1},Y,Dx,Dy,Ys,E, X0, LSs) when X < X1 ->
-    case E >= 0 of
-	true ->
-	    line_ls_step_not_steep({X+1,X1},Y+Ys,Dx,Dy,Ys, E - Dx + Dy, X+1,[{Y,X0,X}|LSs]);
-	false ->
-	    line_ls_step_not_steep({X+1,X1},Y,Dx,Dy,Ys, E + Dy, X0, LSs)
-    end;
-line_ls_step_not_steep({X,_},Y,_Dx,_Dy,_Ystep,_E,X0,LSs) ->
-    [{Y,X0,X}|LSs].
-
-% Iterating the Y-axis
-line_ls_step_steep({X,X1},Y,Dx,Dy,Ystep,E, X0, LSs) when X =< X1 ->
-    case E >= 0 of
-	true ->
-	    line_ls_step_steep({X + 1,X1},Y+Ystep,Dx,Dy,Ystep,E - Dx + Dy,X,[{X,Y,Y}|LSs]);
-	false ->
-	    line_ls_step_steep({X + 1,X1},Y,Dx,Dy,Ystep,E + Dy,X0, [{X,Y,Y}|LSs])
-    end;
-line_ls_step_steep({_X,_},_Y,_Dx,_Dy,_Ystep,_E,_X0,LSs) -> 
+line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, false = Steep, LSs) when X < X1, E >= 0 ->
+    line_ls_step(X+1,X1,Y+Ys,Dx,Dy,Ys, E - Dx + Dy, X+1, Steep, [{Y,X0,X}|LSs]);
+line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, false = Steep, LSs) when X < X1 ->
+    line_ls_step(X+1,X1,Y,Dx,Dy,Ys, E + Dy, X0, Steep, LSs);
+line_ls_step(X, _X1, Y, _Dx, _Dy, _Ys, _E, X0, false, LSs) ->
+    [{Y,X0,X}|LSs];
+line_ls_step(X, X1, Y, Dx, Dy, Ys, E, _X0, true = Steep, LSs) when X =< X1, E >= 0 ->
+    line_ls_step(X+1,X1,Y+Ys,Dx,Dy,Ys, E - Dx + Dy, X, Steep, [{X,Y,Y}|LSs]);
+line_ls_step(X, X1, Y, Dx, Dy, Ys, E, X0, true = Steep, LSs) when X =< X1 ->
+    line_ls_step(X+1,X1,Y,Dx,Dy,Ys,E + Dy, X0, Steep, [{X,Y,Y}|LSs]);
+line_ls_step(_X,_,_Y,_Dx,_Dy,_Ys,_E,_X0,_,LSs) -> 
     LSs.
 
 % Text
@@ -707,3 +652,4 @@ eps_header(W,H) ->
 
 eps_footer() -> 
     "%%EOF\n".
+
