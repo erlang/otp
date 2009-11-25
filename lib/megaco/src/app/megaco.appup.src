@@ -120,10 +120,17 @@
 %%      |
 %%      v
 %%    3.13
+%%      |
+%%      v
+%%   3.13.0.1
 %%
 %%
 {"%VSN%",
  [
+  {"3.13", 
+   [
+   ]
+  }, 
   {"3.12", 
    [
     {load_module, megaco_udp, soft_purge, soft_purge, []},
@@ -143,6 +150,10 @@
   }
  ],
  [
+  {"3.13", 
+   [
+   ]
+  }, 
   {"3.12", 
    [
     {load_module, megaco_udp, soft_purge, soft_purge, []},

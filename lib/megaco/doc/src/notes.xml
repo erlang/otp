@@ -36,6 +36,67 @@
     section is the version number of Megaco.</p>
 
   <section>
+    <title>Megaco 3.13.0.1</title>
+
+    <p>Version 3.13.0.1 supports code replacement in runtime from/to
+      version 3.13, 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>The documentation is now built with open source tools 
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
+            platforms. One visible change is that the frames are removed.</p>
+          <p>Own Id: OTP-8249</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>Fixing copyright problems.</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+
+<!--
+      <list type="bulleted">
+        <item>
+          <p>For those implementing their own codec's, the new megaco_encoder
+            behaviour will require three more functions. See above for more
+            info. </p>
+          <p>Own Id: OTP-7168</p>
+	  <p>Aux Id: Seq 10867</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+  </section> <!-- 3.13.0.1 -->
+
+
+  <section>
     <title>Megaco 3.13</title>
 
     <p>Version 3.13 supports code replacement in runtime from/to
