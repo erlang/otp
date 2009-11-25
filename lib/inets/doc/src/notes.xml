@@ -32,6 +32,40 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.2.0.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <p>-</p>
+<!--
+      <list>
+        <item>
+          <p>The documentation is now built with open source tools 
+            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
+            platforms. One visible change is that the frames are removed.</p>
+          <p>Own Id: OTP-8249</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>Fixing minor Dialyzer and copyright problem.</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.2.0.1 -->
+
+
   <section><title>Inets 5.2</title>
 
     <section><title>Improvements and New Features</title>

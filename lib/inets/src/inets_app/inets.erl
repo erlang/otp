@@ -87,6 +87,7 @@ start(Service, ServiceConfig, How) ->
     Module = service_module(Service),
     start_service(Module, ServiceConfig, How).
 
+
 %%--------------------------------------------------------------------
 %% Function: stop() -> ok
 %%
@@ -579,8 +580,8 @@ handle_trace({trace_ts, _Who, call,
               {?MODULE, report_event,
                [_Sev, "stop trace", stop_trace, [stop_trace]]},
               Timestamp},
-             {standard_io, _} = Fd) ->
-    (catch io:format(Fd, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
+             {_, standard_io} = Fd) ->
+    (catch io:format(standard_io, "stop trace at ~s~n", [format_timestamp(Timestamp)])),
     Fd;
 handle_trace({trace_ts, _Who, call,
               {?MODULE, report_event,
