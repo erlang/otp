@@ -63,7 +63,7 @@ Suse linux 9.1 is shipped with a patched GCC version 3.3.3, having the
 rpm named gcc-3.3.3-41. That version has a serious optimization bug
 that makes it unusable for building the Erlang emulator. Please
 upgrade GCC to a newer version before building on Suse 9.1. Suse Linux
-EnterpriSe edition 9 (SLES9) has gcc-3.3.3-43 and is not affected.
+Enterprise edition 9 (SLES9) has gcc-3.3.3-43 and is not affected.
 
 gcc-4.3.0 has a serious optimizer bug. It produces an Erlang emulator
 that will crash immediately. The bug is supposed to be fixed in gcc-4.3.1.
@@ -154,7 +154,7 @@ These are the tools you will need in order to unpack and build Erlang/OTP.
 How to build and install Erlang/OTP
 -----------------------------------
 
-If you are building in a Git reposistory, see
+If you are building in a Git repository, see
 
   http://wiki.github.com/erlang/otp
 
@@ -265,6 +265,41 @@ if './otp_build remove_prebuilt_files' is invoked.
 
 If you or your system has special requirements please read the
 Makefile for additional configuration information.
+
+
+How to build a debug enabled Erlang runtime system
+--------------------------------------------------
+
+After completing all the normal building steps described above a debug
+enabled runtime system can be built. To do this you have to change 
+directory to $ERL_TOP/erts/emulator.
+
+In this directory execute:
+
+	make debug FLAVOR=$FLAVOR
+
+where $FLAVOR is either "plain" or "smp". The flavor options will 
+produce a beam.debug and beam.smp.debug executable respectively. The 
+files are installed along side with the normal (opt) versions beam.smp 
+and beam.
+
+To start the debug enabled runtime system execute:
+
+	$ERL_TOP/bin/cerl -debug
+
+The debug enabled runtime system features lock violation checking, 
+assert checking and various sanity checks to help a developer ensure
+correctness. Some of these features can be enabled on a normal beam
+using appropriate configure options.
+
+There are other types of runtime systems that can be built as well
+using the similar steps just described.
+
+	make $TYPE FLAVOR=$FLAVOR
+
+where $TYPE is opt, gcov, gprof, debug, valgrind, lcnt. These
+different beam types are useful for debugging and profiling purposes.
+
 
 Support for SMP (Symmetric Multi Processing)
 --------------------------------------------
