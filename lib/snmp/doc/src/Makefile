@@ -247,9 +247,9 @@ release_docs_spec: docs
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man3
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man6
-	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man6
+	$(INSTALL_DATA) $(MAN6DIR)/* $(RELEASE_PATH)/man/man6
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man7
-	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man7
+	$(INSTALL_DATA) $(MAN7DIR)/* $(RELEASE_PATH)/man/man7
 
 else
 
