@@ -29,6 +29,7 @@
 -export([
 	image_create_and_destroy/1, 
 	image_shape/1, 
+	image_primitives/1,
 	image_colors/1, 
 	image_font/1,
 	image_png_compliant/1
@@ -38,8 +39,7 @@
 -define(default_timeout, ?t:minutes(1)).
 
 init_per_suite(Config) when is_list(Config) ->
-    {A1,A2,A3} = now(),
-    random:seed(A1, A2, A3),
+    random:seed(now()),
     Config.
 
 end_per_suite(Config) when is_list(Config) ->
@@ -59,6 +59,7 @@ all(suite) ->
     [	
 	image_create_and_destroy, 
 	image_shape, 
+	image_primitives,
 	image_colors, 
 	image_font, 
 	image_png_compliant
@@ -145,7 +146,43 @@ image_shape(Config) when is_list(Config) ->
     ?line ok = egd:destroy(Im),
     erase(image_size),
     ok.
-     
+
+image_primitives(suite) ->
+    [];
+image_primitives(doc) ->
+    ["Image shape api test."];
+image_primitives(Config) when is_list(Config) ->
+    {W,H} = get_size(?config(max_size, Config)),
+    put(image_size, {W,H}),
+
+    ?line Im0 = egd_primitives:create(W, H),
+    ?line Fgc = egd:color({25,25,255}),
+    ?line Bgc = egd:color({0,250,25}),
+
+    ?line Im1 = lists:foldl(fun
+    	({Function, Arguments}, Im) ->
+	    ?line erlang:apply(egd_primitives, Function, [Im|Arguments])
+	end, Im0, 
+	[{Fs, [get_point(), get_point(), Bgc]} || Fs <- [line, rectangle, filledEllipse, arc]] ++
+	[{pixel,          [get_point(), Bgc]},
+	 {filledTriangle, [get_point(), get_point(), get_point(), Bgc]}]),
+
+    Pt1 = get_point(),
+    Pt2 = get_point(), 
+
+    ?line Im2 = egd_primitives:filledRectangle(Im1, Pt1, Pt2, Fgc),
+
+    ?line Bitmap = egd_render:binary(Im2, opaque),
+
+    ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt2, Fgc),
+    ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt1, Fgc),
+
+    erase(image_size),
+    ok.
+ 
+
+
+
 image_font(suite) ->
     [];
 image_font(doc) ->
