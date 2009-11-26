@@ -169,6 +169,7 @@ JD_GIF_FILES = \
 
 PACK_DIR = com/ericsson/otp/ic
 JAVA_SOURCE_DIR = ../../java_src/$(PACK_DIR)
+JAVA_OUT_DIR = ../html/java
 
 JD_PACK_HTML_FILES = \
 	package-frame.html \
@@ -176,10 +177,10 @@ JD_PACK_HTML_FILES = \
 	package-tree.html
 
 JAVADOC_PACK_HTML_FILES = \
-	$(JAVA_SOURCE_FILES:%.java=../html/java/$(PACK_DIR)/%.html) \
-	$(JD_PACK_HTML_FILES:%=../html/java/$(PACK_DIR)/%)
+	$(JAVA_SOURCE_FILES:%.java=$(JAVA_OUT_DIR)/$(PACK_DIR)/%.html) \
+	$(JD_PACK_HTML_FILES:%=$(JAVA_OUT_DIR)/$(PACK_DIR)/%)
 
-JAVADOC_INDEX_HTML_FILES = $(JD_INDEX_HTML_FILES:%=../html/java/%)
+JAVADOC_INDEX_HTML_FILES = $(JD_INDEX_HTML_FILES:%=$(JAVA_OUT_DIR)/%)
 
 JAVADOC_GENERATED_FILES = $(JAVADOC_PACK_HTML_FILES) $(JAVADOC_INDEX_HTML_FILES)
 
@@ -244,11 +245,14 @@ clean clean_docs clean_tex:
 	rm -f $(HTML_FILES) $(MAN3_FILES)
 	rm -f $(TOP_PDF_FILE) $(TOP_PS_FILE)
 	rm -f errs core *~ *xmls_output *xmls_errs $(LATEX_CLEAN) 
-	rm -rf ../html/java/*
+	rm -rf $(JAVA_OUT_DIR)
 
 endif
 
-$(JAVADOC_GENERATED_FILES):
+$(JAVA_OUT_DIR):
+	mkdir $(JAVA_OUT_DIR)
+
+$(JAVADOC_GENERATED_FILES): $(JAVA_OUT_DIR)
 	@(cd ../../java_src; $(JAVADOC) $(JAVADOCFLAGS) com.ericsson.otp.ic)
 
 man: $(MAN3_FILES)
