@@ -741,11 +741,17 @@ set_get_test_() ->
 
      ?_assert(array:get(0, set(0, 42, set(0, 17, new()))) =:= 42),
 
-     ?_assert(array:get(0, reset(0, new())) =:= undefined),
-     ?_assert(array:get(0, reset(0, set(0, 17, new()))) =:= undefined),
-     ?_assert(array:get(0, reset(0, new({default,42}))) =:= 42),
-     ?_assert(array:get(0, reset(0, set(0, 17, new({default,42}))))
-	      =:= 42)
+     ?_assertError(badarg, array:get(0, reset(11, new([{size,10}])))),
+     ?_assertError(badarg, array:get(0, reset(-1, new([{size,10}])))),
+     ?_assert(array:get(0, reset(0,  new())) =:= undefined),
+     ?_assert(array:get(0, reset(0,  set(0,  17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(9,  set(9,  17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(11, set(11, 17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(11, set(12, 17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(1,  set(12, 17, new()))) =:= undefined),
+     ?_assert(array:get(0, reset(11, new())) =:= undefined),
+     ?_assert(array:get(0, reset(0,  set(0,  17, new({default,42})))) =:= 42),
+     ?_assert(array:get(0, reset(0,  new({default,42}))) =:= 42)
     ].
 -endif.
 
