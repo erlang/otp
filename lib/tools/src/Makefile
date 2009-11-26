@@ -34,11 +34,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/tools-$(VSN)
 # Common Macros
 # ----------------------------------------------------
 
-MODULES= cover               \
+MODULES= \
+	cover                \
 	cover_web	     \
 	eprof                \
 	fprof                \
 	cprof                \
+	lcnt                 \
 	instrument           \
 	make		     \
 	tags		     \
