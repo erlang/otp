@@ -710,6 +710,10 @@ type(erlang, bump_reductions, 1, Xs) ->
 type(erlang, byte_size, 1, Xs) ->
   strict(arg_types(erlang, byte_size, 1), Xs,
 	 fun (_) -> t_non_neg_integer() end);
+type(erlang, call_on_load_function, 1, Xs) ->
+  %% Internal BIF used by on_load.
+  strict(arg_types(erlang, call_on_load_function, 1), Xs,
+	 fun (_) -> t_any() end);
 type(erlang, cancel_timer, 1, Xs) ->
   strict(arg_types(erlang, cancel_timer, 1), Xs,
 	 fun (_) -> t_sup(t_integer(), t_atom('false')) end);
@@ -773,6 +777,10 @@ type(erlang, element, 2, Xs) ->
 type(erlang, erase, 0, _) -> t_any();
 type(erlang, erase, 1, _) -> t_any();
 type(erlang, external_size, 1, _) -> t_integer();
+type(erlang, finish_after_on_load, 2, Xs) ->
+  %% Internal BIF used by on_load.
+  strict(arg_types(erlang, finish_after_on_load, 2), Xs,
+	 fun (_) -> t_atom('true') end);
 type(erlang, float, 1, Xs) ->
   strict(arg_types(erlang, float, 1), Xs, fun (_) -> t_float() end);
 type(erlang, float_to_list, 1, Xs) ->
@@ -3358,6 +3366,8 @@ arg_types(erlang, bump_reductions, 1) ->
   [t_pos_fixnum()];
 arg_types(erlang, byte_size, 1) ->
   [t_binary()];
+arg_types(erlang, call_on_load_function, 1) ->
+  [t_atom()];
 arg_types(erlang, cancel_timer, 1) ->
   [t_reference()];
 arg_types(erlang, check_process_code, 2) ->
@@ -3402,6 +3412,8 @@ arg_types(erlang, exit, 2) ->
   [t_sup(t_pid(), t_port()), t_any()];
 arg_types(erlang, external_size, 1) ->
   [t_any()]; % takes any term as input
+arg_types(erlang, finish_after_on_load, 2) ->
+  [t_atom(), t_boolean()];
 arg_types(erlang, float, 1) ->
   [t_number()];
 arg_types(erlang, float_to_list, 1) ->
@@ -4462,6 +4474,7 @@ t_code_load_error_rsn() ->	% also used in erlang:load_module/2
 	 t_atom('nofile'),
 	 t_atom('not_purged'),
 	 t_atom('native_code'),
+	 t_atom('on_load'),
 	 t_atom('sticky_directory')]).	% only for the 'code' functions
 
 t_code_loaded_fname_or_status() ->
