@@ -30,7 +30,7 @@
 
 -export([shutdown/1]).
 
--export([sys/1, sys1/1]).
+-export([sys/1, sys1/1, call_format_status/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -42,7 +42,7 @@
 
 % The gen_fsm behaviour
 -export([init/1, handle_event/3, handle_sync_event/4, terminate/3,
-	 handle_info/3]).
+	 handle_info/3, format_status/2]).
 -export([idle/2,	idle/3,
 	 timeout/2,
 	 wfor_conf/2,	wfor_conf/3,
@@ -305,7 +305,7 @@ shutdown(Config) when is_list(Config) ->
     ok.
 
 
-sys(suite) -> [sys1].
+sys(suite) -> [sys1, call_format_status].
 
 sys1(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
@@ -315,6 +315,13 @@ sys1(Config) when is_list(Config) ->
     ?line {'EXIT', {timeout,_}} = 
 	(catch gen_fsm:sync_send_event(Pid, hej)),
     ?line sys:resume(Pid),
+    ?line stop_it(Pid).
+
+call_format_status(Config) when is_list(Config) ->
+    ?line {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, [], []),
+    ?line Status = sys:get_status(Pid),
+    ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data]} = Status,
+    ?line [format_status_called | _] = lists:reverse(Data),
     ?line stop_it(Pid).
 
 
@@ -836,3 +843,6 @@ handle_sync_event(stop_shutdown_reason, _From, _State, Data) ->
     {stop, {shutdown,reason}, {shutdown,reason}, Data};
 handle_sync_event({get, _Pid}, _From, State, Data) ->
     {reply, {state, State, Data}, State, Data}.
+
+format_status(_Opt, [_Pdict, _StateData]) ->
+    [format_status_called].

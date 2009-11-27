@@ -237,6 +237,17 @@
       </type>
       <desc>
         <p>Gets the status of the process.</p>
+        <p>The value of <c>Misc</c> varies for different types of
+          processes. For example, a <c>gen_server</c> process returns
+          the callback module's state, and a <c>gen_fsm</c> process
+          returns information such as its current state name. Callback
+          modules for <c>gen_server</c> and <c>gen_fsm</c> can also
+          customise the value of <c>Misc</c> by exporting
+          a <c>format_status/2</c> function that contributes
+          module-specific information;
+          see <seealso marker="gen_server#format_status/2">gen_server:format_status/2</seealso>
+          and <seealso marker="gen_fsm#format_status/2">gen_fsm:format_status/2</seealso>
+          for more details.</p>
       </desc>
     </func>
     <func>
