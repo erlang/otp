@@ -197,7 +197,9 @@ nc(File, Opts0) when is_list(Opts0) ->
     Opts = Opts0 ++ [report_errors, report_warnings],
     case compile:file(File, Opts) of
 	{ok,Mod} ->
-	    Fname = concat([File, code:objfile_extension()]),
+	    Dir = outdir(Opts),
+	    Obj = filename:basename(File, ".erl") ++ code:objfile_extension(),
+	    Fname = filename:join(Dir, Obj),
 	    case file:read_file(Fname) of
 		{ok,Bin} ->
 		    rpc:eval_everywhere(code,load_binary,[Mod,Fname,Bin]),
