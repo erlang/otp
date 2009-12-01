@@ -25,8 +25,6 @@
 
 -include("dbg_ieval.hrl").
 
--import(lists, [foldl/3,flatmap/2]).
-
 %%====================================================================
 %% External exports
 %%====================================================================
@@ -1142,18 +1140,13 @@ eval_lc(E, Qs, Bs, Ieval) ->
 eval_lc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
-    flatmap(fun (V) ->
-		    case catch match1(P, V, [], Bs0) of
-			{match,Bsn} ->
-			    Bs2 = add_bindings(Bsn, Bs1),
-			    eval_lc1(E, Qs, Bs2, Ieval);
-			nomatch -> []
-		    end end,L1);
+    CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
+    eval_generate(L1, P, Bs1, CompFun, Ieval);
 eval_lc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
     CompFun = fun(NewBs) -> eval_lc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun);
+    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
 eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_lc1(E, Qs, Bs0, Ieval);
@@ -1162,7 +1155,8 @@ eval_lc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
 eval_lc1(E, [Q|Qs], Bs0, Ieval) ->
     case expr(Q, Bs0, Ieval#ieval{last_call=false}) of
 	{value,true,Bs} -> eval_lc1(E, Qs, Bs, Ieval);
-	_ -> []
+	{value,false,_Bs} -> [];
+	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
 eval_lc1(E, [], Bs, Ieval) ->
     {value,V,_} = expr(E, Bs, Ieval#ieval{last_call=false}),
@@ -1179,18 +1173,13 @@ eval_bc(E, Qs, Bs, Ieval) ->
 eval_bc1(E, [{generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {value,L1,Bs1} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
-    flatmap(fun (V) ->
-		    case catch match1(P, V, [], Bs0) of
-			{match,Bsn} ->
-			    Bs2 = add_bindings(Bsn, Bs1),
-			    eval_bc1(E, Qs, Bs2, Ieval);
-			nomatch -> []
-		    end end, L1);
+    CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
+    eval_generate(L1, P, Bs1, CompFun, Ieval);
 eval_bc1(E, [{b_generate,Line,P,L0}|Qs], Bs0, Ieval0) ->
     Ieval = Ieval0#ieval{line=Line},
     {value,Bin,_} = expr(L0, Bs0, Ieval#ieval{last_call=false}),
     CompFun = fun(NewBs) -> eval_bc1(E, Qs, NewBs, Ieval) end,
-    eval_b_generate(Bin, P, Bs0, CompFun);
+    eval_b_generate(Bin, P, Bs0, CompFun, Ieval);
 eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
     case guard(Q, Bs0) of
 	true -> eval_bc1(E, Qs, Bs0, Ieval);
@@ -1199,24 +1188,40 @@ eval_bc1(E, [{guard,Q}|Qs], Bs0, Ieval) ->
 eval_bc1(E, [Q|Qs], Bs0, Ieval) ->
     case expr(Q, Bs0, Ieval#ieval{last_call=false}) of
 	{value,true,Bs} -> eval_bc1(E, Qs, Bs, Ieval);
-	_ -> []
+	{value,false,_Bs} -> [];
+	{value,V,Bs} -> exception(error, {bad_filter,V}, Bs, Ieval)
     end;
 eval_bc1(E, [], Bs, Ieval) ->
     {value,V,_} = expr(E, Bs, Ieval#ieval{last_call=false}),
     [V].
 
-eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun) ->
+eval_generate([V|Rest], P, Bs0, CompFun, Ieval) ->
+    case catch match1(P, V, erl_eval:new_bindings(), Bs0) of
+	{match,Bsn} ->
+	    Bs2 = add_bindings(Bsn, Bs0),
+            CompFun(Bs2) ++ eval_generate(Rest, P, Bs2, CompFun, Ieval);
+	nomatch -> 
+	    eval_generate(Rest, P, Bs0, CompFun, Ieval)
+	end;
+eval_generate([], _P, _Bs0, _CompFun, _Ieval) ->
+    [];
+eval_generate(Term, _P, Bs, _CompFun, Ieval) ->
+    exception(error, {bad_generator,Term}, Bs, Ieval).
+
+eval_b_generate(<<_/bitstring>>=Bin, P, Bs0, CompFun, Ieval) ->
     Mfun = fun(L, R, Bs) -> match1(L, R, Bs, Bs0) end,
     Efun = fun(Exp, Bs) -> expr(Exp, Bs, #ieval{}) end,
     case eval_bits:bin_gen(P, Bin, erl_eval:new_bindings(), Bs0, Mfun, Efun) of
 	{match,Rest,Bs1} ->
 	    Bs2 = add_bindings(Bs1, Bs0),
-	    CompFun(Bs2) ++ eval_b_generate(Rest, P, Bs0, CompFun);
+	    CompFun(Bs2) ++ eval_b_generate(Rest, P, Bs0, CompFun, Ieval);
 	{nomatch,Rest} ->
-	    eval_b_generate(Rest, P, Bs0, CompFun);
+	    eval_b_generate(Rest, P, Bs0, CompFun, Ieval);
 	done ->
 	    []
-    end.
+    end;
+eval_b_generate(Term, _P, Bs, _CompFun, Ieval) ->
+    exception(error, {bad_generator,Term}, Bs, Ieval).
 
 module_info(Mod, module) -> Mod;
 module_info(_Mod, compile) -> [];
@@ -1519,7 +1524,7 @@ guard_expr({'andalso',_,E1,E2}, Bs) ->
 	{value,false}=Res -> Res;
 	{value,true} ->
 	    case guard_expr(E2, Bs) of
-		{value,Bool}=Res when is_boolean(Bool) -> Res
+		{value,_Val}=Res -> Res
 	    end
     end;
 guard_expr({'orelse',_,E1,E2}, Bs) ->
@@ -1527,7 +1532,7 @@ guard_expr({'orelse',_,E1,E2}, Bs) ->
 	{value,true}=Res -> Res;
 	{value,false} ->
 	    case guard_expr(E2, Bs) of
-		{value,Bool}=Res when is_boolean(Bool) -> Res
+		{value,_Val}=Res -> Res
 	    end
     end;
 guard_expr({dbg,_,self,[]}, _) ->

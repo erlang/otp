@@ -32,6 +32,22 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Bugs have been fixed in the evaluation of comprehensions
+            and short-circuit expressions in guards.</p>
+          <p>
+	    Own Id: OTP-8310</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.1</title>
 
     <section><title>Improvements and New Features</title>
