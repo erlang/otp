@@ -117,7 +117,7 @@ compile_mib(Config) when is_list(Config) ->
     ?line case test_server:os_type() of
 	      {unix,_} ->
 		  ?line run(Config, Cmd, FileName, "-W +'{verbosity,info}'",
-			    ["GOOD-MIB.mib: Info. No accessfunction for 'sysDescr'",
+			    ["\\[GOOD-MIB[.]mib\\]\\[INF\\]: No accessfunction for 'sysDescr' => using default",
 			     "_OK_"]),
 		  ?line true = exists(Output),
 		  ?line ok = file:delete(Output);
