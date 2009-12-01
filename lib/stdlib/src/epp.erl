@@ -576,11 +576,11 @@ add_macro_uses([{Key, Def} | Rest], D0) ->
 %% scan_undef(Tokens, UndefToken, From, EppState)
 
 scan_undef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From, St) ->
-    scan_toks(From, St#epp{macs=dict:erase({atom,M}, St#epp.macs),
-			   uses=all_macro_uses(St#epp.macs)});
+    Macs = dict:erase({atom,M}, St#epp.macs)
+    scan_toks(From, St#epp{macs=Macs, uses=all_macro_uses(Macs)});
 scan_undef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From,St) ->
-    scan_toks(From, St#epp{macs=dict:erase({atom,M}, St#epp.macs),
-			   uses=all_macro_uses(St#epp.macs)});
+    Macs = dict:erase({atom,M}, St#epp.macs),
+    scan_toks(From, St#epp{macs=Macs, uses=all_macro_uses(Macs)});
 scan_undef(_Toks, Undef, From, St) ->
     epp_reply(From, {error,{loc(Undef),epp,{bad,undef}}}),
     wait_req_scan(St).
