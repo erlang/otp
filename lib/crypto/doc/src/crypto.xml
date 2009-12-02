@@ -337,6 +337,53 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
       </desc>
     </func>
+
+    <func>
+      <name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
+      <fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
+      </desc>
+      <name>blowfish_ecb_decrypt(Key, Text) -> Cipher</name>
+      <fsummary>Decrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts the first 64 bits of <c>Text</c> using Blowfish in ECB mode. <c>Key</c> is the Blowfish key. The length of <c>Text</c> must be at least 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>blowfish_cbc_encrypt(Key, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
+          arbitrary initializing vector. The length of <c>IVec</c>
+          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple of 64 bits (8 bytes).</p>
+      </desc>
+      <name>blowfish_cbc_decrypt(Key, Text) -> Cipher</name>
+      <fsummary>Decrypt <c>Text</c> using Blowfish in CBC mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Text</c> using Blowfish in CBC mode. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
+          arbitrary initializing vector. The length of <c>IVec</c>
+          must be 64 bits (8 bytes). The length of <c>Text</c> must be a multiple 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
     <func>
       <name>blowfish_cfb64_encrypt(Key, IVec, Text) -> Cipher</name>
       <fsummary>Encrypt <c>Text</c>using Blowfish in CFB mode with 64
@@ -367,6 +414,23 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           must be 64 bits (8 bytes).</p>
       </desc>
     </func>
+
+    <func>
+      <name>blowfish_ofb64_encrypt(Key, IVec, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>using Blowfish in OFB mode with 64
+        bit feedback</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>IVec = Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> using Blowfish in OFB mode with 64 bit
+          feedback. <c>Key</c> is the Blowfish key, and <c>IVec</c> is an
+          arbitrary initializing vector. The length of <c>IVec</c>
+          must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
     <func>
       <name>aes_cfb_128_encrypt(Key, IVec, Text) -> Cipher</name>
       <name>aes_cbc_128_encrypt(Key, IVec, Text) -> Cipher</name>

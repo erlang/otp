@@ -30,7 +30,10 @@
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac_96/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
 -export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
--export([blowfish_cfb64_encrypt/3,blowfish_cfb64_decrypt/3]).
+-export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
+-export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
+-export([blowfish_cfb64_encrypt/3, blowfish_cfb64_decrypt/3]).
+-export([blowfish_ofb64_encrypt/3]).
 -export([des_ede3_cbc_encrypt/5, des_ede3_cbc_decrypt/5]).
 -export([aes_cfb_128_encrypt/3, aes_cfb_128_decrypt/3]).
 -export([exor/2]).
@@ -115,6 +118,11 @@
 
 -define(BF_CFB64_ENCRYPT, 59).
 -define(BF_CFB64_DECRYPT, 60).
+-define(BF_ECB_ENCRYPT,   61).
+-define(BF_ECB_DECRYPT,   62).
+-define(BF_OFB64_ENCRYPT, 63).
+-define(BF_CBC_ENCRYPT,   64).
+-define(BF_CBC_DECRYPT,   65).
 
 %% -define(IDEA_CBC_ENCRYPT, 34).
 %% -define(IDEA_CBC_DECRYPT, 35).
@@ -303,11 +311,26 @@ des_ede3_cbc_decrypt(Key1, Key2, Key3, IVec, Data) ->
 %%
 %% Blowfish
 %%
+blowfish_ecb_encrypt(Key, Data) when byte_size(Data) >= 8 ->
+    control_bin(?BF_ECB_ENCRYPT, Key, list_to_binary([Data])).
+
+blowfish_ecb_decrypt(Key, Data) when byte_size(Data) >= 8 ->
+    control_bin(?BF_ECB_DECRYPT, Key, list_to_binary([Data])).
+
+blowfish_cbc_encrypt(Key, IVec, Data) when byte_size(Data) rem 8 =:= 0 ->
+    control_bin(?BF_CBC_ENCRYPT, Key, list_to_binary([IVec, Data])).
+
+blowfish_cbc_decrypt(Key, IVec, Data) when byte_size(Data) rem 8 =:= 0 ->
+    control_bin(?BF_CBC_DECRYPT, Key, list_to_binary([IVec, Data])).
+
 blowfish_cfb64_encrypt(Key, IVec, Data) when byte_size(IVec) =:= 8 ->
     control_bin(?BF_CFB64_ENCRYPT, Key, list_to_binary([IVec, Data])).
 
 blowfish_cfb64_decrypt(Key, IVec, Data) when byte_size(IVec) =:= 8 ->
     control_bin(?BF_CFB64_DECRYPT, Key, list_to_binary([IVec, Data])).
+
+blowfish_ofb64_encrypt(Key, IVec, Data) when byte_size(IVec) =:= 8 ->
+    control_bin(?BF_OFB64_ENCRYPT, Key, list_to_binary([IVec, Data])).
 
 %%
 %% AES in cipher feedback mode (CFB)
