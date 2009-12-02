@@ -68,15 +68,23 @@ usage ()
     echo "Before trying to cross compile, set environment via the following option"
     echo "Please note that the path to the configuration file should be absolute."
     echo "    env_cross <absolute path to cross conf file> - echo environment settings for cross compilation, use with eval"
-    echo ""
-    echo "The following options concern the primary bootstrap."
-    echo "{prepare,update,commit,cancel}_primary is for actually updating"
-    echo "the checked in derivates of the main code base, they are not for"
-    echo "managing a downloaded spource-tree."
-    echo "    prepare_primary - prepares for building primary bootstrap (only in Clearcase)"
-    echo "    update_primary - creates the primary bootstrap, the one shipped"
-    echo "    commit_primary - commits a primary bootstrap (only in Clearcase)"
-    echo "    cancel_primary - uncheckout a primary bootstrap (only in Clearcase)"
+    case $version_controller in
+	none)
+	    ;;
+	clearcase)
+	    echo ""
+	    echo "Handle the primary bootstrap in Clearcase:"
+	    echo "    prepare_primary - prepare for building a primary bootstrap"
+	    echo "    update_primary - create the primary bootstrap"
+	    echo "    commit_primary - commit a primary bootstrap"
+	    echo "    cancel_primary - uncheckout a primary bootstrap"
+	    ;;
+	git)
+	    echo ""
+	    echo "update_primary - build and commit a new primary bootstrap"
+	    ;;
+    esac
+
     echo ""
     echo "The following options concern preloaded code."
     echo "They are, like the primary bootstrap, mainly the concern of the"
@@ -829,6 +837,23 @@ do_primary ()
     fi
 }
 
+do_primary_git ()
+{
+    setup_make
+    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
+	do_primary_cross
+    else
+	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
+    fi
+    git add -A bootstrap/lib/kernel \
+        bootstrap/lib/stdlib \
+	bootstrap/lib/compiler \
+	bootstrap/lib/orber/include \
+	bootstrap/bin
+    git commit -m 'Update primary bootstrap'
+}
+
+
 do_prepare ()
 {
     CT=`lookup_prog_in_path cleartool`
@@ -1282,7 +1307,11 @@ case "$1" in
 	prepare_primary)
 		do_prepare;;
 	update_primary)
-		do_primary;;
+		case $version_controller in
+		    git) do_primary_git ;;
+		    clearcase) do_primary ;;
+		    none) do_primary ;;
+		esac ;;
 	commit_primary)
 		do_commit;;
 	cancel_primary)
