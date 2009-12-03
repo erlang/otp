@@ -248,7 +248,7 @@ iohead ::= Binary
         <v>ETERM *list;</v>
       </type>
       <desc>
-        <p>This function converts an IO list to a '\\0' terminated C
+        <p>This function converts an IO list to a '\0' terminated C
           string. </p>
         <p><c><![CDATA[list]]></c> is an Erlang term containing an IO list. The IO
           list must not contain the integer 0, since C strings may not

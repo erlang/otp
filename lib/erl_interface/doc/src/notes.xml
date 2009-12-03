@@ -336,7 +336,7 @@
             from 0 to 255 as a string. If the original list contains
             the integer 0, this is considered terminator of the
             string. This is incorrect. The function has now been
-            modified to not look for '\\0' in a string, but always
+            modified to not look for '\0' in a string, but always
             print all characters.</p>
           <p>Own Id: OTP-6339 Aux Id: seq10492 </p>
         </item>
