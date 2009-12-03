@@ -5,7 +5,9 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # Target Specs
 # ----------------------------------------------------
 
-MODULES= crypto_SUITE
+MODULES = \
+	blowfish_SUITE \
+	crypto_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
