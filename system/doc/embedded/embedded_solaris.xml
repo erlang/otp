@@ -580,7 +580,7 @@ fi
 
 START_ERL_DATA=${1:-$RELDIR/start_erl.data}
 
-$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \\ 
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \ 
                      $ROOTDIR $RELDIR $START_ERL_DATA" > /dev/null 2>&1 &]]></code>
       <p>The following script illustrates a modification where the node
         is given the name <c>cp1</c>, and the environment variables
@@ -604,7 +604,7 @@ fi
 
 START_ERL_DATA=${1:-$RELDIR/start_erl.data}
 
-$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \\ 
+$ROOTDIR/bin/run_erl /tmp/ $ROOTDIR/log "exec $ROOTDIR/bin/start_erl \ 
       $ROOTDIR $RELDIR $START_ERL_DATA -heart -sname cp1" > /dev/null 2>&1 &]]></code>
       <p>If a diskless and/or read-only client node is about to start the
         <c>start_erl.data</c> file is located in the client directory at
@@ -702,7 +702,7 @@ VSN=`awk '{print $2}' $DataFile`
 
 BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin
 EMU=beam
-PROGNAME=`echo $0 | sed 's/.*\\///'`
+PROGNAME=`echo $0 | sed 's/.*\///'`
 export EMU
 export ROOTDIR
 export BINDIR
@@ -726,7 +726,7 @@ exec $BINDIR/erlexec -boot $RELDIR/$VSN/start -config $RELDIR/$VSN/sys $*</code>
         should look like:
         </p>
       <code type="none">
-exec $BINDIR/erlexec -boot $CLIENTDIR/bin/start \\ 
+exec $BINDIR/erlexec -boot $CLIENTDIR/bin/start \ 
      -config $CLIENTDIR/bin/sys $*</code>
     </section>
   </section>

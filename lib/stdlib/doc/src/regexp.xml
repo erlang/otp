@@ -132,7 +132,7 @@
         <v>RepCount = integer()</v>
       </type>
       <desc>
-        <p>Substitutes the first occurrence of a substring matching <c>RegExp</c> in <c>String</c> with the string <c>New</c>. A <c><![CDATA[&]]></c> in the string <c>New</c> is replaced by the matched substring of <c>String</c>.  <c><![CDATA[\\&]]></c> puts a literal <c><![CDATA[&]]></c> into the replacement string. It returns as follows:</p>
+        <p>Substitutes the first occurrence of a substring matching <c>RegExp</c> in <c>String</c> with the string <c>New</c>. A <c><![CDATA[&]]></c> in the string <c>New</c> is replaced by the matched substring of <c>String</c>.  <c><![CDATA[\&]]></c> puts a literal <c><![CDATA[&]]></c> into the replacement string. It returns as follows:</p>
         <taglist>
           <tag><c>{ok,NewString,RepCount}</c></tag>
           <item>
@@ -286,7 +286,7 @@
       <item>
         <p>matches the non-metacharacter <c>c</c>.</p>
       </item>
-      <tag>\\c</tag>
+      <tag>\c</tag>
       <item>
         <p>matches the escape sequence or literal character <c>c</c>.</p>
       </item>
@@ -341,74 +341,74 @@
     <p>The escape sequences allowed are the same as for Erlang
       strings:</p>
     <taglist>
-      <tag><c>\\b</c></tag>
+      <tag><c>\b</c></tag>
       <item>
         <p>backspace</p>
       </item>
-      <tag><c>\\f</c></tag>
+      <tag><c>\f</c></tag>
       <item>
         <p>form feed </p>
       </item>
-      <tag><c>\</c></tag>
+      <tag><c>\n</c></tag>
       <item>
         <p>newline (line feed) </p>
       </item>
-      <tag><c>\\r</c></tag>
+      <tag><c>\r</c></tag>
       <item>
         <p>carriage return </p>
       </item>
-      <tag><c>\\t</c></tag>
+      <tag><c>\t</c></tag>
       <item>
         <p>tab </p>
       </item>
-      <tag><c>\\e</c></tag>
+      <tag><c>\e</c></tag>
       <item>
         <p>escape </p>
       </item>
-      <tag><c>\\v</c></tag>
+      <tag><c>\v</c></tag>
       <item>
         <p>vertical tab </p>
       </item>
-      <tag><c>\\s</c></tag>
+      <tag><c>\s</c></tag>
       <item>
         <p>space </p>
       </item>
-      <tag><c>\\d</c></tag>
+      <tag><c>\d</c></tag>
       <item>
         <p>delete </p>
       </item>
-      <tag><c>\\ddd</c></tag>
+      <tag><c>\ddd</c></tag>
       <item>
         <p>the octal value ddd </p>
       </item>
-      <tag><c>\\xhh</c></tag>
+      <tag><c>\xhh</c></tag>
       <item>
         <p>The hexadecimal value <c>hh</c>.</p>
       </item>
-      <tag><c>\\x{h...}</c></tag>
+      <tag><c>\x{h...}</c></tag>
       <item>
         <p>The hexadecimal value <c>h...</c>.</p>
       </item>
-      <tag><c>\\c</c></tag>
+      <tag><c>\c</c></tag>
       <item>
-        <p>any other character literally, for example <c>\\\\</c> for backslash,
-          <c>\\"</c> for ")</p>
+        <p>any other character literally, for example <c>\\</c> for backslash,
+          <c>\"</c> for ")</p>
       </item>
     </taglist>
     <p>To make these functions easier to use, in combination with the
       function <c>io:get_line</c> which terminates the input line with
       a new line, the <c>$</c> characters also matches a string ending
-      with <c>"...\ "</c>. The following examples
+      with <c>"...\n"</c>. The following examples
       define Erlang data types:</p>
     <pre>
 Atoms     [a-z][0-9a-zA-Z_]*
 
 Variables [A-Z_][0-9a-zA-Z_]*
 
-Floats    (\\+|-)?[0-9]+\\.[0-9]+((E|e)(\\+|-)?[0-9]+)?</pre>
-    <p>Regular expressions are written as Erlang strings when used with the functions in this module. This means that any <c>\\</c> or <c>"</c> characters in a regular expression
-      string must be written with <c>\\</c> as they are also escape characters for the string. For example, the regular expression string for Erlang floats is:
-      <c>"(\\\\+|-)?[0-9]+\\\\.[0-9]+((E|e)(\\\\+|-)?[0-9]+)?"</c>.</p>
+Floats    (\+|-)?[0-9]+\.[0-9]+((E|e)(\+|-)?[0-9]+)?</pre>
+    <p>Regular expressions are written as Erlang strings when used with the functions in this module. This means that any <c>\</c> or <c>"</c> characters in a regular expression
+      string must be written with <c>\</c> as they are also escape characters for the string. For example, the regular expression string for Erlang floats is:
+      <c>"(\\+|-)?[0-9]+\\.[0-9]+((E|e)(\\+|-)?[0-9]+)?"</c>.</p>
     <p>It is not really necessary to have the escape sequences as part of the regular expression syntax as they can always be generated directly in the string. They are included for completeness and can they can also be useful when generating regular expressions, or when they are entered other than with Erlang strings.</p>
   </section>
 </erlref>

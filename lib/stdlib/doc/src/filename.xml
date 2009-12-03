@@ -37,7 +37,7 @@
       is meant all strings that can be used to denote a file. They can
       be short relative names like <c>foo.erl</c>, very long absolute
       name which include a drive designator and directory names like
-      <c>D:\\usr/local\\bin\\erl/lib\\tools\\foo.erl</c>, or any variations
+      <c>D:\usr/local\bin\erl/lib\tools\foo.erl</c>, or any variations
       in between.</p>
     <p>In Windows, all functions return file names with forward slashes
       only, even if the arguments contain back slashes. Use
@@ -173,7 +173,7 @@ name() = string() | atom() | DeepList
 14> <input>filename:dirname("kalle.erl").</input>
 "."
 
-5> <input>filename:dirname("\\\\usr\\\\src/kalle.erl").</input> % Windows
+5> <input>filename:dirname("\\usr\\src/kalle.erl").</input> % Windows
 "/usr/src"</pre>
       </desc>
     </func>
@@ -228,7 +228,7 @@ name() = string() | atom() | DeepList
 18> <input>filename:join(["a/b///c/"]).</input>
 "a/b/c"
 
-6> <input>filename:join(["B:a\\\\b///c/"]).</input> % Windows
+6> <input>filename:join(["B:a\\b///c/"]).</input> % Windows
 "b:a/b/c"</pre>
       </desc>
     </func>
@@ -259,7 +259,7 @@ name() = string() | atom() | DeepList
 "/usr/local/bin"
 
 7> <input>filename:nativename("/usr/local/bin/").</input> % Windows
-"\\\\usr\\\\local\\\\bin"</pre>
+"\\usr\\local\\bin"</pre>
       </desc>
     </func>
     <func>
@@ -329,7 +329,7 @@ name() = string() | atom() | DeepList
 ["/","usr","local","bin"]
 25> <input>filename:split("foo/bar").</input>
 ["foo","bar"]
-26> <input>filename:split("a:\\\\msdev\\\\include").</input>
+26> <input>filename:split("a:\\msdev\\include").</input>
 ["a:/","msdev","include"]</pre>
       </desc>
     </func>

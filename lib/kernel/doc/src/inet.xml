@@ -49,8 +49,8 @@
       might be specified in this way. An example of starting an Erlang
       node with all sockets using delayed send could look like this:</p>
     <pre>
-$ <input>erl -sname test -kernel \\</input>
-<input>inet_default_connect_options '[{delay_send,true}]' \\</input>
+$ <input>erl -sname test -kernel \</input>
+<input>inet_default_connect_options '[{delay_send,true}]' \</input>
 <input>inet_default_listen_options '[{delay_send,true}]'</input></pre>
     <p>Note that the default option <c>{active, true}</c> currently
       cannot be changed, for internal reasons.</p>

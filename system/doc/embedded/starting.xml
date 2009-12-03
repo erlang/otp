@@ -219,7 +219,7 @@ VSN=`awk '{print $2}' $DataFile`
 
 BINDIR=$ROOTDIR/erts-$ERTS_VSN/bin
 EMU=beam
-PROGNAME=`echo $0 | sed 's/.*\\///'`
+PROGNAME=`echo $0 | sed 's/.*\///'`
 export EMU
 export ROOTDIR
 export BINDIR

@@ -51,7 +51,7 @@
     <list type="bulleted">
       <item><em><c>TAB</c></em> (<c>erlang-indent-command</c>) -
        Indents the current line of code. </item>
-      <item><em><c>M-C-\\</c></em> (<c>indent-region</c>) - Indents all
+      <item><em><c>M-C-\</c></em> (<c>indent-region</c>) - Indents all
        lines in the region. </item>
       <item><em><c>M-l</c></em> (<c>indent-for-comment</c>) - Insert a
        comment character to the right of the code on the line (if

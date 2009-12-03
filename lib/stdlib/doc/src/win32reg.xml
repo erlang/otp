@@ -48,7 +48,7 @@
     <p>Paths to keys are left to right, with sub-keys to the right and backslash
       between keys. (Remember that backslashes must be doubled in Erlang strings.)
       Case is preserved but not significant.
-      Example: <c>"\\\\hkey_local_machine\\\\software\\\\Ericsson\\\\Erlang\\\\5.0"</c> is the key
+      Example: <c>"\\hkey_local_machine\\software\\Ericsson\\Erlang\\5.0"</c> is the key
       for the installation data for the latest Erlang release.</p>
     <p>There are six entry points in the Windows registry, top level keys. They can be
       abbreviated in the <c>win32reg</c> module as:</p>
@@ -66,7 +66,7 @@ current_config   HKEY_CURRENT_CONFIG
 hkcc             HKEY_CURRENT_CONFIG
 dyn_data         HKEY_DYN_DATA
 hkdd             HKEY_DYN_DATA</pre>
-    <p>The key above could be written as <c>"\\\\hklm\\\\software\\\\ericsson\\\\erlang\\\\5.0"</c>.</p>
+    <p>The key above could be written as <c>"\\hklm\\software\\ericsson\\erlang\\5.0"</c>.</p>
     <p>The <c>win32reg</c> module uses a current key. It works much like the
       current directory. From the current key, values can be fetched, sub-keys
       can be listed, and so on.</p>
@@ -96,7 +96,7 @@ hkdd             HKEY_DYN_DATA</pre>
       <desc>
         <p>Changes the current key to another key. Works like cd.
           The key can be specified as a relative path or as an
-          absolute path, starting with \\.</p>
+          absolute path, starting with \.</p>
       </desc>
     </func>
     <func>

@@ -546,7 +546,7 @@ request({get_chars, Encoding, _Prompt, N}, State) -&gt;
     get_until(Encoding, ?MODULE, until_enough, [N], State);
 request({get_line, Encoding, _Prompt}, State) -&gt;
     %% To simplify the code, get_line is implemented using get_until
-    get_until(Encoding, ?MODULE, until_newline, [$\\n], State);
+    get_until(Encoding, ?MODULE, until_newline, [$\n], State);
 </code>
 
 <p>Here we have cheated a little by more or less only implementing

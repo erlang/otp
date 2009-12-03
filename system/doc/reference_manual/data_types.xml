@@ -59,7 +59,7 @@
 42
 2> <input>$A.</input>
 65
-3> <input>$\ .</input>
+3> <input>$\n.</input>
 10
 4> <input>2#101.</input>
 5
@@ -296,68 +296,68 @@ true</pre>
         <cell align="left" valign="middle"><em>Description</em></cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\b</cell>
+        <cell align="left" valign="middle">\b</cell>
         <cell align="left" valign="middle">backspace</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\d</cell>
+        <cell align="left" valign="middle">\d</cell>
         <cell align="left" valign="middle">delete</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\e</cell>
+        <cell align="left" valign="middle">\e</cell>
         <cell align="left" valign="middle">escape</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\f</cell>
+        <cell align="left" valign="middle">\f</cell>
         <cell align="left" valign="middle">form feed</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\</cell>
+        <cell align="left" valign="middle">\n</cell>
         <cell align="left" valign="middle">newline</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\r</cell>
+        <cell align="left" valign="middle">\r</cell>
         <cell align="left" valign="middle">carriage return</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\s</cell>
+        <cell align="left" valign="middle">\s</cell>
         <cell align="left" valign="middle">space</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\t</cell>
+        <cell align="left" valign="middle">\t</cell>
         <cell align="left" valign="middle">tab</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\v</cell>
+        <cell align="left" valign="middle">\v</cell>
         <cell align="left" valign="middle">vertical tab</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\XYZ, \\YZ, \\Z</cell>
+        <cell align="left" valign="middle">\XYZ, \YZ, \Z</cell>
         <cell align="left" valign="middle">character with octal representation XYZ, YZ or Z</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\xXY</cell>
+        <cell align="left" valign="middle">\xXY</cell>
         <cell align="left" valign="middle">character with hexadecimal representation XY</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\x{X...}</cell>
+        <cell align="left" valign="middle">\x{X...}</cell>
         <cell align="left" valign="middle">character with hexadecimal representation; X... is one or more hexadecimal characters</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\^a...\\^z        <br></br>
-\\^A...\\^Z</cell>
+        <cell align="left" valign="middle">\^a...\^z        <br></br>
+\^A...\^Z</cell>
         <cell align="left" valign="middle">control A to control Z</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\'</cell>
+        <cell align="left" valign="middle">\'</cell>
         <cell align="left" valign="middle">single quote</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\"</cell>
+        <cell align="left" valign="middle">\"</cell>
         <cell align="left" valign="middle">double quote</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">\\\\</cell>
+        <cell align="left" valign="middle">\\</cell>
         <cell align="left" valign="middle">backslash</cell>
       </row>
       <tcaption>Recognized Escape Sequences.</tcaption>

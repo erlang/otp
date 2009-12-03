@@ -1176,7 +1176,7 @@ Evaluates a predefined analysis.
           <item>
             <p><c>no_functions</c>. Functions in library modules and
               the functions <c>module_info/0,1</c> are not counted by
-              <c>info</c>. Assuming that <c>"Extra := _:module_info/\\"(0|1)\\" + LM"</c> has been evaluated, the
+              <c>info</c>. Assuming that <c>"Extra := _:module_info/\"(0|1)\" + LM"</c> has been evaluated, the
               sum of the number of local and exported functions are:</p>
             <list type="bulleted">
               <item><c>"# (F - Extra)"</c> (info/1)</item>

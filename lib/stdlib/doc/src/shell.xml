@@ -333,10 +333,12 @@ undefined
 &lt;0.57.0>
 27> <input>get(aa).</input>
 hello
-28> <input>io:format("hello hello\ ").</input>
-hello hello ok
+28> <input>io:format("hello hello\n").</input>
+hello hello
+ok
 29> <input>e(28).</input>
-hello hello ok
+hello hello
+ok
 30> <input>v(28).</input>
 ok
 31> <input>c(ex).</input>

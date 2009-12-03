@@ -103,7 +103,7 @@
     <p>A typical command line may look like this      <br></br>
 <c>erl -noshell -s test_server_ctrl run_test KEY1 Value1 KEY2 Value2 ... -s erlang halt</c></p>
     <p>Or make an alias (this is for unix/tcsh)      <br></br>
-<c>alias erl_test 'erl -noshell -s test_server_ctrl run_test \\!* -s erlang halt'</c></p>
+<c>alias erl_test 'erl -noshell -s test_server_ctrl run_test \!* -s erlang halt'</c></p>
     <p>And then use it like this      <br></br>
 <c>erl_test KEY1 Value1 KEY2 Value2 ...</c>      <br></br>
 </p>

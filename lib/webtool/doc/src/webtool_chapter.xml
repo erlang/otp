@@ -212,16 +212,13 @@ http://Servername:Port/ErlScriptAlias/Mod/Func<?QueryString>      ]]></code>
             header("text/html").
 
         header(MimeType) -&gt;
-            "Content-type: " ++ MimeType ++ "\\r\
-\\r\
-".
+            "Content-type: " ++ MimeType ++ "\r\n\r\n".
 
         html_header() -&gt;    
             "&lt;HTML&gt;
                &lt;HEAD&gt;
                   &lt;TITLE&gt;Hello world Example &lt;/TITLE&gt;
-               &lt;/HEAD&gt;\
-".
+               &lt;/HEAD&gt;\n".
 
         helloworld_body()-&gt;
             "&lt;BODY&gt;Hello World&lt;/BODY&gt;".

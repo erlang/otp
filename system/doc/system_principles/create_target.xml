@@ -259,9 +259,9 @@ os> <input>/usr/local/erl-target/bin/erl -boot /usr/local/erl-target/releases/FI
 %%
 create(RelFileName) ->
     RelFile = RelFileName ++ ".rel", 
-    io:fwrite("Reading file: \\"~s\\" ...~n", [RelFile]),
+    io:fwrite("Reading file: \"~s\" ...~n", [RelFile]),
     {ok, [RelSpec]} = file:consult(RelFile),
-    io:fwrite("Creating file: \\"~s\\" from \\"~s\\" ...~n", 
+    io:fwrite("Creating file: \"~s\" from \"~s\" ...~n", 
               ["plain.rel", RelFile]),
     {release,
      {RelName, RelVsn},
@@ -282,40 +282,39 @@ create(RelFileName) ->
     io:fwrite(Fd, "~p.~n", [PlainRelSpec]),
     file:close(Fd),
 
-    io:fwrite("Making \\"plain.script\\" and \\"plain.boot\\" files ...~n"),
+    io:fwrite("Making \"plain.script\" and \"plain.boot\" files ...~n"),
     make_script("plain"),
 
-    io:fwrite("Making \\"~s.script\\" and \\"~s.boot\\" files ...~n", 
+    io:fwrite("Making \"~s.script\" and \"~s.boot\" files ...~n", 
               [RelFileName, RelFileName]),
     make_script(RelFileName),
 
     TarFileName = io_lib:fwrite("~s.tar.gz", [RelFileName]),
-    io:fwrite("Creating tar file \\"~s\\" ...~n", [TarFileName]),
+    io:fwrite("Creating tar file \"~s\" ...~n", [TarFileName]),
     make_tar(RelFileName),
 
-    io:fwrite("Creating directory \\"tmp\\" ...~n"),
+    io:fwrite("Creating directory \"tmp\" ...~n"),
     file:make_dir("tmp"), 
 
-    io:fwrite("Extracting \\"~s\\" into directory \\"tmp\\" ...~n", [TarFileName]),
+    io:fwrite("Extracting \"~s\" into directory \"tmp\" ...~n", [TarFileName]),
     extract_tar(TarFileName, "tmp"),
 
     TmpBinDir = filename:join(["tmp", "bin"]),
     ErtsBinDir = filename:join(["tmp", "erts-" ++ ErtsVsn, "bin"]),
-    io:fwrite("Deleting \\"erl\\" and \\"start\\" in directory \\"~s\\" ...~n", 
+    io:fwrite("Deleting \"erl\" and \"start\" in directory \"~s\" ...~n", 
               [ErtsBinDir]),
     file:delete(filename:join([ErtsBinDir, "erl"])),
     file:delete(filename:join([ErtsBinDir, "start"])),
 
-    io:fwrite("Creating temporary directory \\"~s\\" ...~n", [TmpBinDir]),
+    io:fwrite("Creating temporary directory \"~s\" ...~n", [TmpBinDir]),
     file:make_dir(TmpBinDir),
 
-    io:fwrite("Copying file \\"plain.boot\\" to \\"~s\\" ...~n", 
+    io:fwrite("Copying file \"plain.boot\" to \"~s\" ...~n", 
               [filename:join([TmpBinDir, "start.boot"])]),
     copy_file("plain.boot", filename:join([TmpBinDir, "start.boot"])),
 
-    io:fwrite("Copying files \\"epmd\\", \\"run_erl\\" and \\"to_erl\\" from \
-"
-              "\\"~s\\" to \\"~s\\" ...~n", 
+    io:fwrite("Copying files \"epmd\", \"run_erl\" and \"to_erl\" from \n"
+              "\"~s\" to \"~s\" ...~n", 
               [ErtsBinDir, TmpBinDir]),
     copy_file(filename:join([ErtsBinDir, "epmd"]), 
               filename:join([TmpBinDir, "epmd"]), [preserve]),
@@ -325,12 +324,12 @@ create(RelFileName) ->
               filename:join([TmpBinDir, "to_erl"]), [preserve]),
 
     StartErlDataFile = filename:join(["tmp", "releases", "start_erl.data"]),
-    io:fwrite("Creating \\"~s\\" ...~n", [StartErlDataFile]),
+    io:fwrite("Creating \"~s\" ...~n", [StartErlDataFile]),
     StartErlData = io_lib:fwrite("~s ~s~n", [ErtsVsn, RelVsn]),
     write_file(StartErlDataFile, StartErlData),
     
-    io:fwrite("Recreating tar file \\"~s\\" from contents in directory "
-              "\\"tmp\\" ...~n", [TarFileName]),
+    io:fwrite("Recreating tar file \"~s\" from contents in directory "
+              "\"tmp\" ...~n", [TarFileName]),
     {ok, Tar} = erl_tar:open(TarFileName, [write, compressed]),
     {ok, Cwd} = file:get_cwd(),
     file:set_cwd("tmp"),
@@ -340,7 +339,7 @@ create(RelFileName) ->
     erl_tar:add(Tar, "lib", []),
     erl_tar:close(Tar),
     file:set_cwd(Cwd),
-    io:fwrite("Removing directory \\"tmp\\" ...~n"),
+    io:fwrite("Removing directory \"tmp\" ...~n"),
     remove_dir_tree("tmp"),
     ok.
 
@@ -351,19 +350,15 @@ install(RelFileName, RootDir) ->
     extract_tar(TarFile, RootDir),
     StartErlDataFile = filename:join([RootDir, "releases", "start_erl.data"]),
     {ok, StartErlData} = read_txt_file(StartErlDataFile),
-    [ErlVsn, RelVsn| _] = string:tokens(StartErlData, " \
-"),
+    [ErlVsn, RelVsn| _] = string:tokens(StartErlData, " \n"),
     ErtsBinDir = filename:join([RootDir, "erts-" ++ ErlVsn, "bin"]),
     BinDir = filename:join([RootDir, "bin"]),
-    io:fwrite("Substituting in erl.src, start.src and start_erl.src to\
-"
-              "form erl, start and start_erl ...\
-"),
+    io:fwrite("Substituting in erl.src, start.src and start_erl.src to\n"
+              "form erl, start and start_erl ...\n"),
     subst_src_scripts(["erl", "start", "start_erl"], ErtsBinDir, BinDir, 
                       [{"FINAL_ROOTDIR", RootDir}, {"EMU", "beam"}],
                       [preserve]),
-    io:fwrite("Creating the RELEASES file ...\
-"),
+    io:fwrite("Creating the RELEASES file ...\n"),
     create_RELEASES(RootDir, 
                     filename:join([RootDir, "releases", RelFileName])).
 

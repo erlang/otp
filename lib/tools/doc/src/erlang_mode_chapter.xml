@@ -74,10 +74,10 @@
       environment variable is set, Emacs will look for the
       <c>.emacs</c> file in the directory indicated by the
       <em>HOME</em> variable. If <em>HOME</em> is not set, Emacs
-      will look for the <c>.emacs</c> file in <c>C:\\ </c>.</p>
+      will look for the <c>.emacs</c> file in <c>C:\ </c>.</p>
     <p>Below is a complete example of what should be added to a user's
       <c>.emacs</c> provided that OTP is installed in the directory
-      <c><![CDATA[C:\\Program Files\\erl<Ver>]]></c>: </p>
+      <c><![CDATA[C:\Program Files\erl<Ver>]]></c>: </p>
     <code type="none"><![CDATA[
       (setq load-path (cons  "C:/Program Files/erl<Ver>/lib/tools-<ToolsVer>/emacs"
       load-path))
@@ -87,7 +87,7 @@
     ]]></code>
     <note>
       <p>In .emacs, the slash character "/" can be used as path
-        separator. But if you decide to use the backslash character "\\",
+        separator. But if you decide to use the backslash character "\",
         please not that you must use double backslashes, since they are
         treated as escape characters by Emacs.</p>
     </note>
