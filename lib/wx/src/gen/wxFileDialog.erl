@@ -31,7 +31,7 @@
 -module(wxFileDialog).
 -include("wxe.hrl").
 -export([destroy/1,getDirectory/1,getFilename/1,getFilenames/1,getFilterIndex/1,
-  getMessage/1,getPath/1,getPaths/2,getWildcard/1,new/1,new/2,setDirectory/2,
+  getMessage/1,getPath/1,getPaths/1,getWildcard/1,new/1,new/2,setDirectory/2,
   setFilename/2,setFilterIndex/2,setMessage/2,setPath/2,setWildcard/2]).
 
 %% inherited exports
@@ -152,15 +152,12 @@ getPath(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxFileDialog_GetPath,
   <<ThisRef:32/?UI>>).
 
-%% @spec (This::wxFileDialog(), Paths::[[string()]]) -> ok
+%% @spec (This::wxFileDialog()) -> [[string()]]
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetpaths">external documentation</a>.
-getPaths(#wx_ref{type=ThisT,ref=ThisRef},Paths)
- when is_list(Paths) ->
+getPaths(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxFileDialog),
-  Paths_UCA = [unicode:characters_to_binary([PathsTemp,0]) || 
-              PathsTemp <- Paths],
-  wxe_util:cast(?wxFileDialog_GetPaths,
-  <<ThisRef:32/?UI,(length(Paths_UCA)):32/?UI, (<< <<(byte_size(UC_Str)):32/?UI, UC_Str/binary>>|| UC_Str <- Paths_UCA>>)/binary, 0:(((8- ((0 + lists:sum([byte_size(S)+4||S<-Paths_UCA])) band 16#7)) band 16#7))/unit:8>>).
+  wxe_util:call(?wxFileDialog_GetPaths,
+  <<ThisRef:32/?UI>>).
 
 %% @spec (This::wxFileDialog()) -> string()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledialog.html#wxfiledialoggetwildcard">external documentation</a>.
