@@ -729,6 +729,36 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
           updated internal data.</p>
       </desc>
     </func>
+    <func>
+      <name>Module:format_status(normal, [PDict, StateData]) -> Status</name>
+      <fsummary>Optional function for providing a term describing the
+        current gen_fsm status.</fsummary>
+      <type>
+        <v>PDict = [{Key, Value}]</v>
+        <v>StateData = term()</v>
+        <v>Status = [term()]</v>
+      </type>
+      <desc>
+        <p><em>This callback is optional, so callback modules need not
+          export it. The gen_fsm module provides a default
+          implementation of this function that returns the callback
+          module state data.</em></p>
+        <p>This function is called by a gen_fsm process when one
+          of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
+          is invoked to get the gen_fsm status. A callback module
+          wishing to customise the <c>sys:get_status/1,2</c> return
+          value exports an instance of <c>format_status/2</c> that
+          returns a term describing the current status of the
+          gen_fsm.</p>
+        <p><c>PDict</c> is the current value of the gen_fsm's
+          process dictionary.</p>
+        <p><c>StateData</c> is the internal state data of the
+          gen_fsm.</p>
+        <p>The function should return <c>Status</c>, a list of one or
+          more terms that customise the details of the current state
+          and status of the gen_fsm.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>

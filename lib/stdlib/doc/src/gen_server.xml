@@ -598,6 +598,35 @@ gen_server:abcast     -----> Module:handle_cast/2
         <p>The function should return the updated internal state.</p>
       </desc>
     </func>
+    <func>
+      <name>Module:format_status(normal, [PDict, State]) -> Status</name>
+      <fsummary>Optional function for providing a term describing the
+        current gen_server status.</fsummary>
+      <type>
+        <v>PDict = [{Key, Value}]</v>
+        <v>State = term()</v>
+        <v>Status = [term()]</v>
+      </type>
+      <desc>
+        <p><em>This callback is optional, so callback modules need not
+          export it. The gen_server module provides a default
+          implementation of this function that returns the callback
+          module state.</em></p>
+        <p>This function is called by a gen_server process when one
+          of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
+          is invoked to get the gen_server status. A callback module
+          wishing to customise the <c>sys:get_status/1,2</c> return
+          value exports an instance of <c>format_status/2</c> that
+          returns a term describing the current status of the
+          gen_server.</p>
+        <p><c>PDict</c> is the current value of the gen_server's
+          process dictionary.</p>
+        <p><c>State</c> is the internal state of the gen_server.</p>
+        <p>The function should return <c>Status</c>, a list of one or
+          more terms that customise the details of the current state
+          and status of the gen_server.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>

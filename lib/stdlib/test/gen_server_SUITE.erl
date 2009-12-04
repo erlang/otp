@@ -30,7 +30,7 @@
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
-	 otp_5854/1, hibernate/1, otp_7669/1
+	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1
 	]).
 
 % spawn export
@@ -42,7 +42,7 @@
 
 % The gen_server behaviour
 -export([init/1, handle_call/3, handle_cast/2,
-	 handle_info/2, terminate/2]).
+	 handle_info/2, terminate/2, format_status/2]).
 
 all(suite) ->
     [start, crash, call, cast, cast_fast, info,
@@ -51,7 +51,7 @@ all(suite) ->
      call_remote_n2, call_remote_n3, spec_init,
      spec_init_local_registered_parent,
      spec_init_global_registered_parent,
-     otp_5854,hibernate,otp_7669].
+     otp_5854, hibernate, otp_7669, call_format_status].
 
 -define(default_timeout, ?t:minutes(1)).
  
@@ -851,7 +851,7 @@ otp_5854(Config) when is_list(Config) ->
     ok.
 
 %% If initialization fails (with ignore or {stop,Reason}),
-%% make sure that the process is not registered when gen_sever:start()
+%% make sure that the process is not registered when gen_server:start()
 %% returns.
 
 otp_7669(Config) when is_list(Config) ->
@@ -886,6 +886,24 @@ do_otp_7669_stop() ->
     ?line {error,stopped} = gen_server:start({global,?MODULE},
 					     ?MODULE, stop, []),
     ?line undefined = global:whereis_name(?MODULE).
+
+%% Verify that sys:get_status correctly calls our format_status/2 fun
+%%
+call_format_status(suite) ->
+    [];
+call_format_status(doc) ->
+    ["Test that sys:get_status/1,2 calls format_status/2"];
+call_format_status(Config) when is_list(Config) ->
+    ?line {ok, Pid} = gen_server:start_link({local, call_format_status},
+                                            gen_server_SUITE, [], []),
+    ?line Status1 = sys:get_status(call_format_status),
+    ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data1]} = Status1,
+    ?line [format_status_called | _] = lists:reverse(Data1),
+    ?line Status2 = sys:get_status(call_format_status, 5000),
+    ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data2]} = Status2,
+    ?line [format_status_called | _] = lists:reverse(Data2),
+    ok.
+
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
@@ -1046,4 +1064,5 @@ terminate({From, stopped_info}, _State) ->
 terminate(_Reason, _State) ->
     ok.
 
-
+format_status(_Opt, [_PDict, _State]) ->
+    [format_status_called].
