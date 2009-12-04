@@ -23,7 +23,7 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1]).
+         otp_8130/1, overload_mac/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -61,8 +61,9 @@ fin_per_testcase(_, Config) ->
 all(doc) ->
     ["Test cases for epp."];
 all(suite) ->
-    [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362, 
-     pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130].
+    [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
+     pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
+     overload_mac].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -718,22 +719,22 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c17,
            <<"\n-define(A(B), B).\n"
             "-define(A, 1).\n">>,
-           {errors,[{{3,9},epp,{redefine,'A'}}],[]}},
+           []},
 
           {otp_8130_c18,
            <<"\n-define(A, 1).\n"
             "-define(A(B), B).\n">>,
-           {errors,[{{3,9},epp,{redefine,'A'}}],[]}},
+           []},
 
           {otp_8130_c19,
            <<"\n-define(a(B), B).\n"
             "-define(a, 1).\n">>,
-           {errors,[{{3,9},epp,{redefine,a}}],[]}},
+           []},
 
           {otp_8130_c20,
            <<"\n-define(a, 1).\n"
             "-define(a(B), B).\n">>,
-           {errors,[{{3,9},epp,{redefine,a}}],[]}},
+           []},
 
           {otp_8130_c21,
            <<"\n-define(A(B, B), B).\n">>,
@@ -821,7 +822,8 @@ macs(Epp) ->
 macro(Epp, N) ->
     case lists:keyfind({atom,N}, 1, epp:macro_defs(Epp)) of
         false -> false;
-        {{atom,N},{_,V}} -> V
+        {{atom,N},{_,V}} -> V;
+        {{atom,N},Defs} -> lists:append([V || {_,{_,V}} <- Defs])
     end.
 
 ifdef(Config) ->
@@ -1029,6 +1031,69 @@ ifdef(Config) ->
 
            ],
     ?line [] = run(Config, Ts).
+
+
+
+overload_mac(doc) ->
+    ["Advanced test on overloading macros."];
+overload_mac(suite) ->
+    [];
+overload_mac(Config) when is_list(Config) ->
+    Cs = [
+          %% '-undef' removes all definitions of a macro
+          {overload_mac_c1,
+           <<"-define(A, a).\n"
+            "-define(A(X), X).\n"
+            "-undef(A).\n"
+            "t1() -> ?A.\n",
+            "t2() -> ?A(1).">>,
+           {errors,[{{4,9},epp,{undefined,'A'}},
+                    {{5,9},epp,{undefined,'A'}}],[]}},
+
+          %% cannot overload predefined macros
+          {overload_mac_c2,
+           <<"-define(MODULE(X), X).">>,
+           {errors,[{{1,9},epp,{redefine,'MODULE'}}],[]}},
+
+          %% cannot overload macros with same arity
+          {overload_mac_c3,
+           <<"-define(A(X), X).\n"
+            "-define(A(Y), Y).">>,
+           {errors,[{{2,9},epp,{redefine,'A'}}],[]}}
+         ],
+    ?line [] = compile(Config, Cs),
+
+    Ts = [
+          {overload_mac_r1,
+           <<"-define(A, 1).\n"
+            "-define(A(X), X).\n"
+            "-define(A(X, Y), {X, Y}).\n"
+            "t() -> {?A, ?A(2), ?A(3, 4)}.">>,
+           {1, 2, {3, 4}}},
+
+          {overload_mac_r2,
+           <<"-define(A, 1).\n"
+            "-define(A(X), X).\n"
+            "t() -> ?A(?A).">>,
+           1},
+
+          {overload_mac_r3,
+           <<"-define(A, a).\n"
+            "-define(A(X,Y), {X,Y}).\n"
+            "a(X) -> ?A(X,X).\n"
+            "t() -> ?A(1).">>,
+           {1,1}},
+
+          {overload_mac_r4,
+           <<"-define(A, ?B).\n"
+            "-define(B, a).\n"
+            "-define(B(X), {b,X}).\n"
+            "a(X) -> X.\n"
+            "t() -> ?A(1).">>,
+           1}
+          ],
+    ?line [] = run(Config, Ts).
+
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).

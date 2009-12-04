@@ -262,14 +262,15 @@ user_predef([{M,Val}|Pdm], Ms) when is_atom(M) ->
 	    {error,{redefine,M}};
 	error ->
 	    Exp = erl_parse:tokens(erl_parse:abstract(Val)),
-	    user_predef(Pdm, dict:store({atom,M}, {none,Exp}, Ms))
+	    user_predef(Pdm, dict:store({atom,M}, [{none, {none,Exp}}], Ms))
     end;
 user_predef([M|Pdm], Ms) when is_atom(M) ->
     case dict:find({atom,M}, Ms) of
 	{ok,_Def} ->
 	    {error,{redefine,M}};
 	error ->
-	    user_predef(Pdm, dict:store({atom,M}, {none,[{atom,1,true}]}, Ms))
+	    user_predef(Pdm,
+	                dict:store({atom,M}, [{none, {none,[{atom,1,true}]}}], Ms))
     end;
 user_predef([Md|_Pdm], _Ms) -> {error,{bad,Md}};
 user_predef([], Ms) -> {ok,Ms}.
@@ -476,57 +477,55 @@ scan_extends(_Ts, _As, Ms) -> Ms.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{atom,_Lm,M}=Mac,{',',_Lc}|Toks], _Def, From, St) ->
+scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',_Lc}|Toks], _Def, From, St)
+  when Type =:= atom; Type =:= var ->
     case dict:find({atom,M}, St#epp.macs) of
-	{ok,_OldDef} ->
-	    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
-	    wait_req_scan(St);
-	error ->
-	    scan_define_cont(From, St,
-			     {atom, M},
-			     {none,macro_expansion(Toks)})
+        {ok, Defs} when is_list(Defs) ->
+            %% User defined macros: can be overloaded
+            case proplists:is_defined(none, Defs) of
+                true ->
+                    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+                    wait_req_scan(St);
+                false ->
+                    scan_define_cont(From, St,
+                                     {atom, M},
+                                     {none, {none,macro_expansion(Toks)}})
+            end;
+        {ok, _PreDef} ->
+            %% Predefined macros: cannot be overloaded
+            epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+            wait_req_scan(St);
+        error ->
+            scan_define_cont(From, St,
+                             {atom, M},
+                             {none, {none,macro_expansion(Toks)}})
     end;
-scan_define([{'(',_Lp},{atom,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St) ->
-    case dict:find({atom,M}, St#epp.macs) of
-	{ok,_Def} ->
-	    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
-	    wait_req_scan(St);
-	error ->
-	    case catch macro_pars(Toks, []) of
-		{ok, {As, Me}} ->
-		    scan_define_cont(From, St,
-				    {atom, M},
-				    {As, Me});
-		_ ->
-		    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
-		    wait_req_scan(St)
-	    end
-    end;
-scan_define([{'(',_Lp},{var,_Lm,M}=Mac,{',',_Lc}|Toks], _Def, From, St) ->
-    case dict:find({atom,M}, St#epp.macs) of
-	{ok,_OldDef} ->
-	    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
-	    wait_req_scan(St);
-	error ->
-	    scan_define_cont(From, St,
-			     {atom, M},
-			     {none,macro_expansion(Toks)})
-    end;
-scan_define([{'(',_Lp},{var,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St) ->
-    case dict:find({atom,M}, St#epp.macs) of
-	{ok,_Def} ->
-	    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
-	    wait_req_scan(St);
-	error ->
-	    case catch macro_pars(Toks, []) of
-		{ok, {As, Me}} ->
-		    scan_define_cont(From, St,
-				     {atom, M},
-				     {As, Me});
-		_ ->
-		    epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
-		    wait_req_scan(St)
-	    end
+scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
+  when Type =:= atom; Type =:= var ->
+    case catch macro_pars(Toks, []) of
+        {ok, {As,Me}} ->
+            Len = length(As),
+            case dict:find({atom,M}, St#epp.macs) of
+                {ok, Defs} when is_list(Defs) ->
+                    %% User defined macros: can be overloaded
+                    case proplists:is_defined(Len, Defs) of
+                        true ->
+                            epp_reply(From,{error,{loc(Mac),epp,{redefine,M}}}),
+                            wait_req_scan(St);
+                        false ->
+                            scan_define_cont(From, St, {atom, M},
+                                             {Len, {As, Me}})
+                    end;
+                {ok, _PreDef} ->
+                    %% Predefined macros: cannot be overloaded
+                    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+                    wait_req_scan(St);
+                error ->
+                    scan_define_cont(From, St, {atom, M}, {Len, {As, Me}})
+            end;
+        _ ->
+            epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
+            wait_req_scan(St)
     end;
 scan_define(_Toks, Def, From, St) ->
     epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
@@ -541,13 +540,11 @@ scan_define(_Toks, Def, From, St) ->
 %%% the information from St#epp.uses is traversed, and if a circularity
 %%% is detected, an error message is thrown.
 
-scan_define_cont(F, St, M, Def) ->
-    Ms = dict:store(M, Def, St#epp.macs),
-    U = dict:store(M, macro_uses(Def), St#epp.uses),
+scan_define_cont(F, St, M, {Arity, Def}) ->
+    Ms = dict:append_list(M, [{Arity, Def}], St#epp.macs),
+    U = dict:append_list(M, [{Arity, macro_uses(Def)}], St#epp.uses),
     scan_toks(F, St#epp{uses=U, macs=Ms}).
 
-macro_uses(undefined) ->
-    undefined;
 macro_uses({_Args, Tokens}) ->
     Uses0 = macro_ref(Tokens),
     lists:usort(Uses0).
@@ -556,31 +553,27 @@ macro_ref([]) ->
     [];
 macro_ref([{'?', _}, {'?', _} | Rest]) ->
     macro_ref(Rest);
-macro_ref([{'?', _}, {atom, _, A} | Rest]) ->
-    [{atom, A} | macro_ref(Rest)];
-macro_ref([{'?', _}, {var, _, A} | Rest]) ->
-    [{atom, A} | macro_ref(Rest)];
+macro_ref([{'?', _}, {Type, Lm, A} | Rest]) when Type =:= atom; Type =:= var ->
+    try
+        Arity = count_args(Rest, Lm, A),
+        [{{atom, A}, Arity} | macro_ref(Rest)]
+    catch
+        _:_ ->
+            macro_ref(Rest)
+    end;
 macro_ref([_Token | Rest]) ->
     macro_ref(Rest).
-
-all_macro_uses(D0) ->
-    L = dict:to_list(D0),
-    D = dict:new(),
-    add_macro_uses(L, D).
-
-add_macro_uses([], D) ->
-    D;
-add_macro_uses([{Key, Def} | Rest], D0) ->
-    add_macro_uses(Rest, dict:store(Key, macro_uses(Def), D0)).
 
 %% scan_undef(Tokens, UndefToken, From, EppState)
 
 scan_undef([{'(',_Llp},{atom,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From, St) ->
-    Macs = dict:erase({atom,M}, St#epp.macs)
-    scan_toks(From, St#epp{macs=Macs, uses=all_macro_uses(Macs)});
+    Macs = dict:erase({atom,M}, St#epp.macs),
+    Uses = dict:erase({atom,M}, St#epp.uses),
+    scan_toks(From, St#epp{macs=Macs, uses=Uses});
 scan_undef([{'(',_Llp},{var,_Lm,M},{')',_Lrp},{dot,_Ld}], _Undef, From,St) ->
     Macs = dict:erase({atom,M}, St#epp.macs),
-    scan_toks(From, St#epp{macs=Macs, uses=all_macro_uses(Macs)});
+    Uses = dict:erase({atom,M}, St#epp.uses),
+    scan_toks(From, St#epp{macs=Macs, uses=Uses});
 scan_undef(_Toks, Undef, From, St) ->
     epp_reply(From, {error,{loc(Undef),epp,{bad,undef}}}),
     wait_req_scan(St).
@@ -819,42 +812,56 @@ expand_macros(Type, MacT, M, Toks, Ms0) ->
     %% (Type will always be 'atom')
     {Ms, U} = Ms0,
     Lm = loc(MacT),
-    check_uses([{Type,M}], [], U, Lm),
     Tinfo = element(2, MacT),
-    case dict:find({Type,M}, Ms) of
+    case expand_macro1(Type, Lm, M, Toks, Ms) of
 	{ok,{none,Exp}} ->
-	    expand_macros(expand_macro(Exp, Tinfo, Toks, dict:new()), Ms0);
+	    check_uses([{{Type,M}, none}], [], U, Lm),
+	    Toks1 = expand_macros(expand_macro(Exp, Tinfo, [], dict:new()), Ms0),
+	    expand_macros(Toks1++Toks, Ms0);
 	{ok,{As,Exp}} ->
+	    check_uses([{{Type,M}, length(As)}], [], U, Lm),
 	    {Bs,Toks1} = bind_args(Toks, Lm, M, As, dict:new()),
-	    %%io:format("Bound arguments to macro ~w (~w)~n", [M,Bs]),
 	    expand_macros(expand_macro(Exp, Tinfo, Toks1, Bs), Ms0);
 	{ok,undefined} ->
 	    throw({error,Lm,{undefined,M}});
+	{ok,mismatch} ->
+	    throw({error,Lm,{mismatch,M}});
 	error ->
 	    throw({error,Lm,{undefined,M}})
     end.
 
-check_uses(undefined, _Anc, _U, _Lm) ->
-    ok;
+expand_macro1(Type, Lm, M, Toks, Ms) ->
+    Arity = count_args(Toks, Lm, M),
+    case dict:find({Type,M}, Ms) of
+        {ok, Defs} when is_list(Defs) -> %% User defined macro
+            {ok, proplists:get_value(Arity, Defs,
+                                     proplists:get_value(none, Defs,
+                                                         mismatch))};
+        {ok, PreDef} -> %% Predefined macro
+            {ok, PreDef};
+        error ->
+            error
+    end.
+
 check_uses([], _Anc, _U, _Lm) ->
     ok;
 check_uses([M|Rest], Anc, U, Lm) ->
     case lists:member(M, Anc) of
 	true ->
-	    {_, Name} = M,
+	    {{_, Name},_} = M,
 	    throw({error,Lm,{circular,Name}});
 	false ->
 	    L = get_macro_uses(M, U),
 	    check_uses(L, [M|Anc], U, Lm),
 	    check_uses(Rest, Anc, U, Lm)
     end.
-    
-get_macro_uses(M, U) ->
+
+get_macro_uses({M,Arity}, U) ->
     case dict:find(M, U) of
 	error ->
 	    [];
 	{ok, L} ->
-	    L
+	    proplists:get_value(Arity, L, proplists:get_value(none, L, []))
     end.
 
 %% Macro expansion
@@ -906,6 +913,26 @@ store_arg(L, M, _A, [], _Bs) ->
     throw({error,L,{mismatch,M}});
 store_arg(_L, _M, A, Arg, Bs) ->
     dict:store(A, Arg, Bs).
+
+%% count_args(Tokens, MacroLine, MacroName)
+%%  Count the number of arguments in a macro call.
+count_args([{'(', _Llp},{')',_Lrp}|_Toks], _Lm, _M) ->
+    0;
+count_args([{'(',_Llp}|Toks0], Lm, M) ->
+    {_Arg,Toks1} = macro_arg(Toks0, [], []),
+    count_args(Toks1, Lm, M, 1);
+count_args(_Toks, _Lm, _M) ->
+    none.
+
+count_args([{')',_Lrp}|_Toks], _Lm, _M, NbArgs) ->
+    NbArgs;
+count_args([{',',_Lc}|Toks0], Lm, M, NbArgs) ->
+    {_Arg,Toks1} = macro_arg(Toks0, [], []),
+    count_args(Toks1, Lm, M, NbArgs+1);
+count_args([], Lm, M, _NbArgs) ->
+    throw({error,Lm,{arg_error,M}});
+count_args(_Toks, Lm, M, _NbArgs) ->
+    throw({error,Lm,{mismatch,M}}).
 
 %% macro_arg([Tok], [ClosePar], [ArgTok]) -> {[ArgTok],[RestTok]}.
 %%  Collect argument tokens until we hit a ',' or a ')'. We know a
