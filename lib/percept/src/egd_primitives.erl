@@ -28,6 +28,7 @@
 	pixel/3,
 	polygon/3,
 	line/4,
+	line/5,
 	arc/4,
 	arc/5,
 	rectangle/4,
@@ -49,7 +50,6 @@
 	]).
 
 -include("egd.hrl").
-
 
 %% API info
 info(I) ->
@@ -75,12 +75,21 @@ object_info(O) ->
 %% interface functions
 
 line(I, Sp, Ep, Color) ->
-    I#image{objects = [
+    I#image{ objects = [
 	#image_object{ 
 	type   = line, 
 	points = [Sp, Ep],
 	span   = span([Sp, Ep]),
 	color  = Color} | I#image.objects]}.
+	
+line(I, Sp, Ep, Stroke, Color) ->
+    I#image{ objects = [
+	#image_object{
+	    type = line,
+	    points = [Sp, Ep],
+	    span = span([Sp, Ep]),
+	    internals = Stroke,
+	    color = Color } | I#image.objects]}.
 	
 arc(I, {Sx,Sy} = Sp, {Ex,Ey} = Ep, Color) ->
     X = Ex - Sx,
@@ -162,8 +171,6 @@ create(W, H) ->
     #image{ width = W, height = H}.
 
 
-%color({crayon, Color})                -> rgba_byte2float(name_to_color({crayon, Color, 255}));
-%color({crayon, Color, A})             -> rgba_byte2float(name_to_color({crayon, Color,   A}));
 color(Color) when is_atom(Color)      -> rgba_byte2float(name_to_color({Color, 255}));
 color({Color, A}) when is_atom(Color) -> rgba_byte2float(name_to_color({Color,   A}));
 color({R,G,B}) -> rgba_byte2float({R,G,B, 255});
@@ -313,129 +320,6 @@ name_to_color({       lightslategray, A}) -> { 119, 136, 153, A};
 name_to_color({            slategray, A}) -> { 112, 128, 144, A};
 name_to_color({              dimgray, A}) -> { 105, 105, 105, A};
 name_to_color({        darkslategray, A}) -> {  47,  79,  79, A}.
-
-%% Crayons
-%name_to_color({crayon,                   mahogany, A}) -> { 205,  74,  74, A};
-%name_to_color({crayon,        'fuzzy wuzzy brown', A}) -> { 204, 102, 102, A};
-%name_to_color({crayon,                   chestnut, A}) -> { 188,  93,  88, A};
-%name_to_color({crayon,               'red orange', A}) -> { 255,  83,  73, A};
-%name_to_color({crayon,            'sunset orange', A}) -> { 253,  94,  83, A};
-%name_to_color({crayon,                bittersweet, A}) -> { 253, 124, 110, A};
-%name_to_color({crayon,                      melon, A}) -> { 253, 188, 180, A};
-%name_to_color({crayon,        'outrageous orange', A}) -> { 255, 110,  74, A};
-%name_to_color({crayon,          'vivid tangerine', A}) -> { 255, 160, 137, A};
-%name_to_color({crayon,             'burnt sienna', A}) -> { 234, 126,  93, A};
-%name_to_color({crayon,                      brown, A}) -> { 180, 103,  77, A};
-%name_to_color({crayon,                      sepia, A}) -> { 165, 105,  79, A};
-%name_to_color({crayon,                     orange, A}) -> { 255, 117,  56, A};
-%name_to_color({crayon,             'burnt orange', A}) -> { 255, 127,  73, A};
-%name_to_color({crayon,                     copper, A}) -> { 221, 148, 117, A};
-%name_to_color({crayon,              'mango tango', A}) -> { 255, 130,  67, A};
-%name_to_color({crayon,         'atomic tangerine', A}) -> { 255, 164, 116, A};
-%name_to_color({crayon,                     beaver, A}) -> { 159, 129, 112, A};
-%name_to_color({crayon,            'antique brass', A}) -> { 205, 149, 117, A};
-%name_to_color({crayon,              'desert sand', A}) -> { 239, 205, 184, A};
-%name_to_color({crayon,               'raw sienna', A}) -> { 214, 138,  89, A};
-%name_to_color({crayon,                 tumbleweed, A}) -> { 222, 170, 136, A};
-%name_to_color({crayon,                        tan, A}) -> { 250, 167, 108, A};
-%name_to_color({crayon,                      peach, A}) -> { 255, 207, 171, A};
-%name_to_color({crayon,      'macaroni and cheese', A}) -> { 255, 189, 136, A};
-%name_to_color({crayon,                    apricot, A}) -> { 253, 217, 181, A};
-%name_to_color({crayon,              'neon carrot', A}) -> { 255, 163,  67, A};
-%name_to_color({crayon,                     almond, A}) -> { 239, 219, 197, A};
-%name_to_color({crayon,            'yellow orange', A}) -> { 255, 182,  83, A};
-%name_to_color({crayon,                       gold, A}) -> { 231, 198, 151, A};
-%name_to_color({crayon,                     shadow, A}) -> { 138, 121,  93, A};
-%name_to_color({crayon,             'banana mania', A}) -> { 250, 231, 181, A};
-%name_to_color({crayon,                    sunglow, A}) -> { 255, 207,  72, A};
-%name_to_color({crayon,                  goldenrod, A}) -> { 252, 217, 117, A};
-%name_to_color({crayon,                  dandelion, A}) -> { 253, 219, 109, A};
-%name_to_color({crayon,                     yellow, A}) -> { 252, 232, 131, A};
-%name_to_color({crayon,             'green yellow', A}) -> { 240, 232, 145, A};
-%name_to_color({crayon,             'spring green', A}) -> { 236, 234, 190, A};
-%name_to_color({crayon,              'olive green', A}) -> { 186, 184, 108, A};
-%name_to_color({crayon,              'laser lemon', A}) -> { 253, 252, 116, A};
-%name_to_color({crayon,          'unmellow yellow', A}) -> { 253, 252, 116, A};
-%name_to_color({crayon,                     canary, A}) -> { 255, 255, 153, A};
-%name_to_color({crayon,             'yellow green', A}) -> { 197, 227, 132, A};
-%name_to_color({crayon,                'inch worm', A}) -> { 178, 236,  93, A};
-%name_to_color({crayon,                  asparagus, A}) -> { 135, 169, 107, A};
-%name_to_color({crayon,       'granny smith apple', A}) -> { 168, 228, 160, A};
-%name_to_color({crayon,            'electric lime', A}) -> {  29, 249,  20, A};
-%name_to_color({crayon,           'screamin green', A}) -> { 118, 255, 122, A};
-%name_to_color({crayon,                       fern, A}) -> { 113, 188, 120, A};
-%name_to_color({crayon,             'forest green', A}) -> { 109, 174, 129, A};
-%name_to_color({crayon,                'sea green', A}) -> { 159, 226, 191, A};
-%name_to_color({crayon,                      green, A}) -> {  28, 172, 120, A};
-%name_to_color({crayon,          'mountain meadow', A}) -> {  48, 186, 143, A};
-%name_to_color({crayon,                   shamrock, A}) -> {  69, 206, 162, A};
-%name_to_color({crayon,             'jungle green', A}) -> {  59, 176, 143, A};
-%name_to_color({crayon,          'caribbean green', A}) -> {  28, 211, 162, A};
-%name_to_color({crayon,     'tropical rain forest', A}) -> {  23, 128, 109, A};
-%name_to_color({crayon,               'pine green', A}) -> {  21, 128, 120, A};
-%name_to_color({crayon,           'robin egg blue', A}) -> {  31, 206, 203, A};
-%name_to_color({crayon,                 aquamarine, A}) -> { 120, 219, 226, A};
-%name_to_color({crayon,           'turquoise blue', A}) -> { 119, 221, 231, A};
-%name_to_color({crayon,                 'sky blue', A}) -> { 128, 218, 235, A};
-%name_to_color({crayon,              'outer space', A}) -> {  65,  74,  76, A};
-%name_to_color({crayon,               'blue green', A}) -> {  25, 158, 189, A};
-%name_to_color({crayon,             'pacific blue', A}) -> {  28, 169, 201, A};
-%name_to_color({crayon,                   cerulean, A}) -> {  29, 172, 214, A};
-%name_to_color({crayon,                 cornflower, A}) -> { 154, 206, 235, A};
-%name_to_color({crayon,            'midnight blue', A}) -> {  26,  72, 118, A};
-%name_to_color({crayon,                'navy blue', A}) -> {  25, 116, 210, A};
-%name_to_color({crayon,                      denim, A}) -> {  43, 108, 196, A};
-%name_to_color({crayon,                       blue, A}) -> {  31, 117, 254, A};
-%name_to_color({crayon,                 periwinkle, A}) -> { 197, 208, 230, A};
-%name_to_color({crayon,               'cadet blue', A}) -> { 176, 183, 198, A};
-%name_to_color({crayon,                     indigo, A}) -> {  93, 118, 203, A};
-%name_to_color({crayon,         'wild blue yonder', A}) -> { 162, 173, 208, A};
-%name_to_color({crayon,                    manatee, A}) -> { 151, 154, 170, A};
-%name_to_color({crayon,                'blue bell', A}) -> { 173, 173, 214, A};
-%name_to_color({crayon,              'blue violet', A}) -> { 115, 102, 189, A};
-%name_to_color({crayon,             'purple heart', A}) -> { 116,  66, 200, A};
-%name_to_color({crayon,             'royal purple', A}) -> { 120,  81, 169, A};
-%name_to_color({crayon, 'purple mountains majesty', A}) -> { 157, 129, 186, A};
-%name_to_color({crayon,                     violet, A}) -> { 146, 110, 174, A};
-%name_to_color({crayon,                   wisteria, A}) -> { 205, 164, 222, A};
-%name_to_color({crayon,             'vivid violet', A}) -> { 143,  80, 157, A};
-%name_to_color({crayon,                    fuchsia, A}) -> { 195, 100, 197, A};
-%name_to_color({crayon,            'shocking pink', A}) -> { 251, 126, 253, A};
-%name_to_color({crayon,            'pink flamingo', A}) -> { 252, 116, 253, A};
-%name_to_color({crayon,                       plum, A}) -> { 142,  69, 133, A};
-%name_to_color({crayon,              'hot magenta', A}) -> { 255,  29, 206, A};
-%name_to_color({crayon,           'purple pizzazz', A}) -> { 255,  29, 206, A};
-%name_to_color({crayon,       'razzle dazzle rose', A}) -> { 255,  72, 208, A};
-%name_to_color({crayon,                     orchid, A}) -> { 230, 168, 215, A};
-%name_to_color({crayon,               'red violet', A}) -> { 192,  68, 143, A};
-%name_to_color({crayon,                   eggplant, A}) -> { 110,  81,  96, A};
-%name_to_color({crayon,                     cerise, A}) -> { 221,  68, 146, A};
-%name_to_color({crayon,          'wild strawberry', A}) -> { 255,  67, 164, A};
-%name_to_color({crayon,                    magenta, A}) -> { 246, 100, 175, A};
-%name_to_color({crayon,                   lavender, A}) -> { 252, 180, 213, A};
-%name_to_color({crayon,             'cotton candy', A}) -> { 255, 188, 217, A};
-%name_to_color({crayon,               'violet red', A}) -> { 247,  83, 148, A};
-%name_to_color({crayon,           'carnation pink', A}) -> { 255, 170, 204, A};
-%name_to_color({crayon,                 razzmatazz, A}) -> { 227,  37, 107, A};
-%name_to_color({crayon,               'piggy pink', A}) -> { 253, 215, 228, A};
-%name_to_color({crayon,            'jazzberry jam', A}) -> { 202,  55, 103, A};
-%name_to_color({crayon,                      blush, A}) -> { 222,  93, 131, A};
-%name_to_color({crayon,           'tickle me pink', A}) -> { 252, 137, 172, A};
-%name_to_color({crayon,             'pink sherbet', A}) -> { 247, 128, 161, A};
-%name_to_color({crayon,                     maroon, A}) -> { 200,  56,  90, A};
-%name_to_color({crayon,                        red, A}) -> { 238,  32,  77, A};
-%name_to_color({crayon,              'radical red', A}) -> { 255,  73, 108, A};
-%name_to_color({crayon,                  mauvelous, A}) -> { 239, 152, 170, A};
-%name_to_color({crayon,          'wild watermelon', A}) -> { 252, 108, 133, A};
-%name_to_color({crayon,                    scarlet, A}) -> { 252,  40,  71, A};
-%name_to_color({crayon,                     salmon, A}) -> { 255, 155, 170, A};
-%name_to_color({crayon,                'brick red', A}) -> { 203,  65,  84, A};
-%name_to_color({crayon,                      white, A}) -> { 237, 237, 237, A};
-%name_to_color({crayon,                 timberwolf, A}) -> { 219, 215, 210, A};
-%name_to_color({crayon,                     silver, A}) -> { 205, 197, 194, A};
-%name_to_color({crayon,                       gray, A}) -> { 149, 145, 140, A};
-%name_to_color({crayon,                      black, A}) -> {  35,  35,  35, A}.
-
 
 text(I, {Xs,Ys} = Sp, Font, Text, Color) ->
     {FW,FH} = egd_font:size(Font),
