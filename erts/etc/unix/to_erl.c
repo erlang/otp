@@ -164,7 +164,7 @@ int main(int argc, char **argv)
 
 	dirp = opendir(pipename);
 	if(!dirp) {
-	    fprintf(stderr, "Can't access pipe directory %s.\n", pipename);
+	    fprintf(stderr, "Can't access pipe directory %s: %s\n", pipename, strerror(errno));
 	    exit(1);
 	}
 
@@ -205,7 +205,7 @@ int main(int argc, char **argv)
 #ifdef DEBUG
 	fprintf(stderr, "Could not open FIFO %s for reading.\n", FIFO1);
 #endif
-	fprintf(stderr, "No running Erlang on pipe %s.\n", pipename);
+	fprintf(stderr, "No running Erlang on pipe %s: %s\n", pipename, strerror(errno));
 	exit(1);
     }
 #ifdef DEBUG
@@ -216,7 +216,7 @@ int main(int argc, char **argv)
 #ifdef DEBUG
 	fprintf(stderr, "Could not open FIFO %s for writing.\n", FIFO2);
 #endif
-	fprintf(stderr, "No running Erlang on pipe %s.\n", pipename);
+	fprintf(stderr, "No running Erlang on pipe %s: %s\n", pipename, strerror(errno));
 	close(rfd);
 	exit(1);
     }
