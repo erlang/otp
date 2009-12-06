@@ -51,9 +51,7 @@ XML_REF3_FILES = asn1ct.xml \
 GEN_XML = \
 	asn1_spec.xml
 
-XML_PART_FILES =  \
-	part.xml \
-	part_notes.xml
+XML_PART_FILES = part.xml
 
 XML_HTML_FILE =  \
 	notes_history.xml
