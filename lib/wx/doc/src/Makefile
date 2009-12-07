@@ -31,12 +31,6 @@ GenMods         = $(shell ls ../../src/gen | grep 'wx[A-Z].*\.erl') \
 		glu.erl \
 		gl.erl
 
-# GenMods         =  \
-# 		wx_misc.erl \
-# 		glu.erl \
-# 		gl.erl
-
-
 ModsNoExt	= $(ErlMods:%.erl=%) $(GenMods:%.erl=%)
 
 ifneq ($(INSIDE_ERLSRC),true)
@@ -126,9 +120,9 @@ gifs: $(GIF_FILES:%=$(HTMLDIR)/%)
 
 xml: $(XML_REF3_FILES) $(XML_CHAPTER_FILES) 
 
-ref_man.xml: ref_man.src.xml 
+ref_man.xml: ref_man.xml.src 
 	@echo Preparing ref_man.xml
-	@cat ref_man.src.xml > ref_man.xml
+	@cat ref_man.xml.src > ref_man.xml
 	@for d in $(ModsNoExt); do         \
 		echo "  <xi:include href=\"$$d.xml\"/>" >> ref_man.xml ; \
 	done
