@@ -2187,6 +2187,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 	esdp->match_pseudo_process = NULL;
 	esdp->free_process = NULL;
 #endif
+#if !HEAP_ON_C_STACK
+	esdp->num_tmp_heap_used = 0;
+#endif
 	esdp->no = (Uint) ix+1;
 	esdp->current_process = NULL;
 	esdp->current_port = NULL;
@@ -7778,9 +7781,10 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 	    erts_port_release(prt); 
 	} else if (is_internal_pid(mon->pid)) {/* local by name or pid */
 	    Eterm watched;
-	    Eterm lhp[3];
+	    DeclareTmpHeapNoproc(lhp,3);
 	    ErtsProcLocks rp_locks = (ERTS_PROC_LOCK_LINK
 				      | ERTS_PROC_LOCKS_MSG_SEND);
+	    UseTmpHeapNoproc(3);
 	    rp = erts_pid2proc(NULL, 0, mon->pid, rp_locks);
 	    if (rp == NULL) {
 		goto done;
@@ -7795,6 +7799,7 @@ static void doit_exit_monitor(ErtsMonitor *mon, void *vpcontext)
 		erts_queue_monitor_message(rp, &rp_locks, mon->ref, am_process, 
 					   watched, pcontext->reason);
 	    }
+	    UnUseTmpHeapNoproc(3);
 	    /* else: demonitor while we exited, i.e. do nothing... */
 	    erts_smp_proc_unlock(rp, rp_locks);
 	} else { /* external by pid or name */
@@ -8228,11 +8233,12 @@ continue_exit_process(Process *p
      * Pre-build the EXIT tuple if there are any links.
      */
     if (lnk) {
-	Eterm tmp_heap[4];
+	DeclareTmpHeap(tmp_heap,4,p);
 	Eterm exit_tuple;
 	Uint exit_tuple_sz;
 	Eterm* hp;
 
+	UseTmpHeap(4,p);
 	hp = &tmp_heap[0];
 
 	exit_tuple = TUPLE3(hp, am_EXIT, p->id, reason);
@@ -8243,11 +8249,13 @@ continue_exit_process(Process *p
 	    ExitLinkContext context = {p, reason, exit_tuple, exit_tuple_sz};
 	    erts_sweep_links(lnk, &doit_exit_link, &context);
 	}
+	UnUseTmpHeap(4,p);
     }
 
     {
 	ExitMonitorContext context = {reason, p};
-	erts_sweep_monitors(mon,&doit_exit_monitor,&context);
+	erts_sweep_monitors(mon,&doit_exit_monitor,&context); /* Allocates TmpHeap, but we
+								 have none here */
     }
 
     if (scb)

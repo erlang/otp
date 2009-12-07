@@ -4079,7 +4079,8 @@ int driver_monitor_process(ErlDrvPort port,
     Port *prt = erts_drvport2port(port);
     Process *rp;
     Eterm ref;
-    Eterm buf[REF_THING_SIZE];
+    DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
+
     if (prt->drv_ptr->process_exit == NULL) {
 	return -1;
     }
@@ -4089,12 +4090,14 @@ int driver_monitor_process(ErlDrvPort port,
     if (!rp) {
 	return 1;
     }
+    UseTmpHeapNoproc(REF_THING_SIZE);
     ref = erts_make_ref_in_buffer(buf);
     erts_add_monitor(&(prt->monitors), MON_ORIGIN, ref, rp->id, NIL);
     erts_add_monitor(&(rp->monitors), MON_TARGET, ref, prt->id, NIL);
     
     erts_smp_proc_unlock(rp, ERTS_PROC_LOCK_LINK);
     ref_to_driver_monitor(ref,monitor);
+    UnUseTmpHeapNoproc(REF_THING_SIZE);
     return 0;
 }
 
@@ -4104,10 +4107,12 @@ int driver_demonitor_process(ErlDrvPort port,
     Port *prt = erts_drvport2port(port);
     Process *rp;
     Eterm ref;
-    Eterm buf[REF_THING_SIZE];
+    DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
     ErtsMonitor *mon;
     Eterm to;
 
+
+    UseTmpHeapNoproc(REF_THING_SIZE);
     memcpy(buf,monitor,sizeof(Eterm)*REF_THING_SIZE);
     ref = make_internal_ref(buf);
     mon = erts_lookup_monitor(prt->monitors, ref);
@@ -4134,6 +4139,7 @@ int driver_demonitor_process(ErlDrvPort port,
 	    erts_destroy_monitor(rmon);
 	}
     } 
+    UnUseTmpHeapNoproc(REF_THING_SIZE);
     return 0;
 }
 
@@ -4142,10 +4148,11 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort port,
 {
     Port *prt = erts_drvport2port(port);
     Eterm ref;
-    Eterm buf[REF_THING_SIZE];
+    DeclareTmpHeapNoproc(buf,REF_THING_SIZE);
     ErtsMonitor *mon;
     Eterm to;
 
+    UseTmpHeapNoproc(REF_THING_SIZE);
     memcpy(buf,monitor,sizeof(Eterm)*REF_THING_SIZE);
     ref = make_internal_ref(buf);
     mon = erts_lookup_monitor(prt->monitors, ref);
@@ -4155,6 +4162,7 @@ ErlDrvTermData driver_get_monitored_process(ErlDrvPort port,
     ASSERT(mon->type == MON_ORIGIN);
     to = mon->pid;
     ASSERT(is_internal_pid(to));
+    UnUseTmpHeapNoproc(REF_THING_SIZE);
     return (ErlDrvTermData) to;
 }
 

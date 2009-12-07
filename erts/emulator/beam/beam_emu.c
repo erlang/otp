@@ -1090,7 +1090,11 @@ void process_main(void)
      */
     register Eterm tmp_arg1 REG_tmp_arg1 = NIL;
     register Eterm tmp_arg2 REG_tmp_arg2 = NIL;
-    Eterm tmp_big[2];		/* Temporary buffer for small bignums. */
+#if HEAP_ON_C_STACK
+    Eterm tmp_big[2];           /* Temporary buffer for small bignums if HEAP_ON_C_STACK. */
+#else
+    Eterm *tmp_big;		/* Temporary buffer for small bignums if !HEAP_ON_C_STACK. */
+#endif
 
 #ifndef ERTS_SMP
     static Eterm save_reg[ERTS_X_REGS_ALLOCATED];
@@ -1141,7 +1145,6 @@ void process_main(void)
      * Note: c_p->arity must be set to reflect the number of useful terms in
      * c_p->arg_reg before calling the scheduler.
      */
-
     if (!init_done) {
 	init_done = 1;
 	goto init_emulator;
@@ -1167,6 +1170,9 @@ void process_main(void)
 #ifdef ERTS_SMP
     reg = c_p->scheduler_data->save_reg;
     freg = c_p->scheduler_data->freg;
+#endif
+#if !HEAP_ON_C_STACK
+    tmp_big = ERTS_PROC_GET_SCHDATA(c_p)->beam_emu_tmp_heap;
 #endif
     ERL_BITS_RELOAD_STATEP(c_p);
     {

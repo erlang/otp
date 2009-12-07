@@ -1002,7 +1002,7 @@ Uint32
 make_hash2(Eterm term)
 {
     Uint32 hash;
-    Eterm tmp_big[2];
+    DeclareTmpHeapNoproc(tmp_big,2);
 
 /* (HCONST * {2, ..., 14}) mod 2^32 */
 #define HCONST_2 0x3c6ef372UL
@@ -1041,7 +1041,6 @@ make_hash2(Eterm term)
 	} while(0)
 
 #define IS_SSMALL28(x) (((Uint) (((x) >> (28-1)) + 1)) < 2)
-
     /* Optimization. Simple cases before declaration of estack. */
     if (primary_tag(term) == TAG_PRIMARY_IMMED1) {
 	switch (term & _TAG_IMMED1_MASK) {
@@ -1070,6 +1069,7 @@ make_hash2(Eterm term)
     Eterm tmp;
     DECLARE_ESTACK(s);
 
+    UseTmpHeapNoproc(2);
     hash = 0;
     for (;;) {
 	switch (primary_tag(term)) {
@@ -1314,6 +1314,7 @@ make_hash2(Eterm term)
 	hash2_common:
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
+		UnUseTmpHeapNoproc(2);
 		return hash;
 	    }
 	    term = ESTACK_POP(s);
@@ -2581,7 +2582,11 @@ tailrecur_ne:
     {
 	FloatDef f1, f2;
 	Eterm big;
-	Eterm big_buf[2];
+#if HEAP_ON_C_STACK
+	Eterm big_buf[2]; /* If HEAP_ON_C_STACK */
+#else
+	Eterm *big_buf = erts_get_scheduler_data()->cmp_tmp_heap;
+#endif
 
 	switch(_NUMBER_CODE(a_tag, b_tag)) {
 	case SMALL_BIG:

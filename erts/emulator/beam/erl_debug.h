@@ -18,8 +18,9 @@
  */
 #ifndef _ERL_DEBUG_H_
 #define _ERL_DEBUG_H_
-
 #ifdef DEBUG
+
+#include "erl_term.h"
 
 #ifdef HIPE
 #include "hipe_debug.h"
@@ -92,6 +93,11 @@ extern void print_tagged_memory(Eterm *start, Eterm *end);
 extern void print_untagged_memory(Eterm *start, Eterm *end);
 extern void print_memory(Process *p);
 extern void print_memory_info(Process *p);
+#if defined(DEBUG) && !HEAP_ON_C_STACK
+extern Eterm *erts_debug_allocate_tmp_heap(int, Process *);
+extern void erts_debug_use_tmp_heap(int, Process *);
+extern void erts_debug_unuse_tmp_heap(int, Process *);
+#endif
 
 #ifdef HYBRID
 extern void print_ma_info(void);

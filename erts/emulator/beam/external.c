@@ -1563,8 +1563,10 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 		    put_int32(val, ep);
 		    ep += 4;
 		} else {
-		    Eterm tmp_big[2];
-		    Eterm big = small_to_big(val, tmp_big);
+		    DeclareTmpHeapNoproc(tmp_big,2);
+		    Eterm big;
+		    UseTmpHeapNoproc(2);
+		    big = small_to_big(val, tmp_big);
 		    *ep++ = SMALL_BIG_EXT;
 		    n = big_bytes(big);
 		    ASSERT(n < 256);
@@ -1572,6 +1574,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 		    ep += 1;
 		    *ep++ = big_sign(big);
 		    ep = big_to_bytes(big, ep);
+		    UnUseTmpHeapNoproc(2);
 		}
 	    }
 	    break;
@@ -2650,9 +2653,11 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 		else if (sizeof(Sint) == 4 || IS_SSMALL28(val))
 		    result += 1 + 4;		/* INTEGER_EXT */
 		else {
-		    Eterm tmp_big[2];
+		    DeclareTmpHeapNoproc(tmp_big,2);
+		    UseTmpHeapNoproc(2);
 		    i = big_bytes(small_to_big(val, tmp_big));
 		    result += 1 + 1 + 1 + i;	/* SMALL_BIG_EXT */
+		    UnUseTmpHeapNoproc(2);
 		}
 	    }
 	    break;

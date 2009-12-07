@@ -716,15 +716,17 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		    }
 		} else if (option == am_cd) {
 		    Eterm iolist;
-		    Eterm heap[4];
+		    DeclareTmpHeap(heap,4,p);
 		    int r;
 
+		    UseTmpHeap(4,p);
 		    heap[0] = *tp;
 		    heap[1] = make_list(heap+2);
 		    heap[2] = make_small(0);
 		    heap[3] = NIL;
 		    iolist = make_list(heap);
 		    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
+		    UnUseTmpHeap(4,p);
 		    if (r < 0) {
 			goto badarg;
 		    }

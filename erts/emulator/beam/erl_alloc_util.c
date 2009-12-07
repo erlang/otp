@@ -630,6 +630,11 @@ mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp)
 
     blk = (*allctr->get_free_block)(allctr, *blk_szp, NULL, 0);
 
+#if HALFWORD_HEAP
+    if (!blk) {
+	blk = create_carrier(allctr, *blk_szp, CFLG_MBC|CFLG_FORCE_MSEG);
+    }
+#else
     if (!blk) {
 	blk = create_carrier(allctr, *blk_szp, CFLG_MBC);
 	if (!blk) {
@@ -640,6 +645,7 @@ mbc_alloc_block(Allctr_t *allctr, Uint size, Uint *blk_szp)
 				 CFLG_SBC|CFLG_FORCE_SIZE|CFLG_FORCE_SYS_ALLOC);
 	}
     }
+#endif
 
 #ifdef ERTS_ALLOC_UTIL_HARD_DEBUG
     if (IS_MBC_BLK(blk)) {
@@ -2522,7 +2528,12 @@ do_erts_alcu_alloc(ErtsAlcType_t type, void *extra, Uint size)
     INC_CC(allctr->calls.this_alloc);
 
     if (size >= allctr->sbc_threshold) {
+#if HALFWORD_HEAP
+	Block_t *blk = create_carrier(allctr, size,
+				      CFLG_SBC | CFLG_FORCE_MSEG);
+#else
 	Block_t *blk = create_carrier(allctr, size, CFLG_SBC);
+#endif
 	res = blk ? BLK2UMEM(blk) : NULL;
     }
     else
@@ -2780,13 +2791,21 @@ do_erts_alcu_realloc(ErtsAlcType_t type,
 	Block_t *new_blk;
 	if(IS_SBC_BLK(blk)) {
 	do_carrier_resize:
+#if HALFWORD_HEAP
+	    new_blk = resize_carrier(allctr, blk, size, CFLG_SBC | CFLG_FORCE_MSEG);
+#else
 	    new_blk = resize_carrier(allctr, blk, size, CFLG_SBC);
+#endif
 	    res = new_blk ? BLK2UMEM(new_blk) : NULL;
 	}
 	else if (flgs & ERTS_ALCU_FLG_FAIL_REALLOC_MOVE)
 	    return NULL;
 	else {
+#if HALFWORD_HEAP
+	    new_blk = create_carrier(allctr, size, CFLG_SBC | CFLG_FORCE_MSEG);
+#else
 	    new_blk = create_carrier(allctr, size, CFLG_SBC);
+#endif
 	    if (new_blk) {
 		res = BLK2UMEM(new_blk);
 		sys_memcpy((void *) res,
@@ -3208,12 +3227,21 @@ erts_alcu_start(Allctr_t *allctr, AllctrInit_t *init)
     if (allctr->main_carrier_size) {
 	Block_t *blk;
 
+#if HALFWORD_HEAP
+	blk = create_carrier(allctr,
+			     allctr->main_carrier_size,
+			     CFLG_MBC
+			     | CFLG_FORCE_SIZE
+			     | CFLG_FORCE_MSEG
+			     | CFLG_MAIN_CARRIER);
+#else
 	blk = create_carrier(allctr,
 			     allctr->main_carrier_size,
 			     CFLG_MBC
 			     | CFLG_FORCE_SIZE
 			     | CFLG_FORCE_SYS_ALLOC
 			     | CFLG_MAIN_CARRIER);
+#endif
 	if (!blk)
 	    goto error;
 

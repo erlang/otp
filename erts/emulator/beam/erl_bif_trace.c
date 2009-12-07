@@ -86,7 +86,7 @@ trace_pattern_2(Process* p, Eterm MFA, Eterm Pattern)
 Eterm
 trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)       
 {
-    Eterm mfa[3];
+    DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     int i;
     int matches = 0;
     int specified = 0;
@@ -101,6 +101,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_block_system(0);
 
+    UseTmpHeap(3,p);
     /*
      * Check and compile the match specification.
      */
@@ -312,7 +313,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     MatchSetUnref(match_prog_set);
 
  done:
-
+    UnUseTmpHeap(3,p);
     erts_smp_release_system();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
@@ -322,6 +323,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 
     MatchSetUnref(match_prog_set);
 
+    UnUseTmpHeap(3,p);
     erts_smp_release_system();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     BIF_ERROR(p, BADARG);
@@ -1011,7 +1013,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 {
     Eterm* tp;
     Eterm* hp;
-    Eterm mfa[3];
+    DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     Binary *ms = NULL, *ms_meta = NULL;
     Sint count = 0;
     Eterm traced = am_false;
@@ -1019,6 +1021,9 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     Eterm retval = am_false;
     Eterm meta = am_false;
     int r;
+
+
+    UseTmpHeap(3,p);
 
     if (!is_tuple(func_spec)) {
 	goto error;
@@ -1037,9 +1042,11 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     r = function_is_traced(mfa, &ms, &ms_meta, &meta, &count);
     switch (r) {
     case FUNC_TRACE_NOEXIST:
+	UnUseTmpHeap(3,p);
 	hp = HAlloc(p, 3);
 	return TUPLE2(hp, key, am_undefined);
     case FUNC_TRACE_UNTRACED:
+	UnUseTmpHeap(3,p);
 	hp = HAlloc(p, 3);
 	return TUPLE2(hp, key, am_false);
     case FUNC_TRACE_GLOBAL_TRACE:
@@ -1120,10 +1127,12 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     default:
 	goto error;
     }
+    UnUseTmpHeap(3,p);
     hp = HAlloc(p, 3);
     return TUPLE2(hp, key, retval);
 
  error:
+    UnUseTmpHeap(3,p);
     BIF_ERROR(p, BADARG);
 }
 

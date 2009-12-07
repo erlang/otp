@@ -20,6 +20,35 @@
 #ifndef __ERL_TERM_H
 #define __ERL_TERM_H
 
+#ifdef ARCH_64
+#define HALFWORD_HEAP 1
+#define HALFWORD_ASSERT 1
+#endif
+
+#if HALFWORD_HEAP
+#  define HEAP_ON_C_STACK 0
+#  if HALFWORD_ASSERT
+#    ifdef ET_DEBUG
+#      undef ET_DEBUG
+#    endif
+#    define ET_DEBUG 1
+#  endif
+#  if 1
+#    define CHECK_POINTER_MASK 0xFFFFFFFF00000000UL
+#    define COMPRESS_POINTER(AnUint) (AnUint)
+#    define EXPAND_POINTER(APointer) (APointer)
+#  else
+#    define CHECK_POINTER_MASK 0x0UL
+#    define COMPRESS_POINTER(AnUint) (AnUint)
+#    define EXPAND_POINTER(APointer) (APointer)
+#  endif
+#else
+#  define HEAP_ON_C_STACK 1
+#  define CHECK_POINTER_MASK 0x0UL
+#  define COMPRESS_POINTER(AnUint) (AnUint)
+#  define EXPAND_POINTER(APointer) (APointer)
+#endif
+
 struct erl_node_; /* Declared in erl_node_tables.h */
 
 /*
@@ -158,9 +187,16 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 
 /* boxed object access methods */
+#if HALFWORD_HEAP
+#define _is_taggable_pointer(x)	 (((Uint)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
+#define _boxed_precond(x)        (is_boxed(x))
+#else
+#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+#define  _boxed_precond(x)       (is_boxed(x))
+#endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
-#define _unchecked_make_boxed(x)	((Uint)(x) + TAG_PRIMARY_BOXED)
-_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
+#define _unchecked_make_boxed(x) COMPRESS_POINTER((Uint)(x) + TAG_PRIMARY_BOXED)
+_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*);
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
 #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
@@ -170,13 +206,13 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
-#define _unchecked_boxed_val(x) ((Eterm*)((x) - TAG_PRIMARY_BOXED))
-_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm)
+#define _unchecked_boxed_val(x) EXPAND_POINTER((Eterm*)((x) - TAG_PRIMARY_BOXED))
+_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm);
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint)(x) + TAG_PRIMARY_LIST)
-_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
+#define _unchecked_make_list(x)	COMPRESS_POINTER((Uint)(x) + TAG_PRIMARY_LIST)
+_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*);
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
 #define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
@@ -187,8 +223,13 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
 #define is_not_list(x)		(!is_list((x)))
 #endif
-#define _unchecked_list_val(x)	((Eterm*)((x) - TAG_PRIMARY_LIST))
-_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
+#if HALFWORD_HEAP
+#define _list_precond(x)        (is_list(x))
+#else
+#define _list_precond(x)       (is_list(x))
+#endif
+#define _unchecked_list_val(x)	EXPAND_POINTER((Eterm*)((x) - TAG_PRIMARY_LIST))
+_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm);
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
 #define CONS(hp, car, cdr) \
@@ -198,7 +239,7 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*)((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	EXPAND_POINTER((Eterm*)((x) & ~((Uint) 0x3)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/

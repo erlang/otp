@@ -351,6 +351,13 @@ struct ErtsSchedulerData_ {
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;
 #endif
+#if !HEAP_ON_C_STACK
+    Eterm tmp_heap[TMP_HEAP_SIZE];
+    int num_tmp_heap_used;
+    Eterm beam_emu_tmp_heap[BEAM_EMU_TMP_HEAP_SIZE];
+    Eterm cmp_tmp_heap[CMP_TMP_HEAP_SIZE];
+    Eterm erl_arith_tmp_heap[ERL_ARITH_TMP_HEAP_SIZE];
+#endif
 
     Process *current_process;
     Uint no;			/* Scheduler number */

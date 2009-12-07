@@ -63,7 +63,7 @@ typedef struct erl_bin_match_struct{
 #define HEADER_NUM_SLOTS(hdr) (header_arity(hdr)-sizeof(ErlBinMatchState)/sizeof(Eterm)+1)
 
 #define make_matchstate(_Ms) make_boxed((Eterm*)(_Ms))  
-#define ms_matchbuffer(_Ms) &(((ErlBinMatchState*)(_Ms - TAG_PRIMARY_BOXED))->mb)
+#define ms_matchbuffer(_Ms) &(((ErlBinMatchState*) boxed_val(_Ms))->mb)
 
 
 #if defined(ERTS_SMP)

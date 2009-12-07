@@ -1109,9 +1109,10 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 			break;
 		    }
 		if (insert_bin) {
-		    Uint id_heap[BIG_UINT_HEAP_SIZE];
+		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
+		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		    a.id = erts_bld_uint(&hp, NULL, (Uint) pb->val);
 		    erts_match_prog_foreach_offheap(pb->val,
 						    insert_offheap2,
@@ -1120,6 +1121,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->bin_val = pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
+		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		}
 	    }
 	}
@@ -1190,12 +1192,15 @@ static void
 insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
 {
     if (bp) {
-	Eterm heap[3];
+	DeclareTmpHeapNoproc(heap,3);
+
+	UseTmpHeapNoproc(3);
 	insert_offheap(&bp->off_heap,
 		       TIMER_REF,
 		       (is_internal_pid(receiver)
 			? receiver
 			: TUPLE2(&heap[0], AM_process, receiver)));
+	UnUseTmpHeapNoproc(3);
     }
 }
 
@@ -1230,7 +1235,7 @@ setup_reference_table(void)
     DistEntry *dep;
     HashInfo hi;
     int i;
-    Eterm heap[3];
+    DeclareTmpHeapNoproc(heap,3);
 
     inserted_bins = NULL;
 
@@ -1251,6 +1256,7 @@ setup_reference_table(void)
     /* Go through the hole system, and build a table of all references
        to ErlNode and DistEntry structures */
 
+    UseTmpHeapNoproc(3);
     insert_node(erts_this_node,
 		SYSTEM_REF,
 		TUPLE2(&heap[0], AM_system, am_undefined));
@@ -1261,6 +1267,7 @@ setup_reference_table(void)
 		   HEAP_REF,
 		   TUPLE2(&heap[0], AM_processes, am_undefined));
 #endif
+    UnUseTmpHeapNoproc(3);
 
     /* Insert all processes */
     for (i = 0; i < erts_max_processes; i++)

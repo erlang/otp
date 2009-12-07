@@ -287,4 +287,5 @@ extern void erts_kill_dist_connection(DistEntry *dep, Uint32);
 
 extern Uint erts_dist_cache_size(void);
 
+
 #endif

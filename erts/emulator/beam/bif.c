@@ -616,13 +616,15 @@ local_name_monitor(Process *p, Eterm target_name)
     rp = erts_whereis_process(p, p_locks, target_name, ERTS_PROC_LOCK_LINK,
 			      ERTS_P2P_FLG_ALLOW_OTHER_X);
     if (!rp) {
-	Eterm lhp[3];
+	DeclareTmpHeap(lhp,3,p);
 	Eterm item;
+	UseTmpHeap(3,p);
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	p_locks &= ~ERTS_PROC_LOCK_LINK;
 	item = TUPLE2(lhp, target_name, erts_this_dist_entry->sysname);
 	erts_queue_monitor_message(p, &p_locks,
 				   mon_ref, am_process, item, am_noproc);
+	UnUseTmpHeap(3,p);
     }
     else if (rp != p) {
 	erts_add_monitor(&(p->monitors), MON_ORIGIN, mon_ref, rp->id,

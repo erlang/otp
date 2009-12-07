@@ -68,7 +68,9 @@ unsigned tag_val_def(Eterm x)
     static char msg[32];
 
     switch (x & _TAG_PRIMARY_MASK) {
-      case TAG_PRIMARY_LIST:					return LIST_DEF;
+    case TAG_PRIMARY_LIST:
+	ET_ASSERT(_list_precond(x),file,line);
+	return LIST_DEF;
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
 	  ET_ASSERT(is_header(hdr),file,line);
@@ -121,12 +123,12 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
     return _unchecked_##FUN(x); \
 }
 
-ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,is_boxed);
-ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,_boxed_precond);
+ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_not_list,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,is_list);
+ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,_list_precond);
 ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Sint,signed_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Uint,atom_val,Eterm,is_atom);
@@ -163,7 +165,7 @@ ET_DEFINE_CHECKED(Uint32*,external_ref_data,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(Eterm*,export_val,Eterm,is_export);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,Uint*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm,make_cp,Uint*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(Uint*,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);

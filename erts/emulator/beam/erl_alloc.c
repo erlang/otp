@@ -1605,12 +1605,13 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 
     }
     else {
-	Eterm tmp_heap[2];
+	DeclareTmpHeapNoproc(tmp_heap,2);
 	Eterm wanted_list;
 
 	if (is_nil(earg))
 	    return NIL;
 
+	UseTmpHeapNoproc(2);
 	if (is_not_atom(earg))
 	    wanted_list = earg;
 	else {
@@ -1690,15 +1691,18 @@ erts_memory(int *print_to_p, void *print_to_arg, void *proc, Eterm earg)
 			atoms[length] = am_maximum;
 			uintps[length++] = &size.maximum;
 		    }
-		}
-		else
+		} else {
+		    UnUseTmpHeapNoproc(2);
 		    return am_badarg;
+		}
 		break;
 	    default:
+		UnUseTmpHeapNoproc(2);
 		return am_badarg;
 	    }
 	    wanted_list = CDR(list_val(wanted_list));
 	}
+	UnUseTmpHeapNoproc(2);
 	if (is_not_nil(wanted_list))
 	    return am_badarg;
     }
@@ -2285,8 +2289,8 @@ erts_allocator_info_term(void *proc, Eterm which_alloc, int only_sz)
 			SysAllocStat sas;
 			Eterm opts_am;
 			Eterm opts;
-			Eterm as[4];
-			Eterm ts[4];
+			Eterm as[4]; /* Ok even if !HEAP_ON_C_STACK, not really heap data on stack */
+			Eterm ts[4]; /* Ok even if !HEAP_ON_C_STACK, not really heap data on stack */
 			int l;
 
 			if (only_sz)

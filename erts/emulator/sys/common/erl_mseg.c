@@ -87,11 +87,22 @@ static int is_cache_check_requested;
 /* Mmap ... */
 
 #define MMAP_PROT		(PROT_READ|PROT_WRITE)
+
+#if HALFWORD_HEAP
+# ifdef MAP_32BIT
+#  define RANGE_FLAG            (MAP_32BIT)
+# else
+#  error "Cannot have halfword heap if unable to restrict mmap areas
+# endif
+#else
+# define RANGE_FLAG             (0)
+#endif
+
 #ifdef MAP_ANON
-#  define MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
+#  define MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE|RANGE_FLAG)
 #  define MMAP_FD		(-1)
 #else
-#  define MMAP_FLAGS		(MAP_PRIVATE)
+#  define MMAP_FLAGS		(MAP_PRIVATE|RANGE_FLAG)
 #  define MMAP_FD		mmap_fd
 static int mmap_fd;
 #endif
@@ -310,6 +321,12 @@ mseg_create(Uint size)
 			MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
     if (seg == (void *) MAP_FAILED)
 	seg = NULL;
+#if HALFWORD_HEAP
+    if ((unsigned long) seg & CHECK_POINTER_MASK) {
+	erts_fprintf(stderr,"Pointer mask failure (0x%08lx)\n",(unsigned long) seg);
+	return NULL;
+    }
+#endif
 #else
 #error "Missing mseg_create() implementation"
 #endif
@@ -1300,6 +1317,37 @@ erts_mseg_unit_size(void)
 {
     return page_size;
 }
+#if HAVE_MMAP && HALFWORD_HEAP
+#ifdef MAP_NORESERVE
+#define RESERVE_FLAGS (MMAP_FLAGS | MAP_NORESERVE)
+#else
+#define RESERVE_FLAGS (MMAP_FLAGS)
+#endif
+static void halfword_reserve(void)
+{
+#if 0
+    void *ptr, *understack;
+    unsigned long x = 0x80000000;
+    long i = 0;
+
+    understack = mmap(NULL,GET_PAGE_SIZE, PROT_NONE, RESERVE_FLAGS,
+		      MMAP_FD, 0);
+    while (x < (unsigned long) understack) {
+	ptr = mmap((void *) x, GET_PAGE_SIZE, PROT_NONE, RESERVE_FLAGS,
+		   MMAP_FD, 0);
+	if ((unsigned long) ptr < 0x80000000) {
+	    munmap(ptr, GET_PAGE_SIZE);
+	} else {
+	    ++i;
+	}
+	x += GET_PAGE_SIZE;
+    }
+    erts_fprintf(stderr,"Reserved %ld pages [%d MB]...\n",i, (i*GET_PAGE_SIZE)/1024/1024);
+#else
+    return;
+#endif
+}
+#endif
 
 void
 erts_mseg_init(ErtsMsegInit_t *init)
@@ -1326,6 +1374,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
     mmap_fd = open("/dev/zero", O_RDWR);
     if (mmap_fd < 0)
 	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: unable to open /dev/zero\n");
+#endif
+
+#if HAVE_MMAP && HALFWORD_HEAP
+    halfword_reserve();
 #endif
 
     page_size = GET_PAGE_SIZE;

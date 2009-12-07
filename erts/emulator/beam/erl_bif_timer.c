@@ -178,8 +178,8 @@ eq_non_standard_ref_numbers(Uint32 *rn1, Uint32 len1, Uint32 *rn2, Uint32 len2)
 #else
 #define MAX_REF_HEAP_SZ (1+ERTS_MAX_REF_NUMBERS)
 #endif
-    Uint r1_hp[MAX_REF_HEAP_SZ];
-    Uint r2_hp[MAX_REF_HEAP_SZ];
+    DeclareTmpHeapNoproc(r1_hp,(MAX_REF_HEAP_SZ * 2));
+    Eterm *r2_hp = r1_hp +MAX_REF_HEAP_SZ;
 
     return eq(create_ref(r1_hp, rn1, len1), create_ref(r2_hp, rn2, len2));
 #undef MAX_REF_HEAP_SZ
