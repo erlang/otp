@@ -467,7 +467,7 @@ otp_6277(Config) when is_list(Config) ->
               -define(ASSERT, ?MODULE).
 
               ?ASSERT().">>,
-           [{error,{{4,16},epp,{undefined,'MODULE'}}}]}],
+           [{error,{{4,16},epp,{undefined,'MODULE', none}}}]}],
     ?line [] = check(Config, Ts),
     ok.
 
@@ -674,7 +674,7 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c7,
            <<"\nt() -> ?A.\n">>,
-           {errors,[{{2,9},epp,{undefined,'A'}}],[]}},
+           {errors,[{{2,9},epp,{undefined,'A', none}}],[]}},
 
           {otp_8130_c8,
            <<"\n-include_lib(\"$apa/foo.hrl\").\n">>,
@@ -684,7 +684,7 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c9,
            <<"-define(S, ?S).\n"
              "t() -> ?S.\n">>,
-           {errors,[{{2,9},epp,{circular,'S'}}],[]}},
+           {errors,[{{2,9},epp,{circular,'S', none}}],[]}},
 
           {otp_8130_c10,
            <<"\n-file.">>,
@@ -746,7 +746,7 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c23,
            <<"\n-file(?b, 3).\n">>,
-           {errors,[{{2,8},epp,{undefined,b}}],[]}},
+           {errors,[{{2,8},epp,{undefined,b, none}}],[]}},
 
           {otp_8130_c24,
            <<"\n-include(\"no such file.erl\").\n">>,
@@ -1047,19 +1047,26 @@ overload_mac(Config) when is_list(Config) ->
             "-undef(A).\n"
             "t1() -> ?A.\n",
             "t2() -> ?A(1).">>,
-           {errors,[{{4,9},epp,{undefined,'A'}},
-                    {{5,9},epp,{undefined,'A'}}],[]}},
+           {errors,[{{4,9},epp,{undefined,'A', none}},
+                    {{5,9},epp,{undefined,'A', 1}}],[]}},
 
           %% cannot overload predefined macros
           {overload_mac_c2,
            <<"-define(MODULE(X), X).">>,
-           {errors,[{{1,9},epp,{redefine,'MODULE'}}],[]}},
+           {errors,[{{1,9},epp,{redefine_predef,'MODULE'}}],[]}},
 
           %% cannot overload macros with same arity
           {overload_mac_c3,
            <<"-define(A(X), X).\n"
             "-define(A(Y), Y).">>,
-           {errors,[{{2,9},epp,{redefine,'A'}}],[]}}
+           {errors,[{{2,9},epp,{redefine,'A'}}],[]}},
+
+          {overload_mac_c4,
+           <<"-define(A, a).\n"
+            "-define(A(X,Y), {X,Y}).\n"
+            "a(X) -> X.\n"
+            "t() -> ?A(1).">>,
+           {errors,[{{4,9},epp,{mismatch,'A'}}],[]}}
          ],
     ?line [] = compile(Config, Cs),
 
@@ -1078,13 +1085,6 @@ overload_mac(Config) when is_list(Config) ->
            1},
 
           {overload_mac_r3,
-           <<"-define(A, a).\n"
-            "-define(A(X,Y), {X,Y}).\n"
-            "a(X) -> ?A(X,X).\n"
-            "t() -> ?A(1).">>,
-           {1,1}},
-
-          {overload_mac_r4,
            <<"-define(A, ?B).\n"
             "-define(B, a).\n"
             "-define(B(X), {b,X}).\n"
