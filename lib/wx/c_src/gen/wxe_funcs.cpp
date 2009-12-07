@@ -20582,19 +20582,11 @@ case wxFileDialog_GetPath: { // wxFileDialog::GetPath
  break; 
 }
 case wxFileDialog_GetPaths: { // wxFileDialog::GetPaths 
- wxFileDialog *This = (wxFileDialog *) getPtr(bp,memenv); bp += 4;
- int * pathsLen = (int *) bp; bp += 4;
  wxArrayString paths;
- int pathsASz = 0, * pathsTemp;
- for(int i=0; i < *pathsLen; i++) {
-   pathsTemp = (int *) bp; bp += 4;
-   paths.Add(wxString(bp, wxConvUTF8));
-   bp += *pathsTemp;
-   pathsASz += *pathsTemp+4;
- }
- bp += (8-((0+ pathsASz) & 7 )) & 7;
+ wxFileDialog *This = (wxFileDialog *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->GetPaths(paths);
+ rt.add(paths);
  break; 
 }
 case wxFileDialog_GetWildcard: { // wxFileDialog::GetWildcard 
