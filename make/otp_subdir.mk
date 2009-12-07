@@ -24,7 +24,7 @@
 #
 # Targets that don't affect documentation directories
 #
-debug opt release local_docs docs release_docs tests release_tests clean depend valgrind:
+opt debug release local_docs docs release_docs tests release_tests clean depend valgrind:
 	@set -e ;							\
 	app_pwd=`pwd` ;							\
 	if test -f vsn.mk; then						\
