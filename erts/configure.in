@@ -226,6 +226,19 @@ AC_ARG_ENABLE(m64-build,
   esac
 ],enable_m64_build=no)
 
+AC_ARG_ENABLE(m32-build,
+[  --enable-m32-build    build 32bit binaries using the -m32 flag to (g)cc],
+[ case "$enableval" in
+    no) enable_m32_build=no ;;
+    *)
+	if test X${enable_darwin_64bit} = Xyes -o  X${enable_m64_build} = Xyes;
+	then
+		AC_MSG_ERROR([(--enable-darwin-64bit or --enable-m64-build) and --enable-m32-build are mutually exclusive]) ;
+	fi ;
+	enable_m32_build=yes ;;
+  esac
+],enable_m32_build=no)
+
 AC_ARG_ENABLE(fixalloc,
 [  --disable-fixalloc      disable the use of fix_alloc])
 if test x${enable_fixalloc} = xno ; then
@@ -336,6 +349,17 @@ else
 			esac
 			;;
 		*)
+			if test X${enable_m32_build} = Xyes;
+			then
+				enable_hipe=no;
+				case $CFLAGS in
+				*-m32*)
+					;;
+				*)
+					CFLAGS="-m32 $CFLAGS"
+				;;
+				esac ;
+			fi
 			;;
 	esac
 fi
@@ -432,6 +456,35 @@ extra_flags="-I${ERL_TOP}/erts/$host $OTP_EXTRA_FLAGS"
 CFLAGS="$CFLAGS $extra_flags"
 DEBUG_CFLAGS="-g $CPPFLAGS $extra_flags"
 DEBUG_FLAGS=-g
+
+dnl
+dnl Adjust DEBUG_CFLAGS to match CFLAGS in terms of -m
+dnl
+
+case $CFLAGS in
+	*-m64*)
+		case $DEBUG_CFLAGS in
+			*-m64*)
+				;;
+			*)
+				DEBUG_CFLAGS="-m64 $DEBUG_CFLAGS"
+				;;
+		esac
+		;;
+	*-m32*)
+		case $DEBUG_CFLAGS in
+			*-m32*)
+				;;
+			*)
+				DEBUG_CFLAGS="-m32 $DEBUG_CFLAGS"
+				;;
+		esac
+		;;
+	*)
+		;;
+esac
+
+
 
 CFLAG_RUNTIME_LIBRARY_PATH="-Wl,-R"
 case $host_os in
@@ -628,6 +681,16 @@ case $ARCH-$OPSYS in
 					LDFLAGS="-m64 $LDFLAGS"
 				;;
 			esac
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			AC_MSG_NOTICE([Adjusting LDFLAGS to use -m32]) ;
+			case $LDFLAGS in
+				*-m32*)
+					;;
+				*)
+					LDFLAGS="-m32 $LDFLAGS"
+				;;
+			esac ;
 		fi
 		;;
 esac
@@ -3184,6 +3247,9 @@ case $host_os in
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
 		fi
 	;;	
 	freebsd*)
@@ -3192,6 +3258,9 @@ case $host_os in
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-m64 $DED_LDFLAGS"
+		fi;
+		if test X${enable_m32_build} = Xyes; then
+			DED_LDFLAGS="-m32 $DED_LDFLAGS"
 		fi
 	;;	
 	osf*)
