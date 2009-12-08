@@ -4641,7 +4641,7 @@ true</pre>
       <fsummary>Split a binary into two</fsummary>
       <type>
         <v>Bin = Bin1 = Bin2 = binary()</v>
-        <v>Pos = 1..byte_size(Bin)</v>
+        <v>Pos = 0..byte_size(Bin)</v>
       </type>
       <desc>
         <p>Returns a tuple containing the binaries which are the result
