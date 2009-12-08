@@ -351,6 +351,9 @@ case $host_os in
 	AC_MSG_WARN([Reverting to 32-bit time_t])
 	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
 	;;
+    darwin*)
+        CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE"
+        ;;
     *)
 	;;
 esac
