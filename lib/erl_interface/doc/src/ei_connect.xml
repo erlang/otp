@@ -619,6 +619,16 @@ typedef struct {
         <p>These are convenience functions for some common name lookup functions.</p>
       </desc>
     </func>
+    <func>
+      <name><ret>int</ret><nametext>ei_get_tracelevel(void)</nametext></name>
+      <name><ret>void</ret><nametext>ei_set_tracelevel(int level)</nametext></name>
+      <fsummary>Get and set functions for tracing.</fsummary>
+      <desc>
+        <p>These functions are used to set tracing on the distribution. The levels are different verbosity levels. A higher level means more information.
+	See also Debug Information and <c><![CDATA[EI_TRACELEVEL]]></c> below. </p>
+	<p> <c><![CDATA[ei_set_tracelevel]]></c> and <c><![CDATA[ei_get_tracelevel]]></c> are not thread safe.  </p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
@@ -634,6 +644,17 @@ typedef struct {
       <item>the environment variable <c><![CDATA[ERL_EPMD_PORT]]></c>
        is set correctly.</item>
     </list>
+    <p>The connection attempt can be traced by setting a tracelevel by either using
+    <c><![CDATA[ei_set_tracelevel]]></c> or by setting the environment variable <c><![CDATA[EI_TRACELEVEL]]></c>.
+    The different tracelevels has the following messages:</p>
+    <list>
+    	<item>1: Verbose error messages</item>
+    	<item>2: Above messages and verbose warning messages </item>
+    	<item>3: Above messages and progress reports for connection handling</item>
+    	<item>4: Above messages and progress reports for communication</item>
+    	<item>5: Above messages and progress reports for data conversion</item>
+    </list>
   </section>
+
 </cref>
 

@@ -97,7 +97,11 @@
 #include "ei_epmd.h"
 #include "ei_internal.h"
 
+#ifdef _REENTRANT
+
+#else
 int ei_tracelevel = 0;
+#endif
 
 #define COOKIE_FILE "/.erlang.cookie"
 #define EI_MAX_HOME_PATH 1024
@@ -249,8 +253,22 @@ ei_cnode *ei_fd_to_cnode(int fd)
     return &sockinfo->cnode;
 }
 
+
 /***************************************************************************
- *  XXXX
+ *  Get/Set tracelevel
+ ***************************************************************************/
+
+void ei_set_tracelevel(int level) {
+    ei_tracelevel = level;
+}
+
+int ei_get_tracelevel(void) {
+    return ei_tracelevel;
+}
+
+
+/***************************************************************************
+ *  Distversion 
  ***************************************************************************/
 
 int ei_distversion(int fd)
@@ -1281,8 +1299,6 @@ error:
 	free(buf);
     return -1;
 }
-
-/* FIXME fix the signed/unsigned mess..... */
 
 static int send_name_or_challenge(int fd, char *nodename,
 				  int f_chall,
