@@ -974,10 +974,6 @@ static int hibernate(Process* c_p, Eterm module, Eterm function,
 static Eterm* call_fun(Process* p, int arity, Eterm* reg, Eterm args);
 static Eterm* apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
 static Eterm new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free);
-static BIF_RETTYPE nif_dispatcher_0(Process* p, Uint* I);
-static BIF_RETTYPE nif_dispatcher_1(Process* p, Eterm arg1, Uint* I);
-static BIF_RETTYPE nif_dispatcher_2(Process* p, Eterm arg1, Eterm arg2, Uint* I);
-static BIF_RETTYPE nif_dispatcher_3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Uint* I);
 
 #if defined(_OSE_) || defined(VXWORKS)
 static int init_done;
@@ -2949,11 +2945,38 @@ void process_main(void)
 
  OpCase(call_nif):
      {
-	 static void* const dispatchers[4] = { 
-	     nif_dispatcher_0, nif_dispatcher_1, nif_dispatcher_2, nif_dispatcher_3
-	 };
-	 BifFunction vbf = dispatchers[I[-1]];
-	 goto apply_bif_or_nif;
+          /*
+	   * call_nif is always first instruction in function:
+	   *
+	   * I[-3]: Module
+	   * I[-2]: Function
+	   * I[-1]: Arity
+	   * I[0]: &&call_nif
+	   * I[1]: Function pointer to NIF function
+	   * I[2]: priv_data pointer
+	   */
+     	 BifFunction vbf;
+
+	 c_p->current = I-3; /* current and vbf set to please handle_error */ 
+	 SWAPOUT;
+	 c_p->fcalls = FCALLS - 1;
+	 PROCESS_MAIN_CHK_LOCKS(c_p);
+	 tmp_arg2 = I[-1];
+	 ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+
+	 ASSERT(!ERTS_PROC_IS_EXITING(c_p));
+	 {
+	     typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
+	     NifF* fp = vbf = (NifF*) I[1];
+	     struct enif_environment_t env;
+	     erts_pre_nif(&env, c_p, (void*)I[2]);
+	     reg[0] = r(0);
+	     tmp_arg1 = (*fp)(&env, tmp_arg2, reg);
+	     erts_post_nif(&env);
+	 }
+	 ASSERT(!ERTS_PROC_IS_EXITING(c_p) || is_non_value(tmp_arg1));
+	 PROCESS_MAIN_CHK_LOCKS(c_p);
+	 goto apply_bif_or_nif_epilogue;
 	 
  OpCase(apply_bif):
 	/*
@@ -2966,17 +2989,15 @@ void process_main(void)
 	 * code[3]: &&apply_bif
 	 * code[4]: Function pointer to BIF function
 	 */
-	 vbf = (BifFunction) Arg(0);
 
- apply_bif_or_nif:
 	c_p->current = I-3;	/* In case we apply process_info/1,2 or load_nif/1 */
 	c_p->i = I;		/* In case we apply check_process_code/2. */
 	c_p->arity = 0;		/* To allow garbage collection on ourselves
 				 * (check_process_code/2).
 				 */
-
 	SWAPOUT;
 	c_p->fcalls = FCALLS - 1;
+	vbf = (BifFunction) Arg(0);
 	PROCESS_MAIN_CHK_LOCKS(c_p);
 	tmp_arg2 = I[-1];
 	ASSERT(tmp_arg2 <= 3);
@@ -3019,6 +3040,7 @@ void process_main(void)
 		break;
 	    }
 	}
+apply_bif_or_nif_epilogue:
 	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
 	ERTS_HOLE_CHECK(c_p);
 	if (c_p->mbuf) {
@@ -5245,6 +5267,7 @@ save_stacktrace(Process* c_p, Eterm* pc, Eterm* reg, BifFunction bf,
 	     * The Bif does not really exist (no BIF entry).  It is a
 	     * TRAP and traps are called through apply_bif, which also
 	     * sets c_p->current (luckily).
+	     * OR it is a NIF called by call_nif where current is also set.
 	     */
 	    ASSERT(c_p->current);
 	    s->current = c_p->current;
@@ -6146,53 +6169,5 @@ erts_current_reductions(Process *current, Process *p)
     } else {
 	return REDS_IN(current) - current->fcalls;
     }
-}
-
-static BIF_RETTYPE nif_dispatcher_0(Process* p, Uint* I)
-{
-    typedef Eterm NifF(struct enif_environment_t*);
-    NifF* fp = (NifF*) I[1];
-    struct enif_environment_t env;
-    Eterm ret;
-    erts_pre_nif(&env, p, (void*)I[2]);
-    ret = (*fp)(&env);
-    erts_post_nif(&env);
-    return ret;
-}
-
-static BIF_RETTYPE nif_dispatcher_1(Process* p, Eterm arg1, Uint* I)
-{
-    typedef Eterm NifF(struct enif_environment_t*, Eterm);
-    NifF* fp = (NifF*) I[1];
-    struct enif_environment_t env;
-    Eterm ret;
-    erts_pre_nif(&env, p, (void*)I[2]);
-    ret = (*fp)(&env, arg1);
-    erts_post_nif(&env);
-    return ret;
-}
-
-static BIF_RETTYPE nif_dispatcher_2(Process* p, Eterm arg1, Eterm arg2, Uint* I)
-{
-    typedef Eterm NifF(struct enif_environment_t*, Eterm, Eterm);
-    NifF* fp = (NifF*) I[1];
-    struct enif_environment_t env;
-    Eterm ret;
-    erts_pre_nif(&env, p, (void*)I[2]);
-    ret = (*fp)(&env, arg1, arg2);
-    erts_post_nif(&env);
-    return ret;
-}
-
-static BIF_RETTYPE nif_dispatcher_3(Process* p, Eterm arg1, Eterm arg2, Eterm arg3, Uint* I)
-{
-    typedef Eterm NifF(struct enif_environment_t*, Eterm, Eterm, Eterm);
-    NifF* fp = (NifF*) I[1];
-    struct enif_environment_t env;
-    Eterm ret;
-    erts_pre_nif(&env, p, (void*)I[2]);
-    ret = (*fp)(&env, arg1, arg2, arg3);
-    erts_post_nif(&env);
-    return ret;
 }
 

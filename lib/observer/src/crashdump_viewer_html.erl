@@ -215,6 +215,8 @@ general_info_body(Heading,GenInfo) ->
 	    td(GenInfo#general_info.system_vsn)]),
 	tr([th("ALIGN=left BGCOLOR=\"#8899AA\"","Compiled"),
 	    td(GenInfo#general_info.compile_time)]),
+	tr([th("ALIGN=left BGCOLOR=\"#8899AA\"","Taints"),
+	    td(GenInfo#general_info.taints)]),
 	case GenInfo#general_info.mem_tot of
 	    "" -> "";
 	    MemTot ->

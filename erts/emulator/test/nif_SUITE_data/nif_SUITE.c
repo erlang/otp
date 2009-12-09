@@ -1,6 +1,9 @@
 #include "erl_nif.h"
+
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <limits.h>
 
 #include "nif_mod.h"
 
@@ -65,7 +68,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
     }
 }
 
-static ERL_NIF_TERM lib_version(ErlNifEnv* env)
+static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("lib_version");
     return enif_make_int(env, NIF_SUITE_LIB_VER);
@@ -89,19 +92,19 @@ static ERL_NIF_TERM make_call_history(ErlNifEnv* env, CallInfo** headp)
     return list;
 }
 
-static ERL_NIF_TERM call_history(ErlNifEnv* env)
+static ERL_NIF_TERM call_history(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     PrivData* data = (PrivData*) enif_get_data(env);
 
     return make_call_history(env,&data->call_history);
 }
 
-static ERL_NIF_TERM hold_nif_mod_priv_data(ErlNifEnv* env, ERL_NIF_TERM a1)
+static ERL_NIF_TERM hold_nif_mod_priv_data(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     PrivData* data = (PrivData*) enif_get_data(env);
     unsigned long ptr_as_ulong;
     
-    if (!enif_get_ulong(env,a1,&ptr_as_ulong)) {
+    if (!enif_get_ulong(env,argv[0],&ptr_as_ulong)) {
 	return enif_make_badarg(env);
     }
     if (data->nif_mod != NULL && --(data->nif_mod->ref_cnt) == 0) {
@@ -111,7 +114,7 @@ static ERL_NIF_TERM hold_nif_mod_priv_data(ErlNifEnv* env, ERL_NIF_TERM a1)
     return enif_make_int(env,++(data->nif_mod->ref_cnt)); 
 }
 
-static ERL_NIF_TERM nif_mod_call_history(ErlNifEnv* env)
+static ERL_NIF_TERM nif_mod_call_history(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     PrivData* data = (PrivData*) enif_get_data(env);
 
@@ -121,11 +124,11 @@ static ERL_NIF_TERM nif_mod_call_history(ErlNifEnv* env)
     return make_call_history(env,&data->nif_mod->call_history);
 }
 
-static ERL_NIF_TERM list_seq(ErlNifEnv* env, ERL_NIF_TERM a1)
+static ERL_NIF_TERM list_seq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ERL_NIF_TERM list;
     int n;
-    if (!enif_get_int(env, a1, &n)) {
+    if (!enif_get_int(env, argv[0], &n)) {
 	return enif_make_badarg(env);
     }
     list = enif_make_list(env, 0); /* NIL */
@@ -136,13 +139,168 @@ static ERL_NIF_TERM list_seq(ErlNifEnv* env, ERL_NIF_TERM a1)
     return list;
 }
 
+static int test_int(ErlNifEnv* env, int i1)
+{
+    int i2 = 0;
+    ERL_NIF_TERM int_term = enif_make_int(env, i1);
+    if (!enif_get_int(env,int_term, &i2) || i1 != i2) {
+	fprintf(stderr, "test_int(%d) ...FAILED i2=%d\r\n", i1, i2);
+	return 0;
+    }
+    return 1;
+}
+
+static int test_ulong(ErlNifEnv* env, unsigned long i1)
+{
+    unsigned long i2 = 0;
+    ERL_NIF_TERM int_term = enif_make_ulong(env, i1);
+    if (!enif_get_ulong(env,int_term, &i2) || i1 != i2) {
+	fprintf(stderr, "SVERK: test_ulong(%lu) ...FAILED i2=%lu\r\n", i1, i2);
+	return 0;
+    }
+    return 1;
+}
+
+static int test_double(ErlNifEnv* env, double d1)
+{
+    double d2 = 0;
+    ERL_NIF_TERM term = enif_make_double(env, d1);
+    if (!enif_get_double(env,term, &d2) || d1 != d2) {
+	fprintf(stderr, "SVERK: test_double(%e) ...FAILED i2=%e\r\n", d1, d2);
+	return 0;
+    }
+    return 1;
+}
+
+#define TAG_BITS        4
+#define SMALL_BITS	(sizeof(void*)*8 - TAG_BITS)
+#define MAX_SMALL	((1L << (SMALL_BITS-1))-1)
+#define MIN_SMALL	(-(1L << (SMALL_BITS-1)))
+
+static ERL_NIF_TERM type_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int i;
+    unsigned long u;
+    double d;
+    ERL_NIF_TERM atom, ref1, ref2;
+
+    i = INT_MIN;
+    do {
+	if (!test_int(env,i)) {
+	    goto error;
+	}
+	i += ~i / 3 + 1;
+    } while (i < 0);
+    i = INT_MAX;
+    do {
+	if (!test_int(env,i)) {
+	    goto error;
+	}
+	i -= i / 3 + 1;
+    } while (i >= 0);
+
+    u = ULONG_MAX;
+    for (;;) {
+	if (!test_ulong(env,u)) {
+	    
+	}
+	if (u == 0) break;
+	u -= u / 3 + 1;
+    }    
+
+    if (MAX_SMALL < INT_MAX) { /* 32-bit */
+	for (i=-10 ; i <= 10; i++) {
+	    if (!test_int(env,MAX_SMALL+i)) {
+		goto error;
+	    }
+	}
+	for (i=-10 ; i <= 10; i++) {
+	    if (!test_int(env,MIN_SMALL+i)) {
+		goto error;
+	    }
+	}
+    }
+    assert((MAX_SMALL < INT_MAX) == (MIN_SMALL > INT_MIN));
+
+    for (u=0 ; u < 10; u++) {
+	if (!test_ulong(env,MAX_SMALL+u) || !test_ulong(env,MAX_SMALL-u)) {
+	    goto error;
+	}
+    }
+
+    for (d=3.141592e-100 ; d < 1e100 ; d *= 9.97) {
+	if (!test_double(env,d) || !test_double(env,-d)) {
+	    goto error;
+	}	
+    }
+
+    if (!enif_make_existing_atom(env,"nif_SUITE", &atom)
+	|| !enif_is_identical(env,atom,enif_make_atom(env,"nif_SUITE"))) {
+	fprintf(stderr, "SVERK: nif_SUITE not an atom?\r\n");
+	goto error;
+    }
+    for (i=2; i; i--) {
+	if (enif_make_existing_atom(env,"nif_SUITE_pink_unicorn", &atom)) {
+	    fprintf(stderr, "SVERK: pink unicorn exist?\r\n");
+	    goto error;
+	}
+    }
+    ref1 = enif_make_ref(env);
+    ref2 = enif_make_ref(env);
+    if (!enif_is_ref(env,ref1) || !enif_is_ref(env,ref2) 
+	|| enif_is_identical(env,ref1,ref2) || enif_compare(env,ref1,ref2)==0) {
+	fprintf(stderr, "SVERK: strange refs?\r\n");
+    }
+    return enif_make_atom(env,"ok");
+
+error:
+    return enif_make_atom(env,"error");
+}
+
+static ERL_NIF_TERM tuple_2_list(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int arity = -1;
+    ERL_NIF_TERM* ptr;
+    ERL_NIF_TERM list = enif_make_list(env,0);
+
+    if (argc!=1 || !enif_get_tuple(env,argv[0],&arity,&ptr)) {
+	return enif_make_badarg(env);
+    }
+    while (--arity >= 0) {
+	list = enif_make_list_cell(env,ptr[arity],list);
+    }
+    return list;
+}
+
+static ERL_NIF_TERM is_identical(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{    
+    if (argc != 2) {
+	return enif_make_badarg(env);
+    }
+    return enif_make_atom(env, (enif_is_identical(env,argv[0],argv[1]) ?
+				"true" : "false"));
+}
+
+static ERL_NIF_TERM compare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{    
+    if (argc != 2) {
+	return enif_make_badarg(env);
+    }
+    return enif_make_int(env, enif_compare(env,argv[0],argv[1]));
+}
+
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
     {"call_history", 0, call_history},
     {"hold_nif_mod_priv_data", 1, hold_nif_mod_priv_data},
     {"nif_mod_call_history", 0, nif_mod_call_history},
-    {"list_seq", 1, list_seq}
+    {"list_seq", 1, list_seq},
+    {"type_test", 0, type_test},
+    {"tuple_2_list", 1, tuple_2_list},
+    {"is_identical",2,is_identical},
+    {"compare",2,compare}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

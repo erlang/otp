@@ -24,12 +24,12 @@
 -include("test_server.hrl").
 
 -export([all/1, fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 neg/1]).
+	 types/1, neg/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
 all(suite) ->
-    [basic, reload, upgrade, heap_frag, neg].
+    [basic, reload, upgrade, heap_frag, types, neg].
 
 fin_per_testcase(_Func, _Config) ->
     P1 = code:purge(nif_mod),
@@ -184,19 +184,56 @@ heap_frag_do(N, Max) ->
     L = list_seq(N),
     heap_frag_do(((N*5) div 4) + 1, Max).
 
+types(doc) -> ["Type tests"];
+types(suite) -> [];
+types(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+    ?line ok = type_test(),
+    lists:foreach(fun(Tpl) ->
+                    Lst = erlang:tuple_to_list(Tpl),                 
+                    Lst = tuple_2_list(Tpl)
+                  end,
+                  [{},{ok},{{}},{[],{}},{1,2,3,4,5}]),
+    Stuff = [[],{},0,0.0,(1 bsl 100),(fun()-> ok end),make_ref(),self()],
+    [eq_cmp(A,clone(B)) || A<-Stuff, B<-Stuff],                   
+    ok.
+
+clone(X) ->
+    binary_to_term(term_to_binary(X)).
+
+eq_cmp(A,B) ->
+    eq_cmp_do(A,B),
+    eq_cmp_do([A,B],[A,B]),
+    eq_cmp_do({A,B},{A,B}).
+
+eq_cmp_do(A,B) ->
+    %%?t:format("compare ~p and ~p\n",[A,B]),
+    Eq = (A =:= B),
+    ?line Eq = is_identical(A,B),
+    ?line Cmp = if
+            A < B -> -1;
+            A == B -> 0;
+            A > B -> 1
+        end,
+    ?line Cmp = case compare(A,B) of
+                    C when is_integer(C), C < 0 -> -1;
+                    0 -> 0;
+                    C when is_integer(C) -> 1
+                end,       
+    ok. 
 
 neg(doc) -> ["Negative testing of load_nif"];
 neg(suite) -> [];
 neg(Config) when is_list(Config) ->
     ?line {'EXIT',{badarg,_}} = (catch erlang:load_nif(badarg, 0)),
-    ?line {error,load_failed,_} = erlang:load_nif("pink_unicorn", 0),
+    ?line {error,{load_failed,_}} = erlang:load_nif("pink_unicorn", 0),
     
     ?line Data = ?config(data_dir, Config),
     ?line File = filename:join(Data, "nif_mod"),
     ?line {ok,nif_mod,Bin} = compile:file(File, [binary,return_errors]),
     ?line {module,nif_mod} = erlang:load_module(nif_mod,Bin),
 
-    ?line {error,bad_lib,_} = nif_mod:load_nif_lib(Config, no_init),    
+    ?line {error,{bad_lib,_}} = nif_mod:load_nif_lib(Config, no_init),    
     ?line ok.
 
 
@@ -230,6 +267,10 @@ call_history() -> ?nif_stub.
 hold_nif_mod_priv_data(_Ptr) -> ?nif_stub.
 nif_mod_call_history() -> ?nif_stub.
 list_seq(_To) -> ?nif_stub.
+type_test() -> ?nif_stub.
+tuple_2_list(_) -> ?nif_stub.    
+is_identical(_,_) -> ?nif_stub.
+compare(_,_) -> ?nif_stub.
     
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

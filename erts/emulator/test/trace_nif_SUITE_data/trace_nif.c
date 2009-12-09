@@ -20,18 +20,18 @@ static void unload(ErlNifEnv* env, void* priv_data)
 {
 }
 
-static ERL_NIF_TERM nif_0(ErlNifEnv* env)
+static ERL_NIF_TERM nif_0(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     return enif_make_tuple(env,2,
 		    enif_make_atom(env,"ok"),
 		    enif_make_list(env,0));
 }
 
-static ERL_NIF_TERM nif_1(ErlNifEnv* env, ERL_NIF_TERM a1)
+static ERL_NIF_TERM nif_1(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     return enif_make_tuple(env,2,
 		    enif_make_atom(env,"ok"),
-		    enif_make_list(env,1,a1));
+		    enif_make_list(env,1,argv[0]));
 }
 
 

@@ -35,13 +35,6 @@
 
 #include <limits.h>
 
-/*
-static ERTS_INLINE Eterm* alloc_heap(ErlNifEnv* env, unsigned need)
-{
-    return HAlloc(env->proc, need);
-}
-*/
-
 #define MIN_HEAP_FRAG_SZ 200
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need);
 
@@ -116,12 +109,21 @@ void enif_free(ErlNifEnv* env, void* ptr)
     erts_free(ERTS_ALC_T_NIF, ptr);
 }
 
+int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return is_atom(term);
+}
 
 int enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)
 {
     return is_binary(term) && (binary_bitsize(term) % 8 == 0);
 }
-				     
+
+int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return is_ref(term);
+}
+
 
 int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 {
@@ -157,6 +159,25 @@ int enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)
     return 1;
 }
 
+int enif_realloc_binary(ErlNifEnv* env, ErlNifBinary* bin, unsigned size)
+{
+    Binary* oldbin;
+    Binary* newbin;
+    ASSERT(bin->ref_bin != NULL);
+
+    oldbin = (Binary*) bin->ref_bin; 
+    newbin = (Binary *) erts_bin_realloc_fnf(oldbin, size);
+    if (!newbin) {
+	return 0;
+    }    
+    newbin->orig_size = size;
+    bin->ref_bin = newbin;
+    bin->data = (unsigned char*) newbin->orig_bytes;
+    bin->size = size;
+    return 1;
+}
+
+
 void enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)
 {
     if (bin->ref_bin == NULL) {
@@ -175,6 +196,28 @@ void enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)
     bin->tmp_alloc = NULL;
     bin->ref_bin = NULL;
 #endif
+}
+
+int enif_is_identical(ErlNifEnv* env, Eterm lhs, Eterm rhs)
+{
+    return EQ(lhs,rhs);
+}
+
+int enif_compare(ErlNifEnv* env, Eterm lhs, Eterm rhs)
+{
+    return cmp(lhs,rhs);
+}
+
+int enif_get_tuple(ErlNifEnv* env, Eterm tpl, int* arity, Eterm** array)
+{
+    Eterm* ptr;
+    if (is_not_tuple(tpl)) {
+	return 0;
+    }
+    ptr = tuple_val(tpl);
+    *arity = arityval(*ptr);
+    *array = ptr+1;
+    return 1;
 }
 
 Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
@@ -203,7 +246,7 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
     }
 }
 
-ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env)
+Eterm enif_make_badarg(ErlNifEnv* env)
 {
     BIF_ERROR(env->proc, BADARG);
 }
@@ -212,7 +255,7 @@ ERL_NIF_TERM enif_make_badarg(ErlNifEnv* env)
 int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 {
 #if SIZEOF_INT == SIZEOF_VOID_P
-    return term_to_Sint(term, ip);
+    return term_to_Sint(term, (Sint*)ip);
 #elif SIZEOF_LONG == SIZEOF_VOID_P
     Sint i;
     if (!term_to_Sint(term, &i) || i < INT_MIN || i > INT_MAX) {
@@ -232,6 +275,17 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
 #else
 #  error Unknown long word size 
 #endif     
+}
+
+int enif_get_double(ErlNifEnv* env, Eterm term, double* dp)
+{
+    FloatDef f;
+    if (is_not_float(term)) {
+	return 0;
+    }
+    GET_DOUBLE(term, f);
+    *dp = f.fd;
+    return 1;
 }
 
 int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
@@ -267,12 +321,24 @@ ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)
 
 }
 
+ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
+{
+    Eterm* hp = alloc_heap(env,FLOAT_SIZE_OBJECT);
+    FloatDef f;
+    f.fd = d;
+    PUT_DOUBLE(f, hp);
+    return make_float(hp);
+}
 
 ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
 {
     return am_atom_put(name, sys_strlen(name));
 }
 
+int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)
+{
+    return erts_atom_get(name, sys_strlen(name), atom);
+}
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
 {
@@ -320,13 +386,43 @@ ERL_NIF_TERM enif_make_list(ErlNifEnv* env, unsigned cnt, ...)
 
 ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string)
 {    
-    Sint n = strlen(string);    
+    Sint n = sys_strlen(string);    
     Eterm* hp = alloc_heap(env,n*2);
     return erts_bld_string_n(&hp,NULL,string,n); 
 }
 
+ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)
+{
+    Eterm* hp = alloc_heap(env, REF_THING_SIZE);
+    return erts_make_ref_in_buffer(hp);
+}
 
+#if 0 /* To be continued... */
+typedef struct enif_handle_type_t
+{
+    struct enif_handle_type_t* next;
+    struct enif_handle_type_t* prev;
+    const char* name;
+    void (*dtor)(void* obj);
+    erts_smp_atomic_t ref_cnt;  /* num of handles of this type */
+}ErlNifHandleType;
 
+ErlNifHandleType*
+enif_create_handle_type(ErlNifEnv* env, const char* type_name, 
+			void (*dtor)(void *))
+{
+
+}
+
+ERL_NIF_TERM enif_make_handle(ErlNifEnv* env, ErlNifHandleType* htype, void* obj)
+{
+
+}
+
+int enif_get_handle(ErlNifEnv* env, ERL_NIF_TERM term, void** objp)
+{
+}
+#endif
 
 /***************************************************************************
  **                              load_nif/2                               **
@@ -361,7 +457,7 @@ static void refresh_cached_nif_data(Eterm* mod_code,
 	ErlNifFunc* func = &mod_nif->entry->funcs[i];	
 	Uint* code_ptr;
 	
-	erts_atom_get(func->name, strlen(func->name), &f_atom); 
+	erts_atom_get(func->name, sys_strlen(func->name), &f_atom); 
 	code_ptr = *get_func_pp(mod_code, f_atom, func->arity);
 	code_ptr[5+2] = (Uint) mod_nif->data;
     }
@@ -411,6 +507,18 @@ Eterm erts_nif_taints(Process* p)
     return list;
 }
 
+void erts_print_nif_taints(int to, void* to_arg)
+{
+    struct tainted_module_t* t;
+    const char* delim = "";
+    for (t=first_tainted_module ; t!=NULL; t=t->next) {
+	const Atom* atom = atom_tab(atom_val(t->module_atom));
+	erts_print(to,to_arg,"%s%.*s", delim, atom->len, atom->name);
+	delim = ",";
+    }
+    erts_print(to,to_arg,"\n");
+}
+
 
 static Eterm load_nif_error(Process* p, const char* atom, const char* format, ...)
 {
@@ -428,7 +536,8 @@ static Eterm load_nif_error(Process* p, const char* atom, const char* format, ..
     
     for (;;) {
 	Eterm txt = erts_bld_string_n(hpp, &sz, dsbufp->str, dsbufp->str_len);
-	ret = erts_bld_tuple(hpp, szp, 3, am_error, mkatom(atom), txt);
+	ret = erts_bld_tuple(hpp, szp, 2, am_error,
+			     erts_bld_tuple(hpp, szp, 2, mkatom(atom), txt));
 	if (hpp != NULL) {
 	    break;
 	}
@@ -489,8 +598,13 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 			     "module '%T' not allowed", mod_atom);
     }    
     else if ((err=erts_sys_ddll_open2(lib_name, &handle, &errdesc)) != ERL_DE_NO_ERROR) {
-	ret = load_nif_error(BIF_P, "load_failed", "Failed to load NIF library"
-			     " %s: '%s'", lib_name, errdesc.str);
+	const char slogan[] = "Failed to load NIF library";
+	if (strstr(errdesc.str, lib_name) != NULL) {
+	    ret = load_nif_error(BIF_P, "load_failed", "%s: '%s'", slogan, errdesc.str);
+	}
+	else {
+	    ret = load_nif_error(BIF_P, "load_failed", "%s %s: '%s'", slogan, lib_name, errdesc.str);
+	}
     }
     else if (erts_sys_ddll_load_nif_init(handle, &init_func, &errdesc) != ERL_DE_NO_ERROR) {
 	ret  = load_nif_error(BIF_P, bad_lib, "Failed to find library init"
@@ -521,7 +635,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 		ret = load_nif_error(BIF_P,bad_lib,"Function arity too high for NIF %s/%u",
 				     f->name, f->arity);
 	    }
-	    else if (!erts_atom_get(f->name, strlen(f->name), &f_atom)
+	    else if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
 		     || (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
@@ -612,7 +726,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
 	    Uint* code_ptr;
-	    erts_atom_get(entry->funcs[i].name, strlen(entry->funcs[i].name), &f_atom); 
+	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom); 
 	    code_ptr = *get_func_pp(mod->code, f_atom, entry->funcs[i].arity); 
 	    
 	    if (code_ptr[1] == 0) {

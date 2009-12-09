@@ -20,22 +20,26 @@
 /* Include file for writers of Native Implemented Functions. 
 */
 
-#define ERL_NIF_MAJOR_VERSION 0
-#define ERL_NIF_MINOR_VERSION 1
+/* Version history:
+** 0.1: R13B03
+** 1.0: R13B04
+*/
+#define ERL_NIF_MAJOR_VERSION 1
+#define ERL_NIF_MINOR_VERSION 0
 
 #include <stdlib.h>
 
 typedef unsigned long ERL_NIF_TERM;
 
+struct enif_environment_t;
+typedef struct enif_environment_t ErlNifEnv;
+
 typedef struct
 {
     const char* name;
     unsigned arity;
-    void* fptr; //ERL_NIF_TERM (*fptr)(void*, ...);
+    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 }ErlNifFunc;
-
-struct enif_environment_t;
-typedef struct enif_environment_t ErlNifEnv;
 
 typedef struct enif_entry_t
 {

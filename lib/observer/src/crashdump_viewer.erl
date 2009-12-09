@@ -1272,6 +1272,9 @@ get_general_info(Fd,GenInfo) ->
 	    get_general_info(Fd,GenInfo#general_info{system_vsn=val(Fd)});
 	"Compiled" ->
 	    get_general_info(Fd,GenInfo#general_info{compile_time=val(Fd)});
+	"Taints" ->
+	    Val = case val(Fd) of "-1" -> "(none)"; Line -> Line end,
+	    get_general_info(Fd,GenInfo#general_info{taints=Val});
 	"Atoms" ->
 	    get_general_info(Fd,GenInfo#general_info{num_atoms=val(Fd)});
 	"=" ++ _next_tag ->

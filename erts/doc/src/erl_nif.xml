@@ -34,12 +34,14 @@
   <lib>erl_nif</lib>
   <libsummary>API functions for an Erlang NIF library</libsummary>
   <description>
-     <warning><p>The NIF concept is introduced in R13B03 as an
+     <warning><p>The NIF concept was introduced in R13B03 as an
 	EXPERIMENTAL feature. The interfaces may be changed in any way
-	in coming releases. The API introduced in this release is very
-	sparse and contains only the most basic functions to read and
-	write Erlang terms.
-	</p></warning>
+	in coming releases. The API is still sparse and contains only
+	the most basic functions to read and write Erlang terms.
+	</p><p><em>R13B04</em>: The function prototypes of the NIFs
+	have changed to expect <c>argc</c> and <c>argv</c>
+	arguments. The arity of a NIF is by that no longer limited to
+	3.</p></warning>
 
     <p>A NIF library contains native implementation of some functions
     of an erlang module. The native implemented functions (NIFs) are
@@ -56,7 +58,7 @@
 /* niftest.c */
 #include "erl_nif.h"
 
-static ERL_NIF_TERM hello(ErlNifEnv* env)
+static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     return enif_make_string(env, "Hello world!");
 }
@@ -100,8 +102,9 @@ ok
 </code>
 
      <p>A better solution for a real module is to take advantage of
-     the new attribute <c>on_load</c> to automatically load the NIF
-     library when the module is loaded.</p>
+     the new directive <seealso
+     marker="doc/reference_manual:code_loading#on_load">on_load</seealso> to automatically
+     load the NIF library when the module is loaded.</p>
      <p>A loaded NIF library is tied to the Erlang module code version
      that loaded it. If the module is upgraded with a new version, the
      new code will have to load its own NIF library (or maybe choose not
@@ -190,7 +193,7 @@ ok
     <title>DATA TYPES</title>
 
     <taglist>
-     <tag><marker id="ErlDrvEnv"/>ErlDrvEnv</tag>
+     <tag><marker id="ErlNifEnv"/>ErlNifEnv</tag>
       <item>
         <p><c>ErlNifEnv</c> contains information about the context in
           which a NIF call is made. This pointer should not be
@@ -205,31 +208,28 @@ ok
       <p/>
       <code type="none">
 typedef struct {
-    const char* name;
-    unsigned arity;
-    ERL_NIF_TERM (*fptr)(ErlNifEnv* env, ...);
+    const char* <em>name</em>;
+    unsigned <em>arity</em>;
+    ERL_NIF_TERM (*<em>fptr</em>)(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]);
 } ErlNifFunc;
 </code>
         <p>Describes a NIF by its name, arity and implementation.
         <c>fptr</c> is a pointer to the function that implements the
-        NIF. The number of arguments must match the arity. A NIF of
-        arity 2 will thus look like:</p> 
-      <p/>
-      <code type="none">
-ERL_NIF_TERM my_nif(ErlNifEnv* env, ERL_NIF_TERM arg1, ERL_NIF_TERM arg2)
-{
-    /* ... */
-}
-</code>
-        <p>The maximum allowed arity for a NIF is 3 in current implementation.</p>
+        NIF. The argument <c>argv</c> of a NIF will contain the
+        function arguments passed to the NIF and <c>argc</c> is the
+        length of the array, i.e. the function arity. <c>argv[N-1]</c>
+        will thus denote the Nth argument to the NIF. Note that the
+        <c>argc</c> argument allows for the same C function to
+        implement several Erlang functions with different arity (but
+        same name probably).</p>
       </item>
     <tag><marker id="ErlNifBinary"/>ErlNifBinary</tag>
      <item>
       <p/>
       <code type="none">
 typedef struct {
-    unsigned size;
-    unsigned char* data;
+    unsigned <em>size</em>;
+    unsigned char* <em>data</em>;
 } ErlNifBinary;
 </code>
         <p><c>ErlNifBinary</c> contains transient information about an
@@ -249,37 +249,36 @@ typedef struct {
   </section>
 
   <funcs>
-    <func><name><ret>void*</ret><nametext>enif_get_data(ErlNifEnv* env)</nametext></name>
-      <fsummary>Get the private data of a NIF library</fsummary>
-      <desc><p>Returns the pointer to the private data that was set by <c>load</c>, <c>reload</c> or <c>upgrade</c>.</p></desc>
-    </func>
     <func><name><ret>void*</ret><nametext>enif_alloc(ErlNifEnv* env, size_t size)</nametext></name>
       <fsummary>Allocate dynamic memory.</fsummary>
-      <desc><p>Allocate memory of <c>size</c> bytes.</p></desc>
-    </func>
-    <func><name><ret>void</ret><nametext>enif_free(ErlNifEnv* env, void* ptr)</nametext></name>
-      <fsummary>Free dynamic memory</fsummary>
-      <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
-      <fsummary>Determine if a term is a binary</fsummary>
-      <desc><p>Return true if <c>term</c> is a binary</p></desc>
-    </func>
-    <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
-      <fsummary>Inspect the content of a binary</fsummary>
-      <desc><p>Initialize the structure pointed to by <c>bin</c> with
-      transient information about the binary term
-      <c>bin_term</c>. Return false if <c>bin_term</c> is not a binary.</p></desc> 
+      <desc><p>Allocate memory of <c>size</c> bytes. Return NULL if allocation failed.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)</nametext></name>
       <fsummary>Create a new binary.</fsummary>
       <desc><p>Allocate a new binary of size of <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
-      refer to the allocated binary.</p></desc>
+      refer to the allocated binary. Return false if allocation failed.</p></desc>
     </func>
-    <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
-      <fsummary>Release a binary.</fsummary>
-      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c> or <c>enif_inspect_binary</c>.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_compare(ErlNifEnv* env, ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
+      <fsummary>Compare two terms</fsummary>
+      <desc><p>Return an integer less than, equal to, or greater than
+      zero if <c>lhs</c> is found, respectively, to be less than,
+      equal, or greater than <c>rhs</c>. Corresponds to the Erlang
+      operators <c>==</c>, <c>/=</c>, <c>=&lt;</c>, <c>&lt;</c>,
+      <c>&gt;=</c> and <c>&gt;</c> (but <em>not</em> <c>=:=</c> or <c>=/=</c>).</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_free(ErlNifEnv* env, void* ptr)</nametext></name>
+      <fsummary>Free dynamic memory</fsummary>
+      <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
+    </func>
+    <func><name><ret>void*</ret><nametext>enif_get_data(ErlNifEnv* env)</nametext></name>
+      <fsummary>Get the private data of a NIF library</fsummary>
+      <desc><p>Return the pointer to the private data that was set by <c>load</c>, <c>reload</c> or <c>upgrade</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
+      <fsummary>Read a floating-point number term.</fsummary>
+      <desc><p>Set <c>*dp</c> to the floating point value of
+      <c>term</c> or return false if <c>term</c> is not a float.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_int(ErlNifEnv* env, ERL_NIF_TERM term, int* ip)</nametext></name>
       <fsummary>Read an integer term.</fsummary>
@@ -287,45 +286,80 @@ typedef struct {
       <c>term</c> or return false if <c>term</c> is not an integer or is
       outside the bounds of type <c>int</c></p></desc>
     </func>
-    <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
-      <fsummary>Read an unsigned long integer</fsummary>
-      <desc><p>Set <c>*ip</c> to the unsigned long integer value of
-      <c>term</c> or return false if <c>term</c> is not an unsigned
-      integer or is outside the bounds of type <c>unsigned long</c></p></desc>
-    </func>
     <func><name><ret>int</ret><nametext>enif_get_list_cell(ErlNifEnv* env, ERL_NIF_TERM list, ERL_NIF_TERM* head, ERL_NIF_TERM* tail)</nametext></name>
       <fsummary>Get head and tail from a list</fsummary>
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
       <c>list</c> or return false if <c>list</c> is not a non-empty
       list.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
-      <fsummary>Make a binary term.</fsummary>
-      <desc><p>Make a binary term from <c>bin</c>. Will also release
-      the binary.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
+      <fsummary>Inspect the elements of a tuple.</fsummary>
+      <desc><p>If <c>term</c> is a tuple, set <c>*array</c> to point
+      to an array containing the elements of the tuple and set
+      <c>*arity</c> to the number of elements. Note that the array
+      is read-only an <c>(*array)[N-1]</c> will be the Nth element of
+      the tuple. <c>*array</c> is undefined if the arity of the tuple
+      is zero.</p><p>Return false if <c>term</c> is not a
+      tuple.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
-      <fsummary>Make a badarg exception.</fsummary>
-      <desc><p>Make a badarg exception to be returned from a NIF.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
+      <fsummary>Read an unsigned integer term.</fsummary>
+      <desc><p>Set <c>*ip</c> to the unsigned long integer value of
+      <c>term</c> or return false if <c>term</c> is not an unsigned integer or is
+      outside the bounds of type <c>unsigned long</c></p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
-      <fsummary>Create an integer term</fsummary>
-      <desc><p>Create an integer term.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Inspect the content of a binary</fsummary>
+      <desc><p>Initialize the structure pointed to by <c>bin</c> with
+      transient information about the binary term
+      <c>bin_term</c>. Return false if <c>bin_term</c> is not a binary.</p></desc> 
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
-      <fsummary>Create an integer term from an unsigned long int</fsummary>
-      <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is an atom</fsummary>
+      <desc><p>Return true if <c>term</c> is an atom.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_binary(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a binary</fsummary>
+      <desc><p>Return true if <c>term</c> is a binary</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_identical(ErlNifEnv* env, ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
+      <fsummary>Erlang operator =:=</fsummary>
+      <desc><p>Return true if and only if the two terms are
+      identical. Corresponds to the Erlang operators <c>=:=</c> and
+      <c>=/=</c>.</p></desc> 
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a reference</fsummary>
+      <desc><p>Return true if <c>term</c> is a reference.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the C-string <c>name</c>. Atom
       terms may be saved and used between NIF calls.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
-      <fsummary>Create a tuple term.</fsummary>
-      <desc><p>Create a tuple term of arity <c>cnt</c>. Expects
-      <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
-      elements of the tuple.</p></desc>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
+      <fsummary>Make a badarg exception.</fsummary>
+      <desc><p>Make a badarg exception to be returned from a NIF.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Make a binary term.</fsummary>
+      <desc><p>Make a binary term from <c>bin</c>. Will also release
+      the binary.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
+      <fsummary>Create an floating-point term</fsummary>
+      <desc><p>Create an floating-point term from a <c>double</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)</nametext></name>
+      <fsummary>Create an existing atom term</fsummary>
+      <desc><p>Try to create the term of an already existing atom from
+      the C-string <c>name</c>. If the atom already exist store the
+      term in <c>*atom</c> and return true, otherwise return
+      false.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
+      <fsummary>Create an integer term</fsummary>
+      <desc><p>Create an integer term.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
       <fsummary>Create a list term.</fsummary>
@@ -337,10 +371,28 @@ typedef struct {
       <fsummary>Create a list cell.</fsummary>
       <desc><p>Create a list cell <c>[head | tail]</c>.</p></desc>
     </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
+      <fsummary>Create a reference.</fsummary>
+      <desc><p>Create a reference like <seealso marker="erlang#make_ref-0">erlang:make_ref/0</seealso>.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string)</nametext></name>
       <fsummary>Create a string.</fsummary>
-      <desc><p>Creates a list containing the characters of the
+      <desc><p>Create a list containing the characters of the
       C-string <c>string</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
+      <fsummary>Create a tuple term.</fsummary>
+      <desc><p>Create a tuple term of arity <c>cnt</c>. Expects
+      <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
+      elements of the tuple.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
+      <fsummary>Create an integer term from an unsigned long int</fsummary>
+      <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
+      <fsummary>Release a binary.</fsummary>
+      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c> or <c>enif_inspect_binary</c>.</p></desc>
     </func>
   </funcs>
   <section>

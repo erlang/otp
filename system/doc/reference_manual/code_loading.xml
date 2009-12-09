@@ -117,6 +117,7 @@ loop() ->
   </section>
 
   <section>
+    <marker id="on_load"></marker>
     <title>Running a function when a module is loaded</title>
 
     <warning>

@@ -703,6 +703,8 @@ erl_crash_dump_v(char *file, int line, char* fmt, va_list args)
     erts_fdprintf(fd, "System version: ");
     erts_print_system_version(fd, NULL, NULL);
     erts_fdprintf(fd, "%s\n", "Compiled: " ERLANG_COMPILE_DATE);
+    erts_fdprintf(fd, "Taints: ");
+    erts_print_nif_taints(fd, NULL);
     erts_fdprintf(fd, "Atoms: %d\n", atom_table_size());
     info(fd, NULL); /* General system info */
     if (process_tab != NULL)  /* XXX true at init */

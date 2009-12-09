@@ -58,13 +58,13 @@ static void unload(ErlNifEnv* env, void* priv_data)
     }
 }
 
-static ERL_NIF_TERM lib_version(ErlNifEnv* env)
+static ERL_NIF_TERM lib_version(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("lib_version");
     return enif_make_int(env, NIF_LIB_VER);
 }
 
-static ERL_NIF_TERM call_history(ErlNifEnv* env)
+static ERL_NIF_TERM call_history(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     NifModPrivData* data = (NifModPrivData*) enif_get_data(env);
     ERL_NIF_TERM list = enif_make_list(env, 0); /* NIL */
@@ -81,7 +81,7 @@ static ERL_NIF_TERM call_history(ErlNifEnv* env)
     return list;
 }
 
-static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env)
+static ERL_NIF_TERM get_priv_data_ptr(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
     ADD_CALL("get_priv_data_ptr");
     return enif_make_ulong(env, (unsigned long)enif_get_data(env));

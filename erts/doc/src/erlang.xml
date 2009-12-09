@@ -1929,7 +1929,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:load_nif(Path, LoadInfo) -> ok | {error, Reason, Text}</name>
+      <name>erlang:load_nif(Path, LoadInfo) -> ok | {error, {Reason, Text}}</name>
       <fsummary>Load NIF library</fsummary>
       <type>
         <v>Path = string()</v>
@@ -1940,9 +1940,10 @@ os_prompt%</pre>
       </type>
       <desc>
         <warning>
-          <p>This BIF is currently introduced as an experimental
-          feature. The interface may be changed in any way in future
-          releases.</p>
+          <p>This BIF is still an experimental feature. The interface
+          may be changed in any way in future releases.</p><p>In
+          R13B03 the return value on failure was
+          <c>{error,Reason,Text}</c>.</p>
         </warning>
         <p>Loads and links a dynamic library containing native
         implemented functions (NIFs) for a module. <c>Path</c> is a
@@ -1957,10 +1958,10 @@ os_prompt%</pre>
         <p>The call to <c>load_nif/2</c> must be made
         <em>directly</em> from the Erlang code of the module that the
         NIF library belongs to.</p>
-        <p>It returns either <c>ok</c>, or <c>{error,Reason,Text}</c>
+        <p>It returns either <c>ok</c>, or <c>{error,{Reason,Text}}</c>
         if loading fails. <c>Reason</c> is one of the atoms below,
         while <c>Text</c> is a human readable string that may give
-        some more information about the failure:</p>
+        some more information about the failure.</p>
         <taglist>
           <tag><c>load_failed</c></tag>
           <item>
