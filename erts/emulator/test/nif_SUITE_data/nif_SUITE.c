@@ -289,6 +289,20 @@ static ERL_NIF_TERM compare(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
     return enif_make_int(env, enif_compare(env,argv[0],argv[1]));
 }
 
+static ERL_NIF_TERM many_args_100(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    int i, k;
+    if (argc == 100) {
+	for (i=1; i<=100; i++) {
+	    if (!enif_get_int(env,argv[i-1],&k) || k!=i) {
+		goto badarg;
+	    }
+	}
+	return enif_make_atom(env,"ok");
+    }
+badarg:
+    return enif_make_badarg(env);
+}
 
 static ErlNifFunc nif_funcs[] =
 {
@@ -300,7 +314,8 @@ static ErlNifFunc nif_funcs[] =
     {"type_test", 0, type_test},
     {"tuple_2_list", 1, tuple_2_list},
     {"is_identical",2,is_identical},
-    {"compare",2,compare}
+    {"compare",2,compare},
+    {"many_args_100", 100, many_args_100}
 };
 
 ERL_NIF_INIT(nif_SUITE,nif_funcs,load,reload,upgrade,unload)

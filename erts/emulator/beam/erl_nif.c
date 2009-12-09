@@ -631,12 +631,8 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
 	    Uint** code_pp;
 	    ErlNifFunc* f = &entry->funcs[i];
-	    if (f->arity > 3) {
-		ret = load_nif_error(BIF_P,bad_lib,"Function arity too high for NIF %s/%u",
-				     f->name, f->arity);
-	    }
-	    else if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
-		     || (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
+	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
+		|| (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
 		ret = load_nif_error(BIF_P,bad_lib,"Function not found %T:%s/%u",
 				     mod_atom, f->name, f->arity);
 	    }    

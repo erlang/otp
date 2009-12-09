@@ -24,12 +24,13 @@
 -include("test_server.hrl").
 
 -export([all/1, fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
-	 types/1, neg/1]).
+	 types/1, many_args/1, neg/1]).
 
+-export([many_args_100/100]).
 -define(nif_stub,nif_stub_error(?LINE)).
 
 all(suite) ->
-    [basic, reload, upgrade, heap_frag, types, neg].
+    [basic, reload, upgrade, heap_frag, types, many_args, neg].
 
 fin_per_testcase(_Func, _Config) ->
     P1 = code:purge(nif_mod),
@@ -222,6 +223,18 @@ eq_cmp_do(A,B) ->
                 end,       
     ok. 
 
+
+many_args(doc) -> ["Test NIF with many arguments"];
+many_args(suite) -> [];
+many_args(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config ,1),
+    ?line ok = apply(?MODULE,many_args_100,lists:seq(1,100)),
+    ?line ok = many_args_100(1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,66,67,68,69,70,71,72,73,74,75,76,77,78,79,80,81,82,83,84,85,86,87,88,89,90,91,92,93,94,95,96,97,98,99,100),
+    ok.
+
+        
+    
+
 neg(doc) -> ["Negative testing of load_nif"];
 neg(suite) -> [];
 neg(Config) when is_list(Config) ->
@@ -271,6 +284,7 @@ type_test() -> ?nif_stub.
 tuple_2_list(_) -> ?nif_stub.    
 is_identical(_,_) -> ?nif_stub.
 compare(_,_) -> ?nif_stub.
+many_args_100(_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
     
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
