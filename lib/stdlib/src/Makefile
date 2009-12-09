@@ -173,8 +173,8 @@ $(BOOTSTRAP_COMPILER)/ebin/erl_parse.beam: erl_parse.yrl
 	$(ERLC) -o $(BOOTSTRAP_COMPILER)/egen erl_parse.yrl
 	$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $(BOOTSTRAP_COMPILER)/egen/erl_parse.erl
 
-#$(BOOTSTRAP_COMPILER)/ebin/erl_lint.beam: erl_lint.erl
-#	$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin erl_lint.erl
+$(BOOTSTRAP_TOP)/lib/stdlib/egen/erl_parse.erl: erl_parse.yrl
+	$(ERLC) $(YRL_FLAGS) -o$(BOOTSTRAP_TOP)/lib/stdlib/egen erl_parse.yrl
 
 $(BOOTSTRAP_COMPILER)/ebin/%.beam: %.erl
 	$(ERLC) -o $(BOOTSTRAP_COMPILER)/ebin $<
