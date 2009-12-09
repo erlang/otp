@@ -97,11 +97,7 @@
 #include "ei_epmd.h"
 #include "ei_internal.h"
 
-#ifdef _REENTRANT
-
-#else
 int ei_tracelevel = 0;
-#endif
 
 #define COOKIE_FILE "/.erlang.cookie"
 #define EI_MAX_HOME_PATH 1024
