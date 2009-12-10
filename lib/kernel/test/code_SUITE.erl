@@ -31,11 +31,16 @@
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1,
-	 on_load_embedded/1]).
+	 on_load_embedded/1, on_load_errors/1]).
 
 -export([init_per_testcase/2, fin_per_testcase/2, 
 	 init_per_suite/1, end_per_suite/1,
 	 sticky_compiler/1]).
+
+%% error_logger
+-export([init/1,
+	 handle_event/2, handle_call/2, handle_info/2,
+	 terminate/2]).
 
 all(suite) ->
     [set_path, get_path, add_path, add_paths, del_path,
@@ -47,7 +52,8 @@ all(suite) ->
      load_cached, start_node_with_cache, add_and_rehash,
      where_is_file_no_cache, where_is_file_cached,
      purge_stacktrace, mult_lib_roots, bad_erl_libs,
-     code_archive, code_archive2, on_load, on_load_embedded].
+     code_archive, code_archive2, on_load, on_load_embedded,
+     on_load_errors].
 
 init_per_suite(Config) ->
     %% The compiler will no longer create a Beam file if
@@ -1230,6 +1236,81 @@ create_script(Config) ->
 is_source_dir() ->
     filename:basename(code:lib_dir(kernel)) =:= "kernel" andalso
 	filename:basename(code:lib_dir(stdlib)) =:= "stdlib".
+
+on_load_errors(Config) when is_list(Config) ->
+    Master = on_load_error_test_case_process,
+    ?line register(Master, self()),
+
+    ?line Data = filename:join([?config(data_dir, Config),"on_load_errors"]),
+    ?line ok = file:set_cwd(Data),
+    ?line up_to_date = make:all([{d,'MASTER',Master}]),
+
+    ?line do_on_load_error(an_atom),
+
+    ?line error_logger:add_report_handler(?MODULE, self()),
+
+    ?line do_on_load_error({something,terrible,is,wrong}),
+    receive
+	Any1 ->
+	    ?line {_, "The on_load function"++_,
+		   [on_load_error,
+		    {something,terrible,is,wrong},_]} = Any1
+    end,
+
+    ?line do_on_load_error(fail),		%Cause exception.
+    receive
+	Any2 ->
+	    ?line {_, "The on_load function"++_,
+		   [on_load_error,{failed,[_|_]},_]} = Any2
+    end,
+
+    %% There should be no more messages.
+    receive
+	Unexpected ->
+	    ?line ?t:fail({unexpected,Unexpected})
+    after 10 ->
+	    ok
+    end,
+
+    ok.
+
+do_on_load_error(ReturnValue) ->
+    ?line {_,Ref} = spawn_monitor(fun() ->
+					  exit(on_load_error:main())
+				  end),
+    receive {on_load_error,ErrorPid} -> ok end,
+    ?line ErrorPid ! ReturnValue,
+    receive
+	{'DOWN',Ref,process,_,Exit} ->
+	    ?line {undef,[{on_load_error,main,[]}|_]} = Exit
+    end.
+
+%%-----------------------------------------------------------------
+%% error_logger handler.
+%% (Copied from stdlib/test/proc_lib_SUITE.erl.)
+%%-----------------------------------------------------------------
+init(Tester) ->
+    {ok, Tester}.
+
+handle_event({error, _GL, {emulator, _, _}}, Tester) ->
+    {ok, Tester};
+handle_event({error, _GL, Msg}, Tester) ->
+    Tester ! Msg,
+    {ok, Tester};
+handle_event(_Event, State) ->
+    {ok, State}.
+
+handle_info(_, State) ->
+    {ok, State}.
+
+handle_call(_Query, State) -> {ok, {error, bad_query}, State}.
+
+terminate(_Reason, State) ->
+    State.
+
+%%%
+%%% Common utility functions.
+%%%
 
 start_node(Name, Param) ->
     ?t:start_node(Name, slave, [{args, Param}]).
