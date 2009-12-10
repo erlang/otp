@@ -437,30 +437,17 @@ end
     </func>
 
     <func>
-      <name>peercert(Socket) -> </name>
-      <name>peercert(Socket, Opts) -> {ok, Cert} | {error, Reason}</name>
+      <name>peercert(Socket) -> {ok, Cert} | {error, Reason}</name>
       <fsummary>Return the peer certificate.</fsummary>
      <type>
         <v>Socket = sslsocket()</v>
-        <v>Opts = [] | [otp] | [plain] </v>
-        <v>Cert = term()</v>
+        <v>Cert = binary()</v>
         <v>Subject = term()</v>
       </type>
       <desc>
-        <p><c>peercert(Cert)</c> is equivalent to <c>peercert(Cert, [])</c>.
-          </p>
-        <p>The form of the returned certificate depends on the
-          options.
-          </p>
-        <p>If the options list is empty the certificate is returned as
-          a DER encoded binary.
-          </p>
-        <p>The option <c>otp</c> or <c>plain</c> implies that the
-          certificate will be returned  as a parsed ASN.1 structure in the
-          form of an Erlang term. For detail see the public_key application.
-	  Currently only plain is officially supported see the public_key users
-	  guide.
-	</p>
+        <p>The peer certificate is returned as a DER encoded binary.
+	  The certificate can be decoded with <c>public_key:pkix_decode_cert/2</c>.
+        </p>
       </desc>
     </func>
     <func>

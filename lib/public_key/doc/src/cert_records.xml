@@ -41,9 +41,17 @@
   </p>
 
   <p>Use the following include directive to get access to the
-  records and constant macros described in the following sections.</p>
+    records and constant macros (OIDs) described in the following sections.</p>
   
   <code> -include_lib("public_key/include/public_key.hrl"). </code>
+
+  <p>The used specification is available in <c>OTP-PKIX.asn1</c>,
+    which is an amelioration of
+    the <c>PKIX1Explicit88.asn1</c>, <c>PKIX1Implicit88.asn1</c>
+    and <c>PKIX1Algorithms88.asn1</c> modules.     
+    You find all these modules in the <c>asn1</c> subdirectory
+    of the application <c>public_key</c>.
+  </p>
 
   <section>
     <title>Common Data Types</title>   
@@ -148,8 +156,7 @@ oid names see table below. Ex: ?'id-dsa-with-sha1'</p>
 	 }.
 </code>
 
-<p><c>id_attributes() =  ?oid_name_as_erlang_atom</c>
-for available oid names see table below. Ex: ?'id-at-name'</p>
+<p><c>id_attributes() </c></p>
 <table>
   <row>
     <cell align="left" valign="middle">OID name</cell>
@@ -231,8 +238,7 @@ for available oid names see table below. Ex: ?'id-at-name'</p>
 	 }.
 </code>
 
-<p><c> id_public_key_algorithm() = ?oid_name_as_erlang_atom</c> for available
-oid names see table below. Ex: ?'id-dsa'</p>
+<p><c> id_public_key_algorithm() </c></p>
 <table>
   <row>
     <cell align="left" valign="middle">OID name</cell>
@@ -264,14 +270,11 @@ oid names see table below. Ex: ?'id-dsa'</p>
 	 }.
 </code>
 
-<p><c>id_extensions() = ?oid_name_as_erlang_atom</c> for
-available oid names see tables. Ex:  ?'id-ce-authorityKeyIdentifier'<seealso
-marker="#StdCertExt">Standard Certificate Extensions</seealso>,
-    <seealso
-	marker="#PrivIntExt">Private Internet Extensions</seealso>, <seealso
-	marker="#CRLCertExt">CRL Extensions</seealso> and
-    <seealso
-	marker="#CRLEntryExt">CRL Entry Extensions</seealso>.
+<p><c>id_extensions()</c>  
+  <seealso marker="#StdCertExt">Standard Certificate Extensions</seealso>, 
+  <seealso marker="#PrivIntExt">Private Internet Extensions</seealso>,  
+  <seealso marker="#CRLCertExt">CRL Extensions</seealso> and 
+  <seealso marker="#CRLEntryExt">CRL Entry Extensions</seealso>.
 </p>
     
 </section>
@@ -368,9 +371,8 @@ marker="#StdCertExt">Standard Certificate Extensions</seealso>,
       decipherOnly 
     </c></p>
    
-    <p><c> id_key_purpose() = ?oid_name_as_erlang_atom</c> for available
-oid names see table below. Ex: ?'id-kp-serverAuth'</p>
-
+    <p><c> id_key_purpose()</c></p>
+    
 <table>
   <row>
     <cell align="left" valign="middle">OID name</cell>

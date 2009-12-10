@@ -98,12 +98,12 @@
       <title>Creating the Erlang root CA</title>
       <p>The Erlang root CA is created with the command</p>
       <code type="none">
-\011openssl req -new -x509 -config /some/path/req.cnf \\
-\011    -keyout /some/path/key.pem -out /some/path/cert.pem      </code>
+	openssl req -new -x509 -config /some/path/req.cnf \\
+                -keyout /some/path/key.pem -out /some/path/cert.pem </code>
       <p>where the option <c>-new</c> indicates that we want to create
         a new certificate request and the option <c>-x509</c> implies
         that a self-signed certificate is created.
-        </p>
+      </p>
     </section>
 
     <section>
@@ -111,12 +111,12 @@
       <p>The OTP CA is created by first creating a certificate request
         with the command</p>
       <code type="none">
-\011openssl req -new -config /some/path/req.cnf \\
-\011    -keyout /some/path/key.pem -out /some/path/req.pem      </code>
+	openssl req -new -config /some/path/req.cnf \\
+	        -keyout /some/path/key.pem -out /some/path/req.pem      </code>
       <p>and the ask the Erlang CA to sign it:</p>
       <code type="none">
-\011openssl ca -batch -notext -config /some/path/req.cnf \\
-\011   -extensions ca_cert -in /some/path/req.pem -out /some/path/cert.pem      </code>
+	openssl ca -batch -notext -config /some/path/req.cnf \\
+	        -extensions ca_cert -in /some/path/req.pem -out /some/path/cert.pem      </code>
       <p>where the option <c>-extensions</c> refers to a section in the
         configuration file saying that it should create a CA certificate, 
         and not a plain user certificate. 
