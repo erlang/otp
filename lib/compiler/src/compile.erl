@@ -318,17 +318,30 @@ run_tc({Name,Fun}, St) ->
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->
-    Warn = messages_per_file(Warn0),
-    report_warnings(St#compile{warnings = Warn}),
-    Ret1 = case member(binary, Opts) andalso not member(no_code_generation, Opts) of
-	       true -> [Code];
-	       false -> []
-	   end,
-    Ret2 = case member(return_warnings, Opts) of
-	       true -> Ret1 ++ [Warn];
-	       false -> Ret1
-	   end,
-    list_to_tuple([ok,Mod|Ret2]).
+    case member(warnings_as_errors, Opts) andalso length(Warn0) > 0 of
+        true ->
+            case member(report_warnings, Opts) of
+                true ->
+		    io:format("~p: warnings being treated as errors\n",
+			      [?MODULE]);
+                false ->
+		    ok
+            end,
+            comp_ret_err(St);
+        false ->
+            Warn = messages_per_file(Warn0),
+            report_warnings(St#compile{warnings = Warn}),
+            Ret1 = case member(binary, Opts) andalso
+		       not member(no_code_generation, Opts) of
+                       true -> [Code];
+                       false -> []
+                   end,
+            Ret2 = case member(return_warnings, Opts) of
+                       true -> Ret1 ++ [Warn];
+                       false -> Ret1
+                   end,
+            list_to_tuple([ok,Mod|Ret2])
+    end.
 
 comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
     Warn = messages_per_file(Warn0),

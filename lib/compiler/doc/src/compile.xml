@@ -212,6 +212,12 @@
               success.</p>
           </item>
 
+          <tag><c>warnings_as_errors</c></tag>
+          <item>
+            <p>Causes warnings to be treated as errors. This option is supported
+            since R13B04.</p>
+          </item>
+
           <tag><c>return</c></tag>
           <item>
             <p>This is a short form for both <c>return_errors</c> and

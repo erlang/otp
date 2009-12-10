@@ -21,11 +21,11 @@
 -include("test_server.hrl").
 
 -export([all/1,
-	 head_mismatch_line/1,r11b_binaries/1]).
+	 head_mismatch_line/1,r11b_binaries/1,warnings_as_errors/1]).
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [head_mismatch_line,r11b_binaries].
+    [head_mismatch_line,r11b_binaries,warnings_as_errors].
 
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
@@ -73,6 +73,20 @@ r11b_binaries(Config) when is_list(Config) ->
     ?line [] = run(Config, Ts),
     ok.
 
+warnings_as_errors(Config) when is_list(Config) ->
+    Ts = [{warnings_as_errors,
+           <<"
+               t() ->
+                 A = unused,
+                 ok.
+             ">>,
+           [warnings_as_errors],
+          {error,
+           [],
+           [{3,erl_lint,{unused_var,'A'}}]} }],
+    ?line [] = run(Config, Ts),
+    ok.
+
 
 run(Config, Tests) ->
     F = fun({N,P,Ws,E}, BadL) ->
@@ -104,6 +118,8 @@ run_test(Conf, Test0, Warnings) ->
     %% Test result of compilation.
     ?line Res = case compile:file(File, Opts) of
 		    {error,[{_File,Es}],Ws} ->
+			{error,Es,Ws};
+		    {error,Es,[{_File,Ws}]} ->
 			{error,Es,Ws}
 		end,
     file:delete(File),
