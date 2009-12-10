@@ -2031,23 +2031,45 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
 }
 
 static Uint
-next_vheap_size(Uint vheap, Uint vheap_sz) {
-    if (vheap < H_MIN_SIZE) {
-    	return H_MIN_SIZE;
+do_next_vheap_size(Uint vheap, Uint vheap_sz) {
+
+    /*                grow
+     *
+     * vheap_sz ======================
+     *
+     * vheap 75% +    grow
+     *          ----------------------
+     *
+     * vheap 25 - 75% same
+     *          ----------------------
+     *
+     * vheap ~ - 25% shrink
+     *
+     *          ----------------------
+     */
+
+    if (vheap > (Uint) (vheap_sz*3/4)) {
+
+	while(vheap > (Uint) (vheap_sz*3/4)) {
+	    vheap_sz = vheap_sz*2;
+	}
+
+	return erts_next_heap_size(vheap_sz, 0);
     }
 
-    /* grow */
-    if (vheap > vheap_sz) {
-    	return erts_next_heap_size(2*vheap, 0);
-    }
-    /* shrink */
-    if ( vheap < vheap_sz/2) {
-	return (Uint)vheap_sz*3/4;
+    if (vheap < (Uint) (vheap_sz/4)) {
+	return erts_next_heap_size((Uint) (vheap_sz / 2), 0);
     }
 
     return vheap_sz;
+
 }
 
+static Uint
+next_vheap_size(Process* p, Uint vheap, Uint vheap_sz) {
+    vheap_sz = do_next_vheap_size(vheap, vheap_sz);
+    return vheap_sz < p->min_vheap_size ? p->min_vheap_size : vheap_sz;
+}
 
 static void
 sweep_proc_externals(Process *p, int fullsweep)
@@ -2250,8 +2272,8 @@ sweep_proc_bins(Process *p, int fullsweep)
         FLAGS(p) |= F_NEED_FULLSWEEP;
     }
 
-    BIN_VHEAP_SZ(p) = next_vheap_size(bin_vheap, BIN_VHEAP_SZ(p));
-    BIN_OLD_VHEAP_SZ(p) = next_vheap_size(BIN_OLD_VHEAP(p), BIN_OLD_VHEAP_SZ(p));
+    BIN_VHEAP_SZ(p) = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
+    BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p), BIN_OLD_VHEAP_SZ(p));
     MSO(p).overhead = bin_vheap;
 
     /*

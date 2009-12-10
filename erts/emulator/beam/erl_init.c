@@ -84,9 +84,10 @@ int erts_use_sender_punish;
  * Configurable parameters.
  */
 
-Uint display_items;	    /* no of items to display in traces etc */
+Uint display_items;	    	/* no of items to display in traces etc */
 Uint display_loads;		/* print info about loaded modules */
 int H_MIN_SIZE;			/* The minimum heap grain */
+int BIN_VH_MIN_SIZE;		/* The minimum binary virtual*/
 
 Uint32 erts_debug_flags;	/* Debug flags. */
 #ifdef ERTS_OPCODE_COUNTER_SUPPORT
@@ -252,7 +253,8 @@ erl_init(void)
 			 no_schedulers,
 			 no_schedulers_online);
 
-    H_MIN_SIZE = erts_next_heap_size(H_MIN_SIZE, 0);
+    H_MIN_SIZE      = erts_next_heap_size(H_MIN_SIZE, 0);
+    BIN_VH_MIN_SIZE = erts_next_heap_size(BIN_VH_MIN_SIZE, 0);
 
     erts_init_trace();
     erts_init_binary();
@@ -604,6 +606,7 @@ early_init(int *argc, char **argv) /*
     erts_async_max_threads = 0;
     erts_async_thread_suggested_stack_size = ERTS_ASYNC_THREAD_MIN_STACK_SIZE;
     H_MIN_SIZE = H_DEFAULT_SIZE;
+    BIN_VH_MIN_SIZE = VH_DEFAULT_SIZE;
 
     erts_initialized = 0;
 

@@ -807,11 +807,12 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
     /*
      * Store default values for options.
      */
-    so.flags = SPO_USE_ARGS;
-    so.min_heap_size = H_MIN_SIZE;
-    so.priority = PRIORITY_NORMAL;
-    so.max_gen_gcs = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
-    so.scheduler = 0;
+    so.flags          = SPO_USE_ARGS;
+    so.min_heap_size  = H_MIN_SIZE;
+    so.min_vheap_size = BIN_VH_MIN_SIZE;
+    so.priority       = PRIORITY_NORMAL;
+    so.max_gen_gcs    = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
+    so.scheduler      = 0;
 
     /*
      * Walk through the option list.
@@ -849,6 +850,15 @@ BIF_RETTYPE spawn_opt_1(BIF_ALIST_1)
 		    so.min_heap_size = H_MIN_SIZE;
 		} else {
 		    so.min_heap_size = erts_next_heap_size(min_heap_size, 0);
+		}
+	    } else if (arg == am_min_bin_vheap_size && is_small(val)) {
+		Sint min_vheap_size = signed_val(val);
+		if (min_vheap_size < 0) {
+		    goto error;
+		} else if (min_vheap_size < BIN_VH_MIN_SIZE) {
+		    so.min_vheap_size = BIN_VH_MIN_SIZE;
+		} else {
+		    so.min_vheap_size = erts_next_heap_size(min_vheap_size, 0);
 		}
 	    } else if (arg == am_fullsweep_after && is_small(val)) {
 		Sint max_gen_gcs = signed_val(val);
@@ -1482,6 +1492,23 @@ BIF_RETTYPE process_flag_2(BIF_ALIST_2)
 	   BIF_P->min_heap_size = H_MIN_SIZE;
        } else {
 	   BIF_P->min_heap_size = erts_next_heap_size(i, 0);
+       }
+       BIF_RET(old_value);
+   }
+   else if (BIF_ARG_1 == am_min_bin_vheap_size) {
+       Sint i;
+       if (!is_small(BIF_ARG_2)) {
+	   goto error;
+       }
+       i = signed_val(BIF_ARG_2);
+       if (i < 0) {
+	   goto error;
+       }
+       old_value = make_small(BIF_P->min_vheap_size);
+       if (i < BIN_VH_MIN_SIZE) {
+	   BIF_P->min_vheap_size = BIN_VH_MIN_SIZE;
+       } else {
+	   BIF_P->min_vheap_size = erts_next_heap_size(i, 0);
        }
        BIF_RET(old_value);
    }
@@ -3736,10 +3763,35 @@ BIF_RETTYPE system_flag_2(BIF_ALIST_2)
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_min_heap_size) {
 	int oval = H_MIN_SIZE;
+
 	if (!is_small(BIF_ARG_2) || (n = signed_val(BIF_ARG_2)) < 0) {
 	    goto error;
 	}
+
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
+
 	H_MIN_SIZE = erts_next_heap_size(n, 0);
+
+	erts_smp_release_system();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
+	BIF_RET(make_small(oval));
+    } else if (BIF_ARG_1 == am_min_bin_vheap_size) {
+	int oval = BIN_VH_MIN_SIZE;
+
+	if (!is_small(BIF_ARG_2) || (n = signed_val(BIF_ARG_2)) < 0) {
+	    goto error;
+	}
+
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
+
+	BIN_VH_MIN_SIZE = erts_next_heap_size(n, 0);
+
+	erts_smp_release_system();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
 	BIF_RET(make_small(oval));
     } else if (BIF_ARG_1 == am_display_items) {
 	int oval = display_items;

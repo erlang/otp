@@ -303,6 +303,7 @@ atom messages
 atom meta
 atom meta_match_spec
 atom min_heap_size
+atom min_bin_vheap_size
 atom minor_version
 atom Minus='-'
 atom module

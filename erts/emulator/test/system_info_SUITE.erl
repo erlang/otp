@@ -35,12 +35,12 @@
 %-compile(export_all).
 -export([all/1, init_per_testcase/2, fin_per_testcase/2]).
 
--export([process_count/1, system_version/1, misc_smoke_tests/1]).
+-export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
 all(doc) -> [];
-all(suite) -> [process_count, system_version, misc_smoke_tests].
+all(suite) -> [process_count, system_version, misc_smoke_tests, heap_size].
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
@@ -135,8 +135,13 @@ misc_smoke_tests(Config) when is_list(Config) ->
     ?line ok.
     
 
-
-
-
-
+heap_size(doc) -> [];
+heap_size(suite) -> [];
+heap_size(Config) when is_list(Config) ->
+   ?line {min_bin_vheap_size, VHmin} = erlang:system_info(min_bin_vheap_size),
+   ?line {min_heap_size, Hmin} =  erlang:system_info(min_heap_size),
+   ?line GCinf =  erlang:system_info(garbage_collection),
+   ?line VHmin = proplists:get_value(min_bin_vheap_size, GCinf),
+   ?line Hmin  = proplists:get_value(min_heap_size, GCinf),
+   ok.
 

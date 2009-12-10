@@ -477,6 +477,7 @@ struct ErtsPendingSuspend_ {
 #  define MSO(p)            (p)->off_heap
 #  define MIN_HEAP_SIZE(p)  (p)->min_heap_size
 
+#  define MIN_VHEAP_SIZE(p)   (p)->min_vheap_size
 #  define BIN_VHEAP_SZ(p)     (p)->bin_vheap_sz
 #  define BIN_OLD_VHEAP_SZ(p) (p)->bin_old_vheap_sz
 #  define BIN_OLD_VHEAP(p)    (p)->bin_old_vheap
@@ -495,6 +496,7 @@ struct process {
     Eterm* hend;		/* Heap end */
     Uint heap_sz;		/* Size of heap in words */
     Uint min_heap_size;         /* Minimum size of heap (in words). */
+    Uint min_vheap_size;        /* Minimum size of virtual heap (in words). */
 
 #if !defined(NO_FPE_SIGNALS)
     volatile unsigned long fp_exception;
@@ -730,8 +732,8 @@ typedef struct {
      * The following items are only initialized if the SPO_USE_ARGS flag is set.
      */
     Uint min_heap_size;		/* Minimum heap size (must be a valued returned
-				 * from next_heap_size()).
-				 */
+				 * from next_heap_size()).  */
+    Uint min_vheap_size;	/* Minimum virtual heap size  */
     int priority;		/* Priority for process. */
     Uint16 max_gen_gcs;		/* Maximum number of gen GCs before fullsweep. */
     int scheduler;

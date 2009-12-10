@@ -57,7 +57,8 @@
 
 #define INPUT_REDUCTIONS (2 * CONTEXT_REDS)
 
-#define H_DEFAULT_SIZE  233     /* default (heap + stack) min size */
+#define H_DEFAULT_SIZE  233        /* default (heap + stack) min size */
+#define VH_DEFAULT_SIZE  32768     /* default virtual (bin) heap min size (words) */
 
 #ifdef HYBRID
 #  define SH_DEFAULT_SIZE  2629425 /* default message area min size */
@@ -178,6 +179,7 @@ extern int num_instructions;	/* Number of instruction in opc[]. */
 #define MAX_PORT_LINK 8		/* Maximum number of links to a port        */
 
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
+extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
 
 #define ORIG_CREATION 0
 
