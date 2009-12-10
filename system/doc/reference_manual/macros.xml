@@ -140,6 +140,89 @@ bar(X) ->
   </section>
 
   <section>
+    <title>Macros Overloading</title>
+    <warning>
+      <p>This section describes a feature introduced in R13B04. It remains fully
+      compatible with old code but previous versions of erlang does not support
+      the macros overloading.</p>
+    </warning>
+    <p>It is possible to have more than one definition of the same macro, except
+    for predefined macros. Only user-defined macros are considered here. In
+    order to overload a macro, a different signature should be used for each
+    overloaded version. A macro signature consists of its name and its number of
+    arguments.</p>
+
+    <taglist>
+      <tag>Object-like macro has no arguments</tag>
+      <item><code type="none">
+-define(M, io:format("object-like macro")).</code>
+      </item>
+      <tag>Function-like macro has 0 or more arguments.</tag>
+      <item><code type="none">
+-define(M(),     io:format("function-like macro with 0 argument")).
+-define(M(X),    io:format("function-like macro with 1 argument: ~p", [X])).
+-define(M(X, Y), io:format("function-like macro with 2 arguments: (~p, ~p)", [X,Y])).</code>
+      </item>
+    </taglist>
+    <p>An object-like macro should not be confused with a function-like macro
+    with 0 argument.</p>
+
+    <p>When a macro is used, the preprocessor selects the proper macro following
+      these rules: </p>
+    <list type="bulleted">
+      <item>if there is only the object-like definition, the preprocessor uses
+      it. Example:</item>
+<code type="none">
+-define(FUN, now).
+...
+call() ->
+    {?FUN, ?FUN()}.</code>
+This will be expended to:
+<code type="none">
+call() ->
+    {now, now()}.</code>
+
+      <item>if the preprocessor recognizes an object-like macro call, and if its
+      definition exists, the preprocessor uses it. Example:</item>
+<code type="none">
+-define(MOD,    erlang).
+-define(MOD(X), X).
+...
+call() ->
+    ?MOD:module_info().</code>
+This will be expended to:
+<code type="none">
+call() ->
+    erlang:module_info().</code>
+
+      <item>if the preprocessor recognizes a function-like macro call, the
+      preprocessor chooses the definition with the same number of
+      arguments. Example: </item>
+<code type="none">
+-define(CALL(Fun),      Fun()).
+-define(CALL(Mod, Fun), Mod:Fun()).
+...
+call() ->
+    ?CALL(kernel, module_info).</code>
+This will be expended to:
+<code type="none">
+call() ->
+    kernel:module_info().</code>
+
+      <item>in all other cases, the preprocessor throws an
+      error. Example:</item>
+<code type="none">
+-define(M, erlang).
+-define(M(X), X).
+...
+call() ->
+    ?M(kernel, module_info).</code>
+The compiler will fail with error <c>argument mismatch for macro 'M'</c>
+
+    </list>
+  </section>
+
+  <section>
     <title>Flow Control in Macros</title>
     <p>The following macro directives are supplied:</p>
     <taglist>
