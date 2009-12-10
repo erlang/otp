@@ -671,6 +671,8 @@ check_funs({'$M_EXPR','$F_EXPR',2},
 check_funs({'$M_EXPR','$F_EXPR',1},
 	   [{lists,foreach,2},
 	    {hipe_unified_loader,patch_consts,3} | _]) -> 0;
+check_funs({'$M_EXPR',warning_msg,2},
+	   [{code_server,finish_on_load_report,2} | _]) -> 0;
 %% This is cheating! /raimo
 %% 
 %% check_funs(This = {M,_,_}, Path) ->

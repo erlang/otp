@@ -7,7 +7,7 @@ on_load() ->
     receive
 	go ->
 	    ?MASTER ! {?MODULE,done},
-	    true
+	    ok
     end.
 
 data() ->
