@@ -123,6 +123,12 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		throw:mixed ->
 		    failed;
 
+		%% There was a reference to a boolean expression
+		%% from inside a protected block (try/catch), to
+		%% a boolean expression outside.
+		  throw:protected_barrier ->
+		    failed;
+
 		  %% The 'xor' operator was used. We currently don't
 		  %% find it worthwile to translate 'xor' operators
 		  %% (the code would be clumsy).
@@ -414,11 +420,10 @@ bopt_good_args([A|As], Regs) ->
 bopt_good_args([], _) -> ok.
 
 bopt_good_arg({Tag,_}=X, Regs) when Tag =:= x; Tag =:= tmp ->
-    case gb_trees:get(X, Regs) of
-	any -> ok;
-	_Other ->
-	    %%io:format("not any: ~p: ~p\n", [X,_Other]),
-	    throw(mixed)
+    case gb_trees:lookup(X, Regs) of
+	{value,any} -> ok;
+	{value,_} -> throw(mixed);
+	none -> throw(protected_barrier)
     end;
 bopt_good_arg(_, _) -> ok.
 
