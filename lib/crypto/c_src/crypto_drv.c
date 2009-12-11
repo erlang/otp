@@ -233,6 +233,11 @@ static ErlDrvEntry crypto_driver_entry = {
 
 #define DRV_BF_CFB64_ENCRYPT     59
 #define DRV_BF_CFB64_DECRYPT     60
+#define DRV_BF_ECB_ENCRYPT       61
+#define DRV_BF_ECB_DECRYPT       62
+#define DRV_BF_OFB64_ENCRYPT     63
+#define DRV_BF_CBC_ENCRYPT       64
+#define DRV_BF_CBC_DECRYPT       65
 
 /* #define DRV_CBC_IDEA_ENCRYPT    34 */
 /* #define DRV_CBC_IDEA_DECRYPT    35 */
@@ -532,6 +537,79 @@ static int crypto_control(ErlDrvData drv_data, unsigned int command, char *buf,
         DES_ncbc_encrypt(des_dbuf, bin, dlen, &schedule, des_ivec, 
                          (command == DRV_CBC_DES_ENCRYPT));
         return dlen;
+
+    case DRV_BF_ECB_ENCRYPT:
+    case DRV_BF_ECB_DECRYPT:
+    {
+	/* buf = klen[4] key data */
+	int bf_direction;
+	const unsigned char *ukey;
+	const unsigned char *bf_dbuf; /* blowfish input data */
+	BF_KEY bf_key; /* blowfish key 8 */
+
+	klen = get_int32(buf);
+	ukey = (unsigned char *) buf + 4;
+	bf_dbuf = ukey + klen;
+	dlen = len - 4 - klen;
+	if (dlen < 0) return -1;
+	BF_set_key(&bf_key, klen, ukey);
+	bin = return_binary(rbuf,rlen,dlen);
+	if (bin==NULL) return -1;
+	bf_direction = command == DRV_BF_ECB_ENCRYPT ? BF_ENCRYPT : BF_DECRYPT;
+	BF_ecb_encrypt(bf_dbuf, bin, &bf_key, bf_direction);
+	return dlen;
+    }
+
+    case DRV_BF_CBC_ENCRYPT:
+    case DRV_BF_CBC_DECRYPT:
+    {
+	/* buf = klen[4] key ivec[8] data */
+	unsigned char *ukey;
+	unsigned char* ivec;
+	unsigned char bf_tkey[8]; /* blowfish ivec */
+	int bf_direction;
+	const unsigned char *bf_dbuf; /* blowfish input data */
+	BF_KEY bf_key; /* blowfish key 8 */
+
+	klen = get_int32(buf);
+	ukey = (unsigned char *)buf + 4;
+	ivec = ukey + klen;
+	bf_dbuf = ivec + 8;
+	dlen = len - 4 - klen - 8;
+	if (dlen < 0) return -1;
+	BF_set_key(&bf_key, klen, ukey);
+	memcpy(bf_tkey, ivec, 8);
+	bin = return_binary(rbuf,rlen,dlen);
+	if (bin==NULL) return -1;
+	bf_direction = command == DRV_BF_CBC_ENCRYPT ? BF_ENCRYPT : BF_DECRYPT;
+	BF_cbc_encrypt(bf_dbuf, bin, dlen, &bf_key, bf_tkey, bf_direction);
+	return dlen;
+    }
+
+    case DRV_BF_OFB64_ENCRYPT:
+    {
+	/* buf = klen[4] key ivec[8] data */
+	unsigned char *ukey;
+	unsigned char* ivec;
+	unsigned char bf_tkey[8]; /* blowfish ivec */
+	int bf_n; /* blowfish ivec pos */
+	const unsigned char *bf_dbuf; /* blowfish input data */
+	BF_KEY bf_key; /* blowfish key 8 */
+
+	klen = get_int32(buf);
+	ukey = (unsigned char *)buf + 4;
+	ivec = ukey + klen;
+	bf_dbuf = ivec + 8;
+	dlen = len - 4 - klen - 8;
+	if (dlen < 0) return -1;
+	BF_set_key(&bf_key, klen, ukey);
+	memcpy(bf_tkey, ivec, 8);
+	bin = return_binary(rbuf,rlen,dlen);
+	if (bin==NULL) return -1;
+	bf_n = 0;
+	BF_ofb64_encrypt(bf_dbuf, bin, dlen, &bf_key, bf_tkey, &bf_n);
+	return dlen;
+    }
 
     case DRV_BF_CFB64_ENCRYPT:
     case DRV_BF_CFB64_DECRYPT:
