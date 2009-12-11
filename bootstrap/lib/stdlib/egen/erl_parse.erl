@@ -529,7 +529,7 @@ get_attribute(L, Name) ->
 get_attributes(L) ->
     erl_scan:attributes_info(L).
 
--file("/usr/local/otp/releases/otp_beam_linux_sles10_i386_r13b02_patched/lib/parsetools-2.0/include/yeccpre.hrl", 0).
+-file("/usr/local/otp/releases/sles10_32_R13B03_patched/lib/parsetools-2.0.1/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %% 

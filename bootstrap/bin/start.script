@@ -1,6 +1,6 @@
-%% script generated at {2009,11,16} {16,51,54}
+%% script generated at {2009,12,11} {10,39,19}
 {script,
-    {"OTP  APN 181 01","R13B03"},
+    {"OTP  APN 181 01","R13B04"},
     [{preLoaded,
          [erl_prim_loader,erlang,init,otp_ring0,prim_file,prim_inet,prim_zip,
           zlib]},
@@ -43,7 +43,7 @@
          {application_controller,start,
              [{application,kernel,
                   [{description,"ERTS  CXC 138 10"},
-                   {vsn,"2.13.4"},
+                   {vsn,"2.13.5"},
                    {id,[]},
                    {modules,
                        [application,application_controller,application_master,
@@ -80,7 +80,7 @@
          {application,load,
              [{application,stdlib,
                   [{description,"ERTS  CXC 138 10"},
-                   {vsn,"1.16.4"},
+                   {vsn,"1.16.5"},
                    {id,[]},
                    {modules,
                        [array,base64,beam_lib,c,calendar,dets,dets_server,
