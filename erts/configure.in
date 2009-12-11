@@ -94,13 +94,6 @@ enable_child_waiter_thread=no
 ENABLE_ALLOC_TYPE_VARS=
 AC_SUBST(ENABLE_ALLOC_TYPE_VARS)
 
-AC_ARG_WITH(xcomp-conf,
-[  --with-xcompconf=PATH     path to cross compilation configuration])
-if test "x$with_xcompconf" != "xno" -a "x$with_xcompconf" != "x" ; then
-    . $with_xcompconf
-fi
-
-
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable async thread support
   --disable-threads       disable async thread support],
@@ -464,22 +457,18 @@ AC_SUBST(DEBUG_CFLAGS)
 AC_SUBST(WFLAGS)
 AC_SUBST(CFLAG_RUNTIME_LIBRARY_PATH)
 
-AC_CHECK_SIZEOF(void *, $erl_xcomp_void_p) # Needed for ARCH and smp checks below
+AC_CHECK_SIZEOF(void *) # Needed for ARCH and smp checks below
 
 dnl
 dnl Figure out operating system and cpu architecture
 dnl
 
-if test "x$erl_xcomp_os" != "x"; then
-    chk_opsys_=$erl_xcomp_os
+if test "x$host_alias" != "x"; then
+    chk_opsys_=$host_os
 else
-    if test "x$host_os" = "xwin32"; then
-	chk_opsys_=win32
-    else
-	chk_opsys_=`uname -s`
-	if test "x$chk_opsys_" = "xSunOS"; then
-	    chk_opsys_=$chk_opsys_`uname -r`
-	fi
+    chk_opsys_=`uname -s`
+    if test "x$chk_opsys_" = "xSunOS"; then
+	chk_opsys_=$chk_opsys_`uname -r`
     fi
 fi
 case $chk_opsys_ in
@@ -491,11 +480,12 @@ case $chk_opsys_ in
     *)				OPSYS=noopsys
 esac
 
-if test "x$erl_xcomp_hw" != "x"; then
-    chk_arch_=$erl_xcomp_hw
+if test "x$host_alias" != "x" -a "x$host_cpu" != "x"; then
+    chk_arch_=$host_cpu
 else
     chk_arch_=`uname -m`
 fi
+
 case $chk_arch_ in
     sun4u)	ARCH=ultrasparc;;
     sparc64)	ARCH=sparc64;;
@@ -1296,11 +1286,11 @@ dnl Interactive UX needs <net/errno.h> for socket related error codes.
 dnl Some Linuxes needs <sys/socketio.h> instead of <sys/sockio.h>
 dnl
 AC_CHECK_HEADERS(fcntl.h limits.h unistd.h syslog.h dlfcn.h ieeefp.h \
-                 sys/stropts.h sys/sysctl.h \
+                 sys/types.h sys/stropts.h sys/sysctl.h \
                  sys/ioctl.h sys/time.h sys/uio.h \
                  sys/socket.h sys/sockio.h sys/socketio.h \
                  net/errno.h malloc.h mach-o/dyld.h arpa/nameser.h \
-		 pty.h util.h utmp.h langinfo.h)
+		 pty.h util.h utmp.h langinfo.h poll.h)
 
 AC_CHECK_HEADER(sys/resource.h,
 	[AC_DEFINE(HAVE_SYS_RESOURCE_H, 1,
@@ -1389,11 +1379,13 @@ LM_STRUCT_SOCKADDR_SA_LEN
 LM_STRUCT_EXCEPTION
 
 AC_CHECK_SIZEOF(char, 1)
-AC_CHECK_SIZEOF(short, $erl_xcomp_short)
-AC_CHECK_SIZEOF(int, $erl_xcomp_int)
-AC_CHECK_SIZEOF(long, $erl_xcomp_long)
-AC_CHECK_SIZEOF(void *, $erl_xcomp_void_p)
-AC_CHECK_SIZEOF(long long, $erl_xcomp_long_long)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(long long)
+AC_CHECK_SIZEOF(size_t)
+AC_CHECK_SIZEOF(off_t)
 
 BITS64=
 
@@ -1457,71 +1449,26 @@ int main(void)
     abort ();
   return 0;
 }
-],AC_MSG_RESULT(no)
-,AC_MSG_RESULT(yes)
-AC_MSG_ERROR([This gcc miscompiles the Erlang runtime system; please use a different version])
-,AC_MSG_RESULT(no))
+], gcc_4_3_0_bug=no, gcc_4_3_0_bug=yes, gcc_4_3_0_bug=cross)
+
+case $gcc_4_3_0_bug in
+	yes|no)
+		gcc_4_3_0_bug_result=$gcc_4_3_0_bug;;
+	cross)
+		gcc_dumped_vsn=`$CC -dumpversion 2>/dev/null`
+		case gcc-$gcc_dumped_vsn in
+			gcc-4.3.0) gcc_4_3_0_bug=yes;;
+			*) gcc_4_3_0_bug=no;;
+		esac
+		gcc_4_3_0_bug_result="$gcc_4_3_0_bug; could not run test since cross compiling, checked version number ($gcc_dumped_vsn) instead";;
+esac
+
+AC_MSG_RESULT([$gcc_4_3_0_bug_result])
+if test $gcc_4_3_0_bug = yes; then
+	AC_MSG_ERROR([This gcc miscompiles the Erlang runtime system; please use a different version])	
 fi
 
-dnl AC_CHECK_SIZEOF(size_t, 4)dnl Assumes all cross compiling is to 32bit uP
-dnl
-dnl The disabled one above does not include stddef.h, alas!
-dnl
-AC_CACHE_CHECK([size of size_t], ac_cv_sizeof_size_t, 
-AC_TRY_RUN([
-#include <sys/types.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-int main(int argc, char **argv) {
-    FILE *f = fopen("conftestval", "w");
-    if (! f)
-	exit(1); /* Failed */
-    fprintf(f, "%d\n", (int) sizeof(size_t));
-    exit(0); /* OK */
-}
-], ac_cv_sizeof_size_t=`cat conftestval`
-,  ac_cv_sizeof_size_t=0
-,  ac_cv_sizeof_size_t=$erl_xcomp_sizeof_size_t))
-AC_DEFINE_UNQUOTED(SIZEOF_SIZE_T, $ac_cv_sizeof_size_t, [The number of bytes in a size_t])
-
-dnl A standard size check does not include sys/types.h
-dnl
-AC_CACHE_CHECK([size of off_t], ac_cv_sizeof_off_t, 
-AC_TRY_RUN([
-#include <sys/types.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <stddef.h>
-int main(int argc, char **argv) {
-    FILE *f = fopen("conftestval", "w");
-    if (! f)
-	exit(1); /* Failed */
-    fprintf(f, "%d\n", (int) sizeof(off_t));
-    exit(0); /* OK */
-}
-], ac_cv_sizeof_off_t=`cat conftestval`
-,  ac_cv_sizeof_off_t=0
-,  ac_cv_sizeof_off_t=$erl_xcomp_sizeof_off_t))
-AC_DEFINE_UNQUOTED(SIZEOF_OFF_T, $ac_cv_sizeof_off_t,
-	[The number of bytes in an off_t])
-
-AC_MSG_CHECKING([int/long/void*/size_t sizes])
-AC_TRY_RUN([
-#include <stdlib.h>
-#include <stddef.h>
-int main(int argc, char **argv) {
-    if (sizeof(void *) >= 4 &&
-	sizeof(void *) == sizeof(size_t) &&
-	(sizeof(void *) == sizeof(int) || sizeof(void *) == sizeof(long))) {
-	exit(0); /* OK */
-    }
-    exit(1); /* Failed */
-}
-],AC_MSG_RESULT(ok)
-,AC_MSG_RESULT(failed)
-AC_MSG_ERROR([Cannot handle this combination of int/long/void*/size_t sizes])
-,AC_MSG_RESULT(ok))
+fi
 
 if test "x$erl_xcomp_bigendian" != "x"; then
 	ac_cv_c_bigendian=$erl_xcomp_bigendian
@@ -1582,7 +1529,7 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		pread pwrite writev memmove strerror strerror_r strncasecmp \
 		gethrtime localtime_r gmtime_r mremap memcpy mallopt \
 		sbrk _sbrk __sbrk brk _brk __brk \
-		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo])
+		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo poll])
 if test "X$host" = "Xwin32"; then
 	ac_cv_func_setvbuf_reversed=yes
 fi
@@ -1858,9 +1805,11 @@ int main(void)
 	erts_cv___after_morecore_hook_can_track_malloc=no,
 	if test "x$erl_xcomp_after_morecore_hook" != "x"; then
 		erts_cv___after_morecore_hook_can_track_malloc=$erl_xcomp_after_morecore_hook
+	else
+		erts_cv___after_morecore_hook_can_track_malloc=no
 	fi)])
 
-if test "x$erts_cv___after_morecore_hook_can_track_malloc" = "xyes"; then
+if test $erts_cv___after_morecore_hook_can_track_malloc = yes; then
 	AC_DEFINE(ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC, 1, \
 [Define if __after_morecore_hook can track malloc()s core memory use.])
 fi
@@ -2116,7 +2065,11 @@ int main(void)
 	],
 	    erts_cv_brk_wrappers_can_track_malloc=yes,
 	    erts_cv_brk_wrappers_can_track_malloc=no,
-	    erts_cv_brk_wrappers_can_track_malloc=no)])
+	    if test "x$erl_xcomp_dlsym_brk_wrappers" != "x"; then
+		erts_cv_brk_wrappers_can_track_malloc=$erl_xcomp_dlsym_brk_wrappers
+	    else
+		erts_cv_brk_wrappers_can_track_malloc=no
+	    fi)])
 	if test $erts_cv_brk_wrappers_can_track_malloc = yes; then
 		AC_DEFINE(ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC, 1, \
 [Define if sbrk()/brk() wrappers can track malloc()s core memory use])
@@ -2643,7 +2596,14 @@ int main(int argc, const char **argv)
     do_fmul();
     return do_check();
 }
-], erl_ok=reliable, erl_ok=unreliable, erl_ok=unreliable)
+],
+erl_ok=reliable,
+erl_ok=unreliable,
+if test "x$erl_xcomp_reliable_fpe" = "xyes"; then
+	erl_ok=reliable
+else
+	erl_ok=unreliable
+fi)
     if test $erl_ok = unreliable; then
         AC_DEFINE(NO_FPE_SIGNALS,[],
 	    [Define if floating points exceptions are non-existing/not reliable])
@@ -2826,9 +2786,12 @@ fi
 # Check for working poll().
 #
 AC_MSG_CHECKING([for working poll()])
-if test "x$erl_xcomp_poll" != "x"; then
-	poll_works=$erl_xcomp_poll
+if test "x$ac_cv_header_poll_h" != "xyes" -o "x$ac_cv_func_poll" != "xyes"; then
+
+poll_works=no
+
 else
+
 AC_TRY_RUN([
 #include <poll.h>
 main()
@@ -2848,22 +2811,42 @@ main()
   exit(0);
 #endif
 }
-], poll_works=true, poll_works=false, poll_works=false)
+],
+poll_works=yes,
+poll_works=no,
+poll_works=$erl_xcomp_poll)
+
+if test "X$poll_works" != "X"; then
+	guessed_poll_works=no
+else
+	guessed_poll_works=yes
+	case $host_os in
+		darwin*) poll_works=no;;
+		*) poll_works=yes;;
+	esac
 fi
+
+fi
+
 case $poll_works in
-true)
+yes)
 	AC_DEFINE(ERTS_USE_POLL, 1, [Define if poll() should be used instead of select()])
-	AC_MSG_RESULT(ok)
+	AC_MSG_RESULT(yes)
 	;;
 *)
 	#
 	# The USE_SELECT define is used by the ssl application (should not
 	# be used by erts).
 	#
+	poll_works=no
 	AC_DEFINE(USE_SELECT, 1, [Define if select() should be used instead of poll()])
-	AC_MSG_RESULT(broken or based on select())
+	AC_MSG_RESULT([no; non-existing, broken, or based on select()])
 	;;
 esac
+
+if test $guessed_poll_works = yes; then
+	AC_MSG_WARN([result $poll_works guessed based on OS ($host_os) because of cross compilation])
+fi
 
 #
 # If kqueue() found, check that it can be selected or polled on...
@@ -2900,7 +2883,14 @@ int main(void) {
     }
     return 0;
 }
-	], ok_kqueue=true, ok_kqueue=false, ok_kqueue=false)
+	],
+	ok_kqueue=true,
+	ok_kqueue=false,
+	if test "x$erl_xcomp_kqueue" = "xyes"; then
+		ok_kqueue=true
+	else
+		ok_kqueue=false
+	fi)
 	if test $ok_kqueue = true; then
 		AC_MSG_RESULT(yes);
 	else
@@ -2990,7 +2980,15 @@ int main(void) {
 	    return 5;
     return 0;
 }
-], copying_putenv=yes, copying_putenv=no, copying_putenv=no)
+],
+copying_putenv=yes,
+copying_putenv=no,
+if test "x$erl_xcomp_putenv_copy" != "x"; then
+	copying_putenv=$erl_xcomp_putenv_copy
+else
+	copying_putenv=no
+fi)
+
 if test $copying_putenv = yes; then
 	AC_DEFINE(HAVE_COPYING_PUTENV,[1],[Define if you have a putenv() that stores a copy of the key-value pair])
 fi

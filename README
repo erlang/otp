@@ -243,6 +243,11 @@ if './otp_build remove_prebuilt_files' is invoked.
 If you or your system has special requirements please read the
 Makefile for additional configuration information.
 
+Cross compiling Erlang/OTP
+--------------------------
+The support for cross compiling Erlang/OTP is in its early stage of
+development, and should be considered as experimental. For more
+information see: $ERL_TOP/xcomp/README
 
 How to build a debug enabled Erlang runtime system
 --------------------------------------------------

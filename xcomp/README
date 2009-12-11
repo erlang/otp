@@ -1,0 +1,218 @@
+================================================================================
+                           Cross compiling Erlang/OTP                           
+================================================================================
+
+%CopyrightBegin%
+
+Copyright Ericsson AB 2009. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
+
+================================================================================
+
+This directory contains a configuration file template and configuration examples
+for cross compiling Erlang/OTP. The configuration files contain configuration
+variables and should be supplied to the $ERL_TOP/otp_build when setting up an
+appropriate environment for cross compiling. The currently used configuration
+variables are described later in this document.
+
+The erl-xcomp.conf.template contains all available configuration variables
+and can be used as a template when creating a configuration. See the
+erl-xcomp-TileraMDE2.0-tilepro.conf for an example of a working configuration
+file.
+
+Instead of using the configuration files one can export the configuration
+variables as ordinary environment variables before calling otp_build. If
+default behavior of a variable is satisfactory, the variable need not to
+be set and exported.
+
+Note that the support for cross compiling is in its early stage of development,
+and should be considered as experimental. The build system including cross
+compilation configuration variables used may be subject to non backward
+compatible changes without prior notice. It works for cross compiling some
+Linux/GNU systems, but has only been partly tested for more esoteric platforms.
+The VxWorks example file is highly dependent on our environment and is here
+more or less only for internal use.
+
+Please submit any patches for cross compiling in a way consistent with this
+system. If a new configuration variable is needed for your system, add it to the
+template file, use it in otp_build, aclocal.m4 and/or configure.in. All input is
+welcome as we cannot possibly have all cross compiling environments out there to
+test with.
+
+General information on how to submit patches can be found at:
+  http://wiki.github.com/erlang/otp/submitting-patches
+
+== Build and Install ===========================================================
+
+ [1]  $ cd $ERL_TOP
+
+Either set up your cross compilation variables in the environment manually,
+or set up the environment using a configuration file by executing:
+ [2]  $ eval `./otp_build env_cross <ABSOLUTE_PATH_TO_XCONF_FILE>`
+
+Configure and build Erlang/OTP:
+ [3]  $ ./otp_build configure
+ [4]  $ ./otp_build boot -a
+ [5]  $ ./otp_build release -a <ABSOLUTE_PATH_TO_RELEASE_ROOT>
+
+The Install script used when installing Erlang/OTP requires common Unix
+tools such as 'sed' to be present in your PATH. If your target system
+does not have such tools, you need to run the Install script on your
+build machine before packing Erlang/OTP. If so, run the Install script
+like follows; otherwise skip [6] and [7]:
+ [6]  $ cd <ABSOLUTE_PATH_TO_RELEASE_ROOT>
+ [7]  $ ./Install -cross <ABSOLUTE_INSTALL_ROOT_ON_TARGET> # answer questions
+
+Pack Erlang/OTP as follows (gnu tar is assumed):
+ [8]  $ cd <ABSOLUTE_PATH_TO_RELEASE_ROOT>
+ [9]  $ tar -zcf <WHERE_TO_SAVE_THE_RELEASE>/<RELEASE_NAME>.tar.gz *
+
+Install Erlang/OTP on the target system like follows. If you ran the Install
+script before packing ([6] and [7]) you should skip [12]:
+ [10] $ cd <ABSOLUTE_INSTALL_ROOT_ON_TARGET>
+ [11] $ tar -zxf <WHERE_THE_PACKED_RELEASE_EXIST>/<RELEASE_NAME>.tar.gz
+ [12] $ ./Install <ABSOLUTE_INSTALL_ROOT_ON_TARGET> # answer questions
+
+<ABSOLUTE_INSTALL_ROOT_ON_TARGET> usually equals current working directory
+when you run the Install script on the target system, but does not have to.
+It can follow another path through the file system to the same directory.
+<ABSOLUTE_INSTALL_ROOT_ON_TARGET> is the path that will be used when running
+Erlang/OTP and is the path that have to be available at run time.
+
+== Currently used configuration variables ======================================
+
+-- Mandatory -------------------------------------------------------------------
+
+* erl_xcomp_host
+  Target system. The value will be passed as '--host' argument to the configure
+  script. It does not have to be a full CPU-VENDOR-OS triplet, but can be. The
+  full CPU-VENDOR-OS triplet will be created by:
+    $ERL_TOP/erts/autoconf/config.sub $erl_xcomp_host
+
+-- Optional --------------------------------------------------------------------
+
+* erl_xcomp_configure_flags
+  To override the configure flags for a special target system, you
+  can set this variable which overrides configure parameters on the 
+  command line and instead uses the specified options. The variable
+  leaves the build-host system untouched.
+
+-- Optional build environment flags --
+
+If the cross compilation tools aren't prefixed by '$erl_xcomp_host-',
+you will have to use these configuration variables in order to use the
+right cross compilation tools.
+
+* erl_xcomp_cc
+  C compiler.
+
+* erl_xcomp_ld
+  Linker.
+
+* erl_xcomp_cflags
+  C compiler flags.
+
+* erl_xcomp_cpp
+  C pre processor.
+
+* erl_xcomp_ldflags
+  Linker flags.
+
+* erl_xcomp_ranlib
+  Ranlib program.
+
+* erl_xcomp_ar
+  Ar program.
+
+* erl_xcomp_ded_ld
+  Dynamic Erlang Driver linker.
+
+* erl_xcomp_ded_ldflags
+  Dynamic Erlang Driver linker flags.
+
+* erl_xcomp_ded_ld_runtime_library_path
+  Dynamic Erlang Driver runtime linker path.
+
+-- Optional feature, or bug tests --
+
+These tests cannot (always) be done automatically when cross compiling. You
+usually does not need to set these variables. Only set these if you really
+know what you are doing.
+
+* erl_xcomp_bigendian - yes|no
+  If yes, the target system must be big endian. If no, little endian. This can
+  often be automatically detected, but not always. If not automatically
+  detected, configure will fail unless this variable is set. No default value
+  is used, i.e., configure will try to figure this out automatically.
+
+* erl_xcomp_linux_clock_gettime_correction - yes|no (defaults to yes)
+  If yes, clock_gettime(CLOCK_MONOTONIC, _) on the target system must work.
+  This variable is recommended to be set to no on Linux systems with kernel
+  versions less than 2.6.
+
+* erl_xcomp_linux_nptl - yes|no (defaults to yes on Linux; otherwise, no)
+  If yes, the target system must have NPTL (Native POSIX Thread Library).
+  Older Linux systems have LinuxThreads instead of NPTL (Linux kernel
+  versions typically less than 2.6).
+
+* erl_xcomp_linux_usable_sigusrx - yes|no (defaults to yes)
+  If yes, the SIGUSR1 and SIGUSR2 must be usable by the ERTS. Old
+  LinuxThreads thread libraries (Linux kernel versions less than 2.2) used
+  these signals and made them unusable by the ERTS.
+
+* erl_xcomp_linux_usable_sigaltstack - yes|no (defaults to yes)
+  If yes, sigaltstack() must be usable on the target system. sigaltstack()
+  on Linux kernel versions less than 2.4 are broken.
+
+* erl_xcomp_poll - yes|no (defaults to no on Darwin/MacOSX; otherwise, yes)
+  If yes, the target system must have a working poll() implementation that also
+  can handle devices. If no, select() will be used instead of poll().
+
+* erl_xcomp_kqueue - yes|no (defaults to no)
+  If yes, the target system must have a working kqueue() implementation that
+  returns a file descriptor which can be used by poll() and/or select().
+  If no and the target system has not got epoll() or /dev/poll, the kernel-poll
+  feature will be disabled.
+
+* erl_xcomp_putenv_copy - yes|no (defaults to no)
+  If yes, the target system must have a putenv() implementation that stores a
+  copy of the key/value pair.
+
+* erl_xcomp_reliable_fpe - yes|no (defaults to no)
+  If yes, the target system must have reliable floating point exceptions.
+
+* erl_xcomp_getaddrinfo - yes|no (defaults to no)
+  If yes, the target system must have a working getaddrinfo() implementation
+  that can handle both IPv4 and IPv6.
+
+* erl_xcomp_gethrvtime_procfs_ioctl - yes|no (defaults to no)
+  If yes, the target system must have a working gethrvtime() implementation
+  and is used with procfs ioctl().
+
+* erl_xcomp_clock_gettime - yes|no (defaults to no)
+  If yes, the target system must have a working clock_gettime() implementation
+  that can be used for retrieving process CPU time.
+
+* erl_xcomp_after_morecore_hook - yes|no (defaults to no)
+  If yes, the target system must have a working __after_morecore_hook that can
+  be used for tracking used malloc() implementations core memory usage.
+
+* erl_xcomp_dlsym_brk_wrappers - yes|no (defaults to no)
+  If yes, the target system must have a working dlsym(RTLD_NEXT, <S>)
+  implementation that can be used on 'brk' and 'sbrk' symbols used by the
+  malloc() implementation in use, and by this track the malloc() implementations
+  core memory usage.
+
+================================================================================

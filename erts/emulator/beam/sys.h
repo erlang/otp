@@ -239,6 +239,11 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 ** Sint16: A signed integer of 16 bits exactly.
 */
 
+#if !((SIZEOF_VOID_P >= 4) && (SIZEOF_VOID_P == SIZEOF_SIZE_T) \
+      && ((SIZEOF_VOID_P == SIZEOF_INT) || (SIZEOF_VOID_P == SIZEOF_LONG)))
+#error Cannot handle this combination of int/long/void*/size_t sizes
+#endif
+
 #if SIZEOF_VOID_P == 8
 #undef  ARCH_32
 #define ARCH_64

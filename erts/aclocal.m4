@@ -1,4 +1,4 @@
-
+dnl
 dnl %CopyrightBegin%
 dnl 
 dnl Copyright Ericsson AB 1998-2009. All Rights Reserved.
@@ -15,6 +15,7 @@ dnl the License for the specific language governing rights and limitations
 dnl under the License.
 dnl 
 dnl %CopyrightEnd%
+dnl
 
 dnl
 dnl aclocal.m4
@@ -519,46 +520,79 @@ dnl On ofs1 the '-pthread' switch should be used
 		ETHR_DEFS="$ETHR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
 	    linux*)
 		ETHR_DEFS="$ETHR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS -D_GNU_SOURCE"
-		if test "x$erl_xcomp_linux_kernel" != "x"; then
-		    linux_kernel_vsn_=$erl_xcomp_linux_kernel
-		else
-		    linux_kernel_vsn_=`uname -r`
-		fi
-		usable_sigusrx=no
-		usable_sigaltstack=no
 
-		# FIXME: Test for actual problems instead of kernel versions.
-		case $linux_kernel_vsn_ in
-		    [[0-1]].*|2.[[0-1]]|2.[[0-1]].*)
-			;;
-		    2.[[2-3]]|2.[[2-3]].*)
+		if test	X$cross_compiling = Xyes; then
+		    if test "X$erl_xcomp_linux_usable_sigusrx" = "X"; then
 			usable_sigusrx=yes
-			;;
-		    *)
-			usable_sigusrx=yes
+			usable_sigusrx_guessed=yes
+		    else
+			usable_sigusrx=$erl_xcomp_linux_usable_sigusrx
+			usable_sigusrx_guessed=no
+		    fi
+		    if test "X$erl_xcomp_linux_usable_sigaltstack" = "X"; then
 			usable_sigaltstack=yes
-			;;
-		esac
+			usable_sigaltstack_guessed=yes
+		    else
+			usable_sigaltstack=$erl_xcomp_linux_usable_sigaltstack
+			usable_sigaltstack_guessed=no
+		    fi
+		else
+		    # FIXME: Test for actual problems instead of kernel versions
+		    linux_kernel_vsn_=`uname -r`
+		    case $linux_kernel_vsn_ in
+			[[0-1]].*|2.[[0-1]]|2.[[0-1]].*)
+			    usable_sigusrx=no
+			    usable_sigaltstack=no;;
+			2.[[2-3]]|2.[[2-3]].*)
+			    usable_sigusrx=yes
+			    usable_sigaltstack=no;;
+		    	*)
+			    usable_sigusrx=yes
+			    usable_sigaltstack=yes;;
+		    esac
+		    usable_sigusrx_guessed=no
+		    usable_sigaltstack_guessed=no
+		fi
 
 		AC_MSG_CHECKING(if SIGUSR1 and SIGUSR2 can be used)
 		AC_MSG_RESULT($usable_sigusrx)
+		if test $usable_sigusrx_guessed = yes; then
+		    AC_MSG_WARN([result $usable_sigusrx guessed because of cross compilation])
+		fi
 		if test $usable_sigusrx = no; then
 		    ETHR_DEFS="$ETHR_DEFS -DETHR_UNUSABLE_SIGUSRX"
 		fi
 
 		AC_MSG_CHECKING(if sigaltstack can be used)
 		AC_MSG_RESULT($usable_sigaltstack)
+		if test $usable_sigaltstack_guessed = yes; then
+		    AC_MSG_WARN([result $usable_sigaltstack guessed because of cross compilation])
+		fi
 		if test $usable_sigaltstack = no; then
 		    ETHR_DEFS="$ETHR_DEFS -DETHR_UNUSABLE_SIGALTSTACK"
 		fi
 
 		AC_MSG_CHECKING(for Native POSIX Thread Library)
-		case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
-		    nptl*) nptl=yes;;
-		    NPTL*) nptl=yes;;
-		    *)  nptl=no;;
-		esac
+		if test	X$cross_compiling = Xyes; then
+		    if test "X$erl_xcomp_linux_nptl" = "X"; then
+			nptl=yes
+			nptl_guessed=yes
+		    else
+			nptl=$erl_xcomp_linux_nptl
+			nptl_guessed=no
+		    fi
+		else
+		    case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
+			nptl*) nptl=yes;;
+			NPTL*) nptl=yes;;
+			*)  nptl=no;;
+		    esac
+		    nptl_guessed=no
+		fi
 		AC_MSG_RESULT($nptl)
+		if test $nptl_guessed = yes; then
+		    AC_MSG_WARN([result $nptl guessed because of cross compilation])
+		fi
 		if test $nptl = yes; then
 		    ETHR_THR_LIB_BASE_NAME=nptl
 		fi
@@ -567,7 +601,10 @@ dnl On ofs1 the '-pthread' switch should be used
 		    AC_CHECK_HEADER(nptl/pthread.h, need_nptl_incldir=yes)
 		    if test $need_nptl_incldir = yes; then
 			# Ahh...
-			nptl_path="$C_INCLUDE_PATH:$CPATH:/usr/local/include:/usr/include"
+			nptl_path="$C_INCLUDE_PATH:$CPATH"
+			if test X$cross_compiling != Xyes; then
+			    nptl_path="$nptl_path:/usr/local/include:/usr/include"
+			fi
 			nptl_ws_path=
 			save_ifs="$IFS"; IFS=":"
 			for dir in $nptl_path; do
@@ -683,7 +720,7 @@ if test "x$ETHR_THR_LIB_BASE" != "x"; then
 	ETHR_LIB_NAME=$ethr_lib_name
 fi
 
-AC_CHECK_SIZEOF(void *, 4)
+AC_CHECK_SIZEOF(void *)
 AC_DEFINE_UNQUOTED(ETHR_SIZEOF_PTR, $ac_cv_sizeof_void_p, [Define to the size of pointers])
 
 if test "X$disable_native_ethr_impls" = "Xyes"; then
@@ -751,13 +788,21 @@ case $clock_gettime_correction in
 			case $clock_gettime_correction in
 			    unknown)
 				if test x$clock_gettime_compiles = xyes; then
-				    linux_kernel_vsn_=`uname -r`
-				    case $linux_kernel_vsn_ in
-					[[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
-					    erl_cv_time_correction=times ;;
-					*)
-					    erl_cv_time_correction=clock_gettime;;
-				    esac
+				    if test X$cross_compiling != Xyes; then
+					if test "X$erl_xcomp_linux_clock_gettime_correction" = "Xno"; then
+					    erl_cv_time_correction=times
+					else
+					    erl_cv_time_correction=clock_gettime
+					fi
+				    else
+				    	linux_kernel_vsn_=`uname -r`
+				    	case $linux_kernel_vsn_ in
+					    [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
+					    	erl_cv_time_correction=times ;;
+					    *)
+					    	erl_cv_time_correction=clock_gettime;;
+				    	esac
+				    fi
 				else
 				    erl_cv_time_correction=times
 				fi
@@ -774,6 +819,7 @@ case $clock_gettime_correction in
 	;;
 esac
 ])
+
 xrtlib=""
 case $erl_cv_time_correction in
   times)
@@ -781,6 +827,9 @@ case $erl_cv_time_correction in
 	[Define if you do not have a high-res. timer & want to use times() instead])
     ;;
   clock_gettime)
+    if test X$cross_compiling = Xyes -a X$erl_xcomp_linux_clock_gettime_correction = X; then
+	AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
+    fi
     xrtlib="-lrt"
     AC_DEFINE(GETHRTIME_WITH_CLOCK_GETTIME,[1],
 	[Define if you want to use clock_gettime to simulate gethrtime])
@@ -840,7 +889,15 @@ int main() {
 	exit(5);
     exit(0); return 0;
 }
-], erl_gethrvtime=procfs_ioctl, erl_gethrvtime=false, erl_gethrvtime=false)
+],
+erl_gethrvtime=procfs_ioctl,
+erl_gethrvtime=false,
+if test "x$erl_xcomp_gethrvtime_procfs_ioctl" = "xyes"; then
+	erl_gethrvtime=procfs_ioctl
+else
+	erl_gethrvtime=false
+fi)
+
 case $erl_gethrvtime in
   procfs_ioctl)
 	AC_DEFINE(HAVE_GETHRVTIME_PROCFS_IOCTL,[1],
@@ -880,7 +937,14 @@ case $erl_gethrvtime in
 	      exit(5);
 	    exit(0); return 0;
 	  }
-	], erl_clock_gettime=true, erl_clock_gettime=false, erl_clock_gettime=false)
+	],
+	erl_clock_gettime=true,
+	erl_clock_gettime=false,
+	if test "x$erl_xcomp_clock_gettime" = "xyes"; then
+		erl_clock_gettime=true
+	else
+		erl_clock_gettime=false
+	fi)
 	LIBS=$save_libs
 	case $host_os in
 		linux*)

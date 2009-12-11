@@ -1,4 +1,22 @@
 #! /bin/sh
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 2002-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
 
 # Expected autoconf version
 EXPECTED_AUTOCONF_VERSION=2.59
@@ -69,52 +87,83 @@ usage ()
     echo "    cancel_preloaded - uncheckout preloaded code (only in Clearcase)"
 }
 
+export_cross_env ()
+{
+    if [ "x$ERL_XCOMP_CONF" != "x" ]; then
+	export erl_xcomp_host
+	export erl_xcomp_configure_flags
+	export erl_xcomp_cc
+	export erl_xcomp_ld
+	export erl_xcomp_cflags
+	export erl_xcomp_cpp
+	export erl_xcomp_ldflags
+	export erl_xcomp_ranlib
+	export erl_xcomp_ar
+	export erl_xcomp_ded_ld
+	export erl_xcomp_ded_ldflags
+	export erl_xcomp_ded_ld_runtime_library_path
+	export erl_xcomp_bigendian
+	export erl_xcomp_linux_clock_gettime_correction
+	export erl_xcomp_linux_nptl
+	export erl_xcomp_linux_usable_sigusrx
+	export erl_xcomp_linux_usable_sigaltstack
+	export erl_xcomp_poll
+	export erl_xcomp_kqueue
+	export erl_xcomp_putenv_copy
+	export erl_xcomp_reliable_fpe
+	export erl_xcomp_getaddrinfo
+	export erl_xcomp_gethrvtime_procfs_ioctl
+	export erl_xcomp_clock_gettime
+	export erl_xcomp_after_morecore_hook
+	export erl_xcomp_dlsym_brk_wrappers
+    fi
+}
+
 xcomp_fail ()
 {
-    echo "The mandatory cross compilation variable" $1 "is not set in" $2 ",aborting" >&2
+    echo "The mandatory cross compilation variable '"$1"' is not set, aborting..." >&2
     exit 1
 }
 
-check_xcomp_file ()
+source_xcomp_file ()
 {
-    if test "x$erl_xcomp_os" = "x"; then
-	xcomp_fail erl_xcomp_os $1
+    case x$1 in
+	x/*)
+	    ;;
+	x)
+	    echo "env_cross requires path to cross compilation configuration" >&2
+	    exit 1;;
+	x*)
+	    echo "An absoulute path to the cross compilation file is required: $1" >&2
+	    exit 1;;
+    esac
+
+    if [ ! -f $1 ]; then
+	echo "No such file: $1" >&2
+	exit 1
     fi
-    if test "x$erl_xcomp_hw" = "x"; then
-	xcomp_fail erl_xcomp_hw $1
+
+    . $1
+}
+
+finalize_xcomp_conf ()
+{
+    if test "x$erl_xcomp_host" = "x"; then
+	xcomp_fail erl_xcomp_host
     fi
-    if test "x$erl_xcomp_man" = "x"; then
-	xcomp_fail erl_xcomp_man $1
+
+    if test "x$erl_xcomp_target" != "x"; then
+	echo "The 'erl_xcomp_target' configuration variable should no longer be used." >&2
+	echo "For more information see the xcomp/README file." >&2
+	exit 1;
     fi
-    if test "x$erl_xcomp_target_xtra" = "x"; then
-	xcomp_fail erl_xcomp_target_extra $1
+
+    OVERRIDE_TARGET=`$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_host`
+    if test $? -ne 0; then
+	exit $?
     fi
-    if test "x$erl_xcomp_void_p" = "x"; then
-	xcomp_fail erl_xcomp_void_p $1
-    fi
-    if test "x$erl_xcomp_short" = "x"; then
-	xcomp_fail erl_xcomp_short $1
-    fi
-    if test "x$erl_xcomp_int" = "x"; then
-	xcomp_fail erl_xcomp_int $1
-    fi
-    if test "x$erl_xcomp_long" = "x"; then
-	xcomp_fail erl_xcomp_long $1
-    fi
-    if test "x$erl_xcomp_long_long" = "x"; then
-	xcomp_fail erl_xcomp_long_long $1
-    fi
-    if test "x$erl_xcomp_sizeof_size_t" = "x"; then
-	xcomp_fail erl_xcomp_sizeof_size_t $1
-    fi
-    if test "x$erl_xcomp_sizeof_off_t" = "x"; then
-	xcomp_fail erl_xcomp_sizeof_off_t $1
-    fi
-    if test "x$erl_xcomp_os" = "xlinux"; then
-	if test "x$erl_xcomp_linux_kernel" = "x"; then
-	    xcomp_fail erl_xcomp_linux_kernel $1
-	fi
-    fi
+    TARGET=$OVERRIDE_TARGET
+
     return 0
 }
 
@@ -342,17 +391,21 @@ do_configure ()
 	    # compilers. It's a kludge, but a working one...
 	    #
 
-	    crossdirs="erts lib/common_test lib/erl_interface lib/gs lib/megaco lib/odbc lib/snmp lib/wx"
-
 	    if [ -z "$ONLY_ERTS" ]; then
-		for x in $crossdirs; do
-		    if [ -f "$x/configure" ]; then
-			(cd $x;./configure --host=$erl_xcomp_hw --with-xcompconf=$ERL_XCOMP_CONF $CONFIG_FLAGS) || exit 1
-		    fi
-		done
+		crossdirs="erts lib/common_test lib/erl_interface lib/gs lib/megaco lib/odbc lib/snmp lib/wx"
 	    else
-		(cd $ERL_TOP/erts;./configure --host=$erl_xcomp_hw --with-xcompconf=$ERL_XCOMP_CONF $CONFIG_FLAGS) || exit 1
+		crossdirs="erts"
 	    fi
+
+	    export_cross_env
+
+	    for d in $crossdirs; do
+		echo            "== Entering $d =="
+		echo            "./configure --build=$BUILDSYS --host=$erl_xcomp_host $CONFIG_FLAGS"
+		(cd $ERL_TOP/$d; ./configure --build=$BUILDSYS --host=$erl_xcomp_host $CONFIG_FLAGS) || exit 1
+		echo            "== Leaving  $d =="
+	    done
+
 	    CC="$save_CC"
 	    LD="$save_LD"
 	    CFLAGS="$save_CFLAGS"
@@ -551,20 +604,11 @@ echo_env_vxworks ()
 
 echo_env_cross ()
 {
-    if [ -z "$1" ]; then 
-	echo "env_cross requires path to cross compilation configuration" >&2
-	exit 1
-    fi
-
-    if [ ! -f $1 ]; then
-	echo "No such file: $1" >&2
-	exit 1
-    fi
-    . $1
-    check_xcomp_file $1
+    source_xcomp_file $1
+    finalize_xcomp_conf
     echo_env_erltop
     echo_setenv ERL_XCOMP_CONF $1 ';'
-    echo_setenv OVERRIDE_TARGET $erl_xcomp_target
+    echo_setenv OVERRIDE_TARGET $OVERRIDE_TARGET
     echo_envinfo
 }
 
@@ -863,7 +907,7 @@ do_prepare_prel ()
     (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET prepare) || exit 1
     echo '*****************************************************'
     echo "Prepared for new preloaded code build - "
-    echo "Directory ERL_TOP/erts/prelaoded/ebin completely"
+    echo "Directory ERL_TOP/erts/preloaded/ebin completely"
     echo "checked out."
     echo '*****************************************************'
 }
@@ -941,9 +985,10 @@ do_boot_cross ()
     TARGET=`$ERL_TOP/erts/autoconf/config.guess`
     
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all_bootstraps || exit 1;
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET local_setup || exit 1;
+
     TARGET=$SAVE_TARGET
     OVERRIDE_TARGET=$SAVE_OVERRIDE_TARGET
+
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET libs || exit 1;
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET depend || exit 1;
     $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1;
@@ -1131,6 +1176,10 @@ esac
 
 if [ ! -z "$OVERRIDE_TARGET" ]; then
     TARGET="$OVERRIDE_TARGET"
+else
+    if [ "x$erl_xcomp_host" != "x" ]; then
+	finalize_xcomp_conf
+    fi
 fi
 
 # Setting a bootstrap root is inherently very dangerous now that the bootstrap

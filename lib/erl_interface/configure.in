@@ -100,11 +100,11 @@ if test "x$LD" = "x"; then
 fi
 AC_SUBST(LD)
 
-AC_CHECK_SIZEOF(short, $erl_xcomp_short)
-AC_CHECK_SIZEOF(int, $erl_xcomp_int)
-AC_CHECK_SIZEOF(long, $erl_xcomp_long)
-AC_CHECK_SIZEOF(void *, $erl_xcomp_void_p)
-AC_CHECK_SIZEOF(long long, $erl_xcomp_long_long)
+AC_CHECK_SIZEOF(short)
+AC_CHECK_SIZEOF(int)
+AC_CHECK_SIZEOF(long)
+AC_CHECK_SIZEOF(void *)
+AC_CHECK_SIZEOF(long long)
 
 if test $ac_cv_sizeof_void_p = 8; then
   CFLAGS="$CFLAGS -DEI_64BIT"
