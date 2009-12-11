@@ -173,7 +173,7 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 %%  whether the optimized code is guaranteed to work in the same
 %%  way as the original code.
 %%
-%%  Throws an exception if the optmization is not safe.
+%%  Throw an exception if the optimization is not safe.
 %%
 ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
     %% Here are the conditions that must be true for the
@@ -190,10 +190,10 @@ ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
     %%    by the code that follows.
     %%
     %% 3. Any register that is assigned a value in the optimized
-    %%    code must be UNUSED or KILLED in the following code.
-    %%    (Possible future improvement: Registers that are known
-    %%    to be assigned the SAME value in the original and optimized
-    %%    code don't need to be unused in the following code.)
+    %%    code must be UNUSED or KILLED in the following code
+    %%    (because the register might be assigned the wrong value,
+    %%    and even if the value is right it might no longer be
+    %%    assigned on *all* paths leading to its use).
 
     InitInPreceeding = initialized_regs(PreceedingCode),
 
@@ -309,6 +309,8 @@ dst_regs([{block,Bl}|Is], Acc) ->
 dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
+    dst_regs(Is, [D|Acc]);
+dst_regs([{set,[D],_,move}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);

@@ -390,6 +390,15 @@ before_and_inside_if(Config) when is_list(Config) ->
     ?line yes = before_and_inside_if([], [], x),
     ?line yes = before_and_inside_if([], [b], delete),
     ?line yes = before_and_inside_if([], [b], x),
+
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [b], blah),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [b], xx),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [], blah),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [], xx),
+    ?line {no,no} = before_and_inside_if_2([], [b], blah),
+    ?line {no,no} = before_and_inside_if_2([], [b], xx),
+    ?line {ch1,no} = before_and_inside_if_2([], [], blah),
+    ?line {no,ch2} = before_and_inside_if_2([], [], xx),
     ok.
 
 %% Thanks to Simon Cornish and Kostis Sagonas.
@@ -407,6 +416,27 @@ before_and_inside_if(XDo1, XDo2, Do3) ->
        true ->
 	    yes
     end.
+
+%% Thanks to Simon Cornish.
+%% Used to generate code that would not set {y,0} on
+%% all paths before its use (and therefore fail
+%% validation by the beam_validator).
+before_and_inside_if_2(XDo1, XDo2, Do3) ->
+    Do1    = (XDo1 =/= []),
+    Do2    = (XDo2 =/= []),
+    CH1 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == blah ->
+		  ch1;
+	     true ->
+		  no
+	  end,
+    CH2 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == xx ->
+		  ch2;
+	     true ->
+		  no
+	  end,
+    {CH1,CH2}.
 
 %% Utilities.
 
