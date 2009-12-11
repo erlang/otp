@@ -150,7 +150,7 @@ build_file(Code, Attr, Dict, NumLabels, NumFuncs, Abst, SourceFile, Opts) ->
     %% Create IFF chunk.
 
     Chunks = case member(slim, Opts) of
-		 true -> [Essentials,AttrChunk,CompileChunk,AbstChunk];
+		 true -> [Essentials,AttrChunk,AbstChunk];
 		 false -> [Essentials,LocChunk,AttrChunk,CompileChunk,AbstChunk]
 	     end,
     build_form(<<"BEAM">>, Chunks).
