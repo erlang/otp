@@ -339,9 +339,14 @@ do {								\
 struct ErtsSchedulerData_ {
 
 #ifdef ERTS_SMP
-    ethr_tid tid;		/* Thread id */
+    /*
+     * Keep X registers first (so we get as many low
+     * numbered registers as possible in the same cache
+     * line).
+     */
     Eterm save_reg[ERTS_X_REGS_ALLOCATED]; /* X registers */
     FloatDef freg[MAX_REG];	/* Floating point registers. */
+    ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
     Process *free_process;

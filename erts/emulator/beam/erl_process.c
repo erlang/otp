@@ -219,7 +219,7 @@ ErtsSchedulerData *erts_scheduler_data;
 ErtsAlignedRunQueue *erts_aligned_run_queues;
 Uint erts_no_run_queues;
 
-typedef struct {
+typedef union {
     ErtsSchedulerData esd;
     char align[ERTS_ALC_CACHE_LINE_ALIGN_SIZE(sizeof(ErtsSchedulerData))];
 } ErtsAlignedSchedulerData;
