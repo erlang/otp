@@ -18,15 +18,16 @@
 %%
 -module(c_SUITE).
 -export([all/1]).
--export([c_1/1, c_2/1, c_3/1, c_4/1, memory/1]).
+-export([c_1/1, c_2/1, c_3/1, c_4/1, nc_1/1, nc_2/1, nc_3/1, nc_4/1,
+         memory/1]).
 
 -include("test_server.hrl").
 
--import(c, [c/2]).
+-import(c, [c/2, nc/2]).
 
 all(doc) -> ["Test cases for the 'c' module."];
 all(suite) ->
-    [c_1, c_2, c_3, c_4, memory].
+    [c_1, c_2, c_3, c_4, nc_1, nc_2, nc_3, nc_4, memory].
 
 %%% Write output to a directory other than current directory:
 
@@ -34,7 +35,7 @@ c_1(doc) ->
     ["Checks that c:c works also with option 'outdir' [ticket OTP-1209]."];
 c_1(suite) ->
     [];
-c_1(Config) when list(Config) ->
+c_1(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
     ?line Result = c(R,[{outdir,W}]),
@@ -44,7 +45,7 @@ c_2(doc) ->
     ["Checks that c:c works also with option 'outdir' [ticket OTP-1209]."];
 c_2(suite) ->
     [];
-c_2(Config) when list(Config) ->
+c_2(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
     ?line Result = c(R,[{outdir,W}]),
@@ -59,7 +60,7 @@ c_3(doc) ->
      "directory). [ticket OTP-1209]."];
 c_3(suite) ->
     [];
-c_3(Config) when list(Config) ->
+c_3(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m.erl"),
     ?line W = ?config(priv_dir, Config),
     ?line file:set_cwd(W),
@@ -71,18 +72,68 @@ c_4(doc) ->
      "directory). [ticket OTP-1209]."];
 c_4(suite) ->
     [];
-c_4(Config) when list(Config) ->
+c_4(Config) when is_list(Config) ->
     ?line R = filename:join(?config(data_dir, Config), "m"),
     ?line W = ?config(priv_dir, Config),
     ?line file:set_cwd(W),
     ?line Result = c(R,[{outdir,W}]),
     ?line {ok, m} = Result.
 
+%%% Write output to a directory other than current directory:
+
+nc_1(doc) ->
+    ["Checks that c:nc works also with option 'outdir'."];
+nc_1(suite) ->
+    [];
+nc_1(Config) when is_list(Config) ->
+    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
+    ?line W = ?config(priv_dir, Config),
+    ?line Result = nc(R,[{outdir,W}]),
+    ?line {ok, m} = Result.
+
+nc_2(doc) ->
+    ["Checks that c:nc works also with option 'outdir'."];
+nc_2(suite) ->
+    [];
+nc_2(Config) when is_list(Config) ->
+    ?line R = filename:join(?config(data_dir, Config), "m"),
+    ?line W = ?config(priv_dir, Config),
+    ?line Result = nc(R,[{outdir,W}]),
+    ?line {ok, m} = Result.
+
+
+%%% Put results in current directory (or rather, change current dir
+%%% to the output dir):
+
+nc_3(doc) ->
+    ["Checks that c:nc works also with option 'outdir' (same as current"
+     "directory)."];
+nc_3(suite) ->
+    [];
+nc_3(Config) when is_list(Config) ->
+    ?line R = filename:join(?config(data_dir, Config), "m.erl"),
+    ?line W = ?config(priv_dir, Config),
+    ?line file:set_cwd(W),
+    ?line Result = nc(R,[{outdir,W}]),
+    ?line {ok, m} = Result.
+
+nc_4(doc) ->
+    ["Checks that c:nc works also with option 'outdir' (same as current"
+     "directory)."];
+nc_4(suite) ->
+    [];
+nc_4(Config) when is_list(Config) ->
+    ?line R = filename:join(?config(data_dir, Config), "m"),
+    ?line W = ?config(priv_dir, Config),
+    ?line file:set_cwd(W),
+    ?line Result = nc(R,[{outdir,W}]),
+    ?line {ok, m} = Result.
+
 memory(doc) ->
     ["Checks that c:memory/[0,1] returns consistent results."];
 memory(suite) ->
     [];
-memory(Config) when list(Config) ->
+memory(Config) when is_list(Config) ->
     try
 	?line ML = c:memory(),
 	?line T =  mget(total, ML),
@@ -112,5 +163,5 @@ mget(K, L) ->
     ?line test_v(V).
 
 % Help function for c_SUITE:memory/1    
-test_v(V) when integer(V) ->
+test_v(V) when is_integer(V) ->
     ?line V.
