@@ -30,6 +30,21 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p>A bug concerning bit comprehensions has been fixed
+            in Cover. The bug was introduced in R13B03. 
+            (Thanks to Matthew Sackman.)</p>
+          <p>Own Id: OTP-8340</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

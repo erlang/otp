@@ -16,4 +16,4 @@
 # 
 # %CopyrightEnd%
 
-TOOLS_VSN = 2.6.5
+TOOLS_VSN = 2.6.5.1
