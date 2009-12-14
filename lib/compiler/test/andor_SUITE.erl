@@ -20,13 +20,14 @@
 
 -export([all/1,
 	 t_case/1,t_and_or/1,t_andalso/1,t_orelse/1,inside/1,overlap/1,
-	 combined/1,in_case/1]).
+	 combined/1,in_case/1,before_and_inside_if/1]).
 	 
 -include("test_server.hrl").
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,combined,in_case].
+    [t_case,t_and_or,t_andalso,t_orelse,inside,overlap,combined,in_case,
+     before_and_inside_if].
 
 t_case(Config) when is_list(Config) ->
     %% We test boolean cases almost but not quite like cases
@@ -380,6 +381,65 @@ in_case_1_guard(LenUp, LenDw, LenN, Rotation, Count) ->
 	false -> loop
     end.
 
+before_and_inside_if(Config) when is_list(Config) ->
+    ?line no = before_and_inside_if([a], [b], delete),
+    ?line no = before_and_inside_if([a], [b], x),
+    ?line no = before_and_inside_if([a], [], delete),
+    ?line no = before_and_inside_if([a], [], x),
+    ?line no = before_and_inside_if([], [], delete),
+    ?line yes = before_and_inside_if([], [], x),
+    ?line yes = before_and_inside_if([], [b], delete),
+    ?line yes = before_and_inside_if([], [b], x),
+
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [b], blah),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [b], xx),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [], blah),
+    ?line {ch1,ch2} = before_and_inside_if_2([a], [], xx),
+    ?line {no,no} = before_and_inside_if_2([], [b], blah),
+    ?line {no,no} = before_and_inside_if_2([], [b], xx),
+    ?line {ch1,no} = before_and_inside_if_2([], [], blah),
+    ?line {no,ch2} = before_and_inside_if_2([], [], xx),
+    ok.
+
+%% Thanks to Simon Cornish and Kostis Sagonas.
+%% Used to crash beam_bool.
+before_and_inside_if(XDo1, XDo2, Do3) ->
+    Do1 = (XDo1 =/= []),
+    Do2 = (XDo2 =/= []),
+    if
+	%% This expression occurs in a try/catch (protected)
+	%% block, which cannot refer to variables outside of
+	%% the block that are boolean expressions.
+	Do1 =:= true;
+	Do1 =:= false, Do2 =:= false, Do3 =:= delete ->
+	    no;
+       true ->
+	    yes
+    end.
+
+%% Thanks to Simon Cornish.
+%% Used to generate code that would not set {y,0} on
+%% all paths before its use (and therefore fail
+%% validation by the beam_validator).
+before_and_inside_if_2(XDo1, XDo2, Do3) ->
+    Do1    = (XDo1 =/= []),
+    Do2    = (XDo2 =/= []),
+    CH1 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == blah ->
+		  ch1;
+	     true ->
+		  no
+	  end,
+    CH2 = if Do1 == true;
+	     Do1 == false,Do2==false,Do3 == xx ->
+		  ch2;
+	     true ->
+		  no
+	  end,
+    {CH1,CH2}.
+
+%% Utilities.
+
 check(V1, V0) ->
     if V1 /= V0 ->
 	    io:fwrite("error: ~w.\n", [V1]),
@@ -393,5 +453,3 @@ echo(X) ->
     X.
 
 id(I) -> I.
-
-    

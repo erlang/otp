@@ -123,6 +123,12 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 		throw:mixed ->
 		    failed;
 
+		%% There was a reference to a boolean expression
+		%% from inside a protected block (try/catch), to
+		%% a boolean expression outside.
+		  throw:protected_barrier ->
+		    failed;
+
 		  %% The 'xor' operator was used. We currently don't
 		  %% find it worthwile to translate 'xor' operators
 		  %% (the code would be clumsy).
@@ -167,7 +173,7 @@ bopt_block(Reg, Fail, OldIs, [{block,Bl0}|Acc0], St0) ->
 %%  whether the optimized code is guaranteed to work in the same
 %%  way as the original code.
 %%
-%%  Throws an exception if the optmization is not safe.
+%%  Throw an exception if the optimization is not safe.
 %%
 ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
     %% Here are the conditions that must be true for the
@@ -184,10 +190,10 @@ ensure_opt_safe(Bl, NewCode, OldIs, Fail, PreceedingCode, St) ->
     %%    by the code that follows.
     %%
     %% 3. Any register that is assigned a value in the optimized
-    %%    code must be UNUSED or KILLED in the following code.
-    %%    (Possible future improvement: Registers that are known
-    %%    to be assigned the SAME value in the original and optimized
-    %%    code don't need to be unused in the following code.)
+    %%    code must be UNUSED or KILLED in the following code
+    %%    (because the register might be assigned the wrong value,
+    %%    and even if the value is right it might no longer be
+    %%    assigned on *all* paths leading to its use).
 
     InitInPreceeding = initialized_regs(PreceedingCode),
 
@@ -304,6 +310,8 @@ dst_regs([{set,[D],_,{bif,_,{f,_}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
 dst_regs([{set,[D],_,{alloc,_,{gc_bif,_,{f,_}}}}|Is], Acc) ->
     dst_regs(Is, [D|Acc]);
+dst_regs([{set,[D],_,move}|Is], Acc) ->
+    dst_regs(Is, [D|Acc]);
 dst_regs([_|Is], Acc) ->
     dst_regs(Is, Acc);
 dst_regs([], Acc) -> ordsets:from_list(Acc).
@@ -414,11 +422,10 @@ bopt_good_args([A|As], Regs) ->
 bopt_good_args([], _) -> ok.
 
 bopt_good_arg({Tag,_}=X, Regs) when Tag =:= x; Tag =:= tmp ->
-    case gb_trees:get(X, Regs) of
-	any -> ok;
-	_Other ->
-	    %%io:format("not any: ~p: ~p\n", [X,_Other]),
-	    throw(mixed)
+    case gb_trees:lookup(X, Regs) of
+	{value,any} -> ok;
+	{value,_} -> throw(mixed);
+	none -> throw(protected_barrier)
     end;
 bopt_good_arg(_, _) -> ok.
 
