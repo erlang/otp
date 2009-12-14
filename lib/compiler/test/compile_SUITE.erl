@@ -25,7 +25,7 @@
 -export([all/1,
 	 app_test/1,
 	 file_1/1, module_mismatch/1, big_file/1, outdir/1, 
-	 binary/1, cond_and_ifdef/1, listings/1, listings_big/1,
+	 binary/1, makedep/1, cond_and_ifdef/1, listings/1, listings_big/1,
 	 other_output/1, package_forms/1, encrypted_abstr/1,
 	 bad_record_use/1, bad_record_use1/1, bad_record_use2/1, strict_record/1,
 	 missing_testheap/1, cover/1, env/1, core/1, asm/1]).
@@ -40,7 +40,7 @@
 all(suite) ->
     test_lib:recompile(?MODULE),
     [app_test,
-     file_1, module_mismatch, big_file, outdir, binary,
+     file_1, module_mismatch, big_file, outdir, binary, makedep,
      cond_and_ifdef, listings, listings_big,
      other_output, package_forms,
      encrypted_abstr,
@@ -131,6 +131,76 @@ binary(Config) when is_list(Config) ->
     ?line ok = file:del_dir(filename:dirname(Target)),
     ?line test_server:timetrap_cancel(Dog),
     ok.
+
+%% Tests that the dependencies-Makefile-related options work.
+
+makedep(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(60)),
+    ?line {Simple,Target} = files(Config, "makedep"),
+    ?line DataDir = ?config(data_dir, Config),
+    ?line SimpleRootname = filename:rootname(Simple),
+    ?line IncludeDir = filename:join(filename:dirname(Simple), "include"),
+    ?line IncludeOptions = [
+      {d,need_foo},
+      {d,foo_value,42},
+      {d,include_generated},
+      {i,IncludeDir}
+    ],
+    %% Basic rule.
+    ?line BasicMf1Name = SimpleRootname ++ "-basic1.mk",
+    ?line {ok,BasicMf1} = file:read_file(BasicMf1Name),
+    ?line {ok,_,Mf1} = compile:file(Simple, [binary,makedep]),
+    ?line BasicMf1 = makedep_canonicalize_result(Mf1, DataDir),
+    %% Basic rule with one existing header.
+    ?line BasicMf2Name = SimpleRootname ++ "-basic2.mk",
+    ?line {ok,BasicMf2} = file:read_file(BasicMf2Name),
+    ?line {ok,_,Mf2} = compile:file(Simple, [binary,makedep|IncludeOptions]),
+    ?line BasicMf2 = makedep_canonicalize_result(Mf2, DataDir),
+    %% Rule with one existing header and one missing header.
+    ?line MissingMfName = SimpleRootname ++ "-missing.mk",
+    ?line {ok,MissingMf} = file:read_file(MissingMfName),
+    ?line {ok,_,Mf3} = compile:file(Simple,
+      [binary,makedep,makedep_add_missing|IncludeOptions]),
+    ?line MissingMf = makedep_canonicalize_result(Mf3, DataDir),
+    %% Rule with modified target.
+    ?line TargetMf1Name = SimpleRootname ++ "-target1.mk",
+    ?line {ok,TargetMf1} = file:read_file(TargetMf1Name),
+    ?line {ok,_,Mf4} = compile:file(Simple,
+      [binary,makedep,{makedep_target,"$target"}|IncludeOptions]),
+    ?line TargetMf1 = makedep_modify_target(
+      makedep_canonicalize_result(Mf4, DataDir), "$$target"),
+    %% Rule with quoted modified target.
+    ?line TargetMf2Name = SimpleRootname ++ "-target2.mk",
+    ?line {ok,TargetMf2} = file:read_file(TargetMf2Name),
+    ?line {ok,_,Mf5} = compile:file(Simple,
+      [binary,makedep,{makedep_target,"$target"},makedep_quote_target|
+        IncludeOptions]),
+    ?line TargetMf2 = makedep_modify_target(
+      makedep_canonicalize_result(Mf5, DataDir), "$$target"),
+    %% Basic rule written to some file.
+    ?line {ok,_} = compile:file(Simple,
+      [makedep,{makedep_output,Target}|IncludeOptions]),
+    ?line {ok,Mf6} = file:read_file(Target),
+    ?line BasicMf2 = makedep_canonicalize_result(Mf6, DataDir),
+
+    ?line ok = file:delete(Target),
+    ?line ok = file:del_dir(filename:dirname(Target)),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+makedep_canonicalize_result(Mf, DataDir) ->
+    Mf0 = binary_to_list(Mf),
+    %% Replace the Datadir by "$(srcdir)".
+    Mf1 = re:replace(Mf0, DataDir, "$(srcdir)/",
+      [global,multiline,{return,list}]),
+    %% Long lines are splitted, put back everything on one line.
+    Mf2 = re:replace(Mf1, "\\\\\n  ", "", [global,multiline,{return,list}]),
+    list_to_binary(Mf2).
+
+makedep_modify_target(Mf, Target) ->
+    Mf0 = binary_to_list(Mf),
+    Mf1 = re:replace(Mf0, Target, "$target", [{return,list}]),
+    list_to_binary(Mf1).
 
 %% Tests that conditional compilation, defining values, including files work.
 

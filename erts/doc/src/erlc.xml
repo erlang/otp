@@ -141,6 +141,50 @@
           for compiling native code, which needs to be compiled with the same
           run-time system that it should be run on.</p>
       </item>
+      <tag>-M</tag>
+      <item>
+        <p>Produces a Makefile rule to track headers dependencies. The
+          rule is sent to stdout. No object file is produced.
+        </p>
+      </item>
+      <tag>-MF <em>Makefile</em></tag>
+      <item>
+        <p>Like the <c><![CDATA[-M]]></c> option above, except that the
+          Makefile is written to <em>Makefile</em>. No object
+          file is produced.
+        </p>
+      </item>
+      <tag>-MD</tag>
+      <item>
+        <p>Same as <c><![CDATA[-M -MF <File>.Pbeam]]></c>.
+        </p>
+      </item>
+      <tag>-MT <em>Target</em></tag>
+      <item>
+        <p>In conjunction with <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, change the name of the rule emitted
+          to <em>Target</em>.
+        </p>
+      </item>
+      <tag>-MQ <em>Target</em></tag>
+      <item>
+        <p>Like the <c><![CDATA[-MT]]></c> option above, except that
+          characters special to make(1) are quoted.
+        </p>
+      </item>
+      <tag>-MP</tag>
+      <item>
+        <p>In conjunction with <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, add a phony target for each dependency.
+        </p>
+      </item>
+      <tag>-MG</tag>
+      <item>
+        <p>In conjunction with <c><![CDATA[-M]]></c> or
+          <c><![CDATA[-MF]]></c>, consider missing headers as generated
+          files and add them to the dependencies.
+        </p>
+      </item>
       <tag>--</tag>
       <item>
         <p>Signals that no more options will follow.

@@ -28,6 +28,7 @@
 #include <winbase.h>
 /* FIXE ME config_win32.h? */
 #define HAVE_STRERROR 1
+#define snprintf _snprintf
 #endif
 
 #include <ctype.h>
@@ -259,6 +260,95 @@ main(int argc, char** argv)
 		break;
 	    case 'I':
 		PUSH2("@i", process_opt(&argc, &argv, 0));
+		break;
+	    case 'M':
+		{
+		    char *buf, *key, *val;
+		    size_t buf_len;
+
+		    if (argv[1][2] == '\0') { /* -M */
+			/* Push the following options:
+			 *   o  'makedep'
+			 *   o  {makedep_output, standard_io}
+			 */
+			buf = strsave("makedep");
+			PUSH2("@option", buf);
+
+			key = "makedep_output";
+			val = "standard_io";
+			buf_len = 1 + strlen(key) + 1 + strlen(val) + 1 + 1;
+			buf = emalloc(buf_len);
+			snprintf(buf, buf_len, "{%s,%s}", key, val);
+			PUSH2("@option", buf);
+		    } else if (argv[1][3] == '\0') {
+			switch(argv[1][2]) {
+			case 'D': /* -MD */
+			    /* Push the following options:
+			     *   o  'makedep'
+			     */
+			    buf = strsave("makedep");
+			    PUSH2("@option", buf);
+			    break;
+			case 'F': /* -MF <file> */
+			    /* Push the following options:
+			     *   o  'makedep'
+			     *   o  {makedep_output, <file>}
+			     */
+			    buf = strsave("makedep");
+			    PUSH2("@option", buf);
+
+			    key = "makedep_output";
+			    val = process_opt(&argc, &argv, 1);
+			    buf_len = 1 + strlen(key) + 2 + strlen(val) + 2 + 1;
+			    buf = emalloc(buf_len);
+			    snprintf(buf, buf_len, "{%s,\"%s\"}", key, val);
+			    PUSH2("@option", buf);
+			    break;
+			case 'T': /* -MT <target> */
+			    /* Push the following options:
+			     *   o  {makedep_target, <target>}
+			     */
+			    key = "makedep_target";
+			    val = process_opt(&argc, &argv, 1);
+			    buf_len = 1 + strlen(key) + 2 + strlen(val) + 2 + 1;
+			    buf = emalloc(buf_len);
+			    snprintf(buf, buf_len, "{%s,\"%s\"}", key, val);
+			    PUSH2("@option", buf);
+			    break;
+			case 'Q': /* -MQ <target> */
+			    /* Push the following options:
+			     *   o  {makedep_target, <target>}
+			     *   o  makedep_quote_target
+			     */
+			    key = "makedep_target";
+			    val = process_opt(&argc, &argv, 1);
+			    buf_len = 1 + strlen(key) + 2 + strlen(val) + 2 + 1;
+			    buf = emalloc(buf_len);
+			    snprintf(buf, buf_len, "{%s,\"%s\"}", key, val);
+			    PUSH2("@option", buf);
+
+			    buf = strsave("makedep_quote_target");
+			    PUSH2("@option", buf);
+			    break;
+			case 'G': /* -MG */
+			    /* Push the following options:
+			     *   o  makedep_add_missing
+			     */
+			    buf = strsave("makedep_add_missing");
+			    PUSH2("@option", buf);
+			    break;
+			case 'P': /* -MP */
+			    /* Push the following options:
+			     *   o  makedep_phony
+			     */
+			    buf = strsave("makedep_add_missing");
+			    PUSH2("@option", buf);
+			    break;
+			default:
+			    goto error;
+			}
+		    }
+		}
 		break;
 	    case 'o':
 		PUSH2("@outdir", process_opt(&argc, &argv, 0));
@@ -561,6 +651,15 @@ usage(void)
 	{"-hybrid", "compile using hybrid-heap emulator"},
 	{"-help", "shows this help text"},
 	{"-I path", "where to search for include files"},
+	{"-M", "generate a rule for make(1) describing the dependencies"},
+	{"-MF file", "write the dependencies to 'file'"},
+	{"-MT target", "change the target of the rule emitted by dependency "
+		"generation"},
+	{"-MQ target", "same as -MT but quote characters special to make(1)"},
+	{"-MG", "consider missing headers as generated files and add them to "
+		"the dependencies"},
+	{"-MP", "add a phony target for each dependency"},
+	{"-MD", "same as -M -MT file (with default 'file')"},
 	{"-o name", "name output directory or file"},
 	{"-pa path", "add path to the front of Erlang's code path"},
 	{"-pz path", "add path to the end of Erlang's code path"},

@@ -37,3 +37,7 @@ foo() ->
     {?included_value, ?foo_value}.
 
 -endif.
+
+-ifdef(include_generated).
+-include("generated.hrl").
+-endif.
