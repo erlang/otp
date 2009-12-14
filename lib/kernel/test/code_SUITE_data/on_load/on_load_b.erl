@@ -6,7 +6,7 @@ on_load() ->
     ?MASTER ! {?MODULE,start},
     on_load_c:data(),
     ?MASTER ! {?MODULE,done},
-    true.
+    ok.
 
 data() ->
     [b|on_load_c:data()].

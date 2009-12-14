@@ -121,8 +121,10 @@ loop() ->
     <title>Running a function when a module is loaded</title>
 
     <warning>
-    <p>This section describes an experimental feature introduced in R13B03.
-    There may be backward-incompatible changes in the feature in future releases.</p>
+    <p>This section describes an experimental feature that was
+      introduced in R13B03, and changed in a backwards-incompatible
+      way in R13B04. There may be more backward-incompatible changes
+      in future releases.</p>
     </warning>
 
     <p>The <c>-on_load()</c> directive names a function that should
@@ -133,25 +135,35 @@ loop() ->
 
     <p>It is not necessary to export the function. It will be called in a
     freshly spawned process (which will be terminated as soon as the function
-    returns). The function must return <c>true</c> if the module is to
-    be remained loaded and be callable, or <c>false</c> if the module
-    is to be unloaded. Returning any other value or generating an exception
-    will also cause the module to be unloaded.</p>
+    returns). The function must return <c>ok</c> if the module is to
+    be remained loaded and become callable, or any other value if the module
+    is to be unloaded. Generating an exception will also cause the
+    module to be unloaded. If the return value is not an atom,
+    a warning error report will be sent to the error logger.</p>
 
     <p>A process that calls any function in a module whose <c>on_load</c>
     function has not yet returned will be suspended until the <c>on_load</c>
     function has returned.</p>
 
+    <p>In embedded mode, all modules will be loaded first and then
+      will all on_load functions be called. The system will be
+      terminated unless all of the on_load functions return
+      <c>ok</c></p>.
+
     <p>Example:</p>
 
     <pre>
 -module(m).
--on_load(run_me/0).
+-on_load(load_my_nifs/0).
 
-run_me() ->
-    %% Do something with side effects here, for instance load a library
-    %% containing native-implemented functions.
-    true.</pre>
+load_my_nifs() ->
+    NifPath = ...,    %Set up the path to the NIF library.
+    Info = ...,       %Initialize the Info term
+    erlang:load_nif(NifPath, Info).</pre>
+
+    <p>If the call to <c>erlang:load_nif/2</c> fails, the module
+      will be unloaded and there will be warning report sent to
+      the error loader.</p>
 
   </section>
 

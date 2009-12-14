@@ -1357,10 +1357,7 @@ run_on_load_handlers([M|Ms]) ->
     {Pid,Ref} = spawn_monitor(Fun),
     receive
 	{'DOWN',Ref,process,Pid,OnLoadRes} ->
-	    Keep = if
-		       is_boolean(OnLoadRes) -> OnLoadRes;
-		       true -> false
-		   end,
+	    Keep = OnLoadRes =:= ok,
 	    erlang:finish_after_on_load(M, Keep),
 	    case Keep of
 		false ->

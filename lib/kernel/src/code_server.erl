@@ -1479,19 +1479,36 @@ finish_on_load(Ref, OnLoadRes, #state{on_load=OnLoad0,moddb=Db}=State) ->
     end.
 
 finish_on_load_1(Mod, File, OnLoadRes, WaitingPids, Db) ->
-    Keep = if
-	       is_boolean(OnLoadRes) -> OnLoadRes;
-	       true -> false
-	   end,
+    Keep = OnLoadRes =:= ok,
     erlang:finish_after_on_load(Mod, Keep),
     Res = case Keep of
-	      false -> {error,on_load_failure};
+	      false ->
+		  finish_on_load_report(Mod, OnLoadRes),
+		  {error,on_load_failure};
 	      true ->
 		  ets:insert(Db, {Mod,File}),
 		  {module,Mod}
 	  end,
     [reply(Pid, Res) || Pid <- WaitingPids],
     ok.
+
+finish_on_load_report(_Mod, Atom) when is_atom(Atom) ->
+    %% No error reports for atoms.
+    ok;
+finish_on_load_report(Mod, Term) ->
+    %% Play it very safe here. The error_logger module and
+    %% modules it depend on may not be loaded yet and there
+    %% would be a dead-lock if we called it directly
+    %% from the code_server process.
+    spawn(fun() ->
+		  F = "The on_load function for module "
+		      "~s returned ~P\n",
+
+		  %% Express the call as an apply to simplify
+		  %% the ext_mod_dep/1 test case.
+		  E = error_logger,
+		  E:warning_msg(F, [Mod,Term,10])
+	  end).
 
 %% -------------------------------------------------------
 %% Internal functions.

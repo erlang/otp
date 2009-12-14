@@ -9,7 +9,7 @@ run_me() ->
 			  ok
 		  end
 	  end),
-    true.
+    ok.
 
 status() ->
     case whereis(everything_is_fine) of

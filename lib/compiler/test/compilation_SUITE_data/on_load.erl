@@ -12,7 +12,7 @@
 
 do_on_load() ->
     local_function(),
-    true.
+    ok.
 
 local_function() ->
     ok.

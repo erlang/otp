@@ -13,7 +13,7 @@ on_load() ->
     LibDir = code:lib_dir(kernel),
 
     ?MASTER ! {?MODULE,LibDir},
-    true.
+    ok.
 
 data() ->
     [a|on_load_b:data()].
