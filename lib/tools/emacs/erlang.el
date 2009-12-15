@@ -72,7 +72,7 @@
 
 ;; Variables:
 
-(defconst erlang-version "2.6.1"
+(defconst erlang-version "2.6.2"
   "The version number of Erlang mode.")
 
 (defvar erlang-root-dir nil
@@ -3792,9 +3792,9 @@ Value is list (stack token-start token-type in-what)."
        
        ;; Clause end
        ((= (following-char) ?\;)
-	(if (and stack (and (eq (car (car stack)) 'when) 
-			    (eq (car (car (cdr (cdr stack)))) 'spec)))
-	    (erlang-pop stack))
+	(if (eq (car (car (last stack))) 'spec)
+	    (while (memq (car (car stack)) '(when ::))
+	      (erlang-pop stack)))
 	(if (and stack (eq (car (car stack)) '->))
 	    (erlang-pop stack))
 	(forward-char 1))

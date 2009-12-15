@@ -110,6 +110,11 @@
 	(t24()) -> t24() when is_subtype(t24(), atom()),
 			      is_subtype(t24(), t14()),
 			      is_subtype(t24(), t4()).
+
+-spec over(I :: integer()) -> R1 :: foo:typen();
+	  (A :: atom()) -> R2 :: foo:atomen();
+	  (T :: tuple()) -> R3 :: bar:typen().
+
 -spec mod:t2() -> any(). 
 -opaque attributes_data() :: 
 	  [{'column', column()} | {'line', info_line()} |
