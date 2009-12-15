@@ -515,67 +515,69 @@ void erts_usage(void)
 
     /*    erts_fprintf(stderr, "-# number  set the number of items to be used in traces etc\n"); */
 
-    erts_fprintf(stderr, "-a size    suggested stack size in kilo words for threads\n");
-    erts_fprintf(stderr, "           in the async-thread pool, valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "-a size     suggested stack size in kilo words for threads\n");
+    erts_fprintf(stderr, "            in the async-thread pool, valid range is [%d-%d]\n",
 		 ERTS_ASYNC_THREAD_MIN_STACK_SIZE,
 		 ERTS_ASYNC_THREAD_MAX_STACK_SIZE);
-    erts_fprintf(stderr, "-A number  set number of threads in async thread pool,\n");
-    erts_fprintf(stderr, "           valid range is [0-%d]\n",
+    erts_fprintf(stderr, "-A number   set number of threads in async thread pool,\n");
+    erts_fprintf(stderr, "            valid range is [0-%d]\n",
 		 ERTS_MAX_NO_OF_ASYNC_THREADS);
 
-    erts_fprintf(stderr, "-B[c|d|i]  c to have Ctrl-c interrupt the Erlang shell,\n");
-    erts_fprintf(stderr, "           d (or no extra option) to disable the break\n");
-    erts_fprintf(stderr, "           handler, i to ignore break signals\n");
+    erts_fprintf(stderr, "-B[c|d|i]   c to have Ctrl-c interrupt the Erlang shell,\n");
+    erts_fprintf(stderr, "            d (or no extra option) to disable the break\n");
+    erts_fprintf(stderr, "            handler, i to ignore break signals\n");
 
     /*    erts_fprintf(stderr, "-b func    set the boot function (default boot)\n"); */
 
-    erts_fprintf(stderr, "-c         disable continuous date/time correction with\n");
-    erts_fprintf(stderr, "           respect to uptime\n");
+    erts_fprintf(stderr, "-c          disable continuous date/time correction with\n");
+    erts_fprintf(stderr, "            respect to uptime\n");
 
-    erts_fprintf(stderr, "-d         don't write a crash dump for internally detected errors\n");
-    erts_fprintf(stderr, "           (halt(String) will still produce a crash dump)\n");
+    erts_fprintf(stderr, "-d          don't write a crash dump for internally detected errors\n");
+    erts_fprintf(stderr, "            (halt(String) will still produce a crash dump)\n");
 
-    erts_fprintf(stderr, "-h number  set minimum heap size in words (default %d)\n",
+    erts_fprintf(stderr, "-hms size   set minimum heap size in words (default %d)\n",
 	       H_DEFAULT_SIZE);
+    erts_fprintf(stderr, "-hmbs size  set minimum binary virtual heap size in words (default %d)\n",
+	       VH_DEFAULT_SIZE);
 
     /*    erts_fprintf(stderr, "-i module  set the boot module (default init)\n"); */
 
-    erts_fprintf(stderr, "-K boolean enable or disable kernel poll\n");
+    erts_fprintf(stderr, "-K boolean  enable or disable kernel poll\n");
 
-    erts_fprintf(stderr, "-l         turn on auto load tracing\n");
+    erts_fprintf(stderr, "-l          turn on auto load tracing\n");
 
-    erts_fprintf(stderr, "-M<X> <Y>  memory allocator switches,\n");
-    erts_fprintf(stderr, "           see the erts_alloc(3) documentation for more info.\n");
+    erts_fprintf(stderr, "-M<X> <Y>   memory allocator switches,\n");
+    erts_fprintf(stderr, "            see the erts_alloc(3) documentation for more info.\n");
 
-    erts_fprintf(stderr, "-P number  set maximum number of processes on this node,\n");
-    erts_fprintf(stderr, "           valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "-P number   set maximum number of processes on this node,\n");
+    erts_fprintf(stderr, "            valid range is [%d-%d]\n",
 	       ERTS_MIN_PROCESSES, ERTS_MAX_PROCESSES);
-    erts_fprintf(stderr, "-R number  set compatibility release number,\n");
-    erts_fprintf(stderr, "           valid range [%d-%d]\n",
+    erts_fprintf(stderr, "-R number   set compatibility release number,\n");
+    erts_fprintf(stderr, "            valid range [%d-%d]\n",
 	       ERTS_MIN_COMPAT_REL, this_rel_num());
 
-    erts_fprintf(stderr, "-r         force ets memory block to be moved on realloc\n");
-    erts_fprintf(stderr, "-sbt type  set scheduler bind type, valid types are:\n");
-    erts_fprintf(stderr, "           u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
-    erts_fprintf(stderr, "-sct cput  set cpu topology,\n");
-    erts_fprintf(stderr, "           see the erl(1) documentation for more info.\n");
-    erts_fprintf(stderr, "-sss size  suggested stack size in kilo words for scheduler threads,\n");
-    erts_fprintf(stderr, "           valid range is [%d-%d]\n",
+    erts_fprintf(stderr, "-r          force ets memory block to be moved on realloc\n");
+    erts_fprintf(stderr, "-sbt type   set scheduler bind type, valid types are:\n");
+    erts_fprintf(stderr, "            u|ns|ts|ps|s|nnts|nnps|tnnps|db\n");
+    erts_fprintf(stderr, "-sct cput   set cpu topology,\n");
+    erts_fprintf(stderr, "            see the erl(1) documentation for more info.\n");
+    erts_fprintf(stderr, "-sss size   suggested stack size in kilo words for scheduler threads,\n");
+    erts_fprintf(stderr, "            valid range is [%d-%d]\n",
 		 ERTS_SCHED_THREAD_MIN_STACK_SIZE,
 		 ERTS_SCHED_THREAD_MAX_STACK_SIZE);
-    erts_fprintf(stderr, "-S n1:n2   set number of schedulers (n1), and number of\n");
-    erts_fprintf(stderr, "           schedulers online (n2), valid range for both\n");
-    erts_fprintf(stderr, "           numbers are [1-%d]\n",
+    erts_fprintf(stderr, "-S n1:n2    set number of schedulers (n1), and number of\n");
+    erts_fprintf(stderr, "            schedulers online (n2), valid range for both\n");
+    erts_fprintf(stderr, "            numbers are [1-%d]\n",
 		 ERTS_MAX_NO_OF_SCHEDULERS);
-    erts_fprintf(stderr, "-T number  set modified timing level,\n");
-    erts_fprintf(stderr, "           valid range is [0-%d]\n",
+    erts_fprintf(stderr, "-T number   set modified timing level,\n");
+    erts_fprintf(stderr, "            valid range is [0-%d]\n",
 		 ERTS_MODIFIED_TIMING_LEVELS-1);
-    erts_fprintf(stderr, "-V         print Erlang version\n");
+    erts_fprintf(stderr, "-V          print Erlang version\n");
 
-    erts_fprintf(stderr, "-v         turn on chatty mode (GCs will be reported etc)\n");
+    erts_fprintf(stderr, "-v          turn on chatty mode (GCs will be reported etc)\n");
 
-    erts_fprintf(stderr, "-W<i|w>    set error logger warnings mapping,\n");
-    erts_fprintf(stderr, "           see error_logger documentation for details\n");
+    erts_fprintf(stderr, "-W<i|w>     set error logger warnings mapping,\n");
+    erts_fprintf(stderr, "            see error_logger documentation for details\n");
 
     erts_fprintf(stderr, "\n");
     erts_fprintf(stderr, "Note that if the emulator is started with erlexec (typically\n");
@@ -925,17 +927,40 @@ erl_start(int argc, char **argv)
 	    fprintf(stderr, "The undocumented +H option has been removed (R10B-6).\n\n");
 	    break;
 
-	case 'h':
-	    /* set default heap size */
-	    arg = get_arg(argv[i]+2, argv[i+1], &i);
-	    if ((H_MIN_SIZE = atoi(arg)) <= 0) {
-		erts_fprintf(stderr, "bad heap size %s\n", arg);
-		erts_usage();
-	    }
-	    VERBOSE(DEBUG_SYSTEM,
-                    ("using minimum heap size %d\n",H_MIN_SIZE));
-	    break;
+	case 'h': {
+	    char *sub_param = argv[i]+2;
+	    /* set default heap size
+	     *
+	     * h|ms  - min_heap_size
+	     * h|mbs - min_bin_vheap_size
+	     *
+	     */
+	    if (has_prefix("mbs", sub_param)) {
+		arg = get_arg(sub_param+3, argv[i+1], &i);
+		if ((BIN_VH_MIN_SIZE = atoi(arg)) <= 0) {
+		    erts_fprintf(stderr, "bad heap size %s\n", arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM, ("using minimum binary virtual heap size %d\n", BIN_VH_MIN_SIZE));
 
+	    } else if (has_prefix("ms", sub_param)) {
+		arg = get_arg(sub_param+2, argv[i+1], &i);
+		if ((H_MIN_SIZE = atoi(arg)) <= 0) {
+		    erts_fprintf(stderr, "bad heap size %s\n", arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM, ("using minimum heap size %d\n", H_MIN_SIZE));
+	    } else {
+	        /* backward compatibility */
+		arg = get_arg(argv[i]+2, argv[i+1], &i);
+		if ((H_MIN_SIZE = atoi(arg)) <= 0) {
+		    erts_fprintf(stderr, "bad heap size %s\n", arg);
+		    erts_usage();
+		}
+		VERBOSE(DEBUG_SYSTEM, ("using minimum heap size %d\n", H_MIN_SIZE));
+	    }
+	    break;
+	}
 	case 'd':
 	    /*
 	     * Never produce crash dumps for internally detected
