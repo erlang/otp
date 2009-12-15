@@ -402,7 +402,7 @@ endif
 	$(RM) -f $(TARGET)/*/*/*.c $(TARGET)/*/*/*.h $(TARGET)/*/*/*.S
 	$(RM) -f $(ERL_TOP)/erts/emulator/obj/$(TARGET)/*/*/*.o
 	$(RM) -f $(BINDIR)/beam $(BINDIR)/beam.*
-	$(RM) -f $(BINDIR)/child_setup $(BINDIR)/child_setup.*
+	$(RM) -rf $(BINDIR)/child_setup $(BINDIR)/child_setup.*
 	$(RM) -f $(BINDIR)/hipe_mkliterals $(BINDIR)/hipe_mkliterals.*
 	@set -e ; cd zlib && $(MAKE) clean
 	@set -e ; cd pcre && $(MAKE) clean
