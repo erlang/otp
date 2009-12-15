@@ -310,6 +310,8 @@ main(int argc, char** argv)
 	    case 'W':		/* Enable warnings. */
 		if (strcmp(argv[1]+2, "all") == 0) {
 		    PUSH2("@warn", "999");
+		} else if (strcmp(argv[1]+2, "error") == 0) {
+		    PUSH2("@option", "warnings_as_errors");
 		} else if (isdigit((int)argv[1][2])) {
 		    PUSH2("@warn", argv[1]+2);
 		} else {
@@ -566,6 +568,7 @@ usage(void)
 	{"-pz path", "add path to the end of Erlang's code path"},
 	{"-smp", "compile using SMP emulator"},
 	{"-v", "verbose compiler output"},
+	{"-Werror", "make all warnings into errors"},
 	{"-W0", "disable warnings"},
 	{"-Wnumber", "set warning level to number"},
 	{"-Wall", "enable all warnings"},

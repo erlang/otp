@@ -104,6 +104,10 @@
           must be quoted. Terms which contain spaces
           must be quoted on all platforms.</p>
       </item>
+      <tag>-W<em>error</em></tag>
+      <item>
+        <p>Makes all warnings into errors.</p>
+      </item>
       <tag>-W<em>number</em></tag>
       <item>
         <p>Sets warning level to <em>number</em>. Default is <c><![CDATA[1]]></c>.

@@ -56,6 +56,13 @@ compile_erl(Config) when is_list(Config) ->
 
     ?line run(Config, Cmd, FileName, "-W0", ["_OK_"]),
 
+    %% Try treating warnings as errors.
+
+    ?line run(Config, Cmd, FileName, "-Werror",
+	      ["compile: warnings being treated as errors\$",
+	       "Warning: function foo/0 is unused\$",
+	       "_ERROR_"]),
+
     %% Check a bad file.
 
     ?line BadFile = filename:join(SrcDir, "erl_test_bad.erl"),
