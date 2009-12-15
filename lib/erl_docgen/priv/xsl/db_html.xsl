@@ -61,7 +61,7 @@
                 <xsl:value-of select="$copyright"/>
                 <xsl:value-of select="/book/header/copyright/year[1]"/>
                 <xsl:text>-</xsl:text>
-                <xsl:value-of select="substring-after(substring-after($gendate, ' '), ' ')"/>
+                <xsl:value-of select="substring-after(normalize-space(substring-after($gendate, ' ')), ' ')"/>
                 <xsl:text> </xsl:text>
                 <xsl:value-of select="/book/header/copyright/holder"/>
               </p>
