@@ -1,0 +1,101 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+
+%%
+-module(init_tc).
+
+-export([run/1]).
+
+%% The argument should be a list of filenames (atoms), without extension
+%% A .c extension is assumed.
+%%
+
+run([Name|Rest]) ->
+    case catch run1(atom_to_list(Name)) of
+	{'EXIT', Reason} ->
+	    io:format("Failed: ~p~n", [Reason]),
+	    halt(1);
+	_Other ->
+	    run(Rest)
+    end;
+run([]) ->
+    ok.
+
+run1(Name) ->
+    CFile = Name ++ ".c",
+    {ok, Bin} = file:read_file(CFile),
+    String = binary_to_list(Bin),
+
+    %% This ConstPart stuff is because you can't retrieve part of a match.
+    %% Long live Perl!  
+    
+    ConstPart = "\nTESTCASE\\(",
+    ConstPartLen = 10,
+    {match, Matches} = regexp:matches(String, ConstPart++"[_a-zA-Z]*"),
+    Cases = get_names(Matches, ConstPartLen, Bin, []),
+    generate(Name, Cases).
+
+get_names([{Start, Length}|Rest], Skip, Bin, Result) ->
+    Name = binary_to_list(Bin, Start+Skip, Start+Length-1),
+    get_names(Rest, Skip, Bin, [Name|Result]);
+get_names([], _Skip, _Bin, Result) ->
+    lists:reverse(Result).
+
+generate(TcName, Cases) ->
+    Hrl = TcName ++ "_cases.hrl",
+    {ok, HrlFile} = file:open(Hrl, write),
+    {ok, Dir} = file:get_cwd(),
+    generate_hrl(Cases, HrlFile, {filename:join(Dir, TcName), 0}),
+    file:close(HrlFile),
+    C = TcName ++ "_decl.c",
+    {ok, CFile} = file:open(C, write),
+    generate_c(Cases, CFile, TcName),
+    file:close(CFile).
+
+generate_hrl([Case|Rest], File, {Name, Number}) ->
+    io:format(File, "-define(~s, {\"~s\", ~w}).~n", [Case, Name, Number]),
+    generate_hrl(Rest, File, {Name, Number+1});
+generate_hrl([], _, _) ->
+    ok.
+
+generate_c(Cases, File, TcName) ->
+    E= case lists:prefix("ei_", TcName) of 
+	   true -> "ei_";
+	   false -> ""
+       end,
+    io:format(File, "#include \"~srunner.h\"\n", [E]),
+    lists:foreach(
+      fun(Case) ->
+	      io:format(File, "extern void ~s(void);~n",
+			[Case]) end,
+      Cases),
+    io:format(File, "~nstatic TestCase test_cases[] = {~n", []),
+    lists:foreach(fun(Case) -> io:format(File, "  ~s,~n", [Case]) end, Cases),
+    io:format(File, "~s",
+	      [["};\n\n",
+		"#ifdef VXWORKS\n",
+		"int ",	TcName,	"(int argc, char* argv[])\n",
+		"#else\n",
+		"int main(int argc, char* argv[])\n",
+		"#endif\n",
+		"{\n",
+		"    run_tests(argv[0], test_cases, ",
+		"sizeof(test_cases)/sizeof(test_cases[0]));\n",
+		"    return 0;\n",
+		"}\n"]]).

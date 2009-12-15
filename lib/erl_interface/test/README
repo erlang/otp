@@ -1,0 +1,28 @@
+
+One way to create a new suite, copy an old one
+that is similar to a new one
+
+  % setenv SIMILAR ei_xyz
+  % setenv NEW ei_abc
+
+  % ct mkdir  ${NEW}_SUITE_data
+  % ct mkelem ${NEW}_SUITE.erl
+  % cp ${SIMILAR}_SUITE.erl ${NEW}_SUITE.erl
+  % cp ${SIMILAR}_SUITE_data/* ${NEW}_SUITE_data/
+  % chmod ug+rw ${NEW}_SUITE_data/*
+  % mv ${NEW}_SUITE_data/${SIMILAR}_test.c ${NEW}_SUITE_data/${NEW}_test.c
+  % ct mkelem ${NEW}_SUITE_data/*
+
+Now edit "${NEW}_SUITE.erl" and the files in "${NEW}_SUITE_data/".
+
+To use a test suite you build it and put the result outside
+ClearCase. Then you create soft links to the ClearCase elements.
+
+  % setenv SRC /clearcase/otp/erts/lib/erl_interface/test
+  % setenv DST /ldisk/test
+  % cd $SRC
+  % clearmake -V release TESTROOT=$DST
+  % foreach f (`find . -type f`)
+  foreach> \rm -f /ldisk/test/erl_interface_test/$f
+  foreach> ln -s $SRC/$f $DST/erl_interface_test/$f
+  foreach> end

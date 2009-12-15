@@ -1,0 +1,42 @@
+#
+# %CopyrightBegin%
+# 
+# Copyright Ericsson AB 1997-2009. All Rights Reserved.
+# 
+# The contents of this file are subject to the Erlang Public License,
+# Version 1.1, (the "License"); you may not use this file except in
+# compliance with the License. You should have received a copy of the
+# Erlang Public License along with this software. If not, it can be
+# retrieved online at http://www.erlang.org/.
+# 
+# Software distributed under the License is distributed on an "AS IS"
+# basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+# the License for the specific language governing rights and limitations
+# under the License.
+# 
+# %CopyrightEnd%
+#
+
+include @erl_interface_mk_include@@DS@eidefs.mk
+
+CC0 = @CC@
+CC = ..@DS@all_SUITE_data@DS@gccifier@exe@ -CC"$(CC0)"
+LD = @LD@
+LIBPATH = @erl_interface_libpath@
+LIBERL = $(LIBPATH)/@erl_interface_lib@
+LIBEI = $(LIBPATH)/@erl_interface_eilib@
+LIBFLAGS = ../all_SUITE_data/runner@obj@ \
+	$(LIBERL) $(LIBEI) @LIBS@ @erl_interface_sock_libs@ \
+	@erl_interface_threadlib@
+CFLAGS = @EI_CFLAGS@ $(THR_DEFS) -I@erl_interface_include@ -I../all_SUITE_data
+MATCH_OBJS = match_test@obj@ match_test_decl@obj@
+
+all: match_test@exe@
+
+clean:
+	$(RM) $(MATCH_OBJS)
+	$(RM) match_test@exe@
+
+match_test@exe@: $(MATCH_OBJS) $(LIBERL) $(LIBEI)
+	$(LD) @CROSSLDFLAGS@ -o $@ $(MATCH_OBJS) $(LIBFLAGS)
+

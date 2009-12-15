@@ -1,0 +1,18 @@
+%% -*- erlang -*-
+%% You can test this file using this command.
+%%    file:script("erl_interface.dynspec", [{'TestCCompiler',{msc | gnuc, undefined}}]).
+
+case {TestCCompiler, erlang:system_info(c_compiler_used)} of
+    {{CC, _}, {CC, _}} ->
+	[];
+    {{CC1, _}, {CC2, _}} when CC1 == msc; CC2 == msc ->
+	Comment =
+	    "OTP's static C libraries (compiled with "
+	    ++ atom_to_list(CC2) ++ ") aren't compatible "
+	    "with the C compiler (" ++ atom_to_list(CC1)
+	    ++ ") used for testing.",
+	StaticLibSuites = [all_SUITE],
+	lists:map(fun (Suite) -> {skip,{Suite, Comment}} end, StaticLibSuites);
+    {{CC1, _}, {CC2, _}} ->
+	[]
+end.
