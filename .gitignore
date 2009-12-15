@@ -159,6 +159,11 @@ autom4te.cache
 # wx
 /lib/wx/c_src/Makefile
 /lib/wx/config.mk
+/lib/wx/api_gen/wx_xml/*
+/lib/wx/api_gen/gl_xml/*
+/lib/wx/api_gen/??_doxygen
+/lib/wx/api_gen/??xml_generated
+/lib/wx/wx-*.ez
 
 # xmerl
 
