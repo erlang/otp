@@ -302,7 +302,7 @@ os_process_size() ->
 	    list_to_integer(lib:nonl(Size));
 	_ ->
 	    0
-    end.	    
+    end.
 
 run_tc({Name,Fun}, St) ->
     Before0 = statistics(runtime),
@@ -344,18 +344,18 @@ comp_ret_err(#compile{warnings=Warn0,errors=Err0,options=Opts}=St) ->
 messages_per_file(Ms) ->
     T = lists:sort([{File,M} || {File,Messages} <- Ms, M <- Messages]),
     PrioMs = [erl_scan, epp, erl_parse],
-    {Prio0, Rest} = 
+    {Prio0, Rest} =
         lists:mapfoldl(fun(M, A) ->
                                lists:partition(fun({_,{_,Mod,_}}) -> Mod =:= M;
                                                   (_) -> false
                                                end, A)
                        end, T, PrioMs),
-    Prio = lists:sort(fun({_,{L1,_,_}}, {_,{L2,_,_}}) -> L1 =< L2 end, 
+    Prio = lists:sort(fun({_,{L1,_,_}}, {_,{L2,_,_}}) -> L1 =< L2 end,
                       lists:append(Prio0)),
     flatmap(fun mpf/1, [Prio, Rest]).
 
 mpf(Ms) ->
-    [{File,[M || {F,M} <- Ms, F =:= File]} || 
+    [{File,[M || {F,M} <- Ms, F =:= File]} ||
 	File <- lists:usort([F || {F,_} <- Ms])].
 
 %% passes(form|file, [Option]) -> [{Name,PassFun}]
@@ -495,14 +495,14 @@ select_passes([List|Ps], Opts) when is_list(List) ->
 
 select_cond(Flag, ShouldBe, Pass, Ps, Opts) ->
     ShouldNotBe = not ShouldBe,
-    case member(Flag, Opts) of 
+    case member(Flag, Opts) of
 	ShouldBe    -> select_passes([Pass|Ps], Opts);
 	ShouldNotBe -> select_passes(Ps, Opts)
     end.
 
 %% select_list_passes([Pass], Opts) -> {done,[Pass]} | {not_done,[Pass]}
 %%  Evaluate all conditions having to do with listings in the list of
-%%  passes. 
+%%  passes.
 
 select_list_passes(Ps, Opts) ->
     select_list_passes_1(Ps, Opts, []).
@@ -782,7 +782,7 @@ clean_parse_transforms_1([F|Fs], Acc) ->
     clean_parse_transforms_1(Fs, [F|Acc]);
 clean_parse_transforms_1([], Acc) -> reverse(Acc).
 
-transforms(Os) -> [ M || {parse_transform,M} <- Os ]. 
+transforms(Os) -> [ M || {parse_transform,M} <- Os ].
 
 transform_module(#compile{options=Opt,code=Code0}=St0) ->
     %% Extract compile options from code into options field.
@@ -815,7 +815,7 @@ foldl_transform(St, [T|Ts]) ->
     end;
 foldl_transform(St, []) -> {ok,St}.
 
-get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts]. 
+get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 
 core_transforms(St) ->
     %% The options field holds the complete list of options at this
@@ -1264,7 +1264,7 @@ listing(Ext, St) ->
 listing(LFun, Ext, St) ->
     Lfile = outfile(St#compile.base, Ext, St#compile.options),
     case file:open(Lfile, [write,delayed_write]) of
-	{ok,Lf} -> 
+	{ok,Lf} ->
             Code = restore_expanded_types(Ext, St#compile.code),
 	    LFun(Lf, Code),
 	    ok = file:close(Lf),
