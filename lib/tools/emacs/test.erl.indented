@@ -359,7 +359,7 @@ indent_icr(Z) -> 				% icr = if case receive
 	    X = 43 div 4,
 	    foo(X) 
     end,
-    receive 
+    receive
 	{Z,_,_} ->
 	    X = 43 div 4,
 	    foo(X);

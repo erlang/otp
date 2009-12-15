@@ -4946,6 +4946,7 @@ non-whitespace characters following the point on the current line."
       (setq erlang-electric-newline-inhibit nil)
     (setq erlang-electric-newline-inhibit t)
     (undo-boundary)
+    (erlang-indent-line)
     (end-of-line)
     (newline)
     (condition-case nil
