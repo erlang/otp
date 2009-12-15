@@ -30,8 +30,8 @@ save_ifs=$IFS
 IFS=:
 for p in $PATH; do 
     if [ -f $p/rc.exe ]; then 
-	if [ -n "`$p/rc.exe -? 2>&1 | grep -i "resource compiler"`" ]; then 
-	    RCC=$p/rc.exe
+	if [ -n "`$p/rc.exe -? 2>&1 | grep -i "resource compiler"`" ]; then
+	    RCC=`echo "$p/rc.exe" | sed 's/ /\\\\ /g'`
 	fi
     fi
 done
