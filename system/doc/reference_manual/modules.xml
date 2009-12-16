@@ -167,6 +167,21 @@ fact(0) ->           %  |
         the original user-written file from which the source program
         was produced.</p>
     </section>
+
+    <section>
+        <title>Types and function specifications</title>
+        <p>The current release implements types and function specifications 
+            as described in
+	    <url href="http://www.erlang.org/eeps/eep-0008.html">EEP8 -
+Types and function specifications</url>.
+
+	    <note>
+	     <p>The implementation and EEP8 may not exactly correspond to
+	     each other. In a future release, type and function specifications
+	     will be described in this reference manual.</p>
+	    </note>
+        </p>
+    </section>
   </section>
 
   <section>
