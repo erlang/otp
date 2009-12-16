@@ -2171,6 +2171,11 @@ erts_bif_trace(int bif_index, Process* p,
 void
 trace_gc(Process *p, Eterm what)
 {
+    ERTS_DECL_AM(bin_vheap_size);
+    ERTS_DECL_AM(bin_vheap_block_size);
+    ERTS_DECL_AM(bin_old_vheap_size);
+    ERTS_DECL_AM(bin_old_vheap_block_size);
+
     ErlHeapFragment *bp = NULL;
     ErlOffHeap *off_heap;
     ERTS_TRACER_REF_TYPE tracer_ref = ERTS_NULL_TRACER_REF;	/* Initialized
@@ -2180,6 +2185,7 @@ trace_gc(Process *p, Eterm what)
     Eterm* hp;
     Eterm msg = NIL;
     Uint size;
+
     Eterm tags[] = {
 	am_old_heap_block_size,
 	am_heap_block_size,
@@ -2187,8 +2193,13 @@ trace_gc(Process *p, Eterm what)
 	am_recent_size,
 	am_stack_size,
 	am_old_heap_size,
-	am_heap_size
+	am_heap_size,
+	AM_bin_vheap_size,
+	AM_bin_vheap_block_size,
+	AM_bin_old_vheap_size,
+	AM_bin_old_vheap_block_size
     };
+
     Uint values[] = {
 	OLD_HEAP(p) ? OLD_HEND(p) - OLD_HEAP(p) : 0,
 	HEAP_SIZE(p),
@@ -2196,7 +2207,11 @@ trace_gc(Process *p, Eterm what)
 	HIGH_WATER(p) - HEAP_START(p),
 	STACK_START(p) - p->stop,
 	OLD_HEAP(p) ? OLD_HTOP(p) - OLD_HEAP(p) : 0,
-	HEAP_TOP(p) - HEAP_START(p)
+	HEAP_TOP(p) - HEAP_START(p),
+	MSO(p).overhead,
+	BIN_VHEAP_SZ(p),
+	BIN_OLD_VHEAP(p),
+	BIN_OLD_VHEAP_SZ(p)
     };
     Eterm local_heap[(sizeof(values)/sizeof(Uint))
 		     *(2/*cons*/ + 3/*2-tuple*/ + BIG_UINT_HEAP_SIZE)
