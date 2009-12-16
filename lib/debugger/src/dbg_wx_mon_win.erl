@@ -104,7 +104,7 @@ create_win_batch(Title, Menus) ->
     Hlb = 200,
     Listbox = wxListBox:new(Panel, ?wxID_ANY, [{size,{?Wf,Hlb}},
 					       {style,?wxLB_SINGLE}]),
-    wxSizer:add(LeftSz,Listbox,[{border, 3}]),
+    wxSizer:add(LeftSz,Listbox,[{proportion,1}, {border,3}]),
     wxListBox:connect(Listbox, command_listbox_doubleclicked),
     wxListBox:connect(Listbox, right_down),
 
