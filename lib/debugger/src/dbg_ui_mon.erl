@@ -429,8 +429,7 @@ gui_cmd('Back Trace Size...', State) ->
 
 %% Help Menu
 gui_cmd('Debugger', State) ->
-    HelpFile = filename:join([code:lib_dir(debugger),
-			      "doc", "html", "part_frame.html"]),
+    HelpFile = filename:join([code:lib_dir(debugger), "doc", "html", "index.html"]),
     Window = dbg_ui_mon_win:get_window(State#state.win),
     tool_utils:open_help(Window, HelpFile),
     State;
