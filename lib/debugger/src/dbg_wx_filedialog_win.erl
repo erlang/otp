@@ -375,7 +375,8 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    Start = length(Wanted),
 	    wxTextCtrl:setValue(TC, Path++"/"),
 	    wxTextCtrl:setInsertionPoint(TC, Start),
-	    wxTextCtrl:setSelection(TC, Start, -1),	    
+	    Last = wxTextCtrl:getLastPosition(TC),
+	    wxTextCtrl:setSelection(TC, Start, Last),
 	    destroy_completion(Comp),
 	    wxWindow:setFocus(TC),
 	    State#state{ptext=Path, completion=undefined};
@@ -399,7 +400,7 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    LB = wxListBox:new(Temp, ?COMPLETION_WIN, 
 			       [{style, ?wxLB_SINGLE}, {choices, Files}, {size, Size}]),
 
-	    wxListBox:connect(LB, command_listbox_doubleclicked),
+	    %% wxListBox:connect(LB, command_listbox_doubleclicked),
 	    wxListBox:connect(LB, command_listbox_selected),
 	    wxWindow:show(Temp),
 	    wxWindow:setFocus(TC),

@@ -144,7 +144,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 
 		    win     = Win,
 		    focus   = undefined,
-		    coords  = {0,0},
+		    coords  = {20,20},
 
 		    intdir  = element(2, file:get_cwd()),
 		    pinfos  = [],
