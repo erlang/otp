@@ -281,12 +281,32 @@ do_op(_, Bef, Aft, Rs) ->
 %%  Step over word/non-word characters pushing the stepped over ones on
 %%  the stack.
 
-over_word([C|Cs], Stack, N) ->
+
+over_word(Cs, Stack, N) ->
+    L = length([1 || $\' <- Cs]),
+    case L rem 2 of
+	0 ->
+	    over_word1(Cs, Stack, N);
+	1 ->
+	    until_quote(Cs, Stack, N)
+    end.
+
+until_quote([$\'|Cs], Stack, N) ->
+    {Cs, [$\'|Stack], N+1};
+until_quote([C|Cs], Stack, N) ->
+    until_quote(Cs, [C|Stack], N+1).
+
+over_word1([$\'=C|Cs], Stack, N) ->
+    until_quote(Cs, [C|Stack], N+1);
+over_word1(Cs, Stack, N) ->
+    over_word2(Cs, Stack, N).
+
+over_word2([C|Cs], Stack, N) ->
     case word_char(C) of
-	true -> over_word(Cs, [C|Stack], N+1);
+	true -> over_word2(Cs, [C|Stack], N+1);
 	false -> {[C|Cs],Stack,N}
     end;
-over_word([], Stack, N) when is_integer(N) ->
+over_word2([], Stack, N) when is_integer(N) ->
     {[],Stack,N}.
 
 over_non_word([C|Cs], Stack, N) ->

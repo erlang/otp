@@ -46,23 +46,38 @@ expand_module_name(Prefix) ->
     match(Prefix, code:all_loaded(), ":").
 
 expand_function_name(ModStr, FuncPrefix) ->
-    Mod = list_to_atom(ModStr),
-    case erlang:module_loaded(Mod) of
- 	true ->
-            L = Mod:module_info(),
- 	    case lists:keyfind(exports, 1, L) of
- 		{_, Exports} ->
- 		    match(FuncPrefix, Exports, "(");
- 		_ ->
- 		    {no, [], []}
- 	    end;
- 	false ->
+    case to_atom(ModStr) of
+	{ok, Mod} ->
+	    case erlang:module_loaded(Mod) of
+		true ->
+		    L = Mod:module_info(),
+		    case lists:keyfind(exports, 1, L) of
+			{_, Exports} ->
+			    match(FuncPrefix, Exports, "(");
+			_ ->
+			    {no, [], []}
+		    end;
+		false ->
+		    {no, [], []}
+	    end;
+	error ->
 	    {no, [], []}
+    end.
+
+%% if it's a quoted atom, atom_to_list/1 will do the wrong thing.
+to_atom(Str) ->
+    case erl_scan:string(Str) of
+	{ok, [{atom,_,A}], _} ->
+	    {ok, A};
+	_ ->
+	    error
     end.
 
 match(Prefix, Alts, Extra) ->
     Len = length(Prefix),
-    Matches = [{S, A} || {H, A} <- Alts, prefix(Prefix, S=atom_to_list(H))],
+    Matches = lists:sort(
+		[{S, A} || {H, A} <- Alts,
+			   prefix(Prefix, S=hd(io_lib:fwrite("~w",[H])))]),
     case longest_common_head([N || {N, _} <- Matches]) of
  	{partial, []} ->
  	    {no, [], Matches}; % format_matches(Matches)};
