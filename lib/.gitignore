@@ -1,3 +1,10 @@
+# erl_interface
+
+/erl_interface/bin
+/erl_interface/obj.mt
+/erl_interface/obj.st
+/erl_interface/obj
+
 # megaco
 
 /megaco/src/binary/megaco_ber_bin_drv_media_gateway_control_prev3a.erl

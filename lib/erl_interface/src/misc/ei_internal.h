@@ -149,7 +149,7 @@
   {if (ei_tracelevel >= 5) ei_trace_printf(NAME,1,FORMAT,ARG1,ARG2,ARG3,ARG4, \
                                                          ARG5,ARG6,ARG7);}
 
-int ei_tracelevel;
+extern int ei_tracelevel;
 
 void ei_trace_printf(const char *name, int level, const char *format, ...);
 
