@@ -24,7 +24,7 @@ CMD=""
 OUTPUT_DIRNAME=""
 
 # Find the correct mc.exe. This could be done by the configure script,
-# But as we seldom use the resource compiler, it might as well be done here...
+# But as we seldom use the message compiler, it might as well be done here...
 MCC=""
 save_ifs=$IFS
 IFS=:
@@ -32,7 +32,7 @@ for p in $PATH; do
     if [ -f $p/mc.exe ]; then 
 	if [ -n "`$p/mc.exe -? 2>&1 >/dev/null </dev/null \
                  | grep -i \"message compiler\"`" ]; then 
-	    MCC=$p/mc.exe
+	    MCC=`echo "$p/mc.exe" | sed 's/ /\\\\ /g'`
 	fi
     fi
 done
@@ -68,8 +68,8 @@ while test -n "$1" ; do
 done
 p=$$
 if [ "X$MC_SH_DEBUG_LOG" != "X" ]; then
-    echo rc.sh "$SAVE" >>$MC_SH_DEBUG_LOG
-    echo rc.exe $CMD >>$MC_SH_DEBUG_LOG
+    echo mc.sh "$SAVE" >>$MC_SH_DEBUG_LOG
+    echo mc.exe $CMD >>$MC_SH_DEBUG_LOG
 fi
 if [ -n "$OUTPUT_DIRNAME" ]; then
     cd $OUTPUT_DIRNAME

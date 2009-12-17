@@ -366,6 +366,20 @@ backslashes in your path environment variable in Cygwin bash, but LIB
 and INCLUDE should contain Windows style paths with semicolon,
 drive letters and backslashes.
 
+If you wish to use Visual Studio 2008, a couple things need to be tweaked,
+namely the fact that some of the SDK stuff is installed in (by default)
+C:\Program Files\Microsoft SDKs\v6.0A . Just ensure that that
+C:\Program Files\Microsoft SDKs\v6.0A\Lib is in LIB and
+C:\Program Files\Microsoft SDKs\v6.0A\Include is in INCLUDE. A symptom of not
+doing this is errors about finding kernel32.lib and windows.h.
+
+Additionally, if you encounter errors about mc.exe not being found, you must
+install the entire Windows SDK (the partial SDK included in visual studio
+apparently does not include it). After installing it you'll want to add
+something like: /c/cygdrive/Program\ Files/Microsoft\ SDKs/v7.0/bin to your
+PATH to allow the environment to find mc.exe. The next Visual Studio (2010) is
+expected to include this tool.
+
 * Sun's Java JDK 1.5.0 or higher. Our Java code (jinterface, ic) is
 written for JDK 1.5.0. Get it for Windows and install it, the JRE is
 not enough. If you don't care about Java, you can skip this step, the
