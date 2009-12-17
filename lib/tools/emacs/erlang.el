@@ -4105,19 +4105,22 @@ Return nil if inside string, t if in a comment."
 		  (+ 2 (nth 2 stack-top)))
 		 ((looking-at "::[^_a-zA-Z0-9]")
 		  (nth 2 stack-top))
-		 (t 
-		  (goto-char (nth 1 stack-top))
-		  (cond ((looking-at "::\\s *\\($\\|%\\)")
-			 ;; Line ends with ::
-			 (+ (erlang-indent-find-preceding-expr 2)
-			    erlang-argument-indent))
-			;; (* 2 erlang-indent-level))
-			(t
-			 ;; Indent to the same column as the first
-			 ;; argument.
-			 (goto-char (+ 2 (nth 1 stack-top)))
-			 (skip-chars-forward " \t")
-			 (current-column))))))
+		 (t
+		  (let ((start-alternativ (if (looking-at "|") 2 0)))
+		    (goto-char (nth 1 stack-top))
+		    (- (cond ((looking-at "::\\s *\\($\\|%\\)")
+			      ;; Line ends with ::
+			      (if (eq (car (car (last stack))) 'spec)
+				  (+ (erlang-indent-find-preceding-expr 1)
+				     erlang-argument-indent)
+				(+ (erlang-indent-find-preceding-expr 2)
+				   erlang-argument-indent)))
+			     (t
+			      ;; Indent to the same column as the first
+			      ;; argument.
+			      (goto-char (+ 2 (nth 1 stack-top)))
+			      (skip-chars-forward " \t")
+			      (current-column))) start-alternativ)))))
 	  )))
 
 

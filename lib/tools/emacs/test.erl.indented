@@ -51,8 +51,10 @@
 
 -type ann() :: Var :: integer(). 
 -type ann2() :: Var :: 
-	    'return' | 'return_white_spaces' | 'return_comments'
-	    | 'text' | ann(). 
+	    'return' 
+	  | 'return_white_spaces' 
+	  | 'return_comments'
+	  | 'text' | ann(). 
 -type paren() :: 
 	(ann2()). 
 -type t1() :: atom(). 
@@ -116,6 +118,16 @@
 	  (T :: tuple()) -> R3 :: bar:typen().
 
 -spec mod:t2() -> any(). 
+
+-spec handle_cast(Cast :: {'exchange', node(), [[name(),...]]} 
+			| {'del_member', name(), pid()},
+                  #state{}) -> {'noreply', #state{}}.
+
+-spec handle_cast(Cast :: 
+		    {'exchange', node(), [[name(),...]]} 
+		  | {'del_member', name(), pid()},
+                  #state{}) -> {'noreply', #state{}}.
+
 -opaque attributes_data() :: 
 	  [{'column', column()} | {'line', info_line()} |
 	   {'text', string()}] |  {line(),column()}.   
