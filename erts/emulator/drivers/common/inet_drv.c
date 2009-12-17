@@ -1205,8 +1205,8 @@ static void *realloc_wrapper(void *current, size_t size){
     /* For AssocID, 4 bytes should be enough -- checked by "init": */
 #   define GET_ASSOC_ID		get_int32
 #   define ASSOC_ID_LEN		4
-#   define LOAD_ASSOC_ID	LOAD_INT
-#   define LOAD_ASSOC_ID_CNT	LOAD_INT_CNT
+#   define LOAD_ASSOC_ID        LOAD_UINT
+#   define LOAD_ASSOC_ID_CNT    LOAD_UINT_CNT
 #   define SCTP_ANC_BUFF_SIZE   INET_DEF_BUFFER/2 /* XXX: not very good... */
 #endif
 
