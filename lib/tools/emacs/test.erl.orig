@@ -44,6 +44,24 @@
   b
  }).
 	  
+-record(record3, {a = 8#42423 bor
+    8#4234,
+  b = 8#5432 
+		  bor 2#1010101
+  c = 123 +
+234,
+		  d}).
+
+-record(record4, {
+ a = 8#42423 bor
+   8#4234,
+ b = 8#5432 
+    bor 2#1010101
+ c = 123 +
+     234,
+ d}).
+
+
 -define(MACRO_1, macro).
 -define(MACRO_2(_), macro).
 
@@ -120,13 +138,19 @@ t15(),t20(),t21(), t22(),t25()}.
 -spec mod:t2() -> any(). 
 
 -spec handle_cast(Cast :: {'exchange', node(), [[name(),...]]} 
-			| {'del_member', name(), pid()},
-                  #state{}) -> {'noreply', #state{}}.
+  | {'del_member', name(), pid()},
+     #state{}) -> {'noreply', #state{}}.
 
 -spec handle_cast(Cast :: 
-		    {'exchange', node(), [[name(),...]]} 
-		  | {'del_member', name(), pid()},
-                  #state{}) -> {'noreply', #state{}}.
+   {'exchange', node(), [[name(),...]]} 
+ | {'del_member', name(), pid()},
+   #state{}) -> {'noreply', #state{}}.
+
+
+-spec get_closest_pid(term()) -> 
+       Return :: pid()
+ | {'error', {'no_process', term()}
+   | {'no_such_group', term()}}.
 
 -opaque attributes_data() :: 
 [{'column', column()} | {'line', info_line()} |
@@ -294,7 +318,10 @@ Y =:= 4711 ->
   c
  ),
 
-
+ call(2#42423 bor 
+   #4234,
+  2#5432,
+ other_arg),
  ok;
 indent_basics(Xlongname, 
      #struct{a=Foo,

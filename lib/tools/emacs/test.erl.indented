@@ -44,6 +44,24 @@
 	  b
 	 }).
 
+-record(record3, {a = 8#42423 bor
+		      8#4234,
+		  b = 8#5432 
+		      bor 2#1010101
+		  c = 123 +
+		      234,
+		  d}).
+
+-record(record4, {
+	  a = 8#42423 bor
+	      8#4234,
+	  b = 8#5432 
+	      bor 2#1010101
+	  c = 123 +
+	      234,
+	  d}).
+
+
 -define(MACRO_1, macro).
 -define(MACRO_2(_), macro).
 
@@ -91,7 +109,7 @@
 	       fun((nonempty_maybe_improper_list('integer', any())|
 		    1|2|3|a|b|<<_:3,_:_*14>>|integer()) ->
 			  nonempty_maybe_improper_list('integer', any())|
-			      1|2|3|a|b|<<_:3,_:_*14>>|integer()). 
+			  1|2|3|a|b|<<_:3,_:_*14>>|integer()). 
 -type t20() :: [t19(), ...]. 
 -type t21() :: tuple(). 
 -type t21(A) :: A. 
@@ -121,12 +139,18 @@
 
 -spec handle_cast(Cast :: {'exchange', node(), [[name(),...]]} 
 			| {'del_member', name(), pid()},
-                  #state{}) -> {'noreply', #state{}}.
+		  #state{}) -> {'noreply', #state{}}.
 
 -spec handle_cast(Cast :: 
 		    {'exchange', node(), [[name(),...]]} 
 		  | {'del_member', name(), pid()},
-                  #state{}) -> {'noreply', #state{}}.
+		  #state{}) -> {'noreply', #state{}}.
+
+
+-spec get_closest_pid(term()) -> 
+			     Return :: pid()
+				     | {'error', {'no_process', term()}
+					| {'no_such_group', term()}}.
 
 -opaque attributes_data() :: 
 	  [{'column', column()} | {'line', info_line()} |
@@ -294,7 +318,10 @@ indent_basics(X, Y, Z)
       c
     ),
 
-
+    call(2#42423 bor 
+	     #4234,
+	 2#5432,
+	 other_arg),
     ok;
 indent_basics(Xlongname, 
 	      #struct{a=Foo,
@@ -508,7 +535,7 @@ indent_catch() ->
     B = catch oskar(X),
 
     A = catch (baz + 
-	       bax),
+		   bax),
     catch foo(),
 
     C = catch B + 

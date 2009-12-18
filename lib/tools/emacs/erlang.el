@@ -3955,15 +3955,16 @@ Return nil if inside string, t if in a comment."
 		   	 (nth 2 stack-top))))
 		 (t 
 		  (goto-char (nth 1 stack-top))
-		  (cond ((looking-at "[({]\\s *\\($\\|%\\)")
-			 ;; Line ends with parenthesis.
-			 (erlang-indent-parenthesis (nth 2 stack-top)))
-			(t
-			 ;; Indent to the same column as the first
-			 ;; argument.
-			 (goto-char (1+ (nth 1 stack-top)))
-			 (skip-chars-forward " \t")
-			 (current-column))))))
+		  (let ((base (cond ((looking-at "[({]\\s *\\($\\|%\\)")
+				     ;; Line ends with parenthesis.
+				     (erlang-indent-parenthesis (nth 2 stack-top)))
+				    (t
+				     ;; Indent to the same column as the first
+				     ;; argument.
+				     (goto-char (1+ (nth 1 stack-top)))
+				     (skip-chars-forward " \t")
+				     (current-column)))))
+		    (erlang-indent-standard indent-point token base 't)))))
 	  ;;
 	  ((eq (car stack-top) '<<)
 	   ;; Element of binary (possible comprehension) expression,
@@ -4047,33 +4048,8 @@ Return nil if inside string, t if in a comment."
 				0))
 			  base)) ;; old catch 
 		       (t 
-			;; Look at last thing to see how we are to move relative
-			;; to the base.
-			(goto-char token)
-			(cond ((looking-at "||\\|,\\|->")
-			       base)
-			      ((erlang-at-keyword)
-			       (+ (current-column) erlang-indent-level))
-			      ((or (= (char-syntax (following-char)) ?.)
-				   (erlang-at-operator))
-			       (+ base erlang-indent-level))
-			      (t
-			       (goto-char indent-point)
-			       (cond ((memq (following-char) '(?\( ?{))
-				      ;; Function application or record.
-				      (+ (erlang-indent-find-preceding-expr)
-					 erlang-argument-indent))
-				     ;; Empty line, or end; treat it as the end of
-				     ;; the block.  (Here we have a choice: should
-				     ;; the user be forced to reindent continued
-				     ;; lines, or should the "end" be reindented?)
-				     
-				     ;; Avoid treating comments a continued line.
-				     ((= (following-char) ?%)
-				      base)
-				     ;; Continued line (e.g. line beginning
-				     ;; with an operator.)
-				     (t (+ base erlang-indent-level)))))))))
+			(erlang-indent-standard indent-point token base 'nil)
+			))))
 	       ))
 	  ((eq (car stack-top) 'when)
 	   (goto-char (nth 1 stack-top))
@@ -4120,9 +4096,40 @@ Return nil if inside string, t if in a comment."
 			      ;; argument.
 			      (goto-char (+ 2 (nth 1 stack-top)))
 			      (skip-chars-forward " \t")
-			      (current-column))) start-alternativ)))))
+			      (current-column))) start-alternativ)))))	
 	  )))
 
+(defun erlang-indent-standard (indent-point token base inside-parenthesis)
+  "Standard indent when in blocks or tuple or arguments.
+   Look at last thing to see in what state we are, move relative to the base."
+  (goto-char token)  
+  (cond ((looking-at "||\\|,\\|->\\||")
+	 base)
+	((erlang-at-keyword)
+	 (+ (current-column) erlang-indent-level))
+	((or (= (char-syntax (following-char)) ?.)
+	     (erlang-at-operator))
+	 (+ base erlang-indent-level))
+	(t
+	 (goto-char indent-point)
+	 (cond ((memq (following-char) '(?\( ?{))
+		;; Function application or record.
+		(+ (erlang-indent-find-preceding-expr)
+		   erlang-argument-indent))
+	       ;; Empty line, or end; treat it as the end of
+	       ;; the block.  (Here we have a choice: should
+	       ;; the user be forced to reindent continued
+	       ;; lines, or should the "end" be reindented?)
+	       
+	       ;; Avoid treating comments a continued line.
+	       ((= (following-char) ?%)
+		base)
+	       ;; Continued line (e.g. line beginning
+	       ;; with an operator.)
+	       (t 
+		(if (or (erlang-at-operator) (not inside-parenthesis)) 
+		    (+ base erlang-indent-level)
+		  base))))))
 
 (defun erlang-indent-find-base (stack indent-point &optional offset skip)
   "Find the base column for current stack."
