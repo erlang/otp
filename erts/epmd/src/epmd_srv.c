@@ -99,7 +99,7 @@ static int conn_close_fd(EpmdVars*,int);
 
 static void node_init(EpmdVars*);
 static Node *node_reg(EpmdVars*,char*,int,int);
-static Node *node_reg2(EpmdVars*,char*, int, int, unsigned char, unsigned char, int, int, char*);
+static Node *node_reg2(EpmdVars*,char*, int, int, unsigned char, unsigned char, int, int, int, char*);
 static int node_unreg(EpmdVars*,char*);
 static int node_unreg_sock(EpmdVars*,int);
 
@@ -558,11 +558,11 @@ static void do_request(g, fd, s, buf, bsize)
 	    }
 	name = &buf[11];
 	name[namelen]='\000';
-	extra = &buf[11+namelen+1];
+	extra = &buf[11+namelen+2];
 	extra[extralen]='\000';
 	wbuf[0] = EPMD_ALIVE2_RESP;
 	if ((node = node_reg2(g, name, fd, eport, nodetype, protocol,
-			      highvsn, lowvsn, extra)) == NULL) {
+			      highvsn, lowvsn, extralen, extra)) == NULL) {
 	    wbuf[1] = 1; /* error */
 	    put_int16(99, wbuf+2);
 	} else {
@@ -622,10 +622,10 @@ static void do_request(g, fd, s, buf, bsize)
 		offset = 12;
 		strcpy(wbuf + offset,node->symname);
 		offset += strlen(node->symname);
-		put_int16(strlen(node->extra),wbuf + offset);
+		put_int16(node->extralen,wbuf + offset);
 		offset += 2;
-		strcpy(wbuf + offset,node->extra);
-		offset += (strlen(node->extra)-1);
+		memcpy(wbuf + offset,node->extra,node->extralen);
+		offset += node->extralen;
 		if (reply(g, fd, wbuf, offset) != offset)
 		  {
 		    dbg_tty_printf(g,1,"** failed to send PORT2_RESP (ok) for \"%s\"",name);
@@ -994,7 +994,7 @@ static int node_unreg_sock(EpmdVars *g,int fd)
 
 static Node *node_reg(EpmdVars *g,char *name,int fd, int port)
 {
-    return node_reg2(g, name, fd, port, 0, 0, 0, 0, NULL);
+    return node_reg2(g, name, fd, port, 0, 0, 0, 0, 0, NULL);
 }
 
 static Node *node_reg2(EpmdVars *g,
@@ -1005,6 +1005,7 @@ static Node *node_reg2(EpmdVars *g,
 		       unsigned char protocol,
 		       int highvsn,
 		       int lowvsn,
+		       int extralen,
 		       char* extra)
 {
   Node *prev;			/* Point to previous node or NULL */
@@ -1103,7 +1104,8 @@ static Node *node_reg2(EpmdVars *g,
   node->protocol = protocol;
   node->highvsn  = highvsn;
   node->lowvsn   = lowvsn;
-  strcpy(node->extra,extra);
+  node->extralen = extralen;
+  memcpy(node->extra,extra,extralen);
   strcpy(node->symname,name);
   FD_SET(fd,&g->orig_read_mask);
 

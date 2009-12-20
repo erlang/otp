@@ -294,6 +294,7 @@ struct enode {
   char protocol;                /* 0 = tcp/ipv4 */
   unsigned short highvsn;       /* 0 = OTP-R3 erts-4.6.x, 1 = OTP-R4 erts-4.7.x*/
   unsigned short lowvsn;
+  int extralen;
   char extra[MAXSYMLEN+1];
 };
 
