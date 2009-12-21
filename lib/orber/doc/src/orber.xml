@@ -558,7 +558,7 @@
       <desc>
         <p>This function installs all the necessary mnesia tables and
           load default data in some of them. If one or more Orber tables
-          already exists the installation fails. The function\011
+          already exists the installation fails. The function
           <em>uninstall</em> may be used, if it is safe, i.e., no other 
           application is running Orber.</p>
         <p>Preconditions:</p>

@@ -281,7 +281,7 @@ typedef struct {
         <p>By using the <em>CORBA_Environment_alloc</em>/2 function. </p>
         <p>The CORBA_Environment_alloc function is defined as:</p>
         <code type="none">
-\\011  CORBA_Environment *CORBA_Environment_alloc(int inbufsz, 
+          CORBA_Environment *CORBA_Environment_alloc(int inbufsz, 
                                                      int outbufsz);
         </code>
         <p>where:</p>

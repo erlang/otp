@@ -69,9 +69,9 @@
       <title>IDL Operations</title>
       <p>An IDL operation is declared as follows:</p>
       <code type="none">
-\011[oneway] RetType Op(in IType1 I1, in IType2 I2, ..., in ITypeN IN,
-\011out OType1 O1, out OType2 O2, ..., out OTypeM OM)
-\011N, M = 0, 1, 2, ...\011\011(2.1.1)
+    [oneway] RetType Op(in IType1 I1, in IType2 I2, ..., in ITypeN IN,
+    out OType1 O1, out OType2 O2, ..., out OTypeM OM)
+    N, M = 0, 1, 2, ...        (2.1.1)
       </code>
       <p>`Op' is the operation name, RetType is the return type, and ITypei, 
         i = 1, 2, ..., N, and OTypej, j = 1, 2, ..., M, are the `in' types
@@ -146,13 +146,13 @@
     <section>
       <title>Call (Request/Reply, i.e. not oneway)</title>
       <code type="none">
-    request:\011\011 Op\011\011\011atom()\011\011N = 0\011
-\011\011\011 {Op, I1, I2, ..., IN}\011tuple()\011\011N > 0
-\011\011\011\011\011\011\011\011(3.1.1)
+    request:         Op                      atom()     N = 0    
+                    {Op, I1, I2, ..., IN}    tuple()    N > 0
+                                                        (3.1.1)
 
-    reply:\011\011 Ret\011\011\011\011\011M = 0
-\011\011\011 {Ret, O1, O2, ..., OM}\011\011\011M > 0
-\011\011\011\011\011\011\011\011(3.1.2)      </code>
+    reply:         Ret                                  M = 0
+                   {Ret, O1, O2, ..., OM}               M > 0
+                                                        (3.1.2)</code>
       <p><em>Notice:</em> Even if the RetType of the operation Op is 
         declared to be 'void', a return value 'ok' is returned in 
         the reply message. That
@@ -166,9 +166,9 @@
       <title>Cast (oneway)</title>
       <code type="none">
 
-    notification:\011Op\011\011\011atom()\011\011N = 0
-\011\011\011{Op, I1, I2, ..., IN}\011tuple()\011\011N > 0
-\011\011\011\011\011\011\011\011(3.2.1)      </code>
+    notification:    Op                      atom()     N = 0
+                     {Op, I1, I2, ..., IN}   tuple()    N > 0
+                                                        (3.2.1)</code>
       <p>(There is of course no return message).
         </p>
     </section>
@@ -184,9 +184,9 @@
       <title>Call</title>
       <code type="none">
 
-    request:\011{'$gen_call', {self(), Ref}, Request}\011\011(4.1.1)
+    request:    {'$gen_call', {self(), Ref}, Request}   (4.1.1)
 
-    reply:\011{Ref, Reply}\011\011\011\011\011(4.1.2)      </code>
+    reply:      {Ref, Reply}                            (4.1.2)</code>
       <p>where Request and Reply are the messages defined in the previous
         chapter.
         </p>
@@ -195,7 +195,7 @@
     <section>
       <title>Cast</title>
       <code type="none">
-    notification:    {'$gen_cast', Notification}\011\011(4.2.1)      </code>
+    notification:    {'$gen_cast', Notification}        (4.2.1)      </code>
       <p>where Notification is the message defined in the previous chapter.
         </p>
     </section>
@@ -205,7 +205,7 @@
     <title>Erlang Distribution Protocol</title>
     <p>Messages (of interest here) between Erlang nodes are of the form: </p>
     <code type="none">
-        Len(4), Type(1), CtrlBin(N), MsgBin(M)\011\011\011(5.1)    </code>
+        Len(4), Type(1), CtrlBin(N), MsgBin(M)          (5.1)    </code>
     <p>Type is equal to 112 = PASS_THROUGH. 
       </p>
     <p>CtrlBin and MsgBin are Erlang terms in binary form (as if created
@@ -215,10 +215,10 @@
     <p>CtrlBin (of interest here) contains the SEND and REG_SEND control
       messages, which are binary forms of the Erlang terms</p>
     <code type="none">
-\011{2, Cookie, ToPid} ,\011\011\011\011\011(5.2)    </code>
+        {2, Cookie, ToPid} ,                            (5.2)    </code>
     <p>and</p>
     <code type="none">
-\011{6, FromPid, Cookie, ToName} ,\011\011\011\011(5.3)    </code>
+        {6, FromPid, Cookie, ToName} ,                  (5.3)    </code>
     <p>respectively.
       </p>
     <p>The CtrlBin(N) message is read and written by erl_interface code

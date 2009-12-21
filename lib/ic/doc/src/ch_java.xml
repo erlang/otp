@@ -711,14 +711,14 @@ public class sHelper {
    // methods
    public static s unmarshal(OtpInputStream in) 
       throws java.lang.Exception {
-\011:
-\011:
+        :
+        :
    };
 
    public static void marshal(OtpOutputStream out, s value) 
       throws java.lang.Exception {
-\011:
-\011:
+        :
+        :
    };
 
 };

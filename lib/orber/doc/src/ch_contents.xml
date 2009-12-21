@@ -112,8 +112,8 @@ A concise history of Orber.</p>
       <title>IDL to Erlang Mapping</title>
       <p>The OMG IDL mapping for Erlang, which is necessary to access the
         functionality of Orber, is described, The mapping structure is 
-        included as the\011basic and the constructed OMG IDL types 
-        references, invocations\011and Erlang characteristics. An example is
+        included as the basic and the constructed OMG IDL types 
+        references, invocations and Erlang characteristics. An example is
         also provided.</p>
     </section>
 

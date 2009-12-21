@@ -697,14 +697,14 @@ module DB {
 module x {
 
     struct y_z {
-\011...
+    ...
     };
 
     interface y {
 
-\011struct z {
-\011    ...
-\011};
+    struct z {
+        ...
+    };
     };
 };
       </code>
@@ -815,7 +815,7 @@ module m {
     const float pi = 3.14;
 
     interface i {
-\011const float pi = 3.1415;
+    const float pi = 3.1415;
     };
 };
     </code>
@@ -1036,19 +1036,19 @@ $> erlc +"{be,erl_template}" DB.idl
 %% Description: 
 %%----------------------------------------------------------------------
 logon(State, ID, PW) ->
-\011%% Check if the ID/PW is valid and what 
-\011%% type of user it is (Common or Administrator).
-\011OE_Reply
+    %% Check if the ID/PW is valid and what 
+    %% type of user it is (Common or Administrator).
+    OE_Reply
             = case check_user(ID, PW) of
-\011         {ok, administrator} ->
-\011            'DB_Administrator':oe_create();
-\011         {ok, common} ->
-\011            'DB_CommonUser':oe_create();
-\011         error ->
-\011            %% Here we should throw an exception              
- \011           corba:raise(....)
+             {ok, administrator} ->
+                'DB_Administrator':oe_create();
+             {ok, common} ->
+                'DB_CommonUser':oe_create();
+             error ->
+                %% Here we should throw an exception              
+                corba:raise(....)
         end,
-\011{reply, OE_Reply, State}.
+    {reply, OE_Reply, State}.
 
 %%======================================================================
 %% Internal Functions
@@ -1064,7 +1064,7 @@ logon(State, ID, PW) ->
 %% Description: Initiates the server
 %%----------------------------------------------------------------------
 init(_Env) ->
-\011{ok, #state{}}.
+    {ok, #state{}}.
 
 
 %%----------------------------------------------------------------------
@@ -1076,7 +1076,7 @@ init(_Env) ->
 %% Description: Invoked when the object is terminating.
 %%----------------------------------------------------------------------
 terminate(_Reason, _State) ->
-\011ok.
+    ok.
 
 
 %%----------------------------------------------------------------------
@@ -1090,7 +1090,7 @@ terminate(_Reason, _State) ->
 %%              due to code replacement.
 %%----------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
-\011{ok, State}.
+    {ok, State}.
 
 
 %%----------------------------------------------------------------------
@@ -1104,7 +1104,7 @@ code_change(_OldVsn, State, _Extra) ->
 %% Description: Invoked when, for example, the server traps exits.
 %%----------------------------------------------------------------------
 handle_info(_Info, State) ->
-\011{noreply, State}.
+    {noreply, State}.
     ]]></code>
     <p>Since <c>DB_Administrator</c> inherits from <c>DB_CommonUser</c>,
       we must implement <c>delete</c> in the <c>DB_Administrator_impl.erl</c>

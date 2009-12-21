@@ -770,24 +770,24 @@ CORBA_Environment* oe_env)
         <p>While the <c>erlang::binary</c> idl type has the same C-definition as 
           a generated sequence of octets :</p>
         <code type="none"><![CDATA[
-\011  module erlang
-\011  {
+      module erlang
+      {
 
-\011  ....
+      ....
 
-\011  // an erlang binary
-\011  typedef sequence<octet> binary;
-\011  
-\011  };
+      // an erlang binary
+      typedef sequence<octet> binary;
+      
+      };
         ]]></code>
         <p>it provides a way on sending trasparent  data between C and Erlang.</p>
         <p>The C-definition (ic.h) for an erlang binary is :</p>
         <code type="none">
-\011  typedef struct {
-\011  CORBA_unsigned_long _maximum;
-\011  CORBA_unsigned_long _length;
-\011  CORBA_octet* _buffer;
-\011  } erlang_binary;                        /* ERLANG BINARY */
+      typedef struct {
+      CORBA_unsigned_long _maximum;
+      CORBA_unsigned_long _length;
+      CORBA_octet* _buffer;
+      } erlang_binary;                        /* ERLANG BINARY */
         </code>
         <p>The differences (between <c>erlang::binary</c> and <c><![CDATA[sequence< octet >]]></c>) are :</p>
         <list type="bulleted">

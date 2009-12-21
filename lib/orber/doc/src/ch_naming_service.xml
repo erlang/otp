@@ -116,7 +116,7 @@ Figure 1: Contextual object relationships using the Naming Service.</icaption>
       <p>In order to use the naming service you have to fetch an 
         initial reference to it. This is done with:</p>
       <code type="none">
-\011NS = corba:resolve_initial_references("NameService").
+NS = corba:resolve_initial_references("NameService").
       </code>
       <note>
         <p>NS in the other use-cases refers to this initial reference.</p>
@@ -208,17 +208,17 @@ Sc = corba:string_to_object("corbaname:rir:/NameService#workgroup/services/").
 {BList, BIterator} = 'CosNaming_NamingContext':list(Sc, 10).
 
 lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of 
-\011nobject ->
-\011\011io:format("id: %s, kind: %s, type: object~n", [Id, Kind]);
-\011 _ ->
-\011\011io:format("id: %s, kind: %s, type: ncontext~n", [Id, Kind])
-\011end end,
-\011Blist).
+    nobject ->
+        io:format("id: %s, kind: %s, type: object~n", [Id, Kind]);
+    _ ->
+        io:format("id: %s, kind: %s, type: ncontext~n", [Id, Kind])
+    end end,
+    Blist).
           </code>
         </item>
       </list>
       <note>
-        <p>Normally a <term id="BindingIterator"><termdef>The binding iterator (Like a book mark) indicates which objects have been read from the list.</termdef></term>is helpful in situations where you have a large\011number of objects 
+        <p>Normally a <term id="BindingIterator"><termdef>The binding iterator (Like a book mark) indicates which objects have been read from the list.</termdef></term>is helpful in situations where you have a large number of objects 
           in a list, as the programmer then can traverse it more easily.
           In Erlang it is not needed, because lists are easily handled in the 
           language itself.</p>

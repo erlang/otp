@@ -45,7 +45,7 @@
       <title>Generating Erlang Code</title>
       <p>Run the IDL compiler on this file by calling the <c>ic:gen/1</c> function      </p>
       <code type="erl">
-\0111> ic:gen("stack").
+     1> ic:gen("stack").
       </code>
       <p>This will produce the client stub and server skeleton. Among other files a stack API module named <c>StackModule_Stack.erl</c>
         will be produced.

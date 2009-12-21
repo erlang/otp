@@ -188,17 +188,17 @@ out_reply_encoded({ObjTable, ChecksumModule}, ObjKey, Ctx, Op, Bin, Extra) ->
 
 %% Interceptor functions.
 -export([new_out_connection/3,
-\011 new_in_connection/3,
-\011 closed_in_connection/1,
-\011 closed_out_connection/1,
-\011 in_request_encoded/6,
-\011 in_reply_encoded/6,
-\011 out_reply_encoded/6,
-\011 out_request_encoded/6,
-\011 in_request/6,
-\011 in_reply/6,
-\011 out_reply/6,
-\011 out_request/6]).
+     new_in_connection/3,
+     closed_in_connection/1,
+     closed_out_connection/1,
+     in_request_encoded/6,
+     in_reply_encoded/6,
+     out_reply_encoded/6,
+     out_request_encoded/6,
+     in_request/6,
+     in_reply/6,
+     out_reply/6,
+     out_request/6]).
 
 new_in_connection(Arg, Host, Port) ->
     %% Since we only use one interceptor we do not care about the

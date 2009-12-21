@@ -97,9 +97,9 @@ ID2 = 'CosEventDomainAdmin_EventDomain':add_channel(ED, Ch2),
 
 %% To connect them, we must first define a connection struct:
 C1 = #'CosEventDomainAdmin_Connection'{supplier_id=ID1, 
-\011\011\011\011       consumer_id=ID2,
-\011\011\011\011       ctype='STRUCTURED_EVENT',
-\011\011\011\011       notification_style='Pull'},
+                                       consumer_id=ID2,
+                                       ctype='STRUCTURED_EVENT',
+                                       notification_style='Pull'},
 
 %% Connect them:
 'CosEventDomainAdmin_EventDomain':add_connection(ED, C1),

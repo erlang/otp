@@ -124,7 +124,7 @@ ChFac = cosNotificationApp:start_factory([]),
 {AdminSupplier, ASID}=
          'CosNotifyChannelAdmin_EventChannel':new_for_suppliers(Ch, 'OR_OP'),
 {AdminConsumer, ACID}= 
-\011'CosNotifyChannelAdmin_EventChannel':new_for_consumers(Ch,'OR_OP'),
+         'CosNotifyChannelAdmin_EventChannel':new_for_consumers(Ch,'OR_OP'),
 
 %% Use the corresponding Admin object to get access to wanted Proxies
 

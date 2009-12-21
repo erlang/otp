@@ -99,9 +99,8 @@
           <em>MAY ONLY</em> be used during testing and development.</p>
         <code type="none">
 Example: 
-\011  
-  corba:create('StackModule_Stack', "IDL:StackModule/Stack:1.0",
-\011       {10, test})
+
+  corba:create('StackModule_Stack', "IDL:StackModule/Stack:1.0", {10, test})
         </code>
       </desc>
     </func>

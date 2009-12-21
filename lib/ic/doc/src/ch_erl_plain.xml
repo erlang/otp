@@ -75,7 +75,7 @@
       <item>
         <p>Main file : "plain.idl"</p>
         <code type="none">
-\011   
+
 module rmod {
  
   interface random {
