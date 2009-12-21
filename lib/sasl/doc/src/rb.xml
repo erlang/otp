@@ -46,17 +46,18 @@
       <name>grep(RegExp)</name>
       <fsummary>Search the reports for a regular expression</fsummary>
       <type>
-        <v>RegExp = string()</v>
+        <v>RegExp = string() | {string, Options} | mp(), {mp(), Options}</v>
       </type>
       <desc>
         <p>All reports containing the regular expression <c>RegExp</c>
           are printed.
           </p>
-        <p><c>RegExp</c> is a string containing the regular
-          expression. Refer to the module <c>regexp</c> in the STDLIB 
-          reference  manual
-          for a definition of valid regular expressions. They are
-          essentially the same as the UNIX command <c>egrep</c>.
+        <p><c>RegExp</c> can be a string containing the regular
+          expression; a tuple with the string and the options for
+	  compilation; a compiled regular expression; a compiled
+	  regular expression and the options for running it.
+	  Refer to the module <c>re</c> and specially the function <c>re:run/3</c>
+	  for a definition of valid regular expressions and options.
           </p>
       </desc>
     </func>

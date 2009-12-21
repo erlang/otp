@@ -90,7 +90,9 @@ help() ->
     io:format("rb:list(Type)      - list all reports of type Type~n"),
     io:format("      currently supported types are:~n"),
     print_types(),
-    io:format("rb:grep(RegExp)    - print reports containing RegExp~n"),
+    io:format("rb:grep(RegExp)      - print reports containing RegExp.~n"),
+    io:format("                     RegExp must be a valid argument for ~n"),
+    io:format("                     the function re:run/2 or re:run/3.~n"),
     io:format("rb:rescan()        - rescans the report directory with same~n"),
     io:format("                     options.~n"),
     io:format("rb:rescan(Options) - rescans the report directory with new~n"),
@@ -133,7 +135,6 @@ print_types() ->
     io:format("         - progress~n"),
     io:format("         - error~n").
 
-	
 init(Options) ->
     process_flag(priority, low),
     process_flag(trap_exit, true),
@@ -190,8 +191,13 @@ handle_call(show, _From, State) ->
     {reply, ok, State#state{device = NewDevice}};
 handle_call({grep, RegExp}, _From, State) ->
     #state{dir = Dir, data = Data, device = Device, abort = Abort, log = Log} = State,
-    NewDevice = print_grep_reports(Dir, Data, RegExp, Device, Abort, Log),
-    {reply, ok, State#state{device = NewDevice}}.
+    try print_grep_reports(Dir, Data, RegExp, Device, Abort, Log) of
+	NewDevice ->
+	    {reply, ok, State#state{device = NewDevice}}
+    catch
+	error:Error ->
+	    {reply, {error, Error}, State}
+    end.
 
 terminate(_Reason, #state{device = Device}) ->
     close_device(Device).
@@ -622,21 +628,34 @@ check_rep(Fd, FilePosition, Device, RegExp, Number, Abort, Log) ->
     case read_rep_msg(Fd, FilePosition) of
 	{Date, Msg} ->
 	    MsgStr = lists:flatten(io_lib:format("~p",[Msg])),
-	    case regexp:match(MsgStr, RegExp) of
-		{match, _, _} ->
+	    case run_re(MsgStr, RegExp) of
+		match ->
 		    io:format("Found match in report number ~w~n", [Number]),
 		    case catch rb_format_supp:print(Date, Msg, Device) of
 			{'EXIT', _} ->
 			    handle_bad_form(Date, Msg, Device, Abort, Log);
 			_ ->
 			    {proceed,Device}
-		    end;		
+		    end;
 		_ ->
 		    {proceed,Device}
 	    end;
 	_ ->
 	    io:format("rb: Cannot read from file~n"),
 	    {proceed,Device}
+    end.
+
+run_re(Subject, {Regexp, Options}) ->
+    run_re(Subject, Regexp, Options);
+run_re(Subject, Regexp) ->
+    run_re(Subject, Regexp, []).
+
+run_re(Subject, Regexp, Options) ->
+    case re:run(Subject, Regexp, Options) of
+        nomatch ->
+            nomatch;
+	_ ->
+            match
     end.
 
 read_rep(Fd, FilePosition, Device, Abort, Log) ->
