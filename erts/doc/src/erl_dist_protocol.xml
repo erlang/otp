@@ -129,8 +129,8 @@ By default EPMD listens on port 4369.
 	    <cell align="center">PortNo</cell>
 	    <cell align="center">NodeType</cell>
 	    <cell align="center">Protocol</cell>
-	    <cell align="center">LowestVersion</cell>
 	    <cell align="center">HighestVersion</cell>
+	    <cell align="center">LowestVersion</cell>
 	    <cell align="center">Nlen</cell>
 	    <cell align="center">NodeName</cell>
 	    <cell align="center">Elen</cell>
@@ -150,14 +150,14 @@ By default EPMD listens on port 4369.
 	    <item>
 	      0 = tcp/ip-v4, ...
 	    </item>
-	    <tag><c>LowestVersion</c></tag>
-	    <item>
-	      The lowest distribution version that this node can handle.
-	      See the next field for possible values.
-	    </item>
 	    <tag><c>HighestVersion</c></tag>
 	    <item>
 	      The highest distribution version that this node can handle.
+	      The value in R6B and later is 5.
+	    </item>
+	    <tag><c>LowestVersion</c></tag>
+	    <item>
+	      The lowest distribution version that this node can handle.
 	      The value in R6B and later is 5.
 	    </item>
 	    <tag><c>Nlen</c></tag>
