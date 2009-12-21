@@ -286,15 +286,15 @@ typedef string<10> myString10;
 typedef wstring<10> myWString10;
       ]]></code>
       <p>If we want to define a char/string or wchar/wstring constant, we can
-        use octal (\\OOO - one, two or three octal digits), 
-        hexadecimal (\\xHH - one or two hexadecimal digits) and unicode (\\uHHHH -
+        use octal (\OOO - one, two or three octal digits), 
+        hexadecimal (\xHH - one or two hexadecimal digits) and unicode (\uHHHH -
         one, two, three or four hexadecimal digits.) representation as well.
         For example:</p>
       <code type="none">
-const string  SwedensBestSoccerTeam = "\\101" "\\x49" "\\u004B";
-const wstring SwedensBestHockeyTeam = L"\\101\\x49\\u004B";
-const char  aChar  = '\\u004B';  
-const wchar aWchar = L'\\u004C';
+const string  SwedensBestSoccerTeam = "\101" "\x49" "\u004B";
+const wstring SwedensBestHockeyTeam = L"\101\x49\u004B";
+const char  aChar  = '\u004B';  
+const wchar aWchar = L'\u004C';
       </code>
       <p>Naturally, we can use <c>"Erlang"</c>, <c>L"Rocks"</c>, <c>'A'</c>
         and <c>L'A'</c> as well.</p>
@@ -1421,11 +1421,11 @@ interface i {
       </row>
       <row>
         <cell align="left" valign="middle">{tk_objref, IFRId, Name}</cell>
-        <cell align="left" valign="middle">{tk_objref, "IDL:M1\\I1:1.0", "I1"}</cell>
+        <cell align="left" valign="middle">{tk_objref, "IDL:M1\I1:1.0", "I1"}</cell>
       </row>
       <row>
         <cell align="left" valign="middle">{tk_struct, IFRId, Name, [{ElemName, ElemTC}]}</cell>
-        <cell align="left" valign="middle">{tk_struct, "IDL:M1\\S1:1.0", "S1", [{"a", tk_long}, {"b", tk_char}]}</cell>
+        <cell align="left" valign="middle">{tk_struct, "IDL:M1\S1:1.0", "S1", [{"a", tk_long}, {"b", tk_char}]}</cell>
       </row>
       <row>
         <cell align="left" valign="middle">{tk_union, IFRId, Name, DiscrTC, DefaultNr, [{Label, ElemName, ElemTC}]}         <br></br>

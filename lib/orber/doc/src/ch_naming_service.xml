@@ -427,7 +427,7 @@ lists:foreach(fun({{Id, Kind},BindingType}) -> case BindingType of
           <cell align="left" valign="middle">An Id with a trailing '.' is not allowed.</cell>
         </row>
         <row>
-          <cell align="left" valign="middle">"i\\\\/d1/i\\\\.d2"</cell>
+          <cell align="left" valign="middle">"i\\/d1/i\\.d2"</cell>
           <cell align="left" valign="middle">[{"i/d1",""},{"i.d2",""}]</cell>
           <cell align="left" valign="middle">Since '.' and '/' are used to separate the components, these tokens must be escaped to be correctly converted.</cell>
         </row>

@@ -30,8 +30,6 @@
   <description>
     <p>The Orber Application is an Erlang implementation of a CORBA Object 
       Request Broker.</p>
-    <p>For information about older versions see
-      <url href="part_notes_history_frame.html">release notes history</url>.</p>
   </description>
   <xi:include href="notes.xml"/>
 </part>

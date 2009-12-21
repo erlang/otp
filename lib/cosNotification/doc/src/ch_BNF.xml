@@ -181,7 +181,7 @@ FilterID = 'CosNotifyChannelAdmin_ConsumerAdmin':
 
 /* Character set issues */
 <Ident> :=<Leader> <FollowSeq> 
-    | \\ < Leader> <FollowSeq>
+    | \ < Leader> <FollowSeq>
 
 <FollowSeq> := /* <empty> */ 
     | <FollowSeq> <Follow> 
@@ -215,8 +215,8 @@ FilterID = 'CosNotifyChannelAdmin_ConsumerAdmin':
     | <Other> 
     | <Special> 
 
-<Special> := \\\\ 
-    | \\' 
+<Special> := \\ 
+    | \' 
 
 <Leader> := <Alpha>
 

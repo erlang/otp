@@ -64,7 +64,6 @@ XML_REF3_FILES = \
 	orber_acl.xml
 
 XML_PART_FILES = \
-	part_notes_history.xml \
 	part.xml \
 	part_notes.xml
 
@@ -84,10 +83,6 @@ XML_CHAPTER_FILES = \
 	ch_interceptors.xml \
 	ch_orberweb.xml \
 	ch_debugging.xml
-
-XML_HTML_FILES = \
-	notes_history.xml
-
 
 BOOK_FILES = book.xml
 
@@ -124,7 +119,6 @@ INTERNAL_HTML_FILES = $(TECHNICAL_DESCR_FILES:%.xml=$(HTMLDIR)/%.html)
 
 HTML_FILES = $(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_HTML_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info

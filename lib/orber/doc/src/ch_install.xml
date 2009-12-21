@@ -483,7 +483,7 @@ nodeB@hostB> orber:start().
       <item>Since Orber domains, they are supposed to communicate via IIOP,
       <em>MUST</em> have unique names, communication will
        fail if two domains have the same name. The domain name <em>MAY NOT</em>
-       contain <c>^G</c> (i.e. <c>\\007</c>).</item>
+       contain <c>^G</c> (i.e. <c>\007</c>).</item>
       <tag><em>iiop_port</em></tag>
       <item>If set to 0 the OS will pick any vacant port. 
             <br></br>
@@ -595,7 +595,7 @@ nodeB@hostB> orber:start().
        the <c>interceptors</c> parameter.</item>
       <tag><em>orbInitRef</em></tag>
       <item>Setting this option, e.g., 
-      <c>erl -orber orbInitRef [\\"NameService=corbaloc::host.com/NameService\\"]</c>, 
+      <c>erl -orber orbInitRef [\"NameService=corbaloc::host.com/NameService\"]</c>, 
        will alter the location from where <c>corba:resolve_initial_references(Key)</c> 
        tries to find an object matching the given Key. The keys will also appear when
        invoking <c>corba:list_initial_services()</c>. This variable overrides
@@ -605,7 +605,7 @@ nodeB@hostB> orber:start().
        found, and this variable is set, it determines the location from where 
       <c>orber:resolve_initial_references(Key)</c> tries to find an object 
        matching the given Key. Usage:
-      <c>erl -orber orbDefaultInitRef \\"corbaloc::host.com\\"</c>.</item>
+      <c>erl -orber orbDefaultInitRef \"corbaloc::host.com\"</c>.</item>
       <tag><em>orber_debug_level</em></tag>
       <item>The range is 0 to 10.
        Using level 10 is the most verbose configuration.
