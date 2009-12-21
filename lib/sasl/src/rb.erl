@@ -415,7 +415,7 @@ read_report(Fd) ->
 		    Ref = make_ref(),
 		    case (catch {Ref,binary_to_term(Bin)}) of
 			{'EXIT',_} ->
-			    {error, "Inclomplete erlang term in log"};
+			    {error, "Incomplete erlang term in log"};
 			{Ref,Term} ->
 			    {ok, Term}
 		    end
