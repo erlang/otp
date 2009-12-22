@@ -170,10 +170,19 @@
         <p>Establishes a new association for the socket <c>Socket</c>,
           with the peer (SCTP server socket) given by
           <c>Addr</c> and <c>Port</c>. The <c>Timeout</c>,
-          is expressed in milliseconds.</p>
-        <p>A socket can be associated with multiple peers.
-                    <marker id="record-sctp_assoc_change"></marker>
+          is expressed in milliseconds. A socket can be associated with multiple peers.</p>
 
+        <p><b>WARNING:</b>Using a value of <c>Timeout</c> less than
+        the maximum time taken by the OS to establish an association (around 4.5 minutes
+        if the default values from RFC 4960 are used) can result in
+        inconsistent or incorrect return values. This is especially
+        relevant for associations sharing the same <c>Socket</c>
+        (i.e. source address and port) since the controlling process
+        blocks until <c>connect/*</c> returns.
+	  <seealso marker="#connect_init/4">connect_init/*</seealso>
+	  provides an alternative not subject to this limitation.</p>
+
+        <p><marker id="record-sctp_assoc_change"></marker>
           The result of <c>connect/*</c> is an <c>#sctp_assoc_change{}</c>
           event which contains, in particular, the new 
           <seealso marker="#type-assoc_id">Association ID:</seealso></p>
@@ -230,6 +239,45 @@
             <p><c>shutdown_comp</c>.</p>
           </item>
         </list>
+      </desc>
+    </func>
+    <func>
+      <name>connect_init(Socket, Addr, Port, Opts) -&gt; ok | {error, posix()}</name>
+      <fsummary>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>.</fsummary>
+      <desc>
+        <p>Same as <c>connect_init(Socket, Addr, Port, Opts, infinity)</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>connect_init(Socket, Addr, Port, [Opt], Timeout) -&gt; ok | {error, posix()}</name>
+      <fsummary>Initiate a new association for the socket <c>Socket</c>, with a peer (SCTP server socket)</fsummary>
+      <type>
+        <v>Socket  = sctp_socket()</v>
+        <v>Addr    = ip_address() | Host</v>
+        <v>Port    = port_number()</v>
+        <v>Opt     = sctp_option()</v>
+        <v>Timeout = timeout()</v>
+        <v>Host    = atom() | string()</v>
+      </type>
+      <desc>
+        <p>Initiates a new association for the socket <c>Socket</c>,
+          with the peer (SCTP server socket) given by
+          <c>Addr</c> and <c>Port</c>.</p>
+	<p>The fundamental difference between this API
+	and <c>connect/*</c> is that the return value is that of the
+	underlying OS connect(2) system call. If <c>ok</c> is returned
+	then the result of the association establishement is received
+	by the calling process as
+	an <seealso marker="#record-sctp_assoc_change">
+	    #sctp_assoc_change{}</seealso>
+	event. The calling process must be prepared to receive this, or
+	poll for it using <c>recv/*</c> depending on the value of the
+	active option.</p>
+	<p>The parameters are as described
+	in <seealso marker="#connect/5">connect/*</seealso>, with the
+	exception of the <c>Timeout</c> value.</p>
+	<p>The timer associated with <c>Timeout</c> only supervises
+	IP resolution of <c>Addr</c></p>
       </desc>
     </func>
     <func>
@@ -1056,6 +1104,65 @@
       
       timer:sleep(1000),
       gen_sctp:close(S).        </pre>
+        <p></p>
+      </item>
+      <item>
+        <p>A very simple Erlang SCTP Client which uses the
+          connect_init API.</p>
+        <pre>
+-module(ex3).
+
+-export([client/4]).
+-include_lib("kernel/include/inet.hrl").
+-include_lib("kernel/include/inet_sctp.hrl").
+
+client(Peer1, Port1, Peer2, Port2)
+  when is_tuple(Peer1), is_integer(Port1), is_tuple(Peer2), is_integer(Port2) -&gt;
+    {ok,S}     = gen_sctp:open(),
+    SctpInitMsgOpt = {sctp_initmsg,#sctp_initmsg{num_ostreams=5}},
+    ActiveOpt = {active, true},
+    Opts = [SctpInitMsgOpt, ActiveOpt],
+    ok = gen_sctp:connect(S, Peer1, Port1, Opts),
+    ok = gen_sctp:connect(S, Peer2, Port2, Opts),
+    io:format("Connections initiated~n", []),
+    client_loop(S, Peer1, Port1, undefined, Peer2, Port2, undefined).
+
+client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
+    receive
+        {sctp, S, Peer1, Port1, {_Anc, SAC}}
+          when is_record(SAC, sctp_assoc_change), AssocId1 == undefined -&gt;
+            io:format("Association 1 connect result: ~p. AssocId: ~p~n",
+                      [SAC#sctp_assoc_change.state,
+                       SAC#sctp_assoc_change.assoc_id]),
+            client_loop(S, Peer1, Port1, SAC#sctp_assoc_change.assoc_id,
+                        Peer2, Port2, AssocId2);
+
+        {sctp, S, Peer2, Port2, {_Anc, SAC}}
+          when is_record(SAC, sctp_assoc_change), AssocId2 == undefined -&gt;
+            io:format("Association 2 connect result: ~p. AssocId: ~p~n",
+                      [SAC#sctp_assoc_change.state, SAC#sctp_assoc_change.assoc_id]),
+            client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2,
+                        SAC#sctp_assoc_change.assoc_id);
+
+        {sctp, S, Peer1, Port1, Data} -&gt;
+            io:format("Association 1: received ~p~n", [Data]),
+            client_loop(S, Peer1, Port1, AssocId1,
+                        Peer2, Port2, AssocId2);
+
+        {sctp, S, Peer2, Port2, Data} -&gt;
+            io:format("Association 2: received ~p~n", [Data]),
+            client_loop(S, Peer1, Port1, AssocId1,
+                        Peer2, Port2, AssocId2);
+
+        Other -&gt;
+            io:format("Other ~p~n", [Other]),
+            client_loop(S, Peer1, Port1, AssocId1,
+                        Peer2, Port2, AssocId2)
+
+    after 5000 -&gt;
+            ok
+    end.
+</pre>
         <p></p>
       </item>
     </list>

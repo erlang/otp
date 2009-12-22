@@ -27,7 +27,7 @@
 -include("inet_sctp.hrl").
 
 -export([open/0,open/1,open/2,close/1]).
--export([listen/2,connect/4,connect/5]).
+-export([listen/2,connect/4,connect/5,connect_init/4,connect_init/5]).
 -export([eof/2,abort/2]).
 -export([send/3,send/4,recv/1,recv/2]).
 -export([error_string/1]).
@@ -80,7 +80,26 @@ listen(S, Flag) ->
 connect(S, Addr, Port, Opts) ->
     connect(S, Addr, Port, Opts, infinity).
 
-connect(S, Addr, Port, Opts, Timeout) when is_port(S), is_list(Opts) ->
+connect(S, Addr, Port, Opts, Timeout) ->
+    case do_connect(S, Addr, Port, Opts, Timeout, true) of
+	badarg ->
+	    erlang:error(badarg, [S,Addr,Port,Opts,Timeout]);
+	Result ->
+	    Result
+    end.
+
+connect_init(S, Addr, Port, Opts) ->
+    connect_init(S, Addr, Port, Opts, infinity).
+
+connect_init(S, Addr, Port, Opts, Timeout) ->
+    case do_connect(S, Addr, Port, Opts, Timeout, false) of
+	badarg ->
+	    erlang:error(badarg, [S,Addr,Port,Opts,Timeout]);
+	Result ->
+	    Result
+    end.
+
+do_connect(S, Addr, Port, Opts, Timeout, ConnWait) when is_port(S), is_list(Opts) ->
     case inet_db:lookup_socket(S) of
 	{ok,Mod} ->
 	    case Mod:getserv(Port) of
@@ -89,21 +108,26 @@ connect(S, Addr, Port, Opts, Timeout) when is_port(S), is_list(Opts) ->
 			Timer ->
 			    try Mod:getaddr(Addr, Timer) of
 				{ok,IP} ->
-				    Mod:connect(S, IP, Port, Opts, Timer);
+				    ConnectTimer = if ConnWait == false ->
+							   nowait;
+						      true ->
+							   Timer
+						   end,
+				    Mod:connect(S, IP, Port, Opts, ConnectTimer);
 				Error -> Error
 			    after
 				inet:stop_timer(Timer)
 			    end
 		    catch
 			error:badarg ->
-			    erlang:error(badarg, [S,Addr,Port,Opts,Timeout])
+			    badarg
 		    end;
 		Error -> Error
 	    end;
 	Error -> Error
     end;
-connect(S, Addr, Port, Opts, Timeout) ->
-    erlang:error(badarg, [S,Addr,Port,Opts,Timeout]).
+do_connect(_S, _Addr, _Port, _Opts, _Timeout, _ConnWait) ->
+    badarg.
 
 
 
