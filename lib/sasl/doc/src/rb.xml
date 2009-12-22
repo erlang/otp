@@ -43,6 +43,32 @@
   </description>
   <funcs>
     <func>
+      <name>filter(Filters)</name>
+      <fsummary>Filter reports and displays them on the screen</fsummary>
+      <type>
+        <v>Filters = [filter()]</v>
+        <v>filter() = {Key, Value} | {Key, Value, no} | {Key, RegExp, re} | {Key, RegExp, re, no}</v>
+        <v>Key = term()</v>
+        <v>Value = term()</v>
+        <v>RegExp = string() | {string, Options} | mp(), {mp(), Options}</v>
+      </type>
+      <desc>
+        <p>This function displays the reports that match the provided filters.</p>
+        <p>
+          When a filter includes the <c>no</c> atom it will exclude the reports that match
+          that filter.
+        </p>
+        <p>
+          The reports are matched using the <c>proplists</c> module. The report must be a proplist
+          to be matched against any of the <c>filters()</c>.
+        </p>
+	<p>
+	  If the filter is of the form <c>{Key, RegExp, re}</c> the report must contain an element with
+	  <c>key = Key</c> and <c>Value</c> must match the RegExp regular expression.
+	</p>
+      </desc>
+    </func>
+    <func>
       <name>grep(RegExp)</name>
       <fsummary>Search the reports for a regular expression</fsummary>
       <type>
