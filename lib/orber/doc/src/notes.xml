@@ -33,6 +33,24 @@
   </header>
 
   <section>
+    <title>Orber 3.6.15</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>Removed superfluous VT in the documentation.</p>
+          <p>Own id: OTP-8353 Aux Id:</p>
+        </item>
+        <item>
+          <p>Removed superfluous backslash in the documentation.</p>
+          <p>Own id: OTP-8354 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>Orber 3.6.14</title>
 
     <section>

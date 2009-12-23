@@ -32,6 +32,20 @@
   </header>
 
   <section>
+    <title>cosProperty 1.1.11</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation EIX file was not generated.</p>
+          <p>Own id: OTP-8355 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosProperty 1.1.10</title>
 
     <section>

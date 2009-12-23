@@ -37,8 +37,20 @@
       <title>Fixed Bugs and Malfunctions</title>
       <list type="bulleted">
         <item>
+          <p>Removed superfluous VT in the documentation.</p>
+          <p>Own id: OTP-8353 Aux Id:</p>
+        </item>
+        <item>
           <p>The option c_timeout was not correctly documented.</p>
           <p>Own id: OTP-8307 Aux Id: seq11390</p>
+        </item>
+        <item>
+          <p>Removed superfluous backslash in the documentation.</p>
+          <p>Own id: OTP-8354 Aux Id:</p>
+        </item>
+        <item>
+          <p>The documentation EIX file was not generated.</p>
+          <p>Own id: OTP-8355 Aux Id:</p>
         </item>
       </list>
     </section>

@@ -33,6 +33,20 @@
   </header>
 
   <section>
+    <title>cosEvent 2.1.8</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation EIX file was not generated.</p>
+          <p>Own id: OTP-8355 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosEvent 2.1.7</title>
 
     <section>

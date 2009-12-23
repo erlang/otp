@@ -33,6 +33,20 @@
   </header>
 
   <section>
+    <title>cosTransactions 1.2.9</title>
+
+    <section>
+      <title>Fixed Bugs and Malfunctions</title>
+      <list type="bulleted">
+        <item>
+          <p>The documentation EIX file was not generated.</p>
+          <p>Own id: OTP-8355 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+  </section>
+
+  <section>
     <title>cosTransactions 1.2.8</title>
 
     <section>
