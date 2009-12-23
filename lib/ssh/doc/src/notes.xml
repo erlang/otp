@@ -29,6 +29,19 @@
     <file>notes.xml</file>
   </header>
 
+ <section><title>Ssh 1.1.8</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>Old release notes removed.</p>
+          <p>Own Id: OTP-8356 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
  <section><title>Ssh 1.1.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -581,8 +594,6 @@
       </list>
     </section>
 
-    <!-- p>For information about older versions see
-      <url href="part_notes_history_frame.html">release notes history</url>.</p -->
   </section>
 </chapter>
 

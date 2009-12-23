@@ -31,8 +31,7 @@
   <description>
     <p>This document describes the changes made to the SSH application.
       </p>
-      <p>For information about older versions see
-      <url href="part_notes_history_frame.html">release notes history</url>.</p>  </description>
+  </description>
   <xi:include file="notes.xml"/>
 </part>
 

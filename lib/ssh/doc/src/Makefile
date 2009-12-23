@@ -53,8 +53,8 @@ XML_REF3_FILES = \
 	ssh_sftp.xml \
 	ssh_sftpd.xml \
 
-XML_PART_FILES = part_notes.xml  part_notes_history.xml 
-XML_CHAPTER_FILES = notes.xml notes_history.xml
+XML_PART_FILES = part_notes.xml
+XML_CHAPTER_FILES = notes.xml
 
 BOOK_FILES = book.xml
 
@@ -69,8 +69,6 @@ EXTRA_FILES = \
 	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
-
-#	notes_history.html \
 
 
 MAN3_FILES = $(XML_REF3_FILES:%.xml=$(MAN3DIR)/%.3)
