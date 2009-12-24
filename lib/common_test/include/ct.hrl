@@ -17,6 +17,6 @@
 %% %CopyrightEnd%
 %%
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -compile({parse_transform,ct_line}).
 

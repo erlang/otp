@@ -38,7 +38,7 @@
 <code>
 -module(db_data_type_SUITE).
 
--include("ct.hrl"). 
+-include_lib("common_test/include/ct.hrl").
 
 %% Test server callbacks
 -export([suite/0, all/0, 
@@ -186,7 +186,7 @@ insert_and_lookup(Key, Value, Config) ->
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
 %% COMMON TEST CALLBACK FUNCTIONS
@@ -394,7 +394,7 @@ my_test_case(_Config) ->
 
 -compile(export_all).
 
--include("ct.hrl").
+-include_lib("common_test/include/ct.hrl").
 
 %%--------------------------------------------------------------------
 %% Function: suite() -> Info
