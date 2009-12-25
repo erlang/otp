@@ -22,7 +22,7 @@
 
 %% External exports
 -export([start/0, start/1, stop/0, rescan/0, rescan/1]).
--export([list/0, list/1, show/0, show/1, grep/1, filter/1, start_log/1, stop_log/0]).
+-export([list/0, list/1, show/0, show/1, grep/1, filter/1, filter/2, start_log/1, stop_log/0]).
 -export([h/0, help/0]).
 
 %% Internal exports
@@ -76,6 +76,9 @@ grep(RegExp) -> gen_server:call(rb_server, {grep, RegExp}, infinity).
 filter(Filters) when is_list(Filters) ->
     gen_server:call(rb_server, {filter, Filters}, infinity).
 
+filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
+    gen_server:call(rb_server, {filter, {Filters, FDates}}, infinity).
+
 start_log(FileName) -> gen_server:call(rb_server, {start_log, FileName}).
 
 stop_log() -> gen_server:call(rb_server, stop_log).
@@ -100,6 +103,10 @@ help() ->
     io:format("                     reports must be proplists.~n"),
     io:format("      Filters is a list of tuples of the following form:~n"),
     print_filters(),
+    io:format("rb:filter(Filters, Dates)  -~n"),
+    io:format("      same as rb:filter/1 but accepts date ranges to filter reports.~n"),
+    io:format("      Dates must be of the following form:~n"),
+    print_dates(),
     io:format("rb:rescan()        - rescans the report directory with same~n"),
     io:format("                     options.~n"),
     io:format("rb:rescan(Options) - rescans the report directory with new~n"),
@@ -152,6 +159,15 @@ print_filters() ->
     io:format("        the function re:run/2 or re:run/3.~n"),
     io:format("      - {Key, RegExp, re, no}~n"),
     io:format("        excludes report containing {Key, RegExp}~n").
+
+print_dates() ->
+    io:format("      - {StartDate, EndDate}~n"),
+    io:format("        StartDate = EndDate = {{Y-M-D},{H,M,S}} ~n"),
+    io:format("        prints the reports with date between StartDate and EndDate~n"),
+    io:format("      - {StartDate, from}~n"),
+    io:format("        prints the reports with date greater than StartDate~n"),
+    io:format("      - {EndDate, to}~n"),
+    io:format("        prints the reports with date lesser than StartDate~n").
 
 init(Options) ->
     process_flag(priority, low),
@@ -218,8 +234,13 @@ handle_call({grep, RegExp}, _From, State) ->
     end;
 handle_call({filter, Filters}, _From, State) ->
     #state{dir = Dir, data = Data, device = Device, abort = Abort, log = Log} = State,
-    NewDevice = filter_all_reports(Dir, Data, Filters, Device, Abort, Log),
-    {reply, ok, State#state{device = NewDevice}}.
+    try filter_all_reports(Dir, Data, Filters, Device, Abort, Log) of
+	NewDevice ->
+	    {reply, ok, State#state{device = NewDevice}}
+    catch
+	error:Error ->
+	    {reply, {error, Error}, State}
+    end.
 
 terminate(_Reason, #state{device = Device}) ->
     close_device(Device).
@@ -706,28 +727,25 @@ filter_report(Dir, Data, Filters, Number, Device, Abort, Log) ->
 	    {proceed,Device}
     end.
 
-filter_rep(Filters, Fd, FilePosition, Device, Abort, Log) ->
-    case read_rep_msg(Fd, FilePosition) of
-	{Date, Msg} ->
-	    % io:format("Date: ~p      Message: ~p~n", [Date, Msg]),
-	    {_D, M} = Msg,
-	    {_, _, M2} = M,
-	    case M2 of
-		{_, _, Report} ->
-		    case filter_report(Filters, Report) of
-			true ->
-			    case catch rb_format_supp:print(Date, Msg, Device) of
-				{'EXIT', _} ->
-				    handle_bad_form(Date, Msg, Device, Abort, Log);
-				_ ->
-				    {proceed,Device}
-			    end;
-			_ ->
-			    {proceed, Device}
-		    end;
+filter_rep({Filters, FDates}, Fd, FilePosition, Device, Abort, Log) ->
+    RepMsg = read_rep_msg(Fd, FilePosition),
+    case RepMsg of
+	{_DateStr, {Date, _Msg}} ->
+	    case compare_dates(Date, FDates) of
+		true ->
+		    print_filter_report(RepMsg, Filters, Device, Abort, Log);
 		_ ->
 		    {proceed,Device}
 	    end;
+	_ ->
+	    io:format("rb: Cannot read from file~n"),
+	    {proceed,Device}
+    end;
+filter_rep(Filters, Fd, FilePosition, Device, Abort, Log) ->
+    RepMsg = read_rep_msg(Fd, FilePosition),
+    case RepMsg of
+	{Date, Msg} ->
+	    print_filter_report({Date, Msg}, Filters, Device, Abort, Log);
 	_ ->
 	    io:format("rb: Cannot read from file~n"),
 	    {proceed,Device}
@@ -754,8 +772,9 @@ filter_report([{Key, RegExp, re}|T], Msg) ->
 	undefined ->
 	    false;
 	Value ->
-	    case re:run(Value, RegExp) of
-		{match, _} ->
+	    Subject = lists:flatten(io_lib:format("~p",[Value])),
+	    case run_re(Subject, RegExp) of
+		match ->
 		    filter_report(T, Msg);
 		_ -> false
 	    end
@@ -765,10 +784,65 @@ filter_report([{Key, RegExp, re, no}|T], Msg) ->
 	undefined ->
 	    false;
 	Value ->
-	    case re:run(Value, RegExp) of
-		{match, _} -> false;
+	    Subject = lists:flatten(io_lib:format("~p",[Value])),
+	    case run_re(Subject, RegExp) of
+		match -> false;
 		_ -> filter_report(T, Msg)
 	    end
+    end.
+
+get_compare_dates(Date, CompareDate) ->
+    case application:get_env(sasl, utc_log) of
+	{ok, true} ->
+	    {local_time_to_universal_time(Date),
+	     local_time_to_universal_time(CompareDate)};
+	_ ->
+	    {Date, CompareDate}
+    end.
+get_compare_dates(Date, From, To) ->
+    case application:get_env(sasl, utc_log) of
+	{ok, true} ->
+	    {local_time_to_universal_time(Date),
+	     local_time_to_universal_time(From),
+	     local_time_to_universal_time(To)};
+	_ ->
+	    {Date, From, To}
+    end.
+
+compare_dates(Date, {CompareDate, from}) ->
+    {Date2, DateFrom} = get_compare_dates(Date, CompareDate),
+    calendar:datetime_to_gregorian_seconds(Date2) >=
+	calendar:datetime_to_gregorian_seconds(DateFrom);
+compare_dates(Date, {CompareDate, to}) ->
+    {Date2, DateTo} = get_compare_dates(Date, CompareDate),
+    calendar:datetime_to_gregorian_seconds(Date2) =<
+	calendar:datetime_to_gregorian_seconds(DateTo);
+compare_dates(Date, {From, To}) ->
+    {Date2, DateFrom, DateTo} = get_compare_dates(Date, From, To),
+    calendar:datetime_to_gregorian_seconds(Date2) >=
+	calendar:datetime_to_gregorian_seconds(DateFrom)
+    andalso
+    calendar:datetime_to_gregorian_seconds(Date2) =<
+	calendar:datetime_to_gregorian_seconds(DateTo).
+
+print_filter_report({Date, Msg}, Filters, Device, Abort, Log) ->
+    {_D, M} = Msg,
+    {_, _, M2} = M,
+    case M2 of
+	{_, _, Report} ->
+	    case filter_report(Filters, Report) of
+		true ->
+		    case catch rb_format_supp:print(Date, Msg, Device) of
+			{'EXIT', _} ->
+			    handle_bad_form(Date, Msg, Device, Abort, Log);
+			_ ->
+			    {proceed,Device}
+		    end;
+		_ ->
+		    {proceed, Device}
+	    end;
+	_ ->
+	    {proceed,Device}
     end.
 
 read_rep(Fd, FilePosition, Device, Abort, Log) ->

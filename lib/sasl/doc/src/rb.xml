@@ -44,6 +44,7 @@
   <funcs>
     <func>
       <name>filter(Filters)</name>
+      <name>filter(Filters, Dates)</name>
       <fsummary>Filter reports and displays them on the screen</fsummary>
       <type>
         <v>Filters = [filter()]</v>
@@ -51,6 +52,9 @@
         <v>Key = term()</v>
         <v>Value = term()</v>
         <v>RegExp = string() | {string, Options} | mp(), {mp(), Options}</v>
+        <v>Dates = {DateFrom, DateTo} | {DateFrom, from} | {DateTo, to}</v>
+        <v>DateFrom = DateTo = {date(), time()}</v>
+        <v>date() and time() are the same type as in the <c>calendar</c> module</v>
       </type>
       <desc>
         <p>This function displays the reports that match the provided filters.</p>
@@ -65,6 +69,25 @@
 	<p>
 	  If the filter is of the form <c>{Key, RegExp, re}</c> the report must contain an element with
 	  <c>key = Key</c> and <c>Value</c> must match the RegExp regular expression.
+	</p>
+	<p>
+	  If the Dates parameter is provided, then the reports are filtered according to the date
+	  when they occurred. If Dates is of the form <c>{DateFrom, from}</c> then reports that occurred
+	  after DateFrom are displayed.
+	</p>
+	<p>
+	  If Dates is of the form <c>{DateTo, to}</c> then reports that occurred before DateTo
+	  are displayed.
+	</p>
+	<p>
+	  If two Dates are provided, then reports that occurred between those dates are returned.
+	</p>
+	<p>
+	   If you only want to filter only by dates, then you can provide the empty list as the Filters
+	   parameter.
+	</p>
+	<p>
+	  See <c>rb:grep/1</c> for more information on the RegExp parameter.
 	</p>
       </desc>
     </func>
