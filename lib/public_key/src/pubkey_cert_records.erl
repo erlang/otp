@@ -23,7 +23,7 @@
 
 -include("public_key.hrl").
 
--export([decode_cert/2, encode_cert/1, encode_tbs_cert/1]).
+-export([decode_cert/2, encode_cert/1, encode_tbs_cert/1, transform/2]).
 
 -export([old_decode_cert/2, old_encode_cert/1]).  %% Debugging and testing new code.
 

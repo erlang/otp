@@ -860,9 +860,31 @@ certificate_types(_) ->
     %% a RSA_FIXED_DH or DSS_FIXED_DH
     <<?BYTE(?RSA_SIGN)>>.
 
-certificate_authorities(_) ->
-    %%TODO Make list of know CA:s
-    <<>>.
+certificate_authorities(CertDbRef) ->
+    Authorities = certificate_authorities_from_db(CertDbRef),
+    Enc = fun(Cert) ->
+	TBSCert = Cert#'OTPCertificate'.tbsCertificate,
+	Subj = pubkey_cert_records:transform(TBSCert#'OTPTBSCertificate'.subject, encode),
+	{ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
+	DNEncodedBin = iolist_to_binary(DNEncoded),
+	DNEncodedLen = byte_size(DNEncodedBin),
+	<<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
+    end,
+	list_to_binary(lists:map(Enc, [Cert || {_, Cert} <- Authorities])).
+
+certificate_authorities_from_db(CertDbRef) ->
+    certificate_authorities_from_db(CertDbRef, no_candidate, []).
+
+certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
+    case ssl_certificate_db:issuer_candidate(PrevKey) of
+	no_more_candidates ->
+	    lists:reverse(Acc);
+	{{CertDbRef, _, _} = Key, Cert} ->
+	    certificate_authorities_from_db(CertDbRef, Key, [Cert|Acc]);
+	{Key, _Cert} ->
+		% skip certs not from this ssl connection
+	    certificate_authorities_from_db(CertDbRef, Key, Acc)
+    end.
 
 digitally_signed(Hashes, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hashes, Key,
