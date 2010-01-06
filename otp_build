@@ -26,7 +26,7 @@ clearmake=false
 
 # Global configuration variables
 #
-# NOTE: lazy_configure depends on '.' allways being last directory
+# NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
     AUTOCONF_SUBDIRS="lib lib/*"
 fi
@@ -42,7 +42,6 @@ usage ()
     echo "    configure [<configure parameters>] - does the actual configuration"
     echo "    smp [-a] - build a small Erlang system, smp flavor"
     echo "    hybrid [-a] - build a small Erlang system, hybrid flavor"
-    echo "    nofrag [-a] - build a small Erlang system, nofrag flavor"
     echo "    boot [-a] - bootstraps and build system (after configure)"
     echo "    release <target_dir> - creates a small release to <target_dir>"
     echo "    release [-a] <target_dir> - creates full release to <target_dir>"
@@ -1309,7 +1308,7 @@ case "$1" in
 		do_lazy_configure_target_clean;;
 	opt)
 		do_boot;;
-	plain|smp|hybrid|nofrag)
+	plain|smp|hybrid)
 		if [ $minus_a_flag = false ]; then 
 		    TYPE=opt
 		fi;
