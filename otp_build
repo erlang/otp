@@ -85,14 +85,22 @@ usage ()
 	    ;;
     esac
 
-    echo ""
-    echo "The following options concern preloaded code."
-    echo "They are, like the primary bootstrap, mainly the concern of the"
-    echo "main developers."
-    echo "    prepare_preloaded - prepares for building preloaded code (only in Clearcase)"
-    echo "    update_preloaded - creates the preloaded beam code, the one shipped"
-    echo "    commit_preloaded - commits the preloaded code (only in Clearcase)"
-    echo "    cancel_preloaded - uncheckout preloaded code (only in Clearcase)"
+    case $version_controller in
+	none)
+	    ;;
+	clearcase)
+	    echo ""
+	    echo "Handle the preloaded modules in Clearcase:"
+	    echo "    prepare_preloaded - prepares for building preloaded code"
+	    echo "    update_preloaded - creates the preloaded code"
+	    echo "    commit_preloaded - commits the preloaded code"
+	    echo "    cancel_preloaded - uncheckout preloaded code"
+	    ;;
+	git)
+	    echo ""
+	    echo "update_preloaded - build and commit the preloaded modules"
+	    ;;
+    esac
 }
 
 export_cross_env ()
@@ -956,10 +964,6 @@ do_prepare_prel ()
 do_update_prel ()
 {
     CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of preloaded code, you have to run in a Clearcase view" >&2
-	return
-    fi
 
     if [ X"$ERL_TOP" = X"" ]; then
 	echo "ERL_TOP is not set." >&2
@@ -974,6 +978,16 @@ do_update_prel ()
     echo "Rebuilt preloaded code."
     echo '*****************************************************'
 }    
+
+do_update_prel_git ()
+{
+    setup_make
+    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean)
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET preloaded || exit 1
+    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
+    git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
+    git commit -m 'Update preloaded modules'
+}
 
 do_commit_prel ()
 {
@@ -1319,7 +1333,11 @@ case "$1" in
 	prepare_preloaded)
 		do_prepare_prel;;
 	update_preloaded)
-		do_update_prel;;
+		case $version_controller in
+		    git) do_update_prel_git ;;
+		    clearcase) do_update_prel ;;
+		    none) do_update_prel ;;
+		esac ;;
 	commit_preloaded)
 		do_commit_prel;;
 	cancel_preloaded)
