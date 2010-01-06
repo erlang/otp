@@ -1115,13 +1115,13 @@ do_server_hello(Type, #state{negotiated_version = Version,
 	    case ssl_handshake:master_secret(Version, Session,
 					     ConnectionStates0, server) of
 		{_, ConnectionStates1} ->
-		    {ConnectionStates, Hashes} =
-			finished(State#state{connection_states =
-					     ConnectionStates1}),
-		    {next_state, abbreviated,
-		     next_record(State#state{connection_states = 
-					     ConnectionStates,
-					     tls_handshake_hashes = Hashes})};
+		    {ConnectionStates, Hashes} = 
+			finalize_server_handshake(State#state{connection_states=ConnectionStates1, session = Session}),
+		    NewState = 
+			State#state{connection_states = ConnectionStates,
+				    session = Session,
+				    tls_handshake_hashes = Hashes},
+		    {next_state, abbreviated, next_record(NewState)};
 		#alert{} = Alert ->
 		    handle_own_alert(Alert, Version, hello, State), 
 		    {stop, normal, State}
