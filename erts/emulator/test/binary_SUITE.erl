@@ -27,6 +27,7 @@
 %%	binary_to_list/1
 %%	binary_to_list/3
 %%	binary_to_term/1
+%%  	binary_to_term/2
 %%      bitstr_to_list/1
 %%	term_to_binary/1
 %%      erlang:external_size/1
@@ -49,7 +50,7 @@
 	 t_hash/1,
 	 bad_size/1,
 	 bad_term_to_binary/1,
-	 bad_binary_to_term_2/1,
+	 bad_binary_to_term_2/1,safe_binary_to_term2/1,
 	 bad_binary_to_term/1, bad_terms/1, more_bad_terms/1,
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
@@ -66,7 +67,7 @@ all(suite) ->
      t_split_binary, bad_split, t_concat_binary,
      bad_list_to_binary, bad_binary_to_list, terms, terms_float,
      external_size, t_iolist_size,
-     bad_binary_to_term_2,
+     bad_binary_to_term_2,safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size, bad_term_to_binary,
      more_bad_terms, otp_5484, otp_5933, ordering, unaligned_order,
      gc_test, bit_sized_binary_sizes, bitlevel_roundtrip, otp_6817, otp_8117,
@@ -438,8 +439,11 @@ terms(Config) when is_list(Config) ->
 			      ok
 		      end,
 		      Term = binary_to_term(Bin),
+		      Term = erlang:binary_to_term(Bin, [safe]),
 		      Unaligned = make_unaligned_sub_binary(Bin),
 		      Term = binary_to_term(Unaligned),
+		      Term = erlang:binary_to_term(Unaligned, []),
+		      Term = erlang:binary_to_term(Bin, [safe]),
 		      BinC = erlang:term_to_binary(Term, [compressed]),
 		      Term = binary_to_term(BinC),
 		      true = size(BinC) =< size(Bin),
@@ -537,6 +541,23 @@ bad_binary_to_term(Config) when is_list(Config) ->
 
 bad_bin_to_term(BadBin) ->
     {'EXIT',{badarg,_}} = (catch binary_to_term(BadBin)).
+
+bad_bin_to_term(BadBin,Opts) ->
+    {'EXIT',{badarg,_}} = (catch erlang:binary_to_term(BadBin,Opts)).
+
+safe_binary_to_term2(doc) -> "Test safety options for binary_to_term/2";
+safe_binary_to_term2(Config) when is_list(Config) ->
+    ?line bad_bin_to_term(<<131,100,0,14,"undefined_atom">>, [safe]),
+    ?line bad_bin_to_term(<<131,100,0,14,"other_bad_atom">>, [safe]),
+    BadHostAtom = <<100,0,14,"badguy@badhost">>,
+    Empty = <<0,0,0,0>>,
+    BadRef = <<131,114,0,3,BadHostAtom/binary,0,<<0,0,0,255>>/binary,
+	      Empty/binary,Empty/binary>>,
+    ?line bad_bin_to_term(BadRef, [safe]), % good ref, with a bad atom
+    ?line fullsweep_after = erlang:binary_to_term(<<131,100,0,15,"fullsweep_after">>, [safe]), % should be a good atom
+    BadExtFun = <<131,113,100,0,4,98,108,117,101,100,0,4,109,111,111,110,97,3>>,
+    ?line bad_bin_to_term(BadExtFun, [safe]),
+    ok.
 
 %% Tests bad input to binary_to_term/1.
 

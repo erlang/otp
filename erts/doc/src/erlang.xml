@@ -342,8 +342,50 @@ iolist() = [char() | binary() | iolist()]
       <desc>
         <p>Returns an Erlang term which is the result of decoding
           the binary object <c>Binary</c>, which must be encoded
-          according to the Erlang external term format. See also
-          <seealso marker="#term_to_binary/1">term_to_binary/1</seealso>.</p>
+          according to the Erlang external term format.</p>
+        <warning>
+	  <p>When decoding binaries from untrusted sources, consider using
+	     <c>binary_to_term/2</c> to prevent denial of service attacks.</p>
+        </warning>
+	<p>See also
+	   <seealso marker="#term_to_binary/1">term_to_binary/1</seealso>
+           and
+	   <seealso marker="#binary_to_term/2">binary_to_term/2</seealso>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:binary_to_term(Binary, Opts) -> term()</name>
+      <fsummary>Decode an Erlang external term format binary</fsummary>
+      <type>
+        <v>Opts = [safe]</v>
+        <v>Binary = ext_binary()</v>
+      </type>
+      <desc>
+        <p>As <c>binary_to_term/1</c>, but takes options that affect decoding
+           of the binary.</p>
+        <taglist>
+          <tag><c>safe</c></tag>
+          <item>
+	    <p>Use this option when receiving binaries from an untrusted
+               source.</p>
+	    <p>When enabled, it prevents decoding data that may be used to
+	       attack the Erlang system.  In the event of receiving unsafe
+               data, decoding fails with a badarg error.</p>
+	    <p>Currently, this prevents creation of new atoms directly,
+	       creation of new atoms indirectly (as they are embedded in
+	       certain structures like pids, refs, funs, etc.), and creation of
+	       new external function references.  None of those resources are
+	       currently garbage collected, so unchecked creation of them can
+               exhaust available memory.</p>
+          </item>
+        </taglist>
+	<p>Failure: <c>badarg</c> if <c>safe</c> is specified and unsafe data
+           is decoded.</p>
+        <p>See also
+           <seealso marker="#term_to_binary/1">term_to_binary/1</seealso>,
+           <seealso marker="#binary_to_term/1">binary_to_term/1</seealso>,
+           and <seealso marker="#list_to_existing_atom/1">
+             list_to_existing_atom/1</seealso>.</p>
       </desc>
     </func>
     <func>

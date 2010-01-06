@@ -100,7 +100,8 @@ typedef struct {
 
 #define ERTS_DIST_EXT_DFLAG_HDR (((Uint32) 1) << 31)
 #define ERTS_DIST_EXT_ATOM_TRANS_TAB (((Uint32) 1) << 30)
-#define ERTS_DIST_EXT_CON_ID_MASK ((Uint32) 0x3fffffff)
+#define ERTS_DIST_EXT_BTT_SAFE (((Uint32) 1) << 29)
+#define ERTS_DIST_EXT_CON_ID_MASK ((Uint32) 0x1fffffff)
 
 #define ERTS_DIST_EXT_CON_ID(DIST_EXTP) \
   ((DIST_EXTP)->flags & ERTS_DIST_EXT_CON_ID_MASK)

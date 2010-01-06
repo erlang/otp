@@ -1059,10 +1059,10 @@ binary2term_abort(ErtsBinary2TermState *state)
 }
 
 static ERTS_INLINE Eterm
-binary2term_create(ErtsBinary2TermState *state, Eterm **hpp, ErlOffHeap *ohp)
+binary2term_create(ErtsDistExternal *edep, ErtsBinary2TermState *state, Eterm **hpp, ErlOffHeap *ohp)
 {
     Eterm res;
-    if (!dec_term(NULL, hpp, state->extp, ohp, &res))
+    if (!dec_term(edep, hpp, state->extp, ohp, &res))
 	res = THE_NON_VALUE;
     if (state->exttmp) {
 	state->exttmp = 0;
@@ -1086,7 +1086,7 @@ erts_binary2term_abort(ErtsBinary2TermState *state)
 Eterm
 erts_binary2term_create(ErtsBinary2TermState *state, Eterm **hpp, ErlOffHeap *ohp)
 {
-    return binary2term_create(state, hpp, ohp);
+    return binary2term_create(NULL,state, hpp, ohp);
 }
 
 BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
@@ -1114,7 +1114,67 @@ BIF_RETTYPE binary_to_term_1(BIF_ALIST_1)
     hp = HAlloc(BIF_P, heap_size);
     endp = hp + heap_size;
 
-    res = binary2term_create(&b2ts, &hp, &MSO(BIF_P));
+    res = binary2term_create(NULL, &b2ts, &hp, &MSO(BIF_P));
+
+    erts_free_aligned_binary_bytes(temp_alloc);
+
+    if (hp > endp) {
+	erl_exit(1, ":%s, line %d: heap overrun by %d words(s)\n",
+		 __FILE__, __LINE__, hp-endp);
+    }
+
+    HRelease(BIF_P, endp, hp);
+
+    if (res == THE_NON_VALUE)
+	goto error;
+
+    return res;
+}
+
+BIF_RETTYPE binary_to_term_2(BIF_ALIST_2)
+{
+    Sint heap_size;
+    Eterm res;
+    Eterm opts;
+    Eterm opt;
+    Eterm* hp;
+    Eterm* endp;
+    Sint size;
+    byte* bytes;
+    byte* temp_alloc = NULL;
+    ErtsBinary2TermState b2ts;
+    ErtsDistExternal fakedep;
+
+    fakedep.flags = 0;
+    opts = BIF_ARG_2;
+    while (is_list(opts)) {
+        opt = CAR(list_val(opts));
+        if (opt == am_safe) {
+	    fakedep.flags |= ERTS_DIST_EXT_BTT_SAFE;
+        } else {
+            goto error;
+        }
+        opts = CDR(list_val(opts));
+    }
+
+    if (is_not_nil(opts))
+        goto error;
+
+    if ((bytes = erts_get_aligned_binary_bytes(BIF_ARG_1, &temp_alloc)) == NULL) {
+    error:
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    size = binary_size(BIF_ARG_1);
+
+    heap_size = binary2term_prepare(&b2ts, bytes, size);
+    if (heap_size < 0)
+	goto error;
+
+    hp = HAlloc(BIF_P, heap_size);
+    endp = hp + heap_size;
+
+    res = binary2term_create(&fakedep, &b2ts, &hp, &MSO(BIF_P));
 
     erts_free_aligned_binary_bytes(temp_alloc);
 
@@ -1300,7 +1360,7 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
 
     switch (*ep++) {
     case ATOM_CACHE_REF:
-	if (!(edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB))
+	if (!(edep && (edep->flags & ERTS_DIST_EXT_ATOM_TRANS_TAB)))
 	    goto error;
 	n = get_int8(ep);
 	ep++;
@@ -1312,13 +1372,18 @@ dec_atom(ErtsDistExternal *edep, byte* ep, Eterm* objp)
     case ATOM_EXT:
 	len = get_int16(ep),
 	ep += 2;
-	*objp = am_atom_put((char*)ep, len);
-	ep += len;
-	break;
+        goto dec_atom_common;
     case SMALL_ATOM_EXT:
 	len = get_int8(ep);
 	ep++;
-	*objp = am_atom_put((char*)ep, len);
+    dec_atom_common:
+        if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
+	    if (!erts_atom_get((char*)ep, len, objp)) {
+                goto error;
+	    }
+        } else {
+            *objp = am_atom_put((char*)ep, len);
+        }
 	ep += len;
 	break;
     default:
@@ -1864,13 +1929,18 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 	case ATOM_EXT:
 	    n = get_int16(ep);
 	    ep += 2;
-	    *objp = am_atom_put((char*)ep, n);
-	    ep += n;
-	    break;
+            goto dec_term_atom_common;
 	case SMALL_ATOM_EXT:
 	    n = get_int8(ep);
 	    ep++;
-	    *objp = am_atom_put((char*)ep, n);
+dec_term_atom_common:
+	    if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
+		if (!erts_atom_get((char*)ep, n, objp)) {
+		    goto error;
+		}
+	    } else {
+	        *objp = am_atom_put((char*)ep, n);
+	    }
 	    ep += n;
 	    break;
 	case LARGE_TUPLE_EXT:
@@ -2039,7 +2109,6 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 		goto ref_ext_common;
 
 	    case NEW_REFERENCE_EXT:
-
 		ref_words = get_int16(ep);
 		ep += 2;
 
@@ -2218,6 +2287,10 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 		if (arity < 0) {
 		    goto error;
 		}
+		if (edep && (edep->flags & ERTS_DIST_EXT_BTT_SAFE)) {
+		    if (!erts_find_export_entry(mod, name, arity))
+			goto error;
+                }
 		*objp = make_export(hp);
 		*hp++ = HEADER_EXPORT;
 		*hp++ = (Eterm) erts_export_get_or_make_stub(mod, name, arity);

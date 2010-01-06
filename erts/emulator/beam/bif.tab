@@ -755,6 +755,11 @@ bif erlang:call_on_load_function/1
 bif erlang:finish_after_on_load/2
 
 #
+# New Bifs in R13B4
+#
+bif erlang:binary_to_term/2
+
+#
 # Obsolete
 #
 
