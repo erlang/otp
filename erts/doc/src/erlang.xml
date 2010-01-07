@@ -3469,6 +3469,11 @@ os_prompt%</pre>
             <p>This changes the minimum heap size for the calling
               process.</p>
           </item>
+          <tag><c>process_flag(min_bin_vheap_size, MinBinVHeapSize)</c></tag>
+          <item>
+            <p>This changes the minimum binary virtual heap size for the calling
+              process.</p>
+          </item>
           <tag><c>process_flag(priority, Level)</c></tag>
           <item>
             <marker id="process_flag_priority"></marker>
@@ -3799,6 +3804,14 @@ os_prompt%</pre>
           <item>
             <p><c>MessageQueue</c> is a list of the messages to
               the process, which have not yet been processed.</p>
+          </item>
+          <tag><c>{min_heap_size, MinHeapSize}</c></tag>
+          <item>
+            <p><c>MinHeapSize</c> is the minimum heap size for the process.</p>
+          </item>
+          <tag><c>{min_bin_vheap_size, MinBinVHeapSize}</c></tag>
+          <item>
+            <p><c>MinBinVHeapSize</c> is the minimum binary virtual heap size for the process.</p>
           </item>
           <tag><c>{monitored_by, Pids}</c></tag>
           <item>
@@ -4533,10 +4546,11 @@ true</pre>
       <fsummary>Create a new process with a fun as entry point</fsummary>
       <type>
         <v>Fun = fun()</v>
-        <v>Option = link | monitor | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size}</v>
+        <v>Option = link | monitor | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
         <v>&nbsp;Level = low | normal | high</v>
         <v>&nbsp;Number = int()</v>
         <v>&nbsp;Size = int()</v>
+        <v>&nbsp;VSize = int()</v>
       </type>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -4554,10 +4568,11 @@ true</pre>
       <type>
         <v>Node = node()</v>
         <v>Fun = fun()</v>
-        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size}</v>
+        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
         <v>&nbsp;Level = low | normal | high</v>
         <v>&nbsp;Number = int()</v>
         <v>&nbsp;Size = int()</v>
+        <v>&nbsp;VSize = int()</v>
       </type>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -4573,10 +4588,11 @@ true</pre>
       <type>
         <v>Module = Function = atom()</v>
         <v>Args = [term()]</v>
-        <v>Option = link | monitor | {priority, Level}  | {fullsweep_after, Number} | {min_heap_size, Size}</v>
+        <v>Option = link | monitor | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
         <v>&nbsp;Level = low | normal | high</v>
         <v>&nbsp;Number = int()</v>
         <v>&nbsp;Size = int()</v>
+        <v>&nbsp;VSize = int()</v>
       </type>
       <desc>
         <p>Works exactly like
@@ -4656,6 +4672,23 @@ true</pre>
               fine-tuning an application and to measure the execution
               time with various <c>Size</c> values.</p>
           </item>
+          <tag><c>{min_bin_vheap_size, VSize}</c></tag>
+          <item>
+            <p>This option is only useful for performance tuning.
+              In general, you should not use this option unless you
+              know that there is problem with execution times and/or
+              memory consumption, and you should measure to make sure
+              that the option improved matters.
+              </p>
+	      <p>Gives a minimum binary virtual heap size in words. Setting this value
+              higher than the system default might speed up some
+              processes because less garbage collection is done.
+              Setting too high value, however, might waste memory.
+              Therefore, it is recommended to use this option only for
+              fine-tuning an application and to measure the execution
+              time with various <c>VSize</c> values.</p>
+          </item>
+
         </taglist>
       </desc>
     </func>
@@ -4666,10 +4699,11 @@ true</pre>
         <v>Node = node()</v>
         <v>Module = Function = atom()</v>
         <v>Args = [term()]</v>
-        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size}</v>
+        <v>Option = link | {priority, Level} | {fullsweep_after, Number} | {min_heap_size, Size} | {min_bin_vheap_size, VSize}</v>
         <v>&nbsp;Level = low | normal | high</v>
         <v>&nbsp;Number = int()</v>
         <v>&nbsp;Size = int()</v>
+        <v>&nbsp;VSize = int()</v>
       </type>
       <desc>
         <p>Returns the pid of a new process started by the application
@@ -4998,6 +5032,17 @@ true</pre>
               effects processes spawned after the change of
               <c>min_heap_size</c> has been made.
               The <c>min_heap_size</c> can be set for individual
+              processes by use of
+              <seealso marker="#spawn_opt/4">spawn_opt/N</seealso> or
+              <seealso marker="#process_flag/2">process_flag/2</seealso>. </p>
+          </item>
+          <tag><c>erlang:system_flag(min_bin_vheap_size, MinBinVHeapSize)</c></tag>
+          <item>
+            <p>Sets the default minimum binary virtual heap size for processes. The
+              size is given in words. The new <c>min_bin_vhheap_size</c> only
+              effects processes spawned after the change of
+              <c>min_bin_vhheap_size</c> has been made.
+              The <c>min_bin_vheap_size</c> can be set for individual
               processes by use of
               <seealso marker="#spawn_opt/4">spawn_opt/N</seealso> or
               <seealso marker="#process_flag/2">process_flag/2</seealso>. </p>
@@ -5612,6 +5657,16 @@ true</pre>
           <tag><c>machine</c></tag>
           <item>
             <p>Returns a string containing the Erlang machine name.</p>
+          </item>
+	  <tag><c>min_heap_size</c></tag>
+          <item>
+	      <p>Returns <c>{min_heap_size, MinHeapSize}</c> where <c>MinHeapSize</c> is the current system wide
+	      minimum heap size for spawned processes.</p>
+          </item>
+	  <tag><c>min_bin_vheap_size</c></tag>
+          <item>
+	      <p>Returns <c>{min_bin_vheap_size, MinBinVHeapSize}</c> where <c>MinBinVHeapSize</c> is the current system wide
+	      minimum binary virtual heap size for spawned processes.</p>
           </item>
           <tag><c>modified_timing_level</c></tag>
           <item>
@@ -6449,6 +6504,19 @@ true</pre>
               <tag><c>mbuf_size</c></tag>
               <item>The combined size of message buffers associated with
                the process.</item>
+
+              <tag><c>bin_vheap_size</c></tag>
+              <item>The total size  of unique off-heap binaries referenced from the process heap.</item>
+              <tag><c>bin_vheap_block_size</c></tag>
+	      <item>The total size of binaries, in words, allowed in the virtual
+	       heap in the process before doing a garbage collection. </item>
+              <tag><c>bin_old_vheap_size</c></tag>
+              <item>The total size of unique off-heap binaries referenced from the process old heap.</item>
+              <tag><c>bin_vheap_block_size</c></tag>
+	      <item>The total size of binaries, in words, allowed in the virtual
+	       old heap in the process before doing a garbage collection. </item>
+
+
             </taglist>
             <p>All sizes are in words.</p>
           </item>

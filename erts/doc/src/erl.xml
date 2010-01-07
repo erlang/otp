@@ -527,9 +527,14 @@
 	<p>Calling <c>erlang:halt/1</c> with a string argument will still
 	produce a crash dump.</p>
       </item>
-      <tag><c><![CDATA[+h Size]]></c></tag>
+      <tag><c><![CDATA[+hms Size]]></c></tag>
       <item>
         <p>Sets the default heap size of processes to the size
+          <c><![CDATA[Size]]></c>.</p>
+      </item>
+      <tag><c><![CDATA[+hmbs Size]]></c></tag>
+      <item>
+        <p>Sets the default binary virtual heap size of processes to the size
           <c><![CDATA[Size]]></c>.</p>
       </item>
       <tag><c><![CDATA[+K true | false]]></c></tag>
