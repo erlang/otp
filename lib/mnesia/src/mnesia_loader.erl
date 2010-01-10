@@ -438,6 +438,9 @@ make_table_fun(Pid, TabRec) ->
 
 get_data(Pid, TabRec) ->
     receive 
+	{Pid, {more_z, CompressedRecs}} when is_binary(CompressedRecs) ->
+	    Pid ! {TabRec, more},
+	    {zlib_uncompress(CompressedRecs), make_table_fun(Pid,TabRec)};
 	{Pid, {more, Recs}} ->
 	    Pid ! {TabRec, more},
 	    {Recs, make_table_fun(Pid,TabRec)};
@@ -769,6 +772,27 @@ dets_bchunk(Tab, Chunk) -> %% Arrg
 	Else -> Else
     end.	    
 
+zlib_compress(Data, Level) ->
+    BinData = term_to_binary(Data),
+    Z = zlib:open(),
+    zlib:deflateInit(Z, Level),
+    Bs = zlib:deflate(Z, BinData, finish),
+    zlib:deflateEnd(Z),
+    zlib:close(Z),
+    list_to_binary(Bs).
+
+zlib_uncompress(Data) when is_binary(Data) ->
+    binary_to_term(zlib:uncompress(Data)).
+
+compression_level() ->
+    NoCompression = 0,
+    case ?catch_val(send_compressed) of
+	{'EXIT', _} ->
+	    mnesia_lib:set(send_compressed, NoCompression),
+	    NoCompression;
+	Val -> Val
+    end.
+
 send_packet(N, Pid, _Chunk, '$end_of_table', OldNode) ->
     case OldNode of
 	true -> ignore; %% Old nodes can't handle the new no_more
@@ -779,8 +803,15 @@ send_packet(N, Pid, Chunk, {[], Cont}, OldNode) ->
     send_packet(N, Pid, Chunk, Chunk(Cont), OldNode);
 send_packet(N, Pid, Chunk, {Recs, Cont}, OldNode) when N < ?MAX_NOPACKETS ->
     case OldNode of
-	true -> Pid ! {self(), {more, [Recs]}}; %% Old need's wrapping list
-	false -> Pid ! {self(), {more, Recs}}
+        true ->
+            Pid ! {self(), {more, [Recs]}}; %% Old need's wrapping list
+        false ->
+            case compression_level() of
+                0 ->
+                    Pid ! {self(), {more, Recs}};
+                Level ->
+                    Pid ! {self(), {more_z, zlib_compress(Recs, Level)}}
+            end
     end,
     send_packet(N+1, Pid, Chunk, Chunk(Cont), OldNode);
 send_packet(_N, _Pid, _Chunk, DataState, _OldNode) ->

@@ -3045,6 +3045,17 @@ raise(Name, Amount) ->
           </p>
       </item>
       <item>
+        <p><c>-mnesia send_compressed Level</c> specifies the level of
+          compression to be used when copying a table from the local node to
+          another one. The default level is 0.
+          </p>
+        <p><c>Level</c> must be an integer in the interval [0, 9], with 0
+          representing no compression and 9 representing maximum compression.
+          Before setting it to a non-zero value, make sure the remote nodes
+          understand this configuration.
+          </p>
+      </item>
+      <item>
         <p><c>-mnesia schema_location Loc</c> controls where
           Mnesia will look for its schema. The parameter
           <c>Loc</c> may be one of the following atoms: </p>
