@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -75,7 +75,8 @@ create_menus(MB, [{Title,Items}|Ms], Win, Id0) ->
     Id = create_menu_item(Menu, Items, Win, Id0, true),
     wxMenuBar:append(MB,Menu,menu_name(Title,ignore)),
     create_menus(MB,Ms,Win,Id);
-create_menus(_MB,[], _Win,Id) -> Id.
+create_menus(_MB,[], _Win,Id) ->
+    Id.
 
 create_menu_item(Menu, [separator|Is], Win, Id,Connect) ->
     wxMenu:appendSeparator(Menu),
@@ -102,10 +103,14 @@ create_menu_item(Menu, [{Name, _N, cascade, Items}|Is], Win, Id0,Connect) ->
 		   [{id,Id0},{lastId, Id-1},{callback,Filter}]),
     create_menu_item(Menu, Is, Win, Id, Connect);
 create_menu_item(Menu, [{Name,Pos}|Is], Win, Id, Connect) -> 
-    Item = wxMenu:append(Menu, Id, menu_name(Name,Pos)), 
+    MenuId = case lists:member(Name, ['Debugger']) of
+		 true -> ?wxID_HELP;
+		 _ ->    Id
+	     end,
+    Item = wxMenu:append(Menu, MenuId, menu_name(Name,Pos)),
     put(Name,Item),
     if Connect -> 
-	    wxMenu:connect(Win, command_menu_selected, [{id,Id},{userData, Name}]);
+	    wxMenu:connect(Win, command_menu_selected, [{id,MenuId},{userData, Name}]);
        true -> ignore
     end,
     create_menu_item(Menu,Is,Win,Id+1, Connect);
@@ -308,6 +313,8 @@ to_string(Format,Args) ->
 
 menu_name(Atom, N) when is_atom(Atom) -> 
     menu_name(atom_to_list(Atom),N);
+menu_name("Help", _) -> %% Mac needs this to be exactly this
+    "&Help";
 menu_name(Str, Pos) when is_integer(Pos) ->
     {S1,S2} = lists:split(Pos,Str),
     S1 ++ [$&|S2];

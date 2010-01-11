@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -144,7 +144,7 @@ init2(CallingPid, Mode, SFile, GS) ->
 
 		    win     = Win,
 		    focus   = undefined,
-		    coords  = {0,0},
+		    coords  = {20,20},
 
 		    intdir  = element(2, file:get_cwd()),
 		    pinfos  = [],
@@ -442,8 +442,7 @@ gui_cmd('Back Trace Size...', State) ->
 
 %% Help Menu
 gui_cmd('Debugger', State) ->
-    HelpFile = filename:join([code:lib_dir(debugger),
-			      "doc", "html", "part_frame.html"]),
+    HelpFile = filename:join([code:lib_dir(debugger), "doc", "html", "index.html"]),
     Window = dbg_wx_mon_win:get_window(State#state.win),
     dbg_wx_win:open_help(Window, HelpFile),
     State;

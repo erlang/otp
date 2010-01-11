@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg_wx_filedialog_win).
@@ -375,7 +375,8 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    Start = length(Wanted),
 	    wxTextCtrl:setValue(TC, Path++"/"),
 	    wxTextCtrl:setInsertionPoint(TC, Start),
-	    wxTextCtrl:setSelection(TC, Start, -1),	    
+	    Last = wxTextCtrl:getLastPosition(TC),
+	    wxTextCtrl:setSelection(TC, Start, Last),
 	    destroy_completion(Comp),
 	    wxWindow:setFocus(TC),
 	    State#state{ptext=Path, completion=undefined};
@@ -399,7 +400,7 @@ show_completion(Wanted, State = #state{text=TC, win=Win, list=LC, completion=Com
 	    LB = wxListBox:new(Temp, ?COMPLETION_WIN, 
 			       [{style, ?wxLB_SINGLE}, {choices, Files}, {size, Size}]),
 
-	    wxListBox:connect(LB, command_listbox_doubleclicked),
+	    %% wxListBox:connect(LB, command_listbox_doubleclicked),
 	    wxListBox:connect(LB, command_listbox_selected),
 	    wxWindow:show(Temp),
 	    wxWindow:setFocus(TC),
