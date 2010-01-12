@@ -316,7 +316,6 @@ if test X${enable_darwin_64bit} = Xyes; then
 	esac
 fi
 if test X${enable_darwin_64bit} = Xyes -o X${enable_m64_build} = Xyes; then
-	enable_hipe=no
 	case $CFLAGS in
 		*-m64*)
 			;;
