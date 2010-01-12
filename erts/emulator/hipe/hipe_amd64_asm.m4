@@ -37,6 +37,29 @@ define(SIMULATE_NSP,0)dnl change to 1 to simulate call/ret insns
 `#define LEAF_WORDS	'LEAF_WORDS
 
 /*
+ * Workarounds for Darwin.
+ */
+ifelse(OPSYS,darwin,``
+/* Darwin */
+#define TEXT		.text
+#define JOIN(X,Y)	X##Y
+#define CSYM(NAME)	JOIN(_,NAME)
+#define ASYM(NAME)	CSYM(NAME)
+#define GLOBAL(NAME)	.globl NAME
+#define SET_SIZE(NAME)	/*empty*/
+#define TYPE_FUNCTION(NAME)	/*empty*/
+'',``
+/* Not Darwin */
+#define TEXT		.section ".text"
+#define CSYM(NAME)	NAME
+#define ASYM(NAME)	NAME
+#define GLOBAL(NAME)	.global NAME
+#define SET_SIZE(NAME)	.size NAME,.-NAME
+#define TYPE_FUNCTION(NAME)	.type NAME,@function
+'')dnl
+
+
+/*
  * Reserved registers.
  */
 `#define P		%rbp'

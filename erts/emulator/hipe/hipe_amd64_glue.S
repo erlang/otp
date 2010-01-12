@@ -56,16 +56,16 @@
 	/* switch to native stack */	\
 	SWITCH_C_TO_ERLANG
 
-	.section ".text"
+	TEXT
 
 /*
  * int x86_call_to_native(Process *p);
  * Emulated code recursively calls native code.
  */
 	.align	4
-	.global	x86_call_to_native
-	.global	nbif_return
-x86_call_to_native:
+	GLOBAL(CSYM(x86_call_to_native))
+	GLOBAL(ASYM(nbif_return))
+CSYM(x86_call_to_native):
 	ENTER_FROM_C
 	/* get argument registers */
 	LOAD_ARG_REGS
@@ -77,7 +77,7 @@ x86_call_to_native:
  *
  * This is where native code returns to emulated code.
  */
-nbif_return:
+ASYM(nbif_return):
 	movq	%rax, P_ARG0(P)			# save retval
 	movl	$HIPE_MODE_SWITCH_RES_RETURN, %eax
 /* FALLTHROUGH to .flush_exit
@@ -118,8 +118,8 @@ nbif_return:
  * XXX: Different stubs for different number of register parameters?
  */
 	.align	4
-	.global	nbif_callemu
-nbif_callemu:
+	GLOBAL(ASYM(nbif_callemu))
+ASYM(nbif_callemu):
 	STORE_ARG_REGS
 	movl	$HIPE_MODE_SWITCH_RES_CALL, %eax
 	jmp	.suspend_exit
@@ -128,8 +128,8 @@ nbif_callemu:
  * nbif_apply
  */
 	.align	4
-	.global	nbif_apply
-nbif_apply:
+	GLOBAL(ASYM(nbif_apply))
+ASYM(nbif_apply):
 	STORE_ARG_REGS
 	movl	$HIPE_MODE_SWITCH_RES_APPLY, %eax
 	jmp	.suspend_exit
@@ -145,8 +145,8 @@ nbif_apply:
  */
 #if NR_ARG_REGS >= 6
 	.align	4
-	.global nbif_ccallemu6
-nbif_ccallemu6:
+	GLOBAL(ASYM(nbif_ccallemu6))
+ASYM(nbif_ccallemu6):
 	movq	ARG5, P_ARG5(P)
 #if NR_ARG_REGS > 6
 	movq	ARG6, ARG5
@@ -158,8 +158,8 @@ nbif_ccallemu6:
 
 #if NR_ARG_REGS >= 5
 	.align	4
-	.global nbif_ccallemu5
-nbif_ccallemu5:
+	GLOBAL(ASYM(nbif_ccallemu5))
+ASYM(nbif_ccallemu5):
 	movq	ARG4, P_ARG4(P)
 #if NR_ARG_REGS > 5
 	movq	ARG5, ARG4
@@ -171,8 +171,8 @@ nbif_ccallemu5:
 
 #if NR_ARG_REGS >= 4
 	.align	4
-	.global nbif_ccallemu4
-nbif_ccallemu4:
+	GLOBAL(ASYM(nbif_ccallemu4))
+ASYM(nbif_ccallemu4):
 	movq	ARG3, P_ARG3(P)
 #if NR_ARG_REGS > 4
 	movq	ARG4, ARG3
@@ -184,8 +184,8 @@ nbif_ccallemu4:
 
 #if NR_ARG_REGS >= 3
 	.align	4
-	.global nbif_ccallemu3
-nbif_ccallemu3:
+	GLOBAL(ASYM(nbif_ccallemu3))
+ASYM(nbif_ccallemu3):
 	movq	ARG2, P_ARG2(P)
 #if NR_ARG_REGS > 3
 	movq	ARG3, ARG2
@@ -197,8 +197,8 @@ nbif_ccallemu3:
 
 #if NR_ARG_REGS >= 2
 	.align	4
-	.global nbif_ccallemu2
-nbif_ccallemu2:
+	GLOBAL(ASYM(nbif_ccallemu2))
+ASYM(nbif_ccallemu2):
 	movq	ARG1, P_ARG1(P)
 #if NR_ARG_REGS > 2
 	movq	ARG2, ARG1
@@ -210,8 +210,8 @@ nbif_ccallemu2:
 
 #if NR_ARG_REGS >= 1
 	.align	4
-	.global nbif_ccallemu1
-nbif_ccallemu1:
+	GLOBAL(ASYM(nbif_ccallemu1))
+ASYM(nbif_ccallemu1):
 	movq	ARG0, P_ARG0(P)
 #if NR_ARG_REGS > 1
 	movq	ARG1, ARG0
@@ -222,8 +222,8 @@ nbif_ccallemu1:
 #endif
 
 	.align	4
-	.global nbif_ccallemu0
-nbif_ccallemu0:
+	GLOBAL(ASYM(nbif_ccallemu0))
+ASYM(nbif_ccallemu0):
 	/* We use %rsi not ARG0 here because ARG0 is not
 	   defined when NR_ARG_REGS == 0. */
 #if NR_ARG_REGS == 0
@@ -237,8 +237,8 @@ nbif_ccallemu0:
  * This is where native code suspends.
  */
 	.align	4
-	.global	nbif_suspend_0
-nbif_suspend_0:
+	GLOBAL(ASYM(nbif_suspend_0))
+ASYM(nbif_suspend_0):
 	movl	$HIPE_MODE_SWITCH_RES_SUSPEND, %eax
 	jmp	.suspend_exit
 
@@ -246,8 +246,8 @@ nbif_suspend_0:
  * Suspend from a receive (waiting for a message)
  */
 	.align	4
-	.global	nbif_suspend_msg
-nbif_suspend_msg:
+	GLOBAL(ASYM(nbif_suspend_msg))
+ASYM(nbif_suspend_msg):
 	movl	$HIPE_MODE_SWITCH_RES_WAIT, %eax
 	jmp	.suspend_exit
 
@@ -257,8 +257,8 @@ nbif_suspend_msg:
  *	else { return 0; }
  */
 	.align	4
-	.global	nbif_suspend_msg_timeout
-nbif_suspend_msg_timeout:
+	GLOBAL(ASYM(nbif_suspend_msg_timeout))
+ASYM(nbif_suspend_msg_timeout):
 	movq	P_FLAGS(P), %rax
 	/* this relies on F_TIMO (1<<2) fitting in a byte */
 	testb	$F_TIMO, %al			# F_TIMO set?
@@ -275,8 +275,8 @@ nbif_suspend_msg_timeout:
  * Emulated code returns to its native code caller.
  */
 	.align	4
-	.global	x86_return_to_native
-x86_return_to_native:
+	GLOBAL(CSYM(x86_return_to_native))
+CSYM(x86_return_to_native):
 	ENTER_FROM_C
 	/* get return value */
 	movq	P_ARG0(P), %rax
@@ -292,8 +292,8 @@ x86_return_to_native:
  * Emulated code tailcalls native code.
  */
 	.align	4
-	.global	x86_tailcall_to_native
-x86_tailcall_to_native:
+	GLOBAL(CSYM(x86_tailcall_to_native))
+CSYM(x86_tailcall_to_native):
 	ENTER_FROM_C
 	/* get argument registers */
 	LOAD_ARG_REGS
@@ -305,8 +305,8 @@ x86_tailcall_to_native:
  * Emulated code throws an exception to its native code caller.
  */
 	.align	4
-	.global	x86_throw_to_native
-x86_throw_to_native:
+	GLOBAL(CSYM(x86_throw_to_native))
+CSYM(x86_throw_to_native):
 	ENTER_FROM_C
 	/* invoke the handler */
 	jmp	*P_NCALLEE(P)		# set by hipe_find_handler()
@@ -315,15 +315,15 @@ x86_throw_to_native:
  * This is the default exception handler for native code.
  */
 	.align	4
-	.global	nbif_fail
-nbif_fail:
+	GLOBAL(ASYM(nbif_fail))
+ASYM(nbif_fail):
 	movl	$HIPE_MODE_SWITCH_RES_THROW, %eax
 	jmp	.flush_exit
 	
-	.global	nbif_0_gc_after_bif
-	.global	nbif_1_gc_after_bif
-	.global	nbif_2_gc_after_bif
-	.global	nbif_3_gc_after_bif
+	GLOBAL(nbif_0_gc_after_bif)
+	GLOBAL(nbif_1_gc_after_bif)
+	GLOBAL(nbif_2_gc_after_bif)
+	GLOBAL(nbif_3_gc_after_bif)
 	.align	4
 nbif_0_gc_after_bif:
 	xorl	%edx, %edx
@@ -346,7 +346,7 @@ nbif_3_gc_after_bif:
 	subq	$(16-8), %rsp
 	movq	P, %rdi
 	movq	%rax, %rsi
-	call	erts_gc_after_bif_call
+	call	CSYM(erts_gc_after_bif_call)
 	addq	$(16-8), %rsp
 	movl	$0, P_NARITY(P)		# Note: narity is a 32-bit field
 	ret
@@ -356,10 +356,10 @@ nbif_3_gc_after_bif:
  * exceptional condition.
  * The stack/heap registers were just read from P.
  */
-	.global nbif_0_simple_exception
-	.global	nbif_1_simple_exception
-	.global	nbif_2_simple_exception
-	.global	nbif_3_simple_exception
+	GLOBAL(nbif_0_simple_exception)
+	GLOBAL(nbif_1_simple_exception)
+	GLOBAL(nbif_2_simple_exception)
+	GLOBAL(nbif_3_simple_exception)
 	.align	4
 nbif_0_simple_exception:
 	xorl	%eax, %eax
@@ -389,7 +389,7 @@ nbif_3_simple_exception:
 	/* find and prepare to invoke the handler */
 	SWITCH_ERLANG_TO_C_QUICK	# The cached state is clean and need not be saved.
 	movq	P, %rdi
-	call	hipe_handle_exception	# Note: hipe_handle_exception() conses
+	call	CSYM(hipe_handle_exception)	# Note: hipe_handle_exception() conses
 	SWITCH_C_TO_ERLANG		# %rsp updated by hipe_find_handler()
 	/* now invoke the handler */
 	jmp	*P_NCALLEE(P)		# set by hipe_find_handler()
@@ -408,15 +408,15 @@ nbif_3_simple_exception:
  * nbif_stack_trap_ra: trap return address for maintaining
  * the gray/white stack boundary
  */
-	.global	nbif_stack_trap_ra
+	GLOBAL(ASYM(nbif_stack_trap_ra))
 	.align	4
-nbif_stack_trap_ra:			# a return address, not a function
+ASYM(nbif_stack_trap_ra):			# a return address, not a function
 	# This only handles a single return value.
 	# If we have more, we need to save them in the PCB.
 	movq	%rax, TEMP_RV		# save retval
 	SWITCH_ERLANG_TO_C_QUICK
 	movq	P, %rdi
-	call	hipe_handle_stack_trap	# must not cons; preserves TEMP_RV
+	call	CSYM(hipe_handle_stack_trap)	# must not cons; preserves TEMP_RV
 	movq	%rax, %rdx		# original RA
 	SWITCH_C_TO_ERLANG_QUICK
 	movq	TEMP_RV, %rax		# restore retval
@@ -425,15 +425,15 @@ nbif_stack_trap_ra:			# a return address, not a function
 /*
  * nbif_inc_stack_0
  */
-	.global	nbif_inc_stack_0
+	GLOBAL(ASYM(nbif_inc_stack_0))
 	.align	4
-nbif_inc_stack_0:
+ASYM(nbif_inc_stack_0):
 	SWITCH_ERLANG_TO_C_QUICK
 	STORE_ARG_REGS
 	movq	P, %rdi
 	# hipe_inc_nstack reads and writes NSP and NSP_LIMIT,
 	# but does not access HP or FCALLS (or the non-amd64 NRA).
-	call	hipe_inc_nstack
+	call	CSYM(hipe_inc_nstack)
 	LOAD_ARG_REGS
 	SWITCH_C_TO_ERLANG_QUICK
 	NSP_RET0
