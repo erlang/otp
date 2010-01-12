@@ -1,20 +1,20 @@
 dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
-dnl 
-dnl Copyright Ericsson AB 1997-2009. All Rights Reserved.
-dnl 
+dnl
+dnl Copyright Ericsson AB 1997-2010. All Rights Reserved.
+dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
 dnl compliance with the License. You should have received a copy of the
 dnl Erlang Public License along with this software. If not, it can be
 dnl retrieved online at http://www.erlang.org/.
-dnl 
+dnl
 dnl Software distributed under the License is distributed on an "AS IS"
 dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 dnl the License for the specific language governing rights and limitations
 dnl under the License.
-dnl 
+dnl
 dnl %CopyrightEnd%
 
 dnl The string "FIXME convbreak" means that there is a break of
@@ -344,6 +344,9 @@ case $host_os in
 	AC_MSG_WARN([Reverting to 32-bit time_t])
 	CPPFLAGS="$CPPFLAGS -D_USE_32BIT_TIME_T"
 	;;
+    darwin*)
+        CPPFLAGS="$CPPFLAGS -D_XOPEN_SOURCE"
+        ;;
     *)
 	;;
 esac
@@ -2098,6 +2101,44 @@ if test X${enable_hipe} != Xno; then
   	esac
   fi
 fi
+
+case $ARCH-$OPSYS in
+	amd64-darwin*|x86-darwin*)
+		AC_MSG_CHECKING([For modern (leopard) style mcontext_t])
+		AC_TRY_COMPILE([
+				#include <stdlib.h>
+				#include <sys/types.h>
+				#include <unistd.h>
+				#include <mach/mach.h>
+				#include <pthread.h>
+				#include <machine/signal.h>
+				#include <ucontext.h>
+				],[
+				#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
+				#define __DARWIN__ 1
+				#endif
+
+				#ifndef __DARWIN__
+				#error inpossible
+				#else
+
+				mcontext_t mc = NULL;
+				int x = mc->__fs.__fpu_mxcsr;
+
+				#endif
+				],darwin_mcontext_leopard=yes,
+				darwin_mcontext_leopard=no)
+				if test X"$darwin_mcontext_leopard" = X"yes"; then
+				   AC_DEFINE(DARWIN_MODERN_MCONTEXT,[],[Modern style mcontext_t in MacOSX])
+				   AC_MSG_RESULT(yes)
+				else
+				   AC_MSG_RESULT(no)
+				fi
+		;;
+	*)
+		darwin_mcontext_leopard=no
+		;;
+esac
 if test X${enable_fp_exceptions} = Xauto ; then
    if test X${enable_hipe} = Xyes; then
       enable_fp_exceptions=yes
@@ -2487,6 +2528,7 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     regs[PT_FPSCR] = 0x80|0x40|0x10;	/* VE, OE, ZE; not UE or XE */
 #endif
 #elif defined(__DARWIN__)
+#if defined(DARWIN_MODERN_MCONTEXT)
 #if defined(__x86_64__)
     mcontext_t mc = uc->uc_mcontext;
     struct __darwin_x86_float_state64 *fpstate = &mc->__fs;
@@ -2501,6 +2543,23 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     mcontext_t mc = uc->uc_mcontext;
     mc->ss.srr0 += 4;
     mc->fs.fpscr = 0x80|0x40|0x10;
+#endif
+#else
+#if defined(__x86_64__)
+    mcontext_t mc = uc->uc_mcontext;
+    struct x86_float_state64_t *fpstate = &mc->fs;
+    fpstate->fpu_mxcsr = 0x1F80;
+    *(unsigned short *)&fpstate->fpu_fsw &= ~0xFF;
+#elif defined(__i386__)
+    mcontext_t mc = uc->uc_mcontext;
+    x86_float_state32_t	*fpstate = &mc->fs;
+    fpstate->fpu_mxcsr = 0x1F80;
+    *(unsigned short *)&fpstate->fpu_fsw &= ~0xFF;
+#elif defined(__ppc__)
+    mcontext_t mc = uc->uc_mcontext;
+    mc->ss.srr0 += 4;
+    mc->fs.fpscr = 0x80|0x40|0x10;
+#endif
 #endif
 #elif defined(__FreeBSD__) && defined(__x86_64__)
     mcontext_t *mc = &uc->uc_mcontext;
@@ -2615,43 +2674,6 @@ fi)
     fi
 fi	
 
-case $ARCH-$OPSYS in
-	amd64-darwin*|x86-darwin*)
-		AC_MSG_CHECKING([For modern (leopard) style mcontext_t])
-		AC_TRY_COMPILE([
-				#include <stdlib.h>
-				#include <sys/types.h>
-				#include <unistd.h>
-				#include <mach/mach.h>
-				#include <pthread.h>
-				#include <machine/signal.h>
-				#include <ucontext.h>
-				],[
-				#if defined(__APPLE__) && defined(__MACH__) && !defined(__DARWIN__)
-				#define __DARWIN__ 1
-				#endif
-
-				#ifndef __DARWIN__
-				#error inpossible
-				#else
-
-    				mcontext_t mc = NULL;
-    				int x = mc->__fs.__fpu_mxcsr;
-
-				#endif
-				],darwin_mcontext_leopard=yes,
-				darwin_mcontext_leopard=no)
-				if test X"$darwin_mcontext_leopard" = X"yes"; then
-				   AC_DEFINE(DARWIN_MODERN_MCONTEXT,[],[Modern style mcontext_t in MacOSX])
-				   AC_MSG_RESULT(yes)
-				else
-				   AC_MSG_RESULT(no)
-				fi		
-		;;
-	*)	
-		darwin_mcontext_leopard=no
-		;;
-esac
 	
 	 
 		
