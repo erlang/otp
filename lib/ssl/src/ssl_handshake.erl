@@ -862,15 +862,15 @@ certificate_types(_) ->
 
 certificate_authorities(CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbRef),
-    Enc = fun(Cert) ->
-	TBSCert = Cert#'OTPCertificate'.tbsCertificate,
-	Subj = pubkey_cert_records:transform(TBSCert#'OTPTBSCertificate'.subject, encode),
-	{ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
-	DNEncodedBin = iolist_to_binary(DNEncoded),
-	DNEncodedLen = byte_size(DNEncodedBin),
-	<<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
-    end,
-	list_to_binary(lists:map(Enc, [Cert || {_, Cert} <- Authorities])).
+    Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
+		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
+		  Subj = pubkey_cert_records:transform(OTPSubj, encode),
+		  {ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
+		  DNEncodedBin = iolist_to_binary(DNEncoded),
+		  DNEncodedLen = byte_size(DNEncodedBin),
+		  <<?UINT16(DNEncodedLen), DNEncodedBin/binary>>
+	  end,
+    list_to_binary([Enc(Cert) || {_, Cert} <- Authorities]).
 
 certificate_authorities_from_db(CertDbRef) ->
     certificate_authorities_from_db(CertDbRef, no_candidate, []).
@@ -882,7 +882,7 @@ certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
 	{{CertDbRef, _, _} = Key, Cert} ->
 	    certificate_authorities_from_db(CertDbRef, Key, [Cert|Acc]);
 	{Key, _Cert} ->
-		% skip certs not from this ssl connection
+	    %% skip certs not from this ssl connection
 	    certificate_authorities_from_db(CertDbRef, Key, Acc)
     end.
 
