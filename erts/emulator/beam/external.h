@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -98,9 +98,19 @@ typedef struct {
     Eterm atom[ERTS_ATOM_CACHE_SIZE];
 } ErtsAtomTranslationTable;
 
-#define ERTS_DIST_EXT_DFLAG_HDR (((Uint32) 1) << 31)
-#define ERTS_DIST_EXT_ATOM_TRANS_TAB (((Uint32) 1) << 30)
-#define ERTS_DIST_EXT_CON_ID_MASK ((Uint32) 0x3fffffff)
+/*
+ * These flags are tagged onto the high bits of a connection ID and stored in
+ * the ErtsDistExternal structure's flags field.  They are used to indicate
+ * various bits of state necessary to decode binaries in a variety of
+ * scenarios. The mask ERTS_DIST_EXT_CON_ID_MASK is used later to separate the
+ * connection ID from the flags. Be careful to ensure that the mask does not
+ * overlap any of the bits used for flags, or ERTS will leak flags bits into
+ * connection IDs and leak connection ID bits into the flags.
+ */
+#define ERTS_DIST_EXT_DFLAG_HDR      ((Uint32) 0x80000000)
+#define ERTS_DIST_EXT_ATOM_TRANS_TAB ((Uint32) 0x40000000)
+#define ERTS_DIST_EXT_BTT_SAFE       ((Uint32) 0x20000000)
+#define ERTS_DIST_EXT_CON_ID_MASK    ((Uint32) 0x1fffffff)
 
 #define ERTS_DIST_EXT_CON_ID(DIST_EXTP) \
   ((DIST_EXTP)->flags & ERTS_DIST_EXT_CON_ID_MASK)
