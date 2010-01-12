@@ -167,6 +167,9 @@ ifeq ($(OPSYS),linux)
 ppcBEAMLDFLAGS=-Wl,-m,elf32ppc
 ppc64BEAMLDFLAGS=-Wl,-m,elf64ppc,-T,hipe/elf64ppc.x
 endif
+ifeq ($(OPSYS),darwin)
+amd64BEAMLDFLAGS=-pagezero_size 0x10000000
+endif
 HIPEBEAMLDFLAGS=$($(ARCH)BEAMLDFLAGS)
 endif
 
