@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -68,10 +68,11 @@ body_data(Headers, Body) ->
  	    {binary_to_list(BodyThisReq), Next}
     end.
 
+
 %%-------------------------------------------------------------------------
 %% validate(Method, Uri, Version) -> ok | {error, {bad_request, Reason} |
 %%			     {error, {not_supported, {Method, Uri, Version}}
-%%      Method = "HEAD" | "GET" | "POST" | "TRACE"
+%%      Method = "HEAD" | "GET" | "POST" | "TRACE" | "PUT" | "DELETE"
 %%      Uri = uri()
 %%      Version = "HTTP/N.M"      
 %% Description: Checks that HTTP-request-line is valid.
@@ -83,6 +84,10 @@ validate("GET", Uri, []) -> %% Simple HTTP/0.9
 validate("GET", Uri, "HTTP/0.9") ->
     validate_uri(Uri);
 validate("GET", Uri, "HTTP/1." ++ _N) ->
+    validate_uri(Uri);
+validate("PUT", Uri, "HTTP/1." ++ _N) ->
+    validate_uri(Uri);
+validate("DELETE", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);
 validate("POST", Uri, "HTTP/1." ++ _N) ->
     validate_uri(Uri);

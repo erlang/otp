@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -444,35 +444,35 @@ ip(doc) ->
     ["HTTP tests using TCP/IP"];
 ip(suite) ->
     [
-%%      ip_mod_alias, 
-%%      ip_mod_actions, 
-%%      ip_mod_security, 
-%%      ip_mod_auth,
-%%      ip_mod_auth_api, 
-%%      ip_mod_auth_mnesia_api,
-%%      ip_mod_htaccess, 
-%%      ip_mod_cgi, 
-%%      ip_mod_esi, 
-%%      ip_mod_get,
-%%      ip_mod_head, 
-%%      ip_mod_all, 
-%%      ip_load_light, 
-%%      ip_load_medium, 
-%%      ip_load_heavy,
-%%      ip_dos_hostname, 
-%%      ip_time_test, 
-%%      ip_block_disturbing_idle, 
-%%      ip_block_non_disturbing_idle, 
-%%      ip_block_503, 
-%%      ip_block_disturbing_active, 
-%%      ip_block_non_disturbing_active, 
-%%      ip_block_disturbing_active_timeout_not_released, 
-%%      ip_block_disturbing_active_timeout_released, 
-%%      ip_block_non_disturbing_active_timeout_not_released, 
-%%      ip_block_non_disturbing_active_timeout_released, 
-%%      ip_block_disturbing_blocker_dies, 
-%%      ip_block_non_disturbing_blocker_dies, 
-%%      ip_restart_no_block, 
+     ip_mod_alias, 
+     ip_mod_actions, 
+     ip_mod_security, 
+     ip_mod_auth,
+     ip_mod_auth_api, 
+     ip_mod_auth_mnesia_api,
+     ip_mod_htaccess, 
+     ip_mod_cgi, 
+     ip_mod_esi, 
+     ip_mod_get,
+     ip_mod_head, 
+     ip_mod_all, 
+     ip_load_light, 
+     ip_load_medium, 
+     ip_load_heavy,
+     ip_dos_hostname, 
+     ip_time_test, 
+     ip_block_disturbing_idle, 
+     ip_block_non_disturbing_idle, 
+     ip_block_503, 
+     ip_block_disturbing_active, 
+     ip_block_non_disturbing_active, 
+     ip_block_disturbing_active_timeout_not_released, 
+     ip_block_disturbing_active_timeout_released, 
+     ip_block_non_disturbing_active_timeout_not_released, 
+     ip_block_non_disturbing_active_timeout_released, 
+     ip_block_disturbing_blocker_dies, 
+     ip_block_non_disturbing_blocker_dies, 
+     ip_restart_no_block, 
      ip_restart_disturbing_block, 
      ip_restart_non_disturbing_block
     ].
@@ -482,37 +482,37 @@ ssl(doc) ->
     ["HTTP test using SSL"];
 ssl(suite) ->
     [
-%%      ssl_mod_alias, 
-%%      ssl_mod_actions, 
-%%      ssl_mod_security, 
-%%      ssl_mod_auth,
-%%      ssl_mod_auth_api, 
-%%      ssl_mod_auth_mnesia_api,
-%%      ssl_mod_htaccess, 
-%%      ssl_mod_cgi, 
-%%      ssl_mod_esi,
-%%      ssl_mod_get, 
-%%      ssl_mod_head, 
-%%      ssl_mod_all, 
-%%      ssl_load_light, 
-%%      ssl_load_medium,
-%%      ssl_load_heavy, 
-%%      ssl_dos_hostname, 
-%%      ssl_time_test,
-%%      ssl_restart_no_block, 
+     ssl_mod_alias, 
+     ssl_mod_actions, 
+     ssl_mod_security, 
+     ssl_mod_auth,
+     ssl_mod_auth_api, 
+     ssl_mod_auth_mnesia_api,
+     ssl_mod_htaccess, 
+     ssl_mod_cgi, 
+     ssl_mod_esi,
+     ssl_mod_get, 
+     ssl_mod_head, 
+     ssl_mod_all, 
+     ssl_load_light, 
+     ssl_load_medium,
+     ssl_load_heavy, 
+     ssl_dos_hostname, 
+     ssl_time_test,
+     ssl_restart_no_block, 
      ssl_restart_disturbing_block,
-     ssl_restart_non_disturbing_block%% , 
-%%      ssl_block_disturbing_idle, 
-%%      ssl_block_non_disturbing_idle, 
-%%      ssl_block_503,
-%%      ssl_block_disturbing_active, 
-%%      ssl_block_non_disturbing_active, 
-%%      ssl_block_disturbing_active_timeout_not_released, 
-%%      ssl_block_disturbing_active_timeout_released, 
-%%      ssl_block_non_disturbing_active_timeout_not_released, 
-%%      ssl_block_non_disturbing_active_timeout_released, 
-%%      ssl_block_disturbing_blocker_dies,
-%%      ssl_block_non_disturbing_blocker_dies
+     ssl_restart_non_disturbing_block, 
+     ssl_block_disturbing_idle, 
+     ssl_block_non_disturbing_idle, 
+     ssl_block_503,
+     ssl_block_disturbing_active, 
+     ssl_block_non_disturbing_active, 
+     ssl_block_disturbing_active_timeout_not_released, 
+     ssl_block_disturbing_active_timeout_released, 
+     ssl_block_non_disturbing_active_timeout_not_released, 
+     ssl_block_non_disturbing_active_timeout_released, 
+     ssl_block_disturbing_blocker_dies,
+     ssl_block_non_disturbing_blocker_dies
     ].
 
 %%-------------------------------------------------------------------------

@@ -1,25 +1,28 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
 
+%% 
+%% ts:run(inets, httpc_SUITE, [batch]).
+%% 
+
 -module(httpc_SUITE).
--author('ingela@erix.ericsson.se').
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
@@ -55,6 +58,7 @@
 %% Description: Returns documentation/test cases in this test suite
 %%		or a skip tuple if the platform is not supported.  
 %%--------------------------------------------------------------------
+
 all(doc) ->
     ["Test the http client in the intes application."];
 all(suite) ->
@@ -93,7 +97,7 @@ all(suite) ->
      http_server_does_not_exist,
      http_invalid_http,
      http_emulate_lower_versions,
-     http_relaxed,
+     http_relaxed, 
      page_does_not_exist, 
      proxy_page_does_not_exist, 
      proxy_https_not_supported,
@@ -138,12 +142,12 @@ init_per_suite(Config) ->
 	  end,
     
     {ok, FileInfo} = file:read_file_info(Cgi),
-    ok = file:write_file_info(Cgi, 
-			      FileInfo#file_info{mode = 8#00755}),
+    ok = file:write_file_info(Cgi, FileInfo#file_info{mode = 8#00755}),
 
-    [{server_root, ServerRoot}, {doc_root, DocRoot},
-     {local_port, ?IP_PORT}, {local_ssl_port, ?SSL_PORT}
-	 | Config].
+    [{server_root,    ServerRoot}, 
+     {doc_root,       DocRoot},
+     {local_port,     ?IP_PORT}, 
+     {local_ssl_port, ?SSL_PORT} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _
@@ -170,11 +174,17 @@ end_per_suite(Config) ->
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
+init_per_testcase(otp_8154_1 = Case, Config) ->
+    init_per_testcase(Case, 5, Config);
 init_per_testcase(Case, Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE,Case]),
+    init_per_testcase(Case, 2, Config).
+
+init_per_testcase(Case, Timeout, Config) ->
+    io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
+	      [?MODULE, Timeout, Case]),
     PrivDir = ?config(priv_dir, Config),
     application:stop(inets),
-    Dog = test_server:timetrap(inets_test_lib:minutes(10)),
+    Dog = test_server:timetrap(inets_test_lib:minutes(Timeout)),
     TmpConfig = lists:keydelete(watchdog, 1, Config),
     IpConfFile = integer_to_list(?IP_PORT) ++ ".conf",
     SslConfFile = integer_to_list(?SSL_PORT) ++ ".conf",
@@ -185,11 +195,10 @@ init_per_testcase(Case, Config) ->
 		application:stop(ssl),
 		TmpConfig2 = 
 		    lists:keydelete(local_ssl_server, 1, TmpConfig),
+		%% Will start inets 
 		Server = 
-		    %% Will start inets 
-		inets_test_lib:start_http_server(
-		  filename:join(PrivDir,
-				SslConfFile)),
+		    inets_test_lib:start_http_server(
+		      filename:join(PrivDir, SslConfFile)),
 		[{watchdog, Dog}, {local_ssl_server, Server} | TmpConfig2];
 	    "proxy" ++ Rest ->
 		   case Rest of			       
@@ -224,7 +233,8 @@ init_per_testcase(Case, Config) ->
     
     http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
 			       ["localhost", ?IPV6_LOCAL_HOST]}}]),
-    inets:enable_trace(max, io),
+    inets:enable_trace(max, io, httpc),
+    %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
     NewConfig.
 
 %%--------------------------------------------------------------------
@@ -269,7 +279,10 @@ tickets(suite) ->
      no_content_204_otp_6982,
      missing_CR_otp_7304,
      otp_7883,
-     otp_8154
+     otp_8154,
+     otp_8106,
+     otp_8056,
+     otp_8371
     ].
 
 
@@ -295,9 +308,9 @@ http_head(Config) when is_list(Config) ->
 		{ok, {{_,200,_}, [_ | _], []}} ->
 		    ok;
 		{ok, WrongReply} ->
-		    test_server:fail({wrong_reply, WrongReply});
+		    tsf({wrong_reply, WrongReply});
 		Error ->
-		    test_server:fail({failed, Error})
+		    tsf({failed, Error})
 	    end;
 	  _ ->
 	      {skip, "Failed to start local http-server"}
@@ -308,28 +321,47 @@ http_get(doc) ->
 http_get(suite) ->
     [];
 http_get(Config) when is_list(Config) ->
-  case ?config(local_server, Config) of 
+    tsp("http_get -> entry with"
+	"~n   Config: ~p", [Config]),
+    case ?config(local_server, Config) of 
 	ok ->
-	  Port = ?config(local_port, Config),
-	  URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	  Timeout = timer:seconds(1), 
-	  ConnTimeout = Timeout + timer:seconds(1), 
-	  {ok, {{_,200,_}, [_ | _], Body = [_ | _]}} =
-	      http:request(get, {URL, []}, 
-			   [{timeout, Timeout}, {connect_timeout, ConnTimeout}], []),
-	  %% eqvivivalent to http:request(get, {URL, []}, [], []),
-	  inets_test_lib:check_body(Body),
-	  {ok, {{_,200,_}, [_ | _], Bin}} =
-	      http:request(get, {URL, []}, [], [{body_format, binary}]),
-	  case Bin of
-	      Bin when is_binary(Bin) ->
-		  ok;
-	      _ ->
-		  test_server:fail(body_format_not_binary)
-	  end;
-      _ ->
-	  {skip, "Failed to start local http-server"}
-  end.  
+	    tsp("local-server running"),
+	    Method       = get, 
+	    Port         = ?config(local_port, Config),
+	    URL          = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    Request      = {URL, []}, 
+	    Timeout      = timer:seconds(1), 
+	    ConnTimeout  = Timeout + timer:seconds(1), 
+	    HttpOptions1 = [{timeout, Timeout}, {connect_timeout, ConnTimeout}], 
+	    Options1     = [], 
+	    Body = 
+		case http:request(Method, Request, HttpOptions1, Options1) of
+		    {ok, {{_,200,_}, [_ | _], ReplyBody = [_ | _]}} ->
+			ReplyBody;
+		    {ok, UnexpectedReply1} ->
+			tsf({unexpected_reply, UnexpectedReply1});
+		    {error, _} = Error1 ->
+			tsf({bad_reply, Error1})
+		end,
+
+	    %% eqvivivalent to http:request(get, {URL, []}, [], []),
+	    inets_test_lib:check_body(Body),
+
+	    HttpOptions2 = [], 
+	    Options2     = [{body_format, binary}], 
+	    case http:request(Method, Request, HttpOptions2, Options2) of
+		{ok, {{_,200,_}, [_ | _], Bin}} when is_binary(Bin) ->
+		    ok;
+		{ok, {{_,200,_}, [_ | _], BadBin}} ->
+		    tsf({body_format_not_binary, BadBin});
+		{ok,  UnexpectedReply2} ->
+		    tsf({unexpected_reply, UnexpectedReply2});
+		{error, _} = Error2 ->
+		    tsf({bad_reply, Error2})
+	    end;
+	_ ->
+	    {skip, "Failed to start local http-server"}
+    end.  
 
 %%-------------------------------------------------------------------------
 http_post(doc) ->
@@ -389,7 +421,9 @@ http_emulate_lower_versions(Config) when is_list(Config) ->
 	    {skip, "Failed to start local http-server"}
     end.
 
+
 %%-------------------------------------------------------------------------
+
 http_relaxed(doc) ->
     ["Test relaxed mode"];
 http_relaxed(suite) ->
@@ -397,12 +431,7 @@ http_relaxed(suite) ->
 http_relaxed(Config) when is_list(Config) ->
     ok = http:set_options([{ipv6, disabled}]), % also test the old option 
     %% ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/missing_reason_phrase.html",
@@ -428,13 +457,8 @@ http_dummy_pipe(suite) ->
     [];
 http_dummy_pipe(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
-    Port = receive 
-	       {port, ServerPort} ->
-			   ServerPort
-	   end,
-   
     URL = ?URL_START ++ integer_to_list(Port) ++ "/foobar.html",
 
     test_pipeline(URL),
@@ -451,78 +475,126 @@ http_inets_pipe(Config) when is_list(Config) ->
     
     case ?config(local_server, Config) of 
 	ok ->
-	  Port = ?config(local_port, Config),
-	  URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    Port = ?config(local_port, Config),
+	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    test_pipeline(URL); 
 	_ ->
 	    {skip, "Failed to start local http-server"}
     end.
 
 test_pipeline(URL) ->
-    
+    p("test_pipeline -> entry with"
+      "~n   URL: ~p", [URL]),
+
     http:set_options([{pipeline_timeout, 50000}]),
     
+    p("test_pipeline -> issue (async) request 1"), 
     {ok, RequestId1} = 
 	http:request(get, {URL, []}, [], [{sync, false}]),
     test_server:format("RequestId1: ~p~n", [RequestId1]),
+    p("test_pipeline -> RequestId1: ~p", [RequestId1]),
 
     %% Make sure pipeline is initiated
+    p("test_pipeline -> sleep some", []),
     test_server:sleep(4000),
 
+    p("test_pipeline -> issue (async) request 2"),
     {ok, RequestId2} = 
 	http:request(get, {URL, []}, [], [{sync, false}]),
-    test_server:format("RequestId2: ~p~n", [RequestId2]),
+    tsp("RequestId2: ~p", [RequestId2]),
+    p("test_pipeline -> RequestId2: ~p", [RequestId2]),
 
-    {ok, {{_,200,_}, [_ | _], [_ | _]}}
-	= http:request(get, {URL, []}, [], []),
+    p("test_pipeline -> issue (sync) request 3"),
+    {ok, {{_,200,_}, [_ | _], [_ | _]}} = 
+	http:request(get, {URL, []}, [], []),
+
+    p("test_pipeline -> expect reply for (async) request 1 or 2"),
     receive 
 	{http, {RequestId1, {{_, 200, _}, _, _}}} ->
+	    p("test_pipeline -> received reply for (async) request 1 - now wait for 2"),
 	    receive
 		{http, {RequestId2, {{_, 200, _}, _, _}}} ->
+		    p("test_pipeline -> received reply for (async) request 2"),
 		    ok;
 		{http, Msg1} ->
 		    test_server:fail(Msg1)
 	    end;
 	{http, {RequestId2, {{_, 200, _}, _, _}}} ->
+	    io:format("test_pipeline -> received reply for (async) request 2 - now wait for 1"),
 	    receive
 		{http, {RequestId1, {{_, 200, _}, _, _}}} ->
+		    io:format("test_pipeline -> received reply for (async) request 1"),
 		    ok;
 		{http, Msg2} ->
 		    test_server:fail(Msg2)
 		    end; 
 	{http, Msg3} ->
-		    test_server:fail(Msg3)
+	    test_server:fail(Msg3)
+	after 60000 ->
+		receive Any1 ->
+			tsp("received crap after timeout: ~n   ~p", [Any1]),
+			test_server:fail({error, {timeout, Any1}})
+		end
     end,
     
+    p("test_pipeline -> sleep some"),
+    test_server:sleep(4000),
+
+    p("test_pipeline -> issue (async) request 4"),
     {ok, RequestId3} = 
-		http:request(get, {URL, []}, [], [{sync, false}]),
-    test_server:format("RequestId3: ~p~n", [RequestId3]),
+	http:request(get, {URL, []}, [], [{sync, false}]),
+    tsp("RequestId3: ~p", [RequestId3]),
+    p("test_pipeline -> RequestId3: ~p", [RequestId3]),
+
+    p("test_pipeline -> issue (async) request 5"),
     {ok, RequestId4} = 
 	http:request(get, {URL, []}, [], [{sync, false}]),
-    test_server:format("RequestId4: ~p~n", [RequestId4]),
+    tsp("RequestId4: ~p~n", [RequestId4]),
+    p("test_pipeline -> RequestId4: ~p", [RequestId4]),
+
+    p("test_pipeline -> cancel (async) request 4"),
     ok = http:cancel_request(RequestId3),
+
+    p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
     receive 
 	{http, {RequestId3, _}} ->
-		    test_server:fail(http_cancel_request_failed)
+	    test_server:fail(http_cancel_request_failed)
     after 3000 ->
 	    ok
     end,
+
+    p("test_pipeline -> expect reply for (async) request 4"),
     Body = 
 	receive 
-	   Res = {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} ->
-		test_server:format(" Receive : ~p~n", [Res]),
+	   {http, {RequestId4, {{_, 200, _}, _, BinBody4}}} = Res ->
+		p("test_pipeline -> received reply for (async) request 5"),
+		tsp("Receive : ~p", [Res]),
 		BinBody4;
 	    {http, Msg4} ->
 		test_server:fail(Msg4)
+	after 60000 ->
+		receive Any2 ->
+			tsp("received crap after timeout: ~n   ~p", [Any2]),
+			test_server:fail({error, {timeout, Any2}})
+		end
 	end,
+
+    p("test_pipeline -> check reply for (async) request 5"),
     inets_test_lib:check_body(binary_to_list(Body)),
    
+    p("test_pipeline -> ensure no unexpected incomming"),
     receive 
 	{http, Any} ->
 	    test_server:fail({unexpected_message, Any})
     after 500 ->
 	    ok
-    end.    
+    end,
+
+    p("test_pipeline -> done"),
+    ok.
+
+
+
 %%-------------------------------------------------------------------------
 http_trace(doc) ->
     ["Perform a TRACE request that goes through a proxy."];
@@ -700,12 +772,7 @@ http_headers_dummy(suite) ->
     [];
 http_headers_dummy(Config) when is_list(Config) -> 
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-			   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy_headers.html",
     
@@ -770,12 +837,7 @@ http_bad_response(suite) ->
     [];
 http_bad_response(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_crlf.html",
     
@@ -868,64 +930,90 @@ http_redirect(doc) ->
 http_redirect(suite) ->
     [];
 http_redirect(Config) when is_list(Config) ->
+    tsp("http_redirect -> entry with"
+	"~n   Config: ~p", [Config]),
     case ?config(local_server, Config) of 
 	ok ->
+	    tsp("http_redirect -> set ipfamily option to inet"),
 	    ok = http:set_options([{ipfamily, inet}]),
-	    DummyServerPid = dummy_server(self(), ipv4),
-	    
-	    Port = receive 
-		       {port, ServerPort} ->
-			   ServerPort
-		   end,
+
+	    tsp("http_redirect -> start dummy server inet"),
+	    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+	    tsp("http_redirect -> server port = ~p", [Port]),
     
 	    URL300 = ?URL_START ++ integer_to_list(Port) ++ "/300.html",
     
+	    tsp("http_redirect -> issue request 1: "
+		"~n   ~p", [URL300]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= http:request(get, {URL300, []}, [], []),
 	    
-	    {ok, {{_,300,_}, [_ | _], _}} 
-		= http:request(get, {URL300, []}, [{autoredirect, false}],
-			       []),
+	    tsp("http_redirect -> issue request 2: "
+		"~n   ~p", [URL300]),
+	    {ok, {{_,300,_}, [_ | _], _}} = 
+		http:request(get, {URL300, []}, [{autoredirect, false}], []),
 
 	    URL301 = ?URL_START ++ integer_to_list(Port) ++ "/301.html",
 
-
+	    tsp("http_redirect -> issue request 3: "
+		"~n   ~p", [URL301]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= http:request(get, {URL301, []}, [], []),
 	    
+	    tsp("http_redirect -> issue request 4: "
+		"~n   ~p", [URL301]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
  		= http:request(head, {URL301, []}, [], []),
 	    
+	    tsp("http_redirect -> issue request 5: "
+		"~n   ~p", [URL301]),
 	    {ok, {{_,301,_}, [_ | _], [_|_]}} 
  		= http:request(post, {URL301, [],"text/plain", "foobar"},
 			       [], []),
 
 	    URL302 = ?URL_START ++ integer_to_list(Port) ++ "/302.html",
 	 
+	    tsp("http_redirect -> issue request 6: "
+		"~n   ~p", [URL302]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= http:request(get, {URL302, []}, [], []),	 
 	    
+	    tsp("http_redirect -> issue request 7: "
+		"~n   ~p", [URL302]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
  		= http:request(head, {URL302, []}, [], []),	 
 	    
+	    tsp("http_redirect -> issue request 8: "
+		"~n   ~p", [URL302]),
 	    {ok, {{_,302,_}, [_ | _], [_|_]}} 
  		= http:request(post, {URL302, [],"text/plain", "foobar"},
 			       [], []),
    
 	    URL307 = ?URL_START ++ integer_to_list(Port) ++ "/307.html",
 
+	    tsp("http_redirect -> issue request 9: "
+		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= http:request(get, {URL307, []}, [], []),
 	
+	    tsp("http_redirect -> issue request 10: "
+		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
  		= http:request(head, {URL307, []}, [], []),
 	    
+	    tsp("http_redirect -> issue request 11: "
+		"~n   ~p", [URL307]),
 	    {ok, {{_,307,_}, [_ | _], [_|_]}} 
  		= http:request(post, {URL307, [],"text/plain", "foobar"},
 			       [], []),
 	    
+	    tsp("http_redirect -> stop dummy server"),
 	    DummyServerPid ! stop,
-	    ok = http:set_options([{ipfamily, inet6fb4}]);   % ********** ipfamily = inet6 *************
+	    tsp("http_redirect -> reset ipfamily option (to inet6fb4)"),
+	    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+	    tsp("http_redirect -> done"),
+	    ok;
+
 	_ ->
 	    {skip, "Failed to start local http-server"}
     end.
@@ -938,12 +1026,7 @@ http_redirect_loop(suite) ->
     [];
 http_redirect_loop(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
- 	       {port, ServerPort} ->
- 		   ServerPort
- 	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/redirectloop.html",
     
@@ -960,12 +1043,7 @@ http_internal_server_error(suite) ->
     [];
 http_internal_server_error(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
- 	       {port, ServerPort} ->
- 		   ServerPort
- 	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL500 = ?URL_START ++ integer_to_list(Port) ++ "/500.html",
     
@@ -1001,12 +1079,7 @@ http_userinfo(suite) ->
 http_userinfo(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
 
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
- 	       {port, ServerPort} ->
- 		   ServerPort
- 	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URLAuth = "http://alladin:sesame@localhost:" 
 	++ integer_to_list(Port) ++ "/userinfo.html",
@@ -1032,12 +1105,7 @@ http_cookie(suite) ->
     [];
 http_cookie(Config) when is_list(Config) ->
     ok = http:set_options([{cookies, enabled}, {ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
- 	       {port, ServerPort} ->
- 		   ServerPort
- 	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URLStart = ?URL_START  
 	++ integer_to_list(Port),
@@ -1335,8 +1403,8 @@ proxy_https_not_supported(doc) ->
 proxy_https_not_supported(suite) ->
     [];
 proxy_https_not_supported(Config) when is_list(Config) ->
-    {error, https_through_proxy_is_not_currently_supported} 
-	= http:request(get, {"https://login.yahoo.com", []}, [], []),
+    {error, {failed_connecting, https_through_proxy_is_not_currently_supported}} = 
+	http:request(get, {"https://login.yahoo.com", []}, [], []),
     ok.
 
 
@@ -1374,51 +1442,68 @@ http_stream_once(doc) ->
 http_stream_once(suite) ->
     [];
 http_stream_once(Config) when is_list(Config) ->
+    p("http_stream_once -> entry with"
+      "~n   Config: ~p", [Config]),
+      
+    p("http_stream_once -> set ipfamily to inet", []),
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),    
-    Port = receive 
-	       {port, ServerPort} ->
-			   ServerPort
-	   end,
+    p("http_stream_once -> start dummy server", []),
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),    
     
     PortStr =  integer_to_list(Port),
+    p("http_stream_once -> once", []),
     once(?URL_START ++ PortStr ++ "/once.html"),
+    p("http_stream_once -> once_chunked", []),
     once(?URL_START ++ PortStr ++ "/once_chunked.html"),
+    p("http_stream_once -> dummy", []),
     once(?URL_START ++ PortStr ++ "/dummy.html"),
     
+    p("http_stream_once -> stop dummy server", []),
     DummyServerPid ! stop,
+    p("http_stream_once -> set ipfamily to inet6fb4", []),
     ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    p("http_stream_once -> done", []),
     ok.
   
 once(URL) ->
+    p("once -> issue sync request for ~p", [URL]),
     {ok, {{_,200,_}, [_ | _], Body}} = 
 	http:request(get, {URL, []}, [], []),
     
+    p("once -> issue async (self stream) request for ~p", [URL]),
     {ok, RequestId} =
 	http:request(get, {URL, []}, [], [{sync, false}, 
 					  {stream, {self, once}}]),
     
-    NewPid = receive 
-		 {http, {RequestId, stream_start, _Headers, Pid}} ->
-		     Pid;
-		 {http, Msg} ->
-		     test_server:fail(Msg)
-	     end,
+    p("once -> await stream_start reply for (async) request ~p", [RequestId]),
+    NewPid = 
+	receive 
+	    {http, {RequestId, stream_start, _Headers, Pid}} ->
+		p("once -> received stream_start reply for (async) request ~p: ~p", 
+		  [RequestId, Pid]),
+		Pid;
+	    {http, Msg} ->
+		test_server:fail(Msg)
+	end,
 
-    test_server:format("Request handler: ~p~n", [NewPid]),
+    tsp("once -> request handler: ~p", [NewPid]),
 
+    p("once -> await stream reply for (async) request ~p", [RequestId]),
     BodyPart = 
 	receive 
 	    {http, {RequestId, stream, BinBodyPart}} ->
+		p("once -> received stream reply for (async) request ~p: "
+		  "~n~p", [RequestId, binary_to_list(BinBodyPart)]),
 		BinBodyPart
 	end,
 
-    test_server:format("First body part: ~p~n", 
-		       [binary_to_list(BodyPart)]),
+    tsp("once -> first body part '~p' received", [binary_to_list(BodyPart)]),
 
     StreamedBody = receive_streamed_body(RequestId, BinBodyPart, NewPid),
     
     Body = binary_to_list(StreamedBody),
+
+    p("once -> done when Bode: ~p", [Body]),
     ok.
 
 
@@ -1509,12 +1594,7 @@ ipv6(Config) when is_list(Config) ->
     case lists:member(list_to_atom(Hostname), 
 		      ?config(ipv6_hosts, Config)) of
 	true ->
-	    DummyServerPid = dummy_server(self(), ipv6),
-	    
-	    Port = receive 
-		       {port, ServerPort} ->
-			   ServerPort
-		   end,
+	    {DummyServerPid, Port} = dummy_server(self(), ipv6),
 	    
 	    URL = "http://[" ++ ?IPV6_LOCAL_HOST ++ "]:" ++ 
 		integer_to_list(Port) ++ "/foobar.html",
@@ -1576,12 +1656,7 @@ http_invalid_http(suite) ->
     [];
 http_invalid_http(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
- 	       {port, ServerPort} ->
- 		   ServerPort
- 	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/invalid_http.html",
     
@@ -1638,12 +1713,7 @@ transfer_encoding_otp_6807(suite) ->
     [];
 transfer_encoding_otp_6807(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/capital_transfer_encoding.html",
@@ -1676,12 +1746,7 @@ empty_response_header_otp_6830(suite) ->
     [];
 empty_response_header_otp_6830(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_headers.html",
     {ok, {{_,200,_}, [], [_ | _]}} = http:request(URL),
@@ -1698,12 +1763,7 @@ no_content_204_otp_6982(suite) ->
     [];
 no_content_204_otp_6982(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_content.html",
     {ok, {{_,204,_}, [], []}} = http:request(URL),
@@ -1721,12 +1781,7 @@ missing_CR_otp_7304(suite) ->
     [];
 missing_CR_otp_7304(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
-    DummyServerPid = dummy_server(self(), ipv4),
-    
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_CR.html",
     {ok, {{_,200,_}, _, [_ | _]}} = http:request(URL),
@@ -1747,13 +1802,8 @@ otp_7883_1(suite) ->
 otp_7883_1(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
 
-    DummyServerPid = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
-
     URL = ?URL_START ++ integer_to_list(Port) ++ "/just_close.html",
     {error, socket_closed_remotely} = http:request(URL),
     DummyServerPid ! stop,
@@ -1768,13 +1818,8 @@ otp_7883_2(suite) ->
 otp_7883_2(Config) when is_list(Config) ->
     ok = http:set_options([{ipfamily, inet}]),
 
-    DummyServerPid = dummy_server(self(), ipv4),
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
-    Port = receive 
-	       {port, ServerPort} ->
-		   ServerPort
-	   end,
-
     URL = ?URL_START ++ integer_to_list(Port) ++ "/just_close.html",
     Method      = get,
     Request     = {URL, []}, 
@@ -1810,7 +1855,7 @@ otp_8154_1(Config) when is_list(Config) ->
     {ok, Server, Port} = start_slow_server(RespSeqNumServer),
     Clients = run_clients(105, Port, ReqSeqNumServer),
     %% ok = wait_for_clients(Clients),
-    ok = wait4clients(Clients, timer:minutes(2)),
+    ok = wait4clients(Clients, timer:minutes(3)),
     Server ! shutdown,
     RespSeqNumServer ! shutdown,
     ReqSeqNumServer ! shutdown,
@@ -1819,6 +1864,7 @@ otp_8154_1(Config) when is_list(Config) ->
 start_inets() ->
     inets:start(),
     ok.
+
 
 %% -----------------------------------------------------
 %% A sequence number handler
@@ -1886,25 +1932,25 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
       end,
       lists:seq(1, NumClients)).
 
-wait_for_clients(Clients) ->
-    lists:foreach(
-      fun({Id, Pid, MRef}) ->
-	      io:format("waiting for client ~w termination~n", [Id]),
-	      receive
-		  {'DOWN', MRef, process, Pid, normal} ->
-		      io:format("waiting for clients: "
-				"normal exit from ~w (~p)~n", 
-				[Id, Pid]),
-		      ok;
-		  {'DOWN', MRef, process, Pid, Reason} ->
-		      io:format("waiting for clients: "
-				"unexpected exit from ~w (~p):"
-				"~n   Reason: ~p"
-				"~n", [Id, Pid, Reason]),
-		      erlang:error(Reason)
-	      end
-      end,
-      Clients).
+%% wait_for_clients(Clients) ->
+%%     lists:foreach(
+%%       fun({Id, Pid, MRef}) ->
+%% 	      io:format("waiting for client ~w termination~n", [Id]),
+%% 	      receive
+%% 		  {'DOWN', MRef, process, Pid, normal} ->
+%% 		      io:format("waiting for clients: "
+%% 				"normal exit from ~w (~p)~n", 
+%% 				[Id, Pid]),
+%% 		      ok;
+%% 		  {'DOWN', MRef, process, Pid, Reason} ->
+%% 		      io:format("waiting for clients: "
+%% 				"unexpected exit from ~w (~p):"
+%% 				"~n   Reason: ~p"
+%% 				"~n", [Id, Pid, Reason]),
+%% 		      erlang:error(Reason)
+%% 	      end
+%%       end,
+%%       Clients).
 
 
 wait4clients([], _Timeout) ->
@@ -2074,6 +2120,201 @@ f(F, A) -> lists:flatten(io_lib:format(F,A)).
 
 
 
+%%-------------------------------------------------------------------------
+
+otp_8106(suite) ->
+    [
+     otp_8106_pid, 
+     otp_8106_fun, 
+     otp_8106_mfa
+    ].
+
+
+otp_8106_pid(doc) ->
+    ["OTP-8106 - deliver reply info using \"other\" pid"];
+otp_8106_pid(suite) ->
+    [];
+otp_8106_pid(Config) when is_list(Config) ->
+    case ?config(local_server, Config) of 
+	ok ->
+	    ReceiverPid = create_receiver(pid),
+	    Receiver    = ReceiverPid, 
+	    
+	    otp8106(ReceiverPid, Receiver, Config), 
+
+	    stop_receiver(ReceiverPid), 
+	    
+	    ok;
+	_ ->
+	    {skip, "Failed to start local http-server"}
+    end.  
+
+
+otp_8106_fun(doc) ->
+    ["OTP-8106 - deliver reply info using fun"];
+otp_8106_fun(suite) ->
+    [];
+otp_8106_fun(Config) when is_list(Config) ->
+    case ?config(local_server, Config) of 
+	ok ->
+	    ReceiverPid = create_receiver(function),
+	    Receiver = otp_8106_deliver_fun(ReceiverPid), 
+	    
+	    otp8106(ReceiverPid, Receiver, Config), 
+
+	    stop_receiver(ReceiverPid), 
+	    
+	    ok;
+	_ ->
+	    {skip, "Failed to start local http-server"}
+    end.  
+
+
+otp_8106_mfa(doc) ->
+    ["OTP-8106 - deliver reply info using mfa callback"];
+otp_8106_mfa(suite) ->
+    [];
+otp_8106_mfa(Config) when is_list(Config) ->
+    case ?config(local_server, Config) of 
+	ok ->
+	    ReceiverPid = create_receiver(mfa),
+	    Receiver    = {?MODULE, otp_8106_deliver, [mfa, ReceiverPid]}, 
+	    
+	    otp8106(ReceiverPid, Receiver, Config), 
+
+	    stop_receiver(ReceiverPid), 
+	    
+	    ok;
+	_ ->
+	    {skip, "Failed to start local http-server"}
+    end.  
+
+
+ otp8106(ReceiverPid, Receiver, Config) ->
+     Port        = ?config(local_port, Config),
+     URL         = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+     Request     = {URL, []}, 
+     HTTPOptions = [], 
+     Options     = [{sync, false}, {receiver, Receiver}], 
+
+     {ok, RequestId} = 
+	 httpc:request(get, Request, HTTPOptions, Options),
+
+     Body = 
+	 receive 
+	     {reply, ReceiverPid, {RequestId, {{_, 200, _}, _, B}}} ->
+		 B;
+	     {reply, ReceiverPid, Msg} ->
+		 tsf(Msg);
+	     {bad_reply, ReceiverPid, Msg} ->
+		 tsf(Msg)
+	 end,
+
+     inets_test_lib:check_body(binary_to_list(Body)),
+     ok.
+
+
+create_receiver(Type) ->
+    Parent = self(), 
+    Receiver = fun() -> receiver(Type, Parent) end,
+    spawn_link(Receiver).
+
+stop_receiver(Pid) ->
+    Pid ! {stop, self()}.
+
+receiver(Type, Parent) ->
+    receive
+	{stop, Parent} ->
+	    exit(normal);
+
+	{http, ReplyInfo} when (Type =:= pid) ->
+	    Parent ! {reply, self(), ReplyInfo},
+	    receiver(Type, Parent);
+
+	{Type, ReplyInfo} ->
+	    Parent ! {reply, self(), ReplyInfo},
+	    receiver(Type, Parent);
+	
+	Crap ->
+	    Parent ! {reply, self(), {bad_reply, Crap}},
+	    receiver(Type, Parent)
+    end.
+
+
+otp_8106_deliver_fun(ReceiverPid) ->
+    fun(ReplyInfo) -> otp_8106_deliver(ReplyInfo, function, ReceiverPid) end.
+	     
+otp_8106_deliver(ReplyInfo, Type, ReceiverPid) -> 
+    ReceiverPid ! {Type, ReplyInfo},
+    ok.
+
+
+
+%%-------------------------------------------------------------------------
+
+otp_8056(doc) ->
+    "OTP-8056";
+otp_8056(suite) ->
+    [];
+otp_8056(Config) when is_list(Config) ->
+    Method      = get,
+    Port        = ?config(local_port, Config),
+    URL         = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+    Request     = {URL, []}, 
+    HTTPOptions = [], 
+    Options1    = [{sync, true}, {stream, {self, once}}], 
+    Options2    = [{sync, true}, {stream, self}], 
+    {error, streaming_error} = httpc:request(Method, Request, 
+					     HTTPOptions, Options1), 
+    tsp("request 1 failed as expected"),
+    {error, streaming_error} = httpc:request(Method, Request, 
+					     HTTPOptions, Options2), 
+    tsp("request 2 failed as expected"),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+otp_8371(doc) ->
+    ["OTP-8371"];
+otp_8371(suite) ->
+    [];
+otp_8371(Config) when is_list(Config) ->
+    ok = http:set_options([{ipv6, disabled}]), % also test the old option 
+    {DummyServerPid, Port} = dummy_server(self(), ipv4),
+    
+    URL = ?URL_START ++ integer_to_list(Port) ++ 
+	"/ensure_host_header_with_port.html",
+        
+    case http:request(get, {URL, []}, [], []) of
+	{ok, Result} ->
+	    case Result of
+		{{_, 200, _}, _Headers, Body} ->
+		    tsp("expected response with"
+			"~n   Body: ~p", [Body]),
+		    ok;
+		{StatusLine, Headers, Body} ->
+		    tsp("expected response with"
+			"~n   StatusLine: ~p"
+			"~n   Headers:    ~p"
+			"~n   Body:       ~p", [StatusLine, Headers, Body]),
+		    tsf({unexpected_result, 
+			 [{status_line, StatusLine}, 
+			  {headers,     Headers}, 
+			  {body,        Body}]});
+		_ ->
+		    tsf({unexpected_result, Result})
+	    end;
+	Error ->
+	    tsf({request_failed, Error})
+    end,
+
+    DummyServerPid ! stop,
+    ok = http:set_options([{ipv6, enabled}]),   
+    ok.
+
+
+
 %%--------------------------------------------------------------------
 %% Internal functions
 %%--------------------------------------------------------------------
@@ -2171,7 +2412,7 @@ receive_streamed_body(RequestId, Body) ->
 
 receive_streamed_body(RequestId, Body, Pid) ->
     http:stream_next(Pid),
-    test_server:format("Requested next stream ~n", []),
+    test_server:format("~p:receive_streamed_body -> requested next stream ~n", [?MODULE]),
     receive 
 	{http, {RequestId, stream, BinBodyPart}} ->
 	    receive_streamed_body(RequestId, 
@@ -2186,7 +2427,11 @@ receive_streamed_body(RequestId, Body, Pid) ->
 
 
 dummy_server(Caller, IpV) ->
-    spawn(httpc_SUITE, dummy_server_init, [Caller, IpV]).
+    Pid = spawn(httpc_SUITE, dummy_server_init, [Caller, IpV]),
+    receive
+	{port, Port} ->
+	    {Pid, Port}
+    end.
 
 dummy_server_init(Caller, IpV) ->
     {ok, ListenSocket} = 
@@ -2201,7 +2446,7 @@ dummy_server_init(Caller, IpV) ->
 				   {active, false}])
 	end,
     {ok, Port} = inet:port(ListenSocket),
-    test_server:format("Port: ~p~n", [Port]),
+    tsp("dummy_server_init -> Port: ~p", [Port]),
     Caller ! {port, Port},
     dummy_server_loop({httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]},
 		      [], ListenSocket).
@@ -2209,8 +2454,7 @@ dummy_server_init(Caller, IpV) ->
 dummy_server_loop(MFA, Handlers, ListenSocket) ->
     receive
 	stop ->
-	    lists:foreach(fun(Handler) -> Handler ! stop end,
-			  Handlers)
+	    lists:foreach(fun(Handler) -> Handler ! stop end, Handlers)
     after 0 ->
 	    {ok, Socket} = gen_tcp:accept(ListenSocket),
 	    HandlerPid  = dummy_request_handler(MFA, Socket),
@@ -2231,9 +2475,13 @@ dummy_request_handler_init(MFA, Socket) ->
     dummy_request_handler_loop(MFA, Socket).
     
 dummy_request_handler_loop({Module, Function, Args}, Socket) ->
+    tsp("dummy_request_handler_loop -> entry with"
+	"~n   Module:   ~p"
+	"~n   Function: ~p"
+	"~n   Args:     ~p", [Module, Function, Args]),
     receive 
 	{tcp, _, Data} ->
-	    test_server:format("dummy_request_handler_loop -> Data ~p~n", [Data]),
+	    tsp("dummy_request_handler_loop -> Data ~p", [Data]),
 	    case handle_request(Module, Function, [Data | Args], Socket) of
 		stop ->
 		    gen_tcp:close(Socket);
@@ -2245,48 +2493,59 @@ dummy_request_handler_loop({Module, Function, Args}, Socket) ->
     end.
 
 handle_request(Module, Function, Args, Socket) ->
+    tsp("handle_request -> entry with"
+	"~n   Module:   ~p"
+	"~n   Function: ~p"
+	"~n   Args:     ~p", [Module, Function, Args]),
     case Module:Function(Args) of
 	{ok, Result} ->
-	    case handle_http_msg(Result, Socket) of
+	    tsp("handle_request -> ok"
+		"~n   Result: ~p", [Result]),
+	    case (catch handle_http_msg(Result, Socket)) of
 		stop ->
 		    stop;
 		<<>> ->
-		    {httpd_request, parse, [?HTTP_MAX_HEADER_SIZE]};
+		    tsp("handle_request -> empty data"),
+		    {httpd_request, parse, [[<<>>, ?HTTP_MAX_HEADER_SIZE]]};
 		Data ->	
 		    handle_request(httpd_request, parse, 
-				   [Data |[?HTTP_MAX_HEADER_SIZE]],
-				   Socket)
+				   [Data |[?HTTP_MAX_HEADER_SIZE]], Socket)
 	    end;
 	NewMFA ->
+	    tsp("handle_request -> "
+		"~n   NewMFA: ~p", [NewMFA]),
 	    NewMFA
     end.
 
 handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
-    
-    NextRequest = case RelUri of
-		      "/dummy_headers.html" ->
-			  <<>>;
-		      "/no_headers.html" ->
-			  stop;
-		      "/just_close.html" ->
-			  stop;
-		      _ ->
-			  ContentLength = content_length(Headers),    
-			  case size(Body) - ContentLength of
-			      0 ->
-				  <<>>;
-			      _ ->
-				  <<_BodyThisReq:ContentLength/binary, 
-				   Next/binary>> = Body,
-				  Next
-			  end
-		  end,
+    tsp("handle_http_msg -> entry with: "
+	"~n   RelUri:  ~p"
+	"~n   Headers: ~p"
+	"~n   Body:    ~p", [RelUri, Headers, Body]),
+    NextRequest = 
+	case RelUri of
+	    "/dummy_headers.html" ->
+		<<>>;
+	    "/no_headers.html" ->
+		stop;
+	    "/just_close.html" ->
+		stop;
+	    _ ->
+		ContentLength = content_length(Headers),    
+		case size(Body) - ContentLength of
+		    0 ->
+			<<>>;
+		    _ ->
+			<<_BodyThisReq:ContentLength/binary, 
+			  Next/binary>> = Body,
+			Next
+		end
+	end,
    
-    test_server:format("NextRequest: ~p~n", [NextRequest]),
- 
+    tsp("handle_http_msg -> NextRequest: ~p", [NextRequest]),
     case (catch ets:lookup(cookie, cookies)) of 
 	[{cookies, true}]->
-	    test_server:format("Headers ~p~n", [Headers]),
+	    tsp("handle_http_msg -> check cookies ~p", []),
 	    check_cookie(Headers);
 	_ ->
 	    ok
@@ -2304,6 +2563,26 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 		"HTTP/1.0 204 No Content\r\n\r\n";
 	    "/no_headers.html" ->
 		"HTTP/1.0 200 OK\r\n\r\nTEST";
+	    "/ensure_host_header_with_port.html" ->
+		%% tsp("handle_http_msg -> validate host with port"),
+		case ensure_host_header_with_port(Headers) of
+		    true ->
+			B = 
+			    "<HTML><BODY>" ++ 
+			    "host with port" ++ 
+			    "</BODY></HTML>", 
+			Len = integer_to_list(length(B)), 
+			"HTTP/1.1 200 ok\r\n" ++
+			    "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B;
+		    false ->
+			B = 
+			    "<HTML><BODY>" ++ 
+			    "Internal Server Error - host without port" ++
+			    "</BODY></HTML>", 
+			Len = integer_to_list(length(B)), 
+			"HTTP/1.1 500 Internal Server Error\r\n" ++
+			    "Content-Length:" ++ Len ++ "\r\n\r\n" ++ B
+		end;
 	    "/300.html" ->
 		NewUri = ?URL_START ++
 		    integer_to_list(?IP_PORT) ++ "/dummy.html",
@@ -2337,7 +2616,7 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 	    "/500.html" ->
 		"HTTP/1.1 500 Internal Server Error\r\n" ++
 		    "Content-Length:47\r\n\r\n" ++
-		    "<HTML><BODY>Internal Server Error</BODY<</HTML>";
+		    "<HTML><BODY>Internal Server Error</BODY></HTML>";
 	    "/503.html" ->
 		case ets:lookup(unavailable, 503) of
 		    [{503, unavailable}] -> 
@@ -2452,15 +2731,34 @@ handle_http_msg({_, RelUri, _, {_, Headers}, Body}, Socket) ->
 		DefaultResponse
 	end,
     
-    test_server:format("Msg: ~p~n", [Msg]),
+    tsp("handle_http_msg -> Msg: ~p", [Msg]),
     case Msg of
+	ok ->
+	    %% Previously, this resulted in an {error, einval}. Now what?
+	    ok;
 	close ->
 	    %% Nothing to send, just close
 	    gen_tcp:close(Socket);
-	_ ->
+	_ when is_list(Msg) orelse is_binary(Msg) ->
 	    gen_tcp:send(Socket, Msg)
     end,
+    tsp("handle_http_msg -> done"),
     NextRequest.
+
+ensure_host_header_with_port([]) ->
+    false;
+ensure_host_header_with_port(["host: " ++ Host| _]) ->
+    case string:tokens(Host, [$:]) of
+	[ActualHost, Port] ->
+	    tsp("ensure_host_header_with_port -> "
+		"~n   ActualHost: ~p"
+		"~n   Port:       ~p", [ActualHost, Port]),
+	    true;
+	_ ->
+	    false
+    end;
+ensure_host_header_with_port([_|T]) ->
+    ensure_host_header_with_port(T).
 
 auth_header([]) ->
     auth_header_not_found;
@@ -2507,9 +2805,10 @@ provocate_not_modified_bug(Url) ->
 		      []) of
 	{ok, {{_, 304, _}, _, _}} -> %% The expected reply
 	    page_unchanged;
-	{ok, {{_, 200, _}, _, _}} -> %% If the page has changed since the
-	                             %% last request we retry to
-	                             %% trigger the bug
+	{ok, {{_, 200, _}, _, _}} -> 
+	    %% If the page has changed since the	
+	    %% last request we retry to
+	    %% trigger the bug
 	    provocate_not_modified_bug(Url);
 	{error, timeout} ->
 	    %% Not what we expected. Tcpdump can be used to
@@ -2528,5 +2827,20 @@ pick_header(Headers, Name) ->
     end.
 
 
-%% p(F, A) ->
-%%     io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
+not_implemented_yet() ->
+    exit(not_implemented_yet).
+
+
+p(F) ->
+    p(F, []).
+
+p(F, A) ->
+    io:format("~p ~w:" ++ F ++ "~n", [self(), ?MODULE | A]).
+
+tsp(F) ->
+    tsp(F, []).
+tsp(F, A) ->
+    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+
+tsf(Reason) ->
+    test_server:fail(Reason).

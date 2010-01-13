@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -28,44 +28,51 @@
 	 path/3]).
 
 -include("httpd.hrl").
+-include("httpd_internal.hrl").
 
 -define(VMODULE,"ALIAS").
 
 %% do
 
-do(Info) ->
-    case proplists:get_value(status, Info#mod.data) of
+do(#mod{data = Data} = Info) ->
+    ?hdrt("do", []),
+    case proplists:get_value(status, Data) of
 	%% A status code has been generated!
 	{_StatusCode, _PhraseArgs, _Reason} ->
-	    {proceed,Info#mod.data};
+	    {proceed, Data};
 	%% No status code has been generated!
 	undefined ->
-	    case proplists:get_value(response, Info#mod.data) of
+	    case proplists:get_value(response, Data) of
 		%% No response has been generated!
 		undefined ->
 		    do_alias(Info);
 		%% A response has been generated or sent!
 		_Response ->
-		    {proceed, Info#mod.data}
+		    {proceed, Data}
 	    end
     end.
 
-do_alias(Info) ->
-    {ShortPath, Path, AfterPath} =
-	real_name(Info#mod.config_db, 
-		  Info#mod.request_uri,
-		  httpd_util:multi_lookup(Info#mod.config_db,alias)),
+do_alias(#mod{config_db   = ConfigDB, 
+	      request_uri = ReqURI,
+	      data        = Data}) ->
+    {ShortPath, Path, AfterPath} = 
+	real_name(ConfigDB, ReqURI, which_alias(ConfigDB)),
+    ?hdrt("real name", 
+	  [{request_uri, ReqURI}, 
+	   {short_path,  ShortPath}, 
+	   {path,        Path}, 
+	   {after_path,  AfterPath}]),
     %% Relocate if a trailing slash is missing else proceed!
     LastChar = lists:last(ShortPath),
     case file:read_file_info(ShortPath) of 
-	{ok, FileInfo} when FileInfo#file_info.type == directory, 
-	LastChar /= $/ ->
-	    ServerName = httpd_util:lookup(Info#mod.config_db, server_name),
-	    Port = port_string(httpd_util:lookup(Info#mod.config_db,port, 80)),
-	    URL = "http://" ++ ServerName ++ Port ++ 
-		Info#mod.request_uri ++ "/",
+	{ok, FileInfo} when ((FileInfo#file_info.type =:= directory) andalso 
+			     (LastChar =/= $/)) ->
+	    ?hdrt("directory and last-char is a /", []),
+	    ServerName = which_server_name(ConfigDB), 
+	    Port = port_string( which_port(ConfigDB) ),
+	    URL = "http://" ++ ServerName ++ Port ++ ReqURI ++ "/",
 	    ReasonPhrase = httpd_util:reason_phrase(301),
-	    Message = httpd_util:message(301, URL, Info#mod.config_db),
+	    Message = httpd_util:message(301, URL, ConfigDB),
 	    {proceed,
 	     [{response,
 	       {301, ["Location: ", URL, "\r\n"
@@ -76,25 +83,26 @@ do_alias(Info) ->
 		      "<BODY>\n<H1>",ReasonPhrase,
 		      "</H1>\n", Message, 
 		      "\n</BODY>\n</HTML>\n"]}}|
-	      [{real_name, {Path, AfterPath}} | Info#mod.data]]};
+	      [{real_name, {Path, AfterPath}} | Data]]};
 	_NoFile ->
-	    {proceed,[{real_name, {Path, AfterPath}} | Info#mod.data]}
+	    {proceed, [{real_name, {Path, AfterPath}} | Data]}
     end.
 
 port_string(80) ->
     "";
 port_string(Port) ->
-    ":"++integer_to_list(Port).
+    ":" ++ integer_to_list(Port).
 
 %% real_name
 
 real_name(ConfigDB, RequestURI, []) ->
-    DocumentRoot = httpd_util:lookup(ConfigDB, document_root, ""),
+    DocumentRoot = which_document_root(ConfigDB), 
     RealName = DocumentRoot ++ RequestURI,
     {ShortPath, _AfterPath} = httpd_util:split_path(RealName),
-    {Path, AfterPath} = httpd_util:split_path(default_index(ConfigDB, 
-							    RealName)),
+    {Path, AfterPath} = 
+	httpd_util:split_path(default_index(ConfigDB, RealName)),
     {ShortPath, Path, AfterPath};
+
 real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
      case inets_regexp:match(RequestURI, "^" ++ FakeName) of
 	{match, _, _} ->
@@ -105,7 +113,7 @@ real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
 	       httpd_util:split_path(default_index(ConfigDB, ActualName)),
 	    {ShortPath, Path, AfterPath};
 	 nomatch ->
-	     real_name(ConfigDB,RequestURI,Rest)
+	     real_name(ConfigDB, RequestURI, Rest)
     end.
 
 %% real_script_name
@@ -113,20 +121,21 @@ real_name(ConfigDB, RequestURI, [{FakeName,RealName}|Rest]) ->
 real_script_name(_ConfigDB, _RequestURI, []) ->
     not_a_script;
 real_script_name(ConfigDB, RequestURI, [{FakeName,RealName} | Rest]) ->
-    case inets_regexp:match(RequestURI,"^"++FakeName) of
+    case inets_regexp:match(RequestURI, "^" ++ FakeName) of
 	{match,_,_} ->
-	    {ok,ActualName,_}=inets_regexp:sub(RequestURI,"^"++FakeName,RealName),
-	    httpd_util:split_script_path(default_index(ConfigDB,ActualName));
+	    {ok, ActualName, _} = 
+		inets_regexp:sub(RequestURI, "^" ++ FakeName, RealName),
+	    httpd_util:split_script_path(default_index(ConfigDB, ActualName));
 	nomatch ->
-	    real_script_name(ConfigDB,RequestURI,Rest)
+	    real_script_name(ConfigDB, RequestURI, Rest)
     end.
 
 %% default_index
 
 default_index(ConfigDB, Path) ->
     case file:read_file_info(Path) of
-	{ok, FileInfo} when FileInfo#file_info.type == directory ->
-	    DirectoryIndex = httpd_util:lookup(ConfigDB, directory_index, []),
+	{ok, FileInfo} when FileInfo#file_info.type =:= directory ->
+	    DirectoryIndex = which_directory_index(ConfigDB),
 	    append_index(Path, DirectoryIndex);
 	_ ->
 	    Path
@@ -147,9 +156,9 @@ append_index(RealName, [Index | Rest]) ->
 path(Data, ConfigDB, RequestURI) ->
     case proplists:get_value(real_name, Data) of
 	undefined ->
-	    DocumentRoot = httpd_util:lookup(ConfigDB, document_root, ""),
+	    DocumentRoot = which_document_root(ConfigDB), 
 	    {Path, _AfterPath} = 
-		httpd_util:split_path(DocumentRoot++RequestURI),
+		httpd_util:split_path(DocumentRoot ++ RequestURI),
 	    Path;
 	{Path, _AfterPath} ->
 	    Path
@@ -164,7 +173,7 @@ path(Data, ConfigDB, RequestURI) ->
 load("DirectoryIndex " ++ DirectoryIndex, []) ->
     {ok, DirectoryIndexes} = inets_regexp:split(DirectoryIndex," "),
     {ok,[], {directory_index, DirectoryIndexes}};
-load("Alias " ++ Alias,[]) ->
+load("Alias " ++ Alias, []) ->
     case inets_regexp:split(Alias," ") of
 	{ok, [FakeName, RealName]} ->
 	    {ok,[],{alias,{FakeName,RealName}}};
@@ -191,13 +200,13 @@ store({directory_index, Value} = Conf, _) when is_list(Value) ->
     end;
 store({directory_index, Value}, _) ->
     {error, {wrong_type, {directory_index, Value}}};
-store({alias, {Fake, Real}} = Conf, _) when is_list(Fake),
-					    is_list(Real) ->
+store({alias, {Fake, Real}} = Conf, _) 
+  when is_list(Fake) andalso is_list(Real) ->
     {ok, Conf};
 store({alias, Value}, _) ->
     {error, {wrong_type, {alias, Value}}};
-store({script_alias, {Fake, Real}} = Conf, _) when is_list(Fake),
-						   is_list(Real) ->
+store({script_alias, {Fake, Real}} = Conf, _) 
+  when is_list(Fake) andalso is_list(Real) ->
     {ok, Conf};
 store({script_alias, Value}, _) ->
     {error, {wrong_type, {script_alias, Value}}}.
@@ -208,3 +217,21 @@ is_directory_index_list([Head | Tail]) when is_list(Head) ->
     is_directory_index_list(Tail);
 is_directory_index_list(_) ->
     false.
+
+
+%% ---------------------------------------------------------------------
+
+which_alias(ConfigDB) ->
+    httpd_util:multi_lookup(ConfigDB, alias). 
+
+which_server_name(ConfigDB) ->
+    httpd_util:lookup(ConfigDB, server_name).
+
+which_port(ConfigDB) ->
+    httpd_util:lookup(ConfigDB, port, 80). 
+
+which_document_root(ConfigDB) ->
+    httpd_util:lookup(ConfigDB, document_root, "").
+
+which_directory_index(ConfigDB) ->
+    httpd_util:lookup(ConfigDB, directory_index, []).

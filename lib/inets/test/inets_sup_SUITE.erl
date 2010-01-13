@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -25,8 +25,6 @@
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
-
--define(FTP_HOST, "tuor").
 
 all(doc) ->
     ["Test that the inets supervisorstructur is the expected one."];
@@ -223,20 +221,34 @@ ftpc_worker(doc) ->
 ftpc_worker(suite) ->
     [];
 ftpc_worker(Config) when is_list(Config) ->
+    inets:disable_trace(),
+    inets:enable_trace(max, io, ftpc), 
     [] = supervisor:which_children(ftp_sup),
-    case inets:start(ftpc, [{host, ?FTP_HOST}]) of
-	{ok, Pid} ->
-	    case supervisor:which_children(ftp_sup) of
-		[{_,_, worker, [ftp]}] ->
-		    inets:stop(ftpc, Pid), 
-		    test_server:sleep(5000),
-		    [] = supervisor:which_children(ftp_sup),
-		    ok;
-		Children ->
-		    exit({unexpected_children, Children})
-	    end;
-	_ ->
-	    {skip, "Unable to reach test FTP server"}
+    try
+	begin
+	    {_Tag, FtpdHost} = ftp_suite_lib:dirty_select_ftpd_host(Config),
+	    case inets:start(ftpc, [{host, FtpdHost}]) of
+		{ok, Pid} ->
+		    case supervisor:which_children(ftp_sup) of
+			[{_,_, worker, [ftp]}] ->
+			    inets:stop(ftpc, Pid), 
+			    test_server:sleep(5000),
+			    [] = supervisor:which_children(ftp_sup),
+			    inets:disable_trace(),
+			    ok;
+			Children ->
+			    inets:disable_trace(),
+			    exit({unexpected_children, Children})
+		    end;
+		_ ->
+		    inets:disable_trace(),
+		    {skip, "Unable to reach test FTP server"}
+	    end
+	end
+    catch
+	throw:{error, not_found} ->
+	    inets:disable_trace(),
+	    {skip, "No available FTP servers"}
     end.
 
 
@@ -252,7 +264,7 @@ tftpd_worker(Config) when is_list(Config) ->
     {ok, Pid0} = inets:start(tftpd, [{host, "localhost"}, 
 				     {port, inet_port()}]),
     {ok, _Pid1} = inets:start(tftpd, [{host, "localhost"}, 
-				     {port, inet_port()}], stand_alone),
+				      {port, inet_port()}], stand_alone),
     
     [{_,Pid0, worker, _}] = supervisor:which_children(tftp_sup),
     inets:stop(tftpd, Pid0),
@@ -356,25 +368,33 @@ httpc_subtree(doc) ->
 httpc_subtree(suite) ->
     [];
 httpc_subtree(Config) when is_list(Config) ->
-    io:format("httpd_subtree -> entry with"
-	      "~n   Config: ~p"
-	      "~n", [Config]),
+    tsp("httpc_subtree -> entry with"
+	"~n   Config: ~p", [Config]),
 
+    tsp("httpc_subtree -> start inets service httpc with profile foo"),
     {ok, Foo} = inets:start(httpc, [{profile, foo}]),
-    io:format("httpc_subtree -> foo started~n", []),
+
+    tsp("httpc_subtree -> "
+	"start stand-alone inets service httpc with profile bar"),
     {ok, Bar} = inets:start(httpc, [{profile, bar}], stand_alone),
-    io:format("httpc_subtree -> bar started~n", []),
-    
+
+    tsp("httpc_subtree -> retreive list of httpc instances"),
     HttpcChildren = supervisor:which_children(httpc_profile_sup),
-    io:format("httpc_subtree -> HttpcChildren: ~p~n", [HttpcChildren]),
+    tsp("httpc_subtree -> HttpcChildren: ~n~p", [HttpcChildren]),
     
-    {value, {httpc_manager, _, worker,[httpc_manager]}} =
+    tsp("httpc_subtree -> verify httpc stand-alone instances"),
+    {value, {httpc_manager, _, worker, [httpc_manager]}} =
 	lists:keysearch(httpc_manager, 1, HttpcChildren),
-    {value,{{http,foo}, Pid, worker,[httpc_manager]}} = 
-	lists:keysearch({http, foo}, 1, HttpcChildren),
-    false = lists:keysearch({http, bar}, 1, HttpcChildren),
+
+    tsp("httpc_subtree -> verify httpc (named) instances"),
+    {value,{{httpc,foo}, Pid, worker, [httpc_manager]}} = 
+	lists:keysearch({httpc, foo}, 1, HttpcChildren),
+    false = lists:keysearch({httpc, bar}, 1, HttpcChildren),
     
+    tsp("httpc_subtree -> stop inets"),
     inets:stop(httpc, Pid),
+
+    tsp("httpc_subtree -> done"),
     ok.
 
 inet_port() ->
@@ -383,4 +403,12 @@ inet_port() ->
     gen_tcp:close(Socket),
     Port.
 
+
+tsp(F) ->
+    tsp(F, []).
+tsp(F, A) ->
+    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
+
+tsf(Reason) ->
+    test_server:fail(Reason).
 

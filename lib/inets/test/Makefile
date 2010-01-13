@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -29,6 +29,12 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 include ../vsn.mk
 VSN = $(INETS_VSN)
+
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
 
 
 # ----------------------------------------------------
@@ -188,22 +194,26 @@ HRL_FILES = inets_test_lib.hrl \
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-INETS_FILES = Makefile.inets rules.mk suite_targets.mk \
-              inets.config inets.spec inets.spec.vxworks 
-
-
 SOURCE = $(ERL_FILES) $(HRL_FILES) 
 
+TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+
 INETS_SPECS = inets.spec inets.spec.vxworks
+INETS_FILES = inets.config $(INETS_SPECS)
 
-INETS_DATADIR = inets_SUITE_data inets_sup_SUITE_data 
-HTTPD_DATADIR = httpd_test_data  httpd_SUITE_data
-HTTPC_DATADIR = httpc_SUITE_data
-FTP_DATADIR   = ftp_SUITE_data  
+# SUB_SUITES = \
+# 	inets_sup_suite \
+# 	inets_httpd_suite \
+# 	inets_httpc_suite \
+# 	inets_ftp_suite \
+# 	inets_tftp_suite
 
-DATADIRS =  $(INETS_DATADIR) $(HTTPD_DATADIR) $(HTTPC_DATADIR) $(FTP_DATADIR)
+INETS_DATADIRS = inets_SUITE_data inets_sup_SUITE_data 
+HTTPD_DATADIRS = httpd_test_data httpd_SUITE_data
+HTTPC_DATADIRS = httpc_SUITE_data
+FTP_DATADIRS   = ftp_SUITE_data  
+
+DATADIRS     = $(INETS_DATADIRS) $(HTTPD_DATADIRS) $(HTTPC_DATADIRS) $(FTP_DATADIRS)
 
 EMAKEFILE  = Emakefile
 MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
@@ -216,10 +226,10 @@ BUILDTARGET   = emakebuild
 RELTEST_FILES = $(EMAKEFILE) $(INETS_SPECS) $(SOURCE)
 endif
 
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/inets-$(VSN)
 
 RELTESTSYSDIR        = $(RELEASE_PATH)/inets_test
 RELTESTSYSALLDATADIR = $(RELTESTSYSDIR)/all_SUITE_data
@@ -276,9 +286,19 @@ release_spec: opt
 	$(INSTALL_DIR)  $(RELSYSDIR)/test
 	$(INSTALL_DATA) $(HRL_FILES)   $(ERL_FILES) $(RELSYSDIR)/test
 	$(INSTALL_DATA) $(INETS_FILES) $(RELSYSDIR)/test
-	$(INSTALL_DIR)  $(RELSYSDIR)/test/$(HTTPD_DATADIR)
-	tar chf - -C $(HTTPD_DATADIR) . | (cd $(RELSYSDIR)/test/$(HTTPD_DATADIR); tar xf -)
-	(cd $(RELSYSDIR)/test; mv Makefile.inets Makefile)
+	@for d in $(DATADIRS); do \
+            echo "installing data dir $$d"; \
+            echo $$d/TAR.exclude2 > $$d/TAR.exclude2; \
+            cat $$d/TAR.exclude >> $$d/TAR.exclude2; \
+            find $$d -name '*.contrib*'     >> $$d/TAR.exclude2; \
+            find $$d -name '*.keep*'        >> $$d/TAR.exclude2; \
+            find $$d -name '*.mkelem*'      >> $$d/TAR.exclude2; \
+            find $$d -name '*~'             >> $$d/TAR.exclude2; \
+            find $$d -name 'erl_crash.dump' >> $$d/TAR.exclude2; \
+            find $$d -name 'core'           >> $$d/TAR.exclude2; \
+            find $$d -name '.cmake.state'   >> $$d/TAR.exclude2; \
+            tar cfX - $$d/TAR.exclude2 $$d | (cd $(RELSYSDIR)/test; tar xf -); \
+        done
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELTESTSYSDIR)
@@ -287,7 +307,6 @@ release_tests_spec: opt
 	tar chf - $(DATADIRS) | (cd $(RELTESTSYSDIR); tar xf -)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)
 	$(INSTALL_DATA) $(MAKEFILE_SRC) $(RELTESTSYSALLDATADIR)/Makefile.src
-	$(INSTALL_DATA) copy_files.erl $(RELTESTSYSALLDATADIR)/copy_files.erl
 	$(INSTALL_DIR) $(RELTESTSYSBINDIR)
 	chmod -f -R +x $(RELTESTSYSBINDIR)
 	tar cf - -C $(INETS_SSL_LIB_DIR) . | (cd $(RELTESTSYSALLDATADIR); tar xf -)
@@ -301,7 +320,24 @@ info:
 	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
 	@echo "EMAKEFILE         = $(EMAKEFILE)"
 	@echo "BUILDTARGET       = $(BUILDTARGET)"
+	@echo ""
+	@echo "MODULES           = $(MODULES)"
+	@echo "ERL_FILES         = $(ERL_FILES)"
+	@echo "SOURCE            = $(SOURCE)"
 	@echo "TARGET_FILES      = $(TARGET_FILES)"
+	@echo ""
+	@echo "INETS_SPECS       = $(INETS_SPECS)"
+	@echo "INETS_FILES       = $(INETS_FILES)"
+	@echo ""
+	@echo "RELEASE_PATH      = $(RELEASE_PATH)"
+	@echo "RELSYSDIR         = $(RELSYSDIR)"
+	@echo "RELTESTSYSDIR     = $(RELTESTSYSDIR)"
+	@echo "RELTESTSYSALLDATADIR = $(RELTESTSYSALLDATADIR)"
+	@echo "RELTESTSYSBINDIR     = $(RELTESTSYSBINDIR)"
+	@echo ""
+	@echo "DATADIRS          = $(DATADIRS)"
+	@echo "REL_DATADIRS      = $(REL_DATADIRS)"
+	@echo ""
 	@echo "INETS_DATA_DIR    = $(INETS_DATA_DIR)"
 	@echo "INETS_PRIV_DIR    = $(INETS_PRIV_DIR)"
 	@echo "INETS_SSL_LIB_DIR = $(INETS_SSL_LIB_DIR)"

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -358,7 +358,7 @@ foreach([KeyValue|Rest]) ->
 get_addr_and_port(ConfigFile) ->
     case httpd_conf:load(ConfigFile) of
 	{ok, ConfigList} ->
-	    case httpd_conf:validate_properties(ConfigList) of
+	    case (catch httpd_conf:validate_properties(ConfigList)) of
 		{ok, Config} ->
 		    Address = proplists:get_value(bind_address, Config, any), 
 		    Port    = proplists:get_value(port, Config, 80),
@@ -506,7 +506,7 @@ get_status(Addr,Port,Timeout) when is_integer(Port) ->
     end.
 
 do_reload_config(ConfigList, Mode) ->
-    case httpd_conf:validate_properties(ConfigList) of
+    case (catch httpd_conf:validate_properties(ConfigList)) of
 	{ok, Config} ->
 	    Address = proplists:get_value(bind_address, Config, any), 
 	    Port    = proplists:get_value(port, Config, 80),

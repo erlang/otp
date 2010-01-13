@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -23,6 +23,7 @@
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
+-include("inets_test_lib.hrl").
 
 %% Test server specific exports
 % -export([init_per_testcase/2, end_per_testcase/2]).
@@ -37,7 +38,6 @@
 
 
 
--define(FTP_HOSTS(X),ftp_hosts(X)).
 -define(FTP_USER, "anonymous").
 -define(FTP_PASS, passwd()).
 -define(FTP_PORT, 21).
@@ -73,7 +73,7 @@ ftpd_init(FtpdTag, Config) ->
     Hosts = 
 	case ?config(ftpd_hosts, Config) of
 	    undefined ->
-		?FTP_HOSTS(data_dir(Config));
+		ftpd_hosts(data_dir(Config));
 	    H ->
 		H
 	end,
@@ -122,6 +122,59 @@ get_ftpd_host([Host|Hosts]) ->
 	_ ->
 	    get_ftpd_host(Hosts)
     end.
+
+
+%%--------------------------------------------------------------------
+
+dirty_select_ftpd_host(Config) ->
+    Hosts = 
+	case ?config(ftpd_hosts, Config) of
+	    undefined ->
+		ftpd_hosts(data_dir(Config));
+	    H ->
+		H
+	end,
+    dirty_select_ftpd_host2(Hosts).
+
+dirty_select_ftpd_host2([]) ->
+    throw({error, not_found});
+dirty_select_ftpd_host2([{PlatformTag, Hosts} | PlatformHosts]) ->
+    case dirty_select_ftpd_host3(Hosts) of
+	none ->
+	    dirty_select_ftpd_host2(PlatformHosts);
+	{ok, Host} ->
+	    {PlatformTag, Host}
+    end.
+
+dirty_select_ftpd_host3([]) ->
+    none;
+dirty_select_ftpd_host3([Host|Hosts]) when is_list(Host) ->
+    case dirty_select_ftpd_host4(Host) of
+	true ->
+	    {ok, Host};
+	false ->
+	    dirty_select_ftpd_host3(Hosts)
+    end;
+dirty_select_ftpd_host3([_|Hosts]) ->
+    dirty_select_ftpd_host3(Hosts).
+
+%% This is a very simple and dirty test that there is a 
+%% (FTP) deamon on the other end.
+dirty_select_ftpd_host4(Host) ->
+    Port    = 21, 
+    IpFam   = inet, 
+    Opts    = [IpFam, binary, {packet, 0}, {active, false}],
+    Timeout = ?SECS(5),
+    case gen_tcp:connect(Host, Port, Opts, Timeout) of
+        {ok, Sock} ->
+	    gen_tcp:close(Sock),
+	    true;
+        _Error ->
+	    false
+    end.
+
+
+%%--------------------------------------------------------------------
 
 test_filenames() ->
     {ok, Host} = inet:gethostname(),
@@ -1048,12 +1101,20 @@ ticket_6035(Config) ->
       "~n   Config: ~p", [Config]),
     PrivDir = ?config(priv_dir, Config),
     LogFile = filename:join([PrivDir,"ticket_6035.log"]),
-    Pid = spawn(?MODULE,open_wait_6035,[self()]),
-    error_logger:logfile({open,LogFile}),
-    ok = kill_ftp_proc_6035(Pid,LogFile),
-    error_logger:logfile(close),
-    p("ticket_6035 -> done", []),
-    ok.
+    try
+	begin
+	    Host = dirty_select_ftpd_host(Config), 
+	    Pid  = spawn(?MODULE, open_wait_6035, [Host, self()]),
+	    error_logger:logfile({open, LogFile}),
+	    ok = kill_ftp_proc_6035(Pid,LogFile),
+	    error_logger:logfile(close),
+	    p("ticket_6035 -> done", []),
+	    ok
+	end
+    catch 
+	throw:{error, not_found} ->
+	    {skip, "No available FTP servers"}
+    end.
 
 kill_ftp_proc_6035(Pid, LogFile) ->
     p("kill_ftp_proc_6035 -> entry"),
@@ -1072,8 +1133,7 @@ kill_ftp_proc_6035(Pid, LogFile) ->
 	    is_error_report_6035(LogFile)
     end.
 
-open_wait_6035(From) ->
-    FtpServer = "elrond",
+open_wait_6035(FtpServer, From) ->
     p("open_wait_6035 -> try connect to ~s", [FtpServer]),
     case ftp:open(FtpServer, [{timeout, timer:seconds(15)}]) of
 	{ok, Pid} ->
@@ -1491,14 +1551,15 @@ passwd() ->
 	end,
     "ftp_SUITE@" ++ Host.
 
-ftp_hosts(Config) ->
-    DataDir = ?config(data_dir,Config),
-    FileName = filename:join([DataDir,"../ftp_SUITE_data/",inets_test_hosts]),
-    io:format("FileName: ~p~n",[FileName]),
+ftpd_hosts(Config) ->
+    DataDir = ?config(data_dir, Config),
+    FileName = filename:join([DataDir, "../ftp_SUITE_data/", ftpd_hosts]),
+    io:format("FileName: ~p~n", [FileName]),
     case file:consult(FileName) of
-	{ok,[Hosts]} when is_list(Hosts) ->
+	{ok, [Hosts]} when is_list(Hosts) ->
 	    Hosts;
-	_ -> []
+	_ -> 
+	    []
     end.
 
 wrapper(Prefix,doc,Func) ->
@@ -1507,13 +1568,14 @@ wrapper(_,X,Func) ->
     Func(X).
 
 data_dir(Config) ->
-    case ?config(data_dir,Config) of
+    case ?config(data_dir, Config) of
 	List when (length(List) > 0) ->
-	    PathList = filename:split(List),
-	    {NewPathList,_} = lists:split((length(PathList)-1),PathList),
-	    DataDir=filename:join(NewPathList++[ftp_SUITE_data]),
-	    _NewConfig = lists:keyreplace(data_dir,1,Config,
-					 {data_dir,DataDir});
+	    PathList        = filename:split(List),
+	    {NewPathList,_} = lists:split((length(PathList)-1), PathList),
+	    DataDir   = filename:join(NewPathList ++ [ftp_SUITE_data]),
+	    NewConfig = 
+		lists:keyreplace(data_dir,1,Config, {data_dir,DataDir}),
+	    NewConfig;
 	_ -> Config
     end.
     

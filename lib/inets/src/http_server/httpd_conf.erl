@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -864,17 +864,22 @@ load_traverse(Line, [Context|Contexts], [Module|Modules], NewContexts,
 	{'EXIT', {undef, _}} ->
 	    ?hdrt("does not implement load", []),
 	    load_traverse(Line, Contexts, Modules,
-			  [Context|NewContexts], ConfigList,yes);
+			  [Context|NewContexts], ConfigList, yes);
 
 	{'EXIT', Reason} ->
 	    error_logger:error_report({'EXIT', Reason}),
 	    load_traverse(Line, Contexts, Modules, 
 			  [Context|NewContexts], ConfigList, State);
 
+	ok ->
+	    ?hdrt("line processed", []),
+	    load_traverse(Line, Contexts, Modules, 
+			  [Context|NewContexts], ConfigList, yes);
+
 	{ok, NewContext} ->
 	    ?hdrt("line processed", [{new_context, NewContext}]),
 	    load_traverse(Line, Contexts, Modules, 
-			  [NewContext|NewContexts], ConfigList,yes);
+			  [NewContext|NewContexts], ConfigList, yes);
 
 	{ok, NewContext, ConfigEntry} when is_tuple(ConfigEntry) ->
 	     ?hdrt("line processed",

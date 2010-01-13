@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -21,12 +21,12 @@
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
+-include("inets_test_lib.hrl").
 
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
 -define(NUM_DEFAULT_SERVICES, 1).
--define(FTP_HOST,"tuor").
 
 all(doc) ->
     ["Test suites for the inets application."];
@@ -35,13 +35,19 @@ all(suite) ->
     [
      app_test,
      appup_test,
+     services_test,
+     httpd_reload
+    ].
+
+services_test(suite) ->
+    [
      start_inets,
      start_httpc,
      start_httpd,
      start_ftpc,
-     start_tftpd,
-     httpd_reload
+     start_tftpd
     ].
+
 
 %%--------------------------------------------------------------------
 %% Function: init_per_suite(Config) -> Config
@@ -139,40 +145,88 @@ start_httpc(suite) ->
     [];
 start_httpc(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+    tsp("start_httpc -> entry with"
+	"~n   Config: ~p", [Config]),
+
     PrivDir = ?config(priv_dir, Config),
+
+    tsp("start_httpc -> start (empty) inets"),
     ok = inets:start(),
+
+    tsp("start_httpc -> start httpc (as inets service) with profile foo"),
     {ok, Pid0} = inets:start(httpc, [{profile, foo}]),
+
+    tsp("start_httpc -> check running services"),
     Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
     true = lists:member(Pid0, Pids0),
     [_|_] = inets:services_info(),	
+
+    tsp("start_httpc -> stop httpc"),
     inets:stop(httpc, Pid0),
+
+    tsp("start_httpc -> sleep some"),
     test_server:sleep(100),
+
+    tsp("start_httpc -> check running services"),
     Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid0, Pids1),        
+
+    tsp("start_httpc -> start httpc (stand-alone) with profile bar"),
     {ok, Pid1} = inets:start(httpc, [{profile, bar}], stand_alone),
+
+    tsp("start_httpc -> check running services"),
     Pids2 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid1, Pids2),   
+
+    tsp("start_httpc -> stop httpc"),
     ok = inets:stop(stand_alone, Pid1),
     receive 
 	{'EXIT', Pid1, shutdown} ->
 	    ok
     after 100 ->
-	    test_server:fail(stand_alone_not_shutdown)
+	    tsf(stand_alone_not_shutdown)
     end,
+
+    tsp("start_httpc -> stop inets"),
     ok = inets:stop(),
+
+    tsp("start_httpc -> unload inets"),
     application:load(inets),
+
+    tsp("start_httpc -> set inets environment (httpc profile foo)"),
     application:set_env(inets, services, [{httpc,[{profile, foo}, 
 						  {data_dir, PrivDir}]}]),
+
+    tsp("start_httpc -> start inets"),
     ok = inets:start(),
+
+    tsp("start_httpc -> check running services"),
     (?NUM_DEFAULT_SERVICES + 1) = length(inets:services()),
+
+    tsp("start_httpc -> unset inets env"),
     application:unset_env(inets, services),
+
+    tsp("start_httpc -> stop inets"),
     ok = inets:stop(),
+
+    tsp("start_httpc -> start (empty) inets"),
     ok = inets:start(),
+
+    tsp("start_httpc -> start inets httpc service with profile foo"),
     {ok, Pid3} = inets:start(httpc, [{profile, foo}]),
+
+    tsp("start_httpc -> stop inets service httpc with profile foo"),
     ok = inets:stop(httpc, foo),
+
+    tsp("start_httpc -> check running services"),
     Pids3 =  [ServicePid || {_, ServicePid} <- inets:services()], 
     false = lists:member(Pid3, Pids3),      
-    ok = inets:stop().
+
+    tsp("start_httpc -> stop inets"),
+    ok = inets:stop(),
+
+    tsp("start_httpc -> done"),    
+    ok.
 
 
 %%-------------------------------------------------------------------------
@@ -191,11 +245,13 @@ start_httpd(Config) when is_list(Config) ->
     
     i("start_httpd -> start inets"),
     ok = inets:start(),
+
     i("start_httpd -> start httpd service"),
     {ok, Pid0} = inets:start(httpd, [{port, 0}, {ipfamily, inet} | HttpdConf]),
     Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
     true = lists:member(Pid0, Pids0),
     [_|_] = inets:services_info(),	
+
     i("start_httpd -> stop httpd service"),
     inets:stop(httpd, Pid0),
     test_server:sleep(500),
@@ -310,30 +366,49 @@ start_ftpc(suite) ->
     [];
 start_ftpc(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
+    inets:disable_trace(),
+    inets:enable_trace(max, io, ftpc), 
     ok = inets:start(),
-    case inets:start(ftpc, [{host, ?FTP_HOST}]) of
-	{ok, Pid0} ->
-	    Pids0 =  [ServicePid || {_, ServicePid} <- inets:services()],  
-	    true = lists:member(Pid0, Pids0),
-	    [_|_] = inets:services_info(),	
-	    inets:stop(ftpc, Pid0),
-	    test_server:sleep(100),
-	    Pids1 =  [ServicePid || {_, ServicePid} <- inets:services()], 
-	    false = lists:member(Pid0, Pids1),        
-	    {ok, Pid1} = inets:start(ftpc, [{host, ?FTP_HOST}], stand_alone),
-	    Pids2 =  [ServicePid || {_, ServicePid} <- inets:services()], 
-	    false = lists:member(Pid1, Pids2),   
-	    ok = inets:stop(stand_alone, Pid1),
-	    receive 
-		{'EXIT', Pid1, shutdown} ->
-		    ok
-	    after 100 ->
-		    test_server:fail(stand_alone_not_shutdown)
-	    end,
-	    ok = inets:stop();
-	_ ->
-	    {skip, "Unable to reach test FTP server " ++ ?FTP_HOST}
+    try
+	begin
+	    {_Tag, FtpdHost} = ftp_suite_lib:dirty_select_ftpd_host(Config),
+	    case inets:start(ftpc, [{host, FtpdHost}]) of
+		{ok, Pid0} ->
+		    Pids0 = [ServicePid || {_, ServicePid} <- 
+					       inets:services()],  
+		    true = lists:member(Pid0, Pids0),
+		    [_|_] = inets:services_info(),	
+		    inets:stop(ftpc, Pid0),
+		    test_server:sleep(100),
+		    Pids1 =  [ServicePid || {_, ServicePid} <- 
+						inets:services()], 
+		    false = lists:member(Pid0, Pids1),        
+		    {ok, Pid1} = 
+			inets:start(ftpc, [{host, FtpdHost}], stand_alone),
+		    Pids2 =  [ServicePid || {_, ServicePid} <- 
+						inets:services()], 
+		    false = lists:member(Pid1, Pids2),   
+		    ok = inets:stop(stand_alone, Pid1),
+		    receive 
+			{'EXIT', Pid1, shutdown} ->
+			    ok
+		    after 100 ->
+			    tsf(stand_alone_not_shutdown)
+		    end,
+		    ok = inets:stop(),
+		    inets:disable_trace(),
+		    ok;
+		_ ->
+		    inets:disable_trace(),
+		    {skip, "Unable to reach selected FTP server " ++ FtpdHost}
+	    end
+	end
+    catch
+	throw:{error, not_found} ->
+	    inets:disable_trace(),
+	    {skip, "No available FTP servers"}
     end.
+	    
 
 
 %%-------------------------------------------------------------------------
@@ -478,15 +553,24 @@ httpd_reload(Config) when is_list(Config) ->
     ok.
     
 
+tsf(Reason) ->
+    test_server:fail(Reason).
+
+tsp(F) ->
+    tsp(F, []).
+tsp(F, A) ->
+    Timestamp = formated_timestamp(), 
+    test_server:format("** ~s ** ~p ~p:" ++ F ++ "~n", [Timestamp, self(), ?MODULE | A]).
+
 i(F) ->
     i(F, []).
 
 i(F, A) ->
     Timestamp = formated_timestamp(), 
-    io:format("*** ~s ~w:~w:" ++ F ++ "~n", [Timestamp, ?MODULE, ?LINE | A]).
+    io:format("*** ~s ~w:" ++ F ++ "~n", [Timestamp, ?MODULE | A]).
 
 formated_timestamp() ->
-    format_timestamp( now() ).
+    format_timestamp( os:timestamp() ).
 
 format_timestamp({_N1, _N2, N3} = Now) ->
     {Date, Time}   = calendar:now_to_datetime(Now),
@@ -496,3 +580,4 @@ format_timestamp({_N1, _N2, N3} = Now) ->
         io_lib:format("~.4w:~.2.0w:~.2.0w ~.2.0w:~.2.0w:~.2.0w 4~w",
                       [YYYY,MM,DD,Hour,Min,Sec,round(N3/1000)]),
     lists:flatten(FormatDate).
+

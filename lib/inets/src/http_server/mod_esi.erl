@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -249,7 +249,24 @@ erl(#mod{method = Method} = ModData, ESIBody, Modules)
 	    {proceed, [{status,{400, none, BadRequest}} | ModData#mod.data]}
     end;
 
-erl(#mod{method = "POST", entity_body = Body} = ModData, ESIBody, Modules) ->
+erl(#mod{request_uri  = ReqUri, 
+	 method       = "PUT",
+         http_version = Version, 
+	 data         = Data}, _ESIBody, _Modules) ->
+    {proceed, [{status,{501,{"PUT", ReqUri, Version},
+			?NICE("Erl mechanism doesn't support method PUT")}}|
+	       Data]};
+
+erl(#mod{request_uri  = ReqUri, 
+	 method       = "DELETE",
+         http_version = Version, 
+	 data         = Data}, _ESIBody, _Modules) ->
+    {proceed,[{status,{501,{"DELETE", ReqUri, Version},
+		       ?NICE("Erl mechanism doesn't support method DELETE")}}|
+	      Data]};
+
+erl(#mod{method      = "POST", 
+	 entity_body = Body} = ModData, ESIBody, Modules) ->
     case httpd_util:split(ESIBody,":|%3A|/",2) of
 	{ok,[ModuleName, Function]} ->
 	    generate_webpage(ModData, ESIBody, Modules, 
@@ -444,8 +461,26 @@ input_type([_First|Rest]) ->
 
 %%------------------------ Eval mechanism --------------------------------
 
-eval(#mod{request_uri = ReqUri, method = "POST",
-	  http_version = Version, data = Data}, _ESIBody, _Modules) ->
+eval(#mod{request_uri  = ReqUri, 
+	  method       = "PUT",
+	  http_version = Version, 
+	  data         = Data}, _ESIBody, _Modules) ->
+    {proceed,[{status,{501,{"PUT", ReqUri, Version},
+		       ?NICE("Eval mechanism doesn't support method PUT")}}|
+	      Data]};
+
+eval(#mod{request_uri  = ReqUri, 
+	  method       = "DELETE",
+	  http_version = Version, 
+	  data         = Data}, _ESIBody, _Modules) ->
+    {proceed,[{status,{501,{"DELETE", ReqUri, Version},
+		       ?NICE("Eval mechanism doesn't support method DELETE")}}|
+	      Data]};
+
+eval(#mod{request_uri  = ReqUri, 
+	  method       = "POST",
+	  http_version = Version, 
+	  data         = Data}, _ESIBody, _Modules) ->
     {proceed,[{status,{501,{"POST", ReqUri, Version},
 		       ?NICE("Eval mechanism doesn't support method POST")}}|
 	      Data]};

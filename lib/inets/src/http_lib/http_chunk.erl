@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Description: Implements chunked transfer encoding see RFC2616 section
@@ -186,13 +186,6 @@ decode_data(ChunkSize, TotalChunk,
 	    Info = {MaxBodySize, BodySoFar, AccLength, MaxHeaderSize, Stream}) 
   when ChunkSize =< size(TotalChunk) ->
     case TotalChunk of
-	%% Potential last chunk
-	<<_:ChunkSize/binary, ?CR, ?LF, "0">> ->
-	    {?MODULE, decode_data, [ChunkSize, TotalChunk, Info]};
-	<<_:ChunkSize/binary, ?CR, ?LF, "0", ?CR>> ->
-	    {?MODULE, decode_data, [ChunkSize, TotalChunk, Info]};
-	<<_:ChunkSize/binary, ?CR, ?LF>> ->
-	    {?MODULE, decode_data, [ChunkSize, TotalChunk, Info]};
 	%% Last chunk
 	<<Data:ChunkSize/binary, ?CR, ?LF, "0", ";">> ->
 	    %% Note ignore_extensions will call decode_trailer/1
@@ -223,6 +216,10 @@ decode_data(ChunkSize, TotalChunk,
 			   NewBody,
 			   integer_to_list(AccLength));
 	%% There are more chunks, so here we go agin...
+	<<Data:ChunkSize/binary, ?CR, ?LF>> ->
+	    {NewBody, NewStream} = 
+		stream(<<BodySoFar/binary, Data/binary>>, Stream),
+	    {?MODULE, decode_size, [<<>>, [], {MaxBodySize, NewBody, AccLength, MaxHeaderSize, NewStream}]};
 	<<Data:ChunkSize/binary, ?CR, ?LF, Rest/binary>> 
 	when (AccLength < MaxBodySize) or (MaxBodySize == nolimit)  ->
 	    {NewBody, NewStream} = 
