@@ -1,20 +1,20 @@
 #! /bin/sh
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2002-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2002-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -26,7 +26,7 @@ clearmake=false
 
 # Global configuration variables
 #
-# NOTE: lazy_configure depends on '.' allways being last directory
+# NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
     AUTOCONF_SUBDIRS="lib lib/*"
 fi
@@ -42,7 +42,6 @@ usage ()
     echo "    configure [<configure parameters>] - does the actual configuration"
     echo "    smp [-a] - build a small Erlang system, smp flavor"
     echo "    hybrid [-a] - build a small Erlang system, hybrid flavor"
-    echo "    nofrag [-a] - build a small Erlang system, nofrag flavor"
     echo "    boot [-a] - bootstraps and build system (after configure)"
     echo "    release <target_dir> - creates a small release to <target_dir>"
     echo "    release [-a] <target_dir> - creates full release to <target_dir>"
@@ -68,23 +67,39 @@ usage ()
     echo "Before trying to cross compile, set environment via the following option"
     echo "Please note that the path to the configuration file should be absolute."
     echo "    env_cross <absolute path to cross conf file> - echo environment settings for cross compilation, use with eval"
-    echo ""
-    echo "The following options concern the primary bootstrap."
-    echo "{prepare,update,commit,cancel}_primary is for actually updating"
-    echo "the checked in derivates of the main code base, they are not for"
-    echo "managing a downloaded spource-tree."
-    echo "    prepare_primary - prepares for building primary bootstrap (only in Clearcase)"
-    echo "    update_primary - creates the primary bootstrap, the one shipped"
-    echo "    commit_primary - commits a primary bootstrap (only in Clearcase)"
-    echo "    cancel_primary - uncheckout a primary bootstrap (only in Clearcase)"
-    echo ""
-    echo "The following options concern preloaded code."
-    echo "They are, like the primary bootstrap, mainly the concern of the"
-    echo "main developers."
-    echo "    prepare_preloaded - prepares for building preloaded code (only in Clearcase)"
-    echo "    update_preloaded - creates the preloaded beam code, the one shipped"
-    echo "    commit_preloaded - commits the preloaded code (only in Clearcase)"
-    echo "    cancel_preloaded - uncheckout preloaded code (only in Clearcase)"
+    case $version_controller in
+	none)
+	    ;;
+	clearcase)
+	    echo ""
+	    echo "Handle the primary bootstrap in Clearcase:"
+	    echo "    prepare_primary - prepare for building a primary bootstrap"
+	    echo "    update_primary - create the primary bootstrap"
+	    echo "    commit_primary - commit a primary bootstrap"
+	    echo "    cancel_primary - uncheckout a primary bootstrap"
+	    ;;
+	git)
+	    echo ""
+	    echo "update_primary - build and commit a new primary bootstrap"
+	    ;;
+    esac
+
+    case $version_controller in
+	none)
+	    ;;
+	clearcase)
+	    echo ""
+	    echo "Handle the preloaded modules in Clearcase:"
+	    echo "    prepare_preloaded - prepares for building preloaded code"
+	    echo "    update_preloaded - creates the preloaded code"
+	    echo "    commit_preloaded - commits the preloaded code"
+	    echo "    cancel_preloaded - uncheckout preloaded code"
+	    ;;
+	git)
+	    echo ""
+	    echo "update_preloaded - build and commit the preloaded modules"
+	    ;;
+    esac
 }
 
 export_cross_env ()
@@ -189,7 +204,23 @@ target_contains ()
 	return $?
 } 
 
+determine_version_controller ()
+{
+    version_controller=none
 
+    # The current directory is now $ERL_TOP. Check for
+    # either this directory being controlled by git or
+    # for the "otp_build" file being a Clearcase controlled
+    # object.
+
+    if git rev-parse --git-dir 2>/dev/null >/dev/null; then
+	version_controller=git
+    else
+	if test -d "otp_build@@/"; then
+	    version_controller=clearcase
+	fi
+    fi
+}
 
 # Execution of the different options
 
@@ -813,6 +844,23 @@ do_primary ()
     fi
 }
 
+do_primary_git ()
+{
+    setup_make
+    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
+	do_primary_cross
+    else
+	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
+    fi
+    git add -A bootstrap/lib/kernel \
+        bootstrap/lib/stdlib \
+	bootstrap/lib/compiler \
+	bootstrap/lib/orber/include \
+	bootstrap/bin
+    git commit -m 'Update primary bootstrap'
+}
+
+
 do_prepare ()
 {
     CT=`lookup_prog_in_path cleartool`
@@ -915,10 +963,6 @@ do_prepare_prel ()
 do_update_prel ()
 {
     CT=`lookup_prog_in_path cleartool`
-    if [ X"$CLEARCASE_ROOT" = X"" -o  X"$CT" = X"" ]; then 
-	echo "To prepare for update of preloaded code, you have to run in a Clearcase view" >&2
-	return
-    fi
 
     if [ X"$ERL_TOP" = X"" ]; then
 	echo "ERL_TOP is not set." >&2
@@ -933,6 +977,16 @@ do_update_prel ()
     echo "Rebuilt preloaded code."
     echo '*****************************************************'
 }    
+
+do_update_prel_git ()
+{
+    setup_make
+    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET clean)
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET preloaded || exit 1
+    (cd $ERL_TOP/erts/preloaded/src && $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET copy)
+    git add -A $ERL_TOP/erts/preloaded/ebin/*.beam
+    git commit -m 'Update preloaded modules'
+}
 
 do_commit_prel ()
 {
@@ -1144,6 +1198,8 @@ check_erltop
 
 cd $ERL_TOP
 
+determine_version_controller
+
 # Unset ERL_FLAGS and ERL_<Release>_FLAGS to prevent, for instance,
 # a value of "-hybrid" to run the hybrid emulator during bootstrap.
 sys_vsn=`awk '/SYSTEM_VSN = / {print $3}' < erts/vsn.mk`
@@ -1252,7 +1308,7 @@ case "$1" in
 		do_lazy_configure_target_clean;;
 	opt)
 		do_boot;;
-	plain|smp|hybrid|nofrag)
+	plain|smp|hybrid)
 		if [ $minus_a_flag = false ]; then 
 		    TYPE=opt
 		fi;
@@ -1264,7 +1320,11 @@ case "$1" in
 	prepare_primary)
 		do_prepare;;
 	update_primary)
-		do_primary;;
+		case $version_controller in
+		    git) do_primary_git ;;
+		    clearcase) do_primary ;;
+		    none) do_primary ;;
+		esac ;;
 	commit_primary)
 		do_commit;;
 	cancel_primary)
@@ -1272,7 +1332,11 @@ case "$1" in
 	prepare_preloaded)
 		do_prepare_prel;;
 	update_preloaded)
-		do_update_prel;;
+		case $version_controller in
+		    git) do_update_prel_git ;;
+		    clearcase) do_update_prel ;;
+		    none) do_update_prel ;;
+		esac ;;
 	commit_preloaded)
 		do_commit_prel;;
 	cancel_preloaded)
