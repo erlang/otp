@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -39,14 +39,34 @@
 %%                                   
 %% Description: Composes and sends a HTTP-request. 
 %%-------------------------------------------------------------------------
-send(SendAddr, #request{method = Method, scheme = Scheme,
-			path = Path, pquery = Query, headers = Headers,
-			content = Content, address = Address, 
-			abs_uri = AbsUri, headers_as_is = HeadersAsIs,
-			settings = HttpOptions, 
-			userinfo = UserInfo},
+send(SendAddr, #request{method        = Method, 
+			scheme        = Scheme,
+			path          = Path, 
+			pquery        = Query, 
+			headers       = Headers,
+			content       = Content, 
+			address       = Address, 
+			abs_uri       = AbsUri, 
+			headers_as_is = HeadersAsIs,
+			settings      = HttpOptions, 
+			userinfo      = UserInfo},
      Socket) -> 
     
+    ?hcrt("send", 
+	  [{send_addr,     SendAddr}, 
+	   {socket,        Socket}, 
+	   {method,        Method}, 
+	   {scheme,        Scheme},
+	   {path,          Path}, 
+	   {pquery,        Query}, 
+	   {headers,       Headers},
+	   {content,       Content}, 
+	   {address,       Address}, 
+	   {abs_uri,       AbsUri}, 
+	   {headers_as_is, HeadersAsIs},
+	   {settings,      HttpOptions}, 
+	   {userinfo,      UserInfo}]),
+
     TmpHeaders = handle_user_info(UserInfo, Headers),
 
     {TmpHeaders2, Body} = 
@@ -70,9 +90,13 @@ send(SendAddr, #request{method = Method, scheme = Scheme,
     Version = HttpOptions#http_options.version,
 
     Message = [method(Method), " ", Uri, " ", 
-	       version(Version), ?CRLF, headers(FinalHeaders, Version), ?CRLF, Body],
+	       version(Version), ?CRLF, 
+	       headers(FinalHeaders, Version), ?CRLF, Body],
+
+    ?hcrd("send", [{message, Message}]),
     
     http_transport:send(socket_type(Scheme), Socket, lists:append(Message)).
+
 
 %%-------------------------------------------------------------------------
 %% is_idempotent(Method) ->
@@ -123,7 +147,7 @@ is_client_closing(Headers) ->
 %%% Internal functions
 %%%========================================================================
 post_data(Method, Headers, {ContentType, Body}, HeadersAsIs) 
-  when Method == post; Method == put ->
+  when (Method =:= post) orelse (Method =:= put) ->
     ContentLength = body_length(Body),	      
     NewBody = case Headers#http_request_h.expect of
 		  "100-continue" ->

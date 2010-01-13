@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -81,23 +81,25 @@
 %%% All data associated to a specific HTTP request
 -record(request,
 	{
-	  id,            % ref() - Request Id
-	  from,          % pid() - Caller
-	  redircount = 0,% Number of redirects made for this request
-	  scheme,        % http | https 
-	  address,       % ({Host,Port}) Destination Host and Port
-	  path,          % string() - Path of parsed URL
-	  pquery,        % string() - Rest of parsed URL
-	  method,        % atom() - HTTP request Method
-	  headers,       % #http_request_h{}
-	  content,       % {ContentType, Body} - Current HTTP request
-	  settings,      % #http_options{} - User defined settings
-	  abs_uri,       % string() ex: "http://www.erlang.org"
-	  userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
-	  stream,	 % Boolean() - stream async reply?
-	  headers_as_is  % Boolean() - workaround for servers that does
-	  %% not honor the http standard, can also be used for testing purposes.
-	 }
+	 id,            % ref() - Request Id
+	 from,          % pid() - Caller
+	 redircount = 0,% Number of redirects made for this request
+	 scheme,        % http | https 
+	 address,       % ({Host,Port}) Destination Host and Port
+	 path,          % string() - Path of parsed URL
+	 pquery,        % string() - Rest of parsed URL
+	 method,        % atom() - HTTP request Method
+	 headers,       % #http_request_h{}
+	 content,       % {ContentType, Body} - Current HTTP request
+	 settings,      % #http_options{} - User defined settings
+	 abs_uri,       % string() ex: "http://www.erlang.org"
+	 userinfo,      % string() - optinal "<userinfo>@<host>:<port>"
+	 stream,	% Boolean() - stream async reply?
+	 headers_as_is, % Boolean() - workaround for servers that does
+			% not honor the http standard, can also be used for testing purposes.
+	 started,       % integer() > 0 - When we started processing the request
+	 timer          % undefined | ref()
+	}
        ).               
 
 -record(tcp_session,

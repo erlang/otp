@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -28,6 +28,7 @@
 %% Supervisor callback
 -export([init/1]).
 
+
 %%%=========================================================================
 %%%  API
 %%%=========================================================================
@@ -39,7 +40,8 @@ start_child(PropList) ->
 	undefined ->
 	    {error, no_profile};
 	Profile ->
-	    Dir = proplists:get_value(data_dir, PropList, only_session_cookies),
+	    Dir = 
+		proplists:get_value(data_dir, PropList, only_session_cookies),
 	    Spec = httpc_child_spec(Profile, Dir),
 	    supervisor:start_child(?MODULE, Spec)
     end.
@@ -63,12 +65,12 @@ stop_child(Profile) ->
     end.
 
 id(Profile) ->
-    DefaultProfile = http:default_profile(),
+    DefaultProfile = httpc:default_profile(),
     case Profile of
 	DefaultProfile ->
 	    httpc_manager;
 	_ ->
-	    {http, Profile}
+	    {httpc, Profile}
     end.
 
 
@@ -98,7 +100,7 @@ child_spec([{httpc, PropList} | Rest], Acc) when is_list(PropList) ->
 
 httpc_child_spec(Profile, Dir) ->
     Name = id(Profile),
-    StartFunc = {httpc_manager, start_link, [{Profile, Dir}]},
+    StartFunc = {httpc_manager, start_link, [Profile, Dir, inets]},
     Restart = permanent, 
     Shutdown = 4000,
     Modules = [httpc_manager],
