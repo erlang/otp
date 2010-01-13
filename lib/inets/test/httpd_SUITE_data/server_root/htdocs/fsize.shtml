@@ -1,0 +1,29 @@
+<HTML>
+<HEAD>
+<TITLE>/fsize.shtml</TITLE>
+</HEAD>
+<BODY>
+<H1>/fsize.shtml</H1>
+
+<P>Size of index.html: <!--#fsize file="index.html"-->
+
+<P>Size of not_defined.html: <!--#fsize file="not_defined.html"-->
+
+<P>Size of /misc/friedrich.html: <!--#fsize virtual="/misc/friedrich.html"-->
+
+<P>Size of /misc/not_defined.html: <!--#fsize virtual="/misc/not_defined.html"-->
+
+<P>[<A HREF="ssi.html">Back</A>]
+
+</BODY>
+</HTML>
+
+
+
+
+
+
+
+
+
+

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Inets Release Notes History</title>
@@ -385,8 +385,7 @@
       </item>
       <item>
 	<p>[httpc, httpd] - In some cases if a body contained the
-	  sequence "\\r\
-	  0" and was chunked encoded this sequence
+	  sequence "\r\n0" and was chunked encoded this sequence
 	  was incorrectly interpreted as the last chunk.</p>
 	<p>Own Id: OTP-6264 Aux Id: OTP-6005 </p>
       </item>
@@ -968,8 +967,7 @@
 	  design was changed to use gen_tcp active once semantics.
 	  The API is not effected except for the function
 	  ftp:quote/2 which now returns a list of strings (ftp
-	  result lines) where the line endings "\\r\
-	  " has been
+	  result lines) where the line endings "\r\n" has been
 	  removed. This was the original intention for the return
 	  value of ftp:quote/2 but it was non trivial to make a
 	  good such solution with the old design and a compromise
@@ -1055,13 +1053,11 @@
 	<p>Own Id: OTP-5551 Aux Id: seq9854 </p>
       </item>
       <item>
-	<p>The HTTP server now handles "GET /\\r\
-	  \\r\
-	  " as well as
-	  "GET / \\r\
-	  \\r\
-	  ". According to the RFC the whitespace is
-	  not needed.</p>
+	<p>The HTTP server now handles 
+          "GET /\r\n\r\n"
+	  as well as
+	  "GET / \r\n\r\n". 
+          According to the RFC the whitespace is not needed.</p>
 	<p>Own Id: OTP-5552 Aux Id: seq8426 </p>
       </item>
     </list>

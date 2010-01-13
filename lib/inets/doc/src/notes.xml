@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
     
     <title>Inets Release Notes</title>
@@ -32,21 +32,98 @@
     <file>notes.xml</file>
   </header>
   
-  <section><title>Inets 5.2.0.1</title>
+  <section><title>Inets 5.3</title>
 
     <section><title>Improvements and New Features</title>
-      <p>-</p>
 <!--
+      <p>-</p>
+-->
+
       <list>
         <item>
-          <p>The documentation is now built with open source tools 
-            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
-            platforms. One visible change is that the frames are removed.</p>
-          <p>Own Id: OTP-8249</p>
+          <p>[httpc] Fix bug crafting Host header when port is not 80. </p>
+          <p>The host header should include the port number as well as the 
+            host name when making a request to a server listening on a port 
+            other than the HTTP default of 80. Currently, only the host 
+            name is included. This is important to make the http client 
+            more compliant with the HTTP specification. </p>
+          <p>Own Id: OTP-8371</p>
+          <p>Kelly McLaughlin</p>
         </item>
 
-      </list>
+        <item>
+	  <p>[httpc|httpd] http_chunk data handling/passing improvement. </p> 
+          <p>This is a modification to the http_chunk module to forward any 
+            full chunk received, regardless of whether the size field for the 
+            following chunk has been received yet.  This allows http_chunk to 
+            be used in situations where a long term HTTP connection is used to 
+            send periodic status updates as individual chunks.  Previously a 
+            given chunk would not be forwarded to the client process until the 
+            size for the next chunk had been read which rendered the module 
+            difficult to use for the scenario described. </p>
+          <p>Bernard Duggan</p>
+	  <p>Own Id: OTP-8351</p>
+        </item>
+
+        <item>
+	  <p>Include the inets test suite in the release of the 
+            application. </p> 
+	  <p>Own Id: OTP-8349</p>
+        </item>
+	
+        <item>
+	  <p>[httpc] - It is now possible to configure the client to 
+            deliver an async reply to more receivers then the calling 
+            process. </p> 
+          <p>See the 
+            <seealso marker="httpc#request2">receiver</seealso>
+            option for more info, </p>
+	  <p>Own Id: OTP-8106</p>
+        </item>
+	
+	<item>
+	  <p>[httpd] - Methods "PUT" and "DELETE" now allowed. </p> 
+          <p>huntermorris@gmail.com</p>
+	  <p>Own Id: OTP-8103</p>
+        </item>
+
+        <item>
+          <p>[httpc] Several more or less critical fixes:</p>
+          <p>
+            <list type="bulleted">
+	      <item>
+		<p>Initial call between the httpc manager and request 
+                  handler was synchronous. </p>
+		<p>When the manager starts a new request handler, 
+                  this is no longer a synchronous operation. Previously, 
+                  the new request handler made the connection to the 
+                  server and issuing of the first request (the reason 
+                  for starting it) in the gen_server init function. 
+                  If the connection for some reason "took some time", 
+                  the manager hanged, leaving all other activities by 
+                  that manager also hanging. </p>
+              </item>
+<!--
+	      <item>
+	        <p>Copying of data between processes</p>
+	        <p>TBD</p>
+	      </item>
+	      <item>
+	        <p>Reading of requests</p>
+	        <p>TBD</p>
+	      </item>
 -->
+	    </list>
+	  </p>
+          <p>As a side-effect of these changes, some modules was also 
+            renamed, and a new api module, 
+            <seealso marker="httpc">httpc</seealso>, has been introduced
+            (the old module <c>http</c> is <em>not</em> removed, but is 
+            now just wrapper for <c>httpc</c>). </p>
+          <p>Own Id: OTP-8016</p>
+	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+        </item>
+      </list>
     </section>
 
     <section><title>Fixed Bugs and Malfunctions</title>
@@ -57,13 +134,32 @@
 
       <list>
         <item>
-	  <p>Fixing minor Dialyzer and copyright problem.</p>
+	  <p>[httpd] The server did not fully support the documented module
+            callback api. Spicifically, the load function should be able to
+            return the atom <c>ok</c>, but this was not accepted. </p>
+	  <p>Own Id: OTP-8359</p>
         </item>
 
+        <item>
+          <p>Fixing various documentation-related bugs (bad quotes).</p>
+          <p>Own Id: OTP-8327</p>
+        </item>
+
+        <item>
+	  <p>Fixing minor Dialyzer and copyright problem(s). </p>
+	  <p>Own Id: OTP-8315</p>
+        </item>
+
+        <item>
+	  <p>[httpc] - Added basic sanity check of option value 
+            combinations.</p>
+          <p>adam.kocoloski@gmail.com</p>
+	  <p>Own Id: OTP-8056</p>
+        </item>
       </list>
     </section>
 
-  </section> <!-- 5.2.0.1 -->
+  </section> <!-- 5.3 -->
 
 
   <section><title>Inets 5.2</title>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>HTTP server </title>
@@ -82,7 +82,7 @@
 
     <p>The server is configured using an erlang property list.
       For the available properties see
-      <seealso marker="inets:inets">httpd(3)</seealso>
+      <seealso marker="httpd">httpd(3)</seealso>
       For backwards compatibility also apache-like config files
       are supported.
     </p>
@@ -246,7 +246,7 @@
               every row contains the name of the group and the members
               of the group separated by a space, for example:</p>
             <pre>
-\011    GroupName: Member1 Member2 .... MemberN
+GroupName: Member1 Member2 .... MemberN
             </pre>
           </item>
           <item>
@@ -278,8 +278,8 @@
               and every row contains User Name and Password separated by a
               colon, for example:</p>
             <pre>
-\011    UserName:Password
-\011    UserName:Password
+UserName:Password
+UserName:Password
             </pre>
           </item>
           <item>
@@ -299,11 +299,11 @@
               the specified methods. If no request method is specified
               all request methods are verified against the restrictions.</p>
             <pre>
-\011    &lt;Limit POST GET HEAD&gt;
-\011    order allow deny
-\011    require group group1
-\011    allow from 123.145.244.5
-\011    &lt;/Limit&gt;
+&lt;Limit POST GET HEAD&gt;
+  order allow deny
+  require group group1
+  allow from 123.145.244.5
+&lt;/Limit&gt;
             </pre>
           </item>
           <item>
@@ -363,12 +363,10 @@
           message-body, separated by a blank line.  The message-header
           contains one or more header fields. The body may be
           empty. Example: </p>
-        <code type="none">
-"Content-Type:text/plain\
-Accept-Ranges:none\
-\
-some very
-\011plain text"         </code>
+      
+      <code>"Content-Type:text/plain\nAccept-Ranges:none\n\nsome very
+	plain text" </code>
+      
         <p>The server will interpret the cgi-headers and most of them
           will be transformed into HTTP headers and sent back to the
           client together with the body.</p>
@@ -387,7 +385,7 @@ some very
             the extra overhead. An URL which calls an Erlang erl function
             has the following syntax (regular expression): </p>
           <code type="none">
-\011  http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)
+http://your.server.org/***/Module[:/]Function(?QueryString|/PathInfo)
           </code>
           <p>*** above depends on how the ErlScriptAlias config
             directive has been used</p>
@@ -428,7 +426,7 @@ http://your.server.org/***/Mod:Func(Arg1,...,ArgN)
 http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[])))
             </code>
             <p>which effectively will close down the Erlang node,
-              that is use the erl scheme instead, until this
+              therefor, use the erl scheme instead, until this
               security breach has been fixed.</p>
             <p>Today there are no good way of solving this problem
               and therefore Eval Scheme may be removed in future
@@ -498,14 +496,14 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
           for parsed files, for example:
           </p>
         <pre>
-\011text/x-server-parsed-html shtml shtm
+	text/x-server-parsed-html shtml shtm
         </pre>
         <p>This makes files ending with <c>.shtml</c> and <c>.shtm</c>
           into parsed files. Alternatively, if the performance hit is not a
           problem, <em>all</em> HTML pages can be marked as parsed:
           </p>
         <pre>
-\011text/x-server-parsed-html html htm
+	text/x-server-parsed-html html htm
         </pre>
       </section>
 
@@ -518,7 +516,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
           unparsed. Each directive has the following format:
           </p>
         <pre>
-\011&lt;!--#command tag1="value1" tag2="value2" --&gt;
+	&lt;!--#command tag1="value1" tag2="value2" --&gt;
         </pre>
         <p>Each command takes different arguments, most only accept one
           tag at a time. Here is a breakdown of the commands and their
@@ -612,7 +610,7 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
           <item>
             <p>The unescaped version of any search query the client
               sent, with all shell-special characters escaped with
-              <c>\\</c>.</p>
+              <c>\</c>.</p>
           </item>
           <tag><c>DATE_LOCAL</c></tag>
           <item>
@@ -753,24 +751,28 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
 	  schema and the tables already is created. </p>
 	
 	<code>
-	  -module(mnesia_test).
-	  -export([start/0,load_data/0]).
-	  -include("mod_auth.hrl").   
-	  
-	  first_start()->
-	  mnesia:create_schema([node()]),
-	  mnesia:start(),
-	  mnesia:create_table(httpd_user,
-	  [{type,bag},{disc_copies,[node()]},
-	  {attributes,record_info(fields,httpd_user)}]),
-	  mnesia:create_table(httpd_group,
-                             [{type,bag},{disc_copies,[node()]},          
-	  {attributes,record_info(fields,httpd_group)}]),
-	  mnesia:wait_for_tables([httpd_user,httpd_group],60000).
-	  
-	  start()->
-	  mnesia:start(),
-	  mnesia:wait_for_tables([httpd_user,httpd_group],60000).                 
+-module(mnesia_test).
+-export([start/0,load_data/0]).
+-include("mod_auth.hrl").   
+
+first_start() ->
+    mnesia:create_schema([node()]),
+    mnesia:start(),
+    mnesia:create_table(httpd_user,
+                        [{type, bag},
+                         {disc_copies, [node()]},
+                         {attributes, record_info(fields, 
+                                                  httpd_user)}]),
+    mnesia:create_table(httpd_group,
+                        [{type, bag},
+                         {disc_copies, [node()]},          
+                         {attributes, record_info(fields, 
+                                                  httpd_group)}]),
+    mnesia:wait_for_tables([httpd_user, httpd_group], 60000).
+
+start() ->
+    mnesia:start(),
+    mnesia:wait_for_tables([httpd_user, httpd_group], 60000).                 
 	</code>
 	
 	<p>To create the Mnesia tables we use two records defined in

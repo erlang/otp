@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1997-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1997-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -25,7 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 # ----------------------------------------------------
 include ../../vsn.mk
 VSN=$(INETS_VSN)
-APPLICATION=inets
+
 
 # ----------------------------------------------------
 # Include dependency
@@ -35,10 +35,12 @@ ifndef DOCSUPPORT
 include make.dep
 endif
 
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
+
 
 # ----------------------------------------------------
 # Target Specs
@@ -56,7 +58,7 @@ XML_REF3_FILES = \
 	inets.xml \
 	ftp.xml \
 	tftp.xml \
-	http.xml\
+	httpc.xml\
 	httpd.xml \
 	httpd_conf.xml \
 	httpd_socket.xml \
@@ -67,41 +69,29 @@ XML_REF3_FILES = \
 	mod_security.xml	
 
 XML_PART_FILES = \
-	part.xml \
-	part_notes.xml \
-	part_notes_history.xml
-XML_HTML_FILES = \
-	notes_history.xml
+	part.xml
 
 BOOK_FILES = book.xml
 
-XML_FILES = $(BOOK_FILES)         \
-             $(XML_CHAPTER_FILES) \
-             $(XML_PART_FILES)    \
-             $(XML_REF6_FILES)    \
-             $(XML_REF3_FILES)    \
-             $(XML_APPLICATION_FILES)
+XML_FILES = \
+	$(BOOK_FILES)        \
+	$(XML_CHAPTER_FILES) \
+	$(XML_PART_FILES)    \
+	$(XML_REF6_FILES)    \
+	$(XML_REF3_FILES)    \
+	$(XML_APPLICATION_FILES)
 
-GIF_FILES = \
-	inets.gif \
-	notes.gif \
-	ref_man.gif \
-	book.gif \
-	warning.gif \
-	note.gif
+# GIF_FILES = inets.gif
 
 
 # ----------------------------------------------------
 
 HTML_FILES = \
 	$(XML_APPLICATION_FILES:%.xml=$(HTMLDIR)/%.html) \
-	$(XML_HTML_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_PART_FILES:%.xml=$(HTMLDIR)/%.html)
 
 INFO_FILE = ../../info
 EXTRA_FILES = summary.html.src \
-	$(DEFAULT_GIF_FILES) \
-	$(DEFAULT_HTML_FILES) \
 	$(XML_REF3_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_REF6_FILES:%.xml=$(HTMLDIR)/%.html) \
 	$(XML_CHAPTER_FILES:%.xml=$(HTMLDIR)/%.html)
@@ -208,6 +198,7 @@ clean_html:
 clean_man:
 	rm -f $(MAN3_FILES) 
 
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -216,11 +207,11 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 ifdef DOCSUPPORT
 
 release_docs_spec: docs
+	@echo "release_docs_spec(docs) when DOCSUPPORT=$DOCSUPPORT"
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/pdf
 	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELSYSDIR)/doc/pdf
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
-	$(INSTALL_DATA) $(HTMLDIR)/* \
-		$(RELSYSDIR)/doc/html
+	$(INSTALL_DATA) $(HTMLDIR)/* $(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3DIR)/* $(RELEASE_PATH)/man/man3
@@ -228,15 +219,18 @@ else
 
 ifeq ($(DOCTYPE),pdf)
 release_docs_spec: pdf
+	@echo "release_docs_spec(pdf)"
 	$(INSTALL_DIR) $(RELEASE_PATH)/pdf
 	$(INSTALL_DATA) $(TOP_PDF_FILE) $(RELEASE_PATH)/pdf
 else
 ifeq ($(DOCTYPE),ps)
 release_docs_spec: ps
+	@echo "release_docs_spec(ps)"
 	$(INSTALL_DIR) $(RELEASE_PATH)/ps
 	$(INSTALL_DATA) $(TOP_PS_FILE) $(RELEASE_PATH)/ps
 else
 release_docs_spec: docs
+	@echo "release_docs_spec(docs)"
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
 	$(RELSYSDIR)/doc/html
@@ -259,10 +253,6 @@ info:
 	@echo "HTML_FILES:\n$(HTML_FILES)"
 	@echo ""
 	@echo "TOP_HTML_FILES:\n$(TOP_HTML_FILES)"
-	@echo ""
-	@echo "DEFAULT_GIF_FILES:\n$(DEFAULT_GIF_FILES)"
-	@echo ""
-	@echo "DEFAULT_HTML_FILES:\n$(DEFAULT_HTML_FILES)"
 	@echo ""
 	@echo "XML_REF3_FILES:\n$(XML_REF3_FILES)"
 	@echo ""

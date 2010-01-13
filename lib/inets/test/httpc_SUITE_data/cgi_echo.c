@@ -1,0 +1,1 @@
+../httpd_SUITE_data/cgi_echo.c

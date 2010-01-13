@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>ftp</title>
@@ -534,12 +534,14 @@
       <fsummary>Start an standalone ftp client.</fsummary>
       <type>
 	<v>Host = string() | ip_address()</v>
-	<v>Opts = start_options() | open_options()</v>
-	<v>start_options() = [start_option()]</v>
+	<v>Opts = options()</v>
+	<v>options() = [option()]</v>
+	<v>option() = start_option() | open_option()</v>
+	<!-- <v>start_options() = [start_option()]</v> -->
 	<v>start_option() = {verbose, verbose()} | {debug, debug()}</v>
 	<v>verbose() = boolean() (defaults to false)</v>
 	<v>debug() = disable | debug | trace (defaults to disable)</v>
-	<v>open_options() = [open_option()]</v>
+	<!-- <v>open_options() = [open_option()]</v> -->
 	<v>open_option() = {ipfamily, ipfamily()} | {port, port()} | {mode, mode()} | {timeout, timeout()} | {progress, progress()}</v>
 	<v>ipfamily() = inet | inet6 | inet6fb4 (defaults to inet)</v>
 	<v>port() = integer() > 0 (defaults to 21)</v>
@@ -845,7 +847,7 @@
       <type>
         <v>Pid = pid()</v>
         <v>Command = string()</v>
-        <v>FTPLine = string() - Note the telnet end of line characters, from the ftp protocol definition, CRLF e.g. "\\r\ " has been removed.</v>
+        <v>FTPLine = string() - Note the telnet end of line characters, from the ftp protocol definition, CRLF e.g. "\\r\\n" has been removed.</v>
       </type>
       <desc>
         <p>Sends an arbitrary FTP command and returns verbatimly a list

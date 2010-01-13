@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>http</title>
@@ -28,11 +28,11 @@
     <date></date>
     <rev></rev>
   </header>
-  <module>http</module>
+  <module>httpc</module>
   <modulesummary>An HTTP/1.1 client </modulesummary>
   <description>
-    <p>This module provides the API to a HTTP/1.1 client according to
-      RFC 2616, caching is currently not supported.</p>
+    <p>This module provides the API to a HTTP/1.1 compatible client according 
+      to RFC 2616, caching is currently not supported.</p>
     <note>
       <p>When starting the Inets application a manager process for the
 	default profile will be started. The functions in this API
@@ -130,38 +130,23 @@ ssl_options() = {verify,     code()}   |
     <p>The client can be stopped using inets:stop(httpc, Pid) or
     inets:stop(httpc, Profile).</p>
     
-    <marker id="cancel_request"></marker>
+    <marker id="request1"></marker>
   </section>
   
   <funcs>
-    <func>
-      <name>cancel_request(RequestId) -> </name>
-      <name>cancel_request(RequestId, Profile) -> ok</name>
-      <fsummary>Cancels an asynchronous HTTP-request.</fsummary>
-      <type>
-        <v>RequestId = request_id() - A unique identifier as returned
-        by request/4</v>
-	<v>Profile = profile()</v>
-      </type>
-      <desc>
-        <p>Cancels an asynchronous HTTP-request. </p>
-
-        <marker id="request1"></marker>
-      </desc>
-    </func>
-
     <func>
       <name>request(Url) -> </name>
       <name>request(Url, Profile) -> {ok, Result} | {error, Reason}</name>
       <fsummary>Sends a get HTTP-request</fsummary>
       <type>
-        <v>Url = url() </v> <v>Result = {status_line(), headers(),
-        body()} | {status_code(), body()} | request_id() </v>
+        <v>Url = url() </v> 
+	<v>Result = {status_line(), headers(), body()} | 
+                    {status_code(), body()} | request_id() </v>
 	<v>Profile = profile()</v>
 	<v>Reason = term() </v>
       </type>
       <desc>
-        <p>Equivalent to http:request(get, {Url, []}, [], []).</p>
+        <p>Equivalent to httpc:request(get, {Url, []}, [], []).</p>
 
         <marker id="request2"></marker>
       </desc>
@@ -187,13 +172,18 @@ ssl_options() = {verify,     code()}   |
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
-        <v>option() = {sync, boolean()} | 
-                      {stream, stream_to()} | 
-                      {body_format, body_format()} | 
-                      {full_result, boolean()} | 
-                      {headers_as_is, boolean()}</v>
-        <v>stream_to() = self | {self, once} | filename() </v>
-	<v>body_format() = string() | binary() </v>
+        <v>option() = {sync,          boolean()} | 
+                      {stream,        stream_to()} | 
+                      {body_format,   body_format()} | 
+                      {full_result,   boolean()} | 
+                      {headers_as_is, boolean() |
+                      {receiver,      receiver()}}</v>
+        <v>stream_to() = none | self | {self, once} | filename() </v>
+        <v>receiver() = pid() | function()/1 | {Module, Function, Args} </v>
+        <v>Module = atom() </v>
+        <v>Function = atom() </v>
+        <v>Args = list() </v>
+	<v>body_format() = string | binary </v>
         <v>Result = {status_line(), headers(), body()} | 
                     {status_code(), body()} | request_id() </v>
         <v>Profile = profile() </v>
@@ -203,29 +193,25 @@ ssl_options() = {verify,     code()}   |
       <desc>
         <p>Sends a HTTP-request. The function can be both synchronous
           and asynchronous. In the later case the function will return
-          {ok, RequestId} and later on message(s) will be sent to the
-          calling process on the format: </p>
-<pre>
-          {http, {RequestId, Result}}
-          {http, {RequestId, {error, Reason}}}
-          {http, {RequestId, stream_start, Headers}
-          {http, {RequestId, stream, BinBodyPart}
-          {http, {RequestId, stream_end, Headers}
-          {http, {RequestId, saved_to_file}}.
-</pre>
+          {ok, RequestId} and later on the information will be delivered
+          to the <c>receiver</c> depending on that value. </p>
 
         <p>Http option (<c>http_option()</c>) details: </p>
         <taglist>
           <tag><c><![CDATA[timeout]]></c></tag>
           <item>
             <p>Timeout time for the request. </p>
+            <p>The clock start ticking as soon as the request has been 
+              sent. </p>
+            <p>Time is in milliseconds. </p>
             <p>Defaults to <c>infinity</c>. </p>
 	  </item>
 
           <tag><c><![CDATA[connect_timeout]]></c></tag>
           <item>
             <p>Connection timeout time, used during the initial request, 
-              when the client is connecting to the server. </p>
+              when the client is <em>connecting</em> to the server. </p>
+            <p>Time is in milliseconds. </p>
             <p>Defaults to the value of the <c>timeout</c> option. </p>
 	  </item>
 
@@ -329,7 +315,73 @@ ssl_options() = {verify,     code()}   |
             <p>Defaults to <c>false</c>. </p>
 	  </item>
 
+          <tag><c><![CDATA[receiver]]></c></tag>
+          <item>
+            <p>Defines how the client will deliver the result for a 
+              asynchroneous request (<c>sync</c> has the value 
+              <c>false</c>). </p>
+
+            <taglist>
+              <tag><c><![CDATA[pid()]]></c></tag>
+              <item>
+	        <p>Message(s) will be sent to this process in the format: </p>
+<pre>
+{http, ReplyInfo}
+</pre>
+	      </item>
+
+              <tag><c><![CDATA[function/1]]></c></tag>
+              <item>
+	        <p>Information will be delivered to the receiver via calls 
+                  to the provided fun: </p>
+<pre>
+Receiver(ReplyInfo)
+</pre>
+  	      </item>
+
+              <tag><c><![CDATA[{Module, Funcion, Args}]]></c></tag>
+              <item>
+	        <p>Information will be delivered to the receiver via calls 
+                  to the callback function: </p>
+<pre>
+apply(Module, Function, [ReplyInfo | Args])
+</pre>
+	      </item>
+
+            </taglist>
+            <p>In all cases above, <c>ReplyInfo</c> has the following 
+              structure: </p>
+
+<pre>
+{RequestId, saved_to_file}
+{RequestId, {error, Reason}}
+{RequestId, Result}
+{RequestId, stream_start, Headers}
+{RequestId, stream_start, Headers, HandlerPid}
+{RequestId, stream,       BinBodyPart}
+{RequestId, stream_end,   Headers}
+</pre>
+
+            <p>Defaults to the <c>pid()</c> of the process calling the request 
+              function (<c>self()</c>). </p>
+	  </item>
         </taglist>
+
+        <marker id="cancel_request"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>cancel_request(RequestId) -> </name>
+      <name>cancel_request(RequestId, Profile) -> ok</name>
+      <fsummary>Cancels an asynchronous HTTP-request.</fsummary>
+      <type>
+        <v>RequestId = request_id() - A unique identifier as returned
+        by request/4</v>
+	<v>Profile = profile()</v>
+      </type>
+      <desc>
+        <p>Cancels an asynchronous HTTP-request. </p>
 
         <marker id="set_options"></marker>
       </desc>
@@ -439,12 +491,13 @@ ssl_options() = {verify,     code()}   |
 	  same behavior as active once for sockets.</p>
 
         <marker id="verify_cookie"></marker>
+        <marker id="store_cookie"></marker>
       </desc>
     </func>
     
     <func>
-      <name>verify_cookie(SetCookieHeaders, Url) -> </name>
-      <name>verify_cookie(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
+      <name>store_cookie(SetCookieHeaders, Url) -> </name>
+      <name>store_cookie(SetCookieHeaders, Url, Profile) -> ok | {error, Reason}</name>
       <fsummary>Saves the cookies defined in SetCookieHeaders in the client profile's cookie database.</fsummary>
       <type>
         <v>SetCookieHeaders = headers() - where field = "set-cookie"</v>
@@ -454,7 +507,7 @@ ssl_options() = {verify,     code()}   |
       <desc>
         <p>Saves the cookies defined in SetCookieHeaders
           in the client profile's cookie database. You need to
-          call this function if you set the option cookies to verify.
+          call this function if you set the option cookies to <c>verify</c>.
 	  If no profile is specified the default profile will be used.
 	</p>
 
@@ -474,6 +527,43 @@ ssl_options() = {verify,     code()}   |
       <desc>
         <p>Returns the cookie header that would be sent
           when making a request to Url using the profile Profile.
+	  If no profile is specified the default profile will be used.
+	</p>
+
+        <marker id="reset_cookies"></marker>
+      </desc>
+    </func>
+
+
+    <func>
+      <name>reset_cookies() -> void()</name>
+      <name>reset_cookies(Profile) -> void()</name>
+      <fsummary>Reset the cookie database.</fsummary>
+      <type>
+	<v>Profile = profile()</v>
+      </type>
+      <desc>
+        <p>Resets (clears) the cookie database for the specified Profile.
+	  If no profile is specified the default profile will be used.
+	</p>
+      </desc>
+    </func>
+
+
+    <func>
+      <name>which_cookies() -> cookies()</name>
+      <name>which_cookies(Profile) -> cookies()</name>
+      <fsummary>Dumps out the entire cookie database.</fsummary>
+      <type>
+	<v>Profile = profile()</v>
+	<v>cookies() = [cooie_stores()]</v>
+	<v>cookie_stores() = {cookies, icookies()} | {session_cookies, icookies()}</v>
+	<v>icookies() = [icookie()]</v>
+	<v>cookie() = term()</v>
+      </type>
+      <desc>
+        <p>This function produces a list of the entire cookie database.
+          It is intended for debugging/testing purposes. 
 	  If no profile is specified the default profile will be used.
 	</p>
       </desc>

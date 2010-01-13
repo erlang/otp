@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2005-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2005-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -32,7 +32,8 @@ VSN = $(INETS_VSN)
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/inets-$(VSN)
+RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
+
 
 # ----------------------------------------------------
 # Target Specs
@@ -49,14 +50,16 @@ ERL_FILES = $(MODULES:%=%.erl)
 
 TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
+
 # ----------------------------------------------------
 # INETS FLAGS
 # ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="inets/$(VSN)"'
+INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
 
 ifeq ($(FTP_DEBUG),true)
   INETS_FLAGS += -Dftp_debug
 endif
+
 
 # ----------------------------------------------------
 # FLAGS
@@ -94,6 +97,7 @@ release_spec: opt
 release_docs_spec:
 
 info:
+	@echo "APPLICATION       = $(APPLICATION)"
 	@echo "INETS_DEBUG       = $(INETS_DEBUG)"
 	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"

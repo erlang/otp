@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>httpd</title>
@@ -93,7 +93,7 @@
 	followed by the value followed by a new line. Ex:
 
 	<code>
-	  {server_root, "/urs/local/www"} -> ServerRoot /usr/local/www
+{server_root, "/urs/local/www"} -> ServerRoot /usr/local/www
 	</code>
 	  
 	<p>With a few exceptions, that are documented
@@ -103,9 +103,9 @@
 	  as:</p>
 	<pre>
 	  <![CDATA[
-	  <Directory Dir>
-	   <Properties handled as described above> 
-          </Directory>
+<Directory Dir>
+ <Properties handled as described above> 
+</Directory>
          ]]>
 	</pre>
       </item>
@@ -239,9 +239,9 @@
 	  as an Apache like file as well as directly in the property list. Such
           a file may look like:</p>
         <pre>
-	  \011  # MIME type\011\011\011Extension  
-	  \011  text/html\011\011\011html htm
-	  \011  text/plain\011\011\011asc txt
+# MIME type	Extension  
+text/html	html htm
+text/plain	asc txt
         </pre>
 	
 	<p>Defaults to  [{"html","text/html"},{"htm","text/html"}]</p>
@@ -869,19 +869,19 @@ bytes
       ModData = #mod{}
 
       -record(mod, {
-\011\011data = [],
-\011\011socket_type = ip_comm,
-\011\011socket, 
-\011\011config_db,
-\011\011method,
-\011\011absolute_uri,
-\011\011request_uri,
-\011\011http_version,
-\011\011request_line,
-\011\011parsed_header = [],
-\011\011entity_body,
-\011\011connection
-\011       }).
+		data = [],
+		socket_type = ip_comm,
+		socket, 
+		config_db,
+		method,
+		absolute_uri,
+		request_uri,
+		http_version,
+		request_line,
+		parsed_header = [],
+		entity_body,
+		connection
+	}).
     </code>
     <p>The fields of the <c>mod</c> record has the following meaning:
       </p>
