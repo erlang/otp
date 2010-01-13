@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Modules</title>
@@ -170,17 +170,21 @@ fact(0) ->           %  |
 
     <section>
         <title>Types and function specifications</title>
-        <p>The current release implements types and function specifications 
-            as described in
+	<p>A similar syntax as for module attributes is used for 
+	specifying types and function specifications.
+	</p>
+	<pre>
+-type my_type() :: atom() | integer().
+-spec my_function(integer()) -> integer().
+	</pre>
+        <p>Read more in <seealso marker="typespec">Types and Function specifications</seealso>.
+	</p>
+	<p>
+	  The desciption is based on
 	    <url href="http://www.erlang.org/eeps/eep-0008.html">EEP8 -
-Types and function specifications</url>.
-
-	    <note>
-	     <p>The implementation and EEP8 may not exactly correspond to
-	     each other. In a future release, type and function specifications
-	     will be described in this reference manual.</p>
-	    </note>
-        </p>
+	    Types and function specifications</url>
+	    which will not be further updated.
+	</p>
     </section>
   </section>
 
