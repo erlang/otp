@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -212,17 +212,18 @@ reductions(Config) when is_list(Config) ->
     %% 300 * 4 is more than CONTEXT_REDS (1000).  Thus, there will be one or
     %% more context switches.
 
-    reductions(300, Reductions).
+    Mask = (1 bsl erlang:system_info(wordsize)*8) - 1,
+    reductions(300, Reductions, Mask).
 
-reductions(N, Previous) when N > 0 ->
+reductions(N, Previous, Mask) when N > 0 ->
     ?line {Reductions, Diff} = statistics(reductions),
     ?line build_some_garbage(),
     ?line if Reductions > 0 -> ok end,
     ?line if Diff >= 0 -> ok end,
     io:format("Previous = ~p, Reductions = ~p, Diff = ~p, DiffShouldBe = ~p",
-	      [Previous, Reductions, Diff, Reductions-Previous]),
-    ?line if Reductions == Previous+Diff -> reductions(N-1, Reductions) end;
-reductions(0, _) ->
+	      [Previous, Reductions, Diff, (Reductions-Previous) band Mask]),
+    ?line if Reductions == ((Previous+Diff) band Mask) -> reductions(N-1, Reductions, Mask) end;
+reductions(0, _, _) ->
     ok.
 
 build_some_garbage() ->

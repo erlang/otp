@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -286,6 +286,15 @@ extern int count_instructions;
 
 #endif
 
+#ifdef FORCE_HEAP_FRAGS
+#  define HEAP_SPACE_VERIFIED(Words) do { \
+      c_p->space_verified = (Words);	  \
+      c_p->space_verified_from = HTOP;	  \
+    }while(0)
+#else
+#  define HEAP_SPACE_VERIFIED(Words) ((void)0)
+#endif
+
 #define PRE_BIF_SWAPOUT(P)						\
      HEAP_TOP((P)) = HTOP;  						\
      (P)->stop = E;  							\
@@ -411,6 +420,7 @@ extern int count_instructions;
        r(0) = reg[0];                                           		\
        SWAPIN;                                                  		\
     }                                                           		\
+    HEAP_SPACE_VERIFIED(need);                                                  \
   } while (0)
 
 
@@ -432,6 +442,7 @@ extern int count_instructions;
        r(0) = reg[0];                                           \
        SWAPIN;                                                  \
     }                                                           \
+    HEAP_SPACE_VERIFIED(need);                             \
   } while (0)
 
 /*
@@ -456,6 +467,7 @@ extern int count_instructions;
        Extra = reg[Live];						\
        SWAPIN;								\
     }									\
+    HEAP_SPACE_VERIFIED(need);                                      \
   } while (0)
 
 #ifdef HYBRID
@@ -832,6 +844,7 @@ extern int count_instructions;
    LIGHT_SWAPOUT;							\
    _result = erts_bs_get_float_2(c_p, _size, (Flags), _mb);		\
    LIGHT_SWAPIN;							\
+   HEAP_SPACE_VERIFIED(0);                                          \
    if (is_non_value(_result)) { Fail; }					\
    else { Store(_result, Dst); }					\
  } while (0)
@@ -845,6 +858,7 @@ extern int count_instructions;
     LIGHT_SWAPOUT;						\
     _result = erts_bs_get_binary_2(c_p, (Sz), (Flags), _mb);	\
     LIGHT_SWAPIN;						\
+    HEAP_SPACE_VERIFIED(0);                                 \
     if (is_non_value(_result)) { Fail; }			\
     else { Store(_result, Dst); }				\
   } while (0)
@@ -859,6 +873,7 @@ extern int count_instructions;
     LIGHT_SWAPOUT;						\
     _result = erts_bs_get_binary_2(c_p, _size, (Flags), _mb);	\
     LIGHT_SWAPIN;						\
+    HEAP_SPACE_VERIFIED(0);                                 \
     if (is_non_value(_result)) { Fail; }			\
     else { Store(_result, Dst); }				\
   } while (0)
@@ -873,9 +888,12 @@ extern int count_instructions;
       LIGHT_SWAPOUT;						\
       _result = erts_bs_get_binary_all_2(c_p, _mb);		\
       LIGHT_SWAPIN;						\
+      HEAP_SPACE_VERIFIED(0);                               \
       ASSERT(is_value(_result));				\
       Store(_result, Dst);					\
-    } else { Fail; }						\
+    } else {                                                    \
+	HEAP_SPACE_VERIFIED(0);                             \
+	Fail; }						        \
  } while (0)
 
 #define BsSkipBits2(Ms, Bits, Unit, Fail)			\
@@ -1360,6 +1378,7 @@ void process_main(void)
      */
     c_p->cp = 0;
     CHECK_TERM(r(0));
+    HEAP_SPACE_VERIFIED(0);
     Goto(*I);
  }
 
@@ -2379,6 +2398,7 @@ void process_main(void)
 		     if (is_big(tmp_arg1)) {
 			 HTOP += bignum_header_arity(*HTOP) + 1;
 		     }
+		     HEAP_SPACE_VERIFIED(0);
 		     if (is_nil(tmp_arg1)) {
 			 /*
 			  * This result must have been only slight larger
@@ -3225,6 +3245,7 @@ apply_bif_or_nif_epilogue:
 	     sb->orig = new_binary;
 	     new_binary = make_binary(sb);
 	 }
+	 HEAP_SPACE_VERIFIED(0);
 	 StoreBifResult(2, new_binary);
      } else {
 	 Binary* bptr;
@@ -3712,6 +3733,7 @@ apply_bif_or_nif_epilogue:
 		 *dst = *ms;
 		 *HTOP = HEADER_BIN_MATCHSTATE(slots);
 		 HTOP += wordsneeded;
+		 HEAP_SPACE_VERIFIED(0);
 		 StoreResult(make_matchstate(dst), Arg(3));
 	     }
 	 } else if (is_binary_header(header)) {
@@ -3725,6 +3747,7 @@ apply_bif_or_nif_epilogue:
 #endif
 	     result = erts_bs_start_match_2(c_p, tmp_arg1, slots);
 	     HTOP = HEAP_TOP(c_p);
+	     HEAP_SPACE_VERIFIED(0);
 	     if (is_non_value(result)) {
 		 ClauseFail();
 	     } else {
@@ -3917,6 +3940,7 @@ apply_bif_or_nif_epilogue:
 	 TestHeap(BIG_UINT_HEAP_SIZE, Arg(1));
 	 _result = uint_to_big((Uint) _integer, HTOP);
 	 HTOP += BIG_UINT_HEAP_SIZE;
+	 HEAP_SPACE_VERIFIED(0);
      }
 #endif
      StoreBifResult(2, _result);
@@ -3982,6 +4006,7 @@ apply_bif_or_nif_epilogue:
      LIGHT_SWAPOUT;
      result = erts_bs_get_integer_2(c_p, tmp_arg2, Arg(1), mb);
      LIGHT_SWAPIN;
+     HEAP_SPACE_VERIFIED(0);
      if (is_non_value(result)) {
 	 ClauseFail();
      }
@@ -4009,6 +4034,7 @@ apply_bif_or_nif_epilogue:
      LIGHT_SWAPOUT;
      result = erts_bs_get_integer_2(c_p, size, flags, mb);
      LIGHT_SWAPIN;
+     HEAP_SPACE_VERIFIED(0);
      if (is_non_value(result)) {
 	 ClauseFail();
      }

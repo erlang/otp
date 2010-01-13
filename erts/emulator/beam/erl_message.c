@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -114,12 +114,8 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
 
     nbp = (ErlHeapFragment*) ERTS_HEAP_REALLOC(ERTS_ALC_T_HEAP_FRAG,
 					       (void *) bp,
-					       (sizeof(ErlHeapFragment)
-						- sizeof(Eterm)
-						+ bp->size*sizeof(Eterm)),
-					       (sizeof(ErlHeapFragment)
-						- sizeof(Eterm)
-						+ size*sizeof(Eterm)));
+					       ERTS_HEAP_FRAG_SIZE(bp->size),
+					       ERTS_HEAP_FRAG_SIZE(size));
     if (bp != nbp) {
 	Uint off_sz = size < nbp->size ? size : nbp->size;
 	Eterm *sp = &bp->mem[0];
@@ -140,7 +136,7 @@ erts_resize_message_buffer(ErlHeapFragment *bp, Uint size,
 #endif
     }
     nbp->size = size;
-
+    nbp->used_size = size;
 
 #ifdef HARD_DEBUG
     for (i = 0; i < brefs_size; i++)
@@ -175,9 +171,7 @@ free_message_buffer(ErlHeapFragment* bp)
     erts_cleanup_offheap(&bp->off_heap);
     ERTS_HEAP_FREE(ERTS_ALC_T_HEAP_FRAG,
 		   (void *) bp,
-		   (sizeof(ErlHeapFragment)
-		    - sizeof(Eterm)
-		    + bp->size*sizeof(Eterm)));
+		   ERTS_HEAP_FRAG_SIZE(bp->size));
 }
 
 static ERTS_INLINE void

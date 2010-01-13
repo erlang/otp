@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -21,6 +21,13 @@
 #define __ERL_VM_H__
 
 /* #define ERTS_OPCODE_COUNTER_SUPPORT */
+
+/* FORCE_HEAP_FRAGS:
+ * Debug provocation to make HAlloc always create heap fragments (if allowed)
+ * even if there is room on heap.
+ */
+/* #define FORCE_HEAP_FRAGS */
+
 
 #if defined(HYBRID)
 /* # define CHECK_FOR_HOLES */
@@ -70,6 +77,7 @@
 			 && (P) == (P)->scheduler_data->match_pseudo_process) \
 		     || erts_is_system_blocked(0))
 
+
 #ifdef DEBUG
 /*
  * Debug HAlloc that initialize all memory to bad things.
@@ -80,55 +88,43 @@
          VERBOSE(DEBUG_ALLOCATION,("HAlloc @ 0x%08lx (%d) %s:%d\n",     \
                  (unsigned long)HEAP_TOP(p),(sz),__FILE__,__LINE__)),   \
  */
-#ifdef CHECK_FOR_HOLES
-#define HAlloc(p, sz)						\
-    (ASSERT_EXPR((sz) >= 0),					\
-     ErtsHAllocLockCheck(p),					\
-     ((((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz)))			\
-      ? erts_heap_alloc((p),(sz))				\
-      : (erts_set_hole_marker(HEAP_TOP(p), (sz)),		\
-         HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
+#  ifdef CHECK_FOR_HOLES
+#    define INIT_HEAP_MEM(p,sz) erts_set_hole_marker(HEAP_TOP(p), (sz))
+#  else
+#    define INIT_HEAP_MEM(p,sz) memset(HEAP_TOP(p),DEBUG_BAD_BYTE,(sz)*sizeof(Eterm*))
+#  endif
 #else
-#define HAlloc(p, sz)                                                   \
-    (ASSERT_EXPR((sz) >= 0),                                            \
-     ErtsHAllocLockCheck(p),						\
-     ((((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz)))                          \
-      ? erts_heap_alloc((p),(sz))                                       \
-      : (memset(HEAP_TOP(p),DEBUG_BAD_BYTE,(sz)*sizeof(Eterm*)),        \
-         HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
+#  define INIT_HEAP_MEM(p,sz) ((void)0)
+#endif /* DEBUG */
+
+
+#ifdef FORCE_HEAP_FRAGS
+#  define IS_FORCE_HEAP_FRAGS 1
+#else
+#  define IS_FORCE_HEAP_FRAGS 0
 #endif
-#else
 
 /*
  * Allocate heap memory, first on the ordinary heap;
  * failing that, in a heap fragment.
  */
-#define HAlloc(p, sz)                                                   \
-    (ASSERT_EXPR((sz) >= 0),                                            \
-     ErtsHAllocLockCheck(p),						\
-     ((((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz)))                          \
-      ? erts_heap_alloc((p),(sz))                                       \
-      : (HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
+#define HAlloc(p, sz)			                              \
+    (ASSERT_EXPR((sz) >= 0),					      \
+     ErtsHAllocLockCheck(p),					      \
+     (IS_FORCE_HEAP_FRAGS || (((HEAP_LIMIT(p) - HEAP_TOP(p)) < (sz))) \
+      ? erts_heap_alloc((p),(sz))                                     \
+      : (INIT_HEAP_MEM(p,sz),		                              \
+         HEAP_TOP(p) = HEAP_TOP(p) + (sz), HEAP_TOP(p) - (sz))))
 
-#endif /* DEBUG */
 
-#if defined(CHECK_FOR_HOLES)
-# define HRelease(p, endp, ptr)					\
+#define HRelease(p, endp, ptr)					\
   if ((ptr) == (endp)) {					\
      ;								\
   } else if (HEAP_START(p) <= (ptr) && (ptr) < HEAP_TOP(p)) {	\
      HEAP_TOP(p) = (ptr);					\
   } else {							\
-     erts_arith_shrink(p, ptr);					\
+     erts_heap_frag_shrink(p, ptr);					\
   }
-#else
-# define HRelease(p, endp, ptr)					\
-  if ((ptr) == (endp)) {					\
-     ;								\
-  } else if (HEAP_START(p) <= (ptr) && (ptr) < HEAP_TOP(p)) {	\
-     HEAP_TOP(p) = (ptr);					\
-  }
-#endif
 
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 

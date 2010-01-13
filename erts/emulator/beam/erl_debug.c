@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -344,7 +344,7 @@ void erts_check_for_holes(Process* p)
 	if (hf == p->last_mbuf) {
 	    break;
 	}
-	check_memory(hf->mem, hf->mem+hf->size);
+	check_memory(hf->mem, hf->mem+hf->used_size);
     }
     p->last_mbuf = MBUF(p);
 }
@@ -386,7 +386,7 @@ void erts_check_heap(Process *p)
     }
 
     while (bp) {
-	erts_check_memory(p,bp->mem,bp->mem + bp->size);
+	erts_check_memory(p,bp->mem,bp->mem + bp->used_size);
         bp = bp->next;
     }
 }

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 #ifdef HAVE_CONFIG_H
@@ -961,12 +961,13 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 	n_htop = sweep_one_area(n_heap, n_htop, heap, heap_size);
     } else {
 	Eterm* n_hp = n_heap;
+	Eterm* ptr;
+	Eterm val;
+	Eterm gval;
 
 	while (n_hp != n_htop) {
-	    Eterm* ptr;
-	    Eterm val;
-	    Eterm gval = *n_hp;
-
+	    ASSERT(n_hp < n_htop);
+	    gval = *n_hp;
 	    switch (primary_tag(gval)) {
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
@@ -1402,68 +1403,6 @@ remove_message_buffers(Process* p)
     }
 }
 
-/*
- * Go through one root set array, move everything that it is one of the
- * heap fragments to our new heap.
- */
-static Eterm*
-collect_root_array(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
-{
-    ErlHeapFragment* qb;
-    Eterm gval;
-    Eterm* ptr;
-    Eterm val;
-
-    ASSERT(p->htop != NULL);
-    while (nobj--) {
-	gval = *objv;
-	
-	switch (primary_tag(gval)) {
-
-	case TAG_PRIMARY_BOXED: {
-	    ptr = boxed_val(gval);
-	    val = *ptr;
-	    if (IS_MOVED(val)) {
-		ASSERT(is_boxed(val));
-		*objv++ = val;
-	    } else {
-		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
-			MOVE_BOXED(ptr,val,n_htop,objv);
-			break;
-		    }
-		}
-		objv++;
-	    }
-	    break;
-	}
-
-	case TAG_PRIMARY_LIST: {
-	    ptr = list_val(gval);
-	    val = *ptr;
-	    if (is_non_value(val)) {
-		*objv++ = ptr[1];
-	    } else {
-		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
-			MOVE_CONS(ptr,val,n_htop,objv);
-			break;
-		    }
-		}
-		objv++;
-	    }
-	    break;
-	}
-
-	default: {
-	    objv++;
-	    break;
-	}
-	}
-    }
-    return n_htop;
-}
-
 #ifdef HARDDEBUG
 
 /*
@@ -1707,11 +1646,13 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 static Eterm*
 sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 {
-    while (n_hp != n_htop) {
-	Eterm* ptr;
-	Eterm val;
-	Eterm gval = *n_hp;
+    Eterm* ptr;
+    Eterm val;
+    Eterm gval;
 
+    while (n_hp != n_htop) {
+	ASSERT(n_hp < n_htop);
+	gval = *n_hp;
 	switch (primary_tag(gval)) {
 	case TAG_PRIMARY_BOXED: {
 	    ptr = boxed_val(gval);
@@ -1820,6 +1761,35 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 }
 
 /*
+ * Move an area (heap fragment) by sweeping over it and set move markers.
+ */
+static Eterm*
+move_one_area(Eterm* n_htop, char* src, Uint src_size)
+{
+    Eterm* ptr = (Eterm*) src;
+    Eterm* end = ptr + src_size/sizeof(Eterm);
+    Eterm dummy_ref;
+
+    while (ptr != end) {
+	Eterm val;
+	ASSERT(ptr < end);
+	val = *ptr;
+	ASSERT(val != ERTS_HOLE_MARKER);
+	if (is_header(val)) {
+	    ASSERT(ptr + header_arity(val) < end);
+	    MOVE_BOXED(ptr, val, n_htop, &dummy_ref);	    
+	}
+	else { /* must be a cons cell */
+	    ASSERT(ptr+1 < end);
+	    MOVE_CONS(ptr, val, n_htop, &dummy_ref);
+	    ptr += 2;
+	}
+    }
+
+    return n_htop;
+}
+
+/*
  * Collect heap fragments and check that they point in the correct direction.
  */
 
@@ -1830,7 +1800,6 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
     ErlHeapFragment* qb;
     char* frag_begin;
     Uint frag_size;
-    ErlMessage* mp;
 
     /*
      * We don't allow references to a heap fragments from the stack, heap,
@@ -1845,64 +1814,43 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
 #endif
 
     /*
-     * Go through the subset of the root set that is allowed to
-     * reference data in heap fragments and move data from heap fragments
-     * to our new heap.
-     */
-
-    if (nobj != 0) {
-	n_htop = collect_root_array(p, n_htop, objv, nobj);
-    }
-    if (is_not_immed(p->fvalue)) {
-	n_htop = collect_root_array(p, n_htop, &p->fvalue, 1);
-    }
-    if (is_not_immed(p->ftrace)) {
-	n_htop = collect_root_array(p, n_htop, &p->ftrace, 1);
-    }
-    if (is_not_immed(p->seq_trace_token)) {
-	n_htop = collect_root_array(p, n_htop, &p->seq_trace_token, 1);
-    }
-    if (is_not_immed(p->group_leader)) {
-	n_htop = collect_root_array(p, n_htop, &p->group_leader, 1);
-    }
-
-    /*
-     * Go through the message queue, move everything that is in one of the
-     * heap fragments to our new heap.
-     */
-
-    for (mp = p->msg.first; mp != NULL; mp = mp->next) {
-	/*
-	 * In most cases, mp->data.attached points to a heap fragment which is
-	 * self-contained and we will copy it to the heap at the
-	 * end of the GC to avoid scanning it.
-	 *
-	 * In a few cases, however, such as in process_info(Pid, messages)
-	 * and trace_delivered/1, a new message points to a term that has
-	 * been allocated by HAlloc() and mp->data.attached is NULL. Therefore
-	 * we need this loop.
-	 */
-	if (mp->data.attached == NULL) {
-	    n_htop = collect_root_array(p, n_htop, mp->m, 2);
-	}
-    }
-
-    /*
-     * Now all references in the root set point to the new heap. However,
-     * many references on the new heap point to heap fragments.
-     */
-
+     * Move the heap fragments to the new heap. Note that no GC is done on
+     * the heap fragments. Any garbage will thus be moved as well and survive
+     * until next GC.  
+     */ 
     qb = MBUF(p);
-    while (qb != NULL) {
-	frag_begin = (char *) qb->mem;
-	frag_size = qb->size * sizeof(Eterm);
+    while (qb != NULL) {      
+	frag_size = qb->used_size * sizeof(Eterm);
 	if (frag_size != 0) {
-	    n_htop = sweep_one_area(n_hstart, n_htop, frag_begin, frag_size);
+	    frag_begin = (char *) qb->mem;
+	    n_htop = move_one_area(n_htop, frag_begin, frag_size);
 	}
 	qb = qb->next;
     }
     return n_htop;
 }
+
+#ifdef DEBUG
+static Eterm follow_moved(Eterm term)
+{
+    Eterm* ptr;
+    switch (primary_tag(term)) {
+    case TAG_PRIMARY_IMMED1:
+	break;
+    case TAG_PRIMARY_BOXED:
+	ptr = boxed_val(term);
+	if (IS_MOVED(*ptr)) term = *ptr;
+	break;
+    case TAG_PRIMARY_LIST:
+	ptr = list_val(term);
+	if (is_non_value(ptr[0])) term = ptr[1];
+	break;
+    default:
+	abort();
+    }
+    return term;
+}
+#endif
 
 static Uint
 setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
@@ -1932,7 +1880,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
     }
 
     ASSERT((is_nil(p->seq_trace_token) ||
-	    is_tuple(p->seq_trace_token) ||
+	    is_tuple(follow_moved(p->seq_trace_token)) ||
 	    is_atom(p->seq_trace_token)));
     if (is_not_immed(p->seq_trace_token)) {
 	roots[n].v = &p->seq_trace_token;
@@ -1944,7 +1892,7 @@ setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
 	   is_internal_pid(p->tracer_proc) ||
 	   is_internal_port(p->tracer_proc));
 
-    ASSERT(is_pid(p->group_leader));
+    ASSERT(is_pid(follow_moved(p->group_leader)));
     if (is_not_immed(p->group_leader)) {
 	roots[n].v  = &p->group_leader;
 	roots[n].sz = 1;

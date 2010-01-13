@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -95,6 +95,7 @@ dispatch_profile_msg_q(profile_sched_msg_q *psmq)
 
 #endif
 
+
 Eterm*
 erts_heap_alloc(Process* p, Uint need)
 {
@@ -105,13 +106,29 @@ erts_heap_alloc(Process* p, Uint need)
     Uint i;
 #endif
 
+#ifdef FORCE_HEAP_FRAGS
+    if (p->space_verified && p->space_verified_from!=NULL
+	&& HEAP_TOP(p) >= p->space_verified_from
+	&& HEAP_TOP(p) + need <= p->space_verified_from + p->space_verified
+	&& HEAP_LIMIT(p) - HEAP_TOP(p) >= need) {
+	
+	Uint consumed = need + (HEAP_TOP(p) - p->space_verified_from);
+	ASSERT(consumed <= p->space_verified);
+	p->space_verified -= consumed;
+	p->space_verified_from += consumed;
+	HEAP_TOP(p) = p->space_verified_from;
+	return HEAP_TOP(p) - need;
+    }
+    p->space_verified = 0;
+    p->space_verified_from = NULL;
+#endif /* FORCE_HEAP_FRAGS */
+
     n = need;
 #ifdef DEBUG
     n++;
 #endif
     bp = (ErlHeapFragment*)
-	ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP_FRAG,
-			sizeof(ErlHeapFragment) + ((n-1)*sizeof(Eterm)));
+	ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP_FRAG, ERTS_HEAP_FRAG_SIZE(n));
 
 #ifdef DEBUG
     n--;
@@ -140,6 +157,7 @@ erts_heap_alloc(Process* p, Uint need)
     bp->next = MBUF(p);
     MBUF(p) = bp;
     bp->size = n;
+    bp->used_size = n;
     MBUF_SIZE(p) += n;
     bp->off_heap.mso = NULL;
 #ifndef HYBRID /* FIND ME! */
@@ -149,34 +167,6 @@ erts_heap_alloc(Process* p, Uint need)
     bp->off_heap.overhead = 0;
 
     return bp->mem;
-}
-
-void erts_arith_shrink(Process* p, Eterm* hp)
-{
-#if defined(CHECK_FOR_HOLES)
-    ErlHeapFragment* hf;
-
-    /*
-     * We must find the heap fragment that hp points into.
-     * If we are unlucky, we might have to search through
-     * a large part of the list. We'll hope that will not
-     * happen too often.
-     */
-    for (hf = MBUF(p); hf != 0; hf = hf->next) {
-	if (hp - hf->mem < (unsigned long)hf->size) {
-	    /*
-	     * We are not allowed to changed hf->size (because the
-	     * size must be correct when deallocating). Therefore,
-	     * clear out the uninitialized part of the heap fragment.
-	     */
-	    Eterm* to = hf->mem + hf->size;
-	    while (hp < to) {
-		*hp++ = NIL;
-	    }
-	    break;
-	}
-    }
-#endif
 }
 
 #ifdef CHECK_FOR_HOLES

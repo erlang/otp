@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -627,7 +627,13 @@ refc_dist_1() ->
     %% Fun is passed in an exit signal. Wait until it is gone.
     ?line wait_until(fun () -> 4 =/= fun_refc(F2) end),
     ?line 3 = fun_refc(F2),
-    ?line 3 = fun_refc(F),
+    erts_debug:set_internal_state(available_internal_state, true),
+    ?line F_refc = case erts_debug:get_internal_state(force_heap_frags) of
+		       false -> 3;
+		       true -> 2 % GC after bif already decreased it
+		   end,
+    ?line F_refc = fun_refc(F),
+    erts_debug:set_internal_state(available_internal_state, false),
     refc_dist_send(Node, F).
 
 refc_dist_send(Node, F) ->

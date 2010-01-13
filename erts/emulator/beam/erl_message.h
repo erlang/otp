@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -50,18 +50,9 @@ struct erl_heap_fragment {
     ErlHeapFragment* next;	/* Next heap fragment */
     ErlOffHeap off_heap;	/* Offset heap data. */
     unsigned size;		/* Size in words of mem */
+    unsigned used_size;         /* With terms to be moved to heap by GC */
     Eterm mem[1];		/* Data */
 };
-
-#define ERTS_SET_MBUF_HEAP_END(BP, HENDP)				\
-do {									\
-    unsigned real_size__ = (BP)->size;					\
-    ASSERT((BP)->mem <= (HENDP) && (HENDP) <= (BP)->mem + real_size__);	\
-    (BP)->size = (HENDP) - (BP)->mem;					\
-    /* We do not reallocate since buffer *might* be moved.	*/	\
-    /* FIXME: Memory count is wrong, but at least it's almost	*/	\
-    /*        right...						*/	\
-} while (0)
 
 typedef struct erl_mesg {
     struct erl_mesg* next;	/* Next message */
@@ -196,10 +187,12 @@ do {									\
 
 #define ERTS_HEAP_FRAG_SIZE(DATA_WORDS) \
    (sizeof(ErlHeapFragment) - sizeof(Eterm) + (DATA_WORDS)*sizeof(Eterm))
+
 #define ERTS_INIT_HEAP_FRAG(HEAP_FRAG_P, DATA_WORDS)	\
 do {							\
     (HEAP_FRAG_P)->next = NULL;				\
     (HEAP_FRAG_P)->size = (DATA_WORDS);			\
+    (HEAP_FRAG_P)->used_size = (DATA_WORDS);            \
     (HEAP_FRAG_P)->off_heap.mso = NULL;			\
     (HEAP_FRAG_P)->off_heap.funs = NULL;		\
     (HEAP_FRAG_P)->off_heap.externals = NULL;		\

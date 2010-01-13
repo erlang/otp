@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -50,18 +50,16 @@ static ERTS_INLINE void maybe_shrink(Process* p, Eterm* hp, Eterm res, Uint allo
     if (is_immed(res)) {
 	if (p->heap <= hp && hp < p->htop) {
 	    p->htop = hp;
-#if defined(CHECK_FOR_HOLES)
-	} else {
-	    erts_arith_shrink(p, hp);
-#endif
+	}
+	else {
+	    erts_heap_frag_shrink(p, hp);
 	}
     } else if ((actual = bignum_header_arity(*hp)+1) < alloc) {
 	if (p->heap <= hp && hp < p->htop) {
 	    p->htop = hp+actual;
-#if defined(CHECK_FOR_HOLES)
-	} else {
-	    erts_arith_shrink(p, hp+actual);
-#endif
+	}
+	else {
+	    erts_heap_frag_shrink(p, hp+actual);
 	}
     }
 }
@@ -397,12 +395,11 @@ erts_mixed_plus(Process* p, Eterm arg1, Eterm arg2)
 		    need_heap = BIG_NEED_SIZE(sz);
 		    hp = HAlloc(p, need_heap);
 		    res = big_plus(arg1, arg2, hp);
+		    maybe_shrink(p, hp, res, need_heap);
 		    if (is_nil(res)) {
-			erts_arith_shrink(p, hp);
 			p->freason = SYSTEM_LIMIT;
 			return THE_NON_VALUE;
 		    }
-		    maybe_shrink(p, hp, res, need_heap);
 		    return res;
 		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
@@ -533,12 +530,11 @@ erts_mixed_minus(Process* p, Eterm arg1, Eterm arg2)
 		    need_heap = BIG_NEED_SIZE(sz);
 		    hp = HAlloc(p, need_heap);
 		    res = big_minus(arg1, arg2, hp);
+                    maybe_shrink(p, hp, res, need_heap);
 		    if (is_nil(res)) {
-			erts_arith_shrink(p, hp);
 			p->freason = SYSTEM_LIMIT;
 			return THE_NON_VALUE;
 		    }
-                    maybe_shrink(p, hp, res, need_heap);
 		    return res;
 		default:
 		    goto badarith;
@@ -731,12 +727,11 @@ erts_mixed_times(Process* p, Eterm arg1, Eterm arg2)
 		     * the absolute value of the other is > 1.
 		     */
 
+                    maybe_shrink(p, hp, res, need_heap);
 		    if (is_nil(res)) {
-			erts_arith_shrink(p, hp);
 			p->freason = SYSTEM_LIMIT;
 			return THE_NON_VALUE;
-		    }
-                    maybe_shrink(p, hp, res, need_heap);
+		    }		    
 		    return res;
 		case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 		    if (big_to_double(arg1, &f1.fd) < 0) {
@@ -956,12 +951,11 @@ erts_int_div(Process* p, Eterm arg1, Eterm arg2)
 	    need = BIG_NEED_SIZE(i-ires+1) + BIG_NEED_SIZE(i);
 	    hp = HAlloc(p, need);
 	    arg1 = big_div(arg1, arg2, hp);
+	    maybe_shrink(p, hp, arg1, need);
 	    if (is_nil(arg1)) {
-		erts_arith_shrink(p, hp);
 		p->freason = SYSTEM_LIMIT;
 		return THE_NON_VALUE;
 	    }
-	    maybe_shrink(p, hp, arg1, need);
 	}
 	return arg1;
     default:
@@ -1004,12 +998,11 @@ erts_int_rem(Process* p, Eterm arg1, Eterm arg2)
 	    Eterm* hp = HAlloc(p, need);
 
 	    arg1 = big_rem(arg1, arg2, hp);
+	    maybe_shrink(p, hp, arg1, need);
 	    if (is_nil(arg1)) {
-		erts_arith_shrink(p, hp);
 		p->freason = SYSTEM_LIMIT;
 		return THE_NON_VALUE;
 	    }
-	    maybe_shrink(p, hp, arg1, need);
 	}
 	return arg1;
     default:
@@ -1147,7 +1140,7 @@ trim_heap(Process* p, Eterm* hp, Eterm res)
  * a garbage collection if there is insufficient heap space.
  */
 
-#define erts_arith_shrink horrible error
+#define erts_heap_frag_shrink horrible error
 #define maybe_shrink horrible error
 
 Eterm

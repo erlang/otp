@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ets_SUITE).
@@ -4530,9 +4530,15 @@ meta_wb(Config) when is_list(Config) ->
 
 meta_wb_do(Opts) ->
     %% Do random new/delete/rename of colliding named tables
-    Names = [pioneer | colliding_names(pioneer)],
+    Names0 = [pioneer | colliding_names(pioneer)],
+
+    %% Remove any names that happen to exist as tables already
+    Names = lists:filter(fun(Name) -> ets:info(Name) == undefined end,
+                         Names0),
     Len = length(Names),
     OpFuns = {fun meta_wb_new/4, fun meta_wb_delete/4, fun meta_wb_rename/4},
+
+    ?line true = (Len >= 3),
 
     io:format("Colliding names = ~p\n",[Names]),
     F = fun(0,_,_) -> ok;

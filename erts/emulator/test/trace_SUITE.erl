@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -498,19 +498,23 @@ system_monitor_long_gc_1(doc) ->
     ["Tests erlang:system_monitor(Pid, [{long_gc,Time}])"];
 system_monitor_long_gc_1(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
-    try
-	%% Add ?LONG_GC_SLEEP ms to all gc
-	?line erts_debug:set_internal_state(test_long_gc_sleep,
-					    ?LONG_GC_SLEEP),
-	?line LoadFun =
-	fun () -> 
-		garbage_collect(),
-		self() 
-	end,
-	?line long_gc(LoadFun, false)
+    try 
+	case erts_debug:get_internal_state(force_heap_frags) of
+	    true ->
+		{skip,"emulator with FORCE_HEAP_FRAGS defined"};
+	    false ->
+		%% Add ?LONG_GC_SLEEP ms to all gc
+		?line erts_debug:set_internal_state(test_long_gc_sleep,
+						    ?LONG_GC_SLEEP),
+		?line LoadFun = fun () -> 
+					garbage_collect(),
+					self() 
+				end,
+		?line long_gc(LoadFun, false)
+	end
     after
 	erts_debug:set_internal_state(test_long_gc_sleep, 0),
-	erts_debug:set_internal_state(available_internal_state, false)
+	erts_debug:set_internal_state(available_internal_state, false)	
     end.
 
 system_monitor_long_gc_2(suite) ->
@@ -520,24 +524,29 @@ system_monitor_long_gc_2(doc) ->
 system_monitor_long_gc_2(Config) when is_list(Config) ->
     erts_debug:set_internal_state(available_internal_state, true),
     try
-	%% Add ?LONG_GC_SLEEP ms to all gc
-	?line erts_debug:set_internal_state(test_long_gc_sleep,
-					    ?LONG_GC_SLEEP),
-	?line Parent = self(),
-	?line LoadFun =
-	fun () ->
-		Ref = make_ref(),
-		Pid = 
-		    spawn_link(
-		      fun () ->
-			      garbage_collect(),
-			      Parent ! {Ref, self()}
-		      end),
-		receive {Ref, Pid} -> Pid end
-	end,
-	?line long_gc(LoadFun, true),
-	?line long_gc(LoadFun, true),
-	?line long_gc(LoadFun, true)
+	case erts_debug:get_internal_state(force_heap_frags) of
+	    true ->
+		{skip,"emulator with FORCE_HEAP_FRAGS defined"};
+	    false ->
+		%% Add ?LONG_GC_SLEEP ms to all gc
+		?line erts_debug:set_internal_state(test_long_gc_sleep,
+						    ?LONG_GC_SLEEP),
+		?line Parent = self(),
+		?line LoadFun =
+		    fun () ->
+			    Ref = make_ref(),
+			    Pid = 
+				spawn_link(
+				  fun () ->
+					  garbage_collect(),
+					  Parent ! {Ref, self()}
+				  end),
+			    receive {Ref, Pid} -> Pid end
+		    end,
+		?line long_gc(LoadFun, true),
+		?line long_gc(LoadFun, true),
+		?line long_gc(LoadFun, true)
+	end
     after
 	erts_debug:set_internal_state(test_long_gc_sleep, 0),
 	erts_debug:set_internal_state(available_internal_state, false)

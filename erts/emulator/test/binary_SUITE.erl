@@ -580,11 +580,18 @@ corrupter(Term) ->
     ?line corrupter(CompressedBin, size(CompressedBin)-1).
 
 corrupter(Bin, Pos) when Pos >= 0 ->
-    ?line {ShorterBin, _} = split_binary(Bin, Pos),
+    ?line {ShorterBin, Rest} = split_binary(Bin, Pos),
     ?line catch binary_to_term(ShorterBin), %% emulator shouldn't crash
     ?line MovedBin = list_to_binary([ShorterBin]),
     ?line catch binary_to_term(MovedBin), %% emulator shouldn't crash
-    ?line corrupter(MovedBin, Pos-1);
+
+    %% Bit faults, shouldn't crash
+    <<Byte,Tail/binary>> = Rest,
+    Fun = fun(M) -> FaultyByte = Byte bxor M,                    
+		    catch binary_to_term(<<ShorterBin/binary,
+					  FaultyByte, Tail/binary>>) end,
+    ?line lists:foreach(Fun,[1,2,4,8,16,32,64,128,255]),    
+    ?line corrupter(Bin, Pos-1);
 corrupter(_Bin, _) ->
     ok.
 

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -3130,6 +3130,13 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	}
 	else if (ERTS_IS_ATOM_STR("available_internal_state", BIF_ARG_1)) {
 	    BIF_RET(am_true);
+	}
+	else if (ERTS_IS_ATOM_STR("force_heap_frags", BIF_ARG_1)) {
+#ifdef FORCE_HEAP_FRAGS
+	    BIF_RET(am_true);
+#else
+	    BIF_RET(am_false);
+#endif
 	}
     }
     else if (is_tuple(BIF_ARG_1)) {
