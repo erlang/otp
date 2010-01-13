@@ -864,7 +864,7 @@ certificate_authorities(CertDbRef) ->
     Authorities = certificate_authorities_from_db(CertDbRef),
     Enc = fun(#'OTPCertificate'{tbsCertificate=TBSCert}) ->
 		  OTPSubj = TBSCert#'OTPTBSCertificate'.subject,
-		  Subj = pubkey_cert_records:transform(OTPSubj, encode),
+		  Subj = public_key:pkix_transform(OTPSubj, encode),
 		  {ok, DNEncoded} = 'OTP-PUB-KEY':encode('Name', Subj),
 		  DNEncodedBin = iolist_to_binary(DNEncoded),
 		  DNEncodedLen = byte_size(DNEncodedBin),

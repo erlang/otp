@@ -30,7 +30,7 @@
 	 sign/2, sign/3,
 	 verify_signature/3, verify_signature/4, verify_signature/5,
 	 pem_to_der/1, pem_to_der/2,
-	 pkix_decode_cert/2, pkix_encode_cert/1,
+	 pkix_decode_cert/2, pkix_encode_cert/1, pkix_transform/2,
 	 pkix_is_self_signed/1, pkix_is_fixed_dh_cert/1,
 	 pkix_issuer_id/2,
 	 pkix_is_issuer/2, pkix_normalize_general_name/1,
@@ -161,6 +161,20 @@ pkix_decode_cert(BinCert, Type) ->
 pkix_encode_cert(Cert) ->
     pubkey_cert_records:encode_cert(Cert).
     
+%%--------------------------------------------------------------------
+%% Function: pkix_transform(CertPart, Op) -> TransformedCertPart
+%%
+%%	CertPart = pkix part data
+%%      Op = encode | decode
+%%
+%% Description: Transform parts of a pkix certificate between 'plain' format
+%% and the internal 'otp' format, see pkix_decode_cert/2.
+%% Decode transforms from 'plain' to 'otp' and encode from 'otp' to 'plain'
+%% format.
+%%--------------------------------------------------------------------
+pkix_transform(CertPart, Op) ->
+    pubkey_cert_records:transform(CertPart, Op).
+
 %%--------------------------------------------------------------------
 %% Function: pkix_path_validation(TrustedCert, CertChain, Options) -> 
 %%   {ok, {{algorithm(), public_key(), public_key_params()} policy_tree()}} |
