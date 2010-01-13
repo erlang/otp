@@ -1,0 +1,772 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+
+%%
+
+-module(ssl_to_openssl_SUITE).
+
+%% Note: This directive should only be used in test suites.
+-compile(export_all).
+
+-include("test_server.hrl").
+-include("test_server_line.hrl").
+-include("ssl_pkix.hrl").
+
+-define(TIMEOUT, 120000).
+-define(SLEEP, 1000).
+
+%% Test server callback functions
+%%--------------------------------------------------------------------
+%% Function: init_per_suite(Config) -> Config
+%% Config - [tuple()]
+%%   A list of key/value pairs, holding the test case configuration.
+%% Description: Initialization before the whole suite
+%%
+%% Note: This function is free to add any key/value pairs to the Config
+%% variable, but should NOT alter/remove any existing entries.
+%%--------------------------------------------------------------------
+init_per_suite(Config) ->
+    case os:find_executable("openssl") of
+	false ->
+	    {skip, "Openssl not found"};
+	_ ->
+	    crypto:start(),
+	    ssl:start(),
+	    Result = 
+		(catch make_certs:all(?config(data_dir, Config), 
+				      ?config(priv_dir, Config))),
+	    test_server:format("Make certs  ~p~n", [Result]),
+	    ssl_test_lib:cert_options(Config)
+    end.
+
+%%--------------------------------------------------------------------
+%% Function: end_per_suite(Config) -> _
+%% Config - [tuple()]
+%%   A list of key/value pairs, holding the test case configuration.
+%% Description: Cleanup after the whole suite
+%%--------------------------------------------------------------------
+end_per_suite(_Config) ->
+    ssl:stop(),
+    crypto:stop().
+
+%%--------------------------------------------------------------------
+%% Function: init_per_testcase(TestCase, Config) -> Config
+%% Case - atom()
+%%   Name of the test case that is about to be run.
+%% Config - [tuple()]
+%%   A list of key/value pairs, holding the test case configuration.
+%%
+%% Description: Initialization before each test case
+%%
+%% Note: This function is free to add any key/value pairs to the Config
+%% variable, but should NOT alter/remove any existing entries.
+%% Description: Initialization before each test case
+%%--------------------------------------------------------------------
+init_per_testcase(_TestCase, Config0) ->
+    Config = lists:keydelete(watchdog, 1, Config0),
+    Dog = ssl_test_lib:timetrap(?TIMEOUT),
+    [{watchdog, Dog} | Config].
+
+%%--------------------------------------------------------------------
+%% Function: end_per_testcase(TestCase, Config) -> _
+%% Case - atom()
+%%   Name of the test case that is about to be run.
+%% Config - [tuple()]
+%%   A list of key/value pairs, holding the test case configuration.
+%% Description: Cleanup after each test case
+%%--------------------------------------------------------------------
+end_per_testcase(_TestCase, Config) ->
+    Dog = ?config(watchdog, Config),
+    case Dog of 
+	undefined ->
+	    ok;
+	_ ->
+	    test_server:timetrap_cancel(Dog)
+    end.
+
+%%--------------------------------------------------------------------
+%% Function: all(Clause) -> TestCases
+%% Clause - atom() - suite | doc
+%% TestCases - [Case] 
+%% Case - atom()
+%%   Name of a test case.
+%% Description: Returns a list of all test cases in this test suite
+%%--------------------------------------------------------------------
+all(doc) -> 
+    ["Test erlangs ssl against openssl"];
+
+all(suite) -> 
+    [erlang_client_openssl_server, 
+     erlang_server_openssl_client,
+     ssl3_erlang_client_openssl_server, 
+     ssl3_erlang_server_openssl_client,
+     ssl3_erlang_client_openssl_server_client_cert,
+     ssl3_erlang_server_openssl_client_client_cert,
+     ssl3_erlang_server_erlang_client_client_cert,
+     tls1_erlang_client_openssl_server, 
+     tls1_erlang_server_openssl_client,
+     tls1_erlang_client_openssl_server_client_cert,
+     tls1_erlang_server_openssl_client_client_cert,
+     tls1_erlang_server_erlang_client_client_cert,
+     ciphers
+    ].
+
+%% Test cases starts here.
+%%--------------------------------------------------------------------
+
+erlang_client_openssl_server(doc) ->
+    ["Test erlang client with openssl server"];
+erlang_client_openssl_server(suite) ->
+    [];
+erlang_client_openssl_server(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile, 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, ClientOpts}]),
+    port_command(OpensslPort, Data),
+    
+    ssl_test_lib:check_result(Client, ok),
+  
+    %% Clean close down!   Server needs to be closed first !!
+    close_port(OpensslPort),
+
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+
+
+%%--------------------------------------------------------------------    
+erlang_server_openssl_client(doc) ->
+    ["Test erlang server with openssl client"];
+erlang_server_openssl_client(suite) ->
+    [];
+erlang_server_openssl_client(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+   
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, ok),
+    
+    ssl_test_lib:close(Server),
+
+    close_port(OpenSslPort),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+ssl3_erlang_client_openssl_server(doc) ->
+    ["Test erlang client with openssl server"];
+ssl3_erlang_client_openssl_server(suite) ->
+    [];
+ssl3_erlang_client_openssl_server(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ " -ssl3", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       connection_info, [sslv3]}},
+					{options, 
+					 [{versions, [sslv3]} | ClientOpts]}]),
+    ssl_test_lib:check_result(Client, ok),
+    
+    ssl_test_lib:close(Client),
+    %% Clean close down!
+    close_port(OpensslPort),
+    test_server:sleep(?SLEEP),
+    ok.
+
+%%--------------------------------------------------------------------
+ 
+ssl3_erlang_server_openssl_client(doc) ->
+    ["Test erlang server with openssl client"];
+ssl3_erlang_server_openssl_client(suite) ->
+    [];
+ssl3_erlang_server_openssl_client(Config) when is_list(Config) ->
+    ServerOpts = ?config(server_opts, Config),  
+    
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, 
+					 {?MODULE, connection_info, [sslv3]}},
+					{options, 
+					 [{versions, [sslv3]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    test_server:sleep(?SLEEP),
+    
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -ssl3",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    ssl_test_lib:check_result(Server, ok),
+    
+    close_port(OpenSslPort), %% openssl server first
+    ssl_test_lib:close(Server),
+    test_server:sleep(?SLEEP),
+    ok.
+
+%%--------------------------------------------------------------------
+ssl3_erlang_client_openssl_server_client_cert(doc) ->
+    ["Test erlang client with openssl server when client sends cert"];
+ssl3_erlang_client_openssl_server_client_cert(suite) ->
+    [];
+ssl3_erlang_client_openssl_server_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -CAfile " ++ CaCertFile 
+	++ " -key " ++ KeyFile ++ " -Verify 2 -ssl3", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, ClientOpts}]),
+    port_command(OpensslPort, Data),
+    
+    ssl_test_lib:check_result(Client, ok),
+  
+    %% Clean close down!
+    close_port(OpensslPort), 
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------  
+
+ssl3_erlang_server_openssl_client_client_cert(doc) ->
+    ["Test erlang server with openssl client when client sends cert"];
+ssl3_erlang_server_openssl_client_client_cert(suite) ->
+    [];
+ssl3_erlang_server_openssl_client_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, 
+					 [{verify , verify_peer} 
+					  | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+
+    CaCertFile = proplists:get_value(cacertfile, ClientOpts),
+    CertFile = proplists:get_value(certfile, ClientOpts),
+    KeyFile = proplists:get_value(keyfile, ClientOpts),
+    
+    Cmd = "openssl s_client -cert " ++ CertFile  ++ " -CAfile " ++ CaCertFile 
+	++ " -key " ++ KeyFile ++ " -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -ssl3",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, ok),
+    
+    close_port(OpenSslPort), %% openssl server first
+    ssl_test_lib:close(Server),
+    %% Clean close down!
+    process_flag(trap_exit, false),
+    ok.
+
+
+%%--------------------------------------------------------------------  
+
+ssl3_erlang_server_erlang_client_client_cert(doc) ->
+    ["Test erlang server with erlang client when client sends cert"];
+ssl3_erlang_server_erlang_client_client_cert(suite) ->
+    [];
+ssl3_erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, 
+					 [{verify , verify_peer} 
+					  | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl, send, [Data]}},
+					{options, 
+					 [{versions, [sslv3]} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+
+tls1_erlang_client_openssl_server(doc) ->
+    ["Test erlang client with openssl server"];
+tls1_erlang_client_openssl_server(suite) ->
+    [];
+tls1_erlang_client_openssl_server(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+
+    test_server:format("Server Opts", [ServerOpts]),
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile 
+	++ " -key " ++ KeyFile ++ " -tls1", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       connection_info, [tlsv1]}},
+					{options, 
+					 [{versions, [tlsv1]} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok),
+    
+    ssl_test_lib:close(Client),
+    %% Clean close down!
+    close_port(OpensslPort),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+
+tls1_erlang_server_openssl_client(doc) ->
+    ["Test erlang server with openssl client"];
+tls1_erlang_server_openssl_client(suite) ->
+    [];
+tls1_erlang_server_openssl_client(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, 
+					 {?MODULE, connection_info, [tlsv1]}},
+					{options, 
+					 [{versions, [tlsv1]} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    test_server:sleep(?SLEEP),
+    
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -tls1",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+     
+    ssl_test_lib:check_result(Server, ok),
+    
+    %% Clean close down!
+    close_port(OpenSslPort),
+    ssl_test_lib:close(Server),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+
+tls1_erlang_client_openssl_server_client_cert(doc) ->
+    ["Test erlang client with openssl server when client sends cert"];
+tls1_erlang_client_openssl_server_client_cert(suite) ->
+    [];
+tls1_erlang_client_openssl_server_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -CAfile " ++ CaCertFile 
+	++ " -key " ++ KeyFile ++ " -Verify 2 -tls1", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, ClientOpts}]),
+    port_command(OpensslPort, Data),
+    
+    ssl_test_lib:check_result(Client, ok),
+  
+    %% Clean close down!
+    close_port(OpensslPort),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------  
+
+tls1_erlang_server_openssl_client_client_cert(doc) ->
+    ["Test erlang server with openssl client when client sends cert"];
+tls1_erlang_server_openssl_client_client_cert(suite) ->
+    [];
+tls1_erlang_server_openssl_client_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, 
+					 [{verify , verify_peer} 
+					  | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+
+    CaCertFile = proplists:get_value(cacertfile, ClientOpts),
+    CertFile = proplists:get_value(certfile, ClientOpts),
+    KeyFile = proplists:get_value(keyfile, ClientOpts),
+    
+    Cmd = "openssl s_client -cert " ++ CertFile ++ " -CAfile " ++ CaCertFile 
+	++ " -key " ++ KeyFile ++ " -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -tls1",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, ok),
+    
+    %% Clean close down!
+    close_port(OpenSslPort),
+    ssl_test_lib:close(Server),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+tls1_erlang_server_erlang_client_client_cert(doc) ->
+    ["Test erlang server with erlang client when client sends cert"];
+tls1_erlang_server_erlang_client_client_cert(suite) ->
+    [];
+tls1_erlang_server_erlang_client_client_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, 
+					 [{verify , verify_peer} 
+					  | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl, send, [Data]}},
+					{options, 
+					 [{versions, [tlsv1]} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    %% Clean close down!
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+
+ciphers(doc) -> 
+    [""];
+       
+ciphers(suite) -> 
+    [];
+
+ciphers(Config) when is_list(Config) ->
+    Version = 
+	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl:cipher_suites(),
+    Result =  lists:map(fun(Cipher) -> 
+				cipher(Cipher, Version, Config) end,
+			Ciphers),
+    case lists:flatten(Result) of
+	[] ->
+	    ok;
+	Error ->
+	    test_server:format("Cipher suite errors: ~p~n", [Error]),
+	    test_server:fail(cipher_suite_failed_see_test_case_log) 
+    end.
+    
+cipher(CipherSuite, Version, Config) ->   
+    process_flag(trap_exit, true),
+    test_server:format("Testing CipherSuite ~p~n", [CipherSuite]),
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, _ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile  
+	++ " -key " ++ KeyFile ++ "", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, connection_info_result, []}},
+			   {options, 
+			    [{ciphers,[CipherSuite]} | 
+			     ClientOpts]}]), 
+   
+    ClientMsg = {ok, {Version, CipherSuite}},
+			   
+    Result = ssl_test_lib:wait_for_result(Client, ClientMsg),    
+
+    close_port(OpenSslPort),
+    %% Clean close down!
+    ssl_test_lib:close(Client),
+    receive 
+	{'EXIT', Client, normal} ->
+	    ok
+    end,
+    
+    Return = case Result of
+		 ok ->
+		     [];
+		 Error ->
+		     [{CipherSuite, Error}]
+	     end,
+    process_flag(trap_exit, false),
+    Return.
+
+%%--------------------------------------------------------------------
+
+erlang_ssl_receive(Socket, Data) ->
+    test_server:format("Connection info: ~p~n", 
+		       [ssl:connection_info(Socket)]),
+    receive
+	{ssl, Socket, Data} ->
+	    io:format("Received ~p~n",[Data]),
+	    %% open_ssl server sometimes hangs waiting in blocking read
+	    ssl:send(Socket, "Got it"), 
+	    ok;
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    erlang_ssl_receive(Socket,Data);
+	Other ->
+	    test_server:fail({unexpected_message, Other})
+    after 4000 ->
+	    test_server:fail({did_not_get, Data})
+    end.
+ 
+connection_info(Socket, Version) ->
+    case ssl:connection_info(Socket) of
+	{ok, {Version, _} = Info} ->
+	    test_server:format("Connection info: ~p~n", [Info]),
+	    ok;
+	{ok, {OtherVersion, _}} ->
+	    {wrong_version, OtherVersion}
+    end.
+
+connection_info_result(Socket) ->                                            
+    ssl:connection_info(Socket).
+
+close_port(Port) ->
+    port_command(Port, "Q\n"),
+    %%catch port_command(Port, "quit\n"), 
+    close_loop(Port, 500, false).
+
+close_loop(Port, Time, SentClose) ->
+    receive 
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    close_loop(Port, Time, SentClose);	
+	{ssl,_,Msg} ->
+	    io:format("ssl Msg ~s~n",[Msg]),
+	    close_loop(Port, Time, SentClose);	
+	{Port, closed} -> 
+	    io:format("Port Closed~n",[]),
+	    ok;
+	{'EXIT', Port, Reason} ->
+	    io:format("Port Closed ~p~n",[Reason]),
+	    ok;
+	Msg ->
+	    io:format("Port Msg ~p~n",[Msg]),
+	    close_loop(Port, Time, SentClose)
+    after Time ->
+	    case SentClose of
+		false -> 
+		    io:format("Closing port ~n",[]),
+		    catch erlang:port_close(Port),
+		    close_loop(Port, Time, true);
+		true ->
+		    io:format("Timeout~n",[])
+	    end
+    end.
