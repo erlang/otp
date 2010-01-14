@@ -235,9 +235,6 @@ RELTESTSYSDIR        = $(RELEASE_PATH)/inets_test
 RELTESTSYSALLDATADIR = $(RELTESTSYSDIR)/all_SUITE_data
 RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 
-MAKEFILE_SRC = Makefile.src
-INETS_SSL_LIB_DIR  = ../../ssl/usr/ssleay/
-
 
 # ----------------------------------------------------
 # FLAGS
@@ -253,8 +250,6 @@ ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
 # If you intend to run the test suite locally (private), then
 # there is some requirements:
 # 1) INETS_PRIV_DIR must be created
-# 2) INETS_SSL_LIB_DIR must be created with the same content as 
-#    content comparable to all_SUITE_data/bin (see test-server).
 # ----------------------------------------------------
 
 tests debug opt: $(BUILDTARGET)
@@ -306,13 +301,9 @@ release_tests_spec: opt
 	chmod -f -R u+w $(RELTESTSYSDIR)
 	tar chf - $(DATADIRS) | (cd $(RELTESTSYSDIR); tar xf -)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)
-	$(INSTALL_DATA) $(MAKEFILE_SRC) $(RELTESTSYSALLDATADIR)/Makefile.src
 	$(INSTALL_DIR) $(RELTESTSYSBINDIR)
 	chmod -f -R +x $(RELTESTSYSBINDIR)
-	tar cf - -C $(INETS_SSL_LIB_DIR) . | (cd $(RELTESTSYSALLDATADIR); tar xf -)
 	$(INSTALL_DIR) $(RELTESTSYSALLDATADIR)/win32/lib	
-	tar cf - -C $(INETS_SSL_LIB_DIR)/win32/out32dll . | \
-		(cd $(RELTESTSYSALLDATADIR)/win32/lib; tar xf -)
 
 release_docs_spec:
 
@@ -340,7 +331,6 @@ info:
 	@echo ""
 	@echo "INETS_DATA_DIR    = $(INETS_DATA_DIR)"
 	@echo "INETS_PRIV_DIR    = $(INETS_PRIV_DIR)"
-	@echo "INETS_SSL_LIB_DIR = $(INETS_SSL_LIB_DIR)"
 	@echo "INETS_ROOT        = $(INETS_ROOT)"
 	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
 	@echo "FTP_FLAGS         = $(FTP_FLAGS)"

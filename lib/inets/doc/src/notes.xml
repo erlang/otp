@@ -135,7 +135,7 @@
       <list>
         <item>
 	  <p>[httpd] The server did not fully support the documented module
-            callback api. Spicifically, the load function should be able to
+            callback api. Specifically, the load function should be able to
             return the atom <c>ok</c>, but this was not accepted. </p>
 	  <p>Own Id: OTP-8359</p>
         </item>
@@ -269,7 +269,7 @@
               <p>Timeout out requests are retried. </p>
 	    </item>
           </list>
-          <p>Jean-Sébastien Pédron</p>
+          <p>Jean-S&#233;bastien P&#233;dron</p>
 	  <p>Own Id: OTP-8248</p>
         </item>
 
