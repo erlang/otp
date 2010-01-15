@@ -441,6 +441,8 @@ fourth_bootstrap_copy:
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/ebin ; fi
 	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server ; fi
+	if test ! -d $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; then mkdir $(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include ; fi
 	for x in lib/ic/ebin/*.beam; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/ic/ebin/$$BN; \
@@ -499,6 +501,16 @@ fourth_bootstrap_copy:
 	for x in lib/wx/include/*.hrl; do \
 		BN=`basename $$x`; \
 		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/wx/include/$$BN; \
+		test -f  $$TF && \
+		test '!' -z "`find $$x -newer $$TF -print`" && \
+			cp $$x $$TF; \
+		test '!' -f $$TF && \
+			cp $$x $$TF; \
+		true; \
+	done
+	for x in lib/test_server/include/*.hrl; do \
+		BN=`basename $$x`; \
+		TF=$(BOOTSTRAP_ROOT)/bootstrap/lib/test_server/include/$$BN; \
 		test -f  $$TF && \
 		test '!' -z "`find $$x -newer $$TF -print`" && \
 			cp $$x $$TF; \
