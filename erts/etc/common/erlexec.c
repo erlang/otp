@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -123,6 +123,14 @@ static char *pluss_val_switches[] = {
     "ss",
     NULL
 };
+/* +h arguments with values */
+static char *plush_val_switches[] = {
+    "ms",
+    "mbs",
+    "",
+    NULL
+};
+
 
 /*
  * Define sleep(seconds) in terms of Sleep() on Windows.
@@ -783,7 +791,6 @@ int main(int argc, char **argv)
 		  case 'a':
 		  case 'A':
 		  case 'b':
-		  case 'h':
 		  case 'i':
 		  case 'P':
 		  case 'S':
@@ -850,6 +857,20 @@ int main(int argc, char **argv)
 			  goto the_default;
 		      break;
 		  }
+		  case 'h':
+		      if (!is_one_of_strings(&argv[i][2], plush_val_switches)) {
+			  goto the_default;
+		      } else {
+			  if (i+1 >= argc
+			      || argv[i+1][0] == '-'
+			      || argv[i+1][0] == '+')
+			      usage(argv[i]);
+			  argv[i][0] = '-';
+			  add_Eargs(argv[i]);
+			  add_Eargs(argv[i+1]);
+			  i++;
+		      }
+		      break;
 		  case 's':
 		      if (!is_one_of_strings(&argv[i][2],
 					     pluss_val_switches))
@@ -1048,7 +1069,7 @@ usage_aux(void)
 #endif
 	  "[-make] [-man [manopts] MANPAGE] [-x] [-emu_args] "
 	  "[-args_file FILENAME] "
-	  "[+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] [+h HEAP_SIZE] [+K BOOLEAN] "
+	  "[+A THREADS] [+a SIZE] [+B[c|d|i]] [+c] [+h HEAP_SIZE_OPTION] [+K BOOLEAN] "
 	  "[+l] [+M<SUBSWITCH> <ARGUMENT>] [+P MAX_PROCS] [+R COMPAT_REL] "
 	  "[+r] [+s SCHEDULER_OPTION] [+S NO_SCHEDULERS:NO_SCHEDULERS_ONLINE] [+T LEVEL] [+V] [+v] [+W<i|w>] "
 	  "[args ...]\n");

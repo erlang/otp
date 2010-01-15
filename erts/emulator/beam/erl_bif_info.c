@@ -543,6 +543,8 @@ static Eterm pi_args[] = {
     am_last_calls,
     am_total_heap_size,
     am_suspending,
+    am_min_heap_size,
+    am_min_bin_vheap_size,
 #ifdef HYBRID
     am_message_binary
 #endif
@@ -589,8 +591,10 @@ pi_arg2ix(Eterm arg)
     case am_last_calls:				return 24;
     case am_total_heap_size:			return 25;
     case am_suspending:				return 26;
+    case am_min_heap_size:			return 27;
+    case am_min_bin_vheap_size:			return 28;
 #ifdef HYBRID
-    case am_message_binary:			return 27;
+    case am_message_binary:			return 29;
 #endif
     default:					return -1;
     }
@@ -1355,6 +1359,30 @@ process_info_aux(Process *BIF_P,
 	break;
     }
 
+    case am_fullsweep_after: {
+	Uint hsz = 3;
+	(void) erts_bld_uint(NULL, &hsz, MAX_GEN_GCS(rp));
+	hp = HAlloc(BIF_P, hsz);
+	res = erts_bld_uint(&hp, NULL, MAX_GEN_GCS(rp));
+	break;
+    }
+
+    case am_min_heap_size: {
+	Uint hsz = 3;
+	(void) erts_bld_uint(NULL, &hsz, MIN_HEAP_SIZE(rp));
+	hp = HAlloc(BIF_P, hsz);
+	res = erts_bld_uint(&hp, NULL, MIN_HEAP_SIZE(rp));
+	break;
+    }
+
+    case am_min_bin_vheap_size: {
+	Uint hsz = 3;
+	(void) erts_bld_uint(NULL, &hsz, MIN_VHEAP_SIZE(rp));
+	hp = HAlloc(BIF_P, hsz);
+	res = erts_bld_uint(&hp, NULL, MIN_VHEAP_SIZE(rp));
+	break;
+    }
+
     case am_total_heap_size: {
 	ErlMessage *mp;
 	Uint total_heap_size;
@@ -1433,15 +1461,17 @@ process_info_aux(Process *BIF_P,
         DECL_AM(minor_gcs);
         Eterm t;
 
-	hp = HAlloc(BIF_P, 3+2+3+2+3);
-	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp)));
-	hp += 3;
-	res = CONS(hp, t, NIL);
-	hp += 2;
-	t = TUPLE2(hp, am_fullsweep_after, make_small(MAX_GEN_GCS(rp)));
-	hp += 3;
-	res = CONS(hp, t, res);
-	hp += 2;
+	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2 + 3+2 + 3); /* last "3" is for outside tuple */
+
+	t = TUPLE2(hp, AM_minor_gcs, make_small(GEN_GCS(rp))); hp += 3;
+	res = CONS(hp, t, NIL); hp += 2;
+	t = TUPLE2(hp, am_fullsweep_after, make_small(MAX_GEN_GCS(rp))); hp += 3;
+	res = CONS(hp, t, res); hp += 2;
+
+	t = TUPLE2(hp, am_min_heap_size, make_small(MIN_HEAP_SIZE(rp))); hp += 3;
+	res = CONS(hp, t, res); hp += 2;
+	t = TUPLE2(hp, am_min_bin_vheap_size, make_small(MIN_VHEAP_SIZE(rp))); hp += 3;
+	res = CONS(hp, t, res); hp += 2;
 	break;
     }
 
@@ -1897,15 +1927,31 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_garbage_collection){
 	Uint val = (Uint) erts_smp_atomic_read(&erts_max_gen_gcs);
-	hp = HAlloc(BIF_P, 3+2);
-	res = TUPLE2(hp, am_fullsweep_after, make_small(val));
-	hp += 3;
-	res = CONS(hp, res, NIL);
+	Eterm tup;
+	hp = HAlloc(BIF_P, 3+2 + 3+2 + 3+2);
+
+	tup = TUPLE2(hp, am_fullsweep_after, make_small(val)); hp += 3;
+	res = CONS(hp, tup, NIL); hp += 2;
+
+	tup = TUPLE2(hp, am_min_heap_size, make_small(H_MIN_SIZE)); hp += 3;
+	res = CONS(hp, tup, res); hp += 2;
+
+	tup = TUPLE2(hp, am_min_bin_vheap_size, make_small(BIN_VH_MIN_SIZE)); hp += 3;
+	res = CONS(hp, tup, res); hp += 2;
+
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_fullsweep_after){
 	Uint val = (Uint) erts_smp_atomic_read(&erts_max_gen_gcs);
 	hp = HAlloc(BIF_P, 3);
 	res = TUPLE2(hp, am_fullsweep_after, make_small(val));
+	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_min_heap_size) {
+	hp = HAlloc(BIF_P, 3);
+	res = TUPLE2(hp, am_min_heap_size,make_small(H_MIN_SIZE));
+	BIF_RET(res);
+    } else if (BIF_ARG_1 == am_min_bin_vheap_size) {
+	hp = HAlloc(BIF_P, 3);
+	res = TUPLE2(hp, am_min_bin_vheap_size,make_small(BIN_VH_MIN_SIZE));
 	BIF_RET(res);
     } else if (BIF_ARG_1 == am_process_count) {
 	BIF_RET(make_small(erts_process_count()));

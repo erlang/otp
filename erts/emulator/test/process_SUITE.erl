@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -41,7 +41,8 @@
 	 bump_reductions/1, low_prio/1, binary_owner/1, yield/1, yield2/1,
 	 process_status_exiting/1,
 	 otp_4725/1, bad_register/1, garbage_collect/1, otp_6237/1,
-	 process_info_messages/1, process_flag_badarg/1,
+	 process_info_messages/1, process_flag_badarg/1, process_flag_heap_size/1,
+	 spawn_opt_heap_size/1,
 	 processes_large_tab/1, processes_default_tab/1, processes_small_tab/1,
 	 processes_this_tab/1, processes_apply_trap/1,
 	 processes_last_call_trap/1, processes_gc_trap/1,
@@ -63,9 +64,8 @@ all(suite) ->
      process_info_lock_reschedule, process_info_lock_reschedule2,
      process_status_exiting,
      bump_reductions, low_prio, yield, yield2, otp_4725, bad_register,
-     garbage_collect, process_info_messages, process_flag_badarg, otp_6237,
-     processes_bif,
-     otp_7738].
+     garbage_collect, process_info_messages, process_flag_badarg, process_flag_heap_size,
+     spawn_opt_heap_size, otp_6237, processes_bif, otp_7738].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(10)),
@@ -388,6 +388,8 @@ t_process_info(Config) when is_list(Config) ->
     ?line register(my_name, self()),
     ?line {registered_name, my_name} = process_info(self(), registered_name),
     ?line {status, running} = process_info(self(), status),
+    ?line {min_heap_size, 233} = process_info(self(), min_heap_size),
+    ?line {min_bin_vheap_size, 46368} = process_info(self(), min_bin_vheap_size),
     ?line {current_function, {?MODULE, t_process_info, 1}} =
 	process_info(self(), current_function),
     ?line Gleader = group_leader(),
@@ -437,6 +439,10 @@ process_info_other_msg(Config) when is_list(Config) ->
 	      empty -> ok
 	  end,
     ?line {messages,[]} = process_info(Pid, messages),
+
+    ?line {min_heap_size, 233} = process_info(Pid, min_heap_size),
+    ?line {min_bin_vheap_size, 46368} = process_info(Pid, min_bin_vheap_size),
+
     ?line Pid ! stop,
     ok.
 
@@ -1148,6 +1154,8 @@ process_flag_badarg(Config) when is_list(Config) ->
     ?line chk_badarg(fun () -> process_flag(trap_exit, gurka) end),
     ?line chk_badarg(fun () -> process_flag(error_handler, 1) end),
     ?line chk_badarg(fun () -> process_flag(min_heap_size, gurka) end),
+    ?line chk_badarg(fun () -> process_flag(min_bin_vheap_size, gurka) end),
+    ?line chk_badarg(fun () -> process_flag(min_bin_vheap_size, -1) end),
     ?line chk_badarg(fun () -> process_flag(priority, 4711) end),
     ?line chk_badarg(fun () -> process_flag(save_calls, hmmm) end),
     ?line P= spawn_link(fun () -> receive die -> ok end end),
@@ -1774,6 +1782,34 @@ processes_gc_trap(Config) when is_list(Config) ->
     ?line exit(Suspendee, bang),
     ?line ok.
 
+process_flag_heap_size(doc) ->
+    [];
+process_flag_heap_size(suite) ->
+    [];
+process_flag_heap_size(Config) when is_list(Config) ->
+    HSize  = 2584,   % must be gc fib number
+    VHSize = 317811, % must be gc fib number
+    ?line OldHmin = erlang:process_flag(min_heap_size, HSize),
+    ?line {min_heap_size, HSize} = erlang:process_info(self(), min_heap_size),
+    ?line OldVHmin = erlang:process_flag(min_bin_vheap_size, VHSize),
+    ?line {min_bin_vheap_size, VHSize} = erlang:process_info(self(), min_bin_vheap_size),
+    ?line HSize = erlang:process_flag(min_heap_size, OldHmin),
+    ?line VHSize = erlang:process_flag(min_bin_vheap_size, OldVHmin),
+    ?line ok.
+
+spawn_opt_heap_size(doc) ->
+    [];
+spawn_opt_heap_size(suite) ->
+    [];
+spawn_opt_heap_size(Config) when is_list(Config) ->
+    HSize  = 987,   % must be gc fib number
+    VHSize = 46368, % must be gc fib number
+    ?line Pid  = spawn_opt(fun () -> receive stop -> ok end end,
+	[{min_heap_size, HSize},{ min_bin_vheap_size, VHSize}]),
+    ?line {min_heap_size, HSize} = process_info(Pid, min_heap_size),
+    ?line {min_bin_vheap_size, VHSize} = process_info(Pid, min_bin_vheap_size),
+    ?line Pid ! stop,
+    ?line ok.
 
 processes_term_proc_list(doc) ->
     [];

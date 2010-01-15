@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -6272,7 +6272,7 @@ Process *schedule(Process *p, int calls)
 	    erts_check_my_tracer_proc(p);
 #endif
 
-	if ((FLAGS(p) & F_FORCE_GC) || (MSO(p).overhead >= BIN_VHEAP_SZ(p))) {
+	if ((FLAGS(p) & F_FORCE_GC) || (MSO(p).overhead > BIN_VHEAP_SZ(p))) {
 	    reds -= erts_garbage_collect(p, 0, p->arg_reg, p->arity);
 	    if (reds < 0) {
 		reds = 1;
@@ -6683,13 +6683,15 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
      * noone except us has access to the process.
      */
     if (so->flags & SPO_USE_ARGS) {
-	p->min_heap_size = so->min_heap_size;
-	p->prio = so->priority;
-	p->max_gen_gcs = so->max_gen_gcs;
+	p->min_heap_size  = so->min_heap_size;
+	p->min_vheap_size = so->min_vheap_size;
+	p->prio           = so->priority;
+	p->max_gen_gcs    = so->max_gen_gcs;
     } else {
-	p->min_heap_size = H_MIN_SIZE;
-	p->prio = PRIORITY_NORMAL;
-	p->max_gen_gcs = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
+	p->min_heap_size  = H_MIN_SIZE;
+	p->min_vheap_size = BIN_VH_MIN_SIZE;
+	p->prio           = PRIORITY_NORMAL;
+	p->max_gen_gcs    = (Uint16) erts_smp_atomic_read(&erts_max_gen_gcs);
     }
     p->skipped = 0;
     ASSERT(p->min_heap_size == erts_next_heap_size(p->min_heap_size, 0));
@@ -6736,9 +6738,9 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->heap_sz = sz;
     p->catches = 0;
 
-    p->bin_vheap_sz = H_MIN_SIZE;
-    p->bin_old_vheap_sz = H_MIN_SIZE;
-    p->bin_old_vheap = 0;
+    p->bin_vheap_sz     = p->min_vheap_size;
+    p->bin_old_vheap_sz = p->min_vheap_size;
+    p->bin_old_vheap    = 0;
 
     /* No need to initialize p->fcalls. */
 
@@ -6969,6 +6971,7 @@ void erts_init_empty_process(Process *p)
     p->gen_gcs = 0;
     p->max_gen_gcs = 0;
     p->min_heap_size = 0;
+    p->min_vheap_size = 0;
     p->status = P_RUNABLE;
     p->gcstatus = P_RUNABLE;
     p->rstatus = P_RUNABLE;
@@ -6985,8 +6988,8 @@ void erts_init_empty_process(Process *p)
     p->ftrace = NIL;
     p->fcalls = 0;
 
-    p->bin_vheap_sz=H_MIN_SIZE;
-    p->bin_old_vheap_sz=H_MIN_SIZE;
+    p->bin_vheap_sz = BIN_VH_MIN_SIZE;
+    p->bin_old_vheap_sz = BIN_VH_MIN_SIZE;
     p->bin_old_vheap = 0;
 #ifdef ERTS_SMP
     p->u.ptimer = NULL;
