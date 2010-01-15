@@ -604,9 +604,9 @@ valfun_4({gc_bif,Op,{f,Fail},Live,Src,Dst}, #vst{current=St0}=Vst0) ->
     St = kill_heap_allocation(St0),
     Vst1 = Vst0#vst{current=St},
     verify_live(Live, Vst1),
-    Vst2 = prune_x_regs(Live, Vst1),
-    validate_src(Src, Vst2),
-    Vst = branch_state(Fail, Vst2),
+    Vst2 = branch_state(Fail, Vst1),
+    Vst = prune_x_regs(Live, Vst2),
+    validate_src(Src, Vst),
     Type = bif_type(Op, Src, Vst),
     set_type_reg(Type, Dst, Vst);
 valfun_4(return, #vst{current=#st{numy=none}}=Vst) ->

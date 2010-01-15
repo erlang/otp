@@ -318,6 +318,10 @@ double_to_integer(Process* p, double x)
  * The following code is used when a guard that may build on the
  * heap is called directly. They must not use HAlloc(), but must
  * do a garbage collection if there is insufficient heap space.
+ *
+ * Important note: All error checking MUST be done before doing
+ * a garbage collection. The compiler assumes that all registers
+ * are still valid if a guard BIF generates an exception.
  */
 
 #define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
