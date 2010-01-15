@@ -19,7 +19,7 @@
 
 APPLICATION = inets
 INETS_VSN   = 5.3
-PRE_VSN     =-p10
+PRE_VSN     =-p12
 APP_VSN     = "$(APPLICATION)-$(INETS_VSN)$(PRE_VSN)"
 
 TICKETS = \
