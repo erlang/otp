@@ -228,7 +228,17 @@ ensure_dir(F) ->
 	    ok;
 	false ->
 	    ensure_dir(Dir),
-	    file:make_dir(Dir)
+	    case file:make_dir(Dir) of
+		{error,eexist}=EExist ->
+		    case do_is_dir(Dir, file) of
+			true ->
+			    ok;
+			false ->
+			    EExist
+		    end;
+		Err ->
+		    Err
+	    end
     end.
 
 
