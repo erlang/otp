@@ -32,18 +32,7 @@ split(Subject,RE,Options) ->
     try
     {NewOpt,Convert,Unicode,Limit,Strip,Group} =
 	process_split_params(Options,iodata,false,-1,false,false),
-    FlatSubject = 
-	case is_binary(Subject) of
-	    true ->
-		Subject;
-	    false ->
-		case Unicode of
-		    true ->
-			unicode:characters_to_binary(Subject,unicode);
-		    false ->
-			iolist_to_binary(Subject)
-		end
-	end,
+    FlatSubject = to_binary(Subject, Unicode),
     case compile_split(RE,NewOpt) of
 	{error,_Err} ->
 	    throw(badre);
@@ -217,30 +206,8 @@ replace(Subject,RE,Replacement,Options) ->
     try
     {NewOpt,Convert,Unicode} =
 	process_repl_params(Options,iodata,false),
-    FlatSubject = 
-	case is_binary(Subject) of
-	    true ->
-		Subject;
-	    false ->
-		case Unicode of
-		    true ->
-			unicode:characters_to_binary(Subject,unicode);
-		    false ->
-			iolist_to_binary(Subject)
-		end
-	end,
-    FlatReplacement =
-	case is_binary(Replacement) of
-	    true ->
-		Replacement;
-	    false ->
-		case Unicode of
-		    true ->
-			unicode:characters_to_binary(Replacement,unicode);
-		    false ->
-			iolist_to_binary(Replacement)
-		end
-	end,
+    FlatSubject = to_binary(Subject, Unicode),
+    FlatReplacement = to_binary(Replacement, Unicode),
     case do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt) of
 	{error,_Err} ->
 	    throw(badre);
@@ -634,18 +601,7 @@ grun(Subject,RE,{Options,NeedClean,OrigRE}) ->
 
 grun2(Subject,RE,{Options,NeedClean}) ->
     Unicode = check_for_unicode(RE,Options),
-    FlatSubject = 
-	case is_binary(Subject) of
-	    true ->
-		Subject;
-	    false ->
-		case Unicode of
-		    true ->
-			unicode:characters_to_binary(Subject,unicode);
-		    false ->
-			iolist_to_binary(Subject)
-		end
-	end,
+    FlatSubject = to_binary(Subject, Unicode),
     do_grun(FlatSubject,Subject,Unicode,RE,{Options,NeedClean}).
 
 do_grun(FlatSubject,Subject,Unicode,RE,{Options0,NeedClean}) ->
@@ -765,3 +721,10 @@ runopt(global) ->
     true;
 runopt(_) ->
     false.
+
+to_binary(Bin, _IsUnicode) when is_binary(Bin) ->
+    Bin;
+to_binary(Data, true) ->
+    unicode:characters_to_binary(Data,unicode);
+to_binary(Data, false) ->
+    iolist_to_binary(Data).
