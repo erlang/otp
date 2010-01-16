@@ -237,7 +237,12 @@ replace(Subject,RE,Replacement,Options) ->
 		iodata ->
 		    IoList;
 		binary ->
-		    iolist_to_binary(IoList);
+		    case Unicode of
+			false ->
+			    iolist_to_binary(IoList);
+			true ->
+			    unicode:characters_to_binary(IoList,unicode)
+		    end;
 		list ->
 		    case Unicode of
 			false ->

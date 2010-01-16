@@ -289,6 +289,10 @@ replace_return(Config) when is_list(Config) ->
     ?line <<"iXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\9X",[{return,binary}]),
     ?line <<"jXk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\10X",[{return,binary}]),
     ?line <<"Xk">> = re:replace("abcdefghijk","(.)(.)(.)(.)(.)(.)(.)(.)(.)(.)","\\11X",[{return,binary}]),
+    ?line "a\x{400}bcX" = re:replace("a\x{400}bcd","d","X",[global,{return,list},unicode]),
+    ?line <<"a",208,128,"bcX">> = re:replace("a\x{400}bcd","d","X",[global,{return,binary},unicode]),
+    ?line "a\x{400}bcd" = re:replace("a\x{400}bcd","Z","X",[global,{return,list},unicode]),
+    ?line <<"a",208,128,"bcd">> = re:replace("a\x{400}bcd","Z","X",[global,{return,binary},unicode]),
     ?t:timetrap_cancel(Dog),
     ok.
 
