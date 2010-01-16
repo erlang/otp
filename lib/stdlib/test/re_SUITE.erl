@@ -18,12 +18,12 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1]).
+-export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1]).
 
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_return,split_autogen,split_options,split_specials,error_handling].
+all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling].
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];
@@ -268,7 +268,16 @@ global_capture(Config) when is_list(Config) ->
     ?line {match,[[{3,5},{5,3}],[{11,4},{12,3}]]} = re:run("ABCÅbcdABCabcdA",".(?<FOO>bcd)",[global,{capture,all,index},unicode]),
     ?t:timetrap_cancel(Dog),
     ok.
-    
+
+replace_input_types(doc) ->
+    ["Tests replace with different input types"];
+replace_input_types(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(3)),
+    ?line <<"abcd">> = re:replace("abcd","Z","X",[{return,binary},unicode]),
+    ?line <<"abcd">> = re:replace("abcd","\x{400}","X",[{return,binary},unicode]),
+    ?t:timetrap_cancel(Dog),
+    ok.
+
 replace_return(doc) ->    
     ["Tests return options of replace together with global searching"];
 replace_return(Config) when is_list(Config) ->
