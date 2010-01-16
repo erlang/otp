@@ -275,6 +275,7 @@ replace_input_types(Config) when is_list(Config) ->
     Dog = ?t:timetrap(?t:minutes(3)),
     ?line <<"abcd">> = re:replace("abcd","Z","X",[{return,binary},unicode]),
     ?line <<"abcd">> = re:replace("abcd","\x{400}","X",[{return,binary},unicode]),
+    ?line <<"a",208,128,"cd">> = re:replace(<<"abcd">>,"b","\x{400}",[{return,binary},unicode]),
     ?t:timetrap_cancel(Dog),
     ok.
 

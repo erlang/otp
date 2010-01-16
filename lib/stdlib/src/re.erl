@@ -229,7 +229,19 @@ replace(Subject,RE,Replacement,Options) ->
 			iolist_to_binary(Subject)
 		end
 	end,
-    case do_replace(FlatSubject,Subject,RE,Replacement,NewOpt) of
+    FlatReplacement =
+	case is_binary(Replacement) of
+	    true ->
+		Replacement;
+	    false ->
+		case Unicode of
+		    true ->
+			unicode:characters_to_binary(Replacement,unicode);
+		    false ->
+			iolist_to_binary(Replacement)
+		end
+	end,
+    case do_replace(FlatSubject,Subject,RE,FlatReplacement,NewOpt) of
 	{error,_Err} ->
 	    throw(badre);
 	IoList ->
@@ -329,8 +341,7 @@ process_split_params([H|T],C,U,L,S,G) ->
     {[H|NT],NC,NU,NL,NS,NG}.
 
 apply_mlist(Subject,Replacement,Mlist) ->
-    do_mlist(Subject,Subject,0,precomp_repl(iolist_to_binary(Replacement)),
-	     Mlist).
+    do_mlist(Subject,Subject,0,precomp_repl(Replacement), Mlist).
 
 
 precomp_repl(<<>>) ->
