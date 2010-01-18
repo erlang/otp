@@ -25,7 +25,7 @@
 	 init_per_testcase/2,
 	 fin_per_testcase/2,
 	 wall_clock/1, wall_clock_zero_diff/1, wall_clock_update/1,
-	 runtime/1, runtime_zero_diff/1, runtime_zero_update/1,
+	 runtime/1, runtime_zero_diff/1,
 	 runtime_update/1, runtime_diff/1,
 	 run_queue/1, run_queue_one/1,
 	 reductions/1, reductions_big/1, garbage_collection/1, io/1,
@@ -99,8 +99,7 @@ wall_clock_update1(0) ->
 
 %%% Test statistics(runtime).
 
-runtime(suite) -> [runtime_zero_diff, runtime_zero_update, runtime_update,
-		   runtime_diff].
+runtime(suite) -> [runtime_zero_diff, runtime_update, runtime_diff].
 
 runtime_zero_diff(doc) ->
     "Tests that the difference between the times returned from two consectuitive "
@@ -117,55 +116,32 @@ runtime_zero_diff1(N) when N > 0 ->
 runtime_zero_diff1(0) ->
     ?line test_server:fail("statistics(runtime) never returned zero difference").
 
-runtime_zero_update(doc) ->
-    "Test that the time differences returned by two calls to "
-    "statistics(runtime) several seconds apart is zero.";
-runtime_zero_update(Config) when is_list(Config) ->
-    case ?t:is_debug() of
-	false -> ?line runtime_zero_update1(6);
-	true -> {skip,"Unreliable in DEBUG build"}
-    end.
-
-runtime_zero_update1(N) when N > 0 ->
-    ?line {T1, _} = statistics(runtime),
-    ?line receive after 7000 -> ok end,
-    ?line case statistics(runtime) of
-	      {T, Td} when Td =< 80 ->
-		  test_server:format("ok, Runtime before: {~p, _} after: {~p, ~p}",
-				     [T1, T, Td]),
-		  ok;
-	      {T, R} ->
-		  test_server:format("nok, Runtime before: {~p, _} after: {~p, ~p}", 
-				     [T1, T, R]),
-		  runtime_zero_update1(N-1)
-	  end;
-runtime_zero_update1(0) ->
-    ?line test_server:fail("statistics(runtime) never returned zero difference").
-
 runtime_update(doc) ->
-    "Test that the statistics(runtime) returns a substanstially updated difference "
-    "after running a process that takes all CPU power of the Erlang process "
-    "for a second.";
+    "Test that the statistics(runtime) returns a substanstially "
+	"updated difference after running a process that takes all CPU "
+	" power of the Erlang process for a second.";
 runtime_update(Config) when is_list(Config) ->
     case ?t:is_cover() of
 	false ->
 	    ?line process_flag(priority, high),
-	    ?line test_server:m_out_of_n(1, 10, fun runtime_update/0);
+	    do_runtime_update(10);
 	true ->
 	    {skip,"Cover-compiled"}
     end.
 
-runtime_update() ->
-    ?line {T1,_} = statistics(runtime),
+do_runtime_update(0) ->
+    {comment,"Never close enough"};
+do_runtime_update(N) ->
+    ?line {T1,Diff0} = statistics(runtime),
     ?line spawn_link(fun cpu_heavy/0),
     receive after 1000 -> ok end,
     ?line {T2,Diff} = statistics(runtime),
-    ?line Delta = abs(Diff-1000),
-    ?line test_server:format("T1 = ~p, T2 = ~p, Diff = ~p, abs(Diff-1000) = ~p",
-			     [T1,T2,Diff,Delta]),
+    ?line true = is_integer(T1+T2+Diff0+Diff),
+    ?line test_server:format("T1 = ~p, T2 = ~p, Diff = ~p, T2-T1 = ~p",
+			     [T1,T2,Diff,T2-T1]),
     ?line if
-	      abs(Diff-1000) =:= Delta, Delta =< 100 ->
-		  ok
+	      T2 - T1 =:= Diff, 900 =< Diff, Diff =< 1500 -> ok;
+	      true -> do_runtime_update(N-1)
 	  end.
     
 cpu_heavy() ->
