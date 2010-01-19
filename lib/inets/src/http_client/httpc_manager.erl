@@ -38,7 +38,8 @@
 	 store_cookies/3,
 	 which_cookies/1, which_cookies/2, 
 	 reset_cookies/1, 
-	 session_type/1
+	 session_type/1,
+	 info/1
 	]).
 
 %% gen_server callbacks
@@ -61,7 +62,7 @@
 	  starter, % Pid of the handler starter process (temp): pid()
 	  handler, % Pid of the handler process: pid()
 	  from,    % From for the request:  from()
-	  state    % State of the handler:       initiating | operational
+	  state    % State of the handler: initiating | operational | canceled
 	 }).
 
 %% Entries in the handler / request cross-ref table
@@ -181,6 +182,7 @@ request_canceled(RequestId, ProfileName) ->
 
 insert_session(Session, ProfileName) ->
     SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("insert session", [{session, Session}, {profile, ProfileName}]),
     ets:insert(SessionDbName, Session).
 
 
@@ -196,6 +198,7 @@ insert_session(Session, ProfileName) ->
 
 delete_session(SessionId, ProfileName) ->
     SessionDbName = session_db_name(ProfileName), 
+    ?hcrt("delete session", [{session_is, SessionId}, {profile, ProfileName}]),
     ets:delete(SessionDbName, SessionId).
 
 
@@ -260,6 +263,19 @@ which_cookies(ProfileName) ->
     call(ProfileName, which_cookies).
 which_cookies(Url, ProfileName) ->
     call(ProfileName, {which_cookies, Url}).
+
+
+%%--------------------------------------------------------------------
+%% Function: info(ProfileName) -> list()
+%%
+%%      ProfileName = atom()
+%%
+%% Description: Retrieves various info about the manager and the
+%%              handlers it manages
+%%--------------------------------------------------------------------
+
+info(ProfileName) ->
+    call(ProfileName, info).
 
 
 %%--------------------------------------------------------------------
@@ -342,10 +358,8 @@ handle_call({request, Request}, _From, State) ->
 	    {reply, {ok, ReqId}, NewState};
 	
 	Error ->
-	    %% This is way too severe
-	    %% To crash the manager simply because 
-	    %% it failed to properly handle a request
-	    {stop, Error, httpc_response:error(Request, Error), State}
+	    NewError = {error, {failed_process_request, Error}}, 
+	    {reply, NewError, State}
     end;
 	
 handle_call({cancel_request, RequestId}, From, 
@@ -377,17 +391,17 @@ handle_call({cancel_request, RequestId}, From,
 
     end;
 
-handle_call(reset_cookies, _, #state{cookie_db = CookieDb} =  State) ->
+handle_call(reset_cookies, _, #state{cookie_db = CookieDb} = State) ->
     ?hcrv("reset cookies", []),
     httpc_cookie:reset_db(CookieDb),
     {reply, ok, State};
 
-handle_call(which_cookies, _, #state{cookie_db = CookieDb} =  State) ->
+handle_call(which_cookies, _, #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", []),
     CookieHeaders = httpc_cookie:which_cookies(CookieDb),
     {reply, CookieHeaders, State};
 
-handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} =  State) ->
+handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} = State) ->
     ?hcrv("which cookies", [{url, Url}]),
     case http_uri:parse(Url) of
 	{Scheme, _, Host, Port, Path, _} ->
@@ -397,6 +411,11 @@ handle_call({which_cookies, Url}, _, #state{cookie_db = CookieDb} =  State) ->
 	Msg ->
 	    {reply, Msg, State}
     end;
+
+handle_call(info, _, State) ->
+    ?hcrv("info", []),
+    Info = get_manager_info(State), 
+    {reply, Info, State};
 
 handle_call(Req, From, #state{profile_name = ProfileName} = State) ->
     error_report(ProfileName, 
@@ -428,17 +447,29 @@ handle_cast({retry_or_redirect_request, {Time, Request}},
 	    {noreply, State}
     end;
 
-handle_cast({retry_or_redirect_request, Request}, State) ->
+handle_cast({retry_or_redirect_request, Request}, 
+	    #state{profile_name = Profile, 
+		   handler_db   = HandlerDb} = State) ->
     ?hcrv("retry or redirect request", [{request, Request}]),
     case (catch handle_request(Request, State)) of
 	{ok, _, NewState} ->
 	    {noreply, NewState};
 
 	Error  ->
-	    %% This is *way* too severe.
-	    %% To crash the manager simply because 
-	    %% it failed to properly handle *one* request
-	    {stop, Error, State}
+	    ReqId = Request#request.id, 
+	    error_report(Profile, 
+			 "failed to retry or redirect request ~p"
+			 "~n   Error: ~p", [ReqId, Error]),
+	    case ets:lookup(HandlerDb, ReqId) of
+		[#handler_info{from = From}] ->	
+		    Error2 = httpc_response:error(Request, Error), 
+		    httpc_response:send(From, Error2),
+		    ok;
+		
+		_ ->
+		    ok
+	    end,
+	    {noreply, State}
     end;
 
 handle_cast({request_canceled, RequestId}, State) ->
@@ -468,7 +499,8 @@ handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
 		 ipfamily              = get_ipfamily(Options, OldOptions), 
 		 ip                    = get_ip(Options, OldOptions),
 		 port                  = get_port(Options, OldOptions),
-		 verbose               = get_verbose(Options, OldOptions)
+		 verbose               = get_verbose(Options, OldOptions),
+		 socket_opts           = get_socket_opts(Options, OldOptions)
 		}, 
     case {OldOptions#options.verbose, NewOptions#options.verbose} of
 	{Same, Same} ->
@@ -572,6 +604,32 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%--------------------------------------------------------------------
 
+get_manager_info(#state{handler_db = HDB, 
+			cookie_db  = CDB} = _State) ->
+    HandlerInfo = get_handler_info(HDB),
+    CookieInfo  = httpc_cookie:which_cookies(CDB),
+    [{handlers, HandlerInfo}, {cookies, CookieInfo}].
+
+get_handler_info(Tab) ->
+    Pattern = #handler_info{handler = '$1',
+			    state   = '$2', 
+			    _ = '_'},
+    Handlers1 = [{Pid, State} || [Pid, State] <- ets:match(Tab, Pattern)],
+    F = fun({Pid, State} = Elem, Acc) when State =/= canceled -> 
+		case lists:keymember(Pid, 1, Acc) of
+		    true ->
+			Acc;
+		    false ->
+			[Elem | Acc]
+		end;
+	   (_, Acc) ->
+		Acc
+	end,
+    Handlers2 = lists:foldl(F, [], Handlers1),
+    Handlers3 = [{Pid, State, httpc_handler:info(Pid)} || 
+		    {Pid, State} <- Handlers2],
+    Handlers3.
+
 
 %% 
 %% The request handler process is started asynchronously by a 
@@ -606,7 +664,7 @@ handle_connect_and_send(_StarterPid, ReqId, HandlerPid, Result,
 			 "send request ~p"
 			 "~n   Error: ~p", [HandlerPid, ReqId, Result]),
 	    ?hcri("received connect-and-send error", [{result, Result}]),
-	    Reason2    = 
+	    Reason2 = 
 		case Result of
 		    {error, Reason} ->
 			{failed_connecting, Reason};
@@ -747,7 +805,10 @@ select_session(Method, HostPort, Scheme, SessionType,
 				   type         = SessionType},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
-	    ?hcrd("select session", [{candidates, Candidates}]),
+	    ?hcrd("select session", [{host_port,  HostPort}, 
+				     {scheme,     Scheme}, 
+				     {type,       SessionType}, 
+				     {candidates, Candidates}]),
 	    select_session(Candidates, MaxKeepAlive, MaxPipe, SessionType);
 	false ->
 	    no_connection
@@ -776,20 +837,30 @@ pipeline_or_keep_alive(#request{id = Id} = Request, HandlerPid, State) ->
     ?hcrd("pipeline of keep-alive", [{id, Id}, {handler, HandlerPid}]),
     case (catch httpc_handler:send(Request, HandlerPid)) of
 	ok ->
-	    ?hcrd("pipeline of keep-alive - successfully sent", []),
+	    ?hcrd("pipeline or keep-alive - successfully sent", []),
 	    Entry = #handler_info{id      = Id,
 				  handler = HandlerPid,
 				  state   = operational},
 	    ets:insert(State#state.handler_db, Entry); 
 		
 	_  -> %% timeout pipelining failed 
-	    ?hcrd("pipeline of keep-alive - failed sending -> "
+	    ?hcrd("pipeline or keep-alive - failed sending -> "
 		  "start a new handler", []),
 	    create_handler_starter(Request, State)
     end.
 
 
-create_handler_starter(#request{id = Id, from = From} = Request, 
+create_handler_starter(#request{socket_opts = SocketOpts} = Request, 
+		       #state{options = Options} = State) 
+  when is_list(SocketOpts) ->
+    %% The user provided us with (override) socket options
+    ?hcrt("create handler starter", [{socket_opts, SocketOpts}, {options, Options}]),
+    Options2 = Options#options{socket_opts = SocketOpts}, 
+    create_handler_starter(Request#request{socket_opts = undefined}, 
+			   State#state{options = Options2});
+
+create_handler_starter(#request{id          = Id, 
+				from        = From} = Request, 
 		       #state{profile_name = ProfileName,
 			      options      = Options,
 			      handler_db   = HandlerDb} = _State) ->
@@ -858,8 +929,8 @@ generate_request_id(Request) ->
 	    RequestId = make_ref(),
 	    Request#request{id = RequestId};
 	_ ->
-	    %% This is an automatic redirect or a retryed pipelined
-	    %% request keep the old id.
+	    %% This is an automatic redirect or a retryed pipelined request 
+	    %% => keep the old id.
 	    Request
     end.
 
@@ -959,6 +1030,9 @@ get_port(Opts, #options{port = Default}) ->
 
 get_verbose(Opts, #options{verbose = Default}) ->
     proplists:get_value(verbose, Opts, Default).
+
+get_socket_opts(Opts, #options{socket_opts = Default}) ->
+    proplists:get_value(socket_opts, Opts, Default).
 
 
 handle_verbose(debug) ->

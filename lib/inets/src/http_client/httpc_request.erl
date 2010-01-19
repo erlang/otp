@@ -39,24 +39,37 @@
 %%                                   
 %% Description: Composes and sends a HTTP-request. 
 %%-------------------------------------------------------------------------
-send(SendAddr, #request{method        = Method, 
-			scheme        = Scheme,
-			path          = Path, 
-			pquery        = Query, 
-			headers       = Headers,
-			content       = Content, 
-			address       = Address, 
-			abs_uri       = AbsUri, 
-			headers_as_is = HeadersAsIs,
-			settings      = HttpOptions, 
-			userinfo      = UserInfo},
-     Socket) -> 
+send(SendAddr, #request{scheme = Scheme, socket_opts = SocketOpts} = Request, 
+     Socket) 
+  when is_list(SocketOpts) -> 
+    SocketType = socket_type(Scheme), 
+    case http_transport:setopts(SocketType, Socket, SocketOpts) of
+	ok ->
+	    send(SendAddr, Socket, SocketType, 
+		 Request#request{socket_opts = undefined});
+	{error, Reason} ->
+	    {error, {setopts_failed, Reason}}
+    end;
+send(SendAddr, #request{scheme = Scheme} = Request, Socket) ->
+    SocketType = socket_type(Scheme), 
+    send(SendAddr, Socket, SocketType, Request).
+    
+send(SendAddr, Socket, SocketType, 
+     #request{method        = Method, 
+	      path          = Path, 
+	      pquery        = Query, 
+	      headers       = Headers,
+	      content       = Content, 
+	      address       = Address, 
+	      abs_uri       = AbsUri, 
+	      headers_as_is = HeadersAsIs,
+	      settings      = HttpOptions, 
+	      userinfo      = UserInfo}) -> 
     
     ?hcrt("send", 
 	  [{send_addr,     SendAddr}, 
 	   {socket,        Socket}, 
 	   {method,        Method}, 
-	   {scheme,        Scheme},
 	   {path,          Path}, 
 	   {pquery,        Query}, 
 	   {headers,       Headers},
@@ -95,7 +108,8 @@ send(SendAddr, #request{method        = Method,
 
     ?hcrd("send", [{message, Message}]),
     
-    http_transport:send(socket_type(Scheme), Socket, lists:append(Message)).
+    http_transport:send(SocketType, Socket, lists:append(Message)).
+
 
 
 %%-------------------------------------------------------------------------

@@ -16,16 +16,32 @@
 %%
 %% %CopyrightEnd%
 %%
-%
+
 -module(http_transport).
 
 % Internal application API
--export([start/1, connect/3, connect/4, listen/2, listen/3, 
-	 accept/2, accept/3, close/2,
-	 send/3, controlling_process/3, setopts/3,
-	 peername/2, resolve/0]).
+-export([
+	 start/1, 
+	 connect/3, connect/4, 
+	 listen/2, listen/3, 
+	 accept/2, accept/3, 
+	 close/2,
+	 send/3, 
+	 controlling_process/3, 
+	 setopts/3, getopts/2, getopts/3, 
+	 getstat/2, 
+	 peername/2, sockname/2, 
+	 resolve/0
+	]).
 
 -export([negotiate/3]).
+
+-include("inets_internal.hrl").
+-define(SERVICE, httpl).
+-define(hlri(Label, Content), ?report_important(Label, ?SERVICE, Content)).
+-define(hlrv(Label, Content), ?report_verbose(Label,   ?SERVICE, Content)).
+-define(hlrd(Label, Content), ?report_debug(Label,     ?SERVICE, Content)).
+-define(hlrt(Label, Content), ?report_trace(Label,     ?SERVICE, Content)).
 
 
 %%%=========================================================================
@@ -77,14 +93,22 @@ connect(SocketType, Address, Opts) ->
 connect(ip_comm = _SocketType, {Host, Port}, Opts0, Timeout) 
   when is_list(Opts0) ->
     Opts = [binary, {packet, 0}, {active, false}, {reuseaddr, true} | Opts0],
+    ?hlrt("connect using gen_tcp", 
+	  [{host, Host}, {port, Port}, {opts, Opts}, {timeout, Timeout}]),
     gen_tcp:connect(Host, Port, Opts, Timeout);
 
 connect({ssl, SslConfig}, {Host, Port}, _, Timeout) ->
     Opts = [binary, {active, false}] ++ SslConfig,
+    ?hlrt("connect using ssl", 
+	  [{host, Host}, {port, Port}, {ssl_config, SslConfig}, 
+	   {timeout, Timeout}]),
     ssl:connect(Host, Port, Opts, Timeout);
 
 connect({erl_ssl, SslConfig}, {Host, Port}, _, Timeout) ->
     Opts = [binary, {active, false}, {ssl_imp, new}] ++ SslConfig,
+    ?hlrt("connect using erl_ssl", 
+	  [{host, Host}, {port, Port}, {ssl_config, SslConfig}, 
+	   {timeout, Timeout}]),
     ssl:connect(Host, Port, Opts, Timeout).
 
 
@@ -209,6 +233,7 @@ accept(ip_comm, ListenSocket, Timeout) ->
 accept({ssl,_SSLConfig}, ListenSocket, Timeout) ->
     ssl:transport_accept(ListenSocket, Timeout).
 
+
 %%-------------------------------------------------------------------------
 %% controlling_process(SocketType, Socket, NewOwner) -> ok | {error, Reason}
 %%   SocketType = ip_comm | {ssl, _}  
@@ -222,6 +247,7 @@ controlling_process(ip_comm, Socket, NewOwner) ->
 controlling_process({ssl, _}, Socket, NewOwner) ->
     ssl:controlling_process(Socket, NewOwner).
 
+
 %%-------------------------------------------------------------------------
 %% setopts(SocketType, Socket, Options) -> ok | {error, Reason}
 %%     SocketType = ip_comm | {ssl, _}
@@ -231,9 +257,61 @@ controlling_process({ssl, _}, Socket, NewOwner) ->
 %% gen_tcp or ssl.
 %%-------------------------------------------------------------------------
 setopts(ip_comm, Socket, Options) ->
-    inet:setopts(Socket,Options);
+    ?hlrt("ip_comm setopts", [{socket, Socket}, {options, Options}]),
+    inet:setopts(Socket, Options);
 setopts({ssl, _}, Socket, Options) ->
+    ?hlrt("ssl setopts", [{socket, Socket}, {options, Options}]),
     ssl:setopts(Socket, Options).
+
+
+%%-------------------------------------------------------------------------
+%% getopts(SocketType, Socket [, Opts]) -> ok | {error, Reason}
+%%     SocketType = ip_comm | {ssl, _}
+%%     Socket = socket()
+%%     Opts   = socket_options()
+%% Description: Gets the values for some options. 
+%%-------------------------------------------------------------------------
+getopts(SocketType, Socket) ->
+    Opts = [packet, packet_size, recbuf, sndbuf, priority, tos, send_timeout], 
+    getopts(SocketType, Socket, Opts).
+
+getopts(ip_comm, Socket, Options) ->
+    ?hlrt("ip_comm getopts", [{socket, Socket}, {options, Options}]),
+    case inet:getopts(Socket, Options) of
+	{ok, SocketOpts} ->
+	    SocketOpts;
+	{error, _} -> 
+	    []
+    end;
+getopts({ssl, _}, Socket, Options) ->
+    ?hlrt("ssl getopts", [{socket, Socket}, {options, Options}]),
+    case ssl:getopts(Socket, Options) of
+	{ok, SocketOpts} ->
+	    SocketOpts;
+	{error, _} -> 
+	    []
+    end.
+
+
+%%-------------------------------------------------------------------------
+%% getstat(SocketType, Socket) -> socket_stats()
+%%     SocketType = ip_comm | {ssl, _}
+%%     Socket = socket()
+%%     socket_stats() = list()
+%% Description: Gets the socket stats values for the socket
+%%-------------------------------------------------------------------------
+getstat(ip_comm = _SocketType, Socket) ->
+    ?hlrt("ip_comm getstat", [{socket, Socket}]),
+    case inet:getstat(Socket) of
+	{ok, Stats} ->
+	    Stats;
+	{error, _} ->
+	    []
+    end;
+getstat({ssl, _} = _SocketType, _Socket) ->
+    %% ?hlrt("ssl getstat", [{socket, Socket}]),
+    [].
+
 
 %%-------------------------------------------------------------------------
 %% send(RequestOrSocketType, Socket, Message) -> ok | {error, Reason}
@@ -261,9 +339,11 @@ close({ssl, _}, Socket) ->
     ssl:close(Socket).
 
 %%-------------------------------------------------------------------------
-%% peername(SocketType, Socket) -> ok | {error, Reason}
+%% peername(SocketType, Socket) -> {Port, SockName}
 %%     SocketType = ip_comm | {ssl, _}
 %%     Socket = socket() 
+%%     Port = integer()  (-1 if error occured)
+%%     PeerName = string()
 %%                          
 %% Description: Returns the address and port for the other end of a
 %% connection, usning either gen_tcp or ssl.
@@ -297,6 +377,48 @@ peername({ssl, _}, Socket) ->
 	{error, _} ->
 	    {-1, "unknown"}
     end.
+
+
+%%-------------------------------------------------------------------------
+%% sockname(SocketType, Socket) -> {Port, SockName}
+%%     SocketType = ip_comm | {ssl, _}
+%%     Socket = socket() 
+%%     Port = integer()  (-1 if error occured)
+%%     SockName = string()
+%%                          
+%% Description: Returns the address and port for the local (our) end 
+%% other end of connection, using either gen_tcp or ssl.
+%%-------------------------------------------------------------------------
+sockname(ip_comm, Socket) ->
+    case inet:sockname(Socket) of
+	{ok,{{A, B, C, D}, Port}} ->
+	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
+		integer_to_list(C)++"."++integer_to_list(D),
+	    {Port, SockName};
+	{ok,{{A, B, C, D, E, F, G, H}, Port}} ->
+	    SockName =  http_util:integer_to_hexlist(A) ++ ":"++  
+		http_util:integer_to_hexlist(B) ++ ":" ++  
+		http_util:integer_to_hexlist(C) ++ ":" ++ 
+		http_util:integer_to_hexlist(D) ++ ":" ++  
+		http_util:integer_to_hexlist(E) ++ ":" ++  
+		http_util:integer_to_hexlist(F) ++ ":" ++  
+		http_util:integer_to_hexlist(G) ++":"++  
+		http_util:integer_to_hexlist(H),
+	    {Port, SockName};
+	{error, _} ->
+	    {-1, "unknown"}
+    end;
+
+sockname({ssl, _}, Socket) ->
+    case ssl:sockname(Socket) of
+	{ok,{{A, B, C, D}, Port}} ->
+	    SockName = integer_to_list(A)++"."++integer_to_list(B)++"."++
+		integer_to_list(C)++"."++integer_to_list(D),
+	    {Port, SockName};
+	{error, _} ->
+	    {-1, "unknown"}
+    end.
+
 
 %%-------------------------------------------------------------------------
 %% resolve() -> HostName

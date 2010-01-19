@@ -164,7 +164,7 @@ end_per_suite(Config) ->
 
 %%--------------------------------------------------------------------
 %% Function: init_per_testcase(Case, Config) -> Config
-% Case - atom()
+%% Case - atom()
 %%   Name of the test case that is about to be run.
 %% Config - [tuple()]
 %%   A list of key/value pairs, holding the test case configuration.
@@ -234,6 +234,7 @@ init_per_testcase(Case, Timeout, Config) ->
     http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
 			       ["localhost", ?IPV6_LOCAL_HOST]}}]),
     inets:enable_trace(max, io, httpc),
+    %% inets:enable_trace(max, io, all),
     %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
     NewConfig.
 
@@ -282,6 +283,7 @@ tickets(suite) ->
      otp_8154,
      otp_8106,
      otp_8056,
+     otp_8352, 
      otp_8371
     ].
 
@@ -977,6 +979,29 @@ http_redirect(Config) when is_list(Config) ->
 		"~n   ~p", [URL302]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
  		= http:request(get, {URL302, []}, [], []),	 
+	    case http:request(get, {URL302, []}, [], []) of
+		{ok, Reply7} ->
+		    case Reply7 of
+			{{_,200,_}, [_ | _], [_|_]} ->
+			    tsp("http_redirect -> "
+				"expected reply for request 7"), 
+			    ok;
+			{StatusLine, Headers, Body} ->
+			    tsp("http_redirect -> "
+				"unexpected reply for request 7: "
+				"~n   StatusLine: ~p"
+				"~n   Headers:    ~p"
+				"~n   Body:       ~p", 
+				[StatusLine, Headers, Body]),
+			    tsf({unexpected_reply, Reply7})
+		    end;
+		Error7 ->
+		    tsp("http_redirect -> "
+			"unexpected result for request 7: "
+			"~n   Error7:       ~p", 
+			[Error7]),
+		    tsf({unexpected_result, Error7})
+	    end,
 	    
 	    tsp("http_redirect -> issue request 7: "
 		"~n   ~p", [URL302]),
@@ -1017,6 +1042,7 @@ http_redirect(Config) when is_list(Config) ->
 	_ ->
 	    {skip, "Failed to start local http-server"}
     end.
+
 
 
 %%-------------------------------------------------------------------------
@@ -1197,25 +1223,41 @@ proxy_emulate_lower_versions(suite) ->
 proxy_emulate_lower_versions(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
-	    {ok, Body0 = [_| _]} = http:request(get, {?PROXY_URL, []}, 
-						[{version, "HTTP/0.9"}], []),
-	    inets_test_lib:check_body(Body0),
+	    Result09 = pelv_get("HTTP/0.9"), 
+	    case Result09 of
+		{ok, [_| _] = Body0} ->
+		    inets_test_lib:check_body(Body0),
+		    ok;
+		_ ->
+		    tsf({unexpected_result, "HTTP/0.9", Result09})
+	    end,
 	    
 	    %% We do not check the version here as many servers
 	    %% do not behave according to the rfc and send
 	    %% 1.1 in its response.
-	    {ok,{{_, 200, _}, [_ | _], Body1 = [_ | _]}} = 
-		http:request(get, {?PROXY_URL, []}, 
-			     [{version, "HTTP/1.0"}], []),
-	    inets_test_lib:check_body(Body1),
-			     	    
-	    {ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} =
-		http:request(get, {?PROXY_URL, []}, 
-			     [{version, "HTTP/1.1"}], []),
-	    inets_test_lib:check_body(Body2);
+	    Result10 = pelv_get("HTTP/1.0"), 
+	    case Result10 of
+		{ok,{{_, 200, _}, [_ | _], Body1 = [_ | _]}} ->
+		    inets_test_lib:check_body(Body1),
+		    ok;
+		_ ->
+		    tsf({unexpected_result, "HTTP/1.0", Result10})
+	    end,
+
+	    Result11 = pelv_get("HTTP/1.1"), 
+	    case Result11 of
+		{ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} ->
+		    inets_test_lib:check_body(Body2);
+		_ ->
+		    tsf({unexpected_result, "HTTP/1.1", Result11})
+	    end;
+		
 	Reason ->
 	    {skip, Reason}
     end.
+
+pelv_get(Version) ->
+    http:request(get, {?PROXY_URL, []}, [{version, Version}], []).
 
 %%-------------------------------------------------------------------------
 proxy_trace(doc) ->
@@ -2271,6 +2313,72 @@ otp_8056(Config) when is_list(Config) ->
 					     HTTPOptions, Options2), 
     tsp("request 2 failed as expected"),
     ok.
+
+
+%%-------------------------------------------------------------------------
+
+otp_8352(doc) ->
+    "OTP-8352";
+otp_8352(suite) ->
+    [];
+otp_8352(Config) when is_list(Config) ->
+    tsp("otp_8352 -> entry with"
+	"~n   Config: ~p", [Config]),
+    case ?config(local_server, Config) of 
+	ok ->
+	    tsp("local-server running"),
+
+	    tsp("initial profile info(1): ~p", [httpc:info()]),
+	    
+	    MaxSessions      = 5,
+	    MaxKeepAlive     = 10, 
+	    KeepAliveTimeout = timer:minutes(2), 
+	    ConnOptions = [{max_sessions,          MaxSessions}, 
+			   {max_keep_alive_length, MaxKeepAlive}, 
+			   {keep_alive_timeout,    KeepAliveTimeout}], 
+	    http:set_options(ConnOptions), 
+
+	    Method       = get, 
+	    Port         = ?config(local_port, Config),
+	    URL          = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    Request      = {URL, []}, 
+	    Timeout      = timer:seconds(1), 
+	    ConnTimeout  = Timeout + timer:seconds(1), 
+	    HttpOptions1 = [{timeout, Timeout}, {connect_timeout, ConnTimeout}], 
+	    Options1     = [{socket_opts, [{tos,    87}, 
+					   {recbuf, 16#FFFF}, 
+					   {sndbuf, 16#FFFF}]}], 
+	    case http:request(Method, Request, HttpOptions1, Options1) of
+		{ok, {{_,200,_}, [_ | _], ReplyBody1 = [_ | _]}} ->
+		    %% equivaliant to http:request(get, {URL, []}, [], []),
+		    inets_test_lib:check_body(ReplyBody1);
+		{ok, UnexpectedReply1} ->
+		    tsf({unexpected_reply, UnexpectedReply1});
+		{error, _} = Error1 ->
+		    tsf({bad_reply, Error1})
+	    end,
+
+	    tsp("profile info (2): ~p", [httpc:info()]),
+
+	    HttpOptions2 = [], 
+	    Options2     = [{socket_opts, [{tos,    84}, 
+					   {recbuf, 32#1FFFF}, 
+					   {sndbuf, 32#1FFFF}]}], 
+	    case http:request(Method, Request, HttpOptions2, Options2) of
+		{ok, {{_,200,_}, [_ | _], ReplyBody2 = [_ | _]}} ->
+		    %% equivaliant to http:request(get, {URL, []}, [], []),
+		    inets_test_lib:check_body(ReplyBody2);
+		{ok,  UnexpectedReply2} ->
+		    tsf({unexpected_reply, UnexpectedReply2});
+		{error, _} = Error2 ->
+		    tsf({bad_reply, Error2})
+	    end,
+	    tsp("profile info (3): ~p", [httpc:info()]),
+	    ok;
+
+	_ ->
+	    {skip, "Failed to start local http-server"}
+    end.  
 
 
 %%-------------------------------------------------------------------------
