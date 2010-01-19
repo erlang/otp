@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -902,24 +902,44 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 
     *curr_port_pp = NULL;
 
-    if (pp->sched.taskq) {
+#ifdef ERTS_SMP
+    ASSERT(runq == (ErtsRunQueue *) erts_smp_atomic_read(&pp->run_queue));
+#endif
+
+    if (!pp->sched.taskq) {
+	ASSERT(pp->sched.exe_taskq);
+	pp->sched.exe_taskq = NULL;
+    }
+    else {
+#ifdef ERTS_SMP
+	ErtsRunQueue *xrunq;
+#endif
+
 	ASSERT(!(pp->status & ERTS_PORT_SFLGS_DEAD));
 	ASSERT(pp->sched.taskq->first);
-	enqueue_port(runq, pp);
+
+#ifdef ERTS_SMP
+	xrunq = erts_check_emigration_need(runq, ERTS_PORT_PRIO_LEVEL);
+	if (!xrunq) {
+#endif
+	    enqueue_port(runq, pp);
+	    ASSERT(pp->sched.exe_taskq);
+	    pp->sched.exe_taskq = NULL;
+	    /* No need to notify ourselves about inc in runq. */
+#ifdef ERTS_SMP
+	}
+	else {
+	    /* Port emigrated ... */
+	    erts_smp_atomic_set(&pp->run_queue, (long) xrunq);
+	    enqueue_port(xrunq, pp);
+	    ASSERT(pp->sched.exe_taskq);
+	    pp->sched.exe_taskq = NULL;
+	    erts_smp_notify_inc_runq(xrunq);
+	    erts_smp_runq_unlock(xrunq);
+	}
+#endif
 	port_was_enqueued = 1;
-
-	/* 
-	   erts_smp_notify_inc_runq();
-
-	 * No need to notify schedulers about the increase in run
-	 * queue length since at least this thread, which is a
-	 * scheduler, will discover that the port run queue isn't
-	 * empty before trying to go to sleep.
-	 */
     }
-
-    ASSERT(pp->sched.exe_taskq);
-    pp->sched.exe_taskq = NULL;
 
     res = erts_smp_atomic_read(&erts_port_task_outstanding_io_tasks) != (long) 0;
 

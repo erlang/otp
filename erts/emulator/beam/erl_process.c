@@ -5517,6 +5517,8 @@ erts_proc_migrate(Process *p, ErtsProcLocks *plcks,
     p->run_queue = to_rq;
     enqueue_process(to_rq, p);
 
+    smp_notify_inc_runq(to_rq);
+
     return ERTS_MIGRATE_SUCCESS;
 }
 #endif /* ERTS_SMP */
