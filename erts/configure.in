@@ -325,6 +325,7 @@ dnl Checks for programs.
 dnl ----------------------------------------------------------------------
 
 AC_PROG_CC
+AC_SUBST(GCC)
 
 dnl ---------------------------------------------------------------------
 dnl Special stuff regarding CFLAGS and details in the environment...
