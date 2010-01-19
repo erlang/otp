@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Api wrapper generator
@@ -699,10 +699,12 @@ parse_type2([N="wxArrayInt"|R],Info,Opts,T) ->
     parse_type2(R,Info,Opts,T#type{name=N,base=int,single=array});
 parse_type2([N="wxArrayDouble"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name=N,base=double,single=array});
-parse_type2([N="wxTreeItemId"|R],Info,Opts,T) -> 
-    parse_type2(R,Info,Opts,T#type{name=N,base={ref,N}});
+parse_type2([N="wxTreeItemId"|R],Info,Opts,T) -> %% Use Pointer as Ids
+    parse_type2(R,Info,Opts,T#type{name=N,base=int64});
+parse_type2([N="wxTreeItemIdValue"|R],Info,Opts,T) -> %% Use Pointer as Ids
+    parse_type2(R,Info,Opts,T#type{name=N,base=int64});
 parse_type2([N="wxArrayTreeItemIds"|R],Info,Opts,T) -> 
-    parse_type2(R,Info,Opts,T#type{name=N,base={ref,"wxTreeItemId"},single=array});
+    parse_type2(R,Info,Opts,T#type{name=N,base=int64,single=array});
 parse_type2([N="wxTreeItemData"|R],Info,Opts,T) -> 
     parse_type2(R,Info,Opts,T#type{name="wxETreeItemData",base={term,N}});
 parse_type2([N="wxClientData"|R],Info,Opts,T) -> 
@@ -1082,6 +1084,7 @@ type_foot_print(#type{base=long}) ->      int;
 type_foot_print(#type{base=binary}) ->    binary;
 type_foot_print(#type{base={binary,_}}) ->    binary;
 type_foot_print(#type{base=int}) ->       int;
+type_foot_print(#type{base=int64}) ->       int;
 type_foot_print(#type{base=bool}) ->      bool;
 %%type_foot_print(#type{base=datetime}) ->  datetime;
 type_foot_print(#type{base=float}) ->     float;

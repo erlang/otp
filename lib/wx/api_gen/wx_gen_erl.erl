@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -575,6 +575,8 @@ guard_test(#param{name=Name,type=#type{single=Single}})
     "is_list(" ++ erl_arg_name(Name) ++  ")";
 guard_test(#param{name=N,type=#type{base=int}}) ->
     "is_integer(" ++ erl_arg_name(N) ++ ")";
+guard_test(#param{name=N,type=#type{base=int64}}) ->
+    "is_integer(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=long}}) ->
     "is_integer(" ++ erl_arg_name(N) ++ ")";
 guard_test(#param{name=N,type=#type{base=float}}) ->
@@ -603,6 +605,7 @@ guard_test(#param{name=N,type=#type{base={comp,"wxColour",_Tup}}}) ->
     "tuple_size(" ++ erl_arg_name(N) ++ ") =:= 3; tuple_size(" ++ erl_arg_name(N) ++ ") =:= 4";
 guard_test(#param{name=N,type=#type{base={comp,_,Tup}}}) ->
     Doc = fun({int,V}) -> "is_integer("++erl_arg_name(N)++V ++")";
+	     ({int64,V}) -> "is_integer("++erl_arg_name(N)++V ++")";
 	     ({double,V}) -> "is_number("++erl_arg_name(N)++V ++")"
 	  end,
     args(Doc, ",", Tup);
@@ -768,7 +771,9 @@ doc_arg_type3(#type{name="wxArrayString"}) -> "[string()]";
 doc_arg_type3(#type{name="wxDateTime"}) ->    "wx:datetime()";
 doc_arg_type3(#type{name="wxArtClient"}) ->    "string()";
 doc_arg_type3(#type{base=int}) ->        "integer()";
+doc_arg_type3(#type{base=int64}) ->        "integer()";
 doc_arg_type3(#type{base=long}) ->       "integer()";
+doc_arg_type3(#type{name="wxTreeItemId"}) -> "wxTreeCtrl:treeItemId()";
 doc_arg_type3(#type{base=bool}) ->       "bool()";
 doc_arg_type3(#type{base=float}) ->      "float()";
 doc_arg_type3(#type{base=double}) ->     "float()";
@@ -851,7 +856,7 @@ doc_enum_desc([{Enum,Vs}|R]) ->
     doc_enum_desc(R).
 
 %% Misc functions prefixed with wx
-erl_func_name("wx" ++ Name, undefined) ->   check_name(lowercase(Name));  
+erl_func_name("wx" ++ Name, undefined) ->   check_name(lowercase(Name));
 erl_func_name(Name, undefined) ->   check_name(lowercase(Name));
 erl_func_name(_, Alias) -> check_name(lowercase(Alias)).
 
@@ -926,6 +931,8 @@ marshal_arg(#type{single=true,base=float}, Name, Align) ->
     align(32, Align, Name ++ ":32/?F");
 marshal_arg(#type{single=true,base=double}, Name, Align) ->
     align(64, Align, Name ++ ":64/?F");
+marshal_arg(#type{single=true,base=int64}, Name, Align) ->
+    align(64, Align, Name ++ ":64/?UI");
 marshal_arg(#type{single=true,base=int}, Name, Align) ->
     align(32, Align, Name ++ ":32/?UI");
 marshal_arg(#type{single=true,base={enum,_Enum}}, Name, Align) ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -309,6 +309,8 @@ declare_type(N,false,_,#type{name="wxArrayTreeItemIds",ref=reference}) ->
     w(" wxArrayTreeItemIds ~s;~n", [N]);
 declare_type(N,false,_,#type{name="wxDateTime"}) ->
     w(" wxDateTime ~s;~n", [N]);
+declare_type(N,false,_,#type{name=Type, base=int64, ref=reference}) ->
+    w(" ~s ~s;~n", [Type,N]);
 declare_type(N,true,Def,#type{base=Base,single=true,name=Type,by_val=true}) 
   when Base =:= int; Base =:= long; Base =:= float; Base =:= double; Base =:= bool ->
     w(" ~s ~s=~s;~n", [Type,N,Def]);
@@ -478,9 +480,13 @@ decode_arg(N,#type{base={comp,_,List},single=true,name=Type,ref=Ref},Arg,A0) ->
 	{double, _} -> 0
     end;
   
-decode_arg(N,#type{name=Class,base={ref,"wxTreeItemId"},single=true},Arg,A0) ->
-    A = align(A0,32),
-    wa(" ~s ",[Class],"~s = wxTreeItemId(getPtr(bp,memenv)); bp += 4;~n",[N],Arg),
+decode_arg(N,#type{name=Class="wxTreeItemId",single=true},Arg,A0) ->
+    A = align(A0,64),
+    wa(" ~s ",[Class],"~s = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;~n",[N],Arg),
+    A;
+decode_arg(N,#type{name=Class="wxTreeItemIdValue",single=true},Arg,A0) ->
+    A = align(A0,64),
+    wa(" ~s ",[Class],"~s = (~s) * (wxUint64 *) bp; bp += 8;~n",[N,Class],Arg),
     A;
 decode_arg(N,#type{name="wxChar", single=S},Arg,A0) 
   when S =/= true ->
@@ -851,8 +857,10 @@ build_ret_types(Type,Ps) ->
 
 build_ret(Name,_,#type{base={class,Class},single=true}) ->
     w(" rt.addRef(getRef((void *)~s,memenv), \"~s\");~n",[Name,Class]);
-build_ret(Name,_,#type{base={ref,"wxTreeItemId"=Class},single=true}) ->
-    w(" rt.addRef(getRef((void *)~s.m_pItem,memenv), \"~s\");~n",[Name,Class]);
+build_ret(Name,_,#type{name="wxTreeItemId",single=true}) ->
+    w(" rt.add((wxUIntPtr *) ~s.m_pItem);~n",[Name]);
+build_ret(Name,_,#type{name="wxTreeItemIdValue",single=true}) ->
+    w(" rt.add((wxUIntPtr *) ~s);~n",[Name]);
 build_ret(Name,_,#type{base={term,_},single=true}) ->
     w(" rt.addExt2Term(~s);~n", [Name]);
 build_ret(Name,_,#type{base={binary,Size},single=true}) ->
@@ -897,7 +905,7 @@ build_ret(Name,_,#type{name=List,single=list,base={class,Class}}) ->
     
 build_ret(Name,_,#type{name="wxArrayTreeItemIds"}) ->
     w(" for(unsigned int i=0; i < ~s.GetCount(); i++) {~n", [Name]),   
-    w("    rt.addRef(getRef((void *)~s[i].m_pItem,memenv), \"wxTreeItemId\");}~n",[Name]),
+    w("    rt.add((wxUIntPtr *)~s[i].m_pItem);}~n",[Name]),
     w(" rt.endList(~s.GetCount());~n",[Name]);
 
 build_ret(Name,_,#type{base=float,single=true}) ->

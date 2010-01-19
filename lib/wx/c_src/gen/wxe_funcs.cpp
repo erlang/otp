@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd% 
 */
 
@@ -14763,7 +14763,7 @@ case wxGenericDirCtrl_GetRootId: { // wxGenericDirCtrl::GetRootId
  wxGenericDirCtrl *This = (wxGenericDirCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetRootId();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxGenericDirCtrl_GetTreeCtrl: { // wxGenericDirCtrl::GetTreeCtrl 
@@ -18376,7 +18376,7 @@ case wxTreeCtrl_AddRoot: { // wxTreeCtrl::AddRoot
  }}; 
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->AddRoot(text,image,selectedImage,data);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_AppendItem: { // wxTreeCtrl::AppendItem 
@@ -18384,7 +18384,8 @@ case wxTreeCtrl_AppendItem: { // wxTreeCtrl::AppendItem
  int selectedImage=-1;
  wxETreeItemData * data= NULL;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId parent = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId parent = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((4+ *textLen) & 7)) & 7);
@@ -18402,7 +18403,7 @@ case wxTreeCtrl_AppendItem: { // wxTreeCtrl::AppendItem
  }}; 
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->AppendItem(parent,text,image,selectedImage,data);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_AssignImageList: { // wxTreeCtrl::AssignImageList 
@@ -18421,14 +18422,16 @@ case wxTreeCtrl_AssignStateImageList: { // wxTreeCtrl::AssignStateImageList
 }
 case wxTreeCtrl_Collapse: { // wxTreeCtrl::Collapse 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->Collapse(item);
  break; 
 }
 case wxTreeCtrl_CollapseAndReset: { // wxTreeCtrl::CollapseAndReset 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->CollapseAndReset(item);
  break; 
@@ -18471,7 +18474,8 @@ validator = (wxValidator *) getPtr(bp,memenv); bp += 4;
 }
 case wxTreeCtrl_Delete: { // wxTreeCtrl::Delete 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->Delete(item);
  break; 
@@ -18484,21 +18488,24 @@ case wxTreeCtrl_DeleteAllItems: { // wxTreeCtrl::DeleteAllItems
 }
 case wxTreeCtrl_DeleteChildren: { // wxTreeCtrl::DeleteChildren 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->DeleteChildren(item);
  break; 
 }
 case wxTreeCtrl_EnsureVisible: { // wxTreeCtrl::EnsureVisible 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->EnsureVisible(item);
  break; 
 }
 case wxTreeCtrl_Expand: { // wxTreeCtrl::Expand 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->Expand(item);
  break; 
@@ -18506,7 +18513,8 @@ case wxTreeCtrl_Expand: { // wxTreeCtrl::Expand
 case wxTreeCtrl_GetBoundingRect: { // wxTreeCtrl::GetBoundingRect 
  bool textOnly=false;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * rectX = (int *) bp; bp += 4;
  int * rectY = (int *) bp; bp += 4;
  int * rectW = (int *) bp; bp += 4;
@@ -18525,7 +18533,8 @@ case wxTreeCtrl_GetBoundingRect: { // wxTreeCtrl::GetBoundingRect
 case wxTreeCtrl_GetChildrenCount: { // wxTreeCtrl::GetChildrenCount 
  bool recursively=true;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
  recursively = *(bool *) bp; bp += 4;
@@ -18550,11 +18559,35 @@ case wxTreeCtrl_GetEditControl: { // wxTreeCtrl::GetEditControl
  rt.addRef(getRef((void *)Result,memenv), "wxTextCtrl");
  break; 
 }
+case wxTreeCtrl_GetFirstChild: { // wxTreeCtrl::GetFirstChild
+ wxTreeItemIdValue cookie;
+ wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
+ if(!This) throw wxe_badarg(0);
+ wxTreeItemId Result = This->GetFirstChild(item,cookie);
+ rt.add((wxUIntPtr *) Result.m_pItem);
+ rt.add((wxUIntPtr *) cookie);
+ rt.addTupleCount(2);
+ break;
+}
+case wxTreeCtrl_GetNextChild: { // wxTreeCtrl::GetNextChild
+ wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
+ wxTreeItemIdValue cookie = (wxTreeItemIdValue) * (wxUint64 *) bp; bp += 8;
+ if(!This) throw wxe_badarg(0);
+ wxTreeItemId Result = This->GetNextChild(item,cookie);
+ rt.add((wxUIntPtr *) Result.m_pItem);
+ rt.add((wxUIntPtr *) cookie);
+ rt.addTupleCount(2);
+ break;
+}
 case wxTreeCtrl_GetFirstVisibleItem: { // wxTreeCtrl::GetFirstVisibleItem 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetFirstVisibleItem();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetImageList: { // wxTreeCtrl::GetImageList 
@@ -18573,7 +18606,8 @@ case wxTreeCtrl_GetIndent: { // wxTreeCtrl::GetIndent
 }
 case wxTreeCtrl_GetItemBackgroundColour: { // wxTreeCtrl::GetItemBackgroundColour 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxColour Result = This->GetItemBackgroundColour(item);
  rt.add(Result);
@@ -18581,7 +18615,8 @@ case wxTreeCtrl_GetItemBackgroundColour: { // wxTreeCtrl::GetItemBackgroundColou
 }
 case wxTreeCtrl_GetItemData: { // wxTreeCtrl::GetItemData 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxETreeItemData * Result = (wxETreeItemData*)This->GetItemData(item);
  rt.addExt2Term(Result);
@@ -18589,7 +18624,8 @@ case wxTreeCtrl_GetItemData: { // wxTreeCtrl::GetItemData
 }
 case wxTreeCtrl_GetItemFont: { // wxTreeCtrl::GetItemFont 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxFont * Result = new wxFont(This->GetItemFont(item)); newPtr((void *) Result,3, memenv);;
  rt.addRef(getRef((void *)Result,memenv), "wxFont");
@@ -18597,7 +18633,8 @@ case wxTreeCtrl_GetItemFont: { // wxTreeCtrl::GetItemFont
 }
 case wxTreeCtrl_GetItemImage_1: { // wxTreeCtrl::GetItemImage 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  int Result = This->GetItemImage(item);
  rt.addInt(Result);
@@ -18606,7 +18643,8 @@ case wxTreeCtrl_GetItemImage_1: { // wxTreeCtrl::GetItemImage
 case wxTreeCtrl_GetItemImage_2: { // wxTreeCtrl::GetItemImage 
  wxTreeItemIcon which=wxTreeItemIcon_Normal;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
 which = *(wxTreeItemIcon *) bp; bp += 4;;
@@ -18619,7 +18657,8 @@ which = *(wxTreeItemIcon *) bp; bp += 4;;
 }
 case wxTreeCtrl_GetItemText: { // wxTreeCtrl::GetItemText 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxString Result = This->GetItemText(item);
  rt.add(Result);
@@ -18627,7 +18666,8 @@ case wxTreeCtrl_GetItemText: { // wxTreeCtrl::GetItemText
 }
 case wxTreeCtrl_GetItemTextColour: { // wxTreeCtrl::GetItemTextColour 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxColour Result = This->GetItemTextColour(item);
  rt.add(Result);
@@ -18635,64 +18675,70 @@ case wxTreeCtrl_GetItemTextColour: { // wxTreeCtrl::GetItemTextColour
 }
 case wxTreeCtrl_GetLastChild: { // wxTreeCtrl::GetLastChild 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetLastChild(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetNextSibling: { // wxTreeCtrl::GetNextSibling 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetNextSibling(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetNextVisible: { // wxTreeCtrl::GetNextVisible 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetNextVisible(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetItemParent: { // wxTreeCtrl::GetItemParent 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetItemParent(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetPrevSibling: { // wxTreeCtrl::GetPrevSibling 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetPrevSibling(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetPrevVisible: { // wxTreeCtrl::GetPrevVisible 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetPrevVisible(item);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetRootItem: { // wxTreeCtrl::GetRootItem 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetRootItem();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetSelection: { // wxTreeCtrl::GetSelection 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetSelection();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_GetSelections: { // wxTreeCtrl::GetSelections 
@@ -18702,7 +18748,7 @@ case wxTreeCtrl_GetSelections: { // wxTreeCtrl::GetSelections
  size_t Result = This->GetSelections(val);
  rt.addInt(Result);
  for(unsigned int i=0; i < val.GetCount(); i++) {
-    rt.addRef(getRef((void *)val[i].m_pItem,memenv), "wxTreeItemId");}
+    rt.add((wxUIntPtr *)val[i].m_pItem);}
  rt.endList(val.GetCount());
  rt.addTupleCount(2);
  break; 
@@ -18721,42 +18767,16 @@ case wxTreeCtrl_HitTest: { // wxTreeCtrl::HitTest
  wxPoint point = wxPoint(*pointX,*pointY);
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->HitTest(point);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
-case wxTreeCtrl_InsertItem_4_1: { // wxTreeCtrl::InsertItem 
- int image=-1;
- int selectedImage=-1;
- wxETreeItemData * data= NULL;
- wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId parent = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
- wxTreeItemId idPrevious = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
- int * textLen = (int *) bp; bp += 4;
- wxString text = wxString(bp, wxConvUTF8);
- bp += *textLen+((8-((0+ *textLen) & 7)) & 7);
- while( * (int*) bp) { switch (* (int*) bp) { 
-  case 1: {bp += 4;
- image = (int)*(int *) bp; bp += 4;
-  } break;
-  case 2: {bp += 4;
- selectedImage = (int)*(int *) bp; bp += 4;
-  } break;
-  case 3: {bp += 4;
- data = new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base); 
- bp += 4; /* Align */
-  } break;
- }}; 
- if(!This) throw wxe_badarg(0);
- wxTreeItemId Result = This->InsertItem(parent,idPrevious,text,image,selectedImage,data);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
- break; 
-}
-case wxTreeCtrl_InsertItem_4_0: { // wxTreeCtrl::InsertItem 
+case wxTreeCtrl_InsertItem: { // wxTreeCtrl::InsertItem
  int image=-1;
  int selImage=-1;
  wxETreeItemData * data= NULL;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId parent = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId parent = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * pos = (int *) bp; bp += 4;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
@@ -18775,12 +18795,13 @@ case wxTreeCtrl_InsertItem_4_0: { // wxTreeCtrl::InsertItem
  }}; 
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->InsertItem(parent,(size_t) *pos,text,image,selImage,data);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_IsBold: { // wxTreeCtrl::IsBold 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->IsBold(item);
  rt.addBool(Result);
@@ -18788,7 +18809,8 @@ case wxTreeCtrl_IsBold: { // wxTreeCtrl::IsBold
 }
 case wxTreeCtrl_IsExpanded: { // wxTreeCtrl::IsExpanded 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->IsExpanded(item);
  rt.addBool(Result);
@@ -18796,7 +18818,8 @@ case wxTreeCtrl_IsExpanded: { // wxTreeCtrl::IsExpanded
 }
 case wxTreeCtrl_IsSelected: { // wxTreeCtrl::IsSelected 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->IsSelected(item);
  rt.addBool(Result);
@@ -18804,7 +18827,8 @@ case wxTreeCtrl_IsSelected: { // wxTreeCtrl::IsSelected
 }
 case wxTreeCtrl_IsVisible: { // wxTreeCtrl::IsVisible 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->IsVisible(item);
  rt.addBool(Result);
@@ -18812,7 +18836,8 @@ case wxTreeCtrl_IsVisible: { // wxTreeCtrl::IsVisible
 }
 case wxTreeCtrl_ItemHasChildren: { // wxTreeCtrl::ItemHasChildren 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  bool Result = This->ItemHasChildren(item);
  rt.addBool(Result);
@@ -18823,7 +18848,8 @@ case wxTreeCtrl_PrependItem: { // wxTreeCtrl::PrependItem
  int selectedImage=-1;
  wxETreeItemData * data= NULL;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId parent = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId parent = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((4+ *textLen) & 7)) & 7);
@@ -18841,19 +18867,21 @@ case wxTreeCtrl_PrependItem: { // wxTreeCtrl::PrependItem
  }}; 
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->PrependItem(parent,text,image,selectedImage,data);
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeCtrl_ScrollTo: { // wxTreeCtrl::ScrollTo 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->ScrollTo(item);
  break; 
 }
 case wxTreeCtrl_SelectItem_1: { // wxTreeCtrl::SelectItem 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->SelectItem(item);
  break; 
@@ -18861,7 +18889,8 @@ case wxTreeCtrl_SelectItem_1: { // wxTreeCtrl::SelectItem
 case wxTreeCtrl_SelectItem_2: { // wxTreeCtrl::SelectItem 
  bool select=true;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
  select = *(bool *) bp; bp += 4;
@@ -18887,7 +18916,8 @@ case wxTreeCtrl_SetImageList: { // wxTreeCtrl::SetImageList
 }
 case wxTreeCtrl_SetItemBackgroundColour: { // wxTreeCtrl::SetItemBackgroundColour 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * colR = (int *) bp; bp += 4;
  int * colG = (int *) bp; bp += 4;
  int * colB = (int *) bp; bp += 4;
@@ -18900,7 +18930,8 @@ case wxTreeCtrl_SetItemBackgroundColour: { // wxTreeCtrl::SetItemBackgroundColou
 case wxTreeCtrl_SetItemBold: { // wxTreeCtrl::SetItemBold 
  bool bold=true;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
  bold = *(bool *) bp; bp += 4;
@@ -18912,7 +18943,8 @@ case wxTreeCtrl_SetItemBold: { // wxTreeCtrl::SetItemBold
 }
 case wxTreeCtrl_SetItemData: { // wxTreeCtrl::SetItemData 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  wxETreeItemData * data =  new wxETreeItemData(Ecmd.bin[0]->size, Ecmd.bin[0]->base); 
  if(!This) throw wxe_badarg(0);
  This->SetItemData(item,data);
@@ -18921,7 +18953,8 @@ case wxTreeCtrl_SetItemData: { // wxTreeCtrl::SetItemData
 case wxTreeCtrl_SetItemDropHighlight: { // wxTreeCtrl::SetItemDropHighlight 
  bool highlight=true;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
  highlight = *(bool *) bp; bp += 4;
@@ -18933,7 +18966,8 @@ case wxTreeCtrl_SetItemDropHighlight: { // wxTreeCtrl::SetItemDropHighlight
 }
 case wxTreeCtrl_SetItemFont: { // wxTreeCtrl::SetItemFont 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  This->SetItemFont(item,*font);
@@ -18942,7 +18976,8 @@ case wxTreeCtrl_SetItemFont: { // wxTreeCtrl::SetItemFont
 case wxTreeCtrl_SetItemHasChildren: { // wxTreeCtrl::SetItemHasChildren 
  bool has=true;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  while( * (int*) bp) { switch (* (int*) bp) { 
   case 1: {bp += 4;
  has = *(bool *) bp; bp += 4;
@@ -18954,7 +18989,8 @@ case wxTreeCtrl_SetItemHasChildren: { // wxTreeCtrl::SetItemHasChildren
 }
 case wxTreeCtrl_SetItemImage_2: { // wxTreeCtrl::SetItemImage 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * image = (int *) bp; bp += 4;
  if(!This) throw wxe_badarg(0);
  This->SetItemImage(item,(int) *image);
@@ -18963,7 +18999,8 @@ case wxTreeCtrl_SetItemImage_2: { // wxTreeCtrl::SetItemImage
 case wxTreeCtrl_SetItemImage_3: { // wxTreeCtrl::SetItemImage 
  wxTreeItemIcon which=wxTreeItemIcon_Normal;
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * image = (int *) bp; bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) { 
@@ -18977,7 +19014,8 @@ which = *(wxTreeItemIcon *) bp; bp += 4;;
 }
 case wxTreeCtrl_SetItemText: { // wxTreeCtrl::SetItemText 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * textLen = (int *) bp; bp += 4;
  wxString text = wxString(bp, wxConvUTF8);
  bp += *textLen+((8-((4+ *textLen) & 7)) & 7);
@@ -18987,7 +19025,8 @@ case wxTreeCtrl_SetItemText: { // wxTreeCtrl::SetItemText
 }
 case wxTreeCtrl_SetItemTextColour: { // wxTreeCtrl::SetItemTextColour 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  int * colR = (int *) bp; bp += 4;
  int * colG = (int *) bp; bp += 4;
  int * colB = (int *) bp; bp += 4;
@@ -19013,21 +19052,24 @@ case wxTreeCtrl_SetWindowStyle: { // wxTreeCtrl::SetWindowStyle
 }
 case wxTreeCtrl_SortChildren: { // wxTreeCtrl::SortChildren 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->SortChildren(item);
  break; 
 }
 case wxTreeCtrl_Toggle: { // wxTreeCtrl::Toggle 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->Toggle(item);
  break; 
 }
 case wxTreeCtrl_ToggleItemSelection: { // wxTreeCtrl::ToggleItemSelection 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->ToggleItemSelection(item);
  break; 
@@ -19046,7 +19088,8 @@ case wxTreeCtrl_UnselectAll: { // wxTreeCtrl::UnselectAll
 }
 case wxTreeCtrl_UnselectItem: { // wxTreeCtrl::UnselectItem 
  wxTreeCtrl *This = (wxTreeCtrl *) getPtr(bp,memenv); bp += 4;
- wxTreeItemId item = wxTreeItemId(getPtr(bp,memenv)); bp += 4;
+ bp += 4; /* Align */
+ wxTreeItemId item = wxTreeItemId((void *) *(wxUint64 *) bp); bp += 8;
  if(!This) throw wxe_badarg(0);
  This->UnselectItem(item);
  break; 
@@ -30146,7 +30189,7 @@ case wxTreeEvent_GetItem: { // wxTreeEvent::GetItem
  wxTreeEvent *This = (wxTreeEvent *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetItem();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeEvent_GetKeyEvent: { // wxTreeEvent::GetKeyEvent 
@@ -30167,7 +30210,7 @@ case wxTreeEvent_GetOldItem: { // wxTreeEvent::GetOldItem
  wxTreeEvent *This = (wxTreeEvent *) getPtr(bp,memenv); bp += 4;
  if(!This) throw wxe_badarg(0);
  wxTreeItemId Result = This->GetOldItem();
- rt.addRef(getRef((void *)Result.m_pItem,memenv), "wxTreeItemId");
+ rt.add((wxUIntPtr *) Result.m_pItem);
  break; 
 }
 case wxTreeEvent_GetPoint: { // wxTreeEvent::GetPoint 
