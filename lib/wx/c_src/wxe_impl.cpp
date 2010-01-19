@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd% 
  */
 
@@ -615,27 +615,32 @@ int WxeApp::getRef(void * ptr, wxeMemEnv *memenv) {
   ptrMap::iterator it = ptr2ref.find(ptr);
   if(it != ptr2ref.end()) {
     wxeRefData *refd = it->second;
-    return refd->ref;
-  } else { // New Ptr
-    int ref;
-    intList free = memenv->free;
-    
-    if(free.IsEmpty()) {
-      ref = memenv->next++;
-    } else {
-      ref = free.Pop();
-    };
-    if(ref >= memenv->max) {
-      memenv->max *= 2;
-      memenv->ref2ptr = 
-	(void **) driver_realloc(memenv->ref2ptr,memenv->max * sizeof(void*));
-    }
-
-    memenv->ref2ptr[ref] = ptr;
-    ptr2ref[ptr] = new wxeRefData(ref, 0, false, memenv);
-    return ref;
+    if(refd->memenv == memenv) {
+      // Found it return
+      return refd->ref;
+    } // else
+    // Old reference to deleted object, release old and recreate in current memenv.
+    clearPtr(ptr);
   }
+  int ref;
+  intList free = memenv->free;
+
+  if(free.IsEmpty()) {
+    ref = memenv->next++;
+  } else {
+    ref = free.Pop();
+  };
+  if(ref >= memenv->max) {
+    memenv->max *= 2;
+    memenv->ref2ptr =
+      (void **) driver_realloc(memenv->ref2ptr,memenv->max * sizeof(void*));
+  }
+
+  memenv->ref2ptr[ref] = ptr;
+  ptr2ref[ptr] = new wxeRefData(ref, 0, false, memenv);
+  return ref;
 }
+
 
 void WxeApp::clearPtr(void * ptr) {
   ptrMap::iterator it;
@@ -697,13 +702,15 @@ void WxeApp::clearPtr(void * ptr) {
 
 void * WxeApp::getPtr(char * bp, wxeMemEnv *memenv) {
   int index = *(int *) bp;
-  if(!memenv) 
+  if(!memenv) {
     throw wxe_badarg(index);
+  }
   void * temp = memenv->ref2ptr[index];
   if((index < memenv->next) && ((index == 0) || (temp > NULL)))
     return temp;
-  else 
+  else {
     throw wxe_badarg(index);
+  }
 }
 
 void WxeApp::registerPid(char * bp, ErlDrvTermData pid, wxeMemEnv * memenv) {

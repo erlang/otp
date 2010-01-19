@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wx_basic_SUITE.erl
@@ -51,7 +51,8 @@ all(suite) ->
     [
      destroy_app,
      multiple_add_in_sizer,
-     app_dies
+     app_dies,
+     menu_item_debug
     ].
 
 %% The test cases
@@ -174,3 +175,57 @@ multiple_add_in_sizer(Config) ->
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame, Config).
 
+menu_item_debug(TestInfo) when is_atom(TestInfo) -> wx_test_lib:tc_info(TestInfo);
+menu_item_debug(Config) ->
+    %% Debugging a menu entry problem
+    %% Run it with: lists:map(fun(_) -> [{0,{ok,_,_}}] = wxt:t() end, lists:seq(1,50)), ok.
+    Wx = wx:new(),
+    wx:debug(trace),
+    Frame = wxFrame:new(Wx, -1, "Button Fix"),
+    wxFrame:connect(Frame, close_window),
+
+    FramePanel = wxPanel:new(Frame),
+    create_menus(Frame),
+    wxWindow:show(Frame),
+    wx_test_lib:wx_destroy(Frame,Config).
+
+
+create_menus(Frame) ->
+    MenuBar = ?mt(wxMenuBar, wxMenuBar:new()),
+    File    = ?mt(wxMenu, wxMenu:new([])),
+    Help    = ?mt(wxMenu, wxMenu:new([])),
+
+    ?mt(wxMenuItem, wxMenu:append(Help, ?wxID_ABOUT, "&About", [])),
+    ?mt(wxMenuItem, wxMenu:append(Help, ?wxID_HELP, "&Help", [])),
+    ?mt(wxMenuItem, wxMenu:append(File, ?wxID_EXIT, "Exit", [])),
+    T1    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T1, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(100, 120)],
+    T2    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T2, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(200, 220)],
+    T3    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T3, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(300, 320)],
+    T4    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T4, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(400, 420)],
+    T5    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T5, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(500, 520)],
+    T6    = ?mt(wxMenu, wxMenu:new([])),
+    [wxMenuItem:getId(wxMenu:append(T6, Id, integer_to_list(Id), []))
+     || Id <- lists:seq(600, 620)],
+
+    ?m(ok,wxFrame:connect(Frame, command_menu_selected)),
+    ?m(true, wxMenuBar:append(MenuBar, File, "&File")),
+    ?m(true, wxMenuBar:append(MenuBar, Help, "&Help")),
+    ?m(true, wxMenuBar:append(MenuBar, T1, "T1")),
+    ?m(true, wxMenuBar:append(MenuBar, T2, "T2")),
+    ?m(true, wxMenuBar:append(MenuBar, T3, "T3")),
+    ?m(true, wxMenuBar:append(MenuBar, T4, "T4")),
+    ?m(true, wxMenuBar:append(MenuBar, T5, "T5")),
+    ?m(true, wxMenuBar:append(MenuBar, T6, "T6")),
+
+
+    ?m(ok, wxFrame:setMenuBar(Frame,MenuBar)).
