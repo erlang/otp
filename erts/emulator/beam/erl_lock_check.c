@@ -155,6 +155,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fix_alloc",				"index"			},
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
+#ifdef HALFWORD_HEAP
+    {	"pmmap",				NULL			},
+#endif
 #ifdef ERTS_SMP
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"port_taskq_pre_alloc_lock",		"address"		},
