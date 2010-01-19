@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -1115,13 +1115,12 @@ do_server_hello(Type, #state{negotiated_version = Version,
 	    case ssl_handshake:master_secret(Version, Session,
 					     ConnectionStates0, server) of
 		{_, ConnectionStates1} ->
-		    {ConnectionStates, Hashes} =
-			finished(State#state{connection_states =
-					     ConnectionStates1}),
-		    {next_state, abbreviated,
-		     next_record(State#state{connection_states = 
-					     ConnectionStates,
-					     tls_handshake_hashes = Hashes})};
+		    State1 = State#state{connection_states=ConnectionStates1, 
+					 session = Session},
+		    {ConnectionStates, Hashes} = finalize_server_handshake(State1),
+		    Resumed = State1#state{connection_states = ConnectionStates,
+					   tls_handshake_hashes = Hashes},
+		    {next_state, abbreviated, next_record(Resumed)};
 		#alert{} = Alert ->
 		    handle_own_alert(Alert, Version, hello, State), 
 		    {stop, normal, State}

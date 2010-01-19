@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -30,7 +30,7 @@
 	 sign/2, sign/3,
 	 verify_signature/3, verify_signature/4, verify_signature/5,
 	 pem_to_der/1, pem_to_der/2,
-	 pkix_decode_cert/2, pkix_encode_cert/1,
+	 pkix_decode_cert/2, pkix_encode_cert/1, pkix_transform/2,
 	 pkix_is_self_signed/1, pkix_is_fixed_dh_cert/1,
 	 pkix_issuer_id/2,
 	 pkix_is_issuer/2, pkix_normalize_general_name/1,
@@ -161,6 +161,20 @@ pkix_decode_cert(BinCert, Type) ->
 pkix_encode_cert(Cert) ->
     pubkey_cert_records:encode_cert(Cert).
     
+%%--------------------------------------------------------------------
+%% Function: pkix_transform(CertPart, Op) -> TransformedCertPart
+%%
+%%	CertPart = pkix part data
+%%      Op = encode | decode
+%%
+%% Description: Transform parts of a pkix certificate between 'plain' format
+%% and the internal 'otp' format, see pkix_decode_cert/2.
+%% Decode transforms from 'plain' to 'otp' and encode from 'otp' to 'plain'
+%% format.
+%%--------------------------------------------------------------------
+pkix_transform(CertPart, Op) ->
+    pubkey_cert_records:transform(CertPart, Op).
+
 %%--------------------------------------------------------------------
 %% Function: pkix_path_validation(TrustedCert, CertChain, Options) -> 
 %%   {ok, {{algorithm(), public_key(), public_key_params()} policy_tree()}} |
