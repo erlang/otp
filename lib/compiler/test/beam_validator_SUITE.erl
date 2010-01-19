@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(beam_validator_SUITE).
@@ -28,7 +28,7 @@
 	 freg_range/1,freg_uninit/1,freg_state/1,
 	 bin_match/1,bin_aligned/1,bad_dsetel/1,
 	 state_after_fault_in_catch/1,no_exception_in_catch/1,
-	 undef_label/1,illegal_instruction/1]).
+	 undef_label/1,illegal_instruction/1,failing_gc_guard_bif/1]).
 	 
 -include("test_server.hrl").
 
@@ -52,13 +52,13 @@ all(suite) ->
      freg_range,freg_uninit,freg_state,
      bin_match,bin_aligned,
      bad_dsetel,state_after_fault_in_catch,no_exception_in_catch,
-     undef_label,illegal_instruction].
+     undef_label,illegal_instruction,failing_gc_guard_bif].
 
 beam_files(Config) when is_list(Config) ->
     ?line {ok,Cwd} = file:get_cwd(),
     ?line Parent = filename:dirname(Cwd),
     ?line Wc = filename:join([Parent,"*","*.beam"]),
-    %% Must have at least two files here, or there will could be
+    %% Must have at least two files here, or there will be
     %% a grammatical error in the output of the io:format/2 call below. ;-)
     ?line [_,_|_] = Fs = filelib:wildcard(Wc),
     ?line io:format("~p files\n", [length(Fs)]),
@@ -356,6 +356,36 @@ illegal_instruction(Config) when is_list(Config) ->
      {{'_',y,0},{[],0,illegal_instruction}}] = Errors,
     ok.
 
+%% The beam_validator used to assume that a GC guard BIF could
+%% do a garbage collection even if it failed. That assumption
+%% is not correct, and will cause the beam_validator to reject
+%% valid programs such as this test case.
+%%
+%% (Thanks to Kiran Khaladkar.)
+%%
+failing_gc_guard_bif(Config) when is_list(Config) ->
+    ?line ok = process_request(lists:seq(1, 36)),
+    ?line error = process_request([]),
+    ?line error = process_request(not_a_list),
+    ok.
+
+process_request(ConfId) ->
+    case process_request_foo(ConfId) of
+	false ->
+	    if
+		length(ConfId) == 36 ->
+		    Response = ok;
+		true ->
+		    Response = error
+	    end
+    end,
+    process_request_bar(self(), [Response]).
+
+process_request_foo(_) ->
+    false.
+
+process_request_bar(Pid, [Response]) when is_pid(Pid) ->
+    Response.
 
 
 %%%-------------------------------------------------------------------------

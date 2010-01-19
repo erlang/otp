@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2006-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2006-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -318,6 +318,10 @@ double_to_integer(Process* p, double x)
  * The following code is used when a guard that may build on the
  * heap is called directly. They must not use HAlloc(), but must
  * do a garbage collection if there is insufficient heap space.
+ *
+ * Important note: All error checking MUST be done before doing
+ * a garbage collection. The compiler assumes that all registers
+ * are still valid if a guard BIF generates an exception.
  */
 
 #define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
