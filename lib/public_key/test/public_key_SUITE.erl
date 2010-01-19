@@ -23,8 +23,9 @@
 %% Note: This directive should only be used in test suites.
 -compile(export_all).
 
--include("test_server.hrl").
--include("test_server_line.hrl").
+-include_lib("test_server/include/test_server.hrl").
+-include_lib("test_server/include/test_server_line.hrl").
+
 -include("public_key.hrl").
 
 -define(TIMEOUT, 120000). % 2 min
