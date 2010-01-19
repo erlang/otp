@@ -41,6 +41,16 @@
 
       <list>
         <item>
+	  <p>[httpc] - Allow users to pass socket options to the transport 
+            module when making requests. </p> 
+          <p>See the <c>socket_opts</c> option in the 
+            <seealso marker="httpc#request2">request/4</seealso> or 
+            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            for more info, </p>
+	  <p>Own Id: OTP-8352</p>
+        </item>
+
+        <item>
           <p>[httpc] Fix bug crafting Host header when port is not 80. </p>
           <p>The host header should include the port number as well as the 
             host name when making a request to a server listening on a port 

@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>http</title>
+    <title>httpc</title>
     <prepared>Ingela Anderton Andin</prepared>
     <responsible></responsible>
     <docno></docno>
@@ -64,6 +64,8 @@ request_id() = ref()
 profile()    = atom()
 path()       = string() representing a file path or directory path 
 ip_address() = See inet(3)
+socket_opt() = See the Options used by gen_tcp(3) and 
+               ssl(3) connect(s)
     ]]></code>
 
   </section>
@@ -162,13 +164,13 @@ ssl_options() = {verify,     code()}   |
         <v>Request = request()</v>
         <v>HTTPOptions = http_options()</v>
         <v>http_options() = [http_option()]</v>
-        <v>http_option() = {timeout, timeout()} | 
+        <v>http_option() = {timeout,         timeout()} | 
                            {connect_timeout, timeout()} | 
-                           {ssl, ssl_options()} | 
-                           {autoredirect, boolean()} | 
+                           {ssl,             ssl_options()} | 
+                           {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
-                           {version, http_version()} | 
-                           {relaxed, boolean()}</v>
+                           {version,         http_version()} | 
+                           {relaxed,         boolean()}</v>
         <v>timeout() = integer() >= 0 | infinity</v>
         <v>Options = options()</v>
         <v>options() = [option()]</v>
@@ -177,8 +179,10 @@ ssl_options() = {verify,     code()}   |
                       {body_format,   body_format()} | 
                       {full_result,   boolean()} | 
                       {headers_as_is, boolean() |
+                      {socket_opts,   socket_opts()} | 
                       {receiver,      receiver()}}</v>
         <v>stream_to() = none | self | {self, once} | filename() </v>
+        <v>socket_opts() = [socket_opt()]</v>
         <v>receiver() = pid() | function()/1 | {Module, Function, Args} </v>
         <v>Module = atom() </v>
         <v>Function = atom() </v>
@@ -315,6 +319,24 @@ ssl_options() = {verify,     code()}   |
             <p>Defaults to <c>false</c>. </p>
 	  </item>
 
+          <tag><c><![CDATA[socket_opts]]></c></tag>
+          <item>
+            <p>Socket options to be used for this and subsequent 
+              request(s). </p>
+            <p>Overrides any value set by the 
+              <seealso marker="set_options">set_options</seealso> 
+              function. </p>
+            <p>Note that the validity of the options are <em>not</em>
+              checked in any way. </p>
+            <p>Note that this may change the socket behaviour 
+              (see <seealso marker="inet#setopts">inet:setopts/2</seealso>) 
+              for an already existing, and therefor already connected 
+              request handler. </p>
+            <p>By defaults the socket options set by the 
+              <seealso marker="#set_options">set_options/1,2</seealso> 
+              function is used when establishing connection. </p>
+	  </item>
+
           <tag><c><![CDATA[receiver]]></c></tag>
           <item>
             <p>Defines how the client will deliver the result for a 
@@ -393,17 +415,30 @@ apply(Module, Function, [ReplyInfo | Args])
       <fsummary>Sets options to be used for subsequent requests.</fsummary>
       <type>
         <v>Options = [Option]</v>
-        <v>Option = {proxy, {Proxy, NoProxy}} | {max_sessions, MaxSessions} |
-	  {max_keep_alive_length, MaxKeepAlive} | {keep_alive_timeout, KeepAliveTimeout} |
-	  {max_pipeline_length, MaxPipeline} |  {pipeline_timeout, PipelineTimeout} | 
-          {cookies | CookieMode} | 
-          {ipfamily, IpFamily} | {ip, IpAddress} | {port, Port} | 
-          {verbose, VerboseMode} </v>
+        <v>Option = {proxy,                 {Proxy, NoProxy}} | 
+                    {max_sessions,          MaxSessions} |
+	            {max_keep_alive_length, MaxKeepAlive} | 
+                    {keep_alive_timeout,    KeepAliveTimeout} |
+	            {max_pipeline_length,   MaxPipeline} |  
+                    {pipeline_timeout,      PipelineTimeout} | 
+                    {cookies,               CookieMode} | 
+                    {ipfamily,              IpFamily} | 
+                    {ip,                    IpAddress} | 
+                    {port,                  Port} | 
+                    {socket_opts,           socket_opts()} | 
+                    {verbose,               VerboseMode} </v>
         <v>Proxy = {Hostname, Port}</v>
         <v>Hostname = string() </v>
         <d>ex: "localhost" or "foo.bar.se"</d>
         <v>Port = integer()</v>
         <d>ex: 8080 </d>
+        <v>socket_opts() = [socket_opt()]</v>
+        <d>The options are appended to the socket options used by the 
+          client. </d>
+        <d>These are the default values when a new request handler
+          is started (for the initial connect). They are passed directly 
+          to the underlying transport (gen_tcp or ssl) <em>without</em> 
+          verification! </d>
         <v>NoProxy = [NoProxyDesc]</v>
         <v>NoProxyDesc = DomainDesc | HostName | IPDesc</v>
         <v>DomainDesc = "*.Domain"</v>
@@ -573,6 +608,7 @@ apply(Module, Function, [ReplyInfo | Args])
   <section>
     <title>SEE ALSO</title>
     <p>RFC 2616, <seealso marker="inets">inets(3)</seealso>,
+      <seealso marker="kernel:gen_tcp">gen_tcp(3)</seealso>, 
       <seealso marker="ssl:ssl">ssl(3)</seealso>
     </p>
   </section>

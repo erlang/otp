@@ -28,7 +28,8 @@
 -behaviour(inets_service).
 
 %% API
--export([request/1, request/2, request/4, request/5,
+-export([
+	 request/1, request/2, request/4, request/5,
 	 cancel_request/1, cancel_request/2,
 	 set_option/2, set_option/3,
 	 set_options/1, set_options/2,
@@ -38,7 +39,9 @@
 	 reset_cookies/0, reset_cookies/1, 
 	 stream_next/1,
 	 default_profile/0, 
-	 profile_name/1, profile_name/2]).
+	 profile_name/1, profile_name/2,
+	 info/0, info/1
+	]).
 
 %% Behavior callbacks
 -export([start_standalone/1, start_service/1, 
@@ -314,6 +317,27 @@ which_cookies(Profile) ->
 
 
 %%--------------------------------------------------------------------------
+%% info() -> list()
+%% info(Profile) -> list()
+%%               
+%% Description: Debug function, retreive info about the profile
+%%-------------------------------------------------------------------------
+info() ->
+    info(default_profile()).
+
+info(Profile) ->
+    ?hcrt("info", [{profile, Profile}]),
+    try 
+	begin
+	    httpc_manager:info(profile_name(Profile))
+	end
+    catch 
+	exit:{noproc, _} ->
+	    {error, {not_started, Profile}}
+    end.
+
+
+%%--------------------------------------------------------------------------
 %% reset_cookies() -> void()
 %% reset_cookies(Profile) -> void()
 %%               
@@ -399,35 +423,34 @@ handle_request(Method, Url,
 	       Headers, ContentType, Body, 
 	       HTTPOptions0, Options0, Profile) ->
 
-    Started     = http_util:timestamp(), 
-    NewHeaders  = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers],
+    Started    = http_util:timestamp(), 
+    NewHeaders = [{http_util:to_lower(Key), Val} || {Key, Val} <- Headers],
 
     try
 	begin
-	    HTTPOptions = http_options(HTTPOptions0),
-	    Options     = request_options(Options0), 
-	    Sync        = proplists:get_value(sync,   Options),
-	    Stream      = proplists:get_value(stream, Options),
-	    HeadersRecord = 
-		header_record(NewHeaders, 
-			      #http_request_h{}, 
-			      header_host(Host, Port), 
-			      HTTPOptions#http_options.version),
-	    Receiver = proplists:get_value(receiver, Options),
-	    Request = #request{from     = Receiver,
-			       scheme   = Scheme, 
-			       address  = {Host,Port},
-			       path     = Path, 
-			       pquery   = Query, 
-			       method   = Method,
-			       headers  = HeadersRecord, 
-			       content  = {ContentType,Body},
-			       settings = HTTPOptions, 
-			       abs_uri  = Url, 
-			       userinfo = UserInfo, 
-			       stream   = Stream, 
+	    HTTPOptions   = http_options(HTTPOptions0),
+	    Options       = request_options(Options0), 
+	    Sync          = proplists:get_value(sync,   Options),
+	    Stream        = proplists:get_value(stream, Options),
+	    Host2         = header_host(Host, Port), 
+	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
+	    Receiver   = proplists:get_value(receiver, Options),
+	    SocketOpts = proplists:get_value(socket_opts, Options),
+	    Request = #request{from          = Receiver,
+			       scheme        = Scheme, 
+			       address       = {Host, Port},
+			       path          = Path, 
+			       pquery        = Query, 
+			       method        = Method,
+			       headers       = HeadersRecord, 
+			       content       = {ContentType, Body},
+			       settings      = HTTPOptions, 
+			       abs_uri       = Url, 
+			       userinfo      = UserInfo, 
+			       stream        = Stream, 
 			       headers_as_is = headers_as_is(Headers, Options),
-			       started  = Started},
+			       socket_opts   = SocketOpts, 
+			       started       = Started},
 	    case httpc_manager:request(Request, profile_name(Profile)) of
 		{ok, RequestId} ->
 		    handle_answer(RequestId, Sync, Options);
@@ -591,6 +614,7 @@ http_options_default() ->
      {connect_timeout, {field,   #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
+
 request_options_defaults() ->
     VerifyBoolean = 
 	fun(Value) when ((Value =:= true) orelse (Value =:= false)) ->
@@ -640,13 +664,23 @@ request_options_defaults() ->
 		error
 	end,
 
+    VerifySocketOpts = 
+	fun([]) ->
+		{ok, undefined};
+	   (Value) when is_list(Value) ->
+		ok;
+	   (_) ->
+		error
+	end,
+
     [
-     {sync,          true,   VerifySync}, 
-     {stream,        none,   VerifyStream},
-     {body_format,   string, VerifyBodyFormat},
-     {full_result,   true,   VerifyFullResult},
-     {headers_as_is, false,  VerifyHeaderAsIs},
-     {receiver,      self(), VerifyReceiver}
+     {sync,          true,      VerifySync}, 
+     {stream,        none,      VerifyStream},
+     {body_format,   string,    VerifyBodyFormat},
+     {full_result,   true,      VerifyFullResult},
+     {headers_as_is, false,     VerifyHeaderAsIs},
+     {receiver,      self(),    VerifyReceiver},
+     {socket_opts,   undefined, VerifySocketOpts}
     ]. 
 
 request_options(Options) ->
@@ -671,6 +705,9 @@ request_options([{Key, DefaultVal, Verify} | Defaults], Options, Acc) ->
 		ok ->
 		    Options2 = lists:keydelete(Key, 1, Options),
 		    request_options(Defaults, Options2, [{Key, Value} | Acc]);
+		{ok, Value2} ->
+		    Options2 = lists:keydelete(Key, 1, Options),
+		    request_options(Defaults, Options2, [{Key, Value2} | Acc]);
 		error ->
 		    Report = io_lib:format("Invalid option ~p:~p ignored ~n", 
 					   [Key, Value]),
@@ -756,6 +793,10 @@ validate_options([{port, Value} = Opt| Tail], Acc) ->
     validate_port(Value), 
     validate_options(Tail, [Opt | Acc]);
 
+validate_options([{socket_opts, Value} = Opt| Tail], Acc) ->
+    validate_socket_opts(Value), 
+    validate_options(Tail, [Opt | Acc]);
+
 validate_options([{verbose, Value} = Opt| Tail], Acc) ->
     validate_verbose(Value), 
     validate_options(Tail, [Opt | Acc]);
@@ -836,6 +877,11 @@ validate_port(Value) when is_integer(Value) ->
 validate_port(BadValue) ->
     bad_option(port, BadValue).
 
+validate_socket_opts(Value) when is_list(Value) ->
+    Value;
+validate_socket_opts(BadValue) ->
+    bad_option(socket_opts, BadValue).
+
 validate_verbose(Value) 
   when ((Value =:= false) orelse 
 	(Value =:= verbose) orelse 
@@ -854,6 +900,9 @@ header_host(Host, 80 = _Port) ->
 header_host(Host, Port) ->
     Host ++ ":" ++ integer_to_list(Port).
 
+
+header_record(NewHeaders, Host, #http_options{version = Version}) ->
+    header_record(NewHeaders, #http_request_h{}, Host, Version).
 
 header_record([], RequestHeaders, Host, Version) ->
     validate_headers(RequestHeaders, Host, Version);

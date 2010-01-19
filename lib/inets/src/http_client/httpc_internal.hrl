@@ -46,7 +46,7 @@
 	  %% bool() - true if auto redirect on 30x response
 	  autoredirect = true, 
 
-	  %% Ssl socket options
+	  %% ssl socket options
 	  ssl = [], 
 
 	  %% {User, Password} = {string(), string()} 
@@ -63,19 +63,20 @@
 %%% HTTP Client per profile setting. 
 -record(options, 
 	{
-	  proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]},
-	  %% 0 means persistent connections are used without pipelining
-	  pipeline_timeout      = ?HTTP_PIPELINE_TIMEOUT, 
-	  max_pipeline_length   = ?HTTP_PIPELINE_LENGTH,
-	  max_keep_alive_length = ?HTTP_KEEP_ALIVE_LENGTH,
-	  keep_alive_timeout    = ?HTTP_KEEP_ALIVE_TIMEOUT, % Used when pipeline_timeout = 0
-	  max_sessions          = ?HTTP_MAX_TCP_SESSIONS,
-	  cookies               = disabled, % enabled | disabled | verify
-	  verbose               = false,
-	  ipfamily              = inet,    % inet | inet6 | inet6fb4
-	  ip                    = default, % specify local interface
-	  port                  = default  % specify local port
-	 }
+	 proxy = {undefined, []}, % {{ProxyHost, ProxyPort}, [NoProxy]},
+	 %% 0 means persistent connections are used without pipelining
+	 pipeline_timeout      = ?HTTP_PIPELINE_TIMEOUT, 
+	 max_pipeline_length   = ?HTTP_PIPELINE_LENGTH,
+	 max_keep_alive_length = ?HTTP_KEEP_ALIVE_LENGTH,
+	 keep_alive_timeout    = ?HTTP_KEEP_ALIVE_TIMEOUT, % Used when pipeline_timeout = 0
+	 max_sessions          = ?HTTP_MAX_TCP_SESSIONS,
+	 cookies               = disabled, % enabled | disabled | verify
+	 verbose               = false,
+	 ipfamily              = inet,    % inet | inet6 | inet6fb4
+	 ip                    = default, % specify local interface
+	 port                  = default, % specify local port
+	 socket_opts           = []       % other socket options
+	}
        ).
 
 %%% All data associated to a specific HTTP request
@@ -98,7 +99,8 @@
 	 headers_as_is, % Boolean() - workaround for servers that does
 			% not honor the http standard, can also be used for testing purposes.
 	 started,       % integer() > 0 - When we started processing the request
-	 timer          % undefined | ref()
+	 timer,         % undefined | ref()
+	 socket_opts    % undefined | [socket_option()]
 	}
        ).               
 
@@ -109,7 +111,7 @@
 	  scheme,       % http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  socket,       % Open socket, used by connection
 	  queue_length = 1, % Current length of pipeline or keep alive queue  
-	  type         % pipeline | keep_alive (wait for response before sending new request) 
+	  type          % pipeline | keep_alive (wait for response before sending new request) 
 	 }).
 
 -record(http_cookie,

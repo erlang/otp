@@ -19,7 +19,7 @@
 
 APPLICATION = inets
 INETS_VSN   = 5.3
-PRE_VSN     =-p12
+PRE_VSN     =-p13
 APP_VSN     = "$(APPLICATION)-$(INETS_VSN)$(PRE_VSN)"
 
 TICKETS = \
@@ -32,6 +32,7 @@ TICKETS = \
 	OTP-8327 \
 	OTP-8349 \
 	OTP-8351 \
+	OTP-8352 \
 	OTP-8359 \
 	OTP-8371
 
