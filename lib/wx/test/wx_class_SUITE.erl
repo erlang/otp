@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%%-------------------------------------------------------------------
 %%% File    : wx_class_SUITE.erl
@@ -113,12 +113,14 @@ treeCtrl(Config) ->
     Frame = wxFrame:new(Wx, ?wxID_ANY, "Frame"),
     Panel = wxPanel:new(Frame, []),
     Tree = ?mt(wxTreeCtrl,wxTreeCtrl:new(Panel, [{style , ?wxTR_HAS_BUTTONS}])),
-    Root = ?mt(wxTreeItemId, wxTreeCtrl:addRoot(Tree, "Root", [])),
-    Item1 = ?mt(wxTreeItemId, wxTreeCtrl:appendItem(Tree, Root, "Item1", [])),
-    ?m(ok, wxTreeCtrl:setItemData(Tree, Item1, {data, item1})),
-    Item2 = ?mt(wxTreeItemId, wxTreeCtrl:appendItem(Tree, Root, "Item2", [])),
-    ?m(ok, wxTreeCtrl:setItemData(Tree, Item2, {data, item2})),
-    Item3 = ?mt(wxTreeItemId, wxTreeCtrl:appendItem(Tree, Root, "Item3", [])),
+    Root = wxTreeCtrl:addRoot(Tree, "Root", []),
+    ?m(true, is_integer(Root)),
+    Item1 = wxTreeCtrl:appendItem(Tree, Root, "Item1", []),
+    ?m(true, is_integer(Item1)),
+    ?m(ok,  wxTreeCtrl:setItemData(Tree, Item1, {data, item1})),
+    Item2 = wxTreeCtrl:appendItem(Tree, Root, "Item2", []),
+    ?m(ok,  wxTreeCtrl:setItemData(Tree, Item2, {data, item2})),
+    Item3 = wxTreeCtrl:appendItem(Tree, Root, "Item3", []),
     ?m(ok, wxTreeCtrl:setItemData(Tree, Item3, {data, item3})),
     
     Sizer = wxBoxSizer:new(?wxVERTICAL),
@@ -373,7 +375,7 @@ radioBox(Config) ->
     io:format("TrSortRadioBox ~p ~n", [TrSortRadioBox]),
     %% If I uncomment any of these lines, it will crash
 
-    ?m(_, catch wxControlWithItems:setClientData(TrSortRadioBox, 0, timestamp)),
+    io:format("~p~n", [catch wxControlWithItems:setClientData(TrSortRadioBox, 0, timestamp)]),
     %?m(_, wxListBox:append(TrSortRadioBox, "Session Id", session_id)),
     %?m(_, wxListBox:insert(TrSortRadioBox, "Session Id", 0, session_id)),
 

@@ -69,10 +69,11 @@ destroy_app_test(N) when N > 0 ->
     Wx = ?mr(wx_ref, wx:new()),    
     Frame = wxFrame:new(Wx, 1, "Destroy"),
     ?m(ok, wxFrame:destroy(Frame)),
-    wx:destroy(),
     receive 
 	Msg -> Msg
-    after 150 -> destroy_app_test(N-1)
+    after 150 -> 
+	    wx:destroy(),
+	    destroy_app_test(N-1)
     end;
 destroy_app_test(_) -> 
     receive 
@@ -184,7 +185,7 @@ menu_item_debug(Config) ->
     Frame = wxFrame:new(Wx, -1, "Button Fix"),
     wxFrame:connect(Frame, close_window),
 
-    FramePanel = wxPanel:new(Frame),
+    wxPanel:new(Frame),
     create_menus(Frame),
     wxWindow:show(Frame),
     wx_test_lib:wx_destroy(Frame,Config).
