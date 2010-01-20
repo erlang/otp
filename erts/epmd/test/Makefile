@@ -34,6 +34,8 @@ ERL_FILES= $(MODULES:%=%.erl)
 
 TARGET_FILES = $(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
+EMAKEFILE=Emakefile
+
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
@@ -43,15 +45,17 @@ RELEPMDDIR   = $(RELEASE_PATH)/epmd_test
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-                     -I$(ERL_TOP)/lib/kernel/src/         \
-                     $(EPMD_FLAGS)
+ERL_COMPILE_FLAGS += $(EPMD_FLAGS)
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES)
+tests debug opt: $(EMAKEFILE)
+
+$(EMAKEFILE): Makefile $(ERL_FILES)
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(MODULES) > $(EMAKEFILE)
 
 clean:
 	rm -f $(TARGET_FILES)
@@ -69,7 +73,7 @@ release_spec:
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELEPMDDIR)
 	$(INSTALL_DATA) epmd.spec epmd.spec.vxworks $(ERL_FILES) \
-		$(TARGET_FILES) $(RELEPMDDIR)
+		$(EMAKEFILE) $(RELEPMDDIR)
 	chmod -f -R u+w $(RELEPMDDIR)
 
 release_docs_spec:
