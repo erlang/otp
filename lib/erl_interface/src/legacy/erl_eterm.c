@@ -786,6 +786,12 @@ ETERM *erl_copy_term(const ETERM *ep)
     case ERL_U_SMALL_BIG:
 	ERL_INT_UVALUE(cp) = ERL_INT_UVALUE(ep);
 	break;
+    case ERL_LONGLONG:
+	ERL_LL_VALUE(cp) = ERL_LL_VALUE(ep);
+	break;
+    case ERL_U_LONGLONG:
+	ERL_LL_UVALUE(cp) = ERL_LL_UVALUE(ep);
+	break;
     case ERL_FLOAT:
 	ERL_FLOAT_VALUE(cp) = ERL_FLOAT_VALUE(ep);
 	break;
