@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -310,6 +310,8 @@ main(int argc, char** argv)
 	    case 'W':		/* Enable warnings. */
 		if (strcmp(argv[1]+2, "all") == 0) {
 		    PUSH2("@warn", "999");
+		} else if (strcmp(argv[1]+2, "error") == 0) {
+		    PUSH2("@option", "warnings_as_errors");
 		} else if (isdigit((int)argv[1][2])) {
 		    PUSH2("@warn", argv[1]+2);
 		} else {
@@ -566,6 +568,7 @@ usage(void)
 	{"-pz path", "add path to the end of Erlang's code path"},
 	{"-smp", "compile using SMP emulator"},
 	{"-v", "verbose compiler output"},
+	{"-Werror", "make all warnings into errors"},
 	{"-W0", "disable warnings"},
 	{"-Wnumber", "set warning level to number"},
 	{"-Wall", "enable all warnings"},
