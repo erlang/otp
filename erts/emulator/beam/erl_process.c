@@ -91,9 +91,9 @@ do {								\
 #define ERTS_EMPTY_RUNQ(RQ) \
   ((RQ)->len == 0 && (RQ)->misc.start == NULL)
 
-extern Eterm beam_apply[];
-extern Eterm beam_exit[];
-extern Eterm beam_continue_exit[];
+extern UWord beam_apply[];
+extern UWord beam_exit[];
+extern UWord beam_continue_exit[];
 
 static Sint p_last;
 static Sint p_next;
@@ -334,7 +334,7 @@ do {									\
 static void init_processes_bif(void);
 static void save_terminating_process(Process *p);
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(int to, void *to_arg, Eterm* x);
+static void print_function_from_pc(int to, void *to_arg, UWord* x);
 static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
 			      int yreg);
 #ifdef ERTS_SMP
@@ -2078,9 +2078,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     erts_aligned_run_queues = erts_alloc(ERTS_ALC_T_RUNQS,
 					 (sizeof(ErtsAlignedRunQueue)*(n+1)));
-    if ((((Uint) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0)
+    if ((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0)
 	erts_aligned_run_queues = ((ErtsAlignedRunQueue *)
-				   ((((Uint) erts_aligned_run_queues)
+				   ((((UWord) erts_aligned_run_queues)
 				     & ~ERTS_CACHE_LINE_MASK)
 				    + ERTS_CACHE_LINE_SIZE));
 
@@ -2175,9 +2175,9 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
     erts_aligned_scheduler_data = erts_alloc(ERTS_ALC_T_SCHDLR_DATA,
 					     (sizeof(ErtsAlignedSchedulerData)
 					      *(n+1)));
-    if ((((Uint) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0)
+    if ((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0)
 	erts_aligned_scheduler_data = ((ErtsAlignedSchedulerData *)
-				       ((((Uint) erts_aligned_scheduler_data)
+				       ((((UWord) erts_aligned_scheduler_data)
 					 & ~ERTS_CACHE_LINE_MASK)
 					+ ERTS_CACHE_LINE_SIZE));
     for (ix = 0; ix < n; ix++) {
@@ -2186,6 +2186,10 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 	erts_bits_init_state(&esdp->erl_bits_state);
 	esdp->match_pseudo_process = NULL;
 	esdp->free_process = NULL;
+#if HALFWORD_HEAP
+	/* Registers need to be heap allocated (correct memory range) for tracing to work */
+	esdp->save_reg = erts_alloc(ERTS_ALC_T_BEAM_REGISTER, ERTS_X_REGS_ALLOCATED * sizeof(Eterm));
+#endif
 #endif
 #if !HEAP_ON_C_STACK
 	esdp->num_tmp_heap_used = 0;
@@ -4484,7 +4488,7 @@ add_pend_suspend(Process *suspendee,
 					 sizeof(ErtsPendingSuspend));
     psp->next = NULL;
 #ifdef DEBUG
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     psp->end = (ErtsPendingSuspend *) 0xdeaddeaddeaddead;
 #else
     psp->end = (ErtsPendingSuspend *) 0xdeaddead;
@@ -6765,8 +6769,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = p->initial+INITIAL_MOD;
 
-    p->i = (Eterm *) beam_apply;
-    p->cp = (Eterm *) beam_apply+1;
+    p->i = (UWord *) beam_apply;
+    p->cp = (UWord *) beam_apply+1;
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -7351,7 +7355,7 @@ set_proc_exiting(Process *p, Eterm reason, ErlHeapFragment *bp)
     p->freason = EXTAG_EXIT;
     KILL_CATCHES(p);
     cancel_timer(p);
-    p->i = (Eterm *) beam_exit;
+    p->i = (UWord *) beam_exit;
 }
 
 
@@ -8279,7 +8283,7 @@ continue_exit_process(Process *p
 
     ASSERT(p->status == P_EXITING);
 
-    p->i = (Eterm *) beam_continue_exit;
+    p->i = (UWord *) beam_continue_exit;
 
     if (!(curr_locks & ERTS_PROC_LOCK_STATUS)) {
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
@@ -8299,7 +8303,7 @@ continue_exit_process(Process *p
 static void
 timeout_proc(Process* p)
 {
-    p->i = (Eterm *) p->def_arg_reg[0];
+    p->i = *((UWord **) (UWord) p->def_arg_reg);
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
 
@@ -8398,9 +8402,9 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, Eterm* x)
+print_function_from_pc(int to, void *to_arg, UWord* x)
 {
-    Eterm* addr = find_function_from_pc(x);
+    UWord* addr = find_function_from_pc(x);
     if (addr == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
@@ -8434,7 +8438,7 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
     }
 
     if (is_CP(x)) {
-        erts_print(to, to_arg, "Return addr %p (", (Eterm *) x);
+        erts_print(to, to_arg, "Return addr %p (", (Eterm *) EXPAND_POINTER(x));
         print_function_from_pc(to, to_arg, cp_val(x));
         erts_print(to, to_arg, ")\n");
         yreg = 0;
@@ -9263,8 +9267,8 @@ init_processes_bif(void)
     processes_trap_export.code[0] = am_erlang;
     processes_trap_export.code[1] = am_processes_trap;
     processes_trap_export.code[2] = 2;
-    processes_trap_export.code[3] = (Eterm) em_apply_bif;
-    processes_trap_export.code[4] = (Eterm) &processes_trap;
+    processes_trap_export.code[3] = (UWord) em_apply_bif;
+    processes_trap_export.code[4] = (UWord) &processes_trap;
 
 #if ERTS_PROCESSES_BIF_DEBUGLEVEL >= ERTS_PROCS_DBGLVL_CHK_TERM_PROC_LIST
     erts_get_emu_time(&debug_tv_start);

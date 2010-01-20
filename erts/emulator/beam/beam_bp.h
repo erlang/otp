@@ -89,11 +89,11 @@ extern erts_smp_spinlock_t erts_bp_lock;
 do {                                                        \
     BpDataCount *bdc = (BpDataCount *) (pc)[-4];            \
                                                             \
-    ASSERT((pc)[-5] == (Uint) BeamOp(op_i_func_info_IaaI)); \
+    ASSERT((pc)[-5] == (UWord) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bdc);                                            \
     bdc = (BpDataCount *) bdc->next;                        \
     ASSERT(bdc);                                            \
-    (pc)[-4] = (Uint) bdc;                                  \
+    (pc)[-4] = (UWord) bdc;                                  \
     ErtsSmpBPLock(bdc);                                     \
     if (bdc->count >= 0) bdc->count++;                      \
     ErtsSmpBPUnlock(bdc);                                   \
@@ -104,11 +104,11 @@ do {                                                        \
 do {                                                        \
     BpData *bd = (BpData *) (pc)[-4];                       \
                                                             \
-    ASSERT((pc)[-5] == (Uint) BeamOp(op_i_func_info_IaaI)); \
+    ASSERT((pc)[-5] == (UWord) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bd);                                             \
     bd = bd->next;                                          \
     ASSERT(bd);                                             \
-    (pc)[-4] = (Uint) bd;                                   \
+    (pc)[-4] = (UWord) bd;                                   \
     *(instr_result) = bd->orig_instr;                       \
 } while (0)
 
@@ -146,16 +146,16 @@ int erts_clear_break(Eterm mfa[3], int specified);
 int erts_clear_module_break(Module *modp);
 int erts_clear_function_break(Module *modp, Uint *pc);
 
-Uint erts_trace_break(Process *p, Uint *pc, Eterm *args, 
+Uint erts_trace_break(Process *p, UWord *pc, Eterm *args,
 		      Uint32 *ret_flags, Eterm *tracer_pid);
-Uint32 erts_bif_mtrace(Process *p, Uint *pc, Eterm *args, 
+Uint32 erts_bif_mtrace(Process *p, UWord *pc, Eterm *args,
 		       int local, Eterm *tracer_pid);
 
-int erts_is_trace_break(Uint *pc, Binary **match_spec_ret, 
+int erts_is_trace_break(Uint *pc, Binary **match_spec_ret,
 			Eterm *tracer_pid_ret);
 int erts_is_mtrace_break(Uint *pc, Binary **match_spec_ret, 
 			 Eterm *tracer_pid_rte);
-int erts_is_mtrace_bif(Uint *pc, Binary **match_spec_ret, 
+int erts_is_mtrace_bif(UWord *pc, Binary **match_spec_ret,
 		       Eterm *tracer_pid_ret);
 int erts_is_native_break(Uint *pc);
 int erts_is_count_break(Uint *pc, Sint *count_ret);

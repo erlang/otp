@@ -58,8 +58,8 @@ typedef struct {
 typedef struct {
     int  cache;
     int  preserv;
-    Uint abs_shrink_th;
-    Uint rel_shrink_th;
+    UWord abs_shrink_th;
+    UWord rel_shrink_th;
 } ErtsMsegOpt_t;
 
 #define ERTS_MSEG_DEFAULT_OPT_INITIALIZER				\

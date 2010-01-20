@@ -164,7 +164,7 @@ byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
 #endif
 
 #define ERTS_CHK_BIN_ALIGNMENT(B) \
-  do { ASSERT(!(B) || (((Uint) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((Uint) 0)) } while(0)
+  do { ASSERT(!(B) || (((UWord) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((UWord) 0)) } while(0)
 
 ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);

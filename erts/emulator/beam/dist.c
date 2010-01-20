@@ -1620,9 +1620,9 @@ dsig_send(ErtsDSigData *dsdp, Eterm ctl, Eterm msg, int force_busy)
 	 */
 
 	data_size >>= (10-4);
-#if defined(ARCH_64)
+#if defined(ARCH_64) && !HALFWORD_HEAP
 	data_size &= 0x003fffffffffffff;
-#elif defined(ARCH_32)
+#elif defined(ARCH_32) || HALFWORD_HEAP
 	data_size &= 0x003fffff;
 #else
 #       error "Ohh come on ... !?!"
@@ -1706,9 +1706,9 @@ dist_port_commandv(Port *prt, ErtsDistOutputBuf *obuf)
 }
 
 
-#if defined(ARCH_64)
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define ERTS_PORT_REDS_MASK__ 0x003fffffffffffffL
-#elif defined(ARCH_32)
+#elif defined(ARCH_32) || HALFWORD_HEAP
 #define ERTS_PORT_REDS_MASK__ 0x003fffff
 #else
 #  error "Ohh come on ... !?!"

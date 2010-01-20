@@ -220,7 +220,7 @@ set_default_ll_alloc_opts(struct au_init *ip)
     ip->init.util.ramv		= 0;
     ip->init.util.mmsbc		= 0;
     ip->init.util.mmmbc		= 0;
-    ip->init.util.sbct		= ~((Uint) 0);
+    ip->init.util.sbct		= ~((UWord) 0);
     ip->init.util.name_prefix	= "ll_";
     ip->init.util.alloc_no	= ERTS_ALC_A_LONG_LIVED;
 #ifndef SMALL_MEMORY
@@ -394,7 +394,7 @@ static void init_thr_ix(int static_ixs);
 void
 erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 {
-    Uint extra_block_size = 0;
+    UWord extra_block_size = 0;
     int i;
     erts_alc_hndl_args_init_t init = {
 	0,
@@ -542,7 +542,6 @@ erts_alloc_init(int *argc, char **argv, ErtsAllocInitOpts *eaiop)
 
     sys_alloc_opt(SYS_ALLOC_OPT_TRIM_THRESHOLD, init.trim_threshold);
     sys_alloc_opt(SYS_ALLOC_OPT_TOP_PAD, init.top_pad);
-
     if (erts_allctrs_info[ERTS_FIX_CORE_ALLOCATOR].enabled)
 	erts_fix_core_allocator_ix = ERTS_FIX_CORE_ALLOCATOR;
     else
@@ -719,8 +718,8 @@ start_au_allocator(ErtsAlcType_t alctr_n,
 		     init->init.util.name_prefix);
 	tspec->allctr = (Allctr_t **) states;
 	states = ((char *) states) + sizeof(Allctr_t *) * (tspec->size + 1);
-	states = ((((Uint) states) & ERTS_CACHE_LINE_MASK)
-		  ? (void *) ((((Uint) states) & ~ERTS_CACHE_LINE_MASK)
+	states = ((((UWord) states) & ERTS_CACHE_LINE_MASK)
+		  ? (void *) ((((UWord) states) & ~ERTS_CACHE_LINE_MASK)
 			      + ERTS_CACHE_LINE_SIZE)
 		  : (void *) states);
 	tspec->allctr[0] = init->thr_spec > 0 ? (Allctr_t *) state : (Allctr_t *) NULL;
@@ -2948,9 +2947,9 @@ unsigned long erts_alc_test(unsigned long op,
 #endif
 
 
-#define FENCE_SZ		(3*sizeof(Uint))
+#define FENCE_SZ		(3*sizeof(UWord))
 
-#ifdef ARCH_64
+#if defined(ARCH_64)
 #define FENCE_PATTERN 0xABCDEF97ABCDEF97
 #else
 #define FENCE_PATTERN 0xABCDEF97
@@ -2960,7 +2959,7 @@ unsigned long erts_alc_test(unsigned long op,
 #define TYPE_PATTERN_SHIFT 16
 
 #define FIXED_FENCE_PATTERN_MASK \
-  (~((Uint) (TYPE_PATTERN_MASK << TYPE_PATTERN_SHIFT)))
+  (~((UWord) (TYPE_PATTERN_MASK << TYPE_PATTERN_SHIFT)))
 #define FIXED_FENCE_PATTERN \
   (FENCE_PATTERN & FIXED_FENCE_PATTERN_MASK)
 
@@ -2971,21 +2970,60 @@ unsigned long erts_alc_test(unsigned long op,
   (((P) >> TYPE_PATTERN_SHIFT) & TYPE_PATTERN_MASK)
 
 
+#ifdef  ERTS_ALLOC_UTIL_HARD_DEBUG
+static void *check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func);
+
+void check_allocated_block( Uint type, void *blk)
+{
+    Uint dummy;
+    check_memory_fence(blk, &dummy, ERTS_ALC_T2N(type), ERTS_ALC_O_FREE);
+}
+
+void check_allocators(void)
+{
+    int i;
+    if (!erts_initialized)
+	return;
+    for (i = ERTS_ALC_A_MIN; i <= ERTS_ALC_A_MAX; ++i) {
+	if (erts_allctrs_info[i].alloc_util) {
+	    ErtsAllocatorFunctions_t *real_af = (ErtsAllocatorFunctions_t *) erts_allctrs[i].extra;
+	    Allctr_t *allctr = real_af->extra;
+	    Carrier_t *ct;
+#ifdef USE_THREADS
+	if (allctr->thread_safe)
+	    erts_mtx_lock(&allctr->mutex);
+#endif
+
+	    if (allctr->check_mbc) {
+		for (ct = allctr->mbc_list.first; ct; ct = ct->next) {
+		    fprintf(stderr,"Checking allocator %d\r\n",i);
+		    allctr->check_mbc(allctr,ct);
+		}
+	    }
+#ifdef USE_THREADS
+	if (allctr->thread_safe)
+	    erts_mtx_unlock(&allctr->mutex);
+#endif
+	}
+    }
+}
+#endif
+
 static void *
 set_memory_fence(void *ptr, Uint sz, ErtsAlcType_t n)
 {
-    Uint *ui_ptr;
-    Uint pattern;
+    UWord *ui_ptr;
+    UWord pattern;
 
     if (!ptr)
 	return NULL;
 
-    ui_ptr = (Uint *) ptr;
+    ui_ptr = (UWord *) ptr;
     pattern = MK_PATTERN(n);
     
     *(ui_ptr++) = sz;
     *(ui_ptr++) = pattern;
-    memcpy((void *) (((char *) ui_ptr)+sz), (void *) &pattern, sizeof(Uint));
+    memcpy((void *) (((char *) ui_ptr)+sz), (void *) &pattern, sizeof(UWord));
 
     return (void *) ui_ptr;
 }
@@ -2995,14 +3033,14 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 {
     Uint sz;
     Uint found_type;
-    Uint pre_pattern;
-    Uint post_pattern;
-    Uint *ui_ptr;
+    UWord pre_pattern;
+    UWord post_pattern;
+    UWord *ui_ptr;
 
     if (!ptr)
 	return NULL;
 
-    ui_ptr = (Uint *) ptr;
+    ui_ptr = (UWord *) ptr;
     pre_pattern = *(--ui_ptr);
     *size = sz = *(--ui_ptr);
 
@@ -3015,7 +3053,7 @@ check_memory_fence(void *ptr, Uint *size, ErtsAlcType_t n, int func)
 		     (unsigned long) ptr);
     }
 
-    memcpy((void *) &post_pattern, (void *) (((char *)ptr)+sz), sizeof(Uint));
+    memcpy((void *) &post_pattern, (void *) (((char *)ptr)+sz), sizeof(UWord));
 
     if (post_pattern != MK_PATTERN(n)
 	|| pre_pattern != post_pattern) {

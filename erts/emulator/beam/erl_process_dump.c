@@ -45,16 +45,16 @@ static void dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep);
 static void dump_element_nl(int to, void *to_arg, Eterm x);
 static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
 			      int yreg);
-static void print_function_from_pc(int to, void *to_arg, Eterm* x);
+static void print_function_from_pc(int to, void *to_arg, UWord* x);
 static void heap_dump(int to, void *to_arg, Eterm x);
 static void dump_binaries(int to, void *to_arg, Binary* root);
 static void dump_externally(int to, void *to_arg, Eterm term);
 
 static Binary* all_binaries;
 
-extern Eterm beam_apply[];
-extern Eterm beam_exit[];
-extern Eterm beam_continue_exit[];
+extern UWord beam_apply[];
+extern UWord beam_exit[];
+extern UWord beam_continue_exit[];
 
 
 void
@@ -223,7 +223,7 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
     }
 
     if (is_CP(x)) {
-        erts_print(to, to_arg, "SReturn addr 0x%X (", (Eterm *) x);
+        erts_print(to, to_arg, "SReturn addr 0x%X (", cp_val(x));
         print_function_from_pc(to, to_arg, cp_val(x));
         erts_print(to, to_arg, ")\n");
         yreg = 0;
@@ -239,9 +239,9 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, Eterm* x)
+print_function_from_pc(int to, void *to_arg, UWord* x)
 {
-    Eterm* addr = find_function_from_pc(x);
+    UWord* addr = find_function_from_pc(x);
     if (addr == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
@@ -273,7 +273,7 @@ heap_dump(int to, void *to_arg, Eterm x)
     if (x == OUR_NIL) {	/* We are done. */
 	return;
     } if (is_CP(x)) {
-	next = (Eterm *) x;
+	next = (Eterm *) EXPAND_POINTER(x);
     } else if (is_list(x)) {
 	ptr = list_val(x);
 	if (ptr[0] != OUR_NIL) {
@@ -286,7 +286,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		ptr[1] = make_small(0);
 	    }
 	    x = ptr[0];
-	    ptr[0] = (Eterm) next;
+	    ptr[0] = (Eterm) COMPRESS_POINTER(next);
 	    next = ptr + 1;
 	    goto again;
 	}
@@ -316,7 +316,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    ptr[0] = OUR_NIL;
 		} else {
 		    x = ptr[arity];
-		    ptr[0] = (Eterm) next;
+		    ptr[0] = (Eterm) COMPRESS_POINTER(next);
 		    next = ptr + arity - 1;
 		    goto again;
 		}
@@ -351,7 +351,7 @@ heap_dump(int to, void *to_arg, Eterm x)
 		    Binary* val = pb->val;
 
 		    if (erts_smp_atomic_xchg(&val->refc, 0) != 0) {
-			val->flags = (Uint) all_binaries;
+			val->flags = (UWord) all_binaries;
 			all_binaries = val;
 		    }
 		    erts_print(to, to_arg, "Yc%X:%X:%X", val,

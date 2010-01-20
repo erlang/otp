@@ -262,7 +262,7 @@ erts_clear_function_break(Module *modp, Uint *pc) {
  * SMP NOTE: Process p may have become exiting on return!
  */
 Uint 
-erts_trace_break(Process *p, Uint *pc, Eterm *args, 
+erts_trace_break(Process *p, UWord *pc, Eterm *args,
 		 Uint32 *ret_flags, Eterm *tracer_pid) {
     Eterm tpid1, tpid2;
     BpDataTrace *bdt = (BpDataTrace *) pc[-4];
@@ -296,7 +296,7 @@ erts_trace_break(Process *p, Uint *pc, Eterm *args,
  * SMP NOTE: Process p may have become exiting on return!
  */
 Uint32
-erts_bif_mtrace(Process *p, Uint *pc, Eterm *args, int local, 
+erts_bif_mtrace(Process *p, UWord *pc, Eterm *args, int local,
 		Eterm *tracer_pid) {
     BpDataTrace *bdt = (BpDataTrace *) pc[-4];
     
@@ -364,7 +364,7 @@ erts_is_mtrace_break(Uint *pc, Binary **match_spec_ret, Eterm *tracer_pid_ret) {
 }
 
 int
-erts_is_mtrace_bif(Uint *pc, Binary **match_spec_ret, Eterm *tracer_pid_ret) {
+erts_is_mtrace_bif(UWord *pc, Binary **match_spec_ret, Eterm *tracer_pid_ret) {
     BpDataTrace *bdt = (BpDataTrace *) pc[-4];
     
     if (bdt) {

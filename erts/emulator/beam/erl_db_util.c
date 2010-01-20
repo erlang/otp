@@ -281,7 +281,7 @@ typedef struct dmc_guard_bif {
 */
 DMC_DECLARE_STACK_TYPE(Eterm);
 
-DMC_DECLARE_STACK_TYPE(Uint);
+DMC_DECLARE_STACK_TYPE(UWord);
 
 DMC_DECLARE_STACK_TYPE(unsigned);
 
@@ -382,7 +382,7 @@ cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
 	else {
 	    int i;
 	    for (i = 0; i < ERTS_DEFAULT_MS_HEAP_SIZE; i++) {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		mpsp->default_heap[i] = (Eterm) 0xdeadbeefdeadbeef;
 #else
 		mpsp->default_heap[i] = (Eterm) 0xdeadbeef;
@@ -830,42 +830,42 @@ static Uint my_size_object(Eterm t);
 static Eterm my_copy_struct(Eterm t, Eterm **hp, ErlOffHeap* off_heap);
 
 /* Guard compilation */
-static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(Uint) *text,
+static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 			     Eterm t);
 static DMCRet dmc_list(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant);
 static DMCRet dmc_tuple(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant);
 static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
-			   DMC_STACK_TYPE(Uint) *text,
+			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm t,
 			   int *constant);
 static DMCRet dmc_fun(DMCContext *context,
 		      DMCHeap *heap,
-		      DMC_STACK_TYPE(Uint) *text,
+		      DMC_STACK_TYPE(UWord) *text,
 		      Eterm t,
 		      int *constant);
 static DMCRet dmc_expr(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant);
 static DMCRet compile_guard_expr(DMCContext *context,
 				    DMCHeap *heap,
-				    DMC_STACK_TYPE(Uint) *text,
+				    DMC_STACK_TYPE(UWord) *text,
 				    Eterm t);
 /* match expression subroutine */
 static DMCRet dmc_one_term(DMCContext *context, 
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(Eterm) *stack,
-			   DMC_STACK_TYPE(Uint) *text,
+			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm c);
 
 
@@ -1185,7 +1185,7 @@ Eterm erts_match_set_run(Process *p, Binary *mpsp,
     Eterm ret;
 
     ret = db_prog_match(p, mpsp,
-			(Eterm) args, 
+			(Eterm) COMPRESS_POINTER(args),
 			num_args, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
@@ -1245,7 +1245,7 @@ Binary *db_match_compile(Eterm *matchexpr,
 {
     DMCHeap heap;
     DMC_STACK_TYPE(Eterm) stack;
-    DMC_STACK_TYPE(Uint) text;
+    DMC_STACK_TYPE(UWord) text;
     DMCContext context;
     MatchProg *ret = NULL;
     Eterm t;
@@ -1491,8 +1491,8 @@ restart:
     ** A special case is when the match expression is a single binding 
     ** (i.e '$1'), then the field single_variable is set to 1.
     */
-    bp = erts_create_magic_binary(((sizeof(MatchProg) - sizeof(Uint)) +
-				   (DMC_STACK_NUM(text) * sizeof(Uint))),
+    bp = erts_create_magic_binary(((sizeof(MatchProg) - sizeof(UWord)) +
+				   (DMC_STACK_NUM(text) * sizeof(UWord))),
 				  erts_db_match_prog_destructor);
     ret = Binary2MatchProg(bp);
     ret->saved_program_buf = NULL;
@@ -1501,7 +1501,7 @@ restart:
     ret->num_bindings = heap.used;
     ret->single_variable = context.special;
     sys_memcpy(ret->text, DMC_STACK_DATA(text), 
-	       DMC_STACK_NUM(text) * sizeof(Uint));
+	       DMC_STACK_NUM(text) * sizeof(UWord));
     ret->heap_size = ((heap.used * sizeof(Eterm)) +
 		      (max_eheap_need * sizeof(Eterm)) +
 		      (context.stack_need * sizeof(Eterm *)) +
@@ -1601,7 +1601,8 @@ Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term,
     Eterm **sp;
     Eterm *esp;
     Eterm *hp;
-    Uint *pc = prog->text;
+    UWord *cp;
+    UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
     Uint n = 0; /* To avoid warning. */
@@ -1616,9 +1617,9 @@ Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term,
     int fail_label;
     int atomic_trace;
 #ifdef DMC_DEBUG
-    unsigned long *heap_fence;
-    unsigned long *eheap_fence;
-    unsigned long *stack_fence;
+    Uint *heap_fence;
+    Uint *eheap_fence;
+    Uint *stack_fence;
     Uint save_op;
 #endif /* DMC_DEBUG */
 
@@ -1654,9 +1655,9 @@ Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term,
 
 #ifdef DMC_DEBUG
     save_op = 0;
-    heap_fence =  (unsigned long *) mpsp->heap + prog->eheap_offset - 1;
-    eheap_fence = (unsigned long *) mpsp->heap + prog->stack_offset - 1;
-    stack_fence = (unsigned long *) mpsp->heap + prog->heap_size - 1;
+    heap_fence =  (Uint *) mpsp->heap + prog->eheap_offset - 1;
+    eheap_fence = (Uint *) mpsp->heap + prog->stack_offset - 1;
+    stack_fence = (Uint *) mpsp->heap + prog->heap_size - 1;
     *heap_fence = FENCE_PATTERN;
     *eheap_fence = FENCE_PATTERN;
     *stack_fence = FENCE_PATTERN;
@@ -1709,11 +1710,12 @@ restart:
 	    n = *pc++;
 	    if ((int) n != arity)
 		FAIL();
-	    ep = (Eterm *) *ep;
+	    ep = (Eterm *) EXPAND_POINTER(*ep);
 	    break;
-	case matchArrayBind: /* When the array size is unknown. */
+	case matchArrayBind: /* When the array size is unknown. */ /* XXX:PaN - where does
+								      this array come from? */
 	    n = *pc++;
-	    hp[n] = dpm_array_to_list(psp, (Eterm *) term, arity);
+	    hp[n] = dpm_array_to_list(psp, (Eterm *) EXPAND_POINTER(term), arity);
 	    break;
 	case matchTuple: /* *ep is a tuple of arity n */
 	    if (!is_tuple(*ep))
@@ -1884,7 +1886,7 @@ restart:
 	    break;
 	case matchPushArrayAsList:
 	    n = arity; /* Only happens when 'term' is an array */
-	    tp = (Eterm *) term;
+	    tp = (Eterm *) EXPAND_POINTER(term);
 	    *esp++  = make_list(ehp);
 	    while (n--) {
 		*ehp++ = *tp++;
@@ -1897,7 +1899,7 @@ restart:
 	    break;
 	case matchPushArrayAsListU:
 	    /* This instruction is NOT efficient. */
-	    *esp++  = dpm_array_to_list(psp, (Eterm *) term, arity); 
+	    *esp++  = dpm_array_to_list(psp, (Eterm *) EXPAND_POINTER(term), arity);
 	    break;
 	case matchTrue:
 	    if (*--esp != am_true)
@@ -2095,14 +2097,14 @@ restart:
 	    }
 	    break;
  	case matchCaller:
- 	    if (!(c_p->cp) || !(hp = find_function_from_pc(c_p->cp))) {
+	    if (!(c_p->cp) || !(cp = find_function_from_pc(c_p->cp))) {
  		*esp++ = am_undefined;
  	    } else {
  		*esp++ = make_tuple(ehp);
  		ehp[0] = make_arityval(3);
- 		ehp[1] = hp[0];
- 		ehp[2] = hp[1];
- 		ehp[3] = make_small(hp[2]);
+		ehp[1] = cp[0];
+		ehp[2] = cp[1];
+		ehp[3] = make_small((Uint) hp[2]);
  		ehp += 4;
  	    }
  	    break;
@@ -2609,7 +2611,7 @@ static void add_dmc_err(DMCErrInfo *err_info,
 static DMCRet dmc_one_term(DMCContext *context, 
 			   DMCHeap *heap,
 			   DMC_STACK_TYPE(Eterm) *stack,
-			   DMC_STACK_TYPE(Uint) *text,
+			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm c)
 {
     Sint n;
@@ -2756,7 +2758,7 @@ static DMCRet dmc_one_term(DMCContext *context,
 ** Match guard compilation
 */
 
-static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(Uint) *text,
+static void do_emit_constant(DMCContext *context, DMC_STACK_TYPE(UWord) *text,
 			     Eterm t) 
 {
 	int sz;
@@ -2810,7 +2812,7 @@ add_dmc_err((ContextP)->err_info, String, -1, T, dmcWarning)
 
 static DMCRet dmc_list(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant)
 {
@@ -2846,11 +2848,11 @@ static DMCRet dmc_list(DMCContext *context,
 
 static DMCRet dmc_tuple(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant)
 {
-    DMC_STACK_TYPE(Uint) instr_save;
+    DMC_STACK_TYPE(UWord) instr_save;
     int all_constant = 1;
     int textpos = DMC_STACK_NUM(*text);
     Eterm *p = tuple_val(t);
@@ -2906,7 +2908,7 @@ static DMCRet dmc_tuple(DMCContext *context,
 
 static DMCRet dmc_whole_expression(DMCContext *context,
 				   DMCHeap *heap,
-				   DMC_STACK_TYPE(Uint) *text,
+				   DMC_STACK_TYPE(UWord) *text,
 				   Eterm t,
 				   int *constant)
 {
@@ -2934,7 +2936,7 @@ static DMCRet dmc_whole_expression(DMCContext *context,
 
 static DMCRet dmc_variable(DMCContext *context,
 			   DMCHeap *heap,
-			   DMC_STACK_TYPE(Uint) *text,
+			   DMC_STACK_TYPE(UWord) *text,
 			   Eterm t,
 			   int *constant)
 {
@@ -2955,7 +2957,7 @@ static DMCRet dmc_variable(DMCContext *context,
 
 static DMCRet dmc_all_bindings(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -2982,7 +2984,7 @@ static DMCRet dmc_all_bindings(DMCContext *context,
 
 static DMCRet dmc_const(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant)
 {
@@ -2999,7 +3001,7 @@ static DMCRet dmc_const(DMCContext *context,
 
 static DMCRet dmc_and(DMCContext *context,
 		      DMCHeap *heap,
-		      DMC_STACK_TYPE(Uint) *text,
+		      DMC_STACK_TYPE(UWord) *text,
 		      Eterm t,
 		      int *constant)
 {
@@ -3028,7 +3030,7 @@ static DMCRet dmc_and(DMCContext *context,
 
 static DMCRet dmc_or(DMCContext *context,
 		     DMCHeap *heap,
-		     DMC_STACK_TYPE(Uint) *text,
+		     DMC_STACK_TYPE(UWord) *text,
 		     Eterm t,
 		     int *constant)
 {
@@ -3058,7 +3060,7 @@ static DMCRet dmc_or(DMCContext *context,
 
 static DMCRet dmc_andalso(DMCContext *context,
 			  DMCHeap *heap,
-			  DMC_STACK_TYPE(Uint) *text,
+			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
 			  int *constant)
 {
@@ -3107,7 +3109,7 @@ static DMCRet dmc_andalso(DMCContext *context,
 
 static DMCRet dmc_orelse(DMCContext *context,
 			 DMCHeap *heap,
-			 DMC_STACK_TYPE(Uint) *text,
+			 DMC_STACK_TYPE(UWord) *text,
 			 Eterm t,
 			 int *constant)
 {
@@ -3155,7 +3157,7 @@ static DMCRet dmc_orelse(DMCContext *context,
 
 static DMCRet dmc_message(DMCContext *context,
 			  DMCHeap *heap,
-			  DMC_STACK_TYPE(Uint) *text,
+			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
 			  int *constant)
 {
@@ -3197,7 +3199,7 @@ static DMCRet dmc_message(DMCContext *context,
 
 static DMCRet dmc_self(DMCContext *context,
 		     DMCHeap *heap,
-		     DMC_STACK_TYPE(Uint) *text,
+		     DMC_STACK_TYPE(UWord) *text,
 		     Eterm t,
 		     int *constant)
 {
@@ -3217,7 +3219,7 @@ static DMCRet dmc_self(DMCContext *context,
 
 static DMCRet dmc_return_trace(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -3247,7 +3249,7 @@ static DMCRet dmc_return_trace(DMCContext *context,
 
 static DMCRet dmc_exception_trace(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -3279,7 +3281,7 @@ static DMCRet dmc_exception_trace(DMCContext *context,
 
 static DMCRet dmc_is_seq_trace(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -3305,7 +3307,7 @@ static DMCRet dmc_is_seq_trace(DMCContext *context,
 
 static DMCRet dmc_set_seq_token(DMCContext *context,
 				DMCHeap *heap,
-				DMC_STACK_TYPE(Uint) *text,
+				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
 				int *constant)
 {
@@ -3354,7 +3356,7 @@ static DMCRet dmc_set_seq_token(DMCContext *context,
 
 static DMCRet dmc_get_seq_token(DMCContext *context,
 				DMCHeap *heap,
-				DMC_STACK_TYPE(Uint) *text,
+				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
 				int *constant)
 {
@@ -3391,7 +3393,7 @@ static DMCRet dmc_get_seq_token(DMCContext *context,
 
 static DMCRet dmc_display(DMCContext *context,
 			  DMCHeap *heap,
-			  DMC_STACK_TYPE(Uint) *text,
+			  DMC_STACK_TYPE(UWord) *text,
 			  Eterm t,
 			  int *constant)
 {
@@ -3431,7 +3433,7 @@ static DMCRet dmc_display(DMCContext *context,
 
 static DMCRet dmc_process_dump(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -3461,7 +3463,7 @@ static DMCRet dmc_process_dump(DMCContext *context,
 
 static DMCRet dmc_enable_trace(DMCContext *context,
 			       DMCHeap *heap,
-			       DMC_STACK_TYPE(Uint) *text,
+			       DMC_STACK_TYPE(UWord) *text,
 			       Eterm t,
 			       int *constant)
 {
@@ -3521,7 +3523,7 @@ static DMCRet dmc_enable_trace(DMCContext *context,
 
 static DMCRet dmc_disable_trace(DMCContext *context,
 				DMCHeap *heap,
-				DMC_STACK_TYPE(Uint) *text,
+				DMC_STACK_TYPE(UWord) *text,
 				Eterm t,
 				int *constant)
 {
@@ -3581,7 +3583,7 @@ static DMCRet dmc_disable_trace(DMCContext *context,
 
 static DMCRet dmc_trace(DMCContext *context,
 			DMCHeap *heap,
-			DMC_STACK_TYPE(Uint) *text,
+			DMC_STACK_TYPE(UWord) *text,
 			Eterm t,
 			int *constant)
 {
@@ -3655,7 +3657,7 @@ static DMCRet dmc_trace(DMCContext *context,
 
 static DMCRet dmc_caller(DMCContext *context,
  			 DMCHeap *heap,
- 			 DMC_STACK_TYPE(Uint) *text,
+			 DMC_STACK_TYPE(UWord) *text,
  			 Eterm t,
  			 int *constant)
 {
@@ -3688,7 +3690,7 @@ static DMCRet dmc_caller(DMCContext *context,
   
 static DMCRet dmc_silent(DMCContext *context,
  			 DMCHeap *heap,
- 			 DMC_STACK_TYPE(Uint) *text,
+			 DMC_STACK_TYPE(UWord) *text,
  			 Eterm t,
  			 int *constant)
 {
@@ -3730,7 +3732,7 @@ static DMCRet dmc_silent(DMCContext *context,
 
 static DMCRet dmc_fun(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant)
 {
@@ -3847,7 +3849,7 @@ static DMCRet dmc_fun(DMCContext *context,
 	erl_exit(1,"ets:match() internal error, "
 		 "guard with more than 3 arguments.");
     }
-    DMC_PUSH(*text, (Uint) b->biff);
+    DMC_PUSH(*text, (UWord) b->biff);
     context->stack_used -= (((int) a) - 2);
     if (context->stack_used > context->stack_need)
  	context->stack_need = context->stack_used;
@@ -3856,7 +3858,7 @@ static DMCRet dmc_fun(DMCContext *context,
 
 static DMCRet dmc_expr(DMCContext *context,
 		       DMCHeap *heap,
-		       DMC_STACK_TYPE(Uint) *text,
+		       DMC_STACK_TYPE(UWord) *text,
 		       Eterm t,
 		       int *constant)
 {
@@ -3919,7 +3921,7 @@ static DMCRet dmc_expr(DMCContext *context,
     
 static DMCRet compile_guard_expr(DMCContext *context,
 				 DMCHeap *heap,
-				 DMC_STACK_TYPE(Uint) *text,
+				 DMC_STACK_TYPE(UWord) *text,
 				 Eterm l)
 {
     DMCRet ret;
@@ -4233,7 +4235,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Eterm l;
     Uint32 ret_flags;
     Uint sz;
-    Eterm *save_cp;
+    UWord *save_cp;
 
     if (trace && !(is_list(against) || against == NIL)) {
 	return THE_NON_VALUE;
@@ -4276,7 +4278,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    }
 	} else {
 	    n = 0;
-	    arr = (Eterm *) against;
+	    arr = (Eterm *) EXPAND_POINTER(against);
 	}
 	
 	/* We are in the context of a BIF, 
@@ -4327,7 +4329,7 @@ static Eterm seq_trace_fake(Process *p, Eterm arg1)
 static void db_match_dis(Binary *bp)
 {
     MatchProg *prog = Binary2MatchProg(bp);
-    Uint *t = prog->text;
+    UWord *t = prog->text;
     Uint n;
     Eterm p;
     int first;
@@ -4402,7 +4404,7 @@ static void db_match_dis(Binary *bp)
 		    first = 0;
 		else
 		    erts_printf(", ");
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		erts_printf("0x%016bpx", *t);
 #else
 		erts_printf("0x%08bpx", *t);
@@ -4422,7 +4424,7 @@ static void db_match_dis(Binary *bp)
 		    first = 0;
 		else
 		    erts_printf(", ");
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		erts_printf("0x%016bpx", *t);
 #else
 		erts_printf("0x%08bpx", *t);

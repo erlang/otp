@@ -44,13 +44,13 @@ extern void** beam_ops;
 #endif
 
 
-extern Eterm beam_debug_apply[];
-extern Eterm* em_call_error_handler;
-extern Eterm* em_apply_bif;
-extern Eterm* em_call_traced_function;
+extern UWord beam_debug_apply[];
+extern UWord* em_call_error_handler;
+extern UWord* em_apply_bif;
+extern UWord* em_call_traced_function;
 typedef struct {
-    Eterm* start;		/* Pointer to start of module. */
-    Eterm* end;			/* Points one word beyond last function in module. */
+    UWord* start;		/* Pointer to start of module. */
+    UWord* end;			/* Points one word beyond last function in module. */
 } Range;
 
 /*

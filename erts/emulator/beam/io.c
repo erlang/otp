@@ -3994,7 +3994,7 @@ drv_cancel_timer(Port *prt)
 	erts_port_task_abort(prt->id, &prt->timeout_task);
 }
 
-int driver_set_timer(ErlDrvPort ix, Uint t)
+int driver_set_timer(ErlDrvPort ix, UWord t)
 {
     Port* prt = erts_drvport2port(ix);
 
@@ -4053,12 +4053,16 @@ driver_read_timer(ErlDrvPort ix, unsigned long* t)
 int 
 driver_get_now(ErlDrvNowData *now_data)
 {
+    Uint mega,secs,micro
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     if (now_data == NULL) {
 	return -1;
     }
-    get_now(&(now_data->megasecs),&(now_data->secs),&(now_data->microsecs));
+    get_now(&mega,&secs,&micro);
+    now_data->megasecs = (unsigned long) mega;
+    now_data->secs = (unsigned long) secs;
+    now_data->microsecs = (unsigned long) micro;
     return 0;
 }
 

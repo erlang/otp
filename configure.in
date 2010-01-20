@@ -195,6 +195,10 @@ AC_ARG_ENABLE(threads,
 [  --enable-threads        enable async thread support
   --disable-threads       disable async thread support])
 
+AC_ARG_ENABLE(halfword-emulator,
+[  --enable-halfword-emulator        enable halfword emulator (only for 64bit builds)
+  --disable-halfword-emulator        disable halfword emulator (only for 64bit builds)])
+
 AC_ARG_ENABLE(smp-support,
 [  --enable-smp-support    enable smp support
   --disable-smp-support   disable smp support])

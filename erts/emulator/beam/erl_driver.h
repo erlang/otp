@@ -567,7 +567,7 @@ EXTERN int driver_send_term(ErlDrvPort ix, ErlDrvTermData to,
 
 /* Async IO functions */
 EXTERN long driver_async(ErlDrvPort ix,
-			 unsigned int* key,
+			 unsigned long* key,
 			 void (*async_invoke)(void*), 
 			 void* async_data,
 			 void (*async_free)(void*));

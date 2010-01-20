@@ -179,7 +179,7 @@ extern int erts_sched_thread_suggested_stack_size;
 
 
 #ifdef DEBUG
-#  ifdef ARCH_64
+#  if defined(ARCH_64) && !HALFWORD_HEAP
 #    define ERTS_DBG_SET_INVALID_RUNQP(RQP, N) \
        (*((char **) &(RQP)) = (char *) (0xdeadbeefdead0003 | ((N) << 4)))
 #  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP) \
@@ -344,7 +344,11 @@ struct ErtsSchedulerData_ {
      * numbered registers as possible in the same cache
      * line).
      */
+#if !HALFWORD_HEAP
     Eterm save_reg[ERTS_X_REGS_ALLOCATED]; /* X registers */
+#else
+    Eterm *save_reg;
+#endif
     FloatDef freg[MAX_REG];	/* Floating point registers. */
     ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
@@ -525,8 +529,8 @@ struct process {
     unsigned max_arg_reg;	/* Maximum number of argument registers available. */
     Eterm def_arg_reg[6];	/* Default array for argument registers. */
 
-    Eterm* cp;			/* Continuation pointer (for threaded code). */
-    Eterm* i;			/* Program counter for threaded code. */
+    UWord* cp;			/* Continuation pointer (for threaded code). */
+    UWord* i;			/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
     Sint fcalls;		/* 
 				 * Number of reductions left to execute.
@@ -573,11 +577,11 @@ struct process {
     Uint seq_trace_lastcnt;
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
-    Eterm initial[3];		/* Initial module(0), function(1), arity(2) */
-    Eterm* current;		/* Current Erlang function:
+    UWord initial[3];		/* Initial module(0), function(1), arity(2) */
+    UWord* current;		/* Current Erlang function, part of the funcinfo:
 				 * module(0), function(1), arity(2)
 				 * (module and functions are tagged atoms;
-				 * arity an untagged integer).
+				 * arity an untagged integer). UWord * because it references code
 				 */
     
     /*
@@ -1216,8 +1220,8 @@ erts_proc_get_error_handler(Process *p)
     if (!val)
 	return am_error_handler;
     else {
-	ASSERT(is_atom(((Eterm) val)));
-	return (Eterm) val;
+	ASSERT(is_atom(((Eterm) (UWord) val)));
+	return (Eterm) (UWord) val;
     }
 }
 
@@ -1227,13 +1231,13 @@ erts_proc_set_error_handler(Process *p, ErtsProcLocks plocks, Eterm handler)
     void *old_val;
     void *new_val;
     ASSERT(is_atom(handler));
-    new_val = handler == am_error_handler ? NULL : (void *) handler;
+    new_val = (handler == am_error_handler) ? NULL : (void *) (UWord) handler;
     old_val = erts_psd_set(p, plocks, ERTS_PSD_ERROR_HANDLER, new_val);
     if (!old_val)
 	return am_error_handler;
     else {
-	ASSERT(is_atom(((Eterm) old_val)));
-	return (Eterm) old_val;
+	ASSERT(is_atom(((Eterm) (UWord) old_val)));
+	return (Eterm) (UWord) old_val;
     }
 }
 

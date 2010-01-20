@@ -38,7 +38,7 @@
 #include "beam_bp.h"
 #include "erl_binary.h"
 
-#ifdef ARCH_64
+#ifdef ARCH_64 /* XXX:PaN Halfword? */
 # define HEXF "%016bpX"
 #else
 # define HEXF "%08bpX"

@@ -105,7 +105,7 @@ unsigned tag_val_def(Eterm x)
 	  break;
       }
     }
-    sprintf(msg, "tag_val_def: %#lx", x);
+    sprintf(msg, "tag_val_def: %#lx", (unsigned long) x);
     et_abort(msg, file, line);
 #undef file
 #undef line
@@ -165,8 +165,8 @@ ET_DEFINE_CHECKED(Uint32*,external_ref_data,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(Eterm*,export_val,Eterm,is_export);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,Uint*,_is_taggable_pointer);
-ET_DEFINE_CHECKED(Uint*,cp_val,Eterm,is_CP);
+ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
+ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
 ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);

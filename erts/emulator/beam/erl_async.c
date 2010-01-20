@@ -390,7 +390,7 @@ int check_async_ready(void)
 **      async_data     data to pass to invoke function
 **      async_free     function for relase async_data in case of failure
 */
-long driver_async(ErlDrvPort ix, unsigned int* key,
+long driver_async(ErlDrvPort ix, unsigned long* key,
 		  void (*async_invoke)(void*), void* async_data,
 		  void (*async_free)(void*))
 {

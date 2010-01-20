@@ -962,12 +962,12 @@ static int function_is_traced(Eterm mfa[3],
     e.code[2] = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
 	if (ep->address == ep->code+3 &&
-	    ep->code[3] != (Uint) em_call_error_handler) {
-	    if (ep->code[3] == (Uint) em_call_traced_function) {
+	    ep->code[3] != (UWord) em_call_error_handler) {
+	    if (ep->code[3] == (UWord) em_call_traced_function) {
 		*ms = ep->match_prog_set;
 		return FUNC_TRACE_GLOBAL_TRACE;
 	    }
-	    if (ep->code[3] == (Uint) em_apply_bif) {
+	    if (ep->code[3] == (UWord) em_apply_bif) {
 		for (i = 0; i < BIF_SIZE; ++i) {
 		    if (bif_export[i] == ep) {
 			int r = 0;
@@ -1439,9 +1439,9 @@ static int
 setup_func_trace(Export* ep, void* match_prog)
 {
     if (ep->address == ep->code+3) {
-	if (ep->code[3] == (Uint) em_call_error_handler) {
+	if (ep->code[3] == (UWord) em_call_error_handler) {
 	    return 0;
-	} else if (ep->code[3] == (Uint) em_call_traced_function) {
+	} else if (ep->code[3] == (UWord) em_call_traced_function) {
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = match_prog;
 	    MatchSetRef(ep->match_prog_set);
@@ -1461,8 +1461,8 @@ setup_func_trace(Export* ep, void* match_prog)
 	return 0;
     }
     
-    ep->code[3] = (Uint) em_call_traced_function;
-    ep->code[4] = (Uint) ep->address;
+    ep->code[3] = (UWord) em_call_traced_function;
+    ep->code[4] = (UWord) ep->address;
     ep->address = ep->code+3;
     ep->match_prog_set = match_prog;
     MatchSetRef(ep->match_prog_set);
@@ -1474,7 +1474,7 @@ static void setup_bif_trace(int bif_index) {
     
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
-    ep->code[4] = (Uint) bif_table[bif_index].traced;
+    ep->code[4] = (UWord) bif_table[bif_index].traced;
 }
 
 static void set_trace_bif(int bif_index, void* match_prog) {
@@ -1501,9 +1501,9 @@ static int
 reset_func_trace(Export* ep)
 {
     if (ep->address == ep->code+3) {
-	if (ep->code[3] == (Uint) em_call_error_handler) {
+	if (ep->code[3] == (UWord) em_call_error_handler) {
 	    return 0;
-	} else if (ep->code[3] == (Uint) em_call_traced_function) {
+	} else if (ep->code[3] == (UWord) em_call_traced_function) {
 	    ep->address = (Uint *) ep->code[4];
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
@@ -1536,8 +1536,8 @@ static void reset_bif_trace(int bif_index) {
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
     ASSERT(! ep->match_prog_set);
-    ASSERT(! erts_is_mtrace_bif((Uint *)ep->code+3, NULL, NULL));
-    ep->code[4] = (Uint) bif_table[bif_index].f;
+    ASSERT(! erts_is_mtrace_bif((UWord *)ep->code+3, NULL, NULL));
+    ep->code[4] = (UWord) bif_table[bif_index].f;
 }
 
 static void clear_trace_bif(int bif_index) {

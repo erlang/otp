@@ -212,7 +212,7 @@ typedef struct db_table_common {
 #endif
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
-    Eterm heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
+    UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     SysTimeval heir_started;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Eterm id;                 /* atom | integer */
@@ -304,9 +304,9 @@ typedef struct match_prog {
     Uint eheap_offset;
     Uint stack_offset;
 #ifdef DMC_DEBUG
-    Uint* prog_end;		/* End of program */
+    UWord* prog_end;		/* End of program */
 #endif
-    Uint text[1];		/* Beginning of program */
+    UWord text[1];		/* Beginning of program */
 } MatchProg;
 
 /*

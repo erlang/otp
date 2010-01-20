@@ -127,7 +127,7 @@ bld_bin_list(Uint **hpp, Uint *szp, ProcBin* pb)
     Eterm tuple;
 
     for (; pb; pb = pb->next) {
-	Eterm val = erts_bld_uint(hpp, szp, (Uint) pb->val);
+	Eterm val = erts_bld_uword(hpp, szp, (UWord) pb->val);
 	Eterm orig_size = erts_bld_uint(hpp, szp, pb->val->orig_size);
 
 	if (szp)
@@ -1010,7 +1010,7 @@ process_info_aux(Process *BIF_P,
 	    hp = HAlloc(BIF_P, 3);
 	    res = am_undefined;
 	} else {
-	    Eterm* current;
+	    UWord* current;
 
 	    if (rp->current[0] == am_erlang &&
 		rp->current[1] == am_process_info &&
@@ -2829,7 +2829,7 @@ fun_info_2(Process* p, Eterm fun, Eterm what)
 	    goto error;
 	}
     } else if (is_export(fun)) {
-	Export* exp = (Export *) (export_val(fun))[1];
+	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	switch (what) {
 	case am_type:
 	    hp = HAlloc(p, 3);
@@ -3022,11 +3022,11 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = erts_run_queues_len(NULL);
 	BIF_RET(make_small(res));
     } else if (BIF_ARG_1 == am_wall_clock) {
-	Uint w1, w2;
+	UWord w1, w2;
 	Eterm b1, b2;
 	wall_clock_elapsed_time_both(&w1, &w2);
-	b1 = erts_make_integer(w1,BIF_P);
-	b2 = erts_make_integer(w2,BIF_P);
+	b1 = erts_make_integer((Uint) w1,BIF_P);
+	b2 = erts_make_integer((Uint) w2,BIF_P);
 	hp = HAlloc(BIF_P,3);
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);

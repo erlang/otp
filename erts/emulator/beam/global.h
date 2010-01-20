@@ -403,7 +403,7 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 
 /* Add fields in ERTS_INTERNAL_BINARY_FIELDS, otherwise the drivers crash */
 #define ERTS_INTERNAL_BINARY_FIELDS				\
-    Uint flags;							\
+    UWord flags;							\
     erts_refc_t refc;						\
     ERTS_BINARY_STRUCT_ALIGNMENT
 
@@ -723,6 +723,60 @@ do {									\
 #define ESTACK_POP(s) (*(--ESTK_CONCAT(s,_sp)))
 
 
+void erl_grow_wstack(UWord** start, UWord** sp, UWord** end);
+#define WSTK_CONCAT(a,b) a##b
+#define WSTK_SUBSCRIPT(s,i) *((UWord *)((byte *)WSTK_CONCAT(s,_start) + (i)))
+#define DEF_WSTACK_SIZE (16)
+
+#define DECLARE_WSTACK(s)						\
+    UWord WSTK_CONCAT(s,_default_stack)[DEF_WSTACK_SIZE];		\
+    UWord* WSTK_CONCAT(s,_start) = WSTK_CONCAT(s,_default_stack);	\
+    UWord* WSTK_CONCAT(s,_sp) = WSTK_CONCAT(s,_start);			\
+    UWord* WSTK_CONCAT(s,_end) = WSTK_CONCAT(s,_start) + DEF_WSTACK_SIZE
+
+#define DESTROY_WSTACK(s)						\
+do {									\
+    if (WSTK_CONCAT(s,_start) != WSTK_CONCAT(s,_default_stack)) {	\
+	erts_free(ERTS_ALC_T_ESTACK, WSTK_CONCAT(s,_start));		\
+    }									\
+} while(0)
+
+#define WSTACK_PUSH(s, x)						\
+do {									\
+    if (WSTK_CONCAT(s,_sp) == WSTK_CONCAT(s,_end)) {			\
+	erl_grow_wstack(&WSTK_CONCAT(s,_start), &WSTK_CONCAT(s,_sp),	\
+	               &WSTK_CONCAT(s,_end));				\
+    }									\
+    *WSTK_CONCAT(s,_sp)++ = (x);					\
+} while(0)
+
+#define WSTACK_PUSH2(s, x, y)						\
+do {									\
+    if (WSTK_CONCAT(s,_sp) > WSTK_CONCAT(s,_end) - 2) {			\
+	erl_grow_wstack(&WSTK_CONCAT(s,_start), &WSTK_CONCAT(s,_sp),	\
+		&WSTK_CONCAT(s,_end));	\
+    }									\
+    *WSTK_CONCAT(s,_sp)++ = (x);					\
+    *WSTK_CONCAT(s,_sp)++ = (y);					\
+} while(0)
+
+#define WSTACK_PUSH3(s, x, y, z)					\
+do {									\
+    if (WSTK_CONCAT(s,_sp) > WSTK_CONCAT(s,_end) - 3) {			\
+	erl_grow_wstack(&WSTK_CONCAT(s,_start), &WSTK_CONCAT(s,_sp),	\
+		&WSTK_CONCAT(s,_end));					\
+    }									\
+    *WSTK_CONCAT(s,_sp)++ = (x);					\
+    *WSTK_CONCAT(s,_sp)++ = (y);					\
+    *WSTK_CONCAT(s,_sp)++ = (z);					\
+} while(0)
+
+#define WSTACK_COUNT(s) (WSTK_CONCAT(s,_sp) - WSTK_CONCAT(s,_start))
+
+#define WSTACK_ISEMPTY(s) (WSTK_CONCAT(s,_sp) == WSTK_CONCAT(s,_start))
+#define WSTACK_POP(s) (*(--WSTK_CONCAT(s,_sp)))
+
+
 /* port status flags */
 
 #define ERTS_PORT_SFLG_CONNECTED	((Uint32) (1 <<  0))
@@ -802,7 +856,7 @@ void erts_system_profile_clear(Process *c_p);
 int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm* mod, byte* code, int size);
 void init_load(void);
-Eterm* find_function_from_pc(Eterm* pc);
+UWord* find_function_from_pc(UWord* pc);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
@@ -1171,7 +1225,7 @@ erts_smp_port_unlock(Port *prt)
   ERTS_INVALID_PORT_OPT((PP), (ID), ERTS_PORT_SFLGS_INVALID_TRACER_LOOKUP)
 
 #define ERTS_PORT_SCHED_ID(P, ID) \
-  ((Uint) erts_prtsd_set((P), ERTS_PSD_SCHED_ID, (void *) (ID)))
+  ((Uint) (UWord) erts_prtsd_set((P), ERTS_PSD_SCHED_ID, (void *) (UWord) (ID)))
 
 #ifdef ERTS_SMP
 Port *erts_de2port(DistEntry *, Process *, ErtsProcLocks);
@@ -1463,6 +1517,7 @@ Uint32 make_hash(Eterm);
 
 Eterm erts_bld_atom(Uint **hpp, Uint *szp, char *str);
 Eterm erts_bld_uint(Uint **hpp, Uint *szp, Uint ui);
+Eterm erts_bld_uword(Uint **hpp, Uint *szp, UWord uw);
 Eterm erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64);
 Eterm erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64);
 Eterm erts_bld_cons(Uint **hpp, Uint *szp, Eterm car, Eterm cdr);
@@ -1554,12 +1609,12 @@ void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm);
-Uint32 erts_call_trace(Process *p, Eterm mfa[], Binary *match_spec, Eterm* args,
+Uint32 erts_call_trace(Process *p, UWord mfa[], Binary *match_spec, Eterm* args,
 		       int local, Eterm *tracer_pid);
-void erts_trace_return(Process* p, Eterm* fi, Eterm retval, Eterm *tracer_pid);
-void erts_trace_exception(Process* p, Eterm mfa[], Eterm class, Eterm value, 
+void erts_trace_return(Process* p, UWord* fi, Eterm retval, Eterm *tracer_pid);
+void erts_trace_exception(Process* p, UWord mfa[], Eterm class, Eterm value,
 			  Eterm *tracer);
-void erts_trace_return_to(Process *p, Uint *pc);
+void erts_trace_return_to(Process *p, UWord *pc);
 void trace_sched(Process*, Eterm);
 void trace_proc(Process*, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm pid, Eterm mod, Eterm func, Eterm args);
@@ -1589,7 +1644,7 @@ Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, Eterm *pTracer, int *pCpuTimestamp);
 Eterm erts_bif_trace(int bif_index, Process* p, 
-		     Eterm arg1, Eterm arg2, Eterm arg3, Uint *I);
+		     Eterm arg1, Eterm arg2, Eterm arg3, UWord *I);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);
@@ -1606,7 +1661,7 @@ void bin_write(int, void*, byte*, int);
 int intlist_to_buf(Eterm, char*, int); /* most callers pass plain char*'s */
 
 struct Sint_buf {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     char s[22];
 #else
     char s[12];

@@ -812,9 +812,10 @@ sub basic_generator {
     # Pack arguments if requested.
     #
 
-    if ($flags =~ /-pack/ && $hot) {
-	($prefix, $pack_spec, @args) = &do_pack(@args);
-    }
+    # /* XXX:PaN temporarilly disabled during halfword implementation step 1 */
+    #if ($flags =~ /-pack/ && $hot) {
+    #    ($prefix, $pack_spec, @args) = &do_pack(@args);
+    #}
 
     #
     # Calculate the size of the instruction and generate each argument for
@@ -916,7 +917,7 @@ sub basic_generator {
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
-			 "Eterm* next;",
+			 "UWord* next;",
 			 "PreFetch($size, next);",
 			 "$macro_code",
 			 "NextPF($size, next);",

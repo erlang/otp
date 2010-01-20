@@ -246,7 +246,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 
     if (is_CP(obj)) {
 	PRINT_STRING(res, fn, arg, "<cp/header:");
-	PRINT_POINTER(res, fn, arg, obj);
+	PRINT_POINTER(res, fn, arg, cp_val(obj));
 	PRINT_CHAR(res, fn, arg, '>');
 	return res;
     }
@@ -406,7 +406,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	break;
     case EXPORT_DEF:
 	{
-	    Export* ep = (Export *) (export_val(obj))[1];
+	    Export* ep = *((Export **) (export_val(obj) + 1));
 	    Atom* module = atom_tab(atom_val(ep->code[0]));
 	    Atom* name = atom_tab(atom_val(ep->code[1]));
 
@@ -438,7 +438,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	break;
     default:
 	PRINT_STRING(res, fn, arg, "<unknown:");
-	PRINT_POINTER(res, fn, arg, obj);
+	PRINT_POINTER(res, fn, arg, (UWord) obj);
 	PRINT_CHAR(res, fn, arg, '>');
 	break;
     }

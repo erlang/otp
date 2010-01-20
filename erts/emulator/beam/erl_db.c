@@ -87,7 +87,7 @@ static union {
 static struct {
     union {
 	DbTable *tb;     /* Only directly readable if slot is ALIVE */
-	Uint next_free;  /* (index<<2)|1 if slot is FREE */
+	UWord next_free;  /* (index<<2)|1 if slot is FREE */
     }u;
 } *meta_main_tab;
 
@@ -187,7 +187,7 @@ static Eterm ms_delete_all_buff[8]; /* To compare with for deletion
 
 static void fix_table_locked(Process* p, DbTable* tb);
 static void unfix_table_locked(Process* p,  DbTable* tb, db_lock_kind_t* kind);
-static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data);
+static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data);
 static void free_heir_data(DbTable*);
 static void free_fixations_locked(DbTable *tb);
 
@@ -1186,7 +1186,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Eterm val;
     Eterm ret;
     Eterm heir;
-    Eterm heir_data;
+    UWord heir_data;
     Uint32 status;
     Sint keypos;
     int is_named, is_fine_locked;
@@ -1206,7 +1206,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     is_named = 0;
     is_fine_locked = 0;
     heir = am_none;
-    heir_data = am_undefined;
+    heir_data = (UWord) am_undefined;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -1566,9 +1566,15 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * (it looks like an continuation pointer), but that is will crash the
 	 * emulator if this BIF is call traced.
 	 */
+#if HALFWORD_HEAP
+	Eterm *hp = HAlloc(BIF_P, 3);
+	hp[0] = make_pos_bignum_header(2);
+	*((UWord *) (UWord) (hp+1)) = (UWord) tb;
+#else
 	Eterm *hp = HAlloc(BIF_P, 2);
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
+#endif
 	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
@@ -1638,7 +1644,7 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     Eterm* tp;
     Eterm opt;
     Eterm heir = THE_NON_VALUE;
-    Eterm heir_data = THE_NON_VALUE;
+    UWord heir_data = (UWord) THE_NON_VALUE;
     Uint32 protection = 0;
     DeclareTmpHeap(fakelist,2,BIF_P);
     Eterm tail;
@@ -2618,7 +2624,7 @@ void init_db(void)
 {
     DbTable init_tb;
     int i;
-    extern Eterm* em_apply_bif;
+    extern UWord* em_apply_bif;
     Eterm *hp;
     unsigned bits;
     size_t size;
@@ -2747,9 +2753,9 @@ void init_db(void)
     ets_select_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
     ets_select_delete_continue_exp.code[2] = 1;
     ets_select_delete_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(UWord) em_apply_bif;
     ets_select_delete_continue_exp.code[4] = 
-	(Eterm) &ets_select_delete_1;
+	(UWord) &ets_select_delete_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_select_count_continue_exp, 0, sizeof(Export));
@@ -2759,9 +2765,9 @@ void init_db(void)
     ets_select_count_continue_exp.code[1] = am_atom_put("count_trap",11);
     ets_select_count_continue_exp.code[2] = 1;
     ets_select_count_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(UWord) em_apply_bif;
     ets_select_count_continue_exp.code[4] = 
-	(Eterm) &ets_select_count_1;
+	(UWord) &ets_select_count_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_select_continue_exp, 0, sizeof(Export));
@@ -2771,9 +2777,9 @@ void init_db(void)
     ets_select_continue_exp.code[1] = am_atom_put("select_trap",11);
     ets_select_continue_exp.code[2] = 1;
     ets_select_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(UWord) em_apply_bif;
     ets_select_continue_exp.code[4] = 
-	(Eterm) &ets_select_trap_1;
+	(UWord) &ets_select_trap_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_delete_continue_exp, 0, sizeof(Export));
@@ -2781,8 +2787,8 @@ void init_db(void)
     ets_delete_continue_exp.code[0] = am_ets;
     ets_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
     ets_delete_continue_exp.code[2] = 1;
-    ets_delete_continue_exp.code[3] = (Eterm) em_apply_bif;
-    ets_delete_continue_exp.code[4] = (Eterm) &ets_delete_trap;
+    ets_delete_continue_exp.code[3] = (UWord) em_apply_bif;
+    ets_delete_continue_exp.code[4] = (UWord) &ets_delete_trap;
 
     hp = ms_delete_all_buff;
     ms_delete_all = CONS(hp, am_true, NIL);
@@ -2878,7 +2884,7 @@ static int give_away_to_heir(Process* p, DbTable* tb)
     ErtsProcLocks to_locks = ERTS_PROC_LOCK_MAIN;
     DeclareTmpHeap(buf,5,p);
     Eterm to_pid;
-    Eterm heir_data;
+    UWord heir_data;
 
     ASSERT(tb->common.owner == p->id);
     ASSERT(is_internal_pid(tb->common.heir));
@@ -3301,7 +3307,7 @@ static void free_fixations_locked(DbTable *tb)
     tb->common.fixations = NULL;
 }
 
-static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
+static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 {	
     tb->common.heir = heir;
     if (heir == am_none) {
@@ -3326,7 +3332,7 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
 
 	UseTmpHeap(2,me);
 	/* Make a dummy 1-tuple around data to use db_get_term() */
-	heir_data = (Eterm) db_get_term(&tb->common, NULL, 0,
+	heir_data = (UWord) db_get_term(&tb->common, NULL, 0,
 					TUPLE1(tmp,heir_data));
 	UnUseTmpHeap(2,me);
 	ASSERT(!is_immed(heir_data));
@@ -3351,7 +3357,7 @@ static BIF_RETTYPE ets_delete_trap(Process *p, Eterm cont)
 {
     int trap;
     Eterm* ptr = big_val(cont);
-    DbTable *tb = (DbTable *) ptr[1];
+    DbTable *tb = *((DbTable **) (UWord) (ptr + 1));
 
     ASSERT(*ptr == make_pos_bignum_header(1));
 

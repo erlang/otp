@@ -1109,11 +1109,21 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 			break;
 		    }
 		if (insert_bin) {
+#if HALFWORD_HEAP
+		    UWord val = (UWord) pb->val;
+		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE*2); /* extra place allocated */
+#else
 		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
+#endif
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
+#if HALFWORD_HEAP
+		    UseTmpHeapNoproc(BIG_UWORD_HEAP_SIZE(val));
+		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
+#else
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		    a.id = erts_bld_uint(&hp, NULL, (Uint) pb->val);
+#endif
 		    erts_match_prog_foreach_offheap(pb->val,
 						    insert_offheap2,
 						    (void *) &a);
@@ -1121,7 +1131,11 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->bin_val = pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
+#if HALFWORD_HEAP
+		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE*2);
+#else
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
+#endif
 		}
 	    }
 	}

@@ -52,7 +52,11 @@ typedef struct export
      *		on_load function that has not been run yet.
      *		Otherwise: 0.
      */
+#if HALFWORD_HEAP
+    UWord code[5];
+#else
     Eterm code[5];
+#endif
 } Export;
 
 
@@ -74,6 +78,6 @@ Export *export_get(Export*);
 #include "beam_load.h" /* For em_* extern declarations */ 
 #define ExportIsBuiltIn(EntryPtr) 			\
 (((EntryPtr)->address == (EntryPtr)->code + 3) && 	\
- ((EntryPtr)->code[3] == (Uint) em_apply_bif))
+ ((EntryPtr)->code[3] == (UWord) em_apply_bif))
 
 #endif

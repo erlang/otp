@@ -251,7 +251,7 @@ extern int erts_use_r9_pids_ports;
  * Refs                                                                    *
 \*                                                                         */
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 
 #define internal_ref_no_of_numbers(x)					\
   (internal_ref_data((x))[0])

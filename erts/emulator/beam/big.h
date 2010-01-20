@@ -34,7 +34,7 @@
 
 typedef Uint     ErtsDigit;
 
-#if (SIZEOF_VOID_P == 4) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
+#if ((SIZEOF_VOID_P == 4) || HALFWORD_HEAP) && defined(SIZEOF_LONG_LONG) && (SIZEOF_LONG_LONG == 8)
 /* Assume 32-bit machine with long long support */
 typedef Uint64   ErtsDoubleDigit;
 typedef Uint16   ErtsHalfDigit;
@@ -58,7 +58,7 @@ typedef Uint32   ErtsHalfDigit;
 
 typedef Uint  dsize_t;	 /* Vector size type */
 
-#define D_EXP (SIZEOF_VOID_P*8)
+#define D_EXP (ERTS_SIZEOF_ETERM*8)
 #define D_MASK     ((ErtsDigit)(-1))      /* D_BASE-1 */
 
 /* macros for bignum objects */
@@ -87,6 +87,12 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define BIG_NEED_SIZE(x)  ((x) + 1)
 
 #define BIG_UINT_HEAP_SIZE (1 + 1)	/* always, since sizeof(Uint) <= sizeof(Eterm) */
+
+#if HALFWORD_HEAP
+#define BIG_UWORD_HEAP_SIZE(UW) (((UW) >> (sizeof(Uint) * 8)) ? 3 : 2)
+#else
+#define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
+#endif
 
 #ifdef ARCH_32
 
@@ -136,6 +142,7 @@ int big_ucomp (Eterm, Eterm);
 int big_to_double(Eterm x, double* resp);
 Eterm small_to_big(Sint, Eterm*);
 Eterm uint_to_big(Uint, Eterm*);
+Eterm uword_to_big(UWord, Eterm*);
 Eterm erts_make_integer(Uint, Process *);
 
 dsize_t big_bytes(Eterm);

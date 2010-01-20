@@ -553,7 +553,7 @@ NAME##_free(TYPE *p)							\
 }
 
 #ifdef DEBUG
-#define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((Uint *) (PTR)) - 2))
+#define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))
 #endif /* #ifdef DEBUG */
 
 #undef ERTS_ALC_INLINE

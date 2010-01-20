@@ -235,9 +235,9 @@ pps(Process* p, Eterm* stop)
     }
 
     while(sp >= stop) {
-	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (Eterm) sp);
+	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (UWord) sp);
 	if (is_catch(*sp)) {
-	    erts_print(to, to_arg, "catch %d", (Uint)catch_pc(*sp));
+	    erts_print(to, to_arg, "catch %ld", (UWord)catch_pc(*sp));
 	} else {
 	    paranoid_display(to, to_arg, p, *sp);
 	}

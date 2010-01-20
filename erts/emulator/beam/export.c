@@ -46,8 +46,8 @@ static erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. 
 #define export_init_lock()	erts_smp_rwmtx_init(&export_table_lock, \
 						    "export_tab")
 
-extern Eterm* em_call_error_handler;
-extern Uint* em_call_traced_function;
+extern UWord* em_call_error_handler;
+extern UWord* em_call_traced_function;
 
 void
 export_info(int to, void *to_arg)
@@ -93,7 +93,7 @@ export_alloc(Export* tmpl)
     obj->code[2] = tmpl->code[2];
     obj->slot.index = -1;
     obj->address = obj->code+3;
-    obj->code[3] = (Eterm) em_call_error_handler;
+    obj->code[3] = (UWord) em_call_error_handler;
     obj->code[4] = 0;
     obj->match_prog_set = NULL;
     return obj;
@@ -140,7 +140,7 @@ init_export_table(void)
 Export*
 erts_find_export_entry(Eterm m, Eterm f, unsigned int a)
 {
-    HashValue hval = EXPORT_HASH(m, f, a);
+    HashValue hval = EXPORT_HASH((UWord) m, (UWord) f, (UWord) a);
     int ix;
     HashBucket* b;
 
@@ -185,7 +185,7 @@ erts_find_function(Eterm m, Eterm f, unsigned int a)
 
     ep = hash_get(&export_table.htable, (void*) &e);
     if (ep != NULL && ep->address == ep->code+3 &&
-	ep->code[3] != (Uint) em_call_traced_function) {
+	ep->code[3] != (UWord) em_call_traced_function) {
 	ep = NULL;
     }
     return ep;

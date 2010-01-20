@@ -1459,7 +1459,31 @@ Eterm uint_to_big(Uint x, Eterm *y)
     BIG_DIGIT(y, 0) = x;
     return make_big(y);
 }
+/*
+** convert UWord to bigint
+** (must only be used if x is to big to be stored as a small)
+** Allocation is tricky, the heap need has to be calculated
+** with the macro BIG_UWORD_HEAP_SIZE(x)
+*/
 
+Eterm uword_to_big(UWord x, Eterm *y)
+{
+#if HALFWORD_HEAP
+    Uint upper = x >> 32;
+    Uint lower = x & 0xFFFFFFFFUL;
+    if (upper == 0) {
+	*y = make_pos_bignum_header(1);
+    } else {
+	*y = make_pos_bignum_header(2);
+	BIG_DIGIT(y, 1) = upper;
+    }
+    BIG_DIGIT(y, 0) = lower;
+#else
+    *y = make_pos_bignum_header(1);
+    BIG_DIGIT(y, 0) = x;
+#endif
+    return make_big(y);
+}
 
 /*
 ** convert signed int to bigint

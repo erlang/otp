@@ -155,7 +155,7 @@ create_ref(Uint *hp, Uint32 *ref_numbers, Uint32 len)
 	erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
     }
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     hp[0] = make_ref_thing_header(len/2 + 1);
     datap = (Uint32 *) &hp[1];
     *(datap++) = len;
@@ -173,7 +173,7 @@ create_ref(Uint *hp, Uint32 *ref_numbers, Uint32 len)
 static int
 eq_non_standard_ref_numbers(Uint32 *rn1, Uint32 len1, Uint32 *rn2, Uint32 len2)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define MAX_REF_HEAP_SZ (1+(ERTS_MAX_REF_NUMBERS/2+1))
 #else
 #define MAX_REF_HEAP_SZ (1+ERTS_MAX_REF_NUMBERS)
@@ -398,7 +398,7 @@ setup_bif_timer(Uint32 xflags,
     
     if (!term_to_Uint(time, &timeout))
 	return THE_NON_VALUE;
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     if ((timeout >> 32) != 0)
 	return THE_NON_VALUE;
 #endif

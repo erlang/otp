@@ -251,7 +251,7 @@ BIF_RETTYPE is_function_2(BIF_ALIST_2)
 	    BIF_RET(am_true);
 	}
     } else if (is_export(BIF_ARG_1)) {
-	Export* exp = (Export *) (export_val(BIF_ARG_1))[1];
+	Export* exp = (Export *) EXPAND_POINTER((export_val(BIF_ARG_1))[1]);
 
 	if (exp->code[2] == (Uint) arity) {
 	    BIF_RET(am_true);

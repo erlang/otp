@@ -1489,20 +1489,28 @@ dec_pid(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Ete
 static byte*
 enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 {
-    DECLARE_ESTACK(s);
+    DECLARE_WSTACK(s);
     Uint n;
     Uint i;
     Uint j;
     Uint* ptr;
     Eterm val;
     FloatDef f;
+#if HALFWORD_HEAP
+    UWord wobj;
+#endif
+
 
     goto L_jump_start;
 
  outer_loop:
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-	switch (val = ESTACK_POP(s)) {
+    while (!WSTACK_ISEMPTY(s)) {
+#if HALFWORD_HEAP
+	obj = (Eterm) (wobj = WSTACK_POP(s));
+#else
+	obj = WSTACK_POP(s);
+#endif
+	switch (val = WSTACK_POP(s)) {
 	case ENC_TERM:
 	    break;
 	case ENC_ONE_CONS:
@@ -1513,29 +1521,40 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 
 		obj = CAR(cons);
 		tl = CDR(cons);
-		ESTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
-		ESTACK_PUSH(s, tl);
+		WSTACK_PUSH(s, is_list(tl) ? ENC_ONE_CONS : ENC_TERM);
+		WSTACK_PUSH(s, tl);
 	    }
 	    break;
 	case ENC_PATCH_FUN_SIZE:
 	    {
+#if HALFWORD_HEAP
+		byte* size_p = (byte *) wobj;
+#else
 		byte* size_p = (byte *) obj;
-
+#endif
 		put_int32(ep - size_p, size_p);
 	    }
 	    goto outer_loop;
 	case ENC_LAST_ARRAY_ELEMENT:
 	    {
+#if HALFWORD_HEAP
+		Eterm* ptr = (Eterm *) wobj;
+#else
 		Eterm* ptr = (Eterm *) obj;
+#endif
 		obj = *ptr;
 	    }
 	    break;
 	default:		/* ENC_LAST_ARRAY_ELEMENT+1 and upwards */
 	    {
+#if HALFWORD_HEAP
+		Eterm* ptr = (Eterm *) wobj;
+#else
 		Eterm* ptr = (Eterm *) obj;
+#endif
 		obj = *ptr++;
-		ESTACK_PUSH(s, val-1);
-		ESTACK_PUSH(s, (Eterm) ptr);
+		WSTACK_PUSH(s, val-1);
+		WSTACK_PUSH(s, (UWord) ptr);
 	    }
 	    break;
 	}
@@ -1665,8 +1684,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 		ep += 4;
 	    }
 	    if (i > 0) {
-		ESTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
-		ESTACK_PUSH(s, (Eterm) ptr);
+		WSTACK_PUSH(s, ENC_LAST_ARRAY_ELEMENT+i-1);
+		WSTACK_PUSH(s, (UWord) ptr);
 	    }
 	    break;
 
@@ -1744,7 +1763,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 	    }
 	case EXPORT_DEF:
 	    {
-		Export* exp = (Export *) (export_val(obj))[1];
+		Export* exp = *((Export **) (export_val(obj) + 1));
 		if ((dflags & DFLAG_EXPORT_PTR_TAG) != 0) {
 		    *ep++ = EXPORT_EXT;
 		    ep = enc_atom(acmp, exp->code[0], ep, dflags);
@@ -1773,8 +1792,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 		    int ei;
 
 		    *ep++ = NEW_FUN_EXT;
-		    ESTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
-		    ESTACK_PUSH(s, (Eterm) ep); /* Position for patching in size */
+		    WSTACK_PUSH(s, ENC_PATCH_FUN_SIZE);
+		    WSTACK_PUSH(s, (UWord) ep); /* Position for patching in size */
 		    ep += 4;
 		    *ep = funp->arity;
 		    ep += 1;
@@ -1791,8 +1810,8 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 
 		fun_env:
 		    for (ei = funp->num_free-1; ei > 0; ei--) {
-			ESTACK_PUSH(s, ENC_TERM);
-			ESTACK_PUSH(s, funp->env[ei]);
+			WSTACK_PUSH(s, ENC_TERM);
+			WSTACK_PUSH(s, (UWord) funp->env[ei]);
 		    }
 		    if (funp->num_free != 0) {
 			obj = funp->env[0];
@@ -1835,7 +1854,7 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 	    break;
 	}
     }
-    DESTROY_ESTACK(s);
+    DESTROY_WSTACK(s);
     return ep;
 }
 
@@ -1959,7 +1978,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 
     while (next != NULL) {
 	objp = next;
-	next = (Eterm *) (*objp);
+	next = (Eterm *) EXPAND_POINTER(*objp);
 
 	switch (*ep++) {
 	case INTEGER_EXT:
@@ -1967,7 +1986,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
 		Sint sn = get_int32(ep);
 
 		ep += 4;
-#if defined(ARCH_64)
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		*objp = make_small(sn);
 #else
 		if (MY_IS_SSMALL(sn)) {
@@ -2064,7 +2083,7 @@ dec_term_atom_common:
 	    hp += n;
 	    objp = hp - 1;
 	    while (n-- > 0) {
-		objp[0] = (Eterm) next;
+		objp[0] = (Eterm) COMPRESS_POINTER(next);
 		next = objp;
 		objp--;
 	    }
@@ -2082,12 +2101,12 @@ dec_term_atom_common:
 	    *objp = make_list(hp);
 	    hp += 2*n;
 	    objp = hp - 2;
-	    objp[0] = (Eterm) (objp+1);
-	    objp[1] = (Eterm) next;
+	    objp[0] = (Eterm) COMPRESS_POINTER((objp+1));
+	    objp[1] = (Eterm) COMPRESS_POINTER(next);
 	    next = objp;
 	    objp -= 2;
 	    while (--n > 0) {
-		objp[0] = (Eterm) next;
+		objp[0] = (Eterm) COMPRESS_POINTER(next);
 		objp[1] = make_list(objp + 2);
 		next = objp;
 		objp -= 2;
@@ -2242,7 +2261,7 @@ dec_term_atom_common:
 		if(node == erts_this_node) {
 		    RefThing *rtp = (RefThing *) hp;
 		    hp += REF_THING_HEAD_SIZE;
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		    rtp->header = make_ref_thing_header(ref_words/2 + 1);
 #else
 		    rtp->header = make_ref_thing_header(ref_words);
@@ -2253,7 +2272,7 @@ dec_term_atom_common:
 		    ExternalThing *etp = (ExternalThing *) hp;
 		    hp += EXTERNAL_THING_HEAD_SIZE;
 		    
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		    etp->header = make_external_ref_header(ref_words/2 + 1);
 #else
 		    etp->header = make_external_ref_header(ref_words);
@@ -2266,7 +2285,7 @@ dec_term_atom_common:
 		}
 
 		ref_num = (Uint32 *) hp;
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		*(ref_num++) = ref_words /* 32-bit arity */;
 #endif
 		ref_num[0] = r0;
@@ -2274,7 +2293,7 @@ dec_term_atom_common:
 		    ref_num[i] = get_int32(ep);
 		    ep += 4;
 		}
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		if ((1 + ref_words) % 2)
 		    ref_num[ref_words] = 0;
 		hp += ref_words/2 + 1;
@@ -2401,7 +2420,12 @@ dec_term_atom_common:
                 }
 		*objp = make_export(hp);
 		*hp++ = HEADER_EXPORT;
+#if HALFWORD_HEAP
+		*((UWord *) (UWord) hp) =  (UWord) erts_export_get_or_make_stub(mod, name, arity);
+		hp += 2;
+#else
 		*hp++ = (Eterm) erts_export_get_or_make_stub(mod, name, arity);
+#endif
 		break;
 	    }
 	    break;
@@ -2477,11 +2501,11 @@ dec_term_atom_common:
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
-		    funp->env[i] = (Eterm) next;
+		    funp->env[i] = (Eterm) COMPRESS_POINTER(next);
 		    next = funp->env + i;
 		}
 		/* Creator */
-		funp->creator = (Eterm) next;
+		funp->creator = (Eterm) COMPRESS_POINTER(next);
 		next = &(funp->creator);
 		break;
 	    }
@@ -2552,7 +2576,7 @@ dec_term_atom_common:
 
 		/* Environment */
 		for (i = num_free-1; i >= 0; i--) {
-		    funp->env[i] = (Eterm) next;
+		    funp->env[i] = (Eterm) COMPRESS_POINTER(next);
 		    next = funp->env + i;
 		}
 		break;
@@ -2583,26 +2607,35 @@ dec_term_atom_common:
 static Uint
 encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 {
-    DECLARE_ESTACK(s);
+    DECLARE_WSTACK(s);
     Uint m, i, arity;
     Uint result = 0;
+#if HALFWORD_HEAP
+    UWord wobj;
+#endif
 
     goto L_jump_start;
 
  outer_loop:
-    while (!ESTACK_ISEMPTY(s)) {
-	obj = ESTACK_POP(s);
-
+    while (!WSTACK_ISEMPTY(s)) {
+#if HALFWORD_HEAP
+	obj = (Eterm) (wobj = WSTACK_POP(s));
+#else
+	obj = WSTACK_POP(s);
+#endif
     handle_popped_obj:
-	if (is_CP(obj)) {
+	if (is_CP(obj)) { /* Does not look for CP, looks for "no tag" */
+#if HALFWORD_HEAP
+	    Eterm* ptr = (Eterm *) wobj;
+#else
 	    Eterm* ptr = (Eterm *) obj;
-
+#endif
 	    /*
 	     * Pointer into a tuple.
 	     */
 	    obj = *ptr--;
 	    if (!is_header(obj)) {
-		ESTACK_PUSH(s, (Eterm)ptr);
+		WSTACK_PUSH(s, (UWord)ptr);
 	    } else {
 		/* Reached tuple header */
 		ASSERT(header_is_arityval(obj));
@@ -2614,7 +2647,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 
 	    tl = CDR(cons);
 	    obj = CAR(cons);
-	    ESTACK_PUSH(s, tl);
+	    WSTACK_PUSH(s, tl);
 	} else if (is_nil(obj)) {
 	    result++;
 	    goto outer_loop;
@@ -2703,7 +2736,11 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 		    result += 1 + 4;
 		}
 		ptr += arity;
+#if HALFWORD_HEAP
+		obj = (Eterm) (wobj = (UWord) ptr);
+#else
 		obj = (Eterm) ptr;
+#endif
 		goto handle_popped_obj;
 	    }
 	    break;
@@ -2745,14 +2782,14 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 
 		    if (is_not_list(obj)) {
 			/* Push any non-list terms on the stack */
-			ESTACK_PUSH(s, obj);
+			WSTACK_PUSH(s, obj);
 		    } else {
 			/* Lists must be handled specially. */
 			if ((m = is_string(obj)) && (m < MAX_STRING_LEN)) {
 			    result += m + 2 + 1;
 			} else {
 			    result += 5;
-			    ESTACK_PUSH(s, obj);
+			    WSTACK_PUSH(s, obj);
 			}
 		    }
 		}
@@ -2765,8 +2802,12 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 
 	case EXPORT_DEF:
 	    {
-		Export* ep = (Export *) (export_val(obj))[1];
+		Export* ep = *((Export **) (export_val(obj) + 1));
+#if HALFWORD_HEAP
+		result += 2;
+#else
 		result += 1;
+#endif
 		result += encode_size_struct2(acmp, ep->code[0], dflags);
 		result += encode_size_struct2(acmp, ep->code[1], dflags);
 		result += encode_size_struct2(acmp, make_small(ep->code[2]), dflags);
@@ -2779,7 +2820,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 	}
     }
 
-    DESTROY_ESTACK(s);
+    DESTROY_WSTACK(s);
     return result;
 }
 
@@ -2891,7 +2932,7 @@ decoded_size(byte *ep, byte* endp, int no_refc_bins)
 		ep += 2;
 		atom_extra_skip = 1 + 4*id_words;
 		/* In case it is an external ref */
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words/2 + 1;
 #else
 		heap_size += EXTERNAL_THING_HEAD_SIZE + id_words;

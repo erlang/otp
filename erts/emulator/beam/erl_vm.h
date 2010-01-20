@@ -139,7 +139,11 @@
 #define HeapWordsLeft(p) (HEAP_LIMIT(p) - HEAP_TOP(p))
 
 #if defined(DEBUG) || defined(CHECK_FOR_HOLES)
+#if HALFWORD_HEAP
+# define ERTS_HOLE_MARKER (0xaf5e78ccU)
+#else
 # define ERTS_HOLE_MARKER (((0xaf5e78ccUL << 24) << 8) | 0xaf5e78ccUL)
+#endif
 #endif
 
 /*

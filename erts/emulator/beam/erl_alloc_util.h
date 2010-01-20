@@ -27,8 +27,8 @@
 typedef struct Allctr_t_ Allctr_t;
 
 typedef struct {
-    Uint ycs;
-    Uint mmc;
+    UWord ycs;
+    UWord mmc;
 } AlcUInit_t;
 
 typedef struct {
@@ -38,22 +38,22 @@ typedef struct {
     int tspec;
     int tpref;
     int ramv;
-    Uint sbct;
-    Uint asbcst;
-    Uint rsbcst;
-    Uint rsbcmt;
-    Uint rmbcmt;
-    Uint mmbcs;
-    Uint mmsbc;
-    Uint mmmbc;
-    Uint lmbcs;
-    Uint smbcs;
-    Uint mbcgs;
+    UWord sbct;
+    UWord asbcst;
+    UWord rsbcst;
+    UWord rsbcmt;
+    UWord rmbcmt;
+    UWord mmbcs;
+    UWord mmsbc;
+    UWord mmmbc;
+    UWord lmbcs;
+    UWord smbcs;
+    UWord mbcgs;
 } AllctrInit_t;
 
 typedef struct {
-    Uint blocks;
-    Uint carriers;
+    UWord blocks;
+    UWord carriers;
 } AllctrSize_t;
 
 #ifndef SMALL_MEMORY
@@ -150,7 +150,7 @@ void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
 
 #undef ERTS_ALLOC_UTIL_HARD_DEBUG
 #ifdef DEBUG
-#  if 0
+#  if 1
 #    define ERTS_ALLOC_UTIL_HARD_DEBUG
 #  endif
 #endif
@@ -163,19 +163,19 @@ void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
 #define CEILING(X, I)  ((((X) - 1)/(I) + 1)*(I))
 
 #undef  WORD_MASK
-#define INV_WORD_MASK	((Uint) (sizeof(Uint) - 1))
+#define INV_WORD_MASK	((UWord) (sizeof(UWord) - 1))
 #define WORD_MASK	(~INV_WORD_MASK)
 #define WORD_FLOOR(X)	((X) & WORD_MASK)
 #define WORD_CEILING(X)	WORD_FLOOR((X) + INV_WORD_MASK)
 
 #undef  UNIT_MASK
-#define INV_UNIT_MASK	((Uint) (sizeof(Unit_t) - 1))
+#define INV_UNIT_MASK	((UWord) (sizeof(Unit_t) - 1))
 #define UNIT_MASK	(~INV_UNIT_MASK)
 #define UNIT_FLOOR(X)	((X) & UNIT_MASK)
 #define UNIT_CEILING(X)	UNIT_FLOOR((X) + INV_UNIT_MASK)
 
 
-#define SZ_MASK			(~((Uint) 0) << 3)
+#define SZ_MASK			(~((UWord) 0) << 3)
 #define FLG_MASK		(~(SZ_MASK))
 
 
@@ -189,7 +189,7 @@ typedef union {char c[8]; long l; double d;} Unit_t;
 
 typedef struct Carrier_t_ Carrier_t;
 struct Carrier_t_ {
-    Uint chdr;
+    UWord chdr;
     Carrier_t *next;
     Carrier_t *prev;
 };
@@ -199,17 +199,17 @@ typedef struct {
     Carrier_t *last;
 } CarrierList_t;
 
-typedef Uint Block_t;
-typedef Uint FreeBlkFtr_t;
+typedef UWord Block_t;
+typedef UWord FreeBlkFtr_t;
 
 typedef struct {
-    Uint giga_no;
-    Uint no;
+    UWord giga_no;
+    UWord no;
 } CallCounter_t;
 
 typedef struct {
-    Uint		no;
-    Uint		size;
+    UWord		no;
+    UWord		size;
 } StatValues_t;
 
 typedef struct {

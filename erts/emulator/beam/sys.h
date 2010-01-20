@@ -20,6 +20,7 @@
 #ifndef __SYS_H__
 #define __SYS_H__
 
+
 #if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
 #  define NO_FPE_SIGNALS
 #endif
@@ -233,6 +234,10 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 ** UInt:  An unsigned integer exactly as large as an Eterm.
 ** SInt:  A signed integer exactly as large as an eterm and therefor large
 **        enough to hold the return value of the signed_val() macro.
+** UWord: An unsigned integer at least as large as a void * and also as large
+**          or larger than an Eterm
+** SWord: A signed integer at least as large as a void * and also as large
+**          or larger than an Eterm
 ** Uint32: An unsigned integer of 32 bits exactly
 ** Sint32: A signed integer of 32 bits exactly
 ** Uint16: An unsigned integer of 16 bits exactly
@@ -253,10 +258,42 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
+#ifdef ARCH_64
+#  ifdef HALFWORD_HEAP_EMULATOR
+#    define HALFWORD_HEAP 1
+#    define HALFWORD_ASSERT 1
+#  else
+#    define HALFWORD_HEAP 0
+#    define HALFWORD_ASSERT 1
+#  endif
+#endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T
 #error sizeof(void*) != sizeof(size_t)
 #endif
+
+#if HALFWORD_HEAP
+
+#if SIZEOF_INT == 4
+typedef unsigned int Eterm;
+typedef unsigned int Uint;
+typedef int          Sint;
+#define ERTS_SIZEOF_ETERM SIZEOF_INT
+#else
+#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+#endif
+
+#if SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long UWord;
+typedef long          SWord;
+#elif SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int UWord;
+typedef int          SWord;
+#else
+#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+#endif
+
+#else /* !HALFWORD_HEAP */
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long Eterm;
@@ -271,6 +308,11 @@ typedef int          Sint;
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
+
+typedef Uint UWord;
+typedef Sint SWord;
+
+#endif /* HALFWORD_HEAP */
 
 #ifndef HAVE_INT64
 #if SIZEOF_LONG == 8

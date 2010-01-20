@@ -76,8 +76,8 @@ void erts_init_bif_re(void)
     re_exec_trap_export.code[0] = am_erlang;
     re_exec_trap_export.code[1] = am_re_run_trap;
     re_exec_trap_export.code[2] = 3;
-    re_exec_trap_export.code[3] = (Eterm) em_apply_bif;
-    re_exec_trap_export.code[4] = (Eterm) &re_exec_trap;
+    re_exec_trap_export.code[3] = (UWord) em_apply_bif;
+    re_exec_trap_export.code[4] = (UWord) &re_exec_trap;
 
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);
@@ -103,7 +103,7 @@ Sint erts_re_set_loop_limit(Sint limit)
 
 static int term_to_int(Eterm term, int *sp)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 
     if (is_small(term)) {
 	Uint x = signed_val(term);
@@ -154,7 +154,7 @@ static int term_to_int(Eterm term, int *sp)
 
 static Eterm make_signed_integer(int x, Process *p)
 {
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     return make_small(x);
 #else
     Eterm* hp;
