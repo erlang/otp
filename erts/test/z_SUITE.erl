@@ -39,7 +39,7 @@
 
 -export([search_for_core_files/1, core_files/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
     
 
 init_per_testcase(Case, Config) ->

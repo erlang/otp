@@ -24,7 +24,8 @@
 	 obsolete_but_not_deprecated/1,call_to_deprecated/1,
          call_to_size_1/1,strong_components/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
+
 -import(lists, [filter/2,foldl/3,foreach/2]).
 
 all(suite) ->

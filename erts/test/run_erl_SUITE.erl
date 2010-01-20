@@ -23,7 +23,7 @@
 	 basic/1,heavy/1,heavier/1,defunct/1]).
 -export([ping_me_back/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 init_per_testcase(_Case, Config) ->
     Dog = ?t:timetrap(?t:minutes(2)),

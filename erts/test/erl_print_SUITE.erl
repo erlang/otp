@@ -36,7 +36,7 @@
 
 -export([erlang_display/1, integer/1, float/1, string/1, character/1, snprintf/1, quote/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
     
 all(doc) -> [];
 all(suite) -> test_cases().

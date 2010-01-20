@@ -18,7 +18,8 @@
 %%
 %%% Purpose: Test NT specific utilities
 -module(nt_SUITE).
--include("test_server.hrl").
+
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,nt/1,handle_eventlog/2,

@@ -35,7 +35,7 @@
 
 -export([args_file/1, evil_args_file/1, env/1, args_file_env/1, otp_7461/1, otp_7461_remote/1, otp_8209/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
     
 
 init_per_testcase(Case, Config) ->
