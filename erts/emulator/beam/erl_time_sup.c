@@ -754,11 +754,7 @@ get_sys_now(Uint* megasec, Uint* sec, Uint* microsec)
 {
     SysTimeval now;
     
-    erts_smp_mtx_lock(&erts_timeofday_mtx);
-    
     sys_gettimeofday(&now);
-    
-    erts_smp_mtx_unlock(&erts_timeofday_mtx);
     
     *megasec = (Uint) (now.tv_sec / 1000000);
     *sec = (Uint) (now.tv_sec % 1000000);
