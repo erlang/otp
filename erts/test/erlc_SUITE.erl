@@ -23,7 +23,7 @@
 -export([all/1, compile_erl/1, compile_yecc/1, compile_script/1,
 	 compile_mib/1, good_citizen/1, deep_cwd/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 all(suite) ->
     [compile_erl, compile_yecc, compile_script, compile_mib,
