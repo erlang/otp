@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -48,7 +48,8 @@
 	 scheduler_bind_types/1,
 	 cpu_topology/1,
 	 sct_cmd/1,
-	 sbt_cmd/1]).
+	 sbt_cmd/1,
+	 scheduler_suspend/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(10)).
 
@@ -65,7 +66,8 @@ all(suite) ->
      equal_with_high,
      equal_with_high_max,
      bound_process,
-     scheduler_bind].
+     scheduler_bind,
+     scheduler_suspend].
 
 init_per_testcase(Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
@@ -882,10 +884,102 @@ sbt_test(Config, CpuTCmd, ClBt, Bt, LP) ->
     ?line stop_node(Node),
     ?line ok.
     
+scheduler_suspend(Config) when is_list(Config) ->
+    ?line Dog = ?t:timetrap(?t:minutes(2)),
+    ?line lists:foreach(fun (S) -> scheduler_suspend_test(Config, S) end,
+			[64, 32, 16, default]),
+    ?line ?t:timetrap_cancel(Dog),
+    ?line ok.
+scheduler_suspend_test(Config, Schedulers) ->
+    ?line Cmd = case Schedulers of
+		    default ->
+			"";
+		    _ ->
+			S = integer_to_list(Schedulers),
+			"+S"++S++":"++S
+		end,
+    ?line {ok, Node} = start_node(Config, Cmd),
+    ?line [SState] = mcall(Node, [fun () ->
+					  erlang:system_info(schedulers_state)
+				  end]),
+    ?line {Sched, _, _} = SState,
+    ?line true = is_integer(Sched),
+    ?line [ok] = mcall(Node, [fun () -> sst0_loop(300) end]),
+    ?line [ok] = mcall(Node, [fun () -> sst1_loop(300) end]),
+    ?line [ok] = mcall(Node, [fun () -> sst2_loop(300) end]),
+    ?line [ok, ok, ok, ok, ok] = mcall(Node,
+				       [fun () -> sst0_loop(200) end,
+					fun () -> sst1_loop(200) end,
+					fun () -> sst2_loop(200) end,
+					fun () -> sst2_loop(200) end,
+					fun () -> sst3_loop(Sched, 200) end]),
+    ?line [SState] = mcall(Node, [fun () ->
+					  erlang:system_info(schedulers_state)
+				  end]),
+    ?line stop_node(Node),
+    ?line ok.
+    
 
-%
+sst0_loop(0) ->
+    ok;
+sst0_loop(N) ->
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, unblock),
+    erlang:yield(),
+    sst0_loop(N-1).
+
+sst1_loop(0) ->
+    ok;
+sst1_loop(N) ->
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, unblock),
+    sst1_loop(N-1).
+
+sst2_loop(0) ->
+    ok;
+sst2_loop(N) ->
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, block),
+    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock),
+    erlang:system_flag(multi_scheduling, unblock),
+    sst2_loop(N-1).
+
+sst3_loop(_S, 0) ->
+    ok;
+sst3_loop(S, N) ->
+    erlang:system_flag(schedulers_online, (S div 2)+1),
+    erlang:system_flag(schedulers_online, 1),
+    erlang:system_flag(schedulers_online, (S div 2)+1),
+    erlang:system_flag(schedulers_online, S),
+    erlang:system_flag(schedulers_online, 1),
+    erlang:system_flag(schedulers_online, S),
+    sst3_loop(S, N-1).
+    
+
+%%
 %% Utils
 %%
+
+mcall(Node, Funs) ->
+    Parent = self(),
+    Refs = lists:map(fun (Fun) ->
+			     Ref = make_ref(),
+			     spawn_link(Node,
+					fun () ->
+						Res = Fun(),
+						unlink(Parent),
+						Parent ! {Ref, Res}
+					end),
+			     Ref
+		     end, Funs),
+    lists:map(fun (Ref) ->
+		      receive
+			  {Ref, Res} ->
+			      Res
+		      end
+	      end, Refs).
 
 erl_rel_flag_var() ->
     "ERL_"++erlang:system_info(otp_release)++"_FLAGS".

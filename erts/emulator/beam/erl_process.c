@@ -2522,8 +2522,11 @@ suspend_scheduler(ErtsSchedulerData *esdp)
 			      NULL);
     }
 
-    erts_smp_atomic_inc(&schdlr_sspnd.active);
-
+    active_schedulers = erts_smp_atomic_inctest(&schdlr_sspnd.active);
+    if (schdlr_sspnd.changing == ERTS_SCHED_CHANGING_MULTI_SCHED
+	&& schdlr_sspnd.online == active_schedulers) {
+	schdlr_sspnd.changing = 0;
+    }
     erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
 
     if (erts_system_profile_flags.scheduler)
@@ -2750,11 +2753,12 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
     ErtsProcList *plp;
 
     erts_smp_mtx_lock(&schdlr_sspnd.mtx);
-    if (on) {
-	if (schdlr_sspnd.changing) {
-	    res = ERTS_SCHDLR_SSPND_YIELD_RESTART; /* Yield */
-	}
-	else if (erts_is_multi_scheduling_blocked()) {
+
+    if (schdlr_sspnd.changing) {
+	res = ERTS_SCHDLR_SSPND_YIELD_RESTART; /* Yield */
+    }
+    else if (on) { /* ------ BLOCK ------ */
+	if (erts_is_multi_scheduling_blocked()) {
 	    plp = proclist_create(p);
 	    plp->next = schdlr_sspnd.msb.procs;
 	    schdlr_sspnd.msb.procs = plp;
@@ -2842,10 +2846,11 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 	}
     }
     else if (!ongoing_multi_scheduling_block()) {
+	/* unblock not ongoing */
 	ASSERT(!schdlr_sspnd.msb.procs);
 	res = ERTS_SCHDLR_SSPND_DONE;
     }
-    else {
+    else {  /* ------ UNBLOCK ------ */
 	if (p->flags & F_HAVE_BLCKD_MSCHED) {
 	    ErtsProcList **plpp = &schdlr_sspnd.msb.procs;
 	    plp = schdlr_sspnd.msb.procs;
@@ -2930,7 +2935,6 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 		erts_smp_mtx_lock(&schdlr_sspnd.mtx);
 	    }
 	    erts_smp_cnd_broadcast(&schdlr_sspnd.cnd);
-	    schdlr_sspnd.changing = 0;
 	    res = ERTS_SCHDLR_SSPND_DONE;
 	}
     }
