@@ -45,7 +45,7 @@ hang_1(doc) ->
     ["Bad args can hang (OTP-2400)"];
 hang_1(suite) ->
     [];
-hang_1(Config) when list(Config) ->
+hang_1(Config) when is_list(Config) ->
     ?line _ = (catch io:format(a, "", [])),
     ?line _ = (catch io:format({}, "", [])),
     ok.

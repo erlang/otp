@@ -79,14 +79,14 @@ select_test(suite) ->
     [];
 select_test(doc) ->
     ["Tests select in numerous ways"];
-select_test(Config) when list(Config) ->
+select_test(Config) when is_list(Config) ->
     do_test(Config).
 
 return_values(suite) ->
     [];
 return_values(doc) ->
     ["Tests return values in specific situations for select/3 and select/1"];
-return_values(Config) when list(Config) ->
+return_values(Config) when is_list(Config) ->
     do_return_values().
 
 -endif.
@@ -279,7 +279,7 @@ cmp_ms_to_fun({Mod,Tab}, MS, Fun1, Fun2, ChunkSize) ->
     MSRes = lists:sort(chunked_select(Mod,Tab,MS,ChunkSize)),
     FunRes0 = table_foldl(Fun1,[],{Mod,Tab}),
     FunRes = case Fun2 of
-		 F when function(F) ->
+		 F when is_function(F) ->
 		     FunRes1 = table_foldl(F,[],{Mod,Tab}),
 		     lists:merge(FunRes0,FunRes1);
 		 [] ->

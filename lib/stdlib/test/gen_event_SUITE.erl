@@ -33,7 +33,7 @@ all(suite) -> {req, [stdlib], [start, test_all, hibernate]}.
 
 start(doc) -> [];
 start(suite) -> [];
-start(Config) when list(Config) ->
+start(Config) when is_list(Config) ->
     OldFl = process_flag(trap_exit, true),
 
     ?line {ok, Pid0} = gen_event:start(), %anonymous
@@ -175,7 +175,7 @@ test_all(suite) -> [add_handler, add_sup_handler, delete_handler,
 
 add_handler(doc) -> [];
 add_handler(suite) -> [];
-add_handler(Config) when list(Config) ->
+add_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line {error, my_error} =
 	gen_event:add_handler(my_dummy_handler, dummy_h, make_error),
@@ -196,7 +196,7 @@ add_handler(Config) when list(Config) ->
 
 add_sup_handler(doc) -> [];
 add_sup_handler(suite) -> [];
-add_sup_handler(Config) when list(Config) ->
+add_sup_handler(Config) when is_list(Config) ->
     ?line {ok,Pid} = gen_event:start({local, my_dummy_handler}),
     ?line {error, my_error} =
 	gen_event:add_sup_handler(my_dummy_handler, dummy_h, make_error),
@@ -238,7 +238,7 @@ add_sup_handler(Config) when list(Config) ->
 
 delete_handler(doc) -> [];
 delete_handler(suite) -> [];
-delete_handler(Config) when list(Config) ->
+delete_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ?line {error, module_not_found} =
@@ -270,7 +270,7 @@ delete_handler(Config) when list(Config) ->
 
 swap_handler(doc) -> [];
 swap_handler(suite) -> [];
-swap_handler(Config) when list(Config) ->
+swap_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ?line {error, non_existing} =
@@ -299,7 +299,7 @@ swap_handler(Config) when list(Config) ->
 	
 swap_sup_handler(doc) -> [];
 swap_sup_handler(suite) -> [];
-swap_sup_handler(Config) when list(Config) ->
+swap_sup_handler(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy_h, [self()]),
     ?line {error, non_existing} =
@@ -341,7 +341,7 @@ swap_sup_handler(Config) when list(Config) ->
 	
 notify(doc) -> [];
 notify(suite) -> [];
-notify(Config) when list(Config) ->
+notify(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     Event = {event, self()},
@@ -457,7 +457,7 @@ notify(Config) when list(Config) ->
 
 sync_notify(doc) -> [];
 sync_notify(suite) -> [];
-sync_notify(Config) when list(Config) ->
+sync_notify(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     Event = {event, self()},
@@ -576,7 +576,7 @@ sync_notify(Config) when list(Config) ->
 
 call(doc) -> [];
 call(suite) -> [];
-call(Config) when list(Config) ->
+call(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     ?line ok = gen_event:add_handler(my_dummy_handler, {dummy_h, 1}, [self()]),
@@ -718,7 +718,7 @@ flush() ->
 
 info(doc) -> [];
 info(suite) -> [];
-info(Config) when list(Config) ->
+info(Config) when is_list(Config) ->
     ?line {ok,_} = gen_event:start({local, my_dummy_handler}),
     ?line ok = gen_event:add_handler(my_dummy_handler, dummy_h, [self()]),
     Info = {info, self()},

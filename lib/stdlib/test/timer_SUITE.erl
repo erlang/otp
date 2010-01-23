@@ -271,7 +271,7 @@ collect(N, {E,A,B}, I) ->
 	print_report ->
 	    print_report({E,A,B,I}),
 	    collect(N,{E,A,B}, I);
-	{Pid, get_report} when pid(Pid) ->
+	{Pid, get_report} when is_pid(Pid) ->
 	    Pid ! {report, {E, A, B, I}},
 	    collect(N,{E,A,B}, I);
 	reset ->

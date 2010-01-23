@@ -40,7 +40,7 @@ fin_per_testcase(_Func, Config) ->
     ets:delete(?GLOBAL_PARAMS).
 
 
-ex1(Config) when list(Config) ->
+ex1(Config) when is_list(Config) ->
     ?line ets:new(?GLOBAL_PARAMS,[named_table,public]),
     ?line ets:insert(?GLOBAL_PARAMS,{a,set}),
     ?line ets:insert(?GLOBAL_PARAMS,{b,set}),
@@ -269,7 +269,7 @@ show_entries(Fd) ->
 
 start(DbName) ->
     case gen_server:start_link(ets_tough_SUITE,{DbName,no_dump_dir},[]) of
-	{ok,Pid} when pid(Pid) ->
+	{ok,Pid} when is_pid(Pid) ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -283,7 +283,7 @@ start(DbName) ->
 start(DbName,DumpDir) ->
     case gen_server:start_link(ets_tough_SUITE,
 			       {DbName,{dump_dir,DumpDir}},[]) of
-	{ok,Pid} when pid(Pid) ->
+	{ok,Pid} when is_pid(Pid) ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -1075,7 +1075,7 @@ phys_read_len(Fd) ->
 
 phys_read_entry(Fd,Len) ->
     case io:get_chars(Fd,'',Len) of
-	L when list(L), length(L) == Len ->
+	L when is_list(L), length(L) == Len ->
 	    {ok,binary_to_term(list_to_binary(L))};
 	Other ->
 	    {error,{read_term,Other}}

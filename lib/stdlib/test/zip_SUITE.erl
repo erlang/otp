@@ -181,7 +181,7 @@ atomic(doc) ->
     ["Test the 'atomic' operations: zip/unzip/list_dir, on archives."
      "Also test the 'cooked' option."];
 atomic(suite) -> [];
-atomic(Config) when list(Config) ->
+atomic(Config) when is_list(Config) ->
     ok = file:set_cwd(?config(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name,_,_} <- DataFiles],
@@ -209,7 +209,7 @@ openzip_api(doc) ->
     ["Test the openzip_open/2, openzip_get/1, openzip_get/2, openzip_close/1 "
      "and openzip_list_dir/1 functions."];
 openzip_api(suite) -> [];
-openzip_api(Config) when list(Config) ->
+openzip_api(Config) when is_list(Config) ->
     ok = file:set_cwd(?config(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
@@ -248,7 +248,7 @@ zip_api(doc) ->
     ["Test the zip_open/2, zip_get/1, zip_get/2, zip_close/1 "
      "and zip_list_dir/1 functions."];
 zip_api(suite) -> [];
-zip_api(Config) when list(Config) ->
+zip_api(Config) when is_list(Config) ->
     ok = file:set_cwd(?config(priv_dir, Config)),
     DataFiles = data_files(),
     Names = [Name || {Name, _, _} <- DataFiles],
@@ -550,7 +550,7 @@ aliases(Config) when is_list(Config) ->
 
 unzip_from_binary(doc) ->
     ["Test extracting a zip archive from a binary."];
-unzip_from_binary(Config) when list(Config) ->
+unzip_from_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     ExtractDir = filename:join(PrivDir, "extract_from_binary"),
@@ -626,7 +626,7 @@ delete_all_in(Dir) ->
 compress_control(doc) ->
     ["Test control of which files that should be compressed"];
 compress_control(suite) -> [];
-compress_control(Config) when list(Config) ->
+compress_control(Config) when is_list(Config) ->
     ok = file:set_cwd(?config(priv_dir, Config)),
     Dir = "compress_control",
     Files = [
