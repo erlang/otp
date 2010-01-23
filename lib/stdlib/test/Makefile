@@ -110,7 +110,7 @@ COVERFILE=stdlib.cover
 
 make_emakefile:
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
-	>> $(EMAKEFILE)
+	> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
