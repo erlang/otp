@@ -21,7 +21,7 @@
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
 	 wildcard_one/1,wildcard_two/1,wildcard_errors/1,
-	 fold_files/1,otp_5960/1]).
+	 fold_files/1,otp_5960/1,ensure_dir_eexist/1]).
 
 -import(lists, [foreach/2]).
 
@@ -38,7 +38,8 @@ fin_per_testcase(_Case, Config) ->
     ok.
 
 all(suite) ->
-    [wildcard_one,wildcard_two,wildcard_errors,fold_files,otp_5960].
+    [wildcard_one,wildcard_two,wildcard_errors,fold_files,otp_5960,
+     ensure_dir_eexist].
 
 wildcard_one(Config) when is_list(Config) ->
     ?line {ok,OldCwd} = file:get_cwd(),
@@ -223,7 +224,9 @@ otp_5960(Config) when is_list(Config) ->
     ?line Name1 = filename:join(Dir, name1),
     ?line Name2 = filename:join(Dir, name2),
     ?line ok = filelib:ensure_dir(Name1), % parent is created
+    ?line ok = filelib:ensure_dir(Name1), % repeating it should be OK
     ?line ok = filelib:ensure_dir(Name2), % parent already exists
+    ?line ok = filelib:ensure_dir(Name2), % repeating it should be OK
     ?line Name3 = filename:join(Name1, name3),
     ?line {ok, FileInfo} = file:read_file_info(Dir),
     case os:type() of
@@ -239,3 +242,16 @@ otp_5960(Config) when is_list(Config) ->
 	    ?line ok = file:write_file_info(Dir, #file_info{mode=Mode}),
 	    ok
     end.
+
+ensure_dir_eexist(Config) when is_list(Config) ->
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Dir = filename:join(PrivDir, ensure_dir_eexist),
+    ?line Name = filename:join(Dir, "same_name_as_file_and_dir"),
+    ?line ok = filelib:ensure_dir(Name),
+    ?line ok = file:write_file(Name, <<"some string\n">>),
+
+    %% There already is a file with the name of the directory
+    %% we want to create.
+    ?line NeedFile = filename:join(Name, "file"),
+    ?line {error, eexist} = filelib:ensure_dir(NeedFile),
+    ok.
