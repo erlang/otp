@@ -3371,7 +3371,7 @@ read_line_create_files(TestData) ->
     [ Function(File) || {Function,File,_,_} <- TestData ].
 
 read_line_remove_files(TestData) ->
-    [ file:delete(File) || {Function,File,_,_} <- TestData ].
+    [ file:delete(File) || {_Function,File,_,_} <- TestData ].
 
 read_line_1(suite) -> 
     [];
