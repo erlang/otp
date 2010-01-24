@@ -717,7 +717,7 @@ read_beam_file(St) ->
     case file:read_file(St#compile.ifile) of
 	{ok,Beam} ->
 	    Infile = St#compile.ifile,
-	    case is_too_old(Infile) of
+	    case no_native_compilation(Infile, St) of
 		true ->
 		    {ok,St#compile{module=none,code=none}};
 		false ->
@@ -730,12 +730,15 @@ read_beam_file(St) ->
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
-is_too_old(BeamFile) ->
+no_native_compilation(BeamFile, #compile{options=Opts0}) ->
     case beam_lib:chunks(BeamFile, ["CInf"]) of
 	{ok,{_,[{"CInf",Term0}]}} ->
 	    Term = binary_to_term(Term0),
-	    Opts = proplists:get_value(options, Term, []),
-	    lists:member(no_new_funs, Opts);
+
+	    %% Compiler options in the beam file will override
+	    %% options passed to the compiler.
+	    Opts = proplists:get_value(options, Term, []) ++ Opts0,
+	    member(no_new_funs, Opts) orelse not is_native_enabled(Opts);
 	_ -> false
     end.
 
@@ -1046,7 +1049,14 @@ beam_asm(#compile{ifile=File,code=Code0,abstract_code=Abst,options=Opts0}=St) ->
 
 test_native(#compile{options=Opts}) ->
     %% This test is done late, in case some other option has turned off native.
-    member(native, Opts).
+    %% 'native' given on the command line can be overridden by
+    %% 'no_native' in the module itself.
+    is_native_enabled(Opts).
+
+is_native_enabled([native|_]) -> true;
+is_native_enabled([no_native|_]) -> false;
+is_native_enabled([H|T]) -> is_native_enabled(T);
+is_native_enabled([]) -> false.
 
 native_compile(#compile{code=none}=St) -> {ok,St};
 native_compile(St) ->
