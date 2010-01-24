@@ -80,7 +80,7 @@ start_check(Type, Name) ->
 		 end,
     erlang:monitor_node(Node, true),
     case rpc:call(Node, erlang, whereis, [heart]) of
-	Pid when pid(Pid) ->
+	Pid when is_pid(Pid) ->
 	    ok;
 	_ ->
 	    test_server:fail(heart_not_started)
@@ -355,7 +355,7 @@ erl() ->
     end.
     
 name(Node) when is_list(Node) -> name(Node,[]);
-name(Node) when atom(Node) -> name(atom_to_list(Node),[]).
+name(Node) when is_atom(Node) -> name(atom_to_list(Node),[]).
 
 name([$@|Node], Name) ->
     case lists:member($., Node) of
@@ -368,7 +368,7 @@ name([H|T], Name) ->
     name(T, [H|Name]).
 
 
-atom_conv(A) when atom(A) ->
+atom_conv(A) when is_atom(A) ->
     atom_to_list(A);
 atom_conv(A) when is_list(A) ->
     A.

@@ -56,6 +56,6 @@ app_test(doc) ->
     ["Tests the applications consistency."];
 app_test(suite) ->
     [];
-app_test(Config) when list(Config) ->
+app_test(Config) when is_list(Config) ->
     ?line ok=?t:app_test(kernel),
     ok.

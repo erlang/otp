@@ -49,7 +49,7 @@ simple(doc) ->
     ["Tests simple functionality in process dictionary."];
 simple(suite) ->
     [];
-simple(Config) when list(Config) ->
+simple(Config) when is_list(Config) ->
     XX = get(),
     erase(),
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
@@ -146,7 +146,7 @@ info(doc) ->
     ["Tests process_info(Pid, dictionary)"];
 info(suite) ->
     [];
-info(Config) when list(Config) ->
+info(Config) when is_list(Config) ->
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],
     process_flag(trap_exit,true),

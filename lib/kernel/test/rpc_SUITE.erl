@@ -333,7 +333,7 @@ suicide(exit, Reason) ->
 
 suicide(erlang, exit, [Name, Reason]) when is_atom(Name) ->
     case whereis(Name) of
-	Pid when pid(Pid) -> suicide(erlang, exit, [Pid, Reason])
+	Pid when is_pid(Pid) -> suicide(erlang, exit, [Pid, Reason])
     end;
 suicide(Mod, Func, Args) ->
     spawn_link(
@@ -448,7 +448,7 @@ call_benchmark(Config) when is_list(Config) ->
     ?t:timetrap_cancel(Timetrap),
     ok.
 
-do_call_benchmark(Node, M) when integer(M), M > 0 ->
+do_call_benchmark(Node, M) when is_integer(M), M > 0 ->
     do_call_benchmark(Node, erlang:now(), 0, M).
 
 do_call_benchmark(Node, {A,B,C}, M, M) ->

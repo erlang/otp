@@ -56,7 +56,7 @@ from(_, []) -> [].
 %%-----------------------------------------------------------------
 sync(doc) -> [];
 sync(suite) -> [];
-sync(Conf) when list(Conf) ->
+sync(Conf) when is_list(Conf) ->
     ?line Dog = ?t:timetrap(?t:seconds(120)),
     % Write a config file
     Dir = ?config(priv_dir,Conf),

@@ -381,7 +381,7 @@ port(Config) when is_list(Config) ->
 
 get_port_message(Port) ->
     receive
-	{Port,{data,Bin}} when binary(Bin) ->
+	{Port,{data,Bin}} when is_binary(Bin) ->
 	    binary_to_term(Bin);
 	Other ->
 	    ?t:fail({unexpected,Other})
@@ -678,7 +678,7 @@ transparent_tracer() ->
     receive {started, Ref} -> ok end,
     fun(pid) ->
 	    Pid;
-       ({stop, N}) when integer(N), N >= 0 ->
+       ({stop, N}) when is_integer(N), N >= 0 ->
 	    Mref = erlang:monitor(process, Pid),
 	    receive
 		{'DOWN', Mref, _, _, _} ->
@@ -717,7 +717,7 @@ simple_tracer(Data, DN) ->
 	    From ! {tracerlog,lists:reverse(Data)}
     end.
 
-stop_tracer(N) when integer(N) ->
+stop_tracer(N) when is_integer(N) ->
     case catch (seq_trace_SUITE_tracer ! {stop,N,self()}) of
 	{'EXIT', _} ->
 	    {error, not_started};

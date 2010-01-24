@@ -55,7 +55,7 @@
 %% Exported functions.
 %%
 
-stop(Node) when atom(Node) ->
+stop(Node) when is_atom(Node) ->
     rpc:cast(Node, erlang, halt, []),
     io:format("Stopped loose node ~p~n", [Node]),
     ok.
@@ -63,9 +63,10 @@ stop(Node) when atom(Node) ->
 start(Name, Args) ->
     start(Name, Args, -1).
 
-start(Name, Args, TimeOut) when atom(Name) ->
+start(Name, Args, TimeOut) when is_atom(Name) ->
     start(atom_to_list(Name), Args, TimeOut);
-start(Name, Args, TimeOut) when list(Name), list(Args), integer(TimeOut) ->
+start(Name, Args, TimeOut)
+  when is_list(Name), is_list(Args), is_integer(TimeOut) ->
     Parent = self(),
     Ref = make_ref(),
     Starter
@@ -119,7 +120,7 @@ start(Name, Args, TimeOut) when list(Name), list(Args), integer(TimeOut) ->
 		  io:format("Trying to start loose node...~n"
 			    "  --> ~p~n", [Cmd]),
 		  Res = case open_port({spawn, Cmd}, []) of
-			    P when port(P) ->
+			    P when is_port(P) ->
 				receive
 				    {loose_node_started,
 				     Node,
@@ -150,14 +151,14 @@ start(Name, Args, TimeOut) when list(Name), list(Args), integer(TimeOut) ->
 %% Exported functions for internal use.
 %%
 
-loose_node_started([Name, Node, TimeOutSecs]) when list(Name),
-						   list(Node),
-						   list(TimeOutSecs) ->
+loose_node_started([Name, Node, TimeOutSecs]) when is_list(Name),
+						   is_list(Node),
+						   is_list(TimeOutSecs) ->
     spawn_opt(fun () ->
 		      process_flag(trap_exit, true),
 		      Proc = {list_to_atom(Name), list_to_atom(Node)},
 		      Timeout = case catch list_to_integer(TimeOutSecs) of
-				    I when integer(I), I >= 0 -> I*1000;
+				    I when is_integer(I), I >= 0 -> I*1000;
 				    _ -> infinity
 				end,
 		      wait_until(fun () -> is_alive() end),

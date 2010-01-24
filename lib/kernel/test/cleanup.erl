@@ -31,7 +31,7 @@ cleanup(_) ->
     ?line case nodes() of
 	      [] ->
 		  ok;
-	      Nodes when list(Nodes) ->
+	      Nodes when is_list(Nodes) ->
 		  Kill = fun(Node) -> spawn(Node, erlang, halt, []) end,
 		  ?line lists:foreach(Kill, Nodes),
 		  ?line test_server:fail({nodes_left, Nodes})

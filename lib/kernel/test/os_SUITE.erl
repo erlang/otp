@@ -32,7 +32,7 @@ space_in_cwd(doc) ->
     "Test that executing a command in a current working directory "
 	"with space in its name works.";
 space_in_cwd(suite) -> [];
-space_in_cwd(Config) when list(Config) ->
+space_in_cwd(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Dirname = filename:join(PrivDir, "cwd with space"),
     ?line ok = file:make_dir(Dirname),
@@ -60,7 +60,7 @@ space_in_cwd(Config) when list(Config) ->
 
 quoting(doc) -> "Test that various ways of quoting arguments work.";
 quoting(suite) -> [];
-quoting(Config) when list(Config) ->
+quoting(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line Echo = filename:join(DataDir, "my_echo"),
 
@@ -78,7 +78,7 @@ quoting(Config) when list(Config) ->
 space_in_name(doc) ->
     "Test that program with a space in its name can be executed.";
 space_in_name(suite) -> [];
-space_in_name(Config) when list(Config) ->
+space_in_name(Config) when is_list(Config) ->
     ?line PrivDir = ?config(priv_dir, Config),
     ?line DataDir = ?config(data_dir, Config),
     ?line Spacedir = filename:join(PrivDir, "program files"),
@@ -108,7 +108,7 @@ space_in_name(Config) when list(Config) ->
 bad_command(doc) ->
     "Check that a bad command doesn't crasch the server or the emulator (it used to).";
 bad_command(suite) -> [];
-bad_command(Config) when list(Config) ->
+bad_command(Config) when is_list(Config) ->
     ?line catch os:cmd([a|b]),
     ?line catch os:cmd({bad, thing}),
 
@@ -120,7 +120,7 @@ bad_command(Config) when list(Config) ->
 
 find_executable(suite) -> [];
 find_executable(doc) -> [];
-find_executable(Config) when list(Config) ->
+find_executable(Config) when is_list(Config) ->
     case os:type() of
 	{win32, _} -> 
 	    ?line DataDir = filename:join(?config(data_dir, Config), "win32"),
@@ -159,7 +159,7 @@ find_exe(Where, Name, Ext, Path) ->
     case os:find_executable(Name, Path) of
 	Expected ->
 	    ok;
-	Name when list(Name) ->
+	Name when is_list(Name) ->
 	    case filename:absname(Name) of
 		Expected ->
 		    ok;
@@ -176,7 +176,7 @@ find_exe(Where, Name, Ext, Path) ->
 unix_comment_in_command(doc) ->
     "OTP-1805: Test that os:cmd(\"ls #\") works correctly (used to hang).";
 unix_comment_in_command(suite) -> [];
-unix_comment_in_command(Config) when list(Config) ->
+unix_comment_in_command(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(20)),
     ?line Priv = ?config(priv_dir, Config),
     ?line ok = file:set_cwd(Priv),

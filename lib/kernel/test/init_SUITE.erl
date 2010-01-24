@@ -44,7 +44,7 @@ all(suite) ->
      restart,
      get_status, script_id, boot].
 
-init_per_testcase(Func, Config) when atom(Func), list(Config) ->
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(?DEFAULT_TIMEOUT_SEC)),
     [{watchdog, Dog}|Config].
 
@@ -477,7 +477,7 @@ script_id(Config) when is_list(Config) ->
 
     ?line {Name, Vsn} = init:script_id(),
     ?line if
-	      list(Name), list(Vsn) ->
+	      is_list(Name), is_list(Vsn) ->
 		  ok;
 	      true ->
 		  ?t:fail(not_standard_script)
