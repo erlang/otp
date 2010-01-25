@@ -37,6 +37,17 @@
 	stop/0
 	]).
 
+%% erts_debug:lock_counters api
+-export([
+	rt_collect/0,
+	rt_collect/1,
+	rt_clear/0,
+	rt_clear/1,
+	rt_opt/1,
+	rt_opt/2
+    ]).
+
+
 %% gen_server call api
 -export([
 	raw/0,
@@ -93,7 +104,6 @@
 	id,
 	type,
 	stats = []
-
     }).
 
 -record(print, {
@@ -108,6 +118,8 @@
 	dtr     % time duration ratio
     }).
 
+
+
 %% -------------------------------------------------------------------- %%
 %%
 %% start/stop/init
@@ -120,14 +132,39 @@ init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
 %% -------------------------------------------------------------------- %%
 %%
+%% API erts_debug:lock_counters
+%%
+%% -------------------------------------------------------------------- %%
+
+rt_collect() ->
+    erts_debug:lock_counters(info).
+
+rt_collect(Node) ->
+    rpc:call(Node, erts_debug, lock_counters, [info]).
+
+rt_clear() ->
+    erts_debug:lock_counters(clear).
+
+rt_clear(Node) ->
+    rpc:call(Node, erts_debug, lock_counters, [clear]).
+
+rt_opt({Type, Opt}) ->
+    erts_debug:lock_counters({Type, Opt}).
+
+rt_opt(Node, {Type, Opt}) ->
+    rpc:call(Node, erts_debug, lock_counters, [{Type, Opt}]).
+
+%% -------------------------------------------------------------------- %%
+%%
 %% API implementation
 %%
 %% -------------------------------------------------------------------- %%
 
-clear()              -> erts_debug:lock_counters(clear).
-clear(Node)          -> rpc:call(Node, erts_debug, lock_counters, [clear]).
-collect()            -> call({collect, erts_debug:lock_counters(info)}).
-collect(Node)        -> call({collect, rpc:call(Node, erts_debug, lock_counters, [info])}).
+clear()              -> rt_clear().
+clear(Node)          -> rt_clear(Node).
+collect()            -> call({collect, rt_collect()}).
+collect(Node)        -> call({collect, rt_collect(Node)}).
+
 locations()          -> call({locations,[]}).
 locations(Opts)      -> call({locations, Opts}).
 conflicts()          -> call({conflicts, []}).
@@ -152,9 +189,11 @@ call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
 
 apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
     lcnt:start(),
+    Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(M,F,As),
     lcnt:collect(),
+    lcnt:rt_opt({copy_save, Opt}),
     Res.
 
 apply(Fun) when is_function(Fun) ->
@@ -162,9 +201,11 @@ apply(Fun) when is_function(Fun) ->
 
 apply(Fun, As) when is_function(Fun) ->
     lcnt:start(),
+    Opt = lcnt:rt_opt({copy_save, true}),
     lcnt:clear(),
     Res = erlang:apply(Fun, As),
     lcnt:collect(),
+    lcnt:rt_opt({copy_save, Opt}),
     Res.
 
 all_conflicts() -> all_conflicts(time).
@@ -202,8 +243,10 @@ handle_call({conflicts, InOpts}, _From, #state{ locks = Locks } = State) when is
 	{combine,    true},
 	{thresholds, [{tries, 0}, {colls, 0}, {time, 0}] },
 	{locations,  false}],
+
     Opts       = options(InOpts, Default),
-    Combos     = combine_classes(Locks, proplists:get_value(combine, Opts)),
+    Flocks     = filter_locks_type(Locks, proplists:get_value(type, Opts)),
+    Combos     = combine_classes(Flocks, proplists:get_value(combine, Opts)),
     Printables = locks2print(Combos, State#state.duration),
     Filtered   = filter_print(Printables, Opts),
 
@@ -246,12 +289,12 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, loc
 	{reverse,    false},
 	{print,      [name,id,tries,colls,ratio,time,duration]},
 	{max_locks,  20},
-	{combine,    true},
-	{thresholds, [{tries, 0}, {colls, 0}, {time, 0}] },
+	{combine,    false},
+	{thresholds, [] },
 	{locations,  false}],
 
     Opts      = options(InOpts, Default),
-    Filtered  = filter_locks(Lockname, Locks),
+    Filtered  = filter_locks(Locks, Lockname),
     IDs       = case {proplists:get_value(full_id, Opts), proplists:get_value(combine, Opts)} of
 	{true, true} -> locks_ids(Filtered);
 	_            -> []
@@ -310,6 +353,9 @@ handle_call(swap_pid_keys, _From, #state{ locks = Locks } = State)->
 % settings
 handle_call({set, data, Data}, _From, State)->
     {reply, ok, data2state(Data, State)};
+
+handle_call({set, duration, Duration}, _From, State)->
+    {reply, ok, State#state{ duration = Duration}};
 
 % file operations
 handle_call({load, Filename}, _From, State) ->
@@ -397,13 +443,19 @@ summate_stats([S|Ss], #stats{ tries = Tries, colls = Colls, time = Time, nt = Nt
 
 
 %% manipulators
+filter_locks_type(Locks, undefined) -> Locks;
+filter_locks_type(Locks, all) -> Locks;
+filter_locks_type(Locks, Types) when is_list(Types) ->
+    [ L || L <- Locks, lists:member(L#lock.type, Types)];
+filter_locks_type(Locks, Type) ->
+    [ L || L <- Locks, L#lock.type =:= Type].
 
-filter_locks({Lockname, Ids}, Locks) when is_list(Ids) ->
-    [ L || L <- Locks, L#lock.name == Lockname, lists:member(L#lock.id, Ids)];
-filter_locks({Lockname, Id}, Locks) ->
-    [ L || L <- Locks, L#lock.name == Lockname, L#lock.id == Id ];
-filter_locks(Lockname, Locks) ->
-    [ L || L <- Locks, L#lock.name == Lockname ].
+filter_locks(Locks, {Lockname, Ids}) when is_list(Ids) ->
+    [ L || L <- Locks, L#lock.name =:= Lockname, lists:member(L#lock.id, Ids)];
+filter_locks(Locks, {Lockname, Id}) ->
+    [ L || L <- Locks, L#lock.name =:= Lockname, L#lock.id =:= Id ];
+filter_locks(Locks, Lockname) ->
+    [ L || L <- Locks, L#lock.name =:= Lockname ].
 % order of processing
 % 2. cut thresholds
 % 3. sort locks
@@ -554,11 +606,12 @@ data2state(Data, State) ->
 	locks    = Locks
     }.
 
-% [{name, id, type, [{{file, line}, {tries, colls, {s, ns, n}}}]
-locks2records(Locks) ->
-    [  #lock{
+locks2records(Locks) -> locks2records(Locks, []).
+locks2records([], Out) -> Out;
+locks2records([{Name, Id, Type, Stats}|Locks], Out) ->
+    Lock = #lock{
 	    name  = Name,
-	    id    = Id,
+	    id    = clean_id_creation(Id),
 	    type  = Type,
 	    stats = [ #stats{
 		file  = File,
@@ -567,10 +620,21 @@ locks2records(Locks) ->
 		colls = Colls,
 		time  = time2us({S, Ns}),
 		nt    = N
-	    } || {{File, Line}, {Tries, Colls, {S, Ns, N}}} <- Stats]
-	} ||  {Name, Id, Type, Stats} <- Locks
-    ].
+	    } || {{File, Line}, {Tries, Colls, {S, Ns, N}}} <- Stats] },
+    locks2records(Locks, [Lock|Out]).
 
+clean_id_creation(Id) when is_pid(Id) ->
+    Bin = term_to_binary(Id),
+    <<H:3/binary, L:16, Node:L/binary, Ids:8/binary, _Creation/binary>> = Bin,
+    Bin2 = list_to_binary([H, bytes16(L), Node, Ids, 0]),
+    binary_to_term(Bin2);
+clean_id_creation(Id) when is_port(Id) ->
+    Bin = term_to_binary(Id),
+    <<H:3/binary, L:16, Node:L/binary, Ids:4/binary, _Creation/binary>> = Bin,
+    Bin2 = list_to_binary([H, bytes16(L), Node, Ids, 0]),
+    binary_to_term(Bin2);
+clean_id_creation(Id) ->
+    Id.
 
 %% serializer
 
@@ -619,7 +683,7 @@ auto_print_width(Locks, Print) ->
 		    ({print,print}, Out) -> [print|Out];
 		    ({Str, Len}, Out)    -> [erlang:min(erlang:max(length(s(Str))+1,Len),80)|Out]
 		end, [], lists:zip(tuple_to_list(L), tuple_to_list(Max)))))
-	end, #print{ id = 3, type = 5, entry = 5, name = 5, tries = 7, colls = 13, cr = 16, time = 11, dtr = 14 },
+	end, #print{ id = 4, type = 5, entry = 5, name = 6, tries = 8, colls = 13, cr = 16, time = 11, dtr = 14 },
 	Locks),
     % Setup the offsets for later pruning
     Offsets = [
@@ -740,7 +804,7 @@ kv(Key, Value, Offset) -> term2string(term2string("~~~ps : ~~s", [Offset]),[Key,
 
 s(T) when is_float(T) -> term2string("~.4f", [T]);
 s(T) when is_list(T)  -> term2string("~s", [T]);
-s(T)                  -> term2string("~p", [T]).
+s(T)                  -> term2string(T).
 
 strings(Strings) -> strings(Strings, []).
 strings([], Out) -> Out;
@@ -750,5 +814,27 @@ strings([S|Ss], Out) -> strings(Ss, Out ++ term2string("~s", [S])).
 
 
 term2string({M,F,A}) when is_atom(M), is_atom(F), is_integer(A) -> term2string("~p:~p/~p", [M,F,A]);
+term2string(Term) when is_port(Term) ->
+    %  ex #Port<6442.816>
+    <<_:3/binary, L:16, Node:L/binary, Ids:32, _/binary>> = term_to_binary(Term),
+    term2string("#Port<~s.~w>", [Node, Ids]);
+term2string(Term) when is_pid(Term) ->
+    %  ex <0.80.0>
+    <<_:3/binary, L:16, Node:L/binary, Ids:32, Serial:32,  _/binary>> = term_to_binary(Term),
+    term2string("<~s.~w.~w>", [Node, Ids, Serial]);
 term2string(Term) -> term2string("~w", [Term]).
 term2string(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
+
+%%% AUD id binary
+
+bytes16(Value) ->
+    B0 =  Value band 255,
+    B1 = (Value bsr 8) band 255,
+    <<B1, B0>>.
+
+bytes32(Value) ->
+    B0 =  Value band 255,
+    B1 = (Value bsr  8) band 255,
+    B2 = (Value bsr 16) band 255,
+    B3 = (Value bsr 24) band 255,
+    <<B3, B2, B1, B0>>.
