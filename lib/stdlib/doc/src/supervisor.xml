@@ -402,9 +402,12 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
         <v>&nbsp;Module = atom()</v>
       </type>
       <desc>
-        <p>Returns a list with information about all child
+        <p>Returns a newly created list with information about all child
           specifications and child processes belonging to
           the supervisor <c>SupRef</c>.</p>
+        <p>Note that calling this function when supervising a large
+          number of children under low memory conditions can cause an
+          out of memory exception.</p>
         <p>See <c>start_child/2</c> for a description of <c>SupRef</c>.</p>
         <p>The information given for each child specification/process
           is:</p>
@@ -423,6 +426,39 @@ child_spec() = {Id,StartFunc,Restart,Shutdown,Type,Modules}
           </item>
           <item>
             <p><c>Modules</c> - as defined in the child specification.</p>
+          </item>
+        </list>
+      </desc>
+    </func>
+    <func>
+      <name>count_children(SupRef) -> PropListOfCounts</name>
+      <fsummary>Return counts for the number of childspecs, active children, supervisors and workers.</fsummary>
+      <type>
+        <v>SupRef = Name | {Name,Node} | {global,Name} | pid()</v>
+        <v>&nbsp;Name = Node = atom()</v>
+        <v>PropListOfCounts = [{specs, ChildSpecCount}, {active, ActiveProcessCount}, {supervisors, ChildSupervisorCount}, {workers, ChildWorkerCount}]</v>
+      </type>
+      <desc>
+        <p>Returns a property list (see <c>proplists</c>) containing the
+          counts for each of the following elements of the supervisor's
+          child specifications and managed processes:</p>
+        <list type="bulleted">
+          <item>
+            <p><c>specs</c> - the total count of children, dead or alive.</p>
+          </item>
+          <item>
+            <p><c>active</c> - the count of all actively running child processes
+              managed by this supervisor.</p>
+          </item>
+          <item>
+            <p><c>supervisors</c> - the count of all children marked as
+              child_type = supervisor in the spec list, whether or not the
+              child process is still alive.</p>
+          </item>
+          <item>
+            <p><c>workers</c> - the count of all children marked as
+              child_type = worker in the spec list, whether or not the child
+              process is still alive.</p>
           </item>
         </list>
       </desc>

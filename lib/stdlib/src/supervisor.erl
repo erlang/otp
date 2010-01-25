@@ -24,7 +24,7 @@
 -export([start_link/2,start_link/3,
 	 start_child/2, restart_child/2,
 	 delete_child/2, terminate_child/2,
-	 which_children/1,
+	 which_children/1, count_children/1,
 	 check_childspecs/1]).
 
 -export([behaviour_info/1]).
@@ -94,6 +94,9 @@ terminate_child(Supervisor, Name) ->
 
 which_children(Supervisor) ->
     call(Supervisor, which_children).
+
+count_children(Supervisor) ->
+    call(Supervisor, count_children).
 
 call(Supervisor, Req) ->
     gen_server:call(Supervisor, Req, infinity).
@@ -297,7 +300,49 @@ handle_call(which_children, _From, State) ->
 		    {Name, Pid, ChildType, Mods}
 		  end,
 		  State#state.children),
-    {reply, Resp, State}.
+    {reply, Resp, State};
+
+handle_call(count_children, _From, State) when ?is_simple(State) ->
+    [#child{child_type = CT}] = State#state.children,
+    {Active, Count} =
+	?DICT:fold(fun(Pid, _Val, {Alive, Tot}) ->
+			   if is_pid(Pid) -> {Alive+1, Tot +1};
+			      true -> {Alive, Tot + 1} end
+		   end, {0, 0}, State#state.dynamics),
+    Reply = case CT of
+		supervisor -> [{specs, 1}, {active, Active},
+			       {supervisors, Count}, {workers, 0}];
+		worker -> [{specs, 1}, {active, Active},
+			   {supervisors, 0}, {workers, Count}]
+	    end,
+    {reply, Reply, State};
+
+handle_call(count_children, _From, State) ->
+
+    %% Specs and children are together on the children list...
+    {Specs, Active, Supers, Workers} =
+	lists:foldl(fun(Child, Counts) ->
+			   count_child(Child, Counts)
+		   end, {0,0,0,0}, State#state.children),
+
+    %% Reformat counts to a property list.
+    Reply = [{specs, Specs}, {active, Active},
+	     {supervisors, Supers}, {workers, Workers}],
+    {reply, Reply, State}.
+
+
+count_child(#child{pid = Pid, child_type = worker},
+	    {Specs, Active, Supers, Workers}) ->
+    case is_pid(Pid) andalso is_process_alive(Pid) of
+	true ->  {Specs+1, Active+1, Supers, Workers+1};
+	false -> {Specs+1, Active, Supers, Workers+1}
+    end;
+count_child(#child{pid = Pid, child_type = supervisor},
+	    {Specs, Active, Supers, Workers}) ->
+    case is_pid(Pid) andalso is_process_alive(Pid) of
+	true ->  {Specs+1, Active+1, Supers+1, Workers};
+	false -> {Specs+1, Active, Supers+1, Workers}
+    end.
 
 
 %%% Hopefully cause a function-clause as there is no API function
