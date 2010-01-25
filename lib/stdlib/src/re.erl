@@ -528,7 +528,7 @@ process_uparams([],Type) ->
 
 ucompile(RE,Options) ->
     try
-	re:compile(unicode:characters_to_binary(RE,unicode))
+	re:compile(unicode:characters_to_binary(RE,unicode),Options)
     catch
 	error:AnyError ->
 	    {'EXIT',{new_stacktrace,[{Mod,_,L}|Rest]}} = 
