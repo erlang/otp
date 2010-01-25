@@ -187,9 +187,9 @@ format_error(no_crypto_key) ->
 format_error({native, E}) ->
     io_lib:fwrite("native-code compilation failed with reason: ~P.",
 		  [E, 25]);
-format_error({native_crash, E}) ->
-    io_lib:fwrite("native-code compilation crashed with reason: ~P.",
-		  [E, 25]);
+format_error({native_crash,E,Stk}) ->
+    io_lib:fwrite("native-code compilation crashed with reason: ~P.\n~P\n",
+		  [E,25,Stk,25]);
 format_error({open,E}) ->
     io_lib:format("open error '~s'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -1080,25 +1080,27 @@ native_compile_1(St) ->
 		     St#compile.core_code,
 		     St#compile.code,
 		     Opts) of
-	{ok, {_Type,Bin} = T} when is_binary(Bin) ->
-	    {ok, embed_native_code(St, T)};
-	{error, R} ->
+	{ok,{_Type,Bin}=T} when is_binary(Bin) ->
+	    {ok,embed_native_code(St, T)};
+	{error,R} ->
 	    case IgnoreErrors of
 		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {ok, St#compile{warnings=St#compile.warnings ++ Ws}};
+		    Ws = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {error, St#compile{errors=St#compile.errors ++ Es}}
+		    Es = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     catch
-	error:R ->
+	Class:R ->
+	    Stk = erlang:get_stacktrace(),
 	    case IgnoreErrors of
 		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native_crash,R}}]}],
-		    {ok, St#compile{warnings=St#compile.warnings ++ Ws}};
+		    Ws = [{St#compile.ifile,
+			   [{?MODULE,{native_crash,R,Stk}}]}],
+		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    exit(R)
+		    erlang:raise(Class, R, Stk)
 	    end
     end.
 
