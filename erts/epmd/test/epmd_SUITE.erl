@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(epmd_SUITE).
@@ -30,6 +30,9 @@
 -define(SHORT_PAUSE, 100).
 -define(MEDIUM_PAUSE, ?t:seconds(1)).
 -define(LONG_PAUSE, ?t:seconds(5)).
+
+% Information about nodes
+-record(node_info, {port, node_type, prot, lvsn, hvsn, node_name, extra}).
 
 % Test server specific exports
 -export([all/1, init_per_testcase/2, fin_per_testcase/2]).
@@ -57,7 +60,10 @@
     too_large/1,
     alive_req_too_small_1/1,
     alive_req_too_small_2/1,
-    alive_req_too_large/1
+    alive_req_too_large/1,
+
+    returns_valid_empty_extra/1,
+    returns_valid_populated_extra_with_nulls/1
    ]).
 
 
@@ -76,9 +82,13 @@
 -define(REG_REPEAT_LIM,1000).
 
 % Message codes in epmd protocol
--define(EPMD_ALIVE_REQ,	$a).
--define(EPMD_ALIVE_OK_RESP, $Y).
--define(EPMD_PORT_REQ,	$p).
+-define(EPMD_ALIVE_REQ,		$a).
+-define(EPMD_ALIVE2_REQ,	$x).
+-define(EPMD_ALIVE_OK_RESP,	$Y).
+-define(EPMD_ALIVE2_RESP,	$y).
+-define(EPMD_PORT_REQ,		$p).
+-define(EPMD_PORT_PLEASE2_REQ,	$z).
+-define(EPMD_PORT2_RESP,	$w).
 -define(EPMD_NAMES_REQ,	$n).
 -define(EPMD_DUMP_REQ,	$d).
 -define(EPMD_KILL_REQ,	$k).
@@ -111,7 +121,10 @@ all(suite) ->
      too_large,
      alive_req_too_small_1,
      alive_req_too_small_2,
-     alive_req_too_large
+     alive_req_too_large,
+
+     returns_valid_empty_extra,
+     returns_valid_populated_extra_with_nulls
     ].
 
 %%
@@ -182,29 +195,70 @@ register_node(Name) ->
     register_node(Name,?DUMMY_PORT).
 
 register_node(Name, Port) ->
-    case connect() of
+    case send_req([?EPMD_ALIVE_REQ, put16(Port), Name]) of
 	{ok,Sock} ->
-	    M = [?EPMD_ALIVE_REQ, put16(Port), Name],
-	    case send(Sock, [size16(M), M]) of
-		ok ->
-		    case recv(Sock,3) of
-			{ok, [?EPMD_ALIVE_OK_RESP,_D1,_D0]} ->
-			    {ok,Sock};
-			Other ->
-			    test_server:format("recv on sock ~w: ~p~n",
-					       [Sock,Other]),
-			    error
-		    end;
+	    case recv(Sock,3) of
+		{ok, [?EPMD_ALIVE_OK_RESP,_D1,_D0]} ->
+		    {ok,Sock};
 		Other ->
-		    test_server:format("send on sock ~w: ~w~n",[Sock,Other]),
+		    test_server:format("recv on sock ~w: ~p~n",
+				       [Sock,Other]),
 		    error
 	    end;
-	Other ->
-	    test_server:format("Connect on port ~w: ~p~n",[Port,Other]),
+	error ->
 	    error
     end.
 
+register_node_v2(Port, NodeType, Prot, HVsn, LVsn, Name, Extra) ->
+    Req = [?EPMD_ALIVE2_REQ, put16(Port), NodeType, Prot,
+	   put16(HVsn), put16(LVsn),
+	   size16(Name), Name,
+	   size16(Extra), Extra],
+    case send_req(Req) of
+	{ok,Sock} ->
+	    case recv(Sock,4) of
+		{ok, [?EPMD_ALIVE2_RESP,_Res=0,_C0,_C1]} ->
+		    {ok,Sock};
+		Other ->
+		    test_server:format("recv on sock ~w: ~p~n",
+				       [Sock,Other]),
+		    error
+	    end;
+	error ->
+	    error
+    end.
 
+% Internal function to fetch information about a node
+
+port_please_v2(Name) ->
+    case send_req([?EPMD_PORT_PLEASE2_REQ, Name]) of
+	{ok,Sock} ->
+	    case recv_until_sock_closes(Sock) of
+		{ok, Resp} ->
+		    parse_port2_resp(Resp);
+		Other ->
+		    test_server:format("recv on sock ~w: ~p~n",
+				       [Sock,Other]),
+		    error
+	    end;
+	error ->
+	    error
+    end.
+
+parse_port2_resp(Resp) ->
+    case list_to_binary(Resp) of
+	<<?EPMD_PORT2_RESP,Res,Port:16,NodeType,Prot,HVsn:16,LVsn:16,
+	  NLen:16,NodeName:NLen/binary,
+	  ELen:16,Extra:ELen/binary>> when Res =:= 0 ->
+	    {ok, #node_info{port=Port,node_type=NodeType,prot=Prot,
+			    hvsn=HVsn,lvsn=LVsn,
+			    node_name=binary_to_list(NodeName),
+			    extra=binary_to_list(Extra)}};
+	Other ->
+	    test_server:format("invalid port2 resp: ~p~n",
+			       [Resp]),
+	    error
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -631,6 +685,32 @@ alive_req_too_large(Config) when list(Config) ->
     ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+returns_valid_empty_extra(doc) ->
+    ["Check that an empty extra is prefixed by a two byte length"];
+returns_valid_empty_extra(suite) ->
+    [];
+returns_valid_empty_extra(Config) when list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", []),
+    ?line {ok,#node_info{extra=[]}} = port_please_v2("foo"),
+    ?line ok = close(Sock),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+returns_valid_populated_extra_with_nulls(doc) ->
+    ["Check a populated extra with embedded null characters"];
+returns_valid_populated_extra_with_nulls(suite) ->
+    [];
+returns_valid_populated_extra_with_nulls(Config) when list(Config) ->
+    ?line ok = epmdrun(),
+    ?line {ok,Sock} = register_node_v2(4711, 72, 0, 5, 5, "foo", "ABC\000\000"),
+    ?line {ok,#node_info{extra="ABC\000\000"}} = port_please_v2("foo"),
+    ?line ok = close(Sock),
+    ok.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Terminate all tests with killing epmd.
 
 cleanup() ->
@@ -811,6 +891,36 @@ send_direct(Sock, Bytes) ->
 	Any ->
 	    test_server:format("unknown message: ~w~n",[Any]),
 	    Any
+    end.
+
+send_req(Req) ->
+    case connect() of
+	{ok,Sock} ->
+	    case send(Sock, [size16(Req), Req]) of
+		ok ->
+		    {ok,Sock};
+		Other ->
+		    test_server:format("Failed to send ~w on sock ~w: ~w~n",
+				       [Req,Sock,Other]),
+		    error
+	    end;
+	Other ->
+	    test_server:format("Connect failed when sending ~w: ~p~n",
+			       [Req, Other]),
+	    error
+    end.
+
+recv_until_sock_closes(Sock) ->
+    recv_until_sock_closes_2(Sock,[]).
+
+recv_until_sock_closes_2(Sock,AccData) ->
+    case recv(Sock,0) of
+	{ok,Data} ->
+	    recv_until_sock_closes_2(Sock,AccData++Data);
+	closed ->
+	    {ok,AccData};
+	Other ->
+	    Other
     end.
 
 sleep(MilliSeconds) ->
