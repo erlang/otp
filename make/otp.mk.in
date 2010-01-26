@@ -262,7 +262,8 @@ $(MAN9DIR)/%.9:: %.xml
 
 
 .xmlsrc.xml:
-	 $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
+	 escript $(DOCGEN)/priv/bin/codeline_preprocessing.escript $< $@
 
 .fo.pdf:
 	$(FOP) -fo $< -pdf $@
+

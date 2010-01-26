@@ -58,10 +58,10 @@ include $(ERL_TOP)/make/otp_subdir.mk
 version:
 	@echo "$(VSN)"
 
-docs:
-	erl -noshell -pa "$(BINDIR)" -run edoc_run application "'$(APPNAME)'" '"."' '$(DOC_OPTS)' -s init stop
+# The overriding "docs" target have been removed so the default make rules work properly.
 
-edocs: docs
+edocs:
+	erl -noshell -pa "$(BINDIR)" -run edoc_run application "'$(APPNAME)'" '"."' '$(DOC_OPTS)' -s init stop
 
 app_release: tar
 

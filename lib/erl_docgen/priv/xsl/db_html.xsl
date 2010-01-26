@@ -2,20 +2,20 @@
 <!--      
      #
      # %CopyrightBegin%
-     # 
-     # Copyright Ericsson AB 2009. All Rights Reserved.
-     # 
+     #
+     # Copyright Ericsson AB 2009-2010. All Rights Reserved.
+     #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
      # compliance with the License. You should have received a copy of the
      # Erlang Public License along with this software. If not, it can be
      # retrieved online at http://www.erlang.org/.
-     # 
+     #
      # Software distributed under the License is distributed on an "AS IS"
      # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
      # the License for the specific language governing rights and limitations
      # under the License.
-     # 
+     #
      # %CopyrightEnd%
      
      -->
@@ -40,6 +40,46 @@
         <div id="container">
           <script id="js" type="text/javascript" language="JavaScript" src="{$topdocdir}/js/flipmenu/flipmenu.js"/>
           <script id="js2" type="text/javascript" src="{$topdocdir}/js/erlresolvelinks.js"></script>
+          <script language="JavaScript" type="text/javascript">
+            <xsl:text disable-output-escaping="yes"><![CDATA[
+            <!--            
+              function getWinHeight() {
+                var myHeight = 0;
+                if( typeof( window.innerHeight ) == 'number' ) {
+                  //Non-IE
+                  myHeight = window.innerHeight;
+                } else if( document.documentElement && ( document.documentElement.clientWidth || 
+                                                         document.documentElement.clientHeight ) ) {
+                  //IE 6+ in 'standards compliant mode'
+                  myHeight = document.documentElement.clientHeight;
+                } else if( document.body && ( document.body.clientWidth || document.body.clientHeight ) ) {
+                  //IE 4 compatible
+                  myHeight = document.body.clientHeight;
+                }
+                return myHeight;            
+              }
+
+              function setscrollpos() {
+                var objf=document.getElementById('loadscrollpos');
+                 document.getElementById("leftnav").scrollTop = objf.offsetTop - getWinHeight()/2;
+              }
+
+              function addEvent(obj, evType, fn){ 
+                if (obj.addEventListener){ 
+                obj.addEventListener(evType, fn, true); 
+                return true; 
+              } else if (obj.attachEvent){ 
+                var r = obj.attachEvent("on"+evType, fn); 
+                return r; 
+              } else { 
+                return false; 
+              } 
+             }
+
+             addEvent(window, 'load', setscrollpos);
+
+             //-->]]></xsl:text>
+          </script>
           <!-- Generate menu -->
           <xsl:call-template name="menu">
             <xsl:with-param name="chapnum" select="$chapnum"/>
@@ -543,7 +583,13 @@
           <xsl:otherwise>false</xsl:otherwise>
         </xsl:choose>
       </xsl:variable>
-      <li title="{header/title}" expanded="{$expanded}">
+      <xsl:variable name="loadscrollpos">
+        <xsl:choose>
+          <xsl:when test="$chapnum = $curchapnum">loadscrollpos</xsl:when>
+          <xsl:otherwise>no</xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <li id="{$loadscrollpos}" title="{header/title}" expanded="{$expanded}">
         <xsl:value-of select="header/title"/>
         <ul>
           <li>
@@ -731,12 +777,19 @@
         </xsl:choose>
       </xsl:variable>
 
+      <xsl:variable name="loadscrollpos">
+        <xsl:choose>
+          <xsl:when test="$curModule = $cval">loadscrollpos</xsl:when>
+          <xsl:otherwise>no</xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+
       <xsl:variable name="link_cval"><xsl:value-of select="translate($cval, '&#173;', '')"/></xsl:variable>
 
       <xsl:choose>
         <xsl:when test="$genFuncMenu = 'true'">
 
-          <li title="{$cval} " expanded="{$expanded}">
+          <li id="{$loadscrollpos}" title="{$cval} " expanded="{$expanded}">
             <xsl:value-of select="$cval"/>
             <ul>
               <li>
@@ -788,58 +841,73 @@
             <xsl:when test="string-length($fname) > 0">
               <li title="{$fname}">
                 <a href="{$basename}.html#{$fname}">  
-                <xsl:value-of select="$fname"/>()
-              </a>
-            </li>           
-          </xsl:when>
-          <xsl:otherwise>
-            <li title="{name/nametext}">
-              <a href="{$basename}.html#{name/nametext}">  
-                <xsl:value-of select="nametext"/>()
-              </a> 
-            </li>    
-          </xsl:otherwise>
-        </xsl:choose> 
-      </xsl:when>
-      
-      <xsl:when test="ancestor::erlref">
-
-        <xsl:variable name="tmpstring">
-          <xsl:value-of select="substring-before(substring-after(., '('), '->')"/>
-        </xsl:variable>     
-
-        <xsl:variable name="ustring">
-          <xsl:choose>
-            <xsl:when test="string-length($tmpstring) > 0">
-              <xsl:call-template name="remove-paren">
-                <xsl:with-param name="string" select="$tmpstring"/>
-              </xsl:call-template>            
+                  <xsl:value-of select="$fname"/>()
+                </a>
+              </li>           
             </xsl:when>
             <xsl:otherwise>
-              <xsl:call-template name="remove-paren">
-                <xsl:with-param name="string" select="substring-after(., '(')"/>
-              </xsl:call-template>                      
+              <li title="{name/nametext}">
+                <a href="{$basename}.html#{name/nametext}">  
+                  <xsl:value-of select="nametext"/>()
+                </a> 
+              </li>    
             </xsl:otherwise>
-          </xsl:choose>
-        </xsl:variable>      
-
-        <xsl:variable name="arity">
-          <xsl:call-template name="calc-arity">
-            <xsl:with-param name="string" select="substring-before($ustring, ')')"/>
-            <xsl:with-param name="no-of-pars" select="0"/> 
-          </xsl:call-template>
-        </xsl:variable> 
-        <xsl:variable name="fname">
-          <xsl:value-of select="substring-before(., '(')"/>
-        </xsl:variable>
-        <li title="{$fname}-{$arity}">
-          <a href="{$basename}.html#{$fname}-{$arity}">                                             
-            <xsl:value-of select="$fname"/>/<xsl:value-of select="$arity"/>
-          </a>
-        </li>        
-      </xsl:when>
-    </xsl:choose>
-
+          </xsl:choose> 
+        </xsl:when>
+        
+        <xsl:when test="ancestor::erlref">
+          
+          <xsl:variable name="tmpstring">
+            <xsl:value-of select="substring-before(substring-after(., '('), '->')"/>
+          </xsl:variable>     
+            
+          <xsl:variable name="ustring">
+            <xsl:choose>
+              <xsl:when test="string-length($tmpstring) > 0">
+                <xsl:call-template name="remove-paren">
+                  <xsl:with-param name="string" select="$tmpstring"/>
+                </xsl:call-template>            
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:call-template name="remove-paren">
+                  <xsl:with-param name="string" select="substring-after(., '(')"/>
+                </xsl:call-template>                      
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:variable>      
+          
+          <xsl:variable name="arity">
+            <xsl:call-template name="calc-arity">
+              <xsl:with-param name="string" select="substring-before($ustring, ')')"/>
+              <xsl:with-param name="no-of-pars" select="0"/> 
+            </xsl:call-template>
+          </xsl:variable> 
+          
+          <xsl:variable name="fname">
+            <xsl:variable name="fname1">
+              <xsl:value-of select="substring-before(., '(')"/>
+            </xsl:variable>
+            <xsl:variable name="fname2">
+              <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
+            </xsl:variable>
+            <xsl:choose>
+              <xsl:when test="string-length($fname2) > 0">   
+                <xsl:value-of select="$fname2"/>
+              </xsl:when>
+              <xsl:otherwise>
+                <xsl:value-of select="$fname1"/>
+              </xsl:otherwise>
+            </xsl:choose>
+          </xsl:variable>
+            
+          <li title="{$fname}-{$arity}">
+            <a href="{$basename}.html#{$fname}-{$arity}">                                             
+              <xsl:value-of select="$fname"/>/<xsl:value-of select="$arity"/>
+            </a>
+          </li>      
+        </xsl:when>
+      </xsl:choose>
+      
     </xsl:for-each>
   </xsl:template>
 
@@ -1065,6 +1133,7 @@
 
   <!-- Funcs -->
   <xsl:template match="funcs">
+    <xsl:param name="partnum"/>
 
     <h3>
       <xsl:text>EXPORTS</xsl:text>
@@ -1121,11 +1190,26 @@
         <a name="{substring-before(nametext, '(')}"><span class="bold_code"><xsl:value-of select="ret"/><xsl:text> </xsl:text><xsl:value-of select="nametext"/></span></a><br/>
       </xsl:when>
       <xsl:when test="ancestor::erlref">
-        <a name="{substring-before(., '(')}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
+        <xsl:variable name="fname">
+          <xsl:variable name="fname1">
+            <xsl:value-of select="substring-before(., '(')"/>
+          </xsl:variable>
+          <xsl:variable name="fname2">
+            <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
+          </xsl:variable>
+          <xsl:choose>
+            <xsl:when test="string-length($fname2) > 0">   
+              <xsl:value-of select="$fname2"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of select="$fname1"/>
+            </xsl:otherwise>
+          </xsl:choose>
+        </xsl:variable>
+        <a name="{$fname}-{$arity}"><span class="bold_code"><xsl:value-of select="."/></span></a><br/>
       </xsl:when>
     </xsl:choose>
       
-
   </xsl:template>
 
 
@@ -1167,6 +1251,7 @@
 
   <!-- Desc -->
   <xsl:template match="desc">
+    <xsl:param name="partnum"/>
     <div class="REFBODY">
       <p>
         <xsl:apply-templates>
@@ -1458,29 +1543,65 @@
     </xsl:choose>
   </xsl:template>
 
+
   <xsl:template name="remove-paren">
     <xsl:param name="string"/>
+
+    <xsl:variable name="str1">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$string"/>
+        <xsl:with-param name="start">(</xsl:with-param> 
+        <xsl:with-param name="end">)</xsl:with-param> 
+      </xsl:call-template>    
+    </xsl:variable>
+
+    <xsl:variable name="str2">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$str1"/>
+        <xsl:with-param name="start">{</xsl:with-param>
+        <xsl:with-param name="end">}</xsl:with-param>
+      </xsl:call-template>    
+    </xsl:variable>
+
+    <xsl:variable name="str3">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$str2"/>
+        <xsl:with-param name="start">[</xsl:with-param>
+        <xsl:with-param name="end">]</xsl:with-param>
+      </xsl:call-template>    
+    </xsl:variable>
+
+    <xsl:value-of select="$str3"/>
+
+  </xsl:template>
+
+
+  <xsl:template name="remove-paren-1">
+    <xsl:param name="string"/>
+    <xsl:param name="start"/>
+    <xsl:param name="end"/>
    
-    <xsl:variable name="bstring">
-      <xsl:value-of select="substring-before($string, '(')"/>
+    <xsl:variable name="tmp1">
+      <xsl:value-of select="substring-before($string, $start)"/>
     </xsl:variable>
 
     <xsl:choose>
-      <xsl:when test="string-length($bstring) > 0">
-        <xsl:variable name="astring">
-          <xsl:value-of select="substring-after($string, ')')"/>
+      <xsl:when test="string-length($tmp1) > 0 or starts-with($string, $start)">
+        <xsl:variable name="tmp2">
+          <xsl:value-of select="substring-after($string, $end)"/>
         </xsl:variable>
         <xsl:variable name="retstring">
           <xsl:call-template name="remove-paren">
-            <xsl:with-param name="string" select="$astring"/>
+            <xsl:with-param name="string" select="$tmp2"/>
           </xsl:call-template>        
         </xsl:variable>
-        <xsl:value-of select="concat($bstring, $retstring)"/>
+        <xsl:value-of select="concat(concat($tmp1, 'x'), $retstring)"/>
       </xsl:when>
       <xsl:otherwise>
         <xsl:value-of select="$string"/>
       </xsl:otherwise>
     </xsl:choose>
+
   </xsl:template>
 
 </xsl:stylesheet>

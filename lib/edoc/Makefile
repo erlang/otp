@@ -86,12 +86,12 @@ SYNTAX_TOOLS_DIR=$(ERL_TOP)/lib/syntax_tools
 XMERL_DIR=$(ERL_TOP)/lib/xmerl
 INCDIR=$(XMERL_DIR)/include
 
-docs:
+# The overriding docs target have been removed so the default make rules work properly.
+
+edocs:
 	erl -noshell -pa $(BINDIR) -pa $(SYNTAX_TOOLS_DIR)/ebin \
 	    -pa $(XMERL_DIR)/ebin -run edoc_run application \
 	    "'$(APPNAME)'" '"."' '$(DOC_OPTS)'
-
-edocs: docs
 
 info:
 	@echo $(HTML_FILES)

@@ -24,7 +24,6 @@ OMIT_OMIT_FP=no
 
 
 CC=@CC@
-GCC=@GCC@
 LD=@LD@
 AR=@AR@
 RANLIB=@RANLIB@
@@ -115,7 +114,7 @@ endif
 
 CREATE_DIRS=
 
-ifeq ($(GCC)-$(OMIT_FP),yes-true)
+ifeq ($(CC)-$(OMIT_FP), gcc-true)
 CFLAGS += -fomit-frame-pointer
 endif
 
@@ -483,6 +482,8 @@ ifneq ($(strip $(INTERNAL_RELEASE_LIBS)),)
 	$(INSTALL_DIR) $(RELSYSDIR)/lib/internal
 	$(INSTALL_DATA) $(INTERNAL_RELEASE_LIBS) $(RELSYSDIR)/lib/internal
 endif
+
+docs: 
 
 release_docs_spec:
 

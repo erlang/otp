@@ -51,7 +51,9 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
   a unicode_binary is allowed as the tail of the list</code>
 
     <code type="none">
-external_unicode_binary() = binary() with characters coded in a user specified Unicode encoding other than UTF-8 (UTF-16 or UTF-32)
+external_unicode_binary() = binary() 
+  with characters coded in a user specified Unicode encoding other 
+  than UTF-8 (UTF-16 or UTF-32)
 
 external_chardata() = external_charlist() | external_unicode_binary()
 

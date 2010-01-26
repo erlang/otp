@@ -34,15 +34,15 @@ OBJECTS=$(SOURCES:%.erl=$(EBIN)/%.$(EMULATOR)) $(APP_TARGET) $(APPUP_TARGET)
 APP_FILE= syntax_tools.app
 APP_SRC= $(APP_FILE).src
 APP_TARGET= $(EBIN)/$(APP_FILE)
-                                                                                
+
 APPUP_FILE= syntax_tools.appup
 APPUP_SRC= $(APPUP_FILE).src
 APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
-                                                                                
+
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-                                                                                
+
 debug opt: $(OBJECTS)
 
 all: $(OBJECTS)
@@ -51,6 +51,8 @@ all: $(OBJECTS)
 clean:
 	rm -f $(OBJECTS)
 	rm -f core *~
+
+docs: 
 
 distclean: clean
 
@@ -62,10 +64,10 @@ $(EBIN)/%.$(EMULATOR):%.erl
 # ----------------------------------------------------
 # Special Build Targets
 # ----------------------------------------------------
-                                                                                
+
 $(APP_TARGET): $(APP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
-                                                                                
+
 $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 	sed -e 's;%VSN%;$(VSN);' $< > $@
 

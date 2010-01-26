@@ -42,6 +42,9 @@ XML_CHAPTER_FILES = notes.xml licenses.xml
 
 BOOK_FILES = book.xml
 
+XML_FILES = $(BOOK_FILES) $(XML_APPLICATION_FILES) $(XML_REF3_FILES)  $(XML_REF6_FILES) \
+            $(XML_PART_FILES) $(XML_CHAPTER_FILES) 
+
 GIF_FILES =
 
 # ----------------------------------------------------

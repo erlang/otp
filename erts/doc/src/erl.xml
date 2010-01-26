@@ -410,7 +410,7 @@
       <tag><c><![CDATA[-setcookie Cookie]]></c></tag>
       <item>
         <p>Sets the magic cookie of the node to <c><![CDATA[Cookie]]></c>, see
-          <seealso marker="erlang#erlang:set_cookie/2">erlang:set_cookie/2</seealso>.</p>
+          <seealso marker="erlang#set_cookie/2">erlang:set_cookie/2</seealso>.</p>
       </item>
       <tag><c><![CDATA[-shutdown_time Time]]></c></tag>
       <item>

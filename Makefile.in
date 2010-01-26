@@ -214,14 +214,15 @@ endif
 # ---------------------------------------------------------------
 # Target only used when building commercial ERTS patches
 # ---------------------------------------------------------------
-release_docs:
+release_docs docs:
 ifeq ($(OTP_SMALL_BUILD),true)
-	cd $(ERL_TOP)/lib  && $(MAKE) TESTROOT=$(RELEASE_ROOT) release_docs
+	cd $(ERL_TOP)/lib  && $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
 else
-	cd $(ERL_TOP)/lib  && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
-	cd $(ERL_TOP)/lib/dialyzer && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
+	cd $(ERL_TOP)/lib  && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
+	cd $(ERL_TOP)/lib/dialyzer && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
 endif
-	cd $(ERL_TOP)/erts && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) release_docs
+	cd $(ERL_TOP)/erts && $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
+	cd $(ERL_TOP)/system/doc && $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
 
 
 # ----------------------------------------------------------------------
@@ -729,6 +730,11 @@ bootstrap_nc_for_ne_no_debug_sym:
 # Order is important here, don't change it!
 #
 install: install.dirs install.emulator install.libs install.Install install.bin
+
+install-docs: 
+	ERL_TOP=$(ERL_TOP) INSTALLROOT=$(ERLANG_LIBDIR) PATH=$(BOOT_PREFIX)$${PATH} \
+	$(MAKE) RELEASE_ROOT=$(ERLANG_LIBDIR) release_docs
+
 
 install.emulator:
 	cd erts && \

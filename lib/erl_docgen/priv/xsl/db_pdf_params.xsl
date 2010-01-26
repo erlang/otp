@@ -2,20 +2,20 @@
 <!--      
      #
      # %CopyrightBegin%
-     # 
-     # Copyright Ericsson AB 2009. All Rights Reserved.
-     # 
+     #
+     # Copyright Ericsson AB 2009-2010. All Rights Reserved.
+     #
      # The contents of this file are subject to the Erlang Public License,
      # Version 1.1, (the "License"); you may not use this file except in
      # compliance with the License. You should have received a copy of the
      # Erlang Public License along with this software. If not, it can be
      # retrieved online at http://www.erlang.org/.
-     # 
+     #
      # Software distributed under the License is distributed on an "AS IS"
      # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
      # the License for the specific language governing rights and limitations
      # under the License.
-     # 
+     #
      # %CopyrightEnd%
      
      -->
@@ -110,7 +110,7 @@
 
   <xsl:attribute-set name="cover.inner.copyrightnotice">
     <xsl:attribute name="font-size">0.9em</xsl:attribute>
-    <xsl:attribute name="font-weight">bold</xsl:attribute>
+    <!-- xsl:attribute name="font-weight">bold</xsl:attribute -->
   </xsl:attribute-set>
 
   <xsl:attribute-set name="cover.inner.date">
@@ -248,6 +248,8 @@
     <xsl:attribute name="padding-after">1em</xsl:attribute>
     <xsl:attribute name="space-after">1em</xsl:attribute>
     <xsl:attribute name="space-before">2em</xsl:attribute>
+    <xsl:attribute name="margin-left">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-right">0.5em</xsl:attribute>
     <xsl:attribute name="white-space-collapse">false</xsl:attribute>
     <xsl:attribute name="white-space-treatment">preserve</xsl:attribute>
     <xsl:attribute name="wrap-option">no-wrap</xsl:attribute>
@@ -266,8 +268,10 @@
     <xsl:attribute name="text-align">justify</xsl:attribute>
     <xsl:attribute name="padding-before">1em</xsl:attribute>
     <xsl:attribute name="padding-after">0.3em</xsl:attribute>
-    <xsl:attribute name="padding-left">1em</xsl:attribute>
-    <xsl:attribute name="padding-right">1em</xsl:attribute>
+    <xsl:attribute name="padding-left">0.5em</xsl:attribute>
+    <xsl:attribute name="padding-right">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-left">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-right">0.5em</xsl:attribute>
     <xsl:attribute name="keep-together.within-page">always</xsl:attribute>
   </xsl:attribute-set>
 
@@ -278,8 +282,10 @@
     <xsl:attribute name="text-align">justify</xsl:attribute>
     <xsl:attribute name="padding-before">1em</xsl:attribute>
     <xsl:attribute name="padding-after">0.3em</xsl:attribute>
-    <xsl:attribute name="padding-left">1em</xsl:attribute>
-    <xsl:attribute name="padding-right">1em</xsl:attribute>
+    <xsl:attribute name="padding-left">0.5em</xsl:attribute>
+    <xsl:attribute name="padding-right">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-left">0.5em</xsl:attribute>
+    <xsl:attribute name="margin-right">0.5em</xsl:attribute>
     <xsl:attribute name="keep-together.within-page">always</xsl:attribute>
   </xsl:attribute-set>
 

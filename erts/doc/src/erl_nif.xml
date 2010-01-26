@@ -148,7 +148,7 @@ ok
            that the library needs in able to keep a state between NIF 
            calls. <c>enif_get_data()</c> will return this pointer.</p> 
         <p><c>load_info</c> is the second argument to <seealso
-           marker="erlang#erlang:load_nif-2">erlang:load_nif/2</seealso>.</p>
+           marker="erlang#load_nif-2">erlang:load_nif/2</seealso>.</p>
         <p>The library will fail to load if <c>load</c> returns
            anything other than 0. <c>load</c> can be NULL in case no
            initialization is needed.</p> 
@@ -397,7 +397,7 @@ typedef struct {
   </funcs>
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="erlang#erlang:load_nif-2">load_nif(3)</seealso></p>
+    <p><seealso marker="erlang#load_nif-2">load_nif(3)</seealso></p>
   </section>
 </cref>
 

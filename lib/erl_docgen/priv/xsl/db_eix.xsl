@@ -137,7 +137,20 @@
           <xsl:value-of select="substring-before(nametext, '(')"/>
         </xsl:when>
         <xsl:when test="ancestor::erlref">
-          <xsl:value-of select="substring-before(., '(')"/>
+          <xsl:variable name="fname1">
+            <xsl:value-of select="substring-before(., '(')"/>
+          </xsl:variable>
+          <xsl:variable name="fname2">
+            <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
+          </xsl:variable>
+          <xsl:choose>
+            <xsl:when test="string-length($fname2) > 0">   
+              <xsl:value-of select="$fname2"/>
+            </xsl:when>
+            <xsl:otherwise>
+              <xsl:value-of select="$fname1"/>
+            </xsl:otherwise>
+          </xsl:choose>
         </xsl:when>
       </xsl:choose>
     </xsl:variable>     
@@ -178,26 +191,63 @@
   </xsl:template>
 
   <xsl:template name="remove-paren">
-    <xsl:param name="string"/>  
-    <xsl:variable name="bstring">
-      <xsl:value-of select="substring-before($string, '(')"/>
+    <xsl:param name="string"/>
+
+    <xsl:variable name="str1">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$string"/>
+        <xsl:with-param name="start">(</xsl:with-param> 
+        <xsl:with-param name="end">)</xsl:with-param> 
+      </xsl:call-template>    
     </xsl:variable>
+
+    <xsl:variable name="str2">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$str1"/>
+        <xsl:with-param name="start">{</xsl:with-param>
+        <xsl:with-param name="end">}</xsl:with-param>
+      </xsl:call-template>    
+    </xsl:variable>
+
+    <xsl:variable name="str3">
+      <xsl:call-template name="remove-paren-1">
+        <xsl:with-param name="string" select="$str2"/>
+        <xsl:with-param name="start">[</xsl:with-param>
+        <xsl:with-param name="end">]</xsl:with-param>
+      </xsl:call-template>    
+    </xsl:variable>
+
+    <xsl:value-of select="$str3"/>
+
+  </xsl:template>
+
+
+  <xsl:template name="remove-paren-1">
+    <xsl:param name="string"/>
+    <xsl:param name="start"/>
+    <xsl:param name="end"/>
+   
+    <xsl:variable name="tmp1">
+      <xsl:value-of select="substring-before($string, $start)"/>
+    </xsl:variable>
+
     <xsl:choose>
-      <xsl:when test="string-length($bstring) > 0">
-        <xsl:variable name="astring">
-          <xsl:value-of select="substring-after($string, ')')"/>
+      <xsl:when test="string-length($tmp1) > 0 or starts-with($string, $start)">
+        <xsl:variable name="tmp2">
+          <xsl:value-of select="substring-after($string, $end)"/>
         </xsl:variable>
         <xsl:variable name="retstring">
           <xsl:call-template name="remove-paren">
-            <xsl:with-param name="string" select="$astring"/>
+            <xsl:with-param name="string" select="$tmp2"/>
           </xsl:call-template>        
         </xsl:variable>
-        <xsl:value-of select="concat($bstring, $retstring)"/>
+        <xsl:value-of select="concat(concat($tmp1, 'x'), $retstring)"/>
       </xsl:when>
       <xsl:otherwise>
         <xsl:value-of select="$string"/>
       </xsl:otherwise>
     </xsl:choose>
+
   </xsl:template>
 
   <!-- default content handling -->

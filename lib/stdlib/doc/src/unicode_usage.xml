@@ -76,7 +76,8 @@ charlist() = [unicode_char() | unicode_binary() | charlist()]
   a unicode_binary is allowed as the tail of the list</code>
 <p>The module <c>unicode</c> in stdlib even supports similar mixes with binaries containing other encodings than UTF-8, but that is a special case to allow for conversions to and from external data:</p>
     <code type="none">
-external_unicode_binary() = binary() with characters coded in a user specified Unicode encoding other than UTF-8 (UTF-16 or UTF-32)
+external_unicode_binary() = binary() with characters coded in a user specified Unicode 
+  encoding other than UTF-8 (UTF-16 or UTF-32)
 
 external_chardata() = external_charlist() | external_unicode_binary()
 
@@ -93,7 +94,8 @@ external_charlist() = [unicode_char() | external_unicode_binary() | external_cha
 <code>
 &lt;&lt;Ch/utf8,_/binary&gt;&gt; = Bin1,
 &lt;&lt;Ch/utf16-little,_/binary&gt;&gt; = Bin2,
-Bin3 = &lt;&lt;$H/utf32-little, $e/utf32-little, $l/utf32-little, $l/utf32-little, $o/utf32-little&gt;&gt;,</code>
+Bin3 = &lt;&lt;$H/utf32-little, $e/utf32-little, $l/utf32-little, $l/utf32-little,
+               $o/utf32-little&gt;&gt;,</code>
 <p>For convenience, literal strings can be encoded with a Unicode encoding in binaries using the following (or similar) syntax:</p>
 <code>
 Bin4 = &lt;&lt;"Hello"/utf16&gt;&gt;,</code>

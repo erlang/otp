@@ -1,0 +1,30 @@
+
+Testing and running reltool tests.
+
+Testing gui api/applications can be hard, but we can at least
+test that wxerlang behaves as we expected, i.e. that the api
+is consistent and that it don't crash.
+
+The tests are structured as they are because we want you to
+be able to run them in three different ways.
+ - direct via an erlang shell
+ - via common_test application 
+ - via erlang/OTP inhouse ts tool.
+
+To run all the tests compile them and on unix 
+run ./rtt to create an erlang terminal.
+
+Invoke rtt:t(). in the erlang shell to run all regression tests.
+If you want to specific tests invoke rtt:t(Module) 
+or rtt:t(Module, TestCase).
+
+To run all tests including the ones that require manual intervention run.
+rtt:t(all, [{user,true}]).
+
+To see every test_case window use
+rtt:t(all, [{user,step}]).
+This requires that you manually close each window to step to the 
+next test_case.
+
+If you want to run specific test_cases use:
+rtt:t({Module,TestCase}, [{user,step}]).

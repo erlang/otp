@@ -1,1 +1,0 @@
-../../../../internal_tools/integration/scripts/make_index/permuted_index.erl
