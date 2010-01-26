@@ -72,7 +72,7 @@
 
 ;; Variables:
 
-(defconst erlang-version "2.6.2"
+(defconst erlang-version "2.7"
   "The version number of Erlang mode.")
 
 (defvar erlang-root-dir nil
@@ -895,9 +895,16 @@ behaviour.")
 (defconst inferior-erlang-use-cmm (boundp 'minor-mode-overriding-map-alist)
   "Non-nil means use `compilation-minor-mode' in Erlang shell.")
 
-;; Tempo skeleton templates:
-(load "erlang-skels")
 
+(defvar erlang-skel-file "erlang-skels"
+  "The type of erlang-skeletons that should be used, default
+   uses edoc type, for the old type, standard comments,
+   set \"erlang-skels-old\" in your .emacs and restart.
+
+   Or define your own and set the variable to that file.")
+
+;; Tempo skeleton templates:
+(load erlang-skel-file)
 
 ;; Font-lock variables
 

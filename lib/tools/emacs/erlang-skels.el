@@ -17,8 +17,7 @@
 ;; %CopyrightEnd%
 ;;;
 ;;; Purpose: Provide Erlang code skeletons.
-;;;
-;;; Author: Anders Lindgren
+;;; See 'erlang-skel-file' variable.
 
 (defvar erlang-tempo-tags nil
   "Tempo tags for erlang mode")
