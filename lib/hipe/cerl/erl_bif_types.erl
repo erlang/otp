@@ -3128,20 +3128,25 @@ arith(Op, X1, X2) ->
 	  %% io:format("done arith ~p = ~p~n", [Op, {NewMin, NewMax}]),
 	  {ok, t_from_range(NewMin, NewMax)};
 	false ->  
-	  AllVals =
-	    case Op of
-	      '+'    -> [X + Y    || X <- L1, Y <- L2];
-	      '-'    -> [X - Y    || X <- L1, Y <- L2];
-	      '*'    -> [X * Y    || X <- L1, Y <- L2];
-	      'div'  -> [X div Y  || X <- L1, Y <- L2,Y =/= 0];
-	      'rem'  -> [X rem Y  || X <- L1, Y <- L2,Y =/= 0];
-	      'bsl'  -> [X bsl Y  || X <- L1, Y <- L2];
-	      'bsr'  -> [X bsr Y  || X <- L1, Y <- L2];
-	      'band' -> [X band Y || X <- L1, Y <- L2];
-	      'bor'  -> [X bor Y  || X <- L1, Y <- L2];
-	      'bxor' -> [X bxor Y || X <- L1, Y <- L2]
-	    end,
-	  {ok, t_integers(ordsets:from_list(AllVals))}
+	  %% Some of these arithmetic operations might throw a system_limit
+	  %% exception; for example, when trying to evaluate 1 bsl 100000000.
+	  try case Op of
+	        '+'    -> [X + Y    || X <- L1, Y <- L2];
+	        '-'    -> [X - Y    || X <- L1, Y <- L2];
+	        '*'    -> [X * Y    || X <- L1, Y <- L2];
+	        'div'  -> [X div Y  || X <- L1, Y <- L2,Y =/= 0];
+	        'rem'  -> [X rem Y  || X <- L1, Y <- L2,Y =/= 0];
+	        'bsl'  -> [X bsl Y  || X <- L1, Y <- L2];
+	        'bsr'  -> [X bsr Y  || X <- L1, Y <- L2];
+	        'band' -> [X band Y || X <- L1, Y <- L2];
+	        'bor'  -> [X bor Y  || X <- L1, Y <- L2];
+	        'bxor' -> [X bxor Y || X <- L1, Y <- L2]
+	      end of
+	    AllVals ->
+	      {ok, t_integers(ordsets:from_list(AllVals))}
+	  catch
+	    error:system_limit -> error
+	  end
       end
   end.
 
