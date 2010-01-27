@@ -75,6 +75,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
      *						 the lock name)"
      */
 #ifdef ERTS_SMP
+#ifdef HIPE
+    {	"hipe_mfait_lock",			NULL			},
+#endif
     {	"driver_lock",				"driver_name"		},
     {	"port_lock",				"port_id"		},
 #endif
