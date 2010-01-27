@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(io_proto_SUITE).
@@ -48,9 +48,12 @@
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
 -define(dbg(Data),io:format(standard_error, "DBG: ~p\r\n",[Data])).
+-define(RM_RF(Dir),begin io:format(standard_error, "Not Removed: ~p\r\n",[Dir]), 
+	ok end).
 -else.
 -define(format(S, A), ok).
 -define(dbg(Data),noop).
+-define(RM_RF(Dir),rm_rf(Dir)).
 -endif.
 
 
@@ -197,6 +200,15 @@ setopts_getopts(Config) when is_list(Config) ->
 		  {getline_re, ".*<<\"hej\\\\n\">>"}
 		  ],[],[],"-oldshell"),
     ok.
+
+
+get_lc_ctype() ->
+	case {os:type(),os:version()} of
+		{{unix,sunos},{5,N,_}} when N =< 8 ->
+			"iso_8859_1";
+		_ ->
+			"ISO-8859-1"
+	end.
     
 unicode_options(suite) ->
     [];
@@ -369,7 +381,7 @@ unicode_options(Config) when is_list(Config) ->
 		  {getline, 
 		   binary_to_list(unicode:characters_to_binary(
 				    [1024],unicode,utf8))}
-		 ],[],"LC_CTYPE=\"ISO-8859-1\"; export LC_CTYPE; "),
+		 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
     ?line rtnode([{putline,""},
 		  {putline, "2."},
 		  {getline_re, ".*2."},
@@ -384,7 +396,7 @@ unicode_options(Config) when is_list(Config) ->
 		  {getline_re, 
 		   ".*"++binary_to_list(unicode:characters_to_binary(
 					  [1024],unicode,utf8))}
-		 ],[],"LC_CTYPE=\"ISO-8859-1\"; export LC_CTYPE; ",
+		 ],[],"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; ",
 		 " -oldshell "),
 
     ok.
@@ -974,7 +986,7 @@ answering_machine1(OthNode,OthReg,Me) ->
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"}
 		  
-		 ],Me,"LC_CTYPE=\"ISO-8859-1\"; export LC_CTYPE; "),
+		 ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -1045,7 +1057,7 @@ answering_machine2(OthNode,OthReg,Me) ->
 		  {putline, TestDataUtf},
 		  {getline_re, ".*Okej"}
 		  
-		 ],Me,"LC_CTYPE=\"ISO-8859-1\"; export LC_CTYPE; "," -oldshell "),
+		 ],Me,"LC_CTYPE=\""++get_lc_ctype()++"\"; export LC_CTYPE; "," -oldshell "),
     O = list_to_atom(OthReg),
     O ! {self(),done},
     ok.
@@ -1087,7 +1099,9 @@ read_modes_gl_1(_Config,Machine) ->
 		[MyNodeList, "io_proto_suite", N2List]),
     
     ?line GL = receive X when is_pid(X) -> X end,
+    ?dbg({group_leader,X}),
     %% get_line
+    ?line receive after 500 -> ok end, % Dont clash with the new shell...
     ?line "Hej\n" = io:get_line(GL,"Prompt\n"),
     ?line io:setopts(GL,[binary]),
     ?line io:format(GL,"Okej~n",[]),
@@ -1287,7 +1301,7 @@ rtnode(Commands,Nodename,ErlPrefix,Extra) ->
 					      ?line ok
 				      end,
 				?line wait_for_runerl_server(SPid),
-				?line ok = rm_rf(Tempdir),
+				?line ok = ?RM_RF(Tempdir),
 				?line ok = Res
 			end
 	  end.
@@ -1308,7 +1322,7 @@ timeout(normal) ->
 %% stop_noshell_node(Node) ->
 %%     test_server:stop_node(Node).
 
-
+-ifndef(debug).
 rm_rf(Dir) ->
     try
       {ok,List} = file:list_dir(Dir),
@@ -1324,7 +1338,7 @@ rm_rf(Dir) ->
     catch
 	_:Exception -> {error, {Exception,Dir}}
     end.
-       
+-endif.       
 
 get_and_put(_CPid,[],_) ->
     ok;
@@ -1527,6 +1541,8 @@ start_runerl_node(RunErl,Erl,Tempdir,Nodename,Extra) ->
 		    " "++Extra
 	    end,
     spawn(fun() ->
+		  ?dbg(RunErl++" "++Tempdir++"/ "++Tempdir++" \""++
+			 Erl++XArg++XXArg++"\""),
 		  os:cmd(RunErl++" "++Tempdir++"/ "++Tempdir++" \""++
 			 Erl++XArg++XXArg++"\"")
 	  end).
