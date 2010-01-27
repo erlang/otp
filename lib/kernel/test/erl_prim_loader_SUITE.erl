@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_prim_loader_SUITE).
@@ -27,7 +27,7 @@
 	 inet_existing/1, inet_coming_up/1, inet_disconnects/1,
 	 multiple_slaves/1, file_requests/1,
 	 local_archive/1, remote_archive/1,
-	 primary_archive/1]).
+	 primary_archive/1, virtual_dir_in_archive/1]).
 
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
@@ -41,10 +41,11 @@ all(suite) ->
      inet_existing, inet_coming_up,
      inet_disconnects, multiple_slaves,
      file_requests, local_archive, 
-     remote_archive, primary_archive
+     remote_archive, primary_archive,
+     virtual_dir_in_archive
     ].
 
-init_per_testcase(Func, Config) when atom(Func), list(Config) ->
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(3)),
     [{watchdog, Dog}|Config].
 
@@ -81,7 +82,7 @@ set_path(Config) when is_list(Config) ->
 get_file(doc) -> [];
 get_file(Config) when is_list(Config) ->
     ?line case erl_prim_loader:get_file("lists" ++ code:objfile_extension()) of
-	      {ok,Bin,File} when binary(Bin), list(File) ->
+	      {ok,Bin,File} when is_binary(Bin), is_list(File) ->
 		  ok;
 	      _ ->
 		  test_server:fail(get_valid_file)
@@ -344,8 +345,9 @@ local_archive(Config) when is_list(Config) ->
     Node = node(),
     BeamName = "inet.beam",
     ?line ok = test_archive(Node, Archive, KernelDir, BeamName),
-    ?line ok = rpc:call(Node, erl_prim_loader, release_archives, []),
 
+    %% Cleanup
+    ?line ok = rpc:call(Node, erl_prim_loader, release_archives, []),
     ?line ok = file:delete(Archive),
     ok.
 
@@ -365,6 +367,7 @@ remote_archive(Config) when is_list(Config) ->
     BeamName = "inet.beam",
     ?line ok = test_archive(Node, Archive, KernelDir, BeamName),
 
+    %% Cleanup
     ?line stop_node(Node),
     ?line unlink(BootPid),
     ?line exit(BootPid, kill),
@@ -401,21 +404,22 @@ primary_archive(Config) when is_list(Config) ->
     ?line Args = " -setcookie " ++ Cookie,
     ?line {ok,Node} = start_node(primary_archive, Args),
     ?line wait_really_started(Node, 25),
+    ?line {_,_,_} = rpc:call(Node, erlang, date, []),
 
     %% Set primary archive 
-    ?line {_,_,_} = rpc:call(Node, erlang, date, []),
-    ?line {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive, [Archive, ArchiveBin]),
     ExpectedEbins = [Archive, DictDir ++ "/ebin", DummyDir ++ "/ebin"],
     io:format("ExpectedEbins: ~p\n", [ExpectedEbins]),
-    ?line ExpectedEbins = lists:sort(Ebins),
+    ?line {ok, FileInfo} = prim_file:read_file_info(Archive),
+    ?line {ok, Ebins} = rpc:call(Node, erl_prim_loader, set_primary_archive, [Archive, ArchiveBin, FileInfo]),
+    ?line ExpectedEbins = lists:sort(Ebins), % assert
     
     ?line {ok, TopFiles2} = rpc:call(Node, erl_prim_loader, list_dir, [Archive]),
     ?line [DictDir, DummyDir] = lists:sort(TopFiles2),
     BeamName = "primary_archive_dict_app.beam",
     ?line ok = test_archive(Node, Archive, DictDir, BeamName),
     
-    ?line {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive, [undefined, undefined]),
-
+    %% Cleanup
+    ?line {ok, []} = rpc:call(Node, erl_prim_loader, set_primary_archive, [undefined, undefined, undefined]),
     ?line stop_node(Node),
     ?line ok = file:delete(Archive),
     ok.
@@ -460,6 +464,46 @@ create_archive(Archive, AppDirs) ->
     Opts = [{compress, []}, {cwd, LibDir}],
     io:format("zip:create(~p,\n\t~p,\n\t~p).\n", [Archive, AppDirs, Opts]),
     zip:create(Archive, AppDirs, Opts).
+
+
+virtual_dir_in_archive(suite) ->
+    [];
+virtual_dir_in_archive(doc) ->
+    ["Read virtual directories from archive."];
+virtual_dir_in_archive(Config) when is_list(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    Data = <<"A little piece of data.">>,
+    ArchiveBase = "archive_with_virtual_dirs",
+    Archive = filename:join([PrivDir, ArchiveBase ++ init:archive_extension()]),
+    FileBase = "a_data_file.beam",
+    EbinBase = "ebin",
+    FileInArchive = filename:join([ArchiveBase, EbinBase, FileBase]),
+    BinFiles = [{FileInArchive, Data}],
+    Opts = [{compress, []}],
+    ?line file:delete(Archive),
+    io:format("zip:create(~p,\n\t~p,\n\t~p).\n", [Archive, BinFiles, Opts]),
+    ?line {ok, Archive} = zip:create(Archive, BinFiles, Opts),
+
+    %% Verify that there is no directories
+    ?line {ok, BinFiles} = zip:unzip(Archive, [memory]),
+
+    FullPath = filename:join([Archive, FileInArchive]),
+    ?line {ok, _} = erl_prim_loader:read_file_info(FullPath),
+
+    %% Read one virtual dir
+    EbinDir = filename:dirname(FullPath),
+    ?line {ok, _} = erl_prim_loader:read_file_info(EbinDir),
+    ?line {ok, [FileBase]} = erl_prim_loader:list_dir(EbinDir),
+
+    %% Read another virtual dir
+    AppDir = filename:dirname(EbinDir),
+    ?line {ok, _} = erl_prim_loader:read_file_info(AppDir),
+    ?line {ok, [EbinBase]} = erl_prim_loader:list_dir(AppDir),
+    
+    %% Cleanup
+    ?line ok = erl_prim_loader:release_archives(),
+    ?line ok = file:delete(Archive),
+    ok.
 
 %% Misc. functions
 

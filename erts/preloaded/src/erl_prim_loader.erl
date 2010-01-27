@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -49,7 +49,7 @@
          prim_read_file_info/2, prim_get_cwd/2]).
 
 %% Used by escript and code
--export([set_primary_archive/2, release_archives/0]).
+-export([set_primary_archive/3, release_archives/0]).
 
 %% Internal function. Exported to avoid dialyzer warnings
 -export([concat/1]).
@@ -220,14 +220,15 @@ get_cwd(Drive) ->
     check_file_result(get_cwd, Drive, request({get_cwd,[Drive]})).
 
 -spec set_primary_archive(File :: string() | 'undefined', 
-                          ArchiveBin :: binary() | 'undefined')
-      -> {ok, [string()]} | {error,_}.
+                          ArchiveBin :: binary() | 'undefined',
+			  FileInfo :: #file_info{} | 'undefined')
+			 -> {ok, [string()]} | {error,_}.
 
-set_primary_archive(undefined, undefined) ->
-    request({set_primary_archive, undefined, undefined});
-set_primary_archive(File, ArchiveBin)
-  when is_list(File), is_binary(ArchiveBin) ->
-    request({set_primary_archive, File, ArchiveBin}).
+set_primary_archive(undefined, undefined, undefined) ->
+    request({set_primary_archive, undefined, undefined, undefined});
+set_primary_archive(File, ArchiveBin, FileInfo)
+  when is_list(File), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
+    request({set_primary_archive, File, ArchiveBin, FileInfo}).
 
 -spec release_archives() -> 'ok' | {'error', _}.
 
@@ -315,8 +316,8 @@ loop(State, Parent, Paths) ->
                     {get_cwd,[_]=Args} ->
                         {Res,State1} = handle_get_cwd(State, Args),
                         {Res,State1,Paths};
-                    {set_primary_archive,File,Bin} ->
-                        {Res,State1} = handle_set_primary_archive(State, File, Bin),
+                    {set_primary_archive,File,Bin,FileInfo} ->
+                        {Res,State1} = handle_set_primary_archive(State, File, Bin,FileInfo),
                         {Res,State1,Paths};
                     release_archives ->
                         {Res,State1} = handle_release_archives(State),
@@ -356,8 +357,8 @@ handle_get_file(State = #state{loader = efile}, Paths, File) ->
 handle_get_file(State = #state{loader = inet}, Paths, File) ->
     ?SAFE2(inet_get_file_from_port(State, File, Paths), State).
 
-handle_set_primary_archive(State= #state{loader = efile}, File, Bin) ->
-    ?SAFE2(efile_set_primary_archive(State, File, Bin), State).
+handle_set_primary_archive(State= #state{loader = efile}, File, Bin, FileInfo) ->
+    ?SAFE2(efile_set_primary_archive(State, File, Bin, FileInfo), State).
 
 handle_release_archives(State= #state{loader = efile}) ->
     ?SAFE2(efile_release_archives(State), State).
@@ -481,8 +482,8 @@ efile_get_file_from_port3(State, File, [P | Paths]) ->
 efile_get_file_from_port3(State, _File, []) ->
     {{error,enoent},State}.
 
-efile_set_primary_archive(#state{prim_state = PS} = State, File, Bin) ->
-    {Res, PS2} = prim_set_primary_archive(PS, File, Bin),
+efile_set_primary_archive(#state{prim_state = PS} = State, File, Bin, FileInfo) ->
+    {Res, PS2} = prim_set_primary_archive(PS, File, Bin, FileInfo),
     {Res,State#state{prim_state = PS2}}.
 
 efile_release_archives(#state{prim_state = PS} = State) ->
@@ -572,13 +573,14 @@ find_loop(U, Retry, AL, ReqDelay, SReSleep, Ignore, Tries, LReSleep) ->
     case find_loop(U, Retry, AL, ReqDelay, []) of
         [] ->                                   % no response from any server
             erlang:display({erl_prim_loader,'no server found'}), % lifesign
-            Tries1 = if Tries > 0 ->
-                             sleep(SReSleep),
-                             Tries - 1;
-                        true ->
-                             sleep(LReSleep),
-                             0
-                     end,
+            Tries1 =
+		if Tries > 0 ->
+			sleep(SReSleep),
+			Tries - 1;
+		   true ->
+			sleep(LReSleep),
+			0
+		end,
             find_loop(U, Retry, AL, ReqDelay, SReSleep, Ignore, Tries1, LReSleep);
         Servers ->
             keysort(1, Servers -- Ignore)
@@ -787,9 +789,9 @@ prim_release_archives(PS) ->
 prim_do_release_archives(PS, [{ArchiveFile, DictVal} | KeyVals], Acc) ->
     Res = 
 	case DictVal of
-	    {primary, _PrimZip} ->
+	    {primary, _PrimZip, _FI} ->
 		ok; % Keep primary archive
-	    {_Mtime, Cache} ->
+	    {Cache, _FI} ->
 		debug(PS, {release, cache, ArchiveFile}),
 		erase(ArchiveFile),
 		clear_cache(ArchiveFile, Cache)
@@ -805,7 +807,7 @@ prim_do_release_archives(PS, [], []) ->
 prim_do_release_archives(PS, [], Errors) ->
     {{error, Errors}, PS#prim_state{primary_archive = undefined}}.
 
-prim_set_primary_archive(PS, undefined, undefined) ->
+prim_set_primary_archive(PS, undefined, undefined, undefined) ->
     debug(PS, {set_primary_archive, clean}),
     case PS#prim_state.primary_archive of
         undefined ->
@@ -813,15 +815,15 @@ prim_set_primary_archive(PS, undefined, undefined) ->
             debug(PS, {return, Res}),
             {Res, PS};
         ArchiveFile ->
-            {primary, PrimZip} = erase(ArchiveFile),
+            {primary, PrimZip, _FI} = erase(ArchiveFile),
             ok = prim_zip:close(PrimZip),
             PS2 = PS#prim_state{primary_archive = undefined},
             Res = {ok, []},
             debug(PS2, {return, Res}),
             {Res, PS2}
     end;
-prim_set_primary_archive(PS, ArchiveFile, ArchiveBin)
-  when is_list(ArchiveFile), is_binary(ArchiveBin) ->
+prim_set_primary_archive(PS, ArchiveFile, ArchiveBin, FileInfo)
+  when is_list(ArchiveFile), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
     %% Try the archive file
     debug(PS, {set_primary_archive, ArchiveFile, byte_size(ArchiveBin)}),
     {Res3, PS3} =
@@ -833,17 +835,17 @@ prim_set_primary_archive(PS, ArchiveFile, ArchiveBin)
                                 ["", "nibe", RevApp] -> % Reverse ebin
                                     %% Collect ebin directories in archive
                                     Ebin = reverse(RevApp) ++ "/ebin",
-                                    {true, [Ebin | A]};
+				    {true, [Ebin | A]};
                                 _ ->
                                     {true, A}
                             end
                     end,
                 Ebins0 = [ArchiveFile],
-                case open_archive({ArchiveFile, ArchiveBin}, Ebins0, Fun) of
-                    {ok, PrimZip, RevEbins} ->
+                case open_archive({ArchiveFile, ArchiveBin}, FileInfo, Ebins0, Fun) of
+                    {ok, PrimZip, {RevEbins, FI, _}} ->
                         Ebins = reverse(RevEbins),
                         debug(PS, {set_primary_archive, Ebins}),
-                        put(ArchiveFile, {primary, PrimZip}),
+                        put(ArchiveFile, {primary, PrimZip, FI}),
                         {{ok, Ebins}, PS#prim_state{primary_archive = ArchiveFile}};
                     Error ->
                         debug(PS, {set_primary_archive, Error}),
@@ -851,10 +853,10 @@ prim_set_primary_archive(PS, ArchiveFile, ArchiveBin)
                 end;
             OldArchiveFile ->
                 debug(PS, {set_primary_archive, clean}),
-                PrimZip = erase(OldArchiveFile),
+                {primary, PrimZip, _FI} = erase(OldArchiveFile),
                 ok = prim_zip:close(PrimZip),
                 PS2 = PS#prim_state{primary_archive = undefined},
-                prim_set_primary_archive(PS2, ArchiveFile, ArchiveBin)
+                prim_set_primary_archive(PS2, ArchiveFile, ArchiveBin, FileInfo)
         end,
     debug(PS3, {return, Res3}),
     {Res3, PS3}.
@@ -956,15 +958,15 @@ prim_read_file_info(PS, File) ->
                 FunnyFile = funny_split(FileInArchive, $/),
                 Fun =
                     fun({Funny, GetInfo, _GetBin}, Acc)  ->
-			    if
-                                hd(Funny) =:= "",
-                                tl(Funny) =:= FunnyFile ->
+			    case Funny of
+				[H | T] when  H =:= "",
+					      T =:= FunnyFile ->
                                     %% Directory
                                     {false, {ok, GetInfo()}};
-                                Funny =:= FunnyFile ->
+                                F when F =:= FunnyFile ->
                                     %% Plain file
                                     {false, {ok, GetInfo()}};
-                                true ->
+                                _ ->
                                     %% No match
                                     {true, Acc}
                             end
@@ -990,33 +992,36 @@ prim_get_cwd(PS, [Drive]) ->
 apply_archive(PS, Fun, Acc, Archive) ->
     case get(Archive) of
         undefined ->
+	    case open_archive(Archive, Acc, Fun) of
+		{ok, PrimZip, {Acc2, FI, _}} ->
+		    debug(PS, {cache, ok}),
+		    put(Archive, {{ok, PrimZip}, FI}),
+		    {Acc2, PS};
+		Error ->
+		    debug(PS, {cache, Error}),
+		    %% put(Archive, {Error, FI}),
+		    {Error, PS}
+	    end;
+        {primary, PrimZip, FI} ->
+	    case prim_file:read_file_info(Archive) of
+                {ok, FI2} 
+		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
+		    case foldl_archive(PrimZip, Acc, Fun) of
+			{ok, _PrimZip2, Acc2} ->
+			    {Acc2, PS};
+			Error ->
+			    debug(PS, {primary, Error}),
+			    {Error, PS}
+		    end;
+		Error ->
+		    debug(PS, {cache, {clear, Error}}),
+		    clear_cache(Archive, {ok, PrimZip}),
+		    apply_archive(PS, Fun, Acc, Archive)
+	    end;
+        {Cache, FI} ->
             case prim_file:read_file_info(Archive) of
-                {ok, #file_info{mtime = Mtime}} ->
-                    case open_archive(Archive, Acc, Fun) of
-                        {ok, PrimZip, Acc2} ->
-                            debug(PS, {cache, ok}),
-                            put(Archive, {Mtime, {ok, PrimZip}}),
-                            {Acc2, PS};
-                        Error ->
-                            debug(PS, {cache, Error}),
-                            put(Archive, {Mtime, Error}),
-                            {Error, PS}
-                    end;
-                Error ->
-                    debug(PS, {cache, Error}),
-                    {Error, PS}
-            end;
-        {primary, PrimZip} ->
-            case foldl_archive(PrimZip, Acc, Fun) of
-                {ok, _PrimZip2, Acc2} ->
-                    {Acc2, PS};
-                Error ->
-                    debug(PS, {primary, Error}),
-                    {Error, PS}
-            end;
-        {Mtime, Cache} ->
-            case prim_file:read_file_info(Archive) of
-                {ok, #file_info{mtime = Mtime2}} when Mtime2 =:= Mtime ->
+                {ok, FI2} 
+		  when FI#file_info.mtime =:= FI2#file_info.mtime ->
                     case Cache of
                         {ok, PrimZip} ->
                             case foldl_archive(PrimZip, Acc, Fun) of
@@ -1026,7 +1031,8 @@ apply_archive(PS, Fun, Acc, Archive) ->
                                     debug(PS, {cache, {clear, Error}}),
                                     clear_cache(Archive, Cache),
                                     debug(PS, {cache, Error}),
-                                    put(Archive, {Mtime, Error}),
+				    erase(Archive),
+                                    %% put(Archive, {Error, FI}),
                                     {Error, PS}
                             end;
                         Error ->
@@ -1041,20 +1047,57 @@ apply_archive(PS, Fun, Acc, Archive) ->
     end.
 
 open_archive(Archive, Acc, Fun) ->
+    case prim_file:read_file_info(Archive) of
+	{ok, FileInfo} ->
+	    open_archive(Archive, FileInfo, Acc, Fun);
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+open_archive(Archive, FileInfo, Acc, Fun) ->
+    FakeFI = FileInfo#file_info{type = directory},
     Wrapper =
-        fun({N, GI, GB}, A) ->
-                %% Ensure full iteration at open
-                Funny = funny_split(N, $/),
-                {_Continue, A2} = Fun({Funny, GI, GB}, A),
-                {true, {true, Funny}, A2}
-        end,
-    prim_zip:open(Wrapper, Acc, Archive).
+	fun({N, GI, GB}, {A, I, FunnyDirs}) -> % Full iteration at open
+		Funny = funny_split(N, $/),
+		FunnyDirs2 =
+		    case Funny of
+			["" | FunnyDir] ->
+			    [FunnyDir | FunnyDirs];
+			_ ->
+			    FunnyDirs
+		    end,
+		{Includes, FunnyDirs3, A2} = 
+		    ensure_virtual_dirs(Funny, Fun, FakeFI, [{true, Funny}], FunnyDirs2, A),
+		{_Continue, A3} = Fun({Funny, GI, GB}, A2),
+		{true, Includes, {A3, I, FunnyDirs3}}
+	end,
+    prim_zip:open(Wrapper, {Acc, FakeFI, []}, Archive).
+
+ensure_virtual_dirs(Funny, Fun, FakeFI, Includes, FunnyDirs, Acc) ->
+    case Funny of
+	[_ | FunnyDir] ->
+	    case lists:member(FunnyDir, FunnyDirs) of % BIF
+		false ->
+		    GetInfo = fun() -> FakeFI end,
+		    GetBin = fun() -> <<>> end,
+		    VirtualDir = ["" | FunnyDir],
+		    Includes2 = [{true, VirtualDir, GetInfo, GetBin} | Includes],
+		    FunnyDirs2 = [FunnyDir | FunnyDirs],
+		    {I, F, Acc2} = ensure_virtual_dirs(FunnyDir, Fun, FakeFI, Includes2, FunnyDirs2, Acc),
+		    {_Continue, Acc3} = Fun({VirtualDir, GetInfo, GetBin}, Acc2),
+		    {I, F, Acc3};
+		true ->
+		    {reverse(Includes), FunnyDirs, Acc}
+	    end;
+	[] ->
+	    {reverse(Includes), FunnyDirs, Acc}
+    end.
 
 foldl_archive(PrimZip, Acc, Fun) ->
     Wrapper =
-        fun({N, GI, GB}, A) ->
+        fun({Funny, GI, GB}, A) ->
                 %% Allow partial iteration at foldl
-                {Continue, A2} = Fun({N, GI, GB}, A),
+                {Continue, A2} = Fun({Funny, GI, GB}, A),
                 {Continue, true, A2}
         end,                        
     prim_zip:foldl(Wrapper, Acc, PrimZip).

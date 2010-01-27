@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(code).
@@ -63,7 +63,7 @@
 	 which/1,
 	 where_is_file/1,
 	 where_is_file/2,
-	 set_primary_archive/2,
+	 set_primary_archive/3,
 	 clash/0]).
 
 -include_lib("kernel/include/file.hrl").
@@ -101,7 +101,7 @@
 %% unstick_dir(Dir)             -> ok | error
 %% is_sticky(Module)            -> true | false
 %% which(Module)                -> Filename
-%% set_primary_archive((FileName, Bin)  -> ok | {error, Reason}
+%% set_primary_archive((FileName, Bin, FileInfo)  -> ok | {error, Reason}
 %% clash() ->                   -> print out
 
 %%----------------------------------------------------------------------------
@@ -420,11 +420,15 @@ where_is_file(Path, File) when is_list(Path), is_list(File) ->
 	    which(File, ".", Path)
     end.
 
--spec set_primary_archive(ArchiveFile :: file:filename(), ArchiveBin :: binary()) -> 'ok' | {'error', atom()}.
+-spec set_primary_archive(ArchiveFile :: file:filename(),
+			  ArchiveBin :: binary(),
+			  FileInfo :: #file_info{})
+			 -> 'ok' | {'error', atom()}.
 
-set_primary_archive(ArchiveFile0, ArchiveBin) when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
+set_primary_archive(ArchiveFile0, ArchiveBin, FileInfo)
+  when is_list(ArchiveFile0), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
     ArchiveFile = filename:absname(ArchiveFile0),
-    case call({set_primary_archive, ArchiveFile, ArchiveBin}) of
+    case call({set_primary_archive, ArchiveFile, ArchiveBin, FileInfo}) of
 	{ok, []} ->
 	    ok;
 	{ok, _Mode, Ebins} ->

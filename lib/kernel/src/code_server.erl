@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(code_server).
@@ -384,8 +384,8 @@ handle_call(stop,{_From,_Tag}, S) ->
 handle_call({is_cached,_File}, {_From,_Tag}, S=#state{cache=no_cache}) ->
     {reply, no, S};
 
-handle_call({set_primary_archive, File, ArchiveBin}, {_From,_Tag}, S=#state{mode=Mode}) ->
-    case erl_prim_loader:set_primary_archive(File, ArchiveBin) of
+handle_call({set_primary_archive, File, ArchiveBin, FileInfo}, {_From,_Tag}, S=#state{mode=Mode}) ->
+    case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo) of
 	{ok, Files} ->
 	    {reply, {ok, Mode, Files}, S};
 	{error, Reason} ->
