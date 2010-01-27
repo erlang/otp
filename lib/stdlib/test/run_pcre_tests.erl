@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(run_pcre_tests).
@@ -25,7 +25,7 @@ test(RootDir) ->
     erts_debug:set_internal_state(available_internal_state,true),
     io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,10)]),
     Testfiles0 = ["testoutput1", "testoutput2", "testoutput3", "testoutput4",
-		 "testoutput5", "testoutput6", "testoutput10"],
+		 "testoutput5", "testoutput6","mod_testoutput8","testoutput10"],
     Testfiles = [ filename:join([RootDir,FN]) || FN <- Testfiles0 ], 
     Res = [ begin io:format("~s~n",[X]), t(X) end || X <- Testfiles ],
     io:format("limit was: ~p~n",[ erts_debug:set_internal_state(re_loop_limit,default)]),
@@ -42,12 +42,14 @@ t(OneFile,Num) ->
     put(error_limit,Num),
     put(skipped,0),
     Res = 
-	[test(Structured,true,index),
-	 test(Structured,false,index),
-	 test(Structured,true,binary),
-	 test(Structured,false,binary),
-	 test(Structured,true,list),
-	 test(Structured,false,list)],
+	[test(Structured,true,index,false),
+	 test(Structured,false,index,false),
+	 test(Structured,true,index,true),
+	 test(Structured,false,index,true),
+	 test(Structured,true,binary,false),
+	 test(Structured,false,binary,false),
+	 test(Structured,true,list,false),
+	 test(Structured,false,list,false)],
     {lists:sum(Res),length(Structured)*6,get(skipped)}.
 
 
@@ -63,11 +65,21 @@ pick_exec_options([Opt|T]) ->
 pick_exec_options([]) ->
     {[],[]}.
 
-test([],_,_) ->
+test([],_,_,_) ->
     0;
-test([{RE,Line,Options0,Tests}|T],PreCompile,XMode) ->
+test([{RE0,Line,Options0,Tests}|T],PreCompile,XMode,REAsList) ->
     %io:format("."),
     %case RE of <<>> -> io:format("Empty re:~w~n",[Line]); _ -> ok end,
+    Unicode = lists:member(unicode,Options0),
+    RE = case REAsList of
+	     true ->
+		 if 
+		     Unicode -> unicode:characters_to_list(RE0);
+		     true -> binary_to_list(RE0)
+		 end;
+	     false ->
+		 RE0
+	 end,
     {Options,ExecOptions} = pick_exec_options(Options0),
     {Cres, Xopt} = case PreCompile of
 		       true ->
@@ -80,7 +92,7 @@ test([{RE,Line,Options0,Tests}|T],PreCompile,XMode) ->
 	    %erlang:display({testrun,RE,P,Tests,ExecOptions,Xopt,XMode}),
 	    case (catch testrun(RE,P,Tests,ExecOptions,Xopt,XMode)) of
 		N when is_integer(N) ->
-		    N + test(T,PreCompile,XMode);
+		    N + test(T,PreCompile,XMode,REAsList);
 		limit ->
 		    io:format("Error limit reached.~n"),
 		    1;
@@ -91,12 +103,12 @@ test([{RE,Line,Options0,Tests}|T],PreCompile,XMode) ->
 			_ ->
 			    put(skipped,1)
 		    end,
-		    test(T,PreCompile,XMode)
+		    test(T,PreCompile,XMode,REAsList)
 	    end;
 	{error,Err} ->
 	    io:format("Compile error(~w): ~w~n",[Line,Err]), 
 	    case get(error_limit) of
-		infinite -> 1 + test(T,PreCompile,XMode);
+		infinite -> 1 + test(T,PreCompile,XMode,REAsList);
 		X ->
 		    case X-1 of
 			Y when Y =< 0 ->
@@ -104,7 +116,7 @@ test([{RE,Line,Options0,Tests}|T],PreCompile,XMode) ->
 			    1;
 			Y ->
 			    put(error_limit,Y),
-			    1 + test(T,PreCompile,XMode)
+			    1 + test(T,PreCompile,XMode,REAsList)
 		    end
 	    end
     end.
@@ -549,6 +561,8 @@ tr_option($N) ->
     [no_auto_capture];
 tr_option($8) ->
     [unicode];
+tr_option($U) ->
+    [ungreedy];
 tr_option($g) ->
     [{exec_option,g}];
 tr_option(_) ->

@@ -884,7 +884,7 @@ re_run_3(BIF_ALIST_3)
 	    int capture_count;
 
 	    if (pflags & PARSE_FLAG_UNICODE && 
-		(!is_binary(BIF_ARG_1) || 
+		(!is_binary(BIF_ARG_2) || !is_binary(BIF_ARG_1) ||
 		 (is_list_cap && !(pflags & PARSE_FLAG_GLOBAL)))) { 
 		BIF_TRAP3(urun_trap_exportp, BIF_P, BIF_ARG_1, BIF_ARG_2, BIF_ARG_3);
 	    }
