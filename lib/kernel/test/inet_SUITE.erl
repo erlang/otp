@@ -28,7 +28,7 @@
 	 gethostnative_parallell/1, cname_loop/1, 
          gethostnative_soft_restart/1,gethostnative_debug_level/1,getif/1]).
 
--export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, 
+-export([get_hosts/1, get_ipv6_hosts/1, parse_hosts/1, parse_address/1,
 	 kill_gethost/0, parallell_gethost/0]).
 -export([init_per_testcase/2, end_per_testcase/2]).
 
@@ -249,14 +249,16 @@ t_getaddr_v6(Config) when is_list(Config) ->
 	    ?line {ok,IP46} = inet:getaddr(IP46, inet6),
 	    ?line {ok,IP46} = inet:getaddr(Name, inet6),
 	    ?line {ok,IP46} = inet:getaddr(FullName, inet6),
-	    ?line IP4toIP6 = inet:getaddr(IPStr, inet6),
-	    ?line case IP4toIP6 of
-		      {ok,IP46} ->		% only native can do this
-			  ?line true = lists:member(native,
-						    inet_db:res_option(lookup));
-		      {error,nxdomain} ->
-			  ok
-		  end,
+	    ?line {ok,IP46} = inet:getaddr(IPStr, inet6),
+%% 	    ?line IP4toIP6 = inet:getaddr(IPStr, inet6),
+%% 	    ?line case IP4toIP6 of
+%% 		      {ok,IP46} ->
+%% 			  ?line ok;
+%% 		      {error,nxdomain} ->
+%% 			  ?line false =
+%% 			      lists:member(native,
+%% 					   inet_db:res_option(lookup))
+%% 		  end,
 	    ?line {Name6, FullName6, IPStr6, IP6, _} =
 				      	?config(test_host_ipv6_only, Config),
 	    ?line {ok,_} = inet:getaddr(list_to_atom(Name6), inet6),
@@ -301,7 +303,6 @@ ipv4_to_ipv6(Config) when is_list(Config) ->
 	end,
     ?line case {IP4to6Res,inet:gethostbyname(IPStr, inet6)} of
 	      {true,{ok,HEnt}} ->
-		  ?line true = lists:member(native, inet_db:res_option(lookup)),
 		  ?line HEnt_ = HEnt#hostent{h_addrtype = inet6,
 					     h_length = 16,
 					     h_addr_list = [IP_46]},
@@ -374,9 +375,10 @@ get_hosts([C|Rest], Cur, Ip, Result) ->
 get_hosts([], _, _, Result) ->
     Result.
     
-parse(suite) -> [parse_hosts];
+parse(suite) -> [parse_hosts, parse_address];
 parse(doc) -> ["Test that parsing of the hosts file or equivalent works,",
 	       "and that erroneous lines are skipped"].
+
 parse_hosts(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir,Config),
     ?line HostFile = filename:join(DataDir, "hosts"),
@@ -387,6 +389,170 @@ parse_hosts(Config) when is_list(Config) ->
     ?line inet_parse:resolv(Resolv),
     ?line ResolvErr1 = filename:join(DataDir,"resolv.conf.err1"),
     ?line inet_parse:resolv(ResolvErr1).
+
+parse_address(Config) when is_list(Config) ->
+    V4Strict =
+	[{{0,0,0,0},"0.0.0.0"},
+	 {{1,2,3,4},"1.2.3.4"},
+	 {{253,252,251,250},"253.252.251.250"},
+	 {{1,2,255,254},"1.2.255.254"}],
+    V6Strict =
+	[{{0,0,0,0,0,0,0,0},"::"},
+	 {{15,0,0,0,0,0,0,2},"f::2"},
+	 {{15,16#f11,0,0,0,0,256,2},"f:f11::0100:2"},
+	 {{0,0,0,0,0,0,0,16#17},"::17"},
+	 {{16#700,0,0,0,0,0,0,0},"0700::"},
+	 {{0,0,0,0,0,0,2,1},"::2:1"},
+	 {{0,0,0,0,0,3,2,1},"::3:2:1"},
+	 {{0,0,0,0,4,3,2,1},"::4:3:2:1"},
+	 {{0,0,0,5,4,3,2,1},"::5:4:3:2:1"},
+	 {{0,0,6,5,4,3,2,1},"::6:5:4:3:2:1"},
+	 {{0,7,6,5,4,3,2,1},"::7:6:5:4:3:2:1"},
+	 {{7,0,0,0,0,0,0,0},"7::"},
+	 {{7,6,0,0,0,0,0,0},"7:6::"},
+	 {{7,6,5,0,0,0,0,0},"7:6:5::"},
+	 {{7,6,5,4,0,0,0,0},"7:6:5:4::"},
+	 {{7,6,5,4,3,0,0,0},"7:6:5:4:3::"},
+	 {{7,6,5,4,3,2,0,0},"7:6:5:4:3:2::"},
+	 {{7,6,5,4,3,2,1,0},"7:6:5:4:3:2:1::"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "c11:0c22:5c33:c440:55c0:c66c:77:0088"},
+	 {{16#c11,0,16#5c33,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "c11::5c33:c440:55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,0,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "c11:0c22::c440:55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,0,16#55c0,16#c66c,16#77,16#88},
+	  "c11:0c22:5c33::55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,0,16#c66c,16#77,16#88},
+	  "c11:0c22:5c33:c440::c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,0,16#77,16#88},
+	  "c11:0c22:5c33:c440:55c0::77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,16#c66c,0,16#88},
+	  "c11:0c22:5c33:c440:55c0:c66c::0088"},
+	 {{16#c11,0,0,16#c440,16#55c0,16#c66c,16#77,16#88},
+	  "c11::c440:55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,0,0,16#55c0,16#c66c,16#77,16#88},
+	  "c11:0c22::55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,0,0,16#c66c,16#77,16#88},
+	  "c11:0c22:5c33::c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,0,0,16#77,16#88},
+	  "c11:0c22:5c33:c440::77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,16#55c0,0,0,16#88},
+	  "c11:0c22:5c33:c440:55c0::0088"},
+	 {{16#c11,0,0,0,16#55c0,16#c66c,16#77,16#88},
+	  "c11::55c0:c66c:77:0088"},
+	 {{16#c11,16#c22,0,0,0,16#c66c,16#77,16#88},
+	  "c11:0c22::c66c:77:0088"},
+	 {{16#c11,16#c22,16#5c33,0,0,0,16#77,16#88},
+	  "c11:0c22:5c33::77:0088"},
+	 {{16#c11,16#c22,16#5c33,16#c440,0,0,0,16#88},
+	  "c11:0c22:5c33:c440::0088"},
+	 {{16#c11,0,0,0,0,16#c66c,16#77,16#88},
+	  "c11::c66c:77:0088"},
+	 {{16#c11,16#c22,0,0,0,0,16#77,16#88},
+	  "c11:0c22::77:0088"},
+	 {{16#c11,16#c22,16#5c33,0,0,0,0,16#88},
+	  "c11:0c22:5c33::0088"},
+	 {{16#c11,0,0,0,0,0,16#77,16#88},
+	  "c11::77:0088"},
+	 {{16#c11,16#c22,0,0,0,0,0,16#88},
+	  "c11:0c22::0088"},
+	 {{0,0,0,0,0,65535,258,65534},"::FFFF:1.2.255.254"},
+	 {{16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff,16#ffff},
+	  "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"}
+	|[{{D2,0,0,0,0,P,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},
+	   erlang:integer_to_list(D2, 16)++"::"++Q++S}
+	  || {{D1,D2,D3,D4},S} <- V4Strict,
+	     {P,Q} <- [{0,""},{16#17,"17:"},{16#ff0,"0ff0:"}]]],
+    V4Sloppy =
+	[{{10,1,16#98,16#76},"10.0x019876"},
+	 {{8#12,1,8#130,8#321},"012.01.054321"},
+	 {{255,255,255,255},"255.255.255.0377"},
+	 {{255,255,255,255},"0Xff.000000000377.0x0000ff.255"},
+	 {{255,255,255,255},"255.255.65535"},
+	 {{255,255,255,255},"255.0xFF.0177777"},
+	 {{255,255,255,255},"255.16777215"},
+	 {{255,255,255,255},"00377.0XFFFFFF"},
+	 {{255,255,255,255},"4294967295"},
+	 {{255,255,255,255},"0xffffffff"},
+	 {{255,255,255,255},"00000000000037777777777"},
+	 {{16#12,16#34,16#56,16#78},"0x12345678"},
+	 {{16#12,16#34,16#56,16#78},"0x12.0x345678"},
+	 {{16#12,16#34,16#56,16#78},"0x12.0X34.0x5678"},
+	 {{16#12,16#34,16#56,16#78},"0x12.0X34.0x56.0X78"},
+	 {{0,0,0,0},"0"},
+	 {{0,0,0,0},"00"},
+	 {{0,0,0,0},"0.0"},
+	 {{0,0,0,0},"00.00.00"},
+	 {{0,0,0,0},"0.00.0.0"},
+	 {{0,0,0,0},"0.0.000000000000.0"}],
+    V6Sloppy =
+	[{{0,0,0,0,0,65535,(D1 bsl 8) bor D2,(D3 bsl 8) bor D4},S}
+	 || {{D1,D2,D3,D4},S} <- V4Strict++V4Sloppy],
+    V4Err =
+	["0.256.0.1",
+	 "1.2.3.4.5",
+	 "256.255.65535",
+	 "4294967296",
+	 "0x100000000",
+	 "040000000000",
+	 "1.2.3.-4",
+	 "1.2.-3.4",
+	 "1.-2.3.4",
+	 "-1.2.3.4",
+	 "10.",
+	 "172.16.",
+	 "198.168.0.",
+	 "127.0.0.1."],
+    V6Err =
+	[":::",
+	 "f:::2",
+	 "::-1",
+	 "::g",
+	 "f:f11::10100:2",
+	 "::17000",
+	 "10000::",
+	 "::8:7:6:5:4:3:2:1",
+	 "8:7:6:5:4:3:2:1::",
+	 "8:7:6:5:4::3:2:1",
+	 "::1.2.3.4.5",
+	 "::1.2.3.04",
+	 "::1.256.3.4",
+	 "::-5.4.3.2",
+	 "::5.-4.3.2",
+	 "::5.4.-3.2",
+	 "::5.4.3.-2",
+	 "::FFFF:1.2.3.4.5",
+	 "::10.",
+	 "::FFFF:172.16.",
+	 "fe80::198.168.0.",
+	 "fec0::fFfF:127.0.0.1."],
+    t_parse_address
+      (ipv6_address,
+       V6Strict++V6Sloppy++V6Err++V4Err),
+    t_parse_address
+      (ipv6strict_address,
+       V6Strict++V6Err++V4Err++[S || {_,S} <- V6Sloppy]),
+    t_parse_address
+      (ipv4_address,
+       V4Strict++V4Sloppy++V4Err++V6Err++[S || {_,S} <- V6Strict]),
+    t_parse_address
+      (ipv4strict_address,
+       V4Strict++V4Err++V6Err++[S || {_,S} <- V4Sloppy++V6Strict]).
+
+t_parse_address(Func, []) ->
+    io:format("~p done.~n", [Func]),
+    ok;
+t_parse_address(Func, [{Addr,String}|L]) ->
+    io:format("~p = ~p.~n", [Addr,String]),
+    {ok,Addr} = inet_parse:Func(String),
+    t_parse_address(Func, L);
+t_parse_address(Func, [String|L]) ->
+    io:format("~p.~n", [String]),
+    {error,einval} = inet_parse:Func(String),
+    t_parse_address(Func, L).
+
+
 
 t_gethostnative(suite) ->[];
 t_gethostnative(doc) ->[];

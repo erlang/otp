@@ -45,6 +45,7 @@
 %% resolve
 -export([gethostbyname/1, gethostbyname/2, gethostbyname/3, 
 	 gethostbyname_tm/3]).
+-export([gethostbyname_string/2, gethostbyname_self/2]).
 -export([gethostbyaddr/1, gethostbyaddr/2, 
 	 gethostbyaddr_tm/2]).
 
@@ -411,7 +412,17 @@ gethostbyname(Name,Family,Timeout) ->
     Res.
 
 gethostbyname_tm(Name,Family,Timer) ->
-    gethostbyname_tm(Name,Family,Timer,inet_db:res_option(lookup)).
+    Opts0 = inet_db:res_option(lookup),
+    Opts =
+	case (lists:member(native, Opts0) orelse
+	      lists:member(string, Opts0) orelse
+	      lists:member(nostring, Opts0)) of
+	    true ->
+		Opts0;
+	    false ->
+		[string|Opts0]
+	end,
+    gethostbyname_tm(Name, Family, Timer, Opts).
 
 
 -spec gethostbyaddr(Address :: string() | ip_address()) ->
@@ -850,75 +861,61 @@ getaddrs_tm(Address, Family, Timer) ->
 %%
 %% gethostbyname with option search
 %%
-gethostbyname_tm(Name, Type, Timer, [dns | Opts]) ->
-    Res = inet_res:gethostbyname_tm(Name, Type, Timer),
-    case Res of
-	{ok,_} -> Res;
-	{error,timeout} -> Res;
-	{error,formerr} -> {error,einval};
-	{error,_} -> gethostbyname_tm(Name,Type,Timer,Opts)
-    end;
-gethostbyname_tm(Name, Type, Timer, [file | Opts]) ->
-    case inet_hosts:gethostbyname(Name, Type) of
-	{error,formerr} -> {error,einval};
-	{error,_} -> gethostbyname_tm(Name,Type,Timer,Opts);
-	Result -> Result
-    end;
-gethostbyname_tm(Name, Type, Timer, [yp | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [string|_]=Opts) ->
+    Result = gethostbyname_string(Name, Type),
+    gethostbyname_tm(Name, Type, Timer, Opts, Result);
+gethostbyname_tm(Name, Type, Timer, [dns|_]=Opts) ->
+    Result = inet_res:gethostbyname_tm(Name, Type, Timer),
+    gethostbyname_tm(Name, Type, Timer, Opts, Result);
+gethostbyname_tm(Name, Type, Timer, [file|_]=Opts) ->
+    Result = inet_hosts:gethostbyname(Name, Type),
+    gethostbyname_tm(Name, Type, Timer, Opts, Result);
+gethostbyname_tm(Name, Type, Timer, [yp|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(Name, Type, Timer, [nis | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [nis|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(Name, Type, Timer, [nisplus | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [nisplus|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(Name, Type, Timer, [wins | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [wins|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(Name, Type, Timer, [native | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [native|_]=Opts) ->
     gethostbyname_tm_native(Name, Type, Timer, Opts);
-gethostbyname_tm(_, _, _, [no_default|_]) ->
-    %% If the native resolver has failed, we should not bother
-    %% to try to be smarter and parse the IP address here.
-    {error,nxdomain};
-gethostbyname_tm(Name, Type, Timer, [_ | Opts]) ->
+gethostbyname_tm(Name, Type, Timer, [_|_]=Opts) ->
     gethostbyname_tm(Name, Type, Timer, Opts);
-%% Last resort - parse the hostname as address
-gethostbyname_tm(Name, inet, _Timer, []) ->
-    case inet_parse:ipv4_address(Name) of
-	{ok,IP4} ->
-	    {ok,make_hostent(Name, [IP4], [], inet)};
-	_ ->
-	    gethostbyname_self(Name)
-    end;
-gethostbyname_tm(Name, inet6, _Timer, []) ->
-    case inet_parse:ipv6_address(Name) of
-	{ok,IP6} ->
-	    {ok,make_hostent(Name, [IP6], [], inet6)};
-	_ ->
-	    %% Even if Name is a valid IPv4 address, we can't
-	    %% assume it's correct to return it on a IPv6
-	    %% format ( {0,0,0,0,0,16#ffff,?u16(A,B),?u16(C,D)} ).
-	    %% This host might not support IPv6.
-	    gethostbyname_self(Name)
+%% Make sure we always can look up our own hostname.
+gethostbyname_tm(Name, Type, Timer, []) ->
+    Result = gethostbyname_self(Name, Type),
+    gethostbyname_tm(Name, Type, Timer, [], Result).
+
+gethostbyname_tm(Name, Type, Timer, Opts, Result) ->
+    case Result of
+	{ok,_} ->
+	    Result;
+	{error,formerr} ->
+	    {error,einval};
+	{error,_} when Opts =:= [] ->
+	    {error,nxdomain};
+	{error,_} ->
+	    gethostbyname_tm(Name, Type, Timer, tl(Opts))
     end.
 
 gethostbyname_tm_native(Name, Type, Timer, Opts) ->
     %% Fixme: add (global) timeout to gethost_native
-    case inet_gethost_native:gethostbyname(Name, Type) of
-	{error,formerr} -> {error,einval};
-	{error,timeout} -> {error,timeout};
-	{error,_} -> gethostbyname_tm(Name, Type, Timer, Opts++[no_default]);
-	Result -> Result
-    end.
+    Result = inet_gethost_native:gethostbyname(Name, Type),
+    gethostbyname_tm(Name, Type, Timer, Opts, Result).
 
-%% Make sure we always can look up our own hostname.
-gethostbyname_self(Name) ->
-    Type = case inet_db:res_option(inet6) of
-	       true -> inet6;
-	       false -> inet
-	   end,
+
+
+gethostbyname_self(Name, Type) when is_atom(Name) ->
+    gethostbyname_self(atom_to_list(Name), Type);
+gethostbyname_self(Name, Type)
+  when is_list(Name), Type =:= inet;
+       is_list(Name), Type =:= inet6 ->
     case inet_db:gethostname() of
 	Name ->
-	    {ok,make_hostent(Name, [translate_ip(loopback, Type)],
-			 [], Type)};
+	    {ok,make_hostent(Name,
+			     [translate_ip(loopback, Type)],
+			     [], Type)};
 	Self ->
 	    case inet_db:res_option(domain) of
 		"" -> {error,nxdomain};
@@ -931,7 +928,31 @@ gethostbyname_self(Name) ->
 			_ -> {error,nxdomain}
 		    end
 	    end
-    end.
+    end;
+gethostbyname_self(_, _) ->
+    {error,formerr}.
+
+gethostbyname_string(Name, Type) when is_atom(Name) ->
+    gethostbyname_string(atom_to_list(Name), Type);
+gethostbyname_string(Name, Type)
+  when is_list(Name), Type =:= inet;
+       is_list(Name), Type =:= inet6 ->
+    case
+	case Type of
+	    inet ->
+		inet_parse:ipv4_address(Name);
+	    inet6 ->
+		%% XXX should we really translate IPv4 addresses here
+		%% even if we do not know if this host can do IPv6?
+		inet_parse:ipv6_address(Name)
+	end of
+	{ok,IP} ->
+	    {ok,make_hostent(Name, [IP], [], Type)};
+	{error,einval} ->
+	    {error,nxdomain}
+    end;
+gethostbyname_string(_, _) ->
+    {error,formerr}.
 
 make_hostent(Name, Addrs, Aliases, Type) ->
     #hostent{h_name = Name,

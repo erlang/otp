@@ -362,20 +362,20 @@ do_files_monitor(Config) ->
     {error,nxdomain} = inet_res:gethostbyname(FQDN),
     {ok,{127,0,0,10}} = inet:getaddr("mx.otptest", inet),
     {ok,{0,0,0,0,0,0,32512,28}} = inet:getaddr("resolve.otptest", inet6),
-    ok = inet_db:res_option(inet6, true),
     {ok,#hostent{h_name = Hostname,
 		 h_addrtype = inet6,
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
-	inet:gethostbyname(Hostname),
+	inet:gethostbyname(Hostname, inet6),
     {ok,#hostent{h_name = FQDN,
 		 h_addrtype = inet6,
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
-	inet:gethostbyname(FQDN),
+	inet:gethostbyname(FQDN, inet6),
     {error,nxdomain} = inet_res:gethostbyname("resolve"),
     %% XXX inet does not honour res_option inet6, might be a problem?
     %% therefore inet_res is called here
+    ok = inet_db:res_option(inet6, true),
     {ok,#hostent{h_name = "resolve.otptest",
 		 h_addrtype = inet6,
 		 h_length = 16,
