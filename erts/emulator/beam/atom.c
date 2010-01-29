@@ -322,7 +322,7 @@ init_atom_table(void)
     text_list = NULL;
 
     erts_index_init(ERTS_ALC_T_ATOM_TABLE, &erts_atom_table,
-		    "atom_tab", ATOM_SIZE, ATOM_LIMIT, f);
+		    "atom_tab", ATOM_SIZE, erts_atom_table_size, f);
     more_atom_space();
 
     /* Ordinary atoms */

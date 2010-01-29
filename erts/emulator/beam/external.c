@@ -271,11 +271,8 @@ erts_encode_ext_dist_header_size(ErtsAtomCacheMap *acmp)
 
 byte *erts_encode_ext_dist_header_setup(byte *ctl_ext, ErtsAtomCacheMap *acmp)
 {
-#ifndef ARCH_32
-#if ATOM_LIMIT >= (1UL << 32)
-#error "ATOM_LIMIT too large for interal atom cache update instructions. New instructions needed."
-#endif
-#endif
+    /* Maximum number of atom must be less than the maximum of a 32 bits
+       unsigned integer. Check is done in erl_init.c, erl_start function. */
     if (!acmp)
 	return ctl_ext;
     else {

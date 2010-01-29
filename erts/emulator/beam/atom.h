@@ -28,6 +28,17 @@
 
 #define MAX_ATOM_LENGTH 255
 #define ATOM_LIMIT (1024*1024)
+#define MIN_ATOM_TABLE_SIZE 8192
+
+#ifndef ARCH_32
+/* Internal atom cache needs MAX_ATOM_TABLE_SIZE to be less than an
+   unsigned 32 bit integer. See external.c(erts_encode_ext_dist_header_setup)
+   for more details. */
+#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (1UL << 32)) ? MAX_ATOM_INDEX + 1 : (1UL << 32))
+#else
+#define MAX_ATOM_TABLE_SIZE (MAX_ATOM_INDEX + 1)
+#endif
+
 
 /*
  * Atom entry.
