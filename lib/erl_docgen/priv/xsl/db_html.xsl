@@ -702,7 +702,7 @@
 
   <!-- Menu.ref -->
   <xsl:template name="menu.ref">
-    <xsl:param name="$curModule"/>
+    <xsl:param name="curModule"/>
     <div id="leftnav">
       <div class="innertube">
 

@@ -59,10 +59,7 @@
   <xsl:template match="list/item">
     <xsl:text>&#10;.TP 2&#10;</xsl:text>
     <xsl:text>*&#10;</xsl:text>
-    <xsl:variable name="content">
-      <xsl:apply-templates/>
-    </xsl:variable>
-    <xsl:value-of select="normalize-space($content)"/>
+    <xsl:apply-templates/>
     <xsl:text>&#10;.LP&#10;</xsl:text>
   </xsl:template>
 
@@ -78,33 +75,23 @@
     <xsl:apply-templates/><xsl:text>:&#10;</xsl:text>
   </xsl:template>
 
+  <xsl:template match="taglist/item">
+    <xsl:apply-templates/>        
+  </xsl:template>
+
   <xsl:template match="item/p">
     <xsl:variable name="content">
       <xsl:apply-templates/>
     </xsl:variable>
     <xsl:choose>
       <xsl:when test="position() = 1">
-        <xsl:value-of select="normalize-space($content)"/>
+        <xsl:value-of select="$content"/>
       </xsl:when>
       <xsl:otherwise>
         <xsl:text>&#10;.RS 2</xsl:text>     
         <xsl:text>&#10;.LP&#10;&#10;.LP&#10;</xsl:text>     
-        <xsl:value-of select="normalize-space($content)"/>
+        <xsl:value-of select="$content"/>
         <xsl:text>&#10;.RE</xsl:text>     
-      </xsl:otherwise>
-    </xsl:choose>
-  </xsl:template>
-
-  <xsl:template match="taglist/item">
-    <xsl:choose>
-      <xsl:when test="child::p">
-        <xsl:apply-templates/>        
-      </xsl:when>
-      <xsl:otherwise>
-        <xsl:variable name="content">
-          <xsl:apply-templates/>
-        </xsl:variable>
-        <xsl:value-of select="normalize-space($content)"/>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -125,11 +112,8 @@
 
  <!-- Paragraph -->
   <xsl:template match="p">
-    <xsl:variable name="content">
-      <xsl:apply-templates/>
-    </xsl:variable>
     <xsl:text>&#10;.LP&#10;</xsl:text>
-    <xsl:value-of select="normalize-space($content)"/>
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Inline elements -->
@@ -190,42 +174,72 @@
   
   <!-- Erlref -->
   <xsl:template match="/erlref">
-      <xsl:text>.TH </xsl:text><xsl:value-of select="module"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "Ericsson AB" "Erlang Module Definition"&#10;</xsl:text>
-      <xsl:text>.SH NAME&#10;</xsl:text>
-      <xsl:value-of select="module"/><xsl:text> \- </xsl:text><xsl:value-of select="modulesummary"/><xsl:text>&#10;</xsl:text>  
-      <xsl:apply-templates/>
+    <xsl:variable name="companyname">
+      <xsl:choose>
+        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:text>.TH </xsl:text><xsl:value-of select="module"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Erlang Module Definition"&#10;</xsl:text>
+    <xsl:text>.SH NAME&#10;</xsl:text>
+    <xsl:value-of select="module"/><xsl:text> \- </xsl:text><xsl:value-of select="modulesummary"/><xsl:text>&#10;</xsl:text>  
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Comref -->
   <xsl:template match="/comref">
-      <xsl:text>.TH </xsl:text><xsl:value-of select="com"/><xsl:text> 1 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "Ericsson AB" "User Commands"&#10;</xsl:text>
-      <xsl:text>.SH NAME&#10;</xsl:text>
-      <xsl:value-of select="com"/><xsl:text> \- </xsl:text><xsl:value-of select="comsummary"/><xsl:text>&#10;</xsl:text>  
-      <xsl:apply-templates/>
+    <xsl:variable name="companyname">
+      <xsl:choose>
+        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:text>.TH </xsl:text><xsl:value-of select="com"/><xsl:text> 1 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "User Commands"&#10;</xsl:text>
+    <xsl:text>.SH NAME&#10;</xsl:text>
+    <xsl:value-of select="com"/><xsl:text> \- </xsl:text><xsl:value-of select="comsummary"/><xsl:text>&#10;</xsl:text>  
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Cref -->
   <xsl:template match="/cref">
-      <xsl:text>.TH </xsl:text><xsl:value-of select="lib"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "Ericsson AB" "C Library Functions"&#10;</xsl:text>
-      <xsl:text>.SH NAME&#10;</xsl:text>
-      <xsl:value-of select="lib"/><xsl:text> \- </xsl:text><xsl:value-of select="libsummary"/><xsl:text>&#10;</xsl:text>  
-      <xsl:apply-templates/>
+    <xsl:variable name="companyname">
+      <xsl:choose>
+        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:text>.TH </xsl:text><xsl:value-of select="lib"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "C Library Functions"&#10;</xsl:text>
+    <xsl:text>.SH NAME&#10;</xsl:text>
+    <xsl:value-of select="lib"/><xsl:text> \- </xsl:text><xsl:value-of select="libsummary"/><xsl:text>&#10;</xsl:text>  
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Fileref -->
   <xsl:template match="/fileref">
-      <xsl:text>.TH </xsl:text><xsl:value-of select="file"/><xsl:text> 4 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "Ericsson AB" "Files"&#10;</xsl:text>
-      <xsl:text>.SH NAME&#10;</xsl:text>
-      <xsl:value-of select="file"/><xsl:text> \- </xsl:text><xsl:value-of select="filesummary"/><xsl:text>&#10;</xsl:text>  
-      <xsl:apply-templates/>
+    <xsl:variable name="companyname">
+      <xsl:choose>
+        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:text>.TH </xsl:text><xsl:value-of select="file"/><xsl:text> 5 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Files"&#10;</xsl:text>
+    <xsl:text>.SH NAME&#10;</xsl:text>
+    <xsl:value-of select="file"/><xsl:text> \- </xsl:text><xsl:value-of select="filesummary"/><xsl:text>&#10;</xsl:text>  
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Appref -->
   <xsl:template match="/appref">
-      <xsl:text>.TH </xsl:text><xsl:value-of select="app"/><xsl:text> 6 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "Ericsson AB" "Erlang Application Definition"&#10;</xsl:text>
-      <xsl:text>.SH NAME&#10;</xsl:text>
-      <xsl:value-of select="app"/><xsl:text> \- </xsl:text><xsl:value-of select="appsummary"/><xsl:text>&#10;</xsl:text>  
-      <xsl:apply-templates/>
+    <xsl:variable name="companyname">
+      <xsl:choose>
+        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
+        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:text>.TH </xsl:text><xsl:value-of select="app"/><xsl:text> 7 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Erlang Application Definition"&#10;</xsl:text>
+    <xsl:text>.SH NAME&#10;</xsl:text>
+    <xsl:value-of select="app"/><xsl:text> \- </xsl:text><xsl:value-of select="appsummary"/><xsl:text>&#10;</xsl:text>  
+    <xsl:apply-templates/>
   </xsl:template>
 
   <!-- Module|Com|Lib|File|App-->
@@ -318,20 +332,12 @@
 
   <!-- Replace ' by \&' ans . by \&. -->
   <xsl:template match="text()">
-    <!-- xsl:variable name="content">
-      <xsl:choose>
-        <xsl:when test="ancestor::code or ancestor::c">
-          <xsl:value-of select="."/>
-        </xsl:when>
-        <xsl:otherwise>
-          <xsl:value-of select="normalize-space()"/>
-        </xsl:otherwise>
-      </xsl:choose>
-    </xsl:variable-->
-
+    <xsl:variable name="startstring">
+      <xsl:value-of select="normalize-space()"/><xsl:text> </xsl:text>
+    </xsl:variable>    
     <xsl:variable name="rep1">
       <xsl:call-template name="replace-string">
-        <xsl:with-param name="text" select="." />
+        <xsl:with-param name="text" select="$startstring" />
         <xsl:with-param name="replace" select="&quot;\&quot;" />
         <xsl:with-param name="with" select="&quot;\\&quot;" />
       </xsl:call-template>
@@ -369,10 +375,6 @@
         <xsl:value-of select="$text"/>
       </xsl:otherwise>
     </xsl:choose>
-  </xsl:template>
-
-  <xsl:template match="d/text()">
-    <xsl:value-of select="normalize-space()"/>
   </xsl:template>
 
 </xsl:stylesheet>
