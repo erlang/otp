@@ -96,6 +96,14 @@ load_hipe_modules() ->
 %%    code:load_file/1) and the atom `no_native' on failure.
 
 load_native_code(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
+  erlang:system_flag(multi_scheduling, block),
+  try
+    load_native_code_nosmp(Mod, Bin)
+  after
+    erlang:system_flag(multi_scheduling, unblock)
+  end.
+
+load_native_code_nosmp(Mod, Bin) ->
   Architecture = erlang:system_info(hipe_architecture),
   try chunk_name(Architecture) of
     ChunkTag ->
@@ -120,6 +128,14 @@ load_native_code(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
 -spec post_beam_load(atom()) -> 'ok'.
 
 post_beam_load(Mod) when is_atom(Mod) ->
+  erlang:system_flag(multi_scheduling, block),
+  try
+    post_beam_load_nosmp(Mod)
+  after
+    erlang:system_flag(multi_scheduling, unblock)
+  end.
+
+post_beam_load_nosmp(Mod) ->
   Architecture = erlang:system_info(hipe_architecture),
   try chunk_name(Architecture) of _ChunkTag -> patch_to_emu(Mod)
   catch _:_ -> ok
@@ -141,6 +157,14 @@ version_check(Version, Mod) when is_atom(Mod) ->
 -spec load_module(Mod, binary(), _) -> 'bad_crc' | {'module',Mod}
 	     				when is_subtype(Mod,atom()).
 load_module(Mod, Bin, Beam) ->
+  erlang:system_flag(multi_scheduling, block),
+  try
+    load_module_nosmp(Mod, Bin, Beam)
+  after
+    erlang:system_flag(multi_scheduling, unblock)
+  end.
+
+load_module_nosmp(Mod, Bin, Beam) ->
   load_module(Mod, Bin, Beam, []).
 
 load_module(Mod, Bin, Beam, OldReferencesToPatch) ->
@@ -154,6 +178,14 @@ load_module(Mod, Bin, Beam, OldReferencesToPatch) ->
 -spec load(Mod, binary()) -> 'bad_crc' | {'module',Mod}
 			      when is_subtype(Mod,atom()).
 load(Mod, Bin) ->
+  erlang:system_flag(multi_scheduling, block),
+  try
+    load_nosmp(Mod, Bin)
+  after
+    erlang:system_flag(multi_scheduling, unblock)
+  end.
+
+load_nosmp(Mod, Bin) ->
   ?debug_msg("********* Loading funs in module ~w *********\n",[Mod]),
   %% Loading just some functions in a module; patch closures separately.
   put(hipe_patch_closures, true),
