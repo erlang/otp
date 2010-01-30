@@ -34,6 +34,8 @@
 						%-define(line_trace, 1).
 -include_lib("test_server/include/test_server.hrl").
 
+-compile(no_native).
+
 -define(default_timeout, ?t:minutes(1)).
 
 suite() -> [{ct_hooks,[ts_install_cth]}].
