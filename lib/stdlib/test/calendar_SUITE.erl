@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(calendar_SUITE).
@@ -48,7 +48,7 @@ gregorian_days(doc) ->
     "At the same time valid_date is tested.";
 gregorian_days(suite) ->
     [];
-gregorian_days(Config) when list(Config) ->
+gregorian_days(Config) when is_list(Config) ->
     ?line Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     ?line MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
     ?line check_gregorian_days(Days, MaxDays).
@@ -60,7 +60,7 @@ gregorian_seconds(doc) ->
     "every 2 days + 1 second.";
 gregorian_seconds(suite) ->
     [];
-gregorian_seconds(Config) when list(Config) ->
+gregorian_seconds(Config) when is_list(Config) ->
     ?line Secs = calendar:datetime_to_gregorian_seconds({{?START_YEAR, 1, 1},
 							 {0, 0, 0}}),
     ?line MaxSecs = calendar:datetime_to_gregorian_seconds({{?END_YEAR, 1, 1},
@@ -72,7 +72,7 @@ day_of_the_week(doc) ->
     "year ?START_YEAR up to ?END_YEAR.";
 day_of_the_week(suite) ->
     [];
-day_of_the_week(Config) when list(Config) ->
+day_of_the_week(Config) when is_list(Config) ->
     ?line Days = calendar:date_to_gregorian_days({?START_YEAR, 1, 1}),
     ?line MaxDays = calendar:date_to_gregorian_days({?END_YEAR, 1, 1}),
     ?line DayNumber = calendar:day_of_the_week({?START_YEAR, 1, 1}),
@@ -82,7 +82,7 @@ day_of_the_week_calibrate(doc) ->
     "Tests that day_of_the_week for 1997-11-11 is Tuesday (2)";
 day_of_the_week_calibrate(suite) ->
     [];
-day_of_the_week_calibrate(Config) when list(Config) ->
+day_of_the_week_calibrate(Config) when is_list(Config) ->
     ?line 2 = calendar:day_of_the_week({1997, 11, 11}).
 
 leap_years(doc) ->
@@ -90,7 +90,7 @@ leap_years(doc) ->
     "year ?START_YEAR up to ?END_YEAR.";
 leap_years(suite) ->
     [];
-leap_years(Config) when list(Config) ->
+leap_years(Config) when is_list(Config) ->
     ?line check_leap_years(?START_YEAR, ?END_YEAR).
 
 last_day_of_the_month(doc) ->
@@ -98,14 +98,14 @@ last_day_of_the_month(doc) ->
     "year ?START_YEAR up to ?END_YEAR.";
 last_day_of_the_month(suite) ->
     [];
-last_day_of_the_month(Config) when list(Config) ->
+last_day_of_the_month(Config) when is_list(Config) ->
     ?line check_last_day_of_the_month({?START_YEAR, 1}, {?END_YEAR, 1}).
 
 local_time_to_universal_time_dst(doc) ->
     "Tests local_time_to_universal_time_dst for MET";
 local_time_to_universal_time_dst(suite) ->
     [];
-local_time_to_universal_time_dst(Config) when list(Config) ->
+local_time_to_universal_time_dst(Config) when is_list(Config) ->
     case os:type() of
 	{unix,_} ->
 	    case os:cmd("date '+%Z'") of
@@ -117,7 +117,7 @@ local_time_to_universal_time_dst(Config) when list(Config) ->
 	_ ->
 	    local_time_to_universal_time_dst_x(Config)
     end.
-local_time_to_universal_time_dst_x(Config) when list(Config) ->
+local_time_to_universal_time_dst_x(Config) when is_list(Config) ->
     %% Assumes MET (UTC+1 / UTC+2(dst)
     ?line LtW   = {{2003,01,15},{14,00,00}}, % Winter
     ?line UtW   = {{2003,01,15},{13,00,00}}, % 

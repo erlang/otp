@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Description: Tests supervisor.erl
@@ -89,7 +89,7 @@ sup_start_normal(doc) ->
     ["Tests that the supervisor process starts correctly and that it "
     "can be terminated gracefully."];
 sup_start_normal(suite) -> [];
-sup_start_normal(Config) when list(Config) ->
+sup_start_normal(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     ?line exit(Pid, shutdown),
@@ -107,7 +107,7 @@ sup_start_normal(Config) when list(Config) ->
 sup_start_ignore_init(doc) ->
     ["Tests what happens if init-callback returns ignore"];
 sup_start_ignore_init(suite) -> [];
-sup_start_ignore_init(Config) when list(Config) ->
+sup_start_ignore_init(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line ignore = start(ignore),
 
@@ -127,7 +127,7 @@ sup_start_ignore_init(Config) when list(Config) ->
 sup_start_ignore_child(doc) ->
     ["Tests what happens if init-callback returns ignore"];
 sup_start_ignore_child(suite) -> [];
-sup_start_ignore_child(Config) when list(Config) ->
+sup_start_ignore_child(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, _Pid}  = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, [ignore]}, 
@@ -146,7 +146,7 @@ sup_start_ignore_child(Config) when list(Config) ->
 sup_start_error_return(doc) ->
     ["Tests what happens if init-callback returns a invalid value"];
 sup_start_error_return(suite) -> [];
-sup_start_error_return(Config) when list(Config) ->
+sup_start_error_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {error, Term} = start(invalid),
 
@@ -165,7 +165,7 @@ sup_start_error_return(Config) when list(Config) ->
 sup_start_fail(doc) ->
     ["Tests what happens if init-callback fails"];
 sup_start_fail(suite) -> [];
-sup_start_fail(Config) when list(Config) ->
+sup_start_fail(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {error, Term} = start(fail),
 
@@ -192,7 +192,7 @@ sup_stop_infinity(doc) ->
     "for children of type supervisor"];
 sup_stop_infinity(suite) -> [];
 
-sup_stop_infinity(Config) when list(Config) ->
+sup_stop_infinity(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
@@ -230,7 +230,7 @@ sup_stop_timeout(doc) ->
     ["See sup_stop/1 when Shutdown = 1000"];
 sup_stop_timeout(suite) -> [];
 
-sup_stop_timeout(Config) when list(Config) ->
+sup_stop_timeout(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
@@ -278,7 +278,7 @@ sup_stop_brutal_kill(doc) ->
     ["See sup_stop/1 when Shutdown = brutal_kill"];
 sup_stop_brutal_kill(suite) -> [];
 
-sup_stop_brutal_kill(Config) when list(Config) ->
+sup_stop_brutal_kill(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, 
@@ -327,7 +327,7 @@ extra_return(doc) ->
      "and restart_child/2"];
 extra_return(suite) -> [];
 
-extra_return(Config) when list(Config) ->
+extra_return(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, [extra_return]}, 
 	     permanent, 1000,
@@ -367,7 +367,7 @@ child_adm(doc)->
      "restart_child/2, which_children/1. Only correct childspecs are used, "
      "handling of incorrect childspecs is tested in child_specs/1"];
 child_adm(suite) -> [];
-child_adm(Config) when list(Config) ->
+child_adm(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -430,7 +430,7 @@ child_adm_simple(doc) ->
      "restart_child/2 are not valid for a simple_one_for_one supervisor "
     "check that the correct error message is returned."];
 child_adm_simple(suite) -> [];
-child_adm_simple(Config) when list(Config) ->
+child_adm_simple(Config) when is_list(Config) ->
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
     ?line {ok, _Pid} = start({ok, {{simple_one_for_one, 2, 3600}, [Child]}}),
@@ -467,7 +467,7 @@ child_adm_simple(Config) when list(Config) ->
 child_specs(doc) ->
     ["Tests child specs, invalid formats should be rejected."];
 child_specs(suite) -> [];
-child_specs(Config) when list(Config) ->
+child_specs(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ?line {ok, _Pid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     ?line {error, _} = supervisor:start_child(sup_test, hej),
@@ -526,7 +526,7 @@ normal_termination(suite) ->
 permanent_normal(doc) ->
     ["A permanent child should always be restarted"];
 permanent_normal(suite) -> [];
-permanent_normal(Config) when list(Config) ->
+permanent_normal(Config) when is_list(Config) ->
     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
@@ -548,7 +548,7 @@ transient_normal(doc) ->
     ["A transient child should not be restarted if it exits with " 
      "reason normal"];
 transient_normal(suite) -> [];
-transient_normal(Config) when list(Config) ->
+transient_normal(Config) when is_list(Config) ->
     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
 	      worker, []},
@@ -564,7 +564,7 @@ transient_normal(Config) when list(Config) ->
 temporary_normal(doc) ->
     ["A temporary process should never be restarted"];
 temporary_normal(suite) -> [];
-temporary_normal(Config) when list(Config) ->
+temporary_normal(Config) when is_list(Config) ->
      ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
 	      worker, []},
@@ -586,7 +586,7 @@ abnormal_termination(suite) ->
 permanent_abnormal(doc) ->
     ["A permanent child should always be restarted"];
 permanent_abnormal(suite) -> [];
-permanent_abnormal(Config) when list(Config) ->
+permanent_abnormal(Config) when is_list(Config) ->
     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	      worker, []},
@@ -608,7 +608,7 @@ transient_abnormal(doc) ->
     ["A transient child should be restarted if it exits with " 
      "reason abnormal"];
 transient_abnormal(suite) -> [];
-transient_abnormal(Config) when list(Config) ->
+transient_abnormal(Config) when is_list(Config) ->
     ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, transient, 1000,
 	      worker, []},
@@ -631,7 +631,7 @@ transient_abnormal(Config) when list(Config) ->
 temporary_abnormal(doc) ->
     ["A temporary process should never be restarted"];
 temporary_abnormal(suite) -> [];
-temporary_abnormal(Config) when list(Config) ->
+temporary_abnormal(Config) when is_list(Config) ->
      ?line  {ok, _SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     Child1 = {child1, {supervisor_1, start_child, []}, temporary, 1000,
 	      worker, []},
@@ -653,7 +653,7 @@ restart_one_for_one(suite) -> [one_for_one, one_for_one_escalation].
 one_for_one(doc) ->
     ["Test the one_for_one base case."];
 one_for_one(suite) -> [];
-one_for_one(Config) when list(Config) ->
+one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -697,7 +697,7 @@ one_for_one(Config) when list(Config) ->
 one_for_one_escalation(doc) ->
     ["Test restart escalation on a one_for_one supervisor."];
 one_for_one_escalation(suite) -> [];
-one_for_one_escalation(Config) when list(Config) ->
+one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, [error]},
 	      permanent, 1000,
@@ -737,7 +737,7 @@ restart_one_for_all(suite) ->
 one_for_all(doc) ->
     ["Test the one_for_all base case."];
 one_for_all(suite) -> [];
-one_for_all(Config) when list(Config) ->
+one_for_all(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -788,7 +788,7 @@ one_for_all(Config) when list(Config) ->
 one_for_all_escalation(doc) -> 
     ["Test restart escalation on a one_for_all supervisor."];
 one_for_all_escalation(suite) -> [];
-one_for_all_escalation(Config) when list(Config) ->
+one_for_all_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -830,7 +830,7 @@ restart_simple_one_for_one(suite) ->
 simple_one_for_one(doc) ->
     ["Test the simple_one_for_one base case."];
 simple_one_for_one(suite) -> [];
-simple_one_for_one(Config) when list(Config) ->
+simple_one_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -872,7 +872,7 @@ simple_one_for_one_extra(doc) ->
     ["Tests automatic restart of children " 
      "who's start function return extra info."];
 simple_one_for_one_extra(suite) -> [];
-simple_one_for_one_extra(Config) when list(Config) ->
+simple_one_for_one_extra(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, [extra_info]}, 
 	     permanent, 1000, worker, []},
@@ -912,7 +912,7 @@ simple_one_for_one_extra(Config) when list(Config) ->
 simple_one_for_one_escalation(doc) ->
     ["Test restart escalation on a simple_one_for_one supervisor."];
 simple_one_for_one_escalation(suite) -> [];
-simple_one_for_one_escalation(Config) when list(Config) ->
+simple_one_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child = {child, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -947,7 +947,7 @@ restart_rest_for_one(suite) -> [rest_for_one, rest_for_one_escalation].
 rest_for_one(doc) ->
     ["Test the rest_for_one base case."];
 rest_for_one(suite) -> [];
-rest_for_one(Config) when list(Config) ->
+rest_for_one(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -1018,7 +1018,7 @@ rest_for_one(Config) when list(Config) ->
 rest_for_one_escalation(doc) ->
     ["Test restart escalation on a rest_for_one supervisor."];
 rest_for_one_escalation(suite) -> [];
-rest_for_one_escalation(Config) when list(Config) ->
+rest_for_one_escalation(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     Child1 = {child1, {supervisor_1, start_child, []}, permanent, 1000,
 	     worker, []},
@@ -1052,7 +1052,7 @@ rest_for_one_escalation(Config) when list(Config) ->
 child_unlink(doc)-> ["Test that the supervisor does not hang forever if "
     "the child unliks and then is terminated by the supervisor."];
 child_unlink(suite) -> [];
-child_unlink(Config) when list(Config) ->
+child_unlink(Config) when is_list(Config) ->
     
     ?line {ok, SupPid} = start({ok, {{one_for_one, 2, 3600}, []}}),
     
@@ -1081,7 +1081,7 @@ tree(doc) ->
     ["Test a basic supervison tree."];
 tree(suite) ->
     [];
-tree(Config) when list(Config) ->
+tree(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     
     Child1 = {child1, {supervisor_1, start_child, []},

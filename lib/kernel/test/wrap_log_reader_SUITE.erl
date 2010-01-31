@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -48,7 +48,7 @@
 all(suite) ->
     [no_file, one, two, four, wrap, wrapping, external, error].
 
-init_per_testcase(Func, Config) when atom(Func), list(Config) ->
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:seconds(60)),
     [{watchdog, Dog} | Config].
 
@@ -58,7 +58,7 @@ fin_per_testcase(_Func, _Config) ->
 
 no_file(suite) -> [];
 no_file(doc) -> ["No log file exists"];
-no_file(Conf) when list(Conf) ->
+no_file(Conf) when is_list(Conf) ->
     ?line code:add_path(?config(data_dir,Conf)),
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
@@ -81,7 +81,7 @@ one(doc) -> ["One index file"].
 
 one_empty(suite) -> [];
 one_empty(doc) -> ["One empty index file"];
-one_empty(Conf) when list(Conf) ->
+one_empty(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -107,7 +107,7 @@ one_empty(Conf) when list(Conf) ->
 
 one_filled(suite) -> [];
 one_filled(doc) -> ["One filled index file"];
-one_filled(Conf) when list(Conf) ->
+one_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -144,7 +144,7 @@ two(doc) -> ["Two index files"].
 
 two_filled(suite) -> [];
 two_filled(doc) -> ["Two filled index files"];
-two_filled(Conf) when list(Conf) ->
+two_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = list_to_atom(join(Dir, "sune.LOG")),
     delete_files(File),
@@ -186,7 +186,7 @@ four(doc) -> ["Four index files"].
 
 four_filled(suite) -> [];
 four_filled(doc) -> ["Four filled index files"];
-four_filled(Conf) when list(Conf) ->
+four_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -231,7 +231,7 @@ wrap(doc) -> ["Wrap index file, first wrapping"].
 
 wrap_filled(suite) -> [];
 wrap_filled(doc) -> ["First wrap, open, filled index file"];
-wrap_filled(Conf) when list(Conf) ->
+wrap_filled(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -274,7 +274,7 @@ test_wrap(File) ->
 
 wrapping(suite) -> [];
 wrapping(doc) -> ["Wrapping at the same time as reading"];
-wrapping(Conf) when list(Conf) ->
+wrapping(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -329,7 +329,7 @@ wrapping(Conf) when list(Conf) ->
 
 external(suite) -> [];
 external(doc) -> ["External format"];
-external(Conf) when list(Conf) ->
+external(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),
@@ -349,7 +349,7 @@ external(Conf) when list(Conf) ->
 
 error(suite) -> [];
 error(doc) -> ["Error situations"];
-error(Conf) when list(Conf) ->
+error(Conf) when is_list(Conf) ->
     Dir = ?privdir(Conf),
     File = join(Dir, "sune.LOG"),
     delete_files(File),

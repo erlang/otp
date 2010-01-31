@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(tar_SUITE).
@@ -183,7 +183,7 @@ atomic(doc) ->
      "and uncompressed archives."
      "Also test the 'cooked' option."];
 atomic(suite) -> [];
-atomic(Config) when list(Config) ->
+atomic(Config) when is_list(Config) ->
     ?line ok = file:set_cwd(?config(priv_dir, Config)),
     ?line DataFiles = data_files(),
     ?line Names = [Name || {Name,_,_} <- DataFiles],
@@ -369,7 +369,7 @@ try_bad(Name0, Reason, Config) ->
 	    case catch erl_tar:format_error(Reason) of
 		{'EXIT', CrashReason} ->
 		    test_server:fail({format_error, crashed, CrashReason});
-		String when list(String) ->
+		String when is_list(String) ->
 		    io:format("format_error(~p) -> ~s", [Reason, String]);
 		Other ->
 		    test_server:fail({format_error, returned, Other})
@@ -413,7 +413,7 @@ try_error(M, F, A, Error) ->
 	    case catch erl_tar:format_error(Error) of
 		{'EXIT', FReason} ->
 		    test_server:fail({format_error, crashed, FReason});
-		String when list(String) ->
+		String when is_list(String) ->
 		    io:format("format_error(~p) -> ~s", [Error, String]);
 		Other ->
 		    test_server:fail({format_error, returned, Other})
@@ -431,7 +431,7 @@ remove_prefix(_, Result) ->
 
 extract_from_binary(doc) ->
     "Test extracting a tar archive from a binary.";
-extract_from_binary(Config) when list(Config) ->
+extract_from_binary(Config) when is_list(Config) ->
     ?line DataDir = ?config(data_dir, Config),
     ?line PrivDir = ?config(priv_dir, Config),
     ?line Long = filename:join(DataDir, "no_fancy_stuff.tar"),

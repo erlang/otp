@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -79,14 +79,14 @@ select_test(suite) ->
     [];
 select_test(doc) ->
     ["Tests select in numerous ways"];
-select_test(Config) when list(Config) ->
+select_test(Config) when is_list(Config) ->
     do_test(Config).
 
 return_values(suite) ->
     [];
 return_values(doc) ->
     ["Tests return values in specific situations for select/3 and select/1"];
-return_values(Config) when list(Config) ->
+return_values(Config) when is_list(Config) ->
     do_return_values().
 
 -endif.
@@ -279,7 +279,7 @@ cmp_ms_to_fun({Mod,Tab}, MS, Fun1, Fun2, ChunkSize) ->
     MSRes = lists:sort(chunked_select(Mod,Tab,MS,ChunkSize)),
     FunRes0 = table_foldl(Fun1,[],{Mod,Tab}),
     FunRes = case Fun2 of
-		 F when function(F) ->
+		 F when is_function(F) ->
 		     FunRes1 = table_foldl(F,[],{Mod,Tab}),
 		     lists:merge(FunRes0,FunRes1);
 		 [] ->

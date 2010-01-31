@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(slave_SUITE).
@@ -31,7 +31,7 @@ all(suite) ->
     [t_start_link, start_link_nodedown, t_start, errors].
 
 t_start_link(suite) -> [];
-t_start_link(Config) when list(Config) ->
+t_start_link(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(20)),
 
     %% Define useful variables.
@@ -81,7 +81,7 @@ t_start_link(Config) when list(Config) ->
 %% Test that slave:start_link() works when the master exits.
 
 start_link_nodedown(suite) -> [];
-start_link_nodedown(Config) when list(Config) ->
+start_link_nodedown(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(20)),
 
     %% Define useful variables.
@@ -109,7 +109,7 @@ start_a_slave(ReplyTo, Host, Name) ->
 %% Test slave:start().
 
 t_start(suite) -> [];
-t_start(Config) when list(Config) ->
+t_start(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(20)),
     
     %% Define useful variables.
@@ -160,7 +160,7 @@ t_start(Config) when list(Config) ->
 %% in slave is 32 seconds).
 
 errors(suite) -> [];
-errors(Config) when list(Config) ->
+errors(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(50)),
 
     ?line process_flag(trap_exit, true),

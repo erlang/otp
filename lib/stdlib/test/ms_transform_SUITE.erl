@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ms_transform_SUITE).
@@ -56,7 +56,7 @@ andalso_orelse(suite) ->
     [];
 andalso_orelse(doc) ->
     ["Tests that andalso and orelse are allowed in guards."];
-andalso_orelse(Config) when list(Config) ->
+andalso_orelse(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{{'$1','$2'},
 	    [{'and',{is_integer,'$1'},{'>',{'+','$1',5},'$2'}}],
@@ -93,7 +93,7 @@ bitsyntax(suite) ->
     [];
 bitsyntax(doc) ->
     ["Tests that bitsyntax works and does not work where appropriate"];
-bitsyntax(Config) when list(Config) ->
+bitsyntax(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{'_',[],
 	    [<<0,27,0,27>>]}] =
@@ -131,7 +131,7 @@ record_defaults(suite) ->
     [];
 record_defaults(doc) ->
     ["Tests that record defaults works"];
-record_defaults(Config) when list(Config) ->
+record_defaults(Config) when is_list(Config) ->
     ?line setup(Config),    
     ?line [{{<<27>>,{a,5,'$1',hej,hej}},
 	    [],
@@ -146,7 +146,7 @@ basic_ets(suite) ->
     [];
 basic_ets(doc) ->
     ["Tests basic ets:fun2ms"];
-basic_ets(Config) when list(Config) ->
+basic_ets(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{{a,b},[],[true]}] = compile_and_run(
 				  <<"ets:fun2ms(fun({a,b}) -> true end)">>),
@@ -167,7 +167,7 @@ basic_dbg(suite) ->
     [];
 basic_dbg(doc) ->
     ["Tests basic ets:fun2ms"];
-basic_dbg(Config) when list(Config) ->
+basic_dbg(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line [{[a,b],[],[{message,banan},{return_trace}]}] =
 	compile_and_run(<<"dbg:fun2ms(fun([a,b]) -> message(banan), ",
@@ -186,7 +186,7 @@ from_shell(suite) ->
     [];
 from_shell(doc) ->
     ["Test calling of ets/dbg:fun2ms from the shell"]; 
-from_shell(Config) when list(Config) ->
+from_shell(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line Fun = do_eval("fun({a,b}) -> true end"),
     ?line [{{a,b},[],[true]}] = apply(ets,fun2ms,[Fun]),
@@ -203,7 +203,7 @@ records(suite) ->
     [];
 records(doc) ->
     ["Tests expansion of records in fun2ms"];
-records(Config) when list(Config) ->
+records(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(t, {"
 	             "t1 = [],"
@@ -253,7 +253,7 @@ record_index(suite) ->
     [];
 record_index(doc) ->
     ["Tests expansion of records in fun2ms, part 2"];
-record_index(Config) when list(Config) ->
+record_index(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
     ?line [{{2},[],[true]}] = compile_and_run(RD,
@@ -268,7 +268,7 @@ top_match(suite) ->
     [];
 top_match(doc) ->
     ["Tests matching on top level in head to give alias for object()"];
-top_match(Config) when list(Config) ->
+top_match(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
     ?line [{{a,3,'_'},[],['$_']}] = 
@@ -295,7 +295,7 @@ multipass(suite) ->
     [];
 multipass(doc) ->
     ["Tests that multi-defined fields in records give errors."];
-multipass(Config) when list(Config) ->
+multipass(Config) when is_list(Config) ->
     ?line setup(Config),
     ?line RD = <<"-record(a,{a,b}).">>,
     ?line expect_failure(RD,<<"ets:fun2ms(fun(A) -> #a{a=2,a=3} end)">>), 
@@ -319,7 +319,7 @@ old_guards(suite) ->
     [];
 old_guards(doc) ->
     ["Tests that old type tests in guards are translated"];
-old_guards(Config) when list(Config) ->
+old_guards(Config) when is_list(Config) ->
     ?line setup(Config),
     Tests = [
 	     {atom,is_atom},
@@ -382,7 +382,7 @@ autoimported(suite) ->
 autoimported(doc) ->
     ["Tests use of autoimported bif's used like erlang:'+'(A,B) in guards"
      " and body."];
-autoimported(Config) when list(Config) ->
+autoimported(Config) when is_list(Config) ->
     ?line setup(Config),
     Allowed = [
 	       {abs,1},
@@ -582,7 +582,7 @@ float_1_function(suite) ->
     [];
 float_1_function(doc) ->
     ["OTP-5297. The function float/1."];
-float_1_function(Config) when list(Config) ->
+float_1_function(Config) when is_list(Config) ->
     ?line setup(Config),
     RunMS = fun(L, MS) -> 
                     ets:match_spec_run(L, ets:match_spec_compile(MS)) 

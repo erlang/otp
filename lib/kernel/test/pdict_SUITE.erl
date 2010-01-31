@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(pdict_SUITE).
@@ -49,7 +49,7 @@ simple(doc) ->
     ["Tests simple functionality in process dictionary."];
 simple(suite) ->
     [];
-simple(Config) when list(Config) ->
+simple(Config) when is_list(Config) ->
     XX = get(),
     erase(),
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
@@ -146,7 +146,7 @@ info(doc) ->
     ["Tests process_info(Pid, dictionary)"];
 info(suite) ->
     [];
-info(Config) when list(Config) ->
+info(Config) when is_list(Config) ->
     L = [a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,
 	    q,r,s,t,u,v,x,y,z,'A','B','C','D'],
     process_flag(trap_exit,true),

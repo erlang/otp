@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -42,7 +42,7 @@ all(suite) ->
 -define(TESTCASE, testcase_name).
 -define(testcase, ?config(?TESTCASE, Config)).
 
-init_per_testcase(Case, Config) when atom(Case), list(Config) ->
+init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(5)),
     [{?TESTCASE, Case}, {watchdog, Dog}|Config].
 
@@ -59,7 +59,7 @@ fin_per_testcase(_Func, Config) ->
 
 start_gg_proc(suite) -> [];
 start_gg_proc(doc) -> ["Check that the global_group processes are started automatically. "];
-start_gg_proc(Config) when list(Config) ->
+start_gg_proc(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(120)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -94,7 +94,7 @@ start_gg_proc(Config) when list(Config) ->
 no_gg_proc(suite) -> [];
 no_gg_proc(doc) -> ["Start a system without global groups. Nodes are not "
 		    "synced at start (sync_nodes_optional is not defined)"];
-no_gg_proc(Config) when list(Config) ->
+no_gg_proc(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(200)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -267,7 +267,7 @@ no_gg_proc_sync(suite) -> [];
 no_gg_proc_sync(doc) -> 
     ["Start a system without global groups, but syncing the nodes by using " 
      "sync_nodes_optional."];
-no_gg_proc_sync(Config) when list(Config) ->
+no_gg_proc_sync(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(200)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -441,7 +441,7 @@ no_gg_proc_sync(Config) when list(Config) ->
 compatible(suite) -> [];
 compatible(doc) -> 
     ["Check that a system without global groups is compatible with the old R4 system."];
-compatible(Config) when list(Config) ->
+compatible(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(200)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -614,7 +614,7 @@ compatible(Config) when list(Config) ->
 
 one_grp(suite) -> [];
 one_grp(doc) -> ["Test a system with only one global group. "];
-one_grp(Config) when list(Config) ->
+one_grp(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(120)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -701,7 +701,7 @@ one_grp(Config) when list(Config) ->
 one_grp_x(suite) -> [];
 one_grp_x(doc) -> ["Check a system with only one global group. "
 		   "Start the nodes with different time intervals. "];
-one_grp_x(Config) when list(Config) ->
+one_grp_x(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(120)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -763,7 +763,7 @@ one_grp_x(Config) when list(Config) ->
 
 two_grp(suite) -> [];
 two_grp(doc) -> ["Test a two global group system. "];
-two_grp(Config) when list(Config) ->
+two_grp(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(200)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -1063,7 +1063,7 @@ two_grp(Config) when list(Config) ->
 
 hidden_groups(suite) -> [];
 hidden_groups(doc) -> ["Test hidden global groups."];
-hidden_groups(Config) when list(Config) ->
+hidden_groups(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(200)),
 
     ?line Dir = ?config(priv_dir, Config),
@@ -1138,7 +1138,7 @@ hidden_groups(Config) when list(Config) ->
 
 test_exit(suite) -> [];
 test_exit(doc) -> ["Checks when the search process exits. "];
-test_exit(Config) when list(Config) ->
+test_exit(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(120)),
 
     ?line NN = node_name(atom_to_list(node())),

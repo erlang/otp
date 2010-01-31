@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(queue_SUITE).
@@ -45,7 +45,7 @@ do(doc) ->
     [""];
 do(suite) ->
     [];
-do(Config) when list(Config) ->
+do(Config) when is_list(Config) ->
     ?line L = [{in, 1},
 	       {in, 2},
 	       {out, {value, 1}},
@@ -66,7 +66,7 @@ to_list(doc) ->
     ["OTP-2701"];
 to_list(suite) ->
     [];
-to_list(Config) when list(Config) ->
+to_list(Config) when is_list(Config) ->
     ?line E = queue:new(),
     ?line Q = do_queue(E, [{in, 1},
 			   {in, 2},
@@ -104,7 +104,7 @@ io_test(doc) ->
     "Test input and output";
 io_test(suite) ->
     [];
-io_test(Config) when list(Config) ->
+io_test(Config) when is_list(Config) ->
     E = queue:new(),
     do_io_test(E),
     ok.
@@ -284,7 +284,7 @@ op_test(doc) ->
     "Test operations on whole queues";
 op_test(suite) ->
     [];
-op_test(Config) when list(Config) ->
+op_test(Config) when is_list(Config) ->
     do_op_test(fun id/1),
     ok.
 
@@ -382,7 +382,7 @@ error(doc) ->
     "Test queue errors";
 error(suite) ->
     [];
-error(Config) when list(Config) ->
+error(Config) when is_list(Config) ->
     do_error(fun id/1, illegal_queue),
     do_error(fun id/1, {[],illegal_queue}),
     do_error(fun id/1, {illegal_queue,[17]}),
@@ -449,7 +449,7 @@ oops(doc) ->
     "Test queue errors";
 oops(suite) ->
     [];
-oops(Config) when list(Config) ->
+oops(Config) when is_list(Config) ->
     ?line N = 3142,
     ?line Optab = optab(),
     ?line Seed0 = random:seed0(),

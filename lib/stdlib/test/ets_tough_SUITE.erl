@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(ets_tough_SUITE).
@@ -40,7 +40,7 @@ fin_per_testcase(_Func, Config) ->
     ets:delete(?GLOBAL_PARAMS).
 
 
-ex1(Config) when list(Config) ->
+ex1(Config) when is_list(Config) ->
     ?line ets:new(?GLOBAL_PARAMS,[named_table,public]),
     ?line ets:insert(?GLOBAL_PARAMS,{a,set}),
     ?line ets:insert(?GLOBAL_PARAMS,{b,set}),
@@ -269,7 +269,7 @@ show_entries(Fd) ->
 
 start(DbName) ->
     case gen_server:start_link(ets_tough_SUITE,{DbName,no_dump_dir},[]) of
-	{ok,Pid} when pid(Pid) ->
+	{ok,Pid} when is_pid(Pid) ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -283,7 +283,7 @@ start(DbName) ->
 start(DbName,DumpDir) ->
     case gen_server:start_link(ets_tough_SUITE,
 			       {DbName,{dump_dir,DumpDir}},[]) of
-	{ok,Pid} when pid(Pid) ->
+	{ok,Pid} when is_pid(Pid) ->
 	    {ok, Pid};
 	Other ->
 	    Other
@@ -1075,7 +1075,7 @@ phys_read_len(Fd) ->
 
 phys_read_entry(Fd,Len) ->
     case io:get_chars(Fd,'',Len) of
-	L when list(L), length(L) == Len ->
+	L when is_list(L), length(L) == Len ->
 	    {ok,binary_to_term(list_to_binary(L))};
 	Other ->
 	    {error,{read_term,Other}}

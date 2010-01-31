@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(bif_SUITE).
@@ -66,7 +66,7 @@ spawn_opt_tests(suite) ->
 spawn1(doc) -> ["Test spawn/1"];
 spawn1(suite) ->
     [];
-spawn1(Config) when list(Config) ->
+spawn1(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -83,7 +83,7 @@ spawn1(Config) when list(Config) ->
 spawn2(doc) -> ["Test spawn/2"];
 spawn2(suite) ->
     [];
-spawn2(Config) when list(Config) ->
+spawn2(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn2),
 
     ?line Parent = self(),
@@ -105,7 +105,7 @@ spawn2(Config) when list(Config) ->
 spawn3(doc) -> ["Test spawn/3"];
 spawn3(suite) ->
     [];
-spawn3(Config) when list(Config) ->
+spawn3(Config) when is_list(Config) ->
     ?line Node = node(),
 
     ?line Parent = self(),
@@ -127,7 +127,7 @@ spawn3(Config) when list(Config) ->
 spawn4(doc) -> ["Test spawn/4"];
 spawn4(suite) ->
     [];
-spawn4(Config) when list(Config) ->
+spawn4(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn4),
 
     ?line Parent = self(),
@@ -154,7 +154,7 @@ spawn4(Config) when list(Config) ->
 spawn_link1(doc) -> ["Test spawn_link/1"];
 spawn_link1(suite) ->
     [];
-spawn_link1(Config) when list(Config) ->
+spawn_link1(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -171,7 +171,7 @@ spawn_link1(Config) when list(Config) ->
 spawn_link2(doc) -> ["Test spawn_link/2"];
 spawn_link2(suite) ->
     [];
-spawn_link2(Config) when list(Config) ->
+spawn_link2(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_link2),
 
     ?line Parent = self(),
@@ -192,7 +192,7 @@ spawn_link2(Config) when list(Config) ->
 spawn_link3(doc) -> ["Test spawn_link/3"];
 spawn_link3(suite) ->
     [];
-spawn_link3(Config) when list(Config) ->
+spawn_link3(Config) when is_list(Config) ->
     ?line Node = node(),
 
     ?line Parent = self(),
@@ -214,7 +214,7 @@ spawn_link3(Config) when list(Config) ->
 spawn_link4(doc) -> ["Test spawn_link/4"];
 spawn_link4(suite) ->
     [];
-spawn_link4(Config) when list(Config) ->
+spawn_link4(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_link4),
 
     ?line Parent = self(),
@@ -240,7 +240,7 @@ spawn_link4(Config) when list(Config) ->
 spawn_opt2(doc) -> ["Test spawn_opt/2"];
 spawn_opt2(suite) ->
     [];
-spawn_opt2(Config) when list(Config) ->
+spawn_opt2(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -275,7 +275,7 @@ spawn_opt2(Config) when list(Config) ->
 spawn_opt3(doc) -> ["Test spawn_opt/3"];
 spawn_opt3(suite) ->
     [];
-spawn_opt3(Config) when list(Config) ->
+spawn_opt3(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_opt3),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -312,7 +312,7 @@ spawn_opt3(Config) when list(Config) ->
 spawn_opt4(doc) -> ["Test spawn_opt/4"];
 spawn_opt4(suite) ->
     [];
-spawn_opt4(Config) when list(Config) ->
+spawn_opt4(Config) when is_list(Config) ->
     ?line Node = node(),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -352,7 +352,7 @@ spawn_opt4(Config) when list(Config) ->
 spawn_opt5(doc) -> ["Test spawn_opt/5"];
 spawn_opt5(suite) ->
     [];
-spawn_opt5(Config) when list(Config) ->
+spawn_opt5(Config) when is_list(Config) ->
     ?line {ok, Node} = start_node(spawn_opt5),
     ?line Parent = self(),
     ?line {_, _, FA, _} = fetch_proc_vals(self()),
@@ -396,7 +396,7 @@ spawn_failures(doc) ->
     ["Test failure behavior of spawn bifs"];
 spawn_failures(suite) ->
     [];
-spawn_failures(Config) when list(Config) ->
+spawn_failures(Config) when is_list(Config) ->
     ?line ThisNode = node(),
     ?line {ok, Node} = start_node(spawn_remote_failure),
 
@@ -556,7 +556,7 @@ wilderness(doc) ->
      "wilderness of the heap are interpreted correct by the emulator "];
 wilderness(suite) ->
     [];
-wilderness(Config) when list(Config) ->
+wilderness(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
     ?line OKParams = {512, 8},
     ?line Alloc = erlang:system_info(allocator),
@@ -604,11 +604,11 @@ run_wilderness_test({Set_tt, Set_tp}, {Exp_tt, Exp_tp}) ->
     end,
     stop_node(Node).
 	     
-to_string(X) when integer(X) ->
+to_string(X) when is_integer(X) ->
     integer_to_list(X);
-to_string(X) when atom(X) ->
+to_string(X) when is_atom(X) ->
     atom_to_list(X);
-to_string(X) when list(X) ->
+to_string(X) when is_list(X) ->
     X.
 
 get_nodenames(N, T) ->

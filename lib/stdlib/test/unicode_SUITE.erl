@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(unicode_SUITE).
@@ -276,7 +276,7 @@ ex_latin1(Config) when is_list(Config) ->
 	unicode:characters_to_list(make_unaligned(MissingLastByte),unicode),
 
     ?line DoubleSize16 = byte_size(DoubleUtf16),
-    ?line DoubleUtf16_2 = erlang:concat_binary([DoubleUtf16,<<16#FFFFF/utf16-big>>]),
+    ?line DoubleUtf16_2 = list_to_binary([DoubleUtf16,<<16#FFFFF/utf16-big>>]),
     ?line DoubleSize16_2 = byte_size(DoubleUtf16_2),
     ?line AllBut1_16 = DoubleSize16 - 1,
     ?line AllBut2_16_2 = DoubleSize16_2 - 2,
@@ -884,15 +884,15 @@ utf8_to_list_bsyntax(<<C/utf8,R/binary>>) ->
 
 list_to_utf8_bsyntax(List,unicode) ->
     FList = flatx(List),
-    erlang:concat_binary([ if 
-			       is_binary(E) ->
-				   E;
-			       true -> 
-				   <<E/utf8>>
-			   end || E <- FList ]);
+    list_to_binary([ if
+			 is_binary(E) ->
+			     E;
+			 true ->
+			     <<E/utf8>>
+		     end || E <- FList ]);
 list_to_utf8_bsyntax(List,latin1) ->
     FList = flatb(List),
-    erlang:concat_binary([ <<E/utf8>> || E <- FList ]).
+    list_to_binary([ <<E/utf8>> || E <- FList ]).
 
     
     
@@ -954,15 +954,15 @@ utf16_big_to_list_bsyntax(<<C/utf16-big,R/binary>>) ->
 
 list_to_utf16_big_bsyntax(List,{utf16,big}) ->
     FList = flatx(List),
-    erlang:concat_binary([ if 
-			       is_binary(E) ->
-				   E;
-			       true -> 
-				   <<E/utf16-big>>
-			   end || E <- FList ]);
+    list_to_binary([ if
+			 is_binary(E) ->
+			     E;
+			 true ->
+			     <<E/utf16-big>>
+		     end || E <- FList ]);
 list_to_utf16_big_bsyntax(List,latin1) ->
     FList = flatb(List),
-    erlang:concat_binary([ <<E/utf16-big>> || E <- FList ]).
+    list_to_binary([ <<E/utf16-big>> || E <- FList ]).
 
 
 utf16_little_to_list_bsyntax(<<>>) ->
@@ -972,15 +972,15 @@ utf16_little_to_list_bsyntax(<<C/utf16-little,R/binary>>) ->
 
 list_to_utf16_little_bsyntax(List,{utf16,little}) ->
     FList = flatx(List),
-    erlang:concat_binary([ if 
-			       is_binary(E) ->
-				   E;
-			       true -> 
-				   <<E/utf16-little>>
-			   end || E <- FList ]);
+    list_to_binary([ if
+			 is_binary(E) ->
+			     E;
+			 true ->
+			     <<E/utf16-little>>
+		     end || E <- FList ]);
 list_to_utf16_little_bsyntax(List,latin1) ->
     FList = flatb(List),
-    erlang:concat_binary([ <<E/utf16-little>> || E <- FList ]).
+    list_to_binary([ <<E/utf16-little>> || E <- FList ]).
 
 
     
@@ -991,15 +991,15 @@ utf32_big_to_list_bsyntax(<<C/utf32-big,R/binary>>) ->
 
 list_to_utf32_big_bsyntax(List,{utf32,big}) ->
     FList = flatx(List),
-    erlang:concat_binary([ if 
-			       is_binary(E) ->
-				   E;
-			       true -> 
-				   <<E/utf32-big>>
-			   end || E <- FList ]);
+    list_to_binary([ if
+			 is_binary(E) ->
+			     E;
+			 true ->
+			     <<E/utf32-big>>
+		     end || E <- FList ]);
 list_to_utf32_big_bsyntax(List,latin1) ->
     FList = flatb(List),
-    erlang:concat_binary([ <<E/utf32-big>> || E <- FList ]).
+    list_to_binary([ <<E/utf32-big>> || E <- FList ]).
 
 
 utf32_little_to_list_bsyntax(<<>>) ->
@@ -1009,15 +1009,15 @@ utf32_little_to_list_bsyntax(<<C/utf32-little,R/binary>>) ->
 
 list_to_utf32_little_bsyntax(List,{utf32,little}) ->
     FList = flatx(List),
-    erlang:concat_binary([ if 
-			       is_binary(E) ->
-				   E;
-			       true -> 
-				   <<E/utf32-little>>
-			   end || E <- FList ]);
+    list_to_binary([ if
+			 is_binary(E) ->
+			     E;
+			 true ->
+			     <<E/utf32-little>>
+		      end || E <- FList ]);
 list_to_utf32_little_bsyntax(List,latin1) ->
     FList = flatb(List),
-    erlang:concat_binary([ <<E/utf32-little>> || E <- FList ]).
+    list_to_binary([ <<E/utf32-little>> || E <- FList ]).
 
     
 

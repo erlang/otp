@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(heart_SUITE).
@@ -80,7 +80,7 @@ start_check(Type, Name) ->
 		 end,
     erlang:monitor_node(Node, true),
     case rpc:call(Node, erlang, whereis, [heart]) of
-	Pid when pid(Pid) ->
+	Pid when is_pid(Pid) ->
 	    ok;
 	_ ->
 	    test_server:fail(heart_not_started)
@@ -355,7 +355,7 @@ erl() ->
     end.
     
 name(Node) when is_list(Node) -> name(Node,[]);
-name(Node) when atom(Node) -> name(atom_to_list(Node),[]).
+name(Node) when is_atom(Node) -> name(atom_to_list(Node),[]).
 
 name([$@|Node], Name) ->
     case lists:member($., Node) of
@@ -368,7 +368,7 @@ name([H|T], Name) ->
     name(T, [H|Name]).
 
 
-atom_conv(A) when atom(A) ->
+atom_conv(A) when is_atom(A) ->
     atom_to_list(A);
 atom_conv(A) when is_list(A) ->
     A.

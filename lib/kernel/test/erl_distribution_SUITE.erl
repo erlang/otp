@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_distribution_SUITE).
@@ -62,7 +62,7 @@ all(suite) ->
      table_waste, net_setuptime,
      monitor_nodes].
 
-init_per_testcase(Func, Config) when atom(Func), list(Config) ->
+init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Dog=?t:timetrap(?t:minutes(4)),
     [{watchdog, Dog}|Config].
 
@@ -72,7 +72,7 @@ fin_per_testcase(_Func, Config) ->
 
 tick(suite) -> [];
 tick(doc) -> [];
-tick(Config) when list(Config) ->
+tick(Config) when is_list(Config) ->
     ?line Dog = test_server:timetrap(test_server:seconds(120)),
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     
@@ -119,7 +119,7 @@ tick(Config) when list(Config) ->
     monitor_node(Node, true),
 
     receive
-	{tick_test, T} when integer(T) ->
+	{tick_test, T} when is_integer(T) ->
 	    stop_node(ServNode),
 	    stop_node(Node),
 	    T;
@@ -141,7 +141,7 @@ table_waste(doc) ->
     ["Checks that pinging nonexistyent nodes does not waste space in distribution table"];
 table_waste(suite) ->
     [];
-table_waste(Config) when list(Config) ->
+table_waste(Config) when is_list(Config) ->
     ?line {ok, HName} = inet:gethostname(), 
     F = fun(0,_F) -> [];
 	   (N,F) -> 
@@ -161,7 +161,7 @@ illegal_nodenames(doc) ->
     ["Test that pinging an illegal nodename does not kill the node"];
 illegal_nodenames(suite) ->
     [];
-illegal_nodenames(Config) when list(Config) ->
+illegal_nodenames(Config) when is_list(Config) ->
     ?line Dog=?t:timetrap(?t:minutes(2)),
     PaDir = filename:dirname(code:which(erl_distribution_SUITE)),
     ?line {ok, Node}=start_node(illegal_nodenames, "-pa " ++ PaDir),
@@ -269,12 +269,12 @@ tick_cli_test1(Node) ->
 
 tick_change(doc) -> ["OTP-4255"];
 tick_change(suite) -> [];
-tick_change(Config) when list(Config) ->
+tick_change(Config) when is_list(Config) ->
     ?line PaDir = filename:dirname(code:which(?MODULE)),
     ?line [BN, CN] = get_nodenames(2, tick_change),
     ?line DefaultTT = net_kernel:get_net_ticktime(),
     ?line case DefaultTT of
-	      I when integer(I) -> ?line ok;
+	      I when is_integer(I) -> ?line ok;
 	      _                 -> ?line ?t:fail(DefaultTT)
 	  end,
 
@@ -445,7 +445,7 @@ hidden_node(doc) ->
     ["Basic test of hidden node"];
 hidden_node(suite) ->
     [];
-hidden_node(Config) when list(Config) ->
+hidden_node(Config) when is_list(Config) ->
     ?line Dog = ?t:timetrap(?t:seconds(40)),
     PaDir = filename:dirname(code:which(?MODULE)),
     VArgs = "-pa " ++ PaDir,
@@ -548,7 +548,7 @@ monitor_nodes(suite) ->
 
 monitor_nodes_nodedown_reason(doc) -> [];
 monitor_nodes_nodedown_reason(suite) -> [];
-monitor_nodes_nodedown_reason(Config) when list(Config) ->
+monitor_nodes_nodedown_reason(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line ok = net_kernel:monitor_nodes(true),
     ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
@@ -603,7 +603,7 @@ monitor_nodes_nodedown_reason(Config) when list(Config) ->
 
 monitor_nodes_complex_nodedown_reason(doc) -> [];
 monitor_nodes_complex_nodedown_reason(suite) -> [];
-monitor_nodes_complex_nodedown_reason(Config) when list(Config) ->
+monitor_nodes_complex_nodedown_reason(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line Me = self(),
     ?line ok = net_kernel:monitor_nodes(true, [nodedown_reason]),
@@ -885,7 +885,7 @@ monitor_nodes_errors(doc) ->
     [];
 monitor_nodes_errors(suite) ->
     [];
-monitor_nodes_errors(Config) when list(Config) ->
+monitor_nodes_errors(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line error = net_kernel:monitor_nodes(asdf),
     ?line {error,
@@ -922,7 +922,7 @@ monitor_nodes_combinations(doc) ->
     [];
 monitor_nodes_combinations(suite) ->
     [];
-monitor_nodes_combinations(Config) when list(Config) ->
+monitor_nodes_combinations(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line monitor_nodes_all_comb(true),
     ?line [VisibleName, HiddenName] = get_nodenames(2,
@@ -1044,7 +1044,7 @@ monitor_nodes_cleanup(doc) ->
     [];
 monitor_nodes_cleanup(suite) ->
     [];
-monitor_nodes_cleanup(Config) when list(Config) ->
+monitor_nodes_cleanup(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line Me = self(),
     ?line No = monitor_nodes_all_comb(true),
@@ -1076,7 +1076,7 @@ monitor_nodes_many(doc) ->
     [];
 monitor_nodes_many(suite) ->
     [];
-monitor_nodes_many(Config) when list(Config) ->
+monitor_nodes_many(Config) when is_list(Config) ->
     ?line MonNodeState = monitor_node_state(),
     ?line [Name] = get_nodenames(1, monitor_nodes_many),
     %% We want to perform more than 2^16 net_kernel:monitor_nodes
@@ -1139,10 +1139,10 @@ start_node(Name, Param, this) ->
 start_node(Name, Param, "this") ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
     ?t:start_node(Name, peer, [{args, NewParam}, {erl, [this]}]);
-start_node(Name, Param, Rel) when atom(Rel) ->
+start_node(Name, Param, Rel) when is_atom(Rel) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
     ?t:start_node(Name, peer, [{args, NewParam}, {erl, [{release, atom_to_list(Rel)}]}]);
-start_node(Name, Param, Rel) when list(Rel) ->
+start_node(Name, Param, Rel) when is_list(Rel) ->
     NewParam = Param ++ " -pa " ++ filename:dirname(code:which(?MODULE)),
     ?t:start_node(Name, peer, [{args, NewParam}, {erl, [{release, Rel}]}]).
 
@@ -1216,9 +1216,9 @@ wait_until(Fun) ->
 	    end
     end.
 
-repeat(Fun, 0) when function(Fun) ->
+repeat(Fun, 0) when is_function(Fun) ->
     ok;
-repeat(Fun, N) when function(Fun), integer(N), N > 0 ->
+repeat(Fun, N) when is_function(Fun), is_integer(N), N > 0 ->
     Fun(),
     repeat(Fun, N-1).
 

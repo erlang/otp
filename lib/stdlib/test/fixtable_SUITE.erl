@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%----------------------------------------------------------------------
@@ -83,7 +83,7 @@ fixbag(doc) ->
      "incorrect lookups"];
 fixbag(suite) ->
     [];
-fixbag(Config) when list(Config) ->
+fixbag(Config) when is_list(Config) ->
     ?line T = ets:new(x,[bag]),
     ?line ets:insert(T,{a,1}),
     ?line ets:insert(T,{a,2}),
@@ -101,7 +101,7 @@ insert_same_key(doc) ->
     ["Check correct behaviour if a key is deleted and reinserted during fixation."];
 insert_same_key(suite) ->
     [];
-insert_same_key(Config) when list(Config) ->
+insert_same_key(Config) when is_list(Config) ->
     ?line {ok,Dets1} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(?DETS_TMP1,Config)}]),
     ?line Ets1 = ets:new(ets,[]),
@@ -180,7 +180,7 @@ owner_dies(doc) ->
     ["Check correct behaviour if the table owner dies."];
 owner_dies(suite) ->
     [];
-owner_dies(Config) when list(Config) ->
+owner_dies(Config) when is_list(Config) ->
     ?line P1 = start_commander(),
     ?line Ets1 = command(P1,{ets,new,[ets,[]]}),
     ?line command(P1,{ets,safe_fixtable,[Ets1,true]}),
@@ -236,7 +236,7 @@ other_process_closes(doc) ->
 other_process_closes(suite) ->
     [];
 
-other_process_closes(Config) when list(Config) ->
+other_process_closes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(tmp1,Config)}]),
     ?line P2 = start_commander(),
@@ -265,7 +265,7 @@ other_process_deletes(doc) ->
      "deletes an ets table"];
 other_process_deletes(suite) ->
     [];
-other_process_deletes(Config) when list(Config) ->
+other_process_deletes(Config) when is_list(Config) ->
     ?line Ets = ets:new(ets,[public]),
     ?line P = start_commander(),
     ?line ets:safe_fixtable(Ets,true),
@@ -282,7 +282,7 @@ multiple_fixes(doc) ->
     ["Check that multiple safe_fixtable keeps the reference counter."];
 multiple_fixes(suite) ->
     [];
-multiple_fixes(Config) when list(Config) ->
+multiple_fixes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,
 			       [{file, dets_filename(?DETS_TMP1,Config)}]),
     ?line Ets = ets:new(ets,[]),
@@ -317,7 +317,7 @@ multiple_processes(doc) ->
      "counted OK"];
 multiple_processes(suite) ->
     [];
-multiple_processes(Config) when list(Config) ->
+multiple_processes(Config) when is_list(Config) ->
     ?line {ok,Dets} = dets:open_file(?DETS_TMP1,[{file, 
 					    dets_filename(?DETS_TMP1,
 							  Config)}]),
@@ -370,7 +370,7 @@ multiple_processes(Tab, Mod) ->
     
 
 %%% Helpers
-dets_filename(Base, Config) when atom(Base) ->
+dets_filename(Base, Config) when is_atom(Base) ->
     dets_filename(atom_to_list(Base) ++ ".dat", Config);
 dets_filename(Basename, Config) ->
     PrivDir = ?config(priv_dir,Config),
