@@ -75,9 +75,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
      *						 the lock name)"
      */
 #ifdef ERTS_SMP
-#ifdef HIPE
-    {	"hipe_mfait_lock",			NULL			},
-#endif
     {	"driver_lock",				"driver_name"		},
     {	"port_lock",				"port_id"		},
 #endif
@@ -87,6 +84,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"reg_tab",				NULL			},
     {	"migration_info_update",		NULL			},
     {	"proc_main",				"pid"			},
+#ifdef HIPE
+    {	"hipe_mfait_lock",			NULL			},
+#endif
     {	"nodes_monitors",			NULL			},
     {   "driver_list",                          NULL                    },
     {	"proc_link",				"pid"			},
