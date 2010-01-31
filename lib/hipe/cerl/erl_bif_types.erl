@@ -4906,7 +4906,8 @@ t_inet_setoption_packettype() ->
 	 t_integers([0,1,2,4]),
 	 t_atom('asn1'), t_atom('cdr'), t_atom('sunrm'),
 	 t_atom('fcgi'), t_atom('tpkt'), t_atom('line'),
-	 t_atom('http')]).	%% but t_atom('httph') is not needed
+	 t_atom('http'),
+	 t_atom('http_bin')]).	%% but t_atom('httph') is not needed
 
 t_inet_posix_error() ->
   t_atom().  %% XXX: Very underspecified
