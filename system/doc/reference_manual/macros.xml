@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>The Preprocessor</title>
@@ -141,85 +141,34 @@ bar(X) ->
 
   <section>
     <title>Macros Overloading</title>
-    <warning>
-      <p>This section describes a feature introduced in R13B04. It remains fully
-      compatible with old code but previous versions of erlang does not support
-      the macros overloading.</p>
-    </warning>
-    <p>It is possible to have more than one definition of the same macro, except
-    for predefined macros. Only user-defined macros are considered here. In
-    order to overload a macro, a different signature should be used for each
-    overloaded version. A macro signature consists of its name and its number of
-    arguments.</p>
+    <p>It is possible to overload macros, except for predefined
+      macros. An overloaded macro has more than one definition,
+      each with a different number of arguments.</p>
+    <p>The feature was added in Erlang 5.7.5/OTP R13B04.</p>
+    <p>A macro <c>?Func(Arg1,...,ArgN)</c> with a (possibly empty)
+      list of arguments results in an error message if there is at
+      least one definition of <c>Func</c> with arguments, but none
+      with N arguments.</p>
+    <p>Assuming these definitions:</p>
+    <code type="none">
+-define(F0(), c).
+-define(F1(A), A).
+-define(C, m:f).</code>
+    <p>the following will not work:</p>
+    <code type="none">
+f0() ->
+    ?F0. % No, an empty list of arguments expected.
 
-    <taglist>
-      <tag>Object-like macro has no arguments</tag>
-      <item><code type="none">
--define(M, io:format("object-like macro")).</code>
-      </item>
-      <tag>Function-like macro has 0 or more arguments.</tag>
-      <item><code type="none">
--define(M(),     io:format("function-like macro with 0 argument")).
--define(M(X),    io:format("function-like macro with 1 argument: ~p", [X])).
--define(M(X, Y), io:format("function-like macro with 2 arguments: (~p, ~p)", [X,Y])).</code>
-      </item>
-    </taglist>
-    <p>An object-like macro should not be confused with a function-like macro
-    with 0 argument.</p>
-
-    <p>When a macro is used, the preprocessor selects the proper macro following
-      these rules: </p>
-    <list type="bulleted">
-      <item>if there is only the object-like definition, the preprocessor uses
-      it. Example:</item>
-<code type="none">
--define(FUN, now).
-...
-call() ->
-    {?FUN, ?FUN()}.</code>
-This will be expended to:
-<code type="none">
-call() ->
-    {now, now()}.</code>
-
-      <item>if the preprocessor recognizes an object-like macro call, and if its
-      definition exists, the preprocessor uses it. Example:</item>
-<code type="none">
--define(MOD,    erlang).
--define(MOD(X), X).
-...
-call() ->
-    ?MOD:module_info().</code>
-This will be expended to:
-<code type="none">
-call() ->
-    erlang:module_info().</code>
-
-      <item>if the preprocessor recognizes a function-like macro call, the
-      preprocessor chooses the definition with the same number of
-      arguments. Example: </item>
-<code type="none">
--define(CALL(Fun),      Fun()).
--define(CALL(Mod, Fun), Mod:Fun()).
-...
-call() ->
-    ?CALL(kernel, module_info).</code>
-This will be expended to:
-<code type="none">
-call() ->
-    kernel:module_info().</code>
-
-      <item>in all other cases, the preprocessor throws an
-      error. Example:</item>
-<code type="none">
--define(M, erlang).
--define(M(X), X).
-...
-call() ->
-    ?M(kernel, module_info).</code>
-The compiler will fail with error <c>argument mismatch for macro 'M'</c>
-
-    </list>
+f1(A) ->
+    ?F1(A, A). % No, exactly one argument expected.</code>
+    <p>On the other hand,</p>
+    <code>
+f() ->
+    ?C().</code>
+    <p>will expand to</p>
+    <code>
+f() ->
+    m:f().</code>
   </section>
 
   <section>
