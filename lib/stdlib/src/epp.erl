@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(epp).
@@ -528,6 +528,7 @@ scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
                     end;
                 {ok, _PreDef} ->
                     %% Predefined macros: cannot be overloaded
+                    %% (There are currently no predefined F(...) macros.)
                     epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
                     wait_req_scan(St);
                 error ->
@@ -551,12 +552,12 @@ scan_define(_Toks, Def, From, St) ->
 %%% is detected, an error message is thrown.
 
 scan_define_cont(F, St, M, {Arity, Def}) ->
-    try
-        Ms = dict:append_list(M, [{Arity, Def}], St#epp.macs),
-        U = dict:append_list(M, [{Arity, macro_uses(Def)}], St#epp.uses),
-        scan_toks(F, St#epp{uses=U, macs=Ms})
+    Ms = dict:append_list(M, [{Arity, Def}], St#epp.macs),
+    try dict:append_list(M, [{Arity, macro_uses(Def)}], St#epp.uses) of
+        U ->
+            scan_toks(F, St#epp{uses=U, macs=Ms})
     catch
-        _:{error, Line, Reason} ->
+        {error, Line, Reason} ->
             epp_reply(F, {error,{Line,epp,Reason}}),
             wait_req_scan(St)
     end.
@@ -904,7 +905,7 @@ expand_macros([T|Ts], Ms) ->
 expand_macros([], _Ms) -> [].
 
 %% bind_args(Tokens, MacroLocation, MacroName, ArgumentVars, Bindings)
-%%  Collect the arguments to a macro call and check for correct number.
+%%  Collect the arguments to a macro call.
 
 bind_args([{'(',_Llp},{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
@@ -912,7 +913,7 @@ bind_args([{'(',_Llp}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 bind_args(_Toks, Lm, M, _As, _Bs) ->
-    throw({error,Lm,{mismatch,M}}).
+    throw({error,Lm,{mismatch,M}}). % Cannot happen.
 
 macro_args([{')',_Lrp}|Toks], _Lm, _M, [], Bs) ->
     {Bs,Toks};
@@ -920,9 +921,9 @@ macro_args([{',',_Lc}|Toks0], Lm, M, [A|As], Bs) ->
     {Arg,Toks1} = macro_arg(Toks0, [], []),
     macro_args(Toks1, Lm, M, As, store_arg(Lm, M, A, Arg, Bs));
 macro_args([], Lm, M, _As, _Bs) ->
-    throw({error,Lm,{arg_error,M}});
+    throw({error,Lm,{arg_error,M}}); % Cannot happen.
 macro_args(_Toks, Lm, M, _As, _Bs) ->
-    throw({error,Lm,{mismatch,M}}).
+    throw({error,Lm,{mismatch,M}}). % Cannot happen.
 
 store_arg(L, M, _A, [], _Bs) ->
     throw({error,L,{mismatch,M}});
@@ -951,7 +952,7 @@ count_args([{',',_Lc}|Toks0], Lm, M, NbArgs) ->
 count_args([], Lm, M, _NbArgs) ->
     throw({error,Lm,{arg_error,M}});
 count_args(_Toks, Lm, M, _NbArgs) ->
-    throw({error,Lm,{mismatch,M}}).
+    throw({error,Lm,{mismatch,M}}). % Cannot happen.
 
 %% macro_arg([Tok], [ClosePar], [ArgTok]) -> {[ArgTok],[RestTok]}.
 %%  Collect argument tokens until we hit a ',' or a ')'. We know a
