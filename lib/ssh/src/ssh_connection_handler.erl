@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -530,6 +530,7 @@ handle_info({Protocol, Socket, Data}, Statename,
     case size(EncData0) + size(Data) >= max(8, BlockSize) of
 	true ->
 	    {Ssh, SshPacketLen, DecData, EncData} = 
+
 		ssh_transport:decrypt_first_block(<<EncData0/binary, 
 						   Data/binary>>, Ssh0),
 	     case SshPacketLen > ?SSH_MAX_PACKET_SIZE of
@@ -737,7 +738,8 @@ next_packet(#state{decoded_data_buffer = <<>>,
 	    State) when Buff =/= <<>> andalso size(Buff) >= 8 ->
     %% More data from the next packet has been received
     %% Fake a socket-recive message so that the data will be processed
-    self() ! {Protocol, Socket, <<>>} ,
+    inet:setopts(Socket, [{active, once}]),
+    self() ! {Protocol, Socket, <<>>},
     State;
 
 next_packet(#state{socket = Socket} = State) ->
