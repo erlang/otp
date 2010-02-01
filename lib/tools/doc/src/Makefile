@@ -41,6 +41,7 @@ XML_REF3_FILES = \
 	eprof.xml \
 	fprof.xml \
 	cprof.xml \
+	lcnt.xml \
 	instrument.xml \
 	make.xml \
 	tags.xml \
@@ -53,6 +54,7 @@ XML_CHAPTER_FILES = \
 	cover_chapter.xml \
 	fprof_chapter.xml \
 	cprof_chapter.xml \
+	lcnt_chapter.xml \
 	erlang_mode_chapter.xml \
 	xref_chapter.xml \
 	notes.xml \

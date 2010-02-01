@@ -55,6 +55,8 @@
       <tag><em>instrument</em></tag>
       <item>Utility functions for obtaining and analysing resource usage
        in an instrumented Erlang runtime system.</item>
+      <tag><em>lcnt</em></tag>
+      <item>A lock profiling tool for the Erlang runtime system.</item>
       <tag><em>make</em></tag>
       <item>A make utility for Erlang similar to UNIX make.</item>
       <tag><em>tags</em></tag>
@@ -69,6 +71,7 @@
   <xi:include href="cprof_chapter.xml"/>
   <xi:include href="erlang_mode_chapter.xml"/>
   <xi:include href="fprof_chapter.xml"/>
+  <xi:include href="lcnt_chapter.xml"/>
   <xi:include href="xref_chapter.xml"/>
 </part>
 
