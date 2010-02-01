@@ -187,9 +187,9 @@ format_error(no_crypto_key) ->
 format_error({native, E}) ->
     io_lib:fwrite("native-code compilation failed with reason: ~P.",
 		  [E, 25]);
-format_error({native_crash, E}) ->
-    io_lib:fwrite("native-code compilation crashed with reason: ~P.",
-		  [E, 25]);
+format_error({native_crash,E,Stk}) ->
+    io_lib:fwrite("native-code compilation crashed with reason: ~P.\n~P\n",
+		  [E,25,Stk,25]);
 format_error({open,E}) ->
     io_lib:format("open error '~s'", [file:format_error(E)]);
 format_error({epp,E}) ->
@@ -717,7 +717,7 @@ read_beam_file(St) ->
     case file:read_file(St#compile.ifile) of
 	{ok,Beam} ->
 	    Infile = St#compile.ifile,
-	    case is_too_old(Infile) of
+	    case no_native_compilation(Infile, St) of
 		true ->
 		    {ok,St#compile{module=none,code=none}};
 		false ->
@@ -730,12 +730,15 @@ read_beam_file(St) ->
 	    {error,St#compile{errors=St#compile.errors ++ Es}}
     end.
 
-is_too_old(BeamFile) ->
+no_native_compilation(BeamFile, #compile{options=Opts0}) ->
     case beam_lib:chunks(BeamFile, ["CInf"]) of
 	{ok,{_,[{"CInf",Term0}]}} ->
 	    Term = binary_to_term(Term0),
-	    Opts = proplists:get_value(options, Term, []),
-	    lists:member(no_new_funs, Opts);
+
+	    %% Compiler options in the beam file will override
+	    %% options passed to the compiler.
+	    Opts = proplists:get_value(options, Term, []) ++ Opts0,
+	    member(no_new_funs, Opts) orelse not is_native_enabled(Opts);
 	_ -> false
     end.
 
@@ -1046,7 +1049,14 @@ beam_asm(#compile{ifile=File,code=Code0,abstract_code=Abst,options=Opts0}=St) ->
 
 test_native(#compile{options=Opts}) ->
     %% This test is done late, in case some other option has turned off native.
-    member(native, Opts).
+    %% 'native' given on the command line can be overridden by
+    %% 'no_native' in the module itself.
+    is_native_enabled(Opts).
+
+is_native_enabled([native|_]) -> true;
+is_native_enabled([no_native|_]) -> false;
+is_native_enabled([H|T]) -> is_native_enabled(T);
+is_native_enabled([]) -> false.
 
 native_compile(#compile{code=none}=St) -> {ok,St};
 native_compile(St) ->
@@ -1070,25 +1080,27 @@ native_compile_1(St) ->
 		     St#compile.core_code,
 		     St#compile.code,
 		     Opts) of
-	{ok, {_Type,Bin} = T} when is_binary(Bin) ->
-	    {ok, embed_native_code(St, T)};
-	{error, R} ->
+	{ok,{_Type,Bin}=T} when is_binary(Bin) ->
+	    {ok,embed_native_code(St, T)};
+	{error,R} ->
 	    case IgnoreErrors of
 		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {ok, St#compile{warnings=St#compile.warnings ++ Ws}};
+		    Ws = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    Es = [{St#compile.ifile,[{none,?MODULE,{native,R}}]}],
-		    {error, St#compile{errors=St#compile.errors ++ Es}}
+		    Es = [{St#compile.ifile,[{?MODULE,{native,R}}]}],
+		    {error,St#compile{errors=St#compile.errors ++ Es}}
 	    end
     catch
-	error:R ->
+	Class:R ->
+	    Stk = erlang:get_stacktrace(),
 	    case IgnoreErrors of
 		true ->
-		    Ws = [{St#compile.ifile,[{none,?MODULE,{native_crash,R}}]}],
-		    {ok, St#compile{warnings=St#compile.warnings ++ Ws}};
+		    Ws = [{St#compile.ifile,
+			   [{?MODULE,{native_crash,R,Stk}}]}],
+		    {ok,St#compile{warnings=St#compile.warnings ++ Ws}};
 		false ->
-		    exit(R)
+		    erlang:raise(Class, R, Stk)
 	    end
     end.
 
