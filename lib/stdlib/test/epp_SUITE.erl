@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(epp_SUITE).
@@ -23,7 +23,7 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1, overload_mac/1]).
+         otp_8130/1, overload_mac/1, otp_8388/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -63,7 +63,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac].
+     overload_mac, otp_8388].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -1094,6 +1094,50 @@ overload_mac(Config) when is_list(Config) ->
           ],
     ?line [] = run(Config, Ts).
 
+
+otp_8388(doc) ->
+    ["OTP-8388. More tests on overloaded macros."];
+otp_8388(suite) ->
+    [];
+otp_8388(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    ?line File = filename:join(Dir, "otp_8388.erl"),
+    ?line ok = file:write_file(File, <<"-module(otp_8388)."
+                                       "-define(LINE, a).">>),
+    fun() ->
+            PreDefMacros = [{'LINE', a}],
+            ?line {error,{redefine_predef,'LINE'}} =
+                epp:open(File, [], PreDefMacros)
+    end(),
+
+    fun() ->
+            PreDefMacros = ['LINE'],
+            ?line {error,{redefine_predef,'LINE'}} =
+                epp:open(File, [], PreDefMacros)
+    end(),
+
+    Ts = [
+          {macro_1,
+           <<"-define(m(A), A).\n"
+             "t() -> ?m(,).\n">>,
+           {errors,[{{2,11},epp,{arg_error,m}}],[]}},
+          {macro_2,
+           <<"-define(m(A), A).\n"
+             "t() -> ?m(a,).\n">>,
+           {errors,[{{2,12},epp,{arg_error,m}}],[]}},
+          {macro_3,
+           <<"-define(LINE, a).\n">>,
+           {errors,[{{1,9},epp,{redefine_predef,'LINE'}}],[]}},
+          {macro_4,
+           <<"-define(A(B, C, D), {B,C,D}).\n"
+             "t() -> ?A(a,,3).\n">>,
+           {errors,[{{2,8},epp,{mismatch,'A'}}],[]}},
+          {macro_5,
+           <<"-define(Q, {?F0(), ?F1(,,4)}).\n">>,
+           {errors,[{{1,24},epp,{arg_error,'F1'}}],[]}}
+         ],
+    ?line [] = compile(Config, Ts),
+    ok.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
