@@ -26,6 +26,7 @@ MODULES =  \
 	fprof_SUITE \
 	cprof_SUITE \
 	instrument_SUITE \
+	lcnt_SUITE \
 	make_SUITE \
 	tools_SUITE \
 	xref_SUITE \
@@ -49,7 +50,8 @@ RELSYSDIR = $(RELEASE_PATH)/tools_test
 # FLAGS
 # ----------------------------------------------------
 ERL_MAKE_FLAGS += 
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include
+ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
+	-I$(ERL_TOP)/lib/percept/include
 
 EBIN = .
 
@@ -68,9 +70,10 @@ tests debug opt: make_emakefile
 clean:
 	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES)
-	rm -f core
+	rm -f core *~
 
 docs:
+
 
 # ----------------------------------------------------
 # Release Target
