@@ -32,16 +32,17 @@
 -export([ sortItems/2 ,arrange/1,arrange/2,assignImageList/3,clearAll/1,create/2,
   create/3,deleteAllItems/1,deleteColumn/2,deleteItem/2,destroy/1,editLabel/2,
   ensureVisible/2,findItem/3,findItem/4,getColumn/3,getColumnCount/1,
-  getColumnWidth/2,getCountPerPage/1,getImageList/2,getItem/2,getItemBackgroundColour/2,
-  getItemCount/1,getItemData/2,getItemFont/2,getItemPosition/3,getItemRect/3,
-  getItemRect/4,getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
-  getNextItem/2,getNextItem/3,getSelectedItemCount/1,getTextColour/1,
-  getTopItem/1,getViewRect/1,hitTest/2,insertColumn/3,insertColumn/4,
-  insertItem/2,insertItem/3,insertItem/4,new/0,new/1,new/2,refreshItem/2,
-  refreshItems/3,scrollList/3,setBackgroundColour/2,setColumn/3,setColumnWidth/3,
-  setImageList/3,setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,
-  setItemColumnImage/4,setItemCount/2,setItemData/3,setItemFont/3,setItemImage/3,
-  setItemImage/4,setItemPosition/3,setItemState/4,setItemText/3,setItemTextColour/3,
+  getColumnWidth/2,getCountPerPage/1,getEditControl/1,getImageList/2,
+  getItem/2,getItemBackgroundColour/2,getItemCount/1,getItemData/2,
+  getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,getItemSpacing/1,
+  getItemState/3,getItemText/2,getItemTextColour/2,getNextItem/2,getNextItem/3,
+  getSelectedItemCount/1,getTextColour/1,getTopItem/1,getViewRect/1,
+  hitTest/2,insertColumn/3,insertColumn/4,insertItem/2,insertItem/3,
+  insertItem/4,new/0,new/1,new/2,refreshItem/2,refreshItems/3,scrollList/3,
+  setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
+  setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,setItemColumnImage/4,
+  setItemCount/2,setItemData/3,setItemFont/3,setItemImage/3,setItemImage/4,
+  setItemPosition/3,setItemState/4,setItemText/3,setItemTextColour/3,
   setSingleStyle/2,setSingleStyle/3,setTextColour/2,setWindowStyleFlag/2]).
 
 %% inherited exports
@@ -272,6 +273,13 @@ getColumnWidth(#wx_ref{type=ThisT,ref=ThisRef},Col)
 getCountPerPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_GetCountPerPage,
+  <<ThisRef:32/?UI>>).
+
+%% @spec (This::wxListCtrl()) -> wxTextCtrl:wxTextCtrl()
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgeteditcontrol">external documentation</a>.
+getEditControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxListCtrl),
+  wxe_util:call(?wxListCtrl_GetEditControl,
   <<ThisRef:32/?UI>>).
 
 %% @spec (This::wxListCtrl(), Which::integer()) -> wxImageList:wxImageList()

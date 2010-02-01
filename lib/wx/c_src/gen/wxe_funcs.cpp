@@ -1,7 +1,7 @@
 /*
  * %CopyrightBegin%
  *
- * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ * Copyright Ericsson AB 2008-2009. All Rights Reserved.
  *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
@@ -15337,6 +15337,13 @@ case wxListCtrl_GetCountPerPage: { // wxListCtrl::GetCountPerPage
  int Result = This->GetCountPerPage();
  rt.addInt(Result);
  break; 
+}
+case wxListCtrl_GetEditControl: { // wxListCtrl::GetEditControl
+ wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
+ if(!This) throw wxe_badarg(0);
+ wxTextCtrl * Result = (wxTextCtrl*)This->GetEditControl();
+ rt.addRef(getRef((void *)Result,memenv), "wxTextCtrl");
+ break;
 }
 case wxListCtrl_GetImageList: { // wxListCtrl::GetImageList 
  wxListCtrl *This = (wxListCtrl *) getPtr(bp,memenv); bp += 4;
