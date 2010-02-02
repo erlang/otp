@@ -86,14 +86,14 @@ gl_api(Fs) ->
     erl_copyright(),
     w("~n%% OPENGL API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("%% @doc  Standard OpenGL api. ~n", []),
+    w("%% @doc  Standard OpenGL api.~n", []),
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
-    w("%% Booleans are represented by integers 0 and 1. ~n~n", []),
+    w("%% Booleans are represented by integers 0 and 1.~n~n", []),
     w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
-    w("%% @type clamp().  A float clamped between 0.0 - 1.0 ~n", []),
+    w("%% @type clamp().  A float clamped between 0.0 - 1.0~n", []),
     
     w("-module(gl).~n~n",[]),    
     w("-compile(inline).~n", []),
@@ -106,7 +106,7 @@ gl_api(Fs) ->
     ExportList = lists:map(Exp,Fs),
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
 
-    w("~n%% API ~n~n", []),
+    w("~n%% API~n~n", []),
     [gen_funcs(F) || F <- Fs],
     close(), 
     ok.
@@ -116,14 +116,14 @@ glu_api(Fs) ->
     erl_copyright(),
     w("~n%% OPENGL UTILITY API~n~n", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("%% @doc  A part of the standard OpenGL Utility api. ~n", []),
+    w("%% @doc  A part of the standard OpenGL Utility api.~n", []),
     w("%% See <a href=\"http://www.opengl.org/sdk/docs/man/\">www.opengl.org</a>~n",[]),
     w("%%~n", []),
-    w("%% Booleans are represented by integers 0 and 1. ~n~n", []),
+    w("%% Booleans are represented by integers 0 and 1.~n~n", []),
     w("%% @type wx_mem(). see wx.erl on memory allocation functions~n", []),
     w("%% @type enum().   An integer defined in gl.hrl~n", []),    
     w("%% @type offset(). An integer which is an offset in an array~n", []),
-    w("%% @type clamp().  A float clamped between 0.0 - 1.0 ~n~n", []),
+    w("%% @type clamp().  A float clamped between 0.0 - 1.0~n~n", []),
 
     w("-module(glu).~n",[]),    
     w("-compile(inline).~n", []),
@@ -134,7 +134,7 @@ glu_api(Fs) ->
     ExportList = ["tesselate/2" | lists:map(Exp,Fs)],
     w("~n-export([~s]).~n~n", [args(fun(EF) -> EF end, ",", ExportList, 60)]),
 
-    w("~n%% API ~n~n", []),
+    w("~n%% API~n~n", []),
 
     w("%% @spec (Vec3, [Vec3]) -> {Triangles, VertexPos}~n",[]),
     w("%%  Vec3 = {float(),float(),float()}~n",[]),
@@ -143,8 +143,8 @@ glu_api(Fs) ->
     w("%% @doc General purpose polygon triangulation.~n",[]),
     w("%% The first argument is the normal and the second a list of~n"
       "%% vertex positions. Returned is a list of indecies of the vertices~n"
-      "%% and a binary (64bit native float) containing an array of ~n"
-      "%% vertex positions, it starts with the vertices in Vs and ~n"
+      "%% and a binary (64bit native float) containing an array of~n"
+      "%% vertex positions, it starts with the vertices in Vs and~n"
       "%% may contain newly created vertices in the end.~n", []),
 
     w("tesselate({Nx,Ny,Nz}, Vs) ->~n",[]),
@@ -413,7 +413,7 @@ marshal_arg(#type{size=Sz,name=Type,single={tuple_list,TSz}},Name,A0) ->
 marshal_arg(T=#type{}, Name, Align) ->
     io:format("{\"~s\", {\"~s\", }}.~n", [get(current_func),lowercase(Name)]),
     %%?error({unhandled_type, {Name,T}}).
-    w(" Don't know how to marshal this type ~p ~p ~n", [T,Name]), 
+    w(" Don't know how to marshal this type ~p ~p~n", [T,Name]),
     align(8,Align,"").
 
 % Make sure that it is aligned before adding it, and update alignment
@@ -581,7 +581,7 @@ gen_debug(GL, GLU) ->
     open_write("../src/gen/gl_debug.hrl"),
     erl_copyright(),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("gldebug_table() -> ~n[~n", []),
+    w("gldebug_table() ->~n[~n", []),
     [printd(F,gl)  || F <- GL],
     [printd(F,glu) || F <- GLU],
     w(" {-1, {mod, func, -1}}~n",[]),
