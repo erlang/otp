@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpostscriptdc.html">wxPostScriptDC</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDC}
 %% </p>
 %% @type wxPostScriptDC().  An object reference, The representation is internal
@@ -84,11 +84,11 @@ getResolution() ->
 
 %% @spec (This::wxPostScriptDC()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPostScriptDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxDC 
+ %% From wxDC
 %% @hidden
 startPage(This) -> wxDC:startPage(This).
 %% @hidden

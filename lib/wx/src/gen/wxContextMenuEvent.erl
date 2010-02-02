@@ -22,7 +22,7 @@
 %% <dd><em>context_menu</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxContextMenu(). #wxContextMenu{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
 %% </p>
@@ -60,7 +60,7 @@ setPosition(#wx_ref{type=ThisT,ref=ThisRef},{PosX,PosY})
   wxe_util:cast(?wxContextMenuEvent_SetPosition,
   <<ThisRef:32/?UI,PosX:32/?UI,PosY:32/?UI>>).
 
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -79,7 +79,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

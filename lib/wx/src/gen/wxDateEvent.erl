@@ -22,7 +22,7 @@
 %% <dd><em>date_changed</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxDate(). #wxDate{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
 %% </p>
@@ -52,7 +52,7 @@ getDate(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxDateEvent_GetDate,
   <<ThisRef:32/?UI>>).
 
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -71,7 +71,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

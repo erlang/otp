@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxchecklistbox.html">wxCheckListBox</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxListBox}
 %% <br />{@link wxControlWithItems}
 %% <br />{@link wxControl}
@@ -139,11 +139,11 @@ isChecked(#wx_ref{type=ThisT,ref=ThisRef},Index)
 
 %% @spec (This::wxCheckListBox()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCheckListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxListBox 
+ %% From wxListBox
 %% @hidden
 setFirstItem(This,N) -> wxListBox:setFirstItem(This,N).
 %% @hidden
@@ -158,7 +158,7 @@ insertItems(This,Items,Pos) -> wxListBox:insertItems(This,Items,Pos).
 getSelections(This) -> wxListBox:getSelections(This).
 %% @hidden
 deselect(This,N) -> wxListBox:deselect(This,N).
- %% From wxControlWithItems 
+ %% From wxControlWithItems
 %% @hidden
 setStringSelection(This,S) -> wxControlWithItems:setStringSelection(This,S).
 %% @hidden
@@ -199,12 +199,12 @@ appendStrings(This,Strings) -> wxControlWithItems:appendStrings(This,Strings).
 append(This,Item,ClientData) -> wxControlWithItems:append(This,Item,ClientData).
 %% @hidden
 append(This,Item) -> wxControlWithItems:append(This,Item).
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -551,7 +551,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

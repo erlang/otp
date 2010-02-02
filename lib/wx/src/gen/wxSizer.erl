@@ -47,7 +47,7 @@ add(This,Window)
 
 %% @spec (This::wxSizer(),X::integer()|term(),X::integer()|term()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizeradd">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% add(This::wxSizer(), Width::integer(), Height::integer()) -> add(This,Width,Height, []) </c></p>
 %% <p><c>
@@ -159,7 +159,7 @@ clear(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 
 %% @spec (This::wxSizer(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerdetach">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% detach(This::wxSizer(), Index::integer()) -> bool() </c>
 %% </p>
@@ -207,7 +207,7 @@ getChildren(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxSizer(),X::term()|integer()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizergetitem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% getItem(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer()) -> getItem(This,Window, []) </c></p>
 %% <p><c>
@@ -264,7 +264,7 @@ getMinSize(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxSizer(),X::term()|integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerhide">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% hide(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer()) -> hide(This,Window, []) </c></p>
 %% <p><c>
@@ -300,7 +300,7 @@ hide(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRef}, Option
 
 %% @spec (This::wxSizer(),Index::integer(),X::term()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerinsert">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insert(This::wxSizer(), Index::integer(), Window::wxWindow:wxWindow() | wxSizer()) -> insert(This,Index,Window, []) </c></p>
 %% <p><c>
@@ -319,7 +319,7 @@ insert(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=ItemT,ref=ItemRef})
 
 %% @spec (This::wxSizer(),Index::integer(),X::integer()|term(),X::integer()|term()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerinsert">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insert(This::wxSizer(), Index::integer(), Width::integer(), Height::integer()) -> insert(This,Index,Width,Height, []) </c></p>
 %% <p><c>
@@ -407,7 +407,7 @@ insertStretchSpacer(#wx_ref{type=ThisT,ref=ThisRef},Index, Options)
 
 %% @spec (This::wxSizer(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerisshown">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% isShown(This::wxSizer(), Index::integer()) -> bool() </c>
 %% </p>
@@ -439,7 +439,7 @@ layout(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxSizer(),X::term()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerprepend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% prepend(This::wxSizer(), Window::wxWindow:wxWindow() | wxSizer()) -> prepend(This,Window, []) </c></p>
 %% <p><c>
@@ -457,7 +457,7 @@ prepend(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 
 %% @spec (This::wxSizer(),X::integer()|term(),X::integer()|term()) -> wxSizerItem:wxSizerItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerprepend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% prepend(This::wxSizer(), Width::integer(), Height::integer()) -> prepend(This,Width,Height, []) </c></p>
 %% <p><c>
@@ -551,7 +551,7 @@ recalcSizes(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxSizer(),X::integer()|wxSizer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerremove">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% remove(This::wxSizer(), Index::integer()) -> bool() </c>
 %% </p>
@@ -571,7 +571,7 @@ remove(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=SizerT,ref=SizerRef}) ->
 
 %% @spec (This::wxSizer(),X::term()|integer(),X::term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizerreplace">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% replace(This::wxSizer(), Oldwin::wxWindow:wxWindow() | wxSizer(), Newwin::wxWindow:wxWindow() | wxSizer()) -> replace(This,Oldwin,Newwin, []) </c></p>
 %% <p><c>
@@ -634,7 +634,7 @@ setMinSize(#wx_ref{type=ThisT,ref=ThisRef},Width,Height)
 
 %% @spec (This::wxSizer(),X::integer()|term(),Size::{W::integer(),H::integer()}) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetitemminsize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setItemMinSize(This::wxSizer(), Index::integer(), Size::{W::integer(),H::integer()}) -> bool() </c>
 %% </p>
@@ -660,7 +660,7 @@ setItemMinSize(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=WindowRe
 
 %% @spec (This::wxSizer(),X::integer()|term(),Width::integer(),Height::integer()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizersetitemminsize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setItemMinSize(This::wxSizer(), Index::integer(), Width::integer(), Height::integer()) -> bool() </c>
 %% </p>
@@ -702,7 +702,7 @@ setVirtualSizeHints(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WindowT,ref=Win
 
 %% @spec (This::wxSizer(),X::integer()|term()|bool()) -> bool()|bool()|ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizershow">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% show(This::wxSizer(), Index::integer()) -> show(This,Index, []) </c></p>
 %% <p><c>
@@ -726,7 +726,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef},Show)
 
 %% @spec (This::wxSizer(),X::integer()|term(),[Option]) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxsizer.html#wxsizershow">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% show(This::wxSizer(), Index::integer(), [Option]) -> bool() </c>
 %%<br /> Option = {show, bool()}

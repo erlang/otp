@@ -94,7 +94,7 @@ setCustomColour(#wx_ref{type=ThisT,ref=ThisRef},I,Colour)
 
 %% @spec (This::wxColourData()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxColourData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

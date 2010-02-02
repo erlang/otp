@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfiledataobject.html">wxFileDataObject</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDataObject}
 %% </p>
 %% @type wxFileDataObject().  An object reference, The representation is internal
@@ -60,8 +60,8 @@ getFilenames(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxFileDataObject()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFileDataObject),
   wxe_util:destroy(?wxFileDataObject_destroy,Obj),
   ok.
- %% From wxDataObject 
+ %% From wxDataObject

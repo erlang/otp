@@ -128,7 +128,7 @@ right(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxSizerFlags()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxSizerFlags),
   wxe_util:destroy(?wxSizerFlags_destroy,Obj),
   ok.

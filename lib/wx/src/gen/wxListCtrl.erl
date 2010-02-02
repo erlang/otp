@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html">wxListCtrl</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -221,7 +221,7 @@ findItem(This,Start,Str)
 
 %% @spec (This::wxListCtrl(),Start::integer(),X::string()|term(),X::term()|integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlfinditem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% findItem(This::wxListCtrl(), Start::integer(), Str::string(), [Option]) -> integer() </c>
 %%<br /> Option = {partial, bool()}
@@ -443,7 +443,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 
 %% @spec (This::wxListCtrl(),Col::integer(),X::string()|term()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insertColumn(This::wxListCtrl(), Col::integer(), Heading::string()) -> insertColumn(This,Col,Heading, []) </c></p>
 %% <p><c>
@@ -484,7 +484,7 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=InfoT,ref=InfoRef}) ->
 
 %% @spec (This::wxListCtrl(),Index::integer(),X::integer()|string()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertitem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insertItem(This::wxListCtrl(), Index::integer(), ImageIndex::integer()) -> integer() </c>
 %% </p>
@@ -743,16 +743,16 @@ sortItems(#wx_ref{type=ThisT,ref=ThisRef}, SortCallBack)
 	wxe_util:call(?wxListCtrl_SortItems, <<ThisRef:32/?UI,SortId:32/?UI>>).
 %% @spec (This::wxListCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -1095,7 +1095,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

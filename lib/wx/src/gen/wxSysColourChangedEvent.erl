@@ -22,7 +22,7 @@
 %% <dd><em>sys_colour_changed</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSysColourChanged(). #wxSysColourChanged{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxSysColourChangedEvent().  An object reference, The representation is internal
@@ -41,7 +41,7 @@
 parent_class(wxEvent) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

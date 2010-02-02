@@ -43,7 +43,7 @@ new() ->
 
 %% @spec (X::string()|term()) -> wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Filename::string()) -> new(Filename, []) </c></p>
 %% <p><c>
@@ -59,7 +59,7 @@ new(Image)
 
 %% @spec (X::integer()|string()|term(),X::integer()|term()) -> wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Width::integer(), Height::integer()) -> new(Width,Height, []) </c></p>
 %% <p><c>
@@ -95,7 +95,7 @@ new(#wx_ref{type=ImageT,ref=ImageRef}, Options)
 
 %% @spec (X::binary()|integer(),X::integer(),X::integer()|term()) -> wxBitmap()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmap.html#wxbitmapwxbitmap">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Bits::binary(), Width::integer(), Height::integer()) -> new(Bits,Width,Height, []) </c></p>
 %% <p><c>
@@ -293,7 +293,7 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
 
 %% @spec (This::wxBitmap()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmap),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

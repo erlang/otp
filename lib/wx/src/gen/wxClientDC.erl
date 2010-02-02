@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxclientdc.html">wxClientDC</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindowDC}
 %% <br />{@link wxDC}
 %% </p>
@@ -73,12 +73,12 @@ new(#wx_ref{type=WinT,ref=WinRef}) ->
 
 %% @spec (This::wxClientDC()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxClientDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxWindowDC 
- %% From wxDC 
+ %% From wxWindowDC
+ %% From wxDC
 %% @hidden
 startPage(This) -> wxDC:startPage(This).
 %% @hidden

@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsmatrix.html">wxGraphicsMatrix</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGraphicsObject}
 %% </p>
 %% @type wxGraphicsMatrix().  An object reference, The representation is internal
@@ -142,7 +142,7 @@ transformDistance(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxGraphicsMatrix_TransformDistance,
   <<ThisRef:32/?UI>>).
 
- %% From wxGraphicsObject 
+ %% From wxGraphicsObject
 %% @hidden
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden

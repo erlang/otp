@@ -22,7 +22,7 @@
 %% <dd><em>close_window</em>, <em>end_session</em>, <em>query_end_session</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxClose(). #wxClose{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxCloseEvent().  An object reference, The representation is internal
@@ -89,7 +89,7 @@ veto(#wx_ref{type=ThisT,ref=ThisRef}, Options)
   wxe_util:cast(?wxCloseEvent_Veto,
   <<ThisRef:32/?UI, 0:32,BinOpt/binary>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

@@ -43,7 +43,7 @@ new() ->
 
 %% @spec (X::WxCalendarDateBorder|term()) -> wxCalendarDateAttr()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrwxcalendardateattr">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Border::WxCalendarDateBorder) -> new(Border, []) </c></p>
 %% <p><c>
@@ -59,7 +59,7 @@ new(ColText)
 
 %% @spec (X::WxCalendarDateBorder|term(),[Option]) -> wxCalendarDateAttr()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxcalendardateattr.html#wxcalendardateattrwxcalendardateattr">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Border::WxCalendarDateBorder, [Option]) -> wxCalendarDateAttr() </c>
 %%<br /> Option = {colBorder, wx:colour()}
@@ -221,7 +221,7 @@ getBorder(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxCalendarDateAttr()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCalendarDateAttr),
   wxe_util:destroy(?wxCalendarDateAttr_destroy,Obj),
   ok.

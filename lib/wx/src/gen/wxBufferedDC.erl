@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html">wxBufferedDC</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxMemoryDC}
 %% <br />{@link wxDC}
 %% </p>
@@ -72,7 +72,7 @@ new(Dc)
 
 %% @spec (Dc::wxDC:wxDC(),X::term()) -> wxBufferedDC()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcwxbuffereddc">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Dc::wxDC:wxDC(), Area::{W::integer(),H::integer()}) -> new(Dc,Area, []) </c></p>
 %% <p><c>
@@ -113,7 +113,7 @@ init(This,Dc)
 
 %% @spec (This::wxBufferedDC(),Dc::wxDC:wxDC(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbuffereddc.html#wxbuffereddcinit">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% init(This::wxBufferedDC(), Dc::wxDC:wxDC(), Area::{W::integer(),H::integer()}) -> init(This,Dc,Area, []) </c></p>
 %% <p><c>
@@ -150,16 +150,16 @@ init(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=DcT,ref=DcRef},{AreaW,AreaH}, 
 
 %% @spec (This::wxBufferedDC()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBufferedDC),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxMemoryDC 
+ %% From wxMemoryDC
 %% @hidden
 selectObjectAsSource(This,Bmp) -> wxMemoryDC:selectObjectAsSource(This,Bmp).
 %% @hidden
 selectObject(This,Bmp) -> wxMemoryDC:selectObject(This,Bmp).
- %% From wxDC 
+ %% From wxDC
 %% @hidden
 startPage(This) -> wxDC:startPage(This).
 %% @hidden

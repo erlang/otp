@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html">wxIcon</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxBitmap}
 %% </p>
 %% @type wxIcon().  An object reference, The representation is internal
@@ -47,7 +47,7 @@ new() ->
 
 %% @spec (X::string()|term()) -> wxIcon()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxicon.html#wxiconwxicon">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Filename::string()) -> new(Filename, []) </c></p>
 %% <p><c>
@@ -88,11 +88,11 @@ copyFromBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BmpT,ref=BmpRef}) ->
 
 %% @spec (This::wxIcon()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIcon),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxBitmap 
+ %% From wxBitmap
 %% @hidden
 setWidth(This,Width) -> wxBitmap:setWidth(This,Width).
 %% @hidden

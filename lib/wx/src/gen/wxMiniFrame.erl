@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxminiframe.html">wxMiniFrame</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxFrame}
 %% <br />{@link wxTopLevelWindow}
 %% <br />{@link wxWindow}
@@ -138,11 +138,11 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef},Id,Ti
 
 %% @spec (This::wxMiniFrame()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMiniFrame),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxFrame 
+ %% From wxFrame
 %% @hidden
 setToolBar(This,Toolbar) -> wxFrame:setToolBar(This,Toolbar).
 %% @hidden
@@ -179,7 +179,7 @@ createToolBar(This) -> wxFrame:createToolBar(This).
 createStatusBar(This, Options) -> wxFrame:createStatusBar(This, Options).
 %% @hidden
 createStatusBar(This) -> wxFrame:createStatusBar(This).
- %% From wxTopLevelWindow 
+ %% From wxTopLevelWindow
 %% @hidden
 showFullScreen(This,Show, Options) -> wxTopLevelWindow:showFullScreen(This,Show, Options).
 %% @hidden
@@ -226,7 +226,7 @@ getTitle(This) -> wxTopLevelWindow:getTitle(This).
 getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -577,7 +577,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

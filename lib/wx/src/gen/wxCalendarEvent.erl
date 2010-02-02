@@ -22,7 +22,7 @@
 %% <dd><em>calendar_sel_changed</em>, <em>calendar_day_changed</em>, <em>calendar_month_changed</em>, <em>calendar_year_changed</em>, <em>calendar_doubleclicked</em>, <em>calendar_weekday_clicked</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxCalendar(). #wxCalendar{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDateEvent}
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
@@ -56,10 +56,10 @@ getWeekDay(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxCalendarEvent_GetWeekDay,
   <<ThisRef:32/?UI>>).
 
- %% From wxDateEvent 
+ %% From wxDateEvent
 %% @hidden
 getDate(This) -> wxDateEvent:getDate(This).
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -78,7 +78,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

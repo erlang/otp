@@ -22,7 +22,7 @@
 %% <dd><em>joy_button_down</em>, <em>joy_button_up</em>, <em>joy_move</em>, <em>joy_zmove</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxJoystick(). #wxJoystick{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxJoystickEvent().  An object reference, The representation is internal
@@ -153,7 +153,7 @@ isZMove(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxJoystickEvent_IsZMove,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

@@ -22,7 +22,7 @@
 %% <dd><em>command_spinctrl_updated</em>, <em>spin_up</em>, <em>spin_down</em>, <em>spin</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSpin(). #wxSpin{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxNotifyEvent}
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
@@ -62,14 +62,14 @@ setPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:cast(?wxSpinEvent_SetPosition,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
- %% From wxNotifyEvent 
+ %% From wxNotifyEvent
 %% @hidden
 veto(This) -> wxNotifyEvent:veto(This).
 %% @hidden
 isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 %% @hidden
 allow(This) -> wxNotifyEvent:allow(This).
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -88,7 +88,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

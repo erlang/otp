@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellstringrenderer.html">wxGridCellStringRenderer</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellRenderer}
 %% </p>
 %% @type wxGridCellStringRenderer().  An object reference, The representation is internal
@@ -44,11 +44,11 @@ new() ->
 
 %% @spec (This::wxGridCellStringRenderer()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellStringRenderer),
   wxe_util:destroy(?wxGridCellStringRenderer_destroy,Obj),
   ok.
- %% From wxGridCellRenderer 
+ %% From wxGridCellRenderer
 %% @hidden
 getBestSize(This,Grid,Attr,Dc,Row,Col) -> wxGridCellRenderer:getBestSize(This,Grid,Attr,Dc,Row,Col).
 %% @hidden

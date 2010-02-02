@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistview.html">wxListView</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -148,12 +148,12 @@ setColumnImage(#wx_ref{type=ThisT,ref=ThisRef},Col,Image)
   wxe_util:cast(?wxListView_SetColumnImage,
   <<ThisRef:32/?UI,Col:32/?UI,Image:32/?UI>>).
 
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -500,7 +500,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

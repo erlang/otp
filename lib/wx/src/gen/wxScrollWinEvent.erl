@@ -22,7 +22,7 @@
 %% <dd><em>scrollwin_top</em>, <em>scrollwin_bottom</em>, <em>scrollwin_lineup</em>, <em>scrollwin_linedown</em>, <em>scrollwin_pageup</em>, <em>scrollwin_pagedown</em>, <em>scrollwin_thumbtrack</em>, <em>scrollwin_thumbrelease</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxScrollWin(). #wxScrollWin{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxScrollWinEvent().  An object reference, The representation is internal
@@ -55,7 +55,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxScrollWinEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

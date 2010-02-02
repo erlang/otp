@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellbooleditor.html">wxGridCellBoolEditor</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellEditor}
 %% </p>
 %% @type wxGridCellBoolEditor().  An object reference, The representation is internal
@@ -70,11 +70,11 @@ useStringValues(Options)
 
 %% @spec (This::wxGridCellBoolEditor()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellBoolEditor),
   wxe_util:destroy(?wxGridCellBoolEditor_destroy,Obj),
   ok.
- %% From wxGridCellEditor 
+ %% From wxGridCellEditor
 %% @hidden
 handleReturn(This,Event) -> wxGridCellEditor:handleReturn(This,Event).
 %% @hidden

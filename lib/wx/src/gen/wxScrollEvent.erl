@@ -22,7 +22,7 @@
 %% <dd><em>scroll_top</em>, <em>scroll_bottom</em>, <em>scroll_lineup</em>, <em>scroll_linedown</em>, <em>scroll_pageup</em>, <em>scroll_pagedown</em>, <em>scroll_thumbtrack</em>, <em>scroll_thumbrelease</em>, <em>scroll_changed</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxScroll(). #wxScroll{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
 %% </p>
@@ -59,7 +59,7 @@ getPosition(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxScrollEvent_GetPosition,
   <<ThisRef:32/?UI>>).
 
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -78,7 +78,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html">wxBitmapDataObject</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxDataObject}
 %% </p>
 %% @type wxBitmapDataObject().  An object reference, The representation is internal
@@ -43,7 +43,7 @@ new() ->
 
 %% @spec (X::term()) -> wxBitmapDataObject()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbitmapdataobject.html#wxbitmapdataobjectwxbitmapdataobject">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new([Option]) -> wxBitmapDataObject() </c>
 %%<br /> Option = {bitmap, wxBitmap:wxBitmap()}
@@ -80,8 +80,8 @@ setBitmap(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) -
 
 %% @spec (This::wxBitmapDataObject()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBitmapDataObject),
   wxe_util:destroy(?wxBitmapDataObject_destroy,Obj),
   ok.
- %% From wxDataObject 
+ %% From wxDataObject

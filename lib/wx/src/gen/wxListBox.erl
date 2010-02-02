@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html">wxListBox</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControlWithItems}
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -184,7 +184,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 
 %% @spec (This::wxListBox(),X::integer()|string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistbox.html#wxlistboxsetfirstitem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setFirstItem(This::wxListBox(), N::integer()) -> ok </c>
 %% </p>
@@ -205,11 +205,11 @@ setFirstItem(#wx_ref{type=ThisT,ref=ThisRef},S)
 
 %% @spec (This::wxListBox()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListBox),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxControlWithItems 
+ %% From wxControlWithItems
 %% @hidden
 setStringSelection(This,S) -> wxControlWithItems:setStringSelection(This,S).
 %% @hidden
@@ -250,12 +250,12 @@ appendStrings(This,Strings) -> wxControlWithItems:appendStrings(This,Strings).
 append(This,Item,ClientData) -> wxControlWithItems:append(This,Item,ClientData).
 %% @hidden
 append(This,Item) -> wxControlWithItems:append(This,Item).
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -602,7 +602,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

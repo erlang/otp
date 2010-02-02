@@ -779,7 +779,7 @@ window(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WT,ref=WRef}) ->
 
 %% @spec (This::wxAuiPaneInfo()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiPaneInfo),
   wxe_util:destroy(?wxAuiPaneInfo_destruct,Obj),
   ok.

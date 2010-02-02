@@ -47,7 +47,7 @@ new(#wx_ref{type=BitmapT,ref=BitmapRef}) ->
 
 %% @spec (Bitmap::wxBitmap:wxBitmap(),X::integer()|term()) -> wxMask()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskwxmask">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer()) -> wxMask() </c>
 %% </p>
@@ -75,7 +75,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
 
 %% @spec (This::wxMask(),Bitmap::wxBitmap:wxBitmap(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmask.html#wxmaskcreate">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% create(This::wxMask(), Bitmap::wxBitmap:wxBitmap(), PaletteIndex::integer()) -> bool() </c>
 %% </p>
@@ -97,7 +97,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef},Colou
 
 %% @spec (This::wxMask()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMask),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

@@ -22,7 +22,7 @@
 %% <dd><em>menu_open</em>, <em>menu_close</em>, <em>menu_highlight</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxMenu(). #wxMenu{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxMenuEvent().  An object reference, The representation is internal
@@ -62,7 +62,7 @@ isPopup(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMenuEvent_IsPopup,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

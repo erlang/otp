@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpasswordentrydialog.html">wxPasswordEntryDialog</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxTextEntryDialog}
 %% <br />{@link wxDialog}
 %% <br />{@link wxTopLevelWindow}
@@ -111,16 +111,16 @@ new(#wx_ref{type=ParentT,ref=ParentRef},Message, Options)
 
 %% @spec (This::wxPasswordEntryDialog()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPasswordEntryDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxTextEntryDialog 
+ %% From wxTextEntryDialog
 %% @hidden
 setValue(This,Val) -> wxTextEntryDialog:setValue(This,Val).
 %% @hidden
 getValue(This) -> wxTextEntryDialog:getValue(This).
- %% From wxDialog 
+ %% From wxDialog
 %% @hidden
 showModal(This) -> wxDialog:showModal(This).
 %% @hidden
@@ -143,7 +143,7 @@ endModal(This,RetCode) -> wxDialog:endModal(This,RetCode).
 createStdDialogButtonSizer(This,Flags) -> wxDialog:createStdDialogButtonSizer(This,Flags).
 %% @hidden
 createButtonSizer(This,Flags) -> wxDialog:createButtonSizer(This,Flags).
- %% From wxTopLevelWindow 
+ %% From wxTopLevelWindow
 %% @hidden
 showFullScreen(This,Show, Options) -> wxTopLevelWindow:showFullScreen(This,Show, Options).
 %% @hidden
@@ -190,7 +190,7 @@ getTitle(This) -> wxTopLevelWindow:getTitle(This).
 getIcons(This) -> wxTopLevelWindow:getIcons(This).
 %% @hidden
 getIcon(This) -> wxTopLevelWindow:getIcon(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -537,7 +537,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

@@ -22,7 +22,7 @@
 %% <dd><em>set_cursor</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSetCursor(). #wxSetCursor{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxSetCursorEvent().  An object reference, The representation is internal
@@ -77,7 +77,7 @@ setCursor(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CursorT,ref=CursorRef}) -
   wxe_util:cast(?wxSetCursorEvent_SetCursor,
   <<ThisRef:32/?UI,CursorRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

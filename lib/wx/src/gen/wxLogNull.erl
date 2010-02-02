@@ -40,7 +40,7 @@ new() ->
 
 %% @spec (This::wxLogNull()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLogNull),
   wxe_util:destroy(?wxLogNull_destroy,Obj),
   ok.

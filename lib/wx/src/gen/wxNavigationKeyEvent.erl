@@ -22,7 +22,7 @@
 %% <dd><em>navigation_key</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxNavigationKey(). #wxNavigationKey{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxNavigationKeyEvent().  An object reference, The representation is internal
@@ -102,7 +102,7 @@ setCurrentFocus(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=WinT,ref=WinRef}) -
   wxe_util:cast(?wxNavigationKeyEvent_SetCurrentFocus,
   <<ThisRef:32/?UI,WinRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

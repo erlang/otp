@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html">wxToolBar</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -114,7 +114,7 @@ addTool(This,Toolid,Bitmap)
 
 %% @spec (This::wxToolBar(),Toolid::integer(),X::string()|term(),X::term()) -> wx:wx()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% addTool(This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap()) -> addTool(This,Toolid,Label,Bitmap, []) </c></p>
 %% <p><c>
@@ -144,7 +144,7 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 
 %% @spec (This::wxToolBar(),Toolid::integer(),X::string()|term(),X::term(),X::term()) -> wx:wx()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% addTool(This::wxToolBar(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap()) -> addTool(This,Toolid,Label,Bitmap,BmpDisabled, []) </c></p>
 %% <p><c>
@@ -188,7 +188,7 @@ addTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,#wx_ref{type=BitmapT,ref=BitmapRe
 
 %% @spec (This::wxToolBar(),Toolid::integer(),X::term()|string(),X::term(),X::bool()|term(),X::integer()|term()) -> wx:wx()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbaraddtool">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% addTool(This::wxToolBar(), Toolid::integer(), Bitmap::wxBitmap:wxBitmap(), BmpDisabled::wxBitmap:wxBitmap(), Toggle::bool(), XPos::integer()) -> addTool(This,Toolid,Bitmap,BmpDisabled,Toggle,XPos, []) </c></p>
 %% <p><c>
@@ -436,7 +436,7 @@ insertTool(This,Pos,Toolid,Bitmap)
 
 %% @spec (This::wxToolBar(),Pos::integer(),Toolid::integer(),X::string()|term(),X::term()) -> wx:wx()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxtoolbar.html#wxtoolbarinserttool">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insertTool(This::wxToolBar(), Pos::integer(), Toolid::integer(), Label::string(), Bitmap::wxBitmap:wxBitmap()) -> insertTool(This,Pos,Toolid,Label,Bitmap, []) </c></p>
 %% <p><c>
@@ -554,12 +554,12 @@ toggleTool(#wx_ref{type=ThisT,ref=ThisRef},Toolid,Toggle)
   wxe_util:cast(?wxToolBar_ToggleTool,
   <<ThisRef:32/?UI,Toolid:32/?UI,(wxe_util:from_bool(Toggle)):32/?UI>>).
 
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -906,7 +906,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

@@ -41,7 +41,7 @@ new() ->
 
 %% @spec (X::term()) -> wxBrush()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxbrush.html#wxbrushwxbrush">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Colour::wx:colour()) -> new(Colour, []) </c></p>
 %% <p><c>
@@ -136,7 +136,7 @@ setStyle(#wx_ref{type=ThisT,ref=ThisRef},Style)
 
 %% @spec (This::wxBrush()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxBrush),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

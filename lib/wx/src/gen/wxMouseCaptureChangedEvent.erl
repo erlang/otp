@@ -22,7 +22,7 @@
 %% <dd><em>mouse_capture_changed</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxMouseCaptureChanged(). #wxMouseCaptureChanged{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxMouseCaptureChangedEvent().  An object reference, The representation is internal
@@ -48,7 +48,7 @@ getCapturedWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxMouseCaptureChangedEvent_GetCapturedWindow,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

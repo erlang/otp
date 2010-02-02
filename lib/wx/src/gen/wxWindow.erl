@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html">wxWindow</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvtHandler}
 %% </p>
 %% @type wxWindow().  An object reference, The representation is internal
@@ -290,7 +290,7 @@ findFocus() ->
 
 %% @spec (This::wxWindow(),X::integer()|string()) -> wxWindow()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowfindwindow">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% findWindow(This::wxWindow(), Winid::integer()) -> wxWindow() </c>
 %% </p>
@@ -747,7 +747,7 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxWindow(),X::term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowisexposed">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% isExposed(This::wxWindow(), Pt::{X::integer(),Y::integer()}) -> bool() </c>
 %% </p>
@@ -856,7 +856,7 @@ move(This,Pt={PtX,PtY})
 
 %% @spec (This::wxWindow(),X::integer()|term(),X::integer()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowmove">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% move(This::wxWindow(), X::integer(), Y::integer()) -> move(This,X,Y, []) </c></p>
 %% <p><c>
@@ -1142,7 +1142,7 @@ setCaret(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=CaretT,ref=CaretRef}) ->
 
 %% @spec (This::wxWindow(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetclientsize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setClientSize(This::wxWindow(), Size::{W::integer(),H::integer()}) -> ok </c>
 %% </p>
@@ -1351,7 +1351,7 @@ setScrollPos(#wx_ref{type=ThisT,ref=ThisRef},Orient,Pos, Options)
 
 %% @spec (This::wxWindow(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setSize(This::wxWindow(), Rect::{X::integer(),Y::integer(),W::integer(),H::integer()}) -> setSize(This,Rect, []) </c></p>
 %% <p><c>
@@ -1369,7 +1369,7 @@ setSize(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 
 %% @spec (This::wxWindow(),X::integer()|term(),X::integer()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setSize(This::wxWindow(), Width::integer(), Height::integer()) -> ok </c>
 %% </p>
@@ -1417,7 +1417,7 @@ setSizeHints(This,MinSize={MinSizeW,MinSizeH})
 
 %% @spec (This::wxWindow(),X::integer()|term(),X::integer()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetsizehints">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setSizeHints(This::wxWindow(), MinW::integer(), MinH::integer()) -> setSizeHints(This,MinW,MinH, []) </c></p>
 %% <p><c>
@@ -1501,7 +1501,7 @@ setThemeEnabled(#wx_ref{type=ThisT,ref=ThisRef},EnableTheme)
 
 %% @spec (This::wxWindow(),X::string()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsettooltip">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setToolTip(This::wxWindow(), Tip::string()) -> ok </c>
 %% </p>
@@ -1544,7 +1544,7 @@ setVirtualSizeHints(This,MinSize={MinSizeW,MinSizeH})
 
 %% @spec (This::wxWindow(),X::integer()|term(),X::integer()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxwindow.html#wxwindowsetvirtualsizehints">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setVirtualSizeHints(This::wxWindow(), MinW::integer(), MinH::integer()) -> setVirtualSizeHints(This,MinW,MinH, []) </c></p>
 %% <p><c>
@@ -1691,11 +1691,11 @@ warpPointer(#wx_ref{type=ThisT,ref=ThisRef},X,Y)
 
 %% @spec (This::wxWindow()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

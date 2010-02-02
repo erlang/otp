@@ -22,7 +22,7 @@
 %% <dd><em>idle</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxIdle(). #wxIdle{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxIdleEvent().  An object reference, The representation is internal
@@ -90,7 +90,7 @@ setMode(Mode)
   wxe_util:cast(?wxIdleEvent_SetMode,
   <<Mode:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

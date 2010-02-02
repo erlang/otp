@@ -92,7 +92,7 @@ isOk(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxPalette()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPalette),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

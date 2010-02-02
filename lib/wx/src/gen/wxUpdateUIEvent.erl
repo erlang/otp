@@ -22,7 +22,7 @@
 %% <dd><em>update_ui</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxUpdateUI(). #wxUpdateUI{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
 %% </p>
@@ -179,7 +179,7 @@ setUpdateInterval(UpdateInterval)
   wxe_util:cast(?wxUpdateUIEvent_SetUpdateInterval,
   <<UpdateInterval:32/?UI>>).
 
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -198,7 +198,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html">wxAuiManager</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvtHandler}
 %% </p>
 %% @type wxAuiManager().  An object reference, The representation is internal
@@ -66,7 +66,7 @@ addPane(This,Window)
 
 %% @spec (This::wxAuiManager(),Window::wxWindow:wxWindow(),X::term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanageraddpane">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% addPane(This::wxAuiManager(), Window::wxWindow:wxWindow(), [Option]) -> bool() </c>
 %%<br /> Option = {direction, integer()} | {caption, string()}
@@ -153,7 +153,7 @@ getManager(#wx_ref{type=WindowT,ref=WindowRef}) ->
 
 %% @spec (This::wxAuiManager(),X::string()|term()) -> wxAuiPaneInfo:wxAuiPaneInfo()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxauimanager.html#wxauimanagergetpane">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% getPane(This::wxAuiManager(), Name::string()) -> wxAuiPaneInfo:wxAuiPaneInfo() </c>
 %% </p>
@@ -299,11 +299,11 @@ update(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxAuiManager()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAuiManager),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

@@ -320,7 +320,7 @@ xrcctrl(Window = #wx_ref{}, Name, Type) when is_list(Name), is_atom(Type) ->
 
 %% @spec (This::wxXmlResource()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxXmlResource),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

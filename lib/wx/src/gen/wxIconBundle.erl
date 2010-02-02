@@ -83,7 +83,7 @@ getIcon(This)
 
 %% @spec (This::wxIconBundle(),X::term()) -> wxIcon:wxIcon()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxiconbundle.html#wxiconbundlegeticon">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% getIcon(This::wxIconBundle(), [Option]) -> wxIcon:wxIcon() </c>
 %%<br /> Option = {size, integer()}
@@ -107,7 +107,7 @@ getIcon(#wx_ref{type=ThisT,ref=ThisRef},{SizeW,SizeH})
 
 %% @spec (This::wxIconBundle()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxIconBundle),
   wxe_util:destroy(?wxIconBundle_destruct,Obj),
   ok.

@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html">wxMenu</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvtHandler}
 %% </p>
 %% @type wxMenu().  An object reference, The representation is internal
@@ -88,7 +88,7 @@ append(This,Itemid,Text)
 
 %% @spec (This::wxMenu(),Itemid::integer(),Text::string(),X::wxMenu()|term()) -> wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% append(This::wxMenu(), Itemid::integer(), Text::string(), Submenu::wxMenu()) -> append(This,Itemid,Text,Submenu, []) </c></p>
 %% <p><c>
@@ -114,7 +114,7 @@ append(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Text, Options)
 
 %% @spec (This::wxMenu(),Itemid::integer(),Text::string(),X::string()|wxMenu(),X::bool()|term()) -> ok|wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuappend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% append(This::wxMenu(), Itemid::integer(), Text::string(), Help::string(), IsCheckable::bool()) -> ok </c>
 %% </p>
@@ -202,7 +202,7 @@ check(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Check)
 
 %% @spec (This::wxMenu(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudelete">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% delete(This::wxMenu(), Itemid::integer()) -> bool() </c>
 %% </p>
@@ -222,7 +222,7 @@ delete(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ItemT,ref=ItemRef}) ->
 
 %% @spec (This::wxMenu(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenudestroy">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% 'Destroy'(This::wxMenu(), Itemid::integer()) -> bool() </c>
 %% </p>
@@ -250,7 +250,7 @@ enable(#wx_ref{type=ThisT,ref=ThisRef},Itemid,Enable)
 
 %% @spec (This::wxMenu(),X::integer()|string()) -> wxMenuItem:wxMenuItem()|integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenufinditem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% findItem(This::wxMenu(), Itemid::integer()) -> wxMenuItem:wxMenuItem() </c>
 %% </p>
@@ -316,7 +316,7 @@ getTitle(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxMenu(),Pos::integer(),X::integer()|term()) -> wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insert(This::wxMenu(), Pos::integer(), Itemid::integer()) -> insert(This,Pos,Itemid, []) </c></p>
 %% <p><c>
@@ -357,7 +357,7 @@ insert(This,Pos,Itemid,Text,Submenu)
 
 %% @spec (This::wxMenu(),Pos::integer(),Itemid::integer(),Text::string(),X::string()|wxMenu(),X::bool()|term()) -> ok|wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuinsert">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insert(This::wxMenu(), Pos::integer(), Itemid::integer(), Text::string(), Help::string(), IsCheckable::bool()) -> ok </c>
 %% </p>
@@ -447,7 +447,7 @@ isEnabled(#wx_ref{type=ThisT,ref=ThisRef},Itemid)
 
 %% @spec (This::wxMenu(),X::integer()|term()) -> wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% prepend(This::wxMenu(), Itemid::integer()) -> prepend(This,Itemid, []) </c></p>
 %% <p><c>
@@ -487,7 +487,7 @@ prepend(This,Itemid,Text,Submenu)
 
 %% @spec (This::wxMenu(),Itemid::integer(),Text::string(),X::string()|wxMenu(),X::bool()|term()) -> ok|wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuprepend">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% prepend(This::wxMenu(), Itemid::integer(), Text::string(), Help::string(), IsCheckable::bool()) -> ok </c>
 %% </p>
@@ -560,7 +560,7 @@ prependSeparator(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxMenu(),X::integer()|term()) -> wxMenuItem:wxMenuItem()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxmenu.html#wxmenuremove">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% remove(This::wxMenu(), Itemid::integer()) -> wxMenuItem:wxMenuItem() </c>
 %% </p>
@@ -607,11 +607,11 @@ setTitle(#wx_ref{type=ThisT,ref=ThisRef},Title)
 
 %% @spec (This::wxMenu()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxMenu),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

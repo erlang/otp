@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html">wxGraphicsPath</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGraphicsObject}
 %% </p>
 %% @type wxGraphicsPath().  An object reference, The representation is internal
@@ -175,7 +175,7 @@ contains(This,C={CX,CY})
 
 %% @spec (This::wxGraphicsPath(),X::float()|term(),X::float()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicspath.html#wxgraphicspathcontains">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% contains(This::wxGraphicsPath(), X::float(), Y::float()) -> contains(This,X,Y, []) </c></p>
 %% <p><c>
@@ -229,7 +229,7 @@ transform(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MatrixT,ref=MatrixRef}) -
   wxe_util:cast(?wxGraphicsPath_Transform,
   <<ThisRef:32/?UI,MatrixRef:32/?UI>>).
 
- %% From wxGraphicsObject 
+ %% From wxGraphicsObject
 %% @hidden
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden

@@ -705,7 +705,7 @@ setBrush(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BrushT,ref=BrushRef}) ->
 
 %% @spec (This::wxDC(),X::term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxdc.html#wxdcsetclippingregion">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setClippingRegion(This::wxDC(), Region::wxRegion:wxRegion()) -> ok </c>
 %% </p>
