@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>The Preprocessor</title>
@@ -137,6 +137,38 @@ bar(X) ->
       <tag><c>?MACHINE</c>.</tag>
       <item>The machine name, <c>'BEAM'</c>.</item>
     </taglist>
+  </section>
+
+  <section>
+    <title>Macros Overloading</title>
+    <p>It is possible to overload macros, except for predefined
+      macros. An overloaded macro has more than one definition,
+      each with a different number of arguments.</p>
+    <p>The feature was added in Erlang 5.7.5/OTP R13B04.</p>
+    <p>A macro <c>?Func(Arg1,...,ArgN)</c> with a (possibly empty)
+      list of arguments results in an error message if there is at
+      least one definition of <c>Func</c> with arguments, but none
+      with N arguments.</p>
+    <p>Assuming these definitions:</p>
+    <code type="none">
+-define(F0(), c).
+-define(F1(A), A).
+-define(C, m:f).</code>
+    <p>the following will not work:</p>
+    <code type="none">
+f0() ->
+    ?F0. % No, an empty list of arguments expected.
+
+f1(A) ->
+    ?F1(A, A). % No, exactly one argument expected.</code>
+    <p>On the other hand,</p>
+    <code>
+f() ->
+    ?C().</code>
+    <p>will expand to</p>
+    <code>
+f() ->
+    m:f().</code>
   </section>
 
   <section>

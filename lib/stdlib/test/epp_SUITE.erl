@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(epp_SUITE).
@@ -23,7 +23,7 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1]).
+         otp_8130/1, overload_mac/1, otp_8388/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -61,8 +61,9 @@ fin_per_testcase(_, Config) ->
 all(doc) ->
     ["Test cases for epp."];
 all(suite) ->
-    [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362, 
-     pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130].
+    [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
+     pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
+     overload_mac, otp_8388].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -466,7 +467,7 @@ otp_6277(Config) when is_list(Config) ->
               -define(ASSERT, ?MODULE).
 
               ?ASSERT().">>,
-           [{error,{{4,16},epp,{undefined,'MODULE'}}}]}],
+           [{error,{{4,16},epp,{undefined,'MODULE', none}}}]}],
     ?line [] = check(Config, Ts),
     ok.
 
@@ -673,7 +674,7 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c7,
            <<"\nt() -> ?A.\n">>,
-           {errors,[{{2,9},epp,{undefined,'A'}}],[]}},
+           {errors,[{{2,9},epp,{undefined,'A', none}}],[]}},
 
           {otp_8130_c8,
            <<"\n-include_lib(\"$apa/foo.hrl\").\n">>,
@@ -683,7 +684,7 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c9,
            <<"-define(S, ?S).\n"
              "t() -> ?S.\n">>,
-           {errors,[{{2,9},epp,{circular,'S'}}],[]}},
+           {errors,[{{2,9},epp,{circular,'S', none}}],[]}},
 
           {otp_8130_c10,
            <<"\n-file.">>,
@@ -718,22 +719,22 @@ otp_8130(Config) when is_list(Config) ->
           {otp_8130_c17,
            <<"\n-define(A(B), B).\n"
             "-define(A, 1).\n">>,
-           {errors,[{{3,9},epp,{redefine,'A'}}],[]}},
+           []},
 
           {otp_8130_c18,
            <<"\n-define(A, 1).\n"
             "-define(A(B), B).\n">>,
-           {errors,[{{3,9},epp,{redefine,'A'}}],[]}},
+           []},
 
           {otp_8130_c19,
            <<"\n-define(a(B), B).\n"
             "-define(a, 1).\n">>,
-           {errors,[{{3,9},epp,{redefine,a}}],[]}},
+           []},
 
           {otp_8130_c20,
            <<"\n-define(a, 1).\n"
             "-define(a(B), B).\n">>,
-           {errors,[{{3,9},epp,{redefine,a}}],[]}},
+           []},
 
           {otp_8130_c21,
            <<"\n-define(A(B, B), B).\n">>,
@@ -745,7 +746,7 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c23,
            <<"\n-file(?b, 3).\n">>,
-           {errors,[{{2,8},epp,{undefined,b}}],[]}},
+           {errors,[{{2,8},epp,{undefined,b, none}}],[]}},
 
           {otp_8130_c24,
            <<"\n-include(\"no such file.erl\").\n">>,
@@ -821,7 +822,8 @@ macs(Epp) ->
 macro(Epp, N) ->
     case lists:keyfind({atom,N}, 1, epp:macro_defs(Epp)) of
         false -> false;
-        {{atom,N},{_,V}} -> V
+        {{atom,N},{_,V}} -> V;
+        {{atom,N},Defs} -> lists:append([V || {_,{_,V}} <- Defs])
     end.
 
 ifdef(Config) ->
@@ -1029,6 +1031,113 @@ ifdef(Config) ->
 
            ],
     ?line [] = run(Config, Ts).
+
+
+
+overload_mac(doc) ->
+    ["Advanced test on overloading macros."];
+overload_mac(suite) ->
+    [];
+overload_mac(Config) when is_list(Config) ->
+    Cs = [
+          %% '-undef' removes all definitions of a macro
+          {overload_mac_c1,
+           <<"-define(A, a).\n"
+            "-define(A(X), X).\n"
+            "-undef(A).\n"
+            "t1() -> ?A.\n",
+            "t2() -> ?A(1).">>,
+           {errors,[{{4,9},epp,{undefined,'A', none}},
+                    {{5,9},epp,{undefined,'A', 1}}],[]}},
+
+          %% cannot overload predefined macros
+          {overload_mac_c2,
+           <<"-define(MODULE(X), X).">>,
+           {errors,[{{1,9},epp,{redefine_predef,'MODULE'}}],[]}},
+
+          %% cannot overload macros with same arity
+          {overload_mac_c3,
+           <<"-define(A(X), X).\n"
+            "-define(A(Y), Y).">>,
+           {errors,[{{2,9},epp,{redefine,'A'}}],[]}},
+
+          {overload_mac_c4,
+           <<"-define(A, a).\n"
+            "-define(A(X,Y), {X,Y}).\n"
+            "a(X) -> X.\n"
+            "t() -> ?A(1).">>,
+           {errors,[{{4,9},epp,{mismatch,'A'}}],[]}}
+         ],
+    ?line [] = compile(Config, Cs),
+
+    Ts = [
+          {overload_mac_r1,
+           <<"-define(A, 1).\n"
+            "-define(A(X), X).\n"
+            "-define(A(X, Y), {X, Y}).\n"
+            "t() -> {?A, ?A(2), ?A(3, 4)}.">>,
+           {1, 2, {3, 4}}},
+
+          {overload_mac_r2,
+           <<"-define(A, 1).\n"
+            "-define(A(X), X).\n"
+            "t() -> ?A(?A).">>,
+           1},
+
+          {overload_mac_r3,
+           <<"-define(A, ?B).\n"
+            "-define(B, a).\n"
+            "-define(B(X), {b,X}).\n"
+            "a(X) -> X.\n"
+            "t() -> ?A(1).">>,
+           1}
+          ],
+    ?line [] = run(Config, Ts).
+
+
+otp_8388(doc) ->
+    ["OTP-8388. More tests on overloaded macros."];
+otp_8388(suite) ->
+    [];
+otp_8388(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    ?line File = filename:join(Dir, "otp_8388.erl"),
+    ?line ok = file:write_file(File, <<"-module(otp_8388)."
+                                       "-define(LINE, a).">>),
+    fun() ->
+            PreDefMacros = [{'LINE', a}],
+            ?line {error,{redefine_predef,'LINE'}} =
+                epp:open(File, [], PreDefMacros)
+    end(),
+
+    fun() ->
+            PreDefMacros = ['LINE'],
+            ?line {error,{redefine_predef,'LINE'}} =
+                epp:open(File, [], PreDefMacros)
+    end(),
+
+    Ts = [
+          {macro_1,
+           <<"-define(m(A), A).\n"
+             "t() -> ?m(,).\n">>,
+           {errors,[{{2,11},epp,{arg_error,m}}],[]}},
+          {macro_2,
+           <<"-define(m(A), A).\n"
+             "t() -> ?m(a,).\n">>,
+           {errors,[{{2,12},epp,{arg_error,m}}],[]}},
+          {macro_3,
+           <<"-define(LINE, a).\n">>,
+           {errors,[{{1,9},epp,{redefine_predef,'LINE'}}],[]}},
+          {macro_4,
+           <<"-define(A(B, C, D), {B,C,D}).\n"
+             "t() -> ?A(a,,3).\n">>,
+           {errors,[{{2,8},epp,{mismatch,'A'}}],[]}},
+          {macro_5,
+           <<"-define(Q, {?F0(), ?F1(,,4)}).\n">>,
+           {errors,[{{1,24},epp,{arg_error,'F1'}}],[]}}
+         ],
+    ?line [] = compile(Config, Ts),
+    ok.
 
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).

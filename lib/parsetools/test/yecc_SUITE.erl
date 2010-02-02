@@ -312,7 +312,7 @@ syntax(Config) when is_list(Config) ->
     ?line {ok, _, []} = yecc:file(Filename, ParserFile3 ++ Ret),
     %% Note: checking the line numbers. Changes when yeccpre.hrl changes.
     fun() ->
-            ?line {error,[{_,[{5,_,{undefined,'F'}}]},
+            ?line {error,[{_,[{5,_,{undefined,'F',1}}]},
                           {_,[{L1,_,{undefined_function,{yeccpars2_2_,1}}},
                               {L2,_,{bad_inline,{yeccpars2_2_,1}}}]}],
                    []} = compile:file(Parserfile1, [basic_validation,return]),
