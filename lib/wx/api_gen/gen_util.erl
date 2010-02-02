@@ -205,10 +205,12 @@ halt(Reason) ->
     end.
 
 erl_copyright() ->
+    StartYear = start_year(get(current_class)),
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
     w("%%~n",[]),
-    w("%% Copyright Ericsson AB 2008-2010. All Rights Reserved.~n",[]),
+    w("%% Copyright Ericsson AB ~p-2010. All Rights Reserved.~n",
+      [StartYear]),
     w("%%~n",[]),
     w("%% The contents of this file are subject to the Erlang Public License,~n",[]),
     w("%% Version 1.1, (the \"License\"); you may not use this file except in~n",[]),
@@ -243,4 +245,25 @@ c_copyright() ->
     w(" * %CopyrightEnd% ~n",[]),
     w("*/~n",[]).
 
-
+start_year("wxAuiManagerEvent") -> 2009;
+start_year("wxAuiNotebookEvent") -> 2009;
+start_year("wxChoicebook") -> 2009;
+start_year("wxGridCellBoolEditor") -> 2009;
+start_year("wxGridCellBoolRenderer") -> 2009;
+start_year("wxGridCellChoiceEditor") -> 2009;
+start_year("wxGridCellFloatEditor") -> 2009;
+start_year("wxGridCellFloatRenderer") -> 2009;
+start_year("wxGridCellNumberEditor") -> 2009;
+start_year("wxGridCellNumberRenderer") -> 2009;
+start_year("wxGridCellStringRenderer") -> 2009;
+start_year("wxGridCellTextEditor") -> 2009;
+start_year("wxHtmlLinkEvent") -> 2009;
+start_year("wxHtmlWindow") -> 2009;
+start_year("wxListbook") -> 2009;
+start_year("wxLogNull") -> 2009;
+start_year("wxSpinEvent") -> 2009;
+start_year("wxSplitterEvent") -> 2009;
+start_year("wxSplitterWindow") -> 2009;
+start_year("wxToolbook") -> 2009;
+start_year("wxTreebook") -> 2009;
+start_year(_) -> 2008.
