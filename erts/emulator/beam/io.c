@@ -1227,7 +1227,7 @@ void init_io(void)
 	erts_smp_atomic_init(&erts_port[i].refc, 0);
 	erts_port[i].lock = NULL;
 	erts_port[i].xports = NULL;
-	erts_smp_spinlock_init(&erts_port[i].state_lck, "port_state");
+	erts_smp_spinlock_init_x(&erts_port[i].state_lck, "port_state", make_small(i));
 #endif
 	erts_port[i].tracer_proc = NIL;
 	erts_port[i].trace_flags = 0;
