@@ -64,7 +64,11 @@
 -export([
 	apply/3,
 	apply/2,
-	help/0
+	apply/1,
+	all_conflicts/0,
+	all_conflicts/1,
+	pid/2, pid/3,
+	port/1, port/2
     ]).
 
 -define(version, "1.0").
@@ -122,21 +126,23 @@ init([]) -> {ok, #state{ locks = [], duration = 0 } }.
 
 clear()              -> erts_debug:lock_counters(clear).
 clear(Node)          -> rpc:call(Node, erts_debug, lock_counters, [clear]).
-collect()            -> gen_server:call(?MODULE, {collect, erts_debug:lock_counters(info)}).
-collect(Node)        -> gen_server:call(?MODULE, {collect, rpc:call(Node, erts_debug, lock_counters, [info])}).
-locations()          -> gen_server:call(?MODULE, {locations,[]}).
-locations(Opts)      -> gen_server:call(?MODULE, {locations, Opts}).
-conflicts()          -> gen_server:call(?MODULE, {conflicts, []}).
-conflicts(Opts)      -> gen_server:call(?MODULE, {conflicts, Opts}).
-inspect(Lock)        -> gen_server:call(?MODULE, {inspect, Lock, []}).
-inspect(Lock, Opts)  -> gen_server:call(?MODULE, {inspect, Lock, Opts}).
-information()        -> gen_server:call(?MODULE, information).
-swap_pid_keys()      -> gen_server:call(?MODULE, swap_pid_keys).
-raw()                -> gen_server:call(?MODULE, raw).
-set(Option, Value)   -> gen_server:call(?MODULE, {set, Option, Value}).
-set({Option, Value}) -> gen_server:call(?MODULE, {set, Option, Value}).
-save(Filename)       -> gen_server:call(?MODULE, {save, Filename}, infinity).
-load(Filename)       -> start(), gen_server:call(?MODULE, {load, Filename}, infinity).
+collect()            -> call({collect, erts_debug:lock_counters(info)}).
+collect(Node)        -> call({collect, rpc:call(Node, erts_debug, lock_counters, [info])}).
+locations()          -> call({locations,[]}).
+locations(Opts)      -> call({locations, Opts}).
+conflicts()          -> call({conflicts, []}).
+conflicts(Opts)      -> call({conflicts, Opts}).
+inspect(Lock)        -> call({inspect, Lock, []}).
+inspect(Lock, Opts)  -> call({inspect, Lock, Opts}).
+information()        -> call(information).
+swap_pid_keys()      -> call(swap_pid_keys).
+raw()                -> call(raw).
+set(Option, Value)   -> call({set, Option, Value}).
+set({Option, Value}) -> call({set, Option, Value}).
+save(Filename)       -> call({save, Filename}).
+load(Filename)       -> start(), call({load, Filename}).
+
+call(Msg) -> gen_server:call(?MODULE, Msg, infinity).
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -151,6 +157,9 @@ apply(M,F,As) when is_atom(M), is_atom(F), is_list(As) ->
     lcnt:collect(),
     Res.
 
+apply(Fun) when is_function(Fun) ->
+    lcnt:apply(Fun, []).
+
 apply(Fun, As) when is_function(Fun) ->
     lcnt:start(),
     lcnt:clear(),
@@ -158,21 +167,23 @@ apply(Fun, As) when is_function(Fun) ->
     lcnt:collect(),
     Res.
 
-help() ->
-    Help =
-    "lcnt:conflicts() -> ok\n"
-    "lcnt:conflicts(Opts) -> ok\n"
-    "  Returns a list of internal lock counters.\n"
-    "    Opts      = [Opt]\n"
-    "    Opt       = {sort, Sort} | {threshold, Threshold} | {print, PrintOpts} | {max_locks, MaxLocks} {combine, bool()}, {location, bool()}\n"
-    "    Sort      = name | id | type | tries | colls | ratio | time | entry\n"
-    "    Threshold = {tries, integer()} | {colls, integer()} | {time, integer()}\n"
-    "    PrintOpts = [PrintOpt | {PrintOpt, Width}]\n"
-    "    PrintOpt  = name | id | type | entry | tries | colls | ratio | time | duration\n"
-    "    Width     = integer()\n"
-    "    MaxLocks  = integer()\n",
-    io:format("~s", [Help]),
-    ok.
+all_conflicts() -> all_conflicts(time).
+all_conflicts(Sort) ->
+    conflicts([{max_locks, none}, {thresholds, []},{combine,false}, {sort, Sort}, {reverse, true}]).
+
+pid(Id, Serial) -> pid(node(), Id, Serial).
+pid(Node, Id, Serial) when is_atom(Node) ->
+    Header   = <<131,103,100>>,
+    String   = atom_to_list(Node),
+    L        = length(String),
+    binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), bytes32(Serial),0])).
+
+port(Id) -> port(node(), Id).
+port(Node, Id ) when is_atom(Node) ->
+    Header   = <<131,102,100>>,
+    String   = atom_to_list(Node),
+    L        = length(String),
+    binary_to_term(list_to_binary([Header, bytes16(L), String, bytes32(Id), 0])).
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -208,15 +219,15 @@ handle_call({locations, InOpts}, _From, #state{ locks = Locks } = State) when is
     Default = [
 	{sort,       time},
 	{reverse,    false},
-	{print,      [name,id,tries,colls,ratio,time,duration]},
+	{print,      [name,entry,tries,colls,ratio,time,duration]},
 	{max_locks,  20},
 	{combine,    true},
 	{thresholds, [{tries, 0}, {colls, 0}, {time, 0}] },
-	{locations,  false}],
+	{locations,  true}],
 
     Opts = options(InOpts, Default),
     Printables = filter_print([#print{
-	    name  = term2string("~w", [Names]),
+	    name  = string_names(Names),
 	    entry = term2string("~p:~p", [Stats#stats.file, Stats#stats.line]),
 	    colls = Stats#stats.colls,
 	    tries = Stats#stats.tries,
@@ -235,7 +246,7 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, loc
 	{reverse,    false},
 	{print,      [name,id,tries,colls,ratio,time,duration]},
 	{max_locks,  20},
-	{combine,    false},
+	{combine,    true},
 	{thresholds, [{tries, 0}, {colls, 0}, {time, 0}] },
 	{locations,  false}],
 
@@ -249,21 +260,32 @@ handle_call({inspect, Lockname, InOpts}, _From, #state{ duration = Duration, loc
     case proplists:get_value(locations, Opts) of
 	true ->
 	    lists:foreach(fun
-		(L) ->
-		    IdString = case proplists:get_value(full_id, Opts) of
-			true -> term2string(proplists:get_value(L#lock.name, IDs, L#lock.id));
-			_    -> term2string(L#lock.id)
-		    end,
-		    print("lock: " ++ term2string(L#lock.name)),
-		    print("id:   " ++ IdString),
-		    print("type: " ++ term2string(L#lock.type)),
-		    Combined = [Stats || {Stats,_} <- combine_locations(L#lock.stats)],
-		    Ps = stats2print(Combined, Duration),
-		    Opts1 = options([{{print, [entry, name,id,tries,colls,ratio,time,duration]},
-		    print_lock_information(filter_print(Ps, Opts), proplists:get_value(print, Opts))
+		    (#lock{ name = Name, id = Id, type = Type, stats =  Stats })  ->
+			IdString = case proplists:get_value(full_id, Opts) of
+			    true -> term2string(proplists:get_value(Name, IDs, Id));
+			    _    -> term2string(Id)
+			end,
+			Combined = [CStats || {CStats,_} <- combine_locations(Stats)],
+			case Combined of
+			    [] ->
+				ok;
+			    _  ->
+				%io:format("Combined ~p~n", [Combined]),
+				print("lock: " ++ term2string(Name)),
+				print("id:   " ++ IdString),
+				print("type: " ++ term2string(Type)),
+				Ps = stats2print(Combined, Duration),
+				Opts1 = options([{print, [entry, tries,colls,ratio,time,duration]},
+					{thresholds, [{tries, -1}, {colls, -1}, {time, -1}]}], Opts),
+				print_lock_information(filter_print(Ps, Opts1), proplists:get_value(print, Opts1))
+			end
+		   % (#lock{ name = Name, id = Id}) ->
+		%	io:format("Empty lock ~p ~p~n", [Name, Id])
 		end, Combos);
 	_ ->
-	    print_lock_information(locks2print(Combos, Duration), proplists:get_value(print, Opts))
+	    Print1 = locks2print(Combos, Duration),
+	    Print2 = filter_print(Print1, Opts),
+	    print_lock_information(Print2, proplists:get_value(print, Opts))
     end,
     {reply, ok, State};
 
@@ -416,6 +438,13 @@ cut_locks(Locks, _) -> Locks.
 %% reversal
 reverse_locks(Locks, true) -> lists:reverse(Locks);
 reverse_locks(Locks, _) -> Locks.
+
+
+%%
+string_names([]) -> "";
+string_names(Names) -> string_names(Names, []).
+string_names([Name], Strings) -> strings(lists:reverse([term2string(Name) | Strings]));
+string_names([Name|Names],Strings) -> string_names(Names, [term2string(Name) ++ ","|Strings]).
 
 %% combine_locations
 %% In:
@@ -581,11 +610,43 @@ list2lock([F|Fs], List, Out) -> list2lock(Fs, List, [proplists:get_value(F, List
 %% Out:
 %%	ok
 
+auto_print_width(Locks, Print) ->
+    % iterate all lock entries to save all max length values
+    % these are records, so we do a little tuple <-> list smashing
+    R = lists:foldl(fun
+	(L, Max) ->
+		list_to_tuple(lists:reverse(lists:foldl(fun
+		    ({print,print}, Out) -> [print|Out];
+		    ({Str, Len}, Out)    -> [erlang:min(erlang:max(length(s(Str))+1,Len),80)|Out]
+		end, [], lists:zip(tuple_to_list(L), tuple_to_list(Max)))))
+	end, #print{ id = 3, type = 5, entry = 5, name = 5, tries = 7, colls = 13, cr = 16, time = 11, dtr = 14 },
+	Locks),
+    % Setup the offsets for later pruning
+    Offsets = [
+	{id, R#print.id},
+	{name, R#print.name},
+	{type, R#print.type},
+	{entry, R#print.entry},
+	{tries, R#print.tries},
+	{colls, R#print.colls},
+	{ratio, R#print.cr},
+	{time, R#print.time},
+	{duration, R#print.dtr}],
+    % Prune offsets to only allow specified print options
+    lists:foldr(fun
+	    ({Type, W}, Out) -> [{Type, W}|Out];
+	    (Type, Out)      -> [proplists:lookup(Type, Offsets)|Out]
+	end, [], Print).
+
 print_lock_information(Locks, Print) ->
-    print_header(Print),
+    % remake Print to autosize entries
+    AutoPrint = auto_print_width(Locks, Print),
+
+    print_header(AutoPrint),
+
     lists:foreach(fun
 	(L) ->
-	    print_lock(L, Print)
+	    print_lock(L, AutoPrint)
     end, Locks),
     ok.
 
@@ -621,13 +682,13 @@ print_lock(L, Opts) -> print_lock(L, Opts, []).
 print_lock(_, [],  Formats) -> print(strings(lists:reverse(Formats)));
 print_lock(L, [Opt|Opts], Formats) ->
     case Opt of
-	id            -> print_lock(L, Opts, [{space, 18, s(L#print.id)   } | Formats]);
+	id            -> print_lock(L, Opts, [{space, 25, s(L#print.id)   } | Formats]);
 	{id, W}       -> print_lock(L, Opts, [{space,  W, s(L#print.id)   } | Formats]);
 	type          -> print_lock(L, Opts, [{space, 18, s(L#print.type) } | Formats]);
 	{type, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.type) } | Formats]);
 	entry         -> print_lock(L, Opts, [{space, 30, s(L#print.entry)} | Formats]);
 	{entry, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.entry)} | Formats]);
-	name          -> print_lock(L, Opts, [{space, 25, s(L#print.name) } | Formats]);
+	name          -> print_lock(L, Opts, [{space, 22, s(L#print.name) } | Formats]);
 	{name, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.name) } | Formats]);
 	tries         -> print_lock(L, Opts, [{space, 12, s(L#print.tries)} | Formats]);
 	{tries, W}    -> print_lock(L, Opts, [{space,  W, s(L#print.tries)} | Formats]);
@@ -639,7 +700,7 @@ print_lock(L, [Opt|Opts], Formats) ->
 	{time, W}     -> print_lock(L, Opts, [{space,  W, s(L#print.time) } | Formats]);
 	duration      -> print_lock(L, Opts, [{space, 20, s(L#print.dtr)  } | Formats]);
 	{duration, W} -> print_lock(L, Opts, [{space,  W, s(L#print.dtr)  } | Formats]);
-	_        -> print_lock(L, Opts, Formats)
+	_             -> print_lock(L, Opts, Formats)
     end.
 
 print_state_information(#state{ locks = Locks} = State) ->
