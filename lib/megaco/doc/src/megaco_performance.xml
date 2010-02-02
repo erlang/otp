@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Performance comparison</title>
@@ -257,12 +257,12 @@ MEGACO/1 [124.124.124.222]
   Transaction = 9998 { 
     Context = - { 
       ServiceChange = ROOT { 
-  \011Services { 
-  \011  Method = Restart, 
-  \011  ServiceChangeAddress = 55555, 
-  \011  Profile = ResGW/1, 
-  \011  Reason = "901 MG Cold Boot"
-  \011}
+        Services { 
+          Method = Restart, 
+          ServiceChangeAddress = 55555, 
+          Profile = ResGW/1, 
+          Reason = "901 MG Cold Boot"
+        }
       }  
     }
   }    </pre>

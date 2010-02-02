@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Megaco Release Notes</title>
@@ -36,27 +36,27 @@
     section is the version number of Megaco.</p>
 
   <section>
-    <title>Megaco 3.13.0.1</title>
+    <title>Megaco 3.13.0.2</title>
 
-    <p>Version 3.13.0.1 supports code replacement in runtime from/to
+    <p>Version 3.13.0.2 supports code replacement in runtime from/to
       version 3.13, 3.12 and 3.11.3.</p>
 
     <section>
       <title>Improvements and new features</title>
 
-      <p>-</p>
-
 <!--
+      <p>-</p>
+-->
+
       <list type="bulleted">
         <item>
-          <p>The documentation is now built with open source tools 
-            (<em>xsltproc</em> and <em>fop</em>) that exists on most 
-            platforms. One visible change is that the frames are removed.</p>
-          <p>Own Id: OTP-8249</p>
+          <p>Added a help target in the test Makefile to explain 
+            the most useful make targets, used when testing the 
+            application using the test-server provided with megaco.</p>
+          <p>Own Id: OTP-8362</p>
         </item>
 
       </list>
--->
 
     </section>
 
@@ -75,25 +75,7 @@
 
     </section>
 
-    <section>
-      <title>Incompatibilities</title>
-      <p>-</p>
-
-<!--
-      <list type="bulleted">
-        <item>
-          <p>For those implementing their own codec's, the new megaco_encoder
-            behaviour will require three more functions. See above for more
-            info. </p>
-          <p>Own Id: OTP-7168</p>
-	  <p>Aux Id: Seq 10867</p>
-        </item>
-
-      </list>
--->
-
-    </section>
-  </section> <!-- 3.13.0.1 -->
+  </section> <!-- 3.13.0.2 -->
 
 
   <section>

@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Testing and tools</title>
@@ -159,12 +159,12 @@
             <p>When run as above (this will take some time), the measurement 
               process is done as follows:</p>
         <pre>
-\011  For each codec:
-\011      For each message:
-\011          Read the message from the file
-\011               Detect message version
-\011               Measure decode
-                       Measure encode
+For each codec:
+    For each message:
+        Read the message from the file
+            Detect message version
+            Measure decode
+                Measure encode
           Write results, encode, decode and total, to file
         </pre>
           </item>
@@ -218,11 +218,11 @@ message() = binary()
           with the following structure:
           </p>
         <code type="none"><![CDATA[
-\011  <message package>/pretty/<message-files>
-\011                    compact/
-\011                    per/
-\011                    ber/<message-files>
-\011                    erlang/
+<message package>/pretty/<message-files>
+                  compact/
+                  per/
+                  ber/<message-files>
+                  erlang/
         ]]></code>
         <p>The file includes both version 1, 2 and version 3 messages.</p>
       </section>
