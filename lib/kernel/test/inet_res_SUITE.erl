@@ -331,11 +331,13 @@ files_monitor(suite) ->
 files_monitor(doc) ->
     ["Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them"];
 files_monitor(Config) when is_list(Config) ->
+    Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
     ResolvConf = inet_db:res_option(resolv_conf),
     Inet6 = inet_db:res_option(inet6),
     try do_files_monitor(Config)
     after
+        inet_db:res_option(search, Search),
         inet_db:res_option(resolv_conf, ResolvConf),
 	inet_db:res_option(hosts_file, HostsFile),
 	inet_db:res_option(inet6, Inet6)

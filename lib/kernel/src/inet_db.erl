@@ -1011,13 +1011,22 @@ handle_call(Request, From, #state{db=Db}=State) ->
 		      case inet_parse:resolv(
 			     Fname, {chars,Bin}) of
 			  {ok,Opts} ->
+			      Search =
+				  lists:foldl(
+				    fun ({search,L}, _) ->
+					    L;
+					({domain,""}, S) ->
+					    S;
+					({domain,D}, _) ->
+					    [D];
+					(_, S) ->
+					    S
+				    end, [], Opts),
 			      [del_ns,
 			       clear_search,
-			       clear_cache
-			       |[Opt ||
-				    {T,_}=Opt <- Opts,
-				    (T =:= nameserver orelse
-				     T =:= search)]];
+			       clear_cache,
+			       {search,Search}
+			       |[Opt || {nameserver,_}=Opt <- Opts]];
 			  _ -> error
 		      end
 	      end,
