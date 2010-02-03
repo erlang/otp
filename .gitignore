@@ -89,6 +89,17 @@ a.out.dSYM/
 /lib/*/config.log
 /lib/*/config.status
 
+#
+# Files generated when building/running tests (especially if
+# a directory in $ERL_TOP/release/tests has been symlinked to
+# a test directory in lib).
+#
+
+/lib/*/test/*_SUITE_make.erl
+/lib/*/test/*_SUITE_data/Makefile
+/erts/emulator/test/*_SUITE_make.erl
+/erts/emulator/test/*_SUITE_data/Makefile
+
 # asn1
 
 /lib/asn1/doc/src/asn1_spec.xml
@@ -213,6 +224,8 @@ a.out.dSYM/
 /lib/snmp/src/compile/snmpc_mib_gram.erl
 /lib/snmp/include/[A-Z]*.hrl
 /lib/snmp/priv/mibs/[A-Z]*.bin
+/lib/snmp/test/snmp_test_data/[A-Z]*.bin
+/lib/snmp/test/snmp_test_data/[A-Z]*.hrl
 
 # system
 
