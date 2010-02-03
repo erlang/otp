@@ -2765,7 +2765,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 	    p->flags |= F_HAVE_BLCKD_MSCHED;
 	    ASSERT(erts_smp_atomic_read(&schdlr_sspnd.active) == 1);
 	    ASSERT(p->scheduler_data->no == 1);
-	    res = 1;
+	    res = ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED;
 	}
 	else {
 	    p->flags |= F_HAVE_BLCKD_MSCHED;
@@ -2896,12 +2896,16 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 #endif
 	    p->flags &= ~F_HAVE_BLCKD_MSCHED;
 	    erts_smp_atomic_set(&schdlr_sspnd.msb.ongoing, 0);
-	    if (schdlr_sspnd.online == 1)
-		/* No schedulers to resume */;
+	    if (schdlr_sspnd.online == 1) {
+		/* No schedulers to resume */
+		ASSERT(erts_smp_atomic_read(&schdlr_sspnd.active) == 1);
+		schdlr_sspnd.changing = 0;
+	    }
 	    else if (erts_common_run_queue) {
 		for (ix = 1; ix < schdlr_sspnd.online; ix++)
 		    erts_smp_atomic_set(&ERTS_SCHEDULER_IX(ix)->suspended, 0);
 		wake_all_schedulers();
+		erts_smp_cnd_broadcast(&schdlr_sspnd.cnd);
 	    }
 	    else {
 		int online = schdlr_sspnd.online;
@@ -2933,8 +2937,8 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 		erts_smp_runq_unlock(ERTS_RUNQ_IX(0));
 		erts_smp_mtx_unlock(&balance_info.update_mtx);
 		erts_smp_mtx_lock(&schdlr_sspnd.mtx);
+		erts_smp_cnd_broadcast(&schdlr_sspnd.cnd);
 	    }
-	    erts_smp_cnd_broadcast(&schdlr_sspnd.cnd);
 	    res = ERTS_SCHDLR_SSPND_DONE;
 	}
     }
@@ -8033,11 +8037,6 @@ erts_do_exit_process(Process* p, Eterm reason)
     if (p->bif_timers)
 	erts_cancel_bif_timers(p, ERTS_PROC_LOCKS_ALL);
 
-#ifdef ERTS_SMP
-    if (p->flags & F_HAVE_BLCKD_MSCHED)
-	erts_block_multi_scheduling(p, ERTS_PROC_LOCKS_ALL, 0, 1);
-#endif
-
     erts_smp_proc_unlock(p, ERTS_PROC_LOCKS_ALL_MINOR);
 
 #ifdef ERTS_SMP
@@ -8080,6 +8079,27 @@ continue_exit_process(Process *p
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
     ASSERT(p->status == P_EXITING);
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_STATUS);
+#endif
+
+#ifdef ERTS_SMP
+    if (p->flags & F_HAVE_BLCKD_MSCHED) {
+	ErtsSchedSuspendResult ssr;
+	ssr = erts_block_multi_scheduling(p, ERTS_PROC_LOCK_MAIN, 0, 1);
+	switch (ssr) {
+	case ERTS_SCHDLR_SSPND_YIELD_RESTART:
+	    goto yield;
+	case ERTS_SCHDLR_SSPND_DONE_MSCHED_BLOCKED:
+	case ERTS_SCHDLR_SSPND_YIELD_DONE_MSCHED_BLOCKED:
+	case ERTS_SCHDLR_SSPND_DONE:
+	case ERTS_SCHDLR_SSPND_YIELD_DONE:
+	    p->flags &= ~F_HAVE_BLCKD_MSCHED;
+	    break;
+	case ERTS_SCHDLR_SSPND_EINVAL:
+	default:
+	    erl_exit(ERTS_ABORT_EXIT, "%s:%d: Internal error: %d\n",
+		     __FILE__, __LINE__, (int) ssr);
+	}
+    }
 #endif
 
     if (p->flags & F_USING_DB) {
