@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -28,6 +28,17 @@
 
 #define MAX_ATOM_LENGTH 255
 #define ATOM_LIMIT (1024*1024)
+#define MIN_ATOM_TABLE_SIZE 8192
+
+#ifndef ARCH_32
+/* Internal atom cache needs MAX_ATOM_TABLE_SIZE to be less than an
+   unsigned 32 bit integer. See external.c(erts_encode_ext_dist_header_setup)
+   for more details. */
+#define MAX_ATOM_TABLE_SIZE ((MAX_ATOM_INDEX + 1 < (1UL << 32)) ? MAX_ATOM_INDEX + 1 : (1UL << 32))
+#else
+#define MAX_ATOM_TABLE_SIZE (MAX_ATOM_INDEX + 1)
+#endif
+
 
 /*
  * Atom entry.

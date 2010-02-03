@@ -798,6 +798,11 @@
           Valid range is 4-8192 kilowords. The default stack size
           is OS dependent.</p>
       </item>
+      <tag><c><![CDATA[+t size]]></c></tag>
+      <item>
+        <marker id="+t"></marker>
+        <p>Set the maximum number of atoms the VM can handle. Default is 1048576.</p>
+      </item>
       <tag><c><![CDATA[+T Level]]></c></tag>
       <item>
         <marker id="+T"></marker>

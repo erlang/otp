@@ -119,6 +119,8 @@ int erts_disable_tolerant_timeofday; /* Time correction can be disabled it is
 				      * not and/or it is too slow.
 				      */
 
+int erts_atom_table_size = ATOM_LIMIT;	/* Maximum number of atoms */
+
 int erts_modified_timing_level;
 
 int erts_no_crash_dump = 0;	/* Use -d to suppress crash dump. */
@@ -569,6 +571,10 @@ void erts_usage(void)
     erts_fprintf(stderr, "            schedulers online (n2), valid range for both\n");
     erts_fprintf(stderr, "            numbers are [1-%d]\n",
 		 ERTS_MAX_NO_OF_SCHEDULERS);
+    erts_fprintf(stderr, "-t size     set the maximum number of atoms the "
+			 "emulator can handle\n");
+    erts_fprintf(stderr, "            valid range is [%d-%d]\n",
+		 MIN_ATOM_TABLE_SIZE, MAX_ATOM_TABLE_SIZE);
     erts_fprintf(stderr, "-T number   set modified timing level,\n");
     erts_fprintf(stderr, "            valid range is [0-%d]\n",
 		 ERTS_MODIFIED_TIMING_LEVELS-1);
@@ -1140,6 +1146,22 @@ erl_start(int argc, char **argv)
 	    }
 	    break;
 	}
+	case 't':
+	    /* set atom table size */
+	    arg = get_arg(argv[i]+2, argv[i+1], &i);
+	    errno = 0;
+	    erts_atom_table_size = strtol(arg, NULL, 10);
+	    if (errno != 0 ||
+		erts_atom_table_size < MIN_ATOM_TABLE_SIZE ||
+		erts_atom_table_size > MAX_ATOM_TABLE_SIZE) {
+		erts_fprintf(stderr, "bad atom table size %s\n", arg);
+		erts_usage();
+	    }
+	    VERBOSE(DEBUG_SYSTEM,
+                    ("setting maximum number of atoms to %d\n",
+		     erts_atom_table_size));
+	    break;
+
 	case 'T' :
 	    arg = get_arg(argv[i]+2, argv[i+1], &i);
 	    errno = 0;

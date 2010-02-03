@@ -794,6 +794,7 @@ int main(int argc, char **argv)
 		  case 'i':
 		  case 'P':
 		  case 'S':
+		  case 't':
 		  case 'T':
 		  case 'R':
 		  case 'W':

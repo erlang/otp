@@ -181,6 +181,8 @@ extern int num_instructions;	/* Number of instruction in opc[]. */
 extern int H_MIN_SIZE;		/* minimum (heap + stack) */
 extern int BIN_VH_MIN_SIZE;	/* minimum virtual (bin) heap */
 
+extern int erts_atom_table_size;/* Atom table size */
+
 #define ORIG_CREATION 0
 
 /* macros for extracting bytes from uint16's */
