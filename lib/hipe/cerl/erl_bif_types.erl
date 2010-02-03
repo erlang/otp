@@ -1768,6 +1768,9 @@ type(erts_debug, disassemble, 1, Xs) ->
 	 fun (_) -> t_sup([t_atom('false'),
 			   t_atom('undef'),
 			   t_tuple([t_integer(), t_binary(), t_mfa()])]) end);
+type(erts_debug, dist_ext_to_term, 2, Xs) ->
+  strict(arg_types(erts_debug, dist_ext_to_term, 2), Xs,
+	 fun (_) -> t_any() end);
 type(erts_debug, flat_size, 1, Xs) ->
   strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
 type(erts_debug, same, 2, Xs) ->
@@ -3865,6 +3868,8 @@ arg_types(erts_debug, breakpoint, 2) ->
   [t_tuple([t_atom(), t_atom(), t_sup(t_integer(), t_atom('_'))]), t_boolean()];
 arg_types(erts_debug, disassemble, 1) ->
   [t_sup(t_mfa(), t_integer())];
+arg_types(erts_debug, dist_ext_to_term, 2) ->
+  [t_tuple(), t_binary()];
 arg_types(erts_debug, flat_size, 1) ->
   [t_any()];
 arg_types(erts_debug, same, 2) ->
