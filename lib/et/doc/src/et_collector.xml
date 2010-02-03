@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>et_collector</title>
@@ -84,11 +84,12 @@
           dictionary updates will be propagated to the subscriber processes
           matching the pattern {{subscriber, '_'}, '_'} where the first '_'
           is interpreted as a pid().</p>
-        <p>In global trace mode, the collector will automatically start
-          tracing on all connected Erlang nodes. When a node connects, a port
-          tracer will be started on that node and a corresponding trace
-          client on the collector node. By default the global trace pattern
-          is 'max'.</p>
+
+        <p>In global trace mode, the collector will automatically
+        start tracing on all connected Erlang nodes. When a node
+        connects, a port tracer will be started on that node and a
+        corresponding trace client on the collector node.</p>
+
         <p>Default values:</p>
         <list type="bulleted">
           <item>parent_pid - self().</item>
@@ -349,7 +350,7 @@
       </type>
       <desc>
         <p>Iterate over the currently stored events.</p>
-        <p>Iterates over the currently stored eventsand applies
+        <p>Iterates over the currently stored events and applies
           a function for each event. The iteration may be performed
           forwards or backwards and may be limited to a maximum
           number of events (abs(Limit)).</p>

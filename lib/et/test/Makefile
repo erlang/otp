@@ -1,7 +1,7 @@
 #
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2002-2010. All Rights Reserved.
+# Copyright Ericsson AB 2009-2010. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -15,66 +15,67 @@
 # under the License.
 #
 # %CopyrightEnd%
-#
 
-#
 include $(ERL_TOP)/make/target.mk
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
-# Application version
-# ----------------------------------------------------
-include ../vsn.mk
-VSN=$(ET_VSN)
-
-# ----------------------------------------------------
-# Release Macros
-# ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/et-$(VSN)
-
-# ----------------------------------------------------
-# Common Macros
+# Target Specs
 # ----------------------------------------------------
 
+MODULES= \
+	ett \
+	et_wx_SUITE \
+	et_test_lib
 
-MODULES = \
-	et_demo \
-	et_display_demo \
-	et_trace_demo
 
-ERL_FILES= $(MODULES:=.erl)
+ERL_FILES= $(MODULES:%=%.erl)
 
-HRL_FILES =
+HRL_FILES= et_test_lib.hrl
 
-DATA_FILES =
+TARGET_FILES= \
+	$(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
-TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-# TARGET_FILES = 
+INSTALL_PROGS= $(TARGET_FILES)
+
+# ----------------------------------------------------
+# Release directory specification
+# ----------------------------------------------------
+RELSYSDIR = $(RELEASE_PATH)/et_test
 
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../et/ebin
+#ERL_COMPILE_FLAGS +=
+
 EBIN = .
 
 # ----------------------------------------------------
-# Make Rules
+# Targets
 # ----------------------------------------------------
-debug opt: $(TARGET_FILES)
+
+tests debug opt: $(TARGET_FILES)
 
 clean:
-	rm -f $(TARGET_FILES) *~
+	rm -f $(TARGET_FILES)
+	rm -f core
 
 docs:
 
 # ----------------------------------------------------
-# Release Targets
-# ----------------------------------------------------
+# Release Target
+# ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
-	$(INSTALL_DIR) $(RELSYSDIR)/examples
-	$(INSTALL_DATA) $(ERL_FILES) $(DATA_FILES) $(HRL_FILES) $(RELSYSDIR)/examples
+
+release_tests_spec: opt
+	$(INSTALL_DIR) $(RELSYSDIR)
+	$(INSTALL_DATA) et.spec $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
+	$(INSTALL_PROGRAM) ett $(INSTALL_PROGS) $(RELSYSDIR)
+#	chmod -f -R u+w $(RELSYSDIR)
+#	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
 release_docs_spec:
+
 

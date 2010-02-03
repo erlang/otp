@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 %%----------------------------------------------------------------------
@@ -23,14 +23,16 @@
 -module(et_demo).
 
 -export([
-         sim_trans/0,
+         sim_trans/0, sim_trans/1,
+         live_trans/0, live_trans/1,
          mgr_actors/1,
-         live_trans/0,
-         start/0,
-         start/1,
+         start/0, start/1,
          filters/0,
          trace_mnesia/0
         ]).
+
+%% Test
+-export([s/0, t/0, t/1, init/0, gen/3]).
 
 -include_lib("et/include/et.hrl").
 
@@ -38,9 +40,12 @@
 
 %sim_trans
 sim_trans() ->
+    sim_trans([]).
+
+sim_trans(ExtraOptions) ->
     Options = [{dict_insert, {filter, mgr_actors}, fun mgr_actors/1}],
-    {ok, Viewer} = et_viewer:start_link(Options),
-    Collector = et_viewer:get_collector_pid(Viewer),      
+    {ok, Viewer} = et_viewer:start_link(Options ++ ExtraOptions),
+    Collector = et_viewer:get_collector_pid(Viewer),
     et_collector:report_event(Collector, 60, my_shell, mnesia_tm, start_outer, 
                               "Start outer transaction"),
     et_collector:report_event(Collector, 40, mnesia_tm, my_shell, new_tid, 
@@ -56,11 +61,13 @@ sim_trans() ->
     et_collector:report_event(Collector, 60, my_shell, mnesia_tm, delete_transaction,
                               "End of outer transaction"),
     et_collector:report_event(Collector, 20, my_shell, end_outer,
-                              "Transaction returned {atomic, ok}").
+                              "Transaction returned {atomic, ok}"),
+    {collector, Collector}.
+
 %sim_trans
 
 %mgr_actors
-mgr_actors(E) when record(E, event) ->
+mgr_actors(E) when is_record(E, event) ->
     Actor = fun(A) ->
                case A of
                    mnesia_tm     -> trans_mgr;
@@ -94,9 +101,13 @@ start(ExtraOptions) ->
 
 %live_trans
 live_trans() ->
-    et_demo:start([{title, "Mnesia tracer"},
-                   {hide_actions, true},
-                   {active_filter, named_process_info_nolink}]),
+    live_trans([]).
+
+live_trans(ExtraOptions) ->
+    Options = [{title, "Mnesia tracer"},
+	       {hide_actions, true},
+	       {active_filter, named_process_info_nolink}],
+    et_demo:start(Options ++ ExtraOptions),
     mnesia:start(),
     mnesia:create_table(my_tab, [{ram_copies, [node()]}]),
     et_demo:trace_mnesia(),
@@ -146,7 +157,7 @@ filters() ->
 %filters
 
 %module_as_actor
-module_as_actor(E) when record(E, event) ->
+module_as_actor(E) when is_record(E, event) ->
     case lists:keysearch(mfa, 1, E#event.contents) of
         {value, {mfa, {M, F, _A}}} ->
             case lists:keysearch(pam_result, 1, E#event.contents) of
@@ -163,7 +174,7 @@ module_as_actor(E) when record(E, event) ->
 %%----------------------------------------------------------------------
 
 %plain_process_info
-plain_process_info(E) when record(E, event) ->
+plain_process_info(E) when is_record(E, event) ->
     case E#event.label of
         send                          -> true;
         send_to_non_existing_process  -> true;
@@ -182,7 +193,7 @@ plain_process_info(E) when record(E, event) ->
 %plain_process_info
 
 %plain_process_info_nolink
-plain_process_info_nolink(E) when record(E, event) ->
+plain_process_info_nolink(E) when is_record(E, event) ->
     (E#event.label /= link) and
     (E#event.label /= unlink) and
     (E#event.label /= getting_linked) and
@@ -191,7 +202,7 @@ plain_process_info_nolink(E) when record(E, event) ->
 
 %%----------------------------------------------------------------------
 
-named_process_info(E) when record(E, event) ->
+named_process_info(E) when is_record(E, event) ->
     case plain_process_info(E) of
         true ->
             {true, E#event{to    = pid_to_name(E#event.to),
@@ -201,7 +212,7 @@ named_process_info(E) when record(E, event) ->
             false
     end.
 
-named_process_info_nolink(E) when record(E, event) ->
+named_process_info_nolink(E) when is_record(E, event) ->
     case plain_process_info_nolink(E) of
         true ->
             {true, E#event{to    = pid_to_name(E#event.to),
@@ -211,7 +222,7 @@ named_process_info_nolink(E) when record(E, event) ->
             false
     end.
 
-pid_to_name(Pid) when pid(Pid) ->
+pid_to_name(Pid) when is_pid(Pid) ->
     case process_info(Pid, registered_name) of
         {registered_name, Name} ->
             Name;
@@ -225,7 +236,7 @@ pid_to_name(Other) ->
 
 %%----------------------------------------------------------------------
 
-node_process_info(E) when record(E, event) ->
+node_process_info(E) when is_record(E, event) ->
     case plain_process_info(E) of
         true ->
             {true, E#event{to    = pid_to_node(E#event.to),
@@ -234,7 +245,7 @@ node_process_info(E) when record(E, event) ->
         false ->
             false
     end.
-node_process_info_nolink(E) when record(E, event) ->
+node_process_info_nolink(E) when is_record(E, event) ->
     case plain_process_info_nolink(E) of
         true ->
             {true, E#event{to    = pid_to_node(E#event.to),
@@ -244,21 +255,21 @@ node_process_info_nolink(E) when record(E, event) ->
             false
     end.
 
-pid_to_node(Pid) when pid(Pid) ->
+pid_to_node(Pid) when is_pid(Pid) ->
     node(Pid);
-pid_to_node(Name) when atom(Name) ->
+pid_to_node(Name) when is_atom(Name) ->
     node();
-pid_to_node({_Name, Node}) when atom(Node) ->
+pid_to_node({_Name, Node}) when is_atom(Node) ->
     Node.
 
 %%----------------------------------------------------------------------
 
-application_as_actor(E) when record(E, event) ->
+application_as_actor(E) when is_record(E, event) ->
     {true, E#event{to    = pid_to_application(E#event.to),
                    from  = pid_to_application(E#event.from),
                    label = msg_to_label(E)}}.
 
-pid_to_application(Pid) when pid(Pid) ->
+pid_to_application(Pid) when is_pid(Pid) ->
     case application:get_application(Pid) of
         {ok, Name} ->
             Name;
@@ -268,7 +279,7 @@ pid_to_application(Pid) when pid(Pid) ->
 
 %%----------------------------------------------------------------------
 
-msg_to_label(E) when record(E, event) ->
+msg_to_label(E) when is_record(E, event) ->
     case lists:keysearch(msg, 1, E#event.contents) of
         {value, {msg, Msg}} ->
             mnesia_msg_to_label(Msg, E#event.label);
@@ -349,3 +360,35 @@ mnesia_msg_to_label(Msg, Label) ->
         _                                          -> Label
     end.
 
+%%----------------------------------------------------------------------
+
+s() ->
+    spawn(fun() -> t(), timer:sleep(infinity) end).
+		  
+t() ->
+    t(500).
+
+t(N) ->
+    Collector = init(),
+    gen(Collector, 1, N),
+    Collector.
+
+init() ->
+    EvenFilter =
+	fun(#event{label = Label}) ->
+		case catch (list_to_integer(Label) div 10) rem 2 of
+		    0 ->
+			false;
+		    _ ->
+			true
+		end
+	end,
+    OddFilter = fun(E) -> not EvenFilter(E) end,
+    {ok, Viewer} = et_viewer:start_link([{dict_insert, {filter, odd_tens}, EvenFilter},
+					 {dict_insert, {filter, even_tens}, OddFilter},
+					 {active_filter, odd_tens}]),
+    et_viewer:get_collector_pid(Viewer).
+
+gen(Collector, From, To) ->
+    [et_collector:report_event(Collector, 20, from, to, integer_to_list(I), [I]) || I <- lists:seq(From, To)], 
+    ok.

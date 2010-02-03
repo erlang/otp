@@ -1,0 +1,30 @@
+
+Testing and running et tests.
+
+Testing gui api/applications can be hard, but we can at least
+test that wxerlang behaves as we expected, i.e. that the api
+is consistent and that it don't crash.
+
+The tests are structured as they are because we want you to
+be able to run them in three different ways.
+ - direct via an erlang shell
+ - via common_test application 
+ - via erlang/OTP inhouse ts tool.
+
+To run all the tests compile them and on unix 
+run ./ett to create an erlang terminal.
+
+Invoke ett:t(). in the erlang shell to run all regression tests.
+If you want to specific tests invoke ett:t(Module) 
+or ett:t(Module, TestCase).
+
+To run all tests including the ones that require manual intervention run.
+ett:t(all, [{user,true}]).
+
+To see every test_case window use
+ett:t(all, [{user,step}]).
+This requires that you manually close each window to step to the 
+next test_case.
+
+If you want to run specific test_cases use:
+ett:t({Module,TestCase}, [{user,step}]).

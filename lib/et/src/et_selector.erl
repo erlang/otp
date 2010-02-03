@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
@@ -41,14 +41,14 @@
 %%
 %% detail_level() = min | max | integer(X) when X =< 0, X >= 100
 %%
-%%   min       - minimum level of tracing  (ignore calls to report_event/4,5)
-%%   max       - maximum level of tracing  (all calls to report_event/4,5)
+%%   min       - minimum level of tracing  (ignore calls to trace_me/4,5)
+%%   max       - maximum level of tracing  (all calls to trace_me/4,5)
 %%   integer() - explicit detail level of tracing
 %%----------------------------------------------------------------------
 
 make_pattern(undefined) ->
     {undefined, undefined};
-make_pattern({Mod, Pattern}) when atom(Mod) ->
+make_pattern({Mod, Pattern}) when is_atom(Mod) ->
     case Pattern of
 	min ->
 	    {Mod, []};
@@ -57,7 +57,7 @@ make_pattern({Mod, Pattern}) when atom(Mod) ->
 	    Body = [],
 	    Cond = [],
 	    {Mod, [{Head, Cond, Body}]};
-	DetailLevel when integer(DetailLevel) ->
+	DetailLevel when is_integer(DetailLevel) ->
 	    Head = ['$1', '_', '_', '_', '_'],
 	    Body = [],
 	    Cond = [{ '<', '$1', DetailLevel}],
@@ -80,28 +80,31 @@ make_pattern({Mod, Pattern}) when atom(Mod) ->
 %% detail_level() = min | max | integer(X) when X =<0, X >= 100
 %% empty_match_spec() = [] 
 %%
-%% Min detail level deactivates tracing of calls to report_event/4,5
+%% Min detail level deactivates tracing of calls to trace_me/4,5
 %%
-%% Max detail level activates tracing of all calls to report_event/4,5
+%% Max detail level activates tracing of all calls to trace_me/4,5
 %%
 %% integer(X) detail level activates tracing of all calls to
-%% report_event/4,5 whose detail level argument is lesser than X.
+%% trace_me/4,5 whose detail level argument is lesser than X.
 %%
-%% An empty match spec deactivates tracing of calls to report_event/4,5
+%% An empty match spec deactivates tracing of calls to trace_me/4,5
 %%
-%% Other match specs activates tracing of calls to report_event/4,5
+%% Other match specs activates tracing of calls to trace_me/4,5
 %% accordlingly with erlang:trace_pattern/2.
 %%----------------------------------------------------------------------
 
-change_pattern({Mod, Pattern}) when atom(Mod) ->
-    MFA = {Mod, report_event, 5},
+change_pattern({Mod, Pattern}) when is_atom(Mod) ->
+    MFA = {Mod, trace_me, 5},
     case Pattern of
 	undefined ->
 	    ignore;
         [] ->
+            error_to_exit(old_ctp(MFA)),
             error_to_exit(dbg:ctp(MFA)),
             error_to_exit(dbg:p(all, clear));
-        List when list(List) ->
+        List when is_list(List) ->
+            error_to_exit(old_ctp(MFA)),
+            error_to_exit(old_tp(MFA, Pattern)),
             error_to_exit(dbg:ctp(MFA)),
             error_to_exit(dbg:tp(MFA, Pattern)),
             error_to_exit(dbg:p(all, [call, timestamp]));
@@ -109,6 +112,18 @@ change_pattern({Mod, Pattern}) when atom(Mod) ->
             change_pattern(make_pattern({Mod, Other}))
     end,
     ok.
+
+old_ctp({Mod, _Fun, Args}) ->
+    case Mod of
+	et -> ignore;
+	_  -> dbg:ctp({Mod, report_event, Args})
+    end.
+
+old_tp({Mod, _Fun, Args}, Pattern) ->
+    case Mod of
+	et -> ignore;
+	_  -> dbg:tp({Mod, report_event, Args}, Pattern)
+    end.
 
 error_to_exit({error, Reason}) ->
     exit(Reason);
@@ -148,7 +163,7 @@ error_to_exit({ok, Res}) ->
 %%     label        - Label intended to provide a brief event summary.
 %%     contents     - All nitty gritty details of the event.
 %%
-%% See et:report_event/4 and et:report_event/5 for details.
+%% See et:trace_me/4 and et:trace_me/5 for details.
 %%     
 %% Returns: 
 %%
@@ -161,7 +176,7 @@ error_to_exit({ok, Res}) ->
 %%                   should be dropped
 %%----------------------------------------------------------------------
 
-parse_event(_Mod, E) when record(E, event) ->
+parse_event(_Mod, E) when is_record(E, event) ->
     true;
 parse_event(Mod, Trace) ->
     ParsedTS = erlang:now(),
@@ -293,6 +308,14 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
 					  {msg, Msg}]}};
         call ->
             case Contents of
+                [{M, trace_me, [UserDetailLevel, UserFrom, UserTo, UserLabel, UserContents]}] when M == Mod, Mod /= undefined ->
+                    {true, #event{detail_level = UserDetailLevel,
+                                  trace_ts     = ReportedTS,
+                                  event_ts     = ParsedTS,
+                                  from         = UserFrom,
+                                  to           = UserTo,
+                                  label        = UserLabel,
+                                  contents     = UserContents}}; % Term
                 [{M, report_event, [UserDetailLevel, UserFrom, UserTo, UserLabel, UserContents]}] when M == Mod, Mod /= undefined ->
                     {true, #event{detail_level = UserDetailLevel,
                                   trace_ts     = ReportedTS,
@@ -358,6 +381,21 @@ parse_event(Mod, Trace, ParsedTS, ReportedTS, From, Label, Contents) ->
 					  {to, From},
 					  {mfa, MFA},
 					  {return, ReturnValue}]}};
+        exception_from ->
+            DetailLevel = 54,
+            [MFA, Exception] = Contents,
+            {true, #event{detail_level = DetailLevel,
+                          trace_ts     = ReportedTS,
+                          event_ts     = ParsedTS,
+                          from         = From,
+                          to           = From,
+                          label        = Label,
+                          contents     = [{label, Label},
+					  {detail_level, DetailLevel},
+					  {from, From},
+					  {to, From},
+					  {mfa, MFA},
+					  {exception, Exception}]}};
         spawn ->
             DetailLevel = 25,
             [NewPid, MFA] = Contents,

@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2000-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2000-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -127,9 +127,16 @@ $(EBIN)/et_selector.$(EMULATOR): et_selector.erl ../include/et.hrl
 
 $(EBIN)/et_contents_viewer.$(EMULATOR): et_contents_viewer.erl ../include/et.hrl et_internal.hrl
 
+$(EBIN)/et_gs_contents_viewer.$(EMULATOR): et_gs_contents_viewer.erl ../include/et.hrl et_internal.hrl
+$(EBIN)/et_wx_contents_viewer.$(EMULATOR): et_wx_contents_viewer.erl ../include/et.hrl et_internal.hrl
+
 $(EBIN)/et_collector.$(EMULATOR): et_collector.erl ../include/et.hrl et_internal.hrl
 
 $(EBIN)/et_viewer.$(EMULATOR): et_viewer.erl ../include/et.hrl et_internal.hrl
+
+$(EBIN)/et_gs_viewer.$(EMULATOR): et_gs_viewer.erl ../include/et.hrl et_internal.hrl
+
+$(EBIN)/et_wx_viewer.$(EMULATOR): et_wx_viewer.erl ../include/et.hrl et_internal.hrl
 
 
 

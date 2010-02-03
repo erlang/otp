@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Event Tracer (ET) Release Notes</title>
@@ -28,12 +28,50 @@
     <rev>%VSN%</rev>
     <file>notes.xml</file>
   </header>
-  <p>This document describes the changes made to the Event Tracer (ET) system
-    from version to version. The intention of this document is to
-    list all incompatibilities as well as all enhancements and
-    bugfixes for every release of Event Tracer (ET). Each release of Event Tracer (ET) 
-    thus constitutes one section in this document. The title of each
-    section is the version number of Event Tracer (ET).</p>
+  <p>This document describes the changes made to the <c>Event Tracer
+  (ET)</c> system from version to version. The intention of this
+  document is to list all incompatibilities as well as all
+  enhancements and bugfixes for every release of <c>Event Tracer
+  (ET)</c>. Each release of <c>Event Tracer (ET) </c> thus constitutes
+  one section in this document. The title of each section is the
+  version number of <c>Event Tracer (ET)</c>.</p>
+
+<section><title>ET 1.4</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>Thanks to Olle Mattsson the GUI parts are rewritten to
+          use <c>wxWidgets</c>. For the time being it is still
+          possible to use the old <c>GS</c> based version of the tool,
+          but it is deprecated. The <c>wxWidgets</c> based version is
+          started by default.</p>
+
+          <p>A print function has been added, in order to enable
+          printing of sequence charts.</p>
+
+	  <p>A new tutorial has been added to the documentation. It is
+	  based on <c>Jayson Vantuyl's</c> article
+	  <c>http://souja.net/2009/04/making-sense-of-erlangs-event-tracer.html</c>.</p>
+
+	  <p>The functions <c>et:trace_me/4</c> and
+	  <c>et:trace_me/5</c> has been introduced in order to replace
+	  the deprecated functions <c>et:report_event/4</c> and
+	  <c>et:report_event/5</c>. Hopefully the new names makes it a
+	  little more obvious what the intended usage of the functions
+	  are.</p>
+
+	  <p>The <c>max_events</c> configuration parameter to
+	  <c>et_viewer</c> is not used any more. Now the event cache
+	  in the <c>Viewer</c> only contains those events that
+	  actually are displayed in the GUI.</p>
+
+          <p>Own Id: OTP-8058</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>ET 1.3.3</title>
 
@@ -130,8 +168,8 @@
 
     <section>
       <title>Improvements and new features</title>
-      <p>This is the first release of the Event Tracer (ET) as
-        a stand-alone application.</p>
+      <p>This is the first release of the <c>Event Tracer (ET)</c> as
+      a stand-alone application separated from the Megaco application.</p>
     </section>
   </section>
 </chapter>

@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>et</title>
@@ -37,35 +37,64 @@
   </description>
   <funcs>
     <func>
-      <name>report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
-      <name>report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
-      <name>phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
-      <name>phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
-      <fsummary>Reports an event, such as a message</fsummary>
+      <name>trace_me(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>A function that is intended to be traced.</fsummary>
       <type>
         <v>DetailLevel = integer(X) when X =&lt; 0, X >= 100</v>
         <v>From        = actor()</v>
         <v>To          = actor()</v>
-        <v>FromTo      = actor()</v>
         <v>Label       = atom() | string() | term()</v>
         <v>Contents    = [{Key, Value}] | term()</v>
-        <v>actor()  = term()</v>
+        <v>actor()     = term()</v>
       </type>
       <desc>
-        <p>Reports an event, such as a message.</p>
-        <p>These functions are intended to be invoked at strategic places
-          in user applications in order to enable simplified tracing.
-          The functions are extremely light weight as they do nothing
-          besides returning an atom. These functions are designed for
-          being traced. The global tracing mechanism in et_collector
-          defaults to set its trace pattern to these functions.</p>
-        <p>The label is intended to provide a brief summary of the event.
-          A simple tag would do.</p>
+        <p>A function that is intended to be traced.</p>
+        <p>This function is intended to be invoked at strategic places
+        in user applications in order to enable simplified
+        tracing. The functions are extremely light weight as they do
+        nothing besides returning an atom. The functions are designed
+        for being traced. The global tracing mechanism in
+        <c>et_collector</c> defaults to set its trace pattern to these
+        functions.</p>
+        <p>The label is intended to provide a brief summary of the
+        event. It is preferred to use an atom but a string would also
+        do.</p>
         <p>The contents can be any term but in order to simplify
           post processing of the traced events, a plain list
           of {Key, Value} tuples is preferred.</p>
         <p>Some events, such as messages, are directed from some actor to another.
           Other events (termed actions) may be undirected and only have one actor.</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>trace_me(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <fsummary>A function that is intended to be traced.</fsummary>
+      <desc>
+       <p>Invokes <c>et:trace_me/5</c> with both <c>From</c> and <c>To</c>
+       set to <c>FromTo</c>.</p>
+     </desc>
+    </func>
+
+    <func>
+      <name>phone_home(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name>phone_home(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>Send a signal to the outer space</fsummary>
+      <desc>
+        <p>These functions sends a signal to the outer space and the
+        caller hopes that someone is listening. In other words, they
+        invoke <c>et:trace_me/4</c> and <c>et:trace_me/5</c>
+        respectively.</p>
+      </desc>
+    </func>
+    <func>
+      <name>report_event(DetailLevel, FromTo, Label, Contents) -> hopefully_traced</name>
+      <name>report_event(DetailLevel, From, To, Label, Contents) -> hopefully_traced</name>
+      <fsummary>Deprecated functions</fsummary>
+      <desc>
+        <p>Deprecated functions which for the time being are kept for
+        backwards compatibility. Invokes <c>et:trace_me/4</c> and
+        <c>et:trace_me/5</c> respectively.</p>
       </desc>
     </func>
   </funcs>
