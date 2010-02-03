@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -45,19 +45,29 @@
 	 all/1, 
 	 open_and_close/1,
 	 open_write_and_close/1,
+	 open_write_and_close1/1,
+	 open_write_and_close2/1,
+	 open_write_and_close3/1,
+	 open_write_and_close4/1,
+	 log_to_io/1,
 	 log_to_io1/1,
 	 log_to_io2/1,
+	 log_to_txt/1,
 	 log_to_txt1/1,
-  	 log_to_txt2/1
+  	 log_to_txt2/1,
+  	 log_to_txt3/1
 	]).
+
 
 %%----------------------------------------------------------------------
 %% Internal exports
 %%----------------------------------------------------------------------
 -export([
 	 log_writer_main/5, 
-	 log_reader_main/1
+	 log_reader_main/1,
+	 next_seqno/2
         ]).
+
 
 %%----------------------------------------------------------------------
 %% Macros
@@ -102,10 +112,32 @@ all(suite) ->
     [
      open_and_close,
      open_write_and_close,
+     log_to_io,
+     log_to_txt
+    ].
+
+
+open_write_and_close(suite) ->
+    [
+     open_write_and_close1,
+     open_write_and_close2,
+     open_write_and_close3,
+     open_write_and_close4
+    ].
+
+
+log_to_io(suite) ->
+    [
      log_to_io1,
-     log_to_io2,
+     log_to_io2
+    ].
+
+
+log_to_txt(suite) ->
+    [
      log_to_txt1,
-     log_to_txt2
+     log_to_txt2,
+     log_to_txt3
     ].
 
 
@@ -132,24 +164,129 @@ open_and_close(Config) when is_list(Config) ->
 
 %%======================================================================
 
-open_write_and_close(suite) -> [];
-open_write_and_close(Config) when is_list(Config) ->
-    p(open_write_and_close),
-    put(sname,open_write_and_close),
+open_write_and_close1(suite) -> 
+    [];
+open_write_and_close1(doc) -> 
+    "Open a plain (no sequence-numbering) log file";
+open_write_and_close1(Config) when is_list(Config) ->
+    p(open_write_and_close1),
+    put(sname,open_write_and_close1),
     put(verbosity,trace),
-    ?DBG("open_write_and_close -> start", []),
+    ?DBG("open_write_and_close1 -> start", []),
+
+    SeqNoGen = none, 
+    ?line ok = open_write_and_close(SeqNoGen, Config),
+
+    ?DBG("open_write_and_close1 -> done", []),
+    ok.
+    
+
+%%======================================================================
+
+open_write_and_close2(suite) -> 
+    [];
+open_write_and_close2(doc) -> 
+    "Open a log file with sequence-numbering explicitly disabled";
+open_write_and_close2(Config) when is_list(Config) ->
+    p(open_write_and_close2),
+    put(sname,open_write_and_close2),
+    put(verbosity,trace),
+    ?DBG("open_write_and_close2 -> start", []),
+
+    SeqNoGen = disabled, 
+    ?line ok = open_write_and_close(SeqNoGen, Config),
+
+    ?DBG("open_write_and_close2 -> done", []),
+    ok.
+
+
+%%======================================================================
+
+open_write_and_close3(suite) -> 
+    [];
+open_write_and_close3(doc) -> 
+    "Open a log file with sequence-numbering using MFA";
+open_write_and_close3(Config) when is_list(Config) ->
+    p(open_write_and_close3),
+    put(sname,open_write_and_close3),
+    put(verbosity,trace),
+    ?DBG("open_write_and_close2 -> start", []),
+
+    seqno_init(), 
+    SeqNoGen = {?MODULE, next_seqno, [10, 100]}, 
+    ?line ok = open_write_and_close(SeqNoGen, Config),
+    seqno_finish(),
+
+    ?DBG("open_write_and_close2 -> done", []),
+    ok.
+
+
+%%======================================================================
+
+open_write_and_close4(suite) -> 
+    [];
+open_write_and_close4(doc) -> 
+    "Open a log file with sequence-numbering using fun";
+open_write_and_close4(Config) when is_list(Config) ->
+    p(open_write_and_close4),
+    put(sname,open_write_and_close4),
+    put(verbosity,trace),
+    ?DBG("open_write_and_close2 -> start", []),
+
+    seqno_init(), 
+    SeqNoGen = fun() -> next_seqno(10, 100) end, 
+    ?line ok = open_write_and_close(SeqNoGen, Config),
+    seqno_finish(),
+
+    ?DBG("open_write_and_close2 -> done", []),
+    ok.
+
+
+%%======================================================================
+
+seqno_init() ->
+    ets:new(snmp_log_test_seqno_tab, [named_table, set, protected]).
+
+seqno_finish() ->
+    ets:delete(snmp_log_test_seqno_tab).
+
+next_seqno(Initial, Max) ->
+    Key       = seqno, 
+    Position  = 2, 
+    Increment = 1, 
+    Threshold = Max,
+    SetValue  = Initial, 
+    UpdateOp  = {Position, Increment, Threshold, SetValue},
+    Tab       = snmp_log_test_seqno_tab, 
+    case (catch ets:update_counter(Tab, Key, UpdateOp)) of
+	{'EXIT', {badarg, _}} ->
+	    ets:insert(Tab, {seqno, Initial}),
+	    Initial;
+	Next when is_integer(Next) ->
+	    Next
+    end.
+    
+open_write_and_close(SeqNoGen, Config) ->
+    ?DBG("open_write_and_close1 -> start", []),
     Dir    = ?config(log_dir, Config),
     Name   = "snmp_test",
     File   = join(Dir, "snmp_test.log"),
     Size   = {1024, 10},
     Repair = true,
     ?DBG("open_write_and_close -> create log", []),
-    ?line {ok, Log} = snmp_log:create(Name, File, Size, Repair),
+    
+    ?line {ok, Log} = 
+	case SeqNoGen of
+	    none -> 
+		snmp_log:create(Name, File, Size, Repair);
+	    _ ->
+		snmp_log:create(Name, File, SeqNoGen, Size, Repair)
+	end,
 
     Vsn       = 'version-2',
     Community = "all-rights",
 
-    ?DBG("open_write_and_close -> create messages to log", []),
+    ?DBG("open_write_and_close1 -> create messages to log", []),
     %% A request
     ?line Req = get_next_request(Vsn, Community, [1,1], 1, 235779012),
 
@@ -162,7 +299,7 @@ open_write_and_close(Config) when is_list(Config) ->
     Msgs = lists:flatten(lists:duplicate(1002,[Req,Rep])),
 
     %% And now log them:
-    ?DBG("open_write_and_close -> log ~p messages, ~p bytes", 
+    ?DBG("open_write_and_close1 -> log ~p messages, ~p bytes", 
 	[length(Msgs), size(list_to_binary(Msgs))]),
     Addr = ?LOCALHOST(),
     Port = 162,
@@ -172,11 +309,11 @@ open_write_and_close(Config) when is_list(Config) ->
     lists:foreach(Logger, Msgs),
     check_notify(),
     
-    ?DBG("open_write_and_close -> display info", []),
+    ?DBG("open_write_and_close1 -> display info", []),
     ?line {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
-    ?DBG("open_write_and_close -> close log", []),
+    ?DBG("open_write_and_close1 -> close log", []),
     ?line ok = snmp_log:close(Log),
 
     ?DBG("open_write_and_close -> done", []),
@@ -308,18 +445,58 @@ log_to_txt1(Config) when is_list(Config) ->
     put(sname,l2t1),
     put(verbosity,trace),
     ?DBG("log_to_txt1 -> start", []),
+
+    Name     = "snmp_test_l2t1",
+    SeqNoGen = disabled, 
+    ?line ok = log_to_txt(Name, SeqNoGen, Config), 
+
+    ?DBG("log_to_txt1 -> done", []),
+    ok.
+
+
+
+%%======================================================================
+
+log_to_txt2(suite) -> [];
+log_to_txt2(Config) when is_list(Config) ->
+    p(log_to_txt2),
+    put(sname,l2t2),
+    put(verbosity,trace),
+    ?DBG("log_to_txt2 -> start", []),
+
+    Name     = "snmp_test_l2t2",
+    seqno_init(), 
+    SeqNoGen = {?MODULE, next_seqno, [1, 100]}, 
+    ?line ok = log_to_txt(Name, SeqNoGen, Config), 
+    seqno_finish(),
+
+    ?DBG("log_to_txt2 -> done", []),
+    ok.
+
+
+
+%%======================================================================
+
+log_to_txt(Name, SeqNoGen, Config) when is_list(Config) ->
+    ?DBG("log_to_txt -> entry", []),
     Dir    = ?config(log_dir, Config),
-    Name   = "snmp_test_l2t1",
-    File   = join(Dir, "snmp_test_l2t1.log"),
+    File   = join(Dir, Name ++ ".log"),
     Size   = {10240, 10},
     Repair = true,
-    ?DBG("log_to_txt1 -> create log", []),
-    ?line {ok, Log} = snmp_log:create(Name, File, Size, Repair),
 
-    ?DBG("log_to_txt1 -> create messages to log", []),
+    ?DBG("log_to_txt -> create log", []),
+    ?line {ok, Log} = 
+	case SeqNoGen of
+	    none -> 
+		snmp_log:create(Name, File, Size, Repair);
+	    _ ->
+		snmp_log:create(Name, File, SeqNoGen, Size, Repair)
+	end,
+
+    ?DBG("log_to_txt -> create messages to log", []),
     Msgs = messages(),
 
-    ?DBG("log_to_txt1 -> create logger funs", []),
+    ?DBG("log_to_txt -> create logger funs", []),
     Addr = ?LOCALHOST(),
     Port = 162,
     Logger = fun(Packet) ->
@@ -332,42 +509,42 @@ log_to_txt1(Config) when is_list(Config) ->
 		  end,
     To = lists:duplicate(20, 5000),
 
-    ?DBG("log_to_txt1 -> log the messages", []),
+    ?DBG("log_to_txt -> log the messages", []),
     Start = calendar:local_time(),
     lists:foreach(BatchLogger, To),
     Stop  = calendar:local_time(),
 
-    ?DBG("log_to_txt1 -> display info", []),
+    ?DBG("log_to_txt -> display info", []),
     ?line {ok, Info} = snmp_log:info(Log),
     display_info(Info),
 
     Out1 = join(Dir, "snmp_text-1.txt"),
-    ?DBG("log_to_txt1 -> do the convert to a text file when"
+    ?DBG("log_to_txt -> do the convert to a text file when"
 	"~n   Out1: ~p", [Out1]),
     ?line ok = snmp:log_to_txt(Dir, [], Out1, Log, File),
 
     ?line {ok, #file_info{size = Size1}} = file:read_file_info(Out1),
-    ?DBG("log_to_txt1 -> text file size: ~p", [Size1]),
+    ?DBG("log_to_txt -> text file size: ~p", [Size1]),
     validate_size(Size1),
 
     Out2 = join(Dir, "snmp_text-2.txt"),
-    ?DBG("log_to_txt1 -> do the convert to a text file when"
+    ?DBG("log_to_txt -> do the convert to a text file when"
 	"~n   Start: ~p"
 	"~n   Stop:  ~p"
 	"~n   Out2:  ~p", [Start, Stop, Out2]),
     ?line ok = snmp:log_to_txt(Dir, [], Out2, Log, File, Start, Stop),
 
     ?line {ok, #file_info{size = Size2}} = file:read_file_info(Out2),
-    ?DBG("log_to_txt1 -> text file size: ~p", [Size2]),
+    ?DBG("log_to_txt -> text file size: ~p", [Size2]),
     validate_size(Size2, {le, Size1}),
 
     %% Calculate new start / stop times...
     GStart = calendar:datetime_to_gregorian_seconds(Start),
-    ?DBG("log_to_txt1 -> GStart: ~p", [GStart]),
+    ?DBG("log_to_txt -> GStart: ~p", [GStart]),
     GStop  = calendar:datetime_to_gregorian_seconds(Stop),
-    ?DBG("log_to_txt1 -> GStop: ~p", [GStop]),
+    ?DBG("log_to_txt -> GStop: ~p", [GStop]),
     Diff4 = (GStop - GStart) div 4,
-    ?DBG("log_to_txt1 -> Diff4: ~p", [Diff4]),
+    ?DBG("log_to_txt -> Diff4: ~p", [Diff4]),
     GStart2 = GStart + Diff4,
     GStop2  = GStop - Diff4,
     if 
@@ -381,20 +558,20 @@ log_to_txt1(Config) when is_list(Config) ->
     Stop2  = calendar:gregorian_seconds_to_datetime(GStop2),
     
     Out3 = join(Dir, "snmp_text-3.txt"),
-    ?DBG("log_to_txt1 -> do the convert to a text file when"
+    ?DBG("log_to_txt -> do the convert to a text file when"
 	"~n   Start2: ~p"
 	"~n   Stop2:  ~p"
 	"~n   Out3:   ~p", [Start2, Stop2, Out3]),
     ?line ok = snmp:log_to_txt(Dir, [], Out3, Log, File, Start2, Stop2),
 
     ?line {ok, #file_info{size = Size3}} = file:read_file_info(Out3),
-    ?DBG("log_to_txt1 -> text file size: ~p", [Size3]),
+    ?DBG("log_to_txt -> text file size: ~p", [Size3]),
     validate_size(Size3, {l, Size1}),    
 
-    ?DBG("log_to_txt1 -> close log", []),
+    ?DBG("log_to_txt -> close log", []),
     ?line ok = snmp_log:close(Log),
 
-    ?DBG("log_to_txt1 -> done", []),
+    ?DBG("log_to_txt -> done", []),
     ok.
 
 
@@ -405,19 +582,21 @@ log_to_txt1(Config) when is_list(Config) ->
 %%
 %% Test: ts:run(snmp, snmp_log_test, log_to_txt2, [batch]).
 
-log_to_txt2(suite) -> [];
-log_to_txt2(doc) -> "Log to txt file from a different process than which "
-		       "opened and wrote the log";
-log_to_txt2(Config) when is_list(Config) ->
+log_to_txt3(suite) -> 
+    [];
+log_to_txt3(doc) -> 
+    "Log to txt file from a different process than which "
+	"opened and wrote the log";
+log_to_txt3(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
-    p(log_to_txt2),
-    put(sname,l2t2),
+    p(log_to_txt3),
+    put(sname,l2t3),
     put(verbosity,trace),
-    ?DBG("log_to_txt2 -> start", []),
+    ?DBG("log_to_txt3 -> start", []),
     Dir     = ?config(log_dir, Config),
-    Name    = "snmp_test_l2t2",
-    LogFile = join(Dir, "snmp_test_l2t2.log"),
-    TxtFile = join(Dir, "snmp_test_l2t2.txt"),
+    Name    = "snmp_test_l2t3",
+    LogFile = join(Dir, "snmp_test_l2t3.log"),
+    TxtFile = join(Dir, "snmp_test_l2t3.txt"),
     Meg     = 1024*1024,
     Size    = {10*Meg, 10},
     Repair  = true,
@@ -425,22 +604,22 @@ log_to_txt2(Config) when is_list(Config) ->
     StdMibDir = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
     Mibs = [join(StdMibDir, "SNMPv2-MIB")],
 
-    ?DBG("log_to_txt2 -> create log writer process", []),
+    ?DBG("log_to_txt3 -> create log writer process", []),
     ?line {ok, Log, Logger} = log_writer_start(Name, LogFile, Size, Repair),
 
-    ?DBG("log_to_txt2 -> create log reader process", []),
+    ?DBG("log_to_txt3 -> create log reader process", []),
     ?line {ok, Reader} = log_reader_start(),
 
-    ?DBG("log_to_txt2 -> wait some time", []),
+    ?DBG("log_to_txt3 -> wait some time", []),
     ?SLEEP(5000),
 
-    ?DBG("log_to_txt2 -> display log info", []),
+    ?DBG("log_to_txt3 -> display log info", []),
     ?line log_writer_info(Logger),
 
-    ?DBG("log_to_txt2 -> instruct the log writer to sleep some", []),
+    ?DBG("log_to_txt3 -> instruct the log writer to sleep some", []),
     ?line ok = log_writer_sleep(Logger, 5000),
 
-    ?DBG("log_to_txt2 -> instruct the log reader to log to txt", []),
+    ?DBG("log_to_txt3 -> instruct the log reader to log to txt", []),
     Res = 
 	log_reader_log_to(Reader, 
 			  fun() -> 
@@ -457,25 +636,25 @@ log_to_txt2(Config) when is_list(Config) ->
 
     case Res of
 	{ok, Info} ->
-	    ?DBG("log_to_txt2 -> ~n   Info: ~p", [Info]),
+	    ?DBG("log_to_txt3 -> ~n   Info: ~p", [Info]),
 	    ?line {ok, #file_info{size = FileSize}} = 
 		file:read_file_info(TxtFile),
-	    ?DBG("log_to_txt2 -> text file size: ~p", [FileSize]),
+	    ?DBG("log_to_txt3 -> text file size: ~p", [FileSize]),
 	    validate_size(FileSize);
 	{Error, Info} ->
-	    ?DBG("log_to_txt2 -> log to txt failed: "
+	    ?DBG("log_to_txt3 -> log to txt failed: "
 		 "~n   Error: ~p"
 		 "~n   Info:  ~p", [Error, Info]),
 	    ?line ?FAIL({log_lo_txt_failed, Error, Info})
     end,
 
-    ?DBG("log_to_txt2 -> instruct the log writer to stop", []),
+    ?DBG("log_to_txt3 -> instruct the log writer to stop", []),
     ?line log_writer_stop(Logger),
 
-    ?DBG("log_to_txt2 -> instruct the log reader to stop", []),
+    ?DBG("log_to_txt3 -> instruct the log reader to stop", []),
     ?line log_reader_stop(Reader),
 
-    ?DBG("log_to_txt2 -> done", []),
+    ?DBG("log_to_txt3 -> done", []),
     ok.
 
 

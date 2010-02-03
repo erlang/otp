@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -327,10 +327,15 @@ config_agent_sys() ->
 			    ATLRepair = ask("23f. Audit trail log repair "
 					    "(true/false/truncate/snmp_repair)?", "true",
 					    fun verify_atl_repair/1),
+			    ATLSeqNo = ask("23g. Audit trail log "
+					   "sequence-numbering (true/false)?", 
+					   "false",
+					   fun verify_atl_seqno/1),
 			    [{audit_trail_log, [{type,   ATLType},
 						{dir,    ATLDir},
 						{size,   ATLSize},
-						{repair, ATLRepair}]}];
+						{repair, ATLRepair},
+						{seqno, ATLSeqNo}]}];
 			no ->
 			    []
 		    end,
@@ -400,8 +405,39 @@ config_agent_sys() ->
 		NetIf = [{module,    NetIfMod},
 			 {verbosity, NetIfVerb},
 			 {options,   NetIfOpts}],
+		TermDiscoEnable = ask("26a. Allow terminating discovery "
+				      "(true/false)?", "true",
+				      fun verify_bool/1),
+		TermDiscoConf = 
+		    case TermDiscoEnable of
+			true ->
+			    TermDiscoStage2 = 
+				ask("26b. Second stage behaviour "
+				    "(discovery/plain)?", "discovery",
+				    fun verify_term_disco_behaviour/1),
+			    TermDiscoTrigger = 
+				ask("26c. Trigger username "
+				    "(default/a string)?", "default",
+				    fun verify_term_disco_trigger_username/1),
+			    [{enable, TermDiscoEnable},
+			     {stage2, TermDiscoStage2},
+			     {trigger_username, TermDiscoTrigger}];
+			false ->
+			    [{enable, TermDiscoEnable},
+			     {stage2, discovery},
+			     {trigger_username, ""}]
+		    end,
+		OrigDiscoEnable = ask("27a. Allow originating discovery "
+				      "(true/false)?", "true",
+				      fun verify_bool/1),
+		OrigDiscoConf = 
+		    [{enable, OrigDiscoEnable}], 
+		DiscoveryConfig = 
+		    [{terminating, TermDiscoConf},
+		     {originating, OrigDiscoConf}], 
 		[{agent_type,      master},
 		 {agent_verbosity, MasterAgentVerb},
+		 {discovery,       DiscoveryConfig}, 
 		 {config,          [{dir,        ConfigDir}, 
 				    {force_load, ForceLoad},
 				    {verbosity,  ConfigVerb}]},
@@ -644,23 +680,31 @@ config_manager_sys() ->
 		 "(y/n)?",
 		 "n", fun verify_yes_or_no/1) of
 	    yes ->
-		ATLDir = ask("19b. Where to store the "
+		ATLType = ask("19b. Audit trail log type "
+			      "(write/read_write)?",
+			      "read_write", fun verify_atl_type/1),
+		ATLDir = ask("19c. Where to store the "
 			     "audit trail log?",
 			     DefDir, fun verify_dir/1),
-		ATLMaxFiles = ask("19c. Max number of files?", 
+		ATLMaxFiles = ask("19d. Max number of files?", 
 				  "10", 
 				  fun verify_pos_integer/1),
-		ATLMaxBytes = ask("19d. Max size (in bytes) "
+		ATLMaxBytes = ask("19e. Max size (in bytes) "
 				  "of each file?", 
 				  "10240", 
 				  fun verify_pos_integer/1),
 		ATLSize = {ATLMaxBytes, ATLMaxFiles},
-		ATLRepair = ask("19e. Audit trail log repair "
+		ATLRepair = ask("19f. Audit trail log repair "
 				"(true/false/truncate/snmp_repair)?", "true",
 				fun verify_atl_repair/1),
-		[{audit_trail_log, [{dir,    ATLDir},
+		ATLSeqNo = ask("19g. Audit trail log sequence-numbering "
+			       "(true/false)?", "false",
+			       fun verify_atl_seqno/1),
+		[{audit_trail_log, [{type,   ATLType},
+				    {dir,    ATLDir},
 				    {size,   ATLSize},
-				    {repair, ATLRepair}]}];
+				    {repair, ATLRepair},
+				    {seqno,  ATLSeqNo}]}];
 	    no ->
 		[]
 	end,
@@ -1180,6 +1224,13 @@ verify_atl_repair("snmp_repair") ->
 verify_atl_repair(R) ->
     {error, "invalid audit trail log repair: " ++ R}.
 
+verify_atl_seqno("true") ->
+    {ok, true};
+verify_atl_seqno("false") ->
+    {ok, false};
+verify_atl_seqno(SN) ->
+    {error, "invalid audit trail log seqno: " ++ SN}.
+
 
 verify_pos_integer(I0) ->
     case (catch list_to_integer(I0)) of
@@ -1236,6 +1287,18 @@ verify_irb_user(TO) ->
 	    {error, "invalid IRB GC time: " ++ TO}
     end.
     
+
+verify_term_disco_behaviour("discovery") ->
+    {ok, discovery};
+verify_term_disco_behaviour("plain") ->
+    {ok, plain};
+verify_term_disco_behaviour(B) ->
+    {error, "invalid terminating discovery behaviour: " ++ B}.
+
+verify_term_disco_trigger_username("default") ->
+    {ok, ""};
+verify_term_disco_trigger_username(Trigger) ->
+    {ok, Trigger}.
 
 
 verify_user_id(UserId) when is_list(UserId) ->
@@ -2096,6 +2159,10 @@ write_sys_config_file_agent_opt(Fid, {audit_trail_log, Opts}) ->
     ok = io:format(Fid, "     {audit_trail_log, [", []),
     write_sys_config_file_agent_atl_opts(Fid, Opts),
     ok = io:format(Fid, "}", []);
+write_sys_config_file_agent_opt(Fid, {discovery, Opts}) ->
+    ok = io:format(Fid, "     {discovery, [", []),
+    write_sys_config_file_agent_disco_opts(Fid, Opts),
+    ok = io:format(Fid, "}", []);
 write_sys_config_file_agent_opt(Fid, {net_if, Opts}) ->
     ok = io:format(Fid, "     {net_if, ~w}", [Opts]);
 write_sys_config_file_agent_opt(Fid, {mib_server, Opts}) ->
@@ -2139,7 +2206,58 @@ write_sys_config_file_agent_atl_opt(Fid, {type, Type}) ->
 write_sys_config_file_agent_atl_opt(Fid, {size, Size}) ->
     ok = io:format(Fid, "{size, ~w}", [Size]);
 write_sys_config_file_agent_atl_opt(Fid, {repair, Rep}) ->
-    ok = io:format(Fid, "{repair, ~w}", [Rep]).
+    ok = io:format(Fid, "{repair, ~w}", [Rep]);
+write_sys_config_file_agent_atl_opt(Fid, {seqno, SeqNo}) ->
+    ok = io:format(Fid, "{seqno, ~w}", [SeqNo]).
+
+
+%% These options are allways there
+write_sys_config_file_agent_disco_opts(Fid, [Opt]) ->
+    write_sys_config_file_agent_disco_opt(Fid, Opt),
+    ok = io:format(Fid, "]", []),
+    ok;
+write_sys_config_file_agent_disco_opts(Fid, [Opt|Opts]) ->
+    write_sys_config_file_agent_disco_opt(Fid, Opt),
+    ok = io:format(Fid, ", ", []),
+    write_sys_config_file_agent_disco_opts(Fid, Opts).
+    
+write_sys_config_file_agent_disco_opt(Fid, {terminating, Opts}) ->
+    ok = io:format(Fid, "{terminating, [", []),
+    write_sys_config_file_agent_term_disco_opts(Fid, Opts),
+    ok = io:format(Fid, "}", []);
+write_sys_config_file_agent_disco_opt(Fid, {originating, Opts}) ->
+    ok = io:format(Fid, "{originating, [", []),
+    write_sys_config_file_agent_orig_disco_opts(Fid, Opts),
+    ok = io:format(Fid, "}", []).
+
+write_sys_config_file_agent_term_disco_opts(Fid, [Opt]) ->
+    write_sys_config_file_agent_term_disco_opt(Fid, Opt),
+    ok = io:format(Fid, "]", []),
+    ok;
+write_sys_config_file_agent_term_disco_opts(Fid, [Opt|Opts]) ->
+    write_sys_config_file_agent_term_disco_opt(Fid, Opt),
+    ok = io:format(Fid, ", ", []),
+    write_sys_config_file_agent_term_disco_opts(Fid, Opts).
+    
+write_sys_config_file_agent_term_disco_opt(Fid, {enable, Enable}) ->
+    ok = io:format(Fid, "{enable, ~w}", [Enable]);
+write_sys_config_file_agent_term_disco_opt(Fid, {stage2, Stage2}) ->
+    ok = io:format(Fid, "{stage2, ~w}", [Stage2]);
+write_sys_config_file_agent_term_disco_opt(Fid, {trigger_username, Trigger}) ->
+    ok = io:format(Fid, "{trigger_username, \"~s\"}", [Trigger]).
+
+write_sys_config_file_agent_orig_disco_opts(Fid, [Opt]) ->
+    write_sys_config_file_agent_orig_disco_opt(Fid, Opt),
+    ok = io:format(Fid, "]", []),
+    ok;
+write_sys_config_file_agent_orig_disco_opts(Fid, [Opt|Opts]) ->
+    write_sys_config_file_agent_orig_disco_opt(Fid, Opt),
+    ok = io:format(Fid, ", ", []),
+    write_sys_config_file_agent_orig_disco_opts(Fid, Opts).
+    
+write_sys_config_file_agent_orig_disco_opt(Fid, {enable, Enable}) ->
+    ok = io:format(Fid, "{enable, ~w}", [Enable]).
+
 
 
 write_sys_config_file_manager_opts(Fid, [Opt]) ->

@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 %% -------------------------------------------------------------------------
@@ -63,6 +63,7 @@
 
 	 cre_counter/2,
 	 incr_counter/2,
+	 increment_counter/3, increment_counter/4, 
 
 	 cre_stats_counter/2,
 	 maybe_cre_stats_counter/2,
@@ -792,6 +793,34 @@ incr_counter(Counter, Incr, Wrap) ->
     end.
 
 
+%% <ATL Sequence Number>
+increment_counter(Counter, Initial, Max) ->
+    Increment = 1, 
+    increment_counter(Counter, Initial, Increment, Max).
+
+increment_counter(Counter, Initial, Increment, Max) ->
+    %% This is to make sure no one else increments our counter
+    Key = {Counter, self()},
+
+    %% Counter data
+    Position  = 2,
+    Threshold = Max,
+    SetValue  = Initial,
+    UpdateOp  = {Position, Increment, Threshold, SetValue},
+
+    %% And now for the actual increment
+    Tab = snmpm_counter_table, 
+    case (catch ets:update_counter(Tab, Key, UpdateOp)) of
+        {'EXIT', {badarg, _}} ->
+            %% Oups, first time
+            ets:insert(Tab, {Key, Initial}),
+            Initial;
+        Next when is_integer(Next) ->
+            Next
+    end.
+%% </ATL Sequence Number>
+
+
 maybe_cre_stats_counter(Counter, Initial) ->
     case ets:lookup(snmpm_stats_table, Counter) of
 	[_] ->
@@ -1013,14 +1042,16 @@ do_init(Opts) ->
 	AuditTrailLogOpts ->
 	    ?vtrace("ATL options: ~p", [AuditTrailLogOpts]),
 	    ets:insert(snmpm_config_table, {audit_trail_log, true}),
-	    LogDir  = get_atl_dir(AuditTrailLogOpts),
-	    LogType = get_atl_type(AuditTrailLogOpts),
-	    LogSize = get_atl_size(AuditTrailLogOpts),
-	    LogRep  = get_atl_repair(AuditTrailLogOpts),
+	    LogDir   = get_atl_dir(AuditTrailLogOpts),
+	    LogType  = get_atl_type(AuditTrailLogOpts),
+	    LogSize  = get_atl_size(AuditTrailLogOpts),
+	    LogRep   = get_atl_repair(AuditTrailLogOpts),
+	    LogSeqNo = get_atl_seqno(AuditTrailLogOpts),
 	    ets:insert(snmpm_config_table, {audit_trail_log_dir,    LogDir}),
 	    ets:insert(snmpm_config_table, {audit_trail_log_type,   LogType}),
 	    ets:insert(snmpm_config_table, {audit_trail_log_size,   LogSize}),
-	    ets:insert(snmpm_config_table, {audit_trail_log_repair, LogRep})
+	    ets:insert(snmpm_config_table, {audit_trail_log_repair, LogRep}),
+	    ets:insert(snmpm_config_table, {audit_trail_log_seqno,  LogSeqNo})
     end,
 
     %% -- System default agent config --
@@ -1398,6 +1429,9 @@ verify_audit_trail_log_opts([{size, Size}|Opts]) ->
 verify_audit_trail_log_opts([{repair, Repair}|Opts]) ->
     verify_log_repair(Repair),
     verify_audit_trail_log_opts(Opts);
+verify_audit_trail_log_opts([{seqno, SeqNo}|Opts]) ->
+    verify_log_seqno(SeqNo),
+    verify_audit_trail_log_opts(Opts);
 verify_audit_trail_log_opts([Opt|_Opts]) ->
     error({invalid_audit_trail_log_option, Opt}).
 
@@ -1439,6 +1473,11 @@ verify_log_repair(false) -> ok;
 verify_log_repair(truncate) -> ok;
 verify_log_repair(Repair) ->
     error({invalid_audit_trail_log_repair, Repair}).
+
+verify_log_seqno(true) -> ok;
+verify_log_seqno(false) -> ok;
+verify_log_seqno(SeqNo) ->
+    error({invalid_audit_trail_log_seqno, SeqNo}).
 
 
 verify_module(_, Mod) when is_atom(Mod) ->
@@ -3039,6 +3078,9 @@ get_atl_size(Opts) ->
 
 get_atl_repair(Opts) ->
     get_opt(repair, Opts, truncate).
+
+get_atl_seqno(Opts) ->
+    get_opt(seqno, Opts, false).
 
 
 %%----------------------------------------------------------------------

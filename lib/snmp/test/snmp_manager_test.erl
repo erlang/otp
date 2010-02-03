@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -111,7 +111,9 @@
 
 	 tickets/1,
 	 otp8015/1,
-	 otp8015_1/1
+	 otp8015_1/1, 
+	 otp8395/1,
+	 otp8395_1/1
 
 	]).
 
@@ -240,18 +242,22 @@ init_per_testcase3(Case, Config) ->
 	 simple_async_set2, 
 	 simple_sync_get_bulk2, 
 	 simple_async_get_bulk2,
-	 misc_async2
+	 misc_async2,
+	 otp8395_1
 	],
-    Cases = [
-	     trap1,
-	     trap2,
-	     inform1,
-	     inform2,
-	     inform3,
-	     inform4,
-	     inform_swarm,
-	     report
-	    ] ++ OldApiCases ++ NewApiCases,
+    Cases = 
+	[
+	 trap1,
+	 trap2,
+	 inform1,
+	 inform2,
+	 inform3,
+	 inform4,
+	 inform_swarm,
+	 report
+	] ++ 
+	OldApiCases ++ 
+	NewApiCases,
     case lists:member(Case, Cases) of
 	true ->
 	    NoAutoInformCases = [inform1, inform2, inform3, inform_swarm], 
@@ -265,6 +271,8 @@ init_per_testcase3(Case, Config) ->
 				    {agent_verbosity,              info}, 
 				    {agent_net_if_verbosity,       info}],
 			    Verb ++ Config;
+			Case =:= otp8395_1 ->
+			    [{manager_atl_seqno, true} | Config];
 			true ->
 			    Config
 		    end,
@@ -315,18 +323,22 @@ fin_per_testcase2(Case, Config) ->
 	 simple_async_set2, 
 	 simple_sync_get_bulk2, 
 	 simple_async_get_bulk2,
-	 misc_async2
+	 misc_async2,
+	 otp8395_1
 	],
-    Cases = [
-	     trap1,
-	     trap2,
-	     inform1,
-	     inform2,
-	     inform3,
-	     inform4,
-	     inform_swarm,
-	     report
-	    ] ++ OldApiCases ++ NewApiCases,
+    Cases = 
+	[
+	 trap1,
+	 trap2,
+	 inform1,
+	 inform2,
+	 inform3,
+	 inform4,
+	 inform_swarm,
+	 report
+	] ++ 
+	OldApiCases ++ 
+	NewApiCases,
     case lists:member(Case, Cases) of
 	true ->
 	    Conf1 = case lists:member(Case, NewApiCases) of
@@ -446,12 +458,18 @@ event_tests(suite) ->
 
 tickets(suite) ->
     [
-     otp8015
+     otp8015,
+     otp8395
     ].
 
 otp8015(suite) ->
     [
      otp8015_1
+    ].
+
+otp8395(suite) ->
+    [
+     otp8395_1
     ].
 
 
@@ -1372,6 +1390,9 @@ simple_sync_get2(suite) -> [];
 simple_sync_get2(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname, ssg2),
+    do_simple_get(Config).
+
+do_simple_get(Config) ->
     p("starting with Config: ~p~n", [Config]),
 
     Node       = ?config(manager_node, Config),
@@ -1386,7 +1407,7 @@ simple_sync_get2(Config) when is_list(Config) ->
     Oids2 = [[sysObjectID, 0], [sysDescr, 0], [sysUpTime, 0]],
     ?line ok = do_simple_get(Node, TargetName, Oids2),
     ok.
-
+    
 do_simple_get(Node, TargetName, Oids) ->
     ?line {ok, Reply, Rem} = mgr_user_sync_get(Node, TargetName, Oids),
 
@@ -4438,6 +4459,16 @@ otp8015_1(Config) when is_list(Config) ->
 
 
 %%======================================================================
+
+otp8395_1(doc) -> ["OTP-8395:1 - simple get with ATL sequence numbering."];
+otp8395_1(suite) -> [];
+otp8395_1(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    put(tname, otp8395_1),
+    do_simple_get(Config).
+
+
+%%======================================================================
 %% async snmp utility functions
 %%======================================================================
 
@@ -5063,12 +5094,15 @@ start_manager(Node, Vsns, Conf0, Opts) ->
     ServerVerbosity    = get_opt(manager_server_verbosity,     Conf0, trace),
     NetIfVerbosity     = get_opt(manager_net_if_verbosity,     Conf0, trace),
 
+    AtlSeqNo           = get_opt(manager_atl_seqno,            Conf0, false),
+
     Env = [{versions,                     Vsns},
 	   {inform_request_behaviour,     IRB},
 	   {audit_trail_log, [{type,      read_write},
 			      {dir,       AtlDir},
 			      {size,      {10240, 10}},
-			      {repair,    true}]},
+			      {repair,    true},
+			      {seqno,     AtlSeqNo}]},
 	   {config,          [{dir,       ConfDir}, 
 			      {db_dir,    DbDir}, 
 			      {verbosity, ConfigVerbosity}]},

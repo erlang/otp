@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -80,6 +80,9 @@
 
 
 -define(IRGC_TIMEOUT, timer:minutes(5)).
+
+-define(ATL_SEQNO_INITIAL, 1).
+-define(ATL_SEQNO_MAX,     2147483647).
 
 
 %%%-------------------------------------------------------------------
@@ -297,11 +300,29 @@ do_init_log(true) ->
     {ok, Repair} = snmpm_config:system_info(audit_trail_log_repair),
     Name = ?audit_trail_log_name, 
     File = filename:absname(?audit_trail_log_file, Dir),
-    case snmp_log:create(Name, File, Size, Repair, true) of
-	{ok, Log} ->
-	    {Log, Type};
-	{error, Reason} ->
-	    throw({error, {failed_create_audit_log, Reason}})
+    case snmpm_config:system_info(audit_trail_log_seqno) of
+	{ok, true} ->
+	    Initial  = ?ATL_SEQNO_INITIAL,
+	    Max      = ?ATL_SEQNO_MAX, 
+	    Module   = snmpm_config, 
+	    Function = increment_counter, 
+	    Args     = [atl_seqno, Initial, Max], 
+	    SeqNoGen = {Module, Function, Args}, 
+	    case snmp_log:create(Name, File, 
+				 SeqNoGen, Size, Repair, true) of
+		{ok, Log} ->
+		    ?vdebug("log created: ~w", [Log]),
+		    {Log, Type};
+		{error, Reason} ->
+		    throw({error, {failed_create_audit_log, Reason}})
+	    end;
+	_ ->
+	    case snmp_log:create(Name, File, Size, Repair, true) of
+		{ok, Log} ->
+		    {Log, Type};
+		{error, Reason} ->
+		    throw({error, {failed_create_audit_log, Reason}})
+	    end
     end.
 
     
@@ -441,32 +462,15 @@ do_close_log(_) ->
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
  
-code_change({down, _Vsn}, OldState, downgrade_to_pre45) ->
+code_change({down, _Vsn}, OldState, downgrade_to_pre_4_16) ->
     ?d("code_change(down) -> entry", []),
-    #state{server     = Server, 
-	   note_store = NoteStore, 
-	   sock       = Sock, 
-	   mpd_state  = MpdState, 
-	   log        = Log, 
-	   irgc       = IrGcRef} = OldState,
-    irgc_stop(IrGcRef),
-    (catch ets:delete(snmpm_inform_request_table)),
-    State = {state, Server, NoteStore, Sock, MpdState, Log},
+    State = OldState#state{log = snmp_log:downgrade(OldState#state.log)}, 
     {ok, State};
 
 % upgrade
-code_change(_Vsn, OldState, upgrade_from_pre45) ->
+code_change(_Vsn, OldState, upgrade_from_pre_4_16) ->
     ?d("code_change(up) -> entry", []),
-    {state, Server, NoteStore, Sock, MpdState, Log} = OldState,
-    State = #state{server     = Server, 
-		   note_store = NoteStore, 
-		   sock       = Sock, 
-		   mpd_state  = MpdState, 
-		   log        = Log, 
-		   irb        = auto,
-		   irgc       = undefined},
-    ets:new(snmpm_inform_request_table,
-	    [set, protected, named_table, {keypos, 1}]),
+    State = OldState#state{log = snmp_log:upgrade(OldState#state.log)}, 
     {ok, State};
 
 code_change(_Vsn, State, _Extra) ->

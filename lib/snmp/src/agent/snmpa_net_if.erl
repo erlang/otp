@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(snmpa_net_if).
@@ -54,6 +54,9 @@
 
 -define(DEFAULT_FILTER_MODULE, snmpa_net_if_filter).
 -define(DEFAULT_FILTER_OPTS,   [{module, ?DEFAULT_FILTER_MODULE}]).
+
+-define(ATL_SEQNO_INITIAL, 1).
+-define(ATL_SEQNO_MAX,     2147483647).
 
 
 %%%-----------------------------------------------------------------
@@ -194,24 +197,43 @@ do_init(Prio, NoteStore, MasterAgent, Parent, Opts) ->
 	    {error, {udp_open, UDPPort, Reason}}
     end.
 
+
 create_log() ->
     case ets:lookup(snmp_agent_table, audit_trail_log) of
 	[] ->
 	    {undefined, []};
 	[{audit_trail_log, AtlOpts}] ->
-	    ?vtrace("AtlOpts: ~p",[AtlOpts]),
+	    ?vtrace("AtlOpts: ~p", [AtlOpts]),
 	    Type   = get_atl_type(AtlOpts),
 	    Dir    = get_atl_dir(AtlOpts),
 	    Size   = get_atl_size(AtlOpts),
 	    Repair = get_atl_repair(AtlOpts),
 	    Name   = ?audit_trail_log_name,
 	    File   = filename:absname(?audit_trail_log_file, Dir),
-	    case snmp_log:create(Name, File, Size, Repair, true) of
-		{ok, Log} ->
-		    ?vdebug("log created: ~w",[Log]),
-		    {Log, Type};
-		{error, Reason} ->
-		    throw({error, {create_log, Reason}})
+	    case get_atl_seqno(AtlOpts) of
+		true ->
+		    Initial  = ?ATL_SEQNO_INITIAL,
+		    Max      = ?ATL_SEQNO_MAX, 
+		    Module   = snmpa_agent, 
+		    Function = increment_counter, 
+		    Args     = [atl_seqno, Initial, Max], 
+		    SeqNoGen = {Module, Function, Args}, 
+		    case snmp_log:create(Name, File, 
+					 SeqNoGen, Size, Repair, true) of
+			{ok, Log} ->
+			    ?vdebug("log created: ~w", [Log]),
+			    {Log, Type};
+			{error, Reason} ->
+			    throw({error, {create_log, Reason}})
+		    end;
+		_ ->
+		    case snmp_log:create(Name, File, Size, Repair, true) of
+			{ok, Log} ->
+			    ?vdebug("log created: ~w", [Log]),
+			    {Log, Type};
+			{error, Reason} ->
+			    throw({error, {create_log, Reason}})
+		    end
 	    end
     end.
 
@@ -918,60 +940,23 @@ system_continue(_Parent, _Dbg, S) ->
     loop(S).
 
 system_terminate(Reason, _Parent, _Dbg, #state{log = Log}) ->
+    ?vlog("system-terminate -> entry with"
+	  "~n   Reason: ~p", [Reason]),
     do_close_log(Log),
     exit(Reason).
 
-system_code_change(OldState, _Module, _OldVsn, upgrade_from_pre_4_10) ->
-    {state, 
-     parent       = Parent, 
-     note_store   = NS,
-     master_agent = MA, 
-     usock        = Sock, 
-     usock_opts   = SockOpts, 
-     mpd_state    = MpdState, 
-     log          = Log,
-     reqs         = Reqs, 
-     debug        = Dbg,
-     limit        = Limit,
-     rcnt         = RCNT} = OldState,
-    NewState = #state{parent       = Parent, 
-		      note_store   = NS,
-		      master_agent = MA, 
-		      usock        = Sock, 
-		      usock_opts   = SockOpts, 
-		      mpd_state    = MpdState, 
-		      log          = Log,
-		      reqs         = Reqs, 
-		      debug        = Dbg,
-		      limit        = Limit,
-		      rcnt         = RCNT,
-		      filter       = create_filter(?DEFAULT_FILTER_OPTS)},
+system_code_change(OldState, _Module, _OldVsn, upgrade_from_pre_4_16) ->
+    Initial  = ?ATL_SEQNO_INITIAL,
+    Max      = ?ATL_SEQNO_MAX, 
+    Module   = snmpa_agent, 
+    Function = increment_counter, 
+    Args     = [atl_seqno, Initial, Max], 
+    SeqNoGen = {Module, Function, Args}, 
+    NewLog   = snmp_log:upgrade(OldState#state.log, SeqNoGen), 
+    NewState = OldState#state{log = NewLog}, 
     {ok, NewState};
-system_code_change(OldState, _Module, _OldVsn, downgrade_to_pre_4_10) ->
-    #state{parent       = Parent, 
-	   note_store   = NS,
-	   master_agent = MA, 
-	   usock        = Sock, 
-	   usock_opts   = SockOpts, 
-	   mpd_state    = MpdState, 
-	   log          = Log,
-	   reqs         = Reqs, 
-	   debug        = Dbg,
-	   limit        = Limit,
-	   rcnt         = RCNT} = OldState,
-    NewState = 
-	{state, 
-	 parent       = Parent, 
-	 note_store   = NS,
-	 master_agent = MA, 
-	 usock        = Sock, 
-	 usock_opts   = SockOpts, 
-	 mpd_state    = MpdState, 
-	 log          = Log,
-	 reqs         = Reqs, 
-	 debug        = Dbg,
-	 limit        = Limit,
-	 rcnt         = RCNT},
+system_code_change(OldState, _Module, _OldVsn, downgrade_to_pre_4_16) ->
+    NewState = OldState#state{log = snmp_log:downgrade(OldState#state.log)}, 
     {ok, NewState};
 system_code_change(S, _Module, _OldVsn, _Extra) ->
     {ok, S}.
@@ -1110,6 +1095,9 @@ get_atl_size(Opts) ->
 
 get_atl_repair(Opts) ->
     snmp_misc:get_option(repair, Opts, true).
+
+get_atl_seqno(Opts) ->
+    snmp_misc:get_option(seqno, Opts, false).
 
 get_verbosity(Opts) ->
     snmp_misc:get_option(verbosity, Opts, ?default_verbosity).

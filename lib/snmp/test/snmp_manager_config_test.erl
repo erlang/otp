@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -86,7 +86,12 @@
 	 stats_create_and_increment/1,
 
 	 tickets/1,
-	 otp_7219/1
+	 otp_7219/1, 
+	 otp_8395/1, 
+	 otp_8395_1/1, 
+	 otp_8395_2/1, 
+	 otp_8395_3/1, 
+	 otp_8395_4/1
 
 	]).
 
@@ -2295,7 +2300,8 @@ loop(N, _, F) when (N > 0) andalso is_function(F) ->
 
 tickets(suite) ->
     [
-     otp_7219
+     otp_7219, 
+     otp_8395
     ].
 
 
@@ -2345,6 +2351,170 @@ otp_7219(Config) when is_list(Config) ->
 
     p("done"),
     ok.
+
+
+
+otp_8395(suite) ->
+    [
+     otp_8395_1, 
+     otp_8395_2, 
+     otp_8395_3, 
+     otp_8395_4 
+    ].
+
+otp_8395_1(suite) -> [];
+otp_8395_1(doc) ->
+    "OTP-8395(1)";
+otp_8395_1(Conf) when is_list(Conf) ->
+    put(tname, otp_8395_1),
+    p("start"),
+    process_flag(trap_exit, true),
+    otp8395(Conf, false, ok),
+    ok.
+
+otp_8395_2(suite) -> [];
+otp_8395_2(doc) ->
+    "OTP-8395(2)";
+otp_8395_2(Conf) when is_list(Conf) ->
+    put(tname, otp_8395_2),
+    p("start"),
+    process_flag(trap_exit, true),
+    otp8395(Conf, true, ok),
+    ok.
+
+otp_8395_3(suite) -> [];
+otp_8395_3(doc) ->
+    "OTP-8395(3)";
+otp_8395_3(Conf) when is_list(Conf) ->
+    put(tname, otp_8395_3),
+    p("start"),
+    process_flag(trap_exit, true),
+    otp8395(Conf, gurka, error),
+    ok.
+
+otp8395(Conf, SeqNoVal, Expect) ->
+    ConfDir   = ?config(manager_conf_dir, Conf),
+    DbDir     = ?config(manager_db_dir, Conf),
+    LogDir    = ?config(manager_log_dir, Conf),
+    StdMibDir = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    
+    write_manager_conf(ConfDir),
+    
+    %% Third set of options (no versions):
+    p("all options"),
+    NetIfOpts  = [{module,    snmpm_net_if}, 
+		  {verbosity, trace},
+		  {options,   [{recbuf,   30000},
+			       {bind_to,  false},
+			       {no_reuse, false}]}],
+    ServerOpts = [{timeout, 10000}, {verbosity, trace}],
+    NoteStoreOpts = [{timeout, 20000}, {verbosity, trace}],
+    ConfigOpts = [{dir, ConfDir}, {verbosity, trace}, {db_dir, DbDir}],
+    Mibs = [join(StdMibDir, "SNMP-NOTIFICATION-MIB"),
+	    join(StdMibDir, "SNMP-USER-BASED-SM-MIB")],
+    Prio = normal,
+    ATL  = [{type,   read_write}, 
+	    {dir,    LogDir}, 
+	    {size,   {10,10240}},
+	    {repair, true},
+	    {seqno,  SeqNoVal}],
+    Vsns = [v1,v2,v3],
+    Opts = [{config,          ConfigOpts},
+	    {net_if,          NetIfOpts},
+	    {server,          ServerOpts},
+	    {note_store,      NoteStoreOpts},
+	    {audit_trail_log, ATL},
+	    {priority,        Prio}, 
+	    {mibs,            Mibs},
+	    {versions,        Vsns}],
+    
+    case config_start(Opts) of
+	{ok, _Pid} when (Expect =:= ok) ->
+	    ?line ok = config_stop(),
+	    ok;
+	{ok, _Pid} when (Expect =/= ok) ->
+	    config_stop(),
+	    exit({unexpected_started_config, SeqNoVal});
+	_Error when (Expect =/= ok) ->
+	    ok; 
+	Error when (Expect =:= ok) ->
+	    exit({unexpected_failed_starting_config, SeqNoVal, Error})
+    end,
+    p("done"),
+    ok.
+
+
+otp_8395_4(suite) -> [];
+otp_8395_4(doc) ->
+    "OTP-8395(4)";
+otp_8395_4(Conf) when is_list(Conf) ->
+    put(tname, otp_8395_4),
+    p("start"),
+    process_flag(trap_exit, true),
+
+    snmp:print_version_info(),
+
+    ConfDir   = ?config(manager_conf_dir, Conf),
+    DbDir     = ?config(manager_db_dir, Conf),
+    LogDir    = ?config(manager_log_dir, Conf),
+    StdMibDir = filename:join(code:priv_dir(snmp), "mibs") ++ "/",
+    
+    write_manager_conf(ConfDir),
+    
+    %% Third set of options (no versions):
+    p("all options"),
+    NetIfOpts  = [{module,    snmpm_net_if}, 
+		  {verbosity, trace},
+		  {options,   [{recbuf,   30000},
+			       {bind_to,  false},
+			       {no_reuse, false}]}],
+    ServerOpts = [{timeout, 10000}, {verbosity, trace}],
+    NoteStoreOpts = [{timeout, 20000}, {verbosity, trace}],
+    ConfigOpts = [{dir, ConfDir}, {verbosity, trace}, {db_dir, DbDir}],
+    Mibs = [join(StdMibDir, "SNMP-NOTIFICATION-MIB"),
+	    join(StdMibDir, "SNMP-USER-BASED-SM-MIB")],
+    Prio = normal,
+    ATL  = [{type,   read_write}, 
+	    {dir,    LogDir}, 
+	    {size,   {10,10240}},
+	    {repair, true},
+	    {seqno,  true}],
+    Vsns = [v1,v2,v3],
+    Opts = [{config,          ConfigOpts},
+	    {net_if,          NetIfOpts},
+	    {server,          ServerOpts},
+	    {note_store,      NoteStoreOpts},
+	    {audit_trail_log, ATL},
+	    {priority,        Prio}, 
+	    {mibs,            Mibs},
+	    {versions,        Vsns}],
+    
+    ?line {ok, _Pid} = config_start(Opts),
+    
+    Counter   = otp_8395_4, 
+    Initial   = 10,
+    Increment = 2, 
+    Max       = 20,
+    
+    %% At this call the counter does *not* exist. The call creates
+    %% it with the initial value!
+
+    Val1 = Initial, 
+    Val1 = otp8395_incr_counter(Counter, Initial, Increment, Max),
+
+    %% Now it exist, make sure another call does the expected increment
+    
+    Val2 = Initial + Increment, 
+    Val2 = otp8395_incr_counter(Counter, Initial, Increment, Max),
+
+    ?line ok = config_stop(),
+
+    p("done"),
+    ok.
+    
+
+otp8395_incr_counter(Counter, Initial, Increment, Max) ->
+    snmpm_config:increment_counter(Counter, Initial, Increment, Max).
 
 
 %%======================================================================

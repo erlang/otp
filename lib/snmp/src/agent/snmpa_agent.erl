@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(snmpa_agent).
@@ -58,6 +58,7 @@
 -export([get_log_type/1,      set_log_type/2]).
 -export([get_request_limit/1, set_request_limit/2]).
 -export([invalidate_ca_cache/0]).
+-export([increment_counter/3]).
 -export([restart_worker/1, restart_set_worker/1]).
 
 %% Internal exports
@@ -257,6 +258,29 @@ update_mibs_cache_gclimit(Agent, GcLimit) ->
 
 update_mibs_cache_age(Agent, Age) ->
     call(Agent, {mibs_cache_request, {update_age, Age}}).
+
+
+increment_counter(Counter, Initial, Max) ->
+    %% This is to make sure no one else increments our counter
+    Key = {Counter, self()}, 
+
+    %% Counter data
+    Position  = 2, 
+    Increment = 1, 
+    Threshold = Max,
+    SetValue  = Initial, 
+    UpdateOp  = {Position, Increment, Threshold, SetValue},
+    
+    %% And now for the actual increment
+    Tab = snmp_agent_table, 
+    case (catch ets:update_counter(Tab, Key, UpdateOp)) of
+	{'EXIT', {badarg, _}} ->
+	    %% Oups, first time
+	    ets:insert(Tab, {Key, Initial}),
+	    Initial;
+	Next when is_integer(Next) ->
+	    Next
+    end.
 
 
 init([Prio, Parent, Ref, Options]) ->
@@ -1223,79 +1247,23 @@ handle_mibs_cache_request(MibServer, Req) ->
 
 %% Downgrade
 %%
-code_change({down, _Vsn}, S, downgrade_to_pre_4_13) ->
-    S1 = workers_restart(S),
-    case S1#state.disco of
-	undefined ->
-	    ok;
-	#disco{from   = From,
-	       sender = Sender,
-	       stage  = Stage} ->
-	    gen_server:reply(From, {error, {upgrade, Stage, Sender}}),
-	    exit(Sender, kill)
-    end,
-    S2 = {state, 
-	  S1#state.type,
-	  S1#state.parent, 
-	  S1#state.worker, 
-	  S1#state.worker_state,
-	  S1#state.set_worker, 
-	  S1#state.multi_threaded, 
-	  S1#state.ref, 
-	  S1#state.vsns,
-	  S1#state.nfilters,
-	  S1#state.note_store,
-	  S1#state.mib_server,   
-	  S1#state.net_if,       
-	  S1#state.net_if_mod,   
-	  S1#state.backup,
-	  S1#state.disco}, 
-    {ok, S2};
+%% code_change({down, _Vsn}, S, downgrade_to_pre_4_13) ->
+%%     {ok, S2};
 
 %% Upgrade
 %%
-code_change(_Vsn, S, upgrade_from_pre_4_13) ->
-    {state, 
-     Type, 
-     Parent, 
-     Worker, 
-     WorkerState,
-     SetWorker, 
-     MultiThreaded, 
-     Ref, 
-     Vsns,
-     NFilters = [],
-     NoteStore,
-     MibServer,   %% Currently unused
-     NetIf,       %% Currently unused
-     NetIfMod,   
-     Backup} = S,
-    S1 = #state{type           = Type, 
-		parent         = Parent, 
-		worker         = Worker, 
-		worker_state   = WorkerState,
-		set_worker     = SetWorker, 
-		multi_threaded = MultiThreaded, 
-		ref            = Ref, 
-		vsns           = Vsns,
-		nfilters       = NFilters,
-		note_store     = NoteStore,
-		mib_server     = MibServer, 
-		net_if         = NetIf, 
-		net_if_mod     = NetIfMod,   
-		backup         = Backup},
-    S2 = workers_restart(S1),
-    {ok, S2};
+%% code_change(_Vsn, S, upgrade_from_pre_4_13) ->
+%%     {ok, S2};
 
 code_change(_Vsn, S, _Extra) ->
     {ok, S}.
 
 
-workers_restart(#state{worker = W, set_worker = SW} = S) ->
-    Worker    = worker_restart(W),
-    SetWorker = set_worker_restart(SW),
-    S#state{worker     = Worker, 
-	    set_worker = SetWorker}.
+%% workers_restart(#state{worker = W, set_worker = SW} = S) ->
+%%     Worker    = worker_restart(W),
+%%     SetWorker = set_worker_restart(SW),
+%%     S#state{worker     = Worker, 
+%% 	    set_worker = SetWorker}.
 
 
 %%-----------------------------------------------------------------
@@ -1321,8 +1289,8 @@ set_worker_start() ->
 worker_start(Dict) ->
     proc_lib:spawn_link(?MODULE, worker, [self(), Dict]).
 
-worker_stop(Pid) ->
-    worker_stop(Pid, infinity).
+%% worker_stop(Pid) ->
+%%     worker_stop(Pid, infinity).
 
 worker_stop(Pid, Timeout) when is_pid(Pid) ->
     Pid ! terminate, 
@@ -1336,17 +1304,17 @@ worker_stop(Pid, Timeout) when is_pid(Pid) ->
 worker_stop(_, _) ->
     ok.
 
-set_worker_restart(Pid) ->
-    worker_restart(Pid, [{master, self()} | get()]).
+%% set_worker_restart(Pid) ->
+%%     worker_restart(Pid, [{master, self()} | get()]).
 
-worker_restart(Pid) ->
-    worker_restart(Pid, get()).
+%% worker_restart(Pid) ->
+%%     worker_restart(Pid, get()).
 
-worker_restart(Pid, Dict) when is_pid(Pid) -> 
-    worker_stop(Pid),
-    worker_start(Dict);
-worker_restart(Any, _Dict) ->
-    Any.
+%% worker_restart(Pid, Dict) when is_pid(Pid) -> 
+%%     worker_stop(Pid),
+%%     worker_start(Dict);
+%% worker_restart(Any, _Dict) ->
+%%     Any.
 
 
 %%-----------------------------------------------------------------

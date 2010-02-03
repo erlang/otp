@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -32,6 +32,8 @@
 -include("snmp_test_lib.hrl").
 -define(SNMP_USE_V3, true).
 -include_lib("snmp/include/snmp_types.hrl").
+-include_lib("snmp/src/agent/snmpa_atl.hrl").
+
 %% -include_lib("snmp/include/SNMP-COMMUNITY-MIB.hrl").
 %% -include_lib("snmp/include/SNMP-VIEW-BASED-ACM-MIB.hrl").
 %% -include_lib("snmp/include/SNMP-USER-BASED-SM-MIB.hrl").
@@ -84,16 +86,18 @@
 
 
 all(suite) -> 
-    {req,
-     [
-      mnesia, 
-      distribution,
-      {local_slave_nodes, 2}, 
-      {time, 360}
-     ],
-     [{conf, init_all, cases(), finish_all}]}.
+    Reqs = [mnesia, distribution, {local_slave_nodes, 2}, {time, 360}], 
+    Conf1 = [{conf, init_all, cases(), finish_all}], 
+    Conf2 = [tickets2], 
+    {req, Reqs, Conf1 ++ Conf2}.
 
 
+init_per_testcase(otp8395 = Case, Config) when is_list(Config) ->
+    ?DBG("init_per_testcase -> entry with"
+	 "~n   Case:   ~p"
+	 "~n   Config: ~p", [Case, Config]),
+    Config2 = init_per_testcase2(Case, init_suite(Config)), 
+    otp8395({init, Config2});
 init_per_testcase(otp_7157_test = _Case, Config) when is_list(Config) ->
     ?DBG("init_per_testcase -> entry with"
 	 "~n   Case:   ~p"
@@ -119,6 +123,8 @@ init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?WD_START(?MINS(6)),
     [{watchdog, Dog}|Config].
 
+fin_per_testcase(otp8395, Config) when is_list(Config) ->
+    otp8395({fin, Config});
 fin_per_testcase(_Case, Config) when is_list(Config) ->
     ?DBG("fin_per_testcase -> entry with"
 	 "~n   Case:   ~p"
@@ -126,6 +132,97 @@ fin_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?WD_STOP(Dog),
     Config.
+
+
+init_suite(Config) ->
+    ?DBG("init_suite -> entry with"
+	 "~n   Config: ~p", [Config]),
+
+    %% Suite root dir for test suite
+    PrivDir = ?config(priv_dir, Config),
+
+    %% Create top-directory for this sub-suite
+    SuiteTopDir = filename:join([PrivDir, ?MODULE]),
+    case file:make_dir(SuiteTopDir) of
+	ok ->
+	    ok;
+	{error, eexist} ->
+	    %% This can happen since this is not really a 
+	    %% suite-init function.
+	    ok;
+	{error, Reason} ->
+	    ?FAIL({failed_creating_suite_top_dir, SuiteTopDir, Reason})
+    end,
+    
+
+    %% --
+    %% Fix config (data-dir is not correct):
+    %% 
+
+    Config1 = fix_data_dir(Config), 
+    %% Config1 = Config, 
+
+    %% Mib-dirs
+    MibDir    = ?config(data_dir, Config1),
+    StdMibDir = filename:join([code:priv_dir(snmp), "mibs"]),
+
+    Config2 = [{suite_top_dir, SuiteTopDir}, 
+	       {mib_dir,       MibDir}, 
+	       {std_mib_dir,   StdMibDir} | Config1],
+
+    ?DBG("init_suite -> done when"
+	 "~n   Config2: ~p", [Config2]),
+    Config2.
+
+%% end_per_suite(Config) ->
+end_suite(Config) ->
+    Config.
+
+fix_data_dir(Config) ->
+    DataDir0     = ?config(data_dir, Config),
+    DataDir1     = filename:split(filename:absname(DataDir0)),
+    [_|DataDir2] = lists:reverse(DataDir1),
+    DataDir      = filename:join(lists:reverse(DataDir2) ++ [?snmp_test_data]),
+    Config1      = lists:keydelete(data_dir, 1, Config),
+    [{data_dir, DataDir} | Config1].
+
+
+init_per_testcase2(Case, Config) ->
+    SuiteToDir = ?config(suite_top_dir, Config),
+    
+    %% Create top-directory for this test-case
+    CaseTopDir = filename:join([SuiteToDir, Case]),
+    ok = file:make_dir(CaseTopDir),
+
+    %% Create agent top-dir(s)
+    AgentTopDir = filename:join([CaseTopDir, agent]),
+    ok = file:make_dir(AgentTopDir),
+    AgentConfDir = filename:join([AgentTopDir, config]),
+    ok = file:make_dir(AgentConfDir),
+    AgentDbDir = filename:join([AgentTopDir, db]),
+    ok = file:make_dir(AgentDbDir),
+    AgentLogDir = filename:join([AgentTopDir, log]),
+    ok = file:make_dir(AgentLogDir),
+
+    %% Create sub-agent top-dir(s)
+    SubAgentTopDir = filename:join([CaseTopDir, sub_agent]),
+    ok = file:make_dir(SubAgentTopDir),
+
+    %% Create manager top-dir(s)
+    ManagerTopDir = filename:join([CaseTopDir, manager]),
+    ok = file:make_dir(ManagerTopDir),
+
+    [{case_top_dir,      CaseTopDir}, 
+     {agent_top_dir,     AgentTopDir}, 
+     {agent_conf_dir,    AgentConfDir}, 
+     {agent_db_dir,      AgentDbDir}, 
+     {agent_log_dir,     AgentLogDir}, 
+     {sub_agent_top_dir, SubAgentTopDir}, 
+     {manager_top_dir,   ManagerTopDir} | Config].
+
+fin_per_testcase2(_Case, Config) ->
+    Config.
+
 
 cases() ->
     case ?OSTYPE() of
@@ -138,7 +235,7 @@ cases() ->
    	     test_v1_v2, 
    	     test_multi_threaded, 
     	     mib_storage, 
-   	     tickets
+   	     tickets1
 	    ];
 	_Else ->
   	    [
@@ -149,7 +246,7 @@ cases() ->
              test_v3, 
              test_multi_threaded, 
              mib_storage, 
-             tickets
+             tickets1
 	    ]
     end.
 
@@ -5071,11 +5168,19 @@ reported_bugs_3(suite) ->
 
 %% These are (ticket) test cases where the initiation has to be done
 %% individually.
-tickets(suite) ->
+tickets1(suite) ->
     [
      otp_4394, 
      otp_7157
     ].
+
+
+tickets2(suite) ->
+    [
+     otp8395
+    ].
+
+
 
 %%-----------------------------------------------------------------
 %% Ticket: OTP-1128
@@ -5624,10 +5729,9 @@ otp_4394_test1() ->
 
 
 otp_7157(suite) -> 
-    {req, [], {conf, 
-	       init_otp_7157, 
-	       [otp_7157_test], 
-	       finish_otp_7157}}.
+    Reqs = [], 
+    Conf = [{conf, init_otp_7157, [otp_7157_test], finish_otp_7157}], 
+    {req, Reqs, Conf}.
 
 init_otp_7157(Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
@@ -5690,6 +5794,337 @@ otp_7157_test1(MA) ->
 
 
 
+%%-----------------------------------------------------------------
+%% Extra test cases
+%% These cases are started in the new way
+%%-----------------------------------------------------------------
+
+otp8395({init, Config}) when is_list(Config) ->
+    ?DBG("otp8395(init) -> entry with"
+	 "~n   Config: ~p", [Config]),
+    
+    %% -- 
+    %% Start nodes
+    %% 
+
+    {ok, AgentNode}    = start_node(agent),
+    %% {ok, SubAgentNode} = start_node(sub_agent),
+    {ok, ManagerNode}  = start_node(manager),
+    
+    %% -- 
+    %% Mnesia init
+    %% 
+
+    AgentDbDir = ?config(agent_db_dir, Config),
+    AgentMnesiaDir = filename:join([AgentDbDir, "mnesia"]),
+    mnesia_init(AgentNode, AgentMnesiaDir),
+    
+%%     SubAgentDir = ?config(sub_agent_dir, Config),
+%%     SubAgentMnesiaDir = filename:join([SubAgentDir, "mnesia"]),
+%%     mnesia_init(SubAgentNode, SubAgentMnesiaDir),
+
+    %% ok = mnesia_create_schema(AgentNode, [AgentNode, SubAgentNode]), 
+    %% ok = mnesia:create_schema([AgentNode, SubAgentNode]),
+    mnesia_create_schema(AgentNode, [AgentNode]),
+
+    mnesia_start(AgentNode),
+    %% mnesia_start(SubAgentNode),
+
+    %% --
+    %% Host & IP
+    %% 
+
+    AgentHost    = ?HOSTNAME(AgentNode),
+    %% SubAgentHost = ?HPSTNAME(SubAgentNode), 
+    ManagerHost  = ?HOSTNAME(ManagerNode),
+
+    Host              = snmp_test_lib:hostname(), 
+    Ip                = ?LOCALHOST(),
+    {ok, AgentIP0}    = snmp_misc:ip(AgentHost),
+    AgentIP           = tuple_to_list(AgentIP0), 
+    %% {ok, SubAgentIP0} = snmp_misc:ip(SubAgentHost),
+    %% SubAgentIP        = tuple_to_list(SubAgentIP0), 
+    {ok, ManagerIP0}  = snmp_misc:ip(ManagerHost),
+    ManagerIP         = tuple_to_list(ManagerIP0),
+    
+
+    %% --
+    %% Write agent config
+    %% 
+    
+    Vsns           = [v1], 
+    AgentConfDir   = ?config(agent_conf_dir, Config),
+    ManagerConfDir = ?config(manager_top_dir, Config),
+    snmp_agent_test_lib:config(Vsns, 
+			       ManagerConfDir, AgentConfDir, 
+			       ManagerIP, AgentIP),
+
+
+    %% --
+    %% Start the agent
+    %% 
+
+    Config2 = start_agent([{host,          Host}, 
+			   {ip,            Ip}, 
+			   {agent_node,    AgentNode}, 
+			   {agent_host,    AgentHost}, 
+			   {agent_ip,      AgentIP}, 
+			   %% {sub_agent_node, SubAgentNode}, 
+			   %% {sub_agent_host, SubAgentHost}, 
+			   %% {sub_agent_ip,   SubAgentIP}, 
+			   {manager_node,  ManagerNode},
+			   {manager_host,  ManagerHost}, 
+			   {manager_ip,    ManagerIP}|Config]),
+    
+    %% -- 
+    %% Create watchdog 
+    %% 
+
+    Dog = ?WD_START(?MINS(1)),
+
+    [{watchdog, Dog} | Config2];
+
+otp8395({fin, Config}) when is_list(Config) ->
+    ?DBG("otp8395(fin) -> entry with"
+	 "~n   Config: ~p", [Config]),
+    
+    AgentNode   = ?config(agent_node, Config),
+    ManagerNode = ?config(manager_node, Config),
+
+    %% -
+    %% Stop agent (this is the nice way to do it, 
+    %% so logs and files can be closed in the proper way).
+    %% 
+    
+    AgentSup = ?config(agent_sup, Config),
+    ?DBG("otp8395(fin) -> stop (stand-alone) agent: ~p", [AgentSup]),
+    stop_stdalone_agent(AgentSup), 
+    
+    %% - 
+    %% Stop mnesia
+    %% 
+    ?DBG("otp8395(fin) -> stop mnesia", []),
+    mnesia_stop(AgentNode),
+
+
+    %% - 
+    %% Stop the agent node
+    %% 
+
+    ?DBG("otp8395(fin) -> stop agent node", []),
+    stop_node(AgentNode),
+
+
+%%     SubAgentNode = ?config(sub_agent_node, Config),
+%%     stop_node(SubAgentNode),
+
+
+    %% - 
+    %% Stop the manager node
+    %% 
+
+    ?DBG("otp8395(fin) -> stop manager node", []),
+    stop_node(ManagerNode),
+
+    Dog = ?config(watchdog, Config),
+    ?WD_STOP(Dog),
+    lists:keydelete(watchdog, 1, Config);
+
+otp8395(doc) ->
+    "OTP-8395 - ATL with sequence numbering. ";
+
+otp8395(Config) when is_list(Config) ->
+    ?DBG("otp8395 -> entry with"
+	 "~n   Config: ~p", [Config]),
+    
+    ?SLEEP(1000),
+
+    %% This is just to dirty trick for the ***old*** test-code
+    put(mgr_node, ?config(manager_node, Config)), 
+    put(mgr_dir,  ?config(manager_top_dir, Config)),
+    put(mib_dir,  ?config(mib_dir, Config)),
+    put(vsn, v1), 
+    put(master_host, ?config(agent_host, Config)),
+    try_test(simple_standard_test),
+
+    ?SLEEP(1000),
+    AgentNode   = ?config(agent_node, Config),
+    AgentLogDir = ?config(agent_log_dir, Config),
+    OutFile     = filename:join([AgentLogDir, "otp8395.txt"]),
+    {ok, LogInfo} = rpc:call(AgentNode, snmpa, log_info, []),
+    ?DBG("otp8395 -> LogInfo: ~p", [LogInfo]), 
+
+%%     SyncRes = rpc:call(AgentNode, snmp, log_sync, [?audit_trail_log_name]),
+%%     ?DBG("otp8395 -> SyncRes: ~p", [SyncRes]), 
+
+    ok = agent_log_validation(AgentNode),
+    LTTRes = 
+	rpc:call(AgentNode, snmpa, log_to_txt, [AgentLogDir, [], OutFile]), 
+    ?DBG("otp8395 -> LTTRes: ~p", [LTTRes]), 
+
+    ?SLEEP(1000),
+    ?DBG("otp8395 -> done", []),
+    ok.
+		    
+
+agent_log_validation(Node) ->
+    rpc:call(Node, ?MODULE, agent_log_validation, []).
+
+agent_log_validation() ->
+    put(sname, otp8308),
+    put(verbosity, trace),
+    snmp_log:validate(?audit_trail_log_name, true).
+
+mnesia_init(Node, Dir) ->
+    rpc:call(Node, ?MODULE, mnesia_init, [Dir]).
+
+mnesia_init(Dir) ->
+    ok = application:load(mnesia),
+    application_controller:set_env(mnesia, dir, Dir).
+
+mnesia_create_schema(Node, Nodes) ->
+    rpc:call(Node, mnesia, create_schema, [Nodes]).
+    
+mnesia_start(Node) ->
+    rpc:call(Node, application, start, [mnesia]).
+
+mnesia_start() ->
+    application:start(mnesia).
+
+mnesia_stop(Node) ->
+    rpc:call(Node, application, stop, [mnesia]).
+
+mnesia_stop() ->
+    application:start(mnesia).
+
+    
+start_agent(Config) ->
+    start_agent(Config, []).
+
+start_agent(Config, Opts) ->
+
+    %% Directories
+    ConfDir = ?config(agent_conf_dir, Config),
+    DbDir   = ?config(agent_db_dir,   Config),
+    LogDir  = ?config(agent_log_dir,  Config),
+ 
+    Vsns = [v1], 
+
+    AgentConfig = process_agent_options(ConfDir, DbDir, LogDir, Vsns, Opts),
+    
+    %% Nodes
+    AgentNode = ?config(agent_node, Config),
+    %% ManagerNode = ?config(manager_node, Config),
+    
+    process_flag(trap_exit,true),
+
+    AgentTopSup = start_stdalone_agent(AgentNode, AgentConfig),
+
+    [{agent_sup, AgentTopSup} | Config].
+    
+
+process_agent_options(ConfDir, DbDir, LogDir, Vsns, Opts) ->
+    Defaults = 
+	[{agent_type,      master},
+	 {agent_verbosity, trace},
+	 {priority,        normal},
+	 {versions,        Vsns},
+	 {db_dir,          DbDir},
+	 {mib_storage,     ets},
+	 {local_db, [{repair,    true},
+		     {auto_save, 5000},
+		     {verbosity, log}]},
+	 {error_report_module, snmpa_error_logger},
+	 {config, [{dir,        ConfDir},
+		   {force_load, true},
+		   {verbosity,  trace}]},
+	 {multi_threaded, true},
+	 {mib_server, [{mibentry_override,  false},
+		       {trapentry_override, false},
+		       {verbosity,          info}]},
+	 {target_cache,   [{verbosity,info}]},
+	 {symbolic_store, [{verbosity,log}]},
+	 {note_store, [{timeout,30000}, {verbosity,log}]},
+	 {net_if, [{module,    snmpa_net_if},
+		   {verbosity, trace},
+		   {options,   [{bind_to,   false},
+				{no_reuse,  false},
+				{req_limit, infinity}]}]},
+	 {audit_trail_log, [{type,   read_write},
+			    {dir,    LogDir},
+			    {size,   {10240,20}},
+			    {repair, true},
+			    {seqno,  true}]}],
+    
+    process_options(Defaults, Opts).
+
+process_options(Defaults, _Opts) ->
+    %% process_options(Defaults, Opts, []).
+    Defaults.
+
+%% process_options([], _Opts, Acc) ->
+%%     lists:reverse(Acc);
+%% process_options([{Key, DefaultValue}|Defaults], Opts, Acc) ->
+%%     case lists:keysearch(Key, 1, Opts) of
+%% 	{value, {Key, Value}} when is_list->
+	    
+
+snmp_app_env_init(Node, Entity, Conf) ->
+    rpc:call(Node, snmp_app_env_init, [Entity, Conf]).
+
+snmp_app_env_init(Entity, Conf) ->
+    application:unload(snmp),
+    application:load(snmp),
+    application:set_env(snmp, Entity, Conf).
+
+start_stdalone_agent(Node, Config)  ->
+    rpc:call(Node, ?MODULE, start_stdalone_agent, [Config]).
+
+start_stdalone_agent(Config)  ->
+    case snmpa_supervisor:start_link(normal, Config) of
+        {ok, AgentTopSup} ->
+            unlink(AgentTopSup),
+            AgentTopSup;
+        {error, {already_started, AgentTopSup}} ->
+            AgentTopSup
+    end.
+
+stop_stdalone_agent(Pid) when (node(Pid) =/= node()) ->
+    MRef = erlang:monitor(process, Pid),
+    rpc:call(node(Pid), ?MODULE, stop_stdalone_agent, [Pid]),
+    receive
+	{'DOWN', MRef, process, Pid, Info} ->
+	    ?DBG("received expected DOWN message "
+		 "regarding snmp agent supervisor: "
+		 "~n   Info: ~p", [Info]),
+	    ok
+    after 5000 ->
+	    ?DBG("no DOWN message "
+		 "regarding snmp agent supervisor within time", []),
+	    ok
+    end;
+stop_stdalone_agent(Pid) ->
+    ?DBG("attempting to terminate agent top-supervisor: ~p", [Pid]),
+    nkill(Pid, kill).
+
+
+nkill(Pid, Reason) ->
+    nkill(Pid, Reason, 10).
+
+nkill(Pid, Reason, N) when N > 0 ->
+    case (catch erlang:process_info(Pid)) of
+	Info when is_list(Info) ->
+	    ?DBG("Info for process to kill: "
+		 "~n   Info: ~p", [Info]),
+	    exit(Pid, Reason),
+	    ?SLEEP(1000),
+	    nkill(Pid, Reason, N-1);
+	_ ->
+	    ?DBG("No process info => already dead?", []),
+	    ok
+    end.
+
+    
 %%-----------------------------------------------------------------
 %% Slogan: info test
 %%-----------------------------------------------------------------

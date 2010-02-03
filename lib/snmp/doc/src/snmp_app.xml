@@ -4,7 +4,7 @@
 <appref>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>snmp</title>
@@ -78,10 +78,10 @@
       ].
     </pre>
 
+    <!-- The info below is also found in the snmp_config.xml file -->
+
     <p>Each snmp component has it's own set of configuration parameters, 
       even though some of the types are common to both components. </p>
-
-    <!-- Also in snmp_config.xml -->
 
     <pre>
       snmp_components_config() -> [snmp_component_config()]
@@ -642,10 +642,13 @@
           process performs a GC to remove the expired note's. Time in
           milli-seconds.</p>
         <p>Default is <c>30000</c>.</p>
+
+      <marker id="audit_trail_log"></marker>
       </item>
+
       <tag><c><![CDATA[audit_trail_log() = [audit_trail_log_opt()] <optional>]]></c></tag>
       <item>
-        <p><c>audit_trail_log_opt() = {type, atl_type()} | {dir, atl_dir()} |  {size, atl_size()} |  {repair, atl_repair()}</c></p>
+        <p><c>audit_trail_log_opt() = {type, atl_type()} | {dir, atl_dir()} |  {size, atl_size()} |  {repair, atl_repair()} | {seqno, atl_seqno()}</c></p>
         <p>If present, this option specifies the options for the 
           audit trail logging. The <c>disk_log</c> module is used 
           to maintain a wrap log. If present, the <c>dir</c> and 
@@ -695,6 +698,13 @@
           directly, but instead <em>moves it aside</em> for later off-line 
           analysis.</p>
         <p>Default is <c>true</c>.</p>
+      </item>
+      <tag><c><![CDATA[atl_seqno() = true | false <optional>]]></c></tag>
+      <item>
+        <p>Specifies if the audit trail log entries will be (sequence)
+          numbered or not. The range of the sequence numbers are according
+          to RFC 5424, i.e. 1 through 2147483647. </p>
+        <p>Default is <c>false</c>.</p>
       </item>
     </taglist>
   </section>

@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -21,11 +21,18 @@
 
 
 -export([
-	 create/4, create/5, 
+	 create/4, create/5, create/6, 
 	 change_size/2, close/1, sync/1, info/1, 
 	 log/4, 
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7,
 	 log_to_io/4,  log_to_io/5,  log_to_io/6
+	]).
+-export([
+	 upgrade/1, upgrade/2, 
+	 downgrade/1
+	]).
+-export([
+	 validate/1, validate/2
 	]).
 
 
@@ -38,30 +45,74 @@
 -define(LOG_FORMAT, internal).
 -define(LOG_TYPE,   wrap).
 
+-record(snmp_log, {id, seqno}).
+
 
 %% --------------------------------------------------------------------
 %% Exported functions
 %% --------------------------------------------------------------------
 
+upgrade(Log) when is_record(Log, snmp_log) ->
+    Log;
+upgrade(Log) ->
+    upgrade(Log, disabled).
+
+upgrade(Log, _SeqNoGen) when is_record(Log, snmp_log) ->
+    Log;
+upgrade(Log, {M, F, A} = SeqNoGen) 
+  when (is_atom(M) andalso is_atom(F) andalso is_list(A)) ->
+    #snmp_log{id = Log, seqno = SeqNoGen};
+upgrade(Log, SeqNoGen) 
+  when is_function(SeqNoGen, 0) ->
+    #snmp_log{id = Log, seqno = SeqNoGen};
+upgrade(Log, disabled = SeqNoGen) ->
+    #snmp_log{id = Log, seqno = SeqNoGen}.
+
+downgrade(#snmp_log{id = Log}) ->
+    Log;
+downgrade(Log) ->
+    Log.
+
 
 %% -- create ---
 
 create(Name, File, Size, Repair) ->
-    create(Name, File, Size, Repair, false).
+    create(Name, File, disabled, Size, Repair, false).
 
-create(Name, File, Size, Repair, Notify) ->
+create(Name, File, Size, Repair, Notify) 
+  when (((Repair =:= true) orelse 
+	 (Repair =:= false) orelse 
+	 (Repair =:= truncate) orelse 
+	 (Repair =:= snmp_repair)) andalso 
+	((Notify =:= true) orelse
+	 (Notify =:= false))) ->
+    create(Name, File, disabled, Size, Repair, Notify);
+create(Name, File, SeqNoGen, Size, Repair) ->
+    create(Name, File, SeqNoGen, Size, Repair, false).
+
+create(Name, File, SeqNoGen, Size, Repair, Notify) 
+  when (((Repair =:= true) orelse 
+	 (Repair =:= false) orelse 
+	 (Repair =:= truncate) orelse 
+	 (Repair =:= snmp_repair)) andalso 
+	((Notify =:= true) orelse
+	 (Notify =:= false))) ->
     ?vtrace("create -> entry with"
-	    "~n   Name:   ~p"
-	    "~n   File:   ~p"
-	    "~n   Size:   ~p"
-	    "~n   Repair: ~p"
-	    "~n   Notify: ~p", [Name, File, Size, Repair, Notify]),
-    log_open(Name, File, Size, Repair, Notify).
+	    "~n   Name:     ~p"
+	    "~n   File:     ~p"
+	    "~n   SeqNoGen: ~p"
+	    "~n   Size:     ~p"
+	    "~n   Repair:   ~p"
+	    "~n   Notify:   ~p", [Name, File, SeqNoGen, Size, Repair, Notify]),
+    log_open(Name, File, SeqNoGen, Size, Repair, Notify);
+create(Name, File, SeqNoGen, Size, Repair, Notify) ->
+    {error, {bad_args, Name, File, SeqNoGen, Size, Repair, Notify}}.
+    
     
 
 %% -- close ---
 
-close(Log) ->
+close(#snmp_log{id = Log}) ->
     ?vtrace("close -> entry with"
 	    "~n   Log: ~p", [Log]),
     disk_log:close(Log).
@@ -69,14 +120,25 @@ close(Log) ->
 
 %% -- close ---
 
+sync(#snmp_log{id = Log}) ->
+    do_sync(Log);
 sync(Log) ->
+    do_sync(Log).
+
+do_sync(Log) ->
     ?vtrace("sync -> entry with"
 	    "~n   Log: ~p", [Log]),
     disk_log:sync(Log).
 
+
 %% -- info ---
 
+info(#snmp_log{id = Log}) ->
+    do_info(Log);
 info(Log) ->
+    do_info(Log).
+
+do_info(Log) ->
     case disk_log:info(Log) of
 	Info when is_list(Info) ->
 	    Items = [no_current_bytes, no_current_items, 
@@ -97,6 +159,138 @@ info_filter([Item|Items], Info, Acc) ->
     end.
 
 
+%% -- validate --
+
+%% This function is used to "validate" a log.
+%% At present this means making sure all entries
+%% are in the proper order, and if sequence numbering
+%% is used that no entries are missing.
+%% It is intended to be used for testing.
+
+validate(Log) ->
+    validate(Log, false).
+
+validate(#snmp_log{id = Log}, SeqNoReq) ->
+    validate(Log, SeqNoReq);
+validate(Log, SeqNoReq) 
+  when ((SeqNoReq =:= true) orelse (SeqNoReq =:= false)) ->
+    Validator = 
+	fun({Timestamp, SeqNo, _Packet, _Addr, _Port}, {PrevTS, PrevSN}) ->
+		?vtrace("validating log entry when"
+			"~n   Timestamp: ~p"
+			"~n   SeqNo:     ~p"
+			"~n   PrevTS:    ~p"
+			"~n   PrevSN:    ~p", 
+			[Timestamp, SeqNo, PrevTS, PrevSN]),
+		validate_timestamp(PrevTS, Timestamp),
+		validate_seqno(PrevSN, SeqNo),
+		{Timestamp, SeqNo};
+
+	   ({Timestamp, _Packet, _Addr, _Port}, {PrevTS, _PrevSN}) when SeqNoReq =:= true -> 
+		?vtrace("validating log entry when"
+			"~n   Timestamp: ~p"
+			"~n   PrevTS:    ~p", 
+			[Timestamp, PrevTS]),
+		throw({error, {missing_seqno, Timestamp}});
+
+	   ({Timestamp, _Packet, _Addr, _Port}, {PrevTS, PrevSN}) -> 
+		?vtrace("validating log entry when"
+			"~n   Timestamp: ~p"
+			"~n   PrevTS:    ~p", 
+			[Timestamp, PrevTS]),
+		validate_timestamp(PrevTS, Timestamp),
+		{Timestamp, PrevSN};
+
+	   (E, Acc) ->
+		?vtrace("validating bad log entry when"
+			"~n   E:   ~p"
+			"~n   Acc: ~p", 
+			[E, Acc]),
+		throw({error, {bad_entry, E, Acc}})
+	end,
+    try
+	begin
+	    validate_loop(disk_log:chunk(Log, start), 
+			  Log, Validator, first, first)
+	end
+    catch 
+	throw:Error ->
+	    Error
+    end.
+    
+%% We shall check that TS2 >= TS1
+validate_timestamp(first, _TS2) ->
+    ok;
+validate_timestamp({LT1, UT1} = TS1, {LT2, UT2} = TS2) ->
+    LT1_Secs = calendar:datetime_to_gregorian_seconds(LT1),
+    UT1_Secs = calendar:datetime_to_gregorian_seconds(UT1),
+    LT2_Secs = calendar:datetime_to_gregorian_seconds(LT2),
+    UT2_Secs = calendar:datetime_to_gregorian_seconds(UT2),
+    case ((LT2_Secs >= LT1_Secs) andalso (UT2_Secs >= UT1_Secs)) of
+	true ->
+	    ok;
+	false ->
+	    throw({error, {invalid_timestamp, TS1, TS2}})
+    end;
+validate_timestamp(TS1, TS2) ->
+    throw({error, {bad_timestamp, TS1, TS2}}).
+
+
+%% The usual case when SN2 = SN1 + 1
+validate_seqno(first, SN2) 
+  when is_integer(SN2) >= 1 ->
+    ok;
+
+%% The usual case when SN2 = SN1 + 1
+validate_seqno(SN1, SN2) 
+  when is_integer(SN1) andalso is_integer(SN2) andalso 
+       (SN2 =:= (SN1 + 1)) andalso (SN1 >= 1) ->
+    ok;
+
+%% The case when we have a wrap
+validate_seqno(SN1, SN2) 
+  when is_integer(SN1) andalso is_integer(SN2) andalso 
+       (SN2 < SN1) andalso (SN2 >= 1) ->
+    ok;
+
+%% And everything else must be an error...
+validate_seqno(SN1, SN2) -> 
+    throw({error, {bad_seqno, SN1, SN2}}).
+
+validate_loop(eof, _Log, _Validatior, _PrevTS, _PrevSN) ->
+    ok;
+validate_loop({error, _} = Error, _Log, _Validator, _PrevTS, _PrevSN) ->
+    Error;
+validate_loop({corrupt_log_file, _} = Reason, 
+	      _Log, _Validator, _PrevTS, _PrevSN) ->
+    {error, Reason};
+validate_loop({Cont, Terms}, Log, Validator, PrevTS, PrevSN) ->
+    ?vtrace("validate_loop -> entry with"
+	    "~n   Terms:  ~p"
+	    "~n   PrevTS: ~p"
+	    "~n   PrevSN: ~p", [Terms, PrevTS, PrevSN]),
+    {NextTS, NextSN} = lists:foldl(Validator, {PrevTS, PrevSN}, Terms), 
+    ?vtrace("validate_loop -> "
+	    "~n   NextTS: ~p"
+	    "~n   NextSN: ~p", [NextTS, NextSN]),
+    validate_loop(disk_log:chunk(Log, Cont), Log, Validator, NextTS, NextSN);
+validate_loop({Cont, Terms, BadBytes}, Log, Validator, PrevTS, PrevSN) ->
+    ?vtrace("validate_loop -> entry with"
+	    "~n   Terms:    ~p"
+	    "~n   BadBytes: ~p"
+	    "~n   PrevTS:   ~p"
+	    "~n   PrevSN:   ~p", [Terms, BadBytes, PrevTS, PrevSN]),
+    error_logger:error_msg("Skipping ~w bytes while validating ~p~n~n", 
+			   [BadBytes, Log]),
+    {NextTS, NextSN} = lists:foldl(Validator, {PrevTS, PrevSN}, Terms), 
+    ?vtrace("validate_loop -> "
+	    "~n   NextTS: ~p"
+	    "~n   NextSN: ~p", [NextTS, NextSN]),
+    validate_loop(disk_log:chunk(Log, Cont), Log, Validator, NextTS, NextSN);
+validate_loop(Error, _Log, _Write, _PrevTS, _PrevSN) ->
+    Error.
+    
+
 %% -- log ---
 
 %%-----------------------------------------------------------------
@@ -109,19 +303,48 @@ info_filter([Item|Items], Info, Acc) ->
 %%-----------------------------------------------------------------
 
 
-log(Log, Packet, Addr, Port) ->
+log(#snmp_log{id = Log, seqno = SeqNo}, Packet, Addr, Port) ->
     ?vtrace("log -> entry with"
 	    "~n   Log:  ~p"
 	    "~n   Addr: ~p"
 	    "~n   Port: ~p", [Log, Addr, Port]),
-    Entry = {timestamp(), Packet, Addr, Port},
-    disk_log:alog(Log, Entry).
+    Entry = make_entry(SeqNo, Packet, Addr, Port), 
+%%     io:format("log -> "
+%% 	      "~n   Entry: ~p"
+%% 	      "~n   Info:  ~p"
+%% 	      "~n", [Entry, disk_log:info(Log)]),
+    Res = disk_log:alog(Log, Entry),
+%%     io:format("log -> "
+%% 	      "~n   Res:  ~p"
+%% 	      "~n   Info: ~p"
+%% 	      "~n", [Res, disk_log:info(Log)]),
+    %% disk_log:sync(Log), 
+    Res.
+   
 
+
+make_entry(SeqNoGen, Packet, Addr, Port) ->
+    try next_seqno(SeqNoGen) of
+	disabled ->
+	    {timestamp(), Packet, Addr, Port};
+	{ok, NextSeqNo} ->
+	    {timestamp(), NextSeqNo, Packet, Addr, Port}
+    catch
+	_:_ ->
+	    {timestamp(), Packet, Addr, Port}
+    end.
+
+next_seqno({M, F, A}) ->
+    {ok, apply(M, F, A)};
+next_seqno(F) when is_function(F) ->
+    {ok, F()};
+next_seqno(_) ->
+    disabled.
 
 
 %% -- change_size ---
 
-change_size(Log, NewSize) ->
+change_size(#snmp_log{id = Log}, NewSize) ->
     ?vtrace("change_size -> entry with"
 	    "~n   Log:     ~p"
 	    "~n   NewSize: ~p", [Log, NewSize]),
@@ -171,6 +394,23 @@ log_to_io(Log, FileName, Dir, Mibs, Start, Stop)
     log_convert(Log, File, Converter).
 
 
+%% -- log_to_plain ---
+
+%% log_to_plain(Log, FileName, Dir) ->
+%%     log_to_plain(Log, FileName, Dir, null, null).
+
+%% log_to_plain(Log, FileName, Dir, Start) ->
+%%     log_to_plain(Log, FileName, Dir, Start, null).
+
+%% log_to_plain(Log, FileName, Dir, Start, Stop) 
+%%   when is_list(Mibs) ->
+%%     File = filename:join(Dir, FileName),
+%%     Converter = fun(L) ->
+%% 			do_log_to_plain(L, Start, Stop)
+%% 		end,
+%%     log_convert(Log, File, Converter).
+
+
 %% --------------------------------------------------------------------
 %% Internal functions
 %% --------------------------------------------------------------------
@@ -178,7 +418,12 @@ log_to_io(Log, FileName, Dir, Mibs, Start, Stop)
 
 %% -- log_convert ---
 
+log_convert(#snmp_log{id = Log}, File, Converter) ->
+    do_log_convert(Log, File, Converter);
 log_convert(Log, File, Converter) ->
+    do_log_convert(Log, File, Converter).
+
+do_log_convert(Log, File, Converter) ->
     %% First check if the caller process has already opened the
     %% log, because if we close an already open log we will cause
     %% a runtime error.
@@ -274,86 +519,151 @@ loop({Cont, Terms, BadBytes}, Log, Write) ->
 loop(Error, _Log, _Write) ->
     Error.
 
-format_msg({TimeStamp, {V3Hdr, ScopedPdu}, {Addr, Port}}, 
-	   Mib, Start, Stop) ->
-    format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-	      Mib, Start, Stop);
-format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
-	  Mib, Start, Stop) ->
-%     io:format("format_msg -> entry with"
-% 	      "~n   TimeStamp: ~p"
-% 	      "~n   Start:     ~p"
-% 	      "~n   Stop:      ~p", [TimeStamp, Start, Stop]),
+
+format_msg(Entry, Mib, Start, Stop) ->
+    TimeStamp = element(1, Entry),
     case timestamp_filter(TimeStamp, Start, Stop) of
         true ->
-            case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
-                ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
-                    Msg = #message{version = 'version-3',
-                                   vsn_hdr = V3Hdr,
-                                   data    = ScopedPDU},
-                    f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-                {'EXIT', Reason} ->
-                    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
-			       [ts2str(TimeStamp), ip(Addr), Port, Reason])
-            end;
-        false ->
-            ignore
-    end;
-format_msg({TimeStamp, Packet, {Addr, Port}}, Mib, Start, Stop) -> 
-    format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop);
-format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop) ->
-    case timestamp_filter(TimeStamp, Start, Stop) of
-        true ->
-            case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
-                Msg when is_record(Msg, message) ->
-                    f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
-                {'EXIT', Reason} ->
-                    format_tab("** error in log file ~p\n\n", [Reason])
-            end;
-        false ->
-            ignore
-    end;
-format_msg(_, _Mib, _Start, _Stop) ->
+	    do_format_msg(Entry, Mib);
+	false ->
+	    ignore
+    end.
+
+%% This is an old-style entry, that never had the sequence-number
+do_format_msg({Timestamp, Packet, {Addr, Port}}, Mib) ->
+    do_format_msg(Timestamp, Packet, Addr, Port, Mib);
+
+%% This is the format without sequence-number
+do_format_msg({Timestamp, Packet, Addr, Port}, Mib) ->
+    do_format_msg(Timestamp, Packet, Addr, Port, Mib);
+
+%% This is the format with sequence-number
+do_format_msg({Timestamp, SeqNo, Packet, Addr, Port}, Mib) ->
+    do_format_msg(Timestamp, SeqNo, Packet, Addr, Port, Mib);
+
+%% This is crap...
+do_format_msg(_, _) ->
     format_tab("** unknown entry in log file\n\n", []).
 
-f(TimeStamp, #message{version = Vsn, vsn_hdr = VsnHdr, data = Data}, 
+do_format_msg(TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+    case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
+	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
+	    Msg = #message{version = 'version-3',
+			   vsn_hdr = V3Hdr,
+			   data    = ScopedPDU},
+	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+	{'EXIT', Reason} ->
+	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
+		       [ts2str(TimeStamp), ip(Addr), Port, Reason])
+    end;
+do_format_msg(TimeStamp, Packet, Addr, Port, Mib) ->
+    case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
+	Msg when is_record(Msg, message) ->
+	    f(ts2str(TimeStamp), "", Msg, Addr, Port, Mib);
+	{'EXIT', Reason} ->
+	    format_tab("** error in log file ~p\n\n", [Reason])
+    end.
+    
+do_format_msg(TimeStamp, SeqNo, {V3Hdr, ScopedPdu}, Addr, Port, Mib) ->
+    case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
+	ScopedPDU when is_record(ScopedPDU, scopedPdu) -> 
+	    Msg = #message{version = 'version-3',
+			   vsn_hdr = V3Hdr,
+			   data    = ScopedPDU},
+	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+	{'EXIT', Reason} ->
+	    format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
+		       [ts2str(TimeStamp), sn2str(SeqNo), 
+			ip(Addr), Port, Reason])
+    end;
+do_format_msg(TimeStamp, SeqNo, Packet, Addr, Port, Mib) ->
+    case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
+	Msg when is_record(Msg, message) ->
+	    f(ts2str(TimeStamp), sn2str(SeqNo), Msg, Addr, Port, Mib);
+	{'EXIT', Reason} ->
+	    format_tab("** error in log file ~s from ~p:~w ~p\n\n", 
+		       [ts2str(TimeStamp), sn2str(SeqNo), 
+			ip(Addr), Port, Reason])
+    end.
+    
+    
+%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, {Addr, Port}}, 
+%% 	   Mib, Start, Stop) ->
+%%     format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
+%% 	      Mib, Start, Stop);
+%% format_msg({TimeStamp, {V3Hdr, ScopedPdu}, Addr, Port}, 
+%% 	  Mib, Start, Stop) ->
+%%     case timestamp_filter(TimeStamp, Start, Stop) of
+%%         true ->
+%%             case (catch snmp_pdus:dec_scoped_pdu(ScopedPdu)) of
+%%                 ScopedPDU when record(ScopedPDU, scopedPdu) -> 
+%%                     Msg = #message{version = 'version-3',
+%%                                    vsn_hdr = V3Hdr,
+%%                                    data    = ScopedPDU},
+%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
+%%                 {'EXIT', Reason} ->
+%%                     format_tab("** error in log file at ~s from ~p:~w ~p\n\n", 
+%% 			       [ts2str(TimeStamp), ip(Addr), Port, Reason])
+%%             end;
+%%         false ->
+%%             ignore
+%%     end;
+%% format_msg({TimeStamp, Packet, {Addr, Port}}, Mib, Start, Stop) -> 
+%%     format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop);
+%% format_msg({TimeStamp, Packet, Addr, Port}, Mib, Start, Stop) ->
+%%     case timestamp_filter(TimeStamp, Start, Stop) of
+%%         true ->
+%%             case (catch snmp_pdus:dec_message(binary_to_list(Packet))) of
+%%                 Msg when record(Msg, message) ->
+%%                     f(ts2str(TimeStamp), Msg, Addr, Port, Mib);
+%%                 {'EXIT', Reason} ->
+%%                     format_tab("** error in log file ~p\n\n", [Reason])
+%%             end;
+%%         false ->
+%%             ignore
+%%     end;
+%% format_msg(_, _Mib, _Start, _Stop) ->
+%%     format_tab("** unknown entry in log file\n\n", []).
+
+f(TimeStamp, SeqNo, 
+  #message{version = Vsn, vsn_hdr = VsnHdr, data = Data}, 
   Addr, Port, Mib) ->
     Str    = format_pdu(Data, Mib),
     HdrStr = format_header(Vsn, VsnHdr),
     case get_type(Data) of
         trappdu ->
-            f_trap(TimeStamp, Vsn, HdrStr, Str, Addr, Port);
+            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
         'snmpv2-trap' ->
-            f_trap(TimeStamp, Vsn, HdrStr, Str, Addr, Port);
+            f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
         'inform-request' ->
-            f_inform(TimeStamp, Vsn, HdrStr, Str, Addr, Port);
+            f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
         'get-response' ->
-            f_response(TimeStamp, Vsn, HdrStr, Str, Addr, Port);
+            f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
         report ->
-            f_report(TimeStamp, Vsn, HdrStr, Str, Addr, Port);
+            f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port);
         _ ->
-            f_request(TimeStamp, Vsn, HdrStr, Str, Addr, Port)
+            f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port)
     end.
 
-f_request(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("request ~s:~w - ~s [~s] ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, Vsn, Str]).
+f_request(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+    format_tab("request ~s:~w - ~s [~s]~s ~w\n~s", 
+	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_response(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("response ~s:~w - ~s [~s] ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, Vsn, Str]).
+f_response(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+    format_tab("response ~s:~w - ~s [~s]~s ~w\n~s", 
+	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_report(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("report ~s:~w - ~s [~s] ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, Vsn, Str]).
+f_report(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+    format_tab("report ~s:~w - ~s [~s]~s ~w\n~s", 
+	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_trap(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("trap ~s:~w - ~s [~s] ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, Vsn, Str]).
+f_trap(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+    format_tab("trap ~s:~w - ~s [~s]~s ~w\n~s", 
+	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
-f_inform(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
-    format_tab("inform ~s:~w - ~s [~s] ~w\n~s", 
-	       [ip(Addr), Port, HdrStr, TimeStamp, Vsn, Str]).
+f_inform(TimeStamp, SeqNo, Vsn, HdrStr, Str, Addr, Port) ->
+    format_tab("inform ~s:~w - ~s [~s]~s ~w\n~s", 
+	       [ip(Addr), Port, HdrStr, TimeStamp, SeqNo, Vsn, Str]).
 
 
 %% Convert a timestamp 2-tupple to a printable string
@@ -361,6 +671,13 @@ f_inform(TimeStamp, Vsn, HdrStr, Str, Addr, Port) ->
 ts2str({Local,Universal}) ->
     dat2str(Local) ++ " , " ++ dat2str(Universal);
 ts2str(_) ->
+    "".
+
+%% Convert a sequence number integer to a printable string
+%%
+sn2str(SeqNo) when is_integer(SeqNo) ->
+    " [" ++ integer_to_list(SeqNo) ++ "]";
+sn2str(_) ->
     "".
 
 %% Convert a datetime 2-tupple to a printable string
@@ -457,18 +774,30 @@ ip({A,B,C,D}) ->
 %% Various utility functions
 %% -------------------------------------------------------------------    
 
-log_open(Name, File, Size, Repair, Notify) ->
+log_open(Name, File, {M, F, A} = SeqNoGen, Size, Repair, Notify) 
+  when (is_atom(M) andalso is_atom(F) andalso is_list(A)) ->
+    log_open2(Name, File, SeqNoGen, Size, Repair, Notify);
+log_open(Name, File, SeqNoGen, Size, Repair, Notify) 
+  when is_function(SeqNoGen, 0) ->
+    log_open2(Name, File, SeqNoGen, Size, Repair, Notify);
+log_open(Name, File, disabled = SeqNoGen, Size, Repair, Notify) ->
+    log_open2(Name, File, SeqNoGen, Size, Repair, Notify);
+log_open(_, _File, BadSeqNoGen, _Size, _Repair, _Notify) ->
+    {error, {bad_seqno, BadSeqNoGen}}.
+
+log_open2(Name, File, SeqNoGen, Size, Repair, Notify) ->
     case do_log_open(Name, File, Size, Repair, Notify) of
 	{ok, Log} ->
-	    {ok, Log};
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
 	{repaired, Log, Rec, Bad} ->
 	    ?vlog("log_open -> repaired: "
 		  "~n   Rec: ~p"
 		  "~n   Bad: ~p", [Rec, Bad]),
-	    {ok, Log};
+	    {ok, #snmp_log{id = Log, seqno = SeqNoGen}};
 	Error ->
 	    Error
     end.
+
 
 %% We need to make sure we do not end up in an infinit loop
 %% Take the number of files of the wrap log and add 2 (for

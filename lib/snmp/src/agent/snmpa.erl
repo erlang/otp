@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(snmpa).
@@ -83,6 +83,7 @@
 %% Audit Trail Log functions
 -export([log_to_txt/2, log_to_txt/3, log_to_txt/4, 
 	 log_to_txt/5, log_to_txt/6, log_to_txt/7, 
+	 log_info/0, 
 	 change_log_size/1,
 	 get_log_type/0,    get_log_type/1, 
 	 change_log_type/1, change_log_type/2,
@@ -535,6 +536,7 @@ get_agent_caps() ->
 %%%-----------------------------------------------------------------
 %%% Audit Trail Log functions 
 %%%-----------------------------------------------------------------
+
 log_to_txt(LogDir, Mibs) -> 
     OutFile = "snmpa_log.txt",       
     LogName = ?audit_trail_log_name, 
@@ -553,6 +555,11 @@ log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start) ->
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start).
 log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop) -> 
     snmp:log_to_txt(LogDir, Mibs, OutFile, LogName, LogFile, Start, Stop).
+
+
+log_info() ->
+    LogName = ?audit_trail_log_name, 
+    snmp_log:info(LogName).
 
 
 change_log_size(NewSize) -> 
