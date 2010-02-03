@@ -186,10 +186,12 @@ ac_cv_prog_CC=${ac_cv_prog_CC=cc.sh}
 ac_cv_prog_CPP=${ac_cv_prog_CPP='cc.sh -E'}
 ac_cv_prog_CXX=${ac_cv_prog_CXX=cc.sh}
 ac_cv_prog_DED_LD=${ac_cv_prog_DED_LD=ld.sh}
+ac_cv_prog_ac_ct_DED_LD=${ac_cv_prog_ac_ct_DED_LD=ld.sh}
 ac_cv_prog_M4=${ac_cv_prog_M4=m4}
 ac_cv_prog_PERL=${ac_cv_prog_PERL=perl}
 ac_cv_prog_RANLIB=${ac_cv_prog_RANLIB=true}
-ac_cv_prog_ac_ct_LD=${ac_cv_prog_ac_ct_LD=ld}
+ac_cv_prog_LD=${ac_cv_prog_LD=ld.sh}
+ac_cv_prog_ac_ct_LD=${ac_cv_prog_ac_ct_LD=ld.sh}
 ac_cv_prog_cc_g=${ac_cv_prog_cc_g=yes}
 ac_cv_prog_cc_stdc=${ac_cv_prog_cc_stdc=}
 ac_cv_prog_cxx_g=${ac_cv_prog_cxx_g=no}

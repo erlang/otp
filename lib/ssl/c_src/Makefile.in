@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -106,6 +106,7 @@ SSL_MAKEFILE =
 endif
 
 CC_R_FLAG=@CFLAG_RUNTIME_LIBRARY_PATH@
+
 ifeq ($(findstring @,$(CC_R_FLAG)),@)
 # Old erts configure used which hasn't replaced @CFLAG_RUNTIME_LIBRARY_PATH@;
 # we try our best here instead...
@@ -127,6 +128,12 @@ else
 CC_R_OPT = $(CC_R_FLAG)$(SSL_LIBDIR)
 endif
 
+SSL_CC_RUNTIME_LIBRARY_PATH=@SSL_CC_RUNTIME_LIBRARY_PATH@
+# Sigh...
+ifeq ($(findstring @,$(SSL_CC_RUNTIME_LIBRARY_PATH)),@)
+SSL_CC_RUNTIME_LIBRARY_PATH = $(CC_R_OPT)
+endif
+
 SSL_LINK_LIB=-L$(SSL_LIBDIR) -lssl -lcrypto
 else 
 # not dynamic crypto lib (default from R11B-5)
@@ -134,6 +141,7 @@ NEED_KERBEROS=@SSL_LINK_WITH_KERBEROS@
 NEED_ZLIB=@SSL_LINK_WITH_ZLIB@
 SSL_MAKEFILE =
 CC_R_OPT =
+SSL_CC_RUNTIME_LIBRARY_PATH=
 SSL_LINK_LIB = $(SSL_LIBDIR)/libssl.a $(SSL_LIBDIR)/libcrypto.a 
 ifeq ($(NEED_KERBEROS),yes)
 SSL_LINK_LIB += @STATIC_KERBEROS_LIBS@
@@ -163,11 +171,11 @@ $(OBJDIR)/%$(obj): %.c
 
 # Unix
 $(BINDIR)/ssl_esock: $(OBJS)
-	$(CC) $(CC_R_OPT) $(PLAIN_CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(SSL_LINK_LIB)
+	$(CC) $(PLAIN_CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS) $(SSL_CC_RUNTIME_LIBRARY_PATH) $(SSL_LINK_LIB)
 
 # Win32/Cygwin
 $(BINDIR)/ssl_esock.exe: $(OBJS)
-	$(LD) -L$(SSL_LIBDIR) -o $@ $^ -lwsock32 -llibeay32 -lssleay32
+	$(LD) $(SSL_CC_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) -o $@ $^ -lwsock32 -llibeay32 -lssleay32
 
 # Unix only, and only when linking statically
 $(SSL_MAKEFILE):

@@ -4,12 +4,15 @@ Makefile.in
 README
 README.win32
 configure.in
+aclocal.m4
 otp_build
 lib/Makefile
 lib/configure
 lib/configure.in
+lib/configure.in.src
 prebuild.skip
 prebuild.delete
+erl-build-tool-vars.sh
 bootstrap/lib/*/ebin
 bootstrap/lib/*/include
 bootstrap/bin/start*.script

@@ -1,20 +1,20 @@
 dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 dnl
 dnl %CopyrightBegin%
-dnl 
-dnl Copyright Ericsson AB 2001-2009. All Rights Reserved.
-dnl 
+dnl
+dnl Copyright Ericsson AB 2001-2010. All Rights Reserved.
+dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
 dnl compliance with the License. You should have received a copy of the
 dnl Erlang Public License along with this software. If not, it can be
 dnl retrieved online at http://www.erlang.org/.
-dnl 
+dnl
 dnl Software distributed under the License is distributed on an "AS IS"
 dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 dnl the License for the specific language governing rights and limitations
 dnl under the License.
-dnl 
+dnl
 dnl %CopyrightEnd%
 dnl
 
@@ -145,12 +145,14 @@ AC_ARG_ENABLE(megaco_flex_scanner_lineno,
 AC_SUBST(ENABLE_MEGACO_FLEX_SCANNER_LINENO)
 
 
+dnl This is the os flavour, should be unix, vxworks or win32
+if test "X$host" = "Xwin32"; then
+	ERLANG_OSTYPE=win32
+else
+	ERLANG_OSTYPE=unix
+fi
 
-dnl
-dnl C compiler (related) defs
-dnl
-
-AC_PROG_CC
+AC_SUBST(ERLANG_OSTYPE)
 
 dnl Magic test for clearcase.
 if test -d ../../system; then
@@ -158,33 +160,55 @@ if test -d ../../system; then
 else
 	OTP_EXTRA_FLAGS=
 fi
-
+AC_SUBST(OTP_EXTRA_FLAGS)
 
 dnl
-dnl The ErlDrvEntry struct changed in R13 (another field)
+dnl If ${ERL_TOP}/make/otp_ded.mk.in exists and contains DED_MK_VSN > 0,
+dnl every thing releted to compiling Dynamic Erlang Drivers can be found
+dnl in $(ERL_TOP)/make/$(TARGET)/ded.mk at compile time. If not, try to
+dnl figure these things out.
 dnl
-AC_CHECK_MEMBERS([struct ErlDrvEntry.stop_select], 
-                 [
-                  CFLAGS="$CFLAGS -DMEGACO_DRV_ENTRY_HAS_STOP_SELECT"
-                 ], 
-                 [],
-                 [
-                  #include "erl_driver.h"
-                 ])
 
+AC_MSG_CHECKING([for usable Dynamic Erlang Driver configuration])
+[
+  ded_mk_in="${ERL_TOP}/make/otp_ded.mk.in"
+  ded_mk_vsn=
+  test -r "$ded_mk_in" &&
+    ded_mk_vsn=`sed -n "s/^DED_MK_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < "$ded_mk_in"`
+  test "$ded_mk_vsn" != "" || ded_mk_vsn=0
+]
+
+if test $ded_mk_vsn -gt 0; then
+
+HAVE_USABLE_OTP_DED_MK=yes
+AC_MSG_RESULT([yes])
+
+CC=false
+AC_SUBST(CC)
+DED_LD=false
+AC_SUBST(DED_LD)
+
+else dnl --- begin no usable otp_ded.mk.in ---
+
+HAVE_USABLE_OTP_DED_MK=no
+AC_MSG_RESULT([no])
+
+dnl
+dnl C compiler (related) defs
+dnl
+
+AC_PROG_CC
 
 dnl
 dnl Flags to the C compiler
 dnl
-dnl make sure we find config.h
-CFLAGS="$CFLAGS -I${ERL_TOP}/erts/$host -I${ERL_TOP}/erts/include/$host $OTP_EXTRA_FLAGS"
 
 if test "X$host" = "Xwin32"; then
   DED_CFLAGS="$CFLAGS"
 else
   case $host_os in
     darwin*)
-	CFLAGS="$CFLAGS -no-cpp-precomp"
+	CFLAGS="$CFLAGS -no-cpp-precomp -fno-common"
 	;;
   esac
 
@@ -196,22 +220,10 @@ else
 fi
 
 dnl emulator includes needed
-DED_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host"
+DED_INCLUDES="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE"
 
-DED_CFLAGS="$DED_INCLUDE $DED_CFLAGS"
+DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
 
-
-
-AC_SUBST(DED_CFLAGS)
-
-
-AC_CHECK_PROGS(DED_LD, [ld.sh ld], no_ld)
-if test "$DED_LD" = no_ld; then
-  AC_MSG_ERROR([ld is required to build the flex scanner!])
-fi
-
-
-AC_MSG_CHECKING(for linker flags for loadable drivers)
 case $host_os in
 	win32)
 		DED_LDFLAGS="-dll"
@@ -230,33 +242,36 @@ case $host_os in
 		# Mach-O linker, a shared lib and a loadable
 		# object file is not the same thing.
 		DED_LDFLAGS="-bundle -flat_namespace -undefined suppress"
-		DED_CFLAGS="$DED_CFLAGS -fno-common"
+		DED_LD="$CC"
 	;;
 	*)
 		# assume GNU linker and ELF
 		DED_LDFLAGS="-shared"
 	;;
 esac
+
+AC_CHECK_PROGS(DED_LD, [$LD ld.sh])
+AC_CHECK_TOOL(DED_LD, ld, no_ld)
+if test "$DED_LD" = no_ld; then
+  AC_MSG_ERROR([ld is required to build the flex scanner!])
+fi
+
+AC_MSG_CHECKING(for linker flags for loadable drivers)
 DED_LDFLAGS="$LDFLAGS $DED_LDFLAGS"
 AC_MSG_RESULT([$DED_LDFLAGS])
-AC_SUBST(DED_LDFLAGS)
 
+fi dnl --- end no usable otp_ded.mk.in ---
+
+AC_SUBST(HAVE_USABLE_OTP_DED_MK)
+AC_SUBST(DED_CFLAGS)
+AC_SUBST(DED_INCLUDES)
+AC_SUBST(DED_THR_DEFS)
+AC_SUBST(DED_LDFLAGS)
 
 AC_CHECK_PROG(PERL, perl, perl, no_perl)
 if test "$PERL" = no_perl; then
   AC_MSG_ERROR([Perl is required to build the flex scanner!])
 fi
-
-
-dnl This is the os flavour, should be unix, vxworks or win32
-if test "X$host" = "Xwin32"; then
-	ERLANG_OSTYPE=win32
-else
-	ERLANG_OSTYPE=unix
-fi
-
-AC_SUBST(ERLANG_OSTYPE)
-
 
 AC_OUTPUT(src/flex/$host/Makefile:src/flex/Makefile.in)
 

@@ -1,19 +1,19 @@
 # 
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2001-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2001-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -23,13 +23,30 @@ MEGACO_INCLUDEDIR = ../../include
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../../vsn.mk
 VSN=$(MEGACO_VSN)
 
+# ----------------------------------------------------
+# Dynamic Erlang Driver
+# ----------------------------------------------------
+HAVE_USABLE_OTP_DED_MK = @HAVE_USABLE_OTP_DED_MK@
+
+ifeq ($(HAVE_USABLE_OTP_DED_MK),yes)
+# otp_ded.mk will be used on R13B04 and later
+include $(ERL_TOP)/make/$(TARGET)/otp_ded.mk
+else
+# megacos configure provide the info instead
+DED_CC				= @CC@
+DED__NOWARN_NOTHR_CFLAGS	= @DED_CFLAGS@
+DED_THR_DEFS			= @DED_THR_DEFS@
+DED_LD				= @DED_LD@
+DED_LDFLAGS			= @DED_LDFLAGS@
+DED_INCLUDES			= @DED_INCLUDES@
+DED_EXT				= so
+endif
 
 # ----------------------------------------------------
 # The following variables differ on different systems, we set
@@ -39,16 +56,16 @@ VSN=$(MEGACO_VSN)
 
 FLEX_VSN = $(shell flex --version)
 
-TMP_CFLAGS  = @DED_CFLAGS@ 
+TMP_CFLAGS  = $(DED__NOWARN_NOTHR_CFLAGS) @OTP_EXTRA_FLAGS@
 ifeq ($(TYPE),valgrind)
 CFLAGS = $(subst -O2, , $(TMP_CFLAGS)) -DVALGRIND
 else
 CFLAGS = $(TMP_CFLAGS)
 endif
-CC      = @CC@
-CFLAGS_MT = $(CFLAGS) -D_THREAD_SAFE -D_REENTRANT
-LD      = @DED_LD@
-LDFLAGS = @DED_LDFLAGS@
+CC      = $(DED_CC)
+CFLAGS_MT = $(CFLAGS) $(DED_THR_DEFS)
+LD      = $(DED_LD)
+LDFLAGS = $(DED_LDFLAGS)
 LEX     = @LEX@
 LEXLIB  = @LEXLIB@
 PERL    = @PERL@
@@ -87,18 +104,13 @@ ENABLE_MEGACO_FLEX_SCANNER_LINENO = @ENABLE_MEGACO_FLEX_SCANNER_LINENO@
 endif
 endif
 
-
-SYSINCLUDE = -I$(ERL_TOP)/erts/emulator/beam \
-             -I$(ERL_TOP)/erts/emulator/sys/$(ERLANG_OSTYPE)
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-        SYSINCLUDE += -I$(ERL_TOP)/erts/etc/vxworks
+        DED_INCLUDES += -I$(ERL_TOP)/erts/etc/vxworks
 endif
-
-DRIVER_INCLUDES = $(SYSINCLUDE)
 
 PRIVDIR = ../../priv
 LIBDIR  = $(PRIVDIR)/lib/$(TARGET)
-
+OBJDIR  = $(PRIVDIR)/obj/$(TARGET)
 
 # ----------------------------------------------------
 # Release directory specification
@@ -138,8 +150,8 @@ ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 FLEX_SCANNER_SO = 
 SOLIBS = $(FLEX_SCANNER_SO)
 else
-FLEX_SCANNER_SO = $(LIBDIR)/$(STD_DRV).so 
-FLEX_SCANNER_MT_SO = $(LIBDIR)/$(MT_DRV).so 
+FLEX_SCANNER_SO = $(LIBDIR)/$(STD_DRV).$(DED_EXT) 
+FLEX_SCANNER_MT_SO = $(LIBDIR)/$(MT_DRV).$(DED_EXT) 
 SOLIBS = $(FLEX_SCANNER_SO) $(FLEX_SCANNER_MT_SO) 
 endif
 endif
@@ -175,7 +187,7 @@ else
 CFLAGS += -DMFS_FLEX_DEBUG=0
 endif
 
-CFLAGS += $(DRIVER_INCLUDES) $(DRV_FLAGS) -funroll-loops -Wall 
+CFLAGS += $(DED_INCLUDES) -I$(ERL_TOP)/erts/$(TARGET) $(DRV_FLAGS) -funroll-loops -Wall
 
 #ifneq ($(FLEX_VSN),)
 #CFLAGS += -DFLEX_VERSION="$(FLEX_VSN)"
@@ -379,18 +391,30 @@ $(STD_DRV).c: $(STD_DRV).flex
 $(MT_DRV).c: $(MT_DRV).flex
 	$(LEX) $(MT_LEX_FLAGS) -P$* -o$@ $< 
 
-solibs: $(LIBDIR) $(SOLIBS) 
+solibs: $(LIBDIR) $(OBJDIR) $(SOLIBS) 
+
+$(OBJDIR)/$(STD_DRV).o: $(STD_DRV).c 
+	@echo "compiling std driver:"
+	$(CC) -c $(STD_DRV_NAME) $(CFLAGS) -o $@ $< 
+
+$(OBJDIR)/$(MT_DRV).o: $(MT_DRV).c 
+	@echo "compiling multi-threaded driver:"
+	$(CC) -c $(MT_DRV_NAME) $(CFLAGS_MT) -o $@ $<
+
 
 # No need to link with -lfl as we have also defined %option noyywrap - 
 # and having -lfl doesn't work under Darwin for some reason. - Sean
-$(LIBDIR)/$(STD_DRV).so: $(STD_DRV).c 
-	@echo "std driver:"
-	$(CC) $(STD_DRV_NAME) $(CFLAGS) $(LDFLAGS) -o $(LIBDIR)/$(STD_DRV).so $< 
+$(LIBDIR)/$(STD_DRV).$(DED_EXT): $(OBJDIR)/$(STD_DRV).o
+	@echo "linking std driver:"
+	$(LD) $(LDFLAGS) -o $@ $< 
 
-$(LIBDIR)/$(MT_DRV).so: $(MT_DRV).c 
-	@echo "multi-threaded driver:"
-	$(CC) $(MT_DRV_NAME) $(CFLAGS_MT) $(LDFLAGS) -o $(LIBDIR)/$(MT_DRV).so $< 
+$(LIBDIR)/$(MT_DRV).$(DED_EXT): $(OBJDIR)/$(MT_DRV).o
+	@echo "linking multi-threaded driver:"
+	$(LD) $(LDFLAGS) -o $@ $< 
 
 $(LIBDIR):
 	-mkdir -p $(LIBDIR)
+
+$(OBJDIR):
+	-mkdir -p $(OBJDIR)
 

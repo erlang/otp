@@ -1,20 +1,20 @@
 dnl Process this file with autoconf to produce a configure script. -*-m4-*-
 
 dnl %CopyrightBegin%
-dnl 
-dnl Copyright Ericsson AB 2008-2009. All Rights Reserved.
-dnl 
+dnl
+dnl Copyright Ericsson AB 2008-2010. All Rights Reserved.
+dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
 dnl compliance with the License. You should have received a copy of the
 dnl Erlang Public License along with this software. If not, it can be
 dnl retrieved online at http://www.erlang.org/.
-dnl 
+dnl
 dnl Software distributed under the License is distributed on an "AS IS"
 dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 dnl the License for the specific language governing rights and limitations
 dnl under the License.
-dnl 
+dnl
 dnl %CopyrightEnd%
 
 AC_INIT()
@@ -244,7 +244,10 @@ AC_SUBST(ERLANG_ROOT_DIR)
 dnl
 dnl  Check for wxwidgets
 dnl 
-if test X"$MIXED_CYGWIN_VC" != X"yes" ; then
+if test "$cross_compiling" = "yes"; then
+    echo "Cross compilation of the wx driver is not supported yet, wx will NOT be usable" > ./CONF_INFO
+    WXERL_CAN_BUILD_DRIVER=false
+elif test X"$MIXED_CYGWIN_VC" != X"yes" ; then
     m4_include(wxwin.m4)
 
     AM_OPTIONS_WXCONFIG
@@ -306,7 +309,7 @@ define(wx_warn_text,[
         if test X"$WX_BUILDING_INSIDE_ERLSRC" != X"true" ; then
 	   AC_MSG_ERROR([wx_warn_text])
 	else
-	   echo "wxWidgets not found, wx will NOT be useable" > ./CONF_INFO
+	   echo "wxWidgets not found, wx will NOT be usable" > ./CONF_INFO
 	   WXERL_CAN_BUILD_DRIVER=false
 	   AC_MSG_WARN([wx_warn_text])
 	fi
@@ -377,6 +380,8 @@ else
     AC_SUBST(WX_LIBS_STATIC)
     AC_SUBST(WX_RESCOMP)
 fi
+
+if test "$WXERL_CAN_BUILD_DRIVER" != "false"; then
 
 AC_SUBST(WX_HAVE_STATIC_LIBS)
 AC_SUBST(RC_FILE_TYPE)
@@ -543,6 +548,8 @@ if test X"$CAN_LINK_WX" != X"yes" ; then
 		WXERL_CAN_BUILD_DRIVER=false
 		AC_MSG_WARN([Can not link wx program are all developer packages installed?])
 fi
+
+fi dnl - if test "$WXERL_CAN_BUILD_DRIVER" != "false"
 
 AC_SUBST(WXERL_CAN_BUILD_DRIVER)
 

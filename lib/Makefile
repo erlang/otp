@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1996-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 
 include $(ERL_TOP)/make/target.mk
@@ -51,7 +51,7 @@ else
 # --------------
 #
     ERTS_SUB_DIRECTORIES = stdlib sasl kernel compiler
-    OTHER_SUB_DIRECTORIES = tools
+    OTHER_SUB_DIRECTORIES = tools test_server
     ifdef BUILD_ALL
       ifeq ($(findstring win32,$(TARGET)),win32) # BUILD_ALL on win32
         OTHER_SUB_DIRECTORIES += 			\
@@ -60,7 +60,7 @@ else
           public_key ssl toolbar tv observer debugger reltool odbc runtime_tools \
           cosTransactions cosEvent cosTime cosNotification cosProperty \
           cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen test_server common_test percept
+	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe
       else # BUILD_ALL on unix
@@ -70,7 +70,7 @@ else
           pman public_key ssl toolbar tv observer odbc \
           runtime_tools cosTransactions cosEvent cosTime cosNotification \
           cosProperty cosFileTransfer cosEventDomain et megaco webtool \
-	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen test_server common_test percept
+	  xmerl edoc eunit ssh inviso typer docbuilder erl_docgen common_test percept
 # dialyzer
         OTHER_SUB_DIRECTORIES += hipe $(TSP_APP)
       endif

@@ -28,23 +28,33 @@ clearmake=false
 #
 # NOTE: lazy_configure depends on '.' always being last directory
 if [ -z "$ONLY_ERTS" ]; then
-    AUTOCONF_SUBDIRS="lib lib/*"
+    AUTOCONF_SUBDIRS="lib lib/* lib/test_server/src"
 fi
 AUTOCONF_SUBDIRS="$AUTOCONF_SUBDIRS erts ."
+
+# `bootstrap_apps' should include application that are built, or
+# partly built in one of the bootstrap phases. Applications that
+# only get some static includes copied into the bootstrap directory
+# should not be included.
+bootstrap_apps="erts lib/asn1 lib/compiler lib/hipe lib/ic lib/kernel lib/parsetools lib/sasl lib/snmp lib/stdlib lib/syntax_tools"
+
+# We will quote a bit more than needed, but the important thing is that
+# all that needs quoting will be quoted...
+DONT_QUOTE="A-Za-z0-9/=_+-"
 
 # Utility functions
 usage ()
 {
-    echo "Available options:"
+    echo "Available options (-a switch select all applications):"
     echo "    setup [-a] [<configure parameters>] - does autoconf, configure and boot."
     echo "    all [-a] <dir> - does autoconf, configure, boot, release"
     echo "    autoconf - (re)build the configure scripts"
     echo "    configure [<configure parameters>] - does the actual configuration"
-    echo "    smp [-a] - build a small Erlang system, smp flavor"
-    echo "    hybrid [-a] - build a small Erlang system, hybrid flavor"
-    echo "    boot [-a] - bootstraps and build system (after configure)"
+    echo "    boot [-a] - bootstraps and builds the system (after configure)"
     echo "    release <target_dir> - creates a small release to <target_dir>"
     echo "    release [-a] <target_dir> - creates full release to <target_dir>"
+    echo "    smp [-a] - build an Erlang system, smp flavor only"
+    echo "    hybrid [-a] - build an Erlang system, hybrid flavor only"
     echo "    tests <dir> - Build testsuites to <dir>"
     echo ""
     echo "These are for cleaning up an open source distribution"
@@ -64,9 +74,6 @@ usage ()
     echo "Before trying to build for vxworks, consider the following option"
     echo "    env_vxworks <cpu>  - echo environment settings for vxworks, use with eval"
     echo ""
-    echo "Before trying to cross compile, set environment via the following option"
-    echo "Please note that the path to the configuration file should be absolute."
-    echo "    env_cross <absolute path to cross conf file> - echo environment settings for cross compilation, use with eval"
     case $version_controller in
 	none)
 	    ;;
@@ -102,84 +109,32 @@ usage ()
     esac
 }
 
-export_cross_env ()
+hide_vars ()
 {
-    if [ "x$ERL_XCOMP_CONF" != "x" ]; then
-	export erl_xcomp_host
-	export erl_xcomp_configure_flags
-	export erl_xcomp_cc
-	export erl_xcomp_ld
-	export erl_xcomp_cflags
-	export erl_xcomp_cpp
-	export erl_xcomp_ldflags
-	export erl_xcomp_ranlib
-	export erl_xcomp_ar
-	export erl_xcomp_ded_ld
-	export erl_xcomp_ded_ldflags
-	export erl_xcomp_ded_ld_runtime_library_path
-	export erl_xcomp_bigendian
-	export erl_xcomp_linux_clock_gettime_correction
-	export erl_xcomp_linux_nptl
-	export erl_xcomp_linux_usable_sigusrx
-	export erl_xcomp_linux_usable_sigaltstack
-	export erl_xcomp_poll
-	export erl_xcomp_kqueue
-	export erl_xcomp_putenv_copy
-	export erl_xcomp_reliable_fpe
-	export erl_xcomp_getaddrinfo
-	export erl_xcomp_gethrvtime_procfs_ioctl
-	export erl_xcomp_clock_gettime
-	export erl_xcomp_after_morecore_hook
-	export erl_xcomp_dlsym_brk_wrappers
+    script=
+    for var in "$@"; do
+	if [ "X$var" != "X" ]; then
+	    script="$script test \"X\$$var\" = \"X\" || hidden_$var=\$$var; unset $var;"
+	fi
+    done
+    if [ "X$script" != "X" ]; then
+	eval "$script"
     fi
+    unset script
 }
 
-xcomp_fail ()
+restore_vars ()
 {
-    echo "The mandatory cross compilation variable '"$1"' is not set, aborting..." >&2
-    exit 1
-}
-
-source_xcomp_file ()
-{
-    case x$1 in
-	x/*)
-	    ;;
-	x)
-	    echo "env_cross requires path to cross compilation configuration" >&2
-	    exit 1;;
-	x*)
-	    echo "An absoulute path to the cross compilation file is required: $1" >&2
-	    exit 1;;
-    esac
-
-    if [ ! -f $1 ]; then
-	echo "No such file: $1" >&2
-	exit 1
+    script=
+    for var in "$@"; do
+	if [ "X$var" != "X" ]; then
+	    script="$script unset $var; test \"X\$hidden_$var\" = \"X\" || { $var=\$hidden_$var; export $var; } ; unset hidden_$var;"
+	fi
+    done
+    if [ "X$script" != "X" ]; then
+	eval "$script"
     fi
-
-    . $1
-}
-
-finalize_xcomp_conf ()
-{
-    if test "x$erl_xcomp_host" = "x"; then
-	xcomp_fail erl_xcomp_host
-    fi
-
-    if test "x$erl_xcomp_target" != "x"; then
-	echo "The 'erl_xcomp_target' configuration variable should no longer be used." >&2
-	echo "For more information see the xcomp/README file." >&2
-	exit 1;
-    fi
-
-    OVERRIDE_TARGET=`$ERL_TOP/erts/autoconf/config.sub $erl_xcomp_host`
-    if test $? -ne 0; then
-	exit $?
-    fi
-    TARGET=$OVERRIDE_TARGET
-
-    return 0
+    unset script
 }
 
 
@@ -190,6 +145,7 @@ check_erltop ()
 		if [ -f ./otp_build -a -f ./erts/autoconf/config.guess ]; then
 		    ERLTOP_FORCED=true
 		    ERL_TOP=`/bin/pwd`
+		    export ERL_TOP
 		else
 		    echo "The environment variable ERL_TOP must be set." >&2
 		    exit 1
@@ -221,27 +177,36 @@ determine_version_controller ()
 	fi
     fi
 }
-
 # Execution of the different options
 
 # Special static config flags for certain platforms are set here  
 set_config_flags ()
 {
+	# * Extra flags to pass to configure are placed in `CONFIG_FLAGS'.
+	# * The command line is no longer added to `CONFIG_FLAGS' by
+	#   `set_config_flags'. It is instead passed directly to
+	#   `run_configure', or added to `CONFIG_FLAGS' at some other
+	#   place.
+	# * `CONFIG_FLAGS' may contain flags when `set_config_flags' is
+	#   called. These flags should survive the call to `set_config_flags'
+	#   (in the cross compilation case the whole command line as well as
+	#   the cross configuration have been moved here). 
+
 	if target_contains linux; then 
 	        XX=`echo $* | grep -v able-hipe`
 		if [ "$*" = "$XX" ]; then 
-		    CONFIG_FLAGS="--disable-hipe" 
+		    CONFIG_FLAGS="$CONFIG_FLAGS --disable-hipe" 
 		fi
 	fi
 	if target_contains "univel-sysv4"; then
-		CONFIG_FLAGS="--x-libraries=/usr/lib/X11"
+		CONFIG_FLAGS="$CONFIG_FLAGS --x-libraries=/usr/lib/X11"
 	fi
 
 	if target_contains free_source; then
 		CONFIG_FLAGS="$CONFIG_FLAGS --host=$TARGET"
 	fi
 	if target_contains win32; then
-		CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32" 
+		CONFIG_FLAGS="--build=$BUILDSYS build_alias=win32 --host=win32 --target=win32 $CONFIG_FLAGS" 
 	else
 	        # Link SSL static for all binary distributions if not overridden
 	        XX=`echo $* | grep -v dynamic-ssl-lib`
@@ -255,12 +220,61 @@ set_config_flags ()
 	   CONFIG_FLAGS="$CONFIG_FLAGS --cache-file=$OVERRIDE_CONFIG_CACHE" 
 	fi
 
-	CONFIG_FLAGS="$CONFIG_FLAGS $*"
+	env_to_config_flags $erl_build_tool_vars
+
 	export CONFIG_FLAGS;
 }
-	
+
+create_lib_configure_in()
+{
+    cd $ERL_TOP
+
+    # Multiple versions of autoconf generates code that
+    # don't work on all platforms (e.g. SunOS 5.8) if
+    # sub directories are soft links. Internally at Ericsson
+    # some OTP application directories are soft links.
+    # An added "/." solves this problem.
+
+    sdirs=
+    for lib_app in $bootstrap_apps; do
+	case $lib_app in
+	    lib/*)
+		if [ -f "$lib_app/configure.in" ]; then
+		    app=`echo "$lib_app" | sed "s|lib/\(.*\)|\1|"`
+		    sdirs="${sdirs}test ! -f $app/configure || AC_CONFIG_SUBDIRS($app/.)\n"
+		fi;;
+	    *)
+		;;
+	esac
+    done
+
+    sed_bootstrap="s%@BOOTSTRAP_CONFIGURE_APPS@%$sdirs%g"
+
+    sdirs=
+    for lib_app in lib/*; do
+	is_bapp=false
+	for bapp in $bootstrap_apps; do
+	    test $bapp != $lib_app || { is_bapp=true; break; }
+	done
+	if [ $is_bapp = false ] && [ -f "$lib_app/configure.in" ]; then
+	    app=`echo "$lib_app" | sed "s|lib/\(.*\)|\1|"`
+	    sdirs="${sdirs}    test ! -f $app/configure || AC_CONFIG_SUBDIRS($app/.)\n"
+	fi
+    done
+
+    sed_non_bootstrap="s%@NON_BOOTSTRAP_CONFIGURE_APPS@%$sdirs%g"
+    
+    rm -f lib/configure.in
+    sed "$sed_bootstrap;$sed_non_bootstrap" > lib/configure.in < lib/configure.in.src || {
+	echo "Failed to create lib/configure.in"
+	exit 1
+    }
+}
+
 do_autoconf ()		
 {
+        create_lib_configure_in
+
         if target_contains win32; then
 	    # Select the correct autoconf on cygwin
 	    save_want_autoconf_ver=$WANT_AUTOCONF_VER
@@ -285,17 +299,8 @@ do_autoconf ()
 		;;
 	esac
 
-	if [ -d erts/autom4te.cache ]; then
-	    echo "Cleaning erts/autom4te.cache"
-	    rm -f erts/autom4te.cache/*
-	fi
-
-	save_ot="$OVERRIDE_TARGET"
-	save_t="$TARGET"
 	if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
 	    echo "Autoconf disabled on target $TARGET, but is performed on host" >&2
-	    OVERRIDE_TARGET=
-	    export OVERRIDE_TARGET
 	    # We still use erts configure for erl_interface and VxWorks
 	    case "$TARGET" in
 		*vxworks*)
@@ -305,23 +310,30 @@ do_autoconf ()
 					    -e 's,lib/megaco,,'`
 		    ;;
 	    esac
-	    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
 	fi
 	
+	hide_vars OVERRIDE_TARGET TARGET
+	TARGET=$BUILDSYS
+	export TARGET
+
 	for d in $AUTOCONF_SUBDIRS; do
-		if [ -f $d/configure.in ]; then
-			echo "=== running autoconf in $d"
-			( cd $d && autoconf ) || exit 1
-		fi
-		if [ x$d = x"erts" ]; then
-			echo "=== running autoheader in $d"
-			( cd $d && autoheader configure.in > config.h.in ) \
-			    || exit 1
-		fi
+	    file="$d/configure.in"
+	    [ -f "$file" ] || continue
+	    echo ""
+	    [ ! -d "$d/autom4te.cache" ] || {
+		echo "=== cleaning $d/autom4te.cache"
+		rm -f "$d"/autom4te.cache/*
+	    }
+	    echo "=== running autoconf in $d"
+	    ( cd "$d" && autoconf ) || exit 1
+	    chdr=`cat "$file" | sed -n "s|.*\(AC_CONFIG_HEADER\).*|\1|p"`
+	    [ "$chdr" = "AC_CONFIG_HEADER" ] || continue
+	    echo "=== running autoheader in $d"
+	    ( cd "$d" && autoheader ) || exit 1
 	done
-	OVERRIDE_TARGET="$save_ot"
-	export OVERRIDE_TARGET
-	TARGET="$save_t"
+
+	restore_vars OVERRIDE_TARGET TARGET
+
         if target_contains win32; then
 	    WANT_AUTOCONF_VER=$save_want_autoconf_ver
 	    export WANT_AUTOCONF_VER
@@ -338,22 +350,176 @@ mk_targetdir ()
     fi
 }
 
+run_configure ()
+{
+    cdir="$ERL_TOP"
+    [ -z "$ONLY_ERTS" ] || {
+	cdir="$ERL_TOP/erts"
+	CONFIG_FLAGS="$CONFIG_FLAGS --no-recursion"
+    }
+
+    echo "$cdir/configure $CONFIG_FLAGS" ${1+"$@"}
+    (cd "$cdir" && $config_eval ./configure $CONFIG_FLAGS ${1+"$@"}) || exit 1
+}
+
+env_to_config_flags ()
+{
+    for env_var in "$@"; do
+	script="echo $env_var=\$$env_var; unset $env_var >/dev/null 2>&1"
+	env_arg=`eval $script`
+	case $env_arg in
+	    "$env_var=")
+		;;
+	    *[!$DONT_QUOTE]*)
+		config_eval=eval
+		new_arg=`echo "X$env_arg" | sed "s|^X||;s|\([^$DONT_QUOTE]\)|\\\\\\\\\1|g"`
+		CONFIG_FLAGS="$CONFIG_FLAGS $new_arg";;
+	    *)
+		CONFIG_FLAGS="$CONFIG_FLAGS $env_arg";;
+	esac
+	eval unset $env_var
+    done
+}
+
+try_cross_configure ()
+{
+    cross_configure=no
+    host_value=
+    build_value=
+
+    # Get `erl_xcomp_vars'
+    . "$ERL_TOP/xcomp/erl-xcomp-vars.sh" || exit 1
+
+    for arg in ${1+"$@"}; do
+	case "$arg" in
+	    --host=*)
+		host_value=`echo $x | sed "s|^--host=\(.*\)|\1|"`;;
+	    --build=*)
+		build_value=`echo $x | sed "s|^--build=\(.*\)|\1|"`;;
+	    --xcomp-conf=*)
+		cross_configure=yes;;
+	    *)
+		;;
+	esac
+    done
+
+    test $cross_configure = yes || {
+
+	test "X$host_value" = "X" || {
+
+	    test "X$build_value" != "X" || build_value="$BUILDSYS"
+
+	    build_sys=`$ERL_TOP/erts/autoconf/config.sub "$build_value"` || exit 1
+	    host_sys=`$ERL_TOP/erts/autoconf/config.sub "$host_value"` || exit 1
+
+	    
+	    test "$host_sys" = "$build_sys" || cross_configure=yes
+	}
+    }
+
+    test $cross_configure = yes || return 1
+
+    # cross configure...
+    CONFIG_FLAGS=
+
+    env_to_config_flags $erl_build_tool_vars $erl_xcomp_vars
+
+    for arg in ${1+"$@"}; do
+	case "$arg" in
+	    --host=*)
+		host_value=`echo $x | sed "s|^--host=\(.*\)|\1|"`;;
+	    --build=*)
+		build_value=`echo $x | sed "s|^--build=\(.*\)|\1|"`;;
+	    --xcomp-conf=*)
+	        xcomp_conf=`echo "X$arg" | sed "s|^X--xcomp-conf=\(.*\)\$|\1|g"`
+		test "X$xcomp_conf" != "X" || {
+		    echo "$0: Missing xcomp-conf file name"
+		    exit 1
+		}
+		test -f "$xcomp_conf" || {
+		    echo "$0: Missing xcomp-conf file: $xcomp_conf"
+		    exit 1
+		}
+		. "$xcomp_conf"
+		test $? -eq 0 || {
+		    echo "$0: Failed to read xcomp-conf file: $conf"
+		    exit 1
+		}
+		test "X$erl_xcomp_build" = "X" || build_value="$erl_xcomp_build"
+		test "X$erl_xcomp_host" = "X" || host_value="$erl_xcomp_host"
+		unset erl_xcomp_build
+		unset erl_xcomp_host
+		CONFIG_FLAGS="$CONFIG_FLAGS $erl_xcomp_configure_flags"
+		unset erl_xcomp_configure_flags
+		env_to_config_flags $erl_build_tool_vars $erl_xcomp_vars;;
+	    *[!$DONT_QUOTE]*)
+		config_eval=eval
+	        new_arg=`echo "X$arg" | sed "s|^X||;s|\([^$DONT_QUOTE]\)|\\\\\\\\\1|g"`
+		CONFIG_FLAGS="$CONFIG_FLAGS $new_arg";;
+	    *)
+		CONFIG_FLAGS="$CONFIG_FLAGS $arg";;
+	esac
+    done
+
+    CONFIG_FLAGS="--host=$host_value $CONFIG_FLAGS"
+    test "X$build_value" != "Xguess" || build_value="$BUILDSYS"
+    test "X$build_value" = "X" || CONFIG_FLAGS="--build=$build_value $CONFIG_FLAGS"
+
+    # Configure build system for boot strap
+    cat <<EOF
+
+*
+* Configuring the bootstrap build system...
+*
+
+EOF
+
+    # hide build tools environment which is for the cross configure
+    set_config_flags $CONFIG_FLAGS
+    hide_vars CONFIG_FLAGS
+
+    set_config_flags 
+    run_configure --enable-bootstrap-only
+
+    # restore the hidden build tools environment for the cross configure
+    restore_vars CONFIG_FLAGS
+
+    COMPFIX=""
+    cat <<EOF
+
+*
+* Configuring the cross host system ($host_value)...
+*
+
+EOF
+    # We don't pass the command line here since we already have moved it
+    # into CONFIG_FLAGS
+    run_configure
+
+    return 0
+}
+
 do_configure ()
 {
     setup_make
     mk_targetdir
-    save_ot="$OVERRIDE_TARGET"
-    save_t="$TARGET"
+
+    # Get `erl_build_tool_vars'
+    . "$ERL_TOP/erl-build-tool-vars.sh" || exit 1
+
     if [ ! -z "$OVERRIDE_CONFIGURE" ]; then
 	case $TARGET in
 	    vxworks_*)
 		( cd erts/autoconf && \
 		  $ERL_TOP/erts/autoconf/configure.vxworks $TARGET )
-		  echo "Configuring for build host too..." >&2
-		  OVERRIDE_TARGET=
-		  export OVERRIDE_TARGET
-		  TARGET=`$ERL_TOP/erts/autoconf/config.guess`
-		  mk_targetdir;;
+		  echo "Configuring for build system too..." >&2
+		  hide_vars OVERRIDE_TARGET TARGET
+		  TARGET=$BUILDSYS
+		  export TARGET
+		  mk_targetdir
+		  set_config_flags "$@"
+		  run_configure "$@"
+		  restore_vars OVERRIDE_TARGET TARGET;;
 	    *)
 		echo "Unexpected target when ordinary configure is" \
 			"overridden" >&2
@@ -362,110 +528,13 @@ do_configure ()
 		exit 1;;
 	esac
     else
-	if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	    save_CONFIG_FLAGS="$CONFIG_FLAGS"
-	    if [ "x$erl_xcomp_configure_flags" != "x" ]; then
-		set_config_flags $erl_xcomp_configure_flags
-	    else
-		set_config_flags $CONFIG_FLAGS "$@"
-	    fi
-	    COMPFIX=""
-	    save_CC="$CC"
-	    save_LD="$LD"
-	    save_CFLAGS="$CFLAGS"
-	    save_LDFLAGS="$LDFLAGS"
-	    save_RANLIB="$RANLIB"
-	    save_AR="$AR"
-	    save_DED_LD="$DED_LD"
-	    save_DED_LDFLAGS="$DED_LDFLAGS"
-	    save_DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
-	    save_CPP="$CPP"
-	    if [ "x$erl_xcomp_cc" != "x" ]; then
-		CC="$erl_xcomp_cc"
-	    fi
-	    if [ "x$erl_xcomp_cpp" != "x" ]; then
-		CPP="$erl_xcomp_cpp"
-	    fi
-	    if [ "x$erl_xcomp_ld" != "x" ]; then
-		LD="$erl_xcomp_ld"
-	    fi
-	    if [ "x$erl_xcomp_cflags" != "x" ]; then
-		CFLAGS="$erl_xcomp_cflags"
-	    fi
-	    if [ "x$erl_xcomp_ldflags" != "x" ]; then
-		LDFLAGS="$erl_xcomp_ldflags"
-	    fi
-	    if [ "x$erl_xcomp_ranlib" != "x" ]; then
-		RANLIB="$erl_xcomp_ranlib"
-	    fi
-	    if [ "x$erl_xcomp_ar" != "x" ]; then
-		AR="$erl_xcomp_ar"
-	    fi
-	    if [ "x$erl_xcomp_ded_ld" != "x" ]; then
-		DED_LD="$erl_xcomp_ded_ld"
-	    fi
-	    if [ "x$erl_xcomp_ded_ld_runtime_library_path" != "x" ]; then
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$erl_xcomp_ded_ld_runtime_library_path"
-	    fi
-	    if [ "x$erl_xcomp_ded_ldflags" != "x" ]; then
-		DED_LDFLAGS="$erl_xcomp_ded_ldflags"
-	    fi
-	    export CC LD CFLAGS LDFLAGS RANLIB AR DED_LD DED_LDFLAGS DED_LD_FLAG_RUNTIME_LIBRARY_PATH CPP
-
-	    #
-	    # The environment for compilers, cflags et al are sometimes hard
-	    # to pass along in recursive configure, why each cross configure 
-	    # is run separately instead. This variable (crossdirs) need to
-	    # be updated whenever a new application needs a configure
-	    # of it's own, at least until I get the recirsive configure
-	    # to work for the complicated environment needed by i.e. vxworks 
-	    # compilers. It's a kludge, but a working one...
-	    #
-
-	    if [ -z "$ONLY_ERTS" ]; then
-		crossdirs="erts lib/common_test lib/erl_interface lib/gs lib/megaco lib/odbc lib/snmp lib/wx"
-	    else
-		crossdirs="erts"
-	    fi
-
-	    export_cross_env
-
-	    for d in $crossdirs; do
-		echo            "== Entering $d =="
-		echo            "./configure --build=$BUILDSYS --host=$erl_xcomp_host $CONFIG_FLAGS"
-		(cd $ERL_TOP/$d; ./configure --build=$BUILDSYS --host=$erl_xcomp_host $CONFIG_FLAGS) || exit 1
-		echo            "== Leaving  $d =="
-	    done
-
-	    CC="$save_CC"
-	    LD="$save_LD"
-	    CFLAGS="$save_CFLAGS"
-	    LDFLAGS="$save_LDFLAGS"
-	    RANLIB="$save_RANLIB"
-	    AR="$save_AR"
-	    DED_LD="$save_DED_LD"
-	    DED_LDFLAGS="$save_DED_LDFLAGS"
-	    DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$save_DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
-	    CPP="$save_CPP"
-	    export CC LD CFLAGS LDFLAGS RANLIB AR DED_LD DED_LDFLAGS DED_LD_FLAG_RUNTIME_LIBRARY_PATH CPP
-	    echo "Configuring for build host too..." >&2
-	    OVERRIDE_TARGET=
-	    export OVERRIDE_TARGET
-	    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
-	    mk_targetdir
-	    CONFIG_FLAGS="$save_CONFIG_FLAGS"
+	try_cross_configure "$@"
+	if [ $cross_configure = no ]; then
+	    CONFIG_FLAGS=
+	    set_config_flags "$@"
+	    run_configure "$@"
 	fi
     fi
-    set_config_flags $CONFIG_FLAGS "$@"
-    if [ -z "$ONLY_ERTS" ]; then
-	./configure $CONFIG_FLAGS || exit 1
-    else
-	echo "erts/configure $CONFIG_FLAGS"
-	(cd $ERL_TOP/erts; ./configure $CONFIG_FLAGS) || exit 1
-    fi
-    OVERRIDE_TARGET="$save_ot"
-    export OVERRIDE_TARGET
-    TARGET="$save_t"
 }
 
 do_lazy_configure ()
@@ -475,7 +544,10 @@ do_lazy_configure ()
 	echo "Not supported for cross compilation" >&2
 	exit 1
     fi
-    set_config_flags $CONFIG_FLAGS "$@"
+    CONFIG_FLAGS=
+    set_config_flags "$@"
+    CONFIGURE_FLAGS="$@"
+    [ "$CONFIG_FLAGS" = "" ] || CONFIGURE_FLAGS="$CONFIG_FLAGS $CONFIGURE_FLAGS"
     for c_dir in $AUTOCONF_SUBDIRS; do
 	if test -f $ERL_TOP/$c_dir/configure.in; then
 	    dir=$ERL_TOP/$c_dir
@@ -490,7 +562,7 @@ do_lazy_configure ()
 	    $MAKE -f $ERL_TOP/make/lazy_configure.mk                         \
 		MAKE="$MAKE" TARGET=$TARGET                                  \
 		ERL_TOP=$ERL_TOP                                             \
-		CONFIGURE_FLAGS="$CONFIG_FLAGS"                              \
+		CONFIGURE_FLAGS="$CONFIGURE_FLAGS"                           \
 		CONFIGURE_DIR=$dir                                           \
 		EXTRA_CONFIGURE_DEPENDENCIES=$xc_dep                         \
 		EXTRA_CONFIG_STATUS_DEPENDENCIES=$xcs_dep                    \
@@ -630,16 +702,6 @@ echo_env_vxworks ()
     echo_env_erltop
     echo_setenv OVERRIDE_CONFIGURE true ';'
     echo_setenv OVERRIDE_TARGET vxworks_$1
-    echo_envinfo
-}
-
-echo_env_cross ()
-{
-    source_xcomp_file $1
-    finalize_xcomp_conf
-    echo_env_erltop
-    echo_setenv ERL_XCOMP_CONF $1 ';'
-    echo_setenv OVERRIDE_TARGET $OVERRIDE_TARGET
     echo_envinfo
 }
 
@@ -814,31 +876,21 @@ do_noboot_lib_and_erts ()
 {
     setup_make
     EMULATORS=emulator
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+	TARGET=`$MAKE target_configured`
+    fi
     if [ "x$MAKE" != "x$clearmake" ]; then
 	$MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD depend || exit 1;
     fi
     $MAKE MAKE="$MAKE" TARGET=$TARGET OTP_SMALL_BUILD=$OTP_SMALL_BUILD TYPE=$TYPE FLAVOR=$FLAVOR noboot || exit 1
 }
 
-do_primary_cross ()
-{
-    save_t="$TARGET"
-    save_ot="$OVERRIDE_TARGET"
-    OVERRIDE_TARGET=
-    export OVERRIDE_TARGET
-    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all_bootstraps || exit 1
-    OVERRIDE_TARGET="$save_ot"
-    export OVERRIDE_TARGET
-    TARGET="$save_t"
-}
-
 do_primary ()
 {
     setup_make
     if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	do_primary_cross
+	echo "OVERRIDE_TARGET set" >&2
+	exit 1
     else
 	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET primary_bootstrap || exit 1;
     fi
@@ -1029,59 +1081,54 @@ do_cancel_prel ()
     echo '*****************************************************'
 
 }
-    
-
-do_boot_cross ()
-{
-    SAVE_TARGET=$TARGET
-    SAVE_OVERRIDE_TARGET=$OVERRIDE_TARGET
-    OVERRIDE_TARGET=
-    TARGET=`$ERL_TOP/erts/autoconf/config.guess`
-    
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all_bootstraps || exit 1;
-
-    TARGET=$SAVE_TARGET
-    OVERRIDE_TARGET=$SAVE_OVERRIDE_TARGET
-
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET libs || exit 1;
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET depend || exit 1;
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1;
-}
-
-do_boot_emu_cross ()
-{
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1;
-}
 
 do_boot ()
 {
     setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	do_boot_cross
-    else
-	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all || exit 1
+
+    # Bootstrap if we are cross compiling
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+	TARGET=$BUILDSYS
+	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT CROSS_COMPILING=no TARGET=$TARGET bootstrap || exit 1
+	TARGET=`$MAKE target_configured`
+    elif [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
+	hide_vars OVERRIDE_TARGET TARGET
+	TARGET=$BUILDSYS
+	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET bootstrap || exit 1
+
+	restore_vars OVERRIDE_TARGET TARGET
     fi
+
+    # Build it (including bootstrap if not cross compiling)
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET all || exit 1
 }
 
 do_boot_emu ()
 {
     setup_make
-    if [ "x$OVERRIDE_TARGET" != "x" -a "x$OVERRIDE_TARGET" != "xwin32" ]; then
-	do_boot_emu_cross
-    else
-	$MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+	TARGET=`$MAKE target_configured`
     fi
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET emulator || exit 1
 }
 
 do_release ()
 {
     setup_make
-    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET RELEASE_ROOT=$1 release || exit 1
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+	TARGET=`$MAKE target_configured`
+    fi
+    $MAKE MAKE="$MAKE" BOOTSTRAP_ROOT=$BOOTSTRAP_ROOT TARGET=$TARGET \
+	RELEASE_ROOT=$1 OTP_STRICT_INSTALL=$OTP_STRICT_INSTALL \
+	release || exit 1
 }
 
 do_tests ()
 {
     setup_make
+    if [ X`$MAKE is_cross_configured` = Xyes ]; then
+	TARGET=`$MAKE target_configured`
+    fi
     if [ X"$1" = X"" ]; then
 	$MAKE MAKE="$MAKE" TARGET=$TARGET release_tests || exit 1
     else
@@ -1232,10 +1279,6 @@ esac
 
 if [ ! -z "$OVERRIDE_TARGET" ]; then
     TARGET="$OVERRIDE_TARGET"
-else
-    if [ "x$erl_xcomp_host" != "x" ]; then
-	finalize_xcomp_conf
-    fi
 fi
 
 # Setting a bootstrap root is inherently very dangerous now that the bootstrap
@@ -1262,10 +1305,6 @@ else
     minus_a_flag=false
 fi
 export OTP_SMALL_BUILD
-
-if [ "x$ERL_XCOMP_CONF" != "x" ]; then
-    . $ERL_XCOMP_CONF
-fi
 
 TYPE=
 case "$1" in

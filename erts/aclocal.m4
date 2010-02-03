@@ -1,19 +1,19 @@
 dnl
 dnl %CopyrightBegin%
-dnl 
-dnl Copyright Ericsson AB 1998-2009. All Rights Reserved.
-dnl 
+dnl
+dnl Copyright Ericsson AB 1998-2010. All Rights Reserved.
+dnl
 dnl The contents of this file are subject to the Erlang Public License,
 dnl Version 1.1, (the "License"); you may not use this file except in
 dnl compliance with the License. You should have received a copy of the
 dnl Erlang Public License along with this software. If not, it can be
 dnl retrieved online at http://www.erlang.org/.
-dnl 
+dnl
 dnl Software distributed under the License is distributed on an "AS IS"
 dnl basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 dnl the License for the specific language governing rights and limitations
 dnl under the License.
-dnl 
+dnl
 dnl %CopyrightEnd%
 dnl
 
@@ -24,6 +24,63 @@ dnl Local macros used in configure.in. The Local Macros which
 dnl could/should be part of autoconf are prefixed LM_, macros specific
 dnl to the Erlang system are prefixed ERL_.
 dnl
+
+AC_DEFUN(LM_PRECIOUS_VARS,
+[
+
+dnl ERL_TOP
+AC_ARG_VAR(ERL_TOP, [Erlang/OTP top source directory])
+
+dnl Tools
+AC_ARG_VAR(CC, [C compiler])
+AC_ARG_VAR(CFLAGS, [C compiler flags])
+AC_ARG_VAR(STATIC_CFLAGS, [C compiler static flags])
+AC_ARG_VAR(CFLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag passed via C compiler])
+AC_ARG_VAR(CPP, [C/C++ preprocessor])
+AC_ARG_VAR(CPPFLAGS, [C/C++ preprocessor flags])
+AC_ARG_VAR(CXX, [C++ compiler])
+AC_ARG_VAR(CXXFLAGS, [C++ compiler flags])
+AC_ARG_VAR(LD, [linker (is often overridden by configure)])
+AC_ARG_VAR(LDFLAGS, [linker flags (can be risky to set since LD may be overriden by configure)])
+AC_ARG_VAR(DED_LD, [linker for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
+AC_ARG_VAR(DED_LDFLAGS, [linker flags for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
+AC_ARG_VAR(DED_LD_FLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
+AC_ARG_VAR(RANLIB, [ranlib])
+AC_ARG_VAR(AR, [ar])
+
+dnl Cross system root
+AC_ARG_VAR(erl_xcomp_sysroot, [Absolute cross system root path (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_isysroot, [Absolute cross system root include path (only used when cross compiling)])
+
+dnl Cross compilation variables
+AC_ARG_VAR(erl_xcomp_bigendian, [big endian system: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_linux_clock_gettime_correction, [clock_gettime() can be used for time correction: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_linux_nptl, [have Native POSIX Thread Library: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_linux_usable_sigusrx, [SIGUSR1 and SIGUSR2 can be used: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_linux_usable_sigaltstack, [have working sigaltstack(): yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_poll, [have working poll(): yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_kqueue, [have working kqueue(): yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_putenv_copy, [putenv() stores key-value copy: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_reliable_fpe, [have reliable floating point exceptions: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_getaddrinfo, [have working getaddrinfo() for both IPv4 and IPv6: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_gethrvtime_procfs_ioctl, [have working gethrvtime() which can be used with procfs ioctl(): yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_clock_gettime_cpu_time, [clock_gettime() can be used for retrieving process CPU time: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_after_morecore_hook, [__after_morecore_hook can track malloc()s core memory usage: yes|no (only used when cross compiling)])
+AC_ARG_VAR(erl_xcomp_dlsym_brk_wrappers, [dlsym(RTLD_NEXT, _) brk wrappers can track malloc()s core memory usage: yes|no (only used when cross compiling)])
+
+])
+
+AC_DEFUN(ERL_XCOMP_SYSROOT_INIT,
+[
+erl_xcomp_without_sysroot=no
+if test "$cross_compiling" = "yes"; then
+    test "$erl_xcomp_sysroot" != "" || erl_xcomp_without_sysroot=yes
+    test "$erl_xcomp_isysroot" != "" || erl_xcomp_isysroot="$erl_xcomp_sysroot"
+else
+    erl_xcomp_sysroot=
+    erl_xcomp_isysroot=
+fi
+])
 
 dnl ----------------------------------------------------------------------
 dnl
@@ -113,11 +170,15 @@ dnl ----------------------------------------------------------------------
 dnl
 dnl LM_PROG_INSTALL_DIR
 dnl
+dnl This macro may be used by any OTP application.
+dnl
 dnl Figure out how to create directories with parents.
 dnl (In my opinion INSTALL_DIR is a bad name, MKSUBDIRS or something is better)
 dnl
 dnl We prefer 'install -d', but use 'mkdir -p' if it exists.
 dnl If none of these methods works, we give up.
+dnl
+
 
 AC_DEFUN(LM_PROG_INSTALL_DIR,
 [AC_CACHE_CHECK(how to create a directory including parents,
@@ -412,7 +473,157 @@ fi
 
 dnl ----------------------------------------------------------------------
 dnl
+dnl LM_CHECK_THR_LIB
+dnl
+dnl This macro may be used by any OTP application.
+dnl
+dnl LM_CHECK_THR_LIB sets THR_LIBS, THR_DEFS, and THR_LIB_NAME. It also
+dnl checks for some pthread headers which will appear in DEFS or config.h.
+dnl
+
+AC_DEFUN(LM_CHECK_THR_LIB,
+[
+
+dnl win32?
+AC_MSG_CHECKING([for native win32 threads])
+if test "X$host_os" = "Xwin32"; then
+    AC_MSG_RESULT(yes)
+    THR_DEFS="-DWIN32_THREADS"
+    THR_LIBS=
+    THR_LIB_NAME=win32_threads
+else
+    AC_MSG_RESULT(no)
+    THR_DEFS=
+    THR_LIBS=
+    THR_LIB_NAME=
+
+dnl Try to find POSIX threads
+
+dnl The usual pthread lib...
+    AC_CHECK_LIB(pthread, pthread_create, THR_LIBS="-lpthread")
+
+dnl FreeBSD has pthreads in special c library, c_r...
+    if test "x$THR_LIBS" = "x"; then
+	AC_CHECK_LIB(c_r, pthread_create, THR_LIBS="-lc_r")
+    fi
+
+dnl On ofs1 the '-pthread' switch should be used
+    if test "x$THR_LIBS" = "x"; then
+	AC_MSG_CHECKING([if the '-pthread' switch can be used])
+	saved_cflags=$CFLAGS
+	CFLAGS="$CFLAGS -pthread"
+	AC_TRY_LINK([#include <pthread.h>],
+		    pthread_create((void*)0,(void*)0,(void*)0,(void*)0);,
+		    [THR_DEFS="-pthread"
+		     THR_LIBS="-pthread"])
+	CFLAGS=$saved_cflags
+	if test "x$THR_LIBS" != "x"; then
+	    AC_MSG_RESULT(yes)
+	else
+	    AC_MSG_RESULT(no)
+	fi
+    fi
+
+    if test "x$THR_LIBS" != "x"; then
+	THR_DEFS="$THR_DEFS -D_THREAD_SAFE -D_REENTRANT -DPOSIX_THREADS"
+	THR_LIB_NAME=pthread
+	case $host_os in
+	    solaris*)
+		THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
+	    linux*)
+		THR_DEFS="$THR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS"
+
+		AC_MSG_CHECKING(for Native POSIX Thread Library)
+		if test	X$cross_compiling = Xyes; then
+		    case X$erl_xcomp_linux_nptl in
+			X) nptl=cross;;
+			Xyes|Xno) nptl=$erl_xcomp_linux_nptl;;
+			*) AC_MSG_ERROR([Bad erl_xcomp_linux_nptl value: $erl_xcomp_linux_nptl]);;
+		    esac
+		else
+		    case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
+			nptl*) nptl=yes;;
+			NPTL*) nptl=yes;;
+			*)  nptl=no;;
+		    esac
+		fi
+		AC_MSG_RESULT($nptl)
+		if test $nptl = cross; then
+		    nptl=yes
+		    AC_MSG_WARN([result yes guessed because of cross compilation])
+		fi
+		if test $nptl = yes; then
+		    need_nptl_incldir=no
+		    AC_CHECK_HEADER(nptl/pthread.h, need_nptl_incldir=yes)
+		    if test $need_nptl_incldir = yes; then
+			# Ahh...
+			nptl_path="$C_INCLUDE_PATH:$CPATH"
+			if test X$cross_compiling != Xyes; then
+			    nptl_path="$nptl_path:/usr/local/include:/usr/include"
+			else
+			    IROOT="$erl_xcomp_isysroot"
+			    test "$IROOT" != "" || IROOT="$erl_xcomp_sysroot"
+			    test "$IROOT" != "" || AC_MSG_ERROR([Don't know where to search for includes! Please set erl_xcomp_isysroot])
+			    nptl_path="$nptl_path:$IROOT/usr/local/include:$IROOT/usr/include"
+			fi
+			nptl_ws_path=
+			save_ifs="$IFS"; IFS=":"
+			for dir in $nptl_path; do
+			    if test "x$dir" != "x"; then
+				nptl_ws_path="$nptl_ws_path $dir"
+			    fi
+			done
+			IFS=$save_ifs
+			nptl_incldir=
+			for dir in $nptl_ws_path; do
+		            AC_CHECK_HEADER($dir/nptl/pthread.h,
+					    nptl_incldir=$dir/nptl)
+			    if test "x$nptl_incldir" != "x"; then
+				THR_DEFS="$THR_DEFS -isystem $nptl_incldir"
+				break
+			    fi
+			done
+			if test "x$nptl_incldir" = "x"; then
+			    AC_MSG_ERROR(Failed to locate nptl system include directory)
+			fi
+		    fi
+		fi
+		;;
+	    *) ;;
+	esac
+
+	dnl We sometimes need THR_DEFS in order to find certain headers
+	dnl (at least for pthread.h on osf1).
+	saved_cppflags=$CPPFLAGS
+	CPPFLAGS="$CPPFLAGS $THR_DEFS"
+
+	dnl
+	dnl Check for headers
+	dnl
+
+	AC_CHECK_HEADER(pthread.h,
+			AC_DEFINE(HAVE_PTHREAD_H, 1, \
+[Define if you have the <pthread.h> header file.]))
+
+	dnl Some Linuxes have <pthread/mit/pthread.h> instead of <pthread.h>
+	AC_CHECK_HEADER(pthread/mit/pthread.h, \
+			AC_DEFINE(HAVE_MIT_PTHREAD_H, 1, \
+[Define if the pthread.h header file is in pthread/mit directory.]))
+
+	dnl restore CPPFLAGS
+	CPPFLAGS=$saved_cppflags
+
+    fi
+fi
+
+])
+
+dnl ----------------------------------------------------------------------
+dnl
 dnl ERL_FIND_ETHR_LIB
+dnl
+dnl NOTE! This macro may be changed at any time! Should *only* be used by
+dnl       ERTS!
 dnl
 dnl Find a thread library to use. Sets ETHR_LIBS to libraries to link
 dnl with, ETHR_X_LIBS to extra libraries to link with (same as ETHR_LIBS
@@ -429,113 +640,71 @@ dnl
 AC_DEFUN(ERL_FIND_ETHR_LIB,
 [
 
+LM_CHECK_THR_LIB
+
+ETHR_THR_LIB_BASE="$THR_LIB_NAME"
+ETHR_DEFS="$THR_DEFS"
+ETHR_X_LIBS="$THR_LIBS"
+ETHR_LIBS=
+ETHR_LIB_NAME=
+
 ethr_modified_default_stack_size=
 
 dnl Name of lib where ethread implementation is located
 ethr_lib_name=ethread
 
-ETHR_THR_LIB_BASE=
-ETHR_THR_LIB_BASE_NAME=
-ETHR_X_LIBS=
-ETHR_LIBS=
-ETHR_LIB_NAME=
-ETHR_DEFS=
+case "$THR_LIB_NAME" in
 
-dnl if test "x$host_os" = "x"; then
-dnl    AC_CANONICAL_HOST
-dnl fi
+    win32_threads)
+	# * _WIN32_WINNT >= 0x0400 is needed for
+	#   TryEnterCriticalSection
+	# * _WIN32_WINNT >= 0x0403 is needed for
+	#   InitializeCriticalSectionAndSpinCount
+	# The ethread lib will refuse to build if _WIN32_WINNT < 0x0403.
+	#
+	# -D_WIN32_WINNT should have been defined in $CPPFLAGS; fetch it
+	# and save it in ETHR_DEFS.
+	found_win32_winnt=no
+	for cppflag in $CPPFLAGS; do
+	    case $cppflag in
+		-DWINVER*)
+		    ETHR_DEFS="$ETHR_DEFS $cppflag"
+		    ;;
+		-D_WIN32_WINNT*)
+		    ETHR_DEFS="$ETHR_DEFS $cppflag"
+		    found_win32_winnt=yes
+		    ;;
+		*)
+		    ;;
+	    esac
+        done
+        if test $found_win32_winnt = no; then
+	    AC_MSG_ERROR([-D_WIN32_WINNT missing in CPPFLAGS])
+        fi
+	AC_DEFINE(ETHR_WIN32_THREADS, 1, [Define if you have win32 threads])
+	;;
 
-dnl win32?
-AC_MSG_CHECKING([for native win32 threads])
-if test "X$host_os" = "Xwin32"; then
-    AC_MSG_RESULT(yes)
-    # * _WIN32_WINNT >= 0x0400 is needed for
-    #   TryEnterCriticalSection
-    # * _WIN32_WINNT >= 0x0403 is needed for
-    #   InitializeCriticalSectionAndSpinCount
-    # The ethread lib will refuse to build if _WIN32_WINNT < 0x0403.
-    #
-    # -D_WIN32_WINNT should have been defined in $CPPFLAGS; fetch it
-    # and save it in ETHR_DEFS.
-    found_win32_winnt=no
-    for cppflag in $CPPFLAGS; do
-	case $cppflag in
-	    -DWINVER*)
-		ETHR_DEFS="$ETHR_DEFS $cppflag"
-		;;
-	    -D_WIN32_WINNT*)
-		ETHR_DEFS="$ETHR_DEFS $cppflag"
-		found_win32_winnt=yes
-		;;
-	    *)
-		;;
-	esac
-    done
-    if test $found_win32_winnt = no; then
-	AC_MSG_ERROR([-D_WIN32_WINNT missing in CPPFLAGS])
-    fi
-    ETHR_X_LIBS=
-    ETHR_THR_LIB_BASE=win32_threads
-    AC_DEFINE(ETHR_WIN32_THREADS, 1, [Define if you have win32 threads])
-else
-    AC_MSG_RESULT(no)
-
-dnl Try to find POSIX threads
-
-dnl The usual pthread lib...
-    AC_CHECK_LIB(pthread, pthread_create, ETHR_X_LIBS="-lpthread")
-
-dnl FreeBSD has pthreads in special c library, c_r...
-    if test "x$ETHR_X_LIBS" = "x"; then
-	AC_CHECK_LIB(c_r, pthread_create, ETHR_X_LIBS="-lc_r")
-    fi
-
-dnl On ofs1 the '-pthread' switch should be used
-    if test "x$ETHR_X_LIBS" = "x"; then
-	AC_MSG_CHECKING([if the '-pthread' switch can be used])
-	saved_cflags=$CFLAGS
-	CFLAGS="$CFLAGS -pthread"
-	AC_TRY_LINK([#include <pthread.h>],
-		    pthread_create((void*)0,(void*)0,(void*)0,(void*)0);,
-		    [ETHR_DEFS="-pthread"
-		     ETHR_X_LIBS="-pthread"])
-	CFLAGS=$saved_cflags
-	if test "x$ETHR_X_LIBS" != "x"; then
-	    AC_MSG_RESULT(yes)
-	else
-	    AC_MSG_RESULT(no)
-	fi
-    fi
-
-    if test "x$ETHR_X_LIBS" != "x"; then
-	ETHR_DEFS="$ETHR_DEFS -D_THREAD_SAFE -D_REENTRANT"
-	ETHR_THR_LIB_BASE=pthread
+    pthread)
     	AC_DEFINE(ETHR_PTHREADS, 1, [Define if you have pthreads])
 	case $host_os in
 	    openbsd*)
 		# The default stack size is insufficient for our needs
 		# on OpenBSD. We increase it to 256 kilo words.
 		ethr_modified_default_stack_size=256;;
-	    solaris*)
-		ETHR_DEFS="$ETHR_DEFS -D_POSIX_PTHREAD_SEMANTICS" ;;
 	    linux*)
-		ETHR_DEFS="$ETHR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS -D_GNU_SOURCE"
+		ETHR_DEFS="$ETHR_DEFS -D_GNU_SOURCE"
 
 		if test	X$cross_compiling = Xyes; then
-		    if test "X$erl_xcomp_linux_usable_sigusrx" = "X"; then
-			usable_sigusrx=yes
-			usable_sigusrx_guessed=yes
-		    else
-			usable_sigusrx=$erl_xcomp_linux_usable_sigusrx
-			usable_sigusrx_guessed=no
-		    fi
-		    if test "X$erl_xcomp_linux_usable_sigaltstack" = "X"; then
-			usable_sigaltstack=yes
-			usable_sigaltstack_guessed=yes
-		    else
-			usable_sigaltstack=$erl_xcomp_linux_usable_sigaltstack
-			usable_sigaltstack_guessed=no
-		    fi
+		    case X$erl_xcomp_linux_usable_sigusrx in
+			X) usable_sigusrx=cross;;
+			Xyes|Xno) usable_sigusrx=$erl_xcomp_linux_usable_sigusrx;;
+			*) AC_MSG_ERROR([Bad erl_xcomp_linux_usable_sigusrx value: $erl_xcomp_linux_usable_sigusrx]);;
+		    esac
+		    case X$erl_xcomp_linux_usable_sigaltstack in
+			X) usable_sigaltstack=cross;;
+			Xyes|Xno) usable_sigaltstack=$erl_xcomp_linux_usable_sigaltstack;;
+			*) AC_MSG_ERROR([Bad erl_xcomp_linux_usable_sigaltstack value: $erl_xcomp_linux_usable_sigaltstack]);;
+		    esac
 		else
 		    # FIXME: Test for actual problems instead of kernel versions
 		    linux_kernel_vsn_=`uname -r`
@@ -550,14 +719,13 @@ dnl On ofs1 the '-pthread' switch should be used
 			    usable_sigusrx=yes
 			    usable_sigaltstack=yes;;
 		    esac
-		    usable_sigusrx_guessed=no
-		    usable_sigaltstack_guessed=no
 		fi
 
 		AC_MSG_CHECKING(if SIGUSR1 and SIGUSR2 can be used)
 		AC_MSG_RESULT($usable_sigusrx)
-		if test $usable_sigusrx_guessed = yes; then
-		    AC_MSG_WARN([result $usable_sigusrx guessed because of cross compilation])
+		if test $usable_sigusrx = cross; then
+		    usable_sigusrx=yes
+		    AC_MSG_WARN([result yes guessed because of cross compilation])
 		fi
 		if test $usable_sigusrx = no; then
 		    ETHR_DEFS="$ETHR_DEFS -DETHR_UNUSABLE_SIGUSRX"
@@ -565,67 +733,12 @@ dnl On ofs1 the '-pthread' switch should be used
 
 		AC_MSG_CHECKING(if sigaltstack can be used)
 		AC_MSG_RESULT($usable_sigaltstack)
-		if test $usable_sigaltstack_guessed = yes; then
-		    AC_MSG_WARN([result $usable_sigaltstack guessed because of cross compilation])
+		if test $usable_sigaltstack = cross; then
+		    usable_sigaltstack=yes
+		    AC_MSG_WARN([result yes guessed because of cross compilation])
 		fi
 		if test $usable_sigaltstack = no; then
 		    ETHR_DEFS="$ETHR_DEFS -DETHR_UNUSABLE_SIGALTSTACK"
-		fi
-
-		AC_MSG_CHECKING(for Native POSIX Thread Library)
-		if test	X$cross_compiling = Xyes; then
-		    if test "X$erl_xcomp_linux_nptl" = "X"; then
-			nptl=yes
-			nptl_guessed=yes
-		    else
-			nptl=$erl_xcomp_linux_nptl
-			nptl_guessed=no
-		    fi
-		else
-		    case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
-			nptl*) nptl=yes;;
-			NPTL*) nptl=yes;;
-			*)  nptl=no;;
-		    esac
-		    nptl_guessed=no
-		fi
-		AC_MSG_RESULT($nptl)
-		if test $nptl_guessed = yes; then
-		    AC_MSG_WARN([result $nptl guessed because of cross compilation])
-		fi
-		if test $nptl = yes; then
-		    ETHR_THR_LIB_BASE_NAME=nptl
-		fi
-		if test $nptl = yes; then
-		    need_nptl_incldir=no
-		    AC_CHECK_HEADER(nptl/pthread.h, need_nptl_incldir=yes)
-		    if test $need_nptl_incldir = yes; then
-			# Ahh...
-			nptl_path="$C_INCLUDE_PATH:$CPATH"
-			if test X$cross_compiling != Xyes; then
-			    nptl_path="$nptl_path:/usr/local/include:/usr/include"
-			fi
-			nptl_ws_path=
-			save_ifs="$IFS"; IFS=":"
-			for dir in $nptl_path; do
-			    if test "x$dir" != "x"; then
-				nptl_ws_path="$nptl_ws_path $dir"
-			    fi
-			done
-			IFS=$save_ifs
-			nptl_incldir=
-			for dir in $nptl_ws_path; do
-		            AC_CHECK_HEADER($dir/nptl/pthread.h,
-					    nptl_incldir=$dir/nptl)
-			    if test "x$nptl_incldir" != "x"; then
-				ETHR_DEFS="$ETHR_DEFS -isystem $nptl_incldir"
-				break
-			    fi
-			done
-			if test "x$nptl_incldir" = "x"; then
-			    AC_MSG_ERROR(Failed to locate nptl system include directory)
-			fi
-		    fi
 		fi
 
 		AC_DEFINE(ETHR_INIT_MUTEX_IN_CHILD_AT_FORK, 1, \
@@ -635,20 +748,18 @@ dnl On ofs1 the '-pthread' switch should be used
 
 	dnl We sometimes need ETHR_DEFS in order to find certain headers
 	dnl (at least for pthread.h on osf1).
-	saved_cppflags=$CPPFLAGS
+	saved_cppflags="$CPPFLAGS"
 	CPPFLAGS="$CPPFLAGS $ETHR_DEFS"
 
 	dnl We need the thread library in order to find some functions
-	saved_libs=$LIBS
+	saved_libs="$LIBS"
 	LIBS="$LIBS $ETHR_X_LIBS"
-
-
 
 	dnl
 	dnl Check for headers
 	dnl
 
-	AC_CHECK_HEADER(pthread.h,
+	AC_CHECK_HEADER(pthread.h, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_H, 1, \
 [Define if you have the <pthread.h> header file.]))
 
@@ -684,8 +795,8 @@ dnl On ofs1 the '-pthread' switch should be used
 	AC_CHECK_FUNC(pthread_spin_lock, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
 [Define if you have the pthread_spin_lock function.]))
-	case $host_os in
-		linux*) # Writers may get starved
+	case "$force_linux_pthread_rwlocks-$host_os" in
+		yes-linux*) # Writers may get starved
 			# TODO: write a test that tests the implementation
 			;;
 		*)
@@ -702,9 +813,10 @@ dnl On ofs1 the '-pthread' switch should be used
 	LIBS=$saved_libs
 	dnl restore CPPFLAGS
 	CPPFLAGS=$saved_cppflags
-
-    fi
-fi
+	;;
+    *)
+	;;
+esac
 
 AC_MSG_CHECKING([whether default stack size should be modified])
 if test "x$ethr_modified_default_stack_size" != "x"; then
@@ -735,7 +847,6 @@ AC_SUBST(ETHR_LIBS)
 AC_SUBST(ETHR_LIB_NAME)
 AC_SUBST(ETHR_DEFS)
 AC_SUBST(ETHR_THR_LIB_BASE)
-AC_SUBST(ETHR_THR_LIB_BASE_NAME)
 
 ])
 
@@ -789,12 +900,6 @@ case $clock_gettime_correction in
 			    unknown)
 				if test x$clock_gettime_compiles = xyes; then
 				    if test X$cross_compiling != Xyes; then
-					if test "X$erl_xcomp_linux_clock_gettime_correction" = "Xno"; then
-					    erl_cv_time_correction=times
-					else
-					    erl_cv_time_correction=clock_gettime
-					fi
-				    else
 				    	linux_kernel_vsn_=`uname -r`
 				    	case $linux_kernel_vsn_ in
 					    [[0-1]].*|2.[[0-5]]|2.[[0-5]].*)
@@ -802,6 +907,19 @@ case $clock_gettime_correction in
 					    *)
 					    	erl_cv_time_correction=clock_gettime;;
 				    	esac
+				    else
+					case X$erl_xcomp_linux_clock_gettime_correction in
+					    X)
+						erl_cv_time_correction=cross;;
+					    Xyes|Xno)
+						if test $erl_xcomp_linux_clock_gettime_correction = yes; then
+						    erl_cv_time_correction=clock_gettime
+						else
+					    	    erl_cv_time_correction=times
+						fi;;
+					    *)
+						AC_MSG_ERROR([Bad erl_xcomp_linux_clock_gettime_correction value: $erl_xcomp_linux_clock_gettime_correction]);;
+					esac
 				    fi
 				else
 				    erl_cv_time_correction=times
@@ -826,8 +944,9 @@ case $erl_cv_time_correction in
     AC_DEFINE(CORRECT_USING_TIMES,[],
 	[Define if you do not have a high-res. timer & want to use times() instead])
     ;;
-  clock_gettime)
-    if test X$cross_compiling = Xyes -a X$erl_xcomp_linux_clock_gettime_correction = X; then
+  clock_gettime|cross)
+    if test $erl_cv_time_correction = cross; then
+	erl_cv_time_correction=clock_gettime
 	AC_MSG_WARN([result clock_gettime guessed because of cross compilation])
     fi
     xrtlib="-lrt"
@@ -892,11 +1011,20 @@ int main() {
 ],
 erl_gethrvtime=procfs_ioctl,
 erl_gethrvtime=false,
-if test "x$erl_xcomp_gethrvtime_procfs_ioctl" = "xyes"; then
-	erl_gethrvtime=procfs_ioctl
-else
-	erl_gethrvtime=false
-fi)
+[
+case X$erl_xcomp_gethrvtime_procfs_ioctl in
+    X)
+	erl_gethrvtime=cross;;
+    Xyes|Xno)
+	if test $erl_xcomp_gethrvtime_procfs_ioctl = yes; then
+	    erl_gethrvtime=procfs_ioctl
+	else
+	    erl_gethrvtime=false
+	fi;;
+    *)
+	AC_MSG_ERROR([Bad erl_xcomp_gethrvtime_procfs_ioctl value: $erl_xcomp_gethrvtime_procfs_ioctl]);;
+esac
+])
 
 case $erl_gethrvtime in
   procfs_ioctl)
@@ -905,7 +1033,13 @@ case $erl_gethrvtime in
 	AC_MSG_RESULT(uses ioctl to procfs)
 	;;
   *)
-	AC_MSG_RESULT(not working)
+	if test $erl_gethrvtime = cross; then
+	    erl_gethrvtime=false
+	    AC_MSG_RESULT(cross)
+	    AC_MSG_WARN([result 'not working' guessed because of cross compilation])
+	else
+	    AC_MSG_RESULT(not working)
+	fi
 
 	dnl
 	dnl Check if clock_gettime (linux) is working
@@ -938,29 +1072,35 @@ case $erl_gethrvtime in
 	    exit(0); return 0;
 	  }
 	],
-	erl_clock_gettime=true,
-	erl_clock_gettime=false,
-	if test "x$erl_xcomp_clock_gettime" = "xyes"; then
-		erl_clock_gettime=true
-	else
-		erl_clock_gettime=false
-	fi)
+	erl_clock_gettime=yes,
+	erl_clock_gettime=no,
+	[
+	case X$erl_xcomp_clock_gettime_cpu_time in
+	    X) erl_clock_gettime=cross;;
+	    Xyes|Xno) erl_clock_gettime=$erl_xcomp_clock_gettime_cpu_time;;
+	    *) AC_MSG_ERROR([Bad erl_xcomp_clock_gettime_cpu_time value: $erl_xcomp_clock_gettime_cpu_time]);;
+	esac
+	])
 	LIBS=$save_libs
 	case $host_os in
 		linux*)
-			AC_MSG_RESULT([not stable, disabled])
+			AC_MSG_RESULT([no; not stable])
 			LIBRT=$xrtlib
 			;;
 		*)
+			AC_MSG_RESULT($erl_clock_gettime)
 			case $erl_clock_gettime in
-	  			true)
+	  			yes)
 					AC_DEFINE(HAVE_CLOCK_GETTIME,[],
 						  [define if clock_gettime() works for getting process time])
-					AC_MSG_RESULT(using clock_gettime)
 					LIBRT=-lrt
 					;;
+	  			cross)
+					erl_clock_gettime=no
+					AC_MSG_WARN([result no guessed because of cross compilation])
+					LIBRT=$xrtlib
+					;;
 	  			*)
-					AC_MSG_RESULT(not working)
 					LIBRT=$xrtlib
 					;;
 			esac

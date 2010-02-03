@@ -1,25 +1,26 @@
 #!/bin/sh
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1996-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1996-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
-#  Patch $ERL_ROOT/emulator/obj/Makefile.dist & make
-#
-#
+usage="
+Usage:
+  Install [-cross] [-minimal|-sasl] <ERL_ROOT>
+"
 start_option=query
 unset cross
 while [ $# -ne 0 ]; do
@@ -42,7 +43,8 @@ fi
 
 if [ -z "$ERL_ROOT" -o ! -d "$ERL_ROOT" ]
 then
-    echo "Install: need ERL_ROOT directory as argument"
+    echo "Install: need <ERL_ROOT> directory as argument" >&2
+    echo $usage >&2
     exit 1
 fi
 
@@ -50,15 +52,17 @@ case ":$ERL_ROOT" in
     :/*)
        ;;
     *)
-       echo "Install: need an absolute path to ERL_ROOT"
+       echo "Install: need an absolute path to <ERL_ROOT>" >&2
+       echo $usage >&2
        exit 1
        ;;
 esac
 
 if [ ! -d "$ERL_ROOT/erts-%I_VSN%/bin" ]
 then
-    echo "Install: The directory $ERL_ROOT/erts-%I_VSN%/bin does not exist"
-    echo "         Bad location or erts module not un-tared"
+    echo "Install: The directory $ERL_ROOT/erts-%I_VSN%/bin does not exist" >&2
+    echo "         Bad location or erts module not un-tared" >&2
+    echo $usage >&2
     exit 1
 fi
 
@@ -66,20 +70,6 @@ if [ ! -d $ERL_ROOT/bin ]
 then
     mkdir $ERL_ROOT/bin
 fi
-
-#
-# Fetch target system.
-#
-SYS=`(uname -s) 2>/dev/null` || SYS=unknown
-REL=`(uname -r) 2>/dev/null` || REL=unknown
-case $SYS:$REL in
-	        SunOS:5.*)
-	                TARGET=sunos5 ;;
-	        Linux:*)
-	                TARGET=linux ;;
-	        *)
-	                TARGET="" ;;
-esac
 
 cd $ERL_ROOT/erts-%I_VSN%/bin
 
@@ -111,7 +101,7 @@ if [ -h epmd ]; then
   /bin/rm -f epmd
 fi
 
-ln -s $TARGET_ERL_ROOT/erts-%I_VSN%/bin/epmd epmd
+ln -s ../erts-%I_VSN%/bin/epmd epmd
 
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/run_erl .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/to_erl .
@@ -148,19 +138,6 @@ esac
 cp -p ../releases/%I_SYSTEM_VSN%/start_*.boot .
 cp -p $Name.boot start.boot
 cp -p ../releases/%I_SYSTEM_VSN%/$Name.script start.script
-
-#
-# We always run ranlib unless Solaris/SunOS 5
-# but ignore failures.
-#
-if [ "X$TARGET" != "Xsunos5" -a -d $ERL_ROOT/usr/lib ]; then 
-    cd $ERL_ROOT/usr/lib
-    for library in lib*.a
-    do
-	(ranlib $library) > /dev/null 2>&1
-    done
-fi
-
 
 #
 # Fixing the man pages

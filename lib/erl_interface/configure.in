@@ -1,19 +1,19 @@
 #                                               -*- Autoconf -*-
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2000-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2000-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 # Process this file with autoconf to produce a configure script.
@@ -65,17 +65,11 @@ fi
 TARGET=$host
 AC_SUBST(TARGET)
 
-AC_CONFIG_HEADER([src/$host/config.h:src/auxdir/config.h.in])
+AC_CONFIG_HEADER([src/$host/config.h:config.h.in])
 
 dnl ----------------------------------------------------------------------
 dnl Optional features
 dnl ----------------------------------------------------------------------
-
-AC_ARG_WITH(xcomp-conf,
-[  --with-xcompconf=PATH     path to cross compilation configuration])
-if test "x$with_xcompconf" != "xno" -a "x$with_xcompconf" != "x" ; then
-    . $with_xcompconf
-fi
 
 # Use --disable-threads to force building single threaded libs even 
 # if pthreads exists (for test purposes).
@@ -95,9 +89,8 @@ AC_PROG_CC
 AC_PROG_CPP
 dnl AC_PROG_LIBTOOL
 AC_PROG_RANLIB
-if test "x$LD" = "x"; then
-   AC_CHECK_TOOL([LD],[ld],[ld])
-fi
+AC_CHECK_PROG(LD, ld.sh)
+AC_CHECK_TOOL(LD, ld, '$(CC)')
 AC_SUBST(LD)
 
 AC_CHECK_SIZEOF(short)
@@ -110,8 +103,8 @@ if test $ac_cv_sizeof_void_p = 8; then
   CFLAGS="$CFLAGS -DEI_64BIT"
 fi
 
-AC_CHECK_PROG(AR, ar, ar, false)
-if test "$ac_cv_prog_AR" = false; then
+AC_CHECK_TOOL(AR, ar, false)
+if test "$AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
 
@@ -164,7 +157,7 @@ AC_TRY_COMPILE([#include <sys/types.h>
 #include <sys/socket.h>], 
 [socklen_t mylen;],
 [AC_MSG_RESULT(yes) 
- AC_DEFINE(HAVE_SOCKLEN_T)],
+ AC_DEFINE(HAVE_SOCKLEN_T, [], [Define if you have the `socklen_t' type])],
 [AC_MSG_RESULT(no)])
 
 # Checks for library functions.
@@ -209,7 +202,7 @@ if test "x$with_gmp" = "xyes" ;then
 	AC_CHECK_HEADER($dir/include/gmp.h, ac_cv_gmp=yes, ac_cv_gmp=no)
 	if test $ac_cv_gmp = yes ; then
 	    CFLAGS="$CFLAGS -I$dir/include -L$dir/lib"
-	    AC_DEFINE(HAVE_GMP_H)
+	    AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
 	    break
 	fi
     done
@@ -226,7 +219,7 @@ elif test "x$with_gmp" != "xno" -a -n "$with_gmp" ;then
     fi
     AC_MSG_RESULT(yes)
     CFLAGS="$CFLAGS -I$with_gmp/include -L$with_gmp/lib"
-    AC_DEFINE(HAVE_GMP_H)
+    AC_DEFINE(HAVE_GMP_H, [], [Define if you have "gmp.h"])
     AC_CHECK_LIB(gmp, __gmpz_export)
     # FIXME return ERROR if no lib
 fi
@@ -279,110 +272,43 @@ AC_SUBST(MIXED_CYGWIN)
 dnl
 dnl Threads
 dnl
-found_threads=no
 THR_LIBS=
 THR_DEFS=
-EI_THREADS="false"
 AC_SUBST(THR_LIBS)
 AC_SUBST(THR_DEFS)
 AC_SUBST(EI_THREADS)
 
 case "$threads_disabled" in
-	no)
-		AC_MSG_CHECKING([for native win32 threads])
-		if test "X$host_os" = "Xwin32"; then
-		    THR_DEFS="-DWIN32_THREADS"
-		    found_threads=yes
-		    EI_THREADS="true"	
-		    AC_MSG_RESULT([yes])
-		    AC_MSG_CHECKING([for __declspec(thread) usability])
-		    if test "X$GCC" = "Xyes"; then
-		        AC_MSG_RESULT([no])
-		    else
-		        THR_DEFS="$THR_DEFS -DUSE_DECLSPEC_THREAD"
-			AC_MSG_RESULT([yes])
-		    fi	
+    no)
+	LM_CHECK_THR_LIB
+
+	case "$THR_LIB_NAME" in
+	    "")
+	        EI_THREADS="false"
+	        ;;
+	    win32_threads)
+		EI_THREADS="true"	
+		AC_MSG_CHECKING([for __declspec(thread) usability])
+		if test "X$GCC" = "Xyes"; then
+		    AC_MSG_RESULT([no])
 		else
-		    AC_MSG_RESULT(no)
-
-		    dnl Check for POSIX threads
-
-		    pthread_lib=""
-		    AC_CHECK_LIB(pthread,
-				 pthread_create,
-				 [found_threads=yes
-		                  EI_THREADS="true"
-				  THR_LIBS="-lpthread"
-				  THR_DEFS="-D_REENTRANT -D_THREAD_SAFE -DPOSIX_THREADS"
-				  pthread_lib=pthread])
-
-		    # FreeBSD has pthreads in special c library, c_r
-		    if test $found_threads = no; then
-			AC_CHECK_LIB(c_r,
-				     pthread_create,
-				     [found_threads=yes
-		                      EI_THREADS="true"
-				      THR_LIBS="-lc_r"
-				      THR_DEFS="-D_REENTRANT -D_THREAD_SAFE -DPOSIX_THREADS"
-				      pthread_lib=c_r])
-		    fi
-
-		    if test "x$pthread_lib" != "x"; then
-			AC_CHECK_LIB($pthread_lib,pthread_atfork,AC_DEFINE(HAVE_PTHREAD_ATFORK))
-			AC_CHECK_HEADER(pthread.h, AC_DEFINE(HAVE_PTHREAD_H))
-			dnl Some Linuxes have <pthread/mit/pthread.h> instead of <pthread.h>
-			AC_CHECK_HEADER(pthread/mit/pthread.h, AC_DEFINE(HAVE_MIT_PTHREAD_H))
-			case $host_os in
-			    solaris*)
-				THR_DEFS="$THR_DEFS -D_POSIX_PTHREAD_SEMANTICS";;
-			    linux*)
-				dnl NPTL test stolen from $ERL_TOP/erts/aclocal.m4
-				AC_MSG_CHECKING(for Native POSIX Thread Library)
-				case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
-				    nptl*) nptl=yes;;
-				    NPTL*) nptl=yes;;
-				    *)  nptl=no;;
-				esac
-				AC_MSG_RESULT($nptl)
-				if test $nptl = yes; then
-				    need_nptl_incldir=no
-				    AC_CHECK_HEADER(nptl/pthread.h, need_nptl_incldir=yes)
-				    if test $need_nptl_incldir = yes; then
-					# Ahh...
-					nptl_path="$C_INCLUDE_PATH:$CPATH:/usr/local/include:/usr/include"
-					nptl_ws_path=
-					save_ifs="$IFS"; IFS=":"
-					for dir in $nptl_path; do
-					    if test "x$dir" != "x"; then
-						nptl_ws_path="$nptl_ws_path $dir"
-					    fi
-					done
-					IFS=$save_ifs
-					nptl_incldir=
-					for dir in $nptl_ws_path; do
-				            AC_CHECK_HEADER($dir/nptl/pthread.h,
-							    nptl_incldir=$dir/nptl)
-					    if test "x$nptl_incldir" != "x"; then
-						THR_DEFS="$THR_DEFS -isystem $nptl_incldir"
-						break
-					    fi
-					done
-					if test "x$nptl_incldir" = "x"; then
-					    AC_MSG_ERROR(Failed to locate nptl system include directory)
-					fi
-				    fi
-				fi
-
-				;;
-			    *)
-				;;
-			esac
-		    fi
+		    THR_DEFS="$THR_DEFS -DUSE_DECLSPEC_THREAD"
+		    AC_MSG_RESULT([yes])
 		fi
 		;;
-	yes)
-	    # Threads disabled
-	    ;;
+	    pthread)	
+		EI_THREADS="true"
+		;;
+	    *)
+		EI_THREADS="true"
+	    	AC_MSG_WARN([Unexpected thread library: $THR_LIB_NAME])
+		;;
+	esac
+	;;
+    yes)
+	# Threads disabled
+	EI_THREADS="false"
+	;;
 esac
 
 # ---------------------------------------------------------------------------
@@ -413,12 +339,10 @@ fi
 # FIXME We want to use libtool but until then....
 # ---------------------------------------------------------------------------
 
-AC_SUBST(DED_CFLAGS)
-dnl AC_SUBST(DED_LD)
-dnl AC_SUBST(DED_LDFLAGS)
+AC_SUBST(LIB_CFLAGS)
 
 if test "X$host" = "Xwin32"; then
-  DED_CFLAGS="$CFLAGS"
+  LIB_CFLAGS="$CFLAGS"
 else
   case $host_os in
     darwin*)
@@ -427,9 +351,9 @@ else
   esac
 
   if test "x$GCC" = xyes; then
-	DED_CFLAGS="$CFLAGS -fPIC"
+	LIB_CFLAGS="$CFLAGS -fPIC"
   else
-	DED_CFLAGS="$CFLAGS"
+	LIB_CFLAGS="$CFLAGS"
   fi
 fi
 

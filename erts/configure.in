@@ -23,6 +23,8 @@ dnl autoconf convention that should be cleaned up.
 AC_INIT(vsn.mk)
 AC_PREREQ(2.59)
 
+LM_PRECIOUS_VARS
+
 if test "x$no_recursion" != "xyes" -a "x$OVERRIDE_CONFIG_CACHE" = "x"; then
     # We do not want to use a common cache!
     cache_file=/dev/null
@@ -84,6 +86,9 @@ if test "X$host" != "Xfree_source" -a "X$host" != "Xwin32"; then
 else
     host_os=$host
 fi
+
+ERL_XCOMP_SYSROOT_INIT
+
 AC_ISC_POSIX
 
 AC_CONFIG_HEADER($host/config.h:config.h.in include/internal/$host/ethread_header_config.h:include/internal/ethread_header_config.h.in include/$host/erl_int_sizes_config.h:include/erl_int_sizes_config.h.in)
@@ -93,6 +98,22 @@ dnl ----------------------------------------------------------------------
 enable_child_waiter_thread=no
 ENABLE_ALLOC_TYPE_VARS=
 AC_SUBST(ENABLE_ALLOC_TYPE_VARS)
+
+AC_ARG_ENABLE(bootstrap-only,
+[  --enable-bootstrap-only enable bootstrap only configuration],
+[ if test "X$enableval" = "Xyes"; then
+	# Disable stuff not necessary in a bootstrap only system in order
+	# to speed up things by reducing the amount of stuff needing to be
+	# built...
+	enable_threads=no
+	enable_smp_support=no
+	with_termcap=no
+	with_ssl=no
+	with_ssl_zlib=no
+	enable_hipe=no
+	enable_sctp=no
+  fi	
+])
 
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable async thread support
@@ -734,8 +755,17 @@ HCC='$(CC)'         AC_SUBST(HCC)
 HCFLAGS=""          AC_SUBST(HCFLAGS)
 HCFLAGS="$HCFLAGS -I${ERL_TOP}/erts/$host"
 vxworks_reclaim=""  AC_SUBST(vxworks_reclaim)
-LD='$(CC)'          AC_SUBST(LD)
 
+dnl We want to use $(CC) as linker for the emulator regardless of
+dnl what the user say. This might not be the right way to do it, but
+dnl for now that is the way we do it.
+USER_LD=$LD
+USER_LDFLAGS="$LDFLAGS"
+LD='$(CC)'
+AC_SUBST(LD)
+
+LDFLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
+AC_SUBST(LDFLAG_RUNTIME_LIBRARY_PATH)
 
 dnl Check for cygwin and object/exe files extension
 dnl AC_CYGWIN is deprecated
@@ -1474,9 +1504,11 @@ fi
 
 fi
 
-if test "x$erl_xcomp_bigendian" != "x"; then
-	ac_cv_c_bigendian=$erl_xcomp_bigendian
-fi
+case X$erl_xcomp_bigendian in
+    X) ;;
+    Xyes|Xno) ac_cv_c_bigendian=$erl_xcomp_bigendian;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_bigendian value: $erl_xcomp_bigendian]);;
+esac
 
 AC_C_BIGENDIAN
 
@@ -1514,18 +1546,22 @@ int main(int argc, char **argv) {
     }
 }
 	],, have_getaddrinfo=no,
-	if test "x$erl_xcomp_getaddrinfo" != "x"; then
-	    have_getaddrinfo=$erl_xcomp_getaddrinfo
-	else
-	    have_getaddrinfo=no
-	fi)
-	if test $have_getaddrinfo = yes; then
-		AC_MSG_RESULT(yes)
+	[
+	case X$erl_xcomp_getaddrinfo in
+	    X) have_getaddrinfo=cross;;
+	    Xyes|Xno) have_getaddrinfo=$erl_xcomp_getaddrinfo;;
+	    *) AC_MSG_ERROR([Bad erl_xcomp_getaddrinfo value: $erl_xcomp_getaddrinfo]);;
+	esac
+	])
+	AC_MSG_RESULT($have_getaddrinfo)
+	case $have_getaddrinfo in
+	    yes)
 		AC_DEFINE(HAVE_GETADDRINFO, [1], 
-		          [Define to 1 if you have a good `getaddrinfo' function.])
-	else
-		AC_MSG_RESULT(no)
-	fi
+		          [Define to 1 if you have a good `getaddrinfo' function.]);;
+	    cross)
+		AC_MSG_WARN([result no guessed because of cross compilation]);;
+	    *) ;;
+	esac
 fi
 AC_CHECK_FUNCS([getnameinfo getipnodebyname getipnodebyaddr gethostbyname2])
 
@@ -1807,16 +1843,21 @@ int main(void)
 	],
 	erts_cv___after_morecore_hook_can_track_malloc=yes,
 	erts_cv___after_morecore_hook_can_track_malloc=no,
-	if test "x$erl_xcomp_after_morecore_hook" != "x"; then
-		erts_cv___after_morecore_hook_can_track_malloc=$erl_xcomp_after_morecore_hook
-	else
-		erts_cv___after_morecore_hook_can_track_malloc=no
-	fi)])
+	[
+	case X$erl_xcomp_after_morecore_hook in
+	    X) erts_cv___after_morecore_hook_can_track_malloc=cross;;
+	    Xyes|Xno) erts_cv___after_morecore_hook_can_track_malloc=$erl_xcomp_after_morecore_hook;;
+	    *) AC_MSG_ERROR([Bad erl_xcomp_after_morecore_hook value: $erl_xcomp_after_morecore_hook]);;
+	esac
+	]
+	)])
 
-if test $erts_cv___after_morecore_hook_can_track_malloc = yes; then
-	AC_DEFINE(ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC, 1, \
-[Define if __after_morecore_hook can track malloc()s core memory use.])
-fi
+case $erts_cv___after_morecore_hook_can_track_malloc in
+	yes) AC_DEFINE(ERTS___AFTER_MORECORE_HOOK_CAN_TRACK_MALLOC, 1, \
+[Define if __after_morecore_hook can track malloc()s core memory use.]);;
+	cross) AC_MSG_WARN([result no guessed because of cross compilation]);;
+	*) ;;
+esac
 
 if test "x$ac_cv_func_sbrk" = "xyes"; then
     AC_CACHE_CHECK([types of sbrk()s return value and argument],
@@ -2069,15 +2110,21 @@ int main(void)
 	],
 	    erts_cv_brk_wrappers_can_track_malloc=yes,
 	    erts_cv_brk_wrappers_can_track_malloc=no,
-	    if test "x$erl_xcomp_dlsym_brk_wrappers" != "x"; then
-		erts_cv_brk_wrappers_can_track_malloc=$erl_xcomp_dlsym_brk_wrappers
-	    else
-		erts_cv_brk_wrappers_can_track_malloc=no
-	    fi)])
-	if test $erts_cv_brk_wrappers_can_track_malloc = yes; then
+	    [
+	    case X$erl_xcomp_dlsym_brk_wrappers in
+		X) erts_cv_brk_wrappers_can_track_malloc=cross;;
+		Xyes|Xno) erts_cv_brk_wrappers_can_track_malloc=$erl_xcomp_dlsym_brk_wrappers;;
+		*) AC_MSG_ERROR([Bad erl_xcomp_dlsym_brk_wrappers value: $erl_xcomp_dlsym_brk_wrappers]);;
+	    esac
+	    ])])
+	case $erts_cv_brk_wrappers_can_track_malloc in
+	    yes)
 		AC_DEFINE(ERTS_BRK_WRAPPERS_CAN_TRACK_MALLOC, 1, \
-[Define if sbrk()/brk() wrappers can track malloc()s core memory use])
-	fi
+[Define if sbrk()/brk() wrappers can track malloc()s core memory use]);;
+	    cross)
+		AC_MSG_WARN([result no guessed because of cross compilation]);;
+	    *) ;;
+	esac
 fi
 
 dnl Restore LIBS
@@ -2090,7 +2137,7 @@ LM_SYS_MULTICAST
 ERL_TIME_CORRECTION
 AC_CHECK_PROG(M4, m4, m4)
 dnl check to auto-enable hipe here...
-if test X${enable_hipe} != Xno; then
+if test "$cross_compiling" != "yes" && test X${enable_hipe} != Xno; then
   if test -z "$M4"; then
 	enable_hipe=no
    	AC_MSG_NOTICE([HiPE disabled as no valid m4 is found in PATH])
@@ -2657,21 +2704,26 @@ int main(int argc, const char **argv)
     return do_check();
 }
 ],
-erl_ok=reliable,
-erl_ok=unreliable,
-if test "x$erl_xcomp_reliable_fpe" = "xyes"; then
-	erl_ok=reliable
-else
-	erl_ok=unreliable
-fi)
-    if test $erl_ok = unreliable; then
-        AC_DEFINE(NO_FPE_SIGNALS,[],
-	    [Define if floating points exceptions are non-existing/not reliable])
-        AC_MSG_RESULT([unreliable; testing in software instead])
-        FPE=unreliable
-    else
+erl_ok=yes,
+erl_ok=no,
+[
+case X$erl_xcomp_reliable_fpe in
+    X) erl_ok=cross;;
+    Xyes|Xno) erl_ok=$erl_xcomp_reliable_fpe;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_reliable_fpe value: $erl_xcomp_reliable_fpe]);;
+esac
+])
+
+    if test $erl_ok = yes; then
+	FPE=reliable
         AC_MSG_RESULT(reliable)
-        FPE=reliable
+    else
+	FPE=unreliable
+	AC_MSG_RESULT([unreliable; testing in software instead])
+	AC_DEFINE(NO_FPE_SIGNALS,[],[Define if floating points exceptions are non-existing/not reliable])
+	if test $erl_ok = cross; then
+	    AC_MSG_WARN([result unreliable guessed because of cross compilation])
+	fi
     fi
 fi	
 
@@ -2837,45 +2889,46 @@ main()
 ],
 poll_works=yes,
 poll_works=no,
-poll_works=$erl_xcomp_poll)
-
-if test "X$poll_works" != "X"; then
-	guessed_poll_works=no
-else
-	guessed_poll_works=yes
-	case $host_os in
-		darwin*) poll_works=no;;
-		*) poll_works=yes;;
-	esac
-fi
+[
+case X$erl_xcomp_poll in
+    X) poll_works=cross;;
+    Xyes|Xno) poll_works=$erl_xcomp_poll;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_poll value: $erl_xcomp_poll]);;
+esac
+])
 
 fi
 
-case $poll_works in
-yes)
-	AC_DEFINE(ERTS_USE_POLL, 1, [Define if poll() should be used instead of select()])
-	AC_MSG_RESULT(yes)
-	;;
-*)
+case $poll_works-$host_os in
+    no-*|cross-darwin*)
 	#
 	# The USE_SELECT define is used by the ssl application (should not
 	# be used by erts).
 	#
-	poll_works=no
 	AC_DEFINE(USE_SELECT, 1, [Define if select() should be used instead of poll()])
-	AC_MSG_RESULT([no; non-existing, broken, or based on select()])
-	;;
+	if test $poll_works = cross; then
+	    AC_MSG_RESULT(cross)
+	    AC_MSG_WARN([result no guessed based on OS ($host_os) because of cross compilation])
+	else
+	    AC_MSG_RESULT([no; non-existing, broken, or based on select()])
+        fi
+	poll_works=no;;
+    yes-*|cross-*)
+	AC_DEFINE(ERTS_USE_POLL, 1, [Define if poll() should be used instead of select()])
+	if test $poll_works = cross; then
+	    AC_MSG_RESULT(cross)
+	    AC_MSG_WARN([result yes guessed based on OS ($host_os) because of cross compilation])
+	else
+	    AC_MSG_RESULT(yes)
+        fi
+	poll_works=yes;;
 esac
-
-if test $guessed_poll_works = yes; then
-	AC_MSG_WARN([result $poll_works guessed based on OS ($host_os) because of cross compilation])
-fi
 
 #
 # If kqueue() found, check that it can be selected or polled on...
 #
 if test $have_kernel_poll = kqueue; then
-	if test $poll_works = true; then
+	if test $poll_works = yes; then
 		kqueue_with=poll
 	else
 		kqueue_with=select
@@ -2907,19 +2960,25 @@ int main(void) {
     return 0;
 }
 	],
-	ok_kqueue=true,
-	ok_kqueue=false,
-	if test "x$erl_xcomp_kqueue" = "xyes"; then
-		ok_kqueue=true
-	else
-		ok_kqueue=false
-	fi)
-	if test $ok_kqueue = true; then
-		AC_MSG_RESULT(yes);
-	else
-		AC_MSG_RESULT(no);
+	ok_kqueue=yes,
+	ok_kqueue=no,
+	[
+	case X$erl_xcomp_kqueue in
+	    X) ok_kqueue=cross;;
+	    Xyes|Xno) ok_kqueue=$erl_xcomp_kqueue;;
+	    *) AC_MSG_ERROR([Bad erl_xcomp_kqueue value: $erl_xcomp_kqueue]);;
+	esac
+	])
+	AC_MSG_RESULT($ok_kqueue);
+	case $ok_kqueue in
+	    yes)
+		;;
+	    cross)
 		have_kernel_poll=no
-	fi
+		AC_MSG_WARN([result no guessed because of cross compilation]);;
+	    *)
+		have_kernel_poll=no;;
+	esac
 fi
 
 #
@@ -3006,16 +3065,23 @@ int main(void) {
 ],
 copying_putenv=yes,
 copying_putenv=no,
-if test "x$erl_xcomp_putenv_copy" != "x"; then
-	copying_putenv=$erl_xcomp_putenv_copy
-else
-	copying_putenv=no
-fi)
+[
+case X$erl_xcomp_putenv_copy in
+    X) copying_putenv=cross;;
+    Xyes|Xno) copying_putenv=$erl_xcomp_putenv_copy;;
+    *) AC_MSG_ERROR([Bad erl_xcomp_putenv_copy value: $erl_xcomp_putenv_copy]);;
+esac
+])
 
-if test $copying_putenv = yes; then
-	AC_DEFINE(HAVE_COPYING_PUTENV,[1],[Define if you have a putenv() that stores a copy of the key-value pair])
-fi
 AC_MSG_RESULT($copying_putenv)
+case $copying_putenv in
+    yes)
+	AC_DEFINE(HAVE_COPYING_PUTENV,[1],\
+[Define if you have a putenv() that stores a copy of the key-value pair]);;
+    cross)
+	AC_MSG_WARN([result no guessed because of cross compilation]);;
+    *) ;;
+esac
 
 dnl ----------------------------------------------------------------------
 dnl Stuff that should be moved into their respective application
@@ -3043,29 +3109,39 @@ dnl crypto
 #
 #--------------------------------------------------------------------
 
-DED_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host"
+DED_SYS_INCLUDE="-I${ERL_TOP}/erts/emulator/beam -I${ERL_TOP}/erts/include -I${ERL_TOP}/erts/include/$host -I${ERL_TOP}/erts/include/internal -I${ERL_TOP}/erts/include/internal/$host -I${ERL_TOP}/erts/emulator/sys/$ERLANG_OSTYPE"
 
-DED_CFLAGS="$DED_INCLUDE $CFLAGS $CPPFLAGS $EMU_THR_DEFS"
+if test "X$ETHR_DEFS" = "X"; then
+    DED_THR_DEFS="-D_THREAD_SAFE -D_REENTRANT"
+else
+    DED_THR_DEFS="$ETHR_DEFS"
+fi
+DED_EMU_THR_DEFS=$EMU_THR_DEFS
+DED_CFLAGS="$CFLAGS $CPPFLAGS"
 if test "x$GCC" = xyes; then
     DED_CFLAGS="$DED_CFLAGS -fPIC"
 fi
 
-STATIC_CFLAGS=""
+DED_EXT=so
+case $host_os in
+    win32) DED_EXT=dll;;
+    darwin*)
+	DED_CFLAGS="$DED_CFLAGS -fno-common"
+	if test "X$STATIC_CFLAGS" = "X"; then
+	    STATIC_CFLAGS="-mdynamic-no-pic"
+	fi;;
+    *)
+	;;
+esac
 
-# If DED_LD is set in environment, we expect all DED variables to be specified
-# (cross compiling)
+# If DED_LD is set in environment, we expect all DED_LD* variables
+# to be specified (cross compiling)
 if test "x$DED_LD" = "x"; then
 
-if test "x$LD" = "x"; then
-    DED_LD=ld
-else
-    DED_LD=$LD
-fi	
 DED_LD_FLAG_RUNTIME_LIBRARY_PATH="-R"
-
 case $host_os in
 	win32)
-		DED_LD=ld.sh	
+		DED_LD="ld.sh"
 		DED_LDFLAGS="-dll"
 		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 	;;
@@ -3099,21 +3175,20 @@ case $host_os in
 		if test X${enable_darwin_universal} = Xyes; then
 		   	DED_LDFLAGS="-arch ppc -arch i386 $DED_LDFLAGS"
 		fi	
-		DED_CFLAGS="$DED_CFLAGS -fno-common"
 		DED_LD="$CC"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
-		STATIC_CFLAGS="-mdynamic-no-pic"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 	;;
 	linux*)
 		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared -Wl,-Bsymbolic"
-		DED_LD_FLAG_RUNTIME_LIBRARY_PATH=
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-m64 $DED_LDFLAGS"
 		fi
 	;;	
 	freebsd*)
 		DED_LD="$CC"
+		DED_LD_FLAG_RUNTIME_LIBRARY_PATH="$CFLAG_RUNTIME_LIBRARY_PATH"
 		DED_LDFLAGS="-shared"
 		if test X${enable_m64_build} = Xyes; then
 			DED_LDFLAGS="-m64 $DED_LDFLAGS"
@@ -3131,7 +3206,15 @@ case $host_os in
 	;;
 esac
 
+if test "$DED_LD" = "" && test "$USER_LD" != ""; then
+    DED_LD="$USER_LD"
+    DED_LDFLAGS="$USER_LDFLAGS $DED_LDFLAGS"
 fi
+
+fi # "x$DED_LD" = "x"
+
+AC_CHECK_TOOL(DED_LD, ld, false)
+test "$DED_LD" != "false" || AC_MSG_ERROR([No linker found])
 
 AC_MSG_CHECKING(for compiler flags for loadable drivers)
 AC_MSG_RESULT([$DED_CFLAGS])
@@ -3146,10 +3229,14 @@ else
 	AC_MSG_RESULT([not found])
 fi
 
+AC_SUBST(DED_EXT)
+AC_SUBST(DED_SYS_INCLUDE)
 AC_SUBST(DED_CFLAGS)
 AC_SUBST(DED_LD)
 AC_SUBST(DED_LDFLAGS)
 AC_SUBST(DED_LD_FLAG_RUNTIME_LIBRARY_PATH)
+AC_SUBST(DED_THR_DEFS)
+AC_SUBST(DED_EMU_THR_DEFS)
 AC_SUBST(STATIC_CFLAGS)
 
 dnl
@@ -3172,12 +3259,17 @@ dnl use "PATH/include" and "PATH/lib".
 AC_SUBST(SSL_INCLUDE)
 AC_SUBST(SSL_ROOT)
 AC_SUBST(SSL_LIBDIR)
+AC_SUBST(SSL_CC_RUNTIME_LIBRARY_PATH)
+AC_SUBST(SSL_LD_RUNTIME_LIBRARY_PATH)
+AC_SUBST(SSL_DED_LD_RUNTIME_LIBRARY_PATH)
 AC_SUBST(SSL_DYNAMIC_ONLY)
 AC_SUBST(SSL_LINK_WITH_KERBEROS)
 AC_SUBST(STATIC_KERBEROS_LIBS)
 AC_SUBST(SSL_LINK_WITH_ZLIB)
 AC_SUBST(STATIC_ZLIB_LIBS)
 AC_SUBST(OPENSSL_CMD)
+
+std_ssl_locations="/usr/local /usr/sfw /opt/local /usr /usr/pkg /usr/local/openssl /usr/lib/openssl /usr/openssl /usr/local/ssl /usr/lib/ssl /usr/ssl"
 
 AC_ARG_WITH(ssl-zlib,
 [  --with-ssl-zlib=PATH    specify location of ZLib to be used by OpenSSL
@@ -3188,18 +3280,20 @@ AC_ARG_WITH(ssl-zlib,
 if  test "x$with_ssl_zlib" = "xno"; then
 	SSL_LINK_WITH_ZLIB=no
 	STATIC_ZLIB_LIBS=
-elif test "x$with_ssl_zlib" = "xyes" -o "x$with_ssl_zlib" = "x" ;then
-	if  test "x$MIXED_CYGWIN" = "xyes"; then
+elif test "x$with_ssl_zlib" = "xyes" || test "x$with_ssl_zlib" = "x"; then
+	if test $erl_xcomp_without_sysroot = yes; then
+		AC_MSG_WARN([Cannot search for zlib; missing cross system root (erl_xcomp_sysroot).])
+		SSL_LINK_WITH_ZLIB=no	
+		STATIC_ZLIB_LIBS=	
+	elif  test "x$MIXED_CYGWIN" = "xyes"; then
 		SSL_LINK_WITH_ZLIB=no	
 		STATIC_ZLIB_LIBS=	
 	else
 		SSL_LINK_WITH_ZLIB=no
 		STATIC_ZLIB_LIBS=
 		AC_MSG_CHECKING(for static ZLib to be used by SSL in standard locations) 
-		for dir in /usr/local /usr/sfw /usr /usr/pkg \
-		/usr/local/openssl /usr/lib/openssl /usr/openssl \
-		/usr/local/ssl /usr/lib/ssl /usr/ssl
-		do
+		for rdir in $std_ssl_locations; do
+			dir="$erl_xcomp_sysroot$rdir"
 			if test "x$ac_cv_sizeof_void_p" = "x8"; then
 				if test -f "$dir/lib64/libz.a"; then
 					SSL_LINK_WITH_ZLIB=yes
@@ -3280,14 +3374,21 @@ done
 
 SSL_DYNAMIC_ONLY=$enable_dynamic_ssl
 
-if test "x$with_ssl" = "xno"; then
+case "$erl_xcomp_without_sysroot-$with_ssl" in
+  yes-* | no-no)
     SSL_APP=
     CRYPTO_APP=
     SSH_APP=
+    if test "$with_ssl" = "no"; then
+	skip="User gave --without-ssl option"
+    else
+	skip="Cannot search for ssl; missing cross system root (erl_xcomp_sysroot)."
+    fi
     for a in ssl crypto ssh; do
-        echo "User gave --without-ssl option" > $ERL_TOP/lib/$a/SKIP
+        echo "$skip" > $ERL_TOP/lib/$a/SKIP
     done
-elif test "x$with_ssl" = "xyes" -o "x$with_ssl" = "x" ;then
+    ;;
+  no-yes | no- )
     # On windows, we could try to find the installation
     # of Shining Light OpenSSL, which can be found by poking in
     # the uninstall section in the registry, it's worth a try...
@@ -3314,20 +3415,19 @@ elif test "x$with_ssl" = "xyes" -o "x$with_ssl" = "x" ;then
     SSH_APP=ssh
 
     AC_MSG_CHECKING(for OpenSSL >= 0.9.7 in standard locations) 
-    for dir in $extra_dir /cygdrive/c/OpenSSL \
-		/usr/local /usr/sfw /opt/local /usr /usr/pkg \
-		/usr/local/openssl /usr/lib/openssl /usr/openssl \
-		/usr/local/ssl /usr/lib/ssl /usr/ssl
-	do
-       if test -f $dir/include/openssl/opensslv.h; then
+    for rdir in $extra_dir /cygdrive/c/OpenSSL $std_ssl_locations; do
+	dir="$erl_xcomp_sysroot$rdir"
+	if test -f "$erl_xcomp_isysroot$rdir/include/openssl/opensslv.h"; then
 		is_real_ssl=yes
 		SSL_ROOT="$dir"
 		if test "x$MIXED_CYGWIN" = "xyes" ; then
-			if test -f "$dir/lib/VC/ssleay32.lib" -o \
-				-f "$dir/lib/VC/openssl.lib"; then 
+			if test -f "$dir/lib/VC/ssleay32.lib" || \
+			   test -f "$dir/lib/VC/openssl.lib"; then 
+				SSL_RUNTIME_LIBDIR="$rdir/lib/VC"
 				SSL_LIBDIR="$dir/lib/VC"
-			elif test -f "$dir/lib/ssleay32.lib" -o \
-				-f "$dir/lib/openssl.lib"; then
+			elif test -f "$dir/lib/ssleay32.lib" || \
+			     test -f "$dir/lib/openssl.lib"; then
+				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
 			else
 				is_real_ssl=no
@@ -3335,31 +3435,42 @@ elif test "x$with_ssl" = "xyes" -o "x$with_ssl" = "x" ;then
 		else
 			if test "x$ac_cv_sizeof_void_p" = "x8"; then
 				if test -f "$dir/lib64/libcrypto.a"; then
+					SSL_RUNTIME_LIBDIR="$rdir/lib64"
 					SSL_LIBDIR="$dir/lib64"
 				elif test -f "$dir/lib/64/libcrypto.a"; then
+					SSL_RUNTIME_LIBDIR="$rdir/lib/64"
 					SSL_LIBDIR="$dir/lib/64"
 				elif test -f "$dir/lib64/libcrypto.so"; then
+					SSL_RUNTIME_LIBDIR="$rdir/lib64"
 					SSL_LIBDIR="$dir/lib64"
 				elif test -f "$dir/lib/64/libcrypto.so"; then
+					SSL_RUNTIME_LIBDIR="$rdir/lib/64"
 					SSL_LIBDIR="$dir/lib/64"
 				else
+					SSL_RUNTIME_LIBDIR="$rdir/lib"
 					SSL_LIBDIR="$dir/lib"
 				fi
 			else	 
+				SSL_RUNTIME_LIBDIR="$rdir/lib"
 				SSL_LIBDIR="$dir/lib"
 			fi
 		fi
 		if test '!' -f $SSL_LIBDIR/libcrypto.a; then
 			SSL_DYNAMIC_ONLY=yes
 		fi
-		SSL_BINDIR="$dir/bin"
+		SSL_BINDIR="$rdir/bin"
 dnl 		Should one use EXEEXT or ac_exeext?
-		if test -f "$SSL_BINDIR/openssl$EXEEXT"; then
+		if test -f "$erl_xcomp_sysroot$SSL_BINDIR/openssl$EXEEXT"; then
+		    if test "$cross_compiling" = "yes"; then
+			dnl Cannot test it; hope it is working...
+			OPENSSL_CMD="$SSL_BINDIR/openssl"
+		    else
 			if "$SSL_BINDIR/openssl" version > /dev/null 2>&1; then
 				OPENSSL_CMD="$SSL_BINDIR/openssl"
 			else
 				is_real_ssl=no
 			fi
+		    fi
 		else
 			is_real_ssl=no
 		fi
@@ -3403,7 +3514,7 @@ dnl 		Should one use EXEEXT or ac_exeext?
 					LIBS="$saveLIBS"
 				fi
  			fi
-	 		if test "x$ssl_found" = "xyes" -a "x$ssl_linkable" = "xyes"  ; then
+	 		if test "x$ssl_found" = "xyes" && test "x$ssl_linkable" = "xyes"; then
 			 	AC_MSG_RESULT([$dir])
 	   			break;
          		fi
@@ -3417,13 +3528,14 @@ dnl 		Should one use EXEEXT or ac_exeext?
 	dnl
 	case $host_os in
 	openbsd*)
-	       if test -f /usr/include/openssl/opensslv.h; then
+	       if test -f "$erl_xcomp_isysroot/usr/include/openssl/opensslv.h"; then
 		  # Trust OpenBSD to have everything the in the correct locations.
 		  ssl_found=yes
 		  ssl_linkable=yes
-		  SSL_ROOT="/usr/sbin"
+		  SSL_ROOT="$erl_xcomp_sysroot/usr"
 	          AC_MSG_RESULT([$SSL_ROOT])
-		  SSL_LIB="/usr/lib"
+		  SSL_RUNTIME_LIB="/usr/lib"
+		  SSL_LIB="$erl_xcomp_sysroot/usr/lib"
 		  SSL_BINDIR="/usr/sbin"
 		  OPENSSL_CMD="$SSL_BINDIR/openssl"
 		  dnl OpenBSD requires us to link with -L and -l
@@ -3436,7 +3548,7 @@ dnl		Now, certain linuxes have a 64bit libcrypto
 dnl		that cannot build shared libraries (i.e. not PIC)
 dnl		One could argue that this is wrong, but
 dnl		so it is - be adoptable
-    if test "x$ssl_found" = "xyes" -a  "x$ssl_linkable" = "xyes" -a "x$SSL_DYNAMIC_ONLY" != "xyes" ; then
+    if test "$ssl_found" = "yes" && test "$ssl_linkable" = "yes" && test "$SSL_DYNAMIC_ONLY" != "yes"; then
 	case $host_os in
 		linux*)
 			saveCFLAGS="$CFLAGS"
@@ -3468,7 +3580,7 @@ dnl		so it is - be adoptable
 				
 
 
-    if test "x$ssl_found" != "xyes" -o  "x$ssl_linkable" != "xyes"; then
+    if test "x$ssl_found" != "xyes" || test  "x$ssl_linkable" != "xyes"; then
        if test "x$ssl_found" = "xyes"; then 
        		AC_MSG_RESULT([found; but not usable])
        else
@@ -3483,13 +3595,21 @@ dnl		so it is - be adoptable
            echo "No usable OpenSSL found" > $ERL_TOP/lib/$a/SKIP
        done
     fi
-else
+    ;;
+  *)
+    if test "$cross_compiling" = "yes"; then
+	case "$with_ssl" in
+	    "$erl_xcomp_sysroot"*) ;;
+	    *) AC_MSG_ERROR([Invalid path to option --with-ssl=PATH (not a subdirectory to cross system root)]);;
+	esac
+    fi
+
     # Option given with PATH to package
     if test ! -d "$with_ssl" ; then
        AC_MSG_ERROR(Invalid path to option --with-ssl=PATH)
     fi
     SSL_ROOT="$with_ssl"
-    if test "x$MIXED_CYGWIN" = "xyes" -a -d "$with_ssl/lib/VC"; then
+    if test "x$MIXED_CYGWIN" = "xyes" && test -d "$with_ssl/lib/VC"; then
 	SSL_LIBDIR="$with_ssl/lib/VC"
     elif test "x$ac_cv_sizeof_void_p" = "x8"; then
 	if test -f "$with_ssl/lib64/libcrypto.a"; then
@@ -3514,7 +3634,12 @@ else
     SSL_APP=ssl
     CRYPTO_APP=crypto
     SSH_APP=ssh
-fi
+    if test "$cross_compiling" = "yes"; then
+	SSL_RUNTIME_LIBDIR=`echo "$SSL_LIBDIR" | sed -n "s|^$erl_xcomp_sysroot\(.*\)\$|\1|p"`
+    else
+	SSL_RUNTIME_LIBDIR="$SSL_LIBDIR"
+    fi
+esac
 
 if test "x$SSL_APP" != "x" ; then
     dnl We found openssl, now check if we use kerberos 5 support
@@ -3530,19 +3655,19 @@ if test "x$SSL_APP" != "x" ; then
       AC_MSG_RESULT([yes])
       ssl_krb5_enabled=yes
       if test "x$SSL_DYNAMIC_ONLY" != "xyes"; then
-          if test -f $SSL_LIBDIR/libkrb5.a; then
+          if test -f "$SSL_LIBDIR/libkrb5.a"; then
               SSL_LINK_WITH_KERBEROS=yes
 	      STATIC_KERBEROS_LIBS="$SSL_LIBDIR/libkrb5.a"
-	      if test -f $SSL_LIBDIR/libkrb5support.a; then
+	      if test -f "$SSL_LIBDIR/libkrb5support.a"; then
 		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libkrb5support.a"
 	      fi
-	      if test -f $SSL_LIBDIR/libk5crypto.a; then
+	      if test -f "$SSL_LIBDIR/libk5crypto.a"; then
 		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libk5crypto.a"
 	      fi
-	      if test -f $SSL_LIBDIR/libresolv.a; then
+	      if test -f "$SSL_LIBDIR/libresolv.a"; then
 		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libresolv.a"
 	      fi
-	      if test -f $SSL_LIBDIR/libcom_err.a; then
+	      if test -f "$SSL_LIBDIR/libcom_err.a"; then
 		  STATIC_KERBEROS_LIBS="$STATIC_KERBEROS_LIBS $SSL_LIBDIR/libcom_err.a"
 	      fi
           else
@@ -3568,10 +3693,12 @@ if test "x$SSL_APP" != "x" ; then
     SSL_KRB5_INCLUDE=
     if test "x$ssl_krb5_enabled" = "xyes" ; then
         AC_MSG_CHECKING(for krb5.h in standard locations)
-	for dir in $extra_dir $SSL_ROOT/include $SSL_ROOT/include/openssl \
-		$SSL_ROOT/include/kerberos /cygdrive/c/kerberos/include \
-		/usr/local/kerberos/include /usr/kerberos/include \
-		/usr/include
+	for dir in $extra_dir "$SSL_ROOT/include" "$SSL_ROOT/include/openssl" \
+		"$SSL_ROOT/include/kerberos" \
+		"$erl_xcomp_isysroot/cygdrive/c/kerberos/include" \
+		"$erl_xcomp_isysroot/usr/local/kerberos/include" \
+		"$erl_xcomp_isysroot/usr/kerberos/include" \
+		"$erl_xcomp_isysroot/usr/include"
 	do
             if test -f "$dir/krb5.h" ; then
                 SSL_KRB5_INCLUDE="$dir"
@@ -3596,6 +3723,99 @@ fi
 
 done # while test ssl_done != yes
 
+SSL_CC_RUNTIME_LIBRARY_PATH=
+SSL_LD_RUNTIME_LIBRARY_PATH=
+SSL_DED_LD_RUNTIME_LIBRARY_PATH=
+cc_rflg="$CFLAG_RUNTIME_LIBRARY_PATH"
+ld_rflg="$LDFLAG_RUNTIME_LIBRARY_PATH"
+ded_ld_rflg="$DED_LD_FLAG_RUNTIME_LIBRARY_PATH"
+
+if test "$SSL_APP" != "" && test "$SSL_DYNAMIC_ONLY" = "yes" && \
+   { test "$cc_rflg" != "" || test "$ld_rflg" != "" || test "$ded_ld_rflg" != ""; } ; then
+
+    AC_MSG_CHECKING(for ssl runtime library path to use)
+
+    libdirs="/lib"
+
+    if test "$ac_cv_sizeof_void_p" = "8"; then
+	dir_lib64=no
+	dir_lib_64=no
+
+	case "$SSL_RUNTIME_LIBDIR" in
+	    */lib/64 | */lib/64/ ) dir_lib_64=yes;;
+	    */lib64 | */lib64/ ) dir_lib64=yes;;
+	    *) ;;
+	esac
+
+	for dir in $std_ssl_locations; do
+	    test $dir_lib_64 = no &&
+	    	test -d "$erl_xcomp_sysroot$dir/lib/64" &&
+		    dir_lib_64=yes
+	    test $dir_lib64 = no &&
+		test -d "$erl_xcomp_sysroot$dir/lib64" &&
+		    dir_lib64=yes
+	done
+
+	test $dir_lib_64 = yes && libdirs="/lib/64 $libdirs"
+	test $dir_lib64 = yes && libdirs="/lib64 $libdirs"
+    fi
+
+    for type in std x_std curr; do
+
+        cc_rpath="$cc_rflg$SSL_RUNTIME_LIBDIR"
+        ld_rpath="$ld_rflg$SSL_RUNTIME_LIBDIR"
+        ded_ld_rpath="$ded_ld_rflg$SSL_RUNTIME_LIBDIR"
+	rpath="$SSL_RUNTIME_LIBDIR"
+
+	if test $type != curr; then
+	    for ldir in $libdirs; do
+		for dir in $std_ssl_locations; do
+		    test "$SSL_LIBDIR" != "$dir$ldir" || continue
+		    test $type != x_std || test -d "$dir$ldir" || continue
+		    test "$cc_rflg" = "" ||
+			cc_rpath="$cc_rpath $cc_rflg$dir$ldir"
+		    test "$ld_rflg" = "" ||
+			ld_rpath="$ld_rpath $ld_rflg$dir$ldir"
+		    test "$ded_ld_rflg" = "" ||
+			ded_ld_rpath="$ded_ld_rpath $ded_ld_rflg$dir$ldir"
+		    rpath="$rpath:$dir$ldir"
+                done
+	    done
+	fi
+
+	saveCFLAGS="$CFLAGS"
+	saveLDFLAGS="$LDFLAGS"
+	saveLIBS="$LIBS"
+	CFLAGS="$CFLAGS $SSL_INCLUDE"
+	LDFLAGS="$LDFLAGS $ld_rpath -L$SSL_LIBDIR"
+	LIBS="-lcrypto"
+	AC_TRY_LINK([
+                         #include <stdio.h>
+                         #include <openssl/hmac.h>
+                    ],
+                    [ 
+                         HMAC_CTX hc;
+                         HMAC_CTX_init(&hc);		
+                    ],
+                    [rpath_success=yes],
+                    [rpath_success=no])
+	CFLAGS="$saveCFLAGS"
+	LDFLAGS="$saveLDFLAGS"
+	LIBS="$saveLIBS"
+
+	test "$rpath_success" = "yes" && break
+    done
+
+    test "$rpath_success" = "yes" || { cc_rpath=; ld_rpath=; ded_ld_rpath=; rpath=; }
+
+    SSL_CC_RUNTIME_LIBRARY_PATH="$cc_rpath"
+    SSL_LD_RUNTIME_LIBRARY_PATH="$ld_rpath"
+    SSL_DED_LD_RUNTIME_LIBRARY_PATH="$ded_ld_rpath"
+
+    AC_MSG_RESULT([$rpath])
+    test "$rpath" != "" || AC_MSG_WARN([Cannot set run path during linking])
+fi
+
 #--------------------------------------------------------------------
 # Os mon stuff.
 #--------------------------------------------------------------------
@@ -3614,6 +3834,11 @@ case $host_os in
 		os_mon_programs="$os_mon_programs cpu_sup" ;;
 esac
 
+			
+AC_ARG_WITH(javac,
+[  --with-javac=JAVAC      specify Java compiler to use
+  --with-javac            use a Java compiler if found (default)
+  --without-javac         don't use any Java compiler])
 
 dnl
 dnl Then there are a number of apps which needs a java compiler...
@@ -3625,7 +3850,20 @@ for a in $need_java ; do
   /bin/rm -f $ERL_TOP/lib/$a/SKIP
 done
 
-AC_CHECK_PROGS(JAVAC, javac.sh javac guavac gcj jikes bock)
+if test "X$with_javac" = "Xno"; then
+  for a in $need_java ; do
+	echo "Java compiler disabled by user" > $ERL_TOP/lib/$a/SKIP
+  done
+
+else # begin - try to find javac
+
+if test "X$with_javac" != "Xyes" -a "X$with_javac" != "X"; then
+    check_javac=$with_javac
+else
+  check_javac="javac.sh javac guavac gcj jikes bock"
+fi
+
+AC_CHECK_PROGS(JAVAC, $check_javac)
 if test -n "$JAVAC"; then
   dnl Make sure it's at least JDK 1.5
   AC_CACHE_CHECK(for JDK version 1.5, 
@@ -3637,6 +3875,11 @@ if test -n "$JAVAC"; then
   fi
 fi
 if test -z "$JAVAC"; then
+
+  if test "X$with_javac" != "X"; then
+  	AC_MSG_ERROR([No java compiler found in PATH (checked for $check_javac)])
+  fi
+
   AC_MSG_WARN([Could not find any usable java compiler, will skip: jinterface])
 
   for a in $need_java ; do
@@ -3644,14 +3887,15 @@ if test -z "$JAVAC"; then
   done
 fi
 
+fi # end - try to find javac
+
 dnl
 dnl Orber has a c++ example, this isn't the right way to check for
 dnl it, but....
 dnl
-CXXFLAGS=
 AC_SUBST(CXXFLAGS)
 dnl this deliberately does not believe that 'gcc' is a C++ compiler
-AC_CHECK_PROGS(CXX, $CCC c++ g++ CC cxx cc++ cl, false)
+AC_CHECK_TOOLS(CXX, [$CCC c++ g++ CC cxx cc++ cl], false)
 
 # Remove SKIP file from previous run
 /bin/rm -f $ERL_TOP/lib/orber/SKIP
@@ -3788,6 +4032,5 @@ dnl
   ../lib/orber/c_src/$host/Makefile:../lib/orber/c_src/Makefile.in
   ../lib/runtime_tools/c_src/$host/Makefile:../lib/runtime_tools/c_src/Makefile.in
   ../lib/tools/c_src/$host/Makefile:../lib/tools/c_src/Makefile.in
-  ../lib/asn1/c_src/$host/Makefile:../lib/asn1/c_src/Makefile.in
   )
 

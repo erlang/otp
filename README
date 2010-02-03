@@ -13,7 +13,7 @@ The source code for Erlang/OTP can also be found in a Git repository:
 
 %CopyrightBegin%
 
-Copyright Ericsson AB 1998-2009. All Rights Reserved.
+Copyright Ericsson AB 1998-2010. All Rights Reserved.
 
 The contents of this file are subject to the Erlang Public License,
 Version 1.1, (the "License"); you may not use this file except in
@@ -221,9 +221,87 @@ Step 5 builds the Erlang/OTP system. On a fast computer, this will take about
 Erlang/OTP system which you can try by typing "bin/erl". This should start
 up Erlang/OTP and give you a prompt.
 
-Step 6 is optional. It installs Erlang/OTP (if you change your
-mind about where you wish to install you can rerun step 4, without
-having to do step 5 again).
+Step 6 is optional. It installs Erlang/OTP at a standardized location (if you
+change your mind about where you wish to install you can rerun step 4,
+without having to do step 5 again).
+
+Alternative installation procedures:
+* Staged install using DESTDIR. You can perform the install phase in a
+  temporary directory and later move the installation into its correct location
+  by use of the DESTDIR variable: 'make DESTDIR=<tmp install dir> install'
+  The installation will be created in a location prefixed by $DESTDIR. It
+  can, however, not be run from there. It needs to be moved into the correct
+  location before it can be run. If DESTDIR have not been set but INSTALL_PREFIX
+  has been set, DESTDIR will be set to INSTALL_PREFIX. Note that INSTALL_PREFIX
+  in pre R13B04 was buggy and behaved as EXTRA_PREFIX (see below). There are
+  lots of areas of use for an installation procedure using DESTDIR, e.g. when
+  creating a package, cross compiling, etc. Here is an example where the
+  installation should be located under /opt/local:
+    $ ./configure --prefix=/opt/local
+    $ make
+    $ mkdir /tmp/erlang-build
+    $ make DESTDIR=/tmp/erlang-build install
+    $ cd /tmp/erlang-build/opt/local
+    $     # gnu-tar is used in this example
+    $ tar -zcf /home/me/my-erlang-build.tgz *
+    $ su -
+    Password: *****
+    $ cd /opt/local
+    $ tar -zxf /home/me/my-erlang-build.tgz
+* Test install using EXTRA_PREFIX. Note that EXTRA_PREFIX is similar to
+  DESTDIR, but it does not have the same effect as DESTDIR. The EXTRA_PREFIX
+  variable will prefix all installation paths, and the installation can and
+  have to be run from there. That is, it can be useful if you want to try the
+  system out, running test suites, etc, before doing the real install without
+  EXTRA_PREFIX.
+* Install using the `release' target. Instead of doing `make install' you can
+  creat the installation in whatever directory you like using the `release'
+  target and run the `Install' script yourself. RELEASE_ROOT is used for
+  specifying the directory where the installation should be created. This is
+  what by default ends up under `/usr/local/lib/erlang' if you do the install
+  using `make install'. All installation paths provided in the `configure'
+  phase are ignored, as well as DESTDIR, and INSTALL_PREFIX. If you want links
+  from a specific `bin' directory to the installation you have to set those up
+  yourself. An example where Erlang/OTP should be located at /home/me/OTP:
+    $ ./configure
+    $ make
+    $ make RELEASE_ROOT=/home/me/OTP release
+    $ cd /home/me/OTP
+    $ ./Install -minimal /home/me/OTP
+    $ mkdir -p /home/me/bin
+    $ cd /home/me/bin
+    $ ln -s /home/me/OTP/bin/erl erl
+    $ ln -s /home/me/OTP/bin/erlc erlc
+    $ ln -s /home/me/OTP/bin/escript escript
+      ...
+  The `Install' script should currently be invoked as follows in the
+  directory where it resides:
+    `./Install [-cross] [-minimal|-sasl] <ERL_ROOT>'
+  where:
+    -minimal   - Creates an installation that starts up a minimal amount
+                 of applications, i.e., only kernel and stdlib are started.
+                 The minimal system is normally enough.
+    -sasl      - Creates an installation that also starts up the sasl
+                 application.
+    -cross     - For cross compilation. Informs the install script that it
+                 is run on the build machine.
+    <ERL_ROOT> - The absolute path to the Erlang installation to use at run
+                 time. This is often the same as the current working
+                 directory, but does not have to be. It can follow any other
+                 path through the file system to the same directory.
+
+  If neither -minimal, nor -sasl is passed as argument you will be prompted.
+
+When doing `make install' and the default installation prefix is used, relative
+symbolic links will be created from /usr/local/bin to all public executables in
+the Erlang installation. The installation phase will try to create relative
+symbolic links as long as `--bindir' and the Erlang bin directory, located under
+`--libdir', both have `--exec-prefix' as prefix. Where `--exec-prefix'
+defaults to `--prefix'. `--prefix', `--exec-prefix', `--bindir', and `--libdir'
+are all arguments that can be passed to `configure'. One can however force
+relative, or absolute links by passing BINDIR_SYMLINKS=relative|absolute
+as arguments to make during the install phase. Note that such a request might
+cause a failure if the request cannot be satisfied.
 
 The source tree is delivered with a lot of platform independent
 build results already pre-built. If you want to remove these pre-built
