@@ -344,7 +344,13 @@ files_monitor(Config) when is_list(Config) ->
 do_files_monitor(Config) ->
     Dir = ?config(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
-    FQDN = Hostname++"."++inet_db:res_option(domain),
+    FQDN =
+	case inet_db:res_option(domain) of
+	    "" ->
+		Hostname;
+	    _ ->
+		Hostname++"."++inet_db:res_option(domain)
+	end,
     HostsFile = filename:join(Dir, "files_monitor_hosts"),
     ResolvConf = filename:join(Dir, "files_monitor_resolv.conf"),
     ok = inet_db:res_option(resolv_conf, ResolvConf),
