@@ -40,8 +40,6 @@
 -define(incr_x,    60).
 -define(initial_y, 15).
 -define(incr_y,    15).
--define(detail_level_min, 0).
--define(detail_level_max, 100).
 
 -record(state,
         {parent_pid,           % Pid of parent process
@@ -175,8 +173,8 @@ parse_opt([H | T], S, CollectorOpt) ->
         {title, Title} ->
             parse_opt(T, S#state{title = name_to_string(Title)}, CollectorOpt);
         {detail_level, Level} when is_integer(Level),
-	Level >= ?detail_level_min,
-	Level =< ?detail_level_max -> 
+				   Level >= ?detail_level_min,
+				   Level =< ?detail_level_max -> 
             parse_opt(T, S#state{detail_level = Level}, CollectorOpt);
         {detail_level, max} ->
             parse_opt(T, S#state{detail_level = ?detail_level_max}, CollectorOpt);
@@ -1558,7 +1556,7 @@ collect_event(Event, {S, Incr, Order, Active, FilterFun, #e{pos = PrevPos}, Even
     {S, Incr, Order, Active, FilterFun, LastE, Events2}.
 
 display_event(#e{event = Event} = E, S, DC)
-  when Event#event.detail_level < S#state.detail_level ->
+  when Event#event.detail_level =< S#state.detail_level ->
     {FromRefresh, From} = ensure_actor(Event#event.from, S, DC),
     {FromName, FromPos, S2} = From,
     {ToRefresh, To} = ensure_actor(Event#event.to, S2, DC),

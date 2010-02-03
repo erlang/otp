@@ -44,7 +44,7 @@
       <type>
         <v>RawPattern = detail_level()</v>
         <v>TracePattern = erlang_trace_pattern_match_spec()</v>
-        <v>detail_level() = min | max | integer(X) when X =&lt; 0, X >= 100</v>
+        <v>detail_level() = min | max | integer(X) when X &gt;= 0, X =&lt; 100</v>
       </type>
 
       <desc>
@@ -65,7 +65,7 @@
 
       <type>
         <v>Pattern = detail_level() | empty_match_spec() | erlang_trace_pattern_match_spec()</v>
-        <v>detail_level() = min | max | integer(X) when X =&lt;0, X >= 100</v>
+        <v>detail_level() = min | max | integer(X) when  X &gt;= 0, X =&lt; 100</v>
         <v>empty_match_spec() = [] </v>
       </type>
 

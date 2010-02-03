@@ -75,8 +75,6 @@
 -define(incr_x,    60).
 -define(initial_y, 15).
 -define(incr_y,    15).
--define(detail_level_min, 0).
--define(detail_level_max, 100).
 
 %%%----------------------------------------------------------------------
 %%% Client side

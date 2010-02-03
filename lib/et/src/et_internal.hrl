@@ -20,6 +20,9 @@
 %% Purpose: Definition of internal data structures
 %%----------------------------------------------------------------------
 
+-define(detail_level_min, 0).
+-define(detail_level_max, 100).
+
 -record(filter,	{name, function}).
 
 -define(DEFAULT_FILTER_NAME, all).

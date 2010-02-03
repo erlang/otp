@@ -57,6 +57,9 @@
          multicast/2
         ]).
 
+%% Internal export
+-export([monitor_trace_port/2]).
+
 %% gen_server callbacks
 -export([init/1,terminate/2, code_change/3,
          handle_call/3, handle_cast/2, handle_info/2]).
@@ -144,7 +147,7 @@
 %%   
 %% event_order() = trace_ts | event_ts
 %% trace_pattern() = detail_level() | dbg_match_spec()
-%% detail_level() = min | max | integer(X) when X =< 0, X >= 100
+%% detail_level() = min | max | integer(X) when X >= 0, X =< 100
 %% trace_client() = 
 %%   {event_file, file_name()} |
 %%   {dbg_trace_type(), dbg_trace_parameters()}
@@ -415,7 +418,9 @@ report_event(CollectorPid, DetailLevel, FromTo, Label, Contents) ->
     report_event(CollectorPid, DetailLevel, FromTo, FromTo, Label, Contents).
 
 report_event(CollectorPid, DetailLevel, From, To, Label, Contents)
-  when is_integer(DetailLevel), DetailLevel >= 0, DetailLevel =< 100 ->
+  when is_integer(DetailLevel), 
+       DetailLevel >= ?detail_level_min,
+       DetailLevel =< ?detail_level_max ->
     TS= erlang:now(),
     E = #event{detail_level = DetailLevel,
                trace_ts     = TS,
@@ -680,6 +685,17 @@ trace_spec_wrapper(EventFun, EndFun, EventInitialAcc)
 
 start_trace_port(Parameters) ->
     dbg:tracer(port, dbg:trace_port(ip, Parameters)).
+
+monitor_trace_port(CollectorPid, Parameters) ->
+    Res = start_trace_port(Parameters),
+    spawn(fun() ->
+		  MonitorRef = erlang:monitor(process, CollectorPid),
+		  receive
+		      {'DOWN', MonitorRef, _, _, _} ->
+			  dbg:stop_clear()
+		  end
+	  end),
+    Res.
 
 %%----------------------------------------------------------------------
 %% iterate(Handle, Prev, Limit) ->
@@ -1033,7 +1049,7 @@ handle_call(clear_table, _From, S) ->
 handle_call(stop, _From, S) ->
     do_multicast(S#state.subscribers, close),
     case S#state.trace_global of
-        true  -> rpc:multicall(S#state.trace_nodes, dbg, stop, []);
+        true  -> rpc:multicall(S#state.trace_nodes, dbg, stop_clear, []);
         false -> ignore
     end,
     {stop, shutdown, ok, S};
@@ -1067,7 +1083,7 @@ handle_info(timeout, S) ->
 handle_info({nodeup, Node}, S) ->
     Port     = S#state.trace_port,
     MaxQueue = S#state.trace_max_queue,
-    case rpc:call(Node, ?MODULE, start_trace_port, [{Port, MaxQueue}]) of
+    case rpc:call(Node, ?MODULE, monitor_trace_port, [self(), {Port, MaxQueue}]) of
         {ok, _} ->
             S2 = listen_on_trace_port(Node, Port, S),
 	    noreply(S2);

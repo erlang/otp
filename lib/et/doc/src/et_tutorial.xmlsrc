@@ -56,7 +56,7 @@
     <p>The number (in this case 85) is an integer from 1 to 100 that
     specifies the "detail level" of the message. The higher the
     number, the more important it is. This provides a crude form of
-    priority filtering. Avoid using 100.</p>
+    priority filtering.</p>
 
     <p>The <c>from</c>, <c>to</c>, and <c>message</c> parameters are
     exactly what they sound like. <c>from</c> and <c>to</c> are

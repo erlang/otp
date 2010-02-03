@@ -39,7 +39,7 @@
 %% RawPattern = detail_level()
 %% TracePattern = erlang_trace_pattern_match_spec()
 %%
-%% detail_level() = min | max | integer(X) when X =< 0, X >= 100
+%% detail_level() = min | max | integer(X) when X >= 0, X =< 100
 %%
 %%   min       - minimum level of tracing  (ignore calls to trace_me/4,5)
 %%   max       - maximum level of tracing  (all calls to trace_me/4,5)
