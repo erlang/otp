@@ -36,9 +36,9 @@
     section is the version number of Megaco.</p>
 
   <section>
-    <title>Megaco 3.13.0.2</title>
+    <title>Megaco 3.13.1</title>
 
-    <p>Version 3.13.0.2 supports code replacement in runtime from/to
+    <p>Version 3.13.1 supports code replacement in runtime from/to
       version 3.13, 3.12 and 3.11.3.</p>
 
     <section>
@@ -49,6 +49,12 @@
 -->
 
       <list type="bulleted">
+        <item>
+          <p>Various changes to configure and makefile(s) to facilitate cross 
+            compilation. </p>
+          <p>Own Id: OTP-8323</p>
+        </item>
+
         <item>
           <p>Added a help target in the test Makefile to explain 
             the most useful make targets, used when testing the 
@@ -75,7 +81,7 @@
 
     </section>
 
-  </section> <!-- 3.13.0.2 -->
+  </section> <!-- 3.13.1 -->
 
 
   <section>

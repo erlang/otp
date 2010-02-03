@@ -107,7 +107,7 @@ INDEX_SRC    = $(INDEX_FILE).src
 INDEX_TARGET = $(DOCDIR)/$(INDEX_FILE)
 
 STANDARD_DIR = ../standard
-            $(STANDARD_DIR)/rfc3525.txt \
+STANDARDS = $(STANDARD_DIR)/rfc3525.txt \
             $(STANDARD_DIR)/rfc4234.txt \
             $(STANDARD_DIR)/rfc4566.txt \
             $(STANDARD_DIR)/implementors_guide_v10-13.pdf
