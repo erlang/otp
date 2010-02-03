@@ -443,19 +443,23 @@ gethostbyname(Name) ->
     gethostbyname(Name, inet).
 
 gethostbyname(Name, inet) when is_list(Name) ->
-    getit(?OP_GETHOSTBYNAME, ?PROTO_IPV4, Name);
+    getit(?OP_GETHOSTBYNAME, ?PROTO_IPV4, Name, Name);
 gethostbyname(Name, inet6) when is_list(Name) ->
-    getit(?OP_GETHOSTBYNAME, ?PROTO_IPV6, Name);
+    getit(?OP_GETHOSTBYNAME, ?PROTO_IPV6, Name, Name);
 gethostbyname(Name, Type) when is_atom(Name) ->
     gethostbyname(atom_to_list(Name), Type);
 gethostbyname(_, _)  ->
     {error, formerr}.
 
-gethostbyaddr({A,B,C,D}) when ?VALID_V4(A), ?VALID_V4(B), ?VALID_V4(C), ?VALID_V4(D) ->
-    getit(?OP_GETHOSTBYADDR, ?PROTO_IPV4, <<A,B,C,D>>);
-gethostbyaddr({A,B,C,D,E,F,G,H}) when ?VALID_V6(A), ?VALID_V6(B), ?VALID_V6(C), ?VALID_V6(D),
-				      ?VALID_V6(E), ?VALID_V6(F), ?VALID_V6(G), ?VALID_V6(H) ->
-    getit(?OP_GETHOSTBYADDR, ?PROTO_IPV6, <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>);
+gethostbyaddr({A,B,C,D}=Addr)
+  when ?VALID_V4(A), ?VALID_V4(B), ?VALID_V4(C), ?VALID_V4(D) ->
+    getit(?OP_GETHOSTBYADDR, ?PROTO_IPV4, <<A,B,C,D>>, Addr);
+gethostbyaddr({A,B,C,D,E,F,G,H}=Addr)
+  when ?VALID_V6(A), ?VALID_V6(B), ?VALID_V6(C), ?VALID_V6(D),
+       ?VALID_V6(E), ?VALID_V6(F), ?VALID_V6(G), ?VALID_V6(H) ->
+    getit
+      (?OP_GETHOSTBYADDR, ?PROTO_IPV6,
+       <<A:16,B:16,C:16,D:16,E:16,F:16,G:16,H:16>>, Addr);
 gethostbyaddr(Addr) when is_list(Addr) ->
     case inet_parse:address(Addr) of
         {ok, IP} -> gethostbyaddr(IP);
@@ -466,30 +470,30 @@ gethostbyaddr(Addr) when is_atom(Addr) ->
 gethostbyaddr(_) -> {error, formerr}.
 
 control({debug_level, Level}) when is_integer(Level) ->
-    getit(?OP_CONTROL, ?SETOPT_DEBUG_LEVEL, <<Level:32>>);
+    getit(?OP_CONTROL, ?SETOPT_DEBUG_LEVEL, <<Level:32>>, undefined);
 control(soft_restart) ->
-    getit(restart_port);
+    getit(restart_port, undefined);
 control(_) -> {error, formerr}.
 
-getit(Op, Proto, Data) ->
-    getit({Op, Proto, Data}).
+getit(Op, Proto, Data, DefaultName) ->
+    getit({Op, Proto, Data}, DefaultName).
 
-getit(Req) ->
+getit(Req, DefaultName) ->
     Pid = ensure_started(),
     Ref = make_ref(),
     Pid ! {{self(),Ref}, Req},
     receive
 	{Ref, {ok,BinHostent}} ->
-	    parse_address(BinHostent);
-	{Ref, Error} -> 
-	    Error
+	    parse_address(BinHostent, DefaultName);
+	{Ref, Result} ->
+	    Result
     after 5000 ->
 	    Ref2 = erlang:monitor(process,Pid),
 	    Res2 = receive
 		       {Ref, {ok,BinHostent}} ->
-			   parse_address(BinHostent);
-		       {Ref, Error} -> 
-			   Error;
+			   parse_address(BinHostent, DefaultName);
+		       {Ref, Result} ->
+			   Result;
 		       {'DOWN', Ref2, process, 
 			Pid, Reason} ->
 			   {error, Reason}
@@ -546,21 +550,23 @@ ensure_started() ->
 	    Pid
     end.
 
-parse_address(BinHostent) ->
+parse_address(BinHostent, DefaultName) ->
     case catch 
 	begin
 	    case BinHostent of
 		<<?UNIT_ERROR, Errstring/binary>> -> 
 		    {error, list_to_atom(listify(Errstring))};
 		<<?UNIT_IPV4, Naddr:32, T0/binary>> ->
-		    {T1,Addresses} = pick_addresses_v4(Naddr, T0),
-		    [Name | Names] = pick_names(T1),
+		    {T1, Addresses} = pick_addresses_v4(Naddr, T0),
+		    {Name, Names} =
+			expand_default_name(pick_names(T1), DefaultName),
 		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet,
 				  h_aliases = Names, h_length = ?UNIT_IPV4, 
 				  h_name = Name}};
 		<<?UNIT_IPV6, Naddr:32, T0/binary>> ->
-		    {T1,Addresses} = pick_addresses_v6(Naddr, T0),
-		    [Name | Names] = pick_names(T1),
+		    {T1, Addresses} = pick_addresses_v6(Naddr, T0),
+		    {Name, Names} =
+			expand_default_name(pick_names(T1), DefaultName),
 		    {ok, #hostent{h_addr_list = Addresses, h_addrtype = inet6,
 				  h_aliases = Names, h_length = ?UNIT_IPV6, 
 				  h_name = Name}};
@@ -573,7 +579,15 @@ parse_address(BinHostent) ->
 	Normal ->
 	    Normal
     end.
-	    
+
+expand_default_name([], DefaultName) when is_list(DefaultName) ->
+    {DefaultName, []};
+expand_default_name([], DefaultName) when is_tuple(DefaultName) ->
+    {inet_parse:ntoa(DefaultName), []};
+expand_default_name([Name|Names], DefaultName)
+  when is_list(DefaultName); is_tuple(DefaultName) ->
+    {Name, Names}.
+
 listify(Bin) ->
     N = byte_size(Bin) - 1,
     <<Bin2:N/binary, Ch>> = Bin,
