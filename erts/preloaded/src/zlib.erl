@@ -115,7 +115,6 @@
 %%------------------------------------------------------------------------
 
 %% Main data types of the file
--type(iodata()      :: iolist() | binary()).	%XXX To be removed in R13B.
 -type zstream()     :: port().
 
 %% Auxiliary data types of the file

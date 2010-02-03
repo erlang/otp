@@ -51,7 +51,7 @@
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
-% internal exports
+%% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
 	 objfile_extension/0, archive_extension/0,code_path_choice/0]).
@@ -115,6 +115,8 @@ fetch_loaded() ->
 ensure_loaded(Module) ->
     request({ensure_loaded, Module}).
 
+-spec make_permanent(file:filename(), 'false' | file:filename()) ->
+	'ok' | {'error', term()}.
 make_permanent(Boot,Config) ->
     request({make_permanent,Boot,Config}).
 

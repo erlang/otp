@@ -22,6 +22,7 @@
 
 -export([start/2]).
 
+-spec start(_, term()) -> term().
 start(_Env, Argv) ->
     run(init, boot, Argv).
 

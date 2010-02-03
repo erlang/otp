@@ -29,25 +29,16 @@
 -export([send_nosuspend/2, send_nosuspend/3]).
 -export([localtime_to_universaltime/1]).
 -export([suspend_process/1]).
--export([min/2,max/2]).
-
+-export([min/2, max/2]).
 -export([dlink/1, dunlink/1, dsend/2, dsend/3, dgroup_leader/2,
 	 dexit/2, dmonitor_node/3, dmonitor_p/2]).
-
 -export([delay_trap/2]).
-
 -export([set_cookie/2, get_cookie/0]).
-
 -export([nodes/0]).
-
 -export([concat_binary/1]).
-
 -export([list_to_integer/2,integer_to_list/2]).
-
 -export([flush_monitor_message/2]).
-
 -export([set_cpu_topology/1, format_cpu_topology/1]).
-
 -export([await_proc_exit/3]).
 
 -deprecated([hash/2]).
@@ -55,14 +46,22 @@
 
 -compile(nowarn_bif_clash).
 
+%%--------------------------------------------------------------------------
+
+-type date() :: {pos_integer(), pos_integer(), pos_integer()}.
+-type time() :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
+-type date_time() :: {date(), time()}.
+
+%%--------------------------------------------------------------------------
+
 apply(Fun, Args) ->
     apply(Fun, Args).
 
 apply(Mod, Name, Args) ->
     apply(Mod, Name, Args).
 
+%% Spawns with a fun
 
-% Spawns with a fun
 spawn(F) when is_function(F) ->
     spawn(erlang, apply, [F, []]);
 spawn({M,F}=MF) when is_atom(M), is_atom(F) ->
@@ -125,7 +124,7 @@ spawn_opt(N, {M,F}=MF, O) when is_atom(M), is_atom(F) ->
 spawn_opt(N, F, O) ->
     erlang:error(badarg, [N, F, O]).
 
-% Spawns with MFA
+%% Spawns with MFA
 
 spawn(N,M,F,A) when N =:= node(), is_atom(M), is_atom(F), is_list(A) ->
     spawn(M,F,A);
@@ -254,12 +253,17 @@ crasher(Node,Mod,Fun,Args,Opts,Reason) ->
 			     [Mod,Fun,Args,Opts,Node]),
     exit(Reason).
 
+-spec yield() -> 'true'.
 yield() ->
     erlang:yield().
 
-nodes() -> erlang:nodes(visible).
+-spec nodes() -> [node()].
+nodes() ->
+    erlang:nodes(visible).
 
-disconnect_node(Node) -> net_kernel:disconnect(Node).
+-spec disconnect_node(node()) -> boolean().
+disconnect_node(Node) ->
+    net_kernel:disconnect(Node).
 
 fun_info(Fun) when is_function(Fun) ->
     Keys = [type,env,arity,name,uniq,index,new_uniq,new_index,module,pid],
@@ -285,9 +289,11 @@ send_nosuspend(Pid, Msg, Opts) ->
 	_  -> false
     end.
 
+-spec localtime_to_universaltime(date_time()) -> date_time().
 localtime_to_universaltime(Localtime) ->
     erlang:localtime_to_universaltime(Localtime, undefined).
 
+-spec suspend_process(pid()) -> 'true'.
 suspend_process(P) ->
     case catch erlang:suspend_process(P, []) of
 	{'EXIT', {Reason, _}} -> erlang:error(Reason, [P]);
@@ -298,10 +304,11 @@ suspend_process(P) ->
 %%
 %% If the emulator wants to perform a distributed command and
 %% a connection is not established to the actual node the following 
-%% functions is called in order to set up the connection and then 
+%% functions are called in order to set up the connection and then
 %% reactivate the command.
 %%
 
+-spec dlink(pid() | port()) -> 'true'.
 dlink(Pid) ->
     case net_kernel:connect(node(Pid)) of
 	true -> link(Pid);
@@ -309,6 +316,7 @@ dlink(Pid) ->
     end.
 
 %% Can this ever happen?
+-spec dunlink(identifier()) -> 'true'.
 dunlink(Pid) ->
     case net_kernel:connect(node(Pid)) of
 	true -> unlink(Pid);
@@ -322,7 +330,7 @@ dmonitor_node(Node, Flag, []) ->
     end;
 
 dmonitor_node(Node, Flag, Opts) ->
-    case lists:member(allow_passive_connect,Opts) of
+    case lists:member(allow_passive_connect, Opts) of
 	true ->
 	    case net_kernel:passive_cnct(Node) of
 		true -> erlang:monitor_node(Node, Flag, Opts);
@@ -378,11 +386,11 @@ dsend({Name, Node}, Msg, Opts) ->
 	ignored -> ok				% Not distributed.
     end.
 
+-spec dmonitor_p('process', pid() | {atom(),atom()}) -> reference().
 dmonitor_p(process, ProcSpec) ->
     %% ProcSpec = pid() | {atom(),atom()}
     %% ProcSpec CANNOT be an atom because a locally registered process
     %% is never handled here.
-
     Node = case ProcSpec of
 	       {S,N} when is_atom(S), is_atom(N), N =/= node() -> N;
 	       _ when is_pid(ProcSpec) -> node(ProcSpec)
@@ -400,6 +408,7 @@ dmonitor_p(process, ProcSpec) ->
 %% Trap function used when modified timing has been enabled.
 %%
 
+-spec delay_trap(Result, timeout()) -> Result.
 delay_trap(Result, 0) -> erlang:yield(), Result;
 delay_trap(Result, Timeout) -> receive after Timeout -> Result end.
 
@@ -423,13 +432,15 @@ set_cookie(Node, C) when Node =/= nonode@nohost, is_atom(Node) ->
 	error -> exit(badarg);
 	Other -> Other
     end.
-	    
+
+-spec get_cookie() -> atom().
 get_cookie() ->
     auth:get_cookie().
 
 concat_binary(List) ->
     list_to_binary(List).
 
+-spec integer_to_list(integer(), 1..255) -> string().
 integer_to_list(I, 10) ->
     erlang:integer_to_list(I);
 integer_to_list(I, Base) 
@@ -455,7 +466,6 @@ integer_to_list(I0, Base, R0) ->
        true ->
 	    integer_to_list(I1, Base, R1)
     end.
-
 
 
 list_to_integer(L, 10) ->
@@ -662,6 +672,7 @@ rvrs([X|Xs],Ys) -> rvrs(Xs, [X|Ys]).
 %%       functions in bif.c. Do not make
 %%       any changes to it without reading
 %%       the comment about them in bif.c!
+-spec await_proc_exit(dst(), 'apply' | 'data' | 'reason', term()) -> term().
 await_proc_exit(Proc, Op, Data) ->
     Mon = erlang:monitor(process, Proc),
     receive
@@ -677,8 +688,10 @@ await_proc_exit(Proc, Op, Data) ->
 	    end
     end.
 
+-spec min(term(), term()) -> term().
 min(A, B) when A > B -> B;
 min(A, _) -> A.
 
+-spec max(term(), term()) -> term().
 max(A, B) when A < B -> B;
 max(A, _) -> A.
