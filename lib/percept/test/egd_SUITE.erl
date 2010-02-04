@@ -143,6 +143,8 @@ image_shape(Config) when is_list(Config) ->
     ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt2, Fgc),
     ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt1, Fgc),
 
+    ?line <<_/binary>> = egd:render(Im, raw_bitmap, [{render_engine, alpha}]),
+
     ?line ok = egd:destroy(Im),
     erase(image_size),
     ok.
@@ -176,6 +178,8 @@ image_primitives(Config) when is_list(Config) ->
 
     ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt2, Fgc),
     ?line ok = bitmap_point_has_color(Bitmap, {W,H}, Pt1, Fgc),
+
+    ?line <<_/binary>> = egd_render:binary(Im2, alpha),
 
     erase(image_size),
     ok.

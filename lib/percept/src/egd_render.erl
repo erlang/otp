@@ -179,7 +179,7 @@ color(Trans,Layers,Type,OldC) ->
 
 color([],_) -> {0.0,0.0,0.0,0.0};
 color([{_,C}|_],opaque) -> C;    
-color(Layers,alpha) -> color1({0,0,0,0},Layers).
+color(Layers,alpha) -> color1({0.0,0.0,0.0,0.0},Layers).
 
 color1(Color,[]) -> Color;
 color1(Color,[{_,C}|Layers]) -> color1(alpha_blend(Color,C),Layers).
