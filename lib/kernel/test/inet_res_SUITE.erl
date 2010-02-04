@@ -239,16 +239,37 @@ resolve(_Opts, []) -> ok;
 resolve(Opts, [{Class,Type,Name,Answers,Authority}=Q|Qs]) ->
     io:format("Query: ~p~nOptions: ~p~n", [Q,Opts]),
     {ok,Msg} = inet_res:resolve(Name, Class, Type, Opts),
-    if Answers =/= undefined ->
-	    AnList = lists:sort(Answers),
-	    AnList = lists:sort([inet_dns:rr(RR, data) ||
-				    RR <- inet_dns:msg(Msg, anlist)]);
-       true -> ok end,
-    if Authority =/= undefined ->
-	    NsList = lists:sort(Authority),
-	    NsList = lists:sort([inet_dns:rr(RR, data) ||
-				    RR <- inet_dns:msg(Msg, nslist)]);
-       true -> ok end,
+    AnList =
+	if
+	    Answers =/= undefined ->
+		lists:sort(Answers);
+	    true ->
+		undefined
+	end,
+    NsList =
+	if
+	    Authority =/= undefined ->
+		lists:sort(Authority);
+	    true ->
+		undefined
+	end,
+    case {lists:sort
+	  ([inet_dns:rr(RR, data) || RR <- inet_dns:msg(Msg, anlist)]),
+	  lists:sort
+	  ([inet_dns:rr(RR, data) || RR <- inet_dns:msg(Msg, nslist)])} of
+	{AnList,NsList} ->
+	    ok;
+	{NsList,AnList} when Type =:= ns ->
+	    %% This whole case statement is kind of inside out just
+	    %% to accept this case when some legacy DNS resolvers
+	    %% return the answer to a NS query in the answer section
+	    %% instead of in the authority section.
+	    ok;
+	{AnList,_} when NsList =:= undefined ->
+	    ok;
+	{_,NsList} when AnList =:= undefined ->
+	    ok
+    end,
     Buf = inet_dns:encode(Msg),
     {ok,Msg} = inet_dns:decode(Buf),
     resolve(Opts, Qs).
@@ -292,10 +313,23 @@ edns0(Config) when is_list(Config) ->
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
-    [OptRR] = [RR || RR <- inet_dns:msg(Msg2, arlist),
-		     inet_dns:rr(RR, type) =:= opt],
-    io:format("~p~n", [inet_dns:rr(OptRR)]),
-    ok.
+    case [RR || RR <- inet_dns:msg(Msg2, arlist),
+		inet_dns:rr(RR, type) =:= opt] of
+	[OptRR] ->
+	    io:format("~p~n", [inet_dns:rr(OptRR)]),
+	    ok;
+	[] ->
+	    case os:type() of
+		{unix,sunos} ->
+		    case os:version() of
+			{M,V,_} when M < 5;  M == 5, V =< 8 ->
+			    %% In our test park only known platform
+			    %% with an DNS resolver that can not do
+			    %% EDNS0.
+			    {comment,"No EDNS0"}
+		    end
+	    end
+    end.
 
 inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
