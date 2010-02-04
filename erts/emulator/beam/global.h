@@ -1570,7 +1570,9 @@ Sint cmp(Eterm, Eterm);
 #define CMP_EQ(a,b)	((a) == (b) || cmp_eq((a),(b)))
 #define CMP_NE(a,b)	((a) != (b) && cmp_ne((a),(b)))
 
+/* duplicates from big.h */
 int term_to_Uint(Eterm term, Uint *up);
+int term_to_UWord(Eterm, UWord*);
 
 #ifdef HAVE_ERTS_NOW_CPU
 extern int erts_cpu_timestamp;

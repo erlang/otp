@@ -38,17 +38,18 @@
 #include "beam_bp.h"
 #include "erl_binary.h"
 
-#ifdef ARCH_64 /* XXX:PaN Halfword? */
+#ifdef ARCH_64
 # define HEXF "%016bpX"
 #else
 # define HEXF "%08bpX"
 #endif
+#define TermWords(t) (((t) / (sizeof(UWord)/sizeof(Eterm))) + !!((t) % (sizeof(UWord)/sizeof(Eterm))))
 
 void dbg_bt(Process* p, Eterm* sp);
-void dbg_where(Eterm* addr, Eterm x0, Eterm* reg);
+void dbg_where(UWord* addr, Eterm x0, Eterm* reg);
 
 static void print_big(int to, void *to_arg, Eterm* addr);
-static int print_op(int to, void *to_arg, int op, int size, Eterm* addr);
+static int print_op(int to, void *to_arg, int op, int size, UWord* addr);
 Eterm
 erts_debug_same_2(Process* p, Eterm term1, Eterm term2)
 {
@@ -132,16 +133,16 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
     Eterm* tp;
     Eterm bin;
     Eterm mfa;
-    Eterm* funcinfo = NULL;	/* Initialized to eliminate warning. */
-    Uint* code_base;
-    Uint* code_ptr = NULL;	/* Initialized to eliminate warning. */
-    Uint instr;
-    Uint uaddr;
+    UWord* funcinfo = NULL;	/* Initialized to eliminate warning. */
+    UWord* code_base;
+    UWord* code_ptr = NULL;	/* Initialized to eliminate warning. */
+    UWord instr;
+    UWord uaddr;
     Uint hsz;
     int i;
 
-    if (term_to_Uint(addr, &uaddr)) {
-	code_ptr = (Uint *) uaddr;
+    if (term_to_UWord(addr, &uaddr)) {
+	code_ptr = (UWord *) uaddr;
 	if ((funcinfo = find_function_from_pc(code_ptr)) == NULL) {
 	    BIF_RET(am_false);
 	}
@@ -180,14 +181,14 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
 	     * But this code_ptr will point to the start of the Export,
 	     * not the function's func_info instruction. BOOM !?
 	     */
-	    code_ptr = ((Eterm *) ep->address) - 5;
+	    code_ptr = ((UWord *) ep->address) - 5;
 	    funcinfo = code_ptr+2;
 	} else if (modp == NULL || (code_base = modp->code) == NULL) {
 	    BIF_RET(am_undef);
 	} else {
 	    n = code_base[MI_NUM_FUNCTIONS];
 	    for (i = 0; i < n; i++) {
-		code_ptr = (Uint *) code_base[MI_FUNCTIONS+i];
+		code_ptr = (UWord *) code_base[MI_FUNCTIONS+i];
 		if (code_ptr[3] == name && code_ptr[4] == arity) {
 		    funcinfo = code_ptr+2;
 		    break;
@@ -203,9 +204,9 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
 
     dsbufp = erts_create_tmp_dsbuf(0);
     erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
-    instr = (Uint) code_ptr[0];
+    instr = (UWord) code_ptr[0];
     for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
-	if (instr == (Uint) BeamOp(i) && opc[i].name[0] != '\0') {
+	if (instr == (UWord) BeamOp(i) && opc[i].name[0] != '\0') {
 	    code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
 				 i, opc[i].sz-1, code_ptr+1) + 1;
 	    break;
@@ -219,12 +220,12 @@ erts_debug_disassemble_1(Process* p, Eterm addr)
     bin = new_binary(p, (byte *) dsbufp->str, (int) dsbufp->str_len);
     erts_destroy_tmp_dsbuf(dsbufp);
     hsz = 4+4;
-    (void) erts_bld_uint(NULL, &hsz, (Uint) code_ptr);
+    (void) erts_bld_uword(NULL, &hsz, (UWord) code_ptr);
     hp = HAlloc(p, hsz);
-    addr = erts_bld_uint(&hp, NULL, (Uint) code_ptr);
+    addr = erts_bld_uword(&hp, NULL, (UWord) code_ptr);
     ASSERT(is_atom(funcinfo[0]));
     ASSERT(is_atom(funcinfo[1]));
-    mfa = TUPLE3(hp, funcinfo[0], funcinfo[1], make_small(funcinfo[2]));
+    mfa = TUPLE3(hp, (Eterm) funcinfo[0], (Eterm) funcinfo[1], make_small((Eterm) funcinfo[2]));
     hp += 4;
     return TUPLE3(hp, addr, bin, mfa);
 }
@@ -236,20 +237,20 @@ dbg_bt(Process* p, Eterm* sp)
 
     while (sp < stack) {
 	if (is_CP(*sp)) {
-	    Eterm* addr = find_function_from_pc(cp_val(*sp));
+	    UWord* addr = find_function_from_pc(cp_val(*sp));
 	    if (addr)
 		erts_fprintf(stderr,
 			     HEXF ": %T:%T/%bpu\n",
-			     addr, addr[0], addr[1], addr[2]);
+			     addr, (Eterm) addr[0], (Eterm) addr[1], (Uint) addr[2]);
 	}
 	sp++;
     }
 }
 
 void
-dbg_where(Eterm* addr, Eterm x0, Eterm* reg)
+dbg_where(UWord* addr, Eterm x0, Eterm* reg)
 {
-    Eterm* f = find_function_from_pc(addr);
+    UWord* f = find_function_from_pc(addr);
 
     if (f == NULL) {
 	erts_fprintf(stderr, "???\n");
@@ -259,7 +260,7 @@ dbg_where(Eterm* addr, Eterm x0, Eterm* reg)
 
 	addr = f;
 	arity = addr[2];
-	erts_fprintf(stderr, HEXF ": %T:%T(", addr, addr[0], addr[1]);
+	erts_fprintf(stderr, HEXF ": %T:%T(", addr, (Eterm) addr[0], (Eterm) addr[1]);
 	for (i = 0; i < arity; i++)
 	    erts_fprintf(stderr, i ? ", %T" : "%T", i ? reg[i] : x0);
 	erts_fprintf(stderr, ")\n");
@@ -267,18 +268,18 @@ dbg_where(Eterm* addr, Eterm x0, Eterm* reg)
 }
 
 static int
-print_op(int to, void *to_arg, int op, int size, Eterm* addr)
+print_op(int to, void *to_arg, int op, int size, UWord* addr)
 {
     int i;
-    Uint tag;
+    UWord tag;
     char* sign;
     char* start_prog;		/* Start of program for packer. */
     char* prog;			/* Current position in packer program. */
-    Uint stack[8];		/* Stack for packer. */
-    Uint* sp = stack;		/* Points to next free position. */
-    Uint packed = 0;		/* Accumulator for packed operations. */
-    Uint args[8];		/* Arguments for this instruction. */
-    Uint* ap;			/* Pointer to arguments. */
+    UWord stack[8];		/* Stack for packer. */
+    UWord* sp = stack;		/* Points to next free position. */
+    UWord packed = 0;		/* Accumulator for packed operations. */
+    UWord args[8];		/* Arguments for this instruction. */
+    UWord* ap;			/* Pointer to arguments. */
 
     start_prog = opc[op].pack;
 
@@ -288,7 +289,7 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	 * Avoid copying because instructions containing bignum operands
 	 * are bigger than actually declared.
 	 */
-	ap = (Uint *) addr;
+	ap = (UWord *) addr;
     } else {
 	/*
 	 * Copy all arguments to a local buffer for the unpacking.
@@ -390,11 +391,11 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	case 'i':		/* Tagged integer */
 	case 'c':		/* Tagged constant */
 	case 'q':		/* Tagged literal */
-	    erts_print(to, to_arg, "%T", *ap);
+	    erts_print(to, to_arg, "%T", (Eterm) *ap);
 	    ap++;
 	    break;
 	case 'A':
-	    erts_print(to, to_arg, "%d", arityval(ap[0]));
+	    erts_print(to, to_arg, "%d", arityval( (Eterm) ap[0]));
 	    ap++;
 	    break;
 	case 'd':		/* Destination (x(0), x(N), y(N)) */
@@ -421,30 +422,36 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	    ap++;
 	    break;
 	case 'f':		/* Destination label */
-	    erts_print(to, to_arg, "f(%X)", *ap);
-	    ap++;
+	    {
+		UWord* f = find_function_from_pc((UWord *)*ap);
+		if (f+3 != (UWord *) *ap) {
+		    erts_print(to, to_arg, "f(" HEXF ")", *ap);
+		} else {
+		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], (Eterm) f[2]);
+		}
+		ap++;
+	    }
 	    break;
 	case 'p':		/* Pointer (to label) */
 	    {
-		Eterm* f = find_function_from_pc((Eterm *)*ap);
-
-		if (f+3 != (Eterm *) *ap) {
-		    erts_print(to, to_arg, "p(%X)", *ap);
+		UWord* f = find_function_from_pc((UWord *)*ap);
+		if (f+3 != (UWord *) *ap) {
+		    erts_print(to, to_arg, "p(" HEXF ")", *ap);
 		} else {
-		    erts_print(to, to_arg, "%T:%T/%bpu", f[0], f[1], f[2]);
+		    erts_print(to, to_arg, "%T:%T/%bpu", (Eterm) f[0], (Eterm) f[1], (Eterm) f[2]);
 		}
 		ap++;
 	    }
 	    break;
 	case 'j':		/* Pointer (to label) */
-	    erts_print(to, to_arg, "j(%X)", *ap);
+	    erts_print(to, to_arg, "j(" HEXF ")", *ap);
 	    ap++;
 	    break;
 	case 'e':		/* Export entry */
 	    {
 		Export* ex = (Export *) *ap;
 		erts_print(to, to_arg,
-			   "%T:%T/%bpu", ex->code[0], ex->code[1], ex->code[2]);
+			   "%T:%T/%bpu", (Eterm) ex->code[0], (Eterm) ex->code[1], (Uint) ex->code[2]);
 		ap++;
 	    }
 	    break;
@@ -467,7 +474,7 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
-	    erts_print(to, to_arg, "%d", (*ap / sizeof(Eterm*)) - 1);
+	    erts_print(to, to_arg, "%d", (*ap / sizeof(UWord)) - 1);
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */
@@ -494,7 +501,7 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	    int n = ap[-1];
 
 	    while (n > 0) {
-		erts_print(to, to_arg, "%T f(%X) ", ap[0], ap[1]);
+		erts_print(to, to_arg, "%T f(" HEXF ") ", (Eterm) ap[0], ap[1]);
 		ap += 2;
 		size += 2;
 		n--;
@@ -505,7 +512,7 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	{
 	    int n;
 	    for (n = ap[-2]; n > 0; n--) {
-		erts_print(to, to_arg, "f(%X) ", ap[0]);
+		erts_print(to, to_arg, "f(" HEXF ") ", ap[0]);
 		ap++;
 		size++;
 	    }
@@ -513,11 +520,12 @@ print_op(int to, void *to_arg, int op, int size, Eterm* addr)
 	break;
     case op_i_select_big_sf:
 	while (ap[0]) {
-	    int arity = thing_arityval(ap[0]);
-	    print_big(to, to_arg, ap);
-	    size += arity+1;
-	    ap += arity+1;
-	    erts_print(to, to_arg, " f(%X) ", ap[0]);
+	    Eterm *bigp = (Eterm *) ap;
+	    int arity = thing_arityval(*bigp);
+	    print_big(to, to_arg, bigp);
+	    size += TermWords(arity+1);
+	    ap += TermWords(arity+1);
+	    erts_print(to, to_arg, " f(" HEXF ") ", ap[0]);
 	    ap++;
 	    size++;
 	}
@@ -541,8 +549,8 @@ print_big(int to, void *to_arg, Eterm* addr)
 	erts_print(to, to_arg, "-#integer(%d) = {", i);
     else
 	erts_print(to, to_arg, "#integer(%d) = {", i);
-    erts_print(to, to_arg, "%d", BIG_DIGIT(addr, 0));
+    erts_print(to, to_arg, "0x%x", BIG_DIGIT(addr, 0));
     for (k = 1; k < i; k++)
-	erts_print(to, to_arg, ",%d", BIG_DIGIT(addr, k));
+	erts_print(to, to_arg, ",0x%x", BIG_DIGIT(addr, k));
     erts_print(to, to_arg, "}");
 }

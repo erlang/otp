@@ -150,6 +150,7 @@ Eterm bytes_to_big(byte*, dsize_t, int, Eterm*);
 byte* big_to_bytes(Eterm, byte*);
 
 int term_to_Uint(Eterm, Uint*);
+int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
 
 Uint32 big_to_uint32(Eterm b);

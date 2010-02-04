@@ -1878,6 +1878,42 @@ term_to_Uint(Eterm term, Uint *up)
     }
 }
 
+int
+term_to_UWord(Eterm term, UWord *up)
+{
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i < 0) {
+	    *up = BADARG;
+	    return 0;
+	}
+	*up = (UWord) i;
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t  xl = big_size(term);
+	UWord uval = 0;
+	int n = 0;
+
+	if (big_sign(term)) {
+	    *up = BADARG;
+	    return 0;
+	} else if (xl*D_EXP > sizeof(UWord)*8) {
+	    *up = SYSTEM_LIMIT;
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((Uint)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	*up = uval;
+	return 1;
+    } else {
+	*up = BADARG;
+	return 0;
+    }
+}
+
 int term_to_Sint(Eterm term, Sint *sp)
 {
     if (is_small(term)) {
