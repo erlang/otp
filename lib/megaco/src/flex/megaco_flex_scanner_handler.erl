@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -180,27 +180,28 @@ terminate(_Reason, _S) ->
 %% Purpose: Called to change the internal state
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
-%% code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_8) ->
-%%     Port = downgrade_flex_scanner(Conf),
-%%     {ok, State#state{conf = {flex, Port}}};
+
+code_change({down, _Vsn}, #state{conf = Conf} = State, downgrade_to_pre_3_13_1) ->
+    NewPorts = bump_flex_scanner(Conf),
+    {ok, State#state{conf = {flex, NewPorts}}};
+
+code_change(_Vsn, #state{conf = Conf} = State, upgrade_from_pre_3_13_1) ->
+    NewPorts = bump_flex_scanner(Conf),
+    {ok, State#state{conf = {flex, NewPorts}}};
 
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
 
-%% downgrade_flex_scanner({flex, Port}) when is_port(Port) ->
-%%     Port;
-%% downgrade_flex_scanner({flex, [Port]}) when is_port(Port) ->
-%%     Port;
-%% downgrade_flex_scanner({flex, Ports}) when is_list(Ports) ->
-%%     megaco_flex_scanner:stop(Ports), 
-%%     case megaco_flex_scanner:start() of
-%% 	{ok, Port} ->
-%% 	    Port;
-%% 	Error ->
-%% 	    exit(Error)
-%%     end;
-%% downgrade_flex_scanner(BadConfig) ->
-%%     exit({invalid_config, BadConfig}).
+bump_flex_scanner({flex, Ports}) ->
+    megaco_flex_scanner:stop(Ports), 
+    case start_flex_scanners() of
+	{ok, NewPorts} ->
+	    NewPorts;
+	Error ->
+	    exit(Error)
+    end;
+bump_flex_scanner(BadConfig) ->
+    exit({invalid_config, BadConfig}).
 
 
 %%%----------------------------------------------------------------------

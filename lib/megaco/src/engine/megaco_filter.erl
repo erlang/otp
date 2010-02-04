@@ -1,36 +1,82 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%
 %%----------------------------------------------------------------------
-%% Purpose : megaco/H.248 customization of generic event tracer
+%% Purpose : Megaco/H.248 customization of the Event Tracer tool
 %%----------------------------------------------------------------------
 
 -module(megaco_filter).
 
--export([start/0, start/1, filter/1,
+-export([start/0, start/1, filter/1, raw_filter/1,
 	 pretty_error/1, string_to_term/1]).
+
 
 -include_lib("megaco/include/megaco.hrl").
 -include_lib("megaco/include/megaco_message_v1.hrl").
 -include_lib("megaco/src/app/megaco_internal.hrl").
 -include_lib("et/include/et.hrl").
+
+%%----------------------------------------------------------------------
+%% BUGBUG: There are some opportunities for improvements:
+%%
+%% * This version of the module does only handle version 1 of the messages.
+%% 
+%% * The record definition of megaco_transaction_reply is copied from 
+%%   megaco_message_internal.hrl as that header file contains some
+%%   records that already are defined in megaco_message_{v1,v2,v3}.hrl.
+%% * The records megaco_udp and megaco_tcp are copied from the files
+%%   megaco_udp.hrl and megaco_tcp.hrl respectively, as we cannot include
+%%   both header files. They both defines the macros HEAP_SIZE and GC_MSG_LIMIT.
+
+%%-include("megaco_message_internal.hrl").
+-record('megaco_transaction_reply',
+	{
+	  transactionId, 
+	  immAckRequired       = asn1_NOVALUE, 
+	  transactionResult,
+	  segmentNumber        = asn1_NOVALUE,
+	  segmentationComplete = asn1_NOVALUE
+	 }). 
+
+%% -include_lib("megaco/src/udp/megaco_udp.hrl").
+-record(megaco_udp,
+	{port,
+	 options   = [],
+	 socket,
+	 receive_handle,
+	 module    = megaco,
+	 serialize = false  % false: Spawn a new process for each message
+	}).
+
+%% -include_lib("megaco/src/tcp/megaco_tcp.hrl").
+-record(megaco_tcp,
+	{host,
+	 port,
+	 options   = [],
+	 socket,
+	 proxy_pid,
+	 receive_handle,
+	 module    = megaco,
+	 serialize = false  % false: Spawn a new process for each message
+	}).
+%%----------------------------------------------------------------------
 
 start() ->
     start([]).
@@ -47,11 +93,20 @@ start(ExtraOptions) ->
 	 {title, "Megaco tracer - Erlang/OTP"} | ExtraOptions],
     et_viewer:start(Options).
 
-filter(E) when is_record(E, event) ->
+filter(E) ->
+    case catch raw_filter(E) of
+	{'EXIT', Reason} = Error->
+	    io:format("~p: ~p\n", [?MODULE, Error]),
+	    exit(Reason);
+	E2 ->
+	    E2
+    end.
+
+raw_filter(E) when is_record(E, event) ->
     From = filter_actor(E#event.from),
     To 	 = filter_actor(E#event.to),
     E2 	 = E#event{from = From, to = To},
-    E3 	 = filter_contents(E#event.contents, E2, []),
+    E3 	 = filter_contents(E#event.contents, E2),
     {true, E3}.
 
 filter_actors(From, To, E) 
@@ -101,6 +156,9 @@ filter_user_actor(Actor) ->
 do_filter_actor(CH) when is_record(CH, megaco_conn_handle) ->
     Mid = CH#megaco_conn_handle.local_mid,
     do_filter_actor(Mid);
+do_filter_actor(RH) when is_record(RH, megaco_receive_handle) ->
+    Mid = RH#megaco_receive_handle.local_mid,
+    do_filter_actor(Mid);
 do_filter_actor(Actor) ->
     case Actor of
 	{ip4Address, {'IP4Address', [A1,A2,A3,A4], asn1_NOVALUE}} ->
@@ -130,86 +188,108 @@ do_filter_actor(Actor) ->
 	    "UNKNOWN"
     end.
 
-filter_contents([], E, Contents) ->
-    E#event{contents = lists:flatten(lists:reverse(Contents))};
-filter_contents([H | T], E, Contents) ->
+
+filter_contents(Contents, E) ->
+    do_filter_contents(Contents, E, missing_conn_data, []).
+
+do_filter_contents([H | T], E, ConnData, Contents) ->
     case H of
-	{line, _Mod, _Line} ->
-	    filter_contents(T, E, Contents);
+	Udp when is_record(Udp, megaco_udp) ->
+	    RH = Udp#megaco_udp.receive_handle,
+	    Actor = filter_actor(RH),
+	    E2 = E#event{from = Actor, to = Actor},
+	    Pretty =
+		["Port:    ", integer_to_list(Udp#megaco_udp.port), "\n",
+		 "Encoder: ", atom_to_list(RH#megaco_receive_handle.encoding_mod)],
+	    do_filter_contents(T, E2, ConnData, [[Pretty, "\n"], Contents]);
+	Tcp when is_record(Tcp, megaco_tcp) ->
+	    RH = Tcp#megaco_tcp.receive_handle,
+	    Actor = filter_actor(RH),
+	    E2 = E#event{from = Actor, to = Actor},
+	    Pretty =
+		["Port:    ", integer_to_list(Tcp#megaco_tcp.port), "\n",
+		 "Encoder: ", atom_to_list(RH#megaco_receive_handle.encoding_mod)],
+	    do_filter_contents(T, E2, ConnData, [[Pretty, "\n"], Contents]);
 	CD when is_record(CD, conn_data) ->
 	    CH = CD#conn_data.conn_handle,
 	    From = CH#megaco_conn_handle.local_mid,
-	    To   = CH#megaco_conn_handle.remote_mid,
+	    To = CH#megaco_conn_handle.remote_mid,
 	    E2 = filter_actors(From, To, E),
 	    Serial = CD#conn_data.serial,
 	    E3 = append_serial(Serial, E2),
-	    filter_contents(T, E3, Contents);
+	    do_filter_contents(T, E3, CD, Contents);
 	CH when is_record(CH, megaco_conn_handle) ->
 	    From = CH#megaco_conn_handle.local_mid,
-	    To   = CH#megaco_conn_handle.remote_mid,
+	    To = CH#megaco_conn_handle.remote_mid,
 	    E2 = filter_actors(From, To, E),
-	    filter_contents(T, E2, Contents);
-	{orig_conn_handle, _CH} ->
-	    filter_contents(T, E, Contents);
+	    do_filter_contents(T, E2, ConnData, Contents);
 	RH when is_record(RH, megaco_receive_handle) ->
 	    Actor = RH#megaco_receive_handle.local_mid,
 	    E2 = filter_actors(Actor, Actor, E),
-	    filter_contents(T, E2, Contents);
-	{pid, Pid} when is_pid(Pid) ->
-	    filter_contents(T, E, Contents);
-	pending ->
-	    filter_contents(T, E, Contents);
-	reply ->
-	    filter_contents(T, E, Contents);
+	    do_filter_contents(T, E2, ConnData, Contents);
 	{error, Reason} ->
 	    Pretty = pretty_error({error, Reason}),
 	    E2 = prepend_error(E),
-	    filter_contents(T, E2, [[Pretty, "\n"], Contents]);
+	    do_filter_contents(T, E2, ConnData, [[Pretty, "\n"], Contents]);
 	{'EXIT', Reason} ->
 	    Pretty = pretty_error({'EXIT', Reason}),
 	    E2 = prepend_error(E),
-	    filter_contents(T, E2, [[Pretty, "\n"], Contents]);
+	    do_filter_contents(T, E2, ConnData, [[Pretty, "\n"], Contents]);
 	ED when is_record(ED, 'ErrorDescriptor') ->
 	    Pretty = pretty_error(ED),
 	    E2 = prepend_error(E),
-	    filter_contents(T, E2, [[Pretty, "\n"], Contents]);
+	    do_filter_contents(T, E2, ConnData, [[Pretty, "\n"], Contents]);
 	Trans when is_record(Trans, 'TransactionRequest') ->
-	    Pretty = pretty({trans, {transactionRequest, Trans}}),
-	    filter_contents([], E, [[Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, {trans, {transactionRequest, Trans}}),
+	    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
+	{transactionRequest, Trans} when is_record(Trans, 'TransactionRequest') ->
+	    Pretty = pretty(ConnData, {trans, {transactionRequest, Trans}}),
+	    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
 	Trans when is_record(Trans, 'TransactionReply') ->
-	    Pretty = pretty({trans, {transactionReply, Trans}}),
-	    filter_contents([], E, [[Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, {trans, {transactionReply, Trans}}),
+	    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
+	Trans when is_record(Trans, megaco_transaction_reply) ->
+	    %% BUGBUG: Version 1 special
+	    TransV1 = 
+		#'TransactionReply'{transactionId     = Trans#megaco_transaction_reply.transactionId,
+				    immAckRequired    = Trans#megaco_transaction_reply.immAckRequired,
+				    transactionResult = Trans#megaco_transaction_reply.transactionResult},
+	    Pretty = pretty(ConnData, {trans, {transactionReply, TransV1}}),
+	    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
 	Trans when is_record(Trans, 'TransactionPending') ->	    
-	    Pretty = pretty({trans, {transactionPending, Trans}}),
-	    filter_contents([], E, [[Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, {trans, {transactionPending, Trans}}),
+	    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
 	Trans when is_record(Trans, 'TransactionAck') ->	    
-	    Pretty = pretty({trans, {transactionResponseAck, [Trans]}}),
+	    Pretty = pretty(ConnData, {trans, {transactionResponseAck, [Trans]}}),
 	    case Trans#'TransactionAck'.lastAck of
 		asn1_NOVALUE ->
-		    filter_contents([], E, [[Pretty, "\n"], Contents]);
+		    do_filter_contents([], E, ConnData, [[Pretty, "\n"], Contents]);
 		Last ->
 		    Label = term_to_string(E#event.label),
 		    E2 = E#event{label = Label ++ ".." ++ integer_to_list(Last)},
-		    filter_contents([], E2, [[Pretty, "\n"], Contents])
+		    do_filter_contents([], E2, ConnData, [[Pretty, "\n"], Contents])
 	    end;
 	{context_id, _ContextId} ->
-	    Pretty = pretty(H),
-	    filter_contents(T, E, [[Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, H),
+	    do_filter_contents(T, E, ConnData, [[Pretty, "\n"], Contents]);
 	{command_request, CmdReq} ->
-	    Pretty = pretty(CmdReq),
-	    filter_contents(T, E, [[Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, CmdReq),
+	    do_filter_contents(T, E, ConnData, [[Pretty, "\n"], Contents]);
 	{user_reply, {ok, ARS}} ->
-	    Pretty = [[pretty(AR), "\n"] || AR <- ARS],
-	    filter_contents(T, E, [["REPLY: \n", Pretty, "\n"], Contents]);
+	    Pretty = [[pretty(ConnData, AR), "\n"] || AR <- ARS],
+	    do_filter_contents(T, E, ConnData, [["USER REPLY OK: \n", Pretty, "\n"], Contents]);
 	{user_reply, Error} ->
 	    Pretty = pretty_error(Error),
-	    filter_contents(T, E, [["REPLY: \n", Pretty, "\n"], Contents]);
+	    do_filter_contents(T, E, ConnData, [["USER REPLY ERROR: \n", Pretty, "\n"], Contents]);
 	{actionReplies, ARS} ->
-	    Pretty = [[pretty(AR), "\n"] || AR <- ARS],
-	    filter_contents(T, E, [["REPLY: \n", Pretty, "\n"], Contents]);
+	    Pretty = [[pretty(ConnData, AR), "\n"] || AR <- ARS],
+	    do_filter_contents(T, E, ConnData, [["ACTION REPLIES: \n", Pretty, "\n"], Contents]);
 	MegaMsg when is_record(MegaMsg, 'MegacoMessage') ->
-	    Pretty = pretty(MegaMsg),
-	    filter_contents(T, E, [["MESSAGE: \n", Pretty, "\n"], Contents]);
+	    Pretty = pretty(ConnData, MegaMsg),
+	    do_filter_contents(T, E, ConnData, [Pretty, "\n", Contents]);
+	{message, MegaMsg} when is_record(MegaMsg, 'MegacoMessage') ->
+	    Pretty = pretty(ConnData, MegaMsg),
+	    do_filter_contents(T, E, ConnData, [Pretty, "\n", Contents]);
 	{bytes, Bin} when is_binary(Bin) ->
             E2 = 
 		case E#event.label of
@@ -223,15 +303,37 @@ filter_contents([H | T], E, Contents) ->
 			E
 		end,
 	    CharList = erlang:binary_to_list(Bin),
-	    filter_contents(T, E2, [[CharList , "\n"], Contents]);
-	[] ->
-	    filter_contents(T, E, Contents);
+	    do_filter_contents(T, E2, ConnData, [[CharList , "\n"], Contents]);
+	List when is_list(List) ->
+	    %% BUGBUG: Workaround as megaco_messenger puts nested lists in its traces
+	    do_filter_contents(List ++ T, E, ConnData, Contents);
+	Int when is_integer(Int) ->
+	    %% BUGBUG: Workaround as megaco_messenger puts nested lists in its traces
+	    do_filter_contents(T, E, ConnData, Contents);
+	{line, _Mod, _Line} ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	{orig_conn_handle, _CH} ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	{pid, Pid} when is_pid(Pid) ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	pending ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	reply ->
+	    do_filter_contents(T, E, ConnData, Contents);
 	{test_lib, _Mod, _Fun} ->
-	    filter_contents(T, E, Contents);
+	    do_filter_contents(T, E, ConnData, Contents);
+	{trans_id, _TransId} ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	{send_func, _FunName} ->
+	    do_filter_contents(T, E, ConnData, Contents);
+	Pid when is_pid(Pid) ->
+	    do_filter_contents(T, E, ConnData, Contents);
 	Other ->
-	    Pretty = pretty(Other),
-	    filter_contents(T, E, [[Pretty, "\n"], Contents])
-    end.
+	    Pretty = pretty(ConnData, Other),
+	    do_filter_contents(T, E, ConnData, [[Pretty, "\n"], Contents])
+    end;
+do_filter_contents([], E, _ConnData, Contents) ->
+    E#event{contents = lists:flatten(lists:reverse(Contents))}.
 
 append_serial(Serial, E) when is_integer(Serial) ->
     Label = term_to_string(E#event.label),
@@ -243,7 +345,7 @@ prepend_error(E) ->
     Label = term_to_string(E#event.label),
     E#event{label = "<ERROR> " ++ Label}.
 
-pretty({context_id, ContextId}) ->
+pretty(_ConnData, {context_id, ContextId}) ->
      if
 	 ContextId =:= ?megaco_null_context_id ->
 	     ["CONTEXT ID: -\n"];
@@ -254,61 +356,33 @@ pretty({context_id, ContextId}) ->
 	 is_integer(ContextId) ->
 	     ["CONTEXT ID: ",integer_to_list(ContextId), "\n"]
      end;
-pretty(MegaMsg) when is_record(MegaMsg, 'MegacoMessage') ->
-    case catch megaco_pretty_text_encoder:encode_message([], MegaMsg) of
-	{ok, Bin} ->
-	    term_to_string(Bin);
-	_Bad ->
-	    term_to_string(MegaMsg)
-    end;
-pretty(CmdReq) when is_record(CmdReq, 'CommandRequest') ->
-    case catch megaco_pretty_text_encoder:encode_command_request(CmdReq) of
-	{ok, IoList} ->
-	    IoList2 = lists:flatten(IoList),
-	    term_to_string(IoList2);
-	_Bad ->
-	    term_to_string(CmdReq)
-    end;
-pretty({complete_success, ContextId, RepList} = Res) ->
+pretty(_ConnData, MegaMsg) when is_record(MegaMsg, 'MegacoMessage') ->
+    {ok, Bin} = megaco_pretty_text_encoder:encode_message([], MegaMsg),
+    term_to_string(Bin);
+pretty(_ConnData, CmdReq) when is_record(CmdReq, 'CommandRequest') ->
+    {ok, IoList} = megaco_pretty_text_encoder:encode_command_request(CmdReq),
+    term_to_string(lists:flatten(IoList));
+pretty(_ConnData, {complete_success, ContextId, RepList}) ->
     ActRep = #'ActionReply'{contextId    = ContextId, 
 			    commandReply = RepList},
-    case catch megaco_pretty_text_encoder:encode_action_reply(ActRep) of
-	{ok, IoList} ->
-	    IoList2 = lists:flatten(IoList),
-	    term_to_string(IoList2);
-	_Bad ->
-	    term_to_string(Res)
-   end;
-pretty(AR) when is_record(AR, 'ActionReply') ->
-    case catch megaco_pretty_text_encoder:encode_action_reply(AR) of
-	{ok, IoList} ->
-	    IoList2 = lists:flatten(IoList),
-	    term_to_string(IoList2);
-	_Bad ->
-	    term_to_string(AR)
-   end;
-pretty({partial_failure, ContextId, RepList} = Res) ->
+    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
+    term_to_string(lists:flatten(IoList));
+pretty(_ConnData, AR) when is_record(AR, 'ActionReply') ->
+    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(AR),
+    term_to_string(lists:flatten(IoList));
+pretty(_ConnData, {partial_failure, ContextId, RepList}) ->
     ActRep = #'ActionReply'{contextId    = ContextId, 
 			    commandReply = RepList},
-    case catch megaco_pretty_text_encoder:encode_action_reply(ActRep) of
-	{ok, IoList} ->
-	    IoList2 = lists:flatten(IoList),
-	    term_to_string(IoList2);
-	_Bad ->
-	    term_to_string(Res)
-   end;
-pretty({trans, Trans}) ->
-    case catch megaco_pretty_text_encoder:encode_transaction(Trans) of
+    {ok, IoList} = megaco_pretty_text_encoder:encode_action_reply(ActRep),
+    term_to_string(lists:flatten(IoList));
+pretty(_ConnData, {trans, Trans}) ->
+    case megaco_pretty_text_encoder:encode_transaction(Trans) of
 	{ok, Bin} when is_binary(Bin) ->
-	    IoList2 = lists:flatten(binary_to_list(Bin)),
-	    term_to_string(IoList2);
+	    term_to_string(binary_to_list(Bin));
 	{ok, IoList} ->
-	    IoList2 = lists:flatten(IoList),
-	    term_to_string(IoList2);
-	_Bad ->
-	    term_to_string(Trans)
+	    term_to_string(lists:flatten(IoList))
     end;
-pretty(Other) ->
+pretty(__ConnData, Other) ->
     term_to_string(Other).
 
 pretty_error({error, Reason}) ->

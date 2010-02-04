@@ -52,9 +52,13 @@ endif
 
 include modules.mk
 
+EBIN = .
+
 HRL_FILES = megaco_test_lib.hrl
 
 ERL_FILES = $(MODULES:%=%.erl)
+
+SOURCE = $(HRL_FILES) $(ERL_FILES) 
 
 TARGET_FILES = $(MODULES:%=%.$(EMULATOR))
 
@@ -69,6 +73,18 @@ MISC_CASES  = tid sdp dm conf udp tcp ex timer flex
 OP_CASES    = mess mib mreq pending trans actions load
 
 ALL_CASES   = $(APP_CASES) $(CODEC_CASES) $(MISC_CASES) $(OP_CASES)
+
+
+EMAKEFILE  = Emakefile
+MAKE_EMAKE = $(wildcard $(ERL_TOP)/make/make_emakefile)
+
+ifeq ($(MAKE_EMAKE),)
+BUILDTARGET   = $(TARGET_FILES)
+RELTEST_FILES = $(MEGACO_SPECS) $(COVER_SPEC_FILE) $(SOURCE)
+else
+BUILDTARGET   = emakebuild
+RELTEST_FILES = $(EMAKEFILE) $(MEGACO_SPECS) $(COVER_SPEC_FILE) $(SOURCE)
+endif
 
 
 # ----------------------------------------------------
@@ -128,15 +144,30 @@ endif
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES)
+tests debug opt: $(BUILDTARGET)
+
+targets: $(TARGET_FILES)
+
+.PHONY: emakebuild
+
+emakebuild: $(EMAKEFILE)
+
+$(EMAKEFILE): 
+	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) '*_SUITE_make' | grep -v Warning > $(EMAKEFILE)
+	$(MAKE_EMAKE) $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) | grep -v Warning >> $(EMAKEFILE)
 
 clean:
+	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES) 
 	rm -f errs core *~
 
 docs:
 
 info:
+	@echo "MAKE_EMAKE        = $(MAKE_EMAKE)"
+	@echo "EMAKEFILE         = $(EMAKEFILE)"
+	@echo "BUILDTARGET       = $(BUILDTARGET)"
+	@echo ""
 	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
 	@echo "ERL  = $(ERL)"
 	@echo "MERL = $(MERL)"
@@ -313,8 +344,6 @@ all: make
         done
 
 make: targets
-
-targets: $(TARGET_FILES)
 
 test: make
 	$(MERL) $(ARGS) -sname megaco_test $(ERL_PATH) \
@@ -722,9 +751,10 @@ release_docs_spec:
 
 release_tests_spec: tests
 	$(INSTALL_DIR)  $(RELSYSDIR)
-	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) \
-                        $(HRL_FILES) $(ERL_FILES) \
-                        $(RELSYSDIR)
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)
+	$(INSTALL_DATA) $(RELTEST_FILES) $(RELSYSDIR)
+#	$(INSTALL_DATA) $(TEST_SPEC_FILE) $(COVER_SPEC_FILE) \
+#                        $(HRL_FILES) $(ERL_FILES) \
+#                        $(RELSYSDIR)
+#
 	chmod -f -R u+w $(RELSYSDIR)
 
