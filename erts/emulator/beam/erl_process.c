@@ -91,9 +91,9 @@ do {								\
 #define ERTS_EMPTY_RUNQ(RQ) \
   ((RQ)->len == 0 && (RQ)->misc.start == NULL)
 
-extern UWord beam_apply[];
-extern UWord beam_exit[];
-extern UWord beam_continue_exit[];
+extern BeamInstr beam_apply[];
+extern BeamInstr beam_exit[];
+extern BeamInstr beam_continue_exit[];
 
 static Sint p_last;
 static Sint p_next;
@@ -334,7 +334,7 @@ do {									\
 static void init_processes_bif(void);
 static void save_terminating_process(Process *p);
 static void exec_misc_ops(ErtsRunQueue *);
-static void print_function_from_pc(int to, void *to_arg, UWord* x);
+static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
 static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
 			      int yreg);
 #ifdef ERTS_SMP
@@ -6769,8 +6769,8 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 
     p->current = p->initial+INITIAL_MOD;
 
-    p->i = (UWord *) beam_apply;
-    p->cp = (UWord *) beam_apply+1;
+    p->i = (BeamInstr *) beam_apply;
+    p->cp = (BeamInstr *) beam_apply+1;
 
     p->arg_reg = p->def_arg_reg;
     p->max_arg_reg = sizeof(p->def_arg_reg)/sizeof(p->def_arg_reg[0]);
@@ -7355,7 +7355,7 @@ set_proc_exiting(Process *p, Eterm reason, ErlHeapFragment *bp)
     p->freason = EXTAG_EXIT;
     KILL_CATCHES(p);
     cancel_timer(p);
-    p->i = (UWord *) beam_exit;
+    p->i = (BeamInstr *) beam_exit;
 }
 
 
@@ -8283,7 +8283,7 @@ continue_exit_process(Process *p
 
     ASSERT(p->status == P_EXITING);
 
-    p->i = (UWord *) beam_continue_exit;
+    p->i = (BeamInstr *) beam_continue_exit;
 
     if (!(curr_locks & ERTS_PROC_LOCK_STATUS)) {
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_STATUS);
@@ -8303,7 +8303,7 @@ continue_exit_process(Process *p
 static void
 timeout_proc(Process* p)
 {
-    p->i = *((UWord **) (UWord) p->def_arg_reg);
+    p->i = *((BeamInstr **) (UWord) p->def_arg_reg);
     p->flags |= F_TIMO;
     p->flags &= ~F_INSLPQUEUE;
 
@@ -8402,9 +8402,9 @@ erts_program_counter_info(int to, void *to_arg, Process *p)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, UWord* x)
+print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 {
-    UWord* addr = find_function_from_pc(x);
+    BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");
@@ -9267,8 +9267,8 @@ init_processes_bif(void)
     processes_trap_export.code[0] = am_erlang;
     processes_trap_export.code[1] = am_processes_trap;
     processes_trap_export.code[2] = 2;
-    processes_trap_export.code[3] = (UWord) em_apply_bif;
-    processes_trap_export.code[4] = (UWord) &processes_trap;
+    processes_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    processes_trap_export.code[4] = (BeamInstr) &processes_trap;
 
 #if ERTS_PROCESSES_BIF_DEBUGLEVEL >= ERTS_PROCS_DBGLVL_CHK_TERM_PROC_LIST
     erts_get_emu_time(&debug_tv_start);

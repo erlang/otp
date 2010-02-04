@@ -1182,7 +1182,7 @@ seq_trace_output_generic(Eterm token, Eterm msg, Uint type,
  * or   {trace, Pid, return_to, {Mod, Func, Arity}}
  */
 void 
-erts_trace_return_to(Process *p, UWord *pc)
+erts_trace_return_to(Process *p, BeamInstr *pc)
 {
 #define LOCAL_HEAP_SIZE (4+5+5)
     Eterm* hp;
@@ -1190,7 +1190,7 @@ erts_trace_return_to(Process *p, UWord *pc)
     Eterm mess;
     DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 
-    UWord *code_ptr = find_function_from_pc(pc);
+    BeamInstr *code_ptr = find_function_from_pc(pc);
 
 
     UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
@@ -1249,7 +1249,7 @@ erts_trace_return_to(Process *p, UWord *pc)
  * or   {trace, Pid, return_from, {Mod, Name, Arity}, Retval}
  */
 void
-erts_trace_return(Process* p, UWord* fi, Eterm retval, Eterm *tracer_pid)
+erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, Eterm *tracer_pid)
 {
     Eterm* hp;
     Eterm mfa;
@@ -1380,7 +1380,7 @@ erts_trace_return(Process* p, UWord* fi, Eterm retval, Eterm *tracer_pid)
  * Where Class is atomic but Value is any term.
  */
 void
-erts_trace_exception(Process* p, UWord mfa[3], Eterm class, Eterm value,
+erts_trace_exception(Process* p, BeamInstr mfa[3], Eterm class, Eterm value,
 		     Eterm *tracer_pid)
 {
     Eterm* hp;
@@ -1522,7 +1522,7 @@ erts_trace_exception(Process* p, UWord mfa[3], Eterm class, Eterm value,
  * if it is a pid or port we do a meta trace.
  */
 Uint32
-erts_call_trace(Process* p, UWord mfa[3], Binary *match_spec,
+erts_call_trace(Process* p, BeamInstr mfa[3], Binary *match_spec,
 		Eterm* args, int local, Eterm *tracer_pid)
 {
     Eterm* hp;
@@ -2092,7 +2092,7 @@ void save_calls(Process *p, Export *e)
  */
 Eterm
 erts_bif_trace(int bif_index, Process* p, 
-	       Eterm arg1, Eterm arg2, Eterm arg3, UWord *I)
+	       Eterm arg1, Eterm arg2, Eterm arg3, BeamInstr *I)
 {
     Eterm result;
     int meta = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_META);
@@ -2106,10 +2106,10 @@ erts_bif_trace(int bif_index, Process* p,
 	 * no tracing will occur. Doing the whole else branch will 
 	 * also do nothing, only slower.
 	 */
-	Eterm (*func)(Process*, Eterm, Eterm, Eterm, UWord*) = bif_table[bif_index].f;
+	Eterm (*func)(Process*, Eterm, Eterm, Eterm, BeamInstr*) = bif_table[bif_index].f;
 	result = func(p, arg1, arg2, arg3, I);
     } else {
-	Eterm (*func)(Process*, Eterm, Eterm, Eterm, UWord*);
+	Eterm (*func)(Process*, Eterm, Eterm, Eterm, BeamInstr*);
 	Export* ep = bif_export[bif_index];
 	Uint32 flags = 0, flags_meta = 0;
 	int global = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_GLOBAL);
@@ -2118,7 +2118,7 @@ erts_bif_trace(int bif_index, Process* p,
 	int applying = (I == &(ep->code[3])); /* Yup, the apply code for a bif
 					       * is actually in the 
 					       * export entry */
-	UWord *cp = p->cp;
+	BeamInstr *cp = p->cp;
 	
 	Eterm args[3] = {arg1, arg2, arg3};
 	

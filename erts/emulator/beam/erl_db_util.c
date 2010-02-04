@@ -1601,7 +1601,7 @@ Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term,
     Eterm **sp;
     Eterm *esp;
     Eterm *hp;
-    UWord *cp;
+    BeamInstr *cp;
     UWord *pc = prog->text;
     Eterm *ehp;
     Eterm ret;
@@ -4235,7 +4235,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
     Eterm l;
     Uint32 ret_flags;
     Uint sz;
-    UWord *save_cp;
+    BeamInstr *save_cp;
 
     if (trace && !(is_list(against) || against == NIL)) {
 	return THE_NON_VALUE;

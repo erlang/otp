@@ -187,10 +187,10 @@ extern Eterm exception_tag[NUMBER_EXC_TAGS];
 struct StackTrace {
     Eterm header;	/* bignum header - must be first in struct */
     Eterm freason; /* original exception reason is saved in the struct */
-    UWord* pc;
-    UWord* current;
+    BeamInstr* pc;
+    BeamInstr* current;
     int depth;	/* number of saved pointers in trace[] */
-    UWord *trace[1];  /* varying size - must be last in struct */
+    BeamInstr *trace[1];  /* varying size - must be last in struct */
 };
 
 #endif /* __ERROR_H__ */

@@ -231,6 +231,7 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 ** Data types:
 **
 ** Eterm: A tagged erlang term (possibly 64 bits)
+** BeamInstr: A beam code instruction unit, possibly larger than Eterm, not smaller.
 ** UInt:  An unsigned integer exactly as large as an Eterm.
 ** SInt:  A signed integer exactly as large as an eterm and therefor large
 **        enough to hold the return value of the signed_val() macro.
@@ -313,6 +314,8 @@ typedef Uint UWord;
 typedef Sint SWord;
 
 #endif /* HALFWORD_HEAP */
+
+typedef UWord BeamInstr;
 
 #ifndef HAVE_INT64
 #if SIZEOF_LONG == 8

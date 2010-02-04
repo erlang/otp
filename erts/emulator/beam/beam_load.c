@@ -51,9 +51,9 @@ ErlDrvBinary* erts_gzinflate_buffer(char*, int);
 #define EXPORTED  2
 
 #ifdef NO_JUMP_TABLE
-#  define BeamOpCode(Op) ((UWord)(Op))
+#  define BeamOpCode(Op) ((BeamInstr)(Op))
 #else
-#  define BeamOpCode(Op) ((UWord)beam_ops[Op])
+#  define BeamOpCode(Op) ((BeamInstr)beam_ops[Op])
 #endif
 
 #if defined(WORDS_BIGENDIAN)
@@ -94,7 +94,7 @@ typedef struct {
 
 typedef struct {
     unsigned type;		/* Type of operand. */
-    UWord val;			/* Value of operand. */
+    BeamInstr val;			/* Value of operand. */
     Uint bigarity;		/* Arity for bignumbers (only). */
 } GenOpArg;
 
@@ -142,7 +142,7 @@ typedef struct {
 typedef struct {
     Eterm function;		/* Tagged atom for function. */
     int arity;			/* Arity. */
-    UWord* address;		/* Address to function in code. */
+    BeamInstr* address;		/* Address to function in code. */
 } ExportEntry;
 
 #define MakeIffId(a, b, c, d) \
@@ -274,13 +274,13 @@ typedef struct {
     int num_functions;		/* Number of functions in module. */
     int num_labels;		/* Number of labels. */
     int code_buffer_size;	/* Size of code buffer in words.  */
-    UWord* code;		/* Loaded code. */
+    BeamInstr* code;		/* Loaded code. */
     int ci;			/* Current index into loaded code. */
     Label* labels;
-    UWord put_strings;		/* Linked list of put_string instructions. */
-    UWord new_bs_put_strings;	/* Linked list of i_new_bs_put_string instructions. */
+    BeamInstr put_strings;		/* Linked list of put_string instructions. */
+    BeamInstr new_bs_put_strings;	/* Linked list of i_new_bs_put_string instructions. */
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
-    UWord catches;		/* Linked list of catch_yf instructions. */
+    BeamInstr catches;		/* Linked list of catch_yf instructions. */
     unsigned loaded_size;	/* Final size of code when loaded. */
     byte mod_md5[16];		/* MD5 for module code. */
     int may_load_nif;           /* true if NIFs may later be loaded for this module */  
@@ -341,7 +341,7 @@ typedef struct {
 
 #define GetTagAndValue(Stp, Tag, Val) \
    do { \
-      UWord __w; \
+      BeamInstr __w; \
       GetByte(Stp, __w); \
       Tag = __w & 0x07; \
       if ((__w & 0x08) == 0) { \
@@ -388,7 +388,7 @@ typedef struct {
        goto load_error; \
     } else { \
        int __n = (N); \
-       UWord __result = 0; \
+       BeamInstr __result = 0; \
        Stp->file_left -= (unsigned) __n; \
        while (__n-- > 0) { \
           __result = __result << 8 | *Stp->file_p++; \
@@ -465,7 +465,7 @@ static int bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 static void init_state(LoaderState* stp);
 static int insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 			   Eterm group_leader, Eterm module,
-			   UWord* code, Uint size, UWord catches);
+			   BeamInstr* code, Uint size, BeamInstr catches);
 static int scan_iff_file(LoaderState* stp, Uint* chunk_types,
 			 Uint num_types, Uint num_mandatory);
 static int load_atom_table(LoaderState* stp);
@@ -499,8 +499,8 @@ static void load_printf(int line, LoaderState* context, char *fmt, ...);
 static int transform_engine(LoaderState* st);
 static void id_to_string(Uint id, char* s);
 static void new_genop(LoaderState* stp);
-static int get_int_val(LoaderState* stp, Uint len_code, UWord* result);
-static int get_erlang_integer(LoaderState* stp, Uint len_code, UWord* result);
+static int get_int_val(LoaderState* stp, Uint len_code, BeamInstr* result);
+static int get_erlang_integer(LoaderState* stp, Uint len_code, BeamInstr* result);
 static int new_label(LoaderState* stp);
 static void new_literal_patch(LoaderState* stp, int pos);
 static void new_string_patch(LoaderState* stp, int pos);
@@ -592,7 +592,8 @@ erts_load_module(Process *c_p,
     return result;
 }
 
-#ifdef DEBUG
+#if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
+/* Requires allocators ERTS_ALLOC_UTIL_HARD_DEBUG also set in erl_alloc_util.h */
 extern void check_allocators(void);
 extern void check_allocated_block(Uint type, void *blk);
 #define CHKALLOC() check_allocators()
@@ -617,8 +618,8 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
      * Scan the IFF file.
      */
 
-#ifdef DEBUG
-    fprintf(stderr,"Loading a module\r\n");
+#if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
+    erts_fprintf(stderr,"Loading a module\n");
 #endif
 
     CHKALLOC();
@@ -785,8 +786,8 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.genop_blocks);
 	state.genop_blocks = next;
     }
-#ifdef DEBUG
-    erts_fprintf(stderr,"Loaded %T\r\n",*modp);
+#if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
+    erts_fprintf(stderr,"Loaded %T\n",*modp);
 #endif
 
     return rval;
@@ -824,7 +825,7 @@ init_state(LoaderState* stp)
 
 static int
 insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
-		Eterm group_leader, Eterm module, UWord* code, Uint size, UWord catches)
+		Eterm group_leader, Eterm module, BeamInstr* code, Uint size, BeamInstr catches)
 {
     Module* modp;
     int rval;
@@ -866,7 +867,7 @@ insert_new_code(Process *c_p, ErtsProcLocks c_p_locks,
 	modules[i] = modules[i-1];
     }
     modules[i].start = code;
-    modules[i].end = (UWord *) (((byte *)code) + size);
+    modules[i].end = (BeamInstr *) (((byte *)code) + size);
     num_loaded_modules++;
     mid_module = &modules[num_loaded_modules/2];
     return 0;
@@ -1116,7 +1117,7 @@ load_import_table(LoaderState* stp)
 	 * the BIF function.
 	 */
 	if ((e = erts_find_export_entry(mod, func, arity)) != NULL) {
-	    if (e->code[3] == (UWord) em_apply_bif) {
+	    if (e->code[3] == (BeamInstr) em_apply_bif) {
 		stp->import[i].bf = (BifFunction) e->code[4];
 		if (func == am_load_nif && mod == am_erlang && arity == 2) {
 		    stp->may_load_nif = 1;
@@ -1184,7 +1185,7 @@ read_export_table(LoaderState* stp)
 	 * redefine).
 	 */
 	if ((e = erts_find_export_entry(stp->module, func, arity)) != NULL) {
-	    if (e->code[3] == (UWord) em_apply_bif) {
+	    if (e->code[3] == (BeamInstr) em_apply_bif) {
 		int j;
 
 		for (j = 0; j < sizeof(allow_redef)/sizeof(allow_redef[0]); j++) {
@@ -1253,7 +1254,7 @@ static int
 read_literal_table(LoaderState* stp)
 {
     int i;
-    UWord uncompressed_sz;
+    BeamInstr uncompressed_sz;
     byte* uncompressed = 0;
 
     GetInt(stp, 4, uncompressed_sz);
@@ -1371,8 +1372,8 @@ read_code_header(LoaderState* stp)
      * Initialize code area.
      */
     stp->code_buffer_size = erts_next_heap_size(2048 + stp->num_functions, 0);
-    stp->code = (UWord *) erts_alloc(ERTS_ALC_T_CODE,
-				    sizeof(UWord) * stp->code_buffer_size);
+    stp->code = (BeamInstr *) erts_alloc(ERTS_ALC_T_CODE,
+				    sizeof(BeamInstr) * stp->code_buffer_size);
 
     stp->code[MI_NUM_FUNCTIONS] = stp->num_functions;
     stp->ci = MI_FUNCTIONS + stp->num_functions + 1;
@@ -1403,13 +1404,13 @@ read_code_header(LoaderState* stp)
     if (code_buffer_size < ci+(w)) {					\
         code_buffer_size = erts_next_heap_size(ci+(w), 0);		\
 	stp->code = code						\
-	    = (UWord *) erts_realloc(ERTS_ALC_T_CODE,			\
+	    = (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE,			\
 				     (void *) code,			\
-				     code_buffer_size * sizeof(UWord));	\
+				     code_buffer_size * sizeof(BeamInstr));	\
     } 									\
 } while (0)
     
-#define TermWords(t) (((t) / (sizeof(UWord)/sizeof(Eterm))) + !!((t) % (sizeof(UWord)/sizeof(Eterm))))
+#define TermWords(t) (((t) / (sizeof(BeamInstr)/sizeof(Eterm))) + !!((t) % (sizeof(BeamInstr)/sizeof(Eterm))))
 
 
 static int
@@ -1422,7 +1423,7 @@ load_code(LoaderState* stp)
     char* sign;
     int arg;			/* Number of current argument. */
     int num_specific;		/* Number of specific ops for current. */
-    UWord* code;
+    BeamInstr* code;
     int code_buffer_size;
     int specific;
     Uint last_label = 0;	/* Number of last label. */
@@ -1481,7 +1482,7 @@ load_code(LoaderState* stp)
       if (((First) & 0x08) == 0) { \
 	 Val = (First) >> 4; \
       } else if (((First) & 0x10) == 0) { \
-         UWord __w; \
+         BeamInstr __w; \
 	 GetByte(Stp, __w); \
 	 Val = (((First) >> 5) << 8) | __w; \
       } else { \
@@ -1490,7 +1491,7 @@ load_code(LoaderState* stp)
    } while (0)
 
 	for (arg = 0; arg < arity; arg++) {
-	    UWord first;
+	    BeamInstr first;
 
 	    GetByte(stp, first);
 	    last_op->a[arg].type = first & 0x07;
@@ -1499,7 +1500,7 @@ load_code(LoaderState* stp)
 		if ((first & 0x08) == 0) {
 		    last_op->a[arg].val = first >> 4;
 		} else if ((first & 0x10) == 0) {
-		    UWord w;
+		    BeamInstr w;
 		    GetByte(stp, w);
 		    ASSERT(first < 0x800);
 		    last_op->a[arg].val = ((first >> 5) << 8) | w;
@@ -1558,7 +1559,7 @@ load_code(LoaderState* stp)
 		break;
 	    case TAG_z:
 		{
-		    UWord ext_tag;
+		    BeamInstr ext_tag;
 		    unsigned tag;
 
 		    GetValue(stp, first, ext_tag);
@@ -1610,10 +1611,10 @@ load_code(LoaderState* stp)
 			break;
 		    case 3: 	/* Allocation list. */
 			{
-			    UWord n;
-			    UWord type;
-			    UWord val;
-			    UWord words = 0;
+			    BeamInstr n;
+			    BeamInstr type;
+			    BeamInstr val;
+			    BeamInstr words = 0;
 			    
 			    stp->new_float_instructions = 1;
 			    GetTagAndValue(stp, tag, n);
@@ -1642,7 +1643,7 @@ load_code(LoaderState* stp)
 			}
 		    case 4:	/* Literal. */
 			{
-			    UWord val;
+			    BeamInstr val;
 
 			    GetTagAndValue(stp, tag, val);
 			    VerifyTag(stp, tag, TAG_u);
@@ -1807,7 +1808,7 @@ load_code(LoaderState* stp)
 	    case 'c':		/* Tagged constant */
 		switch (tag) {
 		case TAG_i:
-		    code[ci++] = (UWord) make_small((Uint) tmp_op->a[arg].val);
+		    code[ci++] = (BeamInstr) make_small((Uint) tmp_op->a[arg].val);
 		    break;
 		case TAG_a:
 		    code[ci++] = tmp_op->a[arg].val;
@@ -1837,7 +1838,7 @@ load_code(LoaderState* stp)
 		    code[ci++] = make_yreg(tmp_op->a[arg].val);
 		    break;
 		case TAG_i:
-		    code[ci++] = (UWord) make_small((Uint)tmp_op->a[arg].val);
+		    code[ci++] = (BeamInstr) make_small((Uint)tmp_op->a[arg].val);
 		    break;
 		case TAG_a:
 		    code[ci++] = tmp_op->a[arg].val;
@@ -1931,12 +1932,12 @@ load_code(LoaderState* stp)
 		if (stp->import[i].bf == NULL) {
 		    LoadError1(stp, "not a BIF: import table index %d", i);
 		}
-		code[ci++] = (UWord) stp->import[i].bf;
+		code[ci++] = (BeamInstr) stp->import[i].bf;
 		break;
 	    case 'P':		/* Byte offset into tuple */ /* XXX:PaN - * sizeof(Eterm or Eterm *) ? */
 		VerifyTag(stp, tag, TAG_u);
 		tmp = tmp_op->a[arg].val;
-		code[ci++] = (UWord) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
+		code[ci++] = (BeamInstr) ((tmp_op->a[arg].val+1) * sizeof(Eterm));
 		break;
 	    case 'l':		/* Floating point register. */
 		VerifyTag(stp, tag_to_letter[tag], *sign);
@@ -2090,8 +2091,8 @@ load_code(LoaderState* stp)
 			int pad = MIN_FUNC_SZ - (finfo_ix - last_func_start);
 			ASSERT(pad > 0 && pad < MIN_FUNC_SZ);
 			CodeNeed(pad);
-			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix], FINFO_SZ*sizeof(UWord));
-			sys_memset(&code[finfo_ix], 0, pad*sizeof(UWord));
+			sys_memmove(&code[finfo_ix+pad], &code[finfo_ix], FINFO_SZ*sizeof(BeamInstr));
+			sys_memset(&code[finfo_ix], 0, pad*sizeof(BeamInstr));
 			ci += pad;
 			stp->labels[last_label].value += pad;
 		    }
@@ -2910,7 +2911,7 @@ gen_literal_timeout(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	} else {
 	    Uint u;
 	    (void) term_to_Uint(big, &u);
-	    op->a[1].val = (UWord) u;
+	    op->a[1].val = (BeamInstr) u;
 	}
 #endif
     } else {
@@ -2957,7 +2958,7 @@ gen_literal_timeout_locked(LoaderState* stp, GenOpArg Fail, GenOpArg Time)
 	} else {
 	    Uint u;
 	    (void) term_to_Uint(big, &u);
-	    op->a[1].val = (UWord) u;
+	    op->a[1].val = (BeamInstr) u;
 	}
 #endif
     } else {
@@ -3377,7 +3378,7 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
     op->op = genop_i_make_fun_2;
     op->arity = 2;
     op->a[0].type = TAG_u;
-    op->a[0].val = (UWord) fe;
+    op->a[0].val = (BeamInstr) fe;
     op->a[1].type = TAG_u;
     op->a[1].val = stp->lambdas[idx.val].num_free;
     op->next = NULL;
@@ -3432,7 +3433,7 @@ gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 static int
 freeze_code(LoaderState* stp)
 {
-    UWord* code = stp->code;
+    BeamInstr* code = stp->code;
     Uint *literal_end = NULL;
     Uint index;
     int i;
@@ -3458,21 +3459,21 @@ freeze_code(LoaderState* stp)
      * Calculate the final size of the code.
      */
 
-    size = (stp->ci * sizeof(UWord)) + (stp->total_literal_size * sizeof(Eterm)) +
+    size = (stp->ci * sizeof(BeamInstr)) + (stp->total_literal_size * sizeof(Eterm)) +
 	strtab_size + attr_size + compile_size;
 
     /*
      * Move the code to its final location.
      */
 
-    code = (UWord *) erts_realloc(ERTS_ALC_T_CODE, (void *) code, size);
+    code = (BeamInstr *) erts_realloc(ERTS_ALC_T_CODE, (void *) code, size);
     CHKBLK(ERTS_ALC_T_CODE,code);
     /*
      * Place a pointer to the op_int_code_end instruction in the
      * function table in the beginning of the file.
      */
 
-    code[MI_FUNCTIONS+stp->num_functions] = (UWord) (code + stp->ci - 1);
+    code[MI_FUNCTIONS+stp->num_functions] = (BeamInstr) (code + stp->ci - 1);
     CHKBLK(ERTS_ALC_T_CODE,code);
 
     /*
@@ -3480,7 +3481,7 @@ freeze_code(LoaderState* stp)
      */
 
     if (stp->on_load) {
-	code[MI_ON_LOAD_FUNCTION_PTR] = (UWord) (code + stp->on_load);
+	code[MI_ON_LOAD_FUNCTION_PTR] = (BeamInstr) (code + stp->on_load);
     } else {
 	code[MI_ON_LOAD_FUNCTION_PTR] = 0;
     }
@@ -3499,8 +3500,8 @@ freeze_code(LoaderState* stp)
 
 	low = (Uint *) (code+stp->ci);
 	high = low + stp->total_literal_size;
-	code[MI_LITERALS_START] = (UWord) low;
-	code[MI_LITERALS_END] = (UWord) high;
+	code[MI_LITERALS_START] = (BeamInstr) low;
+	code[MI_LITERALS_END] = (BeamInstr) high;
 	ptr = low;
 	for (i = 0; i < stp->num_literals; i++) {
 	    Uint offset;
@@ -3532,7 +3533,7 @@ freeze_code(LoaderState* stp)
 	}
 	lp = stp->literal_patches;
 	while (lp != 0) {
-	    UWord* op_ptr;
+	    BeamInstr* op_ptr;
 	    Uint literal;
 	    Literal* lit;
 
@@ -3559,8 +3560,8 @@ freeze_code(LoaderState* stp)
     if (attr_size) {
 	byte* attr = str_table + strtab_size;
 	sys_memcpy(attr, stp->chunks[ATTR_CHUNK].start, stp->chunks[ATTR_CHUNK].size);
-	code[MI_ATTR_PTR] = (UWord) attr;
-	code[MI_ATTR_SIZE] = (UWord) stp->chunks[ATTR_CHUNK].size;
+	code[MI_ATTR_PTR] = (BeamInstr) attr;
+	code[MI_ATTR_SIZE] = (BeamInstr) stp->chunks[ATTR_CHUNK].size;
 	decoded_size = erts_decode_ext_size(attr, attr_size, 0);
 	if (decoded_size < 0) {
  	    LoadError0(stp, "bad external term representation of module attributes");
@@ -3574,9 +3575,9 @@ freeze_code(LoaderState* stp)
 	sys_memcpy(compile_info, stp->chunks[COMPILE_CHUNK].start,
 	       stp->chunks[COMPILE_CHUNK].size);
     CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_COMPILE_PTR] = (UWord) compile_info;
+	code[MI_COMPILE_PTR] = (BeamInstr) compile_info;
     CHKBLK(ERTS_ALC_T_CODE,code);
-	code[MI_COMPILE_SIZE] = (UWord) stp->chunks[COMPILE_CHUNK].size;
+	code[MI_COMPILE_SIZE] = (BeamInstr) stp->chunks[COMPILE_CHUNK].size;
     CHKBLK(ERTS_ALC_T_CODE,code);
 	decoded_size = erts_decode_ext_size(compile_info, compile_size, 0);
     CHKBLK(ERTS_ALC_T_CODE,code);
@@ -3599,7 +3600,7 @@ freeze_code(LoaderState* stp)
     while (index != 0) {
 	Uint next = code[index];
 	code[index] = BeamOpCode(op_put_string_IId);
-	code[index+2] = (UWord) (str_table + code[index+2] + code[index+1] - 1);
+	code[index+2] = (BeamInstr) (str_table + code[index+2] + code[index+1] - 1);
 	index = next;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
@@ -3614,7 +3615,7 @@ freeze_code(LoaderState* stp)
     while (index != 0) {
 	Uint next = code[index];
 	code[index] = BeamOpCode(op_bs_put_string_II);
-	code[index+2] = (UWord) (str_table + code[index+2]);
+	code[index+2] = (BeamInstr) (str_table + code[index+2]);
 	index = next;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
@@ -3623,12 +3624,12 @@ freeze_code(LoaderState* stp)
 	StringPatch* sp = stp->string_patches;
 
 	while (sp != 0) {
-	    UWord* op_ptr;
+	    BeamInstr* op_ptr;
 	    byte* strp;
 
 	    op_ptr = code + sp->pos;
 	    strp = str_table + op_ptr[0];
-	    op_ptr[0] = (UWord) strp;
+	    op_ptr[0] = (BeamInstr) strp;
 	    sp = sp->next;
 	}
     }
@@ -3652,7 +3653,7 @@ freeze_code(LoaderState* stp)
 	    ASSERT(this_patch < stp->ci);
 	    next_patch = code[this_patch];
 	    ASSERT(next_patch < stp->ci);
-	    code[this_patch] = (UWord) (code + value);
+	    code[this_patch] = (BeamInstr) (code + value);
 	    this_patch = next_patch;
 	}
     }
@@ -3664,9 +3665,9 @@ freeze_code(LoaderState* stp)
     index = stp->catches;
     catches = BEAM_CATCHES_NIL;
     while (index != 0) {
-	UWord next = code[index];
+	BeamInstr next = code[index];
 	code[index] = BeamOpCode(op_catch_yf);
-	catches = beam_catches_cons((UWord *)code[index+2], catches);
+	catches = beam_catches_cons((BeamInstr *)code[index+2], catches);
 	code[index+2] = make_catch(catches);
 	index = next;
     }
@@ -3714,7 +3715,7 @@ final_touch(LoaderState* stp)
 	     * callable yet.
 	     */
 	    ep->address = ep->code+3;
-	    ep->code[4] = (UWord) stp->export[i].address;
+	    ep->code[4] = (BeamInstr) stp->export[i].address;
 	}
     }
 
@@ -3726,14 +3727,14 @@ final_touch(LoaderState* stp)
 	Eterm mod;
 	Eterm func;
 	Uint arity;
-	UWord import;
+	BeamInstr import;
 	Uint current;
 	Uint next;
 
 	mod = stp->import[i].module;
 	func = stp->import[i].function;
 	arity = stp->import[i].arity;
-	import = (UWord) erts_export_put(mod, func, arity);
+	import = (BeamInstr) erts_export_put(mod, func, arity);
 	current = stp->import[i].patches;
 	while (current != 0) {
 	    ASSERT(current < stp->ci);
@@ -3751,7 +3752,7 @@ final_touch(LoaderState* stp)
 	for (i = 0; i < stp->num_lambdas; i++) {
 	    unsigned entry_label = stp->lambdas[i].label;
 	    ErlFunEntry* fe = stp->lambdas[i].fe;
-	    UWord* code_ptr = (UWord *) (stp->code + stp->labels[entry_label].value);
+	    BeamInstr* code_ptr = (BeamInstr *) (stp->code + stp->labels[entry_label].value);
 
 	    if (fe->address[0] != 0) {
 		/*
@@ -3883,7 +3884,7 @@ transform_engine(LoaderState* st)
 		if (i >= st->num_imports || st->import[i].bf == NULL)
 		    goto restart;
 		if (bif_number != -1 &&
-		    bif_export[bif_number]->code[4] != (UWord) st->import[i].bf) {
+		    bif_export[bif_number]->code[4] != (BeamInstr) st->import[i].bf) {
 		    goto restart;
 		}
 	    }
@@ -4147,7 +4148,7 @@ load_printf(int line, LoaderState* context, char *fmt,...)
 
 
 static int
-get_int_val(LoaderState* stp, Uint len_code, UWord* result)
+get_int_val(LoaderState* stp, Uint len_code, BeamInstr* result)
 {
     Uint count;
     Uint val;
@@ -4179,7 +4180,7 @@ get_int_val(LoaderState* stp, Uint len_code, UWord* result)
 
 
 static int
-get_erlang_integer(LoaderState* stp, Uint len_code, UWord* result)
+get_erlang_integer(LoaderState* stp, Uint len_code, BeamInstr* result)
 {
     Uint count;
     Sint val;
@@ -4453,7 +4454,7 @@ functions_in_module(Process* p, /* Process whose heap to use. */
 		     Eterm mod) /* Tagged atom for module. */
 {
     Module* modp;
-    UWord* code;
+    BeamInstr* code;
     int i;
     Uint num_functions;
     Eterm* hp;
@@ -4471,7 +4472,7 @@ functions_in_module(Process* p, /* Process whose heap to use. */
     num_functions = code[MI_NUM_FUNCTIONS];
     hp = HAlloc(p, 5*num_functions);
     for (i = num_functions-1; i >= 0 ; i--) {
-	UWord* func_info = (UWord *) code[MI_FUNCTIONS+i];
+	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
 	Eterm name = (Eterm) func_info[3];
 	int arity = (int) func_info[4];
 	Eterm tuple;
@@ -4496,7 +4497,7 @@ static Eterm
 native_addresses(Process* p, Eterm mod)
 {
     Module* modp;
-    UWord* code;
+    BeamInstr* code;
     int i;
     Eterm* hp;
     Uint num_functions;
@@ -4519,7 +4520,7 @@ native_addresses(Process* p, Eterm mod)
     hp = HAlloc(p, need);
     hp_end = hp + need;
     for (i = num_functions-1; i >= 0 ; i--) {
-	UWord* func_info = (UWord *) code[MI_FUNCTIONS+i];
+	BeamInstr* func_info = (BeamInstr *) code[MI_FUNCTIONS+i];
 	Eterm name = (Eterm) func_info[3];
 	int arity = (int) func_info[4];
 	Eterm tuple;
@@ -4563,7 +4564,7 @@ exported_from_module(Process* p, /* Process whose heap to use. */
 	    Eterm tuple;
 	    
 	    if (ep->address == ep->code+3 &&
-		ep->code[3] == (UWord) em_call_error_handler) {
+		ep->code[3] == (BeamInstr) em_call_error_handler) {
 		/* There is a call to the function, but it does not exist. */ 
 		continue;
 	    }
@@ -4596,7 +4597,7 @@ attributes_for_module(Process* p, /* Process whose heap to use. */
 
 {
     Module* modp;
-    UWord* code;
+    BeamInstr* code;
     Eterm* hp;
     byte* ext;
     Eterm result = NIL;
@@ -4636,7 +4637,7 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 			    Eterm mod) /* Tagged atom for module. */
 {
     Module* modp;
-    UWord* code;
+    BeamInstr* code;
     Eterm* hp;
     byte* ext;
     Eterm result = NIL;
@@ -4668,8 +4669,8 @@ compilation_info_for_module(Process* p, /* Process whose heap to use. */
 /*
  * Returns a pointer to {module, function, arity}, or NULL if not found.
  */
-UWord *
-find_function_from_pc(UWord* pc)
+BeamInstr *
+find_function_from_pc(BeamInstr* pc)
 {
     Range* low = modules;
     Range* high = low + num_loaded_modules;
@@ -4681,9 +4682,9 @@ find_function_from_pc(UWord* pc)
 	} else if (pc > mid->end) {
 	    low = mid + 1;
 	} else {
-	    UWord** low1 = (UWord **) (mid->start + MI_FUNCTIONS);
-	    UWord** high1 = low1 + mid->start[MI_NUM_FUNCTIONS];
-	    UWord** mid1;
+	    BeamInstr** low1 = (BeamInstr **) (mid->start + MI_FUNCTIONS);
+	    BeamInstr** high1 = low1 + mid->start[MI_NUM_FUNCTIONS];
+	    BeamInstr** mid1;
 
 	    while (low1 < high1) {
 		mid1 = low1 + (high1-low1) / 2;
@@ -4796,10 +4797,10 @@ code_module_md5_1(Process* p, Eterm Bin)
 
 #define WORDS_PER_FUNCTION 6
 
-static UWord*
-make_stub(UWord* fp, Eterm mod, Eterm func, Uint arity, Uint native, UWord OpCode)
+static BeamInstr*
+make_stub(BeamInstr* fp, Eterm mod, Eterm func, Uint arity, Uint native, BeamInstr OpCode)
 {
-    fp[0] = (UWord) BeamOp(op_i_func_info_IaaI);
+    fp[0] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
     fp[1] = native;
     fp[2] = mod;
     fp[3] = func;
@@ -4818,14 +4819,14 @@ static byte*
 stub_copy_info(LoaderState* stp,
 	       int chunk,	/* Chunk: ATTR_CHUNK or COMPILE_CHUNK */
 	       byte* info,	/* Where to store info. */
-	       UWord* ptr_word,	/* Where to store pointer into info. */
-	       UWord* size_word) /* Where to store size of info. */
+	       BeamInstr* ptr_word,	/* Where to store pointer into info. */
+	       BeamInstr* size_word) /* Where to store size of info. */
 {
     Sint decoded_size;
     Uint size = stp->chunks[chunk].size;
     if (size != 0) {
 	memcpy(info, stp->chunks[chunk].start, size);
-	*ptr_word = (UWord) info;
+	*ptr_word = (BeamInstr) info;
 	decoded_size = erts_decode_ext_size(info, size, 0);
 	if (decoded_size < 0) {
  	    return 0;
@@ -4868,7 +4869,7 @@ stub_read_export_table(LoaderState* stp)
 }
 
 static void
-stub_final_touch(LoaderState* stp, UWord* fp)
+stub_final_touch(LoaderState* stp, BeamInstr* fp)
 {
     int i;
     int n = stp->num_exps;
@@ -5055,12 +5056,12 @@ Eterm
 erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 {
     LoaderState state;
-    UWord Funcs;
-    UWord Patchlist;
+    BeamInstr Funcs;
+    BeamInstr Patchlist;
     Eterm* tp;
-    UWord* code = NULL;
-    UWord* ptrs;
-    UWord* fp;
+    BeamInstr* code = NULL;
+    BeamInstr* ptrs;
+    BeamInstr* fp;
     byte* info;
     Uint ci;
     int n;
@@ -5149,7 +5150,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Allocate memory for the stub module.
      */
 
-    code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(UWord);
+    code_size = ((WORDS_PER_FUNCTION+1)*n + MI_FUNCTIONS + 2) * sizeof(BeamInstr);
     code_size += state.chunks[ATTR_CHUNK].size;
     code_size += state.chunks[COMPILE_CHUNK].size;
     code = erts_alloc_fnf(ERTS_ALC_T_CODE, code_size);
@@ -5218,7 +5219,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 	 * Set the pointer and make the stub. Put a return instruction
 	 * as the body until we know what kind of trap we should put there.
 	 */
-	ptrs[i] = (UWord) fp;
+	ptrs[i] = (BeamInstr) fp;
 #ifdef HIPE
 	op = (Eterm) BeamOpCode(op_hipe_trap_call); /* Might be changed later. */
 #else
@@ -5231,8 +5232,8 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
      * Insert the last pointer and the int_code_end instruction.
      */
 
-    ptrs[i] = (UWord) fp;
-    *fp++ = (UWord) BeamOp(op_int_code_end);
+    ptrs[i] = (BeamInstr) fp;
+    *fp++ = (BeamInstr) BeamOp(op_int_code_end);
 
     /*
      * Copy attributes and compilation information.

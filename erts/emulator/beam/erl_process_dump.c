@@ -45,16 +45,16 @@ static void dump_dist_ext(int to, void *to_arg, ErtsDistExternal *edep);
 static void dump_element_nl(int to, void *to_arg, Eterm x);
 static int stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp,
 			      int yreg);
-static void print_function_from_pc(int to, void *to_arg, UWord* x);
+static void print_function_from_pc(int to, void *to_arg, BeamInstr* x);
 static void heap_dump(int to, void *to_arg, Eterm x);
 static void dump_binaries(int to, void *to_arg, Binary* root);
 static void dump_externally(int to, void *to_arg, Eterm term);
 
 static Binary* all_binaries;
 
-extern UWord beam_apply[];
-extern UWord beam_exit[];
-extern UWord beam_continue_exit[];
+extern BeamInstr beam_apply[];
+extern BeamInstr beam_exit[];
+extern BeamInstr beam_continue_exit[];
 
 
 void
@@ -239,9 +239,9 @@ stack_element_dump(int to, void *to_arg, Process* p, Eterm* sp, int yreg)
 }
 
 static void
-print_function_from_pc(int to, void *to_arg, UWord* x)
+print_function_from_pc(int to, void *to_arg, BeamInstr* x)
 {
-    UWord* addr = find_function_from_pc(x);
+    BeamInstr* addr = find_function_from_pc(x);
     if (addr == NULL) {
         if (x == beam_exit) {
             erts_print(to, to_arg, "<terminate process>");

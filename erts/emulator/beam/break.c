@@ -381,7 +381,7 @@ loaded(int to, void *to_arg)
     int i;
     int old = 0;
     int cur = 0;
-    UWord* code;
+    BeamInstr* code;
 
     /*
      * Calculate and print totals.

@@ -4125,8 +4125,8 @@ void erts_init_bif(void)
 #else
     bif_return_trap_export.code[2] = 1;
 #endif
-    bif_return_trap_export.code[3] = (UWord) em_apply_bif;
-    bif_return_trap_export.code[4] = (UWord) &bif_return_trap;
+    bif_return_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    bif_return_trap_export.code[4] = (BeamInstr) &bif_return_trap;
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,

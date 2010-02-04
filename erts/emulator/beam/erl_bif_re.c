@@ -76,8 +76,8 @@ void erts_init_bif_re(void)
     re_exec_trap_export.code[0] = am_erlang;
     re_exec_trap_export.code[1] = am_re_run_trap;
     re_exec_trap_export.code[2] = 3;
-    re_exec_trap_export.code[3] = (UWord) em_apply_bif;
-    re_exec_trap_export.code[4] = (UWord) &re_exec_trap;
+    re_exec_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    re_exec_trap_export.code[4] = (BeamInstr) &re_exec_trap;
 
     grun_trap_exportp =  erts_export_put(am_re,am_grun,3);
     urun_trap_exportp =  erts_export_put(am_re,am_urun,3);

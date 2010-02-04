@@ -33,7 +33,7 @@ typedef struct erl_fun_entry {
     int index;			/* New style index. */
     int old_uniq;		/* Unique number (old_style) */
     int old_index;		/* Old style index */
-    UWord* address;		/* Pointer to code for fun */
+    BeamInstr* address;		/* Pointer to code for fun */
 
 #ifdef HIPE
     UWord* native_address;	/* Native entry code for fun. */
@@ -86,7 +86,7 @@ void erts_erase_fun_entry(ErlFunEntry* fe);
 #ifndef HYBRID /* FIND ME! */
 void erts_cleanup_funs(ErlFunThing* funp);
 #endif
-void erts_cleanup_funs_on_purge(UWord* start, UWord* end);
+void erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end);
 void erts_dump_fun_entries(int, void *);
 
 #endif

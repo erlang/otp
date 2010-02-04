@@ -443,9 +443,9 @@ void db_initialize_tree(void)
     ets_select_reverse_exp.code[1] = am_reverse;
     ets_select_reverse_exp.code[2] = 3;
     ets_select_reverse_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     ets_select_reverse_exp.code[4] = 
-	(UWord) &ets_select_reverse;
+	(BeamInstr) &ets_select_reverse;
     return;
 };
 

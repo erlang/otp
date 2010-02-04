@@ -529,8 +529,8 @@ struct process {
     unsigned max_arg_reg;	/* Maximum number of argument registers available. */
     Eterm def_arg_reg[6];	/* Default array for argument registers. */
 
-    UWord* cp;			/* Continuation pointer (for threaded code). */
-    UWord* i;			/* Program counter for threaded code. */
+    BeamInstr* cp;		/* (untagged) Continuation pointer (for threaded code). */
+    BeamInstr* i;		/* Program counter for threaded code. */
     Sint catches;		/* Number of catches on stack */
     Sint fcalls;		/* 
 				 * Number of reductions left to execute.
@@ -577,11 +577,12 @@ struct process {
     Uint seq_trace_lastcnt;
     Eterm seq_trace_token;	/* Sequential trace token (tuple size 5 see below) */
 
-    UWord initial[3];		/* Initial module(0), function(1), arity(2) */
-    UWord* current;		/* Current Erlang function, part of the funcinfo:
+    BeamInstr initial[3];	/* Initial module(0), function(1), arity(2), often used instead
+				   of pointer to funcinfo instruction, hence the BeamInstr datatype */
+    BeamInstr* current;		/* Current Erlang function, part of the funcinfo:
 				 * module(0), function(1), arity(2)
 				 * (module and functions are tagged atoms;
-				 * arity an untagged integer). UWord * because it references code
+				 * arity an untagged integer). BeamInstr * because it references code
 				 */
     
     /*

@@ -975,17 +975,17 @@ unsigned enif_sizeof_resource(ErlNifEnv* env, void* obj)
  ***************************************************************************/
 
 
-static UWord** get_func_pp(UWord* mod_code, Eterm f_atom, unsigned arity)
+static BeamInstr** get_func_pp(BeamInstr* mod_code, Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code[MI_NUM_FUNCTIONS];
     int j;
     for (j = 0; j < n; ++j) {
-	UWord* code_ptr = (UWord*) mod_code[MI_FUNCTIONS+j];
-	ASSERT(code_ptr[0] == (UWord) BeamOp(op_i_func_info_IaaI));
+	BeamInstr* code_ptr = (BeamInstr*) mod_code[MI_FUNCTIONS+j];
+	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	if (f_atom == ((Eterm) code_ptr[3])
 	    && arity == ((unsigned) code_ptr[4])) {
 
-	    return (UWord**) &mod_code[MI_FUNCTIONS+j];
+	    return (BeamInstr**) &mod_code[MI_FUNCTIONS+j];
 	}
     }
     return NULL;
@@ -1002,7 +1002,7 @@ static UWord** get_func_pp(UWord* mod_code, Eterm f_atom, unsigned arity)
 	
 	erts_atom_get(func->name, sys_strlen(func->name), &f_atom); 
 	code_ptr = *get_func_pp(mod_code, f_atom, func->arity);
-	code_ptr[5+2] = (UWord) mod_nif->priv_data;
+	code_ptr[5+2] = ((BeamInstr) mod_nif->priv_data;
     }
 }*/
 
@@ -1106,7 +1106,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Module* mod;
     Eterm mod_atom;
     Eterm f_atom;
-    UWord* caller;
+    BeamInstr* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
@@ -1173,7 +1173,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	/*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
     
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
-	    UWord** code_pp;
+	    BeamInstr** code_pp;
 	    ErlNifFunc* f = &entry->funcs[i];
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
 		|| (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
@@ -1291,7 +1291,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	    code_ptr[5+2] = (BeamInstr) lib;
 	}
     }
-    else {    
+    else {
     error:
 	ASSERT(ret != am_ok);
         if (lib != NULL) {

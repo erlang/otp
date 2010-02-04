@@ -856,7 +856,7 @@ void erts_system_profile_clear(Process *c_p);
 int erts_load_module(Process *c_p, ErtsProcLocks c_p_locks,
 		     Eterm group_leader, Eterm* mod, byte* code, int size);
 void init_load(void);
-UWord* find_function_from_pc(UWord* pc);
+BeamInstr* find_function_from_pc(BeamInstr* pc);
 Eterm erts_module_info_0(Process* p, Eterm module);
 Eterm erts_module_info_1(Process* p, Eterm module, Eterm what);
 Eterm erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info);
@@ -1611,12 +1611,12 @@ void erts_queue_error_logger_message(Eterm, Eterm, ErlHeapFragment *);
 void erts_send_sys_msg_proc(Eterm, Eterm, Eterm, ErlHeapFragment *);
 void trace_send(Process*, Eterm, Eterm);
 void trace_receive(Process*, Eterm);
-Uint32 erts_call_trace(Process *p, UWord mfa[], Binary *match_spec, Eterm* args,
+Uint32 erts_call_trace(Process *p, BeamInstr mfa[], Binary *match_spec, Eterm* args,
 		       int local, Eterm *tracer_pid);
-void erts_trace_return(Process* p, UWord* fi, Eterm retval, Eterm *tracer_pid);
-void erts_trace_exception(Process* p, UWord mfa[], Eterm class, Eterm value,
+void erts_trace_return(Process* p, BeamInstr* fi, Eterm retval, Eterm *tracer_pid);
+void erts_trace_exception(Process* p, BeamInstr mfa[], Eterm class, Eterm value,
 			  Eterm *tracer);
-void erts_trace_return_to(Process *p, UWord *pc);
+void erts_trace_return_to(Process *p, BeamInstr *pc);
 void trace_sched(Process*, Eterm);
 void trace_proc(Process*, Process*, Eterm, Eterm);
 void trace_proc_spawn(Process*, Eterm pid, Eterm mod, Eterm func, Eterm args);
@@ -1646,7 +1646,7 @@ Uint erts_trace_flag2bit(Eterm flag);
 int erts_trace_flags(Eterm List, 
 		 Uint *pMask, Eterm *pTracer, int *pCpuTimestamp);
 Eterm erts_bif_trace(int bif_index, Process* p, 
-		     Eterm arg1, Eterm arg2, Eterm arg3, UWord *I);
+		     Eterm arg1, Eterm arg2, Eterm arg3, BeamInstr *I);
 
 #ifdef ERTS_SMP
 void erts_send_pending_trace_msgs(ErtsSchedulerData *esdp);

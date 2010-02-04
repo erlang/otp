@@ -90,9 +90,9 @@ void erts_init_unicode(void)
 	am_atom_put("characters_to_utf8_trap",23);
     characters_to_utf8_trap_exp.code[2] = 3;
     characters_to_utf8_trap_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     characters_to_utf8_trap_exp.code[4] = 
-	(UWord) &characters_to_utf8_trap;
+	(BeamInstr) &characters_to_utf8_trap;
 
     memset(&characters_to_list_trap_1_exp, 0, sizeof(Export));
     characters_to_list_trap_1_exp.address = 
@@ -102,9 +102,9 @@ void erts_init_unicode(void)
 	am_atom_put("characters_to_list_trap_1",25);
     characters_to_list_trap_1_exp.code[2] = 3;
     characters_to_list_trap_1_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     characters_to_list_trap_1_exp.code[4] = 
-	(UWord) &characters_to_list_trap_1;
+	(BeamInstr) &characters_to_list_trap_1;
 
     memset(&characters_to_list_trap_2_exp, 0, sizeof(Export));
     characters_to_list_trap_2_exp.address = 
@@ -114,9 +114,9 @@ void erts_init_unicode(void)
 	am_atom_put("characters_to_list_trap_2",25);
     characters_to_list_trap_2_exp.code[2] = 3;
     characters_to_list_trap_2_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     characters_to_list_trap_2_exp.code[4] = 
-	(UWord) &characters_to_list_trap_2;
+	(BeamInstr) &characters_to_list_trap_2;
 
 
     memset(&characters_to_list_trap_3_exp, 0, sizeof(Export));
@@ -127,9 +127,9 @@ void erts_init_unicode(void)
 	am_atom_put("characters_to_list_trap_3",25);
     characters_to_list_trap_3_exp.code[2] = 3;
     characters_to_list_trap_3_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     characters_to_list_trap_3_exp.code[4] = 
-	(UWord) &characters_to_list_trap_3;
+	(BeamInstr) &characters_to_list_trap_3;
 
     memset(&characters_to_list_trap_4_exp, 0, sizeof(Export));
     characters_to_list_trap_4_exp.address = 
@@ -139,9 +139,9 @@ void erts_init_unicode(void)
 	am_atom_put("characters_to_list_trap_4",25);
     characters_to_list_trap_4_exp.code[2] = 1;
     characters_to_list_trap_4_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     characters_to_list_trap_4_exp.code[4] = 
-	(UWord) &characters_to_list_trap_4;
+	(BeamInstr) &characters_to_list_trap_4;
 
     c_to_b_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_binary_int,2);
     c_to_l_int_trap_exportp =  erts_export_put(am_unicode,am_characters_to_list_int,2);

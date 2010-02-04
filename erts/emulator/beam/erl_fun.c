@@ -50,8 +50,8 @@ static void fun_free(ErlFunEntry* obj);
  * to unloaded_fun[]. The -1 in unloaded_fun[0] will be interpreted
  * as an illegal arity when attempting to call a fun.
  */
-static UWord unloaded_fun_code[3] = {NIL, -1, 0};
-static UWord* unloaded_fun = unloaded_fun_code + 2;
+static BeamInstr unloaded_fun_code[3] = {NIL, -1, 0};
+static BeamInstr* unloaded_fun = unloaded_fun_code + 2;
 
 void
 erts_init_fun_table(void)
@@ -207,7 +207,7 @@ erts_cleanup_funs(ErlFunThing* funp)
 #endif
 
 void
-erts_cleanup_funs_on_purge(UWord* start, UWord* end)
+erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
@@ -222,7 +222,7 @@ erts_cleanup_funs_on_purge(UWord* start, UWord* end)
 
 	while (b) {
 	    ErlFunEntry* fe = (ErlFunEntry *) b;
-	    UWord* addr = fe->address;
+	    BeamInstr* addr = fe->address;
 
 	    if (start <= addr && addr < end) {
 		fe->address = unloaded_fun;

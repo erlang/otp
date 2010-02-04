@@ -49,9 +49,9 @@ void erts_init_bif_chksum(void)
     chksum_md5_2_exp.code[1] = am_atom_put("md5_trap",8);
     chksum_md5_2_exp.code[2] = 2;
     chksum_md5_2_exp.code[3] =
-	(UWord) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     chksum_md5_2_exp.code[4] = 
-	(UWord) &md5_2;
+	(BeamInstr) &md5_2;
 }
     
 

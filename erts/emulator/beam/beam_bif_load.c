@@ -39,10 +39,10 @@ static Eterm check_process_code(Process* rp, Module* modp);
 static void delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp);
 static void delete_export_references(Eterm module);
 static int purge_module(int module);
-static int is_native(UWord* code);
+static int is_native(BeamInstr* code);
 static int any_heap_ref_ptrs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
 static int any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size);
-static void remove_from_address_table(UWord* code);
+static void remove_from_address_table(BeamInstr* code);
 
 Eterm
 load_module_2(BIF_ALIST_2)
@@ -344,8 +344,8 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	modp->code[MI_ON_LOAD_FUNCTION_PTR] = 0;
 	set_default_trace_pattern(BIF_ARG_1);
     } else if (BIF_ARG_2 == am_false) {
-	UWord* code;
-	UWord* end;
+	BeamInstr* code;
+	BeamInstr* end;
 
 	/*
 	 * The on_load function failed. Remove the loaded code.
@@ -354,7 +354,7 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 	 */
 	erts_total_code_size -= modp->code_length;
 	code = modp->code;
-	end = (UWord *)((char *)code + modp->code_length);
+	end = (BeamInstr *)((char *)code + modp->code_length);
 	erts_cleanup_funs_on_purge(code, end);
 	beam_catches_delmod(modp->catches, code, modp->code_length);
 	erts_free(ERTS_ALC_T_CODE, (void *) code);
@@ -397,10 +397,10 @@ set_default_trace_pattern(Eterm module)
 static Eterm
 check_process_code(Process* rp, Module* modp)
 {
-    UWord* start;
+    BeamInstr* start;
     char* mod_start;
     Uint mod_size;
-    UWord* end;
+    BeamInstr* end;
     Eterm* sp;
 #ifndef HYBRID /* FIND ME! */
     ErlFunThing* funp;
@@ -418,7 +418,7 @@ check_process_code(Process* rp, Module* modp)
      * Pick up limits for the module.
      */
     start = modp->old_code;
-    end = (UWord *)((char *)start + modp->old_code_length);
+    end = (BeamInstr *)((char *)start + modp->old_code_length);
     mod_start = (char *) start;
     mod_size = modp->old_code_length;
 
@@ -472,11 +472,11 @@ check_process_code(Process* rp, Module* modp)
 #ifndef HYBRID /* FIND ME! */
  rescan:
     for (funp = MSO(rp).funs; funp; funp = funp->next) {
-	UWord* fun_code;
+	BeamInstr* fun_code;
 
 	fun_code = funp->fe->address;
 
-	if (INSIDE((UWord *) funp->fe->address)) {
+	if (INSIDE((BeamInstr *) funp->fe->address)) {
 	    if (done_gc) {
 		return am_true;
 	    } else {
@@ -617,8 +617,8 @@ any_heap_refs(Eterm* start, Eterm* end, char* mod_start, Uint mod_size)
 static int
 purge_module(int module)
 {
-    UWord* code;
-    UWord* end;
+    BeamInstr* code;
+    BeamInstr* end;
     Module* modp;
 
     /*
@@ -653,7 +653,7 @@ purge_module(int module)
     ASSERT(erts_total_code_size >= modp->old_code_length);
     erts_total_code_size -= modp->old_code_length;
     code = modp->old_code;
-    end = (UWord *)((char *)code + modp->old_code_length);
+    end = (BeamInstr *)((char *)code + modp->old_code_length);
     erts_cleanup_funs_on_purge(code, end);
     beam_catches_delmod(modp->old_catches, code, modp->old_code_length);
     erts_free(ERTS_ALC_T_CODE, (void *) code);
@@ -665,7 +665,7 @@ purge_module(int module)
 }
 
 static void
-remove_from_address_table(UWord* code)
+remove_from_address_table(BeamInstr* code)
 {
     int i;
 
@@ -738,11 +738,11 @@ delete_export_references(Eterm module)
 	Export *ep = export_list(i);
         if (ep != NULL && (ep->code[0] == module)) {
 	    if (ep->address == ep->code+3 &&
-		(ep->code[3] == (UWord) em_apply_bif)) {
+		(ep->code[3] == (BeamInstr) em_apply_bif)) {
 		continue;
 	    }
 	    ep->address = ep->code+3;
-	    ep->code[3] = (UWord) em_call_error_handler;
+	    ep->code[3] = (BeamInstr) em_call_error_handler;
 	    ep->code[4] = 0;
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
@@ -774,7 +774,7 @@ beam_make_current_old(Process *c_p, ErtsProcLocks c_p_locks, Eterm module)
 }
 
 static int
-is_native(UWord* code)
+is_native(BeamInstr* code)
 {
     return ((Eterm *)code[MI_FUNCTIONS])[1] != 0;
 }

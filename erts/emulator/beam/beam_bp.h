@@ -48,7 +48,7 @@
 typedef struct bp_data {
     struct bp_data *next; /* Doubly linked ring pointers */
     struct bp_data *prev; /* -"-                         */
-    Uint orig_instr;      /* The original instruction to execute */
+    BeamInstr orig_instr;      /* The original instruction to execute */
 } BpData;
 /*
 ** All the following bp_data_.. structs must begin the same way
@@ -57,21 +57,21 @@ typedef struct bp_data {
 typedef struct bp_data_trace {
     struct bp_data *next;
     struct bp_data *prev;
-    Uint            orig_instr;
+    BeamInstr      orig_instr;
     Binary         *match_spec;
-    Eterm           tracer_pid;
+    Eterm          tracer_pid;
 } BpDataTrace;
 
 typedef struct bp_data_debug {
     struct bp_data *next;
     struct bp_data *prev;
-    Uint            orig_instr;
+    BeamInstr      orig_instr;
 } BpDataDebug;
 
 typedef struct bp_data_count { /* Call count */
     struct bp_data *next;
     struct bp_data *prev;
-    Uint            orig_instr;
+    BeamInstr       orig_instr;
     Sint            count;
 } BpDataCount;
 
@@ -89,11 +89,11 @@ extern erts_smp_spinlock_t erts_bp_lock;
 do {                                                        \
     BpDataCount *bdc = (BpDataCount *) (pc)[-4];            \
                                                             \
-    ASSERT((pc)[-5] == (UWord) BeamOp(op_i_func_info_IaaI)); \
+    ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bdc);                                            \
     bdc = (BpDataCount *) bdc->next;                        \
     ASSERT(bdc);                                            \
-    (pc)[-4] = (UWord) bdc;                                  \
+    (pc)[-4] = (BeamInstr) bdc;                                  \
     ErtsSmpBPLock(bdc);                                     \
     if (bdc->count >= 0) bdc->count++;                      \
     ErtsSmpBPUnlock(bdc);                                   \
@@ -104,11 +104,11 @@ do {                                                        \
 do {                                                        \
     BpData *bd = (BpData *) (pc)[-4];                       \
                                                             \
-    ASSERT((pc)[-5] == (UWord) BeamOp(op_i_func_info_IaaI)); \
+    ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bd);                                             \
     bd = bd->next;                                          \
     ASSERT(bd);                                             \
-    (pc)[-4] = (UWord) bd;                                   \
+    (pc)[-4] = (BeamInstr) bd;                                   \
     *(instr_result) = bd->orig_instr;                       \
 } while (0)
 
@@ -133,9 +133,9 @@ int erts_clear_trace_break(Eterm mfa[3], int specified);
 int erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
 			  Eterm tracer_pid);
 int erts_clear_mtrace_break(Eterm mfa[3], int specified);
-void erts_set_mtrace_bif(Uint *pc, Binary *match_spec, 
+void erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec,
 			 Eterm tracer_pid);
-void erts_clear_mtrace_bif(Uint *pc);
+void erts_clear_mtrace_bif(BeamInstr *pc);
 int erts_set_debug_break(Eterm mfa[3], int specified);
 int erts_clear_debug_break(Eterm mfa[3], int specified);
 int erts_set_count_break(Eterm mfa[3], int specified, enum erts_break_op);
@@ -144,22 +144,22 @@ int erts_clear_count_break(Eterm mfa[3], int specified);
 
 int erts_clear_break(Eterm mfa[3], int specified);
 int erts_clear_module_break(Module *modp);
-int erts_clear_function_break(Module *modp, Uint *pc);
+int erts_clear_function_break(Module *modp, BeamInstr *pc);
 
-Uint erts_trace_break(Process *p, UWord *pc, Eterm *args,
+BeamInstr erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 		      Uint32 *ret_flags, Eterm *tracer_pid);
-Uint32 erts_bif_mtrace(Process *p, UWord *pc, Eterm *args,
+Uint32 erts_bif_mtrace(Process *p, BeamInstr *pc, Eterm *args,
 		       int local, Eterm *tracer_pid);
 
-int erts_is_trace_break(Uint *pc, Binary **match_spec_ret,
+int erts_is_trace_break(BeamInstr *pc, Binary **match_spec_ret,
 			Eterm *tracer_pid_ret);
-int erts_is_mtrace_break(Uint *pc, Binary **match_spec_ret, 
+int erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret,
 			 Eterm *tracer_pid_rte);
-int erts_is_mtrace_bif(UWord *pc, Binary **match_spec_ret,
+int erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret,
 		       Eterm *tracer_pid_ret);
-int erts_is_native_break(Uint *pc);
-int erts_is_count_break(Uint *pc, Sint *count_ret);
+int erts_is_native_break(BeamInstr *pc);
+int erts_is_count_break(BeamInstr *pc, Sint *count_ret);
 
-Uint *erts_find_local_func(Eterm mfa[3]);
+BeamInstr *erts_find_local_func(Eterm mfa[3]);
 
 #endif /* _BEAM_BP_H */

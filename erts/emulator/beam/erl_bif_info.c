@@ -1010,7 +1010,7 @@ process_info_aux(Process *BIF_P,
 	    hp = HAlloc(BIF_P, 3);
 	    res = am_undefined;
 	} else {
-	    UWord* current;
+	    BeamInstr* current;
 
 	    if (rp->current[0] == am_erlang &&
 		rp->current[1] == am_process_info &&

@@ -150,7 +150,7 @@ void    erts_alcu_current_size(Allctr_t *, AllctrSize_t *);
 
 #undef ERTS_ALLOC_UTIL_HARD_DEBUG
 #ifdef DEBUG
-#  if 1
+#  if 0
 #    define ERTS_ALLOC_UTIL_HARD_DEBUG
 #  endif
 #endif
