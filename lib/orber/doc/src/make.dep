@@ -12,7 +12,7 @@
 book.dvi: CosNaming.tex CosNaming_BindingIterator.tex \
 		CosNaming_NamingContext.tex CosNaming_NamingContextExt.tex \
 		Module_Interface.tex any.tex book.tex ch_contents.tex \
-		ch_debugging.tex ch_example.tex ch_exceptions.tex \
+		ch_debugging.tex ch_exceptions.tex \
 		ch_idl_to_erlang_mapping.tex ch_ifr.tex ch_install.tex \
 		ch_interceptors.tex ch_introduction.tex ch_naming_service.tex \
 		ch_orber_kernel.tex ch_orberweb.tex ch_security.tex \
@@ -26,14 +26,7 @@ book.dvi: CosNaming.tex CosNaming_BindingIterator.tex \
 # Source inlined when transforming from source to LaTeX
 # ----------------------------------------------------
 
-CosNaming.tex: ../../COSS/CosNaming/cos_naming.idl
-
 book.tex: ref_man.xml
-
-ch_example.tex: ../../examples/Stack/StackClient.java ../../examples/Stack/StackModule_StackFactory_impl.erl \
-		../../examples/Stack/StackModule_Stack_impl.erl \
-		../../examples/Stack/stack.idl ../../examples/Stack/stack_client.erl \
-		../../examples/Stack/stack_factory.erl
 
 ch_contents.tex: ../../../../system/doc/definitions/term.defs
 

@@ -44,6 +44,12 @@
           <p>
             Own Id: OTP-8374 Aux Id:</p>
         </item>
+        <item>
+          <p>
+            Removed the usage of the codeinclude tag in the documentation.</p>
+          <p>
+            Own Id: OTP-8409 Aux Id:</p>
+        </item>
       </list>
     </section>
 
