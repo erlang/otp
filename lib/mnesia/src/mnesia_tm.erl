@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -1389,6 +1389,7 @@ multi_commit(sync_sym_trans, Tid, CR, Store) ->
     {Outcome, []} = rec_all(WaitFor, Tid, do_commit, []), 
     ?eval_debug_fun({?MODULE, multi_commit_sym_sync}, 
 		    [{tid, Tid}, {outcome, Outcome}]), 
+    [?ets_insert(Store, {waiting_for_commit_ack, Node}) || Node <- WaitFor],
     rpc:abcast(DiscNs -- [node()], ?MODULE, {Tid, Outcome}),
     rpc:abcast(RamNs -- [node()], ?MODULE, {Tid, Outcome}),
     case Outcome of

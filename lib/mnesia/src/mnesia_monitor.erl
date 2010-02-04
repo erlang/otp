@@ -497,7 +497,7 @@ handle_cast({mnesia_down, mnesia_locker, Node}, State) ->
 	    process_q(State3);
 	false ->
 	    %% No pending remote monitors
-	    {noreply, State2}
+	    process_q(State2)
     end;
 
 handle_cast({disconnect, Node}, State) ->
