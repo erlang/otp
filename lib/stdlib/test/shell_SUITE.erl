@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(shell_SUITE).
@@ -28,13 +28,13 @@
          progex/1, progex_bit_syntax/1, progex_records/1, 
                    progex_lc/1, progex_funs/1,
          tickets/1, otp_5990/1, otp_6166/1, otp_6554/1, otp_6785/1,
-                    otp_7184/1, otp_7232/1]).
+                    otp_7184/1, otp_7232/1, otp_8393/1]).
 
 -export([restricted/1, start_restricted_from_shell/1, 
 	 start_restricted_on_command_line/1,restricted_local/1]).
 
 %% Internal export.
--export([otp_5435_2/0]).
+-export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1]).
 
 %%
 %% Define to run outside of test server
@@ -2256,7 +2256,7 @@ progex_funs(Config) when is_list(Config) ->
     ok.
 
 tickets(suite) ->
-    [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184, otp_7232].
+    [otp_5990, otp_6166, otp_6554, otp_6785, otp_7184, otp_7232, otp_8393].
 
 otp_5990(doc) ->
     "OTP-5990. {erlang,is_record}.";
@@ -2598,6 +2598,80 @@ otp_7232(Config) when is_list(Config) ->
     "           end}])" = evaluate(Info, []),
     ok.
 
+otp_8393(doc) ->
+    "OTP-8393. Prompt string.";
+otp_8393(suite) -> [];
+otp_8393(Config) when is_list(Config) ->
+    ?line _ = shell:prompt_func(default),
+    ?line "Bad prompt function: '> '" =
+        prompt_err(<<"shell:prompt_func('> ').">>),
+
+    ?line _ = shell:prompt_func(default),
+    ?line "exception error: bad argument in an arithmetic expression"++_ =
+        prompt_err(<<"shell:prompt_func({shell_SUITE,prompt4}).">>),
+
+    ?line _ = shell:prompt_func(default),
+    ?line "default.\n" =
+        t(<<"shell:prompt_func({shell_SUITE,prompt2}).">>),
+
+    ?line _ = shell:prompt_func(default),
+    ?line "default\nl.\n" = 
+        t(<<"shell:prompt_func({shell_SUITE,prompt3}). l.">>),
+
+    %% Restricted shell.
+    Contents = <<"-module(test_restricted_shell).
+                  -export([local_allowed/3, non_local_allowed/3]).
+                  local_allowed(_,_,State) ->
+                      {false,State}.
+
+                  non_local_allowed({shell,stop_restricted},[],State) ->
+                      {true,State};
+                  non_local_allowed({shell,prompt_func},[_L],State) ->
+                      {true,State};
+                  non_local_allowed({shell_SUITE,prompt1},[_L],State) ->
+                      {true,State};
+                  non_local_allowed(_,_,State) ->
+                      {false,State}.
+                 ">>,
+    ?line Test = filename:join(?config(priv_dir, Config), 
+			       "test_restricted_shell.erl"),
+    ?line ok = compile_file(Config, Test, Contents, []),
+    ?line _ = shell:prompt_func(default),
+    ?line "exception exit: restricted shell starts now" = 
+	comm_err(<<"begin shell:start_restricted("
+			 "test_restricted_shell) end.">>),
+    ?line "default.\n"++_ = 
+        t(<<"shell:prompt_func({shell_SUITE,prompt1}).">>),
+    ?line "exception exit: restricted shell does not allow apple(" ++ _ =
+	comm_err(<<"apple(1).">>),
+    ?line "{shell_SUITE,prompt1}.\n" = 
+        t(<<"shell:prompt_func(default).">>),
+    ?line "exception exit: restricted shell stopped"=  
+	comm_err(<<"begin shell:stop_restricted() end.">>),
+    ?line undefined = 
+	application:get_env(stdlib, restricted_shell),
+
+    ?line NR = shell:results(20),
+    ?line "default\n20.\n" = 
+        t(<<"shell:prompt_func({shell_SUITE,prompt3}). results(0).">>),
+
+    ?line _ = shell:prompt_func(default),
+    ?line 0 = shell:results(NR),
+    ok.
+
+prompt1(_L) ->
+    "prompt> ".
+
+prompt2(_L) ->
+    {'EXIT', []}.
+
+prompt3(L) ->
+    N = proplists:get_value(history, L),
+    integer_to_list(N).
+
+prompt4(_L) ->
+    erlang:apply({erlang,'/'}, [1,0]).
+
 -ifdef(not_used).
 exit_term(B) ->
     "** exception exit:" ++ Reply = t(B),
@@ -2627,7 +2701,16 @@ comm_err(B) ->
     Reply = t(B),
     S0 = string:left(Reply, string:chr(Reply, $\n)-1),
     S1 = string:strip(S0, left, $*),
-    S2 =  string:strip(S1, both, $ ),
+    S2 = string:strip(S1, both, $ ),
+    S = string:strip(S2, both, $"),
+    string:strip(S, right, $.).
+
+prompt_err(B) ->
+    Reply = t(B),
+    S00 = string:sub_string(Reply, string:chr(Reply, $\n)+1),
+    S0 = string:left(S00, string:chr(S00, $\n)-1),
+    S1 = string:strip(S0, left, $*),
+    S2 = string:strip(S1, both, $ ),
     S = string:strip(S2, both, $"),
     string:strip(S, right, $.).
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(shell).
@@ -22,12 +22,14 @@
 -export([whereis_evaluator/0, whereis_evaluator/1]).
 -export([start_restricted/1, stop_restricted/0]).
 -export([local_allowed/3, non_local_allowed/3]).
+-export([prompt_func/1]).
 
 -define(LINEMAX, 30).
 -define(CHAR_MAX, 60).
 -define(DEF_HISTORY, 20).
 -define(DEF_RESULTS, 20).
 -define(DEF_CATCH_EXCEPTION, false).
+-define(DEF_PROMPT_FUNC, default).
 
 -define(RECORDS, shell_records).
 
@@ -235,14 +237,15 @@ server(StartSync) ->
     {History,Results} = check_and_get_history_and_results(),
     server_loop(0, start_eval(Bs, RT, []), Bs, RT, [], History, Results).
 
-server_loop(N0, Eval_0, Bs0, RT, Ds0, History0, Results0) ->
+server_loop(N0, Eval_0, Bs00, RT, Ds00, History0, Results0) ->
     N = N0 + 1,
-    {Res, Eval0} = get_command(prompt(N), Eval_0, Bs0, RT, Ds0),
+    {Eval_1,Bs0,Ds0,Prompt} = prompt(N, Eval_0, Bs00, RT, Ds00),
+    {Res,Eval0} = get_command(Prompt, Eval_1, Bs0, RT, Ds0),
     case Res of 
 	{ok,Es0,_EndLine} ->
             case expand_hist(Es0, N) of
                 {ok,Es} ->
-                    {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0),
+                    {V,Eval,Bs,Ds} = shell_cmd(Es, Eval0, Bs0, RT, Ds0, cmd),
                     {History,Results} = check_and_get_history_and_results(),
                     add_cmd(N, Es, V),
                     HB1 = del_cmd(command, N - History, N - History0, false),
@@ -301,7 +304,42 @@ get_command1(Pid, Eval, Bs, RT, Ds) ->
 	    get_command1(Pid, start_eval(Bs, RT, Ds), Bs, RT, Ds)
     end.
 
-prompt(N) ->
+prompt(N, Eval0, Bs0, RT, Ds0) ->
+    case get_prompt_func() of
+        {M,F} ->
+            L = [{history,N}],
+            C = {call,1,{remote,1,{atom,1,M},{atom,1,F}},[{value,1,L}]},
+            {V,Eval,Bs,Ds} = shell_cmd([C], Eval0, Bs0, RT, Ds0, pmt),
+            {Eval,Bs,Ds,case V of
+                            {pmt,Val} ->
+                                Val;
+                            _ ->
+                                bad_prompt_func({M,F}),
+                                default_prompt(N)
+                        end};
+        default ->
+            {Eval0,Bs0,Ds0,default_prompt(N)}
+    end.
+
+get_prompt_func() ->
+    case application:get_env(stdlib, shell_prompt_func) of
+        {ok,{M,F}=PromptFunc} when is_atom(M), is_atom(F) ->
+            PromptFunc;
+        {ok,default=Default} ->
+            Default;
+        {ok,Term} ->
+            bad_prompt_func(Term),
+            default;
+        undefined ->
+            default
+    end.
+
+bad_prompt_func(M) ->
+    fwrite_severity(benign, <<"Bad prompt function: ~p">>, [M]).
+
+default_prompt(N) ->
+    %% Don't bother flattening the list irrespective of what the
+    %% I/O-protocol states.
     case is_alive() of
 	true  -> io_lib:format(<<"(~s)~w> ">>, [node(), N]);
 	false -> io_lib:format(<<"~w> ">>, [N])
@@ -461,14 +499,16 @@ has_bin(T, I) ->
     has_bin(element(I, T)),
     has_bin(T, I - 1).
 
-%% shell_cmd(Sequence, Evaluator, Bindings, RecordTable, Dictionary)
+%% shell_cmd(Sequence, Evaluator, Bindings, RecordTable, Dictionary, What)
 %% shell_rep(Evaluator, Bindings, RecordTable, Dictionary) ->
 %%	{Value,Evaluator,Bindings,Dictionary}
 %%  Send a command to the evaluator and wait for the reply. Start a new
 %%  evaluator if necessary.
+%%  What = pmt | cmd. When evaluating a prompt ('pmt') the evaluated value
+%%  must not be displayed, and it has to be returned.
 
-shell_cmd(Es, Eval, Bs, RT, Ds) ->
-    Eval ! {shell_cmd,self(),{eval,Es}},
+shell_cmd(Es, Eval, Bs, RT, Ds, W) ->
+    Eval ! {shell_cmd,self(),{eval,Es}, W},
     shell_rep(Eval, Bs, RT, Ds).
 
 shell_rep(Ev, Bs0, RT, Ds0) ->
@@ -559,26 +599,26 @@ evaluator(Shell, Bs, RT, Ds) ->
 
 eval_loop(Shell, Bs0, RT) ->
     receive
-	{shell_cmd,Shell,{eval,Es}} ->
+	{shell_cmd,Shell,{eval,Es},W} ->
             Ef = {value, 
                   fun(MForFun, As) -> apply_fun(MForFun, As, Shell) end},
             Lf = local_func_handler(Shell, RT, Ef),
-            Bs = eval_exprs(Es, Shell, Bs0, RT, Lf, Ef),
+            Bs = eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W),
 	    eval_loop(Shell, Bs, RT)
     end.
 
 restricted_eval_loop(Shell, Bs0, RT, RShMod) ->
     receive
-	{shell_cmd,Shell,{eval,Es}} ->
+	{shell_cmd,Shell,{eval,Es}, W} ->
             {LFH,NLFH} = restrict_handlers(RShMod, Shell, RT),
             put(restricted_expr_state, []),
-            Bs = eval_exprs(Es, Shell, Bs0, RT, {eval,LFH}, {value,NLFH}),
+            Bs = eval_exprs(Es, Shell, Bs0, RT, {eval,LFH}, {value,NLFH}, W),
 	    restricted_eval_loop(Shell, Bs, RT, RShMod)
     end.
 
-eval_exprs(Es, Shell, Bs0, RT, Lf, Ef) ->
+eval_exprs(Es, Shell, Bs0, RT, Lf, Ef, W) ->
     try 
-        {R,Bs2} = exprs(Es, Bs0, RT, Lf, Ef),
+        {R,Bs2} = exprs(Es, Bs0, RT, Lf, Ef, W),
         Shell ! {shell_rep,self(),R},
         Bs2
     catch 
@@ -614,10 +654,10 @@ do_catch(_Class, _Reason) ->
             false
     end.
 
-exprs(Es, Bs0, RT, Lf, Ef) ->
-    exprs(Es, Bs0, RT, Lf, Ef, Bs0).
+exprs(Es, Bs0, RT, Lf, Ef, W) ->
+    exprs(Es, Bs0, RT, Lf, Ef, Bs0, W).
 
-exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0) ->
+exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0, W) ->
     UsedRecords = used_record_defs(E0, RT),
     RBs = record_bindings(UsedRecords, Bs1),
     case check_command(prep_check([E0]), RBs) of
@@ -629,16 +669,20 @@ exprs([E0|Es], Bs1, RT, Lf, Ef, Bs0) ->
             if
                 Es =:= [] ->
                     VS = pp(V0, 1, RT),
-                    io:requests([{put_chars, VS}, nl]),
+                    [io:requests([{put_chars, VS}, nl]) || W =:= cmd],
                     %% Don't send the result back if it will be
                     %% discarded anyway.
-                    V = case result_will_be_saved() of
-                            true -> V0;
-                            false -> ignored
+                    V = if
+                            W =:= pmt ->
+                                {W,V0};
+                            true -> case result_will_be_saved() of
+                                     true -> V0;
+                                     false -> ignored
+                                 end
                         end,
                     {{value,V,Bs,get()},Bs};
                 true -> 
-                    exprs(Es, Bs, RT, Lf, Ef, Bs0)
+                    exprs(Es, Bs, RT, Lf, Ef, Bs0, W)
             end;
         {error,Error} ->
             {{command_error,Error},Bs0}
@@ -1383,7 +1427,7 @@ pp(V, I, RT) ->
 
 columns() ->
     case io:columns() of
-        {ok,N} ->  N;
+        {ok,N} -> N;
         _ -> 80
     end.
 
@@ -1438,3 +1482,9 @@ results(L) when is_integer(L), L >= 0 ->
 
 catch_exception(Bool) ->
     set_env(stdlib, shell_catch_exception, Bool, ?DEF_CATCH_EXCEPTION).
+
+-type prompt_func() :: 'default' | {module(),atom()}.
+-spec prompt_func(prompt_func()) -> prompt_func().
+
+prompt_func(String) ->
+    set_env(stdlib, shell_prompt_func, String, ?DEF_PROMPT_FUNC).
