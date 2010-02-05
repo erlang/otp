@@ -39,7 +39,7 @@ new() ->
 
 %% @spec (X::term()|wxAcceleratorEntry()) -> wxAcceleratorEntry()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxacceleratorentry.html#wxacceleratorentrywxacceleratorentry">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new([Option]) -> wxAcceleratorEntry() </c>
 %%<br /> Option = {flags, integer()} | {keyCode, integer()} | {cmd, integer()} | {item, wxMenuItem:wxMenuItem()}
@@ -103,7 +103,7 @@ set(#wx_ref{type=ThisT,ref=ThisRef},Flags,KeyCode,Cmd, Options)
 
 %% @spec (This::wxAcceleratorEntry()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxAcceleratorEntry),
   wxe_util:destroy(?wxAcceleratorEntry_destroy,Obj),
   ok.

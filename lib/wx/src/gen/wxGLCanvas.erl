@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html">wxGLCanvas</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
 %% </p>
@@ -81,7 +81,7 @@ new(Parent)
 
 %% @spec (Parent::wxWindow:wxWindow(),X::term()) -> wxGLCanvas()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxglcanvas.html#wxglcanvaswxglcanvas">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Parent::wxWindow:wxWindow(), Shared::wxGLContext:wxGLContext() | wxGLCanvas()) -> new(Parent,Shared, []) </c></p>
 %% <p><c>
@@ -156,11 +156,11 @@ swapBuffers(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxGLCanvas()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGLCanvas),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -511,7 +511,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

@@ -119,7 +119,7 @@ gen_class1(C=#class{name=Name,parent=Parent,methods=Ms,options=Opts}) ->
 	    case [P || P <- Parents, P =/= root, P =/= object] of
 		[] -> ignore;
 		Ps -> 
-		    w("%% <p>This class is derived (and can use functions) from: ~n", []),
+		    w("%% <p>This class is derived (and can use functions) from:~n", []),
 		    [w("%% <br />{@link ~s}~n", [P]) || P <- Ps],
 		    w("%% </p>~n",[])		    
 	    end,
@@ -302,7 +302,7 @@ gen_dest(#class{name=CName,abstract=Abs}, Ms) ->
 gen_dest2(Class, Id) ->
     w("%% @spec (This::~s()) -> ok~n", [Class]),
     w("%% @doc Destroys this object, do not use object again~n", []),
-    w("destroy(Obj=#wx_ref{type=Type}) -> ~n", []),
+    w("destroy(Obj=#wx_ref{type=Type}) ->~n", []),
     w("  ?CLASS(Type,~s),~n",[Class]), 
     case Id of
 	object ->
@@ -317,7 +317,7 @@ gen_inherited([object], Done, Exported) -> {Done, Exported};
 gen_inherited([Parent|Ps], Done0, Exported0) ->
     #class{name=Class, methods=Ms} = get({class,Parent}),
     case is_list(Exported0) of
-	false -> w(" %% From ~s ~n", [Class]);
+	false -> w(" %% From ~s~n", [Class]);
 	true  -> ignore
     end,
     {Done,Exported} = gen_inherited_ms(Ms, Class, Done0, gb_sets:empty(), Exported0),
@@ -673,7 +673,7 @@ gen_doc(Class, Cs = [#method{name=N, alias=A,method_type=MT}|_]) ->
 	      [lowercase_all(Class),lowercase_all(Class),lowercase_all(N)])
     end,
     Name = case MT of constructor -> "new"; _ -> erl_func_name(N,A) end,
-    w("%% <br /> Alternatives: ~n",[]),
+    w("%% <br /> Alternatives:~n",[]),
     [gen_doc2(Name, Clause) || Clause <- Cs], 
     ok.
 
@@ -1026,22 +1026,22 @@ enum_name(Name) ->
 
 gen_enums_ints() ->
     %% open_write("../include/wx.hrl"), opened in gen_event_recs
-    w("~n%% Hardcoded Records ~n", []),
-    w("-record(wxMouseState, {x, y,  %% integer() ~n"
-      "          leftDown, middleDown, rightDown, %% bool() ~n"
+    w("~n%% Hardcoded Records~n", []),
+    w("-record(wxMouseState, {x, y,  %% integer()~n"
+      "          leftDown, middleDown, rightDown, %% bool()~n"
       "          controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()~n"
       "        }).~n", []),
-    w("-record(wxHtmlLinkInfo, { ~n"
-      "          href, target %% string() ~n"
+    w("-record(wxHtmlLinkInfo, {~n"
+      "          href, target %% string()~n"
       "        }).~n", []),
-    w("~n%% Hardcoded Defines ~n", []),
+    w("~n%% Hardcoded Defines~n", []),
     Enums = [E || E = {{enum,_},#enum{as_atom=false}} <- get()],
     w("-define(wxDefaultSize, {-1,-1}).~n", []), 
     w("-define(wxDefaultPosition, {-1,-1}).~n", []), 
-    w("~n%% Global Variables ~n", []),
+    w("~n%% Global Variables~n", []),
     [w("-define(~s,  wxe_util:get_const(~s)).~n", [Gvar, Gvar]) || 
 	{Gvar,_,_Id} <- get(gvars)],
-    w("~n%% Enum and defines ~n", []),
+    w("~n%% Enum and defines~n", []),
     foldl(fun({{enum,Type},Enum= #enum{as_atom=false}}, Done) ->
 		  build_enum_ints(Type,Enum,Done);
 	     (_,Done) -> Done
@@ -1051,9 +1051,9 @@ gen_enums_ints() ->
 build_enum_ints(Type,#enum{vals=Vals},Done) ->
     case Type of
 	[$@|_] ->  ok; % anonymous
-	{Class,[$@|_]} when Vals =/= [] ->  w("% From class ~s ~n", [Class]);
-	{Class,Enum} when Vals =/= [] ->  w("% From ~s::~s ~n", [Class,Enum]);
-	_ when Vals =/= [] ->  w("% Type ~s ~n", [Type]);
+	{Class,[$@|_]} when Vals =/= [] ->  w("% From class ~s~n", [Class]);
+	{Class,Enum} when Vals =/= [] ->  w("% From ~s::~s~n", [Class,Enum]);
+	_ when Vals =/= [] ->  w("% Type ~s~n", [Type]);
 	_ -> ok
     end,
     
@@ -1096,7 +1096,7 @@ gen_event_recs() ->
     erl_copyright(),
     w("", []),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("%%  All event messages are encapsulated in a wx record ~n"
+    w("%%  All event messages are encapsulated in a wx record~n"
       "%%  they contain the widget id and a specialized event record.~n" 
       "%%  Each event record may be sent for one or more event types.~n" 
       "%%  The mapping to wxWidgets is one record per class.~n~n",[]),
@@ -1104,7 +1104,7 @@ gen_event_recs() ->
     w("-record(wx, {id,     %% Integer Identity of object.~n"
       "             obj,    %% Object reference that was used in the connect call.~n"
       "             userData, %% User data specified in the connect call.~n"
-      "             event}).%% The event record ~n~n",[]),
+      "             event}).%% The event record~n~n",[]),
     w("%% Here comes the definitions of all event records.~n"
       "%% they contain the event type and possible some extra information.~n~n",[]),
     Types = [build_event_rec(C) || {_,C=#class{event=Evs}} <- get(), Evs =/= false],
@@ -1157,7 +1157,7 @@ build_event_rec(Class=#class{name=Name, event=Evs}) ->
 %% 		false -> w("%% This event will be handled by other handlers~n",[])
 %% 	    end,
 	    w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s, {type}). ~n~n", [Rec]);
+	    w("-record(~s, {type}).~n~n", [Rec]);
 	false ->
 	    w("%% @type ~s() = #~s{type=wxEventType(),~s}.~n", 
 	      [Rec,Rec,args(GetType,",",Attr)]),
@@ -1167,7 +1167,7 @@ build_event_rec(Class=#class{name=Name, event=Evs}) ->
 %% 		false -> w("%% This event will be handled by other handlers~n",[])
 %% 	    end,	    
 	    w("%% Callback event: {@link ~s}~n", [Name]),
-	    w("-record(~s,{type, ~s}). ~n~n", [Rec,args(GetName,",",Attr)])
+	    w("-record(~s,{type, ~s}).~n~n", [Rec,args(GetName,",",Attr)])
     end,
     EvTypes.
 
@@ -1197,7 +1197,7 @@ gen_funcnames() ->
     open_write("../src/gen/wxe_debug.hrl"),
     erl_copyright(),
     w("%% This file is generated DO NOT EDIT~n~n", []),
-    w("wxdebug_table() -> ~n[~n", []),
+    w("wxdebug_table() ->~n[~n", []),
     w(" {0, {wx, internal_batch_start, 0}},~n", []),
     w(" {1, {wx, internal_batch_end, 0}},~n", []),
     w(" {4, {wxObject, internal_destroy, 1}},~n", []),

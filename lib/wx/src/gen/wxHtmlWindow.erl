@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxhtmlwindow.html">wxHtmlWindow</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxScrolledWindow}
 %% <br />{@link wxPanel}
 %% <br />{@link wxWindow}
@@ -297,11 +297,11 @@ toText(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxHtmlWindow()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxHtmlWindow),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxScrolledWindow 
+ %% From wxScrolledWindow
 %% @hidden
 setTargetWindow(This,Target) -> wxScrolledWindow:setTargetWindow(This,Target).
 %% @hidden
@@ -330,10 +330,10 @@ calcUnscrolledPosition(This,Pt) -> wxScrolledWindow:calcUnscrolledPosition(This,
 calcScrolledPosition(This,X,Y) -> wxScrolledWindow:calcScrolledPosition(This,X,Y).
 %% @hidden
 calcScrolledPosition(This,Pt) -> wxScrolledWindow:calcScrolledPosition(This,Pt).
- %% From wxPanel 
+ %% From wxPanel
 %% @hidden
 initDialog(This) -> wxPanel:initDialog(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -682,7 +682,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

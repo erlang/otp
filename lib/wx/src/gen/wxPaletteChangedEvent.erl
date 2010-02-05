@@ -22,7 +22,7 @@
 %% <dd><em>palette_changed</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxPaletteChanged(). #wxPaletteChanged{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxPaletteChangedEvent().  An object reference, The representation is internal
@@ -56,7 +56,7 @@ getChangedWindow(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxPaletteChangedEvent_GetChangedWindow,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

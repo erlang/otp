@@ -22,7 +22,7 @@
 %% <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxNotebook(). #wxNotebook{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxNotifyEvent}
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
@@ -77,14 +77,14 @@ setSelection(#wx_ref{type=ThisT,ref=ThisRef},NSel)
   wxe_util:cast(?wxNotebookEvent_SetSelection,
   <<ThisRef:32/?UI,NSel:32/?UI>>).
 
- %% From wxNotifyEvent 
+ %% From wxNotifyEvent
 %% @hidden
 veto(This) -> wxNotifyEvent:veto(This).
 %% @hidden
 isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 %% @hidden
 allow(This) -> wxNotifyEvent:allow(This).
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -101,7 +101,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

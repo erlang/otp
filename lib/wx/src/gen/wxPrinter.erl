@@ -129,7 +129,7 @@ setup(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=ParentT,ref=ParentRef}) ->
 
 %% @spec (This::wxPrinter()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrinter),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

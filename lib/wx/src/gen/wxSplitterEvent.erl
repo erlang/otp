@@ -22,7 +22,7 @@
 %% <dd><em>command_splitter_sash_pos_changed</em>, <em>command_splitter_sash_pos_changing</em>, <em>command_splitter_doubleclicked</em>, <em>command_splitter_unsplit</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxSplitter(). #wxSplitter{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxNotifyEvent}
 %% <br />{@link wxCommandEvent}
 %% <br />{@link wxEvent}
@@ -83,14 +83,14 @@ setSashPosition(#wx_ref{type=ThisT,ref=ThisRef},Pos)
   wxe_util:cast(?wxSplitterEvent_SetSashPosition,
   <<ThisRef:32/?UI,Pos:32/?UI>>).
 
- %% From wxNotifyEvent 
+ %% From wxNotifyEvent
 %% @hidden
 veto(This) -> wxNotifyEvent:veto(This).
 %% @hidden
 isAllowed(This) -> wxNotifyEvent:isAllowed(This).
 %% @hidden
 allow(This) -> wxNotifyEvent:allow(This).
- %% From wxCommandEvent 
+ %% From wxCommandEvent
 %% @hidden
 setString(This,S) -> wxCommandEvent:setString(This,S).
 %% @hidden
@@ -109,7 +109,7 @@ getInt(This) -> wxCommandEvent:getInt(This).
 getExtraLong(This) -> wxCommandEvent:getExtraLong(This).
 %% @hidden
 getClientData(This) -> wxCommandEvent:getClientData(This).
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

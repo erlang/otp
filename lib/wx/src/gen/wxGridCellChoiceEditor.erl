@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellchoiceeditor.html">wxGridCellChoiceEditor</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellEditor}
 %% </p>
 %% @type wxGridCellChoiceEditor().  An object reference, The representation is internal
@@ -67,11 +67,11 @@ setParameters(#wx_ref{type=ThisT,ref=ThisRef},Params)
 
 %% @spec (This::wxGridCellChoiceEditor()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellChoiceEditor),
   wxe_util:destroy(?wxGridCellChoiceEditor_destroy,Obj),
   ok.
- %% From wxGridCellEditor 
+ %% From wxGridCellEditor
 %% @hidden
 handleReturn(This,Event) -> wxGridCellEditor:handleReturn(This,Event).
 %% @hidden

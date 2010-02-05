@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridsizer.html">wxGridSizer</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxSizer}
 %% </p>
 %% @type wxGridSizer().  An object reference, The representation is internal
@@ -132,11 +132,11 @@ setVGap(#wx_ref{type=ThisT,ref=ThisRef},Gap)
 
 %% @spec (This::wxGridSizer()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxSizer 
+ %% From wxSizer
 %% @hidden
 show(This,Index, Options) -> wxSizer:show(This,Index, Options).
 %% @hidden

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -44,7 +44,7 @@ gen(GLFuncs, GLUFuncs) ->
     %% Marshal funcs
     open_write("../c_src/gen/gl_funcs.cpp"),
     c_copyright(),
-    w("/***** This file is generated do not edit ****/ ~n~n", []),
+    w("/***** This file is generated do not edit ****/~n~n", []),
     w("#include <stdio.h>~n", []),
     w("#include <string.h>~n", []),    
     w("#include \"../wxe_impl.h\"~n", []),
@@ -67,8 +67,8 @@ gen(GLFuncs, GLUFuncs) ->
       "      driver_send_term(WXE_DRV_PORT,caller,rt,8);~n"
       "      return ;~n   }~n };~n~n", []),
 
-    w(" switch(op) ~n{~n",[]),
-    w(" case 5000: ~n   wxe_tess_impl(bp, caller); ~n   break;~n", []),
+    w(" switch(op)~n{~n",[]),
+    w(" case 5000:~n   wxe_tess_impl(bp, caller);~n   break;~n", []),
     w(" case WXE_BIN_INCR:~n   driver_binary_inc_refc(bins[0]->bin);~n   break;~n",[]),
     w(" case WXE_BIN_DECR:~n   driver_binary_dec_refc(bins[0]->bin);~n   break;~n",[]),
 
@@ -93,23 +93,23 @@ funcs(F) ->
 func(#func{where=erl}) -> ok;
 func(#func{id=Id,alt={has_vector,_,FuncName}}) -> 
     #func{name=Name,type=T,params=As} = get(FuncName),
-    w("case ~p: { // ~s ~n", [Id,Name]),
+    w("case ~p: { // ~s~n", [Id,Name]),
     put(bin_count,-1),
     As1 = declare_vars(T, As),
     As2 = decode_args(As1),
     As3 = call_gl(Name,T,As2),
     build_return_vals(T,As3),
     free_args(),
-    w("}; break; ~n", []);
+    w("}; break;~n", []);
 func(#func{name=Name,id=Id,type=T,params=As,alt=_Alt}) ->
-    w("case ~p: { // ~s ~n", [Id,Name]),
+    w("case ~p: { // ~s~n", [Id,Name]),
     put(bin_count,-1),
     As2 = decode_args(As),
     declare_vars(T, As),  %% Unusal order but it's c++
     As3 = call_gl(Name,T,As2),
     build_return_vals(T,As3),
     free_args(),
-    w("}; break; ~n", []).
+    w("}; break;~n", []).
 
 declare_vars(void,Ps) ->
     [declare_var(P) || P <- Ps];
@@ -183,7 +183,7 @@ decode_arg(P=#arg{name=Name,type=#type{name=T,base=string,single=list}},A0) ->
     w(" int * ~sTotSize = (int *) bp; bp += 4;~n",[Name]),
 %%    w(" if(*~sLen > 256) *~sLen = 256;", []),
     w(" ~s **~s;~n", [T,Name]),
-    w(" ~s = (~s **) driver_alloc(sizeof(~s *) * *~sLen); ~n",[Name, T, T, Name]),
+    w(" ~s = (~s **) driver_alloc(sizeof(~s *) * *~sLen);~n",[Name, T, T, Name]),
     store_free(Name),
     w(" for(int i=0;i<*~sLen;i++) {~n", [Name]),
     w("    ~s[i] = (~s *) bp; bp += 1+strlen(bp);};~n",[Name,T]),
@@ -353,7 +353,7 @@ build_return_vals(Type,As) ->
 	    case Vars of 
 		none -> ignore;
 		_ -> 		    
-		    w(" driver_free(rt); ~n", [])
+		    w(" driver_free(rt);~n", [])
 	    end,
 	    [w(" ~s~n", [Name]) || Name <- FreeList],
 	    ok
@@ -492,7 +492,7 @@ build_ret(Name,_Q,T=#type{}) ->
 gen_defines(GLFuncs,GLUFuncs) ->
     open_write("../c_src/gen/gl_fdefs.h"),
     c_copyright(),
-    w("/***** This file is generated do not edit ****/ ~n~n", []),
+    w("/***** This file is generated do not edit ****/~n~n", []),
     w("#ifdef WX_DEF_EXTS~n", []),
     w("# define WXE_EXTERN~n", []),
     w("#else~n# define WXE_EXTERN extern~n", []),
@@ -543,7 +543,7 @@ fdef_types(As) ->
 gl_gen_init(Funcs) ->
     open_write("../c_src/gen/gl_finit.h"),
     c_copyright(),
-    w("/***** This file is generated do not edit ****/ ~n~n", []),
+    w("/***** This file is generated do not edit ****/~n~n", []),
     w("static struct {\n"      
       "   const char * name;\n"      
       "   const char * alt;\n"
@@ -557,7 +557,7 @@ gl_gen_init(Funcs) ->
 glu_gen_init(Funcs) ->
     open_write("../c_src/gen/glu_finit.h"),
     c_copyright(),
-    w("/***** This file is generated do not edit ****/ ~n~n", []),
+    w("/***** This file is generated do not edit ****/~n~n", []),
     w("static struct {\n"      
       "   const char * name;\n"      
       "   const char * alt;\n"

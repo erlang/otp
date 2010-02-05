@@ -98,7 +98,7 @@ layoutWindow(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=FrameT,ref=FrameRef}, 
 
 %% @spec (This::wxLayoutAlgorithm()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxLayoutAlgorithm),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Some utilities
@@ -205,42 +205,65 @@ halt(Reason) ->
     end.
 
 erl_copyright() ->
+    StartYear = start_year(get(current_class)),
     w("%%~n",[]),
     w("%% %CopyrightBegin%~n",[]),
-    w("%% ~n",[]),
-    w("%% Copyright Ericsson AB 2008-2009. All Rights Reserved.~n",[]),
-    w("%% ~n",[]),
+    w("%%~n",[]),
+    w("%% Copyright Ericsson AB ~p-2010. All Rights Reserved.~n",
+      [StartYear]),
+    w("%%~n",[]),
     w("%% The contents of this file are subject to the Erlang Public License,~n",[]),
     w("%% Version 1.1, (the \"License\"); you may not use this file except in~n",[]),
     w("%% compliance with the License. You should have received a copy of the~n",[]),
     w("%% Erlang Public License along with this software. If not, it can be~n",[]),
     w("%% retrieved online at http://www.erlang.org/.~n",[]),
-    w("%% ~n",[]),
+    w("%%~n",[]),
     w("%% Software distributed under the License is distributed on an \"AS IS\"~n",[]),
     w("%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See~n",[]),
     w("%% the License for the specific language governing rights and limitations~n",[]),
     w("%% under the License.~n",[]),
-    w("%% ~n",[]),
+    w("%%~n",[]),
     w("%% %CopyrightEnd%~n",[]).
 
 c_copyright() -> 
     w("/*~n",[]),
     w(" * %CopyrightBegin%~n",[]),
-    w(" * ~n",[]),
-    w(" * Copyright Ericsson AB 2008-2009. All Rights Reserved.~n",[]),
-    w(" * ~n",[]),
+    w(" *~n",[]),
+    w(" * Copyright Ericsson AB 2008-2010. All Rights Reserved.~n",[]),
+    w(" *~n",[]),
     w(" * The contents of this file are subject to the Erlang Public License,~n",[]),
     w(" * Version 1.1, (the \"License\"); you may not use this file except in~n",[]),
     w(" * compliance with the License. You should have received a copy of the~n",[]),
     w(" * Erlang Public License along with this software. If not, it can be~n",[]),
     w(" * retrieved online at http://www.erlang.org/.~n",[]),
-    w(" * ~n",[]),
+    w(" *~n",[]),
     w(" * Software distributed under the License is distributed on an \"AS IS\"~n",[]),
     w(" * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See~n",[]),
     w(" * the License for the specific language governing rights and limitations~n",[]),
     w(" * under the License.~n",[]),
-    w(" * ~n",[]),
+    w(" *~n",[]),
     w(" * %CopyrightEnd% ~n",[]),
     w("*/~n",[]).
 
-
+start_year("wxAuiManagerEvent") -> 2009;
+start_year("wxAuiNotebookEvent") -> 2009;
+start_year("wxChoicebook") -> 2009;
+start_year("wxGridCellBoolEditor") -> 2009;
+start_year("wxGridCellBoolRenderer") -> 2009;
+start_year("wxGridCellChoiceEditor") -> 2009;
+start_year("wxGridCellFloatEditor") -> 2009;
+start_year("wxGridCellFloatRenderer") -> 2009;
+start_year("wxGridCellNumberEditor") -> 2009;
+start_year("wxGridCellNumberRenderer") -> 2009;
+start_year("wxGridCellStringRenderer") -> 2009;
+start_year("wxGridCellTextEditor") -> 2009;
+start_year("wxHtmlLinkEvent") -> 2009;
+start_year("wxHtmlWindow") -> 2009;
+start_year("wxListbook") -> 2009;
+start_year("wxLogNull") -> 2009;
+start_year("wxSpinEvent") -> 2009;
+start_year("wxSplitterEvent") -> 2009;
+start_year("wxSplitterWindow") -> 2009;
+start_year("wxToolbook") -> 2009;
+start_year("wxTreebook") -> 2009;
+start_year(_) -> 2008.

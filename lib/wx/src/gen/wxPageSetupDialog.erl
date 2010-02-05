@@ -66,7 +66,7 @@ showModal(#wx_ref{type=ThisT,ref=ThisRef}) ->
 
 %% @spec (This::wxPageSetupDialog()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPageSetupDialog),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

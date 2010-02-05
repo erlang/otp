@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgbsizeritem.html">wxGBSizerItem</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxSizerItem}
 %% </p>
 %% @type wxGBSizerItem().  An object reference, The representation is internal
@@ -41,7 +41,7 @@
 parent_class(wxSizerItem) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
- %% From wxSizerItem 
+ %% From wxSizerItem
 %% @hidden
 show(This,Show) -> wxSizerItem:show(This,Show).
 %% @hidden

@@ -17,7 +17,7 @@
  * %CopyrightEnd% 
 */
 
-/***** This file is generated do not edit ****/ 
+/***** This file is generated do not edit ****/
 
 #include <wx/wx.h>
 #include "../wxe_impl.h"
@@ -31,7 +31,7 @@ wxeEtype::wxeEtype(const char *name, int Id) {eName = name;cID = Id;}
 
 WX_DECLARE_HASH_MAP(int, wxeEtype*, wxIntegerHash, wxIntegerEqual, wxeETmap );
 
-wxeETmap etmap; 
+wxeETmap etmap;
 
 int wxeEventTypeFromAtom(char *etype_atom) {
   wxeETmap::iterator it;
@@ -48,9 +48,9 @@ int wxeEventTypeFromAtom(char *etype_atom) {
   return -1; 
 }
 
-void initEventTable() 
+void initEventTable()
 {
-  struct { int ev_type;  int class_id; const char * ev_name;} event_types[] = 
+  struct { int ev_type;  int class_id; const char * ev_name;} event_types[] =
   {
    {wxEVT_NULL, 0, "null"},
    {wxEVT_COMMAND_BUTTON_CLICKED, 163, "command_button_clicked"},
@@ -274,27 +274,27 @@ void initEventTable()
    {wxEVT_COMMAND_AUINOTEBOOK_END_DRAG, 220, "command_auinotebook_end_drag"},
    {wxEVT_COMMAND_AUINOTEBOOK_DRAG_MOTION, 220, "command_auinotebook_drag_motion"},
    {wxEVT_COMMAND_AUINOTEBOOK_ALLOW_DND, 220, "command_auinotebook_allow_dnd"},
-#if wxCHECK_VERSION(2,8,5) 
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_DOWN, 220, "command_auinotebook_tab_middle_down"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_UP, 220, "command_auinotebook_tab_middle_up"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_DOWN, 220, "command_auinotebook_tab_right_down"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_UP, 220, "command_auinotebook_tab_right_up"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSED, 220, "command_auinotebook_page_closed"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_DRAG_DONE, 220, "command_auinotebook_drag_done"},
-#endif 
-#if wxCHECK_VERSION(2,8,5) 
+#endif
+#if wxCHECK_VERSION(2,8,5)
    {wxEVT_COMMAND_AUINOTEBOOK_BG_DCLICK, 220, "command_auinotebook_bg_dclick"},
-#endif 
+#endif
    {wxEVT_AUI_PANE_BUTTON, 221, "aui_pane_button"},
    {wxEVT_AUI_PANE_CLOSE, 221, "aui_pane_close"},
    {wxEVT_AUI_PANE_MAXIMIZE, 221, "aui_pane_maximize"},
@@ -305,7 +305,7 @@ void initEventTable()
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
      if(NULL == etmap[event_types[i].ev_type]) {
-       etmap[event_types[i].ev_type] = 
+       etmap[event_types[i].ev_type] =
         new wxeEtype(event_types[i].ev_name, event_types[i].class_id);
      } else {
        wxeEtype *prev = etmap[event_types[i].ev_type];
@@ -319,21 +319,21 @@ void initEventTable()
   }
 }
 
-void wxeEvtListener::forward(wxEvent& event) 
-{ 
+void wxeEvtListener::forward(wxEvent& event)
+{
 #ifdef DEBUG
-  if(!sendevent(&event, port)) 
+  if(!sendevent(&event, port))
     fprintf(stderr, "Couldn't send event!\r\n");
 #else
 sendevent(&event, port);
 #endif
 }
 
-int getRef(void* ptr, wxeMemEnv* memenv) 
-{ 
+int getRef(void* ptr, wxeMemEnv* memenv)
+{
   WxeApp * app = (WxeApp *) wxTheApp;
   return app->getRef(ptr,memenv);
-} 
+}
 
 bool sendevent(wxEvent *event, ErlDrvPort port)
 {

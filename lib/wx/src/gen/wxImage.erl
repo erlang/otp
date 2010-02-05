@@ -64,7 +64,7 @@ new(Name)
 
 %% @spec (X::integer()|string(),X::integer()|term()) -> wxImage()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Width::integer(), Height::integer()) -> new(Width,Height, []) </c></p>
 %% <p><c>
@@ -87,7 +87,7 @@ new(Name, Options)
 
 %% @spec (X::integer()|string(),X::integer()|string(),X::binary()|term()) -> wxImage()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Width::integer(), Height::integer(), Data::binary()) -> new(Width,Height,Data, []) </c></p>
 %% <p><c>
@@ -121,7 +121,7 @@ new(Name,Mimetype, Options)
 
 %% @spec (Width::integer(),Height::integer(),Data::binary(),X::binary()|term()) -> wxImage()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagewximage">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Width::integer(), Height::integer(), Data::binary(), Alpha::binary()) -> new(Width,Height,Data,Alpha, []) </c></p>
 %% <p><c>
@@ -239,7 +239,7 @@ create(This,Width,Height)
 
 %% @spec (This::wxImage(),Width::integer(),Height::integer(),X::binary()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagecreate">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% create(This::wxImage(), Width::integer(), Height::integer(), Data::binary()) -> create(This,Width,Height,Data, []) </c></p>
 %% <p><c>
@@ -261,7 +261,7 @@ create(#wx_ref{type=ThisT,ref=ThisRef},Width,Height, Options)
 
 %% @spec (This::wxImage(),Width::integer(),Height::integer(),Data::binary(),X::binary()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagecreate">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% create(This::wxImage(), Width::integer(), Height::integer(), Data::binary(), Alpha::binary()) -> create(This,Width,Height,Data,Alpha, []) </c></p>
 %% <p><c>
@@ -691,7 +691,7 @@ saveFile(#wx_ref{type=ThisT,ref=ThisRef},Name)
 
 %% @spec (This::wxImage(),Name::string(),X::integer()|string()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesavefile">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% saveFile(This::wxImage(), Name::string(), Type::integer()) -> bool() </c>
 %% </p>
@@ -852,7 +852,7 @@ setMaskFromImage(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=MaskT,ref=MaskRef}
 
 %% @spec (This::wxImage(),Name::string(),X::integer()|string()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximage.html#wximagesetoption">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setOption(This::wxImage(), Name::string(), Value::integer()) -> ok </c>
 %% </p>
@@ -899,7 +899,7 @@ setRGB(#wx_ref{type=ThisT,ref=ThisRef},X,Y,R,G,B)
 
 %% @spec (This::wxImage()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImage),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

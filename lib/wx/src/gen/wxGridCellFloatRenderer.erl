@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgridcellfloatrenderer.html">wxGridCellFloatRenderer</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridCellStringRenderer}
 %% <br />{@link wxGridCellRenderer}
 %% </p>
@@ -97,12 +97,12 @@ setWidth(#wx_ref{type=ThisT,ref=ThisRef},Width)
 
 %% @spec (This::wxGridCellFloatRenderer()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGridCellFloatRenderer),
   wxe_util:destroy(?wxGridCellFloatRenderer_destroy,Obj),
   ok.
- %% From wxGridCellStringRenderer 
- %% From wxGridCellRenderer 
+ %% From wxGridCellStringRenderer
+ %% From wxGridCellRenderer
 %% @hidden
 getBestSize(This,Grid,Attr,Dc,Row,Col) -> wxGridCellRenderer:getBestSize(This,Grid,Attr,Dc,Row,Col).
 %% @hidden

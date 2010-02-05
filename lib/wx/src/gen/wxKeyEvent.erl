@@ -22,7 +22,7 @@
 %% <dd><em>char</em>, <em>char_hook</em>, <em>key_down</em>, <em>key_up</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxKey(). #wxKey{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxKeyEvent().  An object reference, The representation is internal
@@ -141,7 +141,7 @@ shiftDown(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxKeyEvent_ShiftDown,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

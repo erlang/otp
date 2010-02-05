@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxflexgridsizer.html">wxFlexGridSizer</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGridSizer}
 %% <br />{@link wxSizer}
 %% </p>
@@ -163,11 +163,11 @@ setNonFlexibleGrowMode(#wx_ref{type=ThisT,ref=ThisRef},Mode)
 
 %% @spec (This::wxFlexGridSizer()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFlexGridSizer),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxGridSizer 
+ %% From wxGridSizer
 %% @hidden
 setVGap(This,Gap) -> wxGridSizer:setVGap(This,Gap).
 %% @hidden
@@ -184,7 +184,7 @@ getRows(This) -> wxGridSizer:getRows(This).
 getHGap(This) -> wxGridSizer:getHGap(This).
 %% @hidden
 getCols(This) -> wxGridSizer:getCols(This).
- %% From wxSizer 
+ %% From wxSizer
 %% @hidden
 show(This,Index, Options) -> wxSizer:show(This,Index, Options).
 %% @hidden

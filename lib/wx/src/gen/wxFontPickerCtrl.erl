@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxfontpickerctrl.html">wxFontPickerCtrl</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxPickerBase}
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
@@ -165,11 +165,11 @@ setMaxPointSize(#wx_ref{type=ThisT,ref=ThisRef},Max)
 
 %% @spec (This::wxFontPickerCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxFontPickerCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxPickerBase 
+ %% From wxPickerBase
 %% @hidden
 isPickerCtrlGrowable(This) -> wxPickerBase:isPickerCtrlGrowable(This).
 %% @hidden
@@ -198,12 +198,12 @@ setTextCtrlProportion(This,Prop) -> wxPickerBase:setTextCtrlProportion(This,Prop
 getInternalMargin(This) -> wxPickerBase:getInternalMargin(This).
 %% @hidden
 setInternalMargin(This,Newmargin) -> wxPickerBase:setInternalMargin(This,Newmargin).
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -550,7 +550,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

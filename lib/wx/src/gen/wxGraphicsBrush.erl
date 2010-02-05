@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicsbrush.html">wxGraphicsBrush</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGraphicsObject}
 %% </p>
 %% @type wxGraphicsBrush().  An object reference, The representation is internal
@@ -36,7 +36,7 @@
 parent_class(wxGraphicsObject) -> true;
 parent_class(_Class) -> erlang:error({badtype, ?MODULE}).
 
- %% From wxGraphicsObject 
+ %% From wxGraphicsObject
 %% @hidden
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden

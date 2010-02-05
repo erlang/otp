@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html">wxGrid</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxScrolledWindow}
 %% <br />{@link wxPanel}
 %% <br />{@link wxWindow}
@@ -146,7 +146,7 @@ new(Parent,Id)
 
 %% @spec (Parent::wxWindow:wxWindow(),X::integer(),X::integer()|term()) -> wxGrid()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridwxgrid">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% new(Parent::wxWindow:wxWindow(), X::integer(), Y::integer()) -> new(Parent,X,Y, []) </c></p>
 %% <p><c>
@@ -1104,7 +1104,7 @@ isVisible(This,Coords={CoordsR,CoordsC})
 
 %% @spec (This::wxGrid(),X::integer()|term(),X::integer()|term()) -> bool()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridisvisible">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% isVisible(This::wxGrid(), Row::integer(), Col::integer()) -> isVisible(This,Row,Col, []) </c></p>
 %% <p><c>
@@ -1361,7 +1361,7 @@ setCellBackgroundColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
 
 %% @spec (This::wxGrid(),X::integer()|term(),X::integer(),X::term()|integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellbackgroundcolour">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setCellBackgroundColour(This::wxGrid(), Row::integer(), Col::integer(), Val::wx:colour()) -> ok </c>
 %% </p>
@@ -1416,7 +1416,7 @@ setCellTextColour(#wx_ref{type=ThisT,ref=ThisRef},Col)
 
 %% @spec (This::wxGrid(),X::integer()|term(),X::integer(),X::term()|integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcelltextcolour">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setCellTextColour(This::wxGrid(), Row::integer(), Col::integer(), Val::wx:colour()) -> ok </c>
 %% </p>
@@ -1445,7 +1445,7 @@ setCellValue(#wx_ref{type=ThisT,ref=ThisRef},{CoordsR,CoordsC},S)
 
 %% @spec (This::wxGrid(),X::integer()|string(),X::integer(),X::string()|integer()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgrid.html#wxgridsetcellvalue">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setCellValue(This::wxGrid(), Row::integer(), Col::integer(), S::string()) -> ok </c>
 %% </p>
@@ -1868,11 +1868,11 @@ yToRow(#wx_ref{type=ThisT,ref=ThisRef},Y)
 
 %% @spec (This::wxGrid()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxGrid),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxScrolledWindow 
+ %% From wxScrolledWindow
 %% @hidden
 setTargetWindow(This,Target) -> wxScrolledWindow:setTargetWindow(This,Target).
 %% @hidden
@@ -1901,10 +1901,10 @@ calcUnscrolledPosition(This,Pt) -> wxScrolledWindow:calcUnscrolledPosition(This,
 calcScrolledPosition(This,X,Y) -> wxScrolledWindow:calcScrolledPosition(This,X,Y).
 %% @hidden
 calcScrolledPosition(This,Pt) -> wxScrolledWindow:calcScrolledPosition(This,Pt).
- %% From wxPanel 
+ %% From wxPanel
 %% @hidden
 initDialog(This) -> wxPanel:initDialog(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -2251,7 +2251,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

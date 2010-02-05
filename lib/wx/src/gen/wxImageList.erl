@@ -68,7 +68,7 @@ add(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=BitmapT,ref=BitmapRef}) ->
 
 %% @spec (This::wxImageList(),Bitmap::wxBitmap:wxBitmap(),X::term()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wximagelist.html#wximagelistadd">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% add(This::wxImageList(), Bitmap::wxBitmap:wxBitmap(), Mask::wxBitmap:wxBitmap()) -> integer() </c>
 %% </p>
@@ -194,7 +194,7 @@ replace(#wx_ref{type=ThisT,ref=ThisRef},Index,#wx_ref{type=BitmapT,ref=BitmapRef
 
 %% @spec (This::wxImageList()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxImageList),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

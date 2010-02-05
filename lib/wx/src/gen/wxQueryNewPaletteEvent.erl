@@ -22,7 +22,7 @@
 %% <dd><em>query_new_palette</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxQueryNewPalette(). #wxQueryNewPalette{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxQueryNewPaletteEvent().  An object reference, The representation is internal
@@ -56,7 +56,7 @@ getPaletteRealized(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxQueryNewPaletteEvent_GetPaletteRealized,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

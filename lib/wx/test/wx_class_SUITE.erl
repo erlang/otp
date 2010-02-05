@@ -361,6 +361,14 @@ listCtrlSort(Config) ->
     Time = timer:tc(erlang, apply, [Sort,[]]),
     io:format("Sorted ~p ~n",[Time]),
     
+    Item = wxListItem:new(),
+    _List = wx:map(fun(Int) ->
+			   wxListItem:setId(Item, Int),
+			   ?m(true, wxListCtrl:getItem(LC, Item)),
+			   io:format("~s~n",[wxListItem:getText(Item)])
+		   end, lists:seq(0,100)),
+    wxListItem:destroy(Item),
+
     wx_test_lib:wx_destroy(Frame,Config).
 
 

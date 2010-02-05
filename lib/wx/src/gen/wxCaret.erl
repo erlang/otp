@@ -175,7 +175,7 @@ show(#wx_ref{type=ThisT,ref=ThisRef}, Options)
 
 %% @spec (This::wxCaret()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxCaret),
   wxe_util:destroy(?wxCaret_destruct,Obj),
   ok.

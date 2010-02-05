@@ -260,7 +260,7 @@ setPaperId(#wx_ref{type=ThisT,ref=ThisRef},Id)
 
 %% @spec (This::wxPageSetupDialogData(),X::integer()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxpagesetupdialogdata.html#wxpagesetupdialogdatasetpapersize">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% setPaperSize(This::wxPageSetupDialogData(), Id::integer()) -> ok </c>
 %% </p>
@@ -288,7 +288,7 @@ setPrintData(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=PrintDataT,ref=PrintDa
 
 %% @spec (This::wxPageSetupDialogData()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPageSetupDialogData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

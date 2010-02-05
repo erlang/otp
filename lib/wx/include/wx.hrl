@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-%%  All event messages are encapsulated in a wx record 
+%%  All event messages are encapsulated in a wx record
 %%  they contain the widget id and a specialized event record.
 %%  Each event record may be sent for one or more event types.
 %%  The mapping to wxWidgets is one record per class.
@@ -26,7 +26,7 @@
 -record(wx, {id,     %% Integer Identity of object.
              obj,    %% Object reference that was used in the connect call.
              userData, %% User data specified in the connect call.
-             event}).%% The event record 
+             event}).%% The event record
 
 %% Here comes the definitions of all event records.
 %% they contain the event type and possible some extra information.
@@ -34,254 +34,254 @@
 %% @type wxNavigationKey() = #wxNavigationKey{type=wxEventType(),flags=integer(),focus=wxWindow:wxWindow()}.
 %% <dl><dt>EventType:</dt> <dd><em>navigation_key</em></dd></dl>
 %% Callback event: {@link wxNavigationKeyEvent}
--record(wxNavigationKey,{type, flags,focus}). 
+-record(wxNavigationKey,{type, flags,focus}).
 
 %% @type wxSash() = #wxSash{type=wxEventType(),edge=WxSashEdgePosition,dragRect={X::integer(),Y::integer(),W::integer(),H::integer()},dragStatus=WxSashDragStatus}.
 %% <dl><dt>EventType:</dt> <dd><em>sash_dragged</em></dd></dl>
 %% Callback event: {@link wxSashEvent}
--record(wxSash,{type, edge,dragRect,dragStatus}). 
+-record(wxSash,{type, edge,dragRect,dragStatus}).
 
 %% @type wxList() = #wxList{type=wxEventType(),code=integer(),oldItemIndex=integer(),itemIndex=integer(),col=integer(),pointDrag={X::integer(),Y::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>command_list_begin_drag</em>, <em>command_list_begin_rdrag</em>, <em>command_list_begin_label_edit</em>, <em>command_list_end_label_edit</em>, <em>command_list_delete_item</em>, <em>command_list_delete_all_items</em>, <em>command_list_key_down</em>, <em>command_list_insert_item</em>, <em>command_list_col_click</em>, <em>command_list_col_right_click</em>, <em>command_list_col_begin_drag</em>, <em>command_list_col_dragging</em>, <em>command_list_col_end_drag</em>, <em>command_list_item_selected</em>, <em>command_list_item_deselected</em>, <em>command_list_item_right_click</em>, <em>command_list_item_middle_click</em>, <em>command_list_item_activated</em>, <em>command_list_item_focused</em>, <em>command_list_cache_hint</em></dd></dl>
 %% Callback event: {@link wxListEvent}
--record(wxList,{type, code,oldItemIndex,itemIndex,col,pointDrag}). 
+-record(wxList,{type, code,oldItemIndex,itemIndex,col,pointDrag}).
 
 %% @type wxNotebook() = #wxNotebook{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_notebook_page_changed</em>, <em>command_notebook_page_changing</em></dd></dl>
 %% Callback event: {@link wxNotebookEvent}
--record(wxNotebook, {type}). 
+-record(wxNotebook, {type}).
 
 %% @type wxDisplayChanged() = #wxDisplayChanged{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>display_changed</em></dd></dl>
 %% Callback event: {@link wxDisplayChangedEvent}
--record(wxDisplayChanged, {type}). 
+-record(wxDisplayChanged, {type}).
 
 %% @type wxErase() = #wxErase{type=wxEventType(),dc=wxDC:wxDC()}.
 %% <dl><dt>EventType:</dt> <dd><em>erase_background</em></dd></dl>
 %% Callback event: {@link wxEraseEvent}
--record(wxErase,{type, dc}). 
+-record(wxErase,{type, dc}).
 
 %% @type wxKey() = #wxKey{type=wxEventType(),x=integer(),y=integer(),keyCode=integer(),controlDown=bool(),shiftDown=bool(),altDown=bool(),metaDown=bool(),scanCode=bool(),uniChar=integer(),rawCode=integer(),rawFlags=integer()}.
 %% <dl><dt>EventType:</dt> <dd><em>char</em>, <em>char_hook</em>, <em>key_down</em>, <em>key_up</em></dd></dl>
 %% Callback event: {@link wxKeyEvent}
--record(wxKey,{type, x,y,keyCode,controlDown,shiftDown,altDown,metaDown,scanCode,uniChar,rawCode,rawFlags}). 
+-record(wxKey,{type, x,y,keyCode,controlDown,shiftDown,altDown,metaDown,scanCode,uniChar,rawCode,rawFlags}).
 
 %% @type wxWindowDestroy() = #wxWindowDestroy{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>destroy</em></dd></dl>
 %% Callback event: {@link wxWindowDestroyEvent}
--record(wxWindowDestroy, {type}). 
+-record(wxWindowDestroy, {type}).
 
 %% @type wxCalendar() = #wxCalendar{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>calendar_sel_changed</em>, <em>calendar_day_changed</em>, <em>calendar_month_changed</em>, <em>calendar_year_changed</em>, <em>calendar_doubleclicked</em>, <em>calendar_weekday_clicked</em></dd></dl>
 %% Callback event: {@link wxCalendarEvent}
--record(wxCalendar, {type}). 
+-record(wxCalendar, {type}).
 
 %% @type wxSplitter() = #wxSplitter{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_splitter_sash_pos_changed</em>, <em>command_splitter_sash_pos_changing</em>, <em>command_splitter_doubleclicked</em>, <em>command_splitter_unsplit</em></dd></dl>
 %% Callback event: {@link wxSplitterEvent}
--record(wxSplitter, {type}). 
+-record(wxSplitter, {type}).
 
 %% @type wxScroll() = #wxScroll{type=wxEventType(),commandInt=integer(),extraLong=integer()}.
 %% <dl><dt>EventType:</dt> <dd><em>scroll_top</em>, <em>scroll_bottom</em>, <em>scroll_lineup</em>, <em>scroll_linedown</em>, <em>scroll_pageup</em>, <em>scroll_pagedown</em>, <em>scroll_thumbtrack</em>, <em>scroll_thumbrelease</em>, <em>scroll_changed</em></dd></dl>
 %% Callback event: {@link wxScrollEvent}
--record(wxScroll,{type, commandInt,extraLong}). 
+-record(wxScroll,{type, commandInt,extraLong}).
 
 %% @type wxMenu() = #wxMenu{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>menu_open</em>, <em>menu_close</em>, <em>menu_highlight</em></dd></dl>
 %% Callback event: {@link wxMenuEvent}
--record(wxMenu, {type}). 
+-record(wxMenu, {type}).
 
 %% @type wxContextMenu() = #wxContextMenu{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>context_menu</em></dd></dl>
 %% Callback event: {@link wxContextMenuEvent}
--record(wxContextMenu, {type}). 
+-record(wxContextMenu, {type}).
 
 %% @type wxShow() = #wxShow{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>show</em></dd></dl>
 %% Callback event: {@link wxShowEvent}
--record(wxShow, {type}). 
+-record(wxShow, {type}).
 
 %% @type wxSpin() = #wxSpin{type=wxEventType(),commandInt=integer()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_spinctrl_updated</em>, <em>spin_up</em>, <em>spin_down</em>, <em>spin</em></dd></dl>
 %% Callback event: {@link wxSpinEvent}
--record(wxSpin,{type, commandInt}). 
+-record(wxSpin,{type, commandInt}).
 
 %% @type wxSetCursor() = #wxSetCursor{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>set_cursor</em></dd></dl>
 %% Callback event: {@link wxSetCursorEvent}
--record(wxSetCursor, {type}). 
+-record(wxSetCursor, {type}).
 
 %% @type wxFontPicker() = #wxFontPicker{type=wxEventType(),font=wxFont:wxFont()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_fontpicker_changed</em></dd></dl>
 %% Callback event: {@link wxFontPickerEvent}
--record(wxFontPicker,{type, font}). 
+-record(wxFontPicker,{type, font}).
 
 %% @type wxScrollWin() = #wxScrollWin{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>scrollwin_top</em>, <em>scrollwin_bottom</em>, <em>scrollwin_lineup</em>, <em>scrollwin_linedown</em>, <em>scrollwin_pageup</em>, <em>scrollwin_pagedown</em>, <em>scrollwin_thumbtrack</em>, <em>scrollwin_thumbrelease</em></dd></dl>
 %% Callback event: {@link wxScrollWinEvent}
--record(wxScrollWin, {type}). 
+-record(wxScrollWin, {type}).
 
 %% @type wxPaint() = #wxPaint{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>paint</em>, <em>paint_icon</em></dd></dl>
 %% Callback event: {@link wxPaintEvent}
--record(wxPaint, {type}). 
+-record(wxPaint, {type}).
 
 %% @type wxChildFocus() = #wxChildFocus{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>child_focus</em></dd></dl>
 %% Callback event: {@link wxChildFocusEvent}
--record(wxChildFocus, {type}). 
+-record(wxChildFocus, {type}).
 
 %% @type wxMaximize() = #wxMaximize{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>maximize</em></dd></dl>
 %% Callback event: {@link wxMaximizeEvent}
--record(wxMaximize, {type}). 
+-record(wxMaximize, {type}).
 
 %% @type wxFileDirPicker() = #wxFileDirPicker{type=wxEventType(),path=string()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_filepicker_changed</em>, <em>command_dirpicker_changed</em></dd></dl>
 %% Callback event: {@link wxFileDirPickerEvent}
--record(wxFileDirPicker,{type, path}). 
+-record(wxFileDirPicker,{type, path}).
 
 %% @type wxFocus() = #wxFocus{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>set_focus</em>, <em>kill_focus</em></dd></dl>
 %% Callback event: {@link wxFocusEvent}
--record(wxFocus, {type}). 
+-record(wxFocus, {type}).
 
 %% @type wxDate() = #wxDate{type=wxEventType(),date=wx:datetime()}.
 %% <dl><dt>EventType:</dt> <dd><em>date_changed</em></dd></dl>
 %% Callback event: {@link wxDateEvent}
--record(wxDate,{type, date}). 
+-record(wxDate,{type, date}).
 
 %% @type wxHtmlLink() = #wxHtmlLink{type=wxEventType(),linkInfo=wx:wxHtmlLinkInfo()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_html_link_clicked</em></dd></dl>
 %% Callback event: {@link wxHtmlLinkEvent}
--record(wxHtmlLink,{type, linkInfo}). 
+-record(wxHtmlLink,{type, linkInfo}).
 
 %% @type wxHelp() = #wxHelp{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>help</em>, <em>detailed_help</em></dd></dl>
 %% Callback event: {@link wxHelpEvent}
--record(wxHelp, {type}). 
+-record(wxHelp, {type}).
 
 %% @type wxStyledText() = #wxStyledText{type=wxEventType(),position=integer(),key=integer(),modifiers=integer(),modificationType=integer(),text=string(),length=integer(),linesAdded=integer(),line=integer(),foldLevelNow=integer(),foldLevelPrev=integer(),margin=integer(),message=integer(),wParam=integer(),lParam=integer(),listType=integer(),x=integer(),y=integer(),dragText=string(),dragAllowMove=bool(),dragResult=WxDragResult}.
 %% <dl><dt>EventType:</dt> <dd><em>stc_change</em>, <em>stc_styleneeded</em>, <em>stc_charadded</em>, <em>stc_savepointreached</em>, <em>stc_savepointleft</em>, <em>stc_romodifyattempt</em>, <em>stc_key</em>, <em>stc_doubleclick</em>, <em>stc_updateui</em>, <em>stc_modified</em>, <em>stc_macrorecord</em>, <em>stc_marginclick</em>, <em>stc_needshown</em>, <em>stc_painted</em>, <em>stc_userlistselection</em>, <em>stc_uridropped</em>, <em>stc_dwellstart</em>, <em>stc_dwellend</em>, <em>stc_start_drag</em>, <em>stc_drag_over</em>, <em>stc_do_drop</em>, <em>stc_zoom</em>, <em>stc_hotspot_click</em>, <em>stc_hotspot_dclick</em>, <em>stc_calltip_click</em>, <em>stc_autocomp_selection</em></dd></dl>
 %% Callback event: {@link wxStyledTextEvent}
--record(wxStyledText,{type, position,key,modifiers,modificationType,text,length,linesAdded,line,foldLevelNow,foldLevelPrev,margin,message,wParam,lParam,listType,x,y,dragText,dragAllowMove,dragResult}). 
+-record(wxStyledText,{type, position,key,modifiers,modificationType,text,length,linesAdded,line,foldLevelNow,foldLevelPrev,margin,message,wParam,lParam,listType,x,y,dragText,dragAllowMove,dragResult}).
 
 %% @type wxSysColourChanged() = #wxSysColourChanged{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>sys_colour_changed</em></dd></dl>
 %% Callback event: {@link wxSysColourChangedEvent}
--record(wxSysColourChanged, {type}). 
+-record(wxSysColourChanged, {type}).
 
 %% @type wxGrid() = #wxGrid{type=wxEventType(),row=integer(),col=integer(),x=integer(),y=integer(),selecting=bool(),control=bool(),meta=bool(),shift=bool(),alt=bool()}.
 %% <dl><dt>EventType:</dt> <dd><em>grid_cell_left_click</em>, <em>grid_cell_right_click</em>, <em>grid_cell_left_dclick</em>, <em>grid_cell_right_dclick</em>, <em>grid_label_left_click</em>, <em>grid_label_right_click</em>, <em>grid_label_left_dclick</em>, <em>grid_label_right_dclick</em>, <em>grid_row_size</em>, <em>grid_col_size</em>, <em>grid_range_select</em>, <em>grid_cell_change</em>, <em>grid_select_cell</em>, <em>grid_editor_shown</em>, <em>grid_editor_hidden</em>, <em>grid_editor_created</em>, <em>grid_cell_begin_drag</em></dd></dl>
 %% Callback event: {@link wxGridEvent}
--record(wxGrid,{type, row,col,x,y,selecting,control,meta,shift,alt}). 
+-record(wxGrid,{type, row,col,x,y,selecting,control,meta,shift,alt}).
 
 %% @type wxPaletteChanged() = #wxPaletteChanged{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>palette_changed</em></dd></dl>
 %% Callback event: {@link wxPaletteChangedEvent}
--record(wxPaletteChanged, {type}). 
+-record(wxPaletteChanged, {type}).
 
 %% @type wxUpdateUI() = #wxUpdateUI{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>update_ui</em></dd></dl>
 %% Callback event: {@link wxUpdateUIEvent}
--record(wxUpdateUI, {type}). 
+-record(wxUpdateUI, {type}).
 
 %% @type wxSize() = #wxSize{type=wxEventType(),size={W::integer(),H::integer()},rect={X::integer(),Y::integer(),W::integer(),H::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>size</em></dd></dl>
 %% Callback event: {@link wxSizeEvent}
--record(wxSize,{type, size,rect}). 
+-record(wxSize,{type, size,rect}).
 
 %% @type wxIconize() = #wxIconize{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>iconize</em></dd></dl>
 %% Callback event: {@link wxIconizeEvent}
--record(wxIconize, {type}). 
+-record(wxIconize, {type}).
 
 %% @type wxAuiNotebook() = #wxAuiNotebook{type=wxEventType(),old_selection=integer(),selection=integer(),drag_source=wxAuiNotebook:wxAuiNotebook()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_auinotebook_page_close</em>, <em>command_auinotebook_page_changed</em>, <em>command_auinotebook_page_changing</em>, <em>command_auinotebook_button</em>, <em>command_auinotebook_begin_drag</em>, <em>command_auinotebook_end_drag</em>, <em>command_auinotebook_drag_motion</em>, <em>command_auinotebook_allow_dnd</em>, <em>command_auinotebook_tab_middle_down</em>, <em>command_auinotebook_tab_middle_up</em>, <em>command_auinotebook_tab_right_down</em>, <em>command_auinotebook_tab_right_up</em>, <em>command_auinotebook_page_closed</em>, <em>command_auinotebook_drag_done</em>, <em>command_auinotebook_bg_dclick</em></dd></dl>
 %% Callback event: {@link wxAuiNotebookEvent}
--record(wxAuiNotebook,{type, old_selection,selection,drag_source}). 
+-record(wxAuiNotebook,{type, old_selection,selection,drag_source}).
 
 %% @type wxClose() = #wxClose{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>close_window</em>, <em>end_session</em>, <em>query_end_session</em></dd></dl>
 %% Callback event: {@link wxCloseEvent}
--record(wxClose, {type}). 
+-record(wxClose, {type}).
 
 %% @type wxMouseCaptureChanged() = #wxMouseCaptureChanged{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>mouse_capture_changed</em></dd></dl>
 %% Callback event: {@link wxMouseCaptureChangedEvent}
--record(wxMouseCaptureChanged, {type}). 
+-record(wxMouseCaptureChanged, {type}).
 
 %% @type wxMouse() = #wxMouse{type=wxEventType(),x=integer(),y=integer(),leftDown=bool(),middleDown=bool(),rightDown=bool(),controlDown=bool(),shiftDown=bool(),altDown=bool(),metaDown=bool(),wheelRotation=integer(),wheelDelta=integer(),linesPerAction=integer()}.
 %% <dl><dt>EventType:</dt> <dd><em>left_down</em>, <em>left_up</em>, <em>middle_down</em>, <em>middle_up</em>, <em>right_down</em>, <em>right_up</em>, <em>motion</em>, <em>enter_window</em>, <em>leave_window</em>, <em>left_dclick</em>, <em>middle_dclick</em>, <em>right_dclick</em>, <em>mousewheel</em>, <em>nc_left_down</em>, <em>nc_left_up</em>, <em>nc_middle_down</em>, <em>nc_middle_up</em>, <em>nc_right_down</em>, <em>nc_right_up</em>, <em>nc_motion</em>, <em>nc_enter_window</em>, <em>nc_leave_window</em>, <em>nc_left_dclick</em>, <em>nc_middle_dclick</em>, <em>nc_right_dclick</em></dd></dl>
 %% Callback event: {@link wxMouseEvent}
--record(wxMouse,{type, x,y,leftDown,middleDown,rightDown,controlDown,shiftDown,altDown,metaDown,wheelRotation,wheelDelta,linesPerAction}). 
+-record(wxMouse,{type, x,y,leftDown,middleDown,rightDown,controlDown,shiftDown,altDown,metaDown,wheelRotation,wheelDelta,linesPerAction}).
 
 %% @type wxWindowCreate() = #wxWindowCreate{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>create</em></dd></dl>
 %% Callback event: {@link wxWindowCreateEvent}
--record(wxWindowCreate, {type}). 
+-record(wxWindowCreate, {type}).
 
 %% @type wxAuiManager() = #wxAuiManager{type=wxEventType(),manager=wxAuiManager:wxAuiManager(),pane=wxAuiPaneInfo:wxAuiPaneInfo(),button=integer(),veto_flag=bool(),canveto_flag=bool(),dc=wxDC:wxDC()}.
 %% <dl><dt>EventType:</dt> <dd><em>aui_pane_button</em>, <em>aui_pane_close</em>, <em>aui_pane_maximize</em>, <em>aui_pane_restore</em>, <em>aui_render</em>, <em>aui_find_manager</em></dd></dl>
 %% Callback event: {@link wxAuiManagerEvent}
--record(wxAuiManager,{type, manager,pane,button,veto_flag,canveto_flag,dc}). 
+-record(wxAuiManager,{type, manager,pane,button,veto_flag,canveto_flag,dc}).
 
 %% @type wxCommand() = #wxCommand{type=wxEventType(),cmdString=string(),commandInt=integer(),extraLong=integer()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_button_clicked</em>, <em>command_checkbox_clicked</em>, <em>command_choice_selected</em>, <em>command_listbox_selected</em>, <em>command_listbox_doubleclicked</em>, <em>command_text_updated</em>, <em>command_text_enter</em>, <em>command_menu_selected</em>, <em>command_slider_updated</em>, <em>command_radiobox_selected</em>, <em>command_radiobutton_selected</em>, <em>command_scrollbar_updated</em>, <em>command_vlbox_selected</em>, <em>command_combobox_selected</em>, <em>command_tool_rclicked</em>, <em>command_tool_enter</em>, <em>command_checklistbox_toggled</em>, <em>command_togglebutton_clicked</em>, <em>command_left_click</em>, <em>command_left_dclick</em>, <em>command_right_click</em>, <em>command_set_focus</em>, <em>command_kill_focus</em>, <em>command_enter</em></dd></dl>
 %% Callback event: {@link wxCommandEvent}
--record(wxCommand,{type, cmdString,commandInt,extraLong}). 
+-record(wxCommand,{type, cmdString,commandInt,extraLong}).
 
 %% @type wxJoystick() = #wxJoystick{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>joy_button_down</em>, <em>joy_button_up</em>, <em>joy_move</em>, <em>joy_zmove</em></dd></dl>
 %% Callback event: {@link wxJoystickEvent}
--record(wxJoystick, {type}). 
+-record(wxJoystick, {type}).
 
 %% @type wxQueryNewPalette() = #wxQueryNewPalette{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>query_new_palette</em></dd></dl>
 %% Callback event: {@link wxQueryNewPaletteEvent}
--record(wxQueryNewPalette, {type}). 
+-record(wxQueryNewPalette, {type}).
 
 %% @type wxMove() = #wxMove{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>move</em></dd></dl>
 %% Callback event: {@link wxMoveEvent}
--record(wxMove, {type}). 
+-record(wxMove, {type}).
 
 %% @type wxIdle() = #wxIdle{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>idle</em></dd></dl>
 %% Callback event: {@link wxIdleEvent}
--record(wxIdle, {type}). 
+-record(wxIdle, {type}).
 
 %% @type wxNcPaint() = #wxNcPaint{type=wxEventType()}.
 %% <dl><dt>EventType:</dt> <dd><em>nc_paint</em></dd></dl>
 %% Callback event: {@link wxNcPaintEvent}
--record(wxNcPaint, {type}). 
+-record(wxNcPaint, {type}).
 
 %% @type wxColourPicker() = #wxColourPicker{type=wxEventType(),colour=wx:colour()}.
 %% <dl><dt>EventType:</dt> <dd><em>command_colourpicker_changed</em></dd></dl>
 %% Callback event: {@link wxColourPickerEvent}
--record(wxColourPicker,{type, colour}). 
+-record(wxColourPicker,{type, colour}).
 
 %% @type wxTree() = #wxTree{type=wxEventType(),item=integer(),itemOld=integer(),pointDrag={X::integer(),Y::integer()}}.
 %% <dl><dt>EventType:</dt> <dd><em>command_tree_begin_drag</em>, <em>command_tree_begin_rdrag</em>, <em>command_tree_begin_label_edit</em>, <em>command_tree_end_label_edit</em>, <em>command_tree_delete_item</em>, <em>command_tree_get_info</em>, <em>command_tree_set_info</em>, <em>command_tree_item_expanded</em>, <em>command_tree_item_expanding</em>, <em>command_tree_item_collapsed</em>, <em>command_tree_item_collapsing</em>, <em>command_tree_sel_changed</em>, <em>command_tree_sel_changing</em>, <em>command_tree_key_down</em>, <em>command_tree_item_activated</em>, <em>command_tree_item_right_click</em>, <em>command_tree_item_middle_click</em>, <em>command_tree_end_drag</em>, <em>command_tree_state_image_click</em>, <em>command_tree_item_gettooltip</em>, <em>command_tree_item_menu</em></dd></dl>
 %% Callback event: {@link wxTreeEvent}
--record(wxTree,{type, item,itemOld,pointDrag}). 
+-record(wxTree,{type, item,itemOld,pointDrag}).
 
 %% @type wxEventType() = aui_find_manager | aui_pane_button | aui_pane_close | aui_pane_maximize | aui_pane_restore | aui_render | calendar_day_changed | calendar_doubleclicked | calendar_month_changed | calendar_sel_changed | calendar_weekday_clicked | calendar_year_changed | char | char_hook | child_focus | close_window | command_auinotebook_allow_dnd | command_auinotebook_begin_drag | command_auinotebook_bg_dclick | command_auinotebook_button | command_auinotebook_drag_done | command_auinotebook_drag_motion | command_auinotebook_end_drag | command_auinotebook_page_changed | command_auinotebook_page_changing | command_auinotebook_page_close | command_auinotebook_page_closed | command_auinotebook_tab_middle_down | command_auinotebook_tab_middle_up | command_auinotebook_tab_right_down | command_auinotebook_tab_right_up | command_button_clicked | command_checkbox_clicked | command_checklistbox_toggled | command_choice_selected | command_colourpicker_changed | command_combobox_selected | command_dirpicker_changed | command_enter | command_filepicker_changed | command_fontpicker_changed | command_html_link_clicked | command_kill_focus | command_left_click | command_left_dclick | command_list_begin_drag | command_list_begin_label_edit | command_list_begin_rdrag | command_list_cache_hint | command_list_col_begin_drag | command_list_col_click | command_list_col_dragging | command_list_col_end_drag | command_list_col_right_click | command_list_delete_all_items | command_list_delete_item | command_list_end_label_edit | command_list_insert_item | command_list_item_activated | command_list_item_deselected | command_list_item_focused | command_list_item_middle_click | command_list_item_right_click | command_list_item_selected | command_list_key_down | command_listbox_doubleclicked | command_listbox_selected | command_menu_selected | command_notebook_page_changed | command_notebook_page_changing | command_radiobox_selected | command_radiobutton_selected | command_right_click | command_scrollbar_updated | command_set_focus | command_slider_updated | command_spinctrl_updated | command_splitter_doubleclicked | command_splitter_sash_pos_changed | command_splitter_sash_pos_changing | command_splitter_unsplit | command_text_enter | command_text_updated | command_togglebutton_clicked | command_tool_enter | command_tool_rclicked | command_tree_begin_drag | command_tree_begin_label_edit | command_tree_begin_rdrag | command_tree_delete_item | command_tree_end_drag | command_tree_end_label_edit | command_tree_get_info | command_tree_item_activated | command_tree_item_collapsed | command_tree_item_collapsing | command_tree_item_expanded | command_tree_item_expanding | command_tree_item_gettooltip | command_tree_item_menu | command_tree_item_middle_click | command_tree_item_right_click | command_tree_key_down | command_tree_sel_changed | command_tree_sel_changing | command_tree_set_info | command_tree_state_image_click | command_vlbox_selected | context_menu | create | date_changed | destroy | detailed_help | display_changed | end_session | enter_window | erase_background | grid_cell_begin_drag | grid_cell_change | grid_cell_left_click | grid_cell_left_dclick | grid_cell_right_click | grid_cell_right_dclick | grid_col_size | grid_editor_created | grid_editor_hidden | grid_editor_shown | grid_label_left_click | grid_label_left_dclick | grid_label_right_click | grid_label_right_dclick | grid_range_select | grid_row_size | grid_select_cell | help | iconize | idle | joy_button_down | joy_button_up | joy_move | joy_zmove | key_down | key_up | kill_focus | leave_window | left_dclick | left_down | left_up | maximize | menu_close | menu_highlight | menu_open | middle_dclick | middle_down | middle_up | motion | mouse_capture_changed | mousewheel | move | navigation_key | nc_enter_window | nc_leave_window | nc_left_dclick | nc_left_down | nc_left_up | nc_middle_dclick | nc_middle_down | nc_middle_up | nc_motion | nc_paint | nc_right_dclick | nc_right_down | nc_right_up | paint | paint_icon | palette_changed | query_end_session | query_new_palette | right_dclick | right_down | right_up | sash_dragged | scroll_bottom | scroll_changed | scroll_linedown | scroll_lineup | scroll_pagedown | scroll_pageup | scroll_thumbrelease | scroll_thumbtrack | scroll_top | scrollwin_bottom | scrollwin_linedown | scrollwin_lineup | scrollwin_pagedown | scrollwin_pageup | scrollwin_thumbrelease | scrollwin_thumbtrack | scrollwin_top | set_cursor | set_focus | show | size | spin | spin_down | spin_up | stc_autocomp_selection | stc_calltip_click | stc_change | stc_charadded | stc_do_drop | stc_doubleclick | stc_drag_over | stc_dwellend | stc_dwellstart | stc_hotspot_click | stc_hotspot_dclick | stc_key | stc_macrorecord | stc_marginclick | stc_modified | stc_needshown | stc_painted | stc_romodifyattempt | stc_savepointleft | stc_savepointreached | stc_start_drag | stc_styleneeded | stc_updateui | stc_uridropped | stc_userlistselection | stc_zoom | sys_colour_changed | update_ui.
 
-%% Hardcoded Records 
--record(wxMouseState, {x, y,  %% integer() 
-          leftDown, middleDown, rightDown, %% bool() 
+%% Hardcoded Records
+-record(wxMouseState, {x, y,  %% integer()
+          leftDown, middleDown, rightDown, %% bool()
           controlDown, shiftDown, altDown, metaDown, cmdDown %% bool()
         }).
--record(wxHtmlLinkInfo, { 
-          href, target %% string() 
+-record(wxHtmlLinkInfo, {
+          href, target %% string()
         }).
 
-%% Hardcoded Defines 
+%% Hardcoded Defines
 -define(wxDefaultSize, {-1,-1}).
 -define(wxDefaultPosition, {-1,-1}).
 
-%% Global Variables 
+%% Global Variables
 -define(wxBLACK,  wxe_util:get_const(wxBLACK)).
 -define(wxBLACK_BRUSH,  wxe_util:get_const(wxBLACK_BRUSH)).
 -define(wxBLACK_DASHED_PEN,  wxe_util:get_const(wxBLACK_DASHED_PEN)).
@@ -324,8 +324,8 @@
 -define(wxWHITE_BRUSH,  wxe_util:get_const(wxWHITE_BRUSH)).
 -define(wxWHITE_PEN,  wxe_util:get_const(wxWHITE_PEN)).
 
-%% Enum and defines 
-% From define::From bookctrl.h 
+%% Enum and defines
+% From define::From bookctrl.h
 -define(wxEVT_COMMAND_BOOKCTRL_PAGE_CHANGING, ?wxEVT_COMMAND_NOTEBOOK_PAGE_CHANGING).
 -define(wxEVT_COMMAND_BOOKCTRL_PAGE_CHANGED, ?wxEVT_COMMAND_NOTEBOOK_PAGE_CHANGED).
 -define(wxBK_ALIGN_MASK, (?wxBK_TOP bor ?wxBK_BOTTOM bor ?wxBK_LEFT bor ?wxBK_RIGHT)).
@@ -334,7 +334,7 @@
 -define(wxBK_BOTTOM, 32).
 -define(wxBK_TOP, 16).
 -define(wxBK_DEFAULT, 0).
-% From define::From button.h 
+% From define::From button.h
 -define(wxBU_EXACTFIT, 1).
 -define(wxBU_AUTODRAW, 4).
 -define(wxBU_NOAUTODRAW, 0).
@@ -343,38 +343,38 @@
 -define(wxBU_RIGHT, 256).
 -define(wxBU_TOP, 128).
 -define(wxBU_LEFT, 64).
-% From define::From checkbox.h 
+% From define::From checkbox.h
 -define(wxCHK_ALLOW_3RD_STATE_FOR_USER, 8192).
 -define(wxCHK_3STATE, 4096).
 -define(wxCHK_2STATE, 0).
-% From define::From choicdgg.h 
+% From define::From choicdgg.h
 -define(wxCHOICEDLG_STYLE, (?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER bor ?wxOK bor ?wxCANCEL bor ?wxCENTRE)).
 -define(wxCHOICE_WIDTH, 200).
 -define(wxCHOICE_HEIGHT, 150).
-% From define::From choicebk.h 
+% From define::From choicebk.h
 -define(wxCHB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
 -define(wxCHB_RIGHT, ?wxBK_RIGHT).
 -define(wxCHB_LEFT, ?wxBK_LEFT).
 -define(wxCHB_BOTTOM, ?wxBK_BOTTOM).
 -define(wxCHB_TOP, ?wxBK_TOP).
 -define(wxCHB_DEFAULT, ?wxBK_DEFAULT).
-% From define::From clrpicker.h 
+% From define::From clrpicker.h
 -define(wxCLRP_DEFAULT_STYLE, 0).
 -define(wxCLRP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
 -define(wxCLRP_SHOW_LABEL, 8).
-% From define::From colour.h 
+% From define::From colour.h
 -define(wxC2S_HTML_SYNTAX, 4).
 -define(wxC2S_CSS_SYNTAX, 2).
 -define(wxC2S_NAME, 1).
-% From define::From confbase.h 
+% From define::From confbase.h
 -define(wxCONFIG_CASE_SENSITIVE, 0).
-% From define::From datetime.h 
+% From define::From datetime.h
 -define(wxInvalidDateTime, ?wxDefaultDateTime).
-% From define::From dcbuffer.h 
+% From define::From dcbuffer.h
 -define(wxBUFFER_CLIENT_AREA, 2).
 -define(wxBUFFER_VIRTUAL_AREA, 1).
 -define(wxALWAYS_NATIVE_DOUBLE_BUFFER, 0).
-% From define::From defs.h 
+% From define::From defs.h
 -define(wxPRINT_QUALITY_DRAFT, -4).
 -define(wxPRINT_QUALITY_LOW, -3).
 -define(wxPRINT_QUALITY_MEDIUM, -2).
@@ -503,21 +503,21 @@
 -define(wxBIG_ENDIAN, 4321).
 -define(wxHAS_INT64, wxe_util:get_const(wxHAS_INT64)).
 -define(wxNOT_FOUND, -1).
-% From define::From dialog.h 
+% From define::From dialog.h
 -define(wxDEFAULT_DIALOG_STYLE, (?wxCAPTION bor ?wxSYSTEM_MENU bor ?wxCLOSE_BOX)).
 -define(wxDIALOG_NO_PARENT, 1).
-% From define::From dirctrlg.h 
+% From define::From dirctrlg.h
 -define(wxID_FILTERLISTCTRL, 7001).
 -define(wxID_TREECTRL, 7000).
-% From define::From dirdlg.h 
+% From define::From dirdlg.h
 -define(wxDD_DEFAULT_STYLE, (?wxDEFAULT_DIALOG_STYLE bor ?wxRESIZE_BORDER)).
 -define(wxDD_NEW_DIR_BUTTON, 0).
 -define(wxDD_DIR_MUST_EXIST, 512).
 -define(wxDD_CHANGE_DIR, 256).
-% From define::From dirdlgg.h 
-% From define::From filedlg.h 
+% From define::From dirdlgg.h
+% From define::From filedlg.h
 -define(wxFD_DEFAULT_STYLE, ?wxFD_OPEN).
-% From define::From filepicker.h 
+% From define::From filepicker.h
 -define(wxDIRP_DEFAULT_STYLE, ?wxDIRP_DIR_MUST_EXIST).
 -define(wxDIRP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
 -define(wxFLP_DEFAULT_STYLE, (?wxFLP_OPEN bor ?wxFLP_FILE_MUST_EXIST)).
@@ -529,30 +529,30 @@
 -define(wxFLP_OVERWRITE_PROMPT, 4096).
 -define(wxFLP_SAVE, 2048).
 -define(wxFLP_OPEN, 1024).
-% From define::From fontpicker.h 
+% From define::From fontpicker.h
 -define(wxFNTP_MAXPOINT_SIZE, 100).
 -define(wxFNTP_DEFAULT_STYLE, (?wxFNTP_FONTDESC_AS_LABEL bor ?wxFNTP_USEFONT_FOR_LABEL)).
 -define(wxFNTP_USE_TEXTCTRL, ?wxPB_USE_TEXTCTRL).
 -define(wxFNTP_USEFONT_FOR_LABEL, 16).
 -define(wxFNTP_FONTDESC_AS_LABEL, 8).
-% From define::From frame.h 
+% From define::From frame.h
 -define(wxFRAME_SHAPED, 16).
 -define(wxFRAME_FLOAT_ON_PARENT, 8).
 -define(wxFRAME_TOOL_WINDOW, 4).
 -define(wxFRAME_NO_TASKBAR, 2).
-% From define::From gauge.h 
+% From define::From gauge.h
 -define(wxGAUGE_EMULATE_INDETERMINATE_MODE, 1).
 -define(wxGA_SMOOTH, 32).
 -define(wxGA_VERTICAL, ?wxVERTICAL).
 -define(wxGA_HORIZONTAL, ?wxHORIZONTAL).
-% From define::From gdicmn.h 
+% From define::From gdicmn.h
 -define(wxGetDisplayDepth, ?wxDisplayDepth).
-% From define::From generic_2laywin.h 
+% From define::From generic_2laywin.h
 -define(wxLAYOUT_QUERY, 256).
 -define(wxLAYOUT_MRU_LENGTH, 16).
 -define(wxLAYOUT_LENGTH_X, 0).
 -define(wxLAYOUT_LENGTH_Y, 8).
-% From define::From generic_2sashwin.h 
+% From define::From generic_2sashwin.h
 -define(wxSW_3D, (?wxSW_3DSASH bor ?wxSW_3DBORDER)).
 -define(wxSW_3DBORDER, 128).
 -define(wxSW_3DSASH, 64).
@@ -561,27 +561,27 @@
 -define(wxSASH_DRAG_LEFT_DOWN, 2).
 -define(wxSASH_DRAG_DRAGGING, 1).
 -define(wxSASH_DRAG_NONE, 0).
-% From define::From generic_2splash.h 
+% From define::From generic_2splash.h
 -define(wxSPLASH_NO_TIMEOUT, 0).
 -define(wxSPLASH_TIMEOUT, 4).
 -define(wxSPLASH_NO_CENTRE, 0).
 -define(wxSPLASH_CENTRE_ON_SCREEN, 2).
 -define(wxSPLASH_CENTRE_ON_PARENT, 1).
-% From define::From hash.h 
+% From define::From hash.h
 -define(wxHASH_SIZE_DEFAULT, 1000).
-% From define::From htmlwin.h 
+% From define::From htmlwin.h
 -define(wxHW_DEFAULT_STYLE, ?wxHW_SCROLLBAR_AUTO).
 -define(wxHW_NO_SELECTION, 8).
 -define(wxHW_SCROLLBAR_AUTO, 4).
 -define(wxHW_SCROLLBAR_NEVER, 2).
-% From define::From imaglist.h 
+% From define::From imaglist.h
 -define(wxIMAGELIST_DRAW_FOCUSED, 8).
 -define(wxIMAGELIST_DRAW_SELECTED, 4).
 -define(wxIMAGELIST_DRAW_TRANSPARENT, 2).
 -define(wxIMAGELIST_DRAW_NORMAL, 1).
-% From define::From layout.h 
+% From define::From layout.h
 -define(wxLAYOUT_DEFAULT_MARGIN, 0).
-% From define::From listbase.h 
+% From define::From listbase.h
 -define(wxLIST_HITTEST_ONITEM, (?wxLIST_HITTEST_ONITEMICON bor ?wxLIST_HITTEST_ONITEMLABEL bor ?wxLIST_HITTEST_ONITEMSTATEICON)).
 -define(wxLIST_HITTEST_TORIGHT, 2048).
 -define(wxLIST_HITTEST_TOLEFT, 1024).
@@ -629,20 +629,20 @@
 -define(wxLC_ICON, 4).
 -define(wxLC_HRULES, 2).
 -define(wxLC_VRULES, 1).
-% From define::From listbook.h 
+% From define::From listbook.h
 -define(wxLB_ALIGN_MASK, ?wxBK_ALIGN_MASK).
 -define(wxLB_RIGHT, ?wxBK_RIGHT).
 -define(wxLB_LEFT, ?wxBK_LEFT).
 -define(wxLB_BOTTOM, ?wxBK_BOTTOM).
 -define(wxLB_TOP, ?wxBK_TOP).
 -define(wxLB_DEFAULT, ?wxBK_DEFAULT).
-% From define::From log.h 
+% From define::From log.h
 -define(wxTRACE_OleCalls, ?wxEmptyString).
 -define(wxTraceRefCount, 8).
 -define(wxTraceResAlloc, 4).
 -define(wxTraceMessages, 2).
 -define(wxTraceMemAlloc, 1).
-% From define::From notebook.h 
+% From define::From notebook.h
 -define(wxNB_FLAT, 2048).
 -define(wxNB_NOPAGETHEME, 1024).
 -define(wxNB_MULTILINE, 512).
@@ -652,9 +652,9 @@
 -define(wxNB_BOTTOM, ?wxBK_BOTTOM).
 -define(wxNB_TOP, ?wxBK_TOP).
 -define(wxNB_DEFAULT, ?wxBK_DEFAULT).
-% From define::From pickerbase.h 
+% From define::From pickerbase.h
 -define(wxPB_USE_TEXTCTRL, 2).
-% From define::From prntbase.h 
+% From define::From prntbase.h
 -define(wxID_PREVIEW_GOTO, 8).
 -define(wxID_PREVIEW_LAST, 7).
 -define(wxID_PREVIEW_FIRST, 6).
@@ -671,7 +671,7 @@
 -define(wxPREVIEW_NEXT, 4).
 -define(wxPREVIEW_PREVIOUS, 2).
 -define(wxPREVIEW_PRINT, 1).
-% From define::From progdlg.h 
+% From define::From progdlg.h
 -define(wxPD_CAN_SKIP, 128).
 -define(wxPD_REMAINING_TIME, 64).
 -define(wxPD_SMOOTH, 32).
@@ -680,9 +680,9 @@
 -define(wxPD_AUTO_HIDE, 4).
 -define(wxPD_APP_MODAL, 2).
 -define(wxPD_CAN_ABORT, 1).
-% From define::From scrolwin.h 
+% From define::From scrolwin.h
 -define(wxScrolledWindowStyle, (?wxHSCROLL bor ?wxVSCROLL)).
-% From define::From slider.h 
+% From define::From slider.h
 -define(wxSL_INVERSE, 4096).
 -define(wxSL_SELRANGE, 2048).
 -define(wxSL_BOTH, 1024).
@@ -695,7 +695,7 @@
 -define(wxSL_TICKS, 16).
 -define(wxSL_VERTICAL, ?wxVERTICAL).
 -define(wxSL_HORIZONTAL, ?wxHORIZONTAL).
-% From define::From splitter.h 
+% From define::From splitter.h
 -define(wxSP_3D, (?wxSP_3DBORDER bor ?wxSP_3DSASH)).
 -define(wxSP_BORDER, ?wxSP_3DBORDER).
 -define(wxSP_NO_XP_THEME, 1024).
@@ -705,11 +705,11 @@
 -define(wxSP_PERMIT_UNSPLIT, 64).
 -define(wxSP_NOSASH, 16).
 -define(wxSP_NOBORDER, 0).
-% From define::From statusbr.h 
+% From define::From statusbr.h
 -define(wxSB_RAISED, 2).
 -define(wxSB_FLAT, 1).
 -define(wxSB_NORMAL, 0).
-% From define::From stc.h 
+% From define::From stc.h
 -define(wxSTC_CMD_WORDRIGHTENDEXTEND, 2442).
 -define(wxSTC_CMD_WORDRIGHTEND, 2441).
 -define(wxSTC_CMD_WORDLEFTENDEXTEND, 2440).
@@ -2045,7 +2045,7 @@
 -define(wxSTC_START, 2000).
 -define(wxSTC_INVALID_POSITION, -1).
 -define(wxSTC_USE_POPUP, 1).
-% From define::From textctrl.h 
+% From define::From textctrl.h
 -define(wxTEXT_ATTR_TABS, 1024).
 -define(wxTEXT_ATTR_RIGHT_INDENT, 512).
 -define(wxTEXT_ATTR_LEFT_INDENT, 256).
@@ -2080,11 +2080,11 @@
 -define(wxTE_AUTO_SCROLL, 8).
 -define(wxTE_NO_VSCROLL, 2).
 -define(wxHAS_TEXT_WINDOW_STREAM, 0).
-% From define::From textdlgg.h 
+% From define::From textdlgg.h
 -define(wxTextEntryDialogStyle, (?wxOK bor ?wxCANCEL bor ?wxCENTRE bor ?wxWS_EX_VALIDATE_RECURSIVELY)).
-% From define::From toolbook.h 
+% From define::From toolbook.h
 -define(wxBK_BUTTONBAR, 256).
-% From define::From toplevel.h 
+% From define::From toplevel.h
 -define(wxTOPLEVEL_EX_DIALOG, 8).
 -define(wxDEFAULT_FRAME_STYLE, (?wxSYSTEM_MENU bor ?wxRESIZE_BORDER bor ?wxMINIMIZE_BOX bor ?wxMAXIMIZE_BOX bor ?wxCLOSE_BOX bor ?wxCAPTION bor ?wxCLIP_CHILDREN)).
 -define(wxRESIZE_BORDER, 64).
@@ -2098,7 +2098,7 @@
 -define(wxMINIMIZE, ?wxICONIZE).
 -define(wxICONIZE, 16384).
 -define(wxSTAY_ON_TOP, 32768).
-% From define::From treebase.h 
+% From define::From treebase.h
 -define(wxTR_DEFAULT_STYLE, (?wxTR_HAS_BUTTONS bor ?wxTR_LINES_AT_ROOT)).
 -define(wxTR_FULL_ROW_HIGHLIGHT, 8192).
 -define(wxTR_HIDE_ROOT, 2048).
@@ -2113,7 +2113,7 @@
 -define(wxTR_NO_LINES, 4).
 -define(wxTR_HAS_BUTTONS, 1).
 -define(wxTR_NO_BUTTONS, 0).
-% From define::From valtext.h 
+% From define::From valtext.h
 -define(wxFILTER_EXCLUDE_CHAR_LIST, 128).
 -define(wxFILTER_INCLUDE_CHAR_LIST, 64).
 -define(wxFILTER_EXCLUDE_LIST, 32).
@@ -2123,20 +2123,20 @@
 -define(wxFILTER_ALPHA, 2).
 -define(wxFILTER_ASCII, 1).
 -define(wxFILTER_NONE, 0).
-% From define::From version.h 
+% From define::From version.h
 -define(wxBETA_NUMBER, wxe_util:get_const(wxBETA_NUMBER)).
 -define(wxSUBRELEASE_NUMBER, wxe_util:get_const(wxSUBRELEASE_NUMBER)).
 -define(wxRELEASE_NUMBER, wxe_util:get_const(wxRELEASE_NUMBER)).
 -define(wxMINOR_VERSION, wxe_util:get_const(wxMINOR_VERSION)).
 -define(wxMAJOR_VERSION, wxe_util:get_const(wxMAJOR_VERSION)).
-% From class wxAuiManager 
+% From class wxAuiManager
 -define(wxAuiManager_actionNone, 0).
 -define(wxAuiManager_actionResize, 1).
 -define(wxAuiManager_actionClickButton, 2).
 -define(wxAuiManager_actionClickCaption, 3).
 -define(wxAuiManager_actionDragToolbarPane, 4).
 -define(wxAuiManager_actionDragFloatingPane, 5).
-% From wxAuiPaneInfo::wxAuiPaneState 
+% From wxAuiPaneInfo::wxAuiPaneState
 -define(wxAuiPaneInfo_optionFloating, 1).
 -define(wxAuiPaneInfo_optionHidden, 2).
 -define(wxAuiPaneInfo_optionLeftDockable, 4).
@@ -2164,15 +2164,15 @@
 -define(wxAuiPaneInfo_buttonCustom3, 268435456).
 -define(wxAuiPaneInfo_savedHiddenState, 1073741824).
 -define(wxAuiPaneInfo_actionPane, 2147483648).
-% From wxBitmap::Representation 
+% From wxBitmap::Representation
 -define(wxBitmap_Pixmap, 0).
 -define(wxBitmap_Pixbuf, 1).
-% From class wxChoicebook 
+% From class wxChoicebook
 -define(wxChoicebook_SetSelection_SendEvent, 1).
-% From wxDateTime::Calendar 
+% From wxDateTime::Calendar
 -define(wxDateTime_Gregorian, 0).
 -define(wxDateTime_Julian, 1).
-% From wxDateTime::Country 
+% From wxDateTime::Country
 -define(wxDateTime_Country_Unknown, 0).
 -define(wxDateTime_Country_Default, 1).
 -define(wxDateTime_Country_WesternEurope_Start, 2).
@@ -2183,7 +2183,7 @@
 -define(wxDateTime_Country_WesternEurope_End, ?UK).
 -define(wxDateTime_Russia, (?UK+1)).
 -define(wxDateTime_USA, (?UK+2)).
-% From wxDateTime::GregorianAdoption 
+% From wxDateTime::GregorianAdoption
 -define(wxDateTime_Gr_Unknown, 0).
 -define(wxDateTime_Gr_Standard, 1).
 -define(wxDateTime_Gr_Alaska, 2).
@@ -2248,7 +2248,7 @@
 -define(wxDateTime_Gr_USA, ?Gr_GreatBritain).
 -define(wxDateTime_Gr_Wales, ?Gr_GreatBritain).
 -define(wxDateTime_Gr_Yugoslavia, (?Gr_GreatBritain+1)).
-% From wxDateTime::Month 
+% From wxDateTime::Month
 -define(wxDateTime_Jan, 0).
 -define(wxDateTime_Feb, 1).
 -define(wxDateTime_Mar, 2).
@@ -2262,10 +2262,10 @@
 -define(wxDateTime_Nov, 10).
 -define(wxDateTime_Dec, 11).
 -define(wxDateTime_Inv_Month, 12).
-% From wxDateTime::NameFlags 
+% From wxDateTime::NameFlags
 -define(wxDateTime_Name_Full, 1).
 -define(wxDateTime_Name_Abbr, 2).
-% From wxDateTime::TZ 
+% From wxDateTime::TZ
 -define(wxDateTime_Local, 0).
 -define(wxDateTime_GMT_12, 1).
 -define(wxDateTime_GMT_11, 2).
@@ -2321,7 +2321,7 @@
 -define(wxDateTime_NZST, ?GMT12).
 -define(wxDateTime_NZDT, ?GMT13).
 -define(wxDateTime_UTC, ?GMT0).
-% From wxDateTime::WeekDay 
+% From wxDateTime::WeekDay
 -define(wxDateTime_Sun, 0).
 -define(wxDateTime_Mon, 1).
 -define(wxDateTime_Tue, 2).
@@ -2330,93 +2330,93 @@
 -define(wxDateTime_Fri, 5).
 -define(wxDateTime_Sat, 6).
 -define(wxDateTime_Inv_WeekDay, 7).
-% From wxDateTime::WeekFlags 
+% From wxDateTime::WeekFlags
 -define(wxDateTime_Default_First, 0).
 -define(wxDateTime_Monday_First, 1).
 -define(wxDateTime_Sunday_First, 2).
-% From wxDateTime::Year 
+% From wxDateTime::Year
 -define(wxDateTime_Inv_Year, ?SHRT_MIN).
-% From class wxDialog 
+% From class wxDialog
 -define(wxDialog_ButtonSizerFlags, (?wxOK bor ?wxCANCEL bor ?wxYES bor ?wxNO bor ?wxHELP bor ?wxNO_DEFAULT)).
-% From class wxGrid 
+% From class wxGrid
 -define(wxGrid_wxGRID_CELLCTRL, 2000).
 -define(wxGrid_wxGRID_TOPCTRL, 2001).
-% From class wxGrid 
+% From class wxGrid
 -define(wxGrid_wxGRID_TEXTCTRL, 2100).
 -define(wxGrid_wxGRID_CHECKBOX, 2101).
 -define(wxGrid_wxGRID_CHOICE, 2102).
 -define(wxGrid_wxGRID_COMBOBOX, 2103).
-% From wxGrid::CursorMode 
+% From wxGrid::CursorMode
 -define(wxGrid_WXGRID_CURSOR_SELECT_CELL, 0).
 -define(wxGrid_WXGRID_CURSOR_RESIZE_ROW, 1).
 -define(wxGrid_WXGRID_CURSOR_RESIZE_COL, 2).
 -define(wxGrid_WXGRID_CURSOR_SELECT_ROW, 3).
 -define(wxGrid_WXGRID_CURSOR_SELECT_COL, 4).
 -define(wxGrid_WXGRID_CURSOR_MOVE_COL, 5).
-% From wxGrid::wxGridSelectionModes 
+% From wxGrid::wxGridSelectionModes
 -define(wxGrid_wxGridSelectCells, 0).
 -define(wxGrid_wxGridSelectRows, 1).
 -define(wxGrid_wxGridSelectColumns, 2).
-% From wxGridCellAttr::wxAttrKind 
+% From wxGridCellAttr::wxAttrKind
 -define(wxGridCellAttr_Any, 0).
 -define(wxGridCellAttr_Default, 1).
 -define(wxGridCellAttr_Cell, 2).
 -define(wxGridCellAttr_Row, 3).
 -define(wxGridCellAttr_Col, 4).
 -define(wxGridCellAttr_Merged, 5).
-% From wxGridCellAttr::wxAttrOverflowMode 
+% From wxGridCellAttr::wxAttrOverflowMode
 -define(wxGridCellAttr_UnsetOverflow, -1).
 -define(wxGridCellAttr_Overflow, 0).
 -define(wxGridCellAttr_SingleCell, 1).
-% From wxGridCellAttr::wxAttrReadMode 
+% From wxGridCellAttr::wxAttrReadMode
 -define(wxGridCellAttr_Unset, -1).
 -define(wxGridCellAttr_ReadWrite, 0).
 -define(wxGridCellAttr_ReadOnly, 1).
-% From wxHelpEvent::Origin 
+% From wxHelpEvent::Origin
 -define(wxHelpEvent_Origin_Unknown, 0).
 -define(wxHelpEvent_Origin_Keyboard, 1).
 -define(wxHelpEvent_Origin_HelpButton, 2).
-% From wxHtmlEasyPrinting::FontMode 
+% From wxHtmlEasyPrinting::FontMode
 -define(wxHtmlEasyPrinting_FontMode_Explicit, 0).
 -define(wxHtmlEasyPrinting_FontMode_Standard, 1).
-% From wxHtmlWindow::ClipboardType 
+% From wxHtmlWindow::ClipboardType
 -define(wxHtmlWindow_Primary, 0).
 -define(wxHtmlWindow_Secondary, 1).
-% From class wxListbook 
+% From class wxListbook
 -define(wxListbook_SetSelection_SendEvent, 1).
-% From class wxNavigationKeyEvent 
+% From class wxNavigationKeyEvent
 -define(wxNavigationKeyEvent_IsBackward, 0).
 -define(wxNavigationKeyEvent_IsForward, 1).
 -define(wxNavigationKeyEvent_WinChange, 2).
 -define(wxNavigationKeyEvent_FromTab, 4).
-% From class wxNotebook 
+% From class wxNotebook
 -define(wxNotebook_SetSelection_SendEvent, 1).
-% From class wxProgressDialog 
+% From class wxProgressDialog
 -define(wxProgressDialog_Uncancelable, -1).
 -define(wxProgressDialog_Canceled, 0).
 -define(wxProgressDialog_Continue, 1).
 -define(wxProgressDialog_Finished, 2).
-% From class wxSizerItem 
+% From class wxSizerItem
 -define(wxSizerItem_Item_None, 0).
 -define(wxSizerItem_Item_Window, 1).
 -define(wxSizerItem_Item_Sizer, 2).
 -define(wxSizerItem_Item_Spacer, 3).
 -define(wxSizerItem_Item_Max, 4).
-% From class wxTextCtrl 
+% From class wxTextCtrl
 -define(wxTextCtrl_SetValue_SendEvent, 1).
 -define(wxTextCtrl_SetValue_SelectionOnly, 2).
-% From class wxToolbook 
+% From class wxToolbook
 -define(wxToolbook_SetSelection_SendEvent, 1).
-% From class wxTreebook 
+% From class wxTreebook
 -define(wxTreebook_SetSelection_SendEvent, 1).
-% From wxWindow::MoveKind 
+% From wxWindow::MoveKind
 -define(wxWindow_MoveBefore, 0).
 -define(wxWindow_MoveAfter, 1).
-% From wxWindowGTK::ScrollDir 
+% From wxWindowGTK::ScrollDir
 -define(wxWindowGTK_ScrollDir_Horz, 0).
 -define(wxWindowGTK_ScrollDir_Vert, 1).
 -define(wxWindowGTK_ScrollDir_Max, 2).
-% From wxWindowGTK::ScrollUnit 
+% From wxWindowGTK::ScrollUnit
 -define(wxWindowGTK_ScrollUnit_Line, 0).
 -define(wxWindowGTK_ScrollUnit_Page, 1).
 -define(wxWindowGTK_ScrollUnit_Max, 2).
@@ -2739,10 +2739,10 @@
 -define(wxMM_ANISOTROPIC, 8).
 -define(wxMM_POINTS, 9).
 -define(wxMM_METRIC, 10).
-% Type Propagation_state 
+% Type Propagation_state
 -define(wxEVENT_PROPAGATE_NONE, 0).
 -define(wxEVENT_PROPAGATE_MAX, ?INT_MAX).
-% Type form_ops_t 
+% Type form_ops_t
 -define(wxCLEAR, 0).
 -define(wxROP_BLACK, ?wxCLEAR).
 -define(wxBLIT_BLACKNESS, ?wxCLEAR).
@@ -2791,7 +2791,7 @@
 -define(wxSET, (?wxOR+1)).
 -define(wxROP_WHITE, ?wxSET).
 -define(wxBLIT_WHITENESS, ?wxSET).
-% Type wxAlignment 
+% Type wxAlignment
 -define(wxALIGN_NOT, 0).
 -define(wxALIGN_CENTER_HORIZONTAL, 256).
 -define(wxALIGN_CENTRE_HORIZONTAL, ?wxALIGN_CENTER_HORIZONTAL).
@@ -2804,7 +2804,7 @@
 -define(wxALIGN_CENTER, (?wxALIGN_CENTER_HORIZONTAL bor ?wxALIGN_CENTER_VERTICAL)).
 -define(wxALIGN_CENTRE, ?wxALIGN_CENTER).
 -define(wxALIGN_MASK, 3840).
-% Type wxAuiButtonId 
+% Type wxAuiButtonId
 -define(wxAUI_BUTTON_CLOSE, 101).
 -define(wxAUI_BUTTON_MAXIMIZE_RESTORE, 102).
 -define(wxAUI_BUTTON_MINIMIZE, 103).
@@ -2818,7 +2818,7 @@
 -define(wxAUI_BUTTON_CUSTOM1, 201).
 -define(wxAUI_BUTTON_CUSTOM2, 202).
 -define(wxAUI_BUTTON_CUSTOM3, 203).
-% Type wxAuiManagerDock 
+% Type wxAuiManagerDock
 -define(wxAUI_DOCK_NONE, 0).
 -define(wxAUI_DOCK_TOP, 1).
 -define(wxAUI_DOCK_RIGHT, 2).
@@ -2826,7 +2826,7 @@
 -define(wxAUI_DOCK_LEFT, 4).
 -define(wxAUI_DOCK_CENTER, 5).
 -define(wxAUI_DOCK_CENTRE, ?wxAUI_DOCK_CENTER).
-% Type wxAuiManagerOption 
+% Type wxAuiManagerOption
 -define(wxAUI_MGR_ALLOW_FLOATING, 1).
 -define(wxAUI_MGR_ALLOW_ACTIVE_PANE, 2).
 -define(wxAUI_MGR_TRANSPARENT_DRAG, 4).
@@ -2837,7 +2837,7 @@
 -define(wxAUI_MGR_NO_VENETIAN_BLINDS_FADE, 128).
 -define(wxAUI_MGR_LIVE_RESIZE, 256).
 -define(wxAUI_MGR_DEFAULT, (?wxAUI_MGR_ALLOW_FLOATING bor ?wxAUI_MGR_TRANSPARENT_HINT bor ?wxAUI_MGR_HINT_FADE bor ?wxAUI_MGR_NO_VENETIAN_BLINDS_FADE)).
-% Type wxAuiNotebookOption 
+% Type wxAuiNotebookOption
 -define(wxAUI_NB_TOP, 1).
 -define(wxAUI_NB_LEFT, 2).
 -define(wxAUI_NB_RIGHT, 4).
@@ -2853,18 +2853,18 @@
 -define(wxAUI_NB_CLOSE_ON_ALL_TABS, 4096).
 -define(wxAUI_NB_MIDDLE_CLICK_CLOSE, 8192).
 -define(wxAUI_NB_DEFAULT_STYLE, (?wxAUI_NB_TOP bor ?wxAUI_NB_TAB_SPLIT bor ?wxAUI_NB_TAB_MOVE bor ?wxAUI_NB_SCROLL_BUTTONS bor ?wxAUI_NB_CLOSE_ON_ACTIVE_TAB bor ?wxAUI_NB_MIDDLE_CLICK_CLOSE)).
-% Type wxAuiPaneButtonState 
+% Type wxAuiPaneButtonState
 -define(wxAUI_BUTTON_STATE_NORMAL, 0).
 -define(wxAUI_BUTTON_STATE_HOVER, 2).
 -define(wxAUI_BUTTON_STATE_PRESSED, 4).
 -define(wxAUI_BUTTON_STATE_DISABLED, 8).
 -define(wxAUI_BUTTON_STATE_HIDDEN, 16).
 -define(wxAUI_BUTTON_STATE_CHECKED, 32).
-% Type wxAuiPaneDockArtGradients 
+% Type wxAuiPaneDockArtGradients
 -define(wxAUI_GRADIENT_NONE, 0).
 -define(wxAUI_GRADIENT_VERTICAL, 1).
 -define(wxAUI_GRADIENT_HORIZONTAL, 2).
-% Type wxAuiPaneDockArtSetting 
+% Type wxAuiPaneDockArtSetting
 -define(wxAUI_DOCKART_SASH_SIZE, 0).
 -define(wxAUI_DOCKART_CAPTION_SIZE, 1).
 -define(wxAUI_DOCKART_GRIPPER_SIZE, 2).
@@ -2882,15 +2882,15 @@
 -define(wxAUI_DOCKART_GRIPPER_COLOUR, 14).
 -define(wxAUI_DOCKART_CAPTION_FONT, 15).
 -define(wxAUI_DOCKART_GRADIENT_TYPE, 16).
-% Type wxAuiPaneInsertLevel 
+% Type wxAuiPaneInsertLevel
 -define(wxAUI_INSERT_PANE, 0).
 -define(wxAUI_INSERT_ROW, 1).
 -define(wxAUI_INSERT_DOCK, 2).
-% Type wxBackgroundStyle 
+% Type wxBackgroundStyle
 -define(wxBG_STYLE_SYSTEM, 0).
 -define(wxBG_STYLE_COLOUR, 1).
 -define(wxBG_STYLE_CUSTOM, 2).
-% Type wxBitmapType 
+% Type wxBitmapType
 -define(wxBITMAP_TYPE_INVALID, 0).
 -define(wxBITMAP_TYPE_BMP, 1).
 -define(wxBITMAP_TYPE_BMP_RESOURCE, 2).
@@ -2925,7 +2925,7 @@
 -define(wxBITMAP_TYPE_MACCURSOR, (?wxBITMAP_TYPE_BMP_RESOURCE+28)).
 -define(wxBITMAP_TYPE_MACCURSOR_RESOURCE, (?wxBITMAP_TYPE_BMP_RESOURCE+29)).
 -define(wxBITMAP_TYPE_ANY, 50).
-% Type wxBorder 
+% Type wxBorder
 -define(wxBORDER_DEFAULT, 0).
 -define(wxBORDER_NONE, 2097152).
 -define(wxBORDER_STATIC, 16777216).
@@ -2935,26 +2935,26 @@
 -define(wxBORDER_DOUBLE, 268435456).
 -define(wxBORDER_THEME, 268435456).
 -define(wxBORDER_MASK, 522190848).
-% Type wxCalendarDateBorder 
+% Type wxCalendarDateBorder
 -define(wxCAL_BORDER_NONE, 0).
 -define(wxCAL_BORDER_SQUARE, 1).
 -define(wxCAL_BORDER_ROUND, 2).
-% Type wxCalendarHitTestResult 
+% Type wxCalendarHitTestResult
 -define(wxCAL_HITTEST_NOWHERE, 0).
 -define(wxCAL_HITTEST_HEADER, 1).
 -define(wxCAL_HITTEST_DAY, 2).
 -define(wxCAL_HITTEST_INCMONTH, 3).
 -define(wxCAL_HITTEST_DECMONTH, 4).
 -define(wxCAL_HITTEST_SURROUNDING_WEEK, 5).
-% Type wxCheckBoxState 
+% Type wxCheckBoxState
 -define(wxCHK_UNCHECKED, 0).
 -define(wxCHK_CHECKED, 1).
 -define(wxCHK_UNDETERMINED, 2).
-% Type wxClientDataType 
+% Type wxClientDataType
 -define(wxClientData_None, 0).
 -define(wxClientData_Object, 1).
 -define(wxClientData_Void, 2).
-% Type wxDataFormatId 
+% Type wxDataFormatId
 -define(wxDF_INVALID, 0).
 -define(wxDF_TEXT, 1).
 -define(wxDF_BITMAP, 2).
@@ -2975,7 +2975,7 @@
 -define(wxDF_PRIVATE, 20).
 -define(wxDF_HTML, 30).
 -define(wxDF_MAX, 31).
-% Type wxDirection 
+% Type wxDirection
 -define(wxLEFT, 16).
 -define(wxRIGHT, 32).
 -define(wxUP, 64).
@@ -2987,18 +2987,18 @@
 -define(wxWEST, ?wxLEFT).
 -define(wxEAST, ?wxRIGHT).
 -define(wxALL, (?wxUP bor ?wxDOWN bor ?wxRIGHT bor ?wxLEFT)).
-% Type wxDragResult 
+% Type wxDragResult
 -define(wxDragError, 0).
 -define(wxDragNone, 1).
 -define(wxDragCopy, 2).
 -define(wxDragMove, 3).
 -define(wxDragLink, 4).
 -define(wxDragCancel, 5).
-% Type wxDuplexMode 
+% Type wxDuplexMode
 -define(wxDUPLEX_SIMPLEX, 0).
 -define(wxDUPLEX_HORIZONTAL, 1).
 -define(wxDUPLEX_VERTICAL, 2).
-% Type wxEdge 
+% Type wxEdge
 -define(wxLeft, 0).
 -define(wxTop, 1).
 -define(wxRight, 2).
@@ -3009,20 +3009,20 @@
 -define(wxCenter, ?wxCentre).
 -define(wxCentreX, (?wxCentre+1)).
 -define(wxCentreY, (?wxCentre+2)).
-% Type wxFindReplaceDialogStyles 
+% Type wxFindReplaceDialogStyles
 -define(wxFR_REPLACEDIALOG, 1).
 -define(wxFR_NOUPDOWN, 2).
 -define(wxFR_NOMATCHCASE, 4).
 -define(wxFR_NOWHOLEWORD, 8).
-% Type wxFindReplaceFlags 
+% Type wxFindReplaceFlags
 -define(wxFR_DOWN, 1).
 -define(wxFR_WHOLEWORD, 2).
 -define(wxFR_MATCHCASE, 4).
-% Type wxFlexSizerGrowMode 
+% Type wxFlexSizerGrowMode
 -define(wxFLEX_GROWMODE_NONE, 0).
 -define(wxFLEX_GROWMODE_SPECIFIED, 1).
 -define(wxFLEX_GROWMODE_ALL, 2).
-% Type wxFontEncoding 
+% Type wxFontEncoding
 -define(wxFONTENCODING_SYSTEM, -1).
 -define(wxFONTENCODING_DEFAULT, 0).
 -define(wxFONTENCODING_ISO8859_1, 1).
@@ -3120,7 +3120,7 @@
 -define(wxFONTENCODING_GB2312, ?wxFONTENCODING_CP936).
 -define(wxFONTENCODING_BIG5, ?wxFONTENCODING_CP950).
 -define(wxFONTENCODING_SHIFT_JIS, ?wxFONTENCODING_CP932).
-% Type wxFontFamily 
+% Type wxFontFamily
 -define(wxFONTFAMILY_DEFAULT, ?wxDEFAULT).
 -define(wxFONTFAMILY_DECORATIVE, ?wxDECORATIVE).
 -define(wxFONTFAMILY_ROMAN, ?wxROMAN).
@@ -3130,20 +3130,20 @@
 -define(wxFONTFAMILY_TELETYPE, ?wxTELETYPE).
 -define(wxFONTFAMILY_MAX, (?wxTELETYPE+1)).
 -define(wxFONTFAMILY_UNKNOWN, ?wxFONTFAMILY_MAX).
-% Type wxFontStyle 
+% Type wxFontStyle
 -define(wxFONTSTYLE_NORMAL, ?wxNORMAL).
 -define(wxFONTSTYLE_ITALIC, ?wxITALIC).
 -define(wxFONTSTYLE_SLANT, ?wxSLANT).
 -define(wxFONTSTYLE_MAX, (?wxSLANT+1)).
-% Type wxFontWeight 
+% Type wxFontWeight
 -define(wxFONTWEIGHT_NORMAL, ?wxNORMAL).
 -define(wxFONTWEIGHT_LIGHT, ?wxLIGHT).
 -define(wxFONTWEIGHT_BOLD, ?wxBOLD).
 -define(wxFONTWEIGHT_MAX, (?wxBOLD+1)).
-% Type wxGeometryCentre 
+% Type wxGeometryCentre
 -define(wxCENTRE, 1).
 -define(wxCENTER, ?wxCENTRE).
-% Type wxHitTest 
+% Type wxHitTest
 -define(wxHT_NOWHERE, 0).
 -define(wxHT_SCROLLBAR_FIRST, ?wxHT_NOWHERE).
 -define(wxHT_SCROLLBAR_ARROW_LINE_1, (?wxHT_NOWHERE+1)).
@@ -3160,20 +3160,20 @@
 -define(wxHT_WINDOW_HORZ_SCROLLBAR, (?wxHT_NOWHERE+12)).
 -define(wxHT_WINDOW_CORNER, (?wxHT_NOWHERE+13)).
 -define(wxHT_MAX, (?wxHT_NOWHERE+14)).
-% Type wxHtmlOpeningStatus 
+% Type wxHtmlOpeningStatus
 -define(wxHTML_OPEN, 0).
 -define(wxHTML_BLOCK, 1).
 -define(wxHTML_REDIRECT, 2).
-% Type wxIdleMode 
+% Type wxIdleMode
 -define(wxIDLE_PROCESS_ALL, 0).
 -define(wxIDLE_PROCESS_SPECIFIED, 1).
-% Type wxItemKind 
+% Type wxItemKind
 -define(wxITEM_SEPARATOR, -1).
 -define(wxITEM_NORMAL, 0).
 -define(wxITEM_CHECK, 1).
 -define(wxITEM_RADIO, 2).
 -define(wxITEM_MAX, 3).
-% Type wxKeyCode 
+% Type wxKeyCode
 -define(WXK_BACK, 8).
 -define(WXK_TAB, 9).
 -define(WXK_RETURN, 13).
@@ -3297,7 +3297,7 @@
 -define(WXK_SPECIAL18, 210).
 -define(WXK_SPECIAL19, 211).
 -define(WXK_SPECIAL20, 212).
-% Type wxKeyModifier 
+% Type wxKeyModifier
 -define(wxMOD_NONE, 0).
 -define(wxMOD_ALT, 1).
 -define(wxMOD_CONTROL, 2).
@@ -3307,46 +3307,46 @@
 -define(wxMOD_WIN, ?wxMOD_META).
 -define(wxMOD_CMD, wxe_util:get_const(wxMOD_CMD)).
 -define(wxMOD_ALL, 65535).
-% Type wxKeyType 
+% Type wxKeyType
 -define(wxKEY_NONE, 0).
 -define(wxKEY_INTEGER, 1).
 -define(wxKEY_STRING, 2).
-% Type wxKillError 
+% Type wxKillError
 -define(wxKILL_OK, 0).
 -define(wxKILL_BAD_SIGNAL, 1).
 -define(wxKILL_ACCESS_DENIED, 2).
 -define(wxKILL_NO_PROCESS, 3).
 -define(wxKILL_ERROR, 4).
-% Type wxKillFlags 
+% Type wxKillFlags
 -define(wxKILL_NOCHILDREN, 0).
 -define(wxKILL_CHILDREN, 1).
-% Type wxLayoutAlignment 
+% Type wxLayoutAlignment
 -define(wxLAYOUT_NONE, 0).
 -define(wxLAYOUT_TOP, 1).
 -define(wxLAYOUT_LEFT, 2).
 -define(wxLAYOUT_RIGHT, 3).
 -define(wxLAYOUT_BOTTOM, 4).
-% Type wxLayoutDirection 
+% Type wxLayoutDirection
 -define(wxLayout_Default, 0).
 -define(wxLayout_LeftToRight, 1).
 -define(wxLayout_RightToLeft, 2).
-% Type wxLayoutOrientation 
+% Type wxLayoutOrientation
 -define(wxLAYOUT_HORIZONTAL, 0).
 -define(wxLAYOUT_VERTICAL, 1).
-% Type wxListColumnFormat 
+% Type wxListColumnFormat
 -define(wxLIST_FORMAT_LEFT, 0).
 -define(wxLIST_FORMAT_RIGHT, 1).
 -define(wxLIST_FORMAT_CENTRE, 2).
 -define(wxLIST_FORMAT_CENTER, ?wxLIST_FORMAT_CENTRE).
-% Type wxNotificationOptions 
+% Type wxNotificationOptions
 -define(wxNOTIFY_NONE, 0).
 -define(wxNOTIFY_ONCE, 1).
 -define(wxNOTIFY_REPEAT, 2).
-% Type wxOrientation 
+% Type wxOrientation
 -define(wxHORIZONTAL, 4).
 -define(wxVERTICAL, 8).
 -define(wxBOTH, (?wxVERTICAL bor ?wxHORIZONTAL)).
-% Type wxPaperSize 
+% Type wxPaperSize
 -define(wxPAPER_NONE, 0).
 -define(wxPAPER_LETTER, 1).
 -define(wxPAPER_LEGAL, 2).
@@ -3464,7 +3464,7 @@
 -define(wxPAPER_PENV_8_ROTATED, 114).
 -define(wxPAPER_PENV_9_ROTATED, 115).
 -define(wxPAPER_PENV_10_ROTATED, 116).
-% Type wxPrintBin 
+% Type wxPrintBin
 -define(wxPRINTBIN_DEFAULT, 0).
 -define(wxPRINTBIN_ONLYONE, 1).
 -define(wxPRINTBIN_LOWER, 2).
@@ -3480,27 +3480,27 @@
 -define(wxPRINTBIN_CASSETTE, 12).
 -define(wxPRINTBIN_FORMSOURCE, 13).
 -define(wxPRINTBIN_USER, 14).
-% Type wxPrintMode 
+% Type wxPrintMode
 -define(wxPRINT_MODE_NONE, 0).
 -define(wxPRINT_MODE_PREVIEW, 1).
 -define(wxPRINT_MODE_FILE, 2).
 -define(wxPRINT_MODE_PRINTER, 3).
 -define(wxPRINT_MODE_STREAM, 4).
-% Type wxPrinterError 
+% Type wxPrinterError
 -define(wxPRINTER_NO_ERROR, 0).
 -define(wxPRINTER_CANCELLED, 1).
 -define(wxPRINTER_ERROR, 2).
-% Type wxRegionContain 
+% Type wxRegionContain
 -define(wxOutRegion, 0).
 -define(wxPartRegion, 1).
 -define(wxInRegion, 2).
-% Type wxRegionOp 
+% Type wxRegionOp
 -define(wxRGN_AND, 0).
 -define(wxRGN_COPY, 1).
 -define(wxRGN_DIFF, 2).
 -define(wxRGN_OR, 3).
 -define(wxRGN_XOR, 4).
-% Type wxRelationship 
+% Type wxRelationship
 -define(wxUnconstrained, 0).
 -define(wxAsIs, 1).
 -define(wxPercentOf, 2).
@@ -3510,19 +3510,19 @@
 -define(wxRightOf, 6).
 -define(wxSameAs, 7).
 -define(wxAbsolute, 8).
-% Type wxSashDragStatus 
+% Type wxSashDragStatus
 -define(wxSASH_STATUS_OK, 0).
 -define(wxSASH_STATUS_OUT_OF_RANGE, 1).
-% Type wxSashEdgePosition 
+% Type wxSashEdgePosition
 -define(wxSASH_TOP, 0).
 -define(wxSASH_RIGHT, 1).
 -define(wxSASH_BOTTOM, 2).
 -define(wxSASH_LEFT, 3).
 -define(wxSASH_NONE, 100).
-% Type wxShutdownFlags 
+% Type wxShutdownFlags
 -define(wxSHUTDOWN_POWEROFF, 0).
 -define(wxSHUTDOWN_REBOOT, 1).
-% Type wxSignal 
+% Type wxSignal
 -define(wxSIGNONE, 0).
 -define(wxSIGHUP, 1).
 -define(wxSIGINT, 2).
@@ -3540,10 +3540,10 @@
 -define(wxSIGPIPE, (?wxSIGABRT+7)).
 -define(wxSIGALRM, (?wxSIGABRT+8)).
 -define(wxSIGTERM, (?wxSIGABRT+9)).
-% Type wxSplitMode 
+% Type wxSplitMode
 -define(wxSPLIT_HORIZONTAL, 1).
 -define(wxSPLIT_VERTICAL, 2).
-% Type wxStockCursor 
+% Type wxStockCursor
 -define(wxCURSOR_NONE, 0).
 -define(wxCURSOR_ARROW, 1).
 -define(wxCURSOR_RIGHT_ARROW, 2).
@@ -3574,7 +3574,7 @@
 -define(wxCURSOR_DEFAULT, 27).
 -define(wxCURSOR_ARROWWAIT, 28).
 -define(wxCURSOR_MAX, 29).
-% Type wxStretch 
+% Type wxStretch
 -define(wxSTRETCH_NOT, 0).
 -define(wxSHRINK, 4096).
 -define(wxGROW, 8192).
@@ -3584,7 +3584,7 @@
 -define(wxRESERVE_SPACE_EVEN_IF_HIDDEN, 2).
 -define(wxTILE, 49152).
 -define(wxADJUST_MINSIZE, 0).
-% Type wxSystemColour 
+% Type wxSystemColour
 -define(wxSYS_COLOUR_SCROLLBAR, 0).
 -define(wxSYS_COLOUR_BACKGROUND, 1).
 -define(wxSYS_COLOUR_DESKTOP, ?wxSYS_COLOUR_BACKGROUND).
@@ -3624,11 +3624,11 @@
 -define(wxSYS_COLOUR_MENUBAR, (?wxSYS_COLOUR_BTNHIGHLIGHT+10)).
 -define(wxSYS_COLOUR_LISTBOXTEXT, (?wxSYS_COLOUR_BTNHIGHLIGHT+11)).
 -define(wxSYS_COLOUR_MAX, (?wxSYS_COLOUR_BTNHIGHLIGHT+12)).
-% Type wxSystemFeature 
+% Type wxSystemFeature
 -define(wxSYS_CAN_DRAW_FRAME_DECORATIONS, 1).
 -define(wxSYS_CAN_ICONIZE_FRAME, 2).
 -define(wxSYS_TABLET_PRESENT, 3).
-% Type wxSystemFont 
+% Type wxSystemFont
 -define(wxSYS_OEM_FIXED_FONT, 10).
 -define(wxSYS_ANSI_FIXED_FONT, 11).
 -define(wxSYS_ANSI_VAR_FONT, 12).
@@ -3638,7 +3638,7 @@
 -define(wxSYS_SYSTEM_FIXED_FONT, 16).
 -define(wxSYS_DEFAULT_GUI_FONT, 17).
 -define(wxSYS_ICONTITLE_FONT, ?wxSYS_DEFAULT_GUI_FONT).
-% Type wxSystemMetric 
+% Type wxSystemMetric
 -define(wxSYS_MOUSE_BUTTONS, 1).
 -define(wxSYS_BORDER_X, 2).
 -define(wxSYS_BORDER_Y, 3).
@@ -3676,49 +3676,49 @@
 -define(wxSYS_PENWINDOWS_PRESENT, 35).
 -define(wxSYS_SHOW_SOUNDS, 36).
 -define(wxSYS_SWAP_BUTTONS, 37).
-% Type wxSystemScreenType 
+% Type wxSystemScreenType
 -define(wxSYS_SCREEN_NONE, 0).
 -define(wxSYS_SCREEN_TINY, 1).
 -define(wxSYS_SCREEN_PDA, 2).
 -define(wxSYS_SCREEN_SMALL, 3).
 -define(wxSYS_SCREEN_DESKTOP, 4).
-% Type wxTextAttrAlignment 
+% Type wxTextAttrAlignment
 -define(wxTEXT_ALIGNMENT_DEFAULT, 0).
 -define(wxTEXT_ALIGNMENT_LEFT, 1).
 -define(wxTEXT_ALIGNMENT_CENTRE, 2).
 -define(wxTEXT_ALIGNMENT_CENTER, ?wxTEXT_ALIGNMENT_CENTRE).
 -define(wxTEXT_ALIGNMENT_RIGHT, (?wxTEXT_ALIGNMENT_CENTRE+1)).
 -define(wxTEXT_ALIGNMENT_JUSTIFIED, (?wxTEXT_ALIGNMENT_CENTRE+2)).
-% Type wxTextCtrlHitTestResult 
+% Type wxTextCtrlHitTestResult
 -define(wxTE_HT_UNKNOWN, -2).
 -define(wxTE_HT_BEFORE, -1).
 -define(wxTE_HT_ON_TEXT, 0).
 -define(wxTE_HT_BELOW, 1).
 -define(wxTE_HT_BEYOND, 2).
-% Type wxToolBarToolStyle 
+% Type wxToolBarToolStyle
 -define(wxTOOL_STYLE_BUTTON, 1).
 -define(wxTOOL_STYLE_SEPARATOR, 2).
 -define(wxTOOL_STYLE_CONTROL, 3).
-% Type wxTreeItemIcon 
+% Type wxTreeItemIcon
 -define(wxTreeItemIcon_Normal, 0).
 -define(wxTreeItemIcon_Selected, 1).
 -define(wxTreeItemIcon_Expanded, 2).
 -define(wxTreeItemIcon_SelectedExpanded, 3).
 -define(wxTreeItemIcon_Max, 4).
-% Type wxUpdateUI 
+% Type wxUpdateUI
 -define(wxUPDATE_UI_NONE, 0).
 -define(wxUPDATE_UI_RECURSE, 1).
 -define(wxUPDATE_UI_FROMIDLE, 2).
-% Type wxUpdateUIMode 
+% Type wxUpdateUIMode
 -define(wxUPDATE_UI_PROCESS_ALL, 0).
 -define(wxUPDATE_UI_PROCESS_SPECIFIED, 1).
-% Type wxWindowVariant 
+% Type wxWindowVariant
 -define(wxWINDOW_VARIANT_NORMAL, 0).
 -define(wxWINDOW_VARIANT_SMALL, 1).
 -define(wxWINDOW_VARIANT_MINI, 2).
 -define(wxWINDOW_VARIANT_LARGE, 3).
 -define(wxWINDOW_VARIANT_MAX, 4).
-% Type wxXmlResourceFlags 
+% Type wxXmlResourceFlags
 -define(wxXRC_USE_LOCALE, 1).
 -define(wxXRC_NO_SUBCLASSING, 2).
 -define(wxXRC_NO_RELOADING, 4).

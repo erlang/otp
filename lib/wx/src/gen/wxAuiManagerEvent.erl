@@ -22,7 +22,7 @@
 %% <dd><em>aui_pane_button</em>, <em>aui_pane_close</em>, <em>aui_pane_maximize</em>, <em>aui_pane_restore</em>, <em>aui_render</em>, <em>aui_find_manager</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxAuiManager(). #wxAuiManager{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxAuiManagerEvent().  An object reference, The representation is internal
@@ -142,7 +142,7 @@ canVeto(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxAuiManagerEvent_CanVeto,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

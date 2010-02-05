@@ -201,7 +201,7 @@ setQuality(#wx_ref{type=ThisT,ref=ThisRef},Quality)
 
 %% @spec (This::wxPrintData()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintData),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.

@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html">wxGraphicsContext</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxGraphicsObject}
 %% </p>
 %% @type wxGraphicsContext().  An object reference, The representation is internal
@@ -256,7 +256,7 @@ drawText(#wx_ref{type=ThisT,ref=ThisRef},Str,X,Y)
 
 %% @spec (This::wxGraphicsContext(),Str::string(),X::float(),Y::float(),X::float()|term()) -> ok
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxgraphicscontext.html#wxgraphicscontextdrawtext">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% drawText(This::wxGraphicsContext(), Str::string(), X::float(), Y::float(), Angle::float()) -> ok </c>
 %% </p>
@@ -454,7 +454,7 @@ strokeLines(#wx_ref{type=ThisT,ref=ThisRef},N,{BeginPointsX,BeginPointsY},{EndPo
   wxe_util:cast(?wxGraphicsContext_StrokeLines_3,
   <<ThisRef:32/?UI,N:32/?UI,BeginPointsX:64/float,BeginPointsY:64/float,EndPointsX:64/float,EndPointsY:64/float>>).
 
- %% From wxGraphicsObject 
+ %% From wxGraphicsObject
 %% @hidden
 isNull(This) -> wxGraphicsObject:isNull(This).
 %% @hidden

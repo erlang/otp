@@ -22,7 +22,7 @@
 %% <dd><em>iconize</em></dd></dl>
 %% See also the message variant {@link wxEvtHandler:wxIconize(). #wxIconize{}} event record type.
 %%
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxEvent}
 %% </p>
 %% @type wxIconizeEvent().  An object reference, The representation is internal
@@ -48,7 +48,7 @@ iconized(#wx_ref{type=ThisT,ref=ThisRef}) ->
   wxe_util:call(?wxIconizeEvent_Iconized,
   <<ThisRef:32/?UI>>).
 
- %% From wxEvent 
+ %% From wxEvent
 %% @hidden
 stopPropagation(This) -> wxEvent:stopPropagation(This).
 %% @hidden

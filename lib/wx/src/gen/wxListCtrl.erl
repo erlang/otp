@@ -18,7 +18,7 @@
 %% This file is generated DO NOT EDIT
 
 %% @doc See external documentation: <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html">wxListCtrl</a>.
-%% <p>This class is derived (and can use functions) from: 
+%% <p>This class is derived (and can use functions) from:
 %% <br />{@link wxControl}
 %% <br />{@link wxWindow}
 %% <br />{@link wxEvtHandler}
@@ -32,16 +32,17 @@
 -export([ sortItems/2 ,arrange/1,arrange/2,assignImageList/3,clearAll/1,create/2,
   create/3,deleteAllItems/1,deleteColumn/2,deleteItem/2,destroy/1,editLabel/2,
   ensureVisible/2,findItem/3,findItem/4,getColumn/3,getColumnCount/1,
-  getColumnWidth/2,getCountPerPage/1,getImageList/2,getItem/2,getItemBackgroundColour/2,
-  getItemCount/1,getItemData/2,getItemFont/2,getItemPosition/3,getItemRect/3,
-  getItemRect/4,getItemSpacing/1,getItemState/3,getItemText/2,getItemTextColour/2,
-  getNextItem/2,getNextItem/3,getSelectedItemCount/1,getTextColour/1,
-  getTopItem/1,getViewRect/1,hitTest/2,insertColumn/3,insertColumn/4,
-  insertItem/2,insertItem/3,insertItem/4,new/0,new/1,new/2,refreshItem/2,
-  refreshItems/3,scrollList/3,setBackgroundColour/2,setColumn/3,setColumnWidth/3,
-  setImageList/3,setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,
-  setItemColumnImage/4,setItemCount/2,setItemData/3,setItemFont/3,setItemImage/3,
-  setItemImage/4,setItemPosition/3,setItemState/4,setItemText/3,setItemTextColour/3,
+  getColumnWidth/2,getCountPerPage/1,getEditControl/1,getImageList/2,
+  getItem/2,getItemBackgroundColour/2,getItemCount/1,getItemData/2,
+  getItemFont/2,getItemPosition/3,getItemRect/3,getItemRect/4,getItemSpacing/1,
+  getItemState/3,getItemText/2,getItemTextColour/2,getNextItem/2,getNextItem/3,
+  getSelectedItemCount/1,getTextColour/1,getTopItem/1,getViewRect/1,
+  hitTest/2,insertColumn/3,insertColumn/4,insertItem/2,insertItem/3,
+  insertItem/4,new/0,new/1,new/2,refreshItem/2,refreshItems/3,scrollList/3,
+  setBackgroundColour/2,setColumn/3,setColumnWidth/3,setImageList/3,
+  setItem/2,setItem/4,setItem/5,setItemBackgroundColour/3,setItemColumnImage/4,
+  setItemCount/2,setItemData/3,setItemFont/3,setItemImage/3,setItemImage/4,
+  setItemPosition/3,setItemState/4,setItemText/3,setItemTextColour/3,
   setSingleStyle/2,setSingleStyle/3,setTextColour/2,setWindowStyleFlag/2]).
 
 %% inherited exports
@@ -220,7 +221,7 @@ findItem(This,Start,Str)
 
 %% @spec (This::wxListCtrl(),Start::integer(),X::string()|term(),X::term()|integer()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlfinditem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% findItem(This::wxListCtrl(), Start::integer(), Str::string(), [Option]) -> integer() </c>
 %%<br /> Option = {partial, bool()}
@@ -272,6 +273,13 @@ getColumnWidth(#wx_ref{type=ThisT,ref=ThisRef},Col)
 getCountPerPage(#wx_ref{type=ThisT,ref=ThisRef}) ->
   ?CLASS(ThisT,wxListCtrl),
   wxe_util:call(?wxListCtrl_GetCountPerPage,
+  <<ThisRef:32/?UI>>).
+
+%% @spec (This::wxListCtrl()) -> wxTextCtrl:wxTextCtrl()
+%% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlgeteditcontrol">external documentation</a>.
+getEditControl(#wx_ref{type=ThisT,ref=ThisRef}) ->
+  ?CLASS(ThisT,wxListCtrl),
+  wxe_util:call(?wxListCtrl_GetEditControl,
   <<ThisRef:32/?UI>>).
 
 %% @spec (This::wxListCtrl(), Which::integer()) -> wxImageList:wxImageList()
@@ -435,7 +443,7 @@ hitTest(#wx_ref{type=ThisT,ref=ThisRef},{PointX,PointY})
 
 %% @spec (This::wxListCtrl(),Col::integer(),X::string()|term()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertcolumn">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insertColumn(This::wxListCtrl(), Col::integer(), Heading::string()) -> insertColumn(This,Col,Heading, []) </c></p>
 %% <p><c>
@@ -476,7 +484,7 @@ insertItem(#wx_ref{type=ThisT,ref=ThisRef},#wx_ref{type=InfoT,ref=InfoRef}) ->
 
 %% @spec (This::wxListCtrl(),Index::integer(),X::integer()|string()) -> integer()
 %% @doc See <a href="http://www.wxwidgets.org/manuals/stable/wx_wxlistctrl.html#wxlistctrlinsertitem">external documentation</a>.
-%% <br /> Alternatives: 
+%% <br /> Alternatives:
 %% <p><c>
 %% insertItem(This::wxListCtrl(), Index::integer(), ImageIndex::integer()) -> integer() </c>
 %% </p>
@@ -735,16 +743,16 @@ sortItems(#wx_ref{type=ThisT,ref=ThisRef}, SortCallBack)
 	wxe_util:call(?wxListCtrl_SortItems, <<ThisRef:32/?UI,SortId:32/?UI>>).
 %% @spec (This::wxListCtrl()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxListCtrl),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
- %% From wxControl 
+ %% From wxControl
 %% @hidden
 setLabel(This,Label) -> wxControl:setLabel(This,Label).
 %% @hidden
 getLabel(This) -> wxControl:getLabel(This).
- %% From wxWindow 
+ %% From wxWindow
 %% @hidden
 warpPointer(This,X,Y) -> wxWindow:warpPointer(This,X,Y).
 %% @hidden
@@ -1087,7 +1095,7 @@ center(This) -> wxWindow:center(This).
 captureMouse(This) -> wxWindow:captureMouse(This).
 %% @hidden
 cacheBestSize(This,Size) -> wxWindow:cacheBestSize(This,Size).
- %% From wxEvtHandler 
+ %% From wxEvtHandler
 %% @hidden
 disconnect(This,EventType, Options) -> wxEvtHandler:disconnect(This,EventType, Options).
 %% @hidden

@@ -38,7 +38,7 @@
 gen(Defs) ->   
     open_write("../c_src/gen/wxe_derived_dest.h"),
     c_copyright(),
-    w("~n/***** This file is generated do not edit ****/ ~n~n", []),
+    w("~n/***** This file is generated do not edit ****/~n~n", []),
     gen_derived_dest(Defs),
     close(),
 
@@ -91,16 +91,16 @@ gen_derived_dest_2(C=#class{name=Class}) ->
     case is_derived(C) of
 	true -> 
 	    ?WTC("gen_derived_dest_2"),
-	    w("class E~s : public ~s { ~n",[Class,Class]),
+	    w("class E~s : public ~s {~n",[Class,Class]),
 	    case Class of
 		"wxGLCanvas" ->  %% Special for cleaning up gl context
 		    w(" public: ~~E~s() {deleteActiveGL(this);"
-		      "((WxeApp *)wxTheApp)->clearPtr(this);}; ~n", [Class]);
+		      "((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class]);
 		_ ->
-		    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);}; ~n", [Class])
+		    w(" public: ~~E~s() {((WxeApp *)wxTheApp)->clearPtr(this);};~n", [Class])
 	    end,
 	    gen_constructors(C),
-	    w("}; ~n~n", []);
+	    w("};~n~n", []);
 	false ->
 	    ignore
     end.
@@ -147,7 +147,7 @@ gen_type({merged, _, _T1,_, _, T2,_}, 2) ->
     gen_type(T2,error).
 
 gen_funcs(Defs) ->
-    w("~n/***** This file is generated do not edit ****/ ~n~n"),
+    w("~n/***** This file is generated do not edit ****/~n~n"),
     w("#include <wx/wx.h>~n"),
     w("#include \"../wxe_impl.h\"~n"),
     w("#include \"../wxe_events.h\"~n"),
@@ -156,21 +156,21 @@ gen_funcs(Defs) ->
     w("#include \"wxe_derived_dest.h\"~n~n"),
 
     w("void WxeApp::wxe_dispatch(wxeCommand& Ecmd)~n{~n"),
-    w(" char * bp = Ecmd.buffer; ~n"),
+    w(" char * bp = Ecmd.buffer;~n"),
     w(" wxeMemEnv *memenv = getMemEnv(Ecmd.port);~n"),
 %%    w(" wxMBConvUTF32 UTFconverter;~n"),
     w("  wxeReturn rt = wxeReturn(WXE_DRV_PORT, Ecmd.caller, true);~n"),
-    w(" try { ~n"),
-    w(" switch (Ecmd.op) ~n{~n"),
-%%     w("  case WXE_CREATE_PORT: ~n", []),
-%%     w("   { newMemEnv(Ecmd.port); } break; ~n", []),
-%%     w("  case WXE_REMOVE_PORT: ~n", []),
-%%     w("   { destroyMemEnv(Ecmd.port); } break; ~n", []),
-    w("  case DESTROY_OBJECT: { ~n"),
+    w(" try {~n"),
+    w(" switch (Ecmd.op)~n{~n"),
+%%     w("  case WXE_CREATE_PORT:~n", []),
+%%     w("   { newMemEnv(Ecmd.port); } break;~n", []),
+%%     w("  case WXE_REMOVE_PORT:~n", []),
+%%     w("   { destroyMemEnv(Ecmd.port); } break;~n", []),
+    w("  case DESTROY_OBJECT: {~n"),
     w("     wxObject *This = (wxObject *) getPtr(bp,memenv); "),   
     w("     if(This) {"),
     w("       ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n"),
-    w("       delete This; }~n  } break; ~n"),
+    w("       delete This; }~n  } break;~n"),
     w("  case WXE_REGISTER_OBJECT: {~n"
       "     registerPid(bp, Ecmd.caller, memenv);~n"
       "     rt.addAtom(\"ok\");~n"
@@ -190,7 +190,7 @@ gen_funcs(Defs) ->
     w("  }~n"),
     w("}  // switch~n"),
     w(" rt.send();~n"),
-    w("} catch (wxe_badarg badarg) {  // try ~n"),
+    w("} catch (wxe_badarg badarg) {  // try~n"),
     w("    wxeReturn error = wxeReturn(WXE_DRV_PORT, Ecmd.caller, false);"),
     w("    error.addAtom(\"_wxe_error_\");~n"),
     w("    error.addInt((int) Ecmd.op);~n"),
@@ -199,7 +199,7 @@ gen_funcs(Defs) ->
     w("    error.addTupleCount(2);~n"),
     w("    error.addTupleCount(3);~n"),
     w("    error.send();~n"),
-    w("}} /* The End */ ~n"),
+    w("}} /* The End */~n"),
     Res.
 		 
 gen_class(C=#class{name=Name,methods=Ms,options=Opts}) ->
@@ -233,7 +233,7 @@ gen_method(_CName, M=#method{where=erl_no_opt}) ->     M;
 gen_method(CName, M=#method{where=taylormade, name=Name, id=Id}) ->     
     {ok, Bin} = file:read_file(filename:join([wx_extra, CName ++".c_src"])),
     Str0 = binary_to_list(Bin),
-    %%    io:format("C++ Class ~p ~p ~n", [CName, Name]),
+    %%    io:format("C++ Class ~p ~p~n", [CName, Name]),
     
     {match, [Str1]} = re:run(Str0, "<<"++Name++"(.*)"++Name++">>",
 			   [dotall, {capture, all_but_first, list}]),
@@ -244,13 +244,13 @@ gen_method(CName, M=#method{name=N,params=[Ps],method_type=destructor,id=MethodI
     case hd(reverse(wx_gen_erl:parents(CName))) of
 	root ->
 	    ?WTC("gen_method"),
-	    w("case ~s: { // ~s::~s ~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
+	    w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
 	    decode_arguments([Ps]),
 	    w(" if(This) {", []),
 	    w("   ((WxeApp *) wxTheApp)->clearPtr((void *) This);~n", []),
 	    w("   delete This;}~n", []),
 	    free_args(), 
-	    w(" break; ~n}~n", []);
+	    w(" break;~n}~n", []);
 	object ->  %% Use default
 	    ignore
     end,
@@ -259,7 +259,7 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     put(current_func, N),
     put(bin_count,-1),
     ?WTC("gen_method"),
-    w("case ~s: { // ~s::~s ~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
+    w("case ~s: { // ~s::~s~n", [wx_gen_erl:get_unique_name(MethodId),CName,N]),
     Ps1 = declare_variables(void, Ps0),
     {Ps2,Align} = decode_arguments(Ps1),
     Opts = [Opt || Opt = #param{def=Def,in=In,where=Where} <- Ps2, 
@@ -276,7 +276,7 @@ gen_method(CName,  M=#method{name=N,params=Ps0,type=T,method_type=MT,id=MethodId
     end,
     free_args(),
     build_return_vals(T,Ps3),
-    w(" break; ~n}~n", []),
+    w(" break;~n}~n", []),
     erase(current_func),
     M.
 
@@ -353,9 +353,9 @@ declare_type(N,In,Def,T) ->
 decode_options([], _Align) -> ok;
 decode_options(Opts, Align) ->
     align(Align, 64),
-    w(" while( * (int*) bp) { switch (* (int*) bp) { ~n", []),
+    w(" while( * (int*) bp) { switch (* (int*) bp) {~n", []),
     foldl(fun decode_opt/2, 1, Opts),
-    w(" }}; ~n", []).
+    w(" }};~n", []).
 
 decode_opt(#param{name=Name,type=Type}, N) ->
     w("  case ~p: {bp += 4;~n", [N]),
@@ -548,10 +548,10 @@ decode_arg(N,#type{name=Type,base=binary,mod=Mod0},Arg,A0) ->
     Mod = mods([M || M <- Mod0]),
     case Arg of
 	arg -> 
-	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p]->base; ~n",
+	    w(" ~s~s * ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
 	      [Mod,Type,N,Mod,Type, next_id(bin_count)]);
 	opt ->
-	    w(" ~s = (~s~s*) Ecmd.bin[~p]->base; ~n", 
+	    w(" ~s = (~s~s*) Ecmd.bin[~p]->base;~n",
 	      [N,Mod,Type,next_id(bin_count)])
     end,
     A0;
@@ -561,10 +561,10 @@ decode_arg(N,#type{base={term,"wxTreeItemData"},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg -> 
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base); ~n",
+	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
 	      [Mod,Type,N,Type,BinCnt,BinCnt]);
 	opt -> 
-	    w(" ~s = new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base); ~n", 
+	    w(" ~s = new ~s(Ecmd.bin[~p]->size, Ecmd.bin[~p]->base);~n",
 	      [N,Type,BinCnt,BinCnt])
     end,
     A0;
@@ -573,10 +573,10 @@ decode_arg(N,#type{name=Type,base={term,_},mod=Mod0},Arg,A0) ->
     BinCnt = next_id(bin_count),
     case Arg of
 	arg -> 
-	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]); ~n",
+	    w(" ~s~s * ~s =  new ~s(Ecmd.bin[~p]);~n",
 	      [Mod,Type,N,Type,BinCnt]);
 	opt -> 
-	    w(" ~s = new ~s(Ecmd.bin[~p]); ~n", 
+	    w(" ~s = new ~s(Ecmd.bin[~p]);~n",
 	      [N,Type,BinCnt])
     end,
     A0;
@@ -792,7 +792,7 @@ virtual_dest(#class{methods=Ms, parent=Parent}) ->
 				"root"   -> 
 				    false;
 				_ ->
-				    io:format("Error: ~p ~n",[Parent]),
+				    io:format("Error: ~p~n",[Parent]),
 				    erlang:error(no_parent)
 			    end;
 			PClass ->
@@ -1017,7 +1017,7 @@ gen_macros() ->
 build_events() ->
     open_write("../c_src/gen/wxe_events.cpp"),
     c_copyright(),
-    w("~n/***** This file is generated do not edit ****/ ~n~n"),
+    w("~n/***** This file is generated do not edit ****/~n~n"),
     w("#include <wx/wx.h>~n"),
     w("#include \"../wxe_impl.h\"~n~n"),
     w("#include \"wxe_macros.h\"~n"),
@@ -1027,7 +1027,7 @@ build_events() ->
     w("wxeEtype::wxeEtype(const char *name, int Id) {eName = name;cID = Id;}~n~n"),
     w("WX_DECLARE_HASH_MAP(int, wxeEtype*, wxIntegerHash, wxIntegerEqual, wxeETmap );~n~n"),
     
-    w("wxeETmap etmap; ~n~n"),
+    w("wxeETmap etmap;~n~n"),
     
     w(
 "int wxeEventTypeFromAtom(char *etype_atom) {
@@ -1054,16 +1054,16 @@ build_events() ->
     close().
 
 initEventTable(Evs) ->
-    w("void initEventTable() ~n{~n"),
+    w("void initEventTable()~n{~n"),
     w("  struct { ",[]),
-    w("int ev_type;  int class_id; const char * ev_name;} event_types[] = ~n  {~n",[]),
+    w("int ev_type;  int class_id; const char * ev_name;} event_types[] =~n  {~n",[]),
 
     lists:foreach(fun(Ev) -> init_event_classes(Ev) end, 
 		  [#class{id=0,event=[wxEVT_NULL]}|Evs]),
     w("   {-1, 0, ""}~n  };~n",[]),
     w("  for(int i=0; event_types[i].ev_type != -1; i++) {~n",[]),
     w("     if(NULL == etmap[event_types[i].ev_type]) {~n",[]),
-    w("       etmap[event_types[i].ev_type] = ~n"
+    w("       etmap[event_types[i].ev_type] =~n"
       "        new wxeEtype(event_types[i].ev_name, event_types[i].class_id);~n"),
     w("     } else {~n",[]),
     w("       wxeEtype *prev = etmap[event_types[i].ev_type];~n"
@@ -1082,10 +1082,10 @@ init_event_classes(#class{event=ETs, id=Id}) ->
 		w("   {~w + wxEVT_USER_FIRST, ~w, ~p},~n",
 		  [Cev, find_id(OtherClass), wx_gen_erl:event_type_name(Eev)]);
 	   ({Ev, {test_if, Test}}) ->
-		w("#if ~s ~n", [Test]),
+		w("#if ~s~n", [Test]),
 		w("   {~w, ~w, ~p},~n",
 		  [Ev, Id, wx_gen_erl:event_type_name(Ev)]),
-		w("#endif ~n", []);
+		w("#endif~n", []);
 	   (Ev) ->
 		w("   {~w, ~w, ~p},~n",
 		  [Ev, Id, wx_gen_erl:event_type_name(Ev)])
@@ -1099,20 +1099,20 @@ find_id(OtherClass) ->
     
 encode_events(Evs) ->
     ?WTC("encode_events"),
-    w("void wxeEvtListener::forward(wxEvent& event) ~n"
-      "{ ~n"  
+    w("void wxeEvtListener::forward(wxEvent& event)~n"
+      "{~n"
       "#ifdef DEBUG~n"
-      "  if(!sendevent(&event, port)) ~n"
+      "  if(!sendevent(&event, port))~n"
       "    fprintf(stderr, \"Couldn't send event!\\r\\n\");~n"
       "#else~n"
       "sendevent(&event, port);~n"
       "#endif~n"
       "}~n~n"),
-    w("int getRef(void* ptr, wxeMemEnv* memenv) ~n" 
-      "{ ~n"
+    w("int getRef(void* ptr, wxeMemEnv* memenv)~n"
+      "{~n"
       "  WxeApp * app = (WxeApp *) wxTheApp;~n"
       "  return app->getRef(ptr,memenv);~n"
-      "} ~n~n"),
+      "}~n~n"),
     w("bool sendevent(wxEvent *event, ErlDrvPort port)~n{~n"
       " int send_res ;~n"
       " char * evClass = NULL;~n"

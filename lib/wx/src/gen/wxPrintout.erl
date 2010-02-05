@@ -268,7 +268,7 @@ offsetLogicalOrigin(#wx_ref{type=ThisT,ref=ThisRef},Xoff,Yoff)
 
 %% @spec (This::wxPrintout()) -> ok
 %% @doc Destroys this object, do not use object again
-destroy(Obj=#wx_ref{type=Type}) -> 
+destroy(Obj=#wx_ref{type=Type}) ->
   ?CLASS(Type,wxPrintout),
   wxe_util:destroy(?DESTROY_OBJECT,Obj),
   ok.
