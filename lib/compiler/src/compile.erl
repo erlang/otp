@@ -1055,7 +1055,7 @@ test_native(#compile{options=Opts}) ->
 
 is_native_enabled([native|_]) -> true;
 is_native_enabled([no_native|_]) -> false;
-is_native_enabled([H|T]) -> is_native_enabled(T);
+is_native_enabled([_|Opts]) -> is_native_enabled(Opts);
 is_native_enabled([]) -> false.
 
 native_compile(#compile{code=none}=St) -> {ok,St};
