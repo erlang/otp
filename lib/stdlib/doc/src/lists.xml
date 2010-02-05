@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>lists</title>
@@ -30,14 +30,15 @@
   <module>lists</module>
   <modulesummary>List Processing Functions</modulesummary>
   <description>
-    <p>This module contains functions for list processing. The functions
-      are organized in two groups: those in the first group perform a
-      particular operation on one or more lists, whereas those in the
-      second group are higher-order functions, using a fun as argument
-      to perform an operation on one list.</p>
+    <p>This module contains functions for list processing.</p>
+
     <p>Unless otherwise stated, all functions assume that position
       numbering starts at 1. That is, the first element of a list is at
       position 1.</p>
+
+    <p>Two terms <c>T1</c> and <c>T2</c> compare equal if
+      <c>T1&nbsp;==&nbsp;T2</c> evaluates to <c>true</c>. They match
+      if <c>T1&nbsp;=:=&nbsp;T2</c> evaluates to <c>true</c>.</p>
 
     <p>Whenever an <marker
       id="ordering_function"></marker><em>ordering function</em>

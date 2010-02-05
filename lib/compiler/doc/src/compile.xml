@@ -732,7 +732,7 @@ pi() -> 3.1416.
     <p>A string describing the error is obtained with the following
       call:</p>
     <code>
-apply(Module, format_error, ErrorDescriptor)
+Module:format_error(ErrorDescriptor)
     </code>
   </section>
 

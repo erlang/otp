@@ -1021,7 +1021,7 @@ Error: error 11</pre>
     <p>A string which describes the error is obtained with the following
       call:</p>
     <code type="none">
-apply(Module, format_error, ErrorDescriptor)</code>
+Module:format_error(ErrorDescriptor)</code>
   </section>
 </erlref>
 
