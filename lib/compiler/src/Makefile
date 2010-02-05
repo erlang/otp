@@ -45,46 +45,46 @@ RELSYSDIR = $(RELEASE_PATH)/lib/compiler-$(VSN)
 # Target Specs
 # ----------------------------------------------------
 MODULES =  \
-	compile \
-	sys_pre_attributes \
-	sys_pre_expand \
-	sys_expand_pmod \
-	v3_core \
-	sys_core_fold \
-	sys_core_inline \
-	sys_core_dsetel \
-	core_lib \
-	core_scan \
-	core_parse \
-	core_lint \
-	core_pp \
-	v3_kernel \
-	v3_kernel_pp \
-	v3_life \
-	v3_codegen \
+	beam_asm \
 	beam_block \
 	beam_bool \
-	beam_dead \
-	beam_jump \
-	beam_type \
-	beam_clean \
-	beam_peep \
 	beam_bsm \
-	beam_trim \
-	beam_flatten \
-	beam_listing \
-	beam_asm \
+	beam_clean \
+	beam_dead \
 	beam_dict \
-	beam_opcodes \
 	beam_disasm \
+	beam_flatten \
+	beam_jump \
+	beam_listing \
+	beam_opcodes \
+	beam_peep \
+	beam_trim \
+	beam_type \
 	beam_utils \
 	beam_validator \
-        erl_bifs \
 	cerl \
 	cerl_clauses \
 	cerl_inline \
 	cerl_trees \
-	rec_env
+	compile \
+	core_lib \
+	core_lint \
+	core_parse \
+	core_pp \
+	core_scan \
+	erl_bifs \
+	rec_env \
+	sys_core_dsetel \
+	sys_core_fold \
+	sys_core_inline \
+	sys_expand_pmod \
+	sys_pre_attributes \
+	sys_pre_expand \
+	v3_codegen \
+	v3_core \
+	v3_kernel \
+	v3_kernel_pp \
+	v3_life
 
 BEAM_H = $(wildcard ../priv/beam_h/*.h)
 
