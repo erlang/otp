@@ -601,6 +601,15 @@ erts_port_task_schedule(Eterm id,
 	break;
     }
 
+#ifndef ERTS_SMP
+    /*
+     * When (!enq_port && !pp->sched.exe_taskq) is true in the smp case,
+     * the port might not be in the run queue. If this is the case, another
+     * thread is in the process of enqueueing the port. This very seldom
+     * occur, but do occur and is a valid scenario. Debug info showing this
+     * enqueue in progress must be introduced before we can enable (modified
+     * versions of these) assertions in the smp case again.
+     */
 #if defined(HARD_DEBUG)
     if (pp->sched.exe_taskq || enq_port)
 	ERTS_PT_CHK_NOT_IN_PORTQ(runq, pp);
@@ -611,6 +620,7 @@ erts_port_task_schedule(Eterm id,
 	/* We should be in port run q */
 	ASSERT(pp->sched.prev || runq->ports.start == pp);
     }
+#endif
 #endif
 
     if (!enq_port) {
