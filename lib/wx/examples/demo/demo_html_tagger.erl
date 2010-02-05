@@ -462,7 +462,7 @@ fix_remote([H|T]) ->
 fix_remote([]) ->
     [].
 
--spec is_keyword(atom()) -> bool().
+-spec is_keyword(atom()) -> boolean().
 
 is_keyword('after' ) -> true;
 is_keyword('and') -> true;

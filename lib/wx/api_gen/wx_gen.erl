@@ -73,8 +73,7 @@ gen_xml() ->
 -record(hs,{alias,skip,fs,fopt,ev,acc,info}).
 
 init_defs(List0) ->
-    List1 = to_lists(List0),
-    lists:map(fun mangle_info/1, List1).
+    [mangle_info(L) || L <- to_lists(List0)].
 
 mangle_info(E={enum,Type0,SkipStr}) ->
     Type = case is_atom(Type0) of true -> atom_to_list(Type0); false -> Type0 end,
@@ -138,9 +137,9 @@ parse_defs([{class,Name,Parent,Info}|Rest], Acc0) ->
     Defs0 = load_members(FileName, Name, gb_trees:empty(), Tab, Type, Info),
         
     put(current_class, Name),
-    Class0 = #class{name=name(Name,Info),parent=Parent,
+    Class0 = #class{name=name(Name,Info), parent=Parent,
 		    doc=get_value(doc,Info#hs.info,undefined),
-		    file=FileName,options=Info#hs.info, id=next_id(class_id)},
+		    file=FileName, options=Info#hs.info, id=next_id(class_id)},
     ParseClass = fun(Member,{Class,Dfs}) -> 
 			 parse_class(Member,Tab,Dfs,Class,Info)
 		 end,
@@ -161,12 +160,11 @@ parse_defs([], Acc) -> reverse(Acc).
 
 meta_info(C=#class{name=CName,methods=Ms0}) ->
     Ms = lists:append(Ms0),
-    HaveConstructor = 
-	lists:keysearch(constructor, #method.method_type, Ms) =/= false,
+    HaveConstructor = lists:keymember(constructor, #method.method_type, Ms),
     case lists:keysearch(destructor, #method.method_type, Ms) of
 	false when HaveConstructor -> 
-	    Dest = #method{name="destroy",id=next_id(func_id),
-			   method_type=destructor, params=[this(CName)]},
+	    Dest = #method{name = "destroy", id = next_id(func_id),
+			   method_type = destructor, params = [this(CName)]},
 	    C#class{methods = [[Dest]|Ms0]};
 	false ->
 	    C#class{abstract = true};
@@ -451,9 +449,9 @@ find_erl_alias_name(MName,Ps,Fopts) ->
 		_ -> 
 		    Find = fun({all,AliasName},Acc) -> [AliasName|Acc];
 			      ({Var,AliasName},Acc) -> 
-				   case lists:keysearch(Var, #param.name, Ps) of
-				       {value, _} -> [AliasName|Acc];
-				       _  -> Acc
+				   case lists:keymember(Var, #param.name, Ps) of
+				       true -> [AliasName|Acc];
+				       false -> Acc
 				   end				   
 			   end, 
 		    case lists:foldl(Find, [], Aliases) of
@@ -873,11 +871,14 @@ add_method2(M0=#method{name=Name,params=Ps0,type=T0},#class{name=CName,parent=Pa
 	    end,
     M1 = M0#method{defined_in=CName,
 		   min_arity = length(Req),
-		   max_arity = length(Req) + if length(Opt) > 0 -> 1; true -> 0 end,
+		   max_arity = length(Req) + case Opt of
+						 [_ | _] -> 1;
+						 _ -> 0
+					     end,
 		   type = Type,
 		   method_type = IsStatic,
 		   where = Where,
-		   id=next_id(func_id),
+		   id = next_id(func_id),
 		   pre_hook  = get_opt(pre_hook, Name, length(Ps), Opts),
 		   post_hook = get_opt(post_hook, Name, length(Ps), Opts),
 		   doc = get_opt(doc, Name, length(Ps), Opts) 
@@ -1037,10 +1038,10 @@ types_differ([list|R1], [opt_list|R2]) ->
 types_differ([opt_list|R1], [list|R2]) ->
     types_differ(R1,R2);
 types_differ([C1|R1], [C2|R2]) when is_tuple(C1), is_tuple(C2) ->
-    (size(C1) =/= size(C2)) orelse types_differ(R1,R2);
+    (tuple_size(C1) =/= tuple_size(C2)) orelse types_differ(R1,R2);
 types_differ([C1|_R1], [_C2|_R2]) when is_tuple(C1) ->
     true;
-types_differ([_C1|_R1], [C2|_R2]) when is_tuple(C2)-> 
+types_differ([_C1|_R1], [C2|_R2]) when is_tuple(C2) ->
     true;
 types_differ([_C1|R1], [_C2|R2]) -> %% More cases?
     types_differ(R1,R2);
@@ -1198,7 +1199,7 @@ name(Name0, #hs{alias=Alias}) ->
 		   Name0;
 	       "esaBrekciP"  ++ _ ->  %% Arrg uses base
 		   Name0;
- 	       "esaB" ++ Rest when hd(Name0) == $w -> 
+	       "esaB" ++ Rest when hd(Name0) =:= $w ->
 		   %% Arrg Some decl uses base class directly
  		   reverse(Rest);  
 	       _F -> 
