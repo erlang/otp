@@ -531,7 +531,7 @@ pa_pz_option(Config) when is_list(Config) ->
 add_del_path(suite) ->
     [];
 add_del_path(doc) -> ["add_path, del_path should not cause priv_dir(App) to fail"];
-add_del_path(Config) ->
+add_del_path(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config),
     Dir1 = filename:join(DDir,"dummy_app-1.0/ebin"),
     Dir2 = filename:join(DDir,"dummy_app-2.0/ebin"),
