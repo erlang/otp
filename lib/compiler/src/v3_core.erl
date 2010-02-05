@@ -164,8 +164,8 @@ form({attribute,_,file,{File,_Line}}, {Fs,As,Es,Ws,_}, _Opts) ->
 form({attribute,_,_,_}=F, {Fs,As,Es,Ws,File}, _Opts) ->
     {Fs,[attribute(F)|As],Es,Ws,File}.
 
-attribute({attribute,_,Name,Val}) ->
-    {#c_literal{val=Name},#c_literal{val=Val}}.
+attribute({attribute,Line,Name,Val}) ->
+    {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
 
 function({function,_,Name,Arity,Cs0}, Es0, Ws0, File, Opts) ->
     %%ok = io:fwrite("~p - ", [{Name,Arity}]),
