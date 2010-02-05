@@ -4053,7 +4053,7 @@ driver_read_timer(ErlDrvPort ix, unsigned long* t)
 int 
 driver_get_now(ErlDrvNowData *now_data)
 {
-    Uint mega,secs,micro
+    Uint mega,secs,micro;
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
     if (now_data == NULL) {

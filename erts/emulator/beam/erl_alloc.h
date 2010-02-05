@@ -486,9 +486,9 @@ init_##NAME##_alloc(void)						\
     qa_data_##NAME##__ = erts_alloc(ERTS_ALC_T_PRE_ALLOC_DATA,tot_size);\
     chunk_start = (((char *) qa_data_##NAME##__)			\
 		   + sizeof(erts_sched_pref_quick_alloc_data_t));	\
-    if ((((Uint) chunk_start) & ERTS_CACHE_LINE_MASK) != ((Uint) 0))	\
+    if ((((UWord) chunk_start) & ERTS_CACHE_LINE_MASK) != ((UWord) 0))	\
 	chunk_start = ((char *)						\
-		       ((((Uint) chunk_start) & ~ERTS_CACHE_LINE_MASK)	\
+		       ((((UWord) chunk_start) & ~ERTS_CACHE_LINE_MASK)	\
 		       + ERTS_CACHE_LINE_SIZE));			\
     qa_data_##NAME##__->chunks_mem_size = chunk_mem_size;		\
     qa_data_##NAME##__->start = (void *) chunk_start;			\

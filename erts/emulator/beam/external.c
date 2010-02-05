@@ -2611,7 +2611,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
     Uint m, i, arity;
     Uint result = 0;
 #if HALFWORD_HEAP
-    UWord wobj;
+    UWord wobj = 0;
 #endif
 
     goto L_jump_start;

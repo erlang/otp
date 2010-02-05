@@ -499,7 +499,11 @@ sub emulator_output {
     print "\n";
     print "#ifdef ARCH_64\n";
     print "#  define BEAM_LOOSE_MASK 0x1FFFUL\n";
+    print "#if HALFWORD_HEAP\n";
+    print "#  define BEAM_TIGHT_MASK 0x1FFCUL\n";
+    print "#else\n";
     print "#  define BEAM_TIGHT_MASK 0x1FF8UL\n";
+    print "#endif\n";
     print "#  define BEAM_LOOSE_SHIFT 16\n";
     print "#  define BEAM_TIGHT_SHIFT 16\n";
     print "#else\n";
@@ -812,10 +816,9 @@ sub basic_generator {
     # Pack arguments if requested.
     #
 
-    # /* XXX:PaN temporarilly disabled during halfword implementation step 1 */
-    #if ($flags =~ /-pack/ && $hot) {
-    #    ($prefix, $pack_spec, @args) = &do_pack(@args);
-    #}
+    if ($flags =~ /-pack/ && $hot) {
+        ($prefix, $pack_spec, @args) = &do_pack(@args);
+    }
 
     #
     # Calculate the size of the instruction and generate each argument for
@@ -908,16 +911,16 @@ sub basic_generator {
     my($code);
     if (defined $macro{$name}) {
 	my($macro_code) = "$prefix$macro(" . join(', ', @f) . ");";
-	$var_decls .= "Uint tmp_packed1;"
+	$var_decls .= "BeamInstr tmp_packed1;"
 	    if $macro_code =~ /tmp_packed1/;
-	$var_decls .= "Uint tmp_packed2;"
+	$var_decls .= "BeamInstr tmp_packed2;"
 	    if $macro_code =~ /tmp_packed2/;
 	if ($flags =~ /-nonext/) {
 	    $code = "$macro_code\n";
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
-			 "UWord* next;",
+			 "BeamInstr* next;",
 			 "PreFetch($size, next);",
 			 "$macro_code",
 			 "NextPF($size, next);",

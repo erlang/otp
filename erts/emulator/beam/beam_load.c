@@ -591,6 +591,7 @@ erts_load_module(Process *c_p,
     }
     return result;
 }
+/* #define LOAD_MEMORY_HARD_DEBUG 1*/
 
 #if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
 /* Requires allocators ERTS_ALLOC_UTIL_HARD_DEBUG also set in erl_alloc_util.h */
@@ -731,6 +732,12 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
      * Loading succeded.
      */
     CHKBLK(ERTS_ALC_T_CODE,state.code);
+#if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
+    erts_fprintf(stderr,"Loaded %T\n",*modp);
+#if 0
+    debug_dump_code(state.code,state.ci);
+#endif
+#endif
     rval = 0;
     state.code = NULL;		/* Prevent code from being freed. */
     *modp = state.module;
@@ -786,9 +793,6 @@ bin_load(Process *c_p, ErtsProcLocks c_p_locks,
 	erts_free(ERTS_ALC_T_LOADER_TMP, (void *) state.genop_blocks);
 	state.genop_blocks = next;
     }
-#if defined(LOAD_MEMORY_HARD_DEBUG) && defined(DEBUG)
-    erts_fprintf(stderr,"Loaded %T\n",*modp);
-#endif
 
     return rval;
 }
@@ -2031,16 +2035,16 @@ load_code(LoaderState* stp)
 			   tag_to_letter[tmp_op->a[arg].type]);
 	    }
 	}
-#if !HALFWORD_HEAP /* XXX:PaN - just disabled during development */
+
 	/*
 	 * The packing engine.
 	 */
 	if (opc[stp->specific_op].pack[0]) {
 	    char* prog;		/* Program for packing engine. */
-	    Uint stack[8];	/* Stack. */
-	    Uint* sp = stack;	/* Points to next free position. */
-	    Uint packed = 0;	/* Accumulator for packed operations. */
-	    ASSERT(0); /* XXX:PaN - just to check that this does not happen when packing is disabled... */
+	    BeamInstr stack[8];	/* Stack. */
+	    BeamInstr* sp = stack;	/* Points to next free position. */
+	    BeamInstr packed = 0;	/* Accumulator for packed operations. */
+
 	    for (prog = opc[stp->specific_op].pack; *prog; prog++) {
 		switch (*prog) {
 		case 'g':	/* Get instruction; push on stack. */
@@ -2053,7 +2057,7 @@ load_code(LoaderState* stp)
 		    packed = (packed << BEAM_TIGHT_SHIFT) | code[--ci];
 		    break;
 		case '6':	/* Shift 16 steps */
-		    packed = (packed << 16) | code[--ci];
+		    packed = (packed << BEAM_LOOSE_SHIFT) | code[--ci];
 		    break;
 		case 'p':	/* Put instruction (from stack). */
 		    code[ci++] = *--sp;
@@ -2068,7 +2072,7 @@ load_code(LoaderState* stp)
 	    }
 	    ASSERT(sp == stack); /* Incorrect program? */
 	}
-#endif /* !HALFWORD_HEAP */
+
 	/*
 	 * Handle a few special cases.
 	 */

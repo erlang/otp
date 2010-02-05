@@ -125,6 +125,38 @@ erts_debug_breakpoint_2(Process* p, Eterm MFA, Eterm bool)
     BIF_ERROR(p, BADARG);
 }
 
+#if 0 /* XXX:PaN - not used */
+void debug_dump_code(BeamInstr *I, int num)
+{
+    BeamInstr *code_ptr = I;
+    BeamInstr *end = code_ptr + num;
+    erts_dsprintf_buf_t *dsbufp;
+    BeamInstr instr;
+    int i;
+
+    dsbufp = erts_create_tmp_dsbuf(0);
+    while (code_ptr < end) {
+	erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp, HEXF ": ", code_ptr);
+	instr = (BeamInstr) code_ptr[0];
+	for (i = 0; i < NUM_SPECIFIC_OPS; i++) {
+	    if (instr == (BeamInstr) BeamOp(i) && opc[i].name[0] != '\0') {
+		code_ptr += print_op(ERTS_PRINT_DSBUF, (void *) dsbufp,
+				     i, opc[i].sz-1, code_ptr+1) + 1;
+		break;
+	    }
+	}
+	if (i >= NUM_SPECIFIC_OPS) {
+	    erts_print(ERTS_PRINT_DSBUF, (void *) dsbufp,
+		       "unknown " HEXF "\n", instr);
+	    code_ptr++;
+	}
+    }
+    dsbufp->str[dsbufp->str_len] = 0;
+    erts_fprintf(stderr,"%s", dsbufp->str);
+    erts_destroy_tmp_dsbuf(dsbufp);
+}
+#endif
+
 Eterm
 erts_debug_disassemble_1(Process* p, Eterm addr)
 {
@@ -325,8 +357,8 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 		packed >>= BEAM_TIGHT_SHIFT;
 		break;
 	    case '6':		/* Shift 16 steps */
-		*ap++ = packed & 0xffff;
-		packed >>= 16;
+		*ap++ = packed & BEAM_LOOSE_MASK;
+		packed >>= BEAM_LOOSE_SHIFT;
 		break;
 	    case 'p':
 		*sp++ = *--ap;
@@ -474,7 +506,7 @@ print_op(int to, void *to_arg, int op, int size, BeamInstr* addr)
 	    ap++;
 	    break;
 	case 'P':	/* Byte offset into tuple (see beam_load.c) */
-	    erts_print(to, to_arg, "%d", (*ap / sizeof(BeamInstr)) - 1);
+	    erts_print(to, to_arg, "%d", (*ap / sizeof(Eterm)) - 1);
 	    ap++;
 	    break;
 	case 'l':		/* fr(N) */

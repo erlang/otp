@@ -6238,7 +6238,7 @@ Process *schedule(Process *p, int calls)
 	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN|ERTS_PROC_LOCK_STATUS);
 
 	if (erts_sched_stat.enabled) {
-	    Uint old = ERTS_PROC_SCHED_ID(p,
+	    UWord old = ERTS_PROC_SCHED_ID(p,
 					  (ERTS_PROC_LOCK_MAIN
 					   | ERTS_PROC_LOCK_STATUS),
 					  esdp->no);
