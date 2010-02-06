@@ -20,7 +20,7 @@
 -module(asn1ct_gen).
 
 -include("asn1_records.hrl").
-%%-compile(export_all).
+
 -export([pgen_exports/3,
 	 pgen_hrl/4,
 	 gen_head/3,
@@ -1301,8 +1301,8 @@ put_chars(undefined,X) ->
 put_chars(Y,X) ->
     io:put_chars(Y,X).
 
-fopen(F, Mode) ->
-    case file:open(F, Mode) of
+fopen(F, ModeList) ->
+    case file:open(F, ModeList) of
 	{ok, Fd} -> 
 	    Fd;
 	{error, Reason} ->
