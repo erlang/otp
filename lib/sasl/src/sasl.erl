@@ -126,13 +126,13 @@ type(_) -> all.
 add_error_logger_mf(undefined) -> ok;
 add_error_logger_mf({Dir, MaxB, MaxF}) ->
     error_logger:add_report_handler(
-      log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, {sasl, pred})).
+      log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, fun pred/1)).
 
 delete_error_logger_mf(undefined) -> ok;
 delete_error_logger_mf(_) ->
     error_logger:delete_report_handler(log_mf_h).
 
-pred({_Type, GL, _Msg}) when node(GL) /= node() -> false;
+pred({_Type, GL, _Msg}) when node(GL) =/= node() -> false;
 pred(_) -> true.
 
 %%%-----------------------------------------------------------------
