@@ -39,24 +39,22 @@ purge_body([], _) ->
 purge_body([{pcdata,_Attrs,_More}|Rest], TermList) ->
     purge_body(Rest, TermList);
 purge_body([{term,[{"ID","CDATA",ID}],More}|Rest], TermList) ->
-    case lists:keysearch(ID, 1, TermList) of
+    case lists:keyfind(ID, 1, TermList) of
 	false ->
 	    [{term,[{"NAME","CDATA",ID},{"ID","CDATA",ID}],More}|
 	     purge_body(Rest, TermList)];
-	{value, {ID, Name, _Description, _Responsible}} ->
+	{ID, Name, _Description, _Responsible} ->
 	    [{term,[{"NAME","CDATA",Name},{"ID","CDATA",ID}],More}|
 	     purge_body(Rest, TermList)];
-	{value, {ID, Name, _Description}} ->
+	{ID, Name, _Description} ->
 	    [{term,[{"NAME","CDATA",Name},{"ID","CDATA",ID}],More}|
 	     purge_body(Rest, TermList)]
     end;
 purge_body([{_Tag,_Attrs,More}|Rest], TermList) ->
-    lists:append(purge_body(More, TermList),
-		 purge_body(Rest, TermList)).
+    purge_body(More, TermList) ++ purge_body(Rest, TermList).
 
 rule([header|_], _) ->
     {drop, ""};
-
 rule(_, _) ->
     {drop, ""}.
 
@@ -82,19 +80,19 @@ rule([term|_], {_,[Name,ID],[{termdef,[],[{pcdata,[],Def}]}]}, Opts) ->
 		   false -> [];
 		   Value  -> Value
 	       end,
-    case lists:keysearch(ID, 1, TermList) of
+    case lists:keyfind(ID, 1, TermList) of
 	false ->
 	    {{drop,"\n<dt><a name=\"" ++ ID ++ "\">" ++ 
 	      "<strong>" ++ ID ++ "</strong></a>\n</dt>\n<dd>" ++
 	      docb_html_util:pcdata_to_html(Def) ++ "\n</dd>\n"}, Opts};
-	{value, {ID, Name, Description, _Responsible}} ->
+	{ID, Name, Description, _Responsible} ->
 	    docb_util:message(warning,
 			      "Global term ~s overriding local", [ID]),
 	    {{drop,"\n<dt><a name=\"" ++ ID ++ "\">" ++
 	      "<strong>" ++ Name ++ "</strong></a></dt>\n<dd>" ++
 	      docb_html_util:pcdata_to_html(Description) ++ "\n</dd>\n"},
 	     Opts};
-	{value, {ID, Name, Description}} ->
+	{ID, Name, Description} ->
 	    docb_util:message(warning,
 			      "Global term ~s overriding local", [ID]),
 	    {{drop, "\n<dt><a name=\"" ++ ID ++ "\">" ++ 
@@ -107,19 +105,19 @@ rule([term|_], {_,[Name,ID],_}, Opts) ->
 		   false -> [];
 		   Value  -> Value
 	       end,
-    case lists:keysearch(ID, 1, TermList) of
+    case lists:keyfind(ID, 1, TermList) of
 	false ->
 	    docb_util:message(error,
 			      "The term ~s has no definition", [ID]),
 	    {{drop, "\n<dt><a name=\"" ++ ID ++ "\">" ++ 
 	      "<strong>" ++ ID ++ "</strong></a></dt>\n<dd>" ++
 	      "??" ++ "\n</dd>\n"}, Opts};
-	{value, {ID, Name, Description, _Responsible}} ->
+	{ID, Name, Description, _Responsible} ->
 	    {{drop, "\n<dt><a name=\"" ++ ID ++ "\">" ++
 	      "<strong>" ++ Name ++ "</strong></a></dt>\n<dd>" ++
 	      docb_html_util:pcdata_to_html(Description) ++ "\n</dd>\n"},
 	     Opts};
-	{value, {ID, Name, Description}} ->
+	{ID, Name, Description} ->
 	    {{drop, "\n<dt><a name=\"" ++ ID ++ "\">" ++ 
 	      "<strong>" ++ Name ++ "</strong></a></dt>\n<dd>" ++
 	      docb_html_util:pcdata_to_html(Description) ++ "\n</dd>\n"}, Opts}

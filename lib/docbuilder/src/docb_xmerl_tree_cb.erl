@@ -188,8 +188,8 @@ attrs(DTD, Tag, GivenAttrs) ->
     merge_attrs(Tag, default_attrs(DTD, Tag), GivenAttrs).
 
 merge_attrs(Tag, [{NameA, Type, DefVal}|Default], GivenAttrs) ->
-    Val = case lists:keysearch(NameA, #xmlAttribute.name, GivenAttrs) of
-	      {value, #xmlAttribute{value=Val0}} -> Val0;
+    Val = case lists:keyfind(NameA, #xmlAttribute.name, GivenAttrs) of
+	      #xmlAttribute{value=Val0} -> Val0;
 	      false -> DefVal
 	  end,
     Attr = {attr_name(NameA), Type, attr_val(Type, Val)},

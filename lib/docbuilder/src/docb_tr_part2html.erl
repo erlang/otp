@@ -93,8 +93,8 @@ transform(File, {part, _Attrs, [Header| Rest]}, Opts0) ->
 		case docb_main:parse1("fascicules", Opts0) of
 		    {ok, Parse} ->
 			FascData = get_fasc_data(Parse),
-			case lists:keysearch(File, 1, FascData) of
-			    {value, {_, _, "YES", _}} ->
+			case lists:keyfind(File, 1, FascData) of
+			    {_, _, "YES", _} ->
 				OrigFile =
 				    docb_util:outfile(File++"_frame",
 						      ".html", Opts0),
@@ -137,7 +137,7 @@ concat_files([File | Rest], Body, ChLevel, Opts, TP, TOpts, Ext) ->
     case docb_main:parse1(File, Opts) of
 	{ok, Parse} ->
 	    {TopTag, Attrs, [Header = {header, _, HeaderContents} | More]} = Parse,
-	    {value,{title,_,Title}} = lists:keysearch(title,1,HeaderContents),
+	    {title,_,Title} = lists:keyfind(title,1,HeaderContents),
 	    NewMore = [{section, [], [{title, [], Title}| More]}],
 	    NewParse = {TopTag, Attrs, [Header| NewMore]},
 	    if
@@ -156,9 +156,8 @@ concat_files([File | Rest], Body, ChLevel, Opts, TP, TOpts, Ext) ->
 		docb_html_util:number(NewParse,
 				      integer_to_list(ChLevel), File),
 	    {_, [], [_| NewBody]} = NumberTree,
-	    lists:append(Body,
-			 concat_files(Rest, NewBody, ChLevel+1, Opts,
-				      TP, TOpts, Ext));
+	    Body ++ concat_files(Rest, NewBody, ChLevel+1, Opts,
+				 TP, TOpts, Ext);
 	errors ->
 	    throw({error,"Parse error when building chapter "++File})
     end;
@@ -232,9 +231,7 @@ get_fasc_data({fascicules, _, Fascs}) ->
       Fascs).
 
 get_avals(Atts) ->
-    lists:map(fun(Tuple) ->
-		      element(3, Tuple) end,
-	      Atts).
+    [element(3, Tuple) || Tuple <- Atts].
 
 get_pc_text([{pcdata, _, Text}]) ->
     Text.

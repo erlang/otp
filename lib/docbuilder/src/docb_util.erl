@@ -61,7 +61,7 @@ html_snippet(What, Opts) ->
     case lookup_option(html_mod, Opts) of
 	false -> "";
 	Module ->
-	    case catch apply(Module, What, []) of
+	    case catch Module:What() of
 		HTML when is_list(HTML) ->
 		    HTML;
 		{'EXIT', {undef, _}} ->
@@ -82,7 +82,7 @@ html_snippet(What, Arg, Opts) ->
     case lookup_option(html_mod, Opts) of
 	false -> "";
 	Module ->
-	    case catch apply(Module, What, [Arg]) of
+	    case catch Module:What(Arg) of
 		HTML when is_list(HTML) ->
 		    HTML;
 		{'EXIT', {undef, _}} ->
@@ -106,8 +106,8 @@ html_snippet(What, Arg, Opts) ->
 
 %% lookup_option(Opt, Opts) -> Value | false
 lookup_option(Opt, Opts) ->
-  case lists:keysearch(Opt, 1, Opts) of
-      {value, {Opt,Value}} -> Value;
+  case lists:keyfind(Opt, 1, Opts) of
+      {Opt,Value} -> Value;
       false -> false
   end.
 
