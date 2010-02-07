@@ -120,9 +120,9 @@ check_exit_msg({'EXIT', Int, Reason}, _Bs, #ieval{level=Le}) ->
     %% This *must* be interpreter which has terminated,
     %% we are not linked to anyone else
     if
-	Le==1 ->
+	Le =:= 1 ->
 	    exit(Reason);
-	Le>1 ->
+	Le > 1 ->
 	    exit({Int, Reason})
     end;
 check_exit_msg({'DOWN',_,_,_,Reason}, Bs,
@@ -139,9 +139,9 @@ check_exit_msg({'DOWN',_,_,_,Reason}, Bs,
 	    %%   importance in this case
 	    %% If we don't save them, however, post-mortem analysis
 	    %% of the process isn't possible
-	    undefined when Le==1 -> % died outside interpreted code
+	    undefined when Le =:= 1 -> % died outside interpreted code
 		{};
-	    undefined when Le>1 ->
+	    undefined when Le > 1 ->
 		StackBin = term_to_binary(get(stack)),
 		{{Mod, Li}, Bs, StackBin};
 
@@ -152,9 +152,9 @@ check_exit_msg({'DOWN',_,_,_,Reason}, Bs,
     dbg_iserver:cast(get(int), {set_exit_info,self(),ExitInfo}),
 
    if
-	Le==1 ->
+	Le =:= 1 ->
 	    exit(Reason);
-	Le>1 ->
+	Le > 1 ->
 	    exit({get(self), Reason})
     end;
 check_exit_msg(_Msg, _Bs, _Ieval) ->
@@ -271,7 +271,7 @@ meta_loop(Debugged, Bs, #ieval{level=Le} = Ieval) ->
 	    end;
 
 	%% Re-entry to Meta from non-interpreted code
-	{re_entry, Debugged, {eval,{M,F,As}}} when Le==1 ->
+	{re_entry, Debugged, {eval,{M,F,As}}} when Le =:= 1 ->
 	    %% Reset process dictionary
 	    %% This is really only necessary if the process left
 	    %% interpreted code at a call level > 1
@@ -346,7 +346,7 @@ push(MFA, Bs, #ieval{level=Le,module=Cm,line=Li,last_call=Lc}) ->
 		[] -> put(stack, [Entry]);
 		[_Entry|Entries] -> put(stack, [Entry|Entries])
 	    end;
-	_ -> % all | no_tail when Lc==false
+	_ -> % all | no_tail when Lc =:= false
 	    put(stack, [Entry|get(stack)])
     end.
 
@@ -413,10 +413,10 @@ sublist(L, Start, Length) ->
     lists:sublist(L, Start, Length).
 
 fix_stacktrace2([{_,{{M,F,As1},_,_}}, {_,{{M,F,As2},_,_}}|_])
-  when length(As1)==length(As2) ->
+  when length(As1) =:= length(As2) ->
     [{M,F,As1}];
 fix_stacktrace2([{_,{{Fun,As1},_,_}}, {_,{{Fun,As2},_,_}}|_])
-  when length(As1)==length(As2) ->
+  when length(As1) =:= length(As2) ->
     [{Fun,As1}];
 fix_stacktrace2([{_,{MFA,_,_}}|Entries]) ->
     [MFA|fix_stacktrace2(Entries)];
@@ -465,9 +465,9 @@ stack_frame(SP, Dir, [{SP, _}|Stack]) ->
     case Stack of
 	[{Le, {_MFA,Where,Bs}}|_] ->
 	    {Le, Where, Bs};
-	[] when Dir==up ->
+	[] when Dir =:= up ->
 	    top;
-	[] when Dir==down ->
+	[] when Dir =:= down ->
 	    bottom
     end;
 stack_frame(SP, Dir, [_Entry|Stack]) ->
@@ -509,7 +509,7 @@ trace(What, Args, true) ->
 			 end,
 		  io_lib:format("   (~w) receive " ++ Tail, [Le]);
 		      
-	      received when Args==null ->
+	      received when Args =:= null ->
 		  io_lib:format("~n", []);
 	      received -> % Args=Msg
 		  io_lib:format("~n<== ~p~n", [Args]);
@@ -586,8 +586,8 @@ eval_mfa(Debugged, M, F, As, Ieval) ->
     end.
 
 eval_function(Mod, Fun, As0, Bs0, _Called, Ieval) when is_function(Fun);
-						       Mod==?MODULE,
-						       Fun==eval_fun ->
+						       Mod =:= ?MODULE,
+						       Fun =:= eval_fun ->
     #ieval{level=Le, line=Li, last_call=Lc} = Ieval,
     case lambda(Fun, As0) of
 	{Cs,Module,Name,As,Bs} ->
@@ -657,7 +657,7 @@ eval_function(Mod, Name, As0, Bs0, Called, Ieval) ->
 lambda(eval_fun, [Cs,As,Bs,{Mod,Name}=F]) ->
     %% Fun defined in interpreted code, called from outside
     if 
-	length(element(3,hd(Cs))) == length(As) ->
+	length(element(3,hd(Cs))) =:= length(As) ->
 	    db_ref(Mod),  %% Adds ref between module and process
 	    {Cs,Mod,Name,As,Bs};
 	true -> 
@@ -672,7 +672,7 @@ lambda(Fun, As) when is_function(Fun) ->
 	    {env, [{Mod,Name},Bs,Cs]} = erlang:fun_info(Fun, env),
 	    {arity, Arity} = erlang:fun_info(Fun, arity),
 	    if 
-		length(As) == Arity ->
+		length(As) =:= Arity ->
 		    db_ref(Mod), %% Adds ref between module and process
 		    {Cs,Mod,Name,As,Bs};
 		true ->
@@ -731,7 +731,7 @@ db_ref(Mod) ->
 		ModDb ->
 		    Node = node(get(int)),
 		    DbRef = if
-				Node/=node() -> {Node,ModDb};
+				Node =/= node() -> {Node,ModDb};
 				true -> ModDb
 			    end,
 		    put([Mod|db], DbRef),
@@ -741,13 +741,12 @@ db_ref(Mod) ->
 	    DbRef
     end.
 
-
 cache(Key, Data) ->
     put(cache, lists:sublist([{Key,Data}|get(cache)], 5)).
 	    
 cached(Key) ->
-    case lists:keysearch(Key, 1, get(cache))  of
-	{value,{Key,Data}} -> Data;
+    case lists:keyfind(Key, 1, get(cache))  of
+	{Key,Data} -> Data;
 	false -> false
     end.
 
@@ -844,7 +843,7 @@ expr({'try',Line,Es,CaseCs,CatchCs,[]}, Bs0, Ieval0) ->
 		    case_clauses(Val, CaseCs, Bs, try_clause, Ieval)
 	    end
     catch
-	Class:Reason when CatchCs=/=[] ->
+	Class:Reason when CatchCs =/= [] ->
 	    catch_clauses({Class,Reason,[]}, CatchCs, Bs0, Ieval)
     end;
 expr({'try',Line,Es,CaseCs,CatchCs,As}, Bs0, Ieval0) ->
@@ -1498,10 +1497,7 @@ guard(Gs, Bs) -> or_guard(Gs, Bs).
     
 or_guard([G|Gs], Bs) ->
     %% Short-circuit OR.
-    case and_guard(G, Bs) of
-	true -> true;
-	false -> or_guard(Gs, Bs)
-    end;
+    and_guard(G, Bs) orelse or_guard(Gs, Bs);
 or_guard([], _) -> false.
 
 and_guard([G|Gs], Bs) ->
@@ -1598,8 +1594,7 @@ match1({bin,_,Fs}, B, Bs0, BBs0) when is_bitstring(B) ->
     try eval_bits:match_bits(Fs, B, Bs1, BBs,
 			     fun(L, R, Bs) -> match1(L, R, Bs, BBs) end,
 			     fun(E, Bs) -> expr(E, Bs, #ieval{}) end,
-			     false) of
-	Match -> Match
+			     false)
     catch
 	_:_ -> throw(nomatch)
     end;
@@ -1687,7 +1682,7 @@ merge_bindings([{Name,V}|B1s], B2s, Ieval) ->
     case binding(Name, B2s) of
 	{value,V} -> % Already there, and the same
 	    merge_bindings(B1s, B2s, Ieval);
-	{value,_} when Name=='_' -> % Already there, but anonymous
+	{value,_} when Name =:= '_' -> % Already there, but anonymous
 	    B2s1 = lists:keydelete('_', 1, B2s),
 	    [{Name,V}|merge_bindings(B1s, B2s1, Ieval)];
 	{value,_} -> % Already there, but different => badmatch
