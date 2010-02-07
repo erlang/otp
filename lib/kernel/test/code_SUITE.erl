@@ -26,7 +26,7 @@
 	 delete/1, purge/1, soft_purge/1, is_loaded/1, all_loaded/1,
 	 load_binary/1, dir_req/1, object_code/1, set_path_file/1,
 	 sticky_dir/1, pa_pz_option/1, add_del_path/1,
-	 dir_disappeared/1, ext_mod_dep/1,
+	 dir_disappeared/1, ext_mod_dep/1, clash/1,
 	 load_cached/1, start_node_with_cache/1, add_and_rehash/1,
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
@@ -48,7 +48,7 @@ all(suite) ->
      delete, purge, soft_purge, is_loaded, all_loaded,
      load_binary, dir_req, object_code, set_path_file,
      pa_pz_option, add_del_path,
-     dir_disappeared, ext_mod_dep,
+     dir_disappeared, ext_mod_dep, clash,
      load_cached, start_node_with_cache, add_and_rehash,
      where_is_file_no_cache, where_is_file_cached,
      purge_stacktrace, mult_lib_roots, bad_erl_libs,
@@ -531,7 +531,7 @@ pa_pz_option(Config) when is_list(Config) ->
 add_del_path(suite) ->
     [];
 add_del_path(doc) -> ["add_path, del_path should not cause priv_dir(App) to fail"];
-add_del_path(Config) ->
+add_del_path(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config),
     Dir1 = filename:join(DDir,"dummy_app-1.0/ebin"),
     Dir2 = filename:join(DDir,"dummy_app-2.0/ebin"),
@@ -545,6 +545,38 @@ add_del_path(Config) ->
     ok.
     
     
+clash(Config) when is_list(Config) ->
+    DDir = ?config(data_dir,Config)++"clash/",
+    P = code:get_path(),
+
+    %% test non-clashing entries
+
+    %% remove "." to prevent clash with test-server path
+    ?line true = code:del_path("."),
+    ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
+    ?line true = code:add_path(DDir++"zork-0.8/ebin"),
+    ?line test_server:capture_start(),
+    ?line code:clash(),
+    ?line test_server:capture_stop(),
+    ?line OKMsg = test_server:capture_get(),
+    ?line lists:prefix("** Found 0 name clashes in code paths", OKMsg),
+    ?line true = code:set_path(P),
+
+    %% test clashing entries
+
+    %% remove "." to prevent clash with test-server path
+    ?line true = code:del_path("."),
+    ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
+    ?line true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
+    ?line test_server:capture_start(),
+    ?line code:clash(),
+    ?line test_server:capture_stop(),
+    ?line [ErrMsg1|_] = test_server:capture_get(),
+    ?line {match, [" hides "]} = re:run(ErrMsg1, "\\*\\* .*( hides ).*",
+					[{capture,all_but_first,list}]),
+    ?line true = code:set_path(P),
+    ok.
+
 ext_mod_dep(suite) ->
     [];
 ext_mod_dep(doc) ->

@@ -465,7 +465,8 @@ search([{Dir, File} | Tail]) ->
 
 build([]) -> [];
 build([Dir|Tail]) ->
-    Files = filter(objfile_extension(), Dir, file:list_dir(Dir)),
+    Files = filter(objfile_extension(), Dir,
+		   erl_prim_loader:list_dir(Dir)),
     [decorate(Files, Dir) | build(Tail)].
 
 decorate([], _) -> [];
