@@ -1,20 +1,20 @@
 changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -35,6 +35,29 @@ define(SIMULATE_NSP,0)dnl change to 1 to simulate call/ret insns
 
 `#define AMD64_LEAF_WORDS	'LEAF_WORDS
 `#define LEAF_WORDS	'LEAF_WORDS
+
+/*
+ * Workarounds for Darwin.
+ */
+ifelse(OPSYS,darwin,``
+/* Darwin */
+#define TEXT		.text
+#define JOIN(X,Y)	X##Y
+#define CSYM(NAME)	JOIN(_,NAME)
+#define ASYM(NAME)	CSYM(NAME)
+#define GLOBAL(NAME)	.globl NAME
+#define SET_SIZE(NAME)	/*empty*/
+#define TYPE_FUNCTION(NAME)	/*empty*/
+'',``
+/* Not Darwin */
+#define TEXT		.section ".text"
+#define CSYM(NAME)	NAME
+#define ASYM(NAME)	NAME
+#define GLOBAL(NAME)	.global NAME
+#define SET_SIZE(NAME)	.size NAME,.-NAME
+#define TYPE_FUNCTION(NAME)	.type NAME,@function
+'')dnl
+
 
 /*
  * Reserved registers.

@@ -1,20 +1,20 @@
 changecom(`/*', `*/')dnl
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -46,17 +46,17 @@ define(standard_bif_interface_1,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,1,0)
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -65,18 +65,18 @@ $1:
 	jz	nbif_1_simple_exception
 	NBIF_RET(1)
 	HANDLE_GOT_MBUF(1)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(standard_bif_interface_2,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,2,0)
@@ -84,7 +84,7 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -93,18 +93,18 @@ $1:
 	jz	nbif_2_simple_exception
 	NBIF_RET(2)
 	HANDLE_GOT_MBUF(2)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(standard_bif_interface_3,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,3,0)
@@ -113,7 +113,7 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -122,8 +122,8 @@ $1:
 	jz	nbif_3_simple_exception
 	NBIF_RET(3)
 	HANDLE_GOT_MBUF(3)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 /*
@@ -136,16 +136,16 @@ define(fail_bif_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
@@ -154,8 +154,8 @@ $1:
 	jz	nbif_0_simple_exception
 	NBIF_RET(0)
 	HANDLE_GOT_MBUF(0)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 /*
@@ -172,59 +172,59 @@ define(nofail_primop_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
 	/* return */
 	NBIF_RET(0)
 	HANDLE_GOT_MBUF(0)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nofail_primop_interface_1,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,1,0)
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
 	/* return */
 	NBIF_RET(1)
 	HANDLE_GOT_MBUF(1)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nofail_primop_interface_2,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,2,0)
@@ -232,25 +232,25 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
 	/* return */
 	NBIF_RET(2)
 	HANDLE_GOT_MBUF(2)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nofail_primop_interface_3,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,3,0)
@@ -259,15 +259,15 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C
-	call	$2
+	call	CSYM($2)
 	TEST_GOT_MBUF
 	SWITCH_C_TO_ERLANG
 
 	/* return */
 	NBIF_RET(3)
 	HANDLE_GOT_MBUF(3)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 /*
@@ -285,55 +285,55 @@ define(nocons_nofail_primop_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(0)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nocons_nofail_primop_interface_1,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,1,0)
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(1)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nocons_nofail_primop_interface_2,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,2,0)
@@ -341,23 +341,23 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(2)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nocons_nofail_primop_interface_3,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,3,0)
@@ -366,23 +366,23 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(3)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(nocons_nofail_primop_interface_5,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	movq	P, %rdi
 	NBIF_ARG(%rsi,5,0)
@@ -393,13 +393,13 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(5)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 /*
@@ -417,74 +417,74 @@ define(noproc_primop_interface_0,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(0)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(noproc_primop_interface_1,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	NBIF_ARG(%rdi,1,0)
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(1)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(noproc_primop_interface_2,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	NBIF_ARG(%rdi,2,0)
 	NBIF_ARG(%rsi,2,1)
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(2)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(noproc_primop_interface_3,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	NBIF_ARG(%rdi,3,0)
 	NBIF_ARG(%rsi,3,1)
@@ -492,23 +492,23 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(3)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 define(noproc_primop_interface_5,
 `
 #ifndef HAVE_$1
 #`define' HAVE_$1
-	.section ".text"
+	TEXT
 	.align	4
-	.global	$1
-$1:
+	GLOBAL(ASYM($1))
+ASYM($1):
 	/* set up the parameters */
 	NBIF_ARG(%rdi,5,0)
 	NBIF_ARG(%rsi,5,1)
@@ -518,13 +518,13 @@ $1:
 
 	/* make the call on the C stack */
 	SWITCH_ERLANG_TO_C_QUICK
-	call	$2
+	call	CSYM($2)
 	SWITCH_C_TO_ERLANG_QUICK
 
 	/* return */
 	NBIF_RET(5)
-	.size	$1,.-$1
-	.type	$1,@function
+	SET_SIZE(ASYM($1))
+	TYPE_FUNCTION(ASYM($1))
 #endif')
 
 /*
