@@ -1,5 +1,5 @@
 ===============================================================================
-                          Cross compiling Erlang/OTP
+                          Cross Compiling Erlang/OTP
 ===============================================================================
 
 %CopyrightBegin%
@@ -244,14 +244,14 @@ build machine and the cross host system.
 
     $ ./otp_build boot -a
 
- 'otp_build boot -a' will first build a bootstrap system
-for the build machine and then do the cross build of the system.
+`otp_build boot -a' will first build a bootstrap system for the build machine
+and then do the cross build of the system.
 
   [11]
 
     $ ./otp_build release -a <RELEASE_DIR>
 
-'otp_build release -a' will do the same as [5], and you will after this have
+`otp_build release -a' will do the same as [5], and you will after this have
 to do a manual install either by doing [6], or [7].
 
 ======== Currently used configuration variables ===============================
@@ -312,13 +312,15 @@ not need to set these variables (where `<HOST>' is what has been passed as
 
 * CXXFLAGS - C++ compiler flags.
 
-* LD - Linker
+* LD - Linker.
 
 * LDFLAGS - Linker flags.
 
--- Dynamic Erlang Driver linker flags. --
+* LIBS - Libraries.
 
-NOTE! Either define all or non of the DED_LD* variables.
+-- Dynamic Erlang Driver linker flags --
+
+NOTE! Either set all or non of the DED_LD* variables.
 
 * DED_LD - Linker.
 
@@ -328,11 +330,23 @@ NOTE! Either define all or non of the DED_LD* variables.
      This flag should set a specific runtime library path for the shared
      library at link time.
 
+-- Large file support --
+
+NOTE! Either set all or non of the LFS_* variables.
+
+* LFS_CFLAGS - Large file support C compiler flags.
+
+* LFS_LDFLAGS - Large file support linker flags.
+
+* LFS_LIBS - Large file support libraries.
+
 -- Other tools --
 
-* RANLIB - ranlib
+* RANLIB - `ranlib' archive index tool.
 
-* AR - ar
+* AR - `ar' archiving tool.
+
+* GETCONF - `getconf' system configuration inspection tool.
 
 -------- Cross System Root Locations ------------------------------------------
 
@@ -355,6 +369,10 @@ NOTE! Either define all or non of the DED_LD* variables.
 These tests cannot (always) be done automatically when cross compiling. You
 usually does not need to set these variables. Only set these if you really
 know what you are doing.
+
+Note that some of these values will override results of tests performed
+by `configure', and some will not be used until `configure' is sure that
+it cannot figure the result out.
 
 The `configure' script will issue a warning when a default value is used.
 When a variable has been set, no warning will be issued.

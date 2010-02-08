@@ -42,11 +42,16 @@ AC_ARG_VAR(CXX, [C++ compiler])
 AC_ARG_VAR(CXXFLAGS, [C++ compiler flags])
 AC_ARG_VAR(LD, [linker (is often overridden by configure)])
 AC_ARG_VAR(LDFLAGS, [linker flags (can be risky to set since LD may be overriden by configure)])
+AC_ARG_VAR(LIBS, [libraries])
 AC_ARG_VAR(DED_LD, [linker for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LDFLAGS, [linker flags for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
 AC_ARG_VAR(DED_LD_FLAG_RUNTIME_LIBRARY_PATH, [runtime library path linker flag for Dynamic Erlang Drivers (set all DED_LD* variables or none)])
+AC_ARG_VAR(LFS_CFLAGS, [large file support C compiler flags (set all LFS_* variables or none)])
+AC_ARG_VAR(LFS_LDFLAGS, [large file support linker flags (set all LFS_* variables or none)])
+AC_ARG_VAR(LFS_LIBS, [large file support libraries (set all LFS_* variables or none)])
 AC_ARG_VAR(RANLIB, [ranlib])
 AC_ARG_VAR(AR, [ar])
+AC_ARG_VAR(GETCONF, [getconf])
 
 dnl Cross system root
 AC_ARG_VAR(erl_xcomp_sysroot, [Absolute cross system root path (only used when cross compiling)])
@@ -79,6 +84,29 @@ if test "$cross_compiling" = "yes"; then
 else
     erl_xcomp_sysroot=
     erl_xcomp_isysroot=
+fi
+])
+
+AC_DEFUN(LM_CHECK_GETCONF,
+[
+if test "$cross_compiling" != "yes"; then
+    AC_CHECK_PROG([GETCONF], [getconf], [getconf], [false])
+else
+    dnl First check if we got a `<HOST>-getconf' in $PATH
+    host_getconf="$host_alias-getconf"
+    AC_CHECK_PROG([GETCONF], [$host_getconf], [$host_getconf], [false])
+    if test "$GETCONF" = "false" && test "$erl_xcomp_sysroot" != ""; then
+	dnl We should perhaps give up if we have'nt found it by now, but at
+	dnl least in one Tilera MDE `getconf' under sysroot is a bourne
+	dnl shell script which we can use. We try to find `<HOST>-getconf'
+    	dnl or `getconf' under sysconf, but only under sysconf since
+	dnl `getconf' in $PATH is almost guaranteed to be for the build
+	dnl machine.
+	GETCONF=
+	prfx="$erl_xcomp_sysroot"
+        AC_PATH_TOOL([GETCONF], [getconf], [false],
+	             ["$prfx/usr/bin:$prfx/bin:$prfx/usr/local/bin"])
+    fi
 fi
 ])
 
@@ -533,19 +561,22 @@ dnl On ofs1 the '-pthread' switch should be used
 	    linux*)
 		THR_DEFS="$THR_DEFS -D_POSIX_THREAD_SAFE_FUNCTIONS"
 
+		LM_CHECK_GETCONF
 		AC_MSG_CHECKING(for Native POSIX Thread Library)
-		if test	X$cross_compiling = Xyes; then
-		    case X$erl_xcomp_linux_nptl in
-			X) nptl=cross;;
-			Xyes|Xno) nptl=$erl_xcomp_linux_nptl;;
+		libpthr_vsn=`$GETCONF GNU_LIBPTHREAD_VERSION 2>/dev/null`
+		if test $? -eq 0; then
+		    case "$libpthr_vsn" in
+			*nptl*|*NPTL*) nptl=yes;;
+			*) nptl=no;;
+		    esac
+		elif test "$cross_compiling" = "yes"; then
+		    case "$erl_xcomp_linux_nptl" in
+			"") nptl=cross;;
+			yes|no) nptl=$erl_xcomp_linux_nptl;;
 			*) AC_MSG_ERROR([Bad erl_xcomp_linux_nptl value: $erl_xcomp_linux_nptl]);;
 		    esac
 		else
-		    case `getconf GNU_LIBPTHREAD_VERSION 2>/dev/null` in
-			nptl*) nptl=yes;;
-			NPTL*) nptl=yes;;
-			*)  nptl=no;;
-		    esac
+		    nptl=no
 		fi
 		AC_MSG_RESULT($nptl)
 		if test $nptl = cross; then

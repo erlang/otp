@@ -449,16 +449,44 @@ case $host_os in
 	;;
 esac
 
+lfs_conf=ok
+lfs_source=none
+if test "${LFS_CFLAGS+set}" = "set" || \
+   test "${LFS_LDFLAGS+set}" = "set" || \
+   test "${LFS_LIBS+set}" = "set"; then
+    lfs_source=user
+else
+   LM_CHECK_GETCONF
+   test "$GETCONF" = "false" || lfs_source=getconf
+fi
 
-dnl
-dnl Use the getconf utility if it exists
-dnl to find large file support flags.
-dnl
-if type getconf >/dev/null 2>&1; then
-	CFLAGS="$CFLAGS `getconf LFS_CFLAGS 2>/dev/null`"
-	DEBUG_CFLAGS="$DEBUG_CFLAGS `getconf LFS_CFLAGS 2>/dev/null`"
-	LDFLAGS="$LDFLAGS `getconf LFS_LDFLAGS 2>/dev/null`"
-	LIBS="$LIBS `getconf LFS_LIBS 2>/dev/null`"
+if test "$lfs_source" = "none"; then
+    AC_MSG_WARN([Do not know how to check for large file support flags; no getconf is available])
+else
+    for var in CFLAGS LDFLAGS LIBS; do
+	AC_MSG_CHECKING([for large file support $var])
+	if test $lfs_source = user; then
+	    eval "lfs_val=\"\$LFS_$var\""
+	else
+	    eval "lfs_var=LFS_$var"
+	    lfs_val=`$GETCONF $lfs_var 2>/dev/null` || lfs_conf=failed
+	    if test $lfs_conf = failed; then
+		AC_MSG_RESULT([failed])
+		break
+	    fi
+	    eval "$lfs_var=\"$lfs_val\""
+	fi
+	test "$lfs_val" != "" || lfs_val=none
+	AC_MSG_RESULT([$lfs_val])
+    done
+    if test $lfs_conf = failed; then
+	AC_MSG_WARN([Check for large file support flags failed; $GETCONF failed])
+    else
+	CFLAGS="$CFLAGS $LFS_CFLAGS"
+	DEBUG_CFLAGS="$DEBUG_CFLAGS $LFS_CFLAGS"
+	LDFLAGS="$LDFLAGS $LFS_LDFLAGS"
+	LIBS="$LIBS $LFS_LIBS"
+    fi
 fi
 
 if test "x$GCC" = xyes; then
@@ -664,7 +692,7 @@ fi
 AC_PROG_LN_S
 
 
-AC_CHECK_PROG(AR, ar, ar, false)
+AC_CHECK_TOOL([AR], [ar], [false])
 if test "$ac_cv_prog_AR" = false; then
   AC_MSG_ERROR([No 'ar' command found in PATH])
 fi
