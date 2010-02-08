@@ -30,8 +30,6 @@
 
 -import(lists, [reverse/1, reverse/2]).
 
-%-import([nthtail/2, keysearch/3, prefix/2]).
-
 -export([over_word/3]).
 
 
@@ -476,8 +474,8 @@ prompt({line,Pbs,_,_}) ->
 %%     case erlang:module_loaded(Mod) of
 %% 	true ->
 %% 	    L = apply(Mod, module_info, []),
-%% 	    case keysearch(exports, 1, L) of
-%% 		{value, {_, Exports}} ->
+%% 	    case lists:keyfind(exports, 1, L) of
+%% 		{_, Exports} ->
 %% 		    match(FuncPrefix, Exports, "(");
 %% 		_ ->
 %% 		    no
@@ -493,7 +491,7 @@ prompt({line,Pbs,_,_}) ->
 %% 	    print_matches(Matches),
 %% 	    no;
 %% 	{partial, Str} ->
-%% 	    case nthtail(length(Prefix), Str) of
+%% 	    case lists:nthtail(length(Prefix), Str) of
 %% 		[] ->
 %% 		    print_matches(Matches),
 %% 		    {yes, []};
@@ -501,7 +499,7 @@ prompt({line,Pbs,_,_}) ->
 %% 		    {yes, Remain}
 %% 	    end;
 %% 	{complete, Str} ->
-%% 	    {yes, nthtail(length(Prefix), Str) ++ Extra};
+%% 	    {yes, lists:nthtail(length(Prefix), Str) ++ Extra};
 %% 	no ->
 %% 	    no
 %%     end.

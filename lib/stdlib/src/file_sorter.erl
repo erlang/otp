@@ -186,7 +186,7 @@ options(Option) ->
 options([{format, Format} | L], Opts) when Format =:= binary; 
                                            Format =:= term;
                                            is_function(Format),
-					   is_function(Format, 1) ->
+                                           is_function(Format, 1) ->
     options(L, Opts#opts{format = Format});
 options([{format, binary_term} | L], Opts) ->
     options(L, Opts#opts{format = binary_term_fun()});
@@ -419,9 +419,9 @@ culprit_found(IFun, F, FNs, W, L, I, [_Size | BT]) ->
     IFun(close),
     check_files(FNs, W, [{F,I,binary_to_term(BT)} | L]).
 
-files(_I, L, _LSz, #w{seq = 1}=W, []) ->
+files(_I, L, _LSz, #w{seq = 1, out = Out}=W, []) ->
     %% No temporary files created, everything in L.
-    case W#w.out of
+    case Out of
         Fun when is_function(Fun) ->
             SL = internal_sort(L, W),
             W1 = outfun(binterm_objects(SL, []), W),
@@ -462,8 +462,8 @@ fun_run(I, L, LSz, W, []) ->
         {cont, NW, Objs} ->
             fun_run(I, L, LSz, NW, Objs)
     end;
-fun_run(I, L, LSz, W, Objs) when LSz < W#w.runsize ->
-    {NI, NObjs, NL, NLSz} = fun_objs(Objs, L, LSz, W#w.runsize, I, W),
+fun_run(I, L, LSz, #w{runsize = Runsize}=W, Objs) when LSz < Runsize ->
+    {NI, NObjs, NL, NLSz} = fun_objs(Objs, L, LSz, Runsize, I, W),
     fun_run(NI, NL, NLSz, W, NObjs);
 fun_run(I, L, _LSz, W, Objs) ->
     NW = write_run(L, W),
@@ -1201,11 +1201,11 @@ infun(W) ->
         erlang:raise(Class, Reason, erlang:get_stacktrace())
     end.
 
-outfun(A, W) when W#w.inout_value =/= no_value ->
+outfun(A, #w{inout_value = Val} = W) when Val =/= no_value ->
     W1 = W#w{inout_value = no_value},
     W2 = if 
              W1#w.fun_out ->
-                 outfun(W#w.inout_value, W1);
+                 outfun(Val, W1);
              true -> W1
          end,
     outfun(A, W2);
@@ -1372,19 +1372,19 @@ cleanup(W) ->
         end,
     lists:foreach(F, W1#w.temp).
 
-close_input(W) when is_function(W#w.in) ->
-    catch (W#w.in)(close),
+close_input(#w{in = In}=W) when is_function(In) ->
+    catch In(close),
     W#w{in = undefined};
 close_input(#w{in = undefined}=W) ->
     W.
 
-close_out(W) when is_function(W#w.out) ->
-    catch (W#w.out)(close);
+close_out(#w{out = Out}) when is_function(Out) ->
+    catch Out(close);
 close_out(_) -> 
     ok.
 
 close_file(Fd, W) ->
-    {value, {Fd, FileName}} = lists:keysearch(Fd, 1, W#w.temp),
+    {Fd, FileName} = lists:keyfind(Fd, 1, W#w.temp),
     ?DEBUG("closing ~p~n", [FileName]),
     file:close(Fd),
     W#w{temp = [FileName | lists:keydelete(Fd, 1, W#w.temp)]}.

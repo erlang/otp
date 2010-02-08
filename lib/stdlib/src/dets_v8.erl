@@ -1053,14 +1053,14 @@ wl([{_Seq, {insert, Object}} | Cs], Type, _Del, Lookup, _I, _Objs)
     wl(Cs, Type, delete, Lookup, 1, [{Object,-1}]);
 wl([{_Seq, {insert, Object}} | Cs], Type, Del, Lookup, _I, Objs) ->
     NObjs = 
-	case lists:keysearch(Object, 1, Objs) of
-	    {value, {_, 0}} ->
+	case lists:keyfind(Object, 1, Objs) of
+	    {_, 0} ->
 		lists:keyreplace(Object, 1, Objs, {Object,-1});
-	    {value, {_, _C}} when Type =:= bag -> % C =:= 1; C =:= -1
+	    {_, _C} when Type =:= bag -> % C =:= 1; C =:= -1
 		Objs;
-	    {value, {_, C}} when C < 0 -> % when Type =:= duplicate_bag
+	    {_, C} when C < 0 -> % when Type =:= duplicate_bag
 		lists:keyreplace(Object, 1, Objs, {Object,C-1});
-	    {value, {_, C}} -> % when C > 0, Type =:= duplicate_bag
+	    {_, C} -> % when C > 0, Type =:= duplicate_bag
 		lists:keyreplace(Object, 1, Objs, {Object,C+1});
 	    false when Del =:= delete ->
 		[{Object, -1} | Objs];
@@ -1258,8 +1258,8 @@ eval_slot(Head, TrySize, Pos, WLs, L, LU) ->
     find_key(Head, Pos, NextPos, Size, Term, Key, WLs, L, LU).
 
 find_key(Head, Pos, NextPos, Size, Term, Key, WLs, L, LU) ->
-    case lists:keysearch(Key, 1, WLs) of
-	{value, {_, {Delete, LookUp, Objects}} = WL} ->
+    case lists:keyfind(Key, 1, WLs) of
+	{_, {Delete, LookUp, Objects}} = WL ->
 	    NWLs = lists:delete(WL, WLs),
 	    {NewObjects, NL, LUK} = eval_object(Size, Term, Delete, LookUp, 
 						Objects, Head, Pos, L, []),
@@ -1297,30 +1297,30 @@ eval_key(Key, Delete, LookUp, Objects, Head, Pos, WLs, L, LU, LUK) ->
 %% All objects in Objects have the key Key.
 eval_object(Size, Term, Delete, LookUp, Objects, Head, Pos, L, LU) ->
     Type = Head#head.type,
-    case lists:keysearch(Term, 1, Objects) of
-	{value, {_Object, N}} when N =:= 0 ->
+    case lists:keyfind(Term, 1, Objects) of
+	{_Object, N} when N =:= 0 ->
 	    L1 = [{delete,Pos,Size} | L],
 	    {Objects, L1, LU};
-	{value, {_Object, N}} when N < 0, Type =:= set ->
+	{_Object, N} when N < 0, Type =:= set ->
 	    L1 = [{old,Pos} | L],
 	    wl_lookup(LookUp, Objects, Term, L1, LU);
-	{value, {Object, _N}} when Type =:= bag -> % when N =:= 1; N =:= -1
+	{Object, _N} when Type =:= bag -> % when N =:= 1; N =:= -1
 	    L1 = [{old,Pos} | L],
 	    Objects1 = lists:keydelete(Object, 1, Objects),
 	    wl_lookup(LookUp, Objects1, Term, L1, LU);
-	{value, {Object, N}} when N < 0, Type =:= duplicate_bag ->
+	{Object, N} when N < 0, Type =:= duplicate_bag ->
 	    L1 = [{old,Pos} | L],
 	    Objects1 = lists:keyreplace(Object, 1, Objects, {Object,N+1}),
 	    wl_lookup(LookUp, Objects1, Term, L1, LU);
-	{value, {_Object, N}} when N > 0, Type =:= duplicate_bag ->
+	{_Object, N} when N > 0, Type =:= duplicate_bag ->
 	    L1 = [{old,Pos} | L],
 	    wl_lookup(LookUp, Objects, Term, L1, LU);
 	false when Type =:= set, Delete =:= delete ->
-	    case lists:keysearch(-1, 2, Objects) of
+	    case lists:keyfind(-1, 2, Objects) of
 		false -> % no inserted object, perhaps deleted objects
 		    L1 = [{delete,Pos,Size} | L],
 		    {[], L1, LU};
-		{value, {Term2,-1}} ->
+		{Term2, -1} ->
 		    Bin2 = term_to_binary(Term2),
 		    NSize = byte_size(Bin2),
 		    Overwrite = 

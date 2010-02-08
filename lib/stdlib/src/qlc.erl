@@ -528,122 +528,111 @@ options(Options0, [Key | Keys], L) when is_list(Options0) ->
                   false ->
                       Options0
               end,
-    V = case lists:keysearch(Key, 1, Options) of
-            {value, {format_fun, U=undefined}} ->
+    V = case lists:keyfind(Key, 1, Options) of
+            {format_fun, U=undefined} ->
                 {ok, U};
-            {value, {info_fun, U=undefined}} ->
+            {info_fun, U=undefined} ->
                 {ok, U};
-            {value, {lookup_fun, U=undefined}} ->
+            {lookup_fun, U=undefined} ->
                 {ok, U};
-            {value, {parent_fun, U=undefined}} ->
+            {parent_fun, U=undefined} ->
                 {ok, U};
-            {value, {post_fun, U=undefined}} ->
+            {post_fun, U=undefined} ->
                 {ok, U};
-            {value, {pre_fun, U=undefined}} ->
+            {pre_fun, U=undefined} ->
                 {ok, U};
-            {value, {info_fun, Fun}} when is_function(Fun), 
-                                          is_function(Fun, 1) ->
+            {info_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
                 {ok, Fun};
-            {value, {pre_fun, Fun}} when is_function(Fun),
-                                         is_function(Fun, 1) ->
+            {pre_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
                 {ok, Fun};
-            {value, {post_fun, Fun}} when is_function(Fun), 
-                                          is_function(Fun, 0) ->
+            {post_fun, Fun} when is_function(Fun), is_function(Fun, 0) ->
                 {ok, Fun};
-            {value, {lookup_fun, Fun}} when is_function(Fun),
-                                            is_function(Fun, 2) ->
+            {lookup_fun, Fun} when is_function(Fun), is_function(Fun, 2) ->
                 {ok, Fun};
-            {value, {max_lookup, Max}} when is_integer(Max), Max >= 0 ->
+            {max_lookup, Max} when is_integer(Max), Max >= 0 ->
                 {ok, Max};
-            {value, {max_lookup, infinity}} ->
+            {max_lookup, infinity} ->
                 {ok, -1};
-            {value, {format_fun, Fun}} when is_function(Fun),
-                                            is_function(Fun, 1) ->
+            {format_fun, Fun} when is_function(Fun), is_function(Fun, 1) ->
                 {ok, Fun};
-            {value, {parent_fun, Fun}} when is_function(Fun),
-                                            is_function(Fun, 0) ->
+            {parent_fun, Fun} when is_function(Fun), is_function(Fun, 0) ->
                 {ok, Fun};
-            {value, {key_equality, KE='=='}}->
+            {key_equality, KE='=='} ->
                 {ok, KE};
-            {value, {key_equality, KE='=:='}}->
+            {key_equality, KE='=:='} ->
                 {ok, KE};
-            {value, {join, J=any}} ->
+            {join, J=any} ->
                 {ok, J};
-            {value, {join, J=nested_loop}} ->
+            {join, J=nested_loop} ->
                 {ok, J};
-            {value, {join, J=merge}} ->
+            {join, J=merge} ->
                 {ok, J};
-            {value, {join, J=lookup}} ->
+            {join, J=lookup} ->
                 {ok, J};
-            {value, {lookup, LookUp}} when LookUp; 
-                                           not LookUp; 
-                                           LookUp =:= any ->
+            {lookup, LookUp} when is_boolean(LookUp); LookUp =:= any ->
                 {ok, LookUp};
-            {value, {max_list_size, Max}} when is_integer(Max), Max >= 0 ->
+            {max_list_size, Max} when is_integer(Max), Max >= 0 ->
                 {ok, Max};
-            {value, {tmpdir_usage, TmpUsage}} when TmpUsage =:= allowed;
-                                                   TmpUsage =:= not_allowed;
-                                                   TmpUsage =:= info_msg;
-                                                   TmpUsage =:= warning_msg;
-                                                   TmpUsage =:= error_msg ->
+            {tmpdir_usage, TmpUsage} when TmpUsage =:= allowed;
+                                          TmpUsage =:= not_allowed;
+                                          TmpUsage =:= info_msg;
+                                          TmpUsage =:= warning_msg;
+                                          TmpUsage =:= error_msg ->
                 {ok, TmpUsage};
-            {value, {unique, Unique}} when Unique; not Unique ->
+            {unique, Unique} when is_boolean(Unique) ->
                 {ok, Unique};
-            {value, {cache, Cache}} when Cache; not Cache; Cache =:= list ->
+            {cache, Cache} when is_boolean(Cache); Cache =:= list ->
                 {ok, Cache};
-            {value, {cache, ets}} ->
+            {cache, ets} ->
                 {ok, true};
-            {value, {cache, no}} ->
+            {cache, no} ->
                 {ok, false};
-            {value, {unique_all, UniqueAll}} when UniqueAll; not UniqueAll ->
+            {unique_all, UniqueAll} when is_boolean(UniqueAll) ->
                 {ok, UniqueAll};
-            {value, {cache_all, CacheAll}} when CacheAll; 
-                                                not CacheAll;
-                                                CacheAll =:= list ->
+            {cache_all, CacheAll} when is_boolean(CacheAll);
+                                       CacheAll =:= list ->
                 {ok, CacheAll};
-            {value, {cache_all, ets}} ->
+            {cache_all, ets} ->
                 {ok, true};
-            {value, {cache_all, no}} ->
+            {cache_all, no} ->
                 {ok, false};
-            {value, {spawn_options, default}} ->
+            {spawn_options, default} ->
                 {ok, default};
-            {value, {spawn_options, SpawnOptions}} ->
+            {spawn_options, SpawnOptions} ->
                 case is_proper_list(SpawnOptions) of
                     true -> 
                         {ok, SpawnOptions};
                     false ->
                         badarg
                 end;
-            {value, {flat, Flat}} when Flat; not Flat ->
+            {flat, Flat} when is_boolean(Flat) ->
                 {ok, Flat};
-            {value, {format, Format}} when Format =:= string;
-                                           Format =:= abstract_code;
-                                           Format =:= debug ->
+            {format, Format} when Format =:= string;
+                                  Format =:= abstract_code;
+                                  Format =:= debug ->
                 {ok, Format};
-            {value, {n_elements, NElements}} when NElements =:= infinity;
-                                                  is_integer(NElements),
-                                                   NElements > 0 ->
+            {n_elements, NElements} when NElements =:= infinity;
+                                         is_integer(NElements),
+                                         NElements > 0 ->
                 {ok, NElements};
-            {value, {depth, Depth}} when Depth =:= infinity;
-                                         is_integer(Depth), Depth >= 0 ->
+            {depth, Depth} when Depth =:= infinity;
+                                is_integer(Depth), Depth >= 0 ->
                 {ok, Depth};
-            {value, {order, Order}} when is_function(Order), 
-                                           is_function(Order, 2);
-                                         (Order =:= ascending);
-                                         (Order =:= descending) ->
+            {order, Order} when is_function(Order), is_function(Order, 2);
+                                (Order =:= ascending);
+                                (Order =:= descending) ->
                 {ok, Order};
-            {value, {compressed, Comp}} when Comp ->
+            {compressed, Comp} when Comp ->
                 {ok, [compressed]};
-            {value, {compressed, Comp}} when not Comp ->
+            {compressed, Comp} when not Comp ->
                 {ok, []};
-            {value, {tmpdir, T}} ->
+            {tmpdir, T} ->
                 {ok, T};
-            {value, {size, Size}} when is_integer(Size), Size > 0 ->
+            {size, Size} when is_integer(Size), Size > 0 ->
                 {ok, Size};
-            {value, {no_files, NoFiles}} when is_integer(NoFiles), 
-                                              NoFiles > 1 ->
+            {no_files, NoFiles} when is_integer(NoFiles), NoFiles > 1 ->
                 {ok, NoFiles};
-            {value, {Key, _}} ->
+            {Key, _} ->
                 badarg;
             false ->
                 Default = default_option(Key),
@@ -1457,7 +1446,7 @@ prep_qlc_lc({qlc_v1, QFun, CodeF, Qdata0, QOpt}, Opt, GOpt, _H) ->
                 {?qual_data(QNum, GoI, SI, {gen, Prep}), ModGens}
         end,
     {Qdata, ModGens} = lists:mapfoldl(F, [], Qdata0),
-    SomeLookUp = lists:keymember(true, 2, ModGens) =/= false,
+    SomeLookUp = lists:keymember(true, 2, ModGens),
     check_lookup_option(Opt, SomeLookUp),
     case ModGens of
         [{_QNum, _LookUp, all, OnePrep}] ->
@@ -1503,7 +1492,7 @@ pos_fun('==', QOpt, QNum) ->
 
 prep_gen(#qlc_table{lu_vals = LuV0, ms = MS0, trav_MS = TravMS,
                     info_fun = IF, lookup_fun = LU_fun,
-		    key_equality = KeyEquality}=LE0, 
+                    key_equality = KeyEquality}=LE0,
          Prep0, PosFun0, {MS, Fs}, Opt) ->
     PosFun = PosFun0(KeyEquality),
     {LuV, {STag,SkipFils}} = find_const_positions(IF, LU_fun, PosFun, Opt),
@@ -1998,8 +1987,8 @@ no_cache_of_first_generator(Optz, 1) ->
     Optz#optz{cache = false}.
 
 maybe_sort(LE, QNum, DoSort, Opt) ->
-    case lists:keysearch(QNum, 1, DoSort) of
-        {value, {QNum, Col}} ->
+    case lists:keyfind(QNum, 1, DoSort) of
+        {QNum, Col} ->
             #qlc_opt{tmpdir = TmpDir, tmpdir_usage = TmpUsage} = Opt,
             SortOpts = [{tmpdir,Dir} || Dir <- [TmpDir], Dir =/= ""],
             Sort = #qlc_sort{h = LE, keypos = {keysort, Col}, unique = false,
@@ -2025,7 +2014,7 @@ skip_lookup_filters(Qdata0, LU_SkipFs) ->
 %% specification it must be applied _after_ the lookup join (the
 %% filter must not be skipped!).
 activate_join_lookup_filter(QNum, Qdata) ->
-    {value, {_,GoI2,SI2,{gen,Prep2}}} = lists:keysearch(QNum, 1, Qdata),
+    {_,GoI2,SI2,{gen,Prep2}} = lists:keyfind(QNum, 1, Qdata),
     Table2 = Prep2#prepared.qh,
     NPrep2 = Prep2#prepared{qh = Table2#qlc_table{ms = no_match_spec}},
     %% Table2#qlc_table.ms has been reset; the filter will be run.
@@ -2059,7 +2048,7 @@ opt_join(Join, JoinOption, Qdata, Opt, LU_SkipQuals) ->
 
 opt_join_lu([{{_Q1,_C1,Q2,_C2}=J,[{lookup_join,_KEols,JKE,Skip0} | _]} | LJ], 
             Qdata, LU_SkipQuals) ->
-    {value, {Q2,_,_,{gen,Prep2}}} = lists:keysearch(Q2, 1, Qdata),
+    {Q2,_,_,{gen,Prep2}} = lists:keyfind(Q2, 1, Qdata),
     #qlc_table{ms = MS, key_equality = KE, 
                lookup_fun = LU_fun} = Prep2#prepared.qh,
     %% If there is no filter to skip (the match spec was derived 
@@ -2670,8 +2659,8 @@ sort_list_output(L) ->
 %% Don't use the file_sorter unless it is known that objects will be
 %% put on a temporary file (optimization).
 sort_handle(H, ListFun, FileFun, SortOptions, Post, LocalPost, TmpUsageM) ->
-    Size = case lists:keysearch(size, 1, SortOptions) of
-               {value, {size, Size0}} -> Size0;
+    Size = case lists:keyfind(size, 1, SortOptions) of
+               {size, Size0} -> Size0;
                false -> default_option(size)
            end,
     sort_cache(H, [], Size, {ListFun, FileFun, Post, LocalPost, TmpUsageM}).
@@ -2891,8 +2880,8 @@ ucache_recall(UTab, MTab, SeqNo) ->
             Object = case ets:lookup(UTab, Hash) of
                          [{Hash, SeqNo, Object0}] -> Object0;
                          HashSeqObjects -> 
-                             {value, {Hash, SeqNo, Object0}} = 
-                                 lists:keysearch(SeqNo, 2, HashSeqObjects),
+                             {Hash, SeqNo, Object0} =
+                                 lists:keyfind(SeqNo, 2, HashSeqObjects),
                              Object0
                      end,
             [Object | fun() -> ucache_recall(UTab, MTab, SeqNo + 1) end]
@@ -3403,8 +3392,8 @@ merge_join_id() ->
 
 tmp_merge_file(MergeId) ->
     TmpFiles = get(?MERGE_JOIN_FILE),
-    case lists:keysearch(MergeId, 1, TmpFiles) of
-        {value, {MergeId, Fd, FileName}} ->
+    case lists:keyfind(MergeId, 1, TmpFiles) of
+        {MergeId, Fd, FileName} ->
             {Fd, FileName};
         false ->
             none
