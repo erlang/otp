@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -265,13 +265,13 @@ erts_bin_free(Binary *bp)
 ERTS_GLB_INLINE Binary *
 erts_create_magic_binary(Uint size, void (*destructor)(Binary *))
 {
-    Uint bsize = sizeof(Binary) - 1 + sizeof(ErtsBinaryMagicPart) - 1 + size;
+    Uint bsize = ERTS_MAGIC_BIN_SIZE(size);
     Binary* bptr = erts_alloc_fnf(ERTS_ALC_T_BINARY, bsize);
     if (!bptr)
 	erts_alloc_n_enomem(ERTS_ALC_T2N(ERTS_ALC_T_BINARY), bsize);
     ERTS_CHK_BIN_ALIGNMENT(bptr);
     bptr->flags = BIN_FLAG_MAGIC;
-    bptr->orig_size = sizeof(ErtsBinaryMagicPart) - 1 + size;
+    bptr->orig_size = ERTS_MAGIC_BIN_ORIG_SIZE(size);
     erts_refc_init(&bptr->refc, 0);
     ERTS_MAGIC_BIN_DESTRUCTOR(bptr) = destructor;
     return bptr;

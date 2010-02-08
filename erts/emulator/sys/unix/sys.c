@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -709,7 +709,7 @@ prepare_crash_dump(void)
 	if (nice_val > 39) {
 	    nice_val = 39;
 	}
-	nice(nice_val);
+	erts_silence_warn_unused_result(nice(nice_val));
     }
     
     envsz = sizeof(env);
@@ -2332,7 +2332,7 @@ sys_async_ready_failed(int fd, int r, int err)
     char buf[120];
     sprintf(buf, "sys_async_ready(): Fatal error: fd=%d, r=%d, errno=%d\n",
 	     fd, r, err);
-    (void) write(2, buf, strlen(buf));
+    erts_silence_warn_unused_result(write(2, buf, strlen(buf)));
     abort();
 }
 
@@ -2891,7 +2891,7 @@ smp_sig_notify(char c)
 	char msg[] =
 	    "smp_sig_notify(): Failed to notify signal-dispatcher thread "
 	    "about received signal";
-	(void) write(2, msg, sizeof(msg));
+	erts_silence_warn_unused_result(write(2, msg, sizeof(msg)));
 	abort();
     }
 }
@@ -3120,7 +3120,6 @@ erl_sys_args(int* argc, char** argv)
     }
     *argc = j;
 }
-
 
 #ifdef ERTS_TIMER_THREAD
 

@@ -14,12 +14,7 @@
 #    make install prefix=$HOME
 
 ARFLAGS = rc
-ifeq ($(findstring ose,$(TARGET)),ose)
-  TYPE_FLAGS =
-else
-  TYPE_FLAGS = -O3
-endif
-CFLAGS = @CFLAGS@ @DEFS@ @EMU_THR_DEFS@ $(TYPE_FLAGS)
+CFLAGS = $(subst -O2, -O3, @CFLAGS@ @DEFS@ @EMU_THR_DEFS@)
 #CFLAGS=-O -DMAX_WBITS=14 -DMAX_MEM_LEVEL=7
 #CFLAGS=-g -DDEBUG
 #CFLAGS=-O3 -Wall -Wwrite-strings -Wpointer-arith -Wconversion \
@@ -36,24 +31,15 @@ OBJS = $(O:%=$(OBJDIR)/%)
 
 include $(ERL_TOP)/make/target.mk
 
-# On windows we need a separate zlib during debug build
-ifeq ($(TARGET),win32)
-
-ifeq ($(TYPE),debug)
-CFLAGS = $(subst -O2, -g, @CFLAGS@ @DEFS@ @DEBUG_FLAGS@)
-endif # debug
-
-else  # win32
-
 ifeq ($(TYPE),gcov)
-CFLAGS = $(subst -O2, -g, -O0 -fprofile-arcs -ftest-coverage @CFLAGS@ @DEFS@ @DEBUG_FLAGS@)
-TYPE_FLAGS=
+CFLAGS = -O0 -fprofile-arcs -ftest-coverage @DEBUG_CFLAGS@ @DEFS@ @EMU_THR_DEFS@
 else  # gcov
-# On other platforms we use no special debug version of zlib
+ifeq ($(TYPE),debug)
+CFLAGS = @DEBUG_CFLAGS@ @DEFS@ @EMU_THR_DEFS@
+endif # debug
 endif # gcov
 
-endif # win32
-
+# On windows we *need* a separate zlib during debug build
 OBJDIR= $(ERL_TOP)/erts/emulator/zlib/obj/$(TARGET)/$(TYPE)
 
 include $(ERL_TOP)/make/$(TARGET)/otp.mk

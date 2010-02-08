@@ -606,7 +606,7 @@ endif
 
 ifneq ($(filter tile-%,$(TARGET)),)
 $(OBJDIR)/beam_emu.o: beam/beam_emu.c
-       $(CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
+	$(CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) \
          -OPT:Olimit=0 -WOPT:lpre=off:spre=off:epre=off \
          $(INCLUDES) -c $< -o $@
 endif
@@ -1086,8 +1086,16 @@ DEP_FLAGS=-MM  $(subst -O2,,$(CFLAGS)) $(INCLUDES) -I../etc/win32 -Idrivers/comm
 # SYS_SRC=$(subst sys/common/erl_poll.c,,$(ALL_SYS_SRC))
 
 else # !win32
+
+ifeq ($(findstring tile,$(TARGET)),tile)
+# tile-gcc doesn't like -MG
+MG_FLAG=
+else
+MG_FLAG=-MG
+endif
+
 DEP_CC=$(CC)
-DEP_FLAGS=-MM -MG $(CFLAGS) $(INCLUDES) -Idrivers/common
+DEP_FLAGS=-MM $(MG_FLAG) $(CFLAGS) $(INCLUDES) -Idrivers/common
 SYS_SRC=$(ALL_SYS_SRC)
 endif
 

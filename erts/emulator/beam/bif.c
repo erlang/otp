@@ -4143,6 +4143,7 @@ BIF_RETTYPE blocking_read_file_1(BIF_ALIST_1)
     FILE *file;
     struct stat file_info;
     char *filename = NULL;
+    size_t size;
  
     i = list_length(BIF_ARG_1);
     if (i < 0) {
@@ -4170,9 +4171,13 @@ BIF_RETTYPE blocking_read_file_1(BIF_ALIST_1)
 	fclose(file);
 	BIF_RET(TUPLE2(hp, am_error, am_allocator));
     }
-    fread(buff, 1, buff_size, file);
+    size = fread(buff, 1, buff_size, file);
     fclose(file);
-    bin = new_binary(BIF_P, buff, buff_size);
+    if (size < 0)
+	size = 0;
+    else if (size > buff_size)
+	size = (size_t) buff_size;
+    bin = new_binary(BIF_P, buff, (int) size);
     erts_free(ERTS_ALC_T_TMP, (void *) buff);
  
     BIF_RET(TUPLE2(hp, am_ok, bin));

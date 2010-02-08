@@ -3982,6 +3982,14 @@ erts_write_env(char *key, char *value)
     return res;
 }
 
+/*
+ * To be used to silence unused result warnings, but do not abuse it.
+ */
+void erts_silence_warn_unused_result(long unused)
+{
+
+}
+
 #ifdef DEBUG
 /*
  * Handy functions when using a debugger - don't use in the code!

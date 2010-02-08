@@ -492,7 +492,16 @@ fi
 if test "x$GCC" = xyes; then
   # until the emulator can handle this, I suggest we turn it off!
   #WFLAGS="-Wall -Wshadow -Wcast-qual -Wmissing-declarations"
-  WFLAGS="-Wall -Wstrict-prototypes -Wmissing-prototypes"
+  WFLAGS="-Wall -Wstrict-prototypes"
+
+  case "$host_cpu" in
+    tile*)
+      # tile-gcc is a bit stricter with -Wmissing-prototypes than other gccs,
+      # and too strict for our taste.
+      ;;
+    *)
+      WFLAGS="$WFLAGS -Wmissing-prototypes";;
+  esac
 
   saved_CFLAGS=$CFLAGS
   CFLAGS="$CFLAGS -Wdeclaration-after-statement"

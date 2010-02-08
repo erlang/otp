@@ -21,6 +21,7 @@
 #define __GLOBAL_H__
 
 #include "sys.h"
+#include <stddef.h> /* offsetof() */
 #include "erl_alloc.h"
 #include "erl_vm.h"
 #include "erl_node_container_utils.h"
@@ -382,16 +383,41 @@ extern Eterm erts_ddll_monitor_driver(Process *p,
 ** and Binary, the macros below can convert one type to the other, as they both
 ** in reality are equal.
 */
-typedef struct binary {
-    Uint flags;
-    erts_refc_t refc;
+
 #ifdef ARCH_32
-    Uint32 align__; /* *DO NOT USE* only for alignment. */
+ /* *DO NOT USE* only for alignment. */
+#define ERTS_BINARY_STRUCT_ALIGNMENT Uint32 align__;
+#else
+#define ERTS_BINARY_STRUCT_ALIGNMENT
 #endif
-    /* Add fields BEFORE this, otherwise the drivers crash */
+
+/* Add fields in ERTS_INTERNAL_BINARY_FIELDS, otherwise the drivers crash */
+#define ERTS_INTERNAL_BINARY_FIELDS				\
+    Uint flags;							\
+    erts_refc_t refc;						\
+    ERTS_BINARY_STRUCT_ALIGNMENT
+
+typedef struct binary {
+    ERTS_INTERNAL_BINARY_FIELDS
     long orig_size;
     char orig_bytes[1]; /* to be continued */
 } Binary;
+
+typedef struct {
+    ERTS_INTERNAL_BINARY_FIELDS
+    long orig_size;
+    void (*destructor)(Binary *);
+    char magic_bin_data[1];
+} ErtsMagicBinary;
+
+typedef union {
+    Binary binary;
+    ErtsMagicBinary magic_binary;
+    struct {
+	ERTS_INTERNAL_BINARY_FIELDS
+	ErlDrvBinary binary;
+    } driver;
+} ErtsBinary;
 
 /*
  * 'Binary' alignment:
@@ -400,25 +426,21 @@ typedef struct binary {
  * 32-bits architectures and 8 bytes on 64-bits architectures.
  */
 
-/*
- * "magic" binary.
- */
-typedef struct {
-    void (*destructor)(Binary *);
-    char magic_bin_data[1];
-} ErtsBinaryMagicPart;
-
 #define ERTS_MAGIC_BIN_DESTRUCTOR(BP) \
-  (((ErtsBinaryMagicPart *) (BP)->orig_bytes)->destructor)
+  ((ErtsBinary *) (BP))->magic_binary.destructor
 #define ERTS_MAGIC_BIN_DATA(BP) \
-  ((void *) (((ErtsBinaryMagicPart *) (BP)->orig_bytes)->magic_bin_data))
+  ((void *) ((ErtsBinary *) (BP))->magic_binary.magic_bin_data)
 #define ERTS_MAGIC_BIN_DATA_SIZE(BP) \
-  ((BP)->orig_size - (sizeof(ErtsBinaryMagicPart) - 1))
+  ((BP)->orig_size - sizeof(void (*)(Binary *)))
+#define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
+  (sizeof(void (*)(Binary *)) + (Sz))
+#define ERTS_MAGIC_BIN_SIZE(Sz) \
+  (sizeof(ErtsMagicBinary) - 1 + (Sz))
 
-#define Binary2ErlDrvBinary(B) ((ErlDrvBinary *) (&((B)->orig_size)))
+#define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
 #define ErlDrvBinary2Binary(D) ((Binary *) \
-				(((char *) (D)) - \
-				 ((char *) &(((Binary *) 0)->orig_size))))
+				(((char *) (D)) \
+				 - offsetof(ErtsBinary, driver.binary)))
 
 /* A "magic" binary flag */
 #define BIN_FLAG_MAGIC      1
@@ -1405,6 +1427,11 @@ void p_slpq(_VOID_);
 #endif
 
 /* utils.c */
+
+/*
+ * To be used to silence unused result warnings, but do not abuse it.
+ */
+void erts_silence_warn_unused_result(long unused);
 
 void erts_cleanup_offheap(ErlOffHeap *offheap);
 void erts_cleanup_externals(ExternalThing *);
