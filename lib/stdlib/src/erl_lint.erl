@@ -78,7 +78,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
           calls = dict:new(),			%Who calls who
           imported = [],                        %Actually imported functions
           used_records=sets:new() :: set(),	%Used record definitions
-	  used_types = sets:new() :: set()	%Used type definitions
+	  used_types = dict:new() :: dict()	%Used type definitions
          }).
 
 %% Define the lint state record.
@@ -277,6 +277,8 @@ format_error({conflicting_behaviours,{Name,Arity},B,FirstL,FirstB}) ->
 format_error({undefined_behaviour_func, {Func,Arity}, Behaviour}) ->
     io_lib:format("undefined callback function ~w/~w (behaviour '~w')",
 		  [Func,Arity,Behaviour]);
+format_error({undefined_behaviour_func, {Func,Arity,_Spec}, Behaviour}) ->
+    format_error({undefined_behaviour_func, {Func,Arity}, Behaviour});
 format_error({undefined_behaviour,Behaviour}) ->
     io_lib:format("behaviour ~w undefined", [Behaviour]);
 format_error({undefined_behaviour_callbacks,Behaviour}) ->
@@ -288,7 +290,7 @@ format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
-format_error({type_ref, {TypeName, Arity}}) ->
+format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s is unused", [TypeName, gen_type_paren(Arity)]);
@@ -757,10 +759,11 @@ post_traversal_check(Forms, St0) ->
     St7 = check_bif_clashes(Forms, St6),
     St8 = check_specs_without_function(St7),
     St9 = check_functions_without_spec(Forms, St8),
-    StA = check_unused_types(Forms, St9),
-    StB = check_untyped_records(Forms, StA),
-    StC = check_on_load(StB),
-    check_unused_records(Forms, StC).
+    StA = check_undefined_types(St9),
+    StB = check_unused_types(Forms, StA),
+    StC = check_untyped_records(Forms, StB),
+    StD = check_on_load(StC),
+    check_unused_records(Forms, StD).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -786,13 +789,20 @@ behaviour_callbacks(Line, B, St0) ->
         Funcs when is_list(Funcs) ->
             All = all(fun({FuncName, Arity}) ->
                               is_atom(FuncName) andalso is_integer(Arity);
+			 ({FuncName, Arity, Spec}) ->
+			      is_atom(FuncName) andalso is_integer(Arity)
+				  andalso is_list(Spec);
                          (_Other) ->
                               false
                       end,
                       Funcs),
+	    MaybeRemoveSpec = fun({_F,_A}=FA) -> FA;
+				 ({F,A,_S}) -> {F,A};
+				 (Other) -> Other
+			      end,
             if
                 All =:= true ->
-                    {Funcs, St0};
+                    {[MaybeRemoveSpec(F) || F <- Funcs], St0};
                 true ->
                     St1 = add_warning(Line,
                                       {ill_defined_behaviour_callbacks,B},
@@ -968,6 +978,16 @@ check_undefined_functions(#lint{called=Called0,defined=Def0}=St0) ->
     Undef = sofs:to_external(sofs:drestriction(Called, Def)),
     foldl(fun ({NA,L}, St) ->
 		  add_error(L, {undefined_function,NA}, St)
+	  end, St0, Undef).
+
+%% check_undefined_types(State0) -> State
+
+check_undefined_types(#lint{usage=Usage,types=Def}=St0) ->
+    Used = Usage#usage.used_types,
+    UTAs = dict:fetch_keys(Used),
+    Undef = [{TA,dict:fetch(TA, Used)} || TA <- UTAs, not dict:is_key(TA, Def)],
+    foldl(fun ({TA,L}, St) ->
+		  add_error(L, {undefined_type,TA}, St)
 	  end, St0, Undef).
 
 %% check_bif_clashes(Forms, State0) -> State
@@ -1427,20 +1447,11 @@ is_pattern_expr_1({tuple,_Line,Es}) ->
     all(fun is_pattern_expr/1, Es);
 is_pattern_expr_1({nil,_Line}) -> true;
 is_pattern_expr_1({cons,_Line,H,T}) ->
-    case is_pattern_expr_1(H) of
-        true -> is_pattern_expr_1(T);
-        false -> false
-    end;
+    is_pattern_expr_1(H) andalso is_pattern_expr_1(T);
 is_pattern_expr_1({op,_Line,Op,A}) ->
-    case erl_internal:arith_op(Op, 1) of
-        true -> is_pattern_expr_1(A);
-        false -> false
-    end;
+    erl_internal:arith_op(Op, 1) andalso is_pattern_expr_1(A);
 is_pattern_expr_1({op,_Line,Op,A1,A2}) ->
-    case erl_internal:arith_op(Op, 2) of
-        true -> all(fun is_pattern_expr/1, [A1,A2]);
-        false -> false
-    end;
+    erl_internal:arith_op(Op, 2) andalso all(fun is_pattern_expr/1, [A1,A2]);
 is_pattern_expr_1(_Other) -> false.
 
 %% pattern_bin([Element], VarTable, Old, BinVarTable, State) -> 
@@ -1817,28 +1828,17 @@ is_gexpr({bin,_L,Fs}, RDs) ->
         end, Fs);
 is_gexpr({call,_L,{atom,_Lf,F},As}, RDs) ->
     A = length(As),
-    case erl_internal:guard_bif(F, A) of
-        true -> is_gexpr_list(As, RDs);
-        false -> false
-    end;
+    erl_internal:guard_bif(F, A) andalso is_gexpr_list(As, RDs);
 is_gexpr({call,_L,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,F}},As}, RDs) ->
     A = length(As),
-    case erl_internal:guard_bif(F, A) orelse is_gexpr_op(F, A) of
-        true -> is_gexpr_list(As, RDs);
-        false -> false
-    end;
+    (erl_internal:guard_bif(F, A) orelse is_gexpr_op(F, A))
+        andalso is_gexpr_list(As, RDs);
 is_gexpr({call,L,{tuple,Lt,[{atom,Lm,erlang},{atom,Lf,F}]},As}, RDs) ->
     is_gexpr({call,L,{remote,Lt,{atom,Lm,erlang},{atom,Lf,F}},As}, RDs);
 is_gexpr({op,_L,Op,A}, RDs) ->
-    case is_gexpr_op(Op, 1) of
-        true -> is_gexpr(A, RDs);
-        false -> false
-    end;
+    is_gexpr_op(Op, 1) andalso is_gexpr(A, RDs);
 is_gexpr({op,_L,Op,A1,A2}, RDs) ->
-    case is_gexpr_op(Op, 2) of
-        true -> is_gexpr_list([A1,A2], RDs);
-        false -> false
-    end;
+    is_gexpr_op(Op, 2) andalso is_gexpr_list([A1,A2], RDs);
 is_gexpr(_Other, _RDs) -> false.
 
 is_gexpr_op('andalso', 2) -> true;
@@ -2388,7 +2388,7 @@ check_type(Types, St) ->
     {SeenVars, St1} = check_type(Types, dict:new(), St),
     dict:fold(fun(Var, {seen_once, Line}, AccSt) ->
 		      case atom_to_list(Var) of
-			  [$_|_] -> AccSt;
+			  "_"++_ -> AccSt;
 			  _ -> add_error(Line, {singleton_typevar, Var}, AccSt)
 		      end;
 		 (_Var, seen_multiple, AccSt) ->
@@ -2400,7 +2400,7 @@ check_type({ann_type, _L, [_Var, Type]}, SeenVars, St) ->
 check_type({paren_type, _L, [Type]}, SeenVars, St) ->
     check_type(Type, SeenVars, St);
 check_type({remote_type, L, [{atom, _, Mod}, {atom, _, Name}, Args]}, 
-	   SeenVars, St = #lint{module=CurrentMod}) ->
+	   SeenVars, #lint{module=CurrentMod} = St) ->
     St1 =
 	case (dict:is_key({Name, length(Args)}, default_types())
 	      orelse is_var_arity_type(Name)) of
@@ -2463,21 +2463,15 @@ check_type({type, _L, product, Args}, SeenVars, St) ->
     lists:foldl(fun(T, {AccSeenVars, AccSt}) ->
 			check_type(T, AccSeenVars, AccSt)
 		end, {SeenVars, St}, Args);
-check_type({type, La, TypeName, Args}, SeenVars, 
-	   St = #lint{types=Defs, usage=Usage}) ->
+check_type({type, La, TypeName, Args}, SeenVars, #lint{usage=Usage} = St) ->
     Arity = length(Args),
-    St1 =
-	case dict:is_key({TypeName, Arity}, Defs) of
-	    true ->
-		UsedTypes1 = Usage#usage.used_types,
-		UsedTypes2 = sets:add_element({TypeName, Arity}, UsedTypes1),
-		St#lint{usage=Usage#usage{used_types=UsedTypes2}};
-	    false -> 
-		case is_var_arity_type(TypeName) of
-		    true -> St;
-		    false -> add_error(La, {type_ref, {TypeName, Arity}}, St)
-		end
-	end,
+    St1 = case is_var_arity_type(TypeName) of
+	      true -> St;
+	      false ->
+		  OldUsed = Usage#usage.used_types,
+		  UsedTypes = dict:store({TypeName, Arity}, La, OldUsed),
+		  St#lint{usage=Usage#usage{used_types=UsedTypes}}
+	  end,
     check_type({type, -1, product, Args}, SeenVars, St1).
 
 check_record_types(Line, Name, Fields, SeenVars, St) ->
@@ -2636,7 +2630,7 @@ check_specs([FunType|Left], Arity, St0) ->
 check_specs([], _Arity, St) ->
     St.
 
-check_specs_without_function(St = #lint{module=Mod, defined=Funcs}) ->
+check_specs_without_function(#lint{module=Mod,defined=Funcs,specs=Specs}=St) ->
     Fun = fun({M, F, A} = MFA, Line, AccSt) when M =:= Mod ->
 		  case gb_sets:is_element({F, A}, Funcs) of
 		      true -> AccSt;
@@ -2644,7 +2638,7 @@ check_specs_without_function(St = #lint{module=Mod, defined=Funcs}) ->
 		  end;
 	     ({_M, _F, _A}, _Line, AccSt) -> AccSt
 	  end,
-    dict:fold(Fun, St, St#lint.specs).
+    dict:fold(Fun, St, Specs).
 
 %% This generates warnings for functions without specs; if the user has
 %% specified both options, we do not generate the same warnings twice.
@@ -2688,7 +2682,7 @@ check_unused_types(Forms, St = #lint{usage=Usage, types=Types}) ->
 		   (Type, FileLine, AccSt) ->
                         case loc(FileLine) of
 			    {FirstFile, _} ->
-				case sets:is_element(Type, UsedTypes) of
+				case dict:is_key(Type, UsedTypes) of
 				    true -> AccSt;
 				    false -> 
 					add_warning(FileLine,
@@ -3009,7 +3003,7 @@ check_old_unused_vars(Vt, Vt0, St0) ->
 unused_vars(Vt, Vt0, _St0) ->
     U0 = orddict:filter(fun (V, {_State,unused,_Ls}) -> 
                                 case atom_to_list(V) of
-                                    [$_|_] -> false;
+                                    "_"++_ -> false;
                                     _ -> true
                                 end;
                             (_V, _How) -> false
