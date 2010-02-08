@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -749,11 +749,12 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
     byte *sql; 
     db_result_msg msg; 
     int i, num_param_values, ver = 0,
-	erl_type = 0, index = 0, size = 0, cols = 0; 
+       erl_type = 0, index = 0, size = 0, cols = 0;
     long long_num_param_values;  
     param_status param_status;
     diagnos diagnos;
-    param_array *params; 
+    param_array *params;
+    SQLRETURN result;
 
     if (associated_result_set(state)) {
 	clean_state(state);
@@ -784,10 +785,16 @@ static db_result_msg db_param_query(byte *buffer, db_state *state)
   				   num_param_values, state);  
     
     if(params != NULL) {
-	if(!sql_success(SQLExecDirect(statement_handle(state),
-				      sql, SQL_NTS))) {
-	    diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
-	    msg = encode_error_message(diagnos.error_msg);
+
+	result = SQLExecDirect(statement_handle(state), sql, SQL_NTS);
+	if (!sql_success(result) || result == SQL_NO_DATA) {
+		diagnos = get_diagnos(SQL_HANDLE_STMT, statement_handle(state));
+	}
+	/* SQL_NO_DATA and SQLSTATE 00000 indicate success for
+	   updates/deletes that affect no rows */
+	if(!sql_success(result) &&
+	   !(result == SQL_NO_DATA && !strcmp((char *)diagnos.sqlState, INFO))) {
+		msg = encode_error_message(diagnos.error_msg);
 	} else {
 	    for (i = 0; i < param_status.params_processed; i++) {
 		switch (param_status.param_status_array[i]) {
@@ -2452,6 +2459,7 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle)
     int acc_errmsg_size;
     byte *current_errmsg_pos;
     SQLCHAR current_sql_state[SQL_STATE_SIZE];
+    SQLRETURN result;
 
     diagnos.error_msg[0] = 0;
     
@@ -2464,10 +2472,10 @@ static diagnos get_diagnos(SQLSMALLINT handleType, SQLHANDLE handle)
     /* Foreach diagnostic record in the current set of diagnostic records
        the error message is obtained */
     for(record_nr = 1; ;record_nr++) {    
-	if(SQLGetDiagRec(handleType, handle, record_nr, current_sql_state,
+        result = SQLGetDiagRec(handleType, handle, record_nr, current_sql_state,
 			 &nativeError, current_errmsg_pos,
-			 (SQLSMALLINT)errmsg_buffer_size, &errmsg_size)
-	   != SQL_SUCCESS) {
+							   (SQLSMALLINT)errmsg_buffer_size, &errmsg_size);
+	if(result != SQL_SUCCESS && result != SQL_NO_DATA) {
 
       
 	    break;
