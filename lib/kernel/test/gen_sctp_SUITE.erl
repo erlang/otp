@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 -module(gen_sctp_SUITE).
@@ -24,10 +24,11 @@
 %%-compile(export_all).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1,xfer_min/1,xfer_active/1,api_open_close/1,api_listen/1]).
+	 basic/1,api_open_close/1,api_listen/1,api_connect_init/1,
+	 xfer_min/1,xfer_active/1]).
 
 all(suite) ->
-    [basic,xfer_min,xfer_active,api_open_close,api_listen].
+    [basic,api_open_close,api_listen,api_connect_init,xfer_min,xfer_active].
 
 init_per_testcase(_Func, Config) ->
     Dog = test_server:timetrap(test_server:seconds(15)),
@@ -325,7 +326,7 @@ api_listen(Config) when is_list(Config) ->
 		  ?line {ok,{Localhost,
 			     Pb,[],
 			     #sctp_assoc_change{
-				  state = comm_lost}}} =
+				  state=comm_lost}}} =
 		      gen_sctp:recv(Sa, infinity);
 	      {error,#sctp_assoc_change{state=cant_assoc}} -> ok
 	  end,
@@ -333,6 +334,51 @@ api_listen(Config) when is_list(Config) ->
     ?line {ok,#sctp_assoc_change{state=comm_up,
 				 error=0}} =
 	gen_sctp:connect(Sa, localhost, Pb, []),
+    ?line ok = gen_sctp:close(Sa),
+    ?line ok = gen_sctp:close(Sb),
+    ok.
+
+api_connect_init(doc) ->
+    "Test the API function connect_init/4";
+api_connect_init(suite) ->
+    [];
+api_connect_init(Config) when is_list(Config) ->
+    ?line Localhost = {127,0,0,1},
+
+    ?line {ok,S} = gen_sctp:open(),
+    ?line {ok,Pb} = inet:port(S),
+    ?line try gen_sctp:connect_init(S, Localhost, not_allowed_for_port, [])
+	  catch error:badarg -> ok
+	  end,
+    ?line try gen_sctp:connect_init(S, Localhost, 12345, not_allowed_for_opts)
+	  catch error:badarg -> ok
+	  end,
+    ?line ok = gen_sctp:close(S),
+    ?line {error,closed} = gen_sctp:connect_init(S, Localhost, 12345, []),
+
+    ?line {ok,Sb} = gen_sctp:open(Pb),
+    ?line {ok,Sa} = gen_sctp:open(),
+    ?line case gen_sctp:connect_init(Sa, localhost, Pb, []) of
+	      {error,econnrefused} ->
+		  ?line {ok,{Localhost,
+			     Pb,[],
+			     #sctp_assoc_change{state=comm_lost}}} =
+		      gen_sctp:recv(Sa, infinity);
+	      ok ->
+		  ?line {ok,{Localhost,
+			     Pb,[],
+			     #sctp_assoc_change{state=cant_assoc}}} =
+		      gen_sctp:recv(Sa, infinity)
+	  end,
+    ?line ok = gen_sctp:listen(Sb, true),
+    ?line case gen_sctp:connect_init(Sa, localhost, Pb, []) of
+	      ok ->
+		  ?line {ok,{Localhost,
+			     Pb,[],
+			     #sctp_assoc_change{
+				  state = comm_up}}} =
+		      gen_sctp:recv(Sa, infinity)
+	  end,
     ?line ok = gen_sctp:close(Sa),
     ?line ok = gen_sctp:close(Sb),
     ok.
