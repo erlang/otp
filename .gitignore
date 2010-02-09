@@ -182,6 +182,8 @@ a.out.dSYM/
 /lib/jinterface/priv/OtpErlang.jar
 /lib/jinterface/priv/com/
 /lib/jinterface/doc/html/java
+/lib/jinterface/pom.xml
+/lib/jinterface/target
 
 # kernel
 
