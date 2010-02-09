@@ -592,7 +592,7 @@ This option makes it possible to include comments inside complicated patterns. N
 	<v>NLSpec = cr | crlf | lf | anycrlf | any </v>
 	<v>SplitList = [ RetData ] | [ GroupedRetData ]</v>
 	<v>GroupedRetData = [ RetData ]</v>
-	<v>RetData = iodata() charlist() | binary() | list()</v>
+	<v>RetData = iodata() | charlist() | binary() | list()</v>
       </type>
       <desc>
       <p>This function splits the input into parts by finding tokens
