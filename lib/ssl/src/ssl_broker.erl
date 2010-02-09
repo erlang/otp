@@ -333,9 +333,9 @@ init([Client, Type]) ->
 	    debug1(Debug, Type, "in start, client = ~w", [Client]),
 	    {ok, #st{brokertype = Type, server = Server, client = Client,
 		     collector = Client, debug = Debug}};
-		   true  ->
-			  {stop, no_ssl_server}
-		  end.
+	true  ->
+	    {stop, no_ssl_server}
+    end.
 
 
 %%

@@ -129,7 +129,8 @@ listen(Port, Options0) ->
 	    %% so that new and old ssl can be run by the same
 	    %% code, however the option will be ignored by old ssl
 	    %% that hardcodes reuseaddr to true in its portprogram.
-	    Options =  proplists:delete(reuseaddr, Options0),
+	    Options1 = proplists:delete(reuseaddr, Options0),
+	    Options  = proplists:delete(ssl_imp, Options1),
 	    old_listen(Port, Options);
 	Value ->
 	    {error, {eoptions, {ssl_imp, Value}}}
