@@ -2621,6 +2621,7 @@ void process_main(void)
 
      SWAPOUT;
      reg[0] = r(0);
+
      next = call_fun(c_p, Arg(0), reg, THE_NON_VALUE);
      SWAPIN;
      if (next != NULL) {
@@ -6049,8 +6050,12 @@ call_fun(Process* p,		/* Current process. */
 	    }
 	}
     } else if (is_export_header(hdr)) {
-	Export* ep = *((Export **) (export_val(fun) + 1));
-	int actual_arity = (int) ep->code[2];
+	Export *ep;
+	int actual_arity;
+
+	ep = *((Export **) (export_val(fun) + 1));
+	actual_arity = (int) ep->code[2];
+
 	if (arity == actual_arity) {
 	    return ep->address;
 	} else {

@@ -849,6 +849,11 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *
  */
 
+/* XXX:PaN - this structure is not perfect for halfword heap, it takes
+   a lot of memory due to padding, and the array will not begin at the end of the
+   structure, as otherwise expected. Be sure to access data.ui32 array and not try
+   to do pointer manipulation on an Eterm * to reach the actual data... */
+
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */

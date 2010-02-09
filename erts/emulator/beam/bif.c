@@ -3468,12 +3468,14 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
+#if HALFWORD_HEAP
+    hp = HAlloc(BIF_P, 3);
+    hp[0] = HEADER_EXPORT;
+    /* Yes, May be misaligned, but X86_64 will fix it... */
+    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
-#if HALFWORD_HEAP
-    /* Yes, May be misaligned, but X86_64 will fix it... */
-    memcpy(hp+1,erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity),sizeof(Export *));
-#else
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
 #endif
     BIF_RET(make_export(hp));

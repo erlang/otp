@@ -1185,7 +1185,7 @@ Eterm erts_match_set_run(Process *p, Binary *mpsp,
     Eterm ret;
 
     ret = db_prog_match(p, mpsp,
-			(Eterm) COMPRESS_POINTER(args),
+			NIL, args,
 			num_args, return_flags);
 #if defined(HARDDEBUG)
     if (is_non_value(ret)) {
@@ -1380,7 +1380,7 @@ restart:
     
 	/* 
 	** There is one single top variable in the match expression
-	** iff the text is tho Uint's and the single instruction 
+	** iff the text is two Uint's and the single instruction
 	** is 'matchBind' or it is only a skip.
 	*/
 	context.special = 
@@ -1591,6 +1591,7 @@ static Eterm dpm_array_to_list(Process *psp, Eterm *arr, int arity)
 ** i.e. 'DCOMP_TRACE' was specified 
 */
 Eterm db_prog_match(Process *c_p, Binary *bprog, Eterm term, 
+		    Eterm *termp,
 		    int arity,
 		    Uint32 *return_flags)
 {
@@ -1710,12 +1711,12 @@ restart:
 	    n = *pc++;
 	    if ((int) n != arity)
 		FAIL();
-	    ep = (Eterm *) EXPAND_POINTER(*ep);
+	    ep = termp;
 	    break;
 	case matchArrayBind: /* When the array size is unknown. */ /* XXX:PaN - where does
 								      this array come from? */
 	    n = *pc++;
-	    hp[n] = dpm_array_to_list(psp, (Eterm *) EXPAND_POINTER(term), arity);
+	    hp[n] = dpm_array_to_list(psp, termp, arity);
 	    break;
 	case matchTuple: /* *ep is a tuple of arity n */
 	    if (!is_tuple(*ep))
@@ -2101,13 +2102,13 @@ restart:
  		*esp++ = am_undefined;
  	    } else {
  		*esp++ = make_tuple(ehp);
- 		ehp[0] = make_arityval(3);
+		ehp[0] = make_arityval(3);
 		ehp[1] = cp[0];
 		ehp[2] = cp[1];
-		ehp[3] = make_small((Uint) hp[2]);
- 		ehp += 4;
- 	    }
- 	    break;
+		ehp[3] = make_small((Uint) cp[2]);
+		ehp += 4;
+	    }
+	    break;
 	case matchSilent:
 	    --esp;
 	    if (*esp == am_true) {
@@ -4278,7 +4279,7 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 	    }
 	} else {
 	    n = 0;
-	    arr = (Eterm *) EXPAND_POINTER(against);
+	    arr = tuple_val(against);
 	}
 	
 	/* We are in the context of a BIF, 

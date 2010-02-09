@@ -2597,7 +2597,7 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), 0, &dummy);
+	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, 0, &dummy);
 	if (is_value(res)) {
 	    sz = size_object(res);
 	    hp = HAlloc(BIF_P, sz + 2);

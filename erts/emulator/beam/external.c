@@ -2260,18 +2260,25 @@ dec_term_atom_common:
 		node = erts_find_or_insert_node(sysname, cre);
 		if(node == erts_this_node) {
 		    RefThing *rtp = (RefThing *) hp;
-		    hp += REF_THING_HEAD_SIZE;
+		    ref_num = (Uint32 *) (hp + REF_THING_HEAD_SIZE);
+
 #if defined(ARCH_64) && !HALFWORD_HEAP
+		    hp += REF_THING_HEAD_SIZE + ref_words/2 + 1;
 		    rtp->header = make_ref_thing_header(ref_words/2 + 1);
 #else
+		    hp += REF_THING_HEAD_SIZE + ref_words;
 		    rtp->header = make_ref_thing_header(ref_words);
 #endif
 		    *objp = make_internal_ref(rtp);
 		}
 		else {
 		    ExternalThing *etp = (ExternalThing *) hp;
-		    hp += EXTERNAL_THING_HEAD_SIZE;
-		    
+#if defined(ARCH_64) && !HALFWORD_HEAP
+		    hp += EXTERNAL_THING_HEAD_SIZE + ref_words/2 + 1;
+#else
+		    hp += EXTERNAL_THING_HEAD_SIZE + ref_words;
+#endif
+
 #if defined(ARCH_64) && !HALFWORD_HEAP
 		    etp->header = make_external_ref_header(ref_words/2 + 1);
 #else
@@ -2282,9 +2289,9 @@ dec_term_atom_common:
 
 		    off_heap->externals = etp;
 		    *objp = make_external_ref(etp);
+		    ref_num = &(etp->data.ui32[0]);
 		}
 
-		ref_num = (Uint32 *) hp;
 #if defined(ARCH_64) && !HALFWORD_HEAP
 		*(ref_num++) = ref_words /* 32-bit arity */;
 #endif
@@ -2296,9 +2303,6 @@ dec_term_atom_common:
 #if defined(ARCH_64) && !HALFWORD_HEAP
 		if ((1 + ref_words) % 2)
 		    ref_num[ref_words] = 0;
-		hp += ref_words/2 + 1;
-#else
-		hp += ref_words;
 #endif
 		break;
 	    }

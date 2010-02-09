@@ -366,7 +366,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Uint flags, 
 			 DMCErrInfo *err_info);
 /* Returns newly allocated MatchProg binary with refc == 0*/
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, int arity, 
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm *termp, int arity,
 		    Uint32 *return_flags /* Zeroed on enter */);
 /* returns DB_ERROR_NONE if matches, 1 if not matches and some db error on 
    error. */
