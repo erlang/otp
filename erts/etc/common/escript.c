@@ -375,11 +375,10 @@ main(int argc, char** argv)
     if (strcmp(basename, "escript") == 0) {
 #endif
 	/*
-	 * Push all options (without the hyphen) before the script name.
+	 * Locate all options before the script name.
 	 */
 	
 	while (argc > 1 && argv[1][0] == '-') {
-	    PUSH(argv[1]+1);
 	    argc--;
 	    argv++;
 	    last_opt = argv;
@@ -421,7 +420,7 @@ main(int argc, char** argv)
     PUSH3("-run", "escript", "start");
 
     /*
-     * Push all options (without the hyphen) before the script name.
+     * Push all options before the script name. But omit the leading hyphens.
      */
     
     while (first_opt != last_opt) {
