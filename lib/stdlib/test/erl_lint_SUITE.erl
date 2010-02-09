@@ -2597,7 +2597,7 @@ otp_8051(Config) when is_list(Config) ->
            <<"-opaque foo() :: bar().
              ">>,
            [],
-           {error,[{1,erl_lint,{type_ref,{bar,0}}}],
+           {error,[{1,erl_lint,{undefined_type,{bar,0}}}],
             [{1,erl_lint,{unused_type,{foo,0}}}]}}],
     ?line [] = run(Config, Ts),
     ok.
