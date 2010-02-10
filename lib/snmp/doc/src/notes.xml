@@ -64,17 +64,22 @@
 
     <section>
       <title>Reported Fixed Bugs and Malfunctions</title>
-      <p>-</p>
-
       <!-- 
+      <p>-</p>
+      -->
+
       <list type="bulleted">
         <item>
-          <p>TBD. </p>
-          <p>Own Id: OTP-8384</p>
+          <p>The config utility 
+            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            generated a default notify.conf 
+            with a bad name for the starndard trap entry (was "stadard trap", 
+            but should have been "standard trap"). This has been corrected. </p>
+          <p>Kenji Rikitake</p>
+          <p>Own Id: OTP-8433</p>
         </item>
 
       </list>
-      -->
 
     </section>
 

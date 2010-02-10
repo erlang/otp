@@ -25,6 +25,7 @@
   {"4.15",   
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
      soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
@@ -34,6 +35,7 @@
   {"4.14",   
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
      soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
@@ -49,6 +51,7 @@
    [
     {load_module, snmpa_mib_data, soft_purge, soft_purge, []},
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, upgrade_from_pre_4_16}, 
      soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
@@ -70,6 +73,7 @@
   {"4.15",   
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
      soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
@@ -79,6 +83,7 @@
   {"4.14",   
    [
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
      soft_purge, soft_purge, [snmpa_agent, snmp_log]}, 
@@ -92,6 +97,7 @@
   {"4.13.5",
    [
     {load_module, snmpa_mib_data, soft_purge, soft_purge, []},
+    {load_module, snmp_config, soft_purge, soft_purge, []},
     {load_module, snmpa, soft_purge, soft_purge, [snmp_log]},
     {load_module, snmp_log, soft_purge, soft_purge, []},
     {update, snmpa_net_if, {advanced, downgrade_to_pre_4_16}, 
