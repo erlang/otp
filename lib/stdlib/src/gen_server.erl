@@ -103,7 +103,7 @@
 	 format_status/2]).
 
 %% Internal exports
--export([init_it/6, print_event/3]).
+-export([init_it/6]).
 
 -import(error_logger, [format/2]).
 
@@ -353,7 +353,7 @@ decode_msg(Msg, Parent, Name, State, Mod, Time, Debug, Hib) ->
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, State, Mod);
 	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      Name, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, State, Mod, Debug1)
     end.
@@ -589,11 +589,11 @@ handle_msg({'$gen_call', From, Msg}, Parent, Name, State, Mod, Debug) ->
 	    Debug1 = reply(Name, From, Reply, NState, Debug),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{stop, Reason, Reply, NState} ->
@@ -625,11 +625,11 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State) ->
 handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
     case Reply of
 	{noreply, NState} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, infinity, Debug1);
 	{noreply, NState, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3, Name,
 				      {noreply, NState}),
 	    loop(Parent, Name, NState, Mod, Time1, Debug1);
 	{stop, Reason, NState} ->
@@ -642,7 +642,7 @@ handle_common_reply(Reply, Parent, Name, Msg, Mod, State, Debug) ->
 
 reply(Name, {To, Tag}, Reply, State, Debug) ->
     reply({To, Tag}, Reply),
-    sys:handle_debug(Debug, {?MODULE, print_event}, Name, 
+    sys:handle_debug(Debug, fun print_event/3, Name,
 		     {out, Reply, To, State} ).
 
 

@@ -42,7 +42,6 @@
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
-	 print_event/3,
 	 format_status/2]).
 
 -import(error_logger, [error_msg/2]).
@@ -239,7 +238,7 @@ fetch_msg(Parent, ServerName, MSL, Debug, Hib) ->
 	Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, ServerName, MSL, []);
 	Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      ServerName, {in, Msg}),
 	    handle_msg(Msg, Parent, ServerName, MSL, Debug1)
     end.

@@ -116,7 +116,7 @@
 -export([behaviour_info/1]).
 
 %% Internal exports
--export([init_it/6, print_event/3,
+-export([init_it/6,
 	 system_continue/3,
 	 system_terminate/4,
 	 system_code_change/4,
@@ -376,7 +376,7 @@ decode_msg(Msg,Parent, Name, StateName, StateData, Mod, Time, Debug, Hib) ->
 	_Msg when Debug =:= [] ->
 	    handle_msg(Msg, Parent, Name, StateName, StateData, Mod, Time);
 	_Msg ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, StateName}, {in, Msg}),
 	    handle_msg(Msg, Parent, Name, StateName, StateData,
 		       Mod, Time, Debug1)
@@ -466,11 +466,11 @@ handle_msg(Msg, Parent, Name, StateName, StateData, Mod, _Time, Debug) ->
     From = from(Msg),
     case catch dispatch(Msg, Mod, StateName, StateData) of
 	{next_state, NStateName, NStateData} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, NStateName}, return),
 	    loop(Parent, Name, NStateName, NStateData, Mod, infinity, Debug1);
 	{next_state, NStateName, NStateData, Time1} ->
-	    Debug1 = sys:handle_debug(Debug, {?MODULE, print_event}, 
+	    Debug1 = sys:handle_debug(Debug, fun print_event/3,
 				      {Name, NStateName}, return),
 	    loop(Parent, Name, NStateName, NStateData, Mod, Time1, Debug1);
         {reply, Reply, NStateName, NStateData} when From =/= undefined ->
@@ -519,7 +519,7 @@ reply({To, Tag}, Reply) ->
 
 reply(Name, {To, Tag}, Reply, Debug, StateName) ->
     reply({To, Tag}, Reply),
-    sys:handle_debug(Debug, {?MODULE, print_event}, Name,
+    sys:handle_debug(Debug, fun print_event/3, Name,
 		     {out, Reply, To, StateName}).
 
 %%% ---------------------------------------------------
