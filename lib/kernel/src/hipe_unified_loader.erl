@@ -96,14 +96,6 @@ load_hipe_modules() ->
 %%    code:load_file/1) and the atom `no_native' on failure.
 
 load_native_code(Mod, Bin) when is_atom(Mod), is_binary(Bin) ->
-  erlang:system_flag(multi_scheduling, block),
-  try
-    load_native_code_nosmp(Mod, Bin)
-  after
-    erlang:system_flag(multi_scheduling, unblock)
-  end.
-
-load_native_code_nosmp(Mod, Bin) ->
   Architecture = erlang:system_info(hipe_architecture),
   try chunk_name(Architecture) of
     ChunkTag ->
@@ -111,10 +103,15 @@ load_native_code_nosmp(Mod, Bin) ->
       case code:get_chunk(Bin, ChunkTag) of
 	undefined -> no_native;
 	NativeCode when is_binary(NativeCode) ->
-	  OldReferencesToPatch = patch_to_emu_step1(Mod),
-	  case load_module(Mod, NativeCode, Bin, OldReferencesToPatch) of
-	    bad_crc -> no_native;
-	    Result -> Result
+         erlang:system_flag(multi_scheduling, block),
+         try
+           OldReferencesToPatch = patch_to_emu_step1(Mod),
+           case load_module(Mod, NativeCode, Bin, OldReferencesToPatch) of
+             bad_crc -> no_native;
+             Result -> Result
+           end
+         after
+           erlang:system_flag(multi_scheduling, unblock)
 	  end
       end
   catch
@@ -128,17 +125,18 @@ load_native_code_nosmp(Mod, Bin) ->
 -spec post_beam_load(atom()) -> 'ok'.
 
 post_beam_load(Mod) when is_atom(Mod) ->
-  erlang:system_flag(multi_scheduling, block),
-  try
-    post_beam_load_nosmp(Mod)
-  after
-    erlang:system_flag(multi_scheduling, unblock)
-  end.
-
-post_beam_load_nosmp(Mod) ->
   Architecture = erlang:system_info(hipe_architecture),
-  try chunk_name(Architecture) of _ChunkTag -> patch_to_emu(Mod)
-  catch _:_ -> ok
+  try chunk_name(Architecture) of
+    _ChunkTag ->
+      erlang:system_flag(multi_scheduling, block),
+      try
+       patch_to_emu(Mod)
+      after
+       erlang:system_flag(multi_scheduling, unblock)
+      end
+  catch
+    _:_ ->
+      ok
   end.
 
 %%========================================================================
