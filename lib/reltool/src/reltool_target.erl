@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_target).
@@ -966,9 +966,9 @@ do_eval_spec({create_dir, Dir, Files}, OrigSourceDir, SourceDir, TargetDir) ->
     TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, OrigSourceDir, SourceDir2, TargetDir2);
-do_eval_spec({create_dir, NewDir, OldDir, Files}, OrigSourceDir, _SourceDir, TargetDir) ->
+do_eval_spec({create_dir, Dir, OldDir, Files}, OrigSourceDir, _SourceDir, TargetDir) ->
     SourceDir2 = filename:join([OrigSourceDir, OldDir]),
-    TargetDir2 = filename:join([TargetDir, NewDir]),
+    TargetDir2 = filename:join([TargetDir, Dir]),
     reltool_utils:create_dir(TargetDir2),
     do_eval_spec(Files, SourceDir2, SourceDir2, TargetDir2);
 do_eval_spec({archive, Archive, Options, Files}, OrigSourceDir, SourceDir, TargetDir) ->
@@ -992,9 +992,9 @@ do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
     SourceFile = filename:join([SourceDir, File]),
     TargetFile = filename:join([TargetDir, File]),
     reltool_utils:copy_file(SourceFile, TargetFile);
-do_eval_spec({copy_file, NewFile, OldFile}, OrigSourceDir, _SourceDir, TargetDir) ->
+do_eval_spec({copy_file, File, OldFile}, OrigSourceDir, _SourceDir, TargetDir) ->
     SourceFile = filename:join([OrigSourceDir, OldFile]),
-    TargetFile = filename:join([TargetDir, NewFile]),
+    TargetFile = filename:join([TargetDir, File]),
     reltool_utils:copy_file(SourceFile, TargetFile);
 do_eval_spec({write_file, File, IoList}, _OrigSourceDir, _SourceDir, TargetDir) ->
     TargetFile = filename:join([TargetDir, File]),
@@ -1014,8 +1014,8 @@ cleanup_spec({create_dir, Dir, Files}, TargetDir) ->
     TargetDir2 = filename:join([TargetDir, Dir]),
     cleanup_spec(Files, TargetDir2),
     file:del_dir(TargetDir2);
-cleanup_spec({create_dir, NewDir, _OldDir, Files}, TargetDir) ->
-    TargetDir2 = filename:join([TargetDir, NewDir]),
+cleanup_spec({create_dir, Dir, _OldDir, Files}, TargetDir) ->
+    TargetDir2 = filename:join([TargetDir, Dir]),
     cleanup_spec(Files, TargetDir2),
     file:del_dir(TargetDir2);
 cleanup_spec({archive, Archive, _Options, Files}, TargetDir) ->
@@ -1125,6 +1125,8 @@ match(String, [#regexp{source = _, compiled = MP} | Regexps]) ->
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Old style installation
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 install(RelName, TargetDir) ->
     try
@@ -1220,7 +1222,6 @@ subst_var([C| Rest], Vars, Result, VarAcc) ->
     subst_var(Rest, Vars, Result, [C| VarAcc]);
 subst_var([], Vars, Result, VarAcc) ->
     subst([], Vars, [VarAcc ++ [$% | Result]]).
-   
 
 start_scripts() ->
     ["erl", "start", "start_erl"].

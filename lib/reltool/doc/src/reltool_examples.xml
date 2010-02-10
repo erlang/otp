@@ -45,7 +45,8 @@
     its server can be obtained with <c>reltool:get_server/1</c></p>
     
     <pre>
-Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
 
 Eshell V5.7.3  (abort with ^G)
 1&gt; {ok, Win} = reltool:start([]).
@@ -72,10 +73,13 @@ ok
     <title>Inspecting the configuration</title>
 
     <pre>
-Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
 
 Eshell V5.7.3  (abort with ^G)
-1&gt; Config = {sys, [{escript, "examples/display_args", [{incl_cond, include}]},
+1&gt; Config = {sys, [{escript, 
+                    "examples/display_args",
+                    [{incl_cond, include}]},
 		   {app, inets, [{incl_cond, include}]},
 		   {app, mnesia, [{incl_cond, exclude}]},
 		   {app, ssl, [{incl_cond, exclude}]},
@@ -244,7 +248,8 @@ Eshell V5.7.3  (abort with ^G)
     <title>Generate release and script files</title>
     <pre>
 5&gt; {ok, Server} = reltool:start_server([{config, {sys, [{boot_rel, "NAME"},
-                                                        {rel, "NAME", "VSN", [kernel, stdlib, sasl]}]}}]).
+                                                        {rel, "NAME", "VSN",
+                                                        [kernel, stdlib, sasl]}]}}]).
 {ok,&lt;0.1288.0&gt;}
 6&gt;  reltool:get_config(Server).
 {ok,{sys,[{boot_rel,"NAME"},
@@ -297,10 +302,13 @@ ok
   <section>
     <title>Create a target system</title>
     <pre>
-Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4] [async-threads:0] [kernel-poll:false]
+Erlang R13B02 (erts-5.7.3) [source] [64-bit] [smp:4:4] [rq:4]
+                           [async-threads:0] [kernel-poll:false]
 
 Eshell V5.7.3  (abort with ^G)
-1&gt; Config = {sys, [{escript, "examples/display_args", [{incl_cond, include}]},
+1&gt; Config = {sys, [{escript, 
+                    "examples/display_args", 
+                    [{incl_cond, include}]},
 		   {app, inets, [{incl_cond, include}]},
 		   {app, mnesia, [{incl_cond, exclude}]},
 		   {app, ssl, [{incl_cond, exclude}]},
@@ -320,11 +328,11 @@ Eshell V5.7.3  (abort with ^G)
                  [{write_file,"start_erl.data","5.7.3 1.0"},
                   {create_dir,"1.0",
                               [{write_file,"start_clean.rel",
-                                           [37,37,32,114,101,108,32,103,101,110,101,114,97,116|...]},
+                                           [37,37,32,114,101,108,32,103,101,110,101|...]},
                                {write_file,"start_clean.script",
-                                           [37,37,32,115,99,114,105,112,116,32,103,101,110|...]},
+                                           [37,37,32,115,99,114,105,112,116,32|...]},
                                {write_file,"start_clean.boot",
-                                           &lt;&lt;131,104,3,100,0,6,115,99,114,105,112,116,...&gt;&gt;},
+                                           &lt;&lt;131,104,3,100,0,6,115,99,114,...&gt;&gt;},
                                {write_file,"start_sasl.rel",
                                            [37,37,32,114,101,108,32,103,101,110,101|...]},
                                {write_file,"start_sasl.script",
@@ -409,11 +417,13 @@ Eshell V5.7.3  (abort with ^G)
                                                       {copy_file,...},
                                                       {...}|...]},
                                          {create_dir,"src",
-                                                     [{copy_file,[...]},{copy_file,...},{...}|...]}]}]},
+                                                     [{copy_file,[...]},
+                                                      {copy_file,...},{...}|...]}]}]},
                   {archive,"crypto-1.6.1.ez",[],
                            [{create_dir,"crypto-1.6.1",
                                         [{create_dir,"ebin",
-                                                     [{copy_file,[...]},{copy_file,...},{...}|...]},
+                                                     [{copy_file,[...]},
+                                                      {copy_file,...},{...}|...]},
                                          {create_dir,"src",[{copy_file,...},{...}|...]}]}]},
                   {create_dir,"crypto-1.6.1",
                               [{create_dir,"priv",
