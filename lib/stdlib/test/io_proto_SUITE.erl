@@ -23,13 +23,15 @@
 -export([init_per_testcase/2, fin_per_testcase/2]).
 
 -export([setopts_getopts/1,unicode_options/1,unicode_options_gen/1, binary_options/1, bc_with_r12/1,
-	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1]).
+	 bc_with_r12_gl/1, read_modes_gl/1,bc_with_r12_ogl/1, read_modes_ogl/1, broken_unicode/1,eof_on_pipe/1,unicode_prompt/1]).
 
 
 -export([io_server_proxy/1,start_io_server_proxy/0, proxy_getall/1, proxy_setnext/2, proxy_quit/1]).
 %% For spawn
 -export([toerl_server/3,hold_the_line/3,answering_machine1/3,
 	 answering_machine2/3]).
+
+-export([uprompt/1]).
 
 %-define(without_test_server, true).
 
@@ -43,7 +45,7 @@
 -define(privdir(Conf), ?config(priv_dir, Conf)).
 -endif.
 
-%-define(debug, true).
+-define(debug, true).
 
 -ifdef(debug).
 -define(format(S, A), io:format(S, A)).
@@ -82,7 +84,7 @@ all(doc) ->
 all(suite) ->
     [setopts_getopts, unicode_options, unicode_options_gen, binary_options, bc_with_r12, 
      bc_with_r12_gl,bc_with_r12_ogl, read_modes_gl, read_modes_ogl, 
-     broken_unicode,eof_on_pipe].
+     broken_unicode,eof_on_pipe,unicode_prompt].
 
 
 -record(state, {
@@ -90,6 +92,48 @@ all(suite) ->
 	  nxt = eof,
 	  mode = list
 	  }).
+
+uprompt(_L) ->
+    [1050,1072,1082,1074,1086,32,1077,32,85,110,105,99,111,100,101,32,63].
+
+unicode_prompt(suite) ->
+    [];
+unicode_prompt(doc) ->
+    ["Test that an Unicode prompt does not crash the shell"];
+unicode_prompt(Config) when is_list(Config) ->
+    ?line PA = filename:dirname(code:which(?MODULE)),
+    ?line rtnode([{putline,""},
+		  {putline, "2."},
+		  {getline, "2"},
+		  {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+		  {getline, "default"},
+		  {putline, "io:get_line('')."},
+		  {putline, "hej"},
+		  {getline, "\"hej\\n\""},
+		  {putline, "io:setopts([{binary,true}])."},
+		  {getline, "ok"},
+		  {putline, "io:get_line('')."},
+		  {putline, "hej"},
+		  {getline, "<<\"hej\\n\">>"}
+		  ],[],[],"-pa "++ PA),
+    %% And one with oldshell
+     ?line rtnode([{putline,""},
+		   {putline, "2."},
+		   {getline_re, ".*2."},
+		   {getline, "2"},
+		   {putline, "shell:prompt_func({io_proto_SUITE,uprompt})."},
+		   {getline_re, ".*default"},
+		   {putline, "io:get_line('')."},
+		   {putline, "hej"},
+		   {getline_re, ".*\"hej\\\\n\""},
+		   {putline, "io:setopts([{binary,true}])."},
+		   {getline_re, ".*ok"},
+		   {putline, "io:get_line('')."},
+		   {putline, "hej"},
+		   {getline_re, ".*<<\"hej\\\\n\">>"}
+		  ],[],[],"-oldshell -pa "++PA),
+    ok.
+    
 
 setopts_getopts(suite) ->
     [];

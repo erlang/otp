@@ -34,7 +34,8 @@
 	 start_restricted_on_command_line/1,restricted_local/1]).
 
 %% Internal export.
--export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1]).
+-export([otp_5435_2/0, prompt1/1, prompt2/1, prompt3/1, prompt4/1,
+	 prompt5/1]).
 
 %%
 %% Define to run outside of test server
@@ -2618,6 +2619,16 @@ otp_8393(Config) when is_list(Config) ->
     ?line "default\nl.\n" = 
         t(<<"shell:prompt_func({shell_SUITE,prompt3}). l.">>),
 
+    %%
+    %% Although this tests that you can set a unicode prompt function
+    %% it does not really test that it does work with the io-servers.
+    %% That is instead tested in the io_proto_SUITE, which has
+    %% the right infrastructure in place for such tests. /PaN
+    %%
+    ?line _ = shell:prompt_func(default),
+    ?line "default\nl.\n" = 
+        t(<<"shell:prompt_func({shell_SUITE,prompt5}). l.">>),
+
     %% Restricted shell.
     Contents = <<"-module(test_restricted_shell).
                   -export([local_allowed/3, non_local_allowed/3]).
@@ -2671,6 +2682,9 @@ prompt3(L) ->
 
 prompt4(_L) ->
     erlang:apply({erlang,'/'}, [1,0]).
+
+prompt5(_L) ->
+    [1050,1072,1082,1074,1086,32,1077,32,85,110,105,99,111,100,101,32,63].
 
 -ifdef(not_used).
 exit_term(B) ->

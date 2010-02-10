@@ -755,10 +755,11 @@ loop(N) ->
       created by the shell. Currently there is only one pair:
       <c>{history, N}</c>, where N is the current command number. The
       function should return a list of characters or an atom. This
-      constraint is due to the Erlang I/O-protocol. Note that in
-      restricted mode the call <c>Mod:Func(L)</c> must be allowed or
-      the default shell prompt function will be called.</p>
-  </section>
+      constraint is due to the Erlang I/O-protocol. Unicode characters
+      beyond codepoint 255 are allowed in the list. Note
+      that in restricted mode the call <c>Mod:Func(L)</c> must be
+      allowed or the default shell prompt function will be called.</p>
+      </section>
 
   <funcs>
     <func>
