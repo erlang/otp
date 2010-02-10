@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -261,13 +261,8 @@ static ERTS_INLINE void db_init_lock(DbTable* tb, char *rwname, char* fixname)
     erts_refc_init(&tb->common.ref, 1);
     erts_refc_init(&tb->common.fixref, 0);
 #ifdef ERTS_SMP
-# ifdef ERTS_ENABLE_LOCK_COUNT
     erts_smp_rwmtx_init_x(&tb->common.rwlock, rwname, tb->common.the_name);
     erts_smp_mtx_init_x(&tb->common.fixlock, fixname, tb->common.the_name);
-# else
-    erts_smp_rwmtx_init(&tb->common.rwlock, rwname);
-    erts_smp_mtx_init(&tb->common.fixlock, fixname);
-# endif
     tb->common.is_thread_safe = !(tb->common.status & DB_FINE_LOCKED);
 #endif
 }
@@ -2597,19 +2592,11 @@ void init_db(void)
 
 #ifdef ERTS_SMP
     for (i=0; i<META_MAIN_TAB_LOCK_CNT; i++) {
-#ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_smp_spinlock_init_x(&meta_main_tab_locks[i].lck, "meta_main_tab_slot", make_small(i));
-#else
-	erts_smp_spinlock_init(&meta_main_tab_locks[i].lck, "meta_main_tab_slot");
-#endif
     }
     erts_smp_spinlock_init(&meta_main_tab_main_lock, "meta_main_tab_main");
     for (i=0; i<META_NAME_TAB_LOCK_CNT; i++) {
-#ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_smp_rwmtx_init_x(&meta_name_tab_rwlocks[i].lck, "meta_name_tab", make_small(i));
-#else
-	erts_smp_rwmtx_init(&meta_name_tab_rwlocks[i].lck, "meta_name_tab");
-#endif
     }
 #endif
 

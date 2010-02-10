@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -628,11 +628,7 @@ int db_create_hash(Process *p, DbTable *tbl)
 							      (DbTable *) tb,
 							      sizeof(DbTableHashFineLocks));	    	    
 	for (i=0; i<DB_HASH_LOCK_CNT; ++i) {
-	    #ifdef ERTS_ENABLE_LOCK_COUNT	
-	    erts_rwmtx_init_x(&tb->locks->lck_vec[i].lck, "db_hash_slot", tb->common.the_name); 
-	    #else		
-	    erts_rwmtx_init(&tb->locks->lck_vec[i].lck, "db_hash_slot");
-	    #endif	
+	    erts_rwmtx_init_x(&tb->locks->lck_vec[i].lck, "db_hash_slot", make_small(i));
 	}
 	/* This important property is needed to guarantee that the buckets
     	 * involved in a grow/shrink operation it protected by the same lock:

@@ -3704,12 +3704,11 @@ static Eterm lcnt_build_lock_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_t *lock
     ASSERT(ltype);
     
     type  = am_atom_put(ltype, strlen(ltype));           
-
     name  = am_atom_put(lock->name, strlen(lock->name)); 
 
     if (lock->flag & ERTS_LCNT_LT_ALLOC) {
 	/* use allocator types names as id's for allocator locks */
-	ltype = ERTS_ALC_A2AD(signed_val(lock->id));
+	ltype = (char *) ERTS_ALC_A2AD(signed_val(lock->id));
 	id    = am_atom_put(ltype, strlen(ltype));
     } else if (lock->flag & ERTS_LCNT_LT_PROCLOCK) {
 	/* use registered names as id's for process locks if available */
@@ -3778,17 +3777,28 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 {
 #ifdef ERTS_ENABLE_LOCK_COUNT
     Eterm res = NIL;
-    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    erts_smp_block_system(0);
+#endif
 
-    if (BIF_ARG_1 == am_info) {
+
+    if (BIF_ARG_1 == am_enabled) {
+#ifdef ERTS_ENABLE_LOCK_COUNT
+	BIF_RET(am_true);
+#else
+	BIF_RET(am_false);
+#endif
+    }
+#ifdef ERTS_ENABLE_LOCK_COUNT
+
+    else if (BIF_ARG_1 == am_info) {
 	erts_lcnt_data_t *data; 
 	Uint hsize = 0;
 	Uint *szp;
     	Eterm* hp;
 
-	erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_SUSPEND);
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
 
+	erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_SUSPEND);
 	data = erts_lcnt_get_data();
 
 	/* calculate size */
@@ -3803,29 +3813,65 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 	res = lcnt_build_result_term(&hp, NULL, data, res);
 	
 	erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_SUSPEND);
+
+	erts_smp_release_system();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 	
-	goto done;
+	BIF_RET(res);
     } else if (BIF_ARG_1 == am_clear) {
+	erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
+
 	erts_lcnt_clear_counters();
-	res = am_ok;
-	goto done;
+
+	erts_smp_release_system();
+	erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+
+	BIF_RET(am_ok);
     } else if (is_tuple(BIF_ARG_1)) {
-	Uint prev = 0;
 	Eterm* tp = tuple_val(BIF_ARG_1);
+
 	switch (arityval(tp[0])) {
 	    case 2:
-	    	if (ERTS_IS_ATOM_STR("process_locks", tp[1])) {
+		if (ERTS_IS_ATOM_STR("copy_save", tp[1])) {
+		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    erts_smp_block_system(0);
 		    if (tp[2] == am_true) {
-			prev = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK);
-			if (prev) res = am_true;
-			else res = am_false;
-			goto done;
+
+			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
+
 		    } else if (tp[2] == am_false) {
-			prev = erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_PROCLOCK);
-			if (prev) res = am_true;
-			else res = am_false;
-			goto done;
+
+			res = erts_lcnt_clear_rt_opt(ERTS_LCNT_OPT_COPYSAVE) ? am_true : am_false;
+
+		    } else {
+			erts_smp_release_system();
+			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+			BIF_ERROR(BIF_P, BADARG);
 		    }
+		    erts_smp_release_system();
+		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    BIF_RET(res);
+
+		} else if (ERTS_IS_ATOM_STR("process_locks", tp[1])) {
+		    erts_smp_proc_unlock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    erts_smp_block_system(0);
+		    if (tp[2] == am_true) {
+
+			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
+
+		    } else if (tp[2] == am_false) {
+
+			res = erts_lcnt_set_rt_opt(ERTS_LCNT_OPT_PROCLOCK) ? am_true : am_false;
+
+		    } else {
+			erts_smp_release_system();
+			erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+			BIF_ERROR(BIF_P, BADARG);
+		    }
+		    erts_smp_release_system();
+		    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+		    BIF_RET(res);
 		 }
 	    break;
      
@@ -3834,16 +3880,8 @@ BIF_RETTYPE erts_debug_lock_counters_1(BIF_ALIST_1)
 	}
     } 
 
-    erts_smp_release_system();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
 #endif 
     BIF_ERROR(BIF_P, BADARG);
-#ifdef ERTS_ENABLE_LOCK_COUNT
-done:    
-    erts_smp_release_system();
-    erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
-    BIF_RET(res);
-#endif 
 }
 
 void

@@ -2095,7 +2095,11 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 	rq->ix = ix;
 	erts_smp_atomic_init(&rq->info_flags, ERTS_RUNQ_IFLG_NONEMPTY);
 
-	erts_smp_mtx_init(&rq->mtx, "run_queue");
+	/* make sure that the "extra" id correponds to the schedulers
+	 * id if the esdp->no <-> ix+1 mapping change.
+	 */
+
+	erts_smp_mtx_init_x(&rq->mtx, "run_queue", make_small(ix + 1));
 	erts_smp_cnd_init(&rq->cnd);
 
 	erts_smp_atomic_init(&rq->spin_waiter, 0);

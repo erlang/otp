@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -162,7 +162,6 @@ static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char
     long int colls, tries, w_state, r_state;
     erts_lcnt_lock_stats_t *stats = NULL;
     
-    float rate;
     char *type;
     int i;
     
@@ -170,8 +169,6 @@ static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char
     ethr_atomic_read(&lock->r_state, &r_state);
     ethr_atomic_read(&lock->w_state, &w_state);
 
-    if (tries > 0) rate = (float)(colls/(float)tries)*100;
-    else rate = 0.0f;
     
     if (lock->flag & flag) {
         erts_printf("%20s [%30s] [r/w state %4ld/%4ld] id %T %s\r\n", 
@@ -181,26 +178,13 @@ static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char
 		w_state, 
 		lock->id, 
 		extra);
-	
-	for(i = 0; i < lock->n_stats; i++) {
-	    stats = &(lock->stats[i]);
-    	    ethr_atomic_read(&stats->tries, &tries);
-    	    ethr_atomic_read(&stats->colls, &colls);
-	    fprintf(stderr, "%69s:%5d [tries %9ld] [colls %9ld] [timer_n %8ld] [timer %4ld s %6ld us]\r\n",
-		    stats->file,
-		    stats->line,
-		    tries,
-		    colls,
-		    stats->timer_n,
-		    stats->timer.s,
-		    (unsigned long)stats->timer.ns/1000);
-	}
-	fprintf(stderr, "\r\n");
     }
 }
 
 static void print_lock(erts_lcnt_lock_t *lock, char *action) {
-    print_lock_x(lock, ERTS_LCNT_LT_ALL, action, "");
+    if (strcmp(lock->name, "proc_main") == 0) {
+        print_lock_x(lock, ERTS_LCNT_LT_ALL, action, "");
+    }
 }
 
 #endif
@@ -230,8 +214,8 @@ static void lcnt_update_stats(erts_lcnt_lock_stats_t *stats, int lock_in_conflic
     
     ethr_atomic_inc(&stats->tries);
 
-    /* beware of trylock */
-    if (lock_in_conflict) ethr_atomic_inc(&stats->colls);
+    if (lock_in_conflict)
+	ethr_atomic_inc(&stats->colls);
 
     if (time_wait) {
 	lcnt_time_add(&(stats->timer), time_wait);
@@ -366,6 +350,7 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
     for (i = 0; i < ERTS_LCNT_MAX_LOCK_LOCATIONS; i++) {
 	lcnt_clear_stats(&lock->stats[i]);
     }
+
     erts_lcnt_list_insert(erts_lcnt_data->current_locks, lock);
     
     lcnt_unlock();
@@ -373,18 +358,20 @@ void erts_lcnt_init_lock_x(erts_lcnt_lock_t *lock, char *name, Uint16 flag, Eter
 
 void erts_lcnt_destroy_lock(erts_lcnt_lock_t *lock) {
     erts_lcnt_lock_t *deleted_lock;
-    
-    /* copy structure and insert the copy */
-    deleted_lock = (erts_lcnt_lock_t*)malloc(sizeof(erts_lcnt_lock_t));
 
     lcnt_lock();
 
-    memcpy(deleted_lock, lock, sizeof(erts_lcnt_lock_t));
-    deleted_lock->next = NULL;
-    deleted_lock->prev = NULL;
+    if (erts_lcnt_rt_options & ERTS_LCNT_OPT_COPYSAVE) {
+	/* copy structure and insert the copy */
 
-    erts_lcnt_list_insert(erts_lcnt_data->deleted_locks, deleted_lock);
+	deleted_lock = (erts_lcnt_lock_t*)malloc(sizeof(erts_lcnt_lock_t));
+	memcpy(deleted_lock, lock, sizeof(erts_lcnt_lock_t));
 
+	deleted_lock->next = NULL;
+	deleted_lock->prev = NULL;
+
+	erts_lcnt_list_insert(erts_lcnt_data->deleted_locks, deleted_lock);
+    }
     /* delete original */
     erts_lcnt_list_delete(erts_lcnt_data->current_locks, lock);
     
@@ -416,9 +403,10 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
     /* we cannot acquire w_lock if either w or r are taken */
     /* we cannot acquire r_lock if w_lock is taken */	
     
-    if ((w_state > 0) || (r_state > 0)){
+    if ((w_state > 0) || (r_state > 0)) {
 	eltd->lock_in_conflict = 1;
-	if (eltd->timer_set == 0) lcnt_time(&eltd->timer);
+	if (eltd->timer_set == 0)
+	    lcnt_time(&eltd->timer);
 	eltd->timer_set++;
     } else {
 	eltd->lock_in_conflict = 0;
@@ -445,7 +433,8 @@ void erts_lcnt_lock(erts_lcnt_lock_t *lock) {
 	 * 'atomicly'. All other locks will block the thread if w_state > 0
 	 * i.e. locked.
 	 */
-	if (eltd->timer_set == 0) lcnt_time(&eltd->timer);
+	if (eltd->timer_set == 0)
+	    lcnt_time(&eltd->timer);
 	eltd->timer_set++;
 
     } else {
@@ -494,24 +483,23 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
     eltd = lcnt_get_thread_data();
     
     ASSERT(eltd);
-    
+
     /* if lock was in conflict, time it */
 	
     stats = lcnt_get_lock_stats(lock, file, line);
     
     if (eltd->timer_set) {
 	lcnt_time(&timer);
-
-	eltd->timer_set--;
 	
 	lcnt_time_diff(&time_wait, &timer, &(eltd->timer));
 	lcnt_update_stats(stats, eltd->lock_in_conflict, &time_wait);
 	
+	eltd->timer_set--;
 	ASSERT(eltd->timer_set >= 0);
     } else {
 	lcnt_update_stats(stats, eltd->lock_in_conflict, NULL);
     }
-	
+
 }
 
 /* unlock */
