@@ -26,8 +26,7 @@ XML_REF3_FILES = \
 	et_viewer.xml
 
 XML_PART_FILES = \
-	part.xml \
-        part_notes.xml
+	part.xml
 
 XML_CHAPTER_FILES = \
 	et_intro.xml \
