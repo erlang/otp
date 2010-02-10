@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_res_SUITE).
@@ -239,16 +239,37 @@ resolve(_Opts, []) -> ok;
 resolve(Opts, [{Class,Type,Name,Answers,Authority}=Q|Qs]) ->
     io:format("Query: ~p~nOptions: ~p~n", [Q,Opts]),
     {ok,Msg} = inet_res:resolve(Name, Class, Type, Opts),
-    if Answers =/= undefined ->
-	    AnList = lists:sort(Answers),
-	    AnList = lists:sort([inet_dns:rr(RR, data) ||
-				    RR <- inet_dns:msg(Msg, anlist)]);
-       true -> ok end,
-    if Authority =/= undefined ->
-	    NsList = lists:sort(Authority),
-	    NsList = lists:sort([inet_dns:rr(RR, data) ||
-				    RR <- inet_dns:msg(Msg, nslist)]);
-       true -> ok end,
+    AnList =
+	if
+	    Answers =/= undefined ->
+		lists:sort(Answers);
+	    true ->
+		undefined
+	end,
+    NsList =
+	if
+	    Authority =/= undefined ->
+		lists:sort(Authority);
+	    true ->
+		undefined
+	end,
+    case {lists:sort
+	  ([inet_dns:rr(RR, data) || RR <- inet_dns:msg(Msg, anlist)]),
+	  lists:sort
+	  ([inet_dns:rr(RR, data) || RR <- inet_dns:msg(Msg, nslist)])} of
+	{AnList,NsList} ->
+	    ok;
+	{NsList,AnList} when Type =:= ns ->
+	    %% This whole case statement is kind of inside out just
+	    %% to accept this case when some legacy DNS resolvers
+	    %% return the answer to a NS query in the answer section
+	    %% instead of in the authority section.
+	    ok;
+	{AnList,_} when NsList =:= undefined ->
+	    ok;
+	{_,NsList} when AnList =:= undefined ->
+	    ok
+    end,
     Buf = inet_dns:encode(Msg),
     {ok,Msg} = inet_dns:decode(Buf),
     resolve(Opts, Qs).
@@ -292,10 +313,23 @@ edns0(Config) when is_list(Config) ->
     MXs = lists:sort(inet_res_filter(inet_dns:msg(Msg2, anlist), in, mx)),
     Buf2 = inet_dns:encode(Msg2),
     {ok,Msg2} = inet_dns:decode(Buf2),
-    [OptRR] = [RR || RR <- inet_dns:msg(Msg2, arlist),
-		     inet_dns:rr(RR, type) =:= opt],
-    io:format("~p~n", [inet_dns:rr(OptRR)]),
-    ok.
+    case [RR || RR <- inet_dns:msg(Msg2, arlist),
+		inet_dns:rr(RR, type) =:= opt] of
+	[OptRR] ->
+	    io:format("~p~n", [inet_dns:rr(OptRR)]),
+	    ok;
+	[] ->
+	    case os:type() of
+		{unix,sunos} ->
+		    case os:version() of
+			{M,V,_} when M < 5;  M == 5, V =< 8 ->
+			    %% In our test park only known platform
+			    %% with an DNS resolver that can not do
+			    %% EDNS0.
+			    {comment,"No EDNS0"}
+		    end
+	    end
+    end.
 
 inet_res_filter(Anlist, Class, Type) ->
     [inet_dns:rr(RR, data) || RR <- Anlist,
@@ -331,11 +365,13 @@ files_monitor(suite) ->
 files_monitor(doc) ->
     ["Tests monitoring of /etc/hosts and /etc/resolv.conf, but not them"];
 files_monitor(Config) when is_list(Config) ->
+    Search = inet_db:res_option(search),
     HostsFile = inet_db:res_option(hosts_file),
     ResolvConf = inet_db:res_option(resolv_conf),
     Inet6 = inet_db:res_option(inet6),
     try do_files_monitor(Config)
     after
+        inet_db:res_option(search, Search),
         inet_db:res_option(resolv_conf, ResolvConf),
 	inet_db:res_option(hosts_file, HostsFile),
 	inet_db:res_option(inet6, Inet6)
@@ -344,7 +380,13 @@ files_monitor(Config) when is_list(Config) ->
 do_files_monitor(Config) ->
     Dir = ?config(priv_dir, Config),
     {ok,Hostname} = inet:gethostname(),
-    FQDN = Hostname++"."++inet_db:res_option(domain),
+    FQDN =
+	case inet_db:res_option(domain) of
+	    "" ->
+		Hostname;
+	    _ ->
+		Hostname++"."++inet_db:res_option(domain)
+	end,
     HostsFile = filename:join(Dir, "files_monitor_hosts"),
     ResolvConf = filename:join(Dir, "files_monitor_resolv.conf"),
     ok = inet_db:res_option(resolv_conf, ResolvConf),
@@ -362,20 +404,20 @@ do_files_monitor(Config) ->
     {error,nxdomain} = inet_res:gethostbyname(FQDN),
     {ok,{127,0,0,10}} = inet:getaddr("mx.otptest", inet),
     {ok,{0,0,0,0,0,0,32512,28}} = inet:getaddr("resolve.otptest", inet6),
-    ok = inet_db:res_option(inet6, true),
     {ok,#hostent{h_name = Hostname,
 		 h_addrtype = inet6,
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
-	inet:gethostbyname(Hostname),
+	inet:gethostbyname(Hostname, inet6),
     {ok,#hostent{h_name = FQDN,
 		 h_addrtype = inet6,
 		 h_length = 16,
 		 h_addr_list = [{0,0,0,0,0,0,0,1}]}} =
-	inet:gethostbyname(FQDN),
+	inet:gethostbyname(FQDN, inet6),
     {error,nxdomain} = inet_res:gethostbyname("resolve"),
     %% XXX inet does not honour res_option inet6, might be a problem?
     %% therefore inet_res is called here
+    ok = inet_db:res_option(inet6, true),
     {ok,#hostent{h_name = "resolve.otptest",
 		 h_addrtype = inet6,
 		 h_length = 16,

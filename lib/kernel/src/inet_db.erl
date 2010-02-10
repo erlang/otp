@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -425,7 +425,9 @@ res_optname(usevc) -> res_usevc;
 res_optname(edns) -> res_edns;
 res_optname(udp_payload_size) -> res_udp_payload_size;
 res_optname(resolv_conf) -> res_resolv_conf;
+res_optname(resolv_conf_name) -> res_resolv_conf;
 res_optname(hosts_file) -> res_hosts_file;
+res_optname(hosts_file_name) -> res_hosts_file;
 res_optname(_) -> undefined.
 
 res_check_option(nameserver, NSs) -> %% Legacy
@@ -458,8 +460,14 @@ res_check_option(udp_payload_size, S) when is_integer(S), S >= 512 -> true;
 res_check_option(resolv_conf, "") -> true;
 res_check_option(resolv_conf, F) ->
     res_check_option_absfile(F);
+res_check_option(resolv_conf_name, "") -> true;
+res_check_option(resolv_conf_name, F) ->
+    res_check_option_absfile(F);
 res_check_option(hosts_file, "") -> true;
 res_check_option(hosts_file, F) ->
+    res_check_option_absfile(F);
+res_check_option(hosts_file_name, "") -> true;
+res_check_option(hosts_file_name, F) ->
     res_check_option_absfile(F);
 res_check_option(_, _) -> false.
 
@@ -503,7 +511,7 @@ res_update_hosts() ->
     res_update(res_hosts_file, res_hosts_file_tm, res_hosts_file_info,
 	       set_hosts_file_tm, fun set_hosts_file/1).
 
-res_update(Tag, TagTm, TagInfo, CallTag, SetFun) ->
+res_update(Tag, TagTm, TagInfo, TagSetTm, SetFun) ->
     case db_get(TagTm) of
 	undefined -> ok;
 	TM ->
@@ -522,12 +530,12 @@ res_update(Tag, TagTm, TagInfo, CallTag, SetFun) ->
 							 atime = undefined},
 				    case db_get(TagInfo) of
 					Finfo ->
-					    call({CallTag, Now});
+					    call({TagSetTm, Now});
 					_ ->
 					    SetFun(File)
 				    end;
 				_ ->
-				    call({CallTag, Now}),
+				    call({TagSetTm, Now}),
 				    error
 			    end
 		    end;
@@ -974,37 +982,55 @@ handle_call(Request, From, #state{db=Db}=State) ->
 		    {reply, error, State}
 	    end;
 
+	{res_set, hosts_file_name=Option, Fname} ->
+	    handle_set_file(
+	      Option, Fname, res_hosts_file_tm, res_hosts_file_info,
+	      undefined, From, State);
+	{res_set, resolv_conf_name=Option, Fname} ->
+	    handle_set_file(
+	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
+	      undefined, From, State);
+
 	{res_set, hosts_file=Option, Fname} ->
-	    handle_set_file(Option, Fname,
-			    res_hosts_file_tm, res_hosts_file_info,
-			    fun (Bin) ->
-				    case inet_parse:hosts(Fname,
-							  {chars,Bin}) of
-					{ok,Opts} ->
-					    [{load_hosts_file,Opts}];
-					_ -> error
-				    end
-			    end,
-			    From, State);
+	    handle_set_file(
+	      Option, Fname, res_hosts_file_tm, res_hosts_file_info,
+	      fun (Bin) ->
+		      case inet_parse:hosts(
+			     Fname, {chars,Bin}) of
+			  {ok,Opts} ->
+			      [{load_hosts_file,Opts}];
+			  _ -> error
+		      end
+	      end,
+	      From, State);
 	%%
 	{res_set, resolv_conf=Option, Fname} ->
-	    handle_set_file(Option, Fname,
-			    res_resolv_conf_tm, res_resolv_conf_info,
-			    fun (Bin) ->
-				    case inet_parse:resolv(Fname,
-							  {chars,Bin}) of
-					{ok,Opts} ->
-					    [del_ns,
-					     clear_search,
-					     clear_cache
-					     |[Opt ||
-						  {T,_}=Opt <- Opts,
-						  (T =:= nameserver orelse
-						   T =:= search)]];
-					_ -> error
-				    end
-			    end,
-			    From, State);
+	    handle_set_file(
+	      Option, Fname, res_resolv_conf_tm, res_resolv_conf_info,
+	      fun (Bin) ->
+		      case inet_parse:resolv(
+			     Fname, {chars,Bin}) of
+			  {ok,Opts} ->
+			      Search =
+				  lists:foldl(
+				    fun ({search,L}, _) ->
+					    L;
+					({domain,""}, S) ->
+					    S;
+					({domain,D}, _) ->
+					    [D];
+					(_, S) ->
+					    S
+				    end, [], Opts),
+			      [del_ns,
+			       clear_search,
+			       clear_cache,
+			       {search,Search}
+			       |[Opt || {nameserver,_}=Opt <- Opts]];
+			  _ -> error
+		      end
+	      end,
+	      From, State);
 	%%
 	{res_set, Opt, Value} ->
 	    case res_optname(Opt) of
@@ -1156,6 +1182,12 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 	    ets:delete(Db, TagInfo),
 	    ets:delete(Db, TagTm),
 	    handle_set_file(ParseFun, <<>>, From, State);
+	true when ParseFun =:= undefined ->
+	    File = filename:flatten(Fname),
+	    ets:insert(Db, {res_optname(Option), File}),
+	    ets:insert(Db, {TagInfo, undefined}),
+	    ets:insert(Db, {TagTm, 0}),
+	    {reply,ok,State};
 	true ->
 	    File = filename:flatten(Fname),
 	    ets:insert(Db, {res_optname(Option), File}),
@@ -1178,7 +1210,8 @@ handle_set_file(Option, Fname, TagTm, TagInfo, ParseFun, From,
 
 handle_set_file(ParseFun, Bin, From, State) ->
     case ParseFun(Bin) of
-	error -> {reply,error,State};
+	error ->
+	    {reply,error,State};
 	Opts ->
 	    handle_rc_list(Opts, From, State)
     end.

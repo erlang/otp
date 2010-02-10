@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet_config).
@@ -130,21 +130,25 @@ init() ->
 	{unix,_} ->
 	    %% The Etc variable enables us to run tests with other 
 	    %% configuration files than the normal ones 
-	    Etc = case os:getenv("ERL_INET_ETC_DIR") of
-		      false -> ?DEFAULT_ETC;
-		      _EtcDir -> 
-			  _EtcDir			
-		  end,
+	    Etc =
+		case os:getenv("ERL_INET_ETC_DIR") of
+		    false ->
+			?DEFAULT_ETC;
+		    _EtcDir ->
+			_EtcDir
+		end,
 	    case inet_db:res_option(resolv_conf) of
 		undefined ->
-		    inet_db:set_resolv_conf(filename:join(Etc,
-							  ?DEFAULT_RESOLV));
+		    inet_db:res_option(
+		      resolv_conf_name,
+		      filename:join(Etc, ?DEFAULT_RESOLV));
 		_ -> ok
 	    end,
 	    case inet_db:res_option(hosts_file) of
 		undefined ->
-		    inet_db:set_hosts_file(filename:join(Etc,
-							 ?DEFAULT_HOSTS));
+		    inet_db:res_option(
+		      hosts_file_name,
+		      filename:join(Etc, ?DEFAULT_HOSTS));
 		_ -> ok
 	    end;
 	_ -> ok
