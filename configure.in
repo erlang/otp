@@ -272,6 +272,19 @@ AC_ARG_ENABLE(m64-build,
   esac
 ],enable_m64_build=no)
 
+AC_ARG_ENABLE(m32-build,
+[  --enable-m32-build    build 32bit binaries using the -m32 flag to (g)cc],
+[ case "$enableval" in
+    no) enable_m32_build=no ;;
+    *)
+	if test X${enable_darwin_64bit} = Xyes -o  X${enable_m64_build} = Xyes;
+	then
+		AC_MSG_ERROR([(--enable-darwin-64bit or --enable-m64-build) and --enable-m32-build are mutually exclusive]) ;
+	fi ;
+	enable_m32_build=yes ;;
+  esac
+],enable_m32_build=no)
+
 dnl OK, we might have darwin switches off different kinds, lets 
 dnl check it all before continuing.
 TMPSYS=`uname -s`-`uname -m`
@@ -313,6 +326,13 @@ if test X${enable_m64_build} = Xyes; then
 	CFLAGS="-m64 $CFLAGS"
 	export CFLAGS
 	LDFLAGS="-m64 $LDFLAGS"
+	export LDFLAGS
+fi
+if test X${enable_m32_build} = Xyes; then
+	enable_hipe=no
+	CFLAGS="-m32 $CFLAGS"
+	export CFLAGS
+	LDFLAGS="-m32 $LDFLAGS"
 	export LDFLAGS
 fi
 
