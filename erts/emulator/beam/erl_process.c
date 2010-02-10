@@ -6286,7 +6286,9 @@ Process *schedule(Process *p, int calls)
 	    erts_check_my_tracer_proc(p);
 #endif
 
-	if ((FLAGS(p) & F_FORCE_GC) || (MSO(p).overhead > BIN_VHEAP_SZ(p))) {
+	if (!ERTS_PROC_IS_EXITING(p)
+	    && ((FLAGS(p) & F_FORCE_GC)
+		|| (MSO(p).overhead > BIN_VHEAP_SZ(p)))) {
 	    reds -= erts_garbage_collect(p, 0, p->arg_reg, p->arity);
 	    if (reds < 0) {
 		reds = 1;
