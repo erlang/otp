@@ -143,6 +143,9 @@ APPUP_TARGET= $(EBIN)/$(APPUP_FILE)
 # FLAGS
 # ----------------------------------------------------
 
+ifeq ($(NATIVE_LIBS_ENABLED),yes)
+ERL_COMPILE_FLAGS += +native
+endif
 ERL_COMPILE_FLAGS += -I../include
 
 # ----------------------------------------------------
