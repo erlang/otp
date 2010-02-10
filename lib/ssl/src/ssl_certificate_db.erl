@@ -27,7 +27,7 @@
 
 -export([create/0, remove/1, add_trusted_certs/3, 
 	 remove_trusted_certs/2, lookup_trusted_cert/3, issuer_candidate/1,
-	 cache_pem_file/3]).
+	 lookup_cached_certs/1, cache_pem_file/3]).
 
 %%====================================================================
 %% Internal application API
@@ -74,6 +74,9 @@ lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
 	    {ok, Certs}
     end.
 
+lookup_cached_certs(File) ->
+    ets:lookup(certificate_db_name(), {file, File}).
+
 %%--------------------------------------------------------------------
 %% Function: add_trusted_certs(Pid, File, Db) -> {ok, Ref}
 %% Pid = pid() 
@@ -90,7 +93,7 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 	      undefined ->
 		  NewRef = make_ref(),
 		  add_certs_from_file(File, NewRef, CertsDb),
-		  insert(File, NewRef, 1, FileToRefDb),	     
+		  insert(File, NewRef, 1, FileToRefDb),
 		  NewRef;
 	      [OldRef] ->
 		  ref_count(File,FileToRefDb,1),
@@ -104,14 +107,11 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
-cache_pem_file(Pid, File, [_CertsDb, FileToRefDb, PidToFileDb]) ->
-    try ref_count(File, FileToRefDb,1)
-    catch _:_ -> 
-	    {ok, Content} = public_key:pem_to_der(File),
-	    insert(File,Content,1,FileToRefDb)
-    end,
+cache_pem_file(Pid, File, [CertsDb, _FileToRefDb, PidToFileDb]) ->
+    Res = {ok, Content} = public_key:pem_to_der(File),
+    insert({file, File}, Content, CertsDb),
     insert(Pid, File, PidToFileDb),
-    {ok, FileToRefDb}.
+    Res.
 
 %%--------------------------------------------------------------------
 %% Function: remove_trusted_certs(Pid, Db) -> _ 
@@ -123,15 +123,16 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     Files = lookup(Pid, PidToFileDb),
     delete(Pid, PidToFileDb),
     Clear = fun(File) ->
-		    case ref_count(File, FileToRefDb, -1) of
-			0 -> 
-			    case lookup(File, FileToRefDb) of
-				[Ref] when is_reference(Ref) ->
-				    remove_certs(Ref, CertsDb);
-				_ -> ok
-			    end,
-			    delete(File, FileToRefDb);
-			_ ->
+		    delete({file,File}, CertsDb),
+		    try
+			0 = ref_count(File, FileToRefDb, -1),
+			case lookup(File, FileToRefDb) of
+			    [Ref] when is_reference(Ref) ->
+				remove_certs(Ref, CertsDb);
+			    _ -> ok
+			end,
+			delete(File, FileToRefDb)
+		    catch _:_ ->
 			    ok
 		    end
 	    end,
@@ -168,6 +169,8 @@ issuer_candidate(PrevCandidateKey) ->
     case ets:next(Db, PrevCandidateKey) of
  	'$end_of_table' ->
  	    no_more_candidates;
+	{file, _} = Key ->
+	    issuer_candidate(Key);
  	Key ->
 	    [Cert] = lookup(Key, Db),
  	    {Key, Cert}
@@ -189,7 +192,7 @@ ref_count(Key, Db,N) ->
     ets:update_counter(Db,Key,N).
 
 delete(Key, Db) ->
-    true = ets:delete(Db, Key).
+    _ = ets:delete(Db, Key).
 
 lookup(Key, Db) ->
     case ets:lookup(Db, Key) of

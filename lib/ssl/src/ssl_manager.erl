@@ -74,13 +74,11 @@ connection_init(TrustedcertsFile, Role) ->
     call({connection_init, TrustedcertsFile, Role}).
 
 cache_pem_file(File) ->   
-    case ets:lookup(ssl_file_to_ref,File) of
-	[{_,_,Content}] -> 
+    case ssl_certificate_db:lookup_cached_certs(File) of
+	[{_,Content}] ->
 	    {ok, Content};
 	[] ->
-	    {ok, Db} = call({cache_pem, File}),
-	    [{_,_,Content}] = ets:lookup(Db,File),
-	    {ok, Content}
+	    call({cache_pem, File})
     end.
 
 %%--------------------------------------------------------------------
@@ -170,13 +168,14 @@ handle_call({{connection_init, TrustedcertsFile, _Role}, Pid}, _From,
 		   session_cache = Cache} = State) ->
     erlang:monitor(process, Pid),
     Result = 
-	case (catch ssl_certificate_db:add_trusted_certs(Pid, 
-							 TrustedcertsFile, 
-							 Db)) of
-	    {ok, Ref} ->
-		{ok, Ref, Cache};
-	    Error ->
-		{error, Error}
+	try
+	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, TrustedcertsFile, Db),
+	    {ok, Ref, Cache}
+	catch
+	    _:{badmatch, Error} ->
+		{error, Error};
+	    _E:_R ->
+		{error, {_R,erlang:get_stacktrace()}}
 	end,
     {reply, Result, State};
 
@@ -198,7 +197,9 @@ handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
     try ssl_certificate_db:cache_pem_file(Pid,File,Db) of
 	Result ->
 	    {reply, Result, State}
-    catch _:Reason ->
+    catch _:{badmatch, Reason} ->
+	    {reply, Reason, State};
+	  _:Reason ->
 	    {reply, {error, Reason}, State}
     end;
 	       

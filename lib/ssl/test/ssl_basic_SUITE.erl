@@ -458,7 +458,7 @@ connect_dist(Config) when is_list(Config) ->
 
 connect_dist_s(S) ->
     Msg = term_to_binary({erlang,term}),
-    ok = ssl:send(S, <<(size(Msg)):32, Msg/binary>>).
+    ok = ssl:send(S, Msg).
 
 connect_dist_c(S) ->
     Test = binary_to_list(term_to_binary({erlang,term})),

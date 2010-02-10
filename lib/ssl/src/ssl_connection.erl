@@ -978,8 +978,14 @@ init_certificates(#ssl_options{cacertfile = CACertFile,
     case ssl_manager:connection_init(CACertFile, Role) of
 	{ok, CertDbRef, CacheRef} ->
 	    init_certificates(CertDbRef, CacheRef, CertFile, Role);
+	{error, {badmatch, _Error}} ->
+	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
+				   [_Error, CACertFile]),
+	    error_logger:error_report(Report),
+	    throw(ecacertfile);
 	{error, _Error} ->
-	    Report = io_lib:format("SSL: Error ~p ~n",[_Error]),
+	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
+				   [_Error, CACertFile]),
 	    error_logger:error_report(Report),
 	    throw(ecacertfile)
     end.
@@ -996,12 +1002,18 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
      try 
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
-    catch _E:_R  ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~p~n",
-				   [?LINE, _E,_R, erlang:get_stacktrace()]),
-	    error_logger:error_report(Report),
-	    throw(ecertfile)
-    end.
+     catch
+	 _E:{badmatch, _R={error,_}} ->
+	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				    [?LINE, _E,_R, CertFile, erlang:get_stacktrace()]),
+	     error_logger:error_report(Report),
+	     throw(ecertfile);
+	 _E:_R  ->
+	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				    [?LINE, _E,_R, CertFile, erlang:get_stacktrace()]),
+	     error_logger:error_report(Report),
+	     throw(ecertfile)
+     end.
 
 init_private_key(undefined, "", _Password, client) -> 
     undefined;
@@ -1012,9 +1024,15 @@ init_private_key(undefined, KeyFile, Password, _)  ->
 			PKey =:= rsa_private_key orelse PKey =:= dsa_private_key],
 	{ok, Decoded} = public_key:decode_private_key(Der,Password),
 	Decoded
-    catch _E:_R ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~p~n",
-				   [?LINE, _E,_R, erlang:get_stacktrace()]),
+    catch
+	_E:{badmatch, _R={error,_}} ->
+	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				   [?LINE, _E,_R, KeyFile, erlang:get_stacktrace()]),
+	    error_logger:error_report(Report),
+	    throw(ekeyfile);
+	_E:_R ->
+	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				   [?LINE, _E,_R, KeyFile, erlang:get_stacktrace()]),
 	    error_logger:error_report(Report),
 	    throw(ekeyfile)
     end;
