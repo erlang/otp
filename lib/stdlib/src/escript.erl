@@ -139,7 +139,8 @@ start(EscriptOptions) ->
 
 parse_and_run(File, Args, Options) ->
     CheckOnly = lists:member("s", Options),
-    {Source, Module, FormsOrBin, Mode} = parse_file(File, CheckOnly),
+    {Source, Module, FormsOrBin, HasRecs, Mode} =
+	parse_file(File, CheckOnly),
     Mode2 =
         case lists:member("d", Options) of
             true  -> 
@@ -159,7 +160,7 @@ parse_and_run(File, Args, Options) ->
         is_list(FormsOrBin) ->
             case Mode2 of
                 interpret ->
-                    interpret(FormsOrBin, File, Args);
+                    interpret(FormsOrBin, HasRecs, File, Args);
                 compile ->
                     case compile:forms(FormsOrBin, [report]) of
                         {ok, Module, BeamBin} ->
@@ -246,7 +247,8 @@ parse_file(File, CheckOnly) ->
     #state{mode = Mode,
 	   source = Source,
 	   module = Module,
-	   forms_or_bin = FormsOrBin} =
+	   forms_or_bin = FormsOrBin,
+	   has_records = HasRecs} =
 	case ScriptType of
 	    archive ->
 		%% Archive file
@@ -260,7 +262,7 @@ parse_file(File, CheckOnly) ->
 		%% Source code
 		parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly)
         end,
-    {Source, Module, FormsOrBin, Mode}.
+    {Source, Module, FormsOrBin, HasRecs, Mode}.
 
 %% Skip header and make a heuristic guess about the script type
 skip_header(P, LineNo) ->
@@ -421,8 +423,7 @@ check_source(S, CheckOnly) ->
     case S of
 	#state{n_errors = Nerrs} when Nerrs =/= 0 ->
 	    fatal("There were compilation errors.");
-	#state{exports_main = ExpMain, 
-	       has_records = HasRecs,
+	#state{exports_main = ExpMain,
 	       forms_or_bin = [FileForm2, ModForm2 | Forms]} ->
 	    %% Optionally add export of main/1
 	    Forms2 =
@@ -433,36 +434,15 @@ check_source(S, CheckOnly) ->
 	    Forms3 = [FileForm2, ModForm2 | Forms2],
 	    case CheckOnly of
 		true ->
-		    %% Optionally expand records
-		    Forms4 =
-			case HasRecs of
-			    false -> Forms3;
-			    true  -> erl_expand_records:module(Forms3, [])
-			end,
 		    %% Strong validation and halt
-		    case compile:forms(Forms4, [report,strong_validation]) of
+		    case compile:forms(Forms3, [report,strong_validation]) of
 			{ok,_} ->
 			    my_halt(0);
 			_Other ->
 			    fatal("There were compilation errors.")
 		    end;
 		false ->
-		    %% Basic validation before execution
-		    case erl_lint:module(Forms3) of
-			{ok,Ws} ->
-			    report_warnings(Ws);
-			{error,Es,Ws} ->
-			    report_errors(Es),
-			    report_warnings(Ws),
-			    fatal("There were compilation errors.")
-		    end,
-		    %% Optionally expand records
-		    Forms4 =
-			case HasRecs of
-			    false -> Forms3;
-			    true  -> erl_expand_records:module(Forms3, [])
-			end,
-		    S#state{forms_or_bin = Forms4}
+		    S#state{forms_or_bin = Forms3}
 	    end
     end.
 
@@ -495,17 +475,9 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
     case Parsed of
         {ok, Form} ->
             case Form of
-                {attribute,Ln,record,{Record,Fields}} ->
-                    S2 = S#state{has_records = true},
-                    case epp:normalize_typed_record_fields(Fields) of
-                        {typed, NewFields} ->
-                            epp_parse_file(Epp, S2,
-                                           [{attribute, Ln, record, {Record, NewFields}},
-                                            {attribute, Ln, type, 
-                                             {{record, Record}, Fields, []}} | Forms]);
-                        not_typed ->
-                            epp_parse_file(Epp, S2, [Form | Forms])
-                    end;
+                {attribute,_,record, _} ->
+		    S2 = S#state{has_records = true},
+		    epp_parse_file(Epp, S2, [Form | Forms]);
                 {attribute,Ln,mode,NewMode} ->
                     S2 = S#state{mode = NewMode},
                     if
@@ -564,8 +536,23 @@ run(Module, Args) ->
             fatal(format_exception(Class, Reason))
     end.
 
-interpret(Forms, File, Args) ->
-    Dict  = parse_to_dict(Forms),
+interpret(Forms, HasRecs,  File, Args) ->
+    %% Basic validation before execution
+    case erl_lint:module(Forms) of
+	{ok,Ws} ->
+	    report_warnings(Ws);
+	{error,Es,Ws} ->
+	    report_errors(Es),
+	    report_warnings(Ws),
+	    fatal("There were compilation errors.")
+    end,
+    %% Optionally expand records
+    Forms2 =
+	case HasRecs of
+	    false -> Forms;
+	    true  -> erl_expand_records:module(Forms, [])
+	end,
+    Dict = parse_to_dict(Forms2),
     ArgsA = erl_parse:abstract(Args, 0),
     Call = {call,0,{atom,0,main},[ArgsA]},
     try
