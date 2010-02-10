@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_lint_SUITE).
@@ -2597,7 +2597,7 @@ otp_8051(Config) when is_list(Config) ->
            <<"-opaque foo() :: bar().
              ">>,
            [],
-           {error,[{1,erl_lint,{type_ref,{bar,0}}}],
+           {error,[{1,erl_lint,{undefined_type,{bar,0}}}],
             [{1,erl_lint,{unused_type,{foo,0}}}]}}],
     ?line [] = run(Config, Ts),
     ok.
