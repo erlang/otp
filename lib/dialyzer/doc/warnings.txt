@@ -2,8 +2,6 @@
 ## File:      doc/warnings.txt
 ## Author(s): Tobias Lindahl <tobiasl@it.uu.se>
 ##            Kostis Sagonas <kostis@it.uu.se>
-##
-## $Id$
 ##----------------------------------------------------------------------------
 
 

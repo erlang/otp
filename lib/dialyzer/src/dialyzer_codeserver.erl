@@ -56,83 +56,83 @@
 
 %%--------------------------------------------------------------------
 
--record(dialyzer_codeserver, {table_pid		          :: pid(),
-                              exports   = sets:new()      :: set(), % set(mfa())
-                              next_core_label = 0         :: label(),
-                              records   = dict:new()      :: dict(),
-			      temp_records = dict:new()   :: dict(),
-                              contracts = dict:new()      :: dict(),
-			      temp_contracts = dict:new() :: dict()}).
+-record(codeserver, {table_pid		          :: pid(),
+		     exports         = sets:new() :: set(), % set(mfa())
+		     next_core_label = 0          :: label(),
+		     records         = dict:new() :: dict(),
+		     temp_records    = dict:new() :: dict(),
+		     contracts       = dict:new() :: dict(),
+		     temp_contracts  = dict:new() :: dict()}).
 
--opaque codeserver() :: #dialyzer_codeserver{}.
+-opaque codeserver() :: #codeserver{}.
 
 %%--------------------------------------------------------------------
 
 -spec new() -> codeserver().
 
 new() ->
-  #dialyzer_codeserver{table_pid = table__new()}.
+  #codeserver{table_pid = table__new()}.
 
 -spec delete(codeserver()) -> 'ok'.
 
-delete(#dialyzer_codeserver{table_pid = TablePid}) ->
+delete(#codeserver{table_pid = TablePid}) ->
   table__delete(TablePid).
 
 -spec insert(module(), cerl:c_module(), codeserver()) -> codeserver().
 
 insert(Mod, ModCode, CS) ->
-  NewTablePid = table__insert(CS#dialyzer_codeserver.table_pid, Mod, ModCode),
-  CS#dialyzer_codeserver{table_pid = NewTablePid}.
+  NewTablePid = table__insert(CS#codeserver.table_pid, Mod, ModCode),
+  CS#codeserver{table_pid = NewTablePid}.
 
 -spec insert_exports([mfa()], codeserver()) -> codeserver().
 
-insert_exports(List, #dialyzer_codeserver{exports = Exports} = CS) ->
+insert_exports(List, #codeserver{exports = Exports} = CS) ->
   Set = sets:from_list(List),
   NewExports = sets:union(Exports, Set),
-  CS#dialyzer_codeserver{exports = NewExports}.
+  CS#codeserver{exports = NewExports}.
 
 -spec is_exported(mfa(), codeserver()) -> boolean().
 
-is_exported(MFA, #dialyzer_codeserver{exports = Exports}) ->
+is_exported(MFA, #codeserver{exports = Exports}) ->
   sets:is_element(MFA, Exports).
 
 -spec get_exports(codeserver()) -> set().  % set(mfa())
 
-get_exports(#dialyzer_codeserver{exports = Exports}) ->
+get_exports(#codeserver{exports = Exports}) ->
   Exports.
 
 -spec lookup_mod_code(module(), codeserver()) -> cerl:c_module().
 
 lookup_mod_code(Mod, CS) when is_atom(Mod) ->
-  table__lookup(CS#dialyzer_codeserver.table_pid, Mod).
+  table__lookup(CS#codeserver.table_pid, Mod).
 
 -spec lookup_mfa_code(mfa(), codeserver()) -> {cerl:c_var(), cerl:c_fun()}.
 
 lookup_mfa_code({_M, _F, _A} = MFA, CS) ->
-  table__lookup(CS#dialyzer_codeserver.table_pid, MFA).
+  table__lookup(CS#codeserver.table_pid, MFA).
 
 -spec get_next_core_label(codeserver()) -> label().
 
-get_next_core_label(#dialyzer_codeserver{next_core_label = NCL}) ->
+get_next_core_label(#codeserver{next_core_label = NCL}) ->
   NCL.
 
 -spec set_next_core_label(label(), codeserver()) -> codeserver().
 
 set_next_core_label(NCL, CS) ->
-  CS#dialyzer_codeserver{next_core_label = NCL}.
+  CS#codeserver{next_core_label = NCL}.
 
 -spec store_records(module(), dict(), codeserver()) -> codeserver().
 
-store_records(Mod, Dict, #dialyzer_codeserver{records = RecDict} = CS)
+store_records(Mod, Dict, #codeserver{records = RecDict} = CS)
   when is_atom(Mod) ->
   case dict:size(Dict) =:= 0 of
     true -> CS;
-    false -> CS#dialyzer_codeserver{records = dict:store(Mod, Dict, RecDict)}
+    false -> CS#codeserver{records = dict:store(Mod, Dict, RecDict)}
   end.
 
 -spec lookup_mod_records(module(), codeserver()) -> dict(). 
 
-lookup_mod_records(Mod, #dialyzer_codeserver{records = RecDict})
+lookup_mod_records(Mod, #codeserver{records = RecDict})
   when is_atom(Mod) ->
   case dict:find(Mod, RecDict) of
     error -> dict:new();
@@ -141,45 +141,44 @@ lookup_mod_records(Mod, #dialyzer_codeserver{records = RecDict})
 
 -spec get_records(codeserver()) -> dict(). 
 
-get_records(#dialyzer_codeserver{records = RecDict}) ->
+get_records(#codeserver{records = RecDict}) ->
   RecDict.
 
 -spec store_temp_records(module(), dict(), codeserver()) -> codeserver().
 
-store_temp_records(Mod, Dict, #dialyzer_codeserver{temp_records = TempRecDict} = CS)
+store_temp_records(Mod, Dict, #codeserver{temp_records = TempRecDict} = CS)
   when is_atom(Mod) ->
   case dict:size(Dict) =:= 0 of
     true -> CS;
-    false -> CS#dialyzer_codeserver{temp_records = dict:store(Mod, Dict, TempRecDict)}
+    false -> CS#codeserver{temp_records = dict:store(Mod, Dict, TempRecDict)}
   end.
 
 -spec get_temp_records(codeserver()) -> dict(). 
 
-get_temp_records(#dialyzer_codeserver{temp_records = TempRecDict}) ->
+get_temp_records(#codeserver{temp_records = TempRecDict}) ->
   TempRecDict.
 
 -spec set_temp_records(dict(), codeserver()) -> codeserver().
 
 set_temp_records(Dict, CS) ->
-  CS#dialyzer_codeserver{temp_records = Dict}.
+  CS#codeserver{temp_records = Dict}.
 
 -spec finalize_records(dict(), codeserver()) -> codeserver(). 
 
 finalize_records(Dict, CS) ->
-  CS#dialyzer_codeserver{records = Dict, temp_records = dict:new()}.
+  CS#codeserver{records = Dict, temp_records = dict:new()}.
 
 -spec store_contracts(module(), dict(), codeserver()) -> codeserver(). 
 
-store_contracts(Mod, Dict, #dialyzer_codeserver{contracts = C} = CS)
-  when is_atom(Mod) ->
+store_contracts(Mod, Dict, #codeserver{contracts = C} = CS) when is_atom(Mod) ->
   case dict:size(Dict) =:= 0 of
     true -> CS;
-    false -> CS#dialyzer_codeserver{contracts = dict:store(Mod, Dict, C)}
+    false -> CS#codeserver{contracts = dict:store(Mod, Dict, C)}
   end.
 
 -spec lookup_mod_contracts(module(), codeserver()) -> dict().
 
-lookup_mod_contracts(Mod, #dialyzer_codeserver{contracts = ContDict})
+lookup_mod_contracts(Mod, #codeserver{contracts = ContDict})
   when is_atom(Mod) ->
   case dict:find(Mod, ContDict) of
     error -> dict:new();
@@ -189,7 +188,7 @@ lookup_mod_contracts(Mod, #dialyzer_codeserver{contracts = ContDict})
 -spec lookup_mfa_contract(mfa(), codeserver()) -> 
          'error' | {'ok', dialyzer_contracts:file_contract()}.
 
-lookup_mfa_contract({M,_F,_A} = MFA, #dialyzer_codeserver{contracts = ContDict}) ->
+lookup_mfa_contract({M,_F,_A} = MFA, #codeserver{contracts = ContDict}) ->
   case dict:find(M, ContDict) of
     error -> error;
     {ok, Dict} -> dict:find(MFA, Dict)
@@ -197,27 +196,27 @@ lookup_mfa_contract({M,_F,_A} = MFA, #dialyzer_codeserver{contracts = ContDict})
 
 -spec get_contracts(codeserver()) -> dict(). 
 
-get_contracts(#dialyzer_codeserver{contracts = ContDict}) ->
+get_contracts(#codeserver{contracts = ContDict}) ->
   ContDict.
 
 -spec store_temp_contracts(module(), dict(), codeserver()) -> codeserver(). 
 
-store_temp_contracts(Mod, Dict, #dialyzer_codeserver{temp_contracts = C} = CS)
+store_temp_contracts(Mod, Dict, #codeserver{temp_contracts = C} = CS)
   when is_atom(Mod) ->
   case dict:size(Dict) =:= 0 of
     true -> CS;
-    false -> CS#dialyzer_codeserver{temp_contracts = dict:store(Mod, Dict, C)}
+    false -> CS#codeserver{temp_contracts = dict:store(Mod, Dict, C)}
   end.
 
 -spec get_temp_contracts(codeserver()) -> dict().
 
-get_temp_contracts(#dialyzer_codeserver{temp_contracts = TempContDict}) ->
+get_temp_contracts(#codeserver{temp_contracts = TempContDict}) ->
   TempContDict.
 
 -spec finalize_contracts(dict(), codeserver()) -> codeserver().
 
 finalize_contracts(Dict, CS)  ->
-  CS#dialyzer_codeserver{contracts = Dict, temp_contracts = dict:new()}.
+  CS#codeserver{contracts = Dict, temp_contracts = dict:new()}.
 
 table__new() ->
   spawn_link(fun() -> table__loop(none, dict:new()) end).

@@ -196,9 +196,13 @@ check_contract(#contract{contracts = Contracts}, SuccType) ->
       ok ->
 	InfList = [erl_types:t_inf(Contract, SuccType, opaque) 
 		   || Contract <- Contracts2],
-	check_contract_inf_list(InfList, SuccType)
+	case check_contract_inf_list(InfList, SuccType) of
+	  {error, _} = Invalid -> Invalid;
+	  ok -> check_extraneous(Contracts2, SuccType)
+	end
     end
-  catch throw:{error, _} = Error -> Error
+  catch
+    throw:{error, _} = Error -> Error
   end.
 
 check_domains([_]) -> ok;
@@ -232,6 +236,22 @@ check_contract_inf_list([FunType|Left], SuccType) ->
   end;
 check_contract_inf_list([], _SuccType) ->
   {error, invalid_contract}.
+
+check_extraneous([], _SuccType) -> ok;
+check_extraneous([C|Cs], SuccType) ->
+  case check_extraneous_1(C, SuccType) of
+    ok -> check_extraneous(Cs, SuccType);
+    Error -> Error
+  end.
+
+check_extraneous_1(Contract, SuccType) ->
+  CRngs = erl_types:t_elements(erl_types:t_fun_range(Contract)),
+  STRng = erl_types:t_fun_range(SuccType),
+  %% io:format("CR = ~p\nSR = ~p\n", [CRngs, STRng]),
+  case [CR || CR <- CRngs, erl_types:t_is_none(erl_types:t_inf(CR, STRng, opaque))] of
+    [] -> ok;
+    CRs -> {error, {extra_range, erl_types:t_sup(CRs), STRng}}
+  end.
 
 %% This is the heart of the "range function"
 -spec process_contracts([contract_pair()], [erl_types:erl_type()]) -> erl_types:erl_type().
@@ -411,6 +431,8 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract}}|Left],
 	case check_contract(Contract, Sig) of
 	  {error, invalid_contract} ->
 	    [invalid_contract_warning(MFA, FileLine, Sig, RecDict)|Acc];
+	  {error, {extra_range, ExtraRanges, STRange}} ->
+	    [extra_range_warning(MFA, FileLine, ExtraRanges, STRange)|Acc];
 	  {error, Msg} ->
 	    [{?WARN_CONTRACT_SYNTAX, FileLine, Msg}|Acc];
 	  ok ->
@@ -442,9 +464,15 @@ get_invalid_contract_warnings_funs([{MFA, {FileLine, Contract}}|Left],
 get_invalid_contract_warnings_funs([], _Plt, _RecDict, Acc) ->
   Acc.
 
-invalid_contract_warning({M, F, A}, FileLine, Type, RecDict) ->
+invalid_contract_warning({M, F, A}, FileLine, SuccType, RecDict) ->
+  SuccTypeStr = dialyzer_utils:format_sig(SuccType, RecDict),
+  {?WARN_CONTRACT_TYPES, FileLine, {invalid_contract, [M, F, A, SuccTypeStr]}}.
+
+extra_range_warning({M, F, A}, FileLine, ExtraRanges, STRange) ->
+  ERangesStr = erl_types:t_to_string(ExtraRanges),
+  STRangeStr = erl_types:t_to_string(STRange),
   {?WARN_CONTRACT_TYPES, FileLine,
-   {invalid_contract, [M, F, A, dialyzer_utils:format_sig(Type, RecDict)]}}.
+   {extra_range, [M, F, A, ERangesStr, STRangeStr]}}.
 
 picky_contract_check(CSig0, Sig0, MFA, FileLine, Contract, RecDict, Acc) ->
   CSig = erl_types:t_abstract_records(CSig0, RecDict),

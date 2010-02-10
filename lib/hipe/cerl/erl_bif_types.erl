@@ -102,6 +102,7 @@
 		    t_list_elements/1,
 		    t_list_termination/1,
 		    t_mfa/0,
+		    t_module/0,
 		    t_nil/0,
 		    t_node/0,
 		    t_none/0,
@@ -694,6 +695,8 @@ type(erlang, binary_to_list, 3, Xs) ->
 	 fun (_) -> t_list(t_byte()) end);
 type(erlang, binary_to_term, 1, Xs) ->
   strict(arg_types(erlang, binary_to_term, 1), Xs, fun (_) -> t_any() end);
+type(erlang, binary_to_term, 2, Xs) ->
+  strict(arg_types(erlang, binary_to_term, 2), Xs, fun (_) -> t_any() end);
 type(erlang, bitsize, 1, Xs) ->	% XXX: TAKE OUT
   type(erlang, bit_size, 1, Xs);
 type(erlang, bit_size, 1, Xs) ->
@@ -3127,20 +3130,20 @@ arith(Op, X1, X2) ->
 	    end,
 	  %% io:format("done arith ~p = ~p~n", [Op, {NewMin, NewMax}]),
 	  {ok, t_from_range(NewMin, NewMax)};
-	false ->  
+	false ->
 	  %% Some of these arithmetic operations might throw a system_limit
 	  %% exception; for example, when trying to evaluate 1 bsl 100000000.
 	  try case Op of
-	        '+'    -> [X + Y    || X <- L1, Y <- L2];
-	        '-'    -> [X - Y    || X <- L1, Y <- L2];
-	        '*'    -> [X * Y    || X <- L1, Y <- L2];
-	        'div'  -> [X div Y  || X <- L1, Y <- L2,Y =/= 0];
-	        'rem'  -> [X rem Y  || X <- L1, Y <- L2,Y =/= 0];
-	        'bsl'  -> [X bsl Y  || X <- L1, Y <- L2];
-	        'bsr'  -> [X bsr Y  || X <- L1, Y <- L2];
-	        'band' -> [X band Y || X <- L1, Y <- L2];
-	        'bor'  -> [X bor Y  || X <- L1, Y <- L2];
-	        'bxor' -> [X bxor Y || X <- L1, Y <- L2]
+		'+'    -> [X + Y    || X <- L1, Y <- L2];
+		'-'    -> [X - Y    || X <- L1, Y <- L2];
+		'*'    -> [X * Y    || X <- L1, Y <- L2];
+		'div'  -> [X div Y  || X <- L1, Y <- L2, Y =/= 0];
+		'rem'  -> [X rem Y  || X <- L1, Y <- L2, Y =/= 0];
+		'bsl'  -> [X bsl Y  || X <- L1, Y <- L2];
+		'bsr'  -> [X bsr Y  || X <- L1, Y <- L2];
+		'band' -> [X band Y || X <- L1, Y <- L2];
+		'bor'  -> [X bor Y  || X <- L1, Y <- L2];
+		'bxor' -> [X bxor Y || X <- L1, Y <- L2]
 	      end of
 	    AllVals ->
 	      {ok, t_integers(ordsets:from_list(AllVals))}
@@ -3338,8 +3341,7 @@ arg_types(erlang, abs, 1) ->
 arg_types(erlang, append_element, 2) ->
   [t_tuple(), t_any()];
 arg_types(erlang, apply, 2) ->
-  [t_sup(t_tuple([t_sup(t_atom(),   % module name
-			t_tuple()), % parameterized module	    
+  [t_sup(t_tuple([t_module(),
 		  t_atom()]),
 	 t_fun()),
    t_list()];
@@ -3359,6 +3361,8 @@ arg_types(erlang, binary_to_list, 3) ->
   [t_binary(), t_pos_integer(), t_pos_integer()]; % I want fixnum, but cannot
 arg_types(erlang, binary_to_term, 1) ->
   [t_binary()];
+arg_types(erlang, binary_to_term, 2) ->
+  [t_binary(), t_list(t_atom('safe'))];
 arg_types(erlang, bitsize, 1) ->	% XXX: TAKE OUT
   arg_types(erlang, bit_size, 1);
 arg_types(erlang, bit_size, 1) ->
@@ -4351,6 +4355,7 @@ structure_inspecting_args(erlang, is_pid, 1) -> [1];
 structure_inspecting_args(erlang, is_port, 1) -> [1];
 structure_inspecting_args(erlang, is_reference, 1) -> [1];
 structure_inspecting_args(erlang, is_tuple, 1) -> [1];
+structure_inspecting_args(erlang, length, 1) -> [1];
 %%structure_inspecting_args(erlang, setelement, 3) -> [2].
 structure_inspecting_args(_, _, _) -> []. % XXX: assume no arg needs inspection
 

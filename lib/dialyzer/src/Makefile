@@ -48,6 +48,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 MODULES =  \
 	dialyzer \
 	dialyzer_analysis_callgraph \
+	dialyzer_behaviours \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
@@ -128,6 +129,7 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 $(EBIN)/dialyzer.beam: dialyzer.hrl
 $(EBIN)/dialyzer_analysis_callgraph.beam: dialyzer.hrl
 $(EBIN)/dialyzer_callgraph.beam: dialyzer.hrl
+$(EBIN)/dialyzer_behaviours.beam: dialyzer.hrl
 $(EBIN)/dialyzer_cl.beam: dialyzer.hrl ../../kernel/include/file.hrl
 $(EBIN)/dialyzer_cl_parse.beam: dialyzer.hrl
 $(EBIN)/dialyzer_codeserver.beam: dialyzer.hrl

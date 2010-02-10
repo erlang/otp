@@ -2,8 +2,6 @@
 ## File:      doc/manual.txt
 ## Author(s): Tobias Lindahl <tobiasl@it.uu.se>
 ##	      Kostis Sagonas <kostis@it.uu.se>
-##
-## $Id$
 ##----------------------------------------------------------------------------
 
 The DIALYZER, a DIscrepany AnaLYZer for ERlang programs.
@@ -126,22 +124,29 @@ The exit status of the command line version is:
 
 Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
-		[--output_plt file] [-Wwarn]* [--src] 
-		[-c applications] [-r applications] [-o outfile]
-		[--build_plt] [--add_to_plt] [--remove_from_plt] [--check_plt]
-                [--plt_info] [--get_warnings]
+		[--output_plt file] [-Wwarn]* [--src]  [--gui | --wx]
+		[files_or_dirs] [-r dirs] [--apps applications] [-o outfile]
+		[--build_plt] [--add_to_plt] [--remove_from_plt]
+		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
+                [--no_native]
 
 Options: 
-   -c applications (or --command-line applications)
-       Use Dialyzer from the command line (no GUI) to detect defects in the
-       specified applications (directories or .erl or .beam files)
-   -r applications
-       Same as -c only that directories are searched recursively for 
-       subdirectories containing .erl or .beam files (depending on the 
-       type of analysis)
-   -o outfile (or --output outfile)
-       When using Dialyzer from the command line, send the analysis
-       results in the specified \"outfile\" rather than in stdout
+   files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
+       Use Dialyzer from the command line to detect defects in the
+       specified files or directories containing .erl or .beam files,
+       depending on the type of the analysis
+   -r dirs
+       Same as the previous but the specified directories are searched
+       recursively for subdirectories containing .erl or .beam files in
+       them, depending on the type of analysis
+   --apps applications
+       Option typically used when building or modifying PLT as in:
+         dialyzer --build_plt --apps erts kernel stdlib mnesia ...
+       to conveniently refer to library applications corresponding to the
+       Erlang/OTP installation. However, the option is general and can also
+       be used during analysis in order to refer to Erlang/OTP applications.
+       In addition, file or directory names can also be included, as in:
+         dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
    --raw
        When using Dialyzer from the command line, output the raw analysis
        results (Erlang terms) instead of the formatted result.
@@ -154,14 +159,14 @@ Options:
        When analyzing from source, pass the define to Dialyzer (**)
    -I include_dir
        When analyzing from source, pass the include_dir to Dialyzer (**)
+   -pa dir
+       Include dir in the path for Erlang (useful when analyzing files
+       that have '-include_lib()' directives)
    --output_plt file
        Store the plt at the specified file after building it
    --plt plt
        Use the specified plt as the initial plt (if the plt was built 
        during setup the files will be checked for consistency)
-   -pa dir
-       Include dir in the path for Erlang (useful when analyzing files
-       that have '-include_lib()' directives)
    -Wwarn
        A family of options which selectively turn on/off warnings
        (for help on the names of warnings use dialyzer -Whelp)
@@ -200,6 +205,19 @@ Options:
    --get_warnings
        Makes Dialyzer emit warnings even when manipulating the plt. Only 
        emits warnings for files that are actually analyzed.
+   --dump_callgraph file
+       Dump the call graph into the specified file whose format is determined
+       by the file name extension. Supported extensions are: raw, dot, and ps.
+       If something else is used as file name extension, default format '.raw'
+       will be used.
+   --no_native (or -nn)
+       Bypass the native code compilation of some key files that dialyzer
+       heuristically performs when dialyzing many files; this avoids the
+       compilation time but it may result in (much) longer analysis time.
+   --gui
+       Use the gs-based GUI.
+   --wx
+       Use the wx-based GUI.
 
 Note:
   * denotes that multiple occurrences of these options are possible.
@@ -221,14 +239,22 @@ Warning options:
      Include warnings for function calls which ignore the return value(s).
   -Werror_handling ***
      Include warnings for functions that only return by means of an exception.
+  -Wrace_conditions ***
+     Include warnings for possible race conditions.
+  -Wbehaviours ***
+     Include warnings about behaviour callbacks which drift from the published
+     recommended interfaces.
   -Wunderspecs ***
      Warn about underspecified functions 
-     (the -spec is strictly more allowing than the success typing)
+     (those whose -spec is strictly more allowing than the success typing).
+
+The following options are also available but their use is not recommended:
+(they are mostly for Dialyzer developers and internal debugging)
   -Woverspecs ***
      Warn about overspecified functions 
-     (the -spec is strictly less allowing than the success typing)
+     (those whose -spec is strictly less allowing than the success typing).
   -Wspecdiffs ***
-     Warn when the -spec is different than the success typing
+     Warn when the -spec is different than the success typing.
 
 Note:
    *** These are options that turn on warnings rather than turning them off.
@@ -307,9 +333,7 @@ are using frequently.
 The PLT is built using the --build_plt option to dialyzer. The
 following command builds the recommended minimal PLT for OTP.
 
-dialyzer --build_plt -r $ERL_TOP/lib/stdlib/ebin\
-                        $ERL_TOP/lib/kernel/ebin\
-                        $ERL_TOP/lib/mnesia/ebin
+   dialyzer --build_plt --apps erts kernel stdlib mnesia
 
 Dialyzer will look if there is an environment variable called
 $DIALYZER_PLT and place the PLT at this location. If no such variable
@@ -321,22 +345,22 @@ You can also add information to an existing plt using the --add_to_plt
 option. Suppose you want to also include the compiler in the PLT and
 place it in a new PLT, then give the command
 
-dialyzer --add_to_plt -r $ERL_TOP/lib/compiler/ebin --output_plt my.plt
+  dialyzer --add_to_plt --apps compiler --output_plt my.plt
 
 Then you would like to add your favorite application my_app to the new
 plt.
 
-dialyzer --add_to_plt --plt my.plt -r <path>/my_app/ebin
+  dialyzer --add_to_plt --plt my.plt -r <path>/my_app/ebin
 
 But you realize that it is unnecessary to have compiler in this one.
 
-dialyzer --remove_from_plt --plt my.plt -r $ERL_TOP/lib/compiler/ebin
+  dialyzer --remove_from_plt --plt my.plt ---apps compiler
 
 Later, when you have fixed a bug in your application my_app, you want
 to update the plt so that it will be fresh the next time you run
 Dialyzer, run the command
 
-dialyzer --check_plt --plt my.plt
+  dialyzer --check_plt --plt my.plt
 
 Dialyzer will then reanalyze the files that have been changed, and the
 files that depend on these files. Note that this consistency check

@@ -252,6 +252,8 @@ build_warnings([Opt|Opts], Warnings) ->
 	ordsets:add_element(?WARN_RETURN_ONLY_EXIT, Warnings);
       race_conditions ->
 	ordsets:add_element(?WARN_RACE_CONDITION, Warnings);
+      behaviours ->
+	ordsets:add_element(?WARN_BEHAVIOUR, Warnings);
       specdiffs ->
 	S = ordsets:from_list([?WARN_CONTRACT_SUBTYPE, 
 			       ?WARN_CONTRACT_SUPERTYPE,

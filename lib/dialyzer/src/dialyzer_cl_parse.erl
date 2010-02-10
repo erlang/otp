@@ -68,6 +68,11 @@ cl(["-n"|T]) ->
 cl(["--no_check_plt"|T]) ->
   put(dialyzer_options_check_plt, false),
   cl(T);
+cl(["-nn"|T]) ->
+  cl(["--no_native"|T]);
+cl(["--no_native"|T]) ->
+  put(dialyzer_options_native, false),
+  cl(T);
 cl(["--plt_info"|T]) ->
   put(dialyzer_options_analysis_type, plt_info),
   cl(T);
@@ -181,7 +186,7 @@ cl([H|_] = L) ->
       NewTail = command_line(L),
       cl(NewTail);
     false ->
-      error("Unknown option: "++H)
+      error("Unknown option: " ++ H)
   end;
 cl([]) ->
   {RetTag, Opts} =
@@ -191,7 +196,7 @@ cl([]) ->
 	{plt_info, cl_options()};
       false ->
 	case get(dialyzer_options_mode) of
-	  {gui,_} = GUI -> {GUI, common_options()};
+	  {gui, _} = GUI -> {GUI, common_options()};
 	  cl ->
 	    case get(dialyzer_options_analysis_type) =:= plt_check of
 	      true  -> {check_init, cl_options()};
@@ -311,17 +316,27 @@ help_message() ->
   S = "Usage: dialyzer [--help] [--version] [--shell] [--quiet] [--verbose]
 		[-pa dir]* [--plt plt] [-Ddefine]* [-I include_dir]* 
 		[--output_plt file] [-Wwarn]* [--src] [--gui | --wx]
-		[-c applications] [-r applications] [-o outfile]
+		[files_or_dirs] [-r dirs] [--apps applications] [-o outfile]
 		[--build_plt] [--add_to_plt] [--remove_from_plt]
-                [--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
-Options: 
-  -c applications (or --command-line applications)
-      Use Dialyzer from the command line (no GUI) to detect defects in the
-      specified applications (directories or .erl or .beam files)
-  -r applications
-      Same as -c only that directories are searched recursively for 
-      subdirectories containing .erl or .beam files (depending on the 
-      type of analysis)
+		[--check_plt] [--no_check_plt] [--plt_info] [--get_warnings]
+                [--no_native]
+Options:
+  files_or_dirs (for backwards compatibility also as: -c files_or_dirs)
+      Use Dialyzer from the command line to detect defects in the
+      specified files or directories containing .erl or .beam files,
+      depending on the type of the analysis
+  -r dirs
+      Same as the previous but the specified directories are searched
+      recursively for subdirectories containing .erl or .beam files in
+      them, depending on the type of analysis
+  --apps applications
+      Option typically used when building or modifying a PLT as in:
+        dialyzer --build_plt --apps erts kernel stdlib mnesia ...
+      to conveniently refer to library applications corresponding to the
+      Erlang/OTP installation. However, the option is general and can also
+      be used during analysis in order to refer to Erlang/OTP applications.
+      In addition, file or directory names can also be included, as in:
+        dialyzer --apps inets ssl ./ebin ../other_lib/ebin/my_module.beam
   -o outfile (or --output outfile)
       When using Dialyzer from the command line, send the analysis
       results to the specified \"outfile\" rather than to stdout
@@ -389,6 +404,10 @@ Options:
       by the file name extension. Supported extensions are: raw, dot, and ps.
       If something else is used as file name extension, default format '.raw'
       will be used.
+  --no_native (or -nn)
+      Bypass the native code compilation of some key files that dialyzer
+      heuristically performs when dialyzing many files; this avoids the
+      compilation time but it may result in (much) longer analysis time.
   --gui
       Use the gs-based GUI.
   --wx
@@ -432,6 +451,9 @@ warning_options_msg() ->
      Include warnings for functions that only return by means of an exception.
   -Wrace_conditions ***
      Include warnings for possible race conditions.
+  -Wbehaviours ***
+     Include warnings about behaviour callbacks which drift from the published
+     recommended interfaces.
   -Wunderspecs ***
      Warn about underspecified functions 
      (those whose -spec is strictly more allowing than the success typing).

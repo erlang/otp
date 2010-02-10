@@ -379,7 +379,7 @@ message_to_string({spec_missing_fun, [M, F, A]}) ->
 		[M, F, A]);
 %%----- Warnings for opaque type violations -------------------
 message_to_string({call_with_opaque, [M, F, Args, ArgNs, ExpArgs]}) ->
-  io_lib:format("The call ~w:~w~s contains ~s when ~s\n",
+  io_lib:format("The call ~w:~w~s contains ~s argument when ~s\n",
 		[M, F, Args, form_positions(ArgNs), form_expected(ExpArgs)]);
 message_to_string({call_without_opaque, [M, F, Args, ExpectedTriples]}) ->
   io_lib:format("The call ~w:~w~s does not have ~s\n",
@@ -403,8 +403,25 @@ message_to_string({opaque_type_test, [Fun, Opaque]}) ->
   io_lib:format("The type test ~s(~s) breaks the opaqueness of the term ~s\n", [Fun, Opaque, Opaque]);
 %%----- Warnings for concurrency errors --------------------
 message_to_string({race_condition, [M, F, Args, Reason]}) ->
-  io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]).
-
+  io_lib:format("The call ~w:~w~s ~s\n", [M, F, Args, Reason]);
+%%----- Warnings for behaviour errors --------------------
+message_to_string({callback_type_mismatch, [B, F, A, O]}) ->
+  io_lib:format("The inferred return type of the ~w/~w callback includes the"
+		" type ~s which is not a valid return for the ~w behaviour\n",
+		[F, A, erl_types:t_to_string(O), B]);
+message_to_string({callback_arg_type_mismatch, [B, F, A, N, O]}) ->
+  io_lib:format("The inferred type of the ~s argument of ~w/~w callback"
+		" includes the type ~s which is not valid for the ~w behaviour"
+		"\n", [ordinal(N), F, A, erl_types:t_to_string(O), B]);
+message_to_string({callback_missing, [B, F, A]}) ->
+  io_lib:format("Undefined callback function ~w/~w (behaviour '~w')\n",
+		[F, A, B]);
+message_to_string({invalid_spec, [B, F, A, R]}) ->
+  io_lib:format("The spec for the ~w:~w/~w callback is not correct: ~s\n",
+		[B, F, A, R]);
+message_to_string({spec_missing, [B, F, A]}) ->
+  io_lib:format("Type info about ~w:~w/~w callback is not available\n",
+		[B, F, A]).
 
 %%-----------------------------------------------------------------------------
 %% Auxiliary functions below
@@ -421,8 +438,8 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 	  io_lib:format("will never return since the success typing arguments"
 			" are ~s\n", [SigArgs]);
         false ->
-	  io_lib:format("will never return since it differs in argument" 
-			" ~s from the success typing arguments: ~s\n", 
+	  io_lib:format("will never return since it differs in the ~s argument"
+			" from the success typing arguments: ~s\n",
 			[PositionString, SigArgs])
       end;
     only_contract -> 
@@ -431,7 +448,7 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 	  %% We do not know which arguments caused the failure
 	  io_lib:format("breaks the contract ~s\n", [Contract]);
 	false ->
-	  io_lib:format("breaks the contract ~s in argument ~s\n",
+	  io_lib:format("breaks the contract ~s in the ~s argument\n",
 			[Contract, PositionString])
       end;
     both ->
@@ -441,22 +458,26 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 
 form_positions(ArgNs) ->
   case ArgNs of
-    [_] -> "an opaque term in ";
-    [_,_|_] -> "opaque terms in "
- end ++ form_position_string(ArgNs).
+    [_] -> "an opaque term as ";
+    [_,_|_] -> "opaque terms as "
+ end ++ form_position_string(ArgNs) ++
+  case ArgNs of
+    [_] -> " argument";
+    [_,_|_] -> " arguments"
+  end.
 
 %% We know which positions N are to blame;
 %% the list of triples will never be empty.
 form_expected_without_opaque([{N, T, TStr}]) ->
   case erl_types:t_is_opaque(T) of
     true  ->
-      io_lib:format("an opaque term of type ~s in ", [TStr]);
+      io_lib:format("an opaque term of type ~s as ", [TStr]);
     false ->
-      io_lib:format("a term of type ~s (with opaque subterms) in ", [TStr])
-  end ++ form_position_string([N]);
+      io_lib:format("a term of type ~s (with opaque subterms) as ", [TStr])
+  end ++ form_position_string([N]) ++ " argument";
 form_expected_without_opaque(ExpectedTriples) -> %% TODO: can do much better here
   {ArgNs, _Ts, _TStrs} = lists:unzip3(ExpectedTriples),
-  "opaque terms in " ++ form_position_string(ArgNs).
+  "opaque terms as " ++ form_position_string(ArgNs) ++ " arguments".
 
 form_expected(ExpectedArgs) ->
   case ExpectedArgs of
@@ -472,9 +493,15 @@ form_expected(ExpectedArgs) ->
 form_position_string(ArgNs) ->
   case ArgNs of
     [] -> "";
-    [N1] -> io_lib:format("position ~w", [N1]);
+    [N1] -> ordinal(N1);
     [_,_|_] -> 
-      " and"++ArgString = lists:flatten([io_lib:format(" and ~w", [N]) 
-					 || N <- ArgNs]),
-	"positions" ++ ArgString
+      [Last|Prevs] = lists:reverse(ArgNs),
+      ", " ++ Head = lists:flatten([io_lib:format(", ~s",[ordinal(N)]) ||
+				     N <- lists:reverse(Prevs)]),
+      Head ++ " and " ++ ordinal(Last)
   end.
+
+ordinal(1) -> "1st";
+ordinal(2) -> "2nd";
+ordinal(3) -> "3rd";
+ordinal(N) when is_integer(N) -> io_lib:format("~wth",[N]).

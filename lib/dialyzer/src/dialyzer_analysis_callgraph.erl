@@ -43,7 +43,8 @@
 	  parent                        :: pid(),
 	  plt                           :: dialyzer_plt:plt(),
 	  start_from     = byte_code    :: start_from(),
-	  use_contracts  = true         :: boolean()
+	  use_contracts  = true         :: boolean(),
+	  behaviours = {false,[]}   :: {boolean(),[atom()]}
 	 }).
 
 -record(server_state, {parent :: pid(), legal_warnings :: [dial_warn_tag()]}).
@@ -56,7 +57,9 @@
 
 start(Parent, LegalWarnings, Analysis) ->
   RacesOn = ordsets:is_element(?WARN_RACE_CONDITION, LegalWarnings),
-  Analysis0 = Analysis#analysis{race_detection = RacesOn},
+  BehavOn = ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings),
+  Analysis0 = Analysis#analysis{race_detection = RacesOn,
+				behaviours_chk = BehavOn},
   Analysis1 = expand_files(Analysis0),
   Analysis2 = run_analysis(Analysis1),
   State = #server_state{parent = Parent, legal_warnings = LegalWarnings},
@@ -93,6 +96,9 @@ loop(#server_state{parent = Parent, legal_warnings = LegalWarnings} = State,
       end;
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
+    {AnalPid, unknown_behaviours, UnknownBehaviour} ->
+      send_unknown_behaviours(Parent, UnknownBehaviour),
+      loop(State, Analysis, ExtCalls);
     {AnalPid, mod_deps, ModDeps} ->
       send_mod_deps(Parent, ModDeps),
       loop(State, Analysis, ExtCalls);
@@ -116,7 +122,9 @@ analysis_start(Parent, Analysis) ->
 			  plt = Plt,
 			  parent = Parent,
 			  start_from = Analysis#analysis.start_from,
-			  use_contracts = Analysis#analysis.use_contracts
+			  use_contracts = Analysis#analysis.use_contracts,
+			  behaviours = {Analysis#analysis.behaviours_chk,
+					    []}
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
@@ -167,11 +175,13 @@ analyze_callgraph(Callgraph, State) ->
       State#analysis_state{plt = NewPlt};
     succ_typings ->
       NoWarn = State#analysis_state.no_warn_unused,
+      {BehavioursChk, _Known} = State#analysis_state.behaviours,
       DocPlt = State#analysis_state.doc_plt,
       Callgraph1 = dialyzer_callgraph:finalize(Callgraph),
       {Warnings, NewPlt, NewDocPlt} = 
 	dialyzer_succ_typings:get_warnings(Callgraph1, Plt, DocPlt,
-					   Codeserver, NoWarn, Parent),
+					   Codeserver, NoWarn, Parent,
+					   BehavioursChk),
       dialyzer_callgraph:delete(Callgraph1),
       send_warnings(State#analysis_state.parent, Warnings),
       State#analysis_state{plt = NewPlt, doc_plt = NewDocPlt}
@@ -186,7 +196,9 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
 					 include_dirs = Dirs,
 					 parent = Parent,
 					 use_contracts = UseContracts,
-					 start_from = StartFrom} = State) ->
+					 start_from = StartFrom,
+					 behaviours = {BehChk, _}
+					} = State) ->
   send_log(Parent, "Reading files and computing callgraph... "),
   {T1, _} = statistics(runtime),
   Includes = [{i, D} || D <- Dirs],
@@ -234,18 +246,37 @@ compile_and_store(Files, #analysis_state{codeserver = CServer,
   {T2, _} = statistics(runtime),
   Msg1 = io_lib:format("done in ~.2f secs\nRemoving edges... ", [(T2-T1)/1000]),
   send_log(Parent, Msg1),
-  NewCallgraph2 = cleanup_callgraph(State, NewCServer, NewCallgraph1, Modules),
+  {KnownBehaviours, UnknownBehaviours} =
+    dialyzer_behaviours:get_behaviours(Modules, NewCServer),
+  if UnknownBehaviours =:= [] -> ok;
+     true -> send_unknown_behaviours(Parent, UnknownBehaviours)
+  end,
+  State1 = State#analysis_state{behaviours = {BehChk,KnownBehaviours}},
+  NewCallgraph2 = cleanup_callgraph(State1, NewCServer, NewCallgraph1, Modules),
   {T3, _} = statistics(runtime),
   Msg2 = io_lib:format("done in ~.2f secs\n", [(T3-T2)/1000]),
   send_log(Parent, Msg2),  
   {NewCallgraph2, sets:from_list(NoWarn), NewCServer}.
 
 cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent, 
-				  codeserver = CodeServer},
+				  codeserver = CodeServer,
+				  behaviours = {BehChk, KnownBehaviours}
+				 },
 		  CServer, Callgraph, Modules) ->
   ModuleDeps = dialyzer_callgraph:module_deps(Callgraph),
   send_mod_deps(Parent, ModuleDeps),
   {Callgraph1, ExtCalls} = dialyzer_callgraph:remove_external(Callgraph),
+  if BehChk ->
+      RelevantAPICalls =
+	dialyzer_behaviours:get_behaviour_apis(KnownBehaviours),
+      BehaviourAPICalls = [Call || {_From, To} = Call <- ExtCalls,
+				   lists:member(To, RelevantAPICalls)],
+      Callgraph2 =
+	dialyzer_callgraph:put_behaviour_api_calls(BehaviourAPICalls,
+						   Callgraph1);
+     true ->
+      Callgraph2 = Callgraph1
+  end,
   ExtCalls1 = [Call || Call = {_From, To} <- ExtCalls,
 		       not dialyzer_plt:contains_mfa(InitPlt, To)],
   {BadCalls1, RealExtCalls} =
@@ -268,7 +299,7 @@ cleanup_callgraph(#analysis_state{plt = InitPlt, parent = Parent,
      true ->
       send_ext_calls(Parent, lists:usort([To || {_From, To} <- RealExtCalls]))
   end,
-  Callgraph1.
+  Callgraph2.
 
 compile_src(File, Includes, Defines, Callgraph, CServer, UseContracts) ->
   DefaultIncludes = default_includes(filename:dirname(File)),
@@ -443,6 +474,10 @@ send_analysis_done(Parent, Plt, DocPlt) ->
   
 send_ext_calls(Parent, ExtCalls) ->
   Parent ! {self(), ext_calls, ExtCalls},
+  ok.
+
+send_unknown_behaviours(Parent, UnknownBehaviours) ->
+  Parent ! {self(), unknown_behaviours, UnknownBehaviours},
   ok.
 
 send_codeserver_plt(Parent, CServer, Plt ) ->

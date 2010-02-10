@@ -46,7 +46,8 @@
 	 plt_info        = none           :: 'none' | dialyzer_plt:plt_info(),
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
-	 stored_warnings = []             :: [dial_warning()]
+	 stored_warnings = []             :: [dial_warning()],
+	 unknown_behaviours = []          :: [atom()]
 	}).
 
 %%--------------------------------------------------------------------
@@ -440,7 +441,9 @@ expand_dependent_modules_1([], Included, _ModDeps) ->
 -spec hipe_compile([file:filename()], #options{}) -> 'ok'.
 
 hipe_compile(Files, #options{erlang_mode = ErlangMode} = Options) ->
-  case (length(Files) < ?MIN_FILES_FOR_NATIVE_COMPILE) orelse ErlangMode of
+  NoNative = (get(dialyzer_options_native) =:= false),
+  FewFiles = (length(Files) < ?MIN_FILES_FOR_NATIVE_COMPILE),
+  case NoNative orelse FewFiles orelse ErlangMode of
     true -> ok;
     false ->
       case erlang:system_info(hipe_architecture) of
@@ -528,6 +531,9 @@ cl_loop(State, LogCache) ->
     {BackendPid, warnings, Warnings} ->
       NewState = store_warnings(State, Warnings),
       cl_loop(NewState, LogCache);
+    {BackendPid, unknown_behaviours, Behaviours} ->
+      NewState = store_unknown_behaviours(State, Behaviours),
+      cl_loop(NewState, LogCache);
     {BackendPid, done, NewPlt, _NewDocPlt} ->
       return_value(State, NewPlt);
     {BackendPid, ext_calls, ExtCalls} ->
@@ -568,6 +574,11 @@ format_log_cache(LogCache) ->
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
 
+-spec store_unknown_behaviours(#cl_state{}, [_]) -> #cl_state{}.
+
+store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
+  St#cl_state{unknown_behaviours = Beh ++ Behs}.
+
 -spec error(string()) -> no_return().
 
 error(Msg) ->
@@ -602,6 +613,7 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
     false ->
       print_warnings(State),
       print_ext_calls(State),
+      print_unknown_behaviours(State),
       maybe_close_output_file(State),
       {RetValue, []};
     true -> 
@@ -635,6 +647,40 @@ do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
   io:format(Output, "~s~p:~p/~p\n", [Before,M,F,A]),
   do_print_ext_calls(Output, T, Before);
 do_print_ext_calls(_, [], _) ->
+  ok.
+
+%%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
+%%  ok;
+print_unknown_behaviours(#cl_state{output = Output,
+				   external_calls = Calls,
+				   stored_warnings = Warnings,
+				   unknown_behaviours = DupBehaviours,
+				   legal_warnings = LegalWarnings,
+				   output_format = Format}) ->
+  case ordsets:is_element(?WARN_BEHAVIOUR, LegalWarnings)
+    andalso DupBehaviours =/= [] of
+    false -> ok;
+    true ->
+      Behaviours = lists:usort(DupBehaviours),
+      case Warnings =:= [] andalso Calls =:= [] of
+	true -> io:nl(Output); %% Need to do a newline first
+	false -> ok
+      end,
+      case Format of
+	formatted ->
+	  io:put_chars(Output, "Unknown behaviours (behaviour_info(callbacks)"
+		       " does not return any specs):\n"),
+	  do_print_unknown_behaviours(Output, Behaviours, "  ");
+	raw ->
+	  io:put_chars(Output, "%% Unknown behaviours:\n"),
+	  do_print_unknown_behaviours(Output, Behaviours, "%%  ")
+      end
+  end.
+
+do_print_unknown_behaviours(Output, [B|T], Before) ->
+  io:format(Output, "~s~p\n", [Before,B]),
+  do_print_unknown_behaviours(Output, T, Before);
+do_print_unknown_behaviours(_, [], _) ->
   ok.
 
 print_warnings(#cl_state{stored_warnings = []}) ->

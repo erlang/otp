@@ -3,9 +3,7 @@
 ## Author(s): Tobias Lindahl <tobias.lindahl@it.uu.se>
 ##	      Kostis Sagonas <kostis@it.uu.se>
 ##
-## Copyright: Held by the authors; all rights reserved (2004 - 2009).
-##
-## $Id$
+## Copyright: Held by the authors; all rights reserved (2004 - 2010).
 ##----------------------------------------------------------------------------
 
 The DIALYZER, a DIscrepany AnaLYZer for ERlang programs.

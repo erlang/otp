@@ -47,6 +47,32 @@
 
 -include("dialyzer.hrl").
 
+%%-define(DEBUG, true).
+
+-ifdef(DEBUG).
+print_types(RecDict) ->
+  Keys = dict:fetch_keys(RecDict),
+  print_types1(Keys, RecDict).
+
+print_types1([], _) ->
+  ok;
+print_types1([{type, _Name} = Key|T], RecDict) ->
+  {ok, {_Mod, Form, _Args}} = dict:find(Key, RecDict),
+  io:format("\n~w: ~w\n", [Key, erl_types:t_from_form(Form, RecDict)]),
+  print_types1(T, RecDict);
+print_types1([{opaque, _Name} = Key|T], RecDict) ->
+  {ok, {_Mod, Form, _Args}} = dict:find(Key, RecDict),
+  io:format("\n~w: ~w\n", [Key, erl_types:t_from_form(Form, RecDict)]),
+  print_types1(T, RecDict);
+print_types1([{record, _Name} = Key|T], RecDict) ->
+  {ok, [{Arity, Fields} = AF]} = dict:find(Key, RecDict),
+  io:format("~w: ~w\n\n", [Key, AF]),
+  print_types1(T, RecDict).
+-define(debug(D_), print_types(D_)).
+-else.
+-define(debug(D_), ok).
+-endif.
+
 %%
 %%  Types that need to be imported from somewhere else
 %%
@@ -61,13 +87,13 @@
 %% ============================================================================
 
 -spec get_abstract_code_from_src(atom() | file:filename()) ->
-		{'ok', abstract_code()} | {'error', [string()]}.
+	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File) ->
   get_abstract_code_from_src(File, src_compiler_opts()).
 
 -spec get_abstract_code_from_src(atom() | file:filename(), comp_options()) ->
-		{'ok', abstract_code()} | {'error', [string()]}.
+	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File, Opts) ->
   case compile:file(File, [to_pp, binary|Opts]) of
@@ -137,60 +163,60 @@ get_core_from_abstract_code(AbstrCode, Opts) ->
 %% ============================================================================
 
 -spec get_record_and_type_info(abstract_code()) ->
-		{'ok', dict()} | {'error', string()}.
+	{'ok', dict()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode) ->
   Module = get_module(AbstractCode),
   get_record_and_type_info(AbstractCode, Module, dict:new()).
 
 -spec get_record_and_type_info(abstract_code(), atom(), dict()) ->
-		{'ok', dict()} | {'error', string()}.
+	{'ok', dict()} | {'error', string()}.
+
+get_record_and_type_info(AbstractCode, Module, RecDict) ->
+  get_record_and_type_info(AbstractCode, Module, [], RecDict).
 
 get_record_and_type_info([{attribute, _, record, {Name, Fields0}}|Left], 
-			 Module, RecDict) ->
-  case get_record_fields(Fields0, RecDict) of
-    {ok, Fields} ->
-      Arity = length(Fields),
-      Fun = fun(OldOrdDict) -> orddict:store(Arity, Fields, OldOrdDict) end,
-      NewRecDict = dict:update({record, Name}, Fun, [{Arity, Fields}], RecDict),
-      get_record_and_type_info(Left, Module, NewRecDict);
-    {error, Error} ->
-      {error, lists:flatten(io_lib:format("  Error while parsing #~w{}: ~s\n",
-					  [Name, Error]))}
-  end;
+			 Module, Records, RecDict) ->
+  {ok, Fields} = get_record_fields(Fields0, RecDict),
+  Arity = length(Fields),
+  NewRecDict = dict:store({record, Name}, [{Arity, Fields}], RecDict),
+  get_record_and_type_info(Left, Module, [{record, Name}|Records], NewRecDict);
 get_record_and_type_info([{attribute, _, type, {{record, Name}, Fields0, []}}
-			  |Left], Module, RecDict) ->
+			  |Left], Module, Records, RecDict) ->
   %% This overrides the original record declaration.
-  case get_record_fields(Fields0, RecDict) of
-    {ok, Fields} ->
-      Arity = length(Fields),
-      Fun = fun(OldOrdDict) -> orddict:store(Arity, Fields, OldOrdDict) end,
-      NewRecDict = dict:update({record, Name}, Fun, [{Arity, Fields}], RecDict),
-      get_record_and_type_info(Left, Module, NewRecDict);
-    {error, Error} ->
-      {error, lists:flatten(io_lib:format("  Error while parsing #~w{}: ~s\n",
-					  [Name, Error]))}
-  end;
+  {ok, Fields} = get_record_fields(Fields0, RecDict),
+  Arity = length(Fields),
+  NewRecDict = dict:store({record, Name}, [{Arity, Fields}], RecDict),
+  get_record_and_type_info(Left, Module, Records, NewRecDict);
 get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left], 
-			 Module, RecDict) when Attr =:= 'type'; Attr =:= 'opaque' ->
+			 Module, Records, RecDict) when Attr =:= 'type';
+                                                        Attr =:= 'opaque' ->
   try
     NewRecDict = add_new_type(Attr, Name, TypeForm, [], Module, RecDict),
-    get_record_and_type_info(Left, Module, NewRecDict)
+    get_record_and_type_info(Left, Module, Records, NewRecDict)
   catch
     throw:{error, _} = Error -> Error
   end;
 get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm, Args}}|Left], 
-			 Module, RecDict) when Attr =:= 'type'; Attr =:= 'opaque' ->
+			 Module, Records, RecDict) when Attr =:= 'type';
+                                                        Attr =:= 'opaque' ->
   try
     NewRecDict = add_new_type(Attr, Name, TypeForm, Args, Module, RecDict),
-    get_record_and_type_info(Left, Module, NewRecDict)
+    get_record_and_type_info(Left, Module, Records, NewRecDict)
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([_Other|Left], Module, RecDict) ->
-  get_record_and_type_info(Left, Module, RecDict);
-get_record_and_type_info([], _Module, RecDict) ->
-  {ok, RecDict}.
+get_record_and_type_info([_Other|Left], Module, Records, RecDict) ->
+  get_record_and_type_info(Left, Module, Records, RecDict);
+get_record_and_type_info([], _Module, Records, RecDict) ->
+  case type_record_fields(lists:reverse(Records), RecDict) of
+    {ok, _NewRecDict} = Ok ->
+      ?debug(NewRecDict),
+      Ok;
+    {Name, {error, Error}} ->
+      {error, lists:flatten(io_lib:format("  Error while parsing #~w{}: ~s\n",
+					  [Name, Error]))}
+  end.
 
 add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
   case erl_types:type_is_defined(TypeOrOpaque, Name, RecDict) of 
@@ -198,7 +224,6 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
       throw({error, io_lib:format("Type already defined: ~w\n", [Name])});
     false ->
       ArgTypes = [erl_types:t_from_form(X) || X <- ArgForms],
-      _Type = erl_types:t_from_form(TypeForm, RecDict),
       case lists:all(fun erl_types:t_is_var/1, ArgTypes) of
 	true ->
 	  ArgNames = [erl_types:t_var_name(X) || X <- ArgTypes],
@@ -219,20 +244,35 @@ get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
       {record_field, _Line, Name0} -> erl_parse:normalise(Name0);
       {record_field, _Line, Name0, _Init} -> erl_parse:normalise(Name0)
     end,
-  try 
-    Type = erl_types:t_from_form(TypeForm, RecDict),
-    get_record_fields(Left, RecDict, [{Name, Type}|Acc])
-  catch
-    throw:{error, _} = Error -> Error
-  end;
+    get_record_fields(Left, RecDict, [{Name, TypeForm}|Acc]);
 get_record_fields([{record_field, _Line, Name}|Left], RecDict, Acc) ->
-  NewAcc = [{erl_parse:normalise(Name), erl_types:t_any()}|Acc],
+  NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([{record_field, _Line, Name, _Init}|Left], RecDict, Acc) ->
-  NewAcc = [{erl_parse:normalise(Name), erl_types:t_any()}|Acc],
+  NewAcc = [{erl_parse:normalise(Name), {var, -1, '_'}}|Acc],
   get_record_fields(Left, RecDict, NewAcc);
 get_record_fields([], _RecDict, Acc) ->
   {ok, lists:reverse(Acc)}.
+
+type_record_fields([], RecDict) ->
+  {ok, RecDict};
+type_record_fields([RecKey|Recs], RecDict) ->
+  {ok, [{Arity, Fields}]} = dict:find(RecKey, RecDict),
+  try
+    TypedFields =
+      [{FieldName, erl_types:t_from_form(FieldTypeForm, RecDict)}
+       || {FieldName, FieldTypeForm} <- Fields],
+    RecDict1 = dict:store(RecKey, [{Arity, TypedFields}], RecDict),
+    Fun = fun(OldOrdDict) ->
+              orddict:store(Arity, TypedFields, OldOrdDict)
+          end,
+    RecDict2 = dict:update(RecKey, Fun, RecDict1),
+    type_record_fields(Recs, RecDict2)
+  catch
+    throw:{error, _} = Error ->
+      {record, Name} = RecKey,
+      {Name, Error}
+  end.
 
 -spec process_record_remote_types(dialyzer_codeserver:codeserver()) -> dialyzer_codeserver:codeserver().
 
@@ -269,7 +309,7 @@ merge_records(NewRecords, OldRecords) ->
 %% ============================================================================
 
 -spec get_spec_info(module(), abstract_code(), dict()) ->
-  {'ok', dict()} | {'error', string()}.
+        {'ok', dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
   get_spec_info(AbstractCode, dict:new(), RecordsDict, ModName, "nofile").

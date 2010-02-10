@@ -27,7 +27,8 @@
 %%%-------------------------------------------------------------------
 -module(dialyzer_callgraph).
 
--export([all_nodes/1,
+-export([add_edges/2,
+	 all_nodes/1,
 	 delete/1,
 	 finalize/1,
 	 is_escaping/2,
@@ -55,7 +56,8 @@
 -export([cleanup/1, get_digraph/1, get_named_tables/1, get_public_tables/1,
          get_race_code/1, get_race_detection/1, race_code_new/1,
          put_race_code/2, put_race_detection/2, put_named_tables/2,
-         put_public_tables/2]).
+         put_public_tables/2, put_behaviour_api_calls/2,
+	 get_behaviour_api_calls/1]).
 
 -include("dialyzer.hrl").
 
@@ -97,7 +99,8 @@
                     race_code      = dict:new()    :: dict(),
                     public_tables  = []            :: [label()],
                     named_tables   = []            :: [string()],
-                    race_detection = false         :: boolean()}).
+                    race_detection = false         :: boolean(),
+		    beh_api_calls  = []            :: [{mfa(), mfa()}]}).
 
 %% Exported Types
 
@@ -695,3 +698,15 @@ to_ps(#callgraph{} = CG, File, Args) ->
   Command = io_lib:format("dot -Tps ~s -o ~s ~s", [Args, File, Dot_File]),
   _ = os:cmd(Command),
   ok.
+
+%-------------------------------------------------------------------------------
+
+-spec put_behaviour_api_calls([{mfa(), mfa()}], callgraph()) -> callgraph().
+
+put_behaviour_api_calls(Calls, Callgraph) ->
+  Callgraph#callgraph{beh_api_calls = Calls}.
+
+-spec get_behaviour_api_calls(callgraph()) -> [{mfa(), mfa()}].
+
+get_behaviour_api_calls(Callgraph) ->
+  Callgraph#callgraph.beh_api_calls.

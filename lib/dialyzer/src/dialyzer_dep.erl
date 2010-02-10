@@ -326,7 +326,7 @@ set__filter(#set{set = Set}, Fun) ->
 %%
 
 -record(output, {type    :: 'single' | 'list', 
-		 content :: 'none' | #set{} | [{output,_,_}]}).
+		 content :: 'none' | #set{} | [#output{}]}).
 
 output(none) -> #output{type = single, content = none};
 output(S = #set{}) -> #output{type = single, content = S};
