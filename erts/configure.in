@@ -1441,7 +1441,7 @@ AC_CHECK_HEADER(sys/devpoll.h, have_kernel_poll=/dev/poll)
 
 dnl Check for kernel SCTP support
 AC_SUBST(LIBSCTP)
-if test "x$enable_sctp" == "xyes" ; then
+if test "x$enable_sctp" = "xyes" ; then
     AC_CHECK_HEADER(netinet/sctp.h,
         [LIBSCTP=libsctp.so.1
 	 AC_DEFINE(HAVE_SCTP_H, [1],
