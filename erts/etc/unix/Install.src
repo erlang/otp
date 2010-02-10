@@ -149,4 +149,4 @@ then
     ./misc/format_man_pages $ERL_ROOT
 fi
 
-
+exit 0
