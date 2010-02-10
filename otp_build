@@ -40,7 +40,7 @@ bootstrap_apps="erts lib/asn1 lib/compiler lib/hipe lib/ic lib/kernel lib/parset
 
 # We will quote a bit more than needed, but the important thing is that
 # all that needs quoting will be quoted...
-DONT_QUOTE="A-Za-z0-9/=_+-"
+DONT_QUOTE="A-Za-z0-9~/=_+-"
 
 # Utility functions
 usage ()
@@ -433,7 +433,11 @@ try_cross_configure ()
 	    --build=*)
 		build_value=`echo $x | sed "s|^--build=\(.*\)|\1|"`;;
 	    --xcomp-conf=*)
-	        xcomp_conf=`echo "X$arg" | sed "s|^X--xcomp-conf=\(.*\)\$|\1|g"`
+		# tilde expansion is not handled by the `configure' script,
+		# but we do it for this argument. This argument is however not
+		# a `configure' argument.
+	        xcomp_conf=`echo "X$arg" | sed "s|^X--xcomp-conf=\(.*\)\$|\1|g;s|\([^$DONT_QUOTE]\)|\\\\\\\\\1|g"`
+		eval "xcomp_conf=$xcomp_conf"
 		test "X$xcomp_conf" != "X" || {
 		    echo "$0: Missing xcomp-conf file name"
 		    exit 1
@@ -444,7 +448,7 @@ try_cross_configure ()
 		}
 		. "$xcomp_conf"
 		test $? -eq 0 || {
-		    echo "$0: Failed to read xcomp-conf file: $conf"
+		    echo "$0: Failed to read xcomp-conf file: $xcomp_conf"
 		    exit 1
 		}
 		test "X$erl_xcomp_build" = "X" || build_value="$erl_xcomp_build"
