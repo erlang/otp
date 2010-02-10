@@ -227,6 +227,8 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};
+	{error, {extra_range, _, _}} ->
+	  {{F, A}, {contract, Contract}};
 	{error, invalid_contract} ->
 	  CString = dialyzer_contracts:contract_to_string(Contract),
 	  SigString = dialyzer_utils:format_sig(Sig, RecMap),
@@ -235,7 +237,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
 			  "\t The contract is: " ++ CString ++ "\n" ++
 			  "\t but the inferred signature is: ~s",
 			  [M, F, A, SigString]));
-	{error, Msg} ->
+	{error, Msg} when is_list(Msg) -> % Msg is a string()
 	  typer:error(
 	    io_lib:format("Error in contract of function ~w:~w/~w: ~s",
 			  [M, F, A, Msg]))
