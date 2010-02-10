@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Transform normal Erlang to Core Erlang
@@ -164,8 +164,8 @@ form({attribute,_,file,{File,_Line}}, {Fs,As,Es,Ws,_}, _Opts) ->
 form({attribute,_,_,_}=F, {Fs,As,Es,Ws,File}, _Opts) ->
     {Fs,[attribute(F)|As],Es,Ws,File}.
 
-attribute({attribute,_,Name,Val}) ->
-    {#c_literal{val=Name},#c_literal{val=Val}}.
+attribute({attribute,Line,Name,Val}) ->
+    {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
 
 function({function,_,Name,Arity,Cs0}, Es0, Ws0, File, Opts) ->
     %%ok = io:fwrite("~p - ", [{Name,Arity}]),

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Expand some source Erlang constructions. This is part of the
@@ -114,7 +114,7 @@ expand_pmod(Fs0, St0) ->
 	    St1 = St0#expand{exports=Xs, defined=Ds},
 	    {Fs2,St2} = add_instance(Ps, Fs1, St1),
 	    {Fs3,St3} = ensure_new(Base, Ps0, Fs2, St2),
-            {Fs3,St3#expand{attributes = [{abstract, [true]}
+            {Fs3,St3#expand{attributes = [{abstract, 0, [true]}
 					  | St3#expand.attributes]}}
     end.
 
@@ -173,7 +173,7 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
     St#expand{defined=ordsets:from_list(Fs)}.
 
 module_attrs(St) ->
-    {[{attribute,0,Name,Val} || {Name,Val} <- St#expand.attributes],St}.
+    {[{attribute,Line,Name,Val} || {Name,Line,Val} <- St#expand.attributes],St}.
 
 module_predef_funcs(St) ->
     PreDef = [{module_info,0},{module_info,1}],
@@ -197,8 +197,8 @@ module_predef_funcs(St) ->
 forms([{attribute,_,file,_File}=F|Fs0], St0) ->
     {Fs,St1} = forms(Fs0, St0),
     {[F|Fs],St1};
-forms([{attribute,_,Name,Val}|Fs0], St0) ->
-    St1 = attribute(Name, Val, St0),
+forms([{attribute,Line,Name,Val}|Fs0], St0) ->
+    St1 = attribute(Name, Val, Line, St0),
     forms(Fs0, St1);
 forms([{function,L,N,A,Cs}|Fs0], St0) ->
     {Ff,St1} = function(L, N, A, Cs, St0),
@@ -207,30 +207,30 @@ forms([{function,L,N,A,Cs}|Fs0], St0) ->
 forms([_|Fs], St) -> forms(Fs, St);
 forms([], St) -> {[],St}.
 
-%% attribute(Attribute, Value, State) -> State'.
+%% attribute(Attribute, Value, Line, State) -> State'.
 %%  Process an attribute, this just affects the state.
 
-attribute(module, {Module, As}, St) ->
+attribute(module, {Module, As}, _L, St) ->
     M = package_to_string(Module),
     St#expand{module=list_to_atom(M),
-              package = packages:strip_last(M),
+              package=packages:strip_last(M),
               parameters=As};
-attribute(module, Module, St) ->
+attribute(module, Module, _L, St) ->
     M = package_to_string(Module),
     St#expand{module=list_to_atom(M),
-              package = packages:strip_last(M)};
-attribute(export, Es, St) ->
+              package=packages:strip_last(M)};
+attribute(export, Es, _L, St) ->
     St#expand{exports=union(from_list(Es), St#expand.exports)};
-attribute(import, Is, St) ->
+attribute(import, Is, _L, St) ->
     import(Is, St);
-attribute(compile, C, St) when is_list(C) ->
+attribute(compile, C, _L, St) when is_list(C) ->
     St#expand{compile=St#expand.compile ++ C};
-attribute(compile, C, St) ->
+attribute(compile, C, _L, St) ->
     St#expand{compile=St#expand.compile ++ [C]};
-attribute(Name, Val, St) when is_list(Val) ->
-    St#expand{attributes=St#expand.attributes ++ [{Name,Val}]};
-attribute(Name, Val, St) ->
-    St#expand{attributes=St#expand.attributes ++ [{Name,[Val]}]}.
+attribute(Name, Val, Line, St) when is_list(Val) ->
+    St#expand{attributes=St#expand.attributes ++ [{Name,Line,Val}]};
+attribute(Name, Val, Line, St) ->
+    St#expand{attributes=St#expand.attributes ++ [{Name,Line,[Val]}]}.
 
 function(L, N, A, Cs0, St0) ->
     {Cs,St} = clauses(Cs0, St0#expand{func=N,arity=A,fcount=0}),
@@ -299,10 +299,10 @@ pattern({match,Line,Pat1, Pat2}, St0) ->
     {TT,St2} = pattern(Pat1, St1),
     {{match,Line,TT,TH},St2};
 %% Compile-time pattern expressions, including unary operators.
-pattern({op,Line,Op,A}, St) ->
-    {erl_eval:partial_eval({op,Line,Op,A}),St};
-pattern({op,Line,Op,L,R}, St) ->
-    {erl_eval:partial_eval({op,Line,Op,L,R}),St}.
+pattern({op,_Line,_Op,_A}=Op, St) ->
+    {erl_eval:partial_eval(Op),St};
+pattern({op,_Line,_Op,_L,_R}=Op, St) ->
+    {erl_eval:partial_eval(Op),St}.
 
 pattern_list([P0|Ps0], St0) ->
     {P,St1} = pattern(P0, St0),
@@ -400,18 +400,18 @@ expr({'receive',Line,Cs0,To0,ToEs0}, St0) ->
     {{'receive',Line,Cs,To,ToEs},St3};
 expr({'fun',Line,Body}, St) ->
     fun_tq(Line, Body, St);
-expr({call,Line,{atom,La,N},As0}, St0) ->
+expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
     case erl_internal:bif(N, Ar) of
         true ->
-            {{call,Line,{remote,La,{atom,La,erlang},{atom,La,N}},As},St1};
+            {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
         false ->
             case imported(N, Ar, St1) of
                 {yes,Mod} ->
-                    {{call,Line,{remote,La,{atom,La,Mod},{atom,La,N}},As},St1};
+                    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
                 no ->
-                    {{call,Line,{atom,La,N},As},St1}
+                    {{call,Line,Atom,As},St1}
             end
     end;
 expr({call,Line,{record_field,_,_,_}=M,As0}, St0) ->
