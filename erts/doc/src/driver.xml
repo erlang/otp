@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>How to implement a driver</title>
@@ -510,11 +510,11 @@ static int do_select(const char* s, our_data_t* data)
     PGconn* conn = data->conn;
     /* if there's an error return it now */
     if (PQsendQuery(conn, s) == 0) {
-\011ei_x_buff x;
-\011ei_x_new_with_version(&x);
-\011encode_error(&x, conn);
-\011driver_output(data->port, x.buff, x.index);
-\011ei_x_free(&x);
+        ei_x_buff x;
+        ei_x_new_with_version(&x);
+        encode_error(&x, conn);
+        driver_output(data->port, x.buff, x.index);
+        ei_x_free(&x);
     }
     /* else wait for ready_output to get results */
     return 0;
@@ -532,31 +532,31 @@ static void ready_io(ErlDrvData drv_data, ErlDrvEvent event)
     ei_x_buff x;
     ei_x_new_with_version(&x);
     if (data->connecting) {
-\011ConnStatusType status;
-\011PQconnectPoll(conn);
-\011status = PQstatus(conn);
-\011if (status == CONNECTION_OK)
-\011    encode_ok(&x);
-\011else if (status == CONNECTION_BAD)
-\011    encode_error(&x, conn);
+        ConnStatusType status;
+        PQconnectPoll(conn);
+        status = PQstatus(conn);
+        if (status == CONNECTION_OK)
+            encode_ok(&x);
+        else if (status == CONNECTION_BAD)
+            encode_error(&x, conn);
     } else {
-\011PQconsumeInput(conn);
-\011if (PQisBusy(conn))
-\011    return;
-\011res = PQgetResult(conn);
-\011encode_result(&x, res, conn);
-\011PQclear(res);
-\011for (;;) {
-\011    res = PQgetResult(conn);
-\011    if (res == NULL)
-\011\011break;
-\011    PQclear(res);
-\011}
+        PQconsumeInput(conn);
+        if (PQisBusy(conn))
+            return;
+        res = PQgetResult(conn);
+        encode_result(&x, res, conn);
+        PQclear(res);
+        for (;;) {
+            res = PQgetResult(conn);
+            if (res == NULL)
+                break;
+            PQclear(res);
+        }
     }
     if (x.index > 1) {
-\011driver_output(data->port, x.buff, x.index);
-\011if (data->connecting) 
-\011    driver_select(data->port, (ErlDrvEvent)data->socket, DO_WRITE, 0);
+        driver_output(data->port, x.buff, x.index);
+        if (data->connecting) 
+            driver_select(data->port, (ErlDrvEvent)data->socket, DO_WRITE, 0);
     }
     ei_x_free(&x);
 }
@@ -592,17 +592,17 @@ static void ready_io(ErlDrvData drv_data, ErlDrvEvent event)
 
 connect(ConnectStr) ->
     case erl_ddll:load_driver(".", "pg_async") of
-\011ok -> ok;
-\011{error, already_loaded} -> ok;
-\011_ -> exit({error, could_not_load_driver})
+        ok -> ok;
+        {error, already_loaded} -> ok;
+        _ -> exit({error, could_not_load_driver})
     end,
     Port = open_port({spawn, ?MODULE}, [binary]),
     port_control(Port, ?DRV_CONNECT, ConnectStr),
     case return_port_data(Port) of
-\011ok -> 
-\011    {ok, Port};
-\011Error ->
-\011    Error
+        ok -> 
+            {ok, Port};
+        Error ->
+            Error
     end.    
 
 disconnect(Port) ->
@@ -617,8 +617,8 @@ select(Port, Query) ->
 
 return_port_data(Port) ->
     receive
-\011{Port, {data, Data}} ->
-\011    binary_to_term(Data)
+        {Port, {data, Data}} ->
+            binary_to_term(Data)
     end.
     ]]></code>
     <p>The Erlang code is slightly different, this is because we
@@ -662,22 +662,22 @@ return_port_data(Port) ->
       call-back <c><![CDATA[ready_async]]></c>.</p>
     <code type="none"><![CDATA[
 static ErlDrvEntry next_perm_driver_entry = {
-    NULL,\011\011\011/* init */
+    NULL,                        /* init */
     start,
-    NULL, \011\011\011/* stop */
-    output,\011\011\011
-    NULL,\011\011\011/* ready_input */
-    NULL,\011\011\011/* ready_output */ 
-    "next_perm",                /* the name of the driver */
-    NULL,\011\011\011/* finish */
-    NULL,\011\011\011/* handle */
-    NULL,\011\011\011/* control */
-    NULL,\011\011\011/* timeout */
-    NULL,\011\011\011/* outputv */
+    NULL,                        /* stop */
+    output,
+    NULL,                        /* ready_input */
+    NULL,                        /* ready_output */ 
+    "next_perm",                 /* the name of the driver */
+    NULL,                        /* finish */
+    NULL,                        /* handle */
+    NULL,                        /* control */
+    NULL,                        /* timeout */
+    NULL,                        /* outputv */
     ready_async,
-    NULL,\011\011\011/* flush */
-    NULL,\011\011\011/* call */
-    NULL\011\011\011/* event */
+    NULL,                        /* flush */
+    NULL,                        /* call */
+    NULL                         /* event */
 };
     ]]></code>
     <p>The <c><![CDATA[output]]></c> function allocates the work-area of the
@@ -699,7 +699,7 @@ struct our_async_data {
 };
 
 our_async_data::our_async_data(ErlDrvPort p, int command,
-\011\011\011       const char* buf, int len)
+                               const char* buf, int len)
     : prev(command == 2),
       data((int*)buf, (int*)buf + len / sizeof(int))
 {
@@ -722,9 +722,9 @@ static void do_perm(void* async_data)
 {
     our_async_data* d = reinterpret_cast<our_async_data*>(async_data);
     if (d->prev)
-\011prev_permutation(d->data.begin(), d->data.end());
+        prev_permutation(d->data.begin(), d->data.end());
     else
-\011next_permutation(d->data.begin(), d->data.end());
+        next_permutation(d->data.begin(), d->data.end());
 }
     ]]></code>
     <p>In the <c><![CDATA[ready_async]]></c> function, the output is sent back to the
@@ -742,9 +742,9 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
     int n = d->data.size(), result_n = n*2 + 3;
     ErlDrvTermData* result = new ErlDrvTermData[result_n], * rp = result;
     for (vector<int>::iterator i = d->data.begin();
-\011 i != d->data.end(); ++i) {
-\011*rp++ = ERL_DRV_INT;
-\011*rp++ = *i;
+         i != d->data.end(); ++i) {
+        *rp++ = ERL_DRV_INT;
+        *rp++ = *i;
     }
     *rp++ = ERL_DRV_NIL;
     *rp++ = ERL_DRV_LIST;
@@ -767,16 +767,16 @@ static void ready_async(ErlDrvData drv_data, ErlDrvThreadData async_data)
 
 load() ->
     case whereis(next_perm) of
-\011undefined ->
-\011    case erl_ddll:load_driver(".", "next_perm") of
-\011\011ok -> ok;
-\011\011{error, already_loaded} -> ok;
-\011\011E -> exit(E)
-\011    end,
-\011    Port = open_port({spawn, "next_perm"}, []),
-\011    register(next_perm, Port);
-\011_ ->
-\011    ok
+        undefined ->
+            case erl_ddll:load_driver(".", "next_perm") of
+                ok -> ok;
+                {error, already_loaded} -> ok;
+                E -> exit(E)
+            end,
+            Port = open_port({spawn, "next_perm"}, []),
+            register(next_perm, Port);
+        _ ->
+            ok
     end.
 
 list_to_integer_binaries(L) ->
@@ -793,8 +793,8 @@ next_perm(L, Nxt) ->
     B = list_to_integer_binaries(L),
     port_control(next_perm, Nxt, B),
     receive
-\011Result ->
-\011    Result
+        Result ->
+            Result
     end.
 
 all_perm(L) ->

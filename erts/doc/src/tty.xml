@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>tty - A command line interface</title>
@@ -47,7 +47,7 @@
   <section>
     <title>Normal Mode</title>
     <p>In normal mode keystrokes from the user are collected and interpreted by <c><![CDATA[tty]]></c>. Most of the <em>emacs</em> line editing commands are supported. The following is a complete list of the supported line editing commands.<br></br></p>
-    <p><em>Note:</em>\011The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. 
+    <p><em>Note:</em>	The notation <c><![CDATA[C-a]]></c> means pressing the control key and the letter <c><![CDATA[a]]></c> simultaneously. <c><![CDATA[M-f]]></c> means pressing the <c><![CDATA[ESC]]></c> key followed by the letter <c><![CDATA[f]]></c>. 
       </p>
     <table>
       <row>

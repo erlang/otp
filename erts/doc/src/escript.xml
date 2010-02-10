@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>escript</title>
@@ -50,20 +50,18 @@ $ <input>cat factorial</input>
 %%! -smp enable -sname factorial -mnesia debug verbose
 main([String]) ->
     try
-\011N = list_to_integer(String),
-\011F = fac(N),
-\011io:format("factorial ~w = ~w\
-", [N,F])
+        N = list_to_integer(String),
+        F = fac(N),
+        io:format("factorial ~w = ~w\n", [N,F])
     catch
-\011_:_ ->
-\011    usage()
+        _:_ ->
+            usage()
     end;
 main(_) ->
     usage().
         
 usage() ->
-    io:format("usage: factorial integer\
-"),
+    io:format("usage: factorial integer\n"),
     halt(1).
         
 fac(0) -> 1;

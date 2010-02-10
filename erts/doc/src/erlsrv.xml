@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>1998</year><year>2009</year>
+      <year>1998</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>erlsrv</title>
@@ -251,7 +251,7 @@
            necessarily the same as the interactive users. The service
            runs as the local administrator. All arguments should be given
            together in one string, use double quotes (") to give an
-           argument string containing spaces and use quoted quotes (\\")
+           argument string containing spaces and use quoted quotes (\")
            to give an quote within the argument string if
            necessary.</item>
 	   <tag>-i[nternalservicename] [&lt;internal name&gt;]</tag>
@@ -356,7 +356,7 @@ The environment of an Erlang machine started
 */   
 BOOL WINAPI service_aware_handler(DWORD ctrl){
     if(ctrl == CTRL_LOGOFF_EVENT)
-\011return TRUE;
+        return TRUE;
     return FALSE;
 }
 
@@ -368,10 +368,10 @@ void initialize_handler(void){
      */
     if(GetEnvironmentVariable("ERLSRV_SERVICE_NAME",buffer,
                               (DWORD) 2)){
-\011/*
-\011** Actually set the control handler
-\011*/
-\011SetConsoleCtrlHandler(&service_aware_handler, TRUE);
+        /*
+        ** Actually set the control handler
+        */
+        SetConsoleCtrlHandler(&service_aware_handler, TRUE);
     }
 }    ]]></code>
   </section>
@@ -388,8 +388,8 @@ void initialize_handler(void){
       the runtime system should not need to overwrite existing (and probably
       used) executables.</p>
     <p>To easily manipulate the Erlang services, put
-      the <c><![CDATA[<erlang_root>\\erts-<version>\\bin]]></c> directory in
-      the path instead of <c><![CDATA[<erlang_root>\\bin]]></c>. The erlsrv program
+      the <c><![CDATA[<erlang_root>\erts-<version>\bin]]></c> directory in
+      the path instead of <c><![CDATA[<erlang_root>\bin]]></c>. The erlsrv program
       can be found from inside Erlang by using the
       <c><![CDATA[os:find_executable/1]]></c> Erlang function.</p>
     <p>For release handling to work, use <c><![CDATA[start_erl]]></c> as the Erlang

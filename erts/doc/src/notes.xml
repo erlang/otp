@@ -4371,16 +4371,16 @@
             following code might hang:</p>
           <code type="none"><![CDATA[
             Mon = erlang:monitor(process, Pid),
-\011    %% ...
-\011    exit(Pid, bang),
+            %% ...
+            exit(Pid, bang),
             erlang:demonitor(Mon),
-\011    receive
-\011        {'DOWN', Mon , process, Pid, _} -> ok
-\011    %% We were previously guaranteed to get a down message
-\011    %% (since we exited the process ourself), so we could
-\011    %% in this case leave out:
-\011    %% after 0 -> ok
-\011    end,
+            receive
+                {'DOWN', Mon , process, Pid, _} -> ok
+            %% We were previously guaranteed to get a down message
+            %% (since we exited the process ourself), so we could
+            %% in this case leave out:
+            %% after 0 -> ok
+            end,
           ]]></code>
           <p>*** POTENTIAL INCOMPATIBILITY ***</p>
           <p>Own Id: OTP-5772</p>
@@ -5342,7 +5342,7 @@
       <list type="bulleted">
         <item>
           <p>If Erlang/OTP was installed in a short directory name,
-            such as <c><![CDATA[C:\\Program\\erl5.4.2]]></c>, the emulator would not
+            such as <c><![CDATA[C:\Program\erl5.4.2]]></c>, the emulator would not
             start.</p>
           <p>Own Id: OTP-5254</p>
         </item>

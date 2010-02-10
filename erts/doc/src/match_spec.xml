@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Match specifications in Erlang</title>
@@ -360,52 +360,52 @@
       </p>
     <table>
       <row>
-        <cell align="left" valign="middle">Expression\011\011</cell>
-        <cell align="left" valign="middle">Variable bindings\011\011</cell>
-        <cell align="left" valign="middle">Result\011</cell>
+        <cell align="left" valign="middle">Expression		</cell>
+        <cell align="left" valign="middle">Variable bindings		</cell>
+        <cell align="left" valign="middle">Result	</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">{{'$1','$2'}}\011\011</cell>
+        <cell align="left" valign="middle">{{'$1','$2'}}		</cell>
         <cell align="left" valign="middle">'$1' = a, '$2' = b</cell>
         <cell align="left" valign="middle">{a,b}</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">{const, {'$1', '$2'}}\011</cell>
+        <cell align="left" valign="middle">{const, {'$1', '$2'}}	</cell>
         <cell align="left" valign="middle">doesn't matter</cell>
         <cell align="left" valign="middle">{'$1', '$2'}</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">a\011\011\011</cell>
-        <cell align="left" valign="middle">doesn't matter\011\011\011</cell>
+        <cell align="left" valign="middle">a			</cell>
+        <cell align="left" valign="middle">doesn't matter			</cell>
         <cell align="left" valign="middle">a</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">'$1'\011\011\011</cell>
-        <cell align="left" valign="middle">'$1' = []\011\011\011</cell>
+        <cell align="left" valign="middle">'$1'			</cell>
+        <cell align="left" valign="middle">'$1' = []			</cell>
         <cell align="left" valign="middle">[]</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">['$1']\011\011\011</cell>
-        <cell align="left" valign="middle">'$1' = []\011\011\011</cell>
+        <cell align="left" valign="middle">['$1']			</cell>
+        <cell align="left" valign="middle">'$1' = []			</cell>
         <cell align="left" valign="middle">[[]]</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">[{{a}}]\011\011\011</cell>
+        <cell align="left" valign="middle">[{{a}}]			</cell>
         <cell align="left" valign="middle">doesn't matter</cell>
         <cell align="left" valign="middle">[{a}]</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">42\011\011\011</cell>
+        <cell align="left" valign="middle">42			</cell>
         <cell align="left" valign="middle">doesn't matter</cell>
         <cell align="left" valign="middle">42</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">"hello"\011\011\011</cell>
+        <cell align="left" valign="middle">"hello"			</cell>
         <cell align="left" valign="middle">doesn't matter</cell>
         <cell align="left" valign="middle">"hello"</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">$1\011\011\011</cell>
+        <cell align="left" valign="middle">$1			</cell>
         <cell align="left" valign="middle">doesn't matter</cell>
         <cell align="left" valign="middle">49 (the ASCII value for the character '1')</cell>
       </row>
@@ -507,8 +507,8 @@
       a list which in turn begins with the second argument times
       two (i. e. [{[4,x],y},2] or [{[8], y, z},4])</p>
     <code type="none"><![CDATA[
-[{['$1', '$2'],\011[{'=:=', {'*', 2, '$2'}, {hd, {element, 1, '$1'}}}],
-  []}]\011
+[{['$1', '$2'],[{'=:=', {'*', 2, '$2'}, {hd, {element, 1, '$1'}}}],
+  []}]
     ]]></code>
     <p>Match three arguments. When all three are equal and are
       numbers, append the process dump to the trace message, else

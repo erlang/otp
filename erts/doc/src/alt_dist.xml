@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>How to implement an alternative carrier for  the Erlang distribution</title>
@@ -939,7 +939,7 @@
 	 connection that is not functioning.</item>
         <item>'R': Get creation number of listen socket, which is used to
          dig out the number stored in the lock file to differentiate
-         between invocations of Erlang nodes with the same name.\011  </item>
+         between invocations of Erlang nodes with the same name.</item>
       </list>
       <p>The control interface gets a buffer to return its value in,
         but is free to allocate it's own buffer is the provided one is
@@ -949,11 +949,11 @@
 ( 2)                        char* buf, int count, char** res, int res_size)
 ( 3) {
 ( 4) /* Local macro to ensure large enough buffer. */
-( 5) #define ENSURE(N)                               \\
-( 6)    do {                                         \\
-( 7)        if (res_size < N) {                      \\
-( 8)            *res = ALLOC(N);                     \\
-( 9)        }                                        \\
+( 5) #define ENSURE(N)                               \
+( 6)    do {                                         \
+( 7)        if (res_size < N) {                      \
+( 8)            *res = ALLOC(N);                     \
+( 9)        }                                        \
 (10)    } while(0)
 
 (11)    UdsData *ud = (UdsData *) handle;
@@ -1075,7 +1075,7 @@ Eshell V5.0  (abort with ^G)
 (bing@hador)2></pre>
     <p>...</p>
     <pre>
-$ <input>erl -pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin -proto_dist uds \\ </input>
+$ <input>erl -pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin -proto_dist uds \ </input>
 <input>      -no_epmd -sname bong</input>
 Erlang (BEAM) emulator version 5.0 
  
@@ -1084,7 +1084,7 @@ Eshell V5.0  (abort with ^G)
     <p>One can utilize the ERL_FLAGS environment variable to store the
       complicated parameters in:</p>
     <pre>
-$ <input>ERL_FLAGS=-pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin \\ </input>
+$ <input>ERL_FLAGS=-pa $ERL_TOP/lib/kernel/examples/uds_dist/ebin \ </input>
 <input>      -proto_dist uds -no_epmd</input>
 $ <input>export ERL_FLAGS</input>
 $ <input>erl -sname bang</input>

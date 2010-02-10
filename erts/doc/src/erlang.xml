@@ -774,10 +774,10 @@ false</pre>
 
     erlang:demonitor(MonitorRef),
     receive
-\011{_, MonitorRef, _, _, _} ->
-\011    true
+        {_, MonitorRef, _, _, _} ->
+            true
     after 0 ->
-\011    true
+            true
     end</code>
           </item>
           <tag><c>info</c></tag>
@@ -2325,13 +2325,13 @@ os_prompt%</pre>
           other. Values beginning with an uppercase letter is not part
           of the result.</p>
         <code type="none">
-\011total = processes + system
-\011processes = processes_used + ProcessesNotUsed
-\011system = atom + binary + code + ets + OtherSystem
-\011atom = atom_used + AtomNotUsed
+        total = processes + system
+        processes = processes_used + ProcessesNotUsed
+        system = atom + binary + code + ets + OtherSystem
+        atom = atom_used + AtomNotUsed
 
-\011RealTotal = processes + RealSystem
-\011RealSystem = system + MissedSystem</code>
+        RealTotal = processes + RealSystem
+        RealSystem = system + MissedSystem</code>
         <p>More tuples in the returned list may be added in the future.</p>
         <note>
           <p>The <c>total</c> value is supposed to be the total amount
@@ -6965,10 +6965,10 @@ true</pre>
 
     unlink(Id),
     receive
-\011{'EXIT', Id, _} ->
-\011    true
+        {'EXIT', Id, _} ->
+            true
     after 0 ->
-\011    true
+            true
     end</code>
         <note>
           <p>Prior to OTP release R11B (erts version 5.5) <c>unlink/1</c>
