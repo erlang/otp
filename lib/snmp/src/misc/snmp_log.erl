@@ -115,6 +115,11 @@ create(Name, File, SeqNoGen, Size, Repair, Notify) ->
 close(#snmp_log{id = Log}) ->
     ?vtrace("close -> entry with"
 	    "~n   Log: ~p", [Log]),
+    do_close(Log);
+close(Log) ->
+    do_close(Log).
+
+do_close(Log) ->
     disk_log:close(Log).
 
 
@@ -345,6 +350,11 @@ next_seqno(_) ->
 %% -- change_size ---
 
 change_size(#snmp_log{id = Log}, NewSize) ->
+    do_change_size(Log, NewSize);
+change_size(Log, NewSize) ->
+    do_change_size(Log, NewSize).
+
+do_change_size(Log, NewSize) ->
     ?vtrace("change_size -> entry with"
 	    "~n   Log:     ~p"
 	    "~n   NewSize: ~p", [Log, NewSize]),

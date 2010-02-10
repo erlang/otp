@@ -945,6 +945,12 @@ system_terminate(Reason, _Parent, _Dbg, #state{log = Log}) ->
     do_close_log(Log),
     exit(Reason).
 
+system_code_change(OldState, _Module, _OldVsn, downgrade_to_pre_4_16) ->
+    {OldLog, Type} = OldState#state.log, 
+    NewLog   = snmp_log:downgrade(OldLog), 
+    NewState = OldState#state{log = {NewLog, Type}}, 
+    {ok, NewState};
+
 system_code_change(OldState, _Module, _OldVsn, upgrade_from_pre_4_16) ->
     Initial  = ?ATL_SEQNO_INITIAL,
     Max      = ?ATL_SEQNO_MAX, 
@@ -952,12 +958,11 @@ system_code_change(OldState, _Module, _OldVsn, upgrade_from_pre_4_16) ->
     Function = increment_counter, 
     Args     = [atl_seqno, Initial, Max], 
     SeqNoGen = {Module, Function, Args}, 
-    NewLog   = snmp_log:upgrade(OldState#state.log, SeqNoGen), 
-    NewState = OldState#state{log = NewLog}, 
+    {OldLog, Type} = OldState#state.log, 
+    NewLog   = snmp_log:upgrade(OldLog, SeqNoGen), 
+    NewState = OldState#state{log = {NewLog, Type}}, 
     {ok, NewState};
-system_code_change(OldState, _Module, _OldVsn, downgrade_to_pre_4_16) ->
-    NewState = OldState#state{log = snmp_log:downgrade(OldState#state.log)}, 
-    {ok, NewState};
+
 system_code_change(S, _Module, _OldVsn, _Extra) ->
     {ok, S}.
 

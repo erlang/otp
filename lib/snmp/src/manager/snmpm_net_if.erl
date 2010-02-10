@@ -464,13 +464,17 @@ do_close_log(_) ->
  
 code_change({down, _Vsn}, OldState, downgrade_to_pre_4_16) ->
     ?d("code_change(down) -> entry", []),
-    State = OldState#state{log = snmp_log:downgrade(OldState#state.log)}, 
+    {OldLog, Type} = OldState#state.log, 
+    NewLog = snmp_log:downgrade(OldLog), 
+    State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 % upgrade
 code_change(_Vsn, OldState, upgrade_from_pre_4_16) ->
     ?d("code_change(up) -> entry", []),
-    State = OldState#state{log = snmp_log:upgrade(OldState#state.log)}, 
+    {OldLog, Type} = OldState#state.log,
+    NewLog = snmp_log:upgrade(OldLog), 
+    State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 code_change(_Vsn, State, _Extra) ->
