@@ -1061,8 +1061,7 @@ send_all_state_event(FsmPid, Event) ->
     gen_fsm:send_all_state_event(FsmPid, Event).
 
 sync_send_all_state_event(FsmPid, Event) ->
-    sync_send_all_state_event(FsmPid, Event, ?DEFAULT_TIMEOUT
-). 
+    sync_send_all_state_event(FsmPid, Event, ?DEFAULT_TIMEOUT).
 
 sync_send_all_state_event(FsmPid, Event, Timeout) ->
     try gen_fsm:sync_send_all_state_event(FsmPid, Event, Timeout)

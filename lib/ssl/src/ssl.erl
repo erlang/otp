@@ -367,8 +367,10 @@ getopts(#sslsocket{} = Socket, Options) ->
 %% 
 %% Description:
 %%--------------------------------------------------------------------
-setopts(#sslsocket{fd = new_ssl, pid = Pid}, Options) when is_pid(Pid) ->
-    ssl_connection:set_opts(Pid, Options);
+setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
+    Opts = proplists:expand([{binary, [{mode, binary}]},
+			     {list, [{mode, list}]}], Opts0),
+    ssl_connection:set_opts(Pid, Opts);
 setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
     inet:setopts(ListenSocket, OptTags);
 setopts(#sslsocket{} = Socket, Options) ->
