@@ -1118,7 +1118,9 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
 #if HALFWORD_HEAP
-		    UseTmpHeapNoproc(BIG_UWORD_HEAP_SIZE(val));
+		    int actual_need = BIG_UWORD_HEAP_SIZE(val);
+		    ASSERT(actual_need <= (BIG_UINT_HEAP_SIZE*2));
+		    UseTmpHeapNoproc(actual_need);
 		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
 #else
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
@@ -1132,7 +1134,7 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
 #if HALFWORD_HEAP
-		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE*2);
+		    UnUseTmpHeapNoproc(actual_need);
 #else
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 #endif

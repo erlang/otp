@@ -94,7 +94,7 @@ typedef Uint  dsize_t;	 /* Vector size type */
 #define BIG_UWORD_HEAP_SIZE(UW) BIG_UINT_HEAP_SIZE
 #endif
 
-#ifdef ARCH_32
+#if defined(ARCH_32) || HALFWORD_HEAP
 
 #define ERTS_UINT64_BIG_HEAP_SIZE__(X) \
   ((X) >= (((Uint64) 1) << 32) ? (1 + 2) : (1 + 1))

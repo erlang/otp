@@ -117,6 +117,10 @@ do {									\
 	erts_free(ERTS_ALC_T_DB_MC_STK, (Name).data);			\
 } while (0)
 
+
+#define TermWords(t) (((t) / (sizeof(UWord)/sizeof(Eterm))) + !!((t) % (sizeof(UWord)/sizeof(Eterm))))
+
+
 static ERTS_INLINE Process *
 get_proc(Process *cp, Uint32 cp_locks, Eterm id, Uint32 id_locks)
 {
@@ -1204,6 +1208,32 @@ Eterm erts_match_set_run(Process *p, Binary *mpsp,
      */
 }
 
+static Eterm erts_match_set_run_ets(Process *p, Binary *mpsp,
+				    Eterm args, int num_args,
+				    Uint32 *return_flags)
+{
+    Eterm ret;
+
+    ret = db_prog_match(p, mpsp,
+			args, NULL,
+			num_args, return_flags);
+#if defined(HARDDEBUG)
+    if (is_non_value(ret)) {
+	erts_fprintf(stderr, "Failed\n");
+    } else {
+	erts_fprintf(stderr, "Returning : %T\n", ret);
+    }
+#endif
+    return ret;
+    /* Returns
+     *   THE_NON_VALUE if no match
+     *   am_false      if {message,false} has been called,
+     *   am_true       if {message,_} has not been called or
+     *                 if {message,true} has been called,
+     *   Msg           if {message,Msg} has been called.
+     */
+}
+
 /*
 ** API Used by other erl_db modules.
 */
@@ -1773,29 +1803,34 @@ restart:
 		FAIL();
 	    if (memcmp(float_val(*ep) + 1, pc, sizeof(double)))
 		FAIL();
-	    pc += 2;
+	    pc += TermWords(2);
 	    ++ep;
 	    break;
 	case matchEqRef:
 	    if (!is_ref(*ep))
 		FAIL();
-	    if (!eq(*ep, make_internal_ref(pc)))
+	    if (!eq(*ep, make_internal_ref((Uint *) pc)))
 		FAIL();
-	    i = thing_arityval(*pc);
-	    pc += i+1;
+	    i = thing_arityval(*((Uint *) pc));
+	    pc += TermWords(i+1);
 	    ++ep;
 	    break;
 	case matchEqBig:
 	    if (!is_big(*ep))
 		FAIL();
 	    tp = big_val(*ep);
-	    if (*tp != *pc)
-		FAIL();
-	    i = BIG_ARITY(pc);
-	    while(i--)
-		if (*++tp != *++pc)
+	    {
+		Eterm *epc = (Eterm *) pc;
+		if (*tp != *epc)
 		    FAIL();
-	    ++pc;
+		i = BIG_ARITY(epc);
+		pc += TermWords(i+1);
+		while(i--) {
+		    if (*++tp != *++epc) {
+			FAIL();
+		    }
+		}
+	    }
 	    ++ep;
 	    break;
 	case matchEq:
@@ -1887,7 +1922,7 @@ restart:
 	    break;
 	case matchPushArrayAsList:
 	    n = arity; /* Only happens when 'term' is an array */
-	    tp = (Eterm *) EXPAND_POINTER(term);
+	    tp = termp;
 	    *esp++  = make_list(ehp);
 	    while (n--) {
 		*ehp++ = *tp++;
@@ -1900,7 +1935,7 @@ restart:
 	    break;
 	case matchPushArrayAsListU:
 	    /* This instruction is NOT efficient. */
-	    *esp++  = dpm_array_to_list(psp, (Eterm *) EXPAND_POINTER(term), arity);
+	    *esp++  = dpm_array_to_list(psp, termp, arity);
 	    break;
 	case matchTrue:
 	    if (*--esp != am_true)
@@ -2710,27 +2745,80 @@ static DMCRet dmc_one_term(DMCContext *context,
 	    DMC_PUSH(*stack, c);
 	    break;
 	case (_TAG_HEADER_REF >> _TAG_PRIMARY_SIZE):
-	    n = thing_arityval(*internal_ref_val(c));
 	    DMC_PUSH(*text, matchEqRef);
+#if HALFWORD_HEAP
+	    {
+		union {
+		    UWord u;
+		    Uint t[2];
+		} fiddle;
+		ASSERT(thing_arityval(*internal_ref_val(c)) == 3);
+		fiddle.t[0] = *internal_ref_val(c);
+		fiddle.t[1] = (Uint) internal_ref_val(c)[1];
+		DMC_PUSH(*text, fiddle.u);
+		fiddle.t[0] = (Uint) internal_ref_val(c)[2];
+		fiddle.t[1] = (Uint) internal_ref_val(c)[3];
+		DMC_PUSH(*text, fiddle.u);
+	    }
+#else
+	    n = thing_arityval(*internal_ref_val(c));
 	    DMC_PUSH(*text, *internal_ref_val(c));
 	    for (i = 1; i <= n; ++i) {
 		DMC_PUSH(*text, (Uint) internal_ref_val(c)[i]);
 	    }
+#endif
 	    break;
 	case (_TAG_HEADER_POS_BIG >> _TAG_PRIMARY_SIZE):
 	case (_TAG_HEADER_NEG_BIG >> _TAG_PRIMARY_SIZE):
 	    n = thing_arityval(*big_val(c));
 	    DMC_PUSH(*text, matchEqBig);
+#if HALFWORD_HEAP
+	    {
+		union {
+		    UWord u;
+		    Uint t[2];
+		} fiddle;
+		ASSERT(n >= 1);
+		fiddle.t[0] = *big_val(c);
+		fiddle.t[1] = big_val(c)[1];
+		DMC_PUSH(*text, fiddle.u);
+		for (i = 2; i <= n; ++i) {
+		    fiddle.t[0] = big_val(c)[i];
+		    if (++i <= n) {
+			fiddle.t[1] = big_val(c)[i];
+		    } else {
+			fiddle.t[1] = (Uint) 0;
+		    }
+		    DMC_PUSH(*text, fiddle.u);
+		}
+	    }
+#else
 	    DMC_PUSH(*text, *big_val(c));
 	    for (i = 1; i <= n; ++i) {
 		DMC_PUSH(*text, (Uint) big_val(c)[i]);
 	    }
+#endif
 	    break;
 	case (_TAG_HEADER_FLOAT >> _TAG_PRIMARY_SIZE):
 	    DMC_PUSH(*text,matchEqFloat);
+#if HALFWORD_HEAP
+	    {
+		union {
+		    UWord u;
+		    Uint t[2];
+		} fiddle;
+		fiddle.t[0] = float_val(c)[1];
+		fiddle.t[1] = float_val(c)[2];
+		DMC_PUSH(*text, fiddle.u);
+	    }
+#else
 	    DMC_PUSH(*text, (Uint) float_val(c)[1]);
-	    /* XXX: this reads and pushes random junk on ARCH_64 */
+#ifdef ARCH_64
+	    DMC_PUSH(*text, (Uint) 0);
+#else
 	    DMC_PUSH(*text, (Uint) float_val(c)[2]);
+#endif
+#endif
 	    break;
 	default: /* BINARY, FUN, VECTOR, or EXTERNAL */
 	    /*
@@ -4277,17 +4365,18 @@ static Eterm match_spec_test(Process *p, Eterm against, Eterm spec, int trace)
 		++n;
 		l = CDR(list_val(l));
 	    }
+	    save_cp = p->cp;
+	    p->cp = NULL;
+	    res = erts_match_set_run(p, mps, arr, n, &ret_flags);
+	    p->cp = save_cp;
 	} else {
 	    n = 0;
-	    arr = tuple_val(against);
+	    arr = NULL;
+	    res = erts_match_set_run_ets(p, mps, against, n, &ret_flags);
 	}
 	
 	/* We are in the context of a BIF, 
 	   {caller} should return 'undefined' */
-	save_cp = p->cp;
-	p->cp = NULL;
-	res = erts_match_set_run(p, mps, arr, n, &ret_flags);
-	p->cp = save_cp;
 	if (is_non_value(res)) {
 	    res = am_false;
 	}
@@ -4396,41 +4485,48 @@ static void db_match_dis(Binary *bp)
 	    break;
 	case matchEqRef:
 	    ++t;
-	    n = thing_arityval(*t);
-	    ++t;
-	    erts_printf("EqRef\t(%d) {", (int) n);
-	    first = 1;
-	    while (n--) {
-		if (first)
-		    first = 0;
-		else
-		    erts_printf(", ");
+	    {
+		RefThing *rt = (RefThing *) t;
+		int ri;
+		n = thing_arityval(rt->header);
+		erts_printf("EqRef\t(%d) {", (int) n);
+		first = 1;
+		for (ri = 0; ri < n; ++ri) {
+		    if (first)
+			first = 0;
+		    else
+			erts_printf(", ");
 #if defined(ARCH_64) && !HALFWORD_HEAP
-		erts_printf("0x%016bpx", *t);
+		    erts_printf("0x%016bpx", rt->data.ui[ri]);
 #else
-		erts_printf("0x%08bpx", *t);
+		    erts_printf("0x%08bpx", rt->data.ui[ri]);
 #endif
-		++t;
+		}
 	    }
+	    t += TermWords(REF_THING_SIZE);
 	    erts_printf("}\n");
 	    break;
 	case matchEqBig:
 	    ++t;
 	    n = thing_arityval(*t);
-	    ++t;
-	    erts_printf("EqBig\t(%d) {", (int) n);
-	    first = 1;
-	    while (n--) {
-		if (first)
-		    first = 0;
-		else
-		    erts_printf(", ");
+	    {
+		Eterm *et = (Eterm *) t;
+		t += TermWords(n+1);
+		erts_printf("EqBig\t(%d) {", (int) n);
+		first = 1;
+		++n;
+		while (n--) {
+		    if (first)
+			first = 0;
+		    else
+			erts_printf(", ");
 #if defined(ARCH_64) && !HALFWORD_HEAP
-		erts_printf("0x%016bpx", *t);
+		    erts_printf("0x%016bpx", *et);
 #else
-		erts_printf("0x%08bpx", *t);
+		    erts_printf("0x%08bpx", *et);
 #endif
-		++t;
+		++et;
+		}
 	    }
 	    erts_printf("}\n");
 	    break;
@@ -4438,8 +4534,8 @@ static void db_match_dis(Binary *bp)
 	    ++t;
 	    {
 		double num;
-		memcpy(&num,t, 2 * sizeof(*t));
-		t += 2;
+		memcpy(&num,t,sizeof(double));
+		t += TermWords(2);
 		erts_printf("EqFloat\t%f\n", num);
 	    }
 	    break;

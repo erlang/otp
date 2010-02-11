@@ -35,12 +35,12 @@
 %-compile(export_all).
 -export([all/1, init_per_testcase/2, fin_per_testcase/2]).
 
--export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1]).
+-export([process_count/1, system_version/1, misc_smoke_tests/1, heap_size/1, wordsize/1]).
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(2)).
 
 all(doc) -> [];
-all(suite) -> [process_count, system_version, misc_smoke_tests, heap_size].
+all(suite) -> [process_count, system_version, misc_smoke_tests, heap_size, wordsize].
 
 init_per_testcase(_Case, Config) when is_list(Config) ->
     Dog = ?t:timetrap(?DEFAULT_TIMEOUT),
@@ -145,3 +145,23 @@ heap_size(Config) when is_list(Config) ->
    ?line Hmin  = proplists:get_value(min_heap_size, GCinf),
    ok.
 
+wordsize(suite) ->
+    [];
+wordsize(doc) ->
+    ["Tests the various wordsize variants"];
+wordsize(Config) when is_list(Config) ->
+    ?line A = erlang:system_info(wordsize),
+    ?line true = is_integer(A),
+    ?line A = erlang:system_info({wordsize,internal}),
+    ?line B = erlang:system_info({wordsize,external}),
+    ?line true = A =< B,
+    case {B,A} of
+	{4,4} ->
+	    {comment, "True 32-bit emulator"};
+	{8,8} ->
+	    {comment, "True 64-bit emulator"};
+	{8,4} ->
+	    {comment, "Halfword 64-bit emulator"};
+	Other ->
+	    exit({unexpected_wordsizes,Other})
+    end.

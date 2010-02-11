@@ -2775,7 +2775,7 @@ void process_main(void)
 	    given_size = thing_arityval(given_arity);
 	    bigp = (Eterm *) &Arg(2);
 	    while ((arity = bigp[0]) > given_arity) {
-		bigp += thing_arityval(arity) + 2;
+		bigp += (TermWords(thing_arityval(arity) + 1) + 1) * (sizeof(BeamInstr)/sizeof(Eterm));
 	    }
 	    while (bigp[0] == given_arity) {
 		if (memcmp(bigp+1, given+1, sizeof(Eterm)*given_size) == 0) {
@@ -2784,7 +2784,7 @@ void process_main(void)
 		    SET_I((BeamInstr *) *tmp);
 		    Goto(*I);
 		}
-		bigp += thing_arityval(arity) + 2;
+		bigp += (TermWords(thing_arityval(arity) + 1) + 1) * (sizeof(BeamInstr)/sizeof(Eterm));
 	    }
 	}
 
@@ -4291,7 +4291,7 @@ apply_bif_or_nif_epilogue:
      */
  OpCase(call_traced_function): {
      if (IS_TRACED_FL(c_p, F_TRACE_CALLS)) {
-	 unsigned offset = offsetof(Export, code) + 3*sizeof(Eterm);
+	 unsigned offset = offsetof(Export, code) + 3*sizeof(BeamInstr);
 	 Export* ep = (Export *) (((char *)I)-offset);
 	 Uint32 flags;
 

@@ -3011,7 +3011,11 @@ decoded_size(byte *ep, byte* endp, int no_refc_bins)
 	    break;
 	case EXPORT_EXT:
 	    terms += 3;
+#if HALFWORD_HEAP
+	    heap_size += 3;
+#else
 	    heap_size += 2;
+#endif
 	    break;
 	case NEW_FUN_EXT:
 	    {
