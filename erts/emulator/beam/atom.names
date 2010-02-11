@@ -256,6 +256,7 @@ atom info
 atom info_msg
 atom initial_call
 atom input
+atom internal
 atom internal_error
 atom internal_status
 atom instruction_counts

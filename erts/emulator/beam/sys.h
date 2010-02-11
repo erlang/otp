@@ -262,10 +262,10 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 #ifdef ARCH_64
 #  ifdef HALFWORD_HEAP_EMULATOR
 #    define HALFWORD_HEAP 1
-#    define HALFWORD_ASSERT 1
+#    define HALFWORD_ASSERT 0
 #  else
 #    define HALFWORD_HEAP 0
-#    define HALFWORD_ASSERT 1
+#    define HALFWORD_ASSERT 0
 #  endif
 #endif
 

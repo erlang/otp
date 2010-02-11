@@ -6241,7 +6241,7 @@ Process *schedule(Process *p, int calls)
 	    UWord old = ERTS_PROC_SCHED_ID(p,
 					  (ERTS_PROC_LOCK_MAIN
 					   | ERTS_PROC_LOCK_STATUS),
-					  esdp->no);
+					  (UWord) esdp->no);
 	    int migrated = old && old != esdp->no;
 
 	    erts_smp_spin_lock(&erts_sched_stat.lock);

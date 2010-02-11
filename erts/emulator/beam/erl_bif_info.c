@@ -1634,6 +1634,14 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 
     if (sel == am_allocator_sizes && arity == 2) {
 	return erts_allocator_info_term(BIF_P, *tp, 1);
+    } else if (sel == am_wordsize && arity == 2) {
+	if (tp[0] == am_internal) {
+	    return make_small(sizeof(Eterm));
+	}
+	if (tp[0] == am_external) {
+	    return make_small(sizeof(UWord));
+	}
+	goto badarg;
     } else if (sel == am_allocated) {
 	if (arity == 2) {
 	    Eterm res = THE_NON_VALUE;

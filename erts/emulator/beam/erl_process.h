@@ -194,8 +194,8 @@ do { \
 #  define ERTS_DBG_VERIFY_VALID_RUNQP(RQP) \
 do { \
     ASSERT((RQP) != NULL); \
-    ASSERT(((((Uint) (RQP)) & ((Uint) 1))) == ((Uint) 0)); \
-    ASSERT((((Uint) (RQP)) & ~((Uint) 0xffff)) != ((Uint) 0xdead0000)); \
+    ASSERT(((((UWord) (RQP)) & ((UWord) 1))) == ((UWord) 0)); \
+    ASSERT((((UWord) (RQP)) & ~((UWord) 0xffff)) != ((UWord) 0xdead0000)); \
 } while (0)
 #  endif
 #else
@@ -1196,7 +1196,7 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
 #endif
 
 #define ERTS_PROC_SCHED_ID(P, L, ID) \
-  ((Uint) erts_psd_set((P), (L), ERTS_PSD_SCHED_ID, (void *) (ID)))
+  ((UWord) erts_psd_set((P), (L), ERTS_PSD_SCHED_ID, (void *) (ID)))
 
 #define ERTS_PROC_GET_DIST_ENTRY(P) \
   ((DistEntry *) erts_psd_get((P), ERTS_PSD_DIST_ENTRY))

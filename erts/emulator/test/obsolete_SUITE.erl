@@ -32,9 +32,9 @@
 
 all(doc) -> [];
 all(suite) ->
-    case catch erlang:system_info(wordsize) of
+    case catch erlang:system_info({wordsize,external}) of
 	4 -> [erl_threads];
-	_ -> {skip, "Only expected to work on 32-bit architectures"}
+	_ -> {skip, "Only expected to work on true 32-bit architectures"}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
