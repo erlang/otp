@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -51,7 +51,7 @@
 	 get_status/0,boot/1,get_arguments/0,get_plain_arguments/0,
 	 get_argument/1,script_id/0]).
 
-% internal exports
+%% internal exports
 -export([fetch_loaded/0,ensure_loaded/1,make_permanent/2,
 	 notify_when_started/1,wait_until_started/0, 
 	 objfile_extension/0, archive_extension/0,code_path_choice/0]).
@@ -115,6 +115,8 @@ fetch_loaded() ->
 ensure_loaded(Module) ->
     request({ensure_loaded, Module}).
 
+-spec make_permanent(file:filename(), 'false' | file:filename()) ->
+	'ok' | {'error', term()}.
 make_permanent(Boot,Config) ->
     request({make_permanent,Boot,Config}).
 

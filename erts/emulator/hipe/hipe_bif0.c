@@ -16,7 +16,7 @@
  *
  * %CopyrightEnd%
  */
-/* $Id$
+/*
  * hipe_bif0.c
  *
  * Compiler and linker support.
