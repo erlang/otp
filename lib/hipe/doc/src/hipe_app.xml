@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="latin1" ?>
+<!DOCTYPE appref SYSTEM "appref.dtd">
+
+<appref>
+  <header>
+    <copyright>
+      <year>1997</year><year>2010</year>
+      <holder>Ericsson AB. All Rights Reserved.</holder>
+    </copyright>
+    <legalnotice>
+      The contents of this file are subject to the Erlang Public License,
+      Version 1.1, (the "License"); you may not use this file except in
+      compliance with the License. You should have received a copy of the
+      Erlang Public License along with this software. If not, it can be
+      retrieved online at http://www.erlang.org/.
+
+      Software distributed under the License is distributed on an "AS IS"
+      basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+      the License for the specific language governing rights and limitations
+      under the License.
+
+    </legalnotice>
+
+    <title>snmp</title>
+    <prepared></prepared>
+    <responsible></responsible>
+    <docno></docno>
+    <approved></approved>
+    <checked></checked>
+    <date></date>
+    <rev></rev>
+    <file>hipe.xml</file>
+  </header>
+  <app>HiPE</app>
+  <appsummary>The HiPE Application</appsummary>
+  <description>
+    <p>
+      The normal way to native-compile an Erlang module using HiPE is to include the atom native 
+      in the Erlang compiler options, as in:
+      <code>
+      1> <input>c(my_module, [native]).</input></code>
+      Options to the HiPE compiler are then passed as follows:
+      <code>
+      1> <input>c(my_module, [native,{hipe,Options}]).</input></code>
+      For on-line help in the Erlang shell, call <c>hipe:help()</c>. 
+      Details on HiPE compiler options are given by <c>hipe:help_options()</c>.
+    </p>
+  </description>  
+  <section>
+    <title>SEE ALSO</title>
+    <p>
+      <seealso marker="stdlib:c">c(3)</seealso>, 
+      <seealso marker="compiler:compile">compile(3)</seealso>
+    </p>
+  </section>
+
+</appref>
+

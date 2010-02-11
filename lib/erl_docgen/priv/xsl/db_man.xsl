@@ -176,10 +176,12 @@
   <xsl:template match="/erlref">
     <xsl:variable name="companyname">
       <xsl:choose>
-        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
-        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+        <!-- Workaround until all of OTP's .../holder contents are correct.  -->
+        <xsl:when test="starts-with(header/copyright/holder,'Ericsson AB')"><xsl:text>Ericsson AB</xsl:text></xsl:when>
+        <xsl:otherwise><xsl:value-of select="header/copyright/holder"/></xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
+
     <xsl:text>.TH </xsl:text><xsl:value-of select="module"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Erlang Module Definition"&#10;</xsl:text>
     <xsl:text>.SH NAME&#10;</xsl:text>
     <xsl:value-of select="module"/><xsl:text> \- </xsl:text><xsl:value-of select="modulesummary"/><xsl:text>&#10;</xsl:text>  
@@ -190,11 +192,12 @@
   <xsl:template match="/comref">
     <xsl:variable name="companyname">
       <xsl:choose>
-        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
-        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+        <!-- Workaround until all of OTP's .../holder contents are correct.  -->
+        <xsl:when test="starts-with(header/copyright/holder,'Ericsson AB')"><xsl:text>Ericsson AB</xsl:text></xsl:when>
+        <xsl:otherwise><xsl:value-of select="header/copyright/holder"/></xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
-    <xsl:text>.TH </xsl:text><xsl:value-of select="com"/><xsl:text> 1 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "User Commands"&#10;</xsl:text>
+   <xsl:text>.TH </xsl:text><xsl:value-of select="com"/><xsl:text> 1 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "User Commands"&#10;</xsl:text>
     <xsl:text>.SH NAME&#10;</xsl:text>
     <xsl:value-of select="com"/><xsl:text> \- </xsl:text><xsl:value-of select="comsummary"/><xsl:text>&#10;</xsl:text>  
     <xsl:apply-templates/>
@@ -204,8 +207,9 @@
   <xsl:template match="/cref">
     <xsl:variable name="companyname">
       <xsl:choose>
-        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
-        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+        <!-- Workaround until all of OTP's .../holder contents are correct.  -->
+        <xsl:when test="starts-with(header/copyright/holder,'Ericsson AB')"><xsl:text>Ericsson AB</xsl:text></xsl:when>
+        <xsl:otherwise><xsl:value-of select="header/copyright/holder"/></xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
     <xsl:text>.TH </xsl:text><xsl:value-of select="lib"/><xsl:text> 3 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "C Library Functions"&#10;</xsl:text>
@@ -218,8 +222,9 @@
   <xsl:template match="/fileref">
     <xsl:variable name="companyname">
       <xsl:choose>
-        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
-        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+        <!-- Workaround until all of OTP's .../holder contents are correct.  -->
+        <xsl:when test="starts-with(header/copyright/holder,'Ericsson AB')"><xsl:text>Ericsson AB</xsl:text></xsl:when>
+        <xsl:otherwise><xsl:value-of select="header/copyright/holder"/></xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
     <xsl:text>.TH </xsl:text><xsl:value-of select="file"/><xsl:text> 5 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Files"&#10;</xsl:text>
@@ -232,8 +237,9 @@
   <xsl:template match="/appref">
     <xsl:variable name="companyname">
       <xsl:choose>
-        <xsl:when test="$company = ''"><xsl:value-of select="header/holder"/></xsl:when>
-        <xsl:otherwise><xsl:value-of select="$company"/></xsl:otherwise>
+        <!-- Workaround until all of OTP's .../holder contents are correct.  -->
+        <xsl:when test="starts-with(header/copyright/holder,'Ericsson AB')"><xsl:text>Ericsson AB</xsl:text></xsl:when>
+        <xsl:otherwise><xsl:value-of select="header/copyright/holder"/></xsl:otherwise>
       </xsl:choose>
     </xsl:variable>
     <xsl:text>.TH </xsl:text><xsl:value-of select="app"/><xsl:text> 7 "</xsl:text><xsl:value-of select="$appname"/><xsl:text> </xsl:text><xsl:value-of select="$appver"/><xsl:text>" "</xsl:text><xsl:value-of select="$companyname"/><xsl:text>" "Erlang Application Definition"&#10;</xsl:text>

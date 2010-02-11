@@ -39,8 +39,8 @@ under the License.
 <small><a href="applications.html">Applications</a><br>
 <a href="man_index.html">Modules</a></small>
 <p/>
-<small><a href="highlights.html">Release highlights</a><br>
-<a href="incompatible.html">Potential incompatibilities</a><br>
+<small><a href="highlights.html">Release highlights</a><br/>
+<a href="incompatible.html">Potential incompatibilities</a><br/>
 </small>
 <br>
 <a href="javascript:openAllFlips()">Expand All</a><br>
@@ -48,7 +48,7 @@ under the License.
 <p/>
 
 <ul class="flipMenu">
-<li>Erlang/OTP System Documentation
+<li>System Documentation
 <ul>
 <li><a href="installation_guide/users_guide.html">Installation Guide</a></li>
 <li><a href="system_principles/users_guide.html">System Principles</a></li>
@@ -62,7 +62,11 @@ under the License.
 <li><a href="oam/users_guide.html">OAM Principles</a></li>
 </ul>
 </li>
+</ul>
+<b>Application Groups</b>
+<br/>
 
+<ul class="flipMenu">
 #applinks#
 </ul>
 

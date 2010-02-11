@@ -1,42 +1,60 @@
+%%--------------------------------------------------------------------
+%%
+%% %CopyrightBegin%
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%%
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%%
+%% %CopyrightEnd%
+%%
+%%-----------------------------------------------------------------
+%% File: erlresolvelinks.erl
+%% 
+%% Description:
+%%    This file generates the javascript that resolves documentation links.
+%%
+%%-----------------------------------------------------------------
 -module(erlresolvelinks). 
 
-%% ------ VERY IMPORTANT ------
-%%
-%% Original location for this file: 
-%% /clearcase/otp/internal_tools/integration/scripts/resolve_links/
-%% When updating this file, copy the source to 
-%% /usr/local/otp/patch/share/program/
-%% and place .beam files (compiled with correct release) in all 
-%% /usr/local/otp/patch/share/program/<release>
-%% for releases >= R10B
-%%
-%% ----------------------------
-
--export([make/1, do_make/1, do_make/2, do_make/3]).
+-export([make/0, make/1]).
 -include_lib("kernel/include/file.hrl").
 
 -define(JAVASCRIPT_NAME, "erlresolvelinks.js").
 
-make([RootDir]) ->
-    do_make(RootDir);
+make() ->
+    case os:getenv("ERL_TOP") of
+	false ->
+	    io:format("Variable ERL_TOP is required\n",[]);
+	Value ->
+	    make_from_src(Value, ".")
+    end.
+
 make([RootDir, DestDir]) ->
     do_make(RootDir, DestDir);
-make([RootDir, DestDir, Name]) ->
-    do_make(RootDir, DestDir, Name).
-
-do_make(RootDir) ->
+make(RootDir) when is_atom(RootDir) ->
     DestDir = filename:join(RootDir, "doc"),
     do_make(RootDir, DestDir).
 
-do_make(RootDir, DestDir) ->
-    do_make(RootDir, DestDir, ?JAVASCRIPT_NAME).
+do_make(_RootDir, _DestDir) ->
+    ok.
 
-do_make(RootDir, DestDir, Name) ->
+make_from_src(RootDir, DestDir) ->
     %% doc/Dir
     %% erts-Vsn
     %% lib/App-Vsn
-    DocDirs0 = get_dirs(filename:join([RootDir, "doc"])),
-    DocDirs = lists:map(fun(Dir) -> 
+    Name = ?JAVASCRIPT_NAME,
+    DocDirs0 = get_dirs(filename:join([RootDir, "system/doc"])),
+    DocDirs = lists:map(fun({Dir, _DirPath}) -> 
 				D = filename:join(["doc", Dir]),
 				{D, D} end, DocDirs0),
 
@@ -68,7 +86,10 @@ do_make(RootDir, DestDir, Name) ->
     io:fwrite(Fd, "}\n", []),
     file:close(Fd),
     ok.
-    
+   
+
+
+
 get_dirs(Dir) ->
     {ok, Files} = file:list_dir(Dir),
     AFiles = 
@@ -79,7 +100,7 @@ is_dir({File, AFile}) ->
     {ok, FileInfo} = file:read_file_info(AFile),
     case FileInfo#file_info.type of
 	directory ->
-	    {true, File};
+	    {true, {File, AFile}};
 	_  ->
 	    false
     end.
@@ -88,47 +109,66 @@ latest_app_dirs(RootDir, Dir) ->
     ADir = filename:join(RootDir, Dir),
     RDirs0 = get_dirs(ADir),
     RDirs1 = lists:filter(fun is_app_dir/1, RDirs0),
-    %% Build a list of {{App, VsnNumList}, AppVsn}
-    SDirs0 = 
-	lists:map(fun(AppVsn) ->
-			  [App, VsnStr] = string:tokens(AppVsn, "-"),
-			  VsnNumList = vsnstr_to_numlist(VsnStr),
-			  {{App, VsnNumList}, AppVsn} end,
-		  RDirs1),
-    SDirs1 = lists:keysort(1, SDirs0),
-    App2Dirs = lists:foldr(fun({{App, _VsnNumList}, AppVsn}, Acc) ->
-				   case lists:keymember(App, 1, Acc) of
-				       true ->
-					   Acc;
-				       false ->
-					   [{App, AppVsn}| Acc]
-				   end
-			   end, [], SDirs1),
-    lists:map(fun({App, AppVsn}) -> {App, filename:join([Dir, AppVsn])} end,
-	      App2Dirs).
 
-is_app_dir(Dir) ->
-    case string:tokens(Dir, "-") of
-	[_Name, Rest] ->
-	    is_vsnstr(Rest);
-	_  ->
+    SDirs0 = 
+	lists:map(fun({App, Dir1}) ->
+			  File = filename:join(Dir1, "vsn.mk"),
+			  case file:read_file(File) of
+			      {ok, Bin} ->
+				  case re:run(Bin, ".*VSN\s*=\s*([0-9\.]+).*",[{capture,[1],list}]) of
+				      {match, [VsnStr]} ->
+					  VsnNumList = vsnstr_to_numlist(VsnStr),
+					  {{App, VsnNumList}, App++"-"++VsnStr};
+				      nomatch ->
+					  io:format("No VSN variable found in ~s\n", [File]),
+					  error
+				  end;
+			      {error, Reason} ->
+				  io:format("~p : ~s\n", [Reason, File]),
+				  error
+			  end
+		  end, 
+		  RDirs1),
+     SDirs1 = lists:keysort(1, SDirs0),
+     App2Dirs = lists:foldr(fun({{App, _VsnNumList}, AppVsn}, Acc) ->
+ 				   case lists:keymember(App, 1, Acc) of
+ 				       true ->
+ 					   Acc;
+ 				       false ->
+ 					   [{App, AppVsn}| Acc]
+ 				   end
+ 			   end, [], SDirs1),
+    lists:map(fun({App, AppVsn}) -> {App, filename:join([Dir, AppVsn])} end,
+ 	      App2Dirs).
+
+is_app_dir({_Dir, DirPath}) ->
+    case file:read_file_info(filename:join(DirPath, "vsn.mk")) of
+	{ok, FileInfo} ->
+	    case FileInfo#file_info.type of
+		regular ->
+		    true;
+		_  ->
+		    false
+	    end;
+	{error, _Reason} ->
 	    false
     end.
 
-is_vsnstr(Str) ->	
-    case string:tokens(Str, ".") of
-	[_] ->
-	    false;
-	Toks  ->
-	    lists:all(fun is_numstr/1, Toks)
-    end.
 
-is_numstr(Cs) ->
-    lists:all(fun(C) when $0 =< C, C =< $9 -> 
-		      true;
-		 (_) ->
-		      false
-	      end, Cs).
+%% is_vsnstr(Str) ->	
+%%     case string:tokens(Str, ".") of
+%% 	[_] ->
+%% 	    false;
+%% 	Toks  ->
+%% 	    lists:all(fun is_numstr/1, Toks)
+%%     end.
+
+%% is_numstr(Cs) ->
+%%     lists:all(fun(C) when $0 =< C, C =< $9 -> 
+%% 		      true;
+%% 		 (_) ->
+%% 		      false
+%% 	      end, Cs).
 
 %% We know:
 

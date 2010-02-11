@@ -27,7 +27,7 @@ else
 HIPE_SUBDIRS =
 endif
 
-ALWAYS_SUBDIRS = misc main cerl icode flow util
+ALWAYS_SUBDIRS = misc main cerl icode flow util doc/src
 
 ifdef HIPE_ENABLED
 # "rtl" below must be the first directory so that file rtl/hipe_literals.hrl

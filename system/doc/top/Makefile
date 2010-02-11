@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -103,7 +103,8 @@ JAVASCRIPT = $(HTMLDIR)/js/erlresolvelinks.js
 JAVASCRIPT_BUILD_SCRIPT = $(EBIN)/erlresolvelinks.$(EMULATOR)
 JAVASCRIPT_BUILD_SCRIPT_SRC = src/erlresolvelinks.erl
 
-MAN_INDEX_SCRIPT = $(ERL_TOP)/system/doc/top/bin/otp_man_index
+MAN_INDEX_SCRIPT = $(EBIN)/otp_man_index.$(EMULATOR)
+MAN_INDEX_SRC = src/otp_man_index.erl
 MAN_INDEX = $(HTMLDIR)/man_index.html
 
 GLOSSARY  = $(HTMLDIR)/glossary.html
@@ -116,14 +117,11 @@ $(INDEX_SCRIPT): $(INDEX_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 # We don't list toc_*.html as targets because we don't know
-$(HTMLDIR)/index.html: $(INDEX_SCRIPT)
-ifneq ($(INSTALLROOT),)
+$(HTMLDIR)/index.html + $(HTMLDIR)/applications.html: $(INDEX_SCRIPT)
 	echo "Generating index $@"
-	$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index $(INSTALLROOT) \
+	$(ERL) -noshell -pa $(EBIN) -s erl_html_tools top_index $(ERL_TOP) \
 	$(HTMLDIR) $(SYSTEM_VSN) -s erlang halt
-else
-	@echo "INSTALLROOT unset, no indexes built."
-endif
+
 
 #--------------------------------------------------------------------------
 
@@ -131,25 +129,19 @@ $(JAVASCRIPT_BUILD_SCRIPT): $(JAVASCRIPT_BUILD_SCRIPT_SRC)
 	$(ERLC) -o$(EBIN) +warn_unused_vars $<
 
 $(JAVASCRIPT): $(JAVASCRIPT_BUILD_SCRIPT)
-ifneq ($(INSTALLROOT),)
-	echo "Generating javascript for resolving HTML links"
-	erl -noshell -pa $(EBIN) -s erlresolvelinks make $(INSTALLROOT) \
-		. -s erlang halt
-	mkdir $(HTMLDIR)/js
-	mv erlresolvelinks.js $(JAVASCRIPT) # not portable !!!
-else
-	@echo "INSTALLROOT unset, no javascript generated."
-endif
+	erl -noshell -pa $(EBIN) -s erlresolvelinks make -s erlang halt
+	$(INSTALL_DIR) $(HTMLDIR)/js
+	$(INSTALL_DATA) erlresolvelinks.js $(JAVASCRIPT) 
 
 #--------------------------------------------------------------------------
 
+$(MAN_INDEX_SCRIPT): $(MAN_INDEX_SRC)
+	$(ERLC) -o$(EBIN) +warn_unused_vars $<
+
 $(MAN_INDEX): $(MAN_INDEX_SCRIPT)
-ifneq ($(INSTALLROOT),)
-	echo "Generating index $@"
-	(cd $(INSTALLROOT); perl $< ) > $@
-else
-	@echo "INSTALLROOT unset, no manual index built."
-endif
+	$(ERL) -noshell -pa $(EBIN) -s otp_man_index gen $(ERL_TOP) $@  \
+		-s erlang halt
+
 #--------------------------------------------------------------------------
 
 $(HTMLDIR)/highlights.html:  highlights.xml
@@ -230,13 +222,11 @@ release_docs_spec: docs
 	$(INSTALL_DIR)  $(RELSYSDIR)/pdf
 	$(INSTALL_DATA)  \
 		$(TOP_PDF_FILE) $(RELSYSDIR)/pdf
-#$(TOP_HTML_FILES)
-ifneq ($(INSTALLROOT),)
-	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR) 
+	$(INSTALL_DATA) $(TOP_HTML_FILES) $(RELSYSDIR) 
 	$(INSTALL_DIR)  $(RELSYSDIR)/js
 	$(INSTALL_DATA)  \
 		$(JAVASCRIPT) $(RELSYSDIR)/js
-endif
+	$(INSTALL_DATA) $(INDEX_FILES) $(MAN_INDEX) $(TOP_HTML_FILES) $(RELSYSDIR) 
 
 
 release_spec:
