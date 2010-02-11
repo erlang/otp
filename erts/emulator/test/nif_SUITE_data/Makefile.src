@@ -4,11 +4,22 @@ NIF_LIBS = nif_SUITE.1@dll@ \
            nif_mod.2@dll@ \
            nif_mod.3@dll@
 
-all: $(NIF_LIBS)
+all: $(NIF_LIBS) basic@dll@ rwlock@dll@ tsd@dll@
 
 
 @SHLIB_RULES@
 
 $(NIF_LIBS): nif_SUITE.c nif_mod.c nif_mod.h
 
+basic@dll@: tester.c testcase_driver.h
 
+rwlock@dll@: tester.c testcase_driver.h
+
+tsd@dll@: tester.c testcase_driver.h
+
+DRIVER_DIR = ../erl_drv_thread_SUITE_data
+
+basic.c rwlock.c tsd.c: $(DRIVER_DIR)/$@
+	cat head.txt > $@
+	cat $(DRIVER_DIR)/$@ | sed -e 's/erl_drv_/enif_/g' -e 's/driver_/enif_/g' -e 's/ErlDrv/ErlNif/g' >> $@
+	cat tail.txt >> $@

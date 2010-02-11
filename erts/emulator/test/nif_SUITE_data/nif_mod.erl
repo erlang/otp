@@ -21,15 +21,19 @@
 
 -include("test_server.hrl").
 
--export([load_nif_lib/2, start/0, lib_version/0, call_history/0, get_priv_data_ptr/0]).
+-export([load_nif_lib/2, load_nif_lib/3, start/0, lib_version/0, call_history/0,
+	 get_priv_data_ptr/0, make_new_resource/2, get_resource/2]).
 
 -export([loop/0, upgrade/1]).
 
 -define(nif_stub,nif_stub_error(?LINE)).
 
 load_nif_lib(Config, Ver) ->
+    load_nif_lib(Config, Ver, []).
+
+load_nif_lib(Config, Ver, LoadInfo) ->
     ?line Path = ?config(data_dir, Config),    
-    erlang:load_nif(filename:join(Path,libname(Ver)), 0).
+    erlang:load_nif(filename:join(Path,libname(Ver)), LoadInfo).
 
 libname(no_init) -> libname(3);
 libname(Ver) when is_integer(Ver) ->
@@ -59,6 +63,8 @@ lib_version() ->  % NIF
 
 call_history() -> ?nif_stub.    
 get_priv_data_ptr() -> ?nif_stub.
+make_new_resource(_,_) -> ?nif_stub.
+get_resource(_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

@@ -2973,7 +2973,7 @@ void process_main(void)
 	   * I[-1]: Arity
 	   * I[0]: &&call_nif
 	   * I[1]: Function pointer to NIF function
-	   * I[2]: priv_data pointer
+	   * I[2]: Pointer to erl_module_nif
 	   */
      	 BifFunction vbf;
 
@@ -2989,7 +2989,7 @@ void process_main(void)
 	     typedef Eterm NifF(struct enif_environment_t*, int argc, Eterm argv[]);
 	     NifF* fp = vbf = (NifF*) I[1];
 	     struct enif_environment_t env;
-	     erts_pre_nif(&env, c_p, (void*)I[2]);
+	     erts_pre_nif(&env, c_p, (struct erl_module_nif*)I[2]);
 	     reg[0] = r(0);
 	     tmp_arg1 = (*fp)(&env, tmp_arg2, reg);
 	     erts_post_nif(&env);

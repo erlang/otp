@@ -419,7 +419,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 RELSYSDIR = $(RELEASE_PATH)/erts-$(VSN)
 
-RELEASE_INCLUDES = beam/erl_driver.h sys/$(ERLANG_OSTYPE)/driver_int.h beam/erl_nif.h beam/erl_nif_api_funcs.h
+RELEASE_INCLUDES = beam/erl_driver.h sys/$(ERLANG_OSTYPE)/driver_int.h beam/erl_nif.h beam/erl_nif_api_funcs.h beam/erl_drv_nif.h
 ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif

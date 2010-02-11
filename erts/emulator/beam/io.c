@@ -31,6 +31,7 @@
 
 /* must be included BEFORE global.h (since it includes erl_driver.h) */
 #include "erl_sys_driver.h"
+#include "erl_nif.h"
 
 #include "erl_vm.h"
 #include "global.h"
@@ -1078,7 +1079,7 @@ int erts_write_to_port(Eterm caller_id, Port *p, Eterm list)
 	}
 	cbin = driver_alloc_binary(csize);
 	if (!cbin)
-	    erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, sizeof(Binary) + csize);
+	    erts_alloc_enomem(ERTS_ALC_T_DRV_BINARY, ERTS_SIZEOF_Binary(csize));
 
 	/* Element 0 is for driver usage to add header block */
 	ivp[0].iov_base = NULL;
@@ -4473,7 +4474,14 @@ driver_system_info(ErlDrvSysInfo *sip, size_t si_size)
 	sip->async_threads = erts_async_max_threads;
 	sip->scheduler_threads = erts_no_schedulers;
     }
-
+    /*
+     * 'nif_minor_version' is the last field in the third version
+     * (driver version 1.5, NIF version 1.0) 
+     */
+    if (si_size >= ERL_DRV_SYS_INFO_SIZE(nif_minor_version)) {
+	sip->nif_major_version = ERL_NIF_MAJOR_VERSION;
+	sip->nif_minor_version = ERL_NIF_MINOR_VERSION;
+    }
 }
 
 

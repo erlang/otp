@@ -299,6 +299,8 @@ typedef struct ErlDrvSysInfo {
    int smp_support;
    int async_threads;
    int scheduler_threads;
+   int nif_major_version;
+   int nif_minor_version;
 } ErlDrvSysInfo;
       </code>
 
@@ -365,9 +367,14 @@ typedef struct ErlDrvSysInfo {
            (the same as returned by
           <seealso marker="erts:erlang#system_info_schedulers">erlang:system_info(schedulers)</seealso>).
         </item>
+        <tag><c>nif_major_version</c></tag>
+        <item>The value of <c>ERL_NIF_MAJOR_VERSION</c> when the runtime system was compiled.
+        </item>
+        <tag><c>nif_minor_version</c></tag>
+        <item>The value of <c>ERL_NIF_MINOR_VERSION</c> when the runtime system was compiled.
+        </item>
         </taglist>
       </item>
-
       <tag><marker id="ErlDrvBinary"/>ErlDrvBinary</tag>
       <item>
       <p/>

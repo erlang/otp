@@ -1027,11 +1027,12 @@ static uLongf binary2term_uncomp_size(byte* data, Sint size)
 
     err = inflateInit(&stream);
     if (err == Z_OK) {
-	while ((err = inflate(&stream, Z_NO_FLUSH)) == Z_OK) {
-	    uncomp_size += chunk_size - stream.avail_out;
+	do {
 	    stream.next_out = tmp_buf;
-	    stream.avail_out = chunk_size;
-	}
+	    stream.avail_out = chunk_size;	   
+	    err = inflate(&stream, Z_NO_FLUSH);
+	    uncomp_size += chunk_size - stream.avail_out;
+	}while (err == Z_OK);
 	inflateEnd(&stream);
     }
     erts_free(ERTS_ALC_T_TMP, tmp_buf);

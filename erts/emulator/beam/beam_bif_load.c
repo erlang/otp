@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -642,21 +642,9 @@ purge_module(int module)
     /*
      * Unload any NIF library
      */
-    if (modp->old_nif.handle != NULL) {
-	if (modp->old_nif.entry->unload != NULL) {
-	    ErlNifEnv env;
-	    env.nif_data = modp->old_nif.data;
-	    env.proc = NULL; /* BUGBUG: unlink can not access calling process */
-	    env.hp = NULL;
-	    env.hp_end = NULL;
-	    env.heap_frag_sz = 0;
-	    env.fpe_was_unmasked = erts_block_fpe();
-	    modp->old_nif.entry->unload(NULL, modp->old_nif.data);
-	    erts_unblock_fpe(env.fpe_was_unmasked);
-	}
-	erts_sys_ddll_close(modp->old_nif.handle);
-	modp->old_nif.handle = NULL;
-	modp->old_nif.entry = NULL;
+    if (modp->old_nif != NULL) {
+	erts_unload_nif(modp->old_nif);
+	modp->old_nif = NULL;
     }
 
     /*
@@ -732,8 +720,7 @@ delete_code(Process *c_p, ErtsProcLocks c_p_locks, Module* modp)
     modp->code = NULL;
     modp->code_length = 0;
     modp->catches = BEAM_CATCHES_NIL;
-    modp->nif.handle = NULL;
-    modp->nif.entry = NULL;
+    modp->nif = NULL;
 }
 
 

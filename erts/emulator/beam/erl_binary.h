@@ -150,7 +150,7 @@ do {									\
 
 void erts_init_binary(void);
 
-byte* erts_get_aligned_binary_bytes(Eterm, byte**);
+byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
 
 #if defined(__i386__) || !defined(__GNUC__)
 /*
@@ -166,6 +166,7 @@ byte* erts_get_aligned_binary_bytes(Eterm, byte**);
 #define ERTS_CHK_BIN_ALIGNMENT(B) \
   do { ASSERT(!(B) || (((Uint) &((Binary *)(B))->orig_bytes[0]) & ERTS_BIN_ALIGNMENT_MASK) == ((Uint) 0)) } while(0)
 
+ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc_fnf(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc(Uint size);
@@ -178,6 +179,14 @@ ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
+#include <stddef.h> /* offsetof */
+
+ERTS_GLB_INLINE byte*
+erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr)
+{
+    return erts_get_aligned_binary_bytes_extra(bin, base_ptr, 0);
+}
+
 ERTS_GLB_INLINE void
 erts_free_aligned_binary_bytes(byte* buf)
 {
@@ -189,7 +198,7 @@ erts_free_aligned_binary_bytes(byte* buf)
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
-    Uint bsize = sizeof(Binary) - 1 + size;
+    Uint bsize = ERTS_SIZEOF_Binary(size);
     void *res;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -199,7 +208,7 @@ erts_bin_drv_alloc_fnf(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
-    Uint bsize = sizeof(Binary) - 1 + size;
+    Uint bsize = ERTS_SIZEOF_Binary(size);
     void *res;
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -210,7 +219,7 @@ erts_bin_drv_alloc(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
-    Uint bsize = sizeof(Binary) - 1 + size;
+    Uint bsize = ERTS_SIZEOF_Binary(size);
     void *res;
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -221,7 +230,7 @@ ERTS_GLB_INLINE Binary *
 erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
     Binary *nbp;
-    Uint bsize = sizeof(Binary) - 1 + size;
+    Uint bsize = ERTS_SIZEOF_Binary(size);
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
     if (bp->flags & BIN_FLAG_DRV)
 	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
@@ -235,7 +244,7 @@ ERTS_GLB_INLINE Binary *
 erts_bin_realloc(Binary *bp, Uint size)
 {
     Binary *nbp;
-    Uint bsize = sizeof(Binary) - 1 + size;
+    Uint bsize = ERTS_SIZEOF_Binary(size);
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
     if (bp->flags & BIN_FLAG_DRV)
 	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);

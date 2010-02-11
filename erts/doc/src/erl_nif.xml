@@ -41,7 +41,9 @@
 	</p><p><em>R13B04</em>: The function prototypes of the NIFs
 	have changed to expect <c>argc</c> and <c>argv</c>
 	arguments. The arity of a NIF is by that no longer limited to
-	3.</p></warning>
+	3.</p>
+  <p>enif_get_data renamed as enif_priv_data.</p>
+  </warning>
 
     <p>A NIF library contains native implementation of some functions
     of an erlang module. The native implemented functions (NIFs) are
@@ -113,16 +115,71 @@ ok
      dynamic library will mean that static data defined by the library
      will be shared as well. To avoid unintentionally shared static
      data, each Erlang module code can keep its own private data. This
-     global private data can be set when the NIF library is loaded and
-     then retrieved by calling <seealso marker="erl_nif#enif_get_data">enif_get_data()</seealso>.</p>
-    <p>There is currently no way to explicitly unload a NIF
-     library. A library will be automatically unloaded when the module
-     code that it belongs to is purged by the code server. A NIF
-     library will can also be unloaded by replacing it with another
-     version of the library by a second call to
+     private data can be set when the NIF library is loaded and
+     then retrieved by calling <seealso marker="erl_nif#enif_priv_data">enif_priv_data()</seealso>.</p>
+    <p>There is no way to explicitly unload a NIF library. A library will be
+     automatically unloaded when the module code that it belongs to is purged
+     by the code server. A NIF library will also be unloaded if it is replaced
+     by another version of the library by a second call to
      <c>erlang:load_nif/2</c> from the same module code.</p> 
   </description>
-
+  <section>
+  <title>FUNCTIONALITY</title>
+  <p>All functions that a NIF library needs to do with Erlang are
+      performed through the NIF API functions. There are functions
+      for the following functionality:</p>
+    <taglist>
+      <tag>Read and write Erlang terms</tag>
+      <item><p>Any Erlang terms can be passed to a NIF as function arguments and
+      be returned as function return value. The terms are of C-type <c>ERL_NIF_TERM</c>
+      and can only be read or written using API functions. Most functions to read
+      the content of a term are prefixed <c>enif_get_</c> and usually return
+      true (or false) if the term was of the expected type (or not).    
+      The functions to write terms are all prefixed <c>enif_make_</c> and usually
+      return the created <c>ERL_NIF_TERM</c>. There are also some functions
+      to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c> and
+      <c>enif_compare</c>.</p></item>
+      <tag>Resource objects</tag>
+      <item><p>Resource objects are a way to return pointers to native data
+      structures from a NIF in a safe way. A resource object is just a block
+      of memory allocated with <seealso marker="erl_nif#enif_alloc_resource">enif_alloc_resource()</seealso>.
+      A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
+      <seealso marker="erl_nif#enif_make_resource">enif_make_resource()</seealso>.
+      The term returned by <c>enif_make_resource</c>
+      is totally opaque in nature. It can be stored and passed between processses
+      on the same node, but the only real end usage is to pass it back as argument to a NIF.
+      The NIF can then do <seealso marker="erl_nif#enif_get_resource">enif_get_resource()</seealso>
+      and get back a pointer to the memory block that is guaranteed to still be
+      valid. A resource object will not be deallocated until the last handle term
+      has been garbage collected by the VM and the resource has been
+      released with <seealso marker="erl_nif#enif_release_resource">enif_release_resource()</seealso>
+      (not necessarily in that order).</p>      
+      <p>All resource objects are created as instances of some <em>resource type</em>.
+      This makes resources from different modules or applications to be distinguishable. 
+      A resource type is created by calling
+      <seealso marker="erl_nif#enif_open_resource_type">enif_open_resource_type()</seealso>
+      when a library is loaded. Objects of that resource type can then later be allocated
+      and <c>enif_get_resource</c> verifies that the resource is of the expected type.
+      A resource type can have a destructor function that is automatically
+      called when resources of that type are released (by either the garbage
+      collector or <c>enif_release_resource</c>). Resource types also support
+      upgrade in runtime by allowing a loaded NIF library to takeover an already
+      existing resource type and thereby "inherit" all existing objects of that type.
+      The destructor of the new library will thereafter be called for the inherited
+      objects and the library with the old destructor function can be safely
+      unloaded. Resource types are uniquely identified by a supplied name string.
+      </p>
+      </item>
+      <tag>Threads and concurrency</tag>
+      <item><p>A NIF is thread-safe without any explicit synchronization as
+      long as it acts as a pure function and only operates on the supplied
+      arguments. As soon as you access a shared state either through static
+      variables or <seealso marker="erl_nif#enif_priv_data">enif_priv_data</seealso>
+      you need to supply your own explicit synchronization.</p>
+      <p>The library initialization callbacks <c>load</c>, <c>reload</c> and
+      <c>upgrade</c> are all thread-safe even for shared state data.</p></item>
+    </taglist>
+  </section>
   <section>
     <title>INITIALIZATION</title>
     <taglist>
@@ -146,7 +203,7 @@ ok
         and there is no previously loaded library for this module.</p>
         <p><c>*priv_data</c> can be set to point to some private data
            that the library needs in able to keep a state between NIF 
-           calls. <c>enif_get_data()</c> will return this pointer.</p> 
+           calls. <c>enif_priv_data()</c> will return this pointer.</p> 
         <p><c>load_info</c> is the second argument to <seealso
            marker="erlang#load_nif-2">erlang:load_nif/2</seealso>.</p>
         <p>The library will fail to load if <c>load</c> returns
@@ -168,13 +225,11 @@ ok
       <tag><marker id="upgrade"/>int (*upgrade)(ErlNifEnv* env, void** priv_data, void** old_priv_data, ERL_NIF_TERM load_info)</tag>
        <item><p><c>upgrade</c> is called when the NIF library is loaded
         and there is no previously loaded library for this module
-        code, BUT there is old code of this module with a
-        loaded NIF library.</p>
+        code, BUT there is old code of this module with a loaded NIF library.</p>
         <p>Works the same as <c>load</c>. The only difference is that
         <c>*old_priv_data</c> already contains the value set by the
          last call to <c>load</c> or <c>reload</c> for the old module
-         code. It is allowed to write to both *priv_data and
-         *old_priv_data.</p> 
+         code. It is allowed to write to both *priv_data and *old_priv_data.</p> 
         <p>The library will fail to load if <c>upgrade</c> returns
            anything other than 0 or if <c>upgrade</c> is NULL.</p>
       </item>
@@ -185,7 +240,6 @@ ok
        of the same module may or may not exist.</p>
       </item>
 
-
     </taglist>
   </section>
 
@@ -193,6 +247,14 @@ ok
     <title>DATA TYPES</title>
 
     <taglist>
+      <tag><marker id="ERL_NIF_TERM"/>ERL_NIF_TERM</tag>
+       <item>
+        <p>Variables of type <c>ERL_NIF_TERM</c> can refer to any Erlang term.
+        This is an opaque type and values of it can only by used either as
+        arguments to API functions or as return values from NIFs. A variable of
+        type <c>ERL_NIF_TERM</c> is only valid until the NIF call, where it was
+        obtained, returns.</p>
+      </item>
      <tag><marker id="ErlNifEnv"/>ErlNifEnv</tag>
       <item>
         <p><c>ErlNifEnv</c> contains information about the context in
@@ -236,15 +298,41 @@ typedef struct {
           inspected binary term. <c>data</c> is a pointer to a buffer
           of <c>size</c> bytes with the raw content of the binary.</p>
       </item>
-      <tag><marker id="ERL_NIF_TERM"/>ERL_NIF_TERM</tag>
+      <tag><marker id="ErlNifResourceType"/>ErlNifResourceType</tag>
        <item>
-        <p>Variables of type <c>ERL_NIF_TERM</c> can refere to any
-        Erlang term. This is an opaque type and values of it can only
-        by used either as arguments to API functions or as return
-        values from NIFs. A variable of type <c>ERL_NIF_TERM</c> is
-        only valid until the NIF call, where it was obtained,
-        returns.</p>
-      </item>
+          <p>Each instance of <c>ErlNifResourceType</c> represent a class of
+          memory managed resource objects that can be garbage collected.
+          Each resource type has a unique name and a destructor function that
+          is called when objects of its type are released.</p>
+        </item>
+        <tag><marker id="ErlNifResourceDtor"/>ErlNifResourceDtor</tag>
+         <item>
+           <p/>
+           <code type="none">
+typedef void ErlNifResourceDtor(ErlNifEnv* env, void* obj);
+</code>
+            <p>The function prototype of a resource destructor function.
+            A destructor function is not allowed to call any term-making functions.</p>
+          </item>
+          <tag><marker id="ErlNifCharEncoding"/>ErlNifCharEncoding</tag>
+           <item>
+             <p/>
+             <code type="none">
+typedef enum {
+    ERL_NIF_LATIN1
+}ErlNifCharEncoding;
+</code>
+              <p>The character encoding used in strings. The only supported
+              encoding is currently <c>ERL_NIF_LATIN1</c> for iso-latin-1
+              (8-bit ascii).</p>
+            </item>
+            <tag><marker id="ErlNifSysInfo"/>ErlNifSysInfo</tag>
+             <item>
+                <p>Used by <seealso marker="erl_nif#enif_system_info">enif_system_info</seealso>
+                to return information about the runtime system. Contains currently
+                the exact same content as <seealso marker="erl_driver#ErlDrvSysInfo">ErlDrvSysInfo</seealso>.</p>
+              </item>
+
     </taglist>
   </section>
 
@@ -257,7 +345,18 @@ typedef struct {
       <fsummary>Create a new binary.</fsummary>
       <desc><p>Allocate a new binary of size of <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
-      refer to the allocated binary. Return false if allocation failed.</p></desc>
+      refer to the allocated binary. The binary must either be released by 
+      <seealso marker="erl_nif#enif_release_binary">enif_release_binary()</seealso> 
+      or ownership transferred to an erlang term with 
+      <seealso marker="erl_nif#enif_make_binary">enif_make_binary()</seealso>. 
+      An allocated (and owned) <c>ErlNifBinary</c> can be kept between NIF
+      calls.</p>
+        <p>Return false if allocation failed.</p>
+      </desc>
+    </func>
+    <func><name><ret>void*</ret><nametext>enif_alloc_resource(ErlNifEnv* env, ErlNifResourceType* type, unsigned size)</nametext></name>
+      <fsummary>Allocate a memory managed resource object</fsummary>
+      <desc><p>Allocate a memory managed resource object of type <c>type</c> and size <c>size</c> bytes.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_compare(ErlNifEnv* env, ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Compare two terms</fsummary>
@@ -267,13 +366,50 @@ typedef struct {
       operators <c>==</c>, <c>/=</c>, <c>=&lt;</c>, <c>&lt;</c>,
       <c>&gt;=</c> and <c>&gt;</c> (but <em>not</em> <c>=:=</c> or <c>=/=</c>).</p></desc>
     </func>
+    <func><name><ret>void</ret><nametext>enif_cond_broadcast(ErlNifCond *cnd)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_broadcast">erl_drv_cond_broadcast()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>ErlNifCond*</ret><nametext>enif_cond_create(char *name)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_create">erl_drv_cond_create()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_cond_destroy(ErlNifCond *cnd)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_destroy">erl_drv_cond_destroy()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_cond_signal(ErlNifCond *cnd)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_signal">erl_drv_cond_signal()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_cond_wait(ErlNifCond *cnd, ErlNifMutex *mtx)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_cond_wait">erl_drv_cond_wait()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_equal_tids(ErlNifTid tid1, ErlNifTid tid2)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_equal_tids">erl_drv_equal_tids()</seealso>.
+          </p></desc>
+    </func>
     <func><name><ret>void</ret><nametext>enif_free(ErlNifEnv* env, void* ptr)</nametext></name>
       <fsummary>Free dynamic memory</fsummary>
       <desc><p>Free memory allocated by <c>enif_alloc</c>.</p></desc>
     </func>
-    <func><name><ret>void*</ret><nametext>enif_get_data(ErlNifEnv* env)</nametext></name>
-      <fsummary>Get the private data of a NIF library</fsummary>
-      <desc><p>Return the pointer to the private data that was set by <c>load</c>, <c>reload</c> or <c>upgrade</c>.</p></desc>
+    <func><name><ret>int</ret><nametext>enif_get_atom(ErlNifEnv* env, 
+                  ERL_NIF_TERM term, char* buf, unsigned size)
+                             </nametext></name>
+      <fsummary>Get the text representation of an atom term</fsummary>
+      <desc><p>Write a null-terminated string, in the buffer pointed to by
+              <c>buf</c> of size <c>size</c>, consisting of the string 
+              representation of the atom <c>term</c>. Return the number of bytes
+              written (including terminating null character) or 0 if
+              <c>term</c> is not an atom with maximum length of 
+              <c>size-1</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
       <fsummary>Read a floating-point number term.</fsummary>
@@ -292,16 +428,49 @@ typedef struct {
       <c>list</c> or return false if <c>list</c> is not a non-empty
       list.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
+      <fsummary>Read an long integer term.</fsummary>
+      <desc><p>Set <c>*ip</c> to the long integer value of
+      <c>term</c> or return false if <c>term</c> is not an integer or is
+      outside the bounds of type <c>long int</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
+      <fsummary>Get the pointer to a resource object</fsummary>
+      <desc><p>Set <c>*objp</c> to point to the resource object referred to by <c>term</c>.
+      Return false if <c>term</c> is not a handle to a resource object of type <c>type</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env, 
+                                ERL_NIF_TERM list, char* buf, unsigned size,
+                                ErlNifCharEncoding encode)</nametext></name>
+      <fsummary>Get a C-string from a list.</fsummary>
+      <desc><p>Write a null-terminated string, in the buffer pointed to by
+              <c>buf</c> with size <c>size</c>, consisting of the characters
+              in the string <c>list</c>. The characters are written using encoding
+              <c>encode</c>. Return the number of bytes written
+              (including terminating null character), or <c>-size</c> if the
+              string was truncated due to buffer space, or 0 if <c>list</c>
+              is not a string that can be encoded with <c>encode</c> or
+              if <c>size</c> was less than 1.              
+              The written string is always null-terminated unless buffer
+              <c>size</c> is less than 1.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_tuple(ErlNifEnv* env, ERL_NIF_TERM term, int* arity, const ERL_NIF_TERM** array)</nametext></name>
       <fsummary>Inspect the elements of a tuple.</fsummary>
       <desc><p>If <c>term</c> is a tuple, set <c>*array</c> to point
       to an array containing the elements of the tuple and set
       <c>*arity</c> to the number of elements. Note that the array
-      is read-only an <c>(*array)[N-1]</c> will be the Nth element of
+      is read-only and <c>(*array)[N-1]</c> will be the Nth element of
       the tuple. <c>*array</c> is undefined if the arity of the tuple
       is zero.</p><p>Return false if <c>term</c> is not a
       tuple.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_uint(ErlNifEnv* env, ERL_NIF_TERM term, unsigned int* ip)</nametext></name>
+      <fsummary>Read an unsigned integer term.</fsummary>
+      <desc><p>Set <c>*ip</c> to the unsigned integer value of
+      <c>term</c> or return false if <c>term</c> is not an unsigned integer or is
+      outside the bounds of type <c>unsigned int</c></p></desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
       <fsummary>Read an unsigned integer term.</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned long integer value of
@@ -310,9 +479,20 @@ typedef struct {
     </func>
     <func><name><ret>int</ret><nametext>enif_inspect_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term, ErlNifBinary* bin)</nametext></name>
       <fsummary>Inspect the content of a binary</fsummary>
-      <desc><p>Initialize the structure pointed to by <c>bin</c> with
-      transient information about the binary term
+      <desc><p>Initialize the structure pointed to by <c>bin</c> with 
+              information about the binary term
       <c>bin_term</c>. Return false if <c>bin_term</c> is not a binary.</p></desc> 
+    </func>
+    <func><name><ret>int</ret><nametext>enif_inspect_iolist_as_binary(ErlNifEnv* 
+                                env, ERL_NIF_TERM term, ErlNifBinary* bin)
+                              </nametext></name>
+      <fsummary>Inspect the content of an iolist</fsummary>
+      <desc><p>Initialize the structure pointed to by <c>bin</c> with one
+      continuous buffer with the same byte content as <c>iolist</c>. As with 
+      inspect_binary, the data pointed to by <c>bin</c> is transient and does 
+      not need to be released. Return false if <c>iolist</c> is not an
+      iolist.</p>
+      </desc> 
     </func>
     <func><name><ret>int</ret><nametext>enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is an atom</fsummary>
@@ -322,19 +502,36 @@ typedef struct {
       <fsummary>Determine if a term is a binary</fsummary>
       <desc><p>Return true if <c>term</c> is a binary</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_empty_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is an empty list</fsummary>
+      <desc><p>Return true if <c>term</c> is an empty list.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_fun(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a fun</fsummary>
+      <desc><p>Return true if <c>term</c> is a fun.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_is_identical(ErlNifEnv* env, ERL_NIF_TERM lhs, ERL_NIF_TERM rhs)</nametext></name>
       <fsummary>Erlang operator =:=</fsummary>
-      <desc><p>Return true if and only if the two terms are
-      identical. Corresponds to the Erlang operators <c>=:=</c> and
+      <desc><p>Return true if the two terms are identical. Corresponds to the
+      Erlang operators <c>=:=</c> and
       <c>=/=</c>.</p></desc> 
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_pid(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a pid</fsummary>
+      <desc><p>Return true if <c>term</c> is a pid.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_port(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a port</fsummary>
+      <desc><p>Return true if <c>term</c> is a port.</p></desc>
+    </func>
+
     <func><name><ret>int</ret><nametext>enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
       <fsummary>Determine if a term is a reference</fsummary>
       <desc><p>Return true if <c>term</c> is a reference.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
-      <desc><p>Create an atom term from the C-string <c>name</c>. Atom
+      <desc><p>Create an atom term from the C-string <c>name</c>. Unlike other terms, atom
       terms may be saved and used between NIF calls.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
@@ -343,8 +540,10 @@ typedef struct {
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Make a binary term.</fsummary>
-      <desc><p>Make a binary term from <c>bin</c>. Will also release
-      the binary.</p></desc>
+      <desc><p>Make a binary term from <c>bin</c>. Any ownership of 
+              the binary data will be transferred to the created term and
+              <c>bin</c> should be considered read-only for the rest of the NIF
+              call and then as released.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
       <fsummary>Create an floating-point term</fsummary>
@@ -367,18 +566,62 @@ typedef struct {
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the list. An empty list is returned if <c>cnt</c> is 0.</p></desc>
     </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
+      <fsummary>Create a list term.</fsummary>
+      <desc><p>Create an ordinary list term with length indicated by the
+      function name. Prefere these functions (macros) over the variadic
+      <c>enif_make_list</c>  to get compile time error if the number of
+      arguments does not match.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
       <fsummary>Create a list cell.</fsummary>
       <desc><p>Create a list cell <c>[head | tail]</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
+      <fsummary>Create a list term from an array.</fsummary>
+      <desc><p>Create an ordinary list containing the elements of array <c>arr</c>
+      of length <c>cnt</c>. An empty list is returned if <c>cnt</c> is 0.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
+      <fsummary>Create an integer term from a long int</fsummary>
+      <desc><p>Create an integer term from a <c>long int</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
       <fsummary>Create a reference.</fsummary>
       <desc><p>Create a reference like <seealso marker="erlang#make_ref-0">erlang:make_ref/0</seealso>.</p></desc>
     </func>
-    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string)</nametext></name>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext></name>
+      <fsummary>Create an opaque handle to a resource object</fsummary>
+      <desc><p>Create an opaque handle to a memory managed resource object
+      obtained by <seealso marker="erl_nif#enif_alloc_resource">enif_alloc_resource</seealso>.
+      No ownership transfer is done, the resource object still needs to be released by
+      <seealso marker="erl_nif#enif_release_resource">enif_release_resource</seealso>.</p>
+      <p>Note that the only defined behaviour when using of a resource term in
+      an Erlang program is to store it and send it between processes on the
+      same node. Other operations such as matching or <c>term_to_binary</c>
+      will have unpredictable (but harmless) results.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc><p>Create a list containing the characters of the
-      C-string <c>string</c>.</p></desc>
+      null-terminated string <c>string</c> with encoding <c>encoding</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
+      env, ERL_NIF_TERM bin_term, unsigned pos, unsigned size)</nametext></name>
+      <fsummary>Make a subbinary term.</fsummary>
+      <desc><p>Make a subbinary of binary <c>bin_term</c>, starting at 
+              zero-based position <c>pos</c> with a length of <c>size</c> bytes. 
+              <c>bin_term</c> must be a binary or bitstring and
+              <c>pos+size</c> must be less or equal to the number of whole
+              bytes in <c>bin_term</c>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
       <fsummary>Create a tuple term.</fsummary>
@@ -386,13 +629,205 @@ typedef struct {
       <c>cnt</c> number of arguments (after <c>cnt</c>) of type ERL_NIF_TERM as the
       elements of the tuple.</p></desc>
     </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple1(ErlNifEnv* env, ERL_NIF_TERM e1)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple2(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple3(ErlNifEnv* env, ERL_NIF_TERM e1, ERL_NIF_TERM e2, ERL_NIF_TERM e3)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple4(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e4)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple5(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e5)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple6(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e6)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple7(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e7)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple8(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e8)</nametext></name>
+    <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
+      <fsummary>Create a tuple term.</fsummary>
+      <desc><p>Create a tuple term with length indicated by the
+      function name. Prefere these functions (macros) over the variadic
+      <c>enif_make_tuple</c>  to get compile time error if the number of
+      arguments does not match.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
+      <fsummary>Create a tuple term from an array.</fsummary>
+      <desc><p>Create a tuple containing the elements of array <c>arr</c>
+      of length <c>cnt</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint(ErlNifEnv* env, unsigned int i)</nametext></name>
+      <fsummary>Create an unsigned integer term</fsummary>
+      <desc><p>Create an integer term from an <c>unsigned int</c>.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
       <desc><p>Create an integer term from an <c>unsigned long int</c>.</p></desc>
     </func>
+    <func><name><ret>ErlNifMutex*</ret><nametext>enif_mutex_create(char *name)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_create">erl_drv_mutex_create()</seealso>.
+    </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_mutex_destroy(ErlNifMutex *mtx)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_destroy">erl_drv_mutex_destroy()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_mutex_lock(ErlNifMutex *mtx)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_lock">erl_drv_mutex_lock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_mutex_trylock(ErlNifMutex *mtx)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_trylock">erl_drv_mutex_trylock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_mutex_unlock(ErlNifMutex *mtx)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_mutex_unlock">erl_drv_mutex_unlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>ErlNifResourceType*</ret><nametext>enif_open_resource_type(ErlNifEnv* env, const char* name,
+                             ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext></name>
+      <fsummary>Create or takeover a resource type</fsummary>
+      <desc><p>Create or takeover a resource type identified by the string
+      <c>name</c> and give it the destructor function pointed to by <c>dtor</c>.
+      Argument <c>flags</c> can have the following values:</p>
+      <taglist>
+        <tag><c>ERL_NIF_RT_CREATE</c></tag>
+              <item>Create a new resource type that does not already exist.</item>
+        <tag><c>ERL_NIF_RT_TAKEOVER</c></tag>
+              <item>Open an existing resource type and take over ownership of all its instances.
+               The supplied destructor <c>dtor</c> will be called both for existing instances
+               as well as new instances not yet created by the calling NIF library.</item>            
+      </taglist>
+      <p>The two flag values can be combined with bitwise-or. To avoid unintentionally
+      name clashes a good practice is to include the module name as part of the
+      type <c>name</c>. The <c>dtor</c> may  be <c>NULL</c> in case no destructor
+      is needed.</p>
+      <p>On success, return a pointer to the resource type and <c>*tried</c>
+      will be set to either <c>ERL_NIF_RT_CREATE</c> or
+      <c>ERL_NIF_RT_TAKEOVER</c> to indicate what was actually done.
+       On failure, return <c>NULL</c> and set <c>*tried</c> to <c>flags</c>.
+       It is allowed to set <c>tried</c> to <c>NULL</c>.</p>
+       <p>Note that <c>enif_open_resource_type</c> is only allowed to be called in the three callbacks
+       <seealso marker="erl_nif#load">load</seealso>, <seealso marker="erl_nif#reload">reload</seealso>
+       and <seealso marker="erl_nif#upgrade">upgrade</seealso>.</p>
+      </desc>
+    </func>
+    <func><name><ret>void*</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
+      <fsummary>Get the private data of a NIF library</fsummary>
+      <desc><p>Return the pointer to the private data that was set by <c>load</c>,
+      <c>reload</c> or <c>upgrade</c>.</p>
+      <p>Was previously named <c>enif_get_data</c>.</p></desc>
+    </func>
     <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
-      <desc><p>Release a binary obtained from <c>enif_alloc_binary</c> or <c>enif_inspect_binary</c>.</p></desc>
+      <desc><p>Release a binary obtained 
+              from <c>enif_alloc_binary</c>.</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_release_resource(ErlNifEnv* env, void* obj)</nametext></name>
+      <fsummary>Release a resource object.</fsummary>
+      <desc><p>Release a resource objects obtained from <c>enif_alloc_resource</c>.
+      The object may still be alive if it is referred to by Erlang terms. Each call to
+      <c>enif_release_resource</c> must correspond to a previous call to <c>enif_alloc_resource</c>.
+      References made by <c>enif_make_resource</c> can only be released by the garbage collector.</p></desc>
+    </func>
+    <func><name><ret>ErlNifRWLock*</ret><nametext>enif_rwlock_create(char *name)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_create">erl_drv_rwlock_create()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_rwlock_destroy(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_destroy">erl_drv_rwlock_destroy()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_rwlock_rlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rlock">erl_drv_rwlock_rlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_rwlock_runlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_runlock">erl_drv_rwlock_runlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_rwlock_rwlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwlock">erl_drv_rwlock_rwlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_rwlock_rwunlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_rwunlock">erl_drv_rwlock_rwunlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_rwlock_tryrlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrlock">erl_drv_rwlock_tryrlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_rwlock_tryrwlock(ErlNifRWLock *rwlck)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_rwlock_tryrwlock">erl_drv_rwlock_tryrwlock()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>unsigned</ret><nametext>enif_sizeof_resource(ErlNifEnv* env, void* obj)</nametext></name>
+      <fsummary>Get the byte size of a resource object</fsummary>
+      <desc><p>Get the byte size of a resource object <c>obj</c> obtained by
+      <c>enif_alloc_resource</c>.</p></desc>
+    </func>
+    <func>
+      <name><ret>void</ret><nametext>enif_system_info(ErlNifSysInfo *sys_info_ptr, size_t size)</nametext></name>
+      <fsummary>Get information about the Erlang runtime system</fsummary>
+      <desc><p>Same as <seealso marker="erl_driver#driver_system_info">driver_system_info()</seealso>.
+            </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_thread_create(char *name,ErlNifTid *tid,void * (*func)(void *),void *args,ErlNifThreadOpts *opts)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_create">erl_drv_thread_create()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_thread_exit(void *resp)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_exit">erl_drv_thread_exit()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_thread_join(ErlNifTid, void **respp)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_join">erl_drv_thread_join ()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>ErlNifThreadOpts*</ret><nametext>enif_thread_opts_create(char *name)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_create">erl_drv_thread_opts_create()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_thread_opts_destroy(ErlNifThreadOpts *opts)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_opts_destroy">erl_drv_thread_opts_destroy()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>ErlNifTid</ret><nametext>enif_thread_self(void)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_thread_self">erl_drv_thread_self()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_tsd_key_create(char *name, ErlNifTSDKey *key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_create">erl_drv_tsd_key_create()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_tsd_key_destroy(ErlNifTSDKey key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_key_destroy">erl_drv_tsd_key_destroy()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void*</ret><nametext>enif_tsd_get(ErlNifTSDKey key)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_get">erl_drv_tsd_get()</seealso>.
+          </p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_tsd_set(ErlNifTSDKey key, void *data)</nametext></name>
+    <fsummary></fsummary>
+    <desc><p>Same as <seealso marker="erl_driver#erl_drv_tsd_set">erl_drv_tsd_set()</seealso>.
+          </p></desc>
     </func>
   </funcs>
   <section>

@@ -296,6 +296,7 @@ erl_init(void)
     erl_sys_init_final();
 #endif
     packet_parser_init();
+    erl_nif_init();
 }
 
 static void

@@ -1,24 +1,29 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
 /* Include file for writers of Native Implemented Functions. 
 */
+
+#ifndef __ERL_NIF_H__
+#define __ERL_NIF_H__
+
+#include "erl_drv_nif.h"
 
 /* Version history:
 ** 0.1: R13B03
@@ -63,10 +68,31 @@ typedef struct
 
     /* Internals (avert your eyes) */
     ERL_NIF_TERM bin_term;
-    unsigned char* tmp_alloc;
     void* ref_bin;
-    
 }ErlNifBinary;
+
+typedef struct enif_resource_type_t ErlNifResourceType;
+typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
+enum ErlNifResourceFlags
+{
+    ERL_NIF_RT_CREATE = 1,
+    ERL_NIF_RT_TAKEOVER = 2
+};
+
+typedef enum
+{
+    ERL_NIF_LATIN1 = 1
+}ErlNifCharEncoding;
+
+typedef ErlDrvSysInfo ErlNifSysInfo;
+
+typedef struct ErlDrvTid_ *ErlNifTid;
+typedef struct ErlDrvMutex_ ErlNifMutex;
+typedef struct ErlDrvCond_ ErlNifCond;
+typedef struct ErlDrvRWLock_ ErlNifRWLock;
+typedef int ErlNifTSDKey;
+
+typedef ErlDrvThreadOpts ErlNifThreadOpts;
 
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_API_FUNC_DECL(RET_TYPE, NAME, ARGS) RET_TYPE (*NAME) ARGS
@@ -123,4 +149,6 @@ ERL_NIF_INIT_DECL(NAME)			\
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
 }
+
+#endif /* __ERL_NIF_H__ */
 

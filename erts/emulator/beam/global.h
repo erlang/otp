@@ -76,19 +76,29 @@ typedef struct line_buf {  /* Buffer used in line oriented I/O */
 			      The rest is the overflow buffer. */
 } LineBuf;
 
+/* Temporary object header, auto-deallocated when NIF returns. */
+struct enif_tmp_obj_t {
+    struct enif_tmp_obj_t* next;
+    void (*dtor)(struct enif_tmp_obj_t*);
+    /*char data[];*/
+};
 struct enif_environment_t /* ErlNifEnv */
 {
-    void* nif_data;
+    struct erl_module_nif* mod_nif;
     Process* proc;
     Eterm* hp;
     Eterm* hp_end;
-    unsigned heap_frag_sz;
+    ErlHeapFragment* heap_frag;
     int fpe_was_unmasked;
+    struct enif_tmp_obj_t* tmp_obj_list;
 };
-extern void erts_pre_nif(struct enif_environment_t*, Process*, void* nif_data);
+extern void erts_pre_nif(struct enif_environment_t*, Process*,
+			 struct erl_module_nif*);
 extern void erts_post_nif(struct enif_environment_t* env);
 extern Eterm erts_nif_taints(Process* p);
-extern void erts_print_nif_taints(int to, void* to_arg); 
+extern void erts_print_nif_taints(int to, void* to_arg);
+void erts_unload_nif(struct erl_module_nif* nif);
+extern void erl_nif_init(void);
 
 /*
  * Port Specific Data.
@@ -403,6 +413,9 @@ typedef struct binary {
     char orig_bytes[1]; /* to be continued */
 } Binary;
 
+#define ERTS_SIZEOF_Binary(Sz) \
+    (offsetof(Binary,orig_bytes) + (Sz))
+
 typedef struct {
     ERTS_INTERNAL_BINARY_FIELDS
     long orig_size;
@@ -435,7 +448,9 @@ typedef union {
 #define ERTS_MAGIC_BIN_ORIG_SIZE(Sz) \
   (sizeof(void (*)(Binary *)) + (Sz))
 #define ERTS_MAGIC_BIN_SIZE(Sz) \
-  (sizeof(ErtsMagicBinary) - 1 + (Sz))
+  (offsetof(ErtsMagicBinary,magic_bin_data) + (Sz))
+#define ERTS_MAGIC_BIN_FROM_DATA(DATA) \
+  ((ErtsBinary*)((char*)(DATA) - offsetof(ErtsMagicBinary,magic_bin_data)))
 
 #define Binary2ErlDrvBinary(B) (&((ErtsBinary *) (B))->driver.binary)
 #define ErlDrvBinary2Binary(D) ((Binary *) \

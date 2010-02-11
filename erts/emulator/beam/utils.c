@@ -124,24 +124,26 @@ erts_heap_alloc(Process* p, Uint need)
 #endif /* FORCE_HEAP_FRAGS */
 
     n = need;
+    bp = MBUF(p);
+    if (bp != NULL && need <= (bp->size - bp->used_size)) {
+	Eterm* ret = bp->mem + bp->used_size;
+	bp->used_size += need;
+	return ret;
+    }
 #ifdef DEBUG
     n++;
 #endif
     bp = (ErlHeapFragment*)
 	ERTS_HEAP_ALLOC(ERTS_ALC_T_HEAP_FRAG, ERTS_HEAP_FRAG_SIZE(n));
 
-#ifdef DEBUG
-    n--;
-#endif
-
-#if defined(DEBUG)
-    for (i = 0; i <= n; i++) {
-	bp->mem[i] = ERTS_HOLE_MARKER;
-    }
-#elif defined(CHECK_FOR_HOLES)
+#if defined(DEBUG) || defined(CHECK_FOR_HOLES)
     for (i = 0; i < n; i++) {
 	bp->mem[i] = ERTS_HOLE_MARKER;
     }
+#endif
+
+#ifdef DEBUG
+    n--;
 #endif
 
     /*
