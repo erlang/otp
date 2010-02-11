@@ -24,11 +24,9 @@
    [
     et,
     et_collector,
-    et_contents_viewer,
     et_gs_contents_viewer,
     et_gs_viewer,
     et_selector,
-    et_viewer,
     et_viewer,
     et_wx_contents_viewer,
     et_wx_viewer
