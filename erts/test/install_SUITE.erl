@@ -50,7 +50,7 @@
 -define(DEFAULT_TIMEOUT, ?t:minutes(1)).
 -define(JOIN(A,B,C), filename:join(A, B, C)).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record(inst, {mkdirs = true,
 	       symlinks = true,
