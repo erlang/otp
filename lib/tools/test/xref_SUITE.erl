@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(xref_SUITE).
@@ -1067,9 +1067,7 @@ read_expected(Version) ->
 	 {POS13+3,{FF,{'$M_EXPR','$F_EXPR',-1}}},
 	 {POS14+8,{{read,bi,0},{'$M_EXPR','$F_EXPR',1}}}],
 
-    O1 = [{0,{FF,{modul,'$F_EXPR',179}}},
-	  {0,{FF,{read,'$F_EXPR',178}}},
-	  {20,{{read,lc,0},{ets,new,0}}},
+    O1 = [{20,{{read,lc,0},{ets,new,0}}},
 	  {21,{{read,lc,0},{ets,tab2list,1}}},
 	  {POS1+1,{FF,{erlang,spawn,1}}},
 	  {POS1+1,{FF,{mod17,fun17,0}}},
@@ -1168,13 +1166,19 @@ read_expected(Version) ->
 		 [{POS8+3, {FF,{erlang,apply,3}}},
 		  {POS10+1, {FF,{erlang,apply,3}}},
 		  {POS10+6, {FF,{erlang,apply,3}}}]
-		 ++ O1;
+                 ++
+                 [{0,{FF,{read,'$F_EXPR',178}}},
+                  {0,{FF,{modul,'$F_EXPR',179}}}]
+                 ++ O1;
 	     _ -> 
 %                 [{POS15+2,{{read,bi,0},{foo,t,0}}},
 %                  {POS15+3,{{read,bi,0},{bar,t,0}}},
 %                  {POS15+6,{{read,bi,0},{read,local,0}}},
 %                  {POS15+8,{{read,bi,0},{foo,t,0}}},
 %                  {POS15+10,{{read,bi,0},{bar,t,0}}}] ++
+                 [{16,{FF,{read,'$F_EXPR',178}}},
+                  {17,{FF,{modul,'$F_EXPR',179}}}]
+                 ++
                  O1
 	 end,
 
@@ -1649,7 +1653,7 @@ abstract_modules(Conf) when is_list(Conf) ->
     %% The compiler will no longer allow us to have a mismatch between
     %% the module name and the output file, so we must use a trick.
     ?line {ok, param, BeamCode} = compile:file(File, [binary,debug_info]),
-    ?line ok = file:write_file(filename:join(Dir, Beam), BeamCode),
+    ?line ok = file:write_file(Beam, BeamCode),
 
     ?line {ok, _} = xref:start(s),
     ?line {ok, param} = xref:add_module(s, MFile, {warnings,false}),
