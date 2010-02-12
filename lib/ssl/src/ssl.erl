@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -129,7 +129,8 @@ listen(Port, Options0) ->
 	    %% so that new and old ssl can be run by the same
 	    %% code, however the option will be ignored by old ssl
 	    %% that hardcodes reuseaddr to true in its portprogram.
-	    Options =  proplists:delete(reuseaddr, Options0),
+	    Options1 = proplists:delete(reuseaddr, Options0),
+	    Options  = proplists:delete(ssl_imp, Options1),
 	    old_listen(Port, Options);
 	Value ->
 	    {error, {eoptions, {ssl_imp, Value}}}
@@ -366,8 +367,10 @@ getopts(#sslsocket{} = Socket, Options) ->
 %% 
 %% Description:
 %%--------------------------------------------------------------------
-setopts(#sslsocket{fd = new_ssl, pid = Pid}, Options) when is_pid(Pid) ->
-    ssl_connection:set_opts(Pid, Options);
+setopts(#sslsocket{fd = new_ssl, pid = Pid}, Opts0) when is_pid(Pid) ->
+    Opts = proplists:expand([{binary, [{mode, binary}]},
+			     {list, [{mode, list}]}], Opts0),
+    ssl_connection:set_opts(Pid, Opts);
 setopts(#sslsocket{fd = new_ssl, pid = {ListenSocket, _}}, OptTags) ->
     inet:setopts(ListenSocket, OptTags);
 setopts(#sslsocket{} = Socket, Options) ->

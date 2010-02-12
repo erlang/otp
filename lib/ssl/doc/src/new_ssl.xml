@@ -60,10 +60,9 @@
       very crippled as the control of the ssl-socket was deep
       down in openssl making it hard if not impossible to
       support all inet options, ipv6 and upgrade of a tcp
-      connection to a ssl connection. The alfa version has a
+      connection to a ssl connection. This version has a
       few limitations that will be removed before the ssl-4.0
-      release. Main differences and limitations in the alfa are
-      listed below.</p>
+      release. Main differences and limitations are listed below.</p>
 
     <list type="bulleted">
       <item>New ssl requires the crypto

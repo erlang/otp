@@ -117,8 +117,8 @@ end_per_testcase(_TestCase, Config) ->
 %%--------------------------------------------------------------------
 all(doc) -> 
     ["Test that erlang:decode_packet/3 seems to be handled correctly."
-    "We only use the most basic packet types in our tests as testing of" 
-    "the packet types are for inet to verify" 
+     "We only use the most basic packet types in our tests as testing of"
+     "the packet types are for inet to verify"
     ];
 
 all(suite) -> 
@@ -140,6 +140,7 @@ all(suite) ->
      packet_raw_active_some_big, packet_0_active_some_big, 
      packet_1_active_some_big, packet_2_active_some_big, 
      packet_4_active_some_big,
+     packet_send_to_large,
      packet_wait_passive, packet_wait_active,
      packet_baddata_passive, packet_baddata_active,
      packet_size_passive, packet_size_active
@@ -157,25 +158,25 @@ packet_raw_passive_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, raw}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_raw, [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_raw, [Data, ?MANY]}},
 					{options, 
 					 [{active, false},
 					  {packet, raw} | 
-					   ClientOpts]}]),
-				       
+					  ClientOpts]}]),
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -191,25 +192,25 @@ packet_raw_passive_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_raw, [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_raw, [Data, ?SOME]}},
 					{options, 
 					 [{active, false},
 					  {packet, raw} | 
-					   ClientOpts]}]),
-				       
+					  ClientOpts]}]),
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -224,24 +225,24 @@ packet_0_passive_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 0}, equivalent to packet raw.",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_raw, [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_raw, [Data, ?MANY]}},
 					{options, [{active, false},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -256,24 +257,24 @@ packet_0_passive_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_raw, [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_raw, [Data, ?SOME]}},
 					{options, [{active, false},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -288,25 +289,25 @@ packet_1_passive_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 1}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?MANY]}},
 					{options, [{active, false},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -321,25 +322,25 @@ packet_1_passive_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(255, "1")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?SOME]}},
 					{options, [{active, false},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -354,25 +355,25 @@ packet_2_passive_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 2}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?MANY]}},
 					{options, [{active, false},
 						   {packet, 2} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -387,28 +388,28 @@ packet_2_passive_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?SOME]}},
 					{options, [{active, false},
 						   {packet, 2} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
-    
+
 %%--------------------------------------------------------------------
 packet_4_passive_many_small(doc) -> 
     ["Test packet option {packet, 4} in passive mode"];
@@ -420,26 +421,26 @@ packet_4_passive_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 4}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, 
-					 {?MODULE, send_4 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					 {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 4}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?MANY]}},
 					{options, [{active, false},
 						   {packet, 4} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -454,25 +455,25 @@ packet_4_passive_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_4 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 4}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, passive_recv_packet,
-				  [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, passive_recv_packet,
+					       [Data, ?SOME]}},
 					{options, [{active, false},
 						   {packet, 4} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -485,27 +486,27 @@ packet_raw_active_once_many_small(suite) ->
     [];
 
 packet_raw_active_once_many_small(Config) when is_list(Config) -> 
-   ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, raw}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, active_once_raw, [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, active_once_raw, [Data, ?MANY]}},
 					{options, [{active, once},
 						   {packet, raw} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -517,27 +518,27 @@ packet_raw_active_once_some_big(suite) ->
     [];
 
 packet_raw_active_once_some_big(Config) when is_list(Config) -> 
-   ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, active_once_raw, [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, active_once_raw, [Data, ?SOME]}},
 					{options, [{active, once},
 						   {packet, raw} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -552,13 +553,13 @@ packet_0_active_once_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 0}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
@@ -569,9 +570,9 @@ packet_0_active_once_many_small(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -587,14 +588,14 @@ packet_0_active_once_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
 					{mfa, {?MODULE, send_raw ,
 					       [Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
@@ -605,9 +606,9 @@ packet_0_active_once_some_big(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -622,13 +623,13 @@ packet_1_active_once_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 1}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
@@ -640,9 +641,9 @@ packet_1_active_once_many_small(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -657,17 +658,17 @@ packet_1_active_once_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(255, "1")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_once_packet,
@@ -675,9 +676,9 @@ packet_1_active_once_some_big(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -692,17 +693,17 @@ packet_2_active_once_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 2}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_once_packet, 
@@ -710,9 +711,9 @@ packet_2_active_once_many_small(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 2} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -728,17 +729,17 @@ packet_2_active_once_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_once_packet,
@@ -746,9 +747,9 @@ packet_2_active_once_some_big(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 2} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -763,17 +764,17 @@ packet_4_active_once_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 4}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_4 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 4}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_once_packet, 
@@ -781,9 +782,9 @@ packet_4_active_once_many_small(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 4} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -798,17 +799,17 @@ packet_4_active_once_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_4 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 4}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_once_packet, 
@@ -816,9 +817,9 @@ packet_4_active_once_some_big(Config) when is_list(Config) ->
 					{options, [{active, once},
 						   {packet, 4} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -830,28 +831,28 @@ packet_raw_active_many_small(suite) ->
     [];
 
 packet_raw_active_many_small(Config) when is_list(Config) ->
- ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, raw}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, active_raw, 
-				  [Data, ?MANY]}},
+					{from, self()},
+					{mfa, {?MODULE, active_raw,
+					       [Data, ?MANY]}},
 					{options, [{active, true},
 						   {packet, raw} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -867,24 +868,24 @@ packet_raw_active_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
-			   {mfa, {?MODULE, active_raw, [Data, ?SOME]}},
+					{from, self()},
+					{mfa, {?MODULE, active_raw, [Data, ?SOME]}},
 					{options, [{active, true},
 						   {packet, raw} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -899,13 +900,13 @@ packet_0_active_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 0}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?MANY]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
@@ -916,9 +917,9 @@ packet_0_active_many_small(Config) when is_list(Config) ->
 					{options, [{active, true},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-    
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -933,13 +934,13 @@ packet_0_active_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-   
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()}, 
-			   {mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send_raw ,[Data, ?SOME]}},
+					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
@@ -950,9 +951,9 @@ packet_0_active_some_big(Config) when is_list(Config) ->
 					{options, [{active, true},
 						   {packet, 0} | 
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -968,26 +969,26 @@ packet_1_active_many_small(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 1}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?MANY]}},
 					{options, [{active, true},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1002,26 +1003,26 @@ packet_1_active_some_big(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(255, "1")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_1 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 1}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?SOME]}},
 					{options, [{active, true},
 						   {packet, 1} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1033,29 +1034,29 @@ packet_2_active_many_small(suite) ->
     [];
 
 packet_2_active_many_small(Config) when is_list(Config) -> 
- ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 2}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?MANY]}},
 					{options, [{active, true},
 						   {packet, 2} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1067,29 +1068,29 @@ packet_2_active_some_big(suite) ->
     [];
 
 packet_2_active_some_big(Config) when is_list(Config) -> 
- ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_2 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 2}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?SOME]}},
 					{options, [{active, true},
 						   {packet, 2} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1101,29 +1102,29 @@ packet_4_active_many_small(suite) ->
     [];
 
 packet_4_active_many_small(Config) when is_list(Config) -> 
-     ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = "Packet option is {packet, 4}",
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_4 ,[Data, ?MANY]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?MANY]}},
+					{options, [{packet, 4}|ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?MANY]}},
 					{options, [{active, true},
 						   {packet, 4} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 
@@ -1136,31 +1137,62 @@ packet_4_active_some_big(suite) ->
     [];
 
 packet_4_active_some_big(Config) when is_list(Config) -> 
-     ClientOpts = ?config(client_opts, Config),
+    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    
+
     Data = lists:append(lists:duplicate(100, "1234567890")),
 
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
-			   {mfa, {?MODULE, send_4 ,[Data, ?SOME]}},
-			   {options, ServerOpts}]),
+					{mfa, {?MODULE, send, [Data, ?SOME]}},
+					{options, [{packet, 4} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+					{from, self()},
 					{mfa, 
 					 {?MODULE, 
 					  active_packet, [Data, ?SOME]}},
 					{options, [{active, true},
 						   {packet, 4} |
 						   ClientOpts]}]),
-        
+
     ssl_test_lib:check_result(Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+
+%%--------------------------------------------------------------------
+packet_send_to_large(doc) ->
+    ["Test setting the packet option {packet, 2} on the send side"];
+
+packet_send_to_large(suite) -> [];
+
+packet_send_to_large(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Data = lists:append(lists:duplicate(30, "1234567890")),
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, send, [Data, 1]}},
+					{options, [{packet, 1}| ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, active_packet, [Data, 1]}},
+					{options, [{active, true} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, {error, {badarg, {packet_to_large, 300, 255}}}),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 
 
 
@@ -1263,7 +1295,7 @@ packet_baddata_active(Config) when is_list(Config) ->
 	    test_server:fail({unexpected, Unexpected})
     end,    
 
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
 %%--------------------------------------------------------------------
@@ -1293,7 +1325,7 @@ packet_baddata_passive(Config) when is_list(Config) ->
 					{options, [{active, false},
 						   {packet, cdr} |
 						   ClientOpts]}]),
-    
+
     receive
 	{Client, {other, {error, {invalid_packet, _}},{error,closed}, 1}} -> ok;
 	Unexpected ->
@@ -1314,7 +1346,7 @@ packet_size_active(Config) when is_list(Config) ->
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
 
     Data = list_to_binary(lists:duplicate(100, "1234567890")),
-    
+
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {?MODULE, send_incomplete ,[Data, 1]}},
@@ -1393,27 +1425,16 @@ passive_recv_packet(Socket, Data, N) ->
 	Other ->
 	    {other, Other, ssl:session_info(Socket), N}
     end.
-    
-send_1(_,_, 0) ->
-    no_result_msg;
-send_1(Socket, Data, N) ->
-    Length = length(Data),
-    ssl:send(Socket, [?byte(Length), Data]),
-    send_1(Socket, Data, N-1).
 
-send_2(_,_, 0) ->
+send(_,_, 0) ->
     no_result_msg;
-send_2(Socket, Data, N) ->
-    Length = length(Data),
-    ssl:send(Socket, [?uint16(Length), Data]),
-    send_2(Socket, Data, N-1).
-
-send_4(_,_, 0) ->
-    no_result_msg;
-send_4(Socket, Data, N) ->
-    Length = length(Data),
-    ssl:send(Socket, [?uint32(Length), Data]),
-    send_4(Socket, Data, N-1).
+send(Socket, Data, N) ->
+    case ssl:send(Socket, [Data]) of
+	ok ->
+	    send(Socket, Data, N-1);
+	Other ->
+	    Other
+    end.
 
 send_incomplete(Socket, Data, N) ->
     send_incomplete(Socket, Data, N, <<>>).
@@ -1446,7 +1467,7 @@ active_once_raw(Socket, Data, N, Acc) ->
 		    active_once_raw(Socket, Data, N, NewAcc)
 	    end
     end.
-		    
+
 active_once_packet(_,_, 0) ->
     ok;
 active_once_packet(Socket, Data, N) ->

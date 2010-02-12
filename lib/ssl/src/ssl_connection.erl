@@ -610,7 +610,7 @@ connection(hello, State = #state{host = Host, port = Port,
 %% gen_fsm:sync_send_event/2,3, the instance of this function with the same
 %% name as the current state name StateName is called to handle the event.
 %%--------------------------------------------------------------------
-connection({application_data, Data}, _From, 
+connection({application_data, Data0}, _From,
            State = #state{socket = Socket,
                           negotiated_version = Version,
                           transport_cb = Transport,
@@ -618,10 +618,16 @@ connection({application_data, Data}, _From,
     %% We should look into having a worker process to do this to 
     %% parallize send and receive decoding and not block the receiver
     %% if sending is overloading the socket.
-    {Msgs, ConnectionStates1} = encode_data(Data, Version, ConnectionStates0),
-    Result = Transport:send(Socket, Msgs),
-    {reply, Result, 
-     connection, State#state{connection_states = ConnectionStates1}}.
+    try
+	Data = encode_packet(Data0, State#state.socket_options),
+	{Msgs, ConnectionStates1} = encode_data(Data, Version, ConnectionStates0),
+	Result = Transport:send(Socket, Msgs),
+	{reply, Result,
+	 connection, State#state{connection_states = ConnectionStates1}}
+
+    catch throw:Error ->
+	    {reply, Error, connection, State}
+    end.
 
 %%--------------------------------------------------------------------
 %% Function: 
@@ -972,8 +978,14 @@ init_certificates(#ssl_options{cacertfile = CACertFile,
     case ssl_manager:connection_init(CACertFile, Role) of
 	{ok, CertDbRef, CacheRef} ->
 	    init_certificates(CertDbRef, CacheRef, CertFile, Role);
+	{error, {badmatch, _Error}} ->
+	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
+				   [_Error, CACertFile]),
+	    error_logger:error_report(Report),
+	    throw(ecacertfile);
 	{error, _Error} ->
-	    Report = io_lib:format("SSL: Error ~p ~n",[_Error]),
+	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
+				   [_Error, CACertFile]),
 	    error_logger:error_report(Report),
 	    throw(ecacertfile)
     end.
@@ -990,12 +1002,18 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
      try 
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
-    catch _E:_R  ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~p~n",
-				   [?LINE, _E,_R, erlang:get_stacktrace()]),
-	    error_logger:error_report(Report),
-	    throw(ecertfile)
-    end.
+     catch
+	 _E:{badmatch, _R={error,_}} ->
+	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				    [?LINE, _E,_R, CertFile, erlang:get_stacktrace()]),
+	     error_logger:error_report(Report),
+	     throw(ecertfile);
+	 _E:_R  ->
+	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				    [?LINE, _E,_R, CertFile, erlang:get_stacktrace()]),
+	     error_logger:error_report(Report),
+	     throw(ecertfile)
+     end.
 
 init_private_key(undefined, "", _Password, client) -> 
     undefined;
@@ -1006,9 +1024,15 @@ init_private_key(undefined, KeyFile, Password, _)  ->
 			PKey =:= rsa_private_key orelse PKey =:= dsa_private_key],
 	{ok, Decoded} = public_key:decode_private_key(Der,Password),
 	Decoded
-    catch _E:_R ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~p~n",
-				   [?LINE, _E,_R, erlang:get_stacktrace()]),
+    catch
+	_E:{badmatch, _R={error,_}} ->
+	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				   [?LINE, _E,_R, KeyFile, erlang:get_stacktrace()]),
+	    error_logger:error_report(Report),
+	    throw(ekeyfile);
+	_E:_R ->
+	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+				   [?LINE, _E,_R, KeyFile, erlang:get_stacktrace()]),
 	    error_logger:error_report(Report),
 	    throw(ekeyfile)
     end;
@@ -1037,8 +1061,7 @@ send_all_state_event(FsmPid, Event) ->
     gen_fsm:send_all_state_event(FsmPid, Event).
 
 sync_send_all_state_event(FsmPid, Event) ->
-    sync_send_all_state_event(FsmPid, Event, ?DEFAULT_TIMEOUT
-). 
+    sync_send_all_state_event(FsmPid, Event, ?DEFAULT_TIMEOUT).
 
 sync_send_all_state_event(FsmPid, Event, Timeout) ->
     try gen_fsm:sync_send_all_state_event(FsmPid, Event, Timeout)
@@ -1403,6 +1426,23 @@ encode_handshake(HandshakeRec, SigAlg, Version, ConnectionStates0, Hashes0) ->
     {E, ConnectionStates1} =
         ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
     {E, ConnectionStates1, Hashes1}.
+
+encode_packet(Data, #socket_options{packet=Packet}) ->
+    case Packet of
+	0 -> Data;
+	1 -> encode_size_packet(Data, 8,  (1 bsl 8) - 1);
+	2 -> encode_size_packet(Data, 16, (1 bsl 16) - 1);
+	4 -> encode_size_packet(Data, 32, (1 bsl 32) - 1);
+	_ ->
+	    throw({error, {badarg, {eoptions, {packet, Packet}}}})
+    end.
+
+encode_size_packet(Bin, Size, Max) ->
+    Len = byte_size(Bin),
+    case Len > Max of
+	true  -> throw({error, {badarg, {packet_to_large, Len, Max}}});
+	false -> <<Len:Size, Bin/binary>>
+    end.
 
 encode_data(Data, Version, ConnectionStates) ->
     ssl_record:encode_data(Data, Version, ConnectionStates).
