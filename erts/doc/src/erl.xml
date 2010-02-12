@@ -252,7 +252,7 @@
           run as a distributed node. Hidden nodes always establish
           hidden connections to all other nodes except for nodes in the
           same global group. Hidden connections are not published on
-          neither of the connected nodes, i.e. neither of the connected
+          either of the connected nodes, i.e. neither of the connected
           nodes are part of the result from <c><![CDATA[nodes/0]]></c> on the other
           node. See also hidden global groups,
           <seealso marker="kernel:global_group">global_group(3)</seealso>.</p>

@@ -360,6 +360,9 @@ If a new item is inserted with the same key as
           </p>
         <list type="bulleted">
           <item>
+            <p>mnesia:lock/2 (read_lock_table/1, write_lock_table/1)</p>
+          </item>
+          <item>
             <p>mnesia:write/3 (write/1, s_write/1)</p>
           </item>
           <item>
@@ -394,9 +397,6 @@ If a new item is inserted with the same key as
           </item>
           <item>
             <p>mnesia:index_read/3</p>
-          </item>
-          <item>
-            <p>mnesia:lock/2 (read_lock_table/1, write_lock_table/1)</p>
           </item>
           <item>
             <p>mnesia:table_info/2</p>

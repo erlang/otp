@@ -4462,7 +4462,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>spawn_link(Node, Fun) -></name>
+      <name>spawn_link(Node, Fun) -> pid()</name>
       <fsummary>Create and link to a new process with a fun as entry point on a specified node</fsummary>
       <type>
         <v>Node = node()</v>
