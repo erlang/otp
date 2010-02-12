@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Miscellaneous Mnesia Features</title>
@@ -885,16 +885,16 @@ ok
       <item>Removes the subscription on events of type
       <c>Event-Category</c></item>
     </taglist>
-    <p><c>Event-Category</c> may either be the atom <c>system</c>, or
+    <p><c>Event-Category</c> may either be the atom <c>system</c>, the atom <c>activity</c>, or
       one of the tuples <c>{table, Tab, simple}</c>, <c>{table, Tab, detailed}</c>.  The old event-category <c>{table, Tab}</c> is the same
       event-category as <c>{table, Tab, simple}</c>.
       The subscribe functions activate a subscription
       of events. The events are delivered as messages to the process
       evaluating the <c>mnesia:subscribe/1</c> function. The syntax of
-      system events is <c>{mnesia_system_event, Event}</c> and
-      <c>{mnesia_table_event, Event}</c> for table events. What system
-      events and table events means is described below.
-      </p>
+      system events is <c>{mnesia_system_event, Event}</c>,
+      <c>{mnesia_activity_event, Event}</c> for activity events, and
+      <c>{mnesia_table_event, Event}</c> for table events. What the various
+      event types mean is described below.</p>
     <p>All system events are subscribed by Mnesia's
       gen_event handler. The default gen_event handler is
       <c>mnesia_event</c>. But it may be changed by using the application
@@ -1039,8 +1039,26 @@ ok
     </section>
 
     <section>
+      <title>Activity Events</title>
+      <p>Currently, there is only one type of activity event:</p>
+      <taglist>
+       <tag><c>{complete, ActivityID}</c></tag>
+       <item>
+         <p>This event occurs when a transaction that caused a modification to the database
+           has completed.  It is useful for determining when a set of table events
+           (see below) caused by a given activity have all been sent.  Once the this event
+           has been received, it is guaranteed that no further table events with the same
+           ActivityID will be received.  Note that this event may still be received even
+           if no table events with a corresponding ActivityID were received, depending on
+           the tables to which the receiving process is subscribed.</p>
+	 <p>Dirty operations always only contain one update and thus no activity event is sent.</p>
+       </item>
+     </taglist>
+    </section>
+
+    <section>
       <title>Table Events</title>
-      <p>Another category of events are table events, which are
+      <p>The final category of events are table events, which are
         events related to table updates.  There are two types of table
         events simple and detailed.  
         </p>

@@ -1733,7 +1733,9 @@ do_commit(Tid, C, DumperMode) ->
     R  = do_snmp(Tid, C#commit.snmp),
     R2 = do_update(Tid, ram_copies, C#commit.ram_copies, R),
     R3 = do_update(Tid, disc_copies, C#commit.disc_copies, R2),
-    do_update(Tid, disc_only_copies, C#commit.disc_only_copies, R3).
+    R4 = do_update(Tid, disc_only_copies, C#commit.disc_only_copies, R3),
+    mnesia_subscr:report_activity(Tid),
+    R4.
 
 %% Update the items
 do_update(Tid, Storage, [Op | Ops], OldRes) ->
