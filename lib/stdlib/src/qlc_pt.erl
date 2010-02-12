@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(qlc_pt).
@@ -845,8 +845,8 @@ join_handle(AP, L, [F, H, O, C], Constants) ->
 
 join_handle_constants(QId, ExtraConstants) ->
     IdNo = QId#qid.no,
-    case lists:keysearch(IdNo, 1, ExtraConstants) of
-        {value, {IdNo, ConstOps}} -> 
+    case lists:keyfind(IdNo, 1, ExtraConstants) of
+        {IdNo, ConstOps} ->
             ConstOps;
         false ->
             []
@@ -1231,9 +1231,9 @@ lu_skip(ColConstants, FilterData, PatternFrame, PatternVars,
                      %% The filter can only be skipped if all constants
                      %% are looked up.
                      LookedUpConstants = 
-                         case lists:keysearch(Column, 1, ColConstants) of
+                         case lists:keyfind(Column, 1, ColConstants) of
                              false -> [];
-                             {value, {Column,LUCs}} -> LUCs
+                             {Column, LUCs} -> LUCs
                          end,
                      %% Don't try to handle filters that compare several
                      %% values equal. See also frames_to_columns().
@@ -1279,8 +1279,8 @@ join_gens(Cs0, Qs, Skip) ->
      join_gens2(lists:filter(fun(C) -> length(C) > 2 end, Cs), FD, Skip)}.
 
 join_gens2(Cs0, FilterData, Skip) ->
-    [{J, skip_tag(case lists:keysearch(J, 1, Skip) of
-                      {value, {J,FilL}} ->
+    [{J, skip_tag(case lists:keyfind(J, 1, Skip) of
+                      {J, FilL} ->
                           FilL;
                       false ->
                           []
@@ -1296,8 +1296,8 @@ skip_tag(FilList, FilterData) ->
      end, FilList}.
 
 skip_tag(Col, ColFils, FilterData) ->
-    case lists:keysearch(Col, 1, ColFils) of
-        {value, {Col, FilL}} -> 
+    case lists:keyfind(Col, 1, ColFils) of
+        {Col, FilL} ->
             Tag = if
                       length(FilterData) =:= length(FilL) ->
                           all;
@@ -1415,7 +1415,7 @@ sel_gf([], _N, _Deps, _RDs, _Gens, _Gens1) ->
 sel_gf([{#qid{no = N}=Id,{fil,F}}=Fil | FData], N, Deps, RDs, Gens, Gens1) ->
     case erl_lint:is_guard_test(F, RDs) of
         true ->
-            {value, {Id,GIds}} = lists:keysearch(Id, 1, Deps),
+            {Id,GIds} = lists:keyfind(Id, 1, Deps),
             case length(GIds) =< 1 of
                 true ->
                     case generators_in_scope(GIds, Gens1) of
@@ -2572,8 +2572,8 @@ nos_pattern([P0 | Ps0], S0, PVs0) ->
     {[P | Ps], S, PVs};
 nos_pattern({var,L,V}, {LI,Vs0,UV,A,Sg}, PVs0) when V =/= '_' ->
     {Name, Vs, PVs} = 
-        case lists:keysearch(V, 1, PVs0) of
-            {value, {V,VN}} -> 
+        case lists:keyfind(V, 1, PVs0) of
+            {V, VN} ->
                 _ = used_var(V, Vs0, UV), 
                 {VN, Vs0, PVs0};
             false -> 
