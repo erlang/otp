@@ -1657,7 +1657,8 @@ verify_agent({UserId,
 	{ok, Addr} ->
 	    snmp_conf:check_integer(Port, {gt, 0}),
 	    Conf = 
-		[{address,          Addr},
+		[{reg_type,         target_name},
+		 {address,          Addr},
 		 {port,             Port},
 		 {community,        Comm}, 
 		 {engine_id,        EngineId},

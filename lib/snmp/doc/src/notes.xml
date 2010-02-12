@@ -70,6 +70,14 @@
 
       <list type="bulleted">
         <item>
+          <p>[manager] Registration of agents using the config file, 
+            <seealso marker="snmp_manager_config_files#agents">agents.conf</seealso>, 
+            does not work. This has now been corrected. </p>
+          <p>Per Hedeland</p>
+          <p>Own Id: OTP-8442</p>
+        </item>
+
+        <item>
           <p>The config utility 
             (<seealso marker="snmp#config">snmp:config/0</seealso>)
             generated a default notify.conf 
