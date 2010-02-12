@@ -18,12 +18,12 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1]).
+-export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1]).
 
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling].
+all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371].
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];
@@ -538,3 +538,9 @@ error_handling(Config) when is_list(Config) ->
     ?t:timetrap_cancel(Dog),
     ok.
     
+pcre_cve_2008_2371(doc) ->
+    "Fix as in http://vcs.pcre.org/viewvc?revision=360&view=revision";
+pcre_cve_2008_2371(Config) when is_list(Config) ->
+    %% Make sure it doesn't crash the emulator.
+    re:compile(<<"(?i)[\xc3\xa9\xc3\xbd]|[\xc3\xa9\xc3\xbdA]">>, [unicode]),
+    ok.

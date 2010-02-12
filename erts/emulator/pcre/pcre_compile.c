@@ -4820,10 +4820,8 @@ we set the flag only if there is a literal "\r" or "\n" in the class. */
         both phases.
 
         If we are not at the pattern start, compile code to change the ims
-        options if this setting actually changes any of them. We also pass the
-        new setting back so that it can be put at the start of any following
-        branches, and when this group ends (if we are in a group), a resetting
-        item can be compiled. */
+        options if this setting actually changes any of them, and reset the
+        greedy defaults and the case value for firstbyte and reqbyte. */
 
         if (*ptr == ')')
           {
@@ -4831,7 +4829,6 @@ we set the flag only if there is a literal "\r" or "\n" in the class. */
                (lengthptr == NULL || *lengthptr == 2 + 2*LINK_SIZE))
             {
             cd->external_options = newoptions;
-            options = newoptions;
             }
          else
             {
@@ -4840,17 +4837,17 @@ we set the flag only if there is a literal "\r" or "\n" in the class. */
               *code++ = OP_OPT;
               *code++ = newoptions & PCRE_IMS;
               }
-
-            /* Change options at this level, and pass them back for use
-            in subsequent branches. Reset the greedy defaults and the case
-            value for firstbyte and reqbyte. */
-
-            *optionsptr = options = newoptions;
             greedy_default = ((newoptions & PCRE_UNGREEDY) != 0);
             greedy_non_default = greedy_default ^ 1;
-            req_caseopt = ((options & PCRE_CASELESS) != 0)? REQ_CASELESS : 0;
+            req_caseopt = ((newoptions & PCRE_CASELESS) != 0)? REQ_CASELESS : 0;
             }
 
+          /* Change options at this level, and pass them back for use
+          in subsequent branches. When not at the start of the pattern, this
+          information is also necessary so that a resetting item can be
+          compiled at the end of a group (if we are in a group). */
+
+          *optionsptr = options = newoptions;
           previous = NULL;       /* This item can't be repeated */
           continue;              /* It is complete */
           }
