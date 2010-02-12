@@ -128,7 +128,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_PROGRAM) $(DRV_MAKEFILE) $(RELSYSDIR)/priv/obj
+	$(INSTALL_DATA) $(DRV_MAKEFILE) $(RELSYSDIR)/priv/obj
 	$(INSTALL_PROGRAM) $(OBJS) $(RELSYSDIR)/priv/obj
 	$(INSTALL_PROGRAM) $(DYN_DRIVER) $(RELSYSDIR)/priv/lib
 
