@@ -348,8 +348,7 @@ atom_option(verbose) -> {verbose, true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
-    try filename:flatten(T) of
-        Filename -> Filename
+    try filename:flatten(T)
     catch error: _ -> no
     end.    
 
