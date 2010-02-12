@@ -96,21 +96,12 @@ static void *pmremap(void *old_address, size_t old_size,
 
 #define MMAP_PROT		(PROT_READ|PROT_WRITE)
 
-#if HALFWORD_HEAP
-# ifdef MAP_32BIT
-#  define RANGE_FLAG            (MAP_32BIT)
-# else
-#  error "Cannot have halfword heap if unable to restrict mmap areas
-# endif
-#else
-# define RANGE_FLAG             (0)
-#endif
 
 #ifdef MAP_ANON
-#  define MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE|RANGE_FLAG)
+#  define MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
 #  define MMAP_FD		(-1)
 #else
-#  define MMAP_FLAGS		(MAP_PRIVATE|RANGE_FLAG)
+#  define MMAP_FLAGS		(MAP_PRIVATE)
 #  define MMAP_FD		mmap_fd
 static int mmap_fd;
 #endif
@@ -1342,20 +1333,6 @@ erts_mseg_unit_size(void)
 {
     return page_size;
 }
-#if HAVE_MMAP && HALFWORD_HEAP
-#ifdef MAP_NORESERVE
-#define RESERVE_FLAGS (MMAP_FLAGS | MAP_NORESERVE)
-#else
-#define RESERVE_FLAGS (MMAP_FLAGS)
-#endif
-static void halfword_reserve(void)
-{
-#if HALFWORD_HEAP
-    initialize_pmmap();
-#endif
-    return;
-}
-#endif
 
 void
 erts_mseg_init(ErtsMsegInit_t *init)
@@ -1385,7 +1362,7 @@ erts_mseg_init(ErtsMsegInit_t *init)
 #endif
 
 #if HAVE_MMAP && HALFWORD_HEAP
-    halfword_reserve();
+    initialize_pmmap();
 #endif
 
     page_size = GET_PAGE_SIZE;
@@ -1740,8 +1717,6 @@ static void *pmmap(size_t size)
 	/* nice, perfect fit */
 	res = *block;
 	*block = (*block)->next;
-	//fprintf(stderr,"***** %p,%p,%ld,%p\n",res,*block,num_pages,first);
-	//dump_freelist();
     } else {
 	tail = (FreeBlock *) (((char *) ((void *) (*block))) + real_size);
 	if (!do_map(tail,pagsz)) {

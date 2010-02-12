@@ -238,7 +238,7 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assume a cache line size of 64 bytes */
-#  define ERTS_CACHE_LINE_SIZE ((Uint) 64)
+#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
 #  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
 #endif
 

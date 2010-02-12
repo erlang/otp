@@ -4906,13 +4906,13 @@ apply_bif_or_nif_epilogue:
      em_call_error_handler = OpCode(call_error_handler);
      em_call_traced_function = OpCode(call_traced_function);
      em_apply_bif = OpCode(apply_bif);
-     beam_apply[0] = (Eterm) OpCode(i_apply);
-     beam_apply[1] = (Eterm) OpCode(normal_exit);
-     beam_exit[0] = (Eterm) OpCode(error_action_code);
-     beam_continue_exit[0] = (Eterm) OpCode(continue_exit);
-     beam_return_to_trace[0] = (Eterm) OpCode(i_return_to_trace);
-     beam_return_trace[0] = (Eterm) OpCode(return_trace);
-     beam_exception_trace[0] = (Eterm) OpCode(return_trace); /* UGLY */
+     beam_apply[0] = (BeamInstr) OpCode(i_apply);
+     beam_apply[1] = (BeamInstr) OpCode(normal_exit);
+     beam_exit[0] = (BeamInstr) OpCode(error_action_code);
+     beam_continue_exit[0] = (BeamInstr) OpCode(continue_exit);
+     beam_return_to_trace[0] = (BeamInstr) OpCode(i_return_to_trace);
+     beam_return_trace[0] = (BeamInstr) OpCode(return_trace);
+     beam_exception_trace[0] = (BeamInstr) OpCode(return_trace); /* UGLY */
 
      /*
       * Enter all BIFs into the export table.

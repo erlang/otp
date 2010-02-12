@@ -1974,7 +1974,7 @@ dec_term(ErtsDistExternal *edep, Eterm** hpp, byte* ep, ErlOffHeap* off_heap, Et
     register Eterm* hp = *hpp;	/* Please don't take the address of hp */
     Eterm* next = objp;
 
-    *next = (Eterm) NULL;
+    *next = (Eterm) (UWord) NULL;
 
     while (next != NULL) {
 	objp = next;

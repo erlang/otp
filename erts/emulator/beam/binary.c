@@ -42,7 +42,7 @@ void
 erts_init_binary(void)
 {
     /* Verify Binary alignment... */
-    if ((((Uint) &((Binary *) 0)->orig_bytes[0]) % ((Uint) 8)) != 0) {
+    if ((((UWord) &((Binary *) 0)->orig_bytes[0]) % ((UWord) 8)) != 0) {
 	/* I assume that any compiler should be able to optimize this
 	   away. If not, this test is not very expensive... */
 	erl_exit(ERTS_ABORT_EXIT,

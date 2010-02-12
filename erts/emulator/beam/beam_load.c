@@ -3403,21 +3403,21 @@ gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->a[1].type = TAG_u;
     bf = stp->import[Bif.val].bf;
     if (bf == length_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_length_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_length_1;
     } else if (bf == size_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_size_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_size_1;
     } else if (bf == bit_size_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_bit_size_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_bit_size_1;
     } else if (bf == byte_size_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_byte_size_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_byte_size_1;
     } else if (bf == abs_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_abs_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_abs_1;
     } else if (bf == float_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_float_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_float_1;
     } else if (bf == round_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_round_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_round_1;
     } else if (bf == trunc_1) {
-	op->a[1].val = (Uint) (void *) erts_gc_trunc_1;
+	op->a[1].val = (BeamInstr) (void *) erts_gc_trunc_1;
     } else {
 	abort();
     }
@@ -5306,7 +5306,7 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
 static int safe_mul(UWord a, UWord b, UWord* resp)
 {
-    UWord res = a * b;
+    Uint res = a * b; /* XXX:Pan - used in bit syntax, the multiplication has to be stored in Uint */
     *resp = res;
 
     if (b == 0) {

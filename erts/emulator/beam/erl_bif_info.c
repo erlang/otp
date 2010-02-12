@@ -59,17 +59,18 @@
 /* Keep erts_system_version as a global variable for easy access from a core */
 static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 				     " (erts-" ERLANG_VERSION ")"
-#if HALFWORD_HEAP
-				     " [halfword]"
-#endif
-#if !HEAP_ON_C_STACK
+#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
 				     " [no-c-stack-objects]"
 #endif
 #ifndef OTP_RELEASE
 				     " [source]"
 #endif	
 #ifdef ARCH_64
+#if HALFWORD_HEAP
+				     " [64-bit halfword]"
+#else
 				     " [64-bit]"
+#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%bpu:%bpu]"
