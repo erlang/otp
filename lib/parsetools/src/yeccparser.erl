@@ -58,8 +58,8 @@ format_error(Message) ->
             io_lib:write(Message)
     end.
 
-% To be used in grammar files to throw an error message to the parser
-% toplevel. Doesn't have to be exported!
+%% To be used in grammar files to throw an error message to the parser
+%% toplevel. Doesn't have to be exported!
 -compile({nowarn_unused_function,{return_error,2}}).
 -spec return_error(integer(), any()) -> no_return().
 return_error(Line, Message) ->
