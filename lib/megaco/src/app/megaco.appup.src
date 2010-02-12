@@ -129,6 +129,7 @@
  [
   {"3.13", 
    [
+    {load_module, megaco_messenger, soft_purge, soft_purge, []}, 
     {load_module, megaco_filter, soft_purge, soft_purge, []}, 
     {update, megaco_flex_scanner_handler, {advanced, downgrade_to_pre_3_13_1}, 
      soft_purge, soft_purge, []}
@@ -161,6 +162,7 @@
  [
   {"3.13", 
    [
+    {load_module, megaco_messenger, soft_purge, soft_purge, []}, 
     {load_module, megaco_filter, soft_purge, soft_purge, []}, 
     {update, megaco_flex_scanner_handler, {advanced, upgrade_from_pre_3_13_1}, 
      soft_purge, soft_purge, []}
