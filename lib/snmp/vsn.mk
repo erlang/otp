@@ -18,7 +18,7 @@
 # %CopyrightEnd%
 
 SNMP_VSN = 4.16
-PRE_VSN  =-p04
+PRE_VSN  =
 APP_VSN  = "snmp-$(SNMP_VSN)$(PRE_VSN)"
 
 TICKETS = \
