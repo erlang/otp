@@ -36,21 +36,20 @@ line_of(Token) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The parser generator will insert appropriate declarations before this line.%
 
--type(yecc_ret() :: {'error', _} | {'ok', _}).
+-type yecc_ret() :: {'error', _} | {'ok', _}.
 
--spec(parse/1 :: (_) -> yecc_ret()).
+-spec parse(_) -> yecc_ret().
 parse(Tokens) ->
     yeccpars0(Tokens, false).
 
--spec(parse_and_scan/1 ::
-      ({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
-            yecc_ret()).
+-spec parse_and_scan({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
+            yecc_ret().
 parse_and_scan({F, A}) -> % Fun or {M, F}
     yeccpars0([], {F, A});
 parse_and_scan({M, F, A}) ->
     yeccpars0([], {{M, F}, A}).
 
--spec(format_error/1 :: (any()) -> [char() | list()]).
+-spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
         true ->
@@ -62,7 +61,7 @@ format_error(Message) ->
 % To be used in grammar files to throw an error message to the parser
 % toplevel. Doesn't have to be exported!
 -compile({nowarn_unused_function,{return_error,2}}).
--spec(return_error/2 :: (integer(), any()) -> no_return()).
+-spec return_error(integer(), any()) -> no_return().
 return_error(Line, Message) ->
     throw({error, {Line, ?MODULE, Message}}).
 
