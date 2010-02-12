@@ -62,7 +62,7 @@
 	  starter, % Pid of the handler starter process (temp): pid()
 	  handler, % Pid of the handler process: pid()
 	  from,    % From for the request:  from()
-	  state    % State of the handler: initiating | operational | canceled
+	  state    % State of the handler: initiating | started | operational | canceled
 	 }).
 
 %% Entries in the handler / request cross-ref table
@@ -539,6 +539,11 @@ handle_cast(Msg, #state{profile_name = ProfileName} = State) ->
 %%          {stop, Reason, State}            (terminate/2 is called)
 %% Description: Handling all non call/cast messages
 %%---------------------------------------------------------
+
+handle_info({started, StarterPid, ReqId, HandlerPid}, State) ->
+    handle_started(StarterPid, ReqId, HandlerPid, State),
+    {noreply, State};
+
 handle_info({connect_and_send, StarterPid, ReqId, HandlerPid, Res}, State) ->
     handle_connect_and_send(StarterPid, ReqId, HandlerPid, Res, State),
     {noreply, State};
@@ -633,6 +638,38 @@ get_handler_info(Tab) ->
 
 %% 
 %% The request handler process is started asynchronously by a 
+%% "starter process". When the handler has sucessfully been started,
+%% this message (started) is sent.
+%% 
+
+handle_started(StarterPid, ReqId, HandlerPid, 
+			#state{profile_name = Profile, 
+			       handler_db   = HandlerDb}) ->
+    case ets:lookup(HandlerDb, ReqId) of
+	[#handler_info{state = initiating} = HandlerInfo] ->
+	    ?hcri("received started ack for initiating handler", []),
+	    HandlerInfo2 = HandlerInfo#handler_info{handler = HandlerPid,
+						    state   = started}, 
+	    ets:insert(HandlerDb, HandlerInfo2),
+	    ok;
+
+	[#handler_info{state = State}] ->
+	    error_report(Profile, 
+			 "unexpected (started) message for handler (~p) in state "
+			 "~p regarding request ~p - ignoring", [HandlerPid, State, ReqId]),
+	    ?hcri("received unexpected started message", [{state, State}]),
+	    ok;
+
+	[] ->
+	    error_report(Profile, 
+			 "unknown handler ~p (~p) started for request ~w - canceling",
+			 [HandlerPid, StarterPid, ReqId]),
+	    httpc_handler:cancel(ReqId, HandlerPid)
+    end.
+
+
+%% 
+%% The request handler process is started asynchronously by a 
 %% "starter process". When that process terminates it sends 
 %% one of two messages. These ara handled by the two functions
 %% below.
@@ -642,8 +679,8 @@ handle_connect_and_send(_StarterPid, ReqId, HandlerPid, Result,
 			#state{profile_name = Profile, 
 			       handler_db   = HandlerDb}) ->
     case ets:lookup(HandlerDb, ReqId) of
-	[#handler_info{state = initiating} = HandlerInfo] when Result =:= ok ->
-	    ?hcri("received connect-and-send ack for initiating handler", []),
+	[#handler_info{state = started} = HandlerInfo] when Result =:= ok ->
+	    ?hcri("received connect-and-send ack for started handler", []),
 	    HandlerInfo2 = HandlerInfo#handler_info{starter = undefined, 
 						    handler = HandlerPid,
 						    state   = operational}, 
@@ -658,28 +695,24 @@ handle_connect_and_send(_StarterPid, ReqId, HandlerPid, Result,
 	    ets:insert(HandlerDb, HandlerInfo2),
 	    ok;
 
-	[#handler_info{from = From}] ->
+	[#handler_info{state = State}] when Result =/= ok ->
 	    error_report(Profile, 
-			 "handler (~p) failed to connect and/or "
+			 "handler (~p, ~w) failed to connect and/or "
 			 "send request ~p"
-			 "~n   Error: ~p", [HandlerPid, ReqId, Result]),
-	    ?hcri("received connect-and-send error", [{result, Result}]),
-	    Reason2 = 
-		case Result of
-		    {error, Reason} ->
-			{failed_connecting, Reason};
-		    _ ->
-			{failed_connecting, Result}
-		end,
-	    DummyReq = #request{id = ReqId}, 
-	    httpc_response:send(From, httpc_response:error(DummyReq, Reason2)),
-	    %% gen_server:reply(From, Error),
+			 "~n   Result: ~p", 
+			 [HandlerPid, State, ReqId, Result]),
+	    ?hcri("received connect-and-send error", 
+		  [{result, Result}, {state, State}]),
+	    %% We don't need to send a response to the original caller
+	    %% because the handler already sent one in its terminate
+	    %% function.
 	    ets:delete(HandlerDb, ReqId), 
 	    ok;
 
 	[] ->
 	    error_report(Profile, 
-			 "handler successfully (~p) started for unknown request ~p",
+			 "handler (~p) successfully started "
+			 "for unknown request ~p => canceling",
 			 [HandlerPid, ReqId]),
 	    httpc_handler:cancel(ReqId, HandlerPid)
     end.
@@ -689,13 +722,11 @@ handle_failed_starting_handler(_StarterPid, ReqId, Error,
 			       #state{profile_name = Profile, 
 				      handler_db = HandlerDb}) ->
     case ets:lookup(HandlerDb, ReqId) of
-	[#handler_info{state = canceled, 
-		       from  = From}] ->
+	[#handler_info{state = canceled}] ->
 	    error_report(Profile, 
 			 "failed starting handler for request ~p"
 			 "~n   Error: ~p", [ReqId, Error]),
 	    request_canceled(Profile, ReqId), % Fake signal from handler
-	    gen_server:reply(From, Error),
 	    ets:delete(HandlerDb, ReqId), 
 	    ok;
 
@@ -703,7 +734,15 @@ handle_failed_starting_handler(_StarterPid, ReqId, Error,
 	    error_report(Profile, 
 			 "failed starting handler for request ~p"
 			 "~n   Error: ~p", [ReqId, Error]),
-	    gen_server:reply(From, Error),
+	    Reason2 = 
+		case Error of
+		    {error, Reason} ->
+			{failed_connecting, Reason};
+		    _ ->
+			{failed_connecting, Error}
+		end,
+	    DummyReq = #request{id = ReqId}, 
+	    httpc_response:send(From, httpc_response:error(DummyReq, Reason2)),
 	    ets:delete(HandlerDb, ReqId), 
 	    ok;
 
@@ -719,10 +758,32 @@ maybe_handle_terminating_starter(MeybeStarterPid, Reason, HandlerDb) ->
     Pattern = #handler_info{starter = MeybeStarterPid, _ = '_'}, 
     case ets:match_object(HandlerDb, Pattern) of
 	[#handler_info{id = ReqId, from = From, state = initiating}] ->
-	    Error = {error, {failed_starting_request_handler, Reason}}, 
-	    gen_server:reply(From, Error),
+	    %% The starter process crashed before it could start the 
+	    %% the handler process, therefor we need to answer the 
+	    %% original caller.
+	    ?hcri("starter process crashed bfore starting handler", 
+		  [{starter, MeybeStarterPid}, {reason, Reason}]),
+	    Reason2 = 
+		case Reason of
+		    {error, Error} ->
+			{failed_connecting, Error};
+		    _ ->
+			{failed_connecting, Reason}
+		end,
+	    DummyReq = #request{id = ReqId}, 
+	    httpc_response:send(From, httpc_response:error(DummyReq, Reason2)),
 	    ets:delete(HandlerDb, ReqId),
 	    ok;
+
+	[#handler_info{state = State} = HandlerInfo] ->
+	    %% The starter process crashed after the handler was started. 
+	    %% The handler will answer to the original caller.
+	    ?hcri("starter process crashed after starting handler", 
+		  [{starter, MeybeStarterPid}, {reason, Reason}, {state, State}]),
+	    HandlerInfo2 = HandlerInfo#handler_info{starter = undefined}, 
+	    ets:insert(HandlerDb, HandlerInfo2),
+	    ok;
+
 	_ ->
 	    ok
     end.
@@ -886,6 +947,9 @@ create_handler_starter(#request{id          = Id,
 		      [{id, Id}, {profile, ProfileName}, {result, Result1}]),
 		case Result1 of
 		    {ok, HandlerPid} ->
+			StartedMessage = 
+			    {started, self(), Id, HandlerPid}, 
+			ManagerPid ! StartedMessage, 
 			Result2 = httpc_handler:connect_and_send(Request, 
 								 HandlerPid),
 			?hcrd("handler starter - connected and sent", 

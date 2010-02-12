@@ -277,7 +277,7 @@ ssl_options() = {verify,     code()}   |
 	      stream_start, Headers}, {http, {RequestId, stream,
 	      BinBodyPart}, {http, {RequestId, stream_end, Headers}. When
 	      streaming to to the calling processes using the option
-	      <c>{self once}</c> the first message will have an additional
+	      <c>{self, once}</c> the first message will have an additional
 	      element e.i. {http, {RequestId, stream_start, Headers, Pid},
 	      this is the process id that should be used as an argument to
 	      http:stream_next/1 to trigger the next message to be sent to
@@ -329,7 +329,7 @@ ssl_options() = {verify,     code()}   |
             <p>Note that the validity of the options are <em>not</em>
               checked in any way. </p>
             <p>Note that this may change the socket behaviour 
-              (see <seealso marker="inet#setopts">inet:setopts/2</seealso>) 
+              (see <seealso marker="kernel:inet#setopts">inet:setopts/2</seealso>) 
               for an already existing, and therefor already connected 
               request handler. </p>
             <p>By defaults the socket options set by the 

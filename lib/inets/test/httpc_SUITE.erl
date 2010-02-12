@@ -1440,13 +1440,31 @@ proxy_page_does_not_exist(Config) when is_list(Config) ->
 
 
 %%-------------------------------------------------------------------------
+
 proxy_https_not_supported(doc) ->
     [];
 proxy_https_not_supported(suite) ->
     [];
 proxy_https_not_supported(Config) when is_list(Config) ->
-    {error, {failed_connecting, https_through_proxy_is_not_currently_supported}} = 
-	http:request(get, {"https://login.yahoo.com", []}, [], []),
+    Result = http:request(get, {"https://login.yahoo.com", []}, [], []),
+    case Result of
+	{error, Reason} ->
+	    %% ok so far
+	    case Reason of
+		{failed_connecting, Why} ->
+		    %% ok, now check why
+		    case Why of
+			https_through_proxy_is_not_currently_supported ->
+			    ok;
+			_ ->
+			    tsf({unexpected_why, Why})
+		    end;
+		_ ->
+		    tsf({unexpected_reason, Reason})
+	    end;
+	_ ->
+	    tsf({unexpected_result, Result})
+    end,
     ok.
 
 

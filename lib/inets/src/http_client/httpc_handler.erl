@@ -267,9 +267,14 @@ handle_call({connect_and_send, #request{address = Address0,
 	    %%send_ssl_tunnel_request(Address, Request,
 	    %%		    #state{options = Options,
 	    %%		   status = ssl_tunnel});
-	    Reason = https_through_proxy_is_not_currently_supported,
-	    Error  = {error, Reason},
-	    {stop, Error, Error, State};
+	    Reason = {failed_connecting, 
+		      https_through_proxy_is_not_currently_supported},
+	    %% Send a reply to the original caller
+	    ErrorResponse = httpc_response:error(Request, Reason), 
+	    httpc_response:send(Request#request.from, ErrorResponse),
+	    %% Reply to the manager
+	    ErrorReply    = {error, Reason},
+	    {stop, normal, ErrorReply, State};
 	true ->
 	    case connect_and_send_first_request(Address, Request, State) of
 		{ok, NewState} ->

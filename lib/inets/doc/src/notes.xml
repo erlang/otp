@@ -354,7 +354,7 @@
               request, when the client connects to the server. Default 
               value is that of the <c>timeout</c> option. </p>
             <p>See the 
-	      <seealso marker="http#request2">request/4,5</seealso> 
+	      <seealso marker="httpc#request2">request/4,5</seealso> 
               function for more info. </p>
 	    <p>Own Id: OTP-7298</p>
 	    <!-- <p>Aux Id: seq11086</p> -->
@@ -461,7 +461,7 @@
               the client connects to the server. </p>
 	    <p>As a side-effect of this, the option <c>ipv6</c> has been 
               removed and replaced by the <c>ipfamily</c> option. </p>
-	    <p>See <seealso marker="http#set_options">http:set_options/1,2</seealso> 
+	    <p>See <seealso marker="httpc#set_options">http:set_options/1,2</seealso> 
               for more info. </p>
             <p>*** POTENTIAL INCOMPATIBILITY ***</p>
 	    <p>Own Id: OTP-8004</p>
