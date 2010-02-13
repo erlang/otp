@@ -1773,6 +1773,24 @@ type(erts_debug, dist_ext_to_term, 2, Xs) ->
 	 fun (_) -> t_any() end);
 type(erts_debug, flat_size, 1, Xs) ->
   strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
+type(erts_debug, lock_counters, 1, Xs) ->
+  strict(arg_types(erts_debug, lock_counters, 1), Xs,
+	 fun ([Arg]) ->
+	     case t_is_atom(Arg) of
+	       true ->
+		 case t_atom_vals(Arg) of
+		   ['enabled'] -> t_boolean();
+		   ['info'] -> t_any();
+		   ['clear'] -> t_atom(ok);
+		   _ -> t_sup([t_boolean(), t_any(), t_atom('ok')])
+		 end;
+	       false ->
+		 case t_is_tuple(Arg) of
+		   true -> t_boolean();
+		   false -> t_sup([t_boolean(), t_any(), t_atom('ok')])
+		 end
+	     end
+	 end);
 type(erts_debug, same, 2, Xs) ->
   strict(arg_types(erts_debug, same, 2), Xs, fun (_) -> t_boolean() end);
 %%-- ets ----------------------------------------------------------------------
@@ -3874,6 +3892,12 @@ arg_types(erts_debug, dist_ext_to_term, 2) ->
   [t_tuple(), t_binary()];
 arg_types(erts_debug, flat_size, 1) ->
   [t_any()];
+arg_types(erts_debug, lock_counters, 1) ->
+  [t_sup([t_atom(enabled),
+	  t_atom(info),
+	  t_atom(clear),
+	  t_tuple([t_atom(copy_save), t_boolean()]),
+	  t_tuple([t_atom(process_locks), t_boolean()])])];
 arg_types(erts_debug, same, 2) ->
   [t_any(), t_any()];
 %%------- ets -----------------------------------------------------------------
