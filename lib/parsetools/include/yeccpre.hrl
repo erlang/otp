@@ -37,10 +37,10 @@ parse_and_scan({M, F, A}) ->
 -spec(format_error/1 :: (any()) -> [char() | list()]).
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
-	true ->
-	    Message;
-	_ ->
-	    io_lib:write(Message)
+        true ->
+            Message;
+        _ ->
+            io_lib:write(Message)
     end.
 
 % To be used in grammar files to throw an error message to the parser
@@ -85,7 +85,7 @@ yeccpars1([Token | Tokens], Tzr, State, States, Vstack) ->
 yeccpars1([], {{F, A},_Line}, State, States, Vstack) ->
     case apply(F, A) of
         {ok, Tokens, Endline} ->
-	    yeccpars1(Tokens, {{F, A}, Endline}, State, States, Vstack);
+            yeccpars1(Tokens, {{F, A}, Endline}, State, States, Vstack);
         {eof, Endline} ->
             yeccpars1([], {no_func, Endline}, State, States, Vstack);
         {error, Descriptor, _Endline} ->
