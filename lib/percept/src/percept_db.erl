@@ -72,7 +72,7 @@
 %%	Pid = pid()
 %% @doc Starts or restarts the percept database.
 
--spec(start/0 :: () -> {'started', pid()} | {'restarted', pid()}).
+-spec start() -> {'started', pid()} | {'restarted', pid()}.
 
 start() ->
     case erlang:whereis(percept_db) of
@@ -92,7 +92,7 @@ start() ->
 %%	Pid = pid()
 %% @doc Stops the percept database.
 
--spec(stop/0 :: () -> 'not_started' | {'stopped', pid()}).
+-spec stop() -> 'not_started' | {'stopped', pid()}.
 
 stop() ->
     case erlang:whereis(percept_db) of

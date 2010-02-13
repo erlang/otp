@@ -46,10 +46,10 @@
 %% @type color()  
 %% @type render_option() = {render_engine, opaque} | {render_engine, alpha}
 
--type(egd_image() :: pid()). 
--type(point() :: {non_neg_integer(), non_neg_integer()}).
--type(render_option() :: {'render_engine', 'opaque'} | {'render_engine', 'alpha'}).
--type(color() :: {float(), float(), float(), float()}).
+-type egd_image() :: pid().
+-type point() :: {non_neg_integer(), non_neg_integer()}.
+-type render_option() :: {'render_engine', 'opaque'} | {'render_engine', 'alpha'}.
+-type color() :: {float(), float(), float(), float()}.
 
 %%==========================================================================
 %%
@@ -60,7 +60,7 @@
 %% @spec create(integer(), integer()) -> egd_image()
 %% @doc Creates an image area and returns its reference.
 
--spec(create/2 :: (Width :: integer(), Height :: integer()) -> egd_image()).
+-spec create(Width :: integer(), Height :: integer()) -> egd_image().
 
 create(Width,Height) ->
     spawn_link(fun() -> init(trunc(Width),trunc(Height)) end).
@@ -69,16 +69,17 @@ create(Width,Height) ->
 %% @spec destroy(egd_image()) -> ok
 %% @doc Destroys the image.
 
--spec(destroy/1 :: (Image :: egd_image()) -> ok).
+-spec destroy(Image :: egd_image()) -> ok.
 
 destroy(Image) ->
    cast(Image, destroy),
    ok.
 
 
-%% @spec render(egd_image()) -> binary() 
+%% @spec render(egd_image()) -> binary()
 %% @equiv render(Image, png, [{render_engine, opaque}])
 
+-spec render(Image :: egd_image()) -> binary().
 
 render(Image) ->
     render(Image, png, [{render_engine, opaque}]).
@@ -94,10 +95,10 @@ render(Image, Type) ->
 %% 	binary can either be a raw bitmap with rgb tripplets or a binary in png
 %%	format.
 
--spec(render/3 :: (
+-spec render(
 	Image :: egd_image(), 
 	Type :: 'png' | 'raw_bitmap' | 'eps',
-	Options :: [render_option()]) -> binary()).
+	Options :: [render_option()]) -> binary().
 
 render(Image, Type, Options) ->
     {render_engine, RenderType} = proplists:lookup(render_engine, Options),
@@ -116,11 +117,11 @@ information(Pid) ->
 %% @spec line(egd_image(), point(), point(), color()) -> ok
 %% @doc Creates a line object from P1 to P2 in the image.
 
--spec(line/4 :: (
+-spec line(
 	Image :: egd_image(),
 	P1 :: point(),
 	P2 :: point(),
-	Color :: color()) -> 'ok').
+	Color :: color()) -> 'ok'.
 
 line(Image, P1, P2, Color) ->
     cast(Image, {line, P1, P2, Color}),
@@ -132,9 +133,8 @@ line(Image, P1, P2, Color) ->
 %%  Name  = black | silver | gray | white | maroon | red | purple | fuchia | green | lime | olive | yellow | navy | blue | teal | aqua
 %% @doc Creates a color reference.
 
--spec(color/1 :: (
-    Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
-    color()).
+-spec color(Value :: {byte(), byte(), byte()} | {byte(), byte(), byte(), byte()} | atom()) ->
+    color().
 
 color(Color) ->
     egd_primitives:color(Color).

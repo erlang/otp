@@ -172,12 +172,12 @@ div_tag_graph() ->
 	width:40px;
 	height:40px;\"></div></div>".
 
--spec(url_graph/5 :: (
+-spec url_graph(
 	Widht :: non_neg_integer(),
 	Height :: non_neg_integer(),
 	Min :: float(),
 	Max :: float(),
-	Pids :: [pid()]) -> string()).
+	Pids :: [pid()]) -> string().
 
 url_graph(W, H, Min, Max, []) ->
     "/cgi-bin/percept_graph/graph?range_min=" ++ term2html(float(Min)) 
@@ -508,10 +508,7 @@ cl_deltas([A,B|Ls], Out) -> cl_deltas([B|Ls], [B - A | Out]).
 join_strings(Strings) ->
     lists:flatten(Strings).
 
--spec(join_strings_with/2 :: (
-	Strings :: [string()],
-	Separator :: string()) ->
-	string()).
+-spec join_strings_with(Strings :: [string()], Separator :: string()) -> string().
 
 join_strings_with([S1, S2 | R], S) ->
     join_strings_with([join_strings_with(S1,S2,S) | R], S);
@@ -522,7 +519,7 @@ join_strings_with(S1, S2, S) ->
 
 %%% Generic erlang2html
 
--spec(html_table/1 :: (Rows :: [[string() | {'td' | 'th', string()}]]) -> string()).
+-spec html_table(Rows :: [[string() | {'td' | 'th', string()}]]) -> string().
 
 html_table(Rows) -> "<table>" ++ html_table_row(Rows) ++ "</table>".
 
@@ -539,7 +536,7 @@ html_table_data([Data|Row])       -> "<td>" ++ Data ++ "</td>" ++ html_table_dat
 
 
 
--spec(table_line/1 :: (Table :: [any()]) -> string()).
+-spec table_line(Table :: [any()]) -> string().
 
 table_line(List) -> table_line(List, ["<tr>"]).
 table_line([], Out) -> lists:flatten(lists:reverse(["</tr>\n"|Out]));
@@ -548,16 +545,12 @@ table_line([Element | Elements], Out) when is_list(Element) ->
 table_line([Element | Elements], Out) ->
     table_line(Elements, ["<td>" ++ term2html(Element) ++ "</td>"|Out]).
 
--spec(term2html/1 :: (any()) -> string()).
+-spec term2html(any()) -> string().
 
 term2html(Term) when is_float(Term) -> lists:flatten(io_lib:format("~.4f", [Term]));
 term2html(Term) -> lists:flatten(io_lib:format("~p", [Term])).
 
--spec(mfa2html/1 :: (MFA :: {
-	atom(), 
-	atom(),
-	list() | integer()}) ->
-	string()). 
+-spec mfa2html(MFA :: {atom(), atom(), list() | integer()}) -> string().
 
 mfa2html({Module, Function, Arguments}) when is_list(Arguments) ->
     lists:flatten(io_lib:format("~p:~p/~p", [Module, Function, length(Arguments)]));
@@ -566,7 +559,7 @@ mfa2html({Module, Function, Arity}) when is_integer(Arity) ->
 mfa2html(_) ->
     "undefined".
 
--spec(pid2html/1 :: (Pid :: pid() | port()) -> string()).
+-spec pid2html(Pid :: pid() | port()) -> string().
 
 pid2html(Pid) when is_pid(Pid) ->
     PidString = term2html(Pid),
@@ -577,14 +570,14 @@ pid2html(Pid) when is_port(Pid) ->
 pid2html(_) ->
     "undefined".
 
--spec(image_string/1 :: (Request :: string()) -> string()).
+-spec image_string(Request :: string()) -> string().
 
 image_string(Request) ->
     "<img border=0 src=\"/cgi-bin/percept_graph/" ++
     Request ++ 
     " \">".
 
--spec(image_string/2 :: (atom() | string(), list()) -> string()).
+-spec image_string(atom() | string(), list()) -> string().
 
 image_string(Request, Options) when is_atom(Request), is_list(Options) ->
      image_string(image_string_head(erlang:atom_to_list(Request), Options, []));
@@ -610,13 +603,13 @@ image_string_tail(Request, [{Type, Value} | Opts], Out) ->
 
 %%% percept conversions
 
--spec(pid2value/1 :: (Pid :: pid()) -> string()).
+-spec pid2value(Pid :: pid()) -> string().
 
 pid2value(Pid) ->
     String = lists:flatten(io_lib:format("~p", [Pid])),
     lists:sublist(String, 2, erlang:length(String)-2).
 
--spec(value2pid/1 :: (Value :: string()) -> pid()).
+-spec value2pid(Value :: string()) -> pid().
 
 value2pid(Value) ->
    String = lists:flatten("<" ++ Value ++ ">"),
@@ -625,10 +618,8 @@ value2pid(Value) ->
 
 %%% get value
 
--spec(get_option_value/2 :: (
-	Option :: string(),
-	Options :: [{string(),any()}]) ->
-	{'error', any()} | bool() | pid() | [pid()] | number()).
+-spec get_option_value(Option :: string(), Options :: [{string(),any()}]) ->
+	{'error', any()} | boolean() | pid() | [pid()] | number().
 
 get_option_value(Option, Options) ->
     case catch get_option_value0(Option, Options) of
@@ -662,8 +653,7 @@ get_default_option_value(Option) ->
 	_ -> {error, {undefined_default_option, Option}}
     end.
 
--spec(get_number_value/1 :: (Value :: string()) ->
-	number() | {'error', 'illegal_number'}).
+-spec get_number_value(string()) -> number() | {'error', 'illegal_number'}.
 
 get_number_value(Value) ->
     % Try float
@@ -710,7 +700,7 @@ menu() ->
      	<li><a href=/cgi-bin/percept_html/page>overview</a></li>
      </ul></div>\n".
 
--spec(error_msg/1 :: (Error :: string()) -> string()).
+-spec error_msg(Error :: string()) -> string().
 
 error_msg(Error) ->
     "<table width=300>
