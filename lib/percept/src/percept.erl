@@ -251,20 +251,20 @@ trace_parser(Trace, {Count, Pid}) ->
 find_service_pid_from_port([], _) ->
     undefined;
 find_service_pid_from_port([{_, Pid, Options} | Services], Port) ->
-    case lists:keysearch(port, 1, Options) of
+    case lists:keyfind(port, 1, Options) of
 	false ->
 	    find_service_pid_from_port(Services, Port);
-	{value, {port, Port}} ->
+	{port, Port} ->
 	    Pid
     end.
 
 find_service_port_from_pid([], _) ->
     undefined;
 find_service_port_from_pid([{_, Pid, Options} | _], Pid) ->
-    case lists:keysearch(port, 1, Options) of
+    case lists:keyfind(port, 1, Options) of
 	false ->
 	    undefined;
-	{value, {port, Port}} ->
+	{port, Port} ->
 	   Port
     end;
 find_service_port_from_pid([{_, _, _} | Services], Pid) ->

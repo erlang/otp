@@ -40,8 +40,7 @@
 	runnable_count = 0	%:: non_neg_integer()
 	}).
 
--record(
-	information, {
+-record(information, {
 	id			,%:: pid() | port(), 
 	name = undefined	,%:: atom() | string() | 'undefined', 
 	entry = undefined	,%:: true_mfa() | 'undefined', 

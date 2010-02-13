@@ -29,7 +29,8 @@
 -include("egd.hrl").
 -define('DummyC',0).
 
-binary(Image) -> binary(Image, opaque).
+binary(Image) ->
+    binary(Image, opaque).
 
 binary(Image, Type) ->
     parallel_binary(precompile(Image),Type).
@@ -42,9 +43,8 @@ parallel_binary(Image = #image{ height = Height },Type) ->
 	    W  = Image#image.width,
 	    Bg = Image#image.background,
 	    Os = Image#image.objects,
-	    erlang:list_to_binary(lists:map(fun
-	    	(Y) -> scanline(Y, Os, {0,0,W - 1, Bg}, Type)
-	    end, lists:seq(1, Height)));
+	    erlang:list_to_binary([scanline(Y, Os, {0,0,W - 1, Bg}, Type)
+				   || Y <- lists:seq(1, Height)]);
 	Np ->
 	    Pids    = start_workers(Np, Type),
     	    Handler = handle_workers(Height, Pids),
@@ -54,7 +54,9 @@ parallel_binary(Image = #image{ height = Height },Type) ->
 	    Res
     end.
 
-start_workers(Np, Type) -> start_workers(Np, Type, []).
+start_workers(Np, Type) ->
+    start_workers(Np, Type, []).
+
 start_workers( 0,    _, Pids) -> Pids;
 start_workers(Np, Type, Pids) when Np > 0 -> 
     start_workers(Np - 1, Type, [spawn_link(fun() -> worker(Type) end)|Pids]).
@@ -90,7 +92,9 @@ init_workers(Image, Handler, [Pid|Pids]) ->
     Handler ! {Pid, scan_complete},
     init_workers(Image, Handler, Pids).
 
-handle_workers(H, Pids) -> spawn_link(fun() -> handle_workers(H, H, length(Pids)) end).
+handle_workers(H, Pids) ->
+    spawn_link(fun() -> handle_workers(H, H, length(Pids)) end).
+
 handle_workers(_, 0, _) -> ok;
 handle_workers(H, Hi, Np) when H > 0 ->
     N = trunc(Hi/(2*Np)),
@@ -110,14 +114,15 @@ finish_workers([Pid|Pids]) ->
     Pid ! {self(), done},
     finish_workers(Pids).
 
-receive_binaries(H) -> receive_binaries(H, []).
+receive_binaries(H) ->
+    receive_binaries(H, []).
+
 receive_binaries(0, Bins) -> erlang:list_to_binary(Bins);
 receive_binaries(H, Bins) when H > 0 ->
     receive
         {scan, H, Bin} -> 
 	    receive_binaries(H - 1, [Bin|Bins])
     end.
-
 
 scanline(Y, Os, {_,_,Width,_}=LSB, Type) ->
     OLSs = parse_objects_on_line(Y-1, Width, Os),
@@ -189,7 +194,6 @@ modify_layers(Layers,[{{_,Z,start},C}|Trans]) ->
     modify_layers(add_layer(Layers, Z, C), Trans);
 modify_layers(Layers,[{{_,Z,stop },C}|Trans]) ->
     modify_layers(remove_layer(Layers, Z, C), Trans).
-
 
 add_layer([{Z1,_}=H|Layers],Z,C) when Z1 > Z ->
     [H|add_layer(Layers,Z,C)];
