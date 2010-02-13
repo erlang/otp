@@ -2672,6 +2672,8 @@ type(os, getenv, 1, Xs) ->
 type(os, getpid, 0, _) -> t_string();
 type(os, putenv, 2, Xs) ->
   strict(arg_types(os, putenv, 2), Xs, fun (_) -> t_atom('true') end);
+type(os, timestamp, 0, _) ->
+  t_time();
 %%-- re -----------------------------------------------------------------------
 type(re, compile, 1, Xs) ->
   strict(arg_types(re, compile, 1), Xs,
@@ -4294,6 +4296,8 @@ arg_types(os, getpid, 0) ->
   [];
 arg_types(os, putenv, 2) ->
   [t_string(), t_string()];
+arg_types(os, timestamp, 0) ->
+  [];
 %%-- re -----------------------------------------------------------------------
 arg_types(re, compile, 1) ->
   [t_iodata()];
