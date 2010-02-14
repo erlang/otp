@@ -28,6 +28,11 @@
 
 
 %% =====================================================================
+
+-type comment()     :: {integer(), integer(), integer(), [string()]}.
+-type commentLine() :: {integer(), integer(), integer(), string()}.
+
+%% =====================================================================
 %% @spec file(FileName::file:filename()) -> [Comment]
 %%
 %%	    Comment = {Line, Column, Indentation, Text}
@@ -58,6 +63,8 @@
 %% error occurred, where `Reason' is an atom corresponding to
 %% a Posix error code; see the module {@link //kernel/file} for details.
 
+-spec file(file:filename()) -> [comment()].
+
 file(Name) ->
     Name1 = filename(Name),
     case catch {ok, file:read_file(Name1)} of
@@ -79,7 +86,7 @@ file(Name) ->
 
 
 %% =====================================================================
-%% string(string()) -> [Comment]
+%% @spec string(string()) -> [Comment]
 %%
 %%	    Comment = {Line, Column, Indentation, Text}
 %%	    Line = integer()
@@ -92,6 +99,8 @@ file(Name) ->
 %% as for {@link file/1}.
 %%
 %% @see file/1
+
+-spec string(string()) -> [comment()].
 
 string(Text) ->
     lists:reverse(join_lines(scan_lines(Text))).
@@ -114,6 +123,8 @@ string(Text) ->
 %% first comment-introducing `%' character on the line, up
 %% to (but not including) the line-terminating newline. For details on
 %% `Line', `Column' and `Indent', see {@link file/1}.
+
+-spec scan_lines(string()) -> [commentLine()].
 
 scan_lines(Text) ->
     scan_lines(Text, 1, 0, 0, []).
@@ -229,6 +240,8 @@ scan_char([], _L, _Col, Ack) ->
 %% <em>increasing</em> line-numbers (i.e., top-down).
 %%
 %% @see scan_lines/1
+
+-spec join_lines([commentLine()]) -> [comment()].
 
 join_lines([{L, Col, Ind, Txt} | Lines]) ->
     join_lines(Lines, [Txt], L, Col, Ind);

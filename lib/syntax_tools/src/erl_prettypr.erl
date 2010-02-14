@@ -48,24 +48,29 @@
 -define(NOUSER, undefined).
 -define(NOHOOK, none).
 
--record(ctxt, {prec = 0,
-	       sub_indent = 2,
-	       break_indent = 4,
-	       clause = undefined,
-	       hook = ?NOHOOK,
-	       paper = ?PAPER,
-	       ribbon = ?RIBBON,
-	       user = ?NOUSER}).
+-type hook() :: 'none'
+              | fun((erl_syntax:syntaxTree(), _, _) -> prettypr:document()).
 
+-record(ctxt, {prec = 0           :: integer(),
+	       sub_indent = 2     :: non_neg_integer(),
+	       break_indent = 4   :: non_neg_integer(),
+	       clause = undefined,
+	       hook = ?NOHOOK     :: hook(),
+	       paper = ?PAPER     :: integer(),
+	       ribbon = ?RIBBON   :: integer(),
+	       user = ?NOUSER     :: term()}).
+-type context() :: #ctxt{}.
 
 %% =====================================================================
 %% The following functions examine and modify contexts:
 
-%% @spec (context()) -> context()
+%% @spec (context()) -> integer()
 %% @doc Returns the operator precedence field of the prettyprinter
 %% context.
 %%
 %% @see set_ctxt_precedence/2
+
+-spec get_ctxt_precedence(context()) -> integer().
 
 get_ctxt_precedence(Ctxt) ->
     Ctxt#ctxt.prec.
@@ -77,6 +82,8 @@ get_ctxt_precedence(Ctxt) ->
 %%
 %% @see //stdlib/erl_parse
 %% @see get_ctxt_precedence/1
+
+-spec set_ctxt_precedence(context(), integer()) -> context().
 
 set_ctxt_precedence(Ctxt, Prec) ->
     set_prec(Ctxt, Prec).
@@ -91,6 +98,8 @@ reset_prec(Ctxt) ->
 %% @doc Returns the paper widh field of the prettyprinter context.
 %% @see set_ctxt_paperwidth/2
 
+-spec get_ctxt_paperwidth(context()) -> integer().
+
 get_ctxt_paperwidth(Ctxt) ->
     Ctxt#ctxt.paper.
 
@@ -104,12 +113,16 @@ get_ctxt_paperwidth(Ctxt) ->
 %%
 %% @see get_ctxt_paperwidth/1
 
+-spec set_ctxt_paperwidth(context(), integer()) -> context().
+
 set_ctxt_paperwidth(Ctxt, W) ->
     Ctxt#ctxt{paper = W}.
 
 %% @spec (context()) -> integer()
 %% @doc Returns the line widh field of the prettyprinter context.
 %% @see set_ctxt_linewidth/2
+
+-spec get_ctxt_linewidth(context()) -> integer().
 
 get_ctxt_linewidth(Ctxt) ->
     Ctxt#ctxt.ribbon.
@@ -124,12 +137,16 @@ get_ctxt_linewidth(Ctxt) ->
 %%
 %% @see get_ctxt_linewidth/1
 
+-spec set_ctxt_linewidth(context(), integer()) -> context().
+
 set_ctxt_linewidth(Ctxt, W) ->
     Ctxt#ctxt{ribbon = W}.
 
 %% @spec (context()) -> hook()
 %% @doc Returns the hook function field of the prettyprinter context.
 %% @see set_ctxt_hook/2
+
+-spec get_ctxt_hook(context()) -> hook().
 
 get_ctxt_hook(Ctxt) ->
     Ctxt#ctxt.hook.
@@ -138,12 +155,16 @@ get_ctxt_hook(Ctxt) ->
 %% @doc Updates the hook function field of the prettyprinter context.
 %% @see get_ctxt_hook/1
 
+-spec set_ctxt_hook(context(), hook()) -> context().
+
 set_ctxt_hook(Ctxt, Hook) ->
     Ctxt#ctxt{hook = Hook}.
 
 %% @spec (context()) -> term()
 %% @doc Returns the user data field of the prettyprinter context.
 %% @see set_ctxt_user/2
+
+-spec get_ctxt_user(context()) -> term().
 
 get_ctxt_user(Ctxt) ->
     Ctxt#ctxt.user.
@@ -152,6 +173,8 @@ get_ctxt_user(Ctxt) ->
 %% @doc Updates the user data field of the prettyprinter context.
 %% @see get_ctxt_user/1
 
+-spec set_ctxt_user(context(), term()) -> context().
+
 set_ctxt_user(Ctxt, X) ->
     Ctxt#ctxt{user = X}.
 
@@ -159,6 +182,8 @@ set_ctxt_user(Ctxt, X) ->
 %% =====================================================================
 %% @spec format(Tree::syntaxTree()) -> string()
 %% @equiv format(Tree, [])
+
+-spec format(erl_syntax:syntaxTree()) -> string().
 
 format(Node) ->
     format(Node, []).
@@ -237,6 +262,8 @@ format(Node) ->
 %% @see get_ctxt_user/1
 %% @see set_ctxt_user/2
 
+-spec format(erl_syntax:syntaxTree(), [term()]) -> string().
+
 format(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
     L = proplists:get_value(ribbon, Options, ?RIBBON),
@@ -246,6 +273,8 @@ format(Node, Options) ->
 %% =====================================================================
 %% @spec best(Tree::syntaxTree()) -> empty | document()
 %% @equiv best(Tree, [])
+
+-spec best(erl_syntax:syntaxTree()) -> 'empty' | prettypr:document().
 
 best(Node) ->
     best(Node, []).
@@ -266,6 +295,8 @@ best(Node) ->
 %% @see format/2
 %% @see prettypr:best/3
 
+-spec best(erl_syntax:syntaxTree(), [term()]) -> 'empty' | prettypr:document().
+
 best(Node, Options) ->
     W = proplists:get_value(paper, Options, ?PAPER),
     L = proplists:get_value(ribbon, Options, ?RIBBON),
@@ -275,6 +306,8 @@ best(Node, Options) ->
 %% =====================================================================
 %% @spec layout(Tree::syntaxTree()) -> document()
 %% @equiv layout(Tree, [])
+
+-spec layout(erl_syntax:syntaxTree()) -> prettypr:document().
 
 layout(Node) ->
     layout(Node, []).
@@ -299,6 +332,8 @@ layout(Node) ->
 %% @see prettypr
 %% @see format/2
 %% @see layout/1
+
+-spec layout(erl_syntax:syntaxTree(), [term()]) -> prettypr:document().
 
 layout(Node, Options) ->
     lay(Node,
@@ -593,7 +628,7 @@ lay_2(Node, Ctxt) ->
 	fun_expr ->
 	    Ctxt1 = reset_prec(Ctxt),
 	    D = lay_clauses(erl_syntax:fun_expr_clauses(Node),
-			       fun_expr, Ctxt1),
+			    fun_expr, Ctxt1),
 	    sep([follow(text("fun"), D, Ctxt1#ctxt.sub_indent),
 		 text("end")]);
 

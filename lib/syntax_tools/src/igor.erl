@@ -117,20 +117,23 @@
 
 -define(record_name(R), {record, R}).
 
+%% =====================================================================
+
+-type ordset(X) :: [X].  % XXX: TAKE ME OUT
+
+%% =====================================================================
 
 %% Data structure for module information
 
--record(module, {name,		% = atom()
-		 vars = none,	% = [atom()] | none
-		 functions,	% = ordset({atom(), int()})
-		 exports,	% = ordset({atom(), int()})
-				% | ordset({{atom(), int()},
-				%	    term()})
-		 aliases,	% = ordset({{atom(), int()},
-				%	    {atom(),
-				%	     {atom(), int()}}})
-		 attributes,	% = ordset({atom(), term()})
-		 records	% = [{atom(), [{atom(), term()}]}]
+-record(module, {name        :: atom(),
+		 vars = none :: [atom()] | 'none',
+		 functions   :: ordset({atom(), arity()}),
+		 exports     :: ordset({atom(), arity()})
+			      | ordset({{atom(), arity()}, term()}),
+		 aliases     :: ordset({{atom(), arity()},
+					{atom(), {atom(), arity()}}}),
+		 attributes  :: ordset({atom(), term()}),
+		 records     :: [{atom(), [{atom(), term()}]}]
 		}).
 
 %% The default pretty-printing function.
@@ -138,6 +141,17 @@
 default_printer(Tree, Options) ->
     erl_prettypr:format(Tree, Options).
 
+%% =====================================================================
+
+-type option() :: atom() | {atom(), term()}.
+
+-type attribute()      :: {atom(), term()}.
+-type moduleName()     :: atom().
+-type functionName()   :: {atom(), arity()}.
+-type functionPair()   :: {functionName(), {moduleName(), functionName()}}.
+-type stubDescriptor() :: [{moduleName(), [functionPair()], [attribute()]}].
+
+-type notes() :: 'always' | 'yes' | 'no'.
 
 %% =====================================================================
 %% @spec parse_transform(Forms::[syntaxTree()], Options::[term()]) ->
@@ -169,6 +183,9 @@ default_printer(Tree, Options) ->
 %% @see merge_files/4
 %% @see //compiler/compile:file/2
 
+-spec parse_transform(erl_syntax:forms(), [option()]) ->
+        [erl_syntax:syntaxTree()].
+
 parse_transform(Forms, Options) ->
     M = get_module_info(Forms),
     Name = M#module.name,
@@ -191,6 +208,8 @@ parse_transform(Forms, Options) ->
 %% =====================================================================
 %% @spec merge(Name::atom(), Files::[filename()]) -> [filename()]
 %% @equiv merge(Name, Files, [])
+
+-spec merge(atom(), [file:filename()]) -> [file:filename()].
 
 merge(Name, Files) ->
     merge(Name, Files, []).
@@ -251,7 +270,7 @@ merge(Name, Files) ->
 %%     <dd>Specifies the file name suffix to be used when a backup file
 %%     is created; the default value is `".bak"'.</dd>
 %%
-%%   <dt>`{backups, bool()}'</dt>
+%%   <dt>`{backups, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', existing files will be
 %%     renamed before new files are opened for writing. The new names
@@ -271,7 +290,7 @@ merge(Name, Files) ->
 %%     resulting source code is to be written. By default, this is the
 %%     same as the `Name' argument.</dd>
 %%
-%%   <dt>`{preprocess, bool()}'</dt>
+%%   <dt>`{preprocess, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', preprocessing will be done
 %%     when reading the source code. See `merge_files/4' for
@@ -294,7 +313,7 @@ merge(Name, Files) ->
 %%     stub module files are written. The default value is
 %%     `"stubs"'.</dd>
 %%
-%%   <dt>`{stubs, bool()}'</dt>
+%%   <dt>`{stubs, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', stub module files will be
 %%     automatically generated for all exported modules that do not have
@@ -324,6 +343,8 @@ merge(Name, Files) ->
 	 {suffix, ?DEFAULT_SUFFIX},
 	 {verbose, false}]).
 
+-spec merge(atom(), [file:filename()], [option()]) -> [file:filename()].
+
 merge(Name, Files, Opts) ->
     Opts1 = Opts ++ ?DEFAULT_MERGE_OPTS,
     {Tree, Stubs} = merge_files(Name, Files, Opts1),
@@ -338,6 +359,9 @@ merge(Name, Files, Opts) ->
 %%                   Options::[term()]) ->
 %%           {syntaxTree(), [stubDescriptor()]}
 %% @equiv merge_files(Name, [], Files, Options)
+
+-spec merge_files(atom(), [file:filename()], [option()]) ->
+        {erl_syntax:syntaxTree(), [stubDescriptor()]}.
 
 merge_files(Name, Files, Options) ->
     merge_files(Name, [], Files, Options).
@@ -380,7 +404,7 @@ merge_files(Name, Files, Options) ->
 %%
 %% Options:
 %% <dl>
-%%   <dt>`{comments, bool()}'</dt>
+%%   <dt>`{comments, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', source code comments in
 %%     the original files will be preserved in the output. The default
@@ -409,7 +433,7 @@ merge_files(Name, Files, Options) ->
 %%     Erlang preprocessor, if used (cf. the `preprocess'
 %%     option). The default value is the empty list.</dd>
 %%
-%%   <dt>`{preprocess, bool()}'</dt>
+%%   <dt>`{preprocess, boolean()}'</dt>
 %%
 %%     <dd>If the value is `false', Igor will read source
 %%     files without passing them through the Erlang preprocessor
@@ -437,6 +461,9 @@ merge_files(Name, Files, Options) ->
 %% @see merge_sources/3
 %% @see //stdlib/filename:find_src/2
 %% @see epp_dodger
+
+-spec merge_files(atom(), erl_syntax:forms(), [file:filename()], [option()]) ->
+        {erl_syntax:syntaxTree(), [stubDescriptor()]}.
 
 merge_files(_, _Trees, [], _) ->
     report_error("no files to merge."),
@@ -512,7 +539,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     `Sources' will be exported. The default value is the
 %%     empty list.</dd>
 %%
-%%   <dt>`{export_all, bool()}'</dt>
+%%   <dt>`{export_all, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', this is equivalent to
 %%     listing all of the input modules in the `export'
@@ -532,7 +559,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     they will be handled as in the `comment' case. The
 %%     default value is `no'.</dd>
 %%
-%% <dt>`{no_banner, bool()}'</dt>
+%% <dt>`{no_banner, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', no banner comment will be
 %%     added at the top of the resulting module, even if the target
@@ -541,7 +568,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     code is at the top of the output. The default value is
 %%     `false'.</dd>
 %%
-%% <dt>`{no_headers, bool()}'</dt>
+%% <dt>`{no_headers, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', no header comments will be
 %%     added to the resulting module at the beginning of each section of
@@ -550,7 +577,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     normally added whenever more than two or more modules are
 %%     merged.</dd>
 %%
-%% <dt>`{no_imports, bool()}'</dt>
+%% <dt>`{no_imports, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', all
 %%     `-import(...)' declarations in the original code will
@@ -599,7 +626,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     regarded as "static", regardless of the value of this option. By
 %%     default, all involved modules are assumed to be static.</dd>
 %%
-%% <dt>`{tidy, bool()}'</dt>
+%% <dt>`{tidy, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', the resulting code will be
 %%     processed using the `erl_tidy' module, which removes
@@ -607,7 +634,7 @@ merge_files(Name, Trees, Files, Opts) ->
 %%     `erl_tidy:module/2' for additional options.) The
 %%     default value is `true'.</dd>
 %%
-%% <dt>`{verbose, bool()}'</dt>
+%% <dt>`{verbose, boolean()}'</dt>
 %%
 %%     <dd>If the value is `true', progress messages will be
 %%     output while the program is running; the default value is
@@ -659,18 +686,21 @@ merge_files(Name, Trees, Files, Opts) ->
 
 %% Data structure for merging environment.
 
--record(merge, {target,		% = atom()
-		sources,	% = ordset(atom())
-		export,		% = ordset(atom())
-		static,		% = ordset(atom())
-		safe,		% = ordset(atom())
-		preserved,	% = bool()
-		no_headers,	% = bool()
-		notes,		% = bool()
-		redirect,	% = dict(atom(), atom())
-		no_imports,	% = ordset(atom())
-		options		% = [term()]
+-record(merge, {target     :: atom(),
+		sources    :: ordset(atom()),
+		export     :: ordset(atom()),
+		static     :: ordset(atom()),
+		safe       :: ordset(atom()),
+		preserved  :: boolean(),
+		no_headers :: boolean(),
+		notes      :: notes(),
+		redirect   :: dict(),	% = dict(atom(), atom())
+		no_imports :: ordset(atom()),
+		options	   :: [option()]
 	       }).
+
+-spec merge_sources(atom(), erl_syntax:forms(), [option()]) ->
+        {erl_syntax:syntaxTree(), [stubDescriptor()]}.
 
 merge_sources(Name, Sources, Opts) ->
     %% Prepare the options and the inputs.
@@ -696,7 +726,7 @@ merge_sources(Name, Sources, Opts) ->
 
 %% Data structure for keeping state during transformation.
 
--record(state, {export}).
+-record(state, {export :: set()}).
 
 state__add_export(Name, Arity, S) ->
     S#state{export = sets:add_element({Name, Arity},
@@ -981,7 +1011,7 @@ make_stubs(Modules, Renaming, Env) ->
 
 make_stubs_1([M | Ms], Renaming, Env) ->
     Name = M#module.name,
-    if Name /= Env#merge.target ->
+    if Name =/= Env#merge.target ->
 	    case ordsets:is_element(Name, Env#merge.export) of
 		true ->
 		    [make_stub(M, Renaming(Name), Env)
@@ -1005,7 +1035,7 @@ make_stub(M, Map, Env) ->
 %% Removing and/or out-commenting program forms. The returned form
 %% sequence tree is not necessarily flat.
 
--record(filter, {records, file_attributes, attributes}).
+-record(filter, {records :: set(), file_attributes, attributes}).
 
 filter_forms(Tree, Env) ->
     Forms = erl_syntax:form_list_elements(
@@ -1098,8 +1128,7 @@ filter_form(F, S) ->
 kill_form(F) ->
     F1 = erl_syntax:set_precomments(F, []),
     F2 = erl_syntax_lib:to_comment(F1, ?KILL_PREFIX),
-    erl_syntax:set_precomments(F2,
-			       erl_syntax:get_precomments(F)).
+    erl_syntax:set_precomments(F2, erl_syntax:get_precomments(F)).
 
 
 %% ---------------------------------------------------------------------
@@ -1138,8 +1167,7 @@ merge_namespaces(Modules, Env) ->
 	[] ->
 	    ok;
 	Fs ->
-	    report_warning("interface functions renamed:\n\t~p.",
-			   [Fs])
+	    report_warning("interface functions renamed:\n\t~p.", [Fs])
     end,
     {M4, Acc2} = merge_namespaces_1(M2, Acc1),
     Ms = M3 ++ M4,
@@ -1550,20 +1578,20 @@ alias_expansions_2(Modules, Table) ->
 
 %% Data structure for code transformation environment.
 
--record(code, {module,		% = atom()
-	       target,		% = atom()
-	       sources,		% = ordset(atom())
-	       static,		% = ordset(atom())
-	       safe,		% = ordset(atom())
-	       preserved,	% = bool()
-	       no_headers,	% = bool()
-	       notes,		% = bool()
+-record(code, {module     :: atom(),
+	       target     :: atom(),
+	       sources    :: set(),	% set(atom()),
+	       static     :: set(),	% set(atom()),
+	       safe       :: set(),	% set(atom()),
+	       preserved  :: boolean(),
+	       no_headers :: boolean(),
+	       notes      :: notes(),
 	       map,		% = ({atom(), int()}) -> {atom(), int()}
 	       renaming,	% = (atom()) -> ({atom(), int()}) ->
 				%               {atom(), int()}
-	       expand,		% = dict({atom(), int()},
-				%      {atom(), {atom(), int()}})
-	       redirect		% = dict(atom(), atom())
+	       expand     :: dict(),	% = dict({atom(), int()},
+					%      {atom(), {atom(), int()}})
+	       redirect	  :: dict()	% = dict(atom(), atom())
 	      }).
 
 %% `Trees' must be a list of syntax trees of type `form_list'. The
@@ -1657,8 +1685,8 @@ take_header_1([F | Fs], As) ->
 
 section_header(Name, Tree, Env) ->
     N = sets:size(Env#code.sources),
-    if N > 1, Name /= Env#code.target, Env#code.notes /= no,
-       Env#code.no_headers /= true ->
+    if N > 1, Name =/= Env#code.target, Env#code.notes =/= no,
+       Env#code.no_headers =/= true ->
 	    Text = io_lib:fwrite("The following code stems "
 				 "from module `~w'.", [Name]),
 	    Header = comment([?COMMENT_BAR, "",
@@ -2292,17 +2320,19 @@ maybe_modified_1({value, Node1}, Node, Depth, Message, Notes) ->
 %% Options:
 %% <dl>
 %%   <dt>`{backup_suffix, string()}'</dt>
-%%   <dt>`{backups, bool()}'</dt>
+%%   <dt>`{backups, boolean()}'</dt>
 %%   <dt>`{printer, Function}'</dt>
 %%   <dt>`{stub_dir, filename()}'</dt>
 %%   <dt>`{suffix, string()}'</dt>
-%%   <dt>`{verbose, bool()}'</dt>
+%%   <dt>`{verbose, boolean()}'</dt>
 %% </dl>
 %% 
 %% See `merge/3' for details on these options.
 %%
 %% @see merge/3
 %% @see merge_sources/3
+
+-spec create_stubs([stubDescriptor()], [option()]) -> [string()].
 
 create_stubs(Stubs, Opts) ->
     Opts1 = Opts ++ ?DEFAULT_MERGE_OPTS,
@@ -2365,8 +2395,14 @@ stub_header(Name, Exports, Attrs) ->
 
 
 %% =====================================================================
+
+-type renamings() :: [{atom(), atom()}].
+
+%% =====================================================================
 %% @spec rename(Files::[filename()], Renamings) -> [string()]
 %% @equiv rename(Files, Renamings, [])
+
+-spec rename([file:filename()], renamings()) -> [string()].
 
 rename(Files, Renamings) ->
     rename(Files, Renamings, []).
@@ -2408,35 +2444,35 @@ rename(Files, Renamings) ->
 %% Options:
 %% <dl>
 %%   <dt>`{backup_suffix, string()}'</dt>
-%%   <dt>`{backups, bool()}'</dt>
+%%   <dt>`{backups, boolean()}'</dt>
 %%   <dt>`{printer, Function}'</dt>
-%%   <dt>`{stubs, bool()}'</dt>
+%%   <dt>`{stubs, boolean()}'</dt>
 %%   <dt>`{suffix, string()}'</dt>
 %% </dl>
 %% See `merge/3' for details on these options.
 %%
 %% <dl>
-%%   <dt>`{comments, bool()}'</dt>
-%%   <dt>`{preprocess, bool()}'</dt>
+%%   <dt>`{comments, boolean()}'</dt>
+%%   <dt>`{preprocess, boolean()}'</dt>
 %% </dl>
 %% See `merge_files/4' for details on these options.
 %%
 %% <dl>
-%%   <dt>`{no_banner, bool()}'</dt>
+%%   <dt>`{no_banner, boolean()}'</dt>
 %% </dl>
 %% For the `rename' function, this option is
 %% `true' by default. See `merge_sources/3' for
 %% details.
 %%
 %% <dl>
-%%   <dt>`{tidy, bool()}'</dt>
+%%   <dt>`{tidy, boolean()}'</dt>
 %% </dl>
 %% For the `rename' function, this option is
 %% `false' by default. See `merge_sources/3' for
 %% details.
 %%
 %% <dl>
-%%   <dt>`{no_headers, bool()}'</dt>
+%%   <dt>`{no_headers, boolean()}'</dt>
 %%   <dt>`{stub_dir, filename()}'</dt>
 %% </dl>
 %% These options are preset by the `rename' function and
@@ -2447,6 +2483,8 @@ rename(Files, Renamings) ->
 %% @see merge/3
 %% @see merge_sources/3
 %% @see merge_files/4
+
+-spec rename([file:filename()], renamings(), [term()]) -> [string()].
 
 rename(Files, Renamings, Opts) ->
     Dict = case is_atom_map(Renamings) of

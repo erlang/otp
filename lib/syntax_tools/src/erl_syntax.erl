@@ -343,8 +343,8 @@
 %%
 %%	type(Com) = comment
 
--record(com, {pre = [],
-	      post = []}).
+-record(com, {pre  = [] :: [syntaxTree()],
+	      post = [] :: [syntaxTree()]}).
 
 %% `attr' records store node attributes as an aggregate.
 %%
@@ -357,9 +357,10 @@
 %% where `Pos' `Ann' and `Comments' are the corresponding values of a
 %% `tree' or `wrapper' record.
 
--record(attr, {pos = 0,
-	       ann = [],
-	       com = none}).
+-record(attr, {pos = 0    :: term(),
+	       ann = []   :: [term()],
+	       com = none :: 'none' | #com{}}).
+-type syntaxTreeAttributes() :: #attr{}.
 
 %% `tree' records represent new-form syntax tree nodes.
 %%
@@ -371,9 +372,9 @@
 %%
 %%	is_tree(Tree) = true
 
--record(tree, {type,
+-record(tree, {type           :: atom(),
 	       attr = #attr{} :: #attr{},
-	       data}).
+	       data           :: term()}).
 
 %% `wrapper' records are used for attaching new-form node information to
 %% `erl_parse' trees.
@@ -386,10 +387,13 @@
 %%
 %%	is_tree(Wrapper) = false
 
--record(wrapper, {type,
+-record(wrapper, {type           :: atom(),
 		  attr = #attr{} :: #attr{},
-		  tree}).
+		  tree           :: term()}).
 
+%% =====================================================================
+
+-type syntaxTree() :: #tree{} | #wrapper{} | tuple(). % XXX: refine
 
 %% =====================================================================
 %%
@@ -532,6 +536,8 @@
 %% @see variable/1
 %% @see warning_marker/1
 
+-spec type(syntaxTree()) -> atom().
+
 type(#tree{type = T}) ->
     T;
 type(#wrapper{type = T}) ->
@@ -599,7 +605,7 @@ type(Node) ->
 
 
 %% =====================================================================
-%% @spec is_leaf(Node::syntaxTree()) -> bool()
+%% @spec is_leaf(Node::syntaxTree()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> is a leaf node,
 %% otherwise <code>false</code>. The currently recognised leaf node
@@ -635,6 +641,8 @@ type(Node) ->
 %% @see type/1
 %% @see is_literal/1
 
+-spec is_leaf(syntaxTree()) -> boolean().
+
 is_leaf(Node) ->
     case type(Node) of
 	atom -> true;
@@ -657,7 +665,7 @@ is_leaf(Node) ->
 
 
 %% =====================================================================
-%% @spec is_form(Node::syntaxTree()) -> bool()
+%% @spec is_form(Node::syntaxTree()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> is a syntax tree
 %% representing a so-called "source code form", otherwise
@@ -687,6 +695,8 @@ is_leaf(Node) ->
 %% @see function/2
 %% @see rule/2
 %% @see warning_marker/1
+
+-spec is_form(syntaxTree()) -> boolean().
 
 is_form(Node) ->
     case type(Node) of
@@ -722,6 +732,8 @@ is_form(Node) ->
 %% number *of the error descriptor*; this is all handled transparently
 %% by `get_pos' and `set_pos'.
 
+-spec get_pos(syntaxTree()) -> term().
+
 get_pos(#tree{attr = Attr}) ->
     Attr#attr.pos;
 get_pos(#wrapper{attr = Attr}) ->
@@ -744,6 +756,8 @@ get_pos(Node) ->
 %%
 %% @see get_pos/1
 %% @see copy_pos/2
+
+-spec set_pos(syntaxTree(), term()) -> syntaxTree().
 
 set_pos(Node, Pos) ->
     case Node of
@@ -770,6 +784,8 @@ set_pos(Node, Pos) ->
 %%
 %% @see get_pos/1
 %% @see set_pos/2
+
+-spec copy_pos(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 copy_pos(Source, Target) ->
     set_pos(Target, get_pos(Source)).
@@ -818,6 +834,8 @@ set_com(Node, Com) ->
 %% @see get_postcomments/1
 %% @see get_attrs/1
 
+-spec get_precomments(syntaxTree()) -> [syntaxTree()].
+
 get_precomments(#tree{attr = Attr}) -> get_precomments_1(Attr);
 get_precomments(#wrapper{attr = Attr}) -> get_precomments_1(Attr);
 get_precomments(_) -> [].
@@ -841,6 +859,8 @@ get_precomments_1(#attr{com = #com{pre = Cs}}) -> Cs.
 %% @see copy_comments/2
 %% @see remove_comments/1
 %% @see join_comments/2
+
+-spec set_precomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 set_precomments(Node, Cs) ->
     case Node of
@@ -874,6 +894,8 @@ set_precomments_1(#attr{com = Com} = Attr, Cs) ->
 %% @see set_precomments/2
 %% @see add_postcomments/2
 %% @see join_comments/2
+
+-spec add_precomments([syntaxTree()], syntaxTree()) -> syntaxTree().
 
 add_precomments(Cs, Node) ->
     case Node of
@@ -916,6 +938,8 @@ add_precomments_1(Cs, #attr{com = Com} = Attr) ->
 %% @see get_precomments/1
 %% @see get_attrs/1
 
+-spec get_postcomments(syntaxTree()) -> [syntaxTree()].
+
 get_postcomments(#tree{attr = Attr}) -> get_postcomments_1(Attr);
 get_postcomments(#wrapper{attr = Attr}) -> get_postcomments_1(Attr);
 get_postcomments(_) -> [].
@@ -939,6 +963,8 @@ get_postcomments_1(#attr{com = #com{post = Cs}}) -> Cs.
 %% @see copy_comments/2
 %% @see remove_comments/1
 %% @see join_comments/2
+
+-spec set_postcomments(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 set_postcomments(Node, Cs) ->
     case Node of
@@ -973,6 +999,8 @@ set_postcomments_1(#attr{com = Com} = Attr, Cs) ->
 %% @see add_precomments/2
 %% @see join_comments/2
 
+-spec add_postcomments([syntaxTree()], syntaxTree()) -> syntaxTree().
+
 add_postcomments(Cs, Node) ->
     case Node of
 	#tree{attr = Attr} ->
@@ -990,7 +1018,7 @@ add_postcomments_1(Cs, #attr{com = Com} = Attr) ->
 
 
 %% =====================================================================
-%% @spec has_comments(Node::syntaxTree()) -> bool()
+%% @spec has_comments(Node::syntaxTree()) -> boolean()
 %%
 %% @doc Yields <code>false</code> if the node has no associated
 %% comments, and <code>true</code> otherwise.
@@ -1002,6 +1030,8 @@ add_postcomments_1(Cs, #attr{com = Com} = Attr) ->
 %% @see get_precomments/1
 %% @see get_postcomments/1
 %% @see remove_comments/1
+
+-spec has_comments(syntaxTree()) -> boolean().
 
 has_comments(#tree{attr = Attr}) ->
     case Attr#attr.com of
@@ -1029,6 +1059,8 @@ has_comments(_) -> false.
 %%
 %% @see set_precomments/2
 %% @see set_postcomments/2
+
+-spec remove_comments(syntaxTree()) -> syntaxTree().
 
 remove_comments(Node) ->
     case Node of
@@ -1059,6 +1091,8 @@ remove_comments(Node) ->
 %% @see set_precomments/2
 %% @see set_postcomments/2
 
+-spec copy_comments(syntaxTree(), syntaxTree()) -> syntaxTree().
+
 copy_comments(Source, Target) ->
     set_com(Target, get_com(Source)).
 
@@ -1081,6 +1115,8 @@ copy_comments(Source, Target) ->
 %% @see add_precomments/2
 %% @see add_postcomments/2
 
+-spec join_comments(syntaxTree(), syntaxTree()) -> syntaxTree().
+
 join_comments(Source, Target) ->
     add_postcomments(
       get_postcomments(Source),
@@ -1097,6 +1133,8 @@ join_comments(Source, Target) ->
 %% @see set_ann/2
 %% @see get_attrs/1
 
+-spec get_ann(syntaxTree()) -> [term()].
+
 get_ann(#tree{attr = Attr}) -> Attr#attr.ann;
 get_ann(#wrapper{attr = Attr}) -> Attr#attr.ann;
 get_ann(_) -> [].
@@ -1112,6 +1150,8 @@ get_ann(_) -> [].
 %% @see get_ann/1
 %% @see add_ann/2
 %% @see copy_ann/2
+
+-spec set_ann(syntaxTree(), [term()]) -> syntaxTree().
 
 set_ann(Node, As) ->
     case Node of
@@ -1138,6 +1178,8 @@ set_ann(Node, As) ->
 %% @see get_ann/1
 %% @see set_ann/2
 
+-spec add_ann(term(), syntaxTree()) -> syntaxTree().
+
 add_ann(A, Node) ->
     case Node of
 	#tree{attr = Attr} ->
@@ -1163,6 +1205,8 @@ add_ann(A, Node) ->
 %%
 %% @see get_ann/1
 %% @see set_ann/2
+
+-spec copy_ann(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 copy_ann(Source, Target) ->
     set_ann(Target, get_ann(Source)).
@@ -1192,6 +1236,8 @@ copy_ann(Source, Target) ->
 %% @see get_precomments/1
 %% @see get_postcomments/1
 
+-spec get_attrs(syntaxTree()) -> syntaxTreeAttributes().
+
 get_attrs(#tree{attr = Attr}) -> Attr;
 get_attrs(#wrapper{attr = Attr}) -> Attr;
 get_attrs(Node) -> #attr{pos = get_pos(Node),
@@ -1208,6 +1254,8 @@ get_attrs(Node) -> #attr{pos = get_pos(Node),
 %%
 %% @see get_attrs/1
 %% @see copy_attrs/2
+
+-spec set_attrs(syntaxTree(), syntaxTreeAttributes()) -> syntaxTree().
 
 set_attrs(Node, Attr) ->
     case Node of
@@ -1233,6 +1281,8 @@ set_attrs(Node, Attr) ->
 %% @see get_attrs/1
 %% @see set_attrs/2
 
+-spec copy_attrs(syntaxTree(), syntaxTree()) -> syntaxTree().
+
 copy_attrs(S, T) ->
     set_attrs(T, get_attrs(S)).
 
@@ -1240,6 +1290,8 @@ copy_attrs(S, T) ->
 %% =====================================================================
 %% @spec comment(Strings) -> syntaxTree()
 %% @equiv comment(none, Strings)
+
+-spec comment([string()]) -> syntaxTree().
 
 comment(Strings) ->
     comment(none, Strings).
@@ -1268,13 +1320,17 @@ comment(Strings) ->
 %% @see comment/1
 %% @see is_form/1
 
--record(comment, {pad, text}).
+-type padding() :: 'none' | integer().
+
+-record(comment, {pad :: padding(), text :: [string()]}).
 
 %% type(Node) = comment
 %% data(Node) = #comment{pad :: Padding, text :: Strings}
 %%
 %%	Padding = none | integer()
 %%	Strings = [string()]
+
+-spec comment(padding(), [string()]) -> syntaxTree().
 
 comment(Pad, Strings) ->
     tree(comment, #comment{pad = Pad, text = Strings}).
@@ -1286,6 +1342,8 @@ comment(Pad, Strings) ->
 %% @doc Returns the lines of text of the abstract comment.
 %%
 %% @see comment/2
+
+-spec comment_text(syntaxTree()) -> [string()].
 
 comment_text(Node) ->
     (data(Node))#comment.text.
@@ -1299,6 +1357,8 @@ comment_text(Node) ->
 %% used.
 %%
 %% @see comment/2
+
+-spec comment_padding(syntaxTree()) -> padding().
 
 comment_padding(Node) ->
     (data(Node))#comment.pad.
@@ -1333,6 +1393,8 @@ comment_padding(Node) ->
 %%	Form = syntaxTree()
 %%	is_form(Form) = true
 
+-spec form_list([syntaxTree()]) -> syntaxTree().
+
 form_list(Forms) ->
     tree(form_list, Forms).
 
@@ -1343,6 +1405,8 @@ form_list(Forms) ->
 %% @doc Returns the list of subnodes of a <code>form_list</code> node.
 %%
 %% @see form_list/1
+
+-spec form_list_elements(syntaxTree()) -> [syntaxTree()].
 
 form_list_elements(Node) ->
     data(Node).
@@ -1357,6 +1421,8 @@ form_list_elements(Node) ->
 %% sequence.
 %%
 %% @see form_list/1
+
+-spec flatten_form_list(syntaxTree()) -> syntaxTree().
 
 flatten_form_list(Node) ->
     Fs = form_list_elements(Node),
@@ -1389,6 +1455,8 @@ flatten_form_list_1([], As) ->
 %% type(Node) = text
 %% data(Node) = string()
 
+-spec text(string()) -> syntaxTree().
+
 text(String) ->
     tree(text, String).
 
@@ -1400,6 +1468,8 @@ text(String) ->
 %% <code>text</code> node.
 %%
 %% @see text/1
+
+-spec text_string(syntaxTree()) -> string().
 
 text_string(Node) ->
     data(Node).
@@ -1432,6 +1502,8 @@ text_string(Node) ->
 %%
 %%	Name = atom() \ '_'
 
+-spec variable(atom() | string()) -> syntaxTree().
+
 variable(Name) when is_atom(Name) ->
     tree(variable, Name);
 variable(Name) ->
@@ -1450,6 +1522,8 @@ revert_variable(Node) ->
 %%
 %% @see variable/1
 
+-spec variable_name(syntaxTree()) -> atom().
+
 variable_name(Node) ->
     case unwrap(Node) of
 	{var, _, Name} ->
@@ -1465,6 +1539,8 @@ variable_name(Node) ->
 %% @doc Returns the name of a <code>variable</code> node as a string.
 %%
 %% @see variable/1
+
+-spec variable_literal(syntaxTree()) -> string().
 
 variable_literal(Node) ->
     case unwrap(Node) of
@@ -1490,6 +1566,8 @@ variable_literal(Node) ->
 %% `erl_parse' representation:
 %%
 %% {var, Pos, '_'}
+
+-spec underscore() -> syntaxTree().
 
 underscore() ->
     tree(underscore, []).
@@ -1518,6 +1596,8 @@ revert_underscore(Node) ->
 %%
 %%	Value = integer()
 
+-spec integer(integer()) -> syntaxTree().
+
 integer(Value) ->
     tree(integer, Value).
 
@@ -1527,13 +1607,15 @@ revert_integer(Node) ->
 
 
 %% =====================================================================
-%% @spec is_integer(Node::syntaxTree(), Value::integer()) -> bool()
+%% @spec is_integer(Node::syntaxTree(), Value::integer()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> has type
 %% <code>integer</code> and represents <code>Value</code>, otherwise
 %% <code>false</code>.
 %%
 %% @see integer/1
+
+-spec is_integer(syntaxTree(), integer()) -> boolean().
 
 is_integer(Node, Value) ->
     case unwrap(Node) of
@@ -1553,6 +1635,8 @@ is_integer(Node, Value) ->
 %%
 %% @see integer/1
 
+-spec integer_value(syntaxTree()) -> integer().
+
 integer_value(Node) ->
     case unwrap(Node) of
 	{integer, _, Value} ->
@@ -1569,6 +1653,8 @@ integer_value(Node) ->
 %% <code>integer</code> node.
 %%
 %% @see integer/1
+
+-spec integer_literal(syntaxTree()) -> string().
 
 integer_literal(Node) ->
     integer_to_list(integer_value(Node)).
@@ -1600,6 +1686,8 @@ integer_literal(Node) ->
 %% overridden by the type conversion BIF of the same name, so always use
 %% `make_float/1' for local calls.
 
+-spec float(float()) -> syntaxTree().
+
 float(Value) ->
     make_float(Value).
 
@@ -1620,6 +1708,8 @@ revert_float(Node) ->
 %%
 %% @see float/1
 
+-spec float_value(syntaxTree()) -> float().
+
 float_value(Node) ->
     case unwrap(Node) of
 	{float, _, Value} ->
@@ -1636,6 +1726,8 @@ float_value(Node) ->
 %% node.
 %%
 %% @see float/1
+
+-spec float_literal(syntaxTree()) -> string().
 
 float_literal(Node) ->
     float_to_list(float_value(Node)).
@@ -1667,6 +1759,8 @@ float_literal(Node) ->
 %%
 %%	Code = integer()
 
+-spec char(char()) -> syntaxTree().
+
 char(Char) ->
     tree(char, Char).
 
@@ -1676,13 +1770,15 @@ revert_char(Node) ->
 
 
 %% =====================================================================
-%% @spec is_char(Node::syntaxTree(), Value::char()) -> bool()
+%% @spec is_char(Node::syntaxTree(), Value::char()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> has type
 %% <code>char</code> and represents <code>Value</code>, otherwise
 %% <code>false</code>.
 %%
 %% @see char/1
+
+-spec is_char(syntaxTree(), char()) -> boolean().
 
 is_char(Node, Value) ->
     case unwrap(Node) of
@@ -1702,6 +1798,8 @@ is_char(Node, Value) ->
 %%
 %% @see char/1
 
+-spec char_value(syntaxTree()) -> char().
+
 char_value(Node) ->
     case unwrap(Node) of
 	{char, _, Char} ->
@@ -1718,6 +1816,8 @@ char_value(Node) ->
 %% node. This includes the leading "<code>$</code>" character.
 %%
 %% @see char/1
+
+-spec char_literal(syntaxTree()) -> string().
 
 char_literal(Node) ->
     io_lib:write_char(char_value(Node)).
@@ -1749,6 +1849,8 @@ char_literal(Node) ->
 %%
 %%	Chars = string()
 
+-spec string(string()) -> syntaxTree().
+
 string(String) ->
     tree(string, String).
 
@@ -1758,13 +1860,15 @@ revert_string(Node) ->
 
 
 %% =====================================================================
-%% @spec is_string(Node::syntaxTree(), Value::string()) -> bool()
+%% @spec is_string(Node::syntaxTree(), Value::string()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> has type
 %% <code>string</code> and represents <code>Value</code>, otherwise
 %% <code>false</code>.
 %%
 %% @see string/1
+
+-spec is_string(syntaxTree(), string()) -> boolean().
 
 is_string(Node, Value) ->
     case unwrap(Node) of
@@ -1784,6 +1888,8 @@ is_string(Node, Value) ->
 %%
 %% @see string/1
 
+-spec string_value(syntaxTree()) -> string().
+
 string_value(Node) ->
     case unwrap(Node) of
 	{string, _, List} ->
@@ -1800,6 +1906,8 @@ string_value(Node) ->
 %% node. This includes surrounding double-quote characters.
 %%
 %% @see string/1
+
+-spec string_literal(syntaxTree()) -> string().
 
 string_literal(Node) ->
     io_lib:write_string(string_value(Node)).
@@ -1826,6 +1934,8 @@ string_literal(Node) ->
 %%
 %%	Value = atom()
 
+-spec atom(atom() | string()) -> syntaxTree().
+
 atom(Name) when is_atom(Name) ->
     tree(atom, Name);
 atom(Name) ->
@@ -1837,13 +1947,15 @@ revert_atom(Node) ->
 
 
 %% =====================================================================
-%% @spec is_atom(Node::syntaxTree(), Value::atom()) -> bool()
+%% @spec is_atom(Node::syntaxTree(), Value::atom()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> has type
 %% <code>atom</code> and represents <code>Value</code>, otherwise
 %% <code>false</code>.
 %%
 %% @see atom/1
+
+-spec is_atom(syntaxTree(), atom()) -> boolean().
 
 is_atom(Node, Value) ->
     case unwrap(Node) of
@@ -1863,6 +1975,8 @@ is_atom(Node, Value) ->
 %%
 %% @see atom/1
 
+-spec atom_value(syntaxTree()) -> atom().
+
 atom_value(Node) ->
     case unwrap(Node) of
 	{atom, _, Name} ->
@@ -1878,6 +1992,8 @@ atom_value(Node) ->
 %% @doc Returns the printname of an <code>atom</code> node.
 %%
 %% @see atom/1
+
+-spec atom_name(syntaxTree()) -> string().
 
 atom_name(Node) ->
     atom_to_list(atom_value(Node)).
@@ -1896,6 +2012,8 @@ atom_name(Node) ->
 %%
 %% @see atom/1
 %% @see string/1
+
+-spec atom_literal(syntaxTree()) -> string().
 
 atom_literal(Node) ->
     io_lib:write_atom(atom_value(Node)).
@@ -1925,6 +2043,8 @@ atom_literal(Node) ->
 %%
 %%	Elements = [erl_parse()]
 
+-spec tuple([syntaxTree()]) -> syntaxTree().
+
 tuple(List) ->
     tree(tuple, List).
 
@@ -1940,6 +2060,8 @@ revert_tuple(Node) ->
 %% node.
 %%
 %% @see tuple/1
+
+-spec tuple_elements(syntaxTree()) -> [syntaxTree()].
 
 tuple_elements(Node) ->
     case unwrap(Node) of
@@ -1962,6 +2084,8 @@ tuple_elements(Node) ->
 %% @see tuple/1
 %% @see tuple_elements/1
 
+-spec tuple_size(syntaxTree()) -> non_neg_integer().
+
 tuple_size(Node) ->
     length(tuple_elements(Node)).
 
@@ -1969,6 +2093,8 @@ tuple_size(Node) ->
 %% =====================================================================
 %% @spec list(List) -> syntaxTree()
 %% @equiv list(List, none)
+
+-spec list([syntaxTree()]) -> syntaxTree().
 
 list(List) ->
     list(List, none).
@@ -2020,7 +2146,7 @@ list(List) ->
 %% @see compact_list/1
 %% @see get_attrs/1
 
--record(list, {prefix, suffix}).
+-record(list, {prefix :: [syntaxTree()], suffix :: 'none' | syntaxTree()}).
 
 %% type(Node) = list
 %% data(Node) = #list{prefix :: Elements, suffix :: Tail}
@@ -2038,9 +2164,11 @@ list(List) ->
 %%	<Suffix>]' where the form of <Suffix> can depend on the
 %%	structure of <Tail>; there is no fixed printed form.
 
+-spec list([syntaxTree()], 'none' | syntaxTree()) -> syntaxTree().
+
 list([], none) ->
     nil();
-list(Elements, Tail) when Elements /= [] ->
+list(Elements, Tail) when Elements =/= [] ->
     tree(list, #list{prefix = Elements, suffix = Tail}).
 
 revert_list(Node) ->
@@ -2073,6 +2201,8 @@ revert_list(Node) ->
 %%
 %% {nil, Pos}
 
+-spec nil() -> syntaxTree().
+
 nil() ->
     tree(nil).
 
@@ -2092,6 +2222,8 @@ revert_nil(Node) ->
 %%
 %% @see list/2
 
+-spec list_prefix(syntaxTree()) -> [syntaxTree()].
+
 list_prefix(Node) ->
     case unwrap(Node) of
 	{cons, _, Head, _} ->
@@ -2102,7 +2234,7 @@ list_prefix(Node) ->
 
 
 %% =====================================================================
-%% @spec list_suffix(Node::syntaxTree()) ->  none | syntaxTree()
+%% @spec list_suffix(Node::syntaxTree()) -> none | syntaxTree()
 %%
 %% @doc Returns the suffix subtree of a <code>list</code> node, if one
 %% exists. If <code>Node</code> represents "<code>[<em>E1</em>, ...,
@@ -2120,6 +2252,8 @@ list_prefix(Node) ->
 %% @see list/2
 %% @see nil/0
 %% @see compact_list/1
+
+-spec list_suffix(syntaxTree()) -> 'none' | syntaxTree().
 
 list_suffix(Node) ->
     case unwrap(Node) of
@@ -2158,6 +2292,8 @@ list_suffix(Node) ->
 %% @see list_head/1
 %% @see list_tail/1
 
+-spec cons(syntaxTree(), syntaxTree()) -> syntaxTree().
+
 cons(Head, Tail) ->
     case type(Tail) of
 	list ->
@@ -2181,6 +2317,8 @@ cons(Head, Tail) ->
 %% @see list_tail/1
 %% @see cons/2
 
+-spec list_head(syntaxTree()) -> syntaxTree().
+
 list_head(Node) ->
     hd(list_prefix(Node)).
 
@@ -2202,6 +2340,8 @@ list_head(Node) ->
 %% @see list_head/1
 %% @see cons/2
 
+-spec list_tail(syntaxTree()) -> syntaxTree().
+
 list_tail(Node) ->
     Tail = list_suffix(Node),
     case tl(list_prefix(Node)) of
@@ -2217,13 +2357,15 @@ list_tail(Node) ->
 
 
 %% =====================================================================
-%% @spec is_list_skeleton(syntaxTree()) -> bool()
+%% @spec is_list_skeleton(syntaxTree()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> has type
 %% <code>list</code> or <code>nil</code>, otherwise <code>false</code>.
 %%
 %% @see list/2
 %% @see nil/0
+
+-spec is_list_skeleton(syntaxTree()) -> boolean().
 
 is_list_skeleton(Node) ->
     case type(Node) of
@@ -2234,7 +2376,7 @@ is_list_skeleton(Node) ->
 
 
 %% =====================================================================
-%% @spec is_proper_list(Node::syntaxTree()) -> bool()
+%% @spec is_proper_list(Node::syntaxTree()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> represents a
 %% proper list, and <code>false</code> otherwise. A proper list is a
@@ -2254,6 +2396,8 @@ is_list_skeleton(Node) ->
 %% <code>true</code>.</p>
 %%
 %% @see list/2
+
+-spec is_proper_list(syntaxTree()) -> boolean().
 
 is_proper_list(Node) ->
     case type(Node) of
@@ -2283,6 +2427,8 @@ is_proper_list(Node) ->
 %%
 %% @see list/2
 %% @see is_proper_list/1
+
+-spec list_elements(syntaxTree()) -> [syntaxTree()].
 
 list_elements(Node) ->
     lists:reverse(list_elements(Node, [])).
@@ -2319,6 +2465,8 @@ list_elements(Node, As) ->
 %% @see is_proper_list/1
 %% @see list_elements/1
 
+-spec list_length(syntaxTree()) -> non_neg_integer().
+
 list_length(Node) ->
     list_length(Node, 0).
 
@@ -2353,6 +2501,8 @@ list_length(Node, A) ->
 %%
 %% @see list/2
 %% @see compact_list/1
+
+-spec normalize_list(syntaxTree()) -> syntaxTree().
 
 normalize_list(Node) ->
     case type(Node) of
@@ -2390,6 +2540,8 @@ normalize_list_1(Es, Tail) ->
 %%
 %% @see list/2
 %% @see normalize_list/1
+
+-spec compact_list(syntaxTree()) -> syntaxTree().
 
 compact_list(Node) ->
     case type(Node) of
@@ -2447,6 +2599,8 @@ compact_list(Node) ->
 %%	See `binary_field' for documentation on `erl_parse' binary
 %%	fields (or "elements").
 
+-spec binary([syntaxTree()]) -> syntaxTree().
+
 binary(List) ->
     tree(binary, List).
 
@@ -2464,6 +2618,8 @@ revert_binary(Node) ->
 %% @see binary/1
 %% @see binary_field/2
 
+-spec binary_fields(syntaxTree()) -> [syntaxTree()].
+
 binary_fields(Node) ->
     case unwrap(Node) of
 	{bin, _, List} ->
@@ -2476,6 +2632,8 @@ binary_fields(Node) ->
 %% =====================================================================
 %% @spec binary_field(Body) -> syntaxTree()
 %% @equiv binary_field(Body, [])
+
+-spec binary_field(syntaxTree()) -> syntaxTree().
 
 binary_field(Body) ->
     binary_field(Body, []).
@@ -2497,6 +2655,9 @@ binary_field(Body) ->
 %% @see binary/1
 %% @see binary_field/2
 %% @see size_qualifier/2
+
+-spec binary_field(syntaxTree(), 'none' | syntaxTree(), [syntaxTree()]) ->
+        syntaxTree().
 
 binary_field(Body, none, Types) ->
     binary_field(Body, Types);
@@ -2521,13 +2682,13 @@ binary_field(Body, Size, Types) ->
 %% @see binary_field_types/1
 %% @see binary_field_size/1
 
--record(binary_field, {body, types}).
+-record(binary_field, {body :: syntaxTree(), types :: [syntaxTree()]}).
 
 %% type(Node) = binary_field
 %% data(Node) = #binary_field{body :: Body, types :: Types}
 %%
 %%	    Body = syntaxTree()
-%%	    Types = [Type]
+%%	    Types = [syntaxTree()]
 %%
 %% `erl_parse' representation:
 %%
@@ -2537,6 +2698,8 @@ binary_field(Body, Size, Types) ->
 %%	Size = default | erl_parse()
 %%	TypeList = default | [Type] \ []
 %%	Type = atom() | {atom(), integer()}
+
+-spec binary_field(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 binary_field(Body, Types) ->
     tree(binary_field, #binary_field{body = Body, types = Types}).
@@ -2569,6 +2732,8 @@ revert_binary_field(Node) ->
 %%
 %% @see binary_field/2
 
+-spec binary_field_body(syntaxTree()) -> syntaxTree().
+
 binary_field_body(Node) ->
     case unwrap(Node) of
 	{bin_element, _, Body, Size, _} ->
@@ -2591,6 +2756,8 @@ binary_field_body(Node) ->
 %% <code>[T1, ..., Tn]</code>, otherwise the result is the empty list.
 %%
 %% @see binary_field/2
+
+-spec binary_field_types(syntaxTree()) -> [syntaxTree()].
 
 binary_field_types(Node) ->
     case unwrap(Node) of
@@ -2619,6 +2786,8 @@ binary_field_types(Node) ->
 %%
 %% @see binary_field/2
 %% @see binary_field/3
+
+-spec binary_field_size(syntaxTree()) -> 'none' | syntaxTree().
 
 binary_field_size(Node) ->
     case unwrap(Node) of
@@ -2649,12 +2818,14 @@ binary_field_size(Node) ->
 %% @see size_qualifier_body/1
 %% @see size_qualifier_argument/1
 
--record(size_qualifier, {body, size}).
+-record(size_qualifier, {body :: syntaxTree(), size :: syntaxTree()}).
 
 %% type(Node) = size_qualifier
 %% data(Node) = #size_qualifier{body :: Body, size :: Size}
 %%
 %%	Body = Size = syntaxTree()
+
+-spec size_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 size_qualifier(Body, Size) ->
     tree(size_qualifier,
@@ -2669,6 +2840,8 @@ size_qualifier(Body, Size) ->
 %%
 %% @see size_qualifier/2
 
+-spec size_qualifier_body(syntaxTree()) -> syntaxTree().
+
 size_qualifier_body(Node) ->
     (data(Node))#size_qualifier.body.
 
@@ -2680,6 +2853,8 @@ size_qualifier_body(Node) ->
 %% <code>size_qualifier</code> node.
 %%
 %% @see size_qualifier/2
+
+-spec size_qualifier_argument(syntaxTree()) -> syntaxTree().
 
 size_qualifier_argument(Node) ->
     (data(Node))#size_qualifier.size.
@@ -2714,6 +2889,8 @@ size_qualifier_argument(Node) ->
 %%	Note that there is no position information for the node
 %%	itself: `get_pos' and `set_pos' handle this as a special case.
 
+-spec error_marker(term()) -> syntaxTree().
+
 error_marker(Error) ->
     tree(error_marker, Error).
 
@@ -2730,6 +2907,8 @@ revert_error_marker(Node) ->
 %% node.
 %%
 %% @see error_marker/1
+
+-spec error_marker_info(syntaxTree()) -> term().
 
 error_marker_info(Node) ->
     case unwrap(Node) of
@@ -2769,6 +2948,8 @@ error_marker_info(Node) ->
 %%	Note that there is no position information for the node
 %%	itself: `get_pos' and `set_pos' handle this as a special case.
 
+-spec warning_marker(term()) -> syntaxTree().
+
 warning_marker(Warning) ->
     tree(warning_marker, Warning).
 
@@ -2785,6 +2966,8 @@ revert_warning_marker(Node) ->
 %% node.
 %%
 %% @see warning_marker/1
+
+-spec warning_marker_info(syntaxTree()) -> term().
 
 warning_marker_info(Node) ->
     case unwrap(Node) of
@@ -2818,6 +3001,8 @@ warning_marker_info(Node) ->
 %%
 %% {eof, Pos}
 
+-spec eof_marker() -> syntaxTree().
+
 eof_marker() ->
     tree(eof_marker).
 
@@ -2829,6 +3014,8 @@ revert_eof_marker(Node) ->
 %% =====================================================================
 %% @spec attribute(Name) -> syntaxTree()
 %% @equiv attribute(Name, none)
+
+-spec attribute(syntaxTree()) -> syntaxTree().
 
 attribute(Name) ->
     attribute(Name, none).
@@ -2859,7 +3046,7 @@ attribute(Name) ->
 %% @see text/1
 %% @see is_form/1
 
--record(attribute, {name, args}).
+-record(attribute, {name :: syntaxTree(), args :: 'none' | [syntaxTree()]}).
 
 %% type(Node) = attribute
 %% data(Node) = #attribute{name :: Name, args :: Arguments}
@@ -2921,6 +3108,8 @@ attribute(Name) ->
 %%	Term = term()
 %%
 %%	Representing `-Name(Term).'.
+
+-spec attribute(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
 attribute(Name, Args) ->
     tree(attribute, #attribute{name = Name, args = Args}).
@@ -3049,6 +3238,8 @@ revert_module_name(A) ->
 %%
 %% @see attribute/1
 
+-spec attribute_name(syntaxTree()) -> syntaxTree().
+
 attribute_name(Node) ->
     case unwrap(Node) of
 	{attribute, Pos, Name, _} ->
@@ -3070,6 +3261,8 @@ attribute_name(Node) ->
 %% <code>[E1, ..., E1]</code> is returned.
 %%
 %% @see attribute/1
+
+-spec attribute_arguments(syntaxTree()) -> none | [syntaxTree()].
 
 attribute_arguments(Node) ->
     case unwrap(Node) of
@@ -3141,12 +3334,14 @@ attribute_arguments(Node) ->
 %% @see arity_qualifier_body/1
 %% @see arity_qualifier_argument/1
 
--record(arity_qualifier, {body, arity}).
+-record(arity_qualifier, {body :: syntaxTree(), arity :: syntaxTree()}).
 
 %% type(Node) = arity_qualifier
 %% data(Node) = #arity_qualifier{body :: Body, arity :: Arity}
 %%
 %%	Body = Arity = syntaxTree()
+
+-spec arity_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 arity_qualifier(Body, Arity) ->
     tree(arity_qualifier,
@@ -3161,6 +3356,8 @@ arity_qualifier(Body, Arity) ->
 %%
 %% @see arity_qualifier/2
 
+-spec arity_qualifier_body(syntaxTree()) -> syntaxTree().
+
 arity_qualifier_body(Node) ->
     (data(Node))#arity_qualifier.body.
 
@@ -3172,6 +3369,8 @@ arity_qualifier_body(Node) ->
 %% <code>arity_qualifier</code> node.
 %%
 %% @see arity_qualifier/2
+
+-spec arity_qualifier_argument(syntaxTree()) -> syntaxTree().
 
 arity_qualifier_argument(Node) ->
     (data(Node))#arity_qualifier.arity.
@@ -3187,7 +3386,7 @@ arity_qualifier_argument(Node) ->
 %% @see module_qualifier_argument/1
 %% @see module_qualifier_body/1
 
--record(module_qualifier, {module, body}).
+-record(module_qualifier, {module :: syntaxTree(), body :: syntaxTree()}).
 
 %% type(Node) = module_qualifier
 %% data(Node) = #module_qualifier{module :: Module, body :: Body}
@@ -3199,6 +3398,8 @@ arity_qualifier_argument(Node) ->
 %% {remote, Pos, Module, Arg}
 %%
 %%	Module = Arg = erl_parse()
+
+-spec module_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 module_qualifier(Module, Body) ->
     tree(module_qualifier,
@@ -3219,6 +3420,8 @@ revert_module_qualifier(Node) ->
 %%
 %% @see module_qualifier/2
 
+-spec module_qualifier_argument(syntaxTree()) -> syntaxTree().
+
 module_qualifier_argument(Node) ->
     case unwrap(Node) of
 	{remote, _, Module, _} ->
@@ -3235,6 +3438,8 @@ module_qualifier_argument(Node) ->
 %% node.
 %%
 %% @see module_qualifier/2
+
+-spec module_qualifier_body(syntaxTree()) -> syntaxTree().
 
 module_qualifier_body(Node) ->
     case unwrap(Node) of
@@ -3267,6 +3472,8 @@ module_qualifier_body(Node) ->
 %% represents a Mnemosyne query record field access ('record_access');
 %% see type/1 for details.
 
+-spec qualified_name([syntaxTree()]) -> syntaxTree().
+
 qualified_name(Segments) ->
     tree(qualified_name, Segments).
 
@@ -3282,6 +3489,8 @@ revert_qualified_name(Node) ->
 %% <code>qualified_name</code> node.
 %%
 %% @see qualified_name/1
+
+-spec qualified_name_segments(syntaxTree()) -> [syntaxTree()].
 
 qualified_name_segments(Node) ->
     case unwrap(Node) of
@@ -3314,6 +3523,9 @@ qualified_name_segments(Node) ->
 %% @see rule/2
 
 -record(function, {name, clauses}).
+%% XXX: This one is problematic because there is a tuple with the same
+%%      tag and size that comes from 'erl_parse'
+%% -record(function, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
 
 %% type(Node) = function
 %% data(Node) = #function{name :: Name, clauses :: Clauses}
@@ -3340,6 +3552,8 @@ qualified_name_segments(Node) ->
 %%	the integer `Arity'; see `clause' for documentation on
 %%	`erl_parse' clauses.
 
+-spec function(syntaxTree(), [syntaxTree()]) -> syntaxTree().
+
 function(Name, Clauses) ->
     tree(function, #function{name = Name, clauses = Clauses}).
 
@@ -3363,6 +3577,8 @@ revert_function(Node) ->
 %%
 %% @see function/2
 
+-spec function_name(syntaxTree()) -> syntaxTree().
+
 function_name(Node) ->
     case unwrap(Node) of
 	{function, Pos, Name, _, _} ->
@@ -3379,6 +3595,8 @@ function_name(Node) ->
 %% node.
 %%
 %% @see function/2
+
+-spec function_clauses(syntaxTree()) -> [syntaxTree()].
 
 function_clauses(Node) ->
     case unwrap(Node) of
@@ -3406,6 +3624,8 @@ function_clauses(Node) ->
 %% @see clause/3
 %% @see clause_patterns/1
 
+-spec function_arity(syntaxTree()) -> arity().
+
 function_arity(Node) ->
     %% Note that this never accesses the arity field of `erl_parse'
     %% function nodes.
@@ -3415,6 +3635,10 @@ function_arity(Node) ->
 %% =====================================================================
 %% @spec clause(Guard, Body) -> syntaxTree()
 %% @equiv clause([], Guard, Body)
+
+-type guard() :: 'none' | syntaxTree() | [syntaxTree()] | [[syntaxTree()]].
+
+-spec clause(guard(), [syntaxTree()]) -> syntaxTree().
 
 clause(Guard, Body) ->
     clause([], Guard, Body).
@@ -3455,7 +3679,9 @@ clause(Guard, Body) ->
 %% @see clause_guard/1
 %% @see clause_body/1
 
--record(clause, {patterns, guard, body}).
+-record(clause, {patterns :: [syntaxTree()],
+		 guard    :: guard(),
+		 body     :: [syntaxTree()]}).
 
 %% type(Node) = clause
 %% data(Node) = #clause{patterns :: Patterns, guard :: Guard,
@@ -3481,6 +3707,8 @@ clause(Guard, Body) ->
 %%	`[[E1_1, ..., E1_k1], ..., [Ej_1, ..., Ej_kj]]'. In older
 %%	versions, `Guard' was simply a list `[E1, ..., En]' of parse
 %%	trees, which is equivalent to the new form `[[E1, ..., En]]'.
+
+-spec clause([syntaxTree()], guard(), [syntaxTree()]) -> syntaxTree().
 
 clause(Patterns, Guard, Body) ->
     Guard1 = case Guard of
@@ -3551,7 +3779,7 @@ fold_try_clause({clause, Pos, [P], Guard, Body}) ->
 unfold_try_clauses(Cs) ->
     [unfold_try_clause(C) || C <- Cs].
 
-unfold_try_clause({clause, Pos, [{tuple, _, [{atom,_,throw}, V, _]}],
+unfold_try_clause({clause, Pos, [{tuple, _, [{atom, _, throw}, V, _]}],
 		   Guard, Body}) ->
     {clause, Pos, [V], Guard, Body};
 unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
@@ -3566,6 +3794,8 @@ unfold_try_clause({clause, Pos, [{tuple, _, [C, V, _]}],
 %% node.
 %%
 %% @see clause/3
+
+-spec clause_patterns(syntaxTree()) -> [syntaxTree()].
 
 clause_patterns(Node) ->
     case unwrap(Node) of
@@ -3586,6 +3816,8 @@ clause_patterns(Node) ->
 %% result is <code>none</code>.
 %%
 %% @see clause/3
+
+-spec clause_guard(syntaxTree()) -> 'none' | syntaxTree().
 
 clause_guard(Node) ->
     case unwrap(Node) of
@@ -3610,6 +3842,8 @@ clause_guard(Node) ->
 %%
 %% @see clause/3
 
+-spec clause_body(syntaxTree()) -> [syntaxTree()].
+
 clause_body(Node) ->
     case unwrap(Node) of
 	{clause, _, _, _, Body} ->
@@ -3632,6 +3866,8 @@ clause_body(Node) ->
 %% type(Node) = disjunction
 %% data(Node) = [syntaxTree()]
 
+-spec disjunction([syntaxTree()]) -> syntaxTree().
+
 disjunction(Tests) ->
     tree(disjunction, Tests).
 
@@ -3643,6 +3879,8 @@ disjunction(Tests) ->
 %% <code>disjunction</code> node.
 %%
 %% @see disjunction/1
+
+-spec disjunction_body(syntaxTree()) -> [syntaxTree()].
 
 disjunction_body(Node) ->
     data(Node).
@@ -3661,6 +3899,8 @@ disjunction_body(Node) ->
 %% type(Node) = conjunction
 %% data(Node) = [syntaxTree()]
 
+-spec conjunction([syntaxTree()]) -> syntaxTree().
+
 conjunction(Tests) ->
     tree(conjunction, Tests).
 
@@ -3672,6 +3912,8 @@ conjunction(Tests) ->
 %% <code>conjunction</code> node.
 %%
 %% @see conjunction/1
+
+-spec conjunction_body(syntaxTree()) -> [syntaxTree()].
 
 conjunction_body(Node) ->
     data(Node).
@@ -3694,6 +3936,8 @@ conjunction_body(Node) ->
 %%
 %%	Expr = erl_parse()
 
+-spec catch_expr(syntaxTree()) -> syntaxTree().
+
 catch_expr(Expr) ->
     tree(catch_expr, Expr).
 
@@ -3709,6 +3953,8 @@ revert_catch_expr(Node) ->
 %% @doc Returns the body subtree of a <code>catch_expr</code> node.
 %%
 %% @see catch_expr/1
+
+-spec catch_expr_body(syntaxTree()) -> syntaxTree().
 
 catch_expr_body(Node) ->
     case unwrap(Node) of
@@ -3729,7 +3975,7 @@ catch_expr_body(Node) ->
 %% @see match_expr_pattern/1
 %% @see match_expr_body/1
 
--record(match_expr, {pattern, body}).
+-record(match_expr, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 %% type(Node) = match_expr
 %% data(Node) = #match_expr{pattern :: Pattern, body :: Body}
@@ -3741,6 +3987,8 @@ catch_expr_body(Node) ->
 %% {match, Pos, Pattern, Body}
 %%
 %%	Pattern = Body = erl_parse()
+
+-spec match_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 match_expr(Pattern, Body) ->
     tree(match_expr, #match_expr{pattern = Pattern, body = Body}).
@@ -3759,6 +4007,8 @@ revert_match_expr(Node) ->
 %%
 %% @see match_expr/2
 
+-spec match_expr_pattern(syntaxTree()) -> syntaxTree().
+
 match_expr_pattern(Node) ->
     case unwrap(Node) of
 	{match, _, Pattern, _} ->
@@ -3774,6 +4024,8 @@ match_expr_pattern(Node) ->
 %% @doc Returns the body subtree of a <code>match_expr</code> node.
 %%
 %% @see match_expr/2
+
+-spec match_expr_body(syntaxTree()) -> syntaxTree().
 
 match_expr_body(Node) ->
     case unwrap(Node) of
@@ -3802,6 +4054,8 @@ match_expr_body(Node) ->
 %% type(Node) = operator
 %% data(Node) = atom()
 
+-spec operator(atom() | string()) -> syntaxTree().
+
 operator(Name) when is_atom(Name) ->
     tree(operator, Name);
 operator(Name) ->
@@ -3816,6 +4070,8 @@ operator(Name) ->
 %%
 %% @see operator/1
 
+-spec operator_name(syntaxTree()) -> atom().
+
 operator_name(Node) ->
     data(Node).
 
@@ -3828,6 +4084,8 @@ operator_name(Node) ->
 %% string.
 %%
 %% @see operator/1
+
+-spec operator_literal(syntaxTree()) -> string().
 
 operator_literal(Node) ->
     atom_to_list(operator_name(Node)).
@@ -3846,7 +4104,9 @@ operator_literal(Node) ->
 %% @see infix_expr_operator/1
 %% @see prefix_expr/2
 
--record(infix_expr, {operator, left, right}).
+-record(infix_expr, {operator :: syntaxTree(),
+		     left     :: syntaxTree(),
+		     right    :: syntaxTree()}).
 
 %% type(Node) = infix_expr
 %% data(Node) = #infix_expr{left :: Left, operator :: Operator,
@@ -3860,6 +4120,8 @@ operator_literal(Node) ->
 %%
 %%	Operator = atom()
 %%	Left = Right = erl_parse()
+
+-spec infix_expr(syntaxTree(), syntaxTree(), syntaxTree()) -> syntaxTree().
 
 infix_expr(Left, Operator, Right) ->
     tree(infix_expr, #infix_expr{operator = Operator, left = Left,
@@ -3888,6 +4150,8 @@ revert_infix_expr(Node) ->
 %%
 %% @see infix_expr/3
 
+-spec infix_expr_left(syntaxTree()) -> syntaxTree().
+
 infix_expr_left(Node) ->
     case unwrap(Node) of
 	{op, _, _, Left, _} ->
@@ -3905,6 +4169,8 @@ infix_expr_left(Node) ->
 %%
 %% @see infix_expr/3
 
+-spec infix_expr_operator(syntaxTree()) -> syntaxTree().
+
 infix_expr_operator(Node) ->
     case unwrap(Node) of
 	{op, Pos, Operator, _, _} ->
@@ -3921,6 +4187,8 @@ infix_expr_operator(Node) ->
 %% <code>infix_expr</code> node.
 %%
 %% @see infix_expr/3
+
+-spec infix_expr_right(syntaxTree()) -> syntaxTree().
 
 infix_expr_right(Node) ->
     case unwrap(Node) of
@@ -3942,7 +4210,7 @@ infix_expr_right(Node) ->
 %% @see prefix_expr_operator/1
 %% @see infix_expr/3
 
--record(prefix_expr, {operator, argument}).
+-record(prefix_expr, {operator :: syntaxTree(), argument :: syntaxTree()}).
 
 %% type(Node) = prefix_expr
 %% data(Node) = #prefix_expr{operator :: Operator,
@@ -3956,6 +4224,8 @@ infix_expr_right(Node) ->
 %%
 %%	Operator = atom()
 %%	Argument = erl_parse()
+
+-spec prefix_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 prefix_expr(Operator, Argument) ->
     tree(prefix_expr, #prefix_expr{operator = Operator,
@@ -3983,6 +4253,8 @@ revert_prefix_expr(Node) ->
 %%
 %% @see prefix_expr/2
 
+-spec prefix_expr_operator(syntaxTree()) -> syntaxTree().
+
 prefix_expr_operator(Node) ->
     case unwrap(Node) of
 	{op, Pos, Operator, _} ->
@@ -4000,6 +4272,8 @@ prefix_expr_operator(Node) ->
 %%
 %% @see prefix_expr/2
 
+-spec prefix_expr_argument(syntaxTree()) -> syntaxTree().
+
 prefix_expr_argument(Node) ->
     case unwrap(Node) of
 	{op, _, _, Argument} ->
@@ -4012,6 +4286,8 @@ prefix_expr_argument(Node) ->
 %% =====================================================================
 %% @spec record_field(Name) -> syntaxTree()
 %% @equiv record_field(Name, none)
+
+-spec record_field(syntaxTree()) -> syntaxTree().
 
 record_field(Name) ->
     record_field(Name, none).
@@ -4030,12 +4306,14 @@ record_field(Name) ->
 %% @see record_field_value/1
 %% @see record_expr/3
 
--record(record_field, {name, value}).
+-record(record_field, {name :: syntaxTree(), value :: 'none' | syntaxTree()}).
 
 %% type(Node) = record_field
 %% data(Node) = #record_field{name :: Name, value :: Value}
 %%
 %%	Name = Value = syntaxTree()
+
+-spec record_field(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
 record_field(Name, Value) ->
     tree(record_field, #record_field{name = Name, value = Value}).
@@ -4047,6 +4325,8 @@ record_field(Name, Value) ->
 %% @doc Returns the name subtree of a <code>record_field</code> node.
 %%
 %% @see record_field/2
+
+-spec record_field_name(syntaxTree()) -> syntaxTree().
 
 record_field_name(Node) ->
     (data(Node))#record_field.name.
@@ -4063,6 +4343,8 @@ record_field_name(Node) ->
 %% is returned.
 %%
 %% @see record_field/2
+
+-spec record_field_value(syntaxTree()) -> 'none' | syntaxTree().
 
 record_field_value(Node) ->
     (data(Node))#record_field.value.
@@ -4083,7 +4365,7 @@ record_field_value(Node) ->
 %% @see record_index_expr_field/1
 %% @see record_expr/3
 
--record(record_index_expr, {type, field}).
+-record(record_index_expr, {type :: syntaxTree(), field :: syntaxTree()}).
 
 %% type(Node) = record_index_expr
 %% data(Node) = #record_index_expr{type :: Type, field :: Field}
@@ -4096,6 +4378,8 @@ record_field_value(Node) ->
 %%
 %%	Type = atom()
 %%	Field = erl_parse()
+
+-spec record_index_expr(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 record_index_expr(Type, Field) ->
     tree(record_index_expr, #record_index_expr{type = Type,
@@ -4121,6 +4405,8 @@ revert_record_index_expr(Node) ->
 %%
 %% @see record_index_expr/2
 
+-spec record_index_expr_type(syntaxTree()) -> syntaxTree().
+
 record_index_expr_type(Node) ->
     case unwrap(Node) of
 	{record_index, Pos, Type, _} ->
@@ -4138,6 +4424,8 @@ record_index_expr_type(Node) ->
 %%
 %% @see record_index_expr/2
 
+-spec record_index_expr_field(syntaxTree()) -> syntaxTree().
+
 record_index_expr_field(Node) ->
     case unwrap(Node) of
 	{record_index, _, _, Field} ->
@@ -4150,6 +4438,8 @@ record_index_expr_field(Node) ->
 %% =====================================================================
 %% @spec record_access(Argument, Field) -> syntaxTree()
 %% @equiv record_access(Argument, none, Field)
+
+-spec record_access(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 record_access(Argument, Field) ->
     record_access(Argument, none, Field).
@@ -4175,7 +4465,9 @@ record_access(Argument, Field) ->
 %% @see record_expr/3
 %% @see query_expr/1
 
--record(record_access, {argument, type, field}).
+-record(record_access, {argument :: syntaxTree(),
+			type     :: 'none' | syntaxTree(),
+			field    :: syntaxTree()}).
 
 %% type(Node) = record_access
 %% data(Node) = #record_access{argument :: Argument, type :: Type,
@@ -4191,6 +4483,9 @@ record_access(Argument, Field) ->
 %%
 %%	Argument = Field = erl_parse()
 %%	Type = atom()
+
+-spec record_access(syntaxTree(), 'none' | syntaxTree(), syntaxTree()) ->
+        syntaxTree().
 
 record_access(Argument, Type, Field) ->
     tree(record_access,#record_access{argument = Argument,
@@ -4223,6 +4518,8 @@ revert_record_access(Node) ->
 %%
 %% @see record_access/3
 
+-spec record_access_argument(syntaxTree()) -> syntaxTree().
+
 record_access_argument(Node) ->
     case unwrap(Node) of
 	{record_field, _, Argument, _} ->
@@ -4246,6 +4543,8 @@ record_access_argument(Node) ->
 %%
 %% @see record_access/3
 
+-spec record_access_type(syntaxTree()) -> 'none' | syntaxTree().
+
 record_access_type(Node) ->
     case unwrap(Node) of
 	{record_field, _, _, _} ->
@@ -4265,6 +4564,8 @@ record_access_type(Node) ->
 %%
 %% @see record_access/3
 
+-spec record_access_field(syntaxTree()) -> syntaxTree().
+
 record_access_field(Node) ->
     case unwrap(Node) of
 	{record_field, _, _, Field} ->
@@ -4279,6 +4580,8 @@ record_access_field(Node) ->
 %% =====================================================================
 %% @spec record_expr(Type, Fields) -> syntaxTree()
 %% @equiv record_expr(none, Type, Fields)
+
+-spec record_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 record_expr(Type, Fields) ->
     record_expr(none, Type, Fields).
@@ -4305,7 +4608,9 @@ record_expr(Type, Fields) ->
 %% @see record_index_expr/2
 %% @see record_access/3
 
--record(record_expr, {argument, type, fields}).
+-record(record_expr, {argument :: 'none' | syntaxTree(),
+		      type     :: syntaxTree(),
+		      fields   :: [syntaxTree()]}).
 
 %% type(Node) = record_expr
 %% data(Node) = #record_expr{argument :: Argument, type :: Type,
@@ -4326,6 +4631,9 @@ record_expr(Type, Fields) ->
 %%	Entry = {record_field, Pos, Field, Value}
 %%	      | {record_field, Pos, Field}
 %%	Field = Value = erl_parse()
+
+-spec record_expr('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
+        syntaxTree().
 
 record_expr(Argument, Type, Fields) ->
     tree(record_expr, #record_expr{argument = Argument,
@@ -4363,6 +4671,8 @@ revert_record_expr(Node) ->
 %%
 %% @see record_expr/3
 
+-spec record_expr_argument(syntaxTree()) -> 'none' | syntaxTree().
+
 record_expr_argument(Node) ->
     case unwrap(Node) of
 	{record, _, _, _} ->
@@ -4380,6 +4690,8 @@ record_expr_argument(Node) ->
 %% @doc Returns the type subtree of a <code>record_expr</code> node.
 %%
 %% @see record_expr/3
+
+-spec record_expr_type(syntaxTree()) -> syntaxTree().
 
 record_expr_type(Node) ->
     case unwrap(Node) of
@@ -4399,6 +4711,8 @@ record_expr_type(Node) ->
 %% <code>record_expr</code> node.
 %%
 %% @see record_expr/3
+
+-spec record_expr_fields(syntaxTree()) -> [syntaxTree()].
 
 record_expr_fields(Node) ->
     case unwrap(Node) of
@@ -4427,6 +4741,9 @@ record_expr_fields(Node) ->
 %% @see application/2
 %% @see module_qualifier/2
 
+-spec application('none' | syntaxTree(), syntaxTree(), [syntaxTree()]) ->
+        syntaxTree().
+
 application(none, Name, Arguments) ->
     application(Name, Arguments);
 application(Module, Name, Arguments) ->
@@ -4446,7 +4763,7 @@ application(Module, Name, Arguments) ->
 %% @see application_arguments/1
 %% @see application/3
 
--record(application, {operator, arguments}).
+-record(application, {operator :: syntaxTree(), arguments :: [syntaxTree()]}).
 
 %% type(Node) = application
 %% data(Node) = #application{operator :: Operator,
@@ -4461,6 +4778,8 @@ application(Module, Name, Arguments) ->
 %%
 %%	Operator = erl_parse()
 %%	Arguments = [erl_parse()]
+
+-spec application(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 application(Operator, Arguments) ->
     tree(application, #application{operator = Operator,
@@ -4486,6 +4805,8 @@ revert_application(Node) ->
 %% @see application/2
 %% @see module_qualifier/2
 
+-spec application_operator(syntaxTree()) -> syntaxTree().
+
 application_operator(Node) ->
     case unwrap(Node) of
 	{call, _, Operator, _} ->
@@ -4502,6 +4823,8 @@ application_operator(Node) ->
 %% <code>application</code> node.
 %%
 %% @see application/2
+
+-spec application_arguments(syntaxTree()) -> [syntaxTree()].
 
 application_arguments(Node) ->
     case unwrap(Node) of
@@ -4524,7 +4847,7 @@ application_arguments(Node) ->
 %% @see list_comp_body/1
 %% @see generator/2
 
--record(list_comp, {template, body}).
+-record(list_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
 
 %% type(Node) = list_comp
 %% data(Node) = #list_comp{template :: Template, body :: Body}
@@ -4538,6 +4861,8 @@ application_arguments(Node) ->
 %%
 %%	Template = erl_parse()
 %%	Body = [erl_parse()] \ []
+
+-spec list_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 list_comp(Template, Body) ->
     tree(list_comp, #list_comp{template = Template, body = Body}).
@@ -4556,6 +4881,8 @@ revert_list_comp(Node) ->
 %%
 %% @see list_comp/2
 
+-spec list_comp_template(syntaxTree()) -> syntaxTree().
+
 list_comp_template(Node) ->
     case unwrap(Node) of
 	{lc, _, Template, _} ->
@@ -4572,6 +4899,8 @@ list_comp_template(Node) ->
 %% node.
 %%
 %% @see list_comp/2
+
+-spec list_comp_body(syntaxTree()) -> [syntaxTree()].
 
 list_comp_body(Node) ->
     case unwrap(Node) of
@@ -4593,7 +4922,7 @@ list_comp_body(Node) ->
 %% @see binary_comp_body/1
 %% @see generator/2
 
--record(binary_comp, {template, body}).
+-record(binary_comp, {template :: syntaxTree(), body :: [syntaxTree()]}).
 
 %% type(Node) = binary_comp
 %% data(Node) = #binary_comp{template :: Template, body :: Body}
@@ -4607,6 +4936,8 @@ list_comp_body(Node) ->
 %%
 %%	Template = erl_parse()
 %%	Body = [erl_parse()] \ []
+
+-spec binary_comp(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 binary_comp(Template, Body) ->
     tree(binary_comp, #binary_comp{template = Template, body = Body}).
@@ -4625,6 +4956,8 @@ revert_binary_comp(Node) ->
 %%
 %% @see binary_comp/2
 
+-spec binary_comp_template(syntaxTree()) -> syntaxTree().
+
 binary_comp_template(Node) ->
     case unwrap(Node) of
 	{bc, _, Template, _} ->
@@ -4641,6 +4974,8 @@ binary_comp_template(Node) ->
 %% node.
 %%
 %% @see binary_comp/2
+
+-spec binary_comp_body(syntaxTree()) -> [syntaxTree()].
 
 binary_comp_body(Node) ->
     case unwrap(Node) of
@@ -4670,6 +5005,8 @@ binary_comp_body(Node) ->
 %%
 %%	Body = erl_parse()
 
+-spec query_expr(syntaxTree()) -> syntaxTree().
+
 query_expr(Body) ->
     tree(query_expr, Body).
 
@@ -4685,6 +5022,8 @@ revert_query_expr(Node) ->
 %% @doc Returns the body subtree of a <code>query_expr</code> node.
 %%
 %% @see query_expr/1
+
+-spec query_expr_body(syntaxTree()) -> syntaxTree().
 
 query_expr_body(Node) ->
     case unwrap(Node) of
@@ -4715,7 +5054,7 @@ query_expr_body(Node) ->
 %% @see is_form/1
 %% @see function/2
 
--record(rule, {name, clauses}).
+-record(rule, {name :: syntaxTree(), clauses :: [syntaxTree()]}).
 
 %% type(Node) = rule
 %% data(Node) = #rule{name :: Name, clauses :: Clauses}
@@ -4737,6 +5076,8 @@ query_expr_body(Node) ->
 %%	where the number of patterns in each clause should be equal to
 %%	the integer `Arity'; see `clause' for documentation on
 %%	`erl_parse' clauses.
+
+-spec rule(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 rule(Name, Clauses) ->
     tree(rule, #rule{name = Name, clauses = Clauses}).
@@ -4761,6 +5102,8 @@ revert_rule(Node) ->
 %%
 %% @see rule/2
 
+-spec rule_name(syntaxTree()) -> syntaxTree().
+
 rule_name(Node) ->
     case unwrap(Node) of
 	{rule, Pos, Name, _, _} ->
@@ -4775,6 +5118,8 @@ rule_name(Node) ->
 %% @doc Returns the list of clause subtrees of a <code>rule</code> node.
 %%
 %% @see rule/2
+
+-spec rule_clauses(syntaxTree()) -> [syntaxTree()].
 
 rule_clauses(Node) ->
     case unwrap(Node) of
@@ -4801,6 +5146,8 @@ rule_clauses(Node) ->
 %% @see clause/3
 %% @see clause_patterns/1
 
+-spec rule_arity(syntaxTree()) -> arity().
+
 rule_arity(Node) ->
     %% Note that this never accesses the arity field of
     %% `erl_parse' rule nodes.
@@ -4819,7 +5166,7 @@ rule_arity(Node) ->
 %% @see list_comp/2
 %% @see binary_comp/2
 
--record(generator, {pattern, body}).
+-record(generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 %% type(Node) = generator
 %% data(Node) = #generator{pattern :: Pattern, body :: Body}
@@ -4831,6 +5178,8 @@ rule_arity(Node) ->
 %% {generate, Pos, Pattern, Body}
 %%
 %%	Pattern = Body = erl_parse()
+
+-spec generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 generator(Pattern, Body) ->
     tree(generator, #generator{pattern = Pattern, body = Body}).
@@ -4849,6 +5198,8 @@ revert_generator(Node) ->
 %%
 %% @see generator/2
 
+-spec generator_pattern(syntaxTree()) -> syntaxTree().
+
 generator_pattern(Node) ->
     case unwrap(Node) of
 	{generate, _, Pattern, _} ->
@@ -4864,6 +5215,8 @@ generator_pattern(Node) ->
 %% @doc Returns the body subtree of a <code>generator</code> node.
 %%
 %% @see generator/2
+
+-spec generator_body(syntaxTree()) -> syntaxTree().
 
 generator_body(Node) ->
     case unwrap(Node) of
@@ -4886,7 +5239,7 @@ generator_body(Node) ->
 %% @see list_comp/2
 %% @see binary_comp/2
 
--record(binary_generator, {pattern, body}).
+-record(binary_generator, {pattern :: syntaxTree(), body :: syntaxTree()}).
 
 %% type(Node) = binary_generator
 %% data(Node) = #binary_generator{pattern :: Pattern, body :: Body}
@@ -4898,6 +5251,8 @@ generator_body(Node) ->
 %% {b_generate, Pos, Pattern, Body}
 %%
 %%	Pattern = Body = erl_parse()
+
+-spec binary_generator(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 binary_generator(Pattern, Body) ->
     tree(binary_generator, #binary_generator{pattern = Pattern, body = Body}).
@@ -4916,6 +5271,8 @@ revert_binary_generator(Node) ->
 %%
 %% @see binary_generator/2
 
+-spec binary_generator_pattern(syntaxTree()) -> syntaxTree().
+
 binary_generator_pattern(Node) ->
     case unwrap(Node) of
 	{b_generate, _, Pattern, _} ->
@@ -4932,6 +5289,8 @@ binary_generator_pattern(Node) ->
 %%
 %% @see binary_generator/2
 
+-spec binary_generator_body(syntaxTree()) -> syntaxTree().
+
 binary_generator_body(Node) ->
     case unwrap(Node) of
 	{b_generate, _, _, Body} ->
@@ -4939,6 +5298,7 @@ binary_generator_body(Node) ->
 	Node1 ->
 	    (data(Node1))#binary_generator.body
     end.
+
 
 %% =====================================================================
 %% @spec block_expr(Body::[syntaxTree()]) -> syntaxTree()
@@ -4960,6 +5320,8 @@ binary_generator_body(Node) ->
 %%
 %%	    Body = [erl_parse()] \ []
 
+-spec block_expr(Body::[syntaxTree()]) -> syntaxTree().
+
 block_expr(Body) ->
     tree(block_expr, Body).
 
@@ -4976,6 +5338,8 @@ revert_block_expr(Node) ->
 %% node.
 %%
 %% @see block_expr/1
+
+-spec block_expr_body(syntaxTree()) -> [syntaxTree()].
 
 block_expr_body(Node) ->
     case unwrap(Node) of
@@ -5015,6 +5379,8 @@ block_expr_body(Node) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 
+-spec if_expr([syntaxTree()]) -> syntaxTree().
+
 if_expr(Clauses) ->
     tree(if_expr, Clauses).
 
@@ -5031,6 +5397,8 @@ revert_if_expr(Node) ->
 %% node.
 %%
 %% @see if_expr/1
+
+-spec if_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
 if_expr_clauses(Node) ->
     case unwrap(Node) of
@@ -5059,7 +5427,7 @@ if_expr_clauses(Node) ->
 %% @see if_expr/1
 %% @see cond_expr/1
 
--record(case_expr, {argument, clauses}).
+-record(case_expr, {argument :: syntaxTree(), clauses :: [syntaxTree()]}).
 
 %% type(Node) = case_expr
 %% data(Node) = #case_expr{argument :: Argument,
@@ -5077,6 +5445,8 @@ if_expr_clauses(Node) ->
 %%	Clause = {clause, ...}
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
+
+-spec case_expr(syntaxTree(), [syntaxTree()]) -> syntaxTree().
 
 case_expr(Argument, Clauses) ->
     tree(case_expr, #case_expr{argument = Argument,
@@ -5096,6 +5466,8 @@ revert_case_expr(Node) ->
 %%
 %% @see case_expr/2
 
+-spec case_expr_argument(syntaxTree()) -> syntaxTree().
+
 case_expr_argument(Node) ->
     case unwrap(Node) of
 	{'case', _, Argument, _} ->
@@ -5112,6 +5484,8 @@ case_expr_argument(Node) ->
 %% node.
 %%
 %% @see case_expr/2
+
+-spec case_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
 case_expr_clauses(Node) ->
     case unwrap(Node) of
@@ -5151,6 +5525,8 @@ case_expr_clauses(Node) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 
+-spec cond_expr([syntaxTree()]) -> syntaxTree().
+
 cond_expr(Clauses) ->
     tree(cond_expr, Clauses).
 
@@ -5168,6 +5544,8 @@ revert_cond_expr(Node) ->
 %%
 %% @see cond_expr/1
 
+-spec cond_expr_clauses(syntaxTree()) -> [syntaxTree()].
+
 cond_expr_clauses(Node) ->
     case unwrap(Node) of
 	{'cond', _, Clauses} ->
@@ -5180,6 +5558,8 @@ cond_expr_clauses(Node) ->
 %% =====================================================================
 %% @spec receive_expr(Clauses) -> syntaxTree()
 %% @equiv receive_expr(Clauses, none, [])
+
+-spec receive_expr([syntaxTree()]) -> syntaxTree().
 
 receive_expr(Clauses) ->
     receive_expr(Clauses, none, []).
@@ -5213,7 +5593,9 @@ receive_expr(Clauses) ->
 %% @see clause/3
 %% @see case_expr/2
 
--record(receive_expr, {clauses, timeout, action}).
+-record(receive_expr, {clauses :: [syntaxTree()],
+		       timeout :: 'none' | syntaxTree(),
+		       action  :: [syntaxTree()]}).
 
 %% type(Node) = receive_expr
 %% data(Node) = #receive_expr{clauses :: Clauses,
@@ -5235,6 +5617,9 @@ receive_expr(Clauses) ->
 %%	Action = [erl_parse()] \ []
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
+
+-spec receive_expr([syntaxTree()], 'none' | syntaxTree(), [syntaxTree()]) ->
+        syntaxTree().
 
 receive_expr(Clauses, Timeout, Action) ->
     %% If `Timeout' is `none', we always replace the actual
@@ -5271,6 +5656,8 @@ revert_receive_expr(Node) ->
 %%
 %% @see receive_expr/3
 
+-spec receive_expr_clauses(syntaxTree()) -> [syntaxTree()].
+
 receive_expr_clauses(Node) ->
     case unwrap(Node) of
 	{'receive', _, Clauses} ->
@@ -5295,6 +5682,8 @@ receive_expr_clauses(Node) ->
 %%
 %% @see receive_expr/3
 
+-spec receive_expr_timeout(syntaxTree()) -> 'none' | syntaxTree().
+
 receive_expr_timeout(Node) ->
     case unwrap(Node) of
 	{'receive', _, _} ->
@@ -5316,6 +5705,8 @@ receive_expr_timeout(Node) ->
 %%
 %% @see receive_expr/3
 
+-spec receive_expr_action(syntaxTree()) -> [syntaxTree()].
+
 receive_expr_action(Node) ->
     case unwrap(Node) of
 	{'receive', _, _} ->
@@ -5332,6 +5723,8 @@ receive_expr_action(Node) ->
 %%           syntaxTree()
 %% @equiv try_expr(Body, [], Handlers)
 
+-spec try_expr([syntaxTree()], [syntaxTree()]) -> syntaxTree().
+
 try_expr(Body, Handlers) ->
     try_expr(Body, [], Handlers).
 
@@ -5341,6 +5734,8 @@ try_expr(Body, Handlers) ->
 %%           Handlers::[syntaxTree()]) -> syntaxTree()
 %% @equiv try_expr(Body, Clauses, Handlers, [])
 
+-spec try_expr([syntaxTree()], [syntaxTree()], [syntaxTree()]) -> syntaxTree().
+
 try_expr(Body, Clauses, Handlers) ->
     try_expr(Body, Clauses, Handlers, []).
 
@@ -5349,6 +5744,8 @@ try_expr(Body, Clauses, Handlers) ->
 %% @spec try_after_expr(Body::syntaxTree(), After::[syntaxTree()]) ->
 %%           syntaxTree()
 %% @equiv try_expr(Body, [], [], After)
+
+-spec try_after_expr([syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
 try_after_expr(Body, After) ->
     try_expr(Body, [], [], After).
@@ -5391,7 +5788,10 @@ try_after_expr(Body, After) ->
 %% @see class_qualifier/2
 %% @see case_expr/2
 
--record(try_expr, {body, clauses, handlers, 'after'}).
+-record(try_expr, {body     :: [syntaxTree()],
+		   clauses  :: [syntaxTree()],
+		   handlers :: [syntaxTree()],
+		   'after'  :: [syntaxTree()]}).
 
 %% type(Node) = try_expr
 %% data(Node) = #try_expr{body :: Body,
@@ -5413,6 +5813,9 @@ try_after_expr(Body, After) ->
 %%	After = [erl_parse()]
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
+
+-spec try_expr([syntaxTree()], [syntaxTree()],
+	       [syntaxTree()], [syntaxTree()]) -> syntaxTree().
 
 try_expr(Body, Clauses, Handlers, After) ->
     tree(try_expr, #try_expr{body = Body,
@@ -5437,6 +5840,8 @@ revert_try_expr(Node) ->
 %%
 %% @see try_expr/4
 
+-spec try_expr_body(syntaxTree()) -> [syntaxTree()].
+
 try_expr_body(Node) ->
     case unwrap(Node) of
 	{'try', _, Body, _, _, _} ->
@@ -5456,6 +5861,8 @@ try_expr_body(Node) ->
 %%
 %% @see try_expr/4
 
+-spec try_expr_clauses(syntaxTree()) -> [syntaxTree()].
+
 try_expr_clauses(Node) ->
     case unwrap(Node) of
 	{'try', _, _, Clauses, _, _} ->
@@ -5473,6 +5880,8 @@ try_expr_clauses(Node) ->
 %%
 %% @see try_expr/4
 
+-spec try_expr_handlers(syntaxTree()) -> [syntaxTree()].
+
 try_expr_handlers(Node) ->
     case unwrap(Node) of
 	{'try', _, _, _, Handlers, _} ->
@@ -5489,6 +5898,8 @@ try_expr_handlers(Node) ->
 %% node.
 %%
 %% @see try_expr/4
+
+-spec try_expr_after(syntaxTree()) -> [syntaxTree()].
 
 try_expr_after(Node) ->
     case unwrap(Node) of
@@ -5510,12 +5921,14 @@ try_expr_after(Node) ->
 %% @see class_qualifier_body/1
 %% @see try_expr/4
 
--record(class_qualifier, {class, body}).
+-record(class_qualifier, {class :: syntaxTree(), body :: syntaxTree()}).
 
 %% type(Node) = class_qualifier
 %% data(Node) = #class_qualifier{class :: Class, body :: Body}
 %%
 %%	Class = Body = syntaxTree()
+
+-spec class_qualifier(syntaxTree(), syntaxTree()) -> syntaxTree().
 
 class_qualifier(Class, Body) ->
     tree(class_qualifier,
@@ -5530,6 +5943,8 @@ class_qualifier(Class, Body) ->
 %%
 %% @see class_qualifier/2
 
+-spec class_qualifier_argument(syntaxTree()) -> syntaxTree().
+
 class_qualifier_argument(Node) ->
     (data(Node))#class_qualifier.class.
 
@@ -5540,6 +5955,8 @@ class_qualifier_argument(Node) ->
 %% @doc Returns the body subtree of a <code>class_qualifier</code> node.
 %%
 %% @see class_qualifier/2
+
+-spec class_qualifier_body(syntaxTree()) -> syntaxTree().
 
 class_qualifier_body(Node) ->
     (data(Node))#class_qualifier.body.
@@ -5558,6 +5975,8 @@ class_qualifier_body(Node) ->
 %%
 %% @see implicit_fun/1
 %% @see implicit_fun/3
+
+-spec implicit_fun(syntaxTree(), 'none' | syntaxTree()) -> syntaxTree().
 
 implicit_fun(Name, none) ->
     implicit_fun(Name);
@@ -5579,6 +5998,9 @@ implicit_fun(Name, Arity) ->
 %%
 %% @see implicit_fun/1
 %% @see implicit_fun/2
+
+-spec implicit_fun('none' | syntaxTree(), syntaxTree(), syntaxTree()) ->
+        syntaxTree().
 
 implicit_fun(none, Name, Arity) ->
     implicit_fun(Name, Arity);
@@ -5610,7 +6032,9 @@ implicit_fun(Module, Name, Arity) ->
 %%
 %%	Module = atom()
 %%	Name = atom()
-%%	Arity = integer()
+%%	Arity = arity()
+
+-spec implicit_fun(syntaxTree()) -> syntaxTree().
 
 implicit_fun(Name) ->
     tree(implicit_fun, Name).
@@ -5661,6 +6085,8 @@ revert_implicit_fun(Node) ->
 %% @see arity_qualifier/2
 %% @see module_qualifier/2
 
+-spec implicit_fun_name(syntaxTree()) -> syntaxTree().
+
 implicit_fun_name(Node) ->
     case unwrap(Node) of
 	{'fun', Pos, {function, Atom, Arity}} ->
@@ -5707,6 +6133,8 @@ implicit_fun_name(Node) ->
 %%
 %%	See `clause' for documentation on `erl_parse' clauses.
 
+-spec fun_expr([syntaxTree()]) -> syntaxTree().
+
 fun_expr(Clauses) ->
     tree(fun_expr, Clauses).
 
@@ -5723,6 +6151,8 @@ revert_fun_expr(Node) ->
 %% node.
 %%
 %% @see fun_expr/1
+
+-spec fun_expr_clauses(syntaxTree()) -> [syntaxTree()].
 
 fun_expr_clauses(Node) ->
     case unwrap(Node) of
@@ -5750,6 +6180,8 @@ fun_expr_clauses(Node) ->
 %% @see clause/3
 %% @see clause_patterns/1
 
+-spec fun_expr_arity(syntaxTree()) -> arity().
+
 fun_expr_arity(Node) ->
     length(clause_patterns(hd(fun_expr_clauses(Node)))).
 
@@ -5766,6 +6198,8 @@ fun_expr_arity(Node) ->
 %% type(Node) = parentheses
 %% data(Node) = syntaxTree()
 
+-spec parentheses(syntaxTree()) -> syntaxTree().
+
 parentheses(Expr) ->
     tree(parentheses, Expr).
 
@@ -5780,6 +6214,8 @@ revert_parentheses(Node) ->
 %%
 %% @see parentheses/1
 
+-spec parentheses_body(syntaxTree()) -> syntaxTree().
+
 parentheses_body(Node) ->
     data(Node).
 
@@ -5787,6 +6223,8 @@ parentheses_body(Node) ->
 %% =====================================================================
 %% @spec macro(Name) -> syntaxTree()
 %% @equiv macro(Name, none)
+
+-spec macro(syntaxTree()) -> syntaxTree().
 
 macro(Name) ->
     macro(Name, none).
@@ -5818,13 +6256,15 @@ macro(Name) ->
 %% @see macro/1
 %% @see text/1
 
--record(macro, {name, arguments}).
+-record(macro, {name :: syntaxTree(), arguments :: 'none' | [syntaxTree()]}).
 
 %% type(Node) = macro
 %% data(Node) = #macro{name :: Name, arguments :: Arguments}
 %%
 %%	Name = syntaxTree()
 %%	Arguments = none | [syntaxTree()]
+
+-spec macro(syntaxTree(), 'none' | [syntaxTree()]) -> syntaxTree().
 
 macro(Name, Arguments) ->
     tree(macro, #macro{name = Name, arguments = Arguments}).
@@ -5836,6 +6276,8 @@ macro(Name, Arguments) ->
 %% @doc Returns the name subtree of a <code>macro</code> node.
 %%
 %% @see macro/2
+
+-spec macro_name(syntaxTree()) -> syntaxTree().
 
 macro_name(Node) ->
     (data(Node))#macro.name.
@@ -5852,6 +6294,8 @@ macro_name(Node) ->
 %% <code>[A1, ..., An]</code> is returned.
 %%
 %% @see macro/2
+
+-spec macro_arguments(syntaxTree()) -> 'none' | [syntaxTree()].
 
 macro_arguments(Node) ->
     (data(Node))#macro.arguments.
@@ -5870,6 +6314,8 @@ macro_arguments(Node) ->
 %%
 %% @see concrete/1
 %% @see is_literal/1
+
+-spec abstract(term()) -> syntaxTree().
 
 abstract([H | T] = L) when is_integer(H) ->
     case is_printable(L) of
@@ -5932,6 +6378,8 @@ abstract_tail(H, T) ->
 %% @see is_literal/1
 %% @see char/1
 
+-spec concrete(syntaxTree()) -> term().
+
 concrete(Node) ->
     case type(Node) of
 	atom ->
@@ -5978,7 +6426,7 @@ concrete_list([]) ->
 
 
 %% =====================================================================
-%% @spec is_literal(Node::syntaxTree()) -> bool()
+%% @spec is_literal(Node::syntaxTree()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if <code>Node</code> represents a
 %% literal term, otherwise <code>false</code>. This function returns
@@ -5987,6 +6435,8 @@ concrete_list([]) ->
 %%
 %% @see abstract/1
 %% @see concrete/1
+
+-spec is_literal(syntaxTree()) -> boolean().
 
 is_literal(T) ->
     case type(T) of
@@ -6030,6 +6480,8 @@ is_literal(T) ->
 %%
 %% @see revert_forms/1
 %% @see //stdlib/erl_parse
+
+-spec revert(syntaxTree()) -> syntaxTree().
 
 revert(Node) ->
     case is_tree(Node) of
@@ -6172,6 +6624,10 @@ revert_root(Node) ->
 %% @see form_list/1
 %% @see is_form/1
 
+-type forms() :: syntaxTree() | [syntaxTree()].
+
+%% -spec revert_forms(forms()) -> [erl_parse()].
+
 revert_forms(L) when is_list(L) ->
     revert_forms(form_list(L));
 revert_forms(T) ->
@@ -6269,6 +6725,8 @@ revert_forms_1([]) ->
 %% @see type/1
 %% @see is_leaf/1
 %% @see copy_attrs/2
+
+-spec subtrees(syntaxTree()) -> [[syntaxTree()]].
 
 subtrees(T) ->
     case is_leaf(T) of
@@ -6442,6 +6900,8 @@ subtrees(T) ->
 %% @see copy_attrs/2
 %% @see type/1
 
+-spec update_tree(syntaxTree(), [[syntaxTree()]]) -> syntaxTree().
+
 update_tree(Node, Groups) ->
     copy_attrs(Node, make_tree(type(Node), Groups)).
 
@@ -6470,6 +6930,8 @@ update_tree(Node, Groups) ->
 %% @see type/1
 %% @see is_leaf/1
 %% @see copy_attrs/2
+
+-spec make_tree(atom(), [[syntaxTree()]]) -> syntaxTree().
 
 make_tree(application, [[F], A]) -> application(F, A);
 make_tree(arity_qualifier, [[N], [A]]) -> arity_qualifier(N, A);
@@ -6566,6 +7028,8 @@ make_tree(tuple, [E]) -> tuple(E).
 %% @see abstract/1
 %% @see type/1
 %% @see get_ann/1
+
+-spec meta(syntaxTree()) -> syntaxTree().
 
 meta(T) ->
     %% First of all we check for metavariables:
@@ -6693,6 +7157,8 @@ meta_call(F, As) ->
 %% @spec tree(Type) -> syntaxTree()
 %% @equiv tree(Type, [])
 
+-spec tree(atom()) -> syntaxTree().
+
 tree(Type) ->
     tree(Type, []).
 
@@ -6727,12 +7193,14 @@ tree(Type) ->
 %% @see data/1
 %% @see type/1
 
+-spec tree(atom(), term()) -> syntaxTree().
+
 tree(Type, Data) ->
     #tree{type = Type, data = Data}.
 
 
 %% =====================================================================
-%% @spec is_tree(Tree::syntaxTree()) -> bool()
+%% @spec is_tree(Tree::syntaxTree()) -> boolean()
 %%
 %% @doc <em>For special purposes only</em>. Returns <code>true</code> if
 %% <code>Tree</code> is an abstract syntax tree and <code>false</code>
@@ -6742,6 +7210,8 @@ tree(Type, Data) ->
 %% "old-style" <code>erl_parse</code>-compatible "parse trees".</p>
 %%
 %% @see tree/2
+
+-spec is_tree(syntaxTree()) -> boolean().
 
 is_tree(#tree{}) ->
     true;
@@ -6758,6 +7228,8 @@ is_tree(_) ->
 %% <code>true</code>.
 %%
 %% @see tree/2
+
+-spec data(syntaxTree()) -> term().
 
 data(#tree{data = D}) -> D;
 data(T) -> erlang:error({badarg, T}).
@@ -6788,6 +7260,8 @@ data(T) -> erlang:error({badarg, T}).
 %% trees. <em>Attaching a wrapper onto another wrapper structure is an
 %% error</em>.</p>
 
+%%-spec wrap(erl_parse:parse_tree()) -> syntaxTree().
+
 wrap(Node) ->
     %% We assume that Node is an old-school `erl_parse' tree.
     #wrapper{type = type(Node), attr = #attr{pos = get_pos(Node)},
@@ -6802,17 +7276,21 @@ wrap(Node) ->
 %% <code>erl_parse</code> tree; otherwise it returns <code>Node</code>
 %% itself.
 
+-spec unwrap(syntaxTree()) -> syntaxTree().
+
 unwrap(#wrapper{tree = Node}) -> Node;
 unwrap(Node) -> Node.	 % This could also be a new-form node.
 
 
 %% =====================================================================
-%% @spec is_wrapper(Term::term()) -> bool()
+%% @spec is_wrapper(Term::term()) -> boolean()
 %%
 %% @doc Returns <code>true</code> if the argument is a wrapper
 %% structure, otherwise <code>false</code>.
 
 -ifndef(NO_UNUSED).
+-spec is_wrapper(term()) -> boolean().
+
 is_wrapper(#wrapper{}) ->
     true;
 is_wrapper(_) ->
