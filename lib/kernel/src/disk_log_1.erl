@@ -1529,7 +1529,7 @@ write_cache(Fd, FileName, C) ->
         Error -> {catch file_error(FileName, Error), #cache{fd = Fd}}
     end.
 
--spec write_cache_close(fd(), file:filename(), iodata()) -> #cache{}. % | throw(Error)
+-spec write_cache_close(file:fd(), file:filename(), iodata()) -> #cache{}. % | throw(Error)
 
 write_cache_close(Fd, _FileName, []) ->
     #cache{fd = Fd};
@@ -1539,12 +1539,12 @@ write_cache_close(Fd, FileName, C) ->
         Error -> file_error_close(Fd, FileName, Error)
     end.
 
--spec file_error(file:filename(), {'error', atom()}) -> no_return().
+-spec file_error(file:filename(), {'error', file:posix()}) -> no_return().
 
 file_error(FileName, {error, Error}) ->
     throw({error, {file_error, FileName, Error}}).
 
--spec file_error_close(fd(), file:filename(), {'error', atom()}) -> no_return().
+-spec file_error_close(file:fd(), file:filename(), {'error', file:posix()}) -> no_return().
 
 file_error_close(Fd, FileName, {error, Error}) ->
     file:close(Fd),

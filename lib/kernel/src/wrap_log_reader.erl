@@ -37,7 +37,7 @@
 	 cont     :: dlog_cont(), 	% disk_log's continuation record
 	 file     :: file:filename(),	% file name without extension
 	 file_no  :: non_neg_integer(),	% current file number
-	 mod_time :: date_time(),	% modification time of current file
+	 mod_time :: file:date_time(),	% modification time of current file
 	 first_no :: non_neg_integer() | 'one' % first read file number
 	}).
 

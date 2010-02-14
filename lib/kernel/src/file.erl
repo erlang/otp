@@ -74,14 +74,21 @@
 %% data types
 -type filename()  :: string().
 -type file_info() :: #file_info{}.
--type io_device() :: pid() | #file_descriptor{}.
+-type fd()        :: #file_descriptor{}.
+-type io_device() :: pid() | fd().
 -type location()  :: integer() | {'bof', integer()} | {'cur', integer()}
 		   | {'eof', integer()} | 'bof' | 'cur' | 'eof'.
 -type mode()      :: 'read' | 'write' | 'append' | 'raw' | 'binary' | 
 		     {'delayed_write', non_neg_integer(), non_neg_integer()} | 
 		     'delayed_write' | {'read_ahead', pos_integer()} | 
 		     'read_ahead' | 'compressed'.
+-type name()      :: string() | atom() | [name()].
+-type posix()     :: atom().
 -type bindings()  :: any().
+
+-type date()      :: {pos_integer(), pos_integer(), pos_integer()}.
+-type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
+-type date_time() :: {date(), time()}.
 
 %%%-----------------------------------------------------------------
 %%% General functions
