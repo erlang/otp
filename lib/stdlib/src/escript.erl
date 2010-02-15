@@ -63,7 +63,7 @@ script_name() ->
 %%            string()).
 foldl(Fun, Acc0, File) when is_function(Fun, 4) ->
     case parse_file(File, false) of
-        {text, _, Forms, _Mode} when is_list(Forms) ->
+        {text, _, Forms, _HasRecs, _Mode} when is_list(Forms) ->
             GetInfo = fun() -> file:read_file_info(File) end,
             GetBin =
                 fun() ->
