@@ -38,6 +38,21 @@
     section is the version number of Reltool.</p>
 
 
+    <section><title>Reltool 0.5.3</title>
+
+        <section><title>Improvements and New Features</title>
+          <list>
+            <item>
+              <p>
+                Removed spurious documentation files.</p>
+              <p>
+                Own Id: OTP-8057</p>
+            </item>
+          </list>
+        </section>
+
+    </section>
+
     <section><title>Reltool 0.5.2</title>
 
         <section><title>Improvements and New Features</title>
