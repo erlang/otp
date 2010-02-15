@@ -36,24 +36,26 @@
   <description>
      <warning><p>The NIF concept was introduced in R13B03 as an
 	EXPERIMENTAL feature. The interfaces may be changed in any way
-	in coming releases. The API is still sparse and contains only
-	the most basic functions to read and write Erlang terms.
-	</p><p><em>R13B04</em>: The function prototypes of the NIFs
-	have changed to expect <c>argc</c> and <c>argv</c>
-	arguments. The arity of a NIF is by that no longer limited to
-	3.</p>
-  <p>enif_get_data renamed as enif_priv_data.</p>
+	in coming releases. The plan is however to lift the experimental label and
+  maintain interface backward compatibility from R14B.</p>
+  <p>Incompatible changes in <em>R13B04</em>:</p>
+  <list>
+    <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
+	  arguments. The arity of a NIF is by that no longer limited to 3.</item>
+    <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
+    <item><c>enif_make_string</c> got a third argument for character encoding.</item>
+  </list>
   </warning>
 
     <p>A NIF library contains native implementation of some functions
-    of an erlang module. The native implemented functions (NIFs) are
+    of an Erlang module. The native implemented functions (NIFs) are
     called like any other functions without any difference to the
     caller. Each NIF must also have an implementation in Erlang that
     will be invoked if the function is called before the NIF library
     has been successfully loaded. A typical such stub implementation
     is to throw an exception. But it can also be used as a fallback
     implementation if the NIF library is not implemented for some
-    architecture.</p> 
+    architecture.</p>     
     <p>A minimal example of a NIF library can look like this:</p>
       <p/>
       <code type="none">
@@ -62,7 +64,7 @@
 
 static ERL_NIF_TERM hello(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    return enif_make_string(env, "Hello world!");
+    return enif_make_string(env, "Hello world!", ERL_NIF_LATIN1);
 }
 
 static ErlNifFunc nif_funcs[] =
@@ -73,7 +75,7 @@ static ErlNifFunc nif_funcs[] =
 ERL_NIF_INIT(niftest,nif_funcs,NULL,NULL,NULL,NULL)
 </code>
 
-    <p>and the erlang module would have to look something like
+    <p>and the Erlang module would have to look something like
     this:</p>
       <p/>
       <code type="none">
@@ -107,6 +109,10 @@ ok
      the new directive <seealso
      marker="doc/reference_manual:code_loading#on_load">on_load</seealso> to automatically
      load the NIF library when the module is loaded.</p>
+     <note><p>A NIF must be exported or used locally by the module (or both).
+     An unused local stub function will be optimized away by the compiler
+      causing loading of the NIF library to fail.</p>
+    </note>
      <p>A loaded NIF library is tied to the Erlang module code version
      that loaded it. If the module is upgraded with a new version, the
      new code will have to load its own NIF library (or maybe choose not
@@ -116,7 +122,7 @@ ok
      will be shared as well. To avoid unintentionally shared static
      data, each Erlang module code can keep its own private data. This
      private data can be set when the NIF library is loaded and
-     then retrieved by calling <seealso marker="erl_nif#enif_priv_data">enif_priv_data()</seealso>.</p>
+     then retrieved by calling <seealso marker="#enif_priv_data">enif_priv_data()</seealso>.</p>
     <p>There is no way to explicitly unload a NIF library. A library will be
      automatically unloaded when the module code that it belongs to is purged
      by the code server. A NIF library will also be unloaded if it is replaced
@@ -131,7 +137,7 @@ ok
     <taglist>
       <tag>Read and write Erlang terms</tag>
       <item><p>Any Erlang terms can be passed to a NIF as function arguments and
-      be returned as function return value. The terms are of C-type <c>ERL_NIF_TERM</c>
+      be returned as function return values. The terms are of C-type <c>ERL_NIF_TERM</c>
       and can only be read or written using API functions. Most functions to read
       the content of a term are prefixed <c>enif_get_</c> and usually return
       true (or false) if the term was of the expected type (or not).    
@@ -139,25 +145,42 @@ ok
       return the created <c>ERL_NIF_TERM</c>. There are also some functions
       to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c> and
       <c>enif_compare</c>.</p></item>
+      <tag>Binaries</tag>
+      <item><p>Terms of type binary are accessed through the struct type <seealso marker="#ErlNifBinary">ErlNifBinary</seealso>    
+      that contains a pointer (<c>data</c>) to the raw binary data and the length
+      (<c>size</c>) of the data in bytes. Both <c>data</c> and <c>size</c> are
+      read-only and should only be written using calls to API functions.
+      Instances of <c>ErlNifBinary</c> are however always allocated by the user
+      (usually as local variables).</p>
+      <p>The raw data pointed to by <c>data</c> is only mutable after a call to
+      <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>.
+      All other functions that operates on a binary will leave the data as read-only.
+      An allocated binary must in the end either be freed with
+      <seealso marker="#enif_release_binary">enif_release_binary</seealso>
+      or transferred to an Erlang term with <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
+      But it does not have do happen in the same NIF call.</p>
+      <p>Binaries must be a number of whole bytes. Bitstrings with an arbitrary
+      bit length have no support yet.</p>
+       </item>
       <tag>Resource objects</tag>
       <item><p>Resource objects are a way to return pointers to native data
       structures from a NIF in a safe way. A resource object is just a block
-      of memory allocated with <seealso marker="erl_nif#enif_alloc_resource">enif_alloc_resource()</seealso>.
+      of memory allocated with <seealso marker="#enif_alloc_resource">enif_alloc_resource()</seealso>.
       A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
-      <seealso marker="erl_nif#enif_make_resource">enif_make_resource()</seealso>.
+      <seealso marker="#enif_make_resource">enif_make_resource()</seealso>.
       The term returned by <c>enif_make_resource</c>
       is totally opaque in nature. It can be stored and passed between processses
       on the same node, but the only real end usage is to pass it back as argument to a NIF.
-      The NIF can then do <seealso marker="erl_nif#enif_get_resource">enif_get_resource()</seealso>
+      The NIF can then do <seealso marker="#enif_get_resource">enif_get_resource()</seealso>
       and get back a pointer to the memory block that is guaranteed to still be
       valid. A resource object will not be deallocated until the last handle term
       has been garbage collected by the VM and the resource has been
-      released with <seealso marker="erl_nif#enif_release_resource">enif_release_resource()</seealso>
+      released with <seealso marker="#enif_release_resource">enif_release_resource()</seealso>
       (not necessarily in that order).</p>      
       <p>All resource objects are created as instances of some <em>resource type</em>.
       This makes resources from different modules or applications to be distinguishable. 
       A resource type is created by calling
-      <seealso marker="erl_nif#enif_open_resource_type">enif_open_resource_type()</seealso>
+      <seealso marker="#enif_open_resource_type">enif_open_resource_type()</seealso>
       when a library is loaded. Objects of that resource type can then later be allocated
       and <c>enif_get_resource</c> verifies that the resource is of the expected type.
       A resource type can have a destructor function that is automatically
@@ -172,12 +195,18 @@ ok
       </item>
       <tag>Threads and concurrency</tag>
       <item><p>A NIF is thread-safe without any explicit synchronization as
-      long as it acts as a pure function and only operates on the supplied
-      arguments. As soon as you access a shared state either through static
-      variables or <seealso marker="erl_nif#enif_priv_data">enif_priv_data</seealso>
-      you need to supply your own explicit synchronization.</p>
+      long as it acts as a pure function and only reads the supplied
+      arguments. As soon as you write towards a shared state either through
+      static variables or <seealso marker="#enif_priv_data">enif_priv_data</seealso>
+      you need to supply your own explicit synchronization. Resource objects
+      will also require synchronization if you treat them as mutable.</p>
       <p>The library initialization callbacks <c>load</c>, <c>reload</c> and
-      <c>upgrade</c> are all thread-safe even for shared state data.</p></item>
+      <c>upgrade</c> are all thread-safe even for shared state data.</p>
+      <p>Avoid doing lengthy work in NIF calls as that may degrade the
+      responsiveness of the VM. NIFs are called directly by the same scheduler
+      thread that executed the calling Erlang code. The calling scheduler will thus
+      be blocked from doing any other work until the NIF returns.</p>
+      </item>
     </taglist>
   </section>
   <section>
@@ -328,7 +357,7 @@ typedef enum {
             </item>
             <tag><marker id="ErlNifSysInfo"/>ErlNifSysInfo</tag>
              <item>
-                <p>Used by <seealso marker="erl_nif#enif_system_info">enif_system_info</seealso>
+                <p>Used by <seealso marker="#enif_system_info">enif_system_info</seealso>
                 to return information about the runtime system. Contains currently
                 the exact same content as <seealso marker="erl_driver#ErlDrvSysInfo">ErlDrvSysInfo</seealso>.</p>
               </item>
@@ -346,9 +375,9 @@ typedef enum {
       <desc><p>Allocate a new binary of size of <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
       refer to the allocated binary. The binary must either be released by 
-      <seealso marker="erl_nif#enif_release_binary">enif_release_binary()</seealso> 
-      or ownership transferred to an erlang term with 
-      <seealso marker="erl_nif#enif_make_binary">enif_make_binary()</seealso>. 
+      <seealso marker="#enif_release_binary">enif_release_binary()</seealso> 
+      or ownership transferred to an Erlang term with 
+      <seealso marker="#enif_make_binary">enif_make_binary()</seealso>. 
       An allocated (and owned) <c>ErlNifBinary</c> can be kept between NIF
       calls.</p>
         <p>Return false if allocation failed.</p>
@@ -437,7 +466,9 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp)</nametext></name>
       <fsummary>Get the pointer to a resource object</fsummary>
       <desc><p>Set <c>*objp</c> to point to the resource object referred to by <c>term</c>.
-      Return false if <c>term</c> is not a handle to a resource object of type <c>type</c>.</p></desc>
+      The pointer is valid until the calling NIF returns and should not be released.</p>
+      <p>Return false if <c>term</c> is not a handle to a resource object
+      of type <c>type</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_string(ErlNifEnv* env, 
                                 ERL_NIF_TERM list, char* buf, unsigned size,
@@ -446,11 +477,11 @@ typedef enum {
       <desc><p>Write a null-terminated string, in the buffer pointed to by
               <c>buf</c> with size <c>size</c>, consisting of the characters
               in the string <c>list</c>. The characters are written using encoding
-              <c>encode</c>. Return the number of bytes written
-              (including terminating null character), or <c>-size</c> if the
-              string was truncated due to buffer space, or 0 if <c>list</c>
-              is not a string that can be encoded with <c>encode</c> or
-              if <c>size</c> was less than 1.              
+              <seealso marker="#ErlNifCharEncoding">encode</seealso>.
+              Return the number of bytes written (including terminating null
+              character), or <c>-size</c> if the string was truncated due to
+              buffer space, or 0 if <c>list</c> is not a string that can be
+              encoded with <c>encode</c> or if <c>size</c> was less than 1.              
               The written string is always null-terminated unless buffer
               <c>size</c> is less than 1.</p></desc>
     </func>
@@ -577,7 +608,7 @@ typedef enum {
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
       <fsummary>Create a list term.</fsummary>
       <desc><p>Create an ordinary list term with length indicated by the
-      function name. Prefere these functions (macros) over the variadic
+      function name. Prefer these functions (macros) over the variadic
       <c>enif_make_list</c>  to get compile time error if the number of
       arguments does not match.</p></desc>
     </func>
@@ -601,9 +632,9 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_resource(ErlNifEnv* env, void* obj)</nametext></name>
       <fsummary>Create an opaque handle to a resource object</fsummary>
       <desc><p>Create an opaque handle to a memory managed resource object
-      obtained by <seealso marker="erl_nif#enif_alloc_resource">enif_alloc_resource</seealso>.
+      obtained by <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
       No ownership transfer is done, the resource object still needs to be released by
-      <seealso marker="erl_nif#enif_release_resource">enif_release_resource</seealso>.</p>
+      <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
       <p>Note that the only defined behaviour when using of a resource term in
       an Erlang program is to store it and send it between processes on the
       same node. Other operations such as matching or <c>term_to_binary</c>
@@ -612,7 +643,7 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string(ErlNifEnv* env, const char* string, ErlNifCharEncoding encoding)</nametext></name>
       <fsummary>Create a string.</fsummary>
       <desc><p>Create a list containing the characters of the
-      null-terminated string <c>string</c> with encoding <c>encoding</c>.</p></desc>
+      null-terminated string <c>string</c> with encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
       env, ERL_NIF_TERM bin_term, unsigned pos, unsigned size)</nametext></name>
@@ -640,7 +671,7 @@ typedef enum {
     <name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple9(ErlNifEnv* env, ERL_NIF_TERM e1, ..., ERL_NIF_TERM e9)</nametext></name>
       <fsummary>Create a tuple term.</fsummary>
       <desc><p>Create a tuple term with length indicated by the
-      function name. Prefere these functions (macros) over the variadic
+      function name. Prefer these functions (macros) over the variadic
       <c>enif_make_tuple</c>  to get compile time error if the number of
       arguments does not match.</p></desc>
     </func>
@@ -686,7 +717,7 @@ typedef enum {
                              ErlNifResourceDtor* dtor, ErlNifResourceFlags flags, ErlNifResourceFlags* tried)</nametext></name>
       <fsummary>Create or takeover a resource type</fsummary>
       <desc><p>Create or takeover a resource type identified by the string
-      <c>name</c> and give it the destructor function pointed to by <c>dtor</c>.
+      <c>name</c> and give it the destructor function pointed to by <seealso marker="#ErlNifResourceDtor">dtor</seealso>.
       Argument <c>flags</c> can have the following values:</p>
       <taglist>
         <tag><c>ERL_NIF_RT_CREATE</c></tag>
@@ -706,8 +737,8 @@ typedef enum {
        On failure, return <c>NULL</c> and set <c>*tried</c> to <c>flags</c>.
        It is allowed to set <c>tried</c> to <c>NULL</c>.</p>
        <p>Note that <c>enif_open_resource_type</c> is only allowed to be called in the three callbacks
-       <seealso marker="erl_nif#load">load</seealso>, <seealso marker="erl_nif#reload">reload</seealso>
-       and <seealso marker="erl_nif#upgrade">upgrade</seealso>.</p>
+       <seealso marker="#load">load</seealso>, <seealso marker="#reload">reload</seealso>
+       and <seealso marker="#upgrade">upgrade</seealso>.</p>
       </desc>
     </func>
     <func><name><ret>void*</ret><nametext>enif_priv_data(ErlNifEnv* env)</nametext></name>
