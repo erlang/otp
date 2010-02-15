@@ -1,20 +1,20 @@
 %%--------------------------------------------------------------------
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -82,17 +82,17 @@ connect(Type, Host, Port, Options) ->
 	end,
     case orber:iiop_out_ports() of
 	{Min, Max} when Type == normal ->
-	    multi_connect(Min, Max, Type, Host, Port, 
-			  [binary, {reuseaddr, true}, 
-			   {packet,cdr}| Options2], Timeout);
+	    multi_connect(get_port_sequence(Min, Max), orber_env:iiop_out_ports_attempts(),
+			  Type, Host, Port, [binary, {reuseaddr, true}, 
+					     {packet,cdr}| Options2], Timeout);
 	{Min, Max} when Generation > 2 ->
-	    multi_connect(Min, Max, Type, Host, Port, 
-			  [binary, {reuseaddr, true}, 
-			   {packet,cdr}| Options2], Timeout);
+	    multi_connect(get_port_sequence(Min, Max), orber_env:iiop_out_ports_attempts(),
+			  Type, Host, Port, [binary, {reuseaddr, true}, 
+					     {packet,cdr}| Options2], Timeout);
 	{Min, Max} ->
 	    %% reuseaddr not available for older SSL versions
-	    multi_connect(Min, Max, Type, Host, Port, 
-			  [binary, {packet,cdr}| Options2], Timeout);
+	    multi_connect(get_port_sequence(Min, Max), orber_env:iiop_out_ports_attempts(), 
+			  Type, Host, Port, [binary, {packet,cdr}| Options2], Timeout);
 	_ ->
 	    connect(Type, Host, Port, [binary, {packet,cdr}| Options2], Timeout)
     end.
@@ -130,17 +130,17 @@ connect(ssl, Host, Port, Options, Timeout) ->
 	    corba:raise(#'COMM_FAILURE'{completion_status=?COMPLETED_NO})
     end.
 
-multi_connect(CurrentPort, Max, Type, Host, Port, Options, _) when CurrentPort > Max ->
+multi_connect([], _Retries, Type, Host, Port, Options, _) ->
     orber:dbg("[~p] orber_socket:multi_connect(~p, ~p, ~p, ~p);~n"
 	      "Unable to use any of the sockets defined by 'iiop_out_ports'.~n"
 	      "Either all ports are in use or to many connections already exists.", 
 	      [?LINE, Type, Host, Port, Options], ?DEBUG_LEVEL),
     corba:raise(#'IMP_LIMIT'{minor=(?ORBER_VMCID bor 1), completion_status=?COMPLETED_NO});
-multi_connect(CurrentPort, Max, normal, Host, Port, Options, Timeout) ->
+multi_connect([CurrentPort|Rest], Retries, normal, Host, Port, Options, Timeout) ->
     case catch gen_tcp:connect(Host, Port, [{port, CurrentPort}|Options], Timeout) of
 	{ok, Socket} ->
 	    Socket;
-	{error, timeout} ->
+	{error, timeout} when Retries =< 1 ->
 	    orber:dbg("[~p] orber_socket:multi_connect(normal, ~p, ~p, ~p);~n"
 		      "Timeout after ~p msec.", 
 		      [?LINE, Host, Port, [{port, CurrentPort}|Options],
@@ -148,13 +148,13 @@ multi_connect(CurrentPort, Max, normal, Host, Port, Options, Timeout) ->
 	    corba:raise(#'COMM_FAILURE'{minor=(?ORBER_VMCID bor 4),
 					completion_status=?COMPLETED_NO});
 	_ ->
-	    multi_connect(CurrentPort+1, Max, normal, Host, Port, Options, Timeout)
+	    multi_connect(Rest, Retries - 1, normal, Host, Port, Options, Timeout)
     end;
-multi_connect(CurrentPort, Max, ssl, Host, Port, Options, Timeout) ->
+multi_connect([CurrentPort|Rest], Retries, ssl, Host, Port, Options, Timeout) ->
     case catch ssl:connect(Host, Port, [{port, CurrentPort}|Options], Timeout) of
 	{ok, Socket} ->
 	    Socket;
-	{error, timeout} ->
+	{error, timeout} when Retries =< 1 ->
 	    orber:dbg("[~p] orber_socket:multi_connect(ssl, ~p, ~p, ~p);~n"
 		      "Timeout after ~p msec.", 
 		      [?LINE, Host, Port, [{port, CurrentPort}|Options], 
@@ -162,10 +162,28 @@ multi_connect(CurrentPort, Max, ssl, Host, Port, Options, Timeout) ->
 	    corba:raise(#'COMM_FAILURE'{minor=(?ORBER_VMCID bor 4), 
 					completion_status=?COMPLETED_NO});
 	_ ->
-	    multi_connect(CurrentPort+1, Max, ssl, Host, Port, Options, Timeout)
+	    multi_connect(Rest, Retries - 1, ssl, Host, Port, Options, Timeout)
     end.
   
 
+get_port_sequence(Min, Max) ->
+    case orber_env:iiop_out_ports_random() of
+	true ->
+	    {A1,A2,A3} = now(),
+	    random:seed(A1, A2, A3),
+	    Seq = lists:seq(Min, Max),
+	    random_sequence((Max - Min) + 1, Seq, []);
+	_ ->
+	    lists:seq(Min, Max)
+    end.
+
+random_sequence(0, _, Acc) ->
+    Acc;
+random_sequence(Length, Seq, Acc) ->
+    Nth = random:uniform(Length),
+    Value = lists:nth(Nth, Seq),
+    NewSeq = lists:delete(Value, Seq),
+    random_sequence(Length-1, NewSeq, [Value|Acc]).
 
 %%-----------------------------------------------------------------
 %% Create a listen socket at Port in CDR mode for 

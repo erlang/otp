@@ -40,6 +40,13 @@
       <list type="bulleted">
         <item>
           <p>
+            Added the configuration parameters iiop_out_ports_attempts and
+            iiop_out_ports_random.</p>
+          <p>
+            Own Id: OTP-8448 Aux Id: seq11498</p>
+        </item>
+        <item>
+          <p>
             Removed obsolete SSL dependency.</p>
           <p>
             Own Id: OTP-8374 Aux Id:</p>

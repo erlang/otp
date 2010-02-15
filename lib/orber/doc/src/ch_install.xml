@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1997</year><year>2009</year>
+      <year>1997</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Installing Orber</title>
@@ -232,6 +232,16 @@ nodeB@hostB> orber:start().
         <cell align="left" valign="middle">iiop_out_ports</cell>
         <cell align="left" valign="middle">0 | {integer(),integer()}</cell>
         <cell align="left" valign="middle">0</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">iiop_out_ports_attempts</cell>
+        <cell align="left" valign="middle">integer() > 0</cell>
+        <cell align="left" valign="middle">1</cell>
+      </row>
+      <row>
+        <cell align="left" valign="middle">iiop_out_ports_random</cell>
+        <cell align="left" valign="middle">true | false</cell>
+        <cell align="left" valign="middle">false</cell>
       </row>
       <row>
         <cell align="left" valign="middle">iiop_max_fragments</cell>
@@ -506,6 +516,13 @@ nodeB@hostB> orber:start().
        If communicating via SSL, make sure you use a version that supports
        the local <c>{port, Port}</c> option. See also
       <seealso marker="ch_install#firewall">Firewall Configuration</seealso>.</item>
+      <tag><em>iiop_out_ports_random</em></tag>
+      <item>Requires that <c>iiop_out_ports</c> define a port range. If that is the
+       case Orber will select a port randomly from that sequence.</item>
+      <tag><em>iiop_out_ports_attempts</em></tag>
+      <item>Requires that <c>iiop_out_ports</c> define a port range. If so Orber will
+       accept a number of timeouts, defined by this parameter, when trying to connect
+       to another ORB.</item>
       <tag><em>iiop_max_fragments</em></tag>
       <item>Limits the number of IIOP fragments allowed per request.</item>
       <tag><em>iiop_max_in_requests</em></tag>

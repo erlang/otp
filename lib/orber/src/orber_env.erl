@@ -1,20 +1,20 @@
 %%--------------------------------------------------------------------
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -43,8 +43,8 @@
 
 -export([iiop_acl/0, iiop_port/0, nat_iiop_port/0, nat_iiop_port/1, iiop_out_ports/0,
 	 domain/0, ip_address_variable_defined/0, nat_host/0, nat_host/1, host/0,
-	 ip_address/0, ip_address/1, giop_version/0, iiop_timeout/0,
-	 iiop_connection_timeout/0, iiop_setup_connection_timeout/0,
+	 ip_address/0, ip_address/1, giop_version/0, iiop_timeout/0, iiop_out_ports_random/0,
+	 iiop_connection_timeout/0, iiop_setup_connection_timeout/0, iiop_out_ports_attempts/0,
 	 iiop_in_connection_timeout/0, iiop_max_fragments/0, iiop_max_in_requests/0,
 	 iiop_max_in_connections/0, iiop_backlog/0, objectkeys_gc_time/0,
 	 get_ORBInitRef/0, get_ORBDefaultInitRef/0, get_interceptors/0,
@@ -234,6 +234,8 @@ create_main_info() ->
 		   "IIOP out connection timeout...: ~p msec~n"
 		   "IIOP setup connection timeout.: ~p msec~n"
 		   "IIOP out ports................: ~p~n"
+		   "IIOP out ports attempts.......: ~p~n"
+		   "IIOP out ports random.........: ~p~n"
 		   "IIOP out connections..........: ~p~n"
 		   "IIOP out connections (pending): ~p~n"
 		   "IIOP out keepalive............: ~p~n"
@@ -256,7 +258,8 @@ create_main_info() ->
 		    nat_host(), ip_address_local(),
 		    orber:orber_nodes(), Major, Minor,
 		    iiop_timeout(), iiop_connection_timeout(), 
-		    iiop_setup_connection_timeout(), iiop_out_ports(), 
+		    iiop_setup_connection_timeout(), iiop_out_ports(),
+		    iiop_out_ports_attempts(), iiop_out_ports_random(),
 		    orber:iiop_connections(out), orber:iiop_connections_pending(), 
 		    iiop_out_keepalive(), orber:iiop_connections(in), 
 		    iiop_in_connection_timeout(), iiop_in_keepalive(), 
@@ -388,6 +391,23 @@ iiop_out_ports() ->
 	_ ->
 	    0
     end.
+
+iiop_out_ports_random() ->
+    case application:get_env(orber, iiop_out_ports_random) of
+	{ok, true} ->
+	    true;
+	_ ->
+	    false
+    end.
+
+iiop_out_ports_attempts() ->
+    case application:get_env(orber, iiop_out_ports_attempts) of
+	{ok, No} when is_integer(No) andalso No > 0 ->
+	    No;
+	_ ->
+	    1
+    end.
+   
 
 domain() -> 
     case application:get_env(orber, domain) of
@@ -1251,6 +1271,12 @@ configure(nat_ip_address, {local, Value1, Value2}, Status) when is_list(Value1) 
 %% Set the range of ports we may use on this machine when connecting to a server.
 configure(iiop_out_ports, {Min, Max}, Status) when is_integer(Min) andalso is_integer(Max) ->
     do_safe_configure(iiop_out_ports, {Min, Max}, Status);
+configure(iiop_out_ports_attempts, Max, Status) when is_integer(Max) andalso Max > 0 ->
+    do_safe_configure(iiop_out_ports_attempts, Max, Status);
+configure(iiop_out_ports_random, true, Status) ->
+    do_safe_configure(iiop_out_ports_random, true, Status);
+configure(iiop_out_ports_random, false, Status) ->
+    do_safe_configure(iiop_out_ports_random, false, Status);
 %% Set the lightweight option.
 configure(lightweight, Value, Status) when is_list(Value) ->
     do_safe_configure(lightweight, Value, Status);

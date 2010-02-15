@@ -1,20 +1,20 @@
 %%--------------------------------------------------------------------
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -34,7 +34,8 @@
 %% External exports
 %%-----------------------------------------------------------------
 -export([start/0, start/1, stop/0, install/1, install/2, orber_nodes/0, iiop_port/0,
-	 domain/0, iiop_ssl_port/0, iiop_out_ports/0,
+	 domain/0, iiop_ssl_port/0, iiop_out_ports/0, iiop_out_ports_random/0,
+	 iiop_out_ports_attempts/0,
 	 ssl_server_certfile/0, ssl_client_certfile/0, set_ssl_client_certfile/1,
 	 ssl_server_verify/0, ssl_client_verify/0, set_ssl_client_verify/1,
 	 ssl_server_depth/0, ssl_client_depth/0, set_ssl_client_depth/1,
@@ -304,6 +305,12 @@ nat_iiop_port() ->
 
 iiop_out_ports() ->
     orber_env:iiop_out_ports().
+
+iiop_out_ports_random() ->
+    orber_env:iiop_out_ports_random().
+
+iiop_out_ports_attempts() ->
+    orber_env:iiop_out_ports_attempts().
 
 orber_nodes() ->
     case catch mnesia:table_info(orber_objkeys,ram_copies) of
