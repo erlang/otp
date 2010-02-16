@@ -117,6 +117,8 @@ get_app_dirs(Dir) ->
 	lists:map(fun(File) -> {File, filename:join([Dir, File])} end, Files),
     lists:zf(fun is_app_with_doc/1, AFiles).
 
+is_app_with_doc({"." ++ ADir, _APath}) ->
+    false;
 is_app_with_doc({ADir, APath}) ->
     case file:read_file_info(filename:join([APath, "info"])) of
 	{ok, _FileInfo} ->
