@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Installation</title>
@@ -31,6 +31,23 @@
     <rev>C</rev>
     <file>install.xml</file>
   </header>
+
+  <section>
+    <title>Source</title>
+      <p>This document describes installation procedures for
+         binary releases. Documentation of the build and installation
+	 procedures for the source release can be found in the source
+	 tree at the following locations:</p>
+      <taglist>
+	 <tag>Building and Installing Erlang/OTP</tag>
+         <item><url href="INSTALL.html"><c>$ERL_TOP/INSTALL.md</c></url></item>
+	 <tag>Cross Compiling Erlang/OTP</tag>
+         <item><url href="INSTALL-CROSS.html"><c>$ERL_TOP/INSTALL-CROSS.md</c></url></item>
+	 <tag>How to Build Erlang/OTP on Windows</tag>
+         <item><url href="INSTALL-WIN32.html"><c>$ERL_TOP/INSTALL-WIN32.md</c></url></item>
+      </taglist>
+      <p>Where <c>$ERL_TOP</c> is the top directory in the source tree.</p>
+  </section>
 
   <section>
     <title>UNIX</title>

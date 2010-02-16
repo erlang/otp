@@ -54,10 +54,12 @@ XML_FILES = \
 	$(XML_PART_FILES) 
 
 # ----------------------------------------------------
-# Readme for X-compiling
+# Install readme files
 # ----------------------------------------------------
-XCOMP_README_FILE = $(ERL_TOP)/xcomp/README.md
-README_FILE = $(ERL_TOP)/README
+INSTALL_READMES = \
+	$(ERL_TOP)/INSTALL.html \
+	$(ERL_TOP)/INSTALL-CROSS.html \
+	$(ERL_TOP)/INSTALL-WIN32.html
 
 # ----------------------------------------------------
 
@@ -98,10 +100,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(README_FILE) $(GIF_FILES) $(HTMLDIR)/*.html \
+	$(INSTALL_DATA) $(INSTALL_READMES) $(GIF_FILES) $(HTMLDIR)/*.html \
 		$(RELSYSDIR)
-	$(INSTALL_DIR) $(RELSYSDIR)/xcomp
-	$(INSTALL_DATA) $(XCOMP_README_FILE) $(RELSYSDIR)/xcomp
 
 release_spec:
 

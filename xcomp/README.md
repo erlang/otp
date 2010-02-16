@@ -495,5 +495,5 @@ Copyright and License
 
 
 
-   [1]: ../INSTALL.html "$ERL_TOP/INSTALL.md"
+   [1]: INSTALL.html "$ERL_TOP/INSTALL.md"
    [2]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html "DESTDIR"

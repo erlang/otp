@@ -1,8 +1,10 @@
 AUTHORS
 EPLICENCE
 Makefile.in
-README
-README.win32
+README.md
+INSTALL.md
+INSTALL-CROSS.md
+INSTALL-WIN32.md
 configure.in
 aclocal.m4
 otp_build
