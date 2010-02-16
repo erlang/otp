@@ -131,9 +131,8 @@
           see <seealso marker="kernel:app">app(4)</seealso> and
           <seealso marker="kernel:application">application(3)</seealso>.</p>
       </item>
-      <tag><c><![CDATA[-args_file FileName]]></c></tag>
+      <tag><marker id="args_file"><c><![CDATA[-args_file FileName]]></c></marker></tag>
       <item>
-        <marker id="args_file"></marker>
         <p>Command line arguments are read from the file <c><![CDATA[FileName]]></c>.
           The arguments read from the file replace the
           '<c><![CDATA[-args_file FileName]]></c>' flag on the resulting command line.</p>
@@ -197,9 +196,8 @@
           <seealso marker="kernel:app">app(4)</seealso> and
           <seealso marker="kernel:application">application(3)</seealso>.</p>
       </item>
-      <tag><c><![CDATA[-connect_all false]]></c></tag>
+      <tag><marker id="connect_all"><c><![CDATA[-connect_all false]]></c></marker></tag>
       <item>
-        <marker id="connect_all"></marker>
         <p>If this flag is present, <c><![CDATA[global]]></c> will not maintain a
           fully connected network of distributed Erlang nodes, and then
           global name registration cannot be used. See
@@ -282,9 +280,8 @@
         <p>Makes <c><![CDATA[init]]></c> write some debug information while
           interpreting the boot script.</p>
       </item>
-      <tag><c><![CDATA[-instr]]></c>(emulator flag)</tag>
+      <tag><marker id="instr"><c><![CDATA[-instr]]></c>(emulator flag)</marker></tag>
       <item>
-        <marker id="instr"></marker>
         <p>Selects an instrumented Erlang runtime system (virtual
           machine) to run, instead of the ordinary one. When running an
           instrumented runtime system, some resource usage data can be
@@ -431,9 +428,8 @@
           flag and those running with the <c><![CDATA[-name]]></c> flag, as node
           names must be unique in distributed Erlang systems.</p>
       </item>
-      <tag><c><![CDATA[-smp [enable|auto|disable]]]></c></tag>
+      <tag><marker id="smp"><c><![CDATA[-smp [enable|auto|disable]]]></c></marker></tag>
       <item>
-        <marker id="smp"></marker>
         <p><c>-smp enable</c> and <c>-smp</c> starts the Erlang runtime
 	  system with SMP support enabled. This may fail if no runtime
 	  system with SMP support is available. <c>-smp auto</c> starts
@@ -462,9 +458,8 @@
     <p><c><![CDATA[erl]]></c> invokes the code for the Erlang emulator (virtual
       machine), which supports the following flags:</p>
     <taglist>
-      <tag><c><![CDATA[+a size]]></c></tag>
+      <tag><marker id="async_thread_stack_size"><c><![CDATA[+a size]]></c></marker></tag>
       <item>
-        <marker id="async_thread_stack_size"></marker>
         <p>Suggested stack size, in kilowords, for threads in the
           async-thread pool. Valid range is 16-8192 kilowords. The
           default suggested stack size is 16 kilowords, i.e, 64
@@ -478,9 +473,8 @@
           suggestion, and it might even be ignored on some
           platforms.</p>
       </item>
-      <tag><c><![CDATA[+A size]]></c></tag>
+      <tag><marker id="async_thread_pool_size"><c><![CDATA[+A size]]></c></marker></tag>
       <item>
-        <marker id="async_thread_pool_size"></marker>
         <p>Sets the number of threads in async thread pool, valid range
           is 0-1024. Default is 0.</p>
       </item>
@@ -550,23 +544,20 @@
         <p>Enables auto load tracing, displaying info while loading
           code.</p>
       </item>
-      <tag><c><![CDATA[+MFlag Value]]></c></tag>
+      <tag><marker id="erts_alloc"><c><![CDATA[+MFlag Value]]></c></marker></tag>
       <item>
-        <marker id="erts_alloc"></marker>
         <p>Memory allocator specific flags, see
           <seealso marker="erts_alloc">erts_alloc(3)</seealso> for
           further information.</p>
       </item>
-      <tag><c><![CDATA[+P Number]]></c></tag>
+      <tag><marker id="max_processes"><c><![CDATA[+P Number]]></c></marker></tag>
       <item>
-        <marker id="max_processes"></marker>
         <p>Sets the maximum number of concurrent processes for this
           system. <c><![CDATA[Number]]></c> must be in the range 16..134217727.
           Default is 32768.</p>
       </item>
-      <tag><c><![CDATA[+R ReleaseNumber]]></c></tag>
+      <tag><marker id="compat_rel"><c><![CDATA[+R ReleaseNumber]]></c></marker></tag>
       <item>
-        <marker id="compat_rel"></marker>
         <p>Sets the compatibility mode.</p>
         <p>The distribution mechanism is not backwards compatible by
           default. This flags sets the emulator in compatibility mode
@@ -592,9 +583,8 @@
       <item>
         <p>Force ets memory block to be moved on realloc.</p>
       </item>
-      <tag><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></tag>
+      <tag><marker id="+S"><c><![CDATA[+S Schedulers:SchedulerOnline]]></c></marker></tag>
       <item>
-        <marker id="+S"></marker>
         <p>Sets the amount of scheduler threads to create and scheduler
 	  threads to set online when SMP support has been enabled.
 	  Valid range for both values are 1-1024. If the
@@ -615,9 +605,8 @@
       <item>
         <p>Scheduling specific flags.</p>
         <taglist>
-          <tag>+sbt BindType</tag>
+          <tag><marker id="+sbt"><c>+sbt BindType</c></marker></tag>
           <item>
-	    <marker id="+sbt"></marker>
             <p>Set scheduler bind type. Currently valid <c>BindType</c>s:
 	    </p>
 	    <taglist>
@@ -672,9 +661,8 @@
 	    <seealso marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type, SchedulerBindType)</seealso>.
 	    </p>
           </item>
-          <tag><c>+sct CpuTopology</c></tag>
+          <tag><marker id="+sct"><c>+sct CpuTopology</c></marker></tag>
           <item>
-	    <marker id="+sct"></marker>
             <list type="bulleted">
               <item><c><![CDATA[<Id> = integer(); when 0 =< <Id> =< 65535]]></c></item>
               <item><c><![CDATA[<IdRange> = <Id>-<Id>]]></c></item>
@@ -791,21 +779,18 @@
           </item>
         </taglist>
       </item>
-      <tag><c><![CDATA[+sss size]]></c></tag>
+      <tag><marker id="sched_thread_stack_size"><c><![CDATA[+sss size]]></c></marker></tag>
       <item>
-        <marker id="sched_thread_stack_size"></marker>
         <p>Suggested stack size, in kilowords, for scheduler threads.
           Valid range is 4-8192 kilowords. The default stack size
           is OS dependent.</p>
       </item>
-      <tag><c><![CDATA[+t size]]></c></tag>
+      <tag><marker id="+t"><c><![CDATA[+t size]]></c></marker></tag>
       <item>
-        <marker id="+t"></marker>
         <p>Set the maximum number of atoms the VM can handle. Default is 1048576.</p>
       </item>
-      <tag><c><![CDATA[+T Level]]></c></tag>
+      <tag><marker id="+T"><c><![CDATA[+T Level]]></c></marker></tag>
       <item>
-        <marker id="+T"></marker>
         <p>Enables modified timing and sets the modified timing level.
           Currently valid range is 0-9. The timing of the runtime system
           will change. A high level usually means a greater change than

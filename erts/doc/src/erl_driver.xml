@@ -171,8 +171,8 @@
        asynchronous function calls, using a thread pool provided by
        Erlang. There is also a select call, that can be used for
        asynchronous drivers.</item>
-      <tag>Multi-threading</tag>
-      <item><marker id="multi_threading"></marker>
+      <tag><marker id="multi_threading">Multi-threading</marker></tag>
+      <item>
       <p>A POSIX thread like API for multi-threading is provided. The
          Erlang driver thread API only provide a subset of the functionality
 	 provided by the POSIX thread API. The subset provided is
@@ -245,9 +245,8 @@
       <item>A driver can add and later remove drivers.</item>
       <tag>Monitoring processes</tag>
       <item>A driver can monitor a process that does not own a port.</item>
-      <tag>Version management</tag>
+      <tag><marker id="version_management">Version management</marker></tag>
       <item>
-        <marker id="version_management"></marker>
         <p>Version management is enabled for drivers that have set the
           <seealso marker="driver_entry#extended_marker">extended_marker</seealso>
           field of their

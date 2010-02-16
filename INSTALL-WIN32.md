@@ -50,15 +50,14 @@ tools.
 However, if you feel comfortable with the environment and build
 system, and have all the necessary tools, you have a great opportunity
 to make the Erlang/OTP distribution for Windows better. Please submit
-any suggestions and patches to the appropriate mailing lists (see
-<http://www.erlang.org/faq.html>) to let them find their way into the next
-version of Erlang. If making changes to the build system (like
-makefiles etc) please bear in mind that the same makefiles are used on
-Unix/VxWorks/OSEDelta, so that your changes don't break other
-platforms. That of course goes for C-code too, system specific code
-resides in the `$ERL_TOP/erts/emulator/sys/win32` and `$ERL_TOP/erts/etc/win32`
-directories mostly. The `$ERL_TOP/erts/emulator/beam directory` is for
-common code.
+any suggestions and patches to the appropriate [mailing lists] [1] to let
+them find their way into the next version of Erlang. If making changes
+to the build system (like makefiles etc) please bear in mind that the
+same makefiles are used on Unix/VxWorks/OSEDelta, so that your changes
+don't break other platforms. That of course goes for C-code too, system
+specific code resides in the `$ERL_TOP/erts/emulator/sys/win32` and
+`$ERL_TOP/erts/etc/win32` directories mostly. The
+`$ERL_TOP/erts/emulator/beam directory` is for common code.
 
 Before the R9C release of Erlang/OTP, the Windows release was built
 partly on a Unix (Solaris) box and partly on a Windows box, using Perl
@@ -68,8 +67,8 @@ needed at all. Now we've used this build procedure for a couple of
 releases, and it has worked fine for us. Still, there might be all
 sorts of troubles on different machines and with different
 setups. I'll try to give hints wherever I've encountered difficulties,
-but please share your experiences by using the mailing list
-<erlang-questions@erlang.org>. I cannot of course help everyone with all
+but please share your experiences by using the [`erlang-questions`] [1]
+mailing list. I cannot of course help everyone with all
 their problems, please try to solve the problems and submit
 solutions/workarounds. Remember, it's all about sharing, not about
 demanding...
@@ -777,3 +776,6 @@ Copyright and License
 > under the License.
 >
 > %CopyrightEnd%
+
+
+   [1]: http://www.erlang.org/faq.html "mailing lists"

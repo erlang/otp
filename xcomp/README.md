@@ -80,7 +80,7 @@ Other files that might need to be updated are:
 - `$ERL_TOP/xcomp/erl-xcomp-vars.sh`
 - `$ERL_TOP/erl-build-tool-vars.sh`
 - `$ERL_TOP/erts/aclocal.m4`
-- `$ERL_TOP/xcomp/README`
+- `$ERL_TOP/xcomp/README.md`
 - `$ERL_TOP/xcomp/erl-xcomp-*.conf`
 
 Note that this might be an incomplete list of files that need to be updated.

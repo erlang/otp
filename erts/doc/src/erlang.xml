@@ -3474,9 +3474,8 @@ os_prompt%</pre>
             <p>This changes the minimum binary virtual heap size for the calling
               process.</p>
           </item>
-          <tag><c>process_flag(priority, Level)</c></tag>
+          <tag><marker id="process_flag_priority"><c>process_flag(priority, Level)</c></marker></tag>
           <item>
-            <marker id="process_flag_priority"></marker>
             <p>This sets the process priority. <c>Level</c> is an atom.
 	      There are currently four priority levels: <c>low</c>,
 	      <c>normal</c>, <c>high</c>, and <c>max</c>. The default
@@ -4788,9 +4787,8 @@ true</pre>
               <c>ContextSwitches</c> is the total number of context
               switches since the system started.</p>
           </item>
-          <tag><c>exact_reductions</c></tag>
+          <tag><marker id="statistics_exact_reductions"><c>exact_reductions</c></marker></tag>
           <item>
-            <marker id="statistics_exact_reductions"></marker>
             <p>Returns
               <c>{Total_Exact_Reductions, Exact_Reductions_Since_Last_Call}</c>.</p>
             <p><em>NOTE:</em><c>statistics(exact_reductions)</c> is
@@ -4810,9 +4808,8 @@ true</pre>
               through ports, and <c>Output</c> is the total number of
               bytes output to ports.</p>
           </item>
-          <tag><c>reductions</c></tag>
+          <tag><marker id="statistics_reductions"><c>reductions</c></marker></tag>
           <item>
-            <marker id="statistics_reductions"></marker>
             <p>Returns
               <c>{Total_Reductions, Reductions_Since_Last_Call}</c>.</p>
             <p><em>NOTE:</em> From erts version 5.5 (OTP release R11B)
@@ -4983,9 +4980,8 @@ true</pre>
             <p>Sets the maximum depth of call stack back-traces in the
               exit reason element of <c>'EXIT'</c> tuples.</p>
           </item>
-          <tag><c>erlang:system_flag(cpu_topology, CpuTopology)</c></tag>
+          <tag><marker id="system_flag_cpu_topology"><c>erlang:system_flag(cpu_topology, CpuTopology)</c></marker></tag>
           <item>
-            <marker id="system_flag_cpu_topology"></marker>
             <p>Sets the user defined <c>CpuTopology</c>. The user defined
 	       CPU topology will override any automatically detected
 	       CPU topology. By passing <c>undefined</c> as <c>CpuTopology</c>
@@ -5047,9 +5043,8 @@ true</pre>
               <seealso marker="#spawn_opt/4">spawn_opt/N</seealso> or
               <seealso marker="#process_flag/2">process_flag/2</seealso>. </p>
           </item>
-          <tag><c>erlang:system_flag(multi_scheduling, BlockState)</c></tag>
+          <tag><marker id="system_flag_multi_scheduling"><c>erlang:system_flag(multi_scheduling, BlockState)</c></marker></tag>
           <item>
-            <marker id="system_flag_multi_scheduling"></marker>
             <p><c>BlockState = block | unblock</c></p>
             <p>If multi-scheduling is enabled, more than one scheduler
               thread is used by the emulator. Multi-scheduling can be
@@ -5083,9 +5078,8 @@ true</pre>
               <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><c>erlang:system_flag(scheduler_bind_type, How)</c></tag>
+          <tag><marker id="system_flag_scheduler_bind_type"><c>erlang:system_flag(scheduler_bind_type, How)</c></marker></tag>
           <item>
-            <marker id="system_flag_scheduler_bind_type"></marker>
 	    <p>Controls if and how schedulers are bound to logical
 	       processors.</p>
 	    <p>When <c>erlang:system_flag(scheduler_bind_type, How)</c> is
@@ -5212,9 +5206,8 @@ true</pre>
 	       <seealso marker="#system_flag_cpu_topology">erlang:system_flag(cpu_topology, CpuTopology)</seealso>.
 	    </p>
           </item>
-          <tag><c>erlang:system_flag(schedulers_online, SchedulersOnline)</c></tag>
+          <tag><marker id="system_flag_schedulers_online"><c>erlang:system_flag(schedulers_online, SchedulersOnline)</c></marker></tag>
           <item>
-            <marker id="system_flag_schedulers_online"></marker>
             <p>Sets the amount of schedulers online. Valid range is
 	    <![CDATA[1 <= SchedulerId <= erlang:system_info(schedulers)]]>.
 	    </p>
@@ -5252,9 +5245,8 @@ true</pre>
         <p>Returns various information about the current system
           (emulator) as specified by <c>Type</c>:</p>
         <taglist>
-          <tag><c>allocated_areas</c></tag>
+          <tag><marker id="system_info_allocated_areas"><c>allocated_areas</c></marker></tag>
           <item>
-            <marker id="system_info_allocated_areas"></marker>
             <p>Returns a list of tuples with information about
               miscellaneous allocated memory areas.</p>
             <p>Each tuple contains an atom describing type of memory as
@@ -5274,9 +5266,8 @@ true</pre>
               in the total amount of memory allocated by the emulator
               see <seealso marker="#memory/0">erlang:memory/0,1</seealso>.</p>
           </item>
-          <tag><c>allocator</c></tag>
+          <tag><marker id="system_info_allocator"><c>allocator</c></marker></tag>
           <item>
-            <marker id="system_info_allocator"></marker>
             <p>Returns <c>{Allocator, Version, Features, Settings}.</c></p>
             <p>Types:</p>
             <list type="bulleted">
@@ -5317,9 +5308,8 @@ true</pre>
             <p>See also "System Flags Effecting erts_alloc" in
               <seealso marker="erts:erts_alloc#flags">erts_alloc(3)</seealso>.</p>
           </item>
-          <tag><c>alloc_util_allocators</c></tag>
+          <tag><marker id="system_info_alloc_util_allocators"><c>alloc_util_allocators</c></marker></tag>
           <item>
-            <marker id="system_info_alloc_util_allocators"></marker>
 	     <p>Returns a list of the names of all allocators
 	        using the ERTS internal <c>alloc_util</c> framework
 		as atoms. For more information see the
@@ -5328,9 +5318,8 @@ true</pre>
 		erts_alloc(3)</seealso> documentation.
 	     </p>
           </item>
-          <tag><c>{allocator, Alloc}</c></tag>
+          <tag><marker id="system_info_allocator_tuple"><c>{allocator, Alloc}</c></marker></tag>
           <item>
-            <marker id="system_info_allocator_tuple"></marker>
             <p>Returns information about the specified allocator.
 	       As of erts version 5.6.1 the return value is a list
 	       of <c>{instance, InstanceNo, InstanceInfo}</c> tuples
@@ -5366,9 +5355,8 @@ true</pre>
               values. The first value is memory pool size and
               the second value used memory size.</p>
           </item>
-          <tag><c>{allocator_sizes, Alloc}</c></tag>
+          <tag><marker id="system_info_allocator_sizes"><c>{allocator_sizes, Alloc}</c></marker></tag>
           <item>
-            <marker id="system_info_allocator_sizes"></marker>
 	    <p>Returns various size information for the specified
 	    allocator. The information returned is a subset of the
 	    information returned by
@@ -5402,9 +5390,8 @@ true</pre>
               line flag <c>+R</c>, see
               <seealso marker="erts:erl#compat_rel">erl(1)</seealso>.</p>
           </item>
-          <tag><c>cpu_topology</c></tag>
+          <tag><marker id="system_info_cpu_topology"><c>cpu_topology</c></marker></tag>
           <item>
-          <marker id="system_info_cpu_topology"></marker>
 	    <p>Returns the <c>CpuTopology</c> which currently is used by the
 	       emulator. The CPU topology is used when binding schedulers
 	       to logical processors. The CPU topology used is the user defined
@@ -5677,9 +5664,8 @@ true</pre>
               <seealso marker="erts:erl#+T">erl(1)</seealso>
               command for more information on modified timing.</p>
           </item>
-          <tag><c>multi_scheduling</c></tag>
+          <tag><marker id="system_info_multi_scheduling"><c>multi_scheduling</c></marker></tag>
           <item>
-            <marker id="system_info_multi_scheduling"></marker>
             <p>Returns <c>disabled</c>, <c>blocked</c>, or <c>enabled</c>.
               A description of the return values:</p>
             <taglist>
@@ -5708,9 +5694,8 @@ true</pre>
               <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><c>multi_scheduling_blockers</c></tag>
+          <tag><marker id="system_info_multi_scheduling_blockers"><c>multi_scheduling_blockers</c></marker></tag>
           <item>
-            <marker id="system_info_multi_scheduling_blockers"></marker>
             <p>Returns a list of <c>PID</c>s when multi-scheduling
               is blocked; otherwise, the empty list. The <c>PID</c>s
               in the list is <c>PID</c>s of the processes currently
@@ -5721,9 +5706,8 @@ true</pre>
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><c>otp_release</c></tag>
+          <tag><marker id="system_info_otp_release"><c>otp_release</c></marker></tag>
           <item>
-            <marker id="system_info_otp_release"></marker>
             <p>Returns a string containing the OTP release number.</p>
           </item>
           <tag><c>process_count</c></tag>
@@ -5747,9 +5731,8 @@ true</pre>
               information see the <seealso marker="erts:crash_dump">"How to interpret the Erlang crash dumps"</seealso> chapter
               in the ERTS User's Guide.</p>
           </item>
-          <tag><c>scheduler_bind_type</c></tag>
+          <tag><marker id="system_info_scheduler_bind_type"><c>scheduler_bind_type</c></marker></tag>
           <item>
-            <marker id="system_info_scheduler_bind_type"></marker>
 	    <p>Returns information on how user has requested
 	       schedulers to be bound or not bound.</p>
 	    <p><em>NOTE:</em> Even though user has requested
@@ -5764,9 +5747,8 @@ true</pre>
 	       <seealso marker="#system_info_scheduler_bindings">erlang:system_info(scheduler_bindings)</seealso>.
 	    </p>
           </item>
-          <tag><c>scheduler_bindings</c></tag>
+          <tag><marker id="system_info_scheduler_bindings"><c>scheduler_bindings</c></marker></tag>
           <item>
-            <marker id="system_info_scheduler_bindings"></marker>
 	    <p>Returns information on currently used scheduler
 	       bindings.</p>
 	    <p>A tuple of a size equal to
@@ -5788,18 +5770,16 @@ true</pre>
 	       <seealso marker="#system_info_schedulers_online">erlang:system_info(schedulers_online)</seealso>.
 	    </p>
           </item>
-          <tag><c>scheduler_id</c></tag>
+          <tag><marker id="system_info_scheduler_id"><c>scheduler_id</c></marker></tag>
           <item>
-            <marker id="system_info_scheduler_id"></marker>
             <p>Returns the scheduler id (<c>SchedulerId</c>) of the
               scheduler thread that the calling process is executing
               on. <c>SchedulerId</c> is a positive integer; where
               <c><![CDATA[1 <= SchedulerId <= erlang:system_info(schedulers)]]></c>. See also
               <seealso marker="#system_info_schedulers">erlang:system_info(schedulers)</seealso>.</p>
           </item>
-          <tag><c>schedulers</c></tag>
+          <tag><marker id="system_info_schedulers"><c>schedulers</c></marker></tag>
           <item>
-            <marker id="system_info_schedulers"></marker>
             <p>Returns the number of scheduler threads used by
               the emulator. Scheduler threads online schedules Erlang
               processes and Erlang ports, and execute Erlang code
@@ -5815,9 +5795,8 @@ true</pre>
               <seealso marker="#system_info_multi_scheduling">erlang:system_info(multi_scheduling)</seealso>, and
               and <seealso marker="#system_info_multi_scheduling_blockers">erlang:system_info(multi_scheduling_blockers)</seealso>.</p>
           </item>
-          <tag><c>schedulers_online</c></tag>
+          <tag><marker id="system_info_schedulers_online"><c>schedulers_online</c></marker></tag>
           <item>
-            <marker id="system_info_schedulers_online"></marker>
             <p>Returns the amount of schedulers online. The scheduler
 	    identifiers of schedulers online satisfy the following
 	    relationship:
@@ -5850,9 +5829,8 @@ true</pre>
               with thread support; otherwise, <c>false</c> is
               returned.</p>
           </item>
-          <tag><c>thread_pool_size</c></tag>
+          <tag><marker id="system_info_thread_pool_size"><c>thread_pool_size</c></marker></tag>
           <item>
-            <marker id="system_info_thread_pool_size"></marker>
             <p>Returns the number of async threads in the async thread
               pool used for asynchronous driver calls
               (<seealso marker="erts:erl_driver#driver_async">driver_async()</seealso>)
@@ -5865,9 +5843,8 @@ true</pre>
               <c>get_tcw</c> in "Match Specifications in Erlang",
               <seealso marker="erts:match_spec#get_tcw">ERTS User's Guide</seealso>.</p>
           </item>
-          <tag><c>version</c></tag>
+          <tag><marker id="system_info_version"><c>version</c></marker></tag>
           <item>
-            <marker id="system_info_version"></marker>
             <p>Returns a string containing the version number of the
               emulator.</p>
           </item>
@@ -6477,9 +6454,8 @@ true</pre>
               the current function cannot be determined, then the last
               element <c>Arity</c> is 0.</p>
           </item>
-          <tag><c>{trace, Pid, gc_start, Info}</c></tag>
+          <tag><marker id="gc_start"><c>{trace, Pid, gc_start, Info}</c></marker></tag>
           <item>
-	    <marker id="gc_start"></marker>
             <p>Sent when garbage collection is about to be started.
               <c>Info</c> is a list of two-element tuples, where
               the first element is a key, and the second is the value.
