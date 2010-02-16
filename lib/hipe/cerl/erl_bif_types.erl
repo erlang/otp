@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% =====================================================================
@@ -1768,8 +1768,29 @@ type(erts_debug, disassemble, 1, Xs) ->
 	 fun (_) -> t_sup([t_atom('false'),
 			   t_atom('undef'),
 			   t_tuple([t_integer(), t_binary(), t_mfa()])]) end);
+type(erts_debug, dist_ext_to_term, 2, Xs) ->
+  strict(arg_types(erts_debug, dist_ext_to_term, 2), Xs,
+	 fun (_) -> t_any() end);
 type(erts_debug, flat_size, 1, Xs) ->
   strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
+type(erts_debug, lock_counters, 1, Xs) ->
+  strict(arg_types(erts_debug, lock_counters, 1), Xs,
+	 fun ([Arg]) ->
+	     case t_is_atom(Arg) of
+	       true ->
+		 case t_atom_vals(Arg) of
+		   ['enabled'] -> t_boolean();
+		   ['info'] -> t_any();
+		   ['clear'] -> t_atom(ok);
+		   _ -> t_sup([t_boolean(), t_any(), t_atom('ok')])
+		 end;
+	       false ->
+		 case t_is_tuple(Arg) of
+		   true -> t_boolean();
+		   false -> t_sup([t_boolean(), t_any(), t_atom('ok')])
+		 end
+	     end
+	 end);
 type(erts_debug, same, 2, Xs) ->
   strict(arg_types(erts_debug, same, 2), Xs, fun (_) -> t_boolean() end);
 %%-- ets ----------------------------------------------------------------------
@@ -2669,6 +2690,8 @@ type(os, getenv, 1, Xs) ->
 type(os, getpid, 0, _) -> t_string();
 type(os, putenv, 2, Xs) ->
   strict(arg_types(os, putenv, 2), Xs, fun (_) -> t_atom('true') end);
+type(os, timestamp, 0, _) ->
+  t_time();
 %%-- re -----------------------------------------------------------------------
 type(re, compile, 1, Xs) ->
   strict(arg_types(re, compile, 1), Xs,
@@ -3865,8 +3888,16 @@ arg_types(erts_debug, breakpoint, 2) ->
   [t_tuple([t_atom(), t_atom(), t_sup(t_integer(), t_atom('_'))]), t_boolean()];
 arg_types(erts_debug, disassemble, 1) ->
   [t_sup(t_mfa(), t_integer())];
+arg_types(erts_debug, dist_ext_to_term, 2) ->
+  [t_tuple(), t_binary()];
 arg_types(erts_debug, flat_size, 1) ->
   [t_any()];
+arg_types(erts_debug, lock_counters, 1) ->
+  [t_sup([t_atom(enabled),
+	  t_atom(info),
+	  t_atom(clear),
+	  t_tuple([t_atom(copy_save), t_boolean()]),
+	  t_tuple([t_atom(process_locks), t_boolean()])])];
 arg_types(erts_debug, same, 2) ->
   [t_any(), t_any()];
 %%------- ets -----------------------------------------------------------------
@@ -4289,6 +4320,8 @@ arg_types(os, getpid, 0) ->
   [];
 arg_types(os, putenv, 2) ->
   [t_string(), t_string()];
+arg_types(os, timestamp, 0) ->
+  [];
 %%-- re -----------------------------------------------------------------------
 arg_types(re, compile, 1) ->
   [t_iodata()];
@@ -4906,7 +4939,8 @@ t_inet_setoption_packettype() ->
 	 t_integers([0,1,2,4]),
 	 t_atom('asn1'), t_atom('cdr'), t_atom('sunrm'),
 	 t_atom('fcgi'), t_atom('tpkt'), t_atom('line'),
-	 t_atom('http')]).	%% but t_atom('httph') is not needed
+	 t_atom('http'),
+	 t_atom('http_bin')]).	%% but t_atom('httph') is not needed
 
 t_inet_posix_error() ->
   t_atom().  %% XXX: Very underspecified
