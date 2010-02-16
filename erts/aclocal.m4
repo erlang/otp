@@ -826,8 +826,11 @@ case "$THR_LIB_NAME" in
 	AC_CHECK_FUNC(pthread_spin_lock, \
 			AC_DEFINE(ETHR_HAVE_PTHREAD_SPIN_LOCK, 1, \
 [Define if you have the pthread_spin_lock function.]))
+	test "$force_linux_pthread_rwlocks" = "yes" || {
+	    force_linux_pthread_rwlocks=no
+	}
 	case "$force_linux_pthread_rwlocks-$host_os" in
-		yes-linux*) # Writers may get starved
+		no-linux*) # Writers may get starved
 			# TODO: write a test that tests the implementation
 			;;
 		*)
