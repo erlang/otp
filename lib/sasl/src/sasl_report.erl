@@ -1,40 +1,46 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(sasl_report).
 
--export([write_report/3]).
+-export([write_report/3, format_report/3]).
 
-write_report(Fd, What, {Time, {error_report, _GL, {Pid, Type, Report}}}) ->
+format_report(Fd, What, Report) ->
+    io_report(io_lib, Fd, What, Report).
+
+write_report(Fd, What, Report) ->
+    io_report(io, Fd, What, Report).
+
+io_report(IO, Fd, What, {Time, {error_report, _GL, {Pid, Type, Report}}}) ->
     case is_my_error_report(What, Type) of
 	true ->
 	    Head = write_head(Type, Time, Pid),
-	    write_report2(Fd, Head, Type, Report);
+	    write_report2(IO, Fd, Head, Type, Report);
 	_ -> true
     end;
-write_report(Fd, What, {Time, {info_report, _GL, {Pid, Type, Report}}}) ->
+io_report(IO, Fd, What, {Time, {info_report, _GL, {Pid, Type, Report}}}) ->
     case is_my_info_report(What, Type) of
 	true ->
 	    Head = write_head(Type, Time, Pid),
-	    write_report2(Fd, Head, Type, Report);
+	    write_report2(IO, Fd, Head, Type, Report);
 	_ -> true
     end;
-write_report(_Fd, _, _) ->
+io_report(_IO, _Fd, _, _) ->
     false.
 
 is_my_error_report(all, Type)   ->  is_my_error_report(Type);
@@ -50,20 +56,26 @@ is_my_info_report(_, _Type)       -> false.
 is_my_info_report(progress)  -> true;
 is_my_info_report(_)                    -> false.
 
-write_report2(Fd, Head, supervisor_report, Report) ->
+write_report2(IO, Fd, Head, supervisor_report, Report) ->
     Name = sup_get(supervisor, Report),
     Context = sup_get(errorContext, Report),
     Reason = sup_get(reason, Report),
     Offender = sup_get(offender, Report),
-    io:format(Fd, Head ++ "     Supervisor: ~p~n     Context:    ~p~n     Reason:     "
-	      "~80.18p~n     Offender:   ~80.18p~n~n",
-	      [Name,Context,Reason,Offender]);
-write_report2(Fd, Head, progress, Report) ->
+    FmtString = "     Supervisor: ~p~n     Context:    ~p~n     Reason:     "
+	"~80.18p~n     Offender:   ~80.18p~n~n",
+    write_report_action(IO, Fd, Head ++ FmtString,
+			[Name,Context,Reason,Offender]);
+write_report2(IO, Fd, Head, progress, Report) ->
     Format = format_key_val(Report),
-    io:format(Fd, Head ++ "~s", [Format]);
-write_report2(Fd, Head, crash_report, Report) ->
+    write_report_action(IO, Fd, Head ++ "~s", [Format]);
+write_report2(IO, Fd, Head, crash_report, Report) ->
     Format = proc_lib:format(Report),
-    io:format(Fd, Head ++ "~s", [Format]).
+    write_report_action(IO, Fd, Head ++ "~s", [Format]).
+
+write_report_action(io, Fd, Format, Args) ->
+    io:format(Fd, Format, Args);
+write_report_action(io_lib, _Fd, Format, Args) ->
+    io_lib:format(Format, Args).
 
 format_key_val([{Tag,Data}|Rep]) ->
     io_lib:format("    ~16w: ~p~n",[Tag,Data]) ++ format_key_val(Rep);
