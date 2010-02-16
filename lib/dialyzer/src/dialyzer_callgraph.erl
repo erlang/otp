@@ -55,8 +55,8 @@
 
 -export([cleanup/1, get_digraph/1, get_named_tables/1, get_public_tables/1,
          get_race_code/1, get_race_detection/1, race_code_new/1,
-         put_race_code/2, put_race_detection/2, put_named_tables/2,
-         put_public_tables/2, put_behaviour_api_calls/2,
+         put_digraph/2, put_race_code/2, put_race_detection/2,
+         put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
 	 get_behaviour_api_calls/1]).
 
 -include("dialyzer.hrl").
@@ -611,15 +611,17 @@ digraph_reaching_subgraph(Funs, DG) ->
 
 -spec cleanup(callgraph()) -> callgraph().
 
-cleanup(#callgraph{name_map = NameMap,
-                   rev_name_map = RevNameMap,
-                   public_tables = PublicTables,
-                   named_tables = NamedTables,
-                   race_code = RaceCode}) ->
-  #callgraph{name_map = NameMap,
-             rev_name_map = RevNameMap,
-             public_tables = PublicTables,
-             named_tables = NamedTables,
+cleanup(#callgraph{digraph = Digraph,                                          
+                   name_map = NameMap,                                         
+                   rev_name_map = RevNameMap,                                  
+                   public_tables = PublicTables,                               
+                   named_tables = NamedTables,                                 
+                   race_code = RaceCode}) ->                                   
+  #callgraph{digraph = Digraph,
+             name_map = NameMap,                                          
+             rev_name_map = RevNameMap,                                   
+             public_tables = PublicTables,                                
+             named_tables = NamedTables,                                  
              race_code = RaceCode}.
 
 -spec get_digraph(callgraph()) -> digraph().
@@ -651,6 +653,11 @@ get_race_detection(#callgraph{race_detection = RD}) ->
 
 race_code_new(Callgraph) ->
   Callgraph#callgraph{race_code = dict:new()}.
+
+-spec put_digraph(digraph(), callgraph()) -> callgraph().
+
+put_digraph(Digraph, Callgraph) ->
+  Callgraph#callgraph{digraph = Digraph}.
 
 -spec put_race_code(dict(), callgraph()) -> callgraph().
 

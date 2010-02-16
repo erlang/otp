@@ -291,10 +291,16 @@ analyze_module(Tree, Plt, Callgraph, Records, GetWarnings) ->
       case BehaviourTranslations of
 	[] -> dialyzer_races:race(State5);
 	Behaviours ->
+          Callgraph2 = State5#state.callgraph,
+          Digraph = dialyzer_callgraph:get_digraph(Callgraph2),
 	  TranslatedCallgraph =
 	    dialyzer_behaviours:translate_callgraph(Behaviours, Module,
-						    State5#state.callgraph),
-	  dialyzer_races:race(State5#state{callgraph = TranslatedCallgraph})
+						    Callgraph2),
+          St =
+            dialyzer_races:race(State5#state{callgraph = TranslatedCallgraph}),
+          Callgraph3 = dialyzer_callgraph:put_digraph(Digraph,
+                                                      St#state.callgraph),
+          St#state{callgraph = Callgraph3}
       end;
     false ->
       state__restore_race_code(
