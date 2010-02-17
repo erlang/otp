@@ -105,4 +105,5 @@ release_spec: opt
 release_docs_spec:
 
 $(EBIN)/hipe_bb.beam: hipe_bb.hrl
+$(EBIN)/hipe_dominators.beam: cfg.hrl
 $(EBIN)/hipe_gen_cfg.beam: cfg.hrl cfg.inc ../main/hipe.hrl

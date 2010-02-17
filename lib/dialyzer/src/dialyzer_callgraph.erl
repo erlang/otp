@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -27,7 +27,8 @@
 %%%-------------------------------------------------------------------
 -module(dialyzer_callgraph).
 
--export([all_nodes/1,
+-export([add_edges/2,
+	 all_nodes/1,
 	 delete/1,
 	 finalize/1,
 	 is_escaping/2,
@@ -54,8 +55,9 @@
 
 -export([cleanup/1, get_digraph/1, get_named_tables/1, get_public_tables/1,
          get_race_code/1, get_race_detection/1, race_code_new/1,
-         put_race_code/2, put_race_detection/2, put_named_tables/2,
-         put_public_tables/2]).
+         put_digraph/2, put_race_code/2, put_race_detection/2,
+         put_named_tables/2, put_public_tables/2, put_behaviour_api_calls/2,
+	 get_behaviour_api_calls/1]).
 
 -include("dialyzer.hrl").
 
@@ -97,7 +99,8 @@
                     race_code      = dict:new()    :: dict(),
                     public_tables  = []            :: [label()],
                     named_tables   = []            :: [string()],
-                    race_detection = false         :: boolean()}).
+                    race_detection = false         :: boolean(),
+		    beh_api_calls  = []            :: [{mfa(), mfa()}]}).
 
 %% Exported Types
 
@@ -608,15 +611,17 @@ digraph_reaching_subgraph(Funs, DG) ->
 
 -spec cleanup(callgraph()) -> callgraph().
 
-cleanup(#callgraph{name_map = NameMap,
-                   rev_name_map = RevNameMap,
-                   public_tables = PublicTables,
-                   named_tables = NamedTables,
-                   race_code = RaceCode}) ->
-  #callgraph{name_map = NameMap,
-             rev_name_map = RevNameMap,
-             public_tables = PublicTables,
-             named_tables = NamedTables,
+cleanup(#callgraph{digraph = Digraph,                                          
+                   name_map = NameMap,                                         
+                   rev_name_map = RevNameMap,                                  
+                   public_tables = PublicTables,                               
+                   named_tables = NamedTables,                                 
+                   race_code = RaceCode}) ->                                   
+  #callgraph{digraph = Digraph,
+             name_map = NameMap,                                          
+             rev_name_map = RevNameMap,                                   
+             public_tables = PublicTables,                                
+             named_tables = NamedTables,                                  
              race_code = RaceCode}.
 
 -spec get_digraph(callgraph()) -> digraph().
@@ -648,6 +653,11 @@ get_race_detection(#callgraph{race_detection = RD}) ->
 
 race_code_new(Callgraph) ->
   Callgraph#callgraph{race_code = dict:new()}.
+
+-spec put_digraph(digraph(), callgraph()) -> callgraph().
+
+put_digraph(Digraph, Callgraph) ->
+  Callgraph#callgraph{digraph = Digraph}.
 
 -spec put_race_code(dict(), callgraph()) -> callgraph().
 
@@ -695,3 +705,15 @@ to_ps(#callgraph{} = CG, File, Args) ->
   Command = io_lib:format("dot -Tps ~s -o ~s ~s", [Args, File, Dot_File]),
   _ = os:cmd(Command),
   ok.
+
+%-------------------------------------------------------------------------------
+
+-spec put_behaviour_api_calls([{mfa(), mfa()}], callgraph()) -> callgraph().
+
+put_behaviour_api_calls(Calls, Callgraph) ->
+  Callgraph#callgraph{beh_api_calls = Calls}.
+
+-spec get_behaviour_api_calls(callgraph()) -> [{mfa(), mfa()}].
+
+get_behaviour_api_calls(Callgraph) ->
+  Callgraph#callgraph.beh_api_calls.

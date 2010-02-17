@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%-----------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -43,6 +43,7 @@
 	 t_is_float/1, t_is_fun/1,
 	 t_is_integer/1, t_non_neg_integer/0,
 	 t_is_list/1, t_is_nil/1, t_is_none/1, t_is_number/1,
+
 	 t_is_subtype/2, t_limit/2, t_list/0, t_list/1, 
 	 t_list_elements/1, t_nonempty_list/1, t_maybe_improper_list/0,
 	 t_module/0, t_number/0, t_number_vals/1,
@@ -51,7 +52,7 @@
 	 t_pid/0, t_port/0, t_product/1, t_reference/0,
 	 t_subst/2, t_subtract/2, t_subtract_list/2, t_sup/1, t_sup/2,
 	 t_timeout/0, t_tuple/0, t_tuple/1,
-	 t_unify/2, t_var/1, t_var_name/1,
+	 t_unify/3, t_var/1, t_var_name/1,
 	 t_none/0, t_unit/0]).
 
 -include("dialyzer.hrl").
@@ -71,14 +72,20 @@
 		     rhs  :: fvar_or_type(),
 		     deps :: [dep()]}).
 
+-type constraint() :: #constraint{}.
+
 -record(constraint_list, {type :: 'conj' | 'disj',
-			  list :: [_], % [constr()] but it needs recursion :-(
+			  list :: [constr()],
 			  deps :: [dep()],
 			  id   :: {'list', dep()}}).
 
+-type constraint_list() :: #constraint_list{}.
+
 -record(constraint_ref, {id :: type_var(), deps :: [dep()]}).
 
--type constr() :: #constraint{} | #constraint_list{} | #constraint_ref{}.
+-type constraint_ref() :: #constraint_ref{}.
+
+-type constr() :: constraint() | constraint_list() | constraint_ref().
 
 -type typesig_scc()    :: [{mfa(), {cerl:c_var(), cerl:c_fun()}, dict()}].
 -type typesig_funmap() :: [{type_var(), type_var()}]. %% Orddict
@@ -90,6 +97,7 @@
 		fun_arities   = dict:new() :: dict(),
 		in_match      = false      :: boolean(),
 		in_guard      = false      :: boolean(),
+		module                     :: module(),
 		name_map      = dict:new() :: dict(),
 		next_label                 :: label(),
 		non_self_recs = []         :: [label()],
@@ -98,7 +106,7 @@
 		records       = dict:new() :: dict(),
 		opaques       = []         :: [erl_types:erl_type()],
 		scc           = []         :: [type_var()]}).
-		
+
 %%-----------------------------------------------------------------------------
 
 -define(TYPE_LIMIT, 4).
@@ -631,6 +639,9 @@ handle_call(Call, DefinedVars, State) ->
 get_plt_constr(MFA, Dst, ArgVars, State) ->
   Plt = state__plt(State),
   PltRes = dialyzer_plt:lookup(Plt, MFA),
+  Opaques = State#state.opaques,
+  Module = State#state.module,
+  {FunModule, _, _} = MFA,
   case dialyzer_plt:lookup_contract(Plt, MFA) of
     none ->
       case PltRes of
@@ -651,7 +662,14 @@ get_plt_constr(MFA, Dst, ArgVars, State) ->
 	    %% Need to combine the contract with the success typing.
 	    {mk_fun_var(
 	       fun(Map) ->
-		   ArgTypes = lookup_type_list(ArgVars, Map),
+		   ArgTypes0 = lookup_type_list(ArgVars, Map),
+		   ArgTypes = case FunModule =:= Module of
+				false ->
+				  List = lists:zip(PltArgTypes, ArgTypes0),
+				  [erl_types:t_unopaque_on_mismatch(T1, T2, Opaques)
+				   || {T1, T2} <- List];
+				true -> ArgTypes0
+			      end,
 		   CRet = dialyzer_contracts:get_contract_return(C, ArgTypes),
 		   t_inf(CRet, PltRetType, opaque)
 	       end, ArgVars),
@@ -681,8 +699,8 @@ filter_match_fail([]) ->
 %% If there is a significant number of clauses, we cannot apply the
 %% list subtraction scheme since it causes the analysis to be too
 %% slow. Typically, this only affects automatically generated files.
-%% Anyway, and the dataflow analysis doesn't suffer from this, so we
-%% will get some information anyway.
+%% The dataflow analysis doesn't suffer from this, so we will get some
+%% information anyway.
 -define(MAX_NOF_CLAUSES, 15).
 
 handle_clauses(Clauses, TopVar, Arg, DefinedVars, State) ->
@@ -843,7 +861,7 @@ get_underapprox_from_guard(Tree, Map) ->
 			(cerl:is_c_var(Arg2) orelse cerl:is_literal(Arg2))) of
 		    true ->
 		      {Arg1Type, _} = get_underapprox_from_guard(Arg1, Map),
-		      {Arg2Type, _} = get_underapprox_from_guard(Arg1, Map),
+		      {Arg2Type, _} = get_underapprox_from_guard(Arg2, Map),
 		      case (t_is_equal(True, Arg1Type) andalso 
 			    t_is_equal(True, Arg2Type)) of
 			true -> {True, Map}; 
@@ -1511,13 +1529,21 @@ get_bif_constr({erlang, element, 2} = _BIF, Dst, Args, State) ->
       Cs = mk_constraints(Args, sub, ArgTypes),
       mk_conj_constraint_list([mk_constraint(Dst, sub, ReturnType)|Cs])
   end;
-get_bif_constr({M, F, A} = _BIF, Dst, Args, _State) ->
+get_bif_constr({M, F, A} = _BIF, Dst, Args, State) ->
   GenType = erl_bif_types:type(M, F, A),
+  Opaques =  State#state.opaques,
   case t_is_none(GenType) of
     true -> ?debug("Bif: ~w failed\n", [_BIF]), throw(error);
     false ->
+      UnopaqueFun =
+	fun(T) -> case lists:member(T, Opaques)  of
+		    true -> erl_types:t_unopaque(T, [T]);
+		    false -> T
+		  end
+	end,
       ReturnType = mk_fun_var(fun(Map) -> 
-				  TmpArgTypes = lookup_type_list(Args, Map),
+				  TmpArgTypes0 = lookup_type_list(Args, Map),
+				  TmpArgTypes = [UnopaqueFun(T) || T<- TmpArgTypes0],
 				  erl_bif_types:type(M, F, A, TmpArgTypes)
 			      end, Args),
       case erl_bif_types:is_known(M, F, A) of
@@ -1815,7 +1841,7 @@ solve_cs([#constraint_list{} = C|Tail], Map, MapDict, State) ->
     {error, _NewMapDict} = Error -> Error
   end;
 solve_cs([#constraint{} = C|Tail], Map, MapDict, State) ->
-  case solve_one_c(C, Map) of
+  case solve_one_c(C, Map, State#state.opaques) of
     error ->
       ?debug("+++++++++++\nFailed: ~s :: ~s ~w ~s :: ~s\n+++++++++++\n",
 	     [format_type(C#constraint.lhs), 
@@ -1830,7 +1856,7 @@ solve_cs([#constraint{} = C|Tail], Map, MapDict, State) ->
 solve_cs([], Map, MapDict, _State) ->
   {ok, MapDict, Map}.
 
-solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
+solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map, Opaques) ->
   LhsType = lookup_type(Lhs, Map),
   RhsType = lookup_type(Rhs, Map),
   Inf = t_inf(LhsType, RhsType, opaque),
@@ -1841,16 +1867,16 @@ solve_one_c(#constraint{lhs = Lhs, rhs = Rhs, op = Op}, Map) ->
     true -> error;
     false ->
       case Op of
-	sub -> solve_subtype(Lhs, Inf, Map);
+	sub -> solve_subtype(Lhs, Inf, Map, Opaques);
 	eq ->
-	  case solve_subtype(Lhs, Inf, Map) of
+	  case solve_subtype(Lhs, Inf, Map, Opaques) of
 	    error -> error;
-	    {ok, Map1} -> solve_subtype(Rhs, Inf, Map1)
+	    {ok, Map1} -> solve_subtype(Rhs, Inf, Map1, Opaques)
 	  end
       end
   end.
 
-solve_subtype(Type, Inf, Map) ->
+solve_subtype(Type, Inf, Map, Opaques) ->
   %% case cerl:is_literal(Type) of
   %%   true ->
   %%     case t_is_subtype(t_from_term(cerl:concrete(Type)), Inf) of
@@ -1858,7 +1884,7 @@ solve_subtype(Type, Inf, Map) ->
   %%	false -> error
   %%     end;
   %%   false ->
-      try t_unify(Type, Inf) of
+      try t_unify(Type, Inf, Opaques) of
 	{_, List} -> {ok, enter_type_list(List, Map)}
       catch
 	throw:{mismatch, _T1, _T2} -> 
@@ -2046,7 +2072,7 @@ state__set_rec_dict(State, RecDict) ->
 state__set_opaques(#state{records = RecDict} = State, {M, _F, _A}) ->
   Opaques =
     erl_types:module_builtin_opaques(M) ++ t_opaque_from_records(RecDict),
-  State#state{opaques = Opaques}.
+  State#state{opaques = Opaques, module = M}.
 
 state__lookup_record(#state{records = Records}, Tag, Arity) ->
   case erl_types:lookup_record(Tag, Arity, Records) of
@@ -2258,7 +2284,7 @@ mk_constraint(Lhs, Op, Rhs) ->
       case Deps =:= [] of
 	true ->
 	  %% This constraint is constant. Solve it immediately.
-	  case solve_one_c(C, dict:new()) of
+	  case solve_one_c(C, dict:new(), []) of
 	    error -> throw(error);
 	    _ -> 
 	      %% This is always true, keep it anyway for logistic reasons

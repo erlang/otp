@@ -37,6 +37,8 @@ else
 SUB_DIRECTORIES = $(ALWAYS_SUBDIRS)
 endif
 
+include native.mk
+
 #
 # Default Subdir Targets
 #

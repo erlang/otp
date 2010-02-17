@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%============================================================================
@@ -227,6 +227,8 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
       Sig = erl_types:t_fun(Arg, Range),
       case dialyzer_contracts:check_contract(Contract, Sig) of
 	ok -> {{F, A}, {contract, Contract}};
+	{error, {extra_range, _, _}} ->
+	  {{F, A}, {contract, Contract}};
 	{error, invalid_contract} ->
 	  CString = dialyzer_contracts:contract_to_string(Contract),
 	  SigString = dialyzer_utils:format_sig(Sig, RecMap),
@@ -235,7 +237,7 @@ get_type({{M, F, A} = MFA, Range, Arg}, CodeServer, RecMap) ->
 			  "\t The contract is: " ++ CString ++ "\n" ++
 			  "\t but the inferred signature is: ~s",
 			  [M, F, A, SigString]));
-	{error, Msg} ->
+	{error, Msg} when is_list(Msg) -> % Msg is a string()
 	  typer:error(
 	    io_lib:format("Error in contract of function ~w:~w/~w: ~s",
 			  [M, F, A, Msg]))

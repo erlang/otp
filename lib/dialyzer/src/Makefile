@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2006-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2006-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #=============================================================================
@@ -48,6 +48,7 @@ DIALYZER_DIR = $(ERL_TOP)/lib/dialyzer
 MODULES =  \
 	dialyzer \
 	dialyzer_analysis_callgraph \
+	dialyzer_behaviours \
 	dialyzer_callgraph \
 	dialyzer_cl \
 	dialyzer_cl_parse \
@@ -128,6 +129,7 @@ $(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk
 $(EBIN)/dialyzer.beam: dialyzer.hrl
 $(EBIN)/dialyzer_analysis_callgraph.beam: dialyzer.hrl
 $(EBIN)/dialyzer_callgraph.beam: dialyzer.hrl
+$(EBIN)/dialyzer_behaviours.beam: dialyzer.hrl
 $(EBIN)/dialyzer_cl.beam: dialyzer.hrl ../../kernel/include/file.hrl
 $(EBIN)/dialyzer_cl_parse.beam: dialyzer.hrl
 $(EBIN)/dialyzer_codeserver.beam: dialyzer.hrl

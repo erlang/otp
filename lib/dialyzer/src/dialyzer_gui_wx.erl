@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%------------------------------------------------------------------------
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -102,9 +102,9 @@ create_window(Wx, DialyzerOptions) ->
 
   MenuBar = wxMenuBar:new(),
   wxMenuBar:append(MenuBar, FileMenu,     "File"),
-  wxMenuBar:append(MenuBar, WarningsMenu,  "Warnings"),
-  wxMenuBar:append(MenuBar, PltMenu,     "Plt"),
-  wxMenuBar:append(MenuBar, OptionsMenu,     "Options"),
+  wxMenuBar:append(MenuBar, WarningsMenu, "Warnings"),
+  wxMenuBar:append(MenuBar, PltMenu,      "Plt"),
+  wxMenuBar:append(MenuBar, OptionsMenu,  "Options"),
   wxMenuBar:append(MenuBar, HelpMenu,     "Help"),
   wxFrame:setMenuBar(Frame, MenuBar),
   ok = wxFrame:connect(Frame, command_menu_selected),
@@ -152,8 +152,8 @@ create_window(Wx, DialyzerOptions) ->
   AddButton = wxButton:new(Frame, ?Add_Button, [{label, "Add"}]),
   AddDirButton = wxButton:new(Frame, ?AddDir_Button, [{label, "Add Dir"}]),
   AddRecButton = wxButton:new(Frame, ?AddRec_Button, [{label, "Add Recursively"}]),
-  ExplainWarnButton =  wxButton:new(Frame, ?ExplWarn_Button, [{label, "Explain Warning"}]),
-  ClearWarningsButton =  wxButton:new(Frame, ?ClearWarn_Button, [{label, "Clear Warnings"}]),
+  ExplainWarnButton = wxButton:new(Frame, ?ExplWarn_Button, [{label, "Explain Warning"}]),
+  ClearWarningsButton = wxButton:new(Frame, ?ClearWarn_Button, [{label, "Clear Warnings"}]),
   RunButton = wxButton:new(Frame, ?Run_Button, [{label, "Run"}]),
   StopButton = wxButton:new(Frame, ?Stop_Button, [{label, "Stop"}]),
   wxWindow:disable(StopButton),
@@ -170,8 +170,8 @@ create_window(Wx, DialyzerOptions) ->
   wxButton:connect(StopButton, command_button_clicked),
 
   %%------------Set Layout ------------
-  All =  wxBoxSizer:new(?wxVERTICAL),
-  Top =  wxBoxSizer:new(?wxHORIZONTAL),
+  All = wxBoxSizer:new(?wxVERTICAL),
+  Top = wxBoxSizer:new(?wxHORIZONTAL),
   Left = wxBoxSizer:new(?wxVERTICAL),
   Right = wxBoxSizer:new(?wxVERTICAL),
   RightUp = wxBoxSizer:new(?wxHORIZONTAL),
@@ -390,7 +390,7 @@ gui_loop(#gui_state{backend_pid = BackendPid, doc_plt = DocPlt,
 		    warnings_box = WarningsBox} = State) ->
   receive 
     #wx{event = #wxClose{}} ->
-      io:format("~p Closing window ~n", [self()]),
+      %% io:format("~p Closing window ~n", [self()]),
       ok = wxFrame:setStatusText(Frame, "Closing...",[]),
       wxWindow:destroy(Frame),
       ?RET_NOTHING_SUSPICIOUS;
@@ -539,7 +539,7 @@ maybe_quit(#gui_state{frame = Frame} = State) ->
 
 %% ------------ Yes/No Question ------------
 dialog(#gui_state{frame = Frame}, Message, Title) ->
-  MessageWin = wxMessageDialog:new(Frame,Message,[{caption, Title},{style, ?wxYES_NO bor ?wxICON_QUESTION bor ?wxNO_DEFAULT}]),
+  MessageWin = wxMessageDialog:new(Frame, Message, [{caption, Title},{style, ?wxYES_NO bor ?wxICON_QUESTION bor ?wxNO_DEFAULT}]),
   case wxDialog:showModal(MessageWin) of 
     ?wxID_YES ->
       true;
@@ -563,12 +563,12 @@ search_doc_plt(#gui_state{gui = Wx} = State) ->
   Cancel = wxButton:new(Dialog, ?Search_Cancel, [{label, "Cancel"}]),
   wxButton:connect(Cancel, command_button_clicked),
 
-  Layout =  wxBoxSizer:new(?wxVERTICAL),
-  Top =  wxBoxSizer:new(?wxHORIZONTAL),
-  ModLayout =  wxBoxSizer:new(?wxVERTICAL),
-  FunLayout =  wxBoxSizer:new(?wxVERTICAL),
-  ArLayout =  wxBoxSizer:new(?wxVERTICAL),
-  Buttons =  wxBoxSizer:new(?wxHORIZONTAL),
+  Layout = wxBoxSizer:new(?wxVERTICAL),
+  Top = wxBoxSizer:new(?wxHORIZONTAL),
+  ModLayout = wxBoxSizer:new(?wxVERTICAL),
+  FunLayout = wxBoxSizer:new(?wxVERTICAL),
+  ArLayout = wxBoxSizer:new(?wxVERTICAL),
+  Buttons = wxBoxSizer:new(?wxHORIZONTAL),
 
   wxSizer:add(ModLayout, ModLabel, ?BorderOpt),
   wxSizer:add(ModLayout,ModText, ?BorderOpt),
@@ -606,7 +606,7 @@ search_plt_loop(State= #gui_state{doc_plt = DocPlt, frame = Frame}, Win, ModText
       A = format_search(wxTextCtrl:getValue(ArText)),
       
       if 
-	(M == '_') or (F == '_') or (A == '_') ->
+	(M =:= '_') orelse (F =:= '_') orelse (A =:= '_') ->
 	  error_sms(State, "Please give:\n Module (atom)\n Function (atom)\n Arity (integer)\n"),
 	  search_plt_loop(State, Win, ModText, FunText, ArText, Search, Cancel);
 	 true ->
@@ -670,7 +670,7 @@ free_editor(#gui_state{gui = Wx, frame = Frame}, Title, Contents0) ->
   wxFrame:connect(Win, close_window),
   Ok = wxButton:new(Win, ?Message_Ok, [{label, "OK"}]),
   wxButton:connect(Ok, command_button_clicked),
-  Layout =  wxBoxSizer:new(?wxVERTICAL),
+  Layout = wxBoxSizer:new(?wxVERTICAL),
   
   wxSizer:add(Layout, Editor, ?BorderOpt),
   wxSizer:add(Layout, Ok, [{flag, ?wxALIGN_CENTER bor ?wxBOTTOM bor ?wxALL}, ?Border]),
@@ -757,7 +757,7 @@ add_files(File, FileList, ChosenBox, Ext) ->
   Files.
 
 filter_mods(Mods, Extension) ->
-  Fun = fun(X) -> 
+  Fun = fun(X) ->
 	    filename:extension(X) =:= Extension
 	      orelse 
 		(filelib:is_dir(X) andalso
@@ -944,9 +944,9 @@ include_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
   Dirs = [io_lib:format("~s", [X]) 
 	  || X <- Options#options.include_dirs],
   wxListBox:set(Box, Dirs),
-  Layout =  wxBoxSizer:new(?wxVERTICAL),
-  Buttons =  wxBoxSizer:new(?wxHORIZONTAL),
-  Buttons1 =  wxBoxSizer:new(?wxHORIZONTAL),
+  Layout = wxBoxSizer:new(?wxVERTICAL),
+  Buttons = wxBoxSizer:new(?wxHORIZONTAL),
+  Buttons1 = wxBoxSizer:new(?wxHORIZONTAL),
 
   wxSizer:add(Layout, DirLabel, [{flag, ?wxALIGN_CENTER_HORIZONTAL}]),
   wxSizer:add(Layout, DirPicker, [{flag, ?wxALIGN_CENTER_HORIZONTAL}]),
@@ -1038,12 +1038,12 @@ macro_dialog(#gui_state{gui = Wx, frame = Frame, options = Options}) ->
 	    || {X,Y} <- Options#options.defines],
   
   wxListBox:set(Box, Macros),
-  Layout =  wxBoxSizer:new(?wxVERTICAL),
-  Item =  wxBoxSizer:new(?wxHORIZONTAL),
-  MacroItem =  wxBoxSizer:new(?wxVERTICAL),
-  TermItem =  wxBoxSizer:new(?wxVERTICAL),
-  Buttons =  wxBoxSizer:new(?wxHORIZONTAL), 
-  Buttons1 =  wxBoxSizer:new(?wxHORIZONTAL),
+  Layout = wxBoxSizer:new(?wxVERTICAL),
+  Item = wxBoxSizer:new(?wxHORIZONTAL),
+  MacroItem = wxBoxSizer:new(?wxVERTICAL),
+  TermItem = wxBoxSizer:new(?wxVERTICAL),
+  Buttons = wxBoxSizer:new(?wxHORIZONTAL),
+  Buttons1 = wxBoxSizer:new(?wxHORIZONTAL),
 
   wxSizer:add(MacroItem, MacroLabel, ?BorderOpt),
   wxSizer:add(MacroItem, MacroText, ?BorderOpt),
@@ -1159,7 +1159,8 @@ handle_explanation(#gui_state{rawWarnings = RawWarns,
 			      warnings_box = WarnBox,
 			      expl_pid = ExplPid} = State) ->
   case wxListBox:isEmpty(WarnBox) of
-    true -> error_sms(State, "\nThere are no warnings.\nRun the dialyzer first.");
+    true ->
+      error_sms(State, "\nThere are no warnings.\nRun the dialyzer first.");
     false ->
       case wxListBox:getSelections(WarnBox)of
 	{0, []} ->
@@ -1200,8 +1201,8 @@ show_explanation(#gui_state{gui = Wx} = State, Explanation) ->
       wxButton:connect(ExplButton, command_button_clicked),
       Ok = wxButton:new(Win, ?ExplOk, [{label, "OK"}]),
       wxButton:connect(Ok, command_button_clicked),
-      Layout =  wxBoxSizer:new(?wxVERTICAL),
-      Buttons =  wxBoxSizer:new(?wxHORIZONTAL),
+      Layout = wxBoxSizer:new(?wxVERTICAL),
+      Buttons = wxBoxSizer:new(?wxHORIZONTAL),
       wxSizer:add(Buttons, ExplButton, ?BorderOpt),
       wxSizer:add(Buttons, Ok, ?BorderOpt),
       wxSizer:add(Layout, Editor,[{flag, ?wxALIGN_CENTER_HORIZONTAL bor ?wxALL}, ?Border]),

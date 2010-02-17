@@ -3,11 +3,25 @@
 		(in reversed chronological order)
 ==============================================================================
 
+Version 2.2.0 (in Erlang/OTP R13B04)
+------------------------------------
+ - Much better support for opaque types (thanks to Manouk Manoukian).
+ - Added support for recursive types (experimental).
+ - Added support for parameterized modules.
+ - Dialyzer now warns when -specs state that a function returns some type
+   when in fact it does not.
+ - Added --no_native (-nn) option so that the user can bypass the native code
+   compilation that dialyzer heuristically performs when dialyzing many files.
+ - Fixed minor bug in the dialyzer script allowing the --wx option to bring
+   up the wx-based GUI regardless of its placement in the options list.
+ - Options --apps and -Wrace_conditions, which were added in the previous
+   version, are now properly documented in the manual.
+
 Version 2.1.0 (in Erlang/OTP R13B03)
 ------------------------------------
  - Dialyzer can statically detect some kinds of data races in Erlang programs.
    Use the new option -Wrace_conditions to enable the race analysis.
-   The technique is described in a paper which is available at:
+   The static analysis technique is described in a paper available at:
      http://www.it.uu.se/research/group/hipe/dialyzer/publications/races.pdf
  - Added support for packages (thanks to Maria Christakis).
  - There has been a major change in the default mode of Dialyzer.
@@ -27,7 +41,7 @@ Version 2.1.0 (in Erlang/OTP R13B03)
    The new option can also take absolute file names as well as applications.
    Note that the application versions that will be included in the PLT are
    those that correspond to the Erlang/OTP system which is used.
- - Dialyzer has a new wxWidgets based GUI (thanks to Elli Frangaki)
+ - Dialyzer has a new wxWidgets based GUI (thanks to Elli Fragkaki)
    for platforms where the wx application is available.
 
 Version 2.0.0 (in Erlang/OTP R13B02)

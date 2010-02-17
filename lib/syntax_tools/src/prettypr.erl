@@ -50,29 +50,22 @@
 
 %% ---------------------------------------------------------------------
 
-%% XXX: just an approximation
--type deep_string() :: [char() | [_]].
-
-%% XXX: poor man's document() until recursive data types are supported
--type doc() :: 'null'
-             | {'text' | 'fit', _}
-             | {'nest' | 'beside' | 'above' | 'union', _, _}
-             | {'sep' | 'float', _, _, _}.
+-type deep_string() :: [char() | deep_string()].
 
 %% Document structures fully implemented and available to the user:
 -record(text,   {s  :: deep_string()}).
--record(nest,   {n  :: integer(),   d :: doc()}).
--record(beside, {d1 :: doc(),      d2 :: doc()}).
--record(above,  {d1 :: doc(),      d2 :: doc()}).
--record(sep,    {ds :: [doc()], i = 0 :: integer(), p = false :: boolean()}).
+-record(nest,   {n  :: integer(),  d  :: document()}).
+-record(beside, {d1 :: document(), d2 :: document()}).
+-record(above,  {d1 :: document(), d2 :: document()}).
+-record(sep,    {ds :: [document()], i = 0 :: integer(),
+                 p = false :: boolean()}).
 
 %% Document structure which is not clear whether it is fully implemented: 
--record(float,  {d  :: doc(), h :: integer(), v :: integer()}).
+-record(float,  {d  :: document(), h :: integer(), v :: integer()}).
 
 %% Document structures not available to the user:
--record(union,  {d1 :: doc(), d2 :: doc()}).
--record(fit,    {d  :: doc()}).
-
+-record(union,  {d1 :: document(), d2 :: document()}).
+-record(fit,    {d  :: document()}).
 
 %% ---------------------------------------------------------------------
 %% A small warning for hackers: it's fairly easy to break this
@@ -637,43 +630,43 @@ flatrev([], As, []) ->
 %% Contexts:
 %%
 %%	#c_best_nest{w = integer(), r = integer(), i = integer()}
-%%	#c_above_nest{d = doc(), i = integer(), c = ctxt()}
-%%	#c_beside{d = doc(), c = ctxt()}
+%%	#c_above_nest{d = document(), i = integer(), c = ctxt()}
+%%	#c_beside{d = document(), c = ctxt()}
 %%	#c_text_beside{s = string(), c = ctxt()}
-%%	#c_sep_nest{ds = [doc()], i = integer(), p = boolean(),
+%%	#c_sep_nest{ds = [document()], i = integer(), p = boolean(),
 %%		    c = ctxt()}
 %%	#c_best_nest_or{w = integer(), r = integer(), i = integer(),
-%%			d = doc()}
+%%			d = document()}
 %%	#c_fit{c = ctxt()}
 
--record(c_best_nest, {w, r, i}).	%% best(w, r, nest(i, *))
+%% best(w, r, nest(i, *))
+-record(c_best_nest, {w :: integer(), r :: integer(), i :: integer()}).
 
--record(c_above_nest, {d, i = 0, c}).	%% above(*, nest(i, d))
+%% above(*, nest(i, d))
+-record(c_above_nest, {d :: document(), i = 0 :: integer(), c :: ctxt()}).
 
--record(c_beside, {d, c}).		%% beside(*, d)
+-record(c_beside, {d :: document(), c :: ctxt()}).	%% beside(*, d)
 
--record(c_text_beside, {s, c}).		%% beside(text(s), *)
+-record(c_text_beside, {s :: string(), c :: ctxt()}).	%% beside(text(s), *)
 
 %% p = false	=>	sep([* | map(nest i, ds)])
 %% p = true	=>	par([* | map(nest i, ds)])
 
--record(c_sep_nest, {ds, i, p, c}).
+-record(c_sep_nest, {ds :: [document()], i :: integer(),
+		     p  :: boolean(),    c :: ctxt()}).
 
--record(c_best_nest_or, {w, r, i, d}).	%% nicest(
-					%%   best(w, r,
-					%%	  nest(i, *)),
-					%%   best(w, r, d))
+%% nicest(best(w, r, nest(i, *)), best(w, r, d))
+-record(c_best_nest_or, {w :: integer(), r :: integer(),
+			 i :: integer(), d :: document()}).
 
--record(c_fit, {c}).			%% fit(*)
+-record(c_fit, {c :: ctxt()}).			%% fit(*)
 
--record(c_float_beside, {d, h, v, c}).		%% beside(
-						%%   float(d, h,
-						%%         v),
-						%%   *)
--record(c_float_above_nest, {d, h, v, i, c}).	%% above(
-						%%   float(d, h,
-						%%         v),
-						%%   nest(i, *))
+%% beside(float(d, h, v), *)
+-record(c_float_beside, {d :: document(), h :: integer(),
+			 v :: integer(),  c :: ctxt()}).
+%% above(float(d, h, v), nest(i, *))
+-record(c_float_above_nest, {d :: document(), h :: integer(),
+			     v :: integer(),  i :: integer(), c :: ctxt()}).
 
 %% Contexts introduced:		In case:
 %%
@@ -686,6 +679,11 @@ flatrev([], As, []) ->
 %%	c_fit			fit
 %%	c_float_beside		float (c_beside)
 %%	c_float_above_nest	float (c_above_nest)
+
+-type ctxt() :: #c_best_nest{} | #c_above_nest{}
+	      | #c_beside{} | #c_text_beside{}
+	      | #c_sep_nest{} | #c_best_nest_or{}
+	      | #c_fit{} | #c_float_beside{} | #c_float_above_nest{}.
 
 %% Entry point for the layout algorithm:
 
