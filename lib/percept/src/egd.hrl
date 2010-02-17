@@ -16,9 +16,9 @@
 %%
 %% %CopyrightEnd%
 
--type(rgba_float() :: {float(), float(), float(), float()}).
--type(rgba_byte() :: {byte(), byte(), byte(), byte()}).
--type(rgb() :: {byte(), byte(), byte()}).
+-type rgba_float() :: {float(), float(), float(), float()}.
+-type rgba_byte() :: {byte(), byte(), byte(), byte()}.
+-type rgb() :: {byte(), byte(), byte()}.
 
 -record(image_object, {
 	type,

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -50,7 +50,7 @@
 
 %% @type percept_option() = procs | ports | exclusive
 
--type(percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler').
+-type percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler'.
 
 %%==========================================================================
 %%
@@ -85,8 +85,8 @@ stop(_State) ->
 
 %% profiling
 
--spec(profile/1 :: (Filename :: string()) -> 
-	{'ok', port()} | {'already_started', port()}).
+-spec profile(Filename :: file:filename()) ->
+	{'ok', port()} | {'already_started', port()}.
 
 profile(Filename) ->
     percept_profile:start(Filename, [procs]).
@@ -94,10 +94,9 @@ profile(Filename) ->
 %% @spec profile(Filename::string(), [percept_option()]) -> {ok, Port} | {already_started, Port}
 %% @see percept_profile
 
--spec(profile/2 :: (
-	Filename :: string(),
-	Options :: [percept_option()]) ->
-	{'ok', port()} | {'already_started', port()}).
+-spec profile(Filename :: file:filename(),
+	      Options :: [percept_option()]) ->
+	{'ok', port()} | {'already_started', port()}.
 
 profile(Filename, Options) ->
     percept_profile:start(Filename, Options). 
@@ -105,16 +104,15 @@ profile(Filename, Options) ->
 %% @spec profile(Filename::string(), MFA::mfa(), [percept_option()]) -> ok | {already_started, Port} | {error, not_started}
 %% @see percept_profile
 
--spec(profile/3 :: (
-	Filename :: string(),
-	Entry :: {atom(), atom(), list()},
-	Options :: [percept_option()]) ->
-	'ok' | {'already_started', port()} | {'error', 'not_started'}).
+-spec profile(Filename :: file:filename(),
+	      Entry :: {atom(), atom(), list()},
+	      Options :: [percept_option()]) ->
+	'ok' | {'already_started', port()} | {'error', 'not_started'}.
 
 profile(Filename, MFA, Options) ->
     percept_profile:start(Filename, MFA, Options).
 
--spec(stop_profile/0 :: () -> 'ok' | {'error', 'not_started'}).
+-spec stop_profile() -> 'ok' | {'error', 'not_started'}.
 
 %% @spec stop_profile() -> ok | {'error', 'not_started'}
 %% @see percept_profile
@@ -125,8 +123,8 @@ stop_profile() ->
 %% @spec analyze(string()) -> ok | {error, Reason} 
 %% @doc Analyze file.
 
--spec(analyze/1 :: (Filename :: string()) -> 
-	'ok' | {'error', any()}).
+-spec analyze(Filename :: file:filename()) ->
+	'ok' | {'error', any()}.
 
 analyze(Filename) ->
     case percept_db:start() of 
@@ -142,9 +140,8 @@ analyze(Filename) ->
 %%	Reason = term() 
 %% @doc Starts webserver.
 
--spec(start_webserver/0 :: () -> 
-	{'started', string(), pos_integer()} | 
-	{'error', any()}).
+-spec start_webserver() ->
+	{'started', string(), pos_integer()} | {'error', any()}.
 
 start_webserver() ->
     start_webserver(0).
@@ -156,9 +153,8 @@ start_webserver() ->
 %% @doc Starts webserver. If port number is 0, an available port number will 
 %%	be assigned by inets.
 
--spec(start_webserver/1 :: (Port :: non_neg_integer()) -> 
-	{'started', string(), pos_integer()} | 
-	{'error', any()}).
+-spec start_webserver(Port :: non_neg_integer()) ->
+	{'started', string(), pos_integer()} | {'error', any()}.
 
 start_webserver(Port) when is_integer(Port) ->
     application:load(percept),
@@ -255,20 +251,20 @@ trace_parser(Trace, {Count, Pid}) ->
 find_service_pid_from_port([], _) ->
     undefined;
 find_service_pid_from_port([{_, Pid, Options} | Services], Port) ->
-    case lists:keysearch(port, 1, Options) of
+    case lists:keyfind(port, 1, Options) of
 	false ->
 	    find_service_pid_from_port(Services, Port);
-	{value, {port, Port}} ->
+	{port, Port} ->
 	    Pid
     end.
 
 find_service_port_from_pid([], _) ->
     undefined;
 find_service_port_from_pid([{_, Pid, Options} | _], Pid) ->
-    case lists:keysearch(port, 1, Options) of
+    case lists:keyfind(port, 1, Options) of
 	false ->
 	    undefined;
-	{value, {port, Port}} ->
+	{port, Port} ->
 	   Port
     end;
 find_service_port_from_pid([{_, _, _} | Services], Pid) ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(cpu_sup).
@@ -65,15 +65,10 @@
 %% Contract specifications 
 %%----------------------------------------------------------------------
 
--type(util_cpus() :: 'all' | integer() | [integer()]).
--type(util_state() :: 
-	'user' | 
-	'nice_user' | 
-	'kernel' |
-	'wait' |
-	'idle').
--type(util_value() :: {util_state(), float()} | float()).
--type(util_desc() :: {util_cpus(), util_value(), util_value(), []}).
+-type util_cpus() :: 'all' | integer() | [integer()].
+-type util_state() :: 'user' | 'nice_user' | 'kernel' | 'wait' | 'idle'.
+-type util_value() :: {util_state(), float()} | float().
+-type util_desc() :: {util_cpus(), util_value(), util_value(), []}.
 
 %%----------------------------------------------------------------------
 %% Exported functions
@@ -88,28 +83,28 @@ start_link() ->
 stop() ->
     gen_server:call(cpu_sup, ?quit, infinity).
 
--spec(nprocs/0 :: () -> integer() | {'error', any()}).
+-spec nprocs() -> integer() | {'error', any()}.
 
 nprocs() ->
     os_mon:call(cpu_sup, ?nprocs, infinity).
 
--spec(avg1/0 :: () -> integer() | {'error', any()}).
+-spec avg1() -> integer() | {'error', any()}.
 
 avg1() ->
     os_mon:call(cpu_sup, ?avg1, infinity).
 
--spec(avg5/0 :: () -> integer() | {'error', any()}).
+-spec avg5() -> integer() | {'error', any()}.
 
 avg5() ->
     os_mon:call(cpu_sup, ?avg5, infinity).
 
--spec(avg15/0 :: () -> integer() | {'error', any()}).
+-spec avg15() -> integer() | {'error', any()}.
 
 avg15() ->
     os_mon:call(cpu_sup, ?avg15, infinity).
 
--spec(util/1 :: ([ 'detailed' | 'per_cpu']) -> 
-	util_desc() | [util_desc()] | {'error', any()}).
+-spec util(['detailed' | 'per_cpu']) ->
+	util_desc() | [util_desc()] | {'error', any()}.
 
 util(Args) when is_list (Args) ->
    % Get arguments
@@ -126,7 +121,7 @@ util(Args) when is_list (Args) ->
 util(_) ->
     erlang:error(badarg).
 
--spec(util/0 :: () -> float()).
+-spec util() -> float().
 
 util() ->
     case util([]) of

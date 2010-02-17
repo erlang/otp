@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -179,7 +179,7 @@ restbytes2(_RemBytes,Bytes,noext) ->
     exit({error,{asn1, {unexpected,Bytes}}});
 restbytes2(RemBytes,Bytes,ext) ->
 %%    {RemBytes,0}.
-    {RemBytes,size(Bytes)}.
+    {RemBytes,byte_size(Bytes)}.
 
 
 
@@ -255,8 +255,6 @@ skip_ExtensionAdditions(Bytes,Tags,RmB) ->
 		    {Bytes,RmB}
 	    end
     end.
-
-
 
 %%===============================================================================
 %%===============================================================================
@@ -339,7 +337,7 @@ peek_tag(<<PartialTag,Buffer/binary>>, TagAck) ->
     peek_tag(Buffer,<<TagAck/binary,PartialTag>>);
 peek_tag(_,TagAck) ->
     exit({error,{asn1, {invalid_tag,TagAck}}}).
-%%peek_tag([Tag|Buffer]) when (Tag band 31) == 31 ->
+%%peek_tag([Tag|Buffer]) when (Tag band 31) =:= 31 ->
 %%    [Tag band 2#11011111 | peek_tag(Buffer,[])];
 %%%% single tag (tagno < 31)
 %%peek_tag([Tag|Buffer]) ->
@@ -474,8 +472,7 @@ encode_tags2([Tag|Trest], BytesSoFar, LenSoFar) ->
 encode_tags2([], BytesSoFar, LenSoFar) ->
     {BytesSoFar,LenSoFar}.
 
-encode_tags1([Tag1, Tag2| Trest], Acc)
-  when Tag1#tag.type == 'IMPLICIT' ->
+encode_tags1([Tag1, Tag2| Trest], Acc) when Tag1#tag.type =:= 'IMPLICIT' ->
     encode_tags1([Tag1#tag{type=Tag2#tag.type,form=Tag2#tag.form}|Trest],Acc);
 encode_tags1([Tag1 | Trest], Acc) ->
     encode_tags1(Trest, [Tag1|Acc]);
@@ -483,7 +480,7 @@ encode_tags1([], Acc) ->
     Acc. % the resulting tags are returned in reverse order
 
 encode_one_tag(Bin) when is_binary(Bin) ->
-    {Bin,size(Bin)};
+    {Bin,byte_size(Bin)};
 encode_one_tag(#tag{class=Class,number=No,type=Type, form = Form}) ->
     NewForm = case Type of
 	       'EXPLICIT' ->
@@ -504,11 +501,6 @@ encode_one_tag(#tag{class=Class,number=No,type=Type, form = Form}) ->
 %change_tag({NewClass,NewTagNr}, Buffer) ->
 %    {{OldClass, OldForm, OldTagNo}, Buffer1, RemovedBytes} = decode_tag(lists:flatten(Buffer)),
 %    [encode_tag_val({NewClass, OldForm, NewTagNr}) | Buffer1].
-
-
-
-
-
 
 
 %%===============================================================================
@@ -533,20 +525,19 @@ encode_one_tag(#tag{class=Class,number=No,type=Type, form = Form}) ->
 %% This version does not consider Explicit tagging of the open type. It
 %% is only left because of backward compatibility.
 encode_open_type(Val) when is_list(Val) ->
-    {Val,size(list_to_binary(Val))};
+    {Val, byte_size(list_to_binary(Val))};
 encode_open_type(Val) ->
-    {Val, size(Val)}.
+    {Val, byte_size(Val)}.
 
 %%
 encode_open_type(Val, []) when is_list(Val) ->
-    {Val,size(list_to_binary(Val))};
-encode_open_type(Val,[]) ->
-    {Val, size(Val)};
+    {Val, byte_size(list_to_binary(Val))};
+encode_open_type(Val, []) ->
+    {Val, byte_size(Val)};
 encode_open_type(Val, Tag) when is_list(Val) ->
-    encode_tags(Tag,Val,size(list_to_binary(Val)));
-encode_open_type(Val,Tag) ->
-    encode_tags(Tag,Val, size(Val)).
-
+    encode_tags(Tag, Val, byte_size(list_to_binary(Val)));
+encode_open_type(Val, Tag) ->
+    encode_tags(Tag, Val, byte_size(Val)).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -652,8 +643,6 @@ decode_boolean2(Buffer, _) ->
     exit({error,{asn1, {decode_boolean, Buffer}}}).
 
 
-
-
 %%===========================================================================
 %% Integer, ITU_T X.690 Chapter 8.3
 
@@ -664,7 +653,7 @@ decode_boolean2(Buffer, _) ->
 %%===========================================================================
 
 encode_integer(C, Val, []) when is_integer(Val) ->
-    {EncVal,Len}=encode_integer(C, Val),
+    {EncVal,Len} = encode_integer(C, Val),
     dotag_universal(?N_INTEGER,EncVal,Len);
 encode_integer(C, Val, Tag) when is_integer(Val) ->
     dotag(Tag, ?N_INTEGER, encode_integer(C, Val));
@@ -674,10 +663,9 @@ encode_integer(_, Val, _) ->
     exit({error,{asn1, {encode_integer, Val}}}).
 
 
-
 encode_integer(C, Val, NamedNumberList, Tag) when is_atom(Val) ->
-    case lists:keysearch(Val, 1, NamedNumberList) of
-	{value,{_, NewVal}} ->
+    case lists:keyfind(Val, 1, NamedNumberList) of
+	{_, NewVal} ->
 	    dotag(Tag, ?N_INTEGER, encode_integer(C, NewVal));
 	_ ->
 	    exit({error,{asn1, {encode_integer_namednumber, Val}}})
@@ -686,8 +674,6 @@ encode_integer(C,{_,Val},NamedNumberList,Tag) ->
     encode_integer(C,Val,NamedNumberList,Tag);
 encode_integer(C, Val, _NamedNumberList, Tag) ->
     dotag(Tag, ?N_INTEGER, encode_integer(C, Val)).
-
-
 
 
 encode_integer(_C, Val) ->
@@ -715,7 +701,6 @@ encode_integer_neg(N, Acc) ->
 %%    (Buffer, Range, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%    (Buffer, Range, NamedNumberList, HasTag, TotalLen) -> {Integer, Remain, RemovedBytes}
 %%===============================================================================
-
 
 decode_integer(Buffer, Range, Tags, OptOrMand) ->
     NewTags = new_tags(Tags,#tag{class=?UNIVERSAL,number=?N_INTEGER}),
@@ -748,8 +733,8 @@ resolve_named_value(Result={Val,Buffer,RemBytes},NamedNumberList) ->
     case NamedNumberList of
 	[] -> Result;
 	_ ->
-	    NewVal = case lists:keysearch(Val, 2, NamedNumberList) of
-			 {value,{NamedVal, _}} ->
+	    NewVal = case lists:keyfind(Val, 2, NamedNumberList) of
+			 {NamedVal, _} ->
 			     NamedVal;
 			 _ ->
 			     Val
@@ -778,10 +763,10 @@ check_integer_constraint(Result={Val, _Buffer,_},Range) ->
 
 %% encode enumerated value
 %%============================================================================
-encode_enumerated(Val, []) when is_integer(Val)->
+encode_enumerated(Val, []) when is_integer(Val) ->
     {EncVal,Len} = encode_integer(false,Val),
     dotag_universal(?N_ENUMERATED,EncVal,Len);
-encode_enumerated(Val, DoTag) when is_integer(Val)->
+encode_enumerated(Val, DoTag) when is_integer(Val) ->
     dotag(DoTag, ?N_ENUMERATED, encode_integer(false,Val));
 encode_enumerated({Name,Val}, DoTag) when is_atom(Name) ->
     encode_enumerated(Val, DoTag).
@@ -797,11 +782,11 @@ encode_enumerated(C, Val, {NamedNumberList,ExtList}, DoTag) when is_atom(Val) ->
     end;
 
 encode_enumerated(C, Val, NamedNumberList, DoTag) when is_atom(Val) ->
-    case lists:keysearch(Val, 1, NamedNumberList) of
-	{value, {_, NewVal}} when DoTag == []->
+    case lists:keyfind(Val, 1, NamedNumberList) of
+	{_, NewVal} when DoTag =:= [] ->
 	    {EncVal,Len} = encode_integer(C,NewVal),
 	    dotag_universal(?N_ENUMERATED,EncVal,Len);
-	{value, {_, NewVal}} ->
+	{_, NewVal} ->
 	    dotag(DoTag, ?N_ENUMERATED, encode_integer(C, NewVal));
 	_ ->
 	    exit({error,{asn1, {enumerated_not_in_range, Val}}})
@@ -874,8 +859,8 @@ decode_enumerated_notag(Buffer, Range, NNList, Tags, OptOrMand) ->
 
 decode_enumerated1(Val, NamedNumberList) ->
     %% it must be a named integer
-    case lists:keysearch(Val, 2, NamedNumberList) of
-	{value,{NamedVal, _}} ->
+    case lists:keyfind(Val, 2, NamedNumberList) of
+	{NamedVal, _} ->
 	    NamedVal;
 	_ ->
 	    {asn1_enum,Val}
@@ -1220,32 +1205,32 @@ encode_bin_bit_string(C,{Unused,BinBits},_NamedBitList,DoTag)->
 
 remove_unused_then_dotag(DoTag,StringType,Unused,BinBits) ->
     case Unused of
-	0 when (size(BinBits) == 0),DoTag==[] ->
+	0 when (byte_size(BinBits) =:= 0), DoTag =:= [] ->
 	    %% time optimization of next case
 	   {[StringType,1,0],3};
-	0 when (size(BinBits) == 0) ->
+	0 when (byte_size(BinBits) =:= 0) ->
 	    dotag(DoTag,StringType,{<<0>>,1});
-	0 when DoTag==[]-> % time optimization of next case
+	0 when DoTag =:= [] -> % time optimization of next case
 	    dotag_universal(StringType,[Unused|[BinBits]],size(BinBits)+1);
 % 	    {LenEnc,Len} = encode_legth(size(BinBits)+1),
 % 	    {[StringType,LenEnc,[Unused|BinBits]],size(BinBits)+1+Len+1};
 	0 ->
 	    dotag(DoTag,StringType,<<Unused,BinBits/binary>>);
-	Num when DoTag == [] -> % time optimization of next case
-	    N = (size(BinBits)-1),
+	Num when DoTag =:= [] -> % time optimization of next case
+	    N = byte_size(BinBits) - 1,
 	    <<BBits:N/binary,LastByte>> = BinBits,
 	    dotag_universal(StringType,
 			    [Unused,BBits,(LastByte bsr Num) bsl Num],
-			    size(BinBits)+1);
+			    byte_size(BinBits) + 1);
 % 	    {LenEnc,Len} = encode_legth(size(BinBits)+1),
 % 	    {[StringType,LenEnc,[Unused,BBits,(LastByte bsr Num) bsl Num],
 % 	      1+Len+size(BinBits)+1};
 	Num ->
-	    N = (size(BinBits)-1),
+	    N = byte_size(BinBits) - 1,
 	    <<BBits:N/binary,LastByte>> = BinBits,
 	    dotag(DoTag,StringType,{[Unused,binary_to_list(BBits) ++
 				     [(LastByte bsr Num) bsl Num]],
-				    1+size(BinBits)})
+				    byte_size(BinBits) + 1})
     end.
 
 
@@ -1291,8 +1276,8 @@ encode_bit_string_named(C, [FirstVal | RestVal], NamedBitList, DoTag) ->
 get_all_bitposes([{bit,ValPos}|Rest], NamedBitList, Ack) ->
     get_all_bitposes(Rest, NamedBitList, [ValPos | Ack ]);
 get_all_bitposes([Val | Rest], NamedBitList, Ack) when is_atom(Val) ->
-    case lists:keysearch(Val, 1, NamedBitList) of
-	{value, {_ValName, ValPos}} ->
+    case lists:keyfind(Val, 1, NamedBitList) of
+	{_ValName, ValPos} ->
 	    get_all_bitposes(Rest, NamedBitList, [ValPos | Ack]);
 	_ ->
 	    exit({error,{asn1, {bitstring_namedbit, Val}}})
@@ -1320,10 +1305,6 @@ make_and_set_list(Len, [], XPos) ->
     [0 | make_and_set_list(Len - 1, [], XPos + 1)].
 
 
-
-
-
-
 %%=================================================================
 %% Encode bit string for lists of ones and zeroes
 %%=================================================================
@@ -1342,7 +1323,7 @@ encode_bit_string_bits(C, BitListVal, _NamedBitList, DoTag) when is_list(BitList
 		encode_constr_bit_str_bits(Constr,BitListVal,DoTag);
 	    Size ->
 		case length(BitListVal) of
-		    BitSize when BitSize == Size ->
+		    BitSize when BitSize =:= Size ->
 			encode_bitstring(BitListVal);
 		    BitSize when BitSize < Size ->
 			PaddedList =
@@ -1399,7 +1380,7 @@ encode_constr_bit_str_bits({Min,Max},BitListVal,_DoTag) ->
 %% as the most significant elements followed by padded zero elements
 pad_bit_list(Size,BitListVal) ->
     Tail = lists:duplicate(Size,0),
-    lists:append(BitListVal,Tail).
+    BitListVal ++ Tail.
 
 %%=================================================================
 %% Do the actual encoding
@@ -1513,7 +1494,6 @@ decode_bitstring2(Len, Unused,
 %% Decode the bitlist to names
 %%----------------------------------------
 
-
 decode_bitstring_NNL(BitList,NamedNumberList) ->
     decode_bitstring_NNL(BitList,NamedNumberList,0,[]).
 
@@ -1523,15 +1503,15 @@ decode_bitstring_NNL([],_,_No,Result) ->
 
 decode_bitstring_NNL([B|BitList],[{Name,No}|NamedNumberList],No,Result) ->
     if
-	B == 0 ->
+	B =:= 0 ->
 	    decode_bitstring_NNL(BitList,NamedNumberList,No+1,Result);
 	true ->
 	    decode_bitstring_NNL(BitList,NamedNumberList,No+1,[Name|Result])
     end;
 decode_bitstring_NNL([1|BitList],NamedNumberList,No,Result) ->
-	    decode_bitstring_NNL(BitList,NamedNumberList,No+1,[{bit,No}|Result]);
+    decode_bitstring_NNL(BitList,NamedNumberList,No+1,[{bit,No}|Result]);
 decode_bitstring_NNL([0|BitList],NamedNumberList,No,Result) ->
-	    decode_bitstring_NNL(BitList,NamedNumberList,No+1,Result).
+    decode_bitstring_NNL(BitList,NamedNumberList,No+1,Result).
 
 
 %%============================================================================
@@ -1542,18 +1522,18 @@ decode_bitstring_NNL([0|BitList],NamedNumberList,No,Result) ->
 %% the function does not check this because it takes to much time
 %%============================================================================
 encode_octet_string(_C, OctetList, []) when is_binary(OctetList) ->
-    dotag_universal(?N_OCTET_STRING,OctetList,size(OctetList));
+    dotag_universal(?N_OCTET_STRING,OctetList,byte_size(OctetList));
 encode_octet_string(_C, OctetList, DoTag) when is_binary(OctetList) ->
-    dotag(DoTag, ?N_OCTET_STRING, {OctetList,size(OctetList)});
+    dotag(DoTag, ?N_OCTET_STRING, {OctetList,byte_size(OctetList)});
 encode_octet_string(_C, OctetList, DoTag) when is_list(OctetList) ->
     case length(OctetList) of
-	Len when DoTag == [] ->
+	Len when DoTag =:= [] ->
 	    dotag_universal(?N_OCTET_STRING,OctetList,Len);
 	Len ->
 	    dotag(DoTag, ?N_OCTET_STRING, {OctetList,Len})
     end;
-% encode_octet_string(C, OctetList, DoTag) when is_list(OctetList) ->
-%     dotag(DoTag, ?N_OCTET_STRING, {OctetList,length(OctetList)});
+%% encode_octet_string(C, OctetList, DoTag) when is_list(OctetList) ->
+%%     dotag(DoTag, ?N_OCTET_STRING, {OctetList,length(OctetList)});
 encode_octet_string(C, {Name,OctetList}, DoTag) when is_atom(Name) ->
     encode_octet_string(C, OctetList, DoTag).
 
@@ -1565,7 +1545,7 @@ encode_octet_string(C, {Name,OctetList}, DoTag) when is_atom(Name) ->
 %% Octet string is decoded as a restricted string
 %%============================================================================
 decode_octet_string(Buffer, Range, Tags, TotalLen, OptOrMand) ->
-%    NewTags = new_tags(HasTag,#tag{class=?UNIVERSAL,number=?N_OCTET_STRING}),
+%%  NewTags = new_tags(HasTag,#tag{class=?UNIVERSAL,number=?N_OCTET_STRING}),
     decode_restricted_string(Buffer, Range, ?N_OCTET_STRING,
 			     Tags, TotalLen, [], OptOrMand,old).
 
@@ -1753,17 +1733,17 @@ decode_relative_oid_notag(Buffer, Tags, OptOrMand) ->
 %%============================================================================
 encode_restricted_string(_C, OctetList, StringType, [])
   when is_binary(OctetList) ->
-    dotag_universal(StringType,OctetList,size(OctetList));
+    dotag_universal(StringType, OctetList, byte_size(OctetList));
 encode_restricted_string(_C, OctetList, StringType, DoTag)
   when is_binary(OctetList) ->
-    dotag(DoTag, StringType, {OctetList, size(OctetList)});
+    dotag(DoTag, StringType, {OctetList, byte_size(OctetList)});
 encode_restricted_string(_C, OctetList, StringType, [])
   when is_list(OctetList) ->
-    dotag_universal(StringType,OctetList,length(OctetList));
+    dotag_universal(StringType, OctetList, length(OctetList));
 encode_restricted_string(_C, OctetList, StringType, DoTag)
   when is_list(OctetList) ->
     dotag(DoTag, StringType, {OctetList, length(OctetList)});
-encode_restricted_string(C,{Name,OctetL},StringType,DoTag) when is_atom(Name)->
+encode_restricted_string(C,{Name,OctetL},StringType,DoTag) when is_atom(Name) ->
     encode_restricted_string(C, OctetL, StringType, DoTag).
 
 %%============================================================================
@@ -1793,23 +1773,21 @@ decode_restricted_string_tag(Buffer, Range, StringType, TagsIn, LenIn, NNList, O
 				   LenIn, NNList, OptOrMand, BinOrOld).
 
 
-
-
 check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrOld) ->
     {StrLen,NewVal} = case StringType of
-			  ?N_BIT_STRING when NamedNumberList /= [] ->
+			  ?N_BIT_STRING when NamedNumberList =/= [] ->
 			      {no_check,Val};
 			  ?N_BIT_STRING when is_list(Val) ->
 			      {length(Val),Val};
 			  ?N_BIT_STRING when is_tuple(Val) ->
 			      {(size(element(2,Val))*8) - element(1,Val),Val};
 			  _ when is_binary(Val) ->
-			      {size(Val),binary_to_list(Val)};
+			      {byte_size(Val),binary_to_list(Val)};
 			  _ when is_list(Val) ->
 			      {length(Val), Val}
 		      end,
     case Range of
-	_ when StrLen == no_check ->
+	_ when StrLen =:= no_check ->
 	    NewVal;
 	[] -> % No length constraint
 	    NewVal;
@@ -1832,7 +1810,6 @@ check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrO
 	    NewVal
     end.
 
-
 %%=============================================================================
 %% Common routines for several string types including bit string
 %% handles indefinite length
@@ -1840,7 +1817,7 @@ check_and_convert_restricted_string(Val,StringType,Range,NamedNumberList,_BinOrO
 
 
 decode_restricted_string_notag(Buffer, _Range, StringType, TagsIn,
-			 _, NamedNumberList, OptOrMand,BinOrOld) ->
+			       _, NamedNumberList, OptOrMand, BinOrOld) ->
     %%-----------------------------------------------------------
     %% Get inner (the implicit tag or no tag) and
     %%     outer (the explicit tag) lengths.
@@ -1891,7 +1868,7 @@ decode_restricted_parts(Buffer, RestBytes, [], StringType, RestTags, Len, NNList
 		{concat_bit_binaries(AccVal, Val), AccRb+Rb};
 	    _ when is_binary(Val),is_binary(AccVal) ->
 		{<<AccVal/binary,Val/binary>>,AccRb+Rb};
-	    _ when is_binary(Val), AccVal==[] ->
+	    _ when is_binary(Val), AccVal =:= [] ->
 		{Val,AccRb+Rb};
 	    _ ->
 		{AccVal++Val, AccRb+Rb}
@@ -1977,15 +1954,13 @@ mk_universal_string([A,B,C,D|T],Acc) ->
 %% encode UTF8 string
 %%============================================================================
 encode_UTF8_string(_,UTF8String,[]) when is_binary(UTF8String) ->
-    dotag_universal(?N_UTF8String,UTF8String,size(UTF8String));
+    dotag_universal(?N_UTF8String,UTF8String,byte_size(UTF8String));
 encode_UTF8_string(_,UTF8String,DoTag) when is_binary(UTF8String) ->
-    dotag(DoTag,?N_UTF8String,{UTF8String,size(UTF8String)});
+    dotag(DoTag,?N_UTF8String,{UTF8String,byte_size(UTF8String)});
 encode_UTF8_string(_,UTF8String,[]) ->
     dotag_universal(?N_UTF8String,UTF8String,length(UTF8String));
 encode_UTF8_string(_,UTF8String,DoTag) ->
     dotag(DoTag,?N_UTF8String,{UTF8String,length(UTF8String)}).
-
-
 
 %%============================================================================
 %% decode UTF8 string
@@ -2016,7 +1991,7 @@ decode_UTF8_string_notag(Buffer, Tags, OptOrMand) ->
 %% encode BMP string
 %%============================================================================
 
-encode_BMP_string(C, {Name,BMPString}, DoTag) when is_atom(Name)->
+encode_BMP_string(C, {Name,BMPString}, DoTag) when is_atom(Name) ->
     encode_BMP_string(C, BMPString, DoTag);
 encode_BMP_string(_C, BMPString, []) ->
     OctetList = mk_BMP_list(BMPString),
@@ -2464,16 +2439,16 @@ concat_bit_binaries({U1,B1},{U2,B2}) ->
     S2 = (size(B2) * 8) - U2,
     PadBits = 8 - ((S1+S2) rem 8),
     {PadBits, <<B1:S1/binary-unit:1,B2:S2/binary-unit:1,0:PadBits>>};
-concat_bit_binaries(L1,L2) when is_list(L1),is_list(L2) ->
+concat_bit_binaries(L1,L2) when is_list(L1), is_list(L2) ->
     %% this case occur when decoding with NNL
     L1 ++ L2.
 
 
 get_constraint(C,Key) ->
-    case lists:keysearch(Key,1,C) of
+    case lists:keyfind(Key,1,C) of
 	false ->
 	     no;
-	{value,{_,V}} ->
+	{_, V} ->
 	    V
     end.
 
@@ -2484,7 +2459,7 @@ get_constraint(C,Key) ->
 
 new_tags([],LastTag) ->
     [LastTag];
-new_tags(Tags=[#tag{type='IMPLICIT'}],_LastTag) ->
+new_tags(Tags = [#tag{type='IMPLICIT'}],_LastTag) ->
     Tags;
 new_tags([T1 = #tag{type='IMPLICIT'},#tag{type=T2Type}|Rest],LastTag) ->
     new_tags([T1#tag{type=T2Type}|Rest],LastTag);

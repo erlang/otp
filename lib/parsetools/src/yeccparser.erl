@@ -16,53 +16,52 @@ line_of(Token) ->
 -file("/clearcase/otp/erts/lib/parsetools/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The parser generator will insert appropriate declarations before this line.%
 
--type(yecc_ret() :: {'error', _} | {'ok', _}).
+-type yecc_ret() :: {'error', _} | {'ok', _}.
 
--spec(parse/1 :: (_) -> yecc_ret()).
+-spec parse(_) -> yecc_ret().
 parse(Tokens) ->
     yeccpars0(Tokens, false).
 
--spec(parse_and_scan/1 ::
-      ({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
-            yecc_ret()).
+-spec parse_and_scan({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
+            yecc_ret().
 parse_and_scan({F, A}) -> % Fun or {M, F}
     yeccpars0([], {F, A});
 parse_and_scan({M, F, A}) ->
     yeccpars0([], {{M, F}, A}).
 
--spec(format_error/1 :: (any()) -> [char() | list()]).
+-spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
-	true ->
-	    Message;
-	_ ->
-	    io_lib:write(Message)
+        true ->
+            Message;
+        _ ->
+            io_lib:write(Message)
     end.
 
-% To be used in grammar files to throw an error message to the parser
-% toplevel. Doesn't have to be exported!
+%% To be used in grammar files to throw an error message to the parser
+%% toplevel. Doesn't have to be exported!
 -compile({nowarn_unused_function,{return_error,2}}).
--spec(return_error/2 :: (integer(), any()) -> no_return()).
+-spec return_error(integer(), any()) -> no_return().
 return_error(Line, Message) ->
     throw({error, {Line, ?MODULE, Message}}).
 
@@ -101,7 +100,7 @@ yeccpars1([Token | Tokens], Tokenizer, State, States, Vstack) ->
 yeccpars1([], {F, A}, State, States, Vstack) ->
     case apply(F, A) of
         {ok, Tokens, _Endline} ->
-	    yeccpars1(Tokens, {F, A}, State, States, Vstack);
+            yeccpars1(Tokens, {F, A}, State, States, Vstack);
         {eof, _Endline} ->
             yeccpars1([], false, State, States, Vstack);
         {error, Descriptor, _Endline} ->
@@ -123,7 +122,7 @@ yeccpars1(State1, State, States, Vstack, Stack1, [Token | Tokens],
 yeccpars1(State1, State, States, Vstack, Stack1, [], {F, A}) ->
     case apply(F, A) of
         {ok, Tokens, _Endline} ->
-	    yeccpars1(State1, State, States, Vstack, Stack1, Tokens, {F, A});
+            yeccpars1(State1, State, States, Vstack, Stack1, Tokens, {F, A});
         {eof, _Endline} ->
             yeccpars1(State1, State, States, Vstack, Stack1, [], false);
         {error, Descriptor, _Endline} ->

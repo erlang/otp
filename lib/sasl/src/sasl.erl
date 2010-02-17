@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(sasl).
@@ -126,13 +126,13 @@ type(_) -> all.
 add_error_logger_mf(undefined) -> ok;
 add_error_logger_mf({Dir, MaxB, MaxF}) ->
     error_logger:add_report_handler(
-      log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, {sasl, pred})).
+      log_mf_h, log_mf_h:init(Dir, MaxB, MaxF, fun pred/1)).
 
 delete_error_logger_mf(undefined) -> ok;
 delete_error_logger_mf(_) ->
     error_logger:delete_report_handler(log_mf_h).
 
-pred({_Type, GL, _Msg}) when node(GL) /= node() -> false;
+pred({_Type, GL, _Msg}) when node(GL) =/= node() -> false;
 pred(_) -> true.
 
 %%%-----------------------------------------------------------------

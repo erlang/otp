@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Yacc like LALR-1 parser generator for Erlang.
@@ -30,8 +30,8 @@
 
 -import(lists, [append/1, append/2, concat/1, delete/2, filter/2,
                 flatmap/2, foldl/3, foldr/3, foreach/2, keydelete/3,
-                keysearch/3, keysort/2, last/1, map/2, member/2,
-                reverse/1, sort/1, usort/1]).
+                keysort/2, last/1, map/2, member/2, reverse/1,
+                sort/1, usort/1]).
 
 -include("erl_compile.hrl").
 -include("ms_transform.hrl").
@@ -297,18 +297,18 @@ options(Options0, [Key | Keys], L) when is_list(Options0) ->
                   false ->
                       Options0
               end,
-    V = case keysearch(Key, 1, Options) of
-            {value, {Key, Filename0}} when Key =:= includefile; 
-                                           Key =:= parserfile ->
+    V = case lists:keyfind(Key, 1, Options) of
+            {Key, Filename0} when Key =:= includefile;
+                                  Key =:= parserfile ->
                 case is_filename(Filename0) of
                     no -> 
                         badarg;
                     Filename -> 
                         {ok, [{Key, Filename}]}
                 end;
-            {value, {Key, Bool}} when Bool =:= true; Bool =:= false ->
-                {ok, [{Key, Bool}]};
-            {value, {Key, _}} ->
+            {Key, Bool} = KB when is_boolean(Bool) ->
+                {ok, [KB]};
+            {Key, _} ->
                 badarg;
             false ->
                 {ok, [{Key, default_option(Key)}]}
@@ -348,8 +348,7 @@ atom_option(verbose) -> {verbose, true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
-    try filename:flatten(T) of
-        Filename -> Filename
+    try filename:flatten(T)
     catch error: _ -> no
     end.    
 
@@ -366,8 +365,8 @@ shorten_filename(Name0) ->
 
 start(Infilex, Options) ->
     Infile = assure_extension(Infilex, ".yrl"),
-    {value, {_, Outfilex0}} = keysearch(parserfile, 1, Options),
-    {value, {_, Includefilex}} = keysearch(includefile, 1, Options),
+    {_, Outfilex0} = lists:keyfind(parserfile, 1, Options),
+    {_, Includefilex} = lists:keyfind(includefile, 1, Options),
     Outfilex = case Outfilex0 of
                    [] -> filename:rootname(Infilex, ".yrl");
                    _ -> Outfilex0
@@ -715,14 +714,14 @@ names(Symbols) ->
     map(fun(Symbol) -> Symbol#symbol.name end, Symbols).
 
 symbol_line(Name, St) ->
-    {value, #symbol{line = Line}} = symbol_search(Name, St#yecc.all_symbols),
+    #symbol{line = Line} = symbol_find(Name, St#yecc.all_symbols),
     Line.
 
 symbol_member(Symbol, Symbols) ->
-    symbol_search(Symbol#symbol.name, Symbols) =/= false.
+    symbol_find(Symbol#symbol.name, Symbols) =/= false.
 
-symbol_search(Name, Symbols) ->
-    keysearch(Name, #symbol.name, Symbols).
+symbol_find(Name, Symbols) ->
+    lists:keyfind(Name, #symbol.name, Symbols).
 
 states_and_goto_table(St0) ->
     St1 = create_symbol_table(St0),
@@ -876,8 +875,8 @@ add_warnings(SymNames, W0, St0) ->
 check_rhs([#symbol{name = '$empty'}], St) ->
     St;
 check_rhs(Rhs, St0) ->
-    case symbol_search('$empty', Rhs) of
-        {value, #symbol{line = Line}} ->
+    case symbol_find('$empty', Rhs) of
+        #symbol{line = Line} ->
             add_error(Line, illegal_empty, St0);
         false ->
             foldl(fun(Sym, St) ->
@@ -1096,10 +1095,10 @@ compute_states2([{Sym,Seed} | Seeds], N, Try, CurrState, StateTab, Tables) ->
             compute_states2(Seeds, N, Try, CurrState, StateTab, Tables);
         {merge, M, NewCurrent} ->
             %% io:fwrite(<<"Merging with state ~w\n">>, [M]),
-            Try1 = case keysearch(M, 1, Try) of
+            Try1 = case lists:keyfind(M, 1, Try) of
                        false ->
                            [{M, NewCurrent} | Try];
-                       {value, {_, OldCurrent}} ->
+                       {_, OldCurrent} ->
                            case ordsets:is_subset(NewCurrent, OldCurrent) of
                                true ->
                                    Try;

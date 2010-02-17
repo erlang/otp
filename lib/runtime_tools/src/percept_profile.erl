@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -41,7 +41,7 @@
 
 %% @type percept_option() = procs | ports | exclusive
 
--type(percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler').
+-type percept_option() :: 'procs' | 'ports' | 'exclusive' | 'scheduler'.
 
 %%==========================================================================
 %%
@@ -52,8 +52,8 @@
 %% @spec start(Filename::string()) -> {ok, Port} | {already_started, Port}
 %% @equiv start(Filename, [procs])
 
--spec(start/1 :: (Filename :: string()) -> 
-	{'ok', port()} | {'already_started', port()}).
+-spec start(Filename :: file:filename()) ->
+	{'ok', port()} | {'already_started', port()}.
 
 start(Filename) ->
     profile_to_file(Filename, [procs]).
@@ -64,10 +64,9 @@ start(Filename) ->
 %%	All events are stored in the file given by Filename. 
 %%	An explicit call to stop/0 is needed to stop profiling. 
 
--spec(start/2 :: (
-	Filename :: string(),
-	Options :: [percept_option()]) ->
-	{'ok', port()} | {'already_started', port()}).
+-spec start(Filename :: file:filename(),
+	    Options :: [percept_option()]) ->
+	{'ok', port()} | {'already_started', port()}.
 
 start(Filename, Options) ->
     profile_to_file(Filename, Options). 
@@ -79,11 +78,10 @@ start(Filename, Options) ->
 %%	No explicit call to stop/0 is needed, the profiling stops when
 %%	the entry function returns.
 
--spec(start/3 :: (
-	Filename :: string(),
-	Entry :: {atom(), atom(), list()},
-	Options :: [percept_option()]) ->
-	'ok' | {'already_started', port()} | {'error', 'not_started'}).
+-spec start(Filename :: file:filename(),
+	    Entry :: {atom(), atom(), list()},
+	    Options :: [percept_option()]) ->
+	'ok' | {'already_started', port()} | {'error', 'not_started'}.
 
 start(Filename, {Module, Function, Args}, Options) ->
     case whereis(percept_port) of
@@ -107,11 +105,11 @@ deliver_all_trace() ->
     receive {Tracer, ok} -> ok end,
     erlang:trace(Tracee, false, [procs]),
     ok.
--spec(stop/0 :: () -> 'ok' | {'error', 'not_started'}).
 
 %% @spec stop() -> ok | {'error', 'not_started'}
 %% @doc Stops profiling.
     
+-spec stop() -> 'ok' | {'error', 'not_started'}.
 
 stop() ->
     erlang:system_profile(undefined, [runnable_ports, runnable_procs]),
@@ -192,5 +190,4 @@ parse_profile_options([Opt|Opts], {TOpts, POpts}) ->
 	    });
 	_ -> 
 	    parse_profile_options(Opts, {TOpts, POpts})
-
     end.
