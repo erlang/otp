@@ -115,7 +115,7 @@ ok
     </note>
      <p>A loaded NIF library is tied to the Erlang module code version
      that loaded it. If the module is upgraded with a new version, the
-     new code will have to load its own NIF library (or maybe choose not
+     new Erlang code will have to load its own NIF library (or maybe choose not
      to). The new code version can however choose to load the exact
      same NIF library as the old code if it wants to. Sharing the same
      dynamic library will mean that static data defined by the library
@@ -146,7 +146,8 @@ ok
       to query terms, like <c>enif_is_atom</c>, <c>enif_is_identical</c> and
       <c>enif_compare</c>.</p></item>
       <tag>Binaries</tag>
-      <item><p>Terms of type binary are accessed through the struct type <seealso marker="#ErlNifBinary">ErlNifBinary</seealso>    
+      <item><p>Terms of type binary are accessed with the help of the struct type
+      <seealso marker="#ErlNifBinary">ErlNifBinary</seealso>    
       that contains a pointer (<c>data</c>) to the raw binary data and the length
       (<c>size</c>) of the data in bytes. Both <c>data</c> and <c>size</c> are
       read-only and should only be written using calls to API functions.
@@ -155,17 +156,20 @@ ok
       <p>The raw data pointed to by <c>data</c> is only mutable after a call to
       <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>.
       All other functions that operates on a binary will leave the data as read-only.
-      An allocated binary must in the end either be freed with
-      <seealso marker="#enif_release_binary">enif_release_binary</seealso>
-      or transferred to an Erlang term with <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
-      But it does not have do happen in the same NIF call.</p>
-      <p>Binaries must be a number of whole bytes. Bitstrings with an arbitrary
+      A mutable binary allocated with <c>enif_alloc_binary</c> must in the end
+      either be freed with <seealso marker="#enif_release_binary">enif_release_binary</seealso>
+      or made read-only by transferring it to an Erlang term with
+      <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
+      But it does not have do happen in the same NIF call. Read-only binaries
+      does not have to be released.</p>
+      <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
       bit length have no support yet.</p>
        </item>
       <tag>Resource objects</tag>
-      <item><p>Resource objects are a way to return pointers to native data
-      structures from a NIF in a safe way. A resource object is just a block
-      of memory allocated with <seealso marker="#enif_alloc_resource">enif_alloc_resource()</seealso>.
+      <item><p>The use of resource objects is a way to return pointers to
+      native data structures from a NIF in a safe way. A resource object is
+      just a block of memory allocated with
+      <seealso marker="#enif_alloc_resource">enif_alloc_resource()</seealso>.
       A handle ("safe pointer") to this memory block can then be returned to Erlang by the use of
       <seealso marker="#enif_make_resource">enif_make_resource()</seealso>.
       The term returned by <c>enif_make_resource</c>
@@ -178,20 +182,46 @@ ok
       released with <seealso marker="#enif_release_resource">enif_release_resource()</seealso>
       (not necessarily in that order).</p>      
       <p>All resource objects are created as instances of some <em>resource type</em>.
-      This makes resources from different modules or applications to be distinguishable. 
+      This makes resources from different modules to be distinguishable. 
       A resource type is created by calling
       <seealso marker="#enif_open_resource_type">enif_open_resource_type()</seealso>
       when a library is loaded. Objects of that resource type can then later be allocated
       and <c>enif_get_resource</c> verifies that the resource is of the expected type.
-      A resource type can have a destructor function that is automatically
-      called when resources of that type are released (by either the garbage
-      collector or <c>enif_release_resource</c>). Resource types also support
-      upgrade in runtime by allowing a loaded NIF library to takeover an already
-      existing resource type and thereby "inherit" all existing objects of that type.
-      The destructor of the new library will thereafter be called for the inherited
-      objects and the library with the old destructor function can be safely
-      unloaded. Resource types are uniquely identified by a supplied name string.
+      A resource type can have a user supplied destructor function that is
+      automatically called when resources of that type are released (by either
+      the garbage collector or <c>enif_release_resource</c>). Resource types
+      are uniquely identified by a supplied name string.</p>
+      <p>Resource types support upgrade in runtime by allowing a loaded NIF
+      library to takeover an already existing resource type and thereby
+      "inherit" all existing objects of that type. The destructor of the new
+      library will thereafter be called for the inherited objects and the
+      library with the old destructor function can be safely unloaded. Existing
+      resource objects, of a module that is upgraded, must either be deleted
+      or taken over by the new NIF library. The unloading of a library will be
+      postponed as long as it exists resource objects with a destructor
+      function in the library.
       </p>
+      <p>Here is a template example of how to create and return a resource object.</p>
+      <p/>
+      <code type="none">
+    ERL_NIF_TERM term;
+    MyStruct* ptr = enif_alloc_resource(env, my_resource_type, sizeof(MyStruct));
+
+    /* initialize struct ... */
+
+    term = enif_make_resource(env, ptr);
+
+    if (keep_a_reference_of_our_own) {
+        /* store 'ptr' in static variable, private data or other resource object */
+    }
+    else {
+        enif_release_resource(env, obj);
+        /* resource now only owned by "Erlang" */
+    }
+    return term;
+}
+</code>
+
       </item>
       <tag>Threads and concurrency</tag>
       <item><p>A NIF is thread-safe without any explicit synchronization as
@@ -232,7 +262,9 @@ ok
         and there is no previously loaded library for this module.</p>
         <p><c>*priv_data</c> can be set to point to some private data
            that the library needs in able to keep a state between NIF 
-           calls. <c>enif_priv_data()</c> will return this pointer.</p> 
+           calls. <c>enif_priv_data()</c> will return this pointer.
+           <c>*priv_data</c> will be initialized to NULL when <c>load</c> is
+           called.</p> 
         <p><c>load_info</c> is the second argument to <seealso
            marker="erlang#load_nif-2">erlang:load_nif/2</seealso>.</p>
         <p>The library will fail to load if <c>load</c> returns
@@ -258,7 +290,8 @@ ok
         <p>Works the same as <c>load</c>. The only difference is that
         <c>*old_priv_data</c> already contains the value set by the
          last call to <c>load</c> or <c>reload</c> for the old module
-         code. It is allowed to write to both *priv_data and *old_priv_data.</p> 
+         code. <c>*priv_data</c> will be initialized to NULL when <c>upgrade</c>
+         is called. It is allowed to write to both *priv_data and *old_priv_data.</p> 
         <p>The library will fail to load if <c>upgrade</c> returns
            anything other than 0 or if <c>upgrade</c> is NULL.</p>
       </item>
@@ -266,7 +299,8 @@ ok
       <tag><marker id="unload"/>void (*unload)(ErlNifEnv* env, void* priv_data)</tag>
        <item><p><c>unload</c> is called when the module code that
        the NIF library belongs to is purged as old. New code
-       of the same module may or may not exist.</p>
+       of the same module may or may not exist. Note that <c>unload</c> is not
+       called for a replaced library as a consequence of <c>reload</c>.</p>
       </item>
 
     </taglist>
