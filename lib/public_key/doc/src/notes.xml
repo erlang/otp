@@ -34,6 +34,21 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Public_Key 0.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	  <p>Added <c>public_key:pkix_transform/2</c> to enable
+            ssl to send CA list during Certificate Request.</p> 
+	  <p><c>NOTE</c>: SSL (new_ssl) requires public_key-0.5.
+	    ssl usage.</p>
+          <p>Own Id: OTP-8372</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
   <section><title>Public_Key 0.4</title>
 
