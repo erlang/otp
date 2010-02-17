@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(test_server).
@@ -760,6 +760,10 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment) ->
 		    spawn_fw_call(undefined,undefined,Pid,testcase_aborted_or_killed,
 				  unknown,self(),Comment),
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);
+		{fw_error,{FwMod,FwFunc,FwError}} ->
+		    spawn_fw_call(FwMod,FwFunc,Pid,{framework_error,FwError},
+				  unknown,self(),Comment),
+		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment);		    
 		_ ->
 		    %% the testcase has terminated because of Reason (e.g. an exit
 		    %% because a linked process failed)
@@ -859,6 +863,22 @@ spawn_fw_call(Mod,{end_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
 			"</font>"]}}
 	end,
     spawn_link(FwCall);
+
+spawn_fw_call(FwMod,FwFunc,_Pid,{framework_error,FwError},_,SendTo,_Comment) ->
+    FwCall =
+	fun() ->
+		test_server_sup:framework_call(report, [framework_error,
+							{{FwMod,FwFunc},FwError}]),
+		Comment = 
+		    lists:flatten(
+		      io_lib:format("<font color=\"red\">"
+				    "WARNING! ~w:~w failed!</font>", [FwMod,FwFunc])),
+	    %% finished, report back
+	    SendTo ! {self(),fw_notify_done,
+		      {died,{error,{FwMod,FwFunc,FwError}},{FwMod,FwFunc},[],Comment}}
+	end,
+    spawn_link(FwCall);
+
 spawn_fw_call(Mod,Func,Pid,Error,Loc,SendTo,Comment) ->
     FwCall =
 	fun() ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -32,13 +32,14 @@
 
 -module(ct_telnet_client).
 
--export([open/1, open/2, open/3, close/1]).
+-export([open/1, open/2, open/3, open/4, close/1]).
 -export([send_data/2, get_data/1]).
 
 -define(DBG, false).
 
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
+-define(IDLE_TIMEOUT,10000).
 
 %% telnet control characters
 -define(SE,	240).
@@ -65,17 +66,20 @@
 -define(TERMINAL_TYPE,     24).  
 -define(WINDOW_SIZE,       31).
 
--record(state,{get_data}).
+-record(state,{get_data, keep_alive=true}).
 
 open(Server) ->
-    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT).
+    open(Server, ?TELNET_PORT, ?OPEN_TIMEOUT, true).
 
 open(Server, Port) ->
-    open(Server, Port, ?OPEN_TIMEOUT).
+    open(Server, Port, ?OPEN_TIMEOUT, true).
 
 open(Server, Port, Timeout) ->
+    open(Server, Port, Timeout, true).
+
+open(Server, Port, Timeout, KeepAlive) ->
     Self = self(),
-    Pid = spawn(fun() -> init(Self, Server, Port, Timeout) end),
+    Pid = spawn(fun() -> init(Self, Server, Port, Timeout, KeepAlive) end),
     receive 
 	{open,Pid} ->
 	    {ok,Pid};
@@ -100,19 +104,17 @@ get_data(Pid) ->
 
 %%%-----------------------------------------------------------------
 %%% Internal functions
-init(Parent, Server, Port, Timeout) ->
+init(Parent, Server, Port, Timeout, KeepAlive) ->
     case gen_tcp:connect(Server, Port, [list,{packet,0}], Timeout) of
 	{ok,Sock} ->
-	    dbg("Connected to: ~p\n", [Server]),
+	    dbg("Connected to: ~p (port: ~w, keep_alive: ~w)\n", [Server,Port,KeepAlive]),
 	    send([?IAC,?DO,?SUPPRESS_GO_AHEAD], Sock),	      
 	    Parent ! {open,self()},
-	    loop(#state{get_data=10}, Sock, []),
+	    loop(#state{get_data=10, keep_alive=KeepAlive}, Sock, []),
 	    gen_tcp:close(Sock);
         Error ->
 	    Parent ! {Error,self()}
     end.
-
-
 
 loop(State, Sock, Acc) ->
     receive
@@ -137,21 +139,27 @@ loop(State, Sock, Acc) ->
 		    [] ->
 			dbg("get_data nodata\n",[]),
 			erlang:send_after(100,self(),{get_data_delayed,Pid}),
-			State#state{get_data=State#state.get_data - 1};
+			if State#state.keep_alive == true ->
+				State#state{get_data=State#state.get_data - 1};
+			   State#state.keep_alive == false ->
+				State
+			end;
 		    _ ->
 			Pid ! {data,lists:reverse(lists:append(Acc))},
 			State
 		end,
 	    loop(NewState, Sock, []);
 	{get_data_delayed,Pid} ->
-	    NewState = case State#state.get_data of
-			   0 ->
-			       send([?IAC,?DO,?NOP], Sock),
-			       dbg("delayed after 1000\n",[]),
-			       State#state{get_data=10};
-			   _ ->
-			       State
-		       end,
+	    NewState =
+		case State of
+		    #state{keep_alive = true, get_data = 0} ->
+			if Acc == [] -> send([?IAC,?NOP], Sock);
+			   true -> ok
+			end,
+			State#state{get_data=10};
+		    _ ->
+			State
+		end,
 	    NewAcc = 
 		case erlang:is_process_alive(Pid) of
 		    true ->
@@ -160,29 +168,38 @@ loop(State, Sock, Acc) ->
 		    false ->
 			Acc
 		end,
-	    loop(NewState, Sock, NewAcc);
-			       
+	    loop(NewState, Sock, NewAcc);			       
 	close ->
 	    dbg("Closing connection\n", []),
 	    gen_tcp:close(Sock),
 	    ok
-    after 1000 ->
-	    case Acc of
-		[] -> % no data buffered
-		    send([?IAC,?DO,?NOP], Sock),
-		    dbg("after 1000\n",[]);
-		_ ->
-		    true
+    after wait(State#state.keep_alive,?IDLE_TIMEOUT) ->
+	    if 
+		Acc == [] -> send([?IAC,?NOP], Sock);
+		true -> ok
 	    end,
 	    loop(State, Sock, Acc)
     end.
 
+wait(true, Time) -> Time;
+wait(false, _) -> infinity.   
+
 send(Data, Sock) ->
-    dbg("Sending: ~p\n", [Data]),
+    case Data of
+	[?IAC|_] = Cmd ->
+	    cmd_dbg(Cmd);
+	_ ->
+	    dbg("Sending: ~p\n", [Data])
+    end,
     gen_tcp:send(Sock, Data),
     ok.
 
-check_msg(Sock,[?IAC | Cs], Acc) ->
+%% [IAC,IAC] = buffer data value 255
+check_msg(Sock, [?IAC,?IAC | T], Acc) ->
+    check_msg(Sock, T, [?IAC|Acc]);
+
+%% respond to a command
+check_msg(Sock, [?IAC | Cs], Acc) ->
     case get_cmd(Cs) of
 	{Cmd,Cs1} ->
 	    dbg("Got ", []), 
@@ -192,10 +209,14 @@ check_msg(Sock,[?IAC | Cs], Acc) ->
 	error ->
 	    Acc
     end;
-check_msg(Sock,[H|T],Acc) ->
-    check_msg(Sock,T,[H|Acc]);
-check_msg(_Sock,[],Acc) ->
+
+%% buffer a data value
+check_msg(Sock, [H|T], Acc) ->
+    check_msg(Sock, T, [H|Acc]);
+
+check_msg(_Sock, [], Acc) ->
     Acc.
+
 
 %% Positive responses (WILL and DO).
 
@@ -234,6 +255,11 @@ respond_cmd([?DO | Opt], Sock) ->
     cmd_dbg(R),
     gen_tcp:send(Sock, R);
 
+%% Commands without options (which we ignore)
+
+respond_cmd(?NOP, _Sock) ->
+    ok;
+
 %% Unexpected messages.
 
 respond_cmd([Cmd | Opt], _Sock) when Cmd >= 240, Cmd =< 255 ->
@@ -246,7 +272,10 @@ respond_cmd([Cmd | Opt], _Sock)  ->
 get_cmd([Cmd | Rest]) when Cmd == ?SB ->
     get_subcmd(Rest, []);
 
-get_cmd([Cmd,Opt | Rest]) ->
+get_cmd([Cmd | Rest]) when Cmd >= 240, Cmd =< 249 ->
+    {?NOP, Rest};
+
+get_cmd([Cmd,Opt | Rest]) when Cmd >= 251, Cmd =< 254 ->
     {[Cmd,Opt], Rest};
 
 get_cmd(_Other) ->
@@ -259,46 +288,34 @@ get_subcmd([Opt | Rest], Acc) ->
     get_subcmd(Rest, [Opt | Acc]).
 
 
-dbg(_Str,_Args) -> ok.
-%    if ?DBG -> io:format(_Str,_Args);
-%       true -> ok
-%    end.
+dbg(_Str,_Args) ->
+    if ?DBG -> io:format(_Str,_Args);
+       true -> ok
+    end.
 
-cmd_dbg(_Cmd) -> ok.
-%     if ?DBG ->
-% 	    case _Cmd of
-% 		[?IAC|Cmd1] ->
-% 		    cmd_dbg(Cmd1);
-% 		[Ctrl|Opts] ->
-% 		    CtrlStr = 
-% 			case Ctrl of
-% 			    ?DO ->   "DO";
-% 			    ?DONT -> "DONT";
-% 			    ?WILL -> "WILL";
-% 			    ?WONT -> "WONT";
-% 			    _ ->     "CMD"
-% 			end,
-% 		    Opts1 =
-% 			case Opts of 
-% 			    [Opt] -> Opt;
-% 			    _ -> Opts
-% 			end,
-% 		    io:format("~s(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
-% 		Any  ->
-% 		    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
-% 	    end;
-%        true -> ok
-%     end.
-
-
-
-
-
-
-
-
-
-
-
-
-
+cmd_dbg(_Cmd) ->
+     if ?DBG ->
+ 	    case _Cmd of
+ 		[?IAC|Cmd1] ->
+ 		    cmd_dbg(Cmd1);
+ 		[Ctrl|Opts] ->
+ 		    CtrlStr = 
+ 			case Ctrl of
+ 			    ?DO ->   "DO";
+ 			    ?DONT -> "DONT";
+ 			    ?WILL -> "WILL";
+ 			    ?WONT -> "WONT";
+ 			    ?NOP ->  "NOP";
+ 			    _ ->     "CMD"
+ 			end,
+ 		    Opts1 =
+ 			case Opts of 
+ 			    [Opt] -> Opt;
+ 			    _ -> Opts
+ 			end,
+ 		    io:format("~s(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
+ 		Any  ->
+ 		    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
+ 	    end;
+        true -> ok
+     end.

@@ -1,0 +1,20 @@
+{exclude,[test_server,
+	  test_server_ctrl,
+	  ts_selftest]}.
+
+%% Using include list here because the test_server might not find
+%% lib_dir for test_server - and so it will not find which modules to
+%% compile.
+{include,[erl2html2,
+	  test_server_node,
+	  test_server_sup,
+	  ts,
+	  ts_autoconf_vxworks,
+	  ts_autoconf_win32,
+	  ts_erl_config,
+	  ts_install,
+	  ts_lib,
+	  ts_make,
+	  ts_run,
+	  vxworks_client]}.
+

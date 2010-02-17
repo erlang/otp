@@ -1,0 +1,6 @@
+EFLAGS=+debug_info -pa ../../test_server -I../../test_server
+           
+all: parse_transform_test.@EMULATOR@
+
+parse_transform_test.@EMULATOR@: parse_transform_test.erl
+	erlc $(EFLAGS) parse_transform_test.erl

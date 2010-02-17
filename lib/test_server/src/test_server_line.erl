@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(test_server_line).
@@ -347,6 +347,10 @@ munge_expr({'fun',Line,{clauses,Clauses}}, Vars) ->
     %% Only for Vsn=raw_abstract_v1
     {MungedClauses,Vars2}=munge_clauses(Clauses, Vars, []),
     {{'fun',Line,{clauses,MungedClauses}}, Vars2};
+munge_expr({bc,Line,Expr,LC}, Vars) ->
+    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
+    {MungedLC, Vars3} = munge_lc(LC, Vars2, []),
+    {{bc,Line,MungedExpr,MungedLC}, Vars3};
 munge_expr(Form, Vars) -> % var|char|integer|float|string|atom|nil|bin|eof
     {Form, Vars}.
 
@@ -363,6 +367,9 @@ munge_exprs([], Vars, MungedExprs) ->
 munge_lc([{generate,Line,Pattern,Expr}|LC], Vars, MungedLC) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_lc(LC, Vars2, [{generate,Line,Pattern,MungedExpr}|MungedLC]);
+munge_lc([{b_generate,Line,Pattern,Expr}|LC], Vars, MungedLC) ->
+    {MungedExpr, Vars2} = munge_expr(Expr, Vars),
+    munge_lc(LC, Vars2, [{b_generate,Line,Pattern,MungedExpr}|MungedLC]);
 munge_lc([Expr|LC], Vars, MungedLC) ->
     {MungedExpr, Vars2} = munge_expr(Expr, Vars),
     munge_lc(LC, Vars2, [MungedExpr|MungedLC]);

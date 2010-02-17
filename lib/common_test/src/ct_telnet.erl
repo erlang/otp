@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -21,27 +21,28 @@
 %%%
 %%% <p>Use this module to set up telnet connections, send commands and
 %%% perform string matching on the result.
-%%% (See the <code>unix_telnet</code> manual page for information 
-%%% about how ct_telnet may be used specifically with unix hosts.)</p>
+%%% See the <c>unix_telnet</c> manual page for information about how to use 
+%%% ct_telnet, and configure connections, specifically for unix hosts.</p>
 %%% <p>The following default values are defined in ct_telnet:</p>
 %%% <pre>
 %%% Connection timeout = 10 sec (time to wait for connection)
 %%% Command timeout = 10 sec (time to wait for a command to return)
 %%% Max no of reconnection attempts = 3
 %%% Reconnection interval = 5 sek (time to wait in between reconnection attempts)
-%%% </pre>
+%%% Keep alive = true (will send NOP to the server every 10 sec if connection is idle)</pre>
 %%% <p>These parameters can be altered by the user with the following
 %%% configuration term:</p>
 %%% <pre>
 %%% {telnet_settings, [{connect_timeout,Millisec},
 %%%                    {command_timeout,Millisec},
 %%%                    {reconnection_attempts,N},
-%%%                    {reconnection_interval,Millisec}]}.
-%%% </pre>
+%%%                    {reconnection_interval,Millisec},
+%%%                    {keep_alive,Bool}]}.</pre>
 %%% <p><code>Millisec = integer(), N = integer()</code></p>
 %%% <p>Enter the <code>telnet_settings</code> term in a configuration 
 %%% file included in the test and ct_telnet will retrieve the information
-%%% automatically.</p>
+%%% automatically. Note that <c>keep_alive</c> may be specified per connection if
+%%% required. See <c>unix_telnet</c> for details.</p></doc>
 
 %%% @type connection_type() = telnet | ts1 | ts2
 
@@ -88,7 +89,9 @@
 	       buffer=[],
 	       prompt=false,
 	       name,
-	       target_mod,extra,
+	       target_mod,
+	       keep_alive,
+	       extra,
 	       conn_to=?DEFAULT_TIMEOUT, 
 	       com_to=?DEFAULT_TIMEOUT, 
 	       reconns=?RECONNS,
@@ -150,7 +153,7 @@ open(KeyOrName,ConnType,TargetMod) ->
 %%% name can only be closed with the handle value.</p>
 %%% 
 %%% <p><code>TargetMod</code> is a module which exports the functions
-%%% <code>connect(Ip,Port,Extra)</code> and <code>get_prompt_regexp()</code>
+%%% <code>connect(Ip,Port,KeepAlive,Extra)</code> and <code>get_prompt_regexp()</code>
 %%% for the given <code>TargetType</code> (e.g. <code>unix_telnet</code>).</p>
 open(KeyOrName,ConnType,TargetMod,Extra) ->
     case ct:get_config({KeyOrName,ConnType}) of
@@ -169,9 +172,18 @@ open(KeyOrName,ConnType,TargetMod,Extra) ->
 			    P -> {IP,P}
 			end
 		end,
+	    KeepAlive =
+		case ct:get_config({KeyOrName,keep_alive}) of
+		    undefined -> 
+			case ct:get_config({telnet_settings,keep_alive}) of
+			    undefined -> true;
+			    Bool -> Bool
+			end;
+		    Bool -> Bool
+		end,
 	    log(heading(open,{KeyOrName,ConnType}),"Opening connection to: ~p",[Addr1]),
 	    ct_gen_conn:start(KeyOrName,full_addr(Addr1,ConnType),
-			      {TargetMod,Extra},?MODULE)
+			      {TargetMod,KeepAlive,Extra},?MODULE)
     end.
 
 %%%-----------------------------------------------------------------
@@ -373,14 +385,14 @@ expect(Connection,Patterns,Opts) ->
 %%%=================================================================
 %%% Callback functions
 %% @hidden
-init(Name,{Ip,Port,Type},{TargetMod,Extra}) ->
+init(Name,{Ip,Port,Type},{TargetMod,KeepAlive,Extra}) ->
     S0 = case ct:get_config(telnet_settings) of
 	     undefined ->
 		 #state{};
 	     Settings ->
 		 set_telnet_defaults(Settings,#state{})				    
 	 end,
-    case catch TargetMod:connect(Ip,Port,S0#state.conn_to,Extra) of
+    case catch TargetMod:connect(Ip,Port,S0#state.conn_to,KeepAlive,Extra) of
 	{ok,TelnPid} ->
 	    log(heading(init,{Name,Type}), 
 		"Opened telnet connection\n"
@@ -389,13 +401,15 @@ init(Name,{Ip,Port,Type},{TargetMod,Extra}) ->
 		"Command timeout: ~p\n"
 		"Reconnection attempts: ~p\n"
 		"Reconnection interval: ~p\n"
-		"Connection timeout: ~p",
+		"Connection timeout: ~p\n"
+		"Keep alive: ~w",
 		[Ip,Port,S0#state.com_to,S0#state.reconns,
-		 S0#state.reconn_int,S0#state.conn_to]),
+		 S0#state.reconn_int,S0#state.conn_to,KeepAlive]),
 	    {ok,TelnPid,S0#state{teln_pid=TelnPid,
 				 type=type(Type),
 				 name={Name,Type},
 				 target_mod=TargetMod,
+				 keep_alive=KeepAlive,
 				 extra=Extra,
 				 prx=TargetMod:get_prompt_regexp()}};
 	{'EXIT',Reason} ->
@@ -415,6 +429,12 @@ set_telnet_defaults([{reconnection_attempts,Rs}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{reconns=Rs});
 set_telnet_defaults([{reconnection_interval,RInt}|Ss],S) ->
     set_telnet_defaults(Ss,S#state{reconn_int=RInt});
+set_telnet_defaults([{keep_alive,_}|Ss],S) ->
+    set_telnet_defaults(Ss,S);
+set_telnet_defaults([Unknown|Ss],S) ->
+    log(heading(set_telnet_defaults,{telnet_settings,Unknown}),
+	"Bad element in telnet_settings: ~p",[Unknown]),
+    set_telnet_defaults(Ss,S);
 set_telnet_defaults([],S) ->
     S.
 
@@ -527,10 +547,11 @@ handle_msg({expect,Pattern,Opts},State) ->
 reconnect({Ip,Port,_Type},State) ->
     reconnect(Ip,Port,State#state.reconns,State).
 reconnect(Ip,Port,N,State=#state{target_mod=TargetMod,
+				 keep_alive=KeepAlive,
 				 extra=Extra,
 				 conn_to=ConnTo,
 				 reconn_int=ReconnInt}) ->
-    case TargetMod:connect(Ip,Port,ConnTo,Extra) of
+    case TargetMod:connect(Ip,Port,ConnTo,KeepAlive,Extra) of
 	{ok, NewPid} ->
 	    {ok, NewPid, State#state{teln_pid=NewPid}};
 	Error when N==0 ->

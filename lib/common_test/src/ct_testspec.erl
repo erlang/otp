@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -231,9 +231,11 @@ collect_tests_from_file(Specs,Nodes,Relaxed) when is_list(Nodes) ->
     catch collect_tests_from_file1(Specs,#testspec{nodes=NodeRefs},Relaxed).
 
 collect_tests_from_file1([Spec|Specs],TestSpec,Relaxed) ->
+    SpecDir = filename:dirname(filename:absname(Spec)),
     case file:consult(Spec) of
 	{ok,Terms} ->	    
-	    TestSpec1 = collect_tests(Terms,TestSpec,Relaxed),
+	    TestSpec1 = collect_tests(Terms,TestSpec#testspec{spec_dir=SpecDir},
+				      Relaxed),
 	    collect_tests_from_file1(Specs,TestSpec1,Relaxed);
 	{error,Reason} ->
 	    throw({error,{Spec,Reason}})
@@ -249,8 +251,11 @@ collect_tests_from_list(Terms,Relaxed) ->
     collect_tests_from_list(Terms,[node()],Relaxed).
 
 collect_tests_from_list(Terms,Nodes,Relaxed) when is_list(Nodes) ->
+    {ok,Cwd} = file:get_cwd(),
     NodeRefs = lists:map(fun(N) -> {undefined,N} end, Nodes),
-    case catch collect_tests(Terms,#testspec{nodes=NodeRefs},Relaxed) of
+    case catch collect_tests(Terms,#testspec{nodes=NodeRefs,
+					     spec_dir=Cwd},
+			     Relaxed) of
 	E = {error,_} ->
 	    E;
 	TS ->
@@ -265,17 +270,51 @@ collect_tests(Terms,TestSpec,Relaxed) ->
     put(relaxed,Relaxed),
     TestSpec1 = get_global(Terms,TestSpec),
     TestSpec2 = get_all_nodes(Terms,TestSpec1),
+    case catch evaluate(Terms,TestSpec2) of
+	{error,{Node,{M,F,A},Reason}} ->
+	    io:format("Error! Common Test failed to evaluate ~w:~w/~w on ~w. "
+		      "Reason: ~p~n~n", [M,F,A,Node,Reason]);
+	_ -> ok
+    end,
     add_tests(Terms,TestSpec2).
     
+evaluate([{eval,NodeRef,{M,F,Args}}|Ts],Spec) ->
+    Node = ref2node(NodeRef,Spec#testspec.nodes),
+    case rpc:call(Node,M,F,Args) of
+	{badrpc,Reason} ->
+	    throw({error,{Node,{M,F,length(Args)},Reason}});
+	_ ->
+	    ok
+    end,
+    evaluate(Ts,Spec);
+evaluate([{eval,{M,F,Args}}|Ts],Spec) ->
+    case catch apply(M,F,Args) of
+	{'EXIT',Reason} ->
+	    throw({error,{node(),{M,F,length(Args)},Reason}});
+	_ ->
+	    ok
+    end,
+    evaluate(Ts,Spec);
+evaluate([],_Spec) ->
+    ok.
+
 get_global([{alias,Ref,Dir}|Ts],Spec=#testspec{alias=Refs}) ->
-    get_global(Ts,Spec#testspec{alias=[{Ref,get_absname(Dir)}|Refs]});
+    get_global(Ts,Spec#testspec{alias=[{Ref,get_absdir(Dir,Spec)}|Refs]});
 get_global([{node,Ref,Node}|Ts],Spec=#testspec{nodes=Refs}) ->
     get_global(Ts,Spec#testspec{nodes=[{Ref,Node}|lists:keydelete(Node,2,Refs)]});
 get_global([_|Ts],Spec) -> get_global(Ts,Spec);
 get_global([],Spec) -> Spec.
 
-get_absname(TestDir) ->
-    AbsName = filename:absname(TestDir),
+get_absfile(FullName,#testspec{spec_dir=SpecDir}) ->
+    File = filename:basename(FullName),
+    Dir = get_absname(filename:dirname(FullName),SpecDir),
+    filename:join(Dir,File).
+
+get_absdir(Dir,#testspec{spec_dir=SpecDir}) ->
+    get_absname(Dir,SpecDir).
+
+get_absname(TestDir,SpecDir) ->
+    AbsName = filename:absname(TestDir,SpecDir),
     TestDirName = filename:basename(AbsName),
     Path = filename:dirname(AbsName),
     TopDir = filename:basename(Path),
@@ -345,16 +384,17 @@ list_nodes(#testspec{nodes=NodeRefs}) ->
 %% --- logdir ---
 add_tests([{logdir,all_nodes,Dir}|Ts],Spec) ->
     Dirs = Spec#testspec.logdir,
-    Tests = [{logdir,N,Dir} || N <- list_nodes(Spec),
-			       lists:keymember(ref2node(N,Spec#testspec.nodes),
-					       1,Dirs) == false],
+    Tests = [{logdir,N,get_absdir(Dir,Spec)} || 
+		N <- list_nodes(Spec),
+		lists:keymember(ref2node(N,Spec#testspec.nodes),
+				1,Dirs) == false],
     add_tests(Tests++Ts,Spec);
 add_tests([{logdir,Nodes,Dir}|Ts],Spec) when is_list(Nodes) ->
     Ts1 = separate(Nodes,logdir,[Dir],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);    
 add_tests([{logdir,Node,Dir}|Ts],Spec) ->
     Dirs = Spec#testspec.logdir,
-    Dirs1 = [{ref2node(Node,Spec#testspec.nodes),Dir} |
+    Dirs1 = [{ref2node(Node,Spec#testspec.nodes),get_absdir(Dir,Spec)} |
 	     lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,Dirs)],
     add_tests(Ts,Spec#testspec{logdir=Dirs1});
 add_tests([{logdir,Dir}|Ts],Spec) ->
@@ -369,7 +409,7 @@ add_tests([{cover,Nodes,File}|Ts],Spec) when is_list(Nodes) ->
     add_tests(Ts1,Spec);    
 add_tests([{cover,Node,File}|Ts],Spec) ->
     CoverFs = Spec#testspec.cover,
-    CoverFs1 = [{ref2node(Node,Spec#testspec.nodes),File} |
+    CoverFs1 = [{ref2node(Node,Spec#testspec.nodes),get_absfile(File,Spec)} |
 		lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,CoverFs)],
     add_tests(Ts,Spec#testspec{cover=CoverFs1});
 add_tests([{cover,File}|Ts],Spec) ->
@@ -385,7 +425,8 @@ add_tests([{config,Nodes,Files}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{config,Node,[F|Fs]}|Ts],Spec) when is_list(F) ->
     Cfgs = Spec#testspec.config,
     Node1 = ref2node(Node,Spec#testspec.nodes),
-    add_tests([{config,Node,Fs}|Ts],Spec#testspec{config=[{Node1,F}|Cfgs]});
+    add_tests([{config,Node,Fs}|Ts],
+	      Spec#testspec{config=[{Node1,get_absfile(F,Spec)}|Cfgs]});
 add_tests([{config,_Node,[]}|Ts],Spec) ->
     add_tests(Ts,Spec);
 add_tests([{config,Node,F}|Ts],Spec) ->
@@ -451,7 +492,8 @@ add_tests([{include,Nodes,InclDirs}|Ts],Spec) when is_list(Nodes) ->
 add_tests([{include,Node,[D|Ds]}|Ts],Spec) when is_list(D) ->
     Dirs = Spec#testspec.include,
     Node1 = ref2node(Node,Spec#testspec.nodes),
-    add_tests([{include,Node,Ds}|Ts],Spec#testspec{include=[{Node1,D}|Dirs]});
+    add_tests([{include,Node,Ds}|Ts],
+	      Spec#testspec{include=[{Node1,get_absdir(D,Spec)}|Dirs]});
 add_tests([{include,_Node,[]}|Ts],Spec) ->
     add_tests(Ts,Spec);
 add_tests([{include,Node,D}|Ts],Spec) ->

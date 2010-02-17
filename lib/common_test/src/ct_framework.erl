@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -27,7 +27,7 @@
 -export([init_tc/3, end_tc/3, get_suite/2, report/2, warn/1]).
 -export([error_notification/4]).
 
--export([error_in_suite/1]).
+-export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
 -include("ct_event.hrl").
 -include("ct_util.hrl").
@@ -751,8 +751,15 @@ find_group(Mod, Name, Defs) ->
     end.
 
 make_conf(Mod, Name, Props, TestSpec) ->
-    {conf,[{name,Name}|Props],
-     {Mod,init_per_group},TestSpec,{Mod,end_per_group}}.
+    {InitConf,EndConf} =
+	case erlang:function_exported(Mod,init_per_group,2) of
+	    true ->
+		{{Mod,init_per_group},{Mod,end_per_group}};
+	    false ->
+		{{?MODULE,ct_init_per_group},
+		 {?MODULE,ct_end_per_group}}
+	end,
+    {conf,[{name,Name}|Props],InitConf,TestSpec,EndConf}.
 
 
 get_all(Mod, ConfTests) ->	
@@ -916,6 +923,19 @@ check_multiple(Mod,Seq,TCs) ->
 error_in_suite(Config) ->
     Reason = test_server:lookup_config(error,Config),
     exit(Reason).
+
+%% if the group config functions are missing in the suite,
+%% use these instead
+ct_init_per_group(GroupName, Config) ->
+    ct_logs:log("WARNING", "init_per_group/2 for ~w missing in suite, using default.", 
+		[GroupName]),
+    Config.
+
+ct_end_per_group(GroupName, _) ->
+    ct_logs:log("WARNING", "end_per_group/2 for ~w missing in suite, using default.", 
+		[GroupName]),
+    ok.
+
     
 %%%-----------------------------------------------------------------
 %%% @spec report(What,Data) -> ok
