@@ -150,8 +150,8 @@ all(doc) ->
 all(suite) -> 
     [app, connection_info, controlling_process, controller_dies, 
      peercert, connect_dist,
-     peername, sockname, socket_options, versions, cipher_suites, upgrade,
-     upgrade_with_timeout,
+     peername, sockname, socket_options, versions, cipher_suites,
+     upgrade, upgrade_with_timeout, tcp_connect,
      ipv6, ekeyfile, ecertfile, ecacertfile, eoptions, shutdown,
      shutdown_write, shutdown_both, shutdown_error, ciphers, 
      send_close, 
@@ -754,6 +754,45 @@ upgrade_with_timeout(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+tcp_connect(doc) ->
+    ["Test what happens when a tcp tries to connect, i,e. a bad (ssl) packet is sent first"];
+
+tcp_connect(suite) ->
+    [];
+
+tcp_connect(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+
+    Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
+						{from, self()},
+						{timeout, 5000},
+						{mfa, {?MODULE, should_close, []}},
+						{tcp_options, TcpOpts},
+						{ssl_options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    {ok, Socket} = gen_tcp:connect(Hostname, Port, [binary, {packet, 0}]),
+    test_server:format("Testcase ~p connected to Server ~p ~n", [self(), Server]),
+    gen_tcp:send(Socket, "<SOME GARBLED NON SSL MESSAGE>"),
+
+    ssl_test_lib:check_result(Server, {error,esslerrssl}, tcp_closed, Socket),
+
+    ssl_test_lib:close(Server).
+
+
+should_close(Socket) ->
+    receive
+	{ssl, Socket, closed} ->
+	    server_closed;
+	Other ->
+	    exit({?LINE, Other})
+    end.
+
 %%--------------------------------------------------------------------
 ipv6(doc) ->
     ["Test ipv6."];

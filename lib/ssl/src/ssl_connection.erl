@@ -1429,12 +1429,10 @@ encode_handshake(HandshakeRec, SigAlg, Version, ConnectionStates0, Hashes0) ->
 
 encode_packet(Data, #socket_options{packet=Packet}) ->
     case Packet of
-	0 -> Data;
 	1 -> encode_size_packet(Data, 8,  (1 bsl 8) - 1);
 	2 -> encode_size_packet(Data, 16, (1 bsl 16) - 1);
 	4 -> encode_size_packet(Data, 32, (1 bsl 32) - 1);
-	_ ->
-	    throw({error, {badarg, {eoptions, {packet, Packet}}}})
+	_ -> Data
     end.
 
 encode_size_packet(Bin, Size, Max) ->
@@ -1732,9 +1730,13 @@ handle_own_alert(Alert, Version, StateName,
 			role = Role,
 			connection_states = ConnectionStates,
 			log_alert = Log}) ->
-    {BinMsg, _} =
-	encode_alert(Alert, Version, ConnectionStates),
-    Transport:send(Socket, BinMsg),
+    try
+	{BinMsg, _} =
+	    encode_alert(Alert, Version, ConnectionStates),
+	Transport:send(Socket, BinMsg)
+    catch _:_ ->  %% Can crash if we are in a uninitialized state
+	    ignore
+    end,
     log_alert(Log, StateName, Alert),
     alert_user(User, Alert, Role).
 

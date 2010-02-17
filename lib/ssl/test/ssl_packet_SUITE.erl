@@ -143,7 +143,8 @@ all(suite) ->
      packet_send_to_large,
      packet_wait_passive, packet_wait_active,
      packet_baddata_passive, packet_baddata_active,
-     packet_size_passive, packet_size_active
+     packet_size_passive, packet_size_active,
+     packet_erl_decode
     ].
 
 %% Test cases starts here.
@@ -1400,6 +1401,72 @@ packet_size_passive(Config) when is_list(Config) ->
 
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+packet_erl_decode(doc) ->
+    ["Test that packets of sent to erlang:decode_packet works, i.e. currently"
+     "asn1 | cdr | sunrm | fcgi | tpkt | line | http | http_bin"
+    ];
+packet_erl_decode(suite) ->
+    [];
+
+packet_erl_decode(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    %% A valid cdr packet
+    Data = <<71,73,79,80,1,2,2,1,0,0,0,41,0,0,0,0,0,0,0,0,0,0,0,1,78,
+	     69,79,0,0,0,0,2,0,10,0,0,0,0,0,0,0,0,0,18,0,0,0,0,0,0,0,4,49>>,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_packet_decode ,[Data]}},
+					{options, [{active, true}, binary, {packet, cdr}|ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_packet_decode, [Data]}},
+					{options, [{active, true}, binary | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+server_packet_decode(Socket, CDR) ->
+    receive
+	{ssl, Socket, CDR}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    ok = ssl:send(Socket, CDR),
+    receive
+	{ssl, Socket, CDR}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    ok = ssl:send(Socket, CDR),
+    ok.
+
+client_packet_decode(Socket, CDR) ->
+    <<P1:10/binary, P2/binary>> = CDR,
+    ok = ssl:send(Socket, P1),
+    ok = ssl:send(Socket, P2),
+    receive
+	{ssl, Socket, CDR}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    ssl:setopts(Socket, [{packet, cdr}]),
+    ok = ssl:send(Socket, CDR),
+    receive
+	{ssl, Socket, CDR}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    ok.
+
+
 %%--------------------------------------------------------------------
 %% Internal functions
 

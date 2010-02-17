@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -278,10 +278,10 @@ run_upgrade_server(Opts) ->
     TcpOptions = proplists:get_value(tcp_options, Opts),
     SslOptions = proplists:get_value(ssl_options, Opts),
     Pid = proplists:get_value(from, Opts),
-   
+
     test_server:format("gen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
     {ok, ListenSocket} = rpc:call(Node, gen_tcp, listen, [Port, TcpOptions]),
-    
+
     case Port of
 	0 ->
 	    {ok, {_, NewPort}} = inet:sockname(ListenSocket),	 
@@ -292,25 +292,29 @@ run_upgrade_server(Opts) ->
 
     test_server:format("gen_tcp:accept(~p)~n", [ListenSocket]),
     {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, [ListenSocket]),
-     
-    {ok, SslAcceptSocket} = case TimeOut of 
-				infinity ->
-				    test_server:format("ssl:ssl_accept(~p, ~p)~n", 
-						       [AcceptSocket, SslOptions]),   
-				    rpc:call(Node, ssl, ssl_accept, 
-					     [AcceptSocket, SslOptions]);
-				_ ->
-				    test_server:format("ssl:ssl_accept(~p, ~p, ~p)~n", 
-						       [AcceptSocket, SslOptions, TimeOut]),   
-				    rpc:call(Node, ssl, ssl_accept, 
-					     [AcceptSocket, SslOptions, TimeOut])
-			    end,
-    {Module, Function, Args} = proplists:get_value(mfa, Opts),
-    Msg = rpc:call(Node, Module, Function, [SslAcceptSocket | Args]),
-    Pid ! {self(), Msg},
-    receive 
-	close ->
-	    ok = rpc:call(Node, ssl, close, [SslAcceptSocket])
+
+    try
+	{ok, SslAcceptSocket} = case TimeOut of
+				    infinity ->
+					test_server:format("ssl:ssl_accept(~p, ~p)~n",
+							   [AcceptSocket, SslOptions]),
+					rpc:call(Node, ssl, ssl_accept,
+						 [AcceptSocket, SslOptions]);
+				    _ ->
+					test_server:format("ssl:ssl_accept(~p, ~p, ~p)~n",
+							   [AcceptSocket, SslOptions, TimeOut]),
+					rpc:call(Node, ssl, ssl_accept,
+						 [AcceptSocket, SslOptions, TimeOut])
+				end,
+	{Module, Function, Args} = proplists:get_value(mfa, Opts),
+	Msg = rpc:call(Node, Module, Function, [SslAcceptSocket | Args]),
+	Pid ! {self(), Msg},
+	receive
+	    close ->
+		ok = rpc:call(Node, ssl, close, [SslAcceptSocket])
+	end
+    catch error:{badmatch, Error} ->
+	    Pid ! {self(), Error}
     end.
 
 start_upgrade_client(Args) ->
