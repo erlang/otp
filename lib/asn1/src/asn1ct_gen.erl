@@ -1357,7 +1357,8 @@ pgen_hrltypes(Erules,Module,[H|T],NumRecords) ->
 
 %% Generates a macro for value Value defined in the ASN.1 module
 gen_macro(Value) when is_record(Value,valuedef) ->
-    emit({"-define('",Value#valuedef.name,"', ",
+    Prefix = get_macro_name_prefix(),
+    emit({"-define('",Prefix,Value#valuedef.name,"', ",
 	  {asis,Value#valuedef.value},").",nl}).
 
 %% Generate record functions **************
@@ -2059,6 +2060,14 @@ ensure_atom(List) when is_list(List) ->
     
 get_record_name_prefix() ->
     case lists:keysearch(record_name_prefix,1,get(encoding_options)) of
+	false ->
+	    "";
+	{value,{_,Prefix}} ->
+	    Prefix
+    end.
+
+get_macro_name_prefix() ->
+    case lists:keysearch(macro_name_prefix,1,get(encoding_options)) of
 	false ->
 	    "";
 	{value,{_,Prefix}} ->
