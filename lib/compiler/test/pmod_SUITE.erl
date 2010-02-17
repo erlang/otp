@@ -1,31 +1,31 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(pmod_SUITE).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1]).
+	 basic/1, otp_8447/1]).
 
 -include("test_server.hrl").
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [basic].
+    [basic, otp_8447].
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
@@ -38,8 +38,8 @@ fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 basic(Config) when is_list(Config) ->
     ?line basic_1(Config, []),
-    ?line basic_1(Config, [inline]),
-    ?line basic_1(Config, [{inline,500}]),
+%    ?line basic_1(Config, [inline]),
+%    ?line basic_1(Config, [{inline,500},inline]),
     ok.
 
 basic_1(Config, Opts) ->
@@ -76,6 +76,12 @@ basic_1(Config, Opts) ->
     ?line error = Prop4:bar_bar({s,a,b}),
     ?line error = Prop4:bar_bar([]),
 
+    ok.
+
+otp_8447(Config) when is_list(Config) ->
+    ?line P = pmod_basic:new(foo),
+    ?line [0,0,1,1,1,0,0,1] = P:bc1(),
+    ?line <<10:4>> = P:bc2(),
     ok.
 
 compile_load(Module, Conf, Opts) ->

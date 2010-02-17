@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(sys_expand_pmod).
@@ -283,9 +283,13 @@ expr({cons,Line,H0,T0},St) ->
     T1 = expr(T0,St),
     {cons,Line,H1,T1};
 expr({lc,Line,E0,Qs0},St) ->
-    Qs1 = lc_quals(Qs0,St),
+    Qs1 = lc_bc_quals(Qs0,St),
     E1 = expr(E0,St),
     {lc,Line,E1,Qs1};
+expr({bc,Line,E0,Qs0},St) ->
+    Qs1 = lc_bc_quals(Qs0,St),
+    E1 = expr(E0,St),
+    {bc,Line,E1,Qs1};
 expr({tuple,Line,Es0},St) ->
     Es1 = expr_list(Es0,St),
     {tuple,Line,Es1};
@@ -391,14 +395,18 @@ icr_clauses([C0|Cs],St) ->
     [C1|icr_clauses(Cs,St)];
 icr_clauses([],_St) -> [].
 
-lc_quals([{generate,Line,P0,E0}|Qs],St) ->
+lc_bc_quals([{generate,Line,P0,E0}|Qs],St) ->
     E1 = expr(E0,St),
     P1 = pattern(P0,St),
-    [{generate,Line,P1,E1}|lc_quals(Qs,St)];
-lc_quals([E0|Qs],St) ->
+    [{generate,Line,P1,E1}|lc_bc_quals(Qs,St)];
+lc_bc_quals([{b_generate,Line,P0,E0}|Qs],St) ->
     E1 = expr(E0,St),
-    [E1|lc_quals(Qs,St)];
-lc_quals([],_St) -> [].
+    P1 = pattern(P0,St),
+    [{b_generate,Line,P1,E1}|lc_bc_quals(Qs,St)];
+lc_bc_quals([E0|Qs],St) ->
+    E1 = expr(E0,St),
+    [E1|lc_bc_quals(Qs,St)];
+lc_bc_quals([],_St) -> [].
 
 fun_clauses([C0|Cs],St) ->
     C1 = clause(C0,St),
