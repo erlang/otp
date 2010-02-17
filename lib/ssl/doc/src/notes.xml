@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>SSL Release Notes</title>
@@ -30,6 +30,48 @@
   </header>
   <p>This document describes the changes made to the SSL application.
     </p>
+
+<section><title>SSL 3.10.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+            <p><c>ssl:send/2</c> ignored packet option, fix provided
+            by YAMASHINA Hio.</p>
+            <p>Fixed a file cache bug which caused problems when the
+            same file was used for both cert and cacert.</p>
+            <p>Allow <c>ssl:listen/2</c> to be called with option
+            {ssl_imp, old}.</p>
+            <p> Fixed ssl:setopts(Socket, binary) which didn't work
+            for 'new' ssl.</p>.
+          <p>
+            Own Id: OTP-8441</p>
+        </item>
+        <item>
+          <p>
+            Do a controlled shutdown if a non ssl packet arrives as
+            the first packet.</p>
+          <p>
+            Own Id: OTP-8459 Aux Id: seq11505 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+            <p>Fixed session reuse (in new_ssl), thanks Wil Tan.</p>
+            <p>Send CA list during Certificate Request (in new_ssl) ,
+            thanks Wil Tan.</p> <p><c>NOTE</c>: SSL (new_ssl)
+            requires public_key-0.5.</p>
+          <p>
+            Own Id: OTP-8372</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 3.10.7</title>
 
