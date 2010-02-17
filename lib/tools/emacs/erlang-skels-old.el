@@ -433,7 +433,7 @@ Please see the function `tempo-define-template'.")
     "%%                         {ok, State, Timeout} |" n
     "%%                         ignore               |" n
     "%%                         {stop, Reason}" n
-    "%% Description: Initiates the server" n
+    "%% Description: Initializes the server" n
     (erlang-skel-separator 2)
     "init([]) ->" n>
     "{ok, #state{}}." n
@@ -784,7 +784,7 @@ Please see the function `tempo-define-template'.")
     "%%                         {ok, State, Timeout} |" n
     "%%                         ignore               |" n
     "%%                         {stop, Reason}" n
-    "%% Description: Initiates the server" n
+    "%% Description: Initializes the server" n
     (erlang-skel-separator 2)
     "init([]) ->" n>
     "{ok, #state{}}." n
@@ -815,7 +815,7 @@ Please see the function `tempo-define-template'.")
    "%% Note: This directive should only be used in test suites." n
     "-compile(export_all)." n n
 
-    "-include(\"test_server.hrl\")." n n
+    "-include_lib(\"test_server/include/test_server.hrl\")." n n
 
     (erlang-skel-separator 2)
     "%% TEST SERVER CALLBACK FUNCTIONS" n
@@ -954,7 +954,7 @@ Please see the function `tempo-define-template'.")
    "%% Note: This directive should only be used in test suites." n
     "-compile(export_all)." n n
 
-    "-include(\"ct.hrl\")." n n
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
 
     (erlang-skel-separator 2)
     "%% COMMON TEST CALLBACK FUNCTIONS" n
@@ -1156,7 +1156,7 @@ Please see the function `tempo-define-template'.")
  '((erlang-skel-include erlang-skel-large-header)
     "-compile(export_all)." n n
 
-    "-include(\"ct.hrl\")." n n
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
 
     (erlang-skel-separator 2)
     "%% Function: suite() -> Info" n

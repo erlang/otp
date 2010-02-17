@@ -58,10 +58,12 @@
      erlang-skel-lib erlang-skel-header)
     ("Corba callback" "gen-corba-cb"
      erlang-skel-corba-callback erlang-skel-header)
-    ("Erlang test suite TS frontend" "ts-test-suite"
+    ("Small Common Test suite" "ct-test-suite-s"
+     erlang-skel-ct-test-suite-s erlang-skel-header)
+    ("Large Common Test suite" "ct-test-suite-l"
+     erlang-skel-ct-test-suite-l erlang-skel-header)
+    ("Erlang TS test suite" "ts-test-suite"
      erlang-skel-ts-test-suite erlang-skel-header)
-    ("Erlang test suite CT frontend" "ct-test-suite"
-     erlang-skel-ct-test-suite erlang-skel-header)
   )
   "*Description of all skeleton templates.
 Both functions and menu entries will be created.
@@ -478,7 +480,7 @@ Please see the function `tempo-define-template'.")
     (erlang-skel-separator-start 2)
     "%% @private" n
     "%% @doc" n
-    "%% Initiates the server" n
+    "%% Initializes the server" n
     "%%" n
     "%% @spec init(Args) -> {ok, State} |" n
     "%%                     {ok, State, Timeout} |" n
@@ -888,7 +890,7 @@ Please see the function `tempo-define-template'.")
     (erlang-skel-separator-start 2)
     "%% @private" n
     "%% @doc" n
-    "%% Initiates the server" n
+    "%% Initializes the server" n
     "%%" n
     "%% @spec init(Args) -> {ok, State} |" n
     "%%                     {ok, State, Timeout} |" n
@@ -930,15 +932,21 @@ Please see the function `tempo-define-template'.")
    "%% Note: This directive should only be used in test suites." n
     "-compile(export_all)." n n
 
-    "-include(\"test_server.hrl\")." n n
+    "-include_lib(\"test_server/include/test_server.hrl\")." n n
 
-    "%% Test server callback functions" n
     (erlang-skel-separator-start 2)
-    "%% @doc" n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% TEST SERVER CALLBACK FUNCTIONS" n
+    (erlang-skel-separator 2)
+    n
+    (erlang-skel-separator-start 2)
     "%%" n
-    "%% Initiation before the whole suite" n
+    "%% @doc" n
+    "%% Initialization before the suite." n
+    "%%" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the suite." n
     "%%" n
     "%% Note: This function is free to add any key/value pairs to the Config" n
     "%% variable, but should NOT alter/remove any existing entries." n
@@ -950,10 +958,9 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
+    "%% Cleanup after the suite." n
     "%% Config - [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
-    "%% Cleanup after the whole suite" n
     "%%" n
     "%% @spec end_per_suite(Config) -> _" n
     (erlang-skel-separator-end 2)
@@ -962,12 +969,14 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Case - atom()" n
+    "%% Initialization before each test case" n
+    "%%" n
+    "%% TestCase - atom()" n
     "%%   Name of the test case that is about to be run." n
     "%% Config - [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
-    "%% Initiation before each test case" n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the test case." n
     "%%" n
     "%% Note: This function is free to add any key/value pairs to the Config" n
     "%% variable, but should NOT alter/remove any existing entries." n
@@ -979,12 +988,12 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Case - atom()" n
-    "%%   Name of the test case that is about to be run." n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
     "%% Cleanup after each test case" n
+    "%%" n
+    "%% TestCase = atom()" n
+    "%%   Name of the test case that is finished." n
+    "%% Config = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
     "%%" n
     "%% @spec end_per_testcase(TestCase, Config) -> _" n
     (erlang-skel-separator-end 2)
@@ -993,63 +1002,246 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Clause - atom() - suite | doc" n
-    "%% TestCases - [Case]" n
-    "%% Case - atom()" n
-    "%%   Name of a test case." n
-    "%%" n
+    "%% Returns a description of the test suite when" n
+    "%% Clause == doc, and a test specification (list" n
+    "%% of the conf and test cases in the suite) when" n
+    "%% Clause == suite." n   
     "%% Returns a list of all test cases in this test suite" n
+    "%%" n
+    "%% Clause = doc | suite" n
+    "%%   Indicates expected return value." n
+    "%% Descr = [string()] | []" n
+    "%%   String that describes the test suite." n
+    "%% Spec = [TestCase]" n
+    "%%   A test specification." n
+    "%% TestCase = ConfCase | atom()" n
+    "%%   Configuration case, or the name of a test case function." n
+    "%% ConfCase = {conf,Init,Spec,End} |" n
+    "%%            {conf,Properties,Init,Spec,End}" n
+    "%% Init = End = {Mod,Func} | Func" n
+    "%%   Initialization and cleanup function." n
+    "%% Mod = Func = atom()" n
+    "%% Properties = [parallel | sequence | Shuffle | {RepeatType,N}]" n
+    "%%   Execution properties of the test cases (may be combined)." n
+    "%% Shuffle = shuffle | {shuffle,Seed}" n
+    "%%   To get cases executed in random order." n
+    "%% Seed = {integer(),integer(),integer()}" n
+    "%% RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |" n
+    "%%              repeat_until_any_ok | repeat_until_any_fail" n
+    "%%   To get execution of cases repeated." n
+    "%% N = integer() | forever" n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the test suite." n
     "%%" n
     "%% @spec all(Clause) -> TestCases" n
     (erlang-skel-separator-end 2)
     "all(doc) ->" n >
     "[\"Describe the main purpose of this suite\"];" n n
-    "all(suite) ->" n >
-    "[]." n n
-
-    "%% Test cases starts here." n
+    "all(suite) -> " n >
+    "[a_test_case]." n n
+    n
     (erlang-skel-separator-start 2)
-    "test_case(doc) ->" n >
-    "[\"Describe the main purpose of test case\"];" n n
-    "test_case(suite) ->" n >
+    "%% TEST CASES" n
+    (erlang-skel-separator 2)
+    n
+    (erlang-skel-separator-start 2)
+    "%% @doc" n
+    "%%  Test case function. Returns a description of the test" n
+    "%%  case (doc), then returns a test specification (suite)," n
+    "%%  or performs the actual test (Config)." n
+    "%%" n
+    "%% Arg = doc | suite | Config" n
+    "%%   Indicates expected behaviour and return value." n
+    "%% Config = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Descr = [string()] | []" n
+    "%%   String that describes the test case." n
+    "%% Spec = [tuple()] | []" n
+    "%%   A test specification, see all/1." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the test case." n
+    "%%" n
+    "%% @spec TestCase(Arg) -> Descr | Spec | ok | exit() | {skip,Reason}" n
+
+    (erlang-skel-separator-end 2)
+    "a_test_case(doc) -> " n >
+    "[\"Describe the main purpose of this test case\"];" n n
+    "a_test_case(suite) -> " n >
     "[];" n n
-    "test_case(Config) when is_list(Config) ->" n >
+    "a_test_case(Config) when is_list(Config) -> " n >
     "ok." n
    )
  "*The template of a library module.
 Please see the function `tempo-define-template'.")
 
-(defvar erlang-skel-ct-test-suite
- '((erlang-skel-include erlang-skel-large-header)
-   "-suite_defaults([{timetrap, {minutes, 10}}])." n n
-
-   "%% Note: This directive should only be used in test suites." n
+(defvar erlang-skel-ct-test-suite-s
+  '((erlang-skel-include erlang-skel-large-header)
     "-compile(export_all)." n n
 
-    "-include(\"ct.hrl\")." n n
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
 
-    "%% Test server callback functions" n
+    (erlang-skel-separator-start 2)
+    "%% @spec suite() -> Info" n
+    "%% Info = [tuple()]" n
+    (erlang-skel-separator-end 2)
+    "suite() ->" n >
+    "[{timetrap,{seconds,30}}]." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec init_per_suite(Config0) ->" n
+    "%%     Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%% Reason = term()" n
+    (erlang-skel-separator-end 2)
+    "init_per_suite(Config) ->" n >
+    "Config." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec end_per_suite(Config0) -> void() | {save_config,Config1}" n
+    "%% Config0 = Config1 = [tuple()]" n
+    (erlang-skel-separator-end 2)
+    "end_per_suite(_Config) ->" n >
+    "ok." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec init_per_group(GroupName, Config0) ->" n
+    "%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
+    "%% GroupName = atom()" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%% Reason = term()" n
+    (erlang-skel-separator-end 2)
+    "init_per_group(_GroupName, Config) ->" n >
+    "Config." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec end_per_group(GroupName, Config0) ->" n
+    "%%               void() | {save_config,Config1}" n
+    "%% GroupName = atom()" n
+    "%% Config0 = Config1 = [tuple()]" n
+    (erlang-skel-separator-end 2)
+    "end_per_group(_GroupName, _Config) ->" n >
+    "ok." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec init_per_testcase(TestCase, Config0) ->" n
+    "%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
+    "%% TestCase = atom()" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%% Reason = term()" n
+    (erlang-skel-separator-end 2)
+    "init_per_testcase(_TestCase, Config) ->" n >
+    "Config." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec end_per_testcase(TestCase, Config0) ->" n
+    "%%               void() | {save_config,Config1} | {fail,Reason}" n
+    "%% TestCase = atom()" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%% Reason = term()" n
+    (erlang-skel-separator-end 2)
+    "end_per_testcase(_TestCase, _Config) ->" n >
+    "ok." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec groups() -> [Group]" n
+    "%% Group = {GroupName,Properties,GroupsAndTestCases}" n
+    "%% GroupName = atom()" n
+    "%% Properties = [parallel | sequence | Shuffle | {RepeatType,N}]" n
+    "%% GroupsAndTestCases = [Group | {group,GroupName} | TestCase]" n
+    "%% TestCase = atom()" n
+    "%% Shuffle = shuffle | {shuffle,{integer(),integer(),integer()}}" n
+    "%% RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |" n
+    "%%              repeat_until_any_ok | repeat_until_any_fail" n
+    "%% N = integer() | forever" n
+    (erlang-skel-separator-end 2)
+    "groups() ->" n >
+    "[]." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec all() -> GroupsAndTestCases | {skip,Reason}" n
+    "%% GroupsAndTestCases = [{group,GroupName} | TestCase]" n
+    "%% GroupName = atom()" n
+    "%% TestCase = atom()" n
+    "%% Reason = term()" n
+    (erlang-skel-separator-end 2)
+    "all() -> " n >
+    "[my_test_case]." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec TestCase() -> Info" n
+    "%% Info = [tuple()]" n
+    (erlang-skel-separator-end 2)
+    "my_test_case() -> " n >
+    "[]." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @spec TestCase(Config0) ->" n
+    "%%               ok | exit() | {skip,Reason} | {comment,Comment} |" n
+    "%%               {save_config,Config1} | {skip_and_save,Reason,Config1}" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%% Reason = term()" n
+    "%% Comment = term()" n
+    (erlang-skel-separator-end 2)
+    "my_test_case(_Config) -> " n >
+    "ok." n
+    )
+  "*The template of a library module.
+Please see the function `tempo-define-template'.")
+
+
+(defvar erlang-skel-ct-test-suite-l
+  '((erlang-skel-include erlang-skel-large-header)
+    "%% Note: This directive should only be used in test suites." n
+    "-compile(export_all)." n n
+
+    "-include_lib(\"common_test/include/ct.hrl\")." n n
+
+    (erlang-skel-separator-start 2)
+    "%% COMMON TEST CALLBACK FUNCTIONS" n
+    (erlang-skel-separator 2)
+    n
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%%  Returns list of tuples to set default properties" n
+    "%%  for the suite." n
     "%%" n
-    "%% Initiation before the whole suite" n
+    "%% Function: suite() -> Info" n
+    "%%" n
+    "%% Info = [tuple()]" n
+    "%%   List of key/value pairs." n
+    "%%" n
+    "%% Note: The suite/0 function is only meant to be used to return" n
+    "%% default data values, not perform any other operations." n
+    "%%" n
+    "%% @spec suite() -> Info" n
+    (erlang-skel-separator-end 2)
+    "suite() ->" n >
+    "[{timetrap,{minutes,10}}]." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @doc" n    
+    "%% Initialization before the whole suite" n
+    "%%" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the suite." n
     "%%" n
     "%% Note: This function is free to add any key/value pairs to the Config" n
     "%% variable, but should NOT alter/remove any existing entries." n
     "%%" n
-    "%% @spec init_per_suite(Config) -> Config" n
+    "%% @spec init_per_suite(Config0) ->" n
+    "%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
     (erlang-skel-separator-end 2)
     "init_per_suite(Config) ->" n >
     "Config." n n
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
+    "%% Cleanup after the whole suite" n
+    "%%" n
     "%% Config - [tuple()]" n
     "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
-    "%% Cleanup after the whole suite" n
     "%%" n
     "%% @spec end_per_suite(Config) -> _" n
     (erlang-skel-separator-end 2)
@@ -1058,58 +1250,157 @@ Please see the function `tempo-define-template'.")
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Case - atom()" n
-    "%%   Name of the test case that is about to be run." n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Initialization before each test case group." n
     "%%" n
-    "%% Initiation before each test case" n
+    "%% GroupName = atom()" n
+    "%%   Name of the test case group that is about to run." n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding configuration data for the group." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping all test cases and subgroups in the group." n
+    "%%" n
+    "%% @spec init_per_group(GroupName, Config0) ->" n
+    "%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
+    (erlang-skel-separator-end 2)
+    "init_per_group(_GroupName, Config) ->" n >
+    "Config." n n
+
+    (erlang-skel-separator-start 2)
+    "%% @doc" n
+    "%% Cleanup after each test case group." n
+    "%%" n
+    "%% GroupName = atom()" n
+    "%%   Name of the test case group that is finished." n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding configuration data for the group." n
+    "%%" n
+    "%% @spec end_per_group(GroupName, Config0) ->" n
+    "%%               void() | {save_config,Config1}" n
+    (erlang-skel-separator-end 2)
+    "end_per_group(_GroupName, _Config) ->" n >
+    "ok." n n
+    (erlang-skel-separator-start 2)
+    "%% @doc" n
+    "%% Initialization before each test case" n
+    "%%" n
+    "%% TestCase - atom()" n
+    "%%   Name of the test case that is about to be run." n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the test case." n
     "%%" n
     "%% Note: This function is free to add any key/value pairs to the Config" n
     "%% variable, but should NOT alter/remove any existing entries." n
-    "%% Initiation before each test case" n
     "%%" n
-    "%% @spec init_per_testcase(TestCase, Config) -> Config" n
+    "%% @spec init_per_testcase(TestCase, Config0) ->" n
+    "%%               Config1 | {skip,Reason} | {skip_and_save,Reason,Config1}" n
     (erlang-skel-separator-end 2)
     "init_per_testcase(_TestCase, Config) ->" n >
     "Config." n n
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% Case - atom()" n
-    "%%   Name of the test case that is about to be run." n
-    "%% Config - [tuple()]" n
-    "%%   A list of key/value pairs, holding the test case configuration." n
-    "%%" n
     "%% Cleanup after each test case" n
     "%%" n
-    "%% @spec end_per_testcase(TestCase, Config) -> _" n
+    "%% TestCase - atom()" n
+    "%%   Name of the test case that is finished." n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%%" n
+    "%% @spec end_per_testcase(TestCase, Config0) ->" n
+    "%%               void() | {save_config,Config1} | {fail,Reason}" n
     (erlang-skel-separator-end 2)
     "end_per_testcase(_TestCase, _Config) ->" n >
-    "ok."n n
+    "ok." n n
 
     (erlang-skel-separator-start 2)
     "%% @doc" n
-    "%% TestCases - [Case]" n
-    "%% Case - atom()" n
-    "%%   Name of a test case." n
+    "%% Returns a list of test case group definitions." n
     "%%" n
-    "%% Returns a list of all test cases in this test suite" n
+    "%% Group = {GroupName,Properties,GroupsAndTestCases}" n
+    "%% GroupName = atom()" n
+    "%%   The name of the group." n
+    "%% Properties = [parallel | sequence | Shuffle | {RepeatType,N}]" n
+    "%%   Group properties that may be combined." n
+    "%% GroupsAndTestCases = [Group | {group,GroupName} | TestCase]" n
+    "%% TestCase = atom()" n
+    "%%   The name of a test case." n
+    "%% Shuffle = shuffle | {shuffle,Seed}" n
+    "%%   To get cases executed in random order." n
+    "%% Seed = {integer(),integer(),integer()}" n
+    "%% RepeatType = repeat | repeat_until_all_ok | repeat_until_all_fail |" n
+    "%%              repeat_until_any_ok | repeat_until_any_fail" n
+    "%%   To get execution of cases repeated." n
+    "%% N = integer() | forever" n
     "%%" n
-    "%% @spec all() -> TestCases" n
+    "%% @spec: groups() -> [Group]" n
     (erlang-skel-separator-end 2)
-    "all() ->" n >
+    "groups() ->" n >
     "[]." n n
 
-    "%% Test cases starts here." n
     (erlang-skel-separator-start 2)
-    "test_case() ->" n >
-    "[{doc, \"Describe the main purpose of this test case\"}]." n n
-    "test_case(Config) when is_list(Config) ->" n >
+    "%% @doc" n 
+    "%%  Returns the list of groups and test cases that" n
+    "%%  are to be executed." n
+    "%%" n
+    "%% GroupsAndTestCases = [{group,GroupName} | TestCase]" n
+    "%% GroupName = atom()" n
+    "%%   Name of a test case group." n
+    "%% TestCase = atom()" n
+    "%%   Name of a test case." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping all groups and test cases." n
+    "%%" n
+    "%% @spec all() -> GroupsAndTestCases | {skip,Reason}" n
+    (erlang-skel-separator-end 2)
+    "all() -> " n >
+    "[my_test_case]." n n
+
+    n
+    (erlang-skel-separator-start 2)
+    "%% TEST CASES" n
+    (erlang-skel-separator 2)
+    n
+
+    (erlang-skel-separator-start 2)
+    "%% @doc " n
+    "%%  Test case info function - returns list of tuples to set" n
+    "%%  properties for the test case." n
+    "%%" n
+    "%% Info = [tuple()]" n
+    "%%   List of key/value pairs." n
+    "%%" n
+    "%% Note: This function is only meant to be used to return a list of" n
+    "%% values, not perform any other operations." n
+    "%%" n
+    "%% @spec TestCase() -> Info " n
+    (erlang-skel-separator-end 2)
+    "my_test_case() -> " n >
+    "[]." n n
+
+    (erlang-skel-separator 2)
+    "%% @doc Test case function. (The name of it must be specified in" n
+    "%%              the all/0 list or in a test case group for the test case" n
+    "%%              to be executed)." n
+    "%%" n
+    "%% Config0 = Config1 = [tuple()]" n
+    "%%   A list of key/value pairs, holding the test case configuration." n
+    "%% Reason = term()" n
+    "%%   The reason for skipping the test case." n
+    "%% Comment = term()" n
+    "%%   A comment about the test case that will be printed in the html log." n
+    "%%" n
+    "%% @spec TestCase(Config0) ->" n
+    "%%           ok | exit() | {skip,Reason} | {comment,Comment} |" n
+    "%%           {save_config,Config1} | {skip_and_save,Reason,Config1}" n
+    (erlang-skel-separator-end 2)
+    "my_test_case(_Config) -> " n >
     "ok." n
+
     )
  "*The template of a library module.
-Please see the function `tempo-define-template'.")
+ Please see the function `tempo-define-template'.")
 
 ;; Skeleton code:
 
