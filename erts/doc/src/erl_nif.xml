@@ -154,10 +154,11 @@ ok
       Instances of <c>ErlNifBinary</c> are however always allocated by the user
       (usually as local variables).</p>
       <p>The raw data pointed to by <c>data</c> is only mutable after a call to
-      <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso>.
+      <seealso marker="#enif_alloc_binary">enif_alloc_binary</seealso> or
+      <seealso marker="#enif_realloc_binary">enif_realloc_binary</seealso>.
       All other functions that operates on a binary will leave the data as read-only.
-      A mutable binary allocated with <c>enif_alloc_binary</c> must in the end
-      either be freed with <seealso marker="#enif_release_binary">enif_release_binary</seealso>
+      A mutable binary must in the end either be freed with
+      <seealso marker="#enif_release_binary">enif_release_binary</seealso>
       or made read-only by transferring it to an Erlang term with
       <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
       But it does not have do happen in the same NIF call. Read-only binaries
@@ -780,6 +781,12 @@ typedef enum {
       <desc><p>Return the pointer to the private data that was set by <c>load</c>,
       <c>reload</c> or <c>upgrade</c>.</p>
       <p>Was previously named <c>enif_get_data</c>.</p></desc>
+    </func>
+    <func><name><ret>void</ret><nametext>enif_realloc_binary(ErlNifEnv* env, ErlNifBinary* bin, unsigned size)</nametext></name>
+      <fsummary>Change the size of a binary.</fsummary>
+      <desc><p>Change the size of a binary <c>bin</c>. The source binary
+      may be read-only, in which case it will be left untouched and
+      a mutable copy is allocated and assigned to <c>*bin</c>.</p></desc>
     </func>
     <func><name><ret>void</ret><nametext>enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)</nametext></name>
       <fsummary>Release a binary.</fsummary>
