@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -472,20 +472,25 @@ uuencode(Config) when is_list(Config) ->
     %%
     %% Uuencode and decode test
     %%
-    ?line {ok, 0}        = ?FILE_MODULE:position(FdReal, bof),
-    ?line {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    ?line ok             = ?FILE_MODULE:truncate(Fd),
-    ?line {ok, Sz}       = ?FILE_MODULE:copy(FdReal, Fd),
-    ?line {ok, SzUu}     = ?RAM_FILE_MODULE:uuencode(Fd),
-    ?line true           = (Sz =< SzUu),
-    ?line {ok, Sz  }     = ?RAM_FILE_MODULE:uudecode(Fd),
-    ?line {ok, 0}        = ?FILE_MODULE:position(FdReal, bof),
-    ?line {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
-    ?line true           = compare(FdReal, Fd),
-    %%
+    F = fun(Offs) ->
+		Size = Sz - Offs,
+		?line {ok, Offs}     = ?FILE_MODULE:position(FdReal, {bof,Offs}),
+		?line {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
+		?line ok             = ?FILE_MODULE:truncate(Fd),
+		?line {ok, Size}     = ?FILE_MODULE:copy(FdReal, Fd),
+		?line {ok, SizeUu}   = ?RAM_FILE_MODULE:uuencode(Fd),
+		?line true           = (Size =< SizeUu),
+		?line {ok, Size}     = ?RAM_FILE_MODULE:uudecode(Fd),
+		?line {ok, Offs}     = ?FILE_MODULE:position(FdReal, {bof,Offs}),
+		?line {ok, 0}        = ?FILE_MODULE:position(Fd, bof),
+		?line true           = compare(FdReal, Fd)
+	end,
+    lists:foreach(F, lists:seq(0,Sz-1, 43)),
+
     ?line ok             = ?FILE_MODULE:close(FdReal),
     ?line ok             = ?FILE_MODULE:close(Fd),
     ?line ok             = ?FILE_MODULE:close(FdRealUu),
+    %%
     ok.
 
 

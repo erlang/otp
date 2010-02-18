@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -388,7 +388,7 @@ static int ram_file_uuencode(RamFile *f)
 {
     int code_len = UULINE(UNIX_LINE);
     int len = f->end;
-    int usize = (len*4+2)/3 + 2*(len/code_len+1) + 2 + 1;
+    int usize = 4*((len+2)/3) + 2*((len+code_len-1)/code_len) + 2;    
     ErlDrvBinary* bin;
     uchar* inp;
     uchar* outp;
@@ -433,7 +433,7 @@ static int ram_file_uuencode(RamFile *f)
     *outp++ = ' ';   /* this end of file 0 length !!! */
     *outp++ = '\n';
     count += 2;
-
+    ASSERT(count == usize);
     driver_free_binary(f->bin);
     ram_file_set(f, bin, usize, count);
     return numeric_reply(f, count);

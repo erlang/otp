@@ -195,10 +195,20 @@ erts_free_aligned_binary_bytes(byte* buf)
     }
 }
 
+/* Explicit extra bytes allocated to counter buggy drivers.
+** These extra bytes where earlier (< R13B04) added by an alignment-bug
+** in this code. Do we dare remove this in some major release (R14?) maybe?
+*/
+#ifdef DEBUG
+#  define CHICKEN_PAD 0
+#else
+#  define CHICKEN_PAD (sizeof(void*) - 1)
+#endif
+
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc_fnf(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size);
+    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
     res = erts_alloc_fnf(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -208,7 +218,7 @@ erts_bin_drv_alloc_fnf(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_drv_alloc(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size);
+    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
     res = erts_alloc(ERTS_ALC_T_DRV_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -219,7 +229,7 @@ erts_bin_drv_alloc(Uint size)
 ERTS_GLB_INLINE Binary *
 erts_bin_nrml_alloc(Uint size)
 {
-    Uint bsize = ERTS_SIZEOF_Binary(size);
+    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     void *res;
     res = erts_alloc(ERTS_ALC_T_BINARY, bsize);
     ERTS_CHK_BIN_ALIGNMENT(res);
@@ -230,7 +240,7 @@ ERTS_GLB_INLINE Binary *
 erts_bin_realloc_fnf(Binary *bp, Uint size)
 {
     Binary *nbp;
-    Uint bsize = ERTS_SIZEOF_Binary(size);
+    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
     if (bp->flags & BIN_FLAG_DRV)
 	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
@@ -244,7 +254,7 @@ ERTS_GLB_INLINE Binary *
 erts_bin_realloc(Binary *bp, Uint size)
 {
     Binary *nbp;
-    Uint bsize = ERTS_SIZEOF_Binary(size);
+    Uint bsize = ERTS_SIZEOF_Binary(size) + CHICKEN_PAD;
     ASSERT((bp->flags & BIN_FLAG_MAGIC) == 0);
     if (bp->flags & BIN_FLAG_DRV)
 	nbp = erts_realloc_fnf(ERTS_ALC_T_DRV_BINARY, (void *) bp, bsize);
