@@ -1730,15 +1730,19 @@ handle_own_alert(Alert, Version, StateName,
 			role = Role,
 			connection_states = ConnectionStates,
 			log_alert = Log}) ->
-    try
+    try %% Try to tell the other side
 	{BinMsg, _} =
 	    encode_alert(Alert, Version, ConnectionStates),
 	Transport:send(Socket, BinMsg)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
     end,
-    log_alert(Log, StateName, Alert),
-    alert_user(User, Alert, Role).
+    try %% Try to tell the local user
+	log_alert(Log, StateName, Alert),
+	alert_user(User, Alert, Role)
+    catch _:_ ->
+	    ok
+    end.
 
 make_premaster_secret({MajVer, MinVer}) ->
     Rand = crypto:rand_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
