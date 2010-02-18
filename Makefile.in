@@ -130,20 +130,25 @@ ERLANG_INST_BINDIR= $(ERLANG_INST_LIBDIR)/bin
 # during installation. If DESTDIR != "", it cannot be run from this location.
 ERLANG_LIBDIR     = $(DESTDIR)$(ERLANG_INST_LIBDIR)
 
-# The directory in which man pages for above executables are put
-ERL_MAN1DIR      = $(DESTDIR)$(EXTRA_PREFIX)@mandir@/man1
-ERL_MAN1EXT      = 1
+# ----------------------------------------------------------------------
+# This functionality has been lost along the way... :(
+# It could perhaps be nice to reintroduce some day; therefore,
+# it is not removed just commented out.
 
-# The directory in which Erlang private man pages are put. In order
-# not to clutter up the man namespace these are by default put in the
-# Erlang private directory $(ERLANG_LIBDIR)/man (\@erl_mandir\@ is set
-# to $(erlang_libdir)/man). If you want to install the man pages
-# together with the rest give the argument "--disable-erlang-mandir"
-# when you run configure, which will set \@erl_mandir\@ to \@mandir\@.
-#   If you want a special suffix on the manpages set ERL_MANEXT to
-# this suffix, e.g. "erl"
-ERL_MANDIR       = $(DESTDIR)$(EXTRA_PREFIX)@erl_mandir@
-ERL_MANEXT       =
+## # The directory in which man pages for above executables are put
+## ERL_MAN1DIR      = $(DESTDIR)$(EXTRA_PREFIX)@mandir@/man1
+## ERL_MAN1EXT      = 1
+
+## # The directory in which Erlang private man pages are put. In order
+## # not to clutter up the man namespace these are by default put in the
+## # Erlang private directory $(ERLANG_LIBDIR)/man (\@erl_mandir\@ is set
+## # to $(erlang_libdir)/man). If you want to install the man pages
+## # together with the rest give the argument "--disable-erlang-mandir"
+## # when you run configure, which will set \@erl_mandir\@ to \@mandir\@.
+## #   If you want a special suffix on the manpages set ERL_MANEXT to
+## # this suffix, e.g. "erl"
+## ERL_MANDIR       = $(DESTDIR)$(EXTRA_PREFIX)@erl_mandir@
+## ERL_MANEXT       =
 
 # ----------------------------------------------------------------------
 

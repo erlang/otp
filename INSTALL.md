@@ -146,6 +146,14 @@ If you are building in a Git working directory you also have to have a GNU
 `autoconf` of at least version 2.59. Autoconf is however not needed if you
 build an unmodified version of the released source.
 
+#### Building Documentation ####
+
+*   `xsltproc` -- XSLT processor.
+*   `fop` -- Apache FOP (requires Java).
+*   `Markdown.pl` -- Optional. This is a `perl` script that generates an
+    HTML version of a document written in Markdown notation. It can be
+    downloaded at <http://daringfireball.net/projects/markdown>.
+
 ### Installing ###
 
 *   An `install` program that can take multiple file names.
@@ -191,8 +199,8 @@ Step 4: Run the following commands to configure the build:
 
     $ ./configure  [ options ]
 
-By default, Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang,man/man1}`.
-To instead install in `<BaseDir>/{bin,lib/erlang,man/man1}`, use the
+By default, Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`.
+To instead install in `<BaseDir>/{bin,lib/erlang}`, use the
 `--prefix=<BaseDir>` option.
 
 If you upgraded the source with some patch you may need to clean up
@@ -226,7 +234,7 @@ type `./configure --help` or `./configure --help=recursive` for details.
 all applications.
 
 One of the things you can specify is where Erlang/OTP should be installed: by
-default Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang,man/man1}`;
+default Erlang/OTP will be installed in `/usr/local/{bin,lib/erlang}`;
 to keep the same structure but install in a different place, `<Dir>` say,
 use the `--prefix` argument like this: `./configure --prefix=<Dir>`.
 
@@ -241,8 +249,6 @@ Some of the available `configure` options are:
     if possible)
   * `--{enable,disable}-hipe`: HiPE support (enabled by default on supported
     platforms)
-  * `--disable-erlang-mandir`: No private Erlang mandir, i.e., the common
-    mandir under `--prefix`, or `--mandir` will be used
   * `--enable-darwin-universal`: Build universal binaries on darwin i386.
   * `--enable-darwin-64bit`: Build 64bit binaries on darwin
   * `--enable-m64-build`: Build 64bit binaries using the -m64 flag to (g)cc
@@ -427,6 +433,68 @@ want to rebuild the application `STDLIB`, then you could do:
 where `<Dir>` would be what you find `ERL_TOP` is set to in the top level
 Makefile.
 
+How to Build the Erlang/OTP Documentation
+-----------------------------------------
+
+    $ cd $ERL_TOP
+
+If you have just built Erlang/OTP in the current source tree, you have
+already ran `configure` and do not need to do this again; otherwise, run
+`configure`.
+
+    $ ./configure [Configure Args]
+
+When building the documentation you need a full Erlang/OTP-R13B04 system in
+the `$PATH`.
+
+    $ export PATH=<Erlang/OTP-R13B04 bin dir>:$PATH     # Assuming bash/sh
+
+This document as well as some other documents have been written using
+Markdown notation. HTML versions of these documents are created and included
+in the HTML documentation if the environment variable `MD2HTML` is set to a
+command that generates HTML on `stdout` for a Markdown document passed as
+argument. This is a last minute hack, which will be handled in a better way
+in the future. We currently set `MD2HTML` as follows.
+
+    $ export MD2HTML="perl <path to script>/Markdown.pl --html4tags"
+
+Build the documentation.
+
+    $ make docs
+
+The documentation can be installed either using the `install-docs` target,
+or using the `release_docs` target.
+
+*   If you have installed Erlang/OTP using the `install` target, install
+    the documentation using the `install-docs` target. Install locations
+    determined by `configure` will be used.
+
+        $ make install-docs
+
+*   If you have installed Erlang/OTP using the `release` target, install
+    the documentation using the `release_docs` target. You typically want
+    to use the same RELEASE_ROOT as when invoking `make release`.
+
+        $ make release_docs RELEASE_ROOT=<release dir>
+
+How to Install the Pre-formatted Erlang/OTP documentation
+---------------------------------------------------------
+
+Pre-formatted documentation can be downloaded at
+<http://www.erlang.org/download.html>.
+
+For some graphical tools to find the on-line help you have to install
+the HTML documentation on top of the installed OTP applications, i.e.
+
+    $ cd <PrefixDir>/lib/erlang
+    $ gunzip -c otp_html_R13B04.tar.gz | tar xf -
+
+For `erl -man <page>` to work the Unix manual pages have to be
+installed in the same way, i.e.
+
+    $ cd <PrefixDir>/lib/erlang
+    $ gunzip -c otp_man_R13B04.tar.gz | tar xf -
+
 Support for SMP (Symmetric Multi Processing)
 --------------------------------------------
 
@@ -448,22 +516,6 @@ computer has more than one logical processor. You can force a start
 of the emulator with SMP support by passing `-smp enable` as
 command line arguments to erl, and you can force a start of the
 emulator without SMP support by passing `-smp disable`.
-
-How to install the Erlang/OTP documentation
--------------------------------------------
-
-For some graphical tools to find the on-line help you have to install
-the HTML documentation on top of the installed OTP applications, i.e.
-
-    $ cd <PrefixDir>/lib/erlang
-    $ gunzip -c otp_html_R<XY>B-<Z>.tar.gz | tar xf -
-
-For `erl -man <page>` to work the Unix manual pages have to be
-installed in the same way, i.e.
-
-    $ cd <PrefixDir>/lib/erlang
-    $gunzip -c otp_man_R<XY>B-<Z>.tar.gz | tar xf -
-
 
 GS (Graphic System)
 -------------------

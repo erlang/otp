@@ -14,7 +14,7 @@ compile Erlang/OTP. Before reading this document you should read the
 general. `$ERL_TOP` is the top directory in the source tree.
 
 `otp_build` Versus `configure`/`make`
-------------------------------------
+-------------------------------------
 
 Building Erlang/OTP can be done either by using the `$ERL_TOP/otp_build`
 script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
@@ -110,6 +110,13 @@ built, or an Erlang/OTP system of the same release as the one being built
 has to be provided in the `$PATH`. The Erlang/OTP for the target system will
 be built using this Erlang system, together with the cross compilation tools
 provided.
+
+If you want to build the documentation out of the same source tree as you are
+cross compiling in, you currently need a full Erlang/OTP system of the same
+release as the one being built for the build machine. If this is the case,
+build and install one for the build machine (or use one already built) and add
+it to the `$PATH` before cross building, and building the documentation. See
+[`$ERL_TOP/INSTALL.md`] [1] for information on building the documentation.
 
 If you want to build using a compatible Erlang/OTP system in the `$PATH`,
 jump to (3).

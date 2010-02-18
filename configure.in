@@ -236,16 +236,20 @@ AC_ARG_ENABLE(shared-zlib,
 [  --enable-shared-zlib        enable using shared zlib library
   --disable-shared-zlib       disable shared zlib, compile own zlib source (default)])
 
-#
-# Set Erlang man page directory
-#
-AC_ARG_ENABLE(erlang-mandir,
-[  --disable-erlang-mandir do not install Erlang man pages in a private directory],
-[ case "$enableval" in
-    no) erl_mandir=$mandir ;;
-    *)  erl_mandir='$(erlang_libdir)/man' ;;
-  esac ], erl_mandir='$(erlang_libdir)/man')
-AC_SUBST(erl_mandir)
+dnl This functionality has been lost along the way... :(
+dnl It could perhaps be nice to reintroduce some day; therefore,
+dnl it is not removed just commented out.
+dnl
+dnl #
+dnl # Set Erlang man page directory
+dnl #
+dnl AC_ARG_ENABLE(erlang-mandir,
+dnl [  --disable-erlang-mandir do not install Erlang man pages in a private directory],
+dnl [ case "$enableval" in
+dnl     no) erl_mandir=$mandir ;;
+dnl     *)  erl_mandir='$(erlang_libdir)/man' ;;
+dnl   esac ], erl_mandir='$(erlang_libdir)/man')
+dnl AC_SUBST(erl_mandir)
 
 AC_ARG_ENABLE(darwin-universal,
 [  --enable-darwin-universal    build universal binaries on darwin i386],
