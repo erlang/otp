@@ -20,7 +20,6 @@
 
 %% Public
 -export([
-         main/1, % Escript
          start/0, start/1, start_link/1, debug/0, % GUI
          start_server/1, get_server/1, stop/1,
          get_config/1, get_config/3, get_rel/2, get_script/2,
@@ -32,39 +31,26 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Main function for escript
--spec main([escript_arg()]) -> ok.
-main(_) ->
-    process_flag(trap_exit, true),
-    {ok, WinPid} = start_link([]),
-    receive
-        {'EXIT', WinPid, shutdown} ->
-            ok;
-        {'EXIT', WinPid, normal} ->
-            ok;
-        {'EXIT', WinPid, Reason} ->
-            io:format("EXIT: ~p\n", [Reason]),
-            erlang:halt(1)
-    end.
-
 %% Start main window process
--spec start() -> {ok, window_pid()}.
+-spec start() -> {ok, window_pid()} | {error, reason()}.
 start() ->
     start([]).
 
 %% Start main window process
--spec start(options()) -> {ok, window_pid() | {error, reason()}}.
+-spec start(options()) -> {ok, window_pid()} | {error, reason()}.
 start(Options)when is_list(Options)  ->
-    {ok, WinPid} = start_link(Options),
-    unlink(WinPid),
-    {ok, WinPid}.
+    case start_link(Options) of
+	{ok, WinPid} ->
+	    unlink(WinPid),
+	    {ok, WinPid};
+	Other->
+	    Other
+    end.
 
 %% Start main window process with wx debugging enabled
--spec debug() -> {ok, window_pid()}.
+-spec debug() ->  {ok, window_pid()} | {error, reason()}.
 debug() ->
-    {ok, WinPid} = start_link([{wx_debug, 2}]),
-    unlink(WinPid),
-    {ok, WinPid}.
+    start([{wx_debug, 2}]).
 
 %% Start main window process with options
 -spec start_link(options()) -> {ok, window_pid() | {error, reason()}}.

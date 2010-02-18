@@ -1093,8 +1093,9 @@ read_config(OldSys, Filename, Status) when is_list(Filename) ->
         {error, Reason} ->
             Text = file:format_error(Reason),
             {OldSys,
-	     reltool_utils:return_first_error(Status, "File access: " ++
-					      Text)}
+	     reltool_utils:return_first_error(Status,
+					      "Illegal config file " ++
+					      Filename ++ ": " ++ Text)}
     end;
 read_config(OldSys, {sys, KeyVals}, Status) ->
     {NewSys, Status2} =

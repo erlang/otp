@@ -477,7 +477,9 @@ mod_name()          = atom()
 profile()           = development | embedded | standalone
 re_regexp()         = string()
 reason()            = string()
-regexps()           = [re_regexp()] | {add, [re_regexp()]} | {del, [re_regexp()]}
+regexps()           = [re_regexp()]
+                    | {add, [re_regexp()]}
+		    | {del, [re_regexp()]}
 rel_file()          = term()
 rel_name()          = string()
 rel_vsn()           = string()
@@ -487,7 +489,19 @@ script_file()       = term()
 server()            = server_pid() | options()
 server_pid()        = pid()
 target_dir()        = file()
-window_pid()        = pid()]]></code>
+window_pid()        = pid()
+base_dir()          = dir()
+base_file()         = file()
+top_dir()           = file()
+top_file()          = file()
+target_spec()       = [target_spec()]
+                    | {create_dir, base_dir(), [target_spec()]}
+                    | {create_dir, base_dir(), top_dir(), [target_spec()]}
+                    | {archive, base_file(), [archive_opt()], [target_spec()]}
+                    | {copy_file, base_file()}
+                    | {copy_file, base_file(), top_file()}
+                    | {write_file, base_file(), iolist()}
+                    | {strip_beam_file, base_file()}]]></code>
 
     <marker id="start"></marker>
   </section>
