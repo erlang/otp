@@ -129,11 +129,12 @@ These are the tools you will need in order to unpack and build Erlang/OTP.
 *   OpenSSL -- Optional, but needed for building the Erlang/OTP applications
     `ssl` and `crypto`. You need the "development package" of OpenSSL, i.e.
     including the header files. For building the application `ssl` the OpenSSL
-    binary command program `openssl` is also needed.
-    At least version 0.9.7 of OpenSSL is required.
+    binary command program `openssl` is also needed. At least version 0.9.7
+    of OpenSSL is required. Can be downloaded from <http://www.openssl.org>.
 *   Sun Java jdk-1.5.0 or higher -- Optional but needed for building the
-    Erlang/OTP application `jinterface` and parts of `ic` and `orber`. We
-    have also tested IBM's JDK 1.5.0.
+    Erlang/OTP application `jinterface` and parts of `ic` and `orber`. Can
+    be downloaded from <http://java.sun.com>. We have also tested IBM's
+    JDK 1.5.0.
 *   X Windows -- Optional, but development headers and libraries are needed
     to build the Erlang/OTP application `gs` on Unix/Linux.
 *  `sed` -- There seem to be some problems with some of the `sed` version on
@@ -148,10 +149,13 @@ build an unmodified version of the released source.
 
 #### Building Documentation ####
 
-*   `xsltproc` -- XSLT processor.
-*   `fop` -- Apache FOP (requires Java).
+*   `xsltproc` -- XSLT processor. A tool for applying XSLT stylesheets
+    to XML documents. Can be downloaded from
+    <http://xmlsoft.org/XSLT/xsltproc2.html>.
+*   `fop` -- Apache FOP print formatter (requires Java). Can be downloaded from
+    <http://xmlgraphics.apache.org/fop>.
 *   `Markdown.pl` -- Optional. This is a `perl` script that generates an
-    HTML version of a document written in Markdown notation. It can be
+    HTML version of a document written in Markdown notation. Can be
     downloaded at <http://daringfireball.net/projects/markdown>.
 
 ### Installing ###
@@ -467,7 +471,8 @@ or using the `release_docs` target.
 
 *   If you have installed Erlang/OTP using the `install` target, install
     the documentation using the `install-docs` target. Install locations
-    determined by `configure` will be used.
+    determined by `configure` will be used. `$DESTDIR` can be used the
+    same way as when doing `make install`.
 
         $ make install-docs
 
@@ -477,7 +482,18 @@ or using the `release_docs` target.
 
         $ make release_docs RELEASE_ROOT=<release dir>
 
-How to Install the Pre-formatted Erlang/OTP documentation
+### Build Issues ###
+
+We have sometimes experienced problems with suns `java` running out of
+memory when running `fop`. Increasing the amount of memory available
+as follows has in our case solved the problem.
+
+    $ export FOP_OPTS="-Xmx<Installed amount of RAM in MB>m"
+
+More information can be found at
+<http://xmlgraphics.apache.org/fop/0.95/running.html#memory>.
+
+How to Install the Pre-formatted Erlang/OTP Documentation
 ---------------------------------------------------------
 
 Pre-formatted documentation can be downloaded at
@@ -486,14 +502,23 @@ Pre-formatted documentation can be downloaded at
 For some graphical tools to find the on-line help you have to install
 the HTML documentation on top of the installed OTP applications, i.e.
 
-    $ cd <PrefixDir>/lib/erlang
+    $ cd <ReleaseDir>
     $ gunzip -c otp_html_R13B04.tar.gz | tar xf -
 
 For `erl -man <page>` to work the Unix manual pages have to be
 installed in the same way, i.e.
 
-    $ cd <PrefixDir>/lib/erlang
+    $ cd <ReleaseDir>
     $ gunzip -c otp_man_R13B04.tar.gz | tar xf -
+
+Where `<ReleaseDir>` is
+
+*   `<PrefixDir>/lib/erlang` if you have installed Erlang/OTP using
+    `make install`.
+*   `$DESTDIR<PrefixDir>/lib/erlang` if you have installed Erlang/OTP
+    using `make install DESTDIR=<TmpInstallDir>`.
+*   `RELEASE_ROOT` if you have installed using
+    `make release RELEASE_ROOT=<ReleaseDir>`.
 
 Support for SMP (Symmetric Multi Processing)
 --------------------------------------------

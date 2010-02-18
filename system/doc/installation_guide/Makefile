@@ -56,11 +56,12 @@ XML_FILES = \
 # ----------------------------------------------------
 # Install readme files
 # ----------------------------------------------------
-INSTALL_READMES = \
+SOURCE_INSTALL_READMES = \
 	$(ERL_TOP)/INSTALL.html \
 	$(ERL_TOP)/INSTALL-CROSS.html \
 	$(ERL_TOP)/INSTALL-WIN32.html
 
+SOURCE_RELSYSDIR = $(RELSYSDIR)/source
 # ----------------------------------------------------
 
 HTML_FILES = \
@@ -100,8 +101,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_docs_spec: docs
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(INSTALL_READMES) $(GIF_FILES) $(HTMLDIR)/*.html \
-		$(RELSYSDIR)
+	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html $(RELSYSDIR)
+	$(INSTALL_DIR) $(SOURCE_RELSYSDIR)
+	$(INSTALL_DATA) $(SOURCE_INSTALL_READMES) $(SOURCE_RELSYSDIR)
 
 release_spec:
 
