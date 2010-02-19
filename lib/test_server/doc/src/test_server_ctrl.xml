@@ -24,7 +24,7 @@
     </legalnotice>
 
     <title>The Test Server Controller</title>
-    <prepared>Siri Hansen</prepared>
+    <prepared>Siri Hansen, Peter Andersson</prepared>
     <responsible></responsible>
     <docno></docno>
     <approved></approved>
@@ -649,8 +649,13 @@ Optional, if not given the test server controller node
       <fsummary>Get subcases.</fsummary>
       <type>
         <v>Mod = atom()</v>
+	<d>Test suite name.</d>
         <v>Func = atom()</v>
-        <v>TestCaseList = [,SubCase]</v>
+	<d>Name of test case.</d>
+        <v>TestCaseList = [SubCase]</v>
+	<d>List of test cases.</d>
+        <v>SubCase = atom()</v>
+	<d>Name of a case.</d>
       </type>
       <desc>
         <p>This function is called before a test case is started. The
@@ -660,36 +665,72 @@ Optional, if not given the test server controller node
       </desc>
     </func>
     <func>
-      <name>init_tc(Mod,Func,Args) -> {ok,Args}</name>
-      <fsummary>Preparation for a test case.</fsummary>
+      <name>init_tc(Mod,Func,Args0) -> {ok,Args1} | {skip,ReasonToSkip} | {auto_skip,ReasonToSkip} | {fail,ReasonToFail}</name>
+      <fsummary>Preparation for a test case or configuration function.</fsummary>
       <type>
         <v>Mod = atom()</v>
+	<d>Test suite name.</d>
         <v>Func = atom()</v>
-        <v>Args = [tuple()]</v>
-        <d>Normally Args = [Config]</d>
+	<d>Name of test case or configuration function.</d>
+        <v>Args0 = Args1 = [tuple()]</v>
+	<d>Normally Args = [Config]</d>
+	<v>ReasonToSkip = term()</v>
+	<d>Reason to skip the test case or configuration function.</d>
+	<v>ReasonToFail = term()</v>
+	<d>Reason to fail the test case or configuration function.</d>
       </type>
       <desc>
-        <p>This function is called when a test case is started. It is
-          called on the process executing the test case function
-          (<c>Mod:Func</c>). Typical use of this function can be to alter
-          the input parameters to the test case function (<c>Args</c>) or
-          to set properties for the executing process.</p>
+        <p>This function is called before a test case or configuration
+	function starts. It is called on the process executing the function
+        <c>Mod:Func</c>. Typical use of this function can be to alter
+        the input parameters to the test case function (<c>Args</c>) or
+        to set properties for the executing process.</p>
+	<p>By returning <c>{skip,Reason}</c>, <c>Func</c> gets skipped.
+	<c>Func</c> also gets skipped if <c>{auto_skip,Reason}</c> is returned,
+	but then gets an auto skipped status (rather than user skipped).</p>
+	<p>To fail <c>Func</c> immediately instead of executing it, return 
+	<c>{fail,ReasonToFail}.</c></p>
       </desc>
     </func>
     <func>
-      <name>end_tc(Mod,Func,Args) -> ok</name>
-      <fsummary>Cleanup after a test case.</fsummary>
+      <name>end_tc(Mod,Func,Status) -> ok | {fail,ReasonToFail}</name>
+      <fsummary>Cleanup after a test case or configuration function.</fsummary>
       <type>
         <v>Mod = atom()</v>
+	<d>Test suite name.</d>
         <v>Func = atom()</v>
+	<d>Name of test case or configuration function.</d>
+        <v>Status = {Result,Args} | {TCPid,Result,Args}</v>
+	<d>The status of the test case or configuration function.</d>
+	<v>ReasonToFail = term()</v>
+	<d>Reason to fail the test case or configuration function.</d>
+	<v>Result = ok | Skip | Fail</v>
+	<d>The final result of the test case or configuration function.</d>
+	<v>TCPid = pid()</v>
+	<d>Pid of the process executing Func</d>
+	<v>Skip = {skip,SkipReason}</v>
+	<v>SkipReason = term() | {failed,{Mod,init_per_testcase,term()}}</v>
+	<d>Reason why the function was skipped.</d>
+	<v>Fail = {error,term()} | {'EXIT',term()} | {timetrap_timeout,integer()} |
+	          {testcase_aborted,term()} | testcase_aborted_or_killed | 
+		  {failed,term()} | {failed,{Mod,end_per_testcase,term()}}</v>
+	<d>Reason why the function failed.</d>
         <v>Args = [tuple()]</v>
-        <d>Normally Args = [Config]</d>
+	<d>Normally Args = [Config]</d>
       </type>
       <desc>
-        <p>This function is called when a test case is completed. It is
-          called on the process where the test case function
-          (<c>Mod:Func</c>) was executed. Typical use of this function can
-          be to clean up stuff done by <c>init_tc/3</c>.</p>
+        <p>This function is called when a test case, or a configuration function,
+	  is finished. It is normally called on the process where the function
+          <c>Mod:Func</c> has been executing, but if not, the pid of the test 
+	  case process is passed with the <c>Status</c> argument.</p> 
+	  <p>Typical use of the <c>end_tc/3</c> function can be to clean up 
+	  after <c>init_tc/3</c>.</p> 
+	  <p>If <c>Func</c> is a test case, it is possible to analyse the value of 
+	  <c>Result</c> to verify that <c>init_per_testcase/2</c> and 
+	  <c>end_per_testcase/2</c> executed successfully.</p>
+	  <p>It is possible with <c>end_tc/3</c> to fail an otherwise successful
+	  test case, by returning <c>{fail,ReasonToFail}</c>. The test case <c>Func</c>
+	  will be logged as failed with the provided term as reason.</p>
       </desc>
     </func>
     <func>
@@ -700,37 +741,39 @@ Optional, if not given the test server controller node
         <v>Data = term()</v>
       </type>
       <desc>
-        <p>This function is called in order to keep the framework upto
-          date about the progress of the test. This is useful e.g. if the
-          framework implements a GUI where the progress information is
-          constantly updated. The following can be reported:
-          </p>
-        <p><c>What = tests_start, Data = {Name,NumCases}</c>          <br></br>
-<c>What = tests_done, Data = {Ok,Failed,Skipped}</c>          <br></br>
-<c>What = tc_start, Data = {Mod,Func}</c>          <br></br>
-<c>What = tc_done, Data = {Mod,Func,Result}</c></p>
+        <p>This function is called in order to keep the framework up-to-date with 
+	the progress of the test. This is useful e.g. if the
+        framework implements a GUI where the progress information is
+        constantly updated. The following can be reported:
+        </p>
+        <p><c>What = tests_start, Data = {Name,NumCases}</c><br></br>
+	   <c>What = tests_done, Data = {Ok,Failed,{UserSkipped,AutoSkipped}}</c><br></br>
+	   <c>What = tc_start, Data = {Mod,Func}</c><br></br>
+	   <c>What = tc_done, Data = {Mod,Func,Result}</c><br></br>
+	   <c>What = tc_user_skip, Data = {Mod,Func,Comment}</c><br></br>
+	   <c>What = tc_auto_skip, Data = {Mod,Func,Comment}</c></p>
       </desc>
     </func>
     <func>
-      <name>error_notification(Mod, Case, Args, Error) -> ok</name>
-      <fsummary>Inform framework of crashing testcase.</fsummary>
+      <name>error_notification(Mod, Func, Args, Error) -> ok</name>
+      <fsummary>Inform framework of crashing testcase or configuration function.</fsummary>
       <type>
         <v>Mod = atom()</v>
 	<d>Test suite name.</d>
-        <v>Case = atom()</v>
-	<d>Name of test case function.</d>
+        <v>Func = atom()</v>
+	<d>Name of test case or configuration function.</d>
         <v>Args = [tuple()]</v>
 	<d>Normally Args = [Config]</d>
         <v>Error = {Reason,Location}</v>
 	<v>Reason = term()</v>
 	<d>Reason for termination.</d>
-	<v>Location = unknown | [{Mod,Case,Line}]</v>
+	<v>Location = unknown | [{Mod,Func,Line}]</v>
 	<d>Last known position in Mod before termination.</d>
         <v>Line = integer()</v>
 	<d>Line number in file Mod.erl.</d> 
       </type>
       <desc>
-        <p>This function is called as the result of testcase Mod:Case failing
+        <p>This function is called as the result of function <c>Mod:Func</c> failing
 	  with Reason at Location. The function is intended mainly to aid
 	  specific logging or error handling in the framework application. Note
 	  that for Location to have relevant values (i.e. other than unknown), 
