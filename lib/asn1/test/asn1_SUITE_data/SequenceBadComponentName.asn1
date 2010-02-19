@@ -1,0 +1,10 @@
+SequenceBadComponentName  DEFINITIONS ::=
+BEGIN
+
+T ::= Typ
+
+Typ ::= SEQUENCE {
+    a INTEGER,
+    C Typ}
+
+END

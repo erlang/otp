@@ -1,0 +1,78 @@
+MAP-SecureTransportOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SecureTransportOperations (26)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	secureTransportClass1,
+	secureTransportClass2,
+	secureTransportClass3,
+	secureTransportClass4
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+	dataMissing,
+	secureTransportError,
+	unexpectedDataValue
+
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+	SecureTransportArg,
+	SecureTransportRes
+
+FROM MAP-ST-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ST-DataTypes (27) version9 (9)}
+;
+
+secureTransportClass1  OPERATION ::= {			--Timer shall be the same as for the
+						--securely transported operation
+	ARGUMENT
+		SecureTransportArg
+	RESULT
+		SecureTransportRes
+	ERRORS {
+		secureTransportError |
+		dataMissing |
+		unexpectedDataValue}
+	CODE	local:78 }
+
+secureTransportClass2  OPERATION ::= {			--Timer shall be the same as for the
+						--securely transported operation
+	ARGUMENT
+		SecureTransportArg
+	ERRORS {
+		secureTransportError |
+		dataMissing |
+		unexpectedDataValue}
+	CODE	local:79 }
+
+secureTransportClass3  OPERATION ::= {			--Timer shall be the same as for the
+						--securely transported operation
+	ARGUMENT
+		SecureTransportArg
+	RESULT
+		SecureTransportRes
+	CODE	local:80 }
+
+secureTransportClass4  OPERATION ::= {			--Timer shall be the same as for the
+						--securely transported operation
+	ARGUMENT
+		SecureTransportArg	
+	CODE	local:81 }
+
+
+END

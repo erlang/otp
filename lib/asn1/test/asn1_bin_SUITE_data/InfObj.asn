@@ -1,0 +1,153 @@
+InfObj DEFINITIONS ::=
+BEGIN
+
+
+RANAP-ELEMENTARY-PROCEDURE ::= CLASS {
+    &InitiatingMessage				,
+    &SuccessfulOutcome				OPTIONAL,
+    &Outcome				DEFAULT NULL,
+    &vartypvalue                        &Outcome OPTIONAL,
+    &FixTypeValSet                      PrintableString OPTIONAL,
+    &VarTypeValSet                      &InitiatingMessage OPTIONAL,
+    &infoObject                         RANAP-ELEMENTARY-PROCEDURE OPTIONAL,
+    &InfObjectSet                       CLASS2 OPTIONAL,
+    &UnsuccessfulOutcome				OPTIONAL,
+    &procedureCode			ProcedureCode 	UNIQUE,
+    &criticality			Criticality 	DEFAULT ignore
+}
+WITH SYNTAX {
+  INITIATING MESSAGE		&InitiatingMessage
+  [SUCCESSFUL OUTCOME		&SuccessfulOutcome]
+  [UNSUCCESSFUL OUTCOME		&UnsuccessfulOutcome]
+  [OUTCOME			&Outcome]
+  PROCEDURE CODE				&procedureCode
+  [CRITICALITY			&criticality]
+  [VARTYPEVALUE                 &vartypvalue]
+  [FIXT                         &FixTypeValSet]
+  [VART                         &VarTypeValSet]
+  [INFOOBJECT                   &infoObject]
+  [INFOOBJECTSET                &InfObjectSet]
+}
+
+RANAP-PDU ::= CHOICE {
+	initiatingMessage	InitiatingMessage,
+--	successfulOutcome	SuccessfulOutcome,
+--	unsuccessfulOutcome	UnsuccessfulOutcome,
+--	outcome			Outcome,
+	...
+}
+
+CLASS2 ::= RANAP-ELEMENTARY-PROCEDURE
+
+MY-CLASS ::= CLASS {
+    &integerValue      INTEGER UNIQUE,
+    &booleanValue      BOOLEAN,
+    &stringValue       PrintableString
+    }
+
+myobject MY-CLASS ::= {
+    &integerValue      12,
+    &booleanValue      TRUE,
+    &stringValue       "hejsan"
+    }
+MyObjectSet MY-CLASS ::= {
+    myobject
+    }
+
+InitiatingMessage  ::= SEQUENCE {
+    procedureCode  RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+    criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+    value	RANAP-ELEMENTARY-PROCEDURE.&InitiatingMessage	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+    }
+
+iu-Release RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-Iu-Release1
+    CRITICALITY		ignore
+    }
+
+relocationPreparation RANAP-ELEMENTARY-PROCEDURE ::= {
+    INITIATING MESSAGE	INTEGER --Iu-ReleaseCommand
+    SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+    PROCEDURE CODE	id-Iu-Release2
+    CRITICALITY		notify
+    }
+
+object3 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage Iu-ReleaseCommand,
+    &SuccessfulOutcome Iu-ReleaseComplete,
+    &procedureCode     id-Iu-Release3,
+    &criticality       reject
+    }
+
+object4 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage INTEGER,
+    &SuccessfulOutcome PrintableString,
+    &procedureCode     id-Iu-Release4,
+    &criticality       reject
+    }
+
+object5 RANAP-ELEMENTARY-PROCEDURE ::= {
+    &InitiatingMessage INTEGER,
+    &SuccessfulOutcome PrintableString,
+    &Outcome           ProcedureCode,
+    &vartypvalue       12,
+    &infoObject        object4,
+    &InfObjectSet      MyObjectSet,
+    &procedureCode     id-Iu-Release5,
+    &criticality       reject
+    }
+
+
+RANAP-ELEMENTARY-PROCEDURES RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release         |
+    relocationPreparation ,
+    ...
+    }
+
+RANAP-ELEMENTARY-PROCEDURES2 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release         |
+    relocationPreparation
+    }
+
+
+OBJECTSET1 RANAP-ELEMENTARY-PROCEDURE ::= {
+    {INITIATING MESSAGE Iu-ReleaseCommand SUCCESSFUL OUTCOME Iu-ReleaseComplete PROCEDURE CODE id-Iu-Release1 CRITICALITY ignore} | {INITIATING MESSAGE Iu-ReleaseCommand PROCEDURE CODE id-Iu-Release2}
+    }
+
+OBJECTSET2 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release |
+    {INITIATING MESSAGE Iu-ReleaseCommand SUCCESSFUL OUTCOME Iu-ReleaseComplete PROCEDURE CODE id-Iu-Release4 CRITICALITY ignore} |
+    relocationPreparation |
+    {INITIATING MESSAGE Iu-ReleaseCommand PROCEDURE CODE id-Iu-Release5} ,
+    ...
+    }
+
+OBJECTSET3 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release,
+    ...
+    }
+
+OBJECTSET4 RANAP-ELEMENTARY-PROCEDURE ::= {
+    iu-Release
+    }
+
+Iu-ReleaseCommand  ::= SEQUENCE {
+    first     INTEGER,
+    second    BOOLEAN
+    }
+
+Iu-ReleaseComplete ::= INTEGER (1..510)
+
+ProcedureCode      ::= INTEGER (0..255)
+Criticality        ::= ENUMERATED { reject, ignore, notify }
+id-Iu-Release1				INTEGER ::= 1
+id-Iu-Release2				INTEGER ::= 2
+id-Iu-Release3				INTEGER ::= 3
+id-Iu-Release4				INTEGER ::= 4
+id-Iu-Release5				INTEGER ::= 5
+
+END
+
+

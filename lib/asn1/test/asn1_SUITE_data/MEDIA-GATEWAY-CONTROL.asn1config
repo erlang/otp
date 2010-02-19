@@ -1,0 +1,7 @@
+{exclusive_decode,
+  {'MEDIA-GATEWAY-CONTROL',
+    [{decode_MegacoMessage_exclusive,['MegacoMessage',[{authHeader,undecoded},{mess,[{mId,undecoded},{messageBody,undecoded}]}]]},
+     {decode_Message_version,['Message',[{mId,undecoded},{messageBody,undecoded}]]}]}}.
+{selective_decode,
+	{'MEDIA-GATEWAY-CONTROL',
+	   [{decode_MegacoMessage_selective,['MegacoMessage',mess,version]}]}}.

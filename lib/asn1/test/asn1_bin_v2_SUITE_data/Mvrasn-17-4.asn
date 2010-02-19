@@ -1,0 +1,100 @@
+-- module(Mvrasn-17-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Error data types".
+--
+-- ASN.1 module: "MAP-ER-DataTypes".
+--
+-- =============================================================================
+
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+Mvrasn-17-4
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+    RoamingNotAllowedParam,
+    SystemFailureParam,
+    DataMissingParam,
+    UnexpectedDataParam,
+    UnknownSubscriberParam,
+    UnidentifiedSubParam
+
+;
+
+IMPORTS
+    
+    ExtensionContainer
+FROM Mvrasn-21-4
+
+    NetworkResource
+FROM Mvrasn-18-4
+
+;
+
+RoamingNotAllowedParam ::= SEQUENCE {
+    roamingNotAllowedCause   RoamingNotAllowedCause,
+    extensionContainer       ExtensionContainer OPTIONAL,
+    ...}
+
+RoamingNotAllowedCause ::= ENUMERATED {
+    plmnRoamingNotAllowed  (0),
+    operatorDeterminedBarring  (3)}
+
+SystemFailureParam ::= CHOICE {
+    networkResource          NetworkResource,
+    -- networkResource must not be used in version 3
+    extensibleSystemFailureParam  ExtensibleSystemFailureParam
+    -- extensibleSystemFailureParam must not be used in version <3
+    }
+
+ExtensibleSystemFailureParam ::= SEQUENCE {
+    networkResource          NetworkResource          OPTIONAL,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+DataMissingParam ::= SEQUENCE {
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+UnexpectedDataParam ::= SEQUENCE {
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+UnknownSubscriberParam ::= SEQUENCE {
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...,
+    unknownSubscriberDiagnostic UnknownSubscriberDiagnostic OPTIONAL}
+
+UnknownSubscriberDiagnostic ::= ENUMERATED {
+    imsiUnknown  (0),
+    gprsSubscriptionUnknown  (1),
+    ...}
+    -- if unknown values are received in    
+    -- unknownSubscriberDiagnostic they shall be discarded
+
+UnidentifiedSubParam ::= SEQUENCE {
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+END
+

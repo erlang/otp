@@ -1,0 +1,37 @@
+ChoTypeRefSet DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+ChoTRset ::=  CHOICE 
+{
+  choSet ChoSet,
+  choSetI [124] ChoSet,
+  choSetE [125] EXPLICIT ChoSet,
+
+  choSet-I ChoSetImp,
+  choSetI-I [224] ChoSetImp,
+  choSetE-I [225] EXPLICIT ChoSetImp,
+
+  choSet-E ChoSetExp,
+  choSetI-E [324] ChoSetExp,
+  choSetE-E [325] EXPLICIT ChoSetExp
+
+}
+
+ChoSet ::= SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+ChoSetImp ::= [54] SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+ChoSetExp ::= [55] EXPLICIT SET {
+		setInt INTEGER,
+		setOs OCTET STRING
+                }
+
+
+END

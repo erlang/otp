@@ -1,0 +1,44 @@
+ChoTypeRefCho DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+ChoTRcho ::=  CHOICE 
+{
+  choCho ChoChoNT,
+  choChoE [145] EXPLICIT ChoChoNT,
+
+  choCho-E ChoChoExp,
+  choChoE-E [345] EXPLICIT ChoChoExp
+
+}
+
+ChoChoNT ::= CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+ChoChoExp ::= [75] EXPLICIT CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+
+
+ChoChoInline ::=  CHOICE 
+{
+  bool1 [0] BOOLEAN,
+  choCho CHOICE 
+         {
+           bool BOOLEAN,
+           octStr OctStr,
+           int INTEGER
+         }
+}
+
+OctStr ::= OCTET STRING
+
+
+
+END

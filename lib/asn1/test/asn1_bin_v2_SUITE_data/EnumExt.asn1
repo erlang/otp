@@ -1,0 +1,28 @@
+EnumExt DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+Ext ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...
+}
+
+Ext1 ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2),
+	...,
+	orange(7)
+}
+
+Noext ::= ENUMERATED {
+	blue(0),
+	red(1),
+	green(2)
+}
+
+Globalstate ::= ENUMERATED {def(1),com(2),preop(3),oper(4),noop(5),fail(6)}
+
+END
+

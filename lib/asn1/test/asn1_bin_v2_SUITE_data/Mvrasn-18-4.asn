@@ -1,0 +1,215 @@
+-- module(Mvrasn-18-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Common data types".
+--
+-- ASN.1 module: "MAP-CommonDataTypes".
+--
+-- =============================================================================
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+Mvrasn-18-4
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+    -- general data types and values
+    AddressString,
+    ISDN-AddressString,
+    maxISDN-AddressLength,
+    ISDN-SubaddressString,
+--    ExternalSignalInfo,
+    LMSI,
+
+    -- data types for numbering and identification
+    IMSI,
+    NetworkResource,
+    NAEA-PreferredCI, 
+
+    -- data types for subscriber management
+    Ext-BasicServiceCode,
+    EMLPP-Info
+;
+
+IMPORTS
+    
+    ExtensionContainer
+FROM Mvrasn-21-4
+
+    Ext-BearerServiceCode
+FROM Mvrasn-20-4
+
+    Ext-TeleserviceCode
+FROM Mvrasn-19-4
+    
+;
+
+-- general data types
+
+TBCD-STRING ::= OCTET STRING
+    -- This type (Telephony Binary Coded Decimal String) is used to
+    -- represent several digits from 0 through 9, *, #, a, b, c, two
+    -- digits per octet, each digit encoded 0000 to 1001 (0 to 9),
+    -- 1010 (*), 1011 (#), 1100 (a), 1101 (b) or 1110 (c); 1111 used
+    -- as filler when there is an odd number of digits.
+
+    -- bits 8765 of octet n encoding digit 2n
+    -- bits 4321 of octet n encoding digit 2(n-1) +1
+
+AddressString ::= OCTET STRING (SIZE (1..maxAddressLength))
+    -- This type is used to represent a number for addressing
+    -- purposes. It is composed of
+    --  a)  one octet for nature of address, and numbering plan
+    --      indicator.
+    --  b)  digits of an address encoded as TBCD-String.
+
+    -- a)   The first octet includes a one bit extension indicator, a
+    --      3 bits nature of address indicator and a 4 bits numbering
+    --      plan indicator, encoded as follows:
+
+    -- bit 8: 1  (no extension)
+
+    -- bits 765: nature of address indicator
+    --  000  unknown
+    --  001  international number
+    --  010  national significant number
+    --  011  network specific number
+    --  100  subscriber number
+    --  101  reserved
+    --  110  abbreviated number
+    --  111  reserved for extension
+
+    -- bits 4321: numbering plan indicator
+    --  0000  unknown
+    --  0001  ISDN/Telephony Numbering Plan (Rec CCITT E.164)
+    --  0010  spare
+    --  0011  data numbering plan (CCITT Rec X.121)
+    --  0100  telex numbering plan (CCITT Rec F.69)
+    --  0101  spare
+    --  0110  land mobile numbering plan (CCITT Rec E.212)
+    --  0111  spare
+    --  1000  national numbering plan
+    --  1001  private numbering plan
+    --  1111  reserved for extension
+
+    --  all other values are reserved.
+
+    -- b)   The following octets representing digits of an address
+    --      encoded as a TBCD-STRING.
+
+maxAddressLength  INTEGER ::= 20
+
+ISDN-AddressString ::= 
+            AddressString (SIZE (1..maxISDN-AddressLength))
+    -- This type is used to represent ISDN numbers.
+
+maxISDN-AddressLength  INTEGER ::= 9
+
+ISDN-SubaddressString ::= 
+            OCTET STRING (SIZE (1..maxISDN-SubaddressLength))
+    -- This type is used to represent ISDN subaddresses.
+    -- It is composed of
+    --  a)  one octet for type of subaddress and odd/even indicator.
+    --  b)  20 octets for subaddress information.
+
+    --  a)  The first octet includes a one bit extension indicator, a
+    --      3 bits type of subaddress and a one bit odd/even indicator,
+    --      encoded as follows:
+
+    --  bit 8: 1  (no extension)
+
+    --  bits 765: type of subaddress
+    --      000  NSAP (X.213/ISO 8348 AD2)
+    --      010  User Specified
+    --      All other values are reserved
+
+    --  bit 4: odd/even indicator
+    --      0  even number of address signals
+    --      1  odd number of address signals
+    --      The odd/even indicator is used when the type of subaddress
+    --      is "user specified" and the coding is BCD.
+
+    --  bits 321: 000 (unused)
+
+    --  b) Subaddress information.
+    --  The NSAP X.213/ISO8348AD2 address shall be formatted as specified
+    --  by octet 4 which contains the Authority and Format Identifier
+    --  (AFI). The encoding is made according to the "preferred binary
+    --  encoding" as defined in X.213/ISO834AD2. For the definition
+    --  of this type of subaddress, see CCITT Rec I.334.
+
+    --  For User-specific subaddress, this field is encoded according
+    --  to the user specification, subject to a maximum length of 20
+    --  octets. When interworking with X.25 networks BCD coding should
+    --  be applied.
+
+maxISDN-SubaddressLength  INTEGER ::= 21
+
+-- data types for numbering and identification
+
+IMSI ::= TBCD-STRING (SIZE (3..8))
+    -- digits of MCC, MNC, MSIN are concatenated in this order.
+
+LMSI ::= OCTET STRING (SIZE (4))
+
+NetworkResource ::= ENUMERATED {
+    plmn  (0),
+    hlr  (1),
+    vlr  (2),
+    pvlr  (3),
+    controllingMSC  (4),
+    vmsc  (5),
+    eir  (6),
+    rss  (7)}
+
+NAEA-PreferredCI ::= SEQUENCE {
+    naea-PreferredCIC   [0]  NAEA-CIC,
+    extensionContainer  [1]  ExtensionContainer OPTIONAL,
+    ...}
+
+NAEA-CIC ::= OCTET STRING (SIZE (3))
+    -- The internal structure is defined by the Carrier Identification
+    -- parameter in ANSI T1.113.3. Carrier codes between "000" and "999" may
+    -- be encoded as 3 digits using "000" to "999" or as 4 digits using 
+    -- "0000" to "0999". Carrier codes between "1000" and "9999" are encoded
+    -- using 4 digits.
+
+
+-- data types for subscriber management
+
+Ext-BasicServiceCode ::= CHOICE {
+    ext-BearerService   [2]  Ext-BearerServiceCode,
+    ext-Teleservice     [3]  Ext-TeleserviceCode}
+
+EMLPP-Info ::= SEQUENCE {
+    maximumentitledPriority  EMLPP-Priority,
+    defaultPriority          EMLPP-Priority,
+    extensionContainer       ExtensionContainer       OPTIONAL,
+    ...}
+
+EMLPP-Priority ::= INTEGER (0..15)
+    -- The mapping from the values A,B,0,1,2,3,4 to the integer-value is
+    -- specified as follows where A is the highest and 4 is the lowest
+    -- priority level
+    -- the integer values 7-15 are spare and shall be mapped to value 4
+
+END

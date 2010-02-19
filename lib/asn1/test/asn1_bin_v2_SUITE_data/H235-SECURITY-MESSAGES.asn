@@ -1,0 +1,170 @@
+H235-SECURITY-MESSAGES DEFINITIONS AUTOMATIC TAGS ::=
+BEGIN
+
+-- EXPORTS All
+
+ChallengeString	::= OCTET STRING (SIZE(8..128))
+TimeStamp			::= INTEGER(1..4294967295) -- seconds since 00:00 1/1/1970 UTC
+RandomVal			::= INTEGER
+Password				::= BMPString (SIZE (1..128))
+Identifier			::= BMPString (SIZE (1..128))
+KeyMaterial			::= BIT STRING(SIZE(1..2048))
+
+NonStandardParameter ::= SEQUENCE
+{
+	nonStandardIdentifier	OBJECT IDENTIFIER,
+	data			OCTET STRING
+}
+
+-- if local octet representations of these bit strings are used they shall 
+-- utilize standard Network Octet ordering (e.g. Big Endian)
+DHset ::= SEQUENCE  
+{
+	halfkey		BIT STRING (SIZE(0..2048)), -- = g^x mod n
+	modSize		BIT STRING (SIZE(0..2048)), --  n
+	generator	BIT STRING (SIZE(0..2048)), -- g
+	...
+}
+
+TypedCertificate ::= SEQUENCE
+{
+	type			OBJECT IDENTIFIER,
+	certificate	OCTET STRING,
+	...
+}
+
+AuthenticationMechanism	 ::=CHOICE 
+{
+	dhExch     	NULL, -- Diffe-Hellman
+	pwdSymEnc	NULL, -- password with symmetric encryption
+	pwdHash		NULL, -- password with hashing
+	certSign		NULL, -- Certificate with signature
+	ipsec		NULL, -- IPSEC based connection
+	tls			NULL,
+	nonStandard 	NonStandardParameter, -- something else.
+	...
+}
+
+ClearToken		::= SEQUENCE  -- a `token' may contain multiple value types.
+{	
+	timeStamp		TimeStamp OPTIONAL,
+	password			Password OPTIONAL,
+	dhkey			DHset OPTIONAL,
+	challenge		ChallengeString OPTIONAL,
+	random			RandomVal OPTIONAL,
+	certificate		TypedCertificate OPTIONAL,
+	generalID		Identifier OPTIONAL,
+	nonStandard 		NonStandardParameter OPTIONAL,
+	...
+}
+
+--
+-- Start all the cryptographic parameterized types here....
+--
+
+
+SIGNED { ToBeSigned } ::= SEQUENCE {
+   toBeSigned  	ToBeSigned,
+   algorithmOID  OBJECT IDENTIFIER, 
+   paramS 		Params,	-- any 'runtime' parameters
+   signature   	BIT STRING
+} ( CONSTRAINED BY { -- Verify or Sign Certificate -- } )
+
+
+ENCRYPTED { ToBeEncrypted } ::= SEQUENCE {
+   algorithmOID  	OBJECT IDENTIFIER, 
+   paramS 			Params,	-- any 'runtime' parameters
+   encryptedData  	OCTET STRING
+} ( CONSTRAINED BY { -- Encrypt or Decrypt -- ToBeEncrypted } )
+
+HASHED { ToBeHashed } ::= SEQUENCE {
+   algorithmOID  	OBJECT IDENTIFIER, 
+   paramS 			Params,	-- any 'runtime' parameters
+   hash				BIT STRING
+} ( CONSTRAINED BY { -- Hash -- ToBeHashed } )
+
+IV8 ::= OCTET STRING (SIZE(8))
+
+-- signing algorithm used must select one of these types of parameters 
+-- needed by receiving end of signature.
+
+Params ::= SEQUENCE {
+	ranInt	INTEGER OPTIONAL, -- some integer value
+	iv8		IV8 OPTIONAL,	-- 8 octet initialization vector
+	...
+}
+
+EncodedGeneralToken ::= TYPE-IDENTIFIER.&Type (ClearToken -- general usage token -- )
+PwdCertToken ::= ClearToken (WITH COMPONENTS {..., timeStamp PRESENT, generalID PRESENT})
+EncodedPwdCertToken ::= TYPE-IDENTIFIER.&Type (PwdCertToken) 
+
+CryptoToken::= CHOICE
+{
+
+	cryptoEncryptedToken SEQUENCE -- General purpose/application specific token
+	{
+		tokenOID  	OBJECT IDENTIFIER, 
+		token 		ENCRYPTED { EncodedGeneralToken }
+	},
+	cryptoSignedToken  SEQUENCE -- General purpose/application specific token
+	{
+		tokenOID  OBJECT IDENTIFIER, 
+		token 		SIGNED { EncodedGeneralToken }
+	},
+	cryptoHashedToken SEQUENCE -- General purpose/application specific token
+	{
+		tokenOID  		OBJECT IDENTIFIER, 
+		hashedVals		ClearToken,
+		token HASHED { EncodedGeneralToken }
+	},
+	cryptoPwdEncr 	ENCRYPTED { EncodedPwdCertToken },
+	...
+}
+
+-- These allow the passing of session keys within the H.245 OLC structure.
+-- They are encoded as standalone ASN.1 and based as an OCTET STRING within H.245
+H235Key	::=CHOICE  -- this is used with the H.245 'h235Key' field
+{
+	secureChannel	KeyMaterial,
+	sharedSecret		ENCRYPTED {EncodedKeySyncMaterial},
+	certProtectedKey	SIGNED { EncodedKeySignedMaterial },
+	...
+}
+
+KeySignedMaterial ::= SEQUENCE {
+	generalId		Identifier, -- slave's alias
+	mrandom	RandomVal, -- master's random value
+	srandom	RandomVal OPTIONAL, -- slave's random value
+	timeStamp	TimeStamp OPTIONAL, -- master's timestamp for unsolicted EU
+	encrptval	ENCRYPTED {EncodedKeySyncMaterial }
+}
+EncodedKeySignedMaterial ::= TYPE-IDENTIFIER.&Type (KeySignedMaterial)
+
+KeySyncMaterial	::=SEQUENCE
+{
+	generalID		Identifier,
+	keyMaterial 	KeyMaterial,
+	...
+}
+EncodedKeySyncMaterial	::=TYPE-IDENTIFIER.&Type (KeySyncMaterial)
+
+H235CertificateSignature	::=SEQUENCE
+{
+	certificate			TypedCertificate,
+	responseRandom		RandomVal,
+	requesterRandom	RandomVal OPTIONAL,
+	signature			SIGNED { EncodedReturnSig },
+	...
+}
+
+ReturnSig ::= SEQUENCE {
+	generalId			Identifier, -- slave's alias
+ 	responseRandom 	RandomVal,
+ 	requestRandom 		RandomVal OPTIONAL,
+ 	certificate  		TypedCertificate OPTIONAL -- requested certificate
+}
+
+EncodedReturnSig ::= TYPE-IDENTIFIER.&Type (ReturnSig)
+
+
+END	-- End of H235-SECURITY-MESSAGES DEFINITIONS 

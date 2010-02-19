@@ -1,0 +1,18 @@
+UPERDefault DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+-- OTP-7681
+Int ::= INTEGER (0..32767)
+
+Seq ::= SEQUENCE {
+  a Int,
+  b INTEGER (-27..27) DEFAULT 0, -- OTP-7678
+  c INTEGER OPTIONAL
+}
+
+seq Seq ::=
+{a 12,
+ b 0}
+
+END

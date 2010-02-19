@@ -1,0 +1,35 @@
+ChoOptional DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+Seq1 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  int   INTEGER OPTIONAL,
+  cho   ChoOpt OPTIONAL
+}
+
+Seq2 ::= SEQUENCE 
+{
+  int   INTEGER OPTIONAL,
+  cho   ChoOpt OPTIONAL,
+  bool  BOOLEAN
+}
+
+Seq3 ::= SEQUENCE 
+{
+  cho   ChoOpt OPTIONAL,
+  int   INTEGER OPTIONAL,
+  bool  BOOLEAN
+}
+
+
+ChoOpt ::= CHOICE 
+{
+  vsCho  VisibleString,
+  ocStrCho  OCTET STRING
+}
+
+
+END

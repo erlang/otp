@@ -1,0 +1,87 @@
+%%
+%% %CopyrightBegin%
+%% 
+%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
+%% 
+%% The contents of this file are subject to the Erlang Public License,
+%% Version 1.1, (the "License"); you may not use this file except in
+%% compliance with the License. You should have received a copy of the
+%% Erlang Public License along with this software. If not, it can be
+%% retrieved online at http://www.erlang.org/.
+%% 
+%% Software distributed under the License is distributed on an "AS IS"
+%% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+%% the License for the specific language governing rights and limitations
+%% under the License.
+%% 
+%% %CopyrightEnd%
+%%
+%%
+
+-module(test_records).
+
+-export(['check_record_names_OTP-5812'/1]).
+
+%-include("test_server.hrl").
+%-include_lib("test_server/include/test_server.hrl").
+
+-define(line,put(test_server_loc,{?MODULE,?LINE}),).
+
+-include("NBAP-PDU-Discriptions.hrl").
+-include("NBAP-PDU-Contents.hrl").
+-include("NBAP-Containers.hrl").
+-include("NBAP-CommonDataTypes.hrl").
+-include("NBAP-IEs.hrl").
+
+
+
+
+'check_record_names_OTP-5812'(Msg) ->
+    io:format("Msg: ~n~p~n",[Msg]),
+    check_record_names(Msg).
+
+check_record_names({initiatingMessage,
+		    #'InitiatingMessage'{procedureID = ProcedureID,
+					 criticality = _Criticality,
+					 messageDiscriminator = _MessageDisc,
+					 transactionID = _TransactionID,
+					 value = Value}}) ->
+    
+    ?line ok = check_record_ProcedureID(ProcedureID),
+    ?line ok = check_record_Value(Value).
+
+check_record_ProcedureID(#'ProcedureID'{}) ->
+    ok;
+check_record_ProcedureID(_) -> false.
+
+check_record_Value(#'ResourceStatusIndication'{protocolIEs = ProtocolIEs}) ->
+    ?line ok = check_record_ProtocolIEs(ProtocolIEs);
+check_record_Value(_) -> false.
+
+check_record_ProtocolIEs([#'ProtocolIE-Field'{value =IndicationType}|_]) ->
+    ?line ok = check_record_NFResourceStatusInd(IndicationType);
+check_record_ProtocolIEs(_) -> false.
+
+check_record_NFResourceStatusInd({'no-Failure',#'No-Failure-ResourceStatusInd'{'local-Cell-InformationList'=[LCIPF]}}) ->
+    'check_record_NFResourceStatusInd_ProtocolIE-Field'(LCIPF);
+check_record_NFResourceStatusInd(_) -> false.
+
+'check_record_NFResourceStatusInd_ProtocolIE-Field'(#'ProtocolIE-Field'{value=LCI}) ->
+    ?line ok = check_record_LCInfoResourceStatusInd(LCI);
+'check_record_NFResourceStatusInd_ProtocolIE-Field'(_) -> false.
+
+check_record_LCInfoResourceStatusInd(#'Local-Cell-InformationItem-ResourceStatusInd'{commonChannelsCapacityConsumptionLaw=[CCCCL],dedicatedChannelsCapacityConsumptionLaw=[DCCCL],'iE-Extensions' = [LCIRE]}) ->
+    ?line ok = check_record_CCCCL(CCCCL),
+    ?line ok = check_record_DCCCL(DCCCL),
+    ?line ok = check_record_LCIRE(LCIRE).
+
+check_record_CCCCL(#'CommonChannelsCapacityConsumptionLaw_SEQOF'{}) -> 
+    ok;
+check_record_CCCCL(_) -> false.
+
+check_record_DCCCL(#'DedicatedChannelsCapacityConsumptionLaw_SEQOF'{}) ->
+    ok;
+check_record_DCCCL(_) -> false.
+check_record_LCIRE(#'ProtocolExtensionField'{}) ->
+    ok;
+check_record_LCIRE(_) -> false.

@@ -1,0 +1,33 @@
+Mod4 DEFINITIONS AUTOMATIC TAGS ::=
+
+
+BEGIN
+
+IMPORTS
+    PersonName
+    FROM Mod3
+    OtherName,FirstName,FamilyName
+    FROM Mod2;
+
+Time ::= SEQUENCE {
+  year  OCTET STRING(SIZE(4)),
+  month OCTET STRING(SIZE(2)),
+  hour  INTEGER,
+  minute INTEGER
+}
+
+Name ::= CHOICE {
+  person PersonName,
+  othername OtherName
+}
+
+
+
+LocName ::= SEQUENCE {
+  region ENUMERATED{gotaland,svealand,norrland},
+  name  PrintableString
+}
+
+ThingName ::= PrintableString
+
+END

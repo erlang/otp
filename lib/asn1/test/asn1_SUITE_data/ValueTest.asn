@@ -1,0 +1,53 @@
+ValueTest DEFINITIONS  ::= 
+
+BEGIN
+
+--Criticality    ::= ENUMERATED { reject, ignore, notify }(reject)
+
+--Ignore         ::= Criticality(ignore)
+
+--SubCriticality ::= Criticality(reject|notify)
+
+INNL ::= INTEGER {zero(0),one(1),ten(10)}
+BSNNL ::= BIT STRING {zero(0),one(1),two(2)}
+RadioButton ::= ENUMERATED {button1(0),button2(1),button3(2)}
+
+-- OTP-6695
+vANY ANY ::= INTEGER:12
+
+-- basic type value test for coverage
+vBOOLEAN BOOLEAN ::= TRUE
+vINTEGER INTEGER ::= 12
+vINTEGERNNL INNL ::= zero
+vENUMERATED RadioButton ::= button1
+vBS BSNNL ::= {zero,two}
+vNULL NULL ::= NULL
+vOS OCTET STRING ::= '313233'H
+vOD OBJECT IDENTIFIER ::= {2 1 1}
+
+
+--Character strings
+numericstring NumericString ::= "01234567"
+printablestring PrintableString ::= "PrintableString"
+visiblestring VisibleString ::= "VisibleString"
+cr IA5String ::= {0,13}
+ia5string1 IA5String ::= {"First line",cr, "Second line"}
+ia5string2 IA5String ::= {{5,5},{4,4},{6,6}}
+teletexstring TeletexString ::= "TeletexString"
+videotexstring VideotexString ::= "VideotexString"
+utctime UTCTime ::= "97100211-0500"
+generalizedtime GeneralizedTime ::= "19971002103130.5"
+objectdescriptor ObjectDescriptor ::= "ObjectDescriptor"
+graphicstring GraphicString ::= "GraphicString"
+generalstring GeneralString ::= "GeneralString"
+bmpstring1 BMPString ::= "BMPString"
+--bmpstring2 BMPString ::= [{0,0,0,66},{0,0,0,77},{0,0,0,80},{0,0,0,115},{0,0,0,116},{0,0,0,114},{0,0,0,105},{0,0,0,110},{0,0,0,103}]
+latinCapitalLetterA UniversalString ::= {0,0,0,65}
+greekCapitalLetterSigma UniversalString ::= {0,0,3,145}
+my-universalstring UniversalString ::= {"This is a capital A: ",
+					latinCapitalLetterA,
+					", and a capital sigma: ",
+					greekCapitalLetterSigma,
+					"; try and spot the difference!"}
+
+END

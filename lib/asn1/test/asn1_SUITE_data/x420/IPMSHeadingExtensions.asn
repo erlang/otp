@@ -1,0 +1,246 @@
+-- Module IPMSHeadingExtensions (X.420:06/1999)
+IPMSHeadingExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  heading-extensions(6) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS
+  -- IPMS Information Objects
+  IPMS-EXTENSION, ORDescriptor, RecipientSpecifier, ThisIPMField, BodyPart
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- MTS Abstract Service
+  ExtendedCertificates, SecurityLabel, UniversalOrBMPString{}
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- Directory Authentication Framework
+  AlgorithmIdentifier, SIGNATURE{}, SIGNED{}
+    --==
+    FROM AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+      authenticationFramework(7) 3}
+  -- Directory Certificate Extensions
+  CertificateAssertion
+    --==
+    FROM CertificateExtensions {joint-iso-itu-t ds(5) module(1)
+      certificateExtensions(26) 0}
+  -- IPMS upper bounds
+  ub-alpha-code-length, ub-circulation-list-members, ub-distribution-codes,
+    ub-extended-subject-length, ub-information-categories,
+    ub-information-category-length, ub-manual-handling-instruction-length,
+    ub-manual-handling-instructions, ub-originators-reference-length,
+    ub-precedence
+    --==
+    FROM IPMSUpperBounds {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      upper-bounds(10) version-1999(1)}
+  -- IPMS Object Identifiers
+  id-hex-authorization-time, id-hex-auto-submitted,
+    id-hex-body-part-signatures, id-hex-circulation-list-recipients,
+    id-hex-distribution-codes, id-hex-extended-subject, id-hex-incomplete-copy,
+    id-hex-information-category, id-hex-ipm-security-label, id-hex-languages,
+    id-hex-manual-handling-instructions, id-hex-originators-reference,
+    id-hex-precedence-policy-id, id-rex-circulation-list-indicator,
+    id-rex-precedence
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)};
+
+-- Incomplete Copy
+incomplete-copy IPMS-EXTENSION ::= {
+  VALUE          IncompleteCopy,
+  IDENTIFIED BY  id-hex-incomplete-copy
+}
+
+IncompleteCopy ::= NULL
+
+-- Languages
+languages IPMS-EXTENSION ::= {
+  VALUE          SET OF Language,
+  IDENTIFIED BY  id-hex-languages
+}
+
+Language ::= PrintableString(SIZE (2 | 5))
+
+-- Auto-submitted
+auto-submitted IPMS-EXTENSION ::= {
+  VALUE          AutoSubmitted,
+  IDENTIFIED BY  id-hex-auto-submitted
+}
+
+AutoSubmitted ::= ENUMERATED {
+  not-auto-submitted(0), auto-generated(1), auto-replied(2)}
+
+body-part-signatures IPMS-EXTENSION ::= {
+  VALUE          BodyPartSignatures,
+  IDENTIFIED BY  id-hex-body-part-signatures
+}
+
+BodyPartSignatures ::=
+  SET OF
+    SET {body-part-number                 BodyPartNumber,
+         body-part-signature              BodyPartSignature,
+         originator-certificate-selector  [1]  CertificateAssertion OPTIONAL,
+         originator-certificates          [0]  ExtendedCertificates OPTIONAL,
+         ...}
+
+BodyPartNumber ::= INTEGER(1..MAX)
+
+BodyPartSignature ::=
+  SIGNATURE
+    {SEQUENCE {signature-algorithm-identifier  AlgorithmIdentifier,
+               body-part                       BodyPart,
+               body-part-security-label        SecurityLabel OPTIONAL
+    }}
+
+ipm-security-label IPMS-EXTENSION ::= {
+  VALUE          IPMSecurityLabel,
+  IDENTIFIED BY  id-hex-ipm-security-label
+}
+
+IPMSecurityLabel ::= SEQUENCE {
+  content-security-label     [0]  SecurityLabel,
+  heading-security-label     [1]  SecurityLabel OPTIONAL,
+  body-part-security-labels  [2]  SEQUENCE OF BodyPartSecurityLabel OPTIONAL
+}
+
+BodyPartSecurityLabel ::= CHOICE {
+  body-part-unlabelled      [0]  NULL,
+  body-part-security-label  [1]  SecurityLabel
+}
+
+-- Authorization Time
+authorization-time IPMS-EXTENSION ::= {
+  VALUE          AuthorizationTime,
+  IDENTIFIED BY  id-hex-authorization-time
+}
+
+AuthorizationTime ::= GeneralizedTime
+
+-- Circulation List
+circulation-list-recipients IPMS-EXTENSION ::= {
+  VALUE          CirculationList,
+  IDENTIFIED BY  id-hex-circulation-list-recipients
+}
+
+CirculationList ::=
+  SEQUENCE (SIZE (2..ub-circulation-list-members)) OF CirculationMember
+
+CirculationMember ::= SET {
+  circulation-recipient
+    RecipientSpecifier
+      (WITH COMPONENTS {
+         ...,
+         recipient  (WITH COMPONENTS {
+                       ...,
+                       formal-name  PRESENT
+                     })
+       }),
+  checked                Checkmark OPTIONAL
+}
+
+Checkmark ::= CHOICE {
+  simple       NULL,
+  timestamped  CirculationTime,
+  signed       CirculationSignature
+}
+
+CirculationTime ::= GeneralizedTime
+
+CirculationSignature ::=
+  SIGNED
+    {SEQUENCE {algorithm-identifier  CirculationSignatureAlgorithmIdentifier,
+               this-IPM              ThisIPMField,
+               timestamp             CirculationTime}}
+
+CirculationSignatureAlgorithmIdentifier ::= AlgorithmIdentifier
+
+-- Circulation List Indicator
+circulation-list-indicator IPMS-EXTENSION ::= {
+  VALUE          NULL,
+  IDENTIFIED BY  id-rex-circulation-list-indicator
+}
+
+-- Distribution Codes
+distribution-codes IPMS-EXTENSION ::= {
+  VALUE          DistributionCodes,
+  IDENTIFIED BY  id-hex-distribution-codes
+}
+
+DistributionCodes ::=
+  SEQUENCE (SIZE (1..ub-distribution-codes)) OF DistributionCode
+
+DistributionCode ::= SEQUENCE {
+  oid-code           OBJECT IDENTIFIER OPTIONAL,
+  alphanumeric-code  AlphaCode OPTIONAL,
+  or-descriptor      [0]  ORDescriptor OPTIONAL
+}
+
+AlphaCode ::= UniversalOrBMPString{ub-alpha-code-length}
+
+-- Extended Subject
+extended-subject IPMS-EXTENSION ::= {
+  VALUE          ExtendedSubject,
+  IDENTIFIED BY  id-hex-extended-subject
+}
+
+ExtendedSubject ::= UniversalOrBMPString{ub-extended-subject-length}
+
+-- Information category
+information-category IPMS-EXTENSION ::= {
+  VALUE          InformationCategories,
+  IDENTIFIED BY  id-hex-information-category
+}
+
+InformationCategories ::=
+  SEQUENCE (SIZE (1..ub-information-categories)) OF InformationCategory
+
+InformationCategory ::= SEQUENCE {
+  reference    [0]  OBJECT IDENTIFIER OPTIONAL,
+  description  [1]  DescriptionString OPTIONAL
+}
+
+DescriptionString ::= UniversalOrBMPString{ub-information-category-length}
+
+-- Manual handling Instructions
+manual-handling-instructions IPMS-EXTENSION ::= {
+  VALUE          ManualHandlingInstructions,
+  IDENTIFIED BY  id-hex-manual-handling-instructions
+}
+
+ManualHandlingInstructions ::=
+  SEQUENCE (SIZE (1..ub-manual-handling-instructions)) OF
+    ManualHandlingInstruction
+
+ManualHandlingInstruction ::=
+  UniversalOrBMPString{ub-manual-handling-instruction-length}
+
+-- Originator's Reference
+originators-reference IPMS-EXTENSION ::= {
+  VALUE          OriginatorsReference,
+  IDENTIFIED BY  id-hex-originators-reference
+}
+
+OriginatorsReference ::= UniversalOrBMPString{ub-originators-reference-length}
+
+-- Precedence Policy Identifier
+precedence-policy-identifier IPMS-EXTENSION ::= {
+  VALUE          PrecedencePolicyIdentifier,
+  IDENTIFIED BY  id-hex-precedence-policy-id
+}
+
+PrecedencePolicyIdentifier ::= OBJECT IDENTIFIER
+
+-- Precedence
+precedence IPMS-EXTENSION ::= {
+  VALUE          Precedence,
+  IDENTIFIED BY  id-rex-precedence
+}
+
+Precedence ::= INTEGER(0..ub-precedence)
+
+END -- of IPMSHeadingExtensions
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

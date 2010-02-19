@@ -1,0 +1,405 @@
+MAP-ER-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ER-DataTypes (17) version9 (9)}
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+	RoamingNotAllowedParam,
+	CallBarredParam,
+	CUG-RejectParam,
+	SS-IncompatibilityCause,
+	PW-RegistrationFailureCause,
+	SM-DeliveryFailureCause,
+	SystemFailureParam,
+	DataMissingParam,
+	UnexpectedDataParam,
+	FacilityNotSupParam,
+	OR-NotAllowedParam,
+	UnknownSubscriberParam,
+	NumberChangedParam,
+	UnidentifiedSubParam,
+	IllegalSubscriberParam,
+	IllegalEquipmentParam,
+	BearerServNotProvParam,
+	TeleservNotProvParam,
+	TracingBufferFullParam,
+	NoRoamingNbParam,
+	AbsentSubscriberParam,
+	BusySubscriberParam,
+	NoSubscriberReplyParam,
+	ForwardingViolationParam,
+	ForwardingFailedParam, 
+	ATI-NotAllowedParam,
+	SubBusyForMT-SMS-Param,
+	MessageWaitListFullParam,
+	AbsentSubscriberSM-Param,
+	AbsentSubscriberDiagnosticSM,
+	ResourceLimitationParam,
+	NoGroupCallNbParam,
+	IncompatibleTerminalParam,
+	ShortTermDenialParam,
+	LongTermDenialParam,
+	UnauthorizedRequestingNetwork-Param,
+	UnauthorizedLCSClient-Param,
+	PositionMethodFailure-Param,
+	UnknownOrUnreachableLCSClient-Param,
+	MM-EventNotSupported-Param,
+	SecureTransportErrorParam,
+	ATSI-NotAllowedParam,
+	ATM-NotAllowedParam,
+	IllegalSS-OperationParam,
+	SS-NotAvailableParam,
+	SS-SubscriptionViolationParam,
+	InformationNotAvailableParam,
+	TargetCellOutsideGCA-Param
+
+;
+
+IMPORTS
+	SS-Status
+FROM MAP-SS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-DataTypes (14) version9 (9)}
+
+	SignalInfo,
+	BasicServiceCode,
+	NetworkResource,
+	AdditionalNetworkResource
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+	SecurityHeader,
+	ProtectedPayload
+FROM MAP-ST-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ST-DataTypes (27) version9 (9)}
+
+
+	SS-Code
+FROM MAP-SS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-Code (15) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+;
+
+RoamingNotAllowedParam ::= SEQUENCE {
+	roamingNotAllowedCause	RoamingNotAllowedCause,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+RoamingNotAllowedCause ::= ENUMERATED {
+	plmnRoamingNotAllowed  (0),
+	operatorDeterminedBarring  (3)}
+
+CallBarredParam ::= CHOICE {
+	callBarringCause	CallBarringCause,
+	-- call BarringCause must not be used in version 3 and higher
+	extensibleCallBarredParam	ExtensibleCallBarredParam
+	-- extensibleCallBarredParam must not be used in version <3
+	}
+
+CallBarringCause ::= ENUMERATED {
+	barringServiceActive  (0),
+	operatorBarring  (1)}
+
+ExtensibleCallBarredParam ::= SEQUENCE {
+	callBarringCause	CallBarringCause	OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	... ,
+	unauthorisedMessageOriginator	[1] NULL		OPTIONAL }
+
+CUG-RejectParam ::= SEQUENCE {
+	cug-RejectCause	CUG-RejectCause	OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+CUG-RejectCause ::= ENUMERATED {
+	incomingCallsBarredWithinCUG  (0),
+	subscriberNotMemberOfCUG  (1),
+	requestedBasicServiceViolatesCUG-Constraints  (5),
+	calledPartySS-InteractionViolation  (7)}
+
+SS-IncompatibilityCause ::= SEQUENCE {
+	ss-Code		[1] SS-Code	OPTIONAL,
+	basicService	BasicServiceCode	OPTIONAL,
+	ss-Status		[4] SS-Status	OPTIONAL,
+	...}
+
+PW-RegistrationFailureCause ::= ENUMERATED {
+	undetermined  (0),
+	invalidFormat  (1),
+	newPasswordsMismatch  (2)}
+
+SM-EnumeratedDeliveryFailureCause ::= ENUMERATED {
+	memoryCapacityExceeded  (0),
+	equipmentProtocolError  (1),
+	equipmentNotSM-Equipped  (2),
+	unknownServiceCentre  (3),
+	sc-Congestion  (4),
+	invalidSME-Address  (5),
+	subscriberNotSC-Subscriber  (6)}
+
+SM-DeliveryFailureCause ::= SEQUENCE {
+	sm-EnumeratedDeliveryFailureCause	SM-EnumeratedDeliveryFailureCause,
+	diagnosticInfo	SignalInfo	OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+AbsentSubscriberSM-Param ::= SEQUENCE {
+	absentSubscriberDiagnosticSM	AbsentSubscriberDiagnosticSM	OPTIONAL,
+	-- AbsentSubscriberDiagnosticSM can be either for non-GPRS 
+	-- or for GPRS
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	additionalAbsentSubscriberDiagnosticSM  	[0] 	AbsentSubscriberDiagnosticSM	OPTIONAL }
+	-- if received, additionalAbsentSubscriberDiagnosticSM 
+	-- is for GPRS and absentSubscriberDiagnosticSM is 
+	-- for non-GPRS
+
+AbsentSubscriberDiagnosticSM ::= INTEGER (0..255)
+	-- AbsentSubscriberDiagnosticSM values are defined in 3GPP TS 23.040
+
+SystemFailureParam ::= CHOICE {
+	networkResource	NetworkResource,
+	-- networkResource must not be used in version 3
+	extensibleSystemFailureParam	ExtensibleSystemFailureParam
+	-- extensibleSystemFailureParam must not be used in version <3
+	}
+
+ExtensibleSystemFailureParam ::= SEQUENCE {
+	networkResource	NetworkResource	OPTIONAL,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	additionalNetworkResource	[0] AdditionalNetworkResource	OPTIONAL }
+
+DataMissingParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+UnexpectedDataParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+FacilityNotSupParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	shapeOfLocationEstimateNotSupported [0]	NULL		OPTIONAL,
+	neededLcsCapabilityNotSupportedInServingNode [1] NULL	OPTIONAL }
+
+OR-NotAllowedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+UnknownSubscriberParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	unknownSubscriberDiagnostic	UnknownSubscriberDiagnostic	OPTIONAL}
+
+UnknownSubscriberDiagnostic ::= ENUMERATED {
+	imsiUnknown  (0),
+	gprsSubscriptionUnknown  (1),
+	...,
+	npdbMismatch  (2)}
+	-- if unknown values are received in 	
+	-- UnknownSubscriberDiagnostic they shall be discarded
+
+NumberChangedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+UnidentifiedSubParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+IllegalSubscriberParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+IllegalEquipmentParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+BearerServNotProvParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+TeleservNotProvParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+TracingBufferFullParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+NoRoamingNbParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+AbsentSubscriberParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	absentSubscriberReason	[0] AbsentSubscriberReason	OPTIONAL}
+
+AbsentSubscriberReason ::= ENUMERATED {
+	imsiDetach (0),
+	restrictedArea (1),
+	noPageResponse (2),
+	... ,
+	purgedMS (3)}
+-- exception handling: at reception of other values than the ones listed the 
+-- AbsentSubscriberReason shall be ignored. 
+-- The AbsentSubscriberReason: purgedMS is defined for the Super-Charger feature 
+-- (see TS 23.116). If this value is received in a Provide Roaming Number response
+-- it shall be mapped to the AbsentSubscriberReason: imsiDetach in the Send Routeing
+-- Information response
+
+BusySubscriberParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...,
+	ccbs-Possible	[0] NULL		OPTIONAL,
+	ccbs-Busy		[1] NULL		OPTIONAL}
+
+NoSubscriberReplyParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ForwardingViolationParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ForwardingFailedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ATI-NotAllowedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ATSI-NotAllowedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ATM-NotAllowedParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+IllegalSS-OperationParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SS-NotAvailableParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SS-SubscriptionViolationParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+InformationNotAvailableParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SubBusyForMT-SMS-Param ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	... ,
+	gprsConnectionSuspended	NULL			OPTIONAL }
+	-- If GprsConnectionSuspended is not understood it shall 
+	-- be discarded
+
+MessageWaitListFullParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ResourceLimitationParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+NoGroupCallNbParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+IncompatibleTerminalParam ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+ShortTermDenialParam ::= SEQUENCE {
+	...}
+
+LongTermDenialParam ::= SEQUENCE {
+	...}
+
+UnauthorizedRequestingNetwork-Param ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+UnauthorizedLCSClient-Param ::= SEQUENCE {
+	unauthorizedLCSClient-Diagnostic	[0] UnauthorizedLCSClient-Diagnostic	OPTIONAL,
+	extensionContainer	[1] ExtensionContainer			OPTIONAL,
+	... }
+
+UnauthorizedLCSClient-Diagnostic ::= ENUMERATED {
+	noAdditionalInformation (0),
+	clientNotInMSPrivacyExceptionList (1),
+	callToClientNotSetup (2),
+	privacyOverrideNotApplicable (3),
+	disallowedByLocalRegulatoryRequirements (4),
+	...,
+	unauthorizedPrivacyClass (5),
+	unauthorizedCallSessionUnrelatedExternalClient (6),
+	unauthorizedCallSessionRelatedExternalClient (7) }
+--	exception handling:
+--	any unrecognized value shall be ignored
+
+PositionMethodFailure-Param ::= SEQUENCE {
+	positionMethodFailure-Diagnostic	[0] PositionMethodFailure-Diagnostic	OPTIONAL,
+	extensionContainer	[1] ExtensionContainer			OPTIONAL,
+	... }
+
+PositionMethodFailure-Diagnostic ::= ENUMERATED {
+	congestion  (0),
+	insufficientResources  (1),
+	insufficientMeasurementData  (2),
+	inconsistentMeasurementData  (3),
+	locationProcedureNotCompleted  (4),
+	locationProcedureNotSupportedByTargetMS  (5),
+	qoSNotAttainable  (6),
+	positionMethodNotAvailableInNetwork	(7),
+	positionMethodNotAvailableInLocationArea	(8),
+	... }
+--	exception handling:
+--	any unrecognized value shall be ignored
+
+UnknownOrUnreachableLCSClient-Param ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+MM-EventNotSupported-Param ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+TargetCellOutsideGCA-Param ::= SEQUENCE {
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+SecureTransportErrorParam ::= SEQUENCE {
+	securityHeader	SecurityHeader,
+	protectedPayload	ProtectedPayload	OPTIONAL
+	}
+	-- The protectedPayload carries the result of applying the security function 
+	-- defined in 3GPP TS 33.200 to the encoding of the securely transported error 
+	-- parameter
+
+
+END

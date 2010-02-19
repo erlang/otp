@@ -1,0 +1,202 @@
+-- module(Mvrasn-15-6).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('etord').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Supplementary service codes".
+--
+-- ASN.1 module: "MAP-SS-Code".
+--
+-- =============================================================================
+
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  010813  etord    First draft, based on GSM 29.002 v. 3.8.0.
+-- ..............................................................
+
+Mvrasn-15-6
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+SS-Code ::= OCTET STRING (SIZE (1))
+	-- This type is used to represent the code identifying a single
+	-- supplementary service, a group of supplementary services, or
+	-- all supplementary services. The services and abbreviations
+	-- used are defined in TS GSM 02.04. The internal structure is
+	-- defined as follows:
+	--
+	-- bits 87654321: group (bits 8765), and specific service
+	-- (bits 4321)
+
+allSS			SS-Code ::= '00000000'B
+	-- reserved for possible future use
+	-- all SS
+
+allLineIdentificationSS	SS-Code ::= '00010000'B
+	-- reserved for possible future use
+	-- all line identification SS
+clip				SS-Code ::= '00010001'B
+	-- calling line identification presentation
+clir				SS-Code ::= '00010010'B
+	-- calling line identification restriction
+colp				SS-Code ::= '00010011'B
+	-- connected line identification presentation
+colr				SS-Code ::= '00010100'B
+	-- connected line identification restriction
+mci				SS-Code ::= '00010101'B
+	-- reserved for possible future use
+	-- malicious call identification
+
+allNameIdentificationSS	SS-Code ::= '00011000'B
+	-- all name identification SS
+cnap				SS-Code ::= '00011001'B
+	-- calling name presentation
+
+	-- SS-Codes '00011010'B to '00011111'B are reserved for future 
+	-- NameIdentification Supplementary Service use.
+
+allForwardingSS	SS-Code ::= '00100000'B
+	-- all forwarding SS
+cfu				SS-Code ::= '00100001'B
+	-- call forwarding unconditional
+allCondForwardingSS	SS-Code ::= '00101000'B
+	-- all conditional forwarding SS
+cfb				SS-Code ::= '00101001'B
+	-- call forwarding on mobile subscriber busy
+cfnry			SS-Code ::= '00101010'B
+	-- call forwarding on no reply
+cfnrc			SS-Code ::= '00101011'B
+	-- call forwarding on mobile subscriber not reachable 
+cd				SS-Code ::= '00100100'B
+	-- call deflection
+
+allCallOfferingSS	SS-Code ::= '00110000'B
+	-- reserved for possible future use
+	-- all call offering SS includes also all forwarding SS
+ect				SS-Code ::= '00110001'B
+		-- explicit call transfer
+mah				SS-Code ::= '00110010'B
+	-- reserved for possible future use
+	-- mobile access hunting
+
+allCallCompletionSS	SS-Code ::= '01000000'B
+	-- reserved for possible future use
+	-- all Call completion SS
+cw				SS-Code ::= '01000001'B
+	-- call waiting
+hold				SS-Code ::= '01000010'B
+	-- call hold
+ccbs-A			SS-Code ::= '01000011'B
+	-- completion of call to busy subscribers, originating side
+ccbs-B			SS-Code ::= '01000100'B
+	-- completion of call to busy subscribers, destination side
+	-- this SS-Code is used only in InsertSubscriberData and DeleteSubscriberData
+mc				SS-Code ::= '01000101'B
+	-- multicall
+
+allMultiPartySS	SS-Code ::= '01010000'B
+	-- reserved for possible future use
+	-- all multiparty SS
+multiPTY			SS-Code ::= '01010001'B
+	-- multiparty
+
+allCommunityOfInterest-SS	SS-Code ::= '01100000'B
+	-- reserved for possible future use
+	-- all community of interest SS
+cug				SS-Code ::= '01100001'B
+	-- closed user group
+
+allChargingSS		SS-Code ::= '01110000'B
+	-- reserved for possible future use
+	-- all charging SS
+aoci				SS-Code ::= '01110001'B
+	-- advice of charge information
+aocc				SS-Code ::= '01110010'B
+	-- advice of charge charging
+
+allAdditionalInfoTransferSS	SS-Code ::= '10000000'B
+	-- reserved for possible future use
+	-- all additional information transfer SS
+uus1				SS-Code ::= '10000001'B
+	-- UUS1 user-to-user signalling 
+uus2				SS-Code ::= '10000010'B
+	-- UUS2 user-to-user signalling
+uus3				SS-Code ::= '10000011'B
+	-- UUS3 user-to-user signalling
+
+allBarringSS		SS-Code ::= '10010000'B
+	-- all barring SS
+barringOfOutgoingCalls	SS-Code ::= '10010001'B
+	-- barring of outgoing calls
+baoc				SS-Code ::= '10010010'B
+	-- barring of all outgoing calls
+boic				SS-Code ::= '10010011'B
+	-- barring of outgoing international calls
+boicExHC			SS-Code ::= '10010100'B
+	-- barring of outgoing international calls except those directed
+	-- to the home PLMN
+barringOfIncomingCalls	SS-Code ::= '10011001'B
+	-- barring of incoming calls
+baic				SS-Code ::= '10011010'B
+	-- barring of all incoming calls
+bicRoam			SS-Code ::= '10011011'B
+	-- barring of incoming calls when roaming outside home PLMN
+	-- Country
+
+allPLMN-specificSS	SS-Code ::= '11110000'B
+plmn-specificSS-1	SS-Code ::= '11110001'B
+plmn-specificSS-2	SS-Code ::= '11110010'B
+plmn-specificSS-3	SS-Code ::= '11110011'B
+plmn-specificSS-4	SS-Code ::= '11110100'B
+plmn-specificSS-5	SS-Code ::= '11110101'B
+plmn-specificSS-6	SS-Code ::= '11110110'B
+plmn-specificSS-7	SS-Code ::= '11110111'B
+plmn-specificSS-8	SS-Code ::= '11111000'B
+plmn-specificSS-9	SS-Code ::= '11111001'B
+plmn-specificSS-A	SS-Code ::= '11111010'B
+plmn-specificSS-B	SS-Code ::= '11111011'B
+plmn-specificSS-C	SS-Code ::= '11111100'B
+plmn-specificSS-D	SS-Code ::= '11111101'B
+plmn-specificSS-E	SS-Code ::= '11111110'B
+plmn-specificSS-F	SS-Code ::= '11111111'B
+
+allCallPrioritySS	SS-Code ::= '10100000'B
+	-- reserved for possible future use
+	-- all call priority SS
+emlpp			SS-Code ::= '10100001'B
+	-- enhanced Multilevel Precedence Pre-emption (EMLPP) service
+
+allLCSPrivacyException	SS-Code ::= '10110000'B
+	-- all LCS Privacy Exception Classes
+universal			SS-Code ::= '10110001'B
+	-- allow location by any LCS client
+callrelated		SS-Code ::= '10110010'B
+	-- allow location by any value added LCS client to which a call 
+	-- is established from the target MS
+callunrelated		SS-Code ::= '10110011'B
+	-- allow location by designated external value added LCS clients
+plmnoperator		SS-Code ::= '10110100'B
+	-- allow location by designated PLMN operator LCS clients
+
+allMOLR-SS		SS-Code ::= '11000000'B
+	-- all Mobile Originating Location Request Classes
+basicSelfLocation	SS-Code ::= '11000001'B
+	-- allow an MS to request its own location
+autonomousSelfLocation	SS-Code ::= '11000010'B
+	-- allow an MS to perform self location without interaction
+	-- with the PLMN for a predetermined period of time
+transferToThirdParty	SS-Code ::= '11000011'B
+	-- allow an MS to request transfer of its location to another LCS client
+
+END

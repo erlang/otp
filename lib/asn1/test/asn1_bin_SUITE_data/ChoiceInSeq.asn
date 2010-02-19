@@ -1,0 +1,22 @@
+ChoiceInSeq DEFINITIONS  ::=
+BEGIN
+CallCentreServiceNotificationArg ::= SEQUENCE {
+   scriptInformation      [0] ScriptToScriptInformation,
+   eventInformation       
+     CHOICE 
+     {   callEvent        [1] CallEvent,
+         billingReport    [2] BillingInformation
+     } OPTIONAL
+}
+
+ScriptToScriptInformation ::= INTEGER
+CallEvent ::= INTEGER
+BillingInformation ::= INTEGER
+EventInformation ::= 
+     CHOICE 
+     {   callEvent        [1] CallEvent,
+         billingReport    [2] BillingInformation
+     } 
+
+
+END

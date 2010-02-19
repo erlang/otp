@@ -1,0 +1,37 @@
+SeqExtension DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSeqExt1, XSeqExt2 FROM External;
+
+
+SeqExt1 ::= SEQUENCE 
+{
+  ...
+}
+
+SeqExt2 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  ...
+}
+
+SeqExt3 ::= SEQUENCE 
+{
+  ...,
+  bool  BOOLEAN,
+  int  INTEGER
+}
+
+SeqExt4 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  ...,
+  int  INTEGER
+}
+
+SeqExt1X ::= XSeqExt1 
+SeqExt2X ::= XSeqExt2 
+
+END

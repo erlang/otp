@@ -1,0 +1,33 @@
+P-RecordA2 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+
+PersonnelRecord ::= [APPLICATION 0] IMPLICIT SET {
+  name Name,
+  title [0] VisibleString, 
+  number EmployeeNumber, 
+  dateOfHire [1] Date, 
+  nameOfSpouse [2] Name, 
+  children [3] IMPLICIT SEQUENCE OF ChildInformation DEFAULT {} 
+}
+
+ChildInformation ::= SET { 
+  name Name,
+  dateOfBirth [0] Date
+}
+
+Name ::= [APPLICATION 1] IMPLICIT SEQUENCE { 
+  givenName NameString,
+  initial NameString (SIZE(1)), 
+  familyName NameString
+} 
+
+EmployeeNumber ::= [APPLICATION 2] IMPLICIT INTEGER
+
+Date ::= [APPLICATION 3] IMPLICIT VisibleString (FROM("0".."9") ^ SIZE(8)) -- YYYYMMDD
+
+NameString ::= VisibleString (FROM("a".."z" | "A".."Z" | "-.") ^ SIZE(1..64))
+
+
+END

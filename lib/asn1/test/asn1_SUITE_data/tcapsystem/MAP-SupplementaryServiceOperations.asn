@@ -1,0 +1,295 @@
+MAP-SupplementaryServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SupplementaryServiceOperations (8)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	registerSS,
+	eraseSS,
+	activateSS,
+	deactivateSS,
+	interrogateSS,
+	processUnstructuredSS-Request,
+	unstructuredSS-Request,
+	unstructuredSS-Notify,
+	registerPassword,
+	getPassword,
+	ss-InvocationNotification,
+	registerCC-Entry,
+	eraseCC-Entry
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+	systemFailure,
+	dataMissing,
+	unexpectedDataValue,
+	unknownSubscriber,
+	bearerServiceNotProvisioned,
+	teleserviceNotProvisioned,
+	callBarred,
+	illegalSS-Operation,
+	ss-ErrorStatus,
+	ss-NotAvailable,
+	ss-SubscriptionViolation,
+	ss-Incompatibility,
+	pw-RegistrationFailure,
+	negativePW-Check,
+	numberOfPW-AttemptsViolation,
+	unknownAlphabet,
+	ussd-Busy,
+	absentSubscriber,
+	illegalSubscriber,
+	illegalEquipment,
+	shortTermDenial,
+	longTermDenial,
+	facilityNotSupported
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+	RegisterSS-Arg,
+	SS-Info,
+	SS-ForBS-Code,
+	InterrogateSS-Res,
+	USSD-Arg,
+	USSD-Res,
+	Password,
+	GuidanceInfo,
+	SS-InvocationNotificationArg,
+	SS-InvocationNotificationRes,
+	RegisterCC-EntryArg,
+	RegisterCC-EntryRes,
+	EraseCC-EntryArg,
+	EraseCC-EntryRes
+FROM MAP-SS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-DataTypes (14) version9 (9)}
+
+	SS-Code
+FROM MAP-SS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-Code (15) version9 (9)}
+;
+
+
+-- supplementary service handling operations
+
+registerSS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		RegisterSS-Arg
+	RESULT
+		SS-Info
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus |
+		ss-Incompatibility}
+	CODE	local:10 }
+
+eraseSS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SS-ForBS-Code
+	RESULT
+		SS-Info
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus
+		}
+	CODE	local:11 }
+
+activateSS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SS-ForBS-Code
+	RESULT
+		SS-Info
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus |
+		ss-SubscriptionViolation |
+		ss-Incompatibility |
+		negativePW-Check |
+		numberOfPW-AttemptsViolation}
+	CODE	local:12 }
+
+deactivateSS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SS-ForBS-Code
+	RESULT
+		SS-Info
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus |
+		ss-SubscriptionViolation |
+		negativePW-Check |
+		numberOfPW-AttemptsViolation}
+	CODE	local:13 }
+
+interrogateSS  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SS-ForBS-Code
+	RESULT
+		InterrogateSS-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		callBarred |
+		illegalSS-Operation |
+		ss-NotAvailable}
+	CODE	local:14 }
+
+processUnstructuredSS-Request  OPERATION ::= {				--Timer 10 minutes
+	ARGUMENT
+		USSD-Arg
+	RESULT
+		USSD-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		unknownAlphabet |
+		callBarred}
+	CODE	local:59 }
+
+unstructuredSS-Request  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		USSD-Arg
+	RESULT
+		USSD-Res
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		absentSubscriber |
+		illegalSubscriber |
+		illegalEquipment |
+		unknownAlphabet |
+		ussd-Busy}
+	CODE	local:60 }
+
+unstructuredSS-Notify  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		USSD-Arg
+	RETURN RESULT TRUE
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		absentSubscriber |
+		illegalSubscriber |
+		illegalEquipment |
+		unknownAlphabet |
+		ussd-Busy}
+	CODE	local:61 }
+
+registerPassword  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		SS-Code
+	RESULT
+		Password
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		callBarred |
+		ss-SubscriptionViolation |
+		pw-RegistrationFailure |
+		negativePW-Check |
+		numberOfPW-AttemptsViolation}
+	LINKED {
+		getPassword}
+	CODE	local:17 }
+
+getPassword  OPERATION ::= {				--Timer m
+	ARGUMENT
+		GuidanceInfo
+	RESULT
+		Password
+	CODE	local:18 }
+
+ss-InvocationNotification  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SS-InvocationNotificationArg
+	RESULT
+		SS-InvocationNotificationRes
+		-- optional
+	ERRORS {
+		dataMissing |
+		unexpectedDataValue |
+		unknownSubscriber}
+	CODE	local:72 }
+
+registerCC-Entry  OPERATION ::= {				--Timer m
+	ARGUMENT
+		RegisterCC-EntryArg
+	RESULT
+		RegisterCC-EntryRes
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus |
+		ss-Incompatibility |
+		shortTermDenial |
+		longTermDenial |
+		facilityNotSupported}
+	CODE	local:76 }
+
+eraseCC-Entry  OPERATION ::= {				--Timer m
+	ARGUMENT
+		EraseCC-EntryArg
+	RESULT
+		EraseCC-EntryRes
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		callBarred |
+		illegalSS-Operation |
+		ss-ErrorStatus}
+	CODE	local:77 }
+
+END

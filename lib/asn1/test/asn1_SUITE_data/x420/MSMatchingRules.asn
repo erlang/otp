@@ -1,0 +1,225 @@
+-- Module MSMatchingRules (X.413:06/1999)
+MSMatchingRules {joint-iso-itu-t mhs(6) ms(4) modules(0)
+  general-matching-rules(5) version-1999(1)} DEFINITIONS ::=
+BEGIN
+
+-- Prologue
+--Exports everything
+IMPORTS
+  -- MATCHING-RULE information object class and Directory matching-rules
+  MATCHING-RULE, objectIdentifierMatch
+    --==
+    FROM InformationFramework
+  bitStringMatch, booleanMatch, generalizedTimeMatch,
+    generalizedTimeOrderingMatch, integerMatch, integerOrderingMatch,
+    uTCTimeMatch, uTCTimeOrderingMatch
+    --==
+    FROM SelectedAttributeTypes
+      
+  -- Matching-rule Object Identifiers
+  id-mr-content-correlator-match, id-mr-content-identifier-match,
+    id-mr-ms-single-substring-list-elements-match,
+    id-mr-ms-single-substring-list-match, id-mr-ms-single-substring-match,
+    id-mr-ms-substrings-match, id-mr-msstring-case-sensitive-match,
+    id-mr-msstring-list-elements-match, id-mr-msstring-list-match,
+    id-mr-msstring-match, id-mr-msstring-ordering-match,
+    id-mr-mts-identifier-match, id-mr-oraddress-elements-match,
+    id-mr-oraddress-match, id-mr-oraddress-substring-elements-match,
+    id-mr-orname-elements-match, id-mr-orname-match,
+    id-mr-orname-single-element-match, id-mr-orname-substring-elements-match,
+    id-mr-redirection-or-dl-expansion-elements-match,
+    id-mr-redirection-or-dl-expansion-match,
+    id-mr-redirection-or-dl-expansion-single-element-match,
+    id-mr-redirection-or-dl-expansion-substring-elements-match,
+    id-mr-redirection-reason-match, id-mr-value-count-match
+    --==
+    FROM MSObjectIdentifiers {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- MS upper bounds
+  ub-attribute-values, ub-msstring-match
+    --==
+    FROM MSUpperBounds {joint-iso-itu-t mhs(6) ms(4) modules(0) upper-bounds(4)
+      version-1994(0)}
+  -- MTS abstract service
+  ContentCorrelator, ContentIdentifier, MTSIdentifier, ORAddress,
+    ORAddressAndOptionalDirectoryName, ORName, RedirectionReason
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)};
+
+-- Matching rule table information object set
+MatchingRuleTable MATCHING-RULE ::=
+  {GeneralMatchingRules | ContentSpecificMatchingRules}
+
+GeneralMatchingRules MATCHING-RULE ::=
+  {bitStringMatch | booleanMatch | contentIdentifierMatch | integerMatch |
+   integerOrderingMatch | mSStringCaseSensitiveMatch | objectIdentifierMatch |
+   oRNameMatch | uTCTimeMatch | uTCTimeOrderingMatch,
+   ... -- 1994 extension additions --, contentCorrelatorMatch |
+   generalizedTimeMatch | generalizedTimeOrderingMatch | mSSingleSubstringMatch
+   | mSStringCaseSensitiveMatch | mSStringListElementsMatch | mSStringListMatch
+   | mSStringMatch | mSStringOrderingMatch | mSSingleSubstringListElementsMatch
+   | mSSingleSubstringListMatch | mSSubstringsMatch | mTSIdentifierMatch |
+   oRAddressElementsMatch | oRAddressMatch | oRAddressSubstringElementsMatch |
+   oRNameElementsMatch | oRNameMatch | oRNameSingleElementMatch |
+   oRNameSubstringElementsMatch | redirectionOrDLExpansionElementsMatch |
+   redirectionOrDLExpansionMatch | redirectionOrDLExpansionSingleElementMatch |
+   redirectionOrDLExpansionSubstringElementsMatch | redirectionReasonMatch |
+   valueCountMatch}
+
+ContentSpecificMatchingRules MATCHING-RULE ::=
+  {...}
+
+-- MS String assertion-syntax
+MSString{INTEGER:maxSize} ::= CHOICE {
+  printable  PrintableString(SIZE (1..maxSize)),
+  teletex    TeletexString(SIZE (1..maxSize)),
+  general    GeneralString(SIZE (1..maxSize)),
+  universal  UniversalString(SIZE (1..maxSize)),
+  bmp        BMPString(SIZE (1..maxSize))
+}
+
+-- String matching-rules
+mSStringMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-msstring-match
+}
+
+mSStringOrderingMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-msstring-ordering-match
+}
+
+mSSubstringsMatch MATCHING-RULE ::= {
+  SYNTAX  SubstringAssertion
+  ID      id-mr-ms-substrings-match
+}
+
+SubstringAssertion ::=
+  SEQUENCE OF
+    CHOICE {initial  [0]  MSString{ub-msstring-match},
+            any      [1]  MSString{ub-msstring-match},
+            final    [2]  MSString{ub-msstring-match}}
+
+-- at most one initial and one final component 
+mSSingleSubstringMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-ms-single-substring-match
+}
+
+mSStringCaseSensitiveMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-msstring-case-sensitive-match
+}
+
+mSStringListMatch MATCHING-RULE ::= {
+  SYNTAX  SEQUENCE OF MSString{ub-msstring-match}
+  ID      id-mr-msstring-list-match
+}
+
+mSStringListElementsMatch MATCHING-RULE ::= {
+  SYNTAX  SEQUENCE OF MSString{ub-msstring-match}
+  ID      id-mr-msstring-list-elements-match
+}
+
+mSSingleSubstringListMatch MATCHING-RULE ::= {
+  SYNTAX  SEQUENCE OF MSString{ub-msstring-match}
+  ID      id-mr-ms-single-substring-list-match
+}
+
+mSSingleSubstringListElementsMatch MATCHING-RULE ::= {
+  SYNTAX  SEQUENCE OF MSString{ub-msstring-match}
+  ID      id-mr-ms-single-substring-list-elements-match
+}
+
+-- Syntax-based matching-rule
+valueCountMatch MATCHING-RULE ::= {
+  SYNTAX  INTEGER(1..ub-attribute-values)
+  ID      id-mr-value-count-match
+}
+
+-- Matching-rules for complex Message Store attributes
+-- OR-address matching-rules
+oRAddressMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddress
+  ID      id-mr-oraddress-match
+}
+
+oRAddressElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddress
+  ID      id-mr-oraddress-elements-match
+}
+
+oRAddressSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddress
+  ID      id-mr-oraddress-substring-elements-match
+}
+
+-- OR-name matching-rules
+oRNameMatch MATCHING-RULE ::= {SYNTAX  ORName
+                               ID      id-mr-orname-match
+}
+
+oRNameElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORName
+  ID      id-mr-orname-elements-match
+}
+
+oRNameSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORName
+  ID      id-mr-orname-substring-elements-match
+}
+
+oRNameSingleElementMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-orname-single-element-match
+}
+
+-- Redirection or DL-expansion matching rules
+redirectionOrDLExpansionMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddressAndOptionalDirectoryName
+  ID      id-mr-redirection-or-dl-expansion-match
+}
+
+redirectionOrDLExpansionElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddressAndOptionalDirectoryName
+  ID      id-mr-redirection-or-dl-expansion-elements-match
+}
+
+redirectionOrDLExpansionSingleElementMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-redirection-or-dl-expansion-single-element-match
+}
+
+redirectionOrDLExpansionSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORAddressAndOptionalDirectoryName
+  ID      id-mr-redirection-or-dl-expansion-substring-elements-match
+}
+
+redirectionReasonMatch MATCHING-RULE ::= {
+  SYNTAX  RedirectionReason
+  ID      id-mr-redirection-reason-match
+}
+
+-- MTS-identifier matching rule
+mTSIdentifierMatch MATCHING-RULE ::= {
+  SYNTAX  MTSIdentifier
+  ID      id-mr-mts-identifier-match
+}
+
+-- Content-correlator matching rule
+contentCorrelatorMatch MATCHING-RULE ::= {
+  SYNTAX  ContentCorrelator
+  ID      id-mr-content-correlator-match
+}
+
+-- Content-identifier matching rule
+contentIdentifierMatch MATCHING-RULE ::= {
+  SYNTAX  ContentIdentifier
+  ID      id-mr-content-identifier-match
+}
+
+END -- of MSMatchingRules
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

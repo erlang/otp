@@ -1,0 +1,238 @@
+-- Module UsefulDefinitions (X.501:08/1997)
+UsefulDefinitions {joint-iso-itu-t ds(5) module(1) usefulDefinitions(0) 3}
+DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All -
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+ID ::= OBJECT IDENTIFIER
+
+ds ID ::= {joint-iso-itu-t ds(5)}
+
+-- categories of information object 
+module ID ::= {ds  1}
+
+serviceElement ID ::= {ds  2}
+
+applicationContext ID ::= {ds  3}
+
+attributeType ID ::= {ds  4}
+
+attributeSyntax ID ::= {ds  5}
+
+objectClass ID ::= {ds  6}
+
+-- attributeSet			ID	::=	{ds 7}
+algorithm ID ::= {ds  8}
+
+abstractSyntax ID ::= {ds  9}
+
+-- object			ID	::= 	{ds 10}
+-- port				ID	::= 	{ds 11}
+dsaOperationalAttribute ID ::=
+  {ds  12}
+
+matchingRule ID ::= {ds  13}
+
+knowledgeMatchingRule ID ::= {ds  14}
+
+nameForm ID ::= {ds  15}
+
+group ID ::= {ds  16}
+
+subentry ID ::= {ds  17}
+
+operationalAttributeType ID ::= {ds  18}
+
+operationalBinding ID ::= {ds  19}
+
+schemaObjectClass ID ::= {ds  20}
+
+schemaOperationalAttribute ID ::= {ds  21}
+
+administrativeRoles ID ::= {ds  23}
+
+accessControlAttribute ID ::= {ds  24}
+
+rosObject ID ::= {ds  25}
+
+contract ID ::= {ds  26}
+
+package ID ::= {ds  27}
+
+accessControlSchemes ID ::= {ds  28}
+
+certificateExtension ID ::= {ds  29}
+
+managementObject ID ::= {ds  30}
+
+attributeValueContext ID ::= {ds  31}
+
+-- securityExchange		ID	::=	{ds 32}
+idmProtocol ID ::= {ds  33}
+
+problem ID ::= {ds  34}
+
+notification ID ::= {ds  35}
+
+matchingRestriction ID ::=
+  {ds  36} -- None are currently defined by this specification
+
+controlAttributeType ID ::= {ds  37}
+
+-- modules 
+usefulDefinitions ID ::= {module usefulDefinitions(0) 3}
+
+informationFramework ID ::= {module informationFramework(1) 3}
+
+directoryAbstractService ID ::= {module directoryAbstractService(2) 3}
+
+distributedOperations ID ::= {module distributedOperations(3) 3}
+
+protocolObjectIdentifiers ID ::= {module protocolObjectIdentifiers(4) 3}
+
+selectedAttributeTypes ID ::= {module selectedAttributeTypes(5) 3}
+
+selectedObjectClasses ID ::= {module selectedObjectClasses(6) 3}
+
+authenticationFramework ID ::= {module authenticationFramework(7) 3}
+
+algorithmObjectIdentifiers ID ::= {module algorithmObjectIdentifiers(8) 3}
+
+directoryObjectIdentifiers ID ::= {module directoryObjectIdentifiers(9) 3}
+
+upperBounds ID ::= {module upperBounds(10) 3}
+
+dap ID ::= {module dap(11) 3}
+
+dsp ID ::= {module dsp(12) 3}
+
+distributedDirectoryOIDs ID ::= {module distributedDirectoryOIDs(13) 3}
+
+directoryShadowOIDs ID ::= {module directoryShadowOIDs(14) 3}
+
+directoryShadowAbstractService ID ::=
+  {module directoryShadowAbstractService(15) 3}
+
+disp ID ::= {module disp(16) 3}
+
+dop ID ::= {module dop(17) 3}
+
+opBindingManagement ID ::= {module opBindingManagement(18) 3}
+
+opBindingOIDs ID ::= {module opBindingOIDs(19) 3}
+
+hierarchicalOperationalBindings ID ::=
+  {module hierarchicalOperationalBindings(20) 3}
+
+dsaOperationalAttributeTypes ID ::= {module dsaOperationalAttributeTypes(22) 3}
+
+schemaAdministration ID ::= {module schemaAdministration(23) 3}
+
+basicAccessControl ID ::= {module basicAccessControl(24) 3}
+
+directoryOperationalBindingTypes ID ::=
+  {module directoryOperationalBindingTypes(25) 3}
+
+certificateExtensions ID ::= {module certificateExtensions(26) 0}
+
+directoryManagement ID ::= {module directoryManagement(27) 1}
+
+enhancedSecurity ID ::= {module enhancedSecurity(28) 1}
+
+iDMProtocolSpecification ID ::= {module iDMProtocolSpecification(30) 4}
+
+directoryIDMProtocols ID ::= {module directoryIDMProtocols(31) 4}
+
+-- directorySecurityExchanges			ID	::=	{module directorySecurityExchanges (29) 1}
+-- synonyms 
+id-oc ID ::=
+  objectClass
+
+id-at ID ::= attributeType
+
+id-as ID ::= abstractSyntax
+
+id-mr ID ::= matchingRule
+
+id-nf ID ::= nameForm
+
+id-sc ID ::= subentry
+
+id-oa ID ::= operationalAttributeType
+
+id-ob ID ::= operationalBinding
+
+id-doa ID ::= dsaOperationalAttribute
+
+id-kmr ID ::= knowledgeMatchingRule
+
+id-soc ID ::= schemaObjectClass
+
+id-soa ID ::= schemaOperationalAttribute
+
+id-ar ID ::= administrativeRoles
+
+id-aca ID ::= accessControlAttribute
+
+id-ac ID ::= applicationContext
+
+id-rosObject ID ::= rosObject
+
+id-contract ID ::= contract
+
+id-package ID ::= package
+
+id-acScheme ID ::= accessControlSchemes
+
+id-ce ID ::= certificateExtension
+
+id-mgt ID ::= managementObject
+
+id-idm ID ::= idmProtocol
+
+id-avc ID ::= attributeValueContext
+
+-- id-se   					ID	::=	securityExchange
+id-pr ID ::= problem
+
+id-not ID ::= notification
+
+id-mre ID ::= matchingRestriction
+
+id-cat ID ::= controlAttributeType
+
+-- obsolete module identifiers 
+--	usefulDefinition	 			ID	::=	{module 0}
+--	informationFramework				ID	::=	{module 1}
+-- 	directoryAbstractService  			ID	::=	{module 2}
+-- 	distributedOperations				ID	::=	{module 3}
+--	protocolObjectIdentifiers  			ID	::=	{module 4}
+-- 	selectedAttributeTypes				ID	::=	{module 5}
+-- 	selectedObjectClasses				ID	::=	{module 6}
+--	authenticationFramework			ID	::=	{module 7}
+--	algorithmObjectIdentifiers			ID	::=	{module 8}
+--	directoryObjectIdentifiers			ID	::=	{module 9}
+--	upperBounds					ID	::=	{module 10}
+--	dap							ID	::=	{module 11}
+--	dsp							ID	::=	{module 12}
+--	distributedDirectoryObjectIdentifiers	ID	::=	{module 13}
+-- unused module identifiers 
+--	directoryShadowOIDs				ID	::=	{module 14}
+--	directoryShadowAbstractService		ID	::=	{module 15}
+--	disp							ID	::=	{module 16}
+--	dop							ID	::=	{module 17}
+--	opBindingManagement			ID	::=	{module 18}
+--	opBindingOIDs					ID	::=	{module 19}
+--	hierarchicalOperationalBindings		ID	::=	{module 20}
+--	dsaOperationalAttributeTypes		ID	::=	{module 22}
+--	schemaAdministration				ID	::=	{module 23}
+--	basicAccessControl				ID	::=	{module 24}
+--	operationalBindingOIDs			ID	::=	{module 25}
+END -- UsefulDefinitions
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

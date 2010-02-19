@@ -1,0 +1,198 @@
+MAP-CallHandlingOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CallHandlingOperations (7)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	sendRoutingInfo,
+	provideRoamingNumber,
+	resumeCallHandling,
+	setReportingState,
+	statusReport,
+	remoteUserFree,
+	ist-Alert,
+	ist-Command
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+	systemFailure,
+	dataMissing,
+	unexpectedDataValue,
+	facilityNotSupported,
+	or-NotAllowed,
+	unknownSubscriber,
+	numberChanged,
+	bearerServiceNotProvisioned,
+	teleserviceNotProvisioned,
+	noRoamingNumberAvailable,
+	absentSubscriber,
+	busySubscriber,
+	noSubscriberReply,
+	callBarred,
+	forwardingViolation,
+	forwardingFailed,
+	cug-Reject,
+	resourceLimitation,
+	incompatibleTerminal,
+	unidentifiedSubscriber
+
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+	SendRoutingInfoArg,
+	SendRoutingInfoRes,
+	ProvideRoamingNumberArg,
+	ProvideRoamingNumberRes,
+	ResumeCallHandlingArg,
+	ResumeCallHandlingRes,
+	SetReportingStateArg,
+	SetReportingStateRes,
+	StatusReportArg,
+	StatusReportRes,
+	RemoteUserFreeArg,
+	RemoteUserFreeRes,
+	IST-AlertArg,
+	IST-AlertRes,
+	IST-CommandArg,
+	IST-CommandRes
+FROM MAP-CH-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CH-DataTypes (13) version9 (9)}
+
+;
+
+sendRoutingInfo  OPERATION ::= {				--Timer m
+-- The timer is set to the upper limit of the range if the GMSC supports pre-paging.
+	ARGUMENT
+		SendRoutingInfoArg
+	RESULT
+		SendRoutingInfoRes
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		or-NotAllowed |
+		unknownSubscriber |
+		numberChanged |
+		bearerServiceNotProvisioned |
+		teleserviceNotProvisioned |
+		absentSubscriber |
+		busySubscriber |
+		noSubscriberReply |
+		callBarred |
+		cug-Reject |
+		forwardingViolation}
+	CODE	local:22 }
+
+provideRoamingNumber  OPERATION ::= {				--Timer m
+-- The timer is set to the upper limit of the range if the HLR supports pre-paging.
+	ARGUMENT
+		ProvideRoamingNumberArg
+	RESULT
+		ProvideRoamingNumberRes
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		or-NotAllowed |
+		absentSubscriber |
+		noRoamingNumberAvailable}
+	CODE	local:4 }
+
+resumeCallHandling  OPERATION ::= {				--Timer m
+	ARGUMENT
+		ResumeCallHandlingArg
+	RESULT
+		ResumeCallHandlingRes
+		-- optional
+	ERRORS {
+		forwardingFailed |
+		or-NotAllowed |
+		unexpectedDataValue |
+		dataMissing }
+	CODE	local:6 }
+
+setReportingState  OPERATION ::= {				--Timer m
+	ARGUMENT
+		SetReportingStateArg
+	RESULT
+		SetReportingStateRes
+		-- optional
+	ERRORS {
+		systemFailure |
+		unidentifiedSubscriber |
+		unexpectedDataValue |
+		dataMissing |
+		resourceLimitation |
+		facilityNotSupported}
+	CODE	local:73 }
+
+statusReport  OPERATION ::= {				--Timer m
+	ARGUMENT
+		StatusReportArg
+	RESULT
+		StatusReportRes
+		-- optional
+	ERRORS {
+		unknownSubscriber |
+		systemFailure |
+		unexpectedDataValue |
+		dataMissing}
+	CODE	local:74 }
+
+remoteUserFree  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		RemoteUserFreeArg
+	RESULT
+		RemoteUserFreeRes
+	ERRORS {
+		unexpectedDataValue |
+		dataMissing |
+		incompatibleTerminal |
+		absentSubscriber |
+		systemFailure |
+		busySubscriber}
+	CODE	local:75 }
+
+ist-Alert  OPERATION ::= {				--Timer m
+	ARGUMENT
+		IST-AlertArg
+	RESULT
+		IST-AlertRes
+		-- optional
+	ERRORS {
+		unexpectedDataValue |
+		resourceLimitation |
+		unknownSubscriber |
+		systemFailure |
+		facilityNotSupported}
+	CODE	local:87 }
+
+ist-Command  OPERATION::= {				--Timer m
+	ARGUMENT
+		IST-CommandArg
+	RESULT
+		IST-CommandRes
+		-- optional
+	ERRORS {
+		unexpectedDataValue |
+		resourceLimitation |
+		unknownSubscriber |
+		systemFailure |
+		facilityNotSupported}
+	CODE	local:88 }
+
+END

@@ -1,0 +1,66 @@
+-- module(Mvrasn-21-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Extension data types".
+--
+-- ASN.1 module: "MAP-ExtensionDataTypes".
+--
+-- =============================================================================
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft including changes due to
+--                        incompatibilities of the ASN.1-ERLANG 
+--                        compiler from OTP.
+--                        Based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+
+-- =============================================================================
+--  
+--  NOTE:
+--
+--  This module was changed compared to the original in the ETSI 
+--  standard GSM 09.02 v. 6.1.0. The reason for this change was an 
+--  incompatibility of the used ASN.1-ERLANG compiler from OTP. 
+--
+--  In GSM 09.02 v. 6.1.0 the data type 'ExtensionContainer' is partly
+--  defined by the ASN.1 type 'CLASS', but the ASN.1-ERLANG compiler is 
+--  not able to handle such a 'CLASS' construct correctly. Therefore, and 
+--  since the content of a received 'ExtensionContainer' is not of further
+--  interest at this stage of the project, the data type 'ExtensionContainer'
+--  has been changed here.
+--  
+--  The new definition of 'ExtensionContainer' is simply an ASN.1 'Extension'
+--  ('...'). This definition allows to receive any kind of information
+--  within the 'ExtensionContainer' without causing a crash of the 
+--  decoder when handling the respective message.
+--
+-- =============================================================================
+
+Mvrasn-21-4
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+    ExtensionContainer;
+
+ExtensionContainer ::= SEQUENCE {
+    ...}
+
+END

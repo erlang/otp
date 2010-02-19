@@ -1,0 +1,3 @@
+{exclusive_decode,{'PartialDecMyHTTP',
+	[{decode_GetRequest_incomplete,
+	  ['GetRequest',[{'accept-types',[{others,parts}]}]]}]}}.

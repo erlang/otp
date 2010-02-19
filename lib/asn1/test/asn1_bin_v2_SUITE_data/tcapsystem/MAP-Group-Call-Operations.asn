@@ -1,0 +1,72 @@
+MAP-Group-Call-Operations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Group-Call-Operations (22)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	prepareGroupCall,
+	sendGroupCallEndSignal,
+	forwardGroupCallSignalling,
+	processGroupCallSignalling
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+	systemFailure,
+	unexpectedDataValue,
+	noGroupCallNumberAvailable
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+	PrepareGroupCallArg,
+	PrepareGroupCallRes,
+	SendGroupCallEndSignalArg,
+	SendGroupCallEndSignalRes,
+	ForwardGroupCallSignallingArg,
+	ProcessGroupCallSignallingArg
+FROM MAP-GR-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-GR-DataTypes (23) version9 (9)}
+
+;
+
+prepareGroupCall  OPERATION ::= {				--Timer m
+	ARGUMENT
+		PrepareGroupCallArg
+	RESULT
+	PrepareGroupCallRes
+	ERRORS {
+		systemFailure |
+		noGroupCallNumberAvailable |
+		unexpectedDataValue}
+	CODE	local:39 }
+
+sendGroupCallEndSignal  OPERATION ::= {				--Timer l
+	ARGUMENT
+		SendGroupCallEndSignalArg
+	RESULT
+		SendGroupCallEndSignalRes
+	CODE	local:40 }
+
+processGroupCallSignalling  OPERATION ::= {				--Timer s
+	ARGUMENT
+		ProcessGroupCallSignallingArg
+	CODE	local:41 }
+
+forwardGroupCallSignalling  OPERATION ::= {				--Timer s
+	ARGUMENT
+		ForwardGroupCallSignallingArg
+	CODE	local:42 }
+
+END

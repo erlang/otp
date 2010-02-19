@@ -1,0 +1,143 @@
+-- Module Default-Value-Lists (T.415:03/1993)
+
+Default-Value-Lists {2 8 1 5 11} DEFINITIONS ::=
+BEGIN
+
+EXPORTS Default-Value-Lists-Logical, Default-Value-Lists-Layout;
+
+IMPORTS
+  Style-Identifier, Category-Name
+    FROM Identifiers-and-Expressions --  see 7.8 
+      
+  Measure-Pair, One-Of-Four-Angles, Medium-Type, Dimension-Pair, Transparency,
+    Colour, Border, Content-Background-Colour, Content-Foreground-Colour,
+    Sealed
+    FROM Layout-Descriptors --  see 7.9 
+      
+  Protection
+    FROM Logical-Descriptors --  see 7.10
+      
+  Presentation-Attributes
+    FROM Style-Descriptors --  see 7.11
+      
+  Colour-Expression, Colour-Table
+    FROM Colour-Attributes; --  see 7.14
+
+Default-Value-Lists-Layout ::= SET {
+  page-set-attributes  [1] IMPLICIT Page-Set-Attributes OPTIONAL,
+  page-attributes      [2] IMPLICIT Page-Attributes OPTIONAL,
+  frame-attributes     [3] IMPLICIT Frame-Attributes OPTIONAL,
+  block-attributes     [4] IMPLICIT Block-Attributes OPTIONAL
+}
+
+Default-Value-Lists-Logical ::= SET {
+  composite-logical-attributes
+    [5] IMPLICIT Composite-Logical-Attributes OPTIONAL,
+  basic-logical-attributes      [6] IMPLICIT Basic-Logical-Attributes OPTIONAL
+}
+
+Page-Set-Attributes ::= SET {
+  layout-stream-categories      layout-stream-categories < Attribute OPTIONAL,
+  layout-stream-sub-categories
+    layout-stream-sub-categories < Attribute OPTIONAL
+}
+
+Page-Attributes ::= SET {
+  dimensions                    dimensions < Attribute OPTIONAL,
+  transparency                  transparency < Attribute OPTIONAL,
+  presentation-attributes       presentation-attributes < Attribute OPTIONAL,
+  page-position                 page-position < Attribute OPTIONAL,
+  medium-type                   medium-type < Attribute OPTIONAL,
+  presentation-style            presentation-style < Attribute OPTIONAL,
+  layout-stream-categories      layout-stream-categories < Attribute OPTIONAL,
+  layout-stream-sub-categories
+    layout-stream-sub-categories < Attribute OPTIONAL,
+  colour                        colour < Attribute OPTIONAL,
+  colour-of-layout-object       colour-of-layout-object < Attribute OPTIONAL,
+  object-colour-table           object-colour-table < Attribute OPTIONAL,
+  content-background-colour     content-background-colour < Attribute OPTIONAL,
+  content-foreground-colour     content-foreground-colour < Attribute OPTIONAL,
+  content-colour-table          content-colour-table < Attribute OPTIONAL,
+  sealed                        sealed < Attribute OPTIONAL
+}
+
+Frame-Attributes ::= SET {
+  position                      position < Attribute OPTIONAL,
+  dimensions                    dimensions < Attribute OPTIONAL,
+  transparency                  transparency < Attribute OPTIONAL,
+  layout-path                   layout-path < Attribute OPTIONAL,
+  permitted-categories          permitted-categories < Attribute OPTIONAL,
+  layout-stream-categories      layout-stream-categories < Attribute OPTIONAL,
+  layout-stream-sub-categories
+    layout-stream-sub-categories < Attribute OPTIONAL,
+  colour                        colour < Attribute OPTIONAL,
+  colour-of-layout-object       colour-of-layout-object < Attribute OPTIONAL,
+  object-colour-table           object-colour-table < Attribute OPTIONAL,
+  border                        border < Attribute OPTIONAL,
+  sealed                        sealed < Attribute OPTIONAL
+}
+
+Block-Attributes ::= SET {
+  position                      position < Attribute OPTIONAL,
+  dimensions                    dimensions < Attribute OPTIONAL,
+  transparency                  transparency < Attribute OPTIONAL,
+  presentation-attributes       presentation-attributes < Attribute OPTIONAL,
+  presentation-style            presentation-style < Attribute OPTIONAL,
+  layout-stream-categories      layout-stream-categories < Attribute OPTIONAL,
+  layout-stream-sub-categories
+    layout-stream-sub-categories < Attribute OPTIONAL,
+  colou                         colour < Attribute OPTIONAL,
+  colour-of-layout-object       colour-of-layout-object < Attribute OPTIONAL,
+  object-colour-table           object-colour-table < Attribute OPTIONAL,
+  content-background-colour     content-background-colour < Attribute OPTIONAL,
+  content-foreground-colour     content-foreground-colour < Attribute OPTIONAL,
+  content-colour-table          content-colour-table < Attribute OPTIONAL,
+  border                        border < Attribute OPTIONAL,
+  sealed                        sealed < Attribute OPTIONAL
+}
+
+Composite-Logical-Attributes ::= SET {
+  protection    protection < Attribute OPTIONAL,
+  layout-style  layout-style < Attribute OPTIONAL,
+  sealed        sealed < Attribute OPTIONAL
+}
+
+Basic-Logical-Attributes ::= SET {
+  presentation-attributes  presentation-attributes < Attribute OPTIONAL,
+  --  only for use for the attribute content-architecture-class;
+  --  the content architecture specific attributes can only be referenced by
+  --  use of presentation style
+  protection               protection < Attribute OPTIONAL,
+  presentation-style       presentation-style < Attribute OPTIONAL,
+  layout-style             layout-style < Attribute OPTIONAL,
+  sealed                   sealed < Attribute OPTIONAL
+}
+
+Attribute ::= CHOICE {
+  position                      [0] IMPLICIT Measure-Pair,
+  dimensions                    [1] IMPLICIT Dimension-Pair,
+  transparency                  [2] IMPLICIT Transparency,
+  presentation-attributes       [3] IMPLICIT Presentation-Attributes,
+  layout-path                   [4] IMPLICIT One-Of-Four-Angles,
+  page-position                 [5] IMPLICIT Measure-Pair,
+  medium-type                   [6] IMPLICIT Medium-Type,
+  permitted-categories          [7] IMPLICIT SET OF Category-Name,
+  layout-stream-categories      [19] IMPLICIT SET OF Category-Name,
+  layout-stream-sub-categories  [20] IMPLICIT SET OF Category-Name,
+  protection                    [8] IMPLICIT Protection,
+  presentation-style            [9] IMPLICIT Style-Identifier,
+  layout-style                  [10] IMPLICIT Style-Identifier,
+  colour                        [11] IMPLICIT Colour,
+  colour-of-layout-object       [14]  Colour-Expression,
+  object-colour-table           [15] IMPLICIT Colour-Table,
+  content-background-colour     [16]  Content-Background-Colour,
+  content-foreground-colour     [17]  Content-Foreground-Colour,
+  content-colour-table          [18] IMPLICIT Colour-Table,
+  border                        [12] IMPLICIT Border,
+  sealed                        [13] IMPLICIT Sealed
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

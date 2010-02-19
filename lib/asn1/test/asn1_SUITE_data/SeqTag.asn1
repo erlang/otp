@@ -1,0 +1,48 @@
+SeqTag DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XSet1, XSeqNT, XSeqImp, XSeqExp FROM External;
+
+SeqTag ::= [APPLICATION 20] SEQUENCE {
+	nt NT,
+	imp Imp,
+	exp Exp }
+
+SeqTagImp ::= [APPLICATION 21] SEQUENCE {
+	nt [0] NT,
+	imp [1] Imp,
+	exp [2] Exp}
+
+SeqTagExp ::= [APPLICATION 22] SEQUENCE {
+	nt [0] EXPLICIT NT,
+	imp [1] EXPLICIT Imp,
+	exp [2] EXPLICIT Exp}
+
+SeqTagX ::= [APPLICATION 30] SEQUENCE {
+	xnt XSeqNT,
+	ximp XSeqImp,
+	xexp XSeqExp }
+
+SeqTagImpX ::= [APPLICATION 31] SEQUENCE {
+	xnt [3] XSeqNT,
+	ximp [4] XSeqImp,
+	xexp [5] XSeqExp }
+
+SeqTagExpX ::= [APPLICATION 32] SEQUENCE {
+	xnt [3] EXPLICIT XSeqNT,
+	ximp [4] EXPLICIT XSeqImp,
+	xexp [5] EXPLICIT XSeqExp }
+
+
+NT ::= SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Imp ::= [1] SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+Exp ::= [2] EXPLICIT SEQUENCE {
+  os  OCTET STRING,
+  bool  BOOLEAN}
+
+END

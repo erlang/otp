@@ -1,0 +1,481 @@
+-- Module MTAAbstractService (X.411:06/1999)
+MTAAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+  mta-abstract-service(2) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+--	Prologue
+--	Exports everything
+IMPORTS
+  -- Remote Operations
+  CONNECTION-PACKAGE, CONTRACT
+    --==
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  emptyUnbind
+    --==
+    FROM Remote-Operations-Useful-Definitions {joint-iso-itu-t
+      remote-operations(4) useful-definitions(7) version1(0)}
+  -- MTS Abstract Service Parameters
+  ABSTRACT-ERROR, ABSTRACT-OPERATION, administration, AdministrationDomainName,
+    certificate-selectors, certificate-selectors-override, Content,
+    ContentIdentifier, ContentLength, ContentType,
+    content-confidentiality-algorithm-identifier, content-correlator,
+    content-integrity-check, conversion-with-loss-prohibited,
+    ConvertedEncodedInformationTypes, CountryName, DeferredDeliveryTime,
+    delivery, dl-exempted-recipients, dl-expansion-history,
+    dl-expansion-prohibited, ExplicitConversion, EXTENSION, ExtensionField{},
+    GlobalDomainIdentifier, InitiatorCredentials, latest-delivery-time,
+    message-origin-authentication-check, message-security-label, message-token,
+    MHS-OBJECT, MTAName, MTSIdentifier, multiple-originator-certificates,
+    ORAddressAndOptionalDirectoryName, OriginalEncodedInformationTypes,
+    originator-and-DL-expansion-history, originator-certificate,
+    originator-return-address, PerMessageIndicators, physical-delivery-modes,
+    physical-delivery-report-request, physical-forwarding-address,
+    physical-forwarding-address-request, physical-forwarding-prohibited,
+    physical-rendition-attributes, PORT, Priority, PrivateDomainIdentifier,
+    PrivateExtensions, probe-origin-authentication-check, proof-of-delivery,
+    proof-of-delivery-request, recipient-certificate,
+    recipient-number-for-advice, recipient-reassignment-prohibited,
+    redirection-history, registered-mail-type, reporting-DL-name,
+    reporting-MTA-certificate, reporting-MTA-name, ReportType,
+    report-origin-authentication-check, requested-delivery-method,
+    ResponderCredentials, SecurityContext, submission,
+    SupplementaryInformation, Time
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- IPM Information Objects
+  IPMPerRecipientEnvelopeExtensions
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- Object Identifiers
+  id-cp-mta-connect, id-ct-mta-transfer, id-ot-mta, id-pt-transfer
+    --==
+    FROM MTSObjectIdentifiers {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- Upper Bounds
+  ub-bit-options, ub-integer-options, ub-recipients, ub-transfers
+    --==
+    FROM MTSUpperBounds {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      upper-bounds(3) version-1999(1)};
+
+--	Objects
+mta MHS-OBJECT ::= {BOTH  {mta-transfer}
+                    ID    id-ot-mta
+}
+
+--	Contracts
+mta-transfer CONTRACT ::= {
+  CONNECTION     mta-connect
+  OPERATIONS OF  {transfer}
+  ID             id-ct-mta-transfer
+}
+
+--	Connection package
+mta-connect CONNECTION-PACKAGE ::= {
+  BIND    mta-bind
+  UNBIND  mta-unbind
+  ID      id-cp-mta-connect
+}
+
+--	Ports
+transfer PORT ::= {
+  OPERATIONS  {message-transfer | probe-transfer | report-transfer}
+  ID          id-pt-transfer
+}
+
+--	MTA-bind and MTA-unbind
+mta-bind ABSTRACT-OPERATION ::= {
+  ARGUMENT  MTABindArgument
+  RESULT    MTABindResult
+  ERRORS    {mta-bind-error}
+}
+
+mta-unbind ABSTRACT-OPERATION ::= emptyUnbind
+
+MTABindArgument ::= CHOICE {
+  unauthenticated  NULL, -- if no authentication is required
+  authenticated
+    [1]  SET {-- if authentication is required--initiator-name
+                                                  [0]  MTAName,
+                                                initiator-credentials
+                                                  [1]  InitiatorCredentials
+                                                         (WITH COMPONENTS {
+                                                            ...,
+                                                            protected  ABSENT
+                                                          }),
+                                                security-context
+                                                  [2]  SecurityContext OPTIONAL
+  }
+}
+
+MTABindResult ::= CHOICE {
+  unauthenticated  NULL, -- if no authentication is required
+  authenticated
+    [1]  SET {-- if authentication is required--responder-name
+                                                  [0]  MTAName,
+                                                responder-credentials
+                                                  [1]  ResponderCredentials
+                                                         (WITH COMPONENTS {
+                                                            ...,
+                                                            protected  ABSENT
+                                                          })}
+}
+
+mta-bind-error ABSTRACT-ERROR ::= {
+  PARAMETER
+    INTEGER {busy(0), authentication-error(2), unacceptable-dialogue-mode(3),
+             unacceptable-security-context(4),
+             inadequate-association-confidentiality(5)}(0..ub-integer-options)
+}
+
+--	Transfer Port
+message-transfer ABSTRACT-OPERATION ::= {ARGUMENT  Message
+}
+
+probe-transfer ABSTRACT-OPERATION ::= {ARGUMENT  Probe
+}
+
+report-transfer ABSTRACT-OPERATION ::= {ARGUMENT  Report
+}
+
+Message ::= SEQUENCE {envelope  MessageTransferEnvelope,
+                      content   Content
+}
+
+Probe ::= ProbeTransferEnvelope
+
+Report ::= SEQUENCE {
+  envelope  ReportTransferEnvelope,
+  content   ReportTransferContent
+}
+
+--	Message Transfer Envelope
+MessageTransferEnvelope ::= SET {
+  COMPONENTS OF PerMessageTransferFields,
+  per-recipient-fields
+    [2]  SEQUENCE SIZE (1..ub-recipients) OF PerRecipientMessageTransferFields
+}
+
+PerMessageTransferFields ::= SET {
+  message-identifier                  MessageIdentifier,
+  originator-name                     OriginatorName,
+  original-encoded-information-types  OriginalEncodedInformationTypes OPTIONAL,
+  content-type                        ContentType,
+  content-identifier                  ContentIdentifier OPTIONAL,
+  priority                            Priority DEFAULT normal,
+  per-message-indicators              PerMessageIndicators DEFAULT {},
+  deferred-delivery-time              [0]  DeferredDeliveryTime OPTIONAL,
+  per-domain-bilateral-information
+    [1]  SEQUENCE SIZE (1..ub-transfers) OF PerDomainBilateralInformation
+      OPTIONAL,
+  trace-information                   TraceInformation,
+  extensions
+    [3]  SET OF ExtensionField{{MessageTransferExtensions}} DEFAULT {}
+}
+
+MessageTransferExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   recipient-reassignment-prohibited | dl-expansion-prohibited |
+   conversion-with-loss-prohibited | latest-delivery-time |
+   originator-return-address | originator-certificate |
+   content-confidentiality-algorithm-identifier |
+   message-origin-authentication-check | message-security-label |
+   content-correlator | dl-exempted-recipients | certificate-selectors |
+   multiple-originator-certificates | dl-expansion-history |
+   internal-trace-information | PrivateExtensions, ...}
+
+PerRecipientMessageTransferFields ::= SET {
+  recipient-name                         RecipientName,
+  originally-specified-recipient-number
+    [0]  OriginallySpecifiedRecipientNumber,
+  per-recipient-indicators               [1]  PerRecipientIndicators,
+  explicit-conversion                    [2]  ExplicitConversion OPTIONAL,
+  extensions
+    [3]  SET OF ExtensionField{{PerRecipientMessageTransferExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientMessageTransferExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   originator-requested-alternate-recipient | requested-delivery-method |
+   physical-forwarding-prohibited | physical-forwarding-address-request |
+   physical-delivery-modes | registered-mail-type | recipient-number-for-advice
+   | physical-rendition-attributes | physical-delivery-report-request |
+   message-token | content-integrity-check | proof-of-delivery-request |
+   certificate-selectors-override | recipient-certificate | redirection-history
+   | IPMPerRecipientEnvelopeExtensions | PrivateExtensions, ...}
+
+--	Probe Transfer Envelope
+ProbeTransferEnvelope ::= SET {
+  COMPONENTS OF PerProbeTransferFields,
+  per-recipient-fields
+    [2]  SEQUENCE SIZE (1..ub-recipients) OF PerRecipientProbeTransferFields
+}
+
+PerProbeTransferFields ::= SET {
+  probe-identifier                    ProbeIdentifier,
+  originator-name                     OriginatorName,
+  original-encoded-information-types  OriginalEncodedInformationTypes OPTIONAL,
+  content-type                        ContentType,
+  content-identifier                  ContentIdentifier OPTIONAL,
+  content-length                      [0]  ContentLength OPTIONAL,
+  per-message-indicators              PerMessageIndicators DEFAULT {},
+  per-domain-bilateral-information
+    [1]  SEQUENCE SIZE (1..ub-transfers) OF PerDomainBilateralInformation
+      OPTIONAL,
+  trace-information                   TraceInformation,
+  extensions
+    [3]  SET OF ExtensionField{{ProbeTransferExtensions}} DEFAULT {}
+}
+
+ProbeTransferExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   recipient-reassignment-prohibited | dl-expansion-prohibited |
+   conversion-with-loss-prohibited | originator-certificate |
+   message-security-label | content-correlator |
+   probe-origin-authentication-check | internal-trace-information |
+   PrivateExtensions, ...}
+
+PerRecipientProbeTransferFields ::= SET {
+  recipient-name                         RecipientName,
+  originally-specified-recipient-number
+    [0]  OriginallySpecifiedRecipientNumber,
+  per-recipient-indicators               [1]  PerRecipientIndicators,
+  explicit-conversion                    [2]  ExplicitConversion OPTIONAL,
+  extensions
+    [3]  SET OF ExtensionField{{PerRecipientProbeTransferExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientProbeTransferExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   originator-requested-alternate-recipient | requested-delivery-method |
+   physical-rendition-attributes | redirection-history | PrivateExtensions, 
+   ...}
+
+--	Report Transfer Envelope
+ReportTransferEnvelope ::= SET {
+  report-identifier        ReportIdentifier,
+  report-destination-name  ReportDestinationName,
+  trace-information        TraceInformation,
+  extensions
+    [1]  SET OF ExtensionField{{ReportTransferEnvelopeExtensions}} DEFAULT {}
+}
+
+ReportTransferEnvelopeExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   message-security-label | redirection-history |
+   originator-and-DL-expansion-history | reporting-DL-name |
+   reporting-MTA-certificate | report-origin-authentication-check |
+   internal-trace-information | reporting-MTA-name | PrivateExtensions, 
+   ...}
+
+--	Report Transfer Content
+ReportTransferContent ::= SET {
+  COMPONENTS OF PerReportTransferFields,
+  per-recipient-fields
+    [0]  SEQUENCE SIZE (1..ub-recipients) OF PerRecipientReportTransferFields
+}
+
+PerReportTransferFields ::= SET {
+  subject-identifier                      SubjectIdentifier,
+  subject-intermediate-trace-information
+    SubjectIntermediateTraceInformation OPTIONAL,
+  original-encoded-information-types
+    OriginalEncodedInformationTypes OPTIONAL,
+  content-type                            ContentType OPTIONAL,
+  content-identifier                      ContentIdentifier OPTIONAL,
+  returned-content                        [1]  Content OPTIONAL,
+  additional-information                  [2]  AdditionalInformation OPTIONAL,
+  extensions
+    [3]  SET OF ExtensionField{{ReportTransferContentExtensions}} DEFAULT {}
+}
+
+ReportTransferContentExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   content-correlator | PrivateExtensions, ...}
+
+PerRecipientReportTransferFields ::= SET {
+  actual-recipient-name                  [0]  ActualRecipientName,
+  originally-specified-recipient-number
+    [1]  OriginallySpecifiedRecipientNumber,
+  per-recipient-indicators               [2]  PerRecipientIndicators,
+  last-trace-information                 [3]  LastTraceInformation,
+  originally-intended-recipient-name
+    [4]  OriginallyIntendedRecipientName OPTIONAL,
+  supplementary-information              [5]  SupplementaryInformation OPTIONAL,
+  extensions
+    [6]  SET OF ExtensionField{{PerRecipientReportTransferExtensions}}
+      DEFAULT {}
+}
+
+PerRecipientReportTransferExtensions EXTENSION ::=
+  {-- May contain the following extensions, private extensions, and future standardised extensions,
+   -- at most one instance of each extension type:
+   redirection-history | physical-forwarding-address | recipient-certificate |
+   proof-of-delivery | PrivateExtensions, ...}
+
+--	Envelope & Report Content Fields
+MessageIdentifier ::= MTSIdentifier
+
+OriginatorName ::= ORAddressAndOptionalDirectoryName
+
+PerDomainBilateralInformation ::= SEQUENCE {
+  COMPONENTS OF BILATERAL.&id,
+  bilateral-information  BILATERAL.&Type
+}
+
+BILATERAL ::= CLASS {&id    BilateralDomain UNIQUE,
+                     &Type  
+}WITH SYNTAX {&Type,
+              IDENTIFIED BY &id
+}
+
+BilateralDomain ::= SEQUENCE {
+  country-name  CountryName,
+  domain
+    CHOICE {administration-domain-name  AdministrationDomainName,
+            private-domain
+              SEQUENCE {administration-domain-name
+                          [0]  AdministrationDomainName,
+                        private-domain-identifier
+                          [1]  PrivateDomainIdentifier}}
+}
+
+RecipientName ::= ORAddressAndOptionalDirectoryName
+
+OriginallySpecifiedRecipientNumber ::= INTEGER(1..ub-recipients)
+
+PerRecipientIndicators ::= BIT STRING {
+  responsibility(0),
+  -- responsible 'one', not-responsible 'zero'
+  originating-MTA-report(1),
+  originating-MTA-non-delivery-report(2),
+  -- either originating-MTA-report, or originating-MTA-non-delivery-report,
+  -- or both, shall be 'one':
+  -- originating-MTA-report bit 'one' requests a 'report';
+  -- originating-MTA-non-delivery-report bit 'one' requests a 'non-delivery-report';
+  -- both bits 'one' requests an 'audited-report';
+  -- bits 0 - 2 'don't care' for Report Transfer Content
+  originator-report(3),
+  originator-non-delivery-report(4),
+  -- at most one bit shall be 'one':
+  -- originator-report bit 'one' requests a 'report';
+  -- originator-non-delivery-report bit 'one' requests a 'non-delivery-report';
+  -- both bits 'zero' requests 'no-report'
+  reserved-5(5), reserved-6(6), reserved-7(7)
+                                
+-- reserved- bits 5 - 7 shall be 'zero' --}(SIZE (8..ub-bit-options))
+
+ProbeIdentifier ::= MTSIdentifier
+
+ReportIdentifier ::= MTSIdentifier
+
+ReportDestinationName ::= ORAddressAndOptionalDirectoryName
+
+SubjectIdentifier ::= MessageOrProbeIdentifier
+
+MessageOrProbeIdentifier ::= MTSIdentifier
+
+SubjectIntermediateTraceInformation ::= TraceInformation
+
+--	AdditionalInformation is retained for backwards compatibility only, 
+--	and use in new systems is strongly deprecated
+ADDITIONAL ::= CLASS {&Type  
+}
+
+AdditionalInformation ::=
+  ADDITIONAL.&Type -- maximum ub-additional-info octets including all encoding
+
+ActualRecipientName ::= ORAddressAndOptionalDirectoryName
+
+LastTraceInformation ::= SET {
+  arrival-time                         [0]  ArrivalTime,
+  converted-encoded-information-types
+    ConvertedEncodedInformationTypes OPTIONAL,
+  report-type                          [1]  ReportType
+}
+
+OriginallyIntendedRecipientName ::= ORAddressAndOptionalDirectoryName
+
+--	Extension Fields
+originator-requested-alternate-recipient EXTENSION ::= {
+  OriginatorRequestedAlternateRecipient,
+  IDENTIFIED BY  standard-extension:2
+}
+
+OriginatorRequestedAlternateRecipient ::= ORAddressAndOptionalDirectoryName
+
+trace-information EXTENSION ::= {
+  TraceInformation,
+  IDENTIFIED BY  standard-extension:37
+}
+
+internal-trace-information EXTENSION ::= {
+  InternalTraceInformation,
+  IDENTIFIED BY  standard-extension:38
+}
+
+InternalTraceInformation ::=
+  SEQUENCE SIZE (1..ub-transfers) OF InternalTraceInformationElement
+
+InternalTraceInformationElement ::= SEQUENCE {
+  global-domain-identifier  GlobalDomainIdentifier,
+  mta-name                  MTAName,
+  mta-supplied-information  MTASuppliedInformation
+}
+
+MTASuppliedInformation ::= SET {
+  arrival-time    [0]  ArrivalTime,
+  routing-action  [2]  RoutingAction,
+  attempted       CHOICE {mta     MTAName,
+                          domain  GlobalDomainIdentifier} OPTIONAL,
+  -- additional-actions --COMPONENTS OF InternalAdditionalActions
+}
+
+InternalAdditionalActions ::= AdditionalActions
+
+--	Common Parameter Types
+TraceInformation ::=
+  [APPLICATION 9]  SEQUENCE SIZE (1..ub-transfers) OF TraceInformationElement
+
+TraceInformationElement ::= SEQUENCE {
+  global-domain-identifier     GlobalDomainIdentifier,
+  domain-supplied-information  DomainSuppliedInformation
+}
+
+DomainSuppliedInformation ::= SET {
+  arrival-time      [0]  ArrivalTime,
+  routing-action    [2]  RoutingAction,
+  attempted-domain  GlobalDomainIdentifier OPTIONAL,
+  -- additional-actions --COMPONENTS OF AdditionalActions
+}
+
+AdditionalActions ::= SET {
+  deferred-time                        [1]  DeferredTime OPTIONAL,
+  converted-encoded-information-types
+    ConvertedEncodedInformationTypes OPTIONAL,
+  other-actions                        [3]  OtherActions DEFAULT {}
+}
+
+RoutingAction ::= ENUMERATED {relayed(0), rerouted(1)}
+
+DeferredTime ::= Time
+
+ArrivalTime ::= Time
+
+OtherActions ::= BIT STRING {redirected(0), dl-operation(1)
+}(SIZE (0..ub-bit-options))
+
+END -- of MTA Abstract Service
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

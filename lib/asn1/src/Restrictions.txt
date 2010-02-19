@@ -1,10 +1,12 @@
 The following restrictions apply to this implementation of the ASN.1 compiler:
 
-Supported encoding rules are: 
-BER
-PER (aligned)
+The ASN.1 2002 standard is not fully supported because there has been no need for that.
+It seems as if most ASN.1 specifications are still using the 1998 standard or older.
 
-PER (unaligned) IS NOT SUPPORTED
+Supported encoding rules are:
+BER, DER
+PER ALIGNED
+PER UNALIGNED
 
 Supported types are:
 
@@ -49,7 +51,7 @@ Files with ASN.1 source must have a suffix .asn1 the suffix .py used by the
 old ASN.1 compiler is supported in this version but will not be supported in the future.
 
 Generated files:
-X.asn1db	% the intermediate format of a compiled ASN.1 module 
+X.asn1db	% the intermediate format of a compiled ASN.1 module ,only used by the ASN.1 compiler.
 X.hrl		% generated Erlang include file for module X
 X.erl		% generated Erlang module with encode decode functions for
 		% ASN.1 module X

@@ -1,0 +1,77 @@
+SetOptional DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+SetOpt1 ::= SET 
+{
+  bool1  BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  set1  SetIn OPTIONAL
+}
+
+SetOpt1Imp ::= SEQUENCE 
+{
+  bool1 [1] BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  set1  [2] SetIn OPTIONAL
+}
+
+SetOpt1Exp ::= SEQUENCE 
+{
+  bool1 [1] EXPLICIT BOOLEAN OPTIONAL,
+  int1  INTEGER,
+  set1  [2] EXPLICIT SetIn OPTIONAL
+}
+
+SetOpt2 ::= SET 
+{
+  set2  SetIn OPTIONAL,
+  bool2  BOOLEAN,
+  int2  INTEGER
+}
+
+SetOpt2Imp ::= SEQUENCE 
+{
+  set2  [1] SetIn OPTIONAL,
+  bool2 [2] BOOLEAN,
+  int2  INTEGER
+}
+
+SetOpt2Exp ::= SEQUENCE 
+{
+  set2  [1] EXPLICIT SetIn OPTIONAL,
+  bool2 [2] EXPLICIT BOOLEAN,
+  int2  INTEGER
+}
+
+SetOpt3 ::= SET 
+{
+  bool3  BOOLEAN OPTIONAL,
+  set3  SetIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+SetOpt3Imp ::= SEQUENCE 
+{
+  bool3 [1] BOOLEAN OPTIONAL,
+  set3  [2] SetIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+SetOpt3Exp ::= SEQUENCE 
+{
+  bool3 [1] EXPLICIT BOOLEAN OPTIONAL,
+  set3  [2] EXPLICIT SetIn OPTIONAL,
+  int3  INTEGER OPTIONAL
+}
+
+
+
+SetIn ::= SET 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+
+END

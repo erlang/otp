@@ -1,0 +1,149 @@
+MAP-DialogueInformation {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-DialogueInformation (3) version9 (9)}
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+	map-DialogueAS,
+	MAP-DialoguePDU,
+	map-ProtectedDialogueAS,
+	MAP-ProtectedDialoguePDU
+
+;
+
+IMPORTS
+	gsm-NetworkId,
+	as-Id
+FROM MobileDomainDefinitions {
+   itu-t (0) identified-organization (4) etsi (0) mobileDomain (0)
+   mobileDomainDefinitions (0) version1 (1)}
+
+	AddressString
+FROM MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network(1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+
+	SecurityHeader,
+	ProtectedPayload
+FROM MAP-ST-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ST-DataTypes (27) version9 (9)}
+
+;
+
+
+-- abstract syntax name for MAP-DialoguePDU
+
+map-DialogueAS  OBJECT IDENTIFIER ::=
+	{gsm-NetworkId as-Id map-DialoguePDU (1) version1 (1)}
+
+MAP-DialoguePDU ::= CHOICE {
+	map-open		[0] MAP-OpenInfo,
+	map-accept	[1] MAP-AcceptInfo,
+	map-close		[2] MAP-CloseInfo,
+	map-refuse	[3] MAP-RefuseInfo,
+	map-userAbort	[4] MAP-UserAbortInfo,
+	map-providerAbort	[5] MAP-ProviderAbortInfo}
+
+MAP-OpenInfo ::= SEQUENCE {
+	destinationReference	[0] AddressString	OPTIONAL,
+	originationReference	[1] AddressString	OPTIONAL,
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL
+	-- extensionContainer must not be used in version 2
+	}
+
+MAP-AcceptInfo ::= SEQUENCE {
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL
+	-- extensionContainer must not be used in version 2
+	}
+
+MAP-CloseInfo ::= SEQUENCE {
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL
+	-- extensionContainer must not be used in version 2
+	}
+
+MAP-RefuseInfo ::= SEQUENCE {
+	reason	Reason,
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	-- extensionContainer must not be used in version 2
+	alternativeApplicationContext	OBJECT IDENTIFIER	OPTIONAL
+	-- alternativeApplicationContext must not be used in version 2
+	}
+
+Reason ::= ENUMERATED {
+	noReasonGiven	(0),
+	invalidDestinationReference	(1),
+	invalidOriginatingReference	(2),
+	encapsulatedAC-NotSupported	(3) ,
+	transportProtectionNotAdequate	(4)}
+	-- encapsulatedAC-NotSupported and transportProtectionNotAdequate must not be used in 
+	-- dialogues with an AC different from secureTransportHandling
+
+MAP-UserAbortInfo ::= SEQUENCE {
+	map-UserAbortChoice	MAP-UserAbortChoice,
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL
+	-- extensionContainer must not be used in version 2
+	}
+
+MAP-UserAbortChoice ::= CHOICE {
+	userSpecificReason	[0] NULL,
+	userResourceLimitation	[1] NULL,
+	resourceUnavailable	[2] ResourceUnavailableReason,
+	applicationProcedureCancellation	[3] ProcedureCancellationReason}
+
+ResourceUnavailableReason ::= ENUMERATED {
+	shortTermResourceLimitation  (0),
+	longTermResourceLimitation  (1)}
+
+ProcedureCancellationReason ::= ENUMERATED {
+	handoverCancellation  (0),
+	radioChannelRelease  (1),
+	networkPathRelease  (2),
+	callRelease  (3),
+	associatedProcedureFailure  (4),
+	tandemDialogueRelease  (5),
+	remoteOperationsFailure  (6)}
+
+MAP-ProviderAbortInfo ::= SEQUENCE {
+	map-ProviderAbortReason	MAP-ProviderAbortReason,
+	...,
+	extensionContainer	ExtensionContainer	OPTIONAL
+	-- extensionContainer must not be used in version 2
+	}
+
+MAP-ProviderAbortReason ::= ENUMERATED {
+	abnormalDialogue  (0),
+	invalidPDU  (1)}
+
+-- abstract syntax name for MAP-ProtectedDialoguePDU
+
+map-ProtectedDialogueAS  OBJECT IDENTIFIER ::=
+	{gsm-NetworkId as-Id map-ProtectedDialoguePDU (3) version1 (1)}
+
+MAP-ProtectedDialoguePDU ::= SEQUENCE {
+	encapsulatedAC	OBJECT IDENTIFIER,
+	securityHeader	SecurityHeader	OPTIONAL,
+	protectedPayload	ProtectedPayload	OPTIONAL,
+	...}
+	-- The protectedPayload carries the result of applying the security function 
+	-- defined in 3GPP TS 33.200 to the encoding of the securely transported 
+	-- MAP-DialoguePDU
+
+END

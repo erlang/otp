@@ -1,0 +1,268 @@
+-- Module Layout-Descriptors (T.415:03/1993)
+
+Layout-Descriptors {2 8 1 5 8} DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  Layout-Object-Descriptor, Layout-Class-Descriptor, Layout-Object-Type,
+    Transparency, Comment-String, Binding-Pair, One-Of-Four-Angles,
+    Measure-Pair, Dimension-Pair, Medium-Type, Colour, Border,
+    Content-Background-Colour, Content-Foreground-Colour, Enciphered, 
+    Sealed;
+
+IMPORTS
+  Object-or-Class-Identifier, Style-Identifier, Protected-Part-Identifier,
+    Category-Name, Resource-Name, Binding-Name, Construction-Expression,
+    Object-Id-Expression, Numeric-Expression, String-Expression
+    FROM Identifiers-and-Expressions --  see 7.8 
+      
+  Presentation-Attributes
+    FROM Style-Descriptors --  see 7.11
+      
+  Default-Value-Lists-Layout
+    FROM Default-Value-Lists --  see 7.12
+      
+  Colour-Expression, Colour-Table
+    FROM Colour-Attributes --  see 7.14
+      
+  Presentation-Time
+    FROM Temporal-Relationships {2 8 1 14 0};
+
+--  See ITU-T Rec. T.424 | ISO/IEC 8613-14
+Position-Spec ::= SET {
+  offset
+    [0] IMPLICIT SET {leading     [0] IMPLICIT INTEGER OPTIONAL,
+                      trailing    [1] IMPLICIT INTEGER OPTIONAL,
+                      left-hand   [2] IMPLICIT INTEGER OPTIONAL,
+                      right-hand  [3] IMPLICIT INTEGER OPTIONAL} OPTIONAL,
+  separation
+    [1] IMPLICIT SET {leading   [0] IMPLICIT INTEGER OPTIONAL,
+                      trailing  [1] IMPLICIT INTEGER OPTIONAL,
+                      centre    [2] IMPLICIT INTEGER OPTIONAL} OPTIONAL,
+  alignment
+    [2] IMPLICIT INTEGER {right-hand(0), centred(1), left-hand(2)} OPTIONAL,
+  fill-order  [3] IMPLICIT INTEGER {normal(0), reverse(1)} OPTIONAL
+}
+
+Dimension-Pair ::= SEQUENCE {
+  horizontal
+    CHOICE {fixed        [0] IMPLICIT INTEGER,
+            not-present  [4] IMPLICIT NULL},
+  vertical
+    CHOICE {fixed        [0] IMPLICIT INTEGER,
+            variable     [1] IMPLICIT INTEGER,
+            not-present  [4] IMPLICIT NULL}
+}
+
+--  the choice 'not-present' indicates that the parameter is not present
+Dimension-Spec ::= SEQUENCE {horizontal  Dimension,
+                             vertical    Dimension
+}
+
+Dimension ::= CHOICE {
+  fixed         [0] IMPLICIT INTEGER,
+  rule-a
+    [1] IMPLICIT SET {minimum  [0] IMPLICIT INTEGER OPTIONAL,
+                      maximum  [1] IMPLICIT INTEGER OPTIONAL},
+  rule-b
+    [2] IMPLICIT SET {minimum  [0] IMPLICIT INTEGER OPTIONAL,
+                      maximum  [1] IMPLICIT INTEGER OPTIONAL},
+  maximum-size  [3] IMPLICIT NULL,
+  not-present   [4] IMPLICIT NULL
+}
+
+--  the choice 'not-present' indicates that the parameter is not present
+Transparency ::= INTEGER {transparent(0), opaque(1)}
+
+Comment-String ::= OCTET STRING
+
+--  string of characters from the sets designated by
+--  the document profile attribute "comments character sets",
+--  plus code extension control functions,
+--  space, carriage return and line feed
+Binding-Pair ::= SET {
+  binding-identifier  [0] IMPLICIT Binding-Name,
+  binding-value
+    CHOICE {a  [1]  Object-Id-Expression,
+            b  [2]  Numeric-Expression,
+            c  [3]  String-Expression,
+            d  [4] IMPLICIT Object-or-Class-Identifier,
+            e  [5] IMPLICIT INTEGER,
+            f  [6] IMPLICIT OCTET STRING}
+}
+
+One-Of-Four-Angles ::= INTEGER {d0(0), d90(1), d180(2), d270(3)}
+
+Measure-Pair ::= SEQUENCE {
+  horizontal
+    CHOICE {fixed        [0] IMPLICIT INTEGER,
+            not-present  [4] IMPLICIT NULL},
+  vertical
+    CHOICE {fixed        [0] IMPLICIT INTEGER,
+            not-present  [4] IMPLICIT NULL}
+}
+
+--  the choice 'not-present' indicates that the parameter is not present
+Medium-Type ::= SEQUENCE {
+  nominal-page-size  Measure-Pair OPTIONAL,
+  side-of-sheet      INTEGER {unspecified(0), recto(1), verso(2)} OPTIONAL,
+  colour-of-medium   [3]  Colour-Of-Medium OPTIONAL
+}
+
+Colour ::= INTEGER {colour-of-media(0), coloured(1)}
+
+Border ::= SET {
+  left-hand-edge   [0] IMPLICIT Border-Edge OPTIONAL,
+  right-hand-edge  [1] IMPLICIT Border-Edge OPTIONAL,
+  trailing-edge    [2] IMPLICIT Border-Edge OPTIONAL,
+  leading-edge     [3] IMPLICIT Border-Edge OPTIONAL
+}
+
+Border-Edge ::= SET {
+  line-width          [0] IMPLICIT INTEGER OPTIONAL,
+  line-type
+    [1] IMPLICIT INTEGER {invisible(0), solid(1), dashed(2), dot(3),
+                          dash-dot(4), dash-dot-dot(5)} OPTIONAL,
+  freespace-width     [2] IMPLICIT INTEGER OPTIONAL,
+  border-line-colour  [3]  Border-Line-Colour OPTIONAL
+}
+
+--  a 'null' border edge is represented by an empty set
+Colour-Of-Medium ::= CHOICE {
+  unspecified-colour  [3] IMPLICIT NULL,
+  specified-colour    Colour-Expression
+}
+
+Border-Line-Colour ::= CHOICE {
+  implementation-defined  [3] IMPLICIT NULL,
+  colour-expression       Colour-Expression
+}
+
+Content-Background-Colour ::= CHOICE {
+  content-background-transparency  [2] IMPLICIT NULL,
+  colour-expression                Colour-Expression
+}
+
+Content-Foreground-Colour ::= CHOICE {
+  implementation-defined           [3] IMPLICIT NULL,
+  content-foreground-transparency  [2] IMPLICIT NULL,
+  colour-expression                Colour-Expression
+}
+
+Enciphered ::= SEQUENCE {
+  enciphered-subordinates
+    CHOICE {none-all  [0] IMPLICIT INTEGER {none(0), all(1)},
+            partial   [1] IMPLICIT SEQUENCE OF NumericString},
+  protected-part-id        [2] IMPLICIT Protected-Part-Identifier OPTIONAL
+}
+
+Sealed ::= SEQUENCE {
+  sealed-status  [0] IMPLICIT INTEGER {no(0), yes(1)},
+  seal-ids       [1] IMPLICIT SET OF INTEGER OPTIONAL
+}
+
+Layout-Object-Descriptor ::= SEQUENCE {
+  object-type      Layout-Object-Type OPTIONAL,
+  descriptor-body  Layout-Object-Descriptor-Body OPTIONAL
+}
+
+Layout-Object-Type ::= INTEGER {
+  document-layout-root(0), page-set(1), page(2), frame(3), block(4)}
+
+Layout-Object-Descriptor-Body ::= SET {
+  object-identifier             Object-or-Class-Identifier OPTIONAL,
+  subordinates                  [0] IMPLICIT SEQUENCE OF NumericString OPTIONAL,
+  content-portions              [1] IMPLICIT SEQUENCE OF NumericString OPTIONAL,
+  object-class
+    [2] IMPLICIT Object-or-Class-Identifier OPTIONAL,
+  position                      [3] IMPLICIT Measure-Pair OPTIONAL,
+  dimensions                    [4] IMPLICIT Dimension-Pair OPTIONAL,
+  transparency                  [5] IMPLICIT Transparency OPTIONAL,
+  presentation-attributes       [6] IMPLICIT Presentation-Attributes OPTIONAL,
+  default-value-lists
+    [7] IMPLICIT Default-Value-Lists-Layout OPTIONAL,
+  user-readable-comments        [8] IMPLICIT Comment-String OPTIONAL,
+  bindings                      [9] IMPLICIT SET OF Binding-Pair OPTIONAL,
+  layout-path                   [11] IMPLICIT One-Of-Four-Angles OPTIONAL,
+  imaging-order
+    [12] IMPLICIT SEQUENCE OF NumericString OPTIONAL,
+  layout-stream-categories      [36] IMPLICIT SET OF Category-Name OPTIONAL,
+  layout-stream-sub-categories  [37] IMPLICIT SET OF Category-Name OPTIONAL,
+  permitted-categories          [13] IMPLICIT SET OF Category-Name OPTIONAL,
+  --  a 'null' value is represented by an empty set
+  user-visible-name             [14] IMPLICIT Comment-String OPTIONAL,
+  page-position                 [15] IMPLICIT Measure-Pair OPTIONAL,
+  medium-type                   [16] IMPLICIT Medium-Type OPTIONAL,
+  presentation-style            [17] IMPLICIT Style-Identifier OPTIONAL,
+  balance
+    [21] IMPLICIT SEQUENCE OF Object-or-Class-Identifier OPTIONAL,
+  --  a 'null' value is represented by an empty sequence
+  colour                        [22] IMPLICIT Colour OPTIONAL,
+  colour-of-layout-object       [29]  Colour-Expression OPTIONAL,
+  object-colour-table           [30] IMPLICIT Colour-Table OPTIONAL,
+  content-background-colour     [31]  Content-Background-Colour OPTIONAL,
+  content-foreground-colour     [32]  Content-Foreground-Colour OPTIONAL,
+  content-colour-table          [33] IMPLICIT Colour-Table OPTIONAL,
+  border                        [23] IMPLICIT Border OPTIONAL,
+  application-comments          [25] IMPLICIT OCTET STRING OPTIONAL,
+  primary
+    [27] IMPLICIT Object-or-Class-Identifier OPTIONAL,
+  alternative
+    [28] IMPLICIT Object-or-Class-Identifier OPTIONAL,
+  enciphered                    [34] IMPLICIT Enciphered OPTIONAL,
+  sealed                        [35] IMPLICIT Sealed OPTIONAL,
+  presentation-time             [52] IMPLICIT Presentation-Time OPTIONAL
+}
+
+Layout-Class-Descriptor ::= SEQUENCE {
+  object-type      Layout-Object-Type,
+  descriptor-body  Layout-Class-Descriptor-Body
+}
+
+Layout-Class-Descriptor-Body ::= SET {
+  object-class-identifier       Object-or-Class-Identifier,
+  generator-for-subordinates    [0]  Construction-Expression OPTIONAL,
+  content-portions              [1] IMPLICIT SEQUENCE OF NumericString OPTIONAL,
+  position
+    CHOICE {fixed-position     [3] IMPLICIT Measure-Pair,
+            variable-position  [26] IMPLICIT Position-Spec} OPTIONAL,
+  dimensions                    [4] IMPLICIT Dimension-Spec OPTIONAL,
+  transparency                  [5] IMPLICIT Transparency OPTIONAL,
+  presentation-attributes       [6] IMPLICIT Presentation-Attributes OPTIONAL,
+  default-value-lists
+    [7] IMPLICIT Default-Value-Lists-Layout OPTIONAL,
+  user-readable-comments        [8] IMPLICIT Comment-String OPTIONAL,
+  bindings                      [9] IMPLICIT SET OF Binding-Pair OPTIONAL,
+  content-generator             [10] IMPLICIT String-Expression OPTIONAL,
+  layout-path                   [11] IMPLICIT One-Of-Four-Angles OPTIONAL,
+  layout-stream-categories      [36] IMPLICIT SET OF Category-Name OPTIONAL,
+  layout-stream-sub-categories  [37] IMPLICIT SET OF Category-Name OPTIONAL,
+  permitted-categories          [13] IMPLICIT SET OF Category-Name OPTIONAL,
+  --  a 'null' value is represented by an empty set
+  user-visible-name             [14] IMPLICIT Comment-String OPTIONAL,
+  page-position                 [15] IMPLICIT Measure-Pair OPTIONAL,
+  medium-type                   [16] IMPLICIT Medium-Type OPTIONAL,
+  presentation-style            [17] IMPLICIT Style-Identifier OPTIONAL,
+  logical-source
+    [18] IMPLICIT Object-or-Class-Identifier OPTIONAL,
+  balance
+    [21] IMPLICIT SEQUENCE OF Object-or-Class-Identifier OPTIONAL,
+  --  a 'null' value is represented by an empty sequence
+  colour                        [22] IMPLICIT Colour OPTIONAL,
+  colour-of-layout-object       [29]  Colour-Expression OPTIONAL,
+  object-colour-table           [30] IMPLICIT Colour-Table OPTIONAL,
+  content-background-colour     [31]  Content-Background-Colour OPTIONAL,
+  content-foreground-colour     [32]  Content-Foreground-Colour OPTIONAL,
+  content-colour-table          [33] IMPLICIT Colour-Table OPTIONAL,
+  border                        [23] IMPLICIT Border OPTIONAL,
+  resource                      [24] IMPLICIT Resource-Name OPTIONAL,
+  application-comments          [25] IMPLICIT OCTET STRING OPTIONAL,
+  enciphered                    [34] IMPLICIT Enciphered OPTIONAL,
+  sealed                        [35] IMPLICIT Sealed OPTIONAL,
+  presentation-time             [52] IMPLICIT Presentation-Time OPTIONAL
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

@@ -1,0 +1,20 @@
+SetPrim DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+Set ::=  SET 
+{
+  bool  BOOLEAN,
+  boolCon [20] BOOLEAN,
+  boolPri [PRIVATE 21] BOOLEAN,
+  boolApp  [APPLICATION 22] BOOLEAN,
+  boolExpCon [30] EXPLICIT BOOLEAN,
+  boolExpPri [PRIVATE 31] EXPLICIT BOOLEAN,
+  boolExpApp  [APPLICATION 32] EXPLICIT BOOLEAN
+}
+
+Empty ::= SET 
+{
+}
+
+END

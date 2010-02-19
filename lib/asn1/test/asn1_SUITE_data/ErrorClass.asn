@@ -1,0 +1,15 @@
+ErrorClass DEFINITIONS  ::=
+BEGIN
+
+EXPORTS
+ERROR;
+
+
+ERROR ::= CLASS {
+    &errorCode      INTEGER UNIQUE,
+    &ParameterType      OPTIONAL
+    }
+
+END
+
+

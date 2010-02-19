@@ -1,0 +1,95 @@
+
+particular() -> [smp, ticket7904].
+
+
+smp(suite) -> [];
+smp(Config)  ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    NumOfProcs = erlang:system_info(schedulers),
+	    io:format("smp starting ~p workers\n",[NumOfProcs]),
+
+            ?line Msg = {initiatingMessage, testNBAPsystem:cell_setup_req_msg()},
+	    ?line ok = testNBAPsystem:compile(Config,per_bin,[optimize]),
+
+            Parent = self(),
+	    
+	    ?line ok = asn1rt:load_driver(),
+	
+	    smp2(Parent,NumOfProcs,Msg,2),
+
+	    N = 10000,
+
+            ?line {Time1,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
+	    ?line {Time1S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+
+	    ?line ok = testNBAPsystem:compile(Config,ber_bin,[optimize,driver]),
+            ?line {Time2,ok} = timer:tc(?MODULE,smp2,[Parent,NumOfProcs,Msg, N]),
+
+	    ?line {Time2S,ok} = timer:tc(?MODULE,sequential,[NumOfProcs * N,Msg]),
+
+            {comment,lists:flatten(io_lib:format("Encode/decode time parallell with ~p cores: ~p [microsecs]~nEncode/decode time sequential: ~p [microsecs]",[NumOfProcs,Time1+Time2,Time1S+Time2S]))};
+        false ->
+            {skipped,"No smp support"}
+    end.
+
+smp2(Parent,NumOfProcs,Msg, N) ->
+    Pids = [spawn_link(fun() -> worker(Msg,Parent, N) end)
+		    || _ <- lists:seq(1,NumOfProcs)],
+    ?line ok = wait_pids(Pids).
+
+worker(Msg, Parent, N) ->
+    %% io:format("smp worker ~p with ~p worker loops.~n",[self(), N]),
+    worker_loop(N, Msg),
+    Parent ! self().
+
+worker_loop(0, _Msg) ->
+    ok;
+worker_loop(N, Msg) ->
+    ?line {ok,B}=asn1_wrapper:encode('NBAP-PDU-Discriptions',
+				     'NBAP-PDU',
+				     Msg),
+    ?line {ok,_Msg}=asn1_wrapper:decode('NBAP-PDU-Discriptions',
+				     'NBAP-PDU',
+				     B),
+    worker_loop(N - 1, Msg).
+
+
+wait_pids([]) -> 
+    ok;
+wait_pids(Pids) ->
+    receive
+	Pid when is_pid(Pid) ->
+	    ?line true = lists:member(Pid,Pids),
+	    Others = lists:delete(Pid,Pids),
+	    io:format("wait_pid got ~p, still waiting for ~p\n",[Pid,Others]),
+	    wait_pids(Others);
+        Err ->
+	    io:format("Err: ~p~n",[Err]),
+	    ?line exit(Err)
+    end.
+
+sequential(N,Msg) ->
+     %%io:format("sequential encode/decode with N = ~p~n",[N]),
+     worker_loop(N,Msg).
+    
+-record('InitiatingMessage',{procedureCode,criticality,value}).
+-record('Iu-ReleaseCommand',{first,second}).
+
+ticket7904(suite) -> [];
+ticket7904(Config) ->
+    ?line DataDir = ?config(data_dir,Config),
+    ?line OutDir = ?config(priv_dir,Config),
+
+    ?line ok = asn1ct:compile(DataDir ++ 
+		      "RANAPextract1",[per_bin,optimize,{outdir,OutDir}]),
+
+    Val1 = #'InitiatingMessage'{procedureCode=1,
+				criticality=ignore,
+				value=#'Iu-ReleaseCommand'{
+				  first=13,
+				  second=true}},
+
+    ?line {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1),
+    asn1rt:unload_driver(),
+    ?line {ok,_} = 'RANAPextract1':encode('InitiatingMessage', Val1).

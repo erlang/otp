@@ -1,0 +1,12 @@
+{exclusive_decode, {'TCAPPackage',
+      [{decode_PackageType, ['PackageType', 
+            [{unidirectional, undecoded},
+            {queryWithPerm, [{componentPortion, parts}]},
+            {queryWithoutPerm, undecoded},
+            {response, [{componentPortion, parts}]},
+            {conversationWithPerm, undecoded},
+            {conversationWithoutPerm, undecoded},
+            {abort, undecoded}]]},
+      {decode_TransactionPDU, ['TransactionPDU',
+            [{componentPortion, parts}]]}]}}.
+

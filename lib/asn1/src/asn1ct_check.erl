@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -5416,9 +5416,12 @@ instance_of_constraints(S,#constraint{c={simpletable,Type}}) ->
 %% assign values to un-numbered identifiers
 %% check that the constraints are allowed and correct
 %% put the updated info back into database
-check_enumerated(_S,[{Name,Number}|Rest],_Constr) when is_atom(Name), is_integer(Number)->
+check_enumerated(_S,[{Name,Number}|_Rest]= NNList,_Constr) when is_atom(Name), is_integer(Number)->
     %% already checked , just return the same list
-    [{Name,Number}|Rest]; 
+    NNList;
+check_enumerated(_S,{[{Name,Number}|_Rest],L}= NNList,_Constr) when is_atom(Name), is_integer(Number), is_list(L)->
+    %% already checked , contains extension marker, just return the same lists
+    NNList;
 check_enumerated(S,NamedNumberList,_Constr) ->
     check_enum(S,NamedNumberList,[],[],[]).
 
@@ -5568,14 +5571,14 @@ expand_components2(_S,{_,#typedef{typespec=#type{def=Seq}}})
     case Seq#'SEQUENCE'.components of
 	{R1,_Ext,R2} -> R1 ++ R2;
 	{Root,_Ext} -> Root;
-	Root -> Root
+	Root -> take_only_rootset(Root)
     end;
 expand_components2(_S,{_,#typedef{typespec=#type{def=Set}}})
   when is_record(Set,'SET') ->
     case Set#'SET'.components of
 	{R1,_Ext,R2} -> R1 ++ R2;
 	{Root,_Ext} -> Root;
-	Root -> Root
+	Root -> take_only_rootset(Root)
     end;
 expand_components2(_S,{_,#typedef{typespec=RefType=#type{def=#'Externaltypereference'{}}}}) ->
     [{'COMPONENTS OF',RefType}];
@@ -5591,6 +5594,12 @@ expand_components2(S,{_,ERef}) when is_record(ERef,'Externaltypereference') ->
 expand_components2(_S,Err) ->
     throw({error,{asn1,{illegal_COMPONENTS_OF,Err}}}).
 
+take_only_rootset([])->
+    [];
+take_only_rootset([#'EXTENSIONMARK'{}|_T])->
+    [];
+take_only_rootset([H|T]) ->
+    [H|take_only_rootset(T)].
 
 check_unique_sequence_tags(S,[#'ComponentType'{prop=mandatory}|Rest]) ->
     check_unique_sequence_tags(S,Rest);
@@ -5885,8 +5894,8 @@ check_relative_oid(_S,_Constr) ->
 % - that each alternative is of a valid type
 % - that the extension marks are valid
 check_choice(S,Type,Components) when is_list(Components) ->
-    case check_unique([C||C <- Components,
-			  is_record(C,'ComponentType')],#'ComponentType'.name) of
+    Components1 = [C||C = #'ComponentType'{} <- Components],
+    case check_unique(Components1,#'ComponentType'.name) of
 	[] -> 
     %%    sort_canonical(Components),
 	    Components2 = maybe_automatic_tags(S,Components),
@@ -5927,13 +5936,13 @@ maybe_automatic_tags(S,C) ->
 %% Pos == 1 for Root1, 2 for Ext, 3 for Root2
 tag_nums(Cl) ->
     tag_nums(Cl,0,0).
-tag_nums([{'EXTENSIONMARK',_,_}|Rest],Ext,Root2) ->
+tag_nums([#'EXTENSIONMARK'{}|Rest],Ext,Root2) ->
     tag_nums_ext(Rest,Ext,Root2);
 tag_nums([_|Rest],Ext,Root2) ->
     tag_nums(Rest,Ext+1,Root2+1);
 tag_nums([],Ext,Root2) ->
     [0,Ext,Root2].
-tag_nums_ext([{'EXTENSIONMARK',_,_}|Rest],Ext,Root2) ->
+tag_nums_ext([#'EXTENSIONMARK'{}|Rest],Ext,Root2) ->
     tag_nums_root2(Rest,Ext,Root2);
 tag_nums_ext([_|Rest],Ext,Root2) ->
     tag_nums_ext(Rest,Ext,Root2);
@@ -5983,7 +5992,7 @@ generate_automatic_tags1([],_) ->
 
 any_manual_tag([#'ComponentType'{typespec=#type{tag=[]}}|Rest]) ->
     any_manual_tag(Rest);
-any_manual_tag([{'EXTENSIONMARK',_,_}|Rest]) ->
+any_manual_tag([#'EXTENSIONMARK'{}|Rest]) ->
     any_manual_tag(Rest);
 any_manual_tag([_|_Rest]) ->
     true;

@@ -1,0 +1,38 @@
+SetTypeRefSeq DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+SetTRseq ::=  SET 
+{
+  setSeq SetSeq,
+  setSeqI [134] SetSeq,
+  setSeqE [135] EXPLICIT SetSeq,
+
+  setSeq-I SetSeqImp,
+  setSeqI-I [234] SetSeqImp,
+  setSeqE-I [235] EXPLICIT SetSeqImp,
+
+  setSeq-E SetSeqExp,
+  setSeqI-E [334] SetSeqExp,
+  setSeqE-E [335] EXPLICIT SetSeqExp
+
+}
+
+SetSeq ::= SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+SetSeqImp ::= [64] SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+SetSeqExp ::= [65] EXPLICIT SEQUENCE {
+		seqInt INTEGER,
+		seqOs OCTET STRING
+                }
+
+END

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -74,8 +74,9 @@ parse_ModuleDefinition([{typereference,L1,ModuleIdentifier}|Rest0]) ->
     {ExtensionDefault,Rest3} = 
 	case Rest2 of
 	    [{'EXTENSIBILITY',_L5}, {'IMPLIED',_L6}|Rest21] -> 
-		{'IMPLIED',Rest21};
-	    _  -> {false,Rest2}
+		put(extensiondefault,'IMPLIED'),{'IMPLIED',Rest21};
+	    _  -> 
+		put(extensiondefault,undefined),{undefined,Rest2}
 	end,
     case Rest3 of
 	[{'::=',_L7}, {'BEGIN',_L8}|Rest4] ->
@@ -416,7 +417,7 @@ parse_BuiltinType([{'CHARACTER',_},{'STRING',_}|Rest]) ->
     {#type{def='CHARACTER STRING'},Rest};
 
 parse_BuiltinType([{'CHOICE',_},{'{',_}|Rest]) ->
-    {AlternativeTypeLists,Rest2} = parse_AlternativeTypeLists(Rest),
+    {AlternativeTypeLists,Rest2} = parse_AlternativeTypeLists(Rest,get(extensiondefault)),
     case Rest2 of
 	[{'}',_}|Rest3] ->
 	    {#type{def={'CHOICE',AlternativeTypeLists}},Rest3};
@@ -427,7 +428,7 @@ parse_BuiltinType([{'CHOICE',_},{'{',_}|Rest]) ->
 parse_BuiltinType([{'EMBEDDED',_},{'PDV',_}|Rest]) ->
     {#type{def='EMBEDDED PDV'},Rest};
 parse_BuiltinType([{'ENUMERATED',_},{'{',_}|Rest]) ->
-    {Enumerations,Rest2} = parse_Enumerations(Rest),
+    {Enumerations,Rest2} = parse_Enumerations(Rest,get(extensiondefault)),
     case Rest2 of
 	[{'}',_}|Rest3] ->
 	    {#type{def={'ENUMERATED',Enumerations}},Rest3};
@@ -490,7 +491,8 @@ parse_BuiltinType([{'SEQUENCE',_},{'{',_},{'...',Line},{'!',_}|Rest]) ->
 						ExceptionIdentification}]}},
 	     Rest3};
 	_ ->
-	    {ComponentTypeLists,Rest3}=parse_ComponentTypeLists2(Rest2,[#'EXTENSIONMARK'{pos=Line}]),
+	    {ComponentTypeLists,Rest3}=
+		parse_ComponentTypeLists2(Rest2,[#'EXTENSIONMARK'{pos=Line}]),
 	    case Rest3 of
 		[{'}',_}|Rest4] ->
 	    {#type{def=#'SEQUENCE'{components=ComponentTypeLists}},Rest4};
@@ -506,11 +508,29 @@ parse_BuiltinType([{'SEQUENCE',_},{'{',_}|Rest]) ->
     {ComponentTypeLists,Rest2} = parse_ComponentTypeLists(Rest),
     case Rest2  of
 	[{'}',_}|Rest3] ->
-	    {#type{def=#'SEQUENCE'{components=ComponentTypeLists}},Rest3};
+	    ComponentTypeLists2 =
+		case {[Ext||Ext = #'EXTENSIONMARK'{} <- ComponentTypeLists],
+		      get(extensiondefault)} of
+		    {[],'IMPLIED'} ->  ComponentTypeLists ++ [#'EXTENSIONMARK'{}];
+		    _ -> ComponentTypeLists
+		end,
+	    {#type{def=#'SEQUENCE'{components = ComponentTypeLists2}},
+	     Rest3};
 	_ ->
 	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 			       [got,get_token(hd(Rest2)),expected,'}']}})
     end;
+
+parse_BuiltinType([{'SEQUENCE',_},{'OF',_},Id={identifier,_,_},Lt={'<',_}|Rest]) ->
+%% TODO: take care of the identifier for something useful
+    {Type,Rest2} = parse_SelectionType([Id,Lt|Rest]),
+    {#type{def={'SEQUENCE OF',#type{def=Type,tag=[]}}},Rest2};
+
+parse_BuiltinType([{'SEQUENCE',_},{'OF',_},{identifier,_,_} |Rest]) ->
+%% TODO: take care of the identifier for something useful
+    {Type,Rest2} = parse_Type(Rest),
+    {#type{def={'SEQUENCE OF',Type}},Rest2};
+
 parse_BuiltinType([{'SEQUENCE',_},{'OF',_}|Rest]) ->
     {Type,Rest2} = parse_Type(Rest),
     {#type{def={'SEQUENCE OF',Type}},Rest2};
@@ -533,11 +553,30 @@ parse_BuiltinType([{'SET',_},{'{',_}|Rest]) ->
     {ComponentTypeLists,Rest2} = parse_ComponentTypeLists(Rest),
     case Rest2  of
 	[{'}',_}|Rest3] ->
-	    {#type{def=#'SET'{components=ComponentTypeLists}},Rest3};
+	    ComponentTypeLists2 =
+		case {[Ext||Ext = #'EXTENSIONMARK'{} <- ComponentTypeLists],
+		      get(extensiondefault)} of
+		    {[],'IMPLIED'} ->  ComponentTypeLists ++ [#'EXTENSIONMARK'{}];
+		    _ -> ComponentTypeLists
+		end,
+	    {#type{def=#'SET'{components = ComponentTypeLists2}},
+	     Rest3};
 	_ ->
 	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
 			       [got,get_token(hd(Rest2)),expected,'}']}})
     end;
+
+parse_BuiltinType([{'SET',_},{'OF',_},Id={identifier,_,_},Lt={'<',_}|Rest]) ->
+%% TODO: take care of the identifier for something useful
+    {Type,Rest2} = parse_SelectionType([Id,Lt|Rest]),
+    {#type{def={'SET OF',#type{def=Type,tag=[]}}},Rest2};
+
+
+parse_BuiltinType([{'SET',_},{'OF',_},{identifier,_,_}|Rest]) ->
+%%TODO: take care of the identifier for something useful
+    {Type,Rest2} = parse_Type(Rest),
+    {#type{def={'SET OF',Type}},Rest2};
+
 parse_BuiltinType([{'SET',_},{'OF',_}|Rest]) ->
     {Type,Rest2} = parse_Type(Rest),
     {#type{def={'SET OF',Type}},Rest2};
@@ -563,48 +602,74 @@ parse_BuiltinType(Tokens) ->
 
 parse_TypeWithConstraint([{'SEQUENCE',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
-    case Rest2 of
-	[{'OF',_}|Rest3] ->
-	    {Type,Rest4} = parse_Type(Rest3),
-	    {#type{def = {'SEQUENCE OF',Type}, constraint = merge_constraints([Constraint])},Rest4};
-	_ ->
-	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-			       [got,get_token(hd(Rest2)),expected,'OF']}})
-    end;
+    Rest4 = case Rest2 of
+		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
+%%% TODO: make some use of the identifier, maybe useful in the XML mapping
+		    Rest3;
+		[{'OF',_}|Rest3] ->
+		    Rest3;
+		_ ->
+		    throw({asn1_error,
+			   {get_line(hd(Rest2)),get(asn1_module),
+			    [got,get_token(hd(Rest2)),expected,'OF']}})
+	    end,
+    {Type,Rest5} = parse_Type(Rest4),
+    {#type{def = {'SEQUENCE OF',Type},
+	   constraint = merge_constraints([Constraint])},Rest5};
+
 parse_TypeWithConstraint([{'SEQUENCE',_},{'SIZE',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
     #constraint{c=C} = Constraint,
     Constraint2 = Constraint#constraint{c={'SizeConstraint',C}},
-    case Rest2 of
-	[{'OF',_}|Rest3] ->
-	    {Type,Rest4} = parse_Type(Rest3),
-	    {#type{def = {'SEQUENCE OF',Type}, constraint = merge_constraints([Constraint2])},Rest4};
-	_ ->
-	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-			       [got,get_token(hd(Rest2)),expected,'OF']}})
-    end;
+    Rest4 = case Rest2 of
+		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
+%%% TODO: make some use of the identifier, maybe useful in the XML mapping
+		    Rest3;
+		[{'OF',_}|Rest3] ->
+		    Rest3;
+		_ ->
+		    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
+				       [got,get_token(hd(Rest2)),expected,'OF']}})
+	    end,
+    {Type,Rest5} = parse_Type(Rest4),
+    {#type{def = {'SEQUENCE OF',Type}, constraint = merge_constraints([Constraint2])},Rest5};
+
 parse_TypeWithConstraint([{'SET',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
-    case Rest2 of
-	[{'OF',_}|Rest3] ->
-	    {Type,Rest4} = parse_Type(Rest3),
-	    {#type{def = {'SET OF',Type}, constraint = merge_constraints([Constraint])},Rest4};
-	_ ->
-	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-			       [got,get_token(hd(Rest2)),expected,'OF']}})
-    end;
+    Rest4 = case Rest2 of
+		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
+%%% TODO: make some use of the identifier, maybe useful in the XML mapping
+		    Rest3;
+		[{'OF',_}|Rest3] ->
+		    Rest3;
+		_ ->
+		    throw({asn1_error,
+			   {get_line(hd(Rest2)),get(asn1_module),
+			    [got,get_token(hd(Rest2)),expected,'OF']}})
+	    end,
+    {Type,Rest5} = parse_Type(Rest4),
+    {#type{def = {'SET OF',Type},
+	   constraint = merge_constraints([Constraint])},Rest5};
+
 parse_TypeWithConstraint([{'SET',_},{'SIZE',_},Lpar = {'(',_}|Rest]) ->
     {Constraint,Rest2} = parse_Constraint([Lpar|Rest]),
     #constraint{c=C} = Constraint,
     Constraint2 = Constraint#constraint{c={'SizeConstraint',C}},
-    case Rest2 of
-	[{'OF',_}|Rest3] ->
-	    {Type,Rest4} = parse_Type(Rest3),
-	    {#type{def = {'SET OF',Type}, constraint = merge_constraints([Constraint2])},Rest4};
-	_ ->
-	    throw({asn1_error,{get_line(hd(Rest2)),get(asn1_module),
-			       [got,get_token(hd(Rest2)),expected,'OF']}})
-    end;
+    Rest4 = case Rest2 of
+		[{'OF',_}, {identifier,_,_Id}|Rest3] ->
+%%% TODO: make some use of the identifier, maybe useful in the XML mapping
+		    Rest3;
+		[{'OF',_}|Rest3] ->
+		    Rest3;
+		_ ->
+		    throw({asn1_error,
+			   {get_line(hd(Rest2)),get(asn1_module),
+			    [got,get_token(hd(Rest2)),expected,'OF']}})
+	    end,
+    {Type,Rest5} = parse_Type(Rest4),
+    {#type{def = {'SET OF',Type},
+	   constraint = merge_constraints([Constraint2])},Rest5};
+
 parse_TypeWithConstraint(Tokens) ->
     throw({asn1_error,{get_line(hd(Tokens)),get(asn1_module),
 		       [got,get_token(hd(Tokens)),expected,
@@ -2259,8 +2324,8 @@ to_set(V) ->
 	ordsets:from_list([V]).
 
 
-parse_AlternativeTypeLists(Tokens) ->
-    {AlternativeTypeList,Rest1} = parse_AlternativeTypeList(Tokens),
+parse_AlternativeTypeLists(Tokens,ExtensionDefault) ->
+    {AltTypeList,Rest1} = parse_AlternativeTypeList(Tokens),
     {ExtensionAndException,Rest2} = 
 	case Rest1 of
 	    [{',',_},{'...',L1},{'!',_}|Rest12] ->
@@ -2272,26 +2337,36 @@ parse_AlternativeTypeLists(Tokens) ->
 	    _ ->
 		{[],Rest1}
 	end,
-    case ExtensionAndException of
-	[] ->
-	    {AlternativeTypeList,Rest2};
-	_ ->
-	    {ExtensionAddition,Rest3} = 
-		case Rest2 of
-		    [{',',_}|Rest23] ->
-			parse_ExtensionAdditionAlternativeList(Rest23);
-		    _ ->
-			{[],Rest2}
-		end,
-	    {OptionalExtensionMarker,Rest4} =
-		case Rest3 of
-		    [{',',_},{'...',L3}|Rest31] ->
-			{[#'EXTENSIONMARK'{pos=L3}],Rest31};
-		    _ ->
-			{[],Rest3}
-		end,
-	    {AlternativeTypeList ++ ExtensionAndException ++ ExtensionAddition ++ OptionalExtensionMarker, Rest4}
-    end.
+    {AltTypeList2,Rest5} =
+	case ExtensionAndException of
+	    [] ->
+		{AltTypeList,Rest2};
+	    _ ->
+		{ExtensionAddition,Rest3} =
+		    case Rest2 of
+			[{',',_}|Rest23] ->
+			    parse_ExtensionAdditionAlternativeList(Rest23);
+			_ ->
+			    {[],Rest2}
+		    end,
+		{OptionalExtensionMarker,Rest4} =
+		    case Rest3 of
+			[{',',_},{'...',L3}|Rest31] ->
+			    {[#'EXTENSIONMARK'{pos=L3}],Rest31};
+			_ ->
+			    {[],Rest3}
+		    end,
+		{AltTypeList ++ ExtensionAndException ++
+		 ExtensionAddition ++ OptionalExtensionMarker, Rest4}
+	end,
+    AltTypeList3 =
+	case [X || X=#'EXTENSIONMARK'{} <- AltTypeList2] of
+	    [] when ExtensionDefault == 'IMPLIED' ->
+		AltTypeList2 ++ [#'EXTENSIONMARK'{}];
+	    _ ->
+		AltTypeList2
+	end,
+    {AltTypeList3,Rest5}.
     
 
 parse_AlternativeTypeList(Tokens) ->
@@ -2512,35 +2587,39 @@ parse_SignedNumber(Tokens) ->
 		       [got,get_token(hd(Tokens)),expected,
 			[number,'-number']]}}).
 
-parse_Enumerations(Tokens=[{identifier,_,_}|_Rest]) ->
-    parse_Enumerations(Tokens,[]);
-parse_Enumerations([H|_T]) ->
+parse_Enumerations(Tokens=[{identifier,_,_}|_Rest],ExtensionDefault) ->
+    parse_Enumerations(Tokens,[],ExtensionDefault);
+parse_Enumerations([H|_T],_) ->
     throw({asn1_error,{get_line(H),get(asn1_module),
 		       [got,get_token(H),expected,identifier]}}).
 
-parse_Enumerations(Tokens = [{identifier,_,_},{'(',_}|_Rest], Acc) ->
+parse_Enumerations(Tokens = [{identifier,_,_},{'(',_}|_Rest], Acc, ExtensionDefault) ->
     {NamedNumber,Rest2} = parse_NamedNumber(Tokens),
     case Rest2 of
 	[{',',_}|Rest3] ->
-	    parse_Enumerations(Rest3,[NamedNumber|Acc]);
+	    parse_Enumerations(Rest3,[NamedNumber|Acc], ExtensionDefault);
+	_ when ExtensionDefault == 'IMPLIED'->
+	    {lists:reverse(['EXTENSIONMARK',NamedNumber|Acc]),Rest2};
 	_ ->
 	    {lists:reverse([NamedNumber|Acc]),Rest2}
     end;
-parse_Enumerations([{identifier,_,Id}|Rest], Acc) ->
+parse_Enumerations([{identifier,_,Id}|Rest], Acc, ExtensionDefault) ->
     case Rest of
 	[{',',_}|Rest2] ->
-	    parse_Enumerations(Rest2,[Id|Acc]);
+	    parse_Enumerations(Rest2,[Id|Acc], ExtensionDefault);
+	_ when ExtensionDefault == 'IMPLIED' ->
+	    {lists:reverse(['EXTENSIONMARK', Id |Acc]),Rest};
 	_ ->
 	    {lists:reverse([Id|Acc]),Rest}
     end;
-parse_Enumerations([{'...',_}|Rest], Acc) ->
+parse_Enumerations([{'...',_}|Rest], Acc, _ExtensionDefault) ->
     case Rest of
 	[{',',_}|Rest2] ->
-	    parse_Enumerations(Rest2,['EXTENSIONMARK'|Acc]);
+	    parse_Enumerations(Rest2,['EXTENSIONMARK'|Acc],undefined);
 	_ ->
 	    {lists:reverse(['EXTENSIONMARK'|Acc]),Rest}
     end;
-parse_Enumerations([H|_T],_) ->
+parse_Enumerations([H|_T],_,_) ->
     throw({asn1_error,{get_line(H),get(asn1_module),
 		       [got,get_token(H),expected,identifier]}}).
 
@@ -2914,6 +2993,7 @@ merge_constraints([],Cacc,[]) ->
 merge_constraints([],Cacc,Eacc) ->
 %%    lists:flatten(Cacc) ++ [{'Errors',Eacc}].
     lists:reverse(Cacc) ++ [{'Errors',Eacc}].
+
 
 fixup_constraint(C) ->
     case C of

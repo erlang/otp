@@ -1,7 +1,10 @@
-#next version number to use is 1.6.13 | 1.7 | 2.0
-ASN1_VSN = 1.6.12
+#next version number to use is 1.6.14 | 1.7 | 2.0
+ASN1_VSN = 1.6.13
 
-TICKETS = OTP-8256
+TICKETS = OTP-8410
+
+TICKETS_1.6.13 = \
+	OTP-8410
 
 TICKETS_1.6.12 = \
 	OTP-8256

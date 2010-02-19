@@ -1,0 +1,338 @@
+-- Module Location-Expressions (T.422:08/1995)
+
+Location-Expressions {2 8 1 12 0} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+EXPORTS Location-Expression, Basic-Location-Expression, Constituent-Locator;
+
+IMPORTS
+  Object-or-Class-Identifier, Content-Portion-Identifier, Style-Identifier
+    FROM Identifiers-and-Expressions {2 8 1 5 7}
+  --  see ITU-T Rec. T.415 | ISO/IEC 8613-5
+  Layout-Class-Descriptor, Layout-Object-Descriptor
+    FROM Layout-Descriptors {2 8 1 5 8}
+  --  see ITU-T Rec. T.415 | ISO/IEC 8613-5
+  Logical-Class-Descriptor, Logical-Object-Descriptor
+    FROM Logical-Descriptors {2 8 1 5 9}
+  --  see ITU-T Rec. T.415 | ISO/IEC 8613-5
+  Presentation-Style-Descriptor, Layout-Style-Descriptor
+    FROM Style-Descriptors {2 8 1 5 10}
+  --  see ITU-T Rec. T.415 | ISO/IEC 8613-5
+  Text-Unit
+    FROM Text-Units {2 8 1 5 12}
+  --  see ITU-T Rec. T.415 | ISO/IEC 8613-5
+  Subprofile-Descriptor, Subprofile-Identifier
+    FROM Subprofiles {2 8 1 12 2}
+  --  see 9.3
+  Link-Class-Descriptor, Link-Descriptor, Link-or-Link-Class-Identifier
+    FROM Link-Descriptors {2 8 1 14 3};
+
+--  see ITU-T Rec. T.424 | ISO/IEC 8613-14
+--  Location expression
+Location-Expression ::= CHOICE {
+  basic      [0]  Basic-Location-Expression,
+  composite  [1]  Composite-Location-Expression
+}
+
+Composite-Location-Expression ::= CHOICE {
+  complement    [0]  Location-Expression,
+  intersection  [1]  SEQUENCE OF Location-Expression,
+  union         [2]  SEQUENCE OF Location-Expression
+}
+
+Basic-Location-Expression ::= CHOICE {
+  region       [0]  Region-Locator,
+  subtree      [1]  Subtree-Locator,
+  constituent  [2]  Constituent-Locator
+}
+
+Region-Locator ::= SEQUENCE {
+  start  [0]  Start-End-Object-Locator,
+  end    [1]  Start-End-Object-Locator
+}
+
+Start-End-Object-Locator ::= SEQUENCE {
+  object        [0]  Object-Locator,
+  not-included  [1]  BOOLEAN DEFAULT TRUE
+}
+
+Subtree-Locator ::= Object-Locator
+
+Constituent-Locator ::= CHOICE {
+  documentProfile      [0]  NULL,
+  subprofile           [1]  Subprofile-Locator,
+  component            [2]  Component-Locator,
+  contentPortion       [3]  Content-Portion-Locator,
+  style                [4]  Style-Locator,
+  link-or-link-class   [5]  Link-or-Link-Class-Locator,
+  constituent-of-type  [6]  Constituent-Type
+}
+
+Constituent-Type ::= ENUMERATED {
+  layout-object-class(1), layout-object(2), content-portion(3),
+  logical-object-class(5), logical-object(6), presentation-style(7),
+  layout-style(8), sealed-doc-prof-descriptor(9),
+  enciphered-doc-prof-descriptor(10), preenciphered-bodypart-descriptor(11),
+  postenciphered-bodypart-descriptor(12), link-class(13), link(14),
+  enciphered-link-descriptor(15), subprofile(16)}
+
+--  Subprofile
+Subprofile-Locator ::= CHOICE {
+  subprofile       [0]  Subprofile-Identifier,
+  subprofile-of    [1]  Subprofile-of-argument,
+  subprofile-with  [2]  Subprofile-with-argument
+}
+
+Subprofile-of-argument ::= Constituent-Locator
+
+Subprofile-with-argument ::=
+  AttributeValue-Subprofile-Specification --  The "attribute" and "value" 
+
+--  arguments are grouped together
+--  Component locator
+Component-Locator ::= CHOICE {
+  objectClass  [0]  Object-Class-Locator,
+  object       [1]  Object-Locator
+}
+
+Object-Class-Locator ::= CHOICE {
+  objectClass        [0]  Object-or-Class-Identifier,
+  object-class-of    [1]  Object-Class-of-argument,
+  object-class-with  [2]  Object-Class-with-argument
+}
+
+Object-Class-of-argument ::= Object-Locator
+
+Object-Class-with-argument ::= SEQUENCE {
+  attributeValueObject  [0]  AttributeValue-Class-Specification, --  The "attribute" and "value"
+  
+  --  arguments are grouped together
+  defaulting            [1]  BOOLEAN DEFAULT FALSE
+}
+
+--  Object locator
+Object-Locator ::= CHOICE {
+  object       [0]  Object-or-Class-Identifier,
+  subord       [1]  Subord-argument,
+  object-with  [2]  Object-with-argument
+}
+
+Subord-argument ::= SEQUENCE {
+  object    [0]  Object-Locator,
+  counters  [1]  CountersType OPTIONAL
+}
+
+Object-with-argument ::= SEQUENCE {
+  attributeValueObject  [0]  AttributeValue-Object-Specification, --  The "attribute" and "value"
+  
+  --  arguments are grouped together
+  object                [1]  Object-Locator OPTIONAL,
+  counters              [2]  CountersType OPTIONAL,
+  not-defaulting        [3]  BOOLEAN DEFAULT FALSE
+}
+
+--  Links
+Link-or-Link-Class-Locator ::= CHOICE {
+  linkClass  [0]  Link-Class-Locator,
+  link       [1]  Link-Locator
+}
+
+Link-Class-Locator ::= CHOICE {
+  link             [0]  Link-or-Link-Class-Identifier,
+  link-class-of    [1]  Link-Class-of-argument,
+  link-class-with  [2]  Link-Class-with-arguments
+}
+
+Link-Class-of-argument ::= Link-Locator
+
+Link-Class-with-arguments ::=
+  AttributeValue-Link-Class-Specification --  The "attribute" and "value" 
+
+--  arguments are grouped together
+Link-Locator ::= CHOICE {
+  link       [0]  Link-or-Link-Class-Identifier,
+  link-with  [1]  Link-with-arguments
+}
+
+Link-with-arguments ::= SEQUENCE {
+  attributeValueLink  [0]  AttributeValue-Link-Specification, --  The "attribute" and "value" 
+  
+  --  arguments are grouped together
+  not-defaulting      [1]  BOOLEAN DEFAULT FALSE
+}
+
+--  Content portion locator
+Content-Portion-Locator ::= CHOICE {
+  contentPortion  [0]  Content-Portion-Identifier,
+  assoc           [1]  Assoc-argument,
+  content-with    [2]  Content-with-argument
+}
+
+Assoc-argument ::= SEQUENCE {
+  component  [0]  Component-Locator,
+  counters   [1]  CountersType OPTIONAL
+}
+
+Content-with-argument ::= SEQUENCE {
+  attributeValueContent  [0]  AttributeValue-Content-Specification, --  The "attribute" and "value"
+  
+  --  arguments are grouped together
+  component              [1]  Component-Locator OPTIONAL,
+  counters               [2]  CountersType OPTIONAL,
+  not-defaulting         [3]  BOOLEAN DEFAULT FALSE
+}
+
+--  Styles
+Style-Locator ::= CHOICE {
+  style                    [0]  Style-Identifier,
+  layout-style-of          [1]  Layout-Style-of-argument,
+  presentation-style-of    [2]  Presentation-Style-of-argument,
+  layout-style-with        [3]  Layout-Style-with-argument,
+  presentation-style-with  [4]  Presentation-Style-with-argument
+}
+
+Layout-Style-of-argument ::= Component-Locator
+
+Presentation-Style-of-argument ::= Component-Locator
+
+Layout-Style-with-argument ::= SEQUENCE {
+  attributeValueLayoutStyle  [0]  AttributeValue-LayoutStyle-Specification, --  The "attribute" and 
+  
+  --  "value" arguments are grouped together
+  not-defaulting             [1]  BOOLEAN DEFAULT FALSE
+}
+
+Presentation-Style-with-argument ::= SEQUENCE {
+  attributeValuePresentationStyle
+    [0]  AttributeValue-PresentationStyle-Specification,
+  --  The "attribute" and
+  --   "value" arguments are grouped together
+  not-defaulting                   [1]  BOOLEAN DEFAULT FALSE
+}
+
+--  Counters
+CountersType ::= SEQUENCE {
+  start  [0]  INTEGER OPTIONAL,
+  end    [1]  INTEGER OPTIONAL
+}
+
+--  Attribute-Value specifications
+--  Classes
+AttributeValue-Class-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Class-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Class-Specification OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Class-Specification OPTIONAL
+  }
+}
+
+Simple-AttributeValue-Class-Specification ::= CHOICE {
+  layout   [0]  Layout-Class-Descriptor,
+  logical  [1]  Logical-Class-Descriptor
+}
+
+--  Objects
+AttributeValue-Object-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Object-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Object-Specification OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Object-Specification OPTIONAL
+  }
+}
+
+Simple-AttributeValue-Object-Specification ::= CHOICE {
+  layout   [0]  Layout-Object-Descriptor,
+  logical  [1]  Logical-Object-Descriptor
+}
+
+--  Link classes
+AttributeValue-Link-Class-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Link-Class-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Link-Class-Specification
+                       OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Link-Class-Specification
+                       OPTIONAL}
+}
+
+Simple-AttributeValue-Link-Class-Specification ::= Link-Class-Descriptor
+
+--  Links
+AttributeValue-Link-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Link-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Link-Specification OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Link-Specification OPTIONAL
+  }
+}
+
+Simple-AttributeValue-Link-Specification ::= Link-Descriptor
+
+--  Contents
+AttributeValue-Content-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Content-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Content-Specification OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Content-Specification OPTIONAL
+  }
+}
+
+Simple-AttributeValue-Content-Specification ::= Text-Unit
+
+--  Layout Styles
+AttributeValue-LayoutStyle-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-LayoutStyle-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-LayoutStyle-Specification
+                       OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-LayoutStyle-Specification
+                       OPTIONAL}
+}
+
+Simple-AttributeValue-LayoutStyle-Specification ::= Layout-Style-Descriptor
+
+--  Presentation Styles
+AttributeValue-PresentationStyle-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-PresentationStyle-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-PresentationStyle-Specification
+                       OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-PresentationStyle-Specification
+                       OPTIONAL}
+}
+
+Simple-AttributeValue-PresentationStyle-Specification ::=
+  Presentation-Style-Descriptor
+
+--  Subprofiles
+AttributeValue-Subprofile-Specification ::= CHOICE {
+  value  [0]  Simple-AttributeValue-Subprofile-Specification,
+  range
+    [1]  SEQUENCE {start
+                     [0]  Simple-AttributeValue-Subprofile-Specification
+                       OPTIONAL,
+                   end
+                     [1]  Simple-AttributeValue-Subprofile-Specification
+                       OPTIONAL}
+}
+
+Simple-AttributeValue-Subprofile-Specification ::= Subprofile-Descriptor
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

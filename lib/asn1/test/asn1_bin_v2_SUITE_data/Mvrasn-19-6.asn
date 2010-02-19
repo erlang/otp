@@ -1,0 +1,109 @@
+-- module(Mvrasn-19-6).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('etord').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Teleservice Codes".
+--
+-- ASN.1 module: "MAP-TS-Code".
+--
+-- =============================================================================
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  010813  etord    First draft, based on GSM 29.002 v. 3.8.0.
+-- ..............................................................
+
+
+Mvrasn-19-6
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+TeleserviceCode ::= OCTET STRING (SIZE (1))
+	-- This type is used to represent the code identifying a single
+	-- teleservice, a group of teleservices, or all teleservices. The
+	-- services are defined in TS GSM 02.03.
+	-- The internal structure is defined as follows:
+
+	-- bits 87654321: group (bits 8765) and specific service
+	-- (bits 4321)
+
+Ext-TeleserviceCode ::= OCTET STRING (SIZE (1..5))
+	-- This type is used to represent the code identifying a single
+	-- teleservice, a group of teleservices, or all teleservices. The
+	-- services are defined in TS GSM 02.03.
+	-- The internal structure is defined as follows:
+
+	-- OCTET 1:
+	-- bits 87654321: group (bits 8765) and specific service
+	-- (bits 4321)
+
+	-- OCTETS 2-5: reserved for future use. If received the
+    -- Ext-TeleserviceCode shall be
+ 	-- treated according to the exception handling defined for the
+	-- operation that uses this type.
+
+	-- Ext-TeleserviceCode includes all values defined for TeleserviceCode.
+
+
+allTeleservices	TeleserviceCode ::= '00000000'B
+
+allSpeechTransmissionServices	TeleserviceCode ::= '00010000'B
+telephony			TeleserviceCode ::= '00010001'B
+emergencyCalls		TeleserviceCode ::= '00010010'B
+
+allShortMessageServices	TeleserviceCode ::= '00100000'B
+shortMessageMT-PP	TeleserviceCode ::= '00100001'B
+shortMessageMO-PP	TeleserviceCode ::= '00100010'B
+
+allFacsimileTransmissionServices	TeleserviceCode ::= '01100000'B
+facsimileGroup3AndAlterSpeech	TeleserviceCode ::= '01100001'B
+automaticFacsimileGroup3	TeleserviceCode ::= '01100010'B
+facsimileGroup4	TeleserviceCode ::= '01100011'B
+
+-- The following non-hierarchical Compound Teleservice Groups
+-- are defined in TS GSM 02.30:
+allDataTeleservices	TeleserviceCode ::= '01110000'B
+	-- covers Teleservice Groups 'allFacsimileTransmissionServices'
+	-- and 'allShortMessageServices'
+allTeleservices-ExeptSMS	TeleserviceCode ::= '10000000'B
+	-- covers Teleservice Groups 'allSpeechTransmissionServices' and
+	-- 'allFacsimileTransmissionServices'
+--
+-- Compound Teleservice Group Codes are only used in call
+-- independent supplementary service operations, i.e. they
+-- are not used in InsertSubscriberData or in
+-- DeleteSubscriberData messages.
+
+allVoiceGroupCallServices	TeleserviceCode ::= '10010000'B
+voiceGroupCall		TeleserviceCode ::= '10010001'B
+voiceBroadcastCall	TeleserviceCode ::= '10010010'B
+
+allPLMN-specificTS	TeleserviceCode ::= '11010000'B
+plmn-specificTS-1	TeleserviceCode ::= '11010001'B
+plmn-specificTS-2	TeleserviceCode ::= '11010010'B
+plmn-specificTS-3	TeleserviceCode ::= '11010011'B
+plmn-specificTS-4	TeleserviceCode ::= '11010100'B
+plmn-specificTS-5	TeleserviceCode ::= '11010101'B
+plmn-specificTS-6	TeleserviceCode ::= '11010110'B
+plmn-specificTS-7	TeleserviceCode ::= '11010111'B
+plmn-specificTS-8	TeleserviceCode ::= '11011000'B
+plmn-specificTS-9	TeleserviceCode ::= '11011001'B
+plmn-specificTS-A	TeleserviceCode ::= '11011010'B
+plmn-specificTS-B	TeleserviceCode ::= '11011011'B
+plmn-specificTS-C	TeleserviceCode ::= '11011100'B
+plmn-specificTS-D	TeleserviceCode ::= '11011101'B
+plmn-specificTS-E	TeleserviceCode ::= '11011110'B
+plmn-specificTS-F	TeleserviceCode ::= '11011111'B
+
+END

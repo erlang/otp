@@ -1,0 +1,41 @@
+SeqSetIndefinite DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+SetS3 ::= SET 
+{
+  boolS3  BOOLEAN,
+  setS3  SET { boolIn BOOLEAN,
+               intIn  INTEGER },
+  intS3  INTEGER
+
+}
+
+SetS3Ext ::= SET 
+{
+  boolS3  BOOLEAN,
+  setS3  SET { boolIn BOOLEAN,
+               intIn  INTEGER,... },
+  intS3  INTEGER
+}
+
+
+SeqS3 ::= SEQUENCE
+{
+  boolS3  BOOLEAN,
+  seqS3  SEQUENCE { boolIn BOOLEAN,
+               intIn  INTEGER },
+  intS3  INTEGER
+
+}
+
+SeqS3Ext ::= SEQUENCE
+{
+  boolS3  BOOLEAN,
+  seqS3  SEQUENCE { boolIn BOOLEAN,
+               intIn  INTEGER,... },
+  intS3  INTEGER
+
+}
+
+END

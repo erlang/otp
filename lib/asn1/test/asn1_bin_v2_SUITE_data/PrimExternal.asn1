@@ -1,0 +1,39 @@
+PrimExternal DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+IMPORTS XNT, XImp, XExp FROM External;
+
+
+
+NT ::= OCTET STRING
+Imp ::= [1] OCTET STRING
+Exp ::= [2] EXPLICIT OCTET STRING
+
+NTNT ::= NT
+ImpNT ::= [3] NT
+ExpNT ::= [4] EXPLICIT NT
+
+NTImp ::= Imp
+ImpImp ::= [5] Imp
+ExpImp ::= [6] EXPLICIT Imp
+
+NTExp ::= Exp
+ImpExp ::= [7] Exp
+ExpExp ::= [8] EXPLICIT Exp
+
+XNTNT ::= XNT
+XImpNT ::= [3] XNT
+XExpNT ::= [4] EXPLICIT XNT
+
+XNTImp ::= XImp
+XImpImp ::= [5] XImp
+XExpImp ::= [6] EXPLICIT XImp
+
+XNTExp ::= XExp
+XImpExp ::= [7] XExp
+XExpExp ::= [8] EXPLICIT XExp
+
+
+END
+

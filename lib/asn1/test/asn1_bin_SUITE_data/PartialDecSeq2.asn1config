@@ -1,0 +1,4 @@
+%{partial_decode,{{module,'Seq2'},['F',fb,b,[1],a]}}.
+{exclusive_decode,{'PartialDecSeq2',
+	[{decode_A_c_b_incomplete,['A',[{c,[{a,undecoded},{b,undecoded}]}]]},
+	 {decode_D_incomplete,['D',[{a,undecoded}]]}]}}.

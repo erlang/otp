@@ -1,0 +1,175 @@
+TConstrChoice DEFINITIONS ::=
+BEGIN
+
+
+FilterItem ::= CHOICE {
+    equality [0] AttributeValueAssertion,
+    substrings [1] SEQUENCE {
+	type ATTRIBUTE.&id({SupportedAttributes}),
+	strings SEQUENCE OF CHOICE {
+	    initial [0] ATTRIBUTE.&Type
+	    ({SupportedAttributes}{@substrings.type}),
+	    any [1] ATTRIBUTE.&Type
+	    ({SupportedAttributes}{@substrings.type}),
+	    final [2] ATTRIBUTE.&Type
+	    ({SupportedAttributes}{@substrings.type}) }},
+    greaterOrEqual [2] AttributeValueAssertion,
+    lessOrEqual [3] AttributeValueAssertion,
+    present [4] AttributeType,
+    approximateMatch [5] AttributeValueAssertion,
+    extensibleMatch [6] MatchingRuleAssertion }
+
+AttributeValueAssertion ::= SEQUENCE {
+    type ATTRIBUTE.&id({SupportedAttributes}),
+    assertion ATTRIBUTE.&equality-match.&AssertionType
+    ({SupportedAttributes}{@type}) }
+
+MatchingRuleAssertion ::= SEQUENCE {
+    type MATCHING-RULE.&id({MatchingRules}),
+    assertion MATCHING-RULE.&AssertionType ({MatchingRules}{@type})
+    }
+
+AttributeType ::= INTEGER(0..127)
+
+ATTRIBUTE ::= CLASS {
+    &derivation ATTRIBUTE OPTIONAL,
+    &Type OPTIONAL,
+    &equality-match MATCHING-RULE OPTIONAL,
+    &ordering-match MATCHING-RULE OPTIONAL,
+    &substrings-match MATCHING-RULE OPTIONAL,
+    &single-valued BOOLEAN DEFAULT FALSE,
+    &collective BOOLEAN DEFAULT FALSE,
+    &no-user-modification BOOLEAN DEFAULT FALSE,
+    &usage Attribute-Usage DEFAULT userApplications,
+    &id OBJECT IDENTIFIER UNIQUE }
+WITH SYNTAX {
+    [SUBTYPE OF &derivation]
+    [WITH SYNTAX &Type]
+    [EQUALITY MATCHING RULE &equality-match]
+    [ORDERING MATCHING RULE &ordering-match]
+    [SUBSTRINGS MATCHING RULE &substrings-match]
+    [SINGLE VALUE &single-valued]
+    [COLLECTIVE &collective]
+    [NO USER MODIFICATION &no-user-modification]
+    [USAGE &usage]
+    ID &id }
+
+Attribute-Usage ::= ENUMERATED { userApplications(0),
+    directoryOperation(1), distributedOperation(2),
+    dSAOperation(3) }
+
+
+surname ATTRIBUTE ::= { -- family name
+    SUBTYPE OF name
+    WITH SYNTAX DirectoryString
+    ID id-at-surname }
+
+givenName ATTRIBUTE ::= { -- first name
+    SUBTYPE OF name
+    WITH SYNTAX DirectoryString
+    ID id-at-givenName }
+
+countryName ATTRIBUTE ::= { -- country
+    SUBTYPE OF name
+    WITH SYNTAX PrintableString (SIZE (2)) -- [ISO3166] codes
+    SINGLE VALUE TRUE
+    ID id-at-countryName}
+
+SupportedAttributes ATTRIBUTE ::=
+{surname | givenName | countryName}
+
+-- id-at-surname DirectoryString ::= universalString:"SureName"
+
+id-at-surname OBJECT IDENTIFIER ::= {2 4}
+
+-- id-at-givenName DirectoryString ::= printableString:"GivenName"
+
+id-at-givenName OBJECT IDENTIFIER ::= {2 5}
+
+-- id-at-countryName  PrintableString (SIZE (2)) ::= "CN" 
+
+id-at-countryName OBJECT IDENTIFIER ::= {2 6}
+
+MATCHING-RULE ::= CLASS {
+    &AssertionType OPTIONAL,
+    &id OBJECT IDENTIFIER UNIQUE }
+WITH SYNTAX {
+    [SYNTAX &AssertionType]
+    ID &id }
+
+MatchingRules MATCHING-RULE ::= {
+    caseIgnoreMatch | booleanMatch | integerMatch }
+
+LessMatchingRules MATCHING-RULE ::= {
+    MatchingRules EXCEPT caseIgnoreMatch }
+
+ExtensibleMatchingRules MATCHING-RULE ::= {
+    caseIgnoreMatch | booleanMatch | integerMatch, ... }
+
+name ATTRIBUTE ::= {
+    WITH SYNTAX DirectoryString
+    EQUALITY MATCHING RULE caseIgnoreMatch
+    ID id-name }
+
+
+DirectoryString ::= CHOICE {
+    teletexString TeletexString (SIZE (1..maxSize)),
+    printableString PrintableString (SIZE (1..maxSize)),
+    universalString UniversalString (SIZE (1..maxSize)),
+    bmpString BMPString (SIZE (1..maxSize))
+--    utf8String UTF8String (SIZE (1..maxSize))
+    }
+
+maxSize INTEGER ::= 25
+
+caseIgnoreMatch MATCHING-RULE ::= {
+    SYNTAX DirectoryString
+    ID id-caseIgnoreMatch
+    }
+
+booleanMatch MATCHING-RULE ::= {
+    SYNTAX  BOOLEAN
+    ID id-booleanMatch
+    }
+
+integerMatch MATCHING-RULE ::= {
+    SYNTAX INTEGER
+    ID  id-integerMatch
+    }
+
+id-mr OBJECT IDENTIFIER ::=
+{2 5 11}
+
+id-name OBJECT IDENTIFIER ::= {2 5 11 5}
+
+id-caseIgnoreMatch OBJECT IDENTIFIER ::= {2 5 11 2}
+
+id-booleanMatch OBJECT IDENTIFIER ::= {2 5 11 13}
+
+id-integerMatch OBJECT IDENTIFIER ::= {2 5 11 14}
+
+--{joint-iso-itu-t ds(5) matchingRule(13)}
+
+-- test code for OTP-4248
+
+NOTUNIQUE ::= CLASS {
+  &value  INTEGER,
+  &Type
+}
+WITH SYNTAX {
+  VALUE &value
+  TYPE &Type
+}
+
+
+nuObject NOTUNIQUE ::= {VALUE 3 TYPE FilterItem}
+
+NuObjectSet NOTUNIQUE ::= {nuObject}
+
+Seq ::= SEQUENCE {
+  a  NOTUNIQUE.&value ({NuObjectSet}),
+  b  NOTUNIQUE.&Type ({NuObjectSet}{@a})
+}
+
+
+END

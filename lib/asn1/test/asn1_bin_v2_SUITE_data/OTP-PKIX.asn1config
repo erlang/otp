@@ -1,0 +1,2 @@
+{exclusive_decode,{'OTP-PKIX',
+        [{decode_TBSCert_exclusive,['CertificatePKIX1Explicit88',[{tbsCertificate,undecoded}]]}]}}.

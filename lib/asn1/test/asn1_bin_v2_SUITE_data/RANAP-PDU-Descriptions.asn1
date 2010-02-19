@@ -1,0 +1,619 @@
+-- RANAP-PDU-Descriptions.asn
+--
+-- Taken from 3GPP TS 25.413 V8.2.1 (2009-03)
+-- http://www.3gpp.org/ftp/Specs/archive/25_series/25.413/25413-821.zip
+--
+-- 9.3.2	Elementary Procedure Definitions
+--
+-- $Id$
+--
+
+-- **************************************************************
+--
+-- Elementary Procedure definitions
+--
+-- **************************************************************
+
+RANAP-PDU-Descriptions { 
+itu-t (0) identified-organization (4) etsi (0) mobileDomain (0) 
+umts-Access (20) modules (3) ranap (0) version1 (1) ranap-PDU-Descriptions (0)}
+
+DEFINITIONS AUTOMATIC TAGS ::= 
+
+BEGIN
+
+-- **************************************************************
+--
+-- IE parameter types from other modules.
+--
+-- **************************************************************
+
+IMPORTS
+	Criticality,
+	ProcedureCode
+FROM RANAP-CommonDataTypes
+
+	Iu-ReleaseCommand,
+	Iu-ReleaseComplete,
+	RelocationCommand,
+	RelocationPreparationFailure,
+	RelocationRequired,
+	RelocationRequest,
+	RelocationRequestAcknowledge,
+	RelocationFailure,
+	RelocationCancel,
+	RelocationCancelAcknowledge,
+	EnhancedRelocationCompleteRequest,
+	EnhancedRelocationCompleteResponse,
+	EnhancedRelocationCompleteFailure,
+	EnhancedRelocationCompleteConfirm,
+	SRNS-ContextRequest,
+	SRNS-ContextResponse,
+	SecurityModeCommand,
+	SecurityModeComplete,
+	SecurityModeReject,
+	DataVolumeReportRequest,
+	DataVolumeReport,
+	Reset,
+	ResetAcknowledge,
+	RAB-ReleaseRequest,
+	Iu-ReleaseRequest,
+	RelocationDetect,
+	RelocationComplete,
+	Paging,
+	CommonID,
+	CN-InvokeTrace,
+	CN-DeactivateTrace,
+	LocationReportingControl,
+	LocationReport,
+	InitialUE-Message,
+	DirectTransfer,
+	Overload,
+	ErrorIndication,
+	SRNS-DataForwardCommand,
+	ForwardSRNS-Context,
+	RAB-AssignmentRequest,
+	RAB-AssignmentResponse, 
+	RAB-ModifyRequest,
+	PrivateMessage,
+	ResetResource,
+	ResetResourceAcknowledge,
+	RANAP-RelocationInformation,
+	RANAP-EnhancedRelocationInformationRequest,
+	RANAP-EnhancedRelocationInformationResponse,
+	LocationRelatedDataRequest,
+	LocationRelatedDataResponse,
+	LocationRelatedDataFailure,
+	InformationTransferIndication,
+	InformationTransferConfirmation,
+	InformationTransferFailure,
+	UESpecificInformationIndication,
+	DirectInformationTransfer,
+	UplinkInformationExchangeRequest,
+	UplinkInformationExchangeResponse,
+	UplinkInformationExchangeFailure,
+	MBMSSessionStart,
+	MBMSSessionStartResponse,
+	MBMSSessionStartFailure,
+	MBMSSessionUpdate,
+	MBMSSessionUpdateResponse,
+	MBMSSessionUpdateFailure,
+	MBMSSessionStop,
+	MBMSSessionStopResponse,
+	MBMSUELinkingRequest,
+	MBMSUELinkingResponse,
+	MBMSRegistrationRequest,
+	MBMSRegistrationResponse,
+	MBMSRegistrationFailure,
+	MBMSCNDe-RegistrationRequest,
+	MBMSCNDe-RegistrationResponse,
+	MBMSRABEstablishmentIndication,
+	MBMSRABReleaseRequest,
+	MBMSRABRelease,
+	MBMSRABReleaseFailure,
+	SRVCC-CSKeysRequest,
+	SRVCC-CSKeysResponse
+FROM RANAP-PDU-Contents
+
+	id-LocationRelatedData,
+	id-CN-DeactivateTrace,
+	id-CN-InvokeTrace,
+	id-CommonID,
+	id-DataVolumeReport,
+	id-DirectTransfer,
+	id-ErrorIndication,
+	id-ForwardSRNS-Context,
+	id-InformationTransfer,
+	id-InitialUE-Message,
+	id-Iu-Release,
+	id-Iu-ReleaseRequest,
+	id-LocationReport,
+	id-LocationReportingControl,
+	id-OverloadControl,
+	id-Paging,
+	id-privateMessage,
+	id-RAB-Assignment,
+	id-RAB-ReleaseRequest, 
+	id-RAB-ModifyRequest,
+	id-RANAP-Relocation,
+	id-RANAPenhancedRelocation,
+	id-RelocationCancel,
+	id-RelocationComplete,
+	id-RelocationDetect,
+	id-RelocationPreparation,
+	id-RelocationResourceAllocation,
+	id-enhancedRelocationComplete,
+	id-enhancedRelocationCompleteConfirm,
+	id-Reset,
+	id-SRNS-ContextTransfer,
+	id-SRNS-DataForward,
+	id-SecurityModeControl,
+	id-ResetResource,
+	id-UESpecificInformation,
+	id-DirectInformationTransfer,
+	id-UplinkInformationExchange,
+	id-MBMSSessionStart,
+	id-MBMSSessionUpdate,
+	id-MBMSSessionStop,
+	id-MBMSUELinking,
+	id-MBMSRegistration,
+	id-MBMSCNDe-Registration-Procedure,
+	id-MBMSRABEstablishmentIndication,
+	id-MBMSRABRelease,
+	id-SRVCCPreparation
+
+FROM RANAP-Constants;
+
+-- **************************************************************
+--
+-- Interface Elementary Procedure Class
+--
+-- **************************************************************
+
+RANAP-ELEMENTARY-PROCEDURE ::= CLASS {
+	&InitiatingMessage				,
+	&SuccessfulOutcome				OPTIONAL,
+	&UnsuccessfulOutcome				OPTIONAL,
+	&Outcome					OPTIONAL,
+	&procedureCode			ProcedureCode 	UNIQUE,
+	&criticality			Criticality 	DEFAULT ignore
+}
+WITH SYNTAX {
+	INITIATING MESSAGE		&InitiatingMessage
+	[SUCCESSFUL OUTCOME		&SuccessfulOutcome]
+	[UNSUCCESSFUL OUTCOME		&UnsuccessfulOutcome]
+	[OUTCOME			&Outcome]
+	PROCEDURE CODE				&procedureCode
+	[CRITICALITY			&criticality]
+}
+
+-- **************************************************************
+--
+-- Interface PDU Definition
+--
+-- **************************************************************
+
+RANAP-PDU ::= CHOICE {
+	initiatingMessage	InitiatingMessage,
+	successfulOutcome	SuccessfulOutcome,
+	unsuccessfulOutcome	UnsuccessfulOutcome,
+	outcome			Outcome,
+	...
+}
+
+InitiatingMessage ::= SEQUENCE {
+	procedureCode	RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+	criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+	value		RANAP-ELEMENTARY-PROCEDURE.&InitiatingMessage	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+}
+
+SuccessfulOutcome ::= SEQUENCE {
+	procedureCode	RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+	criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+	value		RANAP-ELEMENTARY-PROCEDURE.&SuccessfulOutcome	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+}
+
+UnsuccessfulOutcome ::= SEQUENCE {
+	procedureCode	RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+	criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+	value		RANAP-ELEMENTARY-PROCEDURE.&UnsuccessfulOutcome	({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+}
+
+Outcome ::= SEQUENCE {
+	procedureCode	RANAP-ELEMENTARY-PROCEDURE.&procedureCode	({RANAP-ELEMENTARY-PROCEDURES}),
+	criticality	RANAP-ELEMENTARY-PROCEDURE.&criticality		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode}),
+	value		RANAP-ELEMENTARY-PROCEDURE.&Outcome		({RANAP-ELEMENTARY-PROCEDURES}{@procedureCode})
+}
+
+-- **************************************************************
+--
+-- Interface Elementary Procedure List
+--
+-- **************************************************************
+
+RANAP-ELEMENTARY-PROCEDURES RANAP-ELEMENTARY-PROCEDURE ::= {
+	RANAP-ELEMENTARY-PROCEDURES-CLASS-1	|
+	RANAP-ELEMENTARY-PROCEDURES-CLASS-2	|
+	RANAP-ELEMENTARY-PROCEDURES-CLASS-3	,
+	...
+}
+
+
+RANAP-ELEMENTARY-PROCEDURES-CLASS-1 RANAP-ELEMENTARY-PROCEDURE ::= {
+	iu-Release			|
+	relocationPreparation		|
+	relocationResourceAllocation	|
+	relocationCancel		|
+	sRNS-ContextTransfer		|
+	securityModeControl		|
+	dataVolumeReport		|
+	reset		|
+	resetResource				,
+	...,
+	locationRelatedData		|
+	informationTransfer		|
+	uplinkInformationExchange	|
+	mBMSSessionStart			|
+	mBMSSessionUpdate			|
+	mBMSSessionStop				|
+	mBMSUELinking				|
+	mBMSRegistration			|
+	mBMSCNDe-Registration		|
+	mBMSRABRelease				|
+	enhancedRelocationComplete	|
+	rANAP-enhancedRelocation	|
+	sRVCCPreparation}
+
+RANAP-ELEMENTARY-PROCEDURES-CLASS-2 RANAP-ELEMENTARY-PROCEDURE ::= {
+	rAB-ReleaseRequest		|
+	iu-ReleaseRequest		|
+	relocationDetect		|
+	relocationComplete		|
+	paging					|
+	commonID				|
+	cN-InvokeTrace			|
+	cN-DeactivateTrace		|
+	locationReportingControl	|
+	locationReport			|
+	initialUE-Message		|
+	directTransfer			|
+	overloadControl			|
+	errorIndication			|
+	sRNS-DataForward		|
+	forwardSRNS-Context		|
+	privateMessage			|
+	rANAP-Relocation		,
+	...,
+	rAB-ModifyRequest		|
+	uESpecificInformation	|
+	directInformationTransfer	|
+	mBMSRABEstablishmentIndication	|
+	enhancedRelocationCompleteConfirm
+}
+
+RANAP-ELEMENTARY-PROCEDURES-CLASS-3 RANAP-ELEMENTARY-PROCEDURE ::= {
+	rAB-Assignment			,
+	...
+}
+
+-- **************************************************************
+--
+-- Interface Elementary Procedures
+--
+-- **************************************************************
+
+iu-Release RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	Iu-ReleaseCommand
+	SUCCESSFUL OUTCOME	Iu-ReleaseComplete
+	PROCEDURE CODE		id-Iu-Release
+	CRITICALITY		reject
+}
+
+relocationPreparation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RelocationRequired
+	SUCCESSFUL OUTCOME	RelocationCommand
+	UNSUCCESSFUL OUTCOME	RelocationPreparationFailure
+	PROCEDURE CODE			id-RelocationPreparation
+	CRITICALITY		reject
+}
+
+relocationResourceAllocation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RelocationRequest
+	SUCCESSFUL OUTCOME	RelocationRequestAcknowledge
+	UNSUCCESSFUL OUTCOME	RelocationFailure
+	PROCEDURE CODE			id-RelocationResourceAllocation
+	CRITICALITY		reject
+}
+
+relocationCancel RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RelocationCancel
+	SUCCESSFUL OUTCOME	RelocationCancelAcknowledge
+	PROCEDURE CODE		id-RelocationCancel
+	CRITICALITY		reject
+}
+
+sRNS-ContextTransfer RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	SRNS-ContextRequest
+	SUCCESSFUL OUTCOME	SRNS-ContextResponse
+	PROCEDURE CODE		id-SRNS-ContextTransfer
+	CRITICALITY		reject
+}
+
+securityModeControl RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	SecurityModeCommand
+	SUCCESSFUL OUTCOME	SecurityModeComplete
+	UNSUCCESSFUL OUTCOME	SecurityModeReject
+	PROCEDURE CODE		id-SecurityModeControl
+	CRITICALITY		reject
+}
+	
+dataVolumeReport RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	DataVolumeReportRequest
+	SUCCESSFUL OUTCOME	DataVolumeReport
+	PROCEDURE CODE		id-DataVolumeReport
+	CRITICALITY		reject
+}
+	
+
+reset RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	Reset
+	SUCCESSFUL OUTCOME	ResetAcknowledge
+	PROCEDURE CODE		id-Reset
+	CRITICALITY		reject
+}
+
+rAB-ReleaseRequest RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RAB-ReleaseRequest
+	PROCEDURE CODE		id-RAB-ReleaseRequest
+	CRITICALITY		ignore
+}
+
+iu-ReleaseRequest RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	Iu-ReleaseRequest
+	PROCEDURE CODE		id-Iu-ReleaseRequest
+	CRITICALITY		ignore
+}
+
+relocationDetect RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RelocationDetect
+	PROCEDURE CODE		id-RelocationDetect
+	CRITICALITY		ignore
+}
+
+relocationComplete RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RelocationComplete
+	PROCEDURE CODE		id-RelocationComplete
+	CRITICALITY		ignore
+}
+
+paging RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	Paging
+	PROCEDURE CODE		id-Paging
+	CRITICALITY		ignore
+}
+
+commonID RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CommonID
+	PROCEDURE CODE		id-CommonID
+	CRITICALITY		ignore
+}
+
+cN-InvokeTrace RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CN-InvokeTrace
+	PROCEDURE CODE		id-CN-InvokeTrace
+	CRITICALITY		ignore
+}
+
+cN-DeactivateTrace RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	CN-DeactivateTrace
+	PROCEDURE CODE			id-CN-DeactivateTrace
+	CRITICALITY		ignore
+}
+
+locationReportingControl RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	LocationReportingControl
+	PROCEDURE CODE		id-LocationReportingControl
+	CRITICALITY		ignore
+}
+
+locationReport RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	LocationReport
+	PROCEDURE CODE		id-LocationReport
+	CRITICALITY		ignore
+}
+
+initialUE-Message RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	InitialUE-Message
+	PROCEDURE CODE		id-InitialUE-Message
+	CRITICALITY		ignore
+}
+
+directTransfer RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	DirectTransfer
+	PROCEDURE CODE		id-DirectTransfer
+	CRITICALITY		ignore
+}
+
+overloadControl RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	Overload
+	PROCEDURE CODE		id-OverloadControl
+	CRITICALITY		ignore
+}
+
+errorIndication RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	ErrorIndication
+	PROCEDURE CODE		id-ErrorIndication
+	CRITICALITY		ignore
+}
+
+sRNS-DataForward RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	SRNS-DataForwardCommand
+	PROCEDURE CODE		id-SRNS-DataForward
+	CRITICALITY		ignore
+}
+
+forwardSRNS-Context RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	ForwardSRNS-Context
+	PROCEDURE CODE		id-ForwardSRNS-Context
+	CRITICALITY		ignore
+}
+
+rAB-Assignment RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RAB-AssignmentRequest
+	OUTCOME			RAB-AssignmentResponse
+	PROCEDURE CODE		id-RAB-Assignment
+	CRITICALITY		reject
+}
+
+privateMessage RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	PrivateMessage
+
+	PROCEDURE CODE	id-privateMessage
+	CRITICALITY		ignore
+}
+
+resetResource RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	ResetResource
+	SUCCESSFUL OUTCOME	ResetResourceAcknowledge
+	PROCEDURE CODE			id-ResetResource
+	CRITICALITY		reject
+}
+
+rANAP-Relocation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RANAP-RelocationInformation
+	PROCEDURE CODE			id-RANAP-Relocation
+	CRITICALITY		ignore
+}
+
+rAB-ModifyRequest RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RAB-ModifyRequest
+	PROCEDURE CODE		id-RAB-ModifyRequest
+	CRITICALITY		ignore
+}
+
+locationRelatedData RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		LocationRelatedDataRequest
+	SUCCESSFUL OUTCOME		LocationRelatedDataResponse
+	UNSUCCESSFUL OUTCOME	LocationRelatedDataFailure
+	PROCEDURE CODE			id-LocationRelatedData
+	CRITICALITY				reject
+}
+
+informationTransfer RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		InformationTransferIndication
+	SUCCESSFUL OUTCOME		InformationTransferConfirmation
+	UNSUCCESSFUL OUTCOME	InformationTransferFailure
+	PROCEDURE CODE			id-InformationTransfer
+	CRITICALITY				reject
+}
+
+uESpecificInformation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	UESpecificInformationIndication
+	PROCEDURE CODE		id-UESpecificInformation
+	CRITICALITY		ignore
+}
+
+directInformationTransfer RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		DirectInformationTransfer
+	PROCEDURE CODE			id-DirectInformationTransfer
+	CRITICALITY				ignore
+}
+
+uplinkInformationExchange RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		UplinkInformationExchangeRequest
+	SUCCESSFUL OUTCOME		UplinkInformationExchangeResponse
+	UNSUCCESSFUL OUTCOME	UplinkInformationExchangeFailure
+	PROCEDURE CODE			id-UplinkInformationExchange
+	CRITICALITY				reject
+}
+
+mBMSSessionStart RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSSessionStart
+	SUCCESSFUL OUTCOME		MBMSSessionStartResponse
+	UNSUCCESSFUL OUTCOME	MBMSSessionStartFailure
+	PROCEDURE CODE			id-MBMSSessionStart
+	CRITICALITY				reject
+}
+
+mBMSSessionUpdate RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSSessionUpdate
+	SUCCESSFUL OUTCOME		MBMSSessionUpdateResponse
+	UNSUCCESSFUL OUTCOME	MBMSSessionUpdateFailure
+	PROCEDURE CODE			id-MBMSSessionUpdate
+	CRITICALITY				reject
+}
+
+mBMSSessionStop RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSSessionStop
+	SUCCESSFUL OUTCOME		MBMSSessionStopResponse
+	PROCEDURE CODE			id-MBMSSessionStop
+	CRITICALITY				reject
+}
+
+mBMSUELinking RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSUELinkingRequest
+	OUTCOME					MBMSUELinkingResponse
+	PROCEDURE CODE			id-MBMSUELinking
+	CRITICALITY				reject
+}
+
+mBMSRegistration RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSRegistrationRequest
+	SUCCESSFUL OUTCOME		MBMSRegistrationResponse
+	UNSUCCESSFUL OUTCOME	MBMSRegistrationFailure
+	PROCEDURE CODE			id-MBMSRegistration
+	CRITICALITY				reject
+}
+
+mBMSCNDe-Registration RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE		MBMSCNDe-RegistrationRequest
+	SUCCESSFUL OUTCOME		MBMSCNDe-RegistrationResponse
+	PROCEDURE CODE			id-MBMSCNDe-Registration-Procedure
+	CRITICALITY				reject
+}
+
+mBMSRABEstablishmentIndication RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	MBMSRABEstablishmentIndication
+	PROCEDURE CODE		id-MBMSRABEstablishmentIndication
+	CRITICALITY		ignore
+}
+
+mBMSRABRelease RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	MBMSRABReleaseRequest
+	SUCCESSFUL OUTCOME		MBMSRABRelease
+	UNSUCCESSFUL OUTCOME	MBMSRABReleaseFailure
+	PROCEDURE CODE		id-MBMSRABRelease
+	CRITICALITY		reject
+}
+enhancedRelocationComplete RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	EnhancedRelocationCompleteRequest
+	SUCCESSFUL OUTCOME		EnhancedRelocationCompleteResponse
+	UNSUCCESSFUL OUTCOME	EnhancedRelocationCompleteFailure
+	PROCEDURE CODE		id-enhancedRelocationComplete
+	CRITICALITY		reject
+}
+
+enhancedRelocationCompleteConfirm RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	EnhancedRelocationCompleteConfirm
+	PROCEDURE CODE		id-enhancedRelocationCompleteConfirm
+	CRITICALITY		ignore
+}
+
+rANAP-enhancedRelocation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	RANAP-EnhancedRelocationInformationRequest
+	SUCCESSFUL OUTCOME	RANAP-EnhancedRelocationInformationResponse
+	PROCEDURE CODE			id-RANAPenhancedRelocation
+	CRITICALITY		reject
+}
+
+sRVCCPreparation RANAP-ELEMENTARY-PROCEDURE ::= {
+	INITIATING MESSAGE	SRVCC-CSKeysRequest
+	OUTCOME				SRVCC-CSKeysResponse
+	PROCEDURE CODE		id-SRVCCPreparation
+	CRITICALITY			reject
+}
+
+END
+
+
+

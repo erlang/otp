@@ -1,0 +1,1453 @@
+-- Module ISO8571-FTAM (ISO 8571-4:1988)
+-- See also the README file
+-- See also the index of all ASN.1 assignments needed in this Recommendation
+
+--
+-- Copyright ? ISO/IEC 1988. This version of
+-- this ASN.1 module is part of ISO/IEC 8571-4:1988;
+-- see the ISO|IEC text itself for full legal notices.
+-- 
+ISO8571-FTAM {iso standard 8571 application-context(1) iso-ftam(1)} DEFINITIONS
+::=
+BEGIN
+
+PDU ::= CHOICE {
+  fTAM-Regime-PDU  FTAM-Regime-PDU,
+  file-PDU         File-PDU,
+  bulk-Data-PDU    Bulk-Data-PDU,
+  fSM-PDU          FSM-PDU
+}
+
+FTAM-Regime-PDU ::= CHOICE {
+  f-initialize-request   [0] IMPLICIT F-INITIALIZE-request,
+  f-initialize-response  [1] IMPLICIT F-INITIALIZE-response,
+  f-terminate-request    [2] IMPLICIT F-TERMINATE-request,
+  f-terminate-response   [3] IMPLICIT F-TERMINATE-response,
+  f-u-abort-request      [4] IMPLICIT F-U-ABORT-request,
+  f-p-abort-request      [5] IMPLICIT F-P-ABORT-request
+}
+
+F-INITIALIZE-request ::= SEQUENCE {
+  protocol-Version                 Protocol-Version DEFAULT {version-1},
+  implementation-information       Implementation-Information OPTIONAL,
+  presentation-tontext-management  [2] IMPLICIT BOOLEAN DEFAULT FALSE,
+  service-class                    Service-Class DEFAULT {transfer-class},
+  -- Only the valid combinations as specified in ISO 8571-3 are allowed.
+  functional-units                 Functional-Units,
+  attribute-groups                 Attribute-Groups DEFAULT {},
+  shared-ASE-information           Shared-ASE-Information OPTIONAL,
+  ftam-quality-of-Service          FTAM-Quality-of-Service,
+  contents-type-list               Contents-Type-List OPTIONAL,
+  initiator-identity               User-Identity OPTIONAL,
+  account                          Account OPTIONAL,
+  filestore-password               Password OPTIONAL,
+  checkpoint-window                [8] IMPLICIT INTEGER DEFAULT 1
+}
+
+-- lf the recovery or restart data transfer functional units are
+-- not available, the Checkpoint-window Parameter shall not be sent.
+F-INITIALIZE-response ::= SEQUENCE {
+  state-result                     State-Result DEFAULT success,
+  action-result                    Action-Result DEFAULT success,
+  protocol-Version                 Protocol-Version DEFAULT {version-1},
+  implementation-information       Implementation-Information OPTIONAL,
+  presentation-tontext-management  [2] IMPLICIT BOOLEAN DEFAULT FALSE,
+  service-class                    Service-Class DEFAULT {transfer-class},
+  -- Only the valid combinations as specified in ISO 8571-3 are allowed.
+  functional-units                 Functional-Units,
+  attribute-groups                 Attribute-Groups DEFAULT {},
+  shared-ASE-information           Shared-ASE-Information OPTIONAL,
+  ftam-quality-of-Service          FTAM-Quality-of-Service,
+  contents-type-list               Contents-Type-List OPTIONAL,
+  diagnostic                       Diagnostic OPTIONAL,
+  checkpoint-window                [8] IMPLICIT INTEGER DEFAULT 1
+}
+
+-- If the recovery or restart data transfer functional units are
+-- not available, the Checkpoint-window Parameter shall not be sent.
+Protocol-Version ::= [0] IMPLICIT BIT STRING {version-1(0), version-2(1)
+}
+
+Implementation-Information ::= [1] IMPLICIT GraphicString
+
+-- This Parameter is provided solely for the convenience of implementors
+-- needing to distinguish between implernentations of a specific version number
+-- of different equipment, it shall not be the subject of conformance test.
+Service-Class ::= [3] IMPLICIT BIT STRING {
+  unconstrained-class(0), management-class(1), transfer-class(2),
+  transfer-and-management-class(3), access-class(4)}
+
+Functional-Units ::= [4] IMPLICIT BIT STRING {
+  read(2), write(3), file-access(4), limited-file-management(5),
+  enhanced-file-management(6), grouping(7), fadu-locking(8), recovery(9),
+  restart-data-transfer(10), limited-filestore-management(11),
+  enhanced-filestore-management(12), object-manipulation(13),
+  group-manipulation(14), consecutive-access(15), concurrent-access(16)
+}
+
+-- Values 2 to 14 are Chosen to align with numbering scheme used in ISO 8571-3.
+Attribute-Groups ::= [5] IMPLICIT BIT STRING {
+  storage(0), security(1), private(2), extension(3)}
+
+-- The extension bit is defined if and only if the limited-filestore-management
+-- or the group-manipulation functional units are available.
+FTAM-Quality-of-Service ::= [6] IMPLICIT INTEGER {
+  no-recovery(0), class-1-recovery(1), class-2-recovery(2), class-3-recovery(3)
+}
+
+Contents-Type-List ::=
+  [7] IMPLICIT
+    SEQUENCE OF
+      CHOICE {document-type-name    Document-Type-Name,
+              abstract-Syntax-name  Abstract-Syntax-Name}
+
+F-TERMINATE-request ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL
+}
+
+F-TERMINATE-response ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  charging                Charging OPTIONAL
+}
+
+F-U-ABORT-request ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-P-ABORT-request ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+File-PDU ::= CHOICE {
+  f-select-request        [6] IMPLICIT F-SELECT-request,
+  f-select-response       [7] IMPLICIT F-SELECT-response,
+  f-deselect-request      [8] IMPLICIT F-DESELECT-request,
+  f-deselect-response     [9] IMPLICIT F-DESELECT-response,
+  f-create-request        [10] IMPLICIT F-CREATE-request,
+  f-create-response       [11] IMPLICIT F-CREATE-response,
+  f-delete-request        [12] IMPLICIT F-DELETE-request,
+  f-delete-response       [13] IMPLICIT F-DELETE-response,
+  f-read-attrib-request   [14] IMPLICIT F-READ-ATTRIB-request,
+  f-read-attrib-response  [15] IMPLICIT F-READ-ATTRIB-response,
+  f-Change-attrib-reques  [16] IMPLICIT F-CHANGE-ATTRIB-request,
+  f-Change-attrib-respon  [17] IMPLICIT F-CHANGE-ATTRIB-response,
+  f-open-request          [18] IMPLICIT F-OPEN-request,
+  f-open-response         [19] IMPLICIT F-OPEN-response,
+  f-close-request         [20] IMPLICIT F-CLOSE-request,
+  f-close-response        [21] IMPLICIT F-CLOSE-response,
+  f-begin-group-request   [22] IMPLICIT F-BEGIN-GROUP-request,
+  f-begin-group-response  [23] IMPLICIT F-BEGIN-GROUP-response,
+  f-end-group-request     [24] IMPLICIT F-END-GROUP-request,
+  f-end-group-response    [25] IMPLICIT F-END-GROUP-response,
+  f-recover-request       [26] IMPLICIT F-RECOVER-request,
+  f-recover-response      [27] IMPLICIT F-RECOVER-response,
+  f-locate-request        [28] IMPLICIT F-LOCATE-request,
+  f-locate-response       [29] IMPLICIT F-LOCATE-response,
+  f-erase-request         [30] IMPLICIT F-ERASE-request,
+  f-erase-response        [31] IMPLICIT F-ERASE-response
+}
+
+F-SELECT-request ::= SEQUENCE {
+  attributes              Select-Attributes,
+  requested-access        Access-Request,
+  access-passwords        Access-Passwords OPTIONAL,
+  path-access-passwords   Path-Access-Passwords OPTIONAL,
+  -- This Parameter tan only be sent when the
+  -- limited-filestore-management or the object-manipulation or
+  -- the group-manipulation functional units are available.
+  concurrency-control     Concurrency-Control OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  account                 Account OPTIONAL
+}
+
+F-SELECT-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  attributes              Select-Attributes,
+  referent-indicator      Referent-Indicator OPTIONAL,
+  -- This Parameter tan only be sent when the
+  -- limited-filestore-management functional unit is available.
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-DESELECT-request ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL
+}
+
+F-DESELECT-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  charging                Charging OPTIONAL,
+  -- Present if and only if the account field was present on
+  -- the PDU which established the selection regime.
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-CREATE-request ::= SEQUENCE {
+  override                [0] IMPLICIT Override DEFAULT create-failure,
+  initial-attributes      Create-Attributes,
+  create-password         Password OPTIONAL,
+  requested-access        Access-Request,
+  access-passwords        Access-Passwords OPTIONAL,
+  path-access-passwords   Path-Access-Passwords OPTIONAL,
+  -- This Parameter tan only be sent when the
+  -- limited-filestore-management or the Object-manipulation or
+  -- the group-manipulation functional units are available.
+  concurrency-control     Concurrency-Control OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  account                 Account OPTIONAL
+}
+
+F-CREATE-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  initial-attributes      Create-Attributes,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-DELETE-request ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL
+}
+
+F-DELETE-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  charging                Charging OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-READ-ATTRIB-request ::= SEQUENCE {
+  attribute-names            [0] IMPLICIT Attribute-Names,
+  attribute-extension-names  [1] IMPLICIT Attribute-Extension-Names OPTIONAL
+}
+
+-- This Parameter tan only be sent when the
+-- limited-filestore-management functional unit is available.
+F-READ-ATTRIB-response ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  attributes     Read-Attributes OPTIONAL,
+  -- Password values within the access control tan not be read by means
+  -- of the read attribute action. Whether other Parts of the access
+  -- control Object attribute tan be read by means of the read
+  -- attribute action is decided locally by the responding entity, and
+  -- it shall not be the subject of conformance test.
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-CHANGE-ATTRIB-request ::= SEQUENCE {attributes  Change-Attributes
+}
+
+F-CHANGE-ATTRIB-response ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  attributes     Change-Attributes OPTIONAL,
+  -- Password values within access control attribute are never returned.
+  -- Other attributes are retumed as an implementation choice.
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-OPEN-request ::= SEQUENCE {
+  processing-mode
+    [0] IMPLICIT BIT STRING {f-read(0), f-insert(1), f-replace(2), f-extend(3),
+                             f-erase(4)} DEFAULT {f-read},
+  contents-type
+    [1]  CHOICE {unknown   [0] IMPLICIT NULL,
+                 proposed  [1]  Contents-Type-Attribute},
+  concurrency-control     Concurrency-Control OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  enable-fadu-locking     [2] IMPLICIT BOOLEAN DEFAULT FALSE,
+  activity-identifier     Activity-Identifier OPTIONAL,
+  -- Only used in the recovery functional unit.
+  recovery-mode
+    [3] IMPLICIT INTEGER {none(0), at-start-of-file(1),
+                          at-any-active-Checkpoint(2)} DEFAULT none,
+  remove-contexts         [4] IMPLICIT SET OF Abstract-Syntax-Name OPTIONAL,
+  define-contexts         [5] IMPLICIT SET OF Abstract-Syntax-Name OPTIONAL,
+  -- The following are conditional on the negotiation of the consecutive overlap or
+  -- concurrent overlap functional units.
+  degree-of-overlap       Degree-Of-Overlap OPTIONAL,
+  transfer-window         [7] IMPLICIT INTEGER OPTIONAL
+}
+
+F-OPEN-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  contents-type           [1]  Contents-Type-Attribute,
+  concurrency-control     Concurrency-Control OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL,
+  recovery-mode
+    [3] IMPLICIT INTEGER {none(0), at-start-of-file(1),
+                          at-any-active-Checkpoint(2)} DEFAULT none,
+  presentation-action     [6] IMPLICIT BOOLEAN DEFAULT FALSE,
+  -- This flag is set if the responder is going to follow this response
+  -- by a P-ALTER-CONTEXT exchange.
+  --The following are conditional on the negotiation of the concecutive access
+  -- or concurent access functional units.
+  degree-of-overlap       Degree-Of-Overlap OPTIONAL,
+  transfer-window         [7] IMPLICIT INTEGER OPTIONAL
+}
+
+F-CLOSE-request ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-CLOSE-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-BEGIN-GROUP-request ::= SEQUENCE {threshold  [0] IMPLICIT INTEGER
+}
+
+F-BEGIN-GROUP-response ::= SEQUENCE {
+}
+
+-- No elements defined, shall be empty.
+F-END-GROUP-request ::= SEQUENCE {
+}
+
+-- No elements defined, shall be empty.
+F-END-GROUP-response ::= SEQUENCE {
+}
+
+-- No elements defined, shall be empty.
+F-RECOVER-request ::= SEQUENCE {
+  activity-identifier               Activity-Identifier,
+  bulk-transfer-number              [0] IMPLICIT INTEGER,
+  -- If concurrent access was in use then this parameter indicates the read bulk
+  -- transfer.
+  requested-access                  Access-Request,
+  access-passwords                  Access-Passwords OPTIONAL,
+  recovefy-Point                    [2] IMPLICIT INTEGER DEFAULT 0,
+  -- Zero indicates beginning of file
+  -- Point after last Checkpoint indicates end of file
+  remove-contexts
+    [3] IMPLICIT SET OF Abstract-Syntax-Name OPTIONAL,
+  define-contexts
+    [4] IMPLICIT SET OF Abstract-Syntax-Name OPTIONAL,
+  -- The following are conditional on the negotiation of overlapped access.
+  concurrent-bulk-transfer-number   [7] IMPLICIT INTEGER OPTIONAL,
+  -- conditional on use of concurrent access
+  concurrent-recovery-point         [8] IMPLICIT INTEGER OPTIONAL,
+  -- conditional on use of concurrent access. Zero indicates beginning of file
+  -- point after last checkpoint indicates end of file
+  last-transfer-end-read-response   [9] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [10] IMPLICIT INTEGER OPTIONAL
+}
+
+F-RECOVER-response ::= SEQUENCE {
+  state-result                     State-Result DEFAULT success,
+  action-result                    Action-Result DEFAULT success,
+  contents-type                    [1]  Contents-Type-Attribute,
+  recovety-Point                   [2] IMPLICIT INTEGER DEFAULT 0,
+  -- Zero indicates beginning of file.
+  -- Point after last Checkpoint indicates end of file. 
+  diagnostic                       Diagnostic OPTIONAL,
+  presentation-action              [6] IMPLICIT BOOLEAN DEFAULT FALSE,
+  -- This flag is set if the responder is going to follow this response
+  -- by a P-ALTER-CONTEXT exchange.
+  -- The following are conditional on the negotiation of overlapped access.
+  concurrent-recovery-point        [8] IMPLICIT INTEGER OPTIONAL,
+  -- conditional on use of concurrent access. Zero indicates beginning of file; point after
+  -- last checkpoint indicates end of file
+  last-transfer-end-read-request   [9] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-request  [10] IMPLICIT INTEGER OPTIONAL
+}
+
+F-LOCATE-request ::= SEQUENCE {
+  file-access-data-unit-identity  FADU-Identity,
+  fadu-lock                       FADU-Lock OPTIONAL
+}
+
+F-LOCATE-response ::= SEQUENCE {
+  action-result                   Action-Result DEFAULT success,
+  file-access-data-unit-identity  FADU-Identity OPTIONAL,
+  diagnostic                      Diagnostic OPTIONAL
+}
+
+F-ERASE-request ::= SEQUENCE {file-access-data-unit-identity  FADU-Identity
+}
+
+F-ERASE-response ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+Bulk-Data-PDU ::= CHOICE {
+  f-read-request           [32] IMPLICIT F-READ-request,
+  f-write-request          [33] IMPLICIT F-WRITE-request,
+  -- There is no F-DATA FPDU, the contents of a file
+  -- are transferred in a different presentation context
+  -- and there is therefore no need to define the types
+  -- of file contents in the FTAM PCI abstract Syntax.
+  -- File contents data are carried in values of the
+  -- data type Data-Element as defined in ISO 8571-2.
+  f-data-end-request       [34] IMPLICIT F-DATA-END-request,
+  f-transfer-end-request   [35] IMPLICIT F-TRANSFER-END-request,
+  f-transfer-end-response  [36] IMPLICIT F-TRANSFER-END-response,
+  f-cancel-request         [37] IMPLICIT F-CANCEL-request,
+  f-cancel-response        [38] IMPLICIT F-CANCEL-response,
+  -- There is no F-CHECK PDU.
+  f-restart-request        [39] IMPLICIT F-RESTART-request,
+  f-restart-response       [40] IMPLICIT F-RESTART-response
+}
+
+F-READ-request ::= SEQUENCE {
+  file-access-data-unit-identity  FADU-Identity,
+  access-context                  Access-Context,
+  fadu-lock                       FADU-Lock OPTIONAL,
+  -- The following is conditional on the negotiation of consecutive of concurrent access.
+  transfer-number                 [0] IMPLICIT INTEGER OPTIONAL
+}
+
+F-WRITE-request ::= SEQUENCE {
+  file-access-data-unit-Operation
+    [0] IMPLICIT INTEGER {insert(0), replace(1), extend(2)},
+  file-access-data-unit-identity   FADU-Identity,
+  fadu-lock                        FADU-Lock OPTIONAL,
+  -- The following is conditional on the negotiation of consecutive or concurrent access.
+  transfer-number                  [1] IMPLICIT INTEGER OPTIONAL
+}
+
+F-DATA-END-request ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-TRANSFER-END-request ::= SEQUENCE {
+  shared-ASE-information            Shared-ASE-Information OPTIONAL,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type                      Request-Type OPTIONAL,
+  transfer-number                   [0] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-response   [1] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [2] IMPLICIT INTEGER OPTIONAL
+}
+
+F-TRANSFER-END-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type            Request-Type OPTIONAL,
+  transfer-number         [0] IMPLICIT INTEGER OPTIONAL
+}
+
+F-CANCEL-request ::= SEQUENCE {
+  action-result                     Action-Result DEFAULT success,
+  shared-ASE-information            Shared-ASE-Information OPTIONAL,
+  diagnostic                        Diagnostic OPTIONAL,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type                      Request-Type,
+  transfer-number                   [0] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-request    [1] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-response   [2] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-request   [3] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [4] IMPLICIT INTEGER OPTIONAL
+}
+
+F-CANCEL-response ::= SEQUENCE {
+  action-result                     Action-Result DEFAULT success,
+  shared-ASE-information            Shared-ASE-Information OPTIONAL,
+  diagnostic                        Diagnostic OPTIONAL,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type                      Request-Type OPTIONAL,
+  transfer-number                   [0] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-request    [1] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-response   [2] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-request   [3] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [4] IMPLICIT INTEGER OPTIONAL
+}
+
+F-CHECK-request ::= SEQUENCE {
+  checkpoint-identifier  [0] IMPLICIT INTEGER,
+  transfer-number        [1] IMPLICIT INTEGER
+}
+
+F-CHECK-response ::= SEQUENCE {
+  checkpoint-identifier  [0] IMPLICIT INTEGER,
+  transfer-number        [1] IMPLICIT INTEGER
+}
+
+F-RESTART-request ::= SEQUENCE {
+  checkpoint-identifier             [0] IMPLICIT INTEGER,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type                      Request-Type OPTIONAL,
+  transfer-number                   [1] IMPLICIT INTEGER,
+  last-transfer-end-read-request    [2] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-response   [3] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-request   [4] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [5] IMPLICIT INTEGER OPTIONAL
+}
+
+F-RESTART-response ::= SEQUENCE {
+  checkpoint-identifier             [0] IMPLICIT INTEGER,
+  -- The following are conditional on the negotiation of consecutive or concurrent access.
+  request-type                      Request-Type OPTIONAL,
+  transfer-number                   [1] IMPLICIT INTEGER,
+  last-transfer-end-read-request    [2] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-read-response   [3] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-request   [4] IMPLICIT INTEGER OPTIONAL,
+  last-transfer-end-write-response  [5] IMPLICIT INTEGER OPTIONAL
+}
+
+Degree-Of-Overlap ::= [APPLICATION 30] IMPLICIT INTEGER {
+  normal(0), consecutive(1), concurrent(2)}
+
+Request-Type ::= [APPLICATION 31] IMPLICIT INTEGER {read(0), write(1)}
+
+Abstract-Syntax-Name ::= [APPLICATION 0] IMPLICIT OBJECT IDENTIFIER
+
+Access-Context ::= [APPLICATION 1] IMPLICIT SEQUENCE {
+  access-context
+    [0] IMPLICIT INTEGER {hierarchical-all-data-units(0),--HA--
+                          hierarchical-no-data-units(1),--HN--
+                          flat-all-data-units(2),--FA--
+                          flat-one-level-data-unit(3),--FL--
+                          flat-Single-data-unit(4),--FS--
+                          unstructured-all-data-units(5),--UA--
+                          unstructured-Single-data-unit(6)}, --US
+  level-number    [1] IMPLICIT INTEGER OPTIONAL
+}
+
+-- Present if and only if flat-one-level-data-units
+-- (access context FL) is selected.
+-- As defined in ISO 8571-2.
+Access-Passwords ::= [APPLICATION 2] IMPLICIT SEQUENCE {
+  read-password              [0]  Password,
+  insert-password            [1]  Password,
+  replace-password           [2]  Password,
+  extend-password            [3]  Password,
+  erase-password             [4]  Password,
+  read-attribute-password    [5]  Password,
+  change-attribute-password  [6]  Password,
+  delete-password            [7]  Password,
+  pass-passwords             [8] IMPLICIT Pass-Passwords OPTIONAL,
+  link-password              [9]  Password OPTIONAL
+}
+
+-- The pass-passwords and the link-password must be included in the
+-- access-passwords if and only if the limited-filestore-management
+-- or the Object-manipulation or the group-manipulation functional
+-- units are available.
+Access-Request ::= [APPLICATION 3] IMPLICIT BIT STRING {
+  read(0), insert(1), replace(2), extend(3), erase(4), read-attribute(5),
+  change-attribute(6), delete-Object(7)}
+
+Account ::= [APPLICATION 4] IMPLICIT GraphicString
+
+Action-Result ::= [APPLICATION 5] IMPLICIT INTEGER {
+  success(0), transient-error(1), permanent-error(2)}
+
+Activity-Identifier ::= [APPLICATION 6] IMPLICIT INTEGER
+
+Application-Entity-Title ::= [APPLICATION 7]  AE-title
+
+-- As defined in ISO 8650.
+Change-Attributes ::= [APPLICATION 8] IMPLICIT SEQUENCE {
+  -- Kerne1 Group
+  pathname              Pathname-Attribute OPTIONAL,
+  -- Storage group
+  storage-account       [3]  Account-Attribute OPTIONAL,
+  object-availability   [12]  Object-Availability-Attribute OPTIONAL,
+  future-Object-size    [14]  Object-Size-Attribute OPTIONAL,
+  -- Security group
+  access-control        [15]  Access-Control-Change-Attribute OPTIONAL,
+  path-access-control   [21]  Access-Control-Change-Attribute OPTIONAL,
+  -- This Parameter tan only be sent when the
+  -- enhanced-filestore-management functional unit is available.
+  legal-qualification   [16]  Legal-Qualification-Attribute OPTIONAL,
+  -- Private group
+  private-use           [17]  Private-Use-Attribute OPTIONAL,
+  -- Attribute Extensions group
+  attribute-extensions  [22] IMPLICIT Attribute-Extensions OPTIONAL
+}
+
+-- This Parameter tan only be sent when the
+-- enhanced-filestore-management functional unit is available.
+-- Atleast one attribute shall be present in the Change-Attributes
+-- Parameter on the request PDU.
+Charging ::=
+  [APPLICATION 9] IMPLICIT
+    SEQUENCE OF
+      SEQUENCE {resource-identifier  [0] IMPLICIT GraphicString,
+                charging-unit        [1] IMPLICIT GraphicString,
+                charging-value       [2] IMPLICIT INTEGER}
+
+Concurrency-Control ::= [APPLICATION 10] IMPLICIT SEQUENCE {
+  read              [0] IMPLICIT Lock,
+  insert            [1] IMPLICIT Lock,
+  replace           [2] IMPLICIT Lock,
+  extend            [3] IMPLICIT Lock,
+  erase             [4] IMPLICIT Lock,
+  read-attribute    [5] IMPLICIT Lock,
+  change-attribute  [6] IMPLICIT Lock,
+  delete-Object     [7] IMPLICIT Lock
+}
+
+Lock ::= INTEGER {not-required(0), shared(1), exclusive(2), no-access(3)}
+
+Constraint-Set-Name ::= [APPLICATION 11] IMPLICIT OBJECT IDENTIFIER
+
+Create-Attributes ::= [APPLICATION 12] IMPLICIT SEQUENCE {
+  -- Kerne1 Group
+  pathname              Pathname-Attribute,
+  object-type           [18] IMPLICIT Object-Type-Attribute DEFAULT file,
+  -- This Parameter tan be sent if and only if the
+  -- limited-filestore-management functional unit is available.
+  permitted-actions     [1] IMPLICIT Permitted-Actions-Attribute,
+  contents-type         [2]  Contents-Type-Attribute,
+  -- Storage group
+  storage-account       [3]  Account-Attribute OPTIONAL,
+  object-availability   [12]  Object-Availability-Attribute OPTIONAL,
+  future-Object-size    [14]  Object-Size-Attribute OPTIONAL,
+  -- Security group
+  access-control        [15]  Access-Control-Attribute OPTIONAL,
+  path-access-control   [21]  Access-Control-Attribute OPTIONAL,
+  -- This Parameter tan be sent if and only if the
+  -- enhanced-filestore-management functional unit is available.
+  legal-qualification   [16]  Legal-Qualification-Attribute OPTIONAL,
+  -- Private group
+  private-use           [17]  Private-Use-Attribute OPTIONAL,
+  -- Attribute Extensions group
+  attribute-extensions  [22] IMPLICIT Attribute-Extensions OPTIONAL
+}
+
+-- This Parameter tan only be sent when the
+-- limited-filestore-management functional unit is available.
+Diagnostic ::=
+  [APPLICATION 13] IMPLICIT
+    SEQUENCE OF
+      SEQUENCE {diagnostic-type
+                  [0] IMPLICIT INTEGER {informative(0), transient(1),
+                                        permanent(2)},
+                error-identifier  [1] IMPLICIT INTEGER,
+                -- As defined in ISO 8571-3.
+                error-observer    [2] IMPLICIT Entity-Reference,
+                error-Source      [3] IMPLICIT Entity-Reference,
+                suggested-delay   [4] IMPLICIT INTEGER OPTIONAL,
+                further-details   [5] IMPLICIT GraphicString OPTIONAL
+    }
+
+Entity-Reference ::= INTEGER {
+  no-categorization-possible(0), initiating-file-service-user(1),
+  initiating-file-protocol-machine(2),
+  service-supporting-the-file-protocol-machine(3),
+  responding-file-protocol-machine(4), responding-file-service-user(5)
+}
+
+--NOTE
+-- 1. The values 0 and 3 are only valid as values in error-source.
+-- 2. The value 5 corresponds to the virtual filestore.
+Document-Type-Name ::= [APPLICATION 14] IMPLICIT OBJECT IDENTIFIER
+
+FADU-Identity ::= [APPLICATION 15]  CHOICE {
+  first-last   [0] IMPLICIT INTEGER {first(0), last(1)},
+  relative     [1] IMPLICIT INTEGER {previous(0), current(1), next(2)},
+  begin-end    [2] IMPLICIT INTEGER {begin(0), end(1)},
+  single-name  [3] IMPLICIT Node-Name,
+  name-list    [4] IMPLICIT SEQUENCE OF Node-Name,
+  fadu-number  [5] IMPLICIT INTEGER
+}
+
+-- As defined in ISO 8571-2.
+Node-Name ::= EXTERNAL
+
+-- The type to be used for Node-Name is defined in IS08571-FADU.
+FADU-Lock ::= [APPLICATION 16] IMPLICIT INTEGER {off(0), on(1)}
+
+Password ::= [APPLICATION 17]  CHOICE {
+  graphicString  GraphicString,
+  octetString    OCTET STRING
+}
+
+Read-Attributes ::= [APPLICATION 18] IMPLICIT SEQUENCE {
+  -- Kerne1 Group
+  pathname                                      Pathname-Attribute OPTIONAL,
+  object-type
+    [18] IMPLICIT Object-Type-Attribute OPTIONAL,
+  -- This Parameter tan be sent if and only if
+  -- the limited-filestore-management functional unit is available.
+  permitted-actions
+    [1] IMPLICIT Permitted-Actions-Attribute OPTIONAL,
+  contents-type
+    [2]  Contents-Type-Attribute OPTIONAL,
+  linked-Object
+    [19]  Pathname-Attribute OPTIONAL,
+  -- This Parameter tan be sent if and only if
+  -- the limited-filestore-management functional unit is available.
+  child-objects
+    [23]  Child-Objects-Attribute OPTIONAL,
+  -- This Parameter tan be sent if and only if
+  -- the limited-filestore-management functional unit is available.
+  -- Storage group
+  primaty-pathname
+    [20]  Pathname-Attribute OPTIONAL,
+  storage-account                               [3]  Account-Attribute OPTIONAL,
+  date-and-time-of-creation
+    [4]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-modification
+    [5]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-read-access
+    [6]  Date-and-Time-Attribute OPTIONAL,
+  date-and-time-of-last-attribute-modification
+    [7]  Date-and-Time-Attribute OPTIONAL,
+  identity-of-creator
+    [8]  User-Identity-Attribute OPTIONAL,
+  identity-of-last-modifier
+    [9]  User-Identity-Attribute OPTIONAL,
+  identity-of-last-reader
+    [10]  User-Identity-Attribute OPTIONAL,
+  identity-last-attribute-modifier
+    [11]  User-Identity-Attribute OPTIONAL,
+  object-availability
+    [12]  Object-Availability-Attribute OPTIONAL,
+  object-size
+    [13]  Object-Size-Attribute OPTIONAL,
+  future-Object-size
+    [14]  Object-Size-Attribute OPTIONAL,
+  -- Security group
+  access-control
+    [15]  Access-Control-Attribute OPTIONAL,
+  path-access-control
+    [21]  Access-Control-Attribute OPTIONAL,
+  -- This Parameter tan be sent if and only if
+  -- the limited-filestore-management functional unit is available.
+  legal-qualification
+    [16]  Legal-Qualification-Attribute OPTIONAL,
+  -- Private group
+  private-use
+    [17]  Private-Use-Attribute OPTIONAL,
+  -- Attribute Extensions group
+  attribute-extensions
+    [22] IMPLICIT Attribute-Extensions OPTIONAL
+}
+
+-- This Parameter tan be sent if and only if
+-- the limited-filestore-management functional unit is available.
+Select-Attributes ::= [APPLICATION 19] IMPLICIT SEQUENCE {
+  -- Kerne1 Group
+  pathname  Pathname-Attribute
+}
+
+Shared-ASE-Information ::= [APPLICATION 20] IMPLICIT EXTERNAL
+
+-- This field may be used to convey commitment control as described
+-- in ISO 8571-3.
+State-Result ::= [APPLICATION 21] IMPLICIT INTEGER {success(0), failure(1)
+}
+
+User-Identity ::= [APPLICATION 22] IMPLICIT GraphicString
+
+Access-Control-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       [1] IMPLICIT SET OF Access-Control-Element
+}
+
+-- The semantics of this attribute is described in ISO 8571-2.
+Access-Control-Change-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values
+    [1] IMPLICIT SEQUENCE {insert-values
+                             [0] IMPLICIT SET OF Access-Control-Element
+                               OPTIONAL,
+                           -- This field is used by the Change attribute actions to indicate
+                           -- new values to be inserted in the access control Object attribute.
+                           delete-values
+                             [1] IMPLICIT SET OF Access-Control-Element
+                               OPTIONAL}
+}
+
+-- This field is used by the Change attribute action to indicate
+-- old values to be removed from the access control Object
+-- attribute.
+-- The semantics of this attribute is described in ISO 8571-2.
+Access-Control-Element ::= SEQUENCE {
+  action-list         [0] IMPLICIT Access-Request,
+  concurrency-access  [1] IMPLICIT Concurrency-Access OPTIONAL,
+  identity            [2] IMPLICIT User-Identity OPTIONAL,
+  passwords           [3] IMPLICIT Access-Passwords OPTIONAL,
+  location            [4] IMPLICIT Application-Entity-Title OPTIONAL
+}
+
+Concurrency-Access ::= SEQUENCE {
+  read              [0] IMPLICIT Concurrency-Key,
+  insert            [1] IMPLICIT Concurrency-Key,
+  replace           [2] IMPLICIT Concurrency-Key,
+  extend            [3] IMPLICIT Concurrency-Key,
+  erase             [4] IMPLICIT Concurrency-Key,
+  read-attribute    [5] IMPLICIT Concurrency-Key,
+  change-attribute  [6] IMPLICIT Concurrency-Key,
+  delete-Object     [7] IMPLICIT Concurrency-Key
+}
+
+Concurrency-Key ::= BIT STRING {
+  not-required(0), shared(1), exclusive(2), no-access(3)}
+
+Account-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       Account
+}
+
+Contents-Type-Attribute ::= CHOICE {
+  document-type
+    [0] IMPLICIT SEQUENCE {document-type-name  Document-Type-Name,
+                           parameter
+                             [0]  TYPE-IDENTIFIER.&Type OPTIONAL},
+  -- The actual types to be used for values of the Parameter field
+  -- are defined in the named document type.
+  constraint-set-and-abstract-Syntax
+    [1] IMPLICIT SEQUENCE {constraint-set-name   Constraint-Set-Name,
+                           abstract-Syntax-name  Abstract-Syntax-Name
+  }
+}
+
+Date-and-Time-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       [1] IMPLICIT GeneralizedTime
+}
+
+Object-Availability-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values
+    [1] IMPLICIT INTEGER {immediate-availability(0), deferred-availability(1)}
+}
+
+Pathname-Attribute ::= CHOICE {
+  incomplete-pathname  [0] IMPLICIT Pathname,
+  complete-pathname    [APPLICATION 23] IMPLICIT Pathname
+}
+
+Object-Size-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       [1] IMPLICIT INTEGER
+}
+
+Legal-Qualification-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       [1] IMPLICIT GraphicString
+}
+
+Permitted-Actions-Attribute ::= BIT STRING -- Actions available
+                                {
+  read(0), insert(1), replace(2), extend(3), erase(4), read-attribute(5),
+  change-attribute(6), delete-Object(7), pass(11),
+  link(12),
+  -- FADU-Identity groups available
+  traversal(8), reverse-traversal(9), random-Order(10)}
+
+Private-Use-Attribute ::= CHOICE {
+  no-value-available             [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  abstract-Syntax-not-supported  [1] IMPLICIT NULL,
+  -- Indicates that abstract Syntax is not available.
+  actual-values                  [2] IMPLICIT EXTERNAL
+}
+
+Object-Type-Attribute ::= INTEGER {file(0), file-directory(1), reference(2)}
+
+User-Identity-Attribute ::= CHOICE {
+  no-value-available  [0] IMPLICIT NULL,
+  -- Indicates partial support of this attribute.
+  -- This value shall only appear in response PDUs.
+  actual-values       User-Identity
+}
+
+Child-Objects-Attribute ::= SET OF GraphicString
+
+FSM-PDU ::= CHOICE {
+  f-Change-prefix-request         [41] IMPLICIT F-CHANGE-PREFIX-request,
+  f-Change-prefix-response        [42] IMPLICIT F-CHANGE-PREFIX-response,
+  f-list-request                  [43] IMPLICIT F-LIST-request,
+  f-list-response                 [44] IMPLICIT F-LIST-response,
+  f-group-select-request          [45] IMPLICIT F-GROUP-SELECT-request,
+  f-group-select-response         [46] IMPLICIT F-GROUP-SELECT-response,
+  f-group-delete-request          [47] IMPLICIT F-GROUP-DELETE-request,
+  f-group-delete-response         [48] IMPLICIT F-GROUP-DELETE-response,
+  f-group-move-request            [49] IMPLICIT F-GROUP-MOVE-request,
+  f-group-move-response           [50] IMPLICIT F-GROUP-MOVE-response,
+  f-group-copy-request            [51] IMPLICIT F-GROUP-COPY-request,
+  f-group-copy-response           [52] IMPLICIT F-GROUP-COPY-response,
+  f-group-list-request            [53] IMPLICIT F-GROUP-LIST-request,
+  f-group-list-response           [54] IMPLICIT F-GROUP-LIST-response,
+  f-group-Change-attrib-request   [55] IMPLICIT F-GROUP-CHANGE-ATTRIB-request,
+  f-group-Change-attrib-response  [56] IMPLICIT F-GROUP-CHANGE-ATTRIB-response,
+  f-select-another-request        [57] IMPLICIT F-SELECT-ANOTHER-request,
+  f-select-another-response       [58] IMPLICIT F-SELECT-ANOTHER-response,
+  f-create-directory-request      [59] IMPLICIT F-CREATE-DIRECTORY-request,
+  f-create-directory-response     [60] IMPLICIT F-CREATE-DIRECTORY-response,
+  f-link-request                  [61] IMPLICIT F-LINK-request,
+  f-link-response                 [62] IMPLICIT F-LINK-response,
+  f-unlink-request                [63] IMPLICIT F-UNLINK-request,
+  f-unlink-response               [64] IMPLICIT F-UNLINK-response,
+  f-read-link-attrib-request      [65] IMPLICIT F-READ-LINK-ATTRIB-request,
+  f-read-link-attrib-response     [66] IMPLICIT F-READ-LINK-ATTRIB-response,
+  f-Change-link-attrib-request    [67] IMPLICIT F-CHANGE-LINK-ATTRIB-request,
+  f-Change-Iink-attrib-response   [68] IMPLICIT F-CHANGE-LINK-ATTRIB-response,
+  f-move-request                  [69] IMPLICIT F-MOVE-request,
+  f-move-response                 [70] IMPLICIT F-MOVE-response,
+  f-copy-request                  [71] IMPLICIT F-COPY-request,
+  f-copy-response                 [72] IMPLICIT F-COPY-response
+}
+
+F-CHANGE-PREFIX-request ::= SEQUENCE {
+  reset                       [0] IMPLICIT BOOLEAN DEFAULT FALSE,
+  destination-file-directory  Destination-File-Directory,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL
+}
+
+F-CHANGE-PREFIX-response ::= SEQUENCE {
+  action-result               Action-Result DEFAULT success,
+  destination-file-directory  Destination-File-Directory OPTIONAL,
+  diagnostic                  Diagnostic OPTIONAL
+}
+
+F-LIST-request ::= SEQUENCE {
+  attribute-value-asset-tions  Attribute-Value-Assertions,
+  scope                        Scope,
+  access-passwords             Access-Passwords OPTIONAL,
+  path-access-passwords        Path-Access-Passwords OPTIONAL,
+  attribute-names              [0] IMPLICIT Attribute-Names,
+  attribute-extension-names    [1] IMPLICIT Attribute-Extension-Names OPTIONAL
+}
+
+F-LIST-response ::= SEQUENCE {
+  action-result            Action-Result DEFAULT success,
+  objects-attributes-list  Objects-Attributes-List OPTIONAL,
+  diagnostic               Diagnostic OPTIONAL
+}
+
+F-GROUP-SELECT-request ::= SEQUENCE {
+  attribute-value-assertions  Attribute-Value-Assertions,
+  requested-access            Access-Request,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL,
+  concurrency-control         Concurrency-Control OPTIONAL,
+  maximum-set-size            [0] IMPLICIT INTEGER DEFAULT 0,
+  -- 0 implies no limit.
+  scope                       Scope,
+  account                     Account OPTIONAL,
+  shared-ASE-information      Shared-ASE-Information OPTIONAL
+}
+
+F-GROUP-SELECT-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-GROUP-DELETE-request ::= SEQUENCE {
+  request-Operation-result  Request-Operation-Result OPTIONAL,
+  shared-ASE-information    Shared-ASE-Information OPTIONAL
+}
+
+F-GROUP-DELETE-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  charging                Charging OPTIONAL,
+  operation-result        Operation-Result OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-GROUP-MOVE-request ::= SEQUENCE {
+  destination-file-directory  Destination-File-Directory,
+  override                    [0] IMPLICIT Override DEFAULT create-failure,
+  -- Only the values create-failure (0}
+  -- and delete-and-create-with-new-attributes (3) are allowed.
+  error-action                [11] IMPLICIT Error-Action,
+  create-password             Password OPTIONAL,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL,
+  request-Operation-result    Request-Operation-Result OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL
+}
+
+F-GROUP-MOVE-response ::= SEQUENCE {
+  action-result               Action-Result DEFAULT success,
+  destination-file-directory  Destination-File-Directory OPTIONAL,
+  operation-result            Operation-Result OPTIONAL,
+  diagnostic                  Diagnostic OPTIONAL
+}
+
+F-GROUP-COPY-request ::= SEQUENCE {
+  destination-file-directory  Destination-File-Directory,
+  override                    [0] IMPLICIT Override DEFAULT create-failure,
+  -- Only the values create-failure (0)
+  -- and delete-and-create-with-new-attributes (3) are allowed.
+  error-action                [1] IMPLICIT Error-Action,
+  create-password             Password OPTIONAL,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL,
+  request-Operation-result    Request-Operation-Result OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL
+}
+
+F-GROUP-COPY-response ::= SEQUENCE {
+  action-result               Action-Result DEFAULT success,
+  destination-file-directory  Destination-File-Directory OPTIONAL,
+  operation-result            Operation-Result OPTIONAL,
+  diagnostic                  Diagnostic OPTIONAL
+}
+
+F-GROUP-LIST-request ::= SEQUENCE {
+  attribute-names            [0] IMPLICIT Attribute-Names,
+  attribute-extension-names  [2] IMPLICIT Attribute-Extension-Names OPTIONAL
+}
+
+F-GROUP-LIST-response ::= SEQUENCE {
+  action-result            Action-Result DEFAULT success,
+  objects-attributes-list  Objects-Attributes-List OPTIONAL,
+  diagnostic               Diagnostic OPTIONAL
+}
+
+F-GROUP-CHANGE-ATTRIB-request ::= SEQUENCE {
+  attributes                Change-Attributes,
+  error-action              [1] IMPLICIT Error-Action,
+  request-Operation-result  Request-Operation-Result OPTIONAL,
+  shared-ASE-information    Shared-ASE-Information OPTIONAL
+}
+
+F-GROUP-CHANGE-ATTRIB-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  operation-result        Operation-Result OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-SELECT-ANOTHER-request ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL
+}
+
+F-SELECT-ANOTHER-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  last-member-indicator   [0] IMPLICIT BOOLEAN DEFAULT FALSE,
+  referent-indicator      Referent-Indicator OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-CREATE-DIRECTORY-request ::= SEQUENCE {
+  initial-attributes      Create-Attributes,
+  create-password         Password OPTIONAL,
+  requested-access        Access-Request,
+  shared-ASE-infonnation  Shared-ASE-Information OPTIONAL,
+  account                 Account OPTIONAL
+}
+
+F-CREATE-DIRECTORY-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  initial-attributes      Create-Attributes,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-LINK-request ::= SEQUENCE {
+  initial-attributes      Create-Attributes,
+  target-object           Pathname-Attribute,
+  create-password         Password OPTIONAL,
+  requested-access        Access-Request,
+  access-passwords        Access-Passwords OPTIONAL,
+  path-access-passwords   Path-Access-Passwords OPTIONAL,
+  concurrency-control     Concurrency-Control OPTIONAL,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  account                 Account OPTIONAL
+}
+
+F-LINK-response ::= SEQUENCE {
+  state-result            State-Result DEFAULT success,
+  action-result           Action-Result DEFAULT success,
+  initial-attributes      Create-Attributes,
+  target-Object           Pathname-Attribute,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-UNLINK-request ::= SEQUENCE {
+  shared-ASE-information  Shared-ASE-Information OPTIONAL
+}
+
+F-UNLINK-response ::= SEQUENCE {
+  action-result           Action-Result DEFAULT success,
+  shared-ASE-information  Shared-ASE-Information OPTIONAL,
+  charging                Charging OPTIONAL,
+  diagnostic              Diagnostic OPTIONAL
+}
+
+F-READ-LINK-ATTRIB-request ::= SEQUENCE {
+  attribute-names            [0] IMPLICIT Attribute-Names,
+  attribute-extension-names  [1] IMPLICIT Attribute-Extension-Names OPTIONAL
+}
+
+F-READ-LINK-ATTRIB-response ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  attributes     Read-Attributes OPTIONAL,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-CHANGE-LINK-ATTRIB-request ::= SEQUENCE {attributes  Change-Attributes
+}
+
+F-CHANGE-LINK-ATTRIB-response ::= SEQUENCE {
+  action-result  Action-Result DEFAULT success,
+  attributes     Change-Attributes OPTIONAL,
+  diagnostic     Diagnostic OPTIONAL
+}
+
+F-MOVE-request ::= SEQUENCE {
+  destination-file-directory  Destination-File-Directory,
+  override                    [0] IMPLICIT Override DEFAULT create-failure,
+  -- Only the values create-failure (0)
+  -- and delete-and-create-with-new-attributes (3) are ailowed.
+  create-password             Password OPTIONAL,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL
+}
+
+F-MOVE-response ::= SEQUENCE {
+  action-result               Action-Result DEFAULT success,
+  destination-file-directory  Destination-File-Directory OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL,
+  diagnostic                  Diagnostic OPTIONAL
+}
+
+F-COPY-request ::= SEQUENCE {
+  destination-file-directory  Destination-File-Directory,
+  override                    [0] IMPLICIT Override DEFAULT create-failure,
+  -- Only the values create-failure (0)
+  -- and delete-and-create-with-new-attributes (3) are allowed.
+  create-password             Password OPTIONAL,
+  access-passwords            Access-Passwords OPTIONAL,
+  path-access-passwords       Path-Access-Passwords OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL
+}
+
+F-COPY-response ::= SEQUENCE {
+  action-result               Action-Result DEFAULT success,
+  destination-file-directory  Destination-File-Directory OPTIONAL,
+  attributes                  Change-Attributes OPTIONAL,
+  diagnostic                  Diagnostic OPTIONAL
+}
+
+Attribute-Extension-Names ::= SEQUENCE OF Attribute-Extension-Set-Name
+
+Attribute-Extension-Set-Name ::= SEQUENCE {
+  extension-set-identifier   [0] IMPLICIT Extension-Set-Identifier,
+  extension-attribute-names  [1]  SEQUENCE OF Extension-Attribute-identifier
+}
+
+Attribute-Extensions ::= SEQUENCE OF Attribute-Extension-Set
+
+Attribute-Extension-Set ::= SEQUENCE {
+  extension-set-identifier  [0] IMPLICIT Extension-Set-Identifier,
+  extension-set-attributes  [1]  SEQUENCE OF Extension-Attribute
+}
+
+Extension-Attribute ::= SEQUENCE {
+  extension-attribute-identifier
+    TYPE-IDENTIFIER.&id({Extension-Attributes}),
+  extension-attribute
+    TYPE-IDENTIFIER.&Type
+      ({Extension-Attributes}{@extension-attribute-identifier})
+}
+
+Extension-Attributes TYPE-IDENTIFIER ::=
+  {...} -- dynamically extensible
+
+Extension-Set-Identifier ::= OBJECT IDENTIFIER
+
+Extension-Attribute-identifier ::= OBJECT IDENTIFIER
+
+Attribute-Value-Assertions ::= [APPLICATION 26] IMPLICIT OR-Set
+
+Scope ::=
+  [APPLICATION 28] IMPLICIT
+    SEQUENCE OF
+      SEQUENCE {root-directory   [0]  Pathname-Attribute OPTIONAL,
+                retrieval-scope  [1] IMPLICIT INTEGER {child(0), all(1)}
+    }
+
+OR-Set ::= SEQUENCE OF AND-Set
+
+AND-Set ::=
+  SEQUENCE OF
+    CHOICE {-- Kernel group
+            pathname-Pattern
+              [0] IMPLICIT Pathname-Pattern,
+            object-type-Pattern
+              [18] IMPLICIT Integer-Pattern,
+            permitted-actions-Pattern
+              [1] IMPLICIT Bitstring-Pattern,
+            contents-type-Pattern
+              [2]  Contents-Type-Pattern,
+            linked-Object-Pattern
+              [19] IMPLICIT Pathname-Pattern,
+            child-objects-Pattern
+              [23] IMPLICIT Pathname-Pattern,
+            -- Storage group
+            primaty-pathname-Pattern
+              [20] IMPLICIT Pathname-Pattern,
+            storage-account-Pattern
+              [3] IMPLICIT String-Pattern,
+            date-and-time-of-creation-Pattern
+              [4] IMPLICIT Date-and-Time-Pattern,
+            date-and-time-of-last-modification-Pattern
+              [5] IMPLICIT Date-and-Time-Pattern,
+            date-and-time-of-last-read-access-Pattern
+              [6] IMPLICIT Date-and-Time-Pattern,
+            date-and-time-of-last-attribute-modification-Pattern
+              [7] IMPLICIT Date-and-Time-Pattern,
+            identity-of-creator-Pattern
+              [8] IMPLICIT User-Identity-Pattern,
+            identity-of-last-modifier-Pattern
+              [9] IMPLICIT User-Identity-Pattern,
+            identity-of-last-reader-Pattern
+              [10] IMPLICIT User-Identity-Pattern,
+            identity-of-last-attribute-modifier-Pattern
+              [11] IMPLICIT User-Identity-Pattern,
+            object-availabiiity-Pattern
+              [12] IMPLICIT Boolean-Pattern,
+            object-size-Pattern
+              [13] IMPLICIT Integer-Pattern,
+            future-object-size-Pattern
+              [14] IMPLICIT Integer-Pattern,
+            -- Security group
+            -- Access control searches are disallowed.
+            legal-quailfication-Pattern
+              [16] IMPLICIT String-Pattern,
+            -- Private group
+            -- Private use searches are disallowed.
+            -- Attribute Extensions group
+            attribute-extensions-pattern
+              [22] IMPLICIT Attribute-Extensions-Pattern}
+
+User-Identity-Pattern ::= String-Pattern
+
+Equality-Comparision ::= BIT STRING {
+  no-value-available-matches(0),
+  -- Set impies ?No Value Available? matches the test.
+  -- Clear implies ?No Value Availabie? fails the test.
+  equals-matches(1)
+  
+-- Set implies equal items match the test.
+-- Clear implies equal items fail the test.
+}
+
+Relational-Comparision ::= BIT STRING {
+  no-value-available-matches(0),
+  -- Set impies ?No Value Available? matches the test.
+  -- Clear implies ?No Value Available? fails the test.
+  equals-matches(1),
+  -- Set implies equal items match the test.?
+  -- Clear implies equal items fail the test.
+  less-than-matches(2),
+  -- Set implies a value less than the test cke matches.
+  -- Clear implies a value less than the test case fails.
+  greater-than-matches(3)
+  
+-- Set implies a value greater than the test case matches.
+-- Clear implies a value greater than the test case fails.
+}
+
+-- Bits 1 through 3 shall not all have the Same value.
+Pathname-Pattern ::= SEQUENCE {
+  equality-comparision  [0] IMPLICIT Equality-Comparision,
+  pathname-value
+    [1] IMPLICIT SEQUENCE OF
+                   CHOICE {string-match  [2] IMPLICIT String-Pattern,
+                           any-match     [3] IMPLICIT NULL}
+}
+
+String-Pattern ::= SEQUENCE {
+  equality-comparision  [0] IMPLICIT Equality-Comparision,
+  string-value
+    [1] IMPLICIT SEQUENCE OF
+                   CHOICE {substring-match
+                             [2] IMPLICIT GraphicString,
+                           any-match                   [3] IMPLICIT NULL,
+                           number-of-characters-match  [4] IMPLICIT INTEGER
+                   }
+}
+
+Bitstring-Pattern ::= SEQUENCE {
+  equality-comparision    [0] IMPLICIT Equality-Comparision,
+  match-bitstring         [1] IMPLICIT BIT STRING,
+  significance-bitstring  [2] IMPLICIT BIT STRING
+}
+
+Date-and-Time-Pattern ::= SEQUENCE {
+  relational-camparision  [0] IMPLICIT Equality-Comparision,
+  time-and-date-value     [1] IMPLICIT GeneralizedTime
+}
+
+Integer-Pattern ::= SEQUENCE {
+  relational-comparision  [0] IMPLICIT Relational-Comparision,
+  integer-value           [1] IMPLICIT INTEGER
+}
+
+Object-Identifier-Pattern ::= SEQUENCE {
+  equality-comparision     [0] IMPLICIT Equality-Comparision,
+  object-identifier-value  [1] IMPLICIT OBJECT IDENTIFIER
+}
+
+Boolean-Pattern ::= SEQUENCE {
+  equality-comparision  [0] IMPLICIT Equality-Comparision,
+  boolean-value         [1] IMPLICIT BOOLEAN
+}
+
+Other-Pattern ::= Equality-Comparision
+
+-- Matches against ?No Value Available?.
+Contents-Type-Pattern ::= CHOICE {
+  document-type-Pattern
+    [0] IMPLICIT Object-Identifier-Pattern,
+  constraint-set-abstract-Syntax-Pattern
+    [1] IMPLICIT SEQUENCE {constraint-Set-Pattern
+                             [2] IMPLICIT Object-Identifier-Pattern OPTIONAL,
+                           -- Absent implies any Object Identifier is equal.
+                           abstract-Syntax-Pattern
+                             [3] IMPLICIT Object-Identifier-Pattern OPTIONAL
+                           -- Absent implies any Object identifier is equal.
+  }
+}
+
+Attribute-Extensions-Pattern ::=
+  SEQUENCE OF
+    SEQUENCE {extension-set-identifier
+                [0] IMPLICIT Extension-Set-Identifier,
+              extension-set-attribute-Patterns
+                [1] IMPLICIT SEQUENCE OF
+                               SEQUENCE {extension-attribute-identifier
+                                           TYPE-IDENTIFIER.&id
+                                             ({Extension-attribute-Patterns}),
+                                         extension-attribute-Pattern
+                                           TYPE-IDENTIFIER.&Type
+                                             ({Extension-attribute-Patterns}
+                                                {@.extension-attribute-identifier})
+                               }}
+
+-- conjunction with the extention attribute in Order to
+-- perform Pattern matthing operations on it. it may be
+-- defined in terms of other Patterns within this
+-- Standard.
+Extension-attribute-Patterns TYPE-IDENTIFIER ::=
+  {...} -- dynamically extensible information object set
+
+Destination-File-Directory ::= [APPLICATION 24]  Pathname-Attribute
+
+Objects-Attributes-List ::=
+  [APPLICATION 25] IMPLICIT SEQUENCE OF Read-Attributes
+
+Override ::= INTEGER {
+  create-failure(0), select-old-Object(1),
+  delete-and-create-with-old-attributes(2),
+  delete-and-create-with-new-attributes(3)}
+
+Error-Action ::= INTEGER {terminate(0), continue(1)}
+
+Operation-Result ::= [APPLICATION 30]  CHOICE {
+  success-Object-count  [0] IMPLICIT INTEGER,
+  success-Object-names  [1] IMPLICIT SEQUENCE OF Pathname
+}
+
+Pathname ::= SEQUENCE OF GraphicString
+
+Pass-Passwords ::= SEQUENCE OF Password
+
+-- There is a one-to-one correspondence between the elements of
+-- Pass-Passwords and the non-terminal elements of the specified
+-- Pathname.
+Path-Access-Passwords ::=
+  [APPLICATION 27] IMPLICIT
+    SEQUENCE OF
+      SEQUENCE {read-password              [0] Password,
+                insert-password            [1] Password,
+                replace-password           [2] Password,
+                extend-password            [3] Password,
+                erase-password             [4] Password,
+                read-attribute-password    [5] Password,
+                change-attribute-password  [6] Password,
+                delete-password            [7] Password,
+                pass-passwords             [8] IMPLICIT Pass-Passwords,
+                link-password              [9] Password}
+
+-- There is a one-to-one correspondence between the elements of
+-- Path-Access-Passwords and the non-terminal elements sf the
+-- specified Pathname.
+Request-Operation-Result ::= [APPLICATION 31] IMPLICIT INTEGER {
+  summary(0), fiii-list(1)}
+
+Attribute-Names ::= BIT STRING -- Kernel group
+                    {
+  read-pathname(0), read-Object-type(18), read-permitted-actions(1),
+  read-contents-type(2), read-linked-Object(19),
+  read-Child-objects(23),
+  -- Storage group
+  read-primary-pathname(20), read-storage-account(3),
+  read-date-and-time-of-creation(4),
+  read-date-and-time-of-last-modification(5),
+  read-date-and-time-of-last-read-access(6),
+  read-date-and-time-of-last-attribute-modification(7),
+  read-identity-of-creator(8), read-identity-of-last-modifier(9),
+  read-identity-of-last-reader(10),
+  read-identity-of-last-attribute-modifier(11), read-Object-availability(12),
+  read-Object-size(13),
+  read-future-Object-size(14),
+  -- Security group
+  read-access-control(15), read-path-access-control(21),
+  read-l8gal-qualifiCatiOnS(16),
+  -- Private group
+  read-private-use(17)}
+
+-- Bits 19 through 23 arc defined if and only if the limited-fil8Store-manag8m8nt
+-- or group-manipulation functionat units are available.
+Referent-Indicator ::= [APPLICATION 29] IMPLICIT BOOLEAN
+
+-- dw: definition of AE-title, as defined in ISO 8650:1988/Cor.1:1990 
+-- dw: defined in-line here so we don't need to import it, original comments
+-- dw: are as they appear in the 8650:1988 Annex E
+AP-title ::= TYPE-IDENTIFIER.&Type
+
+-- The exact definition and values used for AP-title
+-- should be chosen taking into account the ongoing 
+-- work in areas of naming, the Directory, and the 
+-- Registration Authority procedures for AE titles,
+-- AE titles, and AE qualifiers
+AE-qualifier ::= TYPE-IDENTIFIER.&Type
+
+-- The exact definition and values used for AE-qualifier
+-- should be chosen taking into account the ongoing 
+-- work in areas of naming, the Directory, and the 
+-- Registration Authority procedures for AE titles,
+-- AE titles, and AE qualifiers
+AE-title ::= SEQUENCE {ap  AP-title,
+                       ae  AE-qualifier
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D 

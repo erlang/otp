@@ -1,0 +1,265 @@
+-- Module Geo-Gr-Presentation-Attributes (T.418:03/1993)
+
+Geo-Gr-Presentation-Attributes {2 8 1 8 2} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+EXPORTS
+  Geometric-Graphics-Attributes, Line-Rendition, Marker-Rendition,
+    Text-Rendition, Filled-Area-Rendition, Edge-Rendition,
+    Colour-Representations, Transparency-Specification,
+    Transformation-Specification, Region-Of-Interest-Specification,
+    Picture-Orientation, Picture-Dimensions, ASF-Type, VDC-Pair,
+    One-Of-Four-Angles;
+
+Geometric-Graphics-Attributes ::= SET {
+  line-rendition                    [1]  Line-Rendition OPTIONAL,
+  marker-rendition                  [2]  Marker-Rendition OPTIONAL,
+  text-rendition                    [3]  Text-Rendition OPTIONAL,
+  filled-area-rendition             [4]  Filled-Area-Rendition OPTIONAL,
+  edge-rendition                    [5]  Edge-Rendition OPTIONAL,
+  colour-representations            [6]  Colour-Representations OPTIONAL,
+  transparency-specification        [7]  Transparency-Specification OPTIONAL,
+  transformation-specification      [8]  Transformation-Specification OPTIONAL,
+  region-of-interest-specification
+    [9]  Region-Of-Interest-Specification OPTIONAL,
+  picture-orientation               [10]  Picture-Orientation OPTIONAL,
+  picture-dimensions                [11]  Picture-Dimensions OPTIONAL
+}
+
+ASF-Type ::= ENUMERATED {bundled(0), individual(1)}
+
+Colour ::= CHOICE {indexed  [0]  INTEGER,
+                   direct   [1]  RGB
+}
+
+RGB ::= SEQUENCE {red    REAL,
+                  green  REAL,
+                  blue   REAL
+}
+
+SpecificationMode ::= ENUMERATED {absolute(0), scaled(1)}
+
+Line-Rendition ::= SEQUENCE {
+  line-width-specification-mode  [0]  SpecificationMode OPTIONAL,
+  line-bundle-index              [1]  INTEGER OPTIONAL,
+  line-type                      [2]  INTEGER OPTIONAL,
+  line-width                     [3]  Scaled-or-Absolute OPTIONAL,
+  line-colour                    [4]  Colour OPTIONAL,
+  line-aspect-source-flags
+    [5]  SEQUENCE {line-type-asf    ASF-Type,
+                   line-width-asf   ASF-Type,
+                   line-colour-asf  ASF-Type} OPTIONAL,
+  line-bundle-specifications
+    [6]  SEQUENCE OF
+           SEQUENCE {line-bundle-index           INTEGER,
+                     line-bundle-representation
+                       SEQUENCE {line-type    INTEGER,
+                                 line-width   Scaled-or-Absolute,
+                                 line-colour  Colour}} OPTIONAL
+}
+
+Scaled-or-Absolute ::= CHOICE {
+  absolute
+    [0]  CHOICE { -- absolute--vdc-int   [0]  INTEGER, -- for VDC Type INTEGER--
+                               vdc-real  [1]  REAL}, -- for VDC Type REAL
+  scaled    [1]  REAL
+} -- scaled
+
+Marker-Rendition ::= SEQUENCE {
+  marker-size-specification-mode  [0]  SpecificationMode OPTIONAL,
+  marker-bundle-index             [1]  INTEGER OPTIONAL,
+  marker-type                     [2]  INTEGER OPTIONAL,
+  marker-size                     [3]  Scaled-or-Absolute OPTIONAL,
+  marker-colour                   [4]  Colour OPTIONAL,
+  marker-aspect-source-flags
+    [5]  SEQUENCE {marker-type-asf    ASF-Type,
+                   marker-size-asf    ASF-Type,
+                   marker-colour-asf  ASF-Type} OPTIONAL,
+  marker-bundle-specifications
+    [6]  SEQUENCE OF
+           SEQUENCE {marker-bundle-index           INTEGER,
+                     marker-bundle-representation
+                       SEQUENCE {marker-type    INTEGER,
+                                 marker-size    Scaled-or-Absolute,
+                                 marker-colour  Colour}} OPTIONAL
+}
+
+Text-Rendition ::= SEQUENCE {
+  font-list                      [0]  SEQUENCE OF GeneralString OPTIONAL,
+  character-set-list
+    [1]  SEQUENCE {character-set-type
+                     ENUMERATED {n94-char-sets(0), n96-char-sets(1),
+                                 n94-char-multibyte-sets(2),
+                                 n96-char-multibyte-sets(3), comp-code(4)},
+                   designation-sequence-tail  GeneralString} OPTIONAL,
+  character-coding-announcer
+    [2]  ENUMERATED {basic-7-bit(0), basic-8-bit(1), extended-7-bit(2),
+                     extended-8-bit(3)} OPTIONAL,
+  text-bundle-index              [3]  INTEGER OPTIONAL,
+  text-font-index                [4]  INTEGER OPTIONAL,
+  text-precision
+    [5]  ENUMERATED {string(0), character(1), stroke(2)} OPTIONAL,
+  character-expansion-factor     [6]  REAL OPTIONAL,
+  character-spacing              [7]  REAL OPTIONAL,
+  text-colour                    [8]  Colour OPTIONAL,
+  character-height               [9]  VDC-Value OPTIONAL,
+  character-orientation          [10]  SEQUENCE {a  VDC-Pair,
+                                                 b  VDC-Pair} OPTIONAL,
+  text-path
+    [11]  ENUMERATED {right(0), left(1), up(2), down(3)} OPTIONAL,
+  text-alignment
+    [12]  SEQUENCE {horizontal-alignment
+                      ENUMERATED {normal-horizontal(0), left(1), centre(2),
+                                  right(3), continuous-horizontal(4)},
+                    vertical-alignment
+                      ENUMERATED {normal-vertical(0), top(1), cap(2), 
+                                  half(3), base(4), bottom(5),
+                                  continuous-vertical(6)},
+                    continuous-horizontal-alignment  [0]  REAL OPTIONAL,
+                    continuous-vertical-alignment    [1]  REAL OPTIONAL
+  } OPTIONAL,
+  character-set-index            [13]  INTEGER OPTIONAL,
+  alternate-character-set-index  [14]  INTEGER OPTIONAL,
+  text-aspect-source-flags
+    [15]  SEQUENCE {text-font-asf                   ASF-Type,
+                    text-precision-asf              ASF-Type,
+                    character-expansion-factor-asf  ASF-Type,
+                    character-spacing-asf           ASF-Type,
+                    text-colour-asf                 ASF-Type} OPTIONAL,
+  text-bundle-specifications
+    [16]  SEQUENCE OF
+            SEQUENCE {text-bundle-index           INTEGER,
+                      text-bundle-representation
+                        SEQUENCE {text-font-index             INTEGER,
+                                  text-precision
+                                    ENUMERATED {string(0), character(1),
+                                                stroke(2)},
+                                  character-expansion-factor  REAL,
+                                  character-spacing           REAL,
+                                  text-colour                 Colour}
+            } OPTIONAL
+}
+
+VDC-Value ::= CHOICE {a  INTEGER,
+                      b  REAL
+}
+
+VDC-Pair ::= SEQUENCE {x  VDC-Value,
+                       y  VDC-Value
+}
+
+Filled-Area-Rendition ::= SEQUENCE {
+  fill-bundle-index             [1]  INTEGER OPTIONAL,
+  interior-style
+    [2]  ENUMERATED {hollow(0), solid(1), pattern(2), hatch(3), empty(4)}
+      OPTIONAL,
+  fill-colour                   [3]  Colour OPTIONAL,
+  hatch-index                   [4]  INTEGER OPTIONAL,
+  pattern-index                 [5]  INTEGER OPTIONAL,
+  fill-reference-point          [6]  VDC-Pair OPTIONAL,
+  pattern-size
+    [7]  SEQUENCE {height-x-component  VDC-Value,
+                   height-y-component  VDC-Value,
+                   width-x-component   VDC-Value,
+                   width-y-component   VDC-Value} OPTIONAL,
+  pattern-table-specifications  [8]  SEQUENCE OF PatternTableElement OPTIONAL,
+  fill-aspect-source-flags
+    [9]  SEQUENCE {interior-style-asf  ASF-Type,
+                   fill-colour-asf     ASF-Type,
+                   hatch-index-asf     ASF-Type,
+                   pattern-index-asf   ASF-Type} OPTIONAL,
+  fill-bundle-specifications
+    [10]  SEQUENCE {fill-bundle-index           INTEGER,
+                    fill-bundle-representation
+                      SEQUENCE {interior-style
+                                  ENUMERATED {hollow(0), solid(1), pattern(2),
+                                              hatch(3), empty(4)},
+                                fill-colour     Colour,
+                                hatch-index     INTEGER,
+                                patttern-index  INTEGER}} OPTIONAL
+}
+
+PatternTableElement ::= SEQUENCE {
+  pattern-table-index     INTEGER,
+  nx                      INTEGER,
+  ny                      INTEGER,
+  local-colour-precision  INTEGER,
+  colour                  SEQUENCE OF Colour
+}
+
+Edge-Rendition ::= SEQUENCE {
+  edge-width-spec-mode        [0]  SpecificationMode OPTIONAL,
+  edge-visibility             [1]  On-or-Off OPTIONAL,
+  edge-bundle-index           [2]  INTEGER OPTIONAL,
+  edge-type                   [3]  INTEGER OPTIONAL,
+  edge-width                  [4]  Scaled-or-Absolute OPTIONAL,
+  edge-colour                 [5]  Colour OPTIONAL,
+  edge-aspect-source-flags
+    [6]  SEQUENCE {edge-type-asf    ASF-Type,
+                   edge-width-asf   ASF-Type,
+                   edge-colour-asf  ASF-Type} OPTIONAL,
+  edge-bundle-specifications
+    [7]  SEQUENCE OF
+           SEQUENCE {edge-bundle-index           INTEGER,
+                     edge-bundle-representation
+                       SEQUENCE {edge-type    INTEGER,
+                                 edge-width   Scaled-or-Absolute,
+                                 edge-colour  Colour}} OPTIONAL
+}
+
+On-or-Off ::= ENUMERATED {off(0), on(1)}
+
+Colour-Representations ::= SEQUENCE {
+  background-colour           [0]  RGB OPTIONAL,
+  colour-table-specification
+    [1]  SEQUENCE OF
+           SEQUENCE {starting-index  INTEGER,
+                     colour-list     SEQUENCE OF RGB} OPTIONAL
+}
+
+Transparency-Specification ::= SEQUENCE {
+  transparency      [0]  On-or-Off OPTIONAL,
+  auxiliary-colour  [1]  Colour OPTIONAL
+}
+
+Transformation-Specification ::= SEQUENCE {
+  vdc-extent      [0]  Rectangle OPTIONAL,
+  clip-rectangle  [1]  Rectangle OPTIONAL,
+  clip-indicator  [2]  On-or-Off OPTIONAL
+}
+
+Rectangle ::= SEQUENCE {first-corner   VDC-Pair,
+                        second-corner  VDC-Pair
+}
+
+Region-Of-Interest-Specification ::= CHOICE {
+  automatic  [0]  NULL,
+  rectangle  [1]  SEQUENCE {a  VDC-Pair,
+                            b  VDC-Pair}
+}
+
+Picture-Orientation ::= One-Of-Four-Angles
+
+One-Of-Four-Angles ::= ENUMERATED {d0(0), d90(1), d180(2), d270(3)}
+
+Picture-Dimensions ::= CHOICE {
+  width-controlled
+    [0]  SEQUENCE {minimum-width    INTEGER,
+                   preferred-width  INTEGER},
+  height-controlled
+    [1]  SEQUENCE {minimum-height    INTEGER,
+                   preferred-height  INTEGER},
+  area-controlled
+    [2]  SEQUENCE {minimum-width      INTEGER,
+                   preferred-width    INTEGER,
+                   minimum-height     INTEGER,
+                   preferred-height   INTEGER,
+                   aspect-ratio-flag  ENUMERATED {fixed(0), variable(1)}
+  },
+  automatic          [3]  NULL
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

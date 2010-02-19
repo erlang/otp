@@ -1,0 +1,37 @@
+Seq2738 DEFINITIONS IMPLICIT TAGS ::= 
+
+-- Tests that a missing mandatory component of an optional
+-- component is detected as an error and not just as if the optional
+-- component was missing
+
+BEGIN
+
+-- We create a value of type SeqWithOptFake , encode it and then 
+-- try to decode it as a value of type SeqWithOpt.
+-- The decoder should detect this as an error, because the
+-- mandatory first component of type INTEGER in OptSeq is missing
+
+SeqOpt ::= SEQUENCE
+{
+	int INTEGER,
+	opt OptSeq OPTIONAL
+}
+
+SeqOptFake ::= SEQUENCE
+{
+	int INTEGER,
+	opt OptSeqFake OPTIONAL
+}
+
+OptSeq ::= SEQUENCE
+{
+	int INTEGER
+}
+
+OptSeqFake ::= SEQUENCE
+{
+	bool BOOLEAN
+}
+
+
+END

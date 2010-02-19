@@ -1,0 +1,290 @@
+-- Module AuthenticationFramework (X.509:08/1997)
+
+AuthenticationFramework {joint-iso-itu-t ds(5) module(1)
+  authenticationFramework(7) 3} DEFINITIONS ::=
+BEGIN
+
+--  EXPORTS All 
+--  The types and values defined in this module are exported for use in the other ASN.1 modules contained
+--  within the Directory Specifications, and for the use of other applications which will use them to access
+--  Directory services. Other applications may use them for their own purposes, but this will not constrain
+--  extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  id-at, id-mr, informationFramework, upperBounds, selectedAttributeTypes,
+    basicAccessControl, certificateExtensions
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  Name, ATTRIBUTE, AttributeType, MATCHING-RULE, Attribute
+    FROM InformationFramework informationFramework
+  ub-user-password
+    FROM UpperBounds upperBounds
+  AuthenticationLevel
+    FROM BasicAccessControl basicAccessControl
+  UniqueIdentifier, octetStringMatch
+    FROM SelectedAttributeTypes selectedAttributeTypes
+  certificateExactMatch, certificatePairExactMatch, certificateListExactMatch,
+    GeneralNames
+    FROM CertificateExtensions certificateExtensions;
+
+--  basic certificate definition
+Certificate ::=
+  SIGNED
+    {SEQUENCE {version                  [0]  Version DEFAULT v1,
+               serialNumber             CertificateSerialNumber,
+               signature                AlgorithmIdentifier,
+               issuer                   Name,
+               validity                 Validity,
+               subject                  Name,
+               subjectPublicKeyInfo     SubjectPublicKeyInfo,
+               issuerUniqueIdentifier   [1] IMPLICIT UniqueIdentifier OPTIONAL,
+               --  if present, version must be v2 or v3
+               subjectUniqueIdentifier  [2] IMPLICIT UniqueIdentifier OPTIONAL,
+               --  if present, version must be v2 or v3
+               extensions               [3]  Extensions OPTIONAL
+               --  If present, version must be v3 -- }}
+
+Version ::= INTEGER {v1(0), v2(1), v3(2)}
+
+CertificateSerialNumber ::= INTEGER
+
+AlgorithmIdentifier ::= SEQUENCE {
+  algorithm   ALGORITHM.&id({SupportedAlgorithms}),
+  parameters  ALGORITHM.&Type({SupportedAlgorithms}{@algorithm}) OPTIONAL
+}
+
+--	Definition of the following information object set is deferred, perhaps to standardized
+--	profiles or to protocol implementation conformance statements. The set is required to
+--	specify a table constraint on the parameters component of AlgorithmIdentifier.
+SupportedAlgorithms ALGORITHM ::=
+{...}
+
+Validity ::= SEQUENCE {notBefore  Time,
+                       notAfter   Time
+}
+
+SubjectPublicKeyInfo ::= SEQUENCE {
+  algorithm         AlgorithmIdentifier,
+  subjectPublicKey  BIT STRING
+}
+
+Time ::= CHOICE {utcTime          UTCTime,
+                 generalizedTime  GeneralizedTime
+}
+
+Extensions ::= SEQUENCE OF Extension
+
+--  For those extensions where ordering of individual extensions within the SEQUENCE is significant, the
+--  specification of those individual extensions shall include the rules for the significance of the order therein
+Extension ::= SEQUENCE {
+  extnId     EXTENSION.&id({ExtensionSet}),
+  critical   BOOLEAN DEFAULT FALSE,
+  extnValue  OCTET STRING--  contains a DER encoding of a value of type &ExtnType
+--  for the extension object identified by extnId 
+}
+
+ExtensionSet EXTENSION ::=
+  {...}
+
+EXTENSION ::= CLASS {&id        OBJECT IDENTIFIER UNIQUE,
+                     &ExtnType  
+}WITH SYNTAX {SYNTAX &ExtnType
+              IDENTIFIED BY &id
+}
+
+--  other certificate constructs
+Certificates ::= SEQUENCE {
+  userCertificate    Certificate,
+  certificationPath  ForwardCertificationPath OPTIONAL
+}
+
+ForwardCertificationPath ::= SEQUENCE OF CrossCertificates
+
+CrossCertificates ::= SET OF Certificate
+
+CertificationPath ::= SEQUENCE {
+  userCertificate    Certificate,
+  theCACertificates  SEQUENCE OF CertificatePair OPTIONAL
+}
+
+CertificatePair ::= SEQUENCE {
+  issuedByThisCA  [0]  Certificate OPTIONAL,
+  issuedToThisCA  [1]  Certificate OPTIONAL
+  --  at least one of the pair shall be present 
+}
+
+--  Certificate Revocation List (CRL)
+CertificateList ::=
+  SIGNED
+    {SEQUENCE {version              Version OPTIONAL,
+               --  if present, version must be v2
+               signature            AlgorithmIdentifier,
+               issuer               Name,
+               thisUpdate           Time,
+               nextUpdate           Time OPTIONAL,
+               revokedCertificates
+                 SEQUENCE OF
+                   SEQUENCE {userCertificate     CertificateSerialNumber,
+                             revocationDate      Time,
+                             crlEntryExtensions  Extensions OPTIONAL} OPTIONAL,
+               crlExtensions        [0]  Extensions OPTIONAL}}
+
+--  attribute certificate
+AttributeCertificationPath ::= SEQUENCE {
+  attributeCertificate  AttributeCertificate,
+  acPath                SEQUENCE OF ACPathData OPTIONAL
+}
+
+ACPathData ::= SEQUENCE {
+  certificate           [0]  Certificate OPTIONAL,
+  attributeCertificate  [1]  AttributeCertificate OPTIONAL
+}
+
+attributeCertificate ATTRIBUTE ::= {
+  WITH SYNTAX             AttributeCertificate
+  EQUALITY MATCHING RULE  attributeCertificateMatch
+  ID                      id-at-attributeCertificate
+}
+
+AttributeCertificate ::= SIGNED{AttributeCertificateInfo}
+
+AttributeCertificateInfo ::= SEQUENCE {
+  version                Version DEFAULT v1,
+  subject
+    CHOICE {baseCertificateID  [0]  IssuerSerial, --  associated  with a Public Key Certificate--
+            subjectName        [1]  GeneralNames}, --  associated  with a name
+  issuer                 GeneralNames, --  CA issuing the attribute certificate
+  signature              AlgorithmIdentifier,
+  serialNumber           CertificateSerialNumber,
+  attCertValidityPeriod  AttCertValidityPeriod,
+  attributes             SEQUENCE OF Attribute,
+  issuerUniqueID         UniqueIdentifier OPTIONAL,
+  extensions             Extensions OPTIONAL
+}
+
+IssuerSerial ::= SEQUENCE {
+  issuer     GeneralNames,
+  serial     CertificateSerialNumber,
+  issuerUID  UniqueIdentifier OPTIONAL
+}
+
+AttCertValidityPeriod ::= SEQUENCE {
+  notBeforeTime  GeneralizedTime,
+  notAfterTime   GeneralizedTime
+}
+
+attributeCertificateMatch MATCHING-RULE ::= {
+  SYNTAX  AttributeCertificateAssertion
+  ID      id-mr-attributeCertificateMatch
+}
+
+AttributeCertificateAssertion ::= SEQUENCE {
+  subject
+    [0]  CHOICE {baseCertificateID  [0]  IssuerSerial,
+                 subjectName        [1]  Name} OPTIONAL,
+  issuer           [1]  Name OPTIONAL,
+  attCertValidity  [2]  GeneralizedTime OPTIONAL,
+  attType          [3]  SET OF AttributeType OPTIONAL
+}
+
+--  At least one component of the sequence must be present
+--  attribute types 
+userPassword ATTRIBUTE ::= {
+  WITH SYNTAX             OCTET STRING(SIZE (0..ub-user-password))
+  EQUALITY MATCHING RULE  octetStringMatch
+  ID                      id-at-userPassword
+}
+
+userCertificate ATTRIBUTE ::= {
+  WITH SYNTAX             Certificate
+  EQUALITY MATCHING RULE  certificateExactMatch
+  ID                      id-at-userCertificate
+}
+
+cACertificate ATTRIBUTE ::= {
+  WITH SYNTAX             Certificate
+  EQUALITY MATCHING RULE  certificateExactMatch
+  ID                      id-at-cAcertificate
+}
+
+crossCertificatePair ATTRIBUTE ::= {
+  WITH SYNTAX             CertificatePair
+  EQUALITY MATCHING RULE  certificatePairExactMatch
+  ID                      id-at-crossCertificatePair
+}
+
+authorityRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX             CertificateList
+  EQUALITY MATCHING RULE  certificateListExactMatch
+  ID                      id-at-authorityRevocationList
+}
+
+certificateRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX             CertificateList
+  EQUALITY MATCHING RULE  certificateListExactMatch
+  ID                      id-at-certificateRevocationList
+}
+
+attributeCertificateRevocationList ATTRIBUTE ::= {
+  WITH SYNTAX  CertificateList
+  ID           id-at-attributeCertificateRevocationList
+}
+
+--  information object classes 
+ALGORITHM ::= TYPE-IDENTIFIER
+
+--  parameterized types 
+HASH{ToBeHashed} ::= SEQUENCE {
+  algorithmIdentifier  AlgorithmIdentifier,
+  hashValue
+    BIT STRING
+      (CONSTRAINED BY {
+         -- must be the result of applying a hashing procedure to the DER-encoded octets 
+         -- of a value of -- ToBeHashed})
+}
+
+ENCRYPTED-HASH{ToBeSigned} ::=
+  BIT STRING
+    (CONSTRAINED BY {
+       --  must be the result of applying a hashing procedure to the DER-encoded octets 
+       --  of a value of --ToBeSigned --  and then applying an encipherment procedure to those octets --})
+
+ENCRYPTED{ToBeEnciphered} ::=
+  BIT STRING
+    (CONSTRAINED BY {
+       --  must be the result of applying an encipherment procedure 
+       --  to the BER-encoded octets of a value of --ToBeEnciphered})
+
+SIGNATURE{ToBeSigned} ::= SEQUENCE {
+  algorithmIdentifier  AlgorithmIdentifier,
+  encrypted            ENCRYPTED-HASH{ToBeSigned}
+}
+
+SIGNED{ToBeSigned} ::= SEQUENCE {
+  toBeSigned  ToBeSigned,
+  COMPONENTS OF SIGNATURE{ToBeSigned}
+}
+
+--  object identifier assignments 
+id-at-userPassword OBJECT IDENTIFIER ::=
+  {id-at 35}
+
+id-at-userCertificate OBJECT IDENTIFIER ::= {id-at 36}
+
+id-at-cAcertificate OBJECT IDENTIFIER ::= {id-at 37}
+
+id-at-authorityRevocationList OBJECT IDENTIFIER ::= {id-at 38}
+
+id-at-certificateRevocationList OBJECT IDENTIFIER ::= {id-at 39}
+
+id-at-crossCertificatePair OBJECT IDENTIFIER ::= {id-at 40}
+
+id-at-attributeCertificate OBJECT IDENTIFIER ::= {id-at 58}
+
+id-at-attributeCertificateRevocationList OBJECT IDENTIFIER ::= {id-at 59}
+
+id-mr-attributeCertificateMatch OBJECT IDENTIFIER ::= {id-mr 42}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

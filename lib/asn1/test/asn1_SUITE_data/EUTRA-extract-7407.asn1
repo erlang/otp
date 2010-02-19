@@ -1,0 +1,109 @@
+-- 3GPP TS 36.331 V8.8.0 (2009-12) modified
+-- $Id$
+--
+EUTRA-extract-7407 DEFINITIONS AUTOMATIC TAGS ::=
+ 
+BEGIN
+
+
+BCCH-BCH-Message ::= SEQUENCE {
+	message					BCCH-BCH-MessageType
+}
+
+BCCH-BCH-MessageType ::=						MasterInformationBlock
+
+
+BCCH-DL-SCH-Message ::= SEQUENCE {
+    message	BCCH-DL-SCH-MessageType
+}
+
+BCCH-DL-SCH-MessageType ::= CHOICE {
+  c1		CHOICE {
+    systemInformation		SystemInformation,
+    systemInformation1		SystemInformation1
+  },
+  messageClassExtension	SEQUENCE {}
+}
+
+SystemInformation ::=				SEQUENCE {
+  criticalExtensions		CHOICE {
+    systemInformation-r8	SystemInformation-r8-IEs,
+    criticalExtensions		SEQUENCE {}
+  }
+}
+
+maxSIB INTEGER ::= 1
+maxSI-Message INTEGER ::= 1
+
+SystemInformation-r8-IEs ::=		SEQUENCE (SIZE (1..maxSIB)) OF SEQUENCE 
+ { -- Size is FFS
+   sib-Type	SIB-Type,	-- FFS
+   sib-Info	OCTET STRING,	-- FFS
+   ...
+ }
+
+SIB-Type ::=	ENUMERATED {
+  sibType1,			-- FFS if SIB1 need explicit indication
+  sibType2, sibType3, sibType4, sibType5,
+  sibType6, sibType7, sibType8,
+  spare8, spare7, spare6, spare5,
+  spare4, spare3, spare2, spare1}
+
+
+SystemInformationMaster ::=		MasterInformationBlock
+
+
+SystemInformation1 ::=			SystemInformationBlockType1
+
+SystemInformationBlockType1 ::=	SEQUENCE {
+  cellAccessRelatedInformation		SEQUENCE {
+    plmn-IdentityList			SEQUENCE (SIZE (1..6)) OF SEQUENCE {
+      plmn-Identity			PLMN-Identity,
+      cellReservedForOperatorUse	BOOLEAN
+    },
+    trackingAreaCode			TrackingAreaCode,
+    cellIdentity			CellIdentity,
+    cellBarred				BOOLEAN,
+    intraFrequencyCellReselection	BOOLEAN	OPTIONAL,	-- Cond CellBarred
+    cellReservationExtension		BOOLEAN,
+    csg-Indication			BOOLEAN
+  },
+  cellSelectionInfo			SEQUENCE {
+    q-Rxlevmin				INTEGER (-60..-28)	-- value range FFS
+  },								-- need FFS
+  frequencyBandIndicator		INTEGER (1..64),
+  schedulinInformation			SEQUENCE (SIZE (1..maxSI-Message)) OF SEQUENCE {
+    si-MessageType			SEQUENCE {},		-- FFS
+    si-Periodicity			ENUMERATED {
+      ms80, ms160, ms320, ms640}, -- value range FFS
+    sib-MappingInfo			SEQUENCE {}		-- FFS
+  },
+  systemInformationValueTag		INTEGER (0),		-- value is 3..5 bits FFS
+  ...
+}
+
+PLMN-Identity ::=		SEQUENCE {
+  -- Enter other IEs here.
+}
+TrackingAreaCode ::=		SEQUENCE {
+  -- Enter other IEs here.
+}
+CellIdentity ::=	SEQUENCE {
+  -- Enter the IEs here.					  
+}
+
+MasterInformationBlock ::=	SEQUENCE {
+  dl-SystemBandwidth		BIT STRING (SIZE (4)),
+  numberOfTransmitAntennas	BIT STRING (SIZE (4)),
+  phich-Configuration		PHICH-Configuration,
+  systemFrameNumber		BIT STRING (SIZE (8))
+}
+
+PHICH-Configuration ::=	SEQUENCE {
+  phich-Duration	ENUMERATED {short, long},
+  phich-Resource	ENUMERATED {ffs}	-- 2-bit field FFS
+}
+
+
+
+END

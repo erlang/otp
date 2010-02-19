@@ -1,0 +1,132 @@
+External DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+XSeq1 ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  XSeqIn
+}
+
+XSeqIn ::= SEQUENCE 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+XSet1 ::= SET 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  set1  XSetIn
+}
+
+XSetIn ::= SET 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+XBool ::= BOOLEAN
+XBoolImp ::= [22] BOOLEAN
+XBoolExp ::= [23] EXPLICIT BOOLEAN
+
+XCho ::= CHOICE
+{
+  boolCho [44] BOOLEAN,
+  intCho [45] INTEGER
+}
+
+
+XSetExt1 ::= SET 
+{
+  ...
+}
+
+XSetExt2 ::= SET 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  ...
+}
+
+-- XSetExt3 ::= SET 
+-- {
+--   ...,
+--   bool  BOOLEAN,
+--   int  INTEGER
+-- }
+
+-- XSetExt4 ::= SET 
+-- {
+--   bool  BOOLEAN,
+--   ...,
+--   int  INTEGER
+-- }
+
+
+XSeqExt1 ::= SEQUENCE 
+{
+  ...
+}
+
+XSeqExt2 ::= SEQUENCE 
+{
+  bool  BOOLEAN,
+  int  INTEGER,
+  ...
+}
+
+-- XSeqExt3 ::= SEQUENCE 
+-- {
+--   ...,
+--   bool  BOOLEAN,
+--   int  INTEGER
+-- }
+
+-- XSeqExt4 ::= SEQUENCE 
+-- {
+--   bool  BOOLEAN,
+--   ...,
+--   int  INTEGER
+-- }
+
+
+
+XNT ::= OCTET STRING
+XImp ::= [1] OCTET STRING
+XExp ::= [2] EXPLICIT OCTET STRING
+
+XChoNT ::=  CHOICE {
+   os OCTET STRING,
+   bool BOOLEAN}
+XChoExp ::=  [2] EXPLICIT CHOICE {
+   os OCTET STRING,
+   bool BOOLEAN}
+
+
+XSetNT ::=  SET {
+   os OCTET STRING,
+   bool BOOLEAN}
+XSetImp ::=  [1] SET {
+   os OCTET STRING,
+   bool BOOLEAN}
+XSetExp ::=  [2] EXPLICIT SET {
+   os OCTET STRING,
+   bool BOOLEAN}
+
+
+XSeqNT ::=  SEQUENCE {
+   os OCTET STRING,
+   bool BOOLEAN}
+XSeqImp ::=  [1] SEQUENCE {
+   os OCTET STRING,
+   bool BOOLEAN}
+XSeqExp ::=  [2] EXPLICIT SEQUENCE {
+   os OCTET STRING,
+   bool BOOLEAN}
+
+
+
+END

@@ -1,0 +1,73 @@
+SeqOfCho DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+SeqChoDef ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF ChoIn DEFAULT {}
+}
+
+SeqChoOpt ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF ChoIn OPTIONAL
+}
+
+SeqChoEmbDef ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } DEFAULT {}
+}
+
+SeqChoEmbOpt ::= SEQUENCE 
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } OPTIONAL
+}
+
+SeqOfChoEmbDef ::= SEQUENCE OF SEQUENCE
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } DEFAULT {}
+}
+
+
+SeqOfChoEmbOpt ::= SEQUENCE OF SEQUENCE
+{
+  bool1  BOOLEAN,
+  int1  INTEGER,
+  seq1  SEQUENCE OF CHOICE
+                    {
+                       boolIn  BOOLEAN,
+                       intIn  INTEGER
+                    } OPTIONAL
+}
+
+
+ChoIn ::= CHOICE 
+{
+  boolIn  BOOLEAN,
+  intIn  INTEGER
+}
+
+END

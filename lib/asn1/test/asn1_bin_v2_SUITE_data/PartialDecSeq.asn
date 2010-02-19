@@ -1,0 +1,34 @@
+PartialDecSeq DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+A ::= SEQUENCE {
+  a  INTEGER DEFAULT 15,
+  b  [0] B DEFAULT {a  12, b  TRUE}
+}
+
+C ::= [11] EXPLICIT D
+B ::= [12] C
+D ::= SEQUENCE {
+  a  INTEGER,
+  b  BOOLEAN
+}
+
+F ::= CHOICE {
+  fa INTEGER,
+  fb E --161
+}
+
+E ::= SEQUENCE {
+  a INTEGER,  -- matched
+  b SEQUENCE OF D, -- matched value of component a of first D in E_b
+  c BOOLEAN OPTIONAL,
+  d CHOICE {
+    da SEQUENCE OF A,
+    db INTEGER,
+    dc [3] SET {dca INTEGER,dcb BOOLEAN, dcc SEQUENCE{dcca INTEGER,dccb INTEGER}}
+  }
+}
+
+
+END

@@ -1,0 +1,181 @@
+-- Module DistributedOperations (X.518 TC2:08/1997)
+
+DistributedOperations {joint-iso-itu-t ds(5) module(1) distributedOperations(3)
+  3} DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All 
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  informationFramework, directoryAbstractService, distributedOperations,
+    selectedAttributeTypes, basicAccessControl, dap, enhancedSecurity
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  DistinguishedName, Name, RDNSequence, SearchRuleId, MRMapping
+    FROM InformationFramework informationFramework
+  PresentationAddress, ProtocolInformation, UniqueIdentifier
+    FROM SelectedAttributeTypes selectedAttributeTypes
+  AuthenticationLevel
+    FROM BasicAccessControl basicAccessControl
+  OPERATION, ERROR
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)}
+  directoryBind, directoryUnbind, read, compare, abandon, list, search,
+    addEntry, removeEntry, modifyEntry, modifyDN, referral, SecurityParameters,
+    CommonResults
+    FROM DirectoryAbstractService directoryAbstractService
+  OPTIONALLY-PROTECTED{}
+    FROM EnhancedSecurity enhancedSecurity
+  id-errcode-dsaReferral
+    FROM DirectoryAccessProtocol dap;
+
+-- parameterized type for deriving chained operations 
+chained{OPERATION:operation} OPERATION ::= {
+  ARGUMENT OPTIONALLY-PROTECTED
+    {SET {chainedArgument  ChainingArguments,
+          argument         [0]  operation.&ArgumentType}}
+  RESULT OPTIONALLY-PROTECTED
+    {SET {chainedResult  ChainingResults,
+          result         [0]  operation.&ResultType}}
+  ERRORS
+    {operation.&Errors EXCEPT referral | dsaReferral}
+  CODE                           operation.&operationCode
+}
+
+--  bind and unbind operations 
+dSABind OPERATION ::= directoryBind
+
+dSAUnbind OPERATION ::= directoryUnbind
+
+--  chained operations 
+chainedRead OPERATION ::= chained{read}
+
+chainedCompare OPERATION ::= chained{compare}
+
+chainedAbandon OPERATION ::= abandon
+
+chainedList OPERATION ::= chained{list}
+
+chainedSearch OPERATION ::= chained{search}
+
+chainedAddEntry OPERATION ::= chained{addEntry}
+
+chainedRemoveEntry OPERATION ::= chained{removeEntry}
+
+chainedModifyEntry OPERATION ::= chained{modifyEntry}
+
+chainedModifyDN OPERATION ::= chained{modifyDN}
+
+-- errors and parameters 
+dsaReferral ERROR ::= {
+  PARAMETER OPTIONALLY-PROTECTED
+    {SET {reference      [0]  ContinuationReference,
+          contextPrefix  [1]  DistinguishedName OPTIONAL,
+          COMPONENTS OF CommonResults}}
+  CODE                            id-errcode-dsaReferral
+}
+
+--  common arguments and results 
+ChainingArguments ::= SET {
+  originator           [0]  DistinguishedName OPTIONAL,
+  targetObject         [1]  DistinguishedName OPTIONAL,
+  operationProgress
+    [2]  OperationProgress DEFAULT {nameResolutionPhase notStarted},
+  traceInformation     [3]  TraceInformation,
+  aliasDereferenced    [4]  BOOLEAN DEFAULT FALSE,
+  aliasedRDNs          [5]  INTEGER OPTIONAL,
+  -- only present in 1988 systems
+  returnCrossRefs      [6]  BOOLEAN DEFAULT FALSE,
+  referenceType        [7]  ReferenceType DEFAULT superior,
+  info                 [8]  DomainInfo OPTIONAL,
+  timeLimit            [9]  Time OPTIONAL,
+  securityParameters   [10]  SecurityParameters DEFAULT {},
+  entryOnly            [11]  BOOLEAN DEFAULT FALSE,
+  uniqueIdentifier     [12]  UniqueIdentifier OPTIONAL,
+  authenticationLevel  [13]  AuthenticationLevel OPTIONAL,
+  exclusions           [14]  Exclusions OPTIONAL,
+  excludeShadows       [15]  BOOLEAN DEFAULT FALSE,
+  nameResolveOnMaster  [16]  BOOLEAN DEFAULT FALSE,
+  operationIdentifier  [17]  INTEGER OPTIONAL,
+  searchRuleId         [18]  SearchRuleId OPTIONAL,
+  chainedRelaxation    [19]  MRMapping OPTIONAL
+}
+
+Time ::= CHOICE {utcTime          UTCTime,
+                 generalizedTime  GeneralizedTime
+}
+
+ChainingResults ::= SET {
+  info                [0]  DomainInfo OPTIONAL,
+  crossReferences     [1]  SEQUENCE (SIZE (1..MAX)) OF CrossReference OPTIONAL,
+  securityParameters  [2]  SecurityParameters DEFAULT {},
+  alreadySearched     [3]  Exclusions OPTIONAL
+}
+
+CrossReference ::= SET {
+  contextPrefix     [0]  DistinguishedName,
+  accessPoint       [1]  AccessPointInformation,
+  chainingRequired  [2]  BOOLEAN DEFAULT FALSE
+}
+
+ReferenceType ::= ENUMERATED {
+  superior(1), subordinate(2), cross(3), nonSpecificSubordinate(4),
+  supplier(5), master(6), immediateSuperior(7), self(8)}
+
+TraceInformation ::= SEQUENCE OF TraceItem
+
+TraceItem ::= SET {
+  dsa                [0]  Name,
+  targetObject       [1]  Name OPTIONAL,
+  operationProgress  [2]  OperationProgress
+}
+
+OperationProgress ::= SET {
+  nameResolutionPhase
+    [0]  ENUMERATED {notStarted(1), proceeding(2), completed(3)},
+  nextRDNToBeResolved  [1]  INTEGER OPTIONAL
+}
+
+DomainInfo ::= ABSTRACT-SYNTAX.&Type
+
+ContinuationReference ::= SET {
+  targetObject         [0]  Name,
+  aliasedRDNs          [1]  INTEGER OPTIONAL, -- only present in 1988 systems
+  operationProgress    [2]  OperationProgress,
+  rdnsResolved         [3]  INTEGER OPTIONAL,
+  referenceType        [4]  ReferenceType,
+  accessPoints         [5]  SET OF AccessPointInformation,
+  entryOnly            [6]  BOOLEAN DEFAULT FALSE,
+  exclusions           [7]  Exclusions OPTIONAL,
+  returnToDUA          [8]  BOOLEAN DEFAULT FALSE,
+  nameResolveOnMaster  [9]  BOOLEAN DEFAULT FALSE
+}
+
+AccessPoint ::= SET {
+  ae-title             [0]  Name,
+  address              [1]  PresentationAddress,
+  protocolInformation  [2]  SET OF ProtocolInformation OPTIONAL,
+  chainingRequired     [3]  BOOLEAN DEFAULT FALSE
+}
+
+AccessPointInformation ::= SET {
+  COMPONENTS OF MasterOrShadowAccessPoint,
+  additionalPoints  [5]  MasterAndShadowAccessPoints OPTIONAL
+}
+
+MasterOrShadowAccessPoint ::= SET {
+  COMPONENTS OF AccessPoint,
+  category  [4]  ENUMERATED {master(0), shadow(1)} DEFAULT master
+}
+
+MasterAndShadowAccessPoints ::= SET OF MasterOrShadowAccessPoint
+
+Exclusions ::= SET OF RDNSequence
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

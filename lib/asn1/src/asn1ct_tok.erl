@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -327,7 +327,7 @@ reserved_word('COMPONENTS') -> true;
 reserved_word('CONSTRAINED') -> true;
 reserved_word('CONTAINING') -> true;
 reserved_word('DEFAULT') -> true;
-reserved_word('DEFINED') -> true;
+reserved_word('DEFINED') -> true; % not present in X.680 07/2002
 reserved_word('DEFINITIONS') -> true;
 reserved_word('EMBEDDED') -> true;
 reserved_word('ENCODED') -> true;
@@ -336,6 +336,7 @@ reserved_word('ENUMERATED') -> true;
 reserved_word('EXCEPT') -> true;
 reserved_word('EXPLICIT') -> true;
 reserved_word('EXPORTS') -> true;
+reserved_word('EXTENSIBILITY') -> true;
 reserved_word('EXTERNAL') -> true;
 reserved_word('FALSE') -> true;
 reserved_word('FROM') -> true;
@@ -343,9 +344,9 @@ reserved_word('GeneralizedTime') -> true;
 reserved_word('GeneralString') -> rstrtype;
 reserved_word('GraphicString') -> rstrtype;
 reserved_word('IA5String') -> rstrtype;
-% reserved_word('TYPE-IDENTIFIER') -> true; % impl as predef item
 reserved_word('IDENTIFIER') -> true;
 reserved_word('IMPLICIT') -> true;
+reserved_word('IMPLIED') -> true;
 reserved_word('IMPORTS') -> true;
 reserved_word('INCLUDES') -> true;
 reserved_word('INSTANCE') -> true;
@@ -379,6 +380,7 @@ reserved_word('T61String') -> rstrtype;
 reserved_word('TAGS') -> true;
 reserved_word('TeletexString') -> rstrtype;
 reserved_word('TRUE') -> true;
+%% reserved_word('TYPE-IDENTIFIER') -> true; % impl as predef item
 reserved_word('UNION') -> true;
 reserved_word('UNIQUE') -> true;
 reserved_word('UNIVERSAL') -> true;

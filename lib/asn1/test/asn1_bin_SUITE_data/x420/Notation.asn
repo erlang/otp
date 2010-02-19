@@ -1,0 +1,244 @@
+-- Module Notation (X.830:04/1995)
+
+Notation {joint-iso-itu-t genericULS(20) modules(1) notation(1)} DEFINITIONS
+AUTOMATIC TAGS ::=
+BEGIN
+
+-- EXPORTS All 
+IMPORTS
+  -- From Directory Standards: 
+  informationFramework, selectedAttributeTypes, authenticationFramework
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  Name
+    FROM InformationFramework informationFramework
+  UniqueIdentifier
+    FROM SelectedAttributeTypes selectedAttributeTypes
+  AlgorithmIdentifier
+    FROM AuthenticationFramework authenticationFramework
+  -- From Other GULS Modules: 
+  genericProtectingTransferSyntax
+    FROM ObjectIdentifiers {joint-iso-itu-t genericULS(20) modules(1)
+      objectIdentifiers(0)}
+  SyntaxStructure{}
+    FROM GenericProtectingTransferSyntax genericProtectingTransferSyntax;
+
+-- ************************************************* 
+-- Notation for security identity and SA-identifiers 
+-- ************************************************* 
+-- Values of the SecurityIdentity type are used to identify entities
+-- which assign externally-established security association identifiers,
+-- and for other security-related purposes requiring globally-unique
+-- identifiers.
+SecurityIdentity ::= CHOICE {
+  directoryName     Name,
+  objectIdentifier  OBJECT IDENTIFIER
+}
+
+ExternalSAID ::= SEQUENCE {
+  localSAID         INTEGER,
+  assignerIdentity  SecurityIdentity OPTIONAL
+  -- Identity of the system which assigned the integer value
+}
+
+-- ****************************************** 
+-- Notation for specifying security exchanges 
+-- ****************************************** 
+SECURITY-EXCHANGE ::=
+  CLASS
+   -- This information object class definition is for use when
+  -- specifying a particular instance of a security exchange.
+  {
+  &SE-Items       SEC-EXCHG-ITEM,
+  -- This is an ASN.1 information object set, comprising a set
+  -- of security exchange items
+  &sE-Identifier  Identifier UNIQUE
+  -- A local or global identifier for the particular security
+  -- exchange
+}
+WITH SYNTAX
+ -- The following syntax is used to specify a particular security
+-- exchange.
+{SE-ITEMS &SE-Items
+ IDENTIFIER &sE-Identifier
+}
+
+Identifier ::= CHOICE {local   INTEGER,
+                       global  OBJECT IDENTIFIER
+}
+
+SEC-EXCHG-ITEM ::= CLASS {
+  &ItemType  ,
+  --  ASN.1 type for this exchange item
+  &itemId    INTEGER,
+  --  Identifier for this item, e.g. 1, 2, 3, ..
+  &Errors    SE-ERROR OPTIONAL
+  --  Optional list of errors which may result from
+  --  transfer of this item
+}WITH SYNTAX {ITEM-TYPE &ItemType
+              ITEM-ID &itemId
+              [ERRORS &Errors]
+}
+
+SE-ERROR ::= CLASS {
+  &ParameterType  OPTIONAL,
+  -- ASN.1 type of a parameter to accompany the signalling
+  -- of the error condition back to the sender of the SEI
+  &errorCode      Identifier UNIQUE
+  -- An identifier used in signalling the error condition
+  -- back to the sender of the SEI
+}WITH SYNTAX {[PARAMETER &ParameterType]
+              ERROR-CODE &errorCode
+}
+
+-- ************************************************ 
+-- Notation for specifying security transformations 
+-- ************************************************ 
+SECURITY-TRANSFORMATION ::=
+  CLASS
+   -- This information object class definition is for use when
+  -- specifying a particular instance of a security transformation.
+  {
+  &sT-Identifier           OBJECT IDENTIFIER UNIQUE,
+  -- Identifier to be used in signalling the application
+  -- of the particular security transformation
+  &initialEncodingRules    OBJECT IDENTIFIER DEFAULT {joint-iso-ccitt 
+                                                      asn1(1) ber-derived(2)
+                                                      canonical-encoding(0)},
+  -- Default initial encoding rules to generate a bit
+  -- string prior to applying the encoding process of a
+  -- security transformation.
+  &StaticUnprotectedParm   OPTIONAL,
+  -- ASN.1 type for conveying static unprotected parameters
+  &DynamicUnprotectedParm  OPTIONAL,
+  -- ASN.1 type for conveying dynamic unprotected parameters
+  &XformedDataType         ,
+  -- ASN.1 type of the ASN.1 value produced by the security
+  -- transformations encoding process
+  &QualifierType           OPTIONAL
+  -- &QualifierType specifies the ASN.1 type of the qualifier
+  -- parameter used with the PROTECTED-Q notation.
+}
+WITH SYNTAX
+ -- The following syntax is used to specify a particular security
+-- transformation.
+{
+  IDENTIFIER &sT-Identifier
+  [INITIAL-ENCODING-RULES &initialEncodingRules]
+  [STATIC-UNPROT-PARM &StaticUnprotectedParm]
+  [DYNAMIC-UNPROT-PARM &DynamicUnprotectedParm]
+  XFORMED-DATA-TYPE &XformedDataType
+  [QUALIFIER-TYPE &QualifierType]
+}
+
+-- ************************************************** 
+-- Notation for specifying selective field protection 
+-- ************************************************** 
+PROTECTED{BaseType, PROTECTION-MAPPING:protectionReqd} ::= CHOICE {
+  dirEncrypt
+    BIT STRING
+      (CONSTRAINED BY {
+         BaseType-- dirEncrypt is for use only with the
+         -- dirEncryptedTransformation,
+         -- and generates the same encoding as the
+         -- X.509/9594-8 ENCRYPTED type-- }),
+  dirSign
+    SEQUENCE {baseType        BaseType OPTIONAL,
+              -- must be present for dirSignedTransformation
+              -- and must be omitted for
+              -- dirSignatureTransformation
+              algorithmId     AlgorithmIdentifier,
+              encipheredHash
+                BIT STRING
+                  (CONSTRAINED BY {
+                     BaseType-- contains enciphered hash--
+                     -- of a value of BaseType -- })}-- dirSign is for use only with the
+  -- dirSignedTransformation or
+  -- dirSignatureTransformation, and generates
+  -- the same encoding as the corresponding
+  -- X.509/9594-8 SIGNED or SIGNATURE type--,
+  noTransform  [0]  BaseType,
+  -- noTransform invokes no security transformation.
+  -- Subject to security policy, noTransform may be used
+  -- if adequate protection is provided by lower layers
+  -- and any application relays through which the data
+  -- may pass are trusted to maintain the required
+  -- protection. This alternative may only be used
+  -- if protectionReqd.&bypassPermitted is TRUE,
+  direct       [1]  SyntaxStructure{{protectionReqd.&SecurityTransformation}},
+  -- direct generates a protecting transfer syntax
+  -- value, which is encoded using the same encoding
+  -- rules as the surrounding ASN.1  (The type
+  -- SyntaxStructure is imported from Rec. X.833 |
+  -- ISO/IEC 11586-3)
+  embedded
+    [2]  EMBEDDED PDV
+           (WITH COMPONENTS {
+              identification  (WITH COMPONENTS {
+                                 presentation-context-id  ,
+                                 context-negotiation      (WITH COMPONENTS {
+                                                             transfer-syntax  (CONSTRAINED BY {
+                                                                    OBJECT
+                                                                    IDENTIFIER:
+                                                                    protectionReqd.
+                                                                    &protTransferSyntax})
+                                                           }),
+                                 transfer-syntax          (CONSTRAINED BY {
+                                                             OBJECT IDENTIFIER:
+                                                             protectionReqd.
+                                                               &protTransferSyntax})
+                               }),
+              data-value (CONTAINING BaseType )      
+            
+            -- The data value encoded is a value of type BaseType
+            })
+}
+
+PROTECTED-Q{BaseType, PROTECTION-MAPPING:protectionReqd,
+            PROTECTION-MAPPING.&SecurityTransformation.&QualifierType:qualifier}
+  ::=
+  PROTECTED{BaseType, protectionReqd}
+    (CONSTRAINED BY {
+       protectionReqd.&SecurityTransformation.&QualifierType:qualifier
+       -- The value of qualifier must be made available to
+       -- the security transformation used
+       })
+
+-- BaseType is the type to be protected, and protectionReqd is an
+-- object of class PROTECTION-MAPPING. The use of PROTECTED requires
+-- the importation into the user's module of the PROTECTED parameterized
+-- type, together with the necessary PROTECTION-MAPPING object
+-- definition.
+-- ******************************************* 
+-- Notation for specifying protection mappings 
+-- ******************************************* 
+PROTECTION-MAPPING ::= CLASS {
+  &SecurityTransformation  SECURITY-TRANSFORMATION,
+  -- &SecurityTransformation specifies an ASN.1 object set of the
+  -- SECURITY-TRANSFORMATION class. Use of the particular
+  -- protection mapping implies use of one of the specified
+  -- transformations, with the choice being left to the
+  -- encoding system. Rules for selecting between these security
+  -- transformations may be specified in comments.
+  &protTransferSyntax      OBJECT IDENTIFIER DEFAULT {joint-iso-itu-t
+                                                      genericULS(20)
+                                                      generalTransferSyntax(2)},
+  -- Identifies the particular protecting transfer syntax to
+  -- be used in an EMDEDDED PDV encoding for the embedded
+  -- option.
+  &bypassPermitted         BOOLEAN DEFAULT FALSE
+  -- Indicates if bypassing of protection is permitted
+}
+WITH SYNTAX {
+  SECURITY-TRANSFORMATION &SecurityTransformation
+  [PROTECTING-TRANSFER-SYNTAX &protTransferSyntax]
+  [BYPASS-PERMITTED &bypassPermitted]
+}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+
+
+-- content of stack:
+-- 

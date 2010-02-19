@@ -1,0 +1,33 @@
+SetDefault DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+SetDef1 ::= SET 
+{
+  bool1  BOOLEAN DEFAULT TRUE,
+  int1  INTEGER,
+  set1  SetIn DEFAULT {}
+}
+
+SetDef2 ::= SET 
+{
+  set2  SetIn DEFAULT {},
+  bool2  BOOLEAN,
+  int2  INTEGER
+}
+
+SetDef3 ::= SET 
+{
+  bool3  BOOLEAN DEFAULT TRUE,
+  set3  SetIn DEFAULT {},
+  int3  INTEGER DEFAULT 17
+}
+
+SetIn ::= SET 
+{
+  boolIn  BOOLEAN OPTIONAL,
+  intIn  INTEGER DEFAULT 12
+}
+
+END

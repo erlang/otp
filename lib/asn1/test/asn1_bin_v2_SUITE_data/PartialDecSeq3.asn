@@ -1,0 +1,45 @@
+PartialDecSeq3 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+S1 ::= SEQUENCE {
+  a INTEGER,
+  b S2 OPTIONAL,
+  c C1,
+  d SO1
+}
+
+S2 ::= SEQUENCE {
+  a BOOLEAN,
+  b INTEGER,
+  c SEQUENCE OF S3,
+  ...
+}
+
+C1 ::= CHOICE {
+  a SEQUENCE OF S3,
+  b SEQUENCE {a INTEGER, b BOOLEAN, c S4}
+}
+
+S3 ::= SEQUENCE {
+  first INTEGER,
+  second PrintableString,
+  third OCTET STRING (SIZE(2..100)),
+  fourth BIT STRING {one(0),two(1),three(2),four(3),five(4),six(5)}(SIZE(1..6)),
+  ...
+}
+
+S4 ::= SET {
+  name Name,
+  title VisibleString
+}
+
+Name ::= SEQUENCE {
+  givenName               VisibleString,
+  initial                 VisibleString,
+  familyName              VisibleString
+}
+
+SO1 ::= SEQUENCE (SIZE(2..6)) OF Name
+
+END

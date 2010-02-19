@@ -1,0 +1,186 @@
+-- Module DSAOperationalAttributeTypes (X.501:08/1997)
+DSAOperationalAttributeTypes {joint-iso-itu-t ds(5) module(1)
+  dsaOperationalAttributeTypes(22) 3} DEFINITIONS ::=
+BEGIN
+
+-- EXPORTS All 
+-- The types and values defined in this module are exported for use in the other ASN.1 modules contained 
+-- within the Directory Specifications, and for the use of other applications which will use them to access 
+-- Directory services. Other applications may use them for their own purposes, but this will not constrain
+-- extensions and modifications needed to maintain or improve the Directory service.
+IMPORTS
+  id-doa, id-kmr, informationFramework, distributedOperations,
+    opBindingManagement, selectedAttributeTypes
+    FROM UsefulDefinitions {joint-iso-itu-t ds(5) module(1)
+      usefulDefinitions(0) 3}
+  ATTRIBUTE, MATCHING-RULE, Name
+    FROM InformationFramework informationFramework
+  OperationalBindingID
+    FROM OperationalBindingManagement opBindingManagement
+  AccessPoint, MasterAndShadowAccessPoints
+    FROM DistributedOperations distributedOperations
+  bitStringMatch
+    FROM SelectedAttributeTypes selectedAttributeTypes;
+
+-- data types 
+DSEType ::= BIT STRING {
+  root(0), -- root DSE 
+  glue(1), -- represents knowledge of a name only 
+  cp(2), -- context prefix 
+  entry(3), -- object entry 
+  alias(4), -- alias entry 
+  subr(5), -- subordinate reference 
+  nssr(6), -- non-specific subordinate reference 
+  supr(7), -- superior reference 
+  xr(8), -- cross reference 
+  admPoint(9), -- administrative point 
+  subentry(10), -- subentry 
+  shadow(11), -- shadow copy 
+  immSupr(13), -- immediate superior reference 
+  rhob(14), -- rhob information 
+  sa(15), -- subordinate reference to alias entry 
+  dsSubentry(16), -- DSA Specific subentry 
+  familyMember(17)} -- family member
+
+SupplierOrConsumer ::= SET {
+  COMPONENTS OF AccessPoint, -- supplier or consumer 
+  agreementID  [4]  OperationalBindingID
+}
+
+SupplierInformation ::= SET {
+  COMPONENTS OF SupplierOrConsumer, -- supplier 
+  supplier-is-master    [5]  BOOLEAN DEFAULT TRUE,
+  non-supplying-master  [6]  AccessPoint OPTIONAL
+}
+
+ConsumerInformation ::= SupplierOrConsumer -- consumer 
+
+SupplierAndConsumers ::= SET {
+  COMPONENTS OF AccessPoint, -- supplier 
+  consumers  [4]  SET OF AccessPoint
+}
+
+-- attribute types 
+dseType ATTRIBUTE ::= {
+  WITH SYNTAX             DSEType
+  EQUALITY MATCHING RULE  bitStringMatch
+  SINGLE VALUE            TRUE
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-dseType
+}
+
+myAccessPoint ATTRIBUTE ::= {
+  WITH SYNTAX             AccessPoint
+  EQUALITY MATCHING RULE  accessPointMatch
+  SINGLE VALUE            TRUE
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-myAccessPoint
+}
+
+superiorKnowledge ATTRIBUTE ::= {
+  WITH SYNTAX             AccessPoint
+  EQUALITY MATCHING RULE  accessPointMatch
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-superiorKnowledge
+}
+
+specificKnowledge ATTRIBUTE ::= {
+  WITH SYNTAX             MasterAndShadowAccessPoints
+  EQUALITY MATCHING RULE  masterAndShadowAccessPointsMatch
+  SINGLE VALUE            TRUE
+  NO USER MODIFICATION    TRUE
+  USAGE                   distributedOperation
+  ID                      id-doa-specificKnowledge
+}
+
+nonSpecificKnowledge ATTRIBUTE ::= {
+  WITH SYNTAX             MasterAndShadowAccessPoints
+  EQUALITY MATCHING RULE  masterAndShadowAccessPointsMatch
+  NO USER MODIFICATION    TRUE
+  USAGE                   distributedOperation
+  ID                      id-doa-nonSpecificKnowledge
+}
+
+supplierKnowledge ATTRIBUTE ::= {
+  WITH SYNTAX             SupplierInformation
+  EQUALITY MATCHING RULE  supplierOrConsumerInformationMatch
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-supplierKnowledge
+}
+
+consumerKnowledge ATTRIBUTE ::= {
+  WITH SYNTAX             ConsumerInformation
+  EQUALITY MATCHING RULE  supplierOrConsumerInformationMatch
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-consumerKnowledge
+}
+
+secondaryShadows ATTRIBUTE ::= {
+  WITH SYNTAX             SupplierAndConsumers
+  EQUALITY MATCHING RULE  supplierAndConsumersMatch
+  NO USER MODIFICATION    TRUE
+  USAGE                   dSAOperation
+  ID                      id-doa-secondaryShadows
+}
+
+-- matching rules 
+accessPointMatch MATCHING-RULE ::= {
+  SYNTAX  Name
+  ID      id-kmr-accessPointMatch
+}
+
+masterAndShadowAccessPointsMatch MATCHING-RULE ::= {
+  SYNTAX  SET OF Name
+  ID      id-kmr-masterShadowMatch
+}
+
+supplierOrConsumerInformationMatch MATCHING-RULE ::= {
+  SYNTAX
+    SET {ae-title              [0]  Name,
+         agreement-identifier  [2]  INTEGER}
+  ID      id-kmr-supplierConsumerMatch
+}
+
+supplierAndConsumersMatch MATCHING-RULE ::= {
+  SYNTAX  Name
+  ID      id-kmr-supplierConsumersMatch
+}
+
+-- object identifier assignments 
+-- dsa operational attributes 
+id-doa-dseType OBJECT IDENTIFIER ::=
+  {id-doa 0}
+
+id-doa-myAccessPoint OBJECT IDENTIFIER ::= {id-doa 1}
+
+id-doa-superiorKnowledge OBJECT IDENTIFIER ::= {id-doa 2}
+
+id-doa-specificKnowledge OBJECT IDENTIFIER ::= {id-doa 3}
+
+id-doa-nonSpecificKnowledge OBJECT IDENTIFIER ::= {id-doa 4}
+
+id-doa-supplierKnowledge OBJECT IDENTIFIER ::= {id-doa 5}
+
+id-doa-consumerKnowledge OBJECT IDENTIFIER ::= {id-doa 6}
+
+id-doa-secondaryShadows OBJECT IDENTIFIER ::= {id-doa 7}
+
+-- knowledge matching rules 
+id-kmr-accessPointMatch OBJECT IDENTIFIER ::=
+  {id-kmr 0}
+
+id-kmr-masterShadowMatch OBJECT IDENTIFIER ::= {id-kmr 1}
+
+id-kmr-supplierConsumerMatch OBJECT IDENTIFIER ::= {id-kmr 2}
+
+id-kmr-supplierConsumersMatch OBJECT IDENTIFIER ::= {id-kmr 3}
+
+END -- DSAOperationalAttributeTypes
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

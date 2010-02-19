@@ -1,0 +1,30 @@
+SOpttest DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+S ::= SEQUENCE {
+   a       [0] A,
+   b	   [1] B OPTIONAL,
+   c       [2] C OPTIONAL
+
+ }
+
+
+A ::= SEQUENCE {
+   scriptKey         [0] INTEGER (0..214783647),
+   scriptAttribute1  [1] EXPLICIT INTEGER OPTIONAL,
+   scriptAttribute2  [2] EXPLICIT INTEGER OPTIONAL
+   }
+
+B ::= SEQUENCE {
+   iNLegToBeCreated                [0] INTEGER OPTIONAL,
+   callingPartysCategory           [1] INTEGER OPTIONAL,
+   redirectingPartyID              [2] INTEGER OPTIONAL
+   }
+
+C ::= SEQUENCE {
+   iNLegToBeCreated                [0] INTEGER OPTIONAL,
+   callingPartysCategory           [1] INTEGER OPTIONAL,
+   redirectingPartyID              [2] INTEGER OPTIONAL
+   }
+
+END

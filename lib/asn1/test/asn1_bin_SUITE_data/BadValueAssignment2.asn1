@@ -1,0 +1,8 @@
+BadValueAssignment2  DEFINITIONS ::=
+BEGIN
+
+int INTEGER ::= 3
+
+int2 ::= 3
+
+END

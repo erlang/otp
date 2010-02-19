@@ -1,0 +1,612 @@
+MAP-CommonDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-CommonDataTypes (18) version9 (9)}
+
+DEFINITIONS
+
+IMPLICIT TAGS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+	-- general data types and values
+	AddressString,
+	ISDN-AddressString,
+	maxISDN-AddressLength,
+	FTN-AddressString,
+	ISDN-SubaddressString,
+	ExternalSignalInfo, 
+	Ext-ExternalSignalInfo, 
+	AccessNetworkSignalInfo,
+	SignalInfo,
+	maxSignalInfoLength,
+	AlertingPattern,
+	TBCD-STRING,
+
+	-- data types for numbering and identification
+	IMSI,
+	TMSI, 
+	Identity,
+	SubscriberId,
+	IMEI,
+	HLR-List,
+	LMSI,
+	GlobalCellId,
+	NetworkResource,
+	AdditionalNetworkResource,
+	NAEA-PreferredCI, 
+	NAEA-CIC, 
+	ASCI-CallReference,
+	SubscriberIdentity,
+
+	-- data types for CAMEL
+	CellGlobalIdOrServiceAreaIdOrLAI, 
+	CellGlobalIdOrServiceAreaIdFixedLength,
+	LAIFixedLength,
+
+	-- data types for subscriber management
+	BasicServiceCode,
+	Ext-BasicServiceCode,
+	EMLPP-Info,
+	EMLPP-Priority, 
+	MC-SS-Info,
+	MaxMC-Bearers,
+	MC-Bearers,
+	Ext-SS-Status,
+
+	-- data types for geographic location
+	AgeOfLocationInformation,
+	LCSClientExternalID,
+	LCSClientInternalID,
+	LCSServiceTypeID
+;
+
+IMPORTS
+	TeleserviceCode,
+	Ext-TeleserviceCode
+FROM MAP-TS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-TS-Code (19) version9 (9)}
+
+	BearerServiceCode,
+	Ext-BearerServiceCode
+FROM MAP-BS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-BS-Code (20) version9 (9)}
+
+	SS-Code
+FROM MAP-SS-Code {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-Code (15) version9 (9)}
+
+	ExtensionContainer
+FROM MAP-ExtensionDataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ExtensionDataTypes (21) version9 (9)}
+;
+
+
+-- general data types
+
+TBCD-STRING ::= OCTET STRING
+	-- This type (Telephony Binary Coded Decimal String) is used to
+	-- represent several digits from 0 through 9, *, #, a, b, c, two
+	-- digits per octet, each digit encoded 0000 to 1001 (0 to 9),
+	-- 1010 (*), 1011 (#), 1100 (a), 1101 (b) or 1110 (c); 1111 used
+	-- as filler when there is an odd number of digits.
+
+	-- bits 8765 of octet n encoding digit 2n
+	-- bits 4321 of octet n encoding digit 2(n-1) +1
+
+AddressString ::= OCTET STRING (SIZE (1..maxAddressLength))
+	-- This type is used to represent a number for addressing
+	-- purposes. It is composed of
+	--	a)	one octet for nature of address, and numbering plan
+	--		indicator.
+	--	b)	digits of an address encoded as TBCD-String.
+
+	-- a)	The first octet includes a one bit extension indicator, a
+	--		3 bits nature of address indicator and a 4 bits numbering
+	--		plan indicator, encoded as follows:
+
+	-- bit 8: 1  (no extension)
+
+	-- bits 765: nature of address indicator
+	--	000  unknown
+	--	001  international number
+	--	010  national significant number
+	--	011  network specific number
+	--	100  subscriber number
+	--	101  reserved
+	--	110  abbreviated number
+	--	111  reserved for extension
+
+	-- bits 4321: numbering plan indicator
+	--	0000  unknown
+	--	0001  ISDN/Telephony Numbering Plan (Rec ITU-T E.164)
+	--	0010  spare
+	--	0011  data numbering plan (ITU-T Rec X.121)
+	--	0100  telex numbering plan (ITU-T Rec F.69)
+	--	0101  spare
+	--	0110  land mobile numbering plan (ITU-T Rec E.212)
+	--	0111  spare
+	--	1000  national numbering plan
+	--	1001  private numbering plan
+	--	1111  reserved for extension
+
+	--	all other values are reserved.
+
+	-- b)	The following octets representing digits of an address
+	--		encoded as a TBCD-STRING.
+
+maxAddressLength  INTEGER ::= 20
+
+ISDN-AddressString ::= 
+			AddressString (SIZE (1..maxISDN-AddressLength))
+	-- This type is used to represent ISDN numbers.
+
+maxISDN-AddressLength  INTEGER ::= 9
+
+FTN-AddressString ::= 
+			AddressString (SIZE (1..maxFTN-AddressLength))
+	-- This type is used to represent forwarded-to numbers. 
+	-- For long forwarded-to numbers (longer than 15 digits) NPI shall be unknown;
+	-- if NAI = international the first digits represent the country code (CC)
+	-- and the network destination code (NDC) as for E.164.
+
+maxFTN-AddressLength  INTEGER ::= 15
+
+ISDN-SubaddressString ::= 
+			OCTET STRING (SIZE (1..maxISDN-SubaddressLength))
+	-- This type is used to represent ISDN subaddresses.
+	-- It is composed of
+	--	a)	one octet for type of subaddress and odd/even indicator.
+	--	b)	20 octets for subaddress information.
+
+	--	a)	The first octet includes a one bit extension indicator, a
+	--		3 bits type of subaddress and a one bit odd/even indicator,
+	--		encoded as follows:
+
+	--	bit 8: 1  (no extension)
+
+	--	bits 765: type of subaddress
+	--		000  NSAP (X.213/ISO 8348 AD2)
+	--		010  User Specified
+	--		All other values are reserved
+
+	--	bit 4: odd/even indicator
+	--		0  even number of address signals
+	--		1  odd number of address signals
+	--		The odd/even indicator is used when the type of subaddress
+	--		is "user specified" and the coding is BCD.
+
+	--	bits 321: 000 (unused)
+
+	--	b) Subaddress information.
+	--	The NSAP X.213/ISO8348AD2 address shall be formatted as specified
+	--	by octet 4 which contains the Authority and Format Identifier
+	--	(AFI). The encoding is made according to the "preferred binary
+	--	encoding" as defined in X.213/ISO834AD2. For the definition
+	--	of this type of subaddress, see ITU-T Rec I.334.
+
+	--	For User-specific subaddress, this field is encoded according
+	--	to the user specification, subject to a maximum length of 20
+	--	octets. When interworking with X.25 networks BCD coding should
+	--	be applied.
+
+maxISDN-SubaddressLength  INTEGER ::= 21
+
+ExternalSignalInfo ::= SEQUENCE {
+	protocolId	ProtocolId,
+	signalInfo	SignalInfo,
+	-- Information about the internal structure is given in
+	-- clause 7.6.9.
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	-- extensionContainer must not be used in version 2
+	...}
+
+SignalInfo ::= OCTET STRING (SIZE (1..maxSignalInfoLength))
+
+maxSignalInfoLength  INTEGER ::= 200
+	-- This NamedValue represents the theoretical maximum number of octets which is
+	-- available to carry a single instance of the SignalInfo data type,
+	-- without requiring segmentation to cope with the network layer service.
+	-- However, the actual maximum size available for an instance of the data
+	-- type may be lower, especially when other information elements
+	-- have to be included in the same component.
+
+ProtocolId ::= ENUMERATED {
+	gsm-0408  (1),
+	gsm-0806  (2),
+	gsm-BSSMAP  (3),
+	-- Value 3 is reserved and must not be used
+	ets-300102-1  (4)}
+
+Ext-ExternalSignalInfo ::= SEQUENCE {
+	ext-ProtocolId	Ext-ProtocolId,
+	signalInfo	SignalInfo,
+	-- Information about the internal structure is given in
+	-- clause 7.6.9.10
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+Ext-ProtocolId ::= ENUMERATED {
+	ets-300356  (1),
+	... 
+	 }
+-- exception handling:
+-- For Ext-ExternalSignalInfo sequences containing this parameter with any
+-- other value than the ones listed the receiver shall ignore the whole 
+-- Ext-ExternalSignalInfo sequence.
+
+AccessNetworkSignalInfo ::= SEQUENCE {
+	accessNetworkProtocolId	AccessNetworkProtocolId,
+	signalInfo	LongSignalInfo,
+	-- Information about the internal structure is given in clause 7.6.9.1
+	
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+LongSignalInfo ::= OCTET STRING (SIZE (1..maxLongSignalInfoLength))
+
+maxLongSignalInfoLength  INTEGER ::= 2560
+	-- This Named Value represents the maximum number of octets which is available
+	-- to carry a single instance of the LongSignalInfo data type using
+	-- White Book SCCP with the maximum number of segments.
+	-- It takes account of the octets used by the lower layers of the protocol, and
+	-- other information elements which may be included in the same component.
+
+AccessNetworkProtocolId ::= ENUMERATED {
+	ts3G-48006   (1),
+	ts3G-25413 (2),
+	...}
+	-- exception handling:
+	-- For AccessNetworkSignalInfo sequences containing this parameter with any
+	-- other value than the ones listed the receiver shall ignore the whole 
+	-- AccessNetworkSignalInfo sequence.
+
+AlertingPattern ::= OCTET STRING (SIZE (1) )
+	-- This type is used to represent Alerting Pattern
+
+	--	bits 8765 : 0000 (unused)
+
+	--	bits 43 : type of Pattern
+	--		00 level
+	--		01 category
+	--		10 category
+	--		all other values are reserved.
+
+	--	bits 21 : type of alerting
+
+alertingLevel-0   AlertingPattern ::= '00000000'B
+alertingLevel-1   AlertingPattern ::= '00000001'B
+alertingLevel-2   AlertingPattern ::= '00000010'B
+	-- all other values of Alerting level are reserved
+	-- Alerting Levels are defined in GSM 02.07
+	
+alertingCategory-1   AlertingPattern ::= '00000100'B
+alertingCategory-2   AlertingPattern ::= '00000101'B
+alertingCategory-3   AlertingPattern ::= '00000110'B
+alertingCategory-4   AlertingPattern ::= '00000111'B
+alertingCategory-5   AlertingPattern ::= '00001000'B
+	-- all other values of Alerting Category are reserved
+	-- Alerting categories are defined in GSM 02.07
+
+-- data types for numbering and identification
+
+IMSI ::= TBCD-STRING (SIZE (3..8))
+	-- digits of MCC, MNC, MSIN are concatenated in this order.
+
+Identity ::= CHOICE {
+	imsi			IMSI,
+	imsi-WithLMSI	IMSI-WithLMSI}
+
+IMSI-WithLMSI ::= SEQUENCE {
+	imsi			IMSI,
+	lmsi			LMSI,
+	-- a special value 00000000 indicates that the LMSI is not in use
+	...}
+
+ASCI-CallReference ::= TBCD-STRING (SIZE (1..8))
+	-- digits of VGCS/VBC-area,Group-ID are concatenated in this order.
+
+TMSI ::= OCTET STRING (SIZE (1..4))
+
+SubscriberId ::= CHOICE {
+	imsi			[0] IMSI,
+	tmsi			[1] TMSI}
+
+IMEI ::= TBCD-STRING (SIZE (8))
+	--	Refers to International Mobile Station Equipment Identity
+	--	and Software Version Number (SVN) defined in TS 3GPP TS 23.003 [17].
+	--	If the SVN is not present the last octet shall contain the
+	--	digit 0 and a filler.
+	--	If present the SVN shall be included in the last octet.
+
+HLR-Id ::= IMSI
+	-- leading digits of IMSI, i.e. (MCC, MNC, leading digits of
+	-- MSIN) forming HLR Id defined in TS 3GPP TS 23.003 [17].
+
+HLR-List ::= SEQUENCE SIZE (1..maxNumOfHLR-Id) OF
+				HLR-Id
+
+maxNumOfHLR-Id  INTEGER ::= 50
+
+LMSI ::= OCTET STRING (SIZE (4))
+
+GlobalCellId ::= OCTET STRING (SIZE (5..7))
+	-- Refers to Cell Global Identification defined in TS 3GPP TS 23.003 [17].
+	-- The internal structure is defined as follows:
+	-- octet 1 bits 4321	Mobile Country Code 1st digit
+	--         bits 8765	Mobile Country Code 2nd digit
+	-- octet 2 bits 4321	Mobile Country Code 3rd digit
+	--         bits 8765	Mobile Network Code 3rd digit
+	--			or filler (1111) for 2 digit MNCs
+	-- octet 3 bits 4321	Mobile Network Code 1st digit
+	--         bits 8765	Mobile Network Code 2nd digit
+	-- octets 4 and 5	Location Area Code according to TS 3GPP TS 24.008 [35]
+	-- octets 6 and 7	Cell Identity (CI) according to TS 3GPP TS 24.008 [35]
+
+NetworkResource ::= ENUMERATED {
+	plmn  (0),
+	hlr  (1),
+	vlr  (2),
+	pvlr  (3),
+	controllingMSC  (4),
+	vmsc  (5),
+	eir  (6),
+	rss  (7)}
+
+AdditionalNetworkResource ::= ENUMERATED {
+	sgsn (0),
+	ggsn (1),
+	gmlc (2),
+	gsmSCF (3),
+	nplr (4),
+	auc (5),
+	...}
+	-- if unknown value is received in AdditionalNetworkResource
+	-- it shall be ignored.
+
+
+NAEA-PreferredCI ::= SEQUENCE {
+	naea-PreferredCIC	[0] NAEA-CIC,
+	extensionContainer	[1] ExtensionContainer	OPTIONAL,
+	...}
+
+NAEA-CIC ::= OCTET STRING (SIZE (3))
+	-- The internal structure is defined by the Carrier Identification
+	-- parameter in ANSI T1.113.3. Carrier codes between "000" and "999" may
+	-- be encoded as 3 digits using "000" to "999" or as 4 digits using 
+	-- "0000" to "0999". Carrier codes between "1000" and "9999" are encoded
+	-- using 4 digits.
+
+SubscriberIdentity ::= CHOICE {
+	imsi			[0] IMSI,
+	msisdn		[1] ISDN-AddressString
+	}
+
+LCSClientExternalID ::= SEQUENCE {
+	externalAddress	[0] ISDN-AddressString	OPTIONAL,
+	extensionContainer	[1] ExtensionContainer	OPTIONAL,
+	... }
+
+LCSClientInternalID ::= ENUMERATED {
+	broadcastService	(0),
+	o-andM-HPLMN	(1),
+	o-andM-VPLMN	(2),
+	anonymousLocation	(3),
+	targetMSsubscribedService	(4),
+	... }
+-- for a CAMEL phase 3 PLMN operator client, the value targetMSsubscribedService shall be used
+
+LCSServiceTypeID ::= INTEGER (0..127)
+	-- the integer values 0-63 are reserved for Standard LCS service types
+	-- the integer values 64-127 are reserved for Non Standard LCS service types
+
+-- Standard LCS Service Types
+emergencyServices		LCSServiceTypeID ::= 0
+emergencyAlertServices		LCSServiceTypeID ::= 1
+personTracking			LCSServiceTypeID ::= 2
+fleetManagement		LCSServiceTypeID ::= 3
+assetManagement		LCSServiceTypeID ::= 4
+trafficCongestionReporting		LCSServiceTypeID ::= 5
+roadsideAssistance		LCSServiceTypeID ::= 6
+routingToNearestCommercialEnterprise		LCSServiceTypeID ::= 7
+navigation			LCSServiceTypeID ::= 8
+	--this service type is reserved for use in previous releases
+citySightseeing		LCSServiceTypeID ::= 9
+localizedAdvertising		LCSServiceTypeID ::= 10
+mobileYellowPages		LCSServiceTypeID ::= 11 
+trafficAndPublicTransportationInfo		LCSServiceTypeID ::= 12
+weather				LCSServiceTypeID ::= 13
+assetAndServiceFinding		LCSServiceTypeID ::= 14
+gaming				LCSServiceTypeID ::= 15
+findYourFriend			LCSServiceTypeID ::= 16
+dating				LCSServiceTypeID ::= 17
+chatting				LCSServiceTypeID ::= 18
+routeFinding			LCSServiceTypeID ::= 19
+whereAmI				LCSServiceTypeID ::= 20
+
+-- The values of LCSServiceTypeID are defined according to 3GPP TS 22.071.
+
+-- Non Standard LCS Service Types
+serv64				LCSServiceTypeID ::= 64
+serv65				LCSServiceTypeID ::= 65
+serv66				LCSServiceTypeID ::= 66
+serv67				LCSServiceTypeID ::= 67
+serv68				LCSServiceTypeID ::= 68
+serv69				LCSServiceTypeID ::= 69
+serv70				LCSServiceTypeID ::= 70
+serv71				LCSServiceTypeID ::= 71
+serv72				LCSServiceTypeID ::= 72
+serv73				LCSServiceTypeID ::= 73
+serv74				LCSServiceTypeID ::= 74
+serv75				LCSServiceTypeID ::= 75
+serv76				LCSServiceTypeID ::= 76
+serv77				LCSServiceTypeID ::= 77
+serv78				LCSServiceTypeID ::= 78
+serv79				LCSServiceTypeID ::= 79
+serv80				LCSServiceTypeID ::= 80
+serv81				LCSServiceTypeID ::= 81
+serv82				LCSServiceTypeID ::= 82
+serv83				LCSServiceTypeID ::= 83
+serv84				LCSServiceTypeID ::= 84
+serv85				LCSServiceTypeID ::= 85
+serv86				LCSServiceTypeID ::= 86
+serv87				LCSServiceTypeID ::= 87
+serv88				LCSServiceTypeID ::= 88
+serv89				LCSServiceTypeID ::= 89
+serv90				LCSServiceTypeID ::= 90
+serv91				LCSServiceTypeID ::= 91
+serv92				LCSServiceTypeID ::= 92
+serv93				LCSServiceTypeID ::= 93
+serv94				LCSServiceTypeID ::= 94
+serv95				LCSServiceTypeID ::= 95
+serv96				LCSServiceTypeID ::= 96
+serv97				LCSServiceTypeID ::= 97
+serv98				LCSServiceTypeID ::= 98
+serv99				LCSServiceTypeID ::= 99
+serv100				LCSServiceTypeID ::= 100
+serv101				LCSServiceTypeID ::= 101
+serv102				LCSServiceTypeID ::= 102
+serv103				LCSServiceTypeID ::= 103
+serv104				LCSServiceTypeID ::= 104
+serv105				LCSServiceTypeID ::= 105
+serv106				LCSServiceTypeID ::= 106
+serv107				LCSServiceTypeID ::= 107
+serv108				LCSServiceTypeID ::= 108
+serv109				LCSServiceTypeID ::= 109
+serv110				LCSServiceTypeID ::= 110
+serv111				LCSServiceTypeID ::= 111
+serv112				LCSServiceTypeID ::= 112
+serv113				LCSServiceTypeID ::= 113
+serv114				LCSServiceTypeID ::= 114
+serv115				LCSServiceTypeID ::= 115
+serv116				LCSServiceTypeID ::= 116
+serv117				LCSServiceTypeID ::= 117
+serv118				LCSServiceTypeID ::= 118
+serv119				LCSServiceTypeID ::= 119
+serv120				LCSServiceTypeID ::= 120
+serv121				LCSServiceTypeID ::= 121
+serv122				LCSServiceTypeID ::= 122
+serv123				LCSServiceTypeID ::= 123
+serv124				LCSServiceTypeID ::= 124
+serv125				LCSServiceTypeID ::= 125
+serv126				LCSServiceTypeID ::= 126
+serv127				LCSServiceTypeID ::= 127
+
+-- data types for CAMEL
+
+CellGlobalIdOrServiceAreaIdOrLAI ::= CHOICE {
+	cellGlobalIdOrServiceAreaIdFixedLength	[0] CellGlobalIdOrServiceAreaIdFixedLength,
+	laiFixedLength	[1] LAIFixedLength}
+
+CellGlobalIdOrServiceAreaIdFixedLength ::= OCTET STRING (SIZE (7))
+	-- Refers to Cell Global Identification or Service Are Identification
+	-- defined in 3GPP TS 23.003.
+	-- The internal structure is defined as follows:
+	-- octet 1 bits 4321	Mobile Country Code 1st digit
+	--         bits 8765	Mobile Country Code 2nd digit
+	-- octet 2 bits 4321	Mobile Country Code 3rd digit
+	--         bits 8765	Mobile Network Code 3rd digit
+	--			or filler (1111) for 2 digit MNCs
+	-- octet 3 bits 4321	Mobile Network Code 1st digit
+	--         bits 8765	Mobile Network Code 2nd digit
+	-- octets 4 and 5	Location Area Code according to 3GPP TS 24.008
+	-- octets 6 and 7	Cell Identity (CI) value or 
+	-- 			Service Area Code (SAC) value 
+	--			according to 3GPP TS 23.003
+
+LAIFixedLength ::= OCTET STRING (SIZE (5))
+	-- Refers to Location Area Identification defined in TS 3GPP TS 23.003 [17].
+	-- The internal structure is defined as follows:
+	-- octet 1 bits 4321	Mobile Country Code 1st digit
+	--         bits 8765	Mobile Country Code 2nd digit
+	-- octet 2 bits 4321	Mobile Country Code 3rd digit
+	--         bits 8765	Mobile Network Code 3rd digit
+	--			or filler (1111) for 2 digit MNCs
+	-- octet 3 bits 4321	Mobile Network Code 1st digit
+	--         bits 8765	Mobile Network Code 2nd digit
+	-- octets 4 and 5	Location Area Code according to TS 3GPP TS 24.008 [35]
+
+-- data types for subscriber management
+
+BasicServiceCode ::= CHOICE {
+	bearerService	[2] BearerServiceCode,
+	teleservice	[3] TeleserviceCode}
+
+Ext-BasicServiceCode ::= CHOICE {
+	ext-BearerService	[2] Ext-BearerServiceCode,
+	ext-Teleservice	[3] Ext-TeleserviceCode}
+
+EMLPP-Info ::= SEQUENCE {
+	maximumentitledPriority	EMLPP-Priority,
+	defaultPriority	EMLPP-Priority,
+	extensionContainer	ExtensionContainer	OPTIONAL,
+	...}
+
+EMLPP-Priority ::= INTEGER (0..15)
+	-- The mapping from the values A,B,0,1,2,3,4 to the integer-value is
+	-- specified as follows where A is the highest and 4 is the lowest
+	-- priority level
+	-- the integer values 7-15 are spare and shall be mapped to value 4
+
+priorityLevelA		EMLPP-Priority ::= 6
+priorityLevelB		EMLPP-Priority ::= 5
+priorityLevel0		EMLPP-Priority ::= 0
+priorityLevel1		EMLPP-Priority ::= 1
+priorityLevel2		EMLPP-Priority ::= 2
+priorityLevel3		EMLPP-Priority ::= 3
+priorityLevel4		EMLPP-Priority ::= 4
+
+MC-SS-Info ::= SEQUENCE {
+	ss-Code		[0] SS-Code,
+	ss-Status		[1] Ext-SS-Status,
+	nbrSB		[2] MaxMC-Bearers,
+	nbrUser		[3] MC-Bearers,
+	extensionContainer	[4] ExtensionContainer	OPTIONAL,
+	...}
+
+MaxMC-Bearers ::= INTEGER (2..maxNumOfMC-Bearers)
+
+MC-Bearers ::= INTEGER (1..maxNumOfMC-Bearers)
+
+maxNumOfMC-Bearers  INTEGER ::= 7
+
+Ext-SS-Status ::= OCTET STRING (SIZE (1..5))
+
+	-- OCTET 1:
+	--
+	-- bits 8765: 0000 (unused)
+	-- bits 4321: Used to convey the "P bit","R bit","A bit" and "Q bit",
+	--		    representing supplementary service state information
+	--		    as defined in TS 3GPP TS 23.011 [22]
+
+	-- bit 4: "Q bit"
+
+	-- bit 3: "P bit"
+
+	-- bit 2: "R bit"
+
+	-- bit 1: "A bit"
+
+	-- OCTETS 2-5: reserved for future use. They shall be discarded if
+	-- received and not understood.
+
+
+	-- data types for geographic location
+
+AgeOfLocationInformation ::= INTEGER (0..32767)
+-- the value represents the elapsed time in minutes since the last
+-- network contact of the mobile station (i.e. the actuality of the
+-- location information).
+-- value "0" indicates that the MS is currently in contact with the
+--           network
+-- value "32767" indicates that the location information is at least
+--               32767 minutes old
+
+END

@@ -1,0 +1,17 @@
+ImportsFrom DEFINITIONS ::=
+
+BEGIN
+
+IMPORTS
+Type1, Type2, Type3
+FROM RemoteFile1 objid
+val1, val2, val3
+FROM RemoteFile2;
+
+objid OBJECT IDENTIFIER ::= {joint-iso-ccitt(2) remote-operations(4) notation(0)}
+
+LocalType ::= INTEGER
+
+END
+
+

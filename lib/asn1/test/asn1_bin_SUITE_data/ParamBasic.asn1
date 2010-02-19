@@ -1,0 +1,23 @@
+ParamBasic DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+General1{T,T:val} ::= SEQUENCE {
+  number  INTEGER,
+  string  T DEFAULT val
+}
+
+T11 ::= General1{PrintableString,"hej"}
+
+T12 ::= General1{BIT STRING,'1010'B}
+
+General2{T} ::= SEQUENCE {
+  number  INTEGER,
+  string  T
+}
+
+T21 ::= General2{PrintableString}
+
+T22 ::= General2{BIT STRING}
+
+END

@@ -1,0 +1,53 @@
+-- module(Mvrasn-19-4).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "Teleservice Codes".
+--
+-- ASN.1 module: "MAP-TS-Code".
+--
+-- =============================================================================
+
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 6.1.0.
+-- ..............................................................
+
+Mvrasn-19-4
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+Ext-TeleserviceCode ::= OCTET STRING (SIZE (1..5))
+    -- This type is used to represent the code identifying a single
+    -- teleservice, a group of teleservices, or all teleservices. The
+    -- services are defined in TS GSM 02.03.
+    -- The internal structure is defined as follows:
+
+    -- OCTET 1:
+    -- bits 87654321: group (bits 8765) and specific service
+    -- (bits 4321)
+
+    -- OCTETS 2-5: reserved for future use. If received the
+    -- Ext-TeleserviceCode shall be
+    -- treated according to the exception handling defined for the
+    -- operation that uses this type.
+
+    -- Ext-TeleserviceCode includes all values defined for TeleserviceCode.
+
+
+allShortMessageServices Ext-TeleserviceCode ::= '00100000'B
+shortMessageMT-PP   Ext-TeleserviceCode ::= '00100001'B
+shortMessageMO-PP   Ext-TeleserviceCode ::= '00100010'B
+
+END

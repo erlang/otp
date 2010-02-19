@@ -1,0 +1,155 @@
+-- asn1ct:compile("MAP-ShortMessageServiceOperations",[ber_bin, {outdir, "../compiled/umts_map"}]).
+
+MAP-ShortMessageServiceOperations {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ShortMessageServiceOperations (9)
+   version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+	sendRoutingInfoForSM,
+	mo-ForwardSM,
+	mt-ForwardSM,
+	reportSM-DeliveryStatus,
+	alertServiceCentre,
+	informServiceCentre,
+	readyForSM
+;
+
+IMPORTS
+	OPERATION
+FROM Remote-Operations-Information-Objects {
+joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0)}
+
+	systemFailure,
+	dataMissing,
+	unexpectedDataValue,
+	facilityNotSupported,
+	unknownSubscriber,
+	unidentifiedSubscriber,
+	illegalSubscriber,
+	illegalEquipment,
+	teleserviceNotProvisioned,
+	callBarred,
+	subscriberBusyForMT-SMS,
+	sm-DeliveryFailure,
+	messageWaitingListFull,
+	absentSubscriberSM
+FROM MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+	RoutingInfoForSM-Arg,
+	RoutingInfoForSM-Res,
+	MO-ForwardSM-Arg,
+	MO-ForwardSM-Res,
+	MT-ForwardSM-Arg,
+	MT-ForwardSM-Res,
+	ReportSM-DeliveryStatusArg,
+	ReportSM-DeliveryStatusRes,
+	AlertServiceCentreArg,
+	InformServiceCentreArg,
+	ReadyForSM-Arg,
+	ReadyForSM-Res
+FROM MAP-SM-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SM-DataTypes (16) version9 (9)}
+
+;
+
+sendRoutingInfoForSM  OPERATION ::= {				--Timer m
+	ARGUMENT
+		RoutingInfoForSM-Arg
+	RESULT
+		RoutingInfoForSM-Res
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		unknownSubscriber |
+		teleserviceNotProvisioned |
+		callBarred |
+		absentSubscriberSM}
+	CODE	local:45 }
+
+mo-ForwardSM  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		MO-ForwardSM-Arg
+	RESULT
+		MO-ForwardSM-Res
+		-- optional
+	ERRORS {
+		systemFailure |
+		unexpectedDataValue |
+		facilityNotSupported |
+		sm-DeliveryFailure}
+	CODE	local:46 }
+
+mt-ForwardSM  OPERATION ::= {				--Timer ml
+	ARGUMENT
+		MT-ForwardSM-Arg
+	RESULT
+		MT-ForwardSM-Res
+		-- optional
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		unidentifiedSubscriber |
+		illegalSubscriber |
+		illegalEquipment |
+		subscriberBusyForMT-SMS |
+		sm-DeliveryFailure |
+		absentSubscriberSM}
+	CODE	local:44 }
+
+reportSM-DeliveryStatus  OPERATION ::= {			--Timer s
+	ARGUMENT
+		ReportSM-DeliveryStatusArg
+	RESULT
+		ReportSM-DeliveryStatusRes
+		-- optional
+	ERRORS {
+		dataMissing |
+		unexpectedDataValue |
+		unknownSubscriber |
+		messageWaitingListFull}
+	CODE	local:47 }
+
+alertServiceCentre  OPERATION ::= {				--Timer s
+	ARGUMENT
+		AlertServiceCentreArg
+	RETURN RESULT TRUE
+	ERRORS {
+		systemFailure |
+		dataMissing |
+		unexpectedDataValue}
+	CODE	local:64 }
+
+informServiceCentre  OPERATION ::= {				--Timer s
+	ARGUMENT
+		InformServiceCentreArg
+	CODE	local:63 }
+
+readyForSM  OPERATION ::= {				--Timer m
+	ARGUMENT
+		ReadyForSM-Arg
+	RESULT
+		ReadyForSM-Res
+		-- optional
+	ERRORS {
+		dataMissing |
+		unexpectedDataValue |
+		facilityNotSupported |
+		unknownSubscriber}
+	CODE	local:66 }
+
+END

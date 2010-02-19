@@ -1,0 +1,830 @@
+-- Module MSGeneralAttributeTypes (X.413:06/1999)
+MSGeneralAttributeTypes {joint-iso-itu-t mhs(6) ms(4) modules(0)
+  general-attribute-types(2) version-1999(1)} DEFINITIONS ::=
+BEGIN
+
+-- Prologue
+IMPORTS
+  -- X413ATTRIBUTE information object class
+  X413ATTRIBUTE,
+    -- MS abstract-service data-types
+    AutoActionError, AutoActionType, CreationTime, EntryClassErrorParameter,
+    EntryType, MessageGroupName, MessageGroupErrorParameter, MS-EIT,
+    MSExtensionErrorParameter, RetrievalStatus, SequenceNumber,
+    ServiceErrorParameter
+    FROM MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      abstract-service(1) version-1999(1)}
+  -- General-attribute-type Object Identifiers
+  id-att-ac-correlated-report-list, id-att-ac-report-subject-entry,
+    id-att-ac-report-summary, id-att-ac-uncorrelated-report-list,
+    id-att-auto-action-error, id-att-auto-action-registration-identifier,
+    id-att-auto-action-subject-entry, id-att-auto-action-type,
+    id-att-certificate-selectors, id-att-child-sequence-numbers,
+    id-att-content, id-att-content-confidentiality-algorithm-identifier,
+    id-att-content-correlator, id-att-content-identifier,
+    id-att-content-integrity-check, id-att-content-length,
+    id-att-content-returned, id-att-content-type,
+    id-att-conversion-with-loss-prohibited, id-att-converted-EITs,
+    id-att-creation-time, id-att-deferred-delivery-cancellation-time,
+    id-att-deferred-delivery-time, id-att-deletion-time, id-att-delivered-EITs,
+    id-att-delivery-flags, id-att-dl-exempted-recipients,
+    id-att-dl-expansion-history, id-att-dl-expansion-prohibited,
+    id-att-entry-type, id-att-internal-trace-information,
+    id-att-latest-delivery-time, id-att-locally-originated,
+    id-att-marked-for-deletion, id-att-message-delivery-envelope,
+    id-att-message-delivery-time, id-att-message-group-name,
+    id-att-message-identifier, id-att-message-notes,
+    id-att-message-origin-authentication-check, id-att-message-security-label,
+    id-att-message-submission-envelope, id-att-message-submission-time,
+    id-att-message-token, id-att-ms-originated, id-att-ms-submission-error,
+    id-att-multiple-originator-certificates, id-att-original-EITs,
+    id-att-originally-intended-recipient-name,
+    id-att-originating-MTA-certificate, id-att-originator-certificate,
+    id-att-originator-name, id-att-originator-report-request,
+    id-att-originator-return-address, id-att-other-recipient-names,
+    id-att-parent-sequence-number, id-att-per-message-indicators,
+    id-att-per-recipient-message-submission-fields,
+    id-att-per-recipient-probe-submission-fields,
+    id-att-per-recipient-report-delivery-fields, id-att-priority,
+    id-att-probe-origin-authentication-check, id-att-probe-submission-envelope,
+    id-att-proof-of-delivery-request, id-att-proof-of-submission,
+    id-att-recipient-certificate, id-att-recipient-names,
+    id-att-recipient-reassignment-prohibited, id-att-redirection-history,
+    id-att-report-delivery-envelope, id-att-reporting-DL-name,
+    id-att-reporting-MTA-certificate,
+    id-att-report-origin-authentication-check, id-att-retrieval-status,
+    id-att-security-classification, id-att-sequence-number,
+    id-att-signature-verification-status, id-att-storage-period,
+    id-att-storage-time, id-att-subject-submission-identifier,
+    id-att-this-recipient-name, id-att-trace-information
+    FROM MSObjectIdentifiers {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- Message Store matching-rules
+  bitStringMatch, contentCorrelatorMatch, contentIdentifierMatch,
+    mSSingleSubstringListElementsMatch, mSSingleSubstringListMatch,
+    mSSingleSubstringMatch, mSSubstringsMatch, mSStringCaseSensitiveMatch,
+    mSStringListElementsMatch, mSStringListMatch, mSStringMatch,
+    mSStringOrderingMatch, mTSIdentifierMatch, oRAddressElementsMatch,
+    oRAddressMatch, oRAddressSubstringElementsMatch, oRNameElementsMatch,
+    oRNameMatch, oRNameSingleElementMatch, oRNameSubstringElementsMatch,
+    redirectionOrDLExpansionElementsMatch, redirectionOrDLExpansionMatch,
+    redirectionOrDLExpansionSingleElementMatch,
+    redirectionOrDLExpansionSubstringElementsMatch, redirectionReasonMatch,
+    valueCountMatch
+    FROM MSMatchingRules {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-matching-rules(5) version-1999(1)}
+  -- MS abstract-service upper bounds
+  ub-entry-types, ub-message-notes-length
+    FROM MSUpperBounds {joint-iso-itu-t mhs(6) ms(4) modules(0) upper-bounds(4)
+      version-1994(0)}
+  -- MTS abstract-service data-types
+  CertificateSelectors, Content, ContentCorrelator, ContentIdentifier,
+    ContentIntegrityCheck, ContentLength, ConversionWithLossProhibited,
+    DeferredDeliveryTime, DeliveryFlags, DLExpansion, DLExpansionProhibited,
+    ExtendedCertificates, ImproperlySpecifiedRecipients, LatestDeliveryTime,
+    MessageDeliveryEnvelope, MessageDeliveryTime,
+    MessageOriginAuthenticationCheck, MessageSecurityLabel,
+    MessageSubmissionEnvelope, MessageSubmissionTime, MessageToken,
+    MTSIdentifier, OriginatingMTACertificate, OriginatorCertificate,
+    OriginatorReportRequest, OriginatorReturnAddress, ORName,
+    PerMessageIndicators, PerRecipientMessageSubmissionFields,
+    PerRecipientProbeSubmissionFields, PerRecipientReportDeliveryFields,
+    Priority, ProbeOriginAuthenticationCheck, ProbeSubmissionEnvelope,
+    ProofOfDeliveryRequest, ProofOfSubmission, RecipientReassignmentProhibited,
+    Redirection, ReportDeliveryEnvelope, ReportingDLName,
+    ReportingMTACertificate, ReportOriginAuthenticationCheck,
+    SecurityClassification, SecurityProblem, SubjectSubmissionIdentifier
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- MTS abstract-service upper bound
+  ub-recipients
+    FROM MTSUpperBounds {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      upper-bounds(3) version-1999(1)}
+  -- MTA abstract-service data-types
+  InternalTraceInformationElement, TraceInformationElement
+    FROM MTAAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+			     mta-abstract-service(2) version-1999(1)}
+  -- Directory matching-rules
+  booleanMatch, integerMatch, integerOrderingMatch, uTCTimeMatch,
+    uTCTimeOrderingMatch
+    FROM SelectedAttributeTypes
+   objectIdentifierMatch
+    FROM InformationFramework
+   
+   -- Authentication-service data-types
+   AlgorithmIdentifier
+    FROM AuthenticationFramework;
+
+-- X413ATTRIBUTE table
+AttributeTable X413ATTRIBUTE ::=
+  {GeneralAttributes | ContentSpecificAttributes}
+
+GeneralAttributes X413ATTRIBUTE ::=
+  {ms-child-sequence-numbers | mt-content |
+   mt-content-confidentiality-algorithm-identifier | mt-content-correlator |
+   mt-content-identifier | mt-content-integrity-check | ms-content-length |
+   ms-content-returned | mt-content-type | mt-conversion-with-loss-prohibited |
+   mt-converted-EITs | ms-creation-time | ms-delivered-EITs | mt-delivery-flags
+   | mt-dl-expansion-history | ms-entry-type | mt-message-delivery-envelope |
+   mt-message-delivery-time | mt-message-identifier |
+   mt-message-origin-authentication-check | mt-message-security-label |
+   mt-message-submission-time | mt-message-token | mt-original-EITs |
+   mt-originally-intended-recipient-name | mt-originator-certificate |
+   mt-originator-name | mt-other-recipient-names | ms-parent-sequence-number |
+   mt-per-recipient-report-delivery-fields | mt-priority |
+   mt-proof-of-delivery-request | mt-redirection-history |
+   mt-report-delivery-envelope | mt-reporting-DL-name |
+   mt-reporting-MTA-certificate | mt-report-origin-authentication-check |
+   ms-retrieval-status | mt-security-classification | ms-sequence-number |
+   mt-subject-submission-identifier | mt-this-recipient-name,
+   ... -- 1994 extension additions --, ms-ac-correlated-report-list |
+   ms-ac-report-subject-entry | ms-ac-report-summary |
+   ms-ac-uncorrelated-report-list | ms-auto-action-error |
+   ms-auto-action-registration-identifier | ms-auto-action-subject-entry |
+   ms-auto-action-type | mt-certificate-selectors |
+   ms-deferred-delivery-cancellation-time | mt-deferred-delivery-time |
+   ms-deletion-time | mt-dl-exempted-recipients | mt-dl-expansion-prohibited |
+   mt-internal-trace-information | mt-latest-delivery-time |
+   ms-locally-originated | ms-marked-for-deletion | ms-message-group-name |
+   ms-message-notes | mt-message-submission-envelope |
+   mt-multiple-originator-certificates | ms-originated | ms-submission-error |
+   mt-originating-MTA-certificate | mt-originator-report-request |
+   mt-originator-return-address | mt-per-message-indicators |
+   mt-per-recipient-message-submission-fields |
+   mt-per-recipient-probe-submission-fields |
+   mt-probe-origin-authentication-check | mt-probe-submission-envelope |
+   mt-proof-of-submission | mt-recipient-certificate | ms-recipient-names |
+   mt-recipient-reassignment-prohibited | ms-signature-verification-status |
+   ms-storage-period | ms-storage-time | mt-trace-information}
+
+ContentSpecificAttributes X413ATTRIBUTE ::=
+  {...}
+
+-- Attribute-types
+ms-ac-correlated-report-list X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ReportLocation,
+  NUMERATION             multi-valued,
+  ID                     id-att-ac-correlated-report-list
+}
+
+ReportLocation ::= CHOICE {
+  no-correlated-reports  [0]  NULL,
+  location               [1]  SEQUENCE OF PerRecipientReport
+}
+
+PerRecipientReport ::= SEQUENCE {
+  report-entry  [0]  SequenceNumber,
+  position      [1]  INTEGER(1..ub-recipients) DEFAULT 1
+}
+
+ms-ac-report-subject-entry X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-ac-report-subject-entry
+}
+
+ms-ac-report-summary X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReportSummary,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-att-ac-report-summary
+}
+
+ReportSummary ::= ENUMERATED {
+  no-report-requested(0) -- non-delivery report suppressed --,
+  no-report-received(1) -- non-delivery report requested --,
+  report-outstanding(2) -- delivery report requested --, delivery-cancelled(3),
+  delivery-report-from-another-recipient(4),
+  non-delivery-report-from-another-recipient(5),
+  delivery-report-from-intended-recipient(6),
+  non-delivery-report-from-intended-recipient(7)}
+
+ms-ac-uncorrelated-report-list X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  PerRecipientReport,
+  NUMERATION             multi-valued,
+  ID                     id-att-ac-uncorrelated-report-list
+}
+
+ms-auto-action-error X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  AutoActionError,
+  NUMERATION             single-valued,
+  ID                     id-att-auto-action-error
+}
+
+ms-auto-action-registration-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   INTEGER,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-auto-action-registration-identifier
+}
+
+ms-auto-action-subject-entry X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-auto-action-subject-entry
+}
+
+ms-auto-action-type X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AutoActionType,
+  EQUALITY MATCHING-RULE  objectIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-auto-action-type
+}
+
+mt-certificate-selectors X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  CertificateSelectors,
+  NUMERATION             single-valued,
+  ID                     id-att-certificate-selectors
+}
+
+ms-child-sequence-numbers X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  SequenceNumber,
+  NUMERATION             multi-valued,
+  ID                     id-att-child-sequence-numbers
+}
+
+mt-content X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  Content,
+  NUMERATION             single-valued,
+  ID                     id-att-content
+}
+
+mt-content-confidentiality-algorithm-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  AlgorithmIdentifier,
+  NUMERATION             single-valued,
+  ID                     id-att-content-confidentiality-algorithm-identifier
+}
+
+mt-content-correlator X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ContentCorrelator,
+  EQUALITY MATCHING-RULE  contentCorrelatorMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-content-correlator
+}
+
+mt-content-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ContentIdentifier,
+  EQUALITY MATCHING-RULE  contentIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-content-identifier
+}
+
+mt-content-integrity-check X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ContentIntegrityCheck,
+  NUMERATION             single-valued,
+  ID                     id-att-content-integrity-check
+}
+
+ms-content-length X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ContentLength,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-content-length
+}
+
+ms-content-returned X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   BOOLEAN,
+  EQUALITY MATCHING-RULE  booleanMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-content-returned
+}
+
+mt-content-type X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   OBJECT IDENTIFIER,
+  EQUALITY MATCHING-RULE  objectIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-content-type
+}
+
+mt-conversion-with-loss-prohibited X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ConversionWithLossProhibited,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-conversion-with-loss-prohibited
+}
+
+mt-converted-EITs X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX MS-EIT,
+  EQUALITY MATCHING-RULE        objectIdentifierMatch,
+  NUMERATION                    multi-valued,
+  ID                            id-att-converted-EITs
+}
+
+ms-creation-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   CreationTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-creation-time
+}
+
+ms-deferred-delivery-cancellation-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeferredDeliveryCancellationTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-deferred-delivery-cancellation-time
+}
+
+DeferredDeliveryCancellationTime ::= UTCTime
+
+mt-deferred-delivery-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeferredDeliveryTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-deferred-delivery-time
+}
+
+ms-deletion-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeletionTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-deletion-time
+}
+
+DeletionTime ::= UTCTime
+
+ms-delivered-EITs X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX MS-EIT,
+  EQUALITY MATCHING-RULE        objectIdentifierMatch,
+  NUMERATION                    multi-valued,
+  ID                            id-att-delivered-EITs
+}
+
+mt-delivery-flags X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeliveryFlags,
+  EQUALITY MATCHING-RULE  bitStringMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-delivery-flags
+}
+
+mt-dl-exempted-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-att-dl-exempted-recipients
+}
+
+mt-dl-expansion-history X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  DLExpansion,
+  OTHER MATCHING-RULES
+    {redirectionOrDLExpansionMatch | redirectionOrDLExpansionElementsMatch |
+      redirectionOrDLExpansionSubstringElementsMatch |
+      redirectionOrDLExpansionSingleElementMatch, ...},
+  NUMERATION             multi-valued,
+  ID                     id-att-dl-expansion-history
+}
+
+mt-dl-expansion-prohibited X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DLExpansionProhibited,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-dl-expansion-prohibited
+}
+
+ms-entry-type X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   EntryType,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE
+    integerOrderingMatch, -- rule not defined in 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-att-entry-type
+}
+
+mt-internal-trace-information X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  InternalTraceInformationElement,
+  NUMERATION             multi-valued,
+  ID                     id-att-internal-trace-information
+}
+
+mt-latest-delivery-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   LatestDeliveryTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-latest-delivery-time
+}
+
+ms-locally-originated X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  NULL,
+  NUMERATION             single-valued,
+  ID                     id-att-locally-originated
+}
+
+ms-marked-for-deletion X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  NULL,
+  NUMERATION             single-valued,
+  ID                     id-att-marked-for-deletion
+}
+
+mt-message-delivery-envelope X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageDeliveryEnvelope,
+  NUMERATION             single-valued,
+  ID                     id-att-message-delivery-envelope
+}
+
+mt-message-delivery-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   MessageDeliveryTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-message-delivery-time
+}
+
+ms-message-group-name X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   MessageGroupName,
+  EQUALITY MATCHING-RULE  mSStringListMatch,
+  OTHER MATCHING-RULES
+    {mSSingleSubstringListMatch | mSStringListElementsMatch |
+      mSSingleSubstringListElementsMatch | valueCountMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-att-message-group-name
+}
+
+mt-message-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   MTSIdentifier,
+  EQUALITY MATCHING-RULE
+    mTSIdentifierMatch, -- rule not defined in 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-att-message-identifier
+}
+
+ms-message-notes X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     GeneralString(SIZE (1..ub-message-notes-length)),
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE  mSSubstringsMatch,
+  NUMERATION                multi-valued,
+  ID                        id-att-message-notes
+}
+
+mt-message-origin-authentication-check X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageOriginAuthenticationCheck,
+  NUMERATION             single-valued,
+  ID                     id-att-message-origin-authentication-check
+}
+
+mt-message-security-label X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageSecurityLabel,
+  NUMERATION             single-valued,
+  ID                     id-att-message-security-label
+}
+
+mt-message-submission-envelope X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageSubmissionEnvelope,
+  NUMERATION             single-valued,
+  ID                     id-att-message-submission-envelope
+}
+
+mt-message-submission-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   MessageSubmissionTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-message-submission-time
+}
+
+mt-message-token X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageToken,
+  NUMERATION             single-valued,
+  ID                     id-att-message-token
+}
+
+ms-originated X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  NULL,
+  NUMERATION             single-valued,
+  ID                     id-att-ms-originated
+}
+
+ms-submission-error X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  SubmissionError,
+  NUMERATION             single-valued,
+  ID                     id-att-ms-submission-error
+}
+
+SubmissionError ::= CHOICE {
+  submission-control-violated        [1]  NULL,
+  originator-invalid                 [2]  NULL,
+  recipient-improperly-specified     [3]  ImproperlySpecifiedRecipients,
+  element-of-service-not-subscribed  [4]  NULL,
+  inconsistent-request               [11]  NULL,
+  security-error                     [12]  SecurityProblem,
+  unsupported-critical-function      [13]  NULL,
+  remote-bind-error                  [15]  NULL,
+  service-error                      [27]  ServiceErrorParameter,
+  message-group-error                [30]  MessageGroupErrorParameter,
+  ms-extension-error                 [31]  MSExtensionErrorParameter,
+  entry-class-error                  [34]  EntryClassErrorParameter
+}
+
+mt-multiple-originator-certificates X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ExtendedCertificates,
+  NUMERATION             single-valued,
+  ID                     id-att-multiple-originator-certificates
+}
+
+mt-original-EITs X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX MS-EIT,
+  EQUALITY MATCHING-RULE        objectIdentifierMatch,
+  NUMERATION                    multi-valued,
+  ID                            id-att-original-EITs
+}
+
+mt-originally-intended-recipient-name X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-att-originally-intended-recipient-name
+}
+
+mt-originating-MTA-certificate X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  OriginatingMTACertificate,
+  NUMERATION             single-valued,
+  ID                     id-att-originating-MTA-certificate
+}
+
+mt-originator-certificate X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  OriginatorCertificate,
+  NUMERATION             single-valued,
+  ID                     id-att-originator-certificate
+}
+
+mt-originator-name X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-att-originator-name
+}
+
+mt-originator-report-request X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  OriginatorReportRequest,
+  NUMERATION             multi-valued,
+  ID                     id-att-originator-report-request
+}
+
+mt-originator-return-address X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  OriginatorReturnAddress,
+  NUMERATION             single-valued,
+  ID                     id-att-originator-return-address
+}
+
+mt-other-recipient-names X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-att-other-recipient-names
+}
+
+ms-parent-sequence-number X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-parent-sequence-number
+}
+
+mt-per-message-indicators X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   PerMessageIndicators,
+  EQUALITY MATCHING-RULE  bitStringMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-per-message-indicators
+}
+
+mt-per-recipient-message-submission-fields X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  PerRecipientMessageSubmissionFields,
+  NUMERATION             multi-valued,
+  ID                     id-att-per-recipient-message-submission-fields
+}
+
+mt-per-recipient-probe-submission-fields X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  PerRecipientProbeSubmissionFields,
+  NUMERATION             multi-valued,
+  ID                     id-att-per-recipient-probe-submission-fields
+}
+
+mt-per-recipient-report-delivery-fields X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  PerRecipientReportDeliveryFields,
+  NUMERATION             multi-valued,
+  ID                     id-att-per-recipient-report-delivery-fields
+}
+
+mt-priority X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   Priority,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE
+    integerOrderingMatch, -- rule not defined in 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-att-priority
+}
+
+mt-probe-origin-authentication-check X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ProbeOriginAuthenticationCheck,
+  NUMERATION             single-valued,
+  ID                     id-att-probe-origin-authentication-check
+}
+
+mt-probe-submission-envelope X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ProbeSubmissionEnvelope,
+  NUMERATION             single-valued,
+  ID                     id-att-probe-submission-envelope
+}
+
+mt-proof-of-delivery-request X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ProofOfDeliveryRequest,
+  EQUALITY MATCHING-RULE
+    integerMatch, -- rule not defined in 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-att-proof-of-delivery-request
+}
+
+mt-proof-of-submission X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ProofOfSubmission,
+  NUMERATION             single-valued,
+  ID                     id-att-proof-of-submission
+}
+
+mt-recipient-certificate X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ExtendedCertificates,
+  NUMERATION             single-valued,
+  ID                     id-att-recipient-certificate
+}
+
+ms-recipient-names X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-att-recipient-names
+}
+
+mt-recipient-reassignment-prohibited X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   RecipientReassignmentProhibited,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-recipient-reassignment-prohibited
+}
+
+mt-redirection-history X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  Redirection,
+  OTHER MATCHING-RULES
+    {redirectionOrDLExpansionMatch | redirectionOrDLExpansionElementsMatch |
+      redirectionOrDLExpansionSubstringElementsMatch |
+      redirectionOrDLExpansionSingleElementMatch | redirectionReasonMatch,
+      ...},
+  NUMERATION             multi-valued,
+  ID                     id-att-redirection-history
+}
+
+mt-report-delivery-envelope X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ReportDeliveryEnvelope,
+  NUMERATION             single-valued,
+  ID                     id-att-report-delivery-envelope
+}
+
+mt-reporting-DL-name X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReportingDLName,
+  EQUALITY MATCHING-RULE
+    oRNameMatch, -- rule not defined in 1988 Application Contexts 
+      
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-att-reporting-DL-name
+}
+
+mt-reporting-MTA-certificate X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ReportingMTACertificate,
+  NUMERATION             single-valued,
+  ID                     id-att-reporting-MTA-certificate
+}
+
+mt-report-origin-authentication-check X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ReportOriginAuthenticationCheck,
+  NUMERATION             single-valued,
+  ID                     id-att-report-origin-authentication-check
+}
+
+ms-retrieval-status X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   RetrievalStatus,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-retrieval-status
+}
+
+mt-security-classification X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SecurityClassification,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-security-classification
+}
+
+ms-sequence-number X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-sequence-number
+}
+
+ms-signature-verification-status X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  SignatureVerificationStatus,
+  NUMERATION             single-valued,
+  ID                     id-att-signature-verification-status
+}
+
+SignatureVerificationStatus ::= SET {
+  content-integrity-check
+    [0]  SignatureStatus DEFAULT signature-absent,
+  message-origin-authentication-check
+    [1]  SignatureStatus DEFAULT signature-absent,
+  message-token
+    [2]  SignatureStatus DEFAULT signature-absent,
+  report-origin-authentication-check
+    [3]  SignatureStatus DEFAULT signature-absent,
+  proof-of-delivery
+    [4]  SignatureStatus DEFAULT signature-absent,
+  proof-of-submission
+    [5]  SignatureStatus DEFAULT signature-absent
+}
+
+SignatureStatus ::= INTEGER {
+  signature-absent(0), verification-in-progress(1), verification-succeeded(2),
+  verification-not-possible(3), content-converted(4), signature-encrypted(5),
+  algorithm-not-supported(6), certificate-not-obtainable(7),
+  verification-failed(8)}
+
+ms-storage-period X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   StoragePeriod,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-storage-period
+}
+
+StoragePeriod ::= INTEGER -- seconds
+
+ms-storage-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   StorageTime,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-att-storage-time
+}
+
+StorageTime ::= UTCTime
+
+mt-subject-submission-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SubjectSubmissionIdentifier,
+  EQUALITY MATCHING-RULE
+    mTSIdentifierMatch, -- rule not defined in 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-att-subject-submission-identifier
+}
+
+mt-this-recipient-name X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORName,
+  EQUALITY MATCHING-RULE  oRNameMatch,
+  OTHER MATCHING-RULES
+    {oRNameElementsMatch | oRNameSubstringElementsMatch |
+      oRNameSingleElementMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-att-this-recipient-name
+}
+
+mt-trace-information X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  TraceInformationElement,
+  NUMERATION             multi-valued,
+  ID                     id-att-trace-information
+}
+
+END -- of MSGeneralAttributeTypes
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

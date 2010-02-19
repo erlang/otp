@@ -1,0 +1,1120 @@
+-- Module IPMSMessageStoreAttributes (X.420:06/1999)
+IPMSMessageStoreAttributes {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+  message-store-attributes(8) version-1999(1)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- Prologue
+-- Exports everything.
+IMPORTS
+  -- IPMS Heading Extensions
+  AuthorizationTime, AutoSubmitted, BodyPartNumber, BodyPartSecurityLabel,
+    BodyPartSignatures, CirculationMember, DistributionCode, ExtendedSubject,
+    IncompleteCopy, InformationCategory, IPMSecurityLabel, Language,
+    ManualHandlingInstruction, OriginatorsReference, Precedence,
+    PrecedencePolicyIdentifier
+    --==
+    FROM IPMSHeadingExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      heading-extensions(6) version-1999(1)}
+  -- IPMS Security Extensions
+  BodyPartTokens, ForwardedContentToken
+    --==
+    FROM IPMSSecurityExtensions {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      ipm-security-extensions(14) version-1999(1)}
+  -- IPMS Information Objects
+  AcknowledgmentModeField, AuthorizingUsersSubfield, AutoForwardCommentField,
+    AutoForwardedField, BilaterallyDefinedBodyPart,
+    BlindCopyRecipientsSubfield, Body, ConversionEITsField,
+    CopyRecipientsSubfield, DiscardReasonField, EncryptedBodyPart,
+    EncryptedData, EncryptedParameters, ExpiryTimeField,
+    EXTENDED-BODY-PART-TYPE, G3FacsimileBodyPart, G3FacsimileData,
+    G3FacsimileParameters, G4Class1BodyPart, Heading, IA5TextBodyPart,
+    IA5TextData, IA5TextParameters, ImportanceField, IPMIdentifier,
+    IPMIntendedRecipientField, IPMSExtension{}, IPNOriginatorField,
+    MessageBodyPart, MessageData, MessageParameters, MixedModeBodyPart,
+    NationallyDefinedBodyPart, NonReceiptReasonField, NotificationExtensions,
+    NRNExtensions, ObsoletedIPMsSubfield, ORDescriptor, OriginatorField,
+    OtherNotifications, PrimaryRecipientsSubfield, ReceiptTimeField,
+    RecipientSpecifier, RelatedIPMsSubfield, RepliedToIPMField,
+    ReplyRecipientsSubfield, ReplyTimeField, ReturnedIPMField, RNExtensions,
+    SensitivityField, SubjectField, SubjectIPMField, SupplReceiptInfoField,
+    TeletexBodyPart, TeletexData, TeletexParameters, ThisIPMField,
+    VideotexBodyPart, VideotexData, VideotexParameters
+    --==
+    FROM IPMSInformationObjects {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      information-objects(2) version-1999(1)}
+  -- IPMS Object Identifiers
+  id-bat-bilaterally-defined-body-parts, id-bat-body,
+    id-bat-encrypted-body-parts, id-bat-encrypted-data,
+    id-bat-encrypted-parameters, id-bat-extended-body-part-types,
+    id-bat-g3-facsimile-body-parts, id-bat-g3-facsimile-data,
+    id-bat-g3-facsimile-parameters, id-bat-g4-class1-body-parts,
+    id-bat-ia5-text-body-parts, id-bat-ia5-text-data,
+    id-bat-ia5-text-parameters, id-bat-message-body-parts, id-bat-message-data,
+    id-bat-message-parameters, id-bat-mixed-mode-body-parts,
+    id-bat-nationally-defined-body-parts, id-bat-teletex-body-parts,
+    id-bat-teletex-data, id-bat-teletex-parameters, id-bat-videotex-body-parts,
+    id-bat-videotex-data, id-bat-videotex-parameters,
+    id-cat-correlated-delivered-ipns, id-cat-correlated-delivered-replies,
+    id-cat-delivered-ipn-summary, id-cat-delivered-replies-summary,
+    id-cat-forwarded-ipms, id-cat-forwarding-ipms, id-cat-ipm-recipients,
+    id-cat-obsoleted-ipms, id-cat-obsoleting-ipms, id-cat-related-ipms,
+    id-cat-relating-ipms, id-cat-replied-to-ipm, id-cat-recipient-category,
+    id-cat-replying-ipms, id-cat-revised-reply-time, id-cat-subject-ipm,
+    id-cat-submitted-ipn-status, id-cat-submitted-ipns,
+    id-cat-submitted-reply-status, id-hat-authorization-time,
+    id-hat-authorizing-users, id-hat-auto-forwarded, id-hat-auto-submitted,
+    id-hat-blind-copy-recipients, id-hat-body-part-encryption-token,
+    id-hat-body-part-security-label,
+    id-hat-body-part-signature-verification-status,
+    id-hat-body-part-signatures, id-hat-circulation-list-recipients,
+    id-hat-copy-recipients, id-hat-distribution-codes, id-hat-expiry-time,
+    id-hat-extended-subject, id-hat-forwarded-content-token,
+    id-hat-forwarding-token, id-hat-heading, id-hat-importance,
+    id-hat-incomplete-copy, id-hat-information-category,
+    id-hat-ipm-security-label, id-hat-languages,
+    id-hat-manual-handling-instructions, id-hat-nrn-requestors,
+    id-hat-obsoleted-IPMs, id-hat-originator, id-hat-originators-reference,
+    id-hat-precedence, id-hat-precedence-policy-id, id-hat-primary-recipients,
+    id-hat-related-IPMs, id-hat-replied-to-IPM, id-hat-reply-recipients,
+    id-hat-reply-requestors, id-hat-reply-time, id-hat-rn-requestors,
+    id-hat-sensitivity, id-hat-subject, id-hat-this-ipm, id-mr-ipm-identifier,
+    id-mr-ipm-location, id-mr-or-descriptor, id-mr-or-descriptor-elements,
+    id-mr-or-descriptor-single-element, id-mr-or-descriptor-substring-elements,
+    id-mr-circulation-member, id-mr-circulation-member-checkmark,
+    id-mr-circulation-member-elements, id-mr-circulation-member-single-element,
+    id-mr-circulation-member-substring-elements, id-mr-distribution-code,
+    id-mr-information-category, id-mr-recipient-specifier,
+    id-mr-recipient-specifier-elements,
+    id-mr-recipient-specifier-single-element,
+    id-mr-recipient-specifier-substring-elements, id-nat-acknowledgment-mode,
+    id-nat-auto-forward-comment, id-nat-conversion-eits, id-nat-discard-reason,
+    id-nat-ipm-intended-recipient, id-nat-ipn-originator,
+    id-nat-non-receipt-reason, id-nat-notification-extensions,
+    id-nat-nrn-extensions, id-nat-other-notification-type-fields,
+    id-nat-receipt-time, id-nat-returned-ipm, id-nat-rn-extensions,
+    id-nat-subject-ipm, id-nat-suppl-receipt-info, id-sat-body-parts-summary,
+    id-sat-ipm-auto-discarded, id-sat-ipm-entry-type, id-sat-ipm-synopsis
+    --==
+    FROM IPMSObjectIdentifiers {joint-iso-itu-t mhs(6) ipms(1) modules(0)
+      object-identifiers(0) version-1999(1)}
+  -- MS Abstract Service
+  X413ATTRIBUTE, MS-EIT, SequenceNumber
+    --==
+    FROM MSAbstractService {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      abstract-service(1) version-1999(1)}
+  -- MS General Attribute Types
+  SignatureStatus
+    --==
+    FROM MSGeneralAttributeTypes {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-attribute-types(2) version-1999(1)}
+  -- MS matching-rules
+  MSString{}, mSStringMatch, mSSubstringsMatch
+    --==
+    FROM MSMatchingRules {joint-iso-itu-t mhs(6) ms(4) modules(0)
+      general-matching-rules(5) version-1999(1)}
+  -- MTS Abstract Service
+  EncodedInformationTypes, MessageToken
+    --==
+    FROM MTSAbstractService {joint-iso-itu-t mhs(6) mts(3) modules(0)
+      mts-abstract-service(1) version-1999(1)}
+  -- Directory Information Framework
+  objectIdentifierMatch, MATCHING-RULE
+    --==
+    FROM InformationFramework {joint-iso-itu-t ds(5) module(1)
+      informationFramework(1) 3}
+  -- Directory Abstract Service
+  booleanMatch, generalizedTimeMatch, generalizedTimeOrderingMatch,
+    integerMatch, integerOrderingMatch, uTCTimeMatch, uTCTimeOrderingMatch
+    --==
+    FROM SelectedAttributeTypes {joint-iso-itu-t ds(5) module(1)
+      selectedAttributeTypes(5) 3}
+  ub-msstring-match
+    FROM MSUpperBounds {joint-iso-itu-t mhs(6) ms(4) modules(0) upper-bounds(4)
+      version-1994(0)};
+
+-- IPMS attribute table information object set
+IPMSAttributeTable X413ATTRIBUTE ::=
+  {acknowledgment-mode | authorizing-users | auto-forward-comment |
+   auto-forwarded | auto-submitted | bilaterally-defined-body-parts |
+   blind-copy-recipients | body | conversion-eits | copy-recipients |
+   discard-reason | encrypted-body-parts | encrypted-data |
+   encrypted-parameters | expiry-time | extended-body-part-types |
+   g3-facsimile-body-parts | g3-facsimile-data | g3-facsimile-parameters |
+   g4-class1-body-parts | heading | ia5-text-body-parts | ia5-text-data |
+   ia5-text-parameters | importance | incomplete-copy | ipm-entry-type |
+   ipm-intended-recipient | ipm-synopsis | ipn-originator | languages |
+   message-body-parts | message-data | message-parameters |
+   mixed-mode-body-parts | nationally-defined-body-parts | non-receipt-reason |
+   nrn-requestors | obsoleted-IPMs | originator | primary-recipients |
+   receipt-time | related-IPMs | replied-to-IPM | reply-recipients |
+   reply-requestors | reply-time | returned-ipm | rn-requestors | sensitivity |
+   subject | subject-ipm | suppl-receipt-info | teletex-body-parts |
+   teletex-data | teletex-parameters | this-ipm | videotex-body-parts |
+   videotex-data | videotex-parameters, ... -- 1994 extension additions --,
+   ac-correlated-delivered-ipns | ac-correlated-delivered-replies |
+   ac-delivered-ipn-summary | ac-delivered-replies-summary | ac-forwarded-ipms
+   | ac-forwarding-ipms | ac-ipm-recipients | ac-obsoleted-ipms |
+   ac-obsoleting-ipms | ac-related-ipms | ac-relating-ipms | ac-replied-to-ipm
+   | ac-replying-ipms | ac-subject-ipm | ac-submitted-ipn-status |
+   ac-submitted-ipns | ac-submitted-reply-status | authorization-time |
+   body-part-encryption-token | body-part-security-label |
+   body-part-signature-verification-status | body-part-signatures |
+   body-parts-summary | circulation-list-recipients | distribution-codes |
+   extended-subject | forwarded-content-token | forwarding-token |
+   information-category | ipm-auto-discarded | ipm-security-label |
+   manual-handling-instructions | notification-extensions | nrn-extensions |
+   originators-reference | other-notification-type-fields | precedence |
+   precedence-policy-identifier | recipient-category | revised-reply-time |
+   rn-extensions}
+
+-- SUMMARY ATTRIBUTES
+-- IPM entry type
+ipm-entry-type X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   IPMEntryType,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-sat-ipm-entry-type
+}
+
+IPMEntryType ::= ENUMERATED {ipm(0), rn(1), nrn(2), on(3)}
+
+-- IPM synopsis
+ipm-synopsis X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSynopsis,
+  NUMERATION             single-valued,
+  ID                     id-sat-ipm-synopsis
+}
+
+IPMSynopsis ::= SEQUENCE OF BodyPartSynopsis
+
+BodyPartSynopsis ::= CHOICE {
+  message      [0]  MessageBodyPartSynopsis,
+  non-message  [1]  NonMessageBodyPartSynopsis
+}
+
+MessageBodyPartSynopsis ::= SEQUENCE {
+  number    [0]  SequenceNumber,
+  synopsis  [1]  IPMSynopsis
+}
+
+NonMessageBodyPartSynopsis ::= SEQUENCE {
+  type        [0]  OBJECT IDENTIFIER,
+  parameters  [1]  INSTANCE OF TYPE-IDENTIFIER OPTIONAL,
+  size        [2]  INTEGER,
+  processed   [3]  BOOLEAN DEFAULT FALSE
+}
+
+-- Body part summary
+body-parts-summary X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BodyPartDescriptor,
+  NUMERATION             multi-valued,
+  ID                     id-sat-body-parts-summary
+}
+
+BodyPartDescriptor ::= SEQUENCE {
+  data              [0]  OBJECT IDENTIFIER,
+  parameters        [1]  OBJECT IDENTIFIER OPTIONAL,
+  this-child-entry  [2]  SequenceNumber OPTIONAL,
+  position          [3]  INTEGER,
+  size              [4]  INTEGER,
+  processed         [5]  BOOLEAN DEFAULT FALSE
+}
+
+-- IPM auto discarded
+ipm-auto-discarded X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   BOOLEAN,
+  EQUALITY MATCHING-RULE  booleanMatch,
+  NUMERATION              single-valued,
+  ID                      id-sat-ipm-auto-discarded
+}
+
+-- Body part signature verification status
+body-part-signature-verification-status X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BodyPartSignatureVerification,
+  NUMERATION             single-valued,
+  ID                     id-hat-body-part-signature-verification-status
+}
+
+BodyPartSignatureVerification ::=
+  SET OF
+    SET {body-part-sequence-number  [0]  BodyPartNumber,
+         body-part-signature        [1]  SignatureStatus}
+
+-- HEADING ATTRIBUTES
+-- Heading
+heading X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  Heading,
+  NUMERATION             single-valued,
+  ID                     id-hat-heading
+}
+
+-- Heading analyses
+rn-requestors X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORDescriptor,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-rn-requestors
+}
+
+nrn-requestors X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORDescriptor,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-nrn-requestors
+}
+
+reply-requestors X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORDescriptor,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-reply-requestors
+}
+
+-- Heading fields
+this-ipm X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ThisIPMField,
+  EQUALITY MATCHING-RULE  iPMIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-this-ipm
+}
+
+originator X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   OriginatorField,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-hat-originator
+}
+
+replied-to-IPM X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   RepliedToIPMField,
+  EQUALITY MATCHING-RULE  iPMIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-replied-to-IPM
+}
+
+subject X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     SubjectField,
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE  mSSubstringsMatch,
+  NUMERATION                single-valued,
+  ID                        id-hat-subject
+}
+
+expiry-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ExpiryTimeField,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-expiry-time
+}
+
+reply-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReplyTimeField,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-reply-time
+}
+
+importance X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ImportanceField,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE
+    integerOrderingMatch, -- not defined for 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-hat-importance
+}
+
+sensitivity X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SensitivityField,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE
+    integerOrderingMatch, -- not defined for 1988 Application Contexts 
+      
+  NUMERATION              single-valued,
+  ID                      id-hat-sensitivity
+}
+
+auto-forwarded X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AutoForwardedField,
+  EQUALITY MATCHING-RULE  booleanMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-auto-forwarded
+}
+
+-- Heading sub-fields
+authorizing-users X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AuthorizingUsersSubfield,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-authorizing-users
+}
+
+primary-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   PrimaryRecipientsSubfield,
+  EQUALITY MATCHING-RULE  recipientSpecifierMatch,
+  OTHER MATCHING-RULES
+    {recipientSpecifierElementsMatch | recipientSpecifierSubstringElementsMatch
+      | recipientSpecifierSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-primary-recipients
+}
+
+copy-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   CopyRecipientsSubfield,
+  EQUALITY MATCHING-RULE  recipientSpecifierMatch,
+  OTHER MATCHING-RULES
+    {recipientSpecifierElementsMatch | recipientSpecifierSubstringElementsMatch
+      | recipientSpecifierSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-copy-recipients
+}
+
+blind-copy-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   BlindCopyRecipientsSubfield,
+  EQUALITY MATCHING-RULE  recipientSpecifierMatch,
+  OTHER MATCHING-RULES
+    {recipientSpecifierElementsMatch | recipientSpecifierSubstringElementsMatch
+      | recipientSpecifierSingleElementMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-blind-copy-recipients
+}
+
+obsoleted-IPMs X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ObsoletedIPMsSubfield,
+  EQUALITY MATCHING-RULE  iPMIdentifierMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-obsoleted-IPMs
+}
+
+related-IPMs X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   RelatedIPMsSubfield,
+  EQUALITY MATCHING-RULE  iPMIdentifierMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-related-IPMs
+}
+
+reply-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReplyRecipientsSubfield,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-reply-recipients
+}
+
+-- Heading extensions
+incomplete-copy X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IncompleteCopy,
+  NUMERATION
+    single-valued, -- An equality match is specified for 1988 
+      
+      
+  -- Application Contexts 
+  ID                     id-hat-incomplete-copy
+}
+
+languages X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     Language,
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE
+    mSSubstringsMatch, -- Not defined for 1988 Application Contexts 
+      
+  NUMERATION                multi-valued,
+  ID                        id-hat-languages
+}
+
+auto-submitted X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AutoSubmitted,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-auto-submitted
+}
+
+body-part-signatures X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BodyPartSignatures,
+  NUMERATION             single-valued,
+  ID                     id-hat-body-part-signatures
+}
+
+ipm-security-label X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSecurityLabel,
+  NUMERATION             single-valued,
+  ID                     id-hat-ipm-security-label
+}
+
+body-part-security-label X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BodyPartSecurityLabel,
+  NUMERATION             multi-valued,
+  ID                     id-hat-body-part-security-label
+}
+
+authorization-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AuthorizationTime,
+  EQUALITY MATCHING-RULE  generalizedTimeMatch,
+  ORDERING MATCHING-RULE  generalizedTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-authorization-time
+}
+
+circulation-list-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   CirculationMember,
+  EQUALITY MATCHING-RULE  circulationMemberMatch,
+  OTHER MATCHING-RULES
+    {circulationMemberElementsMatch | circulationMemberSubstringElementsMatch |
+      circulationMemberSingleElementMatch | circulationMemberCheckmarkMatch,
+      ...},
+  NUMERATION              multi-valued,
+  ID                      id-hat-circulation-list-recipients
+}
+
+distribution-codes X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DistributionCode,
+  EQUALITY MATCHING-RULE  distributionCodeMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-distribution-codes
+}
+
+extended-subject X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     ExtendedSubject,
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE  mSSubstringsMatch,
+  NUMERATION                single-valued,
+  ID                        id-hat-extended-subject
+}
+
+information-category X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   InformationCategory,
+  EQUALITY MATCHING-RULE  informationCategoryMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-information-category
+}
+
+manual-handling-instructions X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ManualHandlingInstruction,
+  EQUALITY MATCHING-RULE  mSStringMatch,
+  NUMERATION              multi-valued,
+  ID                      id-hat-manual-handling-instructions
+}
+
+originators-reference X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   OriginatorsReference,
+  EQUALITY MATCHING-RULE  mSStringMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-originators-reference
+}
+
+precedence-policy-identifier X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   PrecedencePolicyIdentifier,
+  EQUALITY MATCHING-RULE  objectIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-precedence-policy-id
+}
+
+-- Recipient extensions
+precedence X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   Precedence,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-hat-precedence
+}
+
+-- Envelope extensions
+body-part-encryption-token X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BodyPartTokens,
+  NUMERATION             single-valued,
+  ID                     id-hat-body-part-encryption-token
+}
+
+forwarded-content-token X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ForwardedContentToken,
+  NUMERATION             single-valued,
+  ID                     id-hat-forwarded-content-token
+}
+
+forwarding-token X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageToken,
+  NUMERATION             single-valued,
+  ID                     id-hat-forwarding-token
+}
+
+-- BODY ATTRIBUTES
+-- Body
+body X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  Body,
+  NUMERATION             single-valued,
+  ID                     id-bat-body
+}
+
+-- Extended body part types
+extended-body-part-types X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   OBJECT IDENTIFIER,
+  EQUALITY MATCHING-RULE  objectIdentifierMatch,
+  NUMERATION              multi-valued,
+  ID                      id-bat-extended-body-part-types
+}
+
+-- Extended body parts
+-- (These attributes cannot be enumerated. See 19.6.3.3.)
+-- (They may be derived using the following parameterized object assignments:)
+extended-body-part-data-attribute{EXTENDED-BODY-PART-TYPE:ebpt} X413ATTRIBUTE
+  ::= {
+  WITH ATTRIBUTE-SYNTAX  [0] EXPLICIT ebpt.&data.&Type,
+  NUMERATION             multi-valued,
+  ID                     ebpt.&data.&id
+}
+
+extended-body-part-parameters-attribute{EXTENDED-BODY-PART-TYPE:ebpt}
+  X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  [0] EXPLICIT ebpt.&parameters.&Type,
+  NUMERATION             multi-valued,
+  ID                     ebpt.&parameters.&id
+}
+
+-- Basic body parts
+ia5-text-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IA5TextBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-ia5-text-body-parts
+}
+
+g3-facsimile-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  G3FacsimileBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-g3-facsimile-body-parts
+}
+
+g4-class1-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  G4Class1BodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-g4-class1-body-parts
+}
+
+teletex-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  TeletexBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-teletex-body-parts
+}
+
+videotex-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  VideotexBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-videotex-body-parts
+}
+
+encrypted-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  EncryptedBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-encrypted-body-parts
+}
+
+message-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  SequenceNumber,
+  NUMERATION             multi-valued,
+  ID                     id-bat-message-body-parts
+}
+
+mixed-mode-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MixedModeBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-mixed-mode-body-parts
+}
+
+bilaterally-defined-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  BilaterallyDefinedBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-bilaterally-defined-body-parts
+}
+
+nationally-defined-body-parts X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  NationallyDefinedBodyPart,
+  NUMERATION             multi-valued,
+  ID                     id-bat-nationally-defined-body-parts
+}
+
+-- Basic body part parameters components
+ia5-text-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IA5TextParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-ia5-text-parameters
+}
+
+g3-facsimile-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  G3FacsimileParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-g3-facsimile-parameters
+}
+
+teletex-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  TeletexParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-teletex-parameters
+}
+
+videotex-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  VideotexParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-videotex-parameters
+}
+
+encrypted-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  EncryptedParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-encrypted-parameters
+}
+
+message-parameters X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageParameters,
+  NUMERATION             multi-valued,
+  ID                     id-bat-message-parameters
+}
+
+-- Basic body part data components
+ia5-text-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IA5TextData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-ia5-text-data
+}
+
+g3-facsimile-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  G3FacsimileData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-g3-facsimile-data
+}
+
+teletex-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  TeletexData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-teletex-data
+}
+
+videotex-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  VideotexData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-videotex-data
+}
+
+encrypted-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  EncryptedData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-encrypted-data
+}
+
+message-data X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  MessageData,
+  NUMERATION             multi-valued,
+  ID                     id-bat-message-data
+}
+
+-- NOTIFICATION ATTRIBUTES
+-- Common fields
+subject-ipm X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SubjectIPMField,
+  EQUALITY MATCHING-RULE  iPMIdentifierMatch,
+  NUMERATION              single-valued,
+  ID                      id-nat-subject-ipm
+}
+
+ipn-originator X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   IPNOriginatorField,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-nat-ipn-originator
+}
+
+ipm-intended-recipient X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   IPMIntendedRecipientField,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              single-valued,
+  ID                      id-nat-ipm-intended-recipient
+}
+
+conversion-eits X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX MS-EIT,
+  EQUALITY MATCHING-RULE        objectIdentifierMatch,
+  NUMERATION                    multi-valued,
+  ID                            id-nat-conversion-eits
+}
+
+notification-extensions X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSExtension {{NotificationExtensions}},
+  NUMERATION             multi-valued,
+  ID                     id-nat-notification-extensions
+}
+
+-- Non-receipt fields
+non-receipt-reason X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   NonReceiptReasonField,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-nat-non-receipt-reason
+}
+
+discard-reason X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DiscardReasonField,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-nat-discard-reason
+}
+
+auto-forward-comment X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     AutoForwardCommentField,
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE  mSSubstringsMatch,
+  NUMERATION                single-valued,
+  ID                        id-nat-auto-forward-comment
+}
+
+returned-ipm X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  ReturnedIPMField,
+  NUMERATION             single-valued,
+  ID                     id-nat-returned-ipm
+}
+
+nrn-extensions X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSExtension {{NRNExtensions}},
+  NUMERATION             multi-valued,
+  ID                     id-nat-nrn-extensions
+}
+
+-- Receipt fields
+receipt-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReceiptTimeField,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-nat-receipt-time
+}
+
+acknowledgment-mode X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   AcknowledgmentModeField,
+  EQUALITY MATCHING-RULE  integerMatch,
+  NUMERATION              single-valued,
+  ID                      id-nat-acknowledgment-mode
+}
+
+suppl-receipt-info X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX     SupplReceiptInfoField,
+  EQUALITY MATCHING-RULE    mSStringMatch,
+  SUBSTRINGS MATCHING-RULE  mSSubstringsMatch,
+  NUMERATION                single-valued,
+  ID                        id-nat-suppl-receipt-info
+}
+
+rn-extensions X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSExtension {{RNExtensions}},
+  NUMERATION             multi-valued,
+  ID                     id-nat-rn-extensions
+}
+
+-- Other notification type fields
+other-notification-type-fields X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMSExtension {{OtherNotifications}},
+  NUMERATION             multi-valued,
+  ID                     id-nat-other-notification-type-fields
+}
+
+-- CORRELATION ATTRIBUTES
+-- Common attributes
+ac-forwarding-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-forwarding-ipms
+}
+
+ac-forwarded-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-forwarded-ipms
+}
+
+ac-obsoleting-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-obsoleting-ipms
+}
+
+ac-obsoleted-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMLocation,
+  OTHER MATCHING-RULES   {iPMLocationMatch, ...},
+  NUMERATION             multi-valued,
+  ID                     id-cat-obsoleted-ipms
+}
+
+IPMLocation ::= CHOICE {stored  SET OF SequenceNumber,
+                        absent  NULL,
+                        ...
+}
+
+ac-relating-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-relating-ipms
+}
+
+ac-related-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  IPMLocation,
+  OTHER MATCHING-RULES   {iPMLocationMatch, ...},
+  NUMERATION             multi-valued,
+  ID                     id-cat-related-ipms
+}
+
+ac-replied-to-ipm X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-replied-to-ipm
+}
+
+ac-replying-ipms X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-replying-ipms
+}
+
+ac-subject-ipm X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-subject-ipm
+}
+
+-- Submitted message correlation
+ac-ipm-recipients X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ORDescriptor,
+  EQUALITY MATCHING-RULE  oRDescriptorMatch,
+  OTHER MATCHING-RULES
+    {oRDescriptorElementsMatch | oRDescriptorSingleElementMatch |
+      oRDescriptorSubstringElementsMatch, ...},
+  NUMERATION              multi-valued,
+  ID                      id-cat-ipm-recipients
+}
+
+ac-delivered-replies-summary X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeliveredReplyStatus,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-delivered-replies-summary
+}
+
+DeliveredReplyStatus ::= INTEGER {
+  no-reply-requested(0) -- reply not requested --,
+  reply-outstanding(1) -- reply requested --, reply-received(2)}
+
+ac-correlated-delivered-replies X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  CorrelatedDeliveredReplies,
+  NUMERATION             multi-valued,
+  ID                     id-cat-correlated-delivered-replies
+}
+
+CorrelatedDeliveredReplies ::= CHOICE {
+  no-reply-received  [0]  NULL,
+  received-replies   [1]  SEQUENCE OF SequenceNumber
+}
+
+ac-delivered-ipn-summary X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   DeliveredIPNStatus,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-delivered-ipn-summary
+}
+
+DeliveredIPNStatus ::= INTEGER {
+  no-ipn-requested(0), an-requested(3), nrn-requested(5), rn-requested(10),
+  an-received(13), ipm-auto-forwarded(15), ipm-discarded(20), rn-received(25)
+}
+
+ac-correlated-delivered-ipns X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX  CorrelatedDeliveredIPNs,
+  NUMERATION             multi-valued,
+  ID                     id-cat-correlated-delivered-ipns
+}
+
+CorrelatedDeliveredIPNs ::= CHOICE {
+  no-ipn-received  [0]  NULL,
+  ipns-received    [1]  SEQUENCE OF SequenceNumber
+}
+
+-- Delivered message correlation
+ac-submitted-reply-status X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SubmittedReplyStatus,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-cat-submitted-reply-status
+}
+
+SubmittedReplyStatus ::= INTEGER {
+  no-reply-requested(0), no-reply-intended(1), reply-pending(2), reply-sent(3)
+}
+
+ac-submitted-ipn-status X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SubmittedIPNStatus,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-cat-submitted-ipn-status
+}
+
+SubmittedIPNStatus ::= INTEGER {
+  no-ipn-requested(0), nrn-requested(5), nrn-with-ipm-return-requested(10),
+  rn-requested(15), rn-with-ipm-return-requested(20), ipm-auto-forwarded(25),
+  ipm-discarded(30), rn-sent(35)}
+
+ac-submitted-ipns X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   SequenceNumber,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              multi-valued,
+  ID                      id-cat-submitted-ipns
+}
+
+recipient-category X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   RecipientCategory,
+  EQUALITY MATCHING-RULE  integerMatch,
+  ORDERING MATCHING-RULE  integerOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-cat-recipient-category
+}
+
+RecipientCategory ::= INTEGER {
+  primary-recipient(0), copy-recipient(1), blind-copy-recipient(2),
+  category-unknown(3), circulation-list(4)}
+
+revised-reply-time X413ATTRIBUTE ::= {
+  WITH ATTRIBUTE-SYNTAX   ReplyTimeField,
+  EQUALITY MATCHING-RULE  uTCTimeMatch,
+  ORDERING MATCHING-RULE  uTCTimeOrderingMatch,
+  NUMERATION              single-valued,
+  ID                      id-cat-revised-reply-time
+}
+
+-- MATCHING-RULES
+IPMMatchingRuleTable MATCHING-RULE ::=
+  {iPMIdentifierMatch | oRDescriptorMatch | recipientSpecifierMatch,
+   ... -- 1994 extension additions --, circulationMemberCheckmarkMatch |
+   circulationMemberElementsMatch | circulationMemberMatch |
+   circulationMemberSingleElementMatch |
+   circulationMemberSubstringElementsMatch | distributionCodeMatch |
+   informationCategoryMatch | iPMLocationMatch | oRDescriptorElementsMatch |
+   oRDescriptorSingleElementMatch | oRDescriptorSubstringElementsMatch |
+   recipientSpecifierElementsMatch | recipientSpecifierSingleElementMatch |
+   recipientSpecifierSubstringElementsMatch}
+
+iPMIdentifierMatch MATCHING-RULE ::= {
+  SYNTAX  IPMIdentifier
+  ID      id-mr-ipm-identifier
+}
+
+iPMLocationMatch MATCHING-RULE ::= {
+  SYNTAX  SequenceNumber
+  ID      id-mr-ipm-location
+}
+
+oRDescriptorMatch MATCHING-RULE ::= {
+  SYNTAX  ORDescriptor
+  ID      id-mr-or-descriptor
+}
+
+oRDescriptorElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORDescriptor
+  ID      id-mr-or-descriptor-elements
+}
+
+oRDescriptorSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  ORDescriptor
+  ID      id-mr-or-descriptor-substring-elements
+}
+
+oRDescriptorSingleElementMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-or-descriptor-single-element
+}
+
+recipientSpecifierMatch MATCHING-RULE ::= {
+  SYNTAX  RecipientSpecifier
+  ID      id-mr-recipient-specifier
+}
+
+recipientSpecifierElementsMatch MATCHING-RULE ::= {
+  SYNTAX  RecipientSpecifier
+  ID      id-mr-recipient-specifier-elements
+}
+
+recipientSpecifierSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  RecipientSpecifier
+  ID      id-mr-recipient-specifier-substring-elements
+}
+
+recipientSpecifierSingleElementMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-recipient-specifier-single-element
+}
+
+circulationMemberMatch MATCHING-RULE ::= {
+  SYNTAX  CirculationMember
+  ID      id-mr-circulation-member
+}
+
+circulationMemberElementsMatch MATCHING-RULE ::= {
+  SYNTAX  CirculationMember
+  ID      id-mr-circulation-member-elements
+}
+
+circulationMemberSubstringElementsMatch MATCHING-RULE ::= {
+  SYNTAX  CirculationMember
+  ID      id-mr-circulation-member-substring-elements
+}
+
+circulationMemberSingleElementMatch MATCHING-RULE ::= {
+  SYNTAX  MSString {ub-msstring-match}
+  ID      id-mr-circulation-member-single-element
+}
+
+circulationMemberCheckmarkMatch MATCHING-RULE ::= {
+  SYNTAX  CirculationMember
+  ID      id-mr-circulation-member-checkmark
+}
+
+distributionCodeMatch MATCHING-RULE ::= {
+  SYNTAX  DistributionCode
+  ID      id-mr-distribution-code
+}
+
+informationCategoryMatch MATCHING-RULE ::= {
+  SYNTAX  InformationCategory
+  ID      id-mr-information-category
+}
+
+END -- of IPMSMessageStoreAttributes
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

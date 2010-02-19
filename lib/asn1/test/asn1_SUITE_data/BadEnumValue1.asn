@@ -1,0 +1,8 @@
+BadEnumValue1 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+E3 ::= ENUMERATED {monday,thuesday(0)}
+enumWrongVal E3 ::= sunday
+
+END

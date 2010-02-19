@@ -1,0 +1,24 @@
+ChoiceIndef DEFINITIONS IMPLICIT TAGS ::=
+
+BEGIN
+
+I ::= INTEGER
+
+Cho ::= CHOICE {
+  ca [0] I,
+  cb [1] INTEGER
+}
+
+Seq ::= SEQUENCE {
+  sa [0] Cho,
+  sb [1] INTEGER
+}
+
+-- detta varde funkar ej. fixat i OTP-4358
+-- Val4 = {'Seq',{ca,11},12}
+-- val4 = <<48,128,160,128,128,1,11,0,0,129,1,12,0,0>>
+
+
+END
+
+

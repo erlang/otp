@@ -1,0 +1,507 @@
+MAP-Errors {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-Errors (10) version9 (9)}
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+	-- generic errors
+	systemFailure,
+	dataMissing,
+	unexpectedDataValue,
+	facilityNotSupported,
+	incompatibleTerminal,
+	resourceLimitation,
+
+	-- identification and numbering errors
+	unknownSubscriber,
+	numberChanged,
+	unknownMSC,
+	unidentifiedSubscriber,
+	unknownEquipment,
+
+	-- subscription errors
+	roamingNotAllowed,
+	illegalSubscriber,
+	illegalEquipment,
+	bearerServiceNotProvisioned,
+	teleserviceNotProvisioned,
+
+	-- handover errors
+	noHandoverNumberAvailable,
+	subsequentHandoverFailure, 
+	targetCellOutsideGroupCallArea,
+
+	-- operation and maintenance errors
+	tracingBufferFull,
+
+	-- call handling errors
+	or-NotAllowed,
+	noRoamingNumberAvailable,
+	busySubscriber,
+	noSubscriberReply,
+	absentSubscriber,
+	callBarred,
+	forwardingViolation,
+	forwardingFailed,
+	cug-Reject,
+
+	-- any time interrogation errors
+	ati-NotAllowed,
+
+	-- any time information handling errors
+	atsi-NotAllowed,
+	atm-NotAllowed,
+	informationNotAvailable,
+
+	-- supplementary service errors
+	illegalSS-Operation,
+	ss-ErrorStatus,
+	ss-NotAvailable,
+	ss-SubscriptionViolation,
+	ss-Incompatibility,
+	unknownAlphabet,
+	ussd-Busy,
+	pw-RegistrationFailure,
+	negativePW-Check,
+	numberOfPW-AttemptsViolation,
+	shortTermDenial,
+	longTermDenial,
+
+	-- short message service errors
+	subscriberBusyForMT-SMS,
+	sm-DeliveryFailure,
+	messageWaitingListFull,
+	absentSubscriberSM,
+
+	-- Group Call errors
+	noGroupCallNumberAvailable,
+
+	-- location service errors
+	unauthorizedRequestingNetwork,
+	unauthorizedLCSClient,
+	positionMethodFailure,
+	unknownOrUnreachableLCSClient,
+
+	-- Mobility Management errors
+	mm-EventNotSupported,
+
+	-- Secure transport errors
+	secureTransportError
+
+;
+
+IMPORTS
+	ERROR
+FROM Remote-Operations-Information-Objects {joint-iso-itu-t remote-operations(4)
+  informationObjects(5) version1(0) }
+
+	SS-Status
+FROM MAP-SS-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-SS-DataTypes (14) version9 (9)}
+
+	SS-IncompatibilityCause,
+	PW-RegistrationFailureCause,
+	SM-DeliveryFailureCause,
+	SystemFailureParam,
+	DataMissingParam,
+	UnexpectedDataParam,
+	FacilityNotSupParam,
+	UnknownSubscriberParam,
+	NumberChangedParam,
+	UnidentifiedSubParam,
+	RoamingNotAllowedParam,
+	IllegalSubscriberParam,
+	IllegalEquipmentParam,
+	BearerServNotProvParam,
+	TeleservNotProvParam,
+	TracingBufferFullParam,
+	NoRoamingNbParam,
+	OR-NotAllowedParam,
+	AbsentSubscriberParam,
+	BusySubscriberParam,
+	NoSubscriberReplyParam,
+	CallBarredParam,
+	ForwardingViolationParam,
+	ForwardingFailedParam,
+	CUG-RejectParam, 
+	ATI-NotAllowedParam,
+	SubBusyForMT-SMS-Param,
+	MessageWaitListFullParam,
+	AbsentSubscriberSM-Param,
+	ResourceLimitationParam,
+	NoGroupCallNbParam,
+	IncompatibleTerminalParam,
+	ShortTermDenialParam,
+	LongTermDenialParam,
+	UnauthorizedRequestingNetwork-Param,
+	UnauthorizedLCSClient-Param,
+	PositionMethodFailure-Param,
+	UnknownOrUnreachableLCSClient-Param,
+	MM-EventNotSupported-Param,
+	ATSI-NotAllowedParam,
+	ATM-NotAllowedParam,
+	IllegalSS-OperationParam,
+	SS-NotAvailableParam,
+	SS-SubscriptionViolationParam,
+	InformationNotAvailableParam,
+	TargetCellOutsideGCA-Param,
+	SecureTransportErrorParam
+FROM MAP-ER-DataTypes {
+   itu-t identified-organization (4) etsi (0) mobileDomain (0)
+   gsm-Network (1) modules (3) map-ER-DataTypes (17) version9 (9)}
+;
+
+-- generic errors
+
+systemFailure  ERROR ::= {
+	PARAMETER
+		SystemFailureParam
+		-- optional
+	CODE	local:34 }
+
+dataMissing  ERROR ::= {
+	PARAMETER
+		DataMissingParam
+		-- optional
+		-- DataMissingParam must not be used in version <3
+	CODE	local:35 }
+
+unexpectedDataValue  ERROR ::= {
+	PARAMETER
+		UnexpectedDataParam
+		-- optional
+		-- UnexpectedDataParam must not be used in version <3
+	CODE	local:36 }
+
+facilityNotSupported  ERROR ::= {
+	PARAMETER
+		FacilityNotSupParam
+		-- optional
+		-- FacilityNotSupParam must not be used in version <3
+	CODE	local:21 }
+
+incompatibleTerminal  ERROR ::= {
+	PARAMETER
+		IncompatibleTerminalParam
+		-- optional
+	CODE	local:28 }
+
+resourceLimitation  ERROR ::= {
+	PARAMETER
+		ResourceLimitationParam
+		-- optional
+	CODE	local:51 }
+
+-- identification and numbering errors
+
+unknownSubscriber  ERROR ::= {
+	PARAMETER
+		UnknownSubscriberParam
+		-- optional
+		-- UnknownSubscriberParam must not be used in version <3
+	CODE	local:1 }
+
+numberChanged  ERROR ::= {
+	PARAMETER
+		NumberChangedParam
+		-- optional
+	CODE	local:44 }
+
+unknownMSC  ERROR ::= {
+	CODE	local:3 }
+
+unidentifiedSubscriber  ERROR ::= {
+	PARAMETER
+		UnidentifiedSubParam
+		-- optional
+		-- UunidentifiedSubParam must not be used in version <3
+	CODE	local:5 }
+
+unknownEquipment  ERROR ::= {
+	CODE	local:7 }
+
+-- subscription errors
+
+roamingNotAllowed  ERROR ::= {
+	PARAMETER
+		RoamingNotAllowedParam
+	CODE	local:8 }
+
+illegalSubscriber  ERROR ::= {
+	PARAMETER
+		IllegalSubscriberParam
+		-- optional
+		-- IllegalSubscriberParam must not be used in version <3
+	CODE	local:9 }
+
+illegalEquipment  ERROR ::= {
+	PARAMETER
+		IllegalEquipmentParam
+		-- optional
+		-- IllegalEquipmentParam must not be used in version <3
+	CODE	local:12 }
+
+bearerServiceNotProvisioned  ERROR ::= {
+	PARAMETER
+		BearerServNotProvParam
+		-- optional
+		-- BearerServNotProvParam must not be used in version <3
+	CODE	local:10 }
+
+teleserviceNotProvisioned  ERROR ::= {
+	PARAMETER
+		TeleservNotProvParam
+		-- optional
+		-- TeleservNotProvParam must not be used in version <3
+	CODE	local:11 }
+
+-- handover errors
+
+noHandoverNumberAvailable  ERROR ::= {
+	CODE	local:25 }
+
+subsequentHandoverFailure  ERROR ::= {
+	CODE	local:26 }
+
+targetCellOutsideGroupCallArea  ERROR ::= {
+	PARAMETER
+		TargetCellOutsideGCA-Param
+		-- optional
+	CODE	local:42 }
+
+-- operation and maintenance errors
+
+tracingBufferFull  ERROR ::= {
+	PARAMETER
+		TracingBufferFullParam
+		-- optional
+	CODE	local: 40 }
+
+-- call handling errors
+
+noRoamingNumberAvailable  ERROR ::= {
+	PARAMETER
+		NoRoamingNbParam
+		-- optional
+	CODE	local:39 }
+
+absentSubscriber  ERROR ::= {
+	PARAMETER
+		AbsentSubscriberParam
+		-- optional
+		-- AbsentSubscriberParam must not be used in version <3
+	CODE	local:27 }
+
+busySubscriber  ERROR ::= {
+	PARAMETER
+		BusySubscriberParam
+		-- optional
+	CODE	local:45 }
+
+noSubscriberReply  ERROR ::= {
+	PARAMETER
+		NoSubscriberReplyParam
+		-- optional
+	CODE	local:46 }
+
+callBarred  ERROR ::= {
+	PARAMETER
+		CallBarredParam
+		-- optional
+	CODE	local:13 }
+
+forwardingViolation  ERROR ::= {
+	PARAMETER
+		ForwardingViolationParam
+		-- optional
+	CODE	local:14 }
+
+forwardingFailed  ERROR ::= {
+	PARAMETER
+		ForwardingFailedParam
+		-- optional
+	CODE	local:47 }
+
+cug-Reject  ERROR ::= {
+	PARAMETER
+		CUG-RejectParam
+		-- optional
+	CODE	local:15 }
+
+or-NotAllowed  ERROR ::= {
+	PARAMETER
+		OR-NotAllowedParam
+		-- optional
+	CODE	local:48 }
+
+-- any time interrogation errors
+ati-NotAllowed  ERROR ::= {
+	PARAMETER
+		ATI-NotAllowedParam
+		-- optional
+	CODE	local:49 }
+
+-- any time information handling errors
+atsi-NotAllowed  ERROR ::= {
+	PARAMETER
+		ATSI-NotAllowedParam
+		-- optional
+	CODE	local:60 }
+
+atm-NotAllowed  ERROR ::= {
+	PARAMETER
+		ATM-NotAllowedParam
+		-- optional
+	CODE	local:61 }
+
+informationNotAvailable  ERROR ::= {
+	PARAMETER
+		InformationNotAvailableParam
+		-- optional
+	CODE	local:62 }
+
+-- supplementary service errors
+
+illegalSS-Operation  ERROR ::= {
+	PARAMETER
+		IllegalSS-OperationParam
+		-- optional
+		-- IllegalSS-OperationParam must not be used in version <3
+	CODE	local:16 }
+
+ss-ErrorStatus  ERROR ::= {
+	PARAMETER
+		SS-Status
+		-- optional
+	CODE	local:17 }
+
+ss-NotAvailable  ERROR ::= {
+	PARAMETER
+		SS-NotAvailableParam
+		-- optional
+		-- SS-NotAvailableParam must not be used in version <3
+	CODE	local:18 }
+
+ss-SubscriptionViolation  ERROR ::= {
+	PARAMETER
+		SS-SubscriptionViolationParam
+		-- optional
+		-- SS-SubscriptionViolationParam must not be used in version <3
+	CODE	local:19 }
+
+ss-Incompatibility  ERROR ::= {
+	PARAMETER
+		SS-IncompatibilityCause
+		-- optional
+	CODE	local:20 }
+
+unknownAlphabet  ERROR ::= {
+	CODE	local:71 }
+
+ussd-Busy  ERROR ::= {
+	CODE	local:72 }
+
+pw-RegistrationFailure  ERROR ::= {
+	PARAMETER
+		PW-RegistrationFailureCause
+	CODE	local:37 }
+
+negativePW-Check  ERROR ::= {
+	CODE	local:38 }
+
+numberOfPW-AttemptsViolation  ERROR ::= {
+	CODE	local:43 }
+
+shortTermDenial  ERROR ::= {
+	PARAMETER
+		ShortTermDenialParam
+		-- optional
+	CODE	local:29 }
+
+longTermDenial  ERROR ::= {
+	PARAMETER
+		LongTermDenialParam
+		-- optional
+	CODE	local:30 }
+
+-- short message service errors
+
+subscriberBusyForMT-SMS  ERROR ::= {
+	PARAMETER
+		SubBusyForMT-SMS-Param
+		-- optional
+	CODE	local:31 }
+
+sm-DeliveryFailure  ERROR ::= {
+	PARAMETER
+		SM-DeliveryFailureCause
+	CODE	local:32 }
+
+messageWaitingListFull  ERROR ::= {
+	PARAMETER
+		MessageWaitListFullParam
+		-- optional
+	CODE	local:33 }
+
+absentSubscriberSM  ERROR ::= {
+	PARAMETER
+		AbsentSubscriberSM-Param
+		-- optional
+	CODE	local:6 }
+
+-- Group Call errors
+
+noGroupCallNumberAvailable  ERROR ::= {
+	PARAMETER
+		NoGroupCallNbParam
+		-- optional
+	CODE	local:50 }
+
+-- location service errors
+
+unauthorizedRequestingNetwork  ERROR ::= {
+	PARAMETER
+		UnauthorizedRequestingNetwork-Param
+		-- optional
+	CODE	local:52 }
+
+unauthorizedLCSClient  ERROR ::= {
+	PARAMETER
+		UnauthorizedLCSClient-Param
+		-- optional
+	CODE	local:53 }
+
+positionMethodFailure  ERROR ::= {
+	PARAMETER
+		PositionMethodFailure-Param
+		-- optional
+	CODE	local:54 }
+
+unknownOrUnreachableLCSClient  ERROR ::= {
+	PARAMETER
+		UnknownOrUnreachableLCSClient-Param
+		-- optional
+	CODE	local:58 }
+
+mm-EventNotSupported  ERROR ::= {
+	PARAMETER
+		MM-EventNotSupported-Param
+		-- optional
+	CODE	local:59 }
+
+	-- Secure transport errors
+
+secureTransportError  ERROR ::= {
+	PARAMETER
+		SecureTransportErrorParam
+	CODE	local:4 }
+
+
+END

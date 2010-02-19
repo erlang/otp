@@ -1,0 +1,125 @@
+-- Module Character-Presentation-Attributes (T.416:03/1993)
+
+Character-Presentation-Attributes {2 8 1 6 2} DEFINITIONS ::=
+BEGIN
+
+EXPORTS
+  Character-Attributes, One-Of-Four-Angles, One-Of-Two-Angles, Measure-Pair,
+    Alignment, Layout-Table, Graphic-Rendition, Formatting-Indicator,
+    Character-Fonts, Itemization, Kerning-Offset, Proportional-Line-Spacing,
+    Pairwise-Kerning;
+
+Character-Attributes ::= SET {
+  character-path              [0] IMPLICIT One-Of-Four-Angles OPTIONAL,
+  line-progression            [1] IMPLICIT One-Of-Two-Angles OPTIONAL,
+  character-orientation       [2] IMPLICIT One-Of-Four-Angles OPTIONAL,
+  initial-offset              [3] IMPLICIT Measure-Pair OPTIONAL,
+  character-spacing           [6] IMPLICIT INTEGER OPTIONAL,
+  line-spacing                [7] IMPLICIT INTEGER OPTIONAL,
+  alignment                   [8] IMPLICIT Alignment OPTIONAL,
+  line-layout-table           [9] IMPLICIT Layout-Table OPTIONAL,
+  graphic-rendition           [10] IMPLICIT Graphic-Rendition OPTIONAL,
+  formatting-indicator        [11] IMPLICIT Formatting-Indicator OPTIONAL,
+  character-fonts             [12] IMPLICIT Character-Fonts OPTIONAL,
+  graphic-char-subrepertoire  [13] IMPLICIT INTEGER OPTIONAL,
+  itemization                 [14] IMPLICIT Itemization OPTIONAL,
+  widow-size                  [15] IMPLICIT INTEGER OPTIONAL,
+  orphan-size                 [16] IMPLICIT INTEGER OPTIONAL,
+  graphic-character-sets      [17] IMPLICIT OCTET STRING OPTIONAL,
+  indentation                 [19] IMPLICIT INTEGER OPTIONAL,
+  kerning-offset              [20] IMPLICIT Kerning-Offset OPTIONAL,
+  proportional-line-spacing   [21] IMPLICIT Proportional-Line-Spacing OPTIONAL,
+  pairwise-kerning            [22] IMPLICIT Pairwise-Kerning OPTIONAL,
+  first-line-offset           [23] IMPLICIT INTEGER OPTIONAL,
+  code-extension-announcers   [24] IMPLICIT OCTET STRING OPTIONAL
+}
+
+One-Of-Four-Angles ::= INTEGER {d0(0), d90(1), d180(2), d270(3)}
+
+One-Of-Two-Angles ::= INTEGER {d90(1), d270(3)}
+
+Measure-Pair ::= SEQUENCE {
+  horizontal  [0] IMPLICIT INTEGER,
+  vertical    [1] IMPLICIT INTEGER
+}
+
+Alignment ::= INTEGER {
+  start-aligned(0), end-aligned(1), centred(2), justified(3)}
+
+Layout-Table ::= SET OF Tabulation-Stop
+
+Tabulation-Stop ::= SET {
+  tabulation-reference        [0] IMPLICIT NumericString,
+  tabulation-position         [1] IMPLICIT INTEGER,
+  alignment
+    [2] IMPLICIT INTEGER {start-aligned(0), end-aligned(1), centred(2),
+                          aligned-around(3)},
+  alignment-character-string  [3] IMPLICIT OCTET STRING OPTIONAL
+}
+
+--	string of graphic characters
+--	from the set of graphic elements
+--	specified by the presentation
+--	attributes "graphic character
+--	sets" and "graphic character
+--	subrepertoire"
+Graphic-Rendition ::= SET OF Graphic-Rendition-Aspect
+
+Character-Fonts ::= SET {
+  primary-font              [0] IMPLICIT Font-Type OPTIONAL,
+  first-alternative-font    [1] IMPLICIT Font-Type OPTIONAL,
+  second-alternative-font   [2] IMPLICIT Font-Type OPTIONAL,
+  third-alternative-font    [3] IMPLICIT Font-Type OPTIONAL,
+  fourth-alternative-font   [4] IMPLICIT Font-Type OPTIONAL,
+  fifth-alternative-font    [5] IMPLICIT Font-Type OPTIONAL,
+  sixth-alternative-font    [6] IMPLICIT Font-Type OPTIONAL,
+  seventh-alternative-font  [7] IMPLICIT Font-Type OPTIONAL,
+  eighth-alternative-font   [8] IMPLICIT Font-Type OPTIONAL,
+  ninth-alternative-font    [9] IMPLICIT Font-Type OPTIONAL
+}
+
+Font-Type ::= SET {
+  font-size        [0] IMPLICIT INTEGER,
+  font-identifier  [1] IMPLICIT INTEGER
+}
+
+Graphic-Rendition-Aspect ::= INTEGER {
+  cancel(0), increased-intensity(1), decreased-intensity(2), italicized(3),
+  underlined(4), slowly-blinking(5), rapidly-blinking(6), negative-image(7),
+  crossed-out(9), primary-font(10), first-alternative-font(11),
+  second-alternative-font(12), third-alternative-font(13),
+  fourth-alternative-font(14), fifth-alternative-font(15),
+  sixth-alternative-font(16), seventh-alternative-font(17),
+  eighth-alternative-font(18), ninth-alternative-font(19),
+  doubly-underlined(21), normal-intensity(22), not-italicized(23),
+  not-underlined(24), steady(25), variable-spacing(26), positive-image(27),
+  not-crossed-out(29), black-foreground(30), red-foreground(31),
+  green-foreground(32), yellow-foreground(33), blue-foreground(34),
+  magenta-foreground(35), cyan-foreground(36), white-foreground(37),
+  select-char-foreground-colour(38), black-background(40), red-background(41),
+  green-background(42), yellow-background(43), blue-background(44),
+  magenta-background(45), cyan-background(46), white-background(47),
+  select-char-background-colour(48), not-variable-spacing(50)}
+
+Formatting-Indicator ::= INTEGER {no(0), yes(1)}
+
+Itemization ::= SET {
+  identifier-alignment
+    [0] IMPLICIT INTEGER {no-itemization(0), start-aligned(1), end-aligned(2)},
+  identifier-start-offset  [1] IMPLICIT INTEGER OPTIONAL,
+  identifier-end-offset    [2] IMPLICIT INTEGER OPTIONAL
+}
+
+Kerning-Offset ::= SET {
+  start-offset  [0] IMPLICIT INTEGER,
+  end-offset    [1] IMPLICIT INTEGER
+}
+
+Proportional-Line-Spacing ::= INTEGER {no(0), yes(1)}
+
+Pairwise-Kerning ::= INTEGER {no(0), yes(1)}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

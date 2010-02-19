@@ -1,0 +1,27 @@
+SetTypeRefCho DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+SetTRcho ::=  SET 
+{
+  setCho SetCho,
+  setChoE [135] EXPLICIT SetCho,
+
+  setCho-E SetChoExp,
+  setChoE-E [335] EXPLICIT SetChoExp
+
+}
+
+SetCho ::= CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+SetChoExp ::= [65] EXPLICIT CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+
+END

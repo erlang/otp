@@ -1,0 +1,18 @@
+Mod1 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+    Co,Reg
+    FROM Mod5
+    Name
+    FROM Mod4;
+
+
+L ::= SEQUENCE {
+  country  Co,
+  region  Reg,
+  name  Name
+}
+
+END

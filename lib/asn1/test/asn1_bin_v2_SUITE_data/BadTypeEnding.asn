@@ -1,0 +1,6 @@
+BadTypeEnding  DEFINITIONS ::=
+BEGIN
+
+T ::= Typ;
+
+END

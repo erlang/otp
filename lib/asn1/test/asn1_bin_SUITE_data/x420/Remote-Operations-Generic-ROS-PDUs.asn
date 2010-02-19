@@ -1,0 +1,163 @@
+-- Module Remote-Operations-Generic-ROS-PDUs (X.880:07/1994)
+
+Remote-Operations-Generic-ROS-PDUs {joint-iso-itu-t remote-operations(4)
+  generic-ROS-PDUs(6) version1(0)} DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- exports everything
+IMPORTS
+  OPERATION, ERROR
+    FROM Remote-Operations-Information-Objects {joint-iso-itu-t
+      remote-operations(4) informationObjects(5) version1(0)};
+
+ROS{InvokeId:InvokeIdSet, OPERATION:Invokable, OPERATION:Returnable} ::=
+  CHOICE {
+  invoke        [1]  Invoke{{InvokeIdSet}, {Invokable}},
+  returnResult  [2]  ReturnResult{{Returnable}},
+  returnError   [3]  ReturnError{{Errors  {{Returnable}}}},
+  reject        [4]  Reject
+}
+(CONSTRAINED BY { -- must conform to the above definition --} !
+ RejectProblem:general-unrecognizedPDU)
+
+Invoke{InvokeId:InvokeIdSet, OPERATION:Operations} ::= SEQUENCE {
+  invokeId
+    InvokeId(InvokeIdSet)
+      (CONSTRAINED BY { -- must be unambiguous --} !
+       RejectProblem:invoke-duplicateInvocation),
+  linkedId
+    CHOICE {present  [0] IMPLICIT present < InvokeId,
+            absent   [1] IMPLICIT NULL
+  }
+  (CONSTRAINED BY { -- must identify an outstanding operation --} !
+   RejectProblem:invoke-unrecognizedLinkedId)
+  (CONSTRAINED BY { -- which has one or more linked operations--} !
+   RejectProblem:invoke-linkedResponseUnexpected) OPTIONAL,
+  opcode
+    OPERATION.&operationCode
+      ({Operations} !RejectProblem:invoke-unrecognizedOperation),
+  argument
+    OPERATION.&ArgumentType
+      ({Operations}{@opcode} !RejectProblem:invoke-mistypedArgument) OPTIONAL
+}
+(CONSTRAINED BY { -- must conform to the above definition --} !
+ RejectProblem:general-mistypedPDU)
+(WITH COMPONENTS {
+   ...,
+   linkedId  ABSENT
+ } |
+ WITH COMPONENTS {
+   ...,
+   linkedId  PRESENT,
+   opcode    (CONSTRAINED BY { -- must be in the &Linked field of the associated operation --
+                } !RejectProblem:invoke-unexpectedLinkedOperation)
+ })
+
+-- continued on the next page
+ReturnResult{OPERATION:Operations} ::= SEQUENCE {
+  invokeId
+    InvokeId
+      (CONSTRAINED BY { -- must be that for an outstanding operation --} !
+       RejectProblem:returnResult-unrecognizedInvocation)
+      (CONSTRAINED BY { -- which returns a result --} !
+       RejectProblem:returnResult-resultResponseUnexpected),
+  result
+    SEQUENCE {opcode
+                OPERATION.&operationCode({Operations})
+                  (CONSTRAINED BY { -- identified by invokeId --} !
+                   RejectProblem:returnResult-unrecognizedInvocation),
+              result
+                OPERATION.&ResultType
+                  ({Operations}{@.opcode} !
+                   RejectProblem:returnResult-mistypedResult)} OPTIONAL
+}
+(CONSTRAINED BY { -- must conform to the above definition --} !
+ RejectProblem:general-mistypedPDU)
+
+ReturnError{ERROR:Errors} ::= SEQUENCE {
+  invokeId
+    InvokeId
+      (CONSTRAINED BY { -- must be that for an outstanding operation --} !
+       RejectProblem:returnError-unrecognizedInvocation)
+      (CONSTRAINED BY { -- which returns an error --} !
+       RejectProblem:returnError-errorResponseUnexpected),
+  errcode
+    ERROR.&errorCode({Errors} !RejectProblem:returnError-unrecognizedError)
+      (CONSTRAINED BY { -- must be in the &Errors field of the associated operation --
+         } !RejectProblem:returnError-unexpectedError),
+  parameter
+    ERROR.&ParameterType
+      ({Errors}{@errcode} !RejectProblem:returnError-mistypedParameter)
+      OPTIONAL
+}
+(CONSTRAINED BY { -- must conform to the above definition --} !
+ RejectProblem:general-mistypedPDU)
+
+Reject ::= SEQUENCE {
+  invokeId  InvokeId,
+  problem
+    CHOICE {general       [0]  GeneralProblem,
+            invoke        [1]  InvokeProblem,
+            returnResult  [2]  ReturnResultProblem,
+            returnError   [3]  ReturnErrorProblem}
+}
+(CONSTRAINED BY { -- must conform to the above definition --} !
+ RejectProblem:general-mistypedPDU)
+
+GeneralProblem ::= INTEGER {
+  unrecognizedPDU(0), mistypedPDU(1), badlyStructuredPDU(2)}
+
+-- continued on the next page
+InvokeProblem ::= INTEGER {
+  duplicateInvocation(0), unrecognizedOperation(1), mistypedArgument(2),
+  resourceLimitation(3), releaseInProgress(4), unrecognizedLinkedId(5),
+  linkedResponseUnexpected(6), unexpectedLinkedOperation(7)}
+
+ReturnResultProblem ::= INTEGER {
+  unrecognizedInvocation(0), resultResponseUnexpected(1), mistypedResult(2)
+}
+
+ReturnErrorProblem ::= INTEGER {
+  unrecognizedInvocation(0), errorResponseUnexpected(1), unrecognizedError(2),
+  unexpectedError(3), mistypedParameter(4)}
+
+RejectProblem ::= INTEGER {
+  general-unrecognizedPDU(0), general-mistypedPDU(1),
+  general-badlyStructuredPDU(2), invoke-duplicateInvocation(10),
+  invoke-unrecognizedOperation(11), invoke-mistypedArgument(12),
+  invoke-resourceLimitation(13), invoke-releaseInProgress(14),
+  invoke-unrecognizedLinkedId(15), invoke-linkedResponseUnexpected(16),
+  invoke-unexpectedLinkedOperation(17),
+  returnResult-unrecognizedInvocation(20),
+  returnResult-resultResponseUnexpected(21), returnResult-mistypedResult(22),
+  returnError-unrecognizedInvocation(30),
+  returnError-errorResponseUnexpected(31), returnError-unrecognizedError(32),
+  returnError-unexpectedError(33), returnError-mistypedParameter(34)}
+
+InvokeId ::= CHOICE {present  INTEGER,
+                     absent   NULL
+}
+
+noInvokeId InvokeId ::= absent:NULL
+
+NoInvokeId InvokeId ::= {noInvokeId}
+
+Errors{OPERATION:Operations} ERROR ::= {Operations.&Errors}
+
+-- continued on the next page
+Bind{OPERATION:operation} ::= CHOICE {
+  bind-invoke  [16]  OPERATION.&ArgumentType({operation}),
+  bind-result  [17]  OPERATION.&ResultType({operation}),
+  bind-error   [18]  OPERATION.&Errors.&ParameterType({operation})
+}
+
+Unbind{OPERATION:operation} ::= CHOICE {
+  unbind-invoke  [19]  OPERATION.&ArgumentType({operation}),
+  unbind-result  [20]  OPERATION.&ResultType({operation}),
+  unbind-error   [21]  OPERATION.&Errors.&ParameterType({operation})
+}
+
+END -- end of generic ROS PDU definitions
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

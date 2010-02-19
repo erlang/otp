@@ -1,0 +1,10 @@
+SequenceBadComponentType  DEFINITIONS ::=
+BEGIN
+
+T ::= Typ
+
+Typ ::= SEQUENCE {
+    a b,
+    c T}
+
+END

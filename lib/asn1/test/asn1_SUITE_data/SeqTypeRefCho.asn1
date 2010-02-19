@@ -1,0 +1,28 @@
+SeqTypeRefCho DEFINITIONS IMPLICIT TAGS ::= 
+
+BEGIN
+
+
+
+SeqTRcho ::=  SEQUENCE 
+{
+  seqCho SeqCho,
+  seqChoE [135] EXPLICIT SeqCho,
+
+  seqCho-E SeqChoExp,
+  seqChoE-E [335] EXPLICIT SeqChoExp
+
+}
+
+SeqCho ::= CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+SeqChoExp ::= [65] EXPLICIT CHOICE {
+		choInt INTEGER,
+		choOs OCTET STRING
+                }
+
+
+END

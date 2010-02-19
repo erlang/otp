@@ -1,0 +1,454 @@
+-- module(Mvrasn-DataTypes-1).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "MAP Data Types".
+--
+-- ASN.1 module: "MAP-DataTypes".
+--
+-- =============================================================================
+
+-- =============================================================================
+--
+-- NOTE:
+--
+-- In GSM 09.02 v. 6.1.0 all ASN.1 modules have 'Object Identifier' included 
+-- to indicate these modules uniquely. To have a same kind of definite naming
+-- convention, parts of the these 'Object Identifier' have been included in 
+-- the file names that store the respective ASN.1 modules.
+-- 
+-- Therefore, the file name "Mvrasn-20-4.asn" indicates moduls '20' in
+-- version '4' (PHASE 3).
+--
+-- As there is no such 'Object Identifier' in GSM 09.02 v. 3.11.0,
+-- the names for the ASN.1 files of the ASN.1 modules from
+-- this standard version are selected by the author. They are chosen the way 
+-- that they are indicating the relation to those modules 
+-- from GSM 09.02 v. 3.11.0.
+--
+-- =============================================================================
+ 
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981014   eedkbu   First draft, based on GSM 09.02 v. 3.11.0.
+-- ..............................................................
+-- PA2  990114   etord    Included Reset operation
+-- ..............................................................
+
+Mvrasn-DataTypes-1
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+IMPORTS
+-- imports upper boundaries for data types
+
+    maxNumberOfTeleServices,
+    maxNumberOfBearerServices,
+    maxNumberOfSupplServices,
+    maxNumberOfCUG,
+    maxNumberOfForwardingFeatures,
+    maxNumberOfCallBarringFeatures,
+    maxNumberOfHlrId,
+    maxAddressLength,
+    maxNumberOfSentParameters
+FROM Mvrasn-Constants-1
+
+;
+
+
+-- =========================================================
+--
+-- NOTE:
+--
+-- The data type "SendParameterArg" and "ResetArg" are not given in the
+-- original GSM 09.02 v. 3.11.0 standard, but have been 
+-- introduced here for two reasons:
+--
+--  1. In the OPERATION MACRO "SendParameters" is a PARAMETER (=ARGument) and
+--     a RESULT defined. The ASN.1 en/decoder is not able to handle
+--     the MACRO definition. Therefore, the new data type has been 
+--     introduced
+--
+--  2. To align the documentation of the ASN.1 data types in 
+--     GSM 09.02 v. 3.11.0 with those of GSM 09.02 v. 6.1.0.
+--
+-- =========================================================
+ 
+SendParametersArg ::= SEQUENCE {
+    subscriberId             SubscriberId,
+    requestParameters        RequestParameters
+    }
+
+ResetArg ::= SEQUENCE {
+    networkResource          NetworkResource,
+    originatingEntityNumber  IsdnAddressString,
+    hlrId                    HlrList                OPTIONAL
+    }
+
+
+-- common data types
+
+SentParameters   ::= SEQUENCE
+             SIZE(1..maxNumberOfSentParameters)
+             OF SentParameter
+
+
+TBCD-STRING  ::= OCTET STRING
+        -- digits 0 through 9, two digits per octet,
+        -- each digit encoded 0000 to 1001,
+        -- 1111 used as filler when there is an odd number of digit.
+
+
+AddressString    ::= OCTET STRING (SIZE (1..maxAddressLength))
+        -- see internal description in section 6.4.1
+
+IsdnAddressString    ::= AddressString (SIZE (1..10))
+
+IMSI     ::= TBCD-STRING (SIZE (2..8))
+        -- MCC, MNC, MSIN concatenated in this order
+
+TMSI     ::= OCTET STRING (SIZE (1..4))
+
+
+SubscriberId     ::= CHOICE {
+        imsi            [0]  IMPLICIT IMSI,
+        tmsi            [1]  IMPLICIT TMSI}
+
+
+-- data types for numbering and identification
+
+HlrId	 ::= IMSI
+		-- leading digits of IMSI
+
+HlrList	 ::= SEQUENCE 
+    SIZE(1.. maxNumberOfHlrId)
+    OF HlrId
+
+
+-- data types for subscriber management
+
+--
+Category     ::= OCTET STRING (SIZE (1))
+        -- internal structure defined in CCITT Rec Q.763
+
+BearerServiceCode    ::= OCTET STRING (SIZE (1))
+        -- Internal structure according to table 6.4/1
+        -- BIT 8 Transparency indicator (if applicable)
+        --     0 transparent
+        --     1 non transparent
+
+        -- BIT 7654  Bearer service group
+        --    0001 3.1 kHz ex PLMN
+        --    0010 Circuit data asynchronous
+        --    0011 Circuit data synchronous
+        --    0100 PAD access c.d.a
+        --    0101 Packet data synchrounous
+        --    0110 Alternate speech/c.d.a
+        --    0111 Alternate speech c.d.s
+        --    1000 Speech followed by data c.d.a
+        --    1001 Speech followed by data c.d.s
+        --    1111 12.6 kb/s unrestricted digital
+
+        -- BIT 321  Rate (when applicable)
+        --    000 Any
+        --    001 300-300 b/s
+        --    010 1200-1200 b/s
+        --    011 1200-75 b/s
+        --    100 2400-2400 b/s
+        --    101 4800-4800 b/s
+        --    110 9600-9600 b/s
+
+
+        -- Bits 321 = 000 can be used to refer to all
+        -- the bearer services of the corresponding group.
+        -- Value "00000000" can be used to refer to all the defined
+        -- bearer services.
+        -- For the codes referring to a group or all bearer services
+        -- the Transparency Indicator is not applicable and has to be set to "0"
+
+
+BearerServiceList    ::= SEQUENCE
+             SIZE(1 .. maxNumberOfBearerServices)
+             OF BearerServiceCode
+
+ 
+TeleserviceCode  ::= OCTET STRING (SIZE (1))
+        -- Internal structure according to table 6.4/2
+        -- Bit 8-5 encode the teleservice group
+
+        -- Bit 4-1 = 0000 can be used to refer to all the
+        -- teleservices of the corresponding group.
+        -- Value "00000000" can be used to refer to all the defined
+        -- teleservices
+
+TeleserviceList  ::= SEQUENCE
+             SIZE(1 .. maxNumberOfTeleServices)
+             OF TeleserviceCode
+
+
+BasicServiceCode     ::= CHOICE {
+        bearerService   [2]  IMPLICIT BearerServiceCode,
+        teleservice     [3]  IMPLICIT TeleserviceCode}
+
+--
+SubscriberStatus     ::= ENUMERATED{
+        serviceGranted  (0),
+        operatorOGCallBarring   (1)}
+
+ -- Data types for supplementary services
+
+SS-Code  ::= OCTET STRING (SIZE(1))
+        -- Internal structure according to
+        -- table 6.4/3
+        -- Bit 8-5
+        -- 0001 Number Identification services
+        -- 0010 Forwarding services
+        -- 0011 Call offering services
+        -- 0100 Call completion services
+        -- 0101 Multi-party services
+        -- 0110 Community of interest services
+        -- 0111 Charging services
+        -- 1000 Additional information transfer services
+        -- 1001 Call restriction services
+        -- Bit 4-1 = 0000 can be use to refer to
+        -- a group of supplementary services
+        -- eg, "00100000" can be used to refer to all
+        -- forwarding services
+        -- "00101000" can be used to refer to all
+        -- conditional forwarding services
+        -- "00000000" can be used to refer to all
+        -- supplementary services
+
+SS-Status    ::= OCTET STRING (SIZE (1))
+        -- Bit 8-4 Unused
+        -- Bit 3   Provision indicator
+        --     0 : Not provisioned
+        --     1 : Provisioned
+        -- Bit 2   Registration indicator (if applicable)
+        --     0 : Not Registered
+        --     1 : Registered
+        -- Bit 1   Activation indicator (If applicable)
+        --     0 : Not Active
+        --     1 : Active
+
+SS-Information   ::= CHOICE{
+        forwardingInfo  [0]  IMPLICIT ForwardingInfo,
+        callBarringInfo [1]  IMPLICIT CallBarringInfo,
+        cug-Information [2]  IMPLICIT CUG-Information,
+        ss-Data         [3]  IMPLICIT SS-Data}
+
+SS-InfoList  ::= SEQUENCE
+             SIZE(1 .. maxNumberOfSupplServices)
+             OF SS-Information
+
+ 
+--
+SS-Data  ::= SEQUENCE{
+    ss-Code                  SS-Code,
+    ss-Status           [4]  IMPLICIT SS-Status OPTIONAL,
+    ss-SubscriptionOption    SS-SubscriptionOption OPTIONAL}
+
+SS-SubscriptionOption    ::= CHOICE{
+    perCallBasis        [5]  IMPLICIT BOOLEAN,
+    notificationToHeldRetrievedParty   [6]  IMPLICIT BOOLEAN,
+    userToUserServiceIndicator  [7]  IMPLICIT UserToUserServiceIndicator,
+    maximumConfereesNumber  [8]  IMPLICIT MaximumConfereesNumber,
+    huntGroupAccessSelectionOrder  [9] IMPLICIT HuntGroupAccessSelectionOrder}
+
+
+
+ForwardingOptions    ::= OCTET STRING (SIZE(1))
+        -- Bit 8-7  Notification to forwarding party
+        --          00  No notification
+        --          01  notification with calling number identity
+        --          10  notification without calling number identity
+        -- Bit 6-5  Notification to calling party
+        --          00 No notification
+        --          01 Notification with forwarded-to number
+        --          10 Notification without forwarded-to number
+
+
+UserToUserServiceIndicator   ::= OCTET STRING (SIZE(1))
+        -- Bit 8   : service 1
+        -- Bit 7   : service 2
+        -- Bit 6   : service 3
+        -- Bit 5-1 : Reserved
+        -- Bit 8 to 6 coded "1" if the service
+        -- is available to the subscriber
+
+
+MaximumConfereesNumber   ::= INTEGER (1..10)
+
+
+ 
+HuntGroupAccessSelectionOrder ::= ENUMERATED{
+        random  (0),
+        sequential  (1)}
+
+
+NoReplyConditionTime     ::= INTEGER (5..30)
+
+
+CUG-Facilities   ::=  OCTET STRING (SIZE (1))
+        -- Bit 8-3 000000 (Unused)
+        -- Bit 2-1
+        --   00 CUG only facilities
+        --   01 CUG with outgoing access
+        --   10 CUG with incoming access
+        --   11 CUG with both outgoing and incoming access
+
+CUG-Interlock    ::= OCTET STRING (SIZE (4))
+        -- Internal structure defined in Rec CCITT Q.763
+
+CUG-Index    ::=  OCTET STRING (SIZE (1))
+        -- Internal structure defined in Rec CCITT Q.763
+
+CUG-Options  ::=  OCTET STRING (SIZE (1))
+        -- BIT 8-4 00000 (Unused)
+        -- BIT 3 preferential CUG indicator
+        -- 0 no preferential
+        -- 1 preferential CUG
+        -- BIT 2 barring of incoming calls within the CUG
+        -- 0 no barring
+        -- 1 barring
+        -- BIT 1 barring of outgoing calls within the CUG
+        -- 0 no barring
+        -- 1 barring
+
+CUG-Feature  ::= SEQUENCE {
+    cug-interlock            CUG-Interlock,
+    cug-Index                CUG-Index,
+    cug-Options              CUG-Options,
+    ss-Status                SS-Status}
+
+
+CUG-FeatureList ::=     SEQUENCE SIZE (
+        1..maxNumberOfCUG) OF CUG-Feature
+
+
+-- =========================================================
+--
+-- EEDKBU:
+--
+--      The original CUG-Information data type has been:
+--
+--   ------------------
+--
+-- CUG-Information   ::= SEQUENCE{
+--  cug-Facilities           CUG-Facilities,
+--          CHOICE{
+--                 cug-Feature      [0]  IMPLICIT CUG-Feature,
+--                 cug-FeatureList  [1]  IMPLICIT CUG-FeatureList}}
+        -- the first alternative of the choice should be used
+        -- for the preferred CUG.
+--
+--   ------------------
+--
+-- This is incorrect ASN.1 notation! The CHOICE has also to be a named 
+-- type. Therefore, the definition was changed and can be seen below:
+-- 
+-- =========================================================
+
+
+CUG-Information  ::= SEQUENCE{
+    cug-Facilities           CUG-Facilities,
+    cug-FeatureChoice       CHOICE{
+                   cug-Feature      [0]  IMPLICIT CUG-Feature,
+                   cug-FeatureList  [1]  IMPLICIT CUG-FeatureList}}
+        -- the first alternative of the choice should be used
+        -- for the preferred CUG.
+
+--
+ForwardingInfo   ::= SEQUENCE{
+    ss-Code                  SS-Code OPTIONAL,
+    forwardingFeatureList    ForwardingFeatureList}
+
+ForwardingFeature    ::=  SEQUENCE {
+    basicService             BasicServiceCode OPTIONAL,
+    ss-Status           [4]  IMPLICIT SS-Status,
+    forwardedToNumber   [5]  IMPLICIT IsdnAddressString OPTIONAL,
+    forwardingOptions   [6]  IMPLICIT ForwardingOptions OPTIONAL,
+    noReplyConditionTime  [7] IMPLICIT NoReplyConditionTime  OPTIONAL}
+
+ForwardingFeatureList    ::= SEQUENCE SIZE (1.. maxNumberOfForwardingFeatures) 
+    OF ForwardingFeature
+
+CallBarringInfo  ::= SEQUENCE {
+    ss-Code                  SS-Code,
+    callBarringFeatureList   CallBarringFeatureList}
+
+CallBarringFeature   ::= SEQUENCE{
+    basicServiceCode         BasicServiceCode OPTIONAL,
+    ss-Status           [4]  IMPLICIT SS-Status }
+
+CallBarringFeatureList   ::= SEQUENCE SIZE (1.. maxNumberOfCallBarringFeatures) 
+OF CallBarringFeature
+
+SubscriberData   ::= SEQUENCE{
+    msIsdn              [1]  IMPLICIT IsdnAddressString OPTIONAL,
+    category            [2]  IMPLICIT Category OPTIONAL,
+    subscriberStatus    [3]  IMPLICIT SubscriberStatus OPTIONAL,
+    bearerServiceList   [4]  IMPLICIT BearerServiceList OPTIONAL,
+    teleserviceList     [6]  IMPLICIT TeleserviceList OPTIONAL,     
+    provisonedSupplServices [7] IMPLICIT SS-InfoList OPTIONAL}
+
+-- Data types for security procedures
+
+AuthenticationSet    ::= SEQUENCE {
+    rand                     Rand,
+    sres                     Sres,
+    kc                       Kc}
+
+
+Rand     ::= OCTET STRING (SIZE (16))
+
+Sres     ::= OCTET STRING (SIZE (4))
+
+Kc   ::= OCTET STRING (SIZE (8))
+
+Ki   ::= OCTET STRING (SIZE (16))
+
+
+-- Data types for fault recovery, call tracing
+
+NetworkResource	 ::= ENUMERATED {
+    pLMN                     (0),
+    hLR                      (1),
+    vLR                      (2),
+    previous-VLR             (3),
+    controlling-MSC          (4),
+    vMSC                     (5),
+    eIR                      (6),
+    radioSubSystem           (7)}
+
+
+-- other data types
+
+RequestParameter     ::= ENUMERATED{
+        request-IMSI        (0),
+        request-AuthenticationSet   (1),
+        request-SubscriberData      (2),
+        request-CUG-Information     (3),
+        request-Ki          (4)}
+
+RequestParameters    ::= SEQUENCE SIZE (1..2) OF RequestParameter
+
+SentParameter    ::= CHOICE{
+    imsi                [0]  IMPLICIT IMSI,
+    authenticationSet   [1]  IMPLICIT AuthenticationSet,
+    subscriberData      [2]  IMPLICIT SubscriberData,
+    cug-information     [3]  IMPLICIT CUG-Information,
+    ki                  [4] IMPLICIT Ki}
+    
+END

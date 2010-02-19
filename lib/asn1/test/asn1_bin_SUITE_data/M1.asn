@@ -1,0 +1,24 @@
+M1 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+IMPORTS
+   
+   Type6
+    FROM M2
+   ;
+
+Type1 ::= INTEGER (1..3)
+
+Type2 ::= ENUMERATED {one,two}
+
+Type3 ::= BOOLEAN
+
+Type4 ::= SEQUENCE {
+  a   Type1,
+  b   BOOLEAN
+}
+
+Type5 ::= OCTET STRING
+
+END

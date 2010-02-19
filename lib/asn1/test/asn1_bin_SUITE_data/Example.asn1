@@ -1,0 +1,20 @@
+Example  DEFINITIONS ::=
+BEGIN
+
+T ::= Typ
+
+Typ ::= SEQUENCE {
+    a b,
+    c Typ}
+--ECLASS ::= CLASS {
+--    &num       INTEGER UNIQUE,
+--    &Typo
+--    } WITH SYNTAX {
+--    &Typo DETERMINED BY &num
+--    }
+
+--v1 ECLASS ::= {INTEGER DETERMINED BY 12}
+
+--v2 INTEGER ::= 13
+
+END

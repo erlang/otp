@@ -1,0 +1,85 @@
+-- module(Mvrasn-Constants-1).
+-- vsn('%CCaseRev: %').
+-- date('%CCaseDate: %').
+-- author('eedkbu').    
+-- =============================================================================
+
+-- =============================================================================
+--
+-- Title       : "MAP Constants".
+--
+-- ASN.1 module: "MAP-Constants"
+-- 
+-- =============================================================================
+
+-- =============================================================================
+--
+-- NOTE:
+--
+-- In GSM 09.02 v. 6.1.0 all ASN.1 modules have 'Object Identifier' included 
+-- to indicate these modules uniquely. To have a same kind of definite naming
+-- convention, parts of the these 'Object Identifier' have been included in 
+-- the file names that store the respective ASN.1 modules.
+-- 
+-- Therefore, the file name "Mvrasn-20-4.asn" indicates moduls '20' in
+-- version '4' (PHASE 3).
+--
+-- As there is no such 'Object Identifier' in GSM 09.02 v. 3.11.0,
+-- the names for the ASN.1 files of the ASN.1 modules from
+-- this standard version are selected by the author. They are chosen the way 
+-- that they are indicating the relation to those modules 
+-- from GSM 09.02 v. 3.11.0
+--
+-- =============================================================================
+ 
+-- ==============================================================
+-- #1.    REVISION LOG
+-- ==============================================================
+-- Rev   Date    Name     What
+-- .... ....... .......  ........................................
+-- PA1  981015   eedkbu  First draft. Based on GSM 09.02 v. 3.11.0)
+-- ..............................................................
+
+
+Mvrasn-Constants-1
+
+DEFINITIONS
+
+::=
+
+BEGIN
+
+EXPORTS
+
+maxNumberOfTeleServices,
+maxNumberOfBearerServices,
+maxNumberOfSupplServices,
+
+maxNumberOfCUG,
+maxNumberOfForwardingFeatures,
+maxNumberOfCallBarringFeatures,
+maxNumberOfHlrId,
+maxAddressLength,
+maxNumberOfSentParameters
+
+;
+
+-- value assignment
+
+maxNumberOfTeleServices      INTEGER ::= 20
+maxNumberOfBearerServices    INTEGER ::= 50
+maxNumberOfSupplServices     INTEGER ::= 30
+
+maxNumberOfCUG               INTEGER ::= 10
+maxNumberOfForwardingFeatures  INTEGER ::= 13
+maxNumberOfCallBarringFeatures  INTEGER ::= 13
+maxNumberOfHlrId             INTEGER ::= 50
+maxAddressLength             INTEGER ::= 20
+
+
+maxNumberOfSentParameters       INTEGER ::=  10
+-- this named value should correspond to the maximum of
+-- the maxNumberOfCUG and the maximum number of authentication
+-- set which may be returned by a HLR plus 1.
+
+END

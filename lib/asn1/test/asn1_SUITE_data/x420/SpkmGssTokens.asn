@@ -1,0 +1,257 @@
+-- Module SpkmGssTokens (RFC 2025:10/1996)
+SpkmGssTokens {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+  mechanisms(5) spkm(1) spkmGssTokens(10)}
+--
+-- Copyright (C) The Internet Society (1996). This version of
+-- this ASN.1 module is part of RFC 2025;
+-- see the RFC itself for full legal notices.
+--
+DEFINITIONS IMPLICIT TAGS ::=
+BEGIN
+
+-- EXPORTS ALL 
+IMPORTS
+  Name
+    FROM InformationFramework {joint-iso-itu-t(2) ds(5) module(1)
+      informationFramework(1) 3}
+  Certificate, CertificateList, CertificatePair, AlgorithmIdentifier, Validity
+    FROM AuthenticationFramework {joint-iso-itu-t(2) ds(5) module(1)
+      authenticationFramework(7) 3};
+
+-- types 
+SPKM-REQ ::= SEQUENCE {
+  requestToken  REQ-TOKEN,
+  certif-data   [0]  CertificationData OPTIONAL,
+  auth-data     [1]  AuthorizationData OPTIONAL
+}
+
+CertificationData ::= SEQUENCE {
+  certificationPath          [0]  CertificationPath OPTIONAL,
+  certificateRevocationList  [1]  CertificateList OPTIONAL
+} -- at least one of the above shall be present
+
+CertificationPath ::= SEQUENCE {
+  userKeyId          [0]  OCTET STRING OPTIONAL,
+  userCertif         [1]  Certificate OPTIONAL,
+  verifKeyId         [2]  OCTET STRING OPTIONAL,
+  userVerifCertif    [3]  Certificate OPTIONAL,
+  theCACertificates  [4]  SEQUENCE OF CertificatePair OPTIONAL
+} -- Presence of [2] or [3] implies that [0] or [1] must also be
+
+-- present.  Presence of [4] implies that at least one of [0], [1],
+-- [2], and [3] must also be present.
+REQ-TOKEN ::= SEQUENCE {
+  req-contents   Req-contents,
+  algId          AlgorithmIdentifier,
+  req-integrity  Integrity -- "token" is Req-contents
+}
+
+Integrity ::= BIT STRING
+
+-- If corresponding algId specifies a signing algorithm,
+-- "Integrity" holds the result of applying the signing procedure
+-- specified in algId to the BER-encoded octet string which results
+-- from applying the hashing procedure (also specified in algId) to
+-- the DER-encoded octets of "token".
+-- Alternatively, if corresponding algId specifies a MACing
+-- algorithm, "Integrity" holds the result of applying the MACing
+-- procedure specified in algId to the DER-encoded octets of
+-- "token"
+Req-contents ::= SEQUENCE {
+  tok-id        INTEGER(256), -- shall contain 0100 (hex)
+  context-id    Random-Integer,
+  pvno          BIT STRING,
+  timestamp     UTCTime OPTIONAL, -- mandatory for SPKM-2
+  randSrc       Random-Integer,
+  targ-name     Name,
+  src-name      [0]  Name OPTIONAL,
+  req-data      Context-Data,
+  validity      [1]  Validity OPTIONAL,
+  key-estb-set  Key-Estb-Algs,
+  key-estb-req  BIT STRING OPTIONAL,
+  key-src-bind  OCTET STRING OPTIONAL
+  -- This field must be present for the case of SPKM-2
+  -- unilateral authen. if the K-ALG in use does not provide
+  -- such a binding (but is optional for all other cases).
+  -- The octet string holds the result of applying the
+  -- mandatory hashing procedure (in MANDATORY I-ALG;
+  -- see Section 2.1) as follows:  MD5(src || context_key),
+  -- where "src" is the DER-encoded octets of src-name,
+  -- "context-key" is the symmetric key (i.e., the
+  -- unprotected version of what is transmitted in
+  -- key-estb-req), and "||" is the concatenation operation.
+}
+
+Random-Integer ::= BIT STRING
+
+Context-Data ::= SEQUENCE {
+  channelId   ChannelId OPTIONAL,
+  seq-number  INTEGER OPTIONAL,
+  options     Options,
+  conf-alg    Conf-Algs,
+  intg-alg    Intg-Algs,
+  owf-alg     OWF-Algs
+}
+
+ChannelId ::= OCTET STRING
+
+Options ::= BIT STRING {
+  delegation-state(0), mutual-state(1), replay-det-state(2), sequence-state(3),
+  conf-avail(4), integ-avail(5), target-certif-data-required(6)}
+
+Conf-Algs ::= CHOICE {
+  algs  [0]  SEQUENCE OF AlgorithmIdentifier,
+  null  [1]  NULL
+}
+
+Intg-Algs ::= SEQUENCE OF AlgorithmIdentifier
+
+OWF-Algs ::= SEQUENCE OF AlgorithmIdentifier
+
+Key-Estb-Algs ::= SEQUENCE OF AlgorithmIdentifier
+
+SPKM-REP-TI ::= SEQUENCE {
+  responseToken  REP-TI-TOKEN,
+  certif-data    CertificationData OPTIONAL
+  -- present if target-certif-data-required option was
+} -- set to TRUE in SPKM-REQ
+
+REP-TI-TOKEN ::= SEQUENCE {
+  rep-ti-contents  Rep-ti-contents,
+  algId            AlgorithmIdentifier,
+  rep-ti-integ     Integrity -- "token" is Rep-ti-contents
+}
+
+Rep-ti-contents ::= SEQUENCE {
+  tok-id        INTEGER(512), -- shall contain 0200 (hex)
+  context-id    Random-Integer,
+  pvno          [0]  BIT STRING OPTIONAL,
+  timestamp     UTCTime OPTIONAL, -- mandatory for SPKM-2
+  randTarg      Random-Integer,
+  src-name      [1]  Name OPTIONAL,
+  targ-name     Name,
+  randSrc       Random-Integer,
+  rep-data      Context-Data,
+  validity      [2]  Validity OPTIONAL,
+  key-estb-id   AlgorithmIdentifier OPTIONAL,
+  key-estb-str  BIT STRING OPTIONAL
+}
+
+SPKM-REP-IT ::= SEQUENCE {
+  responseToken  REP-IT-TOKEN,
+  algId          AlgorithmIdentifier,
+  rep-it-integ   Integrity -- "token" is REP-IT-TOKEN
+}
+
+REP-IT-TOKEN ::= SEQUENCE {
+  tok-id        INTEGER(768), -- shall contain 0300 (hex)
+  context-id    Random-Integer,
+  randSrc       Random-Integer,
+  randTarg      Random-Integer,
+  targ-name     Name,
+  src-name      Name OPTIONAL,
+  key-estb-rep  BIT STRING OPTIONAL
+}
+
+SPKM-ERROR ::= SEQUENCE {
+  errorToken  ERROR-TOKEN,
+  algId       AlgorithmIdentifier,
+  integrity   Integrity -- "token" is ERROR-TOKEN
+}
+
+ERROR-TOKEN ::= SEQUENCE {
+  tok-id      INTEGER(1024), -- shall contain 0400 (hex)
+  context-id  Random-Integer
+}
+
+SPKM-MIC ::= SEQUENCE {mic-header  Mic-Header,
+                       int-cksum   BIT STRING
+}
+
+Mic-Header ::= SEQUENCE {
+  tok-id      INTEGER(257), -- shall contain 0101 (hex)
+  context-id  Random-Integer,
+  int-alg     [0]  AlgorithmIdentifier OPTIONAL,
+  snd-seq     [1]  SeqNum OPTIONAL
+}
+
+SeqNum ::= SEQUENCE {num      INTEGER,
+                     dir-ind  BOOLEAN
+}
+
+SPKM-WRAP ::= SEQUENCE {wrap-header  Wrap-Header,
+                        wrap-body    Wrap-Body
+}
+
+Wrap-Header ::= SEQUENCE {
+  tok-id      INTEGER(513), -- shall contain 0201 (hex)
+  context-id  Random-Integer,
+  int-alg     [0]  AlgorithmIdentifier OPTIONAL,
+  conf-alg    [1]  Conf-Alg OPTIONAL,
+  snd-seq     [2]  SeqNum OPTIONAL
+}
+
+Wrap-Body ::= SEQUENCE {int-cksum  BIT STRING,
+                        data       BIT STRING
+}
+
+Conf-Alg ::= CHOICE {algId  [0]  AlgorithmIdentifier,
+                     null   [1]  NULL
+}
+
+SPKM-DEL ::= SEQUENCE {del-header  Del-Header,
+                       int-cksum   BIT STRING
+}
+
+Del-Header ::= SEQUENCE {
+  tok-id      INTEGER(769), -- shall contain 0301 (hex)
+  context-id  Random-Integer,
+  int-alg     [0]  AlgorithmIdentifier OPTIONAL,
+  snd-seq     [1]  SeqNum OPTIONAL
+}
+
+-- other types 
+-- from [RFC-1508] 
+MechType ::= OBJECT IDENTIFIER
+
+InitialContextToken ::= [APPLICATION 0] IMPLICIT SEQUENCE {
+  thisMech           MechType,
+  innerContextToken  SPKMInnerContextToken
+} -- when thisMech is SPKM-1 or SPKM-2
+
+SPKMInnerContextToken ::= CHOICE {
+  req     [0]  SPKM-REQ,
+  rep-ti  [1]  SPKM-REP-TI,
+  rep-it  [2]  SPKM-REP-IT,
+  error   [3]  SPKM-ERROR,
+  mic     [4]  SPKM-MIC,
+  wrap    [5]  SPKM-WRAP,
+  del     [6]  SPKM-DEL
+}
+
+-- from [RFC-1510] 
+AuthorizationData ::=
+  SEQUENCE OF SEQUENCE {ad-type  INTEGER,
+                        ad-data  OCTET STRING}
+
+-- object identifier assignments 
+md5-DES-CBC OBJECT IDENTIFIER ::=
+  {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+   integrity(3) md5-DES-CBC(1)}
+
+sum64-DES-CBC OBJECT IDENTIFIER ::=
+  {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+   integrity(3) sum64-DES-CBC(2)}
+
+spkm-1 OBJECT IDENTIFIER ::=
+  {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+   mechanisms(5) spkm(1) spkm-1(1)}
+
+spkm-2 OBJECT IDENTIFIER ::=
+  {iso(1) identified-organization(3) dod(6) internet(1) security(5)
+   mechanisms(5) spkm(1) spkm-2(2)}
+
+END
+
+-- Generated by Asnp, the ASN.1 pretty-printer of France Telecom R&D
+

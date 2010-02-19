@@ -1,0 +1,29 @@
+P-RecordA1 DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+PersonnelRecord ::= [APPLICATION 0] IMPLICIT SET {
+  name Name, 
+  title [0] VisibleString, 
+  number EmployeeNumber, 
+  dateOfHire [1] Date,
+  nameOfSpouse [2] Name,
+  children [3] IMPLICIT SEQUENCE OF ChildInformation DEFAULT {} 
+} 
+
+ChildInformation ::= SET { 
+  name Name,
+  dateOfBirth [0] Date
+}
+
+Name ::= [APPLICATION 1] IMPLICIT SEQUENCE {
+  givenName VisibleString, 
+  initial VisibleString, 
+  familyName VisibleString
+}
+
+EmployeeNumber ::= [APPLICATION 2] IMPLICIT INTEGER
+
+Date ::= [APPLICATION 3] IMPLICIT VisibleString -- YYYYMMDD
+
+END

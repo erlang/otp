@@ -1,0 +1,10 @@
+SeqBadComma DEFINITIONS AUTOMATIC TAGS ::=
+
+BEGIN
+
+Seq ::= SEQUENCE {
+  a INTEGER,
+  n BOOLEAN,
+}
+
+END
