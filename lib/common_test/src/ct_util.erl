@@ -59,7 +59,7 @@
 -export([encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3]).
 
--export([kill_attached/2, get_attached/1]).
+-export([kill_attached/2, get_attached/1, ct_make_ref/0]).
 
 -export([warn_duplicates/1]).
 
@@ -148,7 +148,7 @@ do_start(Parent,Mode,LogDir) ->
 		    ct_event:add_handler([{vts,VtsPid}])
 	    end
     end,
-    case read_config_files(Opts) of
+    case ct_config:read_config_files(Opts) of
 	ok ->
 	    %% add user handlers
 	    case lists:keysearch(event_handler,1,Opts) of
@@ -195,94 +195,6 @@ read_opts() ->
 	    {error,not_installed};
 	Error ->
 	    {error,{bad_installation,Error}}
-    end.
-
-read_config_files(Opts) ->
-    ConfigFiles =
-	lists:foldl(fun({config,Files},Acc) ->
-			    Acc ++ Files;
-		       (_,Acc) ->
-			    Acc
-		    end,[],Opts),
-    read_config_files1(ConfigFiles).
-
-read_config_files1([ConfigFile|Files]) ->
-    case file:consult(ConfigFile) of
-	{ok,Config} -> 
-	    set_config(Config),
-	    read_config_files1(Files);
-	{error,enoent} ->
-	    {user_error,{config_file_error,ConfigFile,enoent}};
-	{error,Reason} ->
-	    Key =
-		case application:get_env(common_test, decrypt) of
-		    {ok,KeyOrFile} ->
-			case KeyOrFile of
-			    {key,K} ->
-				K;
-			    {file,F} ->
-				get_crypt_key_from_file(F)
-			end;
-		    _ ->
-			get_crypt_key_from_file()
-		end,
-	    case Key of
-		{error,no_crypt_file} ->
-		    {user_error,{config_file_error,ConfigFile,Reason}};
-		{error,CryptError} ->
-		    {user_error,{decrypt_file_error,ConfigFile,CryptError}};
-		_ when is_list(Key) ->
-		    case decrypt_config_file(ConfigFile, undefined, {key,Key}) of
-			{ok,CfgBin} ->
-			    case read_config_terms(CfgBin) of
-				{error,ReadFail} ->
-				    {user_error,{config_file_error,ConfigFile,ReadFail}};
-				Config ->
-				    set_config(Config),
-				    read_config_files1(Files)
-			    end;
-			{error,DecryptFail} ->
-			    {user_error,{decrypt_config_error,ConfigFile,DecryptFail}}
-		    end;
-		_ ->
-		    {user_error,{bad_decrypt_key,ConfigFile,Key}}
-	    end
-    end;
-read_config_files1([]) ->
-    ok.
-
-read_config_terms(Bin) when is_binary(Bin) ->
-    case catch binary_to_list(Bin) of
-	{'EXIT',_} ->
-	    {error,invalid_textfile};
-	Lines ->
-	    read_config_terms(Lines)
-    end;
-read_config_terms(Lines) when is_list(Lines) ->
-    read_config_terms1(erl_scan:tokens([], Lines, 0), 1, [], []).
-
-read_config_terms1({done,{ok,Ts,EL},Rest}, L, Terms, _) ->
-    case erl_parse:parse_term(Ts) of
-	{ok,Term} when Rest == [] ->
-	    lists:reverse([Term|Terms]);
-	{ok,Term} ->
-	    read_config_terms1(erl_scan:tokens([], Rest, 0), 
-			       EL+1, [Term|Terms], Rest);
-	_ ->
-	    {error,{bad_term,{L,EL}}}
-    end;
-read_config_terms1({done,{eof,_},_}, _, Terms, Rest) when Rest == [] ->
-    lists:reverse(Terms);
-read_config_terms1({done,{eof,EL},_}, L, _, _) ->
-    {error,{bad_term,{L,EL}}};
-read_config_terms1({done,{error,Info,EL},_}, L, _, _) ->
-    {error,{Info,{L,EL}}};
-read_config_terms1({more,_}, L, Terms, Rest) ->
-    case string:tokens(Rest, [$\n,$\r,$\t]) of
-	[] ->
-	    lists:reverse(Terms);
-	_ ->
-	    {error,{bad_term,L}}
     end.
 
 set_default_config(NewConfig, Scope) ->
@@ -347,15 +259,15 @@ loop(Mode,TestData,StartDir) ->
 	    return(From,Result),
 	    loop(Mode,TestData,StartDir);
 	{{set_default_config,{Config,Scope}},From} ->
-	    set_config(Config,{true,Scope}),
+	    ct_config:set_config(Config,{true,Scope}),
 	    return(From,ok),
 	    loop(Mode,TestData,StartDir);
 	{{set_default_config,{Name,Config,Scope}},From} ->
-	    set_config(Name,Config,{true,Scope}),
+	    ct_config:set_config(Name,Config,{true,Scope}),
 	    return(From,ok),
 	    loop(Mode,TestData,StartDir);
 	{{delete_default_config,Scope},From} ->
-	    delete_config({true,Scope}),
+	    ct_config:delete_config({true,Scope}),
 	    return(From,ok),
 	    loop(Mode,TestData,StartDir);
 	{{update_config,{Name,NewConfig}},From} ->
@@ -765,21 +677,7 @@ lookup_key(Key) ->
 			     [],
 			     [{{'$1','$2'}}]}]).
 
-set_config(Config) ->
-    set_config('_UNDEF',Config,false).
 
-set_config(Config,Default) ->
-    set_config('_UNDEF',Config,Default).
-
-set_config(Name,Config,Default) ->
-    [ets:insert(?attr_table,
-		#ct_conf{key=Key,value=Val,ref=ct_make_ref(),
-			 name=Name,default=Default}) ||
-	{Key,Val} <- Config].
-
-delete_config(Default) ->
-    ets:match_delete(?attr_table,#ct_conf{default=Default,_='_'}),
-    ok.
 
 
 %%%-----------------------------------------------------------------

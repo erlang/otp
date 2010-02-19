@@ -208,23 +208,20 @@ script_start1(Parent, Args) ->
 			end
 		end;
 	    false ->    
-		case lists:keysearch(ct_config, 1, Args) of
-		    {value,{ct_config,ConfigFiles}} ->
-			case lists:keysearch(spec, 1, Args) of
-			    false ->
-				case get_configfiles(ConfigFiles, [], LogDir,
-						     EvHandlers) of
-				    ok ->
-					script_start2(VtsOrShell, ConfigFiles,
-						      EvHandlers, Args, LogDir,
-						      Cover);
-				    Error ->
-					Error
-				end;
-			    _ ->
-				script_start2(VtsOrShell, ConfigFiles,
-					      EvHandlers, Args, LogDir, Cover)
-			end;
+		ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
+		    {value,{ct_config,Files}}->
+			[{ct_config_plain, Files}];
+		    false->
+			[]
+		end,
+		UserConfigs = case lists:keysearch(userconfig, 1, Args) of
+		    {value,{userconfig,UserConfigFiles}}->
+			prepare_user_configs(UserConfigFiles, [], new);
+		    false->
+			[]
+		end,
+		Config = ConfigFiles ++ UserConfigs,
+		case Config of
 		    false ->
 			case install([{config,[]},
 				      {event_handler,EvHandlers}],
@@ -234,21 +231,72 @@ script_start1(Parent, Args) ->
 					      Args, LogDir, Cover);
 			    Error ->
 				Error
+			end;
+		    Config ->
+			case lists:keysearch(spec, 1, Args) of
+			    false ->
+				case check_and_install_configfiles(Config,
+						LogDir, EvHandlers) of
+				    ok ->
+					script_start2(VtsOrShell, Config,
+						      EvHandlers, Args, LogDir,
+						      Cover);
+				    Error ->
+					Error
+				end;
+			    _ ->
+				script_start2(VtsOrShell, Config,
+					      EvHandlers, Args, LogDir, Cover)
 			end
 		end
 	end,
     Parent ! {self(), Result}.
 
-get_configfiles([File|Files], Acc, LogDir, EvHandlers) ->
-    case filelib:is_file(File) of
-	true ->
-	    get_configfiles(Files, [?abs(File)|Acc],
-			    LogDir, EvHandlers);
-	false ->
-	    {error,{cant_read_config_file,File}}
-    end;
-get_configfiles([], Acc, LogDir, EvHandlers) ->
-    install([{config,lists:reverse(Acc)}, {event_handler,EvHandlers}], LogDir).
+prepare_user_configs([ConfigString|UserConfigs], Acc, new)->
+    prepare_user_configs(UserConfigs,
+			 [{list_to_atom(ConfigString), []}|Acc],
+			 cur);
+prepare_user_configs(["and"|UserConfigs], Acc, _)->
+    prepare_user_configs(UserConfigs, Acc, new);
+prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur)->
+    prepare_user_configs(UserConfigs,
+			 [{LastMod, [ConfigString|LastList]}|Acc],
+			 cur);
+prepare_user_configs([], Acc, _)->
+    Acc.
+
+check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
+    % Configs is list of tuples such as {Callback=atom(), Files=list()}
+    % The ugly code below checks:
+    % 1. that all config files are present
+    % 2. thar all callback modules are loadable
+    case lists:keysearch(nok, 1,
+	    lists:flatten(
+		lists:map(fun({Callback, Files})->
+		    case code:load_file(Callback) of
+			{module, Callback}->
+			    lists:map(fun(File)->
+				case filelib:is_file(File) of
+				    true->
+					{ok, File};
+				    false->
+					{nok, {config, File}}
+				end
+			    end,
+			    Files);
+			{error, _}->
+			    {nok, {callback, Callback}}
+		    end
+		end,
+		Configs))) of
+    false->
+	install([{config,Configs},
+		 {event_handler,EvHandlers}], LogDir);
+    {value, {nok, {config, File}}} ->
+	{error,{cant_read_config_file,File}};
+    {value, {nok, {callback, File}}} ->
+	{error,{cant_load_callback_module,File}}
+    end.
 
 script_start2(false, ConfigFiles, EvHandlers, Args, LogDir, Cover) ->
     case lists:keysearch(spec, 1, Args) of
@@ -275,8 +323,8 @@ script_start2(false, ConfigFiles, EvHandlers, Args, LogDir, Cover) ->
 				   {_,undef} ->     [Cover];
 				   {false,_} ->     [{cover,TSCoverFile}]
 			       end,
-		    case get_configfiles(ConfigFiles++ConfigFiles1,
-					 [], LogDir2,
+		    case check_and_install_configfiles(
+					 ConfigFiles++ConfigFiles1, LogDir2,
 					 EvHandlers++EvHandlers1) of
 			ok ->
 			    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
@@ -404,6 +452,7 @@ script_usage() ->
 	      "\n\t[-suite Suite1 Suite2 .. SuiteN [-case Case1 Case2 .. CaseN]]"
 	      "\n\t[-step [config | keep_inactive]]"
 	      "\n\t[-config ConfigFile1 ConfigFile2 .. ConfigFileN]"
+	      "\n\t[-userconfig CallbackModule ConfigFile1 .. ConfigFileN]"
 	      "\n\t[-decrypt_key Key] | [-decrypt_file KeyFile]"
 	      "\n\t[-logdir LogDir]"
 	      "\n\t[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]"
@@ -534,17 +583,7 @@ run_test1(Opts) ->
 	    {value,{_,LD}} when is_list(LD) -> LD;
 	    false -> "."
 	end,
-    CfgFiles =
-	case lists:keysearch(config, 1, Opts) of
-	    {value,{_,Files=[File|_]}} when is_list(File) ->
-		Files;
-	    {value,{_,File=[C|_]}} when is_integer(C) ->
-		[File];
-	    {value,{_,[]}} ->
-		[];
-	    false ->
-		[]
-	end,
+    CfgFiles = ct_config:get_config_file_list(Opts),
     EvHandlers =
 	case lists:keysearch(event_handler, 1, Opts) of
 	    {value,{_,H}} when is_atom(H) ->
@@ -681,7 +720,7 @@ run_spec_file(LogDir, CfgFiles, EvHandlers, Include, Specs, Relaxed, Cover, Opts
 			   {_,undef} ->  Cover;
 			   {[],_} ->     [{cover,TSCoverFile}]
 		       end,
-	    case get_configfiles(CfgFiles++CfgFiles1, [], LogDir2,
+	    case check_and_install_configfiles(CfgFiles++CfgFiles1, LogDir2,
 				 EvHandlers++EvHandlers1) of
 		ok ->
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
@@ -694,23 +733,40 @@ run_spec_file(LogDir, CfgFiles, EvHandlers, Include, Specs, Relaxed, Cover, Opts
     end.
 
 run_prepared(LogDir, CfgFiles, EvHandlers, Run, Skip, Cover, Opts) ->
-    case get_configfiles(CfgFiles, [], LogDir, EvHandlers) of
+    case check_and_install_configfiles(CfgFiles, LogDir, EvHandlers) of
 	ok ->
 	    do_run(Run, Skip, Cover, Opts, LogDir);
 	{error,Reason} ->
 	    exit(Reason)
     end.    
 
+check_config_file(File)->
+    AbsName = ?abs(File),
+    case filelib:is_file(AbsName) of
+	true -> AbsName;
+	false -> exit({no_such_file,AbsName})
+    end.
+
 run_dir(LogDir, CfgFiles, EvHandlers, StepOrCover, Opts) ->
     AbsCfgFiles = 
-	lists:map(fun(F) -> 
-			  AbsName = ?abs(F),
-			  case filelib:is_file(AbsName) of
-			      true -> AbsName;
-			      false -> exit({no_such_file,AbsName})
-			  end
-		  end, CfgFiles), 
-
+	lists:map(fun({Callback, FileList})->
+	    case code:is_loaded(Callback) of
+		{file, _Path}->
+		    ok;
+		false->
+		    case code:load_file(Callback) of
+			{module, Callback}->
+			    ok;
+			{error, _}->
+			    exit({no_such_module, Callback})
+		    end
+	    end,
+	    {Callback,
+		lists:map(fun(File)->
+		    check_config_file(File)
+		end, FileList)}
+	    end,
+	CfgFiles),
     case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
@@ -799,7 +855,7 @@ run_testspec1(TestSpec) ->
 	    CoverOpt = if TSCoverFile == undef -> [];
 			  true -> [{cover,TSCoverFile}]
 		       end,
-	    case get_configfiles(CfgFiles,[],LogDir,EvHandlers) of
+	    case check_and_install_configfiles(CfgFiles,LogDir,EvHandlers) of
 		ok ->
 		    {Run,Skip} = ct_testspec:prepare_tests(TS,node()),
 		    do_run(Run,Skip,CoverOpt,[],LogDir);
