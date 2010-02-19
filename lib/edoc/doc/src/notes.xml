@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>EDoc Release Notes</title>
@@ -30,6 +30,37 @@
   </header>
   <p>This document describes the changes made to the EDoc
     application.</p>
+
+<section><title>Edoc 0.7.6.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Edoc 0.7.6.5</title>
 

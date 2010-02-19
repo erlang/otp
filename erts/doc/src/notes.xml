@@ -30,6 +30,423 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.7.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Fix <c>binary_to_term</c> crash on compressed term with
+	    corrupt size field.</p>
+          <p>
+	    Own Id: OTP-8336</p>
+        </item>
+        <item>
+          <p>
+	    Processes and/or ports could get stuck on a blocked
+	    scheduler when <c>erlang:system_flag(multi_scheduling,
+	    block)</c> was used.</p>
+          <p>
+	    Processes and/or ports could get stuck on an offline
+	    scheduler when schedulers online were reduced using
+	    <c>erlang:system_flag(schedulers_online,
+	    SchedulersOnline)</c>.</p>
+          <p>
+	    Own Id: OTP-8342</p>
+        </item>
+        <item>
+	    <p>Building on Windows will now work if the paths to
+	    <c>mc.exe</c> and <c>rc.exe</c> contain spaces. The
+	    README.win32 file has been updated with some information
+	    about building using Visual Studio 2008. (Thanks to
+	    Andrew Thompson.)</p>
+          <p>
+	    Own Id: OTP-8345</p>
+        </item>
+        <item>
+          <p>
+	    EPMD now correctly handles the extra data field which can
+	    be given in the ALIVE2_REQ request and retrieved in the
+	    PORT2_RESP response. (Thanks to Klas Johansson.)</p>
+          <p>
+	    Own Id: OTP-8361</p>
+        </item>
+        <item>
+          <p>
+	    The configure test for reliable floating point exceptions
+	    has been update to work on modern versions of Mac OS X.
+	    (Thanks to Trannie Carter.)</p>
+          <p>
+	    Own Id: OTP-8368</p>
+        </item>
+        <item>
+          <p>
+	    ERTS makefiles used to detect the use of a gcc C compiler
+	    by checking if CC equaled gcc. That is, the makefiles
+	    failed to detect gcc C compilers with other command line
+	    names than gcc. `configure' now substitute GCC into the
+	    makefiles. If CC is a gcc C compiler, GCC will have the
+	    value yes. (Thanks to Jean-Sébastien Pédron)</p>
+          <p>
+	    Own Id: OTP-8373</p>
+        </item>
+        <item>
+          <p>
+	    ETS bug causing the <c>memory</c> counter from
+	    <c>ets:info</c> for ordered_set's to sometimes get out of
+	    synch and absurdly high.</p>
+          <p>
+	    Own Id: OTP-8377 Aux Id: seq11442 </p>
+        </item>
+        <item>
+          <p>
+	    Immediately repeated multi-scheduling block/unblock
+	    cycles using <c>erlang:system_flag(multi_scheduling,
+	    block | unblock)</c> could deadlock the runtime system.</p>
+          <p>
+	    Own Id: OTP-8386</p>
+        </item>
+        <item>
+	    <p>A number of bugs concerning re and unicode are
+	    corrected:</p>
+	    <p>re:compile no longer looses unicode option, which also
+	    fixes bug in re:split.</p>
+	    <p>re:replace now handles unicode charlist replacement
+	    argument</p>
+	    <p>re:replace now handles unicode RE charlist argument
+	    correctly</p>
+	    <p>re:replace now handles binary unicode output correctly
+	    when nothing is replaced.</p>
+	    <p>Most code, testcases and error isolation done by Rory
+	    Byrne.</p>
+          <p>
+	    Own Id: OTP-8394</p>
+        </item>
+        <item>
+          <p>
+	    The loading of native code was not properly atomic in the
+	    SMP emulator, which could cause crashes. Also a per-MFA
+	    information table for the native code has now been
+	    protected with a lock since it turns that it could be
+	    accessed concurrently in the SMP emulator. (Thanks to
+	    Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8397</p>
+        </item>
+        <item>
+          <p>
+	    Fix processes in exiting status that are about to be
+	    scheduled, to not be allowed to garbage collect.</p>
+          <p>
+	    Own Id: OTP-8420</p>
+        </item>
+        <item>
+	    <p>Removed bogus "\011" character sequence in
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8422</p>
+        </item>
+        <item>
+          <p>
+	    The resolver routines failed to look up the own node name
+	    as hostname, if the OS native resolver was erroneously
+	    configured, bug reported by Yogish Baliga, now fixed.</p>
+          <p>
+	    The resolver routines now tries to parse the hostname as
+	    an IP string as most OS resolvers do, unless the native
+	    resolver is used.</p>
+          <p>
+	    The DNS resolver inet_res and file resolver inet_hosts
+	    now do not read OS configuration files until they are
+	    needed. Since the native resolver is default, in most
+	    cases they are never needed.</p>
+          <p>
+	    The DNS resolver's automatic updating of OS configuration
+	    file data (/etc/resolv.conf) now uses the 'domain'
+	    keyword as default search domain if there is no 'search'
+	    keyword.</p>
+          <p>
+	    Own Id: OTP-8426 Aux Id: OTP-8381 </p>
+        </item>
+        <item>
+          <p>
+	    The re module: A regular expression with an option change
+	    at the start of a pattern that had top-level alternatives
+	    could cause overwriting and/or a crash. (Thanks to
+	    Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8438</p>
+        </item>
+        <item>
+          <p>
+	    Harmless buffer overflow by one byte in asn1 and
+	    ram_file_drv.</p>
+          <p>
+	    Own Id: OTP-8451</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Improved GC performance after BIF/NIF call when a lot of
+	    heap fragments was created. This will mainly benefit NIFs
+	    that return large compound terms.</p>
+          <p>
+	    Own Id: OTP-8240</p>
+        </item>
+        <item>
+	    <p>Incompatible changes in the experimental NIF
+	    feature.</p> <list><item> Changed the NIF function
+	    prototypes in order to allow more than 3 function
+	    arguments. </item><item> <c>enif_get_data</c> renamed as
+	    <c>enif_priv_data</c>. </item><item>
+	    <c>enif_make_string</c> got a third argument for
+	    character encoding. </item><item> The return value of
+	    <c>erlang:load_nif/2</c> on error changed. </item></list>
+	    <p>Read more in the documentation of <c>erl_nif</c> and
+	    <c>erlang:load_nif/2</c></p>.
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8304</p>
+        </item>
+        <item>
+	    <p>Cross compilation improvements and other build system
+	    improvements.</p>
+	    <p>Most notable:</p> <list><item> Lots of cross
+	    compilation improvements. The old cross compilation
+	    support was more or less non-existing as well as broken.
+	    Please, note that the cross compilation support should
+	    still be considered as experimental. Also note that old
+	    cross compilation configurations cannot be used without
+	    modifications. For more information on cross compiling
+	    Erlang/OTP see the <c>$ERL_TOP/INSTALL-CROSS.md</c> file.
+	    </item><item> Support for staged install using <url
+	    href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</url>.
+	    The old broken <c>INSTALL_PREFIX</c> has also been fixed.
+	    For more information see the <c>$ERL_TOP/INSTALL.md</c>
+	    file. </item><item> Documentation of the <c>release</c>
+	    target of the top <c>Makefile</c>. For more information
+	    see the <c>$ERL_TOP/INSTALL.md</c> file. </item><item>
+	    <c>make install</c> now by default creates relative
+	    symbolic links instead of absolute ones. For more
+	    information see the <c>$ERL_TOP/INSTALL.md</c> file.
+	    </item><item> <c>$ERL_TOP/configure --help=recursive</c>
+	    now works and prints help for all applications with
+	    <c>configure</c> scripts. </item><item> Doing <c>make
+	    install</c>, or <c>make release</c> directly after
+	    <c>make all</c> no longer triggers miscellaneous
+	    rebuilds. </item><item> Existing bootstrap system is now
+	    used when doing <c>make install</c>, or <c>make
+	    release</c> without a preceding <c>make all</c>.
+	    </item><item> The <c>crypto</c> and <c>ssl</c>
+	    applications use the same runtime library path when
+	    dynamically linking against <c>libssl.so</c> and
+	    <c>libcrypto.so</c>. The runtime library search path has
+	    also been extended. </item><item> The <c>configure</c>
+	    scripts of <c>erl_interface</c> and <c>odbc</c> now
+	    search for thread libraries and thread library quirks the
+	    same way as <c>erts</c> do. </item><item> The
+	    <c>configure</c> script of the <c>odbc</c> application
+	    now also looks for odbc libraries in <c>lib64</c> and
+	    <c>lib/64</c> directories when building on a 64-bit
+	    system. </item><item> The <c>config.h.in</c> file in the
+	    <c>erl_interface</c> application is now automatically
+	    generated in instead of statically updated which reduces
+	    the risk of <c>configure</c> tests without any effect.
+	    </item></list>
+	    <p>(Thanks to Henrik Riomar for suggestions and
+	    testing)</p>
+	    <p>(Thanks to Winston Smith for the AVR32-Linux cross
+	    configuration and testing)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8323</p>
+        </item>
+        <item>
+	    <p>NIF improvements:</p> <list><item> Driver API for
+	    multi-threading made available for NIFs. </item><item>
+	    Support for mempory managed (garbage collected) resource
+	    objects. A way to pass "pointers" to native data
+	    structures between C and Erlang in a safe way.
+	    </item><item> Support for references, floats and term
+	    comparison. </item><item> Various new functions, like
+	    <c>enif_inspect_iolist_as_binary</c>,
+	    <c>enif_make_sub_binary</c>, <c>enif_get_string</c>,
+	    <c>enif_get_atom</c>, <c>enif_make_tuple_from_array</c>,
+	    <c>enif_make_list_from_array</c>,
+	    <c>enif_make_existing_atom</c>. </item></list>
+          <p>
+	    Own Id: OTP-8335</p>
+        </item>
+        <item>
+          <p>
+	    Minor alignment adjustments of scheduler specific data.</p>
+          <p>
+	    Own Id: OTP-8341</p>
+        </item>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+        <item>
+          <p>
+	    There is new <c>erlang:binary_to_term/2</c> BIF that
+	    takes an option list. The option <c>safe</c> can be used
+	    to prevent creation of resources that are not garbage
+	    collected (such as atoms). (Thanks to Jayson Vantuyl.)</p>
+          <p>
+	    Own Id: OTP-8367</p>
+        </item>
+        <item>
+          <p>
+	    The default settings for garbage collection of binaries
+	    has been adjusted to be less aggressive than in R13B03.
+	    It is now also possible configure the settings for binary
+	    GC. See the documentation for <c>spawn_opt/2-5</c>,
+	    <c>erlang:system_info/1</c>, <c>erlang:system_flag/2</c>,
+	    <c>process_flag/2-3</c>, <c>erlang:trace/3</c>, and the
+	    documenation for <c>erl</c> for the new command line
+	    options <c>+hms</c> and <c>+hmbs</c>.</p>
+          <p>
+	    Own Id: OTP-8370</p>
+        </item>
+        <item>
+          <p>
+	    A bug causing memory corruption in re:run() has been
+	    corrected. (Thanks to Yamashina Hio.)</p>
+          <p>
+	    Own Id: OTP-8375</p>
+        </item>
+        <item>
+          <p>
+	    The <c>-Werror</c> option for <c>erlc</c> and the
+	    compiler option <c>warnings_as_errors</c> will cause
+	    warnings to be treated as errors. (Thanks to Christopher
+	    Faulet.)</p>
+          <p>
+	    Own Id: OTP-8382</p>
+        </item>
+        <item>
+          <p>
+	    Explicit top directories in archive files are now
+	    optional.</p>
+          <p>
+	    For example, if an archive (app-vsn.ez) just contains an
+	    app-vsn/ebin/mod.beam file, the file info for the app-vsn
+	    and app-vsn/ebin directories are faked using the file
+	    info from the archive file as origin. The virtual
+	    direcories can also be listed. For short, the top
+	    directories are virtual if they does not exist.</p>
+          <p>
+	    Own Id: OTP-8387</p>
+        </item>
+        <item>
+          <p>
+	    An unnecessary lock operation in os:timestamp/0 has been
+	    eliminated, making it slightly more efficient. (Thanks to
+	    Jonas Falkevik and Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8390</p>
+        </item>
+        <item>
+          <p>
+	    There is a new <c>+t</c> emulator option for changing the
+	    maximum number of atoms. (Thanks to Julien Barbot.)</p>
+          <p>
+	    Own Id: OTP-8405</p>
+        </item>
+        <item>
+          <p>
+	    Fixed numerous compiler warnings generated by gcc 4.4.1
+	    and tile-cc 2.0.1.78377 when compiling the runtime
+	    system.</p>
+          <p>
+	    Own Id: OTP-8412</p>
+        </item>
+        <item>
+          <p>
+	    <c>configure</c> learned the option
+	    <c>--enable-m32-build</c> to force the building of a
+	    32-bit run-time on systems where the default C compiler
+	    generates 64-bit executables by default.</p>
+          <p>
+	    Own Id: OTP-8415</p>
+        </item>
+        <item>
+          <p>
+	    HiPE now works in the 64-bit emulator on Mac OS X.
+	    (Thanks to Geoff Cant.)</p>
+          <p>
+	    Own Id: OTP-8416</p>
+        </item>
+        <item>
+          <p>
+	    Improved handling of symbolic links to escripts</p>
+          <p>
+	    Own Id: OTP-8417</p>
+        </item>
+        <item>
+          <p>
+	    Add lock profiling tool.</p>
+          <p>
+	    The Lock profiling tool, lcnt, can make use of the
+	    internal lock statistics when the runtime system is built
+	    with this feature enabled.</p>
+          <p>
+	    This provides a mechanism to examine potential lock
+	    bottlenecks within the runtime itself.</p>
+          <p>
+	    - Add erts_debug:lock_counters({copy_save, bool()}). This
+	    option enables or disables statistics saving for
+	    destroyed processes and ets-tables. Enabling this might
+	    consume a lot of memory.</p>
+          <p>
+	    - Add id-numbering for lock classes which is otherwise
+	    undefined.</p>
+          <p>
+	    Own Id: OTP-8424</p>
+        </item>
+        <item>
+          <p>
+	    Removed spurious options to the emulator from escript.</p>
+          <p>
+	    Own Id: OTP-8427</p>
+        </item>
+        <item>
+          <p>
+	    Minor documentation fixes. Mainly anchor adjustments.</p>
+          <p>
+	    Own Id: OTP-8457</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.7.4</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

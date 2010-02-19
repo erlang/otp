@@ -32,6 +32,37 @@
   </header>
   <p>This document describes the changes made to the EUnit application.</p>
 
+<section><title>Eunit 2.1.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Eunit 2.1.4</title>
 
     <section><title>Improvements and New Features</title>

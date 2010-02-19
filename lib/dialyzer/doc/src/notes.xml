@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Dialyzer Release Notes</title>
@@ -30,6 +30,35 @@
   </header>
   <p>This document describes the changes made to the Dialyzer
     application.</p>
+
+<section><title>Dialyzer 2.2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Much better support for opaque types (thanks to Manouk
+	    Manoukian).</p>
+	    <p>Added support for recursive types (experimental).</p>
+	    <p>Added support for parameterized modules.</p>
+	    <p>Dialyzer now warns when -specs state that a function
+	    returns some type when in fact it does not.</p>
+	    <p>Added <c>--no_native</c> (<c>-nn</c>) option so that
+	    the user can bypass the native code compilation that
+	    dialyzer heuristically performs when dialyzing many
+	    files.</p>
+	    <p>Fixed minor bug in the dialyzer script allowing the
+	    --wx option to bring up the wx-based GUI regardless of
+	    its placement in the options list.</p>
+	    <p>Options --apps and -Wrace_conditions, which were added
+	    in the previous version, are now properly documented in
+	    the manual.</p>
+          <p>
+	    Own Id: OTP-8464</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Dialyzer 2.1.0</title>
 

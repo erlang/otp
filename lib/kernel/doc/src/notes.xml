@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Kernel Release Notes</title>
@@ -29,6 +29,109 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
+
+<section><title>Kernel 2.13.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A race bug affecting <c>pg2:get_local_members/1</c>
+	    has been fixed. The bug was introduced in R13B03.</p>
+          <p>
+	    Own Id: OTP-8358</p>
+        </item>
+        <item>
+          <p>
+	    The loading of native code was not properly atomic in the
+	    SMP emulator, which could cause crashes. Also a per-MFA
+	    information table for the native code has now been
+	    protected with a lock since it turns that it could be
+	    accessed concurrently in the SMP emulator. (Thanks to
+	    Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8397</p>
+        </item>
+        <item>
+          <p>
+	    user.erl (used in oldshell) is updated to handle unicode
+	    in prompt strings (io:get_line/{1,2}). io_lib is also
+	    updated to format prompts with the 't' modifier (i.e. ~ts
+	    instead of ~s).</p>
+          <p>
+	    Own Id: OTP-8418 Aux Id: OTP-8393 </p>
+        </item>
+        <item>
+          <p>
+	    The resolver routines failed to look up the own node name
+	    as hostname, if the OS native resolver was erroneously
+	    configured, bug reported by Yogish Baliga, now fixed.</p>
+          <p>
+	    The resolver routines now tries to parse the hostname as
+	    an IP string as most OS resolvers do, unless the native
+	    resolver is used.</p>
+          <p>
+	    The DNS resolver inet_res and file resolver inet_hosts
+	    now do not read OS configuration files until they are
+	    needed. Since the native resolver is default, in most
+	    cases they are never needed.</p>
+          <p>
+	    The DNS resolver's automatic updating of OS configuration
+	    file data (/etc/resolv.conf) now uses the 'domain'
+	    keyword as default search domain if there is no 'search'
+	    keyword.</p>
+          <p>
+	    Own Id: OTP-8426 Aux Id: OTP-8381 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The expected return value for an on_load function has
+	    been changed. (See the section about code loading in the
+	    Reference manual.)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8339</p>
+        </item>
+        <item>
+          <p>
+	    Explicit top directories in archive files are now
+	    optional.</p>
+          <p>
+	    For example, if an archive (app-vsn.ez) just contains an
+	    app-vsn/ebin/mod.beam file, the file info for the app-vsn
+	    and app-vsn/ebin directories are faked using the file
+	    info from the archive file as origin. The virtual
+	    direcories can also be listed. For short, the top
+	    directories are virtual if they does not exist.</p>
+          <p>
+	    Own Id: OTP-8387</p>
+        </item>
+        <item>
+          <p>
+	    <c>code:clash/0</c> now looks inside archives (.ez
+	    files). (Thanks to Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8413</p>
+        </item>
+        <item>
+          <p>
+	    There are new <c>gen_sctp:connect_init/*</c> functions
+	    that initiate an SCTP connection without blocking for the
+	    result. The result is delivered asynchronously as an
+	    sctp_assoc_change event. (Thanks to Simon Cornish.)</p>
+          <p>
+	    Own Id: OTP-8414</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Kernel 2.13.4</title>
 

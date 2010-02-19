@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>STDLIB Release Notes</title>
@@ -29,6 +29,170 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
+
+<section><title>STDLIB 1.16.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Because of a race condition, using filelib:ensure_dir/1
+	    from multiple processes to create the same path or parts
+	    of the same directory structure, filelib:ensure_dir/1
+	    could return a meaningless {error,eexist}. That race
+	    condition has been eliminated, and {error,eexist} will
+	    now be returned only if there exists a regular file,
+	    device file, or some other non-directory file with the
+	    same name. (Thanks to Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8389</p>
+        </item>
+        <item>
+	    <p>A number of bugs concerning re and unicode are
+	    corrected:</p>
+	    <p>re:compile no longer looses unicode option, which also
+	    fixes bug in re:split.</p>
+	    <p>re:replace now handles unicode charlist replacement
+	    argument</p>
+	    <p>re:replace now handles unicode RE charlist argument
+	    correctly</p>
+	    <p>re:replace now handles binary unicode output correctly
+	    when nothing is replaced.</p>
+	    <p>Most code, testcases and error isolation done by Rory
+	    Byrne.</p>
+          <p>
+	    Own Id: OTP-8394</p>
+        </item>
+        <item>
+          <p>
+	    The loading of native code was not properly atomic in the
+	    SMP emulator, which could cause crashes. Also a per-MFA
+	    information table for the native code has now been
+	    protected with a lock since it turns that it could be
+	    accessed concurrently in the SMP emulator. (Thanks to
+	    Mikael Pettersson.)</p>
+          <p>
+	    Own Id: OTP-8397</p>
+        </item>
+        <item>
+          <p>
+	    user.erl (used in oldshell) is updated to handle unicode
+	    in prompt strings (io:get_line/{1,2}). io_lib is also
+	    updated to format prompts with the 't' modifier (i.e. ~ts
+	    instead of ~s).</p>
+          <p>
+	    Own Id: OTP-8418 Aux Id: OTP-8393 </p>
+        </item>
+        <item>
+          <p>
+	    The re module: A regular expression with an option change
+	    at the start of a pattern that had top-level alternatives
+	    could cause overwriting and/or a crash. (Thanks to
+	    Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8438</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The ability for the gen_server and gen_fsm callback
+	    modules to format their own state for display under the
+	    sys:get_status/1,2 calls has been restored and
+	    documented. (Thanks to Steve Vinoski.)</p>
+          <p>
+	    Own Id: OTP-8324</p>
+        </item>
+        <item>
+          <p>
+	    c:nc/{1,2} used to assume that the beam file was created
+	    in the same directory as the source code and failed to
+	    load the code if it was not. Corrected to look for the
+	    beam file in the current directory or in the directory
+	    specified by the <c>{outdir,Dir}</c> option. (Thanks to
+	    Alex Suraci.)</p>
+          <p>
+	    Own Id: OTP-8337</p>
+        </item>
+        <item>
+	    <p>The documentation is now possible to build in an open
+	    source environment after a number of bugs are fixed and
+	    some features are added in the documentation build
+	    process. </p>
+	    <p>- The arity calculation is updated.</p>
+	    <p>- The module prefix used in the function names for
+	    bif's are removed in the generated links so the links
+	    will look like
+	    "http://www.erlang.org/doc/man/erlang.html#append_element-2"
+	    instead of
+	    "http://www.erlang.org/doc/man/erlang.html#erlang:append_element-2".</p>
+	    <p>- Enhanced the menu positioning in the html
+	    documentation when a new page is loaded.</p>
+	    <p>- A number of corrections in the generation of man
+	    pages (thanks to Sergei Golovan)</p>
+	    <p>- The legal notice is taken from the xml book file so
+	    OTP's build process can be used for non OTP
+	    applications.</p>
+          <p>
+	    Own Id: OTP-8343</p>
+        </item>
+        <item>
+          <p>
+	    Shell tab completion now works for quoted module and
+	    function names. (Thanks to Ulf Wiger.)</p>
+          <p>
+	    Own Id: OTP-8383</p>
+        </item>
+        <item>
+          <p>
+	    Explicit top directories in archive files are now
+	    optional.</p>
+          <p>
+	    For example, if an archive (app-vsn.ez) just contains an
+	    app-vsn/ebin/mod.beam file, the file info for the app-vsn
+	    and app-vsn/ebin directories are faked using the file
+	    info from the archive file as origin. The virtual
+	    direcories can also be listed. For short, the top
+	    directories are virtual if they does not exist.</p>
+          <p>
+	    Own Id: OTP-8387</p>
+        </item>
+        <item>
+	    <p>Macros overloading has been implemented. (Thanks to
+	    Christopher Faulet.)</p>
+          <p>
+	    Own Id: OTP-8388</p>
+        </item>
+        <item>
+	    <p>The new function <c>shell:prompt_func/1</c> and the
+	    new application configuration parameter
+	    <c>shell_prompt_func</c> can be used for customizing the
+	    Erlang shell prompt.</p>
+          <p>
+	    Own Id: OTP-8393</p>
+        </item>
+        <item>
+          <p>
+	    Improved handling of typed records in escripts</p>
+          <p>
+	    Own Id: OTP-8434</p>
+        </item>
+        <item>
+          <p>
+	    Added supervisor:count_children/1 to count the number of
+	    children being managed without the memory impact of
+	    which_children/1. (Thanks to Jay Nelson.)</p>
+          <p>
+	    Own Id: OTP-8436</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>STDLIB 1.16.4</title>
 

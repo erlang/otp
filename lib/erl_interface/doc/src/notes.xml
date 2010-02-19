@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Erl_interface Release Notes</title>
@@ -29,6 +29,96 @@
     <file>notes.xml</file>
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
+
+<section><title>Erl_Interface 3.6.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Document debug support.</p>
+          <p>
+	    Debug trace output for connection activity could be
+	    enabled setting the trace level as an integer to the
+	    EI_TRACELEVEL environment variable. This option could
+	    also be read and set from a running program using
+	    ei_get_tracelevel(void) and ei_set_tracelevel(int).</p>
+          <p>
+	    Own Id: OTP-5037</p>
+        </item>
+        <item>
+	    <p>Cross compilation improvements and other build system
+	    improvements.</p>
+	    <p>Most notable:</p> <list><item> Lots of cross
+	    compilation improvements. The old cross compilation
+	    support was more or less non-existing as well as broken.
+	    Please, note that the cross compilation support should
+	    still be considered as experimental. Also note that old
+	    cross compilation configurations cannot be used without
+	    modifications. For more information on cross compiling
+	    Erlang/OTP see the <c>$ERL_TOP/INSTALL-CROSS.md</c> file.
+	    </item><item> Support for staged install using <url
+	    href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</url>.
+	    The old broken <c>INSTALL_PREFIX</c> has also been fixed.
+	    For more information see the <c>$ERL_TOP/INSTALL.md</c>
+	    file. </item><item> Documentation of the <c>release</c>
+	    target of the top <c>Makefile</c>. For more information
+	    see the <c>$ERL_TOP/INSTALL.md</c> file. </item><item>
+	    <c>make install</c> now by default creates relative
+	    symbolic links instead of absolute ones. For more
+	    information see the <c>$ERL_TOP/INSTALL.md</c> file.
+	    </item><item> <c>$ERL_TOP/configure --help=recursive</c>
+	    now works and prints help for all applications with
+	    <c>configure</c> scripts. </item><item> Doing <c>make
+	    install</c>, or <c>make release</c> directly after
+	    <c>make all</c> no longer triggers miscellaneous
+	    rebuilds. </item><item> Existing bootstrap system is now
+	    used when doing <c>make install</c>, or <c>make
+	    release</c> without a preceding <c>make all</c>.
+	    </item><item> The <c>crypto</c> and <c>ssl</c>
+	    applications use the same runtime library path when
+	    dynamically linking against <c>libssl.so</c> and
+	    <c>libcrypto.so</c>. The runtime library search path has
+	    also been extended. </item><item> The <c>configure</c>
+	    scripts of <c>erl_interface</c> and <c>odbc</c> now
+	    search for thread libraries and thread library quirks the
+	    same way as <c>erts</c> do. </item><item> The
+	    <c>configure</c> script of the <c>odbc</c> application
+	    now also looks for odbc libraries in <c>lib64</c> and
+	    <c>lib/64</c> directories when building on a 64-bit
+	    system. </item><item> The <c>config.h.in</c> file in the
+	    <c>erl_interface</c> application is now automatically
+	    generated in instead of statically updated which reduces
+	    the risk of <c>configure</c> tests without any effect.
+	    </item></list>
+	    <p>(Thanks to Henrik Riomar for suggestions and
+	    testing)</p>
+	    <p>(Thanks to Winston Smith for the AVR32-Linux cross
+	    configuration and testing)</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8323</p>
+        </item>
+        <item>
+          <p>
+	    Change erroneous "\\0" in documentation files
+	    <c>erl_notes.xml</c> and <c> erl_eterm.xml</c>.</p>
+          <p>
+	    Own Id: OTP-8326</p>
+        </item>
+        <item>
+          <p>
+	    Allow <c>erl_match()</c> to match <c>ERL_LONGLONG</c> and
+	    <c>ERL_U_LONGLONG</c> terms (Thanks to Scott Lystig
+	    Fritchie).</p>
+          <p>
+	    Own Id: OTP-8400</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>Erl_Interface 3.6.4</title>
 

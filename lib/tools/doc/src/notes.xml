@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Tools Release Notes</title>
@@ -39,6 +39,40 @@
             in Cover. The bug was introduced in R13B03. 
             (Thanks to Matthew Sackman.)</p>
           <p>Own Id: OTP-8340</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+        Add lock profiling tool.</p>
+          <p>
+        The Lock profiling tool, lcnt, can make use of the
+        internal lock statistics when the runtime system is built
+        with this feature enabled.</p>
+          <p>
+        This provides a mechanism to examine potential lock
+        bottlenecks within the runtime itself.</p>
+          <p>
+        - Add erts_debug:lock_counters({copy_save, bool()}). This
+        option enables or disables statistics saving for
+        destroyed processes and ets-tables. Enabling this might
+        consume a lot of memory.</p>
+          <p>
+        - Add id-numbering for lock classes which is otherwise
+        undefined.</p>
+          <p>
+        Own Id: OTP-8424</p>
+        </item>
+        <item>
+          <p>
+        emacs: Moved code skeletons to a separate file and and
+        added a configurable variable to choose skeleton. Thanks
+        Dave Peticolas.</p>
+          <p>
+        Own Id: OTP-8446</p>
         </item>
       </list>
     </section>
