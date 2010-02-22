@@ -35,115 +35,10 @@
     thus constitutes one section in this document. The title of each
     section is the version number of Megaco.</p>
 
-  <section><title>Megaco 3.14</title>
-
-      <section><title>Fixed Bugs and Malfunctions</title>
-        <list>
-          <item>
-            <p>
-              Fixed some Dialyzer detected problems.</p>
-            <p>
-              Own Id: OTP-8317</p>
-          </item>
-          <item>
-            <p>
-              Callbacks, when the callback module is unknown
-              (undefined), results in warning messages. A raise
-              condition scenario. As part of a cancelation operation,
-              replies with waiting acknowledgements is cancelled. This
-              includes informing the user (via a call to the
-              handle_trans_ack callback function). It is possible that
-              at this point the connection data has been removed, which
-              causes makes it impossible for megaco to perform this
-              operation, resulting in the warning message. The solution
-              is to also store the callback module with the other reply
-              information, to be used when cleaning up after a
-              cancelation.</p>
-            <p>
-              Own Id: OTP-8328 Aux Id: seq11384 </p>
-          </item>
-        </list>
-      </section>
-
-      <section><title>Improvements and New Features</title>
-        <list>
-          <item>
-              <p>Cross compilation improvements and other build system
-              improvements.</p>
-              <p>Most notable:</p> <list><item> Lots of cross
-              compilation improvements. The old cross compilation
-              support was more or less non-existing as well as broken.
-              Please, note that the cross compilation support should
-              still be considered as experimental. Also note that old
-              cross compilation configurations cannot be used without
-              modifications. For more information on cross compiling
-              Erlang/OTP see the <c>$ERL_TOP/INSTALL-CROSS.md</c> file.
-              </item><item> Support for staged install using <url
-              href="http://www.gnu.org/prep/standards/html_node/DESTDIR.html">DESTDIR</url>.
-              The old broken <c>INSTALL_PREFIX</c> has also been fixed.
-              For more information see the <c>$ERL_TOP/INSTALL.md</c>
-              file. </item><item> Documentation of the <c>release</c>
-              target of the top <c>Makefile</c>. For more information
-              see the <c>$ERL_TOP/INSTALL.md</c> file. </item><item>
-              <c>make install</c> now by default creates relative
-              symbolic links instead of absolute ones. For more
-              information see the <c>$ERL_TOP/INSTALL.md</c> file.
-              </item><item> <c>$ERL_TOP/configure --help=recursive</c>
-              now works and prints help for all applications with
-              <c>configure</c> scripts. </item><item> Doing <c>make
-              install</c>, or <c>make release</c> directly after
-              <c>make all</c> no longer triggers miscellaneous
-              rebuilds. </item><item> Existing bootstrap system is now
-              used when doing <c>make install</c>, or <c>make
-              release</c> without a preceding <c>make all</c>.
-              </item><item> The <c>crypto</c> and <c>ssl</c>
-              applications use the same runtime library path when
-              dynamically linking against <c>libssl.so</c> and
-              <c>libcrypto.so</c>. The runtime library search path has
-              also been extended. </item><item> The <c>configure</c>
-              scripts of <c>erl_interface</c> and <c>odbc</c> now
-              search for thread libraries and thread library quirks the
-              same way as <c>erts</c> do. </item><item> The
-              <c>configure</c> script of the <c>odbc</c> application
-              now also looks for odbc libraries in <c>lib64</c> and
-              <c>lib/64</c> directories when building on a 64-bit
-              system. </item><item> The <c>config.h.in</c> file in the
-              <c>erl_interface</c> application is now automatically
-              generated in instead of statically updated which reduces
-              the risk of <c>configure</c> tests without any effect.
-              </item></list>
-              <p>(Thanks to Henrik Riomar for suggestions and
-              testing)</p>
-              <p>(Thanks to Winston Smith for the AVR32-Linux cross
-              configuration and testing)</p>
-            <p>
-              *** POTENTIAL INCOMPATIBILITY ***</p>
-            <p>
-              Own Id: OTP-8323</p>
-          </item>
-          <item>
-            <p>
-              Added a help target in the test Makefile to explain the
-              most useful make targets, used when testing the
-              application using the test-server provided with megaco</p>
-            <p>
-              Own Id: OTP-8362</p>
-          </item>
-          <item>
-            <p>
-              Adapted megaco_filter to the new internal format.</p>
-            <p>
-              Own Id: OTP-8403</p>
-          </item>
-        </list>
-      </section>
-
-  </section>
-
   <section>
-    <title>Megaco 3.13.1</title>
+    <title>Megaco 3.14</title>
 
-    <p>Version 3.13.1 supports code replacement in runtime from/to
+    <p>Version 3.14 supports code replacement in runtime from/to
       version 3.13, 3.12 and 3.11.3.</p>
 
     <section>
@@ -156,7 +51,7 @@
       <list type="bulleted">
         <item>
           <p>Various changes to configure and makefile(s) to facilitate cross 
-            compilation. </p>
+            compilation (and other build system improvements). </p>
           <p>Own Id: OTP-8323</p>
         </item>
 
@@ -166,8 +61,12 @@
             application using the test-server provided with megaco.</p>
           <p>Own Id: OTP-8362</p>
         </item>
-
-      </list>
+ 
+        <item>
+          <p>Adapted megaco_filter to the new internal format.</p>
+          <p>Own Id: OTP-8403</p>
+        </item>
+     </list>
 
     </section>
 
@@ -198,7 +97,7 @@
 
     </section>
 
-  </section> <!-- 3.13.1 -->
+  </section> <!-- 3.14 -->
 
 
   <section>
