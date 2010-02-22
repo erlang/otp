@@ -80,7 +80,7 @@ foldl(Fun, Acc0, File) when is_function(Fun, 4) ->
                 throw:Reason ->
                     {error, Reason}
             end;
-        {beam, _, BeamBin, _Mode} when is_binary(BeamBin) ->
+        {beam, _, BeamBin, _HasRecs, _Mode} when is_binary(BeamBin) ->
             GetInfo = fun() -> file:read_file_info(File) end,
             GetBin = fun() -> BeamBin end,
             try
@@ -89,7 +89,7 @@ foldl(Fun, Acc0, File) when is_function(Fun, 4) ->
                 throw:Reason ->
                     {error, Reason}
             end;
-        {archive, _, ArchiveBin, _Mode} when is_binary(ArchiveBin) ->
+        {archive, _, ArchiveBin, _HasRecs, _Mode} when is_binary(ArchiveBin) ->
 	    ZipFun =
 		fun({Name, GetInfo, GetBin}, A) ->
 			A2 = Fun(Name, GetInfo, GetBin, A),
