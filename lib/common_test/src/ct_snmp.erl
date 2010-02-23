@@ -332,7 +332,7 @@ set_info(Config) ->
 register_users(MgrAgentConfName, Users) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, Users}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     setup_users(Users).
 
 %%% @spec register_agents(MgrAgentConfName, ManagedAgents) -> ok | {error, Reason}
@@ -347,7 +347,7 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals,
 				   {managed_agents, ManagedAgents}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     setup_managed_agents(ManagedAgents).
 
 %%% @spec register_usm_users(MgrAgentConfName, UsmUsers) ->  ok | {error, Reason}
@@ -361,7 +361,7 @@ register_agents(MgrAgentConfName, ManagedAgents) ->
 register_usm_users(MgrAgentConfName, UsmUsers) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {usm_users, UsmUsers}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     setup_usm_users(UsmUsers, EngineID).
 
@@ -376,7 +376,7 @@ unregister_users(MgrAgentConfName) ->
 		      ct:get_config({MgrAgentConfName, users})),
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(users, 1, SnmpVals, {users, []}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     takedown_users(Users).
 
 %%% @spec unregister_agents(MgrAgentConfName) ->  ok | {error, Reason}
@@ -393,7 +393,7 @@ unregister_agents(MgrAgentConfName) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(managed_agents, 1, SnmpVals, 
 				   {managed_agents, []}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     takedown_managed_agents(ManagedAgents).
 
 
@@ -409,7 +409,7 @@ update_usm_users(MgrAgentConfName, UsmUsers) ->
     {snmp, SnmpVals} = ct:get_config(MgrAgentConfName),
     NewSnmpVals = lists:keyreplace(usm_users, 1, SnmpVals, 
 				   {usm_users, UsmUsers}),
-    ct_util:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
+    ct_config:update_config(MgrAgentConfName, {snmp, NewSnmpVals}),
     EngineID = ct:get_config({MgrAgentConfName, engine_id}, ?ENGINE_ID),
     do_update_usm_users(UsmUsers, EngineID). 
 

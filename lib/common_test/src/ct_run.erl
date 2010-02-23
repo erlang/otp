@@ -222,7 +222,7 @@ script_start1(Parent, Args) ->
 		end,
 		Config = ConfigFiles ++ UserConfigs,
 		case Config of
-		    false ->
+		    [] ->
 			case install([{config,[]},
 				      {event_handler,EvHandlers}],
 				     LogDir) of

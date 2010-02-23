@@ -38,10 +38,10 @@ read_config_file(ConfigFile) ->
 			    {key,K} ->
 				K;
 			    {file,F} ->
-				ct_util:get_crypt_key_from_file(F)
+				ct_config:get_crypt_key_from_file(F)
 			end;
 		    _ ->
-			ct_util:get_crypt_key_from_file()
+			ct_config:get_crypt_key_from_file()
 		end,
 	    case Key of
 		{error,no_crypt_file} ->
@@ -49,7 +49,7 @@ read_config_file(ConfigFile) ->
 		{error,CryptError} ->
 		    {error, decrypt_file_error, CryptError};
 		_ when is_list(Key) ->
-		    case ct_util:decrypt_config_file(ConfigFile, undefined, {key,Key}) of
+		    case ct_config:decrypt_config_file(ConfigFile, undefined, {key,Key}) of
 			{ok,CfgBin} ->
 			    case read_config_terms(CfgBin) of
 				{error,ReadFail} ->

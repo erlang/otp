@@ -113,9 +113,9 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	    ok;
 	true ->
 	    %% delete all default values used in previous suite
-	    ct_util:delete_default_config(suite),
+	    ct_config:delete_default_config(suite),
 	    %% release all name -> key bindings (once per suite)
-	    ct_util:release_allocated()
+	    ct_config:release_allocated()
     end,
     TestCaseInfo =
 	case catch apply(Mod,Func,[]) of
@@ -125,7 +125,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     %% clear all config data default values set by previous
     %% testcase info function (these should only survive the
     %% testcase, not the whole suite)
-    ct_util:delete_default_config(testcase),
+    ct_config:delete_default_config(testcase),
     case add_defaults(Mod,Func,TestCaseInfo,DoInit) of
 	Error = {suite0_failed,_} ->
 	    ct_logs:init_tc(),
@@ -381,10 +381,10 @@ try_set_default(Name,Key,Info,Where) ->
 	{_,[]} -> 
 	    no_default;
 	{'_UNDEF',_} ->
-    	    [ct_util:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
+	    [ct_config:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
 	    ok;
 	_ ->
-    	    [ct_util:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
+	    [ct_config:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
 	    ok
     end.
 	    

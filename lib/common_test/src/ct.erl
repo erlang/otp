@@ -135,7 +135,8 @@ run(TestDirs) ->
 %%% @spec run_test(Opts) -> Result
 %%%   Opts = [OptTuples]
 %%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
-%%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} | 
+%%%               {userconfig, Callback, CfgFiles} |
+%%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} |
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
 %%%               {silent_connections,Conns} | {cover,CoverSpecFile} | 
 %%%               {step,StepOpts} | {event_handler,EventHandlers} | {include,InclDirs} | 
@@ -269,7 +270,7 @@ stop_interactive() ->
 %%% @see get_config/2
 %%% @see get_config/3
 require(Required) ->
-    ct_util:require(Required).
+    ct_config:require(Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec require(Name,Required) -> ok | {error,Reason}
@@ -304,19 +305,19 @@ require(Required) ->
 %%% @see get_config/2
 %%% @see get_config/3
 require(Name,Required) ->
-    ct_util:require(Name,Required).
+    ct_config:require(Name,Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required) -> Value
 %%% @equiv get_config(Required,undefined,[])
 get_config(Required) ->
-    ct_util:get_config(Required,undefined,[]).
+    ct_config:get_config(Required,undefined,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required,Default) -> Value
 %%% @equiv get_config(Required,Default,[])
 get_config(Required,Default) ->
-    ct_util:get_config(Required,Default,[]).
+    ct_config:get_config(Required,Default,[]).
 
 %%%-----------------------------------------------------------------
 %%% @spec get_config(Required,Default,Opts) -> ValueOrElement
@@ -375,7 +376,7 @@ get_config(Required,Default) ->
 %%% @see require/1
 %%% @see require/2
 get_config(Required,Default,Opts) ->
-    ct_util:get_config(Required,Default,Opts).
+    ct_config:get_config(Required,Default,Opts).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok
@@ -734,7 +735,7 @@ abort_current_testcase(Reason) ->
 %%%      <p>See the <code>crypto</code> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName) ->
-    ct_util:encrypt_config_file(SrcFileName, EncryptFileName).
+    ct_config:encrypt_config_file(SrcFileName, EncryptFileName).
 
 %%%-----------------------------------------------------------------
 %%% @spec encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) -> 
@@ -754,7 +755,7 @@ encrypt_config_file(SrcFileName, EncryptFileName) ->
 %%%      <p>See the <code>crypto</code> application for details on DES3
 %%%      encryption/decryption.</p>
 encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
-    ct_util:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
+    ct_config:encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile).
 
 %%%-----------------------------------------------------------------
 %%% @spec decrypt_config_file(EncryptFileName, TargetFileName) -> 
@@ -770,7 +771,7 @@ encrypt_config_file(SrcFileName, EncryptFileName, KeyOrFile) ->
 %%%      <code>.ct_config.crypt</code> in the current directory, or the
 %%%      home directory of the user (it is searched for in that order).</p>
 decrypt_config_file(EncryptFileName, TargetFileName) ->
-    ct_util:decrypt_config_file(EncryptFileName, TargetFileName).
+    ct_config:decrypt_config_file(EncryptFileName, TargetFileName).
 
 %%%-----------------------------------------------------------------
 %%% @spec decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) -> 
@@ -785,5 +786,5 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 %%%      file contents is saved in the target file. The key must have the
 %%%      the same value as that used for encryption.</p>
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
-    ct_util:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
+    ct_config:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
 
