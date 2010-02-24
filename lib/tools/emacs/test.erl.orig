@@ -349,6 +349,14 @@ indent_basics(X, Y, Z)				% AD added clause
  foo.
 
 
+
+indent_nested() ->
+ [
+ {foo, 2, "string"},
+ {bar, 3, "another string"}
+  ].
+
+
 indent_icr(Z) -> 				% icr = if case receive
  %% If
  if Z >= 0 ->
