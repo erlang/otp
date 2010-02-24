@@ -59,6 +59,7 @@
 %% Test suite API
 -export([require/1, require/2,
 	 get_config/1, get_config/2, get_config/3,
+	 reload_config/1,
 	 log/1, log/2, log/3,
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
@@ -377,6 +378,22 @@ get_config(Required,Default) ->
 %%% @see require/2
 get_config(Required,Default,Opts) ->
     ct_config:get_config(Required,Default,Opts).
+
+%%%-----------------------------------------------------------------
+%%% @spec reload_config(Required) -> ValueOrElement
+%%%      Required = KeyOrName | {KeyOrName,SubKey}
+%%%      KeyOrName = atom()
+%%%      SubKey = atom()
+%%%      ValueOrElement = term()
+%%%
+%%% @doc Reload config file which contains specified configuration key.
+%%%
+%%% <p>This function performs updating of the configuration data from which the
+%%% given configuration variable was read, and returns the (possibly) new
+%%% value of this variable.</p>
+%%%
+reload_config(Required)->
+    ct_config:reload_config(Required).
 
 %%%-----------------------------------------------------------------
 %%% @spec log(Format) -> ok

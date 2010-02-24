@@ -139,7 +139,7 @@ do_start(Parent,Mode,LogDir) ->
 	    end
     end,
     %% start ct_config server
-    CTCSResult = ct_config:start(Mode, LogDir),
+    ct_config:start(Mode),
     %% add user event handlers
     case lists:keysearch(event_handler,1,Opts) of
 	{value,{_,Handlers}} ->

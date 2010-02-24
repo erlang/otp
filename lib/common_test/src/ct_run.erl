@@ -1576,8 +1576,8 @@ run_make(Targets, TestDir0, Mod, UserInclude) ->
 				Failure;
 			    MakeInfo ->
 				FileTest = fun(F, suites) -> is_suite(F);
-					      (F, helpmods) -> not is_suite(F);
-					      (_, _) -> true end, 
+					      (F, helpmods) -> not is_suite(F)
+					   end,
 				Files = lists:flatmap(fun({F,out_of_date}) ->
 							      case FileTest(F, Targets) of
 								  true -> [F];

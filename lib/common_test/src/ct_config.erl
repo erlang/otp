@@ -24,73 +24,37 @@
 %%----------------------------------------------------------------------
 -module(ct_config).
 
-% start of the config server
--export([start/0, start/1, start/2, stop/0]).
+-export([start/1, stop/0]).
 
-% manipulating with config files
 -export([read_config_files/1,
 	get_config_file_list/1]).
 
-% require
 -export([require/1, require/2]).
 
-% get config data
 -export([get_config/1, get_config/2, get_config/3,
 	get_all_config/0]).
 
-% set config data
--export([set_config/1, set_config/2, set_config/3,
-	set_default_config/2, set_default_config/3]).
+-export([set_default_config/2, set_default_config/3]).
 
-% delete config data
 -export([delete_config/1, delete_default_config/1]).
 
-% update and reload config
--export([%reload_config/1,
-	update_config/2]).
+-export([reload_config/1, update_config/2]).
 
-% ?
 -export([release_allocated/0]).
 
 -export([encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3,
 	 get_crypt_key_from_file/0, get_crypt_key_from_file/1]).
 
-% references
 -export([get_ref_from_name/1, get_name_from_ref/1, get_key_from_name/1]).
 
 -include("ct_util.hrl").
--include("ct_event.hrl").
 
 -define(cryptfile, ".ct_config.crypt").
 
-% TODO: add handler field here
--record(ct_conf,{key,value,ref,name='_UNDEF',default=false}).
+-record(ct_conf,{key,value,handler,config,ref,name='_UNDEF',default=false}).
 
-%%%-----------------------------------------------------------------
-%%% @spec start(Mode) -> Pid | exit(Error)
-%%%       Mode = normal | interactive
-%%%       Pid = pid()
-%%%
-%%% @doc Start start the ct_config_server process
-%%% (tool-internal use only).
-%%%
-%%% <p>This function is called from ct_run.erl. It starts and initiates
-%%% the <code>ct_config_server</code></p>
-%%%
-%%% <p>Returns the process identity of the
-%%% <code>ct_config_server</code>.</p>
-%%%
-%%% @see ct
-start() ->
-    start(normal,".").
-
-start(LogDir) when is_list(LogDir) ->
-    start(normal,LogDir);
 start(Mode) ->
-    start(Mode,".").
-
-start(Mode,LogDir) ->
     case whereis(ct_config_server) of
 	undefined ->
 	    Me = self(),
@@ -131,13 +95,6 @@ do_start(Parent) ->
 	    exit(ReadError)
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec stop() -> ok
-%%%
-%%% @doc Stop the ct_config_server and close all existing connections
-%%% (tool-internal use only).
-%%%
-%%% @see ct
 stop() ->
     case whereis(ct_config_server) of
 	undefined -> ok;
@@ -159,7 +116,6 @@ call(Msg) ->
 return({To,Ref},Result) ->
     To ! {Ref, Result}.
 
-
 loop(StartDir) ->
     receive
 	{{require,Name,Tag,SubTags},From} ->
@@ -167,11 +123,11 @@ loop(StartDir) ->
 	    return(From,Result),
 	    loop(StartDir);
 	{{set_default_config,{Config,Scope}},From} ->
-	    ct_config:set_config(Config,{true,Scope}),
+	    set_config(Config,{true,Scope}),
 	    return(From,ok),
 	    loop(StartDir);
 	{{set_default_config,{Name,Config,Scope}},From} ->
-	    ct_config:set_config(Name,Config,{true,Scope}),
+	    set_config(Name,Config,{true,Scope}),
 	    return(From,ok),
 	    loop(StartDir);
 	{{delete_default_config,Scope},From} ->
@@ -182,11 +138,68 @@ loop(StartDir) ->
 	    update_conf(Name,NewConfig),
 	    return(From,ok),
 	    loop(StartDir);
+	{{reload_config, KeyOrName},From}->
+	    NewValue = reload_conf(KeyOrName),
+	    return(From, NewValue),
+	    loop(StartDir);
 	{{stop},From} ->
 	    ets:delete(?attr_table),
 	    file:set_cwd(StartDir),
 	    return(From,ok)
     end.
+
+set_default_config(NewConfig, Scope) ->
+    call({set_default_config, {NewConfig, Scope}}).
+
+set_default_config(Name, NewConfig, Scope) ->
+    call({set_default_config, {Name, NewConfig, Scope}}).
+
+delete_default_config(Scope) ->
+    call({delete_default_config, Scope}).
+
+update_config(Name, Config) ->
+    call({update_config, {Name, Config}}).
+
+reload_config(KeyOrName)->
+    call({reload_config, KeyOrName}).
+
+process_default_configs(Opts)->
+    case lists:keysearch(config, 1, Opts) of
+	{value,{_,Files=[File|_]}} when is_list(File) ->
+	    Files;
+	{value,{_,File=[C|_]}} when is_integer(C) ->
+	    [File];
+	{value,{_,[]}} ->
+	    [];
+	false ->
+	    []
+    end.
+
+process_user_configs(Opts, Acc)->
+    case lists:keytake(userconfig, 1, Opts) of
+	false->
+	    Acc;
+	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when
+	    is_list(File)->
+		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
+	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when
+	    is_integer(C)->
+		process_user_configs(NewOpts, [{Callback, [File]} | Acc]);
+	{value, {userconfig, {_Callback, []}}, NewOpts}->
+	    process_user_configs(NewOpts, Acc)
+    end.
+
+get_config_file_list(Opts)->
+    DefaultConfigs = process_default_configs(Opts),
+    CfgFiles =
+	if
+	    DefaultConfigs == []->
+		[];
+	    true->
+		[{ct_config_plain, DefaultConfigs}]
+	end ++
+	process_user_configs(Opts, []),
+    CfgFiles.
 
 read_config_files(Opts) ->
     AddCallback = fun(CallBack, Files)->
@@ -202,21 +215,50 @@ read_config_files(Opts) ->
 	false->
 	    []
     end,
-    read_config_files_int(ConfigFiles).
+    read_config_files_int(ConfigFiles, fun store_config/3).
 
-read_config_files_int([{Callback, File}|Files])->
+read_config_files_int([{Callback, File}|Files], FunToSave)->
     case Callback:read_config_file(File) of
 	{ok, Config}->
-	    set_config(Config),
-	    read_config_files_int(Files);
+	    FunToSave(Config, Callback, File),
+	    read_config_files_int(Files, FunToSave);
 	{error, ErrorName, ErrorDetail}->
 	    {user_error, {ErrorName, File, ErrorDetail}}
     end;
-read_config_files_int([])->
+read_config_files_int([], _FunToSave)->
     ok.
 
-set_config(Config) ->
-    set_config('_UNDEF',Config,false).
+store_config(Config, Callback, File)->
+    [ets:insert(?attr_table,
+		#ct_conf{key=Key,
+			 value=Val,
+			 handler=Callback,
+			 config=File,
+			 ref=ct_util:ct_make_ref(),
+			 default=false}) ||
+	{Key,Val} <- Config].
+
+rewrite_config(Config, Callback, File)->
+    [begin
+     Rows=case ets:match_object(?attr_table,
+			       #ct_conf{key=Key,
+					handler=Callback,
+					config=File,_='_'}) of
+	[]->
+	    [#ct_conf{default=false}];
+	Elements->
+	    Elements
+     end,
+     lists:foreach(fun(Row)->
+			ets:delete_object(?attr_table, Row),
+			ets:insert(?attr_table,
+				   Row#ct_conf{key=Key,
+				   value=Val,
+				   handler=Callback,
+				   config=File,
+				   ref=ct_util:ct_make_ref()}) end,
+		  Rows)
+     end || {Key,Val} <- Config].
 
 set_config(Config,Default) ->
     set_config('_UNDEF',Config,Default).
@@ -226,6 +268,12 @@ set_config(Name,Config,Default) ->
 		#ct_conf{key=Key,value=Val,ref=ct_util:ct_make_ref(),
 			 name=Name,default=Default}) ||
 	{Key,Val} <- Config].
+
+get_config(KeyOrName) ->
+    get_config(KeyOrName,undefined,[]).
+
+get_config(KeyOrName,Default) ->
+    get_config(KeyOrName,Default,[]).
 
 get_config(KeyOrName,Default,Opts) when is_atom(KeyOrName) ->
     case lookup_config(KeyOrName) of
@@ -276,75 +324,6 @@ get_config({KeyOrName,SubKey},Default,Opts) ->
 		    Default
 	    end
     end.
-
-
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
-update_conf(Name, NewConfig) ->
-    Old = ets:select(?attr_table,[{#ct_conf{name=Name,_='_'},[],['$_']}]),
-    lists:foreach(fun(OldElem) ->
-			  NewElem = OldElem#ct_conf{value=NewConfig},
-			  ets:delete_object(?attr_table, OldElem),
-			  ets:insert(?attr_table, NewElem)
-		  end, Old),
-    ok.
-
-%%%-----------------------------------------------------------------
-%%% @spec release_allocated() -> ok
-%%%
-%%% @doc Release all allocated resources, but don't take down any
-%%% connections.
-release_allocated() ->
-    Allocated = ets:select(?attr_table,[{#ct_conf{name='$1',_='_'},
-					 [{'=/=','$1','_UNDEF'}],
-					 ['$_']}]),
-    release_allocated(Allocated).
-release_allocated([H|T]) ->
-    ets:delete_object(?attr_table,H),
-    ets:insert(?attr_table,H#ct_conf{name='_UNDEF'}),
-    release_allocated(T);
-release_allocated([]) ->
-    ok.
-
-allocate(Name,Key,SubKeys) ->
-    case ets:match_object(?attr_table,#ct_conf{key=Key,name='_UNDEF',_='_'}) of
-	[] ->
-	    {error,{not_available,Key}};
-	Available ->
-	    case allocate_subconfig(Name,SubKeys,Available,false) of
-		ok ->
-		    ok;
-		Error ->
-		    Error
-	    end
-    end.
-
-allocate_subconfig(Name,SubKeys,[C=#ct_conf{value=Value}|Rest],Found) ->
-    case do_get_config(SubKeys,Value,[]) of
-	{ok,_SubMapped} ->
-	    ets:insert(?attr_table,C#ct_conf{name=Name}),
-	    allocate_subconfig(Name,SubKeys,Rest,true);
-	_Error ->
-	    allocate_subconfig(Name,SubKeys,Rest,Found)
-    end;
-allocate_subconfig(_Name,_SubKeys,[],true) ->
-    ok;
-allocate_subconfig(_Name,SubKeys,[],false) ->
-    {error,{not_available,SubKeys}}.
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:get_config/1
-get_config(KeyOrName) ->
-    ct_config:get_config(KeyOrName,undefined,[]).
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:get_config/2
-get_config(KeyOrName,Default) ->
-    ct_config:get_config(KeyOrName,Default,[]).
 
 get_subconfig(SubKeys,Values) ->
     get_subconfig(SubKeys,Values,[],[]).
@@ -401,51 +380,87 @@ lookup_key(Key) ->
 			     [],
 			     [{{'$1','$2'}}]}]).
 
+lookup_handler_for_config({Key, _Subkey})->
+    lookup_handler_for_config(Key);
+lookup_handler_for_config(KeyOrName)->
+    case lookup_handler_for_name(KeyOrName) of
+	[] ->
+	    lookup_handler_for_key(KeyOrName);
+	Values ->
+	    Values
+    end.
+
+lookup_handler_for_name(Name)->
+    ets:select(?attr_table,[{#ct_conf{handler='$1',config='$2',name=Name,_='_'},
+			     [],
+			     [{{'$1','$2'}}]}]).
+
+lookup_handler_for_key(Key)->
+    ets:select(?attr_table,[{#ct_conf{handler='$1',config='$2',key=Key,_='_'},
+			     [],
+			     [{{'$1','$2'}}]}]).
+
+
+update_conf(Name, NewConfig) ->
+    Old = ets:select(?attr_table,[{#ct_conf{name=Name,_='_'},[],['$_']}]),
+    lists:foreach(fun(OldElem) ->
+			  NewElem = OldElem#ct_conf{value=NewConfig},
+			  ets:delete_object(?attr_table, OldElem),
+			  ets:insert(?attr_table, NewElem)
+		  end, Old),
+    ok.
+
+reload_conf(KeyOrName) ->
+    case lookup_handler_for_config(KeyOrName) of
+	[]->
+	    undefined;
+	HandlerList->
+	    read_config_files_int(HandlerList, fun rewrite_config/3),
+	    get_config(KeyOrName)
+    end.
+
+release_allocated() ->
+    Allocated = ets:select(?attr_table,[{#ct_conf{name='$1',_='_'},
+					 [{'=/=','$1','_UNDEF'}],
+					 ['$_']}]),
+    release_allocated(Allocated).
+release_allocated([H|T]) ->
+    ets:delete_object(?attr_table,H),
+    ets:insert(?attr_table,H#ct_conf{name='_UNDEF'}),
+    release_allocated(T);
+release_allocated([]) ->
+    ok.
+
+allocate(Name,Key,SubKeys) ->
+    case ets:match_object(?attr_table,#ct_conf{key=Key,name='_UNDEF',_='_'}) of
+	[] ->
+	    {error,{not_available,Key}};
+	Available ->
+	    case allocate_subconfig(Name,SubKeys,Available,false) of
+		ok ->
+		    ok;
+		Error ->
+		    Error
+	    end
+    end.
+
+allocate_subconfig(Name,SubKeys,[C=#ct_conf{value=Value}|Rest],Found) ->
+    case do_get_config(SubKeys,Value,[]) of
+	{ok,_SubMapped} ->
+	    ets:insert(?attr_table,C#ct_conf{name=Name}),
+	    allocate_subconfig(Name,SubKeys,Rest,true);
+	_Error ->
+	    allocate_subconfig(Name,SubKeys,Rest,Found)
+    end;
+allocate_subconfig(_Name,_SubKeys,[],true) ->
+    ok;
+allocate_subconfig(_Name,SubKeys,[],false) ->
+    {error,{not_available,SubKeys}}.
+
 delete_config(Default) ->
     ets:match_delete(?attr_table,#ct_conf{default=Default,_='_'}),
     ok.
 
-process_user_configs(Opts, Acc)->
-    case lists:keytake(userconfig, 1, Opts) of
-	false->
-	    Acc;
-	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when
-	    is_list(File)->
-		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
-	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when
-	    is_integer(C)->
-		process_user_configs(NewOpts, [{Callback, [File]} | Acc]);
-	{value, {userconfig, {_Callback, []}}, NewOpts}->
-	    process_user_configs(NewOpts, Acc)
-    end.
-
-process_default_configs(Opts)->
-    case lists:keysearch(config, 1, Opts) of
-	{value,{_,Files=[File|_]}} when is_list(File) ->
-	    Files;
-	{value,{_,File=[C|_]}} when is_integer(C) ->
-	    [File];
-	{value,{_,[]}} ->
-	    [];
-	false ->
-	    []
-    end.
-
-get_config_file_list(Opts)->
-    DefaultConfigs = process_default_configs(Opts),
-    CfgFiles =
-	if
-	    DefaultConfigs == []->
-		[];
-	    true->
-		[{ct_config_plain, DefaultConfigs}]
-	end ++
-	process_user_configs(Opts, []),
-    CfgFiles.
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:require/1
 require(Key) when is_atom(Key) ->
     require({Key,[]});
 require({Key,SubKeys}) when is_atom(Key) ->
@@ -453,10 +468,6 @@ require({Key,SubKeys}) when is_atom(Key) ->
 require(Key) ->
     {error,{invalid,Key}}.
 
-
-%%%-----------------------------------------------------------------
-%%% @hidden
-%%% @equiv ct:require/2
 require(Name,Key) when is_atom(Key) ->
     require(Name,{Key,[]});
 require(Name,{Key,SubKeys}) when is_atom(Name), is_atom(Key) ->
@@ -484,10 +495,6 @@ do_require(Name,Key,SubKeys) when is_list(SubKeys) ->
 	    {error,{name_in_use,Name,OtherKey}}
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 encrypt_config_file(SrcFileName, EncryptFileName) ->
     case get_crypt_key_from_file() of
 	{error,_} = E ->
@@ -495,7 +502,6 @@ encrypt_config_file(SrcFileName, EncryptFileName) ->
 	Key ->
 	    encrypt_config_file(SrcFileName, EncryptFileName, {key,Key})
     end.
-
 
 get_ref_from_name(Name) ->
     case ets:select(?attr_table,[{#ct_conf{name=Name,ref='$1',_='_'},
@@ -527,10 +533,6 @@ get_key_from_name(Name) ->
 	    {error,{no_such_name,Name}}
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 encrypt_config_file(SrcFileName, EncryptFileName, {file,KeyFile}) ->
     case get_crypt_key_from_file(KeyFile) of
 	{error,_} = E ->
@@ -562,10 +564,6 @@ encrypt_config_file(SrcFileName, EncryptFileName, {key,Key}) ->
 	    {error,{Reason,SrcFileName}}
     end.
 
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 decrypt_config_file(EncryptFileName, TargetFileName) ->
     case get_crypt_key_from_file() of
 	{error,_} = E ->
@@ -574,23 +572,6 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 	    decrypt_config_file(EncryptFileName, TargetFileName, {key,Key})
     end.
 
-
-set_default_config(NewConfig, Scope) ->
-    call({set_default_config, {NewConfig, Scope}}).
-
-set_default_config(Name, NewConfig, Scope) ->
-    call({set_default_config, {Name, NewConfig, Scope}}).
-
-delete_default_config(Scope) ->
-    call({delete_default_config, Scope}).
-
-update_config(Name, Config) ->
-    call({update_config, {Name, Config}}).
-
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
 decrypt_config_file(EncryptFileName, TargetFileName, {file,KeyFile}) ->
     case get_crypt_key_from_file(KeyFile) of
 	{error,_} = E ->
@@ -626,7 +607,6 @@ decrypt_config_file(EncryptFileName, TargetFileName, {key,Key}) ->
 	{error,Reason} ->
 	    {error,{Reason,EncryptFileName}}
     end.
-
 
 get_crypt_key_from_file(File) ->
     case file:read_file(File) of
