@@ -45,6 +45,7 @@ typedef struct wxe_data_def {
    WXEBinRef * bin;		/* Argument binaries */
    ErlDrvPort port;
    int is_cbport;
+   ErlDrvPDL pdl;
 } wxe_data;
 
 

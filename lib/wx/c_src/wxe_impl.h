@@ -34,15 +34,16 @@ class wxeMetaCommand : public wxEvent
  public: 
  wxeMetaCommand(wxe_data *sd, int EvId) 
     : wxEvent(EvId, wxeEVT_META_COMMAND)
-   {  caller = driver_caller(sd->port);  port = sd->port; } ;
+   {  caller = driver_caller(sd->port);  port = sd->port; pdl = sd->pdl; } ;
  wxeMetaCommand(const wxeMetaCommand& event)  
     : wxEvent(event) 
-   {  caller = event.caller; port = event.port; };
+   {  caller = event.caller; port = event.port; pdl = event.pdl; };
    virtual ~wxeMetaCommand() {};
    virtual wxEvent *Clone() const { return new wxeMetaCommand(*this); }
    
    ErlDrvTermData   caller;
    ErlDrvPort       port; 
+   ErlDrvPDL        pdl;
 };
 
 class wxeCommand : public wxObject

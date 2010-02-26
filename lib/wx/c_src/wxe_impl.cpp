@@ -101,7 +101,7 @@ int start_native_gui(wxe_data *sd)
   init_caller = driver_connected(sd->port); 
 
   if((res = erl_drv_thread_create((char *)"wxwidgets",
-				  &wxe_thread,wxe_main_loop,NULL,NULL)) == 0) {
+				  &wxe_thread,wxe_main_loop,(void *) sd->pdl,NULL)) == 0) {
     erl_drv_mutex_lock(wxe_status_m);
     for(;wxe_status == WXE_NOT_INITIATED;) {
       erl_drv_cond_wait(wxe_status_c, wxe_status_m);
@@ -179,12 +179,15 @@ void meta_command(int what, wxe_data *sd) {
  *  wxWidgets Thread 
  * ************************************************************/
 
-void *wxe_main_loop(void * not_used)
+void *wxe_main_loop(void *vpdl)
 {
   int result; 
   int  argc = 1;
   char * temp = (char *) "Erlang\0";
   char ** argv = &temp;
+  ErlDrvPDL pdl = (ErlDrvPDL) vpdl;
+  
+  driver_pdl_inc_refc(pdl);
 
   // ErlDrvSysInfo einfo;
   // driver_system_info(&einfo, sizeof(ErlDrvSysInfo));
@@ -199,6 +202,7 @@ void *wxe_main_loop(void * not_used)
   if(result >= 0 && wxe_status == WXE_INITIATED) {
     /* We are done try to make a clean exit */
     wxe_status = WXE_EXITED;
+    driver_pdl_dec_refc(pdl);
     erl_drv_thread_exit(NULL);
     return NULL;
   } else {
@@ -206,6 +210,7 @@ void *wxe_main_loop(void * not_used)
     wxe_status = WXE_ERROR;
     erl_drv_cond_signal(wxe_status_c);
     erl_drv_mutex_unlock(wxe_status_m);
+    driver_pdl_dec_refc(pdl);
     return NULL;    
   }
 }
@@ -401,11 +406,12 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 	   node = batch->GetFirst())
 	{
 	  wxeCommand *event = (wxeCommand *)node->GetData();
+	  wxeMemEnv *memenv = getMemEnv(event->port);
 	  batch->Erase(node);
 	  if(event->caller == process ||  // Callbacks from CB process only 
 	     event->op == WXE_CB_START || // Recursive event callback allow
 	     // Allow connect_cb during CB i.e. msg from wxe_server.
-	     event->caller == driver_connected(event->port)) 
+	     event->caller == memenv->owner) 
 	    {
 	      switch(event->op) {
 	      case WXE_BATCH_END:
@@ -456,6 +462,9 @@ void WxeApp::dispatch_cb(wxList * batch, wxList * temp, ErlDrvTermData process) 
 
 void WxeApp::newMemEnv(wxeMetaCommand& Ecmd) {
   wxeMemEnv * memenv = new wxeMemEnv();
+
+  driver_pdl_inc_refc(Ecmd.pdl);
+
   for(int i = 0; i < global_me->next; i++) {
     memenv->ref2ptr[i] = global_me->ref2ptr[i];    
   }
@@ -576,6 +585,7 @@ void WxeApp::destroyMemEnv(wxeMetaCommand& Ecmd) {
 //   }
 //   fflush(stderr);
   delete memenv;
+  driver_pdl_dec_refc(Ecmd.pdl);
   refmap.erase((ErlDrvTermData) Ecmd.port);
 }
 

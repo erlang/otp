@@ -113,6 +113,7 @@ wxe_driver_start(ErlDrvPort port, char *buff)
       data->driver_data = NULL;
       data->bin = NULL; 
       data->port = port;
+      data->pdl = driver_pdl_create(port);
       if(WXE_DRV_PORT == 0) {
 	 for(; *buff != 32; buff++); 
 	 buff++; 
@@ -124,7 +125,7 @@ wxe_driver_start(ErlDrvPort port, char *buff)
 	 if(!(start_native_gui(data) == 1))
 	    return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
       } else {
-	 meta_command(CREATE_PORT,data);
+	  meta_command(CREATE_PORT,data);
       }
       return (ErlDrvData) data;	 
    }
