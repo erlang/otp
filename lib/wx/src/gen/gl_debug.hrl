@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %% This file is generated DO NOT EDIT
 
-gldebug_table() -> 
+gldebug_table() ->
 [
  {5037, {gl, accum, 0}},
  {5038, {gl, alphaFunc, 0}},
