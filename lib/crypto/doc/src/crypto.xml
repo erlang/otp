@@ -35,6 +35,9 @@
     <p>References:</p>
     <list type="bulleted">
       <item>
+        <p>md4: The MD4 Message Digest Algorithm (RFC 1320)</p>
+      </item>
+      <item>
         <p>md5: The MD5 Message Digest Algorithm (RFC 1321)</p>
       </item>
       <item>
@@ -112,6 +115,52 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 > <input>info_lib().</input>
 [{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
         </pre>
+      </desc>
+    </func>
+    <func>
+      <name>md4(Data) -> Digest</name>
+      <fsummary>Compute an <c>MD4</c>message digest from <c>Data</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD4</c> message digest from <c>Data</c>, where
+          the length of the digest is 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_init() -> Context</name>
+      <fsummary>Creates an MD4 context</fsummary>
+      <type>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Creates an MD4 context, to be used in subsequent calls to
+          <c>md4_update/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_update(Context, Data) -> NewContext</name>
+      <fsummary>Update an MD4 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Context = NewContext = binary()</v>
+      </type>
+      <desc>
+        <p>Updates an MD4 <c>Context</c> with <c>Data</c>, and returns
+          a <c>NewContext</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_final(Context) -> Digest</name>
+      <fsummary>Finish the update of an MD4 <c>Context</c>and return the computed <c>MD4</c>message digest</fsummary>
+      <type>
+        <v>Context = Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finishes the update of an MD4 <c>Context</c> and returns
+          the computed <c>MD4</c> message digest.</p>
       </desc>
     </func>
     <func>
