@@ -630,12 +630,66 @@ gen_event:stop             ----->  Module:terminate/2
         <p>The function should return the updated internal state.</p>
       </desc>
     </func>
+    <func>
+      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
+      <fsummary>Optional function for providing a term describing the
+        current event handler state.</fsummary>
+      <type>
+        <v>Opt = normal | terminate</v>
+        <v>PDict = [{Key, Value}]</v>
+        <v>State = term()</v>
+        <v>Status = term()</v>
+      </type>
+      <desc>
+        <note>
+          <p>This callback is optional, so event handler modules need
+            not export it. If a handler does not export this function,
+            the gen_event module uses the handler state directly for
+            the purposes described below.</p>
+        </note>
+        <p>This function is called by a gen_event process when:</p>
+        <list typed="bulleted">
+          <item>One
+            of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
+            is invoked to get the gen_event status. <c>Opt</c> is set
+            to the atom <c>normal</c> for this case.</item>
+          <item>The event handler terminates abnormally and gen_event
+            logs an error. <c>Opt</c> is set to the
+            atom <c>terminate</c> for this case.</item>
+        </list>
+        <p>This function is useful for customising the form and
+          appearance of the event handler state for these cases. An
+          event handler callback module wishing to customise
+          the <c>sys:get_status/1,2</c> return value as well as how
+          its state appears in termination error logs exports an
+          instance of <c>format_status/2</c> that returns a term
+          describing the current state of the event handler.</p>
+        <p><c>PDict</c> is the current value of the gen_event's
+          process dictionary.</p>
+        <p><c>State</c> is the internal state of the event
+          handler.</p>
+        <p>The function should return <c>Status</c>, a term that
+          customises the details of the current state of the event
+          handler. Any term is allowed for <c>Status</c>. The
+          gen_event module uses <c>Status</c> as follows:</p>
+        <list typed="bulleted">
+          <item>When <c>sys:get_status/1,2</c> is called, gen_event
+            ensures that its return value contains <c>Status</c> in
+            place of the event handler's actual state term.</item>
+          <item>When an event handler terminates abnormally, gen_event
+            logs <c>Status</c> in place of the event handler's actual
+            state term.</item>
+        </list>
+        <p>One use for this function is to return compact alternative
+          state representations to avoid having large state terms
+          printed in logfiles.</p>
+      </desc>
+    </func>
   </funcs>
 
   <section>
     <title>SEE ALSO</title>
-    <p><seealso marker="supervisor">supervisor(3)</seealso>, 
+    <p><seealso marker="supervisor">supervisor(3)</seealso>,
       <seealso marker="sys">sys(3)</seealso></p>
   </section>
 </erlref>
-

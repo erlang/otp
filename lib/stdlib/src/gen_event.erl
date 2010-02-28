@@ -677,12 +677,23 @@ report_error(Handler, Reason, State, LastIn, SName) ->
 	    _ ->
 		Reason
 	end,
+    Mod = Handler#handler.module,
+    FmtState = case erlang:function_exported(Mod, format_status, 2) of
+		   true ->
+		       Args = [get(), State],
+		       case catch Mod:format_status(terminate, Args) of
+			   {'EXIT', _} -> State;
+			   Else -> Else
+		       end;
+		   _ ->
+		       State
+	       end,
     error_msg("** gen_event handler ~p crashed.~n"
 	      "** Was installed in ~p~n"
 	      "** Last event was: ~p~n"
 	      "** When handler state == ~p~n"
 	      "** Reason == ~p~n",
-	      [handler(Handler),SName,LastIn,State,Reason1]).
+	      [handler(Handler),SName,LastIn,FmtState,Reason1]).
 
 handler(Handler) when not Handler#handler.id ->
     Handler#handler.module;
@@ -711,10 +722,20 @@ get_modules(MSL) ->
 %%-----------------------------------------------------------------
 %% Status information
 %%-----------------------------------------------------------------
-format_status(_Opt, StatusData) ->
-    [_PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
+format_status(Opt, StatusData) ->
+    [PDict, SysState, Parent, _Debug, [ServerName, MSL, _Hib]] = StatusData,
     Header = lists:concat(["Status for event handler ", ServerName]),
+    FmtMSL = [case erlang:function_exported(Mod, format_status, 2) of
+		  true ->
+		      Args = [PDict, State],
+		      case catch Mod:format_status(Opt, Args) of
+			  {'EXIT', _} -> MSL;
+			  Else -> MS#handler{state = Else}
+		      end;
+		  _ ->
+		      MS
+	      end || #handler{module = Mod, state = State} = MS <- MSL],
     [{header, Header},
      {data, [{"Status", SysState},
 	     {"Parent", Parent}]},
-     {items, {"Installed handlers", MSL}}].
+     {items, {"Installed handlers", FmtMSL}}].

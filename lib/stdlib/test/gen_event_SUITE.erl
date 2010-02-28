@@ -23,9 +23,11 @@
 -export([all/1]).
 -export([start/1, test_all/1, add_handler/1, add_sup_handler/1,
 	 delete_handler/1, swap_handler/1, swap_sup_handler/1,
-	 notify/1, sync_notify/1, call/1, info/1, hibernate/1]).
+	 notify/1, sync_notify/1, call/1, info/1, hibernate/1,
+	 call_format_status/1, error_format_status/1]).
 
-all(suite) -> {req, [stdlib], [start, test_all, hibernate]}.
+all(suite) -> {req, [stdlib], [start, test_all, hibernate,
+			       call_format_status, error_format_status]}.
 
 %% --------------------------------------
 %% Start an event manager.
@@ -843,4 +845,57 @@ info(Config) when is_list(Config) ->
     ?line [] = gen_event:which_handlers(my_dummy_handler),
 
     ?line ok = gen_event:stop(my_dummy_handler),
+    ok.
+
+call_format_status(suite) ->
+    [];
+call_format_status(doc) ->
+    ["Test that sys:get_status/1,2 calls format_status/2"];
+call_format_status(Config) when is_list(Config) ->
+    ?line {ok, Pid} = gen_event:start({local, my_dummy_handler}),
+    %% State here intentionally differs from what we expect from format_status
+    State = self(),
+    FmtState = "dummy1_h handler state",
+    ?line ok = gen_event:add_handler(my_dummy_handler, dummy1_h, [State]),
+    ?line Status1 = sys:get_status(Pid),
+    ?line Status2 = sys:get_status(Pid, 5000),
+    ?line ok = gen_event:stop(Pid),
+    ?line {status, Pid, _, [_, _, Pid, [], Data1]} = Status1,
+    ?line HandlerInfo1 = proplists:get_value(items, Data1),
+    ?line {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo1,
+    ?line {status, Pid, _, [_, _, Pid, [], Data2]} = Status2,
+    ?line HandlerInfo2 = proplists:get_value(items, Data2),
+    ?line {"Installed handlers", [{_,dummy1_h,_,FmtState,_}]} = HandlerInfo2,
+    ok.
+
+error_format_status(suite) ->
+    [];
+error_format_status(doc) ->
+    ["Test that a handler error calls format_status/2"];
+error_format_status(Config) when is_list(Config) ->
+    ?line error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    State = self(),
+    ?line {ok, Pid} = gen_event:start({local, my_dummy_handler}),
+    ?line ok = gen_event:add_sup_handler(my_dummy_handler, dummy1_h, [State]),
+    ?line ok = gen_event:notify(my_dummy_handler, do_crash),
+    ?line receive
+	      {gen_event_EXIT,dummy1_h,{'EXIT',_}} -> ok
+	  after 5000 ->
+		  ?t:fail(exit_gen_event)
+	  end,
+    FmtState = "dummy1_h handler state",
+    receive
+	{error,_GroupLeader, {Pid,
+			      "** gen_event handler"++_,
+			      [dummy1_h,my_dummy_handler,do_crash,
+			       FmtState, _]}} ->
+	    ok;
+	Other ->
+	    ?line io:format("Unexpected: ~p", [Other]),
+	    ?line ?t:fail()
+    end,
+    ?t:messages_get(),
+    ?line ok = gen_event:stop(Pid),
+    process_flag(trap_exit, OldFl),
     ok.

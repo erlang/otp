@@ -21,7 +21,7 @@
 %% Test event handler for gen_event_SUITE.erl
 
 -export([init/1, handle_event/2, handle_call/2, handle_info/2,
-	 terminate/2]).
+	 terminate/2, format_status/2]).
 
 init(make_error) ->
     {error, my_error};
@@ -67,4 +67,5 @@ terminate(remove_handler, Parent) ->
 terminate(_Reason, _State) ->
     ok.
 
-
+format_status(_Opt, [_PDict, _State]) ->
+    "dummy1_h handler state".
