@@ -179,7 +179,9 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
        A "tuple fun", <c>{Module,Function}</c>, is not a fun.
        The cost for calling a "tuple fun" is similar to that
        of <c>apply/3</c> or worse. Using "tuple funs" is <em>strongly discouraged</em>,
-       as they may not be supported in a future release.</p></warning>
+       as they may not be supported in a future release,
+       and because there exists a superior alternative since the R10B
+       release, namely the <c>fun Module:Function/Arity</c> syntax.</p></warning>
 
        <p><c>apply/3</c> must look up the code for the function to execute
        in a hash table. Therefore, it will always be slower than a
