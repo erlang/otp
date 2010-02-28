@@ -599,32 +599,57 @@ gen_server:abcast     -----> Module:handle_cast/2
       </desc>
     </func>
     <func>
-      <name>Module:format_status(normal, [PDict, State]) -> Status</name>
+      <name>Module:format_status(Opt, [PDict, State]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current gen_server status.</fsummary>
       <type>
+        <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>
         <v>State = term()</v>
-        <v>Status = [term()]</v>
+        <v>Status = term()</v>
       </type>
       <desc>
-        <p><em>This callback is optional, so callback modules need not
-          export it. The gen_server module provides a default
-          implementation of this function that returns the callback
-          module state.</em></p>
-        <p>This function is called by a gen_server process when one
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The gen_server module provides a default
+            implementation of this function that returns the callback
+            module state.</p>
+        </note>
+        <p>This function is called by a gen_server process when:</p>
+        <list typed="bulleted">
+          <item>One
           of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
-          is invoked to get the gen_server status. A callback module
-          wishing to customise the <c>sys:get_status/1,2</c> return
-          value exports an instance of <c>format_status/2</c> that
-          returns a term describing the current status of the
-          gen_server.</p>
+          is invoked to get the gen_server status. <c>Opt</c> is set
+          to the atom <c>normal</c> for this case.</item>
+          <item>The gen_server terminates abnormally and logs an
+          error. <c>Opt</c> is set to the atom <c>terminate</c> for this
+          case.</item>
+        </list>
+        <p>This function is useful for customising the form and
+          appearance of the gen_server status for these cases. A
+          callback module wishing to customise
+          the <c>sys:get_status/1,2</c> return value as well as how
+          its status appears in termination error logs exports an
+          instance of <c>format_status/2</c> that returns a term
+          describing the current status of the gen_server.</p>
         <p><c>PDict</c> is the current value of the gen_server's
           process dictionary.</p>
         <p><c>State</c> is the internal state of the gen_server.</p>
-        <p>The function should return <c>Status</c>, a list of one or
-          more terms that customise the details of the current state
-          and status of the gen_server.</p>
+        <p>The function should return <c>Status</c>, a term that
+          customises the details of the current state and status of
+          the gen_server. There are no restrictions on the
+          form <c>Status</c> can take, but for
+          the <c>sys:get_status/1,2</c> case (when <c>Opt</c>
+          is <c>normal</c>), the recommended form for
+          the <c>Status</c> value is <c>[{data, [{"State",
+          Term}]}]</c> where <c>Term</c> provides relevant details of
+          the gen_server state. Following this recommendation isn't
+          required, but doing so will make the callback module status
+          consistent with the rest of the <c>sys:get_status/1,2</c>
+          return value.</p>
+        <p>One use for this function is to return compact alternative
+          state representations to avoid having large state terms
+          printed in logfiles.</p>
       </desc>
     </func>
   </funcs>

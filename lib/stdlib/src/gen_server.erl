@@ -705,7 +705,18 @@ terminate(Reason, Name, Msg, Mod, State, Debug) ->
 		{shutdown,_}=Shutdown ->
 		    exit(Shutdown);
 		_ ->
-		    error_info(Reason, Name, Msg, State, Debug),
+		    FmtState =
+			case erlang:function_exported(Mod, format_status, 2) of
+			    true ->
+				Args = [get(), State],
+				case catch Mod:format_status(terminate, Args) of
+				    {'EXIT', _} -> State;
+				    Else -> Else
+				end;
+			    _ ->
+				State
+			end,
+		    error_info(Reason, Name, Msg, FmtState, Debug),
 		    exit(Reason)
 	    end
     end.
@@ -836,15 +847,17 @@ format_status(Opt, StatusData) ->
 	      end,
     Header = lists:concat(["Status for generic server ", NameTag]),
     Log = sys:get_debug(log, Debug, []),
-    Specfic = 
+    DefaultStatus = [{data, [{"State", State}]}],
+    Specfic =
 	case erlang:function_exported(Mod, format_status, 2) of
 	    true ->
 		case catch Mod:format_status(Opt, [PDict, State]) of
-		    {'EXIT', _} -> [{data, [{"State", State}]}];
-		    Else -> Else
+		    {'EXIT', _} -> DefaultStatus;
+                    StatusList when is_list(StatusList) -> StatusList;
+		    Else -> [Else]
 		end;
 	    _ ->
-		[{data, [{"State", State}]}]
+		DefaultStatus
 	end,
     [{header, Header},
      {data, [{"Status", SysState},

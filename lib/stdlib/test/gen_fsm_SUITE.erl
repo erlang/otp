@@ -30,7 +30,7 @@
 
 -export([shutdown/1]).
 
--export([sys/1, sys1/1, call_format_status/1]).
+-export([sys/1, sys1/1, call_format_status/1, error_format_status/1]).
 
 -export([hibernate/1,hiber_idle/3,hiber_wakeup/3,hiber_idle/2,hiber_wakeup/2]).
 
@@ -305,7 +305,7 @@ shutdown(Config) when is_list(Config) ->
     ok.
 
 
-sys(suite) -> [sys1, call_format_status].
+sys(suite) -> [sys1, call_format_status, error_format_status].
 
 sys1(Config) when is_list(Config) ->
     ?line {ok, Pid} = 
@@ -323,6 +323,27 @@ call_format_status(Config) when is_list(Config) ->
     ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data]} = Status,
     ?line [format_status_called | _] = lists:reverse(Data),
     ?line stop_it(Pid).
+
+error_format_status(Config) when is_list(Config) ->
+    ?line error_logger_forwarder:register(),
+    OldFl = process_flag(trap_exit, true),
+    StateData = "called format_status",
+    ?line {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, {state_data, StateData}, []),
+    %% bad return value in the gen_fsm loop
+    ?line {'EXIT',{{bad_return_value, badreturn},_}} =
+	(catch gen_fsm:sync_send_event(Pid, badreturn)),
+    receive
+	{error,_GroupLeader,{Pid,
+			     "** State machine"++_,
+			     [Pid,{_,_,badreturn},idle,StateData,_]}} ->
+	    ok;
+	Other ->
+	    ?line io:format("Unexpected: ~p", [Other]),
+	    ?line ?t:fail()
+    end,
+    ?t:messages_get(),
+    process_flag(trap_exit, OldFl),
+    ok.
 
 
 %% Hibernation
@@ -704,6 +725,8 @@ init(hiber) ->
     {ok, hiber_idle, []};
 init(hiber_now) ->
     {ok, hiber_idle, [], hibernate};
+init({state_data, StateData}) ->
+    {ok, idle, StateData};
 init(_) ->
     {ok, idle, state_data}.
 
@@ -844,5 +867,7 @@ handle_sync_event(stop_shutdown_reason, _From, _State, Data) ->
 handle_sync_event({get, _Pid}, _From, State, Data) ->
     {reply, {state, State, Data}, State, Data}.
 
-format_status(_Opt, [_Pdict, _StateData]) ->
+format_status(terminate, [_Pdict, StateData]) ->
+    StateData;
+format_status(normal, [_Pdict, _StateData]) ->
     [format_status_called].

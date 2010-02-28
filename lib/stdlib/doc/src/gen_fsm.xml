@@ -730,33 +730,58 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       </desc>
     </func>
     <func>
-      <name>Module:format_status(normal, [PDict, StateData]) -> Status</name>
+      <name>Module:format_status(Opt, [PDict, StateData]) -> Status</name>
       <fsummary>Optional function for providing a term describing the
         current gen_fsm status.</fsummary>
       <type>
+        <v>Opt = normal | terminate</v>
         <v>PDict = [{Key, Value}]</v>
         <v>StateData = term()</v>
-        <v>Status = [term()]</v>
+        <v>Status = term()</v>
       </type>
       <desc>
-        <p><em>This callback is optional, so callback modules need not
-          export it. The gen_fsm module provides a default
-          implementation of this function that returns the callback
-          module state data.</em></p>
-        <p>This function is called by a gen_fsm process when one
-          of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
-          is invoked to get the gen_fsm status. A callback module
-          wishing to customise the <c>sys:get_status/1,2</c> return
-          value exports an instance of <c>format_status/2</c> that
-          returns a term describing the current status of the
-          gen_fsm.</p>
+        <note>
+          <p>This callback is optional, so callback modules need not
+            export it. The gen_fsm module provides a default
+            implementation of this function that returns the callback
+            module state data.</p>
+        </note>
+        <p>This function is called by a gen_fsm process when:</p>
+        <list typed="bulleted">
+          <item>One
+            of <seealso marker="sys#get_status/1">sys:get_status/1,2</seealso>
+            is invoked to get the gen_fsm status. <c>Opt</c> is set to
+            the atom <c>normal</c> for this case.</item>
+          <item>The gen_fsm terminates abnormally and logs an
+            error. <c>Opt</c> is set to the atom <c>terminate</c> for
+            this case.</item>
+        </list>
+        <p>This function is useful for customising the form and
+          appearance of the gen_fsm status for these cases. A callback
+          module wishing to customise the <c>sys:get_status/1,2</c>
+          return value as well as how its status appears in
+          termination error logs exports an instance
+          of <c>format_status/2</c> that returns a term describing the
+          current status of the gen_fsm.</p>
         <p><c>PDict</c> is the current value of the gen_fsm's
           process dictionary.</p>
         <p><c>StateData</c> is the internal state data of the
           gen_fsm.</p>
-        <p>The function should return <c>Status</c>, a list of one or
-          more terms that customise the details of the current state
-          and status of the gen_fsm.</p>
+        <p>The function should return <c>Status</c>, a term that
+          customises the details of the current state and status of
+          the gen_fsm. There are no restrictions on the
+          form <c>Status</c> can take, but for
+          the <c>sys:get_status/1,2</c> case (when <c>Opt</c>
+          is <c>normal</c>), the recommended form for
+          the <c>Status</c> value is <c>[{data, [{"StateData",
+          Term}]}]</c> where <c>Term</c> provides relevant details of
+          the gen_fsm state data. Following this recommendation isn't
+          required, but doing so will make the callback module status
+          consistent with the rest of the <c>sys:get_status/1,2</c>
+          return value.</p>
+        <p>One use for this function is to return compact alternative
+          state data representations to avoid having large state terms
+          printed in logfiles.</p>
       </desc>
     </func>
   </funcs>
@@ -770,4 +795,3 @@ gen_fsm:sync_send_all_state_event -----> Module:handle_sync_event/4
       <seealso marker="sys">sys(3)</seealso></p>
   </section>
 </erlref>
-
