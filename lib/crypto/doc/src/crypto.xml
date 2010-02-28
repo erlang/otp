@@ -339,6 +339,33 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
     </func>
 
     <func>
+      <name>des_ecb_encrypt(Key, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Text</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_ecb_decrypt(Key, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Cipher</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
+    <func>
       <name>blowfish_ecb_encrypt(Key, Text) -> Cipher</name>
       <fsummary>Encrypt the first 64 bits of <c>Text</c> using Blowfish in ECB mode</fsummary>
       <type>

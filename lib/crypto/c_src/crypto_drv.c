@@ -239,12 +239,15 @@ static ErlDrvEntry crypto_driver_entry = {
 #define DRV_BF_CBC_ENCRYPT       64
 #define DRV_BF_CBC_DECRYPT       65
 
+#define DRV_ECB_DES_ENCRYPT     66
+#define DRV_ECB_DES_DECRYPT     67
+
 /* #define DRV_CBC_IDEA_ENCRYPT    34 */
 /* #define DRV_CBC_IDEA_DECRYPT    35 */
 
 /* Not DRV_DH_GENERATE_PARAMS DRV_DH_CHECK
  * Calc RSA_VERIFY_*  and RSA_SIGN once */
-#define NUM_CRYPTO_FUNCS        46
+#define NUM_CRYPTO_FUNCS        48
 
 #define MD5_CTX_LEN     (sizeof(MD5_CTX))
 #define MD5_LEN         16
@@ -536,6 +539,21 @@ static int crypto_control(ErlDrvData drv_data, unsigned int command, char *buf,
         DES_set_key(des_key, &schedule);
         DES_ncbc_encrypt(des_dbuf, bin, dlen, &schedule, des_ivec, 
                          (command == DRV_CBC_DES_ENCRYPT));
+        return dlen;
+
+    case DRV_ECB_DES_ENCRYPT:
+    case DRV_ECB_DES_DECRYPT:
+        /* buf = key[8] data */
+        dlen = len - 8;
+        if (dlen != 8)
+            return -1;
+        des_key = (const_DES_cblock*) buf;
+        des_dbuf = (unsigned char *) (buf + 8);
+        bin = return_binary(rbuf,rlen,dlen);
+        if (bin==NULL) return -1;
+        DES_set_key(des_key, &schedule);
+        DES_ecb_encrypt((const_DES_cblock*) des_dbuf, (DES_cblock*) bin, &schedule,
+                        (command == DRV_ECB_DES_ENCRYPT));
         return dlen;
 
     case DRV_BF_ECB_ENCRYPT:

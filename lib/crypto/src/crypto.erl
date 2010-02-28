@@ -29,6 +29,7 @@
 %-export([sha512/1, sha512_init/0, sha512_update/2, sha512_final/1]).
 -export([md5_mac/2, md5_mac_96/2, sha_mac/2, sha_mac_96/2]).
 -export([des_cbc_encrypt/3, des_cbc_decrypt/3, des_cbc_ivec/1]).
+-export([des_ecb_encrypt/2, des_ecb_decrypt/2]).
 -export([des3_cbc_encrypt/5, des3_cbc_decrypt/5]).
 -export([blowfish_ecb_encrypt/2, blowfish_ecb_decrypt/2]).
 -export([blowfish_cbc_encrypt/3, blowfish_cbc_decrypt/3]).
@@ -124,6 +125,9 @@
 -define(BF_CBC_ENCRYPT,   64).
 -define(BF_CBC_DECRYPT,   65).
 
+-define(DES_ECB_ENCRYPT, 66).
+-define(DES_ECB_DECRYPT, 67).
+
 %% -define(IDEA_CBC_ENCRYPT, 34).
 %% -define(IDEA_CBC_DECRYPT, 35).
 
@@ -135,6 +139,7 @@
 		    md5_mac,  md5_mac_96,
 		    sha_mac,  sha_mac_96,
 		    des_cbc_encrypt, des_cbc_decrypt,
+		    des_ecb_encrypt, des_ecb_decrypt,
 		    des_ede3_cbc_encrypt, des_ede3_cbc_decrypt,
 		    aes_cfb_128_encrypt, aes_cfb_128_decrypt,
 		    rand_bytes,
@@ -293,6 +298,15 @@ des_cbc_ivec(Data) when is_binary(Data) ->
     IVec;
 des_cbc_ivec(Data) when is_list(Data) ->
     des_cbc_ivec(list_to_binary(Data)).
+
+%%
+%% DES - in electronic codebook mode (ECB)
+%%
+des_ecb_encrypt(Key, Data) ->
+    control(?DES_ECB_ENCRYPT, [Key, Data]).
+
+des_ecb_decrypt(Key, Data) ->
+    control(?DES_ECB_DECRYPT, [Key, Data]).
 
 %%
 %% DES3 - in cipher block chaining mode (CBC)

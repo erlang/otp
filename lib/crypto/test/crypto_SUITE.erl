@@ -40,6 +40,7 @@
 	 md5_mac_io/1,
 	 des_cbc/1,
 	 des_cbc_iter/1,
+	 des_ecb/1,
 	 aes_cfb/1,
 	 aes_cbc/1,
 	 aes_cbc_iter/1,
@@ -78,6 +79,7 @@ all(suite) ->
 		 aes_cbc,
 		 aes_cbc_iter,
 		 des_cbc_iter,
+		 des_ecb,
 		 rand_uniform_test,
 		 rsa_verify_test,
 		 dsa_verify_test,
@@ -442,6 +444,28 @@ des_cbc_iter(Config) when is_list(Config) ->
     ?line Cipher = concat_binary([Cipher1, Cipher2]),
     ?line m(Cipher, hexstr2bin("e5c7cdde872bf27c43e934008c389c"
 			             "0f683788499a7c05f6")).
+
+%%
+%%
+des_ecb(doc) ->
+    "Encrypt and decrypt according to ECB DES and check the result. "
+    "Example are from FIPS-81.";
+des_ecb(suite) ->
+    [];
+des_ecb(Config) when is_list(Config) ->
+    ?line Key =  hexstr2bin("0123456789abcdef"),
+    ?line Cipher1 = crypto:des_ecb_encrypt(Key, "Now is t"),
+    ?line m(Cipher1, hexstr2bin("3fa40e8a984d4815")),
+    ?line Cipher2 = crypto:des_ecb_encrypt(Key, "he time "),
+    ?line m(Cipher2, hexstr2bin("6a271787ab8883f9")),
+    ?line Cipher3 = crypto:des_ecb_encrypt(Key, "for all "),
+    ?line m(Cipher3, hexstr2bin("893d51ec4b563b53")),
+    ?line Cipher4 = crypto:des_ecb_decrypt(Key, hexstr2bin("3fa40e8a984d4815")),
+    ?line m(Cipher4, <<"Now is t">>),
+    ?line Cipher5 = crypto:des_ecb_decrypt(Key, hexstr2bin("6a271787ab8883f9")),
+    ?line m(Cipher5, <<"he time ">>),
+    ?line Cipher6 = crypto:des_ecb_decrypt(Key, hexstr2bin("893d51ec4b563b53")),
+    ?line m(Cipher6, <<"for all ">>).
 
 %%
 %%
