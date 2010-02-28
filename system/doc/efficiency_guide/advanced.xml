@@ -154,7 +154,8 @@ On 64-bit architectures: 4 words for a reference from the current local node, an
       <item>255</item>
       <tag><em>Atoms </em></tag>
       <item>      <marker id="atoms"></marker>
-The maximum number of atoms is 1048576. </item>
+	By default, the maximum number of atoms is 1048576.
+	This limit can be raised or lowered using the <c>+t</c> option.</item>
       <tag><em>Ets-tables</em></tag>
       <item>The default is 1400, can be changed with the environment variable <c>ERL_MAX_ETS_TABLES</c>.</item>
       <tag><em>Elements in a tuple</em></tag>

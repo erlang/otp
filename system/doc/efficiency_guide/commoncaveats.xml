@@ -69,7 +69,7 @@
 
     <p>Atoms are not garbage-collected. Once an atom is created, it will never
     be removed. The emulator will terminate if the limit for the number
-    of atoms (1048576) is reached.</p>
+    of atoms (1048576 by default) is reached.</p>
 
     <p>Therefore, converting arbitrary input strings to atoms could be
     dangerous in a system that will run continuously.
