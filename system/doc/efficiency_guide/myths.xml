@@ -168,8 +168,8 @@ vanilla_reverse([], Acc) ->
     <p>Actually, string handling could be slow if done improperly.
     In Erlang, you'll have to think a little more about how the strings
     are used and choose an appropriate representation and use
-    the <seealso marker="stdlib:re">re</seealso> instead of the obsolete
-    <c>regexp</c> module if you are going to use regualr expressions.</p>
+    the <seealso marker="stdlib:re">re</seealso> module instead of the obsolete
+    <c>regexp</c> module if you are going to use regular expressions.</p>
   </section>
 
   <section>

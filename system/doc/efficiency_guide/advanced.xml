@@ -175,7 +175,7 @@ The maximum number of atoms is 1048576. </item>
       <tag><em>Total amount of data allocated by an Erlang node</em></tag>
       <item>The Erlang runtime system can use the complete 32 (or 64) bit address space,
        but the operating system often limits a single process to use less than that.</item>
-      <tag><em>length of a node name</em></tag>
+      <tag><em>Length of a node name</em></tag>
       <item>An Erlang node name has the form host@shortname or host@longname. The node name is 
        used as an atom within the system so the maximum size of 255 holds for the node name too.</item>
       <tag><em>Open ports</em></tag>
