@@ -39,7 +39,10 @@ MAN_FILES= \
 EMACS_FILES= \
 	erlang-start \
 	erlang-eunit \
-	erlang
+	erlang \
+	erlang_appwiz \
+	erlang-skels \
+	erlang-skels-old
 
 README_FILES= README
 
