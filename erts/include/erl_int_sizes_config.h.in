@@ -31,3 +31,6 @@
 
 /* The number of bytes in a long long.  */
 #undef SIZEOF_LONG_LONG
+
+/* Define if building a halfword-heap 64bit emulator (needed for NIF's) */
+#undef HALFWORD_HEAP_EMULATOR

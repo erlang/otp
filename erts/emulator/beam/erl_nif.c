@@ -512,9 +512,9 @@ int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 
 int enif_get_uint(ErlNifEnv* env, Eterm term, unsigned* ip)
 {
-#if SIZEOF_LONG == ERTS_SIZEOF_ETERM
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, (Uint*)ip);
-#elif SIZEOF_INT == ERTS_SIZEOF_ETERM
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
     Uint i;
     if (!term_to_Uint(term, &i) || i > UINT_MAX) {
 	return 0;

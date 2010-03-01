@@ -34,7 +34,37 @@
 
 #include <stdlib.h>
 
+#ifdef SIZEOF_CHAR
+#  define SIZEOF_CHAR_SAVED__ SIZEOF_CHAR
+#  undef SIZEOF_CHAR
+#endif
+#ifdef SIZEOF_SHORT
+#  define SIZEOF_SHORT_SAVED__ SIZEOF_SHORT
+#  undef SIZEOF_SHORT
+#endif
+#ifdef SIZEOF_INT
+#  define SIZEOF_INT_SAVED__ SIZEOF_INT
+#  undef SIZEOF_INT
+#endif
+#ifdef SIZEOF_LONG
+#  define SIZEOF_LONG_SAVED__ SIZEOF_LONG
+#  undef SIZEOF_LONG
+#endif
+#ifdef SIZEOF_LONG_LONG
+#  define SIZEOF_LONG_LONG_SAVED__ SIZEOF_LONG_LONG
+#  undef SIZEOF_LONG_LONG
+#endif
+#ifdef HALFWORD_HEAP_EMULATOR
+#  define HALFWORD_HEAP_EMULATOR_SAVED__ HALFWORD_HEAP_EMULATOR
+#  undef HALFWORD_HEAP_EMULATOR
+#endif
+#include "erl_int_sizes_config.h"
+
+#ifdef HALFWORD_HEAP_EMULATOR
+typedef unsigned int ERL_NIF_TERM;
+#else
 typedef unsigned long ERL_NIF_TERM;
+#endif
 
 struct enif_environment_t;
 typedef struct enif_environment_t ErlNifEnv;
