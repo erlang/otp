@@ -18,12 +18,13 @@
 %%
 -module(zip_SUITE).
 
--export([all/1, borderline/1, atomic/1, 
+-export([all/1, borderline/1, atomic/1,
          bad_zip/1, unzip_from_binary/1, unzip_to_binary/1,
          zip_to_binary/1,
          unzip_options/1, zip_options/1, list_dir_options/1, aliases/1,
          openzip_api/1, zip_api/1, unzip_jar/1,
-         compress_control/1]).
+         compress_control/1,
+	 foldl/1]).
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
@@ -35,7 +36,8 @@ all(suite) -> [borderline, atomic, bad_zip,
                zip_to_binary,
                unzip_options, zip_options, list_dir_options, aliases,
                openzip_api, zip_api, unzip_jar,
-               compress_control].
+               compress_control,
+	       foldl].
 
 borderline(doc) ->
     ["Test creating, listing and extracting one file from an archive "
@@ -110,17 +112,17 @@ get_data(Port, Expect) ->
         {Port, {data, Bytes}} ->
             get_data(Port, match_output(Bytes, Expect, Port));
         {Port, eof} ->
-            Port ! {self(), close}, 
+            Port ! {self(), close},
             receive
                 {Port, closed} ->
                     true
-            end, 
+            end,
             receive
-                {'EXIT',  Port,  _} -> 
+                {'EXIT',  Port,  _} ->
                     ok
             after 1 ->                          % force context switch
                     ok
-            end, 
+            end,
             match_output(eof, Expect, Port)
     end.
 
@@ -290,7 +292,7 @@ unzip_options(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     Long = filename:join(DataDir, "abc.zip"),
-    
+
     %% create a temp directory
     Subdir = filename:join(PrivDir, "t"),
     ok = file:make_dir(Subdir),
@@ -303,7 +305,7 @@ unzip_options(Config) when is_list(Config) ->
 
     %% Verify.
     ?line true = (length(FList) =:= length(RetList)),
-    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),                             
+    ?line lists:foreach(fun(F)-> {ok,B} = file:read_file(filename:join(DataDir, F)),
                                  {ok,B} = file:read_file(filename:join(Subdir, F)) end,
                         FList),
     ?line lists:foreach(fun(F)-> ok = file:delete(F) end,
@@ -321,7 +323,7 @@ unzip_jar(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
     JarFile = filename:join(DataDir, "test.jar"),
-    
+
     %% create a temp directory
     Subdir = filename:join(PrivDir, "jartest"),
     ok = file:make_dir(Subdir),
@@ -479,7 +481,7 @@ unzip_to_binary(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     PrivDir = ?config(priv_dir, Config),
 
-    delete_all_in(PrivDir),    
+    delete_all_in(PrivDir),
     file:set_cwd(PrivDir),
     Long = filename:join(DataDir, "abc.zip"),
 
@@ -595,17 +597,17 @@ do_delete_files([],Cnt) ->
     Cnt;
 do_delete_files([Item|Rest], Cnt) ->
     case file:delete(Item) of
-        ok -> 
+        ok ->
             DelCnt = 1;
         {error,eperm} ->
             file:change_mode(Item, 8#777),
             DelCnt = delete_files(filelib:wildcard(filename:join(Item, "*"))),
-            file:del_dir(Item);       
+            file:del_dir(Item);
         {error,eacces} ->
             %% We'll see about that!
             file:change_mode(Item, 8#777),
             case file:delete(Item) of
-                ok -> 
+                ok ->
 		    DelCnt = 1;
                 {error,_} ->
                     erlang:yield(),
@@ -643,22 +645,22 @@ compress_control(Config) when is_list(Config) ->
             ],
 
     test_compress_control(Dir,
-			  Files, 
+			  Files,
 			  [{compress, []}],
 			  []),
 
     test_compress_control(Dir,
-			  Files, 
+			  Files,
 			  [{uncompress, all}],
 			  []),
 
     test_compress_control(Dir,
-			  Files, 
+			  Files,
 			  [{uncompress, []}],
 			  [".txt", ".exe", ".zip", ".lzh", ".arj"]),
 
     test_compress_control(Dir,
-			  Files, 
+			  Files,
 			  [],
 			  [".txt", ".exe"]),
 
@@ -686,7 +688,7 @@ test_compress_control(Dir, Files, ZipOptions, Expected) ->
 
     create_files(Files),
     {ok, Zip} = zip:create(Zip, [Dir], ZipOptions),
-    
+
     {ok, OpenZip} = zip:openzip_open(Zip, [memory]),
     {ok,[#zip_comment{comment = ""} | ZipList]} = zip:openzip_list_dir(OpenZip),
     io:format("compress_control:  -> ~p  -> ~p\n  -> ~pn", [Expected, ZipOptions, ZipList]),
@@ -698,19 +700,19 @@ test_compress_control(Dir, Files, ZipOptions, Expected) ->
     delete_files(lists:reverse(Names)), % Remove plain files before directories
 
     ok.
-    
+
 verify_compression([{Name, Kind, _Filler} | Files], ZipList, OpenZip, ZipOptions, Expected) ->
     {Name2, BinSz} =
         case Kind of
-            dir -> 
+            dir ->
                 {Name ++ "/", 0};
-            _   -> 
+            _   ->
                 {ok, {Name, Bin}} = zip:openzip_get(Name, OpenZip),
                 {Name, size(Bin)}
         end,
     {Name2, {value, ZipFile}} = {Name2, lists:keysearch(Name2,  #zip_file.name, ZipList)},
     #zip_file{info = #file_info{size = InfoSz, type = InfoType}, comp_size = InfoCompSz} = ZipFile,
-    
+
     Ext = filename:extension(Name),
     IsComp = is_compressed(Ext, Kind, ZipOptions),
     ExpComp = lists:member(Ext, Expected),
@@ -757,3 +759,33 @@ extensions([H | T], Old) ->
 extensions([], Old) ->
     Old.
 
+foldl(Config) ->
+    PrivDir = ?config(priv_dir, Config),
+    File = filename:join([PrivDir, "foldl.zip"]),
+
+    FooBin = <<"FOO">>,
+    BarBin = <<"BAR">>,
+    Files = [{"foo", FooBin}, {"bar", BarBin}],
+    ?line {ok, {File, Bin}} = zip:create(File, Files, [memory]),
+    ZipFun = fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end,
+    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], {File, Bin}),
+    ?line [{"bar", BarBin, #file_info{}}, {"foo", FooBin, #file_info{}}] = FileSpec,
+    ?line {ok, {File, Bin}} = zip:create(File, lists:reverse(FileSpec), [memory]),
+    ?line {foo_bin, FooBin} =
+	try
+	    zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {File, Bin})
+	catch
+	    throw:FooBin ->
+		{foo_bin, FooBin}
+	end,
+    ?line ok = file:write_file(File, Bin),
+    ?line {ok, FileSpec} = zip:foldl(ZipFun, [], File),
+
+    ?line {error, einval} = zip:foldl(fun() -> ok end, [], File),
+    ?line {error, einval} = zip:foldl(ZipFun, [], 42),
+    ?line {error, einval} = zip:foldl(ZipFun, [], {File, 42}),
+
+    ?line ok = file:delete(File),
+    ?line {error, enoent} = zip:foldl(ZipFun, [], File),
+
+    ok.

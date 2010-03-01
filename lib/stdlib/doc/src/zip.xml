@@ -42,16 +42,18 @@
     <p>By convention, the name of a zip file should end in "<c>.zip</c>".
       To abide to the convention, you'll need to add "<c>.zip</c>" yourself
       to the name.</p>
-    <p>Zip archives are created with the 
-      <seealso marker="#zip_2">zip/2</seealso> or the 
+    <p>Zip archives are created with the
+      <seealso marker="#zip_2">zip/2</seealso> or the
       <seealso marker="#zip_2">zip/3</seealso> function. (They are
       also available as <c>create</c>, to resemble the <c>erl_tar</c>
       module.)</p>
-    <p>To extract files from a zip archive, use the 
-      <seealso marker="#unzip_1">unzip/1</seealso> or the 
+    <p>To extract files from a zip archive, use the
+      <seealso marker="#unzip_1">unzip/1</seealso> or the
       <seealso marker="#unzip_2">unzip/2</seealso> function. (They are
       also available as <c>extract</c>.)</p>
-    <p>To return a list of the files in a zip archive, use the 
+    <p>To fold a function over all files in a zip archive, use the
+      <seealso marker="#foldl_3">foldl_3</seealso>.</p>
+    <p>To return a list of the files in a zip archive, use the
       <seealso marker="#list_dir_1">list_dir/1</seealso> or the
       <seealso marker="#list_dir_2">list_dir/2</seealso> function. (They
       are also available as <c>table</c>.)</p>
@@ -132,7 +134,7 @@ zip_file()    </code>
       <type>
         <v>Name = filename()</v>
         <v>FileList = [FileSpec]</v>
-        <v>FileSpec = filename() | {filename(), binary()}</v>
+        <v>FileSpec = filename() | {filename(), binary()} | {filename(), binary(), #file_info{}}</v>
         <v>Options = [Option]</v>
         <v>Option = memory | cooked | verbose | {comment, Comment} | {cwd, CWD} | {compress, What} | {uncompress, What}</v>
         <v>What = all | [Extension] | {add, [Extension]} | {del, [Extension]}</v>
@@ -212,16 +214,16 @@ zip_file()    </code>
 	      <taglist>
 	            <tag><c>all</c></tag>
 		    <item><p> means that all files will be compressed (as long
-		       as they pass the <c>uncompress</c> condition).</p></item>  
+		       as they pass the <c>uncompress</c> condition).</p></item>
 		    <tag><c>[Extension]</c></tag>
 		    <item><p>means that only files with exactly these extensions
-		     will be compressed.</p></item>  
+		     will be compressed.</p></item>
 	            <tag><c>{add,[Extension]}</c></tag>
 		    <item><p>adds these extensions to the list of compress
-		     extensions.</p></item>  
+		     extensions.</p></item>
 	            <tag><c>{del,[Extension]}</c></tag>
 		    <item><p>deletes these extensions from the list of compress
-		     extensions.</p></item>  
+		     extensions.</p></item>
 	      </taglist>
 	  </item>
           <tag><c>{uncompress, What}</c></tag>
@@ -231,16 +233,16 @@ zip_file()    </code>
 	    The following values of <c>What</c> are allowed:</p>
 	      <taglist>
 	            <tag><c>all</c></tag>
-		    <item><p> means that no files will be compressed.</p></item>  
+		    <item><p> means that no files will be compressed.</p></item>
 		    <tag><c>[Extension]</c></tag>
 		    <item><p>means that files with these extensions will be
-		    uncompressed.</p></item>  
+		    uncompressed.</p></item>
 	            <tag><c>{add,[Extension]}</c></tag>
 		    <item><p>adds these extensions to the list of uncompress
-		     extensions.</p></item>  
+		     extensions.</p></item>
 	            <tag><c>{del,[Extension]}</c></tag>
 		    <item><p>deletes these extensions from the list of uncompress
-		     extensions.</p></item>  
+		     extensions.</p></item>
 	      </taglist>
 	  </item>
         </taglist>
@@ -283,7 +285,7 @@ zip_file()    </code>
               the <c>unzip/2</c> function will only extract the files
               whose names are included in <c>FileList</c>. The full
               paths, including the names of all sub directories within
-              the zip archive, must be specified.</p>  
+              the zip archive, must be specified.</p>
           </item>
           <tag><c>cooked</c></tag>
           <item>
@@ -324,6 +326,64 @@ zip_file()    </code>
               changing the global cwd property.)</p>
           </item>
         </taglist>
+      </desc>
+    </func>
+    <func>
+      <name>foldl(Fun, Acc0, Archive) -> {ok, Acc1} | {error, Reason}</name>
+      <fsummary>Fold a function over all files in a zip archive</fsummary>
+      <type>
+        <v>Fun = fun(FileInArchive, GetInfo, GetBin, AccIn) -> AccOut</v>
+        <v>FileInArchive = filename()</v>
+        <v>GetInfo = fun() -> #file_info{}</v>
+        <v>GetBin = fun() -> binary()</v>
+        <v>Acc0 = Acc1 = AccIn = AccOut = term()</v>
+        <v>Archive = filename() | {filename(), binary()}</v>
+      </type>
+      <desc>
+        <p>The <marker id="foldl_3"></marker> <c>foldl/3</c> function
+        calls <c>Fun(FileInArchive, GetInfo, GetBin, AccIn)</c> on
+        successive files in the <c>Archive</c>, starting with <c>AccIn
+        == Acc0</c>. <c>FileInArchive</c> is the name that the file
+        has in the archive. <c>GetInfo</c> is a fun that returns info
+        about the the file. <c>GetBin</c> returns the contents of the
+        file. Both <c>GetInfo</c> and <c>GetBin</c> must be called
+        within the <c>Fun</c>. Their behavior is undefined if they are
+        called outside the context of the <c>Fun</c>. The <c>Fun</c>
+        must return a new accumulator which is passed to the next
+        call. <c>foldl/3</c> returns the final value of the
+        accumulator. <c>Acc0</c> is returned if the archive is
+        empty. It is not necessary to iterate over all files in the
+        archive. The iteration may be ended prematurely in a
+        controlled manner by throwing an exception.</p>
+
+	<p>For example:</p>
+        <pre>
+&gt; <input>Name = "dummy.zip".</input>
+"dummy.zip"
+&gt; <input>{ok, {Name, Bin}} = zip:create(Name, [{"foo", &lt;&lt;"FOO"&gt;&gt;}, {"bar", &lt;&lt;"BAR"&gt;&gt;}], [memory]).</input>
+{ok,{"dummy.zip",
+     &lt;&lt;80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...&gt;&gt;}}
+&gt; <input>{ok, FileSpec} = zip:foldl(fun(N, I, B, Acc) -> [{N, B(), I()} | Acc] end, [], {Name, Bin}).</input>
+{ok,[{"bar",&lt;&lt;"BAR"&gt;&gt;,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}},
+     {"foo",&lt;&lt;"FOO"&gt;&gt;,
+      {file_info,3,regular,read_write,
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 {{2010,3,1},{19,2,10}},
+                 54,1,0,0,0,0,0}}]}
+&gt; <input>{ok, {Name, Bin}} = zip:create(Name, lists:reverse(FileSpec), [memory]).</input>
+{ok,{"dummy.zip",
+     &lt;&lt;80,75,3,4,20,0,0,0,0,0,74,152,97,60,171,39,212,26,3,0,
+       0,0,3,0,0,...&gt;&gt;}}
+&gt; <input>catch zip:foldl(fun("foo", _, B, _) -> throw(B()); (_, _, _, Acc) -> Acc end, [], {Name, Bin}). </input>
+&lt;&lt;"FOO"&gt;&gt;
+</pre>
       </desc>
     </func>
     <func>

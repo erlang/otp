@@ -20,7 +20,7 @@
 
 %% Basic api
 -export([unzip/1, unzip/2, extract/1, extract/2,
-	 zip/2, zip/3, create/2, create/3,
+	 zip/2, zip/3, create/2, create/3, foldl/3,
 	 list_dir/1, list_dir/2, table/1, table/2,
 	 t/1, tt/1]).
 
@@ -38,7 +38,7 @@
 	 zip_t/1, zip_tt/1,
 	 zip_list_dir/1, zip_list_dir/2,
 	 zip_close/1]).
-	 
+
 %% just for debugging zip server, not documented, not tested, not to be used
 -export([zip_get_state/1]).
 
@@ -82,7 +82,7 @@
 -record(openzip_opts, {
 	  output,      % output object (fun)
 	  open_opts,   % file:open options
-	  cwd	       % directory to relate paths to	  
+	  cwd	       % directory to relate paths to
 	 }).
 
 % openzip record, state for an open zip-file
@@ -93,10 +93,10 @@
 	  input,       % archive io object (fun)
 	  output,      % output io object (fun)
 	  zlib,	       % handle to open zlib
-	  cwd	       % directory to relate paths to	  
+	  cwd	       % directory to relate paths to
 	 }).
 
-% Things that I would like to add to the public record #zip_file, 
+% Things that I would like to add to the public record #zip_file,
 % but can't as it would make things fail at upgrade.
 % Instead we use {#zip_file,#zip_file_extra} internally.
 -record(zip_file_extra, {
@@ -278,7 +278,7 @@ file_name_search(Name,Files) ->
 	[ZFile|_] -> ZFile;
 	[] -> false
     end.
-	     
+
 %% %% add a file to an open archive
 %% openzip_add(File, OpenZip) ->
 %%     case ?CATCH do_openzip_add(File, OpenZip) of
@@ -344,6 +344,25 @@ do_unzip(F, Options) ->
     Input(close, In1),
     {ok, Files}.
 
+%% Iterate over all files in a zip archive
+foldl(Fun, Acc0, Archive) when is_function(Fun, 4) ->
+    ZipFun =
+	fun({Name, GetInfo, GetBin}, A) ->
+		A2 = Fun(Name, GetInfo, GetBin, A),
+		{true, false, A2}
+	end,
+    case prim_zip:open(ZipFun, Acc0, Archive) of
+	{ok, PrimZip, Acc1} ->
+	    ok = prim_zip:close(PrimZip),
+	    {ok, Acc1};
+	{error, bad_eocd} ->
+	    {error, "Not an archive file"};
+	{error, Reason} ->
+	    {error, Reason}
+    end;
+foldl(_,_, _) ->
+    {error, einval}.
+
 %% Create zip archive name F from Files or binaries
 %%
 %% Accepted options:
@@ -383,7 +402,7 @@ list_dir(F, Options) ->
 
 do_list_dir(F, Options) ->
     Opts = get_list_dir_options(F, Options),
-    #list_dir_opts{input = Input, open_opts = OpO, 
+    #list_dir_opts{input = Input, open_opts = OpO,
 		   raw_iterator = RawIterator} = Opts,
     In0 = Input({open, F, OpO}, []),
     {Info, In1} = get_central_dir(In0, RawIterator, Input),
@@ -417,7 +436,7 @@ tt(F) when is_record(F, openzip) -> openzip_tt(F);
 tt(F) -> t(F, fun raw_long_print_info_etc/5).
 
 
-%% option utils 
+%% option utils
 get_unzip_opt([], Opts) ->
     Opts;
 get_unzip_opt([verbose | Rest], Opts) ->
@@ -470,7 +489,7 @@ get_zip_opt([{cwd, CWD} | Rest], Opts) ->
 get_zip_opt([{comment, C} | Rest], Opts) ->
     get_zip_opt(Rest, Opts#zip_opts{comment = C});
 get_zip_opt([{compress, Which} = O| Rest], Opts) ->
-    Which2 = 
+    Which2 =
 	case Which of
 	    all ->
 		all;
@@ -485,7 +504,7 @@ get_zip_opt([{compress, Which} = O| Rest], Opts) ->
 	end,
     get_zip_opt(Rest, Opts#zip_opts{compress = Which2});
 get_zip_opt([{uncompress, Which} = O| Rest], Opts) ->
-    Which2 = 
+    Which2 =
 	case Which of
 	    all ->
 		all;
@@ -560,16 +579,24 @@ get_openzip_options(Options) ->
 get_input(F) when is_binary(F) ->
     fun binary_io/2;
 get_input(F) when is_list(F) ->
-    fun file_io/2.
+    fun file_io/2;
+get_input(_) ->
+    throw(einval).
 
 get_zip_input({F, B}) when is_binary(B), is_list(F) ->
+    fun binary_io/2;
+get_zip_input({F, B, #file_info{}}) when is_binary(B), is_list(F) ->
+    fun binary_io/2;
+get_zip_input({F, #file_info{}, B}) when is_binary(B), is_list(F) ->
     fun binary_io/2;
 get_zip_input(F) when is_list(F) ->
     fun file_io/2;
 get_zip_input({files, []}) ->
     fun binary_io/2;
 get_zip_input({files, [File | _]}) ->
-    get_zip_input(File).
+    get_zip_input(File);
+get_zip_input(_) ->
+    throw(einval).
 
 get_list_dir_options(F, Options) ->
     Opts = #list_dir_opts{raw_iterator = fun raw_file_info_public/5,
@@ -619,6 +646,8 @@ put_eocd(N, Pos, Sz, Comment, Output, Out0) ->
     Output({write, B}, Out0).
 
 get_filename({Name, _}, Type) ->
+    get_filename(Name, Type);
+get_filename({Name, _, _}, Type) ->
     get_filename(Name, Type);
 get_filename(Name, regular) ->
     Name;
@@ -895,7 +924,7 @@ local_file_header_to_bin(
      CompSize:32/little,
      UncompSize:32/little,
      FileNameLength:16/little,
-     ExtraFieldLength:16/little>>.    
+     ExtraFieldLength:16/little>>.
 
 eocd_to_bin(#eocd{disk_num = DiskNum,
 	   start_disk_num = StartDiskNum,
@@ -912,7 +941,7 @@ eocd_to_bin(#eocd{disk_num = DiskNum,
      Offset:32/little,
      ZipCommentLength:16/little>>.
 
-%% put together a local file header 
+%% put together a local file header
 local_file_header_from_info_method_name(#file_info{mtime = MTime},
 					UncompSize,
 					CompMethod, Name) ->
@@ -939,7 +968,7 @@ server_loop(OpenZip) ->
 		    server_loop(NewOpenZip);
 		Error ->
 		    From ! {self(), Error}
-	    end;		    
+	    end;
 	{From, close} ->
 	    From ! {self(), openzip_close(OpenZip)};
 	{From, get} ->
@@ -1024,7 +1053,7 @@ lists_foreach(F, [Hd|Tl]) ->
     F(Hd),
     lists_foreach(F, Tl).
 
-%% option utils 
+%% option utils
 get_openzip_opt([], Opts) ->
     Opts;
 get_openzip_opt([cooked | Rest], #openzip_opts{open_opts = OO} = Opts) ->
@@ -1121,7 +1150,7 @@ raw_file_info_public(CD, FileName, FileComment, BExtraField, Acc0) ->
 	     Other -> Other
 	 end,
     [H2|T].
-      
+
 
 %% make a file_info from a central directory header
 cd_file_header_to_file_info(FileName,
@@ -1213,8 +1242,8 @@ get_z_file(In0, Z, Input, Output, OpO, FB, CWD, {ZipFile,Extra}) ->
 		    {dir, In3};
 		_ ->
 		    %% FileInfo = local_file_header_to_file_info(LH)
-		    %%{Out, In4, CRC, UncompSize} = 
-		    {Out, In4, CRC, _UncompSize} = 
+		    %%{Out, In4, CRC, UncompSize} =
+		    {Out, In4, CRC, _UncompSize} =
 			get_z_data(CompMethod, In3, FileName1,
 				   CompSize, Input, Output, OpO, Z),
 		    In5 = skip_z_data_descriptor(GPFlag, Input, In4),
@@ -1280,7 +1309,7 @@ get_z_data_loop(CompSize, UncompSize, In0, Out0, Input, Output, Z) ->
 	    Out1 = Output({write, Uncompressed}, Out0),
 	    get_z_data_loop(CompSize-N, UncompSize + iolist_size(Uncompressed),
 			    In1, Out1, Input, Output, Z)
-    end.    
+    end.
 
 
 %% skip data descriptor if any
@@ -1298,7 +1327,7 @@ dos_date_time_to_datetime(DosDate, DosTime) ->
     <<Hour:5, Min:6, Sec:5>> = <<DosTime:16>>,
     <<YearFrom1980:7, Month:4, Day:5>> = <<DosDate:16>>,
     {{YearFrom1980+1980, Month, Day},
-     {Hour, Min, Sec}}. 
+     {Hour, Min, Sec}}.
 
 dos_date_time_from_datetime({{Year, Month, Day}, {Hour, Min, Sec}}) ->
     YearFrom1980 = Year-1980,
@@ -1319,7 +1348,6 @@ unix_extra_field_and_var_from_bin(<<TSize:16/little,
      Var};
 unix_extra_field_and_var_from_bin(_) ->
     throw(bad_unix_extra_field).
-		       
 
 %% A pwrite-like function for iolists (used by memory-option)
 
@@ -1478,6 +1506,8 @@ local_file_header_from_bin(_) ->
 %% io functions
 binary_io({file_info, {_Filename, _B, #file_info{} = FI}}, _A) ->
     FI;
+binary_io({file_info, {_Filename, #file_info{} = FI, _B}}, _A) ->
+    FI;
 binary_io({file_info, {_Filename, B}}, A) ->
     binary_io({file_info, B}, A);
 binary_io({file_info, B}, _) ->
@@ -1493,9 +1523,11 @@ binary_io({file_info, B}, _) ->
 	       links = 1, major_device = 0,
 	       minor_device = 0, inode = 0,
 	       uid = 0, gid = 0};
-binary_io({open, {_Filename, B, _FI}, _Opts}, _) ->
+binary_io({open, {_Filename, B, _FI}, _Opts}, _) when is_binary(B) ->
     {0, B};
-binary_io({open, {_Filename, B}, _Opts}, _) ->
+binary_io({open, {_Filename, _FI, B}, _Opts}, _) when is_binary(B) ->
+    {0, B};
+binary_io({open, {_Filename, B}, _Opts}, _) when is_binary(B) ->
     {0, B};
 binary_io({open, B, _Opts}, _) when is_binary(B) ->
     {0, B};
