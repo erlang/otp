@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%----------------------------------------------------------------
@@ -45,7 +45,8 @@
          hook/1,
          neg_indent/1,
          tickets/1,
-            otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1]).
+            otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
+            otp_8473/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -763,7 +764,7 @@ neg_indent(Config) when is_list(Config) ->
     ok.
 
 tickets(suite) ->
-    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238].
+    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473].
 
 otp_6321(doc) ->
     "OTP_6321. Bug fix of exprs().";
@@ -910,6 +911,16 @@ type_examples() ->
            "f18 :: 1 | 2 | 'undefined',"
            "f19 = 3 :: integer()|undefined,"
            "f5 = 3 :: undefined|integer()}). ">>}].
+
+otp_8473(doc) ->
+    "OTP_8473. Bugfix abstract type 'fun'.";
+otp_8473(suite) -> [];
+otp_8473(Config) when is_list(Config) ->
+    Ex = [{ex1,<<"-type 'fun'(A) :: A.\n"
+                 "-type funkar() :: 'fun'(fun((integer()) -> atom())).\n">>}],
+    ?line _ = [{N,ok} = {N,pp_forms(B)} || 
+                  {N,B} <- Ex],
+    ok.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
