@@ -178,9 +178,16 @@ gen_funcs(F) ->
     erase(current_func),
     w(".~n~n",[]).
 
-gen_export([F|_]) when is_list(F) ->
+gen_export(F) ->
+    try gen_export_1(F)
+    catch E:R ->
+	    io:format("Crash ~p:~p in ~p ~n",[E,R, erlang:get_stacktrace()]),
+	    io:format("Func = ~p~n  ~p", [F, get(F)])
+    end.
+
+gen_export_1([F|_]) when is_list(F) ->
     gen_export2(get(F));
-gen_export(F) when is_list(F) ->
+gen_export_1(F) when is_list(F) ->
     gen_export2(get(F)).
 
 gen_export2(#func{name=Name,alt={vector,VecPos,Vec}}) ->

@@ -72,7 +72,7 @@
 	 }
        ).
 
--record(enum, {skip="", as_atom=false, vals}).
+-record(enum, {from, skip="", as_atom=false, vals}).
 -record(const,{name,val,enum,is_const}).
 
 -define(error(What), 

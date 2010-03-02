@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	io:format("Completed succesfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
     catch Err:Reason ->
-	    catch gen_util:close(),
 	    io:format("Error ~p: ~p:~p~n  ~p~n", 
 		      [get(current_func),Err,Reason,erlang:get_stacktrace()]),
+	    (catch gen_util:close()),
 	    timer:sleep(1999),
 	    QuitOnErr andalso gen_util:halt(1)
     end.
@@ -605,7 +605,7 @@ is_equal(F1=#func{type=T1,params=A1},F2=#func{type=T2,params=A2}) ->
 	true -> ok;
 	false ->
 	    %% io:format("A1: ~p~nA2: ~p~n",[A1,A2]),	    
-	    ?warning("Skipped Ext Not Equal ~p ~p~n", 
+	    ?warning("Keeping Ext Not Equal ~p ~p~n",
 		     [F1#func.name,F2#func.name])
     end,
     Equal.

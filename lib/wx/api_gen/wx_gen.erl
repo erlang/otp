@@ -255,19 +255,24 @@ parse_attr(Defs, Class, Ev, Info = #hs{acc=AccList0}) ->
 parse_attr1([{{attr,_}, #xmlElement{content=C, attributes=Attrs}}|R], AttrList0, Opts, Res) ->    
     Parse  = fun(Con, Ac) -> parse_param(Con, Opts, Ac) end,
     Param0 = foldl(Parse, #param{}, drop_empty(C)),
-    case keysearch(prot, #xmlAttribute.name, Attrs) of
-	{value, #xmlAttribute{value = "public"}} ->
-	    {Acc,AttrList} = attr_acc(Param0, AttrList0),	    
-	    parse_attr1(R,AttrList,Opts,
-			[Param0#param{in=false,prot=public,acc=Acc}|Res]);
-	{value, #xmlAttribute{value = "protected"}} ->
-	    {Acc,AttrList} = attr_acc(Param0, AttrList0),	    
-	    parse_attr1(R,AttrList,Opts,
-			[Param0#param{in=false,prot=protected,acc=Acc}|Res]);
-	{value, #xmlAttribute{value = "private"}} ->
-	    {Acc,AttrList} = attr_acc(Param0, AttrList0),
-	    parse_attr1(R,AttrList,Opts, 
-			[Param0#param{in=false,prot=private,acc=Acc}|Res])
+    case Param0 of
+	#param{where=nowhere} ->
+	    parse_attr1(R,AttrList0,Opts,Res);
+	_ ->
+	    case keysearch(prot, #xmlAttribute.name, Attrs) of
+		{value, #xmlAttribute{value = "public"}} ->
+		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
+		    parse_attr1(R,AttrList,Opts,
+				[Param0#param{in=false,prot=public,acc=Acc}|Res]);
+		{value, #xmlAttribute{value = "protected"}} ->
+		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
+		    parse_attr1(R,AttrList,Opts,
+				[Param0#param{in=false,prot=protected,acc=Acc}|Res]);
+		{value, #xmlAttribute{value = "private"}} ->
+		    {Acc,AttrList} = attr_acc(Param0, AttrList0),
+		    parse_attr1(R,AttrList,Opts,
+				[Param0#param{in=false,prot=private,acc=Acc}|Res])
+	    end
     end;
 parse_attr1([{_Id,_}|R],AttrList,Info, Res) ->
     parse_attr1(R,AttrList,Info, Res);
@@ -591,17 +596,17 @@ parse_param(#xmlElement{name=array,content=C},_Opts, T = #param{type=Type0}) ->
 	    [#xmlText{value=RealVar}] = C,
 	    [Name] = string:tokens(RealVar, "() "),
 	    T#param{name=Name};
-%% 	#type{mod=[const]} -> 
-%% 	    T#param{type=Type0#type{single=array, by_val=true}};
-%% 	_ -> 
-%% 	    T#param{type=Type0#type{single=array, by_val=false}}
 	_ -> 
 	    T#param{type=Type0#type{single=array, by_val=true}}
     end;
 parse_param(#xmlElement{name=name,content=[C]}, _, T) ->
     %% Attributes have this
-    #xmlText{value=Name} = C,
-    T#param{name=Name};
+    case C of
+	#xmlText{value=Name="ms_classInfo"} ->
+	    T#param{name=Name, where=nowhere};
+	#xmlText{value=Name} ->
+	    T#param{name=Name}
+    end;
 %% Skipped: Attributes have this
 parse_param(#xmlElement{name=definition}, _, T) ->    T;
 parse_param(#xmlElement{name=argsstring}, _, T) ->    T;
@@ -610,6 +615,7 @@ parse_param(#xmlElement{name=detaileddescription}, _, T) ->    T;
 parse_param(#xmlElement{name=inbodydescription}, _, T) ->    T;
 parse_param(#xmlElement{name=location}, _, T) ->    T;
 parse_param(#xmlElement{name=referencedby}, _, T) ->    T;
+parse_param(#xmlElement{name=reimplements}, _, T) ->    T;
 parse_param(Other=#xmlElement{name=Name}, _, T) ->
     io:format("Unhandled Param ~p ~p ~n in ~p~n", [Name,Other,T]),
     ?error(unhandled_param).
@@ -1274,11 +1280,11 @@ extract_enum(#xmlElement{name=memberdef,content=C}, Class, File) ->
 	undefined -> 
 %% 	    io:format("1Enum name ~p~n", [Name]),
 %% 	    [io:format("  ~s ~p~n", [D,V]) || {D,V} <- Vals],
-	    put({enum, Name}, #enum{vals=Vals});
+	    put({enum, Name}, #enum{vals=Vals, from={File,Class,Name0}});
 	E = #enum{vals=undefined} -> 
 %%  	    io:format("2Enum name ~p~n", [Name]),
 %%  	    [io:format("  ~s ~p~n", [D,V]) || {D,V} <- Vals],
-	    put({enum, Name}, E#enum{vals=Vals});
+	    put({enum, Name}, E#enum{vals=Vals, from={File,Class,Name0}});
 	#enum{vals=Vals} -> ok;
 %%	    io:format("Same? ~p ~n", [PVals == Vals])
 	#enum{vals=OldVals} ->	    
@@ -1352,7 +1358,7 @@ extract_defs(Defs, File) ->
 	{Vals,_Skip} ->
 %% 	    io:format("Defs file ~p~n", [File]),
 %% 	    [io:format("  ~s ~p~n", [D,V]) || {D,V} <- Vals, not is_integer(V)]
-	    put({enum, {define,"From " ++ File ++ ".h"}}, #enum{vals=Vals})
+	    put({enum, {define,"From " ++ File ++ ".h"}}, #enum{vals=Vals, from={File, undefined, "@define"}})
     end.
 
 extract_defs2(#xmlElement{name=memberdef,content=C},{Acc,Skip}) ->
