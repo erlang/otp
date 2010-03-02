@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(disk_log_SUITE).
@@ -384,7 +384,7 @@ halt_misc(Conf) when is_list(Conf) ->
     ?line {error, {read_only_mode, a}} = 
         disk_log:change_header(a, {head,header}),
     ?line {error, {read_only_mode, a}} = 
-        disk_log:change_size(a, inifinity),
+        disk_log:change_size(a, infinity),
     ?line ok = disk_log:close(a),
     ?line ok = file:delete(File).
 
@@ -1574,7 +1574,7 @@ block_blocked(Conf) when is_list(Conf) ->
     ?line "The blocked disk" ++ _ = format_error(Error1),
     ?line {error, {blocked_log, halt}} = disk_log:sync(halt),
     ?line {error, {blocked_log, halt}} = disk_log:truncate(halt),
-    ?line {error, {blocked_log, halt}} = disk_log:change_size(halt, inifinity),
+    ?line {error, {blocked_log, halt}} = disk_log:change_size(halt, infinity),
     ?line {error, {blocked_log, halt}} = 
         disk_log:change_notify(halt, self(), false),
     ?line {error, {blocked_log, halt}} = 
@@ -2423,6 +2423,9 @@ get_reply() ->
 sync_do(Pid, Req) ->
     Pid ! {self(), Req},
     receive
+        Reply when Req =:= terminate ->
+            timer:sleep(500),
+            Reply;
 	Reply ->
 	    Reply
     end.
@@ -3165,7 +3168,7 @@ many_users(Conf) when is_list(Conf) ->
     ?line true = lists:duplicate(NoClients, ok) == C1,
     ?line true = length(T1) == N*NoClients,
     ?line {C2, T2} = many(Fun1, NoClients, N, halt, internal, 1000, Dir),
-    ?line true = lists:duplicate(NoClients, {error, {full,'log.LOG'}}) == C2,
+    ?line true = lists:duplicate(NoClients, {error, {full,"log.LOG"}}) == C2,
     ?line true = length(T2) > 0,
     ?line {C3, T3} = many(Fun2, NoClients, N, wrap, internal, 
 			  {300*NoClients,20}, Dir),
@@ -3174,7 +3177,7 @@ many_users(Conf) when is_list(Conf) ->
     ok.
 
 many(Fun, NoClients, N, Type, Format, Size, Dir) ->
-    Name = 'log.LOG',
+    Name = "log.LOG",
     File = filename:join(Dir, Name),
     del_files(Size, File),
     ?line Q = qlen(),
@@ -4328,11 +4331,9 @@ dist_terminate(Conf) when is_list(Conf) ->
     ?line 0 = sync_do(Pid1, users),
     ?line 0 = sync_do(Pid2, users),
     ?line sync_do(Pid1, terminate),
-    ?line timer:sleep(500),
     ?line [_] = sync_do(Pid2, owners),
     ?line 0 = sync_do(Pid2, users),
     ?line sync_do(Pid2, terminate),    
-    ?line timer:sleep(500),
     ?line {error, no_such_log} = disk_log:info(n),
 
     %% Users terminate (no link...).
