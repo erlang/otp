@@ -23,7 +23,7 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1, overload_mac/1, otp_8388/1]).
+         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -63,7 +63,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388].
+     overload_mac, otp_8388, otp_8470].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -1134,9 +1134,30 @@ otp_8388(Config) when is_list(Config) ->
            {errors,[{{2,8},epp,{mismatch,'A'}}],[]}},
           {macro_5,
            <<"-define(Q, {?F0(), ?F1(,,4)}).\n">>,
-           {errors,[{{1,24},epp,{arg_error,'F1'}}],[]}}
+           {errors,[{{1,24},epp,{arg_error,'F1'}}],[]}},
+          {macro_6,
+           <<"-define(FOO(X), ?BAR(X)).\n"
+             "-define(BAR(X), ?FOO(X)).\n"
+             "-undef(FOO).\n"
+             "test() -> ?BAR(1).\n">>,
+           {errors,[{{4,11},epp,{undefined,'FOO',1}}],[]}}
          ],
     ?line [] = compile(Config, Ts),
+    ok.
+
+otp_8470(doc) ->
+    ["OTP-8470. Bugfix (one request - two replies)."];
+otp_8470(suite) ->
+    [];
+otp_8470(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    C = <<"-file(\"erl_parse.yrl\", 486).\n"
+          "-file(\"erl_parse.yrl\", 488).\n">>,
+    ?line File = filename:join(Dir, "otp_8470.erl"),
+    ?line ok = file:write_file(File, C),
+    ?line {ok, _List} = epp:parse_file(File, [], []),
+    file:delete(File),
+    ?line receive _ -> fail() after 0 -> ok end,
     ok.
 
 check(Config, Tests) ->

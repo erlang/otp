@@ -753,7 +753,7 @@ scan_file([{'(',_Llp},{string,_Ls,Name},{',',_Lc},{integer,_Li,Ln},{')',_Lrp},
     Ms = dict:store({atom,'FILE'}, {none,[{string,1,Name}]}, St#epp.macs),
     Locf = loc(Tf),
     NewLoc = new_location(Ln, St#epp.location, Locf),
-    scan_toks(From, St#epp{name=Name,location=NewLoc,macs=Ms});
+    wait_req_scan(St#epp{name=Name,location=NewLoc,macs=Ms});
 scan_file(_Toks, Tf, From, St) ->
     epp_reply(From, {error,{loc(Tf),epp,{bad,file}}}),
     wait_req_scan(St).
