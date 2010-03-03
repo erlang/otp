@@ -2290,11 +2290,11 @@ handle_guard_or(Guard, Map, Env, Eval, State) ->
       end;
     neg ->
       {Map1, Type1} = bind_guard(Arg1, Map, Env, neg, State),
-      case t_is_atom(true, Type1) of
+      case t_is_atom(false, Type1) of
 	false -> throw({fail, none});
 	true ->
 	  {Map2, Type2} = bind_guard(Arg2, Map1, Env, neg, State),
-	  case t_is_atom(true, Type2) of
+	  case t_is_atom(false, Type2) of
 	    false -> throw({fail, none});
 	    true -> {Map2, t_atom(false)}
 	  end
