@@ -33,6 +33,66 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.16.1</title>
+    <p>Version 4.16.1 supports code replacement in runtime from/to
+      version 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <p>-</p> 
+      <!-- 
+      <list type="bulleted">
+        <item>
+          <p>[agent|manager] Entries in the audit trail log can now be 
+            augmented by a sequence number. </p>
+          <p>This is enabled by the <c>seqno</c> option, which is part of the 
+            <seealso marker="snmp_config#audit_trail_log">Audit Trail Log</seealso> 
+            config option. </p>
+          <p>See the 
+            <seealso marker="snmp_app#configuration_params">reference manual</seealso> 
+            or the 
+            <seealso marker="snmp_config#configuration_params">Configuring the application</seealso> 
+            chapter of the User's Guide for further info. </p> 
+
+          <p>Own Id: OTP-8395</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>[manager] Fixed an upgrade/downgrade problem. </p>
+          <p>Upgrade/downgrade from/to 4.13.5 did not work for the net-if 
+            process. This has now been fixed. </p>
+          <p>Own Id: OTP-8481</p>
+        </item>
+
+        <item>
+          <p>[agent] A minor mnesia related performance improvement. </p>
+          <p>Own Id: OTP-8480</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.16.1 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.16</title>
     <p>Version 4.16 supports code replacement in runtime from/to
       version 4.15, 4.14 and 4.13.5.</p>

@@ -17,11 +17,13 @@
 #
 # %CopyrightEnd%
 
-SNMP_VSN = 4.16
+SNMP_VSN = 4.16.1
 PRE_VSN  =
 APP_VSN  = "snmp-$(SNMP_VSN)$(PRE_VSN)"
 
-TICKETS = \
+TICKETS = OTP-8480 OTP-8481
+
+TICKETS_4_16 = \
 	OTP-8395 \
 	OTP-8433 \
 	OTP-8442

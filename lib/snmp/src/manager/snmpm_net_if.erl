@@ -441,7 +441,7 @@ handle_info(Info, State) ->
 %% Returns: any (ignored by gen_server)
 %%--------------------------------------------------------------------
 terminate(Reason, #state{log = Log, irgc = IrGcRef}) ->
-    ?vdebug("terminate: ~p",[Reason]),
+    ?vdebug("terminate: ~p", [Reason]),
     irgc_stop(IrGcRef),
     %% Close logs
     do_close_log(Log),
@@ -462,22 +462,59 @@ do_close_log(_) ->
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
  
+code_change({down, _Vsn}, OldState, downgrade_to_pre_4_14) ->
+    ?d("code_change(down, downgrade_to_pre_4_14) -> entry with"
+       "~n   OldState: ~p", [OldState]),
+    #state{server     = Server,
+	   note_store = NoteStore,
+	   sock       = Sock,
+	   mpd_state  = MpdState,
+	   log        = {OldLog, Type}, 
+	   irb        = IRB,
+	   irgc       = IRGC} = OldState, 
+    NewLog = snmp_log:downgrade(OldLog), 
+    State = 
+	{state, Server, NoteStore, Sock, MpdState, {NewLog, Type}, IRB, IRGC},
+    {ok, State};
+
 code_change({down, _Vsn}, OldState, downgrade_to_pre_4_16) ->
-    ?d("code_change(down) -> entry", []),
+    ?d("code_change(down, downgrade_to_pre_4_16) -> entry with"
+       "~n   OldState: ~p", [OldState]),
     {OldLog, Type} = OldState#state.log, 
     NewLog = snmp_log:downgrade(OldLog), 
     State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 % upgrade
+code_change(_Vsn, OldState, upgrade_from_pre_4_14) ->
+    ?d("code_change(up, upgrade_from_pre_4_14) -> entry with"
+       "~n   OldState: ~p", [OldState]), 
+    {state, Server, NoteStore, Sock, MpdState, {OldLog, Type}, IRB, IRGC} = 
+	OldState,
+    NewLog = snmp_log:upgrade(OldLog), 
+    State = #state{server     = Server,
+		   note_store = NoteStore,
+		   sock       = Sock,
+		   mpd_state  = MpdState,
+		   log        = {NewLog, Type}, 
+		   irb        = IRB,
+		   irgc       = IRGC,
+		   filter     = ?DEFAULT_FILTER_MODULE},
+    {ok, State};
+
 code_change(_Vsn, OldState, upgrade_from_pre_4_16) ->
-    ?d("code_change(up) -> entry", []),
+    ?d("code_change(up, upgrade_from_pre_4_16) -> entry with"
+       "~n   OldState: ~p", [OldState]),
     {OldLog, Type} = OldState#state.log,
     NewLog = snmp_log:upgrade(OldLog), 
     State  = OldState#state{log = {NewLog, Type}}, 
     {ok, State};
 
 code_change(_Vsn, State, _Extra) ->
+    ?d("code_change -> entry with"
+       "~n   Vsn:   ~p"
+       "~n   State: ~p"
+       "~n   Extra: ~p", [_Vsn, State, _Extra]),
     {ok, State}.
 
  
