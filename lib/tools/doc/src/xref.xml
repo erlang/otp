@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>xref</title>
@@ -239,7 +239,7 @@ represented by
       <item>RegArity ::= RegString | Number | <c>_</c> | <c>-1</c></item>
       <item>RegAtom ::= RegString | Atom | <c>_</c></item>
       <item>RegString ::= - a regular expression, as described in the 
-      <c>regexp</c> module, enclosed in double quotes -</item>
+      <c>re</c> module, enclosed in double quotes -</item>
       <item>Type ::= <c>Fun</c> | <c>Mod</c> | <c>App</c> | <c>Rel</c></item>
       <item>Function ::= Atom</item>
       <item>Application ::= Atom</item>
@@ -264,8 +264,7 @@ represented by
       Assigning a type to a list or tuple of <c>Constant</c> is
       equivalent to assigning the type to each <c>Constant</c>.
       </p>
-    <p>      <marker id="regexp"></marker>
-<em>Regular expressions</em> are used as a
+    <p><marker id="regexp"></marker><em>Regular expressions</em> are used as a
       means to select some of the vertices of a graph.
       A <c>RegExpr</c> consisting of a <c>RegString</c> and a type -
       an example is <c>"xref_.*" : Mod</c> - is interpreted as those
@@ -1546,8 +1545,11 @@ Evaluates a predefined analysis.
   </funcs>
 
   <section>
-    <title>See Also</title>
-    <p>beam_lib(3), digraph(3), digraph_utils(3), regexp(3), 
+    <title>See Also</title><p>
+      <seealso marker="stdlib:beam_lib">beam_lib(3)</seealso>,
+      <seealso marker="stdlib:digraph">digraph(3)</seealso>,
+      <seealso marker="stdlib:digraph_utils">digraph_utils(3)</seealso>,
+      <seealso marker="stdlib:re">re(3)</seealso>,
       <seealso marker="xref_chapter">TOOLS User's Guide</seealso></p>
   </section>
 </erlref>

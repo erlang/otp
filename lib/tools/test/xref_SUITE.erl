@@ -2306,8 +2306,8 @@ format_error(Conf) when is_list(Conf) ->
     ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),    
 
     %% Parse error messages.
-    ?line 'Invalid regular expression "add(": unterminated \`(\'\n'
-        = fatom(xref:q(s,'"add("')),
+    ?line "Invalid regular expression \"add(\"" ++ _ =
+        fstring(xref:q(s,'"add("')),
     ?line 'Invalid operator foo\n' =
 	fatom(xref:q(s,'foo E')),
     ?line 'Invalid wildcard variable \'_Var\' (only \'_\' is allowed)\n'
@@ -2705,7 +2705,10 @@ f(S, A) ->
     flatten(io_lib:format(S, A)).
 
 fatom(R) ->
-    list_to_atom(flatten(xref:format_error(R))).
+    list_to_atom(fstring(R)).
+
+fstring(R) ->
+    flatten(xref:format_error(R)).
 
 start(Server) ->
     ?line case xref:start(Server) of

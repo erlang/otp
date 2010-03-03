@@ -640,22 +640,22 @@ neighbours([], G, Fun, VT, L, _V, Vs) ->
     neighbours(Vs, G, Fun, VT, L).
 
 match_list(L, RExpr) ->
-    {ok, Expr} = regexp:parse(RExpr),
+    {ok, Expr} = re:compile(RExpr),
     filter(fun(E) -> match(E, Expr) end, L).
 
 match_one(VarL, Con, Col) ->
     select_each(VarL, fun(E) -> Con =:= element(Col, E) end).
 
 match_many(VarL, RExpr, Col) ->
-    {ok, Expr} = regexp:parse(RExpr),    
+    {ok, Expr} = re:compile(RExpr),    
     select_each(VarL, fun(E) -> match(element(Col, E), Expr) end).
 
 match(I, Expr) when is_integer(I) ->
     S = integer_to_list(I),
-    {match, 1, length(S)} =:= regexp:first_match(S, Expr);
+    {match, [{0,length(S)}]} =:= re:run(S, Expr, [{capture, first}]);
 match(A, Expr) when is_atom(A) ->
     S = atom_to_list(A),
-    {match, 1, length(S)} =:= regexp:first_match(S, Expr).
+    {match, [{0,length(S)}]} =:= re:run(S, Expr, [{capture, first}]).
 
 select_each([{Mod,Funs} | L], Pred) ->
     case filter(Pred, Funs) of
