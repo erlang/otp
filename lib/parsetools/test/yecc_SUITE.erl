@@ -44,7 +44,7 @@
              empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
              other_examples/1,
          bugs/1, 
-             otp_5369/1, otp_6362/1, otp_7945/1,
+             otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1,
          improvements/1,
              otp_7292/1, otp_7969/1]).
 
@@ -1284,7 +1284,7 @@ other_examples(Config) when is_list(Config) ->
     ok.
 
 bugs(suite) ->
-    [otp_5369, otp_6362, otp_7945].
+    [otp_5369, otp_6362, otp_7945, otp_8483].
 
 otp_5369(doc) ->
     "OTP-5369. A bug in parse_and_scan reported on erlang questions.";
@@ -1484,6 +1484,30 @@ otp_7945(doc) ->
 otp_7945(suite) -> [];
 otp_7945(Config) when is_list(Config) ->
     ?line {error,_} = erl_parse:parse([{atom,3,foo},{'.',2,9,9}]),
+    ok.
+
+otp_8483(doc) ->
+    "OTP-8483. reduce/accept conflict";
+otp_8483(suite) -> [];
+otp_8483(Config) when is_list(Config) ->
+    Dir = ?privdir,
+    Input = filename:join(Dir, "bug.yrl"),
+
+    Bug1 = <<"Nonterminals elem seq.
+              Terminals 'foo'.
+              Rootsymbol elem.
+              elem -> 'foo'.
+              elem -> seq.
+              seq -> elem.
+              seq -> seq elem.">>,
+    ?line ok = file:write_file(Input, Bug1),
+    Ret = [return, {report, true}],
+    ?line {error,[{_,[{none,yecc,{conflict,_}},
+                      {none,yecc,{conflict,_}},
+                      {none,yecc,{conflict,_}}]}],
+           [{_,[{none,yecc,{conflicts,1,3}}]}]} = 
+        yecc:file(Input, Ret),
+    file:delete(Input),
     ok.
 
 improvements(suite) ->

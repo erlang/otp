@@ -1582,6 +1582,11 @@ find_action_conflicts2(Rs, Cxt0) ->
          
 find_reduce_reduce([R], Cxt) ->
     {R, Cxt};
+find_reduce_reduce([accept=A, #reduce{}=R | Rs], Cxt0) ->
+    Confl = conflict(R, A, Cxt0),
+    St = conflict_error(Confl, Cxt0#cxt.yecc), 
+    Cxt = Cxt0#cxt{yecc = St},
+    find_reduce_reduce([R | Rs], Cxt);
 find_reduce_reduce([#reduce{head = Categ1, prec = {P1, _}}=R1, 
                     #reduce{head = Categ2, prec = {P2, _}}=R2 | Rs], Cxt0) ->
     #cxt{res = Res0, yecc = St0} = Cxt0,
@@ -1773,6 +1778,8 @@ add_conflict(Conflict, St) ->
     case Conflict of
         {Symbol, StateN, _, {reduce, _, _, _}} ->
             St#yecc{reduce_reduce = [{StateN,Symbol} |St#yecc.reduce_reduce]};
+        {Symbol, StateN, _, {accept, _}} ->
+            St#yecc{reduce_reduce = [{StateN,Symbol} |St#yecc.reduce_reduce]};
         {Symbol, StateN, _, {shift, _, _}} ->
             St#yecc{shift_reduce = [{StateN,Symbol} | St#yecc.shift_reduce]};
         {_Symbol, _StateN, {one_level_up, _, _}, _Confl} ->
@@ -1791,6 +1798,8 @@ conflict(#reduce{rule_nmbr = RuleNmbr1}, NewAction, Cxt) ->
     #cxt{terminal = Symbol, state_n = N, yecc = St} = Cxt,
     {R1, RuleLine1, RuleN1} = rule(RuleNmbr1, St),
     Confl = case NewAction of
+                accept -> 
+                    {accept, St#yecc.rootsymbol};
                 #reduce{rule_nmbr = RuleNmbr2} -> 
                     {R2, RuleLine2, RuleN2} = rule(RuleNmbr2, St),
                     {reduce, R2, RuleN2, RuleLine2};
@@ -1830,7 +1839,10 @@ format_conflict({Symbol, N, Reduce, Confl}) ->
              {shift, NewState, Sym} ->
                  io_lib:fwrite(<<"   shift to state ~w, adding right "
                                  "sisters to ~s.">>,
-                           [NewState, format_symbol(Sym)])
+                               [NewState, format_symbol(Sym)]);
+             {accept, Rootsymbol} ->
+                 io_lib:fwrite(<<"   reduce to rootsymbol ~s.">>,
+                               [format_symbol(Rootsymbol)])
          end,
     [S1, S2, S3].
 
@@ -2078,7 +2090,7 @@ output_action(St0, State, Terminal, #shift{state = NewState}, IsFirst, _SI) ->
 output_action(St0, State, Terminal, accept, IsFirst, _SI) ->
     St10 = delim(St0, IsFirst),
     St = fwrite(St10, 
-                <<"yeccpars2_~w(_S, ~s, _Ss, Stack,  _T, _Ts, _Tzr) ->\n">>,
+                <<"yeccpars2_~w(_S, ~s, _Ss, Stack, _T, _Ts, _Tzr) ->\n">>,
                 [State, quoted_atom(Terminal)]),
     fwrite(St, <<" {ok, hd(Stack)}">>, []);
 output_action(St, _State, _Terminal, nonassoc, _IsFirst, _SI) ->
