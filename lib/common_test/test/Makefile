@@ -33,7 +33,8 @@ MODULES= \
 	ct_groups_test_2_SUITE \
 	ct_skip_SUITE \
 	ct_error_SUITE \
-	ct_test_server_if_1_SUITE
+	ct_test_server_if_1_SUITE \
+	ct_config_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
