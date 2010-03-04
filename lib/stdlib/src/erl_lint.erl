@@ -40,7 +40,7 @@
 %%              Value.
 %%  The option handling functions.
 
--spec bool_option(atom(), atom(), boolean(), [_]) -> boolean().
+-spec bool_option(atom(), atom(), boolean(), [compile:option()]) -> boolean().
 
 bool_option(On, Off, Default, Opts) ->
     foldl(fun (Opt, _Def) when Opt =:= On -> true;
@@ -72,6 +72,10 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 %%-define(DEBUGF(X,Y), io:format(X, Y)).
 -define(DEBUGF(X,Y), void).
 
+-type line() :: erl_scan:line().     % a convenient alias
+-type fa()   :: {atom(), arity()}.   % function+arity
+-type ta()   :: {atom(), arity()}.   % type+arity
+
 %% Usage of records, functions, and imports. The variable table, which
 %% is passed on as an argument, holds the usage of variables.
 -record(usage, {
@@ -97,8 +101,8 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
 	       no_auto=gb_sets:empty()	:: gb_set(),	%Functions explicitly not autoimported
                defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
-	       on_load=[] :: [{atom(),integer()}], 	%On-load function
-	       on_load_line=0 :: integer(),		%Line for on_load
+	       on_load=[] :: [fa()],		%On-load function
+	       on_load_line=0 :: line(),	%Line for on_load
 	       clashes=[],			%Exported functions named as BIFs
                not_deprecated=[],               %Not considered deprecated
                func=[],                         %Current function
@@ -112,13 +116,14 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 						%outside any fun or lc
                xqlc= false :: boolean(),	%true if qlc.hrl included
                new = false :: boolean(),	%Has user-defined 'new/N'
-               called= [],			%Called functions
+               called= [] :: [{fa(),line()}],		%Called functions
                usage = #usage{}		:: #usage{},
 	       specs = dict:new()	:: dict(),	%Type specifications
-	       types = dict:new()	:: dict()	%Type definitions
+	       types = dict:new()	:: dict(),	%Type definitions
+	       exp_types=gb_sets:empty():: gb_set()	%Exported types
               }).
 
-%% -type lint_state() :: #lint{}.
+-type lint_state() :: #lint{}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
@@ -303,6 +308,8 @@ format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
+format_error({duplicated_export_type, {T, A}}) ->
+    io_lib:format("type ~w/~w already exported", [T, A]);
 format_error({undefined_type, {TypeName, Arity}}) ->
     io_lib:format("type ~w~s undefined", [TypeName, gen_type_paren(Arity)]);
 format_error({unused_type, {TypeName, Arity}}) ->
@@ -684,6 +691,8 @@ attribute_state({attribute,L,extends,_M}, St) ->
     add_error(L, invalid_extends, St);
 attribute_state({attribute,L,export,Es}, St) ->
     export(L, Es, St);
+attribute_state({attribute,L,export_type,Es}, St) ->
+    export_type(L, Es, St);
 attribute_state({attribute,L,import,Is}, St) ->
     import(L, Is, St);
 attribute_state({attribute,L,record,{Name,Fields}}, St) ->
@@ -1093,7 +1102,7 @@ check_unused_records(Forms, St0) ->
 %% For storing the import list we use the orddict module.
 %% We know an empty set is [].
 
-%% export(Line, Exports, State) -> State.
+-spec export(line(), [fa()], lint_state()) -> lint_state().
 %%  Mark functions as exported, also as called from the export line.
 
 export(Line, Es, #lint{exports = Es0, called = Called} = St0) ->
@@ -1101,7 +1110,8 @@ export(Line, Es, #lint{exports = Es0, called = Called} = St0) ->
         foldl(fun (NA, {E,C,St2}) ->
                       St = case gb_sets:is_element(NA, E) of
                                true ->
-                                   add_warning(Line, {duplicated_export, NA}, St2);
+                                   Warn = {duplicated_export,NA},
+                                   add_warning(Line, Warn, St2);
                                false ->
                                    St2
                            end,
@@ -1110,8 +1120,26 @@ export(Line, Es, #lint{exports = Es0, called = Called} = St0) ->
               {Es0,Called,St0}, Es),
     St1#lint{exports = Es1, called = C1}.
 
-%% import(Line, Imports, State) -> State.
-%% imported(Name, Arity, State) -> {yes,Module} | no.
+-spec export_type(line(), [ta()], lint_state()) -> lint_state().
+%%  Mark types as exported, also as called from the export line.
+
+export_type(Line, ETs, #lint{exp_types = ETs0} = St0) ->
+    {ETs1,St1} =
+	foldl(fun (TA, {E,St2}) ->
+		      St = case gb_sets:is_element(TA, E) of
+			       true ->
+				   Warn = {duplicated_export_type,TA},
+				   add_warning(Line, Warn, St2);
+			       false ->
+				   St2
+			   end,
+		      {gb_sets:add_element(TA, E), St}
+	      end,
+	      {ETs0,St0}, ETs),
+    St1#lint{exp_types = ETs1}.
+
+-type import() :: {module(), [fa()]} | module().
+-spec import(line(), import(), lint_state()) -> lint_state().
 
 import(Line, {Mod,Fs}, St) ->
     Mod1 = package_to_string(Mod),
@@ -1200,13 +1228,15 @@ check_imports(_Line, Fs, Is) ->
 add_imports(Mod, Fs, Is) ->
     foldl(fun (F, Is0) -> orddict:store(F, Mod, Is0) end, Is, Fs).
 
+-spec imported(atom(), arity(), lint_state()) -> {'yes',module()} | 'no'.
+
 imported(F, A, St) ->
     case orddict:find({F,A}, St#lint.imports) of
         {ok,Mod} -> {yes,Mod};
         error -> no
     end.
 
-%% on_load(Line, Val, State) -> State.
+-spec on_load(line(), fa(), lint_state()) -> lint_state().
 %%  Check an on_load directive and remember it.
 
 on_load(Line, {Name,Arity}=Fa, #lint{on_load=OnLoad0}=St0)
@@ -1238,7 +1268,7 @@ check_on_load(#lint{defined=Defined,on_load=[{_,0}=Fa],
     end;
 check_on_load(St) -> St.
 
-%% call_function(Line, Name, Arity, State) -> State.
+-spec call_function(line(), atom(), arity(), lint_state()) -> lint_state().
 %%  Add to both called and calls.
 
 call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func}=St) ->
@@ -1258,7 +1288,7 @@ function(Line, Name, Arity, Cs, St0) ->
     St1 = define_function(Line, Name, Arity, St0#lint{func={Name,Arity}}),
     clauses(Cs, St1#lint.global_vt, St1).
 
-%% define_function(Line, Name, Arity, State) -> State.
+-spec define_function(line(), atom(), arity(), lint_state()) -> lint_state().
 
 define_function(Line, Name, Arity, St0) ->
     St1 = keyword_warning(Line, Name, St0),
@@ -2744,10 +2774,12 @@ add_missing_spec_warnings(Forms, St0, Type) ->
 		  add_warning(L, {missing_spec,FA}, St)
 	  end, St0, Warns).
 
-check_unused_types(Forms, St = #lint{usage=Usage, types=Types}) ->
+check_unused_types(Forms, #lint{usage=Usage, types=Ts, exp_types=ExpTs}=St) ->
     case [File || {attribute,_L,file,{File,_Line}} <- Forms] of
 	[FirstFile|_] ->
-	    UsedTypes = Usage#usage.used_types,
+	    D = Usage#usage.used_types,
+	    L = gb_sets:to_list(ExpTs) ++ dict:fetch_keys(D),
+	    UsedTypes = gb_sets:from_list(L),
 	    FoldFun =
 		fun(_Type, -1, AccSt) ->
 			%% Default type
@@ -2755,19 +2787,18 @@ check_unused_types(Forms, St = #lint{usage=Usage, types=Types}) ->
 		   (Type, FileLine, AccSt) ->
                         case loc(FileLine) of
 			    {FirstFile, _} ->
-				case dict:is_key(Type, UsedTypes) of
+				case gb_sets:is_member(Type, UsedTypes) of
 				    true -> AccSt;
 				    false ->
-					add_warning(FileLine,
-                                                    {unused_type, Type},
-						    AccSt)
+					Warn = {unused_type,Type},
+					add_warning(FileLine, Warn, AccSt)
 				end;
 			    _ ->
-				%% Don't warn about unused types in include file
+				%% No warns about unused types in include files
 				AccSt
 			end
 		end,
-	    dict:fold(FoldFun, St, Types);
+	    dict:fold(FoldFun, St, Ts);
 	[] ->
 	    St
     end.
