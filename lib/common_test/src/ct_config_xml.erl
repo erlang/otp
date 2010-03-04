@@ -22,15 +22,24 @@
 %% Created : 16 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config_xml).
--export([read_config_file/1]).
+-export([read_config/1, check_parameter/1]).
 
-% the only function to be called outside
-read_config_file(ConfigFile) ->
+% read config file
+read_config(ConfigFile) ->
     case catch do_read_xml_config(ConfigFile) of
 	{ok, Config}->
 	    {ok, Config};
 	{error, Error, ErroneousString}->
 	    {error, Error, ErroneousString}
+    end.
+
+% check against existence of the file
+check_parameter(File)->
+    case filelib:is_file(File) of
+	true->
+	    {ok, {file, File}};
+	false->
+	    {nok, {nofile, File}}
     end.
 
 % actual reading of the config

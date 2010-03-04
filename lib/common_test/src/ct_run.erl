@@ -208,19 +208,7 @@ script_start1(Parent, Args) ->
 			end
 		end;
 	    false ->    
-		ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
-		    {value,{ct_config,Files}}->
-			[{ct_config_plain, Files}];
-		    false->
-			[]
-		end,
-		UserConfigs = case lists:keysearch(userconfig, 1, Args) of
-		    {value,{userconfig,UserConfigFiles}}->
-			prepare_user_configs(UserConfigFiles, [], new);
-		    false->
-			[]
-		end,
-		Config = ConfigFiles ++ UserConfigs,
+		Config = ct_config:prepare_config_list(Args),
 		case Config of
 		    [] ->
 			case install([{config,[]},
@@ -252,48 +240,15 @@ script_start1(Parent, Args) ->
 	end,
     Parent ! {self(), Result}.
 
-prepare_user_configs([ConfigString|UserConfigs], Acc, new)->
-    prepare_user_configs(UserConfigs,
-			 [{list_to_atom(ConfigString), []}|Acc],
-			 cur);
-prepare_user_configs(["and"|UserConfigs], Acc, _)->
-    prepare_user_configs(UserConfigs, Acc, new);
-prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur)->
-    prepare_user_configs(UserConfigs,
-			 [{LastMod, [ConfigString|LastList]}|Acc],
-			 cur);
-prepare_user_configs([], Acc, _)->
-    Acc.
-
 check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
-    % Configs is list of tuples such as {Callback=atom(), Files=list()}
-    % The ugly code below checks:
-    % 1. that all config files are present
-    % 2. thar all callback modules are loadable
-    case lists:keysearch(nok, 1,
-	    lists:flatten(
-		lists:map(fun({Callback, Files})->
-		    case code:load_file(Callback) of
-			{module, Callback}->
-			    lists:map(fun(File)->
-				case filelib:is_file(File) of
-				    true->
-					{ok, File};
-				    false->
-					{nok, {config, File}}
-				end
-			    end,
-			    Files);
-			{error, _}->
-			    {nok, {callback, Callback}}
-		    end
-		end,
-		Configs))) of
+    case ct_config:check_config_files(Configs) of
     false->
 	install([{config,Configs},
 		 {event_handler,EvHandlers}], LogDir);
-    {value, {nok, {config, File}}} ->
+    {value, {nok, {nofile, File}}} ->
 	{error,{cant_read_config_file,File}};
+    {value, {nok, {wrong_config, Message}}}->
+	{error,{wrong_config, Message}};
     {value, {nok, {callback, File}}} ->
 	{error,{cant_load_callback_module,File}}
     end.
@@ -740,11 +695,16 @@ run_prepared(LogDir, CfgFiles, EvHandlers, Run, Skip, Cover, Opts) ->
 	    exit(Reason)
     end.    
 
-check_config_file(File)->
-    AbsName = ?abs(File),
-    case filelib:is_file(AbsName) of
-	true -> AbsName;
-	false -> exit({no_such_file,AbsName})
+check_config_file(Callback, File)->
+    case Callback:check_parameter(File) of
+	{ok, {file, File}}->
+	    ?abs(File);
+	{ok, {config, _}}->
+	    File;
+	{nok, {wrong_config, Message}}->
+	    exit({wrong_config, {Callback, Message}});
+	{nok, {nofile, File}}->
+	    exit({no_such_file, ?abs(File)})
     end.
 
 run_dir(LogDir, CfgFiles, EvHandlers, StepOrCover, Opts) ->
@@ -763,7 +723,7 @@ run_dir(LogDir, CfgFiles, EvHandlers, StepOrCover, Opts) ->
 	    end,
 	    {Callback,
 		lists:map(fun(File)->
-		    check_config_file(File)
+		    check_config_file(Callback, File)
 		end, FileList)}
 	    end,
 	CfgFiles),

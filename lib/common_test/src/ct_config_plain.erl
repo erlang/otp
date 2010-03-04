@@ -22,9 +22,9 @@
 %% Created : 15 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config_plain).
--export([read_config_file/1]).
+-export([read_config/1, check_parameter/1]).
 
-read_config_file(ConfigFile) ->
+read_config(ConfigFile) ->
     case file:consult(ConfigFile) of
 	{ok,Config} ->
 	    {ok, Config};
@@ -63,6 +63,15 @@ read_config_file(ConfigFile) ->
 		_ ->
 		    {error, bad_decrypt_key, Key}
 	    end
+    end.
+
+% check against existence of config file
+check_parameter(File)->
+    case filelib:is_file(File) of
+	true->
+	    {ok, {file, File}};
+	false->
+	    {nok, {nofile, File}}
     end.
 
 read_config_terms(Bin) when is_binary(Bin) ->

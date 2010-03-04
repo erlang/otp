@@ -48,6 +48,8 @@
 
 -export([get_ref_from_name/1, get_name_from_ref/1, get_key_from_name/1]).
 
+-export([check_config_files/1, prepare_config_list/1]).
+
 -include("ct_util.hrl").
 
 -define(cryptfile, ".ct_config.crypt").
@@ -179,6 +181,8 @@ process_user_configs(Opts, Acc)->
     case lists:keytake(userconfig, 1, Opts) of
 	false->
 	    Acc;
+	{value, {userconfig, {Callback, []}}, NewOpts}->
+	    process_user_configs(NewOpts, [{Callback, []} | Acc]);
 	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when
 	    is_list(File)->
 		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
@@ -202,9 +206,12 @@ get_config_file_list(Opts)->
     CfgFiles.
 
 read_config_files(Opts) ->
-    AddCallback = fun(CallBack, Files)->
-	lists:map(fun(X)-> {CallBack, X} end, Files)
-    end,
+    ct:pal("ct_config:read_config_files/1:~nOpts:~n~p", [Opts]),
+    AddCallback = fun(CallBack, [])->
+			[{CallBack, []}];
+		     (CallBack, Files)->
+			lists:map(fun(X)-> {CallBack, X} end, Files)
+		  end,
     ConfigFiles = case lists:keyfind(config, 1, Opts) of
 	{config, ConfigLists}->
 	    lists:foldr(fun({Callback,Files}, Acc)->
@@ -215,10 +222,11 @@ read_config_files(Opts) ->
 	false->
 	    []
     end,
+    ct:pal("ct_config:read_config_files/1:~nConfigFiles:~n~p", [ConfigFiles]),
     read_config_files_int(ConfigFiles, fun store_config/3).
 
 read_config_files_int([{Callback, File}|Files], FunToSave)->
-    case Callback:read_config_file(File) of
+    case Callback:read_config(File) of
 	{ok, Config}->
 	    FunToSave(Config, Callback, File),
 	    read_config_files_int(Files, FunToSave);
@@ -666,3 +674,47 @@ random_bytes(N) ->
 
 random_bytes_1(0, Acc) -> Acc;
 random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
+
+check_config_files(Configs)->
+    lists:keysearch(nok, 1,
+	lists:flatten(
+	    lists:map(fun({Callback, Files})->
+		case code:load_file(Callback) of
+		    {module, Callback}->
+		        lists:map(fun(File)->
+			    Callback:check_parameter(File)
+			end,
+			Files);
+		    {error, _}->
+			{nok, {callback, Callback}}
+		end
+	    end,
+	Configs))).
+
+prepare_user_configs([ConfigString|UserConfigs], Acc, new)->
+    prepare_user_configs(UserConfigs,
+			 [{list_to_atom(ConfigString), []}|Acc],
+			 cur);
+prepare_user_configs(["and"|UserConfigs], Acc, _)->
+    prepare_user_configs(UserConfigs, Acc, new);
+prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur)->
+    prepare_user_configs(UserConfigs,
+			 [{LastMod, [ConfigString|LastList]}|Acc],
+			 cur);
+prepare_user_configs([], Acc, _)->
+    Acc.
+
+prepare_config_list(Args)->
+    ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
+	{value,{ct_config,Files}}->
+	    [{ct_config_plain, Files}];
+	false->
+	    []
+    end,
+    UserConfigs = case lists:keysearch(userconfig, 1, Args) of
+	{value,{userconfig,UserConfigFiles}}->
+	    prepare_user_configs(UserConfigFiles, [], new);
+	false->
+	    []
+    end,
+    ConfigFiles ++ UserConfigs.
