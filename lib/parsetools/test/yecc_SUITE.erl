@@ -44,7 +44,7 @@
              empty/1, prec/1, yeccpre/1, lalr/1, old_yecc/1, 
              other_examples/1,
          bugs/1, 
-             otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1,
+             otp_5369/1, otp_6362/1, otp_7945/1, otp_8483/1, otp_8486/1,
          improvements/1,
              otp_7292/1, otp_7969/1]).
 
@@ -1284,7 +1284,7 @@ other_examples(Config) when is_list(Config) ->
     ok.
 
 bugs(suite) ->
-    [otp_5369, otp_6362, otp_7945, otp_8483].
+    [otp_5369, otp_6362, otp_7945, otp_8483, otp_8486].
 
 otp_5369(doc) ->
     "OTP-5369. A bug in parse_and_scan reported on erlang questions.";
@@ -1508,6 +1508,36 @@ otp_8483(Config) when is_list(Config) ->
            [{_,[{none,yecc,{conflicts,1,3}}]}]} = 
         yecc:file(Input, Ret),
     file:delete(Input),
+    ok.
+
+otp_8486(doc) ->
+    "OTP-8486.";
+otp_8486(suite) -> [];
+otp_8486(Config) when is_list(Config) ->
+    Ts = [{otp_8486,<<"
+           Nonterminals boolean command.
+           Terminals '(' ')' if then else true and or skip while do.
+           Rootsymbol command.
+           Left 100 or.
+           Left 200 and.
+           boolean -> '(' boolean ')' : '$2'.
+           boolean -> 'true' : b.
+           boolean -> boolean 'and' boolean : {a,'$1','$3'}.
+           boolean -> boolean 'or' boolean : {o,'$1','$3'}.
+           command -> 'skip' : s.
+           command -> 'if' boolean 'then' command 'else' command : 
+                                  {i,'$2','$4','$6'}.
+           command -> 'while' boolean 'do' command : {w,'$2','$4'}.
+
+           Erlang code.
+           -export([t/0]).
+           t() ->
+               {ok,{i,{o,b,b},s,s}} =
+                   parse([{'if',1},{'true',1},{'or',1},{'true',1},
+                          {'then',1},{'skip',1},{'else',1},{'skip',1}]),
+               ok.
+          ">>,default,ok}],
+    ?line run(Config, Ts),
     ok.
 
 improvements(suite) ->

@@ -2006,14 +2006,16 @@ output_actions(St0, StateJumps, StateInfo) ->
     %% Not all the clauses of the dispatcher function yeccpars2() can
     %% be reached. Only when shifting, that is, calling yeccpars1(),
     %% will yeccpars2() be called.
-    Y2CL = [NewState || {_State,{Actions,_J}} <- StateJumps,
-                        {_LA, #shift{state = NewState}} <- Actions],
+    Y2CL = [NewState || {_State,{Actions,J}} <- StateJumps,
+                        {_LA, #shift{state = NewState}} <- 
+                            (Actions
+                             ++ [A || {_Tag,_To,Part} <- [J], A <- Part])],
     Y2CS = ordsets:from_list([0 | Y2CL]),
     Y2S = ordsets:from_list([S || {S,_} <- StateJumps]),
     NY2CS = ordsets:subtract(Y2S, Y2CS),
     Sel = [{S,true} || S <- ordsets:to_list(Y2CS)] ++
           [{S,false} || S <- ordsets:to_list(NY2CS)],
-                                    
+
     SelS = [{State,Called} || 
                {{State,_JActions}, {State,Called}} <- 
                    lists:zip(StateJumps, lists:keysort(1, Sel))],
