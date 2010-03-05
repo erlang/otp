@@ -188,9 +188,7 @@ process_user_configs(Opts, Acc)->
 		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
 	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when
 	    is_integer(C)->
-		process_user_configs(NewOpts, [{Callback, [File]} | Acc]);
-	{value, {userconfig, {_Callback, []}}, NewOpts}->
-	    process_user_configs(NewOpts, Acc)
+		process_user_configs(NewOpts, [{Callback, [File]} | Acc])
     end.
 
 get_config_file_list(Opts)->
@@ -675,12 +673,26 @@ random_bytes(N) ->
 random_bytes_1(0, Acc) -> Acc;
 random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
+check_callback_load(Callback)->
+    case code:is_loaded(Callback) of
+	{file, _Filename}->
+	     {ok, Callback};
+	false->
+	    case code:load_file(Callback) of
+		{module, Callback}->
+		    {ok, Callback};
+		{error, Error}->
+		    {error, Error}
+	    end
+    end.
+
 check_config_files(Configs)->
+    ct:pal("ct_config:check_config_files(~p)", [Configs]),
     lists:keysearch(nok, 1,
 	lists:flatten(
 	    lists:map(fun({Callback, Files})->
-		case code:load_file(Callback) of
-		    {module, Callback}->
+		case check_callback_load(Callback) of
+		    {ok, Callback}->
 		        lists:map(fun(File)->
 			    Callback:check_parameter(File)
 			end,
