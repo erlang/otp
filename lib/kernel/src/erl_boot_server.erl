@@ -53,6 +53,7 @@
 	  bootp          :: pid(),	%% boot process
 	  prim_state     %% state for efile code loader
 	 }).
+-type state() :: #state{}.
 
 -define(single_addr_mask, {255, 255, 255, 255}).
 
@@ -165,6 +166,8 @@ member_address(_, []) ->
 %% call-back functions.
 %% ------------------------------------------------------------
 
+-spec init([atom()]) -> {'ok', state()}.
+
 init(Slaves) ->
     {ok, U} = gen_udp:open(?EBOOT_PORT, []),
     {ok, L} = gen_tcp:listen(0, [binary,{packet,4}]),
@@ -186,6 +189,9 @@ init(Slaves) ->
 		 bootp = Pid
 		}}.
 
+-spec handle_call('which' | {'add',atom()} | {'delete',atom()}, _, state()) ->
+        {'reply', 'ok' | [atom()], state()}.
+
 handle_call({add,Address}, _, S0) ->
     Slaves = ordsets:add_element(Address, S0#state.slaves),
     S0#state.bootp ! {slaves, Slaves},
@@ -197,8 +203,12 @@ handle_call({delete,Address}, _, S0) ->
 handle_call(which, _, S0) ->
     {reply, ordsets:to_list(S0#state.slaves), S0}.
 
+-spec handle_cast(term(), [atom()]) -> {'noreply', [atom()]}.
+
 handle_cast(_, Slaves) ->
     {noreply, Slaves}.
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({udp, U, IP, Port, Data}, S0) ->
     Token = ?EBOOT_REQUEST ++ S0#state.version,
@@ -230,8 +240,12 @@ handle_info({udp, U, IP, Port, Data}, S0) ->
 handle_info(_Info, S0) ->
     {noreply,S0}.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, _S0) ->
     ok.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_Vsn, State, _Extra) ->
     {ok, State}.
@@ -241,6 +255,8 @@ code_change(_Vsn, State, _Extra) ->
 %% Boot server 
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-spec boot_init(reference()) -> no_return().
 
 boot_init(Tag) ->
     receive

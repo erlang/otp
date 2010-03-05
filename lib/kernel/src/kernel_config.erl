@@ -40,6 +40,9 @@ start_link() -> gen_server:start_link(kernel_config, [], []).
 %%-----------------------------------------------------------------
 %% Callback functions from gen_server
 %%-----------------------------------------------------------------
+
+-spec init([]) -> {'ok', []} | {'stop', term()}.
+
 init([]) ->  
     process_flag(trap_exit, true),
     case sync_nodes() of
@@ -59,17 +62,27 @@ init([]) ->
 	    {stop, Error}
     end.
 
+-spec handle_info(term(), State) -> {'noreply', State}.
+
 handle_info(_, State) ->
     {noreply, State}.
+
+-spec terminate(term(), term()) -> 'ok'.
 
 terminate(_Reason, _State) ->
     ok.
 
+-spec handle_call(term(), term(), State) -> {'reply', 'ok', State}.
+
 handle_call('__not_used', _From, State) ->
     {reply, ok, State}.
 
+-spec handle_cast(term(), State) -> {'noreply', State}.
+
 handle_cast('__not_used', State) ->
     {noreply, State}.
+
+-spec code_change(term(), State, term()) -> {'ok', State}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

@@ -64,13 +64,23 @@
 
 %%------------------------------------------------------------------------
 
+-type state() :: gb_tree().
+
+%%------------------------------------------------------------------------
+
 %% Remote execution and broadcasting facility
+
+-spec start() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start() ->
     gen_server:start({local,?NAME},?MODULE,[],[]).
 
+-spec start_link() -> {'ok', pid()} | 'ignore' | {'error', term()}.
+
 start_link() ->
     gen_server:start_link({local,?NAME},?MODULE,[],[]).
+
+-spec stop() -> term().
 
 stop() ->
     stop(?NAME).
@@ -78,10 +88,16 @@ stop() ->
 stop(Rpc) ->
     gen_server:call(Rpc, stop, infinity).
 
--spec init([]) -> {'ok', gb_tree()}.
+-spec init([]) -> {'ok', state()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     {ok, gb_trees:empty()}.
+
+-spec handle_call(term(), term(), state()) ->
+        {'noreply', state()} |
+	{'reply', term(), state()} |
+	{'stop', 'normal', 'stopped', state()}.
 
 handle_call({call, Mod, Fun, Args, Gleader}, To, S) ->
     handle_call_call(Mod, Fun, Args, Gleader, To, S);
@@ -102,6 +118,7 @@ handle_call(stop, _To, S) ->
 handle_call(_, _To, S) ->
     {noreply, S}.  % Ignore !
 
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
 
 handle_cast({cast, Mod, Fun, Args, Gleader}, S) ->
 	    spawn(
@@ -113,6 +130,7 @@ handle_cast({cast, Mod, Fun, Args, Gleader}, S) ->
 handle_cast(_, S) ->
     {noreply, S}.  % Ignore !
 
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({'DOWN', _, process, Caller, Reason}, S) ->
     case gb_trees:lookup(Caller, S) of
@@ -160,8 +178,12 @@ handle_info({From, {call,Mod,Fun,Args,Gleader}}, S) ->
 handle_info(_, S) ->
     {noreply,S}.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_, _S) ->
     ok.
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_, S, _) ->
     {ok, S}.
@@ -225,6 +247,8 @@ proxy_user_loop() ->
 	Pid when is_pid(Pid) -> proxy_user_flush();
 	undefined -> proxy_user_loop()
     end.
+
+-spec proxy_user_flush() -> no_return().
 
 proxy_user_flush() ->
     %% Forward all received messages to 'user'

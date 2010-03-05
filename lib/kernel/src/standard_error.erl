@@ -33,12 +33,18 @@
 %%
 %% The basic server and start-up.
 %%
+-spec start_link() -> 'ignore' | {'error',term()} | {'ok',pid()}.
+
 start_link() ->
     supervisor_bridge:start_link({local, ?PROCNAME_SUP}, ?MODULE, []).
+
+-spec terminate(term(), pid()) -> 'ok'.
 
 terminate(_Reason,Pid) ->
     (catch exit(Pid,kill)),
     ok.
+
+-spec init([]) -> {'error','no_stderror'} | {'ok',pid(),pid()}.
 
 init([]) ->
     case (catch start_port([out,binary])) of

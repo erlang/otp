@@ -62,6 +62,8 @@ stop() ->
 %%% Callback functions from gen_server
 %%%----------------------------------------------------------------------
 
+-type state() :: port().	% Internal type
+
 %%----------------------------------------------------------------------
 %% Func: init/1
 %% Returns: {ok, State}          |
@@ -69,6 +71,9 @@ stop() ->
 %%          ignore               |
 %%          {stop, Reason}
 %%----------------------------------------------------------------------
+
+-spec init([]) -> {'ok', state()} | {'stop', term()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     case ?PRIM_FILE:start() of
@@ -88,6 +93,12 @@ init([]) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_call(term(), term(), state()) ->
+        {'noreply', state()} |
+	{'reply', 'eof' | 'ok' | {'error', term()} | {'ok', term()}, state()} |
+	{'stop', 'normal', 'stopped', state()}.
+
 handle_call({open, Name, ModeList}, {Pid, _Tag} = _From, Handle)
   when is_list(ModeList) ->
     Child = ?FILE_IO_SERVER:start_link(Pid, Name, ModeList),
@@ -190,6 +201,9 @@ handle_call(Request, From, Handle) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast(Msg, State) ->
     error_logger:error_msg("handle_cast(~p, _)", [Msg]),
     {noreply, State}.
@@ -200,6 +214,9 @@ handle_cast(Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_info(term(), state()) ->
+        {'noreply', state()} | {'stop', 'normal', state()}.
 
 handle_info({'EXIT', Pid, _Reason}, Handle) when is_pid(Pid) ->
     ets:delete(?FILE_IO_SERVER_TABLE, Pid),
@@ -219,6 +236,9 @@ handle_info(Info, State) ->
 %% Purpose: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %%----------------------------------------------------------------------
+
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, Handle) ->
     ?PRIM_FILE:stop(Handle).
 
@@ -227,6 +247,9 @@ terminate(_Reason, Handle) ->
 %% Purpose: Convert process state when code is changed
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
+
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
 
