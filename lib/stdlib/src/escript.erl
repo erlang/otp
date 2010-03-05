@@ -20,7 +20,6 @@
 
 %% Useful functions that can be called from scripts.
 -export([script_name/0, create/2, extract/2]).
--export([foldl/3]). % Undocumented function that will be removed
 
 %% Internal API.
 -export([start/0, start/1]).
@@ -243,75 +242,6 @@ normalize_section(Name, Chars) ->
 script_name() ->
     [ScriptName|_] = init:get_plain_arguments(),
     ScriptName.
-
-%% Apply Fun(Name, GetInfo, GetBin, Acc) for each file in the escript.
-%%
-%% Fun/2 must return a new accumulator which is passed to the next call.
-%% The function returns the final value of the accumulator. Acc0 is
-%% returned if the escript contain an empty archive.
-%%
-%% GetInfo/0 is a fun that returns a #file_info{} record for the file.
-%% GetBin/0 is a fun that returns a the contents of the file as a binary.
-%%
-%% An escript may contain erlang code, beam code or an archive:
-%%
-%% archive - the Fun/4 will be applied for each file in the archive
-%% beam - the Fun/4 will be applied once and GetInfo/0 returns the file
-%%        info for the (entire) escript file
-%% erl - the Fun/4 will be applied once, GetInfo/0 returns the file
-%%       info for the (entire) escript file and the GetBin returns
-%%       the compiled beam code
-
--spec foldl(fun((string(),
-                 fun(() -> #file_info{}),
-                 fun(() -> binary()),
-                 term()) -> term()),
-            term(),
-            string()) -> {ok, term()} | {error, term()}.
-foldl(Fun, Acc0, File) when is_function(Fun, 4) ->
-    case parse_file(File, false) of
-        {text, _, Forms, _HasRecs, _Mode} when is_list(Forms) ->
-            GetInfo = fun() -> {ok, FI} = file:read_file_info(File), FI end,
-            GetBin =
-                fun() ->
-                        case compile:forms(Forms, [return_errors, debug_info]) of
-                            {ok, _, BeamBin} ->
-                                BeamBin;
-                            {error, _Errors, _Warnings} ->
-				throw("There were compilation errors.")
-                        end
-                end,
-            try
-                {ok, Fun(".", GetInfo, GetBin, Acc0)}
-            catch
-                throw:Reason ->
-                    {error, Reason}
-            end;
-        {beam, _, BeamBin, _HasRecs, _Mode} when is_binary(BeamBin) ->
-            GetInfo = fun() -> {ok, FI} = file:read_file_info(File), FI end,
-            GetBin = fun() -> BeamBin end,
-            try
-                {ok, Fun(".", GetInfo, GetBin, Acc0)}
-            catch
-                throw:Reason ->
-                    {error, Reason}
-            end;
-        {archive, _, ArchiveBin, _HasRecs, _Mode} when is_binary(ArchiveBin) ->
-	    ZipFun =
-		fun({Name, GetInfo, GetBin}, A) ->
-			A2 = Fun(Name, GetInfo, GetBin, A),
-			{true, false, A2}
-		end,
-            case prim_zip:open(ZipFun, Acc0, {File, ArchiveBin}) of
-                {ok, PrimZip, Res} ->
-                    ok = prim_zip:close(PrimZip),
-                    {ok, Res};
-                {error, bad_eocd} ->
-                    {error, "Not an archive file"};
-                {error, Reason} ->
-                    {error, Reason}
-            end
-    end.
 
 %%
 %% Internal API.
