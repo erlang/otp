@@ -80,7 +80,7 @@ foreach(Fun, Fg) ->
     end, Fg),
     Fg.
 
-map(Fun, Fg) -> 
+map(Fun, Fg) ->
     lists:foreach(fun
 	(Key) -> put(Key,Fun(get(Key)))
     end, Fg),
@@ -105,7 +105,9 @@ step(Vs, Es) -> step(Vs, Es, {0,0}).
 step(Vs, Es, Pa) ->
     ?MODULE:map(fun
 	(Node = {_, #fg_v{ type = static }}) -> Node;
-	({Key, Value = #fg_v{ p = {Px, Py}, v = {Vx, Vy}, type = dynamic}}) when is_float(Px), is_float(Py), is_float(Vx), is_float(Vy) ->
+	({Key, Value = #fg_v{ p = {Px, Py}, v = {Vx, Vy}, type = dynamic}})
+		      when is_float(Px), is_float(Py),
+			   is_float(Vx), is_float(Vy) ->
 	    F0 = {0.0,0.0},
 	    F1 = coulomb_repulsion(Key, Value, Vs, F0),
 	    F2 = hooke_attraction(Key, Value, Vs, Es, F1),
@@ -115,7 +117,7 @@ step(Vs, Es, Pa) ->
 
 	    Vx1 = (Vx + ?fg_th*Fx)*?fg_damp,
 	    Vy1 = (Vy + ?fg_th*Fy)*?fg_damp,
-    
+
 	    Px1 = Px + ?fg_th*Vx1,
 	    Py1 = Py + ?fg_th*Vy1,
 
@@ -123,14 +125,16 @@ step(Vs, Es, Pa) ->
 	(Node) -> Node
     end, Vs).
 
-point_attraction(_, #fg_v{ p = P0 }, Pa, {Fx, Fy}) when is_float(Fx), is_float(Fy) ->
+point_attraction(_, #fg_v{ p = P0 }, Pa, {Fx, Fy})
+  when is_float(Fx), is_float(Fy) ->
     K = 20,
     L = 150,
     {R, {Cx,Cy}} = composition(P0, Pa),
     F = -K*?fg_stretch*(R - L),
     {Fx + Cx*F, Fy + Cy*F}.
-    
-coulomb_repulsion(K0, #fg_v{ p = P0, q = Q0}, Vs, {Fx0, Fy0}) when is_float(Fx0), is_float(Fy0) ->
+
+coulomb_repulsion(K0, #fg_v{ p = P0, q = Q0}, Vs, {Fx0, Fy0})
+  when is_float(Fx0), is_float(Fy0) ->
     ?MODULE:foldl(fun
 	({K1, _}, F) when K1 == K0 -> F;
 	({_, #fg_v{ p = P1, q = Q1}}, {Fx, Fy}) ->
@@ -140,7 +144,8 @@ coulomb_repulsion(K0, #fg_v{ p = P0, q = Q0}, Vs, {Fx0, Fy0}) when is_float(Fx0)
 	(_, F) -> F
     end, {Fx0, Fy0}, Vs).
 
-hooke_attraction(Key0, #fg_v{ p = P0 }, Vs, Es, {Fx0, Fy0}) when is_float(Fx0), is_float(Fy0) ->
+hooke_attraction(Key0, #fg_v{ p = P0 }, Vs, Es, {Fx0, Fy0})
+  when is_float(Fx0), is_float(Fy0) ->
     ?MODULE:foldl(fun
 	({{Key1,Key1}, _}, F) -> F;
 	({{Key1,Key2}, #fg_e{ l = L, k = K}}, {Fx, Fy}) when Key1 =:= Key0->
@@ -153,10 +158,11 @@ hooke_attraction(Key0, #fg_v{ p = P0 }, Vs, Es, {Fx0, Fy0}) when is_float(Fx0), 
 	    {R, {Cx,Cy}} = composition(P0, P1),
 	    F = -K*?fg_stretch*(R - L),
 	    {Fx + Cx*F, Fy + Cy*F};
-	(_, F) -> F 
+	(_, F) -> F
     end, {Fx0, Fy0}, Es).
 
-composition({Px1, Py1}, {Px0, Py0}) when is_float(Px1), is_float(Py1), is_float(Px0), is_float(Py0) ->
+composition({Px1, Py1}, {Px0, Py0})
+  when is_float(Px1), is_float(Py1), is_float(Px0), is_float(Py0) ->
     Dx  = Px1 - Px0,
     Dy  = Py1 - Py0,
     R   = math:sqrt(Dx*Dx + Dy*Dy + 0.001),

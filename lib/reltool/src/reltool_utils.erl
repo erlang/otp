@@ -30,11 +30,11 @@ root_dir() ->
 
 erl_libs() ->
     case os:getenv("ERL_LIBS") of
-	false -> 
+	false ->
 	    [];
 	LibStr ->
 	    string:tokens(LibStr, ":;")
-    end.    
+    end.
 
 lib_dirs(Dir) ->
     case erl_prim_loader:list_dir(Dir) of
@@ -42,7 +42,7 @@ lib_dirs(Dir) ->
 	    [F || F <- Files,
 		  filelib:is_dir(filename:join([Dir, F]),
 				 erl_prim_loader)];
-	error -> 
+	error ->
 	    []
     end.
 
@@ -55,7 +55,7 @@ split_app_name(Name) ->
                     Elem >= $0, Elem =< $9 -> true;
                     true -> false
                 end
-        end, 
+        end,
     case lists:splitwith(Pred, lists:reverse(Name)) of
 	{Vsn, [$- | App]} ->
 	    {list_to_atom(lists:reverse(App)), lists:reverse(Vsn)};
@@ -119,7 +119,7 @@ default_rels() ->
 
 assign_image_list(ListCtrl) ->
     Art = wxImageList:new(16,16),
-    [wxImageList:add(Art, wxArtProvider:getBitmap(Image, [{size, {16,16}}])) 
+    [wxImageList:add(Art, wxArtProvider:getBitmap(Image, [{size, {16,16}}]))
      || Image <- ["wxART_ERROR",
 		  "wxART_WARNING",
                   "wxART_QUESTION",
@@ -206,7 +206,7 @@ split_app_dir(Dir) ->
     ParentDir = filename:dirname(Dir),
     Base = filename:basename(Dir),
     {Name, Vsn} = split_app_name(Base),
-    Vsn2 = 
+    Vsn2 =
 	try
 	    [list_to_integer(N) || N <- string:tokens(Vsn, ".")]
 	catch
@@ -276,7 +276,9 @@ get_selected_items(ListCtrl, PrevItem, Acc) ->
         ItemNo ->
 	    case wxListCtrl:getItemText(ListCtrl, ItemNo) of
 		Text when Text =/= ?MISSING_APP_TEXT ->
-		    get_selected_items(ListCtrl, ItemNo, [{ItemNo, Text} | Acc]);
+		    get_selected_items(ListCtrl,
+				       ItemNo,
+				       [{ItemNo, Text} | Acc]);
 		_Text ->
 		    get_selected_items(ListCtrl, ItemNo, Acc)
 	    end
@@ -306,7 +308,8 @@ select_items(ListCtrl, OldItems, NewItems) ->
 	    select_item(ListCtrl, NewItems);
 	ValidItems ->
 	    %% Some old selections are still valid. Select them again.
-	    lists:foreach(fun(Item) -> select_item(ListCtrl, [Item]) end, ValidItems)
+	    lists:foreach(fun(Item) -> select_item(ListCtrl, [Item]) end,
+			  ValidItems)
     end.
 
 select_item(ListCtrl, [{ItemNo, Text} | Items]) ->
@@ -339,7 +342,7 @@ print(_, _, _, _) ->
     ok.
 
 %% -define(SAFE(M,F,A), safe(M, F, A, ?MODULE, ?LINE)).
-%% 
+%%
 %% safe(M, F, A, Mod, Line) ->
 %%     case catch apply(M, F, A) of
 %%      {'EXIT', Reason} ->
@@ -356,7 +359,7 @@ return_first_error(Status, NewError) when is_list(NewError) ->
 	{error, OldError} ->
 	    {error, OldError}
     end.
-    
+
 add_warning(Status, Warning) ->
     case Status of
 	{ok, Warnings} ->
@@ -429,7 +432,8 @@ recursive_delete(Dir) ->
 	true ->
 	    case file:list_dir(Dir) of
 		{ok, Files} ->
-		    Fun = fun(F) -> recursive_delete(filename:join([Dir, F])) end,
+		    Fun =
+			fun(F) -> recursive_delete(filename:join([Dir, F])) end,
 		    lists:foreach(Fun, Files),
 		    delete(Dir, directory);
 		{error, enoent} ->
@@ -514,7 +518,9 @@ decode_regexps(Key, Regexps, _Old) when is_list(Regexps) ->
 do_decode_regexps(Key, [Regexp | Regexps], Acc) ->
     case catch re:compile(Regexp, []) of
         {ok, MP} ->
-            do_decode_regexps(Key, Regexps, [#regexp{source = Regexp, compiled = MP} | Acc]);
+            do_decode_regexps(Key,
+			      Regexps,
+			      [#regexp{source = Regexp, compiled = MP} | Acc]);
         _ ->
             Text = lists:flatten(io_lib:format("~p", [{Key, Regexp}])),
             throw({error, "Illegal option: " ++ Text})

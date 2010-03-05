@@ -34,7 +34,7 @@
 -include_lib("wx/include/wx.hrl").
 -include("reltool.hrl").
 
--record(state, 
+-record(state,
         {parent_pid,
          xref_pid,
 	 mod_wins,
@@ -63,7 +63,7 @@
 %% -define(APPS_APP_COL_WIDTH, 250).
 
 -define(CLOSE_ITEM, ?wxID_EXIT).    %% Use OS specific version if available
--define(ABOUT_ITEM, ?wxID_ABOUT).   %% Use OS specific 
+-define(ABOUT_ITEM, ?wxID_ABOUT).   %% Use OS specific
 -define(CONTENTS_ITEM, 300).
 
 -define(MODS_MOD_COL, 0).
@@ -79,7 +79,11 @@
 %% Client
 
 start_link(WxEnv, Xref, Common, AppName) ->
-    proc_lib:start_link(?MODULE, init, [self(), WxEnv, Xref, Common, AppName], infinity, []).
+    proc_lib:start_link(?MODULE,
+			init,
+			[self(), WxEnv, Xref, Common, AppName],
+			infinity,
+			[]).
 
 raise(Pid) ->
     reltool_utils:cast(Pid, raise).
@@ -121,7 +125,12 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
     receive
         {system, From, Msg} ->
             Dbg = C#common.sys_debug,
-            sys:handle_system_msg(Msg, From, S#state.parent_pid, ?MODULE, Dbg, S);
+            sys:handle_system_msg(Msg,
+				  From,
+				  S#state.parent_pid,
+				  ?MODULE,
+				  Dbg,
+				  S);
         {cast, _From, raise} ->
             wxFrame:raise(S#state.frame),
             wxFrame:setFocus(S#state.frame),
@@ -131,7 +140,8 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
 		{ok, App2} ->
 		    {ok, Sys} = reltool_server:get_sys(Xref),
 		    S2 = redraw_window(S#state{sys = Sys, app = App2}),
-		    [ok = reltool_mod_win:refresh(MW#mod_win.pid) || MW <- S2#state.mod_wins],
+		    [ok = reltool_mod_win:refresh(MW#mod_win.pid) ||
+			MW <- S2#state.mod_wins],
 		    ?MODULE:loop(S2);
 		{error, _Reason} ->
 		    wxFrame:destroy(S#state.frame),
@@ -139,7 +149,8 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
 	    end;
         {call, ReplyTo, Ref, {open_mod, ModName}} ->
 	    S2 = create_mod_window(S, ModName),
-	    {value, #mod_win{pid = ModPid}} = lists:keysearch(ModName, #mod_win.name, S2#state.mod_wins),
+	    {value, #mod_win{pid = ModPid}} =
+		lists:keysearch(ModName, #mod_win.name, S2#state.mod_wins),
 	    reltool_utils:reply(ReplyTo, Ref, {ok, ModPid}),
 	    ?MODULE:loop(S2);
 	#wx{event = #wxSize{}} = Wx ->
@@ -157,7 +168,9 @@ loop(#state{xref_pid = Xref, common = C, app = App} = S) ->
             exit(Reason);
         {'EXIT', Pid, _Reason} = Exit ->
 	    exit_warning(Exit),
-            S2 = S#state{mod_wins = lists:keydelete(Pid, #mod_win.pid, S#state.mod_wins)},
+            S2 = S#state{mod_wins = lists:keydelete(Pid,
+						    #mod_win.pid,
+						    S#state.mod_wins)},
             ?MODULE:loop(S2);
         Msg ->
             error_logger:format("~p~p got unexpected message:\n\t~p\n",
@@ -179,7 +192,7 @@ create_window(#state{app = App} = S) ->
     StatusBar = wxFrame:createStatusBar(Frame,[]),
 
     Book = wxNotebook:new(Panel, ?wxID_ANY, []),
-    
+
     S2 = S#state{frame = Frame,
                  panel = Panel,
                  book = Book,
@@ -210,12 +223,16 @@ create_apps_page(S, Derived) ->
     Lower = wxBoxSizer:new(?wxHORIZONTAL),
 
     UsedByCtrl = create_apps_list_ctrl(Panel, Upper, "Used by"),
-    wxSizer:add(Upper, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    
+    wxSizer:add(Upper,
+		wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+
     RequiredCtrl = create_apps_list_ctrl(Panel, Upper, "Required"),
-    wxSizer:add(Upper, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    wxSizer:add(Upper, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
     InclCtrl = create_apps_list_ctrl(Panel, Upper, "Included"),
-    wxSizer:add(Upper, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    wxSizer:add(Upper, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
     UsesCtrl = create_apps_list_ctrl(Panel, Upper, "Uses"),
     S2 = S#state{app_required_ctrl = RequiredCtrl,
 		 app_used_by_ctrl = UsedByCtrl,
@@ -262,8 +279,10 @@ create_apps_list_ctrl(Panel, Sizer, Text) ->
                 [{border, 2},
                  {flag, ?wxALL bor ?wxEXPAND},
                  {proportion, 1}]),
-    wxEvtHandler:connect(ListCtrl, size, [{skip, true}, {userData, apps_list_ctrl}]),
-    wxListCtrl:connect(ListCtrl, command_list_item_activated, [{userData, open_app}]),
+    wxEvtHandler:connect(ListCtrl, size,
+			 [{skip, true}, {userData, apps_list_ctrl}]),
+    wxListCtrl:connect(ListCtrl, command_list_item_activated,
+		       [{userData, open_app}]),
     wxWindow:connect(ListCtrl, enter_window),
     ListCtrl.
 
@@ -271,9 +290,20 @@ create_deps_page(S, Derived) ->
     Panel = wxPanel:new(S#state.book, []),
     Main = wxBoxSizer:new(?wxHORIZONTAL),
 
-    UsedByCtrl = create_mods_list_ctrl(Panel, Main, "Modules used by others", " and their applications", undefined, undefined),
-    wxSizer:add(Main, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    UsesCtrl   = create_mods_list_ctrl(Panel, Main, "Used modules",  " and their applications", undefined, undefined),
+    UsedByCtrl = create_mods_list_ctrl(Panel,
+				       Main,
+				       "Modules used by others",
+				       " and their applications",
+				       undefined,
+				       undefined),
+    wxSizer:add(Main, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    UsesCtrl   = create_mods_list_ctrl(Panel,
+				       Main,
+				       "Used modules",
+				       " and their applications",
+				       undefined,
+				       undefined),
     S2 = S#state{deps_used_by_ctrl = UsedByCtrl,
                  deps_uses_ctrl = UsesCtrl},
     redraw_mods(S2, Derived),
@@ -285,13 +315,36 @@ create_mods_page(S, Derived) ->
     Panel = wxPanel:new(S#state.book, []),
     MainSz = wxBoxSizer:new(?wxHORIZONTAL),
 
-    SourceCtrl = create_mods_list_ctrl(Panel, MainSz, ?source,  "",  whitelist_add, blacklist_add),
-    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    WhiteCtrl = create_mods_list_ctrl(Panel, MainSz, ?whitelist, "", whitelist_del, blacklist_add),
-    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    BlackCtrl = create_mods_list_ctrl(Panel, MainSz, ?blacklist, "", whitelist_add, blacklist_del),
-    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]), [{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    DerivedCtrl = create_mods_list_ctrl(Panel, MainSz, ?derived, "", whitelist_add, blacklist_add),
+    SourceCtrl = create_mods_list_ctrl(Panel,
+				       MainSz,
+				       ?source,
+				       "",
+				       whitelist_add,
+				       blacklist_add),
+    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    WhiteCtrl = create_mods_list_ctrl(Panel,
+				      MainSz,
+				      ?whitelist,
+				      "",
+				      whitelist_del,
+				      blacklist_add),
+    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    BlackCtrl = create_mods_list_ctrl(Panel,
+				      MainSz,
+				      ?blacklist,
+				      "",
+				      whitelist_add,
+				      blacklist_del),
+    wxSizer:add(MainSz, wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
+		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
+    DerivedCtrl = create_mods_list_ctrl(Panel,
+					MainSz,
+					?derived,
+					"",
+					whitelist_add,
+					blacklist_add),
     S2 = S#state{mods_source_ctrl  = SourceCtrl,
                  mods_white_ctrl   = WhiteCtrl,
                  mods_black_ctrl   = BlackCtrl,
@@ -309,7 +362,8 @@ create_mods_list_ctrl(Panel, OuterSz, Title, AppText, Tick, Cross) ->
                                 %% ?wxLC_SINGLE_SEL bor
                                 ?wxHSCROLL bor
 				?wxVSCROLL}]),
-    ToolTip = "Select module(s) or open separate module window with a double click.",
+    ToolTip = "Select module(s) or open separate module "
+	"window with a double click.",
     wxListCtrl:setToolTip(ListCtrl, ToolTip),
 
     %% Prep images
@@ -326,7 +380,8 @@ create_mods_list_ctrl(Panel, OuterSz, Title, AppText, Tick, Cross) ->
             true  ->
                 wxListItem:setText(ListItem, AppText),
                 wxListCtrl:insertColumn(ListCtrl, ?MODS_APP_COL, ListItem),
-                %% wxListCtrl:setColumnWidth(ListCtrl, ?MODS_APP_COL, ?MODS_APP_COL_WIDTH),
+                %% wxListCtrl:setColumnWidth(ListCtrl, ?MODS_APP_COL,
+		%% ?MODS_APP_COL_WIDTH),
                 2;
             false ->
                 1
@@ -336,9 +391,11 @@ create_mods_list_ctrl(Panel, OuterSz, Title, AppText, Tick, Cross) ->
     ButtonSz = wxBoxSizer:new(?wxHORIZONTAL),
     create_button(Panel, ButtonSz, ListCtrl, Title, "wxART_TICK_MARK", Tick),
     create_button(Panel, ButtonSz, ListCtrl, Title, "wxART_CROSS_MARK", Cross),
-    wxEvtHandler:connect(ListCtrl, size, [{skip, true}, {userData, mods_list_ctrl}]),
-    wxListCtrl:connect(ListCtrl, command_list_item_activated, [{userData, open_mod}]),
-    wxWindow:connect(ListCtrl, enter_window),        
+    wxEvtHandler:connect(ListCtrl, size,
+			 [{skip, true}, {userData, mods_list_ctrl}]),
+    wxListCtrl:connect(ListCtrl, command_list_item_activated,
+		       [{userData, open_mod}]),
+    wxWindow:connect(ListCtrl, enter_window),
     InnerSz = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(InnerSz, ListCtrl,
                 [{border, 2},
@@ -377,7 +434,7 @@ action_to_tool_tip(Label, Action) ->
 	    "Remove selected module(s)from whitelist.";
 	blacklist_add when Label =:= ?blacklist ->
 	    "Remove selected module(s) from blacklist.";
-	blacklist_add -> 
+	blacklist_add ->
 	    "Add selected module(s) to blacklist.";
 	blacklist_del ->
 	    "Remove selected module(s) from blacklist."
@@ -444,8 +501,8 @@ create_config_page(#state{app = App} = S) ->
     wxNotebook:addPage(S2#state.book, Panel, "Application settings", []),
     S2.
 
-create_double_box(Panel, Sizer, TopLabel, 
-		  OuterText, OuterData, 
+create_double_box(Panel, Sizer, TopLabel,
+		  OuterText, OuterData,
 		  InnerText, InnerData,
 		  InternalLabel, InternalChoices, InternalChoiceData) ->
     TopSizer = wxStaticBoxSizer:new(?wxVERTICAL, Panel,
@@ -457,10 +514,10 @@ create_double_box(Panel, Sizer, TopLabel,
 			 [{userData, OuterData}]),
     InnerRadio = wxRadioButton:new(Panel, ?wxID_ANY, InnerText),
     wxEvtHandler:connect(InnerRadio, command_radiobutton_selected,
-			 [{userData, InnerData}]),    
-    InnerBox = wxRadioBox:new(Panel, 
+			 [{userData, InnerData}]),
+    InnerBox = wxRadioBox:new(Panel,
 			      ?wxID_ANY,
-			      InternalLabel, 
+			      InternalLabel,
 			      ?wxDefaultPosition,
 			      ?wxDefaultSize,
 			      InternalChoices,
@@ -487,29 +544,38 @@ handle_event(#state{sys = Sys, app = App} = S, Wx) ->
 	#wx{obj = ObjRef, event = #wxMouse{type = enter_window}} ->
 	    wxWindow:setFocus(ObjRef),
 	    S;
-	#wx{obj= ListCtrl, userData = mods_list_ctrl, event = #wxSize{type = size, size = {W, _H}}} ->
+	#wx{obj= ListCtrl,
+	    userData = mods_list_ctrl,
+	    event = #wxSize{type = size, size = {W, _H}}} ->
 	    HasApps = (wxListCtrl:getColumnCount(ListCtrl) > 1),
 	    case HasApps of
 		false ->
 		    wxListCtrl:setColumnWidth(ListCtrl, ?MODS_MOD_COL, W);
 		true ->
-		    wxListCtrl:setColumnWidth(ListCtrl, ?MODS_MOD_COL, (2 * W) div 3),
+		    wxListCtrl:setColumnWidth(ListCtrl,
+					      ?MODS_MOD_COL,
+					      (2 * W) div 3),
 		    wxListCtrl:setColumnWidth(ListCtrl, ?MODS_APP_COL, W div 3)
 	    end,
 	    S;
-	#wx{obj= ListCtrl, userData = apps_list_ctrl, event = #wxSize{type = size, size = {W, _H}}} ->
+	#wx{obj = ListCtrl,
+	    userData = apps_list_ctrl,
+	    event = #wxSize{type = size, size = {W, _H}}} ->
 	    wxListCtrl:setColumnWidth(ListCtrl, ?APPS_APP_COL, W),
 	    S;
         #wx{userData = open_app,
             obj = ListCtrl,
-            event = #wxList{type = command_list_item_activated, itemIndex = Pos}} ->
+            event = #wxList{type = command_list_item_activated,
+			    itemIndex = Pos}} ->
             AppBase = wxListCtrl:getItemText(ListCtrl, Pos),
 	    {AppName, _AppVsn} = reltool_utils:split_app_name(AppBase),
-            {ok, _AppPid} = reltool_sys_win:open_app(S#state.parent_pid, AppName),
+            {ok, _AppPid} = reltool_sys_win:open_app(S#state.parent_pid,
+						     AppName),
             S;
         #wx{userData = open_mod,
             obj = ListCtrl,
-            event = #wxList{type = command_list_item_activated, itemIndex = Pos}} ->
+            event = #wxList{type = command_list_item_activated,
+			    itemIndex = Pos}} ->
             ModName = list_to_atom(wxListCtrl:getItemText(ListCtrl, Pos)),
 	    create_mod_window(S, ModName);
         #wx{userData = global_incl_cond} ->
@@ -560,16 +626,19 @@ handle_event(#state{sys = Sys, app = App} = S, Wx) ->
             Items = reltool_utils:get_items(ListCtrl),
 	    handle_mod_button(S, Items, Action);
         _ ->
-            error_logger:format("~p~p got unexpected app event from wx:\n\t~p\n",
+            error_logger:format("~p~p got unexpected app event from "
+				"wx:\n\t~p\n",
                                 [?MODULE, self(), Wx]),
             S
     end.
 
-create_mod_window(#state{parent_pid = RelPid, xref_pid = Xref, common = C} = S, ModName) ->
+create_mod_window(#state{parent_pid = RelPid, xref_pid = Xref, common = C} = S,
+		  ModName) ->
     case lists:keysearch(ModName, #mod_win.name, S#state.mod_wins) of
         false ->
             WxEnv = wx:get_env(),
-            {ok, Pid} = reltool_mod_win:start_link(WxEnv, Xref, RelPid, C, ModName),
+            {ok, Pid} =
+		reltool_mod_win:start_link(WxEnv, Xref, RelPid, C, ModName),
             MW = #mod_win{name = ModName, pid = Pid},
             S#state{mod_wins = [MW | S#state.mod_wins]};
         {value, MW} ->
@@ -578,7 +647,9 @@ create_mod_window(#state{parent_pid = RelPid, xref_pid = Xref, common = C} = S, 
     end.
 
 handle_mod_button(#state{app = App} = S, Items, Action) ->
-    App2 = lists:foldl(fun(Item, A) -> move_mod(A, Item, Action) end, App, Items),
+    App2 = lists:foldl(fun(Item, A) -> move_mod(A, Item, Action) end,
+		       App,
+		       Items),
     {ok, App3} = reltool_sys_win:set_app(S#state.parent_pid, App2),
     S2 = S#state{app = App3},
     redraw_window(S2).
@@ -587,7 +658,7 @@ move_mod(App, {_ItemNo, ModStr}, Action) ->
     ModName = list_to_atom(ModStr),
     Mods = App#app.mods,
     {value, M} = lists:keysearch(ModName, #mod.name, Mods),
-    AppCond = 
+    AppCond =
 	case Action of
 	    whitelist_add ->
 		case M#mod.incl_cond of
@@ -597,12 +668,13 @@ move_mod(App, {_ItemNo, ModStr}, Action) ->
 		end;
 	    whitelist_del ->
 		undefined;
-	    blacklist_add -> 
+	    blacklist_add ->
 		exclude;
 	    blacklist_del ->
 		undefined;
 	    _ ->
-		error_logger:format("~p~p got unexpected mod button event: ~p\n\t ~p\n",
+		error_logger:format("~p~p got unexpected mod "
+				    "button event: ~p\n\t ~p\n",
 				    [?MODULE, self(), ModName, Action]),
 		M#mod.incl_cond
 	end,
@@ -623,7 +695,10 @@ change_mod_cond(S, App, NewModCond) ->
     redraw_window(S2).
 
 change_version(S, App, NewDir) ->
-    App2 = App#app{active_dir = NewDir, label = undefined, vsn = undefined, info = undefined},
+    App2 = App#app{active_dir = NewDir,
+		   label = undefined,
+		   vsn = undefined,
+		   info = undefined},
     {ok, App3} = reltool_sys_win:set_app(S#state.parent_pid, App2),
     Title = app_title(App3),
     wxFrame:setTitle(S#state.frame, Title),
@@ -635,8 +710,14 @@ redraw_apps(#state{app = #app{info = AppInfo},
                    app_incl_ctrl = InclCtrl,
                    app_uses_ctrl = UsesCtrl,
 		   xref_pid = Xref},
-	    {_SourceMods, _WhiteMods, _BlackMods, _DerivedMods, UsedByMods, UsesMods}) ->
-    UsedByApps = lists:usort([{M#mod.app_name, Image} || {Image, _, M} <- UsedByMods]),
+	    {_SourceMods,
+	     _WhiteMods,
+	     _BlackMods,
+	     _DerivedMods,
+	     UsedByMods,
+	     UsesMods}) ->
+    UsedByApps =
+	lists:usort([{M#mod.app_name, Image} || {Image, _, M} <- UsedByMods]),
     Select =
 	fun(AppName) ->
 		{ok, App} = reltool_server:get_app(Xref, AppName),
@@ -647,7 +728,8 @@ redraw_apps(#state{app = #app{info = AppInfo},
 	end,
     RequiredApps = lists:sort(lists:map(Select, AppInfo#app_info.applications)),
     InclApps = lists:map(Select, AppInfo#app_info.incl_apps),
-    UsesApps = lists:usort([{M#mod.app_name, Image} || {Image, _, M} <- UsesMods]),
+    UsesApps =
+	lists:usort([{M#mod.app_name, Image} || {Image, _, M} <- UsesMods]),
     do_redraw_apps(UsedByCtrl, UsedByApps),
     do_redraw_apps(RequiredCtrl, RequiredApps),
     do_redraw_apps(InclCtrl, InclApps),
@@ -656,19 +738,26 @@ redraw_apps(#state{app = #app{info = AppInfo},
 
 do_redraw_apps(ListCtrl, []) ->
     wxListCtrl:deleteAllItems(ListCtrl);
-    %% wxListCtrl:setColumnWidth(ListCtrl, ?APPS_APP_COL, ?wxLIST_AUTOSIZE_USEHEADER);
+    %% wxListCtrl:setColumnWidth(ListCtrl, ?APPS_APP_COL,
+%% ?wxLIST_AUTOSIZE_USEHEADER);
 do_redraw_apps(ListCtrl, AppImages) ->
     wxListCtrl:deleteAllItems(ListCtrl),
     Add =
         fun({AppName, ImageId}, {Row, Prev}) when AppName =/= Prev ->
-                wxListCtrl:insertItem(ListCtrl, Row, ""), 
-                if (Row rem 2) =:= 0 -> 
-                        wxListCtrl:setItemBackgroundColour(ListCtrl, Row, {240,240,255});
+                wxListCtrl:insertItem(ListCtrl, Row, ""),
+                if (Row rem 2) =:= 0 ->
+                        wxListCtrl:setItemBackgroundColour(ListCtrl,
+							   Row,
+							   {240,240,255});
                    true ->
                         ignore
                 end,
                 Str = atom_to_list(AppName),
-                wxListCtrl:setItem(ListCtrl, Row, ?APPS_APP_COL, Str, [{imageId, ImageId}]),
+                wxListCtrl:setItem(ListCtrl,
+				   Row,
+				   ?APPS_APP_COL,
+				   Str,
+				   [{imageId, ImageId}]),
                 {Row + 1, AppName};
 	   ({_, _}, Acc) ->
 		Acc
@@ -688,8 +777,13 @@ redraw_mods(#state{mods_source_ctrl = SourceCtrl,
                    deps_uses_ctrl = UsesCtrl,
 		   app = #app{is_pre_included = IsPre, is_included = IsIncl},
 		   status_bar = Bar},
-	    {SourceMods, WhiteMods, BlackMods, DerivedMods, UsedByMods, UsesMods}) ->
-    InclStatus = 
+	    {SourceMods,
+	     WhiteMods,
+	     BlackMods,
+	     DerivedMods,
+	     UsedByMods,
+	     UsesMods}) ->
+    InclStatus =
 	case IsIncl of
 	    true when IsPre =:= true -> "Whitelist - ";
 	    true -> "Derived - ";
@@ -711,7 +805,7 @@ app_to_mods(#state{xref_pid = Xref, app = App}) ->
     SourceMods  = [M || M <- App#app.mods,
 			M#mod.is_included =/= true,
 			M#mod.is_pre_included =/= false],
-    WhiteMods = [M || M <- App#app.mods, 
+    WhiteMods = [M || M <- App#app.mods,
                       M#mod.is_pre_included =:= true],
     BlackMods = [M || M <- App#app.mods,
                       M#mod.is_pre_included =:= false],
@@ -722,7 +816,8 @@ app_to_mods(#state{xref_pid = Xref, app = App}) ->
         fun(ModName) when is_atom(ModName) ->
                 {ok, M} = reltool_server:get_mod(Xref, ModName),
 		if
-		    M#mod.app_name =:= App#app.name, M#mod.is_included =:= true ->
+		    M#mod.app_name =:= App#app.name,
+		    M#mod.is_included =:= true ->
 			false;
 		    true ->
 			{true, M}
@@ -780,20 +875,26 @@ opt_redraw_mods(undefined, _ImageMods) ->
 opt_redraw_mods(ListCtrl, ImageMods) ->
     HasApps = (wxListCtrl:getColumnCount(ListCtrl) > 1),
     do_redraw_mods(ListCtrl, ImageMods, HasApps).
-   
+
 do_redraw_mods(ListCtrl, [], _HasApps) ->
     wxListCtrl:deleteAllItems(ListCtrl);
 do_redraw_mods(ListCtrl, ImageMods, HasApps) ->
     wxListCtrl:deleteAllItems(ListCtrl),
     Add =
         fun({ImageId, AppName, #mod{name = ModName}}, Row) ->
-                wxListCtrl:insertItem(ListCtrl, Row, ""), 
-                if (Row rem 2) =:= 0 -> 
-                        wxListCtrl:setItemBackgroundColour(ListCtrl, Row, {240,240,255});
+                wxListCtrl:insertItem(ListCtrl, Row, ""),
+                if (Row rem 2) =:= 0 ->
+                        wxListCtrl:setItemBackgroundColour(ListCtrl,
+							   Row,
+							   {240,240,255});
                    true ->
                         ignore
                 end,
-                wxListCtrl:setItem(ListCtrl, Row, ?MODS_MOD_COL, atom_to_list(ModName), [{imageId, ImageId}]),
+                wxListCtrl:setItem(ListCtrl,
+				   Row,
+				   ?MODS_MOD_COL,
+				   atom_to_list(ModName),
+				   [{imageId, ImageId}]),
                 case HasApps of
                     false ->
                         ok;
@@ -842,13 +943,14 @@ redraw_config(#state{sys = #sys{incl_cond = GlobalIncl,
 		      SelectedRadio,
 		      SourceBox,
 		      fun(true) ->
-			      reltool_utils:elem_to_index(ActiveDir, SortedDirs) - 1;
+			      reltool_utils:elem_to_index(ActiveDir,
+							  SortedDirs) - 1;
 			 (false) ->
 			      0
 		      end).
 
 redraw_double_box(Global, Local, GlobalRadio, LocalRadio, LocalBox, GetChoice) ->
-    AppCond = 
+    AppCond =
         case Local of
             undefined ->
                 wxRadioButton:setValue(GlobalRadio, true),

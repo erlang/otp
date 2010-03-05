@@ -34,7 +34,7 @@
 -include_lib("wx/include/wx.hrl").
 -include("reltool.hrl").
 
--record(state, 
+-record(state,
         {parent_pid,
          xref_pid,
 	 rel_pid,
@@ -73,7 +73,7 @@
 -define(WIN_HEIGHT, 600).
 
 -define(CLOSE_ITEM, ?wxID_EXIT).    %% Use OS specific version if available
--define(ABOUT_ITEM, ?wxID_ABOUT).   %% Use OS specific 
+-define(ABOUT_ITEM, ?wxID_ABOUT).   %% Use OS specific
 -define(CONTENTS_ITEM, 300).
 -define(SEARCH_ENTRY,   413).
 -define(GOTO_ENTRY,     414).
@@ -87,7 +87,11 @@
 %% Client
 
 start_link(WxEnv, Xref, RelPid, Common, ModName) ->
-    proc_lib:start_link(?MODULE, init, [self(), WxEnv, Xref, RelPid, Common, ModName], infinity, []).
+    proc_lib:start_link(?MODULE,
+			init,
+			[self(), WxEnv, Xref, RelPid, Common, ModName],
+			infinity,
+			[]).
 
 raise(Pid) ->
     reltool_utils:cast(Pid, raise).
@@ -127,10 +131,15 @@ loop(#state{xref_pid = Xref, common = C, mod = Mod} = S) ->
     receive
 	Msg ->
 	    %% io:format("~s~p -> ~p\n", [S#state.name, self(), Msg]),
-	    case Msg of	    
+	    case Msg of
 		{system, From, SysMsg} ->
 		    Dbg = C#common.sys_debug,
-		    sys:handle_system_msg(SysMsg, From, S#state.parent_pid, ?MODULE, Dbg, S);
+		    sys:handle_system_msg(SysMsg,
+					  From,
+					  S#state.parent_pid,
+					  ?MODULE,
+					  Dbg,
+					  S);
 		{cast, _From, raise} ->
 		    wxFrame:raise(S#state.frame),
 		    wxFrame:setFocus(S#state.frame),
@@ -169,7 +178,7 @@ loop(#state{xref_pid = Xref, common = C, mod = Mod} = S) ->
 
 create_window(#state{mod = Mod, name = ModStr} = S) ->
     Title = atom_to_list(?APPLICATION) ++ " - " ++
-	atom_to_list(Mod#mod.app_name) ++ " - " ++ 
+	atom_to_list(Mod#mod.app_name) ++ " - " ++
 	ModStr ++ ".erl",
     Frame = wxFrame:new(wx:null(), ?wxID_ANY, Title, []),
     %% wxFrame:setSize(Frame, {?WIN_WIDTH, ?WIN_HEIGHT}),
@@ -177,7 +186,7 @@ create_window(#state{mod = Mod, name = ModStr} = S) ->
     StatusBar = wxFrame:createStatusBar(Frame,[]),
 
     Book = wxNotebook:new(Panel, ?wxID_ANY, []),
-    
+
     S2 = S#state{frame = Frame,
                  panel = Panel,
                  book = Book,
@@ -204,11 +213,17 @@ create_deps_page(S) ->
     Panel = wxPanel:new(S#state.book, []),
     Main = wxBoxSizer:new(?wxHORIZONTAL),
 
-    UsedByCtrl = create_mods_list_ctrl(Panel, Main, "Modules used by others", " and their applications"),
+    UsedByCtrl = create_mods_list_ctrl(Panel,
+				       Main,
+				       "Modules used by others",
+				       " and their applications"),
     wxSizer:add(Main,
 		wxStaticLine:new(Panel, [{style, ?wxLI_VERTICAL}]),
 		[{border, 2}, {flag, ?wxALL bor ?wxEXPAND}]),
-    UsesCtrl = create_mods_list_ctrl(Panel, Main, "Used modules",  " and their applications"),
+    UsesCtrl = create_mods_list_ctrl(Panel,
+				     Main,
+				     "Used modules",
+				     " and their applications"),
     S2 = S#state{deps_used_by_ctrl = UsedByCtrl,
                  deps_uses_ctrl = UsesCtrl},
     redraw_mods(S2),
@@ -242,8 +257,10 @@ create_mods_list_ctrl(Panel, Sizer, ModText, AppText) ->
     %% wxListCtrl:setColumnWidth(ListCtrl, ?MODS_APP_COL, ?MODS_APP_COL_WIDTH),
     wxListItem:destroy(ListItem),
 
-    wxEvtHandler:connect(ListCtrl, size, [{skip, true}, {userData, mods_list_ctrl}]),
-    wxListCtrl:connect(ListCtrl, command_list_item_activated, [{userData, open_app}]),
+    wxEvtHandler:connect(ListCtrl, size,
+			 [{skip, true}, {userData, mods_list_ctrl}]),
+    wxListCtrl:connect(ListCtrl, command_list_item_activated,
+		       [{userData, open_app}]),
     wxWindow:connect(ListCtrl, enter_window),
 
     wxSizer:add(Sizer, ListCtrl,
@@ -252,7 +269,8 @@ create_mods_list_ctrl(Panel, Sizer, ModText, AppText) ->
                  {proportion, 1}]),
     ListCtrl.
 
-create_code_page(#state{book = Book, code_pages = Pages, name = ModStr} = S, PageName) ->
+create_code_page(#state{book = Book, code_pages = Pages, name = ModStr} = S,
+		 PageName) ->
     case find_page(S, PageName) of
 	not_found ->
 	    Page = do_create_code_page(S, PageName),
@@ -260,7 +278,7 @@ create_code_page(#state{book = Book, code_pages = Pages, name = ModStr} = S, Pag
 	    Pos = length(Pages2),
 	    wxNotebook:setSelection(Book, Pos),
 	    case find_page(S, ?INITIAL_CODE_PAGE_NAME) of
-		not_found -> 
+		not_found ->
 		    ignore;
 		{found, _, CodePos} ->
 		    %% Rename initial code page
@@ -288,25 +306,29 @@ find_page([], _PageName, _Pos) ->
 do_create_code_page(#state{xref_pid = Xref, mod = M} = S, PageName) ->
     Panel = wxPanel:new(S#state.book, []),
     Editor = create_editor(Panel),
-    ToolTip = "Double click on a function call to search the function definition.",
+    ToolTip = "Double click on a function call to "
+	"search the function definition.",
     wxBitmapButton:setToolTip(Editor, ToolTip),
     {Objs, Data, SearchSz} = create_search_area(Panel),
 
     {ok, App} = reltool_server:get_app(Xref, M#mod.app_name),
-    ErlBin = 
+    ErlBin =
 	case App#app.is_escript of
 	    true -> find_escript_bin(App, M);
 	    false -> find_regular_bin(App, M)
 	end,
-    
+
     load_code(Editor, ErlBin),
-    
+
     Sizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(Sizer, Editor, [{flag, ?wxEXPAND}, {proportion, 1}]),
     wxSizer:add(Sizer, SearchSz, [{flag, ?wxEXPAND}]),
     wxPanel:setSizer(Panel, Sizer),
     wxNotebook:addPage(S#state.book, Panel, PageName, []),
-    #code_page{name  = PageName, editor = Editor, find_objs = Objs, find_data = Data}.
+    #code_page{name  = PageName,
+	       editor = Editor,
+	       find_objs = Objs,
+	       find_data = Data}.
 
 find_regular_bin(App, Mod) ->
     ActiveDir = App#app.active_dir,
@@ -322,9 +344,11 @@ find_regular_bin(App, Mod) ->
 	    BeamFile = filename:join([ActiveDir, "ebin", ModStr ++ ".beam"]),
 	    case beam_lib:chunks(BeamFile, [abstract_code]) of
 		{ok,{_,[{abstract_code,{_,AC}}]}} ->
-		    list_to_binary(erl_prettypr:format(erl_syntax:form_list(AC)));
+		    IoList = erl_prettypr:format(erl_syntax:form_list(AC)),
+		    list_to_binary(IoList);
 		_ ->
-		    list_to_binary(["%% Bad luck, cannot find any debug info in the file \"", BeamFile])
+		    list_to_binary(["%% Bad luck, cannot find any "
+				    "debug info in the file \"", BeamFile])
 	    end
     end.
 
@@ -340,10 +364,17 @@ find_escript_bin(#app{active_dir = ActiveDir}, Mod) ->
 			     [_] ->
 				 Bin = GetBin(),
 				 case beam_lib:version(Bin) of
-				     {ok,{M, _}} when M =:= ModName; FullName =:= "." ->
-					 case beam_lib:chunks(Bin, [abstract_code]) of
+				     {ok,{M, _}} when M =:= ModName;
+						      FullName =:= "." ->
+					 case beam_lib:chunks(Bin,
+							      [abstract_code]) of
 					     {ok,{_,[{abstract_code,{_,AC}}]}} ->
-						 {obj, list_to_binary(erl_prettypr:format(erl_syntax:form_list(AC)))};
+						 Form =
+						     erl_syntax:form_list(AC),
+						 IoList =
+						     erl_prettypr:format(Form),
+						 {obj,
+						  list_to_binary(IoList)};
 					     _ ->
 						 Acc
 					 end;
@@ -363,10 +394,14 @@ find_escript_bin(#app{active_dir = ActiveDir}, Mod) ->
 		{fun(FullName, _GetInfo, GetBin, Acc) ->
 			 io:format("", []),
 			 case filename:split(FullName) of
-			     [_AppName, "ebin", F] when F =:= ObjFile, Acc =:= NotFound ->
-				 case beam_lib:chunks(GetBin(), [abstract_code]) of
+			     [_AppName, "ebin", F]
+			       when F =:= ObjFile, Acc =:= NotFound ->
+				 case beam_lib:chunks(GetBin(),
+						      [abstract_code]) of
 				     {ok,{_,[{abstract_code,{_,AC}}]}} ->
-					 {obj, list_to_binary(erl_prettypr:format(erl_syntax:form_list(AC)))};
+					 Form = erl_syntax:form_list(AC),
+					 IoList = erl_prettypr:format(Form),
+					 {obj, list_to_binary(IoList)};
 				     _ ->
 					 Acc
 				 end;
@@ -385,11 +420,13 @@ find_escript_bin(#app{active_dir = ActiveDir}, Mod) ->
 	    {ok, {obj, Bin}} ->
 		Bin;
 	    _ ->
-		list_to_binary(["%% Bad luck, cannot find the code in the escript ", Escript, "."])
+		list_to_binary(["%% Bad luck, cannot find the "
+				"code in the escript ", Escript, "."])
 	end
-    catch 
+    catch
 	throw:Reason when is_list(Reason) ->
-	    list_to_binary(["%% Bad luck, cannot find the code in the escript ", Escript, ": ", Reason])
+	    list_to_binary(["%% Bad luck, cannot find the code "
+			    "in the escript ", Escript, ": ", Reason])
     end.
 
 create_config_page(S) ->
@@ -400,13 +437,16 @@ create_config_page(S) ->
 handle_event(#state{xref_pid = Xref} = S, Wx) ->
     %% io:format("wx: ~p\n", [Wx]),
     case Wx of
-	#wx{obj= ListCtrl, userData = mods_list_ctrl, event = #wxSize{type = size, size = {W, _H}}} ->
+	#wx{obj= ListCtrl,
+	    userData = mods_list_ctrl,
+	    event = #wxSize{type = size, size = {W, _H}}} ->
 	    wxListCtrl:setColumnWidth(ListCtrl, ?MODS_MOD_COL, (2 * W) div 3),
 	    wxListCtrl:setColumnWidth(ListCtrl, ?MODS_APP_COL, W div 3),
 	    S;
         #wx{userData = open_app,
             obj = ListCtrl,
-            event = #wxList{type = command_list_item_activated, itemIndex = Pos}} ->
+            event = #wxList{type = command_list_item_activated,
+			    itemIndex = Pos}} ->
 	    ModStr = wxListCtrl:getItemText(ListCtrl, Pos),
             ModName = list_to_atom(ModStr),
             {ok, Mod} = reltool_server:get_mod(Xref, ModName),
@@ -431,13 +471,15 @@ handle_event(#state{xref_pid = Xref} = S, Wx) ->
 		    Page = lists:nth(N, S#state.code_pages),
 		    S#state{active_page = Page}
 	    end;
-	#wx{event = #wxCommand{type = command_button_clicked}, userData = history_back} ->
+	#wx{event = #wxCommand{type = command_button_clicked},
+	    userData = history_back} ->
 	    goto_back(S);
 	#wx{obj = ObjRef, event = #wxMouse{type = enter_window}} ->
 	    wxWindow:setFocus(ObjRef),
 	    S;
 	_ ->
-            error_logger:format("~p~p got unexpected mod event from wx:\n\t~p\n",
+            error_logger:format("~p~p got unexpected mod event from "
+				"wx:\n\t~p\n",
                                 [?MODULE, self(), Wx]),
             S
     end.
@@ -450,7 +492,7 @@ redraw_mods(#state{xref_pid = Xref,
 			      uses_mods = UsesModNames,
 			      used_by_mods = UsedByModNames},
 		   status_bar = Bar}) ->
-    InclStatus = 
+    InclStatus =
 	case IsIncl of
 	    true when IsPre =:= true -> "Whitelist - ";
 	    true -> "Derived - ";
@@ -458,8 +500,10 @@ redraw_mods(#state{xref_pid = Xref,
 	    undefined -> "Source - "
 	end,
     Status = lists:concat([InclStatus,
-			   " uses ", length(UsesModNames), " modules and ",
-			   " is used by ", length(UsedByModNames), " modules."]),
+			   " uses ", length(UsesModNames),
+			   " modules and ",
+			   " is used by ", length(UsedByModNames),
+			   " modules."]),
     wxStatusBar:setStatusText(Bar, Status),
     UsesMods = [select_image(Xref, M) || M <- UsesModNames],
     UsedByMods = [select_image(Xref, M) || M <- UsedByModNames],
@@ -483,9 +527,11 @@ redraw_mods(ListCtrl, ImageMods) ->
     wxListCtrl:deleteAllItems(ListCtrl),
     Add =
         fun({ImageId, AppName, #mod{name = ModName}}, Row) ->
-                wxListCtrl:insertItem(ListCtrl, Row, ""), 
-                if (Row rem 2) =:= 0 -> 
-                        wxListCtrl:setItemBackgroundColour(ListCtrl, Row, {240,240,255});
+                wxListCtrl:insertItem(ListCtrl, Row, ""),
+                if (Row rem 2) =:= 0 ->
+                        wxListCtrl:setItemBackgroundColour(ListCtrl,
+							   Row,
+							   {240,240,255});
                    true ->
                         ignore
                 end,
@@ -515,16 +561,16 @@ goto_line(#state{active_page = P} = S, LineNo) when is_integer(LineNo) ->
     wxStyledTextCtrl:setSelection(Editor, Left, Right),
     S;
 goto_line(#state{active_page = P} =S, Str) when is_list(Str) ->
-    try 
+    try
 	LineNo = list_to_integer(Str),
 	CurrentPos = wxStyledTextCtrl:getCurrentPos(P#code_page.editor),
 	S2 = add_pos_to_history(S, CurrentPos),
 	goto_line(S2, LineNo - 1)
-    catch 
+    catch
 	_:_ ->
 	    wxStatusBar:setStatusText(S#state.status_bar, "Not a line number"),
 	    S
-    end.    
+    end.
 
 find_string(S, Str) ->
     find_string(S, Str, 0).
@@ -535,19 +581,20 @@ find_regexp_forward(S, Str) ->
     wxTextCtrl:setValue(TextCtrl, Str),
     S2.
 
-find_string(#state{active_page = #code_page{editor = Editor,
-					    find_objs = #find_objs{radio={NextO,_,CaseO}},
-					    find_data = #find_data{found = Found} = Data} = P} = S,
+find_string(#state{active_page =
+		   #code_page{editor = Editor,
+			      find_objs = #find_objs{radio={NextO,_,CaseO}},
+			      find_data = #find_data{found = Found} = Data} = P} = S,
 	    Str,
 	    Flag) ->
     wxStyledTextCtrl:hideSelection(Editor, true),
     Dir  = wxRadioButton:getValue(NextO) xor wx_misc:getKeyState(?WXK_SHIFT),
     Case = wxCheckBox:getValue(CaseO),
     Pos =
-	if 
+	if
 	    Found, Dir ->  %% Forward Continuation
 		wxStyledTextCtrl:getAnchor(Editor);
-	    Found ->  %% Backward Continuation 
+	    Found ->  %% Backward Continuation
 		wxStyledTextCtrl:getCurrentPos(Editor);
 	    Dir ->   %% Forward wrap
 		0;
@@ -556,18 +603,18 @@ find_string(#state{active_page = #code_page{editor = Editor,
 	end,
     wxStyledTextCtrl:gotoPos(Editor,Pos),
     wxStyledTextCtrl:searchAnchor(Editor),
-    Flag2 = 
+    Flag2 =
 	if  Case -> Flag bor ?wxSTC_FIND_MATCHCASE;
 	    true -> Flag
 	end,
-    Res = 
-	if 
+    Res =
+	if
 	    Dir -> wxStyledTextCtrl:searchNext(Editor, Flag2, Str);
 	    true -> wxStyledTextCtrl:searchPrev(Editor, Flag2, Str)
 	end,
-    Found2 = 
+    Found2 =
 	case Res >= 0 of	
-	    true -> 
+	    true ->
 		wxStyledTextCtrl:hideSelection(Editor, false),
 		%% io:format("Found ~p ~n",[Res]),
 		LineNo = wxStyledTextCtrl:lineFromPosition(Editor,Res),
@@ -576,11 +623,15 @@ find_string(#state{active_page = #code_page{editor = Editor,
 		true;
 	    false ->
 		wxStatusBar:setStatusText(S#state.status_bar,
-					  "Not found (Hit Enter to wrap search)"),
+					  "Not found (Hit Enter to "
+					  "wrap search)"),
 		false
-	end, 
+	end,
     P2 = P#code_page{find_data = Data#find_data{found = Found2}},
-    Pages = lists:keystore(P#code_page.name, #code_page.name, S#state.code_pages, P2),
+    Pages = lists:keystore(P#code_page.name,
+			   #code_page.name,
+			   S#state.code_pages,
+			   P2),
     S#state{active_page = P2, code_pages = Pages}.
 
 goto_function(S, Editor) ->
@@ -589,14 +640,14 @@ goto_function(S, Editor) ->
     Left = wxStyledTextCtrl:wordStartPosition(Editor, CurrentPos, true),
     Right = wxStyledTextCtrl:wordEndPosition(Editor, CurrentPos, true),
     ColonPos = Left - 1,
-    Left2 = 
+    Left2 =
 	case wxStyledTextCtrl:getCharAt(Editor, ColonPos) of
 	    $: ->
 		wxStyledTextCtrl:wordStartPosition(Editor, ColonPos, true);
 	    _ ->
 		Left
 	end,
-    Right2 = 
+    Right2 =
 	case wxStyledTextCtrl:getCharAt(Editor, Right) of
 	    $: ->
 		wxStyledTextCtrl:wordEndPosition(Editor, Right + 1, true);
@@ -627,29 +678,37 @@ do_goto_function(S, [ModStr, FunStr]) ->
 	    S2 = create_code_page(S#state{mod = Mod}, ModStr),
 	    find_regexp_forward(S2, "^" ++ FunStr ++ "(");
 	{ok, _} ->
-	    wxStatusBar:setStatusText(S#state.status_bar, "No such module: " ++ ModStr),
+	    wxStatusBar:setStatusText(S#state.status_bar,
+				      "No such module: " ++ ModStr),
 	    S
     end.
 
-goto_back(#state{active_page = #code_page{editor = Editor, find_data = Data} = Page,
+goto_back(#state{active_page =
+		 #code_page{editor = Editor, find_data = Data} = Page,
 		 code_pages = Pages} = S) ->
     case Data#find_data.history of
 	[PrevPos | History] ->
 	    LineNo = wxStyledTextCtrl:lineFromPosition(Editor, PrevPos),
 	    Data2 = Data#find_data{history = History},
 	    Page2 = Page#code_page{find_data = Data2},
-	    Pages2 = lists:keystore(Page2#code_page.name, #code_page.name, Pages, Page2),
-	    goto_line(S#state{active_page = Page2, code_pages = Pages2}, LineNo);
+	    Pages2 = lists:keystore(Page2#code_page.name,
+				    #code_page.name,
+				    Pages,
+				    Page2),
+	    goto_line(S#state{active_page = Page2, code_pages = Pages2},
+		      LineNo);
 	[] ->
 	    wxStatusBar:setStatusText(S#state.status_bar, "No history"),
 	    S
     end.
 
-add_pos_to_history(#state{active_page = Page, code_pages = Pages} = S, CurrentPos) ->
+add_pos_to_history(#state{active_page = Page, code_pages = Pages} = S,
+		   CurrentPos) ->
     Data = Page#code_page.find_data,
     Data2 = Data#find_data{history = [CurrentPos | Data#find_data.history]},
     Page2 = Page#code_page{find_data = Data2},
-    Pages2 = lists:keystore(Page2#code_page.name, #code_page.name, Pages, Page2),
+    Pages2 =
+	lists:keystore(Page2#code_page.name, #code_page.name, Pages, Page2),
     S#state{active_page = Page2, code_pages = Pages2}.
 
 create_editor(Parent) ->
@@ -690,19 +749,26 @@ create_editor(Parent) ->
 
     %% Margins Markers
     %% Breakpoint Should be a pixmap?
-    wxStyledTextCtrl:markerDefine(Ed, 0, ?wxSTC_MARK_CIRCLE, [{foreground, {170,20,20}}]),    
-    wxStyledTextCtrl:markerDefine(Ed, 0, ?wxSTC_MARK_CIRCLE, [{background, {200,120,120}}]),    
-    %% Disabled Breakpoint 
-    wxStyledTextCtrl:markerDefine(Ed, 1, ?wxSTC_MARK_CIRCLE, [{foreground, {20,20,170}}]),
-    wxStyledTextCtrl:markerDefine(Ed, 1, ?wxSTC_MARK_CIRCLE, [{background, {120,120,200}}]),
-    
+    wxStyledTextCtrl:markerDefine(Ed, 0, ?wxSTC_MARK_CIRCLE,
+				  [{foreground, {170,20,20}}]),
+    wxStyledTextCtrl:markerDefine(Ed, 0, ?wxSTC_MARK_CIRCLE,
+				  [{background, {200,120,120}}]),
+    %% Disabled Breakpoint
+    wxStyledTextCtrl:markerDefine(Ed, 1, ?wxSTC_MARK_CIRCLE,
+				  [{foreground, {20,20,170}}]),
+    wxStyledTextCtrl:markerDefine(Ed, 1, ?wxSTC_MARK_CIRCLE,
+				  [{background, {120,120,200}}]),
+
     %% Current Line
-    wxStyledTextCtrl:markerDefine(Ed, 2, ?wxSTC_MARK_ARROW,  [{foreground, {20,170,20}}]),
-    wxStyledTextCtrl:markerDefine(Ed, 2, ?wxSTC_MARK_ARROW,  [{background, {200,255,200}}]),
-    wxStyledTextCtrl:markerDefine(Ed, 3, ?wxSTC_MARK_BACKGROUND, [{background, {200,255,200}}]),
+    wxStyledTextCtrl:markerDefine(Ed, 2, ?wxSTC_MARK_ARROW,
+				  [{foreground, {20,170,20}}]),
+    wxStyledTextCtrl:markerDefine(Ed, 2, ?wxSTC_MARK_ARROW,
+				  [{background, {200,255,200}}]),
+    wxStyledTextCtrl:markerDefine(Ed, 3, ?wxSTC_MARK_BACKGROUND,
+				  [{background, {200,255,200}}]),
 
     %% Scrolling
-    Policy = ?wxSTC_CARET_SLOP bor ?wxSTC_CARET_JUMPS bor ?wxSTC_CARET_EVEN, 
+    Policy = ?wxSTC_CARET_SLOP bor ?wxSTC_CARET_JUMPS bor ?wxSTC_CARET_EVEN,
     wxStyledTextCtrl:setYCaretPolicy(Ed, Policy, 3),
     wxStyledTextCtrl:setVisiblePolicy(Ed, Policy, 3),
 
@@ -714,9 +780,9 @@ create_editor(Parent) ->
 
 create_search_area(Parent) ->
     Sizer = wxBoxSizer:new(?wxHORIZONTAL),
-    wxSizer:add(Sizer, wxStaticText:new(Parent, ?wxID_ANY, "Find:"), 
+    wxSizer:add(Sizer, wxStaticText:new(Parent, ?wxID_ANY, "Find:"),
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
-    TC1 = wxTextCtrl:new(Parent, ?SEARCH_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
+    TC1 = wxTextCtrl:new(Parent, ?SEARCH_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]),
     wxSizer:add(Sizer, TC1,  [{proportion,3}, {flag, ?wxEXPAND}]),
     Nbtn = wxRadioButton:new(Parent, ?wxID_ANY, "Next"),
     wxRadioButton:setValue(Nbtn, true),
@@ -726,14 +792,15 @@ create_search_area(Parent) ->
     Cbtn = wxCheckBox:new(Parent, ?wxID_ANY, "Match Case"),
     wxSizer:add(Sizer,Cbtn,[{flag,?wxALIGN_CENTER_VERTICAL}]),
     wxSizer:add(Sizer, 15,15, [{proportion,1}, {flag, ?wxEXPAND}]),
-    wxSizer:add(Sizer, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line:"), 
+    wxSizer:add(Sizer, wxStaticText:new(Parent, ?wxID_ANY, "Goto Line:"),
 		[{flag,?wxALIGN_CENTER_VERTICAL}]),
-    TC2 = wxTextCtrl:new(Parent, ?GOTO_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]), 
+    TC2 = wxTextCtrl:new(Parent, ?GOTO_ENTRY, [{style, ?wxTE_PROCESS_ENTER}]),
     wxSizer:add(Sizer, TC2,  [{proportion,0}, {flag, ?wxEXPAND}]),
     Button = wxButton:new(Parent, ?wxID_ANY, [{label, "Back"}]),
     wxSizer:add(Sizer, Button, []),
 
-    wxEvtHandler:connect(Button, command_button_clicked, [{userData, history_back}]),
+    wxEvtHandler:connect(Button, command_button_clicked,
+			 [{userData, history_back}]),
     %% wxTextCtrl:connect(TC1, command_text_updated),
     wxTextCtrl:connect(TC1, command_text_enter),
     %% wxTextCtrl:connect(TC1, kill_focus),
@@ -748,7 +815,9 @@ load_code(Ed, Code) when is_binary(Code) ->
     wxStyledTextCtrl:setTextRaw(Ed, <<Code/binary, 0:8>>),
     Lines = wxStyledTextCtrl:getLineCount(Ed),
     Sz = trunc(math:log10(Lines))+1,
-    LW = wxStyledTextCtrl:textWidth(Ed, ?wxSTC_STYLE_LINENUMBER, lists:duplicate(Sz, $9)),
+    LW = wxStyledTextCtrl:textWidth(Ed,
+				    ?wxSTC_STYLE_LINENUMBER,
+				    lists:duplicate(Sz, $9)),
     %%io:format("~p ~p ~p~n", [Lines, Sz, LW]),
     wxStyledTextCtrl:setMarginWidth(Ed, 0, LW+5),
     wxStyledTextCtrl:setReadOnly(Ed, true),

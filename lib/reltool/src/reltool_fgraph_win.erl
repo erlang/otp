@@ -95,7 +95,7 @@ change_node(Pid, Key, Color) ->  Pid ! {change_node, Key, Color}.
 add_link(Pid, {FromKey, ToKey}) -> Pid ! {add_link, {FromKey, ToKey}}.
 del_link(Pid, {FromKey, ToKey}) -> Pid ! {del_link, {FromKey, ToKey}}.
 
-stop(Pid, Reason) -> 
+stop(Pid, Reason) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! {stop, Reason},
     receive
@@ -110,21 +110,24 @@ new(Parent, Options) ->
     Me  = self(),
     Pid = spawn_link(fun() -> init([Parent, Me, Env, Options]) end),
     receive {Pid, {?MODULE, Panel}} -> {Pid,Panel} end.
-    
+
 init([ParentWin, Pid, Env, Options]) ->
     wx:set_env(Env),
-    
+
     BReset  = wxButton:new(ParentWin, ?reset,  [{label,"Reset"}]),
     BFreeze = wxButton:new(ParentWin, ?freeze, [{label,"Freeze"}]),
     BLock   = wxButton:new(ParentWin, ?lock,   [{label,"Lock"}]),
     BUnlock = wxButton:new(ParentWin, ?unlock, [{label,"Unlock"}]),
     BDelete = wxButton:new(ParentWin, ?delete, [{label,"Delete"}]),
 
-    SQ  = wxSlider:new(ParentWin, ?q_slider, ?default_q, 1, 500, [{style, ?wxVERTICAL}]),
-    SL  = wxSlider:new(ParentWin, ?l_slider, ?default_l, 1, 500, [{style, ?wxVERTICAL}]),
-    SK  = wxSlider:new(ParentWin, ?k_slider, ?default_k, 1, 500, [{style, ?wxVERTICAL}]),
+    SQ  = wxSlider:new(ParentWin, ?q_slider, ?default_q, 1, 500,
+		       [{style, ?wxVERTICAL}]),
+    SL  = wxSlider:new(ParentWin, ?l_slider, ?default_l, 1, 500,
+		       [{style, ?wxVERTICAL}]),
+    SK  = wxSlider:new(ParentWin, ?k_slider, ?default_k, 1, 500,
+		       [{style, ?wxVERTICAL}]),
     Win = wxWindow:new(ParentWin, ?wxID_ANY, Options),
-    
+
     ButtonSizer = wxBoxSizer:new(?wxVERTICAL),
     wxSizer:add(ButtonSizer, BReset),
     wxSizer:add(ButtonSizer, BFreeze),
@@ -141,31 +144,34 @@ init([ParentWin, Pid, Env, Options]) ->
     WindowSizer = wxBoxSizer:new(?wxHORIZONTAL),
     wxSizer:add(WindowSizer, ButtonSizer, [{flag, ?wxEXPAND}, {proportion, 0}]),
     wxSizer:add(WindowSizer, Win, [{flag, ?wxEXPAND}, {proportion, 1}]),
-    
+
     wxButton:setToolTip(BReset, "Remove selection and unlock all nodes."),
     wxButton:setToolTip(BFreeze, "Start/stop redraw of screen."),
     wxButton:setToolTip(BLock, "Lock all selected nodes."),
     wxButton:setToolTip(BUnlock, "Unlock all selected nodes."),
     wxButton:setToolTip(BDelete, "Delete all selected nodes."),
 
-    wxButton:setToolTip(SQ, "Control repulsive force. This can also be controlled with the mouse wheel on the canvas."),
+    wxButton:setToolTip(SQ, "Control repulsive force. This can also be"
+			" controlled with the mouse wheel on the canvas."),
     wxButton:setToolTip(SL, "Control link length."),
     wxButton:setToolTip(SK, "Control attractive force. Use with care."),
-    wxButton:setToolTip(Win, 
-			"Drag mouse while left mouse button is pressed to perform various operations. "
-			"Combine with control key to select. Combine with shift key to lock single node."),
+    wxButton:setToolTip(Win,
+			"Drag mouse while left mouse button is pressed "
+			"to perform various operations. "
+			"Combine with control key to select. Combine "
+			"with shift key to lock single node."),
 
     wxButton:connect(BReset,  command_button_clicked),
     wxButton:connect(BFreeze, command_button_clicked),
     wxButton:connect(BLock,   command_button_clicked),
     wxButton:connect(BUnlock, command_button_clicked),
     wxButton:connect(BDelete, command_button_clicked),
- 
+
     wxWindow:connect(SQ, command_slider_updated),
     wxWindow:connect(SL, command_slider_updated),
     wxWindow:connect(SK, command_slider_updated),
-   
-    wxWindow:connect(Win, enter_window),        
+
+    wxWindow:connect(Win, enter_window),
     wxWindow:connect(Win, move),
     wxWindow:connect(Win, motion),
     wxWindow:connect(Win, mousewheel),
@@ -174,7 +180,7 @@ init([ParentWin, Pid, Env, Options]) ->
     wxWindow:connect(Win, left_up),
     wxWindow:connect(Win, right_down),
     wxWindow:connect(Win, paint,  [{skip, true}]),
-    
+
     Pen   = wxPen:new({0,0,0}, [{width, 3}]),
     Font  = wxFont:new(12, ?wxSWISS, ?wxNORMAL, ?wxNORMAL,[]),
     Brush = wxBrush:new({0,0,0}),
@@ -182,13 +188,13 @@ init([ParentWin, Pid, Env, Options]) ->
     Pid ! {self(), {?MODULE, WindowSizer}},
 
     wxWindow:setFocus(Win), %% Get keyboard focus
-  
+
     Vs = reltool_fgraph:new(),
     Es = reltool_fgraph:new(),
 
     Me = self(),
     Ticker = spawn_link(fun() -> ticker_init(Me) end),
-    
+
     loop( #state{ parent_pid = Pid,
                   q_slider = SQ,
 		  l_slider = SL,
@@ -215,14 +221,17 @@ graph_add_node(Key, Color, G = #graph{ vs = Vs}) ->
     M  = 0.5,    % mass
     P  = {float(450 + random:uniform(100)),
 	  float(450 + random:uniform(100))},
-    G#graph{ vs = reltool_fgraph:add(Key, #fg_v{ p = P, m = M, q = Q, color = Color}, Vs)}.
+    G#graph{ vs = reltool_fgraph:add(Key,
+				     #fg_v{ p = P, m = M, q = Q, color = Color},
+				     Vs)}.
 
 graph_change_node(Key, Color, G) ->
     case reltool_fgraph:get(Key, G#graph.vs) of
-	undefined -> 
+	undefined ->
 	    G;
 	V ->
-	    G#graph{ vs = reltool_fgraph:set(Key, V#fg_v{ color = Color }, G#graph.vs)}
+	    G#graph{ vs = reltool_fgraph:set(Key, V#fg_v{ color = Color },
+					     G#graph.vs)}
     end.
 
 graph_del_node(Key, G = #graph{ vs = Vs0, es = Es0}) ->
@@ -231,7 +240,7 @@ graph_del_node(Key, G = #graph{ vs = Vs0, es = Es0}) ->
     G#graph{ vs = Vs, es = Es }.
 
 graph_add_link(Key0, Key1, G = #graph{ es = Es}) ->
-    K  = 60.0,   % attractive force 
+    K  = 60.0,   % attractive force
     L  =  5.0,   % spring length
     G#graph{ es = reltool_fgraph:add({Key0, Key1}, #fg_e{ k = K, l = L}, Es) }.
 
@@ -249,15 +258,17 @@ ticker_loop(Pid, Time) ->
         D = timer:now_diff(T1, T0)/1000,
         case round(40 - D) of
             Ms when Ms < 0 ->
-                %io:format("ticker: wait is   0 ms [fg ~7s ms] [fps ~7s]~n", [s(D), s(1000/D)]),
+                %io:format("ticker: wait is   0 ms [fg ~7s ms] [fps ~7s]~n",
+		%          [s(D), s(1000/D)]),
                 ticker_loop(Pid, 0);
             Ms ->
-                %io:format("ticker: wait is ~3s ms [fg ~7s ms] [fps ~7s]~n", [s(Ms), s(D), s(1000/40)]),
+                %io:format("ticker: wait is ~3s ms [fg ~7s ms] [fps ~7s]~n",
+		%          [s(Ms), s(D), s(1000/40)]),
                 ticker_loop(Pid, Ms)
         end
     end.
 
-delete_edges(Es, []) -> 
+delete_edges(Es, []) ->
     Es;
 delete_edges(Es, [Key|Keys]) ->
     Edges = reltool_fgraph:foldl(fun
@@ -269,7 +280,7 @@ delete_edges(Es, [Key|Keys]) ->
         (K, Esi) -> reltool_fgraph:del(K, Esi)
     end, Es, Edges),
     delete_edges(Es1, Keys).
-    
+
 
 set_charge(Q, Vs) -> % Repulsive force
     F = fun({Key, Value}) -> {Key, Value#fg_v{ q = Q}} end,
@@ -295,36 +306,47 @@ loop(S, G) ->
             wxSlider:setValue(S#state.k_slider, K),
             Es = set_length(L, G#graph.es),
             Es2 = set_spring(K, Es),
-	    
-            Vs2 = reltool_fgraph:map(fun({Key, V}) ->
-				     {Key, V#fg_v{selected = false, type = dynamic, q = Q}}
-			     end,
-			     G#graph.vs),
 
-            {Xs, Ys} = reltool_fgraph:foldl(fun({_Key, #fg_v{p = {X, Y}}}, {Xs, Ys}) ->
-	    				    {[X| Xs], [Y | Ys]}
-	    			    end,
-	    			    {[], []},
-	    			    Vs2),
+            Vs2 =
+		reltool_fgraph:map(fun({Key, V}) ->
+					   {Key, V#fg_v{selected = false,
+							type = dynamic,
+							q = Q}}
+				   end,
+				   G#graph.vs),
+
+            {Xs, Ys} =
+		reltool_fgraph:foldl(fun({_Key,
+					  #fg_v{p = {X, Y}}}, {Xs, Ys}) ->
+					     {[X| Xs], [Y | Ys]}
+				     end,
+				     {[], []},
+				     Vs2),
 	   %% io:format("Before: ~p\n", [G#graph.offset]),
 	    Offset =
                 case length(Xs) of
                     0 ->
                         {0, 0};
                     N ->
-			MeanX = (lists:sum(Xs) / N), 
+			MeanX = (lists:sum(Xs) / N),
 			MeanY = (lists:sum(Ys) / N),
 			{SizeX, SizeY} = wxWindow:getSize(S#state.window),
-			%% io:format("Min: ~p\n", [{lists:min(Xs), lists:min(Ys)}]),
-			%% io:format("Mean: ~p\n", [{MeanX, MeanY}]),
-			%% io:format("Max: ~p\n", [{lists:max(Xs), lists:max(Ys)}]),
+			%% io:format("Min: ~p\n",
+			%%           [{lists:min(Xs), lists:min(Ys)}]),
+			%% io:format("Mean: ~p\n",
+			%%           [{MeanX, MeanY}]),
+			%% io:format("Max: ~p\n",
+			%%           [{lists:max(Xs), lists:max(Ys)}]),
 			%% io:format("Size: ~p\n", [{SizeX, SizeY}]),
 			%% {XM - (XS / 2), YM - (YS / 2)}
 			%% {0 - lists:min(Xs) + 20, 0 - lists:min(Ys) + 20}
 			{0 - MeanX + (SizeX / 2), 0 - MeanY + (SizeY / 2)}
                 end,
 	    %% io:format("After: ~p\n", [Offset]),
-	    loop(S, G#graph{vs = Vs2, es = Es2, offset = Offset, offset_state = false});
+	    loop(S, G#graph{vs = Vs2,
+			    es = Es2,
+			    offset = Offset,
+			    offset_state = false});
         #wx{id = ?freeze, event = #wxCommand{type=command_button_clicked}} ->
 	    %% Start/stop redraw of screen
             IsFrozen =
@@ -354,10 +376,15 @@ loop(S, G) ->
             loop(S, G#graph{ vs = Vs });
         #wx{id = ?delete, event = #wxCommand{type=command_button_clicked}} ->
 	    %% Delete all selected nodes
-            {Vs1, Keys} = reltool_fgraph:foldl(fun
-                                       ({Key, #fg_v{ selected = true}}, {Vs, Ks}) ->
-					      {reltool_fgraph:del(Key,Vs), [Key|Ks]};
-                                       (_, {Vs, Ks}) -> {Vs, Ks}
+            {Vs1, Keys} =
+		reltool_fgraph:foldl(fun
+					 ({Key,
+					   #fg_v{ selected = true}},
+					  {Vs, Ks}) ->
+					     {reltool_fgraph:del(Key,Vs),
+					      [Key|Ks]};
+					 (_, {Vs, Ks}) ->
+					     {Vs, Ks}
                                       end, {G#graph.vs,[]}, G#graph.vs),
             Es = delete_edges(G#graph.es, Keys),
             loop(S, G#graph{ vs = Vs1, es = Es});
@@ -368,20 +395,26 @@ loop(S, G) ->
         #wx{id = ?move, event = #wxCommand{type=command_button_clicked}} ->
             loop(S#state{ mouse_act = ?move }, G);
 
-        #wx{id = ?q_slider, event = #wxCommand{type=command_slider_updated, commandInt = Q}} ->
+        #wx{id = ?q_slider, event = #wxCommand{type=command_slider_updated,
+					       commandInt = Q}} ->
             loop(S, G#graph{ vs = set_charge(Q, G#graph.vs)});
-        #wx{id = ?l_slider, event = #wxCommand{type=command_slider_updated, commandInt = L}} ->
+        #wx{id = ?l_slider, event = #wxCommand{type=command_slider_updated,
+					       commandInt = L}} ->
             loop(S, G#graph{ es = set_length(L, G#graph.es)});
-        #wx{id = ?k_slider, event = #wxCommand{type=command_slider_updated, commandInt = K}} ->
+        #wx{id = ?k_slider, event = #wxCommand{type=command_slider_updated,
+					       commandInt = K}} ->
             loop(S, G#graph{ es = set_spring(K, G#graph.es)});
         #wx{event=#wxKey{type=key_up, keyCode = 127}} -> % delete
             {Vs1, Keys} =
-		reltool_fgraph:foldl(fun({Key, #fg_v{ selected = true}}, {Vs, Ks}) ->
-				     {reltool_fgraph:del(Key,Vs), [Key|Ks]};
-				(_, {Vs, Ks}) ->
-				     {Vs, Ks}
-			     end,
-			     {G#graph.vs,[]}, G#graph.vs),
+		reltool_fgraph:foldl(fun({Key,
+					  #fg_v{ selected = true}},
+					 {Vs, Ks}) ->
+					     {reltool_fgraph:del(Key,Vs),
+					      [Key|Ks]};
+					(_, {Vs, Ks}) ->
+					     {Vs, Ks}
+				     end,
+				     {G#graph.vs,[]}, G#graph.vs),
             Es = delete_edges(G#graph.es, Keys),
             loop(S, G#graph{ vs = Vs1, es = Es});
         #wx{event=#wxKey{type=key_up}} ->
@@ -390,7 +423,11 @@ loop(S, G) ->
             loop(S, G);
 
         %% mouse
-        #wx{event=#wxMouse{type=left_down, shiftDown=Shift, controlDown=Ctrl, x=X, y=Y}} ->
+        #wx{event=#wxMouse{type=left_down,
+			   shiftDown=Shift,
+			   controlDown=Ctrl,
+			   x=X,
+			   y=Y}} ->
             if
                 Shift ->
                     loop(S, mouse_left_down_move(G, {X,Y}));
@@ -401,7 +438,11 @@ loop(S, G) ->
                 S#state.mouse_act =:= ?select ->
                     loop(S, mouse_left_down_select(G, {X,Y}))
             end;
-        #wx{event=#wxMouse{type=motion, shiftDown=Shift, controlDown=Ctrl, x=X, y=Y}} ->
+        #wx{event=#wxMouse{type=motion,
+			   shiftDown=Shift,
+			   controlDown=Ctrl,
+			   x=X,
+			   y=Y}} ->
             if
                 Shift ->
                     loop(S, mouse_motion_move(G, {X,Y}));
@@ -412,7 +453,9 @@ loop(S, G) ->
                 S#state.mouse_act =:= ?select ->
                     loop(S, mouse_motion_select(G, {X,Y}))
             end;
-        #wx{event=#wxMouse{type=left_up, shiftDown=Shift, controlDown=Ctrl, x=X, y=Y}} -> 
+        #wx{event=#wxMouse{type=left_up,
+			   shiftDown=Shift,
+			   controlDown=Ctrl, x=X, y=Y}} ->
             if
                 Shift ->
                     loop(S, mouse_left_up_move(G, {X,Y}, Shift));
@@ -424,7 +467,7 @@ loop(S, G) ->
                     loop(S, mouse_left_up_select(G, {X,Y}))
             end;
 
-        #wx{event=#wxMouse{type=right_down,x=_X,y=_Y}} -> 
+        #wx{event=#wxMouse{type=right_down,x=_X,y=_Y}} ->
             loop(S, G);
         %% mouse wheel
         #wx{event=#wxMouse{type=mousewheel, wheelRotation=Rotation}} ->
@@ -436,7 +479,7 @@ loop(S, G) ->
 		Rotation < 0 ->
                     wxSlider:setValue(S#state.q_slider, Q + 4),
                     loop(S, G#graph{ vs = set_charge(Q + 4, G#graph.vs) });
-                true -> 
+                true ->
                     loop(S, G)
             end;
 
@@ -448,7 +491,7 @@ loop(S, G) ->
             redraw(S, G),
             loop(S, G);
         #wx{obj=Win,event=#wxMouse{type=enter_window}} ->
-            wxWindow:setFocus(Win), 
+            wxWindow:setFocus(Win),
             loop(S, G);
 
         %% Graph manipulation
@@ -465,9 +508,11 @@ loop(S, G) ->
 
         {Req, redraw} ->
 	    {SizeX, SizeY} = wxWindow:getSize(S#state.window),
-            Vs = reltool_fgraph:step(G#graph.vs, G#graph.es, {SizeX/2.0 - 20.0, SizeY/2.0}),
+            Vs = reltool_fgraph:step(G#graph.vs,
+				     G#graph.es,
+				     {SizeX/2.0 - 20.0, SizeY/2.0}),
             case S#state.is_frozen of
-                false -> 
+                false ->
                     Req ! {self(), ok};
                 true ->
                     ignore
@@ -481,7 +526,7 @@ loop(S, G) ->
 
         Other ->
             error_logger:format("~p~p got unexpected message:\n\t~p\n",
-                                [?MODULE, self(), Other]),          
+                                [?MODULE, self(), Other]),
             loop(S, G)
     end.
 
@@ -494,17 +539,22 @@ mouse_left_down_move(#graph{vs = Vs} = G, {X, Y}) ->
         false ->
             G#graph{ offset_state = {X,Y}};
         {true, Key} ->
-            V = #fg_v{ type = Type} = reltool_fgraph:get(Key, Vs), 
-            G#graph{ vs = reltool_fgraph:set(Key, V#fg_v{ type = moving}, Vs), select = {node, Key, Type, X, Y} }
+            V = #fg_v{ type = Type} = reltool_fgraph:get(Key, Vs),
+            G#graph{ vs = reltool_fgraph:set(Key,
+					     V#fg_v{ type = moving}, Vs),
+		     select = {node, Key, Type, X, Y} }
     end.
 
 coord_to_key(#graph{vs = Vs, offset = {Xo, Yo}}, {X, Y}) ->
     Xr = X - Xo,
     Yr = Y - Yo,
-    reltool_fgraph:foldl(fun({Key, #fg_v{ p = {Px, Py}}}, _) when abs(Px - Xr) < 10,
-                                                          abs(Py - Yr) < 10 -> {true, Key};
-                    (_, Out) -> Out
-                 end, false, Vs).    
+    reltool_fgraph:foldl(fun({Key, #fg_v{ p = {Px, Py}}}, _)
+			       when abs(Px - Xr) < 10,
+				    abs(Py - Yr) < 10 ->
+				 {true, Key};
+			    (_, Out) ->
+				 Out
+			 end, false, Vs).
 
 mouse_left_up_select(G, {_X,_Y}) ->
     case G#graph.select of
@@ -524,7 +574,7 @@ mouse_left_up_select(G, {_X,_Y}) ->
         _ ->
             G#graph{ select = none}
     end.
-        
+
 mouse_left_up_move(G = #graph{ select = Select, vs = Vs} = G, {X,Y}, Shift) ->
     case Select of
         {node, Key, _, X, Y} ->
@@ -543,7 +593,7 @@ mouse_left_up_move(G = #graph{ select = Select, vs = Vs} = G, {X,Y}, Shift) ->
         _ ->
             G#graph{ select = none, offset_state = false }
     end.
-        
+
 mouse_motion_select(G, {X,Y}) ->
     case G#graph.select of
         {P0, _P1} -> G#graph{ select = {P0, {X,Y}}};
@@ -557,11 +607,11 @@ mouse_motion_move(G = #graph{ select = {node, Key, _, _, _}, vs = Vs}, {X,Y}) ->
     G#graph{ vs = reltool_fgraph:set(Key, V2, Vs) };
 mouse_motion_move(G, {X,Y}) ->
     case G#graph.offset_state of
-        {X1,Y1} -> 
+        {X1,Y1} ->
             {X0, Y0} = G#graph.offset,
             G#graph{ offset_state = {X,Y},
 		     offset = {X0 - (X1 - X), Y0 - (Y1 - Y)} };
-            _ -> 
+            _ ->
                 G
     end.
 
@@ -574,9 +624,9 @@ redraw(#state{window=Win}, G) ->
     wxClientDC:destroy(DC0),
     ok.
 
-redraw(DC, _Size, G) ->    
-    wx:batch(fun() -> 
-   
+redraw(DC, _Size, G) ->
+    wx:batch(fun() ->
+
         Pen   = G#graph.pen,
         Font  = G#graph.font,
         Brush = G#graph.brush,
@@ -587,7 +637,7 @@ redraw(DC, _Size, G) ->
         wxPen:setWidth(Pen, 1),
         wxDC:clear(DC),
 
-        % draw vertices and edges 
+        % draw vertices and edges
         wxPen:setColour(Pen, ?color_fg),
         wxDC:setPen(DC,Pen),
 
@@ -602,7 +652,9 @@ redraw(DC, _Size, G) ->
 
         % draw information text
         wxFont:setWeight(Font,?wxNORMAL),
-        draw_text(DC, reltool_fgraph:size(G#graph.vs), reltool_fgraph:size(G#graph.es), G#graph.ke),
+        draw_text(DC,
+		  reltool_fgraph:'size'(G#graph.vs),
+		  reltool_fgraph:'size'(G#graph.es), G#graph.ke),
         ok
     end).
 
@@ -612,14 +664,14 @@ draw_select_box(DC, {{X0,Y0}, {X1,Y1}}) ->
     draw_line(DC, {X1,Y1}, {X0,Y1}, {0,0}),
     draw_line(DC, {X0,Y0}, {X0,Y1}, {0,0}),
     ok;
-draw_select_box(_DC, _) -> 
+draw_select_box(_DC, _) ->
     ok.
 
 draw_es(DC, Vs, Es, Po, Pen, Brush) ->
     reltool_fgraph:foreach(fun
         ({{K1, K2}, _}) ->
-            #fg_v{ p = P1} = reltool_fgraph:get(K1, Vs),
-            #fg_v{ p = P2} = reltool_fgraph:get(K2, Vs),
+            #fg_v{ p = P1} = reltool_fgraph:'get'(K1, Vs),
+            #fg_v{ p = P2} = reltool_fgraph:'get'(K2, Vs),
             draw_arrow(DC, P1, P2, Po, Pen, Brush)
         end, Es).
 
@@ -650,10 +702,15 @@ draw_arrow(DC, {X0,Y0}, {X1, Y1}, {X, Y}, Pen, Brush) ->
     wxDC:drawPolygon(DC, Points, []).
 
 draw_line(DC, {X0,Y0}, {X1, Y1}, {X, Y}) ->
-    wxDC:drawLine(DC, {round(X0 + X), round(Y0 + Y)}, {round(X1 + X), round(Y1 + Y)}).
-   
+    wxDC:drawLine(DC,
+		  {round(X0 + X), round(Y0 + Y)},
+		  {round(X1 + X), round(Y1 + Y)}).
+
 draw_vs(DC, Vs, {Xo, Yo}, Pen, Brush) ->
-    reltool_fgraph:foreach(fun({Key, #fg_v{ p ={X, Y}, color = Color, selected = Sel}}) ->
+    reltool_fgraph:foreach(fun({Key,
+				#fg_v{p ={X, Y},
+				      color = Color,
+				      selected = Sel}}) ->
 				   String = s(Key),
 				   case Sel of
 				       true ->
@@ -661,35 +718,49 @@ draw_vs(DC, Vs, {Xo, Yo}, Pen, Brush) ->
 					   wxBrush:setColour(Brush, ?color_bg),
 					   wxDC:setPen(DC,Pen),
 					   wxDC:setBrush(DC, Brush),
-					   SelProps = {round(X-12 + Xo), round(Y-12 + Yo), 24, 24},
-					   wxDC:drawRoundedRectangle(DC, SelProps, float(?ARC_R)),
+					   SelProps = {round(X-12 + Xo),
+						       round(Y-12 + Yo),
+						       24,
+						       24},
+					   wxDC:drawRoundedRectangle(DC,
+								     SelProps,
+								     float(?ARC_R)),
 					   ok;
 				       false ->
 					   ok
 				   end,
 				   case Color of
-				       default -> 
+				       default ->
 					   wxPen:setColour(Pen, ?color_default),
-					   wxBrush:setColour(Brush, ?color_default_bg);
-				       alternate -> 
-					   wxPen:setColour(Pen, ?color_alternate),
-					   wxBrush:setColour(Brush, ?color_alternate_bg);
+					   wxBrush:setColour(Brush,
+							     ?color_default_bg);
+				       alternate ->
+					   wxPen:setColour(Pen,
+							   ?color_alternate),
+					   wxBrush:setColour(Brush,
+							     ?color_alternate_bg);
 				       {FgColor, BgColor} ->
 					   wxPen:setColour(Pen, FgColor),
-					   wxBrush:setColour(Brush, BgColor);		    
+					   wxBrush:setColour(Brush, BgColor);
 				       Color ->
 					   wxPen:setColour(Pen, Color),
 					   wxBrush:setColour(Brush, Color)
 				   end,
 				   wxDC:setPen(DC,Pen),
 				   wxDC:setBrush(DC, Brush),
-				   NodeProps = {round(X-8 + Xo),round(Y-8 + Yo),17,17},
-				   wxDC:drawRoundedRectangle(DC, NodeProps, float(?ARC_R)),
-				   wxDC:drawText(DC, String, {round(X + Xo), round(Y + Yo)}),
+				   NodeProps = {round(X-8 + Xo),
+						round(Y-8 + Yo),17,17},
+				   wxDC:drawRoundedRectangle(DC,
+							     NodeProps,
+							     float(?ARC_R)),
+				   wxDC:drawText(DC,
+						 String,
+						 {round(X + Xo),
+						  round(Y + Yo)}),
 				   ok;
 			      (_) ->
 				   ok
-			   end, 
+			   end,
 			   Vs).
 
 draw_text(DC, Nvs, Nes, _KE) ->
@@ -720,7 +791,7 @@ calc_point({X, Y}, Length, Radians) ->
 %% %% Convert from an angle in radians to degrees
 %% radians_to_degrees(Radians) ->
 %%     Radians * 180 / math:pi().
-%% 
+%%
 %% %% Convert from an angle in degrees to radians
 %% degrees_to_radians(Degrees) ->
 %%     Degrees * math:pi() / 180.
