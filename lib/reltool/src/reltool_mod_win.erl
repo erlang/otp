@@ -379,7 +379,7 @@ find_escript_bin(#app{active_dir = ActiveDir}, Mod) ->
 		 filename:dirname(ActiveDir)}
 	end,
     try
-	case escript:foldl(Fun, NotFound, Escript) of
+	case reltool_utils:escript_foldl(Fun, NotFound, Escript) of
 	    {ok, {text, Bin}} ->
 		Bin;
 	    {ok, {obj, Bin}} ->

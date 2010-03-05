@@ -1412,18 +1412,21 @@ escripts_to_apps([Escript | Escripts], Apps, OldApps, Status) ->
                           {FileAcc, StatusAcc}
                   end
           end,
-    try
-        case escript:foldl(Fun, {[], Status}, Escript) of
-            {ok, {Files, Status2}} ->
-                {Apps2, Status3} = files_to_apps(Escript, lists:sort(Files), Apps, Apps, OldApps, Status2),
-                escripts_to_apps(Escripts, Apps2, OldApps, Status3);
-            {error, Reason} ->
-                Text = lists:flatten(io_lib:format("~p", [Reason])),
-                {[], reltool_utils:return_first_error(Status, "Illegal escript " ++ Escript ++ ": " ++ Text)}
-        end
-    catch 
-        throw:Reason2 when is_list(Reason2) ->
-            {[], reltool_utils:return_first_error(Status, "Illegal escript " ++ Escript ++ ": " ++ Reason2)}
+    case reltool_utils:escript_foldl(Fun, {[], Status}, Escript) of
+	{ok, {Files, Status2}} ->
+	    {Apps2, Status3} =
+		files_to_apps(Escript,
+			      lists:sort(Files),
+			      Apps,
+			      Apps,
+			      OldApps,
+			      Status2),
+	    escripts_to_apps(Escripts, Apps2, OldApps, Status3);
+	{error, Reason} ->
+	    Text = lists:flatten(io_lib:format("~p", [Reason])),
+	    {[], reltool_utils:return_first_error(Status,
+						  "Illegal escript " ++
+						  Escript ++ ": " ++ Text)}
     end;
 escripts_to_apps([], Apps, _OldApps, Status) ->
     {Apps, Status}.

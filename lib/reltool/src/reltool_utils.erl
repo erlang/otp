@@ -532,6 +532,27 @@ default_val(Val, Default) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+escript_foldl(Fun, Acc, File) ->
+    case escript:extract(File, [compile_source]) of
+	{ok, [_Shebang, _Comment, _EmuArgs, Body]} ->
+	    case Body of
+		{source, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{beam, BeamCode} ->
+		    GetInfo = fun() -> file:read_file_info(File) end,
+		    GetBin = fun() -> BeamCode end,
+		    {ok, Fun(".", GetInfo, GetBin, Acc)};
+		{archive, ArchiveBin} ->
+		    zip:foldl(Fun, Acc, {File, ArchiveBin})
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 call(Name, Msg) when is_atom(Name) ->
     call(whereis(Name), Msg);
 call(Pid, Msg) when is_pid(Pid) ->
