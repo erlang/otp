@@ -64,36 +64,39 @@ kernel_processes(KernelApp) ->
 %% Generate the contents of a config file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_config(#sys{root_dir          = RootDir,
-                lib_dirs          = LibDirs,
-                mod_cond          = ModCond,
-                incl_cond         = AppCond,
-                apps              = Apps,
-                boot_rel          = BootRel,
-                rels              = Rels,
-                emu_name          = EmuName,
-                profile           = Profile,
-                incl_sys_filters    = InclSysFiles,
-                excl_sys_filters    = ExclSysFiles,
-                incl_app_filters    = InclAppFiles,
-                excl_app_filters    = ExclAppFiles,
-                incl_archive_filters = InclArchiveDirs,
-                excl_archive_filters = ExclArchiveDirs,
-                archive_opts      = ArchiveOpts,
-                relocatable       = Relocatable,
-                app_type          = AppType,
-                app_file          = AppFile,
-                debug_info        = DebugInfo},
-           InclDefs) ->
+gen_config(Sys, InclDefs) ->
+    {ok, do_gen_config(Sys, InclDefs)}.
+
+do_gen_config(#sys{root_dir          = RootDir,
+		   lib_dirs          = LibDirs,
+		   mod_cond          = ModCond,
+		   incl_cond         = AppCond,
+		   apps              = Apps,
+		   boot_rel          = BootRel,
+		   rels              = Rels,
+		   emu_name          = EmuName,
+		   profile           = Profile,
+		   incl_sys_filters    = InclSysFiles,
+		   excl_sys_filters    = ExclSysFiles,
+		   incl_app_filters    = InclAppFiles,
+		   excl_app_filters    = ExclAppFiles,
+		   incl_archive_filters = InclArchiveDirs,
+		   excl_archive_filters = ExclArchiveDirs,
+		   archive_opts      = ArchiveOpts,
+		   relocatable       = Relocatable,
+		   app_type          = AppType,
+		   app_file          = AppFile,
+		   debug_info        = DebugInfo},
+	      InclDefs) ->
     ErtsItems =
         case lists:keysearch(erts, #app.name, Apps) of
             {value, Erts} ->
-                [{erts, gen_config(Erts, InclDefs)}];
+                [{erts, do_gen_config(Erts, InclDefs)}];
             false ->
                 []
         end,
     AppsItems =
-        [{app, A#app.name, gen_config(A, InclDefs)}
+        [{app, A#app.name, do_gen_config(A, InclDefs)}
 	 || A <- Apps,
 	    A#app.name =/= ?MISSING_APP,
 	    A#app.name =/= erts,
@@ -102,16 +105,19 @@ gen_config(#sys{root_dir          = RootDir,
     EscriptItems = [{escript,
 		     A#app.active_dir,
 		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
-	|| A <- Apps, A#app.is_escript],
+		    || A <- Apps, A#app.is_escript],
     DefaultRels = reltool_utils:default_rels(),
     RelsItems =
-        case {[{rel, R#rel.name, R#rel.vsn, gen_config(R, InclDefs)} ||
-		  R <- Rels],
-              [{rel, R#rel.name, R#rel.vsn, gen_config(R, InclDefs)} ||
-		  R <- DefaultRels]} of
-            {RI, RI} -> [];
-            {RI, _}  -> RI
-        end,
+	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
+	    R <- Rels],
+    DefaultRelsItems =
+	[{rel, R#rel.name, R#rel.vsn, do_gen_config(R, InclDefs)} ||
+	    R <- DefaultRels],
+    RelsItems2 =
+	case InclDefs of
+	    true  -> RelsItems;
+	    false -> RelsItems -- DefaultRelsItems
+	end,
     X = fun(List) -> [Re || #regexp{source = Re} <- List] end,
     {sys,
      emit(root_dir, RootDir, code:root_dir(), InclDefs) ++
@@ -122,7 +128,7 @@ gen_config(#sys{root_dir          = RootDir,
      ErtsItems ++
      AppsItems ++
      emit(boot_rel, BootRel, ?DEFAULT_REL_NAME, InclDefs) ++
-     RelsItems ++
+     RelsItems2 ++
      emit(emu_name, EmuName, ?DEFAULT_EMU_NAME, InclDefs) ++
      emit(relocatable, Relocatable, ?DEFAULT_RELOCATABLE, InclDefs) ++
      emit(profile, Profile, ?DEFAULT_PROFILE, InclDefs) ++
@@ -136,60 +142,60 @@ gen_config(#sys{root_dir          = RootDir,
      emit(app_type, AppType, ?DEFAULT_APP_TYPE, InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
      emit(debug_info, DebugInfo, ?DEFAULT_DEBUG_INFO, InclDefs)};
-gen_config(#app{name = _Name,
-                mod_cond = ModCond,
-                incl_cond  = AppCond,
-                debug_info = DebugInfo,
-                app_file = AppFile,
-                incl_app_filters = InclAppFiles,
-                excl_app_filters = ExclAppFiles,
-                incl_archive_filters = InclArchiveDirs,
-                excl_archive_filters = ExclArchiveDirs,
-                archive_opts = ArchiveOpts,
-                use_selected_vsn  = UseSelected,
-                vsn = Vsn,
-                mods = Mods},
-           InclDefs) ->
+do_gen_config(#app{name = _Name,
+		   mod_cond = ModCond,
+		   incl_cond  = AppCond,
+		   debug_info = DebugInfo,
+		   app_file = AppFile,
+		   incl_app_filters = InclAppFiles,
+		   excl_app_filters = ExclAppFiles,
+		   incl_archive_filters = InclArchiveDirs,
+		   excl_archive_filters = ExclArchiveDirs,
+		   archive_opts = ArchiveOpts,
+		   use_selected_vsn  = UseSelected,
+		   vsn = Vsn,
+		   mods = Mods},
+	      InclDefs) ->
     emit(mod_cond, ModCond, undefined, InclDefs) ++
-    emit(incl_cond, AppCond, undefined, InclDefs) ++
-    emit(debug_info, DebugInfo, undefined, InclDefs) ++
-    emit(app_file, AppFile,  undefined, InclDefs) ++
-    emit(incl_app_filters,    InclAppFiles, undefined, InclDefs) ++
-    emit(excl_app_filters,    ExclAppFiles, undefined, InclDefs) ++
-    emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs) ++
-    emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs) ++
-    emit(archive_opts, ArchiveOpts, undefined, InclDefs) ++
-    emit(vsn, Vsn, undefined, InclDefs orelse UseSelected =/= true) ++
-    [{mod, M#mod.name, gen_config(M, InclDefs)} ||
-	M <- Mods,
-	M#mod.is_included =:= true];
-gen_config(#mod{name = _Name,
-                incl_cond = AppCond,
-                debug_info = DebugInfo},
-           InclDefs) ->
+	emit(incl_cond, AppCond, undefined, InclDefs) ++
+	emit(debug_info, DebugInfo, undefined, InclDefs) ++
+	emit(app_file, AppFile,  undefined, InclDefs) ++
+	emit(incl_app_filters,    InclAppFiles, undefined, InclDefs) ++
+	emit(excl_app_filters,    ExclAppFiles, undefined, InclDefs) ++
+	emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs) ++
+	emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs) ++
+	emit(archive_opts, ArchiveOpts, undefined, InclDefs) ++
+	emit(vsn, Vsn, undefined, InclDefs orelse UseSelected =/= true) ++
+	[{mod, M#mod.name, do_gen_config(M, InclDefs)} ||
+	    M <- Mods,
+	    M#mod.is_included =:= true];
+do_gen_config(#mod{name = _Name,
+		   incl_cond = AppCond,
+		   debug_info = DebugInfo},
+	      InclDefs) ->
     emit(incl_cond,  AppCond,   undefined, InclDefs) ++
-    emit(debug_info, DebugInfo, undefined, InclDefs);
-gen_config(#rel{name = _Name,
-                vsn = _Vsn,
-                rel_apps = RelApps},
-           InclDefs) ->
-    [gen_config(RA, InclDefs) || RA <- RelApps];
-gen_config(#rel_app{name = Name,
-                    app_type = Type,
-                    incl_apps = InclApps},
-           _InclDefs) ->
+	emit(debug_info, DebugInfo, undefined, InclDefs);
+do_gen_config(#rel{name = _Name,
+		   vsn = _Vsn,
+		   rel_apps = RelApps},
+	      InclDefs) ->
+    [do_gen_config(RA, InclDefs) || RA <- RelApps];
+do_gen_config(#rel_app{name = Name,
+		       app_type = Type,
+		       incl_apps = InclApps},
+	      _InclDefs) ->
     case {Type, InclApps} of
         {undefined, []} -> Name;
         {undefined, _}  -> {Name, InclApps};
         {_, []}         -> {Name, Type};
         {_, _}          -> {Name, Type, InclApps}
     end;
-gen_config({Tag, Val}, InclDefs) ->
+do_gen_config({Tag, Val}, InclDefs) ->
     emit(Tag, Val, undefined, InclDefs);
-gen_config([], _InclDefs) ->
+do_gen_config([], _InclDefs) ->
     [];
-gen_config([H | T], InclDefs) ->
-    lists:flatten([gen_config(H, InclDefs), gen_config(T, InclDefs)]).
+do_gen_config([H | T], InclDefs) ->
+    lists:flatten([do_gen_config(H, InclDefs), do_gen_config(T, InclDefs)]).
 
 emit(Tag, Val, Default, InclDefs) ->
     if
@@ -239,13 +245,28 @@ gen_app(#app{name = Name,
 %% Generate the contents of a rel file
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
-        #sys{apps = Apps}) ->
-    {value, Erts} = lists:keysearch(erts, #app.name, Apps),
-    {release,
-      {RelName, RelVsn},
-      {erts, Erts#app.vsn},
-      [app_to_rel(RA, Apps ) || RA <- RelApps]}.
+gen_rel(Rel, Sys) ->
+    try
+	{ok, do_gen_rel(Rel, Sys)}
+    catch
+        throw:{error, Text} ->
+            {error, Text}
+    end.
+
+do_gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
+	   #sys{apps = Apps}) ->
+    ErtsName = erts,
+    case lists:keysearch(ErtsName, #app.name, Apps) of
+	{value, Erts} ->
+	    {release,
+	     {RelName, RelVsn},
+	     {erts, Erts#app.vsn},
+	     [app_to_rel(RA, Apps ) || RA <- RelApps]};
+	false ->
+	    reltool_utils:throw_error("Mandatory application ~p is "
+				      "not included",
+                                      [ErtsName])
+    end.
 
 app_to_rel(#rel_app{name = Name, app_type = Type, incl_apps = InclApps},
 	   Apps) ->
@@ -607,7 +628,7 @@ do_spec_rel_files(#rel{name = Name} = Rel,  Sys) ->
     RelFile = Name ++ ".rel",
     ScriptFile = Name ++ ".script",
     BootFile = Name ++ ".boot",
-    GenRel = gen_rel(Rel, Sys),
+    GenRel = do_gen_rel(Rel, Sys),
     PathFlag = true,
     Variables = [],
     {ok, Script} = do_gen_script(Rel, Sys, PathFlag, Variables),
@@ -678,7 +699,8 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 	    true ->
 		ExtraExcl = ["^erts.*/bin/.*src\$"],
 		reltool_utils:decode_regexps(excl_sys_filters,
-					     {add, ExtraExcl}, ExclRegexps);
+					     {add, ExtraExcl},
+					     ExclRegexps);
 	    false ->
 		ExclRegexps
 	end,
@@ -759,18 +781,29 @@ spec_bin_files(Sys, AllSysFiles, StrippedSysFiles, RelFiles, InclRegexps) ->
     GoodNames = [F || {copy_file, F} <- OldBinFiles,
 		      not lists:suffix(".boot", F),
 		      not lists:suffix(".script", F)],
-    BinFiles2 = [Map(S) || S <- BinFiles, lists:member(element(2, S), GoodNames)],
+    BinFiles2 = [Map(S) || S <- BinFiles,
+			   lists:member(element(2, S), GoodNames)],
     BootFiles = [F || F <- RelFiles, lists:suffix(".boot", element(2, F))],
-    [{write_file, _, BootRel}] = safe_lookup_spec(Sys#sys.boot_rel ++ ".boot", BootFiles),
-    BootFiles2 = lists:keystore("start.boot", 2, BootFiles, {write_file, "start.boot", BootRel}),
-    MakeRegexp = fun(File) -> "^bin/" ++ element(2, File) ++ "(|.escript)\$" end,
+    [{write_file, _, BootRel}] =
+	safe_lookup_spec(Sys#sys.boot_rel ++ ".boot", BootFiles),
+    BootFiles2 = lists:keystore("start.boot",
+				2,
+				BootFiles,
+				{write_file, "start.boot", BootRel}),
+    MakeRegexp =
+	fun(File) -> "^bin/" ++ element(2, File) ++ "(|.escript)\$" end,
     ExtraIncl = lists:map(MakeRegexp, Escripts),
-    InclRegexps2 = reltool_utils:decode_regexps(incl_sys_filters, {add, ExtraIncl}, InclRegexps),
+    InclRegexps2 = reltool_utils:decode_regexps(incl_sys_filters,
+						{add, ExtraIncl},
+						InclRegexps),
     {InclRegexps2, Escripts ++ BinFiles2 ++ BootFiles2}.
 
 spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
-    Filter = fun(#app{is_escript = IsEscript, is_included = IsIncl,
-                      is_pre_included = IsPre, name = Name, active_dir = File}) ->
+    Filter = fun(#app{is_escript = IsEscript,
+		      is_included = IsIncl,
+                      is_pre_included = IsPre,
+		      name = Name,
+		      active_dir = File}) ->
                      if
                          Name =:= ?MISSING_APP ->
                              false;

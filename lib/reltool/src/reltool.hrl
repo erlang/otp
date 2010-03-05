@@ -177,11 +177,11 @@
           sorted_dirs      :: [dir()],
           vsn              :: app_vsn(),
           label            :: app_label(),
-          info             ::  #app_info{} | undefined,
+          info             :: #app_info{} | undefined,
           mods             :: [#mod{}],
 
           %% Static source cond
-          mod_cond  :: mod_cond() | undefined,
+          mod_cond  :: mod_cond()  | undefined,
           incl_cond :: incl_cond() | undefined,
 
           %% Static target cond
@@ -201,7 +201,8 @@
           uses_apps       :: [app_name()],
           used_by_apps    :: [app_name()],
           is_pre_included :: boolean(),
-          is_included     :: boolean()
+          is_included     :: boolean(),
+          rels            :: [rel_name()]
          }).
 
 -record(rel_app,
