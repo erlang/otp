@@ -477,15 +477,15 @@ get_line(Chars, Pbs, Drv, Encoding) ->
     get_line1(edlin:edit_line(Chars, Cont), Drv, new_stack(get(line_buffer)), 
 	      Encoding).
 
-get_line1({done,Line,Rest,Rs}, Drv, _Ls, _Encoding) ->
+get_line1({done,Line,Rest,Rs}, Drv, Ls, _Encoding) ->
     send_drv_reqs(Drv, Rs),
-    put(line_buffer, [Line|lists:delete(Line, get(line_buffer))]),
+    save_line_buffer(Line, get_lines(Ls)),
     {done,Line,Rest};
 get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding) 
   when ((Mode =:= none) and (Char =:= $\^P))
        or ((Mode =:= meta_left_sq_bracket) and (Char =:= $A)) ->
     send_drv_reqs(Drv, Rs),
-    case up_stack(Ls0) of
+    case up_stack(save_line(Ls0, edlin:current_line(Cont))) of
 	{none,_Ls} ->
 	    send_drv(Drv, beep),
 	    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
@@ -498,14 +498,14 @@ get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding)
 		      Drv,
 		      Ls, Encoding)
     end;
-get_line1({undefined,{_A,Mode,Char},_Cs,Cont,Rs}, Drv, Ls0, Encoding) 
+get_line1({undefined,{_A,Mode,Char},Cs,Cont,Rs}, Drv, Ls0, Encoding)
   when ((Mode =:= none) and (Char =:= $\^N))
        or ((Mode =:= meta_left_sq_bracket) and (Char =:= $B)) ->
     send_drv_reqs(Drv, Rs),
-    case down_stack(Ls0) of
-	{none,Ls} ->
-	    send_drv_reqs(Drv, edlin:erase_line(Cont)),
-	    get_line1(edlin:start(edlin:prompt(Cont)), Drv, Ls, Encoding);
+    case down_stack(save_line(Ls0, edlin:current_line(Cont))) of
+	{none,_Ls} ->
+	    send_drv(Drv, beep),
+	    get_line1(edlin:edit_line(Cs, Cont), Drv, Ls0, Encoding);
 	{Lcs,Ls} ->
 	    send_drv_reqs(Drv, edlin:erase_line(Cont)),
 	    {more_chars,Ncont,Nrs} = edlin:start(edlin:prompt(Cont)),
@@ -626,6 +626,28 @@ down_stack({stack,U,{},[]}) ->
     {none,{stack,U,{},[]}};
 down_stack({stack,U,C,D}) ->
     down_stack({stack,[C|U],{},D}).
+
+save_line({stack, U, {}, []}, Line) ->
+    {stack, U, {}, [Line]};
+save_line({stack, U, _L, D}, Line) ->
+    {stack, U, Line, D}.
+
+get_lines({stack, U, {}, []}) ->
+    U;
+get_lines({stack, U, {}, D}) ->
+    tl(lists:reverse(D, U));
+get_lines({stack, U, L, D}) ->
+    get_lines({stack, U, {}, [L|D]}).
+
+save_line_buffer("\n", Lines) ->
+    save_line_buffer(Lines);
+save_line_buffer(Line, [Line|_Lines]=Lines) ->
+    save_line_buffer(Lines);
+save_line_buffer(Line, Lines) ->
+    save_line_buffer([Line|Lines]).
+
+save_line_buffer(Lines) ->
+    put(line_buffer, Lines).
 
 %% This is get_line without line editing (except for backspace) and
 %% without echo.
