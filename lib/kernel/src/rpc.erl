@@ -56,7 +56,7 @@
 -export([safe_multi_server_call/2,safe_multi_server_call/3]).
 
 %% gen_server exports
--export([init/1,handle_call/3,handle_cast/2,handle_info/2,
+-export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
 
 %% Internals
@@ -73,12 +73,12 @@
 -spec start() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start() ->
-    gen_server:start({local,?NAME},?MODULE,[],[]).
+    gen_server:start({local,?NAME}, ?MODULE, [], []).
 
 -spec start_link() -> {'ok', pid()} | 'ignore' | {'error', term()}.
 
 start_link() ->
-    gen_server:start_link({local,?NAME},?MODULE,[],[]).
+    gen_server:start_link({local,?NAME}, ?MODULE, [], []).
 
 -spec stop() -> term().
 
@@ -121,12 +121,11 @@ handle_call(_, _To, S) ->
 -spec handle_cast(term(), state()) -> {'noreply', state()}.
 
 handle_cast({cast, Mod, Fun, Args, Gleader}, S) ->
-	    spawn(
-	      fun() ->
-		      set_group_leader(Gleader),
-		      apply(Mod, Fun, Args)
-	      end),
-	    {noreply, S};
+    spawn(fun() ->
+		  set_group_leader(Gleader),
+		  apply(Mod, Fun, Args)
+	  end),
+    {noreply, S};
 handle_cast(_, S) ->
     {noreply, S}.  % Ignore !
 
@@ -163,7 +162,7 @@ handle_info({From, {sbcast, Name, Msg}}, S) ->
 	_ -> 
 	    From ! {?NAME, node(), node()}
     end,
-    {noreply,S};
+    {noreply, S};
 handle_info({From, {send, Name, Msg}}, S) ->
     case catch Name ! {From, Msg} of %% use catch to get the printout
 	{'EXIT', _} ->
@@ -171,12 +170,12 @@ handle_info({From, {send, Name, Msg}}, S) ->
 	_ ->
 	    ok    %% It's up to Name to respond !!!!!
     end,
-    {noreply,S};
+    {noreply, S};
 handle_info({From, {call,Mod,Fun,Args,Gleader}}, S) ->
     %% Special for hidden C node's, uugh ...
     handle_call_call(Mod, Fun, Args, Gleader, {From,?NAME}, S);
 handle_info(_, S) ->
-    {noreply,S}.
+    {noreply, S}.
 
 -spec terminate(term(), state()) -> 'ok'.
 
@@ -231,7 +230,7 @@ proxy_user() ->
     case whereis(rex_proxy_user) of
 	Pid when is_pid(Pid) -> Pid;
 	undefined ->
-	    Pid = spawn(fun()-> proxy_user_loop() end),
+	    Pid = spawn(fun() -> proxy_user_loop() end),
 	    try register(rex_proxy_user,Pid) of
 		true -> Pid
 	    catch error:_ -> % spawn race, kill and try again

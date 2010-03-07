@@ -61,8 +61,8 @@ start() ->
 
 wait_for_init_ack(From) ->
     receive
-	{ok, From} ->
-	    {ok, From};
+	{ok, From} = Ok ->
+	    Ok;
 	{no_heart, From} ->
 	    ignore;
 	{Error, From} ->
@@ -119,8 +119,7 @@ wait() ->
 
 start_portprogram() ->
     check_start_heart(),
-    HeartCmd = "heart -pid " ++ os:getpid() ++ " " ++ 
-	get_heart_timeouts(),
+    HeartCmd = "heart -pid " ++ os:getpid() ++ " " ++ get_heart_timeouts(),
     try open_port({spawn, HeartCmd}, [{packet, 2}]) of
 	Port when is_port(Port) ->
 	    case wait_ack(Port) of
@@ -175,7 +174,7 @@ wait_ack(Port) ->
 loop(Parent, Port, Cmd) ->
     send_heart_beat(Port),
     receive
-	{From, set_cmd, NewCmd} when is_list(NewCmd), length(NewCmd) < 2047 ->
+	{From, set_cmd, NewCmd} when length(NewCmd) < 2047 ->
 	    send_heart_cmd(Port, NewCmd),
 	    wait_ack(Port),
 	    From ! {heart, ok},

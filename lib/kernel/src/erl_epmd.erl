@@ -141,8 +141,8 @@ handle_call({register, Name, PortNo}, _From, State) ->
     end;
 
 handle_call(client_info_req, _From, State) ->
-  Reply = {ok,{r4,State#state.name,State#state.port_no}},
-  {reply,Reply,State};
+    Reply = {ok,{r4,State#state.name,State#state.port_no}},
+    {reply, Reply, State};
   
 handle_call(stop, _From, State) ->
     {stop, shutdown, ok, State}.

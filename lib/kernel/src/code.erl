@@ -425,8 +425,8 @@ where_is_file(Path, File) when is_list(Path), is_list(File) ->
 			  FileInfo :: #file_info{})
 			 -> 'ok' | {'error', atom()}.
 
-set_primary_archive(ArchiveFile0, ArchiveBin, FileInfo)
-  when is_list(ArchiveFile0), is_binary(ArchiveBin), is_record(FileInfo, file_info) ->
+set_primary_archive(ArchiveFile0, ArchiveBin, #file_info{} = FileInfo)
+  when is_list(ArchiveFile0), is_binary(ArchiveBin) ->
     ArchiveFile = filename:absname(ArchiveFile0),
     case call({set_primary_archive, ArchiveFile, ArchiveBin, FileInfo}) of
 	{ok, []} ->

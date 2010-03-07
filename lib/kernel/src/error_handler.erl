@@ -117,13 +117,13 @@ stub_function(Mod, Func, Args) ->
 
 check_inheritance(Module, Args) ->
     Attrs = erlang:get_module_info(Module, attributes),
-    case lists:keysearch(extends, 1, Attrs) of
-	{value,{extends,[Base]}} when is_atom(Base), Base =/= Module ->
+    case lists:keyfind(extends, 1, Attrs) of
+	{extends, [Base]} when is_atom(Base), Base =/= Module ->
 	    %% This is just a heuristic for detecting abstract modules
 	    %% with inheritance so they can be handled; it would be
 	    %% much better to do it in the emulator runtime
-	    case lists:keysearch(abstract, 1, Attrs) of
-		{value,{abstract,[true]}} ->
+	    case lists:keyfind(abstract, 1, Attrs) of
+		{abstract, [true]} ->
 		    case lists:reverse(Args) of
 			[M|Rs] when tuple_size(M) > 1,
 			element(1,M) =:= Module,

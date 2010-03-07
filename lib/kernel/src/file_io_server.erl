@@ -106,21 +106,21 @@ do_start(Spawn, Owner, FileName, ModeList) ->
 parse_options(List) ->
     parse_options(expand_encoding(List), list, latin1, []).
 
-parse_options([],list,Uni,Acc) ->
+parse_options([], list, Uni, Acc) ->
     {list,Uni,[binary|lists:reverse(Acc)]};
-parse_options([],binary,Uni,Acc) ->
+parse_options([], binary, Uni, Acc) ->
     {binary,Uni,lists:reverse(Acc)};
-parse_options([{encoding, Encoding}|T],RMode,_,Acc) ->
+parse_options([{encoding, Encoding}|T], RMode, _, Acc) ->
     case valid_enc(Encoding) of 
 	{ok, ExpandedEnc} ->
-	    parse_options(T,RMode,ExpandedEnc,Acc);
-	{error,Reason} ->
-	    {error,Reason}
+	    parse_options(T, RMode, ExpandedEnc, Acc);
+	{error,_Reason} = Error ->
+	    Error
     end;
-parse_options([binary|T],_,Uni,Acc) ->
-    parse_options(T,binary,Uni,[binary|Acc]);
-parse_options([H|T],R,U,Acc) ->
-    parse_options(T,R,U,[H|Acc]).
+parse_options([binary|T], _, Uni, Acc) ->
+    parse_options(T, binary, Uni, [binary|Acc]);
+parse_options([H|T], R, U, Acc) ->
+    parse_options(T, R, U, [H|Acc]).
 
 expand_encoding([]) ->
     [];
@@ -151,7 +151,6 @@ valid_enc({utf32,little}) ->
     {ok,{utf32,little}};
 valid_enc(_Other) ->
     {error,badarg}.
-
 
 
 server_loop(#state{mref = Mref} = State) ->
@@ -326,7 +325,6 @@ io_request(Unknown,
     {error,{error,Reason},State}.
 
 
-
 %% Process a list of requests as long as the results are ok.
 
 io_request_loop([], Result) ->
@@ -340,7 +338,6 @@ io_request_loop([_Request|_Tail],
 io_request_loop([Request|Tail], 
 		{reply,_Reply,State}) ->
     io_request_loop(Tail, io_request(Request, State)).
-
 
 
 %% I/O request put_chars
@@ -653,20 +650,14 @@ do_setopts(Opts, State) ->
     end.
 
 getopts(#state{read_mode=RM, unic=Unic} = State) ->
-    Bin = {binary, case RM of
-		       binary ->
-			   true;
-		       _ ->
-			   false
-		   end},
+    Bin = {binary, RM =:= binary},
     Uni = {encoding, Unic},
     {reply,[Bin,Uni],State}.
-    
 
 %% Concatenate two binaries and convert the result to list or binary
-cat(B1, B2, binary,latin1,latin1) ->
+cat(B1, B2, binary, latin1, latin1) ->
     list_to_binary([B1,B2]);
-cat(B1, B2, binary,InEncoding,OutEncoding) ->
+cat(B1, B2, binary, InEncoding, OutEncoding) ->
     case unicode:characters_to_binary([B1,B2],InEncoding,OutEncoding) of
 	Good when is_binary(Good) ->
 	    Good;

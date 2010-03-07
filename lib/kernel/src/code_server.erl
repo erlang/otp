@@ -66,8 +66,8 @@ init(Ref, Parent, [Root,Mode0]) ->
 
     Mode = 
 	case Mode0 of
-	    minimal    -> interactive;
-	    _          -> Mode0
+	    minimal -> interactive;
+	    _       -> Mode0
 	end,
 
     IPath =
@@ -75,7 +75,7 @@ init(Ref, Parent, [Root,Mode0]) ->
 	    interactive ->
 		LibDir = filename:append(Root, "lib"),
 		{ok,Dirs} = erl_prim_loader:list_dir(LibDir),
-		{Paths,_Libs} = make_path(LibDir,Dirs),
+		{Paths,_Libs} = make_path(LibDir, Dirs),
 		UserLibPaths = get_user_lib_dirs(),
 		["."] ++ UserLibPaths ++ Paths;
 	    _ ->
@@ -98,7 +98,7 @@ init(Ref, Parent, [Root,Mode0]) ->
 	end,
 
     Parent ! {Ref,{ok,self()}},
-    loop(State#state{supervisor=Parent}).
+    loop(State#state{supervisor = Parent}).
 
 get_user_lib_dirs() ->
     case os:getenv("ERL_LIBS") of
@@ -170,8 +170,8 @@ loop(#state{supervisor=Supervisor}=State0) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% System upgrade
 
-handle_system_msg(SysState,Msg,From,Parent,Misc) ->
-    case do_sys_cmd(SysState,Msg,Parent, Misc) of
+handle_system_msg(SysState, Msg, From, Parent, Misc) ->
+    case do_sys_cmd(SysState, Msg, Parent, Misc) of
 	{suspended, Reply, NMisc} ->
 	    gen_reply(From, Reply),
 	    suspend_loop(suspended, Parent, NMisc);
@@ -208,7 +208,7 @@ do_sys_cmd(SysState, {debug, _What}, _Parent, Misc) ->
 do_sys_cmd(suspended, {change_code, Module, Vsn, Extra}, _Parent, Misc0) ->
     {Res, Misc} = 
 	case catch ?MODULE:system_code_change(Misc0, Module, Vsn, Extra)  of
-	    {ok, Misc1} -> {ok, Misc1};
+	    {ok, _} = Ok -> Ok;
 	    Else -> {{error, Else}, Misc0}
 	end,
     {suspended, Res, Misc};
@@ -219,7 +219,7 @@ system_continue(_Parent, _Debug, State) ->
     loop(State).
 
 system_terminate(_Reason, _Parent, _Debug, _State) ->
-%    error_msg("~p terminating: ~p~n ",[?MODULE,Reason]),
+    %% error_msg("~p terminating: ~p~n ", [?MODULE, Reason]),
     exit(shutdown).
 
 -spec system_code_change(state(), module(), term(), term()) -> {'ok', state()}.
@@ -242,7 +242,7 @@ handle_call({stick_mod,Mod}, {_From,_Tag}, S) ->
 handle_call({unstick_mod,Mod}, {_From,_Tag}, S) ->
     {reply,stick_mod(Mod, false, S),S};
 
-handle_call({dir,Dir},{_From,_Tag}, S) ->
+handle_call({dir,Dir}, {_From,_Tag}, S) ->
     Root = S#state.root,
     Resp = do_dir(Root,Dir,S#state.namedb),
     {reply,Resp,S};
@@ -255,43 +255,47 @@ handle_call({load_file,Mod}, Caller, St) ->
 	    load_file(Mod, Caller, St)
     end;
 
-handle_call({add_path,Where,Dir0}, {_From,_Tag}, S=#state{cache=Cache0}) ->
+handle_call({add_path,Where,Dir0}, {_From,_Tag},
+	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
     case Cache0 of
 	no_cache ->
-	    {Resp,Path} = add_path(Where, Dir0, S#state.path, S#state.namedb),
+	    {Resp,Path} = add_path(Where, Dir0, Path0, Namedb),
 	    {reply,Resp,S#state{path=Path}};
 	_ ->
 	    Dir = absname(Dir0), %% Cache always expands the path 
-	    {Resp,Path} = add_path(Where, Dir, S#state.path, S#state.namedb),
-	    Cache=update_cache([Dir],Where,Cache0),
+	    {Resp,Path} = add_path(Where, Dir, Path0, Namedb),
+	    Cache = update_cache([Dir], Where, Cache0),
 	    {reply,Resp,S#state{path=Path,cache=Cache}}
     end;
 
-handle_call({add_paths,Where,Dirs0}, {_From,_Tag}, S=#state{cache=Cache0}) ->
+handle_call({add_paths,Where,Dirs0}, {_From,_Tag},
+	    #state{cache=Cache0,namedb=Namedb,path=Path0}=S) ->
     case Cache0 of
 	no_cache ->
-	    {Resp,Path} = add_paths(Where,Dirs0,S#state.path,S#state.namedb),
-	    {reply,Resp, S#state{path=Path}};
+	    {Resp,Path} = add_paths(Where, Dirs0, Path0, Namedb),
+	    {reply,Resp,S#state{path=Path}};
 	_ ->
 	    %% Cache always expands the path 
 	    Dirs = [absname(Dir) || Dir <- Dirs0], 
-	    {Resp,Path} = add_paths(Where, Dirs, S#state.path, S#state.namedb),
+	    {Resp,Path} = add_paths(Where, Dirs, Path0, Namedb),
 	    Cache=update_cache(Dirs,Where,Cache0),
 	    {reply,Resp,S#state{cache=Cache,path=Path}}
     end;
 
-handle_call({set_path,PathList}, {_From,_Tag}, S) ->
-    Path = S#state.path,
-    {Resp, NewPath,NewDb} = set_path(PathList, Path, S#state.namedb),
-    {reply,Resp,rehash_cache(S#state{path = NewPath, namedb=NewDb})};
+handle_call({set_path,PathList}, {_From,_Tag},
+	    #state{path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path,NewDb} = set_path(PathList, Path0, Namedb),
+    {reply,Resp,rehash_cache(S#state{path=Path,namedb=NewDb})};
 
-handle_call({del_path,Name}, {_From,_Tag}, S) ->
-    {Resp,Path} = del_path(Name,S#state.path,S#state.namedb),
-    {reply,Resp,rehash_cache(S#state{path = Path})};
+handle_call({del_path,Name}, {_From,_Tag},
+	    #state{path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path} = del_path(Name, Path0, Namedb),
+    {reply,Resp,rehash_cache(S#state{path=Path})};
 
-handle_call({replace_path,Name,Dir}, {_From,_Tag}, S) ->
-    {Resp,Path} = replace_path(Name,Dir,S#state.path,S#state.namedb),
-    {reply,Resp,rehash_cache(S#state{path = Path})};
+handle_call({replace_path,Name,Dir}, {_From,_Tag},
+	    #state{path=Path0,namedb=Namedb}=S) ->
+    {Resp,Path} = replace_path(Name, Dir, Path0, Namedb),
+    {reply,Resp,rehash_cache(S#state{path=Path})};
 
 handle_call(rehash, {_From,_Tag}, S0) ->
     S = create_cache(S0),
@@ -313,12 +317,12 @@ handle_call({load_binary,Mod,File,Bin}, Caller, S) ->
     do_load_binary(Mod, File, Bin, Caller, S);
 
 handle_call({load_native_partial,Mod,Bin}, {_From,_Tag}, S) ->
-    Result = (catch hipe_unified_loader:load(Mod,Bin)),
+    Result = (catch hipe_unified_loader:load(Mod, Bin)),
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
 handle_call({load_native_sticky,Mod,Bin,WholeModule}, {_From,_Tag}, S) ->
-    Result = (catch hipe_unified_loader:load_module(Mod,Bin,WholeModule)),
+    Result = (catch hipe_unified_loader:load_module(Mod, Bin, WholeModule)),
     Status = hipe_result_to_status(Result),
     {reply,Status,S};
 
@@ -390,8 +394,8 @@ handle_call({set_primary_archive, File, ArchiveBin, FileInfo}, {_From,_Tag}, S=#
     case erl_prim_loader:set_primary_archive(File, ArchiveBin, FileInfo) of
 	{ok, Files} ->
 	    {reply, {ok, Mode, Files}, S};
-	{error, Reason} ->
-	    {reply, {error, Reason}, S}
+	{error, _Reason} = Error ->
+	    {reply, Error, S}
     end;
 
 handle_call({is_cached,File}, {_From,_Tag}, S=#state{cache=Cache}) ->
@@ -471,8 +475,8 @@ locate_mods([], _, _, Cache, Path) ->
 filter_mods([File|Rest], Where, Exts, Dir, Cache) ->
     Ext = filename:extension(File),
     Root = list_to_atom(filename:rootname(File, Ext)),
-    case lists:keysearch(Ext, 2, Exts) of
-	{value,{Type,_}} ->
+    case lists:keyfind(Ext, 2, Exts) of
+	{Type, _} ->
 	    Key = {Type,Root},
 	    case Where of
 		first ->
@@ -489,7 +493,6 @@ filter_mods([File|Rest], Where, Exts, Dir, Cache) ->
 	    ok
     end,
     filter_mods(Rest, Where, Exts, Dir, Cache);
-
 filter_mods([], _, _, _, Cache) ->
     Cache.
 
@@ -500,27 +503,27 @@ filter_mods([], _, _, _, Cache) ->
 %%
 %% Create the initial path. 
 %%
-make_path(BundleDir,Bundles0) ->
+make_path(BundleDir, Bundles0) ->
     Bundles = choose_bundles(Bundles0),
-    make_path(BundleDir,Bundles,[],[]).
+    make_path(BundleDir, Bundles, [], []).
 
 choose_bundles(Bundles) ->
     ArchiveExt = archive_extension(),
-    Bs = lists:sort([create_bundle(B,ArchiveExt) || B <- Bundles]),
+    Bs = lists:sort([create_bundle(B, ArchiveExt) || B <- Bundles]),
     [FullName || {_Name,_NumVsn,FullName} <-
 		     choose(lists:reverse(Bs), [], ArchiveExt)].
 
-create_bundle(FullName,ArchiveExt) ->
-    BaseName = filename:basename(FullName,ArchiveExt),
+create_bundle(FullName, ArchiveExt) ->
+    BaseName = filename:basename(FullName, ArchiveExt),
     case split(BaseName, "-") of
-	Toks when length(Toks) > 1 ->
+	[_, _|_] = Toks ->
 	    VsnStr = lists:last(Toks),
 	    case vsn_to_num(VsnStr) of
 		{ok, VsnNum} ->
-		    Name = join(lists:sublist(Toks,length(Toks)-1),"-"),
+		    Name = join(lists:sublist(Toks, length(Toks)-1),"-"),
 		    {Name,VsnNum,FullName};
 		false ->
-		    {FullName, [0], FullName}
+		    {FullName,[0],FullName}
 	    end;
 	_ ->
 	    {FullName,[0],FullName}
@@ -571,8 +574,8 @@ join([], _) ->
     [].
 
 choose([{Name,NumVsn,NewFullName}=New|Bs], Acc, ArchiveExt) ->
-    case lists:keysearch(Name,1,Acc) of
-	{value, {_, NV, OldFullName}} when NV =:= NumVsn ->
+    case lists:keyfind(Name, 1, Acc) of
+	{_, NV, OldFullName} when NV =:= NumVsn ->
 	    case filename:extension(OldFullName) =:= ArchiveExt of
 		false ->
 		    choose(Bs,Acc, ArchiveExt);
@@ -580,7 +583,7 @@ choose([{Name,NumVsn,NewFullName}=New|Bs], Acc, ArchiveExt) ->
 		    Acc2 = lists:keystore(Name, 1, Acc, New),
 		    choose(Bs,Acc2, ArchiveExt)
 	    end;
-	{value, {_, _, _}} ->
+	{_, _, _} ->
 	    choose(Bs,Acc, ArchiveExt);
 	false ->
 	    choose(Bs,[{Name,NumVsn,NewFullName}|Acc], ArchiveExt)
@@ -604,8 +607,8 @@ make_path(BundleDir,[Bundle|Tail],Res,Bs) ->
 	    Ebin2 = filename:join([filename:dirname(Dir), Base ++ Ext, Base, "ebin"]),
 	    Ebins = 
 		case split(Base, "-") of
-		    Toks when length(Toks) > 1 ->
-			AppName = join(lists:sublist(Toks,length(Toks)-1),"-"),
+		    [_, _|_] = Toks ->
+			AppName = join(lists:sublist(Toks, length(Toks)-1),"-"),
 			Ebin3 = filename:join([filename:dirname(Dir), Base ++ Ext, AppName, "ebin"]),
 			[Ebin3, Ebin2, Dir];
 		    _ ->
@@ -837,30 +840,25 @@ add_path(_,_,Path,_) ->
 %% then the table is created :-)
 %%
 do_add(first,Dir,Path,NameDb) ->
-    update(Dir,NameDb),
+    update(Dir, NameDb),
     [Dir|lists:delete(Dir,Path)];
 do_add(last,Dir,Path,NameDb) ->
     case lists:member(Dir,Path) of
 	true ->
 	    Path;
 	false ->
-	    maybe_update(Dir,NameDb),
+	    maybe_update(Dir, NameDb),
 	    Path ++ [Dir]
     end.
 
 %% Do not update if the same name already exists !
-maybe_update(Dir,NameDb) ->
-    case lookup_name(get_name(Dir),NameDb) of
-        false -> update(Dir,NameDb);
-        _     -> false
-    end.
+maybe_update(Dir, NameDb) ->
+    (lookup_name(get_name(Dir), NameDb) =:= false) andalso update(Dir, NameDb).
 
 update(_Dir, false) ->
-    ok;
-update(Dir,NameDb) ->
-    replace_name(Dir,NameDb).
-
-
+    true;
+update(Dir, NameDb) ->
+    replace_name(Dir, NameDb).
 
 %%
 %% Set a completely new path.
@@ -948,8 +946,8 @@ all_archive_subdirs(AppDir) ->
     Base = filename:basename(AppDir),
     Dirs = 
 	case split(Base, "-") of
-	    Toks when length(Toks) > 1 ->
-		Base2 = join(lists:sublist(Toks,length(Toks)-1),"-"),
+	    [_, _|_] = Toks ->
+		Base2 = join(lists:sublist(Toks, length(Toks)-1), "-"),
 		[Base2, Base];
 	    _ ->
 		[Base]
@@ -1062,7 +1060,6 @@ check_pars(Name,Dir) ->
 	    {error,bad_name}
     end.
 
-
 del_ebin(Dir) ->
     case filename:basename(Dir) of
 	"ebin" -> 
@@ -1080,8 +1077,6 @@ del_ebin(Dir) ->
 	_ ->
 	    Dir
     end.
-
-
 
 replace_name(Dir, Db) ->
     case get_name(Dir) of
@@ -1189,22 +1184,13 @@ get_mods([File|Tail], Extension) ->
 get_mods([], _) -> [].
 
 is_sticky(Mod, Db) ->
-    case erlang:module_loaded(Mod) of
-	true ->
-	    case ets:lookup(Db, {sticky,Mod}) of
-		[] -> false;
-		_  -> true
-	    end;
-	false ->
-	    false
-    end.
+    erlang:module_loaded(Mod) andalso (ets:lookup(Db, {sticky, Mod}) =/= []).
 
 add_paths(Where,[Dir|Tail],Path,NameDb) ->
     {_,NPath} = add_path(Where,Dir,Path,NameDb),
     add_paths(Where,Tail,NPath,NameDb);
 add_paths(_,_,Path,_) ->
     {ok,Path}.
-
 
 do_load_binary(Module, File, Binary, Caller, St) ->
     case modp(Module) andalso modp(File) andalso is_binary(Binary) of
@@ -1221,7 +1207,6 @@ do_load_binary(Module, File, Binary, Caller, St) ->
 modp(Atom) when is_atom(Atom) -> true;
 modp(List) when is_list(List) -> int_list(List);
 modp(_)                       -> false.
-
 
 load_abs(File, Mod0, Caller, St) ->
     Ext = objfile_extension(),
@@ -1265,20 +1250,20 @@ try_load_module_1(File, Mod, Bin, Caller, #state{moddb=Db}=St) ->
 	    {reply,{error,sticky_directory},St};
 	false ->
 	    case catch load_native_code(Mod, Bin) of
-		{module,Mod} ->
+		{module,Mod} = Module ->
 		    ets:insert(Db, {Mod,File}),
-		    {reply,{module,Mod},St};
+		    {reply,Module,St};
 		no_native ->
 		    case erlang:load_module(Mod, Bin) of
-			{module,Mod} ->
+			{module,Mod} = Module ->
 			    ets:insert(Db, {Mod,File}),
 			    post_beam_load(Mod),
-			    {reply,{module,Mod},St};
+			    {reply,Module,St};
 			{error,on_load} ->
 			    handle_on_load(Mod, File, Caller, St);
-			{error,What} ->
+			{error,What} = Error ->
 			    error_msg("Loading of ~s failed: ~p\n", [File, What]),
-			    {reply,{error,What},St}
+			    {reply,Error,St}
 		    end;
 		Error ->
 		    error_msg("Native loading of ~s failed: ~p\n",

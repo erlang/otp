@@ -26,9 +26,6 @@
 
 -define(NAME, user).
 
-%% Internal exports
--export([server/1, server/2]).
-
 %% Defines for control ops
 -define(CTRL_OP_GET_WINSIZE,100).
 
@@ -43,7 +40,7 @@ start([Mod,Fun|Args]) ->
     %% Mod,Fun,Args should return a pid. That process is supposed to act
     %% as the io port.
     Pid = apply(Mod, Fun, Args),  % This better work!
-    Id = spawn(?MODULE, server, [Pid]),
+    Id = spawn(fun() -> server(Pid) end),
     register(?NAME, Id),
     Id.
 
@@ -52,8 +49,8 @@ start_out() ->
     start_port([out,binary]).
 
 start_port(PortSettings) ->
-    Id = spawn(?MODULE,server,[{fd,0,1},PortSettings]),
-    register(?NAME,Id),
+    Id = spawn(fun() -> server({fd,0,1}, PortSettings) end),
+    register(?NAME, Id),
     Id.
 
 %% Return the pid of the shell process.
@@ -71,7 +68,6 @@ interfaces(User) ->
 	_ ->
 	    []
     end.
-
 
 server(Pid) when is_pid(Pid) ->
     process_flag(trap_exit, true),
@@ -104,7 +100,7 @@ catch_loop(Port, Shell, Q) ->
 	new_shell ->
 	    exit(Shell, kill),
 	    catch_loop(Port, start_new_shell());
-	{unknown_exit,{Shell,Reason},_} ->			% shell has exited
+	{unknown_exit,{Shell,Reason},_} ->		 % shell has exited
 	    case Reason of
 		normal ->
 		    put_chars("*** ", Port, []);
@@ -172,7 +168,7 @@ server_loop(Port, Q) ->
 
 get_fd_geometry(Port) ->
     case (catch port_control(Port,?CTRL_OP_GET_WINSIZE,[])) of
-	List when is_list(List), length(List) =:= 8 -> 
+	List when length(List) =:= 8 ->
 	    <<W:32/native,H:32/native>> = list_to_binary(List),
 	    {W,H};
 	_ ->
@@ -373,12 +369,7 @@ do_setopts(Opts, _Port, Q) ->
     end.
 
 getopts(_Port,Q) ->
-    Bin = {binary, case get(read_mode) of
-		       binary ->
-			   true;
-		       _ ->
-			   false
-		   end},
+    Bin = {binary, get(read_mode) =:= binary},
     Uni = {encoding, case get(unicode) of
 		       true ->
 			   unicode;
