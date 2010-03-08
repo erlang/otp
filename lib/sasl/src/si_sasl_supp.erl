@@ -57,13 +57,13 @@
 h() -> print_help().
 help() -> print_help().
 
-si_exec(Fun, Args) -> gen_server:call(si_server, {si_exec, Fun, Args}).
+si_exec(Fun, Args) -> call({si_exec, Fun, Args}).
 
 start_log(FileName) ->
-    gen_server:call(si_server, {start_log, FileName}).
+    call({start_log, FileName}).
 
 stop_log() ->
-    gen_server:call(si_server, stop_log).
+    call(stop_log).
 
 abbrevs() ->
     io:format("~p", [process_abbrevs()]).
@@ -123,7 +123,7 @@ start_link(_Options) ->
     gen_server:start_link({local, si_server}, si_sasl_supp, [], []).
 
 stop() ->
-    gen_server:call(si_server, stop),
+    call(stop),
     supervisor:delete_child(sasl_sup, si_server).
 
 
@@ -207,6 +207,12 @@ open_log_file(FileName) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% 3. Code
 %%--------------------------------------------------
+
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(si_server, Req, infinity).
 
 %%--------------------------------------------------
 %% Makes a Pid of almost anything.

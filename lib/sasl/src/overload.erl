@@ -71,7 +71,7 @@ init([]) ->
 %%          establish a call.
 %% Returns: accept | reject
 %%-----------------------------------------------------------------
-request() -> gen_server:call(overload, request).
+request() -> call(request).
   
 %%-----------------------------------------------------------------
 %% Func: set_config_data/2
@@ -82,13 +82,19 @@ request() -> gen_server:call(overload, request).
 %% documented at all.
 %%-----------------------------------------------------------------
 set_config_data(MaxIntensity, Weight) ->
-    gen_server:call(overload, {set_config_data, MaxIntensity, Weight}).
+    call({set_config_data, MaxIntensity, Weight}).
 %%-----------------------------------------------------------------
 %% Func: get_overload_info/0
 %% Returns: A list of tagged items: TotalIntensity, AcceptIntensity,
 %%          MaxIntensity, Weight, TotalRequests, AcceptedRequests.
 %%-----------------------------------------------------------------
-get_overload_info() -> gen_server:call(overload, get_overload_info).
+get_overload_info() -> call(get_overload_info).
+
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(overload, Req, infinity).
 
 %%%-----------------------------------------------------------------
 %%% Callback functions from gen_server

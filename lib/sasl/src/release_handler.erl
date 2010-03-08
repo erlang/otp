@@ -144,7 +144,7 @@ start_link() ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 unpack_release(ReleaseName) ->
-    gen_server:call(release_handler, {unpack_release, ReleaseName}, infinity).
+    call({unpack_release, ReleaseName}).
     
 %%-----------------------------------------------------------------
 %% Purpose: Checks the relup script for the specified version.
@@ -157,7 +157,7 @@ unpack_release(ReleaseName) ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 check_install_release(Vsn) ->
-    gen_server:call(release_handler, {check_install_release, Vsn}, infinity).
+    call({check_install_release, Vsn}).
 
 
 %%-----------------------------------------------------------------
@@ -172,16 +172,13 @@ check_install_release(Vsn) ->
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 install_release(Vsn) ->
-    gen_server:call(release_handler, 
-		    {install_release, Vsn, restart, []}, 
-		    infinity).
+    call({install_release, Vsn, restart, []}).
+
 
 install_release(Vsn, Opt) ->
     case check_install_options(Opt, restart, []) of
 	{ok, ErrorAction, InstallOpt} ->
-	    gen_server:call(release_handler, 
-			    {install_release, Vsn, ErrorAction, InstallOpt},
-			    infinity);
+	    call({install_release, Vsn, ErrorAction, InstallOpt});
 	Error ->
 	    Error
     end.
@@ -222,13 +219,13 @@ check_timeout(_Else) -> false.
 %%                   exit_reason()
 %%-----------------------------------------------------------------
 make_permanent(Vsn) ->
-    gen_server:call(release_handler, {make_permanent, Vsn}, infinity).
+    call({make_permanent, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Reboots the system from an old release.
 %%-----------------------------------------------------------------
 reboot_old_release(Vsn) ->
-    gen_server:call(release_handler, {reboot_old_release, Vsn}, infinity).
+    call({reboot_old_release, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Deletes all files and directories used by the release
@@ -238,7 +235,7 @@ reboot_old_release(Vsn) ->
 %%          Reason = {permanent, Vsn} |
 %%-----------------------------------------------------------------
 remove_release(Vsn) ->
-    gen_server:call(release_handler, {remove_release, Vsn}, infinity).
+    call({remove_release, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Args: RelFile = string()
@@ -257,7 +254,7 @@ remove_release(Vsn) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 set_unpacked(RelFile, LibDirs) ->
-    gen_server:call(release_handler, {set_unpacked, RelFile, LibDirs}).
+    call({set_unpacked, RelFile, LibDirs}).
 
 %%-----------------------------------------------------------------
 %% Args: Vsn = string()
@@ -267,7 +264,7 @@ set_unpacked(RelFile, LibDirs) ->
 %% Returns: ok | {error, Reason}
 %%-----------------------------------------------------------------
 set_removed(Vsn) ->
-    gen_server:call(release_handler, {set_removed, Vsn}).
+    call({set_removed, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Purpose: Makes it possible to install the start.boot,
@@ -278,14 +275,14 @@ set_removed(Vsn) ->
 %% Returns: ok | {error, {no_such_release, Vsn}}
 %%-----------------------------------------------------------------
 install_file(Vsn, File) when is_list(File) ->
-    gen_server:call(release_handler, {install_file, File, Vsn}).
+    call({install_file, File, Vsn}).
 
 %%-----------------------------------------------------------------
 %% Returns: [{Name, Vsn, [LibName], Status}]
 %%          Status = unpacked | current | permanent | old
 %%-----------------------------------------------------------------
 which_releases() ->
-    gen_server:call(release_handler, which_releases).
+    call(which_releases).
 
 %%-----------------------------------------------------------------
 %% check_script(Script, LibDirs) -> ok | {error, Reason}
@@ -468,11 +465,11 @@ read_appspec(App, Dir) ->
 	    throw(Reason)
     end.
 				      
-
-				     
-    
-	    
-    
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(release_handler, Req, infinity).
 
 
 %%-----------------------------------------------------------------
