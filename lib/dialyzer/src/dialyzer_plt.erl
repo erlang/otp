@@ -39,10 +39,12 @@
 	 from_file/1,
 	 get_default_plt/0,
 	 get_types/1,
+         get_exported_types/1,
 	 %% insert/3,
 	 insert_list/2,
 	 insert_contract_list/2,
 	 insert_types/2,
+         insert_exported_types/2,
 	 lookup/2,
 	 lookup_contract/2,
 	 lookup_module/2,
@@ -57,6 +59,8 @@
 %% Debug utilities
 -export([pp_non_returning/0, pp_mod/1]).
 
+-export_type([plt/0, plt_info/0]).
+
 %%----------------------------------------------------------------------
 
 -type mod_deps() :: dict().
@@ -70,9 +74,10 @@
 
 %%----------------------------------------------------------------------
 
--record(plt, {info      = table_new() :: dict(),
-	      types     = table_new() :: dict(),
-	      contracts = table_new() :: dict()}).
+-record(plt, {info           = table_new() :: dict(),
+	      types          = table_new() :: dict(),
+	      contracts      = table_new() :: dict(),
+              exported_types = sets:new()  :: set()}).
 -opaque plt() :: #plt{}.
 
 -include("dialyzer.hrl").
@@ -80,13 +85,14 @@
 -type file_md5() :: {file:filename(), binary()}.
 -type plt_info() :: {[file_md5()], dict()}.
 
--record(file_plt, {version = ""            :: string(),
-		   file_md5_list = []      :: [file_md5()],
-		   info = dict:new()       :: dict(),
-		   contracts = dict:new()  :: dict(),
-		   types = dict:new()      :: dict(),
-		   mod_deps                :: mod_deps(),
-		   implementation_md5 = [] :: [file_md5()]}).
+-record(file_plt, {version = ""                :: string(),
+		   file_md5_list = []          :: [file_md5()],
+		   info = dict:new()           :: dict(),
+		   contracts = dict:new()      :: dict(),
+		   types = dict:new()          :: dict(),
+                   exported_types = sets:new() :: set(),
+		   mod_deps                    :: mod_deps(),
+		   implementation_md5 = []     :: [file_md5()]}).
 
 %%----------------------------------------------------------------------
 
@@ -97,17 +103,21 @@ new() ->
 
 -spec delete_module(plt(), module()) -> plt().
 
-delete_module(#plt{info = Info, types = Types, contracts = Contracts}, Mod) ->
+delete_module(#plt{info = Info, types = Types, contracts = Contracts,
+                   exported_types = ExpTypes}, Mod) ->
   #plt{info = table_delete_module(Info, Mod),
        types = table_delete_module2(Types, Mod),
-       contracts = table_delete_module(Contracts, Mod)}.
+       contracts = table_delete_module(Contracts, Mod),
+       exported_types = table_delete_module1(ExpTypes, Mod)}.
 
 -spec delete_list(plt(), [mfa() | integer()]) -> plt().
 
-delete_list(#plt{info = Info, types = Types, contracts = Contracts}, List) ->
+delete_list(#plt{info = Info, types = Types, contracts = Contracts,
+                 exported_types = ExpTypes}, List) ->
   #plt{info = table_delete_list(Info, List),
        types = Types,
-       contracts = table_delete_list(Contracts, List)}.
+       contracts = table_delete_list(Contracts, List),
+       exported_types = ExpTypes}.
 
 -spec insert_contract_list(plt(), dialyzer_contracts:plt_contracts()) -> plt().
 
@@ -150,10 +160,20 @@ lookup(#plt{info = Info}, Label) when is_integer(Label) ->
 insert_types(PLT, Rec) ->
   PLT#plt{types = Rec}.
 
+-spec insert_exported_types(plt(), set()) -> plt().
+
+insert_exported_types(PLT, Set) ->
+  PLT#plt{exported_types = Set}.
+
 -spec get_types(plt()) -> dict().
 
 get_types(#plt{types = Types}) ->
   Types.
+
+-spec get_exported_types(plt()) -> set().
+
+get_exported_types(#plt{exported_types = ExpTypes}) ->
+  ExpTypes.
 
 -type mfa_types() :: {mfa(), erl_types:erl_type(), [erl_types:erl_type()]}.
 
@@ -207,7 +227,8 @@ from_file(FileName, ReturnInfo) ->
 	ok -> 
 	  Plt = #plt{info = Rec#file_plt.info,
 		     types = Rec#file_plt.types,
-		     contracts = Rec#file_plt.contracts},
+		     contracts = Rec#file_plt.contracts,
+                     exported_types = Rec#file_plt.exported_types},
 	  case ReturnInfo of
 	    false -> Plt;
 	    true ->
@@ -261,15 +282,18 @@ get_record_from_file(FileName) ->
 merge_plts(List) ->
   InfoList = [Info || #plt{info = Info} <- List],
   TypesList = [Types || #plt{types = Types} <- List],
+  ExpTypesList = [ExpTypes || #plt{exported_types = ExpTypes} <- List],
   ContractsList = [Contracts || #plt{contracts = Contracts} <- List],
   #plt{info = table_merge(InfoList),
        types = table_merge(TypesList),
+       exported_types = sets_merge(ExpTypesList),
        contracts = table_merge(ContractsList)}.
 
 -spec to_file(file:filename(), plt(), mod_deps(), {[file_md5()], mod_deps()}) -> 'ok'.
 
 to_file(FileName,
-	#plt{info = Info, types = Types, contracts = Contracts},
+	#plt{info = Info, types = Types, contracts = Contracts,
+             exported_types = ExpTypes},
 	ModDeps, {MD5, OldModDeps}) ->
   NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) -> 
 			      ordsets:union(OldVal, NewVal)
@@ -281,6 +305,7 @@ to_file(FileName,
 		     info = Info,
 		     contracts = Contracts,
 		     types = Types,
+                     exported_types = ExpTypes,
 		     mod_deps = NewModDeps,
 		     implementation_md5 = ImplMd5},
   Bin = term_to_binary(Record, [compressed]),
@@ -475,6 +500,9 @@ table_delete_module(Plt, Mod) ->
 		 (_, _) -> true
 	      end, Plt).
 
+table_delete_module1(Plt, Mod) ->
+  sets:filter(fun({M, _F, _A}) -> M =/= Mod end, Plt).
+
 table_delete_module2(Plt, Mod) ->
   dict:filter(fun(M, _Val) -> M =/= Mod end, Plt).
 
@@ -525,6 +553,15 @@ table_merge([], Acc) ->
 table_merge([Plt|Plts], Acc) ->
   NewAcc = dict:merge(fun(_Key, Val, Val) -> Val end, Plt, Acc),
   table_merge(Plts, NewAcc).
+
+sets_merge([H|T]) ->
+  sets_merge(T, H).
+
+sets_merge([], Acc) ->
+  Acc;
+sets_merge([Plt|Plts], Acc) ->
+  NewAcc = sets:union(Plt, Acc),
+  sets_merge(Plts, NewAcc).
 
 %%---------------------------------------------------------------------------
 %% Debug utilities.

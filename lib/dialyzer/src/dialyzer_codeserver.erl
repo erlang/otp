@@ -29,15 +29,19 @@
 
 -export([delete/1,
 	 finalize_contracts/2,
+         finalize_exported_types/2,
 	 finalize_records/2,
 	 get_contracts/1,
+         get_exported_types/1,
 	 get_exports/1, 
 	 get_records/1,
 	 get_next_core_label/1,
 	 get_temp_contracts/1,
+         get_temp_exported_types/1,
 	 get_temp_records/1,
-	 insert/3, 
-	 insert_exports/2,	 
+	 insert/3,
+	 insert_exports/2,
+         insert_temp_exported_types/2,
 	 is_exported/2,
 	 lookup_mod_code/2,
 	 lookup_mfa_code/2,
@@ -52,17 +56,21 @@
 	 store_contracts/3,
 	 store_temp_contracts/3]).
 
+-export_type([codeserver/0]).
+
 -include("dialyzer.hrl").
 
 %%--------------------------------------------------------------------
 
--record(codeserver, {table_pid		          :: pid(),
-		     exports         = sets:new() :: set(), % set(mfa())
-		     next_core_label = 0          :: label(),
-		     records         = dict:new() :: dict(),
-		     temp_records    = dict:new() :: dict(),
-		     contracts       = dict:new() :: dict(),
-		     temp_contracts  = dict:new() :: dict()}).
+-record(codeserver, {table_pid		              :: pid(),
+                     exported_types      = sets:new() :: set(), % set(mfa())
+                     temp_exported_types = sets:new() :: set(), % set(mfa())
+		     exports             = sets:new() :: set(), % set(mfa())
+		     next_core_label     = 0          :: label(),
+		     records             = dict:new() :: dict(),
+		     temp_records        = dict:new() :: dict(),
+		     contracts           = dict:new() :: dict(),
+		     temp_contracts      = dict:new() :: dict()}).
 
 -opaque codeserver() :: #codeserver{}.
 
@@ -84,6 +92,11 @@ insert(Mod, ModCode, CS) ->
   NewTablePid = table__insert(CS#codeserver.table_pid, Mod, ModCode),
   CS#codeserver{table_pid = NewTablePid}.
 
+-spec insert_temp_exported_types(set(), codeserver()) -> codeserver().
+
+insert_temp_exported_types(Set, CS) ->
+  CS#codeserver{temp_exported_types = Set}.
+
 -spec insert_exports([mfa()], codeserver()) -> codeserver().
 
 insert_exports(List, #codeserver{exports = Exports} = CS) ->
@@ -96,10 +109,25 @@ insert_exports(List, #codeserver{exports = Exports} = CS) ->
 is_exported(MFA, #codeserver{exports = Exports}) ->
   sets:is_element(MFA, Exports).
 
+-spec get_exported_types(codeserver()) -> set(). % set(mfa())
+
+get_exported_types(#codeserver{exported_types = ExpTypes}) ->
+  ExpTypes.
+
+-spec get_temp_exported_types(codeserver()) -> set().
+
+get_temp_exported_types(#codeserver{temp_exported_types = TempExpTypes}) ->
+  TempExpTypes.
+
 -spec get_exports(codeserver()) -> set().  % set(mfa())
 
 get_exports(#codeserver{exports = Exports}) ->
   Exports.
+
+-spec finalize_exported_types(set(), codeserver()) -> codeserver().
+
+finalize_exported_types(Set, CS) ->
+  CS#codeserver{exported_types = Set, temp_exported_types = sets:new()}.
 
 -spec lookup_mod_code(module(), codeserver()) -> cerl:c_module().
 

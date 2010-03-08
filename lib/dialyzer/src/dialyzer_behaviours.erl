@@ -156,9 +156,11 @@ check_all_callbacks(Module, Behaviour, Callbacks, State) ->
 
 check_all_callbacks(_Module, _Behaviour, [], _State, Acc) ->
   Acc;
-check_all_callbacks(Module, Behaviour, [{Fun, Arity, Spec}|Rest], State, Acc) ->
-  Records = dialyzer_codeserver:get_records(State#state.codeserver),
-  case parse_spec(Spec, Records) of
+check_all_callbacks(Module, Behaviour, [{Fun, Arity, Spec}|Rest],
+                    #state{codeserver = CServer} = State, Acc) ->
+  Records = dialyzer_codeserver:get_records(CServer),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CServer),
+  case parse_spec(Spec, ExpTypes, Records) of
     {ok, Fun, Type} ->
       RetType = erl_types:t_fun_range(Type),
       ArgTypes = erl_types:t_fun_args(Type),
@@ -172,7 +174,7 @@ check_all_callbacks(Module, Behaviour, [{Fun, Arity}|Rest], State, Acc) ->
   Warns = {spec_missing, [Behaviour, Fun, Arity]},
   check_all_callbacks(Module, Behaviour, Rest, State, [Warns|Acc]).
 
-parse_spec(String, Records) ->
+parse_spec(String, ExpTypes, Records) ->
   case erl_scan:string(String) of
     {ok, Tokens, _} ->
       case erl_parse:parse(Tokens) of
@@ -181,7 +183,8 @@ parse_spec(String, Records) ->
 	    {attribute, _, 'spec', {{Fun, _}, [TypeForm|_Constraint]}} ->
 	      MaybeRemoteType = erl_types:t_from_form(TypeForm),
 	      try
-		Type = erl_types:t_solve_remote(MaybeRemoteType, Records),
+		Type = erl_types:t_solve_remote(MaybeRemoteType, ExpTypes,
+                                                Records),
 		{ok, Fun, Type}
 	      catch
 		throw:{error,Msg} -> {spec_remote_error, Msg}

@@ -123,8 +123,7 @@ analysis_start(Parent, Analysis) ->
 			  parent = Parent,
 			  start_from = Analysis#analysis.start_from,
 			  use_contracts = Analysis#analysis.use_contracts,
-			  behaviours = {Analysis#analysis.behaviours_chk,
-					    []}
+			  behaviours = {Analysis#analysis.behaviours_chk, []}
 			 },
   Files = ordsets:from_list(Analysis#analysis.files),
   {Callgraph, NoWarn, TmpCServer0} = compile_and_store(Files, State),
@@ -132,22 +131,36 @@ analysis_start(Parent, Analysis) ->
   NewCServer =
     try
       NewRecords = dialyzer_codeserver:get_temp_records(TmpCServer0),
-      OldRecords = dialyzer_plt:get_types(State#analysis_state.plt),
+      NewExpTypes = dialyzer_codeserver:get_temp_exported_types(TmpCServer0),
+      OldRecords = dialyzer_plt:get_types(Plt),
+      OldExpTypes0 = dialyzer_plt:get_exported_types(Plt),
       MergedRecords = dialyzer_utils:merge_records(NewRecords, OldRecords),
+      RemMods =
+        [case Analysis#analysis.start_from of
+           byte_code -> list_to_atom(filename:basename(F, ".beam"));
+           src_code -> list_to_atom(filename:basename(F, ".erl"))
+         end || F <- Files],
+      OldExpTypes1 = dialyzer_utils:sets_filter(RemMods, OldExpTypes0),
+      MergedExpTypes = sets:union(NewExpTypes, OldExpTypes1),
       TmpCServer1 = dialyzer_codeserver:set_temp_records(MergedRecords, TmpCServer0),
-      TmpCServer2 = dialyzer_utils:process_record_remote_types(TmpCServer1),
-      dialyzer_contracts:process_contract_remote_types(TmpCServer2)
+      TmpCServer2 =
+        dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
+                                                       TmpCServer1),
+      TmpCServer3 = dialyzer_utils:process_record_remote_types(TmpCServer2),
+      dialyzer_contracts:process_contract_remote_types(TmpCServer3)
     catch
       throw:{error, _ErrorMsg} = Error -> exit(Error)
     end,
-  NewPlt = dialyzer_plt:insert_types(Plt, dialyzer_codeserver:get_records(NewCServer)),
-  State0 = State#analysis_state{plt = NewPlt},
+  NewPlt0 = dialyzer_plt:insert_types(Plt, dialyzer_codeserver:get_records(NewCServer)),
+  ExpTypes =  dialyzer_codeserver:get_exported_types(NewCServer),
+  NewPlt1 = dialyzer_plt:insert_exported_types(NewPlt0, ExpTypes),
+  State0 = State#analysis_state{plt = NewPlt1},
   dump_callgraph(Callgraph, State0, Analysis),
   State1 = State0#analysis_state{codeserver = NewCServer},
   State2 = State1#analysis_state{no_warn_unused = NoWarn},
   %% Remove all old versions of the files being analyzed
   AllNodes = dialyzer_callgraph:all_nodes(Callgraph),
-  Plt1 = dialyzer_plt:delete_list(NewPlt, AllNodes),
+  Plt1 = dialyzer_plt:delete_list(NewPlt1, AllNodes),
   Exports = dialyzer_codeserver:get_exports(NewCServer),
   NewCallgraph =
     case Analysis#analysis.race_detection of
@@ -371,13 +384,27 @@ compile_byte(File, Callgraph, CServer, UseContracts) ->
 
 store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   Exp = get_exports_from_core(Core),
+  OldExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
+  NewExpTypes = get_exported_types_from_core(Core),
+  MergedExpTypes = sets:union(NewExpTypes, OldExpTypes),
   CServer1 = dialyzer_codeserver:insert_exports(Exp, CServer),
-  {LabeledCore, CServer2} = label_core(Core, CServer1),
-  store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer2, NoWarn).
+  CServer2 = dialyzer_codeserver:insert_temp_exported_types(MergedExpTypes,
+                                                            CServer1),
+  {LabeledCore, CServer3} = label_core(Core, CServer2),
+  store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer3, NoWarn).
 
 abs_get_nowarn(Abs, M) ->
   [{M, F, A} 
    || {attribute, _, compile, {nowarn_unused_function, {F, A}}} <- Abs].
+
+get_exported_types_from_core(Core) ->
+  Attrs = cerl:module_attrs(Core),
+  ExpTypes1 = [cerl:concrete(L2) || {L1, L2} <- Attrs, cerl:is_literal(L1),
+                                    cerl:is_literal(L2),
+                                    cerl:concrete(L1) =:= 'export_type'],
+  ExpTypes2 = lists:flatten(ExpTypes1),
+  M = cerl:atom_val(cerl:module_name(Core)),
+  sets:from_list([{M, F, A} || {F, A} <- ExpTypes2]).
 
 get_exports_from_core(Core) ->
   Tree = cerl:from_records(Core),
