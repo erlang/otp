@@ -62,7 +62,8 @@ all(doc) ->
 all(suite) ->
     [
 	require,
-	nested_keys
+	userconfig_static,
+	userconfig_dynamic
     ].
 
 
@@ -74,41 +75,41 @@ all(suite) ->
 %%%
 require(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    Join = fun(D, S) -> filename:join(D, "config/test/"++S) end,
-    Suites = [Join(DataDir, "config_1_SUITE")],
-    CTConfig = {config, filename:join(DataDir, "config/cfg.cfg")},
-    {Opts,ERPid} = setup({suite,Suites}, Config, CTConfig),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
-    Events = ct_test_support:get_events(ERPid, Config),
+    run_test(require,
+	     Config,
+	     {config, filename:join(DataDir, "config/config.txt")},
+             ["config_1_SUITE"]).
 
-    ct_test_support:log_events(require,
-			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
-
-    TestEvents = test_events(require),
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
-
-nested_keys(Config) when is_list(Config) ->
+userconfig_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    Join = fun(D, S) -> filename:join(D, "config/test/"++S) end,
-    Suites = [Join(DataDir, "config_2_SUITE")],
-    CTConfig = {config, filename:join(DataDir, "config/cfg.cfg")},
-    {Opts,ERPid} = setup({suite,Suites}, Config, CTConfig),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
-    Events = ct_test_support:get_events(ERPid, Config),
+    run_test(userconfig_static,
+	     Config,
+	     {userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}},
+             ["config_1_SUITE"]).
 
-    ct_test_support:log_events(nested_keys,
-			       reformat(Events, ?eh),
-			       ?config(priv_dir, Config)),
-
-    TestEvents = test_events(nested_keys),
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+userconfig_dynamic(Config) when is_list(Config) ->
+    run_test(userconfig_dynamic,
+	     Config,
+	     {userconfig, {config_driver, "config_server"}},
+             ["config_2_SUITE"]).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+run_test(Name, Config, CTConfig, SuiteNames)->
+    DataDir = ?config(data_dir, Config),
+    Joiner = fun(Suite) -> filename:join(DataDir, "config/test/"++Suite) end,
+    Suites = lists:map(Joiner, SuiteNames),
+    {Opts,ERPid} = setup_env({suite,Suites}, Config, CTConfig),
+    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    TestEvents = ct_test_support:get_events(ERPid, Config),
+    ct_test_support:log_events(Name,
+			       reformat_events(TestEvents, ?eh),
+			       ?config(priv_dir, Config)),
+    ExpEvents = expected_events(Name),
+    ok = ct_test_support:verify_events(ExpEvents, TestEvents, Config).
 
-setup(Test, Config, CTConfig) ->
+setup_env(Test, Config, CTConfig) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
@@ -116,46 +117,45 @@ setup(Test, Config, CTConfig) ->
     ERPid = ct_test_support:start_event_receiver(Config),
     {Opts,ERPid}.
 
-reformat(Events, EH) ->
+reformat_events(Events, EH) ->
     ct_test_support:reformat(Events, EH).
-%reformat(Events, _EH) ->
-%    Events.
 
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-test_events(require) ->
+expected_events(ReqOrUCS) when ReqOrUCS==require;  ReqOrUCS==userconfig_static->
 [
  {?eh,start_logging,{'DEF','RUNDIR'}},
  {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
  {?eh,start_info,{1,1,8}},
  {?eh,tc_start,{config_1_SUITE,init_per_suite}},
  {?eh,tc_done,{config_1_SUITE,init_per_suite,ok}},
- {?eh,tc_start,{config_1_SUITE,test1}},
- {?eh,tc_done,{config_1_SUITE,test1,ok}},
+ {?eh,tc_start,{config_1_SUITE,test_get_config_simple}},
+ {?eh,tc_done,{config_1_SUITE,test_get_config_simple,ok}},
  {?eh,test_stats,{1,0,{0,0}}},
- {?eh,tc_start,{config_1_SUITE,test2}},
+ {?eh,tc_start,{config_1_SUITE,test_get_config_nested}},
+ {?eh,tc_done,{config_1_SUITE,test_get_config_nested,ok}},
+ {?eh,test_stats,{2,0,{0,0}}},
+ {?eh,tc_start,{config_1_SUITE,test_default_suitewide}},
+ {?eh,tc_done,{config_1_SUITE,test_default_suitewide,ok}},
+ {?eh,test_stats,{3,0,{0,0}}},
+ {?eh,tc_start,{config_1_SUITE,test_config_name_already_in_use1}},
  {?eh,tc_done,
-     {config_1_SUITE,test2,{skipped,{config_name_already_in_use,[x1]}}}},
- {?eh,test_stats,{1,0,{1,0}}},
- {?eh,tc_start,{config_1_SUITE,test3}},
- {?eh,tc_done,{config_1_SUITE,test3,ok}},
- {?eh,test_stats,{2,0,{1,0}}},
- {?eh,tc_start,{config_1_SUITE,test4}},
+     {config_1_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
+ {?eh,test_stats,{3,0,{1,0}}},
+ {?eh,tc_start,{config_1_SUITE,test_default_tclocal}},
+ {?eh,tc_done,{config_1_SUITE,test_default_tclocal,ok}},
+ {?eh,test_stats,{4,0,{1,0}}},
+ {?eh,tc_start,{config_1_SUITE,test_config_name_already_in_use2}},
  {?eh,tc_done,
-     {config_1_SUITE,test4,{skipped,{config_name_already_in_use,[x1,alias]}}}},
- {?eh,test_stats,{2,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test5}},
- {?eh,tc_done,{config_1_SUITE,test5,ok}},
- {?eh,test_stats,{3,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test6}},
- {?eh,tc_done,{config_1_SUITE,test6,ok}},
+     {config_1_SUITE,test_config_name_already_in_use2,
+         {skipped,{config_name_already_in_use,[x1,alias]}}}},
  {?eh,test_stats,{4,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test7}},
- {?eh,tc_done,{config_1_SUITE,test7,ok}},
+ {?eh,tc_start,{config_1_SUITE,test_alias_tclocal}},
+ {?eh,tc_done,{config_1_SUITE,test_alias_tclocal,ok}},
  {?eh,test_stats,{5,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test8}},
- {?eh,tc_done,{config_1_SUITE,test8,ok}},
+ {?eh,tc_start,{config_1_SUITE,test_get_config_undefined}},
+ {?eh,tc_done,{config_1_SUITE,test_get_config_undefined,ok}},
  {?eh,test_stats,{6,0,{2,0}}},
  {?eh,tc_start,{config_1_SUITE,end_per_suite}},
  {?eh,tc_done,{config_1_SUITE,end_per_suite,ok}},
@@ -163,5 +163,24 @@ test_events(require) ->
  {?eh,stop_logging,[]}
 ];
 
-test_events(nested_keys)->
-[].
+expected_events(userconfig_dynamic)->
+[
+ {ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
+ {ct_test_support_eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+ {ct_test_support_eh,start_info,{1,1,3}},
+ {ct_test_support_eh,tc_start,{config_2_SUITE,init_per_suite}},
+ {ct_test_support_eh,tc_done,{config_2_SUITE,init_per_suite,ok}},
+ {ct_test_support_eh,tc_start,{config_2_SUITE,test_get_known_variable}},
+ {ct_test_support_eh,tc_done,{config_2_SUITE,test_get_known_variable,ok}},
+ {ct_test_support_eh,test_stats,{1,0,{0,0}}},
+ {ct_test_support_eh,tc_start,{config_2_SUITE,test_localtime_update}},
+ {ct_test_support_eh,tc_done,{config_2_SUITE,test_localtime_update,ok}},
+ {ct_test_support_eh,test_stats,{2,0,{0,0}}},
+ {ct_test_support_eh,tc_start,{config_2_SUITE,test_server_pid}},
+ {ct_test_support_eh,tc_done,{config_2_SUITE,test_server_pid,ok}},
+ {ct_test_support_eh,test_stats,{3,0,{0,0}}},
+ {ct_test_support_eh,tc_start,{config_2_SUITE,end_per_suite}},
+ {ct_test_support_eh,tc_done,{config_2_SUITE,end_per_suite,ok}},
+ {ct_test_support_eh,test_done,{'DEF','STOP_TIME'}},
+ {ct_test_support_eh,stop_logging,[]}
+].

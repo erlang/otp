@@ -198,13 +198,13 @@ get_config_file_list(Opts)->
 	    DefaultConfigs == []->
 		[];
 	    true->
-		[{ct_config_plain, DefaultConfigs}]
+		[{?ct_config_txt, DefaultConfigs}]
 	end ++
 	process_user_configs(Opts, []),
     CfgFiles.
 
 read_config_files(Opts) ->
-    ct:pal("ct_config:read_config_files/1:~nOpts:~n~p", [Opts]),
+    %ct:pal("ct_config:read_config_files/1:~nOpts:~n~p", [Opts]),
     AddCallback = fun(CallBack, [])->
 			[{CallBack, []}];
 		     (CallBack, Files)->
@@ -220,7 +220,7 @@ read_config_files(Opts) ->
 	false->
 	    []
     end,
-    ct:pal("ct_config:read_config_files/1:~nConfigFiles:~n~p", [ConfigFiles]),
+    %ct:pal("ct_config:read_config_files/1:~nConfigFiles:~n~p", [ConfigFiles]),
     read_config_files_int(ConfigFiles, fun store_config/3).
 
 read_config_files_int([{Callback, File}|Files], FunToSave)->
@@ -687,7 +687,7 @@ check_callback_load(Callback)->
     end.
 
 check_config_files(Configs)->
-    ct:pal("ct_config:check_config_files(~p)", [Configs]),
+    ct:pal("ct_config:check_config_files/1~nConfigs:~n~p", [Configs]),
     lists:keysearch(nok, 1,
 	lists:flatten(
 	    lists:map(fun({Callback, Files})->
@@ -719,7 +719,7 @@ prepare_user_configs([], Acc, _)->
 prepare_config_list(Args)->
     ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
 	{value,{ct_config,Files}}->
-	    [{ct_config_plain, Files}];
+	    [{?ct_config_txt, Files}];
 	false->
 	    []
     end,

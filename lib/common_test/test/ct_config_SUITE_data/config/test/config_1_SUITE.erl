@@ -16,23 +16,44 @@
 %%
 %% %CopyrightEnd%
 %%
+
+%%%-------------------------------------------------------------------
+%%% File: config_1_SUITE
+%%%
+%%% Description:
+%%% Test suite for common_test which tests the get_config and require
+%%% functionality
+%%%-------------------------------------------------------------------
 -module(config_1_SUITE).
 
 -compile(export_all).
 
 -include_lib("common_test/include/ct.hrl").
 
+% The config contains variables:
+% x - atom
+% gen_cfg - list with two key-values tagged with a and b
+% gen_cfg2 - list of five key-values tagged with c, d, e, f and g
+% gen_cfg3 - list of two complex key-values taggen with:
+%	h: three elements inside - i, j and k
+%	l: m inside, contains n and o
+
 suite() ->
     [
      {timetrap, {seconds,10}},
      %% x1 doesn't exist in cfg-file!
      {require, x1, x},
-     {require, gen_cfg2},
-     {require, alias, gen_cfg3},
+     {require, gen_cfg3},
+     {require, alias, gen_cfg},
      %% x1 default value
      {x1, {x,suite}}
     ].
 
+% to get it running on development branch (without userconfig features)
+% function to print full config is in the ct_util, for me it's moved to ct_config
+% two following functions are only for the design period
+% after merging of userconfigs to the main branch ct_config:get_all_config/0
+% should be called instead
 is_exported(Module, Function, Arity)->
     Exports = Module:module_info(exports),
     case lists:keyfind(Function, 1, Exports) of
@@ -53,83 +74,78 @@ get_all_config()->
     end.
 
 init_per_suite(Config) ->
-    {Module, Cfg} = get_all_config(),
-    ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
+    %{Module, Cfg} = get_all_config(),
+    %ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
     Config.
 
 end_per_suite(_) ->
     ok.
 
-all() -> [test1,test2,test3,test4,test5,test6,test7,test8].
+all() -> [test_get_config_simple, test_get_config_nested, test_default_suitewide,
+	  test_config_name_already_in_use1, test_default_tclocal,
+	  test_config_name_already_in_use2, test_alias_tclocal,
+	  test_get_config_undefined].
 
 init_per_testcase(_, Config) ->
-    {Module, Cfg} = get_all_config(),
-    ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
+    %{Module, Cfg} = get_all_config(),
+    %ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
     Config.
 
 end_per_testcase(_, _) ->
     ok.
 
-test1(_) ->
+%% test getting a simple value
+test_get_config_simple(_)->
+    suite = ct:get_config(x),
+    ok.
+
+%% test getting a nested value
+test_get_config_nested(_)->
+    a_value = ct:get_config({gen_cfg, a}),
+    ok.
+
+%% test suite-wide default value
+test_default_suitewide(_)->
     suite = ct:get_config(x1),
-    [{a,x},{b,y}] = ct:get_config(gen_cfg2),
-    [{v,w},{m,n}] = ct:get_config(alias),
     ok.
 
 %% should get skipped
-test2() ->
+test_config_name_already_in_use1() ->
     [{timetrap, {seconds,2}},
      {require, x1, x},
      {x1, {x,test2}}].
-test2(_) ->
-    test2 = ct:get_config(x1),
-    [{a,x},{b,y}] = ct:get_config(gen_cfg2),
-    [{v,w},{m,n}] = ct:get_config(alias),
+test_config_name_already_in_use1(_) ->
     ct:fail("Test should've been skipped, you shouldn't see this!"),
     ok.
 
-test3() ->
+%% test defaults in a testcase
+test_default_tclocal() ->
     [{timetrap, {seconds,3}},
      {require, y1, y},
      {y1, {y,test3}}].
-test3(_) ->
-    suite = ct:get_config(x1),
+test_default_tclocal(_) ->
     test3 = ct:get_config(y1),
-    [{a,x},{b,y}] = ct:get_config(gen_cfg2),
-    [{v,w},{m,n}] = ct:get_config(alias),
     ok.
 
 %% should get skipped
-test4() ->
+test_config_name_already_in_use2() ->
     [{require,alias,something},
      {alias,{something,else}},
      {require, x1, x},
      {x1, {x,test4}}].
-test4(_) ->
+test_config_name_already_in_use2(_) ->
     ct:fail("Test should've been skipped, you shouldn't see this!"),
     ok.
 
-test5() ->
-    [{require,newalias,gen_cfg2}].
-test5(_) ->
-    A = [{a,x},{b,y}] = ct:get_config(newalias),
-    A = ct:get_config(gen_cfg2),
+%% test aliases
+test_alias_tclocal() ->
+    [{require,newalias,gen_cfg}].
+test_alias_tclocal(_) ->
+    A = [{a,a_value},{b,b_value}] = ct:get_config(newalias),
+    A = ct:get_config(gen_cfg),
     ok.
 
-test6(_) ->
+%% test for getting undefined variables
+test_get_config_undefined(_) ->
     undefined = ct:get_config(y1),
-    ok.
-
-test7() ->
-    [{require, y1, y},
-     {y1, {y,test6}}].
-test7(_) ->
-    suite = ct:get_config(x1),
-    test6 = ct:get_config(y1),
-    ok.
-
-%% should get skipped
-test8() ->
-    [{require, x}].
-test8(_) ->
     ok.
