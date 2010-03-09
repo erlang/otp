@@ -170,8 +170,7 @@ ltype({type,Line,T,Ts}) ->
 ltype({remote_type,Line,[M,F,Ts]}) ->
     simple_type({remote,Line,M,F}, Ts);
 ltype({atom,_,T}) ->
-    %% Follow the convention to always quote atoms (in types):
-    leaf([$',atom_to_list(T),$']);
+    leaf(write(T));
 ltype(E) ->
     lexpr(E, 0, none).
 
