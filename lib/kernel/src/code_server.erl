@@ -32,14 +32,15 @@
 
 -import(lists, [foreach/2]).
 
--record(state,{supervisor,
-	       root,
-	       path,
-	       moddb,
-	       namedb,
-	       cache = no_cache,
-	       mode=interactive,
-	       on_load = []}).
+-record(state, {supervisor,
+		root,
+		path,
+		moddb,
+		namedb,
+		cache = no_cache,
+		mode = interactive,
+		on_load = []}).
+-type state() :: #state{}.
 
 start_link(Args) ->
     Ref = make_ref(),
@@ -221,6 +222,7 @@ system_terminate(_Reason, _Parent, _Debug, _State) ->
 %    error_msg("~p terminating: ~p~n ",[?MODULE,Reason]),
     exit(shutdown).
 
+-spec system_code_change(state(), module(), term(), term()) -> {'ok', state()}.
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}.
 

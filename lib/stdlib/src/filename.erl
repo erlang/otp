@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(filename).
@@ -57,12 +57,12 @@
 %% (for Unix) : absname("/") -> "/"
 %% (for WIN32): absname("/") -> "D:/"
 
--spec absname(name()) -> string().
+-spec absname(file:name()) -> string().
 absname(Name) ->
     {ok, Cwd} = file:get_cwd(),
     absname(Name, Cwd).
 
--spec absname(name(), string()) -> string().
+-spec absname(file:name(), string()) -> string().
 absname(Name, AbsBase) ->
     case pathtype(Name) of
 	relative ->
@@ -98,7 +98,7 @@ absname_vr([[X, $:]|Name], _, _AbsBase) ->
 %% For other systems this is just a join/2, but assumes that 
 %% AbsBase must be absolute and Name must be relative.
 
--spec absname_join(string(), name()) -> string().
+-spec absname_join(string(), file:name()) -> string().
 absname_join(AbsBase, Name) ->
     case major_os_type() of
 	vxworks -> 
@@ -136,7 +136,7 @@ absname_pretty(Abspath, [First|Rest], AbsBase) ->
 %%           basename("/usr/foo/") -> "foo"  (trailing slashes ignored)
 %%           basename("/") -> []
 
--spec basename(name()) -> string().
+-spec basename(file:name()) -> string().
 basename(Name0) ->
     Name = flatten(Name0),
     {DirSep2, DrvSep} = separators(),
@@ -190,7 +190,7 @@ skip_prefix1(Name, _) ->
 %%	    rootname(basename("xxx.jam")) -> "xxx"
 %%	    rootname(basename("xxx.erl")) -> "xxx"
 
--spec basename(name(), name()) -> string().
+-spec basename(file:name(), file:name()) -> string().
 basename(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
@@ -216,7 +216,7 @@ basename([], _Ext, Tail, _DrvSep2) ->
 %% Example: dirname("/usr/src/kalle.erl") -> "/usr/src",
 %%	    dirname("kalle.erl") -> "."
 
--spec dirname(name()) -> string().
+-spec dirname(file:name()) -> string().
 dirname(Name0) ->
     Name = flatten(Name0),
     case os:type() of
@@ -268,7 +268,7 @@ dirname([], Dir, _, _) ->
 %%
 %% On Windows:  fn:dirname("\\usr\\src/kalle.erl") -> "/usr/src"
 
--spec extension(name()) -> string().
+-spec extension(file:name()) -> string().
 extension(Name0) ->
     Name = flatten(Name0),
     extension(Name, [], major_os_type()).
@@ -357,7 +357,7 @@ maybe_remove_dirsep(Name, _) ->
 %% a given base directory, which is is assumed to be normalised
 %% by a previous call to join/{1,2}.
 
--spec append(string(), name()) -> string().
+-spec append(string(), file:name()) -> string().
 append(Dir, Name) ->
     Dir ++ [$/|Name].
 
@@ -373,7 +373,7 @@ append(Dir, Name) ->
 %%		current working volume.  (Windows only)
 %%		Example: a:bar.erl, /temp/foo.erl
 
--spec pathtype(name()) -> 'absolute' | 'relative' | 'volumerelative'.
+-spec pathtype(file:name()) -> 'absolute' | 'relative' | 'volumerelative'.
 pathtype(Atom) when is_atom(Atom) ->
     pathtype(atom_to_list(Atom));
 pathtype(Name) when is_list(Name) ->
@@ -422,7 +422,7 @@ win32_pathtype(_) 		  -> relative.
 %% Examples: rootname("/jam.src/kalle") -> "/jam.src/kalle"
 %%           rootname("/jam.src/foo.erl") -> "/jam.src/foo"
 
--spec rootname(name()) -> string().
+-spec rootname(file:name()) -> string().
 rootname(Name0) ->
     Name = flatten(Name0),
     rootname(Name, [], [], major_os_type()).
@@ -451,7 +451,7 @@ rootname([], Root, _Ext, _OsType) ->
 %% Examples: rootname("/jam.src/kalle.jam", ".erl") -> "/jam.src/kalle.jam"
 %%           rootname("/jam.src/foo.erl", ".erl") -> "/jam.src/foo"
 
--spec rootname(name(), name()) -> string().
+-spec rootname(file:name(), file:name()) -> string().
 rootname(Name0, Ext0) ->
     Name = flatten(Name0),
     Ext = flatten(Ext0),
@@ -471,7 +471,7 @@ rootname2([Char|Rest], Ext, Result) when is_integer(Char) ->
 %% split("foo/bar") -> ["foo", "bar"]
 %% split("a:\\msdev\\include") -> ["a:/", "msdev", "include"]
 
--spec split(name()) -> [string()].
+-spec split(file:name()) -> [string()].
 split(Name0) ->
     Name = flatten(Name0),
     case os:type() of
@@ -771,7 +771,7 @@ vxworks_first2(Devicep, [H|T], FirstComp) ->
 %% flatten(List)
 %%  Flatten a list, also accepting atoms.
 
--spec flatten(name()) -> string().
+-spec flatten(file:name()) -> string().
 flatten(List) ->
     do_flatten(List, []).
 

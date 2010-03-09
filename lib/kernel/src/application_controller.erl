@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(application_controller).
@@ -128,8 +128,13 @@
 %%   AppName = atom()
 %%   Application = App | AppName
 %%-----------------------------------------------------------------
+
+-type appname() :: atom().
+
 -record(state, {loading = [], starting = [], start_p_false = [], running = [],
 		control = [], started = [], start_req = [], conf_data}).
+-type state() :: #state{}.
+
 %%-----------------------------------------------------------------
 %% loading     = [{AppName, From}] - Load not yet finished
 %% starting    = [{AppName, RestartType, Type, From}] - Start not
@@ -604,6 +609,19 @@ check_para([Else | _ParaList], AppName) ->
      lists:flatten(io_lib:format("~p",[Else]))}.
 
 
+-type calls() :: 'info' | 'prep_config_change' | 'which_applications'
+               | {'config_change' | 'control_application' |
+		  'load_application' | 'start_type' | 'stop_application' |
+		  'unload_application', term()}
+               | {'change_application_data', _, _}
+               | {'permit_application', atom() | {'application',atom(),_},_}
+               | {'start_application', _, _}
+               | {'unset_env', _, _}
+               | {'set_env', _, _, _}.
+
+-spec handle_call(calls(), {pid(), term()}, state()) ->
+        {'noreply', state()} | {'reply', term(), state()}.
+
 handle_call({load_application, Application}, From, S) ->
     case catch do_load_application(Application, S) of
 	{ok, NewS} ->
@@ -885,6 +903,9 @@ handle_call(info, _From, S) ->
 	     {starting, S#state.starting}],
     {reply, Reply, S}.
 
+-spec handle_cast({'application_started', appname(), _}, state()) ->
+        {'noreply', state()} | {'stop', string(), state()}.
+
 handle_cast({application_started, AppName, Res}, S) ->
     handle_application_started(AppName, Res, S).
 
@@ -976,6 +997,9 @@ handle_application_started(AppName, Res, S) ->
 	    Reason = {application_start_failure, AppName, R},
 	    {stop, to_string(Reason), S}
     end.
+
+-spec handle_info(term(), state()) ->
+        {'noreply', state()} | {'stop', string(), state()}.
 
 handle_info({ac_load_application_reply, AppName, Res}, S) ->
     case keysearchdelete(AppName, 1, S#state.loading) of
@@ -1155,6 +1179,8 @@ handle_info({'EXIT', Pid, Reason}, S) ->
 handle_info(_, S) ->
     {noreply, S}.
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(Reason, S) ->
     case application:get_env(kernel, shutdown_func) of
 	{ok, {M, F}} ->
@@ -1170,8 +1196,10 @@ terminate(Reason, S) ->
 	       (_) -> ok
 	    end,
 	    S#state.running),
-    ets:delete(ac_tab).
+    true = ets:delete(ac_tab),
+    ok.
 
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.
@@ -1937,6 +1965,9 @@ test_make_apps([A|Apps], Res) ->
 %% Exit reason needs to be a printable string
 %% (and of length <200, but init now does the chopping).
 %%-----------------------------------------------------------------
+
+-spec to_string(term()) -> string().
+
 to_string(Term) ->
     case io_lib:printable_list(Term) of
 	true ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,7 +37,7 @@
 	 cont     :: dlog_cont(), 	% disk_log's continuation record
 	 file     :: file:filename(),	% file name without extension
 	 file_no  :: non_neg_integer(),	% current file number
-	 mod_time :: date_time(),	% modification time of current file
+	 mod_time :: file:date_time(),	% modification time of current file
 	 first_no :: non_neg_integer() | 'one' % first read file number
 	}).
 

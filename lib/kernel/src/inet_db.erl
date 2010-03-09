@@ -88,6 +88,7 @@
 	 hosts_file_byaddr, %% hosts table from system file
 	 cache_timer        %% timer reference for refresh
 	}).
+-type state() :: #state{}.
 
 -include("inet.hrl").
 -include("inet_int.hrl").
@@ -844,6 +845,9 @@ lookup_socket(Socket) when is_port(Socket) ->
 %% node_auth      Ls              - Default authenication
 %% node_crypt     Ls              - Default encryption
 %%
+
+-spec init([]) -> {'ok', state()}.
+
 init([]) ->
     process_flag(trap_exit, true),
     Db = ets:new(inet_db, [public, named_table]),
@@ -897,6 +901,10 @@ reset_db(Db) ->
 %%          {stop, Reason, Reply, State}   | (terminate/2 is called)
 %%          {stop, Reason, Reply, State}     (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_call(term(), {pid(), term()}, state()) ->
+        {'reply', term(), state()} | {'stop', 'normal', 'ok', state()}.
+
 handle_call(Request, From, #state{db=Db}=State) ->
     case Request of
 	{load_hosts_file,IPNmAs} when is_list(IPNmAs) ->
@@ -1145,6 +1153,9 @@ handle_call(Request, From, #state{db=Db}=State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast(_Msg, State) ->
     {noreply, State}.
 
@@ -1154,6 +1165,9 @@ handle_cast(_Msg, State) ->
 %%          {noreply, State, Timeout} |
 %%          {stop, Reason, State}            (terminate/2 is called)
 %%----------------------------------------------------------------------
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
+
 handle_info(refresh_timeout, State) ->
     do_refresh_cache(State#state.cache),
     {noreply, State#state{cache_timer = init_timer()}};
@@ -1166,6 +1180,9 @@ handle_info(_Info, State) ->
 %% Purpose: Shutdown the server
 %% Returns: any (ignored by gen_server)
 %%----------------------------------------------------------------------
+
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_Reason, State) ->
     stop_timer(State#state.cache_timer),
     ok.

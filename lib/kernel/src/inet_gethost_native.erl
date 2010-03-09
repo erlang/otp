@@ -106,8 +106,11 @@
 	  pool_size = 4, % Number of C processes in pool.
 	  statistics % Statistics record (records error causes).
 }).
+-type state() :: #state{}.
 
 %% The supervisor bridge code
+-spec init([]) -> {'ok', pid(), pid()} | {'error', term()}.
+
 init([]) -> % Called by supervisor_bridge:start_link
     Ref = make_ref(),
     SaveTE = process_flag(trap_exit,true),
@@ -154,8 +157,10 @@ run_once() ->
 	    Pid ! {R,{error,timeout}}
     end.
 
-terminate(_Reason,Pid) ->
-    (catch exit(Pid,kill)),
+-spec terminate(term(), pid()) -> 'ok'.
+
+terminate(_Reason, Pid) ->
+    (catch exit(Pid, kill)),
     ok.
 
 %%-----------------------------------------------------------------------
@@ -431,6 +436,7 @@ system_continue(_Parent, _, State) ->
 system_terminate(Reason, _Parent, _, _State) ->
     exit(Reason).
 
+-spec system_code_change(state(), module(), term(), term()) -> {'ok', state()}.
 system_code_change(State, _Module, _OldVsn, _Extra) ->
     {ok, State}. %% Nothing to do in this version.
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_epmd).
@@ -40,6 +40,7 @@
 -import(lists, [reverse/1]).
 
 -record(state, {socket, port_no = -1, name = ""}).
+-type state() :: #state{}.
 
 -include("inet_int.hrl").
 -include("erl_epmd.hrl").
@@ -111,10 +112,17 @@ register_node(Name, PortNo) ->
 %%% Callback functions from gen_server
 %%%----------------------------------------------------------------------
 
+-spec init(_) -> {'ok', state()}.
+
 init(_) ->
     {ok, #state{socket = -1}}.
 	    
 %%----------------------------------------------------------------------
+
+-type calls() :: 'client_info_req' | 'stop' | {'register', term(), term()}.
+
+-spec handle_call(calls(), term(), state()) ->
+        {'reply', term(), state()} | {'stop', 'shutdown', 'ok', state()}.
 
 handle_call({register, Name, PortNo}, _From, State) ->
     case State#state.socket of
@@ -141,10 +149,14 @@ handle_call(stop, _From, State) ->
 
 %%----------------------------------------------------------------------
 
+-spec handle_cast(term(), state()) -> {'noreply', state()}.
+
 handle_cast(_, State) ->
     {noreply, State}.
 
 %%----------------------------------------------------------------------
+
+-spec handle_info(term(), state()) -> {'noreply', state()}.
 
 handle_info({tcp_closed, Socket}, State) when State#state.socket =:= Socket ->
     {noreply, State#state{socket = -1}};
@@ -153,6 +165,8 @@ handle_info(_, State) ->
 
 %%----------------------------------------------------------------------
 
+-spec terminate(term(), state()) -> 'ok'.
+
 terminate(_, #state{socket = Socket}) when Socket > 0 ->
     close(Socket),
     ok;
@@ -160,6 +174,8 @@ terminate(_, _) ->
     ok.
 
 %%----------------------------------------------------------------------
+
+-spec code_change(term(), state(), term()) -> {'ok', state()}.
 
 code_change(_OldVsn, State, _Extra) ->
     {ok, State}.

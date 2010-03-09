@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -44,16 +44,10 @@
 -define(OPENED, <<6,7,8,9>>).
 -define(CLOSED, <<99,88,77,11>>).
 
-%% Needed for the definition of fd()
+%% Needed for the definition of #file_info{}
 %% Must use include_lib() so that we always can be sure to find
 %% file.hrl. A relative path will not work in an installed system.
 -include_lib("kernel/include/file.hrl").
-
-%% Ugly workaround. If we are building the bootstrap compiler,
-%% file.hrl does not define the fd() type.
--ifndef(FILE_HRL_).
--type fd() :: pid() | #file_descriptor{}.
--endif.
 
 %%------------------------------------------------------------------------
 %% Types -- alphabetically
@@ -94,7 +88,7 @@
 	      options = []        :: dlog_options()}).
 
 -record(cache,                %% Cache for logged terms (per file descriptor).
-        {fd       :: fd(),              %% File descriptor.
+        {fd       :: file:fd(),         %% File descriptor.
          sz = 0   :: non_neg_integer(),	%% Number of bytes in the cache.
          c = []   :: iodata()}          %% The cache.
         ).
