@@ -176,6 +176,8 @@ parse_file(Epp) ->
 	    [{eof,Location}]
     end.
 
+normalize_typed_record_fields([]) ->
+    {typed, []};
 normalize_typed_record_fields(Fields) ->
     normalize_typed_record_fields(Fields, [], false).
 

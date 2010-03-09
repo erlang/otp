@@ -23,7 +23,7 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1]).
+         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -63,7 +63,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470].
+     overload_mac, otp_8388, otp_8470, otp_8503].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -1156,6 +1156,21 @@ otp_8470(Config) when is_list(Config) ->
     ?line File = filename:join(Dir, "otp_8470.erl"),
     ?line ok = file:write_file(File, C),
     ?line {ok, _List} = epp:parse_file(File, [], []),
+    file:delete(File),
+    ?line receive _ -> fail() after 0 -> ok end,
+    ok.
+
+otp_8503(doc) ->
+    ["OTP-8503. Record with no fields is considered typed."];
+otp_8503(suite) ->
+    [];
+otp_8503(Config) when is_list(Config) ->
+    Dir = ?config(priv_dir, Config),
+    C = <<"-record(r, {}).">>,
+    ?line File = filename:join(Dir, "otp_8503.erl"),
+    ?line ok = file:write_file(File, C),
+    ?line {ok, List} = epp:parse_file(File, [], []),
+    ?line [_] = [F || {attribute,_,type,{{record,r},[],[]}}=F <- List],
     file:delete(File),
     ?line receive _ -> fail() after 0 -> ok end,
     ok.
