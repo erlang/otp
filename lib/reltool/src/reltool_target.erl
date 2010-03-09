@@ -707,16 +707,17 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
     {value, Erts} = lists:keysearch(erts, #app.name, Apps),
     FilterErts =
         fun(Spec) ->
-                File = element(2, Spec),
-                case lists:prefix("erts", File) of
-                    true ->
-                        if
-                            File =:= Erts#app.label ->
-                                replace_dyn_erl(Relocatable, Spec);
-                            true ->
-                                false
-                        end;
-                    false ->
+		File = element(2, Spec),
+		case File of
+		    "erts" ->
+			reltool_utils:throw_error("This system is not installed. "
+						  "The directory ~s is missing.",
+				    [Erts#app.label]);
+		    _ when File =:= Erts#app.label ->
+			replace_dyn_erl(Relocatable, Spec);
+                    "erts-" ++ _ ->
+			false;
+                    _ ->
                         true
                 end
         end,
@@ -729,7 +730,8 @@ strip_sys_files(Relocatable, SysFiles, Apps, ExclRegexps) ->
 replace_dyn_erl(false, _ErtsSpec) ->
     true;
 replace_dyn_erl(true, {create_dir, ErtsDir, ErtsFiles}) ->
-    [{create_dir, _, BinFiles}] = safe_lookup_spec("bin", ErtsFiles),
+    [{create_dir, _, BinFiles}] =
+	safe_lookup_spec("bin", ErtsFiles),
     case lookup_spec("dyn_erl", BinFiles) of
         [] ->
             case lookup_spec("erl.ini", BinFiles) of
@@ -853,6 +855,7 @@ lookup_spec(Prefix, Specs) ->
 safe_lookup_spec(Prefix, Specs) ->
     case lookup_spec(Prefix, Specs) of
         [] ->
+	    %% io:format("lookup fail ~s:\n\t~p\n", [Prefix, Specs]),
             reltool_utils:throw_error("Mandatory system file ~s is "
 				      "not included", [Prefix]);
         Match ->
@@ -1115,7 +1118,7 @@ do_eval_spec({archive, Archive, Options, Files},
         {ok, _} ->
             ok;
         {error, Reason} ->
-            reltool_utils:throw_error("create archive ~s: ~p\n",
+            reltool_utils:throw_error("create archive ~s failed: ~p\n",
 				      [ArchiveFile, Reason])
     end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
@@ -1317,7 +1320,7 @@ do_install(RelName, TargetDir) ->
             ok = release_handler:create_RELEASES(TargetDir2, RelFile),
             ok;
         _ ->
-            reltool_utils:throw_error("~s: Illegal syntax.\n", [DataFile])
+            reltool_utils:throw_error("~s: Illegal data file syntax.\n", [DataFile])
     end.
 
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->

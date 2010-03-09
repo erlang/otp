@@ -26,11 +26,13 @@
 -include("reltool_test_lib.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
+-define(WORK_DIR, "reltool_work_dir").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Initialization functions.
 
 init_per_suite(Config) ->
+    ?ignore(file:make_dir(?WORK_DIR)),
     reltool_test_lib:init_per_suite(Config).
 
 end_per_suite(Config) ->
@@ -161,13 +163,15 @@ create_script(_Config) ->
            {erts, ErtsVsn},
            [{stdlib, StdlibVsn}, {kernel, KernelVsn}]},
     ?m({ok, Rel}, reltool:get_rel(Pid, RelName)),
-    RelFile = RelName ++ ".rel",
-    ?m(ok, file:write_file(RelFile, io_lib:format("~p.\n", [Rel]))),
+    ?m(ok, file:write_file(filename:join([?WORK_DIR, RelName ++ ".rel"]),
+			   io_lib:format("~p.\n", [Rel]))),
 
     %% Generate script file
+    {ok, Cwd} = file:get_cwd(),
+    ?m(ok, file:set_cwd(?WORK_DIR)),
     ?m(ok, systools:make_script(RelName, [])),
-    ScriptFile = RelName ++ ".script",
-    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(ScriptFile)),
+    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(RelName ++ ".script")),
+    ?m(ok, file:set_cwd(Cwd)),
     {ok, Script} = ?msym({ok, _}, reltool:get_script(Pid, RelName)),
     %% OrigScript2 = sort_script(OrigScript),
     %% Script2 = sort_script(Script),
@@ -201,7 +205,7 @@ create_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_development",
+    TargetDir = filename:join([?WORK_DIR, "target_development"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -234,7 +238,7 @@ create_embedded(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_embedded",
+    TargetDir = filename:join([?WORK_DIR, "target_embedded"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -264,7 +268,7 @@ create_standalone(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_standalone",
+    TargetDir = filename:join([?WORK_DIR, "target_standalone"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -306,7 +310,7 @@ create_old_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_old",
+    TargetDir = filename:join([?WORK_DIR, "target_old_style"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),

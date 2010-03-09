@@ -23,7 +23,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
 	"-cerl")
 	    shift
-	    emu=cerl
+	    emu="$ERL_TOP/bin/cerl"
 	    ;;
 	*)
 	    break

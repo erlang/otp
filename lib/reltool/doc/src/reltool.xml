@@ -618,6 +618,17 @@ target_spec()       = [target_spec()]
     </func>
 
     <func>
+      <name>get_status(Server) -> {ok, [Warning]} | {error, Reason}</name>
+      <fsummary>Get contents of a release file</fsummary>
+      <type>
+        <v>Server  = server()</v>
+        <v>Warning = string()</v>
+        <v>Reason  = reason()</v>
+      </type>
+      <desc><p>Get status about the configuration</p></desc>
+    </func>
+
+    <func>
       <name>get_server(WindowPid) -> {ok, ServerPid} | {error, Reason}</name>
       <fsummary>Start server process with options</fsummary>
       <type>
