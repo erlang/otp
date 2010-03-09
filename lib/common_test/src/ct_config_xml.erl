@@ -24,6 +24,9 @@
 -module(ct_config_xml).
 -export([read_config/1, check_parameter/1]).
 
+% DEBUG ONLY
+-export([list_to_term/1]).
+
 % read config file
 read_config(ConfigFile) ->
     case catch do_read_xml_config(ConfigFile) of
@@ -44,11 +47,14 @@ check_parameter(File)->
 
 % actual reading of the config
 do_read_xml_config(ConfigFile)->
-    {ok, EntityList, _}=
-	xmerl_sax_parser:file(ConfigFile,
+    case catch xmerl_sax_parser:file(ConfigFile,
 	    [{event_fun, fun event/3},
-	    {event_state, []}]),
-    {ok, transform_entity_list(EntityList)}.
+	    {event_state, []}]) of
+	{ok, EntityList, _}->
+	    {ok, lists:reverse(transform_entity_list(EntityList))};
+	Oops->
+	    {error, parsing_failed, Oops}
+    end.
 
 % event callback for xmerl_sax_parser
 event(Event, _LineNo, State) ->
@@ -95,7 +101,7 @@ transform_entity_list(EntityList)->
 % transform entity from {list(), list()} to {atom(), term()}
 transform_entity({Tag, [Value|Rest]}) when
     is_tuple(Value)->
-	{list_to_atom(Tag), transform_entity_list([Value|Rest])};
+	{list_to_atom(Tag), transform_entity_list(lists:reverse([Value|Rest]))};
 transform_entity({Tag, String})->
     case list_to_term(String) of
 	{ok, Value}->
@@ -108,7 +114,7 @@ transform_entity({Tag, String})->
 % stolen from trapexit.org :-)
 list_to_term(String) ->
     {ok, T, _} = erl_scan:string(String++"."),
-    case erl_parse:parse_term(T) of
+    case catch erl_parse:parse_term(T) of
         {ok, Term} ->
             {ok, Term};
         Error ->
