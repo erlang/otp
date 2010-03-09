@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -111,6 +111,8 @@
 #define USER_DOUBLE 9
 #define USER_BOOLEAN 10
 #define USER_TINY_INT 11
+#define USER_WCHAR 12
+#define USER_WVARCHAR 13
 
 /*------------------------   TYPDEFS  ----------------------------------*/
 
@@ -170,6 +172,7 @@ typedef struct {
     Boolean associated_result_set;
     Boolean use_srollable_cursors;
     Boolean tuple_row;
+    Boolean binary_strings;
     Boolean exists_more_result_sets;
     Boolean param_query;
     Boolean out_params;
@@ -188,6 +191,7 @@ typedef enum {
 #define associated_result_set(db_state) (db_state -> associated_result_set)
 #define use_srollable_cursors(db_state) (db_state -> use_srollable_cursors)
 #define tuple_row(db_state) (db_state -> tuple_row)
+#define binary_strings(db_state) (db_state -> binary_strings)
 #define exists_more_result_sets(db_state) (db_state -> exists_more_result_sets)
 #define param_query(db_state) (db_state -> param_query)
 #define out_params(db_state) (db_state -> out_params)

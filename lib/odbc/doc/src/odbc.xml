@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>odbc</title>
@@ -101,7 +101,7 @@
  odbc_data_type() = sql_integer | sql_smallint | sql_tinyint |
       {sql_decimal, precision(), scale()} |
       {sql_numeric, precision(), scale()} |
-      {sql_char, size()} | {sql_varchar, size()} | {sql_float, precision()} |
+      {sql_char, size()} | {sql_wchar, size()} | {sql_varchar, size()} | {sql_wvarchar, size()}| {sql_float, precision()} |
       {sql_float, precision()} | sql_real | sql_double | sql_bit | atom()
     </code>
     <code type="none">
@@ -141,16 +141,9 @@
         <d>An example of a connection string:<c>"DSN=sql-server;UID=aladdin;PWD=sesame"</c>where DSN is your ODBC Data Source Name, UID is a database user id and PWD is the password for that user. These are usually the attributes required in the connection string, but some drivers have other driver specific attributes, for example<c>"DSN=Oracle8;DBQ=gandalf;UID=aladdin;PWD=sesame"</c>where DBQ is your TNSNAMES.ORA entry name e.g. some Oracle specific configuration attribute.</d>
         <v>Options = [] | [option()]</v>
         <d>All options has default values. </d>
-        <v>option() = {auto_commit, auto_commit_mode()} | {timeout, milliseconds()} | {tuple_row, tuple_mode()} | {scrollable_cursors, use_scrollable_cursors()} | {trace_driver, trace_mode()} </v>
-        <d>The default timeout is infinity </d>
-        <v>auto_commit_mode() = on | off </v>
-        <d>Default is on.</d>
-        <v>tuple_mode() = on | off </v>
-        <d>Default is on. The option is deprecated and should not be used in new code.</d>
-        <v>use_scrollable_cursors() = on | off </v>
-        <d>Default is on.</d>
-        <v>trace_mode() = on | off </v>
-        <d>Default is off.</d>
+        <v>option() = {auto_commit, on | off} | {timeout, milliseconds()}
+	| {binary_strings, on | off} | {tuple_row, on | off} | {scrollable_cursors, on | off} |
+	{trace_driver, on | off} </v>
         <v>Ref = connection_reference() - should be used to access the connection. </v>
         <v>Reason = port_program_executable_not_found | common_reason()</v>
       </type>
@@ -161,21 +154,36 @@
           to handle the connection. These processes will terminate if
           the process that created the connection dies or if you call
           disconnect/1.</p>
-        <p>If automatic commit mode is turned on, each query will be
+	    
+	  <p>If automatic commit mode is turned on, each query will be
           considered as an individual transaction and will be
           automatically committed after it has been executed. If you want
           more than one query to be part of the same transaction the automatic
           commit mode should be turned off. Then you will have to call
           commit/3 explicitly to end a transaction. </p>
+
+	  <p>The default timeout is infinity </p>
+	  
+	  <p> >If the option binary_strings is turned on all strings
+	  will be returned as binaries and strings inputed to
+	  param_query will be expected to be binaries. The user needs
+	  to ensure that the binary is in an encoding that the
+	  database expects. By default this option is turned off.</p>
+	  
         <p>As default result sets are returned as a lists of
           tuples. The <c>TupleMode</c> option still exists to keep some
           degree of backwards compatibility. If the option is set to
           off, result sets will be returned as a lists of lists
           instead of a lists of tuples.</p>
+	  
         <p>Scrollable cursors are nice but causes some overhead. For
           some connections speed might be more important than flexible
           data access and then you can disable scrollable cursor for a
-          connection, limiting the API but gaining speed</p>
+          connection, limiting the API but gaining speed.</p>
+
+	  <note><p>Turning the scrollable_cursors option off is noted
+	  to make old odbc-drivers able to connect that will otherwhise fail.</p></note>
+	  
         <p>If trace mode is turned on this tells the ODBC driver to
           write a trace log to the file SQL.LOG that is placed in the
           current directory of the erlang emulator. This information
@@ -183,6 +191,7 @@
           erlang ODBC application, and it might be relevant for you to
           send this file to our support. Otherwise you will probably
           not have much use of this.</p>
+	  
         <note>
           <p>For more information about the <c>ConnectStr</c> see
             description of the function SQLDriverConnect in [1].</p>

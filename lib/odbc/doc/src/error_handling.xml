@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Error handling</title>
@@ -126,15 +126,7 @@
       c-process will exit. If the c-process crashes/exits it will
       bring the erlang-process down too and vice versa i.e. the
       connection is terminated.</p>
-    <note>
-      <p>The function connect/2 will start the odbc application if
-        that is not already done. In this case a supervisor information
-        log will be produced stating that the odbc application was started
-        as a temporary application. It is really the responsibility of the
-        application that uses the API too make sure it is started in the
-        desired way.</p>
-    </note>
-
+   
     <section>
       <title>Error types</title>
       <p>The types of errors that may occur can be divide into the

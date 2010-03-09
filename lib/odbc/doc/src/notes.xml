@@ -30,6 +30,25 @@
   </header>
   <p>This document describes the changes made to the odbc application.
   </p>
+  
+  <section><title>ODBC 2.10.8</title>
+  
+  <section><title>Improvements and New Features</title>
+  <list>
+    <item>
+          <p>
+	    ODBC now handles the types SQL_WCHAR and SQL_WVARCHAR.
+	    ODBC also has a new connection option to return all
+	    strings as binaries and also expect strings to be
+	    binaries in the param_query function. This provides some
+	  but not a full unicode support.</p>
+          <p>
+	  Own Id: OTP-7452</p>
+        </item>
+  </list>
+  </section>
+  
+  </section>
 
   <section><title>ODBC 2.10.7</title>
 

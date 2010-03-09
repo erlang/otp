@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2002</year><year>2009</year>
+      <year>2002</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Databases</title>
@@ -117,7 +117,11 @@
       </row>
       <row>
         <cell align="left" valign="middle">SQL_CHAR(size)</cell>
-        <cell align="left" valign="middle">String </cell>
+        <cell align="left" valign="middle">String | Binary (configurable)</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">SQL_WCHAR(size) </cell>
+	<cell align="left" valign="middle">Unicode binary encoded as UTF16 little endian.</cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_NUMERIC(p,s)         <br></br>
@@ -171,7 +175,11 @@ when p >= 16 </cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_VARCHAR(size) </cell>
-        <cell align="left" valign="middle">String </cell>
+	<cell align="left" valign="middle">String | Binary (configurable)</cell>
+      </row>
+      <row>
+	<cell align="left" valign="middle">SQL_WVARCHAR(size) </cell>
+        <cell align="left" valign="middle">Unicode binary encoded as UTF16 little endian.</cell>
       </row>
       <tcaption>Mapping of ODBC data types to the Erlang data types returned to the Erlang application.</tcaption>
     </table>
@@ -194,19 +202,19 @@ when p >= 16 </cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_LONGVARCHAR </cell>
-        <cell align="left" valign="middle">String</cell>
+	<cell align="left" valign="middle">String | Binary (configurable)</cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_BINARY</cell>
-        <cell align="left" valign="middle">String </cell>
+	<cell align="left" valign="middle">String | Binary (configurable)</cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_VARBINARY</cell>
-        <cell align="left" valign="middle">String </cell>
+	<cell align="left" valign="middle">String | Binary (configurable)</cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_LONGVARBINARY</cell>
-        <cell align="left" valign="middle">String </cell>
+	<cell align="left" valign="middle">String | Binary (configurable)</cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_TINYINT </cell>
