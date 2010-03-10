@@ -18,25 +18,11 @@
 %%
 %%
 %%----------------------------------------------------------------------
-%% Purpose: Verify the application specifics of the Megaco application
+%% Purpose: Verify the application specifics of the asn1 application
 %%----------------------------------------------------------------------
 -module(asn1_appup_test).
 
 -compile(export_all).
-
-%-include("megaco_test_lib.hrl").
-
-
-%t()     -> megaco_test_lib:t(?MODULE).
-%t(Case) -> megaco_test_lib:t({?MODULE, Case}).
-
-
-%% Test server callbacks
-% init_per_testcase(Case, Config) ->
-%     megaco_test_lib:init_per_testcase(Case, Config).
-
-% fin_per_testcase(Case, Config) ->
-%     megaco_test_lib:fin_per_testcase(Case, Config).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
