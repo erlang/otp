@@ -1021,11 +1021,8 @@ func_line_error(Type, Fs, St) ->
 check_untyped_records(Forms, St0) ->
     case is_warn_enabled(untyped_record, St0) of
 	true ->
-	    %% One possibility is to use the names of all records
-	    %%   RecNames = dict:fetch_keys(St0#lint.records),
-	    %% but I think it's better to keep those that are used by the file
-	    Usage = St0#lint.usage,
-            UsedRecNames = sets:to_list(Usage#usage.used_records),
+	    %% Use the names of all records *defined* in the module (not used)
+	    RecNames = dict:fetch_keys(St0#lint.records),
 	    %% these are the records with field(s) containing type info
 	    TRecNames = [Name ||
 			    {attribute,_,type,{{record,Name},Fields,_}} <- Forms,
@@ -1038,7 +1035,7 @@ check_untyped_records(Forms, St0) ->
 			      [] -> St; % exclude records with no fields
 			      [_|_] -> add_warning(L, {untyped_record, N}, St)
 			  end
-		  end, St0, UsedRecNames -- TRecNames);
+		  end, St0, RecNames -- TRecNames);
 	false ->
 	    St0
     end.
