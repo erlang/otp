@@ -146,7 +146,7 @@ go(Config,Enc) ->
     Bytes = case Enc of
 		ber_bin ->
 		    list_to_binary(B);
-		per_bin when list(B) ->
+		per_bin when is_list(B) ->
 		    list_to_binary(B);
 		per_bin ->
 		    B;
@@ -179,7 +179,7 @@ encode(0, _Module,_Type,_Value) ->
 encode(N, Module,Type,Value) ->
     ?line {ok,B} = asn1rt:encode(Module,Type,Value),
     _B2 = if 
-             list(B) -> list_to_binary(B);
+             is_list(B) -> list_to_binary(B);
              true -> B
          end,
     encode(N-1, Module,Type,Value).

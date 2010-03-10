@@ -71,13 +71,13 @@ check_EXTERNAL_Idef({Alt,_}) when Alt=='context-negotiation';
     ok;
 check_EXTERNAL_Idef(I) ->
     {error,"failed on identification alternative",I}.
-check_EXTERNAL_DVD(DVD) when list(DVD) ->
+check_EXTERNAL_DVD(DVD) when is_list(DVD) ->
     ok;
 check_EXTERNAL_DVD(asn1_NOVALUE) ->
     ok;
 check_EXTERNAL_DVD(DVD) ->
     {error,"failed on data-value-descriptor alternative",DVD}.
-check_EXTERNAL_DV(DV) when list(DV) ->
+check_EXTERNAL_DV(DV) when is_list(DV) ->
     ok;
 check_EXTERNAL_DV(DV) ->
     {error,"failed on data-value alternative",DV}.

@@ -26,7 +26,7 @@
 
 encode(Module,Type,Value) ->
     case asn1rt:encode(Module,Type,Value) of
-	{ok,X} when binary(X) ->
+	{ok,X} when is_binary(X) ->
 	    {ok, binary_to_list(X)};
 	{ok,X} ->
 	    {ok, binary_to_list(list_to_binary(X))};
@@ -38,21 +38,21 @@ decode(Module,Type,Bytes) ->
     case Module:encoding_rule() of
 	ber ->
 	    asn1rt:decode(Module,Type,Bytes);
-	ber_bin when binary(Bytes) ->
+	ber_bin when is_binary(Bytes) ->
 	    asn1rt:decode(Module,Type,Bytes);
 	ber_bin ->
 	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
-	ber_bin_v2 when binary(Bytes) ->
+	ber_bin_v2 when is_binary(Bytes) ->
 	    asn1rt:decode(Module,Type,Bytes);
 	ber_bin_v2 ->
 	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
 	per ->
 	    asn1rt:decode(Module,Type,Bytes);
-	per_bin when binary(Bytes) ->
+	per_bin when is_binary(Bytes) ->
 	    asn1rt:decode(Module,Type,Bytes);
 	per_bin ->
 	    asn1rt:decode(Module,Type,list_to_binary(Bytes));
-	uper_bin when binary(Bytes) ->
+	uper_bin when is_binary(Bytes) ->
 	    asn1rt:decode(Module,Type,Bytes);
 	uper_bin ->
 	    asn1rt:decode(Module,Type,list_to_binary(Bytes))

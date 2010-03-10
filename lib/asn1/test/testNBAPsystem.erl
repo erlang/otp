@@ -299,7 +299,7 @@ protocolIEs_051107() ->
 
 compare(V,V) ->  
     ok;
-compare(V,L) when list(L) ->
+compare(V,L) when is_list(L) ->
     compare(V,list_to_binary(L));
 compare(_,_) ->
     false.

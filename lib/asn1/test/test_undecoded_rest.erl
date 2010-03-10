@@ -39,9 +39,9 @@ test(Opt) ->
     ?line {ok,Msg} = asn1ct:value('P-Record','PersonnelRecord'),
     ?line {ok,Bytes} = asn1_wrapper:encode('P-Record','PersonnelRecord',Msg),
     Bytes2 =
-	fun(B) when list(B) ->
+	fun(B) when is_list(B) ->
 		B ++ [55,55,55];
-	   (B) when binary(B) ->
+	   (B) when is_binary(B) ->
 		concat_binary([B,<<55,55,55>>])
 	end (Bytes),
     

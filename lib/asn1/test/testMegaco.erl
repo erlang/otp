@@ -163,7 +163,7 @@ read_msg(File) ->
     end.
 
 
-request(Mid, TransId, ContextId, CmdReq) when list(CmdReq) ->
+request(Mid, TransId, ContextId, CmdReq) when is_list(CmdReq) ->
     Actions = [#'ActionRequest'{contextId = ContextId,
                                 commandRequests = CmdReq}],
     Req = {transactions,
