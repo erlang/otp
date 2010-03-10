@@ -62,6 +62,11 @@
 #include <wx/filename.h>
 
 
+#ifndef wxICON_DEFAULT_BITMAP_TYPE
+  #define wxICON_DEFAULT_BITMAP_TYPE wxBITMAP_TYPE_ICO_RESOURCE
+#endif
+
+
 #define wxEvtHandler_Connect 100
 #define wxEvtHandler_Disconnect_2 101
 #define wxEvtHandler_Disconnect_1 102

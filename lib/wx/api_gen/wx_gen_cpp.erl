@@ -1010,6 +1010,11 @@ gen_macros() ->
     w("#include <wx/filename.h>~n"),
     
     w("~n~n", []),
+    w("#ifndef wxICON_DEFAULT_BITMAP_TYPE~n",[]),
+    w("  #define wxICON_DEFAULT_BITMAP_TYPE wxBITMAP_TYPE_ICO_RESOURCE~n",[]),
+    w("#endif~n", []),
+    w("~n~n", []),
+
     [w("#define ~s_~s ~p~n", [Class,Name,Id]) || 
 	{Class,Name,_,Id} <- wx_gen_erl:get_unique_names()],
     w("~n~n").
