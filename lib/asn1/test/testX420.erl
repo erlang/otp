@@ -50,7 +50,7 @@ compile_loop(Erule,[Spec|Specs],Options,Config)
 	Error ->
 	    Error
     end;
-compile_loop(Erule,_Specs,_Options,_Config) ->
+compile_loop(_Erule,_Specs,_Options,_Config) ->
     ok.%%{skip,io_lib:format("Not tested for ~p",[Erule])}.
 
 
