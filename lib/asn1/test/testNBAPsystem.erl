@@ -21,7 +21,7 @@
 
 -export([compile/3,test/2,cell_setup_req_msg/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('InitiatingMessage',{
 procedureID, criticality, messageDiscriminator, transactionID, value}).

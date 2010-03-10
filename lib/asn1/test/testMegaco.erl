@@ -22,7 +22,7 @@
 
 -export([compile/3,main/2,msg11/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(MID, {ip4Address, #'IP4Address'{address = [124, 124, 124, 222],
                                             portNumber = 55555}}).
 -define(A4444, ["11111111"]).

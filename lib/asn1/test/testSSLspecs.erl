@@ -22,7 +22,7 @@
 
 -export([compile/3,run/1,compile_inline/2,run_inline/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 compile(Config,Rules,Options) ->

@@ -20,7 +20,7 @@
 
 -module(test_compile_options).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 -export([wrong_path/1,comp/2,path/1,ticket_6143/1,noobj/1,

@@ -23,7 +23,7 @@
 -export([compile_der/2]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('T11',{number, string=asn1_DEFAULT}).
 -record('T12',{number, string=asn1_DEFAULT}).

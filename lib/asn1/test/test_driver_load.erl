@@ -21,7 +21,7 @@
 
 -export([compile/2,test/2,encode/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 test(per_bin,0) ->

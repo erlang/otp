@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 %-record('SeqOpt',{int, opt = asn1_NOVALUE}).
 -record('SeqOptFake',{int, opt = asn1_NOVALUE}).

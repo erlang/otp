@@ -21,7 +21,7 @@
 
 -compile(export_all).
 -export([compile/3,run/1]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 compile(Config,Rules,Options) ->
     ?line DataDir = ?config(data_dir,Config),

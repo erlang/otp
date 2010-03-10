@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([main/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('Seq',{octstr, int, bool, enum, bitstr, null, oid, vstr}).
 

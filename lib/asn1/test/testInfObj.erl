@@ -22,7 +22,7 @@
 
 -export([compile/3,main/1,compile_RANAPfiles/3]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('InitiatingMessage',{procedureCode,criticality,value}).
 -record('InitiatingMessage2',{procedureCode,criticality,value}).

@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('SetDef1',{bool1 = asn1_DEFAULT, int1, set1 = asn1_DEFAULT}).
 -record('SetDef2',{set2 = asn1_DEFAULT, bool2, int2}).

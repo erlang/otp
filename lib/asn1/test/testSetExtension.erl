@@ -24,7 +24,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('SetExt1',{}).
 -record('SetExt2',{bool, int}).

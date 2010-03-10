@@ -21,7 +21,7 @@
 
 -export([test/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 test(ber_bin_v2,_Config) ->

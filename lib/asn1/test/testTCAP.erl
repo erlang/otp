@@ -21,7 +21,7 @@
 
 -export([compile/3,test/2,compile_asn1config/3,test_asn1config/0]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 

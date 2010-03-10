@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([seq/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('ChoSeq',{seqInt, seqOs}).
 -record('ChoSeqImp',{seqInt, seqOs}).

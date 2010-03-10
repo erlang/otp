@@ -22,7 +22,7 @@
 %-compile(export_all).
 -export([compile/1, test_io/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 compile(Config) ->
     ?line DataDir = ?config(data_dir,Config),

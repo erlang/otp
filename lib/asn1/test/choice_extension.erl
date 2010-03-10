@@ -21,7 +21,7 @@
 
 -export([run/0, compile/3]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 compile(Config,Rules,Options) ->
 

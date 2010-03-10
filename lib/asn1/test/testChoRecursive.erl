@@ -23,7 +23,7 @@
 -export([compile/3]).
 -export([recursive/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('ChoRec_something',{a, b, c}).
 -record('ChoRec2_something',{a, b, c}).

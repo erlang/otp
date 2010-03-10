@@ -23,7 +23,7 @@
 
 -export([compile/3, ticket7759/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 compile(Erule,Options,Config) ->

@@ -23,7 +23,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('SeqOpt1',{bool1 = asn1_NOVALUE, int1, seq1 = asn1_NOVALUE}).
 -record('SeqOpt1Imp',{bool1 = asn1_NOVALUE, int1, seq1 = asn1_NOVALUE}).

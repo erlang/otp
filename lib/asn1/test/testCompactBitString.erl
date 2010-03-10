@@ -23,7 +23,7 @@
 -export([compact_bit_string/1, bit_string_unnamed/1,otp_4869/1,
 	 ticket_7734/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 compile(Config,Rules,Option) ->

@@ -23,7 +23,7 @@
 -export([mvrasn_inlined_encdec/2,mvrasn_encdec/2,
 	 mi_encdec/2,m_encdec/2]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -define(times, 5000).
 -define(times2, 50000).
 

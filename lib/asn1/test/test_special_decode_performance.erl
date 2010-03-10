@@ -21,7 +21,7 @@
 
 -export([compile/2,go/1,loop2/4,loop1/5]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 compile(Config,Rule) when Rule==ber_bin_v2 ->

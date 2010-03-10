@@ -23,7 +23,7 @@
 -export([bool/1]).
 -export([int/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 
 compile(Config,Rules,Options) ->

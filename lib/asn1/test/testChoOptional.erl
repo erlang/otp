@@ -24,7 +24,7 @@
 -export([optional/1]).
 
 %-include("ChoOptional.hrl").
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include("External.hrl").
 
 

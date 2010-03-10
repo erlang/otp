@@ -145,8 +145,6 @@ RELSYSDIR = $(RELEASE_PATH)/asn1_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/kernel/include
 
 EBIN = .
 

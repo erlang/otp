@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('SetChoDef',{bool1, int1, set1 = asn1_DEFAULT}).
 -record('SetChoOpt',{bool1, int1, set1 = asn1_NOVALUE}).

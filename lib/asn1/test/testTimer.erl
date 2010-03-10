@@ -22,7 +22,7 @@
 -compile(export_all).
 %%-export([Function/Arity, ...]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -define(times, 5000).
 

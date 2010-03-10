@@ -23,7 +23,7 @@
 -export([compile/3]).
 -export([main/1]).
 -export([ticket_7533/1,decoder/4]).
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('SetOpt1',{bool1 = asn1_NOVALUE, int1, set1 = asn1_NOVALUE}).
 -record('SetOpt1Imp',{bool1 = asn1_NOVALUE, int1, set1 = asn1_NOVALUE}).

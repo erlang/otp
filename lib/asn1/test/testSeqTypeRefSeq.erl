@@ -22,7 +22,7 @@
 -export([compile/3]).
 -export([main/1]).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 
 -record('Seq1',{bool1, int1, seq1}).
 -record('Seq2',{seq2, bool2, int2}).
