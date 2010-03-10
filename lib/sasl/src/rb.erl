@@ -53,35 +53,35 @@ start_link(Options) ->
     gen_server:start_link({local, rb_server}, rb, Options, []).
 
 stop() -> 
-    gen_server:call(rb_server, stop),
+    call(stop),
     supervisor:delete_child(sasl_sup, rb_server).
 
 rescan() -> rescan([]).
 rescan(Options) ->
-    gen_server:call(rb_server, {rescan, Options}, infinity).
+    call({rescan, Options}).
 
 list() -> list(all).
-list(Type) -> gen_server:call(rb_server, {list, Type}, infinity).
+list(Type) -> call({list, Type}).
 
 show() -> 
-    gen_server:call(rb_server, show, infinity).
+    call(show).
 
 show(Number) when is_integer(Number) -> 
-    gen_server:call(rb_server, {show_number, Number}, infinity);
+    call({show_number, Number});
 show(Type) when is_atom(Type) ->
-    gen_server:call(rb_server, {show_type, Type}, infinity).
+    call({show_type, Type}).
 
-grep(RegExp) -> gen_server:call(rb_server, {grep, RegExp}, infinity).
+grep(RegExp) -> call({grep, RegExp}).
 
 filter(Filters) when is_list(Filters) ->
-    gen_server:call(rb_server, {filter, Filters}, infinity).
+    call({filter, Filters}).
 
 filter(Filters, FDates) when is_list(Filters) andalso is_tuple(FDates) ->
-    gen_server:call(rb_server, {filter, {Filters, FDates}}, infinity).
+    call({filter, {Filters, FDates}}).
 
-start_log(FileName) -> gen_server:call(rb_server, {start_log, FileName}).
+start_log(FileName) -> call({start_log, FileName}).
 
-stop_log() -> gen_server:call(rb_server, stop_log).
+stop_log() -> call(stop_log).
 
 h() -> help().
 help() ->
@@ -122,6 +122,13 @@ help() ->
 %%-----------------------------------------------------------------
 %% Internal functions.
 %%-----------------------------------------------------------------
+
+%%-----------------------------------------------------------------
+%% call(Request) -> Term
+%%-----------------------------------------------------------------
+call(Req) ->
+    gen_server:call(rb_server, Req, infinity).
+
 %%-----------------------------------------------------------------
 %% MAKE SURE THESE TWO FUNCTIONS ARE UPDATED!
 %%-----------------------------------------------------------------

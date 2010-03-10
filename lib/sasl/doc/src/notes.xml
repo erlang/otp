@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.1.9.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Use an infinity timeout in all calls to
+	    <c>gen_server:call()</c> in the <c>sasl</c>
+	    application.</p>
+          <p>
+	    Own Id: OTP-8506 Aux Id: seq11509 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.1.9</title>
 
     <section><title>Improvements and New Features</title>
