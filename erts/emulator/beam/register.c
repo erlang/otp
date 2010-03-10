@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -500,8 +500,8 @@ int erts_unregister_name(Process *c_p,
 
     if ((rp = (RegProc*) hash_get(&process_reg, (void*) &r)) != NULL) {
 	if (rp->pt) {
-#ifdef ERTS_SMP
 	    if (port != rp->pt) {
+#ifdef ERTS_SMP
 		if (port) {
 		    ERTS_SMP_LC_ASSERT(port != c_prt);
 		    erts_smp_port_unlock(port);
@@ -519,10 +519,13 @@ int erts_unregister_name(Process *c_p,
 		    port = erts_id2port(id, NULL, 0);
 		    goto restart;
 		}
+#endif
 		port = rp->pt;
 	    }
-#endif
-	    ERTS_SMP_LC_ASSERT(rp->pt == port && erts_lc_is_port_locked(port));
+
+	    ASSERT(rp->pt == port);
+	    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(port));
+
 	    rp->pt->reg = NULL;
 	    
 	    if (IS_TRACED_FL(port, F_TRACE_PORTS)) {
