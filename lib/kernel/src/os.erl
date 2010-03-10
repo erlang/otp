@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(os).
@@ -169,6 +169,7 @@ unix_cmd(Cmd) ->
 %% $1 parameter for easy identification of the resident shell.
 %%
 -define(SHELL, "/bin/sh -s unix:cmd 2>&1").
+-define(PORT_CREATOR_NAME, os_cmd_port_creator).
 
 %%
 %% Serializing open_port through a process to avoid smp lock contention
@@ -176,18 +177,37 @@ unix_cmd(Cmd) ->
 %%
 -spec start_port() -> port().
 start_port() ->
-    {Ref,Client} = {make_ref(),self()},
-    try (os_cmd_port_creator ! {Ref,Client})
-    catch
-	error:_ -> spawn(fun() -> start_port_srv({Ref,Client}) end)
-    end,
+    Ref = make_ref(),
+    Request = {Ref,self()},    
+    {Pid, Mon} = case whereis(?PORT_CREATOR_NAME) of
+		     undefined ->
+			 spawn_monitor(fun() ->
+					       start_port_srv(Request)
+				       end);
+		     P ->
+			 P ! Request,
+			 M = erlang:monitor(process, P),
+			 {P, M}
+		 end,
     receive
-	{Ref,Port} when is_port(Port) -> Port;
-	{Ref,Error} -> exit(Error)
+	{Ref, Port} when is_port(Port) ->
+	    erlang:demonitor(Mon, [flush]),
+	    Port;
+	{Ref, Error} ->
+	    erlang:demonitor(Mon, [flush]),
+	    exit(Error);
+	{'DOWN', Mon, process, Pid, _Reason} ->
+	    start_port()
     end.
 
 start_port_srv(Request) ->
-    StayAlive = try register(os_cmd_port_creator, self())
+    %% We don't want a group leader of some random application. Use
+    %% kernel_sup's group leader.
+    {group_leader, GL} = process_info(whereis(kernel_sup),
+				      group_leader),
+    true = group_leader(GL, self()),
+    process_flag(trap_exit, true),
+    StayAlive = try register(?PORT_CREATOR_NAME, self())
 		catch
 		    error:_ -> false
 		end,
@@ -196,7 +216,7 @@ start_port_srv(Request) ->
 start_port_srv_loop({Ref,Client}, StayAlive) ->
     Reply = try open_port({spawn, ?SHELL},[stream]) of
 		Port when is_port(Port) ->
-		    port_connect(Port, Client),
+		    (catch port_connect(Port, Client)),
 		    unlink(Port),
 		    Port
 	    catch
@@ -205,8 +225,17 @@ start_port_srv_loop({Ref,Client}, StayAlive) ->
 	    end,
     Client ! {Ref,Reply},
     case StayAlive of
-	true -> start_port_srv_loop(receive Msg -> Msg end, true);
+	true -> start_port_srv_loop(get_open_port_request(), true);
 	false -> exiting
+    end.
+
+get_open_port_request() ->
+    receive
+	{Ref, Client} = Request when is_reference(Ref),
+				     is_pid(Client) ->
+	    Request;
+	_Junk ->
+	    get_open_port_request()
     end.
 
 %%

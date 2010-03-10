@@ -30,6 +30,22 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.13.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    A race condition in <c>os:cmd/1</c> could cause the
+	    caller to get stuck in <c>os:cmd/1</c> forever.</p>
+          <p>
+	    Own Id: OTP-8502</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.13.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
