@@ -42,7 +42,7 @@ test(Opt) ->
 	fun(B) when is_list(B) ->
 		B ++ [55,55,55];
 	   (B) when is_binary(B) ->
-		concat_binary([B,<<55,55,55>>])
+		iolist_to_binary([B,<<55,55,55>>])
 	end (Bytes),
     
     case Opt of
