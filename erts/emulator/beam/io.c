@@ -77,15 +77,35 @@ static ERTS_INLINE ErlIOQueue*
 drvport2ioq(ErlDrvPort drvport)
 {
     int ix = (int) drvport;
+    Uint32 status;
+
     if (ix < 0 || erts_max_ports <= ix)
 	return NULL;
-    if (erts_port[ix].status & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
-	return NULL;
-    ERTS_LC_ASSERT(!erts_port[ix].port_data_lock
-		   || erts_lc_mtx_is_locked(&erts_port[ix].port_data_lock->mtx));
-    ERTS_SMP_LC_ASSERT(erts_port[ix].port_data_lock
-		       || erts_lc_is_port_locked(&erts_port[ix]));
-    return &erts_port[ix].ioq;
+
+    if (erts_get_scheduler_data()) {
+	ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(&erts_port[ix]));
+	ERTS_LC_ASSERT(!erts_port[ix].port_data_lock
+		       || erts_lc_mtx_is_locked(
+			   &erts_port[ix].port_data_lock->mtx));
+
+	status = erts_port[ix].status;
+    }
+    else {
+	erts_smp_port_state_lock(&erts_port[ix]);
+	status = erts_port[ix].status;
+	erts_smp_port_state_unlock(&erts_port[ix]);
+
+	ERTS_LC_ASSERT((status & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
+		       || erts_port[ix].port_data_lock);
+	ERTS_LC_ASSERT(!erts_port[ix].port_data_lock
+		       || erts_lc_mtx_is_locked(
+			   &erts_port[ix].port_data_lock->mtx));
+
+    }
+
+    return ((status & ERTS_PORT_SFLGS_INVALID_DRIVER_LOOKUP)
+	    ? NULL
+	    : &erts_port[ix].ioq);
 }
 
 static ERTS_INLINE int
