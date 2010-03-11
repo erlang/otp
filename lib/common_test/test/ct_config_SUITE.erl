@@ -63,7 +63,10 @@ all(suite) ->
     [
 	require,
 	userconfig_static,
-	userconfig_dynamic
+	userconfig_dynamic,
+	testspec_legacy,
+	testspec_static,
+	testspec_dynamic
     ].
 
 
@@ -93,9 +96,52 @@ userconfig_dynamic(Config) when is_list(Config) ->
 	     {userconfig, {config_driver, "config_server"}},
              ["config_2_SUITE"]).
 
+testspec_legacy(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    make_spec(DataDir,
+		"config/spec_legacy.spec",
+		[config_1_SUITE],
+		[{config, filename:join(DataDir, "config/config.txt")}]),
+    run_test(testspec_legacy,
+	     Config,
+	     {spec, filename:join(DataDir, "config/spec_legacy.spec")},
+             []),
+    file:delete(filename:join(DataDir, "config/spec_legacy.spec")).
+
+testspec_static(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    make_spec(DataDir,
+		"config/spec_static.spec",
+		[config_1_SUITE],
+		[{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}}]),
+    run_test(testspec_static,
+	     Config,
+	     {spec, filename:join(DataDir, "config/spec_static.spec")},
+             []),
+    file:delete(filename:join(DataDir, "config/spec_static.spec")).
+
+testspec_dynamic(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    make_spec(DataDir, "config/spec_dynamic.spec",
+		[config_2_SUITE],
+		[{userconfig, {config_driver, "config_server"}}]),
+    run_test(testspec_dynamic,
+	     Config,
+	     {spec, filename:join(DataDir, "config/spec_dynamic.spec")},
+             []),
+    file:delete(filename:join(DataDir, "config/spec_dynamic.spec")).
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
+% {suites, "ct_config_SUITE_data/config/test", config_2_SUITE}.
+make_spec(DataDir, Filename, Suites, Config)->
+    {ok, Fd} = file:open(filename:join(DataDir, Filename), [write]),
+    ok = file:write(Fd,
+		io_lib:format("{suites, \"~sconfig/test/\", ~p}.~n", [DataDir, Suites])),
+    lists:foreach(fun(C)-> ok=file:write(Fd, io_lib:format("~p.~n", [C])) end, Config),
+    ok = file:close(Fd).
+
 run_test(Name, Config, CTConfig, SuiteNames)->
     DataDir = ?config(data_dir, Config),
     Joiner = fun(Suite) -> filename:join(DataDir, "config/test/"++Suite) end,
@@ -123,7 +169,9 @@ reformat_events(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-expected_events(ReqOrUCS) when ReqOrUCS==require;  ReqOrUCS==userconfig_static->
+expected_events(Static) when
+	Static == require; Static == testspec_legacy;
+	Static == userconfig_static; Static == testspec_static->
 [
  {?eh,start_logging,{'DEF','RUNDIR'}},
  {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
@@ -163,7 +211,7 @@ expected_events(ReqOrUCS) when ReqOrUCS==require;  ReqOrUCS==userconfig_static->
  {?eh,stop_logging,[]}
 ];
 
-expected_events(userconfig_dynamic)->
+expected_events(Dynamic) when Dynamic == testspec_dynamic; Dynamic == userconfig_dynamic->
 [
  {ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
  {ct_test_support_eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},

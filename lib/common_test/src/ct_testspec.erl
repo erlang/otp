@@ -305,6 +305,28 @@ get_global([{node,Ref,Node}|Ts],Spec=#testspec{nodes=Refs}) ->
 get_global([_|Ts],Spec) -> get_global(Ts,Spec);
 get_global([],Spec) -> Spec.
 
+% TODO probably we can terminate here, if any problem with the filename
+% anyway, later ct_run will do it for us :-)
+get_absfile(Callback, FullName,#testspec{spec_dir=SpecDir}) ->
+    % we need to temporary switch to new cwd here, because
+    % otherwise config files cannot be found
+    {ok, OldWd} = file:get_cwd(),
+    ok = file:set_cwd(SpecDir),
+    R =  Callback:check_parameter(FullName),
+    ok = file:set_cwd(OldWd),
+    case R of
+	{ok, {file, FullName}}->
+	    File = filename:basename(FullName),
+	    Dir = get_absname(filename:dirname(FullName),SpecDir),
+	    filename:join(Dir,File);
+	{ok, {config, FullName}}->
+	    FullName;
+	{nok, {nofile, FullName}}->
+	    FullName;
+	{nok, {wrong_config, FullName}}->
+	    FullName
+    end.
+
 get_absfile(FullName,#testspec{spec_dir=SpecDir}) ->
     File = filename:basename(FullName),
     Dir = get_absname(filename:dirname(FullName),SpecDir),
@@ -430,12 +452,7 @@ add_tests([{config,Node,[{Callback,F}|Fs]}|Ts],Spec) when is_list(F) ->
     Cfgs = Spec#testspec.config,
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests([{config,Node,Fs}|Ts],
-% TODO FIX IT SOMEHOW! There SHOULD be absolute paths,
-% but it can't be applied to the config parameters
-% probably, that's a good idea to call Callback:check_parameter/1
-% and proceed according to the results
-% 	      Spec#testspec{config=[{Node1,{Callback, get_absfile(F,Spec)}}|Cfgs]});
-	      Spec#testspec{config=[{Node1,{Callback,[F]}}|Cfgs]});
+	      Spec#testspec{config=[{Node1,{Callback, [get_absfile(Callback, F,Spec)]}}|Cfgs]});
 add_tests([{config,_Node,[]}|Ts],Spec) ->
     %io:format("4: add_tests([{config,_,[]}|~p],~p)~n", [Ts, Spec]),
     add_tests(Ts,Spec);

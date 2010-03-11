@@ -204,7 +204,6 @@ get_config_file_list(Opts)->
     CfgFiles.
 
 read_config_files(Opts) ->
-    %ct:pal("ct_config:read_config_files/1:~nOpts:~n~p", [Opts]),
     AddCallback = fun(CallBack, [])->
 			[{CallBack, []}];
 		     (CallBack, Files)->
@@ -220,7 +219,6 @@ read_config_files(Opts) ->
 	false->
 	    []
     end,
-    %ct:pal("ct_config:read_config_files/1:~nConfigFiles:~n~p", [ConfigFiles]),
     read_config_files_int(ConfigFiles, fun store_config/3).
 
 read_config_files_int([{Callback, File}|Files], FunToSave)->
@@ -687,7 +685,6 @@ check_callback_load(Callback)->
     end.
 
 check_config_files(Configs)->
-    ct:pal("ct_config:check_config_files/1~nConfigs:~n~p", [Configs]),
     lists:keysearch(nok, 1,
 	lists:flatten(
 	    lists:map(fun({Callback, Files})->

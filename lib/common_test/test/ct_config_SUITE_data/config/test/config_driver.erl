@@ -33,9 +33,14 @@ read_config(ServerName)->
 
 check_parameter(ServerName)->
     ServerModule = list_to_atom(ServerName),
-    case code:load_file(ServerModule) of
-	{module, ServerModule}->
+    case code:is_loaded(ServerModule) of
+	{file, _}->
 	    {ok, {config, ServerName}};
-	{error, nofile}->
-	    {nok, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
+	false->
+	    case code:load_file(ServerModule) of
+		{module, ServerModule}->
+		    {ok, {config, ServerName}};
+		{error, nofile}->
+		    {nok, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
+	    end
     end.
