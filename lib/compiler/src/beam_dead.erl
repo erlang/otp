@@ -281,12 +281,12 @@ forward([{test,is_eq_exact,_,[Dst,Src]}=I,{move,Src,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
 forward([{test,is_nil,_,[Dst]}=I,{move,nil,Dst}|Is], D, Lc, Acc) ->
     forward([I|Is], D, Lc, Acc);
-forward([{test,is_eq_exact,_,[_,{atom,_}]}=I|Is], D, Lc, [{label,_}|_]=Acc) ->
+forward([{test,is_eq_exact,_,_}=I|Is], D, Lc, Acc) ->
     case Is of
 	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
 	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
     end;
-forward([{test,is_ne_exact,_,[_,{atom,_}]}=I|Is], D, Lc, [{label,_}|_]=Acc) ->
+forward([{test,is_ne_exact,_,_}=I|Is], D, Lc, Acc) ->
     case Is of
 	[{label,_}|_] -> forward(Is, D, Lc, [I|Acc]);
 	_ -> forward(Is, D, Lc+1, [{label,Lc},I|Acc])
@@ -371,10 +371,10 @@ backward([{test,bs_start_match2,{f,To0},Live,[Src|_]=Info,Dst}|Is], D, Acc) ->
     To = shortcut_bs_start_match(To0, Src, D),
     I = {test,bs_start_match2,{f,To},Live,Info,Dst},
     backward(Is, D, [I|Acc]);
-backward([{test,is_eq_exact=Op,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
+backward([{test,is_eq_exact,{f,To0},[Reg,{atom,Val}]=Ops}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
     To = shortcut_fail_label(To1, Reg, Val, D),
-    I = {test,Op,{f,To},Ops},
+    I = combine_eqs(To, Ops, D, Acc),
     backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
@@ -394,7 +394,10 @@ backward([{test,Op,{f,To0},Ops0}|Is], D, Acc) ->
 	     _Code ->
 		 To2
 	 end,
-    I = {test,Op,{f,To},Ops0},
+    I = case Op of
+	    is_eq_exact -> combine_eqs(To, Ops0, D, Acc);
+	    _ -> {test,Op,{f,To},Ops0}
+	end,
     backward(Is, D, [I|Acc]);
 backward([{test,Op,{f,To0},Live,Ops0,Dst}|Is], D, Acc) ->
     To1 = shortcut_bs_test(To0, Is, D),
@@ -519,6 +522,41 @@ bif_to_test(Name, Args, Fail) ->
 
 not_possible() -> throw(not_possible).
 
+%% combine_eqs(To, Operands, Acc) -> Instruction.
+%%  Combine two is_eq_exact instructions or (an is_eq_exact
+%%  instruction and a select_val instruction) to a select_val
+%%  instruction if possible.
+%%
+%%  Example:
+%%
+%%      is_eq_exact F1 Reg Lit1		    select_val Reg F2 [ Lit1 L1
+%%   L1:                .                                       Lit2 L2 ]
+%%              	.
+%%                	.	     ==>
+%%                	.
+%%   F1:  is_eq_exact F2 Reg Lit2          F1: is_eq_exact F2 Reg Lit2
+%%   L2:  ....				   L2:
+%%
+combine_eqs(To, [Reg,{Type,_}=Lit1]=Ops, D, [{label,L1}|_])
+  when Type =:= atom; Type =:= integer ->
+    case beam_utils:code_at(To, D) of
+	[{test,is_eq_exact,{f,F2},[Reg,{Type,_}=Lit2]},
+	 {label,L2}|_] when Lit1 =/= Lit2 ->
+	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1},Lit2,{f,L2}]}};
+	[{select_val,Reg,{f,F2},{list,[{Type,_}|_]=List0}}|_] ->
+	    List = remove_from_list(Lit1, List0),
+	    {select_val,Reg,{f,F2},{list,[Lit1,{f,L1}|List]}};
+	_Is ->
+	    {test,is_eq_exact,{f,To},Ops}
+	end;
+combine_eqs(To, Ops, _D, _Acc) ->
+    {test,is_eq_exact,{f,To},Ops}.
+
+remove_from_list(Lit, [Lit,{f,_}|T]) ->
+    T;
+remove_from_list(Lit, [Val,{f,_}=Fail|T]) ->
+    [Val,Fail|remove_from_list(Lit, T)];
+remove_from_list(_, []) -> [].
 
 %% shortcut_bs_test(TargetLabel, [Instruction], D) -> TargetLabel'
 %%  Try to shortcut the failure label for a bit syntax matching.
