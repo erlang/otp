@@ -55,6 +55,12 @@ init_per_suite(Config, Level) ->
 	    test_server:fail(Reason);
 	{ok,CTNode} ->
 	    test_server:format(0, "Node ~p started~n", [CTNode]),
+	    IsCover = test_server:is_cover(),
+	    if IsCover ->
+		cover:start(CTNode);
+	    true->
+		ok
+	    end,
 	    DataDir = ?config(data_dir, Config),
 	    PrivDir = ?config(priv_dir, Config),
 
@@ -87,6 +93,7 @@ end_per_suite(Config) ->
     CTNode = ?config(ct_node, Config),
     PrivDir = ?config(priv_dir, Config),
     true = rpc:call(CTNode, code, del_path, [filename:join(PrivDir,"")]),
+    cover:stop(CTNode),
     slave:stop(CTNode),
     ok.
 
