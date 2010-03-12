@@ -397,7 +397,7 @@ long driver_async(ErlDrvPort ix, unsigned long* key,
     ErlAsync* a = (ErlAsync*) erts_alloc(ERTS_ALC_T_ASYNC, sizeof(ErlAsync));
     Port* prt = erts_drvport2port(ix);
     long id;
-    unsigned int qix;
+    unsigned long qix;
 
 
     if (!prt)
