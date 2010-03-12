@@ -64,22 +64,7 @@ function({function,Name,Arity,CLabel,Is0}) ->
 %%      InEncoding =:= latin1, OutEncoding =:= unicode; 
 %%      InEncoding =:= latin1, OutEncoding =:= utf8 ->
 %%
-%% (2) Code like
-%%
-%%        is_ne_exact Fail Reg Literal1
-%%        is_ne_exact Fail Reg Literal2
-%%        is_ne_exact Fail Reg Literal3
-%%        is_eq_exact UltimateFail Reg Literal4
-%%      Fail: ....
-%%
-%%     can be rewritten to
-%% 
-%%        select_val Reg UltimateFail   [ Literal1 Fail
-%%                                        Literal2 Fail
-%%                                        Literal3 Fail
-%%                                        Literal4 Fail ]
-%%
-%% (3) A select_val/4 instruction that only verifies that
+%% (2) A select_val/4 instruction that only verifies that
 %%     its argument is either 'true' or 'false' can be
 %%     be replaced with an is_boolean/2 instruction. That is:
 %%
@@ -132,7 +117,7 @@ peep([{test,Op,_,Ops}=I|Is], SeenTests0, Acc) ->
 		false ->
 		    %% Remember that we have seen this test.
 		    SeenTests = gb_sets:insert(Test, SeenTests0),
-		    make_select_val(I, Is, SeenTests, Acc)
+		    peep(Is, SeenTests, [I|Acc])
 	    end
     end;
 peep([{select_val,Src,Fail,
@@ -151,33 +136,6 @@ peep([I|Is], _, Acc) ->
     peep(Is, gb_sets:empty(), [I|Acc]);
 peep([], _, Acc) -> reverse(Acc).
 
-make_select_val({test,is_ne_exact,{f,Fail},[Val,Lit]}=I0,
-		Is0, SeenTests, Acc) ->
-    try
-	Type = case Lit of
-		   {atom,_} -> atom;
-		   {integer,_} -> integer;
-		   _ -> throw(impossible)
-	       end,
-	{I,Is} = make_select_val_1(Is0, Fail, Val, Type, [Lit,{f,Fail}]),
-	peep([I|Is], SeenTests, Acc)
-    catch
-	impossible ->
-	    peep(Is0, SeenTests, [I0|Acc])
-    end;
-make_select_val(I, Is, SeenTests, Acc) ->
-    peep(Is, SeenTests, [I|Acc]).
-
-make_select_val_1([{test,is_ne_exact,{f,Fail},[Val,{Type,_}=Lit]}|Is],
-		  Fail, Val, Type, Acc) ->
-      make_select_val_1(Is, Fail, Val, Type, [Lit,{f,Fail}|Acc]);
-make_select_val_1([{test,is_eq_exact,{f,UltimateFail},[Val,{Type,_}=Lit]} |
-		   [{label,Fail}|_]=Is], Fail, Val, Type, Acc) ->
-    Choices = [Lit,{f,Fail}|Acc],
-    I = {select_val,Val,{f,UltimateFail},{list,Choices}},
-    {I,Is};
-make_select_val_1(_Is, _Fail, _Val, _Type, _Acc) -> throw(impossible).
-    
 kill_seen(Dst, Seen0) ->
     gb_sets:from_ordset(kill_seen_1(gb_sets:to_list(Seen0), Dst)).
 
@@ -187,5 +145,3 @@ kill_seen_1([{_,Ops}=Test|T], Dst) ->
 	false -> [Test|kill_seen_1(T, Dst)]
     end;
 kill_seen_1([], _) -> [].
-
-	    
