@@ -1194,19 +1194,22 @@ eval_element(Call, #c_literal{val=Pos}, #c_tuple{es=Es}, _Types) when is_integer
 	true ->
 	    eval_failure(Call, badarg)
     end;
-%% eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
-%%   when is_integer(Pos) ->
-%%     case orddict:find(V, Types#sub.t) of
-%% 	{ok,#c_tuple{es=Elements}} ->
-%% 	    if
-%% 		1 =< Pos, Pos =< length(Elements) ->
-%% 		    lists:nth(Pos, Elements);
-%% 		true ->
-%% 		    eval_failure(Call, badarg)
-%% 	    end;
-%% 	error ->
-%% 	    Call
-%%     end;
+eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
+  when is_integer(Pos) ->
+    case orddict:find(V, Types#sub.t) of
+	{ok,#c_tuple{es=Elements}} ->
+	    if
+		1 =< Pos, Pos =< length(Elements) ->
+		    case lists:nth(Pos, Elements) of
+			#c_alias{var=Alias} -> Alias;
+			Res -> Res
+		    end;
+		true ->
+		    eval_failure(Call, badarg)
+	    end;
+	error ->
+	    Call
+    end;
 eval_element(Call, Pos, Tuple, _Types) ->
     case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
 	true ->
