@@ -1741,7 +1741,7 @@ start_log_file() ->
     ok.
 
 make_html_link(LinkName, Target, Explanation) ->
-    %% if possible use a relative reference to Target.
+    %% if possible use a relative reference to Target.
     TargetL = filename:split(Target), 
     PwdL = filename:split(filename:dirname(LinkName)),
     Href = case lists:prefix(PwdL, TargetL) of
