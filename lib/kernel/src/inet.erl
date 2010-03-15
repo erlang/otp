@@ -62,6 +62,8 @@
 %% timer interface
 -export([start_timer/1, timeout/1, timeout/2, stop_timer/1]).
 
+-export_type([ip_address/0, socket/0]).
+
 %% imports
 -import(lists, [append/1, duplicate/2, filter/2, foldl/3]).
 

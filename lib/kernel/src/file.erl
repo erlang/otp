@@ -61,6 +61,9 @@
 
 -export([ipread_s32bu_p32bu_int/3]).
 
+%% Types that can be used from other modules -- alphabetically ordered.
+-export_type([date_time/0, fd/0, file_info/0, filename/0, io_device/0,
+	      name/0, posix/0]).
 
 %%% Includes and defines
 -include("file.hrl").

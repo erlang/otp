@@ -66,6 +66,8 @@
 	 set_primary_archive/3,
 	 clash/0]).
 
+-export_type([load_error_rsn/0, load_ret/0]).
+
 -include_lib("kernel/include/file.hrl").
 
 %% User interface.
