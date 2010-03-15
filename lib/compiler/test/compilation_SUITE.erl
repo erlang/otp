@@ -411,7 +411,11 @@ self_compile(Config) when is_list(Config) ->
 self_compile_old_inliner(Config) when is_list(Config) ->
     %% The old inliner is useful for testing that sys_core_fold does not
     %% introduce name capture problems.
-    self_compile_1(Config, "old", [verbose,{inline,500}]).
+    HowMuch = case test_server:is_native(?MODULE) of
+		  true -> 100;
+		  false -> 500
+	      end,
+    self_compile_1(Config, "old", [verbose,{inline,HowMuch}]).
 
 self_compile_1(Config, Prefix, Opts) ->
     ?line Dog = test_server:timetrap(test_server:minutes(40)),
