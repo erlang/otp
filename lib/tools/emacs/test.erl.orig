@@ -146,6 +146,8 @@ t15(),t20(),t21(), t22(),t25()}.
  | {'del_member', name(), pid()},
    #state{}) -> {'noreply', #state{}}.
 
+-spec all(fun((T) -> boolean()), List :: [T]) ->
+ boolean() when is_subtype(T, term()). % (*)
 
 -spec get_closest_pid(term()) -> 
        Return :: pid()

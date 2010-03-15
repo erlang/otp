@@ -2653,7 +2653,8 @@ Value is list (stack token-start token-type in-what)."
       (cond ((eq (car (car stack)) '\()
 	     (erlang-pop stack)
 	     (if (and (eq (car (car stack)) 'fun) 
-		      (eq (car (car (cdr stack))) '::))
+		      (or (eq (car (car (last stack))) 'spec)
+			  (eq (car (car (cdr stack))) '::))) ;; -type()
 		 ;; Inside fun type def ') closes fun definition
 		 (erlang-pop stack)))
 	    ((eq (car (car stack)) 'icr)
