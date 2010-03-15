@@ -33,7 +33,6 @@
 %% gen_server callbacks
 -export([init/1, handle_call/3, handle_cast/2, handle_info/2,
 	 terminate/2, code_change/3]).
--compile(export_all).
 
 -record(state, {cb_port,  %% Callback port and to erlang messages goes via it.
 		users,    %% List of wx servers, needed ??
