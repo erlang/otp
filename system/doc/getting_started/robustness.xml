@@ -146,7 +146,7 @@ after pong_timeout() -></code>
       a process calls
       <seealso marker="erts:erlang#link/1">link(Other_Pid)</seealso>
       it sets up a bidirectional link between itself and the process
-      called <c>Other_Pid</c>. When a process terminates its sends
+      called <c>Other_Pid</c>. When a process terminates, it sends
       something called a <em>signal</em> to all the processes it has
       links to.</p>
     <p>The signal carries information about the pid it was sent from and

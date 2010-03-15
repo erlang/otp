@@ -503,7 +503,7 @@ Nodes = [cp1@cave, {cp2@cave, cp3@cave}]</code>
           the tree.</p>
         <p><c>StartType</c> defines the type of start:</p>
         <list type="bulleted">
-          <item><c>normal</c> if its a normal startup.</item>
+          <item><c>normal</c> if it's a normal startup.</item>
           <item><c>normal</c> also if the application is distributed and
            started at the current node due to a failover from another
            node, and the application specification key <c>start_phases == undefined</c>.</item>
