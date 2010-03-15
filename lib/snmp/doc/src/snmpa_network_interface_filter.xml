@@ -153,7 +153,7 @@ pdu_type() = 'get-request' | 'get-next-request' | 'get-response' | 'set-request'
         <p>For the message to be discarded all together, the function 
           <em>must</em> return <em>false</em>. </p>
         <p>Note that it is possible for this function to filter out targets
-          (but <em>not</em> add it's own) by returning an updated 
+          (but <em>not</em> add its own) by returning an updated
           <c>Targets</c> list (<c>NewTargets</c>). </p>
       </desc>
     </func>

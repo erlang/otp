@@ -2764,7 +2764,7 @@
           <p>Added a new configuration parameter, threaded.
             This tells the megaco app, that all
             transaction requests in a message should be executed
-            in parallel (e.g. each in it's own process). 
+            in parallel (e.g. each in its own process).
             <br></br>See the 
             <seealso marker="megaco#user_info">threaded</seealso> parameter
             of the user_info function (also conn_info).</p>
@@ -2911,7 +2911,7 @@
       <title>Improvements and new features</title>
       <list type="bulleted">
         <item>
-          <p>This is just a code up-/downgrade cleanup release. I.e. It's the
+          <p>This is just a code up-/downgrade cleanup release. I.e. it's the
             same as version 1.2 minus the ugly stuff needed to handle up-/downgrade
             from/to version 1.1.2, 1.1.1 and 1.1.0.</p>
         </item>

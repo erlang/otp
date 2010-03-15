@@ -920,7 +920,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>Oids = [oid()]</v>
       </type>
       <desc>
-        <p>Transform a alias-name to it's oid.</p>
+        <p>Transform a alias-name to its oid.</p>
         <p>Note that an alias-name is only unique within the mib, so
           when loading several mib's into a manager, there might be
           several instances of the same aliasname.</p>
@@ -938,7 +938,7 @@ priv_key = [integer()]   (length is 16 if priv = usmDESPrivProtocol | usmAesCfb1
         <v>Reason = term()</v>
       </type>
       <desc>
-        <p>Transform a oid to it's aliasname.</p>
+        <p>Transform a oid to its aliasname.</p>
 
         <marker id="oid_to_type"></marker>
       </desc>

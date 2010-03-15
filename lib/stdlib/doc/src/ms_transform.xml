@@ -245,7 +245,7 @@ ets:select(emp_tab, ets:fun2ms(
                       fun(#emp{empno = [$0 | Rest] }) ->
                               {[$0|Rest],[$1|Rest]}
                       end)).    </code>
-    <p>As a matter of fact, this query hit's the feature of partially bound
+    <p>As a matter of fact, this query hits the feature of partially bound
       keys in the table type <c>ordered_set</c>, so that not the whole
       table need be searched, only the part of the table containing keys
       beginning with <c>0</c> is in fact looked into. </p>

@@ -365,7 +365,7 @@
           then the specified max message size (see the 
           <seealso marker="megaco#user_info">max_pdu_size</seealso> option).
           Finally, if segmentation is decided, then each action reply
-          will make up it's own (segment) message.</p>
+          will make up its own (segment) message.</p>
       </item>
     </list>
   </section>

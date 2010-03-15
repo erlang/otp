@@ -195,7 +195,7 @@ latin1, Module, Function, Args} respectively. </p>
   below).</p>
 
   <p>The function will be called with the data the io_server finds on
-  it's device, returning {done, Result, RestChars} when enough data is
+  its device, returning {done, Result, RestChars} when enough data is
   read (in which case Result is sent to the client and RestChars are
   kept in the io_server as a buffer for subsequent input) or {more,
   Continuation}, indicating that more characters are needed to
@@ -741,7 +741,7 @@ optimize anything however. It is important though that the returned
 data is of the right type depending on the options set, so we convert
 the lists to binaries in the correct encoding <em>if possible</em>
 before returning. The function supplied in the get_until request may,
-as it's final result return anything, so only functions actually
+as its final result return anything, so only functions actually
 returning lists can get them converted to binaries. If the request
 contained the encoding tag unicode, the lists can contain all unicode
 codepoints and the binaries should be in UTF-8, if the encoding tag

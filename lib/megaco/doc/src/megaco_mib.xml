@@ -50,15 +50,15 @@
       lightweight. I.e.  the statistic counters are handled
       separately by different entities of the application. For
       instance our two transport module(s) (see <seealso marker="megaco_tcp#stats">megaco_tcp</seealso> and <seealso marker="megaco_udp#stats">megaco_udp</seealso>) maintain their
-      own counters and the application engine (see <seealso marker="megaco#stats">megaco</seealso>) maintain it's own
+      own counters and the application engine (see <seealso marker="megaco#stats">megaco</seealso>) maintain its own
       counters.</p>
     <p>This also means that if a user implement their own transport
-      service then it has to maintain it's own statistics.</p>
+      service then it has to maintain its own statistics.</p>
   </section>
 
   <section>
     <title>Distribution</title>
-    <p>Each megaco application maintains it's own set of counters. So
+    <p>Each megaco application maintains its own set of counters. So
       in a large (distributed) MG/MGC it could be necessary to
       collect the statistics from several nodes (each) running the
       megaco application (only one of them with the transport).</p>

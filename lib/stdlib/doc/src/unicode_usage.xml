@@ -143,7 +143,7 @@ en_US.UTF-8</pre>
 <pre>
 $ echo <input>$LC_CTYPE</input>
 en_US.UTF-8</pre>
-<p>The LANG or LC_CTYPE setting should be consistent with what the terminal is capable of, there is no portable way for Erlang to ask the actual terminal about it's UTF-8 capacity, we have to rely on the language and character type settings.</p>
+<p>The LANG or LC_CTYPE setting should be consistent with what the terminal is capable of, there is no portable way for Erlang to ask the actual terminal about its UTF-8 capacity, we have to rely on the language and character type settings.</p>
 <p>To investigate what Erlang thinks about the terminal, the <c>io:getopts()</c> call can be used when the shell is started:</p>
 <pre>
 $ <input>LC_CTYPE=en_US.ISO-8859-1 erl</input>
@@ -185,7 +185,7 @@ Eshell V5.7  (abort with ^G)
 <tag><c>file</c>, <c>group</c> and <c>user</c></tag>
 <item>
 <p>I/O-servers throughout the system are able both to handle Unicode data and has options for converting data upon actual output or input to/from the device. As shown earlier, the <seealso marker="stdlib:shell">shell</seealso> has support for Unicode terminals and the  <seealso marker="kernel:file">file</seealso> module allows for translation to and from various Unicode formats on disk.</p>
-<p>The actual reading and writing of files with Unicode data is however not best done with the <c>file</c> module as it's interface is byte oriented. A file opened with a Unicode encoding (like UTF-8), is then best read or written using the <seealso marker="stdlib:io">io</seealso> module.</p>
+<p>The actual reading and writing of files with Unicode data is however not best done with the <c>file</c> module as its interface is byte oriented. A file opened with a Unicode encoding (like UTF-8), is then best read or written using the <seealso marker="stdlib:io">io</seealso> module.</p>
 </item>
 <tag><c>re</c></tag>
 <item>

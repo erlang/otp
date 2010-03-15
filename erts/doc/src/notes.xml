@@ -4681,7 +4681,7 @@
         </item>
         <item>
           <p>The runtime system with SMP support did not slowly adjust
-            it's view of time when the system time suddenly changed.</p>
+            its view of time when the system time suddenly changed.</p>
           <p>Timeouts could sometimes timeout too early on the runtime
             system with SMP support.</p>
           <p>Own Id: OTP-6202</p>

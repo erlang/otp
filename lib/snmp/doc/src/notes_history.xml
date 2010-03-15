@@ -1732,7 +1732,7 @@
       version 4.1. </p>
     <p>When performing a downgrade, make sure the verbosity of the
       manager server process is silence, or else the process will crash
-      (due to a bug in version 4.0.4) and be restarted by it's 
+      (due to a bug in version 4.0.4) and be restarted by its
       supervisor.</p>
 
     <section>
@@ -1773,7 +1773,7 @@
       version 4.0.4. </p>
     <p>When performing a downgrade, make sure the verbosity of the
       manager server process is silence, or else the process will crash
-      (due to a bug in version 4.0.4) and be restarted by it's 
+      (due to a bug in version 4.0.4) and be restarted by its
       supervisor.</p>
 
     <section>
@@ -1827,8 +1827,8 @@
         </item>
         <item>
           <p>[manager] The server process contained a bug that caused it 
-            to crash, if it received an exit message from it's gct (GC timer) 
-            process and it's verbosity was <em>log</em> or higher. </p>
+            to crash, if it received an exit message from its gct (GC timer)
+            process and its verbosity was <em>log</em> or higher. </p>
 	  <p>This also effects the application downgrade. </p>
           <p>Own Id: OTP-5306</p>
         </item>

@@ -730,7 +730,7 @@
               extension suffix, i.e. <c>.so</c>). The name by which
               the driver identifies itself must also be consistent
               with this <c>Name</c> parameter, much as a beam-file's
-              module name much correspond to it's filename.</p>
+              module name much correspond to its filename.</p>
           </item>
           <tag><em>OptionList</em></tag>
           <item>
@@ -742,8 +742,8 @@
               <tag><em>{driver_options, DriverOptionsList}</em></tag>
               <item>
                 <p>This option is to provide options that will change
-                  it's general behavior and will "stick" to the driver
-                  throughout it's lifespan.</p>
+                  its general behavior and will "stick" to the driver
+                  throughout its lifespan.</p>
                 <p>The driver options for a given driver name need
                   always to be consistent, <em>even when the driver is reloaded</em>, meaning that they are as much a part
                   of the driver as the actual name.</p>

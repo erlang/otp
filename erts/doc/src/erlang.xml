@@ -2749,7 +2749,7 @@ os_prompt%</pre>
           <item>
 
 	      <p>Works like <c>{spawn, Command}</c>, but only runs
-	      external executables. The <c>Command</c> in it's whole
+	      external executables. The <c>Command</c> in its whole
 	      is used as the name of the executable, including any
 	      spaces. If arguments are to be passed, the
 	      <c>args</c> and <c>arg0</c> <c>PortSettings</c> can be used.</p>
@@ -2926,7 +2926,7 @@ os_prompt%</pre>
 	    The standard input and standard output handles of the port program
 	    will, if this option is supplied, be opened with the flag
 	    FILE_FLAG_OVERLAPPED, so that the port program can (and has to) do
-	    overlapped I/O on it's standard handles. This is not normally
+	    overlapped I/O on its standard handles. This is not normally
 	    the case for simple port programs, but an option of value for the
 	    experienced Windows programmer. <em>On all other platforms, this 
 	    option is silently discarded</em>.</p> 

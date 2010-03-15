@@ -54,7 +54,7 @@
         <item>
           <p>
             A continuation clause of <c>parse_reference/3</c> had
-            it's parameters in wrong order.</p>
+            its parameters in wrong order.</p>
           <p>
             Own Id: OTP-8251 Aux Id: seq11429 </p>
         </item>

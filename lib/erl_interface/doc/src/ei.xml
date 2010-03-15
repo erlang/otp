@@ -333,7 +333,7 @@ ei_encode_tuple_header(buf, &amp;i, 0);
       <desc>
         <p>This function encodes a list header, with a specified
           arity. The next <c><![CDATA[arity+1]]></c> terms are the elements
-          (actually it's <c><![CDATA[arity]]></c> cons cells) and the tail of the
+          (actually its <c><![CDATA[arity]]></c> cons cells) and the tail of the
           list. Lists and tuples are encoded recursively, so that a
           list may contain another list or tuple.</p>
         <p>E.g. to encode the list <c><![CDATA[[c, d, [e | f]]]]></c>:</p>

@@ -226,8 +226,8 @@
       <p>In the left frame it is possible to:</p>
       <list type="bulleted">
         <item>Select which node to supervise.</item>
-        <item>Select an application to view it's process tree.</item>
-        <item>Select an application to view it's specification.</item>
+        <item>Select an application to view its process tree.</item>
+        <item>Select an application to view its specification.</item>
       </list>
       <p>The right frame shows the selected information, either the application 
         specification or the process tree and process information.</p>

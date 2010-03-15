@@ -669,7 +669,7 @@ protocol_version() = integer()    ]]></code>
         <p>Invoked when a unexpected message is received</p>
         <p>If a reply to a request is not received in time, the
           megaco stack removes all info about the request from
-          it's tables. If a reply should arrive after this has been
+          its tables. If a reply should arrive after this has been
           done the app has no way of knowing where to send this message.
           The message is delivered to the "user" by calling this
           function on the local node (the node which has the link).</p>

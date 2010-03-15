@@ -68,7 +68,7 @@
 	   command-line flag to the Erlang runtime system you are going
 	   to use for creation of the allocator configuration. It will
 	   disable features that prevent <c>erts_alloc_config</c> from
-	   doing it's job. Note, you should <em>not</em> use this flag
+	   doing its job. Note, you should <em>not</em> use this flag
 	   when using the created configuration. Also note that it is
 	   important that you use the same
 	   <seealso marker="erts:erl#+S">amount of schedulers</seealso>
