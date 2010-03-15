@@ -158,7 +158,14 @@ split({int, N}, <<N:16,B:N/binary,T/binary>>) ->
 ?comp(otp_6121b).
 ?comp(convopts).
 ?comp(otp_7202).
-?comp(on_load).
+
+on_load(Config) when is_list(Config) ->
+    case test_server:is_native(?MODULE) of
+	false ->
+	    try_it(on_load, Config);
+	true ->
+	    {skip,"Native code causes crash"}
+    end.
 
 beam_compiler_7(doc) ->
     "Code snippet submitted from Ulf Wiger which fails in R3 Beam.";
