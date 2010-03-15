@@ -25,7 +25,6 @@
     reltool_app_win,
     reltool,
     reltool_fgraph,
-    reltool_fgraph.hrl
     reltool_fgraph_win,
     reltool_mod_win,
     reltool_server,

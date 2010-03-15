@@ -31,7 +31,7 @@
          gen_target/2,
          install/2
         ]).
--compile(export_all).
+
 -include("reltool.hrl").
 -include_lib("kernel/include/file.hrl").
 

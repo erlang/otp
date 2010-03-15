@@ -25,6 +25,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 MODULES= \
 	rtt \
+	reltool_app_SUITE \
 	reltool_wx_SUITE \
 	reltool_server_SUITE \
 	reltool_test_lib

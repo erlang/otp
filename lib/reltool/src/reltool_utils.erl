@@ -19,7 +19,29 @@
 -module(reltool_utils).
 
 %% Public
--compile([export_all]).
+-export([root_dir/0, erl_libs/0, lib_dirs/1,
+	 split_app_name/1, prim_consult/1, default_rels/0,
+
+	 assign_image_list/1, get_latest_resize/1,
+	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
+	 incl_conds/0, list_to_incl_cond/1, incl_cond_to_index/1, elem_to_index/2,
+	 app_dir_test/2, split_app_dir/1,
+	 get_item/1, get_items/1, get_selected_items/3,
+	 select_items/3, select_item/2,
+
+	 safe_keysearch/5, print/4, return_first_error/2, add_warning/2,
+
+	 create_dir/1, list_dir/1, read_file_info/1,
+	 write_file_info/2, read_file/1, write_file/2,
+	 recursive_delete/1, delete/2, recursive_copy_file/2, copy_file/2,
+
+	 throw_error/2,
+
+	 decode_regexps/3,
+	 default_val/2,
+	 escript_foldl/3,
+
+	 call/2, cast/2, reply/3]).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").

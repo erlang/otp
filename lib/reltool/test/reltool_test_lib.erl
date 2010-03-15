@@ -24,9 +24,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) when is_list(Config)->
+    global:register_name(reltool_global_logger, group_leader()),
     incr_timetrap(Config, 5).
 
 end_per_suite(Config) when is_list(Config)->
+    global:unregister_name(reltool_global_logger),
     ok.
 
 incr_timetrap(Config, Times) ->
@@ -130,11 +132,9 @@ wx_end_per_suite(Config) ->
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     set_kill_timer(Config),
-    global:register_name(reltool_global_logger, group_leader()),
     Config.
 
 end_per_testcase(_Func, Config) when is_list(Config) ->
-    global:unregister_name(reltool_global_logger),
     reset_kill_timer(Config),
     Config.
 
