@@ -42,7 +42,7 @@ check_parameter(File)->
 	true->
 	    {ok, {file, File}};
 	false->
-	    {nok, {nofile, File}}
+	    {error, {nofile, File}}
     end.
 
 % actual reading of the config

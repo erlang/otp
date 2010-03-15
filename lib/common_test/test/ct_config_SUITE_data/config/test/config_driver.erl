@@ -41,6 +41,6 @@ check_parameter(ServerName)->
 		{module, ServerModule}->
 		    {ok, {config, ServerName}};
 		{error, nofile}->
-		    {nok, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
+		    {error, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
 	    end
     end.

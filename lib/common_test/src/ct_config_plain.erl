@@ -71,7 +71,7 @@ check_parameter(File)->
 	true->
 	    {ok, {file, File}};
 	false->
-	    {nok, {nofile, File}}
+	    {error, {nofile, File}}
     end.
 
 read_config_terms(Bin) when is_binary(Bin) ->

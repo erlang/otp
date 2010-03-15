@@ -111,11 +111,14 @@
       <item><c><![CDATA[run_test -config <configfilenames> -dir <dirs>]]></c></item>
       <item><c><![CDATA[run_test -config <configfilenames> -suite <suiteswithfullpath>]]></c>
       </item>
+      <item><c><![CDATA[run_test -userconfig <callbackmodulename> <configfilenames> -suite <suiteswithfullpath>]]></c>
+      </item>
       <item><c><![CDATA[run_test -config <configfilenames> -suite <suitewithfullpath>
 	      -group <groupnames> -case <casenames>]]></c></item>
     </list>
     <p>Examples:</p>
     <p><c>$ run_test -config $CFGS/sys1.cfg $CFGS/sys2.cfg -dir $SYS1_TEST $SYS2_TEST</c></p>
+    <p><c>$ run_test -userconfig ct_config_xml $CFGS/sys1.xml $CFGS/sys2.xml -dir $SYS1_TEST $SYS2_TEST</c></p>
     <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE $SYS2_TEST/config_SUITE</c></p>
     <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE -case start stop</c></p>
     <p><c>$ run_test -suite $SYS1_TEST/setup_SUITE -group installation -case start stop</c></p>

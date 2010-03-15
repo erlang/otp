@@ -685,7 +685,7 @@ check_callback_load(Callback)->
     end.
 
 check_config_files(Configs)->
-    lists:keysearch(nok, 1,
+    lists:keysearch(error, 1,
 	lists:flatten(
 	    lists:map(fun({Callback, Files})->
 		case check_callback_load(Callback) of
@@ -695,7 +695,7 @@ check_config_files(Configs)->
 			end,
 			Files);
 		    {error, _}->
-			{nok, {callback, Callback}}
+			{error, {callback, Callback}}
 		end
 	    end,
 	Configs))).

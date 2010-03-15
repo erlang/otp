@@ -245,11 +245,11 @@ check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
     false->
 	install([{config,Configs},
 		 {event_handler,EvHandlers}], LogDir);
-    {value, {nok, {nofile, File}}} ->
+    {value, {error, {nofile, File}}} ->
 	{error,{cant_read_config_file,File}};
-    {value, {nok, {wrong_config, Message}}}->
+    {value, {error, {wrong_config, Message}}}->
 	{error,{wrong_config, Message}};
-    {value, {nok, {callback, File}}} ->
+    {value, {error, {callback, File}}} ->
 	{error,{cant_load_callback_module,File}}
     end.
 
@@ -702,9 +702,9 @@ check_config_file(Callback, File)->
 	    ?abs(File);
 	{ok, {config, _}}->
 	    File;
-	{nok, {wrong_config, Message}}->
+	{error, {wrong_config, Message}}->
 	    exit({wrong_config, {Callback, Message}});
-	{nok, {nofile, File}}->
+	{error, {nofile, File}}->
 	    exit({no_such_file, ?abs(File)})
     end.
 

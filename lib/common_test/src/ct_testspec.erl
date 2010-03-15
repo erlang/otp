@@ -321,9 +321,9 @@ get_absfile(Callback, FullName,#testspec{spec_dir=SpecDir}) ->
 	    filename:join(Dir,File);
 	{ok, {config, FullName}}->
 	    FullName;
-	{nok, {nofile, FullName}}->
+	{error, {nofile, FullName}}->
 	    FullName;
-	{nok, {wrong_config, FullName}}->
+	{error, {wrong_config, FullName}}->
 	    FullName
     end.
 

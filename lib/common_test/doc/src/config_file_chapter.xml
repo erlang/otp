@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -180,7 +180,123 @@
   </section>
 
   <section>
-    <title>Examples</title>
+    <title>Using own configuration data formats</title>
+
+    <p>The nature of the configuration variables can be not only plain text
+    files with the key-value tuples, but they can be loaded from the files in
+    various formats, fetched via http from the Web, or can be loaded with help
+    of some driver process. For this purpose, mechanism of plugging in user
+    configuration handling callback modules is implemented in the Common Test.</p>
+
+    <section>
+      <title>Standard callback modules for loading configuration variables</title>
+      <p>Two callback modules for handling of configuration files are provided
+      with the Common Test application:</p>
+      <list>
+         <item>
+           <c>ct_config_plain</c> - for reading configuration files with
+           key-value tuples (traditional format). This handler will be tried to
+           parse configuration file, if no user callback is specified.
+         </item>
+         <item>
+           <c>ct_config_xml</c> - for reading configuration data from the XML
+           files.
+         </item>
+      </list>
+    </section>
+
+    <section>
+      <title>Using XML configuration files</title>
+
+      <p>This is an example of the XML configuration file:</p>
+
+      <pre>
+      <![CDATA[
+<config>
+    <ftp_host>
+        <ftp>"targethost"</ftp>
+        <username>"tester"</username>
+        <password>"letmein"</password>
+    </ftp_host>
+    <lm_directory>"/test/loadmodules"</lm_directory>
+</config>]]>
+      </pre>
+
+      <p>This configuration file, once read, will produce the same configuration
+      variables as the following "traditional" file:</p>
+      <pre>
+{ftp_host, [{ftp,"targethost"},
+            {username,"tester"},
+            {password,"letmein"}]}.
+
+{lm_directory, "/test/loadmodules"}.
+      </pre>
+    </section>
+
+    <section>
+      <title>Implementing of the own handler</title>
+
+      <p>Own handler can be written to handle special configuration file formats.
+      The parameter can be either file name or configuration string (empty list
+      is valid).</p>
+      <p>The callback module is completely responsible for the
+      configuration string correctness checks during runtime.</p>
+
+      <p>Callback module should have the following functions exported:</p>
+      <p>One for checking configuration parameter</p>
+
+      <p><c>Callback:check_parameter/1</c></p>
+      <p>Input value will be passed from the Common Test, as defined in the test
+      specification or given as an option to the run_test.</p>
+      <p>Return value should be any of the following value indicating if given
+      configuration parameter is valid:</p>
+      <list>
+        <item>
+          <c>{ok, {file, FileName}}</c> - parameter is a file name and
+          file exists;
+        </item>
+        <item>
+          <c>{ok, {config, ConfigString}}</c> - parameter is a config string
+          and it is correct;
+        </item>
+        <item>
+          <c>{error, {nofile, FileName}}</c> - there is no file with the given
+          name in the current directory;
+        </item>
+        <item>
+          <c>{error, {wrong_config, ConfigString}}</c> - configuration string
+          is wrong.
+        </item>
+      </list>
+
+      <p>And second function performs reading of the configuration variables:</p>
+      <p><c>Callback:read_config/1</c></p>
+      <p>Input value is the same as for <c>check_parameter/1</c> function</p>
+      <p>Return value should be either:</p>
+
+      <list>
+        <item>
+          <c>{ok, Config}</c> - is configuration variables read successfully;
+        </item>
+        <item>
+          <c>{error, Error, ErrorDetails}</c> - if callback module failed to
+          proceed.
+        </item>
+      </list>
+      <p>Above, the <c>Config</c> variable is the key-value list, possibly nested,
+      e.g. for the configuration files above it will be the following</p>
+
+      <pre>
+        [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
+        {lm_directory, "/test/loadmodules"}]
+      </pre>
+
+    </section>
+
+  </section>
+
+  <section>
+    <title>Examples of the configuration files</title>
 
     <p>A config file for using the FTP client to access files on a remote
       host could look like this:</p>
@@ -188,28 +304,33 @@
     <pre>
     {ftp_host, [{ftp,"targethost"},
                 {username,"tester"},
-	        {password,"letmein"}]}.
+                {password,"letmein"}]}.
 
     {lm_directory, "/test/loadmodules"}.</pre>
+
+    <p>XML version shown in chapter above can also be used, but it should be
+    explicitly specified that <c>ct_config_xml</c> callback module is to be
+    used.</p>
+
     <p>Example of how to assert that the configuration data is available and 
       use it for an FTP session:</p>
     <pre>
     init_per_testcase(ftptest, Config) ->
         {ok,_} = ct_ftp:open(ftp),
-	Config.
+        Config.
 
     end_per_testcase(ftptest, _Config) ->
         ct_ftp:close(ftp).
 
     ftptest() ->
         [{require,ftp,ftp_host},
-	 {require,lm_directory}].
+         {require,lm_directory}].
 
     ftptest(Config) ->
-	Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+        Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
         Local = filename:join(?config(priv_dir,Config), "loadmodule"),
         ok = ct_ftp:recv(ftp, Remote, Local),
-	...</pre>
+        ...</pre>
     
     <p>An example of how the above functions could be rewritten
       if necessary to open multiple connections to the FTP server:</p>
@@ -217,7 +338,7 @@
     init_per_testcase(ftptest, Config) ->
         {ok,Handle1} = ct_ftp:open(ftp_host),
         {ok,Handle2} = ct_ftp:open(ftp_host),
-	[{ftp_handles,[Handle1,Handle2]} | Config].
+        [{ftp_handles,[Handle1,Handle2]} | Config].
 
     end_per_testcase(ftptest, Config) ->
         lists:foreach(fun(Handle) -> ct_ftp:close(Handle) end, 
@@ -225,15 +346,113 @@
 
     ftptest() ->
         [{require,ftp_host},
-	 {require,lm_directory}].
+         {require,lm_directory}].
 
     ftptest(Config) ->
-	Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
+        Remote = filename:join(ct:get_config(lm_directory), "loadmodX"),
         Local = filename:join(?config(priv_dir,Config), "loadmodule"),
         [Handle | MoreHandles] = ?config(ftp_handles,Config),
         ok = ct_ftp:recv(Handle, Remote, Local),
-	...</pre>
+        ...</pre>
       
+  </section>
+
+  <section>
+    <title>Example of own configuration handler</title>
+    <p>Simple configuration hanling "driver" can be implemented this way:</p>
+    <pre>
+-module(config_driver).
+-export([read_config/1, check_parameter/1]).
+
+read_config(ServerName)->
+    ServerModule = list_to_atom(ServerName),
+    ServerModule:start(),
+    ServerModule:get_config().
+
+check_parameter(ServerName)->
+    ServerModule = list_to_atom(ServerName),
+    case code:is_loaded(ServerModule) of
+        {file, _}->
+            {ok, {config, ServerName}};
+        false->
+            case code:load_file(ServerModule) of
+                {module, ServerModule}->
+                    {ok, {config, ServerName}};
+                {error, nofile}->
+                    {error, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
+            end
+    end.
+    </pre>
+    <p>Configuration string for this driver may be "config_server", if the
+    config_server.erl module below is built and is exist in the code path:</p>
+    <pre>
+-module(config_server).
+-export([start/0, stop/0, init/1, get_config/0, loop/0]).
+
+-define(REGISTERED_NAME, ct_test_config_server).
+-define(vsn, 0.1).
+
+start()->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            spawn(?MODULE, init, [?REGISTERED_NAME]),
+            wait();
+        _Pid->
+        ok
+    end,
+    ?REGISTERED_NAME.
+
+init(Name)->
+    register(Name, self()),
+    loop().
+
+get_config()->
+    call(self(), get_config).
+
+stop()->
+    call(self(), stop).
+
+call(Client, Request)->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            {error, not_started, Request};
+        Pid->
+            Pid ! {Client, Request},
+            receive
+                Reply->
+                    {ok, Reply}
+            after 4000->
+                {error, timeout, Request}
+            end
+    end.
+
+loop()->
+    receive
+        {Pid, stop}->
+            Pid ! ok;
+        {Pid, get_config}->
+            {D,T} = erlang:localtime(),
+            Pid !
+                [{localtime, [{date, D}, {time, T}]},
+                 {node, erlang:node()},
+                 {now, erlang:now()},
+                 {config_server_pid, self()},
+                 {config_server_vsn, ?vsn}],
+            ?MODULE:loop()
+    end.
+
+wait()->
+    case whereis(?REGISTERED_NAME) of
+        undefined->
+            wait();
+        _Pid->
+            ok
+    end.
+    </pre>
+    <p>There two modules provide the ability to dynamically reload configuration
+    variables. If the <c>ct:reload_config(localtime)</c> is called from the test
+    case, all variables which were loaded with the config_driver above, will be
+    updated with the new values.</p>
   </section>
 
 </chapter>
