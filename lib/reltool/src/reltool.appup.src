@@ -17,23 +17,6 @@
 %%
 %% %CopyrightEnd%
 
-{application, reltool,
- [{description, "Reltool the release management tool"},
-  {vsn, "%VSN%"},
-  {modules,
-   [
-    reltool_app_win,
-    reltool,
-    reltool_fgraph,
-    reltool_fgraph.hrl
-    reltool_fgraph_win,
-    reltool_mod_win,
-    reltool_server,
-    reltool_sys_win,
-    reltool_target,
-    reltool_utils
-   ]},
-  {registered, []},
-  {applications, [stdlib, kernel]},
-  {env, []}
- ]}.
+{"%VSN%",
+ [ ]
+}.
