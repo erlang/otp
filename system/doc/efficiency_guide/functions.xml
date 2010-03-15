@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2001</year><year>2009</year>
+      <year>2001</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Functions</title>
@@ -179,7 +179,9 @@ explicit_map_pairs(Map, Xs0, Ys0) ->
        A "tuple fun", <c>{Module,Function}</c>, is not a fun.
        The cost for calling a "tuple fun" is similar to that
        of <c>apply/3</c> or worse. Using "tuple funs" is <em>strongly discouraged</em>,
-       as they may not be supported in a future release.</p></warning>
+       as they may not be supported in a future release,
+       and because there exists a superior alternative since the R10B
+       release, namely the <c>fun Module:Function/Arity</c> syntax.</p></warning>
 
        <p><c>apply/3</c> must look up the code for the function to execute
        in a hash table. Therefore, it will always be slower than a
