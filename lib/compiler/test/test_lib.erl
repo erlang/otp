@@ -57,7 +57,6 @@ opt_opts(Mod) ->
 		    (no_new_apply) -> true;
 		    (no_gc_bifs) -> true;
 		    (no_stack_trimming) -> true;
-		    (no_binaries) -> true;
 		    (debug_info) -> true;
 		    (_) -> false
 		 end, Opts).

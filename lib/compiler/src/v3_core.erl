@@ -213,10 +213,7 @@ clause({clause,Lc,H0,G0,B0}, St0) ->
     catch
 	throw:nomatch ->
 	    St = add_warning(Lc, nomatch, St0),
-	    {noclause,St};			%Bad pattern
-	throw:no_binaries ->
-	    St = add_error(Lc, no_binaries, St0),
-	    {noclause,St}
+	    {noclause,St}			%Bad pattern
     end.
 
 clause_arity({clause,_,H0,_,_}) -> length(H0).
@@ -496,22 +493,18 @@ expr({tuple,L,Es0}, St0) ->
     {Es1,Eps,St1} = safe_list(Es0, St0),
     A = lineno_anno(L, St1),
     {ann_c_tuple(A, Es1),Eps,St1};
-expr({bin,L,Es0}, #core{opts=Opts}=St0) ->
-    St1 = case member(no_binaries, Opts) of
-	      false -> St0;
-	      true -> add_error(L, no_binaries, St0)
-	  end,
-    try expr_bin(Es0, lineno_anno(L, St1), St1) of
+expr({bin,L,Es0}, St0) ->
+    try expr_bin(Es0, lineno_anno(L, St0), St0) of
 	{_,_,_}=Res -> Res
     catch
 	throw:bad_binary ->
-	    St2 = add_warning(L, bad_binary, St1),
-	    LineAnno = lineno_anno(L, St2),
+	    St = add_warning(L, bad_binary, St0),
+	    LineAnno = lineno_anno(L, St),
 	    As = [#c_literal{anno=LineAnno,val=badarg}],
 	    {#icall{anno=#a{anno=LineAnno},	%Must have an #a{}
 		    module=#c_literal{anno=LineAnno,val=erlang},
 		    name=#c_literal{anno=LineAnno,val=error},
-		    args=As},[],St2}
+		    args=As},[],St}
     end;
 expr({block,_,Es0}, St0) ->
     %% Inline the block directly.
@@ -616,10 +609,6 @@ expr({match,L,P0,E0}, St0) ->
     case P2 of
 	nomatch ->
 	    St = add_warning(L, nomatch, St2),
-	    {#icase{anno=#a{anno=Lanno},
-		    args=[E2],clauses=[],fc=Fc},Eps,St};
-	no_binaries ->
-	    St = add_error(L, no_binaries, St2),
 	    {#icase{anno=#a{anno=Lanno},
 		    args=[E2],clauses=[],fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
@@ -1443,15 +1432,10 @@ pattern({cons,L,H,T}, St) ->
     ann_c_cons(lineno_anno(L, St), pattern(H, St), pattern(T, St));
 pattern({tuple,L,Ps}, St) ->
     ann_c_tuple(lineno_anno(L, St), pattern_list(Ps, St));
-pattern({bin,L,Ps}, #core{opts=Opts}=St) ->
-    case member(no_binaries, Opts) of
-	false ->
-	    %% We don't create a #ibinary record here, since there is
-	    %% no need to hold any used/new annotations in a pattern.
-	    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
-	true ->
-	    throw(no_binaries)
-    end;
+pattern({bin,L,Ps}, St) ->
+    %% We don't create a #ibinary record here, since there is
+    %% no need to hold any used/new annotations in a pattern.
+    #c_binary{anno=lineno_anno(L, St),segments=pat_bin(Ps, St)};
 pattern({match,_,P1,P2}, St) ->
     pat_alias(pattern(P1, St), pattern(P2, St)).
 
@@ -2116,21 +2100,15 @@ is_simp_bin(Es) ->
 %%% Handling of warnings.
 %%%
 
--type err_desc() :: 'bad_binary' | 'no_binaries' | 'nomatch'.
+-type err_desc() :: 'bad_binary' | 'nomatch'.
 
 -spec format_error(err_desc()) -> nonempty_string().
 
 format_error(nomatch) ->
     "pattern cannot possibly match";
 format_error(bad_binary) ->
-    "binary construction will fail because of a type mismatch";
-format_error(no_binaries) ->
-    "bit syntax is not allowed to be used when compatibility with a previous "
-	"version has been requested".
+    "binary construction will fail because of a type mismatch".
 
 add_warning(Line, Term, #core{ws=Ws,file=[{file,File}]}=St) when Line >= 0 ->
     St#core{ws=[{File,[{location(Line),?MODULE,Term}]}|Ws]};
 add_warning(_, _, St) -> St.
-
-add_error(Line, Term, #core{es=Es,file=[{file,File}]}=St) ->
-    St#core{es=[{File,[{location(abs_line(Line)),?MODULE,Term}]}|Es]}.

@@ -164,9 +164,6 @@ expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
-expand_opt(no_binaries=O, Os) ->
-    %%Turn off the entire type optimization pass.
-    [no_topt,O|Os];
 expand_opt(no_float_opt, Os) ->
     %%Turn off the entire type optimization pass.
     [no_topt|Os];

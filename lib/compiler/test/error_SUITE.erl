@@ -21,11 +21,11 @@
 -include("test_server.hrl").
 
 -export([all/1,
-	 head_mismatch_line/1,r11b_binaries/1,warnings_as_errors/1]).
+	 head_mismatch_line/1,warnings_as_errors/1]).
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [head_mismatch_line,r11b_binaries,warnings_as_errors].
+    [head_mismatch_line,warnings_as_errors].
 
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
@@ -41,37 +41,6 @@ get_compilation_errors(Config, Filename) ->
     ?line File = filename:join(DataDir, Filename),
     ?line {error, [{_Name, E}|_], []} = compile:file(File, [return_errors]),
     E.
-
-r11b_binaries(Config) when is_list(Config) ->
-    Ts = [{r11b_binaries,
-	   <<"
-             t1(Bin) ->
-               case Bin of
-	         _ when size(Bin) > 20 -> erlang:error(too_long);
-                 <<_,T/binary>> -> t1(T);
-	         <<>> -> ok
-             end.
-
-             t2(<<_,T/bytes>>) ->
-               split_binary(T, 4).
-
-             t3(X) ->
-               <<42,X/binary>>.
-
-             t4(X) ->
-               <<N:32>> = X,
-               N.
-           ">>,
-           [r11],
-	   {error,
-	    [{5,v3_core,no_binaries},
-	     {6,v3_core,no_binaries},
-	     {9,v3_core,no_binaries},
-	     {13,v3_core,no_binaries},
-	     {16,v3_core,no_binaries}],
-	    []} }],
-    ?line [] = run(Config, Ts),
-    ok.
 
 warnings_as_errors(Config) when is_list(Config) ->
     Ts = [{warnings_as_errors,
