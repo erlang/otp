@@ -133,9 +133,7 @@ ERL_FILES= $(MODULES:%=%.erl)
 
 HRL_FILES= External.hrl
 
-TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
-
-INSTALL_PROGS= $(TARGET_FILES)
+EMAKEFILE=Emakefile
 
 # ----------------------------------------------------
 # Release directory specification
@@ -145,19 +143,20 @@ RELSYSDIR = $(RELEASE_PATH)/asn1_test
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -I$(ERL_TOP)/lib/test_server/include \
-		-I$(ERL_TOP)/lib/kernel/include
-
+ERL_COMPILE_FLAGS += +warnings_as_errors
 EBIN = .
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
 
-tests debug opt: $(TARGET_FILES) $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
+$(EMAKEFILE): $(ERL_FILES) $(HRL_FILES)
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) $(ERL_FILES) >$(EMAKEFILE)
+
+tests debug opt: $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2) $(EMAKEFILE)
 
 clean:
-	rm -f $(TARGET_FILES) $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
+	rm -f $(SUITE) $(SUITE_BIN) $(SUITE_BIN_V2)
 	rm -f core
 
 docs:
@@ -190,8 +189,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA)  $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_DATA) asn1.spec $(INSTALL_PROGS) $(RELSYSDIR)
+	$(INSTALL_DATA) asn1.spec $(EMAKEFILE) $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 	$(INSTALL_DIR) $(RELSYSDIR)/asn1_bin_SUITE_data
