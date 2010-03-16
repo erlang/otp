@@ -1732,19 +1732,49 @@ get_data(#socket_options{active=Active, packet=Raw}, BytesToRead, Buffer)
     end;
 get_data(#socket_options{packet=Type, packet_size=Size}, _, Buffer) ->
     PacketOpts = [{packet_size, Size}], 
-    case erlang:decode_packet(Type, Buffer, PacketOpts) of
+    case decode_packet(Type, Buffer, PacketOpts) of
 	{more, _} ->
 	    {ok, <<>>, Buffer};
 	Decoded ->
 	    Decoded
     end.
 
-deliver_app_data(SO = #socket_options{active=once}, Data, Pid, From) ->
-    send_or_reply(once, Pid, From, format_reply(SO, Data)),
-    SO#socket_options{active=false};
-deliver_app_data(SO= #socket_options{active=Active}, Data, Pid, From) ->
-    send_or_reply(Active, Pid, From, format_reply(SO, Data)),
-    SO.
+decode_packet({http, headers}, Buffer, PacketOpts) ->
+    decode_packet(httph, Buffer, PacketOpts);
+decode_packet({http_bin, headers}, Buffer, PacketOpts) ->
+    decode_packet(httph_bin, Buffer, PacketOpts);
+decode_packet(Type, Buffer, PacketOpts) ->
+    erlang:decode_packet(Type, Buffer, PacketOpts).
+
+%% Just like with gen_tcp sockets, an ssl socket that has been configured with
+%% {packet, http} (or {packet, http_bin}) will automatically switch to expect
+%% HTTP headers after it sees a HTTP Request or HTTP Response line. We
+%% represent the current state as follows:
+%%    #socket_options.packet =:= http: Expect a HTTP Request/Response line
+%%    #socket_options.packet =:= {http, headers}: Expect HTTP Headers
+%% Note that if the user has explicitly configured the socket to expect
+%% HTTP headers using the {packet, httph} option, we don't do any automatic
+%% switching of states.
+deliver_app_data(SOpts = #socket_options{active=Active, packet=Type},
+			Data, Pid, From) ->
+    send_or_reply(Active, Pid, From, format_reply(SOpts, Data)),
+    SO = case Data of
+	     {P, _, _, _} when ((P =:= http_request) or (P =:= http_response)),
+			       ((Type =:= http) or (Type =:= http_bin)) ->
+	         SOpts#socket_options{packet={Type, headers}};
+	     http_eoh when tuple_size(Type) =:= 2 ->
+                 % End of headers - expect another Request/Response line
+	         {Type1, headers} = Type,
+	         SOpts#socket_options{packet=Type1};
+	     _ ->
+	         SOpts
+	 end,
+    case Active of
+        once ->
+            SO#socket_options{active=false};
+	_ ->
+	    SO
+    end.
 
 format_reply(#socket_options{active=false, mode=Mode, header=Header}, Data) ->
     {ok, format_reply(Mode, Header, Data)};
@@ -1939,8 +1969,12 @@ get_socket_opts(Socket, [mode | Tags], SockOpts, Acc) ->
     get_socket_opts(Socket, Tags, SockOpts, 
 		    [{mode, SockOpts#socket_options.mode} | Acc]);
 get_socket_opts(Socket, [packet | Tags], SockOpts, Acc) ->
-    get_socket_opts(Socket, Tags, SockOpts, 
-		    [{packet, SockOpts#socket_options.packet} | Acc]);
+    case SockOpts#socket_options.packet of
+	{Type, headers} ->
+	    get_socket_opts(Socket, Tags, SockOpts, [{packet, Type} | Acc]);
+	Type ->
+	    get_socket_opts(Socket, Tags, SockOpts, [{packet, Type} | Acc])
+    end;
 get_socket_opts(Socket, [header | Tags], SockOpts, Acc) ->
     get_socket_opts(Socket, Tags, SockOpts, 
 		    [{header, SockOpts#socket_options.header} | Acc]);
