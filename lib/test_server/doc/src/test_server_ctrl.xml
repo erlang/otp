@@ -610,7 +610,7 @@ Optional, if not given the test server controller node
           <tag><c>NAME name</c></tag>
           <item>Names the test suite to something else than the
            default name. This does not apply to <c>SPEC</c> which keeps
-           it's names.
+           its names.
           </item>
           <tag><c>PARAMETERS parameterfile</c></tag>
           <item>Specifies the parameter file to use when starting

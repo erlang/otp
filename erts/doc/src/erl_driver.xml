@@ -781,7 +781,7 @@ typedef struct ErlIOVec {
         <marker id="driver_get_now"></marker>
         <p>This function reads a timestamp into the memory pointed to by 
           the parameter <c>now</c>. See the description of <seealso marker="#ErlDrvNowData">ErlDrvNowData</seealso> for
-          specification of it's fields.  </p>
+          specification of its fields.  </p>
         <p>The return value is 0 unless the <c>now</c> pointer is not
           valid, in which case it is &lt; 0.  </p>
       </desc>

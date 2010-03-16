@@ -357,7 +357,7 @@ UserName:Password
         <p>The mod_cgi module makes it possible to execute CGI scripts
           in the server.  A file that matches the definition of a
           ScriptAlias config directive is treated as a CGI script.  A CGI
-          script is executed by the server and it's output is returned to
+          script is executed by the server and its output is returned to
           the client. </p>
         <p>The CGI Script response comprises a message-header and a
           message-body, separated by a blank line.  The message-header

@@ -434,7 +434,7 @@
 (13)     Word received;            /* Bytes received */
 (14)     struct uds_data *partner; /* The partner in an accept/listen pair */
 (15)     struct uds_data *next;    /* Next structure in list */
-(16)     /* The input buffer and it's data */
+(16)     /* The input buffer and its data */
 (17)     int buffer_size;          /* The allocated size of the input buffer */
 (18)     int buffer_pos;           /* Current position in input buffer */
 (19)     int header_pos;           /* Where the current header is in the 
@@ -825,7 +825,7 @@
         I/O vector itself. One can use this to allocate the binaries
         for the queue "manually" in the driver, but we'll just fill
         the binary array with NULL values (line 7) , which will make
-        the runtime system allocate it's own buffers when we call
+        the runtime system allocate its own buffers when we call
         <c><![CDATA[driver_enqv]]></c> (line 37).</p>
       <p></p>
       <p>The routine builds an I/O vector containing the header bytes
@@ -942,7 +942,7 @@
          between invocations of Erlang nodes with the same name.</item>
       </list>
       <p>The control interface gets a buffer to return its value in,
-        but is free to allocate it's own buffer is the provided one is
+        but is free to allocate its own buffer is the provided one is
         to small. Here is the code for <c><![CDATA[uds_control]]></c>:</p>
       <code type="none"><![CDATA[
 ( 1) static int uds_control(ErlDrvData handle, unsigned int command, 
@@ -1042,7 +1042,7 @@
       <c><![CDATA[net_kernel:start/1]]></c> function, which is useful as it starts
       the distribution on a running system, where tracing/debugging
       can be performed. The <c><![CDATA[net_kernel:start/1]]></c> routine takes a
-      list as it's single argument. The lists first element should be
+      list as its single argument. The lists first element should be
       the node name (without the "@hostname") as an atom, and the second (and
       last) element should be one of the atoms <c><![CDATA[shortnames]]></c> or 
       <c><![CDATA[longnames]]></c>. In the example case <c><![CDATA[shortnames]]></c> is

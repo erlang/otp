@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Robustness</title>
@@ -146,7 +146,7 @@ after pong_timeout() -></code>
       a process calls
       <seealso marker="erts:erlang#link/1">link(Other_Pid)</seealso>
       it sets up a bidirectional link between itself and the process
-      called <c>Other_Pid</c>. When a process terminates its sends
+      called <c>Other_Pid</c>. When a process terminates, it sends
       something called a <em>signal</em> to all the processes it has
       links to.</p>
     <p>The signal carries information about the pid it was sent from and

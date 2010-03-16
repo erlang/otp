@@ -413,7 +413,7 @@ select(Port, Query) ->
     <title>Sample asynchronous driver</title>
     <p>Sometimes database queries can take long time to
       complete, in our <c><![CDATA[pg_sync]]></c> driver, the emulator
-      halts while the driver is doing it's job. This is
+      halts while the driver is doing its job. This is
       often not acceptable, since no other Erlang processes
       gets a chance to do anything. To improve on our
       postgres driver, we reimplement it using the asynchronous

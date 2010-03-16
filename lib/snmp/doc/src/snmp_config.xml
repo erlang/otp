@@ -704,7 +704,7 @@
         <p>Specifies if and how the audit trail log shall be repaired
           when opened. Unless this parameter has the value <c>snmp_repair</c>
           it is sent to <c>disk_log</c>. If, on the other hand, the value is
-          <c>snmp_repair</c>, snmp attempts to handle certain faults on it's 
+          <c>snmp_repair</c>, snmp attempts to handle certain faults on its
           own. And even if it cannot repair the file, it does not truncate it 
           directly, but instead <em>moves it aside</em> for later off-line 
           analysis.</p>
