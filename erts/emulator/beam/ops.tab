@@ -66,7 +66,6 @@ func_info M=a a==am_module_info A=u==1 | label L | move n r => too_old_compiler
 
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
 
-
 #
 # All the other instructions.
 #
@@ -114,12 +113,6 @@ init Y1 | init Y2 | init Y3 => init3 Y1 Y2 Y3
 init Y1 | init Y2 => init2 Y1 Y2
 %macro: init2 Init2 -pack
 %macro: init3 Init3 -pack
-
-#
-# Warning: The put_string instruction is specially treated in the loader.
-# Don't change the instruction format unless you change the loader too.
-#
-put_string I I d
 
 # Selecting values
 

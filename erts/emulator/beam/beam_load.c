@@ -277,7 +277,6 @@ typedef struct {
     BeamInstr* code;		/* Loaded code. */
     int ci;			/* Current index into loaded code. */
     Label* labels;
-    BeamInstr put_strings;		/* Linked list of put_string instructions. */
     BeamInstr new_bs_put_strings;	/* Linked list of i_new_bs_put_string instructions. */
     StringPatch* string_patches; /* Linked list of position into string table to patch. */
     BeamInstr catches;		/* Linked list of catch_yf instructions. */
@@ -1388,7 +1387,6 @@ read_code_header(LoaderState* stp)
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
     stp->code[MI_NUM_BREAKPOINTS] = 0;
 
-    stp->put_strings = 0;
     stp->new_bs_put_strings = 0;
     stp->catches = 0;
     return 1;
@@ -2129,34 +2127,6 @@ load_code(LoaderState* stp)
 
 	    /* Remember offset for the on_load function. */
 	    stp->on_load = ci;
-	    break;
-	case op_put_string_IId:
-	    {
-		/*
-		 * At entry:
-		 *
-		 * code[ci-4]	&&lb_put_string_IId
-		 * code[ci-3]	length of string
-		 * code[ci-2]   offset into string table
-		 * code[ci-1]   destination register
-		 *
-		 * Since we don't know the address of the string table yet,
-		 * just check the offset and length for validity, and use
-		 * the instruction field as a link field to link all put_string
-		 * instructions into a single linked list.  At exit:
-		 *
-		 * code[ci-4]	pointer to next put_string instruction (or 0
-		 *		if this is the last)
-		 */
-		Uint offset = code[ci-2];
-		Uint len = code[ci-3];
-		unsigned strtab_size = stp->chunks[STR_CHUNK].size;
-		if (offset > strtab_size || offset + len > strtab_size) {
-		    LoadError2(stp, "invalid string reference %d, size %d", offset, len);
-		}
-		code[ci-4] = stp->put_strings;
-		stp->put_strings = ci - 4;
-	    }
 	    break;
 	case op_bs_put_string_II:
 	    {
@@ -3590,22 +3560,6 @@ freeze_code(LoaderState* stp)
  	}
     CHKBLK(ERTS_ALC_T_CODE,code);
 	code[MI_COMPILE_SIZE_ON_HEAP] = decoded_size;
-    }
-    CHKBLK(ERTS_ALC_T_CODE,code);
-
-
-    /*
-     * Go through all put_strings instructions, restore the pointer to
-     * the instruction and convert string offsets to pointers (to the
-     * LAST character).
-     */
-
-    index = stp->put_strings;
-    while (index != 0) {
-	Uint next = code[index];
-	code[index] = BeamOpCode(op_put_string_IId);
-	code[index+2] = (BeamInstr) (str_table + code[index+2] + code[index+1] - 1);
-	index = next;
     }
     CHKBLK(ERTS_ALC_T_CODE,code);
 
