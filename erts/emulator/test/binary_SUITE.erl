@@ -55,7 +55,6 @@
 	 otp_5484/1,otp_5933/1,
 	 ordering/1,unaligned_order/1,gc_test/1,
 	 bit_sized_binary_sizes/1,
-	 bitlevel_roundtrip/1,
 	 otp_6817/1,deep/1,obsolete_funs/1,robustness/1,otp_8117/1,
 	 otp_8180/1]).
 
@@ -70,7 +69,7 @@ all(suite) ->
      bad_binary_to_term_2,safe_binary_to_term2,
      bad_binary_to_term, bad_terms, t_hash, bad_size, bad_term_to_binary,
      more_bad_terms, otp_5484, otp_5933, ordering, unaligned_order,
-     gc_test, bit_sized_binary_sizes, bitlevel_roundtrip, otp_6817, otp_8117,
+     gc_test, bit_sized_binary_sizes, otp_6817, otp_8117,
      deep,obsolete_funs,robustness,otp_8180].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
@@ -1149,35 +1148,6 @@ bsbs_1(A) ->
     io:format("A: ~p BinSize: ~p", [A,BinSize]),
     Bin = binary_to_term(<<131,$M,5:32,A,0,0,0,0,0>>),
     BinSize = bit_size(Bin).
-
-bitlevel_roundtrip(Config) when is_list(Config) ->
-    case ?t:is_release_available("r11b") of
-	true -> bitlevel_roundtrip_1();
-	false -> {skip,"No R11B found"}
-    end.
-
-bitlevel_roundtrip_1() ->
-    Name = bitlevelroundtrip,
-    ?line N = list_to_atom(atom_to_list(Name) ++ "@" ++ hostname()),
-    ?line ?t:start_node(Name, slave, [{erl,[{release,"r11b"}]}]),
-
-    ?line {<<128>>,1} = roundtrip(N, <<1:1>>),
-    ?line {<<64>>,2} = roundtrip(N, <<1:2>>),
-    ?line {<<16#E0>>,3} = roundtrip(N, <<7:3>>),
-    ?line {<<16#70>>,4} = roundtrip(N, <<7:4>>),
-    ?line {<<16#10>>,5} = roundtrip(N, <<2:5>>),
-    ?line {<<16#8>>,6} = roundtrip(N, <<2:6>>),
-    ?line {<<16#2>>,7} = roundtrip(N, <<1:7>>),
-    ?line {<<8,128>>,1} = roundtrip(N, <<8,1:1>>),
-    ?line {<<42,248>>,5} = roundtrip(N, <<42,31:5>>),
-
-    ?line ?t:stop_node(N),
-    ok.
-
-roundtrip(Node, Term) ->
-    {badrpc,{'EXIT',Res}} = rpc:call(Node, erlang, exit, [Term]),
-    io:format("<<~p bits>> => ~w", [bit_size(Term),Res]),
-    Res.
 
 deep(Config) when is_list(Config) ->
     ?line deep_roundtrip(lists:foldl(fun(E, A) ->
