@@ -29,6 +29,20 @@
     <file>notes.xml</file>
   </header>
 
+ <section><title>Ssh 1.1.9</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>The connection handler now include stack traces when a channel 
+             message is not handled correctly.</p>
+          <p>Own Id: OTP-8524 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
  <section><title>Ssh 1.1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
