@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>cosTransactions Examples</title>
@@ -83,7 +83,9 @@ module ownResourceImpl {
         <item><c>commit_one_phase/1</c> - if possible, the Resource should commit all changes made as part of the transaction. 
          This operation can only be used if the Resource is the only child of its parent. </item>
         <item><c>forget/1</c> - this operation informs the Resource that it is safe to forget any 
-        <term id="Heuristic decisions"><termdef>Heuristic decisions is a unilateral decision by a participant to commit or rollback without receiving the true outcome of the transaction from its parents coordinator.</termdef></term>and the knowledge of the transaction.</item>
+        <term id="Heuristic decisions"><termdef>Heuristic decisions is a unilateral decision by a participant to commit
+              or rollback without receiving the true outcome of the transaction from its parent's coordinator.</termdef></term>
+              and the knowledge of the transaction.</item>
         <item><c>ownFunctions</c> - all application specific operations.</item>
       </list>
       <p>If the participant wants to be notified when a subtransaction commits, we must also implement the following operations 
