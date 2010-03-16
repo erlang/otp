@@ -80,7 +80,6 @@ format_1(#k_atom{val=A}, _Ctxt) -> core_atom(A);
 format_1(#k_float{val=F}, _Ctxt) -> float_to_list(F);
 format_1(#k_int{val=I}, _Ctxt) -> integer_to_list(I);
 format_1(#k_nil{}, _Ctxt) -> "[]";
-format_1(#k_string{val=S}, _Ctxt) -> io_lib:write_string(S);
 format_1(#k_var{name=V}, _Ctxt) ->
     if is_atom(V) ->
 	    case atom_to_list(V) of

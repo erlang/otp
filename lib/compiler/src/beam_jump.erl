@@ -452,7 +452,6 @@ is_label_used_in_2({set,_,_,Info}, Lbl) ->
 	{'catch',{f,F}} -> F =:= Lbl;
 	{alloc,_,_} -> false;
 	{put_tuple,_} -> false;
-	{put_string,_,_} -> false;
 	{get_tuple_element,_} -> false;
 	{set_tuple_element,_} -> false;
 	_ when is_atom(Info) -> false

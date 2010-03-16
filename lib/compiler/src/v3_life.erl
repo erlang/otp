@@ -418,7 +418,6 @@ literal(#k_int{val=I}, _) -> {integer,I};
 literal(#k_float{val=F}, _) -> {float,F};
 literal(#k_atom{val=N}, _) -> {atom,N};
 %%literal(#k_char{val=C}, _) -> {char,C};
-literal(#k_string{val=S}, _) -> {string,S};
 literal(#k_nil{}, _) -> nil;
 literal(#k_cons{hd=H,tl=T}, Ctxt) ->
     {cons,[literal(H, Ctxt),literal(T, Ctxt)]};
@@ -443,7 +442,6 @@ literal2(#k_int{val=I}, _) -> {integer,I};
 literal2(#k_float{val=F}, _) -> {float,F};
 literal2(#k_atom{val=N}, _) -> {atom,N};
 %%literal2(#k_char{val=C}, _) -> {char,C};
-literal2(#k_string{val=S}, _) -> {string,S};
 literal2(#k_nil{}, _) -> nil;
 literal2(#k_cons{hd=H,tl=T}, Ctxt) ->
     {cons,[literal2(H, Ctxt),literal2(T, Ctxt)]};

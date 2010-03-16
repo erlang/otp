@@ -209,7 +209,6 @@ need_heap_1(#l{ke={set,_,Val}}, H) ->
     {[],H + case Val of
 		{cons,_} -> 2;
 		{tuple,Es} -> 1 + length(Es);
-		{string,S} -> 2 * length(S);
 		_Other -> 0
 	    end};
 need_heap_1(#l{ke={bif,dsetelement,_As,_Rs},i=I}, H) ->
@@ -1424,8 +1423,6 @@ set_cg([{var,R}], Con, Le, Vdb, Bef, St) ->
 		  [{put_tuple,length(Es),Ret}] ++ cg_build_args(Es, Bef);
 	      {var,V} ->	  % Normally removed by kernel optimizer.
 		  [{move,fetch_var(V, Int),Ret}];
-	      {string,Str} = String ->
-		  [{put_string,length(Str),String,Ret}];
 	      Other ->
 		  [{move,Other,Ret}]
 	  end,

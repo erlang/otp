@@ -126,12 +126,8 @@ copy_anno(Kdst, Ksrc) ->
 -spec module(cerl:c_module(), [compile:option()]) ->
 	{'ok', #k_mdef{}, [warning()]}.
 
-module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, Options) ->
-    Lit = case member(no_constant_pool, Options) of
-	      true -> no;
-	      false -> dict:new()
-	  end,
-    St0 = #kern{lit=Lit},
+module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
+    St0 = #kern{lit=dict:new()},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
     Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     Kas = map(fun ({#c_literal{val=N},V}) ->
@@ -240,11 +236,6 @@ expr(#c_var{anno=A,name={_Name,Arity}}=Fname, Sub, St) ->
     expr(Fun, Sub, St);
 expr(#c_var{anno=A,name=V}, Sub, St) ->
     {#k_var{anno=A,name=get_vsub(V, Sub)},[],St};
-expr(#c_literal{anno=A,val=Lit}, Sub, #kern{lit=no}=St) ->
-    %% No constant pools for compatibility with a previous version.
-    %% Fully expand the literal.
-    Core = expand_literal(Lit, A),
-    expr(Core, Sub, St);
 expr(#c_literal{}=Lit, Sub, St) ->
     Core = handle_literal(Lit),
     expr(Core, Sub, St);
@@ -264,9 +255,6 @@ expr(#k_int{}=V, _Sub, St) ->
 expr(#k_float{}=V, _Sub, St) ->
     {V,[],St};
 expr(#k_atom{}=V, _Sub, St) ->
-    {V,[],St};
-expr(#k_string{}=V, _Sub, St) ->
-    %% Only for compatibility with a previous version.
     {V,[],St};
 expr(#c_cons{anno=A,hd=Ch,tl=Ct}, Sub, St0) ->
     %% Do cons in two steps, first the expressions left to right, then
@@ -980,11 +968,6 @@ match_var([U|Us], Cs0, Def, St) ->
 %%  according to type, the order is really irrelevant but tries to be
 %%  smart.
 
-match_con(Us, Cs0, Def, #kern{lit=no}=St) ->
-    %% No constant pool (for compatibility with R11B).
-    %% We must expand literals.
-    Cs = [expand_pat_lit_clause(C, true) || C <- Cs0],
-    match_con_1(Us, Cs, Def, St);
 match_con(Us, [C], Def, St) ->
     %% There is only one clause. We can keep literal tuples and
     %% lists, but we must convert []/integer/float/atom literals
@@ -1783,7 +1766,6 @@ lit_vars(#k_int{}) -> [];
 lit_vars(#k_float{}) -> [];
 lit_vars(#k_atom{}) -> [];
 %%lit_vars(#k_char{}) -> [];
-lit_vars(#k_string{}) -> [];
 lit_vars(#k_nil{}) -> [];
 lit_vars(#k_cons{hd=H,tl=T}) ->
     union(lit_vars(H), lit_vars(T));
@@ -1845,47 +1827,19 @@ handle_literal(#c_literal{anno=A,val=V}) ->
     case V of
 	[_|_] ->
 	    #k_literal{anno=A,val=V};
+	[] ->
+	    #k_nil{anno=A};
 	V when is_tuple(V) ->
 	    #k_literal{anno=A,val=V};
 	V when is_bitstring(V) ->
 	    #k_literal{anno=A,val=V};
-	_ ->
-	    expand_literal(V, A)
+	V when is_integer(V) ->
+	    #k_int{anno=A,val=V};
+	V when is_float(V) ->
+	    #k_float{anno=A,val=V};
+	V when is_atom(V) ->
+	    #k_atom{anno=A,val=V}
     end.
-
-%% expand_literal(Literal, Anno) -> CoreTerm | KernelTerm
-%%  Fully expand the literal. Atomic terms such as integers are directly
-%%  translated to the Kernel Erlang format, while complex terms are kept
-%%  in the Core Erlang format (but the content is recursively processed).
-
-expand_literal([H|T]=V, A) when is_integer(H), 0 =< H, H =< 255 ->
-    case is_print_char_list(T) of
-	false ->
-	    #c_cons{anno=A,hd=#k_int{anno=A,val=H},tl=expand_literal(T, A)};
-	true ->
-	    #k_string{anno=A,val=V}
-    end;
-expand_literal([H|T], A) ->
-    #c_cons{anno=A,hd=expand_literal(H, A),tl=expand_literal(T, A)};
-expand_literal([], A) ->
-    #k_nil{anno=A};
-expand_literal(V, A) when is_tuple(V) ->
-    #c_tuple{anno=A,es=expand_literal_list(tuple_to_list(V), A)};
-expand_literal(V, A) when is_integer(V) ->
-    #k_int{anno=A,val=V};
-expand_literal(V, A) when is_float(V) ->
-    #k_float{anno=A,val=V};
-expand_literal(V, A) when is_atom(V) ->
-    #k_atom{anno=A,val=V}.
-
-expand_literal_list([H|T], A) ->
-    [expand_literal(H, A)|expand_literal_list(T, A)];
-expand_literal_list([], _) -> [].
-
-is_print_char_list([H|T]) when is_integer(H), 0 =< H, H =< 255 ->
-    is_print_char_list(T);
-is_print_char_list([]) -> true;
-is_print_char_list(_) -> false.
 
 make_list(Es) ->
     foldr(fun(E, Acc) ->

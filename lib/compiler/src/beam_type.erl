@@ -253,8 +253,6 @@ flt_need_heap_2({set,_,_,{put_tuple,_}}, H, Fl) ->
     {[],H+1,Fl};
 flt_need_heap_2({set,_,_,put}, H, Fl) ->
     {[],H+1,Fl};
-flt_need_heap_2({set,_,_,{put_string,L,_Str}}, H, Fl) ->
-    {[],H+2*L,Fl};
 %% Then the "neutral" instructions. We just pass them.
 flt_need_heap_2({set,[{fr,_}],_,_}, H, Fl) ->
     {[],H,Fl};

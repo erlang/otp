@@ -57,8 +57,6 @@
 %% if X1 is used exactly once.
 %% Thus, we need to track variable usage.
 %%
-%% NOTE: This pass must NOT be used if the no_constant_pool option is used.
-%%
 
 -module(sys_core_dsetel).
 
