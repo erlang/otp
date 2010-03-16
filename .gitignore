@@ -118,7 +118,6 @@ a.out.dSYM/
 /lib/compiler/src/beam_opcodes.hrl
 /lib/compiler/src/core_parse.erl
 
-/lib/compiler/test/*_r11_SUITE.erl
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
 

@@ -162,8 +162,6 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r11, Os) ->
-    [no_stack_trimming,no_binaries,no_constant_pool|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_binaries=O, Os) ->
