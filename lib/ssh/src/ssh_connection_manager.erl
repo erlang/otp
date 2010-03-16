@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -272,18 +272,18 @@ handle_call({ssh_msg, Pid, Msg}, From,
 	    {stop, normal, State#state{connection_state = Connection}}
 	catch
 	exit:{noproc, Reason} ->
-	    Report = io_lib:format("Connection probably terminated:~n~p~n~p~n",
-				   [ConnectionMsg, Reason]),
+	    Report = io_lib:format("Connection probably terminated:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Reason, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
             {noreply, State};
 	error:Error ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n",
-				   [ConnectionMsg, Error]),
+	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Error, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
 	    {noreply, State};
 	exit:Exit ->
-	    Report = io_lib:format("Connection message returned:~n~p~n~p~n",
-				   [ConnectionMsg, Exit]),
+	    Report = io_lib:format("Connection message returned:~n~p~n~p~n~p~n",
+				   [ConnectionMsg, Exit, erlang:get_stacktrace()]),
 	    error_logger:info_report(Report),
 	    {noreply, State}
     end;
