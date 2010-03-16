@@ -17,14 +17,11 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
--compile(r11).
 
 %%%
 %%% The same compiled code for this module must be possible to load
-%%% in R11B, R12B and later. To make that possible no bit syntax
-%%% must be used.
+%%% in R12B and later.
 %%%
-
 
 %% Test Controller interface
 -export([is_release_available/1]).
