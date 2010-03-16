@@ -1940,8 +1940,6 @@ expr({'case',Line,E,Cs}, Vt, St0) ->
     {Evt,St1} = expr(E, Vt, St0),
     {Cvt,St2} = icrt_clauses(Cs, {'case',Line}, vtupdate(Evt, Vt), St1),
     {vtmerge(Evt, Cvt),St2};
-expr({'cond',Line,Cs}, Vt, St) ->
-    cond_clauses(Cs,{'cond',Line}, Vt, St);
 expr({'receive',Line,Cs}, Vt, St) ->
     icrt_clauses(Cs, {'receive',Line}, Vt, St);
 expr({'receive',Line,Cs,To,ToEs}, Vt, St0) ->
@@ -2716,45 +2714,6 @@ icrt_clause({clause,_Line,H,G,B}, Vt0, St0) ->
     Vt2 = vtupdate(Gvt, Vt1),
     {Bvt,St3} = exprs(B, Vt2, St2),
     {vtupdate(Bvt, Vt2),St3}.
-
-%% The tests of 'cond' clauses are normal expressions - not guards.
-%% Variables bound in a test is visible both in the corresponding body
-%% and in the tests and bodies of subsequent clauses: a 'cond' is
-%% *equivalent* to nested case-switches on boolean expressions.
-
-cond_clauses([C], In, Vt, St) ->
-    last_cond_clause(C, In, Vt, St);
-cond_clauses([C | Cs], In, Vt, St) ->
-    cond_clause(C, Cs, In, Vt, St).
-
-%% see expr/3 for 'case'
-cond_clause({clause,_L,[],[[E]],B}, Cs, In, Vt, St0) ->
-    {Evt,St1} = expr(E, Vt, St0),
-    {Cvt, St2} = cond_cases(B, Cs, In, vtupdate(Evt, Vt), St1),
-    Mvt = vtmerge(Evt, Cvt),
-    {Mvt,St2}.
-
-%% see icrt_clauses/4
-cond_cases(B, Cs, In, Vt, St0) ->
-    %% note that Vt is used for both cases
-    {Bvt,St1} = exprs(B, Vt, St0), % true case
-    Vt1 = vtupdate(Bvt, Vt),
-    {Cvt, St2} = cond_clauses(Cs, In, Vt, St1), % false case
-    Vt2 = vtupdate(Cvt, Vt),
-    %% and this also uses Vt
-    icrt_export([Vt1,Vt2], Vt, In, St2).
-
-%% last case must call icrt_export/4 with only one vartable
-last_cond_clause({clause,_L,[],[[E]],B}, In, Vt, St0) ->
-    {Evt,St1} = expr(E, Vt, St0),
-    {Cvt, St2} = last_cond_case(B, In, vtupdate(Evt, Vt), St1),
-    Mvt = vtmerge(Evt, Cvt),
-    {Mvt,St2}.
-
-last_cond_case(B, In, Vt, St0) ->
-    {Bvt,St1} = exprs(B, Vt, St0),
-    Vt1 = vtupdate(Bvt, Vt),
-    icrt_export([Vt1], Vt, In, St1).
 
 icrt_export(Csvt, Vt, In, St) ->
     Vt1 = vtmerge(Csvt),

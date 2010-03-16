@@ -1,20 +1,20 @@
 %% -*- erlang -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -57,7 +57,6 @@ char integer float atom string var
 '(' ')' ',' '->' ':-' '{' '}' '[' ']' '|' '||' '<-' ';' ':' '#' '.'
 'after' 'begin' 'case' 'try' 'catch' 'end' 'fun' 'if' 'of' 'receive' 'when'
 'andalso' 'orelse' 'query' 'spec'
-%% 'cond'
 'bnot' 'not'
 '*' '/' 'div' 'rem' 'band' 'and'
 '+' '-' 'bor' 'bxor' 'bsl' 'bsr' 'or' 'xor'
@@ -421,14 +420,6 @@ try_clause -> atom1 ':' expr clause_guard clause_body :
 try_clause -> var ':' expr clause_guard clause_body :
 	L = ?line('$1'),
 	{clause,L,[{tuple,L,['$1','$3',{var,L,'_'}]}],'$4','$5'}.
-
-%%cond_expr -> 'cond' cond_clauses 'end' : {'cond',?line('$1'),'$2'}.
-
-%%cond_clauses -> cond_clause : ['$1'].
-%%cond_clauses -> cond_clause ';' cond_clauses : ['$1' | '$3'].
-
-%%cond_clause -> expr clause_body :
-%%	{clause,?line('$1'),[],[['$1']],'$2'}.
 
 query_expr -> 'query' list_comprehension 'end' :
 	{'query',?line('$1'),'$2'}.
