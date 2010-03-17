@@ -338,10 +338,19 @@ match(P, E, Bs) ->
 	    if E =:= any ->
 		    {false, Bs};
 	       true ->
-		    case is_data(E) of
-			true ->
+		    case type(E) of
+			literal ->
+			    case is_bitstring(concrete(E)) of
+				false ->
+				    none;
+				true ->
+				    {false, Bs}
+			    end;
+			cons ->
 			    none;
-			false ->
+			tuple ->
+			    none;
+			_ ->
 			    {false, Bs}
 		    end
 	    end;
