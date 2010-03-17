@@ -1190,7 +1190,12 @@ trap_bif(_, _, _) -> false.
 
 bif_cg(bs_context_to_binary=Instr, [Src0], [], Le, Vdb, Bef, St0) ->
     [Src] = cg_reg_args([Src0], Bef),
-    {[{Instr,Src}],clear_dead(Bef, Le#l.i, Vdb), St0};
+    case is_register(Src) of
+	false ->
+	    {[],clear_dead(Bef, Le#l.i, Vdb), St0};
+	true ->
+	    {[{Instr,Src}],clear_dead(Bef, Le#l.i, Vdb), St0}
+    end;
 bif_cg(dsetelement, [Index0,Tuple0,New0], _Rs, Le, Vdb, Bef, St0) ->
     [New,Tuple,{integer,Index1}] = cg_reg_args([New0,Tuple0,Index0], Bef),
     Index = Index1-1,
@@ -2018,6 +2023,10 @@ fetch_stack(V, [_|Stk], I) -> fetch_stack(V, Stk, I+1).
 % find_stack(V, [], I) -> error.
 
 on_stack(V, Stk) -> keymember(V, 1, Stk).
+
+is_register({x,_}) -> true;
+is_register({yy,_}) -> true;
+is_register(_) -> false.
 
 %% put_catch(CatchTag, Stack) -> Stack'
 %% drop_catch(CatchTag, Stack) -> Stack'
