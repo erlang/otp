@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Convert annotated kernel expressions to annotated beam format.
@@ -66,21 +66,27 @@ functions([], Acc) -> reverse(Acc).
 %% function(Kfunc) -> Func.
 
 function(#k_fdef{func=F,arity=Ar,vars=Vs,body=Kb}) ->
-    %ok = io:fwrite("life ~w: ~p~n~p~n", [?LINE,{F,Ar},Kb]),
-    As = var_list(Vs),
-    Vdb0 = foldl(fun ({var,N}, Vdb) -> new_var(N, 0, Vdb) end, [], As),
-    %% Force a top-level match!
-    B0 = case Kb of
-	     #k_match{} -> Kb;
-	     _ ->
-		 Ka = get_kanno(Kb),
-		 #k_match{anno=#k{us=Ka#k.us,ns=[],a=Ka#k.a},
-			  vars=Vs,body=Kb,ret=[]}
-	 end,
-    put(guard_refc, 0),
-    {B1,_,Vdb1} = body(B0, 1, Vdb0),
-    erase(guard_refc),
-    {function,F,Ar,As,B1,Vdb1}.
+    try
+	As = var_list(Vs),
+	Vdb0 = foldl(fun ({var,N}, Vdb) -> new_var(N, 0, Vdb) end, [], As),
+	%% Force a top-level match!
+	B0 = case Kb of
+		 #k_match{} -> Kb;
+		 _ ->
+		     Ka = get_kanno(Kb),
+		     #k_match{anno=#k{us=Ka#k.us,ns=[],a=Ka#k.a},
+			      vars=Vs,body=Kb,ret=[]}
+	     end,
+	put(guard_refc, 0),
+	{B1,_,Vdb1} = body(B0, 1, Vdb0),
+	erase(guard_refc),
+	{function,F,Ar,As,B1,Vdb1}
+    catch
+	Class:Error ->
+	    Stack = erlang:get_stacktrace(),
+	    io:fwrite("Function: ~w/~w\n", [F,Ar]),
+	    erlang:raise(Class, Error, Stack)
+    end.
 
 %% body(Kbody, I, Vdb) -> {[Expr],MaxI,Vdb}.
 %%  Handle a body, need special cases for transforming match_fails.
