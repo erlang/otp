@@ -103,6 +103,9 @@ a.out.dSYM/
 # asn1
 
 /lib/asn1/doc/src/asn1_spec.xml
+/lib/asn1/test/asn1_SUITE.erl
+/lib/asn1/test/asn1_bin_SUITE.erl
+/lib/asn1/test/asn1_bin_v2_SUITE.erl
 
 # common_test
 
