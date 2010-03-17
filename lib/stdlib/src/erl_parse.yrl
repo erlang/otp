@@ -734,12 +734,28 @@ record_fields([{typed,Expr,TypeInfo}|Fields]) ->
 	case Expr of
 	    {match, _, _, _} -> TypeInfo; %% If we have an initializer.
 	    {atom, La, _} -> 
-                lift_unions(abstract(undefined, La), TypeInfo)
+                case has_undefined(TypeInfo) of
+                    false ->
+                        lift_unions(abstract(undefined, La), TypeInfo);
+                    true ->
+                        TypeInfo
+                end
 	end, 
     [{typed_record_field,Field,TypeInfo1}|record_fields(Fields)];
 record_fields([Other|_Fields]) ->
     ret_err(?line(Other), "bad record field");
 record_fields([]) -> [].
+
+has_undefined({atom,_,undefined}) ->
+    true;
+has_undefined({ann_type,_,[_,T]}) ->
+    has_undefined(T);
+has_undefined({paren_type,_,[T]}) ->
+    has_undefined(T);
+has_undefined({type,_,union,Ts}) ->
+    lists:any(fun has_undefined/1, Ts);
+has_undefined(_) ->
+    false.
 
 term(Expr) ->
     try normalise(Expr)

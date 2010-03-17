@@ -46,7 +46,7 @@
          neg_indent/1,
          tickets/1,
             otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-            otp_8473/1]).
+            otp_8473/1, otp_8522/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -764,7 +764,7 @@ neg_indent(Config) when is_list(Config) ->
     ok.
 
 tickets(suite) ->
-    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473].
+    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473, otp_8522].
 
 otp_6321(doc) ->
     "OTP_6321. Bug fix of exprs().";
@@ -847,7 +847,7 @@ type_examples() ->
      {ex4,<<"-type t1() :: atom(). ">>},
      {ex5,<<"-type t2() :: [t1()]. ">>},
      {ex6,<<"-type t3(Atom) :: integer(Atom). ">>},
-     {ex7,<<"-type t4() :: t3(foobar). ">>},
+     {ex7,<<"-type '\\'t::4'() :: t3('\\'foobar'). ">>},
      {ex8,<<"-type t5() :: {t1(), t3(foo)}. ">>},
      {ex9,<<"-type t6() :: 1 | 2 | 3 | 'foo' | 'bar'. ">>},
      {ex10,<<"-type t7() :: []. ">>},
@@ -883,16 +883,16 @@ type_examples() ->
        "1|2|3|4|a|b|c|d| "
        "nonempty_maybe_improper_list(integer, any())]}. ">>},
      {ex30,<<"-type t99() ::"
-       "{t2(),t4(),t5(),t6(),t7(),t8(),t10(),t14(),"
+       "{t2(),'\\'t::4'(),t5(),t6(),t7(),t8(),t10(),t14(),"
        "t15(),t20(),t21(), t22(),t25()}. ">>},
      {ex31,<<"-spec t1(FooBar :: t99()) -> t99();"
                           "(t2()) -> t2();"
-                          "(t4()) -> t4() when is_subtype(t4(), t24);"
+                          "('\\'t::4'()) -> '\\'t::4'() when is_subtype('\\'t::4'(), t24);"
                           "(t23()) -> t23() when is_subtype(t23(), atom()),"
                           "                      is_subtype(t23(), t14());"
                           "(t24()) -> t24() when is_subtype(t24(), atom()),"
                           "                      is_subtype(t24(), t14()),"
-                          "                      is_subtype(t24(), t4()).">>},
+                          "                      is_subtype(t24(), '\\'t::4'()).">>},
      {ex32,<<"-spec mod:t2() -> any(). ">>},
      {ex33,<<"-opaque attributes_data() :: "
        "[{'column', column()} | {'line', info_line()} |"
@@ -921,6 +921,33 @@ otp_8473(Config) when is_list(Config) ->
     ?line _ = [{N,ok} = {N,pp_forms(B)} || 
                   {N,B} <- Ex],
     ok.
+
+otp_8522(doc) ->
+    "OTP_8522. Avoid duplicated 'undefined' in record field types.";
+otp_8522(suite) -> [];
+otp_8522(Config) when is_list(Config) ->
+    FileName = filename('otp_8522.erl', Config),
+    C = <<"-module(otp_8522).\n"
+          "-record(r, {f1 :: undefined,\n"
+          "            f2 :: A :: undefined,\n"
+          "            f3 :: (undefined),\n"
+          "            f4 :: x | y | undefined | z,\n"
+          "            f5 :: a}).\n">>,
+    ?line ok = file:write_file(FileName, C),
+    ?line {ok, _} = compile:file(FileName, [{outdir,?privdir},debug_info]),
+    BF = filename("otp_8522", Config),
+    ?line {ok, A} = beam_lib:chunks(BF, [abstract_code]),
+    ?line 5 = count_atom(A, undefined),
+    ok.
+
+count_atom(A, A) ->
+    1;
+count_atom(T, A) when is_tuple(T) ->
+    count_atom(tuple_to_list(T), A);
+count_atom(L, A) when is_list(L) ->
+    lists:sum([count_atom(T, A) || T <- L]);
+count_atom(_, _) ->
+    0.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
