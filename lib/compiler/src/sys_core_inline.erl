@@ -201,7 +201,7 @@ kill_id_anns(Body) ->
 		      (Expr) ->
 			   %% Mark everything as compiler generated to suppress
 			   %% bogus warnings.
-			   A = [compiler_generated|core_lib:get_anno(Expr)],
+			   A = compiler_generated(core_lib:get_anno(Expr)),
 			   core_lib:set_anno(Expr, A)
 		   end, Body).
 
@@ -210,3 +210,8 @@ kill_id_anns_1([{'id',_}|As]) ->
 kill_id_anns_1([A|As]) ->
     [A|kill_id_anns_1(As)];
 kill_id_anns_1([]) -> [].
+
+compiler_generated([compiler_generated|_]=Anno) ->
+    Anno;
+compiler_generated(Anno) ->
+    [compiler_generated|Anno -- [compiler_generated]].
