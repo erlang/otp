@@ -24,7 +24,7 @@
 %%% Test suite for common_test which tests the get_config and require
 %%% functionality
 %%%-------------------------------------------------------------------
--module(config_1_SUITE).
+-module(config_static_SUITE).
 
 -compile(export_all).
 

@@ -23,7 +23,7 @@
 %%% Description:
 %%% Test suite for common_test which tests the userconfig functionality
 %%%-------------------------------------------------------------------
--module(config_2_SUITE).
+-module(config_dynamic_SUITE).
 
 -compile(export_all).
 
@@ -150,7 +150,8 @@ test_disappearable_variable_alias(_)->
     ct:require(diav, disappearable_variable),
     hereAmI = ct:get_config(disappearable_variable),
     hereAmI = ct:get_config(diav),
-    undefined = ct:reload_config(disappearable_variable),
+    ct:reload_config(disappearable_variable),
+    undefined = ct:get_config(disappearable_variable),
     % after reloading, it's even again
     Iter3=ct:get_config(config_server_iteration),
     Iter3 = Iter2+1,

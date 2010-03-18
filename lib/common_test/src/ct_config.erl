@@ -242,27 +242,51 @@ store_config(Config, Callback, File)->
 			 default=false}) ||
 	{Key,Val} <- Config].
 
+keyfindall(Key, N, List)->
+    keyfindall(Key, N, List, []).
+
+keyfindall(Key, N, List, Acc)->
+    case lists:keytake(Key, N, List) of
+	false->
+	    Acc;
+	{value, Row, Rest}->
+	    keyfindall(Key, N, Rest, [Row|Acc])
+    end.
+
 rewrite_config(Config, Callback, File)->
-    [begin
-     Rows=case ets:match_object(?attr_table,
-			       #ct_conf{key=Key,
-					handler=Callback,
-					config=File,_='_'}) of
-	[]->
-	    [#ct_conf{default=false}];
-	Elements->
-	    Elements
-     end,
-     lists:foreach(fun(Row)->
-			ets:delete_object(?attr_table, Row),
-			ets:insert(?attr_table,
-				   Row#ct_conf{key=Key,
-				   value=Val,
+    % 1) read the old config for this callback/file from the table
+    OldRows = ets:match_object(?attr_table,
+				#ct_conf{handler=Callback,
+					 config=File,_='_'}),
+    % 2) remove all config data loaded from this callback/file
+    ets:match_delete(?attr_table,
+		     #ct_conf{handler=Callback,
+			      config=File,_='_'}),
+    % prepare function that will
+    %   1. find records with this key in the old config, including aliases
+    %   2. update values
+    %   3. put them back to the table
+    Updater = fun({Key, Value})->
+	case keyfindall(Key, #ct_conf.key, OldRows) of
+	    []-> % if variable is new, just insert it
+		ets:insert(?attr_table,
+			   #ct_conf{key=Key,
+				   value=Value,
 				   handler=Callback,
 				   config=File,
-				   ref=ct_util:ct_make_ref()}) end,
-		  Rows)
-     end || {Key,Val} <- Config].
+				   ref=ct_util:ct_make_ref()});
+	    RowsToUpdate -> % else update all occurrencies of the key
+		Inserter = fun(Row)->
+		    ets:insert(?attr_table,
+				Row#ct_conf{value=Value,
+					    ref=ct_util:ct_make_ref()})
+		end,
+		lists:foreach(Inserter, RowsToUpdate)
+	end
+    end,
+
+    % run it key-by-key from the new config
+    [Updater({Key, Value})||{Key, Value}<-Config].
 
 set_config(Config,Default) ->
     set_config('_UNDEF',Config,Default).
@@ -414,12 +438,31 @@ update_conf(Name, NewConfig) ->
 		  end, Old),
     ok.
 
+has_element(_, [])->
+    false;
+has_element(Element, [Element|_Rest])->
+    true;
+has_element(Element, [_|Rest])->
+    has_element(Element, Rest).
+
+remove_duplicates([], Acc)->
+    Acc;
+remove_duplicates([{Handler, File}|Rest], Acc)->
+    case has_element({Handler, File}, Acc) of
+	false->
+	    remove_duplicates(Rest, [{Handler, File}|Acc]);
+	true->
+	    remove_duplicates(Rest, Acc)
+    end.
+
 reload_conf(KeyOrName) ->
     case lookup_handler_for_config(KeyOrName) of
 	[]->
 	    undefined;
 	HandlerList->
-	    read_config_files_int(HandlerList, fun rewrite_config/3),
+	    % if aliases set, config will be reloaded several times
+	    HandlerList2 = remove_duplicates(HandlerList, []),
+	    read_config_files_int(HandlerList2, fun rewrite_config/3),
 	    get_config(KeyOrName)
     end.
 
