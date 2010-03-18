@@ -160,6 +160,9 @@ empty_generator(Config) when is_list(Config) ->
 id(I) -> I.
     
 fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args}|_]}}) -> ok;
+fc(Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+  when length(Args) =:= Arity ->
+    true = test_server:is_native(?MODULE);
 fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})
   when ?MODULE =:= lc_inline_SUITE ->
     Args = tuple_to_list(ActualArgs).
