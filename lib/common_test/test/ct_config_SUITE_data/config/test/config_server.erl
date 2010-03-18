@@ -24,7 +24,7 @@
 %%% Config server used in the CT's tests (config_2_SUITE)
 %%%-------------------------------------------------------------------
 -module(config_server).
--export([start/0, stop/0, init/1, get_config/0, loop/0]).
+-export([start/0, stop/0, loop/1, init/1, get_config/0]).
 
 -define(REGISTERED_NAME, ct_test_config_server).
 -define(vsn, 0.19).
@@ -41,7 +41,7 @@ start()->
 
 init(Name)->
     register(Name, self()),
-    loop().
+    loop(0).
 
 get_config()->
     call(self(), get_config).
@@ -63,19 +63,25 @@ call(Client, Request)->
 	    end
     end.
 
-loop()->
+loop(Iteration)->
     receive
 	{Pid, stop}->
 	    Pid ! ok;
 	{Pid, get_config}->
 	    {D,T} = erlang:localtime(),
-	    Pid !
+	    Config =
 		[{localtime, [{date, D}, {time, T}]},
 		 {node, erlang:node()},
+		 {config_server_iteration, Iteration},
 		 {now, erlang:now()},
 		 {config_server_pid, self()},
 		 {config_server_vsn, ?vsn}],
-	    ?MODULE:loop()
+	    Config2 = if Iteration rem 2 == 0->
+		Config ++ [{disappearable_variable, hereAmI}];
+		true-> Config
+	    end,
+	    Pid ! Config2,
+	    ?MODULE:loop(Iteration+1)
     end.
 
 wait()->

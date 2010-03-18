@@ -78,31 +78,31 @@ all(suite) ->
 %%%
 require(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    run_test(require,
+    run_test(config_static_SUITE,
 	     Config,
 	     {config, filename:join(DataDir, "config/config.txt")},
-             ["config_1_SUITE"]).
+             ["config_static_SUITE"]).
 
 userconfig_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    run_test(userconfig_static,
+    run_test(config_static_SUITE,
 	     Config,
 	     {userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}},
-             ["config_1_SUITE"]).
+             ["config_static_SUITE"]).
 
 userconfig_dynamic(Config) when is_list(Config) ->
-    run_test(userconfig_dynamic,
+    run_test(config_dynamic_SUITE,
 	     Config,
 	     {userconfig, {config_driver, "config_server"}},
-             ["config_2_SUITE"]).
+             ["config_dynamic_SUITE"]).
 
 testspec_legacy(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     make_spec(DataDir,
 		"config/spec_legacy.spec",
-		[config_1_SUITE],
+		[config_static_SUITE],
 		[{config, filename:join(DataDir, "config/config.txt")}]),
-    run_test(testspec_legacy,
+    run_test(config_static_SUITE,
 	     Config,
 	     {spec, filename:join(DataDir, "config/spec_legacy.spec")},
              []),
@@ -112,9 +112,9 @@ testspec_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     make_spec(DataDir,
 		"config/spec_static.spec",
-		[config_1_SUITE],
+		[config_static_SUITE],
 		[{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}}]),
-    run_test(testspec_static,
+    run_test(config_static_SUITE,
 	     Config,
 	     {spec, filename:join(DataDir, "config/spec_static.spec")},
              []),
@@ -123,9 +123,9 @@ testspec_static(Config) when is_list(Config) ->
 testspec_dynamic(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     make_spec(DataDir, "config/spec_dynamic.spec",
-		[config_2_SUITE],
+		[config_dynamic_SUITE],
 		[{userconfig, {config_driver, "config_server"}}]),
-    run_test(testspec_dynamic,
+    run_test(config_dynamic_SUITE,
 	     Config,
 	     {spec, filename:join(DataDir, "config/spec_dynamic.spec")},
              []),
@@ -134,7 +134,7 @@ testspec_dynamic(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-% {suites, "ct_config_SUITE_data/config/test", config_2_SUITE}.
+% {suites, "ct_config_SUITE_data/config/test", config_dynamic_SUITE}.
 make_spec(DataDir, Filename, Suites, Config)->
     {ok, Fd} = file:open(filename:join(DataDir, Filename), [write]),
     ok = file:write(Fd,
@@ -169,66 +169,64 @@ reformat_events(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
-expected_events(Static) when
-	Static == require; Static == testspec_legacy;
-	Static == userconfig_static; Static == testspec_static->
+expected_events(config_static_SUITE)->
 [
  {?eh,start_logging,{'DEF','RUNDIR'}},
  {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
  {?eh,start_info,{1,1,8}},
- {?eh,tc_start,{config_1_SUITE,init_per_suite}},
- {?eh,tc_done,{config_1_SUITE,init_per_suite,ok}},
- {?eh,tc_start,{config_1_SUITE,test_get_config_simple}},
- {?eh,tc_done,{config_1_SUITE,test_get_config_simple,ok}},
+ {?eh,tc_start,{config_static_SUITE,init_per_suite}},
+ {?eh,tc_done,{config_static_SUITE,init_per_suite,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_get_config_simple}},
+ {?eh,tc_done,{config_static_SUITE,test_get_config_simple,ok}},
  {?eh,test_stats,{1,0,{0,0}}},
- {?eh,tc_start,{config_1_SUITE,test_get_config_nested}},
- {?eh,tc_done,{config_1_SUITE,test_get_config_nested,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_get_config_nested}},
+ {?eh,tc_done,{config_static_SUITE,test_get_config_nested,ok}},
  {?eh,test_stats,{2,0,{0,0}}},
- {?eh,tc_start,{config_1_SUITE,test_default_suitewide}},
- {?eh,tc_done,{config_1_SUITE,test_default_suitewide,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_default_suitewide}},
+ {?eh,tc_done,{config_static_SUITE,test_default_suitewide,ok}},
  {?eh,test_stats,{3,0,{0,0}}},
- {?eh,tc_start,{config_1_SUITE,test_config_name_already_in_use1}},
+ {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use1}},
  {?eh,tc_done,
-     {config_1_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
+     {config_static_SUITE,test_config_name_already_in_use1,{skipped,{config_name_already_in_use,[x1]}}}},
  {?eh,test_stats,{3,0,{1,0}}},
- {?eh,tc_start,{config_1_SUITE,test_default_tclocal}},
- {?eh,tc_done,{config_1_SUITE,test_default_tclocal,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_default_tclocal}},
+ {?eh,tc_done,{config_static_SUITE,test_default_tclocal,ok}},
  {?eh,test_stats,{4,0,{1,0}}},
- {?eh,tc_start,{config_1_SUITE,test_config_name_already_in_use2}},
+ {?eh,tc_start,{config_static_SUITE,test_config_name_already_in_use2}},
  {?eh,tc_done,
-     {config_1_SUITE,test_config_name_already_in_use2,
+     {config_static_SUITE,test_config_name_already_in_use2,
          {skipped,{config_name_already_in_use,[x1,alias]}}}},
  {?eh,test_stats,{4,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test_alias_tclocal}},
- {?eh,tc_done,{config_1_SUITE,test_alias_tclocal,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_alias_tclocal}},
+ {?eh,tc_done,{config_static_SUITE,test_alias_tclocal,ok}},
  {?eh,test_stats,{5,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,test_get_config_undefined}},
- {?eh,tc_done,{config_1_SUITE,test_get_config_undefined,ok}},
+ {?eh,tc_start,{config_static_SUITE,test_get_config_undefined}},
+ {?eh,tc_done,{config_static_SUITE,test_get_config_undefined,ok}},
  {?eh,test_stats,{6,0,{2,0}}},
- {?eh,tc_start,{config_1_SUITE,end_per_suite}},
- {?eh,tc_done,{config_1_SUITE,end_per_suite,ok}},
+ {?eh,tc_start,{config_static_SUITE,end_per_suite}},
+ {?eh,tc_done,{config_static_SUITE,end_per_suite,ok}},
  {?eh,test_done,{'DEF','STOP_TIME'}},
  {?eh,stop_logging,[]}
 ];
 
-expected_events(Dynamic) when Dynamic == testspec_dynamic; Dynamic == userconfig_dynamic->
+expected_events(config_dynamic_SUITE)->
 [
  {ct_test_support_eh,start_logging,{'DEF','RUNDIR'}},
  {ct_test_support_eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
  {ct_test_support_eh,start_info,{1,1,3}},
- {ct_test_support_eh,tc_start,{config_2_SUITE,init_per_suite}},
- {ct_test_support_eh,tc_done,{config_2_SUITE,init_per_suite,ok}},
- {ct_test_support_eh,tc_start,{config_2_SUITE,test_get_known_variable}},
- {ct_test_support_eh,tc_done,{config_2_SUITE,test_get_known_variable,ok}},
+ {ct_test_support_eh,tc_start,{config_dynamic_SUITE,init_per_suite}},
+ {ct_test_support_eh,tc_done,{config_dynamic_SUITE,init_per_suite,ok}},
+ {ct_test_support_eh,tc_start,{config_dynamic_SUITE,test_get_known_variable}},
+ {ct_test_support_eh,tc_done,{config_dynamic_SUITE,test_get_known_variable,ok}},
  {ct_test_support_eh,test_stats,{1,0,{0,0}}},
- {ct_test_support_eh,tc_start,{config_2_SUITE,test_localtime_update}},
- {ct_test_support_eh,tc_done,{config_2_SUITE,test_localtime_update,ok}},
+ {ct_test_support_eh,tc_start,{config_dynamic_SUITE,test_localtime_update}},
+ {ct_test_support_eh,tc_done,{config_dynamic_SUITE,test_localtime_update,ok}},
  {ct_test_support_eh,test_stats,{2,0,{0,0}}},
- {ct_test_support_eh,tc_start,{config_2_SUITE,test_server_pid}},
- {ct_test_support_eh,tc_done,{config_2_SUITE,test_server_pid,ok}},
+ {ct_test_support_eh,tc_start,{config_dynamic_SUITE,test_server_pid}},
+ {ct_test_support_eh,tc_done,{config_dynamic_SUITE,test_server_pid,ok}},
  {ct_test_support_eh,test_stats,{3,0,{0,0}}},
- {ct_test_support_eh,tc_start,{config_2_SUITE,end_per_suite}},
- {ct_test_support_eh,tc_done,{config_2_SUITE,end_per_suite,ok}},
+ {ct_test_support_eh,tc_start,{config_dynamic_SUITE,end_per_suite}},
+ {ct_test_support_eh,tc_done,{config_dynamic_SUITE,end_per_suite,ok}},
  {ct_test_support_eh,test_done,{'DEF','STOP_TIME'}},
  {ct_test_support_eh,stop_logging,[]}
 ].

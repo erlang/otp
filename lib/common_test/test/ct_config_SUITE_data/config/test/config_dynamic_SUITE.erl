@@ -38,6 +38,8 @@
 %% now = erlang:now() - easier to compare than localtime()
 %% config_server_pid - pid of the config server, should NOT change!
 %% config_server_vsn - .19
+%% config_server_iteration - a number of iteration config_server's loop done
+%% disappearable_variable - hereAmI - will be absent on even iterations
 
 suite() ->
     [
@@ -77,7 +79,8 @@ end_per_suite(_) ->
     ok.
 
 all() -> [test_get_known_variable, test_localtime_update,
-	  test_server_pid].
+	  test_server_pid, test_disappearable_variable,
+	  test_disappearable_variable_alias].
 
 init_per_testcase(_, Config) ->
     %{Module, Cfg} = get_all_config(),
@@ -117,6 +120,42 @@ test_server_pid(_)->
     % aliases remain after config reloading
     Vsn = ct:get_config(cfvsn),
     ok.
+
+% test that variables may disappear from the config_2_SUITE
+test_disappearable_variable(_)->
+    % ask CT for config_server_iteration variable
+    Iter = ct:reload_config(config_server_iteration),
+    % here we should reload this variable in case it's odd
+    if Iter rem 2 == 1->
+	Iter2 = ct:reload_config(config_server_iteration),
+	Iter2 = Iter+1;
+	true->ok
+    end,
+    % now disappearable_variable should be in place
+    hereAmI = ct:get_config(disappearable_variable),
+    % and now it should disappear
+    undefined = ct:reload_config(disappearable_variable).
+
+% alias of disappearable_variable should disappear too
+test_disappearable_variable_alias(_)->
+    % the same rules apply for this testcase as for previous one
+    Iter = ct:reload_config(config_server_iteration),
+    Iter2 = if
+	Iter rem 2 == 1 ->
+	    NewIter = ct:reload_config(config_server_iteration),
+	    NewIter = Iter+1;
+	true->
+	    Iter
+    end,
+    ct:require(diav, disappearable_variable),
+    hereAmI = ct:get_config(disappearable_variable),
+    hereAmI = ct:get_config(diav),
+    undefined = ct:reload_config(disappearable_variable),
+    % after reloading, it's even again
+    Iter3=ct:get_config(config_server_iteration),
+    Iter3 = Iter2+1,
+    % and alias does not exist
+    undefined = ct:get_config(diav).
 
 my_dt_to_datetime([{date, D},{time, T}])->
     {D, T}.
