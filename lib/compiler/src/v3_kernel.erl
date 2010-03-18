@@ -80,7 +80,8 @@
 
 -export([module/2,format_error/1]).
 
--import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,keymember/3]).
+-import(lists, [map/2,foldl/3,foldr/3,mapfoldl/3,splitwith/2,member/2,
+		keymember/3,keyfind/3]).
 -import(ordsets, [add_element/2,del_element/2,union/2,union/1,subtract/2]).
 
 -compile({nowarn_deprecated_function, {erlang,hash,2}}).
@@ -408,7 +409,7 @@ expr(#c_call{anno=A,module=M0,name=F0,args=Cargs}, Sub, St0) ->
 	    {Call,Ap,St}
     end;
 expr(#c_primop{anno=A,name=#c_literal{val=match_fail},args=Cargs0}, Sub, St0) ->
-    Cargs = translate_match_fail(Cargs0, Sub, St0),
+    Cargs = translate_match_fail(Cargs0, Sub, A, St0),
     %% This special case will disappear.
     {Kargs,Ap,St} = atomic_list(Cargs, Sub, St0),
     Ar = length(Cargs),
@@ -435,32 +436,53 @@ expr(#c_catch{anno=A,body=Cb}, Sub, St0) ->
 %% Handle internal expressions.
 expr(#ireceive_accept{anno=A}, _Sub, St) -> {#k_receive_accept{anno=A},[],St}.
 
-%% Translate a function_clause to case_clause if it has been moved into
-%% another function.
-translate_match_fail([#c_tuple{es=[#c_literal{anno=A0,
-					      val=function_clause}|As]}]=Args,
-		     Sub,
-		     #kern{ff=FF}) ->
-    A = case A0 of
-	    [{name,{Func0,Arity0}}] ->
-		[{name,{get_fsub(Func0, Arity0, Sub),Arity0}}];
-	    _ ->
-		A0
-	end,
-    case {A,FF} of
-	{[{name,Same}],Same} ->
+%% Translate a function_clause exception to a case_clause exception if
+%% it has been moved into another function. (A function_clause exception
+%% will not work correctly if it is moved into another function, or
+%% even if it is invoked not from the top level in the correct function.)
+translate_match_fail(Args, Sub, Anno, St) ->
+    case Args of
+	[#c_tuple{es=[#c_literal{val=function_clause}|As]}] ->
+	    translate_match_fail_1(Anno, Args, As, Sub, St);
+	[#c_literal{val=Tuple}] when is_tuple(Tuple) ->
+	    %% The inliner may have created a literal out of
+	    %% the original #c_tuple{}.
+	    case tuple_to_list(Tuple) of
+		[function_clause|As0] ->
+		    As = [#c_literal{val=E} || E <- As0],
+		    translate_match_fail_1(Anno, Args, As, Sub, St);
+		_ ->
+		    Args
+	    end;
+	_ ->
+	    %% Not a function_clause exception.
+	    Args
+    end.
+
+translate_match_fail_1(Anno, Args, As, Sub, #kern{ff=FF}) ->
+    AnnoFunc = case keyfind(function_name, 1, Anno) of
+		   false ->
+		       none;			%Force rewrite.
+		   {function_name,{Name,Arity}} ->
+		       {get_fsub(Name, Arity, Sub),Arity}
+	       end,
+    case {AnnoFunc,FF} of
+	{Same,Same} ->
 	    %% Still in the correct function.
 	    Args;
-	{[{name,{F,_}}],F} ->
+	{{F,_},F} ->
 	    %% Still in the correct function.
 	    Args;
 	_ ->
-	    %% Inlining has probably moved the function_clause into another
-	    %% function (where it will not work correctly).
-	    %% Rewrite to a case_clause.
+	    %% Wrong function or no function_name annotation.
+	    %%
+	    %% The inliner has copied the match_fail(function_clause)
+	    %% primop from another function (or from another instance of
+	    %% the current function). match_fail(function_clause) will
+	    %% only work at the top level of the function it was originally
+	    %% defined in, so we will need to rewrite it to a case_clause.
 	    [#c_tuple{es=[#c_literal{val=case_clause},#c_tuple{es=As}]}]
-    end;
-translate_match_fail(Args, _, _) -> Args.
+    end.
 
 %% call_type(Module, Function, Arity) -> call | bif | apply | error.
 %%  Classify the call.

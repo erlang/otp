@@ -1542,17 +1542,21 @@ new_vars_1(N, Anno, St0, Vs) when N > 0 ->
 new_vars_1(0, _, St, Vs) -> {Vs,St}.
 
 function_clause(Ps, Name) ->
-    fail_clause(Ps, c_tuple([#c_literal{anno=[{name,Name}],
-					val=function_clause}|Ps])).
-function_clause(Ps, Anno, Name) ->
-    fail_clause(Ps, ann_c_tuple(Anno,
-				[#c_literal{anno=[{name,Name}],
-					    val=function_clause}|Ps])).
+    function_clause(Ps, [], Name).
 
-fail_clause(Pats, A) ->
+function_clause(Ps, LineAnno, Name) ->
+    FcAnno = [{function_name,Name}],
+    fail_clause(Ps, FcAnno,
+		ann_c_tuple(LineAnno, [#c_literal{val=function_clause}|Ps])).
+
+fail_clause(Pats, Arg) ->
+    fail_clause(Pats, [], Arg).
+
+fail_clause(Pats, Anno, Arg) ->
     #iclause{anno=#a{anno=[compiler_generated]},
 	     pats=Pats,guard=[],
-	     body=[#iprimop{anno=#a{},name=#c_literal{val=match_fail},args=[A]}]}.
+	     body=[#iprimop{anno=#a{anno=Anno},name=#c_literal{val=match_fail},
+			    args=[Arg]}]}.
 
 ubody(B, St) -> uexpr(B, [], St).
 
