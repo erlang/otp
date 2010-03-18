@@ -66,8 +66,7 @@ basic(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
     ?line [] = [X || X <- L1, X+1 < 2],
     ?line {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    ?line {'EXIT',{function_clause,[{?MODULE,_,[x]}|_]}} =
-	(catch [E || E <- id(x)]),
+    ?line fc([x], catch [E || E <- id(x)]),
     ok.
 
 tuple_list() ->
@@ -160,3 +159,7 @@ empty_generator(Config) when is_list(Config) ->
 
 id(I) -> I.
     
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args}|_]}}) -> ok;
+fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})
+  when ?MODULE =:= lc_inline_SUITE ->
+    Args = tuple_to_list(ActualArgs).

@@ -1316,11 +1316,11 @@ cqlc(M, F, As, St) ->
 andalso_semi(Config) when is_list(Config) ->
     ?line ok = andalso_semi_foo(0),
     ?line ok = andalso_semi_foo(1),
-    ?line {'EXIT',{function_clause,_}} = (catch andalso_semi_foo(2)),
+    ?line fc(catch andalso_semi_foo(2)),
 
     ?line ok = andalso_semi_bar([a,b,c]),
     ?line ok = andalso_semi_bar(1),
-    ?line {'EXIT',{function_clause,_}} = (catch andalso_semi_bar([a,b])),
+    ?line fc(catch andalso_semi_bar([a,b])),
     ok.
 
 andalso_semi_foo(Bar) when is_integer(Bar) andalso Bar =:= 0; Bar =:= 1 ->
@@ -1332,8 +1332,8 @@ andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
 
 tuple_size(Config) when is_list(Config) ->
     ?line 10 = do_tuple_size({1,2,3,4}),
-    ?line {'EXIT',{function_clause,_}} = (catch do_tuple_size({1,2,3})),
-    ?line {'EXIT',{function_clause,_}} = (catch do_tuple_size(42)),
+    ?line fc(catch do_tuple_size({1,2,3})),
+    ?line fc(catch do_tuple_size(42)),
 
     ?line error = ludicrous_tuple_size({a,b,c}),
     ?line error = ludicrous_tuple_size([a,b,c]),
@@ -1374,3 +1374,6 @@ check(F, Result) ->
 	    io:format("     Got: ~p\n", [Other]),
 	    test_server:fail()
     end.
+
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= guard_inline_SUITE -> ok.

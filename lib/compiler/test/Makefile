@@ -59,9 +59,13 @@ INLINE= \
 	bs_bincomp \
 	bs_bit_binaries \
 	bs_construct \
+        bs_match \
+	bs_utf \
 	core_fold \
 	float \
 	fun \
+	guard \
+	lc \
 	match \
 	misc \
 	num_bif \
