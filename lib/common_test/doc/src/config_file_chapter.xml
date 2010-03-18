@@ -183,7 +183,7 @@
     <title>Using own configuration data formats</title>
 
     <p>The nature of the configuration variables can be not only plain text
-    files with the key-value tuples, but they can be loaded from the files in
+    files with the key-value tuples, they also can be loaded from the files in
     various formats, fetched via http from the Web, or can be loaded with help
     of some driver process. For this purpose, mechanism of plugging in user
     configuration handling callback modules is implemented in the Common Test.</p>
@@ -223,7 +223,7 @@
       </pre>
 
       <p>This configuration file, once read, will produce the same configuration
-      variables as the following "traditional" file:</p>
+      variables as the following text file:</p>
       <pre>
 {ftp_host, [{ftp,"targethost"},
             {username,"tester"},
@@ -237,13 +237,13 @@
       <title>Implementing of the own handler</title>
 
       <p>Own handler can be written to handle special configuration file formats.
-      The parameter can be either file name or configuration string (empty list
+      The parameter can be either file name(s) or configuration string (empty list
       is valid).</p>
       <p>The callback module is completely responsible for the
       configuration string correctness checks during runtime.</p>
 
-      <p>Callback module should have the following functions exported:</p>
-      <p>One for checking configuration parameter</p>
+      <p>To perform validation of the configuration string, callback module
+      should have the following function exported:</p>
 
       <p><c>Callback:check_parameter/1</c></p>
       <p>Input value will be passed from the Common Test, as defined in the test
@@ -269,22 +269,25 @@
         </item>
       </list>
 
-      <p>And second function performs reading of the configuration variables:</p>
+      <p>To perform actual reading, in cases of initial loading of the
+      configuration variables and runtime re-loading, function</p>
       <p><c>Callback:read_config/1</c></p>
+      <p>should be exported from the callback module</p>
       <p>Input value is the same as for <c>check_parameter/1</c> function</p>
       <p>Return value should be either:</p>
 
       <list>
         <item>
-          <c>{ok, Config}</c> - is configuration variables read successfully;
+          <c>{ok, Config}</c> - if configuration variables read successfully;
         </item>
         <item>
           <c>{error, Error, ErrorDetails}</c> - if callback module failed to
-          proceed.
+          proceed with the given configuration parameters.
         </item>
       </list>
-      <p>Above, the <c>Config</c> variable is the key-value list, possibly nested,
-      e.g. for the configuration files above it will be the following</p>
+      <p>Above, the <c>Config</c> variable is the proper Erlang key-value list,
+      with possible key-value sublists as values,
+      e.g. for the configuration files above it will be the following:</p>
 
       <pre>
         [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
@@ -310,9 +313,9 @@
 
     <p>XML version shown in chapter above can also be used, but it should be
     explicitly specified that <c>ct_config_xml</c> callback module is to be
-    used.</p>
+    used by the Common Test.</p>
 
-    <p>Example of how to assert that the configuration data is available and 
+    <p>Example of how to assert that the configuration data is available and
       use it for an FTP session:</p>
     <pre>
     init_per_testcase(ftptest, Config) ->
@@ -359,7 +362,8 @@
 
   <section>
     <title>Example of own configuration handler</title>
-    <p>Simple configuration hanling "driver" can be implemented this way:</p>
+    <p>Simple configuration hanling driver which will ask external server for
+    configuration data can be implemented this way:</p>
     <pre>
 -module(config_driver).
 -export([read_config/1, check_parameter/1]).
@@ -384,7 +388,8 @@ check_parameter(ServerName)->
     end.
     </pre>
     <p>Configuration string for this driver may be "config_server", if the
-    config_server.erl module below is built and is exist in the code path:</p>
+    config_server.erl module below is built and is exist in the code path
+    during test execution:</p>
     <pre>
 -module(config_server).
 -export([start/0, stop/0, init/1, get_config/0, loop/0]).
