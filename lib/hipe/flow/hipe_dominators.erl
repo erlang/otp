@@ -37,6 +37,8 @@
 	 domFrontier_create/2,
 	 domFrontier_get/2]).
 
+-export_type([domTree/0]).
+
 -include("cfg.hrl").
 
 %%========================================================================

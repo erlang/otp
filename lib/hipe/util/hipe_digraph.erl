@@ -30,6 +30,8 @@
 	 from_list/1, to_list/1, get_parents/2, get_children/2]).
 -export([reverse_preorder_sccs/1]).
 
+-export_type([hdg/0]).
+
 %%------------------------------------------------------------------------
 
 -type ordset(T) :: [T].      % XXX: temporarily
