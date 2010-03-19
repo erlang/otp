@@ -26,6 +26,7 @@
 
 -export([file/1, join_lines/1, scan_lines/1, string/1]).
 
+-export_type([comment/0]).
 
 %% =====================================================================
 

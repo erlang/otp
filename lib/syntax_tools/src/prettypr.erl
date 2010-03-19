@@ -48,6 +48,8 @@
 	 nest/2, par/1, par/2, sep/1, text/1, null_text/1, text_par/1,
 	 text_par/2]).
 
+-export_type([document/0]).
+
 %% ---------------------------------------------------------------------
 
 -type deep_string() :: [char() | deep_string()].

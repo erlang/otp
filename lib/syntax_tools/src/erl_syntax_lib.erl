@@ -46,6 +46,8 @@
          new_variable_names/2, new_variable_names/3, strip_comments/1,
          to_comment/1, to_comment/2, to_comment/3, variables/1]).
 
+-export_type([info_pair/0]).
+
 %% =====================================================================
 
 -type ordset(X) :: [X].  % XXX: TAKE ME OUT
