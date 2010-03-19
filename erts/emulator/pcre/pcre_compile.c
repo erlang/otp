@@ -92,6 +92,11 @@ is 4 there is plenty of room. */
 
 #define COMPILE_WORK_SIZE (4096)
 
+/* The overrun tests check for a slightly smaller size so that they detect the
+overrun before it actually does run off the end of the data block. */
+
+#define WORK_SIZE_CHECK (COMPILE_WORK_SIZE - 100)
+
 
 /* Table for handling escaped characters in the range '0'-'z'. Positive returns
 are simple data values; negative values are for special things like \d and so
@@ -2445,7 +2450,7 @@ for (;; ptr++)
 #ifdef DEBUG
     if (code > cd->hwm) cd->hwm = code;                 /* High water info */
 #endif
-    if (code > cd->start_workspace + COMPILE_WORK_SIZE) /* Check for overrun */
+    if (code > cd->start_workspace + WORK_SIZE_CHECK)   /* Check for overrun */
       {
       *errorcodeptr = ERR52;
       goto FAILED;
@@ -2494,7 +2499,7 @@ for (;; ptr++)
   /* In the real compile phase, just check the workspace used by the forward
   reference list. */
 
-  else if (cd->hwm > cd->start_workspace + COMPILE_WORK_SIZE)
+  else if (cd->hwm > cd->start_workspace + WORK_SIZE_CHECK)
     {
     *errorcodeptr = ERR52;
     goto FAILED;
