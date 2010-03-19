@@ -41,6 +41,8 @@
 	 terminate/2,code_change/3]).
 -export([make_crypto_key/2, get_crypto_key/1]).	%Utilities used by compiler
 
+-export_type([attrib_entry/0, compinfo_entry/0, labeled_entry/0]).
+
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
 

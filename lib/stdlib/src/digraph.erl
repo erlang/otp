@@ -36,6 +36,8 @@
 
 -export([get_short_path/3, get_short_cycle/2]).
 
+-export_type([d_type/0, vertex/0]).
+
 -record(digraph, {vtab = notable :: ets:tab(),
 		  etab = notable :: ets:tab(),
 		  ntab = notable :: ets:tab(),

@@ -75,6 +75,8 @@
 	 collect_line/2, collect_line/3, collect_line/4,
 	 get_until/3, get_until/4]).
 
+-export_type([chars/0]).
+
 %%----------------------------------------------------------------------
 
  %% XXX: overapproximates a deep list of (unicode) characters

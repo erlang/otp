@@ -22,6 +22,8 @@
 
 -export([fread/2,fread/3]).
 
+-export_type([continuation/0, fread_2_ret/0, fread_3_ret/0]).
+
 -import(lists, [reverse/1,reverse/2]).
 
 %%-----------------------------------------------------------------------

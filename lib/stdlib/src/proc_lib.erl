@@ -34,6 +34,8 @@
 %% Internal exports.
 -export([wake_up/3]).
 
+-export_type([spawn_option/0]).
+
 %%-----------------------------------------------------------------------------
 
 -type priority_level() :: 'high' | 'low' | 'max' | 'normal'.

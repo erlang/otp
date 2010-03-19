@@ -88,6 +88,7 @@
 %% Not documented, or not ready for publication.
 -export([lookup_keys/2]).
 
+-export_type([tab_name/0]).
 
 -compile({inline, [{einval,2},{badarg,2},{undefined,1},
                    {badarg_exit,2},{lookup_reply,2}]}).

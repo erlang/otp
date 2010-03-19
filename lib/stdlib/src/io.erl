@@ -32,6 +32,7 @@
 	 parse_erl_form/1,parse_erl_form/2,parse_erl_form/3]).
 -export([request/1,request/2,requests/1,requests/2]).
 
+-export_type([device/0, format/0]).
 
 %%-------------------------------------------------------------------------
 

@@ -23,6 +23,8 @@
 
 -export([compile_cmdline/1]).
 
+-export_type([cmd_line_arg/0]).
+
 %% Mapping from extension to {M,F} to run the correct compiler.
 
 compiler(".erl") ->    {compile,         compile};
