@@ -55,18 +55,13 @@
          token_info/1,token_info/2,
          attributes_info/1,attributes_info/2,set_attribute/3]).
 
-%%% Local record.
--record(erl_scan,
-        {resword_fun=fun reserved_word/1,
-         ws=false,
-         comment=false,
-         text=false}).
+-export_type([error_info/0, line/0, tokens_result/0]).
 
 %%%
-%%% Exported functions
+%%% Defines and type definitions
 %%%
 
--define(COLUMN(C), is_integer(C), C >= 1).
+-define(COLUMN(C), (is_integer(C) andalso C >= 1)).
 %% Line numbers less than zero have always been allowed:
 -define(ALINE(L), is_integer(L)).
 -define(STRING(S), is_list(S)).
@@ -94,6 +89,15 @@
 -type tokens() :: [token()].
 -type error_description() :: term().
 -type error_info() :: {location(), module(), error_description()}.
+
+%%% Local record.
+-record(erl_scan,
+        {resword_fun = fun reserved_word/1 :: resword_fun(),
+         ws          = false               :: boolean(),
+         comment     = false               :: boolean(),
+         text        = false               :: boolean()}).
+
+%%----------------------------------------------------------------------------
 
 -spec format_error(Error :: term()) -> string().
 format_error({string,Quote,Head}) ->
@@ -307,10 +311,10 @@ options(Opt) ->
     options([Opt]).
 
 opts(Options, [Key|Keys], L) ->
-    V = case lists:keysearch(Key, 1, Options) of
-            {value,{reserved_word_fun,F}} when ?RESWORDFUN(F) ->
+    V = case lists:keyfind(Key, 1, Options) of
+            {reserved_word_fun,F} when ?RESWORDFUN(F) ->
                 {ok,F};
-            {value,{Key,_}} ->
+            {Key,_} ->
                 badarg;
             false ->
                 {ok,default_option(Key)}
@@ -333,12 +337,13 @@ expand_opt(O, Os) ->
     [O|Os].
 
 attr_info(Attrs, Item) ->
-    case catch lists:keysearch(Item, 1, Attrs) of
-        {value,{Item,Value}} ->
-            {Item,Value};
+    try lists:keyfind(Item, 1, Attrs) of
+        {_Item, _Value} = T ->
+            T;
         false ->
-            undefined;
-        _ ->
+            undefined
+    catch
+	_:_ ->
             erlang:error(badarg, [Attrs, Item])
     end.
 
