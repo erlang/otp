@@ -32,6 +32,8 @@
 	 get/2, is_defined/2, is_empty/1, keys/1, lookup/2, new_key/1,
 	 new_key/2, new_keys/2, new_keys/3, size/1, to_list/1]).
 
+-export_type([environment/0]).
+
 -import(erlang, [max/2]).
 
 -ifdef(DEBUG).

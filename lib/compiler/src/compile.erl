@@ -29,6 +29,8 @@
 %% Erlc interface.
 -export([compile/3,compile_beam/3,compile_asm/3,compile_core/3]).
 
+-export_type([option/0]).
+
 -include("erl_compile.hrl").
 -include("core_parse.hrl").
 

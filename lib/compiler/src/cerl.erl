@@ -122,6 +122,9 @@
 	 bitstr_bitsize/1, bitstr_unit/1, bitstr_type/1,
 	 bitstr_flags/1]).
 
+-export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
+              c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
+
 %%
 %% needed by the include file below -- do not move
 %%
