@@ -159,6 +159,8 @@ issuer_candidate(no_candidate) ->
     case ets:first(Db) of
  	'$end_of_table' ->
  	    no_more_candidates;
+	{file, _} = Key ->
+	    issuer_candidate(Key);
  	Key ->
 	    [Cert] = lookup(Key, Db),
  	    {Key, Cert}
