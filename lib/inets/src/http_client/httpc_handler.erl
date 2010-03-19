@@ -280,7 +280,7 @@ handle_call({connect_and_send, #request{address = Address0,
 		{ok, NewState} ->
 		    {reply, ok, NewState};
 		{stop, Error, NewState} ->
-		    {stop, Error, Error, NewState}
+		    {stop, normal, Error, NewState}
 	    end
     end;
 	
@@ -675,6 +675,24 @@ handle_info({'EXIT', _, _}, State) ->
 %%--------------------------------------------------------------------
 
 %% Init error there is no socket to be closed.
+terminate(normal, 
+	  #state{request = Request, 
+		 session = {send_failed, AReason} = Reason} = State) ->
+    ?hcrd("terminate", [{send_reason, AReason}, {request, Request}]),
+    maybe_send_answer(Request, 
+		      httpc_response:error(Request, Reason), 
+		      State),
+    ok; 
+
+terminate(normal, 
+	  #state{request = Request, 
+		 session = {connect_failed, AReason} = Reason} = State) ->
+    ?hcrd("terminate", [{connect_reason, AReason}, {request, Request}]),
+    maybe_send_answer(Request, 
+		      httpc_response:error(Request, Reason), 
+		      State),
+    ok; 
+
 terminate(normal, #state{session = undefined}) ->
     ok;  
 
@@ -886,18 +904,17 @@ connect_and_send_first_request(Address,
 		    NewState = activate_request_timeout(TmpState),
 		    {ok, NewState};
 
-		{error, Reason} -> 
+		{error, Reason} = Error -> 
 		    ?hcrv("failed sending request", [{reason, Reason}]),
-		    Error = {error, {send_failed, 
-				     httpc_response:error(Request, Reason)}},
-		    {stop, Error, State#state{request = Request}}
+		    {stop, Error, 
+		     State#state{session = {send_failed, Reason}, 
+				 request = Request}}
 	    end;
 
-	{error, Reason} -> 
+	{error, Reason} = Error -> 
 	    ?hcri("connect failed", [{reason, Reason}]),
-	    Error = {error, {connect_failed, 
-			     httpc_response:error(Request, Reason)}},
-	    {stop, Error, State#state{request = Request}}
+	    {stop, Error, State#state{session = {connect_failed, Reason},
+				       request = Request}}
     end.
 
 
