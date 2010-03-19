@@ -438,17 +438,10 @@ update_conf(Name, NewConfig) ->
 		  end, Old),
     ok.
 
-has_element(_, [])->
-    false;
-has_element(Element, [Element|_Rest])->
-    true;
-has_element(Element, [_|Rest])->
-    has_element(Element, Rest).
-
 remove_duplicates([], Acc)->
     Acc;
 remove_duplicates([{Handler, File}|Rest], Acc)->
-    case has_element({Handler, File}, Acc) of
+    case lists:member({Handler, File}, Acc) of
 	false->
 	    remove_duplicates(Rest, [{Handler, File}|Acc]);
 	true->
