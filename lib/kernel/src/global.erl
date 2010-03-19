@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(global).
@@ -112,7 +112,7 @@
 		resolvers = [],
 		syncers = []       :: [pid()],
 		node_name = node() :: node(),
-		the_locker, the_deleter, the_registrar, trace,
+		the_locker, the_registrar, trace,
                 global_lock_down = false
                }).
 
@@ -153,6 +153,8 @@
 %%% It can be removed later as can the deleter process.
 %%% An extra process calling erlang:monitor() is sometimes created.
 %%% The new_nodes messages has been augmented with the global lock id.
+%%%
+%%% R14A (OTP-8527): The deleter process has been removed.
 
 start() -> 
     gen_server:start({local, global_name_server}, ?MODULE, [], []).
@@ -418,7 +420,6 @@ init([]) ->
 
     S = #state{the_locker = start_the_locker(DoTrace),
                trace = T0,
-	       the_deleter = start_the_deleter(self()),
                the_registrar = start_the_registrar()},
     S1 = trace_message(S, {init, node()}, []),
 
@@ -763,13 +764,16 @@ handle_cast({in_sync, Node, _IsKnown}, S) ->
 
 %% Called when Pid on other node crashed
 handle_cast({async_del_name, _Name, _Pid}, S) ->
-    %% Sent from the_deleter at some node in the partition but node().
+    %% Sent from the_deleter at some node in the partition but node() (-R13B)
     %% The DOWN message deletes the name.
+    %% R14A nodes and later do not send async_del_name messages.
     {noreply, S};
 
 handle_cast({async_del_lock, _ResourceId, _Pid}, S) ->
-    %% Sent from global_name_server at some node in the partition but node().
+    %% Sent from global_name_server at some node in the partition but
+    %% node(). (-R13B)
     %% The DOWN message deletes the lock.
+    %% R14A nodes and later do not send async_del_lock messages.
     {noreply, S};
 
 handle_cast(Request, S) ->
@@ -778,8 +782,6 @@ handle_cast(Request, S) ->
                              "handle_cast(~p, _)\n", [Request]),
     {noreply, S}.
 
-handle_info({'EXIT', Deleter, _Reason}=Exit, #state{the_deleter=Deleter}=S) ->
-    {stop, {deleter_died,Exit}, S#state{the_deleter=undefined}};
 handle_info({'EXIT', Locker, _Reason}=Exit, #state{the_locker=Locker}=S) ->
     {stop, {locker_died,Exit}, S#state{the_locker=undefined}};
 handle_info({'EXIT', Registrar, _}=Exit, #state{the_registrar=Registrar}=S) ->
@@ -1348,29 +1350,12 @@ lock_still_set(PidOrNode, ExtraInfo, S) ->
         [{?GLOBAL_RID, _LockReqId, PidRefs}] when is_pid(PidOrNode) -> 
             %% Name registration.
             lists:keymember(PidOrNode, 1, PidRefs);
-        [{?GLOBAL_RID, LockReqId, PidRefs}] when is_atom(PidOrNode) ->
-            case extra_info(lock, ExtraInfo) of
-                {?GLOBAL_RID, LockId} -> % R11B-4 or later
-                    LockReqId =:= LockId;
-                undefined ->
-                    lock_still_set_old(PidOrNode, LockReqId, PidRefs)
-            end;
+        [{?GLOBAL_RID, LockReqId, _PidRefs}] when is_atom(PidOrNode) ->
+            {?GLOBAL_RID, LockId} = extra_info(lock, ExtraInfo),
+            LockReqId =:= LockId;
         [] ->
-            %% If the global lock was not removed by a DOWN message
-            %% then we have a node that do not monitor locking pids
-            %% (pre R11B-3), or an R11B-3 node (which does not ensure
-            %% that {new_nodes, ...} arrives before {del_lock, ...}).
             not S#state.global_lock_down
     end.
-
-%%% The following is probably overkill. It is possible that this node
-%%% has been locked again, but it is a rare occasion.
-lock_still_set_old(_Node, ReqId, _PidRefs) when is_pid(ReqId) ->
-    %% Cannot do better than return true.
-    true;
-lock_still_set_old(Node, ReqId, PidRefs) when is_list(ReqId) ->
-    %% Connection, version > 4, but before R11B-4.
-    [P || {P, _RPid, _Ref} <- PidRefs, node(P) =:= Node] =/= [].
 
 extra_info(Tag, ExtraInfo) ->
     %% ExtraInfo used to be a list of nodes (vsn 2).
@@ -1382,34 +1367,16 @@ extra_info(Tag, ExtraInfo) ->
     end.
 
 del_name(Ref, S) ->
-    NameL = [{Name, Pid} || 
+    NameL = [Name || 
                 {_, Name} <- ets:lookup(global_pid_names, Ref),
-                {_, Pid, _Method, _RPid, Ref1} <- 
+                {_, _Pid, _Method, _RPid, Ref1} <- 
                     ets:lookup(global_names, Name),
                 Ref1 =:= Ref],
-    ?trace({async_del_name, self(), NameL, Ref}),
     case NameL of
-        [{Name, Pid}] ->
-            _ = del_names(Name, Pid, S),
+        [Name] ->
             delete_global_name2(Name, S);
         [] ->
             S
-    end.
-
-%% Send {async_del_name, ...} to old nodes (pre R11B-3).
-del_names(Name, Pid, S) ->
-    Send = case ets:lookup(global_names_ext, Name) of
-               [{Name, Pid, RegNode}] ->
-                   RegNode =:= node();
-               [] ->
-                   node(Pid) =:= node()
-           end,
-    if 
-        Send ->
-            ?trace({del_names, {pid,Pid}, {name,Name}}),
-            S#state.the_deleter ! {delete_name, self(), Name, Pid};
-        true ->
-            ok
     end.
 
 %% Keeps the entry in global_names for whereis_name/1.
@@ -1986,7 +1953,6 @@ pid_is_locking(Pid, PidRefs) ->
 
 delete_lock(Ref, S0) ->
     Locks = pid_locks(Ref),
-    del_locks(Locks, Ref, S0#state.known),
     F = fun({ResourceId, LockRequesterId, PidRefs}, S) -> 
                 {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
                 remove_lock(ResourceId, LockRequesterId, Pid, PidRefs, true,S)
@@ -2002,20 +1968,6 @@ pid_locks(Ref) ->
 
 rpid_is_locking(Ref, PidRefs) ->
     lists:keyfind(Ref, 3, PidRefs) =/= false.
-
-%% Send {async_del_lock, ...} to old nodes (pre R11B-3).
-del_locks([{ResourceId, _LockReqId, PidRefs} | Tail], Ref, KnownNodes) ->
-    {Pid, _RPid, Ref} = lists:keyfind(Ref, 3, PidRefs),
-    case node(Pid) =:= node()  of
-        true -> 
-            gen_server:abcast(KnownNodes, global_name_server,
-                              {async_del_lock, ResourceId, Pid});
-        false -> 
-            ok
-    end,
-    del_locks(Tail, Ref, KnownNodes);
-del_locks([], _Ref, _KnownNodes) -> 
-    ok.
 
 handle_nodedown(Node, S) ->
     %% DOWN signals from monitors have removed locks and registered names.
@@ -2145,51 +2097,6 @@ get_own_nodes() ->
             {error, {"global_groups definition error", Error}};
         OkTup ->
             OkTup
-    end.
-
-%%-----------------------------------------------------------------
-%% The deleter process is a satellite process to global_name_server
-%% that does background batch deleting of names when a process
-%% that had globally registered names dies. It is started by and 
-%% linked to global_name_server.
-%%-----------------------------------------------------------------
-
-start_the_deleter(Global) ->
-    spawn_link(fun() -> loop_the_deleter(Global) end).
-
-loop_the_deleter(Global) ->
-    Deletions = collect_deletions(Global, []),
-    ?trace({loop_the_deleter, self(), {deletions,Deletions}, 
-            {names,get_names()}}),
-    %% trans_all_known is called rather than trans/3 with nodes() as
-    %% third argument. The reason is that known gets updated by
-    %% new_nodes when the lock is still set. nodes() on the other hand
-    %% could be updated later (if in_sync is received after the lock
-    %% is gone). It is not likely that in_sync would be received after
-    %% the lock has been taken here, but using trans_all_known makes it
-    %% even less likely.
-    trans_all_known(
-      fun(Known) ->
-              lists:map(
-                fun({Name,Pid}) ->
-                        gen_server:abcast(Known, global_name_server,
-                                          {async_del_name, Name, Pid})
-                end, Deletions)
-      end),
-    loop_the_deleter(Global).
-
-collect_deletions(Global, Deletions) ->
-    receive
-	{delete_name, Global, Name, Pid} ->
-	    collect_deletions(Global, [{Name,Pid} | Deletions]);
-	Other ->
-            unexpected_message(Other, deleter),
-	    collect_deletions(Global, Deletions)
-    after case Deletions of
-	      [] -> infinity;
-	      _  -> 0
-	  end ->
-	    lists:reverse(Deletions)
     end.
 
 %% The registrar is a helper process that registers and unregisters

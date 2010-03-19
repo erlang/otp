@@ -1,24 +1,22 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(global_SUITE).
-
--compile(r11). % some code is run from r11-nodes
 
 %-define(line_trace, 1).
 
@@ -2616,19 +2614,6 @@ proc(Parent) ->
 name_exit(suite) -> [];
 name_exit(doc) -> ["OTP-5563. Registered process dies."];
 name_exit(Config) when is_list(Config) ->
-    case ?t:is_release_available("r11b") of
-        true ->
-            StartOldFun = 
-                fun() ->
-                        {ok, N1} = start_node_rel(n_1, r11b, Config),
-                        {ok, N2} = start_node_rel(n_2, this, Config),
-                        [N1, N2]
-                end,
-            ?t:format("Test of r11~n"),
-            do_name_exit(StartOldFun, old, Config);
-        false ->
-            ok
-    end,
     StartFun = fun() ->
                        {ok, N1} = start_node_rel(n_1, this, Config),
                        {ok, N2} = start_node_rel(n_2, this, Config),
@@ -2855,14 +2840,7 @@ many_nodes(Config) when is_list(Config) ->
                 N_nodes = quite_a_few_nodes(32),
                 {node_rel(1, N_nodes, this), N_nodes};
             {unix, _} ->
-                case ?t:is_release_available("r11b") of
-                    true -> 
-                        This = node_rel(1, 16, this),
-                        R11B = node_rel(17, 32, r11b),
-                        {This ++ R11B, 32};
-                    false ->
-                        {node_rel(1, 32, this), 32}
-                end;
+                {node_rel(1, 32, this), 32};
             _ -> 
                 {node_rel(1, 32, this), 32}
         end,
@@ -3864,12 +3842,7 @@ start_node_rel(Name0, Rel, Config) ->
                             RelList ->
 			       {RelList, ""}
 		       end,
-    Env = case Rel of
-              r11b ->
-                  [{env, [{"ERL_R11B_FLAGS", []}]}];
-              _ ->
-                  []
-          end,
+    Env = [],
     Pa = filename:dirname(code:which(?MODULE)),
     Res = test_server:start_node(Name, peer, 
                                  [{args,
