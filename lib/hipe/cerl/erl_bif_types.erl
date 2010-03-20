@@ -4534,7 +4534,7 @@ t_decode_packet_option() ->
 	 t_tuple([t_atom('line_length'), t_non_neg_integer()])]).
 
 t_decode_packet_type() ->
-  t_sup(t_inet_setoption_packettype(), t_atom('httph')).
+  t_sup([t_inet_setoption_packettype(), t_atom('httph'), t_atom('httph_bin')]).
 
 t_dist_exit() ->
   t_sup([t_atom('kill'), t_atom('noconnection'), t_atom('normal')]).
