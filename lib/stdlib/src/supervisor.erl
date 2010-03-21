@@ -33,6 +33,8 @@
 -export([init/1, handle_call/3, handle_info/2, terminate/2, code_change/3]).
 -export([handle_cast/2]).
 
+-export_type([child_spec/0, strategy/0]).
+
 %%--------------------------------------------------------------------------
 
 -type child_id() :: pid() | 'undefined'.
