@@ -210,8 +210,16 @@ void run(EpmdVars *g)
       timeout.tv_sec = (g->packet_timeout < IDLE_TIMEOUT) ? 1 : IDLE_TIMEOUT;
       timeout.tv_usec = 0;
 
-      if ((ret = select(g->max_conn,&read_mask,(fd_set *)0,(fd_set *)0,&timeout)) < 0)
+      if ((ret = select(g->max_conn,&read_mask,(fd_set *)0,(fd_set *)0,&timeout)) < 0) {
 	dbg_perror(g,"error in select ");
+        switch (errno) {
+          case EAGAIN:
+          case EINTR:
+            break;
+          default:
+            epmd_cleanup_exit(g,1);
+        }
+      }
       else {
 	time_t now;
 	if (ret == 0) {
@@ -384,7 +392,14 @@ static int do_accept(EpmdVars *g,int listensock)
 
     if (msgsock < 0) {
         dbg_perror(g,"error in accept");
-	return EPMD_FALSE;
+        switch (errno) {
+            case EAGAIN:
+            case ECONNABORTED:
+            case EINTR:
+	            return EPMD_FALSE;
+            default:
+	            epmd_cleanup_exit(g,1);
+        }
     }
 
     return conn_open(g,msgsock);

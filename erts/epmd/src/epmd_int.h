@@ -141,6 +141,10 @@
 #  define EADDRINUSE WSAEADDRINUSE
 #endif
 
+#if defined(__WIN32__) && !defined(ECONNABORTED)
+#  define ECONNABORTED WSAECONNABORTED
+#endif
+
 #ifndef SOMAXCONN
 #  define SOMAXCONN 128
 #endif
