@@ -34,6 +34,10 @@
     <section><title>Improvements and New Features</title>
       <list>
         <item>
+          <p>The ssh_connection:send operation now accepts infinity as timeout.</p>
+          <p>Own Id: OTP-8534 Aux Id:</p>
+        </item>
+        <item>
           <p>The connection handler now include stack traces when a channel 
              message is not handled correctly.</p>
           <p>Own Id: OTP-8524 Aux Id:</p>
