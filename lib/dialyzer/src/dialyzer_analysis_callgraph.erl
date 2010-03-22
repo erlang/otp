@@ -96,6 +96,9 @@ loop(#server_state{parent = Parent, legal_warnings = LegalWarnings} = State,
       end;
     {AnalPid, ext_calls, NewExtCalls} ->
       loop(State, Analysis, NewExtCalls);
+    {AnalPid, ext_types, ExtTypes} ->
+      send_ext_types(Parent, ExtTypes),
+      loop(State, Analysis, ExtCalls);
     {AnalPid, unknown_behaviours, UnknownBehaviour} ->
       send_unknown_behaviours(Parent, UnknownBehaviour),
       loop(State, Analysis, ExtCalls);
@@ -168,6 +171,7 @@ analysis_start(Parent, Analysis) ->
       false -> Callgraph
     end,
   State3 = analyze_callgraph(NewCallgraph, State2#analysis_state{plt = Plt1}),
+  rcv_and_send_ext_types(Parent),
   NonExports = sets:subtract(sets:from_list(AllNodes), Exports),
   NonExportsList = sets:to_list(NonExports),
   Plt3 = dialyzer_plt:delete_list(State3#analysis_state.plt, NonExportsList),
@@ -481,6 +485,19 @@ default_includes(Dir) ->
 %% Handle Messages
 %%-------------------------------------------------------------------
 
+rcv_and_send_ext_types(Parent) ->
+  Self = self(),
+  Self ! {Self, done},
+  ExtTypes = rcv_ext_types(Self, []),
+  Parent ! {Self, ext_types, ExtTypes}.
+
+rcv_ext_types(Self, ExtTypes) ->
+  receive
+    {Self, ext_types, ExtType} ->
+      rcv_ext_types(Self, [ExtType|ExtTypes]);
+    {Self, done} -> lists:usort(ExtTypes)
+  end.
+
 send_log(Parent, Msg) ->
   Parent ! {self(), log, Msg},
   ok.
@@ -501,6 +518,10 @@ send_analysis_done(Parent, Plt, DocPlt) ->
   
 send_ext_calls(Parent, ExtCalls) ->
   Parent ! {self(), ext_calls, ExtCalls},
+  ok.
+
+send_ext_types(Parent, ExtTypes) ->
+  Parent ! {self(), ext_types, ExtTypes},
   ok.
 
 send_unknown_behaviours(Parent, UnknownBehaviours) ->

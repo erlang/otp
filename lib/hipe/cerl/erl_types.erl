@@ -699,14 +699,12 @@ t_solve_remote(T, _ET, _R, _C) -> {T, []}.
 
 t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
                     ET, R, C) ->
+  ArgsLen = length(Args),
   case dict:find(RemMod, R) of
     error ->
-      Msg = io_lib:format("Cannot locate module ~w to "
-                          "resolve the remote type: ~w:~w()~n",
-                          [RemMod, RemMod, Name]),
-      throw({error, Msg});
+      self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+      {t_any(), []};
     {ok, RemDict} ->
-      ArgsLen = length(Args),
       MFA = {RemMod, Name, ArgsLen},
       case sets:is_element(MFA, ET) of
         true ->
