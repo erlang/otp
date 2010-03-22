@@ -134,7 +134,6 @@ testspec_dynamic(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-% {suites, "ct_config_SUITE_data/config/test", config_dynamic_SUITE}.
 make_spec(DataDir, Filename, Suites, Config)->
     {ok, Fd} = file:open(filename:join(DataDir, Filename), [write]),
     ok = file:write(Fd,

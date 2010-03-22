@@ -36,7 +36,7 @@
 
 -export([set_default_config/2, set_default_config/3]).
 
--export([delete_config/1, delete_default_config/1]).
+-export([delete_default_config/1]).
 
 -export([reload_config/1, update_config/2]).
 
@@ -49,6 +49,8 @@
 -export([get_ref_from_name/1, get_name_from_ref/1, get_key_from_name/1]).
 
 -export([check_config_files/1, prepare_config_list/1]).
+
+-export([add_config/2, remove_config/2]).
 
 -include("ct_util.hrl").
 
@@ -133,7 +135,7 @@ loop(StartDir) ->
 	    return(From,ok),
 	    loop(StartDir);
 	{{delete_default_config,Scope},From} ->
-	    ct_config:delete_config({true,Scope}),
+	    delete_config({true,Scope}),
 	    return(From,ok),
 	    loop(StartDir);
 	{{update_config,{Name,NewConfig}},From} ->
@@ -242,40 +244,26 @@ store_config(Config, Callback, File)->
 			 default=false}) ||
 	{Key,Val} <- Config].
 
-keyfindall(Key, N, List)->
-    keyfindall(Key, N, List, []).
-
-keyfindall(Key, N, List, Acc)->
-    case lists:keytake(Key, N, List) of
-	false->
-	    Acc;
-	{value, Row, Rest}->
-	    keyfindall(Key, N, Rest, [Row|Acc])
-    end.
+keyfindall(Key, Pos, List)->
+    [E || E <- List, element(Pos, E) =:= Key].
 
 rewrite_config(Config, Callback, File)->
-    % 1) read the old config for this callback/file from the table
     OldRows = ets:match_object(?attr_table,
 				#ct_conf{handler=Callback,
 					 config=File,_='_'}),
-    % 2) remove all config data loaded from this callback/file
     ets:match_delete(?attr_table,
 		     #ct_conf{handler=Callback,
 			      config=File,_='_'}),
-    % prepare function that will
-    %   1. find records with this key in the old config, including aliases
-    %   2. update values
-    %   3. put them back to the table
     Updater = fun({Key, Value})->
 	case keyfindall(Key, #ct_conf.key, OldRows) of
-	    []-> % if variable is new, just insert it
+	    []->
 		ets:insert(?attr_table,
 			   #ct_conf{key=Key,
 				   value=Value,
 				   handler=Callback,
 				   config=File,
 				   ref=ct_util:ct_make_ref()});
-	    RowsToUpdate -> % else update all occurrencies of the key
+	    RowsToUpdate ->
 		Inserter = fun(Row)->
 		    ets:insert(?attr_table,
 				Row#ct_conf{value=Value,
@@ -285,7 +273,6 @@ rewrite_config(Config, Callback, File)->
 	end
     end,
 
-    % run it key-by-key from the new config
     [Updater({Key, Value})||{Key, Value}<-Config].
 
 set_config(Config,Default) ->
@@ -438,23 +425,12 @@ update_conf(Name, NewConfig) ->
 		  end, Old),
     ok.
 
-remove_duplicates([], Acc)->
-    Acc;
-remove_duplicates([{Handler, File}|Rest], Acc)->
-    case lists:member({Handler, File}, Acc) of
-	false->
-	    remove_duplicates(Rest, [{Handler, File}|Acc]);
-	true->
-	    remove_duplicates(Rest, Acc)
-    end.
-
 reload_conf(KeyOrName) ->
     case lookup_handler_for_config(KeyOrName) of
 	[]->
 	    undefined;
 	HandlerList->
-	    % if aliases set, config will be reloaded several times
-	    HandlerList2 = remove_duplicates(HandlerList, []),
+	    HandlerList2 = lists:usort(HandlerList),
 	    read_config_files_int(HandlerList2, fun rewrite_config/3),
 	    get_config(KeyOrName)
     end.
@@ -763,3 +739,19 @@ prepare_config_list(Args)->
 	    []
     end,
     ConfigFiles ++ UserConfigs.
+
+add_config(Callback, [])->
+    read_config_files_int([{Callback, []}], fun store_config/3);
+add_config(Callback, [File|_Files]=Config) when is_list(File)->
+    lists:foreach(fun(CfgStr)->
+	read_config_files_int([{Callback, CfgStr}], fun store_config/3) end,
+	Config);
+add_config(Callback, [C|_]=Config) when is_integer(C)->
+    read_config_files_int([{Callback, Config}], fun store_config/3),
+    ok.
+
+remove_config(Callback, Config)->
+    ets:match_delete(?attr_table,
+		     #ct_conf{handler=Callback,
+			      config=Config,_='_'}),
+    ok.

@@ -66,11 +66,13 @@
 	 fail/1, comment/1,
 	 testcases/2, userdata/2, userdata/3]).
 
+%% New API for manipulating with config handlers
+-export([add_config/2, remove_config/2]).
+
 %% Other interface functions
 -export([get_status/0, abort_current_testcase/1,
 	 encrypt_config_file/2, encrypt_config_file/3,
 	 decrypt_config_file/2, decrypt_config_file/3]).
-
 
 -export([get_target_name/1]).
 -export([parse_table/1, listenv/1]).
@@ -805,3 +807,8 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
     ct_config:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
 
+add_config(Callback, Config)->
+    ct_config:add_config(Callback, Config).
+
+remove_config(Callback, Config)->
+    ct_config:remove_config(Callback, Config).
