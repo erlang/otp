@@ -22,7 +22,6 @@
 %%% <p>This module exports functions that are used within CT to
 %%% scan and parse test specifikations.</p>
 -module(ct_testspec).
--compile(export_all).
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
