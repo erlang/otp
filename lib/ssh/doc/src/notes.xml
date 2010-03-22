@@ -34,6 +34,12 @@
     <section><title>Improvements and New Features</title>
       <list>
         <item>
+          <p>The configuration parameter ip_v6_disabled is now available,
+             which makes it possible for the user to alter the IP version
+             SSH shall use.</p>
+          <p>Own Id: OTP-8535 Aux Id:</p>
+        </item>
+        <item>
           <p>The ssh_connection:send operation now accepts infinity as timeout.</p>
           <p>Own Id: OTP-8534 Aux Id:</p>
         </item>
