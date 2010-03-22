@@ -20,6 +20,9 @@
 ;;;
 ;;; Author: Klas Johansson
 
+(eval-when-compile
+  (require 'cl))
+
 (defvar erlang-eunit-separate-src-and-test-directories t
   "*Whether or not to keep source and EUnit test files in separate directories")
 
