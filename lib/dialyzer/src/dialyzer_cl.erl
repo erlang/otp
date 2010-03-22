@@ -672,7 +672,7 @@ print_ext_types(#cl_state{output = Output,
           io:put_chars(Output, "Unknown types:\n"),
           do_print_ext_types(Output, Types, "  ");
         raw ->
-          io:put_chars(Output, "%% Unknown functions:\n"),
+          io:put_chars(Output, "%% Unknown types:\n"),
           do_print_ext_types(Output, Types, "%%  ")
       end
   end.
@@ -686,7 +686,7 @@ do_print_ext_types(_, [], _) ->
 %%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
 %%  ok;
 print_unknown_behaviours(#cl_state{output = Output,
-                                   external_calls = Calls,
+				   external_calls = Calls,
 				   external_types = Types,
 				   stored_warnings = Warnings,
 				   unknown_behaviours = DupBehaviours,
