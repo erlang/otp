@@ -22,6 +22,7 @@
 %%% <p>This module exports functions that are used within CT to
 %%% scan and parse test specifikations.</p>
 -module(ct_testspec).
+-compile(export_all).
 
 -export([prepare_tests/1, prepare_tests/2, 
 	 collect_tests_from_list/2, collect_tests_from_list/3,
@@ -438,37 +439,44 @@ add_tests([{cover,File}|Ts],Spec) ->
     add_tests([{cover,all_nodes,File}|Ts],Spec);
 
 %% --- config ---
-% TODO finish that!
 add_tests([{config,all_nodes,Files}|Ts],Spec) ->
-    %io:format("1: add_tests([{config,all_nodes,~p}|~p],~p~n", [Files, Ts, Spec]),
-    Tests = lists:map(fun(N) -> {config,N,{?ct_config_txt,Files}} end, list_nodes(Spec)),
+    Tests = lists:map(fun(N) -> {config,N,Files} end, list_nodes(Spec)),
     add_tests(Tests++Ts,Spec);
 add_tests([{config,Nodes,Files}|Ts],Spec) when is_list(Nodes) ->
-    %io:format("2: add_tests([{config,~p,~p}|~p],~p) when is_list(Nodes)~n", [Nodes,Files,Spec,Nodes]),
     Ts1 = separate(Nodes,config,[Files],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
-add_tests([{config,Node,[{Callback,F}|Fs]}|Ts],Spec) when is_list(F) ->
-    %io:format("3: add_tests([{config,~p,[~p|~p]}|~p],~p) when is_list(~p)~n", [Node, F, Fs, Ts, Spec, F]),
+add_tests([{config,Node,[F|Fs]}|Ts],Spec) when is_list(F) ->
     Cfgs = Spec#testspec.config,
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests([{config,Node,Fs}|Ts],
-	      Spec#testspec{config=[{Node1,{Callback, [get_absfile(Callback, F,Spec)]}}|Cfgs]});
+	      Spec#testspec{config=[{Node1,{?ct_config_txt,
+				get_absfile(?ct_config_txt, F,Spec)}}|Cfgs]});
 add_tests([{config,_Node,[]}|Ts],Spec) ->
-    %io:format("4: add_tests([{config,_,[]}|~p],~p)~n", [Ts, Spec]),
     add_tests(Ts,Spec);
 add_tests([{config,Node,F}|Ts],Spec) ->
-    %io:format("5: add_tests([{config,~p,~p}|~p],~p)~n", [Node, F, Ts, Spec]),
     add_tests([{config,Node,[F]}|Ts],Spec);
 add_tests([{config,Files}|Ts],Spec) ->
-    %io:format("6: add_tests([{config,~p}|~p],~p)~n", [Files, Ts, Spec]),
     add_tests([{config,all_nodes,Files}|Ts],Spec);
 
-% TODO add support for {userconfig, Nodes, {Callback, Files}}
 %% --- userconfig ---
-add_tests([{userconfig, {Callback, Files}}|Ts], Spec)->
-    %io:format("add_tests([{userconfig, {~p, ~p}}|~p], ~p)~n", [Callback, Files, Ts, Spec]),
-    Tests = lists:map(fun(N) -> {config,N,{Callback,Files}} end, list_nodes(Spec)),
+add_tests([{userconfig,all_nodes,CBF}|Ts],Spec) ->
+    Tests = lists:map(fun(N) -> {userconfig,N,CBF} end, list_nodes(Spec)),
     add_tests(Tests++Ts,Spec);
+add_tests([{userconfig,Nodes,CBF}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,userconfig,[CBF],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{userconfig,Node,[{Callback, Config}|CBF]}|Ts],Spec) ->
+    Cfgs = Spec#testspec.config,
+    Node1 = ref2node(Node,Spec#testspec.nodes),
+    add_tests([{userconfig,Node,CBF}|Ts],
+	      Spec#testspec{config=[{Node1,{Callback,
+				get_absfile(Callback, Config ,Spec)}}|Cfgs]});
+add_tests([{userconfig,_Node,[]}|Ts],Spec) ->
+    add_tests(Ts,Spec);
+add_tests([{userconfig,Node,CBF}|Ts],Spec) ->
+    add_tests([{userconfig,Node,[CBF]}|Ts],Spec);
+add_tests([{userconfig,CBF}|Ts],Spec) ->
+    add_tests([{userconfig,all_nodes,CBF}|Ts],Spec);
 
 %% --- event_handler ---
 add_tests([{event_handler,all_nodes,Hs}|Ts],Spec) ->
