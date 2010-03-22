@@ -9,5 +9,5 @@
 # TeX files that the DVI file depend on
 # ----------------------------------------------------
 
-book.dvi: book.tex install.tex part.tex verification.tex
+book.dvi: book.tex install-binary.tex part.tex verification.tex
 

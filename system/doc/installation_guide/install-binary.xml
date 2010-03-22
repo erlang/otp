@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>Installation</title>
+    <title>Installing the Binary Release</title>
     <prepared>Peter H&ouml;gfeldt</prepared>
     <responsible>Peter H&ouml;gfeldt</responsible>
     <docno></docno>
@@ -29,25 +29,8 @@
     <checked></checked>
     <date>1997-05-26</date>
     <rev>C</rev>
-    <file>install.xml</file>
+    <file>install-binary.xml</file>
   </header>
-
-  <section>
-    <title>Source</title>
-      <p>This document describes installation procedures for
-         binary releases. Documentation of build and installation
-	 procedures for the source release can be found in the source
-	 tree at the following locations:</p>
-      <taglist>
-	 <tag>Building and Installing Erlang/OTP</tag>
-         <item><url href="source/INSTALL.html"><c>$ERL_TOP/INSTALL.md</c></url></item>
-	 <tag>Cross Compiling Erlang/OTP</tag>
-         <item><url href="source/INSTALL-CROSS.html"><c>$ERL_TOP/INSTALL-CROSS.md</c></url></item>
-	 <tag>How to Build Erlang/OTP on Windows</tag>
-         <item><url href="source/INSTALL-WIN32.html"><c>$ERL_TOP/INSTALL-WIN32.md</c></url></item>
-      </taglist>
-      <p>Where <c>$ERL_TOP</c> is the top directory in the source tree.</p>
-  </section>
 
   <section>
     <title>UNIX</title>
@@ -73,7 +56,7 @@
         which is <c><![CDATA[<PREFIX>.tar.gz]]></c>, where <c><![CDATA[<PREFIX>]]></c> is a string
         denoting the particular Erlang/OTP release, e.g.
         <c>otp_LXA_11930_sunos5_R9B</c>.</p>
-      <p>Wherever the string <c><![CDATA[<PREFIX>]]></c> is used below, it should 
+      <p>Wherever the string <c><![CDATA[<PREFIX>]]></c> is used below, it should
         be replaced by the actual name prefix of the compressed tar file.</p>
       <p>The tape archive file does not have one single directory in which
         all other files are rooted. Therefore the tape archive file must be
@@ -162,4 +145,3 @@ ln -s /usr/local/erlang/otp_r7b/bin/erl /usr/local/bin/erl </pre>
     </section>
   </section>
 </chapter>
-

@@ -51,6 +51,7 @@ a.out.dSYM/
 
 /release
 
+/make/emd2exml
 
 # Created by "out_build update_primary"
 /bootstrap/primary_compiler/
@@ -140,6 +141,13 @@ a.out.dSYM/
 /erts/doc/pdf/*.pdf
 /erts/doc/man[0-9]/*.[0-9]
 
+# et
+
+/lib/et/doc/html/*.png
+/lib/et/doc/src/et_desc.xml
+/lib/et/doc/src/et_examples.xml
+/lib/et/doc/src/et_tutorial.xml
+
 # gs
 
 /lib/gs/src/gstk_generic.hrl
@@ -165,6 +173,7 @@ a.out.dSYM/
 /lib/ic/priv/ic.jar
 /lib/ic/src/icparse.erl
 /lib/ic/doc/html/java
+/lib/ic/java_src/SKIP
 
 # jinterface
 
@@ -234,15 +243,23 @@ a.out.dSYM/
 
 /system/doc/pdf/*.pdf
 /system/doc/pdf/*.fo
+/system/doc/html/*.html
+/system/doc/html/*.eix
+/system/doc/html/js
 /system/doc/html/*/*.html
 /system/doc/html/*/*.gif
 /system/doc/html/*/*.eix
+/system/doc/top/PR.template
+/system/doc/top/erlresolvelinks.js
 /system/doc/programming_examples/funs.xml
 /system/doc/tutorial/c_port.xml
 /system/doc/tutorial/c_portdriver.xml
 /system/doc/tutorial/cnode.xml
 /system/doc/tutorial/erl_interface.xml
 /system/doc/tutorial/example.xml
+/system/doc/installation_guide/INSTALL.xml
+/system/doc/installation_guide/INSTALL-CROSS.xml
+/system/doc/installation_guide/INSTALL-WIN32.xml
 
 # test_server
 

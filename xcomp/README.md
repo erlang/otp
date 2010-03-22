@@ -1,20 +1,23 @@
 Cross Compiling Erlang/OTP
 ==========================
 
-This document describes how to cross compile Erlang/OTP. Note that the support
-for cross compiling Erlang/OTP should be considered as experimental. As far as
-we know, the R13B04 release should cross compile fine, but since we currently
-have a very limited set of cross compilation environments to test with we
-cannot be sure. The cross compile support will stay in an experimental state
-until we get a lot more cross compilation environments to test with.
+Introduction
+------------
 
-You are encouraged to read the whole document before attempting to cross
-compile Erlang/OTP. Before reading this document you should read the
-[`$ERL_TOP/INSTALL.md`] [1] document which describes building Erlang/OTP in
-general. `$ERL_TOP` is the top directory in the source tree.
+This document describes how to cross compile Erlang/OTP-%OTP-REL%. Note that
+the support for cross compiling Erlang/OTP should be considered as
+experimental. As far as we know, the %OTP-REL% release should cross compile
+fine, but since we currently have a very limited set of cross compilation
+environments to test with we cannot be sure. The cross compilation support
+will remain in an experimental state until we get a lot more cross compilation
+environments to test with.
 
-`otp_build` Versus `configure`/`make`
--------------------------------------
+You are advised to read the whole document before attempting to cross
+compile Erlang/OTP. However, before reading this document, you should read
+the [$ERL_TOP/INSTALL.md][] document which describes building and installing
+Erlang/OTP in general. `$ERL_TOP` is the top directory in the source tree.
+
+### otp\_build Versus configure/make ###
 
 Building Erlang/OTP can be done either by using the `$ERL_TOP/otp_build`
 script, or by invoking `$ERL_TOP/configure` and `make` directly. Building using
@@ -27,18 +30,17 @@ unless `--enable-dynamic-ssl-lib` has been explicitly passed. The binary
 releases that we deliver are built using `otp_build`.  The defaults used by
 `otp_build configure` may change at any time without prior notice.
 
-Cross Configuration
--------------------
+### Cross Configuration ###
 
 The `$ERL_TOP/xcomp/erl-xcomp.conf.template` file contains all available cross
 configuration variables and can be used as a template when creating a cross
-compilation configuration. All cross configuration variables are also listed
-at the end of this document. For examples of working cross configurations see
-the `$ERL_TOP/xcomp/erl-xcomp-TileraMDE2.0-tilepro.conf` file and the
-`$ERL_TOP/xcomp/erl-xcomp-x86_64-saf-linux-gnu.conf` file. If the default
-behavior of a variable is satisfactory, the variable does not need to be set.
-However, the `configure` script will issue a warning when a default value is
-used. When a variable has been set, no warning will be issued.
+compilation configuration. All [cross configuration variables][] are also
+listed at the end of this document. For examples of working cross
+configurations see the `$ERL_TOP/xcomp/erl-xcomp-TileraMDE2.0-tilepro.conf`
+file and the `$ERL_TOP/xcomp/erl-xcomp-x86_64-saf-linux-gnu.conf` file. If the
+default behavior of a variable is satisfactory, the variable does not need to
+be set. However, the `configure` script will issue a warning when a default
+value is used. When a variable has been set, no warning will be issued.
 
 A cross configuration file can be passed to `otp_build configure` using the
 `--xcomp-conf` command line argument. Note that `configure` does not accept
@@ -51,15 +53,13 @@ invoking `make`; otherwise, the environment variables might set make variables
 in some applications, or parts of some applications, and you may end up with
 an erroneously configured build. 
 
-What can be Cross Compiled?
----------------------------
+### What can be Cross Compiled? ###
 
 All Erlang/OTP applications except the `wx` application can be cross compiled.
 The build of the `wx` driver will currently be automatically disabled when
 cross compiling.
 
-Compatibility
--------------
+### Compatibility ###
 
 The build system, including cross compilation configuration variables used,
 may be subject to non backward compatible changes without prior notice.
@@ -68,8 +68,7 @@ systems, but has only been partly tested for more esoteric platforms. The
 VxWorks example file is highly dependent on our environment and is here more
 or less only for internal use.
 
-Patches
--------
+### Patches ###
 
 Please submit any patches for cross compiling in a way consistent with this
 system. All input is welcome as we have a very limited set of cross compiling
@@ -91,13 +90,13 @@ General information on how to submit patches can be found at:
 Build and Install Procedure
 ---------------------------
 
-If you are building in Git you want to read the "Building in Git" section
-of [`$ERL_TOP/INSTALL.md`] [1] before proceeding.
+If you are building in Git, you want to read the [Building in Git][] section
+of [$ERL_TOP/INSTALL.md][] before proceeding.
 
 We will first go through the `configure`/`make` build procedure which people
 probably are most familiar with.
 
-### Building With `configure`/`make` Directly ###
+### Building With configure/make Directly ###
 
   (1)
 
@@ -116,7 +115,8 @@ cross compiling in, you currently need a full Erlang/OTP system of the same
 release as the one being built for the build machine. If this is the case,
 build and install one for the build machine (or use one already built) and add
 it to the `$PATH` before cross building, and building the documentation. See
-[`$ERL_TOP/INSTALL.md`] [1] for information on building the documentation.
+the [How to Build the Documentation][] section in the [$ERL_TOP/INSTALL.md][]
+document for information on how to build the documentation.
 
 If you want to build using a compatible Erlang/OTP system in the `$PATH`,
 jump to (3).
@@ -152,24 +152,27 @@ build on. If you execute `$ERL_TOP/erts/autoconf/config.guess`, it will in
 most cases print the triplet you want to use for this.
 
 Pass the cross compilation variables as command line arguments to `configure`
-using a `<VARIABLE>=<VALUE>` syntax. Note that you can *not* pass a
-configuration file using `--xcomp-conf=<FILE>` when you invoke `configure`
-directly. The `--xcomp-conf=<FILE>` argument can only be passed to
-`otp_build configure`.
+using a `<VARIABLE>=<VALUE>` syntax.
+
+> *NOTE*: You can *not* pass a configuration file using the `--xcomp-conf`
+> argument when you invoke `configure` directly. The `--xcomp-conf` argument
+> can only be passed to `otp_build configure`.
 
 `make` will verify that the Erlang/OTP system used when building is of the
 same release as the system being built, and will fail if this is not the case.
 It is possible, however not recommended, to force the cross compilation even
 though the wrong Erlang/OTP system is used. This by invoking `make` like this:
-`make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes`. Note that this build might fail,
-silently produce suboptimal code, or silently produce erroneous code.
+`make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes`.
+
+> *WARNING*: Invoking `make ERL_XCOMP_FORCE_DIFFERENT_OTP=yes` might fail,
+> silently produce suboptimal code, or silently produce erroneous code.
 
 #### Installing ####
 
 You can either install using the installation paths determined by `configure`
 (4), or install manually using (5).
 
-##### Installing Using Paths Determined by `configure` #####
+##### Installing Using Paths Determined by configure #####
 
   (4)
 
@@ -179,7 +182,7 @@ You can either install using the installation paths determined by `configure`
 `configure` arguments specifying where the installation should reside are for
 example: `--prefix`, `--exec-prefix`, `--libdir`, `--bindir`, etc. By default
 it will install under `/usr/local`. You typically do not want to install your
-cross build under `/usr/local` on your build machine. Using [`DESTDIR`] [2]
+cross build under `/usr/local` on your build machine. Using [DESTDIR][]
 will cause the installation paths to be prefixed by `$DESTDIR`. This makes it
 possible to install and package the installation on the build machine without
 having to place the installation in the same directory on the build machine as
@@ -249,7 +252,7 @@ or:
         $ cd <ABSOLUTE_INSTALL_DIR_ON_TARGET>
         $ ./Install [-minimal|-sasl] <ABSOLUTE_INSTALL_DIR_ON_TARGET>
 
-### Building With the `otp_build` Script ###
+### Building With the otp\_build Script ###
 
   (8)
 
@@ -297,13 +300,13 @@ visible throughout the whole execution of all `configure` scripts. Other
 variables needs to be defined as arguments to `configure` or exported in
 the environment.
 
-### Variables for `otp_build` Only ###
+### Variables for otp\_build Only ###
 
 Variables in this section are only used, when configuring Erlang/OTP for
 cross compilation using `$ERL_TOP/otp_build configure`.
 
-*NOTE*! These variables currently have *no* effect if you configure using
-the `configure` script directly.
+> *NOTE*: These variables currently have *no* effect if you configure using
+> the `configure` script directly.
 
 *   `erl_xcomp_build` - The build system used. This value will be passed as
     `--build=$erl_xcomp_build` argument to the `configure` script. It does
@@ -354,9 +357,9 @@ All variables in this section can also be used when native compiling.
 
 *   `LIBS` - Libraries.
 
-#### *D*ynamic *E*rlang *D*river Linking ####
+#### Dynamic Erlang Driver Linking ####
 
-*NOTE*! Either set all or none of the `DED_LD*` variables.
+> *NOTE*: Either set all or none of the `DED_LD*` variables.
 
 *   `DED_LD` - Linker for Dynamically loaded Erlang Drivers.
 
@@ -367,7 +370,7 @@ All variables in this section can also be used when native compiling.
 
 #### Large File Support ####
 
-*NOTE*! Either set all or none of the `LFS_*` variables.
+> *NOTE*: Either set all or none of the `LFS_*` variables.
 
 *   `LFS_CFLAGS` - Large file support C compiler flags.
 
@@ -403,12 +406,15 @@ All variables in this section can also be used when native compiling.
 ### Optional Feature, and Bug Tests ###
 
 These tests cannot (always) be done automatically when cross compiling. You
-usually do not need to set these variables. Only set these if you really
-know what you are doing.
+usually do not need to set these variables.
 
-Note that some of these values will override results of tests performed
-by `configure`, and some will not be used until `configure` is sure that
-it cannot figure the result out.
+> *WARNING*: Setting these variables wrong may cause hard to detect
+> runtime errors. If you need to change these values, *really* make sure
+> that the values are correct.
+
+> *NOTE*: Some of these values will override results of tests performed
+> by `configure`, and some will not be used until `configure` is sure that
+> it cannot figure the result out.
 
 The `configure` script will issue a warning when a default value is used.
 When a variable has been set, no warning will be issued.
@@ -483,24 +489,35 @@ When a variable has been set, no warning will be issued.
 Copyright and License
 ---------------------
 
-> %CopyrightBegin%
->
-> Copyright Ericsson AB 2009-2010. All Rights Reserved.
->
-> The contents of this file are subject to the Erlang Public License,
-> Version 1.1, (the "License"); you may not use this file except in
-> compliance with the License. You should have received a copy of the
-> Erlang Public License along with this software. If not, it can be
-> retrieved online at http://www.erlang.org/.
->
-> Software distributed under the License is distributed on an "AS IS"
-> basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
-> the License for the specific language governing rights and limitations
-> under the License.
->
-> %CopyrightEnd%
+%CopyrightBegin%
+
+Copyright Ericsson AB 2009-2010. All Rights Reserved.
+
+The contents of this file are subject to the Erlang Public License,
+Version 1.1, (the "License"); you may not use this file except in
+compliance with the License. You should have received a copy of the
+Erlang Public License along with this software. If not, it can be
+retrieved online at http://www.erlang.org/.
+
+Software distributed under the License is distributed on an "AS IS"
+basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+the License for the specific language governing rights and limitations
+under the License.
+
+%CopyrightEnd%
+
+Modifying This Document
+-----------------------
+
+Before modifying this document you need to have a look at the
+`$ERL_TOP/README.md.txt` document.
 
 
 
-   [1]: INSTALL.html "$ERL_TOP/INSTALL.md"
-   [2]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html "DESTDIR"
+   [$ERL_TOP/INSTALL.md]: INSTALL
+   [Building in Git]: INSTALL#How-to-Build-and-Install-ErlangOTP_Building-in-Git
+   [How to Build the Documentation]: INSTALL#The-ErlangOTP-Documentation_How-to-Build-the-Documentation
+   [cross configuration variables]: #Currently-Used-Configuration-Variables
+   [DESTDIR]: http://www.gnu.org/prep/standards/html_node/DESTDIR.html
+
+   [?TOC]: true

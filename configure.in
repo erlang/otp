@@ -182,14 +182,14 @@ AC_PROG_RANLIB
 # Get erts version and otp release from erts/vsn.mk
 #
 AC_MSG_CHECKING([ERTS version])
-[ERTS=erts-`sed -n "s/^VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
-AC_MSG_RESULT([$ERTS])
-AC_SUBST(ERTS)
+[ERTS_VSN=`sed -n "s/^VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
+AC_MSG_RESULT([$ERTS_VSN])
+AC_SUBST(ERTS_VSN)
 
 AC_MSG_CHECKING([OTP release])
-[OTP=OTP-`sed -n "s/^SYSTEM_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
-AC_MSG_RESULT([$OTP])
-AC_SUBST(OTP)
+[OTP_REL=`sed -n "s/^SYSTEM_VSN[	 ]*=[	 ]*\(.*\)/\1/p" < $ERL_TOP/erts/vsn.mk`]
+AC_MSG_RESULT([$OTP_REL])
+AC_SUBST(OTP_REL)
 
 AC_ARG_ENABLE(threads,
 [  --enable-threads        enable async thread support
@@ -343,7 +343,10 @@ fi
 export ERL_TOP
 AC_CONFIG_SUBDIRS(lib erts)
 
-AC_OUTPUT(Makefile)
+AC_CONFIG_FILES([Makefile])
+AC_CONFIG_FILES([make/emd2exml], [chmod +x make/emd2exml])
+
+AC_OUTPUT
 
 pattern="lib/*/SKIP"
 files=`echo $pattern`

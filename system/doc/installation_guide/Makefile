@@ -31,6 +31,7 @@ APPLICATION=otp-system-documentation
 # Release directory specification
 # ----------------------------------------------------
 RELSYSDIR = $(RELEASE_PATH)/doc/installation_guide
+REDIRECT_HTML_RELSYSDIR = $(RELSYSDIR)/source
 
 # ----------------------------------------------------
 # Target Specs
@@ -54,14 +55,11 @@ XML_FILES = \
 	$(XML_PART_FILES) 
 
 # ----------------------------------------------------
-# Install readme files
-# ----------------------------------------------------
-SOURCE_INSTALL_READMES = \
-	$(ERL_TOP)/INSTALL.html \
-	$(ERL_TOP)/INSTALL-CROSS.html \
-	$(ERL_TOP)/INSTALL-WIN32.html
+GENERATED_XML_FILES = \
+	INSTALL.xml \
+	INSTALL-CROSS.xml \
+	INSTALL-WIN32.xml
 
-SOURCE_RELSYSDIR = $(RELSYSDIR)/source
 # ----------------------------------------------------
 
 HTML_FILES = \
@@ -70,6 +68,12 @@ HTML_FILES = \
 HTMLDIR = ../html/installation_guide
 
 HTML_UG_FILE = $(HTMLDIR)/users_guide.html
+
+REDIRECT_HTML_DIR = $(HTMLDIR)/source
+REDIRECT_HTML_FILES = \
+	$(REDIRECT_HTML_DIR)/INSTALL.html \
+	$(REDIRECT_HTML_DIR)/INSTALL-CROSS.html \
+	$(REDIRECT_HTML_DIR)/INSTALL-WIN32.html
 
 # ----------------------------------------------------
 # FLAGS 
@@ -80,15 +84,32 @@ DVIPS_FLAGS +=
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
-docs: html
+
+%.xml: $(ERL_TOP)/%.md $(ERL_TOP)/make/emd2exml
+	$(ERL_TOP)/make/emd2exml $< $@
+
+$(REDIRECT_HTML_DIR)/%.html: Makefile
+	test -d $(REDIRECT_HTML_DIR) || $(INSTALL_DIR) $(REDIRECT_HTML_DIR)
+	echo "<html><head><meta HTTP-EQUIV=\"REFRESH\"" > $@
+	echo " content=\"5; url=../"$(notdir $@)"\">" >> $@
+	echo "<title>This page has moved</title></head><body>" >> $@
+	echo "<h1>This page has moved</h1>" >> $@
+	echo "<p>You will be automatically redirected to its new" >> $@
+	echo "location in 5 seconds." >> $@
+	echo "This <a href=\"../"$(notdir $@)"\">link</a> will" >> $@
+	echo "take you there immediately.</p></body></html>" >> $@
+
+docs: $(GENERATED_XML_FILES) html
 
 local_docs: PDFDIR=../../pdf
+local_docs: $(GENERATED_XML_FILES)
 
-html: $(GIF_FILES) $(HTML_UG_FILE)
+html: $(REDIRECT_HTML_FILES) $(GENERATED_XML_FILES) $(GIF_FILES) $(HTML_UG_FILE)
 
-debug opt: 
+debug opt:
 
 clean clean_docs:
+	rm -f $(GENERATED_XML_FILES)
 	rm -rf $(HTMLDIR)
 	rm -f $(TOP_PDF_FILE) $(TOP_PDF_FILE:%.pdf=%.fo)
 	rm -f errs core *~ 
@@ -102,8 +123,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_docs_spec: docs
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(GIF_FILES) $(HTMLDIR)/*.html $(RELSYSDIR)
-	$(INSTALL_DIR) $(SOURCE_RELSYSDIR)
-	$(INSTALL_DATA) $(SOURCE_INSTALL_READMES) $(SOURCE_RELSYSDIR)
+	$(INSTALL_DIR) $(REDIRECT_HTML_RELSYSDIR)
+	$(INSTALL_DATA) $(REDIRECT_HTML_FILES) $(REDIRECT_HTML_RELSYSDIR)
 
 release_spec:
 

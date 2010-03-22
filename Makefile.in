@@ -28,10 +28,10 @@ SHELL = /bin/sh
 ERL_TOP = @ERL_TOP@
 
 # OTP release
-OTP = @OTP@
+OTP = OTP-@OTP_REL@
 
 # erts (Erlang RunTime System) version
-ERTS = @ERTS@
+ERTS = erts-@ERTS_VSN@
 
 # ----------------------------------------------------------------------
 
@@ -397,7 +397,7 @@ endif
 # ---------------------------------------------------------------
 # Target only used when building commercial ERTS patches
 # ---------------------------------------------------------------
-release_docs docs: html_readmes
+release_docs docs:
 ifeq ($(OTP_SMALL_BUILD),true)
 	cd $(ERL_TOP)/lib && \
 	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
@@ -411,41 +411,6 @@ endif
 	  ERL_TOP=$(ERL_TOP) $(MAKE) BUILD_ALL=1 TESTROOT=$(RELEASE_ROOT) $@
 	cd $(ERL_TOP)/system/doc && \
 	  ERL_TOP=$(ERL_TOP) $(MAKE) TESTROOT=$(RELEASE_ROOT) $@
-
-.PHONY: html_readmes clean_html_readmes
-
-HTML_READMES = INSTALL.html INSTALL-WIN32.html INSTALL-CROSS.html
-
-html_readmes: $(HTML_READMES)
-
-clean_html_readmes:
-	rm -f $(HTML_READMES)
-
-%.html: %.md
-	echo "<!DOCTYPE html PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\">" > $@
-	echo "<html xmlns:fn=\"http://www.w3.org/2005/02/xpath-functions\"><head>" >> $@
-	echo "<meta http-equiv=\"Content-Type\" content=\"text/html; charset=UTF-8\">" >> $@
-	echo "<style type=\"text/css\">" >> $@
-	echo "body          {" >> $@
-	echo "  margin: 4em 4em 4em 4em;" >> $@
-	echo "  background: white;" >> $@
-	echo "  font-family: Verdana, Arial, Helvetica, sans-serif;" >> $@
-	echo "}" >> $@
-	echo "code          { font-family: courier;font-weight: normal}" >> $@
-	echo "a:link         { color: blue; text-decoration: none }" >> $@
-	echo "a:active       { color: blue; text-decoration: none }" >> $@
-	echo "a:visited      { color: blue; text-decoration: none }" >> $@
-	echo "</style><title>" >> $@
-	cat $< | sed -n "s/[ 	]*\([^ 	].*[^ 	]\)[ 	]*/\1/p;/[ 	]*[^ 	][ 	]*/q" >> $@
-	echo "</title></head><body>" >> $@
-ifneq ($(MD2HTML),)
-	$(MD2HTML) $< >> $@
-else
-	echo "<pre>" >> $@
-	cat $< | sed "s|\&|\&amp\;|g;s|\"|\&quot\;|g;s|<|\&lt\;|g;s|>|\&gt\;|g" >> $@
-	echo "</pre>" >> $@
-endif 
-	echo "</body></html>" >> $@
 
 # ----------------------------------------------------------------------
 ERLANG_EARS=$(BOOTSTRAP_ROOT)/bootstrap/erts
@@ -1032,7 +997,7 @@ $(IBIN_DIR):
 # Clean targets
 #
 
-clean: check_recreate_primary_bootstrap clean_html_readmes
+clean: check_recreate_primary_bootstrap
 	rm -f *~ *.bak config.log config.status prebuilt.files ibin/*
 	find . -type f -name SKIP -print | xargs $(RM)
 	cd erts && ERL_TOP=$(ERL_TOP) $(MAKE) clean
