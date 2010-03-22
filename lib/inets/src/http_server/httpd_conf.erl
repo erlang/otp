@@ -354,7 +354,7 @@ load("DocumentRoot " ++ DocumentRoot,[]) ->
 	{ok, Directory} ->
 	    {ok, [], {document_root,string:strip(Directory,right,$/)}};
 	{error, _} ->
-	    {error, ?NICE(clean(DocumentRoot)++"is an invalid DocumentRoot")}
+	    {error, ?NICE(clean(DocumentRoot)++" is an invalid DocumentRoot")}
     end;
 load("DefaultType " ++ DefaultType, []) ->
     {ok, [], {default_type,clean(DefaultType)}};

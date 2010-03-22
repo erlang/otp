@@ -32,6 +32,70 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.1</title>
+
+    <section><title>Improvements and New Features</title>
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+	  <p>[httpc] - Allow users to pass socket options to the transport 
+            module when making requests. </p> 
+          <p>See the <c>socket_opts</c> option in the 
+            <seealso marker="httpc#request2">request/4</seealso> or 
+            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            for more info, </p>
+	  <p>Own Id: OTP-8352</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>[httpc] - Badly formated error reason for errors occuring 
+            during initial connect to a server. 
+            Also, the possible error reasons was 
+            not properly documented.</p>
+	  <p>Own Id: OTP-8508</p>
+	  <p>Aux Id: seq11407</p>
+        </item>
+
+        <item>
+	  <p>[httpd] - Issues with ESI erl_script_timeout. </p>
+          <p>
+            <list type="bulleted">
+	      <item>
+		<p>The <c>erl_script_timeout</c> config option is ducumented
+                  as a number of seconds. But when parsing the config, in the
+                  new format (not a config file), it was handled as if in
+                  number of milliseconds. </p>
+              </item>
+	      <item>
+		<p>When the erl-script-timeout time was exceeded, the server
+                  incorrectly marked the answer as sent, thereby leaving 
+                  client hanging (with an incomplete answer).
+                  This has been changed, so that now the socket will be
+                  closed. </p>
+	      </item>
+	    </list>
+	  </p>
+	  <p>Own Id: OTP-8509</p>
+        </item>
+      </list>
+    </section>
+
+  </section> <!-- 5.3.1 -->
+
+
   <section><title>Inets 5.3</title>
 
     <section><title>Improvements and New Features</title>

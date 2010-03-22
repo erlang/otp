@@ -191,7 +191,8 @@ ssl_options() = {verify,     code()}   |
         <v>Result = {status_line(), headers(), body()} | 
                     {status_code(), body()} | request_id() </v>
         <v>Profile = profile() </v>
-        <v>Reason = term() </v>
+        <v>Reason = {connect_failed, term()} | 
+                    {send_failed, term()} | term() </v>
       </type>
 
       <desc>

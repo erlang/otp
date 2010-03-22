@@ -33,6 +33,7 @@
 -define(VMODULE,"ESI").
 -define(DEFAULT_ERL_TIMEOUT,15000).
 
+
 %%%=========================================================================
 %%%  API 
 %%%=========================================================================
@@ -51,6 +52,7 @@ deliver(SessionID, Data) when is_pid(SessionID) ->
     ok;
 deliver(_SessionID, _Data) ->
     {error, bad_sessionID}.
+
 
 %%%=========================================================================
 %%%  CALLBACK API 
@@ -74,6 +76,8 @@ do(ModData) ->
 		    {proceed, ModData#mod.data}
 	    end
     end.
+
+
 %%--------------------------------------------------------------------------
 %% load(Line, Context) ->  eof | ok | {ok, NewContext} | 
 %%                     {ok, NewContext, Directive} | 
@@ -127,6 +131,7 @@ load("ErlScriptNoCache " ++ CacheArg, [])->
 			 " is an invalid ErlScriptNoCache directive")}
     end.
 
+
 %%--------------------------------------------------------------------------
 %% store(Directive, DirectiveList) -> {ok, NewDirective} | 
 %%                                    {ok, [NewDirective]} |
@@ -163,16 +168,18 @@ store({eval_script_alias, {Name, Modules}} = Conf, _)
 
 store({erl_script_alias, Value}, _) ->
     {error, {wrong_type, {erl_script_alias, Value}}};
-store({erl_script_timeout, Value} = Conf, _) 
-  when is_integer(Value), Value >= 0 ->
-    {ok, Conf};
+store({erl_script_timeout, TimeoutSec}, _) 
+  when is_integer(TimeoutSec) andalso (TimeoutSec >= 0) ->
+    {ok, {erl_script_timeout, TimeoutSec * 1000}};
 store({erl_script_timeout, Value}, _) ->
     {error, {wrong_type, {erl_script_timeout, Value}}};
-store({erl_script_nocache, Value} = Conf, _) when Value == true; 
-						  Value == false ->
+store({erl_script_nocache, Value} = Conf, _) 
+  when (Value =:= true) orelse (Value =:= false) ->
     {ok, Conf};
 store({erl_script_nocache, Value}, _) ->
     {error, {wrong_type, {erl_script_nocache, Value}}}.
+
+
 %%%========================================================================
 %%% Internal functions
 %%%========================================================================   
@@ -227,7 +234,7 @@ alias_match_str(Alias, eval_script_alias) ->
 %%------------------------ Erl mechanism --------------------------------
 
 erl(#mod{method = Method} = ModData, ESIBody, Modules) 
-  when Method == "GET"; Method == "HEAD"->
+  when (Method =:= "GET") orelse (Method =:= "HEAD") ->
     case httpd_util:split(ESIBody,":|%3A|/",2) of
 	{ok, [ModuleName, FuncAndInput]} ->
 	    case httpd_util:split(FuncAndInput,"[\?/]",2) of
@@ -347,7 +354,7 @@ erl_scheme_webpage_chunk(Mod, Func, Env, Input, ModData) ->
     Pid = spawn_link(
 	    fun() ->
 		    case catch Mod:Func(Self, Env, Input) of
-			{'EXIT',{undef,_}} ->
+			{'EXIT', {undef,_}} ->
 			    %% Will force fallback on the old API
 			    exit(erl_scheme_webpage_chunk_undefined);
 			_ ->
@@ -430,11 +437,12 @@ handle_body(Pid, ModData, Body, Timeout, Size, IsDisableChunkedSend) ->
 	    {proceed, [{response, {already_sent, 200, Size}} | 
 		       ModData#mod.data]};
 	{'EXIT', Pid, Reason} when is_pid(Pid) ->
+	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
 	    exit({mod_esi_linked_process_died, Pid, Reason})
     after Timeout ->
 	    process_flag(trap_exit,false),
-	    {proceed,[{response, {already_sent, 200, Size}} | 
-		      ModData#mod.data]}  
+	    httpd_response:send_final_chunk(ModData, IsDisableChunkedSend),
+	    exit({mod_esi_linked_process_timeout, Pid})
     end.
 
 erl_script_timeout(Db) ->
