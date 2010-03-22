@@ -915,7 +915,7 @@ do_primary_git ()
 	bootstrap/lib/compiler \
 	bootstrap/lib/orber/include \
 	bootstrap/bin
-    git commit -m 'Update primary bootstrap'
+    git commit --no-verify -m 'Update primary bootstrap'
 }
 
 
