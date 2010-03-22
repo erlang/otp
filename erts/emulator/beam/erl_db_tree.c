@@ -443,9 +443,9 @@ void db_initialize_tree(void)
     ets_select_reverse_exp.code[1] = am_reverse;
     ets_select_reverse_exp.code[2] = 3;
     ets_select_reverse_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     ets_select_reverse_exp.code[4] = 
-	(Eterm) &ets_select_reverse;
+	(BeamInstr) &ets_select_reverse;
     return;
 };
 
@@ -3023,7 +3023,7 @@ static int doit_select(DbTableTree *tb, TreeDbTerm *this, void *ptr,
     }
     ret = db_prog_match(sc->p, sc->mp,
 			make_tuple(this->dbterm.tpl), 
-			0, &dummy);
+			NULL,0, &dummy);
     if (is_value(ret)) {
 	Uint sz;
 	Eterm *hp;
@@ -3072,7 +3072,7 @@ static int doit_select_count(DbTableTree *tb, TreeDbTerm *this, void *ptr,
     }
     ret = db_prog_match(sc->p, sc->mp,
 			make_tuple(this->dbterm.tpl), 
-			0, &dummy);
+			NULL,0, &dummy);
     if (ret == am_true) {
 	++(sc->got);
     }
@@ -3105,7 +3105,7 @@ static int doit_select_chunk(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 
     ret = db_prog_match(sc->p, sc->mp,
 			make_tuple(this->dbterm.tpl), 
-			0, &dummy);
+			NULL,0, &dummy);
     if (is_value(ret)) {
 	Uint sz;
 	Eterm *hp;
@@ -3158,7 +3158,7 @@ static int doit_select_delete(DbTableTree *tb, TreeDbTerm *this, void *ptr,
 	return 0;
     ret = db_prog_match(sc->p, sc->mp,
 			make_tuple(this->dbterm.tpl), 
-			0, &dummy);
+			NULL,0, &dummy);
     if (ret == am_true) {
 	key = GETKEY(sc->tb, this->dbterm.tpl);
 	linkout_tree(sc->tb, key);

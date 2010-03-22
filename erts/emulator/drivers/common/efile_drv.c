@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /*
@@ -196,9 +196,9 @@ enum e_timer {timer_idle, timer_again, timer_write};
 struct t_data;
 
 typedef struct {
-    Sint            fd;
+    SWord           fd;
     ErlDrvPort      port;
-    unsigned        key;      /* Async queue key */
+    unsigned long   key;      /* Async queue key */
     unsigned        flags;    /* Original flags from FILE_OPEN. */
     void          (*invoke)(void *);
     struct t_data  *d;
@@ -306,7 +306,7 @@ struct t_data
     int            result_ok;
     Efile_error    errInfo;
     int            flags;
-    Sint           fd;
+    SWord          fd;
     /**/
     Efile_info        info;
     EFILE_DIR_HANDLE  dir_handle; /* Handle to open directory. */
@@ -605,7 +605,7 @@ file_start(ErlDrvPort port, char* command)
     }
     desc->fd = FILE_FD_INVALID;
     desc->port = port;
-    desc->key = (unsigned) (Uint) port;
+    desc->key = (unsigned long) (UWord) port;
     desc->flags = 0;
     desc->invoke = NULL;
     desc->d = NULL;
@@ -630,7 +630,7 @@ static void free_data(void *data)
     EF_FREE(data);
 }
 
-static void do_close(int flags, Sint fd) {
+static void do_close(int flags, SWord fd) {
     if (flags & EFILE_COMPRESSED) {
 	erts_gzclose((gzFile)(fd));
     } else {
@@ -709,7 +709,7 @@ static void reply_Uint_posix_error(file_descriptor *desc, Uint num,
     TRACE_C('N');
 
     response[0] = FILE_RESP_NUMERR;
-#if SIZEOF_VOID_P == 4
+#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
     put_int32(0, response+1);
 #else
     put_int32(num>>32, response+1);
@@ -767,7 +767,7 @@ static int reply_Uint(file_descriptor *desc, Uint result) {
     TRACE_C('R');
 
     tmp[0] = FILE_RESP_NUMBER;
-#if SIZEOF_VOID_P == 4
+#if SIZEOF_VOID_P == 4 || HALFWORD_HEAP
     put_int32(0, tmp+1);
 #else
     put_int32(result>>32, tmp+1);
@@ -1620,7 +1620,7 @@ static void invoke_open(void *data)
 	    status = efile_may_openfile(&d->errInfo, d->b);
 	    if (status || (d->errInfo.posix_errno != EISDIR)) {
 		mode = (d->flags & EFILE_MODE_READ) ? "rb" : "wb";
-		d->fd = (Sint) erts_gzopen(d->b, mode);
+		d->fd = (SWord) erts_gzopen(d->b, mode);
 		if ((gzFile)d->fd) {
 		    status = 1;
 		} else {

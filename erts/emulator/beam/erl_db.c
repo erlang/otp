@@ -87,7 +87,7 @@ static union {
 static struct {
     union {
 	DbTable *tb;     /* Only directly readable if slot is ALIVE */
-	Uint next_free;  /* (index<<2)|1 if slot is FREE */
+	UWord next_free;  /* (index<<2)|1 if slot is FREE */
     }u;
 } *meta_main_tab;
 
@@ -187,7 +187,7 @@ static Eterm ms_delete_all_buff[8]; /* To compare with for deletion
 
 static void fix_table_locked(Process* p, DbTable* tb);
 static void unfix_table_locked(Process* p,  DbTable* tb, db_lock_kind_t* kind);
-static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data);
+static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data);
 static void free_heir_data(DbTable*);
 static void free_fixations_locked(DbTable *tb);
 
@@ -704,12 +704,13 @@ BIF_RETTYPE ets_update_element_3(BIF_ALIST_3)
     int cret = DB_ERROR_BADITEM;
     Eterm list;
     Eterm iter;
-    Eterm cell[2];
+    DeclareTmpHeap(cell,2,BIF_P);
     DbUpdateHandle handle;
 
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
 	BIF_ERROR(BIF_P, BADARG);
     }
+    UseTmpHeap(2,BIF_P);
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
 	goto bail_out;
     }
@@ -762,6 +763,7 @@ finalize:
     tb->common.meth->db_finalize_dbterm(&handle);
 
 bail_out:
+    UnUseTmpHeap(2,BIF_P);
     db_unlock(tb, LCK_WRITE_REC);
 
     switch (cret) {
@@ -794,8 +796,8 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     Eterm* ret_list_currp = NULL;
     Eterm* ret_list_prevp = NULL;
     Eterm iter;
-    Eterm cell[2];
-    Eterm tuple[3];
+    DeclareTmpHeap(cell,5,BIF_P);
+    Eterm *tuple = cell+2;
     DbUpdateHandle handle;
     Uint halloc_size = 0; /* overestimated heap usage */
     Eterm* htop;          /* actual heap usage */
@@ -805,6 +807,9 @@ BIF_RETTYPE ets_update_counter_3(BIF_ALIST_3)
     if ((tb = db_get_table(BIF_P, BIF_ARG_1, DB_WRITE, LCK_WRITE_REC)) == NULL) {
 	BIF_ERROR(BIF_P, BADARG);
     }
+
+    UseTmpHeap(5,BIF_P);
+
     if (!(tb->common.status & (DB_SET | DB_ORDERED_SET))) {
 	goto bail_out;
     }
@@ -951,6 +956,7 @@ finalize:
     tb->common.meth->db_finalize_dbterm(&handle);
 
 bail_out:
+    UnUseTmpHeap(5,BIF_P);
     db_unlock(tb, LCK_WRITE_REC);
 
     switch (cret) {
@@ -1180,12 +1186,12 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     Eterm val;
     Eterm ret;
     Eterm heir;
-    Eterm heir_data;
+    UWord heir_data;
     Uint32 status;
     Sint keypos;
     int is_named, is_fine_locked;
     int cret;
-    Eterm meta_tuple[3];
+    DeclareTmpHeap(meta_tuple,3,BIF_P);
     DbTableMethod* meth;
 
     if (is_not_atom(BIF_ARG_1)) {
@@ -1200,7 +1206,7 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
     is_named = 0;
     is_fine_locked = 0;
     heir = am_none;
-    heir_data = am_undefined;
+    heir_data = (UWord) am_undefined;
 
     list = BIF_ARG_2;
     while(is_list(list)) {
@@ -1375,6 +1381,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 		     erts_smp_atomic_read(&meta_pid_to_fixed_tab->common.memory_size));
 #endif
 
+    UseTmpHeap(3,BIF_P);
+
     db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
     if (db_put_hash(meta_pid_to_tab,
 		    TUPLE2(meta_tuple, BIF_P->id, make_small(slot)),
@@ -1382,6 +1390,8 @@ BIF_RETTYPE ets_new_2(BIF_ALIST_2)
 	erl_exit(1,"Could not update ets metadata.");
     }
     db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
+
+    UnUseTmpHeap(3,BIF_P);
 
     BIF_RET(ret);
 }
@@ -1519,7 +1529,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
     }
     
     if (tb->common.owner != BIF_P->id) {
-	Eterm meta_tuple[3];
+	DeclareTmpHeap(meta_tuple,3,BIF_P);
 
 	/*
 	 * The table is being deleted by a process other than its owner.
@@ -1527,6 +1537,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * current process will be killed (e.g. by an EXIT signal), we will
 	 * now transfer the ownership to the current process.
 	 */
+	UseTmpHeap(3,BIF_P);
 	db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
 	db_erase_bag_exact2(meta_pid_to_tab, tb->common.owner,
 			    make_small(tb->common.slot));
@@ -1538,6 +1549,7 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 		    TUPLE2(meta_tuple,BIF_P->id,make_small(tb->common.slot)),
 		    0);
 	db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
+	UnUseTmpHeap(3,BIF_P);
     }    
     /* disable inheritance */
     free_heir_data(tb);
@@ -1554,9 +1566,15 @@ BIF_RETTYPE ets_delete_1(BIF_ALIST_1)
 	 * (it looks like an continuation pointer), but that is will crash the
 	 * emulator if this BIF is call traced.
 	 */
+#if HALFWORD_HEAP
+	Eterm *hp = HAlloc(BIF_P, 3);
+	hp[0] = make_pos_bignum_header(2);
+	*((UWord *) (UWord) (hp+1)) = (UWord) tb;
+#else
 	Eterm *hp = HAlloc(BIF_P, 2);
 	hp[0] = make_pos_bignum_header(1);
 	hp[1] = (Eterm) tb;
+#endif
 	BIF_TRAP1(&ets_delete_continue_exp, BIF_P, make_big(hp));
     }
     else {
@@ -1571,7 +1589,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 {
     Process* to_proc = NULL;
     ErtsProcLocks to_locks = ERTS_PROC_LOCK_MAIN;
-    Eterm buf[5];
+    DeclareTmpHeap(buf,5,BIF_P);
     Eterm to_pid = BIF_ARG_2;
     Eterm from_pid;
     DbTable* tb = NULL;
@@ -1593,6 +1611,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 	goto badarg;  /* or should we be idempotent? return false maybe */
     }
 
+    UseTmpHeap(5,BIF_P);
     db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
     db_erase_bag_exact2(meta_pid_to_tab, tb->common.owner,
 			make_small(tb->common.slot));
@@ -1610,6 +1629,7 @@ BIF_RETTYPE ets_give_away_3(BIF_ALIST_3)
 		      TUPLE4(buf, am_ETS_TRANSFER, tb->common.id, from_pid, BIF_ARG_3), 
 		      0);
     erts_smp_proc_unlock(to_proc, to_locks);
+    UnUseTmpHeap(5,BIF_P);
     BIF_RET(am_true);
 
 badarg:
@@ -1624,11 +1644,12 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     Eterm* tp;
     Eterm opt;
     Eterm heir = THE_NON_VALUE;
-    Eterm heir_data = THE_NON_VALUE;
+    UWord heir_data = (UWord) THE_NON_VALUE;
     Uint32 protection = 0;
-    Eterm fakelist[2];
+    DeclareTmpHeap(fakelist,2,BIF_P);
     Eterm tail;
 
+    UseTmpHeap(2,BIF_P);
     for (tail = is_tuple(BIF_ARG_2) ? CONS(fakelist, BIF_ARG_2, NIL) : BIF_ARG_2;	
 	  is_list(tail);
 	  tail = CDR(list_val(tail))) {
@@ -1681,9 +1702,11 @@ BIF_RETTYPE ets_setopts_2(BIF_ALIST_2)
     }
 
     db_unlock (tb,LCK_WRITE);
+    UnUseTmpHeap(2,BIF_P);
     BIF_RET(am_true);
 
 badarg:
+    UnUseTmpHeap(2,BIF_P);
     if (tb != NULL) {
 	db_unlock(tb,LCK_WRITE);
     }
@@ -1949,29 +1972,37 @@ BIF_RETTYPE ets_match_1(BIF_ALIST_1)
 BIF_RETTYPE ets_match_2(BIF_ALIST_2)
 {
     Eterm ms;
-    Eterm buff[8];
+    DeclareTmpHeap(buff,8,BIF_P);
     Eterm *hp = buff;
-    /*hp = HAlloc(BIF_P, 8);*/
+    Eterm res;
+
+    UseTmpHeap(8,BIF_P);
     ms = CONS(hp, am_DollarDollar, NIL);
     hp += 2;
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    return ets_select_2(BIF_P, BIF_ARG_1, ms);
+    res = ets_select_2(BIF_P, BIF_ARG_1, ms);
+    UnUseTmpHeap(8,BIF_P);
+    return res;
 }
 
 BIF_RETTYPE ets_match_3(BIF_ALIST_3)
 {
     Eterm ms;
-    Eterm buff[8];
+    DeclareTmpHeap(buff,8,BIF_P);
     Eterm *hp = buff;
-    /*hp = HAlloc(BIF_P, 8);*/
+    Eterm res;
+
+    UseTmpHeap(8,BIF_P);
     ms = CONS(hp, am_DollarDollar, NIL);
     hp += 2;
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    return ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    res = ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    UnUseTmpHeap(8,BIF_P);
+    return res;
 }
 
 
@@ -2385,29 +2416,37 @@ BIF_RETTYPE ets_match_object_1(BIF_ALIST_1)
 BIF_RETTYPE ets_match_object_2(BIF_ALIST_2)
 {
     Eterm ms;
-    Eterm buff[8];
+    DeclareTmpHeap(buff,8,BIF_P);
     Eterm *hp = buff;
-    /*hp = HAlloc(BIF_P, 8);*/
+    Eterm res;
+
+    UseTmpHeap(8,BIF_P);
     ms = CONS(hp, am_DollarUnderscore, NIL);
     hp += 2;
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    return ets_select_2(BIF_P, BIF_ARG_1, ms);
+    res = ets_select_2(BIF_P, BIF_ARG_1, ms);
+    UnUseTmpHeap(8,BIF_P);
+    return res;
 }
 
 BIF_RETTYPE ets_match_object_3(BIF_ALIST_3)
 {
     Eterm ms;
-    Eterm buff[8];
+    DeclareTmpHeap(buff,8,BIF_P);
     Eterm *hp = buff;
-    /*hp = HAlloc(BIF_P, 8);*/
+    Eterm res;
+
+    UseTmpHeap(8,BIF_P);
     ms = CONS(hp, am_DollarUnderscore, NIL);
     hp += 2;
     ms = TUPLE3(hp, BIF_ARG_2, NIL, ms); 
     hp += 4;
     ms = CONS(hp, ms, NIL);
-    return ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    res = ets_select_3(BIF_P, BIF_ARG_1, ms, BIF_ARG_3);
+    UnUseTmpHeap(8,BIF_P);
+    return res;
 }
 
 /* 
@@ -2558,7 +2597,7 @@ BIF_RETTYPE ets_match_spec_run_r_3(BIF_ALIST_3)
 	    BIF_TRAP3(bif_export[BIF_ets_match_spec_run_r_3],
 		      BIF_P,lst,BIF_ARG_2,ret);
 	}
-	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), 0, &dummy);
+	res = db_prog_match(BIF_P, mp, CAR(list_val(lst)), NULL, 0, &dummy);
 	if (is_value(res)) {
 	    sz = size_object(res);
 	    hp = HAlloc(BIF_P, sz + 2);
@@ -2585,7 +2624,7 @@ void init_db(void)
 {
     DbTable init_tb;
     int i;
-    extern Eterm* em_apply_bif;
+    extern BeamInstr* em_apply_bif;
     Eterm *hp;
     unsigned bits;
     size_t size;
@@ -2714,9 +2753,9 @@ void init_db(void)
     ets_select_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
     ets_select_delete_continue_exp.code[2] = 1;
     ets_select_delete_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     ets_select_delete_continue_exp.code[4] = 
-	(Eterm) &ets_select_delete_1;
+	(BeamInstr) &ets_select_delete_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_select_count_continue_exp, 0, sizeof(Export));
@@ -2726,9 +2765,9 @@ void init_db(void)
     ets_select_count_continue_exp.code[1] = am_atom_put("count_trap",11);
     ets_select_count_continue_exp.code[2] = 1;
     ets_select_count_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     ets_select_count_continue_exp.code[4] = 
-	(Eterm) &ets_select_count_1;
+	(BeamInstr) &ets_select_count_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_select_continue_exp, 0, sizeof(Export));
@@ -2738,9 +2777,9 @@ void init_db(void)
     ets_select_continue_exp.code[1] = am_atom_put("select_trap",11);
     ets_select_continue_exp.code[2] = 1;
     ets_select_continue_exp.code[3] =
-	(Eterm) em_apply_bif;
+	(BeamInstr) em_apply_bif;
     ets_select_continue_exp.code[4] = 
-	(Eterm) &ets_select_trap_1;
+	(BeamInstr) &ets_select_trap_1;
 
     /* Non visual BIF to trap to. */
     memset(&ets_delete_continue_exp, 0, sizeof(Export));
@@ -2748,8 +2787,8 @@ void init_db(void)
     ets_delete_continue_exp.code[0] = am_ets;
     ets_delete_continue_exp.code[1] = am_atom_put("delete_trap",11);
     ets_delete_continue_exp.code[2] = 1;
-    ets_delete_continue_exp.code[3] = (Eterm) em_apply_bif;
-    ets_delete_continue_exp.code[4] = (Eterm) &ets_delete_trap;
+    ets_delete_continue_exp.code[3] = (BeamInstr) em_apply_bif;
+    ets_delete_continue_exp.code[4] = (BeamInstr) &ets_delete_trap;
 
     hp = ms_delete_all_buff;
     ms_delete_all = CONS(hp, am_true, NIL);
@@ -2843,9 +2882,9 @@ static int give_away_to_heir(Process* p, DbTable* tb)
 {
     Process* to_proc;
     ErtsProcLocks to_locks = ERTS_PROC_LOCK_MAIN;
-    Eterm buf[5];
+    DeclareTmpHeap(buf,5,p);
     Eterm to_pid;
-    Eterm heir_data;
+    UWord heir_data;
 
     ASSERT(tb->common.owner == p->id);
     ASSERT(is_internal_pid(tb->common.heir));
@@ -2888,6 +2927,7 @@ retry:
 	erts_smp_proc_unlock(to_proc, to_locks);
 	return 0; /* heir dead and pid reused, table still mine */
     }
+    UseTmpHeap(5,p);
     db_meta_lock(meta_pid_to_tab, LCK_WRITE_REC);
     db_erase_bag_exact2(meta_pid_to_tab, tb->common.owner,
 			make_small(tb->common.slot));
@@ -2899,7 +2939,7 @@ retry:
 		TUPLE2(buf,to_pid,make_small(tb->common.slot)),
 		0);
     db_meta_unlock(meta_pid_to_tab, LCK_WRITE_REC);
-    
+    UnUseTmpHeap(5,p);
     db_unlock(tb,LCK_WRITE);
     heir_data = tb->common.heir_data;
     if (!is_immed(heir_data)) {
@@ -3145,7 +3185,7 @@ erts_db_process_exiting(Process *c_p, ErtsProcLocks c_p_locks)
 static void fix_table_locked(Process* p, DbTable* tb)
 {
     DbFixation *fix;
-    Eterm meta_tuple[3];
+    DeclareTmpHeap(meta_tuple,3,p);
 
 #ifdef ERTS_SMP
     erts_smp_mtx_lock(&tb->common.fixlock);
@@ -3179,12 +3219,15 @@ static void fix_table_locked(Process* p, DbTable* tb)
     erts_smp_mtx_unlock(&tb->common.fixlock);
 #endif
     p->flags |= F_USING_DB;        
+    UseTmpHeap(3,p);
     db_meta_lock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
     if (db_put_hash(meta_pid_to_fixed_tab,
 		    TUPLE2(meta_tuple, p->id, make_small(tb->common.slot)),
 		    0) != DB_ERROR_NONE) {
+	UnUseTmpHeap(3,p);
 	erl_exit(1,"Could not insert ets metadata in safe_fixtable.");
     }	
+    UnUseTmpHeap(3,p);
     db_meta_unlock(meta_pid_to_fixed_tab, LCK_WRITE_REC);
 }
 
@@ -3264,7 +3307,7 @@ static void free_fixations_locked(DbTable *tb)
     tb->common.fixations = NULL;
 }
 
-static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
+static void set_heir(Process* me, DbTable* tb, Eterm heir, UWord heir_data)
 {	
     tb->common.heir = heir;
     if (heir == am_none) {
@@ -3285,10 +3328,13 @@ static void set_heir(Process* me, DbTable* tb, Eterm heir, Eterm heir_data)
     }
 
     if (!is_immed(heir_data)) {
-	Eterm tmp[2];
+	DeclareTmpHeap(tmp,2,me);
+
+	UseTmpHeap(2,me);
 	/* Make a dummy 1-tuple around data to use db_get_term() */
-	heir_data = (Eterm) db_get_term(&tb->common, NULL, 0,
+	heir_data = (UWord) db_get_term(&tb->common, NULL, 0,
 					TUPLE1(tmp,heir_data));
+	UnUseTmpHeap(2,me);
 	ASSERT(!is_immed(heir_data));
     }
     tb->common.heir_data = heir_data;
@@ -3311,10 +3357,13 @@ static BIF_RETTYPE ets_delete_trap(Process *p, Eterm cont)
 {
     int trap;
     Eterm* ptr = big_val(cont);
-    DbTable *tb = (DbTable *) ptr[1];
+    DbTable *tb = *((DbTable **) (UWord) (ptr + 1));
 
+#if HALFWORD_HEAP
+    ASSERT(*ptr == make_pos_bignum_header(2));
+#else
     ASSERT(*ptr == make_pos_bignum_header(1));
-
+#endif
     db_lock(tb, LCK_WRITE);
     trap = free_table_cont(p, tb, 0, 1);
     db_unlock(tb, LCK_WRITE);

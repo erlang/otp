@@ -616,13 +616,15 @@ local_name_monitor(Process *p, Eterm target_name)
     rp = erts_whereis_process(p, p_locks, target_name, ERTS_PROC_LOCK_LINK,
 			      ERTS_P2P_FLG_ALLOW_OTHER_X);
     if (!rp) {
-	Eterm lhp[3];
+	DeclareTmpHeap(lhp,3,p);
 	Eterm item;
+	UseTmpHeap(3,p);
 	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_LINK);
 	p_locks &= ~ERTS_PROC_LOCK_LINK;
 	item = TUPLE2(lhp, target_name, erts_this_dist_entry->sysname);
 	erts_queue_monitor_message(p, &p_locks,
 				   mon_ref, am_process, item, am_noproc);
+	UnUseTmpHeap(3,p);
     }
     else if (rp != p) {
 	erts_add_monitor(&(p->monitors), MON_ORIGIN, mon_ref, rp->id,
@@ -3466,9 +3468,16 @@ BIF_RETTYPE make_fun_3(BIF_ALIST_3)
     if (arity < 0) {
 	goto error;
     }
+#if HALFWORD_HEAP
+    hp = HAlloc(BIF_P, 3);
+    hp[0] = HEADER_EXPORT;
+    /* Yes, May be misaligned, but X86_64 will fix it... */
+    *((Export **) (hp+1)) = erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+#else
     hp = HAlloc(BIF_P, 2);
     hp[0] = HEADER_EXPORT;
     hp[1] = (Eterm) erts_export_get_or_make_stub(BIF_ARG_1, BIF_ARG_2, (Uint) arity);
+#endif
     BIF_RET(make_export(hp));
 }
 
@@ -3884,7 +3893,7 @@ BIF_RETTYPE hash_2(BIF_ALIST_2)
     if ((range = signed_val(BIF_ARG_2)) <= 0) {  /* [1..MAX_SMALL] */
 	BIF_ERROR(BIF_P, BADARG);
     }
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     if (range > ((1L << 27) - 1))
 	BIF_ERROR(BIF_P, BADARG);
 #endif
@@ -3956,7 +3965,7 @@ BIF_RETTYPE phash2_2(BIF_ALIST_2)
     /*
      * Return either a small or a big. Use the heap for bigs if there is room.
      */
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     BIF_RET(make_small(final_hash));
 #else
     if (IS_USMALL(0, final_hash)) {
@@ -4118,8 +4127,8 @@ void erts_init_bif(void)
 #else
     bif_return_trap_export.code[2] = 1;
 #endif
-    bif_return_trap_export.code[3] = (Eterm) em_apply_bif;
-    bif_return_trap_export.code[4] = (Eterm) &bif_return_trap;
+    bif_return_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    bif_return_trap_export.code[4] = (BeamInstr) &bif_return_trap;
 
     flush_monitor_message_trap = erts_export_put(am_erlang,
 						 am_flush_monitor_message,

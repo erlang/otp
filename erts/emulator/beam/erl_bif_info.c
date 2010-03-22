@@ -59,11 +59,18 @@
 /* Keep erts_system_version as a global variable for easy access from a core */
 static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 				     " (erts-" ERLANG_VERSION ")"
+#if !HEAP_ON_C_STACK && !HALFWORD_HEAP
+				     " [no-c-stack-objects]"
+#endif
 #ifndef OTP_RELEASE
 				     " [source]"
 #endif	
 #ifdef ARCH_64
+#if HALFWORD_HEAP
+				     " [64-bit halfword]"
+#else
 				     " [64-bit]"
+#endif
 #endif
 #ifdef ERTS_SMP
 				     " [smp:%bpu:%bpu]"
@@ -121,7 +128,7 @@ bld_bin_list(Uint **hpp, Uint *szp, ProcBin* pb)
     Eterm tuple;
 
     for (; pb; pb = pb->next) {
-	Eterm val = erts_bld_uint(hpp, szp, (Uint) pb->val);
+	Eterm val = erts_bld_uword(hpp, szp, (UWord) pb->val);
 	Eterm orig_size = erts_bld_uint(hpp, szp, pb->val->orig_size);
 
 	if (szp)
@@ -624,12 +631,18 @@ static Eterm pi_1_keys[] = {
 #define ERTS_PI_1_NO_OF_KEYS (sizeof(pi_1_keys)/sizeof(Eterm))
 
 static Eterm pi_1_keys_list;
-static Uint pi_1_keys_list_heap[2*ERTS_PI_1_NO_OF_KEYS];
+#if HEAP_ON_C_STACK
+static Eterm pi_1_keys_list_heap[2*ERTS_PI_1_NO_OF_KEYS];
+#endif
 
 static void
 process_info_init(void)
 {
+#if HEAP_ON_C_STACK
     Eterm *hp = &pi_1_keys_list_heap[0];
+#else
+    Eterm *hp = erts_alloc(ERTS_ALC_T_LL_TEMP_TERM,sizeof(Eterm)*2*ERTS_PI_1_NO_OF_KEYS);
+#endif
     int i;
 
     pi_1_keys_list = NIL;
@@ -998,7 +1011,7 @@ process_info_aux(Process *BIF_P,
 	    hp = HAlloc(BIF_P, 3);
 	    res = am_undefined;
 	} else {
-	    Eterm* current;
+	    BeamInstr* current;
 
 	    if (rp->current[0] == am_erlang &&
 		rp->current[1] == am_process_info &&
@@ -1622,6 +1635,14 @@ info_1_tuple(Process* BIF_P,	/* Pointer to current process. */
 
     if (sel == am_allocator_sizes && arity == 2) {
 	return erts_allocator_info_term(BIF_P, *tp, 1);
+    } else if (sel == am_wordsize && arity == 2) {
+	if (tp[0] == am_internal) {
+	    return make_small(sizeof(Eterm));
+	}
+	if (tp[0] == am_external) {
+	    return make_small(sizeof(UWord));
+	}
+	goto badarg;
     } else if (sel == am_allocated) {
 	if (arity == 2) {
 	    Eterm res = THE_NON_VALUE;
@@ -2817,7 +2838,7 @@ fun_info_2(Process* p, Eterm fun, Eterm what)
 	    goto error;
 	}
     } else if (is_export(fun)) {
-	Export* exp = (Export *) (export_val(fun))[1];
+	Export* exp = (Export *) ((UWord) (export_val(fun))[1]);
 	switch (what) {
 	case am_type:
 	    hp = HAlloc(p, 3);
@@ -3010,11 +3031,11 @@ BIF_RETTYPE statistics_1(BIF_ALIST_1)
 	res = erts_run_queues_len(NULL);
 	BIF_RET(make_small(res));
     } else if (BIF_ARG_1 == am_wall_clock) {
-	Uint w1, w2;
+	UWord w1, w2;
 	Eterm b1, b2;
 	wall_clock_elapsed_time_both(&w1, &w2);
-	b1 = erts_make_integer(w1,BIF_P);
-	b2 = erts_make_integer(w2,BIF_P);
+	b1 = erts_make_integer((Uint) w1,BIF_P);
+	b2 = erts_make_integer((Uint) w2,BIF_P);
 	hp = HAlloc(BIF_P,3);
 	res = TUPLE2(hp, b1, b2);
 	BIF_RET(res);

@@ -1,20 +1,20 @@
 #!/usr/bin/env perl 
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1999-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1999-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 use strict;
@@ -184,7 +184,7 @@ for ($i = 0; $i < @bif; $i++) {
     my $arity = $bif[$i]->[2];
     my $args = join(', ', 'Process*', ('Eterm') x $arity);
     print "Eterm $bif[$i]->[3]($args);\n";
-    print "Eterm wrap_$bif[$i]->[3]($args, Uint *I);\n";
+    print "Eterm wrap_$bif[$i]->[3]($args, UWord *I);\n";
 }
 print "#endif\n";
 
@@ -225,15 +225,15 @@ for ($i = 0; $i < @bif; $i++) {
     for ($arg = 1; $arg <= $arity; $arg++) {
 	print ", Eterm arg$arg";
     }
-    print ", Uint *I)\n";
+    print ", UWord *I)\n";
     print "{\n";
     print "    return erts_bif_trace($i, p";
     for ($arg = 1; $arg <= 3; $arg++) {
 	if ($arg <= $arity) {
 	    print ", arg$arg";
-	} elsif ($arg == ($arity + 1)) { 
-	    # Place I in correct position
-	    print ", (Eterm) I";
+	#} elsif ($arg == ($arity + 1)) {
+	  #  # Place I in correct position
+	   # print ", (Eterm) I";
 	} else {
 	    print ", 0";
 	}

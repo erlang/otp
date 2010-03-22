@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd% 
  */
 
@@ -113,6 +113,7 @@ wxe_driver_start(ErlDrvPort port, char *buff)
       data->driver_data = NULL;
       data->bin = NULL; 
       data->port = port;
+      data->pdl = driver_pdl_create(port);
       if(WXE_DRV_PORT == 0) {
 	 for(; *buff != 32; buff++); 
 	 buff++; 
@@ -124,7 +125,7 @@ wxe_driver_start(ErlDrvPort port, char *buff)
 	 if(!(start_native_gui(data) == 1))
 	    return(ERL_DRV_ERROR_GENERAL);  /* ENOMEM */
       } else {
-	 meta_command(CREATE_PORT,data);
+	  meta_command(CREATE_PORT,data);
       }
       return (ErlDrvData) data;	 
    }

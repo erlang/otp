@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -89,13 +89,14 @@ BIF_RETTYPE append_2(BIF_ALIST_2)
     BIF_RET(copy);
 }
 
+#define SMALL_VEC_SIZE 10
 BIF_RETTYPE subtract_2(BIF_ALIST_2)
 {
     Eterm  list;
     Eterm* hp;
     Uint  need;
     Eterm  res;
-    Eterm  small_vec[10];	/* Preallocated memory for small lists */
+    Eterm small_vec[SMALL_VEC_SIZE];	/* Preallocated memory for small lists */
     Eterm* vec_p;
     Eterm* vp;
     int     i;
@@ -115,7 +116,7 @@ BIF_RETTYPE subtract_2(BIF_ALIST_2)
 	BIF_RET(BIF_ARG_1);
     
     /* allocate element vector */
-    if (n <= sizeof(small_vec)/sizeof(small_vec[0]))
+    if (n <= SMALL_VEC_SIZE)
 	vec_p = small_vec;
     else
 	vec_p = (Eterm*) erts_alloc(ERTS_ALC_T_TMP, n * sizeof(Eterm));

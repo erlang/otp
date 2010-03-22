@@ -1,25 +1,26 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 #ifndef _ERL_DEBUG_H_
 #define _ERL_DEBUG_H_
-
 #ifdef DEBUG
+
+#include "erl_term.h"
 
 #ifdef HIPE
 #include "hipe_debug.h"
@@ -92,6 +93,11 @@ extern void print_tagged_memory(Eterm *start, Eterm *end);
 extern void print_untagged_memory(Eterm *start, Eterm *end);
 extern void print_memory(Process *p);
 extern void print_memory_info(Process *p);
+#if defined(DEBUG) && !HEAP_ON_C_STACK
+extern Eterm *erts_debug_allocate_tmp_heap(int, Process *);
+extern void erts_debug_use_tmp_heap(int, Process *);
+extern void erts_debug_unuse_tmp_heap(int, Process *);
+#endif
 
 #ifdef HYBRID
 extern void print_ma_info(void);

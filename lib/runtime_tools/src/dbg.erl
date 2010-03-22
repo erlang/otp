@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg).
@@ -945,7 +945,7 @@ dhandler(end_of_trace, Out) ->
 dhandler(Trace, Out) when element(1, Trace) == trace, tuple_size(Trace) >= 3 ->
     dhandler1(Trace, tuple_size(Trace), Out);
 dhandler(Trace, Out) when element(1, Trace) == trace_ts, tuple_size(Trace) >= 4 ->
-    dhandler1(Trace, tuple_size(Trace)-1, Out);
+    dhandler1(Trace, tuple_size(Trace)-1, element(tuple_size(Trace),Trace), Out);
 dhandler(Trace, Out) when element(1, Trace) == drop, tuple_size(Trace) =:= 2 ->
     io:format(Out, "*** Dropped ~p messages.~n", [element(2,Trace)]),
     Out;
@@ -978,24 +978,18 @@ dhandler(_Trace, Out) ->
     Out.
 
 dhandler1(Trace, Size, Out) ->
-%%%!    Self = self(),
     From = element(2, Trace),
     case element(3, Trace) of
 	'receive' ->
 	    case element(4, Trace) of
 		{dbg,ok} -> ok;
-		Message -> io:format(Out, "(~p) << ~p~n", [From,Message])
+		Message ->
+		    io:format(Out, "(~p) << ~p~n", [From,Message])
 	    end;
 	'send' ->
 	    Message = element(4, Trace),
-	    case element(5, Trace) of
-%%%! This causes messages to disappear when used by ttb (observer). Tests
-%%%! so far show that there is no difference in results with dbg even if I
-%%%! comment it out, so  I hope this is only some old code which isn't
-%%%! needed anymore... /siri
-%%%!		Self -> ok;
-		To -> io:format(Out, "(~p) ~p ! ~p~n", [From,To,Message])
-	    end;
+	    To = element(5, Trace),
+	    io:format(Out, "(~p) ~p ! ~p~n", [From,To,Message]);
 	call ->
 	    case element(4, Trace) of
 		MFA when Size == 5 ->
@@ -1025,6 +1019,51 @@ dhandler1(Trace, Size, Out) ->
 	    io:format(Out, "(~p) spawn ~p as ~s~n", [From,Pid,ffunc(MFA)]);
 	Op ->
 	    io:format(Out, "(~p) ~p ~s~n", [From,Op,ftup(Trace,4,Size)])
+    end,
+    Out.
+
+dhandler1(Trace, Size, TS, Out) ->
+    From = element(2, Trace),
+    case element(3, Trace) of
+	'receive' ->
+	    case element(4, Trace) of
+		{dbg,ok} -> ok;
+		Message ->
+		    io:format(Out, "(~p) << ~p (Timestamp: ~p)~n", [From,Message,TS])
+	    end;
+	'send' ->
+	    Message = element(4, Trace),
+	    To = element(5, Trace),
+	    io:format(Out, "(~p) ~p ! ~p (Timestamp: ~p)~n", [From,To,Message,TS]);
+	call ->
+	    case element(4, Trace) of
+		MFA when Size == 5 ->
+		    Message = element(5, Trace),
+		    io:format(Out, "(~p) call ~s (~p) (Timestamp: ~p)~n", [From,ffunc(MFA),Message,TS]);
+		MFA ->
+		    io:format(Out, "(~p) call ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS])
+	    end;
+	return -> %% To be deleted...
+	    case element(4, Trace) of
+		MFA when Size == 5 ->
+		    Ret = element(5, Trace),
+		    io:format(Out, "(~p) old_ret ~s -> ~p (Timestamp: ~p)~n", [From,ffunc(MFA),Ret,TS]);
+		MFA ->
+		    io:format(Out, "(~p) old_ret ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS])
+	    end;
+	return_from ->
+	    MFA = element(4, Trace),
+	    Ret = element(5, Trace),
+	    io:format(Out, "(~p) returned from ~s -> ~p (Timestamp: ~p)~n", [From,ffunc(MFA),Ret,TS]);
+	return_to ->
+	    MFA = element(4, Trace),
+	    io:format(Out, "(~p) returning to ~s (Timestamp: ~p)~n", [From,ffunc(MFA),TS]);
+	spawn when Size == 5 ->
+	    Pid = element(4, Trace),
+	    MFA = element(5, Trace),
+	    io:format(Out, "(~p) spawn ~p as ~s (Timestamp: ~p)~n", [From,Pid,ffunc(MFA),TS]);
+	Op ->
+	    io:format(Out, "(~p) ~p ~s (Timestamp: ~p)~n", [From,Op,ftup(Trace,4,Size),TS])
     end,
     Out.
 

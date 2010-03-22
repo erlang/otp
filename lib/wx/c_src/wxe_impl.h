@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2008-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2008-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd% 
  */
 
@@ -34,15 +34,16 @@ class wxeMetaCommand : public wxEvent
  public: 
  wxeMetaCommand(wxe_data *sd, int EvId) 
     : wxEvent(EvId, wxeEVT_META_COMMAND)
-   {  caller = driver_caller(sd->port);  port = sd->port; } ;
+   {  caller = driver_caller(sd->port);  port = sd->port; pdl = sd->pdl; } ;
  wxeMetaCommand(const wxeMetaCommand& event)  
     : wxEvent(event) 
-   {  caller = event.caller; port = event.port; };
+   {  caller = event.caller; port = event.port; pdl = event.pdl; };
    virtual ~wxeMetaCommand() {};
    virtual wxEvent *Clone() const { return new wxeMetaCommand(*this); }
    
    ErlDrvTermData   caller;
    ErlDrvPort       port; 
+   ErlDrvPDL        pdl;
 };
 
 class wxeCommand : public wxObject

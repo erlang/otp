@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1999-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1999-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -86,7 +86,7 @@ trace_pattern_2(Process* p, Eterm MFA, Eterm Pattern)
 Eterm
 trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)       
 {
-    Eterm mfa[3];
+    DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     int i;
     int matches = 0;
     int specified = 0;
@@ -101,6 +101,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
     erts_smp_block_system(0);
 
+    UseTmpHeap(3,p);
     /*
      * Check and compile the match specification.
      */
@@ -312,7 +313,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
     MatchSetUnref(match_prog_set);
 
  done:
-
+    UnUseTmpHeap(3,p);
     erts_smp_release_system();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
 
@@ -322,6 +323,7 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 
     MatchSetUnref(match_prog_set);
 
+    UnUseTmpHeap(3,p);
     erts_smp_release_system();
     erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
     BIF_ERROR(p, BADARG);
@@ -952,7 +954,7 @@ static int function_is_traced(Eterm mfa[3],
     Export e;
     Export* ep;
     int i;
-    Uint *code;
+    BeamInstr *code;
 
     /* First look for an export entry */
     e.code[0] = mfa[0];
@@ -960,12 +962,12 @@ static int function_is_traced(Eterm mfa[3],
     e.code[2] = mfa[2];
     if ((ep = export_get(&e)) != NULL) {
 	if (ep->address == ep->code+3 &&
-	    ep->code[3] != (Uint) em_call_error_handler) {
-	    if (ep->code[3] == (Uint) em_call_traced_function) {
+	    ep->code[3] != (BeamInstr) em_call_error_handler) {
+	    if (ep->code[3] == (BeamInstr) em_call_traced_function) {
 		*ms = ep->match_prog_set;
 		return FUNC_TRACE_GLOBAL_TRACE;
 	    }
-	    if (ep->code[3] == (Uint) em_apply_bif) {
+	    if (ep->code[3] == (BeamInstr) em_apply_bif) {
 		for (i = 0; i < BIF_SIZE; ++i) {
 		    if (bif_export[i] == ep) {
 			int r = 0;
@@ -1011,7 +1013,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 {
     Eterm* tp;
     Eterm* hp;
-    Eterm mfa[3];
+    DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     Binary *ms = NULL, *ms_meta = NULL;
     Sint count = 0;
     Eterm traced = am_false;
@@ -1019,6 +1021,9 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     Eterm retval = am_false;
     Eterm meta = am_false;
     int r;
+
+
+    UseTmpHeap(3,p);
 
     if (!is_tuple(func_spec)) {
 	goto error;
@@ -1037,9 +1042,11 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     r = function_is_traced(mfa, &ms, &ms_meta, &meta, &count);
     switch (r) {
     case FUNC_TRACE_NOEXIST:
+	UnUseTmpHeap(3,p);
 	hp = HAlloc(p, 3);
 	return TUPLE2(hp, key, am_undefined);
     case FUNC_TRACE_UNTRACED:
+	UnUseTmpHeap(3,p);
 	hp = HAlloc(p, 3);
 	return TUPLE2(hp, key, am_false);
     case FUNC_TRACE_GLOBAL_TRACE:
@@ -1120,10 +1127,12 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     default:
 	goto error;
     }
+    UnUseTmpHeap(3,p);
     hp = HAlloc(p, 3);
     return TUPLE2(hp, key, retval);
 
  error:
+    UnUseTmpHeap(3,p);
     BIF_ERROR(p, BADARG);
 }
 
@@ -1312,7 +1321,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		    if (erts_bif_trace_flags[i] & BIF_TRACE_AS_META) {
 			ASSERT(ExportIsBuiltIn(bif_export[i]));
 			erts_clear_mtrace_bif
-			    ((Uint *)bif_export[i]->code + 3);
+			    ((BeamInstr *)bif_export[i]->code + 3);
 			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_META;
 		    }
 		    set_trace_bif(i, match_prog_set);
@@ -1341,7 +1350,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		    }
 		    if (flags.meta) {
 			erts_set_mtrace_bif
-			    ((Uint *)bif_export[i]->code + 3,
+			    ((BeamInstr *)bif_export[i]->code + 3,
 			     meta_match_prog_set, meta_tracer_pid);
 			erts_bif_trace_flags[i] |= BIF_TRACE_AS_META;
 			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
@@ -1361,7 +1370,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 		    if (flags.meta) {
 			if (erts_bif_trace_flags[i] & BIF_TRACE_AS_META) {
 			    erts_clear_mtrace_bif
-				((Uint *)bif_export[i]->code + 3);
+				((BeamInstr *)bif_export[i]->code + 3);
 			    erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_META;
 			}
 			m = 1;
@@ -1430,9 +1439,9 @@ static int
 setup_func_trace(Export* ep, void* match_prog)
 {
     if (ep->address == ep->code+3) {
-	if (ep->code[3] == (Uint) em_call_error_handler) {
+	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
-	} else if (ep->code[3] == (Uint) em_call_traced_function) {
+	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = match_prog;
 	    MatchSetRef(ep->match_prog_set);
@@ -1452,8 +1461,8 @@ setup_func_trace(Export* ep, void* match_prog)
 	return 0;
     }
     
-    ep->code[3] = (Uint) em_call_traced_function;
-    ep->code[4] = (Uint) ep->address;
+    ep->code[3] = (BeamInstr) em_call_traced_function;
+    ep->code[4] = (BeamInstr) ep->address;
     ep->address = ep->code+3;
     ep->match_prog_set = match_prog;
     MatchSetRef(ep->match_prog_set);
@@ -1465,7 +1474,7 @@ static void setup_bif_trace(int bif_index) {
     
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
-    ep->code[4] = (Uint) bif_table[bif_index].traced;
+    ep->code[4] = (BeamInstr) bif_table[bif_index].traced;
 }
 
 static void set_trace_bif(int bif_index, void* match_prog) {
@@ -1492,9 +1501,9 @@ static int
 reset_func_trace(Export* ep)
 {
     if (ep->address == ep->code+3) {
-	if (ep->code[3] == (Uint) em_call_error_handler) {
+	if (ep->code[3] == (BeamInstr) em_call_error_handler) {
 	    return 0;
-	} else if (ep->code[3] == (Uint) em_call_traced_function) {
+	} else if (ep->code[3] == (BeamInstr) em_call_traced_function) {
 	    ep->address = (Uint *) ep->code[4];
 	    MatchSetUnref(ep->match_prog_set);
 	    ep->match_prog_set = NULL;
@@ -1527,8 +1536,8 @@ static void reset_bif_trace(int bif_index) {
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
     ASSERT(! ep->match_prog_set);
-    ASSERT(! erts_is_mtrace_bif((Uint *)ep->code+3, NULL, NULL));
-    ep->code[4] = (Uint) bif_table[bif_index].f;
+    ASSERT(! erts_is_mtrace_bif((BeamInstr *)ep->code+3, NULL, NULL));
+    ep->code[4] = (BeamInstr) bif_table[bif_index].f;
 }
 
 static void clear_trace_bif(int bif_index) {

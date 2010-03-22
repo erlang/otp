@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -50,8 +50,8 @@ static void fun_free(ErlFunEntry* obj);
  * to unloaded_fun[]. The -1 in unloaded_fun[0] will be interpreted
  * as an illegal arity when attempting to call a fun.
  */
-static Eterm unloaded_fun_code[3] = {NIL, -1, 0};
-static Eterm* unloaded_fun = unloaded_fun_code + 2;
+static BeamInstr unloaded_fun_code[3] = {NIL, -1, 0};
+static BeamInstr* unloaded_fun = unloaded_fun_code + 2;
 
 void
 erts_init_fun_table(void)
@@ -207,7 +207,7 @@ erts_cleanup_funs(ErlFunThing* funp)
 #endif
 
 void
-erts_cleanup_funs_on_purge(Eterm* start, Eterm* end)
+erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 {
     int limit;
     HashBucket** bucket;
@@ -222,7 +222,7 @@ erts_cleanup_funs_on_purge(Eterm* start, Eterm* end)
 
 	while (b) {
 	    ErlFunEntry* fe = (ErlFunEntry *) b;
-	    Eterm* addr = fe->address;
+	    BeamInstr* addr = fe->address;
 
 	    if (start <= addr && addr < end) {
 		fe->address = unloaded_fun;

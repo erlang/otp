@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -26,7 +26,7 @@
 /* XXX: should use dynamic reallocation */
 #define TABSIZ (16*1024)
 static struct {
-    Eterm *cp;
+    BeamInstr *cp;
     unsigned cdr;
 } beam_catches[TABSIZ];
 
@@ -39,7 +39,7 @@ void beam_catches_init(void)
     high_mark = 0;
 }
 
-unsigned beam_catches_cons(Eterm *cp, unsigned cdr)
+unsigned beam_catches_cons(BeamInstr *cp, unsigned cdr)
 {
     int i;
 
@@ -65,7 +65,7 @@ unsigned beam_catches_cons(Eterm *cp, unsigned cdr)
     return i;
 }
 
-Eterm *beam_catches_car(unsigned i)
+BeamInstr *beam_catches_car(unsigned i)
 {
     if( i >= TABSIZ ) {
 	fprintf(stderr,
@@ -75,7 +75,7 @@ Eterm *beam_catches_car(unsigned i)
     return beam_catches[i].cp;
 }
 
-void beam_catches_delmod(unsigned head, Eterm *code, unsigned code_bytes)
+void beam_catches_delmod(unsigned head, BeamInstr *code, unsigned code_bytes)
 {
     unsigned i, cdr;
 

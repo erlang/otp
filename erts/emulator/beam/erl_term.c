@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2000-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2000-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -68,7 +68,9 @@ unsigned tag_val_def(Eterm x)
     static char msg[32];
 
     switch (x & _TAG_PRIMARY_MASK) {
-      case TAG_PRIMARY_LIST:					return LIST_DEF;
+    case TAG_PRIMARY_LIST:
+	ET_ASSERT(_list_precond(x),file,line);
+	return LIST_DEF;
       case TAG_PRIMARY_BOXED: {
 	  Eterm hdr = *boxed_val(x);
 	  ET_ASSERT(is_header(hdr),file,line);
@@ -103,7 +105,7 @@ unsigned tag_val_def(Eterm x)
 	  break;
       }
     }
-    sprintf(msg, "tag_val_def: %#lx", x);
+    sprintf(msg, "tag_val_def: %#lx", (unsigned long) x);
     et_abort(msg, file, line);
 #undef file
 #undef line
@@ -121,12 +123,12 @@ FUNTY checked_##FUN(ARGTY x, const char *file, unsigned line) \
     return _unchecked_##FUN(x); \
 }
 
-ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm,make_boxed,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_boxed,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,is_boxed);
-ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_aligned);
+ET_DEFINE_CHECKED(Eterm*,boxed_val,Eterm,_boxed_precond);
+ET_DEFINE_CHECKED(Eterm,make_list,Eterm*,_is_taggable_pointer);
 ET_DEFINE_CHECKED(int,is_not_list,Eterm,!is_header);
-ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,is_list);
+ET_DEFINE_CHECKED(Eterm*,list_val,Eterm,_list_precond);
 ET_DEFINE_CHECKED(Uint,unsigned_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Sint,signed_val,Eterm,is_small);
 ET_DEFINE_CHECKED(Uint,atom_val,Eterm,is_atom);
@@ -163,8 +165,8 @@ ET_DEFINE_CHECKED(Uint32*,external_ref_data,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(struct erl_node_*,external_ref_node,Eterm,is_external_ref);
 ET_DEFINE_CHECKED(Eterm*,export_val,Eterm,is_export);
 
-ET_DEFINE_CHECKED(Eterm,make_cp,Uint*,_is_aligned);
-ET_DEFINE_CHECKED(Uint*,cp_val,Eterm,is_CP);
+ET_DEFINE_CHECKED(Eterm,make_cp,UWord *,_is_taggable_pointer);
+ET_DEFINE_CHECKED(UWord *,cp_val,Eterm,is_CP);
 ET_DEFINE_CHECKED(Uint,catch_val,Eterm,is_catch);
 ET_DEFINE_CHECKED(Uint,x_reg_offset,Uint,_is_xreg);
 ET_DEFINE_CHECKED(Uint,y_reg_offset,Uint,_is_yreg);

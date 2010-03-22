@@ -49,7 +49,7 @@ typedef struct erl_heap_fragment ErlHeapFragment;
 struct erl_heap_fragment {
     ErlHeapFragment* next;	/* Next heap fragment */
     ErlOffHeap off_heap;	/* Offset heap data. */
-    unsigned size;		/* Size in words of mem */
+    unsigned size;		/* Size in (half)words of mem */
     unsigned used_size;         /* With terms to be moved to heap by GC */
     Eterm mem[1];		/* Data */
 };

@@ -1,24 +1,25 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
 #ifndef __SYS_H__
 #define __SYS_H__
+
 
 #if defined(VALGRIND) && !defined(NO_FPE_SIGNALS)
 #  define NO_FPE_SIGNALS
@@ -230,9 +231,14 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 ** Data types:
 **
 ** Eterm: A tagged erlang term (possibly 64 bits)
+** BeamInstr: A beam code instruction unit, possibly larger than Eterm, not smaller.
 ** UInt:  An unsigned integer exactly as large as an Eterm.
 ** SInt:  A signed integer exactly as large as an eterm and therefor large
 **        enough to hold the return value of the signed_val() macro.
+** UWord: An unsigned integer at least as large as a void * and also as large
+**          or larger than an Eterm
+** SWord: A signed integer at least as large as a void * and also as large
+**          or larger than an Eterm
 ** Uint32: An unsigned integer of 32 bits exactly
 ** Sint32: A signed integer of 32 bits exactly
 ** Uint16: An unsigned integer of 16 bits exactly
@@ -253,10 +259,42 @@ EXTERN_FUNCTION(int, real_printf, (const char *fmt, ...));
 #else
 #error Neither 32 nor 64 bit architecture
 #endif
+#ifdef ARCH_64
+#  ifdef HALFWORD_HEAP_EMULATOR
+#    define HALFWORD_HEAP 1
+#    define HALFWORD_ASSERT 0
+#  else
+#    define HALFWORD_HEAP 0
+#    define HALFWORD_ASSERT 0
+#  endif
+#endif
 
 #if SIZEOF_VOID_P != SIZEOF_SIZE_T
 #error sizeof(void*) != sizeof(size_t)
 #endif
+
+#if HALFWORD_HEAP
+
+#if SIZEOF_INT == 4
+typedef unsigned int Eterm;
+typedef unsigned int Uint;
+typedef int          Sint;
+#define ERTS_SIZEOF_ETERM SIZEOF_INT
+#else
+#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+#endif
+
+#if SIZEOF_VOID_P == SIZEOF_LONG
+typedef unsigned long UWord;
+typedef long          SWord;
+#elif SIZEOF_VOID_P == SIZEOF_INT
+typedef unsigned int UWord;
+typedef int          SWord;
+#else
+#error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
+#endif
+
+#else /* !HALFWORD_HEAP */
 
 #if SIZEOF_VOID_P == SIZEOF_LONG
 typedef unsigned long Eterm;
@@ -271,6 +309,13 @@ typedef int          Sint;
 #else
 #error Found no appropriate type to use for 'Eterm', 'Uint' and 'Sint'
 #endif
+
+typedef Uint UWord;
+typedef Sint SWord;
+
+#endif /* HALFWORD_HEAP */
+
+typedef UWord BeamInstr;
 
 #ifndef HAVE_INT64
 #if SIZEOF_LONG == 8

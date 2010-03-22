@@ -1,20 +1,20 @@
 #!/usr/bin/env perl
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1998-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1998-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 use strict;
@@ -499,7 +499,11 @@ sub emulator_output {
     print "\n";
     print "#ifdef ARCH_64\n";
     print "#  define BEAM_LOOSE_MASK 0x1FFFUL\n";
+    print "#if HALFWORD_HEAP\n";
+    print "#  define BEAM_TIGHT_MASK 0x1FFCUL\n";
+    print "#else\n";
     print "#  define BEAM_TIGHT_MASK 0x1FF8UL\n";
+    print "#endif\n";
     print "#  define BEAM_LOOSE_SHIFT 16\n";
     print "#  define BEAM_TIGHT_SHIFT 16\n";
     print "#else\n";
@@ -813,7 +817,7 @@ sub basic_generator {
     #
 
     if ($flags =~ /-pack/ && $hot) {
-	($prefix, $pack_spec, @args) = &do_pack(@args);
+        ($prefix, $pack_spec, @args) = &do_pack(@args);
     }
 
     #
@@ -907,16 +911,16 @@ sub basic_generator {
     my($code);
     if (defined $macro{$name}) {
 	my($macro_code) = "$prefix$macro(" . join(', ', @f) . ");";
-	$var_decls .= "Uint tmp_packed1;"
+	$var_decls .= "BeamInstr tmp_packed1;"
 	    if $macro_code =~ /tmp_packed1/;
-	$var_decls .= "Uint tmp_packed2;"
+	$var_decls .= "BeamInstr tmp_packed2;"
 	    if $macro_code =~ /tmp_packed2/;
 	if ($flags =~ /-nonext/) {
 	    $code = "$macro_code\n";
 	} else {
 	    $code = join("\n",
 			 "{ $var_decls",
-			 "Eterm* next;",
+			 "BeamInstr* next;",
 			 "PreFetch($size, next);",
 			 "$macro_code",
 			 "NextPF($size, next);",

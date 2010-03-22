@@ -496,9 +496,9 @@ int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len)
 
 int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 {
-#if SIZEOF_INT == SIZEOF_VOID_P
+#if SIZEOF_INT ==  ERTS_SIZEOF_ETERM
     return term_to_Sint(term, (Sint*)ip);
-#elif SIZEOF_LONG == SIZEOF_VOID_P
+#elif SIZEOF_LONG ==  ERTS_SIZEOF_ETERM
     Sint i;
     if (!term_to_Sint(term, &i) || i < INT_MIN || i > INT_MAX) {
 	return 0;
@@ -512,9 +512,9 @@ int enif_get_int(ErlNifEnv* env, Eterm term, int* ip)
 
 int enif_get_uint(ErlNifEnv* env, Eterm term, unsigned* ip)
 {
-#if SIZEOF_INT == SIZEOF_VOID_P
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, (Uint*)ip);
-#elif SIZEOF_LONG == SIZEOF_VOID_P
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
     Uint i;
     if (!term_to_Uint(term, &i) || i > UINT_MAX) {
 	return 0;
@@ -526,8 +526,13 @@ int enif_get_uint(ErlNifEnv* env, Eterm term, unsigned* ip)
 
 int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)
 {
-#if SIZEOF_LONG == SIZEOF_VOID_P
+#if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return term_to_Sint(term, ip);
+#elif SIZEOF_INT == ERTS_SIZEOF_ETERM
+    Uint u;
+    term_to_Sint(term, u);
+    *ip = (long) u;
+    return 1;
 #else
 #  error Unknown long word size 
 #endif     
@@ -535,8 +540,14 @@ int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)
 
 int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
 {
-#if SIZEOF_LONG == SIZEOF_VOID_P
+#if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return term_to_Uint(term, ip);
+#elif SIZEOF_INT == ERTS_SIZEOF_ETERM
+    Uint u;
+    int r;
+    r = term_to_Uint(term, &u);
+    *ip = (unsigned long) u;
+    return r;
 #else
 #  error Unknown long word size 
 #endif     
@@ -565,27 +576,24 @@ int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
 
 ERL_NIF_TERM enif_make_int(ErlNifEnv* env, int i)
 {
-#if SIZEOF_INT == SIZEOF_VOID_P
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return IS_SSMALL(i) ? make_small(i) : small_to_big(i,alloc_heap(env,2));
-#elif SIZEOF_LONG == SIZEOF_VOID_P
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return make_small(i);
 #endif
 }
 
 ERL_NIF_TERM enif_make_uint(ErlNifEnv* env, unsigned i)
 {
-#if SIZEOF_INT == SIZEOF_VOID_P
+#if SIZEOF_INT == ERTS_SIZEOF_ETERM
     return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
-#elif SIZEOF_LONG == SIZEOF_VOID_P
+#elif SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return make_small(i);
 #endif
 }
 
 ERL_NIF_TERM enif_make_long(ErlNifEnv* env, long i)
 {
-#if SIZEOF_LONG != SIZEOF_VOID_P
-#  error Unknown long word size 
-#endif     
     return IS_SSMALL(i) ? make_small(i) : small_to_big(i, alloc_heap(env,2));
 }
 
@@ -967,34 +975,34 @@ unsigned enif_sizeof_resource(ErlNifEnv* env, void* obj)
  ***************************************************************************/
 
 
-static Uint** get_func_pp(Eterm* mod_code, Eterm f_atom, unsigned arity)
+static BeamInstr** get_func_pp(BeamInstr* mod_code, Eterm f_atom, unsigned arity)
 {
     int n = (int) mod_code[MI_NUM_FUNCTIONS];
     int j;
     for (j = 0; j < n; ++j) {
-	Uint* code_ptr = (Uint*) mod_code[MI_FUNCTIONS+j];
-	ASSERT(code_ptr[0] == (Uint) BeamOp(op_i_func_info_IaaI));
+	BeamInstr* code_ptr = (BeamInstr*) mod_code[MI_FUNCTIONS+j];
+	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	if (f_atom == ((Eterm) code_ptr[3])
 	    && arity == ((unsigned) code_ptr[4])) {
 
-	    return (Uint**) &mod_code[MI_FUNCTIONS+j];
+	    return (BeamInstr**) &mod_code[MI_FUNCTIONS+j];
 	}
     }
     return NULL;
 }
 
-/*static void refresh_cached_nif_data(Eterm* mod_code,
+/*static void refresh_cached_nif_data(BeamInstr* mod_code,
 				    struct erl_module_nif* mod_nif)
 {
     int i;
     for (i=0; i < mod_nif->entry->num_of_funcs; i++) {
 	Eterm f_atom;
 	ErlNifFunc* func = &mod_nif->entry->funcs[i];	
-	Uint* code_ptr;
+	BeamInstr* code_ptr;
 	
 	erts_atom_get(func->name, sys_strlen(func->name), &f_atom); 
 	code_ptr = *get_func_pp(mod_code, f_atom, func->arity);
-	code_ptr[5+2] = (Uint) mod_nif->priv_data;
+	code_ptr[5+2] = ((BeamInstr) mod_nif->priv_data;
     }
 }*/
 
@@ -1098,7 +1106,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     Module* mod;
     Eterm mod_atom;
     Eterm f_atom;
-    Eterm* caller;
+    BeamInstr* caller;
     ErtsSysDdllError errdesc = ERTS_SYS_DDLL_ERROR_INIT;
     Eterm ret = am_ok;
     int veto;
@@ -1165,7 +1173,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 	/*erts_fprintf(stderr, "Found module %T\r\n", mod_atom);*/
     
 	for (i=0; i < entry->num_of_funcs && ret==am_ok; i++) {
-	    Uint** code_pp;
+	    BeamInstr** code_pp;
 	    ErlNifFunc* f = &entry->funcs[i];
 	    if (!erts_atom_get(f->name, sys_strlen(f->name), &f_atom)
 		|| (code_pp = get_func_pp(mod->code, f_atom, f->arity))==NULL) { 
@@ -1268,22 +1276,22 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
         mod->nif = lib; 
 	for (i=0; i < entry->num_of_funcs; i++)
 	{
-	    Uint* code_ptr;
+	    BeamInstr* code_ptr;
 	    erts_atom_get(entry->funcs[i].name, sys_strlen(entry->funcs[i].name), &f_atom); 
 	    code_ptr = *get_func_pp(mod->code, f_atom, entry->funcs[i].arity); 
 	    
 	    if (code_ptr[1] == 0) {
-		code_ptr[5+0] = (Uint) BeamOp(op_call_nif);		
+		code_ptr[5+0] = (BeamInstr) BeamOp(op_call_nif);
 	    }
 	    else { /* Function traced, patch the original instruction word */
 		BpData* bp = (BpData*) code_ptr[1];
-	        bp->orig_instr = (Uint) BeamOp(op_call_nif); 
+	        bp->orig_instr = (BeamInstr) BeamOp(op_call_nif);
 	    }	    
-	    code_ptr[5+1] = (Uint) entry->funcs[i].fptr;
-	    code_ptr[5+2] = (Uint) lib;
+	    code_ptr[5+1] = (BeamInstr) entry->funcs[i].fptr;
+	    code_ptr[5+2] = (BeamInstr) lib;
 	}
     }
-    else {    
+    else {
     error:
 	ASSERT(ret != am_ok);
         if (lib != NULL) {

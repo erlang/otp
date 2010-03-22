@@ -1284,7 +1284,7 @@ static int db_select_continue_hash(Process *p,
 	    (match_res = 
 	     db_prog_match(p,mp,
 			   make_tuple(current->dbterm.tpl),
-			   0,&dummy),
+			   NULL,0,&dummy),
 	     is_value(match_res))) {
 	    if (all_objects) {
 		hp = HAlloc(p, current->dbterm.size + 2);
@@ -1462,7 +1462,7 @@ static int db_select_chunk_hash(Process *p, DbTable *tbl,
 	    if (current->hvalue != INVALID_HASH) {
 		match_res = db_prog_match(p,mpi.mp,
 					  make_tuple(current->dbterm.tpl),
-					  0,&dummy);
+					  NULL,0,&dummy);
 		if (is_value(match_res)) {
 		    if (mpi.all_objects) {
 			hp = HAlloc(p, current->dbterm.size + 2);
@@ -1641,7 +1641,7 @@ static int db_select_count_hash(Process *p,
 	if (current != NULL) {
 	    if (current->hvalue != INVALID_HASH) {
 		if (db_prog_match(p, mpi.mp, make_tuple(current->dbterm.tpl),
-				  0, &dummy) == am_true) {
+				  NULL,0, &dummy) == am_true) {
 		    ++got;
 		}
 		--num_left;
@@ -1792,7 +1792,7 @@ static int db_select_delete_hash(Process *p,
 	    int did_erase = 0;
 	    if ((db_prog_match(p,mpi.mp,
 			       make_tuple((*current)->dbterm.tpl),
-			       0,&dummy)) == am_true) {
+			       NULL,0,&dummy)) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -1904,7 +1904,7 @@ static int db_select_delete_continue_hash(Process *p,
 	else {
 	    int did_erase = 0;
 	    if ((db_prog_match(p,mp,make_tuple((*current)->dbterm.tpl),
-			       0,&dummy)) == am_true) {
+			       NULL,0,&dummy)) == am_true) {
 		if (NFIXED(tb) > fixated_by_me) { /* fixated by others? */
 		    if (slot_ix != last_pseudo_delete) {
 			add_fixed_deletion(tb, slot_ix);
@@ -2005,7 +2005,7 @@ static int db_select_count_continue_hash(Process *p,
 		continue;
 	    }
 	    if (db_prog_match(p, mp, make_tuple(current->dbterm.tpl),
-			      0,&dummy) == am_true) {
+			      NULL,0,&dummy) == am_true) {
 		++got;
 	    }
 	    --num_left;

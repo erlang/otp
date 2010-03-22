@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -212,7 +212,7 @@ typedef struct db_table_common {
 #endif
     Eterm owner;              /* Pid of the creator */
     Eterm heir;               /* Pid of the heir */
-    Eterm heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
+    UWord heir_data;          /* To send in ETS-TRANSFER (is_immed or (DbTerm*) */
     SysTimeval heir_started;  /* To further identify the heir */
     Eterm the_name;           /* an atom */
     Eterm id;                 /* atom | integer */
@@ -304,9 +304,9 @@ typedef struct match_prog {
     Uint eheap_offset;
     Uint stack_offset;
 #ifdef DMC_DEBUG
-    Uint* prog_end;		/* End of program */
+    UWord* prog_end;		/* End of program */
 #endif
-    Uint text[1];		/* Beginning of program */
+    UWord text[1];		/* Beginning of program */
 } MatchProg;
 
 /*
@@ -366,7 +366,7 @@ Binary *db_match_compile(Eterm *matchexpr, Eterm *guards,
 			 Uint flags, 
 			 DMCErrInfo *err_info);
 /* Returns newly allocated MatchProg binary with refc == 0*/
-Eterm db_prog_match(Process *p, Binary *prog, Eterm term, int arity, 
+Eterm db_prog_match(Process *p, Binary *prog, Eterm term, Eterm *termp, int arity,
 		    Uint32 *return_flags /* Zeroed on enter */);
 /* returns DB_ERROR_NONE if matches, 1 if not matches and some db error on 
    error. */

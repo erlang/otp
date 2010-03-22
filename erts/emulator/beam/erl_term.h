@@ -20,6 +20,32 @@
 #ifndef __ERL_TERM_H
 #define __ERL_TERM_H
 
+#include "sys.h" /* defines HALFWORD_HEAP */
+
+#if HALFWORD_HEAP
+#  define HEAP_ON_C_STACK 0
+#  if HALFWORD_ASSERT
+#    ifdef ET_DEBUG
+#      undef ET_DEBUG
+#    endif
+#    define ET_DEBUG 1
+#  endif
+#  if 1
+#    define CHECK_POINTER_MASK 0xFFFFFFFF00000000UL
+#    define COMPRESS_POINTER(APointer) ((Eterm) (UWord) (APointer))
+#    define EXPAND_POINTER(AnEterm) ((UWord) (AnEterm))
+#  else
+#    define CHECK_POINTER_MASK 0x0UL
+#    define COMPRESS_POINTER(AnUint) (AnUint)
+#    define EXPAND_POINTER(APointer) (APointer)
+#  endif
+#else
+#  define HEAP_ON_C_STACK 1
+#  define CHECK_POINTER_MASK 0x0UL
+#  define COMPRESS_POINTER(AnUint) (AnUint)
+#  define EXPAND_POINTER(APointer) (APointer)
+#endif
+
 struct erl_node_; /* Declared in erl_node_tables.h */
 
 /*
@@ -158,9 +184,16 @@ struct erl_node_; /* Declared in erl_node_tables.h */
 
 
 /* boxed object access methods */
+#if HALFWORD_HEAP
+#define _is_taggable_pointer(x)	 (((UWord)(x) & (CHECK_POINTER_MASK | 0x3)) == 0)
+#define _boxed_precond(x)        (is_boxed(x))
+#else
+#define _is_taggable_pointer(x)	 (((Uint)(x) & 0x3) == 0)
+#define  _boxed_precond(x)       (is_boxed(x))
+#endif
 #define _is_aligned(x)		(((Uint)(x) & 0x3) == 0)
-#define _unchecked_make_boxed(x)	((Uint)(x) + TAG_PRIMARY_BOXED)
-_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*)
+#define _unchecked_make_boxed(x) ((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_BOXED)
+_ET_DECLARE_CHECKED(Eterm,make_boxed,Eterm*);
 #define make_boxed(x)		_ET_APPLY(make_boxed,(x))
 #if 1
 #define _is_not_boxed(x)	((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_BOXED))
@@ -170,13 +203,13 @@ _ET_DECLARE_CHECKED(int,is_boxed,Eterm)
 #else
 #define is_boxed(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_BOXED)
 #endif
-#define _unchecked_boxed_val(x) ((Eterm*)((x) - TAG_PRIMARY_BOXED))
-_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm)
+#define _unchecked_boxed_val(x) ((Eterm*) EXPAND_POINTER(((x) - TAG_PRIMARY_BOXED)))
+_ET_DECLARE_CHECKED(Eterm*,boxed_val,Eterm);
 #define boxed_val(x)		_ET_APPLY(boxed_val,(x))
 
 /* cons cell ("list") access methods */
-#define _unchecked_make_list(x)	((Uint)(x) + TAG_PRIMARY_LIST)
-_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*)
+#define _unchecked_make_list(x)	((Uint) COMPRESS_POINTER(x) + TAG_PRIMARY_LIST)
+_ET_DECLARE_CHECKED(Eterm,make_list,Eterm*);
 #define make_list(x)		_ET_APPLY(make_list,(x))
 #if 1
 #define _unchecked_is_not_list(x) ((x) & (_TAG_PRIMARY_MASK-TAG_PRIMARY_LIST))
@@ -187,8 +220,13 @@ _ET_DECLARE_CHECKED(int,is_not_list,Eterm)
 #define is_list(x)		(((x) & _TAG_PRIMARY_MASK) == TAG_PRIMARY_LIST)
 #define is_not_list(x)		(!is_list((x)))
 #endif
-#define _unchecked_list_val(x)	((Eterm*)((x) - TAG_PRIMARY_LIST))
-_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
+#if HALFWORD_HEAP
+#define _list_precond(x)        (is_list(x))
+#else
+#define _list_precond(x)       (is_list(x))
+#endif
+#define _unchecked_list_val(x) ((Eterm*) EXPAND_POINTER((x) - TAG_PRIMARY_LIST))
+_ET_DECLARE_CHECKED(Eterm*,list_val,Eterm);
 #define list_val(x)		_ET_APPLY(list_val,(x))
 
 #define CONS(hp, car, cdr) \
@@ -198,13 +236,13 @@ _ET_DECLARE_CHECKED(Eterm*,list_val,Eterm)
 #define CDR(x)  ((x)[1])
 
 /* generic tagged pointer (boxed or list) access methods */
-#define _unchecked_ptr_val(x)	((Eterm*)((x) & ~((Uint) 0x3)))
+#define _unchecked_ptr_val(x)	((Eterm*) EXPAND_POINTER((x) & ~((Uint) 0x3)))
 #define ptr_val(x)		_unchecked_ptr_val((x))	/*XXX*/
 #define _unchecked_offset_ptr(x,offs)	((x)+((offs)*sizeof(Eterm)))
 #define offset_ptr(x,offs)	_unchecked_offset_ptr(x,offs)	/*XXX*/
 
 /* fixnum ("small") access methods */
-#if defined(ARCH_64)
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define SMALL_BITS	(64-4)
 #define SMALL_DIGITS	(17)
 #else
@@ -329,7 +367,11 @@ _ET_DECLARE_CHECKED(Eterm*,fun_val,Eterm)
 _ET_DECLARE_CHECKED(Eterm*,export_val,Eterm)
 #define export_val(x)	_ET_APPLY(export_val,(x))
 #define is_export_header(x)	((x) == HEADER_EXPORT)
+#if HALFWORD_HEAP
+#define HEADER_EXPORT   _make_header(2,_TAG_HEADER_EXPORT)
+#else
 #define HEADER_EXPORT   _make_header(1,_TAG_HEADER_EXPORT)
+#endif
 
 /* bignum access methods */
 #define make_pos_bignum_header(sz)	_make_header((sz),_TAG_HEADER_POS_BIG)
@@ -353,7 +395,7 @@ _ET_DECLARE_CHECKED(Eterm*,big_val,Eterm)
 #define big_val(x)		_ET_APPLY(big_val,(x))
 
 /* flonum ("float") access methods */
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define HEADER_FLONUM   _make_header(1,_TAG_HEADER_FLOAT)
 #else
 #define HEADER_FLONUM	_make_header(2,_TAG_HEADER_FLOAT)
@@ -374,12 +416,12 @@ typedef union float_def
     byte   fb[sizeof(ieee754_8)];
     Uint16 fs[sizeof(ieee754_8) / sizeof(Uint16)];
     Uint32 fw[sizeof(ieee754_8) / sizeof(Uint32)];
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
     Uint   fdw;
 #endif
 } FloatDef;
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #define GET_DOUBLE(x, f) (f).fdw = *(float_val(x)+1)
 
 #define PUT_DOUBLE(f, x)  *(x) = HEADER_FLONUM, \
@@ -679,7 +721,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_port_node,Eterm)
 #define ERTS_MAX_REF_NUMBERS	3
 #define ERTS_REF_NUMBERS	ERTS_MAX_REF_NUMBERS
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 #  define ERTS_REF_WORDS	(ERTS_REF_NUMBERS/2 + 1)
 #  define ERTS_REF_32BIT_WORDS  (ERTS_REF_NUMBERS+1)
 #else
@@ -701,7 +743,7 @@ typedef struct {
 #define make_ref_thing_header(DW) \
   _make_header((DW)+REF_THING_HEAD_SIZE-1,_TAG_HEADER_REF)
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 
 /*
  * Ref layout on a 64-bit little endian machine:
@@ -806,6 +848,11 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *    ref. 
  *
  */
+
+/* XXX:PaN - this structure is not perfect for halfword heap, it takes
+   a lot of memory due to padding, and the array will not begin at the end of the
+   structure, as otherwise expected. Be sure to access data.ui32 array and not try
+   to do pointer manipulation on an Eterm * to reach the actual data... */
 
 typedef struct external_thing_ {
     /*                                 ----+                        */
@@ -944,15 +991,15 @@ _ET_DECLARE_CHECKED(struct erl_node_*,external_ref_node,Eterm)
 #error "fix yer arch, like"
 #endif
 
-#define _unchecked_make_cp(x)	((Eterm)(x))
-_ET_DECLARE_CHECKED(Eterm,make_cp,Uint*)
+#define _unchecked_make_cp(x)	((Eterm) COMPRESS_POINTER(x))
+_ET_DECLARE_CHECKED(Eterm,make_cp,BeamInstr*);
 #define make_cp(x)	_ET_APPLY(make_cp,(x))
 
 #define is_not_CP(x)	((x) & _CPMASK)
 #define is_CP(x)	(!is_not_CP(x))
 
-#define _unchecked_cp_val(x)	((Uint*)(x))
-_ET_DECLARE_CHECKED(Uint*,cp_val,Eterm)
+#define _unchecked_cp_val(x)	((BeamInstr*) EXPAND_POINTER(x))
+_ET_DECLARE_CHECKED(BeamInstr*,cp_val,Eterm);
 #define cp_val(x)	_ET_APPLY(cp_val,(x))
 
 #define make_catch(x)	(((x) << _TAG_IMMED2_SIZE) | _TAG_IMMED2_CATCH)

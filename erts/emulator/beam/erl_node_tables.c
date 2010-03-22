@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -1109,10 +1109,23 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 			break;
 		    }
 		if (insert_bin) {
-		    Uint id_heap[BIG_UINT_HEAP_SIZE];
+#if HALFWORD_HEAP
+		    UWord val = (UWord) pb->val;
+		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE*2); /* extra place allocated */
+#else
+		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
+#endif
 		    Uint *hp = &id_heap[0];
 		    InsertedBin *nib;
+#if HALFWORD_HEAP
+		    int actual_need = BIG_UWORD_HEAP_SIZE(val);
+		    ASSERT(actual_need <= (BIG_UINT_HEAP_SIZE*2));
+		    UseTmpHeapNoproc(actual_need);
+		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
+#else
+		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 		    a.id = erts_bld_uint(&hp, NULL, (Uint) pb->val);
+#endif
 		    erts_match_prog_foreach_offheap(pb->val,
 						    insert_offheap2,
 						    (void *) &a);
@@ -1120,6 +1133,11 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    nib->bin_val = pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
+#if HALFWORD_HEAP
+		    UnUseTmpHeapNoproc(actual_need);
+#else
+		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
+#endif
 		}
 	    }
 	}
@@ -1190,12 +1208,15 @@ static void
 insert_bif_timer(Eterm receiver, Eterm msg, ErlHeapFragment *bp, void *arg)
 {
     if (bp) {
-	Eterm heap[3];
+	DeclareTmpHeapNoproc(heap,3);
+
+	UseTmpHeapNoproc(3);
 	insert_offheap(&bp->off_heap,
 		       TIMER_REF,
 		       (is_internal_pid(receiver)
 			? receiver
 			: TUPLE2(&heap[0], AM_process, receiver)));
+	UnUseTmpHeapNoproc(3);
     }
 }
 
@@ -1230,7 +1251,7 @@ setup_reference_table(void)
     DistEntry *dep;
     HashInfo hi;
     int i;
-    Eterm heap[3];
+    DeclareTmpHeapNoproc(heap,3);
 
     inserted_bins = NULL;
 
@@ -1251,6 +1272,7 @@ setup_reference_table(void)
     /* Go through the hole system, and build a table of all references
        to ErlNode and DistEntry structures */
 
+    UseTmpHeapNoproc(3);
     insert_node(erts_this_node,
 		SYSTEM_REF,
 		TUPLE2(&heap[0], AM_system, am_undefined));
@@ -1261,6 +1283,7 @@ setup_reference_table(void)
 		   HEAP_REF,
 		   TUPLE2(&heap[0], AM_processes, am_undefined));
 #endif
+    UnUseTmpHeapNoproc(3);
 
     /* Insert all processes */
     for (i = 0; i < erts_max_processes; i++)

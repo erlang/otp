@@ -126,7 +126,7 @@ static void disallow_heap_frag_ref_in_old_heap(Process* p);
 static void disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj);
 #endif
 
-#ifdef ARCH_64
+#if defined(ARCH_64) && !HALFWORD_HEAP
 # define MAX_HEAP_SIZES 154
 #else
 # define MAX_HEAP_SIZES 55
@@ -1551,7 +1551,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	val = *hp++;
 	switch (primary_tag(val)) {
 	case TAG_PRIMARY_BOXED:
-	    ptr = (Eterm *) val;
+	    ptr = (Eterm *) EXPAND_POINTER(val);
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
 		if (in_area(ptr, new_heap, new_heap_size)) {
 		    abort();
@@ -1564,7 +1564,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 	    }
 	    break;
 	case TAG_PRIMARY_LIST:
-	    ptr = (Eterm *) val;
+	    ptr = (Eterm *) EXPAND_POINTER(val);
 	    if (!in_area(ptr, old_heap, old_heap_size)) {
 		if (in_area(ptr, new_heap, new_heap_size)) {
 		    abort();

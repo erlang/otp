@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -238,7 +238,7 @@ void *erts_realloc_fnf(ErtsAlcType_t type, void *ptr, Uint size)
 
 #ifndef ERTS_CACHE_LINE_SIZE
 /* Assume a cache line size of 64 bytes */
-#  define ERTS_CACHE_LINE_SIZE ((Uint) 64)
+#  define ERTS_CACHE_LINE_SIZE ((UWord) 64)
 #  define ERTS_CACHE_LINE_MASK (ERTS_CACHE_LINE_SIZE - 1)
 #endif
 
@@ -486,9 +486,9 @@ init_##NAME##_alloc(void)						\
     qa_data_##NAME##__ = erts_alloc(ERTS_ALC_T_PRE_ALLOC_DATA,tot_size);\
     chunk_start = (((char *) qa_data_##NAME##__)			\
 		   + sizeof(erts_sched_pref_quick_alloc_data_t));	\
-    if ((((Uint) chunk_start) & ERTS_CACHE_LINE_MASK) != ((Uint) 0))	\
+    if ((((UWord) chunk_start) & ERTS_CACHE_LINE_MASK) != ((UWord) 0))	\
 	chunk_start = ((char *)						\
-		       ((((Uint) chunk_start) & ~ERTS_CACHE_LINE_MASK)	\
+		       ((((UWord) chunk_start) & ~ERTS_CACHE_LINE_MASK)	\
 		       + ERTS_CACHE_LINE_SIZE));			\
     qa_data_##NAME##__->chunks_mem_size = chunk_mem_size;		\
     qa_data_##NAME##__->start = (void *) chunk_start;			\
@@ -553,7 +553,7 @@ NAME##_free(TYPE *p)							\
 }
 
 #ifdef DEBUG
-#define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((Uint *) (PTR)) - 2))
+#define ERTS_ALC_DBG_BLK_SZ(PTR) (*(((UWord *) (PTR)) - 2))
 #endif /* #ifdef DEBUG */
 
 #undef ERTS_ALC_INLINE

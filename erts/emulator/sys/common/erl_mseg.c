@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -83,10 +83,20 @@ static int is_cache_check_scheduled;
 static int is_cache_check_requested;
 #endif
 
+#if HALFWORD_HEAP
+static int initialize_pmmap(void);
+static void *pmmap(size_t size);
+static int pmunmap(void *p, size_t size);
+static void *pmremap(void *old_address, size_t old_size,
+		     size_t new_size);
+#endif
+
 #if HAVE_MMAP
 /* Mmap ... */
 
 #define MMAP_PROT		(PROT_READ|PROT_WRITE)
+
+
 #ifdef MAP_ANON
 #  define MMAP_FLAGS		(MAP_ANON|MAP_PRIVATE)
 #  define MMAP_FD		(-1)
@@ -102,7 +112,11 @@ static int mmap_fd;
 #  define HAVE_MSEG_RECREATE 0
 #endif
 
+#if HALFWORD_HEAP
+#define CAN_PARTLY_DESTROY 0
+#else
 #define CAN_PARTLY_DESTROY 1
+#endif
 #else  /* #if HAVE_MMAP */
 #define CAN_PARTLY_DESTROY 0
 #error "Not supported"
@@ -232,6 +246,7 @@ static void thread_safe_init(void)
 {
     erts_mtx_init(&init_atoms_mutex, "mseg_init_atoms");
     erts_mtx_init(&mseg_mutex, "mseg");
+
 #ifdef ERTS_THREADS_NO_SMP
     main_tid = erts_thr_self();
 #endif
@@ -306,10 +321,20 @@ mseg_create(Uint size)
 #if defined(ERTS_MSEG_FAKE_SEGMENTS)
     seg = erts_sys_alloc(ERTS_ALC_N_INVALID, NULL, size);
 #elif HAVE_MMAP
+#if HALFWORD_HEAP
+    seg = pmmap(size);
+#else
     seg = (void *) mmap((void *) 0, (size_t) size,
 			MMAP_PROT, MMAP_FLAGS, MMAP_FD, 0);
     if (seg == (void *) MAP_FAILED)
 	seg = NULL;
+#endif
+#if HALFWORD_HEAP
+    if ((unsigned long) seg & CHECK_POINTER_MASK) {
+	erts_fprintf(stderr,"Pointer mask failure (0x%08lx)\n",(unsigned long) seg);
+	return NULL;
+    }
+#endif
 #else
 #error "Missing mseg_create() implementation"
 #endif
@@ -329,9 +354,11 @@ mseg_destroy(void *seg, Uint size)
 #ifdef DEBUG
     int res =
 #endif
-
+#if HALFWORD_HEAP
+	pmunmap((void *) seg, size);
+#else
 	munmap((void *) seg, size);
-
+#endif
     ASSERT(size % page_size == 0);
     ASSERT(res == 0);
 #else
@@ -355,12 +382,18 @@ mseg_recreate(void *old_seg, Uint old_size, Uint new_size)
 #if defined(ERTS_MSEG_FAKE_SEGMENTS)
     new_seg = erts_sys_realloc(ERTS_ALC_N_INVALID, NULL, old_seg, new_size);
 #elif HAVE_MREMAP
+#if HALFWORD_HEAP
+     new_seg = (void *) pmremap((void *) old_seg,
+				(size_t) old_size,
+				(size_t) new_size);
+#else
     new_seg = (void *) mremap((void *) old_seg,
 			      (size_t) old_size,
 			      (size_t) new_size,
 			      MREMAP_MAYMOVE);
     if (new_seg == (void *) MAP_FAILED)
 	new_seg = NULL;
+#endif
 #else
 #error "Missing mseg_recreate() implementation"
 #endif
@@ -1328,6 +1361,10 @@ erts_mseg_init(ErtsMsegInit_t *init)
 	erl_exit(ERTS_ABORT_EXIT, "erts_mseg: unable to open /dev/zero\n");
 #endif
 
+#if HAVE_MMAP && HALFWORD_HEAP
+    initialize_pmmap();
+#endif
+
     page_size = GET_PAGE_SIZE;
 
     page_shift = 1;
@@ -1450,3 +1487,419 @@ erts_mseg_test(unsigned long op,
 }
 
 
+#if HALFWORD_HEAP
+/*
+ * Very simple page oriented mmap replacer. Works in the lower
+ * 32 bit address range of a 64bit program.
+ * Implements anonymous mmap mremap and munmap with address order first fit.
+ * The free list is expected to be very short...
+ * To be used for compressed pointers in Erlang halfword emulator
+ * implementation. The MacOS X version is more of a toy, it's not really
+ * for production as the halfword erlang VM relies on Linux specific memory
+ * mapping tricks.
+ */
+
+/*#define HARDDEBUG 1*/
+
+#ifdef __APPLE__
+#define MAP_ANONYMOUS MAP_ANON
+#endif
+
+#define INIT_LOCK() do {erts_mtx_init(&pmmap_mutex, "pmmap");} while(0)
+
+#define TAKE_LOCK()  do {erts_mtx_lock(&pmmap_mutex);} while(0)
+
+#define RELEASE_LOCK() do {erts_mtx_unlock(&pmmap_mutex);} while(0)
+
+static erts_mtx_t pmmap_mutex; /* Also needed when !USE_THREADS */
+
+typedef struct _free_block {
+    unsigned long num; /*pages*/
+    struct _free_block *next;
+} FreeBlock;
+
+/* Assigned once and for all */
+static size_t pagsz;
+
+/* Protect with lock */
+static FreeBlock *first;
+
+static size_t round_up_to_pagesize(size_t size)
+{
+    size_t x  = size / pagsz;
+
+    if ((size % pagsz)) {
+	++x;
+    }
+
+    return pagsz * x;
+}
+
+static size_t round_down_to_pagesize(size_t size)
+{
+    size_t x  = size / pagsz;
+
+    return pagsz * x;
+}
+
+static void *do_map(void *ptr, size_t sz)
+{
+    void *res;
+
+    if (round_up_to_pagesize(sz) != sz) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld "
+		"does not map complete pages\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return NULL;
+    }
+
+    if (((unsigned long) ptr) % pagsz) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld "
+		"is not page aligned\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return NULL;
+    }
+
+
+    res = mmap(ptr, sz,
+	       PROT_READ | PROT_WRITE, MAP_PRIVATE |
+	       MAP_ANONYMOUS | MAP_FIXED,
+	       -1 , 0);
+
+    if (res == MAP_FAILED) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld failed!\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return NULL;
+    }
+
+    return res;
+}
+
+static int do_unmap(void *ptr, size_t sz)
+{
+    void *res;
+
+    if (round_up_to_pagesize(sz) != sz) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld "
+		"does not map complete pages\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return 1;
+    }
+
+    if (((unsigned long) ptr) % pagsz) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld "
+		"is not page aligned\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return 1;
+    }
+
+
+    res = mmap(ptr, sz,
+	       PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS | MAP_NORESERVE
+	       | MAP_FIXED,
+	       -1 , 0);
+
+    if (res == MAP_FAILED) {
+#ifdef HARDDEBUG
+	fprintf(stderr,"Mapping of address %p with size %ld failed!\r\n",
+		(void *) ptr, (unsigned long) sz);
+#endif
+	return 1;
+    }
+
+    return 0;
+}
+
+#ifdef __APPLE__
+/*
+ * The first 4 gig's are protected on Macos X for 64bit processes :(
+ * The range 0x1000000000 - 0x10FFFFFFFF is selected as an arbitrary
+ * value of a normally unused range... Real MMAP's will avoid
+ * it and all 32bit compressed pointers can be in that range...
+ * More expensive than on Linux where expansion of compressed
+ * poiters involves no masking (as they are in the first 4 gig's).
+ * It's also very uncertain if the MAP_NORESERVE flag really has
+ * any effect in MacOS X. Swap space may always be allocated...
+ */
+#define SET_RANGE_MIN() /* nothing */
+#define RANGE_MIN 0x1000000000UL
+#define RANGE_MAX 0x1100000000UL
+#define RANGE_MASK (RANGE_MIN)
+#define EXTRA_MAP_FLAGS (MAP_FIXED)
+#else
+static size_t range_min;
+#define SET_RANGE_MIN() do { range_min = (size_t) sbrk(0); } while (0)
+#define RANGE_MIN range_min
+#define RANGE_MAX 0x100000000UL
+#define RANGE_MASK 0UL
+#define EXTRA_MAP_FLAGS (0)
+#endif
+
+static int initialize_pmmap(void)
+{
+    char *p,*q,*rptr;
+    size_t rsz;
+    FreeBlock *initial;
+
+
+    pagsz = getpagesize();
+    SET_RANGE_MIN();
+    if (sizeof(void *) != 8) {
+	erl_exit(1,"Halfword emulator cannot be run in 32bit mode");
+    }
+
+    p = (char *) RANGE_MIN;
+    q = (char *) RANGE_MAX;
+
+    rsz = round_down_to_pagesize(q - p);
+
+    rptr = mmap((void *) p, rsz,
+		PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS |
+		MAP_NORESERVE | EXTRA_MAP_FLAGS,
+		-1 , 0);
+#ifdef HARDDEBUG
+    printf("rsz = %ld, pages = %ld, rptr = %p\r\n",
+	   (unsigned long) rsz, (unsigned long) (rsz / pagsz),
+	   (void *) rptr);
+#endif
+    if (!do_map(rptr,pagsz)) {
+	erl_exit(1,"Could not actually mmap first page for halfword emulator...\n");
+    }
+    initial = (FreeBlock *) rptr;
+    initial->num = (rsz / pagsz);
+    initial->next = NULL;
+    first = initial;
+    INIT_LOCK();
+    return 0;
+}
+
+#ifdef HARDDEBUG
+static void dump_freelist(void)
+{
+    FreeBlock *p = first;
+
+    while (p) {
+	printf("p = %p\r\np->num = %ld\r\np->next = %p\r\n\r\n",
+	       (void *) p, (unsigned long) p->num, (void *) p->next);
+	p = p->next;
+    }
+}
+#endif
+
+
+static void *pmmap(size_t size)
+{
+    size_t real_size = round_up_to_pagesize(size);
+    size_t num_pages = real_size / pagsz;
+    FreeBlock **block;
+    FreeBlock *tail;
+    FreeBlock *res;
+    TAKE_LOCK();
+    for (block = &first;
+	 *block != NULL && (*block)->num < num_pages;
+	 block = &((*block)->next))
+	;
+    if (!(*block)) {
+	RELEASE_LOCK();
+	return NULL;
+    }
+    if ((*block)->num == num_pages) {
+	/* nice, perfect fit */
+	res = *block;
+	*block = (*block)->next;
+    } else {
+	tail = (FreeBlock *) (((char *) ((void *) (*block))) + real_size);
+	if (!do_map(tail,pagsz)) {
+#ifdef HARDDEBUG
+	    fprintf(stderr, "Could not actually allocate page at %p...\r\n",
+		    (void *) tail);
+#endif
+	    RELEASE_LOCK();
+	    return NULL;
+	}
+	tail->num = (*block)->num - num_pages;
+	tail->next = (*block)->next;
+	res = *block;
+	*block = tail;
+    }
+    RELEASE_LOCK();
+    if (!do_map(res,real_size)) {
+#ifdef HARDDEBUG
+	fprintf(stderr, "Could not actually allocate %ld at %p...\r\n",
+		(unsigned long) real_size, (void *) res);
+#endif
+	return NULL;
+    }
+
+    return (void *) res;
+}
+
+static int pmunmap(void *p, size_t size)
+{
+    size_t real_size = round_up_to_pagesize(size);
+    size_t num_pages = real_size / pagsz;
+    FreeBlock *block;
+    FreeBlock *last;
+    FreeBlock *nb = (FreeBlock *) p;
+
+    if (real_size > pagsz) {
+	if (do_unmap(((char *) p) + pagsz,real_size - pagsz)) {
+	    return 1;
+	}
+    }
+
+    TAKE_LOCK();
+
+    last = NULL;
+    block = first;
+    while(block != NULL && ((void *) block) < p) {
+	last = block;
+	block = block->next;
+    }
+
+    if (block != NULL &&
+	((void *) block) == ((void *) (((char *) p) + real_size))) {
+	/* Merge new free block with following */
+	nb->num = block->num + num_pages;
+	nb->next = block->next;
+	if (do_unmap(block,pagsz)) {
+	    RELEASE_LOCK();
+	    return 1;
+	}
+    } else {
+	/* just link in */
+	nb->num = num_pages;
+	nb->next = block;
+    }
+    if (last != NULL) {
+	if (p == ((void *) (((char *) last) + (last->num * pagsz)))) {
+	    /* Merge with previous */
+	    last->num += nb->num;
+	    last->next = nb->next;
+	    if (do_unmap(nb,pagsz)) {
+		RELEASE_LOCK();
+		return 1;
+	    }
+	} else {
+	    last->next = nb;
+	}
+    } else {
+	first = nb;
+    }
+    RELEASE_LOCK();
+    return 0;
+}
+
+static void *pmremap(void *old_address, size_t old_size,
+	      size_t new_size)
+{
+    size_t new_real_size = round_up_to_pagesize(new_size);
+    size_t new_num_pages = new_real_size / pagsz;
+    size_t old_real_size = round_up_to_pagesize(old_size);
+    size_t old_num_pages = old_real_size / pagsz;
+    if (new_num_pages == old_num_pages) {
+	return old_address;
+    } else if (new_num_pages < old_num_pages) { /* Shrink */
+	size_t nfb_pages = old_num_pages - new_num_pages;
+	size_t nfb_real_size = old_real_size - new_real_size;
+	void *vnfb = (void *) (((char *)old_address) + new_real_size);
+	FreeBlock *nfb = (FreeBlock *) vnfb;
+	FreeBlock **block;
+	TAKE_LOCK();
+	for (block = &first;
+	     *block != NULL && (*block) < nfb;
+	     block = &((*block)->next))
+	;
+	if (!(*block) ||
+	    (*block) > ((FreeBlock *)(((char *) vnfb) + nfb_real_size))) {
+	    /* Normal link in */
+	    if (nfb_pages > 1) {
+		if (do_unmap((void *)(((char *) vnfb) + pagsz),
+			     (nfb_pages - 1)*pagsz)) {
+		    return NULL;
+		}
+	    }
+	    nfb->next = (*block);
+	    nfb->num = nfb_pages;
+	    (*block) = nfb;
+	} else { /* block merge */
+	    nfb->next = (*block)->next;
+	    nfb->num = nfb_pages + (*block)->num;
+	    /* unmap also the first page of the next freeblock */
+	    (*block) = nfb;
+	    if (do_unmap((void *)(((char *) vnfb) + pagsz),
+			 nfb_pages*pagsz)) {
+		return NULL;
+	    }
+	}
+	RELEASE_LOCK();
+	return old_address;
+    } else { /* Enlarge */
+	FreeBlock **block;
+	void *old_end = (void *) (((char *)old_address) + old_real_size);
+	TAKE_LOCK();
+	for (block = &first;
+	     *block != NULL && (*block) < (FreeBlock *) old_address;
+	     block = &((*block)->next))
+	    ;
+	if ((*block) == NULL || old_end > ((void *) RANGE_MAX) ||
+	    (*block) != old_end ||
+	    (*block)->num < (new_num_pages - old_num_pages)) {
+	    /* cannot extend */
+	    void *result;
+	    RELEASE_LOCK();
+	    result = pmmap(new_size);
+	    if (result == NULL) {
+		return NULL;
+	    }
+	    memcpy(result,old_address,old_size);
+	    if (pmunmap(old_address,old_size)) {
+		/* Oups... */
+		pmunmap(result,new_size);
+		return NULL;
+	    }
+	    return result;
+	} else { /* extend */
+	    size_t remaining_pages = (*block)->num -
+		(new_num_pages - old_num_pages);
+	    if (!remaining_pages) {
+		void *p = (void *) (((char *) (*block)) + pagsz);
+		void *n = (*block)->next;
+		size_t x = ((*block)->num - 1) * pagsz;
+		if (x > 0) {
+		    if (do_map(p,x) == NULL) {
+			RELEASE_LOCK();
+			return NULL;
+		    }
+		}
+		(*block) = n;
+	    } else {
+		FreeBlock *nfb = (FreeBlock *) ((void *)
+						(((char *) old_address) +
+						 new_real_size));
+		void *p = (void *) (((char *) (*block)) + pagsz);
+		if (do_map(p,new_real_size - old_real_size) == NULL) {
+		    RELEASE_LOCK();
+		    return NULL;
+		}
+		nfb->num = remaining_pages;
+		nfb->next = (*block)->next;
+		(*block) = nfb;
+	    }
+	    RELEASE_LOCK();
+	    return old_address;
+	}
+    }
+}
+
+#endif /* HALFWORD_HEAP */

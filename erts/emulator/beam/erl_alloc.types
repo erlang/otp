@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2003-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2003-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -138,6 +138,7 @@ type	PEND_SUSPEND	SHORT_LIVED	PROCESSES	pending_suspend
 type	PROC_LIST	SHORT_LIVED	PROCESSES	proc_list
 type	FUN_ENTRY	FIXED_SIZE	CODE		fun_entry
 type	ATOM_TXT	LONG_LIVED	ATOM		atom_text
+type 	BEAM_REGISTER	EHEAP		PROCESSES	beam_register
 type	HEAP		EHEAP		PROCESSES	heap
 type	OLD_HEAP	EHEAP		PROCESSES	old_heap
 type	HEAP_FRAG	EHEAP		PROCESSES	heap_frag
@@ -321,6 +322,9 @@ type	SSB		SHORT_LIVED	PROCESSES	ssb
 #
 # Types used by system specific code
 #
+
+type  	TEMP_TERM 	TEMPORARY	SYSTEM		temp_term
+type  	LL_TEMP_TERM 	LONG_LIVED	SYSTEM		ll_temp_term
 
 type	DRV_TAB		LONG_LIVED	SYSTEM		drv_tab
 type	DRV_EV_STATE	LONG_LIVED	SYSTEM		driver_event_state

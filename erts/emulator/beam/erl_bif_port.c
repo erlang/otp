@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -716,15 +716,17 @@ open_port(Process* p, Eterm name, Eterm settings, int *err_nump)
 		    }
 		} else if (option == am_cd) {
 		    Eterm iolist;
-		    Eterm heap[4];
+		    DeclareTmpHeap(heap,4,p);
 		    int r;
 
+		    UseTmpHeap(4,p);
 		    heap[0] = *tp;
 		    heap[1] = make_list(heap+2);
 		    heap[2] = make_small(0);
 		    heap[3] = NIL;
 		    iolist = make_list(heap);
 		    r = io_list_to_buf(iolist, (char*) dir, MAXPATHLEN);
+		    UnUseTmpHeap(4,p);
 		    if (r < 0) {
 			goto badarg;
 		    }

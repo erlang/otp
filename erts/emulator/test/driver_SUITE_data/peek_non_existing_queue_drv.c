@@ -127,7 +127,7 @@ static int control(ErlDrvData drv_data,
 		   char **rbuf, int rlen)
 {
     PeekNonXQDrvData *dp = (PeekNonXQDrvData *) drv_data;
-    unsigned int key = 0;
+    unsigned long key = 0;
     char *res_str = "ok";
     ErlDrvSysInfo si;
     driver_system_info(&si, sizeof(ErlDrvSysInfo));

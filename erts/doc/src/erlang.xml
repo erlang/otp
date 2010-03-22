@@ -5850,9 +5850,23 @@ true</pre>
           </item>
           <tag><c>wordsize</c></tag>
           <item>
-            <p>Returns the word size in bytes as an integer, i.e. on a
-              32-bit architecture 4 is returned, and on a 64-bit
-              architecture 8 is returned.</p>
+            <p>Same as <c>{wordsize, internal}</c></p>
+          </item>
+          <tag><c>{wordsize, internal}</c></tag>
+          <item>
+            <p>Returns the size of Erlang term words in bytes as an
+              integer, i.e. on a 32-bit architecture 4 is returned,
+              and on a pure 64-bit architecture 8 is returned. On a
+              halfword 64-bit emulator, 4 is returned, as the Erlang
+              terms are stored using a virtual wordsize of half the
+              systems wordsize.</p>
+          </item>
+          <tag><c>{wordsize, external}</c></tag>
+          <item>
+	    <p>Returns the true wordsize of the emulator, i.e. the size
+	       of a pointer, in bytes as an integer. On a pure 32-bit
+	       architecture 4 is returned, on both a halfword and pure
+	       64-bit architecture, 8 is returned.</p>
           </item>
         </taglist>
         <note>

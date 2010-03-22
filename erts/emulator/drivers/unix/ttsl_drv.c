@@ -314,7 +314,7 @@ static ErlDrvData ttysl_start(ErlDrvPort port, char* buf)
     sys_sigset(SIGCONT, cont);
     sys_sigset(SIGWINCH, winch);
 
-    driver_select(port, (ErlDrvEvent)(Uint)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
+    driver_select(port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 1);
     ttysl_port = port;
 
     /* we need to know this when we enter the break handler */
@@ -394,7 +394,7 @@ static void ttysl_stop(ErlDrvData ttysl_data)
 	stop_lbuf();
 	stop_termcap();
 	tty_reset(ttysl_fd);
-	driver_select(ttysl_port, (ErlDrvEvent)(Uint)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 0);
+	driver_select(ttysl_port, (ErlDrvEvent)(UWord)ttysl_fd, ERL_DRV_READ|ERL_DRV_USE, 0);
 	sys_sigset(SIGCONT, SIG_DFL);
 	sys_sigset(SIGWINCH, SIG_DFL);
     }
@@ -685,7 +685,7 @@ static void ttysl_from_tty(ErlDrvData ttysl_data, ErlDrvEvent fd)
 	utf8buf_size = 0;
     }
     
-    if ((i = read((int)(Sint)fd, (char *) p, left)) >= 0) {
+    if ((i = read((int)(SWord)fd, (char *) p, left)) >= 0) {
 	if (p != b) {
 	    i += (p - b);
 	}

@@ -212,7 +212,7 @@ erts_dist_ext_trailer(ErtsDistExternal *edep)
 {
     void *res = (void *) (edep->ext_endp
 			  + ERTS_WORD_ALIGN_PAD_SZ(edep->ext_endp));
-    ASSERT((((Uint) res) % sizeof(Uint)) == 0);
+    ASSERT((((UWord) res) % sizeof(Uint)) == 0);
     return res;
 }
 

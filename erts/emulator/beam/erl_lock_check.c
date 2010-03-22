@@ -155,6 +155,9 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"fix_alloc",				"index"			},
     {	"alcu_allocator",			"index"			},
     {	"mseg",					NULL			},
+#ifdef HALFWORD_HEAP
+    {	"pmmap",				NULL			},
+#endif
 #ifdef ERTS_SMP
     {	"port_task_pre_alloc_lock",		"address"		},
     {	"port_taskq_pre_alloc_lock",		"address"		},
@@ -1231,6 +1234,8 @@ void
 erts_lc_init_lock(erts_lc_lock_t *lck, char *name, Uint16 flags)
 {
     lck->id = erts_lc_get_lock_order_id(name);
+
+    /* XXX:PaN What to do with the extra information? */
     lck->extra = make_boxed(&lck->extra);
     lck->flags = flags;
     lck->inited = ERTS_LC_INITITALIZED;

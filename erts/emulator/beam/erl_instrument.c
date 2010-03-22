@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -540,18 +540,18 @@ static void dump_memory_map_to_stream(FILE *fp)
 	if (is_internal_pid(bp->pid))
 	    fprintf(fp,
 		    "{%lu, %lu, %lu, {%lu,%lu,%lu}}.\n",
-		    (Uint) bp->type_no,
-		    (Uint) bp->mem,
-		    (Uint) bp->size,
-		    (Uint) pid_channel_no(bp->pid),
-		    (Uint) pid_number(bp->pid),
-		    (Uint) pid_serial(bp->pid));
+		    (UWord) bp->type_no,
+		    (UWord) bp->mem,
+		    (UWord) bp->size,
+		    (UWord) pid_channel_no(bp->pid),
+		    (UWord) pid_number(bp->pid),
+		    (UWord) pid_serial(bp->pid));
 	else
 	    fprintf(fp,
 		    "{%lu, %lu, %lu, undefined}.\n",
-		    (Uint) bp->type_no,
-		    (Uint) bp->mem,
-		    (Uint) bp->size);
+		    (UWord) bp->type_no,
+		    (UWord) bp->mem,
+		    (UWord) bp->size);
     }
 
     if (lock)
@@ -638,7 +638,7 @@ Eterm erts_instr_get_memory_map(Process *proc)
 	    hsz += 4;
 	}
 
-	if ((Uint) bp->mem > MAX_SMALL)
+	if ((UWord) bp->mem > MAX_SMALL)
 	    hsz += BIG_UINT_HEAP_SIZE;
 	if (bp->size > MAX_SMALL)
 	    hsz += BIG_UINT_HEAP_SIZE;
@@ -749,12 +749,12 @@ Eterm erts_instr_get_memory_map(Process *proc)
 #endif
 	type = make_small(bp->type_no);
 
-	if ((Uint) bp->mem > MAX_SMALL) {
-	    ptr = uint_to_big((Uint) bp->mem, hp);
+	if ((UWord) bp->mem > MAX_SMALL) {
+	    ptr = uint_to_big((UWord) bp->mem, hp);
 	    hp += BIG_UINT_HEAP_SIZE;
 	}
 	else
-	    ptr = make_small((Uint) bp->mem);
+	    ptr = make_small((UWord) bp->mem);
 
 	if (bp->size > MAX_SMALL) {
 	    size = uint_to_big(bp->size, hp);
@@ -962,12 +962,12 @@ dump_stat_to_stream(FILE *fp, int begin_max_period)
 
     fprintf(fp,
 	    "{total,[{total,[{sizes,%lu,%lu,%lu},{blocks,%lu,%lu,%lu}]}]}.\n",
-	    stats->tot.size,
-	    stats->tot.max_size,
-	    stats->tot.max_size_ever,
-	    stats->tot.blocks,
-	    stats->tot.max_blocks,
-	    stats->tot.max_blocks_ever);
+	    (UWord) stats->tot.size,
+	    (UWord) stats->tot.max_size,
+	    (UWord) stats->tot.max_size_ever,
+	    (UWord) stats->tot.blocks,
+	    (UWord) stats->tot.max_blocks,
+	    (UWord) stats->tot.max_blocks_ever);
 
     a_max = 0;
     a_min = ~0;
@@ -992,12 +992,12 @@ dump_stat_to_stream(FILE *fp, int begin_max_period)
 		    "%s{%s,[{sizes,%lu,%lu,%lu},{blocks,%lu,%lu,%lu}]}%s",
 		    i == a_min ? "{allocators,\n [" : "  ",
 		    ERTS_ALC_A2AD(i),
-		    stats->a[i].size,
-		    stats->a[i].max_size,
-		    stats->a[i].max_size_ever,
-		    stats->a[i].blocks,
-		    stats->a[i].max_blocks,
-		    stats->a[i].max_blocks_ever,
+		    (UWord) stats->a[i].size,
+		    (UWord) stats->a[i].max_size,
+		    (UWord) stats->a[i].max_size_ever,
+		    (UWord) stats->a[i].blocks,
+		    (UWord) stats->a[i].max_blocks,
+		    (UWord) stats->a[i].max_blocks_ever,
 		    i == a_max ? "]}.\n" : ",\n");
 	}
     }
@@ -1009,12 +1009,12 @@ dump_stat_to_stream(FILE *fp, int begin_max_period)
 		"%s{%s,[{sizes,%lu,%lu,%lu},{blocks,%lu,%lu,%lu}]}%s",
 		i == ERTS_ALC_C_MIN ? "{classes,\n [" : "  ",
 		ERTS_ALC_C2CD(i),
-		stats->c[i].size,
-		stats->c[i].max_size,
-		stats->c[i].max_size_ever,
-		stats->c[i].blocks,
-		stats->c[i].max_blocks,
-		stats->c[i].max_blocks_ever,
+		(UWord) stats->c[i].size,
+		(UWord) stats->c[i].max_size,
+		(UWord) stats->c[i].max_size_ever,
+		(UWord) stats->c[i].blocks,
+		(UWord) stats->c[i].max_blocks,
+		(UWord) stats->c[i].max_blocks_ever,
 		i == ERTS_ALC_C_MAX ? "]}.\n" :  ",\n" );
     }
 
@@ -1025,12 +1025,12 @@ dump_stat_to_stream(FILE *fp, int begin_max_period)
 		"%s{%s,[{sizes,%lu,%lu,%lu},{blocks,%lu,%lu,%lu}]}%s",
 		i == ERTS_ALC_N_MIN ? "{types,\n [" : "  ",
 		ERTS_ALC_N2TD(i),
-		stats->n[i].size,
-		stats->n[i].max_size,
-		stats->n[i].max_size_ever,
-		stats->n[i].blocks,
-		stats->n[i].max_blocks,
-		stats->n[i].max_blocks_ever,
+		(UWord) stats->n[i].size,
+		(UWord) stats->n[i].max_size,
+		(UWord) stats->n[i].max_size_ever,
+		(UWord) stats->n[i].blocks,
+		(UWord) stats->n[i].max_blocks,
+		(UWord) stats->n[i].max_blocks_ever,
 		i == ERTS_ALC_N_MAX ? "]}.\n" :  ",\n" );
     }
 

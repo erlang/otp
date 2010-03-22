@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2005-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2005-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -246,7 +246,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 
     if (is_CP(obj)) {
 	PRINT_STRING(res, fn, arg, "<cp/header:");
-	PRINT_POINTER(res, fn, arg, obj);
+	PRINT_POINTER(res, fn, arg, cp_val(obj));
 	PRINT_CHAR(res, fn, arg, '>');
 	return res;
     }
@@ -406,7 +406,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	break;
     case EXPORT_DEF:
 	{
-	    Export* ep = (Export *) (export_val(obj))[1];
+	    Export* ep = *((Export **) (export_val(obj) + 1));
 	    Atom* module = atom_tab(atom_val(ep->code[0]));
 	    Atom* name = atom_tab(atom_val(ep->code[1]));
 
@@ -438,7 +438,7 @@ print_term(fmtfn_t fn, void* arg, Eterm obj, long *dcount)
 	break;
     default:
 	PRINT_STRING(res, fn, arg, "<unknown:");
-	PRINT_POINTER(res, fn, arg, obj);
+	PRINT_POINTER(res, fn, arg, (UWord) obj);
 	PRINT_CHAR(res, fn, arg, '>');
 	break;
     }

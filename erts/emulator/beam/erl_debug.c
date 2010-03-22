@@ -235,9 +235,9 @@ pps(Process* p, Eterm* stop)
     }
 
     while(sp >= stop) {
-	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (Eterm) sp);
+	erts_print(to, to_arg, "%0*lx: ", PTR_SIZE, (UWord) sp);
 	if (is_catch(*sp)) {
-	    erts_print(to, to_arg, "catch %d", (Uint)catch_pc(*sp));
+	    erts_print(to, to_arg, "catch %ld", (UWord)catch_pc(*sp));
 	} else {
 	    paranoid_display(to, to_arg, p, *sp);
 	}
@@ -895,5 +895,29 @@ void print_memory_info(Process *p)
 #endif
     erts_printf("+-----------------%s-%s-%s-%s-+\n",dashes,dashes,dashes,dashes);
 }
+#if !HEAP_ON_C_STACK && defined(DEBUG)
+Eterm *erts_debug_allocate_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+    int offset = sd->num_tmp_heap_used;
+
+    ASSERT(offset+size <= TMP_HEAP_SIZE);
+    return (sd->tmp_heap)+offset;
+}
+void erts_debug_use_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+
+    sd->num_tmp_heap_used += size;
+    ASSERT(sd->num_tmp_heap_used <= TMP_HEAP_SIZE);
+}
+void erts_debug_unuse_tmp_heap(int size, Process *p)
+{
+    ErtsSchedulerData *sd = ((p == NULL) ? erts_get_scheduler_data() : ERTS_PROC_GET_SCHDATA(p));
+
+    sd->num_tmp_heap_used -= size;
+    ASSERT(sd->num_tmp_heap_used >= 0);
+}
+#endif
 #endif
 
