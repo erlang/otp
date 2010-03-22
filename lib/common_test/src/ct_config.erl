@@ -208,7 +208,9 @@ get_config_file_list(Opts)->
 read_config_files(Opts) ->
     AddCallback = fun(CallBack, [])->
 			[{CallBack, []}];
-		     (CallBack, Files)->
+		     (CallBack, [F|_]=Files) when is_integer(F)->
+			[{CallBack, Files}];
+		     (CallBack, [F|_]=Files) when is_list(F)->
 			lists:map(fun(X)-> {CallBack, X} end, Files)
 		  end,
     ConfigFiles = case lists:keyfind(config, 1, Opts) of
@@ -697,20 +699,31 @@ check_callback_load(Callback)->
     end.
 
 check_config_files(Configs)->
-    lists:keysearch(error, 1,
-	lists:flatten(
-	    lists:map(fun({Callback, Files})->
-		case check_callback_load(Callback) of
-		    {ok, Callback}->
-		        lists:map(fun(File)->
-			    Callback:check_parameter(File)
-			end,
-			Files);
-		    {error, _}->
-			{error, {callback, Callback}}
-		end
-	    end,
-	Configs))).
+    ConfigChecker = fun
+	({Callback, [F|_R]=Files})->
+	    case check_callback_load(Callback) of
+		{ok, Callback}->
+			if
+			    is_integer(F)->
+				Callback:check_parameter(Files);
+			    is_list(F)->
+				lists:map(fun(File)->
+				    Callback:check_parameter(File)
+				end,
+				Files)
+			end;
+		{error, _}->
+		    {error, {callback, Callback}}
+	    end;
+	({Callback, []})->
+	    case check_callback_load(Callback) of
+		{ok, Callback}->
+		     Callback:check_parameter([]);
+		{error, _}->
+		     {error, {callback, Callback}}
+	    end
+    end,
+    lists:keysearch(error, 1, lists:flatten(lists:map(ConfigChecker, Configs))).
 
 prepare_user_configs([ConfigString|UserConfigs], Acc, new)->
     prepare_user_configs(UserConfigs,

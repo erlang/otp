@@ -306,8 +306,6 @@ get_global([{node,Ref,Node}|Ts],Spec=#testspec{nodes=Refs}) ->
 get_global([_|Ts],Spec) -> get_global(Ts,Spec);
 get_global([],Spec) -> Spec.
 
-% TODO probably we can terminate here, if any problem with the filename
-% anyway, later ct_run will do it for us :-)
 get_absfile(Callback, FullName,#testspec{spec_dir=SpecDir}) ->
     % we need to temporary switch to new cwd here, because
     % otherwise config files cannot be found
