@@ -87,7 +87,7 @@ accept(Listen) ->
 accept_loop(Kernel, Listen) ->
     case inet6_tcp:accept(Listen) of
         {ok, Socket} ->
-            Kernel ! {accept,self(),Socket,inet,tcp},
+            Kernel ! {accept,self(),Socket,inet6,tcp},
             controller(Kernel, Socket),
             accept_loop(Kernel, Listen);
         Error ->
@@ -236,8 +236,8 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
                               timer = Timer,
                               this_flags = 0,
                               other_version = Version,
-			      f_send = fun inet_tcp:send/2,
-			      f_recv = fun inet_tcp:recv/3,
+			      f_send = fun inet6_tcp:send/2,
+			      f_recv = fun inet6_tcp:recv/3,
                               f_setopts_pre_nodeup = 
                               fun(S) ->
                                       inet:setopts
@@ -262,7 +262,7 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
                                    address = {Ip,TcpPort},
                                    host = Address,
                                    protocol = tcp,
-                                   family = inet}
+                                   family = inet6}
                               end,
 			      mf_tick = fun ?MODULE:tick/1,
 			      mf_getstat = fun ?MODULE:getstat/1,
