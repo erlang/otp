@@ -302,12 +302,17 @@ splitnode(Node, LongOrShortNames) ->
             Host = lists:append(Tail),
             case split_node(Host, $., []) of
                 [_] when LongOrShortNames =:= longnames ->
-                    error_msg("** System running to use "
-                              "fully qualified "
-                              "hostnames **~n"
-                              "** Hostname ~s is illegal **~n",
-                              [Host]),
-                    ?shutdown(Node);
+                    case inet_parse:ipv6strict_address(Host) of
+                        {ok, _} ->
+                            [Name, Host];
+                        _ ->
+                            error_msg("** System running to use "
+                                      "fully qualified "
+                                      "hostnames **~n"
+                                      "** Hostname ~s is illegal **~n",
+                                      [Host]),
+                            ?shutdown(Node)
+                    end;
                 L when length(L) > 1, LongOrShortNames =:= shortnames ->
                     error_msg("** System NOT running to use fully qualified "
                               "hostnames **~n"
