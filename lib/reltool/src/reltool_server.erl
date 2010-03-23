@@ -442,12 +442,13 @@ analyse(#state{common = C,
     MissingApp = default_app(?MISSING_APP, "missing"),
     ets:insert(C#common.app_tab, MissingApp),
 
-    RelApps = apps_in_rels(Rels),
-    {Apps2, Status2} =
+    {RevRelApps, Status2} = apps_in_rels(Rels, Apps, Status),
+    RelApps2 = lists:reverse(RevRelApps),
+    {Apps2, Status3} =
 	lists:mapfoldl(fun(App, Acc) ->
-			       app_init_is_included(C, Sys, App, RelApps, Acc)
+			       app_init_is_included(C, Sys, App, RelApps2, Acc)
 		       end,
-		  Status,
+		  Status2,
 		  Apps),
     Apps3 =
         case app_propagate_is_included(C, Sys, Apps2, []) of
@@ -467,17 +468,51 @@ analyse(#state{common = C,
     %% io:format("Missing app: ~p\n",
     %%           [lists:keysearch(?MISSING_APP, #app.name, Apps4)]),
     Sys2 = Sys#sys{apps = Apps4},
-    case verify_config(Sys2, Status2) of
-	{ok, _Warnings} = Status3 ->
-	    {S#state{sys = Sys2}, Status3};
-	{error, _} = Status3 ->
-            {S, Status3}
+
+    case verify_config(RelApps2, Sys2, Status3) of
+	{ok, _Warnings} = Status4 ->
+	    {S#state{sys = Sys2}, Status4};
+	{error, _} = Status4 ->
+            {S, Status4}
     end.
 
-apps_in_rels(Rels) ->
-    [{RelName, AppName} || #rel{name = RelName, rel_apps = RelApps} <- Rels,
-			   RA <- RelApps,
-			   AppName <- [RA#rel_app.name | RA#rel_app.incl_apps]].
+apps_in_rels(Rels, Apps, Status) ->
+    lists:foldl(fun(Rel, {RelApps, S}) ->
+			{MoreRelApps, S2} = apps_in_rel(Rel, Apps, S),
+			{MoreRelApps ++ RelApps, S2}
+		end,
+		{[], Status},
+		Rels).
+
+apps_in_rel(#rel{name = RelName, rel_apps = RelApps}, Apps, Status) ->
+    Mandatory = [{RelName, kernel}, {RelName, stdlib}],
+    Other = [{RelName, AppName} ||
+		RA <- RelApps,
+		AppName <- [RA#rel_app.name | RA#rel_app.incl_apps],
+		not lists:keymember(AppName, 2, Mandatory)],
+    more_apps_in_rels(Mandatory ++ Other, Apps, [], Status).
+
+more_apps_in_rels([{RelName, AppName} = RA | RelApps], Apps, Acc, Status) ->
+    case lists:member(RA, Acc) of
+	true ->
+	    more_apps_in_rels(RelApps, Apps, Acc, Status);
+	false ->
+	    case lists:keysearch(AppName, #app.name, Apps) of
+		{value, #app{info = #app_info{applications = InfoApps}}} ->
+		    Extra = [{RelName, N} || N <- InfoApps],
+		    {Acc2, Status2} =
+			more_apps_in_rels(Extra, Apps, [RA | Acc], Status),
+		    more_apps_in_rels(RelApps, Apps, Acc2, Status2);
+		false ->
+		    Text = lists:concat(["Release ", RelName,
+					 " uses non existing application ",
+					 AppName]),
+		    Status2 = reltool_utils:return_first_error(Status, Text),
+		    more_apps_in_rels(RelApps, Apps, Acc, Status2)
+	    end
+    end;
+more_apps_in_rels([], _Apps, Acc, Status) ->
+    {Acc, Status}.
 
 app_init_is_included(C,
 		     Sys,
@@ -706,8 +741,6 @@ mod_propagate_is_used_by(_C, []) ->
 
 read_apps(C, Sys, [#app{mods = Mods, is_included = IsIncl} = A | Apps], Acc) ->
     {Mods2, IsIncl2} = read_apps(C, Sys, A, Mods, [], IsIncl),
-    %% reltool_utils:print(A#app.name, stdlib, "Mods2: ~p\n",
-    %% [[M#mod.status || M <- Mods2]]),
     Status =
         case lists:keysearch(missing, #mod.status, Mods2) of
             {value, _} -> missing;
@@ -770,9 +803,7 @@ filter_app(A) ->
     Mods = [M#mod{is_app_mod = undefined,
                   is_ebin_mod = undefined,
                   uses_mods = undefined,
-                  exists = false,
-                  is_pre_included = undefined,
-                  is_included = undefined} ||
+                  exists = false} ||
                M <- A#app.mods,
                M#mod.incl_cond =/= undefined],
     if
@@ -781,8 +812,7 @@ filter_app(A) ->
                          label = undefined,
                          info = undefined,
                          mods = [],
-                         uses_mods = undefined,
-                         is_included = undefined}};
+                         uses_mods = undefined}};
         Mods =:= [],
         A#app.mod_cond =:= undefined,
         A#app.incl_cond =:= undefined,
@@ -812,8 +842,7 @@ filter_app(A) ->
                          label = undefined,
                          info = undefined,
                          mods = Mods,
-                         uses_mods = undefined,
-                         is_included = undefined}}
+                         uses_mods = undefined}}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -850,16 +879,16 @@ refresh_app(#app{name = AppName,
                 end,
 
             %% Add non-existing modules
+	    AppInfoMods = AppInfo#app_info.modules,
             AppModNames =
                 case AppInfo#app_info.mod of
                     {StartModName, _} ->
-                        case lists:member(StartModName,
-					  AppInfo#app_info.modules) of
-                            true  -> AppInfo#app_info.modules;
-                            false -> [StartModName | AppInfo#app_info.modules]
+                        case lists:member(StartModName, AppInfoMods) of
+                            true  -> AppInfoMods;
+                            false -> [StartModName | AppInfoMods]
                         end;
                     undefined ->
-                        AppInfo#app_info.modules
+                        AppInfoMods
                 end,
             MissingMods = add_missing_mods(AppName, EbinMods, AppModNames),
 
@@ -1206,11 +1235,14 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
                 {Sys#sys{root_dir = Val}, Status};
             lib_dirs when is_list(Val) ->
                 {Sys#sys{lib_dirs = Val}, Status};
-            mod_cond when Val =:= all; Val =:= app;
-                          Val =:= ebin; Val =:= derived;
+            mod_cond when Val =:= all;
+			  Val =:= app;
+                          Val =:= ebin;
+			  Val =:= derived;
                           Val =:= none ->
                 {Sys#sys{mod_cond = Val}, Status};
-            incl_cond when Val =:= include; Val =:= exclude;
+            incl_cond when Val =:= include;
+			   Val =:= exclude;
                            Val =:= derived ->
                 {Sys#sys{incl_cond = Val}, Status};
             boot_rel when is_list(Val) ->
@@ -1220,78 +1252,96 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
             profile when Val =:= development ->
                 Val = ?DEFAULT_PROFILE, % assert,
                 {Sys#sys{profile = Val,
-                         incl_sys_filters = dec_re(incl_sys_filters,
-						   ?DEFAULT_INCL_SYS_FILTERS,
-						   Sys#sys.incl_sys_filters),
-                         excl_sys_filters = dec_re(excl_sys_filters,
-						   ?DEFAULT_EXCL_SYS_FILTERS,
-						   Sys#sys.excl_sys_filters),
-                         incl_app_filters = dec_re(incl_app_filters,
-						   ?DEFAULT_INCL_APP_FILTERS,
-						   Sys#sys.incl_app_filters),
-                         excl_app_filters = dec_re(excl_app_filters,
-						   ?DEFAULT_EXCL_APP_FILTERS,
-						   Sys#sys.excl_app_filters)},
+                         incl_sys_filters =
+			 dec_re(incl_sys_filters,
+				?DEFAULT_INCL_SYS_FILTERS,
+				Sys#sys.incl_sys_filters),
+                         excl_sys_filters =
+			 dec_re(excl_sys_filters,
+				?DEFAULT_EXCL_SYS_FILTERS,
+				Sys#sys.excl_sys_filters),
+                         incl_app_filters =
+			 dec_re(incl_app_filters,
+				?DEFAULT_INCL_APP_FILTERS,
+				Sys#sys.incl_app_filters),
+                         excl_app_filters =
+			 dec_re(excl_app_filters,
+				?DEFAULT_EXCL_APP_FILTERS,
+				Sys#sys.excl_app_filters)},
                  Status};
             profile when Val =:= embedded ->
                 {Sys#sys{profile = Val,
-                         incl_sys_filters = dec_re(incl_sys_filters,
-						   ?EMBEDDED_INCL_SYS_FILTERS,
-						   Sys#sys.incl_sys_filters),
-                         excl_sys_filters = dec_re(excl_sys_filters,
-						   ?EMBEDDED_EXCL_SYS_FILTERS,
-						   Sys#sys.excl_sys_filters),
-                         incl_app_filters = dec_re(incl_app_filters,
-						   ?EMBEDDED_INCL_APP_FILTERS,
-						   Sys#sys.incl_app_filters),
-                         excl_app_filters = dec_re(excl_app_filters,
-						   ?EMBEDDED_EXCL_APP_FILTERS,
-						   Sys#sys.excl_app_filters)},
+                         incl_sys_filters =
+			 dec_re(incl_sys_filters,
+				?EMBEDDED_INCL_SYS_FILTERS,
+				Sys#sys.incl_sys_filters),
+                         excl_sys_filters =
+			 dec_re(excl_sys_filters,
+				?EMBEDDED_EXCL_SYS_FILTERS,
+				Sys#sys.excl_sys_filters),
+                         incl_app_filters =
+			 dec_re(incl_app_filters,
+				?EMBEDDED_INCL_APP_FILTERS,
+				Sys#sys.incl_app_filters),
+                         excl_app_filters =
+			 dec_re(excl_app_filters,
+				?EMBEDDED_EXCL_APP_FILTERS,
+				Sys#sys.excl_app_filters)},
                  Status};
             profile when Val =:= standalone ->
                 {Sys#sys{profile = Val,
-                         incl_sys_filters = dec_re(incl_sys_filters,
-						   ?STANDALONE_INCL_SYS_FILTERS,
-						   Sys#sys.incl_sys_filters),
-                         excl_sys_filters = dec_re(excl_sys_filters,
-						   ?STANDALONE_EXCL_SYS_FILTERS,
-						   Sys#sys.excl_sys_filters),
-                         incl_app_filters = dec_re(incl_app_filters,
-						   ?STANDALONE_INCL_APP_FILTERS,
-						   Sys#sys.incl_app_filters),
-                         excl_app_filters = dec_re(excl_app_filters,
-						   ?STANDALONE_EXCL_APP_FILTERS,
-						   Sys#sys.excl_app_filters)},
+                         incl_sys_filters =
+			 dec_re(incl_sys_filters,
+				?STANDALONE_INCL_SYS_FILTERS,
+				Sys#sys.incl_sys_filters),
+                         excl_sys_filters =
+			 dec_re(excl_sys_filters,
+				?STANDALONE_EXCL_SYS_FILTERS,
+				Sys#sys.excl_sys_filters),
+                         incl_app_filters =
+			 dec_re(incl_app_filters,
+				?STANDALONE_INCL_APP_FILTERS,
+				Sys#sys.incl_app_filters),
+                         excl_app_filters =
+			 dec_re(excl_app_filters,
+				?STANDALONE_EXCL_APP_FILTERS,
+				Sys#sys.excl_app_filters)},
                  Status};
             incl_sys_filters ->
-                {Sys#sys{incl_sys_filters = dec_re(Key,
-						   Val,
-						   Sys#sys.incl_sys_filters)},
+                {Sys#sys{incl_sys_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.incl_sys_filters)},
 		 Status};
             excl_sys_filters ->
-                {Sys#sys{excl_sys_filters = dec_re(Key,
-						   Val,
-						   Sys#sys.excl_sys_filters)},
+                {Sys#sys{excl_sys_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.excl_sys_filters)},
 		 Status};
             incl_app_filters ->
-                {Sys#sys{incl_app_filters = dec_re(Key,
-						   Val,
-						   Sys#sys.incl_app_filters)},
+                {Sys#sys{incl_app_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.incl_app_filters)},
 		 Status};
             excl_app_filters ->
-                {Sys#sys{excl_app_filters = dec_re(Key,
-						   Val,
-						   Sys#sys.excl_app_filters)},
+                {Sys#sys{excl_app_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.excl_app_filters)},
 		 Status};
             incl_archive_filters ->
-                {Sys#sys{incl_archive_filters = dec_re(Key,
-						       Val,
-						       Sys#sys.incl_archive_filters)},
+                {Sys#sys{incl_archive_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.incl_archive_filters)},
 		 Status};
             excl_archive_filters ->
-                {Sys#sys{excl_archive_filters = dec_re(Key,
-						       Val,
-						       Sys#sys.excl_archive_filters)},
+                {Sys#sys{excl_archive_filters =
+			 dec_re(Key,
+				Val,
+				Sys#sys.excl_archive_filters)},
 		 Status};
             archive_opts when is_list(Val) ->
                 {Sys#sys{archive_opts = Val}, Status};
@@ -1300,7 +1350,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
             app_type when Val =:= permanent;
 			  Val =:= transient;
 			  Val =:= temporary;
-                          Val =:= load; Val =:= none ->
+                          Val =:= load;
+			  Val =:= none ->
                 {Sys#sys{app_type = Val}, Status};
             app_file when Val =:= keep; Val =:= strip, Val =:= all ->
                 {Sys#sys{app_file = Val}, Status};
@@ -1341,24 +1392,28 @@ decode(#app{} = App, [{Key, Val} | KeyVals], Status) ->
 			  Val =:= none ->
                 {App#app{app_type = Val}, Status};
             incl_app_filters ->
-                {App#app{incl_app_filters = dec_re(Key,
-						   Val,
-						   App#app.incl_app_filters)},
+                {App#app{incl_app_filters =
+			 dec_re(Key,
+				Val,
+				App#app.incl_app_filters)},
 		 Status};
             excl_app_filters ->
-                {App#app{excl_app_filters = dec_re(Key,
-						   Val,
-						   App#app.excl_app_filters)},
+                {App#app{excl_app_filters =
+			 dec_re(Key,
+				Val,
+				App#app.excl_app_filters)},
 		 Status};
             incl_archive_filters ->
-                {App#app{incl_archive_filters = dec_re(Key,
-						       Val,
-						       App#app.incl_archive_filters)},
+                {App#app{incl_archive_filters =
+			 dec_re(Key,
+				Val,
+				App#app.incl_archive_filters)},
 		 Status};
             excl_archive_filters ->
-                {App#app{excl_archive_filters = dec_re(Key,
-						       Val,
-						       App#app.excl_archive_filters)},
+                {App#app{excl_archive_filters =
+			 dec_re(Key,
+				Val,
+				App#app.excl_archive_filters)},
 		 Status};
             archive_opts when is_list(Val) ->
                 {App#app{archive_opts = Val}, Status};
@@ -1463,24 +1518,41 @@ merge_config(OldSys, NewSys, Force, Status) ->
                          apps = PatchedApps},
     {NewSys2, Status5}.
 
-verify_config(Sys, Status) ->
-    case lists:keymember(Sys#sys.boot_rel, #rel.name, Sys#sys.rels) of
+verify_config(RelApps, #sys{boot_rel = BootRel, rels = Rels, apps = Apps}, Status) ->
+    case lists:keymember(BootRel, #rel.name, Rels) of
         true ->
-            lists:foldl(fun(Rel, Acc)-> check_rel(Rel, Sys, Acc) end,
-			Status,
-			Sys#sys.rels);
+	    Status2 = lists:foldl(fun(RA, Acc) ->
+					  check_app(RA, Apps, Acc) end,
+				  Status,
+				  RelApps),
+	    lists:foldl(fun(#rel{name = RelName}, Acc)->
+				check_rel(RelName, RelApps, Acc)
+			end,
+			Status2,
+			Rels);
         false ->
-	    Text = lists:concat(["Release ", Sys#sys.boot_rel,
+	    Text = lists:concat(["Release ", BootRel,
 				 " is mandatory (used as boot_rel)"]),
 	    reltool_utils:return_first_error(Status, Text)
     end.
 
-check_rel(#rel{name = RelName, rel_apps = RelApps},
-	  #sys{apps = Apps},
-	  Status) ->
+check_app({RelName, AppName}, Apps, Status) ->
+    case lists:keysearch(AppName, #app.name, Apps) of
+	{value, App} when App#app.is_pre_included ->
+	    Status;
+	{value, App} when App#app.is_included ->
+	    Status;
+	_ ->
+	    Text = lists:concat(["Release ", RelName,
+						     " uses non included application ",
+				 AppName]),
+	    reltool_utils:return_first_error(Status, Text)
+    end.
+
+check_rel(RelName, RelApps, Status) ->
     EnsureApp =
         fun(AppName, Acc) ->
-                case lists:keymember(AppName, #rel_app.name, RelApps) of
+                case lists:member({RelName, AppName}, RelApps) of
                     true ->
                         Acc;
                     false ->
@@ -1492,23 +1564,7 @@ check_rel(#rel{name = RelName, rel_apps = RelApps},
                 end
         end,
     Mandatory = [kernel, stdlib],
-    Status2 = lists:foldl(EnsureApp, Status, Mandatory),
-    CheckRelApp =
-        fun(#rel_app{name = AppName}, Acc) ->
-                case lists:keysearch(AppName, #app.name, Apps) of
-                    {value, App} when App#app.is_pre_included ->
-                        Acc;
-                    {value, App} when App#app.is_included ->
-                        Acc;
-                    _ ->
-			Text = lists:concat(["Release ", RelName,
-					     " uses non included application ",
-					     AppName]),
-
-			reltool_utils:return_first_error(Acc, Text)
-                end
-        end,
-    lists:foldl(CheckRelApp, Status2, RelApps).
+    lists:foldl(EnsureApp, Status, Mandatory).
 
 patch_erts_version(RootDir, Apps, Status) ->
     AppName = erts,

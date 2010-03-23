@@ -70,7 +70,7 @@ all(suite) ->
     [
      fields,
      modules,
-     exportall,
+     export_all,
      app_depend,
      undef_funcs
     ].
@@ -175,11 +175,11 @@ extra_modules(Mods, [Mod|Ebins], Extra) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-exportall(suite) ->
+export_all(suite) ->
     [];
-exportall(doc) ->
+export_all(doc) ->
     [];
-exportall(Config) when is_list(Config) ->
+export_all(Config) when is_list(Config) ->
     AppFile = key1search(app_file, Config),
     Mods    = key1search(modules, AppFile),
     check_export_all(Mods).

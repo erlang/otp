@@ -67,26 +67,26 @@ kernel_processes(KernelApp) ->
 gen_config(Sys, InclDefs) ->
     {ok, do_gen_config(Sys, InclDefs)}.
 
-do_gen_config(#sys{root_dir          = RootDir,
-		   lib_dirs          = LibDirs,
-		   mod_cond          = ModCond,
-		   incl_cond         = AppCond,
-		   apps              = Apps,
-		   boot_rel          = BootRel,
-		   rels              = Rels,
-		   emu_name          = EmuName,
-		   profile           = Profile,
-		   incl_sys_filters    = InclSysFiles,
-		   excl_sys_filters    = ExclSysFiles,
-		   incl_app_filters    = InclAppFiles,
-		   excl_app_filters    = ExclAppFiles,
+do_gen_config(#sys{root_dir          	= RootDir,
+		   lib_dirs          	= LibDirs,
+		   mod_cond          	= ModCond,
+		   incl_cond         	= AppCond,
+		   apps              	= Apps,
+		   boot_rel          	= BootRel,
+		   rels              	= Rels,
+		   emu_name          	= EmuName,
+		   profile           	= Profile,
+		   incl_sys_filters  	= InclSysFiles,
+		   excl_sys_filters  	= ExclSysFiles,
+		   incl_app_filters  	= InclAppFiles,
+		   excl_app_filters  	= ExclAppFiles,
 		   incl_archive_filters = InclArchiveDirs,
 		   excl_archive_filters = ExclArchiveDirs,
-		   archive_opts      = ArchiveOpts,
-		   relocatable       = Relocatable,
-		   app_type          = AppType,
-		   app_file          = AppFile,
-		   debug_info        = DebugInfo},
+		   archive_opts      	= ArchiveOpts,
+		   relocatable       	= Relocatable,
+		   app_type          	= AppType,
+		   app_file          	= AppFile,
+		   debug_info        	= DebugInfo},
 	      InclDefs) ->
     ErtsItems =
         case lists:keysearch(erts, #app.name, Apps) of
@@ -96,12 +96,11 @@ do_gen_config(#sys{root_dir          = RootDir,
                 []
         end,
     AppsItems =
-        [{app, A#app.name, do_gen_config(A, InclDefs)}
+        [do_gen_config(A, InclDefs)
 	 || A <- Apps,
 	    A#app.name =/= ?MISSING_APP,
 	    A#app.name =/= erts,
-	    A#app.is_included =:= true,
-	    A#app.is_escript =/= true],
+	    not A#app.is_escript],
     EscriptItems = [{escript,
 		     A#app.active_dir,
 		     emit(incl_cond, A#app.incl_cond, undefined, InclDefs)}
@@ -126,7 +125,7 @@ do_gen_config(#sys{root_dir          = RootDir,
      emit(mod_cond, ModCond, ?DEFAULT_MOD_COND, InclDefs) ++
      emit(incl_cond, AppCond, ?DEFAULT_INCL_COND, InclDefs) ++
      ErtsItems ++
-     AppsItems ++
+     lists:flatten(AppsItems) ++
      emit(boot_rel, BootRel, ?DEFAULT_REL_NAME, InclDefs) ++
      RelsItems2 ++
      emit(emu_name, EmuName, ?DEFAULT_EMU_NAME, InclDefs) ++
@@ -142,7 +141,7 @@ do_gen_config(#sys{root_dir          = RootDir,
      emit(app_type, AppType, ?DEFAULT_APP_TYPE, InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
      emit(debug_info, DebugInfo, ?DEFAULT_DEBUG_INFO, InclDefs)};
-do_gen_config(#app{name = _Name,
+do_gen_config(#app{name = Name,
 		   mod_cond = ModCond,
 		   incl_cond  = AppCond,
 		   debug_info = DebugInfo,
@@ -154,27 +153,49 @@ do_gen_config(#app{name = _Name,
 		   archive_opts = ArchiveOpts,
 		   use_selected_vsn  = UseSelected,
 		   vsn = Vsn,
-		   mods = Mods},
+		   mods = Mods,
+		   is_included = IsIncl},
 	      InclDefs) ->
-    emit(mod_cond, ModCond, undefined, InclDefs) ++
-	emit(incl_cond, AppCond, undefined, InclDefs) ++
-	emit(debug_info, DebugInfo, undefined, InclDefs) ++
-	emit(app_file, AppFile,  undefined, InclDefs) ++
-	emit(incl_app_filters,    InclAppFiles, undefined, InclDefs) ++
-	emit(excl_app_filters,    ExclAppFiles, undefined, InclDefs) ++
-	emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs) ++
-	emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs) ++
-	emit(archive_opts, ArchiveOpts, undefined, InclDefs) ++
-	emit(vsn, Vsn, undefined, InclDefs orelse UseSelected =/= true) ++
-	[{mod, M#mod.name, do_gen_config(M, InclDefs)} ||
-	    M <- Mods,
-	    M#mod.is_included =:= true];
-do_gen_config(#mod{name = _Name,
+    AppConfig =
+	[
+	 emit(mod_cond, ModCond, undefined, InclDefs),
+	 emit(incl_cond, AppCond, undefined, InclDefs),
+	 emit(debug_info, DebugInfo, undefined, InclDefs),
+	 emit(app_file, AppFile, undefined, InclDefs),
+	 emit(incl_app_filters, InclAppFiles, undefined, InclDefs),
+	 emit(excl_app_filters, ExclAppFiles, undefined, InclDefs),
+	 emit(incl_archive_filters, InclArchiveDirs, undefined, InclDefs),
+	 emit(excl_archive_filters, ExclArchiveDirs, undefined, InclDefs),
+	 emit(archive_opts, ArchiveOpts, undefined, InclDefs),
+	 if
+	     IsIncl, InclDefs -> [{vsn, Vsn}];
+	     UseSelected      -> [{vsn, Vsn}];
+	     true             -> []
+	 end,
+	 [do_gen_config(M, InclDefs) || M <- Mods]
+	],
+    case lists:flatten(AppConfig) of
+	FlatAppConfig when FlatAppConfig =/= []; IsIncl ->
+	    [{app, Name, FlatAppConfig}];
+	[] ->
+	    []
+    end;
+do_gen_config(#mod{name = Name,
 		   incl_cond = AppCond,
-		   debug_info = DebugInfo},
+		   debug_info = DebugInfo,
+		   is_included = IsIncl},
 	      InclDefs) ->
-    emit(incl_cond,  AppCond,   undefined, InclDefs) ++
-	emit(debug_info, DebugInfo, undefined, InclDefs);
+    ModConfig =
+	[
+	 emit(incl_cond,  AppCond, undefined, InclDefs),
+	 emit(debug_info, DebugInfo, undefined, InclDefs)
+	],
+    case lists:flatten(ModConfig) of
+	FlatModConfig when FlatModConfig =/= []; IsIncl ->
+	    [{mod, Name, FlatModConfig}];
+	_ ->
+	    []
+    end;
 do_gen_config(#rel{name = _Name,
 		   vsn = _Vsn,
 		   rel_apps = RelApps},
@@ -247,36 +268,112 @@ gen_app(#app{name = Name,
 
 gen_rel(Rel, Sys) ->
     try
-	{ok, do_gen_rel(Rel, Sys)}
+	MergedApps = merge_apps(Rel, Sys),
+	{ok, do_gen_rel(Rel, Sys, MergedApps)}
     catch
         throw:{error, Text} ->
             {error, Text}
     end.
 
-do_gen_rel(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
-	   #sys{apps = Apps}) ->
+do_gen_rel(#rel{name = RelName, vsn = RelVsn},
+	   #sys{apps = Apps},
+	   MergedApps) ->
     ErtsName = erts,
     case lists:keysearch(ErtsName, #app.name, Apps) of
 	{value, Erts} ->
 	    {release,
 	     {RelName, RelVsn},
-	     {erts, Erts#app.vsn},
-	     [app_to_rel(RA, Apps ) || RA <- RelApps]};
+	     {ErtsName, Erts#app.vsn},
+	     [strip_rel_info(App) || App <- MergedApps]};
 	false ->
 	    reltool_utils:throw_error("Mandatory application ~p is "
 				      "not included",
                                       [ErtsName])
     end.
 
-app_to_rel(#rel_app{name = Name, app_type = Type, incl_apps = InclApps},
-	   Apps) ->
-    {value, #app{vsn = Vsn}} = lists:keysearch(Name, #app.name, Apps),
+strip_rel_info(#app{name = Name,
+		    vsn = Vsn,
+		    app_type = Type,
+		    info = #app_info{incl_apps = InclApps}}) ->
     case {Type, InclApps} of
         {undefined, []} -> {Name, Vsn};
         {undefined, _}  -> {Name, Vsn, InclApps};
         {_, []}         -> {Name, Vsn, Type};
         {_, _}          -> {Name, Vsn, Type, InclApps}
     end.
+
+merge_apps(#rel{name = RelName, rel_apps = RelApps},
+	   #sys{apps = Apps, app_type = DefType}) ->
+    Mandatory = [kernel, stdlib],
+    MergedApps = do_merge_apps(RelName, Mandatory, Apps, permanent, []),
+    MergedApps2 = do_merge_apps(RelName, RelApps, Apps, DefType, MergedApps),
+    sort_apps(MergedApps2).
+
+do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, DefType, Acc) ->
+    case is_already_merged(Name, RelApps, Acc) of
+	true ->
+	    do_merge_apps(RelName, RelApps, Apps, DefType, Acc);
+	false ->
+	    {value, App} = lists:keysearch(Name, #app.name, Apps),
+	    MergedApp = merge_app(RelName, RA, DefType, App),
+	    MoreNames = (MergedApp#app.info)#app_info.applications,
+	    Acc2 = [MergedApp | Acc],
+	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, DefType, Acc2)
+    end;
+do_merge_apps(RelName, [Name | RelApps], Apps, DefType, Acc) ->
+  case is_already_merged(Name, RelApps, Acc) of
+	true ->
+	  do_merge_apps(RelName, RelApps, Apps, DefType, Acc);
+	false ->
+	  RelApp = init_rel_app(Name, Apps),
+	  do_merge_apps(RelName, [RelApp | RelApps], Apps, DefType, Acc)
+  end;
+do_merge_apps(_RelName, [], _Apps, _DefType, Acc) ->
+    lists:reverse(Acc).
+
+init_rel_app(Name, Apps) ->
+    {value, App} = lists:keysearch(Name, #app.name, Apps),
+    Info = App#app.info,
+    #rel_app{name = Name,
+	     app_type = undefined,
+	     incl_apps = Info#app_info.incl_apps}.
+
+merge_app(RelName,
+	      #rel_app{name = Name,
+		       app_type = RelAppType,
+		       incl_apps = InclApps},
+	      DefType,
+	      App) ->
+    Type =
+        case {RelAppType, App#app.app_type} of
+            {undefined, undefined} -> DefType;
+            {undefined, AppType} -> AppType;
+            {_, _} -> RelAppType
+        end,
+    Info = App#app.info,
+    case InclApps -- Info#app_info.incl_apps of
+        [] ->
+	    App#app{app_type = Type, info = Info#app_info{incl_apps = InclApps}};
+        BadIncl ->
+            reltool_utils:throw_error("~p: These applications are "
+				      "used by release ~s but are "
+				      "missing as included_applications "
+				      "in the app file: ~p",
+                                      [Name, RelName, BadIncl])
+    end.
+
+is_already_merged(Name, [Name | _], _MergedApps) ->
+    true;
+is_already_merged(Name, [#rel_app{name = Name} | _], _MergedApps) ->
+    true;
+is_already_merged(Name, [_ | RelApps], MergedApps) ->
+    is_already_merged(Name, RelApps, MergedApps);
+is_already_merged(Name, [], [#app{name = Name} | _MergedApps]) ->
+    true;
+is_already_merged(Name, [] = RelApps, [_ | MergedApps]) ->
+    is_already_merged(Name, RelApps, MergedApps);
+is_already_merged(_Name, [], []) ->
+    false.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Generate the contents of a boot file
@@ -291,27 +388,24 @@ gen_boot({script, {_, _}, _} = Script) ->
 
 gen_script(Rel, Sys, PathFlag, Variables) ->
     try
-        do_gen_script(Rel, Sys, PathFlag, Variables)
+	MergedApps = merge_apps(Rel, Sys),
+        do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables)
     catch
         throw:{error, Text} ->
             {error, Text}
     end.
 
-do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
-              #sys{apps = Apps, app_type = DefaultType},
+do_gen_script(#rel{name = RelName, vsn = RelVsn},
+              #sys{apps = Apps},
+	      MergedApps,
               PathFlag,
               Variables) ->
     {value, Erts} = lists:keysearch(erts, #app.name, Apps),
     Preloaded = [Mod#mod.name || Mod <- Erts#app.mods],
     Mandatory = mandatory_modules(),
     Early = Mandatory ++ Preloaded,
-    MergedApps = [merge_app(RA, Apps, DefaultType) || RA <- RelApps],
-    SortedApps = sort_apps(MergedApps),
-    {value, KernelApp} = lists:keysearch(kernel, #app.name, SortedApps),
-
-    InclApps =
-	lists:append([I ||
-			 #app{info = #app_info{incl_apps = I}} <- SortedApps]),
+    {value, KernelApp} = lists:keysearch(kernel, #app.name, MergedApps),
+    InclApps = [I || #app{info = #app_info{incl_apps = I}} <- MergedApps],
 
     %% Create the script
     DeepList =
@@ -321,30 +415,30 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
          {progress, preloaded},
 
          %% Load mandatory modules
-         {path, create_mandatory_path(SortedApps, PathFlag, Variables)},
+         {path, create_mandatory_path(MergedApps, PathFlag, Variables)},
          {primLoad, lists:sort(Mandatory)},
          {kernel_load_completed},
          {progress, kernel_load_completed},
 
          %% Load remaining modules
-         [load_app_mods(A, Early, PathFlag, Variables) || A <- SortedApps],
+         [load_app_mods(A, Early, PathFlag, Variables) || A <- MergedApps],
          {progress, modules_loaded},
 
          %% Start kernel processes
-         {path, create_path(SortedApps, PathFlag, Variables)},
+         {path, create_path(MergedApps, PathFlag, Variables)},
          kernel_processes(gen_app(KernelApp)),
          {progress, init_kernel_started},
 
          %% Load applications
          [{apply, {application, load, [gen_app(A)]}} ||
-             A = #app{name = Name, app_type = Type} <- SortedApps,
+             A = #app{name = Name, app_type = Type} <- MergedApps,
              Name =/= kernel,
              Type =/= none],
          {progress, applications_loaded},
 
          %% Start applications
          [{apply, {application, start_boot, [Name, Type]}} ||
-             #app{name = Name, app_type = Type} <- SortedApps,
+             #app{name = Name, app_type = Type} <- MergedApps,
              Type =/= none,
              Type =/= load,
              not lists:member(Name, InclApps)],
@@ -354,28 +448,6 @@ do_gen_script(#rel{name = RelName, vsn = RelVsn, rel_apps = RelApps},
          {progress, started}
         ],
     {ok, {script, {RelName, RelVsn}, lists:flatten(DeepList)}}.
-
-merge_app(#rel_app{name = Name, app_type = Type, incl_apps = RelIncl},
-	  Apps,
-	  DefaultType) ->
-    {value, App} = lists:keysearch(Name, #app.name, Apps),
-    Type2 =
-        case {Type, App#app.app_type} of
-            {undefined, undefined} -> DefaultType;
-            {undefined, AppType} -> AppType;
-            {_, _} -> Type
-        end,
-    Info = App#app.info,
-    case RelIncl -- Info#app_info.incl_apps of
-        [] ->
-            App#app{app_type = Type2,
-		    info = Info#app_info{incl_apps = RelIncl}};
-        BadIncl ->
-            reltool_utils:throw_error("~p: These applications are "
-				      "missing as included_applications "
-				      "in the app file: ~p\n",
-                                      [Name, BadIncl])
-    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -459,13 +531,13 @@ sort_apps([], [], [], _) ->
     [];
 sort_apps([], Missing, [], _) ->
     %% this has already been checked before, but as we have the info...
-    reltool_utils:throw_error("Undefined applications: ~p\n",
+    reltool_utils:throw_error("Undefined applications: ~p",
 			      [make_set(Missing)]);
 sort_apps([], [], Circular, _) ->
-    reltool_utils:throw_error("Circular dependencies: ~p\n",
+    reltool_utils:throw_error("Circular dependencies: ~p",
 			      [make_set(Circular)]);
 sort_apps([], Missing, Circular, _) ->
-    reltool_utils:throw_error("Circular dependencies: ~p\n"
+    reltool_utils:throw_error("Circular dependencies: ~p"
                               "Undefined applications: ~p\n",
                               [make_set(Circular), make_set(Missing)]).
 
@@ -624,14 +696,15 @@ gen_rel_files(Sys, TargetDir) ->
 spec_rel_files(#sys{rels = Rels} = Sys) ->
     lists:append([do_spec_rel_files(R, Sys) || R <- Rels]).
 
-do_spec_rel_files(#rel{name = Name} = Rel,  Sys) ->
-    RelFile = Name ++ ".rel",
-    ScriptFile = Name ++ ".script",
-    BootFile = Name ++ ".boot",
-    GenRel = do_gen_rel(Rel, Sys),
+do_spec_rel_files(#rel{name = RelName} = Rel,  Sys) ->
+    RelFile = RelName ++ ".rel",
+    ScriptFile = RelName ++ ".script",
+    BootFile = RelName ++ ".boot",
+    MergedApps = merge_apps(Rel, Sys),
+    GenRel = do_gen_rel(Rel, Sys, MergedApps),
     PathFlag = true,
     Variables = [],
-    {ok, Script} = do_gen_script(Rel, Sys, PathFlag, Variables),
+    {ok, Script} = do_gen_script(Rel, Sys, MergedApps, PathFlag, Variables),
     {ok, BootBin} = gen_boot(Script),
     Date = date(),
     Time = time(),
@@ -978,13 +1051,13 @@ spec_dir(Dir) ->
 		     Base,
 		     [spec_dir(filename:join([Dir, F])) || F <- Files]};
                 error ->
-                    reltool_utils:throw_error("list dir ~s failed\n", [Dir])
+                    reltool_utils:throw_error("list dir ~s failed", [Dir])
             end;
         {ok, #file_info{type = regular}} ->
             %% Plain file
             {copy_file, Base};
         _ ->
-            reltool_utils:throw_error("read file info ~s failed\n", [Dir])
+            reltool_utils:throw_error("read file info ~s failed", [Dir])
     end.
 
 spec_mod(Mod, DebugInfo) ->
@@ -1118,7 +1191,7 @@ do_eval_spec({archive, Archive, Options, Files},
         {ok, _} ->
             ok;
         {error, Reason} ->
-            reltool_utils:throw_error("create archive ~s failed: ~p\n",
+            reltool_utils:throw_error("create archive ~s failed: ~p",
 				      [ArchiveFile, Reason])
     end;
 do_eval_spec({copy_file, File}, _OrigSourceDir, SourceDir, TargetDir) ->
@@ -1320,7 +1393,7 @@ do_install(RelName, TargetDir) ->
             ok = release_handler:create_RELEASES(TargetDir2, RelFile),
             ok;
         _ ->
-            reltool_utils:throw_error("~s: Illegal data file syntax.\n", [DataFile])
+            reltool_utils:throw_error("~s: Illegal data file syntax", [DataFile])
     end.
 
 subst_src_scripts(Scripts, SrcDir, DestDir, Vars, Opts) ->

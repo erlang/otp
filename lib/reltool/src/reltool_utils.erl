@@ -125,16 +125,18 @@ prim_parse(Tokens, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 default_rels() ->
-    Kernel = #rel_app{name = kernel, incl_apps = []},
-    Stdlib = #rel_app{name = stdlib, incl_apps = []},
-    Sasl   = #rel_app{name = sasl,   incl_apps = []},
+    %%Kernel = #rel_app{name = kernel, incl_apps = []},
+    %%Stdlib = #rel_app{name = stdlib, incl_apps = []},
+    Sasl = #rel_app{name = sasl,   incl_apps = []},
     [
      #rel{name = ?DEFAULT_REL_NAME,
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Stdlib]},
+	  rel_apps = []},
+	  %%rel_apps = [Kernel, Stdlib]},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Sasl, Stdlib]}
+	  rel_apps = [Sasl]}
+	  %%rel_apps = [Kernel, Sasl, Stdlib]}
     ].
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -401,7 +403,7 @@ create_dir(Dir) ->
             ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("create dir ~s: ~s\n", [Dir, Text])
+            throw_error("create dir ~s: ~s", [Dir, Text])
     end.
 
 list_dir(Dir) ->
@@ -410,7 +412,7 @@ list_dir(Dir) ->
 	    Files;
         error ->
             Text = file:format_error(enoent),
-            throw_error("list dir ~s: ~s\n", [Dir, Text])
+            throw_error("list dir ~s: ~s", [Dir, Text])
     end.
 
 read_file_info(File) ->
@@ -419,7 +421,7 @@ read_file_info(File) ->
 	    Info;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file info ~s: ~s\n", [File, Text])
+            throw_error("read file info ~s: ~s", [File, Text])
     end.
 
 write_file_info(File, Info) ->
@@ -428,7 +430,7 @@ write_file_info(File, Info) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file info ~s: ~s\n", [File, Text])
+            throw_error("write file info ~s: ~s", [File, Text])
     end.
 
 read_file(File) ->
@@ -437,7 +439,7 @@ read_file(File) ->
 	    Bin;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file ~s: ~s\n", [File, Text])
+            throw_error("read file ~s: ~s", [File, Text])
     end.
 
 write_file(File, IoList) ->
@@ -446,7 +448,7 @@ write_file(File, IoList) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file ~s: ~s\n", [File, Text])
+            throw_error("write file ~s: ~s", [File, Text])
     end.
 
 recursive_delete(Dir) ->

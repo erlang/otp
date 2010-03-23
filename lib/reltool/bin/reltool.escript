@@ -27,14 +27,14 @@ main(Args) ->
 	{Options, Actions} = parse_args(Tokens, []),
 	case invoke(Options, Actions) of
 	    ok ->
-		erlang:halt(0);
+		safe_stop(0);
 	    {error, ReasonString} ->
 		fatal_error(ReasonString, 2)
 	end
     catch
 	throw:usage ->
 	    usage(),
-	    erlang:halt(1);
+	    safe_stop(1);
 	exit:Reason ->
 	    String = lists:flatten(io_lib:format("EXIT: ~p", [Reason])),
 	    fatal_error(String, 3)
@@ -58,6 +58,10 @@ usage() ->
 	      "Spec   = SpecFile   | '{spec, [target_spec()}']\n\n"
 	      "See User's guide and Reference manual for more info.\n",
 	      [String]).
+
+safe_stop(Code) ->
+    init:stop(Code),
+    timer:sleep(infinity).
 
 invoke(Options, Actions) ->
     case Actions of
@@ -174,7 +178,7 @@ script_name() ->
 
 fatal_error(String, Code) ->
     io:format(standard_error, "~s: ~s\n", [script_name(), String]),
-    erlang:halt(Code).
+    safe_stop(Code).
 
 write_file(File, IoList) ->
     case file:write_file(File, IoList) of
