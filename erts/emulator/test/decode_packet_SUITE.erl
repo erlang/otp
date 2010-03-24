@@ -24,10 +24,10 @@
 -include("test_server.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1]).
+	 basic/1, packet_size/1, neg/1, http/1, line/1, ssl/1, otp_8536/1]).
 
 all(suite) ->
-    [basic, packet_size, neg, http, line, ssl].
+    [basic, packet_size, neg, http, line, ssl, otp_8536].
 
 init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
     Seed = {S1,S2,S3} = now(),
@@ -503,6 +503,27 @@ ssl(Config) when is_list(Config) ->
     F(25),
     F(v2hello),
     ok.
+
+otp_8536(doc) -> ["Corrupt sub-binary-strings from httph_bin"];
+otp_8536(Config) when is_list(Config) ->
+    lists:foreach(fun otp_8536_do/1, lists:seq(1,50)),
+    ok.
+
+otp_8536_do(N) ->
+    Data = <<"some data 123">>,
+    Letters = <<"bcdefghijklmnopqrstuvwxyzyxwvutsrqponmlkjihgfedcba">>,
+    <<HdrTail:N/binary,_/binary>> = Letters,
+    Hdr = <<$A, HdrTail/binary>>,
+    Bin = <<Hdr/binary, ": ", Data/binary, "\r\n\r\n">>,
+
+    io:format("Bin='~p'\n",[Bin]),
+    ?line {ok,{http_header,0,Hdr2,undefined,Data2},<<"\r\n">>} = decode_pkt(httph_bin, Bin,  []),
+
+    %% Do something to trash the C-stack, how about another decode_packet:
+    decode_pkt(httph_bin,<<Letters/binary, ": ", Data/binary, "\r\n\r\n">>, []),
+
+    %% Now check that we got the expected binaries
+    {Hdr, Data} = {Hdr2, Data2}.
 
 decode_pkt(Type,Bin) ->
     decode_pkt(Type,Bin,[]).		       
