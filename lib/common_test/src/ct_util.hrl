@@ -32,6 +32,7 @@
 		   logdir=["."],
 		   cover=[],
 		   config=[],
+		   userconfig=[],
 		   event_handler=[],
 		   include=[],
 		   alias=[],

@@ -807,8 +807,31 @@ decrypt_config_file(EncryptFileName, TargetFileName) ->
 decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
     ct_config:decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile).
 
+
+%%%-----------------------------------------------------------------
+%%% @spec add_config(Callback, Config) ->
+%%%                                       ok | {error, Reason}
+%%%       Callback = atom()
+%%%       Config = string()
+%%%       Reason = term()
+%%%
+%%% @doc <p>This function loads configuration variables using the
+%%% 	 given callback module and configuration string. Callback module
+%%%	 should be either loaded or present in the code part. Loaded
+%%%	 configuration variables can later be removed using
+%%%	 <code>remove_config/2</code> function.</p>
 add_config(Callback, Config)->
     ct_config:add_config(Callback, Config).
 
+%%%-----------------------------------------------------------------
+%%% @spec remove_config(Callback, Config) ->
+%%%                                          ok
+%%%       Callback = atom()
+%%%       Config = string()
+%%%       Reason = term()
+%%%
+%%% @doc <p>This function removes configuration variables (together with
+%%%	 their aliases) which were loaded with specified callback module and
+%%%	 configuration string.</p>
 remove_config(Callback, Config)->
     ct_config:remove_config(Callback, Config).

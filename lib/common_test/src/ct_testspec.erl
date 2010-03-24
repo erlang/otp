@@ -446,14 +446,14 @@ add_tests([{config,Node,[F|Fs]}|Ts],Spec) when is_list(F) ->
     Cfgs = Spec#testspec.config,
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests([{config,Node,Fs}|Ts],
-	      Spec#testspec{config=[{Node1,{?ct_config_txt,
-				get_absfile(?ct_config_txt, F,Spec)}}|Cfgs]});
+	      Spec#testspec{config=[{Node1,get_absfile(F,Spec)}|Cfgs]});
 add_tests([{config,_Node,[]}|Ts],Spec) ->
     add_tests(Ts,Spec);
 add_tests([{config,Node,F}|Ts],Spec) ->
     add_tests([{config,Node,[F]}|Ts],Spec);
 add_tests([{config,Files}|Ts],Spec) ->
     add_tests([{config,all_nodes,Files}|Ts],Spec);
+
 
 %% --- userconfig ---
 add_tests([{userconfig,all_nodes,CBF}|Ts],Spec) ->
@@ -463,10 +463,10 @@ add_tests([{userconfig,Nodes,CBF}|Ts],Spec) when is_list(Nodes) ->
     Ts1 = separate(Nodes,userconfig,[CBF],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
 add_tests([{userconfig,Node,[{Callback, Config}|CBF]}|Ts],Spec) ->
-    Cfgs = Spec#testspec.config,
+    Cfgs = Spec#testspec.userconfig,
     Node1 = ref2node(Node,Spec#testspec.nodes),
     add_tests([{userconfig,Node,CBF}|Ts],
-	      Spec#testspec{config=[{Node1,{Callback,
+	      Spec#testspec{userconfig=[{Node1,{Callback,
 				get_absfile(Callback, Config ,Spec)}}|Cfgs]});
 add_tests([{userconfig,_Node,[]}|Ts],Spec) ->
     add_tests(Ts,Spec);

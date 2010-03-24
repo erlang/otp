@@ -753,6 +753,7 @@ prepare_config_list(Args)->
     end,
     ConfigFiles ++ UserConfigs.
 
+% TODO: add logging of the loaded configuration file to the CT FW log!!!
 add_config(Callback, [])->
     read_config_files_int([{Callback, []}], fun store_config/3);
 add_config(Callback, [File|_Files]=Config) when is_list(File)->
