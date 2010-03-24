@@ -829,6 +829,7 @@ run_testspec1(TestSpec) ->
 get_data_for_node(#testspec{logdir=LogDirs,
 			    cover=CoverFs,
 			    config=Cfgs,
+			    userconfig=UsrCfgs,
 			    event_handler=EvHs,
 			    include=Incl}, Node) ->
     LogDir = case lists:keysearch(Node,1,LogDirs) of
@@ -839,7 +840,8 @@ get_data_for_node(#testspec{logdir=LogDirs,
 		{value,{Node,CovFile}} -> CovFile;
 		false -> undef
 	    end,
-    ConfigFiles = [F || {N,F} <- Cfgs, N==Node],
+    ConfigFiles = [{?ct_config_txt, F} || {N,F} <- Cfgs, N==Node] ++
+		  [CBF || {N, CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
     {LogDir,Cover,ConfigFiles,EvHandlers,Include}.
