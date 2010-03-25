@@ -30,6 +30,7 @@
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
 -define(EXPIRE, 10).
+-define(SLEEP, 500).
 
 -behaviour(ssl_session_cache_api).
 
@@ -162,7 +163,9 @@ all(suite) ->
      server_verify_no_cacerts, client_verify_none_passive, 
      client_verify_none_active, client_verify_none_active_once
      %%, session_cache_process_list, session_cache_process_mnesia
-     ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session
+     ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
+     client_renegotiate, server_renegotiate,
+     client_no_wrap_sequence_number, server_no_wrap_sequence_number
     ].
 
 %% Test cases starts here.
@@ -267,7 +270,7 @@ controlling_process_result(Socket, Pid, Msg) ->
     ok = ssl:controlling_process(Socket, Pid),
     %% Make sure other side has evaluated controlling_process
     %% before message is sent
-    test_server:sleep(100),
+    test_server:sleep(?SLEEP),
     ssl:send(Socket, Msg),
     no_result_msg.
 
@@ -298,7 +301,7 @@ controller_dies(Config) when is_list(Config) ->
 					{options, ClientOpts}]),
 
     test_server:format("Testcase ~p, Client ~p  Server ~p ~n", [self(), Client, Server]),
-    timer:sleep(200), %% so that they are connected
+    test_server:sleep(?SLEEP), %% so that they are connected
     
     process_flag(trap_exit, true),
 
@@ -307,7 +310,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Client, ?LINE),
 
     %% Test that clients die when process disappear
-    Server ! listen, timer:sleep(200),
+    Server ! listen, test_server:sleep(?SLEEP),
     Tester = self(),
     Connect = fun(Pid) ->
 		      {ok, Socket} = ssl:connect(Hostname, Port, 
@@ -321,7 +324,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Client2, ?LINE),
     
     %% Test that clients die when the controlling process have changed 
-    Server ! listen, timer:sleep(200),
+    Server ! listen, test_server:sleep(?SLEEP),
 
     Client3 = spawn_link(fun() -> Connect(Tester) end),
     Controller = spawn_link(fun() -> receive die_nice -> normal end end),
@@ -345,7 +348,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Controller, ?LINE),
     
     %% Test that servers die
-    Server ! listen, timer:sleep(200),
+    Server ! listen, test_server:sleep(?SLEEP),
     LastClient = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					    {host, Hostname},
 					    {from, self()}, 
@@ -353,7 +356,7 @@ controller_dies(Config) when is_list(Config) ->
 						   controller_dies_result, [self(),
 									    ClientMsg]}},
 					    {options, [{reuseaddr,true}|ClientOpts]}]),
-    timer:sleep(200), %% so that they are connected
+    test_server:sleep(?SLEEP), %% so that they are connected
     
     exit(Server, killed),
     get_close(Server, ?LINE),
@@ -667,10 +670,10 @@ send_close(Config) when is_list(Config) ->
     
     test_server:format("Testcase ~p, Client ~p  Server ~p ~n", 
 		       [self(), self(), Server]),
-    ok = ssl:send(SslS, "HejHopp"),      
-    {ok,<<"Hejhopp">>} = ssl:recv(SslS, 7),    
+    ok = ssl:send(SslS, "Hello world"),      
+    {ok,<<"Hello world">>} = ssl:recv(SslS, 11),    
     gen_tcp:close(TcpS),    
-    {error, _} = ssl:send(SslS, "HejHopp"),    
+    {error, _} = ssl:send(SslS, "Hello world"),    
     ssl_test_lib:close(Server).
 
 %%--------------------------------------------------------------------
@@ -710,11 +713,11 @@ upgrade(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 upgrade_result(Socket) ->
-    ok = ssl:send(Socket, "Hejhopp"),
+    ok = ssl:send(Socket, "Hello world"),
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
     receive 
-	{ssl, _, <<"Hejhopp">>}  ->
+	{ssl, _, <<"Hello world">>}  ->
 	    ok
     end.
 
@@ -957,7 +960,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server0, {error, {eoptions, {active,trice}}}, 
 		    Client0, {error, {eoptions, {active,trice}}}),
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     Server1 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -971,7 +974,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server1, {error, {eoptions, {header, a}}}, 
 		    Client1, {error, {eoptions, {header, a}}}),
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     
     Server2 =
@@ -988,7 +991,7 @@ eoptions(Config) when is_list(Config) ->
 		    Client2, {error, {eoptions, {mode, a}}}),
 
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Server3 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1002,7 +1005,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server3, {error, {eoptions, {packet, 8.0}}}, 
 			      Client3, {error, {eoptions, {packet, 8.0}}}),
    
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     %% ssl  
     Server4 =
@@ -1017,7 +1020,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server4, {error, {eoptions, {verify, 4}}}, 
 		    Client4, {error, {eoptions, {verify, 4}}}),
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
    
     Server5 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1031,7 +1034,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server5, {error, {eoptions, {depth, four}}}, 
 		    Client5, {error, {eoptions, {depth, four}}}),
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     Server6 =  
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1046,7 +1049,7 @@ eoptions(Config) when is_list(Config) ->
 		    Client6, {error, {eoptions, {cacertfile, ""}}}),
 
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     Server7 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1061,7 +1064,7 @@ eoptions(Config) when is_list(Config) ->
 			      {error, {eoptions, {certfile, 'cert.pem'}}}, 
 		    Client7, {error, {eoptions, {certfile, 'cert.pem'}}}),
     
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Server8 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1076,7 +1079,7 @@ eoptions(Config) when is_list(Config) ->
 			      {error, {eoptions, {keyfile, 'key.pem'}}}, 
 		    Client8, {error, {eoptions, {keyfile, 'key.pem'}}}),
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     Server9 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1091,7 +1094,7 @@ eoptions(Config) when is_list(Config) ->
 		    Client9, {error, {eoptions, {key, 'key.pem'}}}),
     
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Server10 =
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1105,7 +1108,7 @@ eoptions(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server10, {error, {eoptions, {password, foo}}}, 
 		    Client10, {error, {eoptions, {password, foo}}}),
     
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     %% Misc
     Server11 =
@@ -1121,7 +1124,7 @@ eoptions(Config) when is_list(Config) ->
 		    Client11, {error, {eoptions, {ssl_imp, cool}}}),
 
 
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     
     Server12 = 
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
@@ -1203,7 +1206,7 @@ shutdown_write(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, {error, closed}).
     
 shutdown_write_result(Socket, server) ->
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     ssl:shutdown(Socket, write);
 shutdown_write_result(Socket, client) ->    
     ssl:recv(Socket, 0).
@@ -1233,7 +1236,7 @@ shutdown_both(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, {error, closed}).
 
 shutdown_both_result(Socket, server) ->
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
     ssl:shutdown(Socket, read_write);
 shutdown_both_result(Socket, client) ->    
     ssl:recv(Socket, 0).
@@ -1339,7 +1342,7 @@ reuse_session(Config) when is_list(Config) ->
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-			    {mfa, {?MODULE, no_result, []}},
+			    {mfa, {ssl_test_lib, no_result, []}},
 		      {from, self()},  {options, ClientOpts}]),   
     SessionInfo = 
 	receive
@@ -1350,7 +1353,7 @@ reuse_session(Config) when is_list(Config) ->
     Server ! listen,
     
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -1410,7 +1413,7 @@ reuse_session(Config) when is_list(Config) ->
     Server1 ! listen,
     
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client4 = 
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -1457,7 +1460,7 @@ reuse_session_expired(Config) when is_list(Config) ->
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-			    {mfa, {?MODULE, no_result, []}},
+			    {mfa, {ssl_test_lib, no_result, []}},
 		      {from, self()},  {options, ClientOpts}]),   
     SessionInfo = 
 	receive
@@ -1468,7 +1471,7 @@ reuse_session_expired(Config) when is_list(Config) ->
     Server ! listen,
     
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -1530,7 +1533,7 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 		      {port, Port}, {host, Hostname},
-			    {mfa, {?MODULE, no_result, []}},
+			    {mfa, {ssl_test_lib, no_result, []}},
 		      {from, self()},  {options, ClientOpts}]),   
     SessionInfo = 
 	receive
@@ -1541,7 +1544,7 @@ server_does_not_want_to_reuse_session(Config) when is_list(Config) ->
     Server ! listen,
     
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -1849,30 +1852,202 @@ client_verify_none_active_once(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 
+
+%%--------------------------------------------------------------------
+client_renegotiate(doc) -> 
+    ["Test ssl:renegotiate/1 on client."];
+
+client_renegotiate(suite) -> 
+    [];
+
+client_renegotiate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()},
+				   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+ 
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       renegotiate, [Data]}},
+					{options, [{reuse_sessions, false} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok, Server, ok), 
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+server_renegotiate(doc) -> 
+    ["Test ssl:renegotiate/1 on server."];
+
+server_renegotiate(suite) -> 
+    [];
+
+server_renegotiate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       renegotiate, [Data]}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+   
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+					{options, [{reuse_sessions, false} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ok.
+
+%%--------------------------------------------------------------------
+client_no_wrap_sequence_number(doc) -> 
+    ["Test that erlang client will renegotiate session when",  
+     "max sequence number celing is about to be reached. Although"
+     "in the testcase we use the test option renegotiate_at" 
+     " to lower treashold substantially."];
+
+client_no_wrap_sequence_number(suite) -> 
+    [];
+
+client_no_wrap_sequence_number(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    ErlData = "From erlang to erlang",
+    N = 10,
+
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+ 
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl_test_lib, 
+					       trigger_renegotiate, [[ErlData, N+2]]}},
+					{options, [{reuse_sessions, false},
+						   {renegotiate_at, N} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok), 
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+server_no_wrap_sequence_number(doc) -> 
+    ["Test that erlang server will renegotiate session when",  
+     "max sequence number celing is about to be reached. Although"
+     "in the testcase we use the test option renegotiate_at" 
+     " to lower treashold substantially."];
+
+server_no_wrap_sequence_number(suite) -> 
+    [];
+
+server_no_wrap_sequence_number(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",    
+    N = 10,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, 
+					       trigger_renegotiate, [[Data, N+2]]}},
+					{options, [{renegotiate_at, N} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+   
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl_test_lib, no_result, []}},
+					{options, [{reuse_sessions, false} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ok.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
 send_recv_result(Socket) ->
-    ssl:send(Socket, "Hejhopp"),
-    test_server:sleep(100),
-    {ok,"Hejhopp"} = ssl:recv(Socket, 7),
+    ssl:send(Socket, "Hello world"),
+    test_server:sleep(?SLEEP),
+    {ok,"Hello world"} = ssl:recv(Socket, 11),
     ok.
 
 send_recv_result_active(Socket) ->
-    ssl:send(Socket, "Hejhopp"),
-    test_server:sleep(100),
+    ssl:send(Socket, "Hello world"),
+    test_server:sleep(?SLEEP),
     receive 
-	{ssl, Socket, "Hejhopp"} ->
+	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
 
 send_recv_result_active_once(Socket) ->
-    ssl:send(Socket, "Hejhopp"),
-    test_server:sleep(100),
+    ssl:send(Socket, "Hello world"),
+    test_server:sleep(?SLEEP),
     receive 
-	{ssl, Socket, "Hejhopp"} ->
+	{ssl, Socket, "Hello world"} ->
 	    ok
     end.
+
+
+renegotiate(Socket, Data) ->
+    [{session_id, Id} | _ ] = ssl:session_info(Socket),
+    ssl:renegotiate(Socket),
+    ssl:send(Socket, Data),
+    test_server:sleep(1000),
+    case  ssl:session_info(Socket) of
+	 [{session_id, Id} | _ ] ->
+	    fail_session_not_renegotiated;
+	_ ->
+	    ok
+    end.
+ 
 
 session_cache_process_list(doc) -> 
     ["Test reuse of sessions (short handshake)"];
@@ -1909,7 +2084,7 @@ session_cache_process(Type,Config) when is_list(Config) ->
     Client0 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
 				   {port, Port}, {host, Hostname},
-				   {mfa, {?MODULE, no_result, []}},
+				   {mfa, {ssl_test_lib, no_result, []}},
 				   {from, self()},  {options, ClientOpts}]),   
     SessionInfo = 
 	receive
@@ -1920,7 +2095,7 @@ session_cache_process(Type,Config) when is_list(Config) ->
     Server ! listen,
     
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client1 =
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -1963,7 +2138,7 @@ session_cache_process(Type,Config) when is_list(Config) ->
     Server1 ! listen,
 
     %% Make sure session is registered
-    test_server:sleep(500),
+    test_server:sleep(?SLEEP),
 
     Client4 = 
 	ssl_test_lib:start_client([{node, ClientNode}, 
@@ -2112,3 +2287,14 @@ session_loop(Sess) ->
 	    session_loop(Sess)
     end.
 	    
+erlang_ssl_receive(Socket, Data) ->
+    receive
+	{ssl, Socket, Data} ->
+	    io:format("Received ~p~n",[Data]),
+	    ok;
+	Other ->
+	    test_server:fail({unexpected_message, Other})
+    after 4000 ->
+	    test_server:fail({did_not_get, Data})
+    end.
+ 

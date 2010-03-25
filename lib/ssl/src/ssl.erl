@@ -29,13 +29,15 @@
 	 connect/3, connect/2, connect/4, connection_info/1,
 	 controlling_process/2, listen/2, pid/1, peername/1, recv/2, recv/3,
 	 send/2, getopts/2, setopts/2, seed/1, sockname/1, peercert/1,
-	 peercert/2, version/0, versions/0, session_info/1, format_error/1]).
+	 peercert/2, version/0, versions/0, session_info/1, format_error/1,
+	 renegotiate/1]).
 
 %% Should be deprecated as soon as old ssl is removed
 %%-deprecated({pid, 1, next_major_release}).
 
 -include("ssl_int.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
@@ -436,6 +438,10 @@ versions() ->
     AvailableVsns = ?DEFAULT_SUPPORTED_VERSIONS,
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 
+
+renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
+    ssl_connection:renegotiation(Pid).
+
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
@@ -547,6 +553,7 @@ handle_options(Opts0, Role) ->
       %% Server side option
       reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
       reuse_sessions = handle_option(reuse_sessions, Opts, true),
+      renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
       debug      = handle_option(debug, Opts, [])
      },
 
@@ -555,7 +562,7 @@ handle_options(Opts0, Role) ->
 		  depth, certfile, keyfile,
 		  key, password, cacertfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cd_info],
+		  cd_info, renegotiate_at],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -617,6 +624,9 @@ validate_option(reuse_session, Value) when is_function(Value) ->
 validate_option(reuse_sessions, Value) when Value == true; 
 					    Value == false ->
     Value;
+validate_option(renegotiate_at, Value) when is_integer(Value) ->
+    min(Value, ?DEFAULT_RENEGOTIATE_AT);
+
 validate_option(debug, Value) when is_list(Value); Value == true ->
     Value;
 validate_option(Opt, Value) ->
@@ -832,6 +842,11 @@ version() ->
                                 Vsns
                         end,
     {ok, {SSLVsn, CompVsn, LibVsn}}.
+
+min(N,M) when N < M ->
+    N;
+min(_, M) ->
+    M.
                                 
 %% Only used to remove exit messages from old ssl
 %% First is a nonsense clause to provide some

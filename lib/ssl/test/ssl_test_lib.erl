@@ -71,13 +71,9 @@ run_server(Opts) ->
     run_server(ListenSocket, Opts).
 
 run_server(ListenSocket, Opts) ->
+    AcceptSocket = connect(ListenSocket, Opts),
     Node = proplists:get_value(node, Opts),
     Pid = proplists:get_value(from, Opts),
-    test_server:format("ssl:transport_accept(~p)~n", [ListenSocket]),
-    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
-				  [ListenSocket]),    
-    test_server:format("ssl:ssl_accept(~p)~n", [AcceptSocket]),
-    ok = rpc:call(Node, ssl, ssl_accept, [AcceptSocket]),
     {Module, Function, Args} = proplists:get_value(mfa, Opts),
     test_server:format("Server: apply(~p,~p,~p)~n", 
 		       [Module, Function, [AcceptSocket | Args]]),
@@ -85,6 +81,7 @@ run_server(ListenSocket, Opts) ->
 	no_result_msg ->
 	    ok;
 	Msg ->
+	    test_server:format("Msg: ~p ~n", [Msg]),    
 	    Pid ! {self(), Msg}
     end,
     receive 
@@ -93,6 +90,38 @@ run_server(ListenSocket, Opts) ->
 	close ->
 	    ok = rpc:call(Node, ssl, close, [AcceptSocket])
     end.
+
+%%% To enable to test with s_client -reconnect
+connect(ListenSocket, Opts) ->
+    Node = proplists:get_value(node, Opts),
+    ReconnectTimes =  proplists:get_value(reconnect_times, Opts, 0),
+    AcceptSocket = connect(ListenSocket, Node, 1 + ReconnectTimes, dummy),
+    case ReconnectTimes of
+	0 ->
+	    AcceptSocket;
+	_ ->
+	  remove_close_msg(ReconnectTimes),
+	  AcceptSocket
+    end.
+    
+connect(_, _, 0, AcceptSocket) ->
+    AcceptSocket;
+connect(ListenSocket, Node, N, _) ->
+    test_server:format("ssl:transport_accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, ssl, transport_accept, 
+				  [ListenSocket]),    
+    test_server:format("ssl:ssl_accept(~p)~n", [AcceptSocket]),
+    ok = rpc:call(Node, ssl, ssl_accept, [AcceptSocket]),
+    connect(ListenSocket, Node, N-1, AcceptSocket).
+  
+remove_close_msg(0) ->
+    ok;
+remove_close_msg(ReconnectTimes) ->
+    receive
+	{ssl_closed, _} ->
+	   remove_close_msg(ReconnectTimes -1)
+    end.
+	    
 
 start_client(Args) ->
     spawn_link(?MODULE, run_client, [Args]).
@@ -410,3 +439,21 @@ do_inet_port(Node) ->
 
 no_result(_) ->
     no_result_msg.
+
+trigger_renegotiate(Socket, [ErlData, N]) ->
+    [{session_id, Id} | _ ] = ssl:session_info(Socket),
+    trigger_renegotiate(Socket, ErlData, N, Id).
+
+trigger_renegotiate(Socket, _, 0, Id) ->
+    test_server:sleep(1000),
+    case ssl:session_info(Socket) of
+	[{session_id, Id} | _ ] ->
+	    fail_session_not_renegotiated;
+	_ ->
+	    ok
+    end;
+
+trigger_renegotiate(Socket, ErlData, N, Id) ->
+    ssl:send(Socket, ErlData),
+    trigger_renegotiate(Socket, ErlData, N-1, Id).				   
+    

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -45,7 +45,7 @@
 
 %% Encoding records
 -export([encode_handshake/3, encode_alert_record/3,
-	 encode_change_cipher_spec/2, encode_data/3]).
+	 encode_change_cipher_spec/2, encode_data/4]).
 
 %% Decoding
 -export([decode_cipher_text/2]).
@@ -474,19 +474,31 @@ split_bin(Bin, ChunkSize, Acc) ->
             lists:reverse(Acc, [Bin])
     end.
 
-encode_data(Frag, Version, ConnectionStates) 
+encode_data(Frag, Version, ConnectionStates, RenegotiateAt) 
   when byte_size(Frag) < (?MAX_PLAIN_TEXT_LENGTH - 2048) -> 
-    encode_plain_text(?APPLICATION_DATA,Version,Frag,ConnectionStates);
-encode_data(Frag, Version, ConnectionStates) ->
+    case encode_plain_text(?APPLICATION_DATA,Version,Frag,ConnectionStates, RenegotiateAt) of
+	{renegotiate, Data} ->
+	    {[], Data, ConnectionStates};
+	{Msg, CS} ->
+	    {Msg, [], CS}
+    end;
+
+encode_data(Frag, Version, ConnectionStates, RenegotiateAt) when is_binary(Frag) ->
     Data = split_bin(Frag, ?MAX_PLAIN_TEXT_LENGTH - 2048),
-    {CS1, Acc} = 
-        lists:foldl(fun(B, {CS0, Acc}) ->
-			    {ET, CS1} = 
-				encode_plain_text(?APPLICATION_DATA,
-						  Version, B, CS0),
-			    {CS1, [ET | Acc]}
-		    end, {ConnectionStates, []}, Data),
-    {lists:reverse(Acc), CS1}.
+    encode_data(Data, Version, ConnectionStates, RenegotiateAt);
+
+encode_data(Data, Version, ConnectionStates0, RenegotiateAt) when is_list(Data) ->
+    {ConnectionStates, EncodedMsg, NotEncdedData} = 
+        lists:foldl(fun(B, {CS0, Encoded, Rest}) ->
+			    case encode_plain_text(?APPLICATION_DATA,
+						   Version, B, CS0, RenegotiateAt) of
+				{renegotiate, NotEnc} ->
+				    {CS0, Encoded, [NotEnc | Rest]};
+				{Enc, CS1} ->
+				    {CS1, [Enc | Encoded], Rest}
+			    end 
+		    end, {ConnectionStates0, [], []}, Data),
+    {lists:reverse(EncodedMsg), lists:reverse(NotEncdedData), ConnectionStates}.
 
 encode_handshake(Frag, Version, ConnectionStates) ->
     encode_plain_text(?HANDSHAKE, Version, Frag, ConnectionStates).
@@ -499,6 +511,16 @@ encode_alert_record(#alert{level = Level, description = Description},
 encode_change_cipher_spec(Version, ConnectionStates) ->
     encode_plain_text(?CHANGE_CIPHER_SPEC, Version, <<1:8>>, ConnectionStates).
 
+encode_plain_text(Type, Version, Data, ConnectionStates, RenegotiateAt) ->
+    #connection_states{current_write = 
+		       #connection_state{sequence_number = Num}} = ConnectionStates,
+    case renegotiate(Num, RenegotiateAt) of
+	false ->
+	    encode_plain_text(Type, Version, Data, ConnectionStates);
+	true ->
+	    {renegotiate, Data}
+    end.
+
 encode_plain_text(Type, Version, Data, ConnectionStates) ->
     #connection_states{current_write=#connection_state{
 			 compression_state=CompS0,
@@ -510,6 +532,11 @@ encode_plain_text(Type, Version, Data, ConnectionStates) ->
     {CipherText, CS2} = cipher(Type, Version, Comp, CS1),
     CTBin = encode_tls_cipher_text(Type, Version, CipherText),
     {CTBin, ConnectionStates#connection_states{current_write = CS2}}.
+
+renegotiate(N, M) when N < M->
+    false;
+renegotiate(_,_) ->
+    true.
 
 encode_tls_cipher_text(Type, {MajVer, MinVer}, Fragment) ->
     Length = erlang:iolist_size(Fragment),
@@ -529,9 +556,6 @@ cipher(Type, Version, Fragment, CS0) ->
     CS2 = CS1#connection_state{cipher_state=CipherS1},
     {Ciphered, CS2}.
 
-decipher(TLS=#ssl_tls{type = ?CHANGE_CIPHER_SPEC}, CS) ->
-    %% These are never encrypted
-    {TLS, CS};
 decipher(TLS=#ssl_tls{type=Type, version=Version, fragment=Fragment}, CS0) ->
     SP = CS0#connection_state.security_parameters,
     BCA = SP#security_parameters.bulk_cipher_algorithm, % eller Cipher?

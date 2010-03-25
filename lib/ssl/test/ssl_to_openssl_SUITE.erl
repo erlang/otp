@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -30,6 +30,8 @@
 
 -define(TIMEOUT, 120000).
 -define(SLEEP, 1000).
+-define(OPENSSL_RENEGOTIATE, "r\n").
+-define(OPENSSL_QUIT, "Q\n").
 
 %% Test server callback functions
 %%--------------------------------------------------------------------
@@ -114,6 +116,11 @@ all(doc) ->
 all(suite) -> 
     [erlang_client_openssl_server, 
      erlang_server_openssl_client,
+     erlang_server_openssl_client_reuse_session,
+     erlang_client_openssl_server_renegotiate,
+     erlang_client_openssl_server_no_wrap_sequence_number,
+     erlang_server_openssl_client_no_wrap_sequence_number,
+     erlang_client_openssl_server_no_server_ca_cert,
      ssl3_erlang_client_openssl_server, 
      ssl3_erlang_server_openssl_client,
      ssl3_erlang_client_openssl_server_client_cert,
@@ -148,7 +155,7 @@ erlang_client_openssl_server(Config) when is_list(Config) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
    
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
-	" -cert " ++ CertFile ++ " -key " ++ KeyFile, 
+	" -cert " ++ CertFile  ++ " -key " ++ KeyFile, 
     
     test_server:format("openssl cmd: ~p~n", [Cmd]),
 
@@ -208,6 +215,239 @@ erlang_server_openssl_client(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
 
     close_port(OpenSslPort),
+    process_flag(trap_exit, false),
+    ok.
+
+%%-------------------------------------------------------------------- 
+
+erlang_server_openssl_client_reuse_session(doc) ->
+    ["Test erlang server with openssl client that reconnects with the"
+     "same session id, to test reusing of sessions."];
+erlang_server_openssl_client_reuse_session(suite) ->
+    [];
+erlang_server_openssl_client_reuse_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+			   {reconnect_times, 5},		
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+   
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -reconnect",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, ok),
+    
+    ssl_test_lib:close(Server),
+
+    close_port(OpenSslPort),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+
+erlang_client_openssl_server_renegotiate(doc) ->
+    ["Test erlang client when openssl server issuses a renegotiate"];
+erlang_client_openssl_server_renegotiate(suite) ->
+    [];
+erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    ErlData = "From erlang to openssl",
+    OpenSslData = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ " -msg", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       delayed_send, [[ErlData, OpenSslData]]}},
+					{options, ClientOpts}]),
+    test_server:sleep(?SLEEP),
+
+    port_command(OpensslPort, ?OPENSSL_RENEGOTIATE),
+
+    test_server:sleep(?SLEEP),
+
+    port_command(OpensslPort, OpenSslData),
+    
+    ssl_test_lib:check_result(Client, ok), 
+
+    %% Clean close down!   Server needs to be closed first !!
+    close_port(OpensslPort),
+
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+
+%%--------------------------------------------------------------------
+
+erlang_client_openssl_server_no_wrap_sequence_number(doc) ->
+    ["Test that erlang client will renegotiate session when",  
+     "max sequence number celing is about to be reached. Although"
+     "in the testcase we use the test option renegotiate_at" 
+     " to lower treashold substantially."];
+erlang_client_openssl_server_no_wrap_sequence_number(suite) ->
+    [];
+erlang_client_openssl_server_no_wrap_sequence_number(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    ErlData = "From erlang to openssl",
+    N = 10,
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ " -msg", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {ssl_test_lib, 
+					       trigger_renegotiate, [[ErlData, N+2]]}},
+					{options, [{reuse_sessions, false},
+						   {renegotiate_at, N} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok), 
+
+    %% Clean close down!   Server needs to be closed first !!
+    close_port(OpensslPort),
+
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+erlang_server_openssl_client_no_wrap_sequence_number(doc) ->
+    ["Test that erlang client will renegotiate session when",  
+     "max sequence number celing is about to be reached. Although"
+     "in the testcase we use the test option renegotiate_at" 
+     " to lower treashold substantially."];
+
+erlang_server_openssl_client_no_wrap_sequence_number(suite) ->
+    [];
+erlang_server_openssl_client_no_wrap_sequence_number(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+    
+    N = 10,
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {ssl_test_lib, 
+					       trigger_renegotiate, [[Data, N+2]]}},
+					{options, [{renegotiate_at, N} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    test_server:sleep(?SLEEP),
+   
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -msg",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, ok),
+    
+    ssl_test_lib:close(Server),
+
+    close_port(OpenSslPort),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+
+erlang_client_openssl_server_no_server_ca_cert(doc) ->
+    ["Test erlang client when openssl server sends a cert chain not"
+     "including the ca cert. Explicitly test this even if it is"
+     "implicitly tested eleswhere."];
+erlang_client_openssl_server_no_server_ca_cert(suite) ->
+    [];
+erlang_client_openssl_server_no_server_ca_cert(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ " -msg", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       erlang_ssl_receive, [Data]}},
+					{options, ClientOpts}]),
+
+    port_command(OpensslPort, Data),
+    
+    ssl_test_lib:check_result(Client, ok), 
+
+    %% Clean close down!   Server needs to be closed first !!
+    close_port(OpensslPort),
+
+    ssl_test_lib:close(Client),
     process_flag(trap_exit, false),
     ok.
 
@@ -300,8 +540,8 @@ ssl3_erlang_client_openssl_server_client_cert(Config) when is_list(Config) ->
     Data = "From openssl to erlang",
     
     Port = ssl_test_lib:inet_port(node()),
-    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     CertFile = proplists:get_value(certfile, ServerOpts),
+    CaCertFile = proplists:get_value(cacertfile, ServerOpts),
     KeyFile = proplists:get_value(keyfile, ServerOpts),
    
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
@@ -439,8 +679,7 @@ tls1_erlang_client_openssl_server(Config) when is_list(Config) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
 
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
-	" -cert " ++ CertFile 
-	++ " -key " ++ KeyFile ++ " -tls1", 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ " -tls1", 
     
     test_server:format("openssl cmd: ~p~n", [Cmd]),
 
@@ -668,8 +907,7 @@ cipher(CipherSuite, Version, Config) ->
     KeyFile = proplists:get_value(keyfile, ServerOpts),
    
     Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
-	" -cert " ++ CertFile  
-	++ " -key " ++ KeyFile ++ "", 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "", 
     
     test_server:format("openssl cmd: ~p~n", [Cmd]),
     
@@ -738,8 +976,14 @@ connection_info(Socket, Version) ->
 connection_info_result(Socket) ->                                            
     ssl:connection_info(Socket).
 
+
+delayed_send(Socket, [ErlData, OpenSslData]) ->
+    test_server:sleep(?SLEEP),
+    ssl:send(Socket, ErlData),
+    erlang_ssl_receive(Socket, OpenSslData).
+
 close_port(Port) ->
-    port_command(Port, "Q\n"),
+    port_command(Port, ?OPENSSL_QUIT),
     %%catch port_command(Port, "quit\n"), 
     close_loop(Port, 500, false).
 

@@ -31,8 +31,8 @@
 -include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([master_secret/4, client_hello/4, server_hello/3, hello/2, 
-	 certify/5, certificate/3, 
+-export([master_secret/4, client_hello/4, server_hello/3, hello/2,
+	 hello_request/0, certify/5, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
 	 key_exchange/2, finished/4,
@@ -95,6 +95,15 @@ server_hello(SessionId, Version, ConnectionStates) ->
 		  random = SecParams#security_parameters.server_random,
 		  session_id = SessionId
 		 }.
+
+%%--------------------------------------------------------------------
+%% Function: hello_request() -> #hello_request{} 
+%%
+%% Description: Creates a hello request message sent by server to 
+%% trigger renegotiation.
+%%--------------------------------------------------------------------
+hello_request() ->
+    #hello_request{}.
 
 %%--------------------------------------------------------------------
 %% Function: hello(Hello, Info) -> 
