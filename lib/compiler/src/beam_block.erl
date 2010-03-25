@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Partitions assembly instructions into basic blocks and
@@ -140,7 +140,6 @@ collect({move,S,D})          -> {set,[D],[S],move};
 collect({put_list,S1,S2,D})  -> {set,[D],[S1,S2],put_list};
 collect({put_tuple,A,D})     -> {set,[D],[],{put_tuple,A}};
 collect({put,S})             -> {set,[],[S],put};
-collect({put_string,L,S,D})  -> {set,[D],[],{put_string,L,S}};
 collect({get_tuple_element,S,I,D}) -> {set,[D],[S],{get_tuple_element,I}};
 collect({set_tuple_element,S,D,I}) -> {set,[],[S,D],{set_tuple_element,I}};
 collect({get_list,S,D1,D2})  -> {set,[D1,D2],[S],get_list};
@@ -204,7 +203,6 @@ alloc_may_pass({set,_,_,{set_tuple_element,_}}) -> false;
 alloc_may_pass({set,_,_,put_list}) -> false;
 alloc_may_pass({set,_,_,{put_tuple,_}}) -> false;
 alloc_may_pass({set,_,_,put}) -> false;
-alloc_may_pass({set,_,_,{put_string,_,_}}) -> false;
 alloc_may_pass({set,_,_,_}) -> true.
     
 combine_alloc({_,Ns,Nh1,Init}, {_,nostack,Nh2,[]})  ->

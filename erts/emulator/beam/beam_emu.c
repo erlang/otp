@@ -1414,20 +1414,6 @@ void process_main(void)
      NextPF(2, next);
  }
 
- OpCase(put_string_IId):
-    {
-      unsigned char* s;
-      int len;
-      Eterm result;
-
-      len = Arg(0);		/* Length. */
-      result = NIL;
-      for (s = (unsigned char *) Arg(1); len > 0; s--, len--) {
-	  PutList(make_small(*s), result, result, StoreSimpleDest);
-      }
-      StoreBifResult(2, result);
-    }
-
     /*
      * Send is almost a standard call-BIF with two arguments, except for:
      *    1) It cannot be traced.

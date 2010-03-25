@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(test_lib).
@@ -56,9 +56,7 @@ opt_opts(Mod) ->
 		    (no_new_binaries) -> true;
 		    (no_new_apply) -> true;
 		    (no_gc_bifs) -> true;
-		    (no_constant_pool) -> true;
 		    (no_stack_trimming) -> true;
-		    (no_binaries) -> true;
 		    (debug_info) -> true;
 		    (_) -> false
 		 end, Opts).
@@ -70,6 +68,5 @@ opt_opts(Mod) ->
 get_data_dir(Config) ->
     Data0 = ?config(data_dir, Config),
     {ok,Data1,_} = regexp:sub(Data0, "_no_opt_SUITE", "_SUITE"),
-    {ok,Data2,_} = regexp:sub(Data1, "_post_opt_SUITE", "_SUITE"),
-    {ok,Data,_} = regexp:sub(Data2, "_r11_SUITE", "_SUITE"),
+    {ok,Data,_} = regexp:sub(Data1, "_post_opt_SUITE", "_SUITE"),
     Data.

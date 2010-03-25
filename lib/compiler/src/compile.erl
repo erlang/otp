@@ -162,13 +162,8 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
-expand_opt(r11, Os) ->
-    [no_stack_trimming,no_binaries,no_constant_pool|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
-expand_opt(no_binaries=O, Os) ->
-    %%Turn off the entire type optimization pass.
-    [no_topt,O|Os];
 expand_opt(no_float_opt, Os) ->
     %%Turn off the entire type optimization pass.
     [no_topt|Os];
@@ -590,7 +585,7 @@ core_passes() ->
 
 kernel_passes() ->
     %% Destructive setelement/3 optimization and core lint.
-    [{unless,no_constant_pool,?pass(core_dsetel_module)}, %Not safe without constant pool.
+    [?pass(core_dsetel_module),
      {iff,dsetel,{listing,"dsetel"}},
 
      {iff,clint,?pass(core_lint_module)},

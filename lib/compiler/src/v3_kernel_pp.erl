@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Kernel Erlang (naive) prettyprinter
@@ -80,7 +80,6 @@ format_1(#k_atom{val=A}, _Ctxt) -> core_atom(A);
 format_1(#k_float{val=F}, _Ctxt) -> float_to_list(F);
 format_1(#k_int{val=I}, _Ctxt) -> integer_to_list(I);
 format_1(#k_nil{}, _Ctxt) -> "[]";
-format_1(#k_string{val=S}, _Ctxt) -> io_lib:write_string(S);
 format_1(#k_var{name=V}, _Ctxt) ->
     if is_atom(V) ->
 	    case atom_to_list(V) of
