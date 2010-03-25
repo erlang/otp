@@ -100,6 +100,7 @@ a.out.dSYM/
 /lib/*/test/*_SUITE_data/Makefile
 /erts/emulator/test/*_SUITE_make.erl
 /erts/emulator/test/*_SUITE_data/Makefile
+/erts/test/install_SUITE_data/install_bin
 
 # asn1
 
