@@ -18,7 +18,7 @@
 %%
 
 %%%-------------------------------------------------------------------
-%%% File: ct_config_SUITE
+%%% File: config_dynamic_SUITE
 %%%
 %%% Description:
 %%% Test suite for common_test which tests the userconfig functionality
@@ -46,33 +46,7 @@ suite() ->
      {timetrap, {seconds,10}}
     ].
 
-% to get it running on development branch (without userconfig features)
-% function to print full config is in the ct_util, for me it's moved to ct_config
-% two following functions are only for the design period
-% after merging of userconfigs to the main branch ct_config:get_all_config/0
-% should be called instead
-is_exported(Module, Function, Arity)->
-    Exports = Module:module_info(exports),
-    case lists:keyfind(Function, 1, Exports) of
-	false->
-	    false;
-	{Function, Arity}->
-	    true;
-	{Function, _OtherArity}->
-	    false
-    end.
-
-get_all_config()->
-    case is_exported(ct_util, get_all_config, 0) of
-	true->
-	    {ct_util, ct_util:get_all_config()};
-	false->
-	    {ct_config, ct_config:get_all_config()}
-    end.
-
 init_per_suite(Config) ->
-    %{Module, Cfg} = get_all_config(),
-    %ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
     Config.
 
 end_per_suite(_) ->
@@ -83,8 +57,6 @@ all() -> [test_get_known_variable, test_localtime_update,
 	  test_disappearable_variable_alias].
 
 init_per_testcase(_, Config) ->
-    %{Module, Cfg} = get_all_config(),
-    %ct:pal("CONFIG (handled by ~p):~n~p", [Module, Cfg]),
     Config.
 
 end_per_testcase(_, _) ->

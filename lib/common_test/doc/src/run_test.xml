@@ -4,7 +4,7 @@
 <comref>
   <header>
     <copyright>
-      <year>2007</year><year>2009</year>
+      <year>2007</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -27,8 +27,8 @@
     <docno></docno>
     <approved></approved>
     <checked></checked>
-    <date>2007-07-04</date>
-    <rev>PA1</rev>
+    <date>2010-04-01</date>
+    <rev>PA2</rev>
     <file>run_test.xml</file>
   </header>
   <com>run_test</com> 
@@ -61,6 +61,8 @@
 	 [[-group Group1 Group2 .. GroupN] [-case Case1 Case2 .. CaseN]]]
 	[-step [config | keep_inactive]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+    ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-logdir LogDir]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
@@ -79,6 +81,8 @@
     <pre>
 	run_test -spec TestSpec1 TestSpec2 .. TestSpecN
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+    ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
 	[-logdir LogDir]
 	[-allow_user_terms]
@@ -98,6 +102,8 @@
     <pre>
         run_test -vts [-browser Browser]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
+	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+    ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
         [-dir TestDir1 TestDir2 .. TestDirN] |
         [-suite Suite [[-group Group] [-case Case]]]
@@ -115,6 +121,8 @@
     <pre>
 	run_test -shell 
 	[-config ConfigFile1 ConfigFile2 ... ConfigFileN]
+	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
+     ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]</pre>
   </section>
   <section>

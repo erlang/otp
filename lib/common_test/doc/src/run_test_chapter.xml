@@ -370,6 +370,9 @@
 
       {config, ConfigFiles}.
       {config, NodeRefs, ConfigFiles}.
+
+      {userconfig, {CallbackModule, ConfigStrings}}.
+      {userconfig, NodeRefs, {CallbackModule, ConfigStrings}}.
       
       {alias, DirAlias, Dir}.
       

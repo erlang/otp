@@ -393,6 +393,9 @@ get_config(Required,Default,Opts) ->
 %%% <p>This function performs updating of the configuration data from which the
 %%% given configuration variable was read, and returns the (possibly) new
 %%% value of this variable.</p>
+%%% <p>Note that if some variables were present in the configuration but are not loaded
+%%% using this function, they will be removed from the configuration table together
+%%% with their aliases.</p>
 %%%
 reload_config(Required)->
     ct_config:reload_config(Required).
