@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -182,13 +182,13 @@ setup_keys(export, MasterSecret, ServerRandom, ClientRandom,
 suites() ->
     [ 
       %% TODO: uncomment when supported
-      %%       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
       %%       ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
-      %% TODO: Funkar inte, borde: ?TLS_RSA_WITH_AES_256_CBC_SHA,
-      %%       ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+      ?TLS_RSA_WITH_AES_256_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
       %%       ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
       ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
-      %%       ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+      ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
       %%       ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
       ?TLS_RSA_WITH_AES_128_CBC_SHA,
       %%?TLS_DHE_DSS_WITH_RC4_128_SHA, TODO: Support this?

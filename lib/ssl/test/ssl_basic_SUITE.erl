@@ -155,7 +155,7 @@ all(suite) ->
      upgrade, upgrade_with_timeout, tcp_connect,
      ipv6, ekeyfile, ecertfile, ecacertfile, eoptions, shutdown,
      shutdown_write, shutdown_both, shutdown_error, ciphers, 
-     send_close, 
+     send_close, dh_params,
      server_verify_peer_passive,
      server_verify_peer_active, server_verify_peer_active_once,
      server_verify_none_passive, server_verify_none_active, 
@@ -239,7 +239,7 @@ controlling_process(Config) when is_list(Config) ->
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
-			   {from, self()}, 
+		   {from, self()}, 
 			   {mfa, {?MODULE, 
 				  controlling_process_result, [self(),
 							       ClientMsg]}},
@@ -675,6 +675,38 @@ send_close(Config) when is_list(Config) ->
     gen_tcp:close(TcpS),    
     {error, _} = ssl:send(SslS, "Hello world"),    
     ssl_test_lib:close(Server).
+%%--------------------------------------------------------------------
+dh_params(doc) -> 
+    ["Test to specify DH-params file in server."];
+
+dh_params(suite) -> 
+    [];
+
+dh_params(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    DataDir = ?config(data_dir, Config),
+    DHParamFile = filename:join(DataDir, "dHParam.pem"),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, [{dhfile, DHParamFile} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options,
+			    [{ciphers,[{dhe_rsa,aes_256_cbc,sha,ignore}]} | 
+				       ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 upgrade(doc) -> 

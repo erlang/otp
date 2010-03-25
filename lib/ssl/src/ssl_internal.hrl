@@ -63,6 +63,7 @@
 	  key,	      % 
 	  password,   % 
 	  cacertfile, % file()
+	  dhfile,     % file()
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
 	  %% or not. Defaluts to allways returning true.

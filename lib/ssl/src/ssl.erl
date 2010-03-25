@@ -549,6 +549,7 @@ handle_options(Opts0, Role) ->
       key        = handle_option(key, Opts, undefined),
       password   = handle_option(password, Opts, ""),
       cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
+      dhfile     = handle_option(dhfile, Opts, undefined),
       ciphers    = handle_option(ciphers, Opts, []),
       %% Server side option
       reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
@@ -560,7 +561,7 @@ handle_options(Opts0, Role) ->
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed}),    
     SslOptions = [versions, verify, verify_fun, 
 		  depth, certfile, keyfile,
-		  key, password, cacertfile, ciphers,
+		  key, password, cacertfile, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
 		  cd_info, renegotiate_at],
     
@@ -611,6 +612,10 @@ validate_option(password, Value) when is_list(Value) ->
 validate_option(cacertfile, undefined) ->
     "";
 validate_option(cacertfile, Value) when is_list(Value), Value =/= "" ->
+    Value;
+validate_option(dhfile, undefined = Value)  ->
+    Value;
+validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
     Value;
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = ssl_record:highest_protocol_version([]),

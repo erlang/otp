@@ -35,7 +35,7 @@
 	 hello_request/0, certify/5, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
-	 key_exchange/2, finished/4,
+	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
 	 verify_connection/5, 
 	 get_tls_handshake/4,
 	 server_hello_done/0, sig_alg/1,
@@ -257,8 +257,10 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
 certificate_verify(Signature, {_, PublicKey, _}, Version, 
-		   MasterSecret, Algorithm, {_, Hashes0})
-  when Algorithm =:= rsa; Algorithm =:= dh_rsa; Algorithm =:= dhe_rsa ->
+		   MasterSecret, Algorithm, {_, Hashes0}) 
+  when Algorithm == rsa;
+       Algorithm == dh_rsa;
+       Algorithm == dhe_rsa ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 					   Algorithm, Hashes0),
     case public_key:decrypt_public(Signature, PublicKey, 
@@ -305,30 +307,32 @@ key_exchange(client, fixed_diffie_hellman) ->
 			 #client_diffie_hellman_public{
 			   dh_public = <<>>
 			  }};
-key_exchange(client, {dh, PublicKey}) ->
-    Len = byte_size(PublicKey), 
+key_exchange(client, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
     #client_key_exchange{
-		exchange_keys = #client_diffie_hellman_public{
-		  dh_public = <<?UINT16(Len), PublicKey/binary>>}
+	      exchange_keys = #client_diffie_hellman_public{
+		dh_public = PublicKey}
 	       };
 
-%% key_exchange(server, {{?'dhpublicnumber', _PublicKey, 
-%% 		       #'DomainParameters'{p = P, g = G, y = Y},
-%% 		       SignAlgorithm, ClientRandom, ServerRandom}})  ->
-%%     ServerDHParams = #server_dh_params{dh_p = P, dh_g = G, dh_y = Y},
-%%     PLen = byte_size(P),
-%%     GLen = byte_size(G),
-%%     YLen = byte_size(Y),
-%%     Hash = server_key_exchange_hash(SignAlgorithm, <<ClientRandom/binary, 
-%% 						    ServerRandom/binary, 
-%% 						    ?UINT16(PLen), P/binary, 
-%% 						    ?UINT16(GLen), G/binary,
-%% 						    ?UINT16(YLen), Y/binary>>),
-%%     Signed = digitally_signed(Hash, PrivateKey),
-%%     #server_key_exchange{
-%% 		  params = ServerDHParams,
-%% 		  signed_params = Signed
-%% 		 };
+key_exchange(server, {dh, {<<?UINT32(_), PublicKey/binary>>, _}, 
+		      #'DHParameter'{prime = P, base = G},
+		      KeyAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
+    <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
+    <<?UINT32(_), GBin/binary>> = crypto:mpint(G),
+    PLen = byte_size(PBin),
+    GLen = byte_size(GBin),
+    YLen = byte_size(PublicKey),
+    ServerDHParams = #server_dh_params{dh_p = PBin, 
+				       dh_g = GBin, dh_y = PublicKey},
+    
+    Hash = 
+	server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary, 
+					   ServerRandom/binary, 
+					   ?UINT16(PLen), PBin/binary, 
+					   ?UINT16(GLen), GBin/binary,
+					   ?UINT16(YLen), PublicKey/binary>>),
+    Signed = digitally_signed(Hash, PrivateKey),
+    #server_key_exchange{params = ServerDHParams,
+			 signed_params = Signed};
 key_exchange(_, _) ->
     %%TODO : Real imp
     #server_key_exchange{}.
@@ -426,7 +430,8 @@ server_hello_done() ->
 %%     
 %% encode a handshake packet to binary
 %%--------------------------------------------------------------------
-encode_handshake(Package, Version, SigAlg) ->
+encode_handshake(Package, Version, KeyAlg) ->
+    SigAlg = sig_alg(KeyAlg),
     {MsgType, Bin} = enc_hs(Package, Version, SigAlg),
     Len = byte_size(Bin),
     [MsgType, ?uint24(Len), Bin].
@@ -446,30 +451,14 @@ get_tls_handshake(Data, Buffer, KeyAlg, Version) ->
     get_tls_handshake_aux(list_to_binary([Buffer, Data]), 
 			  KeyAlg, Version, []).
 
-get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length), Body:Length/binary,Rest/binary>>, 
-		      KeyAlg, Version, Acc) ->
+get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length), 
+		       Body:Length/binary,Rest/binary>>, KeyAlg, 
+		      Version, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    H = dec_hs(Type, Body, KeyAlg, Version),
+    H = dec_hs(Type, Body, key_excahange_alg(KeyAlg), Version),
     get_tls_handshake_aux(Rest, KeyAlg, Version, [{H,Raw} | Acc]);
 get_tls_handshake_aux(Data, _KeyAlg, _Version, Acc) ->
     {lists:reverse(Acc), Data}.
-
-%%--------------------------------------------------------------------
-%% Function: sig_alg(atom()) -> integer()
-%%
-%% Description: Convert from key exchange as atom to signature
-%% algorithm as a ?SIGNATURE_... constant
-%%--------------------------------------------------------------------
-
-sig_alg(dh_anon) ->
-    ?SIGNATURE_ANONYMOUS;
-sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa; Alg == dh_rsa ->
-    ?SIGNATURE_RSA;
-sig_alg(Alg) when Alg == dh_dss; Alg == dhe_dss ->
-    ?SIGNATURE_DSA;
-sig_alg(_) ->
-    ?NULL.
-
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -658,8 +647,8 @@ dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>, _, _) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod:ModLen/binary,
-			      ?UINT16(ExpLen), Exp:ExpLen/binary,
-			      Sig/binary>>,
+			      ?UINT16(ExpLen),  Exp:ExpLen/binary,
+			      ?UINT16(_),  Sig/binary>>,
        ?KEY_EXCHANGE_RSA, _) ->
     #server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod, 
 						     rsa_exponent = Exp}, 
@@ -667,9 +656,10 @@ dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod:ModLen/binary,
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
-			      Sig/binary>>,
+			      ?UINT16(_), Sig/binary>>,
        ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
-    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, dh_y = Y},
+    #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
+						    dh_y = Y},
 			 signed_params = Sig};
 dec_hs(?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
@@ -681,18 +671,20 @@ dec_hs(?SERVER_HELLO_DONE, <<>>, _, _) ->
     #server_hello_done{};
 dec_hs(?CERTIFICATE_VERIFY,<<?UINT16(_), Signature/binary>>, _, _)->
     #certificate_verify{signature = Signature};
-dec_hs(?CLIENT_KEY_EXCHANGE, PKEPMS, rsa, {3, 0}) ->
+dec_hs(?CLIENT_KEY_EXCHANGE, PKEPMS, ?KEY_EXCHANGE_RSA, {3, 0}) ->
     PreSecret = #encrypted_premaster_secret{premaster_secret = PKEPMS},
     #client_key_exchange{exchange_keys = PreSecret};
-dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(_), PKEPMS/binary>>, rsa, _) ->
+dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(_), PKEPMS/binary>>, 
+       ?KEY_EXCHANGE_RSA, _) ->
     PreSecret = #encrypted_premaster_secret{premaster_secret = PKEPMS},
     #client_key_exchange{exchange_keys = PreSecret};
 dec_hs(?CLIENT_KEY_EXCHANGE, <<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) -> 
     %% TODO: Should check whether the cert already contains a suitable DH-key (7.4.7.2)
     throw(?ALERT_REC(?FATAL, implicit_public_value_encoding));
-dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(DH_YCLen), DH_YC:DH_YCLen/binary>>,
+dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
        ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
-    #client_diffie_hellman_public{dh_public = DH_YC};
+    #client_key_exchange{exchange_keys = 
+			 #client_diffie_hellman_public{dh_public = DH_Y}};
 dec_hs(?FINISHED, VerifyData, _, _) ->
     #finished{verify_data = VerifyData};
 dec_hs(_, _, _, _) ->
@@ -765,12 +757,13 @@ enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version, _) ->
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
 enc_hs(#server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod,
 							rsa_exponent = Exp},
-	signed_params = SignedParams}, _Version, _) ->
+			    signed_params = SignedParams}, _Version, _) -> 
     ModLen = byte_size(Mod),
     ExpLen = byte_size(Exp),
-    {?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod/binary,
+    SignedLen = byte_size(SignedParams),
+    {?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen),Mod/binary,
 			    ?UINT16(ExpLen), Exp/binary,
-			    SignedParams/binary>>
+			    ?UINT16(SignedLen), SignedParams/binary>>
     };
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
@@ -778,10 +771,11 @@ enc_hs(#server_key_exchange{params = #server_dh_params{
     PLen = byte_size(P),
     GLen = byte_size(G),
     YLen = byte_size(Y),
-    {?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
-			    ?UINT16(GLen), G:GLen/binary,
-			    ?UINT16(YLen), Y:YLen/binary,
-			    SignedParams/binary>>
+    SignedLen = byte_size(SignedParams),
+    {?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P/binary, 
+			    ?UINT16(GLen), G/binary,
+			    ?UINT16(YLen), Y/binary,
+			    ?UINT16(SignedLen), SignedParams/binary>>
     };
 enc_hs(#certificate_request{certificate_types = CertTypes,
 			    certificate_authorities = CertAuths}, 
@@ -936,13 +930,40 @@ calc_certificate_verify({3, N}, _, Algorithm, Hashes)
   when  N == 1; N == 2 ->
     ssl_tls1:certificate_verify(Algorithm, Hashes).
 
-%% server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
-%% 						Algorithm == dh_rsa;
-%% 						Algorithm == dhe_rsa ->
-%%     MD5 = crypto:md5_final(Value),
-%%     SHA =  crypto:sha_final(Value),
-%%     <<MD5/binary, SHA/binary>>;
+server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
+ 						Algorithm == dh_rsa;
+ 						Algorithm == dhe_rsa ->
+    MD5Context = crypto:md5_init(),
+    NewMD5Context = crypto:md5_update(MD5Context, Value),
+    MD5 = crypto:md5_final(NewMD5Context),
+    
+    SHAContext = crypto:sha_init(),
+    NewSHAContext = crypto:sha_update(SHAContext, Value),
+    SHA =  crypto:sha_final(NewSHAContext),
 
-%% server_key_exchange_hash(Algorithm, Value) when Algorithm == dh_dss;
-%% 					   Algorithm == dhe_dss ->
-%%     crypto:sha_final(Value).
+    <<MD5/binary, SHA/binary>>;
+
+server_key_exchange_hash(Algorithm, Value) when Algorithm == dh_dss;
+						Algorithm == dhe_dss ->
+
+    SHAContext = crypto:sha_init(),
+    NewSHAContext = crypto:sha_update(SHAContext, Value),
+    crypto:sha_final(NewSHAContext).
+
+
+sig_alg(dh_anon) ->
+    ?SIGNATURE_ANONYMOUS;
+sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa; Alg == dh_rsa ->
+    ?SIGNATURE_RSA;
+sig_alg(Alg) when Alg == dh_dss; Alg == dhe_dss ->
+    ?SIGNATURE_DSA;
+sig_alg(_) ->
+    ?NULL.
+
+key_excahange_alg(rsa) ->
+    ?KEY_EXCHANGE_RSA;
+key_excahange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
+			    Alg == dh_dss; Alg == dh_rsa; Alg == dh_anon ->
+    ?KEY_EXCHANGE_DIFFIE_HELLMAN;
+key_excahange_alg(_) ->
+    ?NULL.
