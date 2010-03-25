@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 2008-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 2008-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 
@@ -44,6 +44,8 @@ GEN_FILES       = $(wildcard gen/wx*.erl) \
 		gen/glu.erl \
 		gen/gl.erl
 
+GEN_MODS        = $(GEN_FILES:gen/%.erl=  %,\n )
+
 GEN_HRL		= \
 		$(EGEN)/gl_debug.hrl \
 		$(EGEN)/wxe_debug.hrl \
@@ -56,15 +58,25 @@ EXT_HRL		= $(ERLINC)/wx.hrl \
 TARGET_FILES    = $(ErlMods:%=$(EBIN)/%.beam) $(GEN_FILES:gen/%.erl=$(EBIN)/%.beam) 
 HEADER_FILES    = $(HRL_FILES) $(GEN_HRL) $(EXT_HRL)
 
+APP_FILE   = wx.app
+APP_SRC    = $(APP_FILE).src
+APP_TARGET = $(EBIN)/$(APP_FILE)
+
+APPUP_FILE   = wx.appup
+APPUP_SRC    = $(APPUP_FILE).src
+APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
+
 # Targets
-debug opt: $(TARGET_FILES)
+debug opt: $(TARGET_FILES) $(APP_TARGET) $(APPUP_TARGET)
 
 clean:  
 	rm -f $(TARGET_FILES) 
+	rm -f $(APP_TARGET) $(APPUP_TARGET)
 	rm -f *~
 
 complete_clean: 
 	rm -f $(TARGET_FILES) 
+	rm -f $(APP_TARGET) $(APPUP_TARGET)
 	rm -f $(GEN_FILES)
 	rm -f $(GenHrl)
 	rm -f *~
@@ -75,6 +87,17 @@ docs:
 archive: opt
 	(cd ../..; zip -0 wx/$(ARCHIVE) wx wx/ebin wx/ebin/*)
 
+# ----------------------------------------------------
+# Special Build Targets
+# ----------------------------------------------------
+
+$(APP_TARGET): $(APP_SRC) ../vsn.mk Makefile
+	sed -e 's;%GEN_MODS%;$(GEN_MODS);' $< > $@.tmp
+	sed -e 's;%VSN%;$(VSN);' $@.tmp > $@
+	rm $@.tmp
+
+$(APPUP_TARGET): $(APPUP_SRC) ../vsn.mk Makefile
+	sed -e 's;%VSN%;$(VSN);' $< > $@
 
 # Rules
 $(EBIN)/%.beam: $(ESRC)/%.erl $(HEADER_FILES)
@@ -97,6 +120,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(EXT_HRL) $(RELSYSDIR)/include
 	$(INSTALL_DIR) $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DATA) $(APP_TARGET) $(APPUP_TARGET) $(RELSYSDIR)/ebin
 #	$(INSTALL_DATA) ../$(ARCHIVE) $(RELEASE_PATH)/lib
 
 release_docs_spec:
