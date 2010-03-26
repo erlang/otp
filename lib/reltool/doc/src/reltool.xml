@@ -67,14 +67,14 @@
 
     <taglist>
 
-      <tag><c><![CDATA[config]]></c></tag>
+      <tag><c>config</c></tag>
       <item>
         <p>This is the main option and it controls the configuration
            of <c>reltool</c>.  It can either be a <c>sys</c> tuple or
            a name of a <c>file</c> containing a sys tuple.</p>
       </item>
 
-      <tag><c><![CDATA[trap_exit]]></c></tag>
+      <tag><c>trap_exit></c></tag>
       <item>
         <p>This option controls the error handling behavior of
            <c>reltool</c>.  By default the window processes traps
@@ -82,7 +82,7 @@
            <c>trap_exit</c> to <c>false</c>.</p>
       </item>
 
-      <tag><c><![CDATA[wx_debug]]></c></tag>
+      <tag><c>wx_debug</c></tag>
       <item>
         <p>This option controls the debug level of <c>wx</c>. As its
            name indicates it is only useful for debugging. See
@@ -97,27 +97,27 @@
 
     <taglist>
 
-      <tag><c><![CDATA[erts]]></c></tag>
+      <tag><c>erts</c></tag>
       <item>
         <p>Erts specific configuration. See application level options
         below.</p>
       </item>
 
-      <tag><c><![CDATA[escript]]></c></tag>
+      <tag><c>escript</c></tag>
       <item>
         <p>Escript specific configuration. An escript has a mandatory
         file name and escript level options that are described
         below.</p>
       </item>
 
-      <tag><c><![CDATA[app]]></c></tag>
+      <tag><c>app</c></tag>
       <item>
         <p>Application specific configuration. An application has a
         mandatory name and application level options that are
         described below.</p>
       </item>
 
-      <tag><c><![CDATA[mod_cond]]></c></tag>
+      <tag><c>mod_cond</c></tag>
       <item>
         <p>This parameter controls the module inclusion policy. It
         defaults to <c>all</c> which means that if an application is
@@ -134,7 +134,7 @@
         system level is used as default for all applications.</p>
       </item>
 
-      <tag><c><![CDATA[incl_cond]]></c></tag>
+      <tag><c>incl_cond</c></tag>
       <item>
 	<p>This parameter controls the application and escript
 	inclusion policy. It defaults to <c>derived</c> which means
@@ -148,14 +148,14 @@
 	<c>incl_cond</c> setting will be excluded.</p>
       </item>
 
-      <tag><c><![CDATA[boot_rel]]></c></tag>
+      <tag><c>boot_rel</c></tag>
       <item>
         <p>A target system may have several releases but the one given
         as <c>boot_rel</c> will be used as default when the system is
         booting up.</p>
       </item>
 
-      <tag><c><![CDATA[rel]]></c></tag>
+      <tag><c>rel</c></tag>
       <item>
         <p>Release specific configuration. Each release maps to a
         <c>rel</c>, <c>script</c> and <c>boot </c> file. See the
@@ -165,7 +165,7 @@
         applications.</p>
       </item>
 
-      <tag><c><![CDATA[relocatable]]></c></tag>
+      <tag><c>relocatable</c></tag>
       <item>
 	<p>This parameter controls whether the <c>erl</c> executable
 	in the target system automatically should determine where it
@@ -177,7 +177,7 @@
 	re-installation. The default is <c>true</c>.</p>
       </item>
 
-      <tag><c><![CDATA[profile]]></c></tag>
+      <tag><c>profile</c></tag>
       <item>
 	<p>The creation of the specification for a target system is
 	performed in two steps. In the first step a complete
@@ -196,7 +196,7 @@
 	<c>incl_app_filters</c> and <c>excl_app_filters</c>.</p>
       </item>
 
-      <tag><c><![CDATA[app_file]]></c></tag>
+      <tag><c>app_file</c></tag>
       <item>
         <p>This parameter controls the default handling of the
         <c>app</c> files when a target system is generated. It
@@ -213,7 +213,7 @@
         and <c>strip</c>.</p>
       </item>
 
-      <tag><c><![CDATA[debug_info]]></c></tag>
+      <tag><c>debug_info</c></tag>
       <item>
         <p>The <c>debug_info</c> parameter controls whether the debug
         information in the beam file should be kept (<c>keep</c>) or
@@ -221,7 +221,7 @@
         system.</p>
       </item>
 
-      <tag><c><![CDATA[incl_sys_filters]]></c></tag>
+      <tag><c>incl_sys_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which files in the system that
@@ -235,7 +235,7 @@
         <c>[".*"]</c>.</p>
       </item>
 
-      <tag><c><![CDATA[excl_sys_filters]]></c></tag>
+      <tag><c>excl_sys_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which files in the system that not
@@ -245,7 +245,7 @@
         <c>excl_sys_filters</c>. This parameter defaults to
         <c>[]</c>.</p>
       </item>
-      <tag><c><![CDATA[incl_app_filters]]></c></tag>
+      <tag><c>incl_app_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which application specific files
@@ -256,7 +256,7 @@
         parameter defaults to <c>[".*"]</c>.</p>
       </item>
 
-      <tag><c><![CDATA[excl_app_filters]]></c></tag>
+      <tag><c>excl_app_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which application specific files
@@ -267,7 +267,7 @@
         <c>[]</c>.</p>
       </item>
 
-      <tag><c><![CDATA[incl_archive_filters]]></c></tag>
+      <tag><c>incl_archive_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which top level directories in an
@@ -280,7 +280,7 @@
         parameter defaults to <c>[".*"]</c>.</p>
       </item>
 
-       <tag><c><![CDATA[excl_archive_filters]]></c></tag>
+       <tag><c>excl_archive_filters</c></tag>
       <item>
         <p>This parameter normally contains a list of regular
         expressions that controls which top level directories in an
@@ -291,7 +291,7 @@
         parameter defaults to <c>["^include$","^priv$"]</c>.</p>
       </item>
 
-      <tag><c><![CDATA[archive_opts]]></c></tag>
+      <tag><c>archive_opts</c></tag>
       <item>
         <p>This parameter contains a list of options that are given to
         <c>zip:create/3</c> when application specific files are
@@ -307,7 +307,7 @@
     supported:</p>
 
    <taglist>
-      <tag><c><![CDATA[incl_cond]]></c></tag>
+      <tag><c>incl_cond</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
@@ -318,62 +318,62 @@
        supported:</p>
 
    <taglist>
-      <tag><c><![CDATA[vsn]]></c></tag>
+      <tag><c>vsn</c></tag>
       <item>
         <p>The version of the application. In an installed system there may
         exist several versions of an application. The <c>vsn</c> parameter
         controls which version of the application that will be choosen. If it
         is omitted, the latest version will be choosen.</p>
       </item>
-      <tag><c><![CDATA[mod]]></c></tag>
+      <tag><c>mod</c></tag>
       <item>
         <p>Module specific configuration. A module has a mandatory
         name and module level options that are described below.</p>
       </item>
-      <tag><c><![CDATA[mod_cond]]></c></tag>
+      <tag><c>mod_cond</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-      <tag><c><![CDATA[incl_cond]]></c></tag>
+      <tag><c>incl_cond</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-      <tag><c><![CDATA[app_file]]></c></tag>
+      <tag><c>app_file</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-      <tag><c><![CDATA[debug_info]]></c></tag>
+      <tag><c>debug_info</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-      <tag><c><![CDATA[incl_app_filters]]></c></tag>
+      <tag><c>incl_app_filters</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
-      <tag><c><![CDATA[excl_app_filters]]></c></tag>
-      <item>
-        <p>The value of this parameter overrides the parameter with the
-        same name on system level.</p>
-      </item>
-
-      <tag><c><![CDATA[incl_archive_filters]]></c></tag>
+      <tag><c>excl_app_filters</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
 
-       <tag><c><![CDATA[excl_archive_filters]]></c></tag>
+      <tag><c>incl_archive_filters</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
       </item>
 
-     <tag><c><![CDATA[archive_opts]]></c></tag>
+       <tag><c>excl_archive_filters</c></tag>
+      <item>
+        <p>The value of this parameter overrides the parameter with the
+        same name on system level.</p>
+      </item>
+
+     <tag><c>archive_opts</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with the
         same name on system level.</p>
@@ -384,7 +384,7 @@
        supported:</p>
 
    <taglist>
-      <tag><c><![CDATA[incl_cond]]></c></tag>
+      <tag><c>incl_cond</c></tag>
       <item>
 	<p>This parameter controls whether the module is included or not. By
 	default the <c>mod_incl</c> parameter on application and system level
@@ -395,7 +395,7 @@
 	<c>derived</c> implies that the is included if any included uses the
 	module.</p>
       </item>
-      <tag><c><![CDATA[debug_info]]></c></tag>
+      <tag><c>debug_info</c></tag>
       <item>
         <p>The value of this parameter overrides the parameter with
         the same name on application level.</p>
