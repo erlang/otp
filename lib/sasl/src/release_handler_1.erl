@@ -554,7 +554,13 @@ get_supervisor_module(SupPid) ->
 get_supervisor_module1(SupPid) ->
     {status, _Pid, {module, _Mod}, 
      [_PDict, _SysState, _Parent, _Dbg, Misc]} = sys:get_status(SupPid),
-    [_Name, State, _Type, _Time] = Misc,
+    %% supervisor Misc field changed at R13B04, handle old and new variants here
+    State = case Misc of
+                [_Name, State1, _Type, _Time] ->
+                    State1;
+                [_Header, _Data, {data, [{"State", State2}]}] ->
+                    State2
+            end,
     %% Cannot use #supervisor_state{module = Module} = State.
     {ok, element(#supervisor_state.module, State)}.
 
