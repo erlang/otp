@@ -221,7 +221,7 @@ fe80::204:acff:fe17:bf38
       </desc>
     </func>
     <func>
-      <name>getopts(Socket, Options) -> OptionValues | {error, posix()}</name>
+      <name>getopts(Socket, Options) -> {ok, OptionValues} | {error, posix()}</name>
       <fsummary>Get one or more options for a socket</fsummary>
       <type>
         <v>Socket = term()</v>
