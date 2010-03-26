@@ -5105,7 +5105,7 @@ true</pre>
 	    </p>
 	    <p><em>NOTE:</em> If other programs on the system have bound
 	       to processors, e.g. another Erlang runtime system, you
-	       may loose performance when binding schedulers. Therefore,
+	       may lose performance when binding schedulers. Therefore,
 	       schedulers are by default not bound.</p>
 	    <p>Schedulers can be bound in different ways. The <c>How</c>
 	       argument determines how schedulers are bound. <c>How</c> can

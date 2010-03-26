@@ -109,7 +109,7 @@
         <item>
 	    <p>A number of bugs concerning re and unicode are
 	    corrected:</p>
-	    <p>re:compile no longer looses unicode option, which also
+	    <p>re:compile no longer loses unicode option, which also
 	    fixes bug in re:split.</p>
 	    <p>re:replace now handles unicode charlist replacement
 	    argument</p>
