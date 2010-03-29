@@ -851,6 +851,9 @@ type(erlang, hd, 1, Xs) ->
 type(erlang, integer_to_list, 1, Xs) ->
   strict(arg_types(erlang, integer_to_list, 1), Xs,
 	 fun (_) -> t_string() end);
+type(erlang, integer_to_list, 2, Xs) ->
+  strict(arg_types(erlang, integer_to_list, 2), Xs,
+	 fun (_) -> t_string() end);
 type(erlang, info, 1, Xs) -> type(erlang, system_info, 1, Xs); % alias
 type(erlang, iolist_size, 1, Xs) ->
   strict(arg_types(erlang, iolist_size, 1), Xs,
@@ -1055,6 +1058,9 @@ type(erlang, list_to_float, 1, Xs) ->
   strict(arg_types(erlang, list_to_float, 1), Xs, fun (_) -> t_float() end);
 type(erlang, list_to_integer, 1, Xs) ->
   strict(arg_types(erlang, list_to_integer, 1), Xs,
+	 fun (_) -> t_integer() end);
+type(erlang, list_to_integer, 2, Xs) ->
+  strict(arg_types(erlang, list_to_integer, 2), Xs,
 	 fun (_) -> t_integer() end);
 type(erlang, list_to_pid, 1, Xs) ->
   strict(arg_types(erlang, list_to_pid, 1), Xs, fun (_) -> t_pid() end);
@@ -3498,6 +3504,8 @@ arg_types(erlang, iolist_size, 1) ->
   [t_sup(t_iolist(), t_binary())];
 arg_types(erlang, integer_to_list, 1) ->
   [t_integer()];
+arg_types(erlang, integer_to_list, 2) ->
+  [t_integer(), t_from_range(2, 36)];
 arg_types(erlang, is_alive, 0) ->
   [];
 arg_types(erlang, is_atom, 1) ->
@@ -3558,6 +3566,8 @@ arg_types(erlang, list_to_float, 1) ->
   [t_list(t_byte())];
 arg_types(erlang, list_to_integer, 1) ->
   [t_list(t_byte())];
+arg_types(erlang, list_to_integer, 2) ->
+  [t_list(t_byte()), t_from_range(2, 36)];
 arg_types(erlang, list_to_pid, 1) ->
   [t_string()];
 arg_types(erlang, list_to_tuple, 1) ->
