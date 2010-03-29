@@ -386,10 +386,18 @@ if test -f "erts/doc/CONF_INFO"; then
   echo '*********************************************************************'
   echo
   printf "%-15s: \n" documentation; 
+  havexsltproc="yes"
   for cmd in `cat erts/doc/CONF_INFO`; do
 	echo "                 $cmd is missing." 
+  if test $cmd = "xsltproc"; then
+    havexsltproc="no"
+  fi
   done  
-  echo '                 The documentation can not be built.'
+  if test $havexsltproc = "no"; then
+    echo '                 The documentation can not be built.'
+  else
+    echo '                 Using fakefop to generate placeholder PDF files.'
+  fi
   echo
   echo '*********************************************************************'
 fi
