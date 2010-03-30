@@ -24,7 +24,7 @@
 -include("ssh.hrl").
 -include("ssh_connect.hrl").
 
--export([start/0, start/1, stop/0, connect/3, close/1, connection_info/2,
+-export([start/0, start/1, stop/0, connect/3, connect/4, close/1, connection_info/2,
 	 channel_info/3,
 	 daemon/1, daemon/2, daemon/3,
 	 stop_listener/1, stop_listener/2, stop_daemon/1, stop_daemon/2,
