@@ -34,7 +34,17 @@
 
   <section>
     <title>cosTransactions 1.2.10</title>
-
+    <section>
+      <title>Improvements and New Features</title>
+      <list type="bulleted">
+        <item>
+          <p>
+            Test suites published.</p>
+          <p>
+            Own Id: OTP-8543 Aux Id:</p>
+        </item>
+      </list>
+    </section>
     <section>
       <title>Fixed Bugs and Malfunctions</title>
       <list type="bulleted">
