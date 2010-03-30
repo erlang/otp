@@ -2209,7 +2209,7 @@ case wxScrolledWindow_new_2: { // wxScrolledWindow::wxScrolledWindow
  wxWindowID winid=wxID_ANY;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(wxHSCROLL|wxVSCROLL);
+ long style=wxScrolledWindowStyle;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -2385,7 +2385,7 @@ case wxSashWindow_new_2: { // wxSashWindow::wxSashWindow
  wxWindowID id=wxID_ANY;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0040|0x0080)|wxCLIP_CHILDREN;
+ long style=wxSW_3D|wxCLIP_CHILDREN;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -5930,7 +5930,7 @@ case wxBufferedDC_new_0: { // wxBufferedDC::wxBufferedDC
 }
 case wxBufferedDC_new_2: { // wxBufferedDC::wxBufferedDC
  wxBitmap * buffer= &wxNullBitmap;
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -5947,7 +5947,7 @@ buffer = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  break;
 }
 case wxBufferedDC_new_3: { // wxBufferedDC::wxBufferedDC
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * areaW = (int *) bp; bp += 4;
  int * areaH = (int *) bp; bp += 4;
@@ -5965,7 +5965,7 @@ case wxBufferedDC_new_3: { // wxBufferedDC::wxBufferedDC
 }
 case wxBufferedDC_Init_2: { // wxBufferedDC::Init
  wxBitmap * buffer= &wxNullBitmap;
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxBufferedDC *This = (wxBufferedDC *) getPtr(bp,memenv); bp += 4;
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -5981,7 +5981,7 @@ buffer = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  break;
 }
 case wxBufferedDC_Init_3: { // wxBufferedDC::Init
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxBufferedDC *This = (wxBufferedDC *) getPtr(bp,memenv); bp += 4;
  wxDC *dc = (wxDC *) getPtr(bp,memenv); bp += 4;
  int * areaW = (int *) bp; bp += 4;
@@ -5997,7 +5997,7 @@ case wxBufferedDC_Init_3: { // wxBufferedDC::Init
  break;
 }
 case wxBufferedPaintDC_new_3: { // wxBufferedPaintDC::wxBufferedPaintDC
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxWindow *window = (wxWindow *) getPtr(bp,memenv); bp += 4;
  wxBitmap *buffer = (wxBitmap *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -6011,7 +6011,7 @@ case wxBufferedPaintDC_new_3: { // wxBufferedPaintDC::wxBufferedPaintDC
  break;
 }
 case wxBufferedPaintDC_new_2: { // wxBufferedPaintDC::wxBufferedPaintDC
- int style=0x02;
+ int style=wxBUFFER_CLIENT_AREA;
  wxWindow *window = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -9163,7 +9163,7 @@ case wxIcon_new_0: { // wxIcon::wxIcon
  break;
 }
 case wxIcon_new_2: { // wxIcon::wxIcon
- wxBitmapType type=wxBITMAP_TYPE_XPM;
+ wxBitmapType type=wxICON_DEFAULT_BITMAP_TYPE;
  int desiredWidth=-1;
  int desiredHeight=-1;
  int * filenameLen = (int *) bp; bp += 4;
@@ -16404,7 +16404,7 @@ case wxTextAttr_SetFlags: { // wxTextAttr::SetFlags
  break;
 }
 case wxTextAttr_SetFont: { // wxTextAttr::SetFont
- long flags=(0x0004|0x0008|0x0010|0x0020|0x0040);
+ long flags=wxTEXT_ATTR_FONT;
  wxTextAttr *This = (wxTextAttr *) getPtr(bp,memenv); bp += 4;
  wxFont *font = (wxFont *) getPtr(bp,memenv); bp += 4;
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -16739,7 +16739,7 @@ case wxTextCtrl_IsSingleLine: { // wxTextCtrl::IsSingleLine
  break;
 }
 case wxTextCtrl_LoadFile: { // wxTextCtrl::LoadFile
- int fileType=0;
+ int fileType=wxTEXT_TYPE_ANY;
  wxTextCtrl *This = (wxTextCtrl *) getPtr(bp,memenv); bp += 4;
  int * fileLen = (int *) bp; bp += 4;
  wxString file = wxString(bp, wxConvUTF8);
@@ -16806,7 +16806,7 @@ case wxTextCtrl_Replace: { // wxTextCtrl::Replace
 }
 case wxTextCtrl_SaveFile: { // wxTextCtrl::SaveFile
  wxString file= wxEmptyString;
- int fileType=0;
+ int fileType=wxTEXT_TYPE_ANY;
  wxTextCtrl *This = (wxTextCtrl *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {
@@ -20467,7 +20467,7 @@ case wxPalette_IsOk: { // wxPalette::IsOk
 case wxDirDialog_new: { // wxDirDialog::wxDirDialog
  wxString title= wxDirSelectorPromptStr;
  wxString defaultPath= wxEmptyString;
- long style=(wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER);
+ long style=wxDD_DEFAULT_STYLE;
  wxPoint pos= wxDefaultPosition;
  wxSize sz= wxDefaultSize;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -20541,7 +20541,7 @@ case wxFileDialog_new: { // wxFileDialog::wxFileDialog
  wxString defaultDir= wxEmptyString;
  wxString defaultFile= wxEmptyString;
  wxString wildCard= wxFileSelectorDefaultWildcardStr;
- long style=wxFD_OPEN;
+ long style=wxFD_DEFAULT_STYLE;
  wxPoint pos= wxDefaultPosition;
  wxSize sz= wxDefaultSize;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -20806,7 +20806,7 @@ case wxFilePickerCtrl_new_3: { // wxFilePickerCtrl::wxFilePickerCtrl
  wxString wildcard= wxFileSelectorDefaultWildcardStr;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0400|0x2000);
+ long style=wxFLP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * id = (int *) bp; bp += 4;
@@ -20856,7 +20856,7 @@ case wxFilePickerCtrl_Create: { // wxFilePickerCtrl::Create
  wxString wildcard= wxFileSelectorDefaultWildcardStr;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0400|0x2000);
+ long style=wxFLP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxFilePickerCtrl *This = (wxFilePickerCtrl *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -20929,7 +20929,7 @@ case wxDirPickerCtrl_new_3: { // wxDirPickerCtrl::wxDirPickerCtrl
  wxString message= wxDirSelectorPromptStr;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0008);
+ long style=wxDIRP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * id = (int *) bp; bp += 4;
@@ -20973,7 +20973,7 @@ case wxDirPickerCtrl_Create: { // wxDirPickerCtrl::Create
  wxString message= wxDirSelectorPromptStr;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0008);
+ long style=wxDIRP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxDirPickerCtrl *This = (wxDirPickerCtrl *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -21040,7 +21040,7 @@ case wxColourPickerCtrl_new_3: { // wxColourPickerCtrl::wxColourPickerCtrl
  wxColour col= *wxBLACK;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=0;
+ long style=wxCLRP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * id = (int *) bp; bp += 4;
@@ -21081,7 +21081,7 @@ case wxColourPickerCtrl_Create: { // wxColourPickerCtrl::Create
  wxColour col= *wxBLACK;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=0;
+ long style=wxCLRP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxColourPickerCtrl *This = (wxColourPickerCtrl *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -21268,7 +21268,7 @@ case wxFontPickerCtrl_new_3: { // wxFontPickerCtrl::wxFontPickerCtrl
  const wxFont * initial= &wxNullFont;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0008|0x0010);
+ long style=wxFNTP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * id = (int *) bp; bp += 4;
@@ -21304,7 +21304,7 @@ case wxFontPickerCtrl_Create: { // wxFontPickerCtrl::Create
  const wxFont * initial= &wxNullFont;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=(0x0008|0x0010);
+ long style=wxFNTP_DEFAULT_STYLE;
  const wxValidator * validator= &wxDefaultValidator;
  wxFontPickerCtrl *This = (wxFontPickerCtrl *) getPtr(bp,memenv); bp += 4;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
@@ -21480,7 +21480,7 @@ case wxMultiChoiceDialog_new_0: { // wxMultiChoiceDialog::wxMultiChoiceDialog
  break;
 }
 case wxMultiChoiceDialog_new_5: { // wxMultiChoiceDialog::wxMultiChoiceDialog
- long style=(wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxOK|wxCANCEL|wxCENTRE);
+ long style=wxCHOICEDLG_STYLE;
  wxPoint pos= wxDefaultPosition;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * messageLen = (int *) bp; bp += 4;
@@ -21540,7 +21540,7 @@ case wxSingleChoiceDialog_new_0: { // wxSingleChoiceDialog::wxSingleChoiceDialog
 }
 case wxSingleChoiceDialog_new_5: { // wxSingleChoiceDialog::wxSingleChoiceDialog
  char ** clientData = (char **) NULL;
- long style=(wxDEFAULT_DIALOG_STYLE|wxRESIZE_BORDER|wxOK|wxCANCEL|wxCENTRE);
+ long style=wxCHOICEDLG_STYLE;
  wxPoint pos= wxDefaultPosition;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * messageLen = (int *) bp; bp += 4;
@@ -21599,7 +21599,7 @@ case wxSingleChoiceDialog_SetSelection: { // wxSingleChoiceDialog::SetSelection
 case wxTextEntryDialog_new: { // wxTextEntryDialog::wxTextEntryDialog
  wxString caption= wxGetTextFromUserPromptStr;
  wxString value= wxEmptyString;
- long style=(wxOK|wxCANCEL|wxCENTRE|wxWS_EX_VALIDATE_RECURSIVELY);
+ long style=wxTextEntryDialogStyle;
  wxPoint pos= wxDefaultPosition;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * messageLen = (int *) bp; bp += 4;
@@ -21650,7 +21650,7 @@ case wxTextEntryDialog_SetValue: { // wxTextEntryDialog::SetValue
 case wxPasswordEntryDialog_new: { // wxPasswordEntryDialog::wxPasswordEntryDialog
  wxString caption= wxGetPasswordFromUserPromptStr;
  wxString value= wxEmptyString;
- long style=(wxOK|wxCANCEL|wxCENTRE|wxWS_EX_VALIDATE_RECURSIVELY);
+ long style=wxTextEntryDialogStyle;
  wxPoint pos= wxDefaultPosition;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  int * messageLen = (int *) bp; bp += 4;
@@ -30758,7 +30758,7 @@ case wxHtmlWindow_new_2: { // wxHtmlWindow::wxHtmlWindow
  wxWindowID id=wxID_ANY;
  wxPoint pos= wxDefaultPosition;
  wxSize size= wxDefaultSize;
- long style=0x0004;
+ long style=wxHW_DEFAULT_STYLE;
  wxWindow *parent = (wxWindow *) getPtr(bp,memenv); bp += 4;
  bp += 4; /* Align */
  while( * (int*) bp) { switch (* (int*) bp) {

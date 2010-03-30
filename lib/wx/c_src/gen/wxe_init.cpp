@@ -24,6 +24,8 @@
 void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
   wxeReturn rt = wxeReturn(WXE_DRV_PORT, caller);
  rt.addAtom((char*)"wx_consts");
+ rt.addAtom("wxALWAYS_NATIVE_DOUBLE_BUFFER"); rt.addInt(wxALWAYS_NATIVE_DOUBLE_BUFFER);
+ rt.addTupleCount(2);
  rt.addAtom("wxBYTE_ORDER"); rt.addInt(wxBYTE_ORDER);
  rt.addTupleCount(2);
  rt.addAtom("wxDEFAULT_CONTROL_BORDER"); rt.addInt(wxDEFAULT_CONTROL_BORDER);
@@ -31,6 +33,10 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
  rt.addAtom("wxHAS_INT64"); rt.addInt(wxHAS_INT64);
  rt.addTupleCount(2);
  rt.addAtom("wxRETAINED"); rt.addInt(wxRETAINED);
+ rt.addTupleCount(2);
+ rt.addAtom("wxGAUGE_EMULATE_INDETERMINATE_MODE"); rt.addInt(wxGAUGE_EMULATE_INDETERMINATE_MODE);
+ rt.addTupleCount(2);
+ rt.addAtom("wxTR_DEFAULT_STYLE"); rt.addInt(wxTR_DEFAULT_STYLE);
  rt.addTupleCount(2);
  rt.addAtom("wxBETA_NUMBER"); rt.addInt(wxBETA_NUMBER);
  rt.addTupleCount(2);
@@ -130,7 +136,7 @@ void WxeApp::init_nonconsts(wxeMemEnv *memenv, ErlDrvTermData caller) {
    rt.addTupleCount(2);
    rt.addAtom("wxWHITE_PEN"); rt.addRef(getRef((void *)wxWHITE_PEN,memenv),"wxPen");
    rt.addTupleCount(2);
- rt.endList(53);
+ rt.endList(56);
  rt.addTupleCount(2);
   rt.send();
 }

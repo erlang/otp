@@ -20,15 +20,15 @@
 
 %% This file is generated DO NOT EDIT
 
-%% @doc  Standard OpenGL api. 
+%% @doc  Standard OpenGL api.
 %% See <a href="http://www.opengl.org/sdk/docs/man/">www.opengl.org</a>
 %%
-%% Booleans are represented by integers 0 and 1. 
+%% Booleans are represented by integers 0 and 1.
 
 %% @type wx_mem(). see wx.erl on memory allocation functions
 %% @type enum().   An integer defined in gl.hrl
 %% @type offset(). An integer which is an offset in an array
-%% @type clamp().  A float clamped between 0.0 - 1.0 
+%% @type clamp().  A float clamped between 0.0 - 1.0
 -module(gl).
 
 -compile(inline).
@@ -216,7 +216,7 @@
   stencilClearTagEXT/2]).
 
 
-%% API 
+%% API
 
 %% @spec (Op::enum(),Value::float()) -> ok
 %% @doc See <a href="http://www.opengl.org/sdk/docs/man/xhtml/glAccum.xml">external</a> documentation.

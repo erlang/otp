@@ -136,8 +136,7 @@ declare_var(A=#arg{name=N,in=false,type=#type{name=T,base=binary,size=Sz}}) ->
     true = is_number(Sz), %% Assert
     w(" ~s ~s[~p];~n", [T,N,Sz]),
     A;
-declare_var(A=#arg{name=N,in=false,
-		   type=#type{name=T="GLUquadric",base=B,by_val=false,single=true}}) -> 
+declare_var(A=#arg{in=false, type=#type{name="GLUquadric",by_val=false,single=true}}) ->
     A;
 declare_var(A=#arg{name=N,in=false,
 		   type=#type{name=T,base=B,by_val=false,single=true}}) -> 

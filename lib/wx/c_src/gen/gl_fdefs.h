@@ -16,7 +16,7 @@
  *
  * %CopyrightEnd% 
 */
-/***** This file is generated do not edit ****/ 
+/***** This file is generated do not edit ****/
 
 #ifdef WX_DEF_EXTS
 # define WXE_EXTERN

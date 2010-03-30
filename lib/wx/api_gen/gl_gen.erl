@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%-------------------------------------------------------------------
@@ -47,9 +47,9 @@ safe(What, QuitOnErr) ->
 	io:format("Completed succesfully~n~n", []),
 	QuitOnErr andalso gen_util:halt(0)
     catch Err:Reason ->
-	    catch gen_util:close(),
 	    io:format("Error ~p: ~p:~p~n  ~p~n", 
 		      [get(current_func),Err,Reason,erlang:get_stacktrace()]),
+	    (catch gen_util:close()),
 	    timer:sleep(1999),
 	    QuitOnErr andalso gen_util:halt(1)
     end.
@@ -605,7 +605,7 @@ is_equal(F1=#func{type=T1,params=A1},F2=#func{type=T2,params=A2}) ->
 	true -> ok;
 	false ->
 	    %% io:format("A1: ~p~nA2: ~p~n",[A1,A2]),	    
-	    ?warning("Skipped Ext Not Equal ~p ~p~n", 
+	    ?warning("Keeping Ext Not Equal ~p ~p~n",
 		     [F1#func.name,F2#func.name])
     end,
     Equal.

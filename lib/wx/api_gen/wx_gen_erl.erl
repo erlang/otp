@@ -1035,29 +1035,34 @@ gen_enums_ints() ->
       "          href, target %% string()~n"
       "        }).~n", []),
     w("~n%% Hardcoded Defines~n", []),
-    Enums = [E || E = {{enum,_},#enum{as_atom=false}} <- get()],
+    Enums = [E || {{enum,_},E = #enum{as_atom=false}} <- get()],
     w("-define(wxDefaultSize, {-1,-1}).~n", []), 
     w("-define(wxDefaultPosition, {-1,-1}).~n", []), 
     w("~n%% Global Variables~n", []),
     [w("-define(~s,  wxe_util:get_const(~s)).~n", [Gvar, Gvar]) || 
 	{Gvar,_,_Id} <- get(gvars)],
     w("~n%% Enum and defines~n", []),
-    foldl(fun({{enum,Type},Enum= #enum{as_atom=false}}, Done) ->
-		  build_enum_ints(Type,Enum,Done);
+    foldl(fun(Enum= #enum{vals=Vals}, Done) when Vals =/= [] ->
+		  build_enum_ints(Enum,Done);
 	     (_,Done) -> Done
 	  end, gb_sets:empty(), lists:sort(Enums)),
     close().
 
-build_enum_ints(Type,#enum{vals=Vals},Done) ->
-    case Type of
-	[$@|_] ->  ok; % anonymous
-	{Class,[$@|_]} when Vals =/= [] ->  w("% From class ~s~n", [Class]);
-	{Class,Enum} when Vals =/= [] ->  w("% From ~s::~s~n", [Class,Enum]);
-	_ when Vals =/= [] ->  w("% Type ~s~n", [Type]);
-	_ -> ok
+build_enum_ints(#enum{from=From, vals=Vals},Done) ->
+    case From of
+	{File, undefined, [$@|_]} ->
+	    w("% From \"~s.h\"~n",[File]);
+	{File, undefined, Name} ->
+	    w("% From \"~s.h\": ~s~n",[File, Name]);
+	{_File, Class,[$@|_]} ->
+	    w("% From class ~s~n",[Class]);
+	{_File, Class, Name} ->
+	    w("% From class ~s::~s~n",[Class, Name])
     end,
     
-    Format = fun(#const{name=Name,val=Value,is_const=true}) when is_integer(Value) ->		     
+    Format = fun(#const{name="wxEVT_" ++ _}) ->
+		     ignore; %% Ignore event macros they are not valid in our event model
+		(#const{name=Name,val=Value,is_const=true}) when is_integer(Value) ->
 		     w("-define(~s, ~p).~n", [enum_name(Name),Value]);
 		(#const{name=Name,val=Value,is_const=false}) when is_integer(Value) ->
 		     w("-define(~s, wxe_util:get_const(~s)).~n", [enum_name(Name),enum_name(Name)]);

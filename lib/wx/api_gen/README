@@ -2,16 +2,20 @@ API GENERATION:
     Most of the code in wx is generated.  
     Users of wxErlang should not normally need to regenerate the generated code, 
     as it is checked in by wxErlang developers, when changes are made.
-    2008-09-29 Code checked in is currently generated from wxwidgets 2.8.7.
+
+    Code checked in is currently generated from wxwidgets 2.8.10.
 
 REQUIREMENTS:
     The code generation requires doxygen (1.4.6) which is
     used to parse wxWidgets c++ headers and generate xml files (in
     wx_xml/).
 
-    (2008-09-29 doxygen 1.4.6 is required.
-    Later versions of Doxygen - up to 1.5.6 at least - have a bug in the xml generation
-    which causes us problems. This has been logged and we are waiting for a fix.)
+    2008-09-29 doxygen 1.4.6 is required.
+      Later versions of Doxygen - up to 1.5.6 at least - have a bug in the xml generation
+      which causes us problems. This has been logged and we are waiting for a fix.
+
+    doxygen 1.6.1 and doxygen 1.6.3 might work but is not what I use, i.e.
+    review the diffs.
 
 CONFIGURATION:
     wxapi.conf contains the specification to the code generator.  The code
@@ -21,6 +25,12 @@ CONFIGURATION:
     Adding/changing stuff/classes should be done by updating wxapi.conf
     and running make. Sometimes the code generator will require changes,
     I havn't thought of everything yet.
+
+RUNNING:
+    I use the following alias wxgen='make WXGTK_DIR=/opt/local/include/wx-2.8/ GL_DIR=/home/dgud/opengl'
+
+    I keep the opengl headers separate so I don't go backwards in version when generating the code
+    from another machine.
 
 CONTRIBUTION:
     Send me patches or update the svn version.
