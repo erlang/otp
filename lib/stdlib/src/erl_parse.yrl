@@ -37,7 +37,6 @@ atom1
 record_expr record_tuple record_field record_fields
 if_expr if_clause if_clauses case_expr cr_clause cr_clauses receive_expr
 fun_expr fun_clause fun_clauses
-%% cond_expr cond_clause cond_clauses
 try_expr try_catch try_clause try_clauses query_expr
 function_call argument_list
 exprs guard
@@ -269,7 +268,6 @@ expr_max -> if_expr : '$1'.
 expr_max -> case_expr : '$1'.
 expr_max -> receive_expr : '$1'.
 expr_max -> fun_expr : '$1'.
-%%expr_max -> cond_expr : '$1'.
 expr_max -> try_expr : '$1'.
 expr_max -> query_expr : '$1'.
 
