@@ -256,6 +256,7 @@ init([Parent]) ->
     ?ets_new_table(mnesia_gvar, [set, public, named_table]), 
     ?ets_new_table(mnesia_stats, [set, public, named_table]), 
     set(subscribers, []),
+    set(activity_subscribers, []),
     mnesia_lib:verbose("~p starting: ~p~n", [?MODULE, self()]),
     Version = mnesia:system_info(version),
     set(version, Version),
