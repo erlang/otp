@@ -1079,10 +1079,14 @@ struct packet_callback_args
     Eterm res;   /* Out */
     int string_as_bin; /* return strings as binaries (http_bin): */
     byte* aligned_ptr;
+    Uint bin_sz;
     Eterm orig;
     Uint bin_offs;
     byte bin_bitoffs;
 };
+
+#define in_area(ptr,start,nbytes) \
+    ((unsigned long)((char*)(ptr) - (char*)(start)) < (nbytes))
 
 static Eterm
 http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,
@@ -1090,16 +1094,18 @@ http_bld_string(struct packet_callback_args* pca, Uint **hpp, Uint *szp,
 {
     Eterm res = THE_NON_VALUE;
     Uint size;
+    int make_subbin;
 
     if (pca->string_as_bin) {
 	size = heap_bin_size(len);
-    
+	make_subbin = (size > ERL_SUB_BIN_SIZE
+		       && in_area(str, pca->aligned_ptr, pca->bin_sz));
 	if (szp) {
-	    *szp += (size > ERL_SUB_BIN_SIZE) ? ERL_SUB_BIN_SIZE : size;	
+	    *szp += make_subbin ? ERL_SUB_BIN_SIZE : size;
 	}
 	if (hpp) {
 	    res = make_binary(*hpp);
-	    if (size > ERL_SUB_BIN_SIZE) {
+	    if (make_subbin) {
 		ErlSubBin* bin = (ErlSubBin*) *hpp;
 		bin->thing_word = HEADER_SUB_BIN;
 		bin->size = len;
@@ -1330,7 +1336,7 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     int packet_sz;           /*-------Binaries involved: ------------------*/
     byte* bin_ptr;           /*| orig: original binary                     */
     byte bin_bitsz;          /*| bin: BIF_ARG_2, may be sub-binary of orig */
-    Uint bin_sz;             /*| packet: prefix of bin                     */
+	                     /*| packet: prefix of bin                     */
     char* body_ptr;          /*| body: part of packet to return            */
     int body_sz;             /*| rest: bin without packet                  */
     struct packet_callback_args pca;
@@ -1391,18 +1397,18 @@ BIF_RETTYPE decode_packet_3(BIF_ALIST_3)
     }
 
 
-    bin_sz = binary_size(BIF_ARG_2);
+    pca.bin_sz = binary_size(BIF_ARG_2);
     ERTS_GET_BINARY_BYTES(BIF_ARG_2, bin_ptr, pca.bin_bitoffs, bin_bitsz);  
     if (pca.bin_bitoffs != 0) {
-        pca.aligned_ptr = erts_alloc(ERTS_ALC_T_TMP, bin_sz);
-        erts_copy_bits(bin_ptr, pca.bin_bitoffs, 1, pca.aligned_ptr, 0, 1, bin_sz*8);
+        pca.aligned_ptr = erts_alloc(ERTS_ALC_T_TMP, pca.bin_sz);
+        erts_copy_bits(bin_ptr, pca.bin_bitoffs, 1, pca.aligned_ptr, 0, 1, pca.bin_sz*8);
     }
     else {
         pca.aligned_ptr = bin_ptr;
     }
-    packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, bin_sz,
+    packet_sz = packet_get_length(type, (char*)pca.aligned_ptr, pca.bin_sz,
                                   max_plen, trunc_len, &http_state);
-    if (!(packet_sz > 0 && packet_sz <= bin_sz)) {
+    if (!(packet_sz > 0 && packet_sz <= pca.bin_sz)) {
         if (packet_sz < 0) {
 	    goto error;
         }
@@ -1458,7 +1464,7 @@ error:
 
     rest = (ErlSubBin *) hp;
     rest->thing_word = HEADER_SUB_BIN;
-    rest->size = bin_sz - packet_sz;
+    rest->size = pca.bin_sz - packet_sz;
     rest->offs = pca.bin_offs + packet_sz;
     rest->orig = pca.orig;
     rest->bitoffs = pca.bin_bitoffs;
