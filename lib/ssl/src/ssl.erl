@@ -560,10 +560,11 @@ handle_options(Opts0, Role) ->
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed}),    
     SslOptions = [versions, verify, verify_fun, 
+		  fail_if_no_peer_cert, verify_client_once,
 		  depth, certfile, keyfile,
 		  key, password, cacertfile, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cd_info, renegotiate_at],
+		  cb_info, renegotiate_at],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
