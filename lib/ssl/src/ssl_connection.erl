@@ -1856,7 +1856,7 @@ next_state_connection(#state{send_queue = Queue0,
 			    ok
 		    end,
 		    renegotiate(State#state{connection_states = ConnectionStates,
-					    send_queue = queue:in_r({From, RestData})})
+					    send_queue = queue:in_r({From, RestData}, Queue)})
 	    end;
 	{empty, Queue0} ->
 	    next_state_is_connection(State)
