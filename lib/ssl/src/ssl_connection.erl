@@ -47,7 +47,7 @@
 -export([start_link/7]). 
 
 %% gen_fsm callbacks
--export([init/1, hello/2, certify/2, cipher/2, connection/2, connection/3, 
+-export([init/1, hello/2, certify/2, cipher/2, connection/2, 
 	 abbreviated/2, handle_event/3,
          handle_sync_event/4, handle_info/3, terminate/3, code_change/4]).
 
@@ -106,11 +106,9 @@
 %% Description: 
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
-    sync_send_event(Pid, {application_data, erlang:iolist_to_binary(Data)},
-		    infinity).
+    sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, infinity).
 send(Pid, Data, Timeout) -> 
-    sync_send_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, 
-		    Timeout).
+    sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, Timeout).
 %%--------------------------------------------------------------------
 %% Function: 
 %%
@@ -678,15 +676,28 @@ handle_event(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
 			     tls_handshake_buffer = Buf0,
 			     negotiated_version = Version}) ->
     Handle = 
-	fun({Packet, Raw}, {next_state, SName, 
-			    AS=#state{tls_handshake_hashes=Hs0}}) -> 	
+	fun({#hello_request{} = Packet, _}, {next_state, connection = SName, State}) ->
+		%% This message should not be included in handshake
+		%% message hashes. Starts new handshake (renegotiation)
+		Hs0 = ssl_handshake:init_hashes(),
+		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs0});
+	   ({#hello_request{} = Packet, _}, {next_state, SName, State}) ->
+		%% This message should not be included in handshake
+		%% message hashes. If allready in negotiation it will be ignored!
+		?MODULE:SName(Packet, State);
+	    ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, State}) ->
+		Hs0 = ssl_handshake:init_hashes(),
+		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
+		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1,
+						  renegotiation = true});
+	    ({Packet, Raw}, {next_state, SName, State = #state{tls_handshake_hashes=Hs0}}) ->	
+		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
+		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1});
 	   (_, StopState) -> StopState
 	end,
     try
-	{Packets, Buf} = 
-	ssl_handshake:get_tls_handshake(Data,Buf0, KeyAlg,Version),
-	Start = {next_state, StateName, 
-		 State#state{tls_handshake_buffer = Buf}},
+	{Packets, Buf} = ssl_handshake:get_tls_handshake(Data,Buf0, KeyAlg,Version),
+	Start = {next_state, StateName, State0#state{tls_handshake_buffer = Buf}},
 	lists:foldl(Handle, Start, Packets)
     catch throw:#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, StateName, State0), 
@@ -2006,7 +2017,6 @@ handle_own_alert(Alert, Version, StateName,
     catch _:_ ->
 	    ok
     end.
-
 make_premaster_secret({MajVer, MinVer}, Alg) when Alg == rsa; 
 						  Alg == dh_dss; 
 						  Alg == dh_rsa ->
@@ -2018,3 +2028,31 @@ make_premaster_secret(_, _) ->
 mpint_binary(Binary)  ->
     Size = byte_size(Binary),
     <<?UINT32(Size), Binary/binary>>.
+
+
+ack_connection(#state{renegotiation = true}) ->
+    ok;
+ack_connection(#state{renegotiation = false, from = From}) ->
+    gen_fsm:reply(From, connected).
+
+
+renegotiate(#state{role = client} = State) ->
+    %% Handle same way as if server requested
+    %% the renegotiation
+    Hs0 = ssl_handshake:init_hashes(),
+    connection(#hello_request{}, State#state{tls_handshake_hashes = Hs0});  
+renegotiate(#state{role = server,
+		   socket = Socket,
+		   transport_cb = Transport,
+		   negotiated_version = Version,
+		   connection_states = ConnectionStates0} = State) ->
+    HelloRequest = ssl_handshake:hello_request(),
+    Frag = ssl_handshake:encode_handshake(HelloRequest, Version, undefined),
+    Hs0 = ssl_handshake:init_hashes(),
+    {BinMsg, ConnectionStates} = 
+	ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
+    Transport:send(Socket, BinMsg),
+    {next_state, hello, next_record(State#state{connection_states = 
+						ConnectionStates,
+						tls_handshake_hashes = Hs0,
+						renegotiation = true})}.
