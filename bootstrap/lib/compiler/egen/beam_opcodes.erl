@@ -76,7 +76,7 @@ opcode(move, 2) -> 64;
 opcode(get_list, 3) -> 65;
 opcode(get_tuple_element, 3) -> 66;
 opcode(set_tuple_element, 3) -> 67;
-opcode(put_string, 3) -> 68;
+%%opcode(put_string, 3) -> 68;
 opcode(put_list, 3) -> 69;
 opcode(put_tuple, 2) -> 70;
 opcode(put, 1) -> 71;
