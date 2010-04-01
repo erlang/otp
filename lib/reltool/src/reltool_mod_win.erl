@@ -514,7 +514,7 @@ select_image(Xref, ModName) ->
     {ok, M} = reltool_server:get_mod(Xref, ModName),
     Image =
 	case M#mod.is_included of
-	    _ when M#mod.app_name =:= ?MISSING_APP -> ?ERR_IMAGE;
+	    _ when M#mod.app_name =:= ?MISSING_APP_NAME -> ?ERR_IMAGE;
 	    true -> ?TICK_IMAGE;
 	    false -> ?WARN_IMAGE;
 	    undefined -> ?ERR_IMAGE
@@ -674,7 +674,7 @@ do_goto_function(#state{active_page = P} = S, [FunName]) ->
     find_regexp_forward(S, "^" ++ FunName ++ "(");
 do_goto_function(S, [ModStr, FunStr]) ->
     case reltool_server:get_mod(S#state.xref_pid, list_to_atom(ModStr)) of
-	{ok, Mod} when Mod#mod.app_name =/= ?MISSING_APP ->
+	{ok, Mod} when Mod#mod.app_name =/= ?MISSING_APP_NAME ->
 	    S2 = create_code_page(S#state{mod = Mod}, ModStr),
 	    find_regexp_forward(S2, "^" ++ FunStr ++ "(");
 	{ok, _} ->

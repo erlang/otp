@@ -175,7 +175,8 @@ parse_options(Opts) ->
 					  ?DEFAULT_EXCL_APP_FILTERS,
 					  []),
                relocatable       = ?DEFAULT_RELOCATABLE,
-               app_type          = ?DEFAULT_APP_TYPE,
+               rel_app_type      = ?DEFAULT_REL_APP_TYPE,
+               embedded_app_type = ?DEFAULT_EMBEDDED_APP_TYPE,
                app_file          = ?DEFAULT_APP_FILE,
                incl_archive_filters = dec_re(incl_archive_filters,
 					     ?DEFAULT_INCL_ARCHIVE_FILTERS,
@@ -301,7 +302,7 @@ loop(#state{common = C, sys = Sys} = S) ->
                     [M] ->
                         {ok, M};
                     [] ->
-                        {ok, missing_mod(ModName, ?MISSING_APP)}
+                        {ok, missing_mod(ModName, ?MISSING_APP_NAME)}
                 end,
             reltool_utils:reply(ReplyTo, Ref, Reply),
             ?MODULE:loop(S);
@@ -435,11 +436,11 @@ do_set_app(#state{sys = Sys} = S, App, Status) ->
 analyse(#state{common = C,
 	       sys = #sys{apps = Apps0, rels = Rels} = Sys} = S,
 	Status) ->
-    Apps = lists:keydelete(?MISSING_APP, #app.name, Apps0),
+    Apps = lists:keydelete(?MISSING_APP_NAME, #app.name, Apps0),
     ets:delete_all_objects(C#common.app_tab),
     ets:delete_all_objects(C#common.mod_tab),
     ets:delete_all_objects(C#common.mod_used_by_tab),
-    MissingApp = default_app(?MISSING_APP, "missing"),
+    MissingApp = default_app(?MISSING_APP_NAME, "missing"),
     ets:insert(C#common.app_tab, MissingApp),
 
     {RevRelApps, Status2} = apps_in_rels(Rels, Apps, Status),
@@ -466,7 +467,7 @@ analyse(#state{common = C,
     app_propagate_is_used_by(C, Apps3),
     Apps4 = read_apps(C, Sys, Apps3, []),
     %% io:format("Missing app: ~p\n",
-    %%           [lists:keysearch(?MISSING_APP, #app.name, Apps4)]),
+    %%           [lists:keysearch(?MISSING_APP_NAME, #app.name, Apps4)]),
     Sys2 = Sys#sys{apps = Apps4},
 
     case verify_config(RelApps2, Sys2, Status3) of
@@ -704,7 +705,7 @@ mod_mark_is_included(C, Sys, UsedByName, [ModName | ModNames], Acc) ->
 					     Acc2)
                 end;
             [] ->
-                M = missing_mod(ModName, ?MISSING_APP),
+                M = missing_mod(ModName, ?MISSING_APP_NAME),
                 M2 = M#mod{is_included = true},
                 ets:insert(C#common.mod_tab, M2),
                 ets:insert(C#common.mod_used_by_tab, {UsedByName, ModName}),
@@ -715,7 +716,7 @@ mod_mark_is_included(_C, _Sys, _UsedByName, [], Acc) ->
     Acc.
 
 app_propagate_is_used_by(C, [#app{mods = Mods, name = Name} | Apps]) ->
-    case Name =:= ?MISSING_APP of
+    case Name =:= ?MISSING_APP_NAME of
         true -> ok;
         false -> ok
     end,
@@ -1286,7 +1287,8 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
                          excl_app_filters =
 			 dec_re(excl_app_filters,
 				?EMBEDDED_EXCL_APP_FILTERS,
-				Sys#sys.excl_app_filters)},
+				Sys#sys.excl_app_filters),
+			 embedded_app_type = ?EMBEDDED_APP_TYPE},
                  Status};
             profile when Val =:= standalone ->
                 {Sys#sys{profile = Val,
@@ -1347,12 +1349,19 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
                 {Sys#sys{archive_opts = Val}, Status};
             relocatable when Val =:= true; Val =:= false ->
                 {Sys#sys{relocatable = Val}, Status};
-            app_type when Val =:= permanent;
-			  Val =:= transient;
-			  Val =:= temporary;
-                          Val =:= load;
-			  Val =:= none ->
-                {Sys#sys{app_type = Val}, Status};
+            rel_app_type when Val =:= permanent;
+			      Val =:= transient;
+			      Val =:= temporary;
+			      Val =:= load;
+			      Val =:= none ->
+                {Sys#sys{rel_app_type = Val}, Status};
+	    embedded_app_type when Val =:= permanent;
+				   Val =:= transient;
+				   Val =:= temporary;
+				   Val =:= load;
+				   Val =:= none;
+				   Val =:= undefined ->
+                {Sys#sys{embedded_app_type = Val}, Status};
             app_file when Val =:= keep; Val =:= strip, Val =:= all ->
                 {Sys#sys{app_file = Val}, Status};
             debug_info when Val =:= keep; Val =:= strip ->
@@ -1389,7 +1398,8 @@ decode(#app{} = App, [{Key, Val} | KeyVals], Status) ->
 			  Val =:= transient;
 			  Val =:= temporary;
                           Val =:= load;
-			  Val =:= none ->
+			  Val =:= none;
+			  Val =:= undefined ->
                 {App#app{app_type = Val}, Status};
             incl_app_filters ->
                 {App#app{incl_app_filters =
@@ -1921,7 +1931,7 @@ refresh_apps([Old | OldApps], [New | NewApps], Acc, Force, Status)
   when New#app.name > Old#app.name ->
     %% No new version. Remove the old.
     Status2 =
-        case Old#app.name =:= ?MISSING_APP of
+        case Old#app.name =:= ?MISSING_APP_NAME of
             true ->
                 Status;
             false ->
@@ -1939,7 +1949,7 @@ refresh_apps([], [New | NewApps], Acc, Force, Status) ->
 refresh_apps([Old | OldApps], [], Acc, Force, Status) ->
     %% No new version. Remove the old.
     Status2 =
-        case Old#app.name =:= ?MISSING_APP of
+        case Old#app.name =:= ?MISSING_APP_NAME of
             true ->
                 Status;
             false ->

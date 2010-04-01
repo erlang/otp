@@ -84,7 +84,8 @@ do_gen_config(#sys{root_dir          	= RootDir,
 		   excl_archive_filters = ExclArchiveDirs,
 		   archive_opts      	= ArchiveOpts,
 		   relocatable       	= Relocatable,
-		   app_type          	= AppType,
+		   rel_app_type        	= RelAppType,
+		   embedded_app_type   	= InclAppType,
 		   app_file          	= AppFile,
 		   debug_info        	= DebugInfo},
 	      InclDefs) ->
@@ -98,7 +99,7 @@ do_gen_config(#sys{root_dir          	= RootDir,
     AppsItems =
         [do_gen_config(A, InclDefs)
 	 || A <- Apps,
-	    A#app.name =/= ?MISSING_APP,
+	    A#app.name =/= ?MISSING_APP_NAME,
 	    A#app.name =/= erts,
 	    not A#app.is_escript],
     EscriptItems = [{escript,
@@ -138,7 +139,8 @@ do_gen_config(#sys{root_dir          	= RootDir,
      emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefs) ++
      emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefs) ++
      emit(archive_opts, ArchiveOpts, ?DEFAULT_ARCHIVE_OPTS, InclDefs) ++
-     emit(app_type, AppType, ?DEFAULT_APP_TYPE, InclDefs) ++
+     emit(rel_app_type, RelAppType, ?DEFAULT_REL_APP_TYPE, InclDefs) ++
+     emit(embedded_app_type, InclAppType, ?DEFAULT_EMBEDDED_APP_TYPE, InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
      emit(debug_info, DebugInfo, ?DEFAULT_DEBUG_INFO, InclDefs)};
 do_gen_config(#app{name = Name,
@@ -294,41 +296,54 @@ do_gen_rel(#rel{name = RelName, vsn = RelVsn},
 strip_rel_info(#app{name = Name,
 		    vsn = Vsn,
 		    app_type = Type,
-		    info = #app_info{incl_apps = InclApps}}) ->
+		    info = #app_info{incl_apps = InclApps}})
+  when Type =/= undefined ->
     case {Type, InclApps} of
-        {undefined, []} -> {Name, Vsn};
-        {undefined, _}  -> {Name, Vsn, InclApps};
+        {permanent, []} -> {Name, Vsn};
+        {permanent, _}  -> {Name, Vsn, InclApps};
         {_, []}         -> {Name, Vsn, Type};
         {_, _}          -> {Name, Vsn, Type, InclApps}
     end.
 
-merge_apps(#rel{name = RelName, rel_apps = RelApps},
-	   #sys{apps = Apps, app_type = DefType}) ->
+merge_apps(#rel{name = RelName,
+		rel_apps = RelApps},
+	   #sys{apps = Apps,
+		rel_app_type = RelAppType,
+		embedded_app_type = EmbAppType}) ->
     Mandatory = [kernel, stdlib],
     MergedApps = do_merge_apps(RelName, Mandatory, Apps, permanent, []),
-    MergedApps2 = do_merge_apps(RelName, RelApps, Apps, DefType, MergedApps),
-    sort_apps(MergedApps2).
+    MergedApps2 = do_merge_apps(RelName, RelApps, Apps, RelAppType, MergedApps),
+    Embedded =
+	[A#app.name || A <- Apps,
+		       EmbAppType =/= undefined,
+		       A#app.is_included,
+		       A#app.name =/= erts,
+		       A#app.name =/= ?MISSING_APP_NAME,
+		       not lists:keymember(A#app.name, #app.name, MergedApps2)],
+    io:format("Embedded: ~p\n", [Embedded]),
+    MergedApps3 = do_merge_apps(RelName, Embedded, Apps, EmbAppType, MergedApps2),
+    sort_apps(MergedApps3).
 
-do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, DefType, Acc) ->
+do_merge_apps(RelName, [#rel_app{name = Name} = RA | RelApps], Apps, RelAppType, Acc) ->
     case is_already_merged(Name, RelApps, Acc) of
 	true ->
-	    do_merge_apps(RelName, RelApps, Apps, DefType, Acc);
+	    do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
 	    {value, App} = lists:keysearch(Name, #app.name, Apps),
-	    MergedApp = merge_app(RelName, RA, DefType, App),
+	    MergedApp = merge_app(RelName, RA, RelAppType, App),
 	    MoreNames = (MergedApp#app.info)#app_info.applications,
 	    Acc2 = [MergedApp | Acc],
-	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, DefType, Acc2)
+	    do_merge_apps(RelName, MoreNames ++ RelApps, Apps, RelAppType, Acc2)
     end;
-do_merge_apps(RelName, [Name | RelApps], Apps, DefType, Acc) ->
+do_merge_apps(RelName, [Name | RelApps], Apps, RelAppType, Acc) ->
   case is_already_merged(Name, RelApps, Acc) of
 	true ->
-	  do_merge_apps(RelName, RelApps, Apps, DefType, Acc);
+	  do_merge_apps(RelName, RelApps, Apps, RelAppType, Acc);
 	false ->
 	  RelApp = init_rel_app(Name, Apps),
-	  do_merge_apps(RelName, [RelApp | RelApps], Apps, DefType, Acc)
+	  do_merge_apps(RelName, [RelApp | RelApps], Apps, RelAppType, Acc)
   end;
-do_merge_apps(_RelName, [], _Apps, _DefType, Acc) ->
+do_merge_apps(_RelName, [], _Apps, _RelAppType, Acc) ->
     lists:reverse(Acc).
 
 init_rel_app(Name, Apps) ->
@@ -340,20 +355,20 @@ init_rel_app(Name, Apps) ->
 
 merge_app(RelName,
 	      #rel_app{name = Name,
-		       app_type = RelAppType,
+		       app_type = Type,
 		       incl_apps = InclApps},
-	      DefType,
+	      RelAppType,
 	      App) ->
-    Type =
-        case {RelAppType, App#app.app_type} of
-            {undefined, undefined} -> DefType;
-            {undefined, AppType} -> AppType;
-            {_, _} -> RelAppType
+    Type2 =
+        case {Type, App#app.app_type} of
+            {undefined, undefined} -> RelAppType;
+            {undefined, AppAppType} -> AppAppType;
+            {_, _} -> Type
         end,
     Info = App#app.info,
     case InclApps -- Info#app_info.incl_apps of
         [] ->
-	    App#app{app_type = Type, info = Info#app_info{incl_apps = InclApps}};
+	    App#app{app_type = Type2, info = Info#app_info{incl_apps = InclApps}};
         BadIncl ->
             reltool_utils:throw_error("~p: These applications are "
 				      "used by release ~s but are "
@@ -880,7 +895,7 @@ spec_escripts(#sys{apps = Apps}, ErtsBin, BinFiles) ->
 		      name = Name,
 		      active_dir = File}) ->
                      if
-                         Name =:= ?MISSING_APP ->
+                         Name =:= ?MISSING_APP_NAME ->
                              false;
                          not IsEscript ->
                              false;
@@ -943,7 +958,7 @@ spec_lib_files(#sys{apps = Apps} = Sys) ->
     Filter = fun(#app{is_escript = IsEscript, is_included = IsIncl,
                       is_pre_included = IsPre, name = Name}) ->
                      if
-                         Name =:= ?MISSING_APP ->
+                         Name =:= ?MISSING_APP_NAME ->
                              false;
                          IsEscript ->
                              false;

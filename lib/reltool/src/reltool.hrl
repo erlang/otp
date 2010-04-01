@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 -define(APPLICATION,      reltool).
--define(MISSING_APP,      '*MISSING*').
+-define(MISSING_APP_NAME, '*MISSING*').
 -define(MISSING_APP_TEXT, "*MISSING*").
 
 -type file()             :: string().
@@ -187,7 +187,7 @@
           %% Static target cond
           debug_info            :: debug_info() | undefined,
           app_file              :: app_file() | undefined,
-          app_type              :: app_type(),
+          app_type              :: app_type() | undefined,
           incl_app_filters      :: incl_app_filters(),
           excl_app_filters      :: excl_app_filters(),
           incl_archive_filters  :: incl_archive_filters(),
@@ -242,7 +242,8 @@
           excl_archive_filters :: excl_archive_filters(),
           archive_opts         :: [archive_opt()],
           relocatable          :: boolean(),
-          app_type             :: app_type(),
+          rel_app_type         :: app_type(),
+          embedded_app_type    :: app_type() | undefined,
           app_file             :: app_file(),
           debug_info           :: debug_info()
          }).
@@ -267,7 +268,8 @@
 -define(DEFAULT_EMU_NAME,          "beam").
 -define(DEFAULT_PROFILE,           development).
 -define(DEFAULT_RELOCATABLE,       true).
--define(DEFAULT_APP_TYPE,          permanent).
+-define(DEFAULT_REL_APP_TYPE,      permanent).
+-define(DEFAULT_EMBEDDED_APP_TYPE, undefined).
 -define(DEFAULT_APP_FILE,          keep).
 -define(DEFAULT_DEBUG_INFO,        keep).
 
@@ -292,6 +294,7 @@
 				     "^priv",
 				     "^include"]).
 -define(EMBEDDED_EXCL_APP_FILTERS,    []).
+-define(EMBEDDED_APP_TYPE,            load).
 
 -define(STANDALONE_INCL_SYS_FILTERS,  ["^bin/(erl|epmd)(|\\.exe|\\.ini)\$",
 				     "^bin/start(|_clean).boot\$",
