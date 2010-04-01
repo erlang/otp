@@ -20,7 +20,8 @@
 
 %% Public
 -export([root_dir/0, erl_libs/0, lib_dirs/1,
-	 split_app_name/1, prim_consult/1, default_rels/0,
+	 split_app_name/1, prim_consult/1,
+	 default_rels/0, choose_default/3,
 
 	 assign_image_list/1, get_latest_resize/1,
 	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
@@ -138,6 +139,32 @@ default_rels() ->
 	  rel_apps = [Sasl]}
 	  %%rel_apps = [Kernel, Sasl, Stdlib]}
     ].
+
+choose_default(Tag, Profile, InclDefs)
+  when Profile =:= ?DEFAULT_PROFILE; InclDefs ->
+    case Tag of
+	incl_sys_filters  -> ?DEFAULT_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?DEFAULT_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?DEFAULT_INCL_APP_FILTERS;
+	excl_app_filters  -> ?DEFAULT_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, standalone, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?STANDALONE_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?STANDALONE_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?STANDALONE_INCL_APP_FILTERS;
+	excl_app_filters  -> ?STANDALONE_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, embedded, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?EMBEDDED_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?EMBEDDED_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?EMBEDDED_INCL_APP_FILTERS;
+	excl_app_filters  -> ?EMBEDDED_EXCL_APP_FILTERS;
+	embedded_app_type -> ?EMBEDDED_APP_TYPE
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -584,7 +611,12 @@ escript_foldl(Fun, Acc, File) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 call(Name, Msg) when is_atom(Name) ->
-    call(whereis(Name), Msg);
+    case whereis(Name) of
+	undefined ->
+	    {error, {noproc, Name}};
+	Pid ->
+	    call(Pid, Msg)
+    end;
 call(Pid, Msg) when is_pid(Pid) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! {call, self(), Ref, Msg},

@@ -132,20 +132,20 @@ init(Options) ->
     end.
 
 do_init(Options) ->
-    case parse_options(Options) of
-        {#state{parent_pid = ParentPid, common = C, sys = Sys} = S, Status} ->
-            %% process_flag(trap_exit, (S#state.common)#common.trap_exit),
-            proc_lib:init_ack(ParentPid,
-			      {ok, self(), C, Sys#sys{apps = undefined}}),
-            {S2, Status2} = refresh(S, true, Status),
-	    {S3, Status3} =
-		    analyse(S2#state{old_sys = S2#state.sys}, Status2),
-	    case Status3 of
-		{ok, _Warnings} -> % BUGBUG: handle warnings
-		    loop(S3#state{status = Status3, old_status = {ok, []}});
-		{error, Reason} ->
-                    exit(Reason)
-            end
+    {S, Status} = parse_options(Options),
+    #state{parent_pid = ParentPid, common = C, sys = Sys} = S,
+
+    %% process_flag(trap_exit, (S#state.common)#common.trap_exit),
+    proc_lib:init_ack(ParentPid,
+		      {ok, self(), C, Sys#sys{apps = undefined}}),
+    {S2, Status2} = refresh(S, true, Status),
+    {S3, Status3} =
+	analyse(S2#state{old_sys = S2#state.sys}, Status2),
+    case Status3 of
+	{ok, _Warnings} -> % BUGBUG: handle warnings
+	    loop(S3#state{status = Status3, old_status = {ok, []}});
+	{error, Reason} ->
+	    exit(Reason)
     end.
 
 parse_options(Opts) ->
@@ -195,8 +195,8 @@ parse_options(Opts) ->
     S = #state{options = Opts},
     parse_options(Opts, S, C2, Sys, {ok, []}).
 
-dec_re(Key, Regexps, _Old) ->
-    reltool_utils:decode_regexps(Key, Regexps, _Old).
+dec_re(Key, Regexps, Old) ->
+    reltool_utils:decode_regexps(Key, Regexps, Old).
 
 parse_options([{Key, Val} | KeyVals], S, C, Sys, Status) ->
     case Key of
@@ -1250,64 +1250,28 @@ decode(#sys{} = Sys, [{Key, Val} | KeyVals], Status) ->
                 {Sys#sys{boot_rel = Val}, Status};
             emu_name when is_list(Val) ->
                 {Sys#sys{emu_name = Val}, Status};
-            profile when Val =:= development ->
-                Val = ?DEFAULT_PROFILE, % assert,
-                {Sys#sys{profile = Val,
-                         incl_sys_filters =
-			 dec_re(incl_sys_filters,
-				?DEFAULT_INCL_SYS_FILTERS,
-				Sys#sys.incl_sys_filters),
-                         excl_sys_filters =
-			 dec_re(excl_sys_filters,
-				?DEFAULT_EXCL_SYS_FILTERS,
-				Sys#sys.excl_sys_filters),
-                         incl_app_filters =
-			 dec_re(incl_app_filters,
-				?DEFAULT_INCL_APP_FILTERS,
-				Sys#sys.incl_app_filters),
-                         excl_app_filters =
-			 dec_re(excl_app_filters,
-				?DEFAULT_EXCL_APP_FILTERS,
-				Sys#sys.excl_app_filters)},
-                 Status};
-            profile when Val =:= embedded ->
-                {Sys#sys{profile = Val,
-                         incl_sys_filters =
-			 dec_re(incl_sys_filters,
-				?EMBEDDED_INCL_SYS_FILTERS,
-				Sys#sys.incl_sys_filters),
-                         excl_sys_filters =
-			 dec_re(excl_sys_filters,
-				?EMBEDDED_EXCL_SYS_FILTERS,
-				Sys#sys.excl_sys_filters),
-                         incl_app_filters =
-			 dec_re(incl_app_filters,
-				?EMBEDDED_INCL_APP_FILTERS,
-				Sys#sys.incl_app_filters),
-                         excl_app_filters =
-			 dec_re(excl_app_filters,
-				?EMBEDDED_EXCL_APP_FILTERS,
-				Sys#sys.excl_app_filters),
-			 embedded_app_type = ?EMBEDDED_APP_TYPE},
-                 Status};
-            profile when Val =:= standalone ->
-                {Sys#sys{profile = Val,
-                         incl_sys_filters =
-			 dec_re(incl_sys_filters,
-				?STANDALONE_INCL_SYS_FILTERS,
-				Sys#sys.incl_sys_filters),
-                         excl_sys_filters =
-			 dec_re(excl_sys_filters,
-				?STANDALONE_EXCL_SYS_FILTERS,
-				Sys#sys.excl_sys_filters),
-                         incl_app_filters =
-			 dec_re(incl_app_filters,
-				?STANDALONE_INCL_APP_FILTERS,
-				Sys#sys.incl_app_filters),
-                         excl_app_filters =
-			 dec_re(excl_app_filters,
-				?STANDALONE_EXCL_APP_FILTERS,
-				Sys#sys.excl_app_filters)},
+	    profile when Val =:= development;
+			 Val =:= embedded;
+			 Val =:= standalone ->
+		InclSys = reltool_utils:choose_default(incl_sys_filters, Val, false),
+		ExclSys = reltool_utils:choose_default(excl_sys_filters, Val, false),
+		InclApp = reltool_utils:choose_default(incl_app_filters, Val, false),
+		ExclApp = reltool_utils:choose_default(excl_app_filters, Val, false),
+		AppType = reltool_utils:choose_default(embedded_app_type, Val, false),
+		{Sys#sys{profile = Val,
+                         incl_sys_filters = dec_re(incl_sys_filters,
+						   InclSys,
+						   Sys#sys.incl_sys_filters),
+                         excl_sys_filters = dec_re(excl_sys_filters,
+						   ExclSys,
+						   Sys#sys.excl_sys_filters),
+                         incl_app_filters = dec_re(incl_app_filters,
+						   InclApp,
+						   Sys#sys.incl_app_filters),
+                         excl_app_filters = dec_re(excl_app_filters,
+						   ExclApp,
+						   Sys#sys.excl_app_filters),
+			 embedded_app_type = AppType},
                  Status};
             incl_sys_filters ->
                 {Sys#sys{incl_sys_filters =

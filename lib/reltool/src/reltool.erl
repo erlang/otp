@@ -99,16 +99,19 @@ stop(Pid) when is_pid(Pid) ->
 -spec eval_server(server(), boolean(), fun((server_pid()) -> term())) ->
  {ok, server_pid()} | {error, reason()}.
 eval_server(Pid, DisplayWarnings, Fun)
-  when is_pid(Pid), is_boolean(DisplayWarnings) ->
+  when is_pid(Pid) ->
     Fun(Pid);
 eval_server(Options, DisplayWarnings, Fun)
-  when is_list(Options), is_boolean(DisplayWarnings), is_function(Fun, 1) ->
-    case start_server(Options) of
-        {ok, Pid} ->
-	    apply_fun(Pid, DisplayWarnings, Fun);
-        {error, Reason} ->
-            {error, Reason}
-    end.
+  when is_list(Options) ->
+    TrapExit = process_flag(trap_exit, true),
+    Res = case start_server(Options) of
+	      {ok, Pid} ->
+		  apply_fun(Pid, DisplayWarnings, Fun);
+	      {error, Reason} ->
+		  {error, Reason}
+	  end,
+    process_flag(trap_exit, TrapExit),
+    Res.
 
 apply_fun(Pid, false, Fun) ->
     Res = Fun(Pid),

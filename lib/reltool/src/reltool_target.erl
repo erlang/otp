@@ -132,15 +132,15 @@ do_gen_config(#sys{root_dir          	= RootDir,
      emit(emu_name, EmuName, ?DEFAULT_EMU_NAME, InclDefs) ++
      emit(relocatable, Relocatable, ?DEFAULT_RELOCATABLE, InclDefs) ++
      emit(profile, Profile, ?DEFAULT_PROFILE, InclDefs) ++
-     emit(incl_sys_filters, X(InclSysFiles), ?DEFAULT_INCL_SYS_FILTERS, InclDefs) ++
-     emit(excl_sys_filters, X(ExclSysFiles), ?DEFAULT_EXCL_SYS_FILTERS, InclDefs) ++
-     emit(incl_app_filters, X(InclAppFiles), ?DEFAULT_INCL_APP_FILTERS, InclDefs) ++
-     emit(excl_app_filters, X(ExclAppFiles), ?DEFAULT_EXCL_APP_FILTERS, InclDefs) ++
+     emit(incl_sys_filters, X(InclSysFiles), reltool_utils:choose_default(incl_sys_filters, Profile, InclDefs), InclDefs) ++
+     emit(excl_sys_filters, X(ExclSysFiles), reltool_utils:choose_default(excl_sys_filters, Profile, InclDefs), InclDefs) ++
+     emit(incl_app_filters, X(InclAppFiles), reltool_utils:choose_default(incl_app_filters, Profile, InclDefs), InclDefs) ++
+     emit(excl_app_filters, X(ExclAppFiles), reltool_utils:choose_default(excl_app_filters, Profile, InclDefs), InclDefs) ++
      emit(incl_archive_filters, X(InclArchiveDirs), ?DEFAULT_INCL_ARCHIVE_FILTERS, InclDefs) ++
      emit(excl_archive_filters, X(ExclArchiveDirs), ?DEFAULT_EXCL_ARCHIVE_FILTERS, InclDefs) ++
      emit(archive_opts, ArchiveOpts, ?DEFAULT_ARCHIVE_OPTS, InclDefs) ++
      emit(rel_app_type, RelAppType, ?DEFAULT_REL_APP_TYPE, InclDefs) ++
-     emit(embedded_app_type, InclAppType, ?DEFAULT_EMBEDDED_APP_TYPE, InclDefs) ++
+     emit(embedded_app_type, InclAppType, reltool_utils:choose_default(embedded_app_type, Profile, InclDefs), InclDefs) ++
      emit(app_file, AppFile, ?DEFAULT_APP_FILE, InclDefs) ++
      emit(debug_info, DebugInfo, ?DEFAULT_DEBUG_INFO, InclDefs)};
 do_gen_config(#app{name = Name,
@@ -221,6 +221,8 @@ do_gen_config([H | T], InclDefs) ->
     lists:flatten([do_gen_config(H, InclDefs), do_gen_config(T, InclDefs)]).
 
 emit(Tag, Val, Default, InclDefs) ->
+    %% io:format("~p(~p):\n\t~p\n\t~p\n",
+    %%           [Tag, Val =/= Default, Val, Default]),
     if
         Val == undefined -> [];
         InclDefs         -> [{Tag, Val}];
