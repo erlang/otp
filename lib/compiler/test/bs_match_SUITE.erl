@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -302,15 +302,15 @@ partitioned_bs_match(Config) when is_list(Config) ->
     ?line error = partitioned_bs_match(10, <<7,8,15,13>>),
     ?line error = partitioned_bs_match(100, {a,tuple,is,'not',a,binary}),
     ?line ok = partitioned_bs_match(0, <<>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match,[-1,blurf]}|_]}} =
-	(catch partitioned_bs_match(-1, blurf)),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match,[-1,<<1,2,3>>]}|_]}} =
-	(catch partitioned_bs_match(-1, <<1,2,3>>)),
-
+    ?line fc(partitioned_bs_match, [-1,blurf],
+	     catch partitioned_bs_match(-1, blurf)),
+    ?line fc(partitioned_bs_match, [-1,<<1,2,3>>],
+	     catch partitioned_bs_match(-1, <<1,2,3>>)),
     ?line {17,<<1,2,3>>} = partitioned_bs_match_2(1, <<17,1,2,3>>),
     ?line {7,<<1,2,3>>} = partitioned_bs_match_2(7, <<17,1,2,3>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,partitioned_bs_match_2,[4,<<0:17>>]}|_]}} =
-	(catch partitioned_bs_match_2(4, <<0:17>>)),
+
+    ?line fc(partitioned_bs_match_2, [4,<<0:17>>],
+	     catch partitioned_bs_match_2(4, <<0:17>>)),
     ok.
 
 partitioned_bs_match(_, <<42:8,T/binary>>) ->
@@ -327,12 +327,10 @@ partitioned_bs_match_2(Len, <<_:8,T/binary>>) ->
 
 function_clause(Config) when is_list(Config)  ->
     ?line ok = function_clause_1(<<0,7,0,7,42>>),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,function_clause_1,[<<0,1,2,3>>]}|_]}} =
-	(catch function_clause_1(<<0,1,2,3>>)),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,function_clause_1,[<<0,1,2,3>>]}|_]}} =
-	(catch function_clause_1(<<0,7,0,1,2,3>>)),
+    ?line fc(function_clause_1, [<<0,1,2,3>>],
+	     catch function_clause_1(<<0,1,2,3>>)),
+    ?line fc(function_clause_1, [<<0,1,2,3>>],
+	     catch function_clause_1(<<0,7,0,1,2,3>>)),
     ok.
 
 function_clause_1(<<0:8,7:8,T/binary>>) ->
@@ -349,22 +347,17 @@ unit(Config) when is_list(Config) ->
 
     ?line 99 = peek8(<<99>>),
     ?line 100 = peek8(<<100,101>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek8,[<<100,101,0:1>>]}|_]}} =
-	(catch peek8(<<100,101,0:1>>)),
+    ?line fc(peek8, [<<100,101,0:1>>], catch peek8(<<100,101,0:1>>)),
 
     ?line 37484 = peek16(<<37484:16>>),
     ?line 37489 = peek16(<<37489:16,5566:16>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<8>>]}|_]}} =
-	(catch peek16(<<8>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<42:15>>]}|_]}} =
-	(catch peek16(<<42:15>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek16,[<<1,2,3,4,5>>]}|_]}} =
-	(catch peek16(<<1,2,3,4,5>>)),
+    ?line fc(peek16, [<<8>>], catch peek16(<<8>>)),
+    ?line fc(peek16, [<<42:15>>], catch peek16(<<42:15>>)),
+    ?line fc(peek16, [<<1,2,3,4,5>>], catch peek16(<<1,2,3,4,5>>)),
 
     ?line 127 = peek7(<<127:7>>),
     ?line 100 = peek7(<<100:7,19:7>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,peek7,[<<1,2>>]}|_]}} =
-	(catch peek7(<<1,2>>)),
+    ?line fc(peek7, [<<1,2>>], catch peek7(<<1,2>>)),
     ok.
 
 peek1(<<B:8,_/bitstring>>) -> B.
@@ -533,15 +526,13 @@ bs_sum(Config) when is_list(Config) ->
     ?line 6 = bs_sum_1([1,2,3|0]),
     ?line 7 = bs_sum_1([1,2,3|one]),
 
-    ?line {'EXIT',{function_clause,_}} = (catch bs_sum_1({too,big,tuple})),
-    ?line {'EXIT',{function_clause,_}} = (catch bs_sum_1([1,2,3|{too,big,tuple}])),
+    ?line fc(catch bs_sum_1({too,big,tuple})),
+    ?line fc(catch bs_sum_1([1,2,3|{too,big,tuple}])),
 
     ?line [] = sneaky_alias(<<>>),
     ?line [559,387655] = sneaky_alias(id(<<559:32,387655:32>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,sneaky_alias,[<<1>>]}|_]}} =
-          (catch sneaky_alias(id(<<1>>))),
-    ?line {'EXIT',{function_clause,[{?MODULE,sneaky_alias,[[1,2,3,4]]}|_]}} =
-          (catch sneaky_alias(lists:seq(1, 4))),
+    ?line fc(sneaky_alias, [<<1>>], catch sneaky_alias(id(<<1>>))),
+    ?line fc(sneaky_alias, [[1,2,3,4]], catch sneaky_alias(lists:seq(1, 4))),
     ok.
 
 bs_sum_1(<<H,T/binary>>) -> H+bs_sum_1(T);
@@ -559,9 +550,9 @@ sneaky_alias(<<From:32,L/binary>>) -> [From|sneaky_alias(L)].
 coverage(Config) when is_list(Config) ->
     ?line 0 = coverage_fold(fun(B, A) -> A+B end, 0, <<>>),
     ?line 6 = coverage_fold(fun(B, A) -> A+B end, 0, <<1,2,3>>),
-    ?line {'EXIT',{function_clause,_}} = (catch coverage_fold(fun(B, A) ->
-								      A+B
-							      end, 0, [a,b,c])),
+    ?line fc(catch coverage_fold(fun(B, A) ->
+					 A+B
+				 end, 0, [a,b,c])),
 
     ?line {<<>>,not_a_tuple} = coverage_build(<<>>, <<>>, not_a_tuple),
     ?line {<<16#76,"abc",16#A9,"abc">>,{x,42,43}} =
@@ -573,9 +564,8 @@ coverage(Config) when is_list(Config) ->
 
     ?line do_coverage_bin_to_term_list([]),
     ?line do_coverage_bin_to_term_list([lists:seq(0, 10),{a,b,c},<<23:42>>]),
-    ?line {'EXIT',{function_clause,
-		   [{?MODULE,coverage_bin_to_term_list,[<<0,0,0,7>>]}|_]}} =
-	(catch do_coverage_bin_to_term_list_1(<<7:32>>)),
+    ?line fc(coverage_bin_to_term_list, [<<0,0,0,7>>],
+	     catch do_coverage_bin_to_term_list_1(<<7:32>>)),
 
     ?line <<>> = coverage_per_key(<<4:32>>),
     ?line <<$a,$b,$c>> = coverage_per_key(<<7:32,"abc">>),
@@ -731,13 +721,12 @@ encode_octet_string(<<OctetString/binary>>, Len) ->
 simon(Config) when is_list(Config) ->
     ?line one = simon(blurf, <<>>),
     ?line two = simon(0, <<42>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon,[17,<<1>>]}|_]}}  = (catch simon(17, <<1>>)),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon,[0,<<1,2,3>>]}|_]}} = (catch simon(0, <<1,2,3>>)),
+    ?line fc(simon, [17,<<1>>], catch simon(17, <<1>>)),
+    ?line fc(simon, [0,<<1,2,3>>], catch simon(0, <<1,2,3>>)),
 
     ?line one = simon2(blurf, <<9>>),
     ?line two = simon2(0, <<9,1>>),
-    ?line {'EXIT',{function_clause,[{?MODULE,simon2,[0,<<9,10,11>>]}|_]}} =
-	(catch simon2(0, <<9,10,11>>)),
+    ?line fc(simon2, [0,<<9,10,11>>], catch simon2(0, <<9,10,11>>)),
     ok.
 
 simon(_, <<>>) -> one;
@@ -984,6 +973,17 @@ haystack_2(Haystack) ->
 	 <<_:X/binary,B:Y/binary,_/binary>> = Haystack,
 	 B
      end || {X,Y} <- Subs ].
+
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_match_inline_SUITE -> ok.
+
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Args}|_]}}) -> ok;
+fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+  when length(Args) =:= Arity ->
+    true = test_server:is_native(?MODULE);
+fc(_, Args, {'EXIT',{{case_clause,ActualArgs},_}})
+  when ?MODULE =:= bs_match_inline_SUITE ->
+    Args = tuple_to_list(ActualArgs).
 
 check(F, R) ->
     R = F().

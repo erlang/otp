@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -314,7 +314,7 @@ coverage(Config) when is_list(Config) ->
     ?line 0 = coverage_2(<<4096/utf8,65536/utf8,0>>),
     ?line 1 = coverage_2(<<1024/utf8,1025/utf8,1>>),
 
-    ?line {'EXIT',{function_clause,_}} = (catch coverage_3(1)),
+    ?line fc(catch coverage_3(1)),
 
     %% Cover beam_flatten (combining the heap allocation in
     %% a subsequent test_heap instruction into the bs_init2
@@ -394,3 +394,5 @@ utf32_data() ->
      <<16#41:32/little,NotIdentical:32/little,
       16#0391:32/little,16#2E:32/little>>}.
      
+fc({'EXIT',{function_clause,_}}) -> ok;
+fc({'EXIT',{{case_clause,_},_}}) when ?MODULE =:= bs_utf_inline_SUITE -> ok.

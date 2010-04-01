@@ -58,6 +58,7 @@ opt_opts(Mod) ->
 		    (no_gc_bifs) -> true;
 		    (no_stack_trimming) -> true;
 		    (debug_info) -> true;
+		    (inline) -> true;
 		    (_) -> false
 		 end, Opts).
 
@@ -68,5 +69,6 @@ opt_opts(Mod) ->
 get_data_dir(Config) ->
     Data0 = ?config(data_dir, Config),
     {ok,Data1,_} = regexp:sub(Data0, "_no_opt_SUITE", "_SUITE"),
-    {ok,Data,_} = regexp:sub(Data1, "_post_opt_SUITE", "_SUITE"),
+    {ok,Data2,_} = regexp:sub(Data1, "_post_opt_SUITE", "_SUITE"),
+    {ok,Data,_} = regexp:sub(Data2, "_inline_SUITE", "_SUITE"),
     Data.

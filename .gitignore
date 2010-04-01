@@ -121,6 +121,7 @@ a.out.dSYM/
 
 /lib/compiler/test/*_no_opt_SUITE.erl
 /lib/compiler/test/*_post_opt_SUITE.erl
+/lib/compiler/test/*_inline_SUITE.erl
 
 # debugger
 

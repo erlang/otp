@@ -53,6 +53,25 @@ NO_OPT= \
 	record \
 	trycatch
 
+INLINE= \
+	andor \
+	apply \
+	bs_bincomp \
+	bs_bit_binaries \
+	bs_construct \
+        bs_match \
+	bs_utf \
+	core_fold \
+	float \
+	fun \
+	guard \
+	lc \
+	match \
+	misc \
+	num_bif \
+	receive \
+	record
+
 CORE_MODULES = \
 	bs_shadowed_size_var \
 	nested_call_in_case
@@ -62,6 +81,8 @@ NO_OPT_MODULES= $(NO_OPT:%=%_no_opt_SUITE)
 NO_OPT_ERL_FILES= $(NO_OPT_MODULES:%=%.erl)
 POST_OPT_MODULES= $(NO_OPT:%=%_post_opt_SUITE)
 POST_OPT_ERL_FILES= $(POST_OPT_MODULES:%=%.erl)
+INLINE_MODULES= $(INLINE:%=%_inline_SUITE)
+INLINE_ERL_FILES= $(INLINE_MODULES:%=%.erl)
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -90,13 +111,15 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES)
+make_emakefile: $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) $(INLINE_ERL_FILES)
 	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES) \
 	> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt +no_postopt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(NO_OPT_MODULES) >> $(EMAKEFILE)
 	$(ERL_TOP)/make/make_emakefile +no_copt $(ERL_COMPILE_FLAGS) \
 	-o$(EBIN) $(POST_OPT_MODULES) >> $(EMAKEFILE)
+	$(ERL_TOP)/make/make_emakefile +inline $(ERL_COMPILE_FLAGS) \
+	-o$(EBIN) $(INLINE_MODULES) >> $(EMAKEFILE)
 
 tests debug opt: make_emakefile
 	erl $(ERL_MAKE_FLAGS) -make
@@ -118,6 +141,9 @@ docs:
 %_post_opt_SUITE.erl: %_SUITE.erl
 	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
 
+%_inline_SUITE.erl: %_SUITE.erl
+	sed -e 's;-module($(basename $<));-module($(basename $@));' $< > $@
+
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
@@ -130,7 +156,7 @@ release_tests_spec: make_emakefile
 	$(INSTALL_DATA) compiler.dynspec compiler.cover \
 		$(EMAKEFILE) $(ERL_FILES) $(CORE_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(NO_OPT_ERL_FILES) $(POST_OPT_ERL_FILES) \
-		$(RELSYSDIR)
+		$(INLINE_ERL_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

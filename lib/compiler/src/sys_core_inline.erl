@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Function inlining optimisation for Core.
@@ -41,11 +41,9 @@
 
 -module(sys_core_inline).
 
-%%-compile({inline,{match_fail_fun,0}}).
-
 -export([module/2]).
 
--import(lists, [member/2,map/2,foldl/3,mapfoldl/3]).
+-import(lists, [member/2,map/2,foldl/3,mapfoldl/3,keydelete/3]).
 
 -include("core_parse.hrl").
 
@@ -178,11 +176,9 @@ weight_func(_Core, Acc) -> Acc + 1.
 %% function_clause match_fail (if they have one).
 
 match_fail_fun() ->
-    fun (#c_primop{name=#c_literal{val=match_fail},
-		   args=[#c_tuple{es=[#c_literal{val=function_clause}|As]}]}=P) ->
-	    Fail = #c_tuple{es=[#c_literal{val=case_clause},
-				#c_tuple{es=As}]},
-	    P#c_primop{args=[Fail]};
+    fun (#c_primop{anno=Anno0,name=#c_literal{val=match_fail}}=P) ->
+	    Anno = keydelete(function_name, 1, Anno0),
+	    P#c_primop{anno=Anno};
 	(Other) -> Other
     end.
 
@@ -201,7 +197,7 @@ kill_id_anns(Body) ->
 		      (Expr) ->
 			   %% Mark everything as compiler generated to suppress
 			   %% bogus warnings.
-			   A = [compiler_generated|core_lib:get_anno(Expr)],
+			   A = compiler_generated(core_lib:get_anno(Expr)),
 			   core_lib:set_anno(Expr, A)
 		   end, Body).
 
@@ -210,3 +206,8 @@ kill_id_anns_1([{'id',_}|As]) ->
 kill_id_anns_1([A|As]) ->
     [A|kill_id_anns_1(As)];
 kill_id_anns_1([]) -> [].
+
+compiler_generated([compiler_generated|_]=Anno) ->
+    Anno;
+compiler_generated(Anno) ->
+    [compiler_generated|Anno -- [compiler_generated]].

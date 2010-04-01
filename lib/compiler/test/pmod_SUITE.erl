@@ -38,8 +38,8 @@ fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
 
 basic(Config) when is_list(Config) ->
     ?line basic_1(Config, []),
-%    ?line basic_1(Config, [inline]),
-%    ?line basic_1(Config, [{inline,500},inline]),
+    ?line basic_1(Config, [inline]),
+    ?line basic_1(Config, [{inline,500},inline]),
     ok.
 
 basic_1(Config, Opts) ->

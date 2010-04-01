@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(lc_SUITE).
@@ -66,8 +66,7 @@ basic(Config) when is_list(Config) ->
     ?line {'EXIT',_} = (catch [X || X <- L1, list_to_atom(X) == dum]),
     ?line [] = [X || X <- L1, X+1 < 2],
     ?line {'EXIT',_} = (catch [X || X <- L1, odd(X)]),
-    ?line {'EXIT',{function_clause,[{?MODULE,_,[x]}|_]}} =
-	(catch [E || E <- id(x)]),
+    ?line fc([x], catch [E || E <- id(x)]),
     ok.
 
 tuple_list() ->
@@ -160,3 +159,10 @@ empty_generator(Config) when is_list(Config) ->
 
 id(I) -> I.
     
+fc(Args, {'EXIT',{function_clause,[{?MODULE,_,Args}|_]}}) -> ok;
+fc(Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
+  when length(Args) =:= Arity ->
+    true = test_server:is_native(?MODULE);
+fc(Args, {'EXIT',{{case_clause,ActualArgs},_}})
+  when ?MODULE =:= lc_inline_SUITE ->
+    Args = tuple_to_list(ActualArgs).
