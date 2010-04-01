@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1999</year><year>2009</year>
+      <year>1999</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>crypto</title>
@@ -34,6 +34,9 @@
       </p>
     <p>References:</p>
     <list type="bulleted">
+      <item>
+        <p>md4: The MD4 Message Digest Algorithm (RFC 1320)</p>
+      </item>
       <item>
         <p>md5: The MD5 Message Digest Algorithm (RFC 1321)</p>
       </item>
@@ -112,6 +115,52 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
 > <input>info_lib().</input>
 [{&lt;&lt;"OpenSSL"&gt;&gt;,9469983,&lt;&lt;"OpenSSL 0.9.8a 11 Oct 2005"&gt;&gt;}]
         </pre>
+      </desc>
+    </func>
+    <func>
+      <name>md4(Data) -> Digest</name>
+      <fsummary>Compute an <c>MD4</c>message digest from <c>Data</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Computes an <c>MD4</c> message digest from <c>Data</c>, where
+          the length of the digest is 128 bits (16 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_init() -> Context</name>
+      <fsummary>Creates an MD4 context</fsummary>
+      <type>
+        <v>Context = binary()</v>
+      </type>
+      <desc>
+        <p>Creates an MD4 context, to be used in subsequent calls to
+          <c>md4_update/2</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_update(Context, Data) -> NewContext</name>
+      <fsummary>Update an MD4 <c>Context</c>with <c>Data</c>, and return a <c>NewContext</c></fsummary>
+      <type>
+        <v>Data = iolist() | binary()</v>
+        <v>Context = NewContext = binary()</v>
+      </type>
+      <desc>
+        <p>Updates an MD4 <c>Context</c> with <c>Data</c>, and returns
+          a <c>NewContext</c>.</p>
+      </desc>
+    </func>
+    <func>
+      <name>md4_final(Context) -> Digest</name>
+      <fsummary>Finish the update of an MD4 <c>Context</c>and return the computed <c>MD4</c>message digest</fsummary>
+      <type>
+        <v>Context = Digest = binary()</v>
+      </type>
+      <desc>
+        <p>Finishes the update of an MD4 <c>Context</c> and returns
+          the computed <c>MD4</c> message digest.</p>
       </desc>
     </func>
     <func>
@@ -335,6 +384,33 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
           encrypting. <c>Cipher</c> must be a multiple of 64 bits (8
           bytes).  The lengths of <c>Key1</c>, <c>Key2</c>,
           <c>Key3</c>, and <c>IVec</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+
+    <func>
+      <name>des_ecb_encrypt(Key, Text) -> Cipher</name>
+      <fsummary>Encrypt <c>Text</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Text = iolist() | binary()</v>
+        <v>Cipher = binary()</v>
+      </type>
+      <desc>
+        <p>Encrypts <c>Text</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Text</c> must be 64 bits (8 bytes).</p>
+      </desc>
+    </func>
+    <func>
+      <name>des_ecb_decrypt(Key, Cipher) -> Text</name>
+      <fsummary>Decrypt <c>Cipher</c>according to DES in ECB mode</fsummary>
+      <type>
+        <v>Key = Cipher = iolist() | binary()</v>
+        <v>Text = binary()</v>
+      </type>
+      <desc>
+        <p>Decrypts <c>Cipher</c> according to DES in ECB mode.
+          <c>Key</c> is the DES key. The lengths of <c>Key</c> and
+          <c>Cipher</c> must be 64 bits (8 bytes).</p>
       </desc>
     </func>
 
