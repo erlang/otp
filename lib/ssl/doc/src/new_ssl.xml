@@ -84,8 +84,6 @@
       <item>New API functions are
             ssl:shutdown/2, ssl:cipher_suites/[0,1] and
             ssl:versions/0</item>
-      <item>Diffie-Hellman keyexchange is
-            not supported yet.</item>
       <item>CRL and policy certificate
             extensions are not supported yet. </item>
       <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
@@ -118,8 +116,8 @@
       {fail_if_no_peer_cert, boolean()}
       {depth, integer()} |
       {certfile, path()} | {keyfile, path()} | {password, string()} |
-      {cacertfile, path()} | {ciphers, ciphers()} | {ssl_imp, ssl_imp()}
-      | {reuse_sessions, boolean()} | {reuse_session, fun()}
+      {cacertfile, path()} | {dhfile, path()} | {ciphers, ciphers()} |
+      {ssl_imp, ssl_imp()} | {reuse_sessions, boolean()} | {reuse_session, fun()} 
     </c></p>
 
     <p><c>transportoption() = {CallbackModule, DataTag, ClosedTag}
@@ -262,6 +260,12 @@ end
       CA certificates (trusted certificates used for verifying a peer
       certificate). May be omitted if you do not want to verify
       the peer.</item>
+
+      <tag>{dhfile, path()}</tag>
+      <item>Path to file containing PEM encoded Diffie Hellman parameters,
+      for the server to use if a cipher suite using Diffie Hellman key exchange
+      is negotiated. If not specified hardcode parameters will be used.
+      </item>
       
       <tag>{ciphers, ciphers()}</tag>
       <item>The function <c>ciphers_suites/0</c> can
