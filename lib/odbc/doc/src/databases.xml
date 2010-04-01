@@ -99,7 +99,7 @@
       <p>Note that when the value of the data to input is a string, it
         has to be quoted with <c>'</c>. Example: </p>
       <code type="none">
-\011odbc:sql_query(Ref, "INSERT INTO EMPLOYEE VALUES(1, 'Jane', 'Doe', 'F')").
+odbc:sql_query(Ref, "INSERT INTO EMPLOYEE VALUES(1, 'Jane', 'Doe', 'F')").
       </code>
     </note>
     <p>You may also input data using <seealso marker="odbc#param_query">param_query/[3,4]</seealso> and then
@@ -198,7 +198,7 @@ when p >= 16 </cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_TYPE_TIMESTAMP </cell>
-        <cell align="left" valign="middle">String </cell>
+        <cell align="left" valign="middle"> {{YY, MM, DD}, {HH, MM, SS}} </cell>
       </row>
       <row>
         <cell align="left" valign="middle">SQL_LONGVARCHAR </cell>
@@ -262,8 +262,8 @@ when p >= 16 </cell>
         customers of that department. </p>
       <code type="none">
  CREATE PROCEDURE DepartmentInfo (@DepartmentID INT) AS
-\011SELECT * FROM Employee WHERE department = @DepartmentID
-\011SELECT * FROM Customers WHERE department = @DepartmentID
+ SELECT * FROM Employee WHERE department = @DepartmentID
+ SELECT * FROM Customers WHERE department = @DepartmentID
       </code>
     </section>
 

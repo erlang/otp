@@ -311,7 +311,7 @@
             capital letters, alas it is not currently supported by the
             param_query function. Too know which Erlang data type
             corresponds to an ODBC data type see the Erlang to ODBC
-            data type<seealso marker="databases#type">mapping</seealso> in the User's Guide.</p>
+            data type <seealso marker="databases#type">mapping</seealso> in the User's Guide.</p>
         </note>
       </desc>
     </func>

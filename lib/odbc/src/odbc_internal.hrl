@@ -71,6 +71,7 @@
 -define(USER_TINY_INT, 11).
 -define(USER_WCHAR, 12).
 -define(USER_WVARCHAR, 13).
+-define(USER_TIMESTAMP, 14).
 
 %% INPUT & OUTPUT TYPE 
 -define(IN, 0).

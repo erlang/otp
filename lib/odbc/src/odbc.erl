@@ -931,6 +931,16 @@ fix_params({sql_double, InOut, Values}) ->
     {?USER_DOUBLE, fix_inout(InOut), Values};
 fix_params({sql_bit, InOut, Values}) ->
     {?USER_BOOLEAN, fix_inout(InOut), Values};
+fix_params({'sql_timestamp', InOut, Values}) ->
+    NewValues =
+ 	case (catch 
+		  lists:map(fun({{Year,Month,Day},{Hour,Minute,Second}}) -> 
+                                {Year,Month,Day,Hour,Minute,Second}
+                        end, Values)) of
+ 	    Result ->
+ 		Result
+ 	end,
+    {?USER_TIMESTAMP, fix_inout(InOut), NewValues};
 %% default is IN %%%
 fix_params({Type, Values}) ->
     fix_params({Type, in, Values}).

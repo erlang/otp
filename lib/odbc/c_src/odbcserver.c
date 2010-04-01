@@ -89,7 +89,8 @@
    InOrOut = [ERL_ODBC_IN | ERL_ODBC_OUT | ERL_ODBC_INOUT]
    Datatype -  USER_INT | USER_SMALL_INT | {USER_DECIMAL, Precision, Scale} |
    {USER_NMERIC, Precision, Scale} | {USER_CHAR, Max} | {USER_VARCHAR, Max} |
-   {USER_WVARCHAR, Max} | {USER_FLOAT, Precision} | USER_REAL | USER_DOUBLE
+   {USER_WVARCHAR, Max} | {USER_FLOAT, Precision} | USER_REAL | USER_DOUBLE |
+   USER_TIMESTAMP
    Scale - integer
    Precision - integer
    Max - integer
@@ -379,7 +380,7 @@ DWORD WINAPI database_handler(const char *port)
     shutdown(socket, 2);
     close_socket(socket);
     clean_socket_lib();
-    DO_EXIT(EXIT_SUCCESS);
+    /* Exit will be done by suervisor thread */ 
 }
  
 /* Description: Calls the appropriate function to handle the database
@@ -1080,6 +1081,7 @@ static db_result_msg encode_out_params(db_state *state,
     int j = 0;
     param_array column;
     db_result_msg msg;
+    TIMESTAMP_STRUCT* ts;
     msg = encode_empty_message();
     
     ei_x_encode_tuple_header(&dynamic_buffer(state), 3);
@@ -1109,6 +1111,18 @@ static db_result_msg encode_out_params(db_state *state,
             } else {
                 void* values = retrive_param_values(&column);
                 switch(column.type.c) {
+                case SQL_C_TYPE_TIMESTAMP:
+                  ts = (TIMESTAMP_STRUCT*) values;
+                  ei_x_encode_tuple_header(&dynamic_buffer(state), 2);
+                  ei_x_encode_tuple_header(&dynamic_buffer(state), 3);
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->year));
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->month));
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->day));
+                  ei_x_encode_tuple_header(&dynamic_buffer(state), 3);
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->hour));
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->minute));
+                  ei_x_encode_long(&dynamic_buffer(state), (long)(ts->second));
+                  break;
                 case SQL_C_CHAR:
 			if binary_strings(state) {
 				ei_x_encode_binary(&dynamic_buffer(state),
@@ -1380,11 +1394,24 @@ static db_result_msg encode_row_count(SQLINTEGER num_of_rows,
 static void encode_column_dyn(db_column column, int column_nr,
 			      db_state *state)
 {
+    TIMESTAMP_STRUCT* ts;
     if (column.type.len == 0 ||
 	column.type.strlen_or_indptr == SQL_NULL_DATA) {
 	ei_x_encode_atom(&dynamic_buffer(state), "null");
     } else {
 	switch(column.type.c) {
+	case SQL_C_TYPE_TIMESTAMP:
+            ts = (TIMESTAMP_STRUCT*)column.buffer;
+            ei_x_encode_tuple_header(&dynamic_buffer(state), 2);
+            ei_x_encode_tuple_header(&dynamic_buffer(state), 3);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->year);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->month);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->day);
+            ei_x_encode_tuple_header(&dynamic_buffer(state), 3);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->hour);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->minute);
+            ei_x_encode_ulong(&dynamic_buffer(state), ts->second);
+            break;
 	case SQL_C_CHAR:
 		if binary_strings(state) {
 			 ei_x_encode_binary(&dynamic_buffer(state), 
@@ -1491,7 +1518,7 @@ static void encode_data_type(SQLINTEGER sql_type, SQLINTEGER size,
 	ei_x_encode_atom(&dynamic_buffer(state), "SQL_TYPE_TIME");
 	break;
     case SQL_TYPE_TIMESTAMP:
-	ei_x_encode_atom(&dynamic_buffer(state), "SQL_TYPE_TIMESTAMP");
+	ei_x_encode_atom(&dynamic_buffer(state), "sql_timestamp");
 	break;
     case SQL_BIGINT:
 	ei_x_encode_atom(&dynamic_buffer(state), "SQL_BIGINT");
@@ -1542,8 +1569,10 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 {
     int erl_type, size;
     long bin_size, l64;
+    long val;
     param_array* param;
-  
+    TIMESTAMP_STRUCT* ts;
+    
     ei_get_type(buffer, index, &erl_type, &size);
     param = &(*params)[i];
 
@@ -1564,50 +1593,67 @@ static Boolean decode_params(db_state *state, byte *buffer, int *index, param_ar
 	    }
 	    break;
     case SQL_C_WCHAR:
-        ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
-        param->offset += param->type.len;
-        param->type.strlen_or_indptr_array[j] = SQL_NTS;
-	break;
+	    ei_decode_binary(buffer, index, &(param->values.string[param->offset]), &bin_size);
+	    param->offset += param->type.len;
+	    param->type.strlen_or_indptr_array[j] = SQL_NTS;
+	    break;
+    case SQL_C_TYPE_TIMESTAMP:
+	    ts = (TIMESTAMP_STRUCT*) param->values.string;
+	    ei_decode_tuple_header(buffer, index, &val);
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].year = (SQLUSMALLINT)val;
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].month = (SQLUSMALLINT)val;
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].day = (SQLUSMALLINT)val;
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].hour = (SQLUSMALLINT)val;
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].minute = (SQLUSMALLINT)val;
+	    ei_decode_long(buffer, index, &val);
+	    ts[j].second = (SQLUSMALLINT)val;
+	    ts[j].fraction = (SQLINTEGER)0;
+	    break;
     case SQL_C_SLONG:
-	if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
-	      (erl_type == ERL_INTEGER_EXT) ||
-	      (erl_type == ERL_SMALL_BIG_EXT) ||
-	      (erl_type == ERL_LARGE_BIG_EXT))) {
-	    return FALSE;
-	}
-
-	if(ei_decode_long(buffer, index, &l64)) {
-	    return FALSE;
-	}
-
-	/* For 64-bit platforms we downcast 8-byte long
-	 * to 4-byte SQLINTEGER, checking for overflow */
-
-	if(l64>INT_MAX || l64<INT_MIN) {
-	    return FALSE;
-	}
+	    if(!((erl_type == ERL_SMALL_INTEGER_EXT) ||
+		 (erl_type == ERL_INTEGER_EXT) ||
+		 (erl_type == ERL_SMALL_BIG_EXT) ||
+		 (erl_type == ERL_LARGE_BIG_EXT))) {
+		    return FALSE;
+	    }
+	    
+	    if(ei_decode_long(buffer, index, &l64)) {
+		    return FALSE;
+	    }
+	    
+	    /* For 64-bit platforms we downcast 8-byte long
+	     * to 4-byte SQLINTEGER, checking for overflow */
+	    
+	    if(l64>INT_MAX || l64<INT_MIN) {
+		    return FALSE;
+	    }
 
 	param->values.integer[j]=(SQLINTEGER)l64;
 	break;
-
+	
     case SQL_C_DOUBLE: 
-	if((erl_type != ERL_FLOAT_EXT)) { 
-	    return FALSE;
-	} 
-	ei_decode_double(buffer, index, &(param->values.floating[j])); 
-	break;
-
+	    if((erl_type != ERL_FLOAT_EXT)) { 
+		    return FALSE;
+	    } 
+	    ei_decode_double(buffer, index, &(param->values.floating[j])); 
+	    break;
+	    
     case SQL_C_BIT:
 	if((erl_type != ERL_ATOM_EXT)) {
-	    return FALSE;
+		return FALSE;
 	}
 	ei_decode_boolean(buffer, index, &(param->values.bool[j]));
 	break;
-
+	
     default:
-	return FALSE;
+	    return FALSE;
     }
-
+    
     return TRUE;
 }  
 
@@ -1987,7 +2033,7 @@ static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 			db_state *state)
 {
   
-    int auto_commit_mode, trace_driver, use_srollable_cursors;
+    int auto_commit_mode, trace_driver;
   
     if(erl_auto_commit_mode == ON) {
 	auto_commit_mode = SQL_AUTOCOMMIT_ON;
@@ -2013,18 +2059,19 @@ static void init_driver(int erl_auto_commit_mode, int erl_trace_driver,
 				   environment_handle(state),
 				   &connection_handle(state))))
 	DO_EXIT(EXIT_ALLOC);
+    /* By default Erlang handles all timeouts */
     if(!sql_success(SQLSetConnectAttr(connection_handle(state),
 				      SQL_ATTR_CONNECTION_TIMEOUT,
 				      (SQLPOINTER)TIME_OUT, 0)))
-	DO_EXIT(EXIT_CONNECTION);
+	    DO_EXIT(EXIT_CONNECTION);
     if(!sql_success(SQLSetConnectAttr(connection_handle(state),
 				      SQL_ATTR_AUTOCOMMIT,
 				      (SQLPOINTER)auto_commit_mode, 0)))
-	DO_EXIT(EXIT_CONNECTION);
+	    DO_EXIT(EXIT_CONNECTION);
     if(!sql_success(SQLSetConnectAttr(connection_handle(state),
 				      SQL_ATTR_TRACE,
 				      (SQLPOINTER)trace_driver, 0)))
-	DO_EXIT(EXIT_CONNECTION);
+	    DO_EXIT(EXIT_CONNECTION);
 }
 
 static void init_param_column(param_array *params, byte *buffer, int *index,
@@ -2126,6 +2173,14 @@ static void init_param_column(param_array *params, byte *buffer, int *index,
           (byte *)safe_malloc(num_param_values * sizeof(byte) * params->type.len);
 	
 	break;
+    case USER_TIMESTAMP:
+      params->type.sql = SQL_TYPE_TIMESTAMP;
+      params->type.len = sizeof(TIMESTAMP_STRUCT);
+      params->type.c = SQL_C_TYPE_TIMESTAMP;
+      params->type.col_size = (SQLUINTEGER)19;//;sizeof(TIMESTAMP_STRUCT);
+      params->values.string =
+        (TIMESTAMP_STRUCT *)safe_malloc(num_param_values * params->type.len);      
+      break;
     case USER_FLOAT:
 	params->type.sql = SQL_FLOAT;
 	params->type.c = SQL_C_DOUBLE;
@@ -2297,12 +2352,16 @@ static db_result_msg map_sql_2_c_column(db_column* column)
 	break;
     case SQL_TYPE_DATE:
     case SQL_TYPE_TIME:
-    case SQL_TYPE_TIMESTAMP:
 	column -> type.len = (column -> type.col_size) +
 	    sizeof(byte);
 	column -> type.c = SQL_C_CHAR;
 	column -> type.strlen_or_indptr = SQL_NTS;
 	break;
+    case SQL_TYPE_TIMESTAMP:
+      column -> type.len = sizeof(TIMESTAMP_STRUCT);
+      column -> type.c = SQL_C_TYPE_TIMESTAMP;
+      column -> type.strlen_or_indptr = (SQLINTEGER)NULL;
+      break;
     case SQL_BIGINT:
 	column -> type.len = DEC_NUM_LENGTH;
 	column -> type.c = SQL_C_CHAR;
@@ -2389,6 +2448,7 @@ static void * retrive_param_values(param_array *Param)
     switch(Param->type.c) {
     case SQL_C_CHAR:
     case SQL_C_WCHAR:
+    case SQL_C_TYPE_TIMESTAMP:
         return (void *)Param->values.string;
     case SQL_C_SLONG:
 	return (void *)Param->values.integer;
