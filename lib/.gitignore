@@ -141,6 +141,11 @@
 
 # orber & cos* applications
 
+/orber/test/idl_output
+/cosEvent/test/idl_output
+/cosNotification/test/idl_output
+/cosTransactions/test/idl_output
+
 /cosEvent/include/CosEventChannelAdmin.hrl
 /cosEvent/include/CosEventChannelAdmin_ConsumerAdmin.hrl
 /cosEvent/include/CosEventChannelAdmin_EventChannel.hrl
