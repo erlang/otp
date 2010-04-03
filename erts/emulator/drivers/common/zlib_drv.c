@@ -115,7 +115,7 @@ typedef struct {
 static int zlib_inflate(ZLibData* d, int flush);
 static int zlib_deflate(ZLibData* d, int flush);
 
-#if defined(_OSE_) || defined(__WIN32__)
+#if defined(__WIN32__)
 static int i32(char* buf)
 #else
 static inline int i32(char* buf)
