@@ -161,7 +161,7 @@ OS_PROCESS(ose_epmd) {
 
 #else  /* ifdef _OSE_ */
 
-/* VxWorks start function */
+#ifdef VXWORKS
 int start_epmd(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
 char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;     
 {
@@ -200,7 +200,7 @@ char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;
 		   argc,(int) argv,1,
 		   0,0,0,0,0,0,0);
 }
-    
+#endif    /* WxWorks */
 #endif    /* _OSE_ */
     
     
