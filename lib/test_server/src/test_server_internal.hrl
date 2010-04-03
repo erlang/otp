@@ -37,7 +37,7 @@
 		      username,        % string()
 		      cookie,          % string(); Cookie for target node
 		      naming,          % string(); "-name" | "-sname"
-		      master,          % string(); For OSE this is the master
+		      master,          % string(); Was used for OSE's master
 				       % node for main target and slave nodes.
 				       % For other platforms the target node
 				       % itself is master for slave nodes

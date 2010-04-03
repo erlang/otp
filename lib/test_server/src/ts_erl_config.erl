@@ -161,7 +161,6 @@ system_include(Root, Vars) ->
 	case ts_lib:var(os, Vars) of
 	    "Windows" ++ _T -> "sys/win32";
 	    "VxWorks" -> "sys.vxworks";
-	    "OSE" -> "sys/ose";
 	    _ -> "sys/unix"
 	end,
     " -I" ++ filename:nativename(filename:join([Root, "erts", "emulator", SysDir])).
@@ -219,7 +218,7 @@ erl_interface(Vars,OsType) ->
 		    {unix,_} ->
 			"-lpthread";
 		    _ -> 
-			"" % VxWorks or OSE
+			"" % VxWorks
 		end,
     CrossCompile = case OsType of
 		       vxworks -> "true";

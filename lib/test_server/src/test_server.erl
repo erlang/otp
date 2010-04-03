@@ -1763,7 +1763,7 @@ call_crash(Time,Crash,M,F,A) ->
 %% Slave and Peer:
 %% {remote, true}         - Start the node on a remote host. If not specified,
 %%                          the node will be started on the local host (with
-%%                          some exceptions, as for the case of VxWorks and OSE,
+%%                          some exceptions, for instance VxWorks,
 %%                          where all nodes are started on a remote host).
 %% {args, Arguments}      - Arguments passed directly to the node.
 %% {cleanup, false}       - Nodes started with this option will not be killed
@@ -2014,14 +2014,8 @@ temp_name(Stem) ->
 app_test(App) ->
     app_test(App, pedantic).
 app_test(App, Mode) ->
-    case os:type() of
-	{ose,_} -> 
-	    Comment = "Skipping app_test on OSE",
-	    comment(Comment), % in case user ignores the return value
-	    {skip,Comment};
-	_other -> 
-	    test_server_sup:app_test(App, Mode)
-    end.
+    test_server_sup:app_test(App, Mode).
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
