@@ -292,9 +292,6 @@ erl_init(void)
 #ifdef HIPE
     hipe_mode_switch_init(); /* Must be after init_load/beam_catches/init */
 #endif
-#ifdef _OSE_
-    erl_sys_init_final();
-#endif
     packet_parser_init();
     erl_nif_init();
 }

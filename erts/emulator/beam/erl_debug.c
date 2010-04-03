@@ -207,11 +207,7 @@ pdisplay1(int to, void *to_arg, Process* p, Eterm obj)
     case FLOAT_DEF: {
 	    FloatDef ff;
 	    GET_DOUBLE(obj, ff);
-#ifdef _OSE_
-	    erts_print(to, to_arg, "%e", ff.fd);
-#else
 	    erts_print(to, to_arg, "%.20e", ff.fd);
-#endif
 	}
 	break;
     case BINARY_DEF:

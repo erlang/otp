@@ -38,10 +38,6 @@
 #include "erl_instrument.h"
 #include "erl_bif_timer.h"
 
-#ifdef _OSE_
-#include "time.h"
-#endif
-
 /* Forward declarations -- should really appear somewhere else */
 static void process_killer(void);
 void do_break(void);
