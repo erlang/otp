@@ -37,19 +37,6 @@
 #define DONT_USE_MAIN
 #endif
 
-#ifdef _OSE_
-#define NO_SYSLOG
-#define NO_SYSCONF
-#define NO_DAEMON
-#define DONT_USE_MAIN
-#ifndef HAVE_SYS_TIME_H
-#define HAVE_SYS_TIME_H
-#endif
-#ifndef HAVE_UNISTD_H
-#define HAVE_UNISTD_H
-#endif
-#endif
-
 /* ************************************************************************ */
 /* Standard includes                                                        */
 
@@ -92,7 +79,7 @@
 #endif
 #endif /* ! VXWORKS */
 
-#if (!defined(__WIN32__) && !defined(_OSE_))
+#if !defined(__WIN32__)
 #  include <netinet/in.h>
 #  include <sys/socket.h>
 #  include <sys/stat.h>
@@ -105,10 +92,8 @@
 #  include <netinet/tcp.h>
 #endif /* ! WIN32 */
 
-#ifndef _OSE_
 #include <ctype.h>
 #include <signal.h>
-#endif
 
 #include <errno.h>
 
@@ -126,13 +111,6 @@
 
 #include <stdarg.h>
 
-#ifdef _OSE_
-#  include "ose.h"
-#  include "inet.h"
-#  include "sys/stat.h"
-#endif
-
-
 /* ************************************************************************ */
 /* Replace some functions by others by making the function name a macro */
 
@@ -147,10 +125,6 @@
 #ifdef VXWORKS
 #define sleep(n) taskDelay((n) * sysClkRateGet())
 #endif /* VXWORKS */
-
-#ifdef _OSE_
-#define sleep(n) delay((n))
-#endif
 
 #ifdef USE_BCOPY
 #  define memcpy(a, b, c) bcopy((b), (a), (c))
