@@ -187,6 +187,17 @@ erts_sys_misc_mem_sz(void)
     return res;
 }
 
+/*
+ * Reset the terminal to the original settings on exit
+ */
+void sys_tty_reset(int exit_code)
+{
+    if (exit_code > 0)
+	ConWaitForExit();
+    else
+	ConNormalExit();
+}
+
 void erl_sys_args(int* argc, char** argv)
 {
     char *event_name;

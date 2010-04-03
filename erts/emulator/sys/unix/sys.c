@@ -367,7 +367,7 @@ erts_sys_misc_mem_sz(void)
 /*
  * reset the terminal to the original settings on exit
  */
-void sys_tty_reset(void)
+void sys_tty_reset(int exit_code)
 {
   if (using_oldshell && !replace_intr) {
     SET_BLOCKING(0);

@@ -686,7 +686,7 @@ extern void erl_sys_schedule(int);
 #ifdef _OSE_
 extern void erl_sys_init_final(void);
 #else
-void sys_tty_reset(void);
+void sys_tty_reset(int);
 #endif
 
 EXTERN_FUNCTION(int, sys_max_files, (_VOID_));

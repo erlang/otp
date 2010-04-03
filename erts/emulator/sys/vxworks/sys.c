@@ -143,6 +143,14 @@ volatile int erts_break_requested;
 
 /********************* General functions ****************************/
 
+/*
+ * Reset the terminal to the original settings on exit
+ * (nothing to do for WxWorks).
+ */
+void sys_tty_reset(int exit_code)
+{
+}
+
 Uint
 erts_sys_misc_mem_sz(void)
 {
