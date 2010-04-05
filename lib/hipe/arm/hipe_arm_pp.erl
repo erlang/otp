@@ -246,6 +246,11 @@ stop_suffix(StOp) ->
     'strb' -> "b"
   end.
 
+imm8m_decode(Value, 0) ->
+  Value;
+imm8m_decode(Value, Rot) ->
+  (Value bsr (2 * Rot)) bor (Value bsl (2 * (16 - Rot))).
+
 pp_temp(Dev, Temp=#arm_temp{reg=Reg, type=Type}) ->
   case hipe_arm:temp_is_precoloured(Temp) of
     true ->
@@ -292,7 +297,7 @@ pp_am1(Dev, Am1) ->
 	  io:format(Dev, "#~w", [Imm5])
       end;
     {Imm8,Imm4} ->
-      io:format(Dev, "#~w, 2*~w", [Imm8,Imm4])
+      io:format(Dev, "#~s", [to_hex(imm8m_decode(Imm8, Imm4))])
   end.
 
 pp_am2(Dev, #am2{src=Src,sign=Sign,offset=Am2Offset}) ->
