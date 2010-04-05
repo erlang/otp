@@ -159,8 +159,9 @@ all(suite) ->
      server_verify_peer_passive,
      server_verify_peer_active, server_verify_peer_active_once,
      server_verify_none_passive, server_verify_none_active, 
-     server_verify_none_active_once,
-     server_verify_no_cacerts, client_verify_none_passive, 
+     server_verify_none_active_once, server_verify_no_cacerts,
+     server_require_peer_cert_ok, server_require_peer_cert_fail,
+     client_verify_none_passive,
      client_verify_none_active, client_verify_none_active_once
      %%, session_cache_process_list, session_cache_process_mnesia
      ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
@@ -1832,7 +1833,66 @@ server_verify_no_cacerts(Config) when is_list(Config) ->
 							 | ServerOpts]}]),
         
     ssl_test_lib:check_result(Server, {error, {eoptions, {cacertfile, ""}}}).
+
+%%--------------------------------------------------------------------
+
+server_require_peer_cert_ok(doc) ->
+    ["Test server option fail_if_no_peer_cert when peer sends cert"];
+
+server_require_peer_cert_ok(suite) ->
+    [];
+
+server_require_peer_cert_ok(Config) when is_list(Config) ->
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
+		  | ?config(server_verification_opts, Config)],
+    ClientOpts = ?config(client_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+server_require_peer_cert_fail(doc) ->
+    ["Test server option fail_if_no_peer_cert when peer doesn't send cert"];
+
+server_require_peer_cert_fail(suite) ->
+    [];
+
+server_require_peer_cert_fail(Config) when is_list(Config) ->
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
+		  | ?config(server_verification_opts, Config)],
+    BadClientOpts = ?config(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Port = ssl_test_lib:inet_port(ServerNode),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
+					      {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ServerOpts]}]),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | BadClientOpts]}]),
     
+    ssl_test_lib:check_result(Server, {error, esslaccept},
+			      Client, {error, esslconnect}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 
 client_verify_none_passive(doc) -> 
