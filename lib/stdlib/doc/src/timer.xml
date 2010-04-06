@@ -202,18 +202,32 @@
     </func>
     <func>
       <name>tc(Module, Function, Arguments) -> {Time, Value}</name>
-      <fsummary>Measure the real time it takes to evaluate <c>apply(Module, Function, Arguments)</c></fsummary>
+      <name>tc(Fun, Arguments) -> {Time, Value}</name>
+      <fsummary>Measure the real time it takes to evaluate <c>apply(Module,
+      Function, Arguments)</c> or <c>apply(Fun, Arguments)</c></fsummary>
       <type>
         <v>Module = Function = atom()</v>
+        <v>Fun = fun()</v>
         <v>Arguments = [term()]</v>
         <v>Time = integer() in microseconds</v>
         <v>Value = term()</v>
       </type>
       <desc>
-        <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
-          the elapsed real time. Returns <c>{Time, Value}</c>, where 
-          <c>Time</c> is the elapsed real time in <em>microseconds</em>,
-          and <c>Value</c> is what is returned from the apply.</p>
+        <p></p>
+        <taglist>
+          <tag><c>tc/3</c></tag>
+          <item>
+            <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
+              the elapsed real time. Returns <c>{Time, Value}</c>, where
+              <c>Time</c> is the elapsed real time in <em>microseconds</em>,
+              and <c>Value</c> is what is returned from the apply.</p>
+          </item>
+          <tag><c>tc/2</c></tag>
+          <item>
+            <p>Evaluates <c>apply(Fun, Arguments)</c>. Otherwise works
+            like <c>tc/3</c>.</p>
+          </item>
+        </taglist>
       </desc>
     </func>
     <func>
