@@ -17,14 +17,17 @@
 # %CopyrightEnd%
 #
 
-XMERL_VSN = 1.2.4
+XMERL_VSN = 1.2.5
 
 
 TICKETS	= \
-	OTP-8343
+	OTP-8537
+
+TICKETS_1.2.5 = \
+	OTP-8537
 
 TICKETS_1.2.4 = \
-	OTP-8343
+	OTP-8343 
 
 TICKETS_1.2.3 = \
 	OTP-8251 \

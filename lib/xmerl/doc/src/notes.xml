@@ -31,6 +31,30 @@
   <p>This document describes the changes made to the Xmerl application.</p>
 
 
+<section><title>Xmerl 1.2.5</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            All Erlang files are now built by the test server instead of the test directory Makefile.
+          </p>
+          <p>
+            Erlang files in data directories are now built by the test suites instead of using 
+            prebuilt versions under version control.
+          </p>
+          <p>
+            Removed a number of obsolete guards.
+          </p>
+          <p>
+            Own Id: OTP-8537
+          </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Xmerl 1.2.4</title>
 
     <section><title>Improvements and New Features</title>
