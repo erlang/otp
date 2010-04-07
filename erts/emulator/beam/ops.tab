@@ -1304,7 +1304,7 @@ fmul p FR1 FR2 FR3 => i_fmul FR1 FR2 FR3
 fdiv p FR1 FR2 FR3 => i_fdiv FR1 FR2 FR3
 fnegate p FR1 FR2 => i_fnegate FR1 FR2
 
-fconv Int=iq Dst=l => move Int x | fconv x Dst
+fconv Arg=iqan Dst=l => move Arg x | fconv x Dst
 
 fmove q l
 fmove d l

@@ -20,7 +20,7 @@
 -module(beam_SUITE).
 
 -export([all/1, packed_registers/1, apply_last/1, apply_last_bif/1,
-	 buildo_mucho/1, heap_sizes/1, big_lists/1]).
+	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1]).
 
 -export([applied/2]).
 
@@ -279,3 +279,26 @@ b() ->
          _} ->
 	    ok
     end.
+
+fconv(Config) when is_list(Config) ->
+    ?line do_fconv(atom),
+    ?line do_fconv(nil),
+    ?line do_fconv(tuple_literal),
+    ?line 3.0 = do_fconv(1.0, 2.0),
+    ok.
+
+do_fconv(Type) ->
+    try
+	do_fconv(Type, 1.0),
+	test_server:fail()
+    catch
+	error:badarith ->
+	    ok
+    end.
+
+do_fconv(atom, Float) when is_float(Float) ->
+    Float + a;
+do_fconv(nil, Float) when is_float(Float) ->
+    Float + [];
+do_fconv(tuple_literal, Float) when is_float(Float) ->
+    Float + {a,b}.
