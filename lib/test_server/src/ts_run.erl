@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -392,7 +392,7 @@ make_test_suite(Vars, _Spec, State) ->
 
     {ok, Cwd} = file:get_cwd(),
     ok = file:set_cwd(TestDir),
-    Result = (catch make:all(Erl_flags)),
+    Result = (catch make_all(Erl_flags)),
     ok = file:set_cwd(Cwd),
     case Result of
 	up_to_date ->
@@ -743,4 +743,52 @@ split_one(Path) ->
 split_path(Path) ->
     string:tokens(Path,";").
 
+%%
+%% Run make:all/1 if the test suite seems to be designed
+%% to be built/re-built by ts.
+%%
+make_all(Flags) ->
+    case filelib:is_regular("Emakefile") of
+	false ->
+	    make_all_no_emakefile(Flags);
+	true ->
+	    make:all(Flags)
+    end.
 
+make_all_no_emakefile(Flags) ->
+    case filelib:wildcard("*.beam") of
+	[] ->
+	    %% Since there are no *.beam files, we will assume
+	    %% that this test suite was designed to be built and
+	    %% re-built by ts. Create an Emakefile so that
+	    %% make:all/1 will be run the next time too
+	    %% (in case a test suite is being interactively
+	    %% developed).
+	    create_emakefile(Flags, "*.erl");
+	[_|_] ->
+	    %% There is no Emakefile and there already are
+	    %% some *.beam files here. Assume that this test
+	    %% suite was not designed to be re-built by ts.
+	    %% Only create a Emakefile that will compile
+	    %% generated *_SUITE_make files (if any).
+	    create_emakefile(Flags, "*_SUITE_make.erl")
+    end.
+
+create_emakefile(Flags, Wc) ->
+    case filelib:wildcard(Wc) of
+	[] ->
+	    %% There are no files to be built (i.e. not even any
+	    %% generated *_SUITE_make.erl files). We must handle
+	    %% this case specially, because make:all/1 will crash
+	    %% on Emakefile with an empty list of modules.
+	    io:put_chars("No Emakefile found - not running make:all/1\n"),
+	    up_to_date;
+	[_|_]=Ms0 ->
+	    io:format("Creating an Emakefile for compiling files matching ~s\n",
+		      [Wc]),
+	    Ms = [list_to_atom(filename:rootname(M, ".erl")) || M <- Ms0],
+	    Make0 = {Ms,Flags},
+	    Make = io_lib:format("~p. \n", [Make0]),
+	    ok = file:write_file("Emakefile", Make),
+	    make:all(Flags)
+    end.
