@@ -151,7 +151,7 @@ all(doc) ->
 all(suite) -> 
     [app, connection_info, controlling_process, controller_dies, 
      peercert, connect_dist,
-     peername, sockname, socket_options, versions, cipher_suites,
+     peername, sockname, socket_options, valid_ssl_options, versions, cipher_suites,
      upgrade, upgrade_with_timeout, tcp_connect,
      ipv6, ekeyfile, ecertfile, ecacertfile, eoptions, shutdown,
      shutdown_write, shutdown_both, shutdown_error, ciphers, 
@@ -159,8 +159,9 @@ all(suite) ->
      server_verify_peer_passive,
      server_verify_peer_active, server_verify_peer_active_once,
      server_verify_none_passive, server_verify_none_active, 
-     server_verify_none_active_once,
-     server_verify_no_cacerts, client_verify_none_passive, 
+     server_verify_none_active_once, server_verify_no_cacerts,
+     server_require_peer_cert_ok, server_require_peer_cert_fail,
+     client_verify_none_passive,
      client_verify_none_active, client_verify_none_active_once
      %%, session_cache_process_list, session_cache_process_mnesia
      ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
@@ -604,6 +605,59 @@ socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
     ok.
     
+%%--------------------------------------------------------------------
+valid_ssl_options(doc) ->
+    ["Test what happens when we give valid options"];
+
+valid_ssl_options(suite) ->
+    [];
+
+valid_ssl_options(Config) when is_list(Config) ->
+    ClientOpts = [{reuseaddr, true} | ?config(client_opts, Config)],
+    ServerOpts = [{reuseaddr, true} | ?config(server_opts, Config)],
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Port = ssl_test_lib:inet_port(ServerNode),
+
+    StartOk =
+	fun(Peer, Pid, TestOpt) ->
+		receive
+		    {Pid, ok} when Peer =:= server ->
+			ok;
+		    {Pid, {ok, _}} when Peer =:= client ->
+			ok;
+		    {Pid, Error} ->
+			test_server:fail({Peer,
+					  {option_being_tested, TestOpt},
+					  {got, Error}})
+		end
+	end,
+
+    %% The following contains both documented and undocumented options as
+    %% listed in ssl:handle_options/2. It excludes file options which are
+    %% tested elsewhere (cacertfile, certfile, keyfile).
+    TestOpts = [{versions, []}, {verify, verify_none}, {verify_fun, fun(_) -> false end},
+		{fail_if_no_peer_cert, false}, {verify_client_once, false},
+		{depth, 1}, {key, undefined}, {password, "secret"}, {ciphers, []},
+		{reuse_sessions, true}, {reuse_session, fun(_,_,_,_) -> true end},
+		{renegotiate_at, 1000000000}, {debug, []},
+		{cb_info, {gen_tcp, tcp, tcp_closed}}],
+    [begin
+	 Server =
+	     ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
+					      {from, self()},
+					      {options, [TestOpt | ServerOpts]}]),
+	 Client =
+	     ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname}, {from, self()},
+					      {options, [TestOpt | ClientOpts]}]),
+	 StartOk(server, Server, TestOpt),
+	 StartOk(client, Client, TestOpt),
+	 ssl_test_lib:close(Server),
+	 ssl_test_lib:close(Client),
+	 ok
+     end || TestOpt <- TestOpts],
+    ok.
+
 %%--------------------------------------------------------------------
 versions(doc) -> 
     ["Test API function versions/0"];
@@ -1779,7 +1833,66 @@ server_verify_no_cacerts(Config) when is_list(Config) ->
 							 | ServerOpts]}]),
         
     ssl_test_lib:check_result(Server, {error, {eoptions, {cacertfile, ""}}}).
+
+%%--------------------------------------------------------------------
+
+server_require_peer_cert_ok(doc) ->
+    ["Test server option fail_if_no_peer_cert when peer sends cert"];
+
+server_require_peer_cert_ok(suite) ->
+    [];
+
+server_require_peer_cert_ok(Config) when is_list(Config) ->
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
+		  | ?config(server_verification_opts, Config)],
+    ClientOpts = ?config(client_verification_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0},
+					{from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+server_require_peer_cert_fail(doc) ->
+    ["Test server option fail_if_no_peer_cert when peer doesn't send cert"];
+
+server_require_peer_cert_fail(suite) ->
+    [];
+
+server_require_peer_cert_fail(Config) when is_list(Config) ->
+    ServerOpts = [{verify, verify_peer}, {fail_if_no_peer_cert, true}
+		  | ?config(server_verification_opts, Config)],
+    BadClientOpts = ?config(client_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    Port = ssl_test_lib:inet_port(ServerNode),
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
+					      {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | ServerOpts]}]),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
+					{host, Hostname},
+			   {from, self()},
+			   {mfa, {?MODULE, send_recv_result, []}},
+			   {options, [{active, false} | BadClientOpts]}]),
     
+    ssl_test_lib:check_result(Server, {error, esslaccept},
+			      Client, {error, esslconnect}),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
 %%--------------------------------------------------------------------
 
 client_verify_none_passive(doc) -> 
