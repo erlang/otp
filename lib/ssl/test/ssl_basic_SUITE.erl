@@ -860,7 +860,7 @@ tcp_connect(Config) when is_list(Config) ->
     Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
 						{from, self()},
 						{timeout, 5000},
-						{mfa, {?MODULE, should_close, []}},
+						{mfa, {?MODULE, dummy, []}},
 						{tcp_options, TcpOpts},
 						{ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
@@ -869,18 +869,20 @@ tcp_connect(Config) when is_list(Config) ->
     test_server:format("Testcase ~p connected to Server ~p ~n", [self(), Server]),
     gen_tcp:send(Socket, "<SOME GARBLED NON SSL MESSAGE>"),
 
-    ssl_test_lib:check_result(Server, {error,esslerrssl}, tcp_closed, Socket),
-
+    receive 
+	{tcp_closed, Socket} ->
+	    receive 
+		{Server, {error, Error}} ->
+		    test_server:format("Error ~p", [Error])
+	    end
+    end,
     ssl_test_lib:close(Server).
 
 
-should_close(Socket) ->
-    receive
-	{ssl, Socket, closed} ->
-	    server_closed;
-	Other ->
-	    exit({?LINE, Other})
-    end.
+dummy(Socket) ->
+    %% Should not happen as the ssl connection will not be established
+    %% due to fatal handshake failiure
+    exit(kill).
 
 %%--------------------------------------------------------------------
 ipv6(doc) ->
