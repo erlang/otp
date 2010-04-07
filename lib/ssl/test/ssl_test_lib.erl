@@ -448,9 +448,19 @@ trigger_renegotiate(Socket, _, 0, Id) ->
     test_server:sleep(1000),
     case ssl:session_info(Socket) of
 	[{session_id, Id} | _ ] ->
+	    %% If a warning alert is received 
+	    %% from openssl this may not be 
+	    %% an error!
 	    fail_session_not_renegotiated;
-	_ ->
-	    ok
+	%% Tests that uses this function will no reuse
+	%% sessions so if we get a new session id the
+	%% renegotiation has seceded.
+       	[{session_id, _} | _ ] -> 
+	    ok;
+	{error, closed} ->
+	    fail_session_fatal_alert_during_renegotiation;
+	{error, timeout} ->
+	    fail_timeout
     end;
 
 trigger_renegotiate(Socket, ErlData, N, Id) ->

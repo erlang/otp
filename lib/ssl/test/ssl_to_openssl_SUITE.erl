@@ -327,7 +327,7 @@ erlang_client_openssl_server_no_wrap_sequence_number(Config) when is_list(Config
 
     {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
     
-    ErlData = "From erlang to openssl",
+    ErlData = "From erlang to openssl\n",
     N = 10,
 
     Port = ssl_test_lib:inet_port(node()),
