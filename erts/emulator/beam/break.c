@@ -327,7 +327,7 @@ print_process_info(int to, void *to_arg, Process *p)
                (unsigned)(OLD_HEND(p) - OLD_HEAP(p)) );
     erts_print(to, to_arg, "Heap unused: %bpu\n", (p->hend - p->htop));
     erts_print(to, to_arg, "OldHeap unused: %bpu\n",
-	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HEAP(p)) );
+	       (OLD_HEAP(p) == NULL) ? 0 : (OLD_HEND(p) - OLD_HTOP(p)) );
 
     if (garbing) {
 	print_garb_info(to, to_arg, p);
