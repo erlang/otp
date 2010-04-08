@@ -66,7 +66,8 @@ MODULES= \
 	unix_telnet \
 	ct_config \
 	ct_config_plain \
-	ct_config_xml
+	ct_config_xml \
+	ct_slave
 
 TARGET_MODULES= $(MODULES:%=$(EBIN)/%)
 

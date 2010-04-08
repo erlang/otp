@@ -45,10 +45,12 @@
 	     vts,
 	     ct_config,
 	     ct_config_plain,
-	     ct_config_xml
+	     ct_config_xml,
+	     ct_slave
 	    ]},
   {registered, [ct_logs,
 		ct_util_server,
+		ct_config_server,
 		ct_make_ref,
 		vts,
 		ct_master,

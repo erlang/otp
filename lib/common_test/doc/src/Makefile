@@ -45,7 +45,8 @@ CT_MODULES = \
 	ct_ssh \
 	ct_rpc \
 	ct_snmp \
-	unix_telnet
+	unix_telnet \
+	ct_slave
 
 CT_XML_FILES = $(CT_MODULES:=.xml)
 

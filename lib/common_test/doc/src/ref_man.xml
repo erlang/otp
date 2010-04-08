@@ -75,6 +75,7 @@
   <xi:include href="ct_snmp.xml"/>
   <xi:include href="ct_telnet.xml"/>
   <xi:include href="unix_telnet.xml"/>
+  <xi:include href="ct_slave.xml"/>
 </application>
 
 

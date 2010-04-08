@@ -60,37 +60,23 @@ all(doc) ->
 
 all(suite) ->
     [
-	ct_master_test_peer,
-	ct_master_test_slave
+	ct_master_test
     ].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
 %%--------------------------------------------------------------------
-ct_master_test_peer(Config) when is_list(Config)->
+ct_master_test(Config) when is_list(Config)->
     NodeCount = 5,
     DataDir = ?config(data_dir, Config),
     NodeNames = [list_to_atom("testnode_"++integer_to_list(N)) ||
 		 N <- lists:seq(1, NodeCount)],
     FileName = filename:join(DataDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
-    make_spec(DataDir, FileName, NodeNames, Suites, Config),
-    start_nodes(NodeNames, peer),
-    run_test(ct_master_test, FileName, Config),
-    stop_nodes(NodeNames, peer),
-    file:delete(filename:join(DataDir, FileName)).
-
-ct_master_test_slave(Config) when is_list(Config)->
-    NodeCount = 5,
-    DataDir = ?config(data_dir, Config),
-    NodeNames = [list_to_atom("testnode_"++integer_to_list(N)) ||
-		 N <- lists:seq(1, NodeCount)],
-    FileName = filename:join(DataDir, "ct_master_spec.spec"),
-    Suites = [master_SUITE],
-    make_spec(DataDir, FileName, NodeNames, Suites, Config),
-    start_nodes(NodeNames, slave),
-    run_test(ct_master_test, FileName, Config),
-    stop_nodes(NodeNames, slave),
+    TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
+    start_nodes(NodeNames),
+    [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
+    stop_nodes(NodeNames),
     file:delete(filename:join(DataDir, FileName)).
 
 %%%-----------------------------------------------------------------
@@ -100,7 +86,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
     {ok, HostName} = inet:gethostname(),
 
     N = lists:map(fun(NodeName)->
-	    {node, NodeName, enodename(HostName, NodeName)}
+	    {node, NodeName, list_to_atom(atom_to_list(NodeName)++"@"++HostName)}
 	end,
 	NodeNames),
 
@@ -117,67 +103,30 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
     S = [{suites, NodeNames, filename:join(DataDir, "master"), Suites}],
 
     PrivDir = ?config(priv_dir, Config),
-    LD = [{logdir, PrivDir}, {logdir, master, PrivDir}],
+    LD = lists:map(fun(NodeName)->
+	     {logdir, NodeName, get_log_dir(PrivDir, NodeName)}
+         end,
+	 NodeNames) ++ [{logdir, master, PrivDir}],
 
     ct_test_support:write_testspec(N++C++S++LD, DataDir, FileName).
+
+get_log_dir(PrivDir, NodeName)->
+    LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),
+    file:make_dir(LogDir),
+    LogDir.
 
 run_test(_Name, FileName, Config)->
     [{FileName, ok}] = ct_test_support:run(ct_master, run, [FileName], Config).
 
-wait_for_node_alive(_Node, 0)->
-    pang;
-wait_for_node_alive(Node, N)->
-    timer:sleep(1000),
-    case net_adm:ping(Node) of
-	pong->
-	    pong;
-	pang->
-	    wait_for_node_alive(Node, N-1)
-    end.
-
-wait_for_node_dead(_Node, 0)->
-    error;
-wait_for_node_dead(Node, N)->
-    timer:sleep(1000),
-    case lists:member(Node, nodes()) of
-	true->
-	    wait_for_node_dead(Node, N-1);
-	false->
-	    ok
-    end.
-
-enodename(HostName, NodeName)->
-    list_to_atom(atom_to_list(NodeName)++"@"++HostName).
-
-start_node(HostName, NodeName, peer)->
-    ENodeName = enodename(HostName, NodeName),
-    Cmd = "erl -detached -noinput -sname "++atom_to_list(NodeName),
-    open_port({spawn, Cmd}, [stream]),
-    pong = wait_for_node_alive(ENodeName, 3);
-start_node(HostName, NodeName, slave)->
-    ENodeName = enodename(HostName, NodeName),
-    {ok, ENodeName} =
-	slave:start(list_to_atom(HostName), NodeName).
-
-stop_node(HostName, NodeName, peer)->
-    ENodeName = enodename(HostName, NodeName),
-    spawn(ENodeName, init, stop, []),
-    wait_for_node_dead(ENodeName, 3);
-stop_node(HostName, NodeName, slave)->
-    ENodeName = enodename(HostName, NodeName),
-    ok = slave:stop(ENodeName).
-
-start_nodes(NodeNames, Type)->
-    {ok, HostName} = inet:gethostname(),
+start_nodes(NodeNames)->
     lists:foreach(fun(NodeName)->
-		      start_node(HostName, NodeName, Type)
+		      {ok, _}=ct_slave:start(NodeName)
 		  end,
 		  NodeNames).
 
-stop_nodes(NodeNames, Type)->
-    {ok, HostName} = inet:gethostname(),
+stop_nodes(NodeNames)->
     lists:foreach(fun(NodeName)->
-		      stop_node(HostName, NodeName, Type)
+		      {ok, _}=ct_slave:stop(NodeName)
 		  end,
 		  NodeNames).
 
