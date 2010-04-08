@@ -67,7 +67,7 @@
 %% TypeList = ValueList = [atom()]
 
 pgen(OutFile,Erules,Module,TypeOrVal) ->
-    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,true).
+    asn1ct_gen:pgen_module(OutFile,Erules,Module,TypeOrVal,[],true).
 
 
 %%===============================================================================
