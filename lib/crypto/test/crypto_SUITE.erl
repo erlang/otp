@@ -441,7 +441,7 @@ des_cbc_iter(Config) when is_list(Config) ->
     ?line Cipher1 = crypto:des_cbc_encrypt(Key, IVec, Plain1),
     ?line IVec2 = crypto:des_cbc_ivec(Cipher1),
     ?line Cipher2 = crypto:des_cbc_encrypt(Key, IVec2, Plain2),
-    ?line Cipher = concat_binary([Cipher1, Cipher2]),
+    ?line Cipher = list_to_binary([Cipher1, Cipher2]),
     ?line m(Cipher, hexstr2bin("e5c7cdde872bf27c43e934008c389c"
 			             "0f683788499a7c05f6")).
 
