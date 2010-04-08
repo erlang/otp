@@ -821,13 +821,14 @@ fi
 AC_CHECK_PROGS(XSLTPROC, xsltproc)
 if test -z "$XSLTPROC"; then
   echo "xsltproc" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'xsltproc' command found: the documentation can not be built])
+  AC_MSG_WARN([No 'xsltproc' command found: the documentation cannot be built])
 fi
 
 AC_CHECK_PROGS(FOP, fop)
 if test -z "$FOP"; then
+  FOP="$ERL_TOP/make/fakefop"
   echo "fop" >> doc/CONF_INFO
-  AC_MSG_WARN([No 'fop' command found: the documentation can not be built])
+  AC_MSG_WARN([No 'fop' command found: going to generate placeholder PDF files])
 fi
 
 dnl
