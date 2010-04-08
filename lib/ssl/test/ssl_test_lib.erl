@@ -452,9 +452,9 @@ trigger_renegotiate(Socket, _, 0, Id) ->
 	    %% from openssl this may not be 
 	    %% an error!
 	    fail_session_not_renegotiated;
-	%% Tests that uses this function will no reuse
+	%% Tests that uses this function will not reuse
 	%% sessions so if we get a new session id the
-	%% renegotiation has seceded.
+	%% renegotiation has succeeded.
        	[{session_id, _} | _ ] -> 
 	    ok;
 	{error, closed} ->
