@@ -322,7 +322,7 @@ obsolete_1(regexp, _, _) ->
     {deprecated, "the regexp module is deprecated (will be removed in R15A); use the re module instead"};
 
 obsolete_1(lists, flat_length, 1) ->
-    {deprecated,{lists,flatlength,1},"R14"};
+    {removed,{lists,flatlength,1},"R14"};
 
 obsolete_1(ssh_sftp, connect, A) when 1 =< A, A =< 3 ->
     {deprecated,{ssh_sftp,start_channel,A},"R14B"};
