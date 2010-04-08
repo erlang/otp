@@ -154,17 +154,21 @@ transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}
     EmOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(ListenSocket, EmOptions),
     {CbModule,_,_} = CbInfo,
-    {ok, Socket} = CbModule:accept(ListenSocket, Timeout),
-    inet:setopts(Socket, internal_inet_values()),
-    {ok, Port} = inet:port(Socket),
-    case ssl_connection_sup:start_child([server, "localhost", Port, Socket,
-                                         {SslOpts, socket_options(InetValues)}, self(),
-                                         CbInfo]) of
-        {ok, Pid} ->
-            CbModule:controlling_process(Socket, Pid),
-            {ok, SslSocket#sslsocket{pid = Pid}};
-        {error, Reason} ->
-            {error, Reason}
+    case CbModule:accept(ListenSocket, Timeout) of
+	{ok, Socket} ->
+	    inet:setopts(Socket, internal_inet_values()),
+	    {ok, Port} = inet:port(Socket),
+	    ConnArgs = [server, "localhost", Port, Socket,
+			{SslOpts, socket_options(InetValues)}, self(), CbInfo],
+	    case ssl_connection_sup:start_child(ConnArgs) of
+		{ok, Pid} ->
+		    CbModule:controlling_process(Socket, Pid),
+		    {ok, SslSocket#sslsocket{pid = Pid}};
+		{error, Reason} ->
+		    {error, Reason}
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
     end;
 
 transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
