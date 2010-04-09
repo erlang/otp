@@ -65,7 +65,7 @@ static void debugf_open(int number)
 {
     char filename[1024];
     sprintf(filename,"ei_tmo_test%d.debug",number);
-#if !defined(VXWORKS) && !defined(__WIN32__) && !defined(_OSE_)
+#if !defined(VXWORKS) && !defined(__WIN32__)
     close(2);
 #endif
     debugfile = fopen(filename,"a");
