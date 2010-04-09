@@ -22,7 +22,7 @@
  * Author: Sverker Eriksson
  */
 
-#if defined (__WIN32__) || defined(VXWORKS) || defined(_OSE_)
+#if defined (__WIN32__) || defined(VXWORKS)
 int main() {return 0;}
 
 #else /* UNIX only */
