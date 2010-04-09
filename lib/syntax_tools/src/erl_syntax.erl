@@ -6093,11 +6093,16 @@ implicit_fun_name(Node) ->
 	{'fun', Pos, {function, Atom, Arity}} ->
 	    arity_qualifier(set_pos(atom(Atom), Pos),
 			    set_pos(integer(Arity), Pos));
-	{'fun', Pos, {function, Module, Atom, Arity}} ->
+	{'fun', Pos, {function, Module, Atom, Arity}}
+	  when is_atom(Module), is_atom(Atom), is_integer(Arity) ->
+	    %% Backward compatibility with pre-R15 abstract format.
 	    module_qualifier(set_pos(atom(Module), Pos),
 			     arity_qualifier(
 			       set_pos(atom(Atom), Pos),
 			       set_pos(integer(Arity), Pos)));
+	{'fun', Pos, {function, Module, Atom, Arity}} ->
+	    %% New in R15: fun M:F/A.
+	    module_qualifier(Module, arity_qualifier(Atom, Arity));
 	Node1 ->
 	    data(Node1)
     end.

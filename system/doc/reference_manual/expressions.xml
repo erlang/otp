@@ -993,7 +993,8 @@ fun Module:Name/Arity</pre>
     <pre>
 fun (Arg1,...,ArgN) -> Name(Arg1,...,ArgN) end</pre>
     <p>In <c>Module:Name/Arity</c>, <c>Module</c> and <c>Name</c> are atoms
-      and <c>Arity</c> is an integer.
+      and <c>Arity</c> is an integer. Starting from the R15 release,
+      <c>Module</c>, <c>Name</c>, and <c>Arity</c> may also be variables.
       A fun defined in this way will refer to the function <c>Name</c>
       with arity <c>Arity</c> in the <em>latest</em> version of module
       <c>Module</c>. A fun defined in this way will not be dependent on

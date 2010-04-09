@@ -369,6 +369,14 @@ expr({'fun',Line,{function,F,A},{_Index,_OldUniq,Name}}, _Lc) ->
     As = new_vars(A, Line),
     Cs = [{clause,Line,As,[],[{local_call,Line,F,As,true}]}],
     {make_fun,Line,Name,Cs};
+expr({'fun',Line,{function,{atom,_,M},{atom,_,F},{integer,_,A}}}, _Lc)
+  when 0 =< A, A =< 255 ->
+    %% New format in R15 for fun M:F/A (literal values).
+    {value,Line,erlang:make_fun(M, F, A)};
+expr({'fun',Line,{function,M,F,A}}, _Lc) ->
+    %% New format in R15 for fun M:F/A (one or more variables).
+    MFA = expr_list([M,F,A]),
+    {make_ext_fun,Line,MFA};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,self}},[]}, _Lc) ->
     {dbg,Line,self,[]};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,get_stacktrace}},[]}, _Lc) ->

@@ -768,6 +768,21 @@ expr({make_fun,Line,Name,Cs}, Bs, #ieval{module=Module}=Ieval) ->
 	end,
     {value,Fun,Bs};
 
+%% Construct an external fun.
+expr({make_ext_fun,Line,MFA0}, Bs0, Ieval0) ->
+    {[M,F,A],Bs} = eval_list(MFA0, Bs0, Ieval0),
+    try erlang:make_fun(M, F, A) of
+	Value ->
+	    {value,Value,Bs}
+    catch
+	error:badarg ->
+	    Ieval1 = Ieval0#ieval{line=Line},
+	    Ieval2 = dbg_istk:push(Bs0, Ieval1, false),
+	    Ieval = Ieval2#ieval{module=erlang,function=make_fun,
+				 arguments=[M,F,A],line=-1},
+	    exception(error, badarg, Bs, Ieval, true)
+    end;
+
 %% Common test adaptation
 expr({call_remote,0,ct_line,line,As0,Lc}, Bs0, Ieval0) ->
     {As,_Bs} = eval_list(As0, Bs0, Ieval0),

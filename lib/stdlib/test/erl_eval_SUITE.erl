@@ -1036,6 +1036,12 @@ funs(Config) when is_list(Config) ->
         lists:usort([run_many_args(SAs) || SAs <- many_args(MaxArgs)]),
     ?line {'EXIT',{{argument_limit,_},_}} = 
         (catch run_many_args(many_args1(MaxArgs+1))),
+
+    ?line check(fun() -> M = lists, F = fun M:reverse/1,
+			 [1,2] = F([2,1]), ok end,
+		"begin M = lists, F = fun M:reverse/1,"
+		" [1,2] = F([2,1]), ok end.",
+		ok),
     ok.
 
 run_many_args({S, As}) ->
