@@ -22,7 +22,7 @@
 -include("asn1_records.hrl").
 
 -export([pgen_exports/3,
-	 pgen_hrl/4,
+	 pgen_hrl/5,
 	 gen_head/3,
 	 demit/1,
 	 emit/1,
@@ -41,28 +41,29 @@
 	 rt2ct_suffix/0,
 	 index2suffix/1,
 	 get_record_name_prefix/0]).
--export([pgen/4,
-	 pgen_module/5,
+-export([pgen/5,
+	 pgen_module/6,
 	 mk_var/1, 
 	 un_hyphen_var/1]).
 -export([gen_encode_constructed/4,
 	 gen_decode_constructed/4]).
 
-%% pgen(Erules, Module, TypeOrVal)
+%% pgen(Outfile, Erules, Module, TypeOrVal, Options)
 %% Generate Erlang module (.erl) and (.hrl) file corresponding to an ASN.1 module
 %% .hrl file is only generated if necessary
 %% Erules = per | ber | ber_bin | per_bin
 %% Module = atom()
 %% TypeOrVal = {TypeList,ValueList}
 %% TypeList = ValueList = [atom()]
+%% Options = [Options] from asn1ct:compile()
 
-pgen(OutFile,Erules,Module,TypeOrVal) ->
-    pgen_module(OutFile,Erules,Module,TypeOrVal,true).
+pgen(OutFile,Erules,Module,TypeOrVal,Options) ->
+    pgen_module(OutFile,Erules,Module,TypeOrVal,Options,true).
 
 
 pgen_module(OutFile,Erules,Module,
 	    TypeOrVal = {Types,_Values,_Ptypes,_Classes,_Objects,_ObjectSets},
-	    Indent) ->
+	    Options,Indent) ->
     N2nConvEnums = [CName|| {n2n,CName} <- get(encoding_options)],
     case N2nConvEnums -- Types of
 	[] ->
@@ -72,7 +73,7 @@ pgen_module(OutFile,Erules,Module,
 		   UnmatchedTypes})
     end,
     put(outfile,OutFile),
-    HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Indent),
+    HrlGenerated = pgen_hrl(Erules,Module,TypeOrVal,Options,Indent),
     asn1ct_name:start(),
     ErlFile = lists:concat([OutFile,".erl"]),
     Fid = fopen(ErlFile,[write]),
@@ -86,7 +87,7 @@ pgen_module(OutFile,Erules,Module,
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
     file:close(Fid),
-    io:format("--~p--~n",[{generated,ErlFile}]).
+    asn1ct:report_verbose("--~p--~n",[{generated,ErlFile}],Options).
 
 
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
@@ -1310,7 +1311,7 @@ fopen(F, ModeList) ->
 	    exit({error,Reason})
     end.
 
-pgen_hrl(Erules,Module,TypeOrVal,_Indent) ->
+pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
     put(currmod,Module),
     {Types,Values,Ptypes,_,_,_} = TypeOrVal,
     Ret =
@@ -1334,8 +1335,9 @@ pgen_hrl(Erules,Module,TypeOrVal,_Indent) ->
 	Y ->
 	    Fid = get(gen_file_out),
 	    file:close(Fid),
-	    io:format("--~p--~n",
-		      [{generated,lists:concat([get(outfile),".hrl"])}]),
+	    asn1ct:report_verbose("--~p--~n",
+		      [{generated,lists:concat([get(outfile),".hrl"])}],
+		      Options),
 	    Y
     end.
 

@@ -24,7 +24,7 @@
 
 
 -export([wrong_path/1,comp/2,path/1,ticket_6143/1,noobj/1,
-	 record_name_prefix/1]).
+	 record_name_prefix/1,verbose/1]).
 
 %% OTP-5689
 wrong_path(Config) ->
@@ -121,6 +121,25 @@ noobj(Config) ->
     io:format("file:delete: p_record.erl~n",[]),
     file:delete(filename:join([OutDir,'p_record.erl'])),
     file:delete(filename:join([OutDir,'p_record.beam'])).
+
+verbose(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir,Config),
+    OutDir = ?config(priv_dir,Config),
+    Asn1File = filename:join([DataDir,"Comment.asn"]),
+
+    %% Test verbose compile
+    ?line test_server:capture_start(),
+    ?line ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj,verbose]),
+    ?line test_server:capture_stop(),
+    ?line [Line0|_] = test_server:capture_get(),
+    ?line lists:prefix("Erlang ASN.1 version", Line0),
+
+    %% Test non-verbose compile
+    ?line test_server:capture_start(),
+    ?line ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj]),
+    ?line test_server:capture_stop(),
+    ?line [] = test_server:capture_get(),
+    ok.
 
 outfiles_check(OutDir) ->
     outfiles_check(OutDir,outfiles1()).

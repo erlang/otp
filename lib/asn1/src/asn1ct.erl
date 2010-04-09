@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -39,7 +39,7 @@
 	 add_tobe_refed_func/1,add_generated_refed_func/1,
 	 maybe_rename_function/3,latest_sindex/0,current_sindex/0,
 	 set_current_sindex/1,next_sindex/0,maybe_saved_sindex/2,
-	 parse_and_save/2]).
+	 parse_and_save/2,report_verbose/3]).
 
 -include("asn1_records.hrl").
 -include_lib("stdlib/include/erl_compile.hrl").
@@ -103,8 +103,8 @@ compile(File,Options) when is_list(Options) ->
 
 
 compile1(File,Options) when is_list(Options) ->
-    io:format("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,File]),
-    io:format("Compiler Options: ~p~n",[Options]),
+    report_verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,File],Options),
+    report_verbose("Compiler Options: ~p~n",[Options],Options),
     Ext = filename:extension(File),
     Base = filename:basename(File,Ext),
     OutFile = outfile(Base,"",Options),
@@ -152,7 +152,7 @@ inline(true,Name,Module,Options) ->
     IgorName = filename:rootname(filename:basename(Name)),
 %    io:format("*****~nName: ~p~nModules: ~p~nIgorOptions: ~p~n*****~n",
 %	      [IgorName,Modules++RTmodule,IgorOptions]),
-    io:format("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName]),
+    report_verbose("Inlining modules: ~p in ~p~n",[[Module]++RTmodule,IgorName],Options),
     case catch igor:merge(IgorName,[Module]++RTmodule,[{preprocess,true},{stubs,false},{backups,false}]++IgorOptions) of
 	{'EXIT',{undef,Reason}} -> %% module igor first in R10B
 	    io:format("Module igor in syntax_tools must be available:~n~p~n",
@@ -173,8 +173,8 @@ inline(_,_,_,_) ->
 compile_set(SetBase,Files,Options) 
   when is_list(hd(Files)),is_list(Options) ->
     %% case when there are several input files in a list
-    io:format("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,Files]),    
-    io:format("Compiler Options: ~p~n",[Options]),
+    report_verbose("Erlang ASN.1 version ~p compiling ~p ~n",[?vsn,Files],Options),
+    report_verbose("Compiler Options: ~p~n",[Options],Options),
     OutFile = outfile(SetBase,"",Options),
     DbFile = outfile(SetBase,"asn1db",Options),
     Includes = [I || {i,I} <- Options],
@@ -802,7 +802,7 @@ check({true,M},File,OutFile,Includes,EncodingRule,DbFile,Options,InputMods) ->
 		    NewM = Module#module{typeorval=NewTypeOrVal},
 		    asn1_db:dbput(NewM#module.name,'MODULE',NewM),
 		    asn1_db:dbsave(DbFile,M#module.name),
-		    io:format("--~p--~n",[{generated,DbFile}]),
+		    report_verbose("--~p--~n",[{generated,DbFile}],Options),
 		    {true,{M,NewM,GenTypeOrVal}}
 	    end
     end;
@@ -833,7 +833,7 @@ generate({true,{M,_Module,GenTOrV}},OutFile,EncodingRule,Options) ->
 
     Result = 
 	case (catch asn1ct_gen:pgen(OutFile,EncodingRule,
-				   M#module.name,GenTOrV)) of
+				   M#module.name,GenTOrV,Options)) of
 	    {'EXIT',Reason2} ->
 		io:format("ERROR: ~p~n",[Reason2]),
 		{error,Reason2};
@@ -2518,3 +2518,14 @@ type_check(#'Externaltypereference'{}) ->
      lists:concat(["_",I]);
  make_suffix(_) ->
      "".
+
+report_verbose(Format, Args, S) ->
+    case is_verbose(S) of
+        true ->
+            io:format(Format, Args);
+        false ->
+            ok
+    end.
+
+is_verbose(S) ->
+    lists:member(verbose, S).
