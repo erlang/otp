@@ -52,7 +52,11 @@ node_to_hostip(Node) ->
     Address.
 
 start_server(Args) ->
-    spawn_link(?MODULE, run_server, [Args]).
+    Result = spawn_link(?MODULE, run_server, [Args]),
+    receive
+	{listen, up} ->
+	    Result
+    end.
 
 run_server(Opts) ->
     Node = proplists:get_value(node, Opts),
@@ -61,6 +65,7 @@ run_server(Opts) ->
     Pid = proplists:get_value(from, Opts),
     test_server:format("ssl:listen(~p, ~p)~n", [Port, Options]),
     {ok, ListenSocket} = rpc:call(Node, ssl, listen, [Port, Options]),
+    Pid ! {listen, up},
     case Port of
 	0 ->
 	    {ok, {_, NewPort}} = ssl:sockname(ListenSocket),	 
@@ -298,7 +303,11 @@ cert_options(Config) ->
 
 
 start_upgrade_server(Args) ->
-    spawn_link(?MODULE, run_upgrade_server, [Args]).
+    Result = spawn_link(?MODULE, run_upgrade_server, [Args]),
+    receive
+	{listen, up} ->
+	    Result
+    end.
 
 run_upgrade_server(Opts) ->
     Node = proplists:get_value(node, Opts),
@@ -310,6 +319,7 @@ run_upgrade_server(Opts) ->
 
     test_server:format("gen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
     {ok, ListenSocket} = rpc:call(Node, gen_tcp, listen, [Port, TcpOptions]),
+    Pid ! {listen, up},
 
     case Port of
 	0 ->
@@ -383,7 +393,11 @@ run_upgrade_client(Opts) ->
     end.
 
 start_server_error(Args) ->
-    spawn_link(?MODULE, run_server_error, [Args]).
+    Result = spawn_link(?MODULE, run_server_error, [Args]),
+    receive 
+	{listen, up} ->
+	    Result
+    end.
 
 run_server_error(Opts) ->
     Node = proplists:get_value(node, Opts),
@@ -393,8 +407,9 @@ run_server_error(Opts) ->
     test_server:format("ssl:listen(~p, ~p)~n", [Port, Options]),
     case rpc:call(Node, ssl, listen, [Port, Options]) of
 	{ok, ListenSocket} ->
-	    test_server:sleep(2000), %% To make sure error_client will
+	    %% To make sure error_client will
 	    %% get {error, closed} and not {error, connection_refused}
+	    Pid ! {listen, up},
 	    test_server:format("ssl:transport_accept(~p)~n", [ListenSocket]),
 	    case rpc:call(Node, ssl, transport_accept, [ListenSocket]) of
 		{error, _} = Error ->
@@ -405,6 +420,9 @@ run_server_error(Opts) ->
 		    Pid ! {self(), Error}
 	    end;
 	Error ->
+	    %% Not really true but as this is an error test 
+	    %% this is what we want.
+	    Pid ! {listen, up},
 	    Pid ! {self(), Error}
     end.
 
