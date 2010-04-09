@@ -22,7 +22,8 @@ SSL_VSN = 3.11
 TICKETS = OTP-8517 \
 	  OTP-7046 \
           OTP-8557 \
-	  OTP-8560
+	  OTP-8560 \
+	  OTP-8545 
 
 #TICKETS_3.10.9 = OTP-8510
 
