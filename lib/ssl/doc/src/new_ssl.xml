@@ -495,12 +495,15 @@ end
     </func>
     
     <func>
-      <name>renegotiate(Socket) -> ok</name>
+      <name>renegotiate(Socket) -> ok | {error, Reason}</name>
       <fsummary> Initiates a new handshake.</fsummary>
       <type>
 	<v>Socket = sslsocket()</v>
       </type>
-      <desc><p>Initiates a new handshake.</p>
+      <desc><p>Initiates a new handshake. A notable return value is
+      <c>{error, renegotiation_rejected}</c> indicating that the peer
+      refused to go through with the renegotiation but the connection
+      is still active using the previously negotiated session.</p>
       </desc>
     </func>
     
