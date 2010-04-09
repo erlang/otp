@@ -322,7 +322,7 @@
 -define(nil,                       #c{tag=?nil_tag}).
 -define(nonempty_list(Types, Term),?list(Types, Term, ?nonempty_qual)).
 -define(number(Set, Qualifier),    #c{tag=?number_tag, elements=Set, 
-				      qualifier=Qualifier}.
+				      qualifier=Qualifier}).
 -define(opaque(Optypes),           #c{tag=?opaque_tag, elements=Optypes}).
 -define(product(Types),            #c{tag=?product_tag, elements=Types}).
 -define(remote(RemTypes),          #c{tag=?remote_tag, elements=RemTypes}).

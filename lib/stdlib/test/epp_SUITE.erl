@@ -23,7 +23,8 @@
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
-         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1]).
+         otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
+         otp_8562/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -63,7 +64,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470, otp_8503].
+     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -616,9 +617,9 @@ otp_8130(Config) when is_list(Config) ->
              "t() -> 14 = (#file_info{size = 14})#file_info.size, ok.\n">>,
            ok},
 
-          {otp_8130_7,
+          {otp_8130_7_new,
            <<"-record(b, {b}).\n"
-             "-define(A, {{a,#b.b.\n"
+             "-define(A, {{a,#b.b).\n"
              "t() -> {{a,2}} = ?A}}, ok.">>,
            ok},
 
@@ -750,7 +751,14 @@ otp_8130(Config) when is_list(Config) ->
 
           {otp_8130_c24,
            <<"\n-include(\"no such file.erl\").\n">>,
-           {errors,[{{2,2},epp,{include,file,"no such file.erl"}}],[]}}
+           {errors,[{{2,2},epp,{include,file,"no such file.erl"}}],[]}},
+
+          {otp_8130_7,
+           <<"-record(b, {b}).\n"
+             "-define(A, {{a,#b.b.\n"
+             "t() -> {{a,2}} = ?A}}, ok.">>,
+           {errors,[{{2,20},epp,missing_parenthesis},
+                    {{3,19},epp,{undefined,'A',none}}],[]}}
 
           ],
     ?line [] = compile(Config, Cs),
@@ -1047,13 +1055,13 @@ overload_mac(Config) when is_list(Config) ->
             "-undef(A).\n"
             "t1() -> ?A.\n",
             "t2() -> ?A(1).">>,
-           {errors,[{{4,9},epp,{undefined,'A', none}},
-                    {{5,9},epp,{undefined,'A', 1}}],[]}},
+           {errors,[{{4,10},epp,{undefined,'A', none}},
+                    {{5,10},epp,{undefined,'A', 1}}],[]}},
 
           %% cannot overload predefined macros
           {overload_mac_c2,
            <<"-define(MODULE(X), X).">>,
-           {errors,[{{1,9},epp,{redefine_predef,'MODULE'}}],[]}},
+           {errors,[{{1,50},epp,{redefine_predef,'MODULE'}}],[]}},
 
           %% cannot overload macros with same arity
           {overload_mac_c3,
@@ -1120,27 +1128,27 @@ otp_8388(Config) when is_list(Config) ->
           {macro_1,
            <<"-define(m(A), A).\n"
              "t() -> ?m(,).\n">>,
-           {errors,[{{2,11},epp,{arg_error,m}}],[]}},
+           {errors,[{{2,9},epp,{arg_error,m}}],[]}},
           {macro_2,
            <<"-define(m(A), A).\n"
              "t() -> ?m(a,).\n">>,
-           {errors,[{{2,12},epp,{arg_error,m}}],[]}},
+           {errors,[{{2,9},epp,{arg_error,m}}],[]}},
           {macro_3,
            <<"-define(LINE, a).\n">>,
-           {errors,[{{1,9},epp,{redefine_predef,'LINE'}}],[]}},
+           {errors,[{{1,50},epp,{redefine_predef,'LINE'}}],[]}},
           {macro_4,
            <<"-define(A(B, C, D), {B,C,D}).\n"
              "t() -> ?A(a,,3).\n">>,
-           {errors,[{{2,8},epp,{mismatch,'A'}}],[]}},
+           {errors,[{{2,9},epp,{mismatch,'A'}}],[]}},
           {macro_5,
            <<"-define(Q, {?F0(), ?F1(,,4)}).\n">>,
-           {errors,[{{1,24},epp,{arg_error,'F1'}}],[]}},
+           {errors,[{{1,62},epp,{arg_error,'F1'}}],[]}},
           {macro_6,
            <<"-define(FOO(X), ?BAR(X)).\n"
              "-define(BAR(X), ?FOO(X)).\n"
              "-undef(FOO).\n"
              "test() -> ?BAR(1).\n">>,
-           {errors,[{{4,11},epp,{undefined,'FOO',1}}],[]}}
+           {errors,[{{4,12},epp,{undefined,'FOO',1}}],[]}}
          ],
     ?line [] = compile(Config, Ts),
     ok.
@@ -1173,6 +1181,20 @@ otp_8503(Config) when is_list(Config) ->
     ?line [_] = [F || {attribute,_,type,{{record,r},[],[]}}=F <- List],
     file:delete(File),
     ?line receive _ -> fail() after 0 -> ok end,
+    ok.
+
+otp_8562(doc) ->
+    ["OTP-8503. Record with no fields is considered typed."];
+otp_8562(suite) ->
+    [];
+otp_8562(Config) when is_list(Config) ->
+    Cs = [{otp_8562,
+           <<"-define(P(), {a,b}.\n"
+             "-define(P3, .\n">>,
+           {errors,[{{1,60},epp,missing_parenthesis},
+                    {{2,13},epp,missing_parenthesis}], []}}
+         ],
+    ?line [] = compile(Config, Cs),
     ok.
 
 check(Config, Tests) ->

@@ -109,6 +109,8 @@ format_error(cannot_parse) ->
     io_lib:format("cannot parse file, giving up", []);
 format_error({bad,W}) ->
     io_lib:format("badly formed '~s'", [W]);
+format_error(missing_parenthesis) ->
+    io_lib:format("badly formed define: missing closing right parenthesis",[]);
 format_error({call,What}) ->
     io_lib:format("illegal macro call '~s'",[What]);
 format_error({undefined,M,none}) ->
@@ -415,7 +417,7 @@ scan_toks(From, St) ->
 	    leave_file(From, St#epp{location=Cl});
 	{error,_E} ->
             epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(From, St)		%This serious, just exit!
+	    leave_file(wait_request(St), St)	%This serious, just exit!
     end.
 
 scan_toks([{'-',_Lh},{atom,_Ld,define}=Define|Toks], From, St) ->
@@ -491,26 +493,32 @@ scan_extends(_Ts, _As, Ms) -> Ms.
 
 scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',_Lc}|Toks], _Def, From, St)
   when Type =:= atom; Type =:= var ->
-    case dict:find({atom,M}, St#epp.macs) of
-        {ok, Defs} when is_list(Defs) ->
-            %% User defined macros: can be overloaded
-            case proplists:is_defined(none, Defs) of
-                true ->
-                    epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+    case catch macro_expansion(Toks) of
+        Expansion when is_list(Expansion) ->
+            case dict:find({atom,M}, St#epp.macs) of
+                {ok, Defs} when is_list(Defs) ->
+                    %% User defined macros: can be overloaded
+                    case proplists:is_defined(none, Defs) of
+                        true ->
+                            epp_reply(From, {error,{loc(Mac),epp,{redefine,M}}}),
+                            wait_req_scan(St);
+                        false ->
+                            scan_define_cont(From, St,
+                                             {atom, M},
+                                             {none, {none,Expansion}})
+                    end;
+                {ok, _PreDef} ->
+                    %% Predefined macros: cannot be overloaded
+                    epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
                     wait_req_scan(St);
-                false ->
+                error ->
                     scan_define_cont(From, St,
                                      {atom, M},
-                                     {none, {none,macro_expansion(Toks)}})
+                                     {none, {none,Expansion}})
             end;
-        {ok, _PreDef} ->
-            %% Predefined macros: cannot be overloaded
-            epp_reply(From, {error,{loc(Mac),epp,{redefine_predef,M}}}),
-            wait_req_scan(St);
-        error ->
-            scan_define_cont(From, St,
-                             {atom, M},
-                             {none, {none,macro_expansion(Toks)}})
+        {error,ErrL,What} ->
+            epp_reply(From, {error,{ErrL,epp,What}}),
+            wait_req_scan(St)
     end;
 scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
   when Type =:= atom; Type =:= var ->
@@ -536,6 +544,9 @@ scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{'(',_Lc}|Toks], Def, From, St)
                 error ->
                     scan_define_cont(From, St, {atom, M}, {Len, {As, Me}})
             end;
+	{error,ErrL,What} ->
+            epp_reply(From, {error,{ErrL,epp,What}}),
+            wait_req_scan(St);
         _ ->
             epp_reply(From, {error,{loc(Def),epp,{bad,define}}}),
             wait_req_scan(St)
@@ -789,7 +800,7 @@ skip_toks(From, St, [I|Sis]) ->
 	    leave_file(From, St#epp{location=Cl,istk=[I|Sis]});
 	{error,_E} ->
             epp_reply(From, {error,{St#epp.location,epp,cannot_parse}}),
-	    leave_file(From, St)		%This serious, just exit!
+	    leave_file(wait_request(St), St)	%This serious, just exit!
     end;
 skip_toks(From, St, []) ->
     scan_toks(From, St).
@@ -816,7 +827,7 @@ macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
     macro_pars(Ts, [Name|Args]).
 
 macro_expansion([{')',_Lp},{dot,_Ld}]) -> [];
-macro_expansion([{dot,_Ld}]) -> [];		%Be nice, allow no right paren!
+macro_expansion([{dot,Ld}]) -> throw({error,Ld,missing_parenthesis});
 macro_expansion([T|Ts]) ->
     [T|macro_expansion(Ts)].
 
