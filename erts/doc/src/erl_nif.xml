@@ -161,8 +161,8 @@ ok
       <seealso marker="#enif_release_binary">enif_release_binary</seealso>
       or made read-only by transferring it to an Erlang term with
       <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
-      But it does not have do happen in the same NIF call. Read-only binaries
-      does not have to be released.</p>
+      But it does not have to happen in the same NIF call. Read-only binaries
+      do not have to be released.</p>
       <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
       bit length have no support yet.</p>
        </item>
@@ -199,7 +199,7 @@ ok
       library with the old destructor function can be safely unloaded. Existing
       resource objects, of a module that is upgraded, must either be deleted
       or taken over by the new NIF library. The unloading of a library will be
-      postponed as long as it exists resource objects with a destructor
+      postponed as long as there exist resource objects with a destructor
       function in the library.
       </p>
       <p>Here is a template example of how to create and return a resource object.</p>
@@ -262,7 +262,7 @@ ok
        <item><p><c>load</c> is called when the NIF library is loaded
         and there is no previously loaded library for this module.</p>
         <p><c>*priv_data</c> can be set to point to some private data
-           that the library needs in able to keep a state between NIF 
+           that the library needs in order to keep a state between NIF
            calls. <c>enif_priv_data()</c> will return this pointer.
            <c>*priv_data</c> will be initialized to NULL when <c>load</c> is
            called.</p> 
@@ -325,8 +325,8 @@ ok
           which a NIF call is made. This pointer should not be
           dereferenced in any way, but only passed on to API
           functions. An <c>ErlNifEnv</c> pointer is only valid until
-          the function, where is what supplied as argument,
-          returns. There is thus useless and dangerous to store <c>ErlNifEnv</c>
+          the function, where it was supplied as argument,
+          returns. It is thus useless and dangerous to store <c>ErlNifEnv</c>
           pointers in between NIF calls.</p>
       </item>
     <tag><marker id="ErlNifFunc"/>ErlNifFunc</tag>
@@ -407,7 +407,7 @@ typedef enum {
     </func>
     <func><name><ret>int</ret><nametext>enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)</nametext></name>
       <fsummary>Create a new binary.</fsummary>
-      <desc><p>Allocate a new binary of size of <c>size</c>
+      <desc><p>Allocate a new binary of size <c>size</c>
       bytes. Initialize the structure pointed to by <c>bin</c> to
       refer to the allocated binary. The binary must either be released by 
       <seealso marker="#enif_release_binary">enif_release_binary()</seealso> 
@@ -612,8 +612,8 @@ typedef enum {
               call and then as released.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_double(ErlNifEnv* env, double d)</nametext></name>
-      <fsummary>Create an floating-point term</fsummary>
-      <desc><p>Create an floating-point term from a <c>double</c>.</p></desc>
+      <fsummary>Create a floating-point term</fsummary>
+      <desc><p>Create a floating-point term from a <c>double</c>.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
@@ -644,7 +644,7 @@ typedef enum {
       <fsummary>Create a list term.</fsummary>
       <desc><p>Create an ordinary list term with length indicated by the
       function name. Prefer these functions (macros) over the variadic
-      <c>enif_make_list</c>  to get compile time error if the number of
+      <c>enif_make_list</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list_cell(ErlNifEnv* env, ERL_NIF_TERM head, ERL_NIF_TERM tail)</nametext></name>
@@ -670,7 +670,7 @@ typedef enum {
       obtained by <seealso marker="#enif_alloc_resource">enif_alloc_resource</seealso>.
       No ownership transfer is done, the resource object still needs to be released by
       <seealso marker="#enif_release_resource">enif_release_resource</seealso>.</p>
-      <p>Note that the only defined behaviour when using of a resource term in
+      <p>Note that the only defined behaviour of using a resource term in
       an Erlang program is to store it and send it between processes on the
       same node. Other operations such as matching or <c>term_to_binary</c>
       will have unpredictable (but harmless) results.</p></desc>
@@ -707,7 +707,7 @@ typedef enum {
       <fsummary>Create a tuple term.</fsummary>
       <desc><p>Create a tuple term with length indicated by the
       function name. Prefer these functions (macros) over the variadic
-      <c>enif_make_tuple</c>  to get compile time error if the number of
+      <c>enif_make_tuple</c>  to get a compile time error if the number of
       arguments does not match.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_tuple_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[], unsigned cnt)</nametext></name>
@@ -762,7 +762,7 @@ typedef enum {
                The supplied destructor <c>dtor</c> will be called both for existing instances
                as well as new instances not yet created by the calling NIF library.</item>            
       </taglist>
-      <p>The two flag values can be combined with bitwise-or. To avoid unintentionally
+      <p>The two flag values can be combined with bitwise-or. To avoid unintentional
       name clashes a good practice is to include the module name as part of the
       type <c>name</c>. The <c>dtor</c> may  be <c>NULL</c> in case no destructor
       is needed.</p>
@@ -795,7 +795,7 @@ typedef enum {
     </func>
     <func><name><ret>void</ret><nametext>enif_release_resource(ErlNifEnv* env, void* obj)</nametext></name>
       <fsummary>Release a resource object.</fsummary>
-      <desc><p>Release a resource objects obtained from <c>enif_alloc_resource</c>.
+      <desc><p>Release a resource object obtained from <c>enif_alloc_resource</c>.
       The object may still be alive if it is referred to by Erlang terms. Each call to
       <c>enif_release_resource</c> must correspond to a previous call to <c>enif_alloc_resource</c>.
       References made by <c>enif_make_resource</c> can only be released by the garbage collector.</p></desc>
