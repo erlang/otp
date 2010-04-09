@@ -2019,8 +2019,6 @@ client_renegotiate(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
  
-    test_server:sleep(?SLEEP),
-
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2057,8 +2055,6 @@ server_renegotiate(Config) when is_list(Config) ->
 					{options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     
-    test_server:sleep(?SLEEP),
-   
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2097,8 +2093,6 @@ client_no_wrap_sequence_number(Config) when is_list(Config) ->
 				   {options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
  
-    test_server:sleep(?SLEEP),
-
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2140,8 +2134,6 @@ server_no_wrap_sequence_number(Config) when is_list(Config) ->
 					{options, [{renegotiate_at, N} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     
-    test_server:sleep(?SLEEP),
-   
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
@@ -2158,13 +2150,11 @@ server_no_wrap_sequence_number(Config) when is_list(Config) ->
 %%--------------------------------------------------------------------
 send_recv_result(Socket) ->
     ssl:send(Socket, "Hello world"),
-    test_server:sleep(?SLEEP),
     {ok,"Hello world"} = ssl:recv(Socket, 11),
     ok.
 
 send_recv_result_active(Socket) ->
     ssl:send(Socket, "Hello world"),
-    test_server:sleep(?SLEEP),
     receive 
 	{ssl, Socket, "Hello world"} ->
 	    ok
@@ -2172,7 +2162,6 @@ send_recv_result_active(Socket) ->
 
 send_recv_result_active_once(Socket) ->
     ssl:send(Socket, "Hello world"),
-    test_server:sleep(?SLEEP),
     receive 
 	{ssl, Socket, "Hello world"} ->
 	    ok
