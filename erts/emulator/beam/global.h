@@ -1741,6 +1741,7 @@ struct trace_pattern_flags {
     unsigned int local      : 1; /* Local call trace breakpoint */
     unsigned int meta       : 1; /* Metadata trace breakpoint */
     unsigned int call_count : 1; /* Fast call count breakpoint */
+    unsigned int call_time  : 1; /* Fast call time breakpoint */
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
 int erts_set_trace_pattern(Eterm* mfa, int specified, 

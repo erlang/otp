@@ -4408,6 +4408,22 @@ apply_bif_or_nif_epilogue:
      Goto(real_I);
  }
 
+ OpCase(i_time_breakpoint): {
+     BeamInstr real_I;
+     BpDataTime *bdt = (BpDataTime *) (I)[-4];
+
+     ASSERT((I)[-5] == (Uint) BeamOp(op_i_func_info_IaaI));
+     ASSERT(bdt);
+     bdt = (BpDataTime *) bdt->next;
+     ASSERT(bdt);
+     (I)[-4] = (Uint) bdt;
+     real_I = bdt->orig_instr;
+     erts_do_time_break(c_p, bdt);
+
+     ASSERT(VALID_INSTR(real_I));
+     Goto(real_I);
+ }
+
  OpCase(i_trace_breakpoint):
      if (! IS_TRACED_FL(c_p, F_TRACE_CALLS)) {
 	 BeamInstr real_I;

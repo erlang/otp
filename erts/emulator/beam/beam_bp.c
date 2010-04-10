@@ -191,7 +191,12 @@ erts_set_count_break(Eterm mfa[3], int specified, enum erts_break_op count_op) {
 		     (BeamInstr) BeamOp(op_i_count_breakpoint), count_op, NIL);
 }
 
-
+int
+erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op count_op) {
+    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    return set_break(mfa, specified, NULL,
+		     (BeamInstr) BeamOp(op_i_time_breakpoint), count_op, NIL);
+}
 
 int
 erts_clear_trace_break(Eterm mfa[3], int specified) {
@@ -234,6 +239,13 @@ erts_clear_count_break(Eterm mfa[3], int specified) {
     ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
     return clear_break(mfa, specified, 
 		       (BeamInstr) BeamOp(op_i_count_breakpoint));
+}
+
+int
+erts_clear_time_break(Eterm mfa[3], int specified) {
+    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    return clear_break(mfa, specified,
+		       (BeamInstr) BeamOp(op_i_time_breakpoint));
 }
 
 int
@@ -408,6 +420,31 @@ erts_is_count_break(BeamInstr *pc, Sint *count_ret) {
     return 0;
 }
 
+int
+erts_is_time_break(Uint *pc, Sint *count, Uint *s_time, Uint *us_time) {
+    BpDataTime *bdt =
+	(BpDataTime *) is_break(pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
+    Uint i;
+
+    if (bdt) {
+	if (count && s_time && us_time) {
+	    *count   = 0;
+	    *s_time  = 0;
+	    *us_time = 0;
+	    ErtsSmpBPLock(bdt);
+	    for (i = 0; i < bdt->n; i++) {
+		*count   += bdt->items[i].count;
+		*s_time  += bdt->items[i].s_time;
+		*us_time += bdt->items[i].us_time;
+	    }
+	    ErtsSmpBPUnlock(bdt);
+	}
+	return !0;
+    }
+    return 0;
+}
+
+
 BeamInstr *
 erts_find_local_func(Eterm mfa[3]) {
     Module *modp;
@@ -432,6 +469,22 @@ erts_find_local_func(Eterm mfa[3]) {
     return NULL;
 }
 
+void erts_do_time_break(Process *p, BpDataTime *bdt) {
+     Uint ms,s,u;
+     ErtsSchedulerData *esdp;
+     int ix = 0;
+
+     esdp = erts_get_scheduler_data();
+     ix   = esdp->no - 1;
+
+     get_sys_now(&ms,&s,&u);
+     //ErtsSmpBPLock(bdt);
+     //
+     bdt->items[ix].count++;
+     bdt->items[ix].s_time = 1;
+     bdt->items[ix].us_time = 1;
+     //ErtsSmpBPUnlock(bdt);
+}
 
 
 /* *************************************************************************
@@ -519,6 +572,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
     if ( (bd = is_break(pc, break_op))) {
 	if (break_op == (BeamInstr) BeamOp(op_i_trace_breakpoint)
 	    || break_op == (BeamInstr) BeamOp(op_i_mtrace_breakpoint)) {
+
 	    BpDataTrace *bdt = (BpDataTrace *) bd;
 	    Binary *old_match_spec;
 	    
@@ -545,6 +599,18 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		    bdc->count = 0; /* Reset call counter */
 		}
 		ErtsSmpBPUnlock(bdc);
+	    } else if (break_op == (Uint) BeamOp(op_i_count_breakpoint)) {
+		BpDataTime *bdt = (BpDataTime *) bd;
+		Uint i = 0;
+
+		ErtsSmpBPLock(bdt);
+		for (i = 0; i < bdt->n; i++) {
+		    bdt->items[i].count   = 0;
+		    bdt->items[i].s_time  = 0;
+		    bdt->items[i].us_time = 0;
+		}
+		ErtsSmpBPUnlock(bdt);
+
 	    } else {
 		ASSERT (! count_op);
 	    }
@@ -564,6 +630,12 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		return 1;
 	    }
 	    size = sizeof(BpDataCount);
+	} else if (break_op == (BeamInstr) BeamOp(op_i_time_breakpoint))  {
+	    if (count_op == erts_break_reset || count_op == erts_break_stop) {
+		/* Do not insert a new breakpoint */
+		return 1;
+	    }
+	    size = sizeof(BpDataTime);
 	} else {
 	    ASSERT(! count_op);
 	    ASSERT(break_op == (BeamInstr) BeamOp(op_i_debug_breakpoint));
@@ -576,6 +648,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	ASSERT(*pc != (BeamInstr) BeamOp(op_i_mtrace_breakpoint));
 	ASSERT(*pc != (BeamInstr) BeamOp(op_i_debug_breakpoint));
 	ASSERT(*pc != (BeamInstr) BeamOp(op_i_count_breakpoint));
+	ASSERT(*pc != (BeamInstr) BeamOp(op_i_time_breakpoint));
 	/* First breakpoint; create singleton ring */
 	bd = Alloc(size);
 	BpInit(bd, *pc);
@@ -585,6 +658,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	ASSERT(*pc == (BeamInstr) BeamOp(op_i_trace_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_mtrace_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_debug_breakpoint) ||
+	       *pc == (BeamInstr) BeamOp(op_i_time_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_count_breakpoint));
 	if (*pc == (BeamInstr) BeamOp(op_i_debug_breakpoint)) {
 	    /* Debug bp must be last, so if it is also first; 
@@ -617,6 +691,18 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	MatchSetRef(match_spec);
 	bdt->match_spec = match_spec;
 	bdt->tracer_pid = tracer_pid;
+    } else if (break_op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
+	BpDataTime *bdt = (BpDataTime *) bd;
+	Uint i = 0;
+
+	bdt->n     = erts_no_schedulers;
+	bdt->items = Alloc(sizeof(bp_data_time_item_t)*(bdt->n));
+
+	for (i = 0; i < bdt->n; i++) {
+	    bdt->items[i].count   = 0;
+	    bdt->items[i].s_time  = 0;
+	    bdt->items[i].us_time = 0;
+	}
     } else if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 	BpDataCount *bdc = (BpDataCount *) bd;
 
@@ -738,6 +824,12 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	    BpDataTrace *bdt = (BpDataTrace *) bd;
 
 	    MatchSetUnref(bdt->match_spec);
+	}
+	if (op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
+	    BpDataTime *bdt = (BpDataTrace *) bd;
+
+	    Free(bdt->items);
+	    bdt->n = 0;
 	}
 	Free(bd);
 	ASSERT(((BeamInstr) code_base[MI_NUM_BREAKPOINTS]) > 0);

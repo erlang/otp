@@ -397,8 +397,9 @@ extern ErtsSchedulerData *erts_scheduler_data;
 #define ERTS_PSD_SAVED_CALLS_BUF		1
 #define ERTS_PSD_SCHED_ID			2
 #define ERTS_PSD_DIST_ENTRY			3
+#define ERTS_PSD_CALL_TIME_BP			4
 
-#define ERTS_PSD_SIZE				4
+#define ERTS_PSD_SIZE				5
 
 typedef struct {
     void *data[ERTS_PSD_SIZE];
@@ -1207,6 +1208,12 @@ erts_psd_set(Process *p, ErtsProcLocks plocks, int ix, void *data)
   ((struct saved_calls *) erts_psd_get((P), ERTS_PSD_SAVED_CALLS_BUF))
 #define ERTS_PROC_SET_SAVED_CALLS_BUF(P, L, SCB) \
   ((struct saved_calls *) erts_psd_set((P), (L), ERTS_PSD_SAVED_CALLS_BUF, (void *) (SCB)))
+
+#define ERTS_PROC_GET_CALL_TIME(P) \
+  ((process_breakpoint_time_t *) erts_psd_get((P), ERTS_PSD_CALL_TIME_BP))
+#define ERTS_PROC_SET_CALL_TIME(P, L, PBT) \
+  ((process_breakpoint_time_t *) erts_psd_set((P), (L), ERTS_PSD_CALL_TIME_BP, (void *) (PBT)))
+
 
 ERTS_GLB_INLINE Eterm erts_proc_get_error_handler(Process *p);
 ERTS_GLB_INLINE Eterm erts_proc_set_error_handler(Process *p,
