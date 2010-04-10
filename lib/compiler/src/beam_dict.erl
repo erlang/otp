@@ -33,7 +33,7 @@
 	 exports = []		    :: [{label(), arity(), label()}],
 	 locals = []		    :: [{label(), arity(), label()}],
 	 imports = gb_trees:empty() :: gb_tree(),      	%{{M,F,A},Index}
-	 strings = []		    :: [string()],	%String pool
+	 strings = []		    :: string(),	%String pool
 	 lambdas = [],				%[{...}]
 	 literals = dict:new()	    :: dict(),	%Format: {Literal,Number}
 	 next_atom = 1		    :: pos_integer(),
@@ -219,7 +219,7 @@ my_term_to_binary(Term) ->
 
 %% Search for string Str in the string pool Pool.
 %%    old_string(Str, Pool) -> none | Index
--spec old_string(string(), [string()]) -> 'none' | pos_integer().
+-spec old_string(string(), string()) -> 'none' | pos_integer().
 
 old_string([C|Str]=Str0, [C|Pool]) ->
     case lists:prefix(Str, Pool) of

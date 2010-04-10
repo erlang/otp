@@ -39,8 +39,7 @@
 
 -type option() :: atom() | {atom(), term()} | {'d', atom(), term()}.
 
--type line()     :: integer().
--type err_info() :: {line(), module(), term()}. %% ErrorDescriptor
+-type err_info() :: {erl_scan:line(), module(), term()}. %% ErrorDescriptor
 -type errors()   :: [{file:filename(), [err_info()]}].
 -type warnings() :: [{file:filename(), [err_info()]}].
 -type mod_ret()  :: {'ok', module()}
@@ -68,7 +67,7 @@
 
 file(File) -> file(File, ?DEFAULT_OPTIONS).
 
--spec file(module() | file:filename(), [option()]) -> comp_ret().
+-spec file(module() | file:filename(), [option()] | option()) -> comp_ret().
 
 file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts++env_default_opts());
@@ -86,6 +85,8 @@ forms(Forms, Opt) when is_atom(Opt) ->
 %% would have generated a Beam file, false otherwise (if only a binary or a
 %% listing file would have been generated).
 
+-spec output_generated([option()]) -> boolean().
+
 output_generated(Opts) ->
     noenv_output_generated(Opts++env_default_opts()).
 
@@ -93,6 +94,8 @@ output_generated(Opts) ->
 %% Variants of the same function that don't consult ERL_COMPILER_OPTIONS
 %% for default options.
 %%
+
+-spec noenv_file(module() | file:filename(), [option()] | option()) -> comp_ret().
 
 noenv_file(File, Opts) when is_list(Opts) ->
     do_compile({file,File}, Opts);
@@ -103,6 +106,8 @@ noenv_forms(Forms, Opts) when is_list(Opts) ->
     do_compile({forms,Forms}, [binary|Opts]);
 noenv_forms(Forms, Opt) when is_atom(Opt) ->
     noenv_forms(Forms, [Opt|?DEFAULT_OPTIONS]).
+
+-spec noenv_output_generated([option()]) -> boolean().
 
 noenv_output_generated(Opts) ->
     any(fun ({save_binary,_F}) -> true;
@@ -210,16 +215,16 @@ format_error({module_name,Mod,Filename}) ->
 		  [Mod,Filename]).
 
 %% The compile state record.
--record(compile, {filename="",
-		  dir="",
-		  base="",
-		  ifile="",
-		  ofile="",
+-record(compile, {filename="" :: file:filename(),
+		  dir=""      :: file:filename(),
+		  base=""     :: file:filename(),
+		  ifile=""    :: file:filename(),
+		  ofile=""    :: file:filename(),
 		  module=[],
 		  code=[],
 		  core_code=[],
 		  abstract_code=[],		%Abstract code for debugger.
-		  options=[],
+		  options=[]  :: [option()],
 		  errors=[],
 		  warnings=[]}).
 
@@ -366,7 +371,7 @@ mpf(Ms) ->
     [{File,[M || {F,M} <- Ms, F =:= File]} ||
 	File <- lists:usort([F || {F,_} <- Ms])].
 
-%% passes(form|file, [Option]) -> [{Name,PassFun}]
+%% passes(forms|file, [Option]) -> [{Name,PassFun}]
 %%  Figure out which passes that need to be run.
 
 passes(forms, Opts) ->
@@ -830,7 +835,6 @@ get_core_transforms(Opts) -> [M || {core_transform,M} <- Opts].
 
 core_transforms(St) ->
     %% The options field holds the complete list of options at this
-
     Ts = get_core_transforms(St#compile.options),
     foldl_core_transforms(St, Ts).
 
@@ -1179,12 +1183,12 @@ write_binary(Name, Bin, St) ->
 %% report_errors(State) -> ok
 %% report_warnings(State) -> ok
 
-report_errors(St) ->
-    case member(report_errors, St#compile.options) of
+report_errors(#compile{options=Opts,errors=Errors}) ->
+    case member(report_errors, Opts) of
 	true ->
 	    foreach(fun ({{F,_L},Eds}) -> list_errors(F, Eds);
 			({F,Eds}) -> list_errors(F, Eds) end,
-		    St#compile.errors);
+		    Errors);
 	false -> ok
     end.
 
