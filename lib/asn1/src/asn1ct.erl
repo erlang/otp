@@ -1215,7 +1215,6 @@ compile(File, _OutFile, Options) ->
 %%	    io:format("~p~n~s~n",[_Reason,"error"]),
 	    error;
 	ok -> 
-	    io:format("ok~n"),
 	    ok;
 	ParseRes when is_tuple(ParseRes) ->
 	    io:format("~p~n",[ParseRes]),
