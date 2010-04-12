@@ -29,7 +29,7 @@
 
 -record(options, {username, password, boot_timeout, init_timeout,
 		  startup_timeout, startup_functions, monitor_master,
-		  kill_if_fail}).
+		  kill_if_fail, erl_flags}).
 
 %%%-----------------------------------------------------------------
 %%% @spec start(Node) -> Result
@@ -39,7 +39,8 @@
 %%%	       {error, started_not_connected, NodeName} |
 %%%	       {error, boot_timeout, NodeName} |
 %%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName}
+%%%	       {error, startup_timeout, NodeName} |
+%%%	       {error, not_alive, NodeName}
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on the local host.
 %%% @see start/3
@@ -55,7 +56,8 @@ start(Node)->
 %%%	       {error, started_not_connected, NodeName} |
 %%%	       {error, boot_timeout, NodeName} |
 %%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName}
+%%%	       {error, startup_timeout, NodeName} |
+%%%	       {error, not_alive, NodeName}
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on host
 %%% <code>Host</code> with the default options.
@@ -74,7 +76,8 @@ start(Host, Node)->
 %%%		  {startup_timeout, StartupTimeout} |
 %%%		  {startup_functions, StartupFunctions} |
 %%%		  {monitor_master, Monitor} |
-%%%		  {kill_if_fail, KillIfFail}
+%%%		  {kill_if_fail, KillIfFail} |
+%%%		  {erl_flags, ErlangFlags}
 %%%   Username = string()
 %%%   Password = string()
 %%%   BootTimeout = integer()
@@ -85,13 +88,15 @@ start(Host, Node)->
 %%%   Module = atom()
 %%%   Function = atom()
 %%%   Arguments = [term]
-%%%   Monitor = bool
-%%%   KillIfFail = bool
+%%%   Monitor = bool()
+%%%   KillIfFail = bool()
+%%%   ErlangFlags = string()
 %%%   Result = {ok, NodeName} | {error, already_started, NodeName} |
 %%%	       {error, started_not_connected, NodeName} |
 %%%	       {error, boot_timeout, NodeName} |
 %%%	       {error, init_timeout, NodeName} |
-%%%	       {error, startup_timeout, NodeName}
+%%%	       {error, startup_timeout, NodeName} |
+%%%	       {error, not_alive, NodeName}
 %%%   NodeName = atom()
 %%% @doc Starts an Erlang node with name <code>Node</code> on host
 %%% <code>Host</code> as specified by the combination of options in
@@ -129,12 +134,15 @@ start(Host, Node)->
 %%% </list></p>
 %%%
 %%% <p>Option <code>monitor_master</code> specifies, if the slave node should be
-%%% stopped in case of master node stop. Defaults to false</p>
+%%% stopped in case of master node stop. Defaults to true.</p>
 %%%
 %%% <p>Option <code>kill_if_fail</code> specifies, if the slave node should be
 %%% killed in case of a timeout during initialization or startup.
 %%% Defaults to true. Note that node also may be still alive it the boot
 %%% timeout occurred, but it will not be killed in this case.</p>
+%%%
+%%% <p>Option <code>erlang_flags</code> specifies, which flags will be added
+%%% to the parameters of the <code>erl</code> executable.</p>
 %%%
 %%% <p>Special return values are:
 %%% <list>
@@ -142,14 +150,17 @@ start(Host, Node)->
 %%%   the given name is already started on a given host;</item>
 %%%  <item><code>{error, started_not_connected, NodeName}</code> - if node is
 %%%  started, but not connected to the master node.</item>
+%%%  <item><code>{error, not_alive, NodeName}</code> - if node on which the
+%%%   <code>ct_slave:start/3</code> is called, is not alive. Note that
+%%%   <code>NodeName</code> is the name of current node in this case.</item>
 %%% </list></p>
 %%%
 start(Host, Node, Options)->
     ENode = enodename(Host, Node),
-    case net_kernel:longnames() of
-	ignored->
-	    {error, not_alive};
-	_->
+    case erlang:is_alive() of
+	false->
+	    {error, not_alive, node()};
+	true->
 	    case is_started(ENode) of
 		false->
 		    OptionsRec = fetch_options(Options),
@@ -211,12 +222,13 @@ fetch_options(Options)->
     InitTimeout = get_option_value(init_timeout, Options, 1),
     StartupTimeout = get_option_value(startup_timeout, Options, 1),
     StartupFunctions = get_option_value(startup_functions, Options, []),
-    Monitor = get_option_value(monitor_master, Options, false),
+    Monitor = get_option_value(monitor_master, Options, true),
     KillIfFail = get_option_value(kill_if_fail, Options, true),
+    ErlFlags = get_option_value(erl_flags, Options, []),
     #options{username=UserName, password=Password,
 	     boot_timeout=BootTimeout, init_timeout=InitTimeout,
 	     startup_timeout=StartupTimeout, startup_functions=StartupFunctions,
-	     monitor_master=Monitor, kill_if_fail=KillIfFail}.
+	     monitor_master=Monitor, kill_if_fail=KillIfFail, erl_flags=ErlFlags}.
 
 % send a message when slave node is started
 % @hidden
@@ -282,7 +294,7 @@ do_start(Host, Node, Options)->
     MasterHost = gethostname(),
     if
 	MasterHost == Host ->
-	    spawn_local_node(Node);
+	    spawn_local_node(Node, Options);
 	true->
 	    spawn_remote_node(Host, Node, Options)
     end,
@@ -338,14 +350,15 @@ gethostname()->
     list_to_atom(Hostname).
 
 % get cmd for starting Erlang
-get_cmd(Node)->
+get_cmd(Node, Flags)->
     Cookie = erlang:get_cookie(),
     "erl -detached -noinput -setcookie "++ atom_to_list(Cookie) ++
-    long_or_short() ++ atom_to_list(Node).
+    long_or_short() ++ atom_to_list(Node) ++ " " ++ Flags.
 
 % spawn node locally
-spawn_local_node(Node)->
-    Cmd = get_cmd(Node),
+spawn_local_node(Node, Options)->
+    ErlFlags = Options#options.erl_flags,
+    Cmd = get_cmd(Node, ErlFlags),
     %io:format("Running cmd: ~p~n", [Cmd]),
     open_port({spawn, Cmd}, [stream]).
 
@@ -368,6 +381,7 @@ check_for_ssh_running()->
 spawn_remote_node(Host, Node, Options)->
     Username = Options#options.username,
     Password = Options#options.password,
+    ErlFlags = Options#options.erl_flags,
     SSHOptions = case {Username, Password} of
 	{[], []}->
 	    [];
@@ -379,7 +393,7 @@ spawn_remote_node(Host, Node, Options)->
     check_for_ssh_running(),
     {ok, SSHConnRef} = ssh:connect(atom_to_list(Host), 22, SSHOptions),
     {ok, SSHChannelId} = ssh_connection:session_channel(SSHConnRef, infinity),
-    ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node), infinity).
+    ssh_connection:exec(SSHConnRef, SSHChannelId, get_cmd(Node, ErlFlags), infinity).
 
 % call functions on a remote Erlang node
 call_functions(_Node, [])->

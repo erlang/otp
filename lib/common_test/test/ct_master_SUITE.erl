@@ -74,9 +74,7 @@ ct_master_test(Config) when is_list(Config)->
     FileName = filename:join(DataDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
-    start_nodes(NodeNames),
     [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
-    stop_nodes(NodeNames),
     file:delete(filename:join(DataDir, FileName)).
 
 %%%-----------------------------------------------------------------
@@ -100,6 +98,11 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 	end,
 	NodeNames),
 
+    NS = lists:map(fun(NodeName)->
+	     {node_start, NodeName, [{startup_functions, [{io, format, ["hello, world~n"]}]}]}
+	 end,
+	 NodeNames),
+
     S = [{suites, NodeNames, filename:join(DataDir, "master"), Suites}],
 
     PrivDir = ?config(priv_dir, Config),
@@ -108,7 +111,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
          end,
 	 NodeNames) ++ [{logdir, master, PrivDir}],
 
-    ct_test_support:write_testspec(N++C++S++LD, DataDir, FileName).
+    ct_test_support:write_testspec(N++C++S++LD++NS, DataDir, FileName).
 
 get_log_dir(PrivDir, NodeName)->
     LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),
@@ -117,18 +120,6 @@ get_log_dir(PrivDir, NodeName)->
 
 run_test(_Name, FileName, Config)->
     [{FileName, ok}] = ct_test_support:run(ct_master, run, [FileName], Config).
-
-start_nodes(NodeNames)->
-    lists:foreach(fun(NodeName)->
-		      {ok, _}=ct_slave:start(NodeName)
-		  end,
-		  NodeNames).
-
-stop_nodes(NodeNames)->
-    lists:foreach(fun(NodeName)->
-		      {ok, _}=ct_slave:stop(NodeName)
-		  end,
-		  NodeNames).
 
 reformat_events(Events, EH) ->
     ct_test_support:reformat(Events, EH).

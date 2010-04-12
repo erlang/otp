@@ -270,33 +270,52 @@ collect_tests(Terms,TestSpec,Relaxed) ->
     put(relaxed,Relaxed),
     TestSpec1 = get_global(Terms,TestSpec),
     TestSpec2 = get_all_nodes(Terms,TestSpec1),
-    case catch evaluate(Terms,TestSpec2) of
+    % filter out node_start options and save them into the specification
+    {Terms2, TestSpec3} = filter_nodestart_specs(Terms, [], TestSpec2),
+    % only save the 'global' evals and evals for nodes which have no node_start
+    {Terms3, TestSpec4} = filter_evals(Terms2, [], TestSpec3),
+    % after evaluation, only valid terms exist in the specification list
+    Terms4 = case catch evaluate(Terms3, [], TestSpec4) of
 	{error,{Node,{M,F,A},Reason}} ->
 	    io:format("Error! Common Test failed to evaluate ~w:~w/~w on ~w. "
-		      "Reason: ~p~n~n", [M,F,A,Node,Reason]);
-	_ -> ok
+		      "Reason: ~p~n~n", [M,F,A,Node,Reason]),
+	    Terms3;
+	NewTerms -> NewTerms
     end,
-    add_tests(Terms,TestSpec2).
-    
-evaluate([{eval,NodeRef,{M,F,Args}}|Ts],Spec) ->
-    Node = ref2node(NodeRef,Spec#testspec.nodes),
+    add_tests(Terms4,TestSpec4).
+
+evaluate([{eval,Node,[{_,_,_}|_]=Mfas}|Ts],NewTerms,Spec)->
+    EvalTerms = lists:map(fun(Mfa)->
+	{eval, Node, Mfa}
+    end,
+    Mfas),
+    evaluate([EvalTerms|Ts], NewTerms, Spec);
+evaluate([{eval,[{_,_,_}|_]=Mfas}|Ts],NewTerms,Spec)->
+    EvalTerms = lists:map(fun(Mfa)->
+	{eval, Mfa}
+    end,
+    Mfas),
+    evaluate([EvalTerms|Ts], NewTerms, Spec);
+evaluate([{eval,Node,{M,F,Args}}|Ts],NewTerms,Spec) ->
     case rpc:call(Node,M,F,Args) of
 	{badrpc,Reason} ->
 	    throw({error,{Node,{M,F,length(Args)},Reason}});
 	_ ->
 	    ok
     end,
-    evaluate(Ts,Spec);
-evaluate([{eval,{M,F,Args}}|Ts],Spec) ->
+    evaluate(Ts,NewTerms,Spec);
+evaluate([{eval,{M,F,Args}}|Ts],NewTerms,Spec) ->
     case catch apply(M,F,Args) of
 	{'EXIT',Reason} ->
 	    throw({error,{node(),{M,F,length(Args)},Reason}});
 	_ ->
 	    ok
     end,
-    evaluate(Ts,Spec);
-evaluate([],_Spec) ->
-    ok.
+    evaluate(Ts,NewTerms,Spec);
+evaluate([Term|Ts], NewTerms, Spec)->
+    evaluate(Ts, [Term|NewTerms], Spec);
+evaluate([], NewTerms, _Spec) ->
+    NewTerms.
 
 get_global([{alias,Ref,Dir}|Ts],Spec=#testspec{alias=Refs}) ->
     get_global(Ts,Spec#testspec{alias=[{Ref,get_absdir(Dir,Spec)}|Refs]});
@@ -372,6 +391,65 @@ get_all_nodes([_|Ts],Spec) ->
     get_all_nodes(Ts,Spec);
 get_all_nodes([],Spec) ->
     Spec.
+
+filter_nodestart_specs([{node_start, Options}|Ts], NewTerms, Spec) ->
+    filter_nodestart_specs([{node_start, list_nodes(Spec), Options}|Ts], NewTerms, Spec);
+filter_nodestart_specs([{node_start, NodeRef, Options}|Ts], NewTerms, Spec) when is_atom(NodeRef) ->
+    filter_nodestart_specs([{node_start, [NodeRef], Options}|Ts], NewTerms, Spec);
+filter_nodestart_specs([{node_start, NodeRefs, Options}|Ts], NewTerms, Spec=#testspec{node_start=NodeStart})->
+    Options2 = case lists:keyfind(callback_module, 1, Options) of
+	false->
+	    [{callback_module, ct_slave}|Options];
+	{callback_module, _Callback}->
+	    Options
+    end,
+    NSSAdder = fun(NodeRef, NodeStartAcc)->
+	Node=ref2node(NodeRef,Spec#testspec.nodes),
+        case lists:keyfind(Node, 1, NodeStartAcc) of
+	    false->
+		[{Node, Options2}|NodeStartAcc];
+	    {Node, OtherOptions}->
+		io:format("~nWarning: There are other options defined for node ~p:"
+			  "~n~w, skipping ~n~w...~n", [Node, OtherOptions, Options2]),
+		NodeStartAcc
+	end
+    end,
+    NodeStart2 = lists:foldl(NSSAdder, NodeStart, NodeRefs),
+    filter_nodestart_specs(Ts, NewTerms, Spec#testspec{node_start=NodeStart2});
+filter_nodestart_specs([Term|Ts], NewTerms, Spec)->
+    filter_nodestart_specs(Ts, [Term|NewTerms], Spec);
+filter_nodestart_specs([], NewTerms, Spec) ->
+    {NewTerms, Spec}.
+
+filter_evals([{eval,NodeRefs,Mfa}|Ts], NewTerms, Spec) when is_list(NodeRefs)->
+    EvalTerms = lists:map(fun(NodeRef)->
+			      {eval, NodeRef, Mfa}
+			  end,
+			  NodeRefs),
+    filter_evals(EvalTerms++Ts, NewTerms, Spec);
+filter_evals([{eval,NodeRef,{_,_,_}=Mfa}|Ts],NewTerms,Spec)->
+    filter_evals([{eval,NodeRef,[Mfa]}|Ts],NewTerms,Spec);
+filter_evals([{eval,NodeRef,[{_,_,_}|_]=Mfas}=EvalTerm|Ts],
+	     NewTerms,Spec=#testspec{node_start=NodeStart})->
+    Node=ref2node(NodeRef,Spec#testspec.nodes),
+    case lists:keyfind(Node, 1, NodeStart) of
+	false->
+	    filter_evals(Ts, [EvalTerm|NewTerms], Spec);
+	{Node, Options}->
+	    Options2 = case lists:keyfind(startup_functions, 1, Options) of
+		false->
+		     [{startup_functions, Mfas}|Options];
+		{startup_functions, StartupFunctions}->
+		     lists:keyreplace(startup_functions, 1, Options,
+			 {startup_functions, StartupFunctions ++ Mfas})
+	    end,
+	    NodeStart2 = lists:keyreplace(Node, 1, NodeStart, {Node, Options2}),
+	    filter_evals(Ts, NewTerms, Spec#testspec{node_start=NodeStart2})
+    end;
+filter_evals([Term|Ts], NewTerms, Spec)->
+    filter_evals(Ts, [Term|NewTerms], Spec);
+filter_evals([], NewTerms, Spec)->
+    {NewTerms, Spec}.
 
 save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
     NodeRefs1 =
@@ -794,6 +872,8 @@ valid_terms() ->
      {cover,3},
      {config,2},
      {config,3},
+     {userconfig, 2},
+     {userconfig, 3},
      {alias,3},
      {logdir,2},
      {logdir,3},
@@ -802,7 +882,6 @@ valid_terms() ->
      {event_handler,4},
      {include,2},
      {include,3},
-
      {suites,3},
      {suites,4},
      {cases,4},
