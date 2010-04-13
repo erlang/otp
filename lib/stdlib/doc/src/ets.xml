@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>1996</year><year>2009</year>
+      <year>1996</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>ets</title>
@@ -1686,7 +1686,7 @@ true</pre>
       </desc>
     </func>
     <func>
-      <name>to_dets(Tab, DetsTab) -> Tab</name>
+      <name>to_dets(Tab, DetsTab) -> DetsTab</name>
       <fsummary>Fill a Dets table with objects from an ETS table.</fsummary>
       <type>
         <v>Tab = tid() | atom()</v>
