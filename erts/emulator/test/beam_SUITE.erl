@@ -1,26 +1,26 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(beam_SUITE).
 
 -export([all/1, packed_registers/1, apply_last/1, apply_last_bif/1,
-	 buildo_mucho/1, heap_sizes/1, big_lists/1]).
+	 buildo_mucho/1, heap_sizes/1, big_lists/1, fconv/1]).
 
 -export([applied/2]).
 
@@ -279,3 +279,26 @@ b() ->
          _} ->
 	    ok
     end.
+
+fconv(Config) when is_list(Config) ->
+    ?line do_fconv(atom),
+    ?line do_fconv(nil),
+    ?line do_fconv(tuple_literal),
+    ?line 3.0 = do_fconv(1.0, 2.0),
+    ok.
+
+do_fconv(Type) ->
+    try
+	do_fconv(Type, 1.0),
+	test_server:fail()
+    catch
+	error:badarith ->
+	    ok
+    end.
+
+do_fconv(atom, Float) when is_float(Float) ->
+    Float + a;
+do_fconv(nil, Float) when is_float(Float) ->
+    Float + [];
+do_fconv(tuple_literal, Float) when is_float(Float) ->
+    Float + {a,b}.
