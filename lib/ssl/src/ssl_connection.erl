@@ -467,7 +467,7 @@ certify(#server_key_exchange{} = KeyExchangeMsg,
 certify(#server_key_exchange{}, 
         State = #state{role = client, negotiated_version = Version,
                        key_algorithm = Alg}) 
-  when Alg == rsa; Alg == dh_dss; Alg == dh_rsa ->
+  when Alg == rsa; Alg == dh_dss; Alg == dh_rsa -> 
     Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE),
     handle_own_alert(Alert, Version, certify_server_key_exchange, State),
     {stop, normal, State};
@@ -768,7 +768,7 @@ handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     {stop, normal, State};
 
 handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, From}} = State) when not is_atom(From) ->
+	     #state{log_alert = Log, renegotiation = {true, From}} = State) ->
     log_alert(Log, StateName, Alert),
     gen_fsm:reply(From, {error, renegotiation_rejected}),
     {next_state, connection, next_record(State)};
@@ -955,34 +955,6 @@ handle_info({Protocol, _, Data}, StateName, State =
 	    {stop, normal, State}
     end;
 
-%% %% This is the code for {packet,ssl} removed because it was slower 
-%% %% than handling it in erlang.
-%% handle_info(Data = #ssl_tls{}, StateName, 
-%% 	    State = #state{tls_buffer = Buffer,
-%% 			   socket = Socket,
-%% 			   connection_states = ConnectionStates0}) ->
-%%     case Buffer of
-%% 	buffer ->
-%% 	    {next_state, StateName, State#state{tls_buffer = [Data]}};
-%% 	continue ->
-%% 	    inet:setopts(Socket, [{active,once}]),
-%% 	    {Plain, ConnectionStates} =
-%% 		ssl_record:decode_cipher_text(Data, ConnectionStates0),
-%% 	    gen_fsm:send_all_state_event(self(), Plain),
-%% 	    {next_state, StateName, 
-%% 	     State#state{tls_buffer = buffer, 
-%% 			 connection_states = ConnectionStates}};
-%% 	List when is_list(List) ->
-%% 	    {next_state, StateName, 
-%% 	     State#state{tls_buffer = Buffer ++ [Data]}}	
-%%     end;
-
-%% handle_info(CloseMsg = {_, Socket}, StateName0, 
-%% 	    #state{socket = Socket,tls_buffer = [Msg]} = State0) ->
-%%     %% Hmm we have a ssl_tls msg buffered, handle that first
-%%     %% and it proberbly is a close alert  
-%%     {next_state, StateName0, State0#state{tls_buffer=[Msg,{ssl_close,CloseMsg}]}};
-	
 handle_info({CloseTag, Socket}, _StateName,
             #state{socket = Socket, close_tag = CloseTag,
 		   negotiated_version = Version, host = Host,
@@ -1181,37 +1153,9 @@ sync_send_all_state_event(FsmPid, Event, Timeout) ->
 alert_event(Alert) ->
     send_all_state_event(self(), Alert).
 
-
-%% TODO: This clause is not yet supported. Do we need 
-%% to support it, not supported by openssl!
-handle_peer_cert(PeerCert, {Algorithm, _, _} = PublicKeyInfo,
-		 #state{negotiated_version = Version,
-			session = Session} = 
-		 State0) when Algorithm == dh_rsa; 
-			      Algorithm == dh_dss ->
-    case public_key:pkix_is_fixed_dh_cert(PeerCert) of
-	true ->
-	    %% TODO: extract DH-params from cert and save 
-	    %% Keys and SharedSecret in state.
-	    %% {P, G,  ServerPublicDhKey}= extract .....
-	    %% Keys = {ClientDhPublicKey, _} = 
-	    %%	public_key:gen_key(#'DHParameter'{prime = P, base = G}),
-	    %%SharedSecret = dh_shared_secret(ServerPublicDhKey, 
-	    %%				    ClientDhPublicKey,
-            %%					    [P, G]),
-	    %% ssl_handshake:master_secret ...
-	    State = State0#state{session = 
-				 Session#session{peer_certificate 
-						 = PeerCert},
-				 public_key_info = PublicKeyInfo},
-	    {next_state, certify, next_record(State)};
-	    
-	false ->
-	    Alert  = ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE),
-	    handle_own_alert(Alert, Version, certify_certificate, State0), 
-	    {stop, normal, State0}
-    end;
-	
+%% We do currently not support cipher suites that use fixed DH.
+%% If we want to implement that we should add a code
+%% here to extract DH parameters form cert.
 handle_peer_cert(PeerCert, PublicKeyInfo, 
 		 #state{session = Session} = State0) ->
     State = State0#state{session = 
@@ -1394,11 +1338,11 @@ key_exchange(#state{role = server, key_algorithm = Algo} = State)
        Algo == dh_rsa ->
     State;
 
-key_exchange(#state{role = server, key_algorithm = rsa_export} = State) ->
+%key_exchange(#state{role = server, key_algorithm = rsa_export} = State) ->
     %% TODO when the public key in the server certificate is
     %% less than or equal to 512 bits in length dont send key_exchange
     %% but do it otherwise
-    State;
+%    State;
 
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    diffie_hellman_params = Params,
@@ -1431,20 +1375,10 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 		diffie_hellman_keys = Keys,
                 tls_handshake_hashes = Hashes1};
 
-%% TODO: Not yet supported should be by default disabled when supported.
-%% key_exchange(#state{role = server, key_algorithm = dh_anon,
-%% 			    connection_states = ConnectionStates0,
-%% 			    negotiated_version = Version,
-%% 			    tls_handshake_hashes = Hashes0,
-%% 			    socket = Socket,
-%% 			    transport_cb = Transport
-%% 		   } = State) ->
-%%     Msg = ssl_handshake:key_exchange(server, anonymous),    
-%%     {BinMsg, ConnectionStates1, Hashes1} =
-%%         encode_handshake(Msg, Version, ConnectionStates0, Hashes0),
-%%     Transport:send(Socket, BinMsg),
-%%     State#state{connection_states = ConnectionStates1,
-%%                 tls_handshake_hashes = Hashes1};
+
+%% key_algorithm = dh_anon is not supported. Should be by default disabled
+%% if support is implemented and then we need a key_exchange clause for it
+%% here. 
    
 key_exchange(#state{role = client, 
 		    connection_states = ConnectionStates0,
@@ -1628,9 +1562,6 @@ handle_server_key(
 	false ->
 	    ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)
     end.
-
-%%handle_clinet_key(_KeyExchangeMsg, State) ->
-%%   State.
 
 verify_dh_params(Signed, Hash, {?rsaEncryption, PubKey, _PubKeyparams}) ->
     case public_key:decrypt_public(Signed, PubKey, 
@@ -1834,34 +1765,6 @@ opposite_role(server) ->
 
 send_user(Pid, Msg) ->
     Pid ! Msg.
-
-%% %% This is the code for {packet,ssl} removed because it was slower 
-%% %% than handling it in erlang.
-%% next_record(#state{socket = Socket, 
-%% 		   tls_buffer = [Msg|Rest],
-%% 		   connection_states = ConnectionStates0} = State) ->
-%%     Buffer =
-%% 	case Rest of
-%% 	    [] -> 
-%% 		inet:setopts(Socket, [{active,once}]),
-%% 		buffer;
-%% 	    _ -> Rest
-%% 	end,
-%%     case Msg of
-%% 	#ssl_tls{} ->
-%% 	    {Plain, ConnectionStates} =
-%% 		ssl_record:decode_cipher_text(Msg, ConnectionStates0),
-%% 	    gen_fsm:send_all_state_event(self(), Plain),
-%% 	    State#state{tls_buffer=Buffer, connection_states = ConnectionStates};
-%% 	{ssl_close, Msg} ->
-%% 	    self() ! Msg,
-%% 	    State#state{tls_buffer=Buffer}
-%%     end;
-%% next_record(#state{socket = Socket, tls_buffer = undefined} = State) ->
-%%     inet:setopts(Socket, [{active,once}]),
-%%     State#state{tls_buffer=continue};
-%% next_record(State) ->
-%%     State#state{tls_buffer=continue}.
 
 next_record(#state{tls_cipher_texts = [], socket = Socket} = State) ->
     inet:setopts(Socket, [{active,once}]),
