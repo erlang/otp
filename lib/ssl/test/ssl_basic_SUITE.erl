@@ -2169,18 +2169,22 @@ send_recv_result_active_once(Socket) ->
 
 
 renegotiate(Socket, Data) ->
-    [{session_id, Id} | _ ] = ssl:session_info(Socket),
-    ssl:renegotiate(Socket),
+    test_server:format("Renegotiating ~n", []),
+    Result = ssl:renegotiate(Socket),
+    test_server:format("Result ~p~n", [Result]),
     ssl:send(Socket, Data),
-    test_server:sleep(1000),
-    case  ssl:session_info(Socket) of
-	 [{session_id, Id} | _ ] ->
-	    fail_session_not_renegotiated;
-	_ ->
-	    ok
+    case Result of
+	ok ->
+	    ok;
+	%% It is not an error in erlang ssl
+	%% if peer rejects renegotiation.
+	%% Connection will stay up
+	{error, renegotiation_rejected} ->
+	    ok;
+	Other ->
+	    Other
     end.
  
-
 session_cache_process_list(doc) -> 
     ["Test reuse of sessions (short handshake)"];
 
@@ -2426,7 +2430,7 @@ erlang_ssl_receive(Socket, Data) ->
 	    ok;
 	Other ->
 	    test_server:fail({unexpected_message, Other})
-    after 4000 ->
+    after ?SLEEP * 3 ->
 	    test_server:fail({did_not_get, Data})
     end.
  
