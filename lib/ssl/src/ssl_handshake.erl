@@ -455,7 +455,7 @@ get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length),
 		       Body:Length/binary,Rest/binary>>, KeyAlg, 
 		      Version, Acc) ->
     Raw = <<?BYTE(Type), ?UINT24(Length), Body/binary>>,
-    H = dec_hs(Type, Body, key_excahange_alg(KeyAlg), Version),
+    H = dec_hs(Type, Body, key_exchange_alg(KeyAlg), Version),
     get_tls_handshake_aux(Rest, KeyAlg, Version, [{H,Raw} | Acc]);
 get_tls_handshake_aux(Data, _KeyAlg, _Version, Acc) ->
     {lists:reverse(Acc), Data}.
@@ -960,10 +960,10 @@ sig_alg(Alg) when Alg == dh_dss; Alg == dhe_dss ->
 sig_alg(_) ->
     ?NULL.
 
-key_excahange_alg(rsa) ->
+key_exchange_alg(rsa) ->
     ?KEY_EXCHANGE_RSA;
-key_excahange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
+key_exchange_alg(Alg) when Alg == dhe_rsa; Alg == dhe_dss;
 			    Alg == dh_dss; Alg == dh_rsa; Alg == dh_anon ->
     ?KEY_EXCHANGE_DIFFIE_HELLMAN;
-key_excahange_alg(_) ->
+key_exchange_alg(_) ->
     ?NULL.
