@@ -52,6 +52,8 @@
 #  include "config.h"
 #endif
 
+#include "erl_printf.h"
+
 #ifdef WIN32
 
 #define WIN32_LEAN_AND_MEAN
@@ -2552,7 +2554,7 @@ static void debugf(char *format, ...)
     sprintf(buff,"%s[%d] (DEBUG):",program_name,(int) getpid());
 #endif
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     if (debug_console_allocated != INVALID_HANDLE_VALUE) {
@@ -2574,7 +2576,7 @@ static void warning(char *format, ...)
     va_start(ap,format);
     sprintf(buff,"%s[%d]: WARNING:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     {
@@ -2596,7 +2598,7 @@ static void fatal(char *format, ...)
     va_start(ap,format);
     sprintf(buff,"%s[%d]: FATAL ERROR:",program_name, (int) getpid());
     ptr = buff + strlen(buff);
-    vsprintf(ptr,format,ap);
+    erts_vsnprintf(ptr,sizeof(buff)-strlen(buff)-2,format,ap);
     strcat(ptr,"\r\n");
 #ifdef WIN32
     {

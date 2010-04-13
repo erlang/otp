@@ -96,9 +96,9 @@ endif
 
 # On windows we always need reentrant libraries.
 ifeq ($(TARGET),win32)
-ERLEXEC_XLIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal_r$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 else
-ERLEXEC_XLIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
+ERTS_INTERNAL_LIBS=-L../../lib/internal/$(TARGET) -lerts_internal$(ERTS_LIB_TYPEMARKER) @ERTS_INTERNAL_X_LIBS@
 endif
 
 # ----------------------------------------------------
@@ -295,7 +295,7 @@ $(OBJDIR)/inet_gethost.o: inet_gethost.c
 	$(CC) $(CFLAGS) -o $@ -c inet_gethost.c
 
 $(BINDIR)/inet_gethost@EXEEXT@: $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ)
-	$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) 
+	$(PURIFY) $(LD) $(LDFLAGS) $(ENTRY_LDFLAGS) -o $@ $(OBJDIR)/inet_gethost.o $(ENTRY_OBJ) $(LIBS) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/run_erl: $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o
 	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/safe_string.o $(OBJDIR)/run_erl.o $(LIBS)
@@ -320,7 +320,7 @@ $(OBJDIR)/safe_string.o: ../unix/safe_string.c
 
 ifneq ($(TARGET),win32)
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/$(ERLEXEC).o
-	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERLEXEC_XLIBS)
+	$(PURIFY) $(LD) $(LDFLAGS) -o $@ $(OBJDIR)/$(ERLEXEC).o $(ERTS_INTERNAL_LIBS)
 
 $(OBJDIR)/$(ERLEXEC).o: $(ERLEXECDIR)/$(ERLEXEC).c
 	$(CC) -I$(EMUDIR) $(CFLAGS) -o $@ -c $(ERLEXECDIR)/$(ERLEXEC).c
@@ -360,7 +360,7 @@ $(OBJDIR)/escript.o: escript.c
 ifeq ($(TARGET),win32)
 
 $(BINDIR)/$(ERLEXEC): $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o  $(OBJDIR)/$(ERLRES_OBJ)
-	$(LD) -dll $(LDFLAGS) -o $@ $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) $(ERLEXEC_XLIBS)
+	$(LD) -dll $(LDFLAGS) -o $@ $(OBJDIR)/erlexec.o $(OBJDIR)/win_erlexec.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) $(ERTS_INTERNAL_LIBS)
 
 $(BINDIR)/erl@EXEEXT@: $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ)
 	$(LD) $(LDFLAGS) -o $@ $(OBJDIR)/erl.o $(OBJDIR)/init_file.o $(OBJDIR)/$(ERLRES_OBJ) 
