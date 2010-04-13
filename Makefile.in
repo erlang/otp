@@ -357,13 +357,9 @@ all_bootstraps: emulator \
 # binaries in your PATH instead of those created from the
 # pre-compiled Erlang modules under bootstrap/.
 #
-ifeq ($(findstring ose,$(TARGET)),ose)
-noboot:
-	$(MAKE) BOOT_PREFIX= emulator libs
-else
 noboot:
 	$(MAKE) BOOT_PREFIX= emulator libs local_setup
-endif
+
 noboot_install:
 	$(MAKE) BOOT_PREFIX= install
 

@@ -61,11 +61,7 @@ ifeq ($(TYPE),quantify)
 PURIFY = quantify $(QUANTIFY_BUILD_OPTIONS)
 TYPEMARKER = .quantify
 ENABLE_ALLOC_TYPE_VARS += quantify
-ifeq ($(findstring ose,$(TARGET)),ose)
-  TYPE_FLAGS = @CFLAGS@ -DQUANTIFY
-else
   TYPE_FLAGS = @CFLAGS@ -g -O2 -DQUANTIFY -DNO_JUMP_TABLE
-endif
 else
 
 ifeq ($(TYPE),purecov)
@@ -423,12 +419,6 @@ RELEASE_INCLUDES = beam/erl_driver.h sys/$(ERLANG_OSTYPE)/driver_int.h beam/erl_
 ifeq ($(TARGET),win32)
 RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_win_dyn_driver.h
 endif
-ifeq ($(findstring ose,$(TARGET)),ose)
-RELEASE_INCLUDES += sys/$(ERLANG_OSTYPE)/erl_port_signals.sig \
-		    sys/$(ERLANG_OSTYPE)/ose_erl_port_prog.h  \
-		    drivers/$(ERLANG_OSTYPE)/ose_erl_driver.h
-
-endif
 
 ifeq ($(TYPE)-@HAVE_VALGRIND@,valgrind-no)
 release_spec:
@@ -480,8 +470,6 @@ endif
 
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 else
-ifeq ($(findstring ose,$(TARGET)),ose)
-else
 ifdef HIPE_ENABLED
 GENERATE +=	$(TTF_DIR)/hipe_x86_asm.h \
 		$(TTF_DIR)/hipe_amd64_asm.h \
@@ -490,7 +478,6 @@ GENERATE +=	$(TTF_DIR)/hipe_x86_asm.h \
 		$(TTF_DIR)/hipe_arm_asm.h \
 		$(TTF_DIR)/hipe_literals.h \
 		$(BINDIR)/hipe_mkliterals$(TF_MARKER)
-endif
 endif
 endif
 
@@ -592,7 +579,6 @@ ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 INCLUDES += -I$(ERL_TOP)/erts/etc/vxworks
 endif
 
-ifneq ($(findstring ose,$(TARGET)),ose)
 ifeq ($(TARGET),win32)
 # Usually the same as the default rule, but certain platforms (i.e. win32) mix
 # different compilers
@@ -618,33 +604,6 @@ endif
 $(OBJDIR)/%.o: beam/%.c
 	$(CC) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-else
-
-INCLUDES += -Idrivers/ose
-
-ifeq ($(TYPE),debug)
-$(OBJDIR)/%.o: beam/%.c
-	  $(CC) $(CFLAGS) -DNO_JUMP_TABLE $(INCLUDES) -c $< -o $@
-else
-
-VXCC=@VXCC@
-VXCFLAGS=@VXCFLAGS@
-CFLAGS_NOOPT=@CFLAGS_NOOPT@ @DEFS@ $(WFLAGS) $(THR_DEFS) $(ARCHCFLAGS)
-
-# we want to use jump table
-$(OBJDIR)/beam_emu.o: beam/beam_emu.c
-	$(VXCC) $(VXCFLAGS) $(INCLUDES) -c $< -o $@
-
-# erl_process does not work properly with DIAB's -XO option,
-# we'll compile it with gcc instead
-$(OBJDIR)/erl_process.o: beam/erl_process.c
-	$(VXCC) $(VXCFLAGS) $(INCLUDES) -c $< -o $@
-
-$(OBJDIR)/%.o: beam/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -c $< -o $@
-endif
-endif
-
 $(OBJDIR)/%.o: $(TARGET)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
 
@@ -663,12 +622,8 @@ $(OBJDIR)/%.o: drivers/common/%.c
 $(OBJDIR)/%.o: drivers/$(ERLANG_OSTYPE)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -Idrivers/$(ERLANG_OSTYPE) -I../etc/$(ERLANG_OSTYPE) -c $< -o $@
 
-# VxWorks and OSE uses unix drivers too...
+# VxWorks uses unix drivers too...
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
-$(OBJDIR)/%.o: drivers/unix/%.c
-	$(CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
-endif
-ifeq ($(findstring ose,$(TARGET)),ose)
 $(OBJDIR)/%.o: drivers/unix/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -Idrivers/common -c $< -o $@
 endif
@@ -810,17 +765,11 @@ OS_OBJS = \
 	$(OBJDIR)/elib_malloc.o \
 	$(OBJDIR)/elib_memmove.o
 
-ifeq ($(findstring ose,$(TARGET)),ose)
-	OS_OBJS += $(OBJDIR)/erl_port_init.o \
-		   $(OBJDIR)/ose_inet_sock_select.o \
-		   $(OBJDIR)/ose_sfp.o
-else
 ifeq ($(findstring vxworks,$(TARGET)),vxworks)
 	OS_OBJS += $(OBJDIR)/int64.o 
 else
 	OS_OBJS += $(OBJDIR)/sys_float.o \
                    $(OBJDIR)/sys_time.o
-endif
 endif
 DRV_OBJS = \
 	$(OBJDIR)/efile_drv.o \
@@ -830,11 +779,7 @@ DRV_OBJS = \
 endif
 
 ifneq ($(findstring vxworks,$(TARGET)),vxworks)
-  ifeq ($(findstring ose,$(TARGET)),ose)
-	DRV_OBJS += $(OBJDIR)/ose_inet_drv.o
-  else
 	DRV_OBJS += $(OBJDIR)/ttsl_drv.o
-  endif
 endif
 
 ifeq ($(ERTS_ENABLE_KERNEL_POLL),yes)
@@ -965,33 +910,6 @@ $(TARGET)/int64.c:
 		>> $(TARGET)/int64.c; done 
 	for x in $(NEEDFUNCTIONS); do echo $$x'();' >> $(TARGET)/int64.c; done
 	echo '}'  >> $(TARGET)/int64.c 
-
-endif
-
-ifeq ($(findstring ose,$(TARGET)),ose)
-# Extract soft float functions from libgcc.a (for beam_emu)
-VXCC=@VXCC@
-VXCFLAGS=@VXCFLAGS@
-VXLD=@VXLD@
-VXLDFLAGS=@VXLDFLAGS@
-VXCCLIBFLAGS=@VXCCLIBFLAGS@
-STRIP=@STRIP@
-SYMPREFIX=@SYMPREFIX@
-
-NEEDFUNCTIONS=__floatsidf __adddf3 __negdf2 __muldf3 __divdf3 __subdf3
-KEEPSYMS=$(NEEDFUNCTIONS:%=-K $(SYMPREFIX)%)
-
-$(OBJDIR)/ose_sfp.o: $(TARGET)/ose_sfp.c
-	$(VXCC) $(VXCFLAGS) -o $(OBJDIR)/ose_sfp_tmp.o -c $(TARGET)/ose_sfp.c
-	$(VXLD) -o $(OBJDIR)/ose_sfp.o $(OBJDIR)/ose_sfp_tmp.o $(VXLDFLAGS) $(VXCCLIBFLAGS)
-	$(STRIP) $(KEEPSYMS) $(OBJDIR)/ose_sfp.o
-
-$(TARGET)/ose_sfp.c:
-	echo 'void dummy(void); void dummy(void) {' > $(TARGET)/ose_sfp.c
-	for x in $(NEEDFUNCTIONS); do echo 'extern void '$$x'();' \
-		>> $(TARGET)/ose_sfp.c; done 
-	for x in $(NEEDFUNCTIONS); do echo $$x'();' >> $(TARGET)/ose_sfp.c; done
-	echo '}'  >> $(TARGET)/ose_sfp.c 
 
 endif
 
