@@ -26,11 +26,13 @@
 
 -include("test_server.hrl").
 -include("test_server_line.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
+
 
 -behaviour(ssl_session_cache_api).
 
@@ -166,7 +168,8 @@ all(suite) ->
      %%, session_cache_process_list, session_cache_process_mnesia
      ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
      client_renegotiate, server_renegotiate,
-     client_no_wrap_sequence_number, server_no_wrap_sequence_number
+     client_no_wrap_sequence_number, server_no_wrap_sequence_number,
+     extended_key_usage, validate_extensions_fun
     ].
 
 %% Test cases starts here.
@@ -878,9 +881,8 @@ tcp_connect(suite) ->
     [];
 
 tcp_connect(Config) when is_list(Config) ->
-    ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    {_, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     TcpOpts = [binary, {reuseaddr, true}],
 
     Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0},
@@ -905,7 +907,7 @@ tcp_connect(Config) when is_list(Config) ->
     ssl_test_lib:close(Server).
 
 
-dummy(Socket) ->
+dummy(_Socket) ->
     %% Should not happen as the ssl connection will not be established
     %% due to fatal handshake failiure
     exit(kill).
@@ -966,6 +968,7 @@ ekeyfile(Config) when is_list(Config) ->
 	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
 					 {from, self()},
 			    {options, BadOpts}]),
+
     Client =
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
 			    {port, Port}, {host, Hostname},
@@ -1013,6 +1016,7 @@ ecacertfile(Config) when is_list(Config) ->
     ClientOpts    = [{reuseaddr, true}|?config(client_opts, Config)],
     ServerBadOpts = [{reuseaddr, true}|?config(server_bad_ca, Config)],
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
     Port = ssl_test_lib:inet_port(ServerNode),
     
     Server0  = 
@@ -1059,27 +1063,28 @@ eoptions(Config) when is_list(Config) ->
     ClientOpts = ?config(client_opts, Config),
     ServerOpts = ?config(server_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Port = ssl_test_lib:inet_port(ServerNode),
+  
 
     %% Emulated opts
     Server0 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					 {from, self()},
 			    {options, [{active, trice} | ServerOpts]}]),
+    
     Client0 =
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
-			    {from, self()}, 
-			    {options, [{active, trice} | ClientOpts]}]),    
+					 {port, 0}, {host, Hostname},
+					 {from, self()}, 
+					 {options, [{active, trice} | ClientOpts]}]),    
     ssl_test_lib:check_result(Server0, {error, {eoptions, {active,trice}}}, 
-		    Client0, {error, {eoptions, {active,trice}}}),
+			      Client0, {error, {eoptions, {active,trice}}}),
 
     Server1 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{header, a} | ServerOpts]}]),
     Client1 = 
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()},  
 			    {options, [{header, a} | ClientOpts]}]), 
@@ -1087,25 +1092,25 @@ eoptions(Config) when is_list(Config) ->
 		    Client1, {error, {eoptions, {header, a}}}),
     
     Server2 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					 {from, self()},
 			    {options, [{mode, a} | ServerOpts]}]),
-    
     Client2 =
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
+			    {port, 0}, {host, Hostname},
 			    {from, self()}, 
 			    {options, [{mode, a} | ClientOpts]}]),    
     ssl_test_lib:check_result(Server2, {error, {eoptions, {mode, a}}}, 
 		    Client2, {error, {eoptions, {mode, a}}}),
 
     Server3 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{packet, 8.0} | ServerOpts]}]),
+
     Client3 =
 	ssl_test_lib:start_client_error([{node, ClientNode}, 
-			    {port, Port}, {host, Hostname},
+			    {port, 0}, {host, Hostname},
 			    {from, self()}, 
 			    {options, [{packet, 8.0} | ClientOpts]}]),
     ssl_test_lib:check_result(Server3, {error, {eoptions, {packet, 8.0}}}, 
@@ -1113,11 +1118,12 @@ eoptions(Config) when is_list(Config) ->
 
     %% ssl  
     Server4 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{verify, 4} | ServerOpts]}]),
+
     Client4 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{verify, 4} | ClientOpts]}]),
@@ -1125,11 +1131,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client4, {error, {eoptions, {verify, 4}}}),
    
     Server5 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{depth, four} | ServerOpts]}]),
+
     Client5 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{depth, four} | ClientOpts]}]),
@@ -1137,11 +1144,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client5, {error, {eoptions, {depth, four}}}),
     
     Server6 =  
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{cacertfile, ""} | ServerOpts]}]),
+    
     Client6 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{cacertfile, ""} | ClientOpts]}]),   
@@ -1149,11 +1157,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client6, {error, {eoptions, {cacertfile, ""}}}),
 
     Server7 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{certfile, 'cert.pem'} | ServerOpts]}]),
+
     Client7 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{certfile, 'cert.pem'} | ClientOpts]}]),
@@ -1162,11 +1171,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client7, {error, {eoptions, {certfile, 'cert.pem'}}}),
     
     Server8 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{keyfile,'key.pem' } | ServerOpts]}]),
+
     Client8 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, {options, [{keyfile, 'key.pem'} 
 						       | ClientOpts]}]),
@@ -1175,11 +1185,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client8, {error, {eoptions, {keyfile, 'key.pem'}}}),
     
     Server9 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{key, 'key.pem' } | ServerOpts]}]),
+
     Client9 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, {options, [{key, 'key.pem'} 
 						       | ClientOpts]}]),
@@ -1187,11 +1198,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client9, {error, {eoptions, {key, 'key.pem'}}}),
     
     Server10 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{password, foo} | ServerOpts]}]),
+
     Client10 = 
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{password, foo} | ClientOpts]}]),
@@ -1199,11 +1211,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client10, {error, {eoptions, {password, foo}}}),
     %% Misc
     Server11 =
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 			    {options, [{ssl_imp, cool} | ServerOpts]}]),
+    
     Client11 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{ssl_imp, cool} | ClientOpts]}]),
@@ -1211,11 +1224,12 @@ eoptions(Config) when is_list(Config) ->
 		    Client11, {error, {eoptions, {ssl_imp, cool}}}),
 
     Server12 = 
-	ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port}, 
+	ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
 					 {from, self()},
 		      {options, [{debug, cool} | ServerOpts]}]),
+
     Client12 =
-	ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+	ssl_test_lib:start_client_error([{node, ClientNode}, {port, 0}, 
 			    {host, Hostname},
 			    {from, self()}, 
 			    {options, [{debug, cool} | ClientOpts]}]),
@@ -1874,17 +1888,19 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 		  | ?config(server_verification_opts, Config)],
     BadClientOpts = ?config(client_opts, Config),
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-    Port = ssl_test_lib:inet_port(ServerNode),
 
+    Port  = ssl_test_lib:inet_port(ServerNode),
+    
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, Port},
 					      {from, self()},
 			   {mfa, {?MODULE, send_recv_result, []}},
 			   {options, [{active, false} | ServerOpts]}]),
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port},
-					{host, Hostname},
-			   {from, self()},
-			   {mfa, {?MODULE, send_recv_result, []}},
-			   {options, [{active, false} | BadClientOpts]}]),
+
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
+					      {host, Hostname},
+					      {from, self()},
+					      {mfa, {?MODULE, send_recv_result, []}},
+					      {options, [{active, false} | BadClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, esslaccept},
 			      Client, {error, esslconnect}),
@@ -2144,6 +2160,99 @@ server_no_wrap_sequence_number(Config) when is_list(Config) ->
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     ok.
+
+%%--------------------------------------------------------------------
+extended_key_usage(doc) -> 
+    ["Test cert that has a critical extended_key_usage extension"];
+
+extended_key_usage(suite) -> 
+    [];
+
+extended_key_usage(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
+   
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+    NewCertFile = filename:join(PrivDir, "cert.pem"),
+     
+    {ok, [{cert, DerCert, _}]} = public_key:pem_to_der(CertFile),
+    
+    {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
+    
+    {ok, Key} = public_key:decode_private_key(KeyInfo),
+
+    {ok, OTPCert} = public_key:pkix_decode_cert(DerCert, otp),
+    
+    ExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-serverAuth']},
+
+    OTPTbsCert = OTPCert#'OTPCertificate'.tbsCertificate,
+    
+    Extensions =  OTPTbsCert#'OTPTBSCertificate'.extensions,
+
+    NewOTPTbsCert = OTPTbsCert#'OTPTBSCertificate'{extensions = [ExtKeyUsageExt |Extensions]},
+
+    NewDerCert = public_key:sign(NewOTPTbsCert, Key), 
+    
+    public_key:der_to_pem(NewCertFile, [{cert, NewDerCert}]),
+    
+    NewServerOpts = [{certfile, NewCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, NewServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+validate_extensions_fun(doc) -> 
+    ["Test that it is possible to specify a validate_extensions_fun"];
+
+validate_extensions_fun(suite) -> 
+    [];
+
+validate_extensions_fun(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    DataDir = ?config(data_dir, Config),
+    
+    Fun = fun(Extensions, State, _, AccError) ->
+		  {Extensions, State, AccError}
+	  end,
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, [{validate_extensions_fun, Fun}, 
+						   {verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options,[{validate_extensions_fun, Fun} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 %%% Internal functions

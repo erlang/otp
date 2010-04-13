@@ -129,7 +129,11 @@ remove_close_msg(ReconnectTimes) ->
 	    
 
 start_client(Args) ->
-    spawn_link(?MODULE, run_client, [Args]).
+    Result = spawn_link(?MODULE, run_client, [Args]),
+    receive 
+	connected ->
+	    Result
+    end.
 
 run_client(Opts) ->
     Node = proplists:get_value(node, Opts),
@@ -140,6 +144,7 @@ run_client(Opts) ->
     test_server:format("ssl:connect(~p, ~p, ~p)~n", [Host, Port, Options]),
     case rpc:call(Node, ssl, connect, [Host, Port, Options]) of
 	{ok, Socket} ->
+	    Pid ! connected,
 	    test_server:format("Client: connected~n", []), 
 	    case proplists:get_value(port, Options) of
 		0 ->
@@ -271,7 +276,7 @@ cert_options(Config) ->
 				   "badcert.pem"]),
     BadKeyFile = filename:join([?config(priv_dir, Config), 
 			      "badkey.pem"]),
-    [{client_opts, [{ssl_imp, new}]}, 
+    [{client_opts, [{ssl_imp, new},{reuseaddr, true}]}, 
      {client_verification_opts, [{cacertfile, ClientCaCertFile}, 
 				{certfile, ClientCertFile},  
 				{keyfile, ClientKeyFile},
@@ -370,7 +375,7 @@ run_upgrade_client(Opts) ->
     test_server:format("gen_tcp:connect(~p, ~p, ~p)~n", 
 		       [Host, Port, TcpOptions]),
     {ok, Socket} = rpc:call(Node, gen_tcp, connect, [Host, Port, TcpOptions]),
-    
+
     case proplists:get_value(port, Opts) of
 	0 ->
 	    {ok, {_, NewPort}} = inet:sockname(Socket),	 

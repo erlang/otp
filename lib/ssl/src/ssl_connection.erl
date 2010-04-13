@@ -436,15 +436,16 @@ certify(#certificate{asn1_certificates = []},
 
 certify(#certificate{} = Cert, 
         #state{negotiated_version = Version,
+	       role = Role,
 	       cert_db_ref = CertDbRef,
 	       ssl_options = Opts} = State) ->
     case ssl_handshake:certify(Cert, CertDbRef, Opts#ssl_options.depth, 
 			       Opts#ssl_options.verify,
-			       Opts#ssl_options.verify_fun) of
+			       Opts#ssl_options.verify_fun,
+			       Opts#ssl_options.validate_extensions_fun, Role) of
         {PeerCert, PublicKeyInfo} ->
 	    handle_peer_cert(PeerCert, PublicKeyInfo, 
-			     State#state{client_certificate_requested 
-					 = false});
+			     State#state{client_certificate_requested = false});
 	#alert{} = Alert ->
             handle_own_alert(Alert, Version, certify_certificate, State),
             {stop, normal, State}

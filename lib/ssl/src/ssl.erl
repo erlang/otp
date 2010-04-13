@@ -547,6 +547,7 @@ handle_options(Opts0, Role) ->
       fail_if_no_peer_cert = validate_option(fail_if_no_peer_cert, 
 					     FailIfNoPeerCert),
       verify_client_once =  handle_option(verify_client_once, Opts, false),
+      validate_extensions_fun = handle_option(validate_extensions_fun, Opts, undefined),
       depth      = handle_option(depth,  Opts, 1),
       certfile   = CertFile,
       keyfile    = handle_option(keyfile,  Opts, CertFile),
@@ -563,7 +564,7 @@ handle_options(Opts0, Role) ->
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed}),    
-    SslOptions = [versions, verify, verify_fun, 
+    SslOptions = [versions, verify, verify_fun, validate_extensions_fun, 
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, certfile, keyfile,
 		  key, password, cacertfile, dhfile, ciphers,
@@ -597,6 +598,9 @@ validate_option(fail_if_no_peer_cert, Value)
     Value;
 validate_option(verify_client_once, Value) 
   when Value == true; Value == false ->
+    Value;
+
+validate_option(validate_extensions_fun, Value) when Value == undefined; is_function(Value) ->
     Value;
 validate_option(depth, Value) when is_integer(Value), 
                                    Value >= 0, Value =< 255->

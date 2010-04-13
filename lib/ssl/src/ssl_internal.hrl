@@ -57,6 +57,8 @@
 	  verify_fun, % fun(CertVerifyErrors) -> boolean()
 	  fail_if_no_peer_cert, % boolean()
 	  verify_client_once,  % boolean()
+	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
+	  validate_extensions_fun, 
 	  depth,      % integer()
 	  certfile,   % file()
 	  keyfile,    % file()

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -29,10 +29,12 @@
 -include("ssl_alert.hrl").
 -include("ssl_internal.hrl").
 -include("ssl_debug.hrl").
+-include_lib("public_key/include/public_key.hrl"). 
 
 -export([trusted_cert_and_path/3, 
 	 certificate_chain/2, 
-	 file_to_certificats/1]).
+	 file_to_certificats/1,
+	 validate_extensions/6]).
  
 %%====================================================================
 %% Internal application API
@@ -87,6 +89,30 @@ file_to_certificats(File) ->
     {ok, List} = ssl_manager:cache_pem_file(File),
     [Bin || {cert, Bin, not_encrypted} <- List].
 
+
+%% Validates ssl/tls specific extensions
+validate_extensions([], ValidationState, UnknownExtensions, _, AccErr, _) -> 
+    {UnknownExtensions, ValidationState, AccErr};
+
+validate_extensions([#'Extension'{extnID = ?'id-ce-extKeyUsage',
+				  extnValue = KeyUse,
+				  critical = true} | Rest], 
+		    ValidationState, UnknownExtensions, Verify, AccErr0, Role) ->
+    case is_valid_extkey_usage(KeyUse, Role) of
+	true ->
+	    validate_extensions(Rest, ValidationState, UnknownExtensions, 
+				Verify, AccErr0, Role);
+	false ->
+	    AccErr = 
+		not_valid_extension({bad_cert, invalid_ext_key_usage}, Verify, AccErr0),
+	    validate_extensions(Rest, ValidationState, UnknownExtensions, Verify, AccErr, Role)
+    end;
+
+validate_extensions([Extension | Rest],  ValidationState, UnknownExtensions, 
+		    Verify, AccErr, Role) ->
+    validate_extensions(Rest, ValidationState, [Extension | UnknownExtensions],
+		       Verify, AccErr, Role).
+    
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -154,3 +180,18 @@ not_valid(Alert, true, _) ->
     throw(Alert);
 not_valid(_, false, {ErlCert, Path}) ->
     {ErlCert, Path, [{bad_cert, unknown_ca}]}.
+
+is_valid_extkey_usage(KeyUse, client) ->
+    %% Client wants to verify server
+    is_valid_key_usage(KeyUse,?'id-kp-serverAuth');
+is_valid_extkey_usage(KeyUse, server) ->
+    %% Server wants to verify client
+    is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
+
+is_valid_key_usage(KeyUse, Use) ->
+    lists:member(Use, KeyUse).
+
+not_valid_extension(Error, true, _) ->
+    throw(Error);
+not_valid_extension(Error, false, AccErrors) ->
+    [Error | AccErrors].

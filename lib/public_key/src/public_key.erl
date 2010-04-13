@@ -28,7 +28,7 @@
 	 encrypt_public/3, decrypt_public/2, decrypt_public/3, 
 	 encrypt_private/2, encrypt_private/3, gen_key/1, sign/2, sign/3,
 	 verify_signature/3, verify_signature/4, verify_signature/5,
-	 pem_to_der/1, pem_to_der/2,
+	 pem_to_der/1, pem_to_der/2, der_to_pem/2,
 	 pkix_decode_cert/2, pkix_encode_cert/1, pkix_transform/2,
 	 pkix_is_self_signed/1, pkix_is_fixed_dh_cert/1,
 	 pkix_issuer_id/2,
@@ -163,6 +163,10 @@ pem_to_der(File, Password) when is_list(File) ->
     pubkey_pem:read_file(File, Password);
 pem_to_der(PemBin, Password) when is_binary(PemBin) ->
     pubkey_pem:decode(PemBin, Password).
+
+der_to_pem(File, TypeDerList) ->
+    pubkey_pem:write_file(File, TypeDerList).
+
 %%--------------------------------------------------------------------
 %% Function: pkix_decode_cert(BerCert, Type) -> {ok, Cert} | {error, Reason}
 %%
@@ -314,9 +318,10 @@ sign(Msg, #'RSAPrivateKey'{} = Key) when is_binary(Msg) ->
 sign(Msg, #'DSAPrivateKey'{} = Key) when is_binary(Msg) ->
     pubkey_crypto:sign(Msg, Key);
 
-sign(#'OTPTBSCertificate'{signature = SigAlg} = TBSCert, Key) ->
+sign(#'OTPTBSCertificate'{signature = #'SignatureAlgorithm'{algorithm = Alg} 
+			  = SigAlg} = TBSCert, Key) ->
     Msg = pubkey_cert_records:encode_tbs_cert(TBSCert),
-    DigestType = pubkey_cert:digest_type(SigAlg),
+    DigestType = pubkey_cert:digest_type(Alg),
     Signature = pubkey_crypto:sign(DigestType, Msg, Key),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,

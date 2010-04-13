@@ -32,7 +32,7 @@
 -include_lib("public_key/include/public_key.hrl").
 
 -export([master_secret/4, client_hello/4, server_hello/3, hello/2,
-	 hello_request/0, certify/5, certificate/3, 
+	 hello_request/0, certify/7, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
 	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
@@ -161,10 +161,25 @@ hello(#client_hello{client_version = ClientVersion, random = Random} = Hello,
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
 certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef, 
-	MaxPathLen, Verify, VerifyFun) -> 
+	MaxPathLen, Verify, VerifyFun, ValidateFun, Role) -> 
     [PeerCert | _] = ASN1Certs,
     VerifyBool =  verify_bool(Verify),
-  
+      
+    ValidateExtensionFun = 
+	case ValidateFun of
+	    undefined ->
+		fun(Extensions, ValidationState, Verify0, AccError) ->
+			ssl_certificate:validate_extensions(Extensions, ValidationState,
+							   [], Verify0, AccError, Role)
+		end;
+	    Fun ->
+		fun(Extensions, ValidationState, Verify0, AccError) ->
+		 {NewExtensions, NewValidationState, NewAccError} 
+			    = ssl_certificate:validate_extensions(Extensions, ValidationState,
+								  [], Verify0, AccError, Role),
+			Fun(NewExtensions, NewValidationState, Verify0, NewAccError)
+		end
+	end,
     try
 	%% Allow missing root_cert and check that with VerifyFun
 	ssl_certificate:trusted_cert_and_path(ASN1Certs, CertDbRef, false) of
@@ -174,6 +189,8 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
 						     [{max_path_length, 
 						       MaxPathLen},
 						      {verify, VerifyBool},
+						      {validate_extensions_fun, 
+						       ValidateExtensionFun},
 						      {acc_errors, 
 						       VerifyErrors}]),
 	    case Result of

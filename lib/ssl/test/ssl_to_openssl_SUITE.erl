@@ -32,6 +32,7 @@
 -define(SLEEP, 1000).
 -define(OPENSSL_RENEGOTIATE, "r\n").
 -define(OPENSSL_QUIT, "Q\n").
+-define(OPENSSL_GARBAGE, "P\n").
 
 %% Test server callback functions
 %%--------------------------------------------------------------------
@@ -131,7 +132,8 @@ all(suite) ->
      tls1_erlang_client_openssl_server_client_cert,
      tls1_erlang_server_openssl_client_client_cert,
      tls1_erlang_server_erlang_client_client_cert,
-     ciphers
+     ciphers,
+     erlang_client_bad_openssl_server
     ].
 
 %% Test cases starts here.
@@ -945,6 +947,52 @@ cipher(CipherSuite, Version, Config) ->
     Return.
 
 %%--------------------------------------------------------------------
+erlang_client_bad_openssl_server(doc) ->
+    [""];
+erlang_client_bad_openssl_server(suite) ->
+    [];
+erlang_client_bad_openssl_server(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_verification_opts, Config),  
+    ClientOpts = ?config(client_verification_opts, Config),  
+
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    test_server:sleep(?SLEEP),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, server_sent_garbage, []}},
+					{options, 
+					 [{versions, [tlsv1]} | ClientOpts]}]),
+    
+    %% Send garbage
+    port_command(OpensslPort, ?OPENSSL_GARBAGE),
+    
+    test_server:sleep(?SLEEP),
+
+    Client ! server_sent_garbage,
+
+    ssl_test_lib:check_result(Client, true),
+
+    ssl_test_lib:close(Client),
+    %% Clean close down!
+    close_port(OpensslPort),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
 
 erlang_ssl_receive(Socket, Data) ->
     test_server:format("Connection info: ~p~n", 
@@ -1014,3 +1062,13 @@ close_loop(Port, Time, SentClose) ->
 		    io:format("Timeout~n",[])
 	    end
     end.
+
+
+server_sent_garbage(Socket) ->
+    receive 
+	server_sent_garbage ->
+	    {error, closed} == ssl:send(Socket, "data")
+    end.
+    
+
+
