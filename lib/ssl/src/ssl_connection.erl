@@ -768,7 +768,7 @@ handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, 
     {stop, normal, State};
 
 handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, From}} = State)  when is_pid(From) ->
+	     #state{log_alert = Log, renegotiation = {true, From}} = State) when not is_atom(From) ->
     log_alert(Log, StateName, Alert),
     gen_fsm:reply(From, {error, renegotiation_rejected}),
     {next_state, connection, next_record(State)};
@@ -2121,7 +2121,7 @@ notify_senders(SendQueue) ->
  			  gen_fsm:reply(From, {error, closed})
  		  end, queue:to_list(SendQueue)).
 
-notify_renegotiater({true, From}) when is_pid(From)  ->
+notify_renegotiater({true, From}) when not is_atom(From)  ->
     gen_fsm:reply(From, {error, closed});
 notify_renegotiater(_) ->
     ok.
