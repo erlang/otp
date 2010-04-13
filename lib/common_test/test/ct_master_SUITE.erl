@@ -99,7 +99,8 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
 	NodeNames),
 
     NS = lists:map(fun(NodeName)->
-	     {node_start, NodeName, [{startup_functions, [{io, format, ["hello, world~n"]}]}]}
+	     {node_start, NodeName, [{startup_functions, [{io, format, ["hello, world~n"]}]},
+				     {monitor_master, true}]}
 	 end,
 	 NodeNames),
 

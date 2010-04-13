@@ -710,12 +710,11 @@ start_nodes([{NodeName, Options}|Rest])->
     Host=list_to_atom(HostS),
     {value, {callback_module, Callback}, Options2}=
 	lists:keytake(callback_module, 1, Options),
-    io:format("Starting node ~p on host ~p with callback ~p...~n", [Node, Host, Callback]),
     case Callback:start(Host, Node, Options2) of
 	{ok, NodeName} ->
-	    io:format("Node ~p started successfully~n", [NodeName]);
+	    io:format("Node ~p started successfully with callback ~p~n", [NodeName,Callback]);
 	{error, Reason, _NodeName} ->
-	    io:format("Failed to start node ~p! Reason: ~p~n", [NodeName, Reason])
+	    io:format("Failed to start node ~p with callback ~p! Reason: ~p~n", [NodeName, Callback, Reason])
     end,
     start_nodes(Rest).
 

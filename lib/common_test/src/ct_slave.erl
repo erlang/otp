@@ -134,7 +134,7 @@ start(Host, Node)->
 %%% </list></p>
 %%%
 %%% <p>Option <code>monitor_master</code> specifies, if the slave node should be
-%%% stopped in case of master node stop. Defaults to true.</p>
+%%% stopped in case of master node stop. Defaults to false.</p>
 %%%
 %%% <p>Option <code>kill_if_fail</code> specifies, if the slave node should be
 %%% killed in case of a timeout during initialization or startup.
@@ -222,7 +222,7 @@ fetch_options(Options)->
     InitTimeout = get_option_value(init_timeout, Options, 1),
     StartupTimeout = get_option_value(startup_timeout, Options, 1),
     StartupFunctions = get_option_value(startup_functions, Options, []),
-    Monitor = get_option_value(monitor_master, Options, true),
+    Monitor = get_option_value(monitor_master, Options, false),
     KillIfFail = get_option_value(kill_if_fail, Options, true),
     ErlFlags = get_option_value(erl_flags, Options, []),
     #options{username=UserName, password=Password,
