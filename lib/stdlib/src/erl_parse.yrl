@@ -994,7 +994,7 @@ inop_prec('#') -> {800,700,800};
 inop_prec(':') -> {900,800,900};
 inop_prec('.') -> {900,900,1000}.
 
--type pre_op() :: 'catch' | '+' | '-' | 'bnot' | '#'.
+-type pre_op() :: 'catch' | '+' | '-' | 'bnot' | 'not' | '#'.
 
 -spec preop_prec(pre_op()) -> {0 | 600 | 700, 100 | 700 | 800}.
 
