@@ -192,26 +192,18 @@
 #define FAMILY      AF_INET6
 
 #define SET_ADDR_LOOPBACK(addr, af, port) do { \
-    static u_int32_t __addr[4] = IN6ADDR_LOOPBACK_INIT; \
     memset((char*)&(addr), 0, sizeof(addr)); \
     (addr).sin6_family = (af); \
     (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr.s6_addr32[0] = __addr[0]; \
-    (addr).sin6_addr.s6_addr32[1] = __addr[1]; \
-    (addr).sin6_addr.s6_addr32[2] = __addr[2]; \
-    (addr).sin6_addr.s6_addr32[3] = __addr[3]; \
+    (addr).sin6_addr = in6addr_loopback; \
     (addr).sin6_port = htons(port); \
  } while(0)
 
 #define SET_ADDR_ANY(addr, af, port) do { \
-    static u_int32_t __addr[4] = IN6ADDR_ANY_INIT; \
     memset((char*)&(addr), 0, sizeof(addr)); \
     (addr).sin6_family = (af); \
     (addr).sin6_flowinfo = 0; \
-    (addr).sin6_addr.s6_addr32[0] = __addr[0]; \
-    (addr).sin6_addr.s6_addr32[1] = __addr[1]; \
-    (addr).sin6_addr.s6_addr32[2] = __addr[2]; \
-    (addr).sin6_addr.s6_addr32[3] = __addr[3]; \
+    (addr).sin6_addr = in6addr_any; \
     (addr).sin6_port = htons(port); \
  } while(0)
 

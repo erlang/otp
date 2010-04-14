@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(inet6_tcp_dist).
@@ -87,7 +87,7 @@ accept(Listen) ->
 accept_loop(Kernel, Listen) ->
     case inet6_tcp:accept(Listen) of
         {ok, Socket} ->
-            Kernel ! {accept,self(),Socket,inet,tcp},
+            Kernel ! {accept,self(),Socket,inet6,tcp},
             controller(Kernel, Socket),
             accept_loop(Kernel, Listen);
         Error ->
@@ -236,8 +236,8 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
                               timer = Timer,
                               this_flags = 0,
                               other_version = Version,
-			      f_send = fun inet_tcp:send/2,
-			      f_recv = fun inet_tcp:recv/3,
+			      f_send = fun inet6_tcp:send/2,
+			      f_recv = fun inet6_tcp:recv/3,
                               f_setopts_pre_nodeup = 
                               fun(S) ->
                                       inet:setopts
@@ -262,7 +262,7 @@ do_setup(Kernel, Node, Type, MyNode, LongOrShortNames,SetupTime) ->
                                    address = {Ip,TcpPort},
                                    host = Address,
                                    protocol = tcp,
-                                   family = inet}
+                                   family = inet6}
                               end,
 			      mf_tick = fun ?MODULE:tick/1,
 			      mf_getstat = fun ?MODULE:getstat/1,
@@ -302,12 +302,17 @@ splitnode(Node, LongOrShortNames) ->
             Host = lists:append(Tail),
             case split_node(Host, $., []) of
                 [_] when LongOrShortNames =:= longnames ->
-                    error_msg("** System running to use "
-                              "fully qualified "
-                              "hostnames **~n"
-                              "** Hostname ~s is illegal **~n",
-                              [Host]),
-                    ?shutdown(Node);
+                    case inet_parse:ipv6strict_address(Host) of
+                        {ok, _} ->
+                            [Name, Host];
+                        _ ->
+                            error_msg("** System running to use "
+                                      "fully qualified "
+                                      "hostnames **~n"
+                                      "** Hostname ~s is illegal **~n",
+                                      [Host]),
+                            ?shutdown(Node)
+                    end;
                 L when length(L) > 1, LongOrShortNames =:= shortnames ->
                     error_msg("** System NOT running to use fully qualified "
                               "hostnames **~n"
