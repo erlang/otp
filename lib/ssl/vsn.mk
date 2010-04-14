@@ -23,7 +23,8 @@ TICKETS = OTP-8517 \
 	  OTP-7046 \
           OTP-8557 \
 	  OTP-8560 \
-	  OTP-8545 
+	  OTP-8545 \
+	  OTP-8554
 
 #TICKETS_3.10.9 = OTP-8510
 
