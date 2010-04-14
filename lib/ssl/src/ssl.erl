@@ -519,6 +519,9 @@ handle_options(Opts0, Role) ->
 		end
 	end,
 
+    UserFailIfNoPeerCert = validate_option(fail_if_no_peer_cert, 
+					   proplists:get_value(fail_if_no_peer_cert, Opts, false)),
+
     {Verify, FailIfNoPeerCert, CaCertDefault} = 
 	%% Handle 0, 1, 2 for backwards compatibility
 	case proplists:get_value(verify, Opts, verify_none) of
@@ -531,9 +534,7 @@ handle_options(Opts0, Role) ->
 	    verify_none ->
 		{verify_none, false, ca_cert_default(verify_none, Role)};
 	    verify_peer ->
-		{verify_peer, proplists:get_value(fail_if_no_peer_cert,
-						  Opts, false),
-		 ca_cert_default(verify_peer, Role)};
+		{verify_peer, UserFailIfNoPeerCert, ca_cert_default(verify_peer, Role)};
 	    Value ->
 		throw({error, {eoptions, {verify, Value}}})
 	end,   
@@ -544,8 +545,7 @@ handle_options(Opts0, Role) ->
       versions   = handle_option(versions, Opts, []),
       verify     = validate_option(verify, Verify),
       verify_fun = handle_option(verify_fun, Opts, VerifyFun),
-      fail_if_no_peer_cert = validate_option(fail_if_no_peer_cert, 
-					     FailIfNoPeerCert),
+      fail_if_no_peer_cert = FailIfNoPeerCert,
       verify_client_once =  handle_option(verify_client_once, Opts, false),
       validate_extensions_fun = handle_option(validate_extensions_fun, Opts, undefined),
       depth      = handle_option(depth,  Opts, 1),
@@ -631,6 +631,8 @@ validate_option(ciphers, Value)  when is_list(Value) ->
     try cipher_suites(Version, Value)
     catch
 	exit:_ ->
+	    throw({error, {eoptions, {ciphers, Value}}});
+	error:_->
 	    throw({error, {eoptions, {ciphers, Value}}})
     end;
 validate_option(reuse_session, Value) when is_function(Value) ->
@@ -652,7 +654,7 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.1';
                                                    Version == tlsv1; 
                                                    Version == sslv3 ->
     validate_versions(Rest, Versions);					   
-validate_versions(Ver, Versions) ->
+validate_versions([Ver| _], Versions) ->
     throw({error, {eoptions, {Ver, {versions, Versions}}}}).
 
 validate_inet_option(mode, Value)
