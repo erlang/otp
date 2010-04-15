@@ -166,7 +166,7 @@ t_list_to_float_safe(Config) when is_list(Config) ->
 
 t_list_to_float_risky(Config) when is_list(Config) ->
     ?line Many_Ones = lists:duplicate(25000, $1),
-    ?line list_to_float("2."++Many_Ones),
+    ?line _ = list_to_float("2."++Many_Ones),
     ?line {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
     ok.
 
@@ -186,7 +186,7 @@ t_list_to_integer(Config) when is_list(Config) ->
 
     %% Bignums.
     ?line 123456932798748738738 = list_to_integer("123456932798748738738"),
-    ?line list_to_integer(lists:duplicate(2000, $1)),
+    ?line _ = list_to_integer(lists:duplicate(2000, $1)),
     ok.
 
 %% Tests round/1.

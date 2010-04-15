@@ -41,7 +41,7 @@ float_sub(A)->
 float_mul(0, _, _)->
     ok;
 float_mul(Iter, A, B) when is_float(A), is_float(B) ->
-    A*B,
+    _ = A*B,
     float_mul(Iter-1, A, B).
 
 %% Thanks to Mikael Pettersson and Tobias Lindahl (HiPE).
