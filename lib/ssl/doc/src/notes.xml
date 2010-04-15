@@ -30,6 +30,67 @@
   </header>
   <p>This document describes the changes made to the SSL application.
     </p>
+<section><title>SSL 3.11</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixes handling of the option fail_if_no_peer_cert and
+            some undocumented options. Thanks to Rory Byrne.</p>
+          <p>
+            Own Id: OTP-8557</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Support for Diffie-Hellman. ssl-3.11 requires
+            public_key-0.6.</p>
+          <p>
+            Own Id: OTP-7046</p>
+        </item>
+        <item>
+          <p>
+            New ssl now properly handles ssl renegotiation, and
+            initiates a renegotiation if ssl/ltls-sequence numbers
+            comes close to the max value. However RFC-5746 is not yet
+            supported, but will be in an upcoming release.</p>
+          <p>
+            Own Id: OTP-8517</p>
+        </item>
+        <item>
+          <p>
+            When gen_tcp is configured with the {packet,http} option,
+            it automatically switches to expect HTTP Headers after a
+            HTTP Request/Response line has been received. This update
+            fixes ssl to behave in the same way. Thanks to Rory
+            Byrne.</p>
+          <p>
+            Own Id: OTP-8545</p>
+        </item>
+        <item>
+          <p>
+            Ssl now correctly verifies the extended_key_usage
+            extension and also allows the user to verify application
+            specific extensions by supplying an appropriate fun.</p>
+          <p>
+            Own Id: OTP-8554 Aux Id: OTP-8553 </p>
+        </item>
+        <item>
+          <p>
+            Fixed ssl:transport_accept/2 to return properly when
+            socket is closed. Thanks to Rory Byrne.</p>
+          <p>
+            Own Id: OTP-8560</p>
+        </item>
+      </list>
+    </section>
+
+</section>
 
 <section><title>SSL 3.10.9</title>
 

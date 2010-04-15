@@ -33,6 +33,27 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+<section><title>Public_Key 0.6</title>
+
+<section><title>Improvements and New Features</title>
+<list>
+  <item>
+    <p>
+      Support for Diffie-Hellman. ssl-3.11 requires
+    public_key-0.6.</p>
+    <p>
+    Own Id: OTP-7046</p>
+  </item>
+  <item>
+    <p>
+    Moved extended key usage test for ssl values to ssl.</p>
+    <p>
+    Own Id: OTP-8553 Aux Id: seq11541, OTP-8554 </p>
+  </item>
+</list>
+</section>
+
+</section>
 
 <section><title>Public_Key 0.5</title>
 
