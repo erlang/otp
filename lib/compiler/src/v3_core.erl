@@ -128,6 +128,7 @@
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
 	       fcount=0 :: non_neg_integer(),	%Function counter
 	       in_guard=false :: boolean(),	%In guard or not.
+	       wanted=true :: boolean(),	%Result wanted or not.
 	       opts     :: [compile:option()],	%Options.
 	       es=[]    :: [error()],		%Errors.
 	       ws=[]    :: [warning()],		%Warnings.
@@ -580,10 +581,14 @@ expr({'fun',L,{function,F,A},{_,_,_}=Id}, St) ->
     {#c_var{anno=Lanno++[{id,Id}],name={F,A}},[],St};
 expr({'fun',L,{clauses,Cs},Id}, St) ->
     fun_tq(Id, Cs, L, St);
-expr({call,L,{remote,_,M,F},As0}, St0) ->
+expr({call,L,{remote,_,M,F},As0}, #core{wanted=Wanted}=St0) ->
     {[M1,F1|As1],Aps,St1} = safe_list([M,F|As0], St0),
     Lanno = lineno_anno(L, St1),
-    {#icall{anno=#a{anno=Lanno},module=M1,name=F1,args=As1},Aps,St1};
+    Anno = case Wanted of
+	       false -> [result_not_wanted|Lanno];
+	       true -> Lanno
+	   end,
+    {#icall{anno=#a{anno=Anno},module=M1,name=F1,args=As1},Aps,St1};
 expr({call,Lc,{atom,Lf,F},As0}, St0) ->
     {As1,Aps,St1} = safe_list(As0, St0),
     Op = #c_var{anno=lineno_anno(Lf, St1),name={F,length(As1)}},
@@ -596,23 +601,28 @@ expr({call,L,FunExp,As0}, St0) ->
 expr({match,L,P0,E0}, St0) ->
     %% First fold matches together to create aliases.
     {P1,E1} = fold_match(E0, P0),
-    {E2,Eps,St1} = novars(E1, St0),
+    St1 = case P1 of
+	      {var,_,'_'} -> St0#core{wanted=false};
+	      _ -> St0
+	  end,
+    {E2,Eps,St2} = novars(E1, St1),
+    St3 = St2#core{wanted=St0#core.wanted},
     P2 = try
-	     pattern(P1, St1)
+	     pattern(P1, St3)
 	 catch
 	     throw:Thrown ->
 		 Thrown
 	 end,
-    {Fpat,St2} = new_var(St1),
+    {Fpat,St4} = new_var(St3),
     Fc = fail_clause([Fpat], c_tuple([#c_literal{val=badmatch},Fpat])),
-    Lanno = lineno_anno(L, St2),
+    Lanno = lineno_anno(L, St4),
     case P2 of
 	nomatch ->
-	    St = add_warning(L, nomatch, St2),
+	    St = add_warning(L, nomatch, St4),
 	    {#icase{anno=#a{anno=Lanno},
 		    args=[E2],clauses=[],fc=Fc},Eps,St};
 	Other when not is_atom(Other) ->
-	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps,St2}
+	    {#imatch{anno=#a{anno=Lanno},pat=P2,arg=E2,fc=Fc},Eps,St4}
     end;
 expr({op,_,'++',{lc,Llc,E,Qs},More}, St0) ->
     %% Optimise '++' here because of the list comprehension algorithm.

@@ -375,7 +375,12 @@ effect(Config) when is_list(Config) ->
                 comp_op ->
                     X =:= 2;
                 cookie ->
-                    erlang:get_cookie()
+                    erlang:get_cookie();
+		result_ignore ->
+                    _ = list_to_integer(X);
+                warn_lc_4 ->
+                    %% No warning because of assignment to _.
+                    [_ = abs(Z) || Z <- [1,2,3]]
                end,
                ok.
 
