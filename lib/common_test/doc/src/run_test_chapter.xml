@@ -383,6 +383,9 @@
       {event_handler, NodeRefs, EventHandlers}.
       {event_handler, EventHandlers, InitArgs}.
       {event_handler, NodeRefs, EventHandlers, InitArgs}.
+
+      {eval, [{Module, Function, Arguments}]}.
+      {eval, [NodeAlias], [{Module, Function, Arguments}]}.
     </pre>
       <p>Test terms:</p>
     <pre>
@@ -455,9 +458,20 @@
       <item>Secondly, the test for system t2 should run. The included suites are
 	t2B and t2C. Included are also test cases test4, test1 and test7 in suite
 	t2A. Note that the test cases will be executed in the specified order.</item>
-      <item>Lastly, all suites for systems t3 are to be completely skipped and this 
+      <item>Lastly, all suites for systems t3 are to be completely skipped and this
 	should be explicitly noted in the log files.</item>
     </list>
+    <p>It is possible to evaluate any function(s) during processing of the test
+      specification. This feature may be used e.g. to add some directories to
+      the code path, initialise some ETS table etc. New <c>eval</c> terms can be
+      used for this purpose.
+      If only a list of functions is given, then all functions from the list
+      will be consequently applied on the current node. If at least one node
+      alias is given, then the functions will be called remotely on all nodes
+      specified. Please note that in case when node is defined to be started by
+      the CT Master, the evaluation will be deferred.
+      See the <seealso marker="ct_master_chapter#ct_slave">Automatic startup of
+      the test target nodes</seealso> chapter for details.</p>
     <p>It is possible for the user to provide a test specification that
       includes (for Common Test) unrecognizable terms. If this is desired,
       the <c>-allow_user_terms</c> flag should be used when starting tests with
