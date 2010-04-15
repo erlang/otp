@@ -163,9 +163,9 @@ all(suite) ->
      server_verify_none_passive, server_verify_none_active, 
      server_verify_none_active_once, server_verify_no_cacerts,
      server_require_peer_cert_ok, server_require_peer_cert_fail,
-     %server_verify_client_once_passive,
-     %server_verify_client_once_active,
-     %server_verify_client_once_active_once,
+     server_verify_client_once_passive,
+     server_verify_client_once_active,
+     server_verify_client_once_active_once,
      client_verify_none_passive,
      client_verify_none_active, client_verify_none_active_once
      %%, session_cache_process_list, session_cache_process_mnesia
@@ -317,7 +317,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Client, ?LINE),
 
     %% Test that clients die when process disappear
-    Server ! listen, test_server:sleep(?SLEEP),
+    Server ! listen, 
     Tester = self(),
     Connect = fun(Pid) ->
 		      {ok, Socket} = ssl:connect(Hostname, Port, 
@@ -331,7 +331,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Client2, ?LINE),
     
     %% Test that clients die when the controlling process have changed 
-    Server ! listen, test_server:sleep(?SLEEP),
+    Server ! listen, 
 
     Client3 = spawn_link(fun() -> Connect(Tester) end),
     Controller = spawn_link(fun() -> receive die_nice -> normal end end),
@@ -355,7 +355,7 @@ controller_dies(Config) when is_list(Config) ->
     get_close(Controller, ?LINE),
     
     %% Test that servers die
-    Server ! listen, test_server:sleep(?SLEEP),
+    Server ! listen, 
     LastClient = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					    {host, Hostname},
 					    {from, self()}, 
@@ -1715,12 +1715,12 @@ server_verify_client_once_passive(suite) ->
 
 server_verify_client_once_passive(Config) when is_list(Config) ->
     ClientOpts =  ?config(client_opts, Config),
-    ServerOpts =  ?config(server_opts, Config),  
+    ServerOpts =  ?config(server_verification_opts, Config),  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 					{mfa, {?MODULE, send_recv_result, []}},
-					{options, [{active, once}, {verify, verify_peer},
+					{options, [{active, false}, {verify, verify_peer},
 						   {verify_client_once, true}
 						   | ServerOpts]}]),
     Port  = ssl_test_lib:inet_port(Server),
@@ -1728,7 +1728,7 @@ server_verify_client_once_passive(Config) when is_list(Config) ->
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, send_recv_result, []}},
-					{options, [{active, once} | ClientOpts]}]),
+					{options, [{active, false} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client0, ok),
     ssl_test_lib:close(Client0),
@@ -1753,7 +1753,7 @@ server_verify_client_once_active(suite) ->
 
 server_verify_client_once_active(Config) when is_list(Config) ->
     ClientOpts =  ?config(client_opts, Config),
-    ServerOpts =  ?config(server_opts, Config),  
+    ServerOpts =  ?config(server_verification_opts, Config),  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
@@ -1792,7 +1792,7 @@ server_verify_client_once_active_once(suite) ->
 
 server_verify_client_once_active_once(Config) when is_list(Config) ->
     ClientOpts =  ?config(client_opts, Config),
-    ServerOpts =  ?config(server_opts, Config),  
+    ServerOpts =  ?config(server_verification_opts, Config),  
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
@@ -1884,7 +1884,7 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
-			   {mfa, {?MODULE, send_recv_result, []}},
+			   {mfa, {?MODULE, no_result, []}},
 			   {options, [{active, false} | ServerOpts]}]),
 
     Port  = ssl_test_lib:inet_port(Server),
@@ -1892,7 +1892,7 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
 					      {host, Hostname},
 					      {from, self()},
-					      {mfa, {?MODULE, send_recv_result, []}},
+					      {mfa, {?MODULE, no_result, []}},
 					      {options, [{active, false} | BadClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, esslaccept},
@@ -2267,7 +2267,7 @@ send_recv_result_active_once(Socket) ->
 	    ok
     end.
 
-result_ok(Socket) ->
+result_ok(_Socket) ->
     ok.
 
 renegotiate(Socket, Data) ->
