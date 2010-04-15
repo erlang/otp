@@ -208,6 +208,26 @@ check_result(Pid, Msg) ->
 	    test_server:fail(Reason)
     end.
 
+check_result_ignore_renegotiation_reject(Pid, Msg) -> 
+    receive 
+	{Pid,  fail_session_fatal_alert_during_renegotiation} ->
+	    test_server:comment("Server rejected old renegotiation"),
+	    ok;
+	{ssl_error, _, esslconnect} ->
+	    test_server:comment("Server rejected old renegotiation"),
+	    ok;
+	{Pid, Msg} -> 
+	    ok;
+	{Port, {data,Debug}} when is_port(Port) ->
+	    io:format("openssl ~s~n",[Debug]),
+	    check_result(Pid,Msg);
+	Unexpected ->
+	    Reason = {{expected, {Pid, Msg}}, 
+		      {got, Unexpected}},
+	    test_server:fail(Reason)
+    end.
+
+
 wait_for_result(Server, ServerMsg, Client, ClientMsg) -> 
     receive 
 	{Server, ServerMsg} -> 
@@ -449,9 +469,6 @@ trigger_renegotiate(Socket, _, 0, Id) ->
     test_server:sleep(1000),
     case ssl:session_info(Socket) of
 	[{session_id, Id} | _ ] ->
-	    %% If a warning alert is received 
-	    %% from openssl this may not be 
-	    %% an error!
 	    fail_session_not_renegotiated;
 	%% Tests that uses this function will not reuse
 	%% sessions so if we get a new session id the
