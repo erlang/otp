@@ -819,7 +819,13 @@ erl_start(int argc, char **argv)
     if (erts_sys_getenv("ERL_THREAD_POOL_SIZE", envbuf, &envbufsz) == 0) {
 	async_max_threads = atoi(envbuf);
     }
-    
+
+#if (defined(__APPLE__) && defined(__MACH__)) || defined(__DARWIN__)
+    /*
+     * The default stack size on MacOS X is too small for pcre.
+     */
+    erts_sched_thread_suggested_stack_size = 256;
+#endif
 
 #ifdef DEBUG
     verbose = DEBUG_DEFAULT;

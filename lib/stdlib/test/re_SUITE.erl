@@ -18,12 +18,12 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1]).
+-export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1]).
 
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371].
+all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371,pcre_compile_workspace_overflow].
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];
@@ -543,4 +543,12 @@ pcre_cve_2008_2371(doc) ->
 pcre_cve_2008_2371(Config) when is_list(Config) ->
     %% Make sure it doesn't crash the emulator.
     re:compile(<<"(?i)[\xc3\xa9\xc3\xbd]|[\xc3\xa9\xc3\xbdA]">>, [unicode]),
+    ok.
+
+pcre_compile_workspace_overflow(doc) ->
+    "Patch from http://vcs.pcre.org/viewvc/code/trunk/pcre_compile.c?r1=504&r2=505&view=patch";
+pcre_compile_workspace_overflow(Config) when is_list(Config) ->
+    N = 819,
+    ?line {error,{"internal error: overran compiling workspace",799}} =
+	re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]),
     ok.
