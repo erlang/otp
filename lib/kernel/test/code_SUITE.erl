@@ -543,8 +543,8 @@ add_del_path(Config) when is_list(Config) ->
     ?line code:del_path(Dir2),
     ?line PrivDir1 = code:priv_dir(dummy_app),
     ok.
-    
-    
+
+
 clash(Config) when is_list(Config) ->
     DDir = ?config(data_dir,Config)++"clash/",
     P = code:get_path(),
@@ -555,11 +555,11 @@ clash(Config) when is_list(Config) ->
     ?line true = code:del_path("."),
     ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
     ?line true = code:add_path(DDir++"zork-0.8/ebin"),
-    ?line test_server:capture_start(),
-    ?line code:clash(),
-    ?line test_server:capture_stop(),
-    ?line OKMsg = test_server:capture_get(),
-    ?line lists:prefix("** Found 0 name clashes in code paths", OKMsg),
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [OKMsg|_] = test_server:capture_get(),
+    ?line true = lists:prefix("** Found 0 name clashes", OKMsg),
     ?line true = code:set_path(P),
 
     %% test clashing entries
@@ -568,12 +568,28 @@ clash(Config) when is_list(Config) ->
     ?line true = code:del_path("."),
     ?line true = code:add_path(DDir++"foobar-0.1/ebin"),
     ?line true = code:add_path(DDir++"foobar-0.1.ez/foobar-0.1/ebin"),
-    ?line test_server:capture_start(),
-    ?line code:clash(),
-    ?line test_server:capture_stop(),
-    ?line [ErrMsg1|_] = test_server:capture_get(),
-    ?line {match, [" hides "]} = re:run(ErrMsg1, "\\*\\* .*( hides ).*",
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [ClashMsg|_] = test_server:capture_get(),
+    ?line {match, [" hides "]} = re:run(ClashMsg, "\\*\\* .*( hides ).*",
 					[{capture,all_but_first,list}]),
+    ?line true = code:set_path(P),
+
+    %% test "Bad path can't read"
+
+    %% remove "." to prevent clash with test-server path
+    Priv = ?config(priv_dir, Config),
+    ?line true = code:del_path("."),
+    TmpEzFile = Priv++"foobar-0.tmp.ez",
+    ?line {ok, _} = file:copy(DDir++"foobar-0.1.ez", TmpEzFile),
+    ?line true = code:add_path(TmpEzFile++"/foobar-0.1/ebin"),
+    ?line ok = file:delete(TmpEzFile),
+    test_server:capture_start(),
+    ?line ok = code:clash(),
+    test_server:capture_stop(),
+    ?line [BadPathMsg|_] = test_server:capture_get(),
+    ?line true = lists:prefix("** Bad path can't read", BadPathMsg),
     ?line true = code:set_path(P),
     ok.
 
