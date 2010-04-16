@@ -153,10 +153,10 @@ transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}
     %% and options should be inherited.
     EmOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(ListenSocket, EmOptions),
-    {CbModule,_,_} = CbInfo,
+    inet:setopts(ListenSocket, internal_inet_values()),
+    {CbModule,_,_} = CbInfo,    
     case CbModule:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
-	    inet:setopts(Socket, internal_inet_values()),
 	    {ok, Port} = inet:port(Socket),
 	    ConnArgs = [server, "localhost", Port, Socket,
 			{SslOpts, socket_options(InetValues)}, self(), CbInfo],
