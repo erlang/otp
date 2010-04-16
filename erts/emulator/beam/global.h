@@ -1575,6 +1575,7 @@ extern int erts_cpu_timestamp;
 void erts_init_bif_chksum(void);
 /* erl_bif_re.c */
 void erts_init_bif_re(void);
+void erts_init_bif_binary(void);
 Sint erts_re_set_loop_limit(Sint limit);
 /* erl_unicode.c */
 void erts_init_unicode(void);

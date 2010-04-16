@@ -281,6 +281,7 @@ erl_init(void)
     init_load();
     erts_init_bif();
     erts_init_bif_chksum();
+    erts_init_bif_binary();
     erts_init_bif_re();
     erts_init_unicode(); /* after RE to get access to PCRE unicode */
     erts_delay_trap = erts_export_put(am_erlang, am_delay_trap, 2);
