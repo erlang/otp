@@ -46,7 +46,7 @@
          neg_indent/1,
          tickets/1,
             otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-            otp_8473/1, otp_8522/1]).
+            otp_8473/1, otp_8522/1, otp_8567/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -150,15 +150,15 @@ recs(Config) when is_list(Config) ->
                                         (A#r1.a)#r.a > 3 -> 3
                       end(#r1{a = #r{a = 4}}),
                   7 = fun(A) when record(A#r3.a, r1) -> 7 end(#r3{}),
-                  [#r1{a = 2,b = 1}] = 
+                  [#r1{a = 2,b = 1}] =
                       fun() ->
-                              [A || A <- [#r1{a = 1, b = 3}, 
-                                          #r2{a = 2,b = 1}, 
+                              [A || A <- [#r1{a = 1, b = 3},
+                                          #r2{a = 2,b = 1},
                                           #r1{a = 2, b = 1}],
-                                    A#r1.a > 
+                                    A#r1.a >
                                         A#r1.b]
                       end(),
-                  {[_],b} = 
+                  {[_],b} =
                       fun(L) ->
                               %% A is checked only once:
                               R1 = [{A,B} || A <- L, A#r1.a, B <- L, A#r1.b],
@@ -177,7 +177,7 @@ recs(Config) when is_list(Config) ->
                       end(#r1{a = 2}),
 
                   %% The test done twice (an effect of doing the test as soon as possible).
-                  3 = fun(A) when A#r1.a > 3, 
+                  3 = fun(A) when A#r1.a > 3,
                                   record(A, r1) -> 3
                       end(#r1{a = 5}),
 
@@ -251,18 +251,18 @@ recs(Config) when is_list(Config) ->
                                ok
                        end(),
 
-                  both = fun(A) when A#r.a, A#r.b -> both 
+                  both = fun(A) when A#r.a, A#r.b -> both
                          end(#r{a = true, b = true}),
 
                   ok = fun() ->
-                               F = fun(A, B) when ((A#r1.a) orelse (B#r2.a)) 
+                               F = fun(A, B) when ((A#r1.a) orelse (B#r2.a))
                                                   or (B#r2.b) or (A#r1.b) ->
                                          true;
                                       (_, _) -> false
                                    end,
-                               true = F(#r1{a = false, b = false}, 
+                               true = F(#r1{a = false, b = false},
                                         #r2{a = false, b = true}),
-                               false = F(#r1{a = true, b = true}, 
+                               false = F(#r1{a = true, b = true},
                                          #r1{a = false, b = true}),
                                ok
                        end(),
@@ -273,7 +273,7 @@ recs(Config) when is_list(Config) ->
            <<"-record(r1, {a, b = foo:bar(kljlfjsdlf, kjlksdjf)}).
               -record(r2, {c = #r1{}, d = #r1{a = bar:foo(kljklsjdf)}}).
 
-              t() -> 
+              t() ->
                   R = #r2{},
                   R#r2{c = R, d = #r1{}}.">>}
           ],
@@ -304,10 +304,10 @@ try_catch(Config) when is_list(Config) ->
           {try_6,
            <<"t() -> try 1=2 catch throw:{badmatch,2} -> 3 end.">>},
           {try_7,
-           <<"t() -> try 1=2 of 3 -> 4 
+           <<"t() -> try 1=2 of 3 -> 4
 		     catch error:{badmatch,2} -> 5 end.">>},
           {try_8,
-           <<"t() -> try 1=2 
+           <<"t() -> try 1=2
 		     catch error:{badmatch,2} -> 3
 		     after put(try_catch, 4) end.">>},
           {try_9,
@@ -371,7 +371,7 @@ receive_after(Config) when is_list(Config) ->
                              {X,Y};
                          Z ->
                              Z
-                     after 
+                     after
                          foo:bar() ->
                              {3,4}
                      end.">>}
@@ -429,7 +429,7 @@ head_tail(Config) when is_list(Config) ->
           {list_4,
            <<"t() -> [a].">>},
           {list_5,
-           <<"t() -> 
+           <<"t() ->
                [foo:bar(lkjljlskdfj, klsdajflds, sdafkljsdlfkjdas, kjlsdadjl),
                bar:foo(kljlkjsdf, lkjsdlfj, [kljsfj, sdfdsfsad])].">>}
           ],
@@ -462,7 +462,7 @@ cond1(Config) when is_list(Config) ->
           "    true ->\n"
           "        {x,y}\n"
           "end" = CChars,
-%     ?line ok = pp_expr(<<"cond 
+%     ?line ok = pp_expr(<<"cond
 %                               {foo,bar} ->
 %                                   [a,b];
 %                               true ->
@@ -544,7 +544,7 @@ old_mnemosyne_syntax(Config) when is_list(Config) ->
           "         X <- table(tab),\n"
           "         X.foo = bar\n"
           "    ]\n"
-          "end" = 
+          "end" =
         lists:flatten(erl_pp:expr(Q)),
 
     R = {rule,12,sales,2,
@@ -559,7 +559,7 @@ old_mnemosyne_syntax(Config) when is_list(Config) ->
              {atom,14,sales}}]}]},
     ?line "sales(E, employee) :-\n"
           "    E <- table(employee),\n"
-          "    E.salary = sales.\n" = 
+          "    E.salary = sales.\n" =
         lists:flatten(erl_pp:form(R)),
     ok.
 
@@ -660,7 +660,7 @@ hook(Config) when is_list(Config) ->
 
     ?line "INVALID-FORM:{foo,bar}:" = lists:flatten(erl_pp:expr({foo,bar})),
 
-    %% A list (as before R6), not a list of lists. 
+    %% A list (as before R6), not a list of lists.
     G = [{op,1,'>',{atom,1,a},{foo,{atom,1,b}}}], % not a proper guard
     GChars = lists:flatten(erl_pp:guard(G, H)),
     G2 = [{op,1,'>',{atom,1,a},
@@ -677,23 +677,23 @@ hook(Config) when is_list(Config) ->
     %% Note: no leading spaces before "begin".
     Block = {block,0,[{match,0,{var,0,'A'},{integer,0,3}},
                       {atom,0,true}]},
-    ?line "begin\n                     A =" ++ _ = 
+    ?line "begin\n                     A =" ++ _ =
                lists:flatten(erl_pp:expr(Block, 17, none)),
 
     %% Special...
-    ?line true = 
+    ?line true =
         "{some,value}" =:= lists:flatten(erl_pp:expr({value,0,{some,value}})),
 
     %% Silly...
     ?line true =
-        "if true -> 0 end" =:= 
+        "if true -> 0 end" =:=
               flat_expr({'if',0,[{clause,0,[],[],[{atom,0,0}]}]}),
 
     %% More compatibility: before R6
     OldIf = {'if',0,[{clause,0,[],[{atom,0,true}],[{atom,0,b}]}]},
     NewIf = {'if',0,[{clause,0,[],[[{atom,0,true}]],[{atom,0,b}]}]},
     OldIfChars = lists:flatten(erl_pp:expr(OldIf)),
-    NewIfChars = lists:flatten(erl_pp:expr(NewIf)),    
+    NewIfChars = lists:flatten(erl_pp:expr(NewIf)),
     ?line true = OldIfChars =:= NewIfChars,
 
     ok.
@@ -706,7 +706,7 @@ remove_indentation(S) ->
 ehook(HE, I, P, H, foo, bar) ->
     hook(HE, I, P, H).
 
-hook({foo,E}, I, P, H) -> 
+hook({foo,E}, I, P, H) ->
     erl_pp:expr({call,0,{atom,0,foo},[E]}, I, P, H).
 
 neg_indent(suite) ->
@@ -722,14 +722,14 @@ neg_indent(Config) when is_list(Config) ->
                               end">>),
     ?line ok = pp_expr(
             <<"fun() ->
-                  F = fun(A, B) when ((A#r1.a) orelse (B#r2.a)) 
+                  F = fun(A, B) when ((A#r1.a) orelse (B#r2.a))
                                      or (B#r2.b) or (A#r1.b) ->
                             true;
                          (_, _) -> false
                       end,
-                  true = F(#r1{a = false, b = false}, 
+                  true = F(#r1{a = false, b = false},
                            #r2{a = false, b = true}),
-                  false = F(#r1{a = true, b = true}, 
+                  false = F(#r1{a = true, b = true},
                             #r1{a = false, b = true}),
                   ok
                        end()">>),
@@ -764,7 +764,8 @@ neg_indent(Config) when is_list(Config) ->
     ok.
 
 tickets(suite) ->
-    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473, otp_8522].
+    [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473, otp_8522,
+     otp_8567].
 
 otp_6321(doc) ->
     "OTP_6321. Bug fix of exprs().";
@@ -813,7 +814,7 @@ otp_8150(doc) ->
     "OTP_8150. Types.";
 otp_8150(suite) -> [];
 otp_8150(Config) when is_list(Config) ->
-    ?line _ = [{N,ok} = {N,pp_forms(B)} || 
+    ?line _ = [{N,ok} = {N,pp_forms(B)} ||
                   {N,B} <- type_examples()
                      ],
     ok.
@@ -918,7 +919,7 @@ otp_8473(suite) -> [];
 otp_8473(Config) when is_list(Config) ->
     Ex = [{ex1,<<"-type 'fun'(A) :: A.\n"
                  "-type funkar() :: 'fun'(fun((integer()) -> atom())).\n">>}],
-    ?line _ = [{N,ok} = {N,pp_forms(B)} || 
+    ?line _ = [{N,ok} = {N,pp_forms(B)} ||
                   {N,B} <- Ex],
     ok.
 
@@ -949,12 +950,57 @@ count_atom(L, A) when is_list(L) ->
 count_atom(_, _) ->
     0.
 
+otp_8567(doc) ->
+    "OTP_8567. Avoid duplicated 'undefined' in record field types.";
+otp_8567(suite) -> [];
+otp_8567(Config) when is_list(Config) ->
+    FileName = filename('otp_8567.erl', Config),
+    C = <<"-module otp_8567.\n"
+          "-compile export_all.\n"
+          "-spec(a).\n"
+          "-record r, {a}.\n"
+          "-record s, {a :: integer()}.\n"
+          "-type t() :: {#r{},#s{}}.\n">>,
+    ?line ok = file:write_file(FileName, C),
+    ?line {error,[{_,[{3,erl_parse,["syntax error before: ","')'"]}]}],_} =
+        compile:file(FileName, [return]),
+
+    F = <<"-module(otp_8567).\n"
+          "-compile(export_all).\n"
+          "-record(t, {a}).\n"
+          "-record(u, {a :: integer()}).\n"
+          "-opaque ot() :: {#t{}, #u{}}.\n"
+          "-opaque(ot1() :: atom()).\n"
+          "-type a() :: integer().\n"
+          "-spec t() -> a().\n"
+          "t() ->\n"
+          "    3.\n"
+          "\n"
+          "-spec(t1/1 :: (ot()) -> ot1()).\n"
+          "t1(A) ->\n"
+          "    A.\n"
+          "\n"
+          "-spec(t2 (ot()) -> ot1()).\n"
+          "t2(A) ->\n"
+          "    A.\n"
+          "\n"
+          "-spec(otp_8567:t3/1 :: (ot()) -> ot1()).\n"
+          "t3(A) ->\n"
+          "    A.\n"
+          "\n"
+          "-spec(otp_8567:t4 (ot()) -> ot1()).\n"
+          "t4(A) ->\n"
+          "    A.\n">>,
+    ?line ok = pp_forms(F),
+
+    ok.
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 compile(Config, Tests) ->
     F = fun({N,P}, BadL) ->
                 case catch compile_file(Config, P) of
-                    ok -> 
+                    ok ->
                         case pp_forms(P) of
                             ok ->
                                 BadL;
@@ -962,8 +1008,8 @@ compile(Config, Tests) ->
                                 ?t:format("~nTest ~p failed.~n", [N]),
                                 fail()
                         end;
-                    Bad -> 
-                        ?t:format("~nTest ~p failed. got~n  ~p~n", 
+                    Bad ->
+                        ?t:format("~nTest ~p failed. got~n  ~p~n",
                                   [N, Bad]),
                         fail()
                 end
@@ -993,7 +1039,7 @@ compile_file(Config, Test0) ->
         Error ->
             Error
     end.
-            
+
 compile_file(Config, Test0, Opts0) ->
     FileName = filename('erl_pp_test.erl', Config),
     Test = list_to_binary(["-module(erl_pp_test). "
@@ -1002,7 +1048,7 @@ compile_file(Config, Test0, Opts0) ->
     Opts = [export_all,return,nowarn_unused_record,{outdir,?privdir} | Opts0],
     ok = file:write_file(FileName, Test),
     case compile:file(FileName, Opts) of
-        {ok, _M, _Ws} -> 
+        {ok, _M, _Ws} ->
             {ok, filename:rootname(FileName)};
         Error -> Error
     end.
@@ -1029,7 +1075,7 @@ pp_forms(Bin, Hook) ->
     end.
 
 parse_and_pp_forms(String, Hook) ->
-    lists:append(lists:map(fun(AF) -> erl_pp:form(AF, Hook) 
+    lists:append(lists:map(fun(AF) -> erl_pp:form(AF, Hook)
                            end, parse_forms(String))).
 
 parse_forms(Chars) ->
@@ -1037,13 +1083,13 @@ parse_forms(Chars) ->
     parse_forms2(String, [], 1, []).
 
 parse_forms2([], _Cont, _Line, Forms) ->
-    lists:reverse(Forms);    
+    lists:reverse(Forms);
 parse_forms2(String, Cont0, Line, Forms) ->
     case erl_scan:tokens(Cont0, String, Line) of
         {done, {ok, Tokens, EndLine}, Chars} ->
             {ok, Form} = erl_parse:parse_form(Tokens),
             parse_forms2(Chars, [], EndLine, [Form | Forms]);
-        {more, Cont} when element(3, Cont) =:= [] -> 
+        {more, Cont} when element(3, Cont) =:= [] ->
             %% extra spaces after forms...
             parse_forms2([], Cont, Line, Forms);
         {more, Cont} ->
@@ -1061,10 +1107,10 @@ pp_expr(Bin, Hook) ->
     PP2 = (catch parse_and_pp_expr(PPneg, 0, Hook)),
     if
         PP1 =:= PP2 -> % same line numbers
-            case 
+            case
                 (test_max_line(PP1) =:= ok) and (test_new_line(PPneg) =:= ok)
             of
-                true -> 
+                true ->
                     ok;
                 false ->
                     not_ok
@@ -1097,7 +1143,7 @@ test_max_line(String) ->
     end.
 
 max_line(String) ->
-    lists:max([0 | [length(Sub) || 
+    lists:max([0 | [length(Sub) ||
                        Sub <- string:tokens(String, "\n"),
                        string:substr(Sub, 1, 5) =/= "-file"]]).
 
