@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %----------------------------------------------------------------------
@@ -37,25 +37,25 @@
   FrameList = [89,128,0,8,132,0,26,133,133,0,38,148,94,
 	       128,0,2,129,128,92,128,0,2,0,0,112,128,0,
 	       10,194,69,0,0,0,0,0,18,52,95],
-  Frame = concat_binary([list_to_binary([89]),list_to_binary([128]),
-			 list_to_binary([0]),list_to_binary([8]),
-			 list_to_binary([132]),list_to_binary([0]),
-			 list_to_binary([26]),list_to_binary([133]),
-			 list_to_binary([133]),list_to_binary([0]),
-			 list_to_binary([38]),list_to_binary([148]),
-			 list_to_binary([94]),list_to_binary([128]),
-			 list_to_binary([0]),list_to_binary([2]),
-			 list_to_binary([129]),list_to_binary([128]),
-			 list_to_binary([92]),list_to_binary([128]),
-			 list_to_binary([0]),list_to_binary([2]),
-			 list_to_binary([0]),list_to_binary([0]),
-			 list_to_binary([112]),list_to_binary([128]),
-			 list_to_binary([0]),list_to_binary([10]),
-			 list_to_binary([194]),list_to_binary([69]),
-			 list_to_binary([0]),list_to_binary([0]),
-			 list_to_binary([0]),list_to_binary([0]),
-			 list_to_binary([0]),list_to_binary([18]),
-			 list_to_binary([52]),list_to_binary([95])]),
+  Frame = list_to_binary([list_to_binary([89]),list_to_binary([128]),
+			  list_to_binary([0]),list_to_binary([8]),
+			  list_to_binary([132]),list_to_binary([0]),
+			  list_to_binary([26]),list_to_binary([133]),
+			  list_to_binary([133]),list_to_binary([0]),
+			  list_to_binary([38]),list_to_binary([148]),
+			  list_to_binary([94]),list_to_binary([128]),
+			  list_to_binary([0]),list_to_binary([2]),
+			  list_to_binary([129]),list_to_binary([128]),
+			  list_to_binary([92]),list_to_binary([128]),
+			  list_to_binary([0]),list_to_binary([2]),
+			  list_to_binary([0]),list_to_binary([0]),
+			  list_to_binary([112]),list_to_binary([128]),
+			  list_to_binary([0]),list_to_binary([10]),
+			  list_to_binary([194]),list_to_binary([69]),
+			  list_to_binary([0]),list_to_binary([0]),
+			  list_to_binary([0]),list_to_binary([0]),
+			  list_to_binary([0]),list_to_binary([18]),
+			  list_to_binary([52]),list_to_binary([95])]),
   
     R = loop(2,0,Frame),
     {R,R =:= {0,[{ie,112,itu_t_standard,ignore,10,<<194,69,0,0,0,0,0,18,52,95>>},

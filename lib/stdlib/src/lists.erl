@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(lists).
@@ -25,7 +25,7 @@
 	 unzip/1, unzip3/1, zip/2, zip3/3, zipwith/3, zipwith3/4,
 	 sort/1, merge/1, merge/2, rmerge/2, merge3/3, rmerge3/3,
 	 usort/1, umerge/1, umerge3/3, umerge/2, rumerge3/3, rumerge/2,
-	 concat/1, flatten/1, flatten/2, flat_length/1, flatlength/1,
+	 concat/1, flatten/1, flatten/2, flatlength/1,
 	 keydelete/3, keyreplace/4, keytake/3, keystore/4,
 	 keysort/2, keymerge/3, rkeymerge/3, rukeymerge/3, 
 	 ukeysort/2, ukeymerge/3, keymap/3]).
@@ -39,8 +39,6 @@
 	 partition/2,zf/2,
 	 mapfoldl/3,mapfoldr/3,foreach/2,takewhile/2,dropwhile/2,splitwith/2,
 	 split/2]).
-
--deprecated([flat_length/1]).
 
 %% member(X, L) -> (true | false)
 %%  test if X is a member of the list L
@@ -435,13 +433,6 @@ do_flatten([H|T], Tail) ->
     [H|do_flatten(T, Tail)];
 do_flatten([], Tail) ->
     Tail.
-
-%% flat_length(List) (undocumented can be removed later)
-%%  Calculate the length of a list of lists.
-
--spec flat_length([_]) -> non_neg_integer().
-
-flat_length(List) -> flatlength(List).
 
 %% flatlength(List)
 %%  Calculate the length of a list of lists.

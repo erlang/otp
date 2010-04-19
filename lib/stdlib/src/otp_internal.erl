@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(otp_internal).
@@ -322,7 +322,7 @@ obsolete_1(regexp, _, _) ->
     {deprecated, "the regexp module is deprecated (will be removed in R15A); use the re module instead"};
 
 obsolete_1(lists, flat_length, 1) ->
-    {deprecated,{lists,flatlength,1},"R14"};
+    {removed,{lists,flatlength,1},"R14"};
 
 obsolete_1(ssh_sftp, connect, A) when 1 =< A, A =< 3 ->
     {deprecated,{ssh_sftp,start_channel,A},"R14B"};
@@ -337,7 +337,7 @@ obsolete_1(ssl_pkix, decode_cert, A) when A =:= 1; A =:= 2 ->
 
 %% Added in R13B04.
 obsolete_1(erlang, concat_binary, 1) ->
-    {deprecated,{erlang,list_to_binary,1},"R14B"};
+    {deprecated,{erlang,list_to_binary,1},"R15B"};
     
 obsolete_1(_, _, _) ->
     no.
