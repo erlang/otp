@@ -67,6 +67,7 @@ a.out.dSYM/
 /lib/*/ebin/*.appup
 
 /lib/*/test/Emakefile
+/erts/epmd/test/Emakefile
 
 /lib/*/SKIP
 
