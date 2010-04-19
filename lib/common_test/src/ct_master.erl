@@ -101,12 +101,12 @@ run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 	    TSRec=#testspec{logdir=AllLogDirs,
 			    config=StdCfgFiles,
 			    userconfig=UserCfgFiles,
-			    node_start=AllNSOpts,
+			    init=AllInitOpts,
 			    event_handler=AllEvHs} ->
 	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		RunSkipPerNode = ct_testspec:prepare_tests(TSRec),
 		RunSkipPerNode2 = exclude_nodes(ExclNodes,RunSkipPerNode),
-		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllNSOpts,TS1)
+		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run(TestSpecs,AllowUserTerms,InclNodes,ExclNodes)];
 run([],_,_,_) ->
@@ -162,12 +162,12 @@ run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) -
 		{error,Reason};
 	    TSRec=#testspec{logdir=AllLogDirs,
 			    config=StdCfgFiles,
-			    node_start=AllNSOpts,
+			    init=AllInitOpts,
 			    userconfig=UserCfgFiles,
 			    event_handler=AllEvHs} ->
 	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		{Run,Skip} = ct_testspec:prepare_tests(TSRec,Node),
-		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllNSOpts,TS1)
+		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run_on_node(TestSpecs,AllowUserTerms,Node)];
 run_on_node([],_,_) ->
@@ -189,7 +189,7 @@ run_on_node(TestSpecs,Node) ->
 
 run_all([{Node,Run,Skip}|Rest],AllLogDirs,
 	{AllStdCfgFiles, AllUserCfgFiles}=AllCfgFiles,
-	AllEvHs,NodeOpts,LogDirs,NSOptions,Specs) ->
+	AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
     LogDir =
 	lists:foldl(fun({N,Dir},_Found) when N == Node ->
 			    Dir;
@@ -221,15 +221,15 @@ run_all([{Node,Run,Skip}|Rest],AllLogDirs,
 		{logdir,LogDir},
 		{config,StdCfgFiles},
 		{event_handler,EvHs}] ++ UserCfgFiles},
-    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,[NO|NodeOpts],[LogDir|LogDirs],NSOptions,Specs);
-run_all([],AllLogDirs,_,AllEvHs,NodeOpts,LogDirs,NSOptions,Specs) ->
+    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,[NO|NodeOpts],[LogDir|LogDirs],InitOptions,Specs);
+run_all([],AllLogDirs,_,AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
     Handlers = [{H,A} || {Master,H,A} <- AllEvHs, Master == master],
     MasterLogDir = case lists:keysearch(master,1,AllLogDirs) of
 		       {value,{_,Dir}} -> Dir;
 		       false -> "."
 		   end,
     log(tty,"Master Logdir","~s",[MasterLogDir]),
-    start_master(lists:reverse(NodeOpts),Handlers,MasterLogDir,LogDirs,NSOptions,Specs),
+    start_master(lists:reverse(NodeOpts),Handlers,MasterLogDir,LogDirs,InitOptions,Specs),
     ok.
     
 
@@ -269,15 +269,15 @@ progress() ->
 start_master(NodeOptsList) ->
     start_master(NodeOptsList,[],".",[],[],[]).
 
-start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,NSOptions,Specs) ->
+start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
     Master = spawn_link(?MODULE,init_master,[self(),NodeOptsList,EvHandlers,
-					     MasterLogDir,LogDirs,NSOptions,Specs]),
+					     MasterLogDir,LogDirs,InitOptions,Specs]),
     receive 
 	{Master,Result} -> Result
     end.	    
 
 %%% @hidden
-init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,NSOptions,Specs) ->
+init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
     case whereis(ct_master) of
 	undefined ->
 	    register(ct_master,self()),
@@ -330,11 +330,10 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,NSOptions,Specs)
 	Pid when is_pid(Pid) ->
 	    ok
     end,
-    init_master1(Parent,NodeOptsList,NSOptions,LogDirs).
+    init_master1(Parent,NodeOptsList,InitOptions,LogDirs).
 
-init_master1(Parent,NodeOptsList,NSOptions,LogDirs) ->
-    start_nodes(NSOptions),
-    {Inaccessible,NodeOptsList1} = ping_nodes(NodeOptsList,[],[]),
+init_master1(Parent,NodeOptsList,InitOptions,LogDirs) ->
+    {Inaccessible,NodeOptsList1,InitOptions1} = init_nodes(NodeOptsList,InitOptions),
     case Inaccessible of
 	[] ->
 	    init_master2(Parent,NodeOptsList,LogDirs);
@@ -348,7 +347,7 @@ init_master1(Parent,NodeOptsList,NSOptions,LogDirs) ->
 			"Proceeding without: ~p",[Inaccessible]),
 		    init_master2(Parent,NodeOptsList1,LogDirs);
 		"r\n" ->
-		    init_master1(Parent,NodeOptsList,NSOptions,LogDirs);
+		    init_master1(Parent,NodeOptsList,InitOptions1,LogDirs);
 		_ ->
 		    log(html,"Aborting Tests","",[]),
 		    ct_master_event:stop(),
@@ -559,6 +558,9 @@ get_pid(Node,NodeCtrlPids) ->
 	    undefined
     end.
 
+ping_nodes(NodeOptions)->
+    ping_nodes(NodeOptions, [], []).
+
 ping_nodes([NO={Node,_Opts}|NOs],Inaccessible,NodeOpts) ->
     case net_adm:ping(Node) of
 	pong ->
@@ -702,21 +704,72 @@ reply(Result,To) ->
     To ! {self(),Result},
     ok.
 
-start_nodes([])->
-    ok;
-start_nodes([{NodeName, Options}|Rest])->
-    [NodeS,HostS]=string:tokens(atom_to_list(NodeName), "@"),
-    Node=list_to_atom(NodeS),
-    Host=list_to_atom(HostS),
-    {value, {callback_module, Callback}, Options2}=
-	lists:keytake(callback_module, 1, Options),
-    case Callback:start(Host, Node, Options2) of
-	{ok, NodeName} ->
-	    io:format("Node ~p started successfully with callback ~p~n", [NodeName,Callback]);
-	{error, Reason, _NodeName} ->
-	    io:format("Failed to start node ~p with callback ~p! Reason: ~p~n", [NodeName, Callback, Reason])
+init_nodes(NodeOptions, InitOptions)->
+    ping_nodes(NodeOptions),
+    start_nodes(InitOptions),
+    eval_on_nodes(InitOptions),
+    {Inaccessible, NodeOptions1}=ping_nodes(NodeOptions),
+    InitOptions1 = filter_accessible(InitOptions, Inaccessible),
+    {Inaccessible, NodeOptions1, InitOptions1}.
+
+% only nodes which are inaccessible now, should be initiated later
+filter_accessible(InitOptions, Inaccessible)->
+    [{Node,Option}||{Node,Option}<-InitOptions, lists:member(Node, Inaccessible)].
+
+start_nodes(InitOptions)->
+    lists:foreach(fun({NodeName, Options})->
+	[NodeS,HostS]=string:tokens(atom_to_list(NodeName), "@"),
+	Node=list_to_atom(NodeS),
+	Host=list_to_atom(HostS),
+	HasNodeStart = lists:keymember(node_start, 1, Options),
+	IsAlive = lists:member(NodeName, nodes()),
+	case {HasNodeStart, IsAlive} of
+	    {false, false}->
+		io:format("WARNING: Node ~p is not alive but has no node_start option~n", [NodeName]);
+	    {false, true}->
+		io:format("Node ~p is alive~n", [NodeName]);
+	    {true, false}->
+		{node_start, NodeStart} = lists:keyfind(node_start, 1, Options),
+		{value, {callback_module, Callback}, NodeStart2}=
+		    lists:keytake(callback_module, 1, NodeStart),
+		case Callback:start(Host, Node, NodeStart2) of
+		    {ok, NodeName} ->
+			io:format("Node ~p started successfully with callback ~p~n", [NodeName,Callback]);
+		    {error, Reason, _NodeName} ->
+			io:format("Failed to start node ~p with callback ~p! Reason: ~p~n", [NodeName, Callback, Reason])
+		end;
+	    {true, true}->
+		io:format("WARNING: Node ~p is alive but has node_start option~n", [NodeName])
+	end
     end,
-    start_nodes(Rest).
+    InitOptions).
+
+eval_on_nodes(InitOptions)->
+    lists:foreach(fun({NodeName, Options})->
+	HasEval = lists:keymember(eval, 1, Options),
+	IsAlive = lists:member(NodeName, nodes()),
+	case {HasEval, IsAlive} of
+	    {false,_}->
+		ok;
+	    {true,false}->
+		io:format("WARNING: Node ~p is not alive but has eval option ~n", [NodeName]);
+	    {true,true}->
+		{eval, MFAs} = lists:keyfind(eval, 1, Options),
+		evaluate(NodeName, MFAs)
+        end
+    end,
+    InitOptions).
+
+evaluate(Node, [{M,F,A}|MFAs])->
+    case rpc:call(Node, M, F, A) of
+        {badrpc,Reason}->
+	    io:format("WARNING: Failed to call ~p:~p/~p on node ~p due to ~p~n", [M,F,length(A),Node,Reason]);
+	Result->
+	    io:format("Called ~p:~p/~p on node ~p, result: ~p~n", [M,F,length(A),Node,Result])
+    end,
+    evaluate(Node, MFAs);
+evaluate(_Node, [])->
+    ok.
 
 %cast(Msg) ->
 %    cast(whereis(ct_master),Msg).

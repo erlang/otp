@@ -359,7 +359,6 @@ get_cmd(Node, Flags)->
 spawn_local_node(Node, Options)->
     ErlFlags = Options#options.erl_flags,
     Cmd = get_cmd(Node, ErlFlags),
-    %io:format("Running cmd: ~p~n", [Cmd]),
     open_port({spawn, Cmd}, [stream]).
 
 % start crypto and ssh if not yet started

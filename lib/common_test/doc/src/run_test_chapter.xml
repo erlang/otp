@@ -384,8 +384,8 @@
       {event_handler, EventHandlers, InitArgs}.
       {event_handler, NodeRefs, EventHandlers, InitArgs}.
 
-      {eval, [{Module, Function, Arguments}]}.
-      {eval, [NodeAlias], [{Module, Function, Arguments}]}.
+      {init, Options}.
+      {init, [NodeAlias], Options}.
     </pre>
       <p>Test terms:</p>
     <pre>
@@ -461,15 +461,9 @@
       <item>Lastly, all suites for systems t3 are to be completely skipped and this
 	should be explicitly noted in the log files.</item>
     </list>
-    <p>It is possible to evaluate any function(s) during processing of the test
-      specification. This feature may be used e.g. to add some directories to
-      the code path, initialise some ETS table etc. New <c>eval</c> terms can be
-      used for this purpose.
-      If only a list of functions is given, then all functions from the list
-      will be consequently applied on the current node. If at least one node
-      alias is given, then the functions will be called remotely on all nodes
-      specified. Please note that in case when node is defined to be started by
-      the CT Master, the evaluation will be deferred.
+    <p>It is possible to specify initialization options for nodes defined in the
+      test specification. Currently, there are options to start the node and/or to
+      evaluate any function on the node.
       See the <seealso marker="ct_master_chapter#ct_slave">Automatic startup of
       the test target nodes</seealso> chapter for details.</p>
     <p>It is possible for the user to provide a test specification that

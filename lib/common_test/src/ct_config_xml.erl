@@ -24,9 +24,6 @@
 -module(ct_config_xml).
 -export([read_config/1, check_parameter/1]).
 
-% DEBUG ONLY
--export([list_to_term/1]).
-
 % read config file
 read_config(ConfigFile) ->
     case catch do_read_xml_config(ConfigFile) of

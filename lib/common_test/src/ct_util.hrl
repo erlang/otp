@@ -29,7 +29,7 @@
 
 -record(testspec, {spec_dir,
 	           nodes=[],
-		   node_start=[],
+		   init=[],
 		   logdir=["."],
 		   cover=[],
 		   config=[],

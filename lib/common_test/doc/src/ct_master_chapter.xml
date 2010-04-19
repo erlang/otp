@@ -102,7 +102,7 @@
       <p><c>ct_master:abort()</c> (stop all) or <c>ct_master:abort(Nodes)</c></p>
 
       <p>For detailed information about the <c>ct_master</c> API, please see the 
-      manual page for this module.</p>
+      <seealso marker="ct_master">manual page</seealso> for this module.</p>
   </section>
   <section>
     <title>Test Specifications</title>
@@ -197,32 +197,49 @@
   <section>
     <title>Automatic startup of the test target nodes</title>
     <marker id="ct_slave"></marker>
-    <p>Is is possible to start nodes acting like a test targets automatically
-    using a new term in the test specification, <c>node_start</c>:</p>
+    <p>Is is possible to perform initial actions on test target nodes
+    automatically using a new term in the test specification, <c>init</c>.</p>
+    <p>Currently, two sub-terms are supported, <c>node_start</c> and <c>eval</c>.</p>
     <pre>
      {node, node1, node1@host1}.
      {node, node2, node1@host2}.
      {node, node3, node2@host2}.
-     {node_start, node1, [{callback_module, my_slave_callback}]}.
-     {node_start, [node2, node3], [{username, "ct_user"}, {password, "ct_password"}]}.
+     {node, node4, node1@host3}.
+     {init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
+     {init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
+     {init, node4, {eval, {module, function, []}}}.
     </pre>
     <p>This test specification declares that <c>node1@host1</c> is to be started using
     user's callback <c>my_slave_callback</c> with no parameters, and nodes <c>node1@host2</c> and
     <c>node2@host2</c> will be started with the default callback module <c>ct_slave</c>,
-    using the given user name and password to log into remote host <c>host2</c>.</p>
-    <p>Default <seealso marker="ct_slave">ct_slave</seealso> callback module delivered with the Common Test has the following features:
+    using the given user name and password to log into remote host <c>host2</c>.
+    Also, there will be function module:function/0 evaluated on the
+    <c>node1@host3</c>, and result of this call will be printed to the log.</p>
+    <p>Default <seealso marker="ct_slave">ct_slave</seealso> callback module
+    delivered with the Common Test has the following features:
     <list>
-     <item>Starting the Erlang nodes or local or remote hosts (ssh is used for remote ones);</item>
-     <item>Ability to start Erlang emulator with the additional flags (any flags supported by <c>erl</c> are supported);</item>
-     <item>Supervision of the node being start using internal callback functions. Used to prevent hanging of started nodes. Configurable;</item>
-     <item>Monitoring of the master node by the slaves. Slave node may be stopped in case of master node termination. Configurable;</item>
-     <item>Execution of the user's functions after slave node is started. Functions can be given as a list of {Module, Function, Arguments} tuples.</item>
+     <item>Starting the Erlang nodes or local or remote hosts
+       (ssh is used for remote ones);
+     </item>
+     <item>Ability to start Erlang emulator with the additional flags
+       (any flags supported by <c>erl</c> are supported);
+     </item>
+     <item>Supervision of the node being start using internal callback
+        functions. Used to prevent hanging of started nodes. Configurable;
+     </item>
+     <item>Monitoring of the master node by the slaves. Slave node may be
+        stopped in case of master node termination. Configurable;
+     </item>
+     <item>Execution of the user's functions after slave node is started.
+        Functions can be given as a list of {Module, Function, Arguments} tuples.
+     </item>
     </list>
     </p>
-    <p>If any <c>eval</c> term is specified for a node which has <c>node_start</c> term
-    defined for it, the evaluation of the functions will be deferred until the node is started.
-    The functions to be evaluated are simply added to the end of the <c>startup_functions</c> list
-    (see <seealso marker="ct_slave">ct_slave</seealso> chapter in the Reference Manual).</p>
+    <p>Note that it is possible to specify <c>eval</c> term for the node as well
+    as <c>startup_functions</c> in the <c>node_start</c> options list. In this
+    case first node will be started, then the <c>startup_functions</c> are
+    executed, and finally functions specified with <c>eval</c> will be called.
+    </p>
   </section>
 
 </chapter>
