@@ -18,12 +18,12 @@
 %%
 -module(re_SUITE).
 
--export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1]).
+-export([all/1, pcre/1,compile_options/1,run_options/1,combined_options/1,replace_autogen/1,global_capture/1,replace_input_types/1,replace_return/1,split_autogen/1,split_options/1,split_specials/1,error_handling/1,pcre_cve_2008_2371/1,pcre_compile_workspace_overflow/1,re_infinite_loop/1]).
 
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
-all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371,pcre_compile_workspace_overflow].
+all(suite) -> [pcre,compile_options,run_options,combined_options,replace_autogen,global_capture,replace_input_types,replace_return,split_autogen,split_options,split_specials,error_handling,pcre_cve_2008_2371,pcre_compile_workspace_overflow,re_infinite_loop].
 
 pcre(doc) ->
     ["Run all applicable tests from the PCRE testsuites."];
@@ -551,4 +551,18 @@ pcre_compile_workspace_overflow(Config) when is_list(Config) ->
     N = 819,
     ?line {error,{"internal error: overran compiling workspace",799}} =
 	re:compile([lists:duplicate(N, $(), lists:duplicate(N, $))]),
+    ok.
+re_infinite_loop(doc) ->
+    "Make sure matches that really loop infinitely actually fail";
+re_infinite_loop(Config) when is_list(Config) ->
+    Dog = ?t:timetrap(?t:minutes(1)),
+    ?line Str =
+        "http:/www.flickr.com/slideShow/index.gne?group_id=&user_id=69845378@N0",
+    ?line EMail_regex = "[a-z0-9!#$%&'*+/=?^_`{|}~-]+"
+        ++ "(\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*"
+        ++ "@.*([a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+"
+        ++ "([a-zA-Z]{2}|com|org|net|gov|mil"
+        ++ "|biz|info|mobi|name|aero|jobs|museum)",
+    ?line nomatch = re:run(Str, EMail_regex),
+    ?t:timetrap_cancel(Dog),
     ok.
