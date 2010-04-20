@@ -145,6 +145,29 @@ is_person(_P) ->
   </section>
 
   <section>
+    <title>Nested records</title>
+    <p>Beginning with R14 parentheses when accessing or updating nested
+      records can be omitted. Assuming we have the following record
+      definitions:</p>
+    <pre>
+-record(nrec0, {name = "nested0"}).
+-record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
+-record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
+
+N2 = #nrec2{},
+    </pre>
+    <p>Before R14 you would have needed to use parentheses as following:</p>
+    <pre>
+"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},
+    </pre>
+    <p>Since R14 you can also write:</p>
+    <pre>
+"nested0" = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre>
+  </section>
+
+  <section>
     <title>Internal Representation of Records</title>
     <p>Record expressions are translated to tuple expressions during
       compilation. A record defined as</p>
