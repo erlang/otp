@@ -1,6 +1,6 @@
 -module(binary_module_SUITE).
 
--export([all/1, interesting/1]).
+-export([all/1, interesting/1,random_ref_comp/1]).
 
 -define(STANDALONE,1).
 
@@ -24,7 +24,7 @@ run() ->
 
 -endif.
 
-all(suite) -> [interesting].
+all(suite) -> [interesting,random_ref_comp].
 
 
 interesting(doc) ->
@@ -94,3 +94,71 @@ do_interesting(Module) ->
 				   [<<"34">>,<<"34">>,
 				    <<"12347">>,<<"2346">>]),
     ok.
+
+random_ref_comp(doc) ->
+    ["Test pseudorandomly generated cases against reference imlementation"];
+random_ref_comp(Config) when is_list(Config) ->
+    put(success_counter,0),
+    random:seed({1271,769940,559934}),
+    do_random_match_comp(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    do_random_match_comp2(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ok.
+
+do_random_match_comp(0,_,_) ->
+    ok;
+do_random_match_comp(N,NeedleRange,HaystackRange) ->
+    Needle = random_string(NeedleRange),
+    Haystack = random_string(HaystackRange),
+    true = do_match_comp(Needle,Haystack),
+    do_random_match_comp(N-1,NeedleRange,HaystackRange).
+
+do_random_match_comp2(0,_,_) ->
+    ok;
+do_random_match_comp2(N,NeedleRange,HaystackRange) ->
+    Haystack = random_string(HaystackRange),
+    Needle = random_substring(NeedleRange,Haystack),
+    true = do_match_comp(Needle,Haystack),
+    do_random_match_comp2(N-1,NeedleRange,HaystackRange).
+
+do_match_comp(N,H) ->
+    A = binref:match(H,N),
+    B = binref:match(H,binref:compile_pattern([N])),
+    C = binary:match(H,N),
+    D = binary:match(H,binary:compile_pattern([N])),
+    if
+	A =/= nomatch ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case {(A =:= B), (B =:= C),(C =:= D)} of
+	{true,true,true} ->
+	    true;
+	_ ->
+	    io:format("Failed to match ~s (needle) against ~s (haystack)~n",
+		      [N,H]),
+	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
+		      [A,B,C,D]),
+	    exit(mismatch)
+    end.
+
+one_random(N) ->
+    M = ((N - 1) rem 68) + 1,
+    element(M,{$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$p,$q,$r,$s,$t,$u,$v,$w,$x,$y,$z,$å,$ä,$ö,$A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Å,$Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
+
+random_string({Min,Max}) ->
+    X = random:uniform(Max - Min + 1) + Min - 1,
+    list_to_binary([one_random(random:uniform(68)) || _ <- lists:seq(1,X)]).
+random_substring({Min,Max},Hay) ->
+    X = random:uniform(Max - Min + 1) + Min - 1,
+    Y = byte_size(Hay),
+    Z = if
+	    X > Y -> Y;
+	    true -> X
+	end,
+    PMax = Y - Z,
+    Pos = random:uniform(PMax + 1) - 1,
+    <<_:Pos/binary,Res:Z/binary,_/binary>> = Hay,
+    Res.

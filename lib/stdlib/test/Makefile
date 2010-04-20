@@ -9,6 +9,8 @@ MODULES= \
 	array_SUITE \
 	base64_SUITE \
 	beam_lib_SUITE \
+	binary_module_SUITE \
+	binref \
 	c_SUITE \
 	calendar_SUITE \
 	dets_SUITE \

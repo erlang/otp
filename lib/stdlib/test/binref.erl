@@ -33,8 +33,8 @@ match(Haystack,{Needles},Options) ->
 match(Haystack,Needles,Options) ->
     try
 	true = is_binary(Haystack) and is_list(Needles), % badarg, not function_clause
-	case get_opts_match(Options,no) of
-	    no ->
+	case get_opts_match(Options,nomatch) of
+	    nomatch ->
 		mloop(Haystack,Needles);
 	    {A,B} when B > 0 ->
 		<<_:A/binary,SubStack:B/binary,_/binary>> = Haystack,
@@ -45,7 +45,7 @@ match(Haystack,Needles,Options) ->
 		<<_:Start/binary,SubStack:Len/binary,_/binary>> = Haystack,
 		mloop(SubStack,Needles,Start,Len+Start);
 	    _ ->
-		no
+		nomatch
 	end
     catch
 	_:_ ->
@@ -60,8 +60,8 @@ matches(Haystack,{Needles},Options) ->
 matches(Haystack,Needles,Options) ->
     try
 	true = is_binary(Haystack) and is_list(Needles), % badarg, not function_clause
-	case get_opts_match(Options,no) of
-	    no ->
+	case get_opts_match(Options,nomatch) of
+	    nomatch ->
 		msloop(Haystack,Needles);
 	    {A,B} when B > 0 ->
 		<<_:A/binary,SubStack:B/binary,_/binary>> = Haystack,
@@ -83,10 +83,10 @@ mloop(Haystack,Needles) ->
     mloop(Haystack,Needles,0,byte_size(Haystack)).
 
 mloop(_Haystack,_Needles,N,M) when N >= M ->
-    no;
+    nomatch;
 mloop(Haystack,Needles,N,M) ->
-    case mloop2(Haystack,Needles,N,no) of
-	no ->
+    case mloop2(Haystack,Needles,N,nomatch) of
+	nomatch ->
 	    % Not found
 	    <<_:8,NewStack/binary>> = Haystack,
 	    mloop(NewStack,Needles,N+1,M);
@@ -100,8 +100,8 @@ msloop(Haystack,Needles) ->
 msloop(_Haystack,_Needles,N,M) when N >= M ->
     [];
 msloop(Haystack,Needles,N,M) ->
-    case mloop2(Haystack,Needles,N,no) of
-	no ->
+    case mloop2(Haystack,Needles,N,nomatch) of
+	nomatch ->
 	    % Not found
 	    <<_:8,NewStack/binary>> = Haystack,
 	    msloop(NewStack,Needles,N+1,M);
@@ -123,7 +123,7 @@ mloop2(Haystack,[Needle|Tail],N,Candidate) ->
     case Haystack of
 	<<Needle:NS/binary,_/binary>> ->
 	    NewCandidate = case Candidate of
-			       no ->
+			       nomatch ->
 				   {N,NS};
 			       {N,ONS} when ONS < NS ->
 				   {N,NS};
@@ -145,10 +145,10 @@ split(Haystack,{Needles},Options) ->
     split(Haystack, Needles, Options);
 split(Haystack,Needles,Options) ->
     try
-	{Part,Global,Trim} = get_opts_split(Options,{no,false,false}),
+	{Part,Global,Trim} = get_opts_split(Options,{nomatch,false,false}),
 	{Start,End,NewStack} =
 	    case Part of
-		no ->
+		nomatch ->
 		    {0,byte_size(Haystack),Haystack};
 		{A,B} when B >= 0 ->
 		    <<_:A/binary,SubStack:B/binary,_/binary>> = Haystack,
@@ -164,7 +164,7 @@ split(Haystack,Needles,Options) ->
 			msloop(NewStack,Needles,Start,End);
 		    true ->
 			case mloop(NewStack,Needles,Start,End) of
-			    no ->
+			    nomatch ->
 				[];
 			    X ->
 				[X]
@@ -206,10 +206,10 @@ replace(Haystack,{Needles},Replacement,Options) ->
 replace(Haystack,Needles,Replacement,Options) ->
     try
 	true = is_binary(Replacement), % Make badarg instead of function clause
-	{Part,Global,Insert} = get_opts_replace(Options,{no,false,[]}),
+	{Part,Global,Insert} = get_opts_replace(Options,{nomatch,false,[]}),
 	{Start,End,NewStack} =
 	    case Part of
-		no ->
+		nomatch ->
 		    {0,byte_size(Haystack),Haystack};
 		{A,B} when B >= 0 ->
 		    <<_:A/binary,SubStack:B/binary,_/binary>> = Haystack,
@@ -225,7 +225,7 @@ replace(Haystack,Needles,Replacement,Options) ->
 			msloop(NewStack,Needles,Start,End);
 		    true ->
 			case mloop(NewStack,Needles,Start,End) of
-			    no ->
+			    nomatch ->
 				[];
 			    X ->
 				[X]

@@ -782,7 +782,6 @@ typedef struct _ac_trie {
 } ACTrie;
 
 typedef struct _bm_data {
-    int ret_tuple;
     byte *x;
     Sint len;
     Sint *goodshift;
@@ -868,7 +867,6 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len, Binary **the_bi
     memcpy(bmd->x,x,len);
     bmd->len = len;
     bmd->goodshift = my_alloc(my,sizeof(Uint) * len);
-    bmd->ret_tuple = 0;
     *the_bin = mb;
     return bmd;
 }
@@ -1304,7 +1302,7 @@ static void compute_goodshifts(BMData *bmd)
 
 typedef struct {
     Sint pos;
-    Uint len;
+    Sint len;
 } BMFindFirstState;
 
 #define BM_OK 0 /* used only for find_all */
@@ -1315,14 +1313,14 @@ typedef struct {
 static void bm_init_find_first_match(BMFindFirstState *state, Sint startpos, Uint len)
 {
     state->pos = startpos;
-    state->len = len;
+    state->len = (Sint) len;
 }
 
 
 static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *haystack, Uint reductions)
 {
     Sint blen = bmd->len;
-    Uint len = state->len;
+    Sint len = state->len;
     Sint *gs = bmd->goodshift;
     Sint *bs = bmd->badshift;
     byte *needle = bmd->x;
@@ -1347,7 +1345,7 @@ static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *hays
 
 typedef struct {
     Sint pos;
-    Uint len;
+    Sint len;
     Uint m;
     Uint allocated;
     FindallData *out;
@@ -1356,7 +1354,7 @@ typedef struct {
 static void bm_init_find_all(BMFindAllState *state, Sint startpos, Uint len)
 {
     state->pos = startpos;
-    state->len = len;
+    state->len = (Sint) len;
     state->m = 0;
     state->allocated = 0;
     state->out = NULL;
@@ -1396,7 +1394,7 @@ static Sint bm_find_all_non_overlapping(BMFindAllState *state,
 					BMData *bmd, byte *haystack, Uint reductions)
 {
     Sint blen = bmd->len;
-    Uint len = state->len;
+    Sint len = state->len;
     Sint *gs = bmd->goodshift;
     Sint *bs = bmd->badshift;
     byte *needle = bmd->x;
@@ -1454,13 +1452,11 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
     Eterm t, b, comp_term = NIL;
     Uint characters;
     Uint words;
-    int return_tuple = 0;
 
     characters = 0;
     words = 0;
 
     if (is_list(argument)) {
-	return_tuple = 1;
 	t = argument;
 	while (is_list(t)) {
 	    b = CAR(list_val(t));
@@ -1509,7 +1505,6 @@ static int do_binary_match_compile(Eterm argument, Eterm *tag, Binary **binp)
 	    bytes = erts_get_aligned_binary_bytes(comp_term, &temp_alloc);
 	}
 	bmd = create_bmdata(&my, bytes, characters, &bin);
-	bmd->ret_tuple = return_tuple;
 	compute_badshifts(bmd);
 	compute_goodshifts(bmd);
 	erts_free_aligned_binary_bytes(temp_alloc);
@@ -1625,12 +1620,10 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	    erts_free_aligned_binary_bytes(temp_alloc);
 	    return DO_BIN_MATCH_RESTART;
 	} else {
+	    Eterm erlen = erts_make_integer((Uint) bm->len, p);
 	    ret = erts_make_integer(pos,p);
-	    if (bm->ret_tuple) {
-		Eterm erlen = erts_make_integer((Uint) bm->len, p);
-		hp = HAlloc(p,3);
-		ret = TUPLE2(hp, ret, erlen);
-	    }
+	    hp = HAlloc(p,3);
+	    ret = TUPLE2(hp, ret, erlen);
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
 	*res_term = ret;
@@ -1927,7 +1920,7 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
     }
     runres = do_binary_match(BIF_P,BIF_ARG_1,hsstart,hslen,type,bin,NIL,&result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE+3);
+	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), bin);
     } else if (bin_term == NIL) {
 	erts_bin_free(bin);
@@ -2014,7 +2007,7 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
     }
     runres = do_binary_matches(BIF_P,BIF_ARG_1,hsstart,hslen,type,bin,NIL,&result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
-	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE+3);
+	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), bin);
     } else if (bin_term == NIL) {
 	erts_bin_free(bin);
@@ -2054,7 +2047,6 @@ static void dump_bm_data(BMData *bm)
     int i,j;
     erts_printf("Dumping Boyer-More structure.\n");
     erts_printf("=============================\n");
-    erts_printf("Return tuple: %d\n",bm->ret_tuple);
     erts_printf("Searchstring [%ld]:\n", bm->len);
     erts_printf("<<");
     for (i = 0; i < bm->len; ++i) {
