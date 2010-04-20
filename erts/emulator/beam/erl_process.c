@@ -392,7 +392,12 @@ erts_pre_init_process(void)
      erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].get_locks
 	 = ERTS_PSD_DIST_ENTRY_GET_LOCKS;
      erts_psd_required_locks[ERTS_PSD_DIST_ENTRY].set_locks
-	 = ERTS_PSD_DIST_ENTRY_GET_LOCKS;
+	 = ERTS_PSD_DIST_ENTRY_SET_LOCKS;
+
+     erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].get_locks
+	 = ERTS_PSD_CALL_TIME_BP_GET_LOCKS;
+     erts_psd_required_locks[ERTS_PSD_CALL_TIME_BP].set_locks
+	 = ERTS_PSD_CALL_TIME_BP_SET_LOCKS;
 
      /* Check that we have locks for all entries */
      for (ix = 0; ix < ERTS_PSD_SIZE; ix++) {
