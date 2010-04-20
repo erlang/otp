@@ -183,7 +183,7 @@ simplify_float_1([], Ts, Rs, Acc0) ->
     {Is,Ts}.
 
 opt_fmoves([{set,[{x,_}=R],[{fr,_}]=Src,fmove}=I1,
-	    {set,[{y,_}]=Dst,[{x,_}=R],move}=I2|Is], Acc) ->
+	    {set,[_]=Dst,[{x,_}=R],move}=I2|Is], Acc) ->
     case beam_utils:is_killed_block(R, Is) of
 	false -> opt_fmoves(Is, [I2,I1|Acc]);
 	true -> opt_fmoves(Is, [{set,Dst,Src,fmove}|Acc])
