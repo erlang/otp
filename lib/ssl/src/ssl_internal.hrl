@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -57,12 +57,15 @@
 	  verify_fun, % fun(CertVerifyErrors) -> boolean()
 	  fail_if_no_peer_cert, % boolean()
 	  verify_client_once,  % boolean()
+	  %% fun(Extensions, State, Verify, AccError) ->  {Extensions, State, AccError}
+	  validate_extensions_fun, 
 	  depth,      % integer()
 	  certfile,   % file()
 	  keyfile,    % file()
 	  key,	      % 
 	  password,   % 
 	  cacertfile, % file()
+	  dhfile,     % file()
 	  ciphers,    % 
 	  %% Local policy for the server if it want's to reuse the session
 	  %% or not. Defaluts to allways returning true.
@@ -71,6 +74,7 @@
 	  %% If false sessions will never be reused, if true they
 	  %% will be reused if possible.
 	  reuse_sessions, % boolean()
+	  renegotiate_at,
 	  debug           %
 	  }).
 

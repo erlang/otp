@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -455,24 +455,6 @@ validate_extensions([#'Extension'{extnID = ?'id-ce-keyUsage',
 				AccErr)
     end;
 
-validate_extensions([#'Extension'{extnID = ?'id-ce-extKeyUsage',
-				  extnValue = KeyUse,
-				  critical = true} | Rest], 
-		    #path_validation_state{} = ValidationState,
-		    ExistBasicCon, SelfSigned, UnknownExtensions, Verify,
-		    AccErr0) ->
-    case is_valid_extkey_usage(KeyUse) of
-	true ->
-	    validate_extensions(Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UnknownExtensions, 
-				Verify, AccErr0);
-	false ->
-	    AccErr = 
-		not_valid({bad_cert, invalid_ext_key_usage}, Verify, AccErr0),
-	    validate_extensions(Rest, ValidationState, ExistBasicCon,
-				SelfSigned, UnknownExtensions, Verify, AccErr)
-    end;
-
 validate_extensions([#'Extension'{extnID = ?'id-ce-subjectAltName',
 				  extnValue = Names} | Rest], 
 		    ValidationState, ExistBasicCon, 
@@ -590,13 +572,6 @@ validate_extensions([Extension | Rest], ValidationState,
 is_valid_key_usage(KeyUse, Use) ->
     lists:member(Use, KeyUse).
  
-is_valid_extkey_usage(?'id-kp-clientAuth') ->
-    true;
-is_valid_extkey_usage(?'id-kp-serverAuth') ->
-    true;
-is_valid_extkey_usage(_) ->
-    false.
-
 validate_subject_alt_names([]) ->
     true;
 validate_subject_alt_names([AltName | Rest]) ->

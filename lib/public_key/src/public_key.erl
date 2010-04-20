@@ -23,13 +23,12 @@
 
 -include("public_key.hrl").
 
--export([decode_private_key/1, decode_private_key/2, 
+-export([decode_private_key/1, decode_private_key/2, decode_dhparams/1, 
 	 decrypt_private/2, decrypt_private/3, encrypt_public/2, 
 	 encrypt_public/3, decrypt_public/2, decrypt_public/3, 
-	 encrypt_private/2, encrypt_private/3, 
-	 sign/2, sign/3,
+	 encrypt_private/2, encrypt_private/3, gen_key/1, sign/2, sign/3,
 	 verify_signature/3, verify_signature/4, verify_signature/5,
-	 pem_to_der/1, pem_to_der/2,
+	 pem_to_der/1, pem_to_der/2, der_to_pem/2,
 	 pkix_decode_cert/2, pkix_encode_cert/1, pkix_transform/2,
 	 pkix_is_self_signed/1, pkix_is_fixed_dh_cert/1,
 	 pkix_issuer_id/2,
@@ -61,6 +60,21 @@ decode_private_key(KeyInfo = {rsa_private_key, _, _}, Password) ->
 decode_private_key(KeyInfo = {dsa_private_key, _, _}, Password) ->
     DerEncoded = pubkey_pem:decode_key(KeyInfo, Password),
     'OTP-PUB-KEY':decode('DSAPrivateKey', DerEncoded).
+
+
+%%--------------------------------------------------------------------
+%% Function: decode_dhparams(DhParamInfo) -> 
+%%                                     {ok, DhParams} | {error, Reason}
+%%
+%%	DhParamsInfo = {Type, der_bin(), ChipherInfo} - as returned from
+%%	pem_to_der/[1,2] for DH parameters.
+%%      Type = dh_params
+%%	ChipherInfo = opaque() | no_encryption
+%%
+%% Description: Decodes an asn1 der encoded DH parameters.
+%%--------------------------------------------------------------------
+decode_dhparams({dh_params, DerEncoded, not_encrypted}) ->
+    'OTP-PUB-KEY':decode('DHParameter', DerEncoded).
 
 %%--------------------------------------------------------------------
 %% Function: decrypt_private(CipherText, Key) -> 
@@ -109,6 +123,18 @@ encrypt_private(PlainText, Key, Options)  ->
     pubkey_crypto:encrypt_private(PlainText, Key, Padding).
 
 %%--------------------------------------------------------------------
+%% Function: gen_key(Params) -> Keys
+%%
+%%	Params = #'DomainParameters'{} - Currently only supported option
+%%	Keys = {PublicDHKey = integer(), PrivateDHKey = integer()}
+%%
+%% Description: Generates keys. Currently supports Diffie-Hellman keys.
+%%--------------------------------------------------------------------
+gen_key(#'DHParameter'{prime = P, base = G}) when is_integer(P), 
+						  is_integer(G) ->
+    pubkey_crypto:gen_key(diffie_hellman, [P, G]).
+
+%%--------------------------------------------------------------------
 %% Function: pem_to_der(CertSource) ->
 %%           pem_to_der(CertSource, Password) -> {ok, [Entry]} |
 %%                                               {error, Reason}
@@ -116,7 +142,6 @@ encrypt_private(PlainText, Key, Options)  ->
 %%      CertSource = File | CertData
 %%      CertData = binary()
 %%	File = path()
-%%	Password = string()
 %%	Entry = {entry_type(), der_bin(), ChipherInfo}
 %%      ChipherInfo = opague() | no_encryption
 %%      der_bin() = binary()
@@ -127,7 +152,9 @@ encrypt_private(PlainText, Key, Options)  ->
 %% entries as asn1 der encoded entities. Currently supported entry
 %% types are certificates, certificate requests, rsa private keys and
 %% dsa private keys. In the case of a key entry ChipherInfo will be
-%% used by decode_private_key/2 if the key is protected by a password.
+%% private keys and Diffie Hellam parameters .In the case of a key
+%% entry ChipherInfo will be used by decode_private_key/2 if the key
+%% is protected by a password.
 %%--------------------------------------------------------------------
 pem_to_der(CertSource) ->
     pem_to_der(CertSource, no_passwd).
@@ -136,6 +163,9 @@ pem_to_der(File, Password) when is_list(File) ->
     pubkey_pem:read_file(File, Password);
 pem_to_der(PemBin, Password) when is_binary(PemBin) ->
     pubkey_pem:decode(PemBin, Password).
+
+der_to_pem(File, TypeDerList) ->
+    pubkey_pem:write_file(File, TypeDerList).
 
 %%--------------------------------------------------------------------
 %% Function: pkix_decode_cert(BerCert, Type) -> {ok, Cert} | {error, Reason}
@@ -288,9 +318,10 @@ sign(Msg, #'RSAPrivateKey'{} = Key) when is_binary(Msg) ->
 sign(Msg, #'DSAPrivateKey'{} = Key) when is_binary(Msg) ->
     pubkey_crypto:sign(Msg, Key);
 
-sign(#'OTPTBSCertificate'{signature = SigAlg} = TBSCert, Key) ->
+sign(#'OTPTBSCertificate'{signature = #'SignatureAlgorithm'{algorithm = Alg} 
+			  = SigAlg} = TBSCert, Key) ->
     Msg = pubkey_cert_records:encode_tbs_cert(TBSCert),
-    DigestType = pubkey_cert:digest_type(SigAlg),
+    DigestType = pubkey_cert:digest_type(Alg),
     Signature = pubkey_crypto:sign(DigestType, Msg, Key),
     Cert = #'OTPCertificate'{tbsCertificate= TBSCert,
 			     signatureAlgorithm = SigAlg,

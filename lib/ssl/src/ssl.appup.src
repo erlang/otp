@@ -9,7 +9,8 @@
   {"3.10.5", [{restart_application, ssl}]},
   {"3.10.6", [{restart_application, ssl}]},
   {"3.10.7", [{restart_application, ssl}]},
-  {"3.10.8", [{restart_application, ssl}]}
+  {"3.10.8", [{restart_application, ssl}]},
+  {"3.10.9", [{restart_application, ssl}]}
  ], 
  [
   {"3.10", [{restart_application, ssl}]},	
@@ -19,6 +20,7 @@
   {"3.10.4", [{restart_application, ssl}]},
   {"3.10.5", [{restart_application, ssl}]},
   {"3.10.6", [{restart_application, ssl}]},
-  {"3.10.8", [{restart_application, ssl}]}
+  {"3.10.8", [{restart_application, ssl}]},
+  {"3.10.9", [{restart_application, ssl}]}
  ]}.
 

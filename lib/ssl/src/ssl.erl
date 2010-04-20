@@ -29,13 +29,15 @@
 	 connect/3, connect/2, connect/4, connection_info/1,
 	 controlling_process/2, listen/2, pid/1, peername/1, recv/2, recv/3,
 	 send/2, getopts/2, setopts/2, seed/1, sockname/1, peercert/1,
-	 peercert/2, version/0, versions/0, session_info/1, format_error/1]).
+	 peercert/2, version/0, versions/0, session_info/1, format_error/1,
+	 renegotiate/1]).
 
 %% Should be deprecated as soon as old ssl is removed
 %%-deprecated({pid, 1, next_major_release}).
 
 -include("ssl_int.hrl").
 -include("ssl_internal.hrl").
+-include("ssl_record.hrl").
 
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
@@ -151,18 +153,23 @@ transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}
     %% and options should be inherited.
     EmOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(ListenSocket, EmOptions),
-    {CbModule,_,_} = CbInfo,
-    {ok, Socket} = CbModule:accept(ListenSocket, Timeout),
-    inet:setopts(Socket, internal_inet_values()),
-    {ok, Port} = inet:port(Socket),
-    case ssl_connection_sup:start_child([server, "localhost", Port, Socket,
-                                         {SslOpts, socket_options(InetValues)}, self(),
-                                         CbInfo]) of
-        {ok, Pid} ->
-            CbModule:controlling_process(Socket, Pid),
-            {ok, SslSocket#sslsocket{pid = Pid}};
-        {error, Reason} ->
-            {error, Reason}
+    ok = inet:setopts(ListenSocket, internal_inet_values()),
+    {CbModule,_,_} = CbInfo,    
+    case CbModule:accept(ListenSocket, Timeout) of
+	{ok, Socket} ->
+	    ok = inet:setopts(ListenSocket, InetValues),
+	    {ok, Port} = inet:port(Socket),
+	    ConnArgs = [server, "localhost", Port, Socket,
+			{SslOpts, socket_options(InetValues)}, self(), CbInfo],
+	    case ssl_connection_sup:start_child(ConnArgs) of
+		{ok, Pid} ->
+		    CbModule:controlling_process(Socket, Pid),
+		    {ok, SslSocket#sslsocket{pid = Pid}};
+		{error, Reason} ->
+		    {error, Reason}
+	    end;
+	{error, Reason} ->
+	    {error, Reason}
     end;
 
 transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
@@ -436,6 +443,10 @@ versions() ->
     AvailableVsns = ?DEFAULT_SUPPORTED_VERSIONS,
     [{ssl_app, ?VSN}, {supported, SupportedVsns}, {available, AvailableVsns}].
 
+
+renegotiate(#sslsocket{pid = Pid, fd = new_ssl}) ->
+    ssl_connection:renegotiation(Pid).
+
 %%%--------------------------------------------------------------
 %%% Internal functions
 %%%--------------------------------------------------------------------
@@ -509,6 +520,9 @@ handle_options(Opts0, Role) ->
 		end
 	end,
 
+    UserFailIfNoPeerCert = validate_option(fail_if_no_peer_cert, 
+					   proplists:get_value(fail_if_no_peer_cert, Opts, false)),
+
     {Verify, FailIfNoPeerCert, CaCertDefault} = 
 	%% Handle 0, 1, 2 for backwards compatibility
 	case proplists:get_value(verify, Opts, verify_none) of
@@ -521,9 +535,7 @@ handle_options(Opts0, Role) ->
 	    verify_none ->
 		{verify_none, false, ca_cert_default(verify_none, Role)};
 	    verify_peer ->
-		{verify_peer, proplists:get_value(fail_if_no_peer_cert,
-						  Opts, false),
-		 ca_cert_default(verify_peer, Role)};
+		{verify_peer, UserFailIfNoPeerCert, ca_cert_default(verify_peer, Role)};
 	    Value ->
 		throw({error, {eoptions, {verify, Value}}})
 	end,   
@@ -534,28 +546,31 @@ handle_options(Opts0, Role) ->
       versions   = handle_option(versions, Opts, []),
       verify     = validate_option(verify, Verify),
       verify_fun = handle_option(verify_fun, Opts, VerifyFun),
-      fail_if_no_peer_cert = validate_option(fail_if_no_peer_cert, 
-					     FailIfNoPeerCert),
+      fail_if_no_peer_cert = FailIfNoPeerCert,
       verify_client_once =  handle_option(verify_client_once, Opts, false),
+      validate_extensions_fun = handle_option(validate_extensions_fun, Opts, undefined),
       depth      = handle_option(depth,  Opts, 1),
       certfile   = CertFile,
       keyfile    = handle_option(keyfile,  Opts, CertFile),
       key        = handle_option(key, Opts, undefined),
       password   = handle_option(password, Opts, ""),
       cacertfile = handle_option(cacertfile, Opts, CaCertDefault),
+      dhfile     = handle_option(dhfile, Opts, undefined),
       ciphers    = handle_option(ciphers, Opts, []),
       %% Server side option
       reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
       reuse_sessions = handle_option(reuse_sessions, Opts, true),
+      renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
       debug      = handle_option(debug, Opts, [])
      },
 
     CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed}),    
-    SslOptions = [versions, verify, verify_fun, 
+    SslOptions = [versions, verify, verify_fun, validate_extensions_fun, 
+		  fail_if_no_peer_cert, verify_client_once,
 		  depth, certfile, keyfile,
-		  key, password, cacertfile, ciphers,
+		  key, password, cacertfile, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cd_info],
+		  cb_info, renegotiate_at],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -585,6 +600,9 @@ validate_option(fail_if_no_peer_cert, Value)
 validate_option(verify_client_once, Value) 
   when Value == true; Value == false ->
     Value;
+
+validate_option(validate_extensions_fun, Value) when Value == undefined; is_function(Value) ->
+    Value;
 validate_option(depth, Value) when is_integer(Value), 
                                    Value >= 0, Value =< 255->
     Value;
@@ -605,11 +623,17 @@ validate_option(cacertfile, undefined) ->
     "";
 validate_option(cacertfile, Value) when is_list(Value), Value =/= "" ->
     Value;
+validate_option(dhfile, undefined = Value)  ->
+    Value;
+validate_option(dhfile, Value) when is_list(Value), Value =/= "" ->
+    Value;
 validate_option(ciphers, Value)  when is_list(Value) ->
     Version = ssl_record:highest_protocol_version([]),
     try cipher_suites(Version, Value)
     catch
 	exit:_ ->
+	    throw({error, {eoptions, {ciphers, Value}}});
+	error:_->
 	    throw({error, {eoptions, {ciphers, Value}}})
     end;
 validate_option(reuse_session, Value) when is_function(Value) ->
@@ -617,6 +641,9 @@ validate_option(reuse_session, Value) when is_function(Value) ->
 validate_option(reuse_sessions, Value) when Value == true; 
 					    Value == false ->
     Value;
+validate_option(renegotiate_at, Value) when is_integer(Value) ->
+    min(Value, ?DEFAULT_RENEGOTIATE_AT);
+
 validate_option(debug, Value) when is_list(Value); Value == true ->
     Value;
 validate_option(Opt, Value) ->
@@ -628,7 +655,7 @@ validate_versions([Version | Rest], Versions) when Version == 'tlsv1.1';
                                                    Version == tlsv1; 
                                                    Version == sslv3 ->
     validate_versions(Rest, Versions);					   
-validate_versions(Ver, Versions) ->
+validate_versions([Ver| _], Versions) ->
     throw({error, {eoptions, {Ver, {versions, Versions}}}}).
 
 validate_inet_option(mode, Value)
@@ -832,6 +859,11 @@ version() ->
                                 Vsns
                         end,
     {ok, {SSLVsn, CompVsn, LibVsn}}.
+
+min(N,M) when N < M ->
+    N;
+min(_, M) ->
+    M.
                                 
 %% Only used to remove exit messages from old ssl
 %% First is a nonsense clause to provide some

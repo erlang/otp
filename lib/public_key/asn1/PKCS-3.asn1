@@ -1,0 +1,21 @@
+PKCS-3 {
+       iso(1) member-body(2) us(840) rsadsi(113549)
+      pkcs(1) 3
+}
+
+DEFINITIONS EXPLICIT TAGS ::=
+
+BEGIN
+	
+pkcs-3 OBJECT IDENTIFIER ::=
+  { iso(1) member-body(2) us(840) rsadsi(113549)
+      pkcs(1) 3 }
+      
+dhKeyAgreement OBJECT IDENTIFIER ::= { pkcs-3 1 }
+
+DHParameter ::= SEQUENCE {
+  prime INTEGER, -- p
+  base INTEGER, -- g
+  privateValueLength INTEGER OPTIONAL }
+
+END

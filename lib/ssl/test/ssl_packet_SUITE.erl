@@ -144,7 +144,9 @@ all(suite) ->
      packet_wait_passive, packet_wait_active,
      packet_baddata_passive, packet_baddata_active,
      packet_size_passive, packet_size_active,
-     packet_erl_decode
+     packet_erl_decode,
+     packet_http_decode,
+     packet_http_bin_decode_multi
     ].
 
 %% Test cases starts here.
@@ -1466,6 +1468,173 @@ client_packet_decode(Socket, CDR) ->
     end,
     ok.
 
+%%--------------------------------------------------------------------
+packet_http_decode(doc) ->
+    ["Test setting the packet option {packet, http}"];
+packet_http_decode(suite) ->
+    [];
+
+packet_http_decode(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Request = "GET / HTTP/1.1\r\n"
+              "host: www.example.com\r\n"
+	      "user-agent: HttpTester\r\n"
+	      "\r\n",
+    Response = "HTTP/1.1 200 OK\r\n"
+	       "\r\n"
+	       "Hello!",
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_http_decode, [Response]}},
+					{options, [{active, true}, binary, {packet, http} |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_decode, [Request]}},
+					{options, [{active, true}, binary, {packet, http} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+server_http_decode(Socket, HttpResponse) ->
+    assert_packet_opt(Socket, http),
+    receive
+	{ssl, Socket, {http_request, 'GET', _, {1,1}}}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    assert_packet_opt(Socket, http),
+    receive
+	{ssl, Socket, {http_header, _, 'Host', _, "www.example.com"}}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    assert_packet_opt(Socket, http),
+    receive
+	{ssl, Socket, {http_header, _, 'User-Agent', _, "HttpTester"}}  -> ok;
+	Other3 -> exit({?LINE, Other3})
+    end,
+    assert_packet_opt(Socket, http),
+    receive
+	{ssl, Socket, http_eoh}  -> ok;
+	Other4 -> exit({?LINE, Other4})
+    end,
+    assert_packet_opt(Socket, http),
+    ok = ssl:send(Socket, HttpResponse),
+    ok.
+
+client_http_decode(Socket, HttpRequest) ->
+    ok = ssl:send(Socket, HttpRequest),
+    receive
+	{ssl, Socket, {http_response, {1,1}, 200, "OK"}}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    receive
+	{ssl, Socket, http_eoh}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    ok = ssl:setopts(Socket, [{packet, 0}]),
+    receive
+	{ssl, Socket, <<"Hello!">>}  -> ok;
+	Other3 -> exit({?LINE, Other3})
+    end,
+    ok.
+
+%%--------------------------------------------------------------------
+packet_http_bin_decode_multi(doc) ->
+    ["Test setting the packet option {packet, http_bin} with multiple requests"];
+packet_http_bin_decode_multi(suite) ->
+    [];
+
+packet_http_bin_decode_multi(Config) when is_list(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+
+    Request = <<"GET / HTTP/1.1\r\n"
+                "host: www.example.com\r\n"
+	        "user-agent: HttpTester\r\n"
+	        "\r\n">>,
+    Response = <<"HTTP/1.1 200 OK\r\n"
+	         "\r\n"
+	         "Hello!">>,
+    NumMsgs = 3,
+
+    Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
+					{from, self()},
+					{mfa, {?MODULE, server_http_bin_decode, [Response, NumMsgs]}},
+					{options, [{active, true}, binary, {packet, http_bin} |
+						   ServerOpts]}]),
+
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ServerNode}, {port, Port},
+					{host, Hostname},
+					{from, self()},
+					{mfa, {?MODULE, client_http_bin_decode, [Request, NumMsgs]}},
+					{options, [{active, true}, binary, {packet, http_bin} |
+						   ClientOpts]}]),
+
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+server_http_bin_decode(Socket, HttpResponse, Count) when Count > 0 ->
+    assert_packet_opt(Socket, http_bin),
+    receive
+	{ssl, Socket, {http_request, 'GET', _, {1,1}}}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    assert_packet_opt(Socket, http_bin),
+    receive
+	{ssl, Socket, {http_header, _, 'Host', _, <<"www.example.com">>}}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    assert_packet_opt(Socket, http_bin),
+    receive
+	{ssl, Socket, {http_header, _, 'User-Agent', _, <<"HttpTester">>}}  -> ok;
+	Other3 -> exit({?LINE, Other3})
+    end,
+    assert_packet_opt(Socket, http_bin),
+    receive
+	{ssl, Socket, http_eoh}  -> ok;
+	Other4 -> exit({?LINE, Other4})
+    end,
+    assert_packet_opt(Socket, http_bin),
+    ok = ssl:send(Socket, HttpResponse),
+    server_http_bin_decode(Socket, HttpResponse, Count - 1);
+server_http_bin_decode(_, _, _) ->
+    ok.
+
+client_http_bin_decode(Socket, HttpRequest, Count) when Count > 0 ->
+    ok = ssl:send(Socket, HttpRequest),
+    receive
+	{ssl, Socket, {http_response, {1,1}, 200, <<"OK">>}}  -> ok;
+	Other1 -> exit({?LINE, Other1})
+    end,
+    receive
+	{ssl, Socket, http_eoh}  -> ok;
+	Other2 -> exit({?LINE, Other2})
+    end,
+    ok = ssl:setopts(Socket, [{packet, 0}]),
+    receive
+	{ssl, Socket, <<"Hello!">>}  -> ok;
+	Other3 -> exit({?LINE, Other3})
+    end,
+    ok = ssl:setopts(Socket, [{packet, http_bin}]),
+    client_http_bin_decode(Socket, HttpRequest, Count - 1);
+client_http_bin_decode(_, _, _) ->
+    ok.
 
 %%--------------------------------------------------------------------
 %% Internal functions
@@ -1572,3 +1741,6 @@ active_packet(Socket, Data, N) ->
 	Other ->
 	    {other, Other, ssl:session_info(Socket),N}
     end.
+
+assert_packet_opt(Socket, Type) ->
+    {ok, [{packet, Type}]} = ssl:getopts(Socket, [packet]).
