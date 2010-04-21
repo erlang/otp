@@ -695,6 +695,9 @@ static Export binary_match_trap_export;
 static BIF_RETTYPE binary_match_trap(BIF_ALIST_3);
 static Export binary_matches_trap_export;
 static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3);
+static Uint max_loop_limit;
+
+
 void erts_init_bif_binary(void)
 {
     sys_memset((void *) &binary_match_trap_export, 0, sizeof(Export));
@@ -713,7 +716,29 @@ void erts_init_bif_binary(void)
     binary_matches_trap_export.code[3] = (BeamInstr) em_apply_bif;
     binary_matches_trap_export.code[4] = (BeamInstr) &binary_matches_trap;
 
+    max_loop_limit = 0;
     return;
+}
+
+Sint erts_binary_set_loop_limit(Sint limit)
+{
+    Sint save = (Sint) max_loop_limit;
+    if (limit <= 0) {
+	max_loop_limit = 0;
+    } else {
+	max_loop_limit = (Uint) limit;
+    }
+    return save;
+}
+
+static Uint get_reds(Process *p, int loop_factor)
+{
+    Uint reds = ERTS_BIF_REDS_LEFT(p) * loop_factor;
+    Uint tmp = max_loop_limit;
+    if (tmp != 0 && tmp < reds) {
+	return tmp;
+    }
+    return reds;
 }
 
 #define MYALIGN(Size) (SIZEOF_VOID_P * (((Size) / SIZEOF_VOID_P) + \
@@ -979,6 +1004,7 @@ static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
     root->h = root;
 }
 
+
 /*
  * The actual searching for needles in the haystack...
  * Find first match using Aho-Coracick Trie
@@ -1009,10 +1035,10 @@ static void ac_init_find_first_match(ACFindFirstState *state, ACTrie *act, Sint 
 #define AC_NOT_FOUND -1
 #define AC_RESTART -2
 
-#define AC_LOOP_FACTOR 1
+#define AC_LOOP_FACTOR 10
 
 static int ac_find_first_match(ACFindFirstState *state, byte *haystack,
-				Uint *mpos, Uint *mlen, Uint reductions)
+				Uint *mpos, Uint *mlen, Uint *reductions)
 {
     ACNode *q = state->q;
     Uint i = state->pos;
@@ -1020,7 +1046,7 @@ static int ac_find_first_match(ACFindFirstState *state, byte *haystack,
     Uint len = state->len;
     Uint candidate_start = state->candidate_start;
     Uint rstart;
-    register Uint reds = (Uint) reductions;
+    register Uint reds = *reductions;
 
     while (i < len) {
 	if (--reds == 0) {
@@ -1057,6 +1083,7 @@ static int ac_find_first_match(ACFindFirstState *state, byte *haystack,
 	    }
 	}
     }
+    *reductions = reds;
     if (!candidate) {
 	return AC_NOT_FOUND;
     }
@@ -1127,7 +1154,8 @@ static void ac_clean_find_all(ACFindAllState *state)
  * Differs to the find_first function in that it stores all matches and the values
  * arte returned only in the state.
  */
-static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack, Uint reductions)
+static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack,
+				       Uint *reductions)
 {
     ACNode *q = state->q;
     Uint i = state->pos;
@@ -1137,7 +1165,7 @@ static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack, Ui
     Uint m = state->m, save_m;
     Uint allocated = state->allocated;
     FindallData *out = state->out;
-    register Uint reds = (Uint) reductions;
+    register Uint reds = *reductions;
 
 
     while (i < len) {
@@ -1212,6 +1240,7 @@ static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack, Ui
 	    }
 	}
     }
+    *reductions = reds;
     state->m = m;
     state->out = out;
     return (m == 0) ? AC_NOT_FOUND : AC_OK;
@@ -1308,7 +1337,7 @@ typedef struct {
 #define BM_OK 0 /* used only for find_all */
 #define BM_NOT_FOUND -1
 #define BM_RESTART -2
-#define BM_LOOP_FACTOR 1
+#define BM_LOOP_FACTOR 10 /* Should we have a higher value? */
 
 static void bm_init_find_first_match(BMFindFirstState *state, Sint startpos, Uint len)
 {
@@ -1317,7 +1346,7 @@ static void bm_init_find_first_match(BMFindFirstState *state, Sint startpos, Uin
 }
 
 
-static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *haystack, Uint reductions)
+static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *haystack, Uint *reductions)
 {
     Sint blen = bmd->len;
     Sint len = state->len;
@@ -1326,7 +1355,7 @@ static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *hays
     byte *needle = bmd->x;
     Sint i;
     Sint j = state->pos;
-    register Uint reds = reductions;
+    register Uint reds = *reductions;
 
     while (j <= len - blen) {
 	if (--reds == 0) {
@@ -1336,10 +1365,12 @@ static Sint bm_find_first_match(BMFindFirstState *state, BMData *bmd, byte *hays
 	for (i = blen - 1; i >= 0 && needle[i] == haystack[i + j]; --i)
 	    ;
 	if (i < 0) { /* found */
+	    *reductions = reds;
 	    return j;
 	}
 	j += MAX(gs[i],bs[haystack[i+j]] - blen + 1 + i);
     }
+    *reductions = reds;
     return BM_NOT_FOUND;
 }
 
@@ -1391,7 +1422,7 @@ static void bm_clean_find_all(BMFindAllState *state)
  * arte returned only in the state.
  */
 static Sint bm_find_all_non_overlapping(BMFindAllState *state,
-					BMData *bmd, byte *haystack, Uint reductions)
+					BMData *bmd, byte *haystack, Uint *reductions)
 {
     Sint blen = bmd->len;
     Sint len = state->len;
@@ -1403,7 +1434,7 @@ static Sint bm_find_all_non_overlapping(BMFindAllState *state,
     Uint m = state->m;
     Uint allocated = state->allocated;
     FindallData *out = state->out;
-    register Uint reds = reductions;
+    register Uint reds = *reductions;
 
     while (j <= len - blen) {
 	if (--reds == 0) {
@@ -1436,6 +1467,7 @@ static Sint bm_find_all_non_overlapping(BMFindAllState *state,
     }
     state->m = m;
     state->out = out;
+    *reductions = reds;
     return (m == 0) ? BM_NOT_FOUND : BM_OK;
 }
 
@@ -1588,7 +1620,8 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	Eterm ret;
 	Eterm *hp;
 	BMFindFirstState state;
-	Uint reds = ERTS_BIF_REDS_LEFT(p) * BM_LOOP_FACTOR;
+	Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	Uint save_reds = reds;
 
 	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
 #ifdef HARDDEBUG
@@ -1603,7 +1636,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 #ifdef HARDDEBUG
 	erts_printf("(bm) state->pos = %ld, state->len = %lu\n",state.pos, state.len);
 #endif
-	pos = bm_find_first_match(&state, bm, bytes, reds);
+	pos = bm_find_first_match(&state, bm, bytes, &reds);
 	if (pos == BM_NOT_FOUND) {
 	    ret = am_nomatch;
 	} else if (pos == BM_RESTART) {
@@ -1626,6 +1659,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	    ret = TUPLE2(hp, ret, erlen);
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
+	BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
 	*res_term = ret;
 	return DO_BIN_MATCH_OK;
     } else if (type == am_ac) {
@@ -1635,7 +1669,8 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	ACFindFirstState state;
 	Eterm ret;
 	Eterm *hp;
-	Uint reds = ERTS_BIF_REDS_LEFT(p) * AC_LOOP_FACTOR;
+	Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	Uint save_reds = reds;
 
 	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
 #ifdef HARDDEBUG
@@ -1647,7 +1682,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	    Eterm *ptr = big_val(state_term);
 	    memcpy(&state,ptr+2,sizeof(state));
 	}
-	acr = ac_find_first_match(&state, bytes, &pos, &rlen, reds);
+	acr = ac_find_first_match(&state, bytes, &pos, &rlen, &reds);
 	if (acr == AC_NOT_FOUND) {
 	    ret = am_nomatch;
 	} else if (acr == AC_RESTART) {
@@ -1670,6 +1705,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	    ret = TUPLE2(hp, epos, erlen);
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
+	BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
 	*res_term = ret;
 	return DO_BIN_MATCH_OK;
     }
@@ -1702,7 +1738,8 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	Eterm ret,tpl;
 	Eterm *hp;
 	BMFindAllState state;
-	Uint reds = ERTS_BIF_REDS_LEFT(p) * BM_LOOP_FACTOR;
+	Uint reds = get_reds(p, BM_LOOP_FACTOR);
+	Uint save_reds = reds;
 
 	bm = (BMData *) ERTS_MAGIC_BIN_DATA(bin);
 #ifdef HARDDEBUG
@@ -1715,9 +1752,9 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	    bm_restore_find_all(&state,(char *) (ptr+2));
 	}
 
-	pos = bm_find_all_non_overlapping(&state, bm, bytes, reds);
+	pos = bm_find_all_non_overlapping(&state, bm, bytes, &reds);
 	if (pos == BM_NOT_FOUND) {
-	    ret = am_nomatch;
+	    ret = NIL;
 	} else if (pos == BM_RESTART) {
 	    int x = (SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
 		!!(SIZEOF_BM_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
@@ -1750,6 +1787,7 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
 	bm_clean_find_all(&state);
+	BUMP_REDS(p, (save_reds - reds) / BM_LOOP_FACTOR);
 	*res_term = ret;
 	return DO_BIN_MATCH_OK;
     } else if (type == am_ac) {
@@ -1758,7 +1796,8 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	ACFindAllState state;
 	Eterm ret,tpl;
 	Eterm *hp;
-	Uint reds = ERTS_BIF_REDS_LEFT(p) * AC_LOOP_FACTOR;
+	Uint reds = get_reds(p, AC_LOOP_FACTOR);
+	Uint save_reds = reds;
 
 	act = (ACTrie *) ERTS_MAGIC_BIN_DATA(bin);
 #ifdef HARDDEBUG
@@ -1770,9 +1809,9 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	    Eterm *ptr = big_val(state_term);
 	    ac_restore_find_all(&state,(char *) (ptr+2));
 	}
-	acr = ac_find_all_non_overlapping(&state, bytes, reds);
+	acr = ac_find_all_non_overlapping(&state, bytes, &reds);
 	if (acr == AC_NOT_FOUND) {
-	    ret = am_nomatch;
+	    ret = NIL;
 	} else if (acr == AC_RESTART) {
 	    int x = (SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) / sizeof(Eterm)) +
 		!!(SIZEOF_AC_SERIALIZED_FIND_ALL_STATE(state) % sizeof(Eterm));
@@ -1805,6 +1844,7 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart, Uint hslen
 	}
 	erts_free_aligned_binary_bytes(temp_alloc);
 	ac_clean_find_all(&state);
+	BUMP_REDS(p, (save_reds - reds) / AC_LOOP_FACTOR);
 	*res_term = ret;
 	return DO_BIN_MATCH_OK;
     }

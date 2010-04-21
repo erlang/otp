@@ -3567,6 +3567,17 @@ BIF_RETTYPE erts_debug_set_internal_state_2(BIF_ALIST_2)
                 }
 	    }
 	}
+	else if (ERTS_IS_ATOM_STR("binary_loop_limit", BIF_ARG_1)) {
+	    /* Used by binary_module_SUITE (stdlib) */
+	    Uint max_loops;
+	    if (is_atom(BIF_ARG_2) && ERTS_IS_ATOM_STR("default", BIF_ARG_2)) {
+		max_loops = erts_binary_set_loop_limit(-1);
+		BIF_RET(make_small(max_loops));
+	    } else if (term_to_Uint(BIF_ARG_2, &max_loops) != 0) {
+		max_loops = erts_binary_set_loop_limit(max_loops);
+		BIF_RET(make_small(max_loops));
+	    }
+	}
 	else if (ERTS_IS_ATOM_STR("re_loop_limit", BIF_ARG_1)) {
 	    /* Used by re_SUITE (stdlib) */
 	    Uint max_loops;

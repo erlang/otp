@@ -98,13 +98,103 @@ do_interesting(Module) ->
 random_ref_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation"];
 random_ref_comp(Config) when is_list(Config) ->
-    put(success_counter,0),
-    random:seed({1271,769940,559934}),
-    do_random_match_comp(5000,{1,40},{30,1000}),
+    ?line put(success_counter,0),
+    ?line random:seed({1271,769940,559934}),
+    ?line do_random_match_comp(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
-    do_random_match_comp2(5000,{1,40},{30,1000}),
+    ?line do_random_match_comp2(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_match_comp3(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_matches_comp(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_matches_comp2(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_matches_comp3(5,{1,40},{30,1000}),
+    ?line erts_debug:set_internal_state(available_internal_state,true),
+    ?line io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,100)]),
+    ?line do_random_matches_comp3(5,{1,40},{30,1000}),
+    ?line io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
+    ?line erts_debug:set_internal_state(available_internal_state,false),
     ok.
+
+do_random_matches_comp(0,_,_) ->
+    ok;
+do_random_matches_comp(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Needles = [random_string(NeedleRange) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    Haystack = random_string(HaystackRange),
+    true = do_matches_comp(Needles,Haystack),
+    do_random_matches_comp(N-1,NeedleRange,HaystackRange).
+
+do_random_matches_comp2(0,_,_) ->
+    ok;
+do_random_matches_comp2(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_substring(NeedleRange,Haystack) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    true = do_matches_comp(Needles,Haystack),
+    do_random_matches_comp2(N-1,NeedleRange,HaystackRange).
+
+do_random_matches_comp3(0,_,_) ->
+    ok;
+do_random_matches_comp3(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_substring(NeedleRange,Haystack) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    RefRes = binref:matches(Haystack,Needles),
+    true = do_matches_comp_loop(10000,Needles,Haystack, RefRes),
+    do_random_matches_comp3(N-1,NeedleRange,HaystackRange).
+
+do_matches_comp_loop(0,_,_,_) ->
+    true;
+do_matches_comp_loop(N, Needles, Haystack0,RR) ->
+    DummySize=N*8,
+    Haystack1 = <<0:DummySize,Haystack0/binary>>,
+    RR1=[{X+N,Y} || {X,Y} <- RR],
+    true = do_matches_comp2(Needles,Haystack1,RR1),
+    Haystack2 = <<Haystack0/binary,Haystack1/binary>>,
+    RR2 = RR ++ [{X2+N+byte_size(Haystack0),Y2} || {X2,Y2} <- RR],
+    true = do_matches_comp2(Needles,Haystack2,RR2),
+    do_matches_comp_loop(N-1, Needles, Haystack0,RR).
+
+
+do_matches_comp2(N,H,A) ->
+    C = (catch binary:matches(H,N)),
+    case (A =:= C) of
+	true ->
+	    true;
+	_ ->
+	    io:format("Failed to match ~p (needle) against ~s (haystack)~n",
+		      [N,H]),
+	    io:format("A:~p,~n,C:~p.~n",
+		      [A,C]),
+	    exit(mismatch)
+    end.
+do_matches_comp(N,H) ->
+    A = (catch binref:matches(H,N)),
+    B = (catch binref:matches(H,binref:compile_pattern(N))),
+    C = (catch binary:matches(H,N)),
+    D = (catch binary:matches(H,binary:compile_pattern(N))),
+    if
+	A =/= nomatch ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case {(A =:= B), (B =:= C),(C =:= D)} of
+	{true,true,true} ->
+	    true;
+	_ ->
+	    io:format("Failed to match ~p (needle) against ~s (haystack)~n",
+		      [N,H]),
+	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
+		      [A,B,C,D]),
+	    exit(mismatch)
+    end.
 
 do_random_match_comp(0,_,_) ->
     ok;
@@ -122,11 +212,43 @@ do_random_match_comp2(N,NeedleRange,HaystackRange) ->
     true = do_match_comp(Needle,Haystack),
     do_random_match_comp2(N-1,NeedleRange,HaystackRange).
 
+do_random_match_comp3(0,_,_) ->
+    ok;
+do_random_match_comp3(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_substring(NeedleRange,Haystack) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    true = do_match_comp3(Needles,Haystack),
+    do_random_match_comp3(N-1,NeedleRange,HaystackRange).
+
 do_match_comp(N,H) ->
-    A = binref:match(H,N),
-    B = binref:match(H,binref:compile_pattern([N])),
-    C = binary:match(H,N),
-    D = binary:match(H,binary:compile_pattern([N])),
+    A = (catch binref:match(H,N)),
+    B = (catch binref:match(H,binref:compile_pattern([N]))),
+    C = (catch binary:match(H,N)),
+    D = (catch binary:match(H,binary:compile_pattern([N]))),
+    if
+	A =/= nomatch ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case {(A =:= B), (B =:= C),(C =:= D)} of
+	{true,true,true} ->
+	    true;
+	_ ->
+	    io:format("Failed to match ~s (needle) against ~s (haystack)~n",
+		      [N,H]),
+	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
+		      [A,B,C,D]),
+	    exit(mismatch)
+    end.
+
+do_match_comp3(N,H) ->
+    A = (catch binref:match(H,N)),
+    B = (catch binref:match(H,binref:compile_pattern(N))),
+    C = (catch binary:match(H,N)),
+    D = (catch binary:match(H,binary:compile_pattern(N))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
