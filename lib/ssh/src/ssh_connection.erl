@@ -123,8 +123,6 @@ send(ConnectionManager, ChannelId, Data) ->
     send(ConnectionManager, ChannelId, 0, Data, infinity).
 send(ConnectionManager, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
     send(ConnectionManager, ChannelId, 0, Data, TimeOut);
-send(ConnectionManager, ChannelId, Data, infinity) ->
-    send(ConnectionManager, ChannelId, 0, Data, infinity);
 send(ConnectionManager, ChannelId, Type, Data) ->
     send(ConnectionManager, ChannelId, Type, Data, infinity).
 send(ConnectionManager, ChannelId, Type, Data, TimeOut) ->

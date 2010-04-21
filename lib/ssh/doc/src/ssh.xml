@@ -159,9 +159,6 @@
 	  <item>
 	    <p>Allow an existing file-descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{ip_v6_disabled, boolean()}]]></c></tag>
-	  <item>
-	    <p>Determines if SSH shall use IPv6 or not.</p></item>
 	</taglist>
       </desc>   
     </func>
@@ -201,8 +198,8 @@
 	  <item>
 	    Provides specifications for handling of subsystems.  The
 	    "sftp" subsystem-spec can be retrieved by calling
-	    ssh_sftpd:subsystem_spec/1. If the subsystems option in not present
-	    the value of <c>[ssh_sftpd:subsystem_spec([])]</c> will be used.
+	    ssh_sftd:subsystem_spec/1. If the subsystems option in not present
+	    the value of <c>[ssh_sftd:subsystem_spec([])]</c> will be used.
 	    It is of course possible to set the option to the empty list
 	    if you do not want the daemon to run any subsystems at all.
 	  </item>
@@ -255,10 +252,6 @@
 	  <item>
 	    <p>Allow an existing file-descriptor to be used
 	  (simply passed on to the transport protocol).</p></item>
-	  <tag><c><![CDATA[{ip_v6_disabled, boolean()}]]></c></tag>
-	  <item>
-	    <p>Determines if SSH shall use IPv6 or not (only used when 
-               HostAddress is set to any).</p></item>
         </taglist>
       </desc>
     </func>

@@ -428,7 +428,7 @@ start_shell(ConnectionManager, State) ->
 			       {ok, User} = 
 				   ssh_userreg:lookup_user(ConnectionManager),
 			       {ok, PeerAddr} = 
-				   ssh_connection_manager:peer_addr(ConnectionManager),
+				   ssh_cm:get_peer_addr(ConnectionManager),
 			       fun() -> Shell(User, PeerAddr) end;
 			   _ ->
 			       Shell
