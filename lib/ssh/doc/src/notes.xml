@@ -29,6 +29,39 @@
     <file>notes.xml</file>
   </header>
 
+ <section><title>Ssh 1.1.9</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>The function ssh:connect/4 was not exported.</p>
+          <p>Own Id: OTP-8550 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>The configuration parameter ip_v6_disabled is now available,
+             which makes it possible for the user to alter the IP version
+             SSH shall use.</p>
+          <p>Own Id: OTP-8535 Aux Id:</p>
+        </item>
+        <item>
+          <p>The ssh_connection:send operation now accepts infinity as timeout.</p>
+          <p>Own Id: OTP-8534 Aux Id:</p>
+        </item>
+        <item>
+          <p>The connection handler now include stack traces when a channel 
+             message is not handled correctly.</p>
+          <p>Own Id: OTP-8524 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
  <section><title>Ssh 1.1.8</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
