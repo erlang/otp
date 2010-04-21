@@ -56,7 +56,6 @@ MODULES= \
 	ssh_auth\
 	ssh_bits \
 	ssh_cli \
-	ssh_cm \
 	ssh_dsa \
 	ssh_file \
 	ssh_io \
@@ -67,8 +66,6 @@ MODULES= \
 	ssh_sftpd \
 	ssh_sftpd_file\
 	ssh_sftpd_file_api \
-	ssh_ssh \
-	ssh_sshd \
 	ssh_transport \
 	ssh_userreg \
 	ssh_xfer

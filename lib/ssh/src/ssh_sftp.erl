@@ -46,14 +46,6 @@
 	 recv_window/1, list_dir/2, read_file/2, write_file/3,
 	 recv_window/2, list_dir/3, read_file/3, write_file/4]).
 
-%% Deprecated
--export([connect/1, connect/2, connect/3, stop/1]).
-
--deprecated({connect, 1, next_major_release}).
--deprecated({connect, 2, next_major_release}).
--deprecated({connect, 3, next_major_release}).
--deprecated({stop, 1, next_major_release}).
-
 %% ssh_channel callbacks
 -export([init/1, handle_call/3, handle_msg/2, handle_ssh_msg/2, terminate/2]).
 %% TODO: Should be placed elsewhere ssh_sftpd should not call functions in ssh_sftp!
@@ -1115,34 +1107,4 @@ lseek_pos({eof, Offset}, _CurOffset, CurSize)
 lseek_pos(_, _, _) ->
     {error, einval}. 
  
-
-%%%%%% Deprecated %%%%
-connect(Cm) when is_pid(Cm) ->
-    connect(Cm, []);
-connect(Host) when is_list(Host) ->
-    connect(Host, []).					 
-connect(Cm, Opts) when is_pid(Cm) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    case ssh_xfer:attach(Cm, []) of
-	{ok, ChannelId, Cm} -> 
-	    ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, ChannelId,
-						       Timeout]);
-	Error ->
-	    Error
-    end;
-connect(Host, Opts) ->
-    connect(Host, 22, Opts).
-connect(Host, Port, Opts) ->
-    Timeout = proplists:get_value(timeout, Opts, infinity),
-    case ssh_xfer:connect(Host, Port, proplists:delete(timeout, Opts)) of
-	{ok, ChannelId, Cm} ->
-	    ssh_channel:start(Cm, ChannelId, ?MODULE, [Cm, 
-						       ChannelId, Timeout]);
-	Error ->
-	    Error	    
-    end.
-
-
-stop(Pid) ->
-    call(Pid, stop, infinity).
 
