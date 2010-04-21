@@ -129,14 +129,14 @@ static int clear_function_break(Module *modp, BeamInstr *pc,
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op);
 
 /* bp_hash */
-#define BP_TIME_ADD(pi0, pi1)             \
-    do {                                  \
-	Uint r; \
-	(pi0)->count   += (pi1)->count;   \
-	(pi0)->s_time  += (pi1)->s_time;  \
-	(pi0)->us_time += (pi1)->us_time; \
-	r = (pi0)->us_time / 1000000;     \
-	(pi0)->s_time  += r;              \
+#define BP_TIME_ADD(pi0, pi1)                       \
+    do {                                            \
+	Uint r;                                     \
+	(pi0)->count   += (pi1)->count;             \
+	(pi0)->s_time  += (pi1)->s_time;            \
+	(pi0)->us_time += (pi1)->us_time;           \
+	r = (pi0)->us_time / 1000000;               \
+	(pi0)->s_time  += r;                        \
 	(pi0)->us_time  = (pi0)->us_time % 1000000; \
     } while(0)
 
@@ -809,7 +809,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		    bdc->count = 0; /* Reset call counter */
 		}
 		ErtsSmpBPUnlock(bdc);
-	    } else if (break_op == (Uint) BeamOp(op_i_count_breakpoint)) {
+	    } else if (break_op == (Uint) BeamOp(op_i_time_breakpoint)) {
 		BpDataTime *bdt = (BpDataTime *) bd;
 		Uint i = 0;
 
