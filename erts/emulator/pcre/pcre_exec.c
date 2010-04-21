@@ -5191,7 +5191,6 @@ for(;;)
       EDEBUGF(("Loop limit break detected"));
       return PCRE_ERROR_LOOP_LIMIT;
   RESTART_INTERRUPTED:
-      md->match_call_count = 0; 
       md->loop_limit = extra_data->loop_limit;
       rc = match(NULL,NULL,NULL,0,md,0,NULL,0,0);
       *extra_data->loop_counter_return = 
