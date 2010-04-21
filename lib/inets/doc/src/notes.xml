@@ -32,6 +32,51 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.2</title>
+
+    <section><title>Improvements and New Features</title>
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+	  <p>[httpc] - Allow users to pass socket options to the transport 
+            module when making requests. </p> 
+          <p>See the <c>socket_opts</c> option in the 
+            <seealso marker="httpc#request2">request/4</seealso> or 
+            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            for more info, </p>
+	  <p>Own Id: OTP-8352</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>[httpc] - Memory leak plugged. 
+            The profile manager never cleaned up in its handler database. 
+            This meant that with each new request handler, another entry 
+            was created that was never deleted. Eventually the request
+            id counter (used as a key) would wrap, but the machine would 
+            most likely run out of memory before that happened.</p>
+	  <p>Own Id: OTP-8542</p>
+          <p>Lev Walkin</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.3.2 -->
+
+
   <section><title>Inets 5.3.1</title>
 
     <section><title>Improvements and New Features</title>

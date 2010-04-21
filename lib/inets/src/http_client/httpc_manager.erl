@@ -30,6 +30,7 @@
 	 request/2, 
 	 cancel_request/2,
 	 request_canceled/2, 
+	 request_done/2, 
 	 retry_request/2, 
 	 redirect_request/2,
 	 insert_session/2, 
@@ -168,6 +169,18 @@ cancel_request(RequestId, ProfileName) ->
 
 request_canceled(RequestId, ProfileName) ->
     cast(ProfileName, {request_canceled, RequestId}).
+
+
+%%--------------------------------------------------------------------
+%% Function: request_done(RequestId, ProfileName) -> ok
+%%	RequestId - ref()
+%%      ProfileName = atom()
+%%
+%% Description: Inform tha manager that a request has been completed.
+%%--------------------------------------------------------------------
+
+request_done(RequestId, ProfileName) ->
+    cast(ProfileName, {request_done, RequestId}).
 
 
 %%--------------------------------------------------------------------
@@ -485,6 +498,11 @@ handle_cast({request_canceled, RequestId}, State) ->
 	    ?hcrt("not found in cancel", [{else, Else}]),
 	   {noreply, State}
     end;
+
+handle_cast({request_done, RequestId}, State) ->
+    ?hcrv("request done", [{request_id, RequestId}]),
+    ets:delete(State#state.handler_db, RequestId),
+    {noreply, State};
 
 handle_cast({set_options, Options}, State = #state{options = OldOptions}) ->
     ?hcrv("set options", [{options, Options}, {old_options, OldOptions}]),
