@@ -959,13 +959,13 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
  *
  * If the return value contains FUNC_TRACE_COUNT_TRACE, *count is set.
  */
-static int function_is_traced(Eterm mfa[3], 
+static int function_is_traced(Process *p,
+			      Eterm mfa[3],
 			      Binary **ms,              /* out */
 			      Binary **ms_meta,         /* out */
 			      Eterm   *tracer_pid_meta, /* out */
 			      Sint    *count,    /* out */
-			      Uint    *s_time,    /* out */
-			      Uint    *us_time)    /* out */
+			      Eterm   *call_time)    /* out */
 {
     Export e;
     Export* ep;
@@ -1018,7 +1018,7 @@ static int function_is_traced(Eterm mfa[3],
 	       ? FUNC_TRACE_META_TRACE : 0)
 	    | (erts_is_count_break(code, count)
 	       ? FUNC_TRACE_COUNT_TRACE : 0)
-	    | (erts_is_time_break(code, count, s_time, us_time)
+	    | (erts_is_time_break(p, code, call_time)
 	       ? FUNC_TRACE_TIME_TRACE : 0);
 	
 	return r ? r : FUNC_TRACE_UNTRACED;
@@ -1034,11 +1034,11 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     DeclareTmpHeap(mfa,3,p); /* Not really heap here, but might be when setting pattern */
     Binary *ms = NULL, *ms_meta = NULL;
     Sint count = 0;
-    Uint s_time = 0, us_time = 0;
     Eterm traced = am_false;
     Eterm match_spec = am_false;
     Eterm retval = am_false;
     Eterm meta = am_false;
+    Eterm call_time;
     int r;
 
 
@@ -1058,7 +1058,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     mfa[1] = tp[2];
     mfa[2] = signed_val(tp[3]);
 
-    r = function_is_traced(mfa, &ms, &ms_meta, &meta, &count, &s_time, &us_time);
+    r = function_is_traced(p, mfa, &ms, &ms_meta, &meta, &count, &call_time);
     switch (r) {
     case FUNC_TRACE_NOEXIST:
 	UnUseTmpHeap(3,p);
@@ -1113,15 +1113,11 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 	break;
     case am_call_time:
 	if (r & FUNC_TRACE_TIME_TRACE) {
-	    hp = HAlloc(p, 4);
-	    retval = TUPLE3(hp,
-		    erts_make_integer(count, p),
-		    erts_make_integer(s_time, p),
-		    erts_make_integer(us_time,p)); hp += 4;
+	    retval = call_time;
 	}
 	break;
     case am_all: {
-	Eterm match_spec_meta = am_false, c = am_false, t, ct;
+	Eterm match_spec_meta = am_false, c = am_false, t, ct = am_false;
 	
 	if (ms) {
 	    match_spec = MatchSetGetSource(ms);
@@ -1140,8 +1136,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 		erts_make_integer(count, p);
 	}
 	if (r & FUNC_TRACE_TIME_TRACE) {
-	    hp = HAlloc(p, 4);
-	    ct = TUPLE3(hp, erts_make_integer(count, p), erts_make_integer(s_time, p), erts_make_integer(us_time,p)); hp += 4;
+	    ct = call_time;
 	}
 	hp = HAlloc(p, (3+2)*6);
 	retval = NIL;

@@ -30,6 +30,7 @@
 #include "error.h"
 #include "erl_binary.h"
 #include "beam_bp.h"
+#include "erl_term.h"
 
 /* *************************************************************************
 ** Macros
@@ -127,6 +128,23 @@ static int clear_function_break(Module *modp, BeamInstr *pc,
 
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op);
 
+/* bp_hash */
+#define BP_TIME_ADD(pi0, pi1)             \
+    do {                                  \
+	Uint r; \
+	(pi0)->count   += (pi1)->count;   \
+	(pi0)->s_time  += (pi1)->s_time;  \
+	(pi0)->us_time += (pi1)->us_time; \
+	r = (pi0)->us_time / 1000000;     \
+	(pi0)->s_time  += r;              \
+	(pi0)->us_time  = (pi0)->us_time % 1000000; \
+    } while(0)
+
+static void bp_hash_init(bp_time_hash_t *hash, Uint n);
+static void bp_hash_rehash(bp_time_hash_t *hash, Uint n);
+static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
+static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t *sitem);
+static void bp_hash_delete(bp_time_hash_t *hash);
 
 
 /* *************************************************************************
@@ -420,27 +438,58 @@ erts_is_count_break(BeamInstr *pc, Sint *count_ret) {
     return 0;
 }
 
-int
-erts_is_time_break(Uint *pc, Sint *count, Uint *s_time, Uint *us_time) {
-    BpDataTime *bdt =
-	(BpDataTime *) is_break(pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
-    Uint i;
+int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
+    BpDataTime *bdt = (BpDataTime *) is_break(pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
+    Uint i, ix;
+    bp_time_hash_t hash;
+    Uint size;
+    Eterm *hp, t;
+    bp_data_time_item_t *item = NULL;
 
     if (bdt) {
-	if (count && s_time && us_time) {
-	    *count   = 0;
-	    *s_time  = 0;
-	    *us_time = 0;
-	    ErtsSmpBPLock(bdt);
+	if (retval) {
+	    /* collect all hashes to one hash */
+	    bp_hash_init(&hash, 64);
+	    /* foreach threadspecific hash */
 	    for (i = 0; i < bdt->n; i++) {
-		*count   += bdt->items[i].count;
-		*s_time  += bdt->items[i].s_time;
-		*us_time += bdt->items[i].us_time;
+		bp_data_time_item_t *sitem;
+
+	        /* foreach hash bucket not NIL*/
+		for(ix = 0; ix < bdt->hash[i].n; ix++) {
+		    item = &(bdt->hash[i].item[ix]);
+		    if (item->pid != NIL) {
+			sitem = bp_hash_get(&hash, item);
+			if (sitem) {
+			    BP_TIME_ADD(sitem, item);
+			} else {
+			    bp_hash_put(&hash, item);
+			}
+		    }
+		}
 	    }
-	    ErtsSmpBPUnlock(bdt);
+
+	    *retval = NIL;
+	    if (hash.used > 0) {
+		size = (5 + 2)*hash.used;
+		hp   = HAlloc(p, size);
+
+		for(ix = 0; ix < hash.n; ix++) {
+		    item = &(hash.item[ix]);
+		    if (item->pid != NIL) {
+			t = TUPLE4(hp, item->pid,
+				make_small(item->count),
+				make_small(item->s_time),
+				make_small(item->us_time));
+			hp += 5;
+			*retval = CONS(hp, t, *retval); hp += 2;
+		    }
+		}
+	    }
+	    bp_hash_delete(&hash);
 	}
 	return !0;
     }
+
     return 0;
 }
 
@@ -469,21 +518,182 @@ erts_find_local_func(Eterm mfa[3]) {
     return NULL;
 }
 
+/* bp_hash */
+
+static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
+    Uint size = sizeof(bp_data_time_item_t)*n;
+    Uint i;
+
+    hash->n    = n;
+    hash->used = 0;
+
+
+    hash->item = (bp_data_time_item_t *)Alloc(size);
+    sys_memzero(hash->item, size);
+
+    for(i = 0; i < n; ++i) {
+	hash->item[i].pid = NIL;
+    }
+}
+
+static void bp_hash_rehash(bp_time_hash_t *hash, Uint n) {
+    bp_data_time_item_t *item = NULL;
+    Uint size = sizeof(bp_data_time_item_t)*n;
+    Uint ix;
+    Uint hval;
+
+    item = (bp_data_time_item_t *)Alloc(size);
+    sys_memzero(item, size);
+
+    for( ix = 0; ix < n; ++ix) {
+	item[ix].pid = NIL;
+    }
+
+    for( ix = 0; ix < hash->n; ix++) {
+	if (hash->item[ix].pid != NIL) {
+
+	    hval = ((hash->item[ix].pid) >> 4) % n; /* new n */
+
+	    while (item[hval].pid != NIL) {
+		hval = (hval + 1) % n;
+	    }
+	    item[hval].pid     = hash->item[ix].pid;
+	    item[hval].count   = hash->item[ix].count;
+	    item[hval].s_time  = hash->item[ix].s_time;
+	    item[hval].us_time = hash->item[ix].us_time;
+	}
+    }
+
+    Free(hash->item);
+    hash->n = n;
+    hash->item = item;
+}
+static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_data_time_item_t *sitem) {
+    Eterm pid = sitem->pid;
+    Uint hval = (pid >> 4) % hash->n;
+    bp_data_time_item_t *item = NULL;
+
+    item = hash->item;
+
+    while (item[hval].pid != pid) {
+	if (item[hval].pid == NIL) return NULL;
+	hval = (hval + 1) % hash->n;
+    }
+
+    return &(item[hval]);
+}
+
+static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t* sitem) {
+    Uint hval = (sitem->pid >> 4) % hash->n;
+    float r = 0.0;
+    bp_data_time_item_t *item;
+
+    /* make sure that the hash is not saturated */
+    /* if saturated, rehash it */
+
+    r = hash->used / (float) hash->n;
+
+    if (r > 0.7f) {
+	bp_hash_rehash(hash, hash->n * 2);
+    }
+
+    /* find free slot */
+    item = hash->item;
+
+    while (item[hval].pid != NIL) {
+	hval = (hval + 1) % hash->n;
+    }
+    item = &(hash->item[hval]);
+
+    item->pid     = sitem->pid;
+    item->s_time  = sitem->s_time;
+    item->us_time = sitem->us_time;
+    item->count   = sitem->count;
+    hash->used++;
+
+    return item;
+}
+
+static void bp_hash_delete(bp_time_hash_t *hash) {
+    hash->n = 0;
+    hash->used = 0;
+    Free(hash->item);
+    hash->item = NULL;
+}
+
+static void bp_time_diff(bp_data_time_item_t *item, /* out */
+	process_breakpoint_time_t *pbt,             /* in  */
+	Uint ms, Uint s, Uint us) {
+    int dms,ds,dus;
+
+    dms = ms - pbt->ms;
+    ds  = s  - pbt->s;
+    dus = us - pbt->us;
+
+    if (dms > 0) {
+	item->s_time  = (ds + dms * 1000000);
+    } else {
+	item->s_time  = ds;
+    }
+    if ( dus < 0 ) {
+	item->us_time = (dus + 1000000);
+	item->s_time -= 1;
+    } else {
+	item->us_time = dus;
+    }
+}
+
 void erts_do_time_break(Process *p, BpDataTime *bdt) {
-     Uint ms,s,u;
-     ErtsSchedulerData *esdp;
-     int ix = 0;
+    Uint ms,s,us;
+    process_breakpoint_time_t *pbt = NULL;
+    int ix = 0;
 
-     esdp = erts_get_scheduler_data();
-     ix   = esdp->no - 1;
+    /* get previous timestamp and breakpoint
+     * from the process' psd  */
+    pbt = ERTS_PROC_GET_CALL_TIME(p);
+    get_sys_now(&ms,&s,&us);
 
-     get_sys_now(&ms,&s,&u);
-     //ErtsSmpBPLock(bdt);
-     //
-     bdt->items[ix].count++;
-     bdt->items[ix].s_time = 1;
-     bdt->items[ix].us_time = 1;
-     //ErtsSmpBPUnlock(bdt);
+    if (pbt) {
+	bp_data_time_item_t sitem, *item;
+	bp_time_hash_t *h;
+
+#ifdef ERTS_SMP
+	ix  = p->scheduler_data->no - 1;
+#else
+	ix  = 0;
+#endif
+	bp_time_diff(&sitem, pbt, ms, s, us);
+	sitem.pid   = p->id;
+	sitem.count = 1;
+
+	h = &(pbt->bdt->hash[ix]);
+
+	item = bp_hash_get(h, &sitem);
+	if (!item) {
+	    bp_hash_put(h, &sitem);
+	} else {
+	    BP_TIME_ADD(item, &sitem);
+	}
+
+	pbt->bdt = bdt;
+	pbt->ms  = ms;
+	pbt->s   = s;
+	pbt->us  = us;
+
+    } else {
+	pbt = Alloc(sizeof(process_breakpoint_time_t));
+
+	pbt->bdt = bdt;
+	pbt->ms  = ms;
+	pbt->s   = s;
+	pbt->us  = us;
+
+	(void *) ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCK_MAIN, pbt);
+    }
+
+    /* timestamp start of this call
+     * save ms, s, us, and bdt to the process.
+     */
 }
 
 
@@ -603,13 +813,12 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		BpDataTime *bdt = (BpDataTime *) bd;
 		Uint i = 0;
 
-		ErtsSmpBPLock(bdt);
+		/*XXX: must block system */
+
 		for (i = 0; i < bdt->n; i++) {
-		    bdt->items[i].count   = 0;
-		    bdt->items[i].s_time  = 0;
-		    bdt->items[i].us_time = 0;
+		    bp_hash_delete(&(bdt->hash[i]));
+		    bp_hash_init(&(bdt->hash[i]), 32);
 		}
-		ErtsSmpBPUnlock(bdt);
 
 	    } else {
 		ASSERT (! count_op);
@@ -695,13 +904,11 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	BpDataTime *bdt = (BpDataTime *) bd;
 	Uint i = 0;
 
-	bdt->n     = erts_no_schedulers;
-	bdt->items = Alloc(sizeof(bp_data_time_item_t)*(bdt->n));
+	bdt->n    = erts_no_schedulers;
+	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 
 	for (i = 0; i < bdt->n; i++) {
-	    bdt->items[i].count   = 0;
-	    bdt->items[i].s_time  = 0;
-	    bdt->items[i].us_time = 0;
+	    bp_hash_init(&(bdt->hash[i]), 32);
 	}
     } else if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 	BpDataCount *bdc = (BpDataCount *) bd;
@@ -822,13 +1029,15 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	    op == (BeamInstr) BeamOp(op_i_mtrace_breakpoint)) {
 	    
 	    BpDataTrace *bdt = (BpDataTrace *) bd;
-
 	    MatchSetUnref(bdt->match_spec);
 	}
 	if (op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
-	    BpDataTime *bdt = (BpDataTrace *) bd;
-
-	    Free(bdt->items);
+	    BpDataTime *bdt = (BpDataTime *) bd;
+	    Uint i = 0;
+	    for( i = 0; i < bdt->n; ++i) {
+		bp_hash_delete(&(bdt->hash[i]));
+	    }
+	    Free(bdt->hash);
 	    bdt->n = 0;
 	}
 	Free(bd);

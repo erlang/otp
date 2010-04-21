@@ -24,6 +24,7 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
+//#include "hash.h"
 
 
 
@@ -76,21 +77,35 @@ typedef struct bp_data_count { /* Call count */
 } BpDataCount;
 
 typedef struct {
-    Sint            count;
-    Uint            s_time;
-    Uint	    us_time;
+    Eterm pid;
+    Sint  count;
+    Uint  s_time;
+    Uint  us_time;
 } bp_data_time_item_t;
+
+typedef struct {
+    Uint n;
+    Uint used;
+    bp_data_time_item_t *item;
+} bp_time_hash_t;
 
 typedef struct bp_data_time { /* Call time */
     struct bp_data *next;
     struct bp_data *prev;
     Uint            orig_instr;
     Uint	    n;
-    bp_data_time_item_t *items;
+    bp_time_hash_t  *hash;
 } BpDataTime;
 
+typedef struct {
+    Uint ms;
+    Uint s;
+    Uint us;
+    BpDataTime *bdt;
+} process_breakpoint_time_t; /* used within psd */
 
 extern erts_smp_spinlock_t erts_bp_lock;
+
 
 #ifdef ERTS_SMP
 #define ErtsSmpBPLock(BDC) erts_smp_spin_lock(&erts_bp_lock)
@@ -197,7 +212,7 @@ int erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret,
 		       Eterm *tracer_pid_ret);
 int erts_is_native_break(BeamInstr *pc);
 int erts_is_count_break(BeamInstr *pc, Sint *count_ret);
-int erts_is_time_break(BeamInstr *pc, Sint *count, Uint *s_time, Uint *us_time);
+int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 
 void erts_do_time_break(Process *p, BpDataTime *bdt);
 
