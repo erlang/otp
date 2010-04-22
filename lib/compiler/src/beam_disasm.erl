@@ -1096,6 +1096,14 @@ resolve_inst({on_load,[]},_,_,_) ->
     on_load;
 
 %%
+%% R14A.
+%%
+resolve_inst({recv_mark,[Lbl]},_,_,_) ->
+    {recv_mark,Lbl};
+resolve_inst({recv_set,[Lbl]},_,_,_) ->
+    {recv_set,Lbl};
+
+%%
 %% Catches instructions that are not yet handled.
 %%
 resolve_inst(X,_,_,_) -> ?exit({resolve_inst,X}).
