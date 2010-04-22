@@ -126,6 +126,7 @@ int efile_readdir(Efile_error* errInfo, char* name,
 int efile_openfile(Efile_error* errInfo, char* name, int flags,
 		   int* pfd, Sint64* pSize);
 void efile_closefile(int fd);
+int efile_fdatasync(Efile_error* errInfo, int fd);
 int efile_fsync(Efile_error* errInfo, int fd);
 int efile_fileinfo(Efile_error* errInfo, Efile_info* pInfo,
 		   char *name, int info_for_link);

@@ -53,6 +53,7 @@
 #define FILE_IPREAD             27
 #define FILE_ALTNAME            28
 #define FILE_READ_LINE          29
+#define FILE_FDATASYNC          30
 
 /* Return codes */
 
@@ -881,6 +882,15 @@ static void invoke_delete_file(void *data)
 static void invoke_chdir(void *data)
 {
     invoke_name(data, efile_chdir);
+}
+
+static void invoke_fdatasync(void *data)
+{
+    struct t_data *d = (struct t_data *) data;
+    int fd = (int) d->fd;
+
+    d->again = 0;
+    d->result_ok = efile_fdatasync(&d->errInfo, fd);
 }
 
 static void invoke_fsync(void *data)
@@ -1919,6 +1929,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_RMDIR:
       case FILE_CHDIR:
       case FILE_DELETE:
+      case FILE_FDATASYNC:
       case FILE_FSYNC:
       case FILE_TRUNCATE:
       case FILE_LINK:
@@ -2208,6 +2219,18 @@ file_output(ErlDrvData e, char* buf, int count)
 	    d->level = 2;
 	    goto done;
 	}
+
+    case FILE_FDATASYNC:
+    {
+	    d = EF_SAFE_ALLOC(sizeof(struct t_data));
+
+	    d->fd = fd;
+	    d->command = command;
+	    d->invoke = invoke_fdatasync;
+	    d->free = free_data;
+	    d->level = 2;
+	    goto done;
+    }
 
     case FILE_FSYNC:
     {

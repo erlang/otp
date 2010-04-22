@@ -764,6 +764,15 @@ int fd;				/* File descriptor for file to close. */
 }
 
 int
+efile_fdatasync(errInfo, fd)
+Efile_error* errInfo;		/* Where to return error codes. */
+int fd;				/* File descriptor for file to sync. */
+{
+    /* Not available in Windows, just call regular fsync */
+    return efile_fsync(errInfo, fd);
+}
+
+int
 efile_fsync(errInfo, fd)
 Efile_error* errInfo;		/* Where to return error codes. */
 int fd;				/* File descriptor for file to sync. */

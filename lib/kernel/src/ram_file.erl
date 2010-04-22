@@ -24,7 +24,7 @@
 -export([open/2, close/1]).
 -export([write/2, read/2, copy/3,
 	 pread/2, pread/3, pwrite/2, pwrite/3, 
-	 position/2, truncate/1, sync/1]).
+	 position/2, truncate/1, datasync/1, sync/1]).
 
 %% Specialized file operations
 -export([get_size/1, get_file/1, set_file/2, get_file_close/1]).
@@ -60,6 +60,7 @@
 -define(RAM_FILE_TRUNCATE,       14).
 -define(RAM_FILE_PREAD,          17).
 -define(RAM_FILE_PWRITE,         18).
+-define(RAM_FILE_FDATASYNC,      19).
 
 %% Other operations
 -define(RAM_FILE_GET,            30).
@@ -167,6 +168,8 @@ copy(#file_descriptor{module = ?MODULE} = Source,
     %% XXX Should be moved down to the driver for optimization.
     file:copy_opened(Source, Dest, Length).
 
+datasync(#file_descriptor{module = ?MODULE, data = Port}) ->
+    call_port(Port, <<?RAM_FILE_FDATASYNC>>).
 
 sync(#file_descriptor{module = ?MODULE, data = Port}) -> 
     call_port(Port, <<?RAM_FILE_FSYNC>>).

@@ -25,7 +25,7 @@
 %%% Interface towards a single file's contents. Uses ?FD_DRV.
 
 %% Generic file contents operations
--export([open/2, close/1, sync/1, position/2, truncate/1,
+-export([open/2, close/1, datasync/1, sync/1, position/2, truncate/1,
 	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3, copy/3]).
 
 %% Specialized file operations
@@ -96,6 +96,7 @@
 -define(FILE_IPREAD,           27).
 -define(FILE_ALTNAME,          28).
 -define(FILE_READ_LINE,        29).
+-define(FILE_FDATASYNC,        30).
 
 %% Driver responses
 -define(FILE_RESP_OK,          0).
@@ -292,6 +293,9 @@ pwrite(#file_descriptor{module = ?MODULE}, _, _) ->
     {error, badarg}.
 
 
+%% Returns {error, Reason} | ok.
+datasync(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->
+    drv_command(Port, [?FILE_FDATASYNC]).
 
 %% Returns {error, Reason} | ok.
 sync(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->

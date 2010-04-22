@@ -1757,6 +1757,12 @@ fi
 dnl Need by run_erl.
 AC_CHECK_FUNCS([openpty])
 
+dnl fdatasync syscall (Unix only)
+AC_CHECK_FUNCS([fdatasync])
+
+dnl Find which C libraries are required to use fdatasync
+AC_SEARCH_LIBS(fdatasync, [rt])
+
 dnl ----------------------------------------------------------------------
 dnl Checks for features/quirks in the system that affects Erlang.
 dnl ----------------------------------------------------------------------

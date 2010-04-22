@@ -52,7 +52,7 @@
 	 old_modes/1, new_modes/1, path_open/1, open_errors/1]).
 -export([file_info/1, file_info_basic_file/1, file_info_basic_directory/1,
 	 file_info_bad/1, file_info_times/1, file_write_file_info/1]).
--export([rename/1, access/1, truncate/1, sync/1,
+-export([rename/1, access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1]).
 -export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 -export([otp_5814/1]).
@@ -377,7 +377,7 @@ win_cur_dir_1(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) -> [open,pos,file_info,consult,eval,script,truncate,sync].
+files(suite) -> [open,pos,file_info,consult,eval,script,truncate,sync,datasync].
 
 open(suite) -> [open1,old_modes,new_modes,path_open,close,access,read_write,
 	       pread_write,append,open_errors].
@@ -1349,6 +1349,30 @@ truncate(Config) when is_list(Config) ->
     ?line {ok, Fd2} = ?FILE_MODULE:open(Name, read),
     ?line {ok, 5} = ?FILE_MODULE:position(Fd2, 5),
     ?line {error, _} = ?FILE_MODULE:truncate(Fd2),
+
+    ?line [] = flush(),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
+datasync(suite) -> [];
+datasync(doc) -> "Tests that ?FILE_MODULE:datasync/1 at least doesn't crash.";
+datasync(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Sync = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_sync.fil"),
+
+    %% Raw open.
+    ?line {ok, Fd} = ?FILE_MODULE:open(Sync, [write, raw]),
+    ?line ok = ?FILE_MODULE:datasync(Fd),
+    ?line ok = ?FILE_MODULE:close(Fd),
+
+    %% Ordinary open.
+    ?line {ok, Fd2} = ?FILE_MODULE:open(Sync, [write]),
+    ?line ok = ?FILE_MODULE:datasync(Fd2),
+    ?line ok = ?FILE_MODULE:close(Fd2),
 
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),

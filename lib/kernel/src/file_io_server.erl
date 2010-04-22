@@ -219,6 +219,14 @@ file_request({pwrite,At,Data},
 	Reply ->
 	    std_reply(Reply, State)
     end;
+file_request(datasync,
+	     #state{handle=Handle}=State) ->
+    case ?PRIM_FILE:datasync(Handle) of
+	{error,_}=Reply ->
+	    {stop,normal,Reply,State};
+	Reply ->
+	    {reply,Reply,State}
+    end;
 file_request(sync, 
 	     #state{handle=Handle}=State) ->
     case ?PRIM_FILE:sync(Handle) of

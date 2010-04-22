@@ -774,6 +774,17 @@ efile_closefile(int fd)
 }
 
 int
+efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
+	    int fd)               /* File descriptor for file to sync data. */
+{
+#ifdef HAVE_FDATASYNC
+    return check_error(fdatasync(fd), errInfo);
+#else
+    return efile_fsync(errInfo, fd);
+#endif
+}
+
+int
 efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync. */
 {

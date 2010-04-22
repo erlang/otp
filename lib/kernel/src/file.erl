@@ -40,7 +40,7 @@
 	 read/2, write/2, 
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
-	 position/2, truncate/1, sync/1,
+	 position/2, truncate/1, datasync/1, sync/1,
 	 copy/2, copy/3]).
 %% High level operations
 -export([consult/1, path_consult/2]).
@@ -470,6 +470,16 @@ pwrite(File, At, Bytes) when is_pid(File) ->
 pwrite(#file_descriptor{module = Module} = Handle, Offs, Bytes) ->
     Module:pwrite(Handle, Offs, Bytes);
 pwrite(_, _, _) ->
+    {error, badarg}.
+
+-spec datasync(File :: io_device()) -> 'ok' | {'error', posix()}.
+
+datasync(File) when is_pid(File) ->
+    R = file_request(File, datasync),
+    wait_file_reply(File, R);
+datasync(#file_descriptor{module = Module} = Handle) ->
+    Module:datasync(Handle);
+datasync(_) ->
     {error, badarg}.
 
 -spec sync(File :: io_device()) -> 'ok' | {'error', posix()}.

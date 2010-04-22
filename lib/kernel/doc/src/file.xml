@@ -1641,6 +1641,33 @@ f.txt:  {person, "kalle", 25}.
       </desc>
     </func>
     <func>
+      <name>datasync(IoDevice) -> ok | {error, Reason}</name>
+      <fsummary>Synchronizes the in-memory data of a file, ignoring most of its metadata, with that on the physical medium</fsummary>
+      <type>
+        <v>IoDevice = io_device()</v>
+        <v>Reason = ext_posix() | terminated</v>
+      </type>
+      <desc>
+        <p>Makes sure that any buffers kept by the operating system
+          (not by the Erlang runtime system) are written to disk. In
+          many ways it's resembles fsync but it not requires to update
+          some of file's metadata such as the access time. On
+          some platforms, this function might have no effect.</p>
+        <p>Applications that access databases or log files often write
+          a tiny data fragment (e.g., one line in a log file) and then
+          call fsync() immediately in order to ensure that the written
+          data is physically stored on the harddisk. Unfortunately, fsync()
+          will always initiate two write operations: one for the newly
+          written data and another one in order to update the modification
+          time stored in the inode. If the modification time is not a part
+          of the transaction concept fdatasync() can be used to avoid
+          unnecessary inode disk write operations.</p>
+        <p>Available only in some POSIX systems. This call results in a
+          call to fsync(), or has no effect, in systems not implementing
+          the fdatasync syscall.</p>
+      </desc>
+    </func>
+    <func>
       <name>truncate(IoDevice) -> ok | {error, Reason}</name>
       <fsummary>Truncate a file</fsummary>
       <type>

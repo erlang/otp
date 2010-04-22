@@ -35,6 +35,7 @@
 #define RAM_FILE_TRUNCATE      14
 #define RAM_FILE_PREAD         17
 #define RAM_FILE_PWRITE        18
+#define RAM_FILE_FDATASYNC     19
 
 /* other operations */
 #define RAM_FILE_GET           30
@@ -556,6 +557,13 @@ static void rfile_command(ErlDrvData e, char* buf, int count)
 	    error_reply(f, error);
 	else
 	    numeric_reply(f, 0); /* 0 is not used */
+	break;
+
+    case RAM_FILE_FDATASYNC:
+	if (f->flags == 0)
+	    error_reply(f, EBADF);
+	else
+	    reply(f, 1, 0);
 	break;
 
     case RAM_FILE_FSYNC:
