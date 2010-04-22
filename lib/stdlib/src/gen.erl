@@ -212,7 +212,22 @@ do_call(Process, Label, Request, Timeout) ->
 
 	    catch erlang:send(Process, {Label, {self(), Mref}, Request},
 		  [noconnect]),
-	    wait_resp_mon(Node, Mref, Timeout)
+	    receive
+		{Mref, Reply} ->
+		    erlang:demonitor(Mref, [flush]),
+		    {ok, Reply};
+		{'DOWN', Mref, _, _, noconnection} ->
+		    exit({nodedown, Node});
+		{'DOWN', Mref, _, _, Reason} ->
+		    exit(Reason)
+	    after Timeout ->
+		    erlang:demonitor(Mref),
+		    receive
+			{'DOWN', Mref, _, _, _} -> true
+		    after 0 -> true
+		    end,
+		    exit(timeout)
+	    end
     catch
 	error:_ ->
 	    %% Node (C/Java?) is not supporting the monitor.
@@ -231,24 +246,6 @@ do_call(Process, Label, Request, Timeout) ->
 		    Process ! {Label, {self(), Tag}, Request},
 		    wait_resp(Node, Tag, Timeout)
 	    end
-    end.
-
-wait_resp_mon(Node, Mref, Timeout) ->
-    receive
-	{Mref, Reply} ->
-	    erlang:demonitor(Mref, [flush]),
-	    {ok, Reply};
-	{'DOWN', Mref, _, _, noconnection} ->
-	    exit({nodedown, Node});
-	{'DOWN', Mref, _, _, Reason} ->
-	    exit(Reason)
-    after Timeout ->
-	    erlang:demonitor(Mref),
-	    receive
-		{'DOWN', Mref, _, _, _} -> true 
-	    after 0 -> true
-	    end,
-	    exit(timeout)
     end.
 
 wait_resp(Node, Tag, Timeout) ->
