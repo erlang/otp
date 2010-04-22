@@ -1,6 +1,6 @@
 -module(binary_module_SUITE).
 
--export([all/1, interesting/1,random_ref_comp/1]).
+-export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,parts/1]).
 
 -define(STANDALONE,1).
 
@@ -24,7 +24,9 @@ run() ->
 
 -endif.
 
-all(suite) -> [interesting,random_ref_comp].
+all(suite) -> [interesting,random_ref_sr_comp,random_ref_comp,parts].
+
+-define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
 
 interesting(doc) ->
@@ -93,7 +95,141 @@ do_interesting(Module) ->
     ?line [{2,2}] = Module:matches(<<"123456">>,
 				   [<<"34">>,<<"34">>,
 				    <<"12347">>,<<"2346">>]),
+    ?line nomatch = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
+    ?line {1,1} = Module:match(<<1,2,3,4>>,<<2>>,[{scope,{0,2}}]),
+    ?line nomatch = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
+    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
+    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
+    ?line badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<2,3>>,
+					    [{scope,{0,5}}])),
+    ?line {1,2} = Module:match(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
+    ?line {0,3} = Module:match(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
+    ?line {0,4} = Module:match(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
+    ?line badarg = ?MASK_ERROR(Module:match(<<1,2,3,4>>,<<1,2,3,4>>,
+					    [{scope,{3,-4}}])),
+    ?line [] = Module:matches(<<1,2,3,4>>,<<2>>,[{scope,{0,1}}]),
+    ?line [{1,1}] = Module:matches(<<1,2,3,4>>,[<<2>>,<<3>>],[{scope,{0,2}}]),
+    ?line [] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,2}}]),
+    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,3}}]),
+    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{0,4}}]),
+    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+				   [{scope,{0,3}}]),
+    ?line [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+					 [{scope,{0,4}}]),
+    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<2,3>>,
+					      [{scope,{0,5}}])),
+    ?line [{1,2}] = Module:matches(<<1,2,3,4>>,<<2,3>>,[{scope,{4,-4}}]),
+    ?line [{1,2},{3,1}] = Module:matches(<<1,2,3,4>>,[<<2,3>>,<<4>>],
+					 [{scope,{4,-4}}]),
+    ?line [{0,3}] = Module:matches(<<1,2,3,4>>,<<1,2,3>>,[{scope,{4,-4}}]),
+    ?line [{0,4}] = Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,[{scope,{4,-4}}]),
+    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,<<1,2,3,4>>,
+					      [{scope,{3,-4}}])),
+    ?line badarg = ?MASK_ERROR(Module:matches(<<1,2,3,4>>,[<<1,2,3,4>>],
+					      [{scope,{3,-4}}])),
+    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,<<4,5>>),
+    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					       [<<4,5>>,<<7>>]),
+    ?line [<<1,2,3>>,<<6>>,<<8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+						 [<<4,5>>,<<7>>],[global]),
+    ?line [<<1,2,3>>,<<6>>,<<>>,<<>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+						     [<<4,5>>,<<7>>,<<8>>],
+						     [global]),
+    ?line [<<1,2,3>>,<<6>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					   [<<4,5>>,<<7>>,<<8>>],
+					   [global,trim]),
+    ?line [<<1,2,3,4,5,6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					       [<<4,5>>,<<7>>,<<8>>],
+					       [global,trim,{scope,{0,4}}]),
+    ?line [<<1,2,3>>,<<6,7,8>>] = Module:split(<<1,2,3,4,5,6,7,8>>,
+					       [<<4,5>>,<<7>>,<<8>>],
+					       [global,trim,{scope,{0,5}}]),
+    ?line badarg = ?MASK_ERROR(
+		      Module:replace(<<1,2,3,4,5,6,7,8>>,
+				     [<<4,5>>,<<7>>,<<8>>],<<99>>,
+				     [global,trim,{scope,{0,5}}])),
+    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<99>>,[]),
+    ?line <<1,2,3,99,6,99,99>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+						[<<4,5>>,<<7>>,<<8>>],<<99>>,
+						[global]),
+    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					      [global,{scope,{0,5}}]),
+    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					      [global,{scope,{0,5}}]),
+    ?line <<1,2,3,99,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					      [global,{scope,{0,5}}]),
+    ?line badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<99>>,
+					      [global,{scope,{0,5}},
+					       {insert,1}])),
+    ?line <<1,2,3,99,4,5,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+						  [<<4,5>>,<<7>>,<<8>>],<<99>>,
+						  [global,{scope,{0,5}},
+						   {insert_replaced,1}]),
+    ?line <<1,2,3,9,4,5,9,6,7,8>> = Module:replace(<<1,2,3,4,5,6,7,8>>,
+						   [<<4,5>>,<<7>>,<<8>>],
+						   <<9,9>>,
+						   [global,{scope,{0,5}},
+						    {insert_replaced,1}]),
+    ?line badarg = ?MASK_ERROR(Module:replace(<<1,2,3,4,5,6,7,8>>,
+					      [<<4,5>>,<<7>>,<<8>>],<<>>,
+					      [global,{scope,{0,5}},
+					       {insert_replaced,1}])),
     ok.
+
+parts(doc) ->
+    ["Test the part/2,3 bif's"];
+parts(Config) when is_list(Config) ->
+    %% Some simple smoke tests to begin with
+    ?line Simple = <<1,2,3,4,5,6,7,8>>,
+    ?line <<1,2>> = binary:part(Simple,0,2),
+    ?line <<1,2>> = binary:part(Simple,{0,2}),
+    ?line Simple = binary:part(Simple,0,8),
+    ?line Simple = binary:part(Simple,{0,8}),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,0,9)),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{0,9})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,1,8)),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{1,8})),
+    ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{1,7}),
+    ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{8,-7}),
+    ?line Simple = binary:part(Simple,{8,-8}),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{1,-8})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{8,-9})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{0,-1})),
+    ?line <<>> = binary:part(Simple,{8,0}),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{9,0})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{-1,0})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{7,2})),
+    ?line <<8>> = binary:part(Simple,{7,1}),
+    ?line random:seed({1271,769940,559934}),
+    ?line random_parts(5000),
+    ok.
+
+
+random_parts(0) ->
+    ok;
+random_parts(N) ->
+    Str = random_string({1,N}),
+    Parts0 = random_parts(10,N),
+    Parts1 = Parts0 ++ [ {X+Y,-Y} || {X,Y} <- Parts0 ],
+    [ begin
+	  true = ?MASK_ERROR(binary:part(Str,Z)) =:=
+	      ?MASK_ERROR(binref:part(Str,Z)),
+	  true = ?MASK_ERROR(binary:part(Str,Z)) =:=
+	      ?MASK_ERROR(binary:part(make_unaligned(Str),Z))
+      end || Z <- Parts1 ],
+    random_parts(N-1).
+
+random_parts(0,_) ->
+    [];
+random_parts(X,N) ->
+    Pos = random:uniform(N),
+    Len = random:uniform((Pos * 12) div 10),
+    [{Pos,Len} | random_parts(X-1,N)].
 
 random_ref_comp(doc) ->
     ["Test pseudorandomly generated cases against reference imlementation"];
@@ -116,6 +252,22 @@ random_ref_comp(Config) when is_list(Config) ->
     ?line do_random_matches_comp3(5,{1,40},{30,1000}),
     ?line io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
     ?line erts_debug:set_internal_state(available_internal_state,false),
+    ?line put(success_counter,0),
+    ok.
+
+random_ref_sr_comp(doc) ->
+    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+random_ref_sr_comp(Config) when is_list(Config) ->
+    ?line put(success_counter,0),
+    ?line random:seed({1271,769940,559934}),
+    ?line do_random_split_comp(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_replace_comp(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_split_comp2(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_replace_comp2(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
 
 do_random_matches_comp(0,_,_) ->
@@ -163,7 +315,7 @@ do_matches_comp_loop(N, Needles, Haystack0,RR) ->
 
 
 do_matches_comp2(N,H,A) ->
-    C = (catch binary:matches(H,N)),
+    C = ?MASK_ERROR(binary:matches(H,N)),
     case (A =:= C) of
 	true ->
 	    true;
@@ -175,10 +327,10 @@ do_matches_comp2(N,H,A) ->
 	    exit(mismatch)
     end.
 do_matches_comp(N,H) ->
-    A = (catch binref:matches(H,N)),
-    B = (catch binref:matches(H,binref:compile_pattern(N))),
-    C = (catch binary:matches(H,N)),
-    D = (catch binary:matches(H,binary:compile_pattern(N))),
+    A = ?MASK_ERROR(binref:matches(H,N)),
+    B = ?MASK_ERROR(binref:matches(H,binref:compile_pattern(N))),
+    C = ?MASK_ERROR(binary:matches(H,N)),
+    D = ?MASK_ERROR(binary:matches(make_unaligned(H),binary:compile_pattern(N))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
@@ -223,10 +375,10 @@ do_random_match_comp3(N,NeedleRange,HaystackRange) ->
     do_random_match_comp3(N-1,NeedleRange,HaystackRange).
 
 do_match_comp(N,H) ->
-    A = (catch binref:match(H,N)),
-    B = (catch binref:match(H,binref:compile_pattern([N]))),
-    C = (catch binary:match(H,N)),
-    D = (catch binary:match(H,binary:compile_pattern([N]))),
+    A = ?MASK_ERROR(binref:match(H,N)),
+    B = ?MASK_ERROR(binref:match(H,binref:compile_pattern([N]))),
+    C = ?MASK_ERROR(binary:match(make_unaligned(H),N)),
+    D = ?MASK_ERROR(binary:match(H,binary:compile_pattern([N]))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
@@ -245,10 +397,10 @@ do_match_comp(N,H) ->
     end.
 
 do_match_comp3(N,H) ->
-    A = (catch binref:match(H,N)),
-    B = (catch binref:match(H,binref:compile_pattern(N))),
-    C = (catch binary:match(H,N)),
-    D = (catch binary:match(H,binary:compile_pattern(N))),
+    A = ?MASK_ERROR(binref:match(H,N)),
+    B = ?MASK_ERROR(binref:match(H,binref:compile_pattern(N))),
+    C = ?MASK_ERROR(binary:match(H,N)),
+    D = ?MASK_ERROR(binary:match(H,binary:compile_pattern(N))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
@@ -266,10 +418,104 @@ do_match_comp3(N,H) ->
 	    exit(mismatch)
     end.
 
+do_random_split_comp(0,_,_) ->
+    ok;
+do_random_split_comp(N,NeedleRange,HaystackRange) ->
+    Haystack = random_string(HaystackRange),
+    Needle = random_substring(NeedleRange,Haystack),
+    true = do_split_comp(Needle,Haystack,[]),
+    true = do_split_comp(Needle,Haystack,[global]),
+    true = do_split_comp(Needle,Haystack,[global,trim]),
+    do_random_split_comp(N-1,NeedleRange,HaystackRange).
+do_random_split_comp2(0,_,_) ->
+    ok;
+do_random_split_comp2(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_substring(NeedleRange,Haystack) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    true = do_split_comp(Needles,Haystack,[]),
+    true = do_split_comp(Needles,Haystack,[global]),
+    do_random_split_comp2(N-1,NeedleRange,HaystackRange).
+
+do_split_comp(N,H,Opts) ->
+    A = ?MASK_ERROR(binref:split(H,N,Opts)),
+    D = ?MASK_ERROR(binary:split(H,binary:compile_pattern(N),Opts)),
+    if
+	(A =/= [N]) and is_list(A) ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case (A =:= D) of
+	true ->
+	    true;
+	_ ->
+	    io:format("Failed to split ~n~p ~n(haystack) with ~n~p ~n(needle) "
+		      "~nand options ~p~n",
+		      [H,N,Opts]),
+	    io:format("A:~p,D:~p.~n",
+		      [A,D]),
+	    exit(mismatch)
+    end.
+
+do_random_replace_comp(0,_,_) ->
+    ok;
+do_random_replace_comp(N,NeedleRange,HaystackRange) ->
+    Haystack = random_string(HaystackRange),
+    Needle = random_substring(NeedleRange,Haystack),
+    Repl = random_string(NeedleRange),
+    Insertat = random_length(NeedleRange), %Sometimes larger than Repl
+    true = do_replace_comp(Needle,Haystack,Repl,[]),
+    true = do_replace_comp(Needle,Haystack,Repl,[global]),
+    true = do_replace_comp(Needle,Haystack,Repl,
+			 [global,{insert_replaced,Insertat}]),
+    do_random_replace_comp(N-1,NeedleRange,HaystackRange).
+do_random_replace_comp2(0,_,_) ->
+    ok;
+do_random_replace_comp2(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_substring(NeedleRange,Haystack) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    Repl = random_string(NeedleRange),
+    Insertat = random_length(NeedleRange), %Sometimes larger than Repl
+    true = do_replace_comp(Needles,Haystack,Repl,[]),
+    true = do_replace_comp(Needles,Haystack,Repl,[global]),
+    true = do_replace_comp(Needles,Haystack,Repl,
+			 [global,{insert_replaced,Insertat}]),
+    do_random_replace_comp2(N-1,NeedleRange,HaystackRange).
+
+do_replace_comp(N,H,R,Opts) ->
+    A = ?MASK_ERROR(binref:replace(H,N,R,Opts)),
+    D = ?MASK_ERROR(binary:replace(H,binary:compile_pattern(N),R,Opts)),
+    if
+	(A =/= N) and is_binary(A) ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case (A =:= D) of
+	true ->
+	    true;
+	_ ->
+	    io:format("Failed to replace ~s (haystack) by ~s (needle) "
+		      "inserting ~s (replacement) and options ~p~n",
+		      [H,N,R,Opts]),
+	    io:format("A:~p,D:~p.~n",
+		      [A,D]),
+	    exit(mismatch)
+    end.
+
 one_random(N) ->
     M = ((N - 1) rem 68) + 1,
-    element(M,{$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$p,$q,$r,$s,$t,$u,$v,$w,$x,$y,$z,$å,$ä,$ö,$A,$B,$C,$D,$E,$F,$G,$H,$I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Å,$Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
+    element(M,{$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$p,$q,$r,$s,$t,
+	       $u,$v,$w,$x,$y,$z,$å,$ä,$ö,$A,$B,$C,$D,$E,$F,$G,$H,
+	       $I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Å,
+	       $Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
 
+random_length({Min,Max}) ->
+    random:uniform(Max - Min + 1) + Min - 1.
 random_string({Min,Max}) ->
     X = random:uniform(Max - Min + 1) + Min - 1,
     list_to_binary([one_random(random:uniform(68)) || _ <- lists:seq(1,X)]).
@@ -284,3 +530,16 @@ random_substring({Min,Max},Hay) ->
     Pos = random:uniform(PMax + 1) - 1,
     <<_:Pos/binary,Res:Z/binary,_/binary>> = Hay,
     Res.
+
+mask_error({'EXIT',{Err,_}}) ->
+    Err;
+mask_error(Else) ->
+    Else.
+
+make_unaligned(Bin0) when is_binary(Bin0) ->
+    Bin1 = <<0:3,Bin0/binary,31:5>>,
+    Sz = byte_size(Bin0),
+    <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
+    Bin.
+
+id(I) -> I.

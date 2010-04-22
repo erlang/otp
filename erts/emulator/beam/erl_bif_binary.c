@@ -984,7 +984,7 @@ BIF_RETTYPE binary_compile_pattern_1(BIF_ALIST_1)
 #define DO_BIN_MATCH_BADARG -1
 #define DO_BIN_MATCH_RESTART -2
 
-static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
+static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hsend,
 			   Eterm type, Binary *bin, Eterm state_term,
 			   Eterm *res_term)
 {
@@ -1018,7 +1018,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	dump_bm_data(bm);
 #endif
 	if (state_term == NIL) {
-	    bm_init_find_first_match(&state, hsstart, hslen);
+	    bm_init_find_first_match(&state, hsstart, hsend);
 	} else {
 	    Eterm *ptr = big_val(state_term);
 	    memcpy(&state,ptr+2,sizeof(state));
@@ -1068,7 +1068,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 	dump_ac_trie(act);
 #endif
 	if (state_term == NIL) {
-	    ac_init_find_first_match(&state, act, hsstart, hslen);
+	    ac_init_find_first_match(&state, act, hsstart, hsend);
 	} else {
 	    Eterm *ptr = big_val(state_term);
 	    memcpy(&state,ptr+2,sizeof(state));
@@ -1105,7 +1105,7 @@ static int do_binary_match(Process *p, Eterm subject, Uint hsstart, Uint hslen,
 }
 
 static int do_binary_matches(Process *p, Eterm subject, Uint hsstart,
-			     Uint hslen, Eterm type, Binary *bin,
+			     Uint hsend, Eterm type, Binary *bin,
 			     Eterm state_term, Eterm *res_term)
 {
     byte *bytes;
@@ -1138,7 +1138,7 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart,
 	dump_bm_data(bm);
 #endif
 	if (state_term == NIL) {
-	    bm_init_find_all(&state, hsstart, hslen);
+	    bm_init_find_all(&state, hsstart, hsend);
 	} else {
 	    Eterm *ptr = big_val(state_term);
 	    bm_restore_find_all(&state,(char *) (ptr+2));
@@ -1197,7 +1197,7 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart,
 	dump_ac_trie(act);
 #endif
 	if (state_term == NIL) {
-	    ac_init_find_all(&state, act, hsstart, hslen);
+	    ac_init_find_all(&state, act, hsstart, hsend);
 	} else {
 	    Eterm *ptr = big_val(state_term);
 	    ac_restore_find_all(&state,(char *) (ptr+2));
@@ -1246,6 +1246,67 @@ static int do_binary_matches(Process *p, Eterm subject, Uint hsstart,
     return DO_BIN_MATCH_BADARG;
 }
 
+static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
+{
+    Eterm *tp;
+    Uint pos;
+    Sint len;
+    if (l == ((Eterm) 0) || l == NIL) {
+	/* Invalid term or NIL, we're called from binary_match(es)_2 or
+	   have no options*/
+	*posp = 0;
+	*endp = binary_size(bin);
+	return 0;
+    } else if (is_list(l)) {
+	while(is_list(l)) {
+	    Eterm t = CAR(list_val(l));
+	    Uint orig_size;
+	    if (!is_tuple(t)) {
+		goto badarg;
+	    }
+	    tp = tuple_val(t);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (tp[1] != am_scope || is_not_tuple(tp[2])) {
+		goto badarg;
+	    }
+	    tp = tuple_val(tp[2]);
+	    if (arityval(*tp) != 2) {
+		goto badarg;
+	    }
+	    if (!term_to_Uint(tp[1], &pos)) {
+		goto badarg;
+	    }
+	    if (!term_to_Sint(tp[2], &len)) {
+		goto badarg;
+	    }
+	    if (len < 0) {
+		Sint lentmp = -len;
+		if (-lentmp != len) {
+		    goto badarg;
+		}
+		len = lentmp;
+		pos -= len;
+	    }
+	    if (((pos + len) - len) != pos) {
+		goto badarg;
+	    }
+	    *endp = len + pos;
+	    *posp = pos;
+	    if ((orig_size = binary_size(bin)) < pos ||
+		orig_size < (*endp)) {
+		goto badarg;
+	    }
+	    l = CDR(list_val(l));
+	}
+	return 0;
+    } else {
+    badarg:
+	return 1;
+    }
+}
+
 static BIF_RETTYPE binary_match_trap(BIF_ALIST_3)
 {
     int runres;
@@ -1289,7 +1350,8 @@ static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3)
 
 BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 {
-    Uint hsstart, hslen;
+    Uint hsstart;
+    Uint hsend;
     Eterm *tp;
     Eterm type;
     Binary *bin;
@@ -1300,42 +1362,10 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
     if (is_not_binary(BIF_ARG_1)) {
 	goto badarg;
     }
-    if (BIF_ARG_3 == ((Eterm) 0)) {
-	/* Invalid term, we're called from binary_match_2... */
-	hsstart = 0;
-	hslen = binary_size(BIF_ARG_1);
-    } else if (is_list(BIF_ARG_3)) {
-	Eterm l = BIF_ARG_3;
-	while(is_list(l)) {
-	    Eterm t = CAR(list_val(l));
-	    if (!is_tuple(t)) {
-		goto badarg;
-	    }
-	    tp = tuple_val(t);
-	    if (arityval(*tp) != 2) {
-		goto badarg;
-	    }
-	    if (!term_to_Uint(tp[1], &hsstart) ||
-		((hsstart >> 16) >> 15) != 0) {
-		goto badarg;
-	    }
-	    if (!term_to_Uint(tp[2], &hslen) ||
-		((hslen >> 16) >> 15) != 0) {
-		goto badarg;
-	    }
-	    if (hslen < hsstart) {
-		goto badarg;
-	    }
-	    if (hslen > binary_size(BIF_ARG_1)-1) {
-		goto badarg; /* XXX:PaN or should we take as much as we have ? */
-	    }
-	    hslen = hslen + 1 - hsstart;
-	    l = CDR(list_val(l));
-	}
-    } else if (BIF_ARG_3 != NIL) {
+    if (parse_match_opts_list(BIF_ARG_3,BIF_ARG_1,&hsstart,&hsend)) {
 	goto badarg;
     }
-    if (hslen == 0) {
+    if (hsend == 0) {
 	BIF_RET(am_nomatch);
     }
     if (is_tuple(BIF_ARG_2)) {
@@ -1356,7 +1386,7 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
     } else if (do_binary_match_compile(BIF_ARG_2,&type,&bin)) {
 	goto badarg;
     }
-    runres = do_binary_match(BIF_P,BIF_ARG_1,hsstart,hslen,type,bin,NIL,&result);
+    runres = do_binary_match(BIF_P,BIF_ARG_1,hsstart,hsend,type,bin,NIL,&result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
 	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE);
 	bin_term = erts_mk_magic_binary_term(&hp, &MSO(BIF_P), bin);
@@ -1378,7 +1408,7 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 
 BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 {
-    Uint hsstart, hslen;
+    Uint hsstart, hsend;
     Eterm *tp;
     Eterm type;
     Binary *bin;
@@ -1389,43 +1419,10 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
     if (is_not_binary(BIF_ARG_1)) {
 	goto badarg;
     }
-    if (BIF_ARG_3 == ((Eterm) 0)) {
-	/* Invalid term, we're called from binary_matches_2... */
-	hsstart = 0;
-	hslen = binary_size(BIF_ARG_1);
-    } else if (is_list(BIF_ARG_3)) {
-	Eterm l = BIF_ARG_3;
-	while(is_list(l)) {
-	    Eterm t = CAR(list_val(l));
-	    if (!is_tuple(t)) {
-		goto badarg;
-	    }
-	    tp = tuple_val(t);
-	    if (arityval(*tp) != 2) {
-		goto badarg;
-	    }
-	    if (!term_to_Uint(tp[1], &hsstart) ||
-		((hsstart >> 16) >> 15) != 0) {
-		goto badarg;
-	    }
-	    if (!term_to_Uint(tp[2], &hslen) ||
-		((hslen >> 16) >> 15) != 0) {
-		goto badarg;
-	    }
-	    if (hslen < hsstart) {
-		goto badarg;
-	    }
-	    if (hslen > binary_size(BIF_ARG_1)-1) {
-		goto badarg; /* XXX:PaN or should we take as much as we
-				have ? */
-	    }
-	    hslen = hslen + 1 - hsstart;
-	    l = CDR(list_val(l));
-	}
-    } else if (BIF_ARG_3 != NIL) {
+    if (parse_match_opts_list(BIF_ARG_3,BIF_ARG_1,&hsstart,&hsend)) {
 	goto badarg;
     }
-    if (hslen == 0) {
+    if (hsend == 0) {
 	BIF_RET(am_nomatch);
     }
     if (is_tuple(BIF_ARG_2)) {
@@ -1446,7 +1443,7 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
     } else if (do_binary_match_compile(BIF_ARG_2,&type,&bin)) {
 	goto badarg;
     }
-    runres = do_binary_matches(BIF_P,BIF_ARG_1,hsstart,hslen,type,bin,
+    runres = do_binary_matches(BIF_P,BIF_ARG_1,hsstart,hsend,type,bin,
 			       NIL,&result);
     if (runres == DO_BIN_MATCH_RESTART && bin_term == NIL) {
 	Eterm *hp = HAlloc(BIF_P, PROC_BIN_SIZE);
@@ -1479,6 +1476,79 @@ BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
 {
     return binary_matches_3(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
 }
+
+BIF_RETTYPE binary_part_3(BIF_ALIST_3)
+{
+    Uint pos;
+    Sint len;
+    size_t orig_size;
+    Eterm orig;
+    Uint offset;
+    Uint bit_offset;
+    Uint bit_size;
+    Eterm* hp;
+    ErlSubBin* sb;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	goto badarg;
+    }
+    if (!term_to_Uint(BIF_ARG_2, &pos)) {
+	goto badarg;
+    }
+    if (!term_to_Sint(BIF_ARG_3, &len)) {
+	goto badarg;
+    }
+    if (len < 0) {
+	Sint lentmp = -len;
+	if (-lentmp != len) {
+	    goto badarg;
+	}
+	len = lentmp;
+	pos -= len;
+    }
+    if (((pos + len) - len) != pos) {
+	goto badarg;
+    }
+    if ((orig_size = binary_size(BIF_ARG_1)) < pos ||
+	orig_size < (pos + len)) {
+	goto badarg;
+    }
+
+
+
+    hp = HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
+
+    ERTS_GET_REAL_BIN(BIF_ARG_1, orig, offset, bit_offset, bit_size);
+    sb = (ErlSubBin *) hp;
+    sb->thing_word = HEADER_SUB_BIN;
+    sb->size = len;
+    sb->offs = offset + pos;
+    sb->orig = orig;
+    sb->bitoffs = bit_offset;
+    sb->bitsize = 0;
+    sb->is_writable = 0;
+
+    BIF_RET(make_binary(sb));
+
+ badarg:
+    BIF_ERROR(BIF_P, BADARG);
+}
+
+BIF_RETTYPE binary_part_2(BIF_ALIST_2)
+{
+    Eterm *tp;
+    if (is_not_tuple(BIF_ARG_2)) {
+	goto badarg;
+    }
+    tp = tuple_val(BIF_ARG_2);
+    if (arityval(*tp) != 2) {
+	goto badarg;
+    }
+    return binary_part_3(BIF_P,BIF_ARG_1,tp[1], tp[2]);
+ badarg:
+   BIF_ERROR(BIF_P,BADARG);
+}
+
 
 /*
  * Hard debug functions (dump) for the search structures

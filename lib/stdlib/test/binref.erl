@@ -143,8 +143,16 @@ split(H,N) ->
     split(H,N,[]).
 split(Haystack,{Needles},Options) ->
     split(Haystack, Needles, Options);
-split(Haystack,Needles,Options) ->
+split(Haystack,Needles0,Options) ->
     try
+	Needles = if
+		      is_list(Needles0) ->
+			  Needles0;
+		      is_binary(Needles0) ->
+			  [Needles0];
+		      true ->
+			  exit(badtype)
+		  end,
 	{Part,Global,Trim} = get_opts_split(Options,{nomatch,false,false}),
 	{Start,End,NewStack} =
 	    case Part of
@@ -203,8 +211,16 @@ replace(H,N,R) ->
 replace(Haystack,{Needles},Replacement,Options) ->
     replace(Haystack,Needles,Replacement,Options);
 
-replace(Haystack,Needles,Replacement,Options) ->
+replace(Haystack,Needles0,Replacement,Options) ->
     try
+	Needles = if
+		      is_list(Needles0) ->
+			  Needles0;
+		      is_binary(Needles0) ->
+			  [Needles0];
+		      true ->
+			  exit(badtype)
+		  end,
 	true = is_binary(Replacement), % Make badarg instead of function clause
 	{Part,Global,Insert} = get_opts_replace(Options,{nomatch,false,[]}),
 	{Start,End,NewStack} =

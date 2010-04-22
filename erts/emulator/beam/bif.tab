@@ -765,28 +765,22 @@ bif binary:match/2
 bif binary:match/3
 bif binary:matches/2
 bif binary:matches/3
-# bif binary:split/2
-# bif binary:split/3
-# bif binary:substitute/3
-# bif binary:globally_substitute/3
-# bif binary:duplicate/2
-
-#
-# XXX:PaN Usecase for these two? Creeping Biffilism?
-#
-# bif binary:from_unsigned/1
-# bif binary:to_unsigned/1
-
-#
-# XXX:PaN The following are suggested to be implemented in the erlang code...
-# - or are they meant to be guard bif's?
-#
-# binary:first/1
-# binary:first/2
-# binary:last/1
-# binary:last/2
-# binary:nth/2
-# binary:extract/3
+#  bif binary:longest_common_prefix/1
+#  bif binary:longest_common_suffix/1
+#  bif binary:first/1
+#  bif binary:last/1
+#  bif binary:at/2
+bif binary:part/2
+bif binary:part/3
+#  bif binary:bin_to_list/1
+#  bif binary:bin_to_list/2
+#  bif binary:bin_to_list/3
+#  bif binary:list_to_bin/1
+#  bif binary:copy/1
+#  bif binary:copy/2
+#  bif binary:referenced_byte_size/1
+#  bif binary:decode_unsigned/1
+#  bif binary:decode_unsigned/2
 
 #
 # New Bifs in R13B4
