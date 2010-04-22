@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -88,7 +88,8 @@
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
-	 spawn_driver/1,spawn_executable/1]).
+	 spawn_driver/1,spawn_executable/1,
+	 unregister_name/1]).
 
 -export([]).
 
@@ -112,7 +113,8 @@ all(suite) ->
      otp_3906, otp_4389, win_massive, mix_up_ports,
      otp_5112, otp_5119,
      exit_status_multi_scheduling_block,
-     ports, spawn_driver, spawn_executable
+     ports, spawn_driver, spawn_executable,
+     unregister_name
     ].
 
 -define(DEFAULT_TIMEOUT, ?t:minutes(5)).
@@ -1433,6 +1435,10 @@ spawn_executable(Config) when is_list(Config) ->
     end,
     ?line test_server:timetrap_cancel(Dog),
     ok.
+
+unregister_name(Config) when is_list(Config) ->
+    ?line true = register(crash, open_port({spawn, "sleep 100"}, [])),
+    ?line true = unregister(crash).
 
 test_bat_file(Dir) ->
     FN = "tf.bat",
