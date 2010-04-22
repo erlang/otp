@@ -33,6 +33,7 @@
 	     beam_listing,
 	     beam_opcodes,
 	     beam_peep,
+	     beam_receive,
 	     beam_trim,
 	     beam_type,
 	     beam_utils,
