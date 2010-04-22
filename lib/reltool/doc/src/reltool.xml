@@ -136,16 +136,16 @@
 
       <tag><c>incl_cond</c></tag>
       <item>
-	<p>This parameter controls the application and escript
-	inclusion policy. It defaults to <c>derived</c> which means
-	that the applications that not have any explicit
-	<c>incl_cond</c> setting, will only be included if any other
-	(explicitly or implicitly included) application uses it. The
-	value <c>include</c> implies that all applications and
-	escripts that that not have any explicit <c>incl_cond</c>
-	setting will be included. <c>exclude</c> implies that all
-	applications and escripts) that that not have any explicit
-	<c>incl_cond</c> setting will be excluded.</p>
+        <p>This parameter controls the application and escript
+        inclusion policy. It defaults to <c>derived</c> which means
+        that the applications that not have any explicit
+        <c>incl_cond</c> setting, will only be included if any other
+        (explicitly or implicitly included) application uses it. The
+        value <c>include</c> implies that all applications and
+        escripts that that not have any explicit <c>incl_cond</c>
+        setting will be included. <c>exclude</c> implies that all
+        applications and escripts) that that not have any explicit
+        <c>incl_cond</c> setting will be excluded.</p>
       </item>
 
       <tag><c>boot_rel</c></tag>
@@ -167,33 +167,33 @@
 
       <tag><c>relocatable</c></tag>
       <item>
-	<p>This parameter controls whether the <c>erl</c> executable
-	in the target system automatically should determine where it
-	is installed or if it should use a hardcoded path to the
-	installation. In the latter case the target system must be
-	installed with <c>reltool:install/2</c> before it can be
-	used. If the system is relocatable, the file tree containing
-	the target system can be moved to another location without
-	re-installation. The default is <c>true</c>.</p>
+        <p>This parameter controls whether the <c>erl</c> executable
+        in the target system automatically should determine where it
+        is installed or if it should use a hardcoded path to the
+        installation. In the latter case the target system must be
+        installed with <c>reltool:install/2</c> before it can be
+        used. If the system is relocatable, the file tree containing
+        the target system can be moved to another location without
+        re-installation. The default is <c>true</c>.</p>
       </item>
 
       <tag><c>profile</c></tag>
       <item>
-	<p>The creation of the specification for a target system is
-	performed in two steps. In the first step a complete
-	specification is generated. It will likely contain much more
-	files than you are interested in your customized target
-	system. In the second step the specification will be filtered
-	according to your filters. There you have the ability to
-	specify filters per application as well as system wide
-	filters. You can also select a <c>profile</c> for your
-	system. Depending on the <c>profile</c>, different default
-	filters will be used. There are three different profiles to
-	choose from: <c>development</c>, <c>embedded</c> and
-	<c>standalone</c>. <c>development</c> is default. The
-	parameters that are affected by the <c>profile</c> are:
-	<c>incl_sys_filters</c>, <c>excl_sys_filters</c>,
-	<c>incl_app_filters</c> and <c>excl_app_filters</c>.</p>
+        <p>The creation of the specification for a target system is
+        performed in two steps. In the first step a complete
+        specification is generated. It will likely contain much more
+        files than you are interested in your customized target
+        system. In the second step the specification will be filtered
+        according to your filters. There you have the ability to
+        specify filters per application as well as system wide
+        filters. You can also select a <c>profile</c> for your
+        system. Depending on the <c>profile</c>, different default
+        filters will be used. There are three different profiles to
+        choose from: <c>development</c>, <c>embedded</c> and
+        <c>standalone</c>. <c>development</c> is default. The
+        parameters that are affected by the <c>profile</c> are:
+        <c>incl_sys_filters</c>, <c>excl_sys_filters</c>,
+        <c>incl_app_filters</c> and <c>excl_app_filters</c>.</p>
       </item>
 
       <tag><c>app_file</c></tag>
@@ -386,14 +386,14 @@
    <taglist>
       <tag><c>incl_cond</c></tag>
       <item>
-	<p>This parameter controls whether the module is included or not. By
-	default the <c>mod_incl</c> parameter on application and system level
-	will be used to control whether the module is included or not. The
-	value of <c>incl_cond</c> overrides the module inclusion policy.
-	<c>include</c> implies that the module is included, while
-	<c>exclude</c> implies that the module not is included.
-	<c>derived</c> implies that the is included if any included uses the
-	module.</p>
+        <p>This parameter controls whether the module is included or not. By
+        default the <c>mod_incl</c> parameter on application and system level
+        will be used to control whether the module is included or not. The
+        value of <c>incl_cond</c> overrides the module inclusion policy.
+        <c>include</c> implies that the module is included, while
+        <c>exclude</c> implies that the module not is included.
+        <c>derived</c> implies that the is included if any included uses the
+        module.</p>
       </item>
       <tag><c>debug_info</c></tag>
       <item>
@@ -479,7 +479,7 @@ re_regexp()         = string()
 reason()            = string()
 regexps()           = [re_regexp()]
                     | {add, [re_regexp()]}
-		    | {del, [re_regexp()]}
+                    | {del, [re_regexp()]}
 rel_file()          = term()
 rel_name()          = string()
 rel_vsn()           = string()
@@ -511,9 +511,9 @@ target_spec()       = [target_spec()]
       <name>create_target(Server, TargetDir) -> ok | {error, Reason}</name>
       <fsummary>Create a target system</fsummary>
       <type>
-	<v>Server     = server()</v>
+        <v>Server     = server()</v>
         <v>TargetDir  = target_dir()</v>
-	<v>Reason     = reason()</v>
+        <v>Reason     = reason()</v>
       </type>
       <desc><p>Create a target system. Gives the same result as
       <c>{ok,TargetSpec}=reltool:get_target_spec(Server)</c> and

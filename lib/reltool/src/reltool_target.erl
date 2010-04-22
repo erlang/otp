@@ -322,7 +322,6 @@ merge_apps(#rel{name = RelName,
 		       A#app.name =/= erts,
 		       A#app.name =/= ?MISSING_APP_NAME,
 		       not lists:keymember(A#app.name, #app.name, MergedApps2)],
-    io:format("Embedded: ~p\n", [Embedded]),
     MergedApps3 = do_merge_apps(RelName, Embedded, Apps, EmbAppType, MergedApps2),
     sort_apps(MergedApps3).
 
@@ -776,8 +775,6 @@ do_gen_spec(#sys{root_dir = RootDir,
 	   {create_dir,BootVsn, RelFiles}]},
 	 {create_dir, "bin", BinFiles}
         ] ++ SysFiles2,
-    %% io:format("InclRegexps2: ~p\n", [InclRegexps2]),
-    %% io:format("ExclRegexps2: ~p\n", [ExclRegexps2]),
     SysFiles4 = filter_spec(SysFiles3, InclRegexps2, ExclRegexps2),
     SysFiles5 = SysFiles4 ++ [{create_dir, "lib", LibFiles}],
     check_sys(["bin", "erts", "lib"], SysFiles5),
@@ -921,7 +918,6 @@ check_sys(Mandatory, SysFiles) ->
     lists:foreach(fun(M) -> do_check_sys(M, SysFiles) end, Mandatory).
 
 do_check_sys(Prefix, Specs) ->
-    %%io:format("Prefix: ~p\n", [Prefix]),
     case lookup_spec(Prefix, Specs) of
         [] ->
             reltool_utils:throw_error("Mandatory system directory ~s "
@@ -989,10 +985,10 @@ check_apps([], _) ->
 spec_app(#app{name              = Name,
               mods              = Mods,
               active_dir        = SourceDir,
-              incl_app_filters    = AppInclRegexps,
-              excl_app_filters    = AppExclRegexps} = App,
-         #sys{incl_app_filters    = SysInclRegexps,
-              excl_app_filters    = SysExclRegexps,
+              incl_app_filters  = AppInclRegexps,
+              excl_app_filters  = AppExclRegexps} = App,
+         #sys{incl_app_filters  = SysInclRegexps,
+              excl_app_filters  = SysExclRegexps,
               debug_info        = SysDebugInfo} = Sys) ->
     %% List files recursively
     {create_dir, _, AppFiles} = spec_dir(SourceDir),
@@ -1342,18 +1338,7 @@ opt_join(Path, File) ->
     filename:join([Path, File]).
 
 match(String, InclRegexps, ExclRegexps) ->
-    %%case
-        match(String, InclRegexps) andalso not match(String, ExclRegexps).
-%%      of
-%%      true ->
-%%           true;
-%%      false ->
-%%          io:format("no match: ~p\n"
-%%                    "    incl: ~p\n"
-%%                    "    excl: ~p\n",
-%%                    [String, InclRegexps, ExclRegexps]),
-%%          false
-%%    end.
+    match(String, InclRegexps) andalso not match(String, ExclRegexps).
 
 %% Match at least one regexp
 match(_String, []) ->

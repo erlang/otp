@@ -130,8 +130,7 @@ create_release(_Config) ->
     {value, {_, _, StdlibVsn}} = lists:keysearch(stdlib, 1, Apps),
     Rel = {release, {RelName, RelVsn}, 
            {erts, ErtsVsn}, 
-           [{kernel, KernelVsn}, 
-            {stdlib, StdlibVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel([{config, Config}], RelName)),
     ok.
 
@@ -161,7 +160,7 @@ create_script(_Config) ->
     Rel = {release, 
            {RelName, RelVsn}, 
            {erts, ErtsVsn},
-           [{stdlib, StdlibVsn}, {kernel, KernelVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel(Pid, RelName)),
     ?m(ok, file:write_file(filename:join([?WORK_DIR, RelName ++ ".rel"]),
 			   io_lib:format("~p.\n", [Rel]))),
@@ -208,6 +207,7 @@ create_target(_Config) ->
     TargetDir = filename:join([?WORK_DIR, "target_development"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     Erl = filename:join([TargetDir, "bin", "erl"]),
@@ -294,6 +294,8 @@ create_standalone(_Config) ->
 create_old_target(TestInfo) when is_atom(TestInfo) -> 
     reltool_test_lib:tc_info(TestInfo);
 create_old_target(_Config) ->
+    ?skip("Old style of target", []),
+    
     %% Configure the server
     RelName1 = "Just testing",
     RelName2 = "Just testing with SASL",

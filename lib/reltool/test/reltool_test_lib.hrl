@@ -18,6 +18,7 @@
 
 -include_lib("wx/include/wx.hrl").
 
+-define(flat_format(Format,Args), lists:flatten(io_lib:format(Format,Args))).
 -define(log(Format,Args), reltool_test_lib:log(Format,Args,?FILE,?LINE)).
 -define(warning(Format,Args), ?log("<WARNING>\n " ++ Format,Args)).
 -define(error(Format,Args), reltool_test_lib:error(Format,Args,?FILE,?LINE)).
