@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Records</title>
@@ -142,6 +142,29 @@ is_person(_P) ->
 #Name{Field1=Expr1,...,FieldK=ExprK}</pre>
     <p>In this case, one or more of <c>Expr1</c>...<c>ExprK</c> may be
       unbound variables.</p>
+  </section>
+
+  <section>
+    <title>Nested records</title>
+    <p>Beginning with R14 parentheses when accessing or updating nested
+      records can be omitted. Assuming we have the following record
+      definitions:</p>
+    <pre>
+-record(nrec0, {name = "nested0"}).
+-record(nrec1, {name = "nested1", nrec0=#nrec0{}}).
+-record(nrec2, {name = "nested2", nrec1=#nrec1{}}).
+
+N2 = #nrec2{},
+    </pre>
+    <p>Before R14 you would have needed to use parentheses as following:</p>
+    <pre>
+"nested0" = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0.name,
+N0n = ((N2#nrec2.nrec1)#nrec1.nrec0)#nrec0{name = "nested0a"},
+    </pre>
+    <p>Since R14 you can also write:</p>
+    <pre>
+"nested0" = N2#nrec2.nrec1#nrec1.nrec0#nrec0.name,
+N0n = N2#nrec2.nrec1#nrec1.nrec0#nrec0{name = "nested0a"},</pre>
   </section>
 
   <section>
