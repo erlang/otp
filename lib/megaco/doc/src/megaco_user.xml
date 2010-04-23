@@ -471,7 +471,7 @@ protocol_version() = integer()    ]]></code>
         <v>transaction_result() = action_reps()</v>
         <v>segment_result() = {segment_no(), last_segment(), action_reps()}</v>
         <v>action_reps()   = [action_reply()]</v>
-        <v>failure()       = {error, reason()}</v>
+        <v>failure()       = {error, reason()} | {error, ReplyNo, reason()}</v>
         <v>reason()  = transaction_reason() | segment_reason() | user_cancel_reason() | send_reason() | other_reason()</v>
         <v>transaction_reason() = error_desc()</v>
         <v>segment_reason() = {segment_no(), last_segment(), error_desc()}</v>
@@ -486,6 +486,7 @@ protocol_version() = integer()    ]]></code>
         <v>send_failed_reason() = {send_message_failed, reason_for_send_failure()}</v>
         <v>reason_for_send_failure() = term()</v>
         <v>ReplyData       = reply_data()</v>
+        <v>ReplyNo         = integer() > 0</v>
         <v>reply_data()    = term()</v>
         <v>Extra           = term()</v>
       </type>

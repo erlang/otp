@@ -124,10 +124,18 @@
 %%      |
 %%      v
 %%    3.14
+%%      |
+%%      v
+%%    3.14.1
 %%
 %%
 {"%VSN%",
  [
+  {"3.14", 
+   [
+    {update, megaco_config, soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"3.13", 
    [
     {load_module, megaco_messenger, soft_purge, soft_purge, []}, 
@@ -163,6 +171,11 @@
   }
  ],
  [
+  {"3.14", 
+   [
+    {update, megaco_config, soft, soft_purge, soft_purge, []}
+   ]
+  }, 
   {"3.13", 
    [
     {load_module, megaco_messenger, soft_purge, soft_purge, []}, 
