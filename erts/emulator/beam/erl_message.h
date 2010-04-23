@@ -75,6 +75,13 @@ typedef struct {
     ErlMessage** last;  /* point to the last next pointer */
     ErlMessage** save;
     int len;            /* queue length */
+
+    /*
+     * The following two fields are used by the recv_mark/1 and
+     * recv_set/1 instructions.
+     */
+    BeamInstr* mark;		/* address to rec_loop/2 instruction */
+    ErlMessage** saved_last;	/* saved last pointer */
 } ErlMessageQueue;
 
 #ifdef ERTS_SMP
@@ -137,6 +144,7 @@ do {							\
      (p)->msg.len--; \
      if (__mp == NULL) \
          (p)->msg.last = (p)->msg.save; \
+     (p)->msg.mark = 0; \
 } while(0)
 
 /* Reset message save point (after receive match) */

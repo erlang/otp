@@ -1425,5 +1425,8 @@ on_load
 #
 # R14A.
 #
-recv_mark Lbl =>
-recv_set Lbl =>
+recv_mark f
+
+recv_set Fail | label Lbl | loop_rec Lf Reg => \
+   i_recv_set | label Lbl | loop_rec Lf Reg
+i_recv_set
