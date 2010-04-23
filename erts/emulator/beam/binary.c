@@ -180,7 +180,7 @@ erts_realloc_binary(Eterm bin, size_t size)
 }
 
 byte*
-erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
+erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t allocator, unsigned extra)
 {
     byte* bytes;
     Eterm* real_bin;
@@ -208,7 +208,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
 	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
     }
     if (bit_offs) {
-	byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, byte_size + extra);
+	byte* buf = (byte *) erts_alloc(allocator, byte_size + extra);
 	*base_ptr = buf;
 	buf += extra;
 	erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, byte_size*8);	

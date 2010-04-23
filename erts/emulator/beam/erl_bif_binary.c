@@ -55,6 +55,10 @@ static Export binary_match_trap_export;
 static BIF_RETTYPE binary_match_trap(BIF_ALIST_3);
 static Export binary_matches_trap_export;
 static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3);
+static Export binary_longest_prefix_trap_export;
+static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
+static Export binary_longest_suffix_trap_export;
+static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
 static Uint max_loop_limit;
 
 
@@ -75,6 +79,22 @@ void erts_init_bif_binary(void)
     binary_matches_trap_export.code[2] = 3;
     binary_matches_trap_export.code[3] = (BeamInstr) em_apply_bif;
     binary_matches_trap_export.code[4] = (BeamInstr) &binary_matches_trap;
+
+    sys_memset((void *) &binary_longest_prefix_trap_export, 0, sizeof(Export));
+    binary_longest_prefix_trap_export.address = &binary_longest_prefix_trap_export.code[3];
+    binary_longest_prefix_trap_export.code[0] = am_erlang;
+    binary_longest_prefix_trap_export.code[1] = am_binary_longest_prefix_trap;
+    binary_longest_prefix_trap_export.code[2] = 3;
+    binary_longest_prefix_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    binary_longest_prefix_trap_export.code[4] = (BeamInstr) &binary_longest_prefix_trap;
+
+    sys_memset((void *) &binary_longest_suffix_trap_export, 0, sizeof(Export));
+    binary_longest_suffix_trap_export.address = &binary_longest_suffix_trap_export.code[3];
+    binary_longest_suffix_trap_export.code[0] = am_erlang;
+    binary_longest_suffix_trap_export.code[1] = am_binary_longest_suffix_trap;
+    binary_longest_suffix_trap_export.code[2] = 3;
+    binary_longest_suffix_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    binary_longest_suffix_trap_export.code[4] = (BeamInstr) &binary_longest_suffix_trap;
 
     max_loop_limit = 0;
     return;
@@ -1548,6 +1568,303 @@ BIF_RETTYPE binary_part_2(BIF_ALIST_2)
  badarg:
    BIF_ERROR(BIF_P,BADARG);
 }
+
+typedef struct {
+    int type;            /* CL_TYPE_XXX */
+    byte *temp_alloc;    /* Used for erts_get/free_aligned, i.e. CL_TYPE_ALIGNED */
+    unsigned char *buff; /* Used for all types, malloced if CL_TYPE_HEAP */
+    Uint bufflen;        /* The length (in bytes) of buffer */
+} CommonData;
+
+#define COMMON_LOOP_FACTOR 10
+
+#define DIRECTION_PREFIX 0
+#define DIRECTION_SUFFIX 1
+
+#define CL_OK 0
+#define CL_RESTART 1
+
+/* The type field in the above structure */
+#define CL_TYPE_EMPTY 0 /* End of array */
+#define CL_TYPE_HEAP 1
+#define CL_TYPE_ALIGNED 2
+#define CL_TYPE_COMMON 3 /* emacsulated */
+#define CL_TYPE_HEAP_NOALLOC 4 /* Will need allocating when trapping */
+
+
+static int do_search_forward(CommonData *cd, Uint *posp, Uint *redsp)
+{
+    Uint pos = *posp;
+    Sint reds = (Sint) *redsp;
+    int i;
+    unsigned char current = 0;
+
+    for(;;) {
+	for(i = 0; cd[i].type != CL_TYPE_EMPTY; ++i) {
+	    if (pos >= cd[i].bufflen) {
+		*posp = pos;
+		if (reds > 0) {
+		    *redsp = (Uint) reds;
+		} else {
+		    *redsp = 0;
+		}
+		return CL_OK;
+	    }
+	    if (i == 0) {
+		current = cd[i].buff[pos];
+	    } else {
+		if (cd[i].buff[pos] != current) {
+		    *posp = pos;
+		    if (reds > 0) {
+			*redsp = (Uint) reds;
+		    } else {
+			*redsp = 0;
+		    }
+		    return CL_OK;
+		}
+	    }
+	    --reds;
+	}
+	++pos;
+	if (reds <= 0) {
+	    *posp = pos;
+	    *redsp = 0;
+	    return CL_RESTART;
+	}
+    }
+}
+static int do_search_backward(CommonData *cd, Uint *posp, Uint *redsp)
+{
+    Uint pos = *posp;
+    Sint reds = (Sint) *redsp;
+    int i;
+    unsigned char current = 0;
+
+    for(;;) {
+	for(i = 0; cd[i].type != CL_TYPE_EMPTY; ++i) {
+	    if (pos >= cd[i].bufflen) {
+		*posp = pos;
+		if (reds > 0) {
+		    *redsp = (Uint) reds;
+		} else {
+		    *redsp = 0;
+		}
+		return CL_OK;
+	    }
+	    if (i == 0) {
+		current = cd[i].buff[cd[i].bufflen - 1 - pos];
+	    } else {
+		if (cd[i].buff[cd[i].bufflen - 1 - pos] != current) {
+		    *posp = pos;
+		    if (reds > 0) {
+			*redsp = (Uint) reds;
+		    } else {
+			*redsp = 0;
+		    }
+		    return CL_OK;
+		}
+	    }
+	    --reds;
+	}
+	++pos;
+	if (reds <= 0) {
+	    *posp = pos;
+	    *redsp = 0;
+	    return CL_RESTART;
+	}
+    }
+}
+
+static void cleanup_common_data(Binary *bp)
+{
+    int i;
+    CommonData *cd;
+    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bp);
+    for (i=0;cd[i].type != CL_TYPE_EMPTY;++i) {
+	switch (cd[i].type) {
+	case CL_TYPE_HEAP:
+	    erts_free(ERTS_ALC_T_BINARY_BUFFER,cd[i].buff);
+	    break;
+	case CL_TYPE_ALIGNED:
+	    erts_free_aligned_binary_bytes_extra(cd[i].temp_alloc, ERTS_ALC_T_BINARY_BUFFER);
+	    break;
+	default:
+	    break;
+	}
+    }
+    return;
+}
+
+static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
+{
+    Eterm l = list;
+    int n = 0;
+    Binary *mb;
+    CommonData *cd;
+    int i = 0;
+    Uint reds = get_reds(p, COMMON_LOOP_FACTOR);
+    Uint save_reds = reds;
+    int res;
+    Export *trapper;
+    Uint pos;
+    Eterm epos;
+    Eterm *hp;
+    Eterm bin_term;
+    Eterm b;
+
+    /* First just count the number of binaries */
+    while (is_list(l)) {
+	b = CAR(list_val(l));
+	if (!is_binary(b)) {
+	    goto badarg;
+	}
+	++n;
+	l = CDR(list_val(l));
+    }
+    if (l != NIL || n == 0) {
+	goto badarg;
+    }
+
+    /* OK, now create a buffer of the right size, we can do a magic binary right away,
+       thats not to costly. */
+    mb = erts_create_magic_binary((n+1)*sizeof(CommonData),cleanup_common_data);
+    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(mb);
+    l = list;
+    while (is_list(l)) {
+	Uint bitoffs;
+	Uint bitsize;
+	Uint offset;
+	Eterm real_bin;
+	ProcBin* pb;
+
+	cd[i].type = CL_TYPE_EMPTY;
+	b = CAR(list_val(l));
+	ERTS_GET_REAL_BIN(b, real_bin, offset, bitoffs, bitsize);
+	if (bitsize != 0) {
+	    erts_bin_free(mb);
+	    goto badarg;
+	}
+	cd[i].bufflen = binary_size(b);
+	cd[i].temp_alloc = NULL;
+	if (*(binary_val(real_bin)) == HEADER_PROC_BIN) {
+	    pb = (ProcBin *) binary_val(real_bin);
+	    if (pb->flags) {
+		erts_emasculate_writable_binary(pb);
+	    }
+	    cd[i].buff = erts_get_aligned_binary_bytes_extra(b, &(cd[i].temp_alloc),
+							     ERTS_ALC_T_BINARY_BUFFER,0);
+	    cd[i].type = (cd[i].temp_alloc != NULL) ? CL_TYPE_ALIGNED : CL_TYPE_COMMON;
+	} else { /* Heap binary */
+	    cd[i].buff = erts_get_aligned_binary_bytes_extra(b, &(cd[i].temp_alloc),
+							     ERTS_ALC_T_BINARY_BUFFER,0);
+	    /* CL_TYPE_HEAP_NOALLOC means you have to copy if trapping */
+	    cd[i].type = (cd[i].temp_alloc != NULL) ? CL_TYPE_ALIGNED : CL_TYPE_HEAP_NOALLOC;
+	}
+	++i;
+	l = CDR(list_val(l));
+    }
+    cd[i].type = CL_TYPE_EMPTY;
+#if defined(DEBUG) || defined(VALGRIND)
+    cd[i].temp_alloc = NULL;
+    cd[i].buff = NULL;
+    cd[i].bufflen = 0;
+#endif
+
+    pos = 0;
+    if (direction == DIRECTION_PREFIX) {
+	trapper = &binary_longest_prefix_trap_export;
+	res = do_search_forward(cd,&pos,&reds);
+    } else {
+	ASSERT(direction == DIRECTION_SUFFIX);
+	trapper = &binary_longest_suffix_trap_export;
+	res = do_search_backward(cd,&pos,&reds);
+    }
+    epos = erts_make_integer(pos,p);
+    if (res == CL_OK) {
+	erts_bin_free(mb);
+	BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
+	BIF_RET(epos);
+    } else {
+	ASSERT(res == CL_RESTART);
+	/* Copy all heap binaries that are not already copied (aligned) */
+	for(i = 0; i < n; ++i) {
+	    if (cd[i].type == CL_TYPE_HEAP_NOALLOC) {
+		unsigned char *tmp = cd[i].buff;
+		cd[i].buff = erts_alloc(ERTS_ALC_T_BINARY_BUFFER, cd[i].bufflen);
+		memcpy(cd[i].buff,tmp,cd[i].bufflen);
+	    }
+	}
+	hp = HAlloc(p, PROC_BIN_SIZE);
+	bin_term = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+	BUMP_ALL_REDS(p);
+	BIF_TRAP3(trapper, p, bin_term, epos,list);
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+static BIF_RETTYPE do_longest_common_trap(Process *p, Eterm bin_term, Eterm current_pos,
+					  Eterm orig_list, int direction)
+{
+    Uint reds = get_reds(p, COMMON_LOOP_FACTOR);
+    Uint save_reds = reds;
+    Uint pos;
+    Binary *bin;
+    CommonData *cd;
+    int res;
+    Eterm epos;
+    Export *trapper;
+
+#ifdef DEBUG
+    int r;
+    r = term_to_Uint(current_pos, &pos);
+    ASSERT(r != 0);
+#else
+    term_to_Uint(current_pos, &pos);
+#endif
+    ASSERT(ERTS_TERM_IS_MAGIC_BINARY(bin_term));
+    bin = ((ProcBin *) binary_val(bin_term))->val;
+    cd = (CommonData *) ERTS_MAGIC_BIN_DATA(bin);
+    if (direction == DIRECTION_PREFIX) {
+	trapper = &binary_longest_prefix_trap_export;
+	res = do_search_forward(cd,&pos,&reds);
+    } else {
+	ASSERT(direction == DIRECTION_SUFFIX);
+	trapper = &binary_longest_suffix_trap_export;
+	res = do_search_backward(cd,&pos,&reds);
+    }
+    epos = erts_make_integer(pos,p);
+    if (res == CL_OK) {
+	BUMP_REDS(p, (save_reds - reds) / COMMON_LOOP_FACTOR);
+	BIF_RET(epos);
+    } else {
+	ASSERT(res == CL_RESTART);
+	/* Copy all heap binaries that are not already copied (aligned) */
+	BUMP_ALL_REDS(p);
+	BIF_TRAP3(&binary_longest_prefix_trap_export, p, bin_term, epos, orig_list);
+    }
+}
+
+static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3)
+{
+    return do_longest_common_trap(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3,DIRECTION_PREFIX);
+}
+
+static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3)
+{
+    return do_longest_common_trap(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3,DIRECTION_SUFFIX);
+}
+
+BIF_RETTYPE binary_longest_common_prefix_1(BIF_ALIST_1)
+{
+    return do_longest_common(BIF_P,BIF_ARG_1,DIRECTION_PREFIX);
+}
+
+BIF_RETTYPE binary_longest_common_suffix_1(BIF_ALIST_1)
+{
+    return do_longest_common(BIF_P,BIF_ARG_1,DIRECTION_SUFFIX);
+}
+
 
 
 /*

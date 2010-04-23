@@ -765,8 +765,8 @@ bif binary:match/2
 bif binary:match/3
 bif binary:matches/2
 bif binary:matches/3
-#  bif binary:longest_common_prefix/1
-#  bif binary:longest_common_suffix/1
+bif binary:longest_common_prefix/1
+bif binary:longest_common_suffix/1
 #  bif binary:first/1
 #  bif binary:last/1
 #  bif binary:at/2

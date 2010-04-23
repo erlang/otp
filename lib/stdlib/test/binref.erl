@@ -3,7 +3,8 @@
 -export([compile_pattern/1,match/2,match/3,matches/2,matches/3,
 	 split/2,split/3,replace/3,replace/4,first/1,last/1,at/2,
 	 part/2,part/3,copy/1,copy/2,encode_unsigned/1,encode_unsigned/2,
-	 decode_unsigned/1,decode_unsigned/2,referenced_byte_size/1]).
+	 decode_unsigned/1,decode_unsigned/2,referenced_byte_size/1,
+	 longest_common_prefix/1,longest_common_suffix/1 ]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -315,6 +316,77 @@ at(Subject,X) ->
     catch
 	_:_ ->
 	    erlang:error(badarg)
+    end.
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% longest_common_prefix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+longest_common_prefix(LB) ->
+    try
+	true = is_list(LB) and (length(LB) > 0), % Make badarg instead of function clause
+	do_longest_common_prefix(LB,0)
+    catch
+	_:_ ->
+	    erlang:error(badarg)
+    end.
+
+do_longest_common_prefix(LB,X) ->
+    case do_lcp(LB,X,no) of
+	true ->
+	    do_longest_common_prefix(LB,X+1);
+	false ->
+	    X
+    end.
+do_lcp([],_,_) ->
+    true;
+do_lcp([Bin|_],X,_) when byte_size(Bin) =< X ->
+    false;
+do_lcp([Bin|T],X,no) ->
+    Ch = at(Bin,X),
+    do_lcp(T,X,Ch);
+do_lcp([Bin|T],X,Ch) ->
+    Ch2 = at(Bin,X),
+    if
+	Ch =:= Ch2 ->
+	    do_lcp(T,X,Ch);
+	true ->
+	    false
+    end.
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% longest_common_suffix
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+longest_common_suffix(LB) ->
+    try
+	true = is_list(LB) and (length(LB) > 0), % Make badarg instead of function clause
+	do_longest_common_suffix(LB,0)
+    catch
+	_:_ ->
+	    erlang:error(badarg)
+    end.
+
+do_longest_common_suffix(LB,X) ->
+    case do_lcs(LB,X,no) of
+	true ->
+	    do_longest_common_suffix(LB,X+1);
+	false ->
+	    X
+    end.
+do_lcs([],_,_) ->
+    true;
+do_lcs([Bin|_],X,_) when byte_size(Bin) =< X ->
+    false;
+do_lcs([Bin|T],X,no) ->
+    Ch = at(Bin,byte_size(Bin) - 1 - X),
+    do_lcs(T,X,Ch);
+do_lcs([Bin|T],X,Ch) ->
+    Ch2 = at(Bin,byte_size(Bin) - 1 - X),
+    if
+	Ch =:= Ch2 ->
+	    do_lcs(T,X,Ch);
+	true ->
+	    false
     end.
 
 

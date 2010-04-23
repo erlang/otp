@@ -150,7 +150,7 @@ do {									\
 
 void erts_init_binary(void);
 
-byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
+byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, ErtsAlcType_t, unsigned extra);
 
 #if defined(__i386__) || !defined(__GNUC__)
 /*
@@ -168,6 +168,7 @@ byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, unsigned extra);
 
 ERTS_GLB_INLINE byte* erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr);
 ERTS_GLB_INLINE void erts_free_aligned_binary_bytes(byte* buf);
+ERTS_GLB_INLINE void erts_free_aligned_binary_bytes_extra(byte* buf, ErtsAlcType_t);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc_fnf(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_drv_alloc(Uint size);
 ERTS_GLB_INLINE Binary *erts_bin_nrml_alloc(Uint size);
@@ -184,15 +185,21 @@ ERTS_GLB_INLINE Binary *erts_create_magic_binary(Uint size,
 ERTS_GLB_INLINE byte*
 erts_get_aligned_binary_bytes(Eterm bin, byte** base_ptr)
 {
-    return erts_get_aligned_binary_bytes_extra(bin, base_ptr, 0);
+    return erts_get_aligned_binary_bytes_extra(bin, base_ptr, ERTS_ALC_T_TMP, 0);
+}
+
+ERTS_GLB_INLINE void
+erts_free_aligned_binary_bytes_extra(byte* buf, ErtsAlcType_t allocator)
+{
+    if (buf) {
+	erts_free(allocator, (void *) buf);
+    }
 }
 
 ERTS_GLB_INLINE void
 erts_free_aligned_binary_bytes(byte* buf)
 {
-    if (buf) {
-	erts_free(ERTS_ALC_T_TMP, (void *) buf);
-    }
+    erts_free_aligned_binary_bytes_extra(buf,ERTS_ALC_T_TMP);
 }
 
 /* Explicit extra bytes allocated to counter buggy drivers.

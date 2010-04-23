@@ -232,6 +232,7 @@ type    RE_SUBJECT      SHORT_LIVED     SYSTEM          re_subject
 type  	RE_HEAP 	STANDARD	SYSTEM		re_heap
 type	RE_STACK 	SHORT_LIVED	SYSTEM		re_stack
 type	UNICODE_BUFFER 	SHORT_LIVED	SYSTEM		unicode_buffer
+type	BINARY_BUFFER 	SHORT_LIVED	SYSTEM		binary_buffer
 type	PRE_ALLOC_DATA	LONG_LIVED	SYSTEM		pre_alloc_data
 type	DRV_THR_OPTS	DRIVER		SYSTEM		driver_thread_opts
 type	DRV_TID		DRIVER		SYSTEM		driver_tid
