@@ -473,7 +473,7 @@ decorate([], _) -> [];
 decorate([File|Tail], Dir) ->
     [{Dir, File} | decorate(Tail, Dir)].
 
-filter(_Ext, Dir, {error,_}) ->     
+filter(_Ext, Dir, error) ->
     io:format("** Bad path can't read ~s~n", [Dir]), [];
 filter(Ext, _, {ok,Files}) -> 
     filter2(Ext, length(Ext), Files).
