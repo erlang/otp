@@ -30,7 +30,8 @@
 	 call_remote_n1/1, call_remote_n2/1, call_remote_n3/1, spec_init/1,
 	 spec_init_local_registered_parent/1, 
 	 spec_init_global_registered_parent/1,
-	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1
+	 otp_5854/1, hibernate/1, otp_7669/1, call_format_status/1,
+	 call_with_huge_message_queue/1
 	]).
 
 % spawn export
@@ -51,7 +52,8 @@ all(suite) ->
      call_remote_n2, call_remote_n3, spec_init,
      spec_init_local_registered_parent,
      spec_init_global_registered_parent,
-     otp_5854, hibernate, otp_7669, call_format_status].
+     otp_5854, hibernate, otp_7669, call_format_status,
+     call_with_huge_message_queue].
 
 -define(default_timeout, ?t:minutes(1)).
  
@@ -904,6 +906,45 @@ call_format_status(Config) when is_list(Config) ->
     ?line [format_status_called | _] = lists:reverse(Data2),
     ok.
 
+%% Test that the time for a huge message queue is not
+%% significantly slower than with an empty message queue.
+call_with_huge_message_queue(Config) when is_list(Config) ->
+    ?line Pid = spawn_link(fun echo_loop/0),
+
+    ?line {Time,ok} = tc(fun() -> calls(10, Pid) end),
+
+    ?line [self() ! {msg,N} || N <- lists:seq(1, 500000)],
+    erlang:garbage_collect(),
+    ?line {NewTime,ok} = tc(fun() -> calls(10, Pid) end),
+    io:format("Time for empty message queue: ~p", [Time]),
+    io:format("Time for huge message queue: ~p", [NewTime]),
+
+    case (NewTime+1) / (Time+1) of
+	Q when Q < 10 ->
+	    ok;
+	Q ->
+	    io:format("Q = ~p", [Q]),
+	    ?line ?t:fail()
+    end,
+    ok.
+
+calls(0, _) -> ok;
+calls(N, Pid) ->
+    {ultimate_answer,42} = call(Pid, {ultimate_answer,42}),
+    calls(N-1, Pid).
+
+call(Pid, Msg) ->
+    gen_server:call(Pid, Msg, infinity).
+
+tc(Fun) ->
+    timer:tc(erlang, apply, [Fun,[]]).
+
+echo_loop() ->
+    receive
+	{'$gen_call',{Pid,Ref},Msg} ->
+	    Pid ! {Ref,Msg},
+	    echo_loop()
+    end.
 
 %%--------------------------------------------------------------
 %% Help functions to spec_init_*
