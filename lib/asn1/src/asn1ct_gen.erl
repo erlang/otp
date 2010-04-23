@@ -87,7 +87,7 @@ pgen_module(OutFile,Erules,Module,
 % gen_vars(asn1_db:mod_to_vars(Module)),
 % gen_tag_table(AllTypes),
     file:close(Fid),
-    asn1ct:report_verbose("--~p--~n",[{generated,ErlFile}],Options).
+    asn1ct:verbose("--~p--~n",[{generated,ErlFile}],Options).
 
 
 pgen_typeorval(Erules,Module,N2nConvEnums,{Types,Values,_Ptypes,_Classes,Objects,ObjectSets}) ->
@@ -1335,9 +1335,9 @@ pgen_hrl(Erules,Module,TypeOrVal,Options,_Indent) ->
 	Y ->
 	    Fid = get(gen_file_out),
 	    file:close(Fid),
-	    asn1ct:report_verbose("--~p--~n",
-		      [{generated,lists:concat([get(outfile),".hrl"])}],
-		      Options),
+	    asn1ct:verbose("--~p--~n",
+			   [{generated,lists:concat([get(outfile),".hrl"])}],
+			   Options),
 	    Y
     end.
 

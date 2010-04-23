@@ -2027,8 +2027,9 @@ get_objectset_def2(_S,Set,CField) when is_list(Set) ->
 				   set=Set}};
 get_objectset_def2(_S,T = #typedef{typespec=#'ObjectSet'{}},_CField) ->
     T;
-get_objectset_def2(_S,T,_CField) ->
-    io:format("Warning get_objectset_def2: uncontrolled object set structure:~n~p~n",[T]).
+get_objectset_def2(S,T,_CField) ->
+    asn1ct:warning("get_objectset_def2: uncontrolled object set structure:~n~p~n",
+		   [T],S).
     
 type_name(S,#type{def=Def}) ->
     CurrMod = S#state.mname,
@@ -2685,7 +2686,7 @@ normalize_value(S,Type,{'DEFAULT',Value},NameList) ->
 	{'REAL',_,_} ->
 	    normalize_real(Value);
 	{'ENUMERATED',CType,_} ->
-	    normalize_enumerated(Value,CType);
+	    normalize_enumerated(S,Value,CType);
 	{'CHOICE',CType,NewNameList} ->
 	    normalize_choice(S,Value,CType,NewNameList);
 	{'SEQUENCE',CType,NewNameList} ->
@@ -2701,7 +2702,8 @@ normalize_value(S,Type,{'DEFAULT',Value},NameList) ->
 	{'ASN1_OPEN_TYPE',{typefield,_TF},NL} -> %an open type
 	    normalize_objectclassfieldvalue(S,Value,NL);
 	Err ->
-	    io:format("WARNING: could not check default value ~p~nType:~n~p~nNameList:~n~p~n",[Value,Type,Err]),
+	    asn1ct:warning("could not check default value ~p~nType:~n~p~nNameList:~n~p~n",
+			   [Value,Type,Err],S),
 	    Value
     end;
 normalize_value(S,Type,Val,NameList) ->
@@ -2786,23 +2788,23 @@ normalize_bitstring(S,Value,Type)->
 			end,
 		    case catch lists:map(F,RecList) of
 			{error,Reason} ->
-			    io:format("WARNING: default value not "
+			    asn1ct:warning("default value not "
 				      "compatible with type definition ~p~n",
-				      [Reason]),
+				      [Reason],S),
 			    Value;
 			NewList ->
 			    NewList
 		    end;
 		_ ->
-		    io:format("WARNING: default value not "
+		    asn1ct:warning("default value not "
 			      "compatible with type definition ~p~n",
-			      [RecList]),
+			      [RecList],S),
 		    Value
 	    end;
 	{Name,String} when is_atom(Name) ->
 	    normalize_bitstring(S,String,Type);
 	Other ->
-	    io:format("WARNING: illegal default value ~p~n",[Other]),
+	    asn1ct:warning("illegal default value ~p~n",[Other],S),
 	    Value
     end.
 
@@ -2841,12 +2843,13 @@ normalize_octetstring(S,Value,CType) ->
 	    %% check if list elements are valid octet values
 	    lists:map(fun([])-> ok;
 			 (H)when H > 255->
-			      io:format("WARNING: not legal octet value ~p in OCTET STRING, ~p~n",[H,List]);
+			      asn1ct:warning("not legal octet value ~p in OCTET STRING, ~p~n",
+					     [H,List],S);
 			 (_)-> ok
 		      end, List),
 	    List;
 	Other ->
-	    io:format("WARNING: unknown default value ~p~n",[Other]),
+	    asn1ct:warning("unknown default value ~p~n",[Other],S),
 	    Value
     end.
 
@@ -2893,23 +2896,23 @@ normalize_objectdescriptor(Value) ->
 normalize_real(Value) ->
     Value.
 
-normalize_enumerated(#'Externalvaluereference'{value=V},CType) 
+normalize_enumerated(S,#'Externalvaluereference'{value=V},CType)
   when is_list(CType) ->
-    normalize_enumerated2(V,CType);
-normalize_enumerated(Value,CType) when is_atom(Value),is_list(CType) ->
-    normalize_enumerated2(Value,CType);
-normalize_enumerated({Name,EnumV},CType) when is_atom(Name) ->
-    normalize_enumerated(EnumV,CType);
-normalize_enumerated(Value,{CType1,CType2}) when is_list(CType1), is_list(CType2)->
-    normalize_enumerated(Value,CType1++CType2);
-normalize_enumerated(V,CType) ->
-    io:format("WARNING: Enumerated unknown type ~p~n",[CType]),
+    normalize_enumerated2(S,V,CType);
+normalize_enumerated(S,Value,CType) when is_atom(Value),is_list(CType) ->
+    normalize_enumerated2(S,Value,CType);
+normalize_enumerated(S,{Name,EnumV},CType) when is_atom(Name) ->
+    normalize_enumerated(S,EnumV,CType);
+normalize_enumerated(S,Value,{CType1,CType2}) when is_list(CType1), is_list(CType2)->
+    normalize_enumerated(S,Value,CType1++CType2);
+normalize_enumerated(S,V,CType) ->
+    asn1ct:warning("Enumerated unknown type ~p~n",[CType],S),
     V.
-normalize_enumerated2(V,Enum) ->
+normalize_enumerated2(S,V,Enum) ->
     case lists:keysearch(V,1,Enum) of
 	{value,{Val,_}} -> Val;
 	_ -> 
-	    io:format("WARNING: Enumerated value is not correct ~p~n",[V]),
+	    asn1ct:warning("Enumerated value is not correct ~p~n",[V],S),
 	    V
     end.
 
@@ -2920,8 +2923,7 @@ normalize_choice(S,{'CHOICE',{C,V}},CType,NameList) when is_atom(C) ->
 	    {C,normalize_value(S,CT,{'DEFAULT',V},
 			       [Name|NameList])};
 	Other ->
-	    io:format("WARNING: Wrong format of type/value ~p/~p~n",
-		      [Other,V]),
+	    asn1ct:warning("Wrong format of type/value ~p/~p~n",[Other,V],S),
 	    {C,V}
     end;
 normalize_choice(S,{'DEFAULT',ValueList},CType,NameList) when is_list(ValueList) ->
@@ -3097,8 +3099,7 @@ normalize_s_of(SorS,S,Value,Type,NameList) when is_list(Value) ->
 	List when is_list(List) ->
 	    List;
 	_ ->
-	    io:format("WARNING: ~p could not handle value ~p~n",
-		      [SorS,Value]),
+	    asn1ct:warning("~p could not handle value ~p~n",[SorS,Value],S),
 	    Value
     end;
 normalize_s_of(SorS,S,Value,Type,NameList) 
@@ -3150,15 +3151,13 @@ get_normalized_value(S,Val,Type,Func,AddArg) ->
  	    V2 = sort_val_if_set(AddArg,V,Type),
 	    call_Func(update_state(S,ExtM),V2,Type,Func,AddArg);
 	{error,_} ->
-	    io:format("WARNING: default value not "
-		      "comparable ~p~n",[Val]),
+	    asn1ct:warning("default value not comparable ~p~n",[Val],S),
 	    Val;
 	{ExtM,NewVal} ->
 	    V2 = sort_val_if_set(AddArg,NewVal,Type),
 	    call_Func(update_state(S,ExtM),V2,Type,Func,AddArg);
 	_ ->
-	    io:format("WARNING: default value not "
-		      "comparable ~p~n",[Val]),
+	    asn1ct:warning("default value not comparable ~p~n",[Val],S),
 	    Val
     end.
 
@@ -4106,7 +4105,7 @@ resolve_namednumber(S,#typedef{typespec=Type},Name) ->
     case Type#type.def of
 	{'ENUMERATED',NameList} ->
 	    NamedNumberList=check_enumerated(S,NameList,Type#type.constraint),
-	    N = normalize_enumerated(Name,NamedNumberList),
+	    N = normalize_enumerated(S,Name,NamedNumberList),
 	    {value,{_,V}} = lists:keysearch(N,1,NamedNumberList),
 	    V;
 	{'INTEGER',NameList} ->
@@ -5676,9 +5675,9 @@ sort_components(der,S=#state{tname=TypeName},Components) ->
 		end,
     case {untagged_choice(S,CompsList),Ext} of
 	{false,noext} ->
-	    {true,sort_components1(TypeName,CompsList,[],[],[],[])};
+	    {true,sort_components1(S,TypeName,CompsList,[],[],[],[])};
 	{false,_} ->
-	    {true,{sort_components1(TypeName,CompsList,[],[],[],[]), []}};
+	    {true,{sort_components1(S,TypeName,CompsList,[],[],[],[]), []}};
 	{true,noext} ->
 	    %% sort in run-time
 	    {dynamic,R1};
@@ -5690,57 +5689,57 @@ sort_components(per,S=#state{tname=TypeName},Components) ->
     Root = tag_untagged_choice(S,R1++R2),
     case Ext of
 	noext ->
-	    {true,sort_components1(TypeName,Root,[],[],[],[])};
+	    {true,sort_components1(S,TypeName,Root,[],[],[],[])};
 	_ ->
-	    {true,{sort_components1(TypeName,Root,[],[],[],[]),
+	    {true,{sort_components1(S,TypeName,Root,[],[],[],[]),
 		   Ext}}
     end.
 
-sort_components1(TypeName,[C=#'ComponentType'{tags=[{'UNIVERSAL',_}|_R]}|Cs],
+sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'UNIVERSAL',_}|_R]}|Cs],
 		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(TypeName,Cs,[C|UnivAcc],ApplAcc,ContAcc,PrivAcc);
-sort_components1(TypeName,[C=#'ComponentType'{tags=[{'APPLICATION',_}|_R]}|Cs],
+    sort_components1(S,TypeName,Cs,[C|UnivAcc],ApplAcc,ContAcc,PrivAcc);
+sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'APPLICATION',_}|_R]}|Cs],
 		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(TypeName,Cs,UnivAcc,[C|ApplAcc],ContAcc,PrivAcc);
-sort_components1(TypeName,[C=#'ComponentType'{tags=[{'CONTEXT',_}|_R]}|Cs],
+    sort_components1(S,TypeName,Cs,UnivAcc,[C|ApplAcc],ContAcc,PrivAcc);
+sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'CONTEXT',_}|_R]}|Cs],
 		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(TypeName,Cs,UnivAcc,ApplAcc,[C|ContAcc],PrivAcc);
-sort_components1(TypeName,[C=#'ComponentType'{tags=[{'PRIVATE',_}|_R]}|Cs],
+    sort_components1(S,TypeName,Cs,UnivAcc,ApplAcc,[C|ContAcc],PrivAcc);
+sort_components1(S,TypeName,[C=#'ComponentType'{tags=[{'PRIVATE',_}|_R]}|Cs],
 		 UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
-    sort_components1(TypeName,Cs,UnivAcc,ApplAcc,ContAcc,[C|PrivAcc]);
-sort_components1(TypeName,[],UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
+    sort_components1(S,TypeName,Cs,UnivAcc,ApplAcc,ContAcc,[C|PrivAcc]);
+sort_components1(S,TypeName,[],UnivAcc,ApplAcc,ContAcc,PrivAcc) ->
     I = #'ComponentType'.tags,
-    ascending_order_check(TypeName,sort_universal_type(UnivAcc)) ++ 
-	ascending_order_check(TypeName,lists:keysort(I,ApplAcc)) ++
-	ascending_order_check(TypeName,lists:keysort(I,ContAcc)) ++ 
-	ascending_order_check(TypeName,lists:keysort(I,PrivAcc)).
+    ascending_order_check(S,TypeName,sort_universal_type(UnivAcc)) ++
+	ascending_order_check(S,TypeName,lists:keysort(I,ApplAcc)) ++
+	ascending_order_check(S,TypeName,lists:keysort(I,ContAcc)) ++
+	ascending_order_check(S,TypeName,lists:keysort(I,PrivAcc)).
 
-ascending_order_check(TypeName,Components) ->
-    ascending_order_check1(TypeName,Components),
+ascending_order_check(S,TypeName,Components) ->
+    ascending_order_check1(S,TypeName,Components),
     Components.
 
-ascending_order_check1(TypeName,
+ascending_order_check1(S,TypeName,
 		       [C1 = #'ComponentType'{tags=[{_,T}|_]},
 			C2 = #'ComponentType'{tags=[{_,T}|_]}|Rest]) ->
-    io:format("WARNING: Indistinct tag ~p in SET ~p, components ~p and ~p~n",
-	      [T,TypeName,C1#'ComponentType'.name,C2#'ComponentType'.name]),
-    ascending_order_check1(TypeName,[C2|Rest]);
-ascending_order_check1(TypeName,
+    asn1ct:warning("Indistinct tag ~p in SET ~p, components ~p and ~p~n",
+	      [T,TypeName,C1#'ComponentType'.name,C2#'ComponentType'.name],S),
+    ascending_order_check1(S,TypeName,[C2|Rest]);
+ascending_order_check1(S,TypeName,
 		       [C1 = #'ComponentType'{tags=[{'UNIVERSAL',T1}|_]},
 			C2 = #'ComponentType'{tags=[{'UNIVERSAL',T2}|_]}|Rest]) ->
     case (decode_type(T1) == decode_type(T2)) of
 	true ->
-	    io:format("WARNING: Indistinct tags ~p and ~p in"
+	    asn1ct:warning("Indistinct tags ~p and ~p in"
 		      " SET ~p, components ~p and ~p~n",
 		      [T1,T2,TypeName,C1#'ComponentType'.name,
-		       C2#'ComponentType'.name]),
-	    ascending_order_check1(TypeName,[C2|Rest]);
+		       C2#'ComponentType'.name],S),
+	    ascending_order_check1(S,TypeName,[C2|Rest]);
 	_ ->
-	    ascending_order_check1(TypeName,[C2|Rest])
+	    ascending_order_check1(S,TypeName,[C2|Rest])
     end;
-ascending_order_check1(N,[_|Rest]) ->
-    ascending_order_check1(N,Rest);
-ascending_order_check1(_,[]) ->
+ascending_order_check1(S,N,[_|Rest]) ->
+    ascending_order_check1(S,N,Rest);
+ascending_order_check1(_,_,[]) ->
     ok.
     
 sort_universal_type(Components) ->

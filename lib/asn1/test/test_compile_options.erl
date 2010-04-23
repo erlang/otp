@@ -132,7 +132,7 @@ verbose(Config) when is_list(Config) ->
     ?line ok = asn1ct:compile(Asn1File, [{i,DataDir},{outdir,OutDir},noobj,verbose]),
     ?line test_server:capture_stop(),
     ?line [Line0|_] = test_server:capture_get(),
-    ?line lists:prefix("Erlang ASN.1 version", Line0),
+    ?line true = lists:prefix("Erlang ASN.1 version", Line0),
 
     %% Test non-verbose compile
     ?line test_server:capture_start(),
