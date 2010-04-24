@@ -154,6 +154,17 @@ silly_coverage(Config) when is_list(Config) ->
 		   {test,bs_get_binary2,{f,99},0,[{x,0},{atom,all},1,[]],{x,0}},
 		   {block,[a|b]}]}],0},
     ?line expect_error(fun() -> beam_bsm:module(BsmInput, []) end),
+
+    %% beam_receive.
+    ReceiveInput = {?MODULE,[{foo,0}],[],
+		    [{function,foo,0,2,
+		      [{label,1},
+		       {func_info,{atom,?MODULE},{atom,foo},0},
+		       {label,2},
+		       {call_ext,0,{extfunc,erlang,make_ref,0}},
+		       {block,[a|b]}]}],0},
+    ?line expect_error(fun() -> beam_receive:module(ReceiveInput, []) end),
+
     ok.
 
 expect_error(Fun) ->
