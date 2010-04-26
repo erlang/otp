@@ -1448,3 +1448,14 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
     return check_error(symlink(old, new), errInfo);
 #endif
 }
+
+int
+efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
+		  Sint64 length, int advise)
+{
+#ifdef HAVE_POSIX_FADVISE
+    return check_error(posix_fadvise(fd, offset, length, advise), errInfo);
+#else
+    return check_error(0, errInfo);
+#endif
+}

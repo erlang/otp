@@ -25,7 +25,7 @@
 %%% Interface towards a single file's contents. Uses ?FD_DRV.
 
 %% Generic file contents operations
--export([open/2, close/1, datasync/1, sync/1, position/2, truncate/1,
+-export([open/2, close/1, datasync/1, sync/1, advise/4, position/2, truncate/1,
 	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3, copy/3]).
 
 %% Specialized file operations
@@ -97,6 +97,7 @@
 -define(FILE_ALTNAME,          28).
 -define(FILE_READ_LINE,        29).
 -define(FILE_FDATASYNC,        30).
+-define(FILE_ADVISE,           31).
 
 %% Driver responses
 -define(FILE_RESP_OK,          0).
@@ -131,6 +132,13 @@
 %% IPREAD variants
 -define(IPREAD_S32BU_P32BU, 0).
 
+%% POSIX file advises
+-define(POSIX_FADV_NORMAL,     0).
+-define(POSIX_FADV_RANDOM,     1).
+-define(POSIX_FADV_SEQUENTIAL, 2).
+-define(POSIX_FADV_WILLNEED,   3).
+-define(POSIX_FADV_DONTNEED,   4).
+-define(POSIX_FADV_NOREUSE,    5).
 
 
 %%%-----------------------------------------------------------------
@@ -221,7 +229,35 @@ close(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->
 close(Port) when is_port(Port) ->
     drv_close(Port).
 
+-define(ADVISE(Offs, Len, Adv),
+	<<?FILE_ADVISE, Offs:64/signed, Len:64/signed,
+	  Adv:32/signed>>).
 
+%% Returns {error, Reason} | ok.
+advise(#file_descriptor{module = ?MODULE, data = {Port, _}},
+       Offset, Length, Advise) ->
+    case Advise of
+	normal ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_NORMAL),
+	    drv_command(Port, Cmd);
+	random ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_RANDOM),
+	    drv_command(Port, Cmd);
+	sequential ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_SEQUENTIAL),
+	    drv_command(Port, Cmd);
+	will_need ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_WILLNEED),
+	    drv_command(Port, Cmd);
+	dont_need ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_DONTNEED),
+	    drv_command(Port, Cmd);
+	no_reuse ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_NOREUSE),
+	    drv_command(Port, Cmd);
+	_ ->
+	    {error, einval}
+    end.
 
 %% Returns {error, Reason} | ok.
 write(#file_descriptor{module = ?MODULE, data = {Port, _}}, Bytes) ->

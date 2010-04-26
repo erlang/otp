@@ -28,7 +28,7 @@
 
 %% Specialized file operations
 -export([get_size/1, get_file/1, set_file/2, get_file_close/1]).
--export([compress/1, uncompress/1, uuencode/1, uudecode/1]).
+-export([compress/1, uncompress/1, uuencode/1, uudecode/1, advise/4]).
 
 -export([open_mode/1]).  %% used by ftp-file
 
@@ -71,6 +71,7 @@
 -define(RAM_FILE_UUENCODE,       35).
 -define(RAM_FILE_UUDECODE,       36).
 -define(RAM_FILE_SIZE,           37).
+-define(RAM_FILE_ADVISE,         38).
 
 %% Open modes for RAM_FILE_OPEN
 -define(RAM_FILE_MODE_READ,       1).
@@ -90,6 +91,14 @@
 -define(RAM_FILE_RESP_DATA,       2).
 -define(RAM_FILE_RESP_NUMBER,     3).
 -define(RAM_FILE_RESP_INFO,       4).
+
+%% POSIX file advises
+-define(POSIX_FADV_NORMAL,     0).
+-define(POSIX_FADV_RANDOM,     1).
+-define(POSIX_FADV_SEQUENTIAL, 2).
+-define(POSIX_FADV_WILLNEED,   3).
+-define(POSIX_FADV_DONTNEED,   4).
+-define(POSIX_FADV_NOREUSE,    5).
 
 %% --------------------------------------------------------------------------
 %% Generic file contents operations.
@@ -350,6 +359,28 @@ uuencode(#file_descriptor{}) ->
 uudecode(#file_descriptor{module = ?MODULE, data = Port}) ->
     call_port(Port, [?RAM_FILE_UUDECODE]);
 uudecode(#file_descriptor{}) ->
+    {error, enotsup}.
+
+advise(#file_descriptor{module = ?MODULE, data = Port}, Offset,
+        Length, Advise) ->
+    Cmd0 = <<?RAM_FILE_ADVISE, Offset:64/signed, Length:64/signed>>,
+    case Advise of
+    normal ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_NORMAL:32/signed>>);
+    random ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_RANDOM:32/signed>>);
+    sequential ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_SEQUENTIAL:32/signed>>);
+    will_need ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_WILLNEED:32/signed>>);
+    dont_need ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_DONTNEED:32/signed>>);
+    no_reuse ->
+        call_port(Port, <<Cmd0/binary, ?POSIX_FADV_NOREUSE:32/signed>>);
+    _ ->
+        {error, einval}
+    end;
+advise(#file_descriptor{}, _Offset, _Length, _Advise) ->
     {error, enotsup}.
 
 

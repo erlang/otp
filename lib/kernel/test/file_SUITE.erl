@@ -82,6 +82,8 @@
 
 -export([read_line_1/1, read_line_2/1, read_line_3/1,read_line_4/1]).
 
+-export([advise/1]).
+
 %% Debug exports
 -export([create_file_slow/2, create_file/2, create_bin/2]).
 -export([verify_file/2, verify_bin/3]).
@@ -377,7 +379,9 @@ win_cur_dir_1(_Config) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) -> [open,pos,file_info,consult,eval,script,truncate,sync,datasync].
+files(suite) ->
+    [open,pos,file_info,consult,eval,script,truncate,
+     sync,datasync,advise].
 
 open(suite) -> [open1,old_modes,new_modes,path_open,close,access,read_write,
 	       pread_write,append,open_errors].
@@ -1397,6 +1401,77 @@ sync(Config) when is_list(Config) ->
     ?line {ok, Fd2} = ?FILE_MODULE:open(Sync, [write]),
     ?line ok = ?FILE_MODULE:sync(Fd2),
     ?line ok = ?FILE_MODULE:close(Fd2),
+
+    ?line [] = flush(),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+advise(suite) -> [];
+advise(doc) -> "Tests that ?FILE_MODULE:advise/4 at least doesn't crash.";
+advise(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Advise = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_advise.fil"),
+
+    Line1 = "Hello\n",
+    Line2 = "World!\n",
+
+    ?line {ok, Fd} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd, 0, 0, normal),
+    ?line ok = io:format(Fd, "~s", [Line1]),
+    ?line ok = io:format(Fd, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd),
+
+    ?line {ok, Fd2} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd2, 0, 0, random),
+    ?line ok = io:format(Fd2, "~s", [Line1]),
+    ?line ok = io:format(Fd2, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd2),
+
+    ?line {ok, Fd3} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd3, 0, 0, sequential),
+    ?line ok = io:format(Fd3, "~s", [Line1]),
+    ?line ok = io:format(Fd3, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd3),
+
+    ?line {ok, Fd4} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd4, 0, 0, will_need),
+    ?line ok = io:format(Fd4, "~s", [Line1]),
+    ?line ok = io:format(Fd4, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd4),
+
+    ?line {ok, Fd5} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd5, 0, 0, dont_need),
+    ?line ok = io:format(Fd5, "~s", [Line1]),
+    ?line ok = io:format(Fd5, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd5),
+
+    ?line {ok, Fd6} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = ?FILE_MODULE:advise(Fd6, 0, 0, no_reuse),
+    ?line ok = io:format(Fd6, "~s", [Line1]),
+    ?line ok = io:format(Fd6, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd6),
+
+    ?line {ok, Fd7} = ?FILE_MODULE:open(Advise, [write]),
+    ?line {error, einval} = ?FILE_MODULE:advise(Fd7, 0, 0, bad_advise),
+    ?line ok = ?FILE_MODULE:close(Fd7),
+
+    %% test write without advise, then a read after an advise
+    ?line {ok, Fd8} = ?FILE_MODULE:open(Advise, [write]),
+    ?line ok = io:format(Fd8, "~s", [Line1]),
+    ?line ok = io:format(Fd8, "~s", [Line2]),
+    ?line ok = ?FILE_MODULE:close(Fd8),
+    ?line {ok, Fd9} = ?FILE_MODULE:open(Advise, [read]),
+    Offset = 0,
+    %% same as a 0 length in some implementations
+    Length = length(Line1) + length(Line2),
+    ?line ok = ?FILE_MODULE:advise(Fd9, Offset, Length, sequential),
+    ?line {ok, Line1} = ?FILE_MODULE:read_line(Fd9),
+    ?line {ok, Line2} = ?FILE_MODULE:read_line(Fd9),
+    ?line eof = ?FILE_MODULE:read_line(Fd9),
+    ?line ok = ?FILE_MODULE:close(Fd9),
 
     ?line [] = flush(),
     ?line test_server:timetrap_cancel(Dog),

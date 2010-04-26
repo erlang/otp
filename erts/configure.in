@@ -1054,6 +1054,7 @@ fi
 
 AC_SUBST(ERTS_BUILD_SMP_EMU)
 
+AC_CHECK_FUNCS([posix_fadvise])
 
 
 #

@@ -46,6 +46,8 @@
 #define RAM_FILE_UUENCODE      35  /* uuencode file */
 #define RAM_FILE_UUDECODE      36  /* uudecode file */
 #define RAM_FILE_SIZE          37  /* get file size */
+#define RAM_FILE_ADVISE        38  /* predeclare the access
+                                    * pattern for file data */
 /* possible new operations include:
    DES_ENCRYPT
    DES_DECRYPT
@@ -692,6 +694,13 @@ static void rfile_command(ErlDrvData e, char* buf, int count)
 	
     case RAM_FILE_UUDECODE:   /* uudecode file */
 	ram_file_uudecode(f);
+	break;
+
+    case RAM_FILE_ADVISE:
+	if (f->flags == 0)
+	    error_reply(f, EBADF);
+	else
+	    reply(f, 1, 0);
 	break;
     }
     /*

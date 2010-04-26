@@ -1433,3 +1433,12 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
     errno = ENOTSUP;
     return check_error(-1, errInfo);
 }
+
+int
+efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
+	    Sint64 length, int advise)
+{
+    /* posix_fadvise is not available on Windows, do nothing */
+    errno = ERROR_SUCCESS;
+    return check_error(0, errInfo);
+}

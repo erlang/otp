@@ -198,6 +198,14 @@ io_reply(From, ReplyAs, Reply) ->
 %%%-----------------------------------------------------------------
 %%% file requests
 
+file_request({advise,Offset,Length,Advise},
+         #state{handle=Handle}=State) ->
+    case ?PRIM_FILE:advise(Handle, Offset, Length, Advise) of
+    {error,_}=Reply ->
+        {stop,normal,Reply,State};
+    Reply ->
+        {reply,Reply,State}
+    end;
 file_request({pread,At,Sz}, 
 	     #state{handle=Handle,buf=Buf,read_mode=ReadMode}=State) ->
     case position(Handle, At, Buf) of

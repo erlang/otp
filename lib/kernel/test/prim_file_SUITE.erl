@@ -48,6 +48,8 @@
 	 symlinks_a/1, symlinks_b/1,
 	 list_dir_limit/1]).
 
+-export([advise/1]).
+
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
 
@@ -380,7 +382,7 @@ win_cur_dir_1(_Config, Handle) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) -> [open,pos,file_info,truncate,sync,datasync].
+files(suite) -> [open,pos,file_info,truncate,sync,datasync,advise].
 
 open(suite) -> [open1,modes,close,access,read_write,
 	       pread_write,append].
@@ -1095,6 +1097,77 @@ sync(Config) when is_list(Config) ->
     ?line {ok, Fd} = ?PRIM_FILE:open(Sync, [write]),
     ?line ok = ?PRIM_FILE:sync(Fd),
     ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
+advise(suite) -> [];
+advise(doc) -> "Tests that ?PRIM_FILE:advise/4 at least doesn't crash.";
+advise(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Advise = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_advise.fil"),
+
+    Line1 = "Hello\n",
+    Line2 = "World!\n",
+
+    ?line {ok, Fd} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd, 0, 0, normal),
+    ?line ok = ?PRIM_FILE:write(Fd, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line {ok, Fd2} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd2, 0, 0, random),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd2),
+
+    ?line {ok, Fd3} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd3, 0, 0, sequential),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd3),
+
+    ?line {ok, Fd4} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd4, 0, 0, will_need),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd4),
+
+    ?line {ok, Fd5} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd5, 0, 0, dont_need),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd5),
+
+    ?line {ok, Fd6} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd6, 0, 0, no_reuse),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd6),
+
+    ?line {ok, Fd7} = ?PRIM_FILE:open(Advise, [write]),
+    ?line {error, einval} = ?PRIM_FILE:advise(Fd7, 0, 0, bad_advise),
+    ?line ok = ?PRIM_FILE:close(Fd7),
+
+    %% test write without advise, then a read after an advise
+    ?line {ok, Fd8} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd8),
+    ?line {ok, Fd9} = ?PRIM_FILE:open(Advise, [read]),
+    Offset = 0,
+    %% same as a 0 length in some implementations
+    Length = length(Line1) + length(Line2),
+    ?line ok = ?PRIM_FILE:advise(Fd9, Offset, Length, sequential),
+    ?line {ok, Line1} = ?PRIM_FILE:read_line(Fd9),
+    ?line {ok, Line2} = ?PRIM_FILE:read_line(Fd9),
+    ?line eof = ?PRIM_FILE:read_line(Fd9),
+    ?line ok = ?PRIM_FILE:close(Fd9),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.

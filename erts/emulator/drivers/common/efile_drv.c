@@ -54,6 +54,7 @@
 #define FILE_ALTNAME            28
 #define FILE_READ_LINE          29
 #define FILE_FDATASYNC          30
+#define FILE_FADVISE            31
 
 /* Return codes */
 
@@ -358,6 +359,11 @@ struct t_data
 	    struct t_readdir_buf *first_buf;
 	    struct t_readdir_buf *last_buf;
 	} read_dir;
+	struct {
+	    Sint64 offset;
+	    Sint64 length;
+	    int advise;
+	} fadvise;
     } c;
     char b[1];
 };
@@ -1647,6 +1653,18 @@ static void invoke_open(void *data)
     d->result_ok = status;
 }
 
+static void invoke_fadvise(void *data)
+{
+    struct t_data *d = (struct t_data *) data;
+    int fd = (int) d->fd;
+    off_t offset = (off_t) d->c.fadvise.offset;
+    off_t length = (off_t) d->c.fadvise.length;
+    int advise = (int) d->c.fadvise.advise;
+
+    d->again = 0;
+    d->result_ok = efile_fadvise(&d->errInfo, fd, offset, length, advise);
+}
+
 static void free_readdir(void *data)
 {
     struct t_data *d = (struct t_data *) data;
@@ -1936,6 +1954,7 @@ file_async_ready(ErlDrvData e, ErlDrvThreadData data)
       case FILE_SYMLINK:
       case FILE_RENAME:
       case FILE_WRITE_INFO:
+      case FILE_FADVISE:
 	reply(desc, d->result_ok, &d->errInfo);
 	free_data(data);
 	break;
@@ -2354,6 +2373,21 @@ file_output(ErlDrvData e, char* buf, int count)
 	    d->level = 2;
 	    goto done;
 	}
+
+    case FILE_FADVISE:
+    {
+        d = EF_SAFE_ALLOC(sizeof(struct t_data));
+
+        d->fd = fd;
+        d->command = command;
+        d->invoke = invoke_fadvise;
+        d->free = free_data;
+        d->level = 2;
+        d->c.fadvise.offset = get_int64((uchar*) buf);
+        d->c.fadvise.length = get_int64(((uchar*) buf) + sizeof(Sint64));
+        d->c.fadvise.advise = get_int32(((uchar*) buf) + 2 * sizeof(Sint64));
+        goto done;
+    }
 
     }
 

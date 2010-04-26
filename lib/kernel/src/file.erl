@@ -36,7 +36,7 @@
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
--export([open/2, close/1, 
+-export([open/2, close/1, advise/4,
 	 read/2, write/2, 
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
@@ -89,6 +89,8 @@
 -type date()      :: {pos_integer(), pos_integer(), pos_integer()}.
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 -type date_time() :: {date(), time()}.
+-type posix_file_advise() :: 'normal' | 'sequential' | 'random' | 'no_reuse' |
+                            'will_need' | 'dont_need'.
 
 %%%-----------------------------------------------------------------
 %%% General functions
@@ -350,6 +352,18 @@ close(File) when is_pid(File) ->
 close(#file_descriptor{module = Module} = Handle) ->
     Module:close(Handle);
 close(_) ->
+    {error, badarg}.
+
+-spec advise(File :: io_device(), Offset :: integer(),
+        Length :: integer(), Advise :: posix_file_advise()) ->
+	'ok' | {'error', posix()}.
+
+advise(File, Offset, Length, Advise) when is_pid(File) ->
+    R = file_request(File, {advise, Offset, Length, Advise}),
+    wait_file_reply(File, R);
+advise(#file_descriptor{module = Module} = Handle, Offset, Length, Advise) ->
+    Module:advise(Handle, Offset, Length, Advise);
+advise(_, _, _, _) ->
     {error, badarg}.
 
 -spec read(File :: io_device(), Size :: non_neg_integer()) ->
