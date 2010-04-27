@@ -3217,12 +3217,6 @@ apply_bif_or_nif_epilogue:
 	StoreBifResult(1, result);
     }
 
- OpCase(i_put_tuple_only_Ad): {
-     tmp_arg1 = make_tuple(HTOP);
-     *HTOP++ = Arg(0);
-     StoreBifResult(1, tmp_arg1);
- }
-
  OpCase(case_end_s):
     GetArg1(0, tmp_arg1);
     c_p->fvalue = tmp_arg1;
