@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Constant folding optimisation for Core
@@ -602,15 +602,23 @@ count_bits_1(Int, Bits) -> count_bits_1(Int bsr 64, Bits+64).
 %%  a rewritten expression consisting of a sequence of
 %%  the arguments only is returned.
 
-useless_call(effect, #c_call{module=#c_literal{val=Mod},
+useless_call(effect, #c_call{anno=Anno,
+			     module=#c_literal{val=Mod},
 			     name=#c_literal{val=Name},
 			     args=Args}=Call) ->
     A = length(Args),
     case erl_bifs:is_safe(Mod, Name, A) of
 	false ->
 	    case erl_bifs:is_pure(Mod, Name, A) of
-		true -> add_warning(Call, result_ignored);
-		false -> ok
+		true ->
+		    case member(result_not_wanted, Anno) of
+			false ->
+			    add_warning(Call, result_ignored);
+			true ->
+			    ok
+		    end;
+		false ->
+		    ok
 	    end,
 	    no;
 	true ->
@@ -2806,7 +2814,8 @@ format_error({no_effect,{erlang,F,A}}) ->
 		 end,
     flatten(io_lib:format(Fmt, Args));
 format_error(result_ignored) ->
-    "the result of the expression is ignored";
+    "the result of the expression is ignored "
+	"(suppress the warning by assigning the expression to the _ variable)";
 format_error(useless_building) ->
     "a term is constructed, but never used";
 format_error(bin_opt_alias) ->

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(num_bif_SUITE).
@@ -166,7 +166,7 @@ t_list_to_float_safe(Config) when is_list(Config) ->
 
 t_list_to_float_risky(Config) when is_list(Config) ->
     ?line Many_Ones = lists:duplicate(25000, $1),
-    ?line list_to_float("2."++Many_Ones),
+    ?line _ = list_to_float("2."++Many_Ones),
     ?line {'EXIT', {badarg, _}} = (catch list_to_float("2"++Many_Ones)),
     ok.
 
@@ -186,7 +186,7 @@ t_list_to_integer(Config) when is_list(Config) ->
 
     %% Bignums.
     ?line 123456932798748738738 = list_to_integer("123456932798748738738"),
-    ?line list_to_integer(lists:duplicate(2000, $1)),
+    ?line _ = list_to_integer(lists:duplicate(2000, $1)),
     ok.
 
 %% Tests round/1.
