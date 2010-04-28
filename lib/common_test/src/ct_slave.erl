@@ -15,6 +15,14 @@
 %% under the License.
 %%
 %% %CopyrightEnd%
+
+%%% @doc Common Test Framework functions for starting and stopping nodes for
+%%% Large Scale Testing.
+%%%
+%%% <p>This module exports functions which are used by the Common Test Master
+%%% to start and stop "slave" nodes. It is the default callback module for the
+%%% <code>{init, node_start}</code> term of the Test Specification.</p>
+
 %%----------------------------------------------------------------------
 %% File    : ct_slave.erl
 %% Description : CT module for starting nodes for large-scale testing.

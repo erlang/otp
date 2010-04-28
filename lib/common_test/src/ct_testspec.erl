@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework functions handlig test specifikations.
+%%% @doc Common Test Framework functions handlig test specifications.
 %%%
 %%% <p>This module exports functions that are used within CT to
 %%% scan and parse test specifikations.</p>

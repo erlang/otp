@@ -180,38 +180,37 @@
   </section>
 
   <section>
-    <title>Using own configuration data formats</title>
+    <title>User specific configuration data formats</title>
 
-    <p>The nature of the configuration variables can be not only plain text
-    files with the key-value tuples, they also can be loaded from the files in
-    various formats, fetched via http from the Web, or can be loaded with help
-    of some driver process. For this purpose, mechanism of plugging in user
-    configuration handling callback modules is implemented in the Common Test.</p>
+    <p>It is possible for the user to specify configuration data on a
+      different format than key-value tuples in a text file, as described
+      so far. The data can e.g. be read from arbitrary files, fetched from
+      the web over http, or requested from a user specific process.
+      To support this, Common Test provides a callback module plugin
+      mechanism to handle configuration data.</p>
 
     <section>
-      <title>Standard callback modules for loading configuration variables</title>
-      <p>Two callback modules for handling of configuration files are provided
-      with the Common Test application:</p>
+      <title>Default callback modules for handling configuration data</title>
+      <p>The Common Test application includes default callback modules
+	for handling configuration data specified in standard config files
+	(see above) and in xml files:</p>
       <list>
-         <item>
-           <c>ct_config_plain</c> - for reading configuration files with
-           key-value tuples (traditional format). This handler will be tried to
-           parse configuration file, if no user callback is specified.
-         </item>
-         <item>
-           <c>ct_config_xml</c> - for reading configuration data from the XML
-           files.
-         </item>
+        <item>
+          <c>ct_config_plain</c> - for reading configuration files with
+          key-value tuples (standard format). This handler will be used to
+          parse configuration files if no user callback is specified.
+        </item>
+        <item>
+          <c>ct_config_xml</c> - for reading configuration data from XML
+          files.
+        </item>
       </list>
     </section>
 
     <section>
       <title>Using XML configuration files</title>
-
-      <p>This is an example of the XML configuration file:</p>
-
-      <pre>
-      <![CDATA[
+      <p>This is an example of an XML configuration file:</p>
+      <pre><![CDATA[
 <config>
     <ftp_host>
         <ftp>"targethost"</ftp>
@@ -219,8 +218,7 @@
         <password>"letmein"</password>
     </ftp_host>
     <lm_directory>"/test/loadmodules"</lm_directory>
-</config>]]>
-      </pre>
+</config>]]></pre>
 
       <p>This configuration file, once read, will produce the same configuration
       variables as the following text file:</p>
@@ -229,77 +227,79 @@
             {username,"tester"},
             {password,"letmein"}]}.
 
-{lm_directory, "/test/loadmodules"}.
-      </pre>
+{lm_directory, "/test/loadmodules"}.</pre>
     </section>
 
     <section>
-      <title>Implementing of the own handler</title>
+      <title>How to implement a user specific handler</title>
 
-      <p>Own handler can be written to handle special configuration file formats.
-      The parameter can be either file name(s) or configuration string (empty list
-      is valid).</p>
-      <p>The callback module is completely responsible for the
-      configuration string correctness checks during runtime.</p>
+      <p>The user specific handler can be written to handle special
+	configuration file formats. The parameter can be either file
+	name(s) or configuration string(s) (the empty list is valid).</p>
 
-      <p>To perform validation of the configuration string, callback module
-      should have the following function exported:</p>
+      <p>The callback module implementing the handler is responsible for
+	checking correctness of configuration strings.</p>
+
+      <p>To perform validation of the configuration strings, the callback module
+	should have the following function exported:</p>
 
       <p><c>Callback:check_parameter/1</c></p>
-      <p>Input value will be passed from the Common Test, as defined in the test
-      specification or given as an option to the run_test.</p>
-      <p>Return value should be any of the following value indicating if given
-      configuration parameter is valid:</p>
+      <p>The input argument will be passed from Common Test, as defined in the test
+	specification or given as an option to <c>run_test</c>.</p>
+
+      <p>The return value should be any of the following values indicating if given
+	configuration parameter is valid:</p>
       <list>
         <item>
           <c>{ok, {file, FileName}}</c> - parameter is a file name and
-          file exists;
+          the file exists,
         </item>
         <item>
           <c>{ok, {config, ConfigString}}</c> - parameter is a config string
-          and it is correct;
+          and it is correct,
         </item>
         <item>
           <c>{error, {nofile, FileName}}</c> - there is no file with the given
-          name in the current directory;
+          name in the current directory,
         </item>
         <item>
-          <c>{error, {wrong_config, ConfigString}}</c> - configuration string
+          <c>{error, {wrong_config, ConfigString}}</c> - the configuration string
           is wrong.
         </item>
       </list>
 
-      <p>To perform actual reading, in cases of initial loading of the
-      configuration variables and runtime re-loading, function</p>
+      <p>To perform reading of configuration data - initially before the tests
+	start, or as a result of data being reloaded during test execution -
+	the following function should be exported from the callback module:</p>
+
       <p><c>Callback:read_config/1</c></p>
-      <p>should be exported from the callback module</p>
-      <p>Input value is the same as for <c>check_parameter/1</c> function</p>
-      <p>Return value should be either:</p>
+
+      <p>The input argument is the same as for the <c>check_parameter/1</c> function.</p>
+      <p>The return value should be either:</p>
 
       <list>
         <item>
-          <c>{ok, Config}</c> - if configuration variables read successfully;
+          <c>{ok, Config}</c> - if the configuration variables are read successfully,
         </item>
         <item>
-          <c>{error, Error, ErrorDetails}</c> - if callback module failed to
+          <c>{error, Error, ErrorDetails}</c> - if the callback module fails to
           proceed with the given configuration parameters.
         </item>
       </list>
-      <p>Above, the <c>Config</c> variable is the proper Erlang key-value list,
-      with possible key-value sublists as values,
-      e.g. for the configuration files above it will be the following:</p>
+      <p><c>Config</c> is the proper Erlang key-value list, with possible
+	key-value sublists as values, like for the configuration file
+	example above:</p>
 
       <pre>
         [{ftp_host, [{ftp, "targethost"}, {username, "tester"}, {password, "letmein"}]},
-        {lm_directory, "/test/loadmodules"}]
-      </pre>
+        {lm_directory, "/test/loadmodules"}]</pre>
 
     </section>
 
   </section>
 
   <section>
-    <title>Examples of the configuration files</title>
+    <title>Examples of configuration data handling</title>
 
     <p>A config file for using the FTP client to access files on a remote
       host could look like this:</p>
@@ -311,9 +311,9 @@
 
     {lm_directory, "/test/loadmodules"}.</pre>
 
-    <p>XML version shown in chapter above can also be used, but it should be
-    explicitly specified that <c>ct_config_xml</c> callback module is to be
-    used by the Common Test.</p>
+    <p>The XML version shown in the chapter above can also be used, but it should be
+    explicitly specified that the <c>ct_config_xml</c> callback module is to be
+    used by Common Test.</p>
 
     <p>Example of how to assert that the configuration data is available and
       use it for an FTP session:</p>
@@ -361,9 +361,9 @@
   </section>
 
   <section>
-    <title>Example of own configuration handler</title>
-    <p>Simple configuration hanling driver which will ask external server for
-    configuration data can be implemented this way:</p>
+    <title>Example of user specific configuration handler</title>
+    <p>A simple configuration handling driver which will ask an external server for
+      configuration data can be implemented this way:</p>
     <pre>
 -module(config_driver).
 -export([read_config/1, check_parameter/1]).
@@ -385,17 +385,16 @@ check_parameter(ServerName)->
                 {error, nofile}->
                     {error, {wrong_config, "File not found: " ++ ServerName ++ ".beam"}}
             end
-    end.
-    </pre>
-    <p>Configuration string for this driver may be "config_server", if the
-    config_server.erl module below is built and is exist in the code path
-    during test execution:</p>
+    end.</pre>
+
+    <p>The configuration string for this driver may be "config_server", if the
+      config_server.erl module below is compiled and exists in the code path
+      during test execution:</p>
     <pre>
 -module(config_server).
 -export([start/0, stop/0, init/1, get_config/0, loop/0]).
 
 -define(REGISTERED_NAME, ct_test_config_server).
--define(vsn, 0.1).
 
 start()->
     case whereis(?REGISTERED_NAME) of
@@ -452,12 +451,13 @@ wait()->
             wait();
         _Pid->
             ok
-    end.
-    </pre>
-    <p>There two modules provide the ability to dynamically reload configuration
-    variables. If the <c>ct:reload_config(localtime)</c> is called from the test
-    case, all variables which were loaded with the config_driver above, will be
-    updated with the new values.</p>
+    end.</pre>
+
+    <p>In this example, the handler also provides the ability to dynamically reload
+      configuration variables. If <c>ct:reload_config(localtime)</c> is called from
+      the test case function, all variables loaded with <c>config_driver:read_config/1</c>
+      will be updated with their latest values, and the new value for variable
+      <c>localtime</c> will be returned.</p>
   </section>
 
 </chapter>
