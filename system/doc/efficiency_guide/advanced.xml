@@ -47,11 +47,13 @@
         <cell align="center" valign="middle">Memory size</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">Integer (-16#7FFFFFF &lt; i &lt;16#7FFFFFF)</cell>
-        <cell align="left" valign="middle">1 word</cell>
+        <cell align="left" valign="middle">Small integer</cell>
+        <cell align="left" valign="middle">1 word<br></br>
+On 32-bit architectures: -134217729 &lt; i &lt; 134217728 (28 bits)<br></br>
+On 64-bit architectures: -576460752303423489 &lt; i &lt; 576460752303423488 (60 bits)</cell>
       </row>
       <row>
-        <cell align="left" valign="middle">Integer (big numbers)</cell>
+        <cell align="left" valign="middle">Big integer</cell>
         <cell align="left" valign="middle">3..N words</cell>
       </row>
       <row>
@@ -72,11 +74,11 @@ On 64-bit architectures: 3 words</cell>
       </row>
       <row>
         <cell align="left" valign="middle">List</cell>
-        <cell align="left" valign="middle">1 word per element + the size of each element</cell>
+        <cell align="left" valign="middle">1 word + 1 word per element + the size of each element</cell>
       </row>
       <row>
         <cell align="left" valign="middle">String (is the same as a list of integers)</cell>
-        <cell align="left" valign="middle">2 words per character</cell>
+        <cell align="left" valign="middle">1 word + 2 words per character</cell>
       </row>
       <row>
         <cell align="left" valign="middle">Tuple</cell>

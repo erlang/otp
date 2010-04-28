@@ -5309,7 +5309,6 @@ save_stacktrace(Process* c_p, BeamInstr* pc, Eterm* reg, BifFunction bf,
 	    ASSERT(c_p->current);
 	    s->current = c_p->current;
 	    a = s->current[2];
-	    ASSERT(s->current[2] <= 3);
 	}
 	/* Save first stack entry */
 	ASSERT(pc);

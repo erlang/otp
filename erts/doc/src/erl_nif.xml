@@ -163,6 +163,8 @@ ok
       <seealso marker="#enif_make_binary">enif_make_binary</seealso>.
       But it does not have to happen in the same NIF call. Read-only binaries
       do not have to be released.</p>
+      <p><seealso marker="#enif_make_new_binary">enif_make_new_binary</seealso>
+      can be used as a shortcut to allocate and return a binary in the same NIF call.</p>
       <p>Binaries are sequences of whole bytes. Bitstrings with an arbitrary
       bit length have no support yet.</p>
        </item>
@@ -659,6 +661,16 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_long(ErlNifEnv* env, long int i)</nametext></name>
       <fsummary>Create an integer term from a long int</fsummary>
       <desc><p>Create an integer term from a <c>long int</c>.</p></desc>
+    </func>
+    <func><name><ret>unsigned char*</ret><nametext>enif_make_new_binary(ErlNifEnv* env, unsigned size, ERL_NIF_TERM* termp)</nametext></name>
+      <fsummary>Allocate and create a new binary term</fsummary>
+      <desc><p>Allocate a binary of size <c>size</c> bytes and create an owning
+      term. The binary data is mutable until the calling NIF returns. This is a
+      quick way to create a new binary without having to use
+      <seealso marker="#ErlNifBinary">ErlNifBinary</seealso>. The drawbacks are
+      that the binary can not be kept between NIF calls and it can not be
+      reallocated.</p><p>Return a pointer to the raw binary data and set
+      <c>*termp</c> to the binary term.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ref(ErlNifEnv* env)</nametext></name>
       <fsummary>Create a reference.</fsummary>

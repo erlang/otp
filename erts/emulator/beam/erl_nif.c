@@ -51,6 +51,16 @@ struct erl_module_nif {
     int is_orphan;            /* if erlang module has been purged */
 };
 
+#ifdef DEBUG
+#  define READONLY_CHECK
+#endif
+#ifdef READONLY_CHECK
+#  define ADD_READONLY_CHECK(ENV,PTR,SIZE) add_readonly_check(ENV,PTR,SIZE)
+static void add_readonly_check(ErlNifEnv*, unsigned char* ptr, unsigned sz);
+#else
+#  define ADD_READONLY_CHECK(ENV,PTR,SIZE) ((void)0)
+#endif
+
 
 #define MIN_HEAP_FRAG_SZ 200
 static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp);
@@ -105,6 +115,13 @@ static void pre_nif_noproc(ErlNifEnv* env, struct erl_module_nif* mod_nif)
     env->fpe_was_unmasked = erts_block_fpe();
     env->tmp_obj_list = NULL;
 }
+
+/* Temporary object header, auto-deallocated when NIF returns. */
+struct enif_tmp_obj_t {
+    struct enif_tmp_obj_t* next;
+    void (*dtor)(struct enif_tmp_obj_t*);
+    /*char data[];*/
+};
 
 static ERTS_INLINE void free_tmp_objs(ErlNifEnv* env)
 {
@@ -175,7 +192,6 @@ static void disable_halloc(ErlNifEnv* env)
 	env->hp_end = env->heap_frag->mem + env->heap_frag->size;
     }
 }
-
 
 void* enif_priv_data(ErlNifEnv* env)
 {
@@ -257,6 +273,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
     bin->bin_term = bin_term;
     bin->size = binary_size(bin_term);
     bin->ref_bin = NULL;
+    ADD_READONLY_CHECK(env, bin->data, bin->size); 
     return 1;
 }
 
@@ -293,6 +310,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
     io_list_to_buf(term, (char*) bin->data, sz);
+    ADD_READONLY_CHECK(env, bin->data, bin->size); 
     return 1;
 }
 
@@ -355,6 +373,15 @@ void enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)
     bin->bin_term = THE_NON_VALUE;
     bin->ref_bin = NULL;
 #endif
+}
+
+unsigned char* enif_make_new_binary(ErlNifEnv* env, unsigned size,
+				    ERL_NIF_TERM* termp)
+{
+    enable_halloc(env);
+    *termp = new_binary(env->proc, NULL, size);
+    disable_halloc(env);
+    return binary_bytes(*termp);
 }
 
 int enif_is_identical(ErlNifEnv* env, Eterm lhs, Eterm rhs)
@@ -991,21 +1018,6 @@ static BeamInstr** get_func_pp(BeamInstr* mod_code, Eterm f_atom, unsigned arity
     return NULL;
 }
 
-/*static void refresh_cached_nif_data(BeamInstr* mod_code,
-				    struct erl_module_nif* mod_nif)
-{
-    int i;
-    for (i=0; i < mod_nif->entry->num_of_funcs; i++) {
-	Eterm f_atom;
-	ErlNifFunc* func = &mod_nif->entry->funcs[i];	
-	BeamInstr* code_ptr;
-	
-	erts_atom_get(func->name, sys_strlen(func->name), &f_atom); 
-	code_ptr = *get_func_pp(mod_code, f_atom, func->arity);
-	code_ptr[5+2] = ((BeamInstr) mod_nif->priv_data;
-    }
-}*/
-
 static Eterm mkatom(const char *str)
 {
     return am_atom_put(str, sys_strlen(str));
@@ -1097,7 +1109,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     static const char bad_lib[] = "bad_lib";
     static const char reload[] = "reload";
     static const char upgrade[] = "upgrade";
-    char lib_name[256]; /* BUGBUG: Max-length? */
+    char* lib_name = NULL;
     void* handle = NULL;
     void* init_func;
     ErlNifEntry* entry = NULL;
@@ -1112,9 +1124,14 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     int veto;
     struct erl_module_nif* lib = NULL;
 
-    len = intlist_to_buf(BIF_ARG_1, lib_name, sizeof(lib_name)-1);
-    if (len < 1) {
-	/*erts_fprintf(stderr, "Invalid library path name '%T'\r\n", BIF_ARG_1);*/
+    len = list_length(BIF_ARG_1);
+    if (len < 0) {
+	BIF_ERROR(BIF_P, BADARG);
+    }
+    lib_name = (char *) erts_alloc(ERTS_ALC_T_TMP, len + 1);
+
+    if (intlist_to_buf(BIF_ARG_1, lib_name, len) != len) {
+	erts_free(ERTS_ALC_T_TMP, lib_name);
 	BIF_ERROR(BIF_P, BADARG);
     }
     lib_name[len] = '\0';
@@ -1305,6 +1322,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
 
     erts_smp_release_system();
     erts_smp_proc_lock(BIF_P, ERTS_PROC_LOCK_MAIN);
+    erts_free(ERTS_ALC_T_TMP, lib_name);
     BIF_RET(ret);
 }
 
@@ -1357,4 +1375,50 @@ void erl_nif_init()
     resource_type_list.owner = NULL;
     resource_type_list.name[0] = '\0';
 }
+
+#ifdef READONLY_CHECK
+/* Use checksums to assert that NIFs do not write into inspected binaries
+*/
+static void readonly_check_dtor(struct enif_tmp_obj_t*);
+static unsigned calc_checksum(unsigned char* ptr, unsigned size);
+
+struct readonly_check_t
+{
+    struct enif_tmp_obj_t hdr;
+    unsigned char* ptr;
+    unsigned size;
+    unsigned checksum;
+};
+static void add_readonly_check(ErlNifEnv* env, unsigned char* ptr, unsigned sz)
+{
+    struct readonly_check_t* obj = erts_alloc(ERTS_ALC_T_TMP, 
+					      sizeof(struct readonly_check_t));
+    obj->hdr.next = env->tmp_obj_list;
+    env->tmp_obj_list = &obj->hdr;
+    obj->hdr.dtor = &readonly_check_dtor;
+    obj->ptr = ptr;
+    obj->size = sz;
+    obj->checksum = calc_checksum(ptr, sz);    
+}
+static void readonly_check_dtor(struct enif_tmp_obj_t* o)
+{
+    struct readonly_check_t* obj = (struct readonly_check_t*) o;
+    unsigned chksum = calc_checksum(obj->ptr, obj->size);
+    if (chksum != obj->checksum) { 
+	fprintf(stderr, "\r\nReadonly data written by NIF, checksums differ"
+		" %x != %x\r\nABORTING\r\n", chksum, obj->checksum);
+	abort();
+    }
+    erts_free(ERTS_ALC_T_TMP,  obj);
+}
+static unsigned calc_checksum(unsigned char* ptr, unsigned size)
+{
+    unsigned i, sum = 0;
+    for (i=0; i<size; i++) {
+	sum ^= ptr[i] << ((i % 4)*8);
+    }
+    return sum;
+}
+
+#endif /* READONLY_CHECK */
 

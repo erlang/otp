@@ -1,3 +1,21 @@
+/*
+ * %CopyrightBegin%
+ *
+ * Copyright Ericsson AB 2009-2010. All Rights Reserved.
+ *
+ * The contents of this file are subject to the Erlang Public License,
+ * Version 1.1, (the "License"); you may not use this file except in
+ * compliance with the License. You should have received a copy of the
+ * Erlang Public License along with this software. If not, it can be
+ * retrieved online at http://www.erlang.org/.
+ *
+ * Software distributed under the License is distributed on an "AS IS"
+ * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
+ * the License for the specific language governing rights and limitations
+ * under the License.
+ *
+ * %CopyrightEnd%
+ */
 #include "erl_nif.h"
 
 #include <stdio.h>
@@ -120,11 +138,10 @@ static ERL_NIF_TERM make_call_history(ErlNifEnv* env, CallInfo** headp)
 	ERL_NIF_TERM func_term = enif_make_atom(env,call->func_name);
 	ERL_NIF_TERM tpl;
 	if (call->arg != NULL) {
-	    ErlNifBinary arg_bin;
-	    enif_alloc_binary(env, call->arg_sz, &arg_bin);
-	    memcpy(arg_bin.data, call->arg, call->arg_sz);
-	    func_term = enif_make_tuple2(env, func_term,
-					 enif_make_binary(env, &arg_bin));
+	    ERL_NIF_TERM arg_bin;	    
+	    memcpy(enif_make_new_binary(env, call->arg_sz, &arg_bin),
+		   call->arg, call->arg_sz);
+	    func_term = enif_make_tuple2(env, func_term, arg_bin);
 	}
 	tpl = enif_make_tuple4(env, func_term, 					    
 			       enif_make_int(env,call->lib_ver),
@@ -412,11 +429,10 @@ static ERL_NIF_TERM clone_bin(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[
 {
     ErlNifBinary ibin;
     if (enif_inspect_binary(env,argv[0],&ibin)) {
-	ErlNifBinary obin;
-	enif_alloc_binary(env,ibin.size,&obin);
-	memcpy(obin.data,ibin.data,ibin.size);
-	/*enif_release_binary(env,&ibin);*/
-	return enif_make_binary(env,&obin);
+	ERL_NIF_TERM obin;	
+	memcpy(enif_make_new_binary(env, ibin.size, &obin),
+	       ibin.data, ibin.size);
+	return obin;
     }
     else {
 	return enif_make_badarg(env);
@@ -515,14 +531,14 @@ static ERL_NIF_TERM iolist_2_bin(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
 static ERL_NIF_TERM last_resource_dtor_call(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
-    ErlNifBinary bin;
     ERL_NIF_TERM ret;
     if (resource_dtor_last != NULL) {
-	enif_alloc_binary(env, resource_dtor_last_sz, &bin);
-	memcpy(bin.data, resource_dtor_last_data, resource_dtor_last_sz);
+	ERL_NIF_TERM bin;	
+	memcpy(enif_make_new_binary(env, resource_dtor_last_sz, &bin),
+	       resource_dtor_last_data, resource_dtor_last_sz);
 	ret = enif_make_tuple3(env,
 				enif_make_long(env, (long)resource_dtor_last),
-				enif_make_binary(env, &bin),  
+				bin,  
 				enif_make_int(env, resource_dtor_cnt));
     }
     else {

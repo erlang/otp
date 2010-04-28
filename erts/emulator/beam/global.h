@@ -76,12 +76,6 @@ typedef struct line_buf {  /* Buffer used in line oriented I/O */
 			      The rest is the overflow buffer. */
 } LineBuf;
 
-/* Temporary object header, auto-deallocated when NIF returns. */
-struct enif_tmp_obj_t {
-    struct enif_tmp_obj_t* next;
-    void (*dtor)(struct enif_tmp_obj_t*);
-    /*char data[];*/
-};
 struct enif_environment_t /* ErlNifEnv */
 {
     struct erl_module_nif* mod_nif;

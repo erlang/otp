@@ -30,7 +30,7 @@
 ** 1.0: R13B04
 */
 #define ERL_NIF_MAJOR_VERSION 1
-#define ERL_NIF_MINOR_VERSION 0
+#define ERL_NIF_MINOR_VERSION 1
 
 #include <stdlib.h>
 
