@@ -71,6 +71,13 @@
           <p>Lev Walkin</p>
         </item>
 
+        <item>
+	  <p>[httpc] - https requests with default port (443) not handled 
+            properly. </p>
+	  <p>Own Id: OTP-8607</p>
+          <p>jebu ittiachen</p>
+        </item>
+
       </list>
     </section>
 
