@@ -757,9 +757,6 @@ valfun_4({bs_utf8_size,{f,Fail},A,Dst}, Vst) ->
 valfun_4({bs_utf16_size,{f,Fail},A,Dst}, Vst) ->
     assert_term(A, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));
-valfun_4({bs_bits_to_bytes2,Src,Dst}, Vst) ->
-    assert_term(Src, Vst),
-    set_type_reg({integer,[]}, Dst, Vst);
 valfun_4({bs_bits_to_bytes,{f,Fail},Src,Dst}, Vst) ->
     assert_term(Src, Vst),
     set_type_reg({integer,[]}, Dst, branch_state(Fail, Vst));

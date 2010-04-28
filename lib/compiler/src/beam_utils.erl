@@ -424,12 +424,6 @@ check_liveness(R, [{bs_add,{f,0},Ss,D}|Is], St) ->
 	false when R =:= D -> {killed,St};
 	false -> check_liveness(R, Is, St)
     end;
-check_liveness(R, [{bs_bits_to_bytes2,Src,Dst}|Is], St) ->
-    case R of
-	Src -> {used,St};
-	Dst -> {killed,St};
-	_ -> check_liveness(R, Is, St)
-    end;
 check_liveness(R, [{bs_put_binary,{f,0},Sz,_,_,Src}|Is], St) ->
     case member(R, [Sz,Src]) of
 	true -> {used,St};

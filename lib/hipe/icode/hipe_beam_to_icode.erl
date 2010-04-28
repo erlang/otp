@@ -895,11 +895,6 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
     end,
   trans_bin_call({hipe_bs_primop,Name}, Lbl, Args, [Dst, Base, Offset],
 		 Base, Offset, Env, Instructions);
-trans_fun([{bs_bits_to_bytes2, Bits, Bytes}|Instructions], Env) ->
-  Src = trans_arg(Bits),
-  Dst = mk_var(Bytes),
-  [hipe_icode:mk_primop([Dst], 'bsl', [Src, hipe_icode:mk_const(3)])|
-   trans_fun(Instructions,Env)];
 trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
   Dst = mk_var(Res),
   Temp = mk_var(new),
