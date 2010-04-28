@@ -59,6 +59,8 @@ static Export binary_longest_prefix_trap_export;
 static BIF_RETTYPE binary_longest_prefix_trap(BIF_ALIST_3);
 static Export binary_longest_suffix_trap_export;
 static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
+static Export binary_bin_to_list_trap_export;
+static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3);
 static Uint max_loop_limit;
 
 
@@ -95,6 +97,14 @@ void erts_init_bif_binary(void)
     binary_longest_suffix_trap_export.code[2] = 3;
     binary_longest_suffix_trap_export.code[3] = (BeamInstr) em_apply_bif;
     binary_longest_suffix_trap_export.code[4] = (BeamInstr) &binary_longest_suffix_trap;
+
+    sys_memset((void *) &binary_bin_to_list_trap_export, 0, sizeof(Export));
+    binary_bin_to_list_trap_export.address = &binary_bin_to_list_trap_export.code[3];
+    binary_bin_to_list_trap_export.code[0] = am_erlang;
+    binary_bin_to_list_trap_export.code[1] = am_binary_bin_to_list_trap;
+    binary_bin_to_list_trap_export.code[2] = 3;
+    binary_bin_to_list_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    binary_bin_to_list_trap_export.code[4] = (BeamInstr) &binary_bin_to_list_trap;
 
     max_loop_limit = 0;
     return;
@@ -228,9 +238,12 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
 
 
 #ifndef MAX
-#define MAX(A,B) (((A) > (B)) ? (A) : B)
+#define MAX(A,B) (((A) > (B)) ? (A) : (B))
 #endif
 
+#ifndef MIN
+#define MIN(A,B) (((A) > (B)) ? (B) : (A))
+#endif
 /*
  * Callback for the magic binary
  */
@@ -1524,6 +1537,9 @@ BIF_RETTYPE binary_part_3(BIF_ALIST_3)
 	    goto badarg;
 	}
 	len = lentmp;
+	if (len > pos) {
+	    goto badarg;
+	}
 	pos -= len;
     }
     if (((pos + len) - len) != pos) {
@@ -1865,7 +1881,285 @@ BIF_RETTYPE binary_longest_common_suffix_1(BIF_ALIST_1)
     return do_longest_common(BIF_P,BIF_ARG_1,DIRECTION_SUFFIX);
 }
 
+BIF_RETTYPE binary_first_1(BIF_ALIST_1)
+{
+    byte* bytes;
+    Uint byte_size;
+    Uint bit_offs;
+    Uint bit_size;
+    Uint res;
 
+    if (is_not_binary(BIF_ARG_1)) {
+	goto badarg;
+    }
+    byte_size = binary_size(BIF_ARG_1);
+    if (!byte_size) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
+    if (bit_size) {
+	goto badarg;
+    }
+    if (bit_offs) {
+	res = ((((Uint) bytes[0]) << bit_offs) | (((Uint) bytes[1]) >> (8-bit_offs))) & 0xFF;
+    } else {
+	res = bytes[0];
+    }
+    BIF_RET(make_small(res));
+ badarg:
+    BIF_ERROR(BIF_P,BADARG);
+}
+
+BIF_RETTYPE binary_last_1(BIF_ALIST_1)
+{
+    byte* bytes;
+    Uint byte_size;
+    Uint bit_offs;
+    Uint bit_size;
+    Uint res;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	goto badarg;
+    }
+    byte_size = binary_size(BIF_ARG_1);
+    if (!byte_size) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
+    if (bit_size) {
+	goto badarg;
+    }
+    if (bit_offs) {
+	res = ((((Uint) bytes[byte_size-1]) << bit_offs) |
+	       (((Uint) bytes[byte_size]) >> (8-bit_offs))) & 0xFF;
+    } else {
+	res = bytes[byte_size-1];
+    }
+    BIF_RET(make_small(res));
+ badarg:
+    BIF_ERROR(BIF_P,BADARG);
+}
+
+BIF_RETTYPE binary_at_2(BIF_ALIST_2)
+{
+    byte* bytes;
+    Uint byte_size;
+    Uint bit_offs;
+    Uint bit_size;
+    Uint res;
+    Uint index;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	goto badarg;
+    }
+    byte_size = binary_size(BIF_ARG_1);
+    if (!byte_size) {
+	goto badarg;
+    }
+    if (!term_to_Uint(BIF_ARG_2, &index)) {
+	goto badarg;
+    }
+    if (index >= byte_size) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
+    if (bit_size) {
+	goto badarg;
+    }
+    if (bit_offs) {
+	res = ((((Uint) bytes[index]) << bit_offs) |
+	       (((Uint) bytes[index+1]) >> (8-bit_offs))) & 0xFF;
+    } else {
+	res = bytes[index];
+    }
+    BIF_RET(make_small(res));
+ badarg:
+    BIF_ERROR(BIF_P,BADARG);
+}
+
+#define BIN_TO_LIST_OK 0
+#define BIN_TO_LIST_TRAP 1
+/* No badarg, checked before call */
+
+#define BIN_TO_LIST_LOOP_FACTOR 10
+
+static int do_bin_to_list(Process *p, byte *bytes, Uint bit_offs,
+			  Uint start, Sint *lenp, Eterm *termp)
+{
+    Uint reds = get_reds(p, BIN_TO_LIST_LOOP_FACTOR);
+    Uint len = *lenp;
+    Uint loops;
+    Eterm *hp;
+    Eterm term = *termp;
+    Uint n;
+
+    if (reds == 0) {
+	return BIN_TO_LIST_TRAP;
+    }
+    loops = MIN(reds,len);
+
+    BUMP_REDS(p, loops / BIN_TO_LIST_LOOP_FACTOR);
+
+    hp = HAlloc(p,2*loops);
+    while (loops--) {
+	--len;
+	if (bit_offs) {
+	    n = ((((Uint) bytes[start+len]) << bit_offs) |
+		 (((Uint) bytes[start+len+1]) >> (8-bit_offs))) & 0xFF;
+	} else {
+	    n = bytes[start+len];
+	}
+
+	term = CONS(hp,make_small(n),term);
+	hp +=2;
+    }
+    *termp = term;
+    *lenp = len;
+    if (len) {
+	BUMP_ALL_REDS(p);
+	return BIN_TO_LIST_TRAP;
+    }
+    return BIN_TO_LIST_OK;
+}
+
+
+static BIF_RETTYPE do_trap_bin_to_list(Process *p, Eterm binary,
+				       Uint start, Sint len, Eterm sofar)
+{
+    Eterm *hp;
+    Eterm blob;
+
+    hp = HAlloc(p,3);
+    hp[0] = make_pos_bignum_header(2);
+    hp[1] = start;
+    hp[2] = (Uint) len;
+    blob = make_big(hp);
+    BIF_TRAP3(&binary_bin_to_list_trap_export, p, binary, blob, sofar);
+}
+
+static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3)
+{
+    Eterm *ptr;
+    Uint start;
+    Sint len;
+    byte *bytes;
+    Uint bit_offs;
+    Uint bit_size;
+    Eterm res = BIF_ARG_3;
+
+    ptr  = big_val(BIF_ARG_2);
+    start = ptr[1];
+    len = (Sint) ptr[2];
+
+    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
+    if(do_bin_to_list(BIF_P, bytes, bit_offs, start, &len, &res) ==
+       BIN_TO_LIST_OK) {
+	BIF_RET(res);
+    }
+    return do_trap_bin_to_list(BIF_P,BIF_ARG_1,start,len,res);
+}
+
+static BIF_RETTYPE binary_bin_to_list_common(Process *p,
+					     Eterm bin,
+					     Eterm epos,
+					     Eterm elen)
+{
+    Uint pos;
+    Sint len;
+    size_t sz;
+    byte *bytes;
+    Uint bit_offs;
+    Uint bit_size;
+    Eterm res = NIL;
+
+    if (is_not_binary(bin)) {
+	goto badarg;
+    }
+    if (!term_to_Uint(epos, &pos)) {
+	goto badarg;
+    }
+    if (!term_to_Sint(elen, &len)) {
+	goto badarg;
+    }
+    if (len < 0) {
+	Sint lentmp = -len;
+	if (-lentmp != len) {
+	    goto badarg;
+	}
+	len = lentmp;
+	if (len > pos) {
+	    goto badarg;
+	}
+	pos -= len;
+    }
+    if (((pos + len) - len) != pos) {
+	goto badarg;
+    }
+    sz = binary_size(bin);
+
+    if (pos+len > sz) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
+    if (bit_size != 0) {
+	goto badarg;
+    }
+    if(do_bin_to_list(p, bytes, bit_offs, pos, &len, &res) ==
+       BIN_TO_LIST_OK) {
+	BIF_RET(res);
+    }
+    return do_trap_bin_to_list(p,bin,pos,len,res);
+
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+BIF_RETTYPE binary_bin_to_list_3(BIF_ALIST_3)
+{
+    return binary_bin_to_list_common(BIF_P,BIF_ARG_1,BIF_ARG_2,BIF_ARG_3);
+}
+
+BIF_RETTYPE binary_bin_to_list_2(BIF_ALIST_2)
+{
+    Eterm *tp;
+
+    if (is_not_tuple(BIF_ARG_2)) {
+	goto badarg;
+    }
+    tp = tuple_val(BIF_ARG_2);
+    if (arityval(*tp) != 2) {
+	goto badarg;
+    }
+    return binary_bin_to_list_common(BIF_P,BIF_ARG_1,tp[1],tp[2]);
+ badarg:
+    BIF_ERROR(BIF_P,BADARG);
+}
+
+BIF_RETTYPE binary_bin_to_list_1(BIF_ALIST_1)
+{
+    Uint pos = 0;
+    Sint len;
+    byte *bytes;
+    Uint bit_offs;
+    Uint bit_size;
+    Eterm res = NIL;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	goto badarg;
+    }
+    len = binary_size(BIF_ARG_1);
+    ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
+    if (bit_size != 0) {
+	goto badarg;
+    }
+    if(do_bin_to_list(BIF_P, bytes, bit_offs, pos, &len, &res) ==
+       BIN_TO_LIST_OK) {
+	BIF_RET(res);
+    }
+    return do_trap_bin_to_list(BIF_P,BIF_ARG_1,pos,len,res);
+ badarg:
+    BIF_ERROR(BIF_P,BADARG);
+}
 
 /*
  * Hard debug functions (dump) for the search structures

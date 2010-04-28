@@ -1,6 +1,7 @@
 -module(binary_module_SUITE).
 
--export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,parts/1]).
+-export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
+	 random_ref_fla_comp/1,parts/1, bin_to_list/1]).
 
 -define(STANDALONE,1).
 
@@ -24,7 +25,8 @@ run() ->
 
 -endif.
 
-all(suite) -> [interesting,random_ref_sr_comp,random_ref_comp,parts].
+all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
+	       random_ref_comp,parts,bin_to_list].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
@@ -261,7 +263,97 @@ do_interesting(Module) ->
     ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<>>]])),
     ?line badarg = ?MASK_ERROR(Module:longest_common_prefix([[<<0>>,
 							      <<1:9>>]])),
+
+    ?line <<1:6,Bin:3/binary,_:2>> = <<1:6,1,2,3,1:2>>,
+    ?line <<1,2,3>> = Bin,
+    ?line 1 = Module:first(Bin),
+    ?line 1 = Module:first(<<1>>),
+    ?line 1 = Module:first(<<1,2,3>>),
+    ?line badarg = ?MASK_ERROR(Module:first(<<>>)),
+    ?line badarg = ?MASK_ERROR(Module:first(apa)),
+    ?line 3 = Module:last(Bin),
+    ?line 1 = Module:last(<<1>>),
+    ?line 3 = Module:last(<<1,2,3>>),
+    ?line badarg = ?MASK_ERROR(Module:last(<<>>)),
+    ?line badarg = ?MASK_ERROR(Module:last(apa)),
+    ?line 1 = Module:at(Bin,0),
+    ?line 1 = Module:at(<<1>>,0),
+    ?line 1 = Module:at(<<1,2,3>>,0),
+    ?line 2 = Module:at(<<1,2,3>>,1),
+    ?line 3 = Module:at(<<1,2,3>>,2),
+    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,3)),
+    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,-1)),
+    ?line badarg = ?MASK_ERROR(Module:at(<<1,2,3>>,apa)),
+    ?line "hejsan" = [ Module:at(<<"hejsan">>,I) || I <- lists:seq(0,5) ],
+
+    ?line badarg = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-4)),
+    ?line [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
+
     ok.
+
+bin_to_list(doc) ->
+    ["Test bin_to_list/1,2,3 bif's"];
+bin_to_list(Config) when is_list(Config) ->
+    %% Just some smoke_tests first, then go nuts with random cases
+    ?line X = <<1,2,3,4,0:1000000,5>>,
+    ?line Y = make_unaligned(X),
+    ?line LX = binary:bin_to_list(X),
+    ?line LX = binary:bin_to_list(X,0,byte_size(X)),
+    ?line LX = binary:bin_to_list(X,byte_size(X),-byte_size(X)),
+    ?line LX = binary:bin_to_list(X,{0,byte_size(X)}),
+    ?line LX = binary:bin_to_list(X,{byte_size(X),-byte_size(X)}),
+    ?line LY = binary:bin_to_list(Y),
+    ?line LY = binary:bin_to_list(Y,0,byte_size(Y)),
+    ?line LY = binary:bin_to_list(Y,byte_size(Y),-byte_size(Y)),
+    ?line LY = binary:bin_to_list(Y,{0,byte_size(Y)}),
+    ?line LY = binary:bin_to_list(Y,{byte_size(Y),-byte_size(Y)}),
+    ?line 1 = hd(LX),
+    ?line 5 = lists:last(LX),
+    ?line 1 = hd(LY),
+    ?line 5 = lists:last(LY),
+    ?line X = list_to_binary(LY),
+    ?line Y = list_to_binary(LY),
+    ?line X = list_to_binary(LY),
+    ?line [5] = lists:nthtail(byte_size(X)-1,LX),
+    ?line [0,5] = lists:nthtail(byte_size(X)-2,LX),
+    ?line [0,5] = lists:nthtail(byte_size(Y)-2,LY),
+    ?line random:seed({1271,769940,559934}),
+    ?line ok = random_bin_to_list(5000),
+    ok.
+
+random_bin_to_list(0) ->
+    ok;
+random_bin_to_list(N) ->
+    Str = random_string({1,N}),
+    Parts0 = random_parts(10,N),
+    Parts1 = Parts0 ++ [ {X+Y,-Y} || {X,Y} <- Parts0 ],
+    [ begin
+	  try
+	  true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
+	      ?MASK_ERROR(binref:bin_to_list(Str,Z)),
+	  true = ?MASK_ERROR(binary:bin_to_list(Str,Z)) =:=
+	      ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),Z))
+	  catch
+	      _:_ ->
+		  io:format("Error, Str = <<\"~s\">>.~nZ = ~p.~n",
+			    [Str,Z]),
+		  exit(badresult)
+	  end
+      end || Z <- Parts1 ],
+    [ begin
+	  try
+	  true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
+	      ?MASK_ERROR(binref:bin_to_list(Str,A,B)),
+	  true = ?MASK_ERROR(binary:bin_to_list(Str,A,B)) =:=
+	      ?MASK_ERROR(binary:bin_to_list(make_unaligned(Str),A,B))
+	  catch
+	      _:_ ->
+		  io:format("Error, Str = <<\"~s\">>.~nA = ~p.~nB = ~p.~n",
+			    [Str,A,B]),
+		  exit(badresult)
+	  end
+      end || {A,B} <- Parts1 ],
+    random_bin_to_list(N-1).
 
 parts(doc) ->
     ["Test the part/2,3 bif's"];
@@ -351,6 +443,77 @@ random_ref_sr_comp(Config) when is_list(Config) ->
     ?line do_random_replace_comp2(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ok.
+random_ref_fla_comp(doc) ->
+    ["Test pseudorandomly generated cases against reference imlementation of split and replace"];
+random_ref_fla_comp(Config) when is_list(Config) ->
+    ?line put(success_counter,0),
+    ?line random:seed({1271,769940,559934}),
+    ?line do_random_first_comp(5000,{1,1000}),
+    ?line do_random_last_comp(5000,{1,1000}),
+    ?line do_random_at_comp(5000,{1,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ok.
+
+do_random_first_comp(0,_) ->
+    ok;
+do_random_first_comp(N,Range) ->
+    S = random_string(Range),
+    A = ?MASK_ERROR(binref:first(S)),
+    B = ?MASK_ERROR(binary:first(S)),
+    C = ?MASK_ERROR(binary:first(make_unaligned(S))),
+    case {(A =:= B), (B =:= C)} of
+	{true,true} ->
+	    do_random_first_comp(N-1,Range);
+	_ ->
+	    io:format("Failed to pick first of ~s~n",
+		      [S]),
+	    io:format("A:~p,~nB:~p,~n,C:~p.~n",
+		      [A,B,C]),
+	    exit(mismatch)
+    end.
+
+do_random_last_comp(0,_) ->
+    ok;
+do_random_last_comp(N,Range) ->
+    S = random_string(Range),
+    A = ?MASK_ERROR(binref:last(S)),
+    B = ?MASK_ERROR(binary:last(S)),
+    C = ?MASK_ERROR(binary:last(make_unaligned(S))),
+    case {(A =:= B), (B =:= C)} of
+	{true,true} ->
+	    do_random_last_comp(N-1,Range);
+	_ ->
+	    io:format("Failed to pick last of ~s~n",
+		      [S]),
+	    io:format("A:~p,~nB:~p,~n,C:~p.~n",
+		      [A,B,C]),
+	    exit(mismatch)
+    end.
+do_random_at_comp(0,_) ->
+    ok;
+do_random_at_comp(N,{Min,Max}=Range) ->
+    S = random_string(Range),
+    XMax = Min + ((Max - Min) * 3) div 4,
+    Pos = random_length({Min,XMax}), %% some out of range
+    A = ?MASK_ERROR(binref:at(S,Pos)),
+    B = ?MASK_ERROR(binary:at(S,Pos)),
+    C = ?MASK_ERROR(binary:at(make_unaligned(S),Pos)),
+    if
+	A =/= badarg ->
+	    put(success_counter,get(success_counter)+1);
+	true ->
+	    ok
+    end,
+    case {(A =:= B), (B =:= C)} of
+	{true,true} ->
+	    do_random_at_comp(N-1,Range);
+	_ ->
+	    io:format("Failed to pick last of ~s~n",
+		      [S]),
+	    io:format("A:~p,~nB:~p,~n,C:~p.~n",
+		      [A,B,C]),
+	    exit(mismatch)
+    end.
 
 do_random_matches_comp(0,_,_) ->
     ok;

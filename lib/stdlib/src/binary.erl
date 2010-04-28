@@ -22,7 +22,6 @@
 %%  binary:compile_pattern/1
 %%  binary:match/{2,3}
 %%  binary:matches/{2,3}
-%% - Not yet:
 %%  binary:longest_common_prefix/1
 %%  binary:longest_common_suffix/1
 %%  binary:first/1
@@ -30,6 +29,7 @@
 %%  binary:at/2
 %%  binary:part/{2,3}
 %%  binary:bin_to_list/{1,2,3}
+%% - Not yet:
 %%  binary:list_to_bin/1
 %%  binary:copy/{1,2}
 %%  binary:referenced_byte_size/1
