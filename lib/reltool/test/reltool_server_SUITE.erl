@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_server_SUITE).
@@ -26,11 +26,13 @@
 -include("reltool_test_lib.hrl").
 
 -define(NODE_NAME, '__RELTOOL__TEMPORARY_TEST__NODE__').
+-define(WORK_DIR, "reltool_work_dir").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Initialization functions.
 
 init_per_suite(Config) ->
+    ?ignore(file:make_dir(?WORK_DIR)),
     reltool_test_lib:init_per_suite(Config).
 
 end_per_suite(Config) ->
@@ -128,8 +130,7 @@ create_release(_Config) ->
     {value, {_, _, StdlibVsn}} = lists:keysearch(stdlib, 1, Apps),
     Rel = {release, {RelName, RelVsn}, 
            {erts, ErtsVsn}, 
-           [{kernel, KernelVsn}, 
-            {stdlib, StdlibVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel([{config, Config}], RelName)),
     ok.
 
@@ -159,15 +160,17 @@ create_script(_Config) ->
     Rel = {release, 
            {RelName, RelVsn}, 
            {erts, ErtsVsn},
-           [{stdlib, StdlibVsn}, {kernel, KernelVsn}]},
+           [{kernel, KernelVsn}, {stdlib, StdlibVsn}]},
     ?m({ok, Rel}, reltool:get_rel(Pid, RelName)),
-    RelFile = RelName ++ ".rel",
-    ?m(ok, file:write_file(RelFile, io_lib:format("~p.\n", [Rel]))),
+    ?m(ok, file:write_file(filename:join([?WORK_DIR, RelName ++ ".rel"]),
+			   io_lib:format("~p.\n", [Rel]))),
 
     %% Generate script file
+    {ok, Cwd} = file:get_cwd(),
+    ?m(ok, file:set_cwd(?WORK_DIR)),
     ?m(ok, systools:make_script(RelName, [])),
-    ScriptFile = RelName ++ ".script",
-    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(ScriptFile)),
+    {ok, [OrigScript]} = ?msym({ok, [_]}, file:consult(RelName ++ ".script")),
+    ?m(ok, file:set_cwd(Cwd)),
     {ok, Script} = ?msym({ok, _}, reltool:get_script(Pid, RelName)),
     %% OrigScript2 = sort_script(OrigScript),
     %% Script2 = sort_script(Script),
@@ -201,9 +204,10 @@ create_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_development",
+    TargetDir = filename:join([?WORK_DIR, "target_development"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
+    ?log("SPEC: ~p\n", [reltool:get_target_spec([{config, Config}])]),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
     
     Erl = filename:join([TargetDir, "bin", "erl"]),
@@ -234,7 +238,7 @@ create_embedded(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_embedded",
+    TargetDir = filename:join([?WORK_DIR, "target_embedded"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -264,7 +268,7 @@ create_standalone(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_standalone",
+    TargetDir = filename:join([?WORK_DIR, "target_standalone"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),
@@ -290,6 +294,8 @@ create_standalone(_Config) ->
 create_old_target(TestInfo) when is_atom(TestInfo) -> 
     reltool_test_lib:tc_info(TestInfo);
 create_old_target(_Config) ->
+    ?skip("Old style of target", []),
+    
     %% Configure the server
     RelName1 = "Just testing",
     RelName2 = "Just testing with SASL",
@@ -306,7 +312,7 @@ create_old_target(_Config) ->
          ]},
 
     %% Generate target file
-    TargetDir = "reltool_target_dir_old",
+    TargetDir = filename:join([?WORK_DIR, "target_old_style"]),
     ?m(ok, reltool_utils:recursive_delete(TargetDir)),
     ?m(ok, file:make_dir(TargetDir)),
     ?m(ok, reltool:create_target([{config, Config}], TargetDir)),

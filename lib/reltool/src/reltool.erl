@@ -20,9 +20,8 @@
 
 %% Public
 -export([
-         main/1, % Escript
          start/0, start/1, start_link/1, debug/0, % GUI
-         start_server/1, get_server/1, stop/1,
+         start_server/1, get_server/1, get_status/1, stop/1,
          get_config/1, get_config/3, get_rel/2, get_script/2,
          create_target/2, get_target_spec/1, eval_target_spec/3,
          install/2
@@ -32,39 +31,26 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% Main function for escript
--spec main([escript_arg()]) -> ok.
-main(_) ->
-    process_flag(trap_exit, true),
-    {ok, WinPid} = start_link([]),
-    receive
-        {'EXIT', WinPid, shutdown} ->
-            ok;
-        {'EXIT', WinPid, normal} ->
-            ok;
-        {'EXIT', WinPid, Reason} ->
-            io:format("EXIT: ~p\n", [Reason]),
-            erlang:halt(1)
-    end.
-
 %% Start main window process
--spec start() -> {ok, window_pid()}.
+-spec start() -> {ok, window_pid()} | {error, reason()}.
 start() ->
     start([]).
 
 %% Start main window process
--spec start(options()) -> {ok, window_pid() | {error, reason()}}.
+-spec start(options()) -> {ok, window_pid()} | {error, reason()}.
 start(Options)when is_list(Options)  ->
-    {ok, WinPid} = start_link(Options),
-    unlink(WinPid),
-    {ok, WinPid}.
+    case start_link(Options) of
+	{ok, WinPid} ->
+	    unlink(WinPid),
+	    {ok, WinPid};
+	Other->
+	    Other
+    end.
 
 %% Start main window process with wx debugging enabled
--spec debug() -> {ok, window_pid()}.
+-spec debug() ->  {ok, window_pid()} | {error, reason()}.
 debug() ->
-    {ok, WinPid} = start_link([{wx_debug, 2}]),
-    unlink(WinPid),
-    {ok, WinPid}.
+    start([{wx_debug, 2}]).
 
 %% Start main window process with options
 -spec start_link(options()) -> {ok, window_pid() | {error, reason()}}.
@@ -110,19 +96,47 @@ stop(Pid) when is_pid(Pid) ->
     end.
 
 %% Internal library function
--spec eval_server(server(), fun((server_pid()) -> term())) ->
+-spec eval_server(server(), boolean(), fun((server_pid()) -> term())) ->
  {ok, server_pid()} | {error, reason()}.
-eval_server(Pid, Fun) when is_pid(Pid) ->
+eval_server(Pid, DisplayWarnings, Fun)
+  when is_pid(Pid) ->
     Fun(Pid);
-eval_server(Options, Fun) when is_list(Options), is_function(Fun, 1) ->
-    case start_server(Options) of
-        {ok, Pid} ->
-            Res = Fun(Pid),
-            stop(Pid),
-            Res;
-        {error, Reason} ->
-            {error, Reason}
+eval_server(Options, DisplayWarnings, Fun)
+  when is_list(Options) ->
+    TrapExit = process_flag(trap_exit, true),
+    Res = case start_server(Options) of
+	      {ok, Pid} ->
+		  apply_fun(Pid, DisplayWarnings, Fun);
+	      {error, Reason} ->
+		  {error, Reason}
+	  end,
+    process_flag(trap_exit, TrapExit),
+    Res.
+
+apply_fun(Pid, false, Fun) ->
+    Res = Fun(Pid),
+    stop(Pid),
+    Res;
+apply_fun(Pid, true, Fun) ->
+    case get_status(Pid) of
+	{ok, Warnings} ->
+	    [io:format("~p: ~s\n", [?APPLICATION, W]) || W <- Warnings],
+	    apply_fun(Pid, false, Fun);
+	{error, Reason} ->
+	    stop(Pid),
+	    {error, Reason}
     end.
+
+%% Get status about the configuration
+-type warning() :: string().
+-spec get_status(server()) ->
+			{ok, [warning()]} | {error, reason()}.
+get_status(PidOrOptions)
+  when is_pid(PidOrOptions); is_list(PidOrOptions) ->
+    eval_server(PidOrOptions, false,
+		fun(Pid) ->
+			reltool_server:get_status(Pid)
+		end).
 
 %% Get reltool configuration
 -spec get_config(server()) -> {ok, config()} | {error, reason()}.
@@ -133,7 +147,7 @@ get_config(PidOrOption) ->
 			{ok, config()} | {error, reason()}.
 get_config(PidOrOptions, InclDef, InclDeriv)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
-    eval_server(PidOrOptions,
+    eval_server(PidOrOptions, true,
 		fun(Pid) ->
 			reltool_server:get_config(Pid, InclDef, InclDeriv)
 		end).
@@ -142,7 +156,7 @@ get_config(PidOrOptions, InclDef, InclDeriv)
 -spec get_rel(server(), rel_name()) -> {ok, rel_file()} | {error, reason()}.
 get_rel(PidOrOptions, RelName)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
-    eval_server(PidOrOptions,
+    eval_server(PidOrOptions, true,
 		fun(Pid) -> reltool_server:get_rel(Pid, RelName) end).
 
 %% Get contents of boot script file
@@ -150,21 +164,22 @@ get_rel(PidOrOptions, RelName)
 			{ok, script_file()} | {error, reason()}.
 get_script(PidOrOptions, RelName)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
-   eval_server(PidOrOptions,
+   eval_server(PidOrOptions, true,
 	       fun(Pid) -> reltool_server:get_script(Pid, RelName) end).
 
 %% Generate a target system
 -spec create_target(server(), target_dir()) -> ok | {error, reason()}.
 create_target(PidOrOptions, TargetDir)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
-    eval_server(PidOrOptions,
+    eval_server(PidOrOptions, true,
 		fun(Pid) -> reltool_server:gen_target(Pid, TargetDir) end).
 
 %% Generate a target system
 -spec get_target_spec(server()) -> {ok, target_spec()} | {error, reason()}.
 get_target_spec(PidOrOptions)
   when is_pid(PidOrOptions); is_list(PidOrOptions) ->
-    eval_server(PidOrOptions, fun(Pid) -> reltool_server:gen_spec(Pid) end).
+    eval_server(PidOrOptions, true,
+		fun(Pid) -> reltool_server:gen_spec(Pid) end).
 
 %% Generate a target system
 -spec eval_target_spec(target_spec(), root_dir(), target_dir()) ->

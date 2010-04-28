@@ -19,7 +19,30 @@
 -module(reltool_utils).
 
 %% Public
--compile([export_all]).
+-export([root_dir/0, erl_libs/0, lib_dirs/1,
+	 split_app_name/1, prim_consult/1,
+	 default_rels/0, choose_default/3,
+
+	 assign_image_list/1, get_latest_resize/1,
+	 mod_conds/0, list_to_mod_cond/1, mod_cond_to_index/1,
+	 incl_conds/0, list_to_incl_cond/1, incl_cond_to_index/1, elem_to_index/2,
+	 app_dir_test/2, split_app_dir/1,
+	 get_item/1, get_items/1, get_selected_items/3,
+	 select_items/3, select_item/2,
+
+	 safe_keysearch/5, print/4, return_first_error/2, add_warning/2,
+
+	 create_dir/1, list_dir/1, read_file_info/1,
+	 write_file_info/2, read_file/1, write_file/2,
+	 recursive_delete/1, delete/2, recursive_copy_file/2, copy_file/2,
+
+	 throw_error/2,
+
+	 decode_regexps/3,
+	 default_val/2,
+	 escript_foldl/3,
+
+	 call/2, cast/2, reply/3]).
 
 -include_lib("kernel/include/file.hrl").
 -include_lib("wx/include/wx.hrl").
@@ -103,17 +126,45 @@ prim_parse(Tokens, Acc) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 default_rels() ->
-    Kernel = #rel_app{name = kernel, incl_apps = []},
-    Stdlib = #rel_app{name = stdlib, incl_apps = []},
-    Sasl   = #rel_app{name = sasl,   incl_apps = []},
+    %%Kernel = #rel_app{name = kernel, incl_apps = []},
+    %%Stdlib = #rel_app{name = stdlib, incl_apps = []},
+    Sasl = #rel_app{name = sasl,   incl_apps = []},
     [
      #rel{name = ?DEFAULT_REL_NAME,
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Stdlib]},
+	  rel_apps = []},
+	  %%rel_apps = [Kernel, Stdlib]},
      #rel{name = "start_sasl",
 	  vsn = "1.0",
-	  rel_apps = [Kernel, Sasl, Stdlib]}
+	  rel_apps = [Sasl]}
+	  %%rel_apps = [Kernel, Sasl, Stdlib]}
     ].
+
+choose_default(Tag, Profile, InclDefs)
+  when Profile =:= ?DEFAULT_PROFILE; InclDefs ->
+    case Tag of
+	incl_sys_filters  -> ?DEFAULT_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?DEFAULT_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?DEFAULT_INCL_APP_FILTERS;
+	excl_app_filters  -> ?DEFAULT_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, standalone, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?STANDALONE_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?STANDALONE_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?STANDALONE_INCL_APP_FILTERS;
+	excl_app_filters  -> ?STANDALONE_EXCL_APP_FILTERS;
+	embedded_app_type -> ?DEFAULT_EMBEDDED_APP_TYPE
+    end;
+choose_default(Tag, embedded, _InclDefs) ->
+    case Tag of
+	incl_sys_filters  -> ?EMBEDDED_INCL_SYS_FILTERS;
+	excl_sys_filters  -> ?EMBEDDED_EXCL_SYS_FILTERS;
+	incl_app_filters  -> ?EMBEDDED_INCL_APP_FILTERS;
+	excl_app_filters  -> ?EMBEDDED_EXCL_APP_FILTERS;
+	embedded_app_type -> ?EMBEDDED_APP_TYPE
+    end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -379,7 +430,7 @@ create_dir(Dir) ->
             ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("create dir ~s: ~s\n", [Dir, Text])
+            throw_error("create dir ~s: ~s", [Dir, Text])
     end.
 
 list_dir(Dir) ->
@@ -388,7 +439,7 @@ list_dir(Dir) ->
 	    Files;
         error ->
             Text = file:format_error(enoent),
-            throw_error("list dir ~s: ~s\n", [Dir, Text])
+            throw_error("list dir ~s: ~s", [Dir, Text])
     end.
 
 read_file_info(File) ->
@@ -397,7 +448,7 @@ read_file_info(File) ->
 	    Info;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file info ~s: ~s\n", [File, Text])
+            throw_error("read file info ~s: ~s", [File, Text])
     end.
 
 write_file_info(File, Info) ->
@@ -406,7 +457,7 @@ write_file_info(File, Info) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file info ~s: ~s\n", [File, Text])
+            throw_error("write file info ~s: ~s", [File, Text])
     end.
 
 read_file(File) ->
@@ -415,7 +466,7 @@ read_file(File) ->
 	    Bin;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("read file ~s: ~s\n", [File, Text])
+            throw_error("read file ~s: ~s", [File, Text])
     end.
 
 write_file(File, IoList) ->
@@ -424,7 +475,7 @@ write_file(File, IoList) ->
 	    ok;
         {error, Reason} ->
             Text = file:format_error(Reason),
-            throw_error("write file ~s: ~s\n", [File, Text])
+            throw_error("write file ~s: ~s", [File, Text])
     end.
 
 recursive_delete(Dir) ->
@@ -560,7 +611,12 @@ escript_foldl(Fun, Acc, File) ->
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 call(Name, Msg) when is_atom(Name) ->
-    call(whereis(Name), Msg);
+    case whereis(Name) of
+	undefined ->
+	    {error, {noproc, Name}};
+	Pid ->
+	    call(Pid, Msg)
+    end;
 call(Pid, Msg) when is_pid(Pid) ->
     Ref = erlang:monitor(process, Pid),
     Pid ! {call, self(), Ref, Msg},

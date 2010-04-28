@@ -1227,7 +1227,7 @@ create_fgraph_window(S, Title, Nodes, Links) ->
     Panel = wxPanel:new(Frame, []),
     Options = [{size, {lists:max([100, ?WIN_WIDTH - 100]), ?WIN_HEIGHT}}],
     {Server, Fgraph} = reltool_fgraph_win:new(Panel, Options),
-    Choose = fun(?MISSING_APP) -> alternate;
+    Choose = fun(?MISSING_APP_NAME) -> alternate;
                 (_) -> default
              end,
     [reltool_fgraph_win:add_node(Server, N, Choose(N)) || N <- Nodes],

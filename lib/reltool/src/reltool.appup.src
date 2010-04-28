@@ -2,7 +2,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -17,22 +17,6 @@
 %%
 %% %CopyrightEnd%
 
-{application, reltool,
- [{description, "Reltool the release management tool"},
-  {vsn, "%VSN%"},
-  {modules,
-   [
-    reltool_app_win,
-    reltool,
-    reltool_fgraph,
-    reltool_fgraph_win,
-    reltool_mod_win,
-    reltool_server,
-    reltool_sys_win,
-    reltool_target,
-    reltool_utils
-   ]},
-  {registered, []},
-  {applications, [stdlib, kernel]},
-  {env, []}
- ]}.
+{"%VSN%",
+ [ ]
+}.

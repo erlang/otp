@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 
 -define(APPLICATION,      reltool).
--define(MISSING_APP,      '*MISSING*').
+-define(MISSING_APP_NAME, '*MISSING*').
 -define(MISSING_APP_TEXT, "*MISSING*").
 
 -type file()             :: string().
@@ -104,7 +104,7 @@
 -type rel_file()         :: term().
 -type script_file()      :: term().
 -type reason()           :: string().
--type escript_arg()      :: string().
+
 -type base_dir()         :: dir().
 -type base_file()        :: file().
 -type top_dir()          :: file().
@@ -112,10 +112,7 @@
 -type target_spec()      :: [target_spec()]
                          | {create_dir, base_dir(), [target_spec()]}
                          | {create_dir, base_dir(), top_dir(), [target_spec()]}
-                         | {archive,
-			    base_file(),
-			    [archive_opt()],
-			    [target_spec()]}
+                         | {archive, base_file(), [archive_opt()], [target_spec()]}
                          | {copy_file, base_file()}
                          | {copy_file, base_file(), top_file()}
                          | {write_file, base_file(), iolist()}
@@ -139,57 +136,58 @@
 
 -record(mod,
         {%% Static
-          name :: mod_name(),
-          app_name :: app_name(),
-          incl_cond :: incl_cond() | undefined,
-          debug_info :: debug_info() | undefined,
-          is_app_mod :: boolean(),
+          name        :: mod_name(),
+          app_name    :: app_name(),
+          incl_cond   :: incl_cond() | undefined,
+          debug_info  :: debug_info() | undefined,
+          is_app_mod  :: boolean(),
           is_ebin_mod :: boolean(),
-          uses_mods :: [mod_name()],
-          exists :: boolean(),
+          uses_mods   :: [mod_name()],
+          exists      :: boolean(),
+
           %% Dynamic
-          status :: status(),
-          used_by_mods :: [mod_name()],
+          status          :: status(),
+          used_by_mods    :: [mod_name()],
           is_pre_included :: boolean() | undefined,
-          is_included :: boolean() | undefined
+          is_included     :: boolean() | undefined
          }).
 
 -record(app_info,
         {
-          description = "",
-          id = "",
-          vsn = "",
-          modules = [],
-          maxP = infinity,
-          maxT = infinity,
-          registered = [],
-          incl_apps = [],
-          applications = [],
-          env = [],
-          mod = undefined,
-          start_phases = undefined
+          description  = ""        :: string(),
+          id           = ""        :: string(),
+          vsn          = ""        :: app_vsn(),
+          modules      = []        :: [mod_name()],
+          maxP         = infinity  :: integer() | infinity,
+          maxT         = infinity  :: integer() | infinity,
+          registered   = []        :: [atom()],
+          incl_apps    = []        :: [app_name()],
+          applications = []        :: [app_name()],
+          env          = []        :: [{atom(), term()}],
+          mod          = undefined :: {mod_name(), [term()]} | undefined,
+          start_phases = undefined :: [{atom(), term()}] | undefined
          }).
 
 -record(app,
         {%% Static info
-          name :: app_name(),
-          is_escript :: boolean(),
+          name             :: app_name(),
+          is_escript       :: boolean(),
           use_selected_vsn :: boolean() | undefined,
-          active_dir :: dir(),
-          sorted_dirs :: [dir()],
-          vsn :: app_vsn(),
-          label :: app_label(),
-          info ::  #app_info{} | undefined,
-          mods :: [#mod{}],
+          active_dir       :: dir(),
+          sorted_dirs      :: [dir()],
+          vsn              :: app_vsn(),
+          label            :: app_label(),
+          info             :: #app_info{} | undefined,
+          mods             :: [#mod{}],
 
           %% Static source cond
-          mod_cond :: mod_cond() | undefined,
+          mod_cond  :: mod_cond()  | undefined,
           incl_cond :: incl_cond() | undefined,
 
           %% Static target cond
-          debug_info :: debug_info() | undefined,
-          app_file :: app_file() | undefined,
-          app_type :: app_type(),
+          debug_info            :: debug_info() | undefined,
+          app_file              :: app_file() | undefined,
+          app_type              :: app_type() | undefined,
           incl_app_filters      :: incl_app_filters(),
           excl_app_filters      :: excl_app_filters(),
           incl_archive_filters  :: incl_archive_filters(),
@@ -197,19 +195,20 @@
           archive_opts          :: [archive_opt()],
 
           %% Dynamic
-          status :: status(),
-          uses_mods :: [mod_name()],
-          used_by_mods :: [mod_name()],
-          uses_apps :: [app_name()],
-          used_by_apps :: [app_name()],
+          status          :: status(),
+          uses_mods       :: [mod_name()],
+          used_by_mods    :: [mod_name()],
+          uses_apps       :: [app_name()],
+          used_by_apps    :: [app_name()],
           is_pre_included :: boolean(),
-          is_included :: boolean()
+          is_included     :: boolean(),
+          rels            :: [rel_name()]
          }).
 
 -record(rel_app,
         {
-          name :: app_name(),
-          app_type :: app_type(),
+          name      :: app_name(),
+          app_type  :: app_type(),
           incl_apps :: [incl_app()]
         }).
 
@@ -231,21 +230,22 @@
           apps      :: [#app{}],
 
           %% Target cond
-          boot_rel :: boot_rel(),
-          rels     :: [#rel{}],
-          emu_name :: emu_name(),
-          profile  :: profile(),
-          incl_sys_filters :: incl_sys_filters(),
-          excl_sys_filters :: excl_sys_filters(),
-          incl_app_filters :: incl_app_filters(),
-          excl_app_filters :: excl_app_filters(),
+          boot_rel 	       :: boot_rel(),
+          rels     	       :: [#rel{}],
+          emu_name 	       :: emu_name(),
+          profile  	       :: profile(),
+          incl_sys_filters     :: incl_sys_filters(),
+          excl_sys_filters     :: excl_sys_filters(),
+          incl_app_filters     :: incl_app_filters(),
+          excl_app_filters     :: excl_app_filters(),
           incl_archive_filters :: incl_archive_filters(),
           excl_archive_filters :: excl_archive_filters(),
-          archive_opts :: [archive_opt()],
-          relocatable :: boolean(),
-          app_type :: app_type(),
-          app_file :: app_file(),
-          debug_info :: debug_info()
+          archive_opts         :: [archive_opt()],
+          relocatable          :: boolean(),
+          rel_app_type         :: app_type(),
+          embedded_app_type    :: app_type() | undefined,
+          app_file             :: app_file(),
+          debug_info           :: debug_info()
          }).
 
 -record(regexp, {source, compiled}).
@@ -268,7 +268,8 @@
 -define(DEFAULT_EMU_NAME,          "beam").
 -define(DEFAULT_PROFILE,           development).
 -define(DEFAULT_RELOCATABLE,       true).
--define(DEFAULT_APP_TYPE,          permanent).
+-define(DEFAULT_REL_APP_TYPE,      permanent).
+-define(DEFAULT_EMBEDDED_APP_TYPE, undefined).
 -define(DEFAULT_APP_FILE,          keep).
 -define(DEFAULT_DEBUG_INFO,        keep).
 
@@ -282,22 +283,23 @@
 -define(DEFAULT_EXCL_APP_FILTERS,    []).
 
 -define(EMBEDDED_INCL_SYS_FILTERS,   ["^bin",
-				    "^erts",
-				    "^lib",
-				    "^releases"]).
+				      "^erts",
+				      "^lib",
+				      "^releases"]).
 -define(EMBEDDED_EXCL_SYS_FILTERS,
 	["^bin/(erlc|dialyzer|typer)(|\\.exe)\$",
 	 "^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)\$",
 	 "^erts.*/bin/.*(debug|pdb)"]).
 -define(EMBEDDED_INCL_APP_FILTERS,    ["^ebin",
-				     "^priv",
-				     "^include"]).
+				       "^include",
+				       "^priv"]).
 -define(EMBEDDED_EXCL_APP_FILTERS,    []).
+-define(EMBEDDED_APP_TYPE,            load).
 
 -define(STANDALONE_INCL_SYS_FILTERS,  ["^bin/(erl|epmd)(|\\.exe|\\.ini)\$",
-				     "^bin/start(|_clean).boot\$",
-				     "^erts.*/bin",
-				     "^lib\$"]).
+				       "^bin/start(|_clean).boot\$",
+				       "^erts.*/bin",
+				       "^lib\$"]).
 -define(STANDALONE_EXCL_SYS_FILTERS,
 	["^erts.*/bin/(erlc|dialyzer|typer)(|\\.exe)\$",
 	 "^erts.*/bin/(start|escript|to_erl|run_erl)(|\\.exe)\$",

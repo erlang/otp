@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2009-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 -module(reltool_test_lib).
@@ -24,9 +24,11 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 init_per_suite(Config) when is_list(Config)->
+    global:register_name(reltool_global_logger, group_leader()),
     incr_timetrap(Config, 5).
 
 end_per_suite(Config) when is_list(Config)->
+    global:unregister_name(reltool_global_logger),
     ok.
 
 incr_timetrap(Config, Times) ->
@@ -130,11 +132,9 @@ wx_end_per_suite(Config) ->
 
 init_per_testcase(_Func, Config) when is_list(Config) ->
     set_kill_timer(Config),
-    global:register_name(reltool_global_logger, group_leader()),
     Config.
 
 end_per_testcase(_Func, Config) when is_list(Config) ->
-    global:unregister_name(reltool_global_logger),
     reset_kill_timer(Config),
     Config.
 
