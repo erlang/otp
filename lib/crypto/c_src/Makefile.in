@@ -68,13 +68,13 @@ RELSYSDIR = $(RELEASE_PATH)/lib/crypto-$(VSN)
 # ----------------------------------------------------
 # Misc Macros
 # ----------------------------------------------------
-OBJS = $(OBJDIR)/crypto_drv.o
-DRV_MAKEFILE = $(PRIVDIR)/Makefile
+OBJS = $(OBJDIR)/crypto.o
+NIF_MAKEFILE = $(PRIVDIR)/Makefile
 
 ifeq ($(findstring win32,$(TARGET)), win32)
-DYN_DRIVER = $(LIBDIR)/crypto_drv.dll
+NIF_LIB = $(LIBDIR)/crypto.dll
 else
-DYN_DRIVER = $(LIBDIR)/crypto_drv.so
+NIF_LIB = $(LIBDIR)/crypto.so
 endif
 
 ifeq ($(HOST_OS),)
@@ -94,7 +94,7 @@ endif
 # Targets
 # ----------------------------------------------------
 
-debug opt valgrind: $(OBJDIR) $(LIBDIR) $(DYN_DRIVER)
+debug opt valgrind: $(OBJDIR) $(LIBDIR) $(NIF_LIB)
 
 $(OBJDIR):
 	-@mkdir -p $(OBJDIR)
@@ -106,16 +106,16 @@ $(OBJDIR)/%.o: %.c
 	$(INSTALL_DIR) $(OBJDIR)
 	$(CC) -c -o $@ $(ALL_CFLAGS) $<
 
-$(LIBDIR)/crypto_drv.so: $(OBJS)
+$(LIBDIR)/crypto.so: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR) 
 	$(LD) $(LDFLAGS) -o $@ $^ $(LDLIBS) $(CRYPTO_LINK_LIB)
 
-$(LIBDIR)/crypto_drv.dll: $(OBJS)
+$(LIBDIR)/crypto.dll: $(OBJS)
 	$(INSTALL_DIR) $(LIBDIR)
 	$(LD) $(LDFLAGS) -o $@  $(SSL_DED_LD_RUNTIME_LIBRARY_PATH) -L$(SSL_LIBDIR) $(OBJS) -llibeay32
 
 clean:
-	rm -f $(DYN_DRIVER) $(OBJS)
+	rm -f $(NIF_LIB) $(OBJS)
 	rm -f core *~
 
 docs:
@@ -128,9 +128,9 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/obj
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/lib
-	$(INSTALL_DATA) $(DRV_MAKEFILE) $(RELSYSDIR)/priv/obj
+	$(INSTALL_DATA) $(NIF_MAKEFILE) $(RELSYSDIR)/priv/obj
 	$(INSTALL_PROGRAM) $(OBJS) $(RELSYSDIR)/priv/obj
-	$(INSTALL_PROGRAM) $(DYN_DRIVER) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(NIF_LIB) $(RELSYSDIR)/priv/lib
 
 release_docs_spec:
 

@@ -119,7 +119,7 @@ link_test(Config) when is_list(Config) ->
 
 link_test_1() ->    
     ?line CryptoPriv = code:priv_dir(crypto),
-    ?line Wc = filename:join([CryptoPriv,"lib","crypto_drv.*"]),
+    ?line Wc = filename:join([CryptoPriv,"lib","crypto.*"]),
     ?line case filelib:wildcard(Wc) of
 	      [] -> {skip,"Didn't find the crypto driver"};
 	      [Drv] -> link_test_2(Drv)
@@ -843,16 +843,16 @@ dsa_sign_test(Config) when is_list(Config) ->
     ParamG = 18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669,
 
     Params = [crypto:mpint(ParamP), crypto:mpint(ParamQ), crypto:mpint(ParamG)],
-    ?line Sig1 = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PrivKey)]),
+    ?line Sig1 = crypto:dss_sign(sized_binary(Msg), Params ++ [crypto:mpint(PrivKey)]),
     
     ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(Sig1), 
-			      [Params, crypto:mpint(PubKey)]), true),
+			      Params ++ [crypto:mpint(PubKey)]), true),
     
     ?line m(crypto:dss_verify(sized_binary(one_bit_wrong(Msg)), sized_binary(Sig1), 
-			      [Params, crypto:mpint(PubKey)]), false),
+			      Params ++ [crypto:mpint(PubKey)]), false),
     
     ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(one_bit_wrong(Sig1)), 
-			      [Params, crypto:mpint(PubKey)]), false),
+			      Params ++ [crypto:mpint(PubKey)]), false),
 
     %%?line Bad = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PubKey)]),
     
