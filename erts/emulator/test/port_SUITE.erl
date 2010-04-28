@@ -88,7 +88,7 @@
 	 otp_3906/1, otp_4389/1, win_massive/1, win_massive_client/1,
 	 mix_up_ports/1, otp_5112/1, otp_5119/1, otp_6224/1,
 	 exit_status_multi_scheduling_block/1, ports/1,
-	 spawn_driver/1,spawn_executable/1,
+	 spawn_driver/1, spawn_executable/1, close_deaf_port/1,
 	 unregister_name/1]).
 
 -export([]).
@@ -113,7 +113,7 @@ all(suite) ->
      otp_3906, otp_4389, win_massive, mix_up_ports,
      otp_5112, otp_5119,
      exit_status_multi_scheduling_block,
-     ports, spawn_driver, spawn_executable,
+     ports, spawn_driver, spawn_executable, close_deaf_port,
      unregister_name
     ].
 
@@ -2293,3 +2293,12 @@ load_driver(Dir, Driver) ->
 	    io:format("~s\n", [erl_ddll:format_error(Error)]),
 	    Res
     end.
+
+
+close_deaf_port(doc) -> ["Send data to port program that does not read it, then close port."];
+close_deaf_port(suite) -> [];
+close_deaf_port(Config) when is_list(Config) ->
+    Port = open_port({spawn,"sleep 999999"},[]),
+    erlang:port_command(Port,"Hello, can you hear me!?!?"),
+    port_close(Port),
+    ok.

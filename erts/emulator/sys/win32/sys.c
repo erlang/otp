@@ -33,6 +33,7 @@
 #include "../../drivers/win32/win_con.h"
 
 
+
 void erts_sys_init_float(void);
 
 void erl_start(int, char**);
@@ -95,6 +96,10 @@ static erts_smp_mtx_t sys_driver_data_lock;
 static FUNCTION(int, driver_write, (long, HANDLE, byte*, int));
 static void common_stop(int);
 static int create_file_thread(struct async_io* aio, int mode);
+#ifdef ERTS_SMP
+static void close_active_handles(ErlDrvPort, const HANDLE* handles, int cnt);
+static DWORD WINAPI threaded_handle_closer(LPVOID param);
+#endif
 static DWORD WINAPI threaded_reader(LPVOID param);
 static DWORD WINAPI threaded_writer(LPVOID param);
 static DWORD WINAPI threaded_exiter(LPVOID param);
@@ -132,6 +137,9 @@ static BOOL win_console = FALSE;
 
 static OSVERSIONINFO int_os_version;	/* Version information for Win32. */
 
+#ifdef ERTS_SMP
+static BOOL (WINAPI *fpCancelIoEx)(HANDLE,LPOVERLAPPED);
+#endif
 
 /* This is the system's main function (which may or may not be called "main")
    - do general system-dependent initialization
@@ -676,25 +684,50 @@ release_driver_data(DriverData* dp)
     erts_smp_mtx_lock(&sys_driver_data_lock);
 
 #ifdef ERTS_SMP
-    /* This is a workaround for the fact that CancelIo cant cancel
-       requests issued by another thread and that we still cant use
-       CancelIoEx as that's only availabele in Vista etc. */
-    if(dp->in.async_io_active && dp->in.fd != INVALID_HANDLE_VALUE) {
-	CloseHandle(dp->in.fd);
-	dp->in.fd = INVALID_HANDLE_VALUE;
-	DEBUGF(("Waiting for the in event thingie"));
-	WaitForSingleObject(dp->in.ov.hEvent,INFINITE);
-	DEBUGF(("...done\n"));
+    if (fpCancelIoEx != NULL) {
+	if (dp->in.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
+	    (*fpCancelIoEx)(dp->in.fd, NULL);
+	}
+	if (dp->out.thread == (HANDLE) -1 && dp->out.fd != INVALID_HANDLE_VALUE) {
+	    (*fpCancelIoEx)(dp->out.fd, NULL);
+	}
     }
-    if(dp->out.async_io_active && dp->out.fd != INVALID_HANDLE_VALUE) {
-	CloseHandle(dp->out.fd);
-	dp->out.fd = INVALID_HANDLE_VALUE;
-	DEBUGF(("Waiting for the out event thingie"));
-	WaitForSingleObject(dp->out.ov.hEvent,INFINITE);
-	DEBUGF(("...done\n"));
+    else {
+	/* This is a workaround for the fact that CancelIo cant cancel
+	   requests issued by another thread and that we cant use
+	   CancelIoEx as that's only availabele in Vista etc.
+	   R14: Avoid scheduler deadlock by only wait for 10ms, and then spawn
+	    a thread that will keep waiting in in order to close handles. */
+	HANDLE handles[2];
+	int i = 0;
+	int timeout = 10;
+	if(dp->in.async_io_active && dp->in.fd != INVALID_HANDLE_VALUE) {
+	    CloseHandle(dp->in.fd);
+	    dp->in.fd = INVALID_HANDLE_VALUE;
+	    DEBUGF(("Waiting for the in event thingie"));
+	    if (WaitForSingleObject(dp->in.ov.hEvent,timeout) == WAIT_TIMEOUT) {
+		handles[i++] = dp->in.ov.hEvent;
+		dp->in.ov.hEvent = NULL;
+		timeout = 0;
+	    }
+	    DEBUGF(("...done\n"));
+	}
+	if(dp->out.async_io_active && dp->out.fd != INVALID_HANDLE_VALUE) {
+	    CloseHandle(dp->out.fd);
+	    dp->out.fd = INVALID_HANDLE_VALUE;
+	    DEBUGF(("Waiting for the out event thingie"));
+	    if (WaitForSingleObject(dp->out.ov.hEvent,timeout) == WAIT_TIMEOUT) {
+		handles[i++] = dp->out.ov.hEvent;
+		dp->out.ov.hEvent = NULL;
+	    }
+	    DEBUGF(("...done\n"));
+	}
+	if (i > 0) {
+	    close_active_handles(dp->port_num, handles, i);
+	}
     }
 #else
-    	if (dp->out.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
+	if (dp->in.thread == (HANDLE) -1 && dp->in.fd != INVALID_HANDLE_VALUE) {
 	     CancelIo(dp->in.fd); 
 	}
 	if (dp->out.thread == (HANDLE) -1 && dp->out.fd != INVALID_HANDLE_VALUE) {
@@ -736,6 +769,48 @@ release_driver_data(DriverData* dp)
     dp->port_num = PORT_FREE;
     erts_smp_mtx_unlock(&sys_driver_data_lock);
 }
+
+#ifdef ERTS_SMP
+
+struct handles_to_be_closed
+{
+    int cnt;
+    HANDLE handles[2];
+};
+
+static void close_active_handles(ErlDrvPort port_num, const HANDLE* handles, int cnt)
+{
+    DWORD tid;
+    HANDLE thread;
+    int i;
+    struct handles_to_be_closed* htbc = erts_alloc(ERTS_ALC_T_DRV_TAB,
+						   sizeof(struct handles_to_be_closed));
+    htbc->cnt = cnt;
+    for (i=0; i < cnt; ++i) {
+	htbc->handles[i] = handles[i];
+	(void) driver_select(port_num, (ErlDrvEvent)handles[i],
+			     ERL_DRV_USE_NO_CALLBACK, 0);
+    }
+    thread = (HANDLE *) _beginthreadex(NULL, 0, threaded_handle_closer, htbc, 0, &tid);
+    CloseHandle(thread);
+}
+
+
+static DWORD WINAPI
+threaded_handle_closer(LPVOID param)
+{
+    struct handles_to_be_closed* htbc = (struct handles_to_be_closed*) param;
+    int i;
+    DEBUGF(("threaded_handle_closer waiting for %d handles\r\n",htbc->cnt));
+    WaitForMultipleObjects(htbc->cnt, htbc->handles, TRUE, INFINITE);
+    for (i=0; i < htbc->cnt; ++i) {
+	CloseHandle(htbc->handles[i]);
+    }
+    erts_free(ERTS_ALC_T_DRV_TAB, htbc);
+    DEBUGF(("threaded_handle_closer terminating\r\n"));
+    return 0;
+}
+#endif /* ERTS_SMP */
 
 /*
  * Stores input and output file descriptors in the DriverData structure,
@@ -1026,12 +1101,19 @@ static int
 spawn_init()
 {
     int i;
-  
+#ifdef ERTS_SMP
+    HMODULE module = GetModuleHandle("kernel32");
+    fpCancelIoEx = (module != NULL) ?
+	(BOOL (WINAPI *)(HANDLE,LPOVERLAPPED))
+      GetProcAddress(module,"CancelIoEx") : NULL;
+    DEBUGF(("fpCancelIoEx = %p\r\n", fpCancelIoEx));
+#endif
     driver_data = (struct driver_data *)
 	erts_alloc(ERTS_ALC_T_DRV_TAB, max_files * sizeof(struct driver_data));
     erts_smp_atomic_add(&sys_misc_mem_sz, max_files*sizeof(struct driver_data));
     for (i = 0; i < max_files; i++)
 	driver_data[i].port_num = PORT_FREE;
+
     return 0;
 }
 
