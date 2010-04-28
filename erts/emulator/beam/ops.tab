@@ -1180,12 +1180,6 @@ i_bs_init_bits_fail_heap I j I d
 i_bs_init_bits I I d
 i_bs_init_bits_heap I I I d
 
-bs_bits_to_bytes Fail Src Dst => i_bs_bits_to_bytes Src Fail Dst
-
-i_bs_bits_to_bytes r j d
-i_bs_bits_to_bytes x j d
-i_bs_bits_to_bytes y j d
-
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 bs_add Fail S1 S2 Unit D => i_fetch S1 S2 | i_bs_add Fail Unit D
 

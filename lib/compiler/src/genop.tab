@@ -208,7 +208,7 @@ BEAM_FORMAT_NUMBER=0
 
 # New instructions in R10B.
 109: bs_init2/6
-110: bs_bits_to_bytes/3
+110: -bs_bits_to_bytes/3
 111: bs_add/5
 112: apply/1
 113: apply_last/2
