@@ -302,13 +302,9 @@ check_schedule_cache_check(void)
 static void
 mseg_shutdown(void)
 {
-#ifdef ERTS_SMP
     erts_mtx_lock(&mseg_mutex);
-#endif
     mseg_clear_cache();
-#ifdef ERTS_SMP
     erts_mtx_unlock(&mseg_mutex);
-#endif
 }
 
 static ERTS_INLINE void *
@@ -408,8 +404,9 @@ mseg_recreate(void *old_seg, Uint old_size, Uint new_size)
 
 static ERTS_INLINE cache_desc_t * 
 alloc_cd(void)
-{
+{    
     cache_desc_t *cd = free_cache_descs;
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     if (cd)
 	free_cache_descs = cd->next;
     return cd;
@@ -418,6 +415,7 @@ alloc_cd(void)
 static ERTS_INLINE void
 free_cd(cache_desc_t *cd)
 {
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     cd->next = free_cache_descs;
     free_cache_descs = cd;
 }
@@ -426,6 +424,7 @@ free_cd(cache_desc_t *cd)
 static ERTS_INLINE void
 link_cd(cache_desc_t *cd)
 {
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     if (cache)
 	cache->prev = cd;
     cd->next = cache;
@@ -443,6 +442,7 @@ link_cd(cache_desc_t *cd)
 static ERTS_INLINE void
 end_link_cd(cache_desc_t *cd)
 {
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     if (cache_end)
 	cache_end->next = cd;
     cd->next = NULL;
@@ -460,7 +460,7 @@ end_link_cd(cache_desc_t *cd)
 static ERTS_INLINE void
 unlink_cd(cache_desc_t *cd)
 {
-
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     if (cd->next)
 	cd->next->prev = cd->prev;
     else
@@ -478,6 +478,7 @@ static ERTS_INLINE void
 check_cache_limits(void)
 {
     cache_desc_t *cd;
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     max_cached_seg_size = 0;
     min_cached_seg_size = ~((Uint) 0);
     for (cd = cache; cd; cd = cd->next) {
@@ -496,7 +497,7 @@ adjust_cache_size(int force_check_limits)
     int check_limits = force_check_limits;
     Sint max_cached = ((Sint) segments.current.watermark
 		       - (Sint) segments.current.no);
-
+    ERTS_LC_ASSERT(erts_lc_mtx_is_locked(&mseg_mutex));
     while (((Sint) cache_size) > max_cached && ((Sint) cache_size) > 0) {
 	ASSERT(cache_end);
 	cd = cache_end;
@@ -520,9 +521,7 @@ adjust_cache_size(int force_check_limits)
 static void
 check_cache(void *unused)
 {
-#ifdef ERTS_SMP
     erts_mtx_lock(&mseg_mutex);
-#endif
 
     is_cache_check_scheduled = 0;
 
@@ -535,10 +534,7 @@ check_cache(void *unused)
 
     INC_CC(check_cache);
 
-#ifdef ERTS_SMP
     erts_mtx_unlock(&mseg_mutex);
-#endif
-
 }
 
 static void
