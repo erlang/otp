@@ -748,8 +748,7 @@ initialized_regs([{bs_context_to_binary,Src}|Is], Regs) ->
 initialized_regs([{label,_},{func_info,_,_,Arity}|_], Regs) ->
     InitRegs = free_vars_regs(Arity),
     add_init_regs(InitRegs, Regs);
-initialized_regs([_|_], Regs) -> Regs;
-initialized_regs([], Regs) -> Regs.
+initialized_regs([_|_], Regs) -> Regs.
 
 add_init_regs([{x,_}=X|T], Regs) ->
     add_init_regs(T, ordsets:add_element(X, Regs));
