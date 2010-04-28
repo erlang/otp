@@ -631,10 +631,10 @@ fetch_reg(V, [{I,V}|_]) -> {x,I};
 fetch_reg(V, [_|SRs]) -> fetch_reg(V, SRs).
 
 live_regs(Regs) ->
-    foldl(fun ({I,_}, _) -> I;
-	      ([], Max) -> Max end,
-	  -1, Regs)+1.
-    
+    foldl(fun ({I,_}, _) ->
+		  I
+	  end, -1, Regs)+1.
+
     
 %%%
 %%% Convert a block to Static Single Assignment (SSA) form.
