@@ -61,6 +61,8 @@ static Export binary_longest_suffix_trap_export;
 static BIF_RETTYPE binary_longest_suffix_trap(BIF_ALIST_3);
 static Export binary_bin_to_list_trap_export;
 static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3);
+static Export binary_copy_trap_export;
+static BIF_RETTYPE binary_copy_trap(BIF_ALIST_2);
 static Uint max_loop_limit;
 
 
@@ -105,6 +107,13 @@ void erts_init_bif_binary(void)
     binary_bin_to_list_trap_export.code[2] = 3;
     binary_bin_to_list_trap_export.code[3] = (BeamInstr) em_apply_bif;
     binary_bin_to_list_trap_export.code[4] = (BeamInstr) &binary_bin_to_list_trap;
+    sys_memset((void *) &binary_copy_trap_export, 0, sizeof(Export));
+    binary_copy_trap_export.address = &binary_copy_trap_export.code[3];
+    binary_copy_trap_export.code[0] = am_erlang;
+    binary_copy_trap_export.code[1] = am_binary_copy_trap;
+    binary_copy_trap_export.code[2] = 2;
+    binary_copy_trap_export.code[3] = (BeamInstr) em_apply_bif;
+    binary_copy_trap_export.code[4] = (BeamInstr) &binary_copy_trap;
 
     max_loop_limit = 0;
     return;
@@ -121,6 +130,7 @@ Sint erts_binary_set_loop_limit(Sint limit)
     } else {
 	max_loop_limit = (Uint) limit;
     }
+
     return save;
 }
 
@@ -130,6 +140,9 @@ static Uint get_reds(Process *p, int loop_factor)
     Uint tmp = max_loop_limit;
     if (tmp != 0 && tmp < reds) {
 	return tmp;
+    }
+    if (!reds) {
+	reds = 1;
     }
     return reds;
 }
@@ -2159,6 +2172,250 @@ BIF_RETTYPE binary_bin_to_list_1(BIF_ALIST_1)
     return do_trap_bin_to_list(BIF_P,BIF_ARG_1,pos,len,res);
  badarg:
     BIF_ERROR(BIF_P,BADARG);
+}
+
+/*
+ * Ok, erlang:list_to_binary does not interrupt, and we really don't want
+ * an alternative implementation for the exact same thing, why we
+ * have descided to use the old non-restarting implementation for now.
+ * In reality, there is seldom many iterations involved in doing this, so the
+ * problem of long-running-bif's is not really that big in this case.
+ * So, for now we use the old implementation also in the module binary.
+ */
+
+BIF_RETTYPE binary_list_to_bin_1(BIF_ALIST_1)
+{
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
+}
+
+typedef struct {
+    Uint times_left;
+    Uint source_size;
+    int source_type;
+    byte *source;
+    byte *temp_alloc;
+    Uint result_pos;
+    Binary *result;
+} CopyBinState;
+
+#define BC_TYPE_EMPTY 0
+#define BC_TYPE_HEAP 1
+#define BC_TYPE_ALIGNED 2 /* May or may not point to (emasculated) binary, temp_alloc field is set
+			     so that erts_free_aligned_binary_bytes_extra can handle either */
+
+
+#define BINARY_COPY_LOOP_FACTOR 100
+
+static void cleanup_copy_bin_state(Binary *bp)
+{
+    CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(bp);
+    if (cbs->result != NULL) {
+	erts_bin_free(cbs->result);
+	cbs->result = NULL;
+    }
+    switch (cbs->source_type) {
+    case BC_TYPE_HEAP:
+	erts_free(ERTS_ALC_T_BINARY_BUFFER,cbs->source);
+	break;
+    case BC_TYPE_ALIGNED:
+	erts_free_aligned_binary_bytes_extra(cbs->temp_alloc,
+					     ERTS_ALC_T_BINARY_BUFFER);
+	break;
+    default:
+	/* otherwise do nothing */
+	break;
+    }
+    cbs->source_type =  BC_TYPE_EMPTY;
+}
+
+/*
+ * Binary *erts_bin_nrml_alloc(Uint size);
+ * Binary *erts_bin_realloc(Binary *bp, Uint size);
+ * void erts_bin_free(Binary *bp);
+ */
+static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
+{
+    Uint n;
+    byte *bytes;
+    Uint bit_offs;
+    Uint bit_size;
+    size_t size;
+    Uint reds = get_reds(p, BINARY_COPY_LOOP_FACTOR);
+    Uint target_size;
+    byte *t;
+    Uint pos;
+
+
+    if (is_not_binary(bin)) {
+	goto badarg;
+    }
+    if (!term_to_Uint(en, &n)) {
+	goto badarg;
+    }
+    if (!n) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
+    if (bit_size != 0) {
+	goto badarg;
+    }
+
+    size = binary_size(bin);
+    target_size = size * n;
+
+    if ((target_size - size) >= reds) {
+	Eterm orig;
+	Uint offset;
+	Uint bit_offset;
+	Uint bit_size;
+	CopyBinState *cbs;
+	Eterm *hp;
+	Eterm trap_term;
+	int i;
+
+	/* We will trap, set up the structure for trapping right away */
+	Binary *mb = erts_create_magic_binary(sizeof(CopyBinState),
+					      cleanup_copy_bin_state);
+	cbs = ERTS_MAGIC_BIN_DATA(mb);
+
+	cbs->temp_alloc = NULL;
+	cbs->source = NULL;
+
+	ERTS_GET_REAL_BIN(bin, orig, offset, bit_offset, bit_size);
+	if (*(binary_val(orig)) == HEADER_PROC_BIN) {
+	    ProcBin* pb = (ProcBin *) binary_val(orig);
+	    if (pb->flags) {
+		erts_emasculate_writable_binary(pb);
+	    }
+	    cbs->source =
+		erts_get_aligned_binary_bytes_extra(bin,
+						    &(cbs->temp_alloc),
+						    ERTS_ALC_T_BINARY_BUFFER,
+						    0);
+	    cbs->source_type = BC_TYPE_ALIGNED;
+	} else { /* Heap binary */
+	    cbs->source =
+		erts_get_aligned_binary_bytes_extra(bin,
+						    &(cbs->temp_alloc),
+						    ERTS_ALC_T_BINARY_BUFFER,
+						    0);
+	    if (!(cbs->temp_alloc)) { /* alignment not needed, need to copy */
+		byte *tmp = erts_alloc(ERTS_ALC_T_BINARY_BUFFER,size);
+		memcpy(tmp,cbs->source,size);
+		cbs->source = tmp;
+		cbs->source_type = BC_TYPE_HEAP;
+	    } else {
+		cbs->source_type = BC_TYPE_ALIGNED;
+	    }
+	}
+	cbs->result = erts_bin_nrml_alloc(target_size); /* Always offheap
+							   if trapping */
+	cbs->result->flags = 0;
+	cbs->result->orig_size = target_size;
+	erts_refc_init(&(cbs->result->refc), 1);
+	t = (byte *) cbs->result->orig_bytes; /* No offset or anything */
+	pos = 0;
+	i = 0;
+	while (pos < reds) {
+	    memcpy(t+pos,cbs->source, size);
+	    pos += size;
+	    ++i;
+	}
+	cbs->source_size = size;
+	cbs->result_pos = pos;
+	cbs->times_left = n-i;
+	hp = HAlloc(p,PROC_BIN_SIZE);
+	trap_term = erts_mk_magic_binary_term(&hp, &MSO(p), mb);
+	BUMP_ALL_REDS(p);
+	BIF_TRAP2(&binary_copy_trap_export, p, bin, trap_term);
+    } else {
+	Eterm res_term;
+	byte *temp_alloc = NULL;
+	byte *source =
+	    erts_get_aligned_binary_bytes(bin,
+					  &temp_alloc);
+	if (target_size <= ERL_ONHEAP_BIN_LIMIT) {
+	    res_term = erts_new_heap_binary(p,NULL,target_size,&t);
+	} else {
+	    res_term = erts_new_mso_binary(p,NULL,target_size);
+	    t = ((ProcBin *) binary_val(res_term))->bytes;
+	}
+	pos = 0;
+	while (pos < target_size) {
+	    memcpy(t+pos,source, size);
+	    pos += size;
+	}
+	erts_free_aligned_binary_bytes(temp_alloc);
+	BUMP_REDS(p,pos / BINARY_COPY_LOOP_FACTOR);
+	BIF_RET(res_term);
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
+{
+    Uint n;
+    size_t size;
+    Uint reds = get_reds(BIF_P, BINARY_COPY_LOOP_FACTOR);
+    byte *t;
+    Uint pos;
+    Binary *mb = ((ProcBin *) binary_val(BIF_ARG_2))->val;
+    CopyBinState *cbs = (CopyBinState *) ERTS_MAGIC_BIN_DATA(mb);
+    Uint opos;
+
+    /* swapout... */
+    n = cbs->times_left;
+    size = cbs->source_size;
+    opos = pos = cbs->result_pos;
+    t = (byte *) cbs->result->orig_bytes; /* "well behaved" binary */
+    if ((n-1) * size >= reds) {
+	Uint i = 0;
+	while ((pos - opos) < reds) {
+	    memcpy(t+pos,cbs->source, size);
+	    pos += size;
+	    ++i;
+	}
+	cbs->result_pos = pos;
+	cbs->times_left -= i;
+	BUMP_ALL_REDS(BIF_P);
+	BIF_TRAP2(&binary_copy_trap_export, BIF_P, BIF_ARG_1, BIF_ARG_2);
+    } else {
+	Binary *save;
+	ProcBin* pb;
+	Uint target_size = cbs->result->orig_size;
+	while (pos < target_size) {
+	    memcpy(t+pos,cbs->source, size);
+	    pos += size;
+	}
+	save =  cbs->result;
+	cbs->result = NULL;
+	cleanup_copy_bin_state(mb); /* now cbs is dead */
+	pb = (ProcBin *) HAlloc(BIF_P, PROC_BIN_SIZE);
+	pb->thing_word = HEADER_PROC_BIN;
+	pb->size = target_size;
+	pb->next = MSO(BIF_P).mso;
+	MSO(BIF_P).mso = pb;
+	pb->val = save;
+	pb->bytes = t;
+	pb->flags = 0;
+
+	MSO(BIF_P).overhead += target_size / sizeof(Eterm);
+	BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
+
+	BIF_RET(make_binary(pb));
+    }
+}
+
+
+BIF_RETTYPE binary_copy_1(BIF_ALIST_1)
+{
+    return do_binary_copy(BIF_P,BIF_ARG_1,make_small(1));
+}
+
+BIF_RETTYPE binary_copy_2(BIF_ALIST_2)
+{
+    return do_binary_copy(BIF_P,BIF_ARG_1,BIF_ARG_2);
 }
 
 /*

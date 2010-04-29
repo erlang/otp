@@ -4,7 +4,8 @@
 	 split/2,split/3,replace/3,replace/4,first/1,last/1,at/2,
 	 part/2,part/3,copy/1,copy/2,encode_unsigned/1,encode_unsigned/2,
 	 decode_unsigned/1,decode_unsigned/2,referenced_byte_size/1,
-	 longest_common_prefix/1,longest_common_suffix/1,bin_to_list/1, bin_to_list/2, bin_to_list/3 ]).
+	 longest_common_prefix/1,longest_common_suffix/1,bin_to_list/1,
+	 bin_to_list/2,bin_to_list/3,list_to_bin/1]).
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -347,6 +348,16 @@ bin_to_list(Subject,T) ->
 bin_to_list(Subject,A,B) ->
     try
 	bin_to_list(Subject,{A,B})
+    catch
+	_:_ ->
+	    erlang:error(badarg)
+    end.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% list_to_bin
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+list_to_bin(List) ->
+    try
+	erlang:list_to_binary(List)
     catch
 	_:_ ->
 	    erlang:error(badarg)

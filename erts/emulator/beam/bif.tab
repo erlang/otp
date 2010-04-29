@@ -775,9 +775,9 @@ bif binary:part/3
 bif binary:bin_to_list/1
 bif binary:bin_to_list/2
 bif binary:bin_to_list/3
-#  bif binary:list_to_bin/1
-#  bif binary:copy/1
-#  bif binary:copy/2
+bif binary:list_to_bin/1
+bif binary:copy/1
+bif binary:copy/2
 #  bif binary:referenced_byte_size/1
 #  bif binary:decode_unsigned/1
 #  bif binary:decode_unsigned/2

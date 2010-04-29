@@ -29,9 +29,9 @@
 %%  binary:at/2
 %%  binary:part/{2,3}
 %%  binary:bin_to_list/{1,2,3}
-%% - Not yet:
 %%  binary:list_to_bin/1
 %%  binary:copy/{1,2}
+%% - Not yet:
 %%  binary:referenced_byte_size/1
 %%  binary:decode_unsigned/{1,2}
 %%

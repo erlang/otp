@@ -21,6 +21,7 @@
 #define __ERL_BINARY_H
 
 #include "erl_threads.h"
+#include "bif.h"
 
 /*
  * Maximum number of bytes to place in a heap binary.
@@ -151,6 +152,12 @@ do {									\
 void erts_init_binary(void);
 
 byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, ErtsAlcType_t, unsigned extra);
+
+/*
+ * Common implementation for erlang:list_to_binary/1 and binary:list_to_bin/1
+ */
+
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg);
 
 #if defined(__i386__) || !defined(__GNUC__)
 /*

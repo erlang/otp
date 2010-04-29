@@ -1,7 +1,9 @@
 -module(binary_module_SUITE).
 
 -export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
-	 random_ref_fla_comp/1,parts/1, bin_to_list/1]).
+	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1, copy/1]).
+
+-export([random_copy/1]).
 
 -define(STANDALONE,1).
 
@@ -26,7 +28,7 @@ run() ->
 -endif.
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
-	       random_ref_comp,parts,bin_to_list].
+	       random_ref_comp,parts,bin_to_list, list_to_bin, copy].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
@@ -290,6 +292,62 @@ do_interesting(Module) ->
     ?line [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
 
     ok.
+list_to_bin(doc) ->
+    ["Test list_to_bin/1 bif"];
+list_to_bin(Config) when is_list(Config) ->
+    %% Just some smoke_tests first, then go nuts with random cases
+    ?line badarg = ?MASK_ERROR(binary:list_to_bin({})),
+    ?line badarg = ?MASK_ERROR(binary:list_to_bin(apa)),
+    ?line badarg = ?MASK_ERROR(binary:list_to_bin(<<"apa">>)),
+    F1 = fun(L) ->
+		 ?MASK_ERROR(binref:list_to_bin(L))
+	 end,
+    F2 = fun(L) ->
+		 ?MASK_ERROR(binary:list_to_bin(L))
+	 end,
+    ?line random_iolist:run(1000,F1,F2),
+    ok.
+
+copy(doc) ->
+    ["Test copy/1,2 bif's"];
+copy(Config) when is_list(Config) ->
+    ?line <<1,2,3>> = binary:copy(<<1,2,3>>),
+    ?line RS = random_string({1,10000}),
+    ?line RS = RS2 = binary:copy(RS),
+    ?line false = erts_debug:same(RS,RS2),
+    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    ?line badarg = ?MASK_ERROR(binary:copy(<<>>,0)),
+    ?line <<>> = binary:copy(<<>>,10000),
+    ?line random:seed({1271,769940,559934}),
+    ?line ok = random_copy(3000),
+    ?line erts_debug:set_internal_state(available_internal_state,true),
+    ?line io:format("oldlimit: ~p~n",
+		    [erts_debug:set_internal_state(binary_loop_limit,10)]),
+    ?line ok = random_copy(1000),
+    ?line io:format("limit was: ~p~n",
+		    [erts_debug:set_internal_state(binary_loop_limit,
+						   default)]),
+    ?line erts_debug:set_internal_state(available_internal_state,false),
+    ok.
+
+random_copy(0) ->
+    ok;
+random_copy(N) ->
+    Str = random_string({0,N}),
+    Num = random:uniform(N div 10+1),
+    A = ?MASK_ERROR(binary:copy(Str,Num)),
+    B = ?MASK_ERROR(binref:copy(Str,Num)),
+    C = ?MASK_ERROR(binary:copy(make_unaligned(Str),Num)),
+    case {(A =:= B), (B =:= C)} of
+	{true,true} ->
+	    random_copy(N-1);
+	_ ->
+	    io:format("Failed to pick copy ~s ~p times~n",
+		      [Str,Num]),
+	    io:format("A:~p,~nB:~p,~n,C:~p.~n",
+		      [A,B,C]),
+	    exit(mismatch)
+    end.
 
 bin_to_list(doc) ->
     ["Test bin_to_list/1,2,3 bif's"];
@@ -426,7 +484,6 @@ random_ref_comp(Config) when is_list(Config) ->
     ?line do_random_matches_comp3(5,{1,40},{30,1000}),
     ?line io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
     ?line erts_debug:set_internal_state(available_internal_state,false),
-    ?line put(success_counter,0),
     ok.
 
 random_ref_sr_comp(doc) ->
