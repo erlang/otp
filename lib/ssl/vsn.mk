@@ -17,14 +17,16 @@
 # %CopyrightEnd%
 #
 
-SSL_VSN = 3.11
+SSL_VSN = 3.11.1
 
-TICKETS = OTP-8517 \
-	  OTP-7046 \
-          OTP-8557 \
-	  OTP-8560 \
-	  OTP-8545 \
-	  OTP-8554
+TICKETS = OTP-8588
+
+#TICKETS_3.11 = OTP-8517 \
+#	  OTP-7046 \
+#         OTP-8557 \
+#	  OTP-8560 \
+#	  OTP-8545 \
+#	  OTP-8554
 
 #TICKETS_3.10.9 = OTP-8510
 
