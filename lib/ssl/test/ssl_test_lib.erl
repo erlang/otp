@@ -394,6 +394,41 @@ run_upgrade_client(Opts) ->
 	    ok = rpc:call(Node, ssl, close, [SslSocket])
     end.
 
+start_upgrade_server_error(Args) ->
+    Result = spawn_link(?MODULE, run_upgrade_server_error, [Args]),
+    receive
+	{listen, up} ->
+	    Result
+    end.
+
+run_upgrade_server_error(Opts) ->
+    Node = proplists:get_value(node, Opts),
+    Port = proplists:get_value(port, Opts),
+    TimeOut = proplists:get_value(timeout, Opts, infinity),
+    TcpOptions = proplists:get_value(tcp_options, Opts),
+    SslOptions = proplists:get_value(ssl_options, Opts),
+    Pid = proplists:get_value(from, Opts),
+
+    test_server:format("gen_tcp:listen(~p, ~p)~n", [Port, TcpOptions]),
+    {ok, ListenSocket} = rpc:call(Node, gen_tcp, listen, [Port, TcpOptions]),
+    Pid ! {listen, up},
+    send_selected_port(Pid, Port, ListenSocket),
+    test_server:format("gen_tcp:accept(~p)~n", [ListenSocket]),
+    {ok, AcceptSocket} = rpc:call(Node, gen_tcp, accept, [ListenSocket]),
+    Error = case TimeOut of
+		infinity ->
+		    test_server:format("ssl:ssl_accept(~p, ~p)~n",
+				       [AcceptSocket, SslOptions]),
+		    rpc:call(Node, ssl, ssl_accept,
+			     [AcceptSocket, SslOptions]);
+		_ ->
+		    test_server:format("ssl:ssl_accept(~p, ~p, ~p)~n",
+				       [AcceptSocket, SslOptions, TimeOut]),
+		    rpc:call(Node, ssl, ssl_accept,
+			     [AcceptSocket, SslOptions, TimeOut])
+	    end,
+    Pid ! {self(), Error}.
+
 start_server_error(Args) ->
     Result = spawn_link(?MODULE, run_server_error, [Args]),
     receive 

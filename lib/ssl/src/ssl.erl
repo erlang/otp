@@ -147,7 +147,7 @@ transport_accept(ListenSocket) ->
     transport_accept(ListenSocket, infinity).
 
 transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}},
-                            fd = new_ssl} = SslSocket, Timeout) ->
+                            fd = new_ssl}, Timeout) ->
     
     %% The setopt could have been invoked on the listen socket
     %% and options should be inherited.
@@ -163,8 +163,7 @@ transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}
 			{SslOpts, socket_options(InetValues)}, self(), CbInfo],
 	    case ssl_connection_sup:start_child(ConnArgs) of
 		{ok, Pid} ->
-		    CbModule:controlling_process(Socket, Pid),
-		    {ok, SslSocket#sslsocket{pid = Pid}};
+		    ssl_connection:socket_control(Socket, Pid, CbModule);
 		{error, Reason} ->
 		    {error, Reason}
 	    end;
@@ -187,22 +186,9 @@ transport_accept(#sslsocket{} = ListenSocket, Timeout) ->
 ssl_accept(ListenSocket) ->
     ssl_accept(ListenSocket, infinity).
 
-ssl_accept(#sslsocket{pid = Pid, fd = new_ssl}, Timeout) ->
-    gen_fsm:send_event(Pid, socket_control),
-    try gen_fsm:sync_send_all_state_event(Pid, started, Timeout) of
-	connected ->
-            ok;
-	{error, _} = Error ->
-	    Error
-    catch
-        exit:{noproc, _} ->
-            {error, closed};
-	exit:{timeout, _} ->
-            {error, timeout};
-	exit:{normal, _} ->
-            {error, closed}
-    end;
-
+ssl_accept(#sslsocket{fd = new_ssl} = Socket, Timeout) ->
+    ssl_connection:handshake(Socket, Timeout);
+    
 ssl_accept(ListenSocket, SslOptions)  when is_port(ListenSocket) -> 
     ssl_accept(ListenSocket, SslOptions, infinity);
 
@@ -218,7 +204,7 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
     try handle_options(SslOptions ++ InetValues, server) of
 	{ok, #config{cb=CbInfo,ssl=SslOpts, emulated=EmOpts}} ->
 	    {ok, Port} = inet:port(Socket),
-	    ssl_connection:accept(Port, Socket,
+	    ssl_connection:ssl_accept(Port, Socket,
 				  {SslOpts, EmOpts},
 				  self(), CbInfo, Timeout)
     catch 
@@ -239,7 +225,7 @@ close(Socket = #sslsocket{}) ->
     ssl_broker:close(Socket).
 
 %%--------------------------------------------------------------------
-%% Function:  send(Socket, Data) -> ok
+%% Function:  send(Socket, Data) -> ok | {error, Reason}
 %% 
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------

@@ -581,6 +581,10 @@ end
         <p> Upgrades a gen_tcp, or
 	  equivalent, socket to a ssl socket e.i performs the
 	ssl server-side handshake.</p>
+	<p><note>Note that the listen socket should be in {active, false} mode
+	before telling the client that the server is ready to upgrade
+	and calling this function, otherwise the upgrade may
+	or may not succeed depending on timing.</note></p>
       </desc>
     </func>
     

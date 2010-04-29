@@ -152,6 +152,7 @@ all(doc) ->
 
 all(suite) -> 
     [app, connection_info, controlling_process, controller_dies, 
+     client_closes_socket,
      peercert, connect_dist,
      peername, sockname, socket_options, misc_ssl_options, versions, cipher_suites,
      upgrade, upgrade_with_timeout, tcp_connect,
@@ -322,6 +323,10 @@ controller_dies(Config) when is_list(Config) ->
     Connect = fun(Pid) ->
 		      {ok, Socket} = ssl:connect(Hostname, Port, 
 						  [{reuseaddr,true},{ssl_imp,new}]),
+		      %% Make sure server finishes and verification
+		      %% and is in coonection state before
+		      %% killing client
+		      test_server:sleep(?SLEEP),
 		      Pid ! {self(), connected, Socket},
 		      receive die_nice -> normal end
 	      end,
@@ -393,6 +398,36 @@ get_close(Pid, Where) ->
     end.  
 
 %%--------------------------------------------------------------------
+client_closes_socket(doc) -> 
+    ["Test what happens when client closes socket before handshake is compleated"];
+client_closes_socket(suite) -> [];
+client_closes_socket(Config) when is_list(Config) -> 
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    TcpOpts = [binary, {reuseaddr, true}],
+    
+    Server = ssl_test_lib:start_upgrade_server_error([{node, ServerNode}, {port, 0}, 
+						      {from, self()}, 
+						      {tcp_options, TcpOpts},
+						      {ssl_options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+
+    Connect = fun() ->
+		      {ok, _Socket} = rpc:call(ClientNode, gen_tcp, connect, 
+					      [Hostname, Port, TcpOpts]),	      
+		      %% Make sure that ssl_accept is called before 
+		      %% client process ends and closes socket.
+		      test_server:sleep(?SLEEP)
+	      end,
+    
+    _Client = spawn_link(Connect),
+
+    ssl_test_lib:check_result(Server, {error,closed}),
+    
+    ssl_test_lib:close(Server).
+
+%%--------------------------------------------------------------------
+
 peercert(doc) -> 
     [""];
 
@@ -796,11 +831,12 @@ upgrade(Config) when is_list(Config) ->
     TcpOpts = [binary, {reuseaddr, true}],
 
     Server = ssl_test_lib:start_upgrade_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()}, 
-				   {mfa, {?MODULE, 
-					  upgrade_result, []}},
-				   {tcp_options, TcpOpts},
-				   {ssl_options, ServerOpts}]),
+						{from, self()}, 
+						{mfa, {?MODULE, 
+						       upgrade_result, []}},
+						{tcp_options, 
+						 [{active, false} | TcpOpts]},
+						{ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client([{node, ClientNode}, 
 						{port, Port}, 
@@ -819,6 +855,7 @@ upgrade(Config) when is_list(Config) ->
     ssl_test_lib:close(Client).
 
 upgrade_result(Socket) ->
+    ssl:setopts(Socket, [{active, true}]),
     ok = ssl:send(Socket, "Hello world"),
     %% Make sure binary is inherited from tcp socket and that we do
     %% not get the list default!
@@ -845,7 +882,8 @@ upgrade_with_timeout(Config) when is_list(Config) ->
 						{timeout, 5000},
 						{mfa, {?MODULE, 
 						       upgrade_result, []}},
-						{tcp_options, TcpOpts},
+						{tcp_options, 
+						 [{active, false} | TcpOpts]},
 						{ssl_options, ServerOpts}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_upgrade_client([{node, ClientNode}, 
@@ -1884,7 +1922,6 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
     
     Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0},
 					      {from, self()},
-			   {mfa, {?MODULE, no_result, []}},
 			   {options, [{active, false} | ServerOpts]}]),
 
     Port  = ssl_test_lib:inet_port(Server),
@@ -1892,7 +1929,6 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port},
 					      {host, Hostname},
 					      {from, self()},
-					      {mfa, {?MODULE, no_result, []}},
 					      {options, [{active, false} | BadClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, esslaccept},

@@ -958,7 +958,7 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
 
     wait_for_openssl_server(),
     
-    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+    Client0 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 					{from, self()}, 
 					{mfa, {?MODULE, server_sent_garbage, []}},
@@ -970,11 +970,22 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     
     test_server:sleep(?SLEEP),
 
-    Client ! server_sent_garbage,
-
-    ssl_test_lib:check_result(Client, true),
-
-    ssl_test_lib:close(Client),
+    Client0 ! server_sent_garbage,
+    
+    ssl_test_lib:check_result(Client0, true),
+    
+    ssl_test_lib:close(Client0),
+    
+    %% Make sure openssl does not hang and leave zombie process
+    Client1 = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					 {host, Hostname},
+					 {from, self()}, 
+					 {mfa, {ssl_test_lib, no_result_msg, []}},
+					 {options, 
+					  [{versions, [tlsv1]} | ClientOpts]}]),
+    
+    ssl_test_lib:close(Client1),
+    
     %% Clean close down!
     close_port(OpensslPort),
     process_flag(trap_exit, false),
@@ -1055,6 +1066,7 @@ server_sent_garbage(Socket) ->
     receive 
 	server_sent_garbage ->
 	    {error, closed} == ssl:send(Socket, "data")
+	    
     end.
     
 wait_for_openssl_server() ->

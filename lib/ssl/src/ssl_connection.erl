@@ -39,7 +39,8 @@
 -include_lib("public_key/include/public_key.hrl"). 
 
 %% Internal application API
--export([send/2, send/3, recv/3, connect/7, accept/6, close/1, shutdown/2,
+-export([send/2, send/3, recv/3, connect/7, ssl_accept/6, handshake/2,
+	 socket_control/3, close/1, shutdown/2,
 	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
 	 peer_certificate/1, sockname/1, peername/1, renegotiation/1]).
 
@@ -101,41 +102,70 @@
 %%====================================================================	     
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: send(Pid, Data) ->  ok | {error, Reason} 
 %%
-%% Description: 
+%% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
     sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, infinity).
 send(Pid, Data, Timeout) -> 
     sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, Timeout).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function:  recv(Socket, Length Timeout) -> {ok, Data} | {error, reason}
 %%
-%% Description: 
+%% Description:  Receives data when active = false
 %%--------------------------------------------------------------------
 recv(Pid, Length, Timeout) -> 
     sync_send_all_state_event(Pid, {recv, Length}, Timeout).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: : connect(Host, Port, Socket, Options, 
+%%                     User, CbInfo, Timeout) -> {ok, Socket}
 %%
-%% Description: 
+%% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
 connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
     start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
 	      Timeout).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: accept(Port, Socket, Opts, User, 
+%%                  CbInfo, Timeout) -> {ok, Socket} | {error, Reason}
 %%
-%% Description: 
+%% Description: Performs accept on a ssl listen socket. e.i. performs
+%%              ssl handshake. 
 %%--------------------------------------------------------------------
-accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
+ssl_accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
     start_fsm(server, "localhost", Port, Socket, Opts, User, 
 	      CbInfo, Timeout).
+
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: handshake(SslSocket, Timeout) -> ok | {error, Reason}
 %%
-%% Description: 
+%% Description: Starts ssl handshake. 
+%%--------------------------------------------------------------------
+handshake(#sslsocket{pid = Pid}, Timeout) ->  
+    case sync_send_all_state_event(Pid, start, Timeout) of
+	connected ->
+	    ok;
+ 	Error ->
+	    Error
+    end.
+%--------------------------------------------------------------------
+%% Function: socket_control(Pid) -> {ok, SslSocket} | {error, Reason}
+%%
+%% Description: Set the ssl process to own the accept socket
+%%--------------------------------------------------------------------	    
+socket_control(Socket, Pid, CbModule) ->
+    case CbModule:controlling_process(Socket, Pid) of
+	ok ->
+	    {ok, sslsocket(Pid)};
+	{error, Reason}	->
+	    {error, Reason}
+    end.
+
+%%--------------------------------------------------------------------
+%% Function:  close() -> ok 
+%%
+%% Description:  Close a ssl connection
 %%--------------------------------------------------------------------
 close(ConnectionPid) ->
     case sync_send_all_state_event(ConnectionPid, close) of
@@ -146,80 +176,81 @@ close(ConnectionPid) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function:  shutdown(Socket, How) -> ok | {error, Reason}
 %%
-%% Description: 
+%% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
 shutdown(ConnectionPid, How) ->
     sync_send_all_state_event(ConnectionPid, {shutdown, How}).
 
-
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: new_user(ConnectionPid, User) -> ok | {error, Reason}
 %%
-%% Description: 
+%% Description:  Changes process that receives the messages when active = true
+%% or once. 
 %%--------------------------------------------------------------------
 new_user(ConnectionPid, User) ->
     sync_send_all_state_event(ConnectionPid, {new_user, User}).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: sockname(ConnectionPid) -> {ok, {Address, Port}} | {error, Reason}
 %%
-%% Description: 
+%% Description:  Same as inet:sockname/1
 %%--------------------------------------------------------------------
 sockname(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, sockname).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: peername(ConnectionPid) -> {ok, {Address, Port}} | {error, Reason}
 %%
-%% Description: 
+%% Description:  Same as inet:peername/1
 %%--------------------------------------------------------------------
 peername(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, peername).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: get_opts(ConnectionPid, OptTags) -> {ok, Options} | {error, Reason}
 %%
-%% Description: 
+%% Description: Same as inet:getopts/2
 %%--------------------------------------------------------------------
 get_opts({ListenSocket, {_SslOpts, SockOpts}, _}, OptTags) ->
     get_socket_opts(ListenSocket, OptTags, SockOpts, []);
 get_opts(ConnectionPid, OptTags) ->
     sync_send_all_state_event(ConnectionPid, {get_opts, OptTags}).
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function:  setopts(Socket, Options) -> ok | {error, Reason}
 %%
-%% Description: 
+%% Description:  Same as inet:setopts/2
 %%--------------------------------------------------------------------
 set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: info(ConnectionPid) ->  {ok, {Protocol, CipherSuite}} | 
+%%                                      {error, Reason}
 %%
-%% Description: 
+%% Description:  Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
 info(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, info). 
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: session_info(ConnectionPid) -> {ok, PropList} | {error, Reason} 
 %%
-%% Description: 
+%% Description:  Returns info about the ssl session
 %%--------------------------------------------------------------------
 session_info(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, session_info). 
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function:  peercert(ConnectionPid) -> {ok, Cert} | {error, Reason}
 %%
-%% Description: 
+%% Description: Returns the peer cert
 %%--------------------------------------------------------------------
 peer_certificate(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, peer_certificate). 
 
 %%--------------------------------------------------------------------
-%% Function: 
+%% Function: renegotiation(ConnectionPid) -> ok | {error, Reason}
 %%
-%% Description: 
+%% Description: Starts a renegotiation of the ssl session.
 %%--------------------------------------------------------------------
 renegotiation(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, renegotiate). 
@@ -269,7 +300,7 @@ init([Role, Host, Port, Socket, {SSLOpts, _} = Options,
 	throw:Error ->
 	    {stop, Error}
     end.
-  
+   
 %%--------------------------------------------------------------------
 %% Function: 
 %% state_name(Event, State) -> {next_state, NextStateName, NextState}|
@@ -282,8 +313,9 @@ init([Role, Host, Port, Socket, {SSLOpts, _} = Options,
 %% using gen_fsm:send_event/2, the instance of this function with the
 %% same name as the current state name StateName is called to handle
 %% the event. It is also called if a timeout occurs.
+%%
 %%--------------------------------------------------------------------
-hello(socket_control, #state{host = Host, port = Port, role = client,
+hello(start, #state{host = Host, port = Port, role = client,
 			     ssl_options = SslOpts, 
 			     transport_cb = Transport, socket = Socket,
 			     connection_states = ConnectionStates}
@@ -295,19 +327,22 @@ hello(socket_control, #state{host = Host, port = Port, role = client,
     {BinMsg, CS2, Hashes1} = 
         encode_handshake(Hello, Version, ConnectionStates, Hashes0),
     Transport:send(Socket, BinMsg),
-    State = State0#state{connection_states = CS2,
+    State1 = State0#state{connection_states = CS2,
 			 negotiated_version = Version, %% Requested version
 			 session = 
                          #session{session_id = Hello#client_hello.session_id,
                                   is_resumable = false},
                          tls_handshake_hashes = Hashes1},
-    {next_state, hello, next_record(State)};
+    {Record, State} = next_record(State1),
+    next_state(hello, Record, State);
     
-hello(socket_control, #state{role = server} = State) ->
-    {next_state, hello, next_record(State)};
+hello(start, #state{role = server} = State0) ->
+    {Record, State} = next_record(State0),
+    next_state(hello, Record, State);
 
-hello(#hello_request{}, #state{role = client} = State) ->
-    {next_state, hello, State};
+hello(#hello_request{}, #state{role = client} = State0) ->
+    {Record, State} = next_record(State0),
+    next_state(hello, Record, State);
 
 hello(#server_hello{cipher_suite = CipherSuite,
 		    compression_method = Compression} = Hello,
@@ -327,7 +362,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
     
     PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
     
-    State = State0#state{key_algorithm = KeyAlgorithm,
+    State1 = State0#state{key_algorithm = KeyAlgorithm,
 			 negotiated_version = Version,
 			 connection_states = ConnectionStates1,
 			 premaster_secret = PremasterSecret},
@@ -337,20 +372,21 @@ hello(#server_hello{cipher_suite = CipherSuite,
 	    Session = Session0#session{session_id = NewId,
 				       cipher_suite = CipherSuite,
 				       compression_method = Compression}, 
-            {next_state, certify, 
-             next_record(State#state{session = Session})};
+	    {Record, State} = next_record(State1#state{session = Session}),
+	    next_state(certify, Record, State);
         false ->
 	    Session = CacheCb:lookup(Cache, {{Host, Port}, NewId}),
 	    case ssl_handshake:master_secret(Version, Session, 
 					     ConnectionStates1, client) of
 		{_, ConnectionStates2} ->	
-		    {next_state, abbreviated,
-		     next_record(State#state{
-				   connection_states = ConnectionStates2,
-				   session = Session})};
+		    {Record, State} = 
+			next_record(State1#state{
+				      connection_states = ConnectionStates2,
+				      session = Session}),
+		    next_state(abbreviated, Record, State);
 		#alert{} = Alert ->
-		    handle_own_alert(Alert, Version, hello, State), 
-		    {stop, normal, State}
+		    handle_own_alert(Alert, Version, hello, State1), 
+		    {stop, normal, State1}
 	    end
     end;
 
@@ -372,50 +408,53 @@ hello(Hello = #client_hello{client_version = ClientVersion},
         #alert{} = Alert ->
             handle_own_alert(Alert, ClientVersion, hello, State), 
             {stop, normal, State}
-    end.
+    end;
 
-abbreviated(socket_control, #state{role = server} = State) ->
-    {next_state, abbreviated, State};
-abbreviated(#hello_request{}, State) ->
-    {next_state, certify, State};
+hello(Msg, State) ->
+    handle_unexpected_message(Msg, hello, State).
+
+abbreviated(#hello_request{}, State0) ->
+    {Record, State} = next_record(State0),
+    next_state(hello, Record, State);
 
 abbreviated(Finished = #finished{},
 	    #state{role = server,
 		   negotiated_version = Version,
 		   tls_handshake_hashes = Hashes,
 		   session = #session{master_secret = MasterSecret}} = 
-	    State0) ->
+	    State) ->
     case ssl_handshake:verify_connection(Version, Finished, client,
 					 MasterSecret, Hashes) of
-        verified ->
-	    State = ack_connection(State0),
-	    next_state_connection(State);
+        verified ->  
+	    next_state_connection(abbreviated, ack_connection(State));
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State0),
-            {stop, normal, State0} 
+	    handle_own_alert(Alert, Version, abbreviated, State),
+            {stop, normal, State} 
     end;
 
 abbreviated(Finished = #finished{},
 	    #state{role = client, tls_handshake_hashes = Hashes0,
 		   session = #session{master_secret = MasterSecret},
-		   negotiated_version = Version} = State0) ->
+		   negotiated_version = Version} = State) ->
     case ssl_handshake:verify_connection(Version, Finished, server,
 					 MasterSecret, Hashes0) of
         verified ->
-	    {ConnectionStates, Hashes} = finalize_client_handshake(State0),
-	    State = ack_connection(State0),
-	    next_state_connection(State#state{tls_handshake_hashes = Hashes,
-					      connection_states = 
-					      ConnectionStates});
+	    {ConnectionStates, Hashes} = finalize_client_handshake(State),
+	    next_state_connection(abbreviated, 
+				  ack_connection(State#state{tls_handshake_hashes = Hashes,
+							     connection_states = 
+							     ConnectionStates}));
         #alert{} = Alert ->
-	    handle_own_alert(Alert, Version, abbreviated, State0),
-            {stop, normal, State0} 
-    end.
+	    handle_own_alert(Alert, Version, abbreviated, State),
+            {stop, normal, State} 
+    end;
 
-certify(socket_control, #state{role = server} = State) ->
-    {next_state, certify, State};
-certify(#hello_request{}, State) ->
-    {next_state, certify, State};
+abbreviated(Msg, State) ->
+    handle_unexpected_message(Msg, abbreviated, State).
+
+certify(#hello_request{}, State0) ->
+    {Record, State} = next_record(State0),
+    next_state(hello, Record, State);
 
 certify(#certificate{asn1_certificates = []}, 
 	#state{role = server, negotiated_version = Version,
@@ -430,9 +469,9 @@ certify(#certificate{asn1_certificates = []},
 	#state{role = server,
 	       ssl_options = #ssl_options{verify = verify_peer,
 					  fail_if_no_peer_cert = false}} = 
-	State) ->
-    {next_state, certify, 
-     next_record(State#state{client_certificate_requested = false})};
+	State0) ->
+    {Record, State} = next_record(State0#state{client_certificate_requested = false}),
+    next_state(certify, Record, State);
 
 certify(#certificate{} = Cert, 
         #state{negotiated_version = Version,
@@ -456,8 +495,9 @@ certify(#server_key_exchange{} = KeyExchangeMsg,
 	       key_algorithm = Alg} = State0) 
   when Alg == dhe_dss; Alg == dhe_rsa ->%%Not imp:Alg == dh_anon;Alg == krb5 ->
     case handle_server_key(KeyExchangeMsg, State0) of
-	#state{} = State ->
-	    {next_state, certify, next_record(State)};
+	#state{} = State1 ->
+	    {Record, State} = next_record(State1),
+	    next_state(certify, Record, State);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, certify_server_keyexchange, 
 			     State0),
@@ -472,10 +512,9 @@ certify(#server_key_exchange{},
     handle_own_alert(Alert, Version, certify_server_key_exchange, State),
     {stop, normal, State};
 
-certify(#certificate_request{}, State) ->
-    NewState = State#state{client_certificate_requested = true},
-    {next_state, certify, next_record(NewState)};
-
+certify(#certificate_request{}, State0) ->
+    {Record, State} = next_record(State0#state{client_certificate_requested = true}),
+    next_state(certify, Record, State);
 
 %% Master secret was determined with help of server-key exchange msg
 certify(#server_hello_done{},
@@ -540,9 +579,10 @@ certify(#client_key_exchange{exchange_keys
 					     ConnectionStates0, server) of
 		{MasterSecret, ConnectionStates} ->
 		    Session = Session0#session{master_secret = MasterSecret},
-		    State = State0#state{connection_states = ConnectionStates,
+		    State1 = State0#state{connection_states = ConnectionStates,
 					 session = Session},
-		    {next_state, cipher, next_record(State)};
+		    {Record, State} = next_record(State1),
+		    next_state(cipher, Record, State);
 		#alert{} = Alert ->
 		    handle_own_alert(Alert, Version, 
 				     certify_client_key_exchange, State0),
@@ -574,21 +614,25 @@ certify(#client_key_exchange{exchange_keys = #client_diffie_hellman_public{
     case ssl_handshake:master_secret(Version, PremasterSecret,
 				     ConnectionStates0, Role) of
 	{MasterSecret, ConnectionStates} ->
-	    State = State0#state{session = 
+	    State1 = State0#state{session = 
 				 Session#session{master_secret 
 						 = MasterSecret},
 				connection_states = ConnectionStates},
-	    {next_state, cipher, next_record(State)};
+
+	    {Record, State} = next_record(State1),
+	    next_state(cipher, Record, State);
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, Version, 
 			     certify_client_key_exchange, State0),
 	    {stop, normal, State0} 
-    end.
+    end;
 
-cipher(socket_control, #state{role = server} = State) ->
-    {next_state, cipher, State};
-cipher(#hello_request{}, State) ->
-    {next_state, cipher, State};
+certify(Msg, State) ->
+    handle_unexpected_message(Msg, certify, State).
+
+cipher(#hello_request{}, State0) ->
+    {Record, State} = next_record(State0),
+    next_state(hello, Record, State);
 
 cipher(#certificate_verify{signature = Signature}, 
        #state{role = server, 
@@ -597,15 +641,16 @@ cipher(#certificate_verify{signature = Signature},
 	      session = #session{master_secret = MasterSecret},
 	      key_algorithm = Algorithm,
 	      tls_handshake_hashes = Hashes
-	     } = State) -> 
+	     } = State0) -> 
     case ssl_handshake:certificate_verify(Signature, PublicKeyInfo,
 					  Version, MasterSecret, 
 					  Algorithm, Hashes) of
 	valid ->
-	    {next_state, cipher, next_record(State)};
+	    {Record, State} = next_record(State0),
+	    next_state(cipher, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State), 
-	    {stop, normal, State}
+	    handle_own_alert(Alert, Version, cipher, State0), 
+	    {stop, normal, State0}
     end;
 
 cipher(#finished{} = Finished, 
@@ -615,53 +660,57 @@ cipher(#finished{} = Finished,
 	      role = Role,
 	      session = #session{master_secret = MasterSecret} 
 	      = Session0,
-	      tls_handshake_hashes = Hashes} = State0) ->    
+	      tls_handshake_hashes = Hashes} = State) ->    
     
     case ssl_handshake:verify_connection(Version, Finished, 
 					 opposite_role(Role), 
                                          MasterSecret, Hashes) of
         verified ->
-	    State = ack_connection(State0),
 	    Session = register_session(Role, Host, Port, Session0),
             case Role of
                 client ->
-                    next_state_connection(State#state{session = Session});
+                    next_state_connection(cipher, ack_connection(State#state{session = Session}));
                 server ->
                     {NewConnectionStates, NewHashes} = 
                         finalize_server_handshake(State#state{
 						    session = Session}),
-                    next_state_connection(State#state{connection_states = 
-						      NewConnectionStates,
-						      session = Session,
-						      tls_handshake_hashes =
-						      NewHashes})
+                    next_state_connection(cipher, ack_connection(State#state{connection_states = 
+									     NewConnectionStates,
+									     session = Session,
+									     tls_handshake_hashes =
+									     NewHashes}))
             end;
         #alert{} = Alert ->
-	    handle_own_alert(Alert, Version, cipher, State0),
-            {stop, normal, State0} 
-    end.
+	    handle_own_alert(Alert, Version, cipher, State),
+            {stop, normal, State} 
+    end;
 
-connection(socket_control, #state{role = server} = State) ->
-    {next_state, connection, State};
-connection(#hello_request{}, State = #state{host = Host, port = Port,
-                                 socket = Socket,
-				 ssl_options = SslOpts,
-                                 negotiated_version = Version,
-                                 transport_cb = Transport,
-                                 connection_states = ConnectionStates0,
-                                 tls_handshake_hashes = Hashes0}) ->
+cipher(Msg, State) ->
+    handle_unexpected_message(Msg, cipher, State).
 
+
+connection(#hello_request{}, #state{host = Host, port = Port,
+				    socket = Socket,
+				    ssl_options = SslOpts,
+				    negotiated_version = Version,
+				    transport_cb = Transport,
+				    connection_states = ConnectionStates0,
+				    tls_handshake_hashes = Hashes0} = State0) ->
+    
     Hello = ssl_handshake:client_hello(Host, Port, 
 				       ConnectionStates0, SslOpts),
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Hello, Version, ConnectionStates0, Hashes0),
     Transport:send(Socket, BinMsg),
-    {next_state, hello, next_record(State#state{connection_states = 
-						ConnectionStates1,
-						tls_handshake_hashes = Hashes1})};
+    {Record, State} = next_record(State0#state{connection_states =  
+					       ConnectionStates1,
+					       tls_handshake_hashes = Hashes1}),
+    next_state(hello, Record, State);
 connection(#client_hello{} = Hello, #state{role = server} = State) ->
-    hello(Hello, State).
+    hello(Hello, State);
 
+connection(Msg, State) ->
+    handle_unexpected_message(Msg, connection, State).
 %%--------------------------------------------------------------------
 %% Function: 
 %% handle_event(Event, StateName, State) -> {next_state, NextStateName, 
@@ -673,110 +722,8 @@ connection(#client_hello{} = Hello, #state{role = server} = State) ->
 %% gen_fsm:send_all_state_event/2, this function is called to handle
 %% the event.
 %%--------------------------------------------------------------------
-handle_event(#ssl_tls{type = ?HANDSHAKE, fragment = Data},
-	     StateName,
-	     State0 = #state{key_algorithm = KeyAlg,
-			     tls_handshake_buffer = Buf0,
-			     negotiated_version = Version}) ->
-    Handle = 
-	fun({#hello_request{} = Packet, _}, {next_state, connection = SName, State}) ->
-		%% This message should not be included in handshake
-		%% message hashes. Starts new handshake (renegotiation)
-		Hs0 = ssl_handshake:init_hashes(),
-		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs0,
-						  renegotiation = {true, peer}});
-	   ({#hello_request{} = Packet, _}, {next_state, SName, State}) ->
-		%% This message should not be included in handshake
-		%% message hashes. Already in negotiation so it will be ignored!
-		?MODULE:SName(Packet, State);
-	    ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, State}) ->
-		Hs0 = ssl_handshake:init_hashes(),
-		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1,
-						  renegotiation = {true, peer}});
-	    ({Packet, Raw}, {next_state, SName, State = #state{tls_handshake_hashes=Hs0}}) ->	
-		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
-		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1});
-	   (_, StopState) -> StopState
-	end,
-    try
-	{Packets, Buf} = ssl_handshake:get_tls_handshake(Data,Buf0, KeyAlg,Version),
-	Start = {next_state, StateName, State0#state{tls_handshake_buffer = Buf}},
-	lists:foldl(Handle, Start, Packets)
-    catch throw:#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State0), 
-	    {stop, normal, State0}
-    end;
-
-handle_event(#ssl_tls{type = ?APPLICATION_DATA, fragment = Data},
-             StateName, State0) ->
-    case application_data(Data, State0) of
-	Stop = {stop,_,_} ->
-	    Stop;
-	State ->
-	    {next_state, StateName, State}
-    end;
-
-handle_event(#ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 
-	     _ChangeCipher,
-             StateName, 
-	     State = #state{connection_states = ConnectionStates0}) ->
-    ?DBG_TERM(_ChangeCipher),
-    ConnectionStates1 =
-        ssl_record:activate_pending_connection_state(ConnectionStates0, read),
-    {next_state, StateName, 
-     next_record(State#state{connection_states = ConnectionStates1})};
-
-handle_event(#ssl_tls{type = ?ALERT, fragment = Data}, StateName, State) ->
-    Alerts = decode_alerts(Data),
-    ?DBG_TERM(Alerts),
-    [alert_event(A) || A <- Alerts],
-    {next_state, StateName, State};
-
-handle_event(#alert{level = ?FATAL} = Alert, connection, 
-	     #state{from = From, user_application = {_Mon, Pid}, 
-		    log_alert = Log,
-		    host = Host, port = Port, session = Session,
-		    role = Role, socket_options = Opts} = State) ->
-    invalidate_session(Role, Host, Port, Session),
-    log_alert(Log, connection, Alert),
-    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
-    {stop, normal, State};
-handle_event(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     connection, #state{from = From,
-				role = Role,
-				user_application = {_Mon, Pid}, 
-				socket_options = Opts} = State) ->
-    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
-    {stop, normal, State};
-
-handle_event(#alert{level = ?FATAL} = Alert, StateName,
-	     #state{from = From, host = Host, port = Port, session = Session,
-		    log_alert = Log, role = Role} = State) ->
-    invalidate_session(Role, Host, Port, Session),
-    log_alert(Log, StateName, Alert),
-    alert_user(From, Alert, Role),
-    {stop, normal, State};
-handle_event(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     _, #state{from = From, role = Role} = State) -> 
-    alert_user(From, Alert, Role),
-    {stop, normal, State};
-
-handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, internal}} = State) ->
-    log_alert(Log, StateName, Alert),
-    {stop, normal, State};
-
-handle_event(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
-	     #state{log_alert = Log, renegotiation = {true, From}} = State) ->
-    log_alert(Log, StateName, Alert),
-    gen_fsm:reply(From, {error, renegotiation_rejected}),
-    {next_state, connection, next_record(State)};
-
-handle_event(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, StateName, 
-	     #state{log_alert = Log} = State) ->
-    log_alert(Log, StateName, Alert),
-    {next_state, StateName, next_record(State)}.
+handle_event(_Event, StateName, State) ->
+    {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
 %% Function: 
@@ -830,27 +777,41 @@ handle_sync_event({application_data, Data}, From, StateName,
 		  #state{send_queue = Queue} = State) ->
     %% In renegotiation priorities handshake, send data when handshake is finished
     {next_state, StateName, State#state{send_queue = queue:in({From, Data}, Queue)}};
-handle_sync_event(started, From, StateName, State) ->
+
+handle_sync_event(start, From, hello, State) ->
+    hello(start, State#state{from = From});
+
+%% The two clauses below could happen if a server upgrades a socket in
+%% active mode. Note that in this case we are lucky that
+%% controlling_process has been evalueated before receiving handshake
+%% messages from client. The server should put the socket in passive
+%% mode before telling the client that it is willing to upgrade
+%% and before calling ssl:ssl_accept/2. These clauses are 
+%% here to make sure it is the users problem and not owers if
+%% they upgrade a active socket. 
+handle_sync_event(start, _, connection, State) ->
+    {reply, connected, connection, State};
+handle_sync_event(start, From, StateName, State) ->
     {next_state, StateName, State#state{from = From}};
 
-handle_sync_event(close, From, _StateName, State) ->
-    {stop, normal, ok, State#state{from = From}};
+handle_sync_event(close, _, _StateName, State) ->
+    {stop, normal, ok, State};
 
-handle_sync_event({shutdown, How}, From, StateName,
+handle_sync_event({shutdown, How}, _, StateName,
 		  #state{transport_cb = CbModule,
 			 socket = Socket} = State) ->
     case CbModule:shutdown(Socket, How) of
 	ok ->
 	    {reply, ok, StateName, State};
 	Error ->
-	    {stop, normal, Error, State#state{from = From}}
+	    {stop, normal, Error, State}
     end;
     
 handle_sync_event({recv, N}, From, connection = StateName, State0) ->
     passive_receive(State0#state{bytes_to_read = N, from = From}, StateName);
 
 %% Doing renegotiate wait with handling request until renegotiate is
-%% finished. Will be handled by next_state_connection/1.
+%% finished. Will be handled by next_state_connection/2.
 handle_sync_event({recv, N}, From, StateName, State) ->
     {next_state, StateName, State#state{bytes_to_read = N, from = From,
 				       recv_during_renegotiation = true}};
@@ -888,7 +849,13 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
 	    {reply, ok, StateName, State1};
 	Buffer =:= <<>>, Opts1#socket_options.active =:= false ->
             %% Need data, set active once
-	    {reply, ok, StateName, next_record_if_active(State1)};
+	    {Record, State2} = next_record_if_active(State1),
+	    case next_state(StateName, Record, State2) of
+		{next_state, StateName, State} ->
+		    {reply, ok, StateName, State};
+		{stop, Reason, State} ->
+		    {stop, Reason, State}
+	    end;
 	Buffer =:= <<>> ->
             %% Active once already set 
 	    {reply, ok, StateName, State1};
@@ -896,10 +863,15 @@ handle_sync_event({set_opts, Opts0}, _From, StateName,
 	    case application_data(<<>>, State1) of
 		Stop = {stop,_,_} ->
 		    Stop;
-		State ->
-		    {reply, ok, StateName, State}
+		{Record, State2} ->
+		    case next_state(StateName, Record, State2) of
+			{next_state, StateName, State} ->
+			    {reply, ok, StateName, State};
+			{stop, Reason, State} ->
+			    {stop, Reason, State}
+		    end
 	    end
-    end;	
+    end;
 
 handle_sync_event(renegotiate, From, connection, State) ->
     renegotiate(State#state{renegotiation = {true, From}});
@@ -939,20 +911,20 @@ handle_sync_event(peer_certificate, _, StateName,
 %%--------------------------------------------------------------------
 
 %% raw data from TCP, unpack records
-handle_info({Protocol, _, Data}, StateName, State =
+handle_info({Protocol, _, Data}, StateName,
             #state{data_tag = Protocol,
 		   negotiated_version = Version,
                    tls_record_buffer = Buf0,
-                   tls_cipher_texts = CT0}) ->
+                   tls_cipher_texts = CT0} = State0) ->
     case ssl_record:get_tls_records(Data, Buf0) of
 	{Records, Buf1} ->
 	    CT1 = CT0 ++ Records,
-	    {next_state, StateName, 
-	     next_record(State#state{tls_record_buffer = Buf1,
-				     tls_cipher_texts = CT1})};
+	    {Record, State} = next_record(State0#state{tls_record_buffer = Buf1,
+						       tls_cipher_texts = CT1}),
+	    next_state(StateName, Record, State);
 	#alert{} = Alert ->
-	    handle_own_alert(Alert, Version, StateName, State), 
-	    {stop, normal, State}
+	    handle_own_alert(Alert, Version, StateName, State0), 
+	    {stop, normal, State0}
     end;
 
 handle_info({CloseTag, Socket}, _StateName,
@@ -972,7 +944,7 @@ handle_info({CloseTag, Socket}, _StateName,
     alert_user(Opts#socket_options.active, Pid, From,
 	       ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY), Role),
     {stop, normal, State};
-
+ 
 handle_info({'DOWN', MonitorRef, _, _, _}, _, 
 	    State = #state{user_application={MonitorRef,_Pid}}) ->
     {stop, normal, State};   
@@ -998,12 +970,14 @@ terminate(_Reason, connection, #state{negotiated_version = Version,
     {BinAlert, _} = encode_alert(?ALERT_REC(?WARNING,?CLOSE_NOTIFY),
 				 Version, ConnectionStates),
     Transport:send(Socket, BinAlert),
+    Transport:shutdown(Socket, read_write),
     Transport:close(Socket);
 terminate(_Reason, _StateName, #state{transport_cb = Transport, 
 				      socket = Socket, send_queue = SendQueue,
 				      renegotiation = Renegotiate}) ->
     notify_senders(SendQueue),
     notify_renegotiater(Renegotiate),
+    Transport:shutdown(Socket, read_write),
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
@@ -1022,13 +996,16 @@ start_fsm(Role, Host, Port, Socket, Opts,  User, {CbModule, _,_} = CbInfo,
     case ssl_connection_sup:start_child([Role, Host, Port, Socket, 
                                          Opts, User, CbInfo]) of
         {ok, Pid} -> 
-            CbModule:controlling_process(Socket, Pid),
-	    send_event(Pid, socket_control),
-            case sync_send_all_state_event(Pid, started, Timeout) of
-                connected ->
-                    {ok, sslsocket(Pid)};
-                {error, Reason} ->
-                    {error, Reason}
+	    case socket_control(Socket, Pid, CbModule) of
+		{ok, SslSocket} ->
+		    case handshake(SslSocket, Timeout) of
+			ok  ->
+			    {ok, SslSocket};
+			{error, Reason} ->
+			    {error, Reason} 
+		    end;
+		{error, Reason} ->
+		    {error, Reason}
             end;
 	{error, Reason} ->
             {error, Reason}
@@ -1128,13 +1105,6 @@ init_diffie_hellman(DHParamFile, server) ->
 	    ?DEFAULT_DIFFIE_HELLMAN_PARAMS
     end.
 
-send_event(FsmPid, Event) ->
-    gen_fsm:send_event(FsmPid, Event).
-
-
-send_all_state_event(FsmPid, Event) ->
-    gen_fsm:send_all_state_event(FsmPid, Event).
-
 sync_send_all_state_event(FsmPid, Event) ->
     sync_send_all_state_event(FsmPid, Event, ?DEFAULT_TIMEOUT).
 
@@ -1149,19 +1119,16 @@ sync_send_all_state_event(FsmPid, Event, Timeout) ->
 	    {error, closed}
     end.
 
-%% Events: #alert{}
-alert_event(Alert) ->
-    send_all_state_event(self(), Alert).
-
 %% We do currently not support cipher suites that use fixed DH.
 %% If we want to implement that we should add a code
 %% here to extract DH parameters form cert.
 handle_peer_cert(PeerCert, PublicKeyInfo, 
 		 #state{session = Session} = State0) ->
-    State = State0#state{session = 
+    State1 = State0#state{session = 
 			 Session#session{peer_certificate = PeerCert},
 			 public_key_info = PublicKeyInfo},
-    {next_state, certify, next_record(State)}.
+    {Record, State} = next_record(State1),
+    next_state(certify, Record, State).
 
 certify_client(#state{client_certificate_requested = true, role = client,
                       connection_states = ConnectionStates0,
@@ -1226,10 +1193,11 @@ do_server_hello(Type, #state{negotiated_version = Version,
 					 session = Session},
 		    {ConnectionStates, Hashes} = 
 			finalize_server_handshake(State1),
-		    Resumed = State1#state{connection_states = 
+		    Resumed0 = State1#state{connection_states = 
 					   ConnectionStates,
 					   tls_handshake_hashes = Hashes},
-		    {next_state, abbreviated, next_record(Resumed)};
+		    {Record, Resumed} = next_record(Resumed0),
+		    next_state(abbreviated, Record, Resumed);
 		#alert{} = Alert ->
 		    handle_own_alert(Alert, Version, hello, State), 
 		    {stop, normal, State}
@@ -1243,12 +1211,13 @@ do_server_hello(#server_hello{cipher_suite = CipherSuite,
 		       negotiated_version = Version} = State0) ->
     try server_certify_and_key_exchange(State0) of 
         #state{} = State1 ->
-            State = server_hello_done(State1),
+            State2 = server_hello_done(State1),
 	    Session = 
 		Session0#session{session_id = SessionId,
 				 cipher_suite = CipherSuite,
 				 compression_method = Compression},
-            {next_state, certify, State#state{session = Session}}
+	    {Record, State} = next_record(State2#state{session = Session}),
+	    next_state(certify, Record, State)
     catch        
         #alert{} = Alert ->  
 	    handle_own_alert(Alert, Version, hello, State0),
@@ -1260,15 +1229,15 @@ client_certify_and_key_exchange(#state{negotiated_version = Version} =
     try do_client_certify_and_key_exchange(State0) of 
         State1 = #state{} ->
 	    {ConnectionStates, Hashes} = finalize_client_handshake(State1),
-            State = State1#state{connection_states = ConnectionStates,
+            State2 = State1#state{connection_states = ConnectionStates,
 				 %% Reinitialize 
 				 client_certificate_requested = false,
 				 tls_handshake_hashes = Hashes},
-            {next_state, cipher, next_record(State)}
-    
+	    {Record, State} = next_record(State2),
+	    next_state(cipher, Record, State)
     catch        
         #alert{} = Alert ->  
-	    handle_own_alert(Alert, Version, certify_foo, State0),
+	    handle_own_alert(Alert, Version, client_certify_and_key_exchange, State0),
             {stop, normal, State0}
     end.
 
@@ -1301,17 +1270,16 @@ server_hello_done(#state{transport_cb = Transport,
                          socket = Socket,
                          negotiated_version = Version,
                          connection_states = ConnectionStates,
-                         tls_handshake_hashes = Hashes} = State0) ->
+                         tls_handshake_hashes = Hashes} = State) ->
     
     HelloDone = ssl_handshake:server_hello_done(),
-
+    
     {BinHelloDone, NewConnectionStates, NewHashes} =
         encode_handshake(HelloDone, Version, ConnectionStates, Hashes),
     Transport:send(Socket, BinHelloDone),
-    State = State0#state{connection_states = NewConnectionStates,
-                         tls_handshake_hashes = NewHashes},
-    next_record(State).
-    
+    State#state{connection_states = NewConnectionStates,
+		tls_handshake_hashes = NewHashes}.
+   
 certify_server(#state{transport_cb = Transport,
                       socket = Socket,
                       negotiated_version = Version,
@@ -1622,14 +1590,14 @@ decode_alerts(<<>>, Acc) ->
 passive_receive(State0 = #state{user_data_buffer = Buffer}, StateName) -> 
     case Buffer of
 	<<>> ->
-	    State = next_record(State0),
-	    {next_state, StateName, State};
+	    {Record, State} = next_record(State0),
+	    next_state(StateName, Record, State);
 	_ ->
 	    case application_data(<<>>, State0) of
 		Stop = {stop, _, _} ->
 		    Stop;
-		State ->
-		    {next_state, StateName, State}
+		{Record, State} ->
+		    next_state(StateName, Record, State)
 	    end
     end.
 
@@ -1654,12 +1622,12 @@ application_data(Data, #state{user_application = {_Mon, Pid},
 				 socket_options = SocketOpt 
 				},
 	    if
-		SocketOpt#socket_options.active =:= false -> 
-		    State; %% Passive mode, wait for active once or recv
-		Buffer =:= <<>> -> %% Active and empty, get more data
-		    next_record(State);
-		true -> %% We have more data
-		    application_data(<<>>, State)
+		SocketOpt#socket_options.active =:= false; Buffer =:= <<>> -> 
+		    %% Passive mode, wait for active once or recv
+		    %% Active and empty, get more data
+		    next_record_if_active(State);
+	 	true -> %% We have more data
+ 		    application_data(<<>>, State)
 	    end;
 	{error,_Reason} -> %% Invalid packet in packet mode
 	    deliver_packet_error(SOpts, Buffer1, Pid, From),
@@ -1727,25 +1695,45 @@ deliver_app_data(SOpts = #socket_options{active=Active, packet=Type},
 	    SO
     end.
 
-format_reply(#socket_options{active=false, mode=Mode, header=Header}, Data) ->
-    {ok, format_reply(Mode, Header, Data)};
-format_reply(#socket_options{active=_, mode=Mode, header=Header}, Data) ->
-    {ssl, sslsocket(), format_reply(Mode, Header, Data)}.
+format_reply(#socket_options{active = false, mode = Mode, packet = Packet,
+			     header = Header}, Data) ->
+    {ok, format_reply(Mode, Packet, Header, Data)};
+format_reply(#socket_options{active = _, mode = Mode, packet = Packet, 
+			     header = Header}, Data) ->
+    {ssl, sslsocket(), format_reply(Mode, Packet, Header, Data)}.
 
-deliver_packet_error(SO= #socket_options{active=Active}, Data, Pid, From) ->
+deliver_packet_error(SO= #socket_options{active = Active}, Data, Pid, From) ->
     send_or_reply(Active, Pid, From, format_packet_error(SO, Data)).
 
-format_packet_error(#socket_options{active=false, mode=Mode}, Data) ->
-    {error, {invalid_packet, format_reply(Mode, raw, Data)}};
-format_packet_error(#socket_options{active=_, mode=Mode}, Data) ->
-    {ssl_error, sslsocket(), {invalid_packet, format_reply(Mode, raw, Data)}}.
+format_packet_error(#socket_options{active = false, mode = Mode}, Data) ->
+    {error, {invalid_packet, format_reply(Mode, raw, 0, Data)}};
+format_packet_error(#socket_options{active = _, mode = Mode}, Data) ->
+    {ssl_error, sslsocket(), {invalid_packet, format_reply(Mode, raw, 0, Data)}}.
 
-format_reply(list,     _, Data) ->  binary_to_list(Data);
-format_reply(binary,   0, Data) ->  Data;
-format_reply(binary, raw, Data) ->  Data;
-format_reply(binary,   N, Data) ->  % Header mode
-    <<Header:N/binary, Rest/binary>> = Data,
-    [binary_to_list(Header), Rest].
+format_reply(_, http, _,Data) ->  Data;
+format_reply(_, http_bin, _, Data) ->  Data;
+format_reply(_, {http, headers}, _,Data) ->  Data;
+format_reply(_, {http_bin, headers}, _, Data) ->  Data;
+format_reply(_, asn1, _,Data) ->  Data;
+format_reply(_, cdr, _, Data) ->  Data;
+format_reply(_, sunrm, _,Data) ->  Data;
+format_reply(_, fcgi, _, Data) ->  Data;
+format_reply(_, tpkt, _, Data) ->  Data;
+format_reply(_, line, _, Data) ->  Data;
+format_reply(binary, _, N, Data) when N > 0 ->  % Header mode
+    header(N, Data);
+format_reply(binary, _, _, Data) ->  Data;
+format_reply(list, _, _, Data) ->  binary_to_list(Data).
+
+header(0, <<>>) ->
+    <<>>;
+header(_, <<>>) ->
+    [];
+header(0, Binary) ->
+    Binary;
+header(N, Binary) ->
+    <<?BYTE(ByteN), NewBinary/binary>> = Binary,
+    [ByteN | header(N-1, NewBinary)].
 
 %% tcp_closed
 send_or_reply(false, _Pid, undefined, _Data) ->
@@ -1766,40 +1754,101 @@ opposite_role(server) ->
 send_user(Pid, Msg) ->
     Pid ! Msg.
 
+next_state(Next, no_record, State) ->
+    {next_state, Next, State};
+
+next_state(Next, #ssl_tls{type = ?ALERT, fragment = EncAlerts}, State) ->
+    Alerts = decode_alerts(EncAlerts),
+    handle_alerts(Alerts,  {next_state, Next, State});
+
+next_state(StateName, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
+  	   State0 = #state{key_algorithm = KeyAlg,
+  			   tls_handshake_buffer = Buf0,
+  			   negotiated_version = Version}) ->
+    Handle = 
+   	fun({#hello_request{} = Packet, _}, {next_state, connection = SName, State}) ->
+   		%% This message should not be included in handshake
+   		%% message hashes. Starts new handshake (renegotiation)
+   		Hs0 = ssl_handshake:init_hashes(),
+   		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs0,
+   						  renegotiation = {true, peer}});
+   	   ({#hello_request{} = Packet, _}, {next_state, SName, State}) ->
+   		%% This message should not be included in handshake
+   		%% message hashes. Already in negotiation so it will be ignored!
+   		?MODULE:SName(Packet, State);
+	   ({#client_hello{} = Packet, Raw}, {next_state, connection = SName, State}) ->
+   		Hs0 = ssl_handshake:init_hashes(),
+   		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
+   		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1,
+   						  renegotiation = {true, peer}});
+ 	   ({Packet, Raw}, {next_state, SName, State = #state{tls_handshake_hashes=Hs0}}) ->	
+   		Hs1 = ssl_handshake:update_hashes(Hs0, Raw),
+   		?MODULE:SName(Packet, State#state{tls_handshake_hashes=Hs1});
+   	   (_, StopState) -> StopState
+   	end,
+    try
+   	{Packets, Buf} = ssl_handshake:get_tls_handshake(Data,Buf0, KeyAlg,Version),
+   	Start = {next_state, StateName, State0#state{tls_handshake_buffer = Buf}},
+	lists:foldl(Handle, Start, Packets)
+    catch throw:#alert{} = Alert ->
+   	    handle_own_alert(Alert, Version, StateName, State0), 
+   	    {stop, normal, State0}
+    end;
+
+next_state(StateName, #ssl_tls{type = ?APPLICATION_DATA, fragment = Data}, State0) ->
+    case application_data(Data, State0) of
+	Stop = {stop,_,_} ->
+   	    Stop;
+	 {Record, State} ->
+   	    next_state(StateName, Record, State)
+    end;
+
+next_state(StateName, #ssl_tls{type = ?CHANGE_CIPHER_SPEC, fragment = <<1>>} = 
+ 	   _ChangeCipher, 
+ 	   #state{connection_states = ConnectionStates0} = State0) ->
+    ?DBG_TERM(_ChangeCipher),
+    ConnectionStates1 =
+ 	ssl_record:activate_pending_connection_state(ConnectionStates0, read),
+    {Record, State} = next_record(State0#state{connection_states = ConnectionStates1}),
+    next_state(StateName, Record, State);
+next_state(StateName, #ssl_tls{type = _Unknown}, State0) ->
+    %% Ignore unknown type 
+    {Record, State} = next_record(State0),
+    next_state(StateName, Record, State).
+
 next_record(#state{tls_cipher_texts = [], socket = Socket} = State) ->
     inet:setopts(Socket, [{active,once}]),
-    State;
+    {no_record, State};
 next_record(#state{tls_cipher_texts = [CT | Rest], 
 		   connection_states = ConnStates0} = State) ->
     {Plain, ConnStates} = ssl_record:decode_cipher_text(CT, ConnStates0),
-    gen_fsm:send_all_state_event(self(), Plain),
-    State#state{tls_cipher_texts = Rest, connection_states = ConnStates}.
-
+    {Plain, State#state{tls_cipher_texts = Rest, connection_states = ConnStates}}.
 
 next_record_if_active(State = 
 		      #state{socket_options = 
 			     #socket_options{active = false}}) ->    
-    State;
+    {no_record ,State};
 
 next_record_if_active(State) ->
     next_record(State).
 
-next_state_connection(#state{send_queue = Queue0,
-			     negotiated_version = Version,
-			     socket = Socket,
-			     transport_cb = Transport,
-			     connection_states = ConnectionStates0,
-			     ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}
-			    } = State) ->     
+next_state_connection(StateName, #state{send_queue = Queue0,
+					negotiated_version = Version,
+					socket = Socket,
+					transport_cb = Transport,
+					connection_states = ConnectionStates0,
+					ssl_options = #ssl_options{renegotiate_at = RenegotiateAt}
+				       } = State) ->     
     %% Send queued up data
     case queue:out(Queue0) of
 	{{value, {From, Data}}, Queue} ->
 	    case encode_data(Data, Version, ConnectionStates0, RenegotiateAt) of
 		{Msgs, [], ConnectionStates} ->
 		    Result = Transport:send(Socket, Msgs),
-		     gen_fsm:reply(From, Result),
-		     next_state_connection(State#state{connection_states = ConnectionStates,
-						    send_queue = Queue});
+		    gen_fsm:reply(From, Result),
+		    next_state_connection(StateName,
+					  State#state{connection_states = ConnectionStates,
+						      send_queue = Queue});
 		%% This is unlikely to happen. User configuration of the 
 		%% undocumented test option renegotiation_at can make it more likely.
 		{Msgs, RestData, ConnectionStates} ->
@@ -1822,9 +1871,9 @@ next_state_is_connection(State =
 			     #socket_options{active = false}})  -> 
     passive_receive(State#state{recv_during_renegotiation = false}, connection);
 
-next_state_is_connection(State) ->
-    {next_state, connection, next_record_if_active(State)}.
-
+next_state_is_connection(State0) ->
+    {Record, State} = next_record_if_active(State0),
+    next_state(connection, Record, State).
 
 register_session(_, _, _, #session{is_resumable = true} = Session) ->
     Session; %% Already registered
@@ -1934,10 +1983,71 @@ set_socket_opts(Socket, [{active, Active}| Opts], SockOpts, Other) ->
 set_socket_opts(Socket, [Opt | Opts], SockOpts, Other) ->
     set_socket_opts(Socket, Opts, SockOpts, [Opt | Other]).
 
+handle_alerts([], Result) ->
+    Result;
+handle_alerts(_, {stop, _, _} = Stop) ->
+    %% If it is a fatal alert immediately close 
+    Stop;
+handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
+    handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
+
+handle_alert(#alert{level = ?FATAL} = Alert, connection, 
+	     #state{from = From, user_application = {_Mon, Pid}, 
+		    log_alert = Log,
+		    host = Host, port = Port, session = Session,
+		    role = Role, socket_options = Opts} = State) ->
+    invalidate_session(Role, Host, Port, Session),
+    log_alert(Log, connection, Alert),
+    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
+    {stop, normal, State};
+
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
+	     connection, #state{from = From,
+				role = Role,
+				user_application = {_Mon, Pid}, 
+				socket_options = Opts} = State) ->
+    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
+    {stop, normal, State};
+
+handle_alert(#alert{level = ?FATAL} = Alert, StateName,
+	     #state{from = From, host = Host, port = Port, session = Session,
+		    log_alert = Log, role = Role} = State) ->
+    invalidate_session(Role, Host, Port, Session),
+    log_alert(Log, StateName, Alert),
+    alert_user(From, Alert, Role),
+    {stop, normal, State};
+handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
+	     _, #state{from = From, role = Role} = State) -> 
+    alert_user(From, Alert, Role),
+    {stop, normal, State};
+
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
+	     #state{log_alert = Log, renegotiation = {true, internal}, from = From,
+		    role = Role} = State) ->
+    log_alert(Log, StateName, Alert),
+    alert_user(From, Alert, Role),
+    {stop, normal, State};
+
+handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
+	     #state{log_alert = Log, renegotiation = {true, From}} = State0) ->
+    log_alert(Log, StateName, Alert),
+    gen_fsm:reply(From, {error, renegotiation_rejected}),
+    {Record, State} = next_record(State0),
+    next_state(connection, Record, State);
+
+handle_alert(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, StateName, 
+	     #state{log_alert = Log} = State0) ->
+    log_alert(Log, StateName, Alert),
+    {Record, State} = next_record(State0),
+    next_state(StateName, Record, State).
+
 alert_user(From, Alert, Role) ->
     alert_user(false, no_pid, From, Alert, Role).
 
 alert_user(false = Active, Pid, From,  Alert, Role) ->
+    %% If there is an outstanding ssl_accept | recv
+    %% From will be defined and send_or_reply will
+    %% send the appropriate error message.
     ReasonCode = ssl_alert:reason_code(Alert, Role),
     send_or_reply(Active, Pid, From, {error, ReasonCode});
 alert_user(Active, Pid, From, Alert, Role) ->
@@ -1965,7 +2075,13 @@ handle_own_alert(Alert, Version, StateName,
 			log_alert = Log}) ->
     try %% Try to tell the other side
 	{BinMsg, _} =
-	    encode_alert(Alert, Version, ConnectionStates),
+	encode_alert(Alert, Version, ConnectionStates),
+	%% Try to make sure alert will be sent before socket is closed
+	%% when process ends. This will help on some
+	%% linux platforms and knowingly not break anything on other 
+	%% platforms. Other platforms will benefit from shutdown that is now
+	%% done before close.
+	inet:setopts(Socket, [{nodelay, true}]),
 	Transport:send(Socket, BinMsg)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
@@ -1976,6 +2092,12 @@ handle_own_alert(Alert, Version, StateName,
     catch _:_ ->
 	    ok
     end.
+
+handle_unexpected_message(_Msg, StateName, #state{negotiated_version = Version} = State) ->
+    Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
+    handle_own_alert(Alert, Version, StateName, State),
+    {stop, normal, State}.
+
 make_premaster_secret({MajVer, MinVer}, Alg) when Alg == rsa; 
 						  Alg == dh_dss; 
 						  Alg == dh_rsa ->
@@ -1996,9 +2118,12 @@ ack_connection(#state{renegotiation = {true, Initiater}} = State)
 ack_connection(#state{renegotiation = {true, From}} = State) ->    
     gen_fsm:reply(From, ok),
     State#state{renegotiation = undefined};
-ack_connection(#state{renegotiation = {false, first}, from = From} = State) ->
+ack_connection(#state{renegotiation = {false, first}, 
+				  from = From} = State) when From =/= undefined ->
     gen_fsm:reply(From, connected),
-    State#state{renegotiation = undefined}.
+    State#state{renegotiation = undefined};
+ack_connection(State) ->
+    State.
 
 renegotiate(#state{role = client} = State) ->
     %% Handle same way as if server requested
@@ -2009,16 +2134,18 @@ renegotiate(#state{role = server,
 		   socket = Socket,
 		   transport_cb = Transport,
 		   negotiated_version = Version,
-		   connection_states = ConnectionStates0} = State) ->
+		   connection_states = ConnectionStates0} = State0) ->
     HelloRequest = ssl_handshake:hello_request(),
     Frag = ssl_handshake:encode_handshake(HelloRequest, Version, undefined),
     Hs0 = ssl_handshake:init_hashes(),
     {BinMsg, ConnectionStates} = 
 	ssl_record:encode_handshake(Frag, Version, ConnectionStates0),
     Transport:send(Socket, BinMsg),
-    {next_state, hello, next_record(State#state{connection_states = 
-						ConnectionStates,
-						tls_handshake_hashes = Hs0})}.
+    {Record, State} = next_record(State0#state{connection_states = 
+					       ConnectionStates,
+					       tls_handshake_hashes = Hs0}),
+    next_state(hello, Record, State).
+
 notify_senders(SendQueue) -> 
     lists:foreach(fun({From, _}) ->
  			  gen_fsm:reply(From, {error, closed})
