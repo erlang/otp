@@ -2090,19 +2090,11 @@ is_simple(#c_literal{}) -> true;
 is_simple(#c_cons{hd=H,tl=T}) ->
     is_simple(H) andalso is_simple(T);
 is_simple(#c_tuple{es=Es}) -> is_simple_list(Es);
-is_simple(#c_binary{segments=Es}) -> is_simp_bin(Es);
 is_simple(_) -> false.
 
 -spec is_simple_list([cerl:cerl()]) -> boolean().
 
 is_simple_list(Es) -> lists:all(fun is_simple/1, Es).
-
--spec is_simp_bin([cerl:cerl()]) -> boolean().
-
-is_simp_bin(Es) ->
-    lists:all(fun (#c_bitstr{val=E,size=S}) ->
-		      is_simple(E) andalso is_simple(S)
-	      end, Es).
 
 %%%
 %%% Handling of warnings.
