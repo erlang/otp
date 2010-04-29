@@ -130,7 +130,6 @@
 	       in_guard=false :: boolean(),	%In guard or not.
 	       wanted=true :: boolean(),	%Result wanted or not.
 	       opts     :: [compile:option()],	%Options.
-	       es=[]    :: [error()],		%Errors.
 	       ws=[]    :: [warning()],		%Warnings.
                file=[{file,""}]}).              %File
 
@@ -145,42 +144,37 @@
 
 module({Mod,Exp,Forms}, Opts) ->
     Cexp = map(fun ({_N,_A} = NA) -> #c_var{name=NA} end, Exp),
-    {Kfs0,As0,Es,Ws,_File} = foldl(fun (F, Acc) ->
-					   form(F, Acc, Opts)
-				   end, {[],[],[],[],[]}, Forms),
+    {Kfs0,As0,Ws,_File} = foldl(fun (F, Acc) ->
+					form(F, Acc, Opts)
+				end, {[],[],[],[]}, Forms),
     Kfs = reverse(Kfs0),
     As = reverse(As0),
-    case Es of
-	[] ->
-	    {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws};
-	_ ->
-	    {error,Es,Ws}
-    end.
+    {ok,#c_module{name=#c_literal{val=Mod},exports=Cexp,attrs=As,defs=Kfs},Ws}.
 
-form({function,_,_,_,_}=F0, {Fs,As,Es0,Ws0,File}, Opts) ->
-    {F,Es,Ws} = function(F0, Es0, Ws0, File, Opts),
-    {[F|Fs],As,Es,Ws,File};
-form({attribute,_,file,{File,_Line}}, {Fs,As,Es,Ws,_}, _Opts) ->
-    {Fs,As,Es,Ws,File};
-form({attribute,_,_,_}=F, {Fs,As,Es,Ws,File}, _Opts) ->
-    {Fs,[attribute(F)|As],Es,Ws,File}.
+form({function,_,_,_,_}=F0, {Fs,As,Ws0,File}, Opts) ->
+    {F,Ws} = function(F0, Ws0, File, Opts),
+    {[F|Fs],As,Ws,File};
+form({attribute,_,file,{File,_Line}}, {Fs,As,Ws,_}, _Opts) ->
+    {Fs,As,Ws,File};
+form({attribute,_,_,_}=F, {Fs,As,Ws,File}, _Opts) ->
+    {Fs,[attribute(F)|As],Ws,File}.
 
 attribute({attribute,Line,Name,Val}) ->
     {#c_literal{val=Name, anno=[Line]}, #c_literal{val=Val, anno=[Line]}}.
 
-function({function,_,Name,Arity,Cs0}, Es0, Ws0, File, Opts) ->
+function({function,_,Name,Arity,Cs0}, Ws0, File, Opts) ->
     %%ok = io:fwrite("~p - ", [{Name,Arity}]),
-    St0 = #core{vcount=0,opts=Opts,es=Es0,ws=Ws0,file=[{file,File}]},
+    St0 = #core{vcount=0,opts=Opts,ws=Ws0,file=[{file,File}]},
     {B0,St1} = body(Cs0, Name, Arity, St0),
     %%ok = io:fwrite("1", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B0]),
     {B1,St2} = ubody(B0, St1),
     %%ok = io:fwrite("2", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B1]),
-    {B2,#core{es=Es,ws=Ws}} = cbody(B1, St2),
+    {B2,#core{ws=Ws}} = cbody(B1, St2),
     %%ok = io:fwrite("3~n", []),
     %%ok = io:fwrite("~w:~p~n", [?LINE,B2]),
-    {{#c_var{name={Name,Arity}},B2},Es,Ws}.
+    {{#c_var{name={Name,Arity}},B2},Ws}.
 
 body(Cs0, Name, Arity, St0) ->
     Anno = lineno_anno(element(2, hd(Cs0)), St0),
