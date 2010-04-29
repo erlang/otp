@@ -1124,13 +1124,6 @@ trans_fun([{gc_bif,Name,Fail,_Live,SrcRs,DstR}|Instructions], Env) ->
       trans_fun([{bif,Name,Fail,SrcRs,DstR}|Instructions], Env)
   end;
 %%--------------------------------------------------------------------
-%% Instruction for constant pool added in February 2007 for R11B-4.
-%%--------------------------------------------------------------------
-trans_fun([{put_literal,{literal,Literal},DstR}|Instructions], Env) ->
-  DstV = mk_var(DstR),
-  Move = hipe_icode:mk_move(DstV, hipe_icode:mk_const(Literal)),
-  [Move | trans_fun(Instructions, Env)];
-%%--------------------------------------------------------------------
 %% New test instruction added in July 2007 for R12.
 %%--------------------------------------------------------------------
 %%--- is_bitstr ---

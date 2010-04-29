@@ -3540,7 +3540,7 @@ freeze_code(LoaderState* stp)
     literal_end = (Uint *) (code+stp->ci);
     /*
      * Place the literal heap directly after the code and fix up all
-     * put_literal instructions that refer to it.
+     * instructions that refer to it.
      */
     {
 	Uint* ptr;

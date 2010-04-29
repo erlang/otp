@@ -621,8 +621,7 @@ resolve_names(Fun, Imports, Str, Lbls, Lambdas, Literals, M) ->
 
 %%
 %% New make_fun2/4 instruction added in August 2001 (R8).
-%% New put_literal/2 instruction added in Feb 2006 R11B-4.
-%% We handle them specially here to avoid adding an argument to
+%% We handle it specially here to avoid adding an argument to
 %% the clause for every instruction.
 %%
 
@@ -631,8 +630,6 @@ resolve_inst({make_fun2,Args}, _, _, _, Lambdas, _, M) ->
     {OldIndex,{F,A,_Lbl,_Index,NumFree,OldUniq}} =
 	lists:keyfind(OldIndex, 1, Lambdas),
     {make_fun2,{M,F,A},OldIndex,OldUniq,NumFree};
-resolve_inst({put_literal,[{u,Index},Dst]},_,_,_,_,Literals,_) ->
-    {put_literal,{literal,gb_trees:get(Index, Literals)},Dst};
 resolve_inst(Instr, Imports, Str, Lbls, _Lambdas, _Literals, _M) ->
     %% io:format(?MODULE_STRING":resolve_inst ~p.~n", [Instr]),
     resolve_inst(Instr, Imports, Str, Lbls).
