@@ -119,8 +119,8 @@ sync_cookie() ->
 
 -spec print(Node :: node(), Format :: string(), Args :: [_]) -> 'ok'.
 
-print(Node,Format,Args) ->
-    (catch gen_server:cast({auth,Node},{print,Format,Args})).
+print(Node, Format, Args) ->
+    (catch gen_server:cast({auth, Node}, {print, Format, Args})).
 
 %%--gen_server callbacks------------------------------------------------
 
@@ -154,7 +154,7 @@ handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)
 
 %%
 %% Happens when the distribution is brought up and 
-%% Someone wight have set up the cookie for our new nodename.
+%% someone might have set up the cookie for our new node name.
 %%
 
 handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)  ->
@@ -162,9 +162,9 @@ handle_call({set_cookie, Node, Cookie}, {_From,_Tag}, State)  ->
     {reply, true, State};
     
 handle_call(sync_cookie, _From, State) ->
-    case ets:lookup(State#state.other_cookies,node()) of
+    case ets:lookup(State#state.other_cookies, node()) of
 	[{_N,C}] ->
-	    ets:delete(State#state.other_cookies,node()),
+	    ets:delete(State#state.other_cookies, node()),
 	    {reply, true, State#state{our_cookie = C}};
 	[] ->
 	    {reply, true, State}
@@ -182,7 +182,7 @@ handle_call(echo, _From, O) ->
 
 handle_cast({print,What,Args}, O) ->
   %% always allow print outs
-  error_logger:error_msg(What,Args), 
+  error_logger:error_msg(What, Args),
   {noreply, O}.
 
 %% A series of bad messages that may come (from older distribution versions).
@@ -206,10 +206,10 @@ handle_info({_From,badcookie,ddd_server,_Mess}, O) ->
     {noreply, O};
 handle_info({From,badcookie,rex,_Msg}, O) ->
     auth:print(getnode(From), 
-	       "~n** Unauthorized rpc attempt to ~w **~n",[node()]),
+	       "~n** Unauthorized rpc attempt to ~w **~n", [node()]),
     disconnect_node(node(From)), 
     {noreply, O};
-%% These two messages has to do with the old auth:is_auth() call (net_adm:ping)
+%% These two messages have to do with the old auth:is_auth() call (net_adm:ping)
 handle_info({From,badcookie,net_kernel,{'$gen_call',{From,Tag},{is_auth,_Node}}}, O) -> %% ho ho
     From ! {Tag, no},
     {noreply, O};
@@ -233,7 +233,7 @@ handle_info({From,badcookie,Name,Mess}, Opened) ->
 	    end
     end, 
     {noreply, Opened};
-handle_info(_, O)->   % Ignore anything else especially EXIT signals
+handle_info(_, O) ->   % Ignore anything else especially EXIT signals
     {noreply, O}.
 
 -spec code_change(term(), state(), term()) -> {'ok', state()}.
@@ -282,7 +282,7 @@ init_cookie() ->
 	    end;
 	_Other ->
 	    #state{our_cookie = nocookie,
-		   other_cookies = ets:new(cookies,[?COOKIE_ETS_PROTECTION])}
+		   other_cookies = ets:new(cookies, [?COOKIE_ETS_PROTECTION])}
     end.
 
 read_cookie() ->

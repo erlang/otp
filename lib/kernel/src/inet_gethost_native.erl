@@ -154,7 +154,7 @@ run_once() ->
 	{Port, {data, <<1:32, BinReply/binary>>}} ->
 	    Pid ! {R, {ok, BinReply}}
     after Timeout ->
-	    Pid ! {R,{error,timeout}}
+	    Pid ! {R, {error, timeout}}
     end.
 
 -spec terminate(term(), pid()) -> 'ok'.
@@ -342,14 +342,14 @@ pick_client(State,RID,Clid) ->
 		    {last, SoleClient}; % Note, not removed, the caller 
 					% should cleanup request data
 		CList ->
-		    case lists:keysearch(Clid,1,CList) of
-			{value, Client} ->
+		    case lists:keyfind(Clid,1,CList) of
+			false ->
+			    false;
+			Client ->
 			    NCList = lists:keydelete(Clid,1,CList),
 			    ets:insert(State#state.requests, 
 				       R#request{clients = NCList}),
-			    {more, Client};
-			false ->
-			    false
+			    {more, Client}
 		    end
 	    end
     end.
@@ -387,8 +387,7 @@ restart_port(#state{port = Port, requests = Requests}) ->
 	    end,
 	    Requests),
     NewPort.
-			    
-    
+
 
 do_open_port(Poolsize, ExtraArgs) ->
     try 

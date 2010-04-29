@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(error_handler).
@@ -117,13 +117,13 @@ stub_function(Mod, Func, Args) ->
 
 check_inheritance(Module, Args) ->
     Attrs = erlang:get_module_info(Module, attributes),
-    case lists:keysearch(extends, 1, Attrs) of
-	{value,{extends,[Base]}} when is_atom(Base), Base =/= Module ->
+    case lists:keyfind(extends, 1, Attrs) of
+	{extends, [Base]} when is_atom(Base), Base =/= Module ->
 	    %% This is just a heuristic for detecting abstract modules
 	    %% with inheritance so they can be handled; it would be
 	    %% much better to do it in the emulator runtime
-	    case lists:keysearch(abstract, 1, Attrs) of
-		{value,{abstract,[true]}} ->
+	    case lists:keyfind(abstract, 1, Attrs) of
+		{abstract, [true]} ->
 		    case lists:reverse(Args) of
 			[M|Rs] when tuple_size(M) > 1,
 			element(1,M) =:= Module,

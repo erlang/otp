@@ -179,15 +179,15 @@ init(Slaves) ->
     Pid ! {Ref, L},
     %% We trap exit inorder to restart boot_init and udp_port 
     process_flag(trap_exit, true),
-    {ok, #state {priority = 0,
-		 version = erlang:system_info(version),
-		 udp_sock = U, 
-		 udp_port = UPort,
-		 listen_sock = L, 
-		 listen_port = Port,
-		 slaves = ordsets:from_list(Slaves),
-		 bootp = Pid
-		}}.
+    {ok, #state{priority = 0,
+		version = erlang:system_info(version),
+		udp_sock = U,
+		udp_port = UPort,
+		listen_sock = L,
+		listen_port = Port,
+		slaves = ordsets:from_list(Slaves),
+		bootp = Pid
+	       }}.
 
 -spec handle_call('which' | {'add',atom()} | {'delete',atom()}, _, state()) ->
         {'reply', 'ok' | [atom()], state()}.
