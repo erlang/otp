@@ -41,11 +41,11 @@
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
 static erts_smp_mtx_t              trace_pattern_mutex;
-const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0};
+const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0, 0};
 static int                         erts_default_trace_pattern_is_on;
 static Binary                     *erts_default_match_spec;
 static Binary                     *erts_default_meta_match_spec;
-static struct trace_pattern_flags  erts_default_trace_pattern_flags;
+struct trace_pattern_flags         erts_default_trace_pattern_flags;
 static Eterm                       erts_default_meta_tracer_pid;
 
 static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
@@ -1058,7 +1058,22 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     mfa[1] = tp[2];
     mfa[2] = signed_val(tp[3]);
 
+#ifdef ERTS_SMP
+    if ( (key == am_call_time) || (key == am_all)) {
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
+    }
+#endif
+
     r = function_is_traced(p, mfa, &ms, &ms_meta, &meta, &count, &call_time);
+
+#ifdef ERTS_SMP
+    if ( (key == am_call_time) || (key == am_all)) {
+	erts_smp_release_system();
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    }
+#endif
+
     switch (r) {
     case FUNC_TRACE_NOEXIST:
 	UnUseTmpHeap(3,p);
@@ -1429,6 +1444,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	    erts_clear_trace_break(mfa, specified);
 	    erts_clear_mtrace_break(mfa, specified);
 	    erts_clear_count_break(mfa, specified);
+	    erts_clear_time_break(mfa, specified);
 	} else {
 	    int m = 0;
 	    if (flags.local) {
@@ -1460,7 +1476,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	if (flags.call_count) {
 	    m = erts_clear_count_break(mfa, specified);
 	}
-	if (flags.call_count) {
+	if (flags.call_time) {
 	    m = erts_clear_time_break(mfa, specified);
 	}
 	/* All assignments to 'm' above should give the same value,

@@ -228,9 +228,10 @@ BeamInstr* em_call_traced_function;
 **      for the refering variable (one of these), and rouge references
 **      will most likely cause chaos.
 */
-BeamInstr beam_return_to_trace[1]; /* OpCode(i_return_to_trace) */
-BeamInstr beam_return_trace[1];    /* OpCode(i_return_trace) */
-BeamInstr beam_exception_trace[1]; /* UGLY also OpCode(i_return_trace) */
+BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
+BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
+BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
+BeamInstr beam_time_return_trace[1]; /* OpCode(i_time_return_trace) */
 
 /*
  * All Beam instructions in numerical order.
@@ -4411,6 +4412,7 @@ apply_bif_or_nif_epilogue:
  OpCase(i_time_breakpoint): {
      BeamInstr real_I;
      BpDataTime *bdt = (BpDataTime *) (I)[-4];
+     Uint tail_call = 0;
 
      ASSERT((I)[-5] == (Uint) BeamOp(op_i_func_info_IaaI));
      ASSERT(bdt);
@@ -4418,10 +4420,51 @@ apply_bif_or_nif_epilogue:
      ASSERT(bdt);
      (I)[-4] = (Uint) bdt;
      real_I = bdt->orig_instr;
-     erts_do_time_break(c_p, bdt);
-
      ASSERT(VALID_INSTR(real_I));
+
+     if (IS_TRACED_FL(c_p, F_TRACE_CALLS) && !(bdt->pause)) {
+	 if (*cp_val((Eterm)c_p->cp) == (BeamInstr) OpCode(i_time_return_trace)) {
+	     tail_call = 1;
+	 }
+
+	 if (tail_call) {
+	     /* This _IS_ a tail recursive call */
+	     SWAPOUT;
+	     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_TAIL_CALL);
+	     SWAPIN;
+	 } else {
+	     SWAPOUT;
+	     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_CALL);
+
+	     ASSERT(c_p->htop <= E && E <= c_p->hend);
+	     if (E - 2 < HTOP) {
+		 PROCESS_MAIN_CHK_LOCKS(c_p);
+		 FCALLS -= erts_garbage_collect(c_p, 2, reg, I[-1]);
+		 PROCESS_MAIN_CHK_LOCKS(c_p);
+	     }
+	     SWAPIN;
+
+	     ASSERT(c_p->htop <= E && E <= c_p->hend);
+
+	     E -= 2;
+	     E[1] = make_cp(c_p->cp);     /* original return address */
+	     E[0] = make_cp((Uint *)bdt); /* make sure bdt is allocated in low mem (for halfword) */
+	     c_p->cp = (Eterm *) make_cp(beam_time_return_trace);
+	 }
+     }
+
      Goto(real_I);
+ }
+
+ OpCase(i_time_return_trace): {
+     BpDataTime *bdt = (BpDataTime *) cp_val((E)[0]);
+     SWAPOUT;
+     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_RETURN);
+     SWAPIN;
+     c_p->cp = NULL;
+     SET_I((Eterm *) E[1]);
+     E += 2;
+     Goto(*I);
  }
 
  OpCase(i_trace_breakpoint):
@@ -4973,13 +5016,15 @@ apply_bif_or_nif_epilogue:
      em_call_error_handler = OpCode(call_error_handler);
      em_call_traced_function = OpCode(call_traced_function);
      em_apply_bif = OpCode(apply_bif);
-     beam_apply[0] = (BeamInstr) OpCode(i_apply);
-     beam_apply[1] = (BeamInstr) OpCode(normal_exit);
-     beam_exit[0] = (BeamInstr) OpCode(error_action_code);
-     beam_continue_exit[0] = (BeamInstr) OpCode(continue_exit);
-     beam_return_to_trace[0] = (BeamInstr) OpCode(i_return_to_trace);
-     beam_return_trace[0] = (BeamInstr) OpCode(return_trace);
-     beam_exception_trace[0] = (BeamInstr) OpCode(return_trace); /* UGLY */
+
+     beam_apply[0]             = (BeamInstr) OpCode(i_apply);
+     beam_apply[1]             = (BeamInstr) OpCode(normal_exit);
+     beam_exit[0]              = (BeamInstr) OpCode(error_action_code);
+     beam_continue_exit[0]     = (BeamInstr) OpCode(continue_exit);
+     beam_return_to_trace[0]   = (BeamInstr) OpCode(i_return_to_trace);
+     beam_return_trace[0]      = (BeamInstr) OpCode(return_trace);
+     beam_exception_trace[0]   = (BeamInstr) OpCode(return_trace); /* UGLY */
+     beam_time_return_trace[0] = (BeamInstr) OpCode(i_time_return_trace);
 
      /*
       * Enter all BIFs into the export table.

@@ -630,70 +630,233 @@ static void bp_time_diff(bp_data_time_item_t *item, /* out */
     ds  = s  - pbt->s;
     dus = us - pbt->us;
 
-    if (dms > 0) {
-	item->s_time  = (ds + dms * 1000000);
-    } else {
-	item->s_time  = ds;
+    /* get_sys_now may return zero difftime,
+     * this is ok.
+     */
+
+    ASSERT(dms >= 0 || ds >= 0 || dus >= 0);
+
+    if (dus < 0) {
+	dus += 1000000;
+	ds  -= 1;
     }
-    if ( dus < 0 ) {
-	item->us_time = (dus + 1000000);
-	item->s_time -= 1;
-    } else {
-	item->us_time = dus;
+    if (ds < 0) {
+	ds += 1000000;
     }
+
+    item->s_time  = ds;
+    item->us_time = dus;
 }
 
-void erts_do_time_break(Process *p, BpDataTime *bdt) {
+void erts_schedule_time_break(Process *p, Uint schedule) {
+    Uint ms, s, us;
+    process_breakpoint_time_t *pbt = NULL;
+    Uint ix = 0;
+    bp_data_time_item_t sitem, *item = NULL;
+    bp_time_hash_t *h = NULL;
+
+    ASSERT(p);
+
+    pbt = ERTS_PROC_GET_CALL_TIME(p);
+
+    ASSERT( (p->status == P_RUNNING) ||
+	    (p->status == P_WAITING) ||
+	    (p->status == P_RUNABLE));
+
+    if (pbt) {
+	get_sys_now(&ms,&s,&us);
+
+	switch(schedule) {
+	case ERTS_BP_CALL_TIME_SCHEDULE_EXITING :
+	case ERTS_BP_CALL_TIME_SCHEDULE_OUT :
+	    /* When a process is scheduled _out_,
+	     * timestamp it and add its delta to
+	     * the previous breakpoint.
+	     */
+
+#ifdef ERTS_SMP
+	    ix = p->scheduler_data->no - 1;
+#else
+	    ix = 0;
+#endif
+	    bp_time_diff(&sitem, pbt, ms, s, us);
+	    sitem.pid   = p->id;
+	    sitem.count = 1;
+	    /*count is set to 0 if out and 1 if exiting */
+
+	    h = &(pbt->bdt->hash[ix]);
+
+	    ASSERT(h->item);
+
+	    item = bp_hash_get(h, &sitem);
+	    if (!item) {
+		item = bp_hash_put(h, &sitem);
+	    } else {
+		BP_TIME_ADD(item, &sitem);
+	    }
+	    break;
+	case ERTS_BP_CALL_TIME_SCHEDULE_IN :
+	    /* When a process is scheduled _in_,
+	     * timestamp it and remove the previous
+	     * timestamp in the psd.
+	     */
+	    sitem.pid     = p->id;
+	    sitem.count   = -1;
+	    sitem.us_time = 0;
+	    sitem.s_time  = 0;
+
+	    h = &(pbt->bdt->hash[ix]);
+
+	    ASSERT(h->item);
+
+	    item = bp_hash_get(h, &sitem);
+	    if (!item) {
+		item = bp_hash_put(h, &sitem);
+	    } else {
+		BP_TIME_ADD(item, &sitem);
+	    }
+	    pbt->ms = ms;
+	    pbt->s  = s;
+	    pbt->us = us;
+	    break;
+	default :
+	    ASSERT(0);
+		/* will never happen */
+	    break;
+	}
+#ifdef DEBUG
+    } else {
+	/* if pbt is null, then the process has just been spawned
+	 * and status should be runnable.
+	 */
+	ASSERT( (p->status == P_RUNABLE) ||
+		(p->status == P_WAITING));
+#endif
+    } /* pbt */
+}
+
+/* call_time breakpoint
+ * Accumulated times are added to the previous bp,
+ * not the current one. The current one is saved
+ * for future reference.
+ * The previous breakpoint is stored in the process it self, the psd.
+ * We do not need to store in a stack frame.
+ * There is no need for locking, each thread has its own
+ * area in each bp to save data.
+ * Since we need to diffrentiate between processes for each bp,
+ * every bp has a hash (per thread) to process-bp statistics.
+ * - egil
+ */
+
+void erts_do_time_break(Process *p, BpDataTime *bdt, Uint type) {
     Uint ms,s,us;
     process_breakpoint_time_t *pbt = NULL;
     int ix = 0;
+    bp_data_time_item_t sitem, *item = NULL;
+    bp_time_hash_t *h = NULL;
+
+    ASSERT(p);
+    ASSERT(bdt);
+    ASSERT(p->status == P_RUNNING);
 
     /* get previous timestamp and breakpoint
-     * from the process' psd  */
+     * from the process psd  */
+
     pbt = ERTS_PROC_GET_CALL_TIME(p);
     get_sys_now(&ms,&s,&us);
 
-    if (pbt) {
-	bp_data_time_item_t sitem, *item;
-	bp_time_hash_t *h;
+    switch(type) {
+	case ERTS_BP_CALL_TIME_CALL:
+	    /* get pbt
+	     * timestamp = t0
+	     * set ts0 to pbt
+	     * add call count here?
+	     */
+	    if (!pbt) {
+		pbt = Alloc(sizeof(process_breakpoint_time_t));
+		(void *) ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCK_MAIN, pbt);
+	    }
+
+	    pbt->bdt = bdt; /* needed for schedule? */
+
+	    pbt->ms  = ms;
+	    pbt->s   = s;
+	    pbt->us  = us;
+
+
+	    break;
+	case ERTS_BP_CALL_TIME_TAIL_CALL:
+
+	    ASSERT(pbt);
 
 #ifdef ERTS_SMP
-	ix  = p->scheduler_data->no - 1;
+		ix = p->scheduler_data->no - 1;
 #else
-	ix  = 0;
+		ix = 0;
 #endif
-	bp_time_diff(&sitem, pbt, ms, s, us);
-	sitem.pid   = p->id;
-	sitem.count = 1;
+		bp_time_diff(&sitem, pbt, ms, s, us);
+		sitem.pid   = p->id;
+		sitem.count = 1;
 
-	h = &(pbt->bdt->hash[ix]);
+		h = &(bdt->hash[ix]);
 
-	item = bp_hash_get(h, &sitem);
-	if (!item) {
-	    bp_hash_put(h, &sitem);
-	} else {
-	    BP_TIME_ADD(item, &sitem);
-	}
+		ASSERT(h->item);
 
-	pbt->bdt = bdt;
-	pbt->ms  = ms;
-	pbt->s   = s;
-	pbt->us  = us;
+		item = bp_hash_get(h, &sitem);
+		if (!item) {
+		    item = bp_hash_put(h, &sitem);
+		} else {
+		    BP_TIME_ADD(item, &sitem);
+		}
 
-    } else {
-	pbt = Alloc(sizeof(process_breakpoint_time_t));
 
-	pbt->bdt = bdt;
-	pbt->ms  = ms;
-	pbt->s   = s;
-	pbt->us  = us;
+	    pbt->bdt = bdt; /* needed for schedule? */
 
-	(void *) ERTS_PROC_SET_CALL_TIME(p, ERTS_PROC_LOCK_MAIN, pbt);
+	    pbt->ms  = ms;
+	    pbt->s   = s;
+	    pbt->us  = us;
+	    break;
+
+
+	case ERTS_BP_CALL_TIME_RETURN:
+	    /* get pbt
+	     * timestamp = t1
+	     * get ts0 from pbt
+	     * get item from bdt->hash[bp_hash(p->id)]
+	     * ack diff (t1, t0) to item
+	     */
+
+	    if(pbt) {
+		/* might have been removed due to
+		 * trace_pattern(false)
+		 */
+#ifdef ERTS_SMP
+		ix = p->scheduler_data->no - 1;
+#else
+		ix = 0;
+#endif
+		bp_time_diff(&sitem, pbt, ms, s, us);
+		sitem.pid   = p->id;
+		sitem.count = 1;
+
+		h = &(bdt->hash[ix]);
+
+		ASSERT(h->item);
+
+		item = bp_hash_get(h, &sitem);
+		if (!item) {
+		    item = bp_hash_put(h, &sitem);
+		} else {
+		    BP_TIME_ADD(item, &sitem);
+		}
+
+		pbt->bdt = NULL;
+		pbt->ms  = ms;
+		pbt->s   = s;
+		pbt->us  = us;
+	    }
+	    break;
     }
-
-    /* timestamp start of this call
-     * save ms, s, us, and bdt to the process.
-     */
 }
 
 
@@ -814,10 +977,14 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		Uint i = 0;
 
 		/*XXX: must block system */
-
-		for (i = 0; i < bdt->n; i++) {
-		    bp_hash_delete(&(bdt->hash[i]));
-		    bp_hash_init(&(bdt->hash[i]), 32);
+		if (count_op == erts_break_stop) {
+		    bdt->pause = 1;
+		} else {
+		    bdt->pause = 0;
+		    for (i = 0; i < bdt->n; i++) {
+			bp_hash_delete(&(bdt->hash[i]));
+			bp_hash_init(&(bdt->hash[i]), 32);
+		    }
 		}
 
 	    } else {
@@ -904,8 +1071,9 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	BpDataTime *bdt = (BpDataTime *) bd;
 	Uint i = 0;
 
-	bdt->n    = erts_no_schedulers;
-	bdt->hash = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
+	bdt->pause = 0;
+	bdt->n     = erts_no_schedulers;
+	bdt->hash  = Alloc(sizeof(bp_time_hash_t)*(bdt->n));
 
 	for (i = 0; i < bdt->n; i++) {
 	    bp_hash_init(&(bdt->hash[i]), 32);
@@ -1034,10 +1202,35 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	if (op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
 	    BpDataTime *bdt = (BpDataTime *) bd;
 	    Uint i = 0;
+	    Uint j = 0;
+	    Process *h_p = NULL;
+	    bp_data_time_item_t *item = NULL;
+	    process_breakpoint_time_t *pbt = NULL;
+
+	    /* remove all psd associated with the hash
+	     * and then delete the hash.
+	     * ... sigh ...
+	     */
+
 	    for( i = 0; i < bdt->n; ++i) {
+		if (bdt->hash[i].used) {
+		    for (j = 0; j < bdt->hash[i].n; ++j) {
+			item = &(bdt->hash[i].item[j]);
+			if (item->pid != NIL) {
+			    h_p = process_tab[internal_pid_index(item->pid)];
+			    if (h_p) {
+				pbt = ERTS_PROC_SET_CALL_TIME(h_p, ERTS_PROC_LOCK_MAIN, NULL);
+				if (pbt) {
+				    Free(pbt);
+				}
+			    }
+			}
+		    }
+		}
 		bp_hash_delete(&(bdt->hash[i]));
 	    }
 	    Free(bdt->hash);
+	    bdt->hash = NULL;
 	    bdt->n = 0;
 	}
 	Free(bd);

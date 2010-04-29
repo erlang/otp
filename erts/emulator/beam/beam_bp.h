@@ -24,7 +24,6 @@
 #include "sys.h"
 #include "erl_vm.h"
 #include "global.h"
-//#include "hash.h"
 
 
 
@@ -93,6 +92,7 @@ typedef struct bp_data_time { /* Call time */
     struct bp_data *next;
     struct bp_data *prev;
     Uint            orig_instr;
+    Uint	    pause;
     Uint	    n;
     bp_time_hash_t  *hash;
 } BpDataTime;
@@ -106,6 +106,13 @@ typedef struct {
 
 extern erts_smp_spinlock_t erts_bp_lock;
 
+#define ERTS_BP_CALL_TIME_SCHEDULE_IN      (0)
+#define ERTS_BP_CALL_TIME_SCHEDULE_OUT     (1)
+#define ERTS_BP_CALL_TIME_SCHEDULE_EXITING (2)
+
+#define ERTS_BP_CALL_TIME_CALL      (0)
+#define ERTS_BP_CALL_TIME_RETURN    (1)
+#define ERTS_BP_CALL_TIME_TAIL_CALL (2)
 
 #ifdef ERTS_SMP
 #define ErtsSmpBPLock(BDC) erts_smp_spin_lock(&erts_bp_lock)
@@ -214,7 +221,8 @@ int erts_is_native_break(BeamInstr *pc);
 int erts_is_count_break(BeamInstr *pc, Sint *count_ret);
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 
-void erts_do_time_break(Process *p, BpDataTime *bdt);
+void erts_do_time_break(Process *p, BpDataTime *bdt, Uint type);
+void erts_schedule_time_break(Process *p, Uint out);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 
