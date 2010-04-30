@@ -779,8 +779,10 @@ bif binary:list_to_bin/1
 bif binary:copy/1
 bif binary:copy/2
 bif binary:referenced_byte_size/1
-#  bif binary:decode_unsigned/1
-#  bif binary:decode_unsigned/2
+bif binary:encode_unsigned/1
+bif binary:encode_unsigned/2
+bif binary:decode_unsigned/1
+bif binary:decode_unsigned/2
 
 #
 # New Bifs in R13B4

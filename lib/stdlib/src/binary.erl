@@ -31,9 +31,9 @@
 %%  binary:bin_to_list/{1,2,3}
 %%  binary:list_to_bin/1
 %%  binary:copy/{1,2}
-%% - Not yet:
 %%  binary:referenced_byte_size/1
 %%  binary:decode_unsigned/{1,2}
+%% - Not yet:
 %%
 %% Implemented in this module:
 -export([split/2,split/3,replace/3,replace/4]).

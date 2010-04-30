@@ -517,7 +517,7 @@ decode_unsigned(Subject) ->
 
 decode_unsigned(Subject,Endian) ->
     try
-	true = is_binary(Subject) and (byte_size(Subject) > 0),
+	true = is_binary(Subject),
 	case Endian of
 	    big ->
 		do_decode(Subject,0);

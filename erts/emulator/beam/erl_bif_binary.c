@@ -2441,6 +2441,310 @@ BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
     BIF_RET(res);
 }
 
+#define END_BIG 0
+#define END_SMALL 1
+
+#ifdef WORDS_BIGENDIAN
+#define END_NATIVE END_BIG
+#else
+#define END_NATIVE END_SMALL
+#endif
+
+static int get_need(Uint u) {
+#if defined(ARCH_64) && !HALFWORD_HEAP
+    if (u > 0xFFFFFFFFUL) {
+	if (u > 0xFFFFFFFFFFFFUL) {
+	    if (u > 0xFFFFFFFFFFFFFFUL) {
+		return 8;
+	    }
+	    return 7;
+	}
+	if (u > 0xFFFFFFFFFFUL) {
+	    return 6;
+	}
+	return 5;
+    }
+#endif
+    if (u > 0xFFFFUL) {
+	if (u > 0xFFFFFFUL) {
+	    return 4;
+	}
+	return 3;
+    }
+    if (u > 0xFFUL) {
+	return 2;
+    }
+    return 1;
+}
+
+static BIF_RETTYPE do_encode_unsigned(Process *p, Eterm uns, Eterm endianess)
+{
+    Eterm res;
+    if ((is_not_small(uns) && is_not_big(uns)) || is_not_atom(endianess) ||
+	(endianess != am_big && endianess != am_little)) {
+	goto badarg;
+    }
+    if (is_small(uns)) {
+	Sint x = signed_val(uns);
+	Uint u;
+	int n,i;
+	byte *b;
+
+	if (x < 0) {
+	    goto badarg;
+	}
+
+	u = (Uint) x;
+	n = get_need(u);
+	ASSERT(n <= ERL_ONHEAP_BIN_LIMIT);
+	res = erts_new_heap_binary(p, NULL, n, &b);
+	if (endianess == am_big) {
+	    for(i=n-1;i>=0;--i) {
+		b[i] = u & 0xFF;
+		u >>= 8;
+	    }
+	} else {
+	    for(i=0;i<n;++i) {
+		b[i] = u & 0xFF;
+		u >>= 8;
+	    }
+	}
+	BIF_RET(res);
+    } else {
+	/* Big */
+	Eterm *bigp = big_val(uns);
+	Uint n;
+	dsize_t num_parts = BIG_SIZE(bigp);
+	Eterm res;
+	byte *b;
+	ErtsDigit d;
+
+	if(BIG_SIGN(bigp)) {
+	    goto badarg;
+	}
+	n = (num_parts-1)*sizeof(ErtsDigit)+get_need(BIG_DIGIT(bigp,(num_parts-1)));
+	if (n <= ERL_ONHEAP_BIN_LIMIT) {
+	    res = erts_new_heap_binary(p,NULL,n,&b);
+	} else {
+	    res = erts_new_mso_binary(p,NULL,n);
+	    b = ((ProcBin *) binary_val(res))->bytes;
+	}
+
+	if (endianess == am_big) {
+	    Sint i,j;
+	    j = 0;
+	    d = BIG_DIGIT(bigp,0);
+	    for (i=n-1;i>=0;--i) {
+		b[i] = d & 0xFF;
+		if (!((++j) % sizeof(ErtsDigit))) {
+		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
+		} else {
+		    d >>= 8;
+		}
+	    }
+	} else {
+	    Sint i,j;
+	    j = 0;
+	    d = BIG_DIGIT(bigp,0);
+	    for (i=0;i<n;++i) {
+		b[i] = d & 0xFF;
+		if (!((++j) % sizeof(ErtsDigit))) {
+		    d = BIG_DIGIT(bigp,j / sizeof(ErtsDigit));
+		} else {
+		    d >>= 8;
+		}
+	    }
+
+	}
+	BIF_RET(res);
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+static BIF_RETTYPE do_decode_unsigned(Process *p, Eterm uns, Eterm endianess)
+{
+    byte *bytes;
+    Uint bitoffs, bitsize;
+    Uint size;
+    Eterm res;
+
+    if (is_not_binary(uns) || is_not_atom(endianess) ||
+	(endianess != am_big && endianess != am_little)) {
+	goto badarg;
+    }
+    ERTS_GET_BINARY_BYTES(uns, bytes, bitoffs, bitsize);
+    if (bitsize != 0) {
+	goto badarg;
+    }
+    /* align while rolling */
+    size = binary_size(uns);
+    if (bitoffs) {
+	if (endianess == am_big) {
+	    while (size && (((((Uint) bytes[0]) << bitoffs) |
+			    (((Uint) bytes[1]) >> (8-bitoffs))) & 0xFF) == 0) {
+		++bytes;
+		--size;
+	    }
+	} else {
+	    while(size &&
+		  (((((Uint) bytes[size-1]) << bitoffs) |
+		    (((Uint) bytes[size]) >> (8-bitoffs))) & 0xFF) == 0) {
+		--size;
+	    }
+	}
+    } else {
+	if (endianess == am_big) {
+	    while (size && *bytes == 0) {
+		++bytes;
+		--size;
+	    }
+	} else {
+	    while(size && bytes[size-1] == 0) {
+		--size;
+	    }
+	}
+    }
+    if (!size) {
+	BIF_RET(make_small(0));
+    }
+
+    if (size <= sizeof(Uint)) {
+	Uint u = 0;
+	Sint i;
+
+	if (endianess == am_big) {
+		if (bitoffs) {
+		    for(i=0;i<size;++i) {
+			u <<=8;
+			u |= (((((Uint) bytes[i]) << bitoffs) |
+			       (((Uint) bytes[i+1]) >> (8-bitoffs))) & 0xFF);
+		    }
+		} else {
+		    for(i=0;i<size;++i) {
+			u <<=8;
+			u |= bytes[i];
+		    }
+		}
+	} else {
+
+		if (bitoffs) {
+		    for(i=size-1;i>=0;--i) {
+			u <<=8;
+			u |= (((((Uint) bytes[i]) << bitoffs) |
+			       (((Uint) bytes[i+1]) >> (8-bitoffs))) & 0xFF);
+		    }
+		} else {
+		    for(i=size-1;i>=0;--i) {
+			u <<=8;
+			u |= bytes[i];
+		    }
+		}
+	}
+	res = erts_make_integer(u,p);
+	BIF_RET(res);
+    } else {
+	/* Assume big, as we stripped away all zeroes from the MSB part of the binary */
+	dsize_t num_parts = size / sizeof(ErtsDigit) + !!(size % sizeof(ErtsDigit));
+	Eterm *bigp;
+
+	bigp = HAlloc(p, BIG_NEED_SIZE(num_parts));
+	*bigp = make_pos_bignum_header(num_parts);
+	res = make_big(bigp);
+
+	if (endianess == am_big) {
+	    Sint i,j;
+	    ErtsDigit *d;
+	    j = size;
+	    d = &(BIG_DIGIT(bigp,num_parts - 1));
+	    *d = 0;
+	    i = 0;
+	    if(bitoffs) {
+		for (;;){
+		    (*d) <<= 8;
+		    (*d) |= (((((Uint) bytes[i]) << bitoffs) |
+			      (((Uint) bytes[i+1]) >> (8-bitoffs))) & 0xFF);
+		    if (++i >= size) {
+			break;
+		    }
+		    if (!(--j % sizeof(ErtsDigit))) {
+			--d;
+			*d = 0;
+		    }
+		}
+	    } else {
+		for (;;){
+		    (*d) <<= 8;
+		    (*d) |= bytes[i];
+		    if (++i >= size) {
+			break;
+		    }
+		    if (!(--j % sizeof(ErtsDigit))) {
+			--d;
+			*d = 0;
+		    }
+		}
+	    }
+	} else {
+	    Sint i,j;
+	    ErtsDigit *d;
+	    j = size;
+	    d = &(BIG_DIGIT(bigp,num_parts - 1));
+	    *d = 0;
+	    i = size-1;
+	    if (bitoffs) {
+		for (;;){
+		    (*d) <<= 8;
+		    (*d) |= (((((Uint) bytes[i]) << bitoffs) |
+			      (((Uint) bytes[i+1]) >> (8-bitoffs))) & 0xFF);
+		    if (--i < 0) {
+			break;
+		    }
+		    if (!(--j % sizeof(ErtsDigit))) {
+			--d;
+			*d = 0;
+		    }
+		}
+	    } else {
+		for (;;){
+		    (*d) <<= 8;
+		    (*d) |= bytes[i];
+		    if (--i < 0) {
+			break;
+		    }
+		    if (!(--j % sizeof(ErtsDigit))) {
+			--d;
+			*d = 0;
+		    }
+		}
+	    }
+	}
+	BIF_RET(res);
+    }
+ badarg:
+    BIF_ERROR(p,BADARG);
+}
+
+BIF_RETTYPE binary_encode_unsigned_1(BIF_ALIST_1)
+{
+    return do_encode_unsigned(BIF_P,BIF_ARG_1,am_big);
+}
+
+BIF_RETTYPE binary_encode_unsigned_2(BIF_ALIST_2)
+{
+    return do_encode_unsigned(BIF_P,BIF_ARG_1,BIF_ARG_2);
+}
+
+BIF_RETTYPE binary_decode_unsigned_1(BIF_ALIST_1)
+{
+    return do_decode_unsigned(BIF_P,BIF_ARG_1,am_big);
+}
+
+BIF_RETTYPE binary_decode_unsigned_2(BIF_ALIST_2)
+{
+    return do_decode_unsigned(BIF_P,BIF_ARG_1,BIF_ARG_2);
+}
+
 /*
  * Hard debug functions (dump) for the search structures
  */

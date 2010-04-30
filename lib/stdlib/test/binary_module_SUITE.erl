@@ -2,9 +2,13 @@
 
 -export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
-	 copy/1, referenced/1]).
+	 copy/1, referenced/1,encode_decode/1]).
 
--define(STANDALONE,1).
+-export([random_number/1, make_unaligned/1]).
+
+
+
+%%-define(STANDALONE,1).
 
 -ifdef(STANDALONE).
 
@@ -28,7 +32,7 @@ run() ->
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
 	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
-	       referenced].
+	       referenced,encode_decode].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
@@ -291,7 +295,71 @@ do_interesting(Module) ->
     ?line badarg = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-4)),
     ?line [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
 
+    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,big)),
+    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(<<1,2,1:2>>,little)),
+    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(apa)),
+    ?line badarg = ?MASK_ERROR(Module:decode_unsigned(125,little)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,little)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<>>,big)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,little)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(<<0>>,big)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),
+						 little)),
+    ?line 0 = ?MASK_ERROR(Module:decode_unsigned(make_unaligned(<<0>>),big)),
+    ?line badarg = ?MASK_ERROR(Module:encode_unsigned(apa)),
+    ?line badarg = ?MASK_ERROR(Module:encode_unsigned(125.3,little)),
+    ?line badarg = ?MASK_ERROR(Module:encode_unsigned({1},little)),
+    ?line badarg = ?MASK_ERROR(Module:encode_unsigned([1],little)),
+    ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,little)),
+    ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,big)),
     ok.
+
+
+encode_decode(doc) ->
+    ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
+encode_decode(Config) when is_list(Config) ->
+    ?line random:seed({1271,769940,559934}),
+    ?line ok = encode_decode_loop({1,100},1000),
+    ok.
+
+encode_decode_loop(_Range,0) ->
+    ok;
+encode_decode_loop(Range, X) ->
+    ?line N = random_number(Range),
+    ?line A = binary:encode_unsigned(N),
+    ?line B = binary:encode_unsigned(N,big),
+    ?line C = binref:encode_unsigned(N),
+    ?line D = binref:encode_unsigned(N,big),
+    ?line E = binary:encode_unsigned(N,little),
+    ?line F = binref:encode_unsigned(N,little),
+    ?line G = binary:decode_unsigned(A),
+    ?line H = binary:decode_unsigned(A,big),
+    ?line I = binref:decode_unsigned(A),
+    ?line J = binary:decode_unsigned(E,little),
+    ?line K = binref:decode_unsigned(E,little),
+    ?line L = binary:decode_unsigned(make_unaligned(A)),
+    ?line M = binary:decode_unsigned(make_unaligned(E),little),
+    ?line PaddedBig = <<0:48,A/binary>>,
+    ?line PaddedLittle = <<E/binary,0:48>>,
+    ?line O = binary:decode_unsigned(PaddedBig),
+    ?line P = binary:decode_unsigned(make_unaligned(PaddedBig)),
+    ?line Q = binary:decode_unsigned(PaddedLittle,little),
+    ?line R = binary:decode_unsigned(make_unaligned(PaddedLittle),little),
+    ?line S = binref:decode_unsigned(PaddedLittle,little),
+    ?line T = binref:decode_unsigned(PaddedBig),
+    case (((A =:= B) and (B =:= C) and (C =:= D)) and
+	  ((E =:= F)) and
+	  ((N =:= G) and (G =:= H) and (H =:= I) and
+	   (I =:= J) and (J =:= K) and (K =:= L) and (L =:= M)) and
+	  ((M =:= O) and (O =:= P) and (P =:= Q) and (Q =:= R) and
+	   (R =:= S) and (S =:= T)))of
+	true ->
+	    encode_decode_loop(Range,X-1);
+	_ ->
+	    io:format("Failed to encode/decode ~w~n(Results ~p)~n",
+		      [N,[A,B,C,D,E,F,G,H,I,J,K,L,M,x,O,P,Q,R,S,T]]),
+	    exit(mismatch)
+    end.
 
 referenced(doc) ->
     ["Test refernced_byte_size/1 bif."];
@@ -837,12 +905,22 @@ do_replace_comp(N,H,R,Opts) ->
 	    exit(mismatch)
     end.
 
+one_random_number(N) ->
+    M = ((N - 1) rem 10) + 1,
+    element(M,{$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
+
 one_random(N) ->
     M = ((N - 1) rem 68) + 1,
     element(M,{$a,$b,$c,$d,$e,$f,$g,$h,$i,$j,$k,$l,$m,$n,$o,$p,$q,$r,$s,$t,
 	       $u,$v,$w,$x,$y,$z,$å,$ä,$ö,$A,$B,$C,$D,$E,$F,$G,$H,
 	       $I,$J,$K,$L,$M,$N,$O,$P,$Q,$R,$S,$T,$U,$V,$W,$X,$Y,$Z,$Å,
 	       $Ä,$Ö,$0,$1,$2,$3,$4,$5,$6,$7,$8,$9}).
+
+random_number({Min,Max}) -> % Min and Max are *length* of number in
+                            % decimal positions
+    X = random:uniform(Max - Min + 1) + Min - 1,
+    list_to_integer([one_random_number(random:uniform(10)) || _ <- lists:seq(1,X)]).
+
 
 random_length({Min,Max}) ->
     random:uniform(Max - Min + 1) + Min - 1.
