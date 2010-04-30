@@ -105,7 +105,6 @@ static erts_lc_lock_order_t erts_lock_order[] = {
     {	"node_table",				NULL			},
     {	"dist_table",				NULL			},
     {	"sys_tracers",				NULL			},
-    {	"trace_pattern",			NULL			},
     {	"module_tab",				NULL			},
     {	"export_tab",				NULL			},
     {	"fun_tab",				NULL			},

@@ -231,7 +231,7 @@ BeamInstr* em_call_traced_function;
 BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
-BeamInstr beam_time_return_trace[1]; /* OpCode(i_time_return_trace) */
+BeamInstr beam_return_time_trace[1]; /* OpCode(i_time_return_trace) */
 
 /*
  * All Beam instructions in numerical order.
@@ -4409,6 +4409,10 @@ apply_bif_or_nif_epilogue:
      Goto(real_I);
  }
 
+ /* need to send mfa instead of bdt pointer
+  * the pointer might be deallocated.
+  */
+
  OpCase(i_time_breakpoint): {
      BeamInstr real_I;
      BpDataTime *bdt = (BpDataTime *) (I)[-4];
@@ -4423,43 +4427,48 @@ apply_bif_or_nif_epilogue:
      ASSERT(VALID_INSTR(real_I));
 
      if (IS_TRACED_FL(c_p, F_TRACE_CALLS) && !(bdt->pause)) {
-	 if (*cp_val((Eterm)c_p->cp) == (BeamInstr) OpCode(i_time_return_trace)) {
+	 if (*cp_val((Eterm)c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) {
 	     tail_call = 1;
 	 }
 
 	 if (tail_call) {
 	     /* This _IS_ a tail recursive call */
 	     SWAPOUT;
-	     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_TAIL_CALL);
+	     erts_trace_time_break(c_p, I, bdt, ERTS_BP_CALL_TIME_TAIL_CALL);
 	     SWAPIN;
 	 } else {
 	     SWAPOUT;
-	     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_CALL);
+	     erts_trace_time_break(c_p, I, bdt, ERTS_BP_CALL_TIME_CALL);
 
+	     /* r register needs to be copied to the array
+	      * for the garbage collector
+	      */
 	     ASSERT(c_p->htop <= E && E <= c_p->hend);
 	     if (E - 2 < HTOP) {
+		 reg[0] = r(0);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
 		 FCALLS -= erts_garbage_collect(c_p, 2, reg, I[-1]);
 		 PROCESS_MAIN_CHK_LOCKS(c_p);
+		 r(0) = reg[0];
 	     }
 	     SWAPIN;
 
 	     ASSERT(c_p->htop <= E && E <= c_p->hend);
 
 	     E -= 2;
+	     E[0] = make_cp(I);
 	     E[1] = make_cp(c_p->cp);     /* original return address */
-	     E[0] = make_cp((Uint *)bdt); /* make sure bdt is allocated in low mem (for halfword) */
-	     c_p->cp = (Eterm *) make_cp(beam_time_return_trace);
+	     c_p->cp = (Eterm *) make_cp(beam_return_time_trace);
 	 }
      }
 
      Goto(real_I);
  }
 
- OpCase(i_time_return_trace): {
-     BpDataTime *bdt = (BpDataTime *) cp_val((E)[0]);
+ OpCase(i_return_time_trace): {
+     Uint *pc = (Uint *) E[0];
      SWAPOUT;
-     erts_do_time_break(c_p, bdt, ERTS_BP_CALL_TIME_RETURN);
+     erts_trace_time_break(c_p, pc, NULL, ERTS_BP_CALL_TIME_RETURN);
      SWAPIN;
      c_p->cp = NULL;
      SET_I((Eterm *) E[1]);
@@ -5024,7 +5033,7 @@ apply_bif_or_nif_epilogue:
      beam_return_to_trace[0]   = (BeamInstr) OpCode(i_return_to_trace);
      beam_return_trace[0]      = (BeamInstr) OpCode(return_trace);
      beam_exception_trace[0]   = (BeamInstr) OpCode(return_trace); /* UGLY */
-     beam_time_return_trace[0] = (BeamInstr) OpCode(i_time_return_trace);
+     beam_return_time_trace[0] = (BeamInstr) OpCode(i_return_time_trace);
 
      /*
       * Enter all BIFs into the export table.
@@ -5228,14 +5237,18 @@ next_catch(Process* c_p, Eterm *reg) {
     int active_catches = c_p->catches > 0;
     int have_return_to_trace = 0;
     Eterm *ptr, *prev, *return_to_trace_ptr = NULL;
-    BeamInstr i_return_trace = beam_return_trace[0];
-    BeamInstr i_return_to_trace = beam_return_to_trace[0];
+
+    BeamInstr i_return_trace      = beam_return_trace[0];
+    BeamInstr i_return_to_trace   = beam_return_to_trace[0];
+    BeamInstr i_return_time_trace = beam_return_time_trace[0];
+
     ptr = prev = c_p->stop;
     ASSERT(is_CP(*ptr));
     ASSERT(ptr <= STACK_START(c_p));
     if (ptr == STACK_START(c_p)) return NULL;
     if ((is_not_CP(*ptr) || (*cp_val(*ptr) != i_return_trace &&
-			     *cp_val(*ptr) != i_return_to_trace))
+			     *cp_val(*ptr) != i_return_to_trace &&
+			     *cp_val(*ptr) != i_return_time_trace ))
 	&& c_p->cp) {
 	/* Can not follow cp here - code may be unloaded */
 	BeamInstr *cpp = c_p->cp;
@@ -5247,6 +5260,9 @@ next_catch(Process* c_p, Eterm *reg) {
 	} else if (cpp == beam_return_trace) {
 	    /* Skip return_trace parameters */
 	    ptr += 2;
+	} else if (cpp == beam_return_time_trace) {
+	    /* Skip return_trace parameters */
+	    ptr += 1;
 	} else if (cpp == beam_return_to_trace) {
 	    have_return_to_trace = !0; /* Record next cp */
 	}
@@ -5276,6 +5292,13 @@ next_catch(Process* c_p, Eterm *reg) {
 		}
 		have_return_to_trace = !0; /* Record next cp */
 		return_to_trace_ptr = NULL;
+	    } else if (*cp_val(*prev) == i_return_time_trace) {
+		/* Skip stack frame variables */
+		while (++ptr, ptr < STACK_START(c_p) && is_not_CP(*ptr)) {
+		    if (is_catch(*ptr) && active_catches) goto found_catch;
+		}
+		/* Skip return_trace parameters */
+		ptr += 1;
 	    } else {
 		if (have_return_to_trace) {
 		    /* Record this cp as possible return_to trace cp */

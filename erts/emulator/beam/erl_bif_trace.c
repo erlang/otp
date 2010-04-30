@@ -40,12 +40,11 @@
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
-static erts_smp_mtx_t              trace_pattern_mutex;
 const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0, 0};
 static int                         erts_default_trace_pattern_is_on;
 static Binary                     *erts_default_match_spec;
 static Binary                     *erts_default_meta_match_spec;
-struct trace_pattern_flags         erts_default_trace_pattern_flags;
+static struct trace_pattern_flags  erts_default_trace_pattern_flags;
 static Eterm                       erts_default_meta_tracer_pid;
 
 static void new_seq_trace_token(Process* p); /* help func for seq_trace_2*/
@@ -65,7 +64,6 @@ static void clear_trace_bif(int bif_index);
 void
 erts_bif_trace_init(void)
 {
-    erts_smp_mtx_init(&trace_pattern_mutex, "trace_pattern");
     erts_default_trace_pattern_is_on = 0;
     erts_default_match_spec = NULL;
     erts_default_meta_match_spec = NULL;
@@ -203,8 +201,8 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	goto error;
     }
     
-    if (match_prog_set && !flags.local && !flags.meta && flags.call_count) {
-	/* A match prog is not allowed with just call_count */
+    if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time)) {
+	/* A match prog is not allowed with just call_count or call_time*/
 	goto error;
     }
 
@@ -350,7 +348,6 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid)
 {
-    erts_smp_mtx_lock(&trace_pattern_mutex);
     if (trace_pattern_is_on)
 	*trace_pattern_is_on = erts_default_trace_pattern_is_on;
     if (match_spec)
@@ -361,7 +358,6 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 	*trace_pattern_flags = erts_default_trace_pattern_flags;
     if (meta_tracer_pid)
 	*meta_tracer_pid = erts_default_meta_tracer_pid;
-    erts_smp_mtx_unlock(&trace_pattern_mutex);
 }
 
 
@@ -964,8 +960,8 @@ static int function_is_traced(Process *p,
 			      Binary **ms,              /* out */
 			      Binary **ms_meta,         /* out */
 			      Eterm   *tracer_pid_meta, /* out */
-			      Sint    *count,    /* out */
-			      Eterm   *call_time)    /* out */
+			      Sint    *count,           /* out */
+			      Eterm   *call_time)       /* out */
 {
     Export e;
     Export* ep;

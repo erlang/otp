@@ -101,7 +101,7 @@ typedef struct {
     Uint ms;
     Uint s;
     Uint us;
-    BpDataTime *bdt;
+    Uint *pc;
 } process_breakpoint_time_t; /* used within psd */
 
 extern erts_smp_spinlock_t erts_bp_lock;
@@ -136,27 +136,6 @@ do {                                                        \
     ErtsSmpBPUnlock(bdc);                                   \
     *(instr_result) = bdc->orig_instr;                      \
 } while (0)
-
-#define ErtsTimeBreak(pc,instr_result)                      \
-do {                                                        \
-    BpDataTime *bdt = (BpDataTime *) (pc)[-4];              \
-    Uint ms,s,u;                                            \
-                                                            \
-    ASSERT((pc)[-5] == (Uint) BeamOp(op_i_func_info_IaaI)); \
-    ASSERT(bdt);                                            \
-    bdt = (BpDataTime *) bdt->next;                         \
-    ASSERT(bdc);                                            \
-    (pc)[-4] = (Uint) bdt;                                  \
-    get_now(&ms,&s,&u);                                     \
-    ErtsSmpBPLock(bdt);                                     \
-    if (bdt->count >= 0)                                    \
-	bdt->count++;                                       \
-    bdt->s_time = 1;                                        \
-    bdt->us_time = 1;                                       \
-    ErtsSmpBPUnlock(bdt);                                   \
-    *(instr_result) = bdt->orig_instr;                      \
-} while (0)
-
 
 #define ErtsBreakSkip(pc,instr_result)                      \
 do {                                                        \
@@ -198,8 +177,6 @@ int erts_set_debug_break(Eterm mfa[3], int specified);
 int erts_clear_debug_break(Eterm mfa[3], int specified);
 int erts_set_count_break(Eterm mfa[3], int specified, enum erts_break_op);
 int erts_clear_count_break(Eterm mfa[3], int specified);
-int erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op);
-int erts_clear_time_break(Eterm mfa[3], int specified);
 
 
 int erts_clear_break(Eterm mfa[3], int specified);
@@ -221,8 +198,10 @@ int erts_is_native_break(BeamInstr *pc);
 int erts_is_count_break(BeamInstr *pc, Sint *count_ret);
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *call_time);
 
-void erts_do_time_break(Process *p, BpDataTime *bdt, Uint type);
+void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type);
 void erts_schedule_time_break(Process *p, Uint out);
+int erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op);
+int erts_clear_time_break(Eterm mfa[3], int specified);
 
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 

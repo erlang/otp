@@ -1744,7 +1744,7 @@ struct trace_pattern_flags {
     unsigned int call_time  : 1; /* Fast call time breakpoint */
 };
 extern const struct trace_pattern_flags erts_trace_pattern_flags_off;
-extern struct trace_pattern_flags erts_default_trace_pattern_flags; /* used with blocksystem */
+extern int erts_call_time_breakpoint_tracing;
 int erts_set_trace_pattern(Eterm* mfa, int specified, 
 			   Binary* match_prog_set, Binary *meta_match_prog_set,
 			   int on, struct trace_pattern_flags,
