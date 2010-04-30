@@ -432,7 +432,7 @@ handle_request(Method, Url,
 	    Options       = request_options(Options0), 
 	    Sync          = proplists:get_value(sync,   Options),
 	    Stream        = proplists:get_value(stream, Options),
-	    Host2         = header_host(Host, Port), 
+	    Host2         = header_host(Scheme, Host, Port), 
 	    HeadersRecord = header_record(NewHeaders, Host2, HTTPOptions),
 	    Receiver   = proplists:get_value(receiver, Options),
 	    SocketOpts = proplists:get_value(socket_opts, Options),
@@ -895,9 +895,11 @@ bad_option(Option, BadValue) ->
     throw({error, {bad_option, Option, BadValue}}).
 
 
-header_host(Host, 80 = _Port) ->
+header_host(https, Host, 443 = _Port) ->
     Host;
-header_host(Host, Port) ->
+header_host(http, Host, 80 = _Port) ->
+    Host;
+header_host(_Scheme, Host, Port) ->
     Host ++ ":" ++ integer_to_list(Port).
 
 

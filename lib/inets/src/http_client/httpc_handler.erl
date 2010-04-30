@@ -1424,14 +1424,16 @@ try_to_enable_pipeline_or_keep_alive(
 	    State#state{status = close}
     end.
 
-answer_request(Request, Msg, #state{timers = Timers} = State) -> 
+answer_request(#request{id = RequestId, from = From} = Request, Msg, 
+	       #state{timers = Timers, profile_name = ProfileName} = State) -> 
     ?hcrt("answer request", [{request, Request}]),
-    httpc_response:send(Request#request.from, Msg),
+    httpc_response:send(From, Msg),
     RequestTimers = Timers#timers.request_timers,
     TimerRef =
-	proplists:get_value(Request#request.id, RequestTimers, undefined),
-    Timer = {Request#request.id, TimerRef},
+	proplists:get_value(RequestId, RequestTimers, undefined),
+    Timer = {RequestId, TimerRef},
     cancel_timer(TimerRef, {timeout, Request#request.id}),
+    httpc_manager:request_done(RequestId, ProfileName),
     State#state{request = Request#request{from = answer_sent},
 		timers = 
 		Timers#timers{request_timers =
