@@ -1,9 +1,8 @@
 -module(binary_module_SUITE).
 
 -export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
-	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1, copy/1]).
-
--export([random_copy/1]).
+	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
+	 copy/1, referenced/1]).
 
 -define(STANDALONE,1).
 
@@ -28,7 +27,8 @@ run() ->
 -endif.
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
-	       random_ref_comp,parts,bin_to_list, list_to_bin, copy].
+	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
+	       referenced].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
@@ -292,6 +292,34 @@ do_interesting(Module) ->
     ?line [1,2,3] = ?MASK_ERROR(Module:bin_to_list(<<1,2,3>>,3,-3)),
 
     ok.
+
+referenced(doc) ->
+    ["Test refernced_byte_size/1 bif."];
+referenced(Config) when is_list(Config) ->
+    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size([])),
+    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size(apa)),
+    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size({})),
+    ?line badarg = ?MASK_ERROR(binary:referenced_byte_size(1)),
+    ?line A = <<1,2,3>>,
+    ?line B = binary:copy(A,1000),
+    ?line 3 = binary:referenced_byte_size(A),
+    ?line 3000 = binary:referenced_byte_size(B),
+    ?line <<_:8,C:2/binary>> = A,
+    ?line 3 = binary:referenced_byte_size(C),
+    ?line 2 = binary:referenced_byte_size(binary:copy(C)),
+    ?line <<_:7,D:2/binary,_:1>> = A,
+    ?line 2 = binary:referenced_byte_size(binary:copy(D)),
+    ?line 3 = binary:referenced_byte_size(D),
+    ?line <<_:8,E:2/binary,_/binary>> = B,
+    ?line 3000 = binary:referenced_byte_size(E),
+    ?line 2 = binary:referenced_byte_size(binary:copy(E)),
+    ?line <<_:7,F:2/binary,_:1,_/binary>> = B,
+    ?line 2 = binary:referenced_byte_size(binary:copy(F)),
+    ?line 3000 = binary:referenced_byte_size(F),
+    ok.
+
+
+
 list_to_bin(doc) ->
     ["Test list_to_bin/1 bif"];
 list_to_bin(Config) when is_list(Config) ->

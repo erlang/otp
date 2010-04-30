@@ -2418,6 +2418,29 @@ BIF_RETTYPE binary_copy_2(BIF_ALIST_2)
     return do_binary_copy(BIF_P,BIF_ARG_1,BIF_ARG_2);
 }
 
+BIF_RETTYPE binary_referenced_byte_size_1(BIF_ALIST_1)
+{
+    ErlSubBin *sb;
+    ProcBin *pb;
+    Eterm res;
+    Eterm bin = BIF_ARG_1;
+
+    if (is_not_binary(BIF_ARG_1)) {
+	BIF_ERROR(BIF_P,BADARG);
+    }
+    sb = (ErlSubBin *) binary_val(bin);
+    if (sb->thing_word == HEADER_SUB_BIN) {
+	bin = sb->orig;
+    }
+    pb = (ProcBin *) binary_val(bin);
+    if (pb->thing_word == HEADER_PROC_BIN) {
+	res = erts_make_integer((Uint) pb->val->orig_size, BIF_P); /* XXX:PaN Halfword? orig_size is a long */
+    } else { /* heap binary */
+	res = erts_make_integer((Uint) ((ErlHeapBin *) pb)->size, BIF_P);
+    }
+    BIF_RET(res);
+}
+
 /*
  * Hard debug functions (dump) for the search structures
  */
