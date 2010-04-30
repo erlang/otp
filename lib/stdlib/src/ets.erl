@@ -230,7 +230,7 @@ from_dets(EtsTable, DetsTable) ->
 	    erlang:error(Unexpected,[EtsTable,DetsTable])
     end.
 
--spec to_dets(tab(), dets:tab_name()) -> dets:tabname().
+-spec to_dets(tab(), dets:tab_name()) -> dets:tab_name().
 
 to_dets(EtsTable, DetsTable) ->
     case (catch dets:from_ets(DetsTable, EtsTable)) of
