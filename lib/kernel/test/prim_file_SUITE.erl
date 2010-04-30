@@ -35,7 +35,7 @@
 	 file_write_file_info_a/1, file_write_file_info_b/1]).
 -export([rename_a/1, rename_b/1, 
 	 access/1, truncate/1, datasync/1, sync/1,
-	 read_write/1, pread_write/1, append/1]).
+	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
 -export([compression/1, read_not_really_compressed/1,
@@ -385,7 +385,7 @@ win_cur_dir_1(_Config, Handle) ->
 files(suite) -> [open,pos,file_info,truncate,sync,datasync,advise].
 
 open(suite) -> [open1,modes,close,access,read_write,
-	       pread_write,append].
+	       pread_write,append,exclusive].
 
 open1(suite) -> [];
 open1(doc) -> [];
@@ -607,6 +607,22 @@ append(Config) when is_list(Config) ->
     ?line Expected = list_to_binary([First, Second, Third]),
     ?line {ok, Expected} = ?PRIM_FILE:read_file(Name1),
 
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+exclusive(suite) -> [];
+exclusive(doc) -> "Test exclusive access to a file.";
+exclusive(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line RootDir = ?config(priv_dir,Config),
+    ?line NewDir = filename:join(RootDir,
+				 atom_to_list(?MODULE)
+				 ++"_exclusive"),
+    ?line ok = ?PRIM_FILE:make_dir(NewDir),
+    ?line Name = filename:join(NewDir, "ex_file.txt"),
+    ?line {ok,Fd} = ?PRIM_FILE:open(Name, [write, exclusive]),
+    ?line {error, eexist} = ?PRIM_FILE:open(Name, [write, exclusive]),
+    ?line ok = ?PRIM_FILE:close(Fd),
     ?line test_server:timetrap_cancel(Dog),
     ok.
 

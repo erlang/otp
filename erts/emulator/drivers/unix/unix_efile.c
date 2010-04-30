@@ -706,6 +706,9 @@ efile_openfile(Efile_error* errInfo,	/* Where to return error codes. */
 #endif
     }
 
+    if (flags & EFILE_MODE_EXCL) {
+	mode |= O_EXCL;
+    }
 
 #ifdef VXWORKS
     if (*name != '/') {
