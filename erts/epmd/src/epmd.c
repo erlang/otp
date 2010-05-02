@@ -1,20 +1,20 @@
 /* -*- c-indent-level: 2; c-continued-statement-offset: 2 -*- */ 
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1998-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1998-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -23,11 +23,6 @@
 #endif
 #include "epmd.h"     /* Renamed from 'epmd_r4.h' */
 #include "epmd_int.h"
-
-#ifdef _OSE_
-#  include "ose.h"
-#  include "efs.h"
-#endif
 
 #ifdef HAVE_STDLIB_H
 #  include <stdlib.h>
@@ -82,86 +77,7 @@ static char *mystrdup(char *s)
     return r;
 }
 
-#ifdef _OSE_
-
-struct args_sig {
-  SIGSELECT sig_no;
-  int argc ;
-  char argv[20][20];
-};
-
-union SIGNAL {
-  SIGSELECT sig_no;
-  struct args_sig args;
-};
-
-/* Start function. It may be called from the start script as well as from
-   the OSE shell directly (using late start hooks). It spawns epmd as an
-   OSE process which calls the epmd main function. */
-int start_ose_epmd(int argc, char **argv) {
-  union SIGNAL *sig;
-  PROCESS epmd_;
-  OSENTRYPOINT ose_epmd;
-  int i;
-
-  if(hunt("epmd", 0, &epmd_, NULL)) {
-    fprintf(stderr, "Warning! EPMD already exists (%u).\n", epmd_);
-    return 0;
-  }
-  else {
-    /* copy start args to signal */
-    sig = alloc(sizeof(struct args_sig), 0);
-    sig->args.argc = argc;
-    for(i=0; i<argc; i++) {
-      strcpy((sig->args.argv)[i], argv[i]);
-    }    
-    /* start epmd and send signal */
-    epmd_ = create_process(OS_BG_PROC, /* processtype */
-			   "epmd",      /* name        */
-			   ose_epmd,    /* entrypoint  */
-			   16383,	/* stacksize   */
-			   20,	        /* priority    */
-			   0,	        /* timeslice   */
-			   0,	        /* block       */
-			   NULL,0,0);   /* not used    */
-    efs_clone(epmd_);
-    start(epmd_);
-    send(&sig, epmd_);	
-#ifdef DEBUG
-    printf("EPMD ID: %li\n", epmd_);
-#endif
-  }
-  return 0;
-}
-
-OS_PROCESS(ose_epmd) {
-  union SIGNAL *sig;
-  static const SIGSELECT rec_any_sig[] = { 0 };
-  int i, argc;
-  char **argv;
-
-  sig = receive((SIGSELECT*)rec_any_sig);
-
-  argc = sig->args.argc;
-  argv = (char **)malloc((argc+1)*sizeof(char *));
-  for(i=0; i<argc; i++) {
-    argv[i] = (char *)malloc(strlen((sig->args.argv)[i])+1);
-    strcpy(argv[i], (sig->args.argv)[i]);
-  }
-  argv[argc] = NULL;
-  free_buf(&sig);
-
-  epmd(argc, argv);
-
-  for(i=0; i<argc; i++) {
-    free(argv[i]);
-  }
-  free(argv);
-}
-
-#else  /* ifdef _OSE_ */
-
-/* VxWorks start function */
+#ifdef VXWORKS
 int start_epmd(a0, a1, a2, a3, a4, a5, a6, a7, a8, a9)
 char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;     
 {
@@ -200,10 +116,7 @@ char *a0, *a1, *a2, *a3, *a4, *a5, *a6, *a7, *a8, *a9;
 		   argc,(int) argv,1,
 		   0,0,0,0,0,0,0);
 }
-    
-#endif    /* _OSE_ */
-    
-    
+#endif    /* WxWorks */
 
 
 int epmd(int argc, char **argv)
@@ -453,7 +366,7 @@ static void run_daemon(EpmdVars *g)
 }
 #endif
 
-#if (defined(VXWORKS) || defined(_OSE_))
+#if defined(VXWORKS)
 static void run_daemon(EpmdVars *g)
 {
     run(g);

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2003-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2003-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -65,7 +65,7 @@ static void debugf_open(int number)
 {
     char filename[1024];
     sprintf(filename,"ei_tmo_test%d.debug",number);
-#if !defined(VXWORKS) && !defined(__WIN32__) && !defined(_OSE_)
+#if !defined(VXWORKS) && !defined(__WIN32__)
     close(2);
 #endif
     debugfile = fopen(filename,"a");

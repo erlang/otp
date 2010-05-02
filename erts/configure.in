@@ -2910,7 +2910,7 @@ case $enable_hybrid_heap-$host_os in
     no-*)
 	AC_MSG_RESULT([no; disabled by user])
 	ERTS_BUILD_HYBRID_EMU=no;;
-    *-win32|*-vxworks|*-ose) # vxworks and ose have their own "configure scripts"...
+    *-win32|*-vxworks) # vxworks have their own "configure scripts"...
 	AC_MSG_RESULT([no; default on this platform])
 	ERTS_BUILD_HYBRID_EMU=no;;
     *)

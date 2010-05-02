@@ -21,10 +21,6 @@
 #  include "config.h"
 #endif
 
-#ifdef _OSE_
-#  include "ose.h"
-#endif
-
 #include <ctype.h>
 
 #define ERTS_WANT_EXTERNAL_TAGS

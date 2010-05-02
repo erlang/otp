@@ -1003,14 +1003,14 @@ static BeamInstr* call_fun(Process* p, int arity, Eterm* reg, Eterm args);
 static BeamInstr* apply_fun(Process* p, Eterm fun, Eterm args, Eterm* reg);
 static Eterm new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free);
 
-#if defined(_OSE_) || defined(VXWORKS)
+#if defined(VXWORKS)
 static int init_done;
 #endif
 
 void
 init_emulator(void)
 {
-#if defined(_OSE_) || defined(VXWORKS)
+#if defined(VXWORKS)
     init_done = 0;
 #endif
     process_main();
@@ -1049,7 +1049,7 @@ init_emulator(void)
  */
 void process_main(void)
 {
-#if !defined(_OSE_) && !defined(VXWORKS)
+#if !defined(VXWORKS)
     static int init_done = 0;
 #endif
     Process* c_p = NULL;

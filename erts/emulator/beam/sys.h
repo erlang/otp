@@ -58,8 +58,6 @@
 #  include "erl_win_sys.h"
 #elif defined (VXWORKS) 
 #  include "erl_vxworks_sys.h"
-#elif defined (_OSE_) 
-#  include "erl_ose_sys.h"
 #else 
 #  include "erl_unix_sys.h"
 #ifndef UNIX
@@ -458,13 +456,6 @@ extern volatile int erts_writing_erl_crash_dump;
    in non-blocking mode - and ioctl FIONBIO on AIX *doesn't* work for
    pipes or ttys (O_NONBLOCK does)!!! For now, we'll use FIONBIO for AIX. */
 
-# ifdef _OSE_
-static const int zero_value = 0, one_value = 1;
-#      define SET_BLOCKING(fd)	        ioctl((fd), FIONBIO, (char*)&zero_value)
-#      define SET_NONBLOCKING(fd)	ioctl((fd), FIONBIO, (char*)&one_value)
-#      define ERRNO_BLOCK EWOULDBLOCK
-# else
-
 #  ifdef __WIN32__
 
 static unsigned long zero_value = 0, one_value = 1;
@@ -505,7 +496,6 @@ static const int zero_value = 0, one_value = 1;
 #      endif /* !NB_FIONBIO */
 #    endif /* _WXWORKS_ */
 #  endif /* !__WIN32__ */
-# endif /* _OSE_ */
 #endif /* WANT_NONBLOCKING */
 
 extern erts_cpu_info_t *erts_cpuinfo; /* erl_init.c */
@@ -583,8 +573,6 @@ typedef struct preload {
  * None of the drivers use all of the fields.
  */
 
-/* OSE: Want process_type and priority in here as well! Needs updates in erl_bif_ports.c! */
-
 typedef struct _SysDriverOpts {
     int ifd;			/* Input file descriptor (fd driver). */
     int ofd;			/* Outputfile descriptor (fd driver). */
@@ -601,12 +589,6 @@ typedef struct _SysDriverOpts {
     char *wd;			/* Working directory. */
     unsigned spawn_type;        /* Bitfield of ERTS_SPAWN_DRIVER | 
 				   ERTS_SPAWN_EXTERNAL | both*/ 
-
-#ifdef _OSE_
-    enum PROCESS_TYPE process_type;
-    OSPRIORITY priority;
-#endif /* _OSE_ */
-
 } SysDriverOpts;
 
 extern char *erts_default_arg0;
@@ -683,11 +665,7 @@ extern void erts_sys_pre_init(void);
 extern void erl_sys_init(void);
 extern void erl_sys_args(int *argc, char **argv);
 extern void erl_sys_schedule(int);
-#ifdef _OSE_
-extern void erl_sys_init_final(void);
-#else
-void sys_tty_reset(void);
-#endif
+void sys_tty_reset(int);
 
 EXTERN_FUNCTION(int, sys_max_files, (_VOID_));
 void sys_init_io(void);
@@ -1152,7 +1130,7 @@ extern int erts_use_kernel_poll;
 void elib_ensure_initialized(void);
 
 
-#if (defined(VXWORKS) || defined(_OSE_))
+#if defined(VXWORKS)
 /* NOTE! sys_calloc2 does not exist on other 
    platforms than VxWorks and OSE */
 EXTERN_FUNCTION(void*, sys_calloc2, (Uint, Uint));

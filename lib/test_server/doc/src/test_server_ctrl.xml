@@ -538,9 +538,6 @@ Optional, if not given the test server controller node
           test server controller node. The log must be formatted using
           <c>ttb:format/1/2</c>.
           </p>
-        <p>This is valid for all targets except the OSE/Delta target
-          for which all nodes will be logged and automatically formatted
-          in one single text file called <c>allnodes-test_server</c>.</p>
       </desc>
     </func>
     <func>

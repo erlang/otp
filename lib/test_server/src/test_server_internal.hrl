@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,7 +37,7 @@
 		      username,        % string()
 		      cookie,          % string(); Cookie for target node
 		      naming,          % string(); "-name" | "-sname"
-		      master,          % string(); For OSE this is the master
+		      master,          % string(); Was used for OSE's master
 				       % node for main target and slave nodes.
 				       % For other platforms the target node
 				       % itself is master for slave nodes

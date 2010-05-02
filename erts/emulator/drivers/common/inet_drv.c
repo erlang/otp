@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1997-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1997-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -41,13 +41,11 @@
 #define STRINGIFY_1(b) IDENTITY(#b)
 #define STRINGIFY(a) STRINGIFY_1(a)
 
-#ifndef _OSE_
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif
 #ifdef HAVE_SYS_UIO_H
 #include <sys/uio.h>
-#endif
 #endif
 
 
@@ -186,18 +184,8 @@ static unsigned long one_value = 1;
 #include <netdb.h>
 #endif
 
-#ifndef _OSE_
 #include <sys/socket.h>
 #include <netinet/in.h>
-#else
-/* datatypes and macros from Solaris socket.h */
-struct  linger {
-        int     l_onoff;                /* option on/off */
-        int     l_linger;               /* linger time */
-};
-#define SO_OOBINLINE    0x0100          /* leave received OOB data in line */
-#define SO_LINGER       0x0080          /* linger on close if data present */
-#endif
 
 #ifdef VXWORKS
 #include <rpc/rpctypes.h>
@@ -206,12 +194,10 @@ struct  linger {
 #include <rpc/types.h>
 #endif
 
-#ifndef _OSE_
 #include <netinet/tcp.h>
 #include <arpa/inet.h>
-#endif
 
-#if (!defined(VXWORKS) && !defined(_OSE_))
+#if (!defined(VXWORKS))
 #include <sys/param.h>
 #ifdef HAVE_ARPA_NAMESER_H
 #include <arpa/nameser.h>
@@ -226,33 +212,11 @@ struct  linger {
 #include <sys/ioctl.h>
 #endif
 
-#ifndef _OSE_
 #include <net/if.h>
-#else
-#define IFF_MULTICAST 0x00000800
-#endif
-
-#ifdef _OSE_
-#include "inet.h"
-#include "ineterr.h"
-#include "ose_inet_drv.h"
-#include "nameser.h" 
-#include "resolv.h"
-#define SET_ASYNC(s) setsockopt((s), SOL_SOCKET, SO_OSEEVENT, (&(s)), sizeof(int))
-
-extern void select_release(void);
-
-#endif /* _OSE_ */
-
-/* Solaris headers, only to be used with SFK */
-#ifdef _OSE_SFK_
-#include <ctype.h>
-#include <string.h>
-#endif
 
 /* SCTP support -- currently for UNIX platforms only: */
 #undef HAVE_SCTP
-#if (!defined(VXWORKS) && !defined(_OSE_) && !defined(__WIN32__) && defined(HAVE_SCTP_H))
+#if (!defined(VXWORKS) && !defined(__WIN32__) && defined(HAVE_SCTP_H))
 
 #include <netinet/sctp.h>
 
@@ -362,20 +326,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_htons(x)               htons((x))
 #define sock_htonl(x)               htonl((x))
 
-#ifdef _OSE_
-#define sock_accept(s, addr, len)   ose_inet_accept((s), (addr), (len))
-#define sock_send(s,buf,len,flag)   ose_inet_send((s),(buf),(len),(flag))
-#define sock_sendto(s,buf,blen,flag,addr,alen) \
-                ose_inet_sendto((s),(buf),(blen),(flag),(addr),(alen))
-#define sock_sendv(s, vec, size, np, flag) \
-		(*(np) = ose_inet_sendv((s), (SysIOVec*)(vec), (size)))
-#define sock_open(af, type, proto)  ose_inet_socket((af), (type), (proto))
-#define sock_close(s)               ose_inet_close((s))
-#define sock_hostname(buf, len)     ose_gethostname((buf), (len))
-#define sock_getservbyname(name,proto) ose_getservbyname((name), (proto))
-#define sock_getservbyport(port,proto) ose_getservbyport((port), (proto))
-
-#else
 #define sock_accept(s, addr, len)   accept((s), (addr), (len))
 #define sock_send(s,buf,len,flag)   send((s),(buf),(len),(flag))
 #define sock_sendto(s,buf,blen,flag,addr,alen) \
@@ -391,7 +341,6 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_hostname(buf, len)     gethostname((buf), (len))
 #define sock_getservbyname(name,proto) getservbyname((name), (proto))
 #define sock_getservbyport(port,proto) getservbyport((port), (proto))
-#endif /* _OSE_ */
 
 #define sock_recv(s,buf,len,flag)   recv((s),(buf),(len),(flag))
 #define sock_recvfrom(s,buf,blen,flag,addr,alen) \
@@ -402,13 +351,8 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define sock_create_event(d)        ((d)->s) /* return file descriptor */
 #define sock_close_event(e)                  /* do nothing */
 
-#ifdef _OSE_
-#define inet_driver_select(port, e, mode, on) \
-                                    ose_inet_select(port, e, mode, on)
-#else
 #define inet_driver_select(port, e, mode, on) \
                                     driver_select(port, e, mode | (on?ERL_DRV_USE:0), on)
-#endif /* _OSE_ */
 
 #define sock_select(d, flags, onoff) do { \
         (d)->event_mask = (onoff) ? \
@@ -3480,13 +3424,9 @@ static int inet_init()
     INIT_ATOM(scheme);
 
     /* add TCP, UDP and SCTP drivers */
-#ifdef _OSE_
-    add_ose_tcp_drv_entry(&tcp_inet_driver_entry);
-    add_ose_udp_drv_entry(&udp_inet_driver_entry);
-#else
     add_driver_entry(&tcp_inet_driver_entry);
     add_driver_entry(&udp_inet_driver_entry);
-#  ifdef HAVE_SCTP
+#ifdef HAVE_SCTP
     /* Check the size of SCTP AssocID -- currently both this driver and the
        Erlang part require 32 bit: */
     ASSERT(sizeof(sctp_assoc_t)==ASSOC_ID_LEN);
@@ -3501,8 +3441,8 @@ static int inet_init()
 	    add_driver_entry(&sctp_inet_driver_entry);
 	}
     }
-#  endif
-#endif /* _OSE_ */
+#endif
+
     /* remove the dummy inet driver */
     remove_driver_entry(&inet_driver_entry);
     return 0;
@@ -7518,7 +7458,6 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    tcp_deliver(desc, 0);
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
     }
-#ifndef _OSE_
     case TCP_REQ_SHUTDOWN: {
 	int how;
 	DEBUGF(("tcp_inet_ctl(%ld): FDOPEN\r\n", (long)desc->inet.port)); 
@@ -7535,7 +7474,6 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	}
     }
-#endif
     default:
 	DEBUGF(("tcp_inet_ctl(%ld): %u\r\n", (long)desc->inet.port, cmd)); 
 	return inet_ctl(INETP(desc), cmd, buf, len, rbuf, rsize);

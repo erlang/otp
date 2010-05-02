@@ -198,8 +198,6 @@ get_spec_filename_1(Vars, TestDir, File) ->
     case ts_lib:var(os, Vars) of
 	"VxWorks" ->
 	    check_spec_filename(TestDir, File, ".spec.vxworks");
-	"OSE" ->
-	    check_spec_filename(TestDir, File, ".spec.ose");
 	"Windows"++_ ->
 	    check_spec_filename(TestDir, File, ".spec.win");
 	_Other ->
@@ -306,53 +304,36 @@ make_make(Vars, Spec, State) ->
 add_make_testcase(Vars, Spec, St) ->
     Makefile = St#state.makefile,
     Dir = filename:dirname(Makefile),
-    case ts_lib:var(os, Vars) of
-	"OSE" ->
-	    %% For OSE, C code in datadir must be linked in the image file,
-	    %% and erlang code is sent as binaries from test_server_ctrl
-	    %% Making erlang code here because the Makefile.src probably won't
-	    %% work.
-	    Erl_flags=[{i, "../../test_server"}|ts_lib:var(erl_flags,Vars)],
-	    {ok, Cwd} = file:get_cwd(),
-	    ok = file:set_cwd(Dir),
-	    Result = (catch make:all(Erl_flags)),
-	    ok = file:set_cwd(Cwd),
-	    case Result of
-		up_to_date -> {ok, Vars, Spec, St};
-		_error -> {error, {erlang_make_failed,Dir}}
-	    end;
+    Shortname = filename:basename(Makefile),
+    Suite = filename:basename(Dir, "_data"),
+    Config = [{data_dir,Dir},{makefile,Shortname}],
+    MakeModule = Suite ++ "_make",
+    MakeModuleSrc = filename:join(filename:dirname(Dir),
+				  MakeModule ++ ".erl"),
+    MakeMod = list_to_atom(MakeModule),
+    case filelib:is_file(MakeModuleSrc) of
+	true -> ok;
+	false -> generate_make_module(ts_lib:var(make_command, Vars),
+				      MakeModuleSrc,
+				      MakeModule)
+    end,
+    case Suite of
+	"all_SUITE" ->
+	    {ok,Vars,Spec,St#state{all={MakeMod,Config}}};
 	_ ->
-	    Shortname = filename:basename(Makefile),
-	    Suite = filename:basename(Dir, "_data"),
-	    Config = [{data_dir,Dir},{makefile,Shortname}],
-	    MakeModule = Suite ++ "_make",
-	    MakeModuleSrc = filename:join(filename:dirname(Dir), 
-					  MakeModule ++ ".erl"),
-	    MakeMod = list_to_atom(MakeModule),
-	    case filelib:is_file(MakeModuleSrc) of
-		true -> ok;
-		false -> generate_make_module(ts_lib:var(make_command, Vars),
-					      MakeModuleSrc, 
-					      MakeModule)
-	    end,
-	    case Suite of
-		"all_SUITE" ->
-		    {ok,Vars,Spec,St#state{all={MakeMod,Config}}};
-		_ ->
-		    %% Avoid duplicates of testcases. There is no longer
-		    %% a check for this in test_server_ctrl.
-		    TestCase = {list_to_atom(Suite),all},
-		    TopCase0 = case St#state.topcase of
-				   List when is_list(List) ->
-				       List -- [TestCase];
-				   Top ->
-				       [Top] -- [TestCase]
-			       end,
-		    TopCase = [{make,{MakeMod,make,[Config]},
-				TestCase,
-				{MakeMod,unmake,[Config]}}|TopCase0],
-		    {ok,Vars,Spec,St#state{topcase=TopCase}}
-	    end
+	    %% Avoid duplicates of testcases. There is no longer
+	    %% a check for this in test_server_ctrl.
+	    TestCase = {list_to_atom(Suite),all},
+	    TopCase0 = case St#state.topcase of
+			   List when is_list(List) ->
+			       List -- [TestCase];
+			   Top ->
+			       [Top] -- [TestCase]
+		       end,
+	    TopCase = [{make,{MakeMod,make,[Config]},
+			TestCase,
+			{MakeMod,unmake,[Config]}}|TopCase0],
+	    {ok,Vars,Spec,St#state{topcase=TopCase}}
     end.
 
 generate_make_module(MakeCmd, Name, ModuleString) ->
@@ -628,9 +609,6 @@ make_test_server_args(Args0,Options,Vars) ->
 	case ts_lib:var(os, Vars) of
 	    "VxWorks" ->
 		F = write_parameterfile(vxworks,Vars),
-		" PARAMETERS " ++ F;
-	    "OSE" ->
-		F = write_parameterfile(ose,Vars),
 		" PARAMETERS " ++ F;
 	    _ ->
 		""

@@ -292,9 +292,6 @@ erl_init(void)
 #ifdef HIPE
     hipe_mode_switch_init(); /* Must be after init_load/beam_catches/init */
 #endif
-#ifdef _OSE_
-    erl_sys_init_final();
-#endif
     packet_parser_init();
     erl_nif_init();
 }
@@ -1453,13 +1450,7 @@ __decl_noreturn void erl_exit0(char *file, int line, int n, char *fmt,...)
     if (fmt != NULL && *fmt != '\0')
 	  erl_error(fmt, args);	/* Print error message. */
     va_end(args);
-#ifdef __WIN32__
-    if(n > 0) ConWaitForExit();
-    else ConNormalExit();
-#endif
-#if !defined(__WIN32__) && !defined(VXWORKS) && !defined(_OSE_)
-    sys_tty_reset();
-#endif
+    sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)
 	exit(0);
@@ -1499,13 +1490,7 @@ __decl_noreturn void erl_exit(int n, char *fmt,...)
     if (fmt != NULL && *fmt != '\0')
 	  erl_error(fmt, args);	/* Print error message. */
     va_end(args);
-#ifdef __WIN32__
-    if(n > 0) ConWaitForExit();
-    else ConNormalExit();
-#endif
-#if !defined(__WIN32__) && !defined(VXWORKS) && !defined(_OSE_)
-    sys_tty_reset();
-#endif
+    sys_tty_reset(n);
 
     if (n == ERTS_INTR_EXIT)
 	exit(0);
