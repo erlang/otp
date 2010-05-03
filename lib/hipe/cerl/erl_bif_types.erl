@@ -1066,11 +1066,19 @@ type(erlang, list_to_pid, 1, Xs) ->
   strict(arg_types(erlang, list_to_pid, 1), Xs, fun (_) -> t_pid() end);
 type(erlang, list_to_tuple, 1, Xs) ->
   strict(arg_types(erlang, list_to_tuple, 1), Xs, fun (_) -> t_tuple() end);
-type(erlang, loaded, 0, _) ->
-  t_list(t_atom());
 type(erlang, load_module, 2, Xs) ->
   strict(arg_types(erlang, load_module, 2), Xs,
 	 fun ([Mod,_Bin]) -> t_code_load_return(Mod) end);
+type(erlang, load_nif, 2, Xs) ->
+  strict(arg_types(erlang, load_nif, 2), Xs,
+	 fun (_) ->
+	     Reason = t_atoms(['load_failed', 'bad_lib', 'load',
+			       'reload', 'upgrade', 'old_code']),
+	     RsnPair = t_tuple([Reason, t_string()]),
+	     t_sup(t_atom('ok'), t_tuple([t_atom('error'), RsnPair]))
+	 end);
+type(erlang, loaded, 0, _) ->
+  t_list(t_atom());
 type(erlang, localtime, 0, Xs) ->
   type(erlang, universaltime, 0, Xs);    % same
 type(erlang, localtime_to_universaltime, 1, Xs) ->
@@ -3572,10 +3580,12 @@ arg_types(erlang, list_to_pid, 1) ->
   [t_string()];
 arg_types(erlang, list_to_tuple, 1) ->
   [t_list()];
-arg_types(erlang, loaded, 0) ->
-  [];
 arg_types(erlang, load_module, 2) ->
   [t_atom(), t_binary()];
+arg_types(erlang, load_nif, 2) ->
+  [t_string(), t_any()];
+arg_types(erlang, loaded, 0) ->
+  [];
 arg_types(erlang, localtime, 0) ->
   [];
 arg_types(erlang, localtime_to_universaltime, 1) ->
