@@ -988,7 +988,7 @@ behaviour.")
    (list (concat "^\\(-" erlang-atom-regexp "\\)\\(\\s-\\|\\.\\|(\\)")	 
 	 1 (if (boundp 'font-lock-preprocessor-face)
 	       'font-lock-preprocessor-face
-	     'font-lock-function-name-face)))
+	     'font-lock-constant-face)))
   "Font lock keyword highlighting attributes.")
 
 (defvar erlang-font-lock-keywords-quotes
@@ -1019,10 +1019,12 @@ are highlighted by syntactic analysis.")
   (list
    (list (concat "?\\s-*\\(" erlang-atom-regexp
 		 "\\|" erlang-variable-regexp "\\)")
-	 1 'font-lock-type-face)
+	 1 'font-lock-constant-face)
    (list (concat "^\\(-\\(?:define\\|ifn?def\\)\\)\\s-*(\\s-*\\(" erlang-atom-regexp
 		 "\\|" erlang-variable-regexp "\\)")
-	 (list 1 'font-lock-preprocessor-face t)
+	 (if (boundp 'font-lock-preprocessor-face)
+	     (list 1 'font-lock-preprocessor-face t)
+	   (list 1 'font-lock-constant-face t))
 	 (list 3 'font-lock-type-face t t))
    (list "^-e\\(lse\\|ndif\\)\\>" 0 'font-lock-preprocessor-face t))
   "Font lock keyword highlighting macros.
