@@ -2026,6 +2026,81 @@ void process_main(void)
 	goto post_error_handling;
     }
 
+ OpCase(i_gc_bif2_jIId): /* Note, one less parameter than the i_gc_bif1
+			    and i_gc_bif3 */
+    {
+	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
+	GcBifFunction bf;
+	Eterm result;
+	Uint live = (Uint) Arg(2);
+
+	reg[0] = r(0);
+	reg[live++] = tmp_arg1;
+	reg[live] = tmp_arg2;
+	bf = (GcBifFunction) Arg(1);
+	c_p->fcalls = FCALLS;
+	SWAPOUT;
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	result = (*bf)(c_p, reg, live);
+	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	SWAPIN;
+	r(0) = reg[0];
+	ERTS_HOLE_CHECK(c_p);
+	FCALLS = c_p->fcalls;
+	if (is_value(result)) {
+	    StoreBifResult(3, result);
+	}
+	if (Arg(0) != 0) {
+	    SET_I((BeamInstr *) Arg(0));
+	    Goto(*I);
+	}
+	reg[0] = tmp_arg1;
+	reg[1] = tmp_arg2;
+	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
+	goto post_error_handling;
+    }
+
+ OpCase(i_gc_bif3_jIsId):
+    {
+	typedef Eterm (*GcBifFunction)(Process*, Eterm*, Uint);
+	GcBifFunction bf;
+	Eterm arg;
+	Eterm result;
+	Uint live = (Uint) Arg(3);
+
+	GetArg1(2, arg);
+	reg[0] = r(0);
+	reg[live++] = arg;
+	reg[live++] = tmp_arg1;
+	reg[live] = tmp_arg2;
+	bf = (GcBifFunction) Arg(1);
+	c_p->fcalls = FCALLS;
+	SWAPOUT;
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	ERTS_SMP_UNREQ_PROC_MAIN_LOCK(c_p);
+	result = (*bf)(c_p, reg, live);
+	ERTS_SMP_REQ_PROC_MAIN_LOCK(c_p);
+	PROCESS_MAIN_CHK_LOCKS(c_p);
+	SWAPIN;
+	r(0) = reg[0];
+	ERTS_HOLE_CHECK(c_p);
+	FCALLS = c_p->fcalls;
+	if (is_value(result)) {
+	    StoreBifResult(4, result);
+	}
+	if (Arg(0) != 0) {
+	    SET_I((BeamInstr *) Arg(0));
+	    Goto(*I);
+	}
+	reg[0] = arg;
+	reg[1] = tmp_arg1;
+	reg[2] = tmp_arg2;
+	I = handle_error(c_p, I, reg, translate_gc_bif((void *) bf));
+	goto post_error_handling;
+    }
+
  /*
   * Guards bifs and, or, xor in guards.
   */
@@ -4986,6 +5061,10 @@ translate_gc_bif(void* gcf)
 	return round_1;
     } else if (gcf == erts_gc_trunc_1) {
 	return round_1;
+    } else if (gcf == erts_gc_binary_part_2) {
+	return binary_part_2;
+    } else if (gcf == erts_gc_binary_part_3) {
+	return binary_part_3;
     } else {
 	erl_exit(1, "bad gc bif");
     }

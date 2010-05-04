@@ -61,8 +61,9 @@
 
 /*
  * The new arithmetic operations need some extra X registers in the register array.
+ * so does the gc_bif's (i_gc_bif3 need 3 extra).
  */
-#define ERTS_X_REGS_ALLOCATED (MAX_REG+2)
+#define ERTS_X_REGS_ALLOCATED (MAX_REG+3)
 
 #define INPUT_REDUCTIONS (2 * CONTEXT_REDS)
 

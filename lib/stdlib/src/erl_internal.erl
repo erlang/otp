@@ -87,6 +87,8 @@ guard_bif(is_reference, 1) -> true;
 guard_bif(is_tuple, 1) -> true;
 guard_bif(is_record, 2) -> true;
 guard_bif(is_record, 3) -> true;
+guard_bif(binary_part, 2) -> true;
+guard_bif(binary_part, 3) -> true;
 guard_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang type tests.
@@ -229,6 +231,8 @@ bif(apply, 2) -> true;
 bif(apply, 3) -> true;
 bif(atom_to_binary, 2) -> true;
 bif(atom_to_list, 1) -> true;
+bif(binary_part, 2) -> true;
+bif(binary_part, 3) -> true;
 bif(binary_to_atom, 2) -> true;
 bif(binary_to_existing_atom, 2) -> true;
 bif(binary_to_list, 1) -> true;

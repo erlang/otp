@@ -1523,7 +1523,8 @@ BIF_RETTYPE binary_matches_2(BIF_ALIST_2)
     return binary_matches_3(BIF_P,BIF_ARG_1,BIF_ARG_2,((Eterm) 0));
 }
 
-BIF_RETTYPE binary_part_3(BIF_ALIST_3)
+
+BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 {
     Uint pos;
     Sint len;
@@ -1535,13 +1536,13 @@ BIF_RETTYPE binary_part_3(BIF_ALIST_3)
     Eterm* hp;
     ErlSubBin* sb;
 
-    if (is_not_binary(BIF_ARG_1)) {
+    if (is_not_binary(binary)) {
 	goto badarg;
     }
-    if (!term_to_Uint(BIF_ARG_2, &pos)) {
+    if (!term_to_Uint(epos, &pos)) {
 	goto badarg;
     }
-    if (!term_to_Sint(BIF_ARG_3, &len)) {
+    if (!term_to_Sint(elen, &len)) {
 	goto badarg;
     }
     if (len < 0) {
@@ -1558,16 +1559,16 @@ BIF_RETTYPE binary_part_3(BIF_ALIST_3)
     if (((pos + len) - len) != pos) {
 	goto badarg;
     }
-    if ((orig_size = binary_size(BIF_ARG_1)) < pos ||
+    if ((orig_size = binary_size(binary)) < pos ||
 	orig_size < (pos + len)) {
 	goto badarg;
     }
 
 
 
-    hp = HAlloc(BIF_P, ERL_SUB_BIN_SIZE);
+    hp = HAlloc(p, ERL_SUB_BIN_SIZE);
 
-    ERTS_GET_REAL_BIN(BIF_ARG_1, orig, offset, bit_offset, bit_size);
+    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
     sb = (ErlSubBin *) hp;
     sb->thing_word = HEADER_SUB_BIN;
     sb->size = len;
@@ -1580,10 +1581,114 @@ BIF_RETTYPE binary_part_3(BIF_ALIST_3)
     BIF_RET(make_binary(sb));
 
  badarg:
-    BIF_ERROR(BIF_P, BADARG);
+    BIF_ERROR(p, BADARG);
 }
 
-BIF_RETTYPE binary_part_2(BIF_ALIST_2)
+#define ERTS_NEED_GC(p, need) ((HEAP_LIMIT((p)) - HEAP_TOP((p))) <= (need))
+
+BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple)
+{
+    Uint pos;
+    Sint len;
+    size_t orig_size;
+    Eterm orig;
+    Uint offset;
+    Uint bit_offset;
+    Uint bit_size;
+    Eterm* hp;
+    ErlSubBin* sb;
+    Eterm binary;
+    Eterm *tp;
+    Eterm epos, elen;
+    int extra_args;
+
+
+    if (range_is_tuple) {
+	Eterm tpl = reg[live];
+	extra_args = 1;
+	if (is_not_tuple(tpl)) {
+	    goto badarg;
+	}
+	tp = tuple_val(tpl);
+	if (arityval(*tp) != 2) {
+	    goto badarg;
+	}
+
+	epos = tp[1];
+	elen = tp[2];
+    } else {
+	extra_args = 2;
+	epos = reg[live-1];
+	elen = reg[live];
+    }
+    binary = reg[live-extra_args];
+
+    if (is_not_binary(binary)) {
+	goto badarg;
+    }
+    if (!term_to_Uint(epos, &pos)) {
+	goto badarg;
+    }
+    if (!term_to_Sint(elen, &len)) {
+	goto badarg;
+    }
+    if (len < 0) {
+	Sint lentmp = -len;
+	if (-lentmp != len) {
+	    goto badarg;
+	}
+	len = lentmp;
+	if (len > pos) {
+	    goto badarg;
+	}
+	pos -= len;
+    }
+    if (((pos + len) - len) != pos) {
+	goto badarg;
+    }
+    if ((orig_size = binary_size(binary)) < pos ||
+	orig_size < (pos + len)) {
+	goto badarg;
+    }
+
+    if (ERTS_NEED_GC(p, ERL_SUB_BIN_SIZE)) {
+	erts_garbage_collect(p, ERL_SUB_BIN_SIZE, reg, live+1-extra_args); /* I don't need the tuple
+									      or indices any more */
+	binary = reg[live-extra_args];
+    }
+
+    hp = p->htop;
+    p->htop += ERL_SUB_BIN_SIZE;
+
+    ERTS_GET_REAL_BIN(binary, orig, offset, bit_offset, bit_size);
+
+    sb = (ErlSubBin *) hp;
+    sb->thing_word = HEADER_SUB_BIN;
+    sb->size = len;
+    sb->offs = offset + pos;
+    sb->orig = orig;
+    sb->bitoffs = bit_offset;
+    sb->bitsize = 0;
+    sb->is_writable = 0;
+
+    BIF_RET(make_binary(sb));
+
+ badarg:
+    BIF_ERROR(p, BADARG);
+}
+/*************************************************************
+ * The actual guard BIFs are in erl_bif_guard.c
+ * but the implementation of both the non-gc and the gc
+ * variants are here. Note that the functions are named so that they do
+ * not clash with the guard bif's erlang:binary_part/2,3
+ *************************************************************/
+
+BIF_RETTYPE binary_binary_part_3(BIF_ALIST_3)
+{
+    return erts_binary_part(BIF_P,BIF_ARG_1,BIF_ARG_2, BIF_ARG_3);
+}
+
+BIF_RETTYPE binary_binary_part_2(BIF_ALIST_2)
 {
     Eterm *tp;
     if (is_not_tuple(BIF_ARG_2)) {
@@ -1593,7 +1698,7 @@ BIF_RETTYPE binary_part_2(BIF_ALIST_2)
     if (arityval(*tp) != 2) {
 	goto badarg;
     }
-    return binary_part_3(BIF_P,BIF_ARG_1,tp[1], tp[2]);
+    return erts_binary_part(BIF_P,BIF_ARG_1,tp[1], tp[2]);
  badarg:
    BIF_ERROR(BIF_P,BADARG);
 }

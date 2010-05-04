@@ -65,6 +65,8 @@ is_pure(erlang, 'xor', 2) -> true;
 is_pure(erlang, abs, 1) -> true;
 is_pure(erlang, atom_to_binary, 2) -> true;
 is_pure(erlang, atom_to_list, 1) -> true;
+is_pure(erlang, binary_part, 2) -> true;
+is_pure(erlang, binary_part, 3) -> true;
 is_pure(erlang, binary_to_atom, 2) -> true;
 is_pure(erlang, binary_to_list, 1) -> true;
 is_pure(erlang, binary_to_list, 3) -> true;

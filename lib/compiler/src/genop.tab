@@ -279,3 +279,4 @@ BEAM_FORMAT_NUMBER=0
 
 150: recv_mark/1
 151: recv_set/1
+152: gc_bif3/7

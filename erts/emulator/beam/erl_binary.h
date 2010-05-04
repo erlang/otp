@@ -158,6 +158,9 @@ byte* erts_get_aligned_binary_bytes_extra(Eterm, byte**, ErtsAlcType_t, unsigned
  */
 
 BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg);
+BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is_tuple);
+BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen);
+
 
 #if defined(__i386__) || !defined(__GNUC__)
 /*

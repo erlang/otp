@@ -2,7 +2,7 @@
 
 -export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
-	 copy/1, referenced/1,encode_decode/1]).
+	 copy/1, referenced/1,guard/1,encode_decode/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -32,7 +32,7 @@ run() ->
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
 	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
-	       referenced,encode_decode].
+	       referenced,guard,encode_decode].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
 
@@ -314,7 +314,6 @@ do_interesting(Module) ->
     ?line <<0>> = ?MASK_ERROR(Module:encode_unsigned(0,big)),
     ok.
 
-
 encode_decode(doc) ->
     ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
 encode_decode(Config) when is_list(Config) ->
@@ -360,6 +359,11 @@ encode_decode_loop(Range, X) ->
 		      [N,[A,B,C,D,E,F,G,H,I,J,K,L,M,x,O,P,Q,R,S,T]]),
 	    exit(mismatch)
     end.
+
+guard(doc) ->
+    ["Smoke test of the guard BIFs binary_part/2,3"];
+guard(Config) when is_list(Config) ->
+    {comment, "Guard tests are run in emulator test suite"}.
 
 referenced(doc) ->
     ["Test refernced_byte_size/1 bif."];
@@ -547,6 +551,8 @@ random_parts(N) ->
     [ begin
 	  true = ?MASK_ERROR(binary:part(Str,Z)) =:=
 	      ?MASK_ERROR(binref:part(Str,Z)),
+	  true = ?MASK_ERROR(binary:part(Str,Z)) =:=
+	      ?MASK_ERROR(erlang:binary_part(Str,Z)),
 	  true = ?MASK_ERROR(binary:part(Str,Z)) =:=
 	      ?MASK_ERROR(binary:part(make_unaligned(Str),Z))
       end || Z <- Parts1 ],

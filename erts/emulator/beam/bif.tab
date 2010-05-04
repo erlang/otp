@@ -754,12 +754,21 @@ bif erlang:load_nif/2
 bif erlang:call_on_load_function/1
 bif erlang:finish_after_on_load/2
 
-# The binary match bifs (New in R13B04 - EEP9)
+#
+# New Bifs in R13B4
+#
+bif erlang:binary_to_term/2
+
+#
+# The binary match bifs (New in R14A - EEP9)
 #
 
 #
 # The searching/splitting/substituting thingies
 #
+ubif erlang:binary_part/2
+ubif erlang:binary_part/3
+
 bif binary:compile_pattern/1
 bif binary:match/2
 bif binary:match/3
@@ -770,8 +779,8 @@ bif binary:longest_common_suffix/1
 bif binary:first/1
 bif binary:last/1
 bif binary:at/2
-bif binary:part/2
-bif binary:part/3
+bif binary:part/2 binary_binary_part_2
+bif binary:part/3 binary_binary_part_3
 bif binary:bin_to_list/1
 bif binary:bin_to_list/2
 bif binary:bin_to_list/3
@@ -783,11 +792,6 @@ bif binary:encode_unsigned/1
 bif binary:encode_unsigned/2
 bif binary:decode_unsigned/1
 bif binary:decode_unsigned/2
-
-#
-# New Bifs in R13B4
-#
-bif erlang:binary_to_term/2
 
 #
 # Obsolete

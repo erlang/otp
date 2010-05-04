@@ -486,9 +486,6 @@ static GenOp* const_select_val(LoaderState* stp, GenOpArg S, GenOpArg Fail,
 			       GenOpArg Size, GenOpArg* Rest);
 static GenOp* gen_func_info(LoaderState* stp, GenOpArg mod, GenOpArg Func,
 			    GenOpArg arity, GenOpArg label);
-static GenOp*
-gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
-	      GenOpArg Src, GenOpArg Dst);
 
 static int freeze_code(LoaderState* stp);
 
@@ -3358,9 +3355,15 @@ gen_make_fun2(LoaderState* stp, GenOpArg idx)
     op->next = NULL;
     return op;
 }
-
+/*
+ * Rewrite gc_bifs with one parameter (the common case). Utilized
+ * in ops.tab to rewrite instructions calling bif's in guards
+ * to use a garbage collecting implementation. The instructions
+ * are sometimes once again rewritten to handle literals (putting the
+ * parameter in the mostly unused r[0] before the instruction is executed).
+ */
 static GenOp*
-gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
+gen_guard_bif1(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
 	      GenOpArg Src, GenOpArg Dst)
 {
     GenOp* op;
@@ -3372,6 +3375,8 @@ gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->a[0] = Fail;
     op->a[1].type = TAG_u;
     bf = stp->import[Bif.val].bf;
+    /* The translations here need to have a reverse counterpart in
+       beam_emu.c:translate_gc_bif for error handling to work properly. */
     if (bf == length_1) {
 	op->a[1].val = (BeamInstr) (void *) erts_gc_length_1;
     } else if (bf == size_1) {
@@ -3394,6 +3399,77 @@ gen_guard_bif(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
     op->a[2] = Src;
     op->a[3] = Live;
     op->a[4] = Dst;
+    op->next = NULL;
+    return op;
+}
+
+/*
+ * This is used by the ops.tab rule that rewrites gc_bifs with two parameters
+ * The instruction returned is then again rewritten to an i_load instruction
+ * folowed by i_gc_bif2_jIId, to handle literals properly.
+ * As opposed to the i_gc_bif1_jIsId, the instruction  i_gc_bif2_jIId is
+ * always rewritten, regardless of if there actually are any literals.
+ */
+static GenOp*
+gen_guard_bif2(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
+	      GenOpArg S1, GenOpArg S2, GenOpArg Dst)
+{
+    GenOp* op;
+    BifFunction bf;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_ii_gc_bif2_6;
+    op->arity = 6;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
+    bf = stp->import[Bif.val].bf;
+    /* The translations here need to have a reverse counterpart in
+       beam_emu.c:translate_gc_bif for error handling to work properly. */
+    if (bf == binary_part_2) {
+	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_2;
+    } else {
+	abort();
+    }
+    op->a[2] = S1;
+    op->a[3] = S2;
+    op->a[4] = Live;
+    op->a[5] = Dst;
+    op->next = NULL;
+    return op;
+}
+
+/*
+ * This is used by the ops.tab rule that rewrites gc_bifs with three parameters
+ * The instruction returned is then again rewritten to a move instruction that
+ * uses r[0] for temp storage, followed by an i_load instruction,
+ * folowed by i_gc_bif3_jIsId, to handle literals properly. Rewriting
+ * always occur, as with the gc_bif2 counterpart.
+ */
+static GenOp*
+gen_guard_bif3(LoaderState* stp, GenOpArg Fail, GenOpArg Live, GenOpArg Bif,
+	      GenOpArg S1, GenOpArg S2, GenOpArg S3, GenOpArg Dst)
+{
+    GenOp* op;
+    BifFunction bf;
+
+    NEW_GENOP(stp, op);
+    op->op = genop_ii_gc_bif3_7;
+    op->arity = 7;
+    op->a[0] = Fail;
+    op->a[1].type = TAG_u;
+    bf = stp->import[Bif.val].bf;
+    /* The translations here need to have a reverse counterpart in
+       beam_emu.c:translate_gc_bif for error handling to work properly. */
+    if (bf == binary_part_3) {
+	op->a[1].val = (BeamInstr) (void *) erts_gc_binary_part_3;
+    } else {
+	abort();
+    }
+    op->a[2] = S1;
+    op->a[3] = S2;
+    op->a[4] = S3;
+    op->a[5] = Live;
+    op->a[6] = Dst;
     op->next = NULL;
     return op;
 }
