@@ -1325,7 +1325,8 @@ static char **build_unix_environment(char *block)
     }
 
     for (j = 0; j < i; j++) {
-	if (cpp[j][strlen(cpp[j])-1] == '=') {
+        size_t last = strlen(cpp[j])-1;
+	if (cpp[j][last] == '=' && strchr(cpp[j], '=') == cpp[j]+last) {
 	    cpp[j] = cpp[--len];
 	}
     }

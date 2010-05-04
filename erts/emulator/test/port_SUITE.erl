@@ -881,6 +881,7 @@ env2(Config) ->
 
     ?line env_slave(Temp, [{"must_define_something","some_value"},
 			   {"certainly_not_existing",false},
+                           {"ends_with_equal", "value="},
 			   {Long,false},
 			   {"glurf","a glorfy string"}]),
 
