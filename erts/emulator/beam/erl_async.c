@@ -390,14 +390,14 @@ int check_async_ready(void)
 **      async_data     data to pass to invoke function
 **      async_free     function for relase async_data in case of failure
 */
-long driver_async(ErlDrvPort ix, unsigned long* key,
+long driver_async(ErlDrvPort ix, unsigned int* key,
 		  void (*async_invoke)(void*), void* async_data,
 		  void (*async_free)(void*))
 {
     ErlAsync* a = (ErlAsync*) erts_alloc(ERTS_ALC_T_ASYNC, sizeof(ErlAsync));
     Port* prt = erts_drvport2port(ix);
     long id;
-    unsigned long qix;
+    unsigned int qix;
 
 
     if (!prt)

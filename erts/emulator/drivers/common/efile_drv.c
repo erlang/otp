@@ -198,7 +198,7 @@ struct t_data;
 typedef struct {
     SWord           fd;
     ErlDrvPort      port;
-    unsigned long   key;      /* Async queue key */
+    unsigned int    key;      /* Async queue key */
     unsigned        flags;    /* Original flags from FILE_OPEN. */
     void          (*invoke)(void *);
     struct t_data  *d;
@@ -605,7 +605,7 @@ file_start(ErlDrvPort port, char* command)
     }
     desc->fd = FILE_FD_INVALID;
     desc->port = port;
-    desc->key = (unsigned long) (UWord) port;
+    desc->key = (unsigned int) (UWord) port;
     desc->flags = 0;
     desc->invoke = NULL;
     desc->d = NULL;
