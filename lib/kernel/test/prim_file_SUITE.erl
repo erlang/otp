@@ -243,7 +243,10 @@ make_del_dir(Config, Handle, Suffix) ->
     %% Try deleting some bad directories
     %% Deleting the parent directory to the current, sounds dangerous, huh?
     %% Don't worry ;-) the parent directory should never be empty, right?
-    ?line {error, eexist} = ?PRIM_FILE_call(del_dir, Handle, [".."]),
+    case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
+	{error, eexist} -> ok;
+	{error, einval} -> ok		%FreeBSD
+    end,
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
     ?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
 

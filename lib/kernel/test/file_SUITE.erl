@@ -270,7 +270,10 @@ make_del_dir(Config) when is_list(Config) ->
     %% Try deleting some bad directories
     %% Deleting the parent directory to the current, sounds dangerous, huh?
     %% Don't worry ;-) the parent directory should never be empty, right?
-    ?line {error, eexist} = ?FILE_MODULE:del_dir('..'),
+    case ?FILE_MODULE:del_dir('..') of
+	{error, eexist} -> ok;
+	{error, einval} -> ok			%FreeBSD
+    end,
     ?line {error, enoent} = ?FILE_MODULE:del_dir(""),
     ?line {error, badarg} = ?FILE_MODULE:del_dir([3,2,1,{}]),
 
