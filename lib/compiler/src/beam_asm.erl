@@ -23,7 +23,7 @@
 -export([module/4]).
 -export([encode/2]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,filter/2]).
+-import(lists, [map/2,member/2,keymember/3,duplicate/2]).
 -include("beam_opcodes.hrl").
 
 module(Code, Abst, SourceFile, Opts) ->
@@ -191,11 +191,7 @@ flatten_exports(Exps) ->
 flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
-build_attributes(Opts, SourceFile, Attr0, Essentials) ->
-    Attr = filter(fun({type,_}) -> false;
-		     ({spec,_}) -> false;
-		     (_) -> true
-		  end, Attr0),
+build_attributes(Opts, SourceFile, Attr, Essentials) ->
     Misc = case member(slim, Opts) of
 	       false ->
 		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),

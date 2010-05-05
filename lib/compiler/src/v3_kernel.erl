@@ -128,13 +128,26 @@ copy_anno(Kdst, Ksrc) ->
 	{'ok', #k_mdef{}, [warning()]}.
 
 module(#c_module{anno=A,name=M,exports=Es,attrs=As,defs=Fs}, _Options) ->
+    Kas = attributes(As),
+    Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
     St0 = #kern{lit=dict:new()},
     {Kfs,St} = mapfoldl(fun function/2, St0, Fs),
-    Kes = map(fun (#c_var{name={_,_}=Fname}) -> Fname end, Es),
-    Kas = map(fun ({#c_literal{val=N},V}) ->
-		      {N,core_lib:literal_value(V)} end, As),
     {ok,#k_mdef{anno=A,name=M#c_literal.val,exports=Kes,attributes=Kas,
 		body=Kfs ++ St#kern.funs},lists:sort(St#kern.ws)}.
+
+attributes([{#c_literal{val=Name},Val}|As]) ->
+    case include_attribute(Name) of
+	false ->
+	    attributes(As);
+	true ->
+	    [{Name,core_lib:literal_value(Val)}|attributes(As)]
+    end;
+attributes([]) -> [].
+
+include_attribute(type) -> false;
+include_attribute(spec) -> false;
+include_attribute(opaque) -> false;
+include_attribute(_) -> true.
 
 function({#c_var{name={F,Arity}=FA},Body}, St0) ->
     try
