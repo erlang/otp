@@ -17,6 +17,10 @@
 -else.
 
 -include("test_server.hrl").
+-export([init_per_testcase/2, fin_per_testcase/2]).
+% Default timetrap timeout (set in init_per_testcase).
+% Some of these testcases are really heavy...
+-define(default_timeout, ?t:minutes(10)).
 
 -endif.
 
@@ -28,6 +32,16 @@
 run() ->
     [ apply(?MODULE,X,[[]]) || X <- all(suite) ].
 
+-else.
+
+init_per_testcase(_Case, Config) ->
+    ?line Dog = ?t:timetrap(?default_timeout),
+    [{watchdog, Dog} | Config].
+
+fin_per_testcase(_Case, Config) ->
+    ?line Dog = ?config(watchdog, Config),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
 -endif.
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
