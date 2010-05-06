@@ -699,7 +699,7 @@ merge_files(Name, Trees, Files, Opts) ->
 		options	   :: [option()]
 	       }).
 
--spec merge_sources(atom(), erl_syntax:forms(), [option()]) ->
+-spec merge_sources(atom(), [erl_syntax:forms()], [option()]) ->
         {erl_syntax:syntaxTree(), [stubDescriptor()]}.
 
 merge_sources(Name, Sources, Opts) ->
@@ -782,12 +782,12 @@ merge_sources_1(Name, Modules, Trees, Opts) ->
     %% however not "safe" by default. If no modules are explicitly
     %% specified as static, it is assumed that *all* are static.
     Static0 = ordsets:from_list(proplists:append_values(static, Opts)),
-    case proplists:is_defined(static, Opts) of
-	false ->
-	    Static = All;
-	true ->
-	    Static = ordsets:add_element(Name, Static0)
-    end,
+    Static = case proplists:is_defined(static, Opts) of
+		 false ->
+		     All;
+		 true ->
+		     ordsets:add_element(Name, Static0)
+	     end,
     check_module_names(Static, All, "declared 'static'"),
     verbose("static modules: ~p.", [Static], Opts),
 
@@ -806,8 +806,8 @@ merge_sources_1(Name, Modules, Trees, Opts) ->
     verbose("safe modules: ~p.", [Safe], Opts),
 
     Preserved = (ordsets:is_element(Name, Sources)
-		 and ordsets:is_element(Name, Export))
-	or proplists:get_bool(no_banner, Opts),
+		 andalso ordsets:is_element(Name, Export))
+	orelse proplists:get_bool(no_banner, Opts),
     NoHeaders = proplists:get_bool(no_headers, Opts),
     Notes = proplists:get_value(notes, Opts, always),
     Rs = proplists:append_values(redirect, Opts),
@@ -2924,9 +2924,7 @@ make_attribute({Name, Term}) ->
 			 [erl_syntax:abstract(Term)]).
 
 is_auto_import({F, A}) ->
-    erl_internal:bif(F, A);
-is_auto_import(_) ->
-    false.
+    erl_internal:bif(F, A).
 
 timestamp() ->
     {{Yr, Mth, Dy}, {Hr, Mt, Sc}} = erlang:localtime(),
