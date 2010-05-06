@@ -260,7 +260,11 @@ static void dump_ac_node(ACNode *node, int indent, int ch);
 /*
  * Callback for the magic binary
  */
-static void cleanup_my_data(Binary *bp)
+static void cleanup_my_data_ac(Binary *bp)
+{
+    return;
+}
+static void cleanup_my_data_bm(Binary *bp)
 {
     return;
 }
@@ -277,7 +281,7 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
     Uint datasize = AC_SIZE(len);
     ACTrie *act;
     ACNode *acn;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data);
+    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_ac);
     byte *data = ERTS_MAGIC_BIN_DATA(mb);
 
     init_my_allocator(my, datasize, data);
@@ -306,7 +310,7 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 {
     Uint datasize = BM_SIZE(len);
     BMData *bmd;
-    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data);
+    Binary *mb = erts_create_magic_binary(datasize,cleanup_my_data_bm);
     byte *data = ERTS_MAGIC_BIN_DATA(mb);
     init_my_allocator(my, datasize, data);
     bmd = my_alloc(my, sizeof(BMData));
@@ -708,7 +712,7 @@ static void compute_suffixes(byte *x, Sint m, Sint *suffixes)
     g = m - 1;
 
     for (i = m - 2; i >= 0; --i) {
-	if (i > g && suffixes[i + m - f] < i - g) {
+	if (i > g && suffixes[i + m - 1 - f] < i - g) {
 	    suffixes[i] = suffixes[i + m - 1 - f];
 	} else {
 	    if (i < g) {
@@ -731,7 +735,7 @@ static void compute_goodshifts(BMData *bmd)
     Sint m = bmd->len;
     byte *x = bmd->x;
     Sint i, j;
-    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Uint));
+    Sint *suffixes = erts_alloc(ERTS_ALC_T_TMP, m * sizeof(Sint));
 
     compute_suffixes(x, m, suffixes);
 
@@ -1329,13 +1333,15 @@ static int parse_match_opts_list(Eterm l, Eterm bin, Uint *posp, Uint *endp)
 	    }
 	    if (len < 0) {
 		Sint lentmp = -len;
-		if (-lentmp != len) {
+		/* overflow */
+		if (lentmp == len || lentmp < 0 || -lentmp != len) {
 		    goto badarg;
 		}
 		len = lentmp;
 		pos -= len;
 	    }
-	    if (((pos + len) - len) != pos) {
+	    /* overflow */
+	    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
 		goto badarg;
 	    }
 	    *endp = len + pos;
@@ -1367,10 +1373,9 @@ static BIF_RETTYPE binary_match_trap(BIF_ALIST_3)
 	BIF_TRAP3(&binary_match_trap_export, BIF_P, BIF_ARG_1, result,
 		  BIF_ARG_3);
     default:
-	goto badarg;
+	/* Cannot badarg in the trap */
+	erl_exit(1, "Internal error in binary_match_trap.");
     }
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
 }
 
 static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3)
@@ -1387,10 +1392,9 @@ static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3)
 	BIF_TRAP3(&binary_matches_trap_export, BIF_P, BIF_ARG_1, result,
 		  BIF_ARG_3);
     default:
-	goto badarg;
+	/* Cannot badarg in the trap */
+	erl_exit(1, "Internal error in binary_matches_trap.");
     }
- badarg:
-    BIF_ERROR(BIF_P,BADARG);
 }
 
 
@@ -1425,7 +1429,12 @@ BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 	}
 	type = tp[1];
 	bin = ((ProcBin *) binary_val(tp[2]))->val;
-	if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data) {
+	if (type == am_bm &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
+	    goto badarg;
+	}
+	if (type == am_ac &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
 	    goto badarg;
 	}
 	bin_term = tp[2];
@@ -1482,7 +1491,12 @@ BIF_RETTYPE binary_matches_3(BIF_ALIST_3)
 	}
 	type = tp[1];
 	bin = ((ProcBin *) binary_val(tp[2]))->val;
-	if (ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data) {
+	if (type == am_bm &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_bm) {
+	    goto badarg;
+	}
+	if (type == am_ac &&
+	    ERTS_MAGIC_BIN_DESTRUCTOR(bin) != cleanup_my_data_ac) {
 	    goto badarg;
 	}
 	bin_term = tp[2];
@@ -1547,7 +1561,8 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
     }
     if (len < 0) {
 	Sint lentmp = -len;
-	if (-lentmp != len) {
+	/* overflow */
+	if (lentmp == len || lentmp < 0 || -lentmp != len) {
 	    goto badarg;
 	}
 	len = lentmp;
@@ -1556,7 +1571,8 @@ BIF_RETTYPE erts_binary_part(Process *p, Eterm binary, Eterm epos, Eterm elen)
 	}
 	pos -= len;
     }
-    if (((pos + len) - len) != pos) {
+    /* overflow */
+    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)){
 	goto badarg;
     }
     if ((orig_size = binary_size(binary)) < pos ||
@@ -1634,7 +1650,8 @@ BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is
     }
     if (len < 0) {
 	Sint lentmp = -len;
-	if (-lentmp != len) {
+	/* overflow */
+	if (lentmp == len || lentmp < 0 || -lentmp != len) {
 	    goto badarg;
 	}
 	len = lentmp;
@@ -1643,7 +1660,8 @@ BIF_RETTYPE erts_gc_binary_part(Process *p, Eterm *reg, Eterm live, int range_is
 	}
 	pos -= len;
     }
-    if (((pos + len) - len) != pos) {
+    /* overflow */
+    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
 	goto badarg;
     }
     if ((orig_size = binary_size(binary)) < pos ||
@@ -1926,6 +1944,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
 		unsigned char *tmp = cd[i].buff;
 		cd[i].buff = erts_alloc(ERTS_ALC_T_BINARY_BUFFER, cd[i].bufflen);
 		memcpy(cd[i].buff,tmp,cd[i].bufflen);
+		cd[i].type = CL_TYPE_HEAP;
 	    }
 	}
 	hp = HAlloc(p, PROC_BIN_SIZE);
@@ -1975,7 +1994,7 @@ static BIF_RETTYPE do_longest_common_trap(Process *p, Eterm bin_term, Eterm curr
 	ASSERT(res == CL_RESTART);
 	/* Copy all heap binaries that are not already copied (aligned) */
 	BUMP_ALL_REDS(p);
-	BIF_TRAP3(&binary_longest_prefix_trap_export, p, bin_term, epos, orig_list);
+	BIF_TRAP3(trapper, p, bin_term, epos, orig_list);
     }
 }
 
@@ -2104,16 +2123,15 @@ BIF_RETTYPE binary_at_2(BIF_ALIST_2)
 static int do_bin_to_list(Process *p, byte *bytes, Uint bit_offs,
 			  Uint start, Sint *lenp, Eterm *termp)
 {
-    Uint reds = get_reds(p, BIN_TO_LIST_LOOP_FACTOR);
+    Uint reds = get_reds(p, BIN_TO_LIST_LOOP_FACTOR); /* reds can never be 0 */
     Uint len = *lenp;
     Uint loops;
     Eterm *hp;
     Eterm term = *termp;
     Uint n;
 
-    if (reds == 0) {
-	return BIN_TO_LIST_TRAP;
-    }
+    ASSERT(reds > 0);
+
     loops = MIN(reds,len);
 
     BUMP_REDS(p, loops / BIN_TO_LIST_LOOP_FACTOR);
@@ -2170,8 +2188,8 @@ static BIF_RETTYPE binary_bin_to_list_trap(BIF_ALIST_3)
     len = (Sint) ptr[2];
 
     ERTS_GET_BINARY_BYTES(BIF_ARG_1,bytes,bit_offs,bit_size);
-    if(do_bin_to_list(BIF_P, bytes, bit_offs, start, &len, &res) ==
-       BIN_TO_LIST_OK) {
+    if (do_bin_to_list(BIF_P, bytes, bit_offs, start, &len, &res) ==
+	BIN_TO_LIST_OK) {
 	BIF_RET(res);
     }
     return do_trap_bin_to_list(BIF_P,BIF_ARG_1,start,len,res);
@@ -2201,7 +2219,8 @@ static BIF_RETTYPE binary_bin_to_list_common(Process *p,
     }
     if (len < 0) {
 	Sint lentmp = -len;
-	if (-lentmp != len) {
+	/* overflow */
+	if (lentmp == len || lentmp < 0 || -lentmp != len) {
 	    goto badarg;
 	}
 	len = lentmp;
@@ -2210,7 +2229,8 @@ static BIF_RETTYPE binary_bin_to_list_common(Process *p,
 	}
 	pos -= len;
     }
-    if (((pos + len) - len) != pos) {
+    /* overflow */
+    if ((pos + len) < pos || (len > 0 && (pos + len) == pos)) {
 	goto badarg;
     }
     sz = binary_size(bin);

@@ -146,6 +146,15 @@ mask_error(Else) ->
 guard_bif_binary_part(doc) ->
     ["Test the binary_part/2,3 guard BIF's extensively"];
 guard_bif_binary_part(Config) when is_list(Config) ->
+    %% Overflow tests that need to be unoptimized
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF})),
     F = fun(X) ->
 		Master = self(),
 		{Pid,Ref} = spawn_monitor( fun() ->

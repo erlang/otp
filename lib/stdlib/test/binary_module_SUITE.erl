@@ -2,7 +2,7 @@
 
 -export([all/1, interesting/1,random_ref_comp/1,random_ref_sr_comp/1,
 	 random_ref_fla_comp/1,parts/1, bin_to_list/1, list_to_bin/1,
-	 copy/1, referenced/1,guard/1,encode_decode/1]).
+	 copy/1, referenced/1,guard/1,encode_decode/1,badargs/1,longest_common_trap/1]).
 
 -export([random_number/1, make_unaligned/1]).
 
@@ -46,9 +46,267 @@ fin_per_testcase(_Case, Config) ->
 
 all(suite) -> [interesting,random_ref_fla_comp,random_ref_sr_comp,
 	       random_ref_comp,parts,bin_to_list, list_to_bin, copy,
-	       referenced,guard,encode_decode].
+	       referenced,guard,encode_decode,badargs,longest_common_trap].
 
 -define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
+
+
+badargs(doc) ->
+    ["Tests various badarg exceptions in the module"];
+badargs(Config) when is_list(Config) ->
+    ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3:3>>])),
+    ?line badarg = ?MASK_ERROR(binary:compile_pattern([<<1,2,3>>|<<1,2>>])),
+    ?line badarg = ?MASK_ERROR(binary:compile_pattern(<<1,2,3:3>>)),
+    ?line badarg = ?MASK_ERROR(binary:compile_pattern(<<>>)),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3:3>>,<<1>>)),
+    ?line badarg = ?MASK_ERROR(binary:matches(<<1,2,3:3>>,<<1>>)),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+					    [{scope,{0,1},1}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+					    [{scape,{0,1}}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+					    [{scope,{0,1,1}}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,0,1}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,[0,1]}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+					    [{scope,{0.1,1}}])),
+    ?line badarg = ?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,
+					    [{scope,{1,1.1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:match(<<1,2,3>>,<<1>>,
+			[{scope,{16#FF,
+				 16#FFFFFFFFFFFFFFFF}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:match(<<1,2,3>>,<<1>>,
+			[{scope,{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:match(<<1,2,3>>,<<1>>,
+			[{scope,{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:part(<<1,2,3>>,{16#FF,
+				 16#FFFFFFFFFFFFFFFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:part(make_unaligned(<<1,2,3>>),{1,1,1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{1,1,1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
+				 16#FFFFFFFFFFFFFFFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{16#FF,
+				 16#FFFFFFFFFFFFFFFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF})),
+    ?line [1,2,3] =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,[])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{1,2,3})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{1.0,1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3>>,{1,1.0})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3:3>>,{1,1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list(<<1,2,3:3>>)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:bin_to_list([1,2,3])),
+
+    ?line nomatch =
+	?MASK_ERROR(binary:match(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:match(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:match(<<1,2,3>>,[],[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:match(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
+    ?line {bm,BMMagic} = binary:compile_pattern([<<1,2,3>>]),
+    ?line {ac,ACMagic} = binary:compile_pattern([<<1,2,3>>,<<4,5>>]),
+    ?line badarg =
+	?MASK_ERROR(binary:match(<<1,2,3>>,{bm,ACMagic},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:match(<<1,2,3>>,{ac,BMMagic},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:match(<<1,2,3>>,
+			{bm,ets:match_spec_compile([{'_',[],['$_']}])},
+			[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:match(<<1,2,3>>,
+			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
+			[{scope,{0,1}}])),
+     ?line nomatch =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,<<1>>,[{scope,{0,0}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,<<>>},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,[],[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,{ac,<<>>},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,{bm,ACMagic},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:matches(<<1,2,3>>,{ac,BMMagic},[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:matches(<<1,2,3>>,
+			{bm,ets:match_spec_compile([{'_',[],['$_']}])},
+			[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:matches(<<1,2,3>>,
+			{ac,ets:match_spec_compile([{'_',[],['$_']}])},
+			[{scope,{0,1}}])),
+    ?line badarg =
+	?MASK_ERROR(binary:longest_common_prefix(
+		      [<<0:10000,1,2,4,1:3>>,
+		       <<0:10000,1,2,3>>])),
+    ?line badarg =
+	?MASK_ERROR(binary:longest_common_suffix(
+		      [<<0:10000,1,2,4,1:3>>,
+		       <<0:10000,1,2,3>>])),
+    ?line badarg =
+	?MASK_ERROR(binary:encode_unsigned(-1)),
+    ?line badarg =
+	?MASK_ERROR(binary:encode_unsigned(-16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
+    ok.
+
+longest_common_trap(doc) ->
+    ["Whitebox test to force special trap conditions in longest_common_{prefix,suffix}"];
+longest_common_trap(Config) when is_list(Config) ->
+    ?line erts_debug:set_internal_state(available_internal_state,true),
+    ?line io:format("oldlimit: ~p~n",
+		    [erts_debug:set_internal_state(binary_loop_limit,10)]),
+    erlang:bump_reductions(10000000),
+    ?line _ = binary:longest_common_prefix(
+		[<<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0,1,0:10000,1,3,3>>,
+		 <<0:10000,1,2,4>>]),
+    ?line _ = binary:longest_common_prefix(
+		[<<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,3>>,
+		 <<0:10000,1,3,3>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,4>>,
+		 <<0:10000,1,2,3>>,
+		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+		 <<0:10000,1,2,4>>]),
+    erlang:bump_reductions(10000000),
+    ?line _ = binary:longest_common_suffix(
+		[<<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,3,3,0:10000,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+		 <<1,2,4,0:10000>>]),
+    ?line _ = binary:longest_common_suffix(
+		[<<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<1,2,4,0:10000>>,
+		 <<0,0,0,0,0,0,0,0,0,0,0,0,0,0>>,
+		 <<1,2,4,0:10000>>]),
+    Subj = subj(),
+    Len = byte_size(Subj),
+    ?line Len = binary:longest_common_suffix(
+		  [Subj,Subj,Subj]),
+    ?line io:format("limit was: ~p~n",
+		    [erts_debug:set_internal_state(binary_loop_limit,
+						   default)]),
+    ?line erts_debug:set_internal_state(available_internal_state,false),
+    ok.
+
+subj() ->
+  Me = self(),
+  spawn(fun() ->
+    X0 = iolist_to_binary([
+      "1234567890",
+      %lists:seq(16#21, 16#7e),
+      lists:duplicate(100, $x)
+    ]),
+    Me ! X0,
+    receive X -> X end
+  end),
+  X0 = receive A -> A end,
+  <<X1:32/binary,_/binary>> = X0,
+  Subject= <<X1/binary>>,
+  Subject.
 
 
 interesting(doc) ->
@@ -332,7 +590,8 @@ encode_decode(doc) ->
     ["test binary:encode_unsigned/1,2 and binary:decode_unsigned/1,2"];
 encode_decode(Config) when is_list(Config) ->
     ?line random:seed({1271,769940,559934}),
-    ?line ok = encode_decode_loop({1,100},1000),
+    ?line ok = encode_decode_loop({1,200},1000), % Need to be long enough
+						 % to create offheap binaries
     ok.
 
 encode_decode_loop(_Range,0) ->
@@ -437,12 +696,34 @@ copy(Config) when is_list(Config) ->
     ?line erts_debug:set_internal_state(available_internal_state,true),
     ?line io:format("oldlimit: ~p~n",
 		    [erts_debug:set_internal_state(binary_loop_limit,10)]),
+    ?line Subj = subj(),
+    ?line XX = binary:copy(Subj,1000),
+    ?line XX = binref:copy(Subj,1000),
     ?line ok = random_copy(1000),
+    ?line kill_copy_loop(1000),
     ?line io:format("limit was: ~p~n",
 		    [erts_debug:set_internal_state(binary_loop_limit,
 						   default)]),
     ?line erts_debug:set_internal_state(available_internal_state,false),
     ok.
+
+kill_copy_loop(0) ->
+    ok;
+kill_copy_loop(N) ->
+    {Pid,Ref} = spawn_monitor(fun() ->
+				    ok = random_copy(1000)
+			      end),
+    receive
+    after 10 ->
+	    ok
+    end,
+    exit(Pid,kill),
+    receive
+	{'DOWN',Ref,process,Pid,_} ->
+	    kill_copy_loop(N-1)
+    after 1000 ->
+	    exit(did_not_die)
+    end.
 
 random_copy(0) ->
     ok;
@@ -590,6 +871,8 @@ random_ref_comp(Config) when is_list(Config) ->
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ?line do_random_match_comp3(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
+    ?line do_random_match_comp4(5000,{1,40},{30,1000}),
+    io:format("Number of successes: ~p~n",[get(success_counter)]),
     ?line do_random_matches_comp(5000,{1,40},{30,1000}),
     io:format("Number of successes: ~p~n",[get(success_counter)]),
     ?line do_random_matches_comp2(5000,{1,40},{30,1000}),
@@ -597,6 +880,7 @@ random_ref_comp(Config) when is_list(Config) ->
     ?line do_random_matches_comp3(5,{1,40},{30,1000}),
     ?line erts_debug:set_internal_state(available_internal_state,true),
     ?line io:format("oldlimit: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,100)]),
+    ?line do_random_match_comp(5000,{1,40},{30,1000}),
     ?line do_random_matches_comp3(5,{1,40},{30,1000}),
     ?line io:format("limit was: ~p~n",[ erts_debug:set_internal_state(binary_loop_limit,default)]),
     ?line erts_debug:set_internal_state(available_internal_state,false),
@@ -748,7 +1032,8 @@ do_matches_comp(N,H) ->
     A = ?MASK_ERROR(binref:matches(H,N)),
     B = ?MASK_ERROR(binref:matches(H,binref:compile_pattern(N))),
     C = ?MASK_ERROR(binary:matches(H,N)),
-    D = ?MASK_ERROR(binary:matches(make_unaligned(H),binary:compile_pattern(N))),
+    D = ?MASK_ERROR(binary:matches(make_unaligned(H),
+				   binary:compile_pattern([make_unaligned2(X) || X <- N]))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
@@ -792,25 +1077,36 @@ do_random_match_comp3(N,NeedleRange,HaystackRange) ->
     true = do_match_comp3(Needles,Haystack),
     do_random_match_comp3(N-1,NeedleRange,HaystackRange).
 
+do_random_match_comp4(0,_,_) ->
+    ok;
+do_random_match_comp4(N,NeedleRange,HaystackRange) ->
+    NumNeedles = element(2,HaystackRange) div element(2,NeedleRange),
+    Haystack = random_string(HaystackRange),
+    Needles = [random_string(NeedleRange) ||
+		  _ <- lists:duplicate(NumNeedles,a)],
+    true = do_match_comp3(Needles,Haystack),
+    do_random_match_comp4(N-1,NeedleRange,HaystackRange).
+
 do_match_comp(N,H) ->
     A = ?MASK_ERROR(binref:match(H,N)),
     B = ?MASK_ERROR(binref:match(H,binref:compile_pattern([N]))),
     C = ?MASK_ERROR(binary:match(make_unaligned(H),N)),
     D = ?MASK_ERROR(binary:match(H,binary:compile_pattern([N]))),
+    E = ?MASK_ERROR(binary:match(H,binary:compile_pattern(make_unaligned(N)))),
     if
 	A =/= nomatch ->
 	    put(success_counter,get(success_counter)+1);
 	true ->
 	    ok
     end,
-    case {(A =:= B), (B =:= C),(C =:= D)} of
-	{true,true,true} ->
+    case {(A =:= B), (B =:= C),(C =:= D),(D =:= E)} of
+	{true,true,true,true} ->
 	    true;
 	_ ->
 	    io:format("Failed to match ~s (needle) against ~s (haystack)~n",
 		      [N,H]),
-	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p.~n",
-		      [A,B,C,D]),
+	    io:format("A:~p,~nB:~p,~n,C:~p,~n,D:~p,E:~p.~n",
+		      [A,B,C,D,E]),
 	    exit(mismatch)
     end.
 
@@ -968,6 +1264,11 @@ make_unaligned(Bin0) when is_binary(Bin0) ->
     Bin1 = <<0:3,Bin0/binary,31:5>>,
     Sz = byte_size(Bin0),
     <<0:3,Bin:Sz/binary,31:5>> = id(Bin1),
+    Bin.
+make_unaligned2(Bin0) when is_binary(Bin0) ->
+    Bin1 = <<31:5,Bin0/binary,0:3>>,
+    Sz = byte_size(Bin0),
+    <<31:5,Bin:Sz/binary,0:3>> = id(Bin1),
     Bin.
 
 id(I) -> I.
