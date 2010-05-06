@@ -30,6 +30,33 @@
   </header>
   <p>This document describes the changes made to the SASL application.</p>
 
+<section><title>SASL 2.1.9.2</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>In R13B04 sys:get_status was modified to invoke
+	    format_status/2 in the callback module if the module
+	    exports that function. This resulted in a change to the
+	    term returned from calling sys:get_status on the
+	    supervisor module, since supervisor is a gen_server and
+	    gen_server exports format_status. The sasl
+	    release_handler_1 module had a dependency on the
+	    pre-R13B04 term returned by sys:get_status when invoked
+	    on a supervisor, so the R13B04 change broke that
+	    dependency.</p>
+	    <p>This problem has been fixed by change
+	    release_handler_1 to handle both the pre-R13B04 and
+	    R13B04 terms that sys:get_status can return from a
+	    supervisor.</p>
+          <p>
+	    Own Id: OTP-8619 Aux Id: seq11570 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>SASL 2.1.9.1</title>
 
     <section><title>Improvements and New Features</title>
