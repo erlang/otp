@@ -347,9 +347,10 @@ chunkref() = chunkname() | chunkid()</code>
       </type>
       <desc>
         <p>Compares the contents of two BEAM files. If the module names
-          are the same, and the chunks with the identifiers
-          <c>"Code"</c>, <c>"ExpT"</c>, <c>"ImpT"</c>, <c>"StrT"</c>,
-          and <c>"Atom"</c> have the same contents in both files,
+          are the same, and all chunks except for the <c>"CInf"</c> chunk
+	  (the chunk containing the compilation information which is
+	  returned by <c>Module:module_info(compile)</c>)
+	  have the same contents in both files,
           <c>ok</c> is returned. Otherwise an error message is returned.</p>
       </desc>
     </func>

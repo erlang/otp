@@ -331,13 +331,11 @@ beam_files(Dir) ->
 
 %% -> ok | throw(Error)
 cmp_files(File1, File2) ->
-    {ok, {M1, L1}} = read_significant_chunks(File1),
-    {ok, {M2, L2}} = read_significant_chunks(File2),
+    {ok, {M1, L1}} = read_all_but_useless_chunks(File1),
+    {ok, {M2, L2}} = read_all_but_useless_chunks(File2),
     if
 	M1 =:= M2 ->
-	    List1 = filter_funtab(L1),
-	    List2 = filter_funtab(L2),
-	    cmp_lists(List1, List2);
+	    cmp_lists(L1, L2);
 	true ->
 	    error({modules_different, M1, M2})
     end.
@@ -406,6 +404,20 @@ pad(Size) ->
 	0 -> [];
 	Rem -> lists:duplicate(4 - Rem, 0)
     end.
+
+%% -> {ok, {Module, Chunks}} | throw(Error)
+read_all_but_useless_chunks(File0) when is_atom(File0);
+					is_list(File0);
+					is_binary(File0) ->
+    File = beam_filename(File0),
+    {ok, Module, ChunkIds0} = scan_beam(File, info),
+    ChunkIds = [Name || {Name,_,_} <- ChunkIds0,
+			not is_useless_chunk(Name)],
+    {ok, Module, Chunks} = scan_beam(File, ChunkIds),
+    {ok, {Module, lists:reverse(Chunks)}}.
+
+is_useless_chunk("CInf") -> true;
+is_useless_chunk(_) -> false.
 
 %% -> {ok, {Module, Chunks}} | throw(Error)
 read_significant_chunks(File) ->
