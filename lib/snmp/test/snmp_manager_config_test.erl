@@ -1444,10 +1444,9 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     p("[test 54] write usm config file with invalid auth-key (4)"),
     Usm54 = setelement(4, Usm51, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,kalle]"),
     write_usm_conf(ConfDir, [Usm54]),
-    %% ?line ok = crypto:start(),  %% Varför kör den redan?
-    ?line crypto:start(),  %% Make sure it's started...
+    ?line maybe_start_crypto(),  %% Make sure it's started...
     ?line {error, Reason54} = config_start(Opts),
-    ?line ok = crypto:stop(),
+    ?line ok = maybe_stop_crypto(),
     p("start failed (as expected): ~p", [Reason54]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason54,
     await_config_not_running(),
@@ -1492,21 +1491,35 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     p("[test 59] write usm config file with invalid auth-key (9)"),
     Usm59 = setelement(4, Usm57, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,ka]"),
     write_usm_conf(ConfDir, [Usm59]),
-    ?line ok = crypto:start(),
+    ?line ok = maybe_start_crypto(),
     ?line {error, Reason59} = config_start(Opts),
-    ?line ok = crypto:stop(),
+    ?line ok = maybe_stop_crypto(),
     p("start failed (as expected): ~p", [Reason59]),
     ?line {failed_check, _, _, _, {invalid_auth_key, _}} = Reason59,
     await_config_not_running(),
 
     %% --
-    p("[test 5A] write usm config file with valid auth-key when crypto not started (10)"),
-    Usm5A = setelement(4, Usm57, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]"),
-    write_usm_conf(ConfDir, [Usm5A]),
-    ?line {error, Reason5A} = config_start(Opts),
-    p("start failed (as expected): ~p", [Reason5A]),
-    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason5A,
-    await_config_not_running(),
+    %% <CRYPTO-MODIFICATIONS>
+    %% The crypto application do no longer need to be started
+    %% explicitly (all of it is as of R14 implemented with NIFs).
+    case (catch crypto:version()) of
+	{'EXIT', {undef, _}} ->
+	    p("[test 5A] write usm config file with valid auth-key "
+	      "when crypto not started (10)"),
+	    Usm5A = setelement(4, 
+			       Usm57, 
+			       "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6,7,8,9,0]"),
+	    write_usm_conf(ConfDir, [Usm5A]),
+	    ?line {error, Reason5A} = config_start(Opts),
+	    p("start failed (as expected): ~p", [Reason5A]),
+	    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason5A,
+	    await_config_not_running();
+	_ ->
+	    %% This function is only present in version 2.0 or greater.
+	    %% The crypto app no longer needs to be explicitly started
+	    ok
+    end,
+    %% </CRYPTO-MODIFICATIONS>
 
     %% --
     p("[test 61] write usm config file with invalid priv-protocol (1)"),
@@ -1566,9 +1579,9 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     p("[test 74] write usm config file with invalid priv-key (4)"),
     Usm74 = setelement(6, Usm71, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,kalle]"),
     write_usm_conf(ConfDir, [Usm74]),
-    ?line ok = crypto:start(),
+    ?line ok = maybe_start_crypto(),
     ?line {error, Reason74} = config_start(Opts),
-    ?line ok = crypto:stop(),
+    ?line ok = maybe_stop_crypto(),
     p("start failed (as expected): ~p", [Reason74]),
     ?line {failed_check, _, _, _, {invalid_priv_key, _}} = Reason74,
     await_config_not_running(),
@@ -1592,15 +1605,27 @@ start_with_invalid_usm_conf_file1(Conf) when is_list(Conf) ->
     await_config_not_running(),
 
     %% --
-    p("[test 77] write usm config file with valid priv-key when crypto not started (7)"),
-    Usm77 = setelement(6, Usm71, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]"),
-    write_usm_conf(ConfDir, [Usm77]),
-    ?line {error, Reason77} = config_start(Opts),
-    p("start failed (as expected): ~p", [Reason77]),
-    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason77,
-    await_config_not_running(),
+    %% <CRYPTO-MODIFICATIONS>
+    %% The crypto application do no longer need to be started
+    %% explicitly (all of it is as of R14 implemented with NIFs).
+    case (catch crypto:version()) of
+	{'EXIT', {undef, _}} ->
+	    p("[test 77] write usm config file with valid priv-key "
+	      "when crypto not started (7)"),
+	    Usm77 = setelement(6, Usm71, "[1,2,3,4,5,6,7,8,9,0,1,2,3,4,5,6]"),
+	    write_usm_conf(ConfDir, [Usm77]),
+	    ?line {error, Reason77} = config_start(Opts),
+	    p("start failed (as expected): ~p", [Reason77]),
+	    ?line {failed_check, _, _, _, {unsupported_crypto, _}} = Reason77,
+	    await_config_not_running();
+	_ ->
+	    %% This function is only present in version 2.0 or greater.
+	    %% The crypto app no longer needs to be explicitly started
+	    ok
+    end,
+    %% </CRYPTO-MODIFICATIONS>
 
-     %% --
+    %% --
     p("[test 78] write usm config file with invalid usm (1)"),
     write_usm_conf2(ConfDir, "{\"bmkEngine\", \"swiusmcf\"}."),
     ?line {error, Reason81} = config_start(Opts),
@@ -2674,6 +2699,27 @@ write_conf_file(Dir, File, Str) ->
     ?line {ok, Fd} = file:open(filename:join(Dir, File), write),
     ?line ok = io:format(Fd, "~s", [Str]),
     file:close(Fd).
+
+
+maybe_start_crypto() ->
+    case (catch crypto:version()) of
+	{'EXIT', {undef, _}} ->
+	    %% This is the version of crypto before the NIFs...
+	    ?CRYPTO_START();
+	_ ->
+	    %% No need to start this version of crypto..
+	    ok
+    end.
+
+maybe_stop_crypto() ->
+    case (catch crypto:version()) of
+	{'EXIT', {undef, _}} ->
+	    %% This is the version of crypto before the NIFs...
+	    crypto:stop();
+	_ ->
+	    %% There is nothing to stop in this version of crypto..
+	    ok
+    end.
 
 
 %% ------

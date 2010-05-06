@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 -module(snmpc).
@@ -34,6 +34,7 @@
 -include("snmpc.hrl").
 -include("snmpc_lib.hrl").
 
+-record(dldata, {deprecated, relaxed_row_name_assign_check}).
 
 look_at(Mib) ->
     io:format("~p ~n", [snmpc_lib:look_at(Mib)]).
@@ -114,6 +115,7 @@ compile(FileName) ->
 %%          module_identity
 %%          {module, string()}
 %%          no_defs
+%%          relaxed_row_name_assign_check
 %% (hidden) {verbosity,   trace|debug|log|info|silence}   silence
 %% (hidden) version 
 %% (hidden) options 
@@ -201,6 +203,8 @@ get_options([imports|Opts], Formats, Args) ->
     get_options(Opts, ["~n   imports"|Formats], Args);
 get_options([module_identity|Opts], Formats, Args) ->
     get_options(Opts, ["~n   module_identity"|Formats], Args);
+get_options([relaxed_row_name_assign_check|Opts], Formats, Args) ->
+    get_options(Opts, ["~n   relaxed_row_name_assign_check"|Formats], Args);
 get_options([_|Opts], Formats, Args) ->
     get_options(Opts, Formats, Args).
     
@@ -284,6 +288,8 @@ check_options([imports| T]) ->
     check_options(T);
 check_options([module_identity| T]) ->
     check_options(T);
+check_options([relaxed_row_name_assign_check| T]) ->
+    check_options(T);
 check_options([{module, M} | T]) when is_atom(M) ->
     check_options(T);
 check_options([no_defs| T]) ->
@@ -308,6 +314,9 @@ get_description(Options) ->
 
 get_reference(Options) ->
     get_bool_option(reference, Options).
+
+get_relaxed_row_name_assign_check(Options) ->
+    lists:member(relaxed_row_name_assign_check, Options).
 
 get_bool_option(Option, Options) ->
     case lists:member(Option, Options) of
@@ -406,8 +415,12 @@ compile_parsed_data(#pdata{mib_name = MibName,
 			   defs     = Definitions}) ->
     snmpc_lib:import(Imports),
     update_imports(Imports),
-    Deprecated = get_deprecated(get(options)),
-    definitions_loop(Definitions, Deprecated),
+    Opts = get(options),
+    Deprecated = get_deprecated(Opts),
+    RelChk = get_relaxed_row_name_assign_check(Opts),
+    Data = #dldata{deprecated                    = Deprecated,
+		   relaxed_row_name_assign_check = RelChk}, 
+    definitions_loop(Definitions, Data),
     MibName.
 
 update_imports(Imports) ->
@@ -436,21 +449,21 @@ update_status(Name, Status) ->
 %% A deprecated object
 definitions_loop([{#mc_object_type{name = ObjName, status = deprecated}, 
 		   Line}|T],
-		 false) ->
+		 #dldata{deprecated = false} = Data) ->
     %% May be implemented but the compiler chooses not to.
     ?vinfo2("object_type ~w is deprecated => ignored", [ObjName], Line),    
     update_status(ObjName, deprecated), 
-    definitions_loop(T, false);
+    definitions_loop(T, Data);
 
 %% A obsolete object
 definitions_loop([{#mc_object_type{name = ObjName, status = obsolete}, 
 		   Line}|T], 
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("object_type ~w is obsolete => ignored", [ObjName], Line),
     %% No need to implement a obsolete object
     update_status(ObjName, obsolete),
     ensure_macro_imported('OBJECT-TYPE', Line),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 %% Defining a table
 definitions_loop([{#mc_object_type{name        = NameOfTable,
@@ -475,7 +488,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 		  {#mc_sequence{name   = SeqName,
 				fields = FieldList},
 		   Sline}|ColsEtc],
-		 Deprecated) ->
+		 Data) ->
     ?vlog("defloop -> "
 	  "[object_type(sequence_of),object_type(type,[1]),sequence]:"
 	  "~n   NameOfTable:  ~p"
@@ -529,7 +542,89 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 			 TableME#me{assocList=[{table_info, 
 						TableInfo} | make_reference(Ref)]} |
 				ColMEs]),
-    definitions_loop(RestObjs, Deprecated);
+    definitions_loop(RestObjs, Data);
+
+definitions_loop([{#mc_object_type{name        = NameOfTable,
+				   syntax      = {{sequence_of, SeqName}, _},
+				   max_access  = Taccess,
+				   kind        = Kind, 
+				   status      = Tstatus,
+				   description = Desc1,
+				   units       = Tunits,
+				   reference   = Ref, 
+				   name_assign = Tindex},
+		   Tline},
+		  {#mc_object_type{name        = NameOfEntry,
+				   syntax      = {{type, SeqName}, TEline},
+				   max_access  = 'not-accessible',
+				   kind        = {table_entry, IndexingInfo},
+				   status      = Estatus,
+				   description = Desc2,
+				   units       = Eunits, 
+				   name_assign = {NameOfTable,[Idx]} = BadOID},
+		   Eline},
+		  {#mc_sequence{name   = SeqName,
+				fields = FieldList},
+		   Sline}|ColsEtc],
+		 #dldata{relaxed_row_name_assign_check = true} = Data) 
+  when is_integer(Idx) andalso (Idx > 1) ->
+    ?vlog("defloop -> "
+	  "[object_type(sequence_of),object_type(type,[~w]),sequence]:"
+	  "~n   NameOfTable:  ~p"
+	  "~n   SeqName:      ~p"
+	  "~n   Taccess:      ~p"
+	  "~n   Kind:         ~p"
+	  "~n   Tstatus:      ~p"
+	  "~n   Tindex:       ~p"
+	  "~n   Tunits:       ~p"
+	  "~n   Tline:        ~p"
+	  "~n   NameOfEntry:  ~p"
+	  "~n   TEline:       ~p"
+	  "~n   IndexingInfo: ~p"
+	  "~n   Estatus:      ~p"
+	  "~n   Eunits:       ~p"
+	  "~n   Ref:          ~p"
+	  "~n   Eline:        ~p"
+	  "~n   FieldList:    ~p"
+	  "~n   Sline:        ~p",
+	  [Idx, 
+	   NameOfTable,SeqName,Taccess,Kind,Tstatus,
+	   Tindex,Tunits,Tline,
+	   NameOfEntry,TEline,IndexingInfo,Estatus,Eunits,Ref,Eline,
+	   FieldList,Sline]),
+    update_status(NameOfTable, Tstatus),
+    update_status(NameOfEntry, Estatus),
+    update_status(SeqName,     undefined),
+    ensure_macro_imported('OBJECT-TYPE', Tline),
+    ?vwarning2("Bad TableEntry OID definition (~w)",
+	       [BadOID], Eline),
+    test_table(NameOfTable,Taccess,Kind,Tindex,Tline),
+    {Tfather,Tsubindex} = Tindex,
+    snmpc_lib:register_oid(Tline,NameOfTable,Tfather,Tsubindex),
+    Description1 = make_description(Desc1),
+    TableME = #me{aliasname   = NameOfTable,
+		  entrytype   = table, 
+		  access      = 'not-accessible',
+		  description = Description1,
+		  units       = Tunits},
+    snmpc_lib:register_oid(TEline,NameOfEntry,NameOfTable,[Idx]),
+    Description2 = make_description(Desc2),
+    TableEntryME = #me{aliasname   = NameOfEntry, 
+		       entrytype   = table_entry,
+		       assocList   = [{table_entry_with_sequence, SeqName}], 
+		       access      = 'not-accessible',
+		       description = Description2,
+		       units       = Eunits},
+    {ColMEs, RestObjs} = 
+	define_cols(ColsEtc, 1, FieldList, NameOfEntry, NameOfTable, []),
+    TableInfo = snmpc_lib:make_table_info(Eline, NameOfTable,
+					  IndexingInfo, ColMEs),
+    snmpc_lib:add_cdata(#cdata.mes, 
+			[TableEntryME,
+			 TableME#me{assocList=[{table_info, 
+						TableInfo} | make_reference(Ref)]} |
+				ColMEs]),
+    definitions_loop(RestObjs, Data);
 
 definitions_loop([{#mc_object_type{name        = NameOfTable,
 				   syntax      = {{sequence_of, SeqName},_},
@@ -550,7 +645,7 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 				   name_assign = BadOID}, Eline},
 		  {#mc_sequence{name   = SeqName,
 				fields = FieldList}, Sline}|ColsEtc],
-		 Deprecated) ->
+		 Data) ->
     ?vlog("defloop -> "
 	  "[object_type(sequence_of),object_type(type),sequence(fieldList)]:"
 	  "~n   NameOfTable:  ~p"
@@ -605,13 +700,13 @@ definitions_loop([{#mc_object_type{name        = NameOfTable,
 				TableME#me{assocList=[{table_info, 
 						       TableInfo} | make_reference(Ref)]} |
 				ColMEs]),
-    definitions_loop(RestObjs, Deprecated);
+    definitions_loop(RestObjs, Data);
 
 definitions_loop([{#mc_new_type{name         = NewTypeName,
 				macro        = Macro,
 				syntax       = OldType,
 				display_hint = DisplayHint},Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> new_type:"
 	   "~n   Macro:       ~p"
 	   "~n   NewTypeName: ~p"
@@ -632,7 +727,7 @@ definitions_loop([{#mc_new_type{name         = NewTypeName,
 						imported     = false,
 						display_hint = DisplayHint}])
     end,
-    definitions_loop(T,	Deprecated);
+    definitions_loop(T,	Data);
 
 %% Plain variable
 definitions_loop([{#mc_object_type{name        = NewVarName,
@@ -643,7 +738,7 @@ definitions_loop([{#mc_object_type{name        = NewVarName,
 				   description = Desc1, 
 				   units       = Units,
 				   name_assign = {Parent,SubIndex}},Line} |T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> object_type (variable):"
 	   "~n   NewVarName: ~p"
 	   "~n   Type:       ~p"
@@ -672,7 +767,7 @@ definitions_loop([{#mc_object_type{name        = NewVarName,
     VI = snmpc_lib:make_variable_info(NewME2), 
     snmpc_lib:add_cdata(#cdata.mes,
 			[NewME2#me{assocList = [{variable_info, VI}]}]),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_module_identity{name         = NewVarName,
 				       last_updated = LU,
@@ -682,7 +777,7 @@ definitions_loop([{#mc_module_identity{name         = NewVarName,
 				       revisions    = Revs0, 
 				       name_assign  = {Parent, SubIndex}},
 		   Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> module-identity: "
 	   "~n   NewVarName: ~p"
 	   "~n   LU:         ~p"
@@ -706,13 +801,13 @@ definitions_loop([{#mc_module_identity{name         = NewVarName,
     snmpc_lib:add_cdata(
       #cdata.mes,
       [snmpc_lib:makeInternalNode2(false, NewVarName)]),
-    definitions_loop(T, Deprecated);    
+    definitions_loop(T, Data);    
 
 definitions_loop([{#mc_internal{name      = NewVarName,
 				macro     = Macro,
 				parent    = Parent,
 				sub_index = SubIndex},Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> internal:"
 	   "~n   NewVarName: ~p"
 	   "~n   Macro:      ~p"
@@ -724,7 +819,7 @@ definitions_loop([{#mc_internal{name      = NewVarName,
     snmpc_lib:add_cdata(
       #cdata.mes,
       [snmpc_lib:makeInternalNode2(false, NewVarName)]),
-    definitions_loop(T, Deprecated);    
+    definitions_loop(T, Data);    
 
 %% A trap message
 definitions_loop([{#mc_trap{name        = TrapName,
@@ -732,7 +827,7 @@ definitions_loop([{#mc_trap{name        = TrapName,
 			    vars        = Variables, 
 			    description = Desc1,
 			    num         = SpecificCode}, Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> trap:"
 	   "~n   TrapName:     ~p"
 	   "~n   EnterPrise:   ~p"
@@ -755,7 +850,7 @@ definitions_loop([{#mc_trap{name        = TrapName,
     lists:foreach(fun(Trap2) -> snmpc_lib:check_trap(Trap2, Trap, Line) end, 
 		  CDATA#cdata.traps), 
     snmpc_lib:add_cdata(#cdata.traps, [Trap]),
-    definitions_loop(T, Deprecated);    
+    definitions_loop(T, Data);    
 
 definitions_loop([{#mc_object_type{name        = NameOfEntry, 
 				   syntax      = Type, 
@@ -763,7 +858,7 @@ definitions_loop([{#mc_object_type{name        = NameOfEntry,
 				   kind        = {table_entry, Index},
 				   status      = Estatus,
 				   name_assign = SubIndex},Eline}|T], 
-		 Deprecated) ->
+		 Data) ->
     ?vlog("defloop -> object_type (table_entry):"
 	  "~n   NameOfEntry: ~p"
 	  "~n   Type:        ~p"
@@ -777,7 +872,7 @@ definitions_loop([{#mc_object_type{name        = NameOfEntry,
     update_status(NameOfEntry, Estatus),
     snmpc_lib:print_error("Misplaced TableEntry definition (~w)",
 			  [NameOfEntry], Eline),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = deprecated}, Line}|T],
@@ -790,19 +885,19 @@ definitions_loop([{#mc_notification{name   = TrapName,
 
 definitions_loop([{#mc_notification{name   = TrapName,
 				    status = obsolete}, Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> notification ~w is obsolete => ignored", 
 	   [TrapName], Line),
     update_status(TrapName, obsolete),
     ensure_macro_imported('NOTIFICATION-TYPE', Line),
-    definitions_loop(T, Deprecated);    
+    definitions_loop(T, Data);    
 
 definitions_loop([{#mc_notification{name        = TrapName,
 				    vars        = Variables,
 				    status      = Status,
 				    description = Desc,
 				    name_assign = {Parent, SubIndex}},Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> notification:"
 	   "~n   TrapName:  ~p"
 	   "~n   Variables: ~p"
@@ -824,13 +919,13 @@ definitions_loop([{#mc_notification{name        = TrapName,
 			  oidobjects  = Variables}, 
     snmpc_lib:check_notification(Notif, Line, CDATA#cdata.traps),
     snmpc_lib:add_cdata(#cdata.traps, [Notif]),
-    definitions_loop(T, Deprecated);    
+    definitions_loop(T, Data);    
 
-definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Deprecated) ->
+definitions_loop([{#mc_module_compliance{name = Name},Line}|T], Data) ->
     ?vlog2("defloop -> module_compliance:"
 	   "~n   Name: ~p", [Name], Line),
     ensure_macro_imported('MODULE-COMPLIANCE', Line),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_object_group{name        = Name,
 				    objects     = GroupObjects,
@@ -838,7 +933,7 @@ definitions_loop([{#mc_object_group{name        = Name,
 				    description = Desc,
 				    reference   = Ref,
 				    name_assign = {Parent,SubIndex}}, Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog2("defloop -> object_group ~p:"
 	   "~n   GroupObjects: ~p"
 	   "~n   Status:       ~p"
@@ -873,7 +968,7 @@ definitions_loop([{#mc_object_group{name        = Name,
 			       {objects, GroupObjects}]},  
     snmpc_lib:add_cdata(#cdata.mes, [NewME]),
 
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_notification_group{name        = Name,
 					  objects     = GroupObjects,
@@ -882,7 +977,7 @@ definitions_loop([{#mc_notification_group{name        = Name,
 					  reference   = Ref,
 					  name_assign = {Parent,SubIndex}}, 
 		   Line}
-		  |T], Deprecated) ->
+		  |T], Data) ->
     ?vlog2("defloop -> notification_group ~p:"
 	   "~n   GroupObjects: ~p"
 	   "~n   Status:       ~p"
@@ -918,13 +1013,13 @@ definitions_loop([{#mc_notification_group{name        = Name,
 			       {objects, GroupObjects}]},  
     snmpc_lib:add_cdata(#cdata.mes, [NewME]),
 
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_object_type{name   = NameOfTable,
 				   syntax = {{sequence_of, SeqName},_},
 				   status = Tstatus},Tline}, 
 		  Entry, Seq|T],
-		Deprecated) ->
+		Data) ->
     ?vlog("defloop -> object_type (sequence_of): "
 	  "~n   NameOfTable: ~p"
 	  "~n   SeqName:     ~p"
@@ -956,12 +1051,12 @@ definitions_loop([{#mc_object_type{name   = NameOfTable,
 	      "Invalid TableEntry '~p' (check STATUS, Sequence name, Oid)",
 	      [safe_elem(1,safe_elem(2,Entry))],Tline)
     end,
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_object_type{name   = NameOfTable,
 				   syntax = {{sequence_of, SeqName},_},
 				   status = Tstatus},Tline}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vlog("defloop -> object_type (sequence_of):"
 	  "~n   object_type: ~p"
 	  "~n   sequence_of: ~p"
@@ -969,24 +1064,24 @@ definitions_loop([{#mc_object_type{name   = NameOfTable,
     update_status(NameOfTable, Tstatus),
     snmpc_lib:print_error("Invalid statements following table ~p.",
 			  [NameOfTable],Tline),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
 definitions_loop([{#mc_sequence{name   = SeqName,
 				fields = _FieldList},Line}|T],
-		 Deprecated) ->
+		 Data) ->
     ?vwarning2("Unexpected SEQUENCE ~w => ignoring", [SeqName], Line),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
-definitions_loop([{Obj,Line}|T], Deprecated) ->
+definitions_loop([{Obj,Line}|T], Data) ->
     ?vinfo2("defloop -> unknown error"
 	    "~n   Obj:  ~p", [Obj], Line),
     snmpc_lib:print_error("Unknown Error in MIB. "
 	 "Can't describe the error better than this: ~999p ignored."
 	 " Please send a trouble report to support@erlang.ericsson.se.",
 				 [Obj], Line),
-    definitions_loop(T, Deprecated);
+    definitions_loop(T, Data);
 
-definitions_loop([], _Deprecated) ->
+definitions_loop([], _Data) ->
     ?vlog("defloop -> done", []),
     ok.
 

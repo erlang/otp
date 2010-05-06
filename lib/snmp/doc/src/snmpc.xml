@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>snmpc</title>
@@ -47,9 +47,10 @@
       <type>
         <v>File = string()</v>
         <v>Options = [opt()]</v>
-        <v>opt() = db() | deprecated() | description() | reference() | group_check() |  i() | il() | imports() | module() | module_identity() | outdir() |  no_defs() | verbosity() | warnings()</v>
+        <v>opt() = db() | relaxed_row_name_assign_check() | deprecated() | description() | reference() | group_check() |  i() | il() | imports() | module() | module_identity() | outdir() |  no_defs() | verbosity() | warnings()</v>
         <v>db() = {db, volatile|persistent|mnesia}</v>
         <v>deprecated() = {deprecated, bool()}</v>
+        <v>relaxed_row_name_assign_check() = relaxed_row_name_assign_check</v>
         <v>description() = description</v>
         <v>reference() = reference</v>
         <v>group_check() = {group_check, bool()}</v>
@@ -71,75 +72,104 @@
           compiled file <c>BinFileName</c> is called 
           <c><![CDATA[<File>.bin]]></c>. </p>
         <list type="bulleted">
-          <item>The option <c>db</c> specifies which database should
-           be used for the default instrumentation. Default is
-          <c>volatile</c>.
+          <item>
+	    <p>The option <c>db</c> specifies which database should
+	      be used for the default instrumentation. </p>
+	    <p>Default is <c>volatile</c>. </p>
           </item>
-          <item>The option <c>deprecated</c> specifies if a deprecated 
-           definition should be kept or not. If the option is 
-           false the MIB compiler will ignore all deprecated
-           definitions. Default is <c>true</c>.
+          <item>
+	    <p>The option <c>deprecated</c> specifies if a deprecated 
+              definition should be kept or not. If the option is 
+              false the MIB compiler will ignore all deprecated
+              definitions. </p>
+	    <p>Default is <c>true</c>. </p>
           </item>
-          <item>The option <c>description</c> specifies if the text
-           of the DESCRIPTION field will be included or not. By default 
-           it is not included, but if this option is present it will
-           be.
+          <item>
+	    <p>The option <c>relaxed_row_name_assign_check</c>, if present,
+	      specifies that the row name assign check shall not be done 
+	      strictly according to the SMI (which allows only the value 1). 
+              With this option, all values greater than zero is allowed 
+	      (>= 1). This means that the error will be converted to a 
+              warning. </p>
+	    <p>By default it is not included, but if this option is present 
+	      it will be. </p>
           </item>
-          <item>The option <c>reference</c> specifies if the text
-           of the REFERENCE field, when found in a table definition, 
-           will be included or not. By default 
-           it is not included, but if this option is present it will
-           be. The reference text will be placed in the allocList field 
-           of the mib-entry record (#me{}) for the table.
+          <item>
+	    <p>The option <c>description</c> specifies if the text
+              of the DESCRIPTION field will be included or not. </p>
+	    <p>By default it is not included, but if this option is 
+	      present it will be. </p>
           </item>
-          <item>The option <c>group_check</c> specifies whether the
-           mib compiler should check the OBJECT-GROUP macro and
-           the NOTIFICATION-GROUP macro for correctness or not.  
-           Default is <c>true</c>.
+          <item>
+	    <p>The option <c>reference</c> specifies if the text
+              of the REFERENCE field, when found in a table definition, 
+              will be included or not. </p>
+	    <p>By default it is not included, but if this option is present 
+	      it will be. The reference text will be placed in the allocList 
+	      field of the mib-entry record (#me{}) for the table. </p>
           </item>
-          <item>The option <c>i</c> specifies the path to search for
-           imported (compiled) MIB files. The directories should be
-           strings with a trailing directory delimiter. Default is
-          <c>["./"]</c>.
+          <item>
+	    <p>The option <c>group_check</c> specifies whether the
+	      mib compiler should check the OBJECT-GROUP macro and
+              the NOTIFICATION-GROUP macro for correctness or not.  </p>
+	    <p>Default is <c>true</c>. </p>
           </item>
-          <item>The option <c>il</c> (include_lib) also specifies a
-           list of directories to search for imported MIBs. It
-           assumes that the first element in the directory name
-           corresponds to an OTP application. The compiler will find
-           the current installed version. For example, the value
-           ["snmp/mibs/"] will be replaced by ["snmp-3.1.1/mibs/"]
-           (or what the current version may be in the system). The
-           current directory and the <c><![CDATA[<snmp-home>/priv/mibs/]]></c>
-           are always listed last in the include path.
+          <item>
+	    <p>The option <c>i</c> specifies the path to search for
+	      imported (compiled) MIB files. The directories should be
+              strings with a trailing directory delimiter. </p>
+	    <p>Default is <c>["./"]</c>. </p>
           </item>
-          <item>The option <c>imports</c>, if present, specifies that the
-           IMPORT statement of the MIB shall be included in the compiled mib.
+          <item>
+	    <p>The option <c>il</c> (include_lib) also specifies a
+              list of directories to search for imported MIBs. It
+              assumes that the first element in the directory name
+              corresponds to an OTP application. The compiler will find
+              the current installed version. For example, the value
+              ["snmp/mibs/"] will be replaced by ["snmp-3.1.1/mibs/"]
+              (or what the current version may be in the system). The
+              current directory and the 
+	      <c><![CDATA[<snmp-home>/priv/mibs/]]></c>
+              are always listed last in the include path. </p>
           </item>
-          <item>The option <c>module</c>, if present, specifies the
-           name of a module which implements all instrumentation
-           functions for the MIB.  The name of all instrumentation
-           functions must be the same as the corresponding managed
-           object it implements.
+          <item>
+	    <p>The option <c>imports</c>, if present, specifies that 
+              the IMPORT statement of the MIB shall be included in the 
+	      compiled mib. </p>
           </item>
-          <item>The option <c>module_identity</c>, if present, specifies 
-           that the info part of the MODULE-IDENTITY statement of the MIB 
-           shall be included in the compiled mib.
+          <item>
+	    <p>The option <c>module</c>, if present, specifies the
+              name of a module which implements all instrumentation
+              functions for the MIB.  </p>
+	    <p>The name of all instrumentation
+              functions must be the same as the corresponding managed
+              object it implements. </p>
           </item>
-          <item>The option <c>no_defs</c>, if present, specifies 
-           that if a managed object does not have an instrumentation
-           function, the default instrumentation function should NOT
-           be used, instead this is reported as an error, and the
-           compilation aborts.
+          <item>
+	    <p>The option <c>module_identity</c>, if present, specifies 
+              that the info part of the MODULE-IDENTITY statement of the MIB 
+              shall be included in the compiled mib. </p>
           </item>
-          <item>The option <c>verbosity</c> specifies the verbosity of
-           the SNMP mib compiler. I.e. if warning, info, log, debug 
-           and trace messages shall be shown. Default is <c>silence</c>.
-           Note that if the option <c>warnings</c> is <c>true</c> and the 
-           option <c>verbosity</c> is <c>silence</c>, warning messages will
-           still be shown.
+          <item>
+	    <p>The option <c>no_defs</c>, if present, specifies 
+              that if a managed object does not have an instrumentation
+              function, the default instrumentation function should NOT
+              be used, instead this is reported as an error, and the
+              compilation aborts. </p>
           </item>
-          <item>The option <c>warnings</c> specifies whether warning
-           messages should be shown. Default is <c>true</c>.
+          <item>
+	    <p>The option <c>verbosity</c> specifies the verbosity of
+	      the SNMP mib compiler. I.e. if warning, info, log, debug 
+              and trace messages shall be shown. </p>
+	    <p>Default is <c>silence</c>. </p>
+            <p>Note that if the option <c>warnings</c> is <c>true</c> and the 
+              option <c>verbosity</c> is <c>silence</c>, warning messages will
+              still be shown. </p>
+          </item>
+          <item>
+	    <p>The option <c>warnings</c> specifies whether warning
+              messages should be shown. </p>
+	    <p>Default is <c>true</c>. </p>
           </item>
         </list>
         <p>The MIB compiler understands both SMIv1 and SMIv2 MIBs.  It

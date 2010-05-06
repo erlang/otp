@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -46,7 +46,9 @@
 	 module_identity/1,
 
 	 tickets/1,
-	 otp_6150/1
+	 otp_6150/1,
+	 otp_8574/1, 
+	 otp_8595/1
 
 	]).
 
@@ -55,6 +57,7 @@
 %%----------------------------------------------------------------------
 -export([
         ]).
+
 
 %%----------------------------------------------------------------------
 %% Macros
@@ -98,7 +101,9 @@ all(suite) ->
 
 tickets(suite) ->
     [
-     otp_6150
+     otp_6150,
+     otp_8574,
+     otp_8595
     ].
 
 
@@ -175,6 +180,54 @@ otp_6150(Config) when is_list(Config) ->
     MibFile = join(MibDir, "ERICSSON-TOP-MIB.mib"),
     ?line {ok, Mib} = snmpc:compile(MibFile, [{outdir, Dir}, {verbosity, trace}]),
     io:format("otp_6150 -> Mib: ~n~p~n", [Mib]),
+    ok.
+
+
+otp_8574(suite) ->
+    [];
+otp_8574(Config) when is_list(Config) ->
+    put(tname,otp_8574),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8574-MIB.mib"),
+    
+    p("ensure compile fail without relaxed assign check"),
+    case snmpc:compile(MibFile, [{group_check, false}, {outdir, Dir}]) of
+	{error, compilation_failed} ->
+	    p("with relaxed assign check MIB compiles with warning"),
+	    case snmpc:compile(MibFile, [{group_check, false}, 
+					 {outdir, Dir}, 
+					 relaxed_row_name_assign_check]) of
+		{ok, _Mib} ->
+		    ok;
+		{error, Reason} ->
+		    p("unexpected compile failure: "
+		      "~n   Reason: ~p", [Reason]),
+		    exit({unexpected_compile_failure, Reason})
+	    end;
+
+	{ok, _} ->
+	    p("unexpected compile success"),
+	    exit(unexpected_compile_success)
+    end.
+
+
+otp_8595(suite) ->
+    [];
+otp_8595(Config) when is_list(Config) ->
+    put(tname,otp_8595),
+    p("starting with Config: ~p~n", [Config]),
+
+    Dir     = ?config(comp_dir, Config),
+    MibDir  = ?config(mib_dir,  Config),
+    MibFile = join(MibDir, "OTP8595-MIB.mib"),
+    ?line {ok, Mib} = 
+	snmpc:compile(MibFile, [{outdir,      Dir}, 
+				{verbosity,   trace}, 
+				{group_check, false}]),
+    io:format("otp_8595 -> Mib: ~n~p~n", [Mib]),
     ok.
 
 
@@ -372,6 +425,9 @@ join(A,B) ->
 
 %% p(F) ->
 %%     p(F, []).
+
+p(F) ->
+    p(F, []).
 
 p(F, A) ->
     p(get(tname), F, A).

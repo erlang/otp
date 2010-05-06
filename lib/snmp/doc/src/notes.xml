@@ -33,6 +33,68 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.16.2</title>
+    <p>Version 4.16.2 supports code replacement in runtime from/to
+      version 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[compiler] The SMI specifies that a table row OID should be 
+            named: { &lt;tableIdentifier&gt; "1" }. </p>
+	  <p>A new option has been introduced, 
+            <seealso marker="snmpc#compiler_opts">relaxed_row_name_assign_check</seealso>, 
+            that allows for a more liberal numbering scheme</p>
+          <p>Own Id: OTP-8574</p>
+        </item>
+
+        <item>
+          <p>[agent|manager] Changes to make snmp (forward) compatible with 
+            the new version of the crypto application (released in R14).
+            As of R14, crypto is implemented using NIFs. Also,
+            the API is more strict. </p> 
+          <p>Own Id: OTP-8594</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <!-- 
+      <p>-</p>
+      -->
+
+      <list type="bulleted">
+        <item>
+          <p>Encode/decode of Counter64 values larger than 
+	    16#7fffffffffffffff (9223372036854775807) failed. </p>
+          <p>Own Id: OTP-8563</p>
+        </item>
+
+        <item>
+          <p>[compiler] Fails to compile non-contiguous BITS. </p>
+	  <p>Per Hedeland</p>
+          <p>Own Id: OTP-8595</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.16.2 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.16.1</title>
     <p>Version 4.16.1 supports code replacement in runtime from/to
       version 4.16, 4.15, 4.14 and 4.13.5.</p>
