@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(prim_file_SUITE).
@@ -243,7 +243,10 @@ make_del_dir(Config, Handle, Suffix) ->
     %% Try deleting some bad directories
     %% Deleting the parent directory to the current, sounds dangerous, huh?
     %% Don't worry ;-) the parent directory should never be empty, right?
-    ?line {error, eexist} = ?PRIM_FILE_call(del_dir, Handle, [".."]),
+    case ?PRIM_FILE_call(del_dir, Handle, [".."]) of
+	{error, eexist} -> ok;
+	{error, einval} -> ok		%FreeBSD
+    end,
     ?line {error, enoent} = ?PRIM_FILE_call(del_dir, Handle, [""]),
     ?line {error, badarg} = ?PRIM_FILE_call(del_dir, Handle, [[3,2,1,{}]]),
 
