@@ -127,6 +127,7 @@ static int clear_function_break(Module *modp, BeamInstr *pc,
 				BeamInstr break_op);
 
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op);
+static BpData *get_break(BeamInstr *pc, BeamInstr break_op);
 
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
@@ -684,7 +685,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * the previous breakpoint.
 	     */
 
-	    pbdt = (BpDataTime *) is_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+	    pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
 	    if (pbdt) {
 		bp_time_diff(&sitem, pbt, ms, s, us);
 		sitem.pid   = p->id;
@@ -782,7 +783,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		sitem.count = 0;
 
 		/* previous breakpoint */
-		pbdt = (BpDataTime *) is_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+		pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
 
 		/* if null then the breakpoint was removed */
 		if (pbdt) {
@@ -850,7 +851,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		sitem.count = 0;
 
 		/* previous breakpoint */
-		pbdt = (BpDataTime *) is_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+		pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
 
 		if (pbdt) {
 
@@ -1076,6 +1077,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    *r = bd;
 	}
     }
+    bd->this_instr = break_op;
     /* Init the bp type specific data */
     if (break_op == (BeamInstr) BeamOp(op_i_trace_breakpoint) ||
 	break_op == (BeamInstr) BeamOp(op_i_mtrace_breakpoint)) {
@@ -1292,6 +1294,27 @@ static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
 	    } else {
 		bd = bd->next;
 	    }
+	}
+    }
+    return NULL;
+}
+static BpData *get_break(BeamInstr *pc, BeamInstr break_op) {
+    ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    if (! erts_is_native_break(pc)) {
+	BpData *bd = (BpData *) pc[-4];
+
+	if (! bd){
+	    return NULL;
+	}
+
+	bd = bd->next;
+	while (bd != (BpData *) pc[-4]) {
+	    ASSERT(bd);
+	    if (bd->this_instr == break_op) {
+		ASSERT(bd);
+		return bd;
+	    }
+	    bd = bd->next;
 	}
     }
     return NULL;

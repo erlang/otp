@@ -49,6 +49,7 @@ typedef struct bp_data {
     struct bp_data *next; /* Doubly linked ring pointers */
     struct bp_data *prev; /* -"-                         */
     BeamInstr orig_instr;      /* The original instruction to execute */
+    BeamInstr this_instr;      /* key */
 } BpData;
 /*
 ** All the following bp_data_.. structs must begin the same way
@@ -57,21 +58,24 @@ typedef struct bp_data {
 typedef struct bp_data_trace {
     struct bp_data *next;
     struct bp_data *prev;
-    BeamInstr      orig_instr;
+    BeamInstr       orig_instr;
+    BeamInstr       this_instr;   /* key */
     Binary         *match_spec;
-    Eterm          tracer_pid;
+    Eterm           tracer_pid;
 } BpDataTrace;
 
 typedef struct bp_data_debug {
     struct bp_data *next;
     struct bp_data *prev;
-    BeamInstr      orig_instr;
+    BeamInstr       orig_instr;
+    BeamInstr       this_instr;   /* key */
 } BpDataDebug;
 
-typedef struct bp_data_count { /* Call count */
+typedef struct bp_data_count {    /* Call count */
     struct bp_data *next;
     struct bp_data *prev;
     BeamInstr       orig_instr;
+    BeamInstr       this_instr;   /* key */
     Sint            count;
 } BpDataCount;
 
@@ -88,10 +92,11 @@ typedef struct {
     bp_data_time_item_t *item;
 } bp_time_hash_t;
 
-typedef struct bp_data_time { /* Call time */
+typedef struct bp_data_time {     /* Call time */
     struct bp_data *next;
     struct bp_data *prev;
     BeamInstr       orig_instr;
+    BeamInstr       this_instr;   /* key */
     Uint	    pause;
     Uint	    n;
     bp_time_hash_t  *hash;
