@@ -91,7 +91,7 @@ typedef struct {
 typedef struct bp_data_time { /* Call time */
     struct bp_data *next;
     struct bp_data *prev;
-    Uint            orig_instr;
+    BeamInstr       orig_instr;
     Uint	    pause;
     Uint	    n;
     bp_time_hash_t  *hash;

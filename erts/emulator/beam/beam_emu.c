@@ -4418,11 +4418,11 @@ apply_bif_or_nif_epilogue:
      BpDataTime *bdt = (BpDataTime *) (I)[-4];
      Uint tail_call = 0;
 
-     ASSERT((I)[-5] == (Uint) BeamOp(op_i_func_info_IaaI));
+     ASSERT((I)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      ASSERT(bdt);
      bdt = (BpDataTime *) bdt->next;
      ASSERT(bdt);
-     (I)[-4] = (Uint) bdt;
+     (I)[-4] = (BeamInstr) bdt;
      real_I = bdt->orig_instr;
      ASSERT(VALID_INSTR(real_I));
 
@@ -4466,12 +4466,12 @@ apply_bif_or_nif_epilogue:
  }
 
  OpCase(i_return_time_trace): {
-     Uint *pc = (Uint *) E[0];
+     BeamInstr *pc = (BeamInstr *) (UWord) E[0];
      SWAPOUT;
      erts_trace_time_break(c_p, pc, NULL, ERTS_BP_CALL_TIME_RETURN);
      SWAPIN;
      c_p->cp = NULL;
-     SET_I((Eterm *) E[1]);
+     SET_I((BeamInstr *) cp_val(E[1]));
      E += 2;
      Goto(*I);
  }
@@ -4485,7 +4485,7 @@ apply_bif_or_nif_epilogue:
      }
  /* Fall through to next case */
  OpCase(i_mtrace_breakpoint): {
-     Uint real_I;
+     BeamInstr real_I;
      Uint32 flags;
      Eterm tracer_pid;
      Uint *cpp;
