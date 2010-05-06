@@ -44,9 +44,6 @@
 -import(lists, [append/1, delete/2, foreach/2, keysort/2, 
 		member/2, reverse/1, sort/1, splitwith/2]).
 
--include_lib("kernel/include/file.hrl").
--include("erl_compile.hrl").
-
 %%-------------------------------------------------------------------------
 
 -type beam() :: module() | file:filename() | binary().
