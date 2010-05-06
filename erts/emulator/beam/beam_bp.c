@@ -101,6 +101,9 @@ do {                               \
     (b)->prev = (a);               \
 } while (0)
 
+
+
+
 /* *************************************************************************
 ** Local prototypes
 */
@@ -127,7 +130,7 @@ static int clear_function_break(Module *modp, BeamInstr *pc,
 				BeamInstr break_op);
 
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op);
-static BpData *get_break(BeamInstr *pc, BeamInstr break_op);
+static BpData *get_break(Process *p, BeamInstr *pc, BeamInstr break_op);
 
 /* bp_hash */
 #define BP_TIME_ADD(pi0, pi1)                       \
@@ -296,9 +299,12 @@ BeamInstr
 erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 		 Uint32 *ret_flags, Eterm *tracer_pid) {
     Eterm tpid1, tpid2;
-    BpDataTrace *bdt = (BpDataTrace *) pc[-4];
+    BpData **bds = (BpData **) (pc)[-4];
+    BpDataTrace *bdt = NULL;
 
+    ASSERT(bds);
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+    bdt = (BpDataTrace *) bds[bp_sched2ix_proc(p)];
     ASSERT(bdt);
     bdt = (BpDataTrace *) bdt->next;
     ASSERT(bdt);
@@ -317,7 +323,7 @@ erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 	bdt->tracer_pid = tpid2;
 	ErtsSmpBPUnlock(bdt);
     }
-    pc[-4] = (BeamInstr) bdt;
+    bds[bp_sched2ix_proc(p)] = (BpData *) bdt;
     return bdt->orig_instr;
 }
 
@@ -329,12 +335,15 @@ erts_trace_break(Process *p, BeamInstr *pc, Eterm *args,
 Uint32
 erts_bif_mtrace(Process *p, BeamInstr *pc, Eterm *args, int local,
 		Eterm *tracer_pid) {
-    BpDataTrace *bdt = (BpDataTrace *) pc[-4];
+    BpData **bds = (BpData **) (pc)[-4];
+    BpDataTrace *bdt = NULL;
+
 
     ASSERT(tracer_pid);
-    if (bdt) {
+    if (bds) {
 	Eterm tpid1, tpid2;
 	Uint32 flags;
+	bdt = (BpDataTrace *)bds[bp_sched2ix_proc(p)];
 
 	ErtsSmpBPLock(bdt);
 	tpid1 = tpid2 = bdt->tracer_pid;
@@ -520,14 +529,21 @@ erts_find_local_func(Eterm mfa[3]) {
 }
 
 /* bp_hash */
-
+ERTS_INLINE Uint bp_sched2ix() {
+#ifdef ERTS_SMP
+    ErtsSchedulerData *esdp;
+    esdp = erts_get_scheduler_data();
+    return esdp->no - 1;
+#else
+    return 0;
+#endif
+}
 static void bp_hash_init(bp_time_hash_t *hash, Uint n) {
     Uint size = sizeof(bp_data_time_item_t)*n;
     Uint i;
 
     hash->n    = n;
     hash->used = 0;
-
 
     hash->item = (bp_data_time_item_t *)Alloc(size);
     sys_memzero(hash->item, size);
@@ -654,7 +670,6 @@ static void bp_time_diff(bp_data_time_item_t *item, /* out */
 void erts_schedule_time_break(Process *p, Uint schedule) {
     Uint ms, s, us;
     process_breakpoint_time_t *pbt = NULL;
-    Uint ix = 0;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
@@ -663,18 +678,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 
     pbt = ERTS_PROC_GET_CALL_TIME(p);
 
-#ifdef ERTS_SMP
-    ix = p->scheduler_data->no - 1;
-#else
-    ix = 0;
-#endif
-/*
-    ASSERT( (p->status == P_RUNNING) ||
-	    (p->status == P_WAITING) ||
-	    (p->status == P_RUNABLE));
-*/
     if (pbt) {
-	get_sys_now(&ms,&s,&us);
 
 	switch(schedule) {
 	case ERTS_BP_CALL_TIME_SCHEDULE_EXITING :
@@ -685,13 +689,14 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * the previous breakpoint.
 	     */
 
-	    pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+	    pbdt = (BpDataTime *) get_break(p, pbt->pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
 	    if (pbdt) {
+		get_sys_now(&ms,&s,&us);
 		bp_time_diff(&sitem, pbt, ms, s, us);
 		sitem.pid   = p->id;
 		sitem.count = 0;
 
-		h = &(pbdt->hash[ix]);
+		h = &(pbdt->hash[bp_sched2ix_proc(p)]);
 
 		ASSERT(h);
 		ASSERT(h->item);
@@ -709,6 +714,7 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 	     * timestamp it and remove the previous
 	     * timestamp in the psd.
 	     */
+	    get_sys_now(&ms,&s,&us);
 	    pbt->ms = ms;
 	    pbt->s  = s;
 	    pbt->us = us;
@@ -718,14 +724,6 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 		/* will never happen */
 	    break;
 	}
-#ifdef DEBUG
-    } else {
-	/* if pbt is null, then the process has just been spawned
-	 * and status should be runnable.
-	 */
-	ASSERT( (p->status == P_RUNABLE) ||
-		(p->status == P_WAITING));
-#endif
     } /* pbt */
 }
 
@@ -745,7 +743,6 @@ void erts_schedule_time_break(Process *p, Uint schedule) {
 void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type) {
     Uint ms,s,us;
     process_breakpoint_time_t *pbt = NULL;
-    int ix = 0;
     bp_data_time_item_t sitem, *item = NULL;
     bp_time_hash_t *h = NULL;
     BpDataTime *pbdt = NULL;
@@ -758,12 +755,6 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 
     pbt = ERTS_PROC_GET_CALL_TIME(p);
     get_sys_now(&ms,&s,&us);
-
-#ifdef ERTS_SMP
-    ix = p->scheduler_data->no - 1;
-#else
-    ix = 0;
-#endif
 
     switch(type) {
 	    /* get pbt
@@ -783,11 +774,11 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		sitem.count = 0;
 
 		/* previous breakpoint */
-		pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+		pbdt = (BpDataTime *) get_break(p, pbt->pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
 
 		/* if null then the breakpoint was removed */
 		if (pbdt) {
-		    h = &(pbdt->hash[ix]);
+		    h = &(pbdt->hash[bp_sched2ix_proc(p)]);
 
 		    ASSERT(h);
 		    ASSERT(h->item);
@@ -813,7 +804,7 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 
 	    /* this breakpoint */
 	    ASSERT(bdt);
-	    h = &(bdt->hash[ix]);
+	    h = &(bdt->hash[bp_sched2ix_proc(p)]);
 
 	    ASSERT(h);
 	    ASSERT(h->item);
@@ -851,11 +842,11 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		sitem.count = 0;
 
 		/* previous breakpoint */
-		pbdt = (BpDataTime *) get_break(pbt->pc, (Uint) BeamOp(op_i_time_breakpoint));
+		pbdt = (BpDataTime *) get_break(p, pbt->pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
 
+		/* beware, the trace_pattern might have been removed */
 		if (pbdt) {
-
-		    h = &(pbdt->hash[ix]);
+		    h = &(pbdt->hash[bp_sched2ix_proc(p)]);
 
 		    ASSERT(h);
 		    ASSERT(h->item);
@@ -873,6 +864,10 @@ void erts_trace_time_break(Process *p, BeamInstr *pc, BpDataTime *bdt, Uint type
 		pbt->s  = s;
 		pbt->us = us;
 	    }
+	    break;
+	default :
+	    ASSERT(0);
+		/* will never happen */
 	    break;
     }
 }
@@ -946,8 +941,9 @@ static int set_module_break(Module *modp, Eterm mfa[3], int specified,
 static int set_function_break(Module *modp, BeamInstr *pc,
 			      Binary *match_spec, BeamInstr break_op,
 			      enum erts_break_op count_op, Eterm tracer_pid) {
-    BpData *bd, **r;
+    BpData *bd, **r, ***rs;
     size_t size;
+    Uint ix = 0;
     BeamInstr **code_base = (BeamInstr **)modp->code;
     
     ASSERT(code_base);
@@ -1037,7 +1033,15 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    size = sizeof(BpDataDebug);
 	}
     }
-    r = (BpData **) (pc-4);
+    rs = (BpData ***) (pc-4);
+    if (! *rs) {
+	size_t ssize = sizeof(BeamInstr) * erts_no_schedulers;
+	*rs = (BpData **) Alloc(ssize);
+	sys_memzero(*rs, ssize);
+    }
+
+    r = &((*rs)[0]);
+
     if (! *r) {
 	ASSERT(*pc != (BeamInstr) BeamOp(op_i_trace_breakpoint));
 	ASSERT(*pc != (BeamInstr) BeamOp(op_i_mtrace_breakpoint));
@@ -1058,12 +1062,12 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	if (*pc == (BeamInstr) BeamOp(op_i_debug_breakpoint)) {
 	    /* Debug bp must be last, so if it is also first; 
 	     * it must be singleton. */
-	    ASSERT(BpSingleton(*r)); 
+	    ASSERT(BpSingleton(*r));
 	    /* Insert new bp first in the ring, i.e second to last. */
 	    bd = Alloc(size);
 	    BpInitAndSpliceNext(bd, *pc, *r);
 	    *pc = break_op;
-	} else if ((*r)->prev->orig_instr 
+	} else if ((*r)->prev->orig_instr
 		   == (BeamInstr) BeamOp(op_i_debug_breakpoint)) {
 	    /* Debug bp last in the ring; insert new second to last. */
 	    bd = Alloc(size);
@@ -1077,6 +1081,10 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    *r = bd;
 	}
     }
+    for (ix = 1; ix < erts_no_schedulers; ++ix) {
+	(*rs)[ix] = (*rs)[0];
+    }
+
     bd->this_instr = break_op;
     /* Init the bp type specific data */
     if (break_op == (BeamInstr) BeamOp(op_i_trace_breakpoint) ||
@@ -1161,6 +1169,7 @@ static int clear_module_break(Module *m, Eterm mfa[3], int specified,
 
 static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
     BpData *bd;
+    Uint ix = 0;
     BeamInstr **code_base = (BeamInstr **)m->code;
     
     ASSERT(code_base);
@@ -1178,8 +1187,17 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	 * but break_op may be 0 which matches any type. 
 	 */
 	BeamInstr op;
-	BpData **r = (BpData **) (pc-4);
+	BpData ***rs = (BpData ***) (pc - 4);
+	BpData   **r = NULL;
+
+#ifdef DEBUG
+	for (ix = 1; ix < erts_no_schedulers; ++ix) {
+	    ASSERT((*rs)[ix] == (*rs)[0]);
+	}
+#endif
 	
+	r = &((*rs)[0]);
+
 	ASSERT(*r);
 	/* Find opcode for this breakpoint */
 	if (break_op) {
@@ -1195,8 +1213,9 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	if (BpSingleton(bd)) {
 	    ASSERT(*r == bd);
 	    /* Only one breakpoint to remove */
-	    *r  = NULL;
 	    *pc = bd->orig_instr;
+	    Free(*rs);
+	    *rs = NULL;
 	} else {
 	    BpData *bd_prev = bd->prev;
 	    
@@ -1256,7 +1275,12 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	Free(bd);
 	ASSERT(((BeamInstr) code_base[MI_NUM_BREAKPOINTS]) > 0);
 	--(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
-    }
+	if (*rs) {
+	    for (ix = 1; ix < erts_no_schedulers; ++ix) {
+		(*rs)[ix] = (*rs)[0];
+	    }
+	}
+    } /* while bd != NULL */
     return 1;
 }
 
@@ -1272,7 +1296,16 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
     if (! erts_is_native_break(pc)) {
-	BpData *bd = (BpData *) pc[-4];
+	BpData **rs = (BpData **) pc[-4];
+	BpData  *bd = NULL, *ebd = NULL;
+
+	if (! rs) {
+	    return NULL;
+	}
+
+	bd = ebd = rs[bp_sched2ix()];
+
+	ASSERT(bd);
 	
 	if (break_op == 0) {
 	    return bd;
@@ -1285,7 +1318,7 @@ static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
 	    return NULL;
 	}
 	bd = bd->next;
-	while (bd != (BpData *) pc[-4]) {
+	while (bd != ebd) {
 	    ASSERT(bd);
 	    if (bd->orig_instr == break_op) {
 		bd = bd->next;
@@ -1298,17 +1331,24 @@ static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
     }
     return NULL;
 }
-static BpData *get_break(BeamInstr *pc, BeamInstr break_op) {
+static BpData *get_break(Process *p, BeamInstr *pc, BeamInstr break_op) {
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
     if (! erts_is_native_break(pc)) {
-	BpData *bd = (BpData *) pc[-4];
+	BpData **rs = (BpData **) pc[-4];
+	BpData  *bd = NULL, *ebd = NULL;
 
-	if (! bd){
+	if (! rs) {
 	    return NULL;
 	}
 
+	bd = ebd = rs[bp_sched2ix_proc(p)];
+	ASSERT(bd);
+	if (bd->this_instr == break_op) {
+	    return bd;
+	}
+
 	bd = bd->next;
-	while (bd != (BpData *) pc[-4]) {
+	while (bd != ebd) {
 	    ASSERT(bd);
 	    if (bd->this_instr == break_op) {
 		ASSERT(bd);

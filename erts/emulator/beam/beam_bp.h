@@ -27,24 +27,41 @@
 
 
 
-/*
-** Common struct to all bp_data_*
-**
-** Two gotchas: 
-**
-** 1) The type of bp_data structure in the ring is deduced from the 
-**    orig_instr field of the structure _before_ in the ring, except for 
-**    the first structure in the ring that has its instruction in
-**    pc[0] of the code to execute.
-**
-** 2) pc[-4] points to the _last_ structure in the ring before the
-**    breakpoints are being executed.
-**
-** So, as an example, when a breakpointed function starts to execute,
-** the first instruction that is a breakpoint instruction at pc[0] finds
-** its data at ((BpData *) pc[-4])->next and has to cast that pointer 
-** to the correct bp_data type.
+/* A couple of gotchas:
+ *
+ * The breakpoint structure from BeamInstr,
+ * In beam_emu where the instruction counter pointer, I (or pc),
+ * points to the *current* instruction. At that time, if the instruction
+ * is a breakpoint instruction the pc looks like the following,
+ *
+ * I[-5]   | op_i_func_info_IaaI |        scheduler specific entries
+ * I[-4]   |    BpData** bpa     |  --> | BpData * bdas1 | ... | BpData * bdasN |
+ * I[-3]   |  Tagged Module      |            |                    |
+ * I[-2]   |  Tagged Function    |            V                    V
+ * I[-1]   |  Arity              |          BpData -> BpData -> BpData -> BpData
+ * I[0]    | The bp instruction  |            ^       * the bp wheel *      |
+ *                                            |------------------------------
+ *
+ * Common struct to all bp_data_*
+ *
+ * 1) The type of bp_data structure in the ring is deduced from the
+ *    orig_instr field of the structure _before_ in the ring, except for
+ *    the first structure in the ring that has its instruction in
+ *    pc[0] of the code to execute.
+ *    This is valid as long as you don't search for the function while it is
+ *    being executed by something else. Or is in the middle of its rotation for
+ *    any other reason.
+ *    A key, the bp beam instruction, is included for this reason.
+ *
+ * 2) pc[-4][sched_id - 1] points to the _last_ structure in the ring before the
+ *    breakpoints are being executed.
+ *
+ * So, as an example, when a breakpointed function starts to execute,
+ * the first instruction that is a breakpoint instruction at pc[0] finds
+ * its data at ((BpData **) pc[-4][sched_id - 1])->next and has to cast that pointer
+ * to the correct bp_data type.
 */
+
 typedef struct bp_data {
     struct bp_data *next; /* Doubly linked ring pointers */
     struct bp_data *prev; /* -"-                         */
@@ -127,31 +144,46 @@ extern erts_smp_spinlock_t erts_bp_lock;
 #define ErtsSmpBPUnlock(BDC)
 #endif
 
-#define ErtsCountBreak(pc,instr_result)                     \
-do {                                                        \
-    BpDataCount *bdc = (BpDataCount *) (pc)[-4];            \
-                                                            \
+ERTS_INLINE Uint bp_sched2ix(void);
+
+#ifdef ERTS_SMP
+#define bp_sched2ix_proc(p) ((p)->scheduler_data->no - 1)
+#else
+#define bp_sched2ix_proc(p) (0)
+#endif
+
+#define ErtsCountBreak(pc,instr_result)                          \
+do {                                                             \
+    BpData **bds = (BpData **) (pc)[-4];                         \
+    BpDataCount *bdc = NULL;                                     \
+    Uint ix = bp_sched2ix();                                     \
+                                                                 \
     ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
-    ASSERT(bdc);                                            \
-    bdc = (BpDataCount *) bdc->next;                        \
-    ASSERT(bdc);                                            \
-    (pc)[-4] = (BeamInstr) bdc;                                  \
-    ErtsSmpBPLock(bdc);                                     \
-    if (bdc->count >= 0) bdc->count++;                      \
-    ErtsSmpBPUnlock(bdc);                                   \
-    *(instr_result) = bdc->orig_instr;                      \
+    ASSERT(bds);                                                 \
+    bdc = (BpDataCount *) bds[ix];                               \
+    bdc = (BpDataCount *) bdc->next;                             \
+    ASSERT(bdc);                                                 \
+    bds[ix] = (BpData *) bdc;                                    \
+    ErtsSmpBPLock(bdc);                                          \
+    if (bdc->count >= 0) bdc->count++;                           \
+    ErtsSmpBPUnlock(bdc);                                        \
+    *(instr_result) = bdc->orig_instr;                           \
 } while (0)
 
-#define ErtsBreakSkip(pc,instr_result)                      \
-do {                                                        \
-    BpData *bd = (BpData *) (pc)[-4];                       \
-                                                            \
+#define ErtsBreakSkip(pc,instr_result)                           \
+do {                                                             \
+    BpData **bds = (BpData **) (pc)[-4];                         \
+    BpData *bd = NULL;                                           \
+    Uint ix = bp_sched2ix();                                     \
+                                                                 \
     ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
-    ASSERT(bd);                                             \
-    bd = bd->next;                                          \
-    ASSERT(bd);                                             \
-    (pc)[-4] = (BeamInstr) bd;                                   \
-    *(instr_result) = bd->orig_instr;                       \
+    ASSERT(bds);                                                 \
+    bd = bds[ix];                                                \
+    ASSERT(bd);                                                  \
+    bd = bd->next;                                               \
+    ASSERT(bd);                                                  \
+    bds[ix] = bd;                                                \
+    *(instr_result) = bd->orig_instr;                            \
 } while (0)
 
 enum erts_break_op{

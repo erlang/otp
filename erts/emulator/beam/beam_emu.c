@@ -4415,23 +4415,28 @@ apply_bif_or_nif_epilogue:
 
  OpCase(i_time_breakpoint): {
      BeamInstr real_I;
-     BpDataTime *bdt = (BpDataTime *) (I)[-4];
-     Uint tail_call = 0;
+     BpData **bds = (BpData **) (I)[-4];
+     BpDataTime *bdt = NULL;
+     Uint ix = 0;
+#ifdef ERTS_SMP
+     ix = c_p->scheduler_data->no - 1;
+#else
+     ix = 0;
+#endif
+     bdt = (BpDataTime *)bds[ix];
 
      ASSERT((I)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
      ASSERT(bdt);
      bdt = (BpDataTime *) bdt->next;
      ASSERT(bdt);
-     (I)[-4] = (BeamInstr) bdt;
+     bds[ix] = (BpData *) bdt;
      real_I = bdt->orig_instr;
      ASSERT(VALID_INSTR(real_I));
 
      if (IS_TRACED_FL(c_p, F_TRACE_CALLS) && !(bdt->pause)) {
-	 if (*cp_val((Eterm)c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) {
-	     tail_call = 1;
-	 }
-
-	 if (tail_call) {
+	 if (	(*(c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) ||
+		(*(c_p->cp) == (BeamInstr) OpCode(return_trace)) ||
+		(*(c_p->cp) == (BeamInstr) OpCode(i_return_to_trace))) {
 	     /* This _IS_ a tail recursive call */
 	     SWAPOUT;
 	     erts_trace_time_break(c_p, I, bdt, ERTS_BP_CALL_TIME_TAIL_CALL);
@@ -4458,7 +4463,7 @@ apply_bif_or_nif_epilogue:
 	     E -= 2;
 	     E[0] = make_cp(I);
 	     E[1] = make_cp(c_p->cp);     /* original return address */
-	     c_p->cp = (Eterm *) make_cp(beam_return_time_trace);
+	     c_p->cp = (BeamInstr *) make_cp(beam_return_time_trace);
 	 }
      }
 
@@ -4488,18 +4493,20 @@ apply_bif_or_nif_epilogue:
      BeamInstr real_I;
      Uint32 flags;
      Eterm tracer_pid;
-     Uint *cpp;
+     BeamInstr *cpp;
      int return_to_trace = 0, need = 0;
      flags = 0;
      SWAPOUT;
      reg[0] = r(0);
 
      if (*(c_p->cp) == (BeamInstr) OpCode(return_trace)) {
-	 cpp = (Uint*)&E[2];
-     } else if (*(c_p->cp)
-		== (BeamInstr) OpCode(i_return_to_trace)) {
+	 cpp = (BeamInstr*)&E[2];
+     } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_to_trace)) {
 	 return_to_trace = !0;
-	 cpp = (Uint*)&E[0];
+	 cpp = (BeamInstr*)&E[0];
+     } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) {
+	 return_to_trace = !0;
+	 cpp = (BeamInstr*)&E[0];
      } else {
 	 cpp = NULL;
      }
@@ -4516,6 +4523,8 @@ apply_bif_or_nif_epilogue:
 	     } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_to_trace)) {
 		 return_to_trace = !0;
 		 cpp += 1;
+	     } else if (*cp_val(*cpp) == (BeamInstr) OpCode(i_return_time_trace)) {
+		 cpp += 2;
 	     } else
 		 break;
 	 }
