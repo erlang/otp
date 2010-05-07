@@ -1365,16 +1365,12 @@ static BIF_RETTYPE binary_match_trap(BIF_ALIST_3)
     Eterm result;
     Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
     runres = do_binary_match(BIF_P,BIF_ARG_1,0,0,NIL,bin,BIF_ARG_2,&result);
-    switch (runres) {
-    case DO_BIN_MATCH_OK:
+    if (runres == DO_BIN_MATCH_OK) {
 	BIF_RET(result);
-    case DO_BIN_MATCH_RESTART:
+    } else {
 	BUMP_ALL_REDS(BIF_P);
 	BIF_TRAP3(&binary_match_trap_export, BIF_P, BIF_ARG_1, result,
 		  BIF_ARG_3);
-    default:
-	/* Cannot badarg in the trap */
-	erl_exit(1, "Internal error in binary_match_trap.");
     }
 }
 
@@ -1384,19 +1380,14 @@ static BIF_RETTYPE binary_matches_trap(BIF_ALIST_3)
     Eterm result;
     Binary *bin = ((ProcBin *) binary_val(BIF_ARG_3))->val;
     runres = do_binary_matches(BIF_P,BIF_ARG_1,0,0,NIL,bin,BIF_ARG_2,&result);
-    switch (runres) {
-    case DO_BIN_MATCH_OK:
+    if (runres == DO_BIN_MATCH_OK) {
 	BIF_RET(result);
-    case DO_BIN_MATCH_RESTART:
+    } else {
 	BUMP_ALL_REDS(BIF_P);
 	BIF_TRAP3(&binary_matches_trap_export, BIF_P, BIF_ARG_1, result,
 		  BIF_ARG_3);
-    default:
-	/* Cannot badarg in the trap */
-	erl_exit(1, "Internal error in binary_matches_trap.");
     }
 }
-
 
 BIF_RETTYPE binary_match_3(BIF_ALIST_3)
 {

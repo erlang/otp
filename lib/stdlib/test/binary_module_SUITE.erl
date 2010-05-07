@@ -20,7 +20,7 @@
 -export([init_per_testcase/2, fin_per_testcase/2]).
 % Default timetrap timeout (set in init_per_testcase).
 % Some of these testcases are really heavy...
--define(default_timeout, ?t:minutes(10)).
+-define(default_timeout, ?t:minutes(20)).
 
 -endif.
 
@@ -119,6 +119,14 @@ badargs(Config) when is_list(Config) ->
 				 16#7FFFFFFFFFFFFFFF})),
     ?line badarg =
 	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{16#FFFFFFFFFFFFFFFFFF,
+				 -16#7FFF})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(make_unaligned(<<1,2,3>>),{16#FF,
+				 -16#7FFF})),
+    ?line badarg =
+	?MASK_ERROR(
 	   binary:bin_to_list(<<1,2,3>>,{16#FF,
 				 16#FFFFFFFFFFFFFFFF})),
     ?line badarg =
@@ -211,7 +219,29 @@ badargs(Config) when is_list(Config) ->
     ?line badarg =
 	?MASK_ERROR(binary:encode_unsigned(-1)),
     ?line badarg =
-	?MASK_ERROR(binary:encode_unsigned(-16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
+	?MASK_ERROR(
+	   binary:encode_unsigned(-16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:first(<<1,2,4,1:3>>)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:first([1,2,4])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:last(<<1,2,4,1:3>>)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:last([1,2,4])),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:at(<<1,2,4,1:3>>,2)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:at(<<>>,2)),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary:at([1,2,4],2)),
     ok.
 
 longest_common_trap(doc) ->
@@ -489,43 +519,52 @@ do_interesting(Module) ->
 						  <<0:10000000,1,2,4>>]),
     if % Too cruel for the reference implementation
 	Module =:= binary ->
-	    ?line 125000001 = Module:longest_common_prefix(
-				[<<0:1000000000,1,2,4>>,
-				 <<0:1000000000,1,2,3>>,
-				 <<0:1000000000,1,3,3>>,
-				 <<0:1000000000,1,2,4>>]);
+	    ?line erts_debug:set_internal_state(available_internal_state,true),
+	    ?line io:format("oldlimit: ~p~n",
+			    [erts_debug:set_internal_state(
+			       binary_loop_limit,100)]),
+	    ?line 1250001 = Module:longest_common_prefix(
+				[<<0:10000000,1,2,4>>,
+				 <<0:10000000,1,2,3>>,
+				 <<0:10000000,1,3,3>>,
+				 <<0:10000000,1,2,4>>]),
+	    ?line io:format("limit was: ~p~n",
+			    [erts_debug:set_internal_state(binary_loop_limit,
+							   default)]),
+	    ?line erts_debug:set_internal_state(available_internal_state,
+						false);
 	true ->
 	    ok
     end,
-    ?line 1 = Module:longest_common_suffix([<<0:1000000000,1,2,4,5>>,
-					    <<0:1000000000,1,2,3,5>>,
-					    <<0:1000000000,1,3,3,5>>,
-					    <<0:1000000000,1,2,4,5>>]),
+    ?line 1 = Module:longest_common_suffix([<<0:100000000,1,2,4,5>>,
+					    <<0:100000000,1,2,3,5>>,
+					    <<0:100000000,1,3,3,5>>,
+					    <<0:100000000,1,2,4,5>>]),
     ?line 1 = Module:longest_common_suffix([<<1,2,4,5>>,
-					    <<0:1000000000,1,2,3,5>>,
-					    <<0:1000000000,1,3,3,5>>,
-					    <<0:1000000000,1,2,4,5>>]),
+					    <<0:100000000,1,2,3,5>>,
+					    <<0:100000000,1,3,3,5>>,
+					    <<0:100000000,1,2,4,5>>]),
     ?line 1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5>>]),
+					    <<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5>>]),
     ?line 0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4>>]),
+					    <<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4>>]),
     ?line 2 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5,5>>,
-					    <<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
+					    <<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
     ?line 1 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<5>>,
-					    <<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
+					    <<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
     ?line 0 = Module:longest_common_suffix([<<1,2,4,5,5>>,<<>>,
-					    <<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<>>,<<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
-    ?line 0 = Module:longest_common_suffix([<<>>,<<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
-    ?line 2 = Module:longest_common_suffix([<<5,5>>,<<0:1000000000,1,3,3,5,5>>,
-					    <<0:1000000000,1,2,4,5,5>>]),
+					    <<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
+    ?line 0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
+    ?line 0 = Module:longest_common_suffix([<<>>,<<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
+    ?line 2 = Module:longest_common_suffix([<<5,5>>,<<0:100000000,1,3,3,5,5>>,
+					    <<0:100000000,1,2,4,5,5>>]),
     ?line 2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<4,5,5>>]),
     ?line 2 = Module:longest_common_suffix([<<5,5>>,<<5,5>>,<<5,5>>]),
     ?line 3 = Module:longest_common_suffix([<<4,5,5>>,<<4,5,5>>,<<4,5,5>>]),
@@ -689,7 +728,11 @@ copy(Config) when is_list(Config) ->
     ?line RS = RS2 = binary:copy(RS),
     ?line false = erts_debug:same(RS,RS2),
     ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,0)),
+    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3:3>>,2)),
     ?line badarg = ?MASK_ERROR(binary:copy(<<>>,0)),
+    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,1.0)),
+    ?line badarg = ?MASK_ERROR(binary:copy(<<1,2,3>>,
+					   16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFFF)),
     ?line <<>> = binary:copy(<<>>,10000),
     ?line random:seed({1271,769940,559934}),
     ?line ok = random_copy(3000),
@@ -821,6 +864,11 @@ parts(Config) when is_list(Config) ->
     ?line badarg = ?MASK_ERROR(binary:part(Simple,{0,9})),
     ?line badarg = ?MASK_ERROR(binary:part(Simple,1,8)),
     ?line badarg = ?MASK_ERROR(binary:part(Simple,{1,8})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{3,-4})),
+    ?line badarg = ?MASK_ERROR(binary:part(Simple,{3.0,1})),
+    ?line badarg = ?MASK_ERROR(
+		      binary:part(Simple,{16#FFFFFFFFFFFFFFFFFFFFFFFFFFFFF
+					  ,1})),
     ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{1,7}),
     ?line <<2,3,4,5,6,7,8>> = binary:part(Simple,{8,-7}),
     ?line Simple = binary:part(Simple,{8,-8}),
