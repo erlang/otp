@@ -690,6 +690,47 @@ static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM arg
     return enif_make_atom(env, "ok");
 }
 
+static ERL_NIF_TERM make_atoms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM arr[7];
+    ERL_NIF_TERM existingatom0a, existingatom0b;
+    ERL_NIF_TERM existing0atom0;
+    const char * const an0atom = "an0atom";
+    const char an0atom0[8] = {'a','n','\0','a','t','o','m',0};
+
+    arr[0] = enif_make_atom(env, "an0atom");
+    arr[1] = enif_make_atom_len(env, "an0atom", 7);
+    arr[2] = enif_make_atom_len(env, an0atom, 7);
+    arr[3] = enif_make_atom_len(env, an0atom0, 8);
+
+    if (!enif_make_existing_atom(env, "an0atom", &existingatom0a))
+	return enif_make_atom(env, "error");
+    arr[4] = existingatom0a;
+
+    if (!enif_make_existing_atom_len(env, an0atom, 7, &existingatom0b))
+	return enif_make_atom(env, "error");
+    arr[5] = existingatom0b;
+
+    if (!enif_make_existing_atom_len(env, an0atom0, 8, &existing0atom0))
+	return enif_make_atom(env, "error");
+    arr[6] = existing0atom0;
+
+    return enif_make_tuple7(env,
+			    arr[0],arr[1],arr[2],arr[3],arr[4],arr[5],arr[6]);
+}
+
+static ERL_NIF_TERM make_strings(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    const char a0string[8] = {'a','0','s','t','r','i','n','g'};
+    const char a0string0[9] = {'a','\0','s','t','r','i','n','g',0};
+
+    return enif_make_tuple4(env,
+			    enif_make_string(env, "a0string", ERL_NIF_LATIN1),
+			    enif_make_string_len(env, "a0string", 8, ERL_NIF_LATIN1),
+			    enif_make_string_len(env, a0string, 8, ERL_NIF_LATIN1),
+			    enif_make_string_len(env, a0string0, 9, ERL_NIF_LATIN1));
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -717,7 +758,9 @@ static ErlNifFunc nif_funcs[] =
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
     {"make_new_resource", 2, make_new_resource},
     {"check_is", 10, check_is},
-    {"length_test", 5, length_test}
+    {"length_test", 5, length_test},
+    {"make_atoms", 0, make_atoms},
+    {"make_strings", 0, make_strings}
 
 };
 

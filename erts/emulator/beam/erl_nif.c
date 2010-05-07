@@ -666,12 +666,23 @@ ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
 
 ERL_NIF_TERM enif_make_atom(ErlNifEnv* env, const char* name)
 {
-    return am_atom_put(name, sys_strlen(name));
+    return enif_make_atom_len(env, name, sys_strlen(name));
+}
+
+ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
+{
+    return am_atom_put(name, len);
 }
 
 int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)
 {
-    return erts_atom_get(name, sys_strlen(name), atom);
+    return enif_make_existing_atom_len(env, name, sys_strlen(name), atom);
+}
+
+int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
+				ERL_NIF_TERM* atom)
+{
+    return erts_atom_get(name, len, atom);
 }
 
 ERL_NIF_TERM enif_make_tuple(ErlNifEnv* env, unsigned cnt, ...)
@@ -750,11 +761,16 @@ ERL_NIF_TERM enif_make_list_from_array(ErlNifEnv* env, const ERL_NIF_TERM arr[],
 
 ERL_NIF_TERM enif_make_string(ErlNifEnv* env, const char* string,
 			      ErlNifCharEncoding encoding)
-{    
-    Sint n = sys_strlen(string);    
-    Eterm* hp = alloc_heap(env,n*2);
+{
+    return enif_make_string_len(env, string, sys_strlen(string), encoding);
+}
+
+ERL_NIF_TERM enif_make_string_len(ErlNifEnv* env, const char* string,
+				  size_t len, ErlNifCharEncoding encoding)
+{
+    Eterm* hp = alloc_heap(env,len*2);
     ASSERT(encoding == ERL_NIF_LATIN1);
-    return erts_bld_string_n(&hp,NULL,string,n); 
+    return erts_bld_string_n(&hp,NULL,string,len);
 }
 
 ERL_NIF_TERM enif_make_ref(ErlNifEnv* env)

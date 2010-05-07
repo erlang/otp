@@ -110,6 +110,9 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_list,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_is_tuple,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_get_atom_length,(ErlNifEnv*, ERL_NIF_TERM atom, unsigned* len));
 ERL_NIF_API_FUNC_DECL(int,enif_get_list_length,(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM, enif_make_atom_len,(ErlNifEnv* env, const char* name, size_t len));
+ERL_NIF_API_FUNC_DECL(int, enif_make_existing_atom_len,(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom));
+ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_string_len,(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding));
 
 /*
 ** Add last to keep compatibility on Windows!!!
@@ -206,6 +209,9 @@ ERL_NIF_API_FUNC_DECL(int,enif_get_list_length,(ErlNifEnv* env, ERL_NIF_TERM ter
 #  define enif_is_tuple ERL_NIF_API_FUNC_MACRO(enif_is_tuple)
 #  define enif_get_atom_length ERL_NIF_API_FUNC_MACRO(enif_get_atom_length)
 #  define enif_get_list_length ERL_NIF_API_FUNC_MACRO(enif_get_list_length)
+#  define enif_make_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_atom_len)
+#  define enif_make_existing_atom_len ERL_NIF_API_FUNC_MACRO(enif_make_existing_atom_len)
+#  define enif_make_string_len ERL_NIF_API_FUNC_MACRO(enif_make_string_len)
 #endif
 
 #ifndef enif_make_list1

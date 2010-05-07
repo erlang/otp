@@ -618,8 +618,14 @@ typedef enum {
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
-      <desc><p>Create an atom term from the C-string <c>name</c>. Unlike other terms, atom
-      terms may be saved and used between NIF calls.</p></desc>
+      <desc><p>Create an atom term from the null-terminated C-string <c>name</c>.
+      Unlike other terms, atom terms may be saved and used between NIF calls.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)</nametext></name>
+      <fsummary>Create an atom term</fsummary>
+      <desc><p>Create an atom term from the string <c>name</c> with length <c>len</c>.
+      Null-characters are treated as any other characters.
+      Unlike other terms, atom terms may be saved and used between NIF calls.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_badarg(ErlNifEnv* env)</nametext></name>
       <fsummary>Make a badarg exception.</fsummary>
@@ -639,9 +645,16 @@ typedef enum {
     <func><name><ret>int</ret><nametext>enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)</nametext></name>
       <fsummary>Create an existing atom term</fsummary>
       <desc><p>Try to create the term of an already existing atom from
-      the C-string <c>name</c>. If the atom already exist store the
+      the null-terminated C-string <c>name</c>. If the atom already exists store the
       term in <c>*atom</c> and return true, otherwise return
       false.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len, ERL_NIF_TERM* atom)</nametext></name>
+      <fsummary>Create an existing atom term</fsummary>
+      <desc><p>Try to create the term of an already existing atom from the
+      string <c>name</c> with length <c>len</c>. Null-characters are treated
+      as any other characters. If the atom already exists store the term
+      in <c>*atom</c> and return true, otherwise return false.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
@@ -710,6 +723,12 @@ typedef enum {
       <fsummary>Create a string.</fsummary>
       <desc><p>Create a list containing the characters of the
       null-terminated string <c>string</c> with encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_string_len(ErlNifEnv* env, const char* string, size_t len, ErlNifCharEncoding encoding)</nametext></name>
+      <fsummary>Create a string.</fsummary>
+      <desc><p>Create a list containing the characters of the string <c>string</c> with
+      length <c>len</c> and encoding <seealso marker="#ErlNifCharEncoding">encoding</seealso>.
+      Null-characters are treated as any other characters.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_sub_binary(ErlNifEnv* 
       env, ERL_NIF_TERM bin_term, unsigned pos, unsigned size)</nametext></name>
