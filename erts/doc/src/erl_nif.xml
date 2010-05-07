@@ -597,6 +597,14 @@ typedef enum {
       <fsummary>Determine if a term is a reference</fsummary>
       <desc><p>Return true if <c>term</c> is a reference.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a tuple</fsummary>
+      <desc><p>Return true if <c>term</c> is a tuple.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)</nametext></name>
+      <fsummary>Determine if a term is a list</fsummary>
+      <desc><p>Return true if <c>term</c> is a list.</p></desc>
+    </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_atom(ErlNifEnv* env, const char* name)</nametext></name>
       <fsummary>Create an atom term</fsummary>
       <desc><p>Create an atom term from the C-string <c>name</c>. Unlike other terms, atom

@@ -248,6 +248,16 @@ int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)
     return is_ref(term);
 }
 
+int enif_is_tuple(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return is_tuple(term);
+}
+
+int enif_is_list(ErlNifEnv* env, ERL_NIF_TERM term)
+{
+    return is_list(term) || is_nil(term);
+}
+
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
     erts_free_aligned_binary_bytes_extra((byte*)obj,ERTS_ALC_T_TMP);

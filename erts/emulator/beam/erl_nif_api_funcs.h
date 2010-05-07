@@ -106,6 +106,8 @@ ERL_NIF_API_FUNC_DECL(ERL_NIF_TERM,enif_make_resource,(ErlNifEnv*, void* obj));
 ERL_NIF_API_FUNC_DECL(int,enif_get_resource,(ErlNifEnv*, ERL_NIF_TERM term, ErlNifResourceType* type, void** objp));
 ERL_NIF_API_FUNC_DECL(unsigned,enif_sizeof_resource,(ErlNifEnv*, void* obj));
 ERL_NIF_API_FUNC_DECL(unsigned char*,enif_make_new_binary,(ErlNifEnv*,unsigned size,ERL_NIF_TERM* termp));
+ERL_NIF_API_FUNC_DECL(int,enif_is_list,(ErlNifEnv*, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(int,enif_is_tuple,(ErlNifEnv*, ERL_NIF_TERM term));
 
 /*
 ** Add last to keep compatibility on Windows!!!
@@ -198,6 +200,8 @@ ERL_NIF_API_FUNC_DECL(unsigned char*,enif_make_new_binary,(ErlNifEnv*,unsigned s
 #  define enif_get_resource ERL_NIF_API_FUNC_MACRO(enif_get_resource)
 #  define enif_sizeof_resource ERL_NIF_API_FUNC_MACRO(enif_sizeof_resource)
 #  define enif_make_new_binary ERL_NIF_API_FUNC_MACRO(enif_make_new_binary)
+#  define enif_is_list ERL_NIF_API_FUNC_MACRO(enif_is_list)
+#  define enif_is_tuple ERL_NIF_API_FUNC_MACRO(enif_is_tuple)
 #endif
 
 #ifndef enif_make_list1
