@@ -477,6 +477,12 @@ typedef enum {
               <c>term</c> is not an atom with maximum length of 
               <c>size-1</c>.</p></desc>
     </func>
+    <func><name><ret>int</ret><nametext>enif_get_atom_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
+      <fsummary>Get the length of atom <c>term</c>.</fsummary>
+      <desc><p>Set <c>*len</c> to the length (number of bytes excluding
+      terminating null character) of <c>term</c> or return false if
+      <c>term</c> is not an atom.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)</nametext></name>
       <fsummary>Read a floating-point number term.</fsummary>
       <desc><p>Set <c>*dp</c> to the floating point value of
@@ -493,6 +499,11 @@ typedef enum {
       <desc><p>Set <c>*head</c> and <c>*tail</c> from
       <c>list</c> or return false if <c>list</c> is not a non-empty
       list.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_list_length(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len)</nametext></name>
+      <fsummary>Get the length of list <c>term</c>.</fsummary>
+      <desc><p>Set <c>*len</c> to the length of <c>term</c> or return
+      false if <c>term</c> is not a list.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_long(ErlNifEnv* env, ERL_NIF_TERM term, long int* ip)</nametext></name>
       <fsummary>Read an long integer term.</fsummary>

@@ -601,6 +601,15 @@ int enif_get_double(ErlNifEnv* env, Eterm term, double* dp)
     return 1;
 }
 
+int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len)
+{
+    Atom* ap;
+    if (is_not_atom(atom)) return 0;
+    ap = atom_tab(atom_val(atom));
+    *len = ap->len;
+    return 1;
+}
+
 int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
 {
     Eterm* val;
@@ -608,6 +617,13 @@ int enif_get_list_cell(ErlNifEnv* env, Eterm term, Eterm* head, Eterm* tail)
     val = list_val(term);
     *head = CAR(val);
     *tail = CDR(val);
+    return 1;
+}
+
+int enif_get_list_length(ErlNifEnv* env, Eterm term, unsigned* len)
+{
+    if (is_not_list(term) && is_not_nil(term)) return 0;
+    *len = list_length(term);
     return 1;
 }
 

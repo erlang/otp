@@ -661,6 +661,35 @@ static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[]
     return ok_atom;
 }
 
+/*
+ * argv[0] atom with length of 6
+ * argv[1] list with length of 6
+ * argv[2] empty list
+ * argv[3] not an atom
+ * argv[4] not a list
+ */
+static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned len;
+
+    if (!enif_get_atom_length(env, argv[0], &len) || len != 6)
+	return enif_make_badarg(env);
+
+    if (!enif_get_list_length(env, argv[1], &len) || len != 6)
+	return enif_make_badarg(env);
+
+    if (!enif_get_list_length(env, argv[2], &len) || len != 0)
+	return enif_make_badarg(env);
+
+    if (enif_get_atom_length(env, argv[3], &len))
+	return enif_make_badarg(env);
+
+    if (enif_get_list_length(env, argv[4], &len))
+	return enif_make_badarg(env);
+
+    return enif_make_atom(env, "ok");
+}
+
 static ErlNifFunc nif_funcs[] =
 {
     {"lib_version", 0, lib_version},
@@ -687,7 +716,8 @@ static ErlNifFunc nif_funcs[] =
     {"release_resource", 1, release_resource},
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
     {"make_new_resource", 2, make_new_resource},
-    {"check_is", 10, check_is}
+    {"check_is", 10, check_is},
+    {"length_test", 5, length_test}
 
 };
 

@@ -108,6 +108,8 @@ ERL_NIF_API_FUNC_DECL(unsigned,enif_sizeof_resource,(ErlNifEnv*, void* obj));
 ERL_NIF_API_FUNC_DECL(unsigned char*,enif_make_new_binary,(ErlNifEnv*,unsigned size,ERL_NIF_TERM* termp));
 ERL_NIF_API_FUNC_DECL(int,enif_is_list,(ErlNifEnv*, ERL_NIF_TERM term));
 ERL_NIF_API_FUNC_DECL(int,enif_is_tuple,(ErlNifEnv*, ERL_NIF_TERM term));
+ERL_NIF_API_FUNC_DECL(int,enif_get_atom_length,(ErlNifEnv*, ERL_NIF_TERM atom, unsigned* len));
+ERL_NIF_API_FUNC_DECL(int,enif_get_list_length,(ErlNifEnv* env, ERL_NIF_TERM term, unsigned* len));
 
 /*
 ** Add last to keep compatibility on Windows!!!
@@ -202,6 +204,8 @@ ERL_NIF_API_FUNC_DECL(int,enif_is_tuple,(ErlNifEnv*, ERL_NIF_TERM term));
 #  define enif_make_new_binary ERL_NIF_API_FUNC_MACRO(enif_make_new_binary)
 #  define enif_is_list ERL_NIF_API_FUNC_MACRO(enif_is_list)
 #  define enif_is_tuple ERL_NIF_API_FUNC_MACRO(enif_is_tuple)
+#  define enif_get_atom_length ERL_NIF_API_FUNC_MACRO(enif_get_atom_length)
+#  define enif_get_list_length ERL_NIF_API_FUNC_MACRO(enif_get_list_length)
 #endif
 
 #ifndef enif_make_list1
