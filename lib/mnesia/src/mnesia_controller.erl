@@ -52,6 +52,7 @@
 	 async_dump_log/1,
 	 sync_dump_log/1,
 	 connect_nodes/1,
+         connect_nodes/2,
 	 wait_for_schema_commit_lock/0,
 	 release_schema_commit_lock/0,
 	 create_table/1,
@@ -94,7 +95,7 @@
 	 load_and_reply/2,
 	 send_and_reply/2,
 	 wait_for_tables_init/2,
-	 connect_nodes2/2
+	 connect_nodes2/3
 	]).
 
 -import(mnesia_lib, [set/2, add/2]).
@@ -420,12 +421,15 @@ try_schedule_late_disc_load(Tabs, Reason, MsgTag) ->
 		  [[Tabs, Reason, MsgTag], AbortReason])
     end.
 
-connect_nodes(Ns) ->    
+connect_nodes(Ns) ->
+    connect_nodes(Ns, fun default_merge/1).
+
+connect_nodes(Ns, UserFun) ->
     case mnesia:system_info(is_running) of 
 	no ->
 	    {error, {node_not_running, node()}};
 	yes ->	  	   
-	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns]),
+	    Pid = spawn_link(?MODULE,connect_nodes2,[self(),Ns, UserFun]),
 	    receive 
 		{?MODULE, Pid, Res, New} -> 
 		    case Res of
@@ -443,7 +447,7 @@ connect_nodes(Ns) ->
 	    end
     end.
 
-connect_nodes2(Father, Ns) ->
+connect_nodes2(Father, Ns, UserFun) ->
     Current = val({current, db_nodes}),
     abcast([node()|Ns], {merging_schema, node()}),
     {NewC, OldC} = mnesia_recover:connect_nodes(Ns),
@@ -451,7 +455,7 @@ connect_nodes2(Father, Ns) ->
     New1 = mnesia_lib:intersect(Ns, Connected),
     New = New1 -- Current,    
     process_flag(trap_exit, true),
-    Res = try_merge_schema(New),
+    Res = try_merge_schema(New, UserFun),
     Msg = {schema_is_merged, [], late_merge, []},
     multicall([node()|Ns], Msg),
     After = val({current, db_nodes}),    
@@ -465,7 +469,7 @@ connect_nodes2(Father, Ns) ->
 
 merge_schema() ->
     AllNodes = mnesia_lib:all_nodes(),
-    case try_merge_schema(AllNodes) of
+    case try_merge_schema(AllNodes, fun default_merge/1) of
 	ok -> 
 	    schema_is_merged();
 	{aborted, {throw, Str}} when is_list(Str) ->
@@ -474,8 +478,11 @@ merge_schema() ->
 	    fatal("Failed to merge schema: ~p~n", [Else])
     end.
 
-try_merge_schema(Nodes) ->
-    case mnesia_schema:merge_schema() of
+default_merge(F) ->
+    F([]).
+
+try_merge_schema(Nodes, UserFun) ->
+    case mnesia_schema:merge_schema(UserFun) of
 	{atomic, not_merged} ->
 	    %% No more nodes that we need to merge the schema with
 	    ok;
@@ -488,11 +495,11 @@ try_merge_schema(Nodes) ->
 	    im_running(OldFriends, NewFriends),
 	    im_running(NewFriends, OldFriends),
 	    
-	    try_merge_schema(Nodes);
+	    try_merge_schema(Nodes, UserFun);
 	{atomic, {"Cannot get cstructs", Node, Reason}} ->
 	    dbg_out("Cannot get cstructs, Node ~p ~p~n", [Node, Reason]),
 	    timer:sleep(1000), % Avoid a endless loop look alike	    
-	    try_merge_schema(Nodes);
+	    try_merge_schema(Nodes, UserFun);
 	Other ->
 	    Other
     end.

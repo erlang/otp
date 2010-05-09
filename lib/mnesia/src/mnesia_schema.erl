@@ -62,6 +62,7 @@
          list2cs/1,
          lock_schema/0,
          merge_schema/0,
+         merge_schema/1,
          move_table/3,
          opt_create_dir/2,
          prepare_commit/3,
@@ -2650,10 +2651,17 @@ make_dump_tables([]) ->
 
 %% Merge the local schema with the schema on other nodes
 merge_schema() ->
-    schema_transaction(fun() -> do_merge_schema() end).
+    schema_transaction(fun() -> do_merge_schema([]) end).
 
-do_merge_schema() ->
+merge_schema(UserFun) ->
+    schema_transaction(fun() -> UserFun(fun(Arg) -> do_merge_schema(Arg) end) end).
+
+
+do_merge_schema(LockTabs0) ->
     {_Mod, Tid, Ts} = get_tid_ts_and_lock(schema, write),
+    LockTabs = [{T, tab_to_nodes(T)} || T <- LockTabs0],
+    io:fwrite("LockTabs = ~p~n", [LockTabs]),
+    [get_tid_ts_and_lock(T,write) || {T,_} <- LockTabs],
     Connected = val(recover_nodes),
     Running = val({current, db_nodes}),
     Store = Ts#tidstore.store,
@@ -2665,9 +2673,11 @@ do_merge_schema() ->
 	    mnesia:abort({bad_commit, {missing_lock, Miss}})
     end,
     case Connected -- Running of
-	[Node | _] ->
+	[Node | _] = NewNodes ->
 	    %% Time for a schema merging party!
 	    mnesia_locker:wlock_no_exist(Tid, Store, schema, [Node]),
+            [mnesia_locker:wlock_no_exist(Tid, Store, T, mnesia_lib:intersect(Ns, NewNodes))
+             || {T,Ns} <- LockTabs],
 	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
 		{cstructs, Cstructs, RemoteRunning1} ->
 		    LockedAlready = Running ++ [Node],
@@ -2681,6 +2691,9 @@ do_merge_schema() ->
 		    end,
 		    NeedsLock = RemoteRunning -- LockedAlready,
 		    mnesia_locker:wlock_no_exist(Tid, Store, schema, NeedsLock),
+                    [mnesia_locker:wlock_no_exist(Tid, Store, T,
+                                                  mnesia_lib:intersect(Ns,NeedsLock))
+                     || {T,Ns} <- LockTabs],
 		    {value, SchemaCs} =
 			lists:keysearch(schema, #cstruct.name, Cstructs),
 
@@ -2713,6 +2726,10 @@ do_merge_schema() ->
 	    %% No more nodes to merge schema with
 	    not_merged
     end.
+
+tab_to_nodes(Tab) when is_atom(Tab) ->
+    Cs = val({Tab, cstruct}),
+    mnesia_lib:cs_to_nodes(Cs).
 
 make_merge_schema(Node, [Cs | Cstructs]) ->
     Ops = do_make_merge_schema(Node, Cs),
