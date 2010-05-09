@@ -36,6 +36,7 @@
 	 incr_trans_tid_serial/0,
 	 init/0,
 	 log_decision/1,
+         log_dump_overload/1,
 	 log_master_nodes/3,
 	 log_mnesia_down/1,
 	 log_mnesia_up/1,
@@ -70,6 +71,7 @@
 		unclear_decision,
 		unclear_waitfor,
 		tm_queue_len = 0,
+                log_dump_overload = false,
 		initiated = false,
 		early_msgs = []
 	       }).
@@ -276,6 +278,9 @@ mnesia_down(Node) ->
 	    mnesia_lib:del(recover_nodes, Node),
 	    cast({mnesia_down, Node})
     end.
+
+log_dump_overload(Flag) when is_boolean(Flag) ->
+    cast({log_dump_overload, Flag}).
 
 log_master_nodes(Args, UseDir, IsRunning) ->
     if
@@ -818,6 +823,12 @@ handle_cast({announce_all, Nodes}, State) ->
     announce_all(Nodes),
     {noreply, State};
 
+handle_cast({log_dump_overload, Flag}, State) when is_boolean(Flag) ->
+    Prev = State#state.log_dump_overload,
+    Overload = Prev orelse Flag,
+    mnesia_lib:overload_set(mnesia_dump_log, Overload),
+    {noreply, State#state{log_dump_overload = Flag}};
+
 handle_cast(Msg, State) ->
     error("~p got unexpected cast: ~p~n", [?MODULE, Msg]),
     {noreply, State}.
@@ -851,12 +862,14 @@ handle_info(check_overload, S) ->
 		Len > Threshold, Prev > Threshold ->
 		    What = {mnesia_tm, message_queue_len, [Prev, Len]},
 		    mnesia_lib:report_system_event({mnesia_overload, What}),
+                    mnesia_lib:overload_set(mnesia_tm, true),
 		    {noreply, S#state{tm_queue_len = 0}};
 		
 		Len > Threshold ->
 		    {noreply, S#state{tm_queue_len = Len}};
 		
 		true ->
+                    mnesia_lib:overload_set(mnesia_tm, false),
 		    {noreply, S#state{tm_queue_len = 0}}
 	    end;
 	undefined ->
@@ -905,7 +918,23 @@ terminate(Reason, State) ->
 %% Purpose: Upgrade process when its code is to be changed
 %% Returns: {ok, NewState}
 %%----------------------------------------------------------------------
-code_change(_OldVsn, State, _Extra) ->
+code_change(_OldVsn, {state,
+                      Supervisor,
+                      Unclear_pid,
+                      Unclear_decision,
+                      Unclear_waitfor,
+                      Tm_queue_len,
+                      Initiated,
+                      Early_msgs
+                     }, _Extra) ->
+    {ok, #state{supervisor = Supervisor,
+                unclear_pid = Unclear_pid,
+                unclear_decision = Unclear_decision,
+                unclear_waitfor = Unclear_waitfor,
+                tm_queue_len = Tm_queue_len,
+                initiated = Initiated,
+                early_msgs = Early_msgs}};
+code_change(_OldVsn, #state{} = State, _Extra) ->
     {ok, State}.
 
 %%%----------------------------------------------------------------------
