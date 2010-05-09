@@ -361,8 +361,6 @@ match_fail(#k_literal{anno=Anno,val={Atom,Val}}, I, A) when is_atom(Atom) ->
     match_fail(#k_tuple{anno=Anno,es=[#k_atom{val=Atom},#k_literal{val=Val}]}, I, A);
 match_fail(#k_literal{anno=Anno,val={Atom}}, I, A) when is_atom(Atom) ->
     match_fail(#k_tuple{anno=Anno,es=[#k_atom{val=Atom}]}, I, A);
-match_fail(#k_literal{anno=Anno,val=Atom}, I, A) when is_atom(Atom) ->
-    match_fail(#k_atom{anno=Anno,val=Atom}, I, A);
 match_fail(#k_tuple{es=[#k_atom{val=function_clause}|As]}, I, A) ->
     #l{ke={match_fail,{function_clause,literal_list(As, [])}},i=I,a=A};
 match_fail(#k_tuple{es=[#k_atom{val=badmatch},Val]}, I, A) ->
