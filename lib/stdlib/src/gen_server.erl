@@ -840,12 +840,15 @@ name_to_pid(Name) ->
 %%-----------------------------------------------------------------
 format_status(Opt, StatusData) ->
     [PDict, SysState, Parent, Debug, [Name, State, Mod, _Time]] = StatusData,
-    NameTag = if is_pid(Name) ->
-		      pid_to_list(Name);
-		 is_atom(Name) ->
-		      Name
-	      end,
-    Header = lists:concat(["Status for generic server ", NameTag]),
+    StatusHdr = "Status for generic server",
+    Header = if
+		 is_pid(Name) ->
+		     lists:concat([StatusHdr, " ", pid_to_list(Name)]);
+		 is_atom(Name); is_list(Name) ->
+		     lists:concat([StatusHdr, " ", Name]);
+		 true ->
+		     {StatusHdr, Name}
+	     end,
     Log = sys:get_debug(log, Debug, []),
     DefaultStatus = [{data, [{"State", State}]}],
     Specfic =

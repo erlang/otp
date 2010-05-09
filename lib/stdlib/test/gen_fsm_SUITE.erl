@@ -320,9 +320,32 @@ sys1(Config) when is_list(Config) ->
 call_format_status(Config) when is_list(Config) ->
     ?line {ok, Pid} = gen_fsm:start(gen_fsm_SUITE, [], []),
     ?line Status = sys:get_status(Pid),
-    ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data]} = Status,
+    ?line {status, Pid, _Mod, [_PDict, running, _, _, Data]} = Status,
     ?line [format_status_called | _] = lists:reverse(Data),
-    ?line stop_it(Pid).
+    ?line stop_it(Pid),
+
+    %% check that format_status can handle a name being an atom (pid is
+    %% already checked by the previous test)
+    ?line {ok, Pid2} = gen_fsm:start({local, gfsm}, gen_fsm_SUITE, [], []),
+    ?line Status2 = sys:get_status(gfsm),
+    ?line {status, Pid2, _Mod, [_PDict2, running, _, _, Data2]} = Status2,
+    ?line [format_status_called | _] = lists:reverse(Data2),
+    ?line stop_it(Pid2),
+
+    %% check that format_status can handle a name being a term other than a
+    %% pid or atom
+    GlobalName1 = {global, "CallFormatStatus"},
+    ?line {ok, Pid3} = gen_fsm:start(GlobalName1, gen_fsm_SUITE, [], []),
+    ?line Status3 = sys:get_status(GlobalName1),
+    ?line {status, Pid3, _Mod, [_PDict3, running, _, _, Data3]} = Status3,
+    ?line [format_status_called | _] = lists:reverse(Data3),
+    ?line stop_it(Pid3),
+    GlobalName2 = {global, {name, "term"}},
+    ?line {ok, Pid4} = gen_fsm:start(GlobalName2, gen_fsm_SUITE, [], []),
+    ?line Status4 = sys:get_status(GlobalName2),
+    ?line {status, Pid4, _Mod, [_PDict4, running, _, _, Data4]} = Status4,
+    ?line [format_status_called | _] = lists:reverse(Data4),
+    ?line stop_it(Pid4).
 
 error_format_status(Config) when is_list(Config) ->
     ?line error_logger_forwarder:register(),
@@ -344,7 +367,6 @@ error_format_status(Config) when is_list(Config) ->
     ?t:messages_get(),
     process_flag(trap_exit, OldFl),
     ok.
-
 
 %% Hibernation
 hibernate(suite) -> [];

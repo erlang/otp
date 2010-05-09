@@ -905,6 +905,28 @@ call_format_status(Config) when is_list(Config) ->
     ?line Status2 = sys:get_status(call_format_status, 5000),
     ?line {status, Pid, _Mod, [_PDict, running, _Parent, _, Data2]} = Status2,
     ?line [format_status_called | _] = lists:reverse(Data2),
+
+    %% check that format_status can handle a name being a pid (atom is
+    %% already checked by the previous test)
+    ?line {ok, Pid3} = gen_server:start_link(gen_server_SUITE, [], []),
+    ?line Status3 = sys:get_status(Pid3),
+    ?line {status, Pid3, _Mod, [_PDict3, running, _Parent, _, Data3]} = Status3,
+    ?line [format_status_called | _] = lists:reverse(Data3),
+
+    %% check that format_status can handle a name being a term other than a
+    %% pid or atom
+    GlobalName1 = {global, "CallFormatStatus"},
+    ?line {ok, Pid4} = gen_server:start_link(GlobalName1,
+					     gen_server_SUITE, [], []),
+    ?line Status4 = sys:get_status(Pid4),
+    ?line {status, Pid4, _Mod, [_PDict4, running, _Parent, _, Data4]} = Status4,
+    ?line [format_status_called | _] = lists:reverse(Data4),
+    GlobalName2 = {global, {name, "term"}},
+    ?line {ok, Pid5} = gen_server:start_link(GlobalName2,
+					     gen_server_SUITE, [], []),
+    ?line Status5 = sys:get_status(GlobalName2),
+    ?line {status, Pid5, _Mod, [_PDict5, running, _Parent, _, Data5]} = Status5,
+    ?line [format_status_called | _] = lists:reverse(Data5),
     ok.
 
 %% Verify that error termination correctly calls our format_status/2 fun
