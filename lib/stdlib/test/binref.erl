@@ -465,7 +465,7 @@ copy(Subject) ->
     copy(Subject,1).
 copy(Subject,N) ->
     try
-	true = is_integer(N) and (N > 0) and is_binary(Subject), % Badarg, not function clause
+	true = is_integer(N) and (N >= 0) and is_binary(Subject), % Badarg, not function clause
 	erlang:list_to_binary(lists:duplicate(N,Subject))
     catch
 	_:_ ->

@@ -40,6 +40,7 @@ XML_REF3_FILES = \
 	array.xml \
 	base64.xml \
 	beam_lib.xml \
+	binary.xml \
 	c.xml \
 	calendar.xml \
 	dets.xml \

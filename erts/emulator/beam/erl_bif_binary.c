@@ -2369,7 +2369,8 @@ static BIF_RETTYPE do_binary_copy(Process *p, Eterm bin, Eterm en)
 	goto badarg;
     }
     if (!n) {
-	goto badarg;
+	Eterm res_term = erts_new_heap_binary(p,NULL,0,&bytes);
+	BIF_RET(res_term);
     }
     ERTS_GET_BINARY_BYTES(bin,bytes,bit_offs,bit_size);
     if (bit_size != 0) {

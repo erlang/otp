@@ -37,6 +37,7 @@
   <xi:include href="array.xml"/>
   <xi:include href="base64.xml"/>
   <xi:include href="beam_lib.xml"/>
+  <xi:include href="binary.xml"/>
   <xi:include href="c.xml"/>
   <xi:include href="calendar.xml"/>
   <xi:include href="dets.xml"/>
