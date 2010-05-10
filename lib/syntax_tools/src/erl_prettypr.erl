@@ -384,7 +384,7 @@ lay_postcomments(Cs, D) ->
     beside(D, floating(break(stack_comments(Cs, true)), 1, 0)).
 
 %% Format (including padding, if `Pad' is `true', otherwise not)
-%% and stack the listed comments above each other,
+%% and stack the listed comments above each other.
 
 stack_comments([C | Cs], Pad) ->
     D = stack_comment_lines(erl_syntax:comment_text(C)),
@@ -405,9 +405,7 @@ stack_comments([C | Cs], Pad) ->
 	    D1;	   % done
 	_ ->
 	    above(D1, stack_comments(Cs, Pad))
-    end;
-stack_comments([], _) ->
-    empty().
+    end.
 
 %% Stack lines of text above each other and prefix each string in
 %% the list with a single `%' character.
