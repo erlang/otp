@@ -1121,11 +1121,12 @@ export(Line, Es, #lint{exports = Es0, called = Called} = St0) ->
     St1#lint{exports = Es1, called = C1}.
 
 -spec export_type(line(), [ta()], lint_state()) -> lint_state().
-%%  Mark types as exported, also as called from the export line.
+%%  Mark types as exported; also mark them as used from the export line.
 
-export_type(Line, ETs, #lint{exp_types = ETs0} = St0) ->
-    {ETs1,St1} =
-	foldl(fun (TA, {E,St2}) ->
+export_type(Line, ETs, #lint{usage = Usage, exp_types = ETs0} = St0) ->
+    UTs0 = Usage#usage.used_types,
+    {ETs1,UTs1,St1} =
+	foldl(fun (TA, {E,U,St2}) ->
 		      St = case gb_sets:is_element(TA, E) of
 			       true ->
 				   Warn = {duplicated_export_type,TA},
@@ -1133,10 +1134,10 @@ export_type(Line, ETs, #lint{exp_types = ETs0} = St0) ->
 			       false ->
 				   St2
 			   end,
-		      {gb_sets:add_element(TA, E), St}
+		      {gb_sets:add_element(TA, E), dict:store(TA, Line, U), St}
 	      end,
-	      {ETs0,St0}, ETs),
-    St1#lint{exp_types = ETs1}.
+	      {ETs0,UTs0,St0}, ETs),
+    St1#lint{usage = Usage#usage{used_types = UTs1}, exp_types = ETs1}.
 
 -type import() :: {module(), [fa()]} | module().
 -spec import(line(), import(), lint_state()) -> lint_state().
