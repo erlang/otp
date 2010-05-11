@@ -60,7 +60,11 @@
 	  compression_state,
 	  cipher_state,
 	  mac_secret,
-	  sequence_number
+	  sequence_number,
+	  %% RFC 5746
+	  secure_renegotiation,
+	  client_verify_data,
+	  server_verify_data
 	 }).
 
 -define(MAX_SEQENCE_NUMBER, 18446744073709552000). %% math:pow(2, 64) - 1 = 1.8446744073709552e19

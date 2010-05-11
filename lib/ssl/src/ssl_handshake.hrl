@@ -81,7 +81,8 @@
 	  random,             
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suites,      % cipher_suites<2..2^16-1>
-	  compression_methods % compression_methods<1..2^8-1>
+	  compression_methods, % compression_methods<1..2^8-1>,
+	  renegotiation_info
 	 }).
 
 -record(server_hello, {
@@ -89,7 +90,8 @@
 	  random,             
 	  session_id,         % opaque SessionID<0..32>
 	  cipher_suite,       % cipher_suites
-	  compression_method  % compression_method
+	  compression_method, % compression_method
+	  renegotiation_info
 	 }).
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -193,6 +195,15 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -record(finished, {
 	  verify_data %opaque verify_data[12]
+	 }).
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Renegotiation info  RFC 5746 section 3.2
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+-define(RENEGOTIATION_EXT, 16#ff01).
+
+-record(renegotiation_info,{
+	  renegotiated_connection
 	 }).
 
 -endif. % -ifdef(ssl_handshake).

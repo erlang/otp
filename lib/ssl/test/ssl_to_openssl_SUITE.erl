@@ -81,11 +81,20 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
-init_per_testcase(_TestCase, Config0) ->
+init_per_testcase(TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ssl_test_lib:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+    special_init(TestCase, [{watchdog, Dog} | Config]).
 
+special_init(TestCase, Config) 
+  when TestCase == erlang_client_openssl_server_renegotiate;
+       TestCase == erlang_client_openssl_server_no_wrap_sequence_number;
+       TestCase == erlang_server_openssl_client_no_wrap_sequence_number ->
+    check_sane_openssl_renegotaite(Config);
+
+special_init(_, Config) ->
+    Config.
+    
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config) -> _
 %% Case - atom()
@@ -297,12 +306,8 @@ erlang_client_openssl_server_renegotiate(Config) when is_list(Config) ->
     test_server:sleep(?SLEEP),
     port_command(OpensslPort, OpenSslData),
     
-    %%ssl_test_lib:check_result(Client, ok), 
-    %% Currently allow test case to not fail
-    %% if server requires secure renegotiation from RFC-5746 
-    %% This should be removed as soon as we have implemented it.
-    ssl_test_lib:check_result_ignore_renegotiation_reject(Client, ok),
-
+    ssl_test_lib:check_result(Client, ok), 
+   
     %% Clean close down!   Server needs to be closed first !!
     close_port(OpensslPort),
 
@@ -350,11 +355,7 @@ erlang_client_openssl_server_no_wrap_sequence_number(Config) when is_list(Config
 					{options, [{reuse_sessions, false},
 						   {renegotiate_at, N} | ClientOpts]}]),
     
-    %%ssl_test_lib:check_result(Client, ok), 
-    %% Currently allow test case to not fail
-    %% if server requires secure renegotiation from RFC-5746 
-    %% This should be removed as soon as we have implemented it.
-    ssl_test_lib:check_result_ignore_renegotiation_reject(Client, ok),
+    ssl_test_lib:check_result(Client, ok), 
 
     %% Clean close down!   Server needs to be closed first !!
     close_port(OpensslPort),
@@ -1080,3 +1081,10 @@ wait_for_openssl_server() ->
 	    test_server:sleep(?SLEEP)
     end.
 	    
+check_sane_openssl_renegotaite(Config) ->
+    case os:cmd("openssl version") of
+	"OpenSSL 0.9.8l" ++ _ ->
+	    {skip, "Known renegotiation bug in OppenSSL"};
+	_ ->
+	    Config
+    end.

@@ -38,7 +38,10 @@
          set_mac_secret/4,
 	 set_master_secret/2, 
          activate_pending_connection_state/2,
-         set_pending_cipher_state/4]).
+         set_pending_cipher_state/4,
+	 set_renegotiation_flag/2,
+	 set_client_verify_data/3,
+	 set_server_verify_data/3]).
 
 %% Handling of incoming data
 -export([get_tls_records/2]).
@@ -175,6 +178,98 @@ set_master_secret(MasterSecret,
                                        master_secret = MasterSecret}},
     States#connection_states{pending_read = Read1, pending_write = Write1}.
 
+%%--------------------------------------------------------------------
+%% Function: set_renegotiation_flag(Flag, States) -> 
+%%                                                #connection_states{}
+%%      Flag = boolean()
+%%	States = #connection_states{}
+%%
+%% Set master_secret in pending connection states
+%%--------------------------------------------------------------------
+set_renegotiation_flag(Flag, #connection_states{
+			 current_read = CurrentRead0,
+			 current_write = CurrentWrite0,
+			 pending_read = PendingRead0,
+			 pending_write = PendingWrite0} 
+		       = ConnectionStates) ->
+    CurrentRead = CurrentRead0#connection_state{secure_renegotiation = Flag},
+    CurrentWrite = CurrentWrite0#connection_state{secure_renegotiation = Flag},
+    PendingRead = PendingRead0#connection_state{secure_renegotiation = Flag},
+    PendingWrite = PendingWrite0#connection_state{secure_renegotiation = Flag},
+    ConnectionStates#connection_states{current_read = CurrentRead, 
+				       current_write = CurrentWrite, 
+				       pending_read = PendingRead, 
+				       pending_write = PendingWrite}.
+
+%%--------------------------------------------------------------------
+%% Function: set_client_verify_data(State, Data, States) -> 
+%%                                                #connection_states{}
+%%      State = atom()
+%%      Data = binary()
+%%	States = #connection_states{}
+%%
+%% Set verify data in connection states.                 
+%%--------------------------------------------------------------------
+set_client_verify_data(current_read, Data, 
+		       #connection_states{current_read = CurrentRead0,
+					  pending_write = PendingWrite0} 
+		       = ConnectionStates) ->
+    CurrentRead = CurrentRead0#connection_state{client_verify_data = Data},
+    PendingWrite = PendingWrite0#connection_state{client_verify_data = Data},
+    ConnectionStates#connection_states{current_read = CurrentRead,
+				       pending_write = PendingWrite};
+set_client_verify_data(current_write, Data, 
+		       #connection_states{pending_read = PendingRead0,
+					  current_write = CurrentWrite0} 
+		       = ConnectionStates) ->
+    PendingRead = PendingRead0#connection_state{client_verify_data = Data},
+    CurrentWrite = CurrentWrite0#connection_state{client_verify_data = Data},
+    ConnectionStates#connection_states{pending_read = PendingRead,
+				       current_write = CurrentWrite};
+set_client_verify_data(current_both, Data, 
+		       #connection_states{current_read = CurrentRead0,
+					  current_write = CurrentWrite0} 
+		       = ConnectionStates) ->
+    CurrentRead = CurrentRead0#connection_state{client_verify_data = Data},
+    CurrentWrite = CurrentWrite0#connection_state{client_verify_data = Data},
+    ConnectionStates#connection_states{current_read = CurrentRead,
+				       current_write = CurrentWrite}.
+
+%%--------------------------------------------------------------------
+%% Function: set_server_verify_data(State, Data, States) -> 
+%%                                                #connection_states{}
+%%      State = atom()
+%%      Data = binary()
+%%	States = #connection_states{}
+%%
+%% Set verify data in pending connection states.
+%%--------------------------------------------------------------------
+set_server_verify_data(current_write, Data, 
+		       #connection_states{pending_read = PendingRead0,
+					  current_write = CurrentWrite0} 
+		       = ConnectionStates) ->
+    PendingRead = PendingRead0#connection_state{server_verify_data = Data},
+    CurrentWrite = CurrentWrite0#connection_state{server_verify_data = Data},
+    ConnectionStates#connection_states{pending_read = PendingRead,
+				       current_write = CurrentWrite};
+
+set_server_verify_data(current_read, Data, 
+		       #connection_states{current_read = CurrentRead0,
+					  pending_write = PendingWrite0} 
+		       = ConnectionStates) ->
+    CurrentRead = CurrentRead0#connection_state{server_verify_data = Data},
+    PendingWrite = PendingWrite0#connection_state{server_verify_data = Data},
+    ConnectionStates#connection_states{current_read = CurrentRead,
+				       pending_write = PendingWrite};
+
+set_server_verify_data(current_both, Data, 
+		       #connection_states{current_read = CurrentRead0,
+					  current_write = CurrentWrite0} 
+		       = ConnectionStates) ->
+    CurrentRead = CurrentRead0#connection_state{server_verify_data = Data},
+    CurrentWrite = CurrentWrite0#connection_state{server_verify_data = Data},
+    ConnectionStates#connection_states{current_read = CurrentRead,
+				       current_write = CurrentWrite}.
 
 %%--------------------------------------------------------------------
 %% Function: activate_pending_connection_state(States, Type) -> 
@@ -191,7 +286,9 @@ activate_pending_connection_state(States =
     NewCurrent = Pending#connection_state{sequence_number = 0},
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    NewPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = empty_connection_state(ConnectionEnd),
+    SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
+    NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_read = NewCurrent,
                              pending_read = NewPending
                             };
@@ -202,7 +299,9 @@ activate_pending_connection_state(States =
     NewCurrent = Pending#connection_state{sequence_number = 0},
     SecParams = Pending#connection_state.security_parameters,
     ConnectionEnd = SecParams#security_parameters.connection_end,
-    NewPending = empty_connection_state(ConnectionEnd),
+    EmptyPending = empty_connection_state(ConnectionEnd),
+    SecureRenegotation = NewCurrent#connection_state.secure_renegotiation,
+    NewPending = EmptyPending#connection_state{secure_renegotiation = SecureRenegotation},
     States#connection_states{current_write = NewCurrent,
                              pending_write = NewPending
                             }.

@@ -171,7 +171,8 @@ all(suite) ->
      client_verify_none_active, client_verify_none_active_once
      %%, session_cache_process_list, session_cache_process_mnesia
      ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
-     client_renegotiate, server_renegotiate,
+     client_renegotiate, server_renegotiate, client_renegotiate_reused_session,
+     server_renegotiate_reused_session,
      client_no_wrap_sequence_number, server_no_wrap_sequence_number,
      extended_key_usage, validate_extensions_fun
     ].
@@ -665,7 +666,7 @@ misc_ssl_options(Config) when is_list(Config) ->
 		{password, []},
 		{reuse_session, fun(_,_,_,_) -> true end},
 		{debug, []}, 
-		{cb_info, {gen_tcp, tcp, tcp_closed}}],
+		{cb_info, {gen_tcp, tcp, tcp_closed, tcp_error}}],
     
    Server = 
 	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
@@ -2112,6 +2113,76 @@ server_renegotiate(Config) when is_list(Config) ->
     ok.
 
 %%--------------------------------------------------------------------
+client_renegotiate_reused_session(doc) -> 
+    ["Test ssl:renegotiate/1 on client when the ssl session will be reused."];
+
+client_renegotiate_reused_session(suite) -> 
+    [];
+
+client_renegotiate_reused_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = 
+	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+				   {from, self()},
+				   {mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+				   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+ 
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       renegotiate_reuse_session, [Data]}},
+					{options, [{reuse_sessions, true} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Client, ok, Server, ok), 
+
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    process_flag(trap_exit, false),
+    ok.
+%%--------------------------------------------------------------------
+server_renegotiate_reused_session(doc) -> 
+    ["Test ssl:renegotiate/1 on server when the ssl session will be reused."];
+
+server_renegotiate_reused_session(suite) -> 
+    [];
+
+server_renegotiate_reused_session(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+    ClientOpts = ?config(client_opts, Config),  
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Data = "From erlang to erlang",
+
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, 
+					       renegotiate_reuse_session, [Data]}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, erlang_ssl_receive, [Data]}},
+					{options, [{reuse_sessions, true} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client),
+    ok.
+
+%%--------------------------------------------------------------------
 client_no_wrap_sequence_number(doc) -> 
     ["Test that erlang client will renegotiate session when",  
      "max sequence number celing is about to be reached. Although"
@@ -2314,14 +2385,14 @@ renegotiate(Socket, Data) ->
     case Result of
 	ok ->
 	    ok;
-	%% It is not an error in erlang ssl
-	%% if peer rejects renegotiation.
-	%% Connection will stay up
-	{error, renegotiation_rejected} ->
-	    ok;
 	Other ->
 	    Other
     end.
+
+renegotiate_reuse_session(Socket, Data) ->
+    %% Make sure session is registerd
+    test_server:sleep(?SLEEP),
+    renegotiate(Socket, Data).
  
 session_cache_process_list(doc) -> 
     ["Test reuse of sessions (short handshake)"];

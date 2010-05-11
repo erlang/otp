@@ -154,7 +154,7 @@ transport_accept(#sslsocket{pid = {ListenSocket, #config{cb=CbInfo, ssl=SslOpts}
     EmOptions = emulated_options(),
     {ok, InetValues} = inet:getopts(ListenSocket, EmOptions),
     ok = inet:setopts(ListenSocket, internal_inet_values()),
-    {CbModule,_,_} = CbInfo,    
+    {CbModule,_,_, _} = CbInfo,    
     case CbModule:accept(ListenSocket, Timeout) of
 	{ok, Socket} ->
 	    ok = inet:setopts(ListenSocket, InetValues),
@@ -216,7 +216,7 @@ ssl_accept(Socket, SslOptions, Timeout) when is_port(Socket) ->
 %%
 %% Description: Close a ssl connection
 %%--------------------------------------------------------------------  
-close(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _}}}, fd = new_ssl}) ->
+close(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}, fd = new_ssl}) ->
     CbMod:close(ListenSocket);
 close(#sslsocket{pid = Pid, fd = new_ssl}) ->
     ssl_connection:close(Pid);
@@ -375,7 +375,7 @@ setopts(#sslsocket{} = Socket, Options) ->
 %% 
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
-shutdown(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _}}}, fd = new_ssl}, How) ->
+shutdown(#sslsocket{pid = {ListenSocket, #config{cb={CbMod,_, _, _}}}, fd = new_ssl}, How) ->
     CbMod:shutdown(ListenSocket, How);
 shutdown(#sslsocket{pid = Pid, fd = new_ssl}, How) ->
     ssl_connection:shutdown(Pid, How).
@@ -449,7 +449,7 @@ do_new_connect(Address, Port,
 	       #config{cb=CbInfo, inet_user=UserOpts, ssl=SslOpts,
 		       emulated=EmOpts,inet_ssl=SocketOpts},
 	       Timeout) ->
-    {CbModule, _, _} = CbInfo,    
+    {CbModule, _, _, _} = CbInfo,    
     try CbModule:connect(Address, Port,  SocketOpts, Timeout) of
 	{ok, Socket} ->
 	    ssl_connection:connect(Address, Port, Socket, {SslOpts,EmOpts},
@@ -471,7 +471,7 @@ old_connect(Address, Port, Options, Timeout) ->
 new_listen(Port, Options0) ->
     try 
 	{ok, Config} = handle_options(Options0, server),
-	#config{cb={CbModule, _, _},inet_user=Options} = Config,
+	#config{cb={CbModule, _, _, _},inet_user=Options} = Config,
 	case CbModule:listen(Port, Options) of
 	    {ok, ListenSocket} ->
 		{ok, #sslsocket{pid = {ListenSocket, Config}, fd = new_ssl}};
@@ -546,17 +546,18 @@ handle_options(Opts0, Role) ->
       %% Server side option
       reuse_session = handle_option(reuse_session, Opts, ReuseSessionFun),
       reuse_sessions = handle_option(reuse_sessions, Opts, true),
+      secure_renegotiate = handle_option(secure_renegotiate, Opts, false),
       renegotiate_at = handle_option(renegotiate_at, Opts, ?DEFAULT_RENEGOTIATE_AT),
       debug      = handle_option(debug, Opts, [])
      },
 
-    CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed}),    
+    CbInfo  = proplists:get_value(cb_info, Opts, {gen_tcp, tcp, tcp_closed, tcp_error}),    
     SslOptions = [versions, verify, verify_fun, validate_extensions_fun, 
 		  fail_if_no_peer_cert, verify_client_once,
 		  depth, certfile, keyfile,
 		  key, password, cacertfile, dhfile, ciphers,
 		  debug, reuse_session, reuse_sessions, ssl_imp,
-		  cb_info, renegotiate_at],
+		  cb_info, renegotiate_at, secure_renegotiate],
     
     SockOpts = lists:foldl(fun(Key, PropList) -> 
 				   proplists:delete(Key, PropList)
@@ -626,6 +627,10 @@ validate_option(reuse_session, Value) when is_function(Value) ->
     Value;
 validate_option(reuse_sessions, Value) when Value == true; 
 					    Value == false ->
+    Value;
+
+validate_option(secure_renegotiate, Value) when Value == true; 
+						Value == false ->
     Value;
 validate_option(renegotiate_at, Value) when is_integer(Value) ->
     min(Value, ?DEFAULT_RENEGOTIATE_AT);
@@ -735,24 +740,34 @@ cipher_suites(Version, Ciphers0)  ->
 
 format_error({error, Reason}) ->
     format_error(Reason);
+format_error(Reason) when is_list(Reason) ->
+    Reason;
 format_error(closed) ->
-    "Connection closed for the operation in question.";
+    "The connection is closed";
+format_error(ecacertfile) ->
+    "Own CA certificate file is invalid.";
+format_error(ecertfile) ->
+    "Own certificate file is invalid.";
+format_error(ekeyfile) ->
+    "Own private key file is invalid.";
+format_error(esslaccept) ->
+    "Server SSL handshake procedure between client and server failed.";
+format_error(esslconnect) ->
+    "Client SSL handshake procedure between client and server failed.";
+format_error({eoptions, Options}) ->
+    lists:flatten(io_lib:format("Error in options list: ~p~n", [Options]));
+
+%%%%%%%%%%%%  START OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 format_error(ebadsocket) ->
     "Connection not found (internal error).";
 format_error(ebadstate) ->
     "Connection not in connect state (internal error).";
 format_error(ebrokertype) ->
     "Wrong broker type (internal error).";
-format_error(ecacertfile) ->
-    "Own CA certificate file is invalid.";
-format_error(ecertfile) ->
-    "Own certificate file is invalid.";
 format_error(echaintoolong) ->
     "The chain of certificates provided by peer is too long.";
 format_error(ecipher) ->
     "Own list of specified ciphers is invalid.";
-format_error(ekeyfile) ->
-    "Own private key file is invalid.";
 format_error(ekeymismatch) ->
     "Own private key does not match own certificate.";
 format_error(enoissuercert) ->
@@ -778,10 +793,6 @@ format_error(epeercertinvalid) ->
     "Certificate provided by peer is invalid.";
 format_error(eselfsignedcert) ->
     "Certificate provided by peer is self signed.";
-format_error(esslaccept) ->
-    "Server SSL handshake procedure between client and server failed.";
-format_error(esslconnect) ->
-    "Client SSL handshake procedure between client and server failed.";
 format_error(esslerrssl) ->
     "SSL protocol failure. Typically because of a fatal alert from peer.";
 format_error(ewantconnect) ->
@@ -800,6 +811,9 @@ format_error({badcast, _Cast}) ->
 format_error({badinfo, _Info}) ->
     "Call not recognized for current mode (active or passive) and state "
         "of socket.";
+
+%%%%%%%%%%%%%%%%%% END OLD SSL format_error %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
 format_error(Error) ->
     case (catch inet:format_error(Error)) of
         "unkknown POSIX" ++ _ ->
@@ -811,7 +825,7 @@ format_error(Error) ->
     end.
 
 no_format(Error) ->    
-    io_lib:format("No format string for error: \"~p\" available.", [Error]).
+    lists:flatten(io_lib:format("No format string for error: \"~p\" available.", [Error])).
 
 %% Start old ssl port program if needed.
 ensure_old_ssl_started() ->

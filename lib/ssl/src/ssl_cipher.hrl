@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -249,5 +249,10 @@
 -define(TLS_RSA_EXPORT1024_WITH_RC4_56_SHA, <<?BYTE(16#00), ?BYTE(16#64)>>).
 -define(TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA, <<?BYTE(16#00), ?BYTE(16#65)>>).
 -define(TLS_DHE_DSS_WITH_RC4_128_SHA, <<?BYTE(16#00), ?BYTE(16#66)>>).
+
+%% RFC 5746 - Not a real ciphersuite used to signal empty "renegotiation_info" extension
+%% to avoid handshake failure from old servers that do not ignore
+%% hello extension data as they should.
+-define(TLS_EMPTY_RENEGOTIATION_INFO_SCSV, <<?BYTE(16#00), ?BYTE(16#FF)>>).
 
 -endif. % -ifdef(ssl_cipher).

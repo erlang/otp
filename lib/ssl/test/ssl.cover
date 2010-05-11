@@ -3,5 +3,17 @@
 	   'PKIX1Explicit88',
 	   'PKIX1Implicit88',
 	   'PKIXAttributeCertificate',
-	   'SSL-PKIX']}.
+	   'SSL-PKIX',
+	   ssl_pem,
+	   ssl_pkix,
+	   ssl_base64,
+	   ssl_broker,
+           ssl_broker_int,
+	   ssl_broker_sup,
+	   ssl_debug,
+	   ssl_server,		
+	   ssl_prim,
+	   inet_ssl_dist,
+	   'OTP-PKIX'	
+		]}.
 

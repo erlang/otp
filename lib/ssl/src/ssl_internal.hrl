@@ -75,6 +75,7 @@
 	  %% will be reused if possible.
 	  reuse_sessions, % boolean()
 	  renegotiate_at,
+	  secure_renegotiate,
 	  debug           %
 	  }).
 
