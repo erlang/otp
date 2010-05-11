@@ -22,8 +22,9 @@
 %% Created : 16 February 2010
 %%----------------------------------------------------------------------
 -module(ct_config_xml).
--export([read_config_file/1, list_to_term/1]).
+-export([read_config_file/1]).
 
+% the only function to be called outside
 read_config_file(ConfigFile) ->
     case catch do_read_xml_config(ConfigFile) of
 	{ok, Config}->
@@ -32,49 +33,57 @@ read_config_file(ConfigFile) ->
 	    {error, Error, ErroneousString}
     end.
 
+% actual reading of the config
 do_read_xml_config(ConfigFile)->
     {ok, EntityList, _}=
 	xmerl_sax_parser:file(ConfigFile,
 	    [{event_fun, fun event/3},
-	    {event_state, initial_state()}]),
+	    {event_state, []}]),
     {ok, transform_entity_list(EntityList)}.
 
-
-initial_state() ->
-    [].
-
+% event callback for xmerl_sax_parser
 event(Event, _LineNo, State) ->
     tag(Event, State).
 
+% document start
 tag(startDocument, State) ->
     State;
 
-tag(endDocument,  {_Tags, Result}) ->
-    Result;
-
+% start of the config
 tag({startElement, _Uri, "config", _QName, _Attributes}, []) ->
 	[{"config", []}];
 
-tag({endElement, _Uri, "config", _QName}, [{"config", Config}]) ->
-	Config;
-
+% start tag
 tag({startElement, _Uri, Name, _QName, _Attributes}, Tags) ->
 	[{Name, []}|Tags];
 
+% value
+tag({characters, String}, [{Tag, _Value}|Tags]) ->
+	[{Tag, String}|Tags];
+
+% end tag
 tag({endElement, _Uri, _Name, _QName},
         [Entity, {PrevEntityTag, PrevEntityValue}|Tags]) ->
 	NewHead = {PrevEntityTag, [Entity|PrevEntityValue]},
 	[NewHead|Tags];
 
-tag({characters, String}, [{Tag, _Value}|Tags]) ->
-	[{Tag, String}|Tags];
+% end of the config
+tag({endElement, _Uri, "config", _QName}, [{"config", Config}]) ->
+	Config;
 
+% end of document, return result
+tag(endDocument,  {_Tags, Result}) ->
+    Result;
+
+% default
 tag(_El, State) ->
 	State.
 
+% transform of the ugly deeply nested entity list to the key-value "tree"
 transform_entity_list(EntityList)->
     lists:map(fun transform_entity/1, EntityList).
 
+% transform entity from {list(), list()} to {atom(), term()}
 transform_entity({Tag, [Value|Rest]}) when
     is_tuple(Value)->
 	{list_to_atom(Tag), transform_entity_list([Value|Rest])};
@@ -86,6 +95,8 @@ transform_entity({Tag, String})->
 	     throw(Error)
     end.
 
+% transform a string with Erlang terms to the terms
+% stolen from trapexit.org :-)
 list_to_term(String) ->
     {ok, T, _} = erl_scan:string(String++"."),
     case erl_parse:parse_term(T) of
