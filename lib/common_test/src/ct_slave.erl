@@ -321,9 +321,9 @@ do_start(Host, Node, Options)->
 long_or_short()->
     case net_kernel:longnames() of
 	true->
-	    "-name";
+	    " -name ";
 	false->
-	    "-sname"
+	    " -sname "
     end.
 
 % get the localhost's name, depending on the using name policy
@@ -339,7 +339,9 @@ gethostname()->
 
 % get cmd for starting Erlang
 get_cmd(Node)->
-    "erl -detached -noinput "++ long_or_short() ++ " " ++ atom_to_list(Node).
+    Cookie = erlang:get_cookie(),
+    "erl -detached -noinput -setcookie "++ atom_to_list(Cookie) ++
+    long_or_short() ++ atom_to_list(Node).
 
 % spawn node locally
 spawn_local_node(Node)->
