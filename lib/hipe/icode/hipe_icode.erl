@@ -1,20 +1,20 @@
 %% -*- erlang-indent-level: 2 -*-
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -1578,27 +1578,19 @@ redirect_jmp(Jmp, ToOld, ToNew) ->
 	  _ -> Jmp
 	end
     end,
-  simplify_branch(NewI).
-
-%%
-%% @doc Turns a branch into a goto if it has only one successor and it
-%%      is safe to do so.
-%%
-
--spec simplify_branch(icode_instr()) -> icode_instr().
-
-simplify_branch(I) ->
-  case ordsets:from_list(successors(I)) of
+  %% Turn a branch into a goto if it has only one successor and it is
+  %% safe to do so.
+  case ordsets:from_list(successors(NewI)) of
     [Label] ->
       Goto = mk_goto(Label),
-      case I of
-	#icode_type{} -> Goto;
+      case NewI of
 	#icode_if{} -> Goto;
 	#icode_switch_tuple_arity{} -> Goto;
 	#icode_switch_val{} -> Goto;
-	_ -> I
+	#icode_type{} -> Goto;
+	_ -> NewI
       end;
-    _ -> I
+    _ -> NewI
   end.
 
 %%
