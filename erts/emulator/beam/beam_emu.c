@@ -4404,7 +4404,7 @@ apply_bif_or_nif_epilogue:
  OpCase(i_count_breakpoint): {
      BeamInstr real_I;
      
-     ErtsCountBreak((BeamInstr *) I, &real_I);
+     ErtsCountBreak(c_p, (BeamInstr *) I, &real_I);
      ASSERT(VALID_INSTR(real_I));
      Goto(real_I);
  }
@@ -4485,7 +4485,7 @@ apply_bif_or_nif_epilogue:
      if (! IS_TRACED_FL(c_p, F_TRACE_CALLS)) {
 	 BeamInstr real_I;
 	 
-	 ErtsBreakSkip((BeamInstr *) I, &real_I);
+	 ErtsBreakSkip(c_p, (BeamInstr *) I, &real_I);
 	 Goto(real_I);
      }
  /* Fall through to next case */

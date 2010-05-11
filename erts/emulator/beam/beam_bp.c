@@ -439,9 +439,7 @@ erts_is_count_break(BeamInstr *pc, Sint *count_ret) {
     
     if (bdc) {
 	if (count_ret) {
-	    ErtsSmpBPLock(bdc);
-	    *count_ret = bdc->count;
-	    ErtsSmpBPUnlock(bdc);
+	    *count_ret = (Sint) erts_smp_atomic_read(&bdc->acount);
 	}
 	return !0;
     }
@@ -976,16 +974,23 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    ASSERT(is_nil(tracer_pid));
 	    if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 		BpDataCount *bdc = (BpDataCount *) bd;
+		long count = 0;
+		long res   = 0;
 		
-		ErtsSmpBPLock(bdc);
 		if (count_op == erts_break_stop) {
-		    if (bdc->count >= 0) {
-			bdc->count = -bdc->count-1; /* Stop call counter */
+		    count = erts_smp_atomic_read(&bdc->acount);
+		    if (count >= 0) {
+			while(1) {
+			    res = erts_smp_atomic_cmpxchg(&bdc->acount, -count - 1, count);
+			    if ((res == count) || count < 0) break;
+			    count = res;
+			}
 		    }
 		} else {
-		    bdc->count = 0; /* Reset call counter */
+		    /* Reset call counter */
+		    erts_smp_atomic_set(&bdc->acount, 0);
 		}
-		ErtsSmpBPUnlock(bdc);
+
 	    } else if (break_op == (Uint) BeamOp(op_i_time_breakpoint)) {
 		BpDataTime *bdt = (BpDataTime *) bd;
 		Uint i = 0;
@@ -1015,8 +1020,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	ASSERT(! match_spec);
 	ASSERT(is_nil(tracer_pid));
 	if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
-	    if (count_op == erts_break_reset
-		|| count_op == erts_break_stop) {
+	    if (count_op == erts_break_reset || count_op == erts_break_stop) {
 		/* Do not insert a new breakpoint */
 		return 1;
 	    }
@@ -1108,8 +1112,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	}
     } else if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 	BpDataCount *bdc = (BpDataCount *) bd;
-
-	bdc->count = 0;
+	erts_smp_atomic_init(&bdc->acount, 0);
     }
     ++(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
     return 1;

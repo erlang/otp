@@ -93,7 +93,7 @@ typedef struct bp_data_count {    /* Call count */
     struct bp_data *prev;
     BeamInstr       orig_instr;
     BeamInstr       this_instr;   /* key */
-    Sint            count;
+    erts_smp_atomic_t acount;
 } BpDataCount;
 
 typedef struct {
@@ -152,11 +152,12 @@ ERTS_INLINE Uint bp_sched2ix(void);
 #define bp_sched2ix_proc(p) (0)
 #endif
 
-#define ErtsCountBreak(pc,instr_result)                          \
+#define ErtsCountBreak(p, pc,instr_result)                       \
 do {                                                             \
     BpData **bds = (BpData **) (pc)[-4];                         \
     BpDataCount *bdc = NULL;                                     \
-    Uint ix = bp_sched2ix();                                     \
+    Uint ix = bp_sched2ix_proc( (p) );                           \
+    long count = 0;                                              \
                                                                  \
     ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bds);                                                 \
@@ -164,17 +165,16 @@ do {                                                             \
     bdc = (BpDataCount *) bdc->next;                             \
     ASSERT(bdc);                                                 \
     bds[ix] = (BpData *) bdc;                                    \
-    ErtsSmpBPLock(bdc);                                          \
-    if (bdc->count >= 0) bdc->count++;                           \
-    ErtsSmpBPUnlock(bdc);                                        \
+    count = erts_smp_atomic_read(&bdc->acount);                  \
+    if (count >= 0)  erts_smp_atomic_inc(&bdc->acount);          \
     *(instr_result) = bdc->orig_instr;                           \
 } while (0)
 
-#define ErtsBreakSkip(pc,instr_result)                           \
+#define ErtsBreakSkip(p, pc,instr_result)                        \
 do {                                                             \
     BpData **bds = (BpData **) (pc)[-4];                         \
     BpData *bd = NULL;                                           \
-    Uint ix = bp_sched2ix();                                     \
+    Uint ix = bp_sched2ix_proc( (p) );                           \
                                                                  \
     ASSERT((pc)[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI)); \
     ASSERT(bds);                                                 \
