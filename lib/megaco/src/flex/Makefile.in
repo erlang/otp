@@ -280,7 +280,7 @@ release_spec: opt
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 ifeq ($(ENABLE_MEGACO_FLEX_SCANNER),true)
 	$(INSTALL_DATA) $(FLEX_FILES) $(C_TARGETS) $(RELSYSDIR)/src/flex
-	$(INSTALL_DATA) $(SOLIBS) $(RELSYSDIR)/priv/lib
+	$(INSTALL_PROGRAM) $(SOLIBS) $(RELSYSDIR)/priv/lib
 endif
 
 

@@ -167,7 +167,7 @@ release_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)/priv/$(SYS_TYPE)
 	$(INSTALL_DATA) ../priv/erlang-logo32.png $(RELSYSDIR)/priv/
 	$(INSTALL_DATA) ../priv/erlang-logo64.png $(RELSYSDIR)/priv/
-	$(INSTALL_DATA) $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) $(RELSYSDIR)/priv/$(SYS_TYPE)
+	$(INSTALL_PROGRAM) $(TARGET_DIR)/$(TARGET_API)$(SO_EXT) $(RELSYSDIR)/priv/$(SYS_TYPE)
 
 release_docs_spec:
 
