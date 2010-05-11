@@ -20,6 +20,7 @@
 %%% Purpose:Test Suite for the 'qlc' module.
 %%%-----------------------------------------------------------------
 -module(qlc_SUITE).
+-compile(r12).
 
 -define(QLC, qlc).
 -define(QLCs, "qlc").

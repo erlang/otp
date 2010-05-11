@@ -18,6 +18,7 @@
 %%
 
 -module(fun_r12_SUITE).
+-compile(r12).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,dist_old_release/1]).
 

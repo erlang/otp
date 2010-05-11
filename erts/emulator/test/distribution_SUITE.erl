@@ -18,6 +18,7 @@
 %%
 
 -module(distribution_SUITE).
+-compile(r12).
 
 %% Tests distribution and the tcp driver.
 

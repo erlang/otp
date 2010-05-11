@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(io_proto_SUITE).
+-compile(r12).
 
 -export([all/1]).
 
