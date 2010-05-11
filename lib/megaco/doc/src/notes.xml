@@ -60,28 +60,20 @@
 
     <section>
       <title>Fixed bugs and malfunctions</title>
-      <p>-</p>
-
 <!--
+      <p>-</p>
+-->
+
       <list type="bulleted">
         <item>
-          <p>Callbacks, when the callback module is unknown (undefined), 
-            results in warning messages. </p>
-          <p>A raise condition scenario. As part of a cancelation operation,
-            replies with waiting acknowledgements is cancelled. This includes
-            informing the user (via a call to the handle_trans_ack callback 
-            function). It is possible that at this point the connection data 
-            has been removed, which makes it impossible for megaco to 
-            perform this operation, resulting in the warning message. The 
-            solution is to also store the callback module with the other 
-            reply information, to be used when cleaning up after a 
-            cancelation. </p>
-          <p>Own Id: OTP-8328</p>
-	  <p>Aux Id: Seq 11384</p>
+          <p>Fix shared libraries installation. </p>
+          <p>The flex shared lib(s) were incorrectly installed as data 
+            files. </p>
+          <p>Peter Lemenkov</p>
+          <p>Own Id: OTP-8627</p>
         </item>
 
       </list>
--->
 
     </section>
 
