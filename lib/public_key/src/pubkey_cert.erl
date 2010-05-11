@@ -134,9 +134,10 @@ validate_names(OtpCert, Permit, Exclude, Last, AccErr, Verify) ->
 	false ->
 	    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
 	    Subject = TBSCert#'OTPTBSCertificate'.subject,
+	    Extensions = 
+		extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
 	    AltSubject = 
-		select_extension(?'id-ce-subjectAltName', 
-				 TBSCert#'OTPTBSCertificate'.extensions),
+		select_extension(?'id-ce-subjectAltName', Extensions),
 	    
 	    EmailAddress = extract_email(Subject),
 	    Name = [{directoryName, Subject}|EmailAddress],
@@ -212,7 +213,7 @@ is_issuer({rdnSequence, Issuer}, {rdnSequence, Candidate}) ->
 
 issuer_id(Otpcert, other) ->
     TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
-    Extensions = TBSCert#'OTPTBSCertificate'.extensions,
+    Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
     case select_extension(?'id-ce-authorityKeyIdentifier', Extensions) of
 	undefined ->
 	    {error, issuer_not_found};
@@ -232,11 +233,16 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 							SubjectPublicKeyInfo,
 							extensions = 
 							Extensions}}) ->
-    is_fixed_dh_cert(SubjectPublicKeyInfo, Extensions). 
+    is_fixed_dh_cert(SubjectPublicKeyInfo, extensions_list(Extensions)). 
 
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+
+extensions_list(asn1_NOVALUE) ->
+    [];
+extensions_list(Extensions) ->
+    Extensions.
 
 not_valid(Error, true, _) ->
     throw(Error);
