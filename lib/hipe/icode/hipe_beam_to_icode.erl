@@ -22,8 +22,6 @@
 %% Author      : Kostis Sagonas
 %% Description : Translates symbolic BEAM code to Icode
 %%=======================================================================
-%% $Id$
-%%=======================================================================
 %% @doc
 %%    This file translates symbolic BEAM code to Icode which is HiPE's
 %%    intermediate code representation.  Either the code of an entire
@@ -431,10 +429,10 @@ trans_fun([{wait_timeout,{_,Lbl},Reg}|Instructions], Env) ->
   SuspTmout = hipe_icode:mk_if(suspend_msg_timeout,[],
 			       map_label(Lbl),hipe_icode:label_name(DoneLbl)),
   Movs ++ [SetTmout, SuspTmout, DoneLbl | trans_fun(Instructions,Env1)];
-%%--- mark_recv/1 & mark_set/1 ---
-trans_fun([{mark_recv,{f,_}}|Instructions], Env) ->
+%%--- recv_mark/1 & recv_set/1 ---  XXX: Handle better??
+trans_fun([{recv_mark,{f,_}}|Instructions], Env) ->
   trans_fun(Instructions,Env);
-trans_fun([{mark_set,{f,_}}|Instructions], Env) ->
+trans_fun([{recv_set,{f,_}}|Instructions], Env) ->
   trans_fun(Instructions,Env);
 %%--------------------------------------------------------------------
 %%--- Translation of arithmetics {bif,ArithOp, ...} ---
