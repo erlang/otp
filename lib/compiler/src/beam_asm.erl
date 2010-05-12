@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Assembler for threaded Beam.
@@ -23,7 +23,7 @@
 -export([module/4]).
 -export([encode/2]).
 
--import(lists, [map/2,member/2,keymember/3,duplicate/2,filter/2]).
+-import(lists, [map/2,member/2,keymember/3,duplicate/2]).
 -include("beam_opcodes.hrl").
 
 module(Code, Abst, SourceFile, Opts) ->
@@ -191,11 +191,7 @@ flatten_exports(Exps) ->
 flatten_imports(Imps) ->
     list_to_binary(map(fun({M,F,A}) -> <<M:32,F:32,A:32>> end, Imps)).
 
-build_attributes(Opts, SourceFile, Attr0, Essentials) ->
-    Attr = filter(fun({type,_}) -> false;
-		     ({spec,_}) -> false;
-		     (_) -> true
-		  end, Attr0),
+build_attributes(Opts, SourceFile, Attr, Essentials) ->
     Misc = case member(slim, Opts) of
 	       false ->
 		   {{Y,Mo,D},{H,Mi,S}} = erlang:universaltime(),

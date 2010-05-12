@@ -24,6 +24,10 @@
 	 
 -include("test_server.hrl").
 
+%% Include an opaque declaration to cover the stripping of
+%% opaque types from attributes in v3_kernel.
+-opaque misc_SUITE_test_cases() :: [atom()].
+
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(10)),
     [{watchdog,Dog}|Config].
@@ -32,6 +36,8 @@ fin_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = ?config(watchdog, Config),
     ?t:timetrap_cancel(Dog),
     ok.
+
+-spec all(any()) -> misc_SUITE_test_cases().
 
 all(suite) ->
     test_lib:recompile(?MODULE),
@@ -92,7 +98,7 @@ md5_1(Beam) ->
 silly_coverage(Config) when is_list(Config) ->
     %% sys_core_fold, sys_core_setel, v3_kernel
     BadCoreErlang = {c_module,[],
-		     name,exports,attrs,
+		     name,[],[],
 		     [{{c_var,[],{foo,2}},seriously_bad_body}]},
     ?line expect_error(fun() -> sys_core_fold:module(BadCoreErlang, []) end),
     ?line expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
