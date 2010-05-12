@@ -2405,6 +2405,7 @@ ERTS_POLL_EXPORT(erts_poll_info)(ErtsPollSet ps, ErtsPollInfo *pip)
 	while (urqbp) {
 	    size += sizeof(ErtsPollSetUpdateRequestsBlock);
 	    pending_updates += urqbp->len;
+	    urqbp = urqbp->next;
 	}
     }
 #endif
