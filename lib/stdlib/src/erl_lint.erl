@@ -94,6 +94,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                mod_imports=dict:new()	:: dict(),	%Module Imports
                compile=[],                      %Compile flags
                records=dict:new()	:: dict(),	%Record definitions
+               locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
                defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
 	       on_load=[] :: [{atom(),integer()}], 	%On-load function
 	       on_load_line=0 :: integer(),		%Line for on_load
@@ -187,12 +188,7 @@ format_error({define_import,{F,A}}) ->
 format_error({unused_function,{F,A}}) ->
     io_lib:format("function ~w/~w is unused", [F,A]);
 format_error({redefine_bif,{F,A}}) ->
-    io_lib:format("defining BIF ~w/~w", [F,A]);
-format_error({call_to_redefined_bif,{F,A}}) ->
-    io_lib:format("call to ~w/~w will call erlang:~w/~w; "
-		  "not ~w/~w in this module \n"
-		  "  (add an explicit module name to the call to avoid this error)",
-		  [F,A,F,A,F,A]);
+    io_lib:format("redefining autoimported BIF ~w/~w", [F,A]);
 
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
@@ -538,8 +534,9 @@ loc(L) ->
 
 forms(Forms0, St0) ->
     Forms = eval_file_attribute(Forms0, St0),
+    Locals = local_functions(Forms),
     %% Line numbers are from now on pairs {File,Line}.
-    St1 = includes_qlc_hrl(Forms, St0),
+    St1 = includes_qlc_hrl(Forms, St0#lint{locals = Locals}),
     St2 = bif_clashes(Forms, St1),
     St3 = not_deprecated(Forms, St2),
     St4 = foldl(fun form/2, pre_scan(Forms, St3), Forms),
@@ -1216,7 +1213,9 @@ define_function(Line, Name, Arity, St0) ->
         false ->
             St2 = St1#lint{defined=gb_sets:add_element(NA, St1#lint.defined)},
             St = case erl_internal:bif(Name, Arity) andalso
-		     not is_function_exported(Name, Arity, St2) of
+		     (not is_function_exported(Name, Arity, St2)) andalso
+		     is_warn_enabled(bif_clash, St2) andalso
+		     is_bif_clash(Name,Arity,St2) of
 		     true -> add_warning(Line, {redefine_bif,NA}, St2);
                      false -> St2
                   end,
@@ -1725,7 +1724,8 @@ gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}=Isr},[_,_,_]=Args}
 gexpr({call,Line,{atom,_La,F},As}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),
     A = length(As),
-    case erl_internal:guard_bif(F, A) of
+    case (not is_local_function(St1#lint.locals,{F,A})) andalso
+	 erl_internal:guard_bif(F, A) of
         true ->
 	    %% Also check that it is auto-imported.
 	    case erl_internal:bif(F, A) of
@@ -1959,7 +1959,7 @@ expr({'fun',Line,Body}, Vt, St) ->
             {vtupdate(Bvt, Vt), St1};
         {function,F,A} ->
             %% N.B. Only allows BIFs here as well, NO IMPORTS!!
-            case erl_internal:bif(F, A) of
+            case ((not is_local_function(St#lint.locals,{F,A})) and erl_internal:bif(F, A)) of
                 true -> {[],St};
                 false -> {[],call_function(Line, F, A, St)}
             end;
@@ -1992,16 +1992,10 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     St1 = keyword_warning(La, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
     A = length(As),
-    case erl_internal:bif(F, A) of
+    case ((not is_local_function(St2#lint.locals,{F,A})) and erl_internal:bif(F, A)) of
         true ->
 	    St3 = deprecated_function(Line, erlang, F, As, St2),
-	    {Asvt,case is_warn_enabled(bif_clash, St3) andalso
-                       is_bif_clash(F, A, St3) of
-		      false ->
-			  St3;
-		      true ->
-                          add_error(Line, {call_to_redefined_bif,{F,A}}, St3)
-		  end};
+	    {Asvt,St3};
         false ->
             {Asvt,case imported(F, A, St2) of
                       {yes,M} ->
@@ -2010,8 +2004,8 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
                           Imp = ordsets:add_element({{F,A},M},U0#usage.imported),
                           St3#lint{usage=U0#usage{imported = Imp}};
                       no ->
-                          case {F,A} of
-                              {record_info,2} ->
+			  case {F,A} of
+			      {record_info,2} ->
                                   check_record_info_call(Line,La,As,St2);
                               N when N =:= St2#lint.func -> St2;
                               _ -> call_function(Line, F, A, St2)
@@ -3443,3 +3437,9 @@ expand_package(M, St0) ->
                     {error, St1}
             end
     end.
+
+local_functions(Forms) ->
+    gb_sets:from_list([ {Func,Arity} || {function,_,Func,Arity,_} <- Forms ]).
+
+is_local_function(LocalSet,{Func,Arity}) ->
+    gb_sets:is_element({Func,Arity},LocalSet).

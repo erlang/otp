@@ -55,10 +55,10 @@
 %%--------------------------------------------------------------------------
 
 apply(Fun, Args) ->
-    apply(Fun, Args).
+    erlang:apply(Fun, Args).
 
 apply(Mod, Name, Args) ->
-    apply(Mod, Name, Args).
+    erlang:apply(Mod, Name, Args).
 
 %% Spawns with a fun
 
