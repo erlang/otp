@@ -112,6 +112,7 @@ type_guards -> type_guard ',' type_guards : ['$1'|'$3'].
 
 type_guard -> atom '(' top_types ')'      : {type, ?line('$1'), constraint,
                                              ['$1', '$3']}.
+type_guard -> var '::' top_type           : build_def('$1', '$3').
 
 top_types -> top_type                     : ['$1'].
 top_types -> top_type ',' top_types       : ['$1'|'$3'].
@@ -596,6 +597,10 @@ find_arity_from_specs([Spec|_]) ->
 	  end,
     {type, _, 'fun', [{type, _, product, Args},_]} = Fun,
     length(Args).
+
+build_def(LHS, Types) ->
+    IsSubType = {atom, ?line(LHS), is_subtype},
+    {type, ?line(LHS), constraint, [IsSubType, [LHS, Types]]}.
 
 lift_unions(T1, {type, _La, union, List}) ->
     {type, ?line(T1), union, [T1|List]};
