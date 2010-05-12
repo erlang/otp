@@ -1539,6 +1539,10 @@ void process_main(void)
  /*
   * Skeleton for receive statement:
   *
+  *             recv_mark L1                     Optional
+  *             call make_ref/monitor            Optional
+  *             ...
+  *             recv_set L1                      Optional
   *      L1:          <-------------------+
   *                   <-----------+       |
   *     	     	       	  |   	  |
@@ -1556,6 +1560,34 @@ void process_main(void)
   *
   *
   */
+
+ OpCase(recv_mark_f): {
+     /*
+      * Save the current position in message buffer and the
+      * the label for the loop_rec/2 instruction for the
+      * the receive statement.
+      */
+     c_p->msg.mark = (BeamInstr *) Arg(0);
+     c_p->msg.saved_last = c_p->msg.last;
+     Next(1);
+ }
+
+ OpCase(i_recv_set): {
+     /*
+      * If the mark is valid (points to the loop_rec/2
+      * instruction that follows), we know that the saved
+      * position points to the first message that could
+      * possibly be matched out.
+      *
+      * If the mark is invalid, we do nothing, meaning that
+      * we will look through all messages in the message queue.
+      */
+     if (c_p->msg.mark == (BeamInstr *) (I+1)) {
+	 c_p->msg.save = c_p->msg.saved_last;
+     }
+     I++;
+     /* Fall through to the loop_rec/2 instruction */
+ }
 
     /*
      * Pick up the next message and place it in x(0).

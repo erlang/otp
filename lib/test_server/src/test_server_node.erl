@@ -17,6 +17,7 @@
 %% %CopyrightEnd%
 %%
 -module(test_server_node).
+-compile(r12).
 
 %%%
 %%% The same compiled code for this module must be possible to load

@@ -162,6 +162,10 @@ expand_opt(report, Os) ->
     [report_errors,report_warnings|Os];
 expand_opt(return, Os) ->
     [return_errors,return_warnings|Os];
+expand_opt(r12, Os) ->
+    [no_recv_opt|Os];
+expand_opt(r13, Os) ->
+    [no_recv_opt|Os];
 expand_opt({debug_info_key,_}=O, Os) ->
     [encrypt_debug_info,O|Os];
 expand_opt(no_float_opt, Os) ->
@@ -621,6 +625,8 @@ asm_passes() ->
 	 {iff,dclean,{listing,"clean"}},
 	 {unless,no_bsm_opt,{pass,beam_bsm}},
 	 {iff,dbsm,{listing,"bsm"}},
+	 {unless,no_recv_opt,{pass,beam_receive}},
+	 {iff,drecv,{listing,"recv"}},
 	 {unless,no_stack_trimming,{pass,beam_trim}},
 	 {iff,dtrim,{listing,"trim"}},
 	 {pass,beam_flatten}]},

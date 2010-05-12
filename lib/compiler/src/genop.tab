@@ -274,3 +274,8 @@ BEAM_FORMAT_NUMBER=0
 # R13B03
 
 149: on_load/0
+
+# R14A
+
+150: recv_mark/1
+151: recv_set/1

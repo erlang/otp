@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(compile_SUITE).
@@ -625,7 +625,7 @@ core(Config) when is_list(Config) ->
 				    {raw_abstract_v1,Abstr}}]}} = 
 			     beam_lib:chunks(Beam, [abstract_code]),
 			 {Mod,Abstr} end || Beam <- TestBeams],
-    ?line Res = p_run(fun(F) -> do_core(F, Outdir) end, Abstr),
+    ?line Res = test_lib:p_run(fun(F) -> do_core(F, Outdir) end, Abstr),
     ?line test_server:timetrap_cancel(Dog),
     Res.
 
@@ -661,7 +661,7 @@ asm(Config) when is_list(Config) ->
 
     ?line Wc = filename:join(filename:dirname(code:which(?MODULE)), "*.beam"),
     ?line TestBeams = filelib:wildcard(Wc),
-    ?line Res = p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
+    ?line Res = test_lib:p_run(fun(F) -> do_asm(F, Outdir) end, TestBeams),
     ?line test_server:timetrap_cancel(Dog),
     Res.
 
@@ -687,36 +687,4 @@ do_asm(Beam, Outdir) ->
 	    io:format("~p: ~p ~p\n~p\n",
 		      [M,Class,Error,erlang:get_stacktrace()]),
 	    error
-    end.
-    
-%% p_run(fun() -> ok|error, List) -> ok
-%%  Will fail the test case if there were any errors.
-
-p_run(Test, List) ->
-    N = erlang:system_info(schedulers) + 1,
-    p_run_loop(Test, List, N, [], 0, 0).
-
-p_run_loop(_, [], _, [], Errors, Ws) ->
-    case Errors of
-	0 ->
-	    case Ws of
-		0 -> ok;
-		1 -> {comment,"1 core_lint failure"};
-		N -> {comment,integer_to_list(N)++" core_lint failures"}
-	    end;
-	N -> ?t:fail({N,errors})
-    end;
-p_run_loop(Test, [H|T], N, Refs, Errors, Ws) when length(Refs) < N ->
-    {_,Ref} = erlang:spawn_monitor(fun() -> exit(Test(H)) end),
-    p_run_loop(Test, T, N, [Ref|Refs], Errors, Ws);
-p_run_loop(Test, List, N, Refs0, Errors0, Ws0) ->
-    receive
-	{'DOWN',Ref,process,_,Res} ->
-	    {Errors,Ws} = case Res of
-			      ok -> {Errors0,Ws0};
-			      error -> {Errors0+1,Ws0};
-			      warning -> {Errors0,Ws0+1}
-			  end,
-	    Refs = Refs0 -- [Ref],
-	    p_run_loop(Test, List, N, Refs, Errors, Ws)
     end.

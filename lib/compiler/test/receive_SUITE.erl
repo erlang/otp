@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%% Purpose : Compiles various modules with tough code
@@ -21,7 +21,7 @@
 -module(receive_SUITE).
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
-	 recv/1,coverage/1,otp_7980/1]).
+	 recv/1,coverage/1,otp_7980/1,ref_opt/1]).
 
 -include("test_server.hrl").
 
@@ -36,7 +36,7 @@ fin_per_testcase(_Case, Config) ->
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [recv,coverage,otp_7980].
+    [recv,coverage,otp_7980,ref_opt].
 
 -record(state, {ena = true}).
 
@@ -157,5 +157,52 @@ otp_7980_add_clients(Count) ->
 			end,
 			N - 1
 		end, Count, [1,2,3]).
-    
+
+ref_opt(Config) when is_list(Config) ->
+    case ?MODULE of
+	receive_SUITE -> ref_opt_1(Config);
+	_ -> {skip,"Enough to run this case once."}
+    end.
+
+ref_opt_1(Config) ->
+    ?line DataDir = ?config(data_dir, Config),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Sources = filelib:wildcard(filename:join([DataDir,"ref_opt","*.erl"])),
+    ?line test_lib:p_run(fun(Src) ->
+				 do_ref_opt(Src, PrivDir)
+			 end, Sources),
+    ok.
+
+do_ref_opt(Source, PrivDir) ->
+    try
+	{ok,Mod} = c:c(Source, [{outdir,PrivDir}]),
+	ok = Mod:Mod(),
+	Base = filename:rootname(filename:basename(Source), ".erl"),
+	BeamFile = filename:join(PrivDir, Base),
+	{beam_file,Mod,_,_,_,Code} = beam_disasm:file(BeamFile),
+	case Base of
+	    "no_"++_ ->
+		[] = collect_recv_opt_instrs(Code);
+	    "yes_"++_ ->
+		[{recv_mark,{f,L}},{recv_set,{f,L}}] =
+		    collect_recv_opt_instrs(Code)
+	end,
+	ok
+    catch Class:Error ->
+	    io:format("~s: ~p ~p\n~p\n",
+		      [Source,Class,Error,erlang:get_stacktrace()]),
+	    error
+    end.
+
+collect_recv_opt_instrs(Code) ->
+    L = [ [I || I <- Is,
+		begin
+		    case I of
+			{recv_mark,{f,_}} -> true;
+			{recv_set,{f,_}} -> true;
+			_ -> false
+		    end
+		end] || {function,_,_,_,Is} <- Code],
+    lists:append(L).
+
 id(I) -> I.

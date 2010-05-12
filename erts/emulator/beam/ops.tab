@@ -1421,3 +1421,12 @@ i_gc_bif1 j I s I d
 # R13B03
 #
 on_load
+
+#
+# R14A.
+#
+recv_mark f
+
+recv_set Fail | label Lbl | loop_rec Lf Reg => \
+   i_recv_set | label Lbl | loop_rec Lf Reg
+i_recv_set

@@ -8,7 +8,7 @@
 -spec format_number() -> 0.
 format_number() -> 0.
 
--spec opcode(atom(), 0..8) -> 1..149.
+-spec opcode(atom(), 0..8) -> 1..151.
 opcode(label, 1) -> 1;
 opcode(func_info, 3) -> 2;
 opcode(int_code_end, 0) -> 3;
@@ -158,9 +158,11 @@ opcode(bs_utf16_size, 3) -> 146;
 opcode(bs_put_utf16, 3) -> 147;
 opcode(bs_put_utf32, 3) -> 148;
 opcode(on_load, 0) -> 149;
+opcode(recv_mark, 1) -> 150;
+opcode(recv_set, 1) -> 151;
 opcode(Name, Arity) -> erlang:error(badarg, [Name,Arity]).
 
--spec opname(1..149) -> {atom(),0..8}.
+-spec opname(1..151) -> {atom(),0..8}.
 opname(1) -> {label,1};
 opname(2) -> {func_info,3};
 opname(3) -> {int_code_end,0};
@@ -310,4 +312,6 @@ opname(146) -> {bs_utf16_size,3};
 opname(147) -> {bs_put_utf16,3};
 opname(148) -> {bs_put_utf32,3};
 opname(149) -> {on_load,0};
+opname(150) -> {recv_mark,1};
+opname(151) -> {recv_set,1};
 opname(Number) -> erlang:error(badarg, [Number]).

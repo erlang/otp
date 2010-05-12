@@ -416,6 +416,11 @@ valfun_1({put,Src}, Vst) ->
 valfun_1({put_string,Sz,_,Dst}, Vst0) when is_integer(Sz) ->
     Vst = eat_heap(2*Sz, Vst0),
     set_type_reg(cons, Dst, Vst);
+%% Instructions for optimization of selective receives.
+valfun_1({recv_mark,{f,Fail}}, Vst) when is_integer(Fail) ->
+    Vst;
+valfun_1({recv_set,{f,Fail}}, Vst) when is_integer(Fail) ->
+    Vst;
 %% Misc.
 valfun_1({'%live',Live}, Vst) ->
     verify_live(Live, Vst),

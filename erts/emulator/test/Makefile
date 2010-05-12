@@ -81,6 +81,7 @@ MODULES= \
 	port_bif_SUITE \
 	process_SUITE \
 	pseudoknot_SUITE \
+	receive_SUITE \
 	ref_SUITE \
 	register_SUITE \
 	save_calls_SUITE \
