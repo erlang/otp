@@ -443,7 +443,7 @@ flatmap(Fun, List1) ->
       <desc>
         <p>Returns a list containing the sorted elements of the list
           <c>TupleList1</c>. Sorting is performed on the <c>N</c>th
-          element of the tuples.</p>
+          element of the tuples. The sort is stable.</p>
       </desc>
     </func>
     <func>
@@ -466,7 +466,7 @@ flatmap(Fun, List1) ->
       </desc>
     </func>
     <func>
-      <name>keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2} 
+      <name>keytake(Key, N, TupleList1) -> {value, Tuple, TupleList2}
              | false</name>
       <fsummary>Extract an element from a list of tuples</fsummary>
       <type>
@@ -840,7 +840,7 @@ length(lists:seq(From, To, Incr)) == (To-From+Incr) div Incr</code>
           <c>Pred</c>. <c>splitwith/2</c> behaves as if it is defined
           as follows:</p>
         <code type="none">
-splitwith(Pred, List) -> 
+splitwith(Pred, List) ->
     {takewhile(Pred, List), dropwhile(Pred, List)}.</code>
         <p>Examples:</p>
         <pre>
