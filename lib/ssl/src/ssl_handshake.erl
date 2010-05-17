@@ -345,11 +345,14 @@ key_exchange(client, {premaster_secret, Secret, {_, PublicKey, _}}) ->
     EncPremasterSecret =
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{exchange_keys = EncPremasterSecret};
-key_exchange(client, fixed_diffie_hellman) -> 
-    #client_key_exchange{exchange_keys = 
-			 #client_diffie_hellman_public{
-			   dh_public = <<>>
-			  }};
+
+%% Uncomment if dh_rsa and dh_dss cipher suites should
+%% be supported.
+%% key_exchange(client, fixed_diffie_hellman) -> 
+%%     #client_key_exchange{exchange_keys = 
+%% 			 #client_diffie_hellman_public{
+%% 			   dh_public = <<>>
+%% 			  }};
 key_exchange(client, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
     #client_key_exchange{
 	      exchange_keys = #client_diffie_hellman_public{
@@ -375,10 +378,7 @@ key_exchange(server, {dh, {<<?UINT32(_), PublicKey/binary>>, _},
 					   ?UINT16(YLen), PublicKey/binary>>),
     Signed = digitally_signed(Hash, PrivateKey),
     #server_key_exchange{params = ServerDHParams,
-			 signed_params = Signed};
-key_exchange(_, _) ->
-    %%TODO : Real imp
-    #server_key_exchange{}.
+			 signed_params = Signed}.
 
 %%--------------------------------------------------------------------
 %% Function: master_secret(Version, Session/PremasterSecret, 
@@ -812,13 +812,14 @@ dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 	renegotiation_info = RenegotiationInfo};
 dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>, _, _) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
-dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod:ModLen/binary,
-			      ?UINT16(ExpLen),  Exp:ExpLen/binary,
-			      ?UINT16(_),  Sig/binary>>,
-       ?KEY_EXCHANGE_RSA, _) ->
-    #server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod, 
-						     rsa_exponent = Exp}, 
-			 signed_params = Sig}; 	
+%% Uncomment if support for export ciphers is added.
+%% dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod:ModLen/binary,
+%% 			      ?UINT16(ExpLen),  Exp:ExpLen/binary,
+%% 			      ?UINT16(_),  Sig/binary>>,
+%%        ?KEY_EXCHANGE_RSA, _) ->
+%%     #server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod, 
+%% 						     rsa_exponent = Exp}, 
+%% 			 signed_params = Sig}; 	
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
@@ -952,16 +953,17 @@ enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version, _) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
-enc_hs(#server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod,
-							rsa_exponent = Exp},
-			    signed_params = SignedParams}, _Version, _) -> 
-    ModLen = byte_size(Mod),
-    ExpLen = byte_size(Exp),
-    SignedLen = byte_size(SignedParams),
-    {?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen),Mod/binary,
-			    ?UINT16(ExpLen), Exp/binary,
-			    ?UINT16(SignedLen), SignedParams/binary>>
-    };
+%% Uncomment if support for export ciphers is added.
+%% enc_hs(#server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod,
+%% 							rsa_exponent = Exp},
+%% 			    signed_params = SignedParams}, _Version, _) -> 
+%%     ModLen = byte_size(Mod),
+%%     ExpLen = byte_size(Exp),
+%%     SignedLen = byte_size(SignedParams),
+%%     {?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen),Mod/binary,
+%% 			    ?UINT16(ExpLen), Exp/binary,
+%% 			    ?UINT16(SignedLen), SignedParams/binary>>
+%%     };
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
 	signed_params = SignedParams}, _Version, _) ->

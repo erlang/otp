@@ -1339,11 +1339,12 @@ key_exchange(#state{role = server, key_algorithm = Algo} = State)
        Algo == dh_rsa ->
     State;
 
-%key_exchange(#state{role = server, key_algorithm = rsa_export} = State) ->
+%% Remove or uncomment when we decide if to support export cipher suites
+%%key_exchange(#state{role = server, key_algorithm = rsa_export} = State) ->
     %% TODO when the public key in the server certificate is
     %% less than or equal to 512 bits in length dont send key_exchange
     %% but do it otherwise
-%    State;
+%%    State;
 
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    diffie_hellman_params = Params,
@@ -1412,25 +1413,10 @@ key_exchange(#state{role = client,
         encode_handshake(Msg, Version, ConnectionStates0, Hashes0),
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
-                tls_handshake_hashes = Hashes1};
-
-key_exchange(#state{role = client, 
-		    connection_states = ConnectionStates0,
-		    key_algorithm = Algorithm,
-		    negotiated_version = Version,
-		    client_certificate_requested = ClientCertReq,
-		    own_cert = OwnCert,
-		    diffie_hellman_keys = DhKeys,
-		    socket = Socket, transport_cb = Transport,
-		    tls_handshake_hashes = Hashes0} = State) 
-  when Algorithm == dh_dss;
-       Algorithm == dh_rsa  ->
-    Msg = dh_key_exchange(OwnCert, DhKeys, ClientCertReq),
-    {BinMsg, ConnectionStates1, Hashes1} =
-        encode_handshake(Msg, Version, ConnectionStates0, Hashes0),
-    Transport:send(Socket, BinMsg),
-    State#state{connection_states = ConnectionStates1,
                 tls_handshake_hashes = Hashes1}.
+
+%% key_algorithm = dh_rsa | dh_dss are not supported. If we want to
+%% support it we need a key_exchange clause for it here.
 
 rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})  
   when Algorithm == ?rsaEncryption;
@@ -1443,16 +1429,19 @@ rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
 rsa_key_exchange(_, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
 
-dh_key_exchange(OwnCert, DhKeys, true) ->
-    case public_key:pkix_is_fixed_dh_cert(OwnCert) of
-	true ->
-	    ssl_handshake:key_exchange(client, fixed_diffie_hellman);
-	false ->
-	    {DhPubKey, _} = DhKeys,
-	    ssl_handshake:key_exchange(client, {dh, DhPubKey})
-    end;
-dh_key_exchange(_, {DhPubKey, _}, false) ->
-    ssl_handshake:key_exchange(client, {dh, DhPubKey}).
+%% Uncomment if we decide to support cipher suites with key_algorithm
+%% dh_rsa and dh_dss.  Could also be removed if we decide support for
+%% this will not be needed. Not supported by openssl!
+%% dh_key_exchange(OwnCert, DhKeys, true) ->
+%%     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
+%% 	true ->
+%% 	    ssl_handshake:key_exchange(client, fixed_diffie_hellman);
+%% 	false ->
+%% 	    {DhPubKey, _} = DhKeys,
+%% 	    ssl_handshake:key_exchange(client, {dh, DhPubKey})
+%%     end;
+%% dh_key_exchange(_, {DhPubKey, _}, false) ->
+%%     ssl_handshake:key_exchange(client, {dh, DhPubKey}).
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
 			   connection_states = ConnectionStates0,
