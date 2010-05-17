@@ -530,7 +530,7 @@
       the atom 'strider' and the tuple arity is 3 and return the whole
       object.</p>
     <code type="none"><![CDATA[
-[{{strider,'_'.'_'},
+[{{strider,'_','_'},
   [],
   ['$_']}]
     ]]></code>
