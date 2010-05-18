@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -91,10 +91,10 @@ cipher(?DES, CipherState, Mac, Fragment) ->
     block_cipher(fun(Key, IV, T) ->
 			 crypto:des_cbc_encrypt(Key, IV, T)
 		 end, block_size(des_cbc), CipherState, Mac, Fragment);
-cipher(?DES40, CipherState, Mac, Fragment) ->
-    block_cipher(fun(Key, IV, T) ->
-			 crypto:des_cbc_encrypt(Key, IV, T)
-		 end, block_size(des_cbc), CipherState, Mac, Fragment);
+%% cipher(?DES40, CipherState, Mac, Fragment) ->
+%%     block_cipher(fun(Key, IV, T) ->
+%% 			 crypto:des_cbc_encrypt(Key, IV, T)
+%% 		 end, block_size(des_cbc), CipherState, Mac, Fragment);
 cipher(?'3DES', CipherState, Mac, Fragment) ->
     block_cipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			 crypto:des3_cbc_encrypt(K1, K2, K3, IV, T)
@@ -104,15 +104,15 @@ cipher(?AES, CipherState, Mac, Fragment) ->
 			 crypto:aes_cbc_128_encrypt(Key, IV, T);
 		    (Key, IV, T) when byte_size(Key) =:= 32 ->
 			 crypto:aes_cbc_256_encrypt(Key, IV, T)
-		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment);
+		 end, block_size(aes_128_cbc), CipherState, Mac, Fragment).
 %% cipher(?IDEA, CipherState, Mac, Fragment) ->
 %%     block_cipher(fun(Key, IV, T) ->
 %% 			 crypto:idea_cbc_encrypt(Key, IV, T)
 %% 		 end, block_size(idea_cbc), CipherState, Mac, Fragment);
-cipher(?RC2, CipherState, Mac, Fragment) ->
-    block_cipher(fun(Key, IV, T) ->
-			 crypto:rc2_40_cbc_encrypt(Key, IV, T)
-		 end, block_size(rc2_cbc_40), CipherState, Mac, Fragment).
+%% cipher(?RC2, CipherState, Mac, Fragment) ->
+%%     block_cipher(fun(Key, IV, T) ->
+%% 			 crypto:rc2_40_cbc_encrypt(Key, IV, T)
+%% 		 end, block_size(rc2_cbc_40), CipherState, Mac, Fragment).
 
 block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0, 
 	     Mac, Fragment) ->
@@ -157,10 +157,10 @@ decipher(?DES, HashSz, CipherState, Fragment) ->
     block_decipher(fun(Key, IV, T) ->
 			   crypto:des_cbc_decrypt(Key, IV, T)
 		   end, CipherState, HashSz, Fragment);
-decipher(?DES40, HashSz, CipherState, Fragment) ->
-    block_decipher(fun(Key, IV, T) ->
-			   crypto:des_cbc_decrypt(Key, IV, T)
-		   end, CipherState, HashSz, Fragment);
+%% decipher(?DES40, HashSz, CipherState, Fragment) ->
+%%     block_decipher(fun(Key, IV, T) ->
+%% 			   crypto:des_cbc_decrypt(Key, IV, T)
+%% 		   end, CipherState, HashSz, Fragment);
 decipher(?'3DES', HashSz, CipherState, Fragment) ->
     block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			   crypto:des3_cbc_decrypt(K1, K2, K3, IV, T)
@@ -170,15 +170,15 @@ decipher(?AES, HashSz, CipherState, Fragment) ->
 			   crypto:aes_cbc_128_decrypt(Key, IV, T);
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
 			   crypto:aes_cbc_256_decrypt(Key, IV, T)
-		   end, CipherState, HashSz, Fragment);
+		   end, CipherState, HashSz, Fragment).
 %% decipher(?IDEA, HashSz, CipherState, Fragment) ->
 %%     block_decipher(fun(Key, IV, T) ->
 %%  			   crypto:idea_cbc_decrypt(Key, IV, T)
 %%  		   end, CipherState, HashSz, Fragment);
-decipher(?RC2, HashSz, CipherState, Fragment) ->
-    block_decipher(fun(Key, IV, T) ->
-			   crypto:rc2_40_cbc_decrypt(Key, IV, T)
-		   end, CipherState, HashSz, Fragment).
+%% decipher(?RC2, HashSz, CipherState, Fragment) ->
+%%     block_decipher(fun(Key, IV, T) ->
+%% 			   crypto:rc2_40_cbc_decrypt(Key, IV, T)
+%% 		   end, CipherState, HashSz, Fragment).
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
 	       HashSz, Fragment) ->
@@ -223,34 +223,34 @@ suites({3, N}) when N == 1; N == 2 ->
 %%
 %% Description: Returns a security parameters record where the
 %% cipher values has been updated according to <CipherSuite> 
-%% Note: since idea is unsupported on the openssl version used by
-%% crypto (as of OTP R12B), we've commented away the idea stuff
+%% Note: Currently not supported suites are commented away.
+%% They should be supported or removed in the future.
 %%-------------------------------------------------------------------
 %% TLS v1.1 suites
 suite_definition(?TLS_NULL_WITH_NULL_NULL) ->
     {null, null, null, ignore};
-suite_definition(?TLS_RSA_WITH_NULL_MD5) ->
-    {rsa, null, md5, ignore};
-suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
-    {rsa, null, sha, ignore};			
-suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	% ok
+%% suite_definition(?TLS_RSA_WITH_NULL_MD5) ->
+%%     {rsa, null, md5, ignore};
+%% suite_definition(?TLS_RSA_WITH_NULL_SHA) ->
+%%     {rsa, null, sha, ignore};	
+suite_definition(?TLS_RSA_WITH_RC4_128_MD5) ->	
     {rsa, rc4_128, md5, no_export};
-suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->	% ok
+suite_definition(?TLS_RSA_WITH_RC4_128_SHA) ->	
     {rsa, rc4_128, sha, no_export};
-%% suite_definition(?TLS_RSA_WITH_IDEA_CBC_SHA) -> % unsupported
+%% suite_definition(?TLS_RSA_WITH_IDEA_CBC_SHA) -> 
 %%     {rsa, idea_cbc, sha, no_export};
-suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->	% ok
+suite_definition(?TLS_RSA_WITH_DES_CBC_SHA) ->	
     {rsa, des_cbc, sha, no_export}; 
 suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
     {rsa, '3des_ede_cbc', sha, no_export}; 
-suite_definition(?TLS_DH_DSS_WITH_DES_CBC_SHA) ->
-    {dh_dss, des_cbc, sha, no_export};
-suite_definition(?TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    {dh_dss, '3des_ede_cbc', sha, no_export};
-suite_definition(?TLS_DH_RSA_WITH_DES_CBC_SHA) ->
-    {dh_rsa, des_cbc, sha, no_export};
-suite_definition(?TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA) ->
-    {dh_rsa, '3des_ede_cbc', sha, no_export};
+%% suite_definition(?TLS_DH_DSS_WITH_DES_CBC_SHA) ->
+%%     {dh_dss, des_cbc, sha, no_export};
+%% suite_definition(?TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA) ->
+%%     {dh_dss, '3des_ede_cbc', sha, no_export};
+%% suite_definition(?TLS_DH_RSA_WITH_DES_CBC_SHA) ->
+%%     {dh_rsa, des_cbc, sha, no_export};
+%% suite_definition(?TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA) ->
+%%     {dh_rsa, '3des_ede_cbc', sha, no_export};
 suite_definition(?TLS_DHE_DSS_WITH_DES_CBC_SHA) ->
     {dhe_dss, des_cbc, sha, no_export};
 suite_definition(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
@@ -259,103 +259,103 @@ suite_definition(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     {dhe_rsa, des_cbc, sha, no_export};
 suite_definition(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
     {dhe_rsa, '3des_ede_cbc', sha, no_export}; 
-suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
-    {dh_anon, rc4_128, md5, no_export};
-suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
-    {dh_anon, des40_cbc, sha, no_export};
-suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
-    {dh_anon, '3des_ede_cbc', sha, no_export};
+%% suite_definition(?TLS_DH_anon_WITH_RC4_128_MD5) ->
+%%     {dh_anon, rc4_128, md5, no_export};
+%% suite_definition(?TLS_DH_anon_WITH_DES_CBC_SHA) ->
+%%     {dh_anon, des40_cbc, sha, no_export};
+%% suite_definition(?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA) ->
+%%     {dh_anon, '3des_ede_cbc', sha, no_export};
 
 %%% TSL V1.1 AES suites
-suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA) -> % ok
+suite_definition(?TLS_RSA_WITH_AES_128_CBC_SHA) -> 
     {rsa, aes_128_cbc, sha, ignore};
-suite_definition(?TLS_DH_DSS_WITH_AES_128_CBC_SHA) ->
-    {dh_dss, aes_128_cbc, sha, ignore};
-suite_definition(?TLS_DH_RSA_WITH_AES_128_CBC_SHA) ->
-    {dh_rsa, aes_128_cbc, sha, ignore};
+%% suite_definition(?TLS_DH_DSS_WITH_AES_128_CBC_SHA) ->
+%%     {dh_dss, aes_128_cbc, sha, ignore};
+%% suite_definition(?TLS_DH_RSA_WITH_AES_128_CBC_SHA) ->
+%%     {dh_rsa, aes_128_cbc, sha, ignore};
 suite_definition(?TLS_DHE_DSS_WITH_AES_128_CBC_SHA) ->
     {dhe_dss, aes_128_cbc, sha, ignore};
 suite_definition(?TLS_DHE_RSA_WITH_AES_128_CBC_SHA) ->
     {dhe_rsa, aes_128_cbc, sha, ignore};
-suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
-    {dh_anon, aes_128_cbc, sha, ignore};
-suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) -> % ok
+%% suite_definition(?TLS_DH_anon_WITH_AES_128_CBC_SHA) ->
+%%     {dh_anon, aes_128_cbc, sha, ignore};
+suite_definition(?TLS_RSA_WITH_AES_256_CBC_SHA) -> 
     {rsa, aes_256_cbc, sha, ignore};
-suite_definition(?TLS_DH_DSS_WITH_AES_256_CBC_SHA) ->
-    {dh_dss, aes_256_cbc, sha, ignore};
-suite_definition(?TLS_DH_RSA_WITH_AES_256_CBC_SHA) ->
-    {dh_rsa, aes_256_cbc, sha, ignore};
+%% suite_definition(?TLS_DH_DSS_WITH_AES_256_CBC_SHA) ->
+%%     {dh_dss, aes_256_cbc, sha, ignore};
+%% suite_definition(?TLS_DH_RSA_WITH_AES_256_CBC_SHA) ->
+%%     {dh_rsa, aes_256_cbc, sha, ignore};
 suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
     {dhe_dss, aes_256_cbc, sha, ignore};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
-    {dhe_rsa, aes_256_cbc, sha, ignore};
-suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
-    {dh_anon, aes_256_cbc, sha, ignore};
+    {dhe_rsa, aes_256_cbc, sha, ignore}.
+%% suite_definition(?TLS_DH_anon_WITH_AES_256_CBC_SHA) ->
+%%     {dh_anon, aes_256_cbc, sha, ignore};
 
 %% TSL V1.1 KRB SUITES
-suite_definition(?TLS_KRB5_WITH_DES_CBC_SHA) ->
-    {krb5, des_cbc, sha, ignore};
-suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_SHA) ->
-    {krb5, '3des_ede_cbc', sha, ignore};
-suite_definition(?TLS_KRB5_WITH_RC4_128_SHA) ->
-    {krb5, rc4_128, sha, ignore};
+%% suite_definition(?TLS_KRB5_WITH_DES_CBC_SHA) ->
+%%     {krb5, des_cbc, sha, ignore};
+%% suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_SHA) ->
+%%     {krb5, '3des_ede_cbc', sha, ignore};
+%% suite_definition(?TLS_KRB5_WITH_RC4_128_SHA) ->
+%%     {krb5, rc4_128, sha, ignore};
 %% suite_definition(?TLS_KRB5_WITH_IDEA_CBC_SHA) ->
 %%     {krb5, idea_cbc, sha, ignore};
-suite_definition(?TLS_KRB5_WITH_DES_CBC_MD5) ->
-    {krb5, des_cbc, md5, ignore};
-suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_MD5) ->
-    {krb5, '3des_ede_cbc', md5, ignore};
-suite_definition(?TLS_KRB5_WITH_RC4_128_MD5) ->
-    {krb5, rc4_128, md5, ignore};
+%% suite_definition(?TLS_KRB5_WITH_DES_CBC_MD5) ->
+%%     {krb5, des_cbc, md5, ignore};
+%% suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_MD5) ->
+%%     {krb5, '3des_ede_cbc', md5, ignore};
+%% suite_definition(?TLS_KRB5_WITH_RC4_128_MD5) ->
+%%     {krb5, rc4_128, md5, ignore};
 %% suite_definition(?TLS_KRB5_WITH_IDEA_CBC_MD5) ->
 %%     {krb5, idea_cbc, md5, ignore};
 
-suite_definition(?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5) ->
-    {rsa, rc4_56, md5, export};
-suite_definition(?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5) ->
-    {rsa, rc2_cbc_56, md5, export};
-suite_definition(?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA) ->
-    {rsa, des_cbc, sha, export};
-suite_definition(?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA) ->
-    {dhe_dss, des_cbc, sha, export};
-suite_definition(?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA) ->
-    {rsa, rc4_56, sha, export};
-suite_definition(?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA) ->
-    {dhe_dss, rc4_56, sha, export};
-suite_definition(?TLS_DHE_DSS_WITH_RC4_128_SHA) ->
-    {dhe_dss, rc4_128, sha, export};
+%% suite_definition(?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5) ->
+%%     {rsa, rc4_56, md5, export};
+%% suite_definition(?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5) ->
+%%     {rsa, rc2_cbc_56, md5, export};
+%% suite_definition(?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA) ->
+%%     {rsa, des_cbc, sha, export};
+%% suite_definition(?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA) ->
+%%     {dhe_dss, des_cbc, sha, export};
+%% suite_definition(?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA) ->
+%%     {rsa, rc4_56, sha, export};
+%% suite_definition(?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA) ->
+%%     {dhe_dss, rc4_56, sha, export};
+%% suite_definition(?TLS_DHE_DSS_WITH_RC4_128_SHA) ->
+%%     {dhe_dss, rc4_128, sha, export};
 
 %% Export suites  TLS 1.0 OR SSLv3-only servers.  
-suite_definition(?TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA) ->
-    {krb5_export, des40_cbc, sha, export};
-suite_definition(?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA) ->
-    {krb5_export, rc2_cbc_40, sha, export};
-suite_definition(?TLS_KRB5_EXPORT_WITH_RC4_40_SHA) ->
-    {krb5_export, des40_cbc, sha, export};
-suite_definition(?TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5) ->
-    {krb5_export, des40_cbc, md5, export};
-suite_definition(?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5) ->
-    {krb5_export, rc2_cbc_40, md5, export};
-suite_definition(?TLS_KRB5_EXPORT_WITH_RC4_40_MD5) ->
-    {krb5_export, rc2_cbc_40, md5, export};
-suite_definition(?TLS_RSA_EXPORT_WITH_RC4_40_MD5) -> % ok
-    {rsa, rc4_40, md5, export};	
-suite_definition(?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5) -> % ok
-    {rsa, rc2_cbc_40, md5, export};
-suite_definition(?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
-    {rsa, des40_cbc, sha, export};
-suite_definition(?TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
-    {dh_dss, des40_cbc, sha, export};
-suite_definition(?TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
-    {dh_rsa, des40_cbc, sha, export};
-suite_definition(?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
-    {dhe_dss, des40_cbc, sha, export};
-suite_definition(?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
-    {dhe_rsa, des40_cbc, sha, export};
-suite_definition(?TLS_DH_anon_EXPORT_WITH_RC4_40_MD5) ->
-    {dh_anon, rc4_40, md5, export};
-suite_definition(?TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA) ->
-    {dh_anon, des40_cbc, sha, export}.
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA) ->
+%%     {krb5_export, des40_cbc, sha, export};
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA) ->
+%%     {krb5_export, rc2_cbc_40, sha, export};
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_RC4_40_SHA) ->
+%%     {krb5_export, des40_cbc, sha, export};
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5) ->
+%%     {krb5_export, des40_cbc, md5, export};
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5) ->
+%%     {krb5_export, rc2_cbc_40, md5, export};
+%% suite_definition(?TLS_KRB5_EXPORT_WITH_RC4_40_MD5) ->
+%%     {krb5_export, rc2_cbc_40, md5, export};
+%% suite_definition(?TLS_RSA_EXPORT_WITH_RC4_40_MD5) -> 
+%%     {rsa, rc4_40, md5, export};	
+%% suite_definition(?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5) -> 
+%%     {rsa, rc2_cbc_40, md5, export};
+%% suite_definition(?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {rsa, des40_cbc, sha, export};
+%% suite_definition(?TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {dh_dss, des40_cbc, sha, export};
+%% suite_definition(?TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {dh_rsa, des40_cbc, sha, export};
+%% suite_definition(?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {dhe_dss, des40_cbc, sha, export};
+%% suite_definition(?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {dhe_rsa, des40_cbc, sha, export};
+%% suite_definition(?TLS_DH_anon_EXPORT_WITH_RC4_40_MD5) ->
+%%     {dh_anon, rc4_40, md5, export};
+%% suite_definition(?TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     {dh_anon, des40_cbc, sha, export}.
 
 %% TLS v1.1 suites
 suite({rsa, null, md5, ignore}) ->
@@ -372,14 +372,14 @@ suite({rsa, des_cbc, sha, no_export}) ->
     ?TLS_RSA_WITH_DES_CBC_SHA; 
 suite({rsa, '3des_ede_cbc', sha, no_export}) ->
     ?TLS_RSA_WITH_3DES_EDE_CBC_SHA; 
-suite({dh_dss, des_cbc, sha, no_export}) ->
-    ?TLS_DH_DSS_WITH_DES_CBC_SHA;
-suite({dh_dss, '3des_ede_cbc', sha, no_export}) ->
-    ?TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA;
-suite({dh_rsa, des_cbc, sha, no_export}) ->
-    ?TLS_DH_RSA_WITH_DES_CBC_SHA;
-suite({dh_rsa, '3des_ede_cbc', sha, no_export}) ->
-    ?TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA;
+%% suite({dh_dss, des_cbc, sha, no_export}) ->
+%%     ?TLS_DH_DSS_WITH_DES_CBC_SHA;
+%% suite({dh_dss, '3des_ede_cbc', sha, no_export}) ->
+%%     ?TLS_DH_DSS_WITH_3DES_EDE_CBC_SHA;
+%% suite({dh_rsa, des_cbc, sha, no_export}) ->
+%%     ?TLS_DH_RSA_WITH_DES_CBC_SHA;
+%% suite({dh_rsa, '3des_ede_cbc', sha, no_export}) ->
+%%     ?TLS_DH_RSA_WITH_3DES_EDE_CBC_SHA;
 suite({dhe_dss, des_cbc, sha, no_export}) ->
     ?TLS_DHE_DSS_WITH_DES_CBC_SHA;
 suite({dhe_dss, '3des_ede_cbc', sha, no_export}) ->
@@ -388,108 +388,108 @@ suite({dhe_rsa, des_cbc, sha, no_export}) ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 suite({dhe_rsa, '3des_ede_cbc', sha, no_export}) ->
     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA; 
-suite({dh_anon, rc4_128, md5, no_export}) ->
-    ?TLS_DH_anon_WITH_RC4_128_MD5;
-suite({dh_anon, des40_cbc, sha, no_export}) ->
-    ?TLS_DH_anon_WITH_DES_CBC_SHA;
-suite({dh_anon, '3des_ede_cbc', sha, no_export}) ->
-    ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
+%% suite({dh_anon, rc4_128, md5, no_export}) ->
+%%     ?TLS_DH_anon_WITH_RC4_128_MD5;
+%% suite({dh_anon, des40_cbc, sha, no_export}) ->
+%%     ?TLS_DH_anon_WITH_DES_CBC_SHA;
+%% suite({dh_anon, '3des_ede_cbc', sha, no_export}) ->
+%%     ?TLS_DH_anon_WITH_3DES_EDE_CBC_SHA;
 
 %%% TSL V1.1 AES suites
 suite({rsa, aes_128_cbc, sha, ignore}) ->
     ?TLS_RSA_WITH_AES_128_CBC_SHA; 
-suite({dh_dss, aes_128_cbc, sha, ignore}) ->
-    ?TLS_DH_DSS_WITH_AES_128_CBC_SHA;
-suite({dh_rsa, aes_128_cbc, sha, ignore}) ->
-     ?TLS_DH_RSA_WITH_AES_128_CBC_SHA;
-suite({dhe_dss, aes_128_cbc, sha, ignore}) ->
-    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
+%% suite({dh_dss, aes_128_cbc, sha, ignore}) ->
+%%     ?TLS_DH_DSS_WITH_AES_128_CBC_SHA;
+%% suite({dh_rsa, aes_128_cbc, sha, ignore}) ->
+%%      ?TLS_DH_RSA_WITH_AES_128_CBC_SHA;
+%% suite({dhe_dss, aes_128_cbc, sha, ignore}) ->
+%%     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
 suite({dhe_rsa, aes_128_cbc, sha, ignore}) ->
     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
-suite({dh_anon, aes_128_cbc, sha, ignore}) ->
-    ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
+%% suite({dh_anon, aes_128_cbc, sha, ignore}) ->
+%%     ?TLS_DH_anon_WITH_AES_128_CBC_SHA;
 suite({rsa, aes_256_cbc, sha, ignore}) ->
     ?TLS_RSA_WITH_AES_256_CBC_SHA;
-suite({dh_dss, aes_256_cbc, sha, ignore}) ->
-    ?TLS_DH_DSS_WITH_AES_256_CBC_SHA;
-suite({dh_rsa, aes_256_cbc, sha, ignore}) ->
-    ?TLS_DH_RSA_WITH_AES_256_CBC_SHA;
+%% suite({dh_dss, aes_256_cbc, sha, ignore}) ->
+%%     ?TLS_DH_DSS_WITH_AES_256_CBC_SHA;
+%% suite({dh_rsa, aes_256_cbc, sha, ignore}) ->
+%%     ?TLS_DH_RSA_WITH_AES_256_CBC_SHA;
 suite({dhe_dss, aes_256_cbc, sha, ignore}) ->
     ?TLS_DHE_DSS_WITH_AES_256_CBC_SHA;
 suite({dhe_rsa, aes_256_cbc, sha, ignore}) ->
-    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
-suite({dh_anon, aes_256_cbc, sha, ignore}) ->
-    ?TLS_DH_anon_WITH_AES_256_CBC_SHA;
+    ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA.
+%% suite({dh_anon, aes_256_cbc, sha, ignore}) ->
+%%     ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
 
 %% TSL V1.1 KRB SUITES
-suite({krb5, des_cbc, sha, ignore}) ->
-    ?TLS_KRB5_WITH_DES_CBC_SHA;
-suite({krb5_cbc, '3des_ede_cbc', sha, ignore}) ->
-    ?TLS_KRB5_WITH_3DES_EDE_CBC_SHA;
-suite({krb5, rc4_128, sha, ignore}) ->
-     ?TLS_KRB5_WITH_RC4_128_SHA;
+%% suite({krb5, des_cbc, sha, ignore}) ->
+%%     ?TLS_KRB5_WITH_DES_CBC_SHA;
+%% suite({krb5_cbc, '3des_ede_cbc', sha, ignore}) ->
+%%     ?TLS_KRB5_WITH_3DES_EDE_CBC_SHA;
+%% suite({krb5, rc4_128, sha, ignore}) ->
+%%      ?TLS_KRB5_WITH_RC4_128_SHA;
 %% suite({krb5_cbc, idea_cbc, sha, ignore}) ->
 %%     ?TLS_KRB5_WITH_IDEA_CBC_SHA;
-suite({krb5_cbc, md5, ignore}) ->
-    ?TLS_KRB5_WITH_DES_CBC_MD5;
-suite({krb5_ede_cbc, des_cbc, md5, ignore}) ->
-    ?TLS_KRB5_WITH_3DES_EDE_CBC_MD5;
-suite({krb5_128, rc4_128, md5, ignore}) ->
-    ?TLS_KRB5_WITH_RC4_128_MD5;
+%% suite({krb5_cbc, md5, ignore}) ->
+%%     ?TLS_KRB5_WITH_DES_CBC_MD5;
+%% suite({krb5_ede_cbc, des_cbc, md5, ignore}) ->
+%%     ?TLS_KRB5_WITH_3DES_EDE_CBC_MD5;
+%% suite({krb5_128, rc4_128, md5, ignore}) ->
+%%     ?TLS_KRB5_WITH_RC4_128_MD5;
 %% suite({krb5, idea_cbc, md5, ignore}) ->
 %%     ?TLS_KRB5_WITH_IDEA_CBC_MD5;
 
 %% Export suites  TLS 1.0 OR SSLv3-only servers.  
-suite({rsa, rc4_40, md5, export}) ->	
-    ?TLS_RSA_EXPORT_WITH_RC4_40_MD5;
-suite({rsa, rc2_cbc_40, md5, export}) ->
-    ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
-suite({rsa, des40_cbc, sha, export}) ->
-    ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
-suite({rsa, rc4_56, md5, export}) ->
-    ?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5;
-suite({rsa, rc2_cbc_56, md5, export}) -> 
-    ?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5;
-suite({rsa, des_cbc, sha, export}) ->
-    ?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA;
-suite({dhe_dss, des_cbc, sha, export}) ->
-    ?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA;
-suite({rsa, rc4_56, sha, export}) ->
-    ?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA;
-suite({dhe_dss, rc4_56, sha, export}) ->
-    ?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA;
-suite({dhe_dss, rc4_128, sha, export}) ->
-    ?TLS_DHE_DSS_WITH_RC4_128_SHA;
-suite({krb5_export, des40_cbc, sha, export}) ->
-    ?TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA;
-suite({krb5_export, rc2_cbc_40, sha, export}) ->
-    ?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA;
-suite({krb5_export, rc4_cbc_40, sha, export}) ->
-    ?TLS_KRB5_EXPORT_WITH_RC4_40_SHA;
-suite({krb5_export, des40_cbc, md5, export}) ->
-     ?TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5;
-suite({krb5_export, rc2_cbc_40, md5, export}) ->
-    ?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5;
-suite({krb5_export, rc4_cbc_40, md5, export}) ->
-     ?TLS_KRB5_EXPORT_WITH_RC4_40_MD5;
-suite({rsa_export, rc4_cbc_40, md5, export}) ->
-    ?TLS_RSA_EXPORT_WITH_RC4_40_MD5;	
-suite({rsa_export, rc2_cbc_40, md5, export}) ->
-    ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
-suite({rsa_export, des40_cbc, sha, export}) ->
-    ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
-suite({dh_dss_export, des40_cbc, sha, export}) ->
-    ?TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA;
-suite({dh_rsa_export, des40_cbc, sha, export}) ->
-    ?TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA;
-suite({dhe_dss_export, des40_cbc, sha, export}) ->
-    ?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA;
-suite({dhe_rsa_export, des40_cbc, sha, export}) ->
-    ?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA;
-suite({dh_anon_export, rc4_40, md5, export}) ->
-    ?TLS_DH_anon_EXPORT_WITH_RC4_40_MD5;
-suite({dh_anon_export, des40_cbc, sha, export}) ->
-    ?TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA.
+%% suite({rsa, rc4_40, md5, export}) ->	
+%%     ?TLS_RSA_EXPORT_WITH_RC4_40_MD5;
+%% suite({rsa, rc2_cbc_40, md5, export}) ->
+%%     ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
+%% suite({rsa, des40_cbc, sha, export}) ->
+%%     ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({rsa, rc4_56, md5, export}) ->
+%%     ?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5;
+%% suite({rsa, rc2_cbc_56, md5, export}) -> 
+%%     ?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5;
+%% suite({rsa, des_cbc, sha, export}) ->
+%%     ?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA;
+%% suite({dhe_dss, des_cbc, sha, export}) ->
+%%     ?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA;
+%% suite({rsa, rc4_56, sha, export}) ->
+%%     ?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA;
+%% suite({dhe_dss, rc4_56, sha, export}) ->
+%%     ?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA;
+%% suite({dhe_dss, rc4_128, sha, export}) ->
+%%     ?TLS_DHE_DSS_WITH_RC4_128_SHA;
+%% suite({krb5_export, des40_cbc, sha, export}) ->
+%%     ?TLS_KRB5_EXPORT_WITH_DES_CBC_40_SHA;
+%% suite({krb5_export, rc2_cbc_40, sha, export}) ->
+%%     ?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_SHA;
+%% suite({krb5_export, rc4_cbc_40, sha, export}) ->
+%%     ?TLS_KRB5_EXPORT_WITH_RC4_40_SHA;
+%% suite({krb5_export, des40_cbc, md5, export}) ->
+%%      ?TLS_KRB5_EXPORT_WITH_DES_CBC_40_MD5;
+%% suite({krb5_export, rc2_cbc_40, md5, export}) ->
+%%     ?TLS_KRB5_EXPORT_WITH_RC2_CBC_40_MD5;
+%% suite({krb5_export, rc4_cbc_40, md5, export}) ->
+%%      ?TLS_KRB5_EXPORT_WITH_RC4_40_MD5;
+%% suite({rsa_export, rc4_cbc_40, md5, export}) ->
+%%     ?TLS_RSA_EXPORT_WITH_RC4_40_MD5;	
+%% suite({rsa_export, rc2_cbc_40, md5, export}) ->
+%%     ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
+%% suite({rsa_export, des40_cbc, sha, export}) ->
+%%     ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({dh_dss_export, des40_cbc, sha, export}) ->
+%%     ?TLS_DH_DSS_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({dh_rsa_export, des40_cbc, sha, export}) ->
+%%     ?TLS_DH_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({dhe_dss_export, des40_cbc, sha, export}) ->
+%%     ?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({dhe_rsa_export, des40_cbc, sha, export}) ->
+%%     ?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% suite({dh_anon_export, rc4_40, md5, export}) ->
+%%     ?TLS_DH_anon_EXPORT_WITH_RC4_40_MD5;
+%% suite({dh_anon_export, des40_cbc, sha, export}) ->
+%%     ?TLS_DH_anon_EXPORT_WITH_DES40_CBC_SHA.
 
 
 %% translate constants <-> openssl-strings
@@ -524,35 +524,35 @@ openssl_suite("RC4-SHA") ->
 openssl_suite("RC4-MD5") -> 
     ?TLS_RSA_WITH_RC4_128_MD5;
 %% TODO: Do we want to support this?
-openssl_suite("EXP1024-RC4-MD5") ->
-    ?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5;
-openssl_suite("EXP1024-RC2-CBC-MD5") ->
-    ?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5;
-openssl_suite("EXP1024-DES-CBC-SHA") ->
-    ?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA;
-openssl_suite("EXP1024-DHE-DSS-DES-CBC-SHA") ->
-    ?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA;
-openssl_suite("EXP1024-RC4-SHA") ->
-    ?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA;
-openssl_suite("EXP1024-DHE-DSS-RC4-SHA") ->
-    ?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA;
-openssl_suite("DHE-DSS-RC4-SHA") ->
-    ?TLS_DHE_DSS_WITH_RC4_128_SHA;
+%% openssl_suite("EXP1024-RC4-MD5") ->
+%%     ?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5;
+%% openssl_suite("EXP1024-RC2-CBC-MD5") ->
+%%     ?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5;
+%% openssl_suite("EXP1024-DES-CBC-SHA") ->
+%%     ?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA;
+%% openssl_suite("EXP1024-DHE-DSS-DES-CBC-SHA") ->
+%%     ?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA;
+%% openssl_suite("EXP1024-RC4-SHA") ->
+%%     ?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA;
+%% openssl_suite("EXP1024-DHE-DSS-RC4-SHA") ->
+%%     ?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA;
+%% openssl_suite("DHE-DSS-RC4-SHA") ->
+%%     ?TLS_DHE_DSS_WITH_RC4_128_SHA;
 
 openssl_suite("EDH-RSA-DES-CBC-SHA") ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 openssl_suite("DES-CBC-SHA") ->
-    ?TLS_RSA_WITH_DES_CBC_SHA;
-openssl_suite("EXP-EDH-RSA-DES-CBC-SHA") ->
-    ?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA;
-openssl_suite("EXP-EDH-DSS-DES-CBC-SHA") ->
-    ?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA;
-openssl_suite("EXP-DES-CBC-SHA") ->
-    ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
-openssl_suite("EXP-RC2-CBC-MD5") ->
-    ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
-openssl_suite("EXP-RC4-MD5") -> 
-    ?TLS_RSA_EXPORT_WITH_RC4_40_MD5.
+    ?TLS_RSA_WITH_DES_CBC_SHA.
+%% openssl_suite("EXP-EDH-RSA-DES-CBC-SHA") ->
+%%     ?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% openssl_suite("EXP-EDH-DSS-DES-CBC-SHA") ->
+%%     ?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA;
+%% openssl_suite("EXP-DES-CBC-SHA") ->
+%%     ?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA;
+%% openssl_suite("EXP-RC2-CBC-MD5") ->
+%%     ?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5;
+%% openssl_suite("EXP-RC4-MD5") -> 
+%%     ?TLS_RSA_EXPORT_WITH_RC4_40_MD5.
 
 openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     "DHE-RSA-AES256-SHA";
@@ -582,31 +582,31 @@ openssl_suite_name(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     "EDH-RSA-DES-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
     "DES-CBC-SHA";
-openssl_suite_name(?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
-    "EXP-EDH-RSA-DES-CBC-SHA";
-openssl_suite_name(?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
-    "EXP-EDH-DSS-DES-CBC-SHA";
-openssl_suite_name(?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
-    "EXP-DES-CBC-SHA";
-openssl_suite_name(?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5) ->
-    "EXP-RC2-CBC-MD5";
-openssl_suite_name(?TLS_RSA_EXPORT_WITH_RC4_40_MD5) -> 
-    "EXP-RC4-MD5";
+%% openssl_suite_name(?TLS_DHE_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     "EXP-EDH-RSA-DES-CBC-SHA";
+%% openssl_suite_name(?TLS_DHE_DSS_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     "EXP-EDH-DSS-DES-CBC-SHA";
+%% openssl_suite_name(?TLS_RSA_EXPORT_WITH_DES40_CBC_SHA) ->
+%%     "EXP-DES-CBC-SHA";
+%% openssl_suite_name(?TLS_RSA_EXPORT_WITH_RC2_CBC_40_MD5) ->
+%%     "EXP-RC2-CBC-MD5";
+%% openssl_suite_name(?TLS_RSA_EXPORT_WITH_RC4_40_MD5) -> 
+%%     "EXP-RC4-MD5";
 
-openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5) ->
-    "EXP1024-RC4-MD5";
-openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5) ->
-    "EXP1024-RC2-CBC-MD5";
-openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA) ->
-    "EXP1024-DES-CBC-SHA";
-openssl_suite_name(?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA) ->
-    "EXP1024-DHE-DSS-DES-CBC-SHA";
-openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA) ->
-    "EXP1024-RC4-SHA";
-openssl_suite_name(?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA) ->
-    "EXP1024-DHE-DSS-RC4-SHA";
-openssl_suite_name(?TLS_DHE_DSS_WITH_RC4_128_SHA) ->
-    "DHE-DSS-RC4-SHA";
+%% openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC4_56_MD5) ->
+%%     "EXP1024-RC4-MD5";
+%% openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC2_CBC_56_MD5) ->
+%%     "EXP1024-RC2-CBC-MD5";
+%% openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_DES_CBC_SHA) ->
+%%     "EXP1024-DES-CBC-SHA";
+%% openssl_suite_name(?TLS_DHE_DSS_EXPORT1024_WITH_DES_CBC_SHA) ->
+%%     "EXP1024-DHE-DSS-DES-CBC-SHA";
+%% openssl_suite_name(?TLS_RSA_EXPORT1024_WITH_RC4_56_SHA) ->
+%%     "EXP1024-RC4-SHA";
+%% openssl_suite_name(?TLS_DHE_DSS_EXPORT1024_WITH_RC4_56_SHA) ->
+%%     "EXP1024-DHE-DSS-RC4-SHA";
+%% openssl_suite_name(?TLS_DHE_DSS_WITH_RC4_128_SHA) ->
+%%     "DHE-DSS-RC4-SHA";
 
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
@@ -621,15 +621,15 @@ bulk_cipher_algorithm(null) ->
 %% Not supported yet
 %% bulk_cipher_algorithm(idea_cbc) ->
 %%     ?IDEA;
-bulk_cipher_algorithm(Cipher) when Cipher == rc2_cbc_40;
-				   Cipher == rc2_cbc_56 ->
-    ?RC2;
+%% bulk_cipher_algorithm(Cipher) when Cipher == rc2_cbc_40;
+%% 				   Cipher == rc2_cbc_56 ->
+%%     ?RC2;
 bulk_cipher_algorithm(Cipher) when Cipher == rc4_40;
 				   Cipher == rc4_56;
 				   Cipher == rc4_128 ->
     ?RC4;
-bulk_cipher_algorithm(des40_cbc) ->
-    ?DES40;
+%% bulk_cipher_algorithm(des40_cbc) ->
+%%     ?DES40;
 bulk_cipher_algorithm(des_cbc) ->
     ?DES;
 bulk_cipher_algorithm('3des_ede_cbc') ->
