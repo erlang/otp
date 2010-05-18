@@ -588,3 +588,8 @@ indent_comprehensions() ->
 			    true = (X rem 2)
 	      >>,
     ok.
+
+%% This causes an error in earlier erlang-mode versions.
+foo() ->
+    [#foo{
+	foo = foo}].

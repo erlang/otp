@@ -588,3 +588,8 @@ Binary2 = << <<X:8>> || <<X:32,_:32>> <= <<0:512>>,
   true = (X rem 2)
       >>,
 ok.
+
+%% This causes an error in earlier erlang-mode versions.
+foo() ->
+[#foo{
+foo = foo}].
