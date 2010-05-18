@@ -2269,48 +2269,54 @@ extended_key_usage(suite) ->
     [];
 
 extended_key_usage(Config) when is_list(Config) -> 
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
     PrivDir = ?config(priv_dir, Config),
    
-    CertFile = proplists:get_value(certfile, ServerOpts),
-    KeyFile = proplists:get_value(keyfile, ServerOpts),
-    NewCertFile = filename:join(PrivDir, "cert.pem"),
-     
-    {ok, [{cert, DerCert, _}]} = public_key:pem_to_der(CertFile),
-    
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
     {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
-    
     {ok, Key} = public_key:decode_private_key(KeyInfo),
 
-    {ok, OTPCert} = public_key:pkix_decode_cert(DerCert, otp),
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join(PrivDir, "server/new_cert.pem"),
+    {ok, [{cert, ServerDerCert, _}]} = public_key:pem_to_der(ServerCertFile),
+    {ok, ServerOTPCert} = public_key:pkix_decode_cert(ServerDerCert, otp),
+    ServerExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-serverAuth']},
+    ServerOTPTbsCert = ServerOTPCert#'OTPCertificate'.tbsCertificate,
+    ServerExtensions =  ServerOTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewServerOTPTbsCert = ServerOTPTbsCert#'OTPTBSCertificate'{extensions = 
+							       [ServerExtKeyUsageExt | 
+								ServerExtensions]},
+    NewServerDerCert = public_key:sign(NewServerOTPTbsCert, Key), 
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
     
-    ExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-serverAuth']},
-
-    OTPTbsCert = OTPCert#'OTPCertificate'.tbsCertificate,
-    
-    Extensions =  OTPTbsCert#'OTPTBSCertificate'.extensions,
-
-    NewOTPTbsCert = OTPTbsCert#'OTPTBSCertificate'{extensions = [ExtKeyUsageExt |Extensions]},
-
-    NewDerCert = public_key:sign(NewOTPTbsCert, Key), 
-    
-    public_key:der_to_pem(NewCertFile, [{cert, NewDerCert}]),
-    
-    NewServerOpts = [{certfile, NewCertFile} | proplists:delete(certfile, ServerOpts)],
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    NewClientCertFile = filename:join(PrivDir, "client/new_cert.pem"),
+    {ok, [{cert, ClientDerCert, _}]} = public_key:pem_to_der(ClientCertFile),
+    {ok, ClientOTPCert} = public_key:pkix_decode_cert(ClientDerCert, otp),
+    ClientExtKeyUsageExt = {'Extension', ?'id-ce-extKeyUsage', true, [?'id-kp-clientAuth']},
+    ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
+    ClientExtensions =  ClientOTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewClientOTPTbsCert = ClientOTPTbsCert#'OTPTBSCertificate'{extensions = 
+ 							       [ClientExtKeyUsageExt |
+ 								ClientExtensions]},
+    NewClientDerCert = public_key:sign(NewClientOTPTbsCert, Key), 
+    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert}]),
+    NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
     
     Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
 					{from, self()}, 
 			   {mfa, {?MODULE, send_recv_result_active, []}},
-			   {options, NewServerOpts}]),
+			   {options, [{verify, verify_peer} | NewServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
 					{host, Hostname},
 			   {from, self()}, 
 			   {mfa, {?MODULE, send_recv_result_active, []}},
-			   {options, ClientOpts}]),
+					{options, NewClientOpts}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
