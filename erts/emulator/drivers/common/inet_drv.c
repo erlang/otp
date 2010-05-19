@@ -294,7 +294,7 @@ static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
 #define DEBUGF(X) printf X
 #endif
 
-#if !defined(__WIN32__) && !defined(HAVE_STRNCASECMP)
+#if !defined(HAVE_STRNCASECMP)
 #define STRNCASECMP my_strncasecmp
 
 static int my_strncasecmp(const char *s1, const char *s2, size_t n)
