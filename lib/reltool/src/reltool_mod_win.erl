@@ -334,9 +334,9 @@ find_regular_bin(App, Mod) ->
     ActiveDir = App#app.active_dir,
     SrcDir = filename:join([ActiveDir, "src"]),
     ModStr = atom_to_list(Mod#mod.name),
-    Base = ModStr ++ ".erl",
-    Find = fun(F, _Acc) -> file:read_file(F) end,
-    case filelib:fold_files(SrcDir, Base, true, Find, {error, enoent}) of
+    Base = "^" ++ ModStr ++ "\\.erl$",
+    Find = fun(F, _Acc) -> throw(file:read_file(F)) end,
+    case catch filelib:fold_files(SrcDir, Base, true, Find, {error, enoent}) of
 	{ok, Bin} ->
 	    Bin;
 	{error, enoent} ->
