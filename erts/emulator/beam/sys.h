@@ -1173,14 +1173,14 @@ EXTERN_FUNCTION(void*, sys_calloc2, (Uint, Uint));
 
 /* Standard set of integer macros  .. */
 
-#define get_int64(s) ((((unsigned char*) (s))[0] << 56) | \
-                      (((unsigned char*) (s))[1] << 48) | \
-                      (((unsigned char*) (s))[2] << 40) | \
-                      (((unsigned char*) (s))[3] << 32) | \
-                      (((unsigned char*) (s))[4] << 24) | \
-                      (((unsigned char*) (s))[5] << 16) | \
-                      (((unsigned char*) (s))[6] << 8)  | \
-                      (((unsigned char*) (s))[7]))
+#define get_int64(s) (((Uint64)(((unsigned char*) (s))[0]) << 56) | \
+                      (((Uint64)((unsigned char*) (s))[1]) << 48) | \
+                      (((Uint64)((unsigned char*) (s))[2]) << 40) | \
+                      (((Uint64)((unsigned char*) (s))[3]) << 32) | \
+                      (((Uint64)((unsigned char*) (s))[4]) << 24) | \
+                      (((Uint64)((unsigned char*) (s))[5]) << 16) | \
+                      (((Uint64)((unsigned char*) (s))[6]) << 8)  | \
+                      (((Uint64)((unsigned char*) (s))[7])))
 
 #define put_int64(i, s) do {((char*)(s))[0] = (char)((Sint64)(i) >> 56) & 0xff;\
                             ((char*)(s))[1] = (char)((Sint64)(i) >> 48) & 0xff;\
