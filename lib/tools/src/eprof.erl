@@ -50,6 +50,7 @@
 	profiling = false,
 	pattern   = {'_','_','_'},
 	rootset   = [],
+	start_ts  = undefined,
 	reply     = undefined,
 	bpd       = #bpd{}
     }).
@@ -137,7 +138,7 @@ print_bp_mfa(Mfas, {_Tn, Tus}, Opts) ->
 	    ({_, {Count, Time}}) when Count =:= 0; Time < 1 ->
 		ok;
 	    ({Mfa, {Count, Time}}) ->
-		print([s(Mfa), s(Time), s(Count), s("~.2f", [100*(Time/Tus)]), s("~.2f", [Time/Count])]),
+		print([s(Mfa), s(Count), s("~.2f", [100*(Time/Tus)]), s(Time), s("~.2f", [Time/Count])]),
 		ok
 	end, filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(thresholds, Opts))),
     ok.
@@ -175,10 +176,12 @@ handle_call({profile, Rootset, Pattern, M,F,A}, From, S) ->
     case set_process_trace(true, [Pid|Rootset]) of
 	true ->
 	    set_pattern_trace(true, Pattern),
+	    T0 = now(),
 	    execute_profiling(Pid),
 	    {noreply, #state{
 		    profiling = true,
 		    rootset   = [Pid|Rootset],
+		    start_ts  = T0,
 		    reply     = From,
 		    pattern   = Pattern
 		}};
@@ -227,11 +230,7 @@ handle_call(stop_profiling, _From, #state{ profiling = true } = S) ->
     }};
 
 handle_call(stop, _FromTag, S) ->
-    {stop, normal, stopped, S};
-
-handle_call(Command, _From, State)->
-    io:format("handle_call: ~p~nstate: ~p~n", [Command,State]),
-    {reply, Command, State}.
+    {stop, normal, stopped, S}.
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -316,9 +315,9 @@ code_change(_OldVsn, State, _Extra) ->
 %% -------------------------------------------------------------------- %%
 
 setup_profiling(M,F,A) ->
-    spawn_link(fun() -> sprint_profile(M,F,A) end).
+    spawn_link(fun() -> spin_profile(M,F,A) end).
 
-sprint_profile(M, F, A) ->
+spin_profile(M, F, A) ->
     receive
 	{Pid, execute} ->
 	    Pid ! {self(), {answer, erlang:apply(M,F,A)}}
