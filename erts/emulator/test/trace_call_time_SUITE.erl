@@ -31,48 +31,38 @@
 -module(trace_call_time_SUITE).
 
 %% Exported end user tests
--export([basic_test/0, on_and_off_test/0, info_test/0,
-	 pause_and_restart_test/0, called_function_test/0, scheduling_test/0, combo_test/0]).
 
 -export([seq/3, seq_r/3]).
--export([loaded/1, a_function/1, a_called_function/1, dec/1]).
+-export([loaded/1, a_function/1, a_called_function/1, dec/1, nif_dec/1]).
 
 -define(US_ERROR, 10000).
 -define(R_ERROR, 0.8).
 -define(SINGLE_CALL_US_TIME, 10).
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Test server related stuff
-%%
+%% Result examination macros
 
-
--ifdef(STANDALONE).
--define(config(A,B),config(A,B)).
--export([config/2]).
--else.
--include("test_server.hrl").
--endif.
+-define(CT(P,MFA),{trace,P,call,MFA}).
+-define(CTT(P, MFA),{trace_ts,P,call,MFA,{_,_,_}}).
+-define(RF(P,MFA,V),{trace,P,return_from,MFA,V}).
+-define(RFT(P,MFA,V),{trace_ts,P,return_from,MFA,V,{_,_,_}}).
+-define(RT(P,MFA),{trace,P,return_to,MFA}).
+-define(RTT(P,MFA),{trace_ts,P,return_to,MFA,{_,_,_}}).
 
 -ifdef(debug).
--ifdef(STANDALONE).
--define(line, erlang:display({?MODULE,?LINE}), ).
--endif.
 -define(dbgformat(A,B),io:format(A,B)).
 -else.
--ifdef(STANDALONE).
--define(line, noop, ).
--endif.
 -define(dbgformat(A,B),noop).
 -endif.
 
--ifdef(STANDALONE).
-config(priv_dir,_) ->
-    ".".
--else.
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+-include("test_server.hrl").
+
 %% When run in test server.
 -export([all/1, init_per_testcase/2, fin_per_testcase/2, not_run/1]).
 -export([basic/1, on_and_off/1, info/1,
-	 pause_and_restart/1, scheduling/1, called_function/1, combo/1]).
+	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(test_server:seconds(30)),
@@ -95,7 +85,7 @@ all(suite) ->
     case test_server:is_native(?MODULE) of
 	true -> [not_run];
 	false -> [basic, on_and_off, info,
-		  pause_and_restart, scheduling, combo, called_function]
+		  pause_and_restart, scheduling, combo, bif, nif, called_function]
     end.
 
 not_run(Config) when is_list(Config) ->
@@ -106,84 +96,22 @@ basic(suite) ->
 basic(doc) ->
     ["Tests basic call count trace"];
 basic(Config) when is_list(Config) ->
-    basic_test().
-
-on_and_off(suite) ->
-    [];
-on_and_off(doc) ->
-    ["Tests turning trace parameters on and off"];
-on_and_off(Config) when is_list(Config) ->
-    on_and_off_test().
-
-info(suite) ->
-    [];
-info(doc) ->
-    ["Tests the trace_info BIF"];
-info(Config) when is_list(Config) ->
-    info_test().
-
-pause_and_restart(suite) ->
-    [];
-pause_and_restart(doc) ->
-    ["Tests pausing and restarting call time counters"];
-pause_and_restart(Config) when is_list(Config) ->
-    pause_and_restart_test().
-
-scheduling(suite) ->
-    [];
-scheduling(doc) ->
-    ["Tests in/out scheduling of call time counters"];
-scheduling(Config) when is_list(Config) ->
-    scheduling_test().
-
-
-combo(suite) ->
-    [];
-combo(doc) ->
-    ["Tests combining local call trace and meta trace with call time trace"];
-combo(Config) when is_list(Config) ->
-    combo_test().
-
-called_function(suite) ->
-    [];
-called_function(doc) ->
-    ["Tests combining nested function calls and that the time accumulates to the right function"];
-called_function(Config) when is_list(Config) ->
-    called_function_test().
-
-
--endif. %-ifdef(STANDALONE). ... -else.
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% Result examination macros
-
--define(CT(P,MFA),{trace,P,call,MFA}).
--define(CTT(P, MFA),{trace_ts,P,call,MFA,{_,_,_}}).
--define(RF(P,MFA,V),{trace,P,return_from,MFA,V}).
--define(RFT(P,MFA,V),{trace_ts,P,return_from,MFA,V,{_,_,_}}).
--define(RT(P,MFA),{trace,P,return_to,MFA}).
--define(RTT(P,MFA),{trace_ts,P,return_to,MFA,{_,_,_}}).
-
-%%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%%% The Tests
-%%%
-
-basic_test() ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    ?line M = 1000000,
+    ?line M = 1000,
     %%
     ?line 1 = erlang:trace_pattern({?MODULE,seq,  '_'}, true, [call_time]),
     ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
     ?line Pid = setup(),
-    ?line {L,  T1} = execute(Pid, fun() -> seq(1, M+M, fun(X) -> (X+1) end) end),
-    ?line ok = check_trace_info({?MODULE, seq,   3}, [{Pid, M+M, 0, 0}], T1),
+    ?line {L,  T1} = execute(Pid, fun() -> seq(1, M, fun(X) -> (X+1) end) end),
+    ?line ok = check_trace_info({?MODULE, seq,   3}, [{Pid, M, 0, 0}], T1),
     ?line ok = check_trace_info({?MODULE, seq_r, 3}, [], none),
 
     ?line {Lr, T2} = execute(Pid, fun() -> seq_r(1, M, fun(X) -> (X+1) end) end),
-    ?line ok = check_trace_info({?MODULE, seq,   3}, [{Pid, M+M, 0, 0}], T1),
-    ?line ok = check_trace_info({?MODULE, seq_r, 3}, [{Pid, 1, 0, 0}], T2),
+    ?line ok = check_trace_info({?MODULE, seq,   3}, [{Pid, M, 0, 0}], T1),
+    ?line ok = check_trace_info({?MODULE, seq_r, 3}, [{Pid, 1, 0, 0}], T2/M),
     ?line ok = check_trace_info({?MODULE, seq_r, 4}, [{Pid, M, 0, 0}], T2),
     ?line L = lists:reverse(Lr),
+
     %%
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line Pid ! quit,
@@ -191,7 +119,12 @@ basic_test() ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-on_and_off_test() ->
+
+on_and_off(suite) ->
+    [];
+on_and_off(doc) ->
+    ["Tests turning trace parameters on and off"];
+on_and_off(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 100,
     %%
@@ -227,94 +160,12 @@ on_and_off_test() ->
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-called_function_test() ->
-    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    ?line M = 2100,
-    ?line Pid = setup(),
-    %%
-    ?line 1 = erlang:trace_pattern({?MODULE,a_function,'_'}, true, [call_time]),
-    ?line {L, T1} = execute(Pid, {?MODULE, a_function, [M]}),
-    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M, 0, 0}], T1),
 
-    ?line 1 = erlang:trace_pattern({?MODULE,a_called_function,'_'}, true, [call_time]),
-    ?line {L, T2} = execute(Pid, {?MODULE, a_function, [M]}),
-    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M, 0, 0}], T1 + M*?SINGLE_CALL_US_TIME),
-    ?line ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M, 0, 0}], T2),
-
-
-    ?line 1 = erlang:trace_pattern({?MODULE,dec,'_'}, true, [call_time]),
-    ?line {L, T3} = execute(Pid, {?MODULE, a_function, [M]}),
-    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M+M, 0, 0}], T1 + (M+M)*?SINGLE_CALL_US_TIME),
-    ?line ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M+M, 0, 0}], T2 + M*?SINGLE_CALL_US_TIME ),
-    ?line ok = check_trace_info({?MODULE, dec, 1}, [{Pid, M, 0, 0}], T3),
-
-    ?line Pid ! quit,
-    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    ok.
-
-test_functions([Mfa|_] = Mfas, Ncalls, NP) ->
-    %% setup load processes
-    ?line lists:foreach(fun
-	    ({M,F,Args}) ->
-	    ?line erlang:trace_pattern({M,F,length(Args)}, true, [call_time])
-    end, Mfas),
-
-    ?line Pids = [setup() || _ <- lists:seq(1, NP)],
-    ?line T0   = now(),
-    ?line Res  = [execute(Pid, Mfa) || Pid <- Pids],
-    ?line T1   = now(),
-    ?line Time = timer:now_diff(T1,T0),
-    ?line [Pid ! quit || Pid <- Pids],
-
-    %% logic dictates that each process will get ~ 1/F of the schedulers time
-
-    ?line lists:foreach(fun
-	({M,F,Args}) ->
-	    io:format("~w:~w/~w~n", [M,F,length(Args)]),
-	    ?line {call_time,CT} = erlang:trace_info({M,F,length(Args)}, call_time),
-	    lists:foreach(fun
-		(Pid) ->
-		    ?line {value,{Pid, Ncalls, S, Us}} = lists:keysearch(Pid, 1, CT),
-		    io:format("- ~p ~p -> ~w (~w)~n", [Pid, Ncalls, S * 1000000 + Us, Time]),
-		    ok
-		end, Pids)
-	end, Mfas),
-
-    ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-
-    ok.
-
- scheduling_test() ->
-    ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    ?line M  = 1000000,
-    ?line Np = erlang:system_info(schedulers_online),
-    ?line F  = 12,
-
-    %% setup load processes
-    %% (single, no internal calls)
-    %test_functions([{?MODULE,Fu,[M]} || Fu <- [a_function, a_called_function, dec]], M, Np*F),
-
-    ?line erlang:trace_pattern({?MODULE,loaded,1}, true, [call_time]),
-
-    ?line Pids = [setup() || _ <- lists:seq(1, F*Np)],
-    ?line T0   = now(),
-    ?line Res  = execute(Pids, {?MODULE,loaded,[M]}),
-    ?line T1   = now(),
-    ?line Time = timer:now_diff(T1,T0),
-    ?line [Pid ! quit || Pid <- Pids],
-
-    %% logic dictates that each process will get ~ 1/F of the schedulers time
-
-    ?line {call_time,CT} = erlang:trace_info({?MODULE,loaded,1}, call_time),
-
-    ?line lists:foreach(fun (Pid) ->
-	    ?line ok = check_process_time(lists:keysearch(Pid, 1, CT), M, F, Time)
-	end, Pids),
-    ok.
-
-%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-info_test() ->
+info(suite) ->
+    [];
+info(doc) ->
+    ["Tests the trace_info BIF"];
+info(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     %%
     ?line 1 = erlang:trace_pattern({?MODULE,seq,3}, true, [call_time]),
@@ -334,7 +185,11 @@ info_test() ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-pause_and_restart_test() ->
+pause_and_restart(suite) ->
+    [];
+pause_and_restart(doc) ->
+    ["Tests pausing and restarting call time counters"];
+pause_and_restart(Config) when is_list(Config) ->
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ?line M = 100,
     ?line Pid = setup(),
@@ -358,9 +213,45 @@ pause_and_restart_test() ->
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-combo_test() ->
-    ?line Self = self(),
+scheduling(suite) ->
+    [];
+scheduling(doc) ->
+    ["Tests in/out scheduling of call time counters"];
+scheduling(Config) when is_list(Config) ->
+    ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line M  = 1000000,
+    ?line Np = erlang:system_info(schedulers_online),
+    ?line F  = 12,
 
+    %% setup load processes
+    %% (single, no internal calls)
+
+    ?line erlang:trace_pattern({?MODULE,loaded,1}, true, [call_time]),
+
+    ?line Pids = [setup() || _ <- lists:seq(1, F*Np)],
+    ?line T0   = now(),
+    ?line Res  = execute(Pids, {?MODULE,loaded,[M]}),
+    ?line T1   = now(),
+    ?line Time = timer:now_diff(T1,T0),
+    ?line [Pid ! quit || Pid <- Pids],
+
+    %% logic dictates that each process will get ~ 1/F of the schedulers time
+
+    ?line {call_time,CT} = erlang:trace_info({?MODULE,loaded,1}, call_time),
+
+    ?line lists:foreach(fun (Pid) ->
+	    ?line ok = check_process_time(lists:keysearch(Pid, 1, CT), M, F, Time)
+	end, Pids),
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+combo(suite) ->
+    [];
+combo(doc) ->
+    ["Tests combining local call trace and meta trace with call time trace"];
+combo(Config) when is_list(Config) ->
+    ?line Self = self(),
     ?line MetaMatchSpec = [{'_',[],[{return_trace}]}],
     ?line Flags = lists:sort([call, return_to]),
     ?line LocalTracer = spawn_link(fun () -> relay_n(5, Self) end),
@@ -424,7 +315,7 @@ combo_test() ->
 	   ?CT(Self,{?MODULE,seq_r,[1,3,_,[]]}),
 	   ?CT(Self,{?MODULE,seq_r,[2,3,_,[1]]}),
 	   ?CT(Self,{?MODULE,seq_r,[3,3,_,[2,1]]}),
-	   ?RT(Self,{?MODULE,combo_test,0})] = Local,
+	   ?RT(Self,{?MODULE,combo,1})] = Local,
 
     ?line ok = check_trace_info({?MODULE, seq_r, 3}, [{Self,1,0,0}], 1),
     ?line ok = check_trace_info({?MODULE, seq_r, 4}, [{Self,3,0,0}], 1),
@@ -434,9 +325,99 @@ combo_test() ->
     ?line erlang:trace(all, false, [all]),
     ok.
 
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+bif(suite) ->
+    [];
+bif(doc) ->
+    ["Tests tracing of bifs"];
+bif(Config) when is_list(Config) ->
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line M = 1000000,
+    %%
+    ?line 2 = erlang:trace_pattern({erlang, binary_to_term, '_'}, true, [call_time]),
+    ?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
+    ?line Pid = setup(),
+    ?line {L, T1} = execute(Pid, fun() -> with_bif(M) end),
+
+    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M, 0, 0}], T1/2),
+    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M, 0, 0}], T1/2),
+
+    %%
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line Pid ! quit,
+    ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+nif(suite) ->
+    [];
+nif(doc) ->
+    ["Tests tracing of nifs"];
+nif(Config) when is_list(Config) ->
+    load_nif(Config),
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line M = 1000000,
+    %%
+    ?line 1 = erlang:trace_pattern({?MODULE, nif_dec,  '_'}, true, [call_time]),
+    ?line 1 = erlang:trace_pattern({?MODULE, with_nif, '_'}, true, [call_time]),
+    ?line Pid = setup(),
+    ?line {L, T1} = execute(Pid, fun() -> with_nif(M) end),
+
+    % the nif is called M - 1 times, the last time the function with 'with_nif'
+    % returns ok and does not call the nif.
+    ?line ok = check_trace_info({?MODULE, nif_dec, 1},  [{Pid, M-1, 0, 0}], T1/2),
+    ?line ok = check_trace_info({?MODULE, with_nif, 1}, [{Pid, M, 0, 0}], T1/2),
+
+    %%
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line Pid ! quit,
+    ok.
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+called_function(suite) ->
+    [];
+called_function(doc) ->
+    ["Tests combining nested function calls and that the time accumulates to the right function"];
+called_function(Config) when is_list(Config) ->
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ?line M = 2100,
+    ?line Pid = setup(),
+    %%
+    ?line 1 = erlang:trace_pattern({?MODULE,a_function,'_'}, true, [call_time]),
+    ?line {L, T1} = execute(Pid, {?MODULE, a_function, [M]}),
+    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M, 0, 0}], T1),
+
+    ?line 1 = erlang:trace_pattern({?MODULE,a_called_function,'_'}, true, [call_time]),
+    ?line {L, T2} = execute(Pid, {?MODULE, a_function, [M]}),
+    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M, 0, 0}], T1 + M*?SINGLE_CALL_US_TIME),
+    ?line ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M, 0, 0}], T2),
+
+
+    ?line 1 = erlang:trace_pattern({?MODULE,dec,'_'}, true, [call_time]),
+    ?line {L, T3} = execute(Pid, {?MODULE, a_function, [M]}),
+    ?line ok = check_trace_info({?MODULE, a_function, 1}, [{Pid, M+M+M, 0, 0}], T1 + (M+M)*?SINGLE_CALL_US_TIME),
+    ?line ok = check_trace_info({?MODULE, a_called_function, 1}, [{Pid, M+M, 0, 0}], T2 + M*?SINGLE_CALL_US_TIME ),
+    ?line ok = check_trace_info({?MODULE, dec, 1}, [{Pid, M, 0, 0}], T3),
+
+    ?line Pid ! quit,
+    ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
+    ok.
+
+%%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%% The Tests
+%%%
+
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Local helpers
+
+
+load_nif(Config) ->
+    ?line Path = ?config(data_dir, Config),
+    ?line ok = erlang:load_nif(filename:join(Path,"trace_nif"), 0).
+
 
 %% Stack recursive seq
 seq(Stop, Stop, Succ) when is_function(Succ) ->
@@ -449,6 +430,18 @@ a_function(1) -> a_called_function(1);
 a_function(N) when N > 1 -> a_function(a_called_function(N)).
 
 a_called_function(N) -> dec(N).
+
+with_bif(1) -> ok;
+with_bif(N) ->
+    with_bif(erlang:binary_to_term(erlang:term_to_binary(N - 1))).
+
+with_nif(0) -> error;
+with_nif(1) -> ok;
+with_nif(N) ->
+    with_nif(?MODULE:nif_dec(N)).
+
+
+nif_dec(N) -> 0.
 
 dec(N) ->
     loaded(10000),
