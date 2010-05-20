@@ -1101,7 +1101,7 @@ certificate_authorities_from_db(CertDbRef) ->
     certificate_authorities_from_db(CertDbRef, no_candidate, []).
 
 certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
-    case ssl_certificate_db:issuer_candidate(PrevKey) of
+    case ssl_manager:issuer_candidate(PrevKey) of
 	no_more_candidates ->
 	    lists:reverse(Acc);
 	{{CertDbRef, _, _} = Key, Cert} ->
@@ -1133,12 +1133,13 @@ setup_keys({3,0}, Exportable, MasterSecret,
 setup_keys({3,1}, _Exportable, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     ssl_tls1:setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, 
-			KML, IVS);
+			KML, IVS).
 
-setup_keys({3,2}, _Exportable, MasterSecret,
-	   ServerRandom, ClientRandom, HashSize, KML, _EKML, _IVS) ->
-    ssl_tls1:setup_keys(MasterSecret, ServerRandom, 
-			ClientRandom, HashSize, KML).
+%% Uncomment when supported
+%% setup_keys({3,2}, _Exportable, MasterSecret,
+%% 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, _IVS) ->
+%%     ssl_tls1:setup_keys(MasterSecret, ServerRandom, 
+%% 			ClientRandom, HashSize, KML).
 
 calc_finished({3, 0}, Role, MasterSecret, Hashes) ->
     ssl_ssl3:finished(Role, MasterSecret, Hashes);

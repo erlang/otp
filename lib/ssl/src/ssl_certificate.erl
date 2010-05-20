@@ -67,7 +67,7 @@ trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
 	    %% The root CA was not sent and can not be found, we fail if verify = true
 	    not_valid(?ALERT_REC(?FATAL, ?UNKNOWN_CA), Verify, {Cert, RestPath});
 	{{SerialNr, Issuer}, Path} ->
-	    case ssl_certificate_db:lookup_trusted_cert(CertDbRef, 
+	    case ssl_manager:lookup_trusted_cert(CertDbRef, 
 							SerialNr, Issuer) of
 		{ok, {BinCert,_}} ->
 		    {BinCert, Path, []};
@@ -85,7 +85,7 @@ certificate_chain(OwnCert, CertsDbRef) ->
     {ok, ErlCert} = public_key:pkix_decode_cert(OwnCert, otp),
     certificate_chain(ErlCert, OwnCert, CertsDbRef, [OwnCert]).
 
-file_to_certificats(File) ->
+file_to_certificats(File) -> 
     {ok, List} = ssl_manager:cache_pem_file(File),
     [Bin || {cert, Bin, not_encrypted} <- List].
 
@@ -148,7 +148,7 @@ certificate_chain(_CertsDbRef, Chain, _SerialNr, _Issuer, true) ->
     {ok, lists:reverse(Chain)};
 
 certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
-    case ssl_certificate_db:lookup_trusted_cert(CertsDbRef, 
+    case ssl_manager:lookup_trusted_cert(CertsDbRef, 
 						SerialNr, Issuer) of
 	{ok, {IssuerCert, ErlCert}} ->
 	    {ok, ErlCert} = public_key:pkix_decode_cert(IssuerCert, otp),
@@ -164,7 +164,7 @@ certificate_chain(CertsDbRef, Chain, SerialNr, Issuer, _SelfSigned) ->
     end.
 
 find_issuer(OtpCert, PrevCandidateKey) ->
-    case ssl_certificate_db:issuer_candidate(PrevCandidateKey) of
+    case ssl_manager:issuer_candidate(PrevCandidateKey) of
  	no_more_candidates ->
  	    {error, issuer_not_found};
  	{Key, {_Cert, ErlCertCandidate}} ->
