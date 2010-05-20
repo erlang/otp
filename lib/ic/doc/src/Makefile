@@ -1,19 +1,19 @@
 #
 # %CopyrightBegin%
-# 
-# Copyright Ericsson AB 1998-2009. All Rights Reserved.
-# 
+#
+# Copyright Ericsson AB 1998-2010. All Rights Reserved.
+#
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
 # compliance with the License. You should have received a copy of the
 # Erlang Public License along with this software. If not, it can be
 # retrieved online at http://www.erlang.org/.
-# 
+#
 # Software distributed under the License is distributed on an "AS IS"
 # basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 # the License for the specific language governing rights and limitations
 # under the License.
-# 
+#
 # %CopyrightEnd%
 #
 #
@@ -211,7 +211,11 @@ $(HTMLDIR)/%.gif: %.gif
 
 ifdef DOCSUPPORT
 
+ifneq (,$(JAVA))
 docs: pdf html man $(JAVADOC_GENERATED_FILES)
+else
+docs: pdf html man
+endif
 
 $(TOP_PDF_FILE): $(XML_FILES)
 
@@ -301,6 +305,7 @@ release_docs_spec: docs
 	$(INSTALL_DATA) $(GIF_FILES) $(EXTRA_FILES) $(HTML_FILES) \
 		$(RELSYSDIR)/doc/html
 	$(INSTALL_DATA) $(INFO_FILE) $(RELSYSDIR)
+ifneq (,$(JAVA))
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/html/java
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/html/java/resources
 	$(INSTALL_DIR) $(RELSYSDIR)/doc/html/java/com
@@ -313,6 +318,7 @@ release_docs_spec: docs
 		$(RELSYSDIR)/doc/html/java/resources
 	$(INSTALL_DATA) $(JAVADOC_PACK_HTML_FILES) \
 		$(RELSYSDIR)/doc/html/java/com/ericsson/otp/ic
+endif
 	$(INSTALL_DIR) $(RELEASE_PATH)/man/man3
 	$(INSTALL_DATA) $(MAN3_FILES) $(RELEASE_PATH)/man/man3
 
