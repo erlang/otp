@@ -180,7 +180,7 @@ erts_realloc_binary(Eterm bin, size_t size)
 }
 
 byte*
-erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
+erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, ErtsAlcType_t allocator, unsigned extra)
 {
     byte* bytes;
     Eterm* real_bin;
@@ -208,7 +208,7 @@ erts_get_aligned_binary_bytes_extra(Eterm bin, byte** base_ptr, unsigned extra)
 	bytes = (byte *)(&(((ErlHeapBin *) real_bin)->data)) + offs;
     }
     if (bit_offs) {
-	byte* buf = (byte *) erts_alloc(ERTS_ALC_T_TMP, byte_size + extra);
+	byte* buf = (byte *) erts_alloc(allocator, byte_size + extra);
 	*base_ptr = buf;
 	buf += extra;
 	erts_copy_bits(bytes, bit_offs, 1, buf, 0, 1, byte_size*8);	
@@ -346,29 +346,40 @@ BIF_RETTYPE bitstring_to_list_1(BIF_ALIST_1)
 /* Turn a possibly deep list of ints (and binaries) into */
 /* One large binary object                               */
 
-BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
+/*
+ * This bif also exists in the binary module, under the name
+ * binary:list_to_bin/1, why it's divided into interface and
+ * implementation. Also the backend for iolist_to_binary_1.
+ */
+
+BIF_RETTYPE erts_list_to_binary_bif(Process *p, Eterm arg)
 {
     Eterm bin;
     int i;
     int offset;
     byte* bytes;
-    if (is_nil(BIF_ARG_1)) {
-	BIF_RET(new_binary(BIF_P,(byte*)"",0));
+    if (is_nil(arg)) {
+	BIF_RET(new_binary(p,(byte*)"",0));
     }
-    if (is_not_list(BIF_ARG_1)) {
+    if (is_not_list(arg)) {
 	goto error;
     }
-    if ((i = io_list_len(BIF_ARG_1)) < 0) {
+    if ((i = io_list_len(arg)) < 0) {
 	goto error;
     }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
+    bin = new_binary(p, (byte *)NULL, i);
     bytes = binary_bytes(bin);
-    offset = io_list_to_buf(BIF_ARG_1, (char*) bytes, i);
+    offset = io_list_to_buf(arg, (char*) bytes, i);
     ASSERT(offset == 0);
     BIF_RET(bin);
     
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+ error:
+    BIF_ERROR(p, BADARG);
+}
+
+BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
+{
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
 }
 
 /* Turn a possibly deep list of ints (and binaries) into */
@@ -376,31 +387,10 @@ BIF_RETTYPE list_to_binary_1(BIF_ALIST_1)
 
 BIF_RETTYPE iolist_to_binary_1(BIF_ALIST_1)
 {
-    Eterm bin;
-    int i;
-    int offset;
-    byte* bytes;
-
     if (is_binary(BIF_ARG_1)) {
 	BIF_RET(BIF_ARG_1);
     }
-    if (is_nil(BIF_ARG_1)) {
-	BIF_RET(new_binary(BIF_P,(byte*)"",0));
-    }
-    if (is_not_list(BIF_ARG_1)) {
-	goto error;
-    }
-    if ((i = io_list_len(BIF_ARG_1)) < 0) {
-	goto error;
-    }
-    bin = new_binary(BIF_P, (byte *)NULL, i);
-    bytes = binary_bytes(bin);
-    offset = io_list_to_buf(BIF_ARG_1, (char*) bytes, i);
-    ASSERT(offset == 0);
-    BIF_RET(bin);
-    
-    error:
-	BIF_ERROR(BIF_P, BADARG);
+    return erts_list_to_binary_bif(BIF_P, BIF_ARG_1);
 }
 
 BIF_RETTYPE list_to_bitstring_1(BIF_ALIST_1)
@@ -675,3 +665,4 @@ bitstr_list_len(Eterm obj)
     DESTROY_ESTACK(s);
     return (Sint) -1;
 }
+

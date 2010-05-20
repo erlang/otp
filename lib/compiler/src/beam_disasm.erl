@@ -1004,6 +1004,13 @@ resolve_inst({gc_bif2,Args},Imports,_,_) ->
     [F,Live,Bif,A1,A2,Reg] = resolve_args(Args),
     {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
     {gc_bif,BifName,F,Live,[A1,A2],Reg};
+%%
+%% New instruction in R14, gc_bif with 3 arguments
+%%
+resolve_inst({gc_bif3,Args},Imports,_,_) ->
+    [F,Live,Bif,A1,A2,A3,Reg] = resolve_args(Args),
+    {extfunc,_Mod,BifName,_Arity} = lookup(Bif+1,Imports),
+    {gc_bif,BifName,F,Live,[A1,A2,A3],Reg};
 
 %%
 %% New instructions for creating non-byte aligned binaries.

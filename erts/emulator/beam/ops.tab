@@ -1390,33 +1390,50 @@ bif1 Fail u$bif:erlang:trunc/1 s d => too_old_compiler
 # Guard BIFs.
 #
 gc_bif1 Fail I Bif=u$bif:erlang:length/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:bit_size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:byte_size/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:abs/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:float/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:round/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
 
 gc_bif1 Fail I Bif=u$bif:erlang:trunc/1 Src Dst=d => \
-	gen_guard_bif(Fail, I, Bif, Src, Dst)
+	gen_guard_bif1(Fail, I, Bif, Src, Dst)
+
+gc_bif2 Fail I Bif=u$bif:erlang:binary_part/2 S1 S2 Dst=d => \
+	gen_guard_bif2(Fail, I, Bif, S1, S2, Dst)
+
+gc_bif3 Fail I Bif=u$bif:erlang:binary_part/3 S1 S2 S3 Dst=d => \
+	gen_guard_bif3(Fail, I, Bif, S1, S2, S3, Dst)
 
 i_gc_bif1 Fail Bif V=q Live D => move V x | i_gc_bif1 Fail Bif x Live D
 
 i_gc_bif1 j I s I d
 
+ii_gc_bif2/6
+
+ii_gc_bif2 Fail Bif S1 S2 Live D => i_fetch S1 S2 | i_gc_bif2 Fail Bif Live D
+
+i_gc_bif2 j I I d
+
+ii_gc_bif3/7
+
+ii_gc_bif3 Fail Bif S1 S2 S3 Live D => move S1 x | i_fetch S2 S3 | i_gc_bif3 Fail Bif x Live D
+
+i_gc_bif3 j I s I d
 #
 # R13B03
 #

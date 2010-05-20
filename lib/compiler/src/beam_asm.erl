@@ -261,7 +261,8 @@ make_op({gc_bif,Bif,Fail,Live,Args,Dest}, Dict) ->
     Arity = length(Args),
     BifOp = case Arity of
 		1 -> gc_bif1;
-		2 -> gc_bif2
+		2 -> gc_bif2;
+		3 -> gc_bif3
 	    end,
     encode_op(BifOp, [Fail,Live,{extfunc,erlang,Bif,Arity}|Args++[Dest]],Dict);
 make_op({bs_add=Op,Fail,[Src1,Src2,Unit],Dest}, Dict) ->

@@ -250,7 +250,7 @@ int enif_is_ref(ErlNifEnv* env, ERL_NIF_TERM term)
 
 static void aligned_binary_dtor(struct enif_tmp_obj_t* obj)
 {
-    erts_free_aligned_binary_bytes((byte*)obj);
+    erts_free_aligned_binary_bytes_extra((byte*)obj,ERTS_ALC_T_TMP);
 }
 
 int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
@@ -260,7 +260,7 @@ int enif_inspect_binary(ErlNifEnv* env, Eterm bin_term, ErlNifBinary* bin)
 	byte* raw_ptr;
     }u;
     u.tmp = NULL;
-    bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr,
+    bin->data = erts_get_aligned_binary_bytes_extra(bin_term, &u.raw_ptr, ERTS_ALC_T_TMP,
 						    sizeof(struct enif_tmp_obj_t));
     if (bin->data == NULL) {
 	return 0;

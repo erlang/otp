@@ -1576,6 +1576,10 @@ void erts_init_bif_chksum(void);
 /* erl_bif_re.c */
 void erts_init_bif_re(void);
 Sint erts_re_set_loop_limit(Sint limit);
+/* erl_bif_binary.c */
+void erts_init_bif_binary(void);
+Sint erts_binary_set_loop_limit(Sint limit);
+
 /* erl_unicode.c */
 void erts_init_unicode(void);
 Sint erts_unicode_set_loop_limit(Sint limit);
@@ -1705,6 +1709,8 @@ Eterm erts_gc_abs_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_float_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_round_1(Process* p, Eterm* reg, Uint live);
 Eterm erts_gc_trunc_1(Process* p, Eterm* reg, Uint live);
+Eterm erts_gc_binary_part_3(Process* p, Eterm* reg, Uint live);
+Eterm erts_gc_binary_part_2(Process* p, Eterm* reg, Uint live);
 
 Uint erts_current_reductions(Process* current, Process *p);
 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose: Information about the Erlang built-in functions.
@@ -65,6 +65,8 @@ is_pure(erlang, 'xor', 2) -> true;
 is_pure(erlang, abs, 1) -> true;
 is_pure(erlang, atom_to_binary, 2) -> true;
 is_pure(erlang, atom_to_list, 1) -> true;
+is_pure(erlang, binary_part, 2) -> true;
+is_pure(erlang, binary_part, 3) -> true;
 is_pure(erlang, binary_to_atom, 2) -> true;
 is_pure(erlang, binary_to_list, 1) -> true;
 is_pure(erlang, binary_to_list, 3) -> true;

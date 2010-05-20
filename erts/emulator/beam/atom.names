@@ -65,6 +65,7 @@ atom EXIT='EXIT'
 atom aborted
 atom abs_path
 atom absoluteURI
+atom ac
 atom active
 atom all
 atom all_but_first
@@ -100,8 +101,15 @@ atom band
 atom big
 atom bif_return_trap
 atom binary
+atom binary_bin_to_list_trap
+atom binary_copy_trap
+atom binary_longest_prefix_trap
+atom binary_longest_suffix_trap
+atom binary_match_trap
+atom binary_matches_trap
 atom block
 atom blocked
+atom bm
 atom bnot
 atom bor
 atom bxor
@@ -454,6 +462,7 @@ atom scheduler
 atom scheduler_id
 atom schedulers_online
 atom scheme
+atom scope
 atom sensitive
 atom sequential_tracer
 atom sequential_trace_token

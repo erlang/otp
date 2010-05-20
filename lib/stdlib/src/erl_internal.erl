@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1998-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1998-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(erl_internal).
@@ -87,6 +87,8 @@ guard_bif(is_reference, 1) -> true;
 guard_bif(is_tuple, 1) -> true;
 guard_bif(is_record, 2) -> true;
 guard_bif(is_record, 3) -> true;
+guard_bif(binary_part, 2) -> true;
+guard_bif(binary_part, 3) -> true;
 guard_bif(Name, A) when is_atom(Name), is_integer(A) -> false.
 
 %%  Erlang type tests.
@@ -229,6 +231,8 @@ bif(apply, 2) -> true;
 bif(apply, 3) -> true;
 bif(atom_to_binary, 2) -> true;
 bif(atom_to_list, 1) -> true;
+bif(binary_part, 2) -> true;
+bif(binary_part, 3) -> true;
 bif(binary_to_atom, 2) -> true;
 bif(binary_to_existing_atom, 2) -> true;
 bif(binary_to_list, 1) -> true;

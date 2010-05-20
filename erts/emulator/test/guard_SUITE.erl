@@ -1,33 +1,34 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
 -module(guard_SUITE).
 
 -export([all/1, bad_arith/1, bad_tuple/1, test_heap_guards/1, guard_bifs/1,
-	 type_tests/1]).
+	 type_tests/1,guard_bif_binary_part/1]).
 
 -include("test_server.hrl").
 
 -export([init/3]).
 -import(lists, [member/2]).
 
-all(suite) -> [bad_arith, bad_tuple, test_heap_guards, guard_bifs, type_tests].
+all(suite) -> [bad_arith, bad_tuple, test_heap_guards, guard_bifs,
+	       type_tests, guard_bif_binary_part].
 
 bad_arith(doc) -> "Test that a bad arithmetic operation in a guard works correctly.";
 bad_arith(Config) when is_list(Config) ->
@@ -135,6 +136,170 @@ init(Fun, Args, Filler) ->
 
 dummy(_) ->
     ok.
+
+-define(MASK_ERROR(EXPR),mask_error((catch (EXPR)))).
+mask_error({'EXIT',{Err,_}}) ->
+    Err;
+mask_error(Else) ->
+    Else.
+
+guard_bif_binary_part(doc) ->
+    ["Test the binary_part/2,3 guard BIF's extensively"];
+guard_bif_binary_part(Config) when is_list(Config) ->
+    %% Overflow tests that need to be unoptimized
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 -16#7FFFFFFFFFFFFFFF-1})),
+    ?line badarg =
+	?MASK_ERROR(
+	   binary_part(<<1,2,3>>,{16#FFFFFFFFFFFFFFFF,
+				 16#7FFFFFFFFFFFFFFF})),
+    F = fun(X) ->
+		Master = self(),
+		{Pid,Ref} = spawn_monitor( fun() ->
+					     A = lists:duplicate(X,a),
+					     B = [do_binary_part_guard() | A],
+					     Master ! {self(),hd(B)},
+					     ok
+				     end),
+		receive
+		    {Pid,ok} ->
+			erlang:demonitor(Ref,[flush]),
+			ok;
+		    Error ->
+			Error
+		end
+	end,
+    [ ok = F(N) || N <- lists:seq(1,10000) ],
+    ok.
+
+
+do_binary_part_guard() ->
+    ?line 1 = bptest(<<1,2,3>>),
+    ?line 2 = bptest(<<2,1,3>>),
+    ?line error = bptest(<<1>>),
+    ?line error = bptest(<<>>),
+    ?line error = bptest(apa),
+    ?line 3 = bptest(<<2,3,3>>),
+    % With one variable (pos)
+    ?line 1 = bptest(<<1,2,3>>,1),
+    ?line 2 = bptest(<<2,1,3>>,1),
+    ?line error = bptest(<<1>>,1),
+    ?line error = bptest(<<>>,1),
+    ?line error = bptest(apa,1),
+    ?line 3 = bptest(<<2,3,3>>,1),
+    % With one variable (length)
+    ?line 1 = bptesty(<<1,2,3>>,1),
+    ?line 2 = bptesty(<<2,1,3>>,1),
+    ?line error = bptesty(<<1>>,1),
+    ?line error = bptesty(<<>>,1),
+    ?line error = bptesty(apa,1),
+    ?line 3 = bptesty(<<2,3,3>>,2),
+    % With one variable (whole tuple)
+    ?line 1 = bptestx(<<1,2,3>>,{1,1}),
+    ?line 2 = bptestx(<<2,1,3>>,{1,1}),
+    ?line error = bptestx(<<1>>,{1,1}),
+    ?line error = bptestx(<<>>,{1,1}),
+    ?line error = bptestx(apa,{1,1}),
+    ?line 3 = bptestx(<<2,3,3>>,{1,2}),
+    % With two variables
+    ?line 1 = bptest(<<1,2,3>>,1,1),
+    ?line 2 = bptest(<<2,1,3>>,1,1),
+    ?line error = bptest(<<1>>,1,1),
+    ?line error = bptest(<<>>,1,1),
+    ?line error = bptest(apa,1,1),
+    ?line 3 = bptest(<<2,3,3>>,1,2),
+    % Direct (autoimported) call, these will be evaluated by the compiler...
+    ?line <<2>> = binary_part(<<1,2,3>>,1,1),
+    ?line <<1>> = binary_part(<<2,1,3>>,1,1),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(binary_part(<<1>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(<<>>,1,1)),
+    ?line badarg = ?MASK_ERROR(binary_part(apa,1,1)),
+    ?line <<3,3>> = binary_part(<<2,3,3>>,1,2),
+    % Direct call through apply
+    ?line <<2>> = apply(erlang,binary_part,[<<1,2,3>>,1,1]),
+    ?line <<1>> = apply(erlang,binary_part,[<<2,1,3>>,1,1]),
+    % Compiler warnings due to constant evaluation expected (3)
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<1>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[<<>>,1,1])),
+    ?line badarg = ?MASK_ERROR(apply(erlang,binary_part,[apa,1,1])),
+    ?line <<3,3>> = apply(erlang,binary_part,[<<2,3,3>>,1,2]),
+    % Constant propagation
+    ?line  Bin = <<1,2,3>>,
+    ?line  ok = if
+		    binary_part(Bin,1,1) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ?line  ok = if
+		    binary_part(Bin,{1,1}) =:= <<2>> ->
+			ok;
+		    %% Compiler warning, clause cannot match (expected)
+		    true ->
+			error
+		end,
+    ok.
+
+
+bptest(B) when length(B) =:= 1337 ->
+    1;
+bptest(B) when binary_part(B,{1,1}) =:= <<2>> ->
+    1;
+bptest(B) when erlang:binary_part(B,1,1) =:= <<1>> ->
+    2;
+bptest(B)  when erlang:binary_part(B,{1,2}) =:= <<3,3>> ->
+    3;
+bptest(_) ->
+    error.
+
+bptest(B,A) when length(B) =:= A ->
+    1;
+bptest(B,A) when binary_part(B,{A,1}) =:= <<2>> ->
+    1;
+bptest(B,A) when erlang:binary_part(B,A,1) =:= <<1>> ->
+    2;
+bptest(B,A)  when erlang:binary_part(B,{A,2}) =:= <<3,3>> ->
+    3;
+bptest(_,_) ->
+    error.
+
+bptestx(B,A) when length(B) =:= A ->
+    1;
+bptestx(B,A) when binary_part(B,A) =:= <<2>> ->
+    1;
+bptestx(B,A) when erlang:binary_part(B,A) =:= <<1>> ->
+    2;
+bptestx(B,A)  when erlang:binary_part(B,A) =:= <<3,3>> ->
+    3;
+bptestx(_,_) ->
+    error.
+
+bptesty(B,A) when length(B) =:= A ->
+    1;
+bptesty(B,A) when binary_part(B,{1,A}) =:= <<2>> ->
+    1;
+bptesty(B,A) when erlang:binary_part(B,1,A) =:= <<1>> ->
+    2;
+bptesty(B,A)  when erlang:binary_part(B,{1,A}) =:= <<3,3>> ->
+    3;
+bptesty(_,_) ->
+    error.
+
+bptest(B,A,_C) when length(B) =:= A ->
+    1;
+bptest(B,A,C) when binary_part(B,{A,C}) =:= <<2>> ->
+    1;
+bptest(B,A,C) when erlang:binary_part(B,A,C) =:= <<1>> ->
+    2;
+bptest(B,A,C)  when erlang:binary_part(B,{A,C}) =:= <<3,3>> ->
+    3;
+bptest(_,_,_) ->
+    error.
+
 
 guard_bifs(doc) -> "Test all guard bifs with nasty (but legal arguments).";
 guard_bifs(Config) when is_list(Config) ->

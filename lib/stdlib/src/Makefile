@@ -43,6 +43,7 @@ MODULES= \
 	array \
 	base64 \
 	beam_lib \
+	binary \
 	c \
 	calendar \
 	dets \

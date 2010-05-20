@@ -253,6 +253,54 @@ iolist() = [char() | binary() | iolist()]
       </desc>
     </func>
     <func>
+      <name>binary_part(Subject, PosLen) -> binary()</name>
+      <fsummary>Extracts a part of a binary</fsummary>
+      <type>
+        <v>Subject = binary()</v>
+	<v>PosLen = {Start,Length}</v>
+	<v>Start = int()</v>
+	<v>Length = int()</v>
+      </type>
+      <desc>
+      <p>Extracts the part of the binary described by <c>PosLen</c>.</p>
+
+      <p>Negative length can be used to extract bytes at the end of a binary:</p>
+
+<code>
+1> Bin = &lt;&lt;1,2,3,4,5,6,7,8,9,10&gt;&gt;.
+2> binary_part(Bin,{byte_size(Bin), -5)).
+&lt;&lt;6,7,8,9,10&gt;&gt;
+</code>
+
+      <p>If <c>PosLen</c> in any way references outside the binary, a <c>badarg</c> exception is raised.</p>
+
+      <p><c>Start</c> is zero-based, i.e:</p>
+<code>
+1> Bin = &lt;&lt;1,2,3&gt;&gt;
+2> binary_part(Bin,{0,2}).
+&lt;&lt;1,2&gt;&gt;
+</code>
+
+      <p>See the STDLIB module <c>binary</c> for details about the <c>PosLen</c> semantics.</p>
+
+      <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
+      <name>binary_part(Subject, Start, Length) -> binary()</name>
+      <fsummary>Extracts a part of a binary</fsummary>
+      <type>
+        <v>Subject = binary()</v>
+	<v>Start = int()</v>
+	<v>Length = int()</v>
+      </type>
+      <desc>
+      <p>The same as <c>binary_part(Subject, {Pos, Len})</c>.</p>
+
+      <p>Allowed in guard tests.</p>
+      </desc>
+    </func>
+    <func>
       <name>binary_to_atom(Binary, Encoding) -> atom()</name>
       <fsummary>Convert from text representation to an atom</fsummary>
       <type>
@@ -318,6 +366,11 @@ iolist() = [char() | binary() | iolist()]
           corresponding to the bytes from position <c>Start</c> to
           position <c>Stop</c> in <c>Binary</c>. Positions in the
           binary are numbered starting from 1.</p>
+
+	  <note><p>This functions indexing style of using one-based indices for
+	  binaries is deprecated. New code should use the functions in
+	  the STDLIB module <c>binary</c> instead. They consequently
+	  use the same (zero-based) style of indexing.</p></note>
       </desc>
     </func>
     <func>
