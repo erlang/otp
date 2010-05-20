@@ -27,7 +27,7 @@
 %% Internal application API
 -export([start_link/0, start_link/1, 
 	 connection_init/2, cache_pem_file/1,
-	 lookup_trusted_cert/3, client_session_id/3, server_session_id/3,
+	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/3, server_session_id/3,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -85,8 +85,15 @@ cache_pem_file(File) ->
 %% Function: 
 %% Description: 
 %%--------------------------------------------------------------------
-lookup_trusted_cert(SerialNumber, Issuer, Ref) ->
+lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
+
+%%--------------------------------------------------------------------
+%% Function: 
+%% Description: 
+%%--------------------------------------------------------------------
+issuer_candidate(PrevCandidateKey) ->
+    ssl_certificate_db:issuer_candidate(PrevCandidateKey).
 
 %%--------------------------------------------------------------------
 %% Function: 
