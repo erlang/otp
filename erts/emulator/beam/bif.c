@@ -1132,6 +1132,34 @@ BIF_RETTYPE error_2(Process* p, Eterm value, Eterm args)
 }
 
 /**********************************************************************/
+/*
+ * This is like exactly like error/1. The only difference is
+ * that Dialyzer thinks that it it will return an arbitrary term.
+ * It is useful in stub functions for NIFs.
+ */
+
+BIF_RETTYPE nif_error_1(Process* p, Eterm term)
+{
+    p->fvalue = term;
+    BIF_ERROR(p, EXC_ERROR);
+}
+
+/**********************************************************************/
+/*
+ * This is like exactly like error/2. The only difference is
+ * that Dialyzer thinks that it it will return an arbitrary term.
+ * It is useful in stub functions for NIFs.
+ */
+
+BIF_RETTYPE nif_error_2(Process* p, Eterm value, Eterm args)
+{
+    Eterm* hp = HAlloc(p, 3);
+
+    p->fvalue = TUPLE2(hp, value, args);
+    BIF_ERROR(p, EXC_ERROR_2);
+}
+
+/**********************************************************************/
 /* this is like throw/1 except that we set freason to EXC_EXIT */
 
 BIF_RETTYPE exit_1(BIF_ALIST_1)

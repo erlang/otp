@@ -1155,6 +1155,10 @@ type(erlang, monitor_node, 2, Xs) ->
 type(erlang, monitor_node, 3, Xs) ->
   strict(arg_types(erlang, monitor_node, 3), Xs,
 	 fun (_) -> t_atom('true') end);
+type(erlang, nif_error, 1, _) ->
+  t_any();
+type(erlang, nif_error, 2, Xs) ->
+  strict(arg_types(erlang, nif_error, 2), Xs, fun (_) -> t_any() end);
 type(erlang, node, 0, _) -> t_node();
 type(erlang, node, 1, Xs) ->
   strict(arg_types(erlang, node, 1), Xs, fun (_) -> t_node() end);
@@ -3628,6 +3632,10 @@ arg_types(erlang, monitor_node, 2) ->
   [t_node(), t_boolean()];
 arg_types(erlang, monitor_node, 3) ->
   [t_node(), t_boolean(), t_list(t_atom('allow_passive_connect'))];
+arg_types(erlang, nif_error, 1) ->
+  [t_any()];
+arg_types(erlang, nif_error, 2) ->
+  [t_any(), t_list()];
 arg_types(erlang, node, 0) ->
   [];
 arg_types(erlang, node, 1) ->
