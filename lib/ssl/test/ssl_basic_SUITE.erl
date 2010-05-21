@@ -27,6 +27,7 @@
 -include("test_server.hrl").
 -include("test_server_line.hrl").
 -include_lib("public_key/include/public_key.hrl").
+-include("ssl_alert.hrl").
 
 -define('24H_in_sec', 86400).  
 -define(TIMEOUT, 60000).
@@ -98,6 +99,21 @@ init_per_testcase(reuse_session_expired, Config0) ->
     ssl:start(),
     [{watchdog, Dog} | Config];
 
+init_per_testcase(no_authority_key_identifier, Config) ->
+    %% Clear cach so that root cert will not
+    %% be found.
+    ssl:stop(),
+    ssl:start(), 
+    Config;
+
+init_per_testcase(TestCase, Config) when TestCase == ciphers_ssl3; 
+					 TestCase == ciphers_ssl3_openssl_names ->
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, protocol_version, sslv3),
+    ssl:start(),
+    Config;
+
 init_per_testcase(_TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
@@ -130,6 +146,10 @@ end_per_testcase(session_cache_process_mnesia, Config) ->
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
+end_per_testcase(TestCase, Config) when TestCase == ciphers_ssl3; 
+					TestCase == ciphers_ssl3_openssl_names ->
+    application:unset_env(ssl, protocol_version),
+    end_per_testcase(default_action, Config);
 end_per_testcase(_TestCase, Config) ->
     Dog = ?config(watchdog, Config),
     case Dog of 
@@ -151,13 +171,14 @@ all(doc) ->
     ["Test the basic ssl functionality"];
 
 all(suite) -> 
-    [app, connection_info, controlling_process, controller_dies, 
+    [app, alerts, connection_info, controlling_process, controller_dies, 
      client_closes_socket,
      peercert, connect_dist,
      peername, sockname, socket_options, misc_ssl_options, versions, cipher_suites,
      upgrade, upgrade_with_timeout, tcp_connect,
      ipv6, ekeyfile, ecertfile, ecacertfile, eoptions, shutdown,
-     shutdown_write, shutdown_both, shutdown_error, ciphers, 
+     shutdown_write, shutdown_both, shutdown_error, ciphers, ciphers_ssl3, 
+     ciphers_openssl_names, ciphers_ssl3_openssl_names, 
      send_close, close_transport_accept, dh_params,
      server_verify_peer_passive,
      server_verify_peer_active, server_verify_peer_active_once,
@@ -168,13 +189,14 @@ all(suite) ->
      server_verify_client_once_active,
      server_verify_client_once_active_once,
      client_verify_none_passive,
-     client_verify_none_active, client_verify_none_active_once
-     %%, session_cache_process_list, session_cache_process_mnesia
-     ,reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
+     client_verify_none_active, client_verify_none_active_once,
+     %session_cache_process_list, session_cache_process_mnesia,
+     reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
      client_renegotiate, server_renegotiate, client_renegotiate_reused_session,
      server_renegotiate_reused_session,
      client_no_wrap_sequence_number, server_no_wrap_sequence_number,
-     extended_key_usage, validate_extensions_fun
+     extended_key_usage, validate_extensions_fun, no_authority_key_identifier, 
+     invalid_signature_client, invalid_signature_server
     ].
 
 %% Test cases starts here.
@@ -185,7 +207,31 @@ app(suite) ->
     [];
 app(Config) when is_list(Config) ->
     ok = test_server:app_test(ssl).
-
+%%--------------------------------------------------------------------
+alerts(doc) ->
+    "Test ssl_alert:alert_txt/1";
+alerts(suite) ->
+    [];
+alerts(Config) when is_list(Config) ->
+    Descriptions = [?CLOSE_NOTIFY, ?UNEXPECTED_MESSAGE, ?BAD_RECORD_MAC,
+		    ?DECRYPTION_FAILED, ?RECORD_OVERFLOW, ?DECOMPRESSION_FAILURE,
+		    ?HANDSHAKE_FAILURE, ?BAD_CERTIFICATE, ?UNSUPPORTED_CERTIFICATE,
+		    ?CERTIFICATE_REVOKED,?CERTIFICATE_EXPIRED, ?CERTIFICATE_UNKNOWN,
+		    ?ILLEGAL_PARAMETER, ?UNKNOWN_CA, ?ACCESS_DENIED, ?DECODE_ERROR,
+		    ?DECRYPT_ERROR, ?EXPORT_RESTRICTION, ?PROTOCOL_VERSION, 
+		    ?INSUFFICIENT_SECURITY, ?INTERNAL_ERROR, ?USER_CANCELED,
+		    ?NO_RENEGOTIATION],
+    Alerts = [?ALERT_REC(?WARNING, ?CLOSE_NOTIFY) | 
+	      [?ALERT_REC(?FATAL, Desc) || Desc <- Descriptions]],
+    lists:foreach(fun(Alert) ->
+			case ssl_alert:alert_txt(Alert) of
+			    Txt when is_list(Txt) ->
+				ok;
+			    Other ->
+				test_server:fail({unexpected, Other})
+			end 
+		  end, Alerts).
+%%--------------------------------------------------------------------
 connection_info(doc) -> 
     ["Test the API function ssl:connection_info/1"];
 connection_info(suite) -> 
@@ -214,7 +260,7 @@ connection_info(Config) when is_list(Config) ->
     Version = 
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
     
-    ServerMsg = ClientMsg = {ok, {Version, {rsa,rc4_128,sha,no_export}}},
+    ServerMsg = ClientMsg = {ok, {Version, {rsa,rc4_128,sha}}},
 			   
     ssl_test_lib:check_result(Server, ServerMsg, Client, ClientMsg),
     
@@ -283,7 +329,7 @@ controlling_process_result(Socket, Pid, Msg) ->
     ssl:send(Socket, Msg),
     no_result_msg.
 
-
+%%--------------------------------------------------------------------
 controller_dies(doc) -> 
     ["Test that the socket is closed after controlling process dies"];
 controller_dies(suite) -> [];
@@ -598,9 +644,12 @@ cipher_suites(suite) ->
     [];
 
 cipher_suites(Config) when is_list(Config) -> 
-    MandatoryCipherSuite = {rsa,'3des_ede_cbc',sha,no_export},
+    MandatoryCipherSuite = {rsa,'3des_ede_cbc',sha},
     [_|_] = Suites = ssl:cipher_suites(),
-    true = lists:member(MandatoryCipherSuite, Suites).
+    true = lists:member(MandatoryCipherSuite, Suites),
+    Suites = ssl:cipher_suites(erlang),
+    [_|_] =ssl:cipher_suites(openssl).
+
 %%--------------------------------------------------------------------
 socket_options(doc) -> 
     ["Test API function getopts/2 and setopts/2"];
@@ -637,7 +686,13 @@ socket_options(Config) when is_list(Config) ->
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
     ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+    ssl_test_lib:close(Client),
+    
+    {ok, Listen} = ssl:listen(0, ServerOpts),
+    {ok,[{mode,list}]} = ssl:getopts(Listen, [mode]),
+    ok = ssl:setopts(Listen, [{mode, binary}]),
+    {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
+    ssl:close(Listen).
 
 socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     %% Test get/set emulated opts
@@ -1272,9 +1327,9 @@ shutdown_error(Config) when is_list(Config) ->
     ok = ssl:close(Listen),
     {error, closed} = ssl:shutdown(Listen, read_write).
 
-%%--------------------------------------------------------------------
+%%-------------------------------------------------------------------
 ciphers(doc) -> 
-    [""];
+    ["Test all ssl cipher suites in highest support ssl/tls version"];
        
 ciphers(suite) -> 
     [];
@@ -1284,6 +1339,7 @@ ciphers(Config) when is_list(Config) ->
 	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
 
     Ciphers = ssl:cipher_suites(),
+    test_server:format("tls1 erlang cipher suites ~p~n", [Ciphers]),
     Result =  lists:map(fun(Cipher) -> 
 				cipher(Cipher, Version, Config) end,
 			Ciphers),
@@ -1294,7 +1350,74 @@ ciphers(Config) when is_list(Config) ->
 	    test_server:format("Cipher suite errors: ~p~n", [Error]),
 	    test_server:fail(cipher_suite_failed_see_test_case_log) 
     end.
-    
+
+ciphers_ssl3(doc) -> 
+    ["Test all ssl cipher suites in ssl3"];
+       
+ciphers_ssl3(suite) -> 
+    [];
+
+ciphers_ssl3(Config) when is_list(Config) ->
+    Version = 
+	ssl_record:protocol_version({3,0}),
+
+    Ciphers = ssl:cipher_suites(),
+    test_server:format("ssl3 erlang cipher suites ~p~n", [Ciphers]),
+    Result =  lists:map(fun(Cipher) -> 
+				cipher(Cipher, Version, Config) end,
+			Ciphers),
+    case lists:flatten(Result) of
+	[] ->
+	    ok;
+	Error ->
+	    test_server:format("Cipher suite errors: ~p~n", [Error]),
+	    test_server:fail(cipher_suite_failed_see_test_case_log) 
+    end.
+
+ciphers_openssl_names(doc) -> 
+    ["Test all ssl cipher suites in highest support ssl/tls version"];
+       
+ciphers_openssl_names(suite) -> 
+    [];
+
+ciphers_openssl_names(Config) when is_list(Config) ->
+    Version = 
+	ssl_record:protocol_version(ssl_record:highest_protocol_version([])),
+
+    Ciphers = ssl:cipher_suites(openssl),
+    test_server:format("tls1 openssl cipher suites ~p~n", [Ciphers]),
+    Result =  lists:map(fun(Cipher) -> 
+				cipher(Cipher, Version, Config) end,
+			Ciphers),
+    case lists:flatten(Result) of
+	[] ->
+	    ok;
+	Error ->
+	    test_server:format("Cipher suite errors: ~p~n", [Error]),
+	    test_server:fail(cipher_suite_failed_see_test_case_log) 
+    end.
+
+
+ciphers_ssl3_openssl_names(doc) -> 
+    ["Test all ssl cipher suites in ssl3"];
+       
+ciphers_ssl3_openssl_names(suite) -> 
+    [];
+
+ciphers_ssl3_openssl_names(Config) when is_list(Config) ->
+    Version = ssl_record:protocol_version({3,0}),
+    Ciphers = ssl:cipher_suites(openssl),
+    Result =  lists:map(fun(Cipher) -> 
+				cipher(Cipher, Version, Config) end,
+			Ciphers),
+    case lists:flatten(Result) of
+	[] ->
+	    ok;
+	Error ->
+	    test_server:format("Cipher suite errors: ~p~n", [Error]),
+	    test_server:fail(cipher_suite_failed_see_test_case_log) 
+    end.
+
 cipher(CipherSuite, Version, Config) ->   
     process_flag(trap_exit, true),
     test_server:format("Testing CipherSuite ~p~n", [CipherSuite]),
@@ -1314,7 +1437,9 @@ cipher(CipherSuite, Version, Config) ->
 			    [{ciphers,[CipherSuite]} | 
 			     ClientOpts]}]), 
    
-    ServerMsg = ClientMsg = {ok, {Version, CipherSuite}},
+    ErlangCipherSuite = erlang_cipher_suite(CipherSuite),
+
+    ServerMsg = ClientMsg = {ok, {Version, ErlangCipherSuite}},
 			   
     Result = ssl_test_lib:wait_for_result(Server, ServerMsg, 
 					  Client, ClientMsg),    
@@ -1333,8 +1458,13 @@ cipher(CipherSuite, Version, Config) ->
 	ok ->
 	    [];
 	Error ->
-	    [{CipherSuite, Error}]
+	    [{ErlangCipherSuite, Error}]
     end.
+
+erlang_cipher_suite(Suite) when is_list(Suite)->
+    ssl_cipher:suite_definition(ssl_cipher:openssl_suite(Suite));
+erlang_cipher_suite(Suite) ->
+    Suite.
 
 %%--------------------------------------------------------------------
 reuse_session(doc) -> 
@@ -2273,7 +2403,7 @@ extended_key_usage(Config) when is_list(Config) ->
     ServerOpts = ?config(server_verification_opts, Config),
     PrivDir = ?config(priv_dir, Config),
    
-    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"), 
     {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
     {ok, Key} = public_key:decode_private_key(KeyInfo),
 
@@ -2316,7 +2446,7 @@ extended_key_usage(Config) when is_list(Config) ->
 					{host, Hostname},
 			   {from, self()}, 
 			   {mfa, {?MODULE, send_recv_result_active, []}},
-					{options, NewClientOpts}]),
+					{options, [{verify, verify_peer} | NewClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
     
@@ -2354,6 +2484,148 @@ validate_extensions_fun(Config) when is_list(Config) ->
 			   {options,[{validate_extensions_fun, Fun} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+no_authority_key_identifier(doc) -> 
+    ["Test cert that does not have authorityKeyIdentifier extension"];
+
+no_authority_key_identifier(suite) -> 
+    [];
+no_authority_key_identifier(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+   
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
+    {ok, Key} = public_key:decode_private_key(KeyInfo),
+
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    NewCertFile = filename:join(PrivDir, "server/new_cert.pem"),
+    {ok, [{cert, DerCert, _}]} = public_key:pem_to_der(CertFile),
+    {ok, OTPCert} = public_key:pkix_decode_cert(DerCert, otp),
+    OTPTbsCert = OTPCert#'OTPCertificate'.tbsCertificate,
+    Extensions =  OTPTbsCert#'OTPTBSCertificate'.extensions,
+    NewExtensions =  delete_authority_key_extension(Extensions, []),
+    NewOTPTbsCert =  OTPTbsCert#'OTPTBSCertificate'{extensions = NewExtensions},
+
+    test_server:format("Extensions ~p~n, NewExtensions: ~p~n", [Extensions, NewExtensions]),
+
+    NewDerCert = public_key:sign(NewOTPTbsCert, Key), 
+    public_key:der_to_pem(NewCertFile, [{cert, NewDerCert}]),
+    NewServerOpts = [{certfile, NewCertFile} | proplists:delete(certfile, ServerOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, NewServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+			   {from, self()}, 
+			   {mfa, {?MODULE, send_recv_result_active, []}},
+			   {options, [{verify, verify_peer} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+delete_authority_key_extension([], Acc) ->
+    lists:reverse(Acc);
+delete_authority_key_extension([#'Extension'{extnID = ?'id-ce-authorityKeyIdentifier'} | Rest], 
+			       Acc) ->
+    delete_authority_key_extension(Rest, Acc);
+delete_authority_key_extension([Head | Rest], Acc) ->
+    delete_authority_key_extension(Rest, [Head | Acc]).
+
+%%--------------------------------------------------------------------
+
+invalid_signature_server(doc) -> 
+    ["Test server with invalid signature"];
+
+invalid_signature_server(suite) -> 
+    [];
+
+invalid_signature_server(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+   
+    KeyFile = filename:join(PrivDir, "server/key.pem"),
+    {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
+    {ok, Key} = public_key:decode_private_key(KeyInfo),
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join(PrivDir, "server/invalid_cert.pem"),
+    {ok, [{cert, ServerDerCert, _}]} = public_key:pem_to_der(ServerCertFile),
+    {ok, ServerOTPCert} = public_key:pkix_decode_cert(ServerDerCert, otp),
+    ServerOTPTbsCert = ServerOTPCert#'OTPCertificate'.tbsCertificate,
+    NewServerDerCert = public_key:sign(ServerOTPTbsCert, Key), 
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					      {from, self()}, 
+					      {options, NewServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+					      {host, Hostname},
+					      {from, self()}, 
+					      {options, [{verify, verify_peer} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
+			      Client, {error,"bad certificate"}),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+
+invalid_signature_client(doc) -> 
+    ["Test server with invalid signature"];
+
+invalid_signature_client(suite) -> 
+    [];
+
+invalid_signature_client(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_verification_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+   
+    KeyFile = filename:join(PrivDir, "client/key.pem"),
+    {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
+    {ok, Key} = public_key:decode_private_key(KeyInfo),
+
+    ClientCertFile = proplists:get_value(certfile, ClientOpts),
+    NewClientCertFile = filename:join(PrivDir, "client/invalid_cert.pem"),
+    {ok, [{cert, ClientDerCert, _}]} = public_key:pem_to_der(ClientCertFile),
+    {ok, ClientOTPCert} = public_key:pkix_decode_cert(ClientDerCert, otp),
+    ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
+    NewClientDerCert = public_key:sign(ClientOTPTbsCert, Key), 
+    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert}]),
+    NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{options, [{verify, verify_peer} | ServerOpts]}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{options, NewClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
+			      Client, {error,"bad certificate"}),
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
