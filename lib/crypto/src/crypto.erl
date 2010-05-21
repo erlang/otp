@@ -118,7 +118,7 @@ on_load() ->
     
 
 nif_stub_error(Line) ->
-    erlang:error({nif_not_loaded,module,?MODULE,line,Line}).
+    erlang:nif_error({nif_not_loaded,module,?MODULE,line,Line}).
 
 start() ->
     application:start(crypto).
