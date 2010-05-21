@@ -31,7 +31,7 @@
 	 t_is_boolean/1,is_function_2/1,
 	 tricky/1,rel_ops/1,literal_type_tests/1,
 	 basic_andalso_orelse/1,traverse_dcd/1,
-	 check_qlc_hrl/1,andalso_semi/1,tuple_size/1,binary_part/1]).
+	 check_qlc_hrl/1,andalso_semi/1,t_tuple_size/1,binary_part/1]).
 
 all(suite) ->
     test_lib:recompile(?MODULE),
@@ -43,7 +43,7 @@ all(suite) ->
      build_in_guard,old_guard_tests,gbif,
      t_is_boolean,is_function_2,tricky,rel_ops,literal_type_tests,
      basic_andalso_orelse,traverse_dcd,check_qlc_hrl,andalso_semi,
-     tuple_size,binary_part].
+     t_tuple_size,binary_part].
 
 misc(Config) when is_list(Config) ->
     ?line 42 = case id(42) of
@@ -1330,7 +1330,7 @@ andalso_semi_bar(Bar) when is_list(Bar) andalso length(Bar) =:= 3; Bar =:= 1 ->
    ok.
 
 
-tuple_size(Config) when is_list(Config) ->
+t_tuple_size(Config) when is_list(Config) ->
     ?line 10 = do_tuple_size({1,2,3,4}),
     ?line fc(catch do_tuple_size({1,2,3})),
     ?line fc(catch do_tuple_size(42)),

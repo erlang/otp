@@ -95,6 +95,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
                compile=[],                      %Compile flags
                records=dict:new()	:: dict(),	%Record definitions
                locals=gb_sets:empty()	:: gb_set(),	%All defined functions (prescanned)
+	       no_auto=gb_sets:empty()	:: gb_set(),	%Functions explicitly not autoimported
                defined=gb_sets:empty()	:: gb_set(),	%Defined fuctions
 	       on_load=[] :: [{atom(),integer()}], 	%On-load function
 	       on_load_line=0 :: integer(),		%Line for on_load
@@ -117,7 +118,7 @@ value_option(Flag, Default, On, OnVal, Off, OffVal, Opts) ->
 	       types = dict:new()	:: dict()	%Type definitions
               }).
 
--type lint_state() :: #lint{}.
+%% -type lint_state() :: #lint{}.
 
 %% format_error(Error)
 %%  Return a string describing the error.
@@ -188,9 +189,20 @@ format_error({define_import,{F,A}}) ->
 format_error({unused_function,{F,A}}) ->
     io_lib:format("function ~w/~w is unused", [F,A]);
 format_error({redefine_bif,{F,A}}) ->
-    io_lib:format("redefining autoimported BIF ~w/~w", [F,A]);
+    io_lib:format("ambiguous call of redefined auto-imported BIF ~w/~w~n"
+		  " - use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" "
+		  "to resolve name clash", [F,A,F,A,F,A]);
+format_error({redefine_old_bif,{F,A}}) ->
+    io_lib:format("ambiguous call of redefined pre R14 auto-imported BIF ~w/~w~n"
+		  " - use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" "
+		  "to resolve name clash", [F,A,F,A,F,A]);
+format_error({redefine_old_bif_import,{F,A}}) ->
+    io_lib:format("import directive redefines pre R14 auto-imported BIF ~w/~w~n"
+		  " - use \"-compile({no_auto_import,[~w/~w]}).\" "
+		  "to resolve name clash", [F,A,F,A]);
 format_error({redefine_bif_import,{F,A}}) ->
-    io_lib:format("import directive redefines autoimported BIF ~w/~w", [F,A]);
+    io_lib:format("import directive redefines auto-imported BIF ~w/~w~n"
+		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
 
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
@@ -537,8 +549,9 @@ loc(L) ->
 forms(Forms0, St0) ->
     Forms = eval_file_attribute(Forms0, St0),
     Locals = local_functions(Forms),
+    AutoImportSupressed = auto_import_supressed(St0#lint.compile),
     %% Line numbers are from now on pairs {File,Line}.
-    St1 = includes_qlc_hrl(Forms, St0#lint{locals = Locals}),
+    St1 = includes_qlc_hrl(Forms, St0#lint{locals = Locals, no_auto = AutoImportSupressed}),
     St2 = bif_clashes(Forms, St1),
     St3 = not_deprecated(Forms, St2),
     St4 = foldl(fun form/2, pre_scan(Forms, St3), Forms),
@@ -723,12 +736,12 @@ bif_clashes(Forms, St) ->
     Clashes = ordsets:subtract(ordsets:from_list(Clashes0), Nowarn),
     St#lint{clashes=Clashes}.
 
--spec is_bif_clash(atom(), byte(), lint_state()) -> boolean().
+%% -spec is_bif_clash(atom(), byte(), lint_state()) -> boolean().
 
-is_bif_clash(_Name, _Arity, #lint{clashes=[]}) ->
-    false;
-is_bif_clash(Name, Arity, #lint{clashes=Clashes}) ->
-    ordsets:is_element({Name,Arity}, Clashes).
+%% is_bif_clash(_Name, _Arity, #lint{clashes=[]}) ->
+%%     false;
+%% is_bif_clash(Name, Arity, #lint{clashes=Clashes}) ->
+%%     ordsets:is_element({Name,Arity}, Clashes).
 
 %% not_deprecated(Forms, State0) -> State
 
@@ -1095,12 +1108,19 @@ import(Line, {Mod,Fs}, St) ->
                 Efs ->
 		    {Err, St1} =
 			foldl(fun ({bif,{F,A},_}, {Err,St0}) ->
-				      Warn = is_warn_enabled(bif_clash, St0),
+				      Warn = is_warn_enabled(bif_clash, St0), %% PaN -> import directive
+				      AutoImpSup = is_autoimport_supressed(St0#lint.no_auto,{F,A}),
+				      OldBif = erl_internal:old_bif(F,A),
 				      {Err,if
-					       Warn ->
+					       Warn and (not AutoImpSup) and OldBif ->
+						   add_error
+						     (Line,
+						      {redefine_old_bif_import, {F,A}},
+						      St0);
+					       Warn and (not AutoImpSup) ->
 						   add_warning
 						     (Line,
-					     {redefine_bif_import, {F,A}},
+						      {redefine_bif_import, {F,A}},
 						      St0);
 					       true ->
 					  St0
@@ -1211,12 +1231,6 @@ call_function(Line, F, A, #lint{usage=Usage0,called=Cd,func=Func}=St) ->
 	    end,
     St#lint{called=[{NA,Line}|Cd], usage=Usage}.
 
-%% is_function_exported(Name, Arity, State) -> false|true.
-
-is_function_exported(Name, Arity, #lint{exports=Exports,compile=Compile}) ->
-    gb_sets:is_element({Name,Arity}, Exports) orelse
-        member(export_all, Compile).
-
 %% function(Line, Name, Arity, Clauses, State) -> State.
 
 function(Line, instance, _Arity, _Cs, St) when St#lint.global_vt =/= [] ->
@@ -1235,16 +1249,17 @@ define_function(Line, Name, Arity, St0) ->
             add_error(Line, {redefine_function,NA}, St1);
         false ->
             St2 = St1#lint{defined=gb_sets:add_element(NA, St1#lint.defined)},
-            St = case erl_internal:bif(Name, Arity) andalso
-		     (not is_function_exported(Name, Arity, St2)) andalso
-		     is_warn_enabled(bif_clash, St2) andalso
-		     is_bif_clash(Name,Arity,St2) of
-		     true -> add_warning(Line, {redefine_bif,NA}, St2);
-                     false -> St2
-                  end,
-            case imported(Name, Arity, St) of
-                {yes,_M} -> add_error(Line, {define_import,NA}, St);
-                no -> St
+%%             St = case erl_internal:bif(Name, Arity) andalso %% PaN - Function definitions
+%% 		     (not is_function_exported(Name, Arity, St2)) andalso
+%% 		     is_warn_enabled(bif_clash, St2) andalso
+%% 		     is_bif_clash(Name,Arity,St2) andalso
+%% 		     (not is_autoimport_supressed(St0#lint.no_auto,NA)) of
+%% 		     true -> add_warning(Line, {redefine_bif,NA}, St2);
+%%                      false -> St2
+%%                   end,
+            case imported(Name, Arity, St2) of
+                {yes,_M} -> add_error(Line, {define_import,NA}, St2);
+                no -> St2
             end
     end.
 
@@ -1747,8 +1762,10 @@ gexpr({call,Line,{remote,_,{atom,_,erlang},{atom,_,is_record}=Isr},[_,_,_]=Args}
 gexpr({call,Line,{atom,_La,F},As}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),
     A = length(As),
-    case (not is_local_function(St1#lint.locals,{F,A})) andalso
-	 erl_internal:guard_bif(F, A) of
+    case (not is_local_function(St1#lint.locals,{F,A})) andalso %% PaN -> Function called in guard
+	 (not is_imported_function(St1#lint.imports,{F,A})) andalso
+	 erl_internal:guard_bif(F, A) andalso
+	 (not is_autoimport_supressed(St1#lint.no_auto, {F,A})) of
         true ->
 	    %% Also check that it is auto-imported.
 	    case erl_internal:bif(F, A) of
@@ -1982,7 +1999,9 @@ expr({'fun',Line,Body}, Vt, St) ->
             {vtupdate(Bvt, Vt), St1};
         {function,F,A} ->
             %% N.B. Only allows BIFs here as well, NO IMPORTS!!
-            case ((not is_local_function(St#lint.locals,{F,A})) and erl_internal:bif(F, A)) of
+            case ((not is_local_function(St#lint.locals,{F,A})) andalso %% PaN - Fun expression
+		  (erl_internal:bif(F, A) andalso
+		   (not is_autoimport_supressed(St#lint.no_auto,{F,A})))) of
                 true -> {[],St};
                 false -> {[],call_function(Line, F, A, St)}
             end;
@@ -2015,7 +2034,10 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     St1 = keyword_warning(La, F, St0),
     {Asvt,St2} = expr_list(As, Vt, St1),
     A = length(As),
-    case ((not is_local_function(St2#lint.locals,{F,A})) and erl_internal:bif(F, A)) of
+    IsLocal = is_local_function(St2#lint.locals,{F,A}),
+    IsAutoBif = erl_internal:bif(F, A),
+    AutoSupressed = is_autoimport_supressed(St2#lint.no_auto,{F,A}),
+    case ((not IsLocal) andalso IsAutoBif andalso (not AutoSupressed)) of %% PaN - function call
         true ->
 	    St3 = deprecated_function(Line, erlang, F, As, St2),
 	    {Asvt,St3};
@@ -2030,8 +2052,27 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
 			  case {F,A} of
 			      {record_info,2} ->
                                   check_record_info_call(Line,La,As,St2);
-                              N when N =:= St2#lint.func -> St2;
-                              _ -> call_function(Line, F, A, St2)
+                              N when N =:= St2#lint.func ->
+				  St2;
+                              _ ->
+				  St3 = if
+					    (not AutoSupressed) andalso IsAutoBif ->
+						case erl_internal:old_bif(F,A) of
+						    true ->
+							add_error
+							  (Line,
+							   {redefine_old_bif, {F,A}},
+							   St2);
+						    false ->
+							add_warning
+							  (Line,
+							   {redefine_bif, {F,A}},
+							   St2)
+						end;
+					    true ->
+						St2
+					end,
+				  call_function(Line, F, A, St3)
                           end
                   end}
     end;
@@ -3466,3 +3507,17 @@ local_functions(Forms) ->
 
 is_local_function(LocalSet,{Func,Arity}) ->
     gb_sets:is_element({Func,Arity},LocalSet).
+
+is_imported_function(ImportSet,{Func,Arity}) ->
+    case orddict:find({Func,Arity}, ImportSet) of
+        {ok,_Mod} -> true;
+        error -> false
+    end.
+
+auto_import_supressed(CompileFlags) ->
+    L0 = [ X || {no_auto_import,X} <- CompileFlags ],
+    L1 = [ {Y,Z} || {Y,Z} <- lists:flatten(L0), is_atom(Y), is_integer(Z) ],
+    gb_sets:from_list(L1).
+
+is_autoimport_supressed(NoAutoSet,{Func,Arity}) ->
+    gb_sets:is_element({Func,Arity},NoAutoSet).
