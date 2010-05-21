@@ -367,7 +367,7 @@ iolist() = [char() | binary() | iolist()]
           position <c>Stop</c> in <c>Binary</c>. Positions in the
           binary are numbered starting from 1.</p>
 
-	  <note><p>This functions indexing style of using one-based indices for
+	  <note><p>This function's indexing style of using one-based indices for
 	  binaries is deprecated. New code should use the functions in
 	  the STDLIB module <c>binary</c> instead. They consequently
 	  use the same (zero-based) style of indexing.</p></note>

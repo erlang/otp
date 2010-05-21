@@ -40,7 +40,7 @@
 
 /*
  * The native implementation functions for the module binary.
- * Searching is implemented using aither Boyer-More or Aho-Corasick
+ * Searching is implemented using either Boyer-Moore or Aho-Corasick
  * depending on number of searchstrings (BM if one, AC if more than one).
  * Native implementation is mostly for efficiency, nothing
  * (except binary:referenced_byte_size) really *needs* to be implemented
@@ -149,7 +149,7 @@ static Uint get_reds(Process *p, int loop_factor)
 
 /*
  * A micro allocator used when building search structures, just a convenience
- * for building structures inside a pre alocated magic binary using
+ * for building structures inside a pre-allocated magic binary using
  * conventional malloc-like interface.
  */
 
@@ -303,7 +303,7 @@ static ACTrie *create_acdata(MyAllocator *my, Uint len,
 }
 
 /*
- * The same initialization of allocator and basic data for Boyer-More.
+ * The same initialization of allocator and basic data for Boyer-Moore.
  */
 static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 			     Binary **the_bin /* out */)
@@ -340,7 +340,7 @@ static BMData *create_bmdata(MyAllocator *my, byte *x, Uint len,
 static void ac_add_one_pattern(MyAllocator *my, ACTrie *act, byte *x, Uint len)
 {
     ACNode *acn = act->root;
-    Uint32 n = ++act->counter; /* Always increase conter, even if it's a
+    Uint32 n = ++act->counter; /* Always increase counter, even if it's a
 				  duplicate as this may identify the pattern
 				  in the final set (not in current interface
 				  though) */
@@ -399,9 +399,9 @@ static void ac_compute_failure_functions(ACTrie *act, ACNode **qbuff)
 	    if ((child = parent->g[i]) != NULL) {
 		/* Visit this node to */
 		qbuff[qt++] = child;
-		/* Search for correct failure function, follow the parents
+		/* Search for correct failure function, follow the parent's
 		   failure function until you find a similar transition
-		   funtion to this childs */
+		   funtion to this child's */
 		r =  parent->h;
 		while (r != NULL && r->g[i] == NULL) {
 		    r = r->h;
@@ -678,8 +678,8 @@ static int ac_find_all_non_overlapping(ACFindAllState *state, byte *haystack,
 }
 
 /*
- * Boyer More - most obviously implemented more or less exactly as
- * Christian Charras and Thierry Lecroq describes it in "Handbook of
+ * Boyer Moore - most obviously implemented more or less exactly as
+ * Christian Charras and Thierry Lecroq describe it in "Handbook of
  * Exact String-Matching Algorithms"
  * http://www-igm.univ-mlv.fr/~lecroq/string/
  */
@@ -1869,7 +1869,7 @@ static BIF_RETTYPE do_longest_common(Process *p, Eterm list, int direction)
     }
 
     /* OK, now create a buffer of the right size, we can do a magic binary right away,
-       thats not to costly. */
+       that's not too costly. */
     mb = erts_create_magic_binary((n+1)*sizeof(CommonData),cleanup_common_data);
     cd = (CommonData *) ERTS_MAGIC_BIN_DATA(mb);
     l = list;
@@ -2294,8 +2294,8 @@ BIF_RETTYPE binary_bin_to_list_1(BIF_ALIST_1)
  * Ok, erlang:list_to_binary does not interrupt, and we really don't want
  * an alternative implementation for the exact same thing, why we
  * have descided to use the old non-restarting implementation for now.
- * In reality, there is seldom many iterations involved in doing this, so the
- * problem of long-running-bif's is not really that big in this case.
+ * In reality, there are seldom many iterations involved in doing this, so the
+ * problem of long-running bifs is not really that big in this case.
  * So, for now we use the old implementation also in the module binary.
  */
 
@@ -2870,7 +2870,7 @@ BIF_RETTYPE binary_decode_unsigned_2(BIF_ALIST_2)
 static void dump_bm_data(BMData *bm)
 {
     int i,j;
-    erts_printf("Dumping Boyer-More structure.\n");
+    erts_printf("Dumping Boyer-Moore structure.\n");
     erts_printf("=============================\n");
     erts_printf("Searchstring [%ld]:\n", bm->len);
     erts_printf("<<");

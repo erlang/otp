@@ -387,7 +387,7 @@
       <p>Even though <c>&lt;&lt;"cd"&gt;&gt;</c> ends before
       <c>&lt;&lt;"bcde"&gt;&gt;</c>, <c>&lt;&lt;"bcde"&gt;&gt;</c>
       begins first and is therefore the first match. If two
-      overlapping matches begins at the same position, the longest is
+      overlapping matches begin at the same position, the longest is
       returned.</p>
 
       <p>Summary of the options:</p>
@@ -634,7 +634,7 @@ store(Binary, GBSet) ->
 
         <p>If any position given in <c>InsPos</c> is greater than the size of the replacement binary, a <c>badarg</c> exception is raised.</p>
 
-	<p>The options <c>global</c> and <c>{scope, part()}</c> works as for <seealso marker="#split-3">split/3</seealso>. The return type is always a <c>binary()</c>.</p>
+	<p>The options <c>global</c> and <c>{scope, part()}</c> work as for <seealso marker="#split-3">split/3</seealso>. The return type is always a <c>binary()</c>.</p>
 
 	<p>For a description of <c>Pattern</c>, see <seealso marker="#compile_pattern-1">compile_pattern/1</seealso>.</p>
       </desc>
