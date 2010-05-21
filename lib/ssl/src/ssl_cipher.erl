@@ -275,10 +275,10 @@ suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
 %%     {krb5, idea_cbc, md5};
 
 %% TLS v1.1 suites
-suite({rsa, null, md5}) ->
-    ?TLS_RSA_WITH_NULL_MD5;
-suite({rsa, null, sha}) ->
-    ?TLS_RSA_WITH_NULL_SHA;
+%%suite({rsa, null, md5}) ->
+%%    ?TLS_RSA_WITH_NULL_MD5;
+%%suite({rsa, null, sha}) ->
+%%    ?TLS_RSA_WITH_NULL_SHA;
 suite({rsa, rc4_128, md5}) ->
     ?TLS_RSA_WITH_RC4_128_MD5;
 suite({rsa, rc4_128, sha}) ->
@@ -424,8 +424,7 @@ bulk_cipher_algorithm(null) ->
 %% Not supported yet
 %% bulk_cipher_algorithm(idea_cbc) ->
 %%     ?IDEA;
-bulk_cipher_algorithm(Cipher) when Cipher == rc4_56;
-				   Cipher == rc4_128 ->
+bulk_cipher_algorithm(rc4_128) ->
     ?RC4;
 %% bulk_cipher_algorithm(des40_cbc) ->
 %%     ?DES40;
@@ -438,7 +437,6 @@ bulk_cipher_algorithm(Cipher) when Cipher == aes_128_cbc;
     ?AES.
 
 type(Cipher) when Cipher == null;
-		  Cipher == rc4_56;
 		  Cipher == rc4_128 ->
     ?STREAM;
 
@@ -455,10 +453,8 @@ key_material(null) ->
 key_material(Cipher) when Cipher == idea_cbc;
  			  Cipher == rc4_128 ->
     16;
-key_material(rc4_56) ->
-    7;
-key_material(des40_cbc) ->	
-    5;
+%%key_material(des40_cbc) ->	
+%%   5;
 key_material(des_cbc) ->
     8;
 key_material('3des_ede_cbc') ->
@@ -471,7 +467,6 @@ key_material(aes_256_cbc) ->
 expanded_key_material(null) ->
     0;
 expanded_key_material(Cipher) when Cipher == idea_cbc;
-				   Cipher == rc4_56;
  				   Cipher == rc4_128 ->
     16;
 expanded_key_material(Cipher) when Cipher == des_cbc;
@@ -486,10 +481,9 @@ expanded_key_material(Cipher) when Cipher == aes_128_cbc;
 
 effective_key_bits(null) ->
     0;
-effective_key_bits(des40_cbc) -> 
-    40;
-effective_key_bits(Cipher) when Cipher == rc4_56;
-				Cipher == des_cbc ->
+%%effective_key_bits(des40_cbc) -> 
+%%    40;
+effective_key_bits(des_cbc) ->
     56;
 effective_key_bits(Cipher) when Cipher == idea_cbc;
 				Cipher == rc4_128;
@@ -501,7 +495,6 @@ effective_key_bits(aes_256_cbc) ->
     256.
 
 iv_size(Cipher) when Cipher == null;
-		     Cipher == rc4_56;
 		     Cipher == rc4_128 ->
     0;
 iv_size(Cipher) ->

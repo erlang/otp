@@ -29,6 +29,7 @@
 -include("ssl_internal.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_handshake.hrl").
+-include("ssl_cipher.hrl").
 -include("ssl_debug.hrl").
 
 %% Connection state handling
@@ -532,12 +533,10 @@ initial_connection_state(ConnectionEnd) ->
                      }.
 
 initial_security_params(ConnectionEnd) ->
-    #security_parameters{connection_end = ConnectionEnd,
-                         bulk_cipher_algorithm = ?NULL,
-                         mac_algorithm = ?NULL,         
-                         compression_algorithm = ?NULL,
-                         cipher_type = ?NULL
-                        }.
+    SecParams = #security_parameters{connection_end = ConnectionEnd,
+				     compression_algorithm = ?NULL},
+    ssl_cipher:security_parameters(?TLS_NULL_WITH_NULL_NULL, 
+				   SecParams).
 
 empty_connection_state(ConnectionEnd) ->
     SecParams = empty_security_params(ConnectionEnd),

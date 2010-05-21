@@ -179,10 +179,8 @@ handle_call({{connection_init, TrustedcertsFile, _Role}, Pid}, _From,
 	    {ok, Ref} = ssl_certificate_db:add_trusted_certs(Pid, TrustedcertsFile, Db),
 	    {ok, Ref, Cache}
 	catch
-	    _:{badmatch, Error} ->
-		{error, Error};
-	    _E:_R ->
-		{error, {_R,erlang:get_stacktrace()}}
+	    _:Reason ->
+		{error, Reason}
 	end,
     {reply, Result, State};
 
@@ -204,14 +202,10 @@ handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
     try ssl_certificate_db:cache_pem_file(Pid,File,Db) of
 	Result ->
 	    {reply, Result, State}
-    catch _:{badmatch, Reason} ->
-	    {reply, Reason, State};
-	  _:Reason ->
+    catch 
+	_:Reason ->
 	    {reply, {error, Reason}, State}
-    end;
-	       
-handle_call(_,_, State) ->
-    {reply, ok, State}.
+    end.
 %%--------------------------------------------------------------------
 %% Function: handle_cast(Msg, State) -> {noreply, State} |
 %%                                      {noreply, State, Timeout} |

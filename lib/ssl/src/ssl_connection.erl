@@ -1052,10 +1052,9 @@ init_certificates(#ssl_options{cacertfile = CACertFile,
     case ssl_manager:connection_init(CACertFile, Role) of
 	{ok, CertDbRef, CacheRef} ->
 	    init_certificates(CertDbRef, CacheRef, CertFile, Role);
-	{error, {badmatch, Reason}} ->
-	    handle_file_error(error, Reason, CACertFile, ecacertfile);
 	{error, Reason} ->
-	    handle_file_error(error, Reason, CACertFile, ecacertfile)
+	    handle_file_error(?LINE, error, Reason, CACertFile, ecacertfile,
+			      erlang:get_stacktrace())
     end.
 
 init_certificates(CertDbRef, CacheRef, CertFile, client) -> 
@@ -1071,37 +1070,37 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
      catch
-	 Error:{badmatch, Reason={error,_}} ->
-	     handle_file_error(Error, Reason, CertFile, ecertfile);
 	 Error:Reason ->
-	     handle_file_error(Error, Reason, CertFile, ecertfile)
+	     handle_file_error(?LINE, Error, Reason, CertFile, ecertfile,
+			       erlang:get_stacktrace())
      end.
 
 init_private_key(undefined, "", _Password, client) -> 
     undefined;
 init_private_key(undefined, KeyFile, Password, _)  -> 
-    try 
-	{ok, List} = ssl_manager:cache_pem_file(KeyFile),
-	[Der] = [Der || Der = {PKey, _ , _} <- List,
-			PKey =:= rsa_private_key orelse 
-			    PKey =:= dsa_private_key],
-	{ok, Decoded} = public_key:decode_private_key(Der,Password),
-	Decoded
-    catch
-	Error:{badmatch, Reason={error,_}} ->
-	    handle_file_error(Error, Reason, KeyFile, ekeyfile);
-	  Error:Reason ->
-	    handle_file_error(Error, Reason, KeyFile, ekeyfile)
+    case ssl_manager:cache_pem_file(KeyFile) of
+	{ok, List} ->
+	    [Der] = [Der || Der = {PKey, _ , _} <- List,
+			    PKey =:= rsa_private_key orelse 
+				PKey =:= dsa_private_key],
+	    {ok, Decoded} = public_key:decode_private_key(Der,Password),
+	    Decoded;
+	{error, Reason} -> 
+	    handle_file_error(?LINE, error, Reason, KeyFile, ekeyfile,
+			      erlang:get_stacktrace()) 
     end;
 
 init_private_key(PrivateKey, _, _,_) ->
     PrivateKey.
 
+handle_file_error(Line, Error, {badmatch, Reason}, File, Throw, Stack) ->
+    file_error(Line, Error, Reason, File, Throw, Stack);
+handle_file_error(Line, Error, Reason, File, Throw, Stack) ->
+    file_error(Line, Error, Reason, File, Throw, Stack).
 
-handle_file_error(Error, Reason, File, Throw) ->
+file_error(Line, Error, Reason, File, Throw, Stack) ->
     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-			   [?LINE, Error, Reason, File, 
-			    erlang:get_stacktrace()]),
+			   [Line, Error, Reason, File, Stack]),
     error_logger:error_report(Report),
     throw(Throw).
 
@@ -1110,13 +1109,17 @@ init_diffie_hellman(_, client) ->
 init_diffie_hellman(undefined, _) ->
     ?DEFAULT_DIFFIE_HELLMAN_PARAMS;
 init_diffie_hellman(DHParamFile, server) ->
-    {ok, List} = ssl_manager:cache_pem_file(DHParamFile),
-    case [Der || Der = {dh_params, _ , _} <- List] of
-	[Der] ->
-	    {ok, Decoded} = public_key:decode_dhparams(Der),
-	    Decoded;
-	[] ->
-	    ?DEFAULT_DIFFIE_HELLMAN_PARAMS
+    case ssl_manager:cache_pem_file(DHParamFile) of
+	{ok, List} ->
+	    case [Der || Der = {dh_params, _ , _} <- List] of
+		[Der] ->
+		    {ok, Decoded} = public_key:decode_dhparams(Der),
+		    Decoded;
+		[] ->
+		    ?DEFAULT_DIFFIE_HELLMAN_PARAMS
+	    end;
+	{error, Reason} ->
+	    handle_file_error(?LINE, error, Reason, DHParamFile, edhfile,  erlang:get_stacktrace()) 
     end.
 
 sync_send_all_state_event(FsmPid, Event) ->
