@@ -718,7 +718,10 @@ emulated_options([], Inet,Emulated) ->
 
 cipher_suites(Version, []) ->
     ssl_cipher:suites(Version);
-cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) ->
+cipher_suites(Version, [{_,_,_,_}| _] = Ciphers0) -> %% Backwards compatibility
+    Ciphers = [{KeyExchange, Cipher, Hash} || {KeyExchange, Cipher, Hash, _} <- Ciphers0],
+    cipher_suites(Version, Ciphers);
+cipher_suites(Version, [{_,_,_}| _] = Ciphers0) ->
     Ciphers = [ssl_cipher:suite(C) || C <- Ciphers0],
     cipher_suites(Version, Ciphers);
 cipher_suites(Version, [Cipher0 | _] = Ciphers0) when is_binary(Cipher0) ->
