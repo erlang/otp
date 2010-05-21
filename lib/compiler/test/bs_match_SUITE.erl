@@ -30,7 +30,8 @@
 	 multiple_uses/1,zero_label/1,followed_by_catch/1,
 	 matching_meets_construction/1,simon/1,matching_and_andalso/1,
 	 otp_7188/1,otp_7233/1,otp_7240/1,otp_7498/1,
-	 match_string/1,zero_width/1,bad_size/1,haystack/1]).
+	 match_string/1,zero_width/1,bad_size/1,haystack/1,
+	 cover_beam_bool/1]).
 
 -export([coverage_id/1]).
 
@@ -45,7 +46,7 @@ all(suite) ->
      wfbm,degenerated_match,bs_sum,coverage,multiple_uses,zero_label,
      followed_by_catch,matching_meets_construction,simon,matching_and_andalso,
      otp_7188,otp_7233,otp_7240,otp_7498,match_string,zero_width,bad_size,
-     haystack].
+     haystack,cover_beam_bool].
 
 init_per_testcase(Case, Config) when is_atom(Case), is_list(Config) ->
     Dog = test_server:timetrap(?t:minutes(1)),
@@ -984,6 +985,25 @@ fc(Name, Args, {'EXIT',{function_clause,[{?MODULE,Name,Arity}|_]}})
 fc(_, Args, {'EXIT',{{case_clause,ActualArgs},_}})
   when ?MODULE =:= bs_match_inline_SUITE ->
     Args = tuple_to_list(ActualArgs).
+
+%% Cover the clause handling bs_context to binary in
+%% beam_block:initialized_regs/2.
+cover_beam_bool(Config) when is_list(Config) ->
+    ?line ok = do_cover_beam_bool(<<>>, 3),
+    ?line <<19>> = do_cover_beam_bool(<<19>>, 2),
+    ?line <<42>> = do_cover_beam_bool(<<42>>, 1),
+    ?line <<17>> = do_cover_beam_bool(<<13,17>>, 0),
+    ok.
+
+do_cover_beam_bool(Bin, X) when X > 0 ->
+    if
+	X =:= 1; X =:= 2 ->
+	    Bin;
+	true ->
+	    ok
+    end;
+do_cover_beam_bool(<<_,Bin/binary>>, X) ->
+    do_cover_beam_bool(Bin, X+1).
 
 check(F, R) ->
     R = F().

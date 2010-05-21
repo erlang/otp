@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(andor_SUITE).
@@ -141,6 +141,10 @@ t_and_or(Config) when is_list(Config) ->
 
    ok.
 
+-define(GUARD(E), if E -> true;
+		     true -> false
+		  end).
+
 t_andalso(Config) when is_list(Config) ->
     Bs = [true,false],
     Ps = [{X,Y} || X <- Bs, Y <- Bs],
@@ -150,6 +154,11 @@ t_andalso(Config) when is_list(Config) ->
     ?line false = true andalso false,
     ?line false = false andalso true,
     ?line false = false andalso false,
+
+    ?line true = ?GUARD(true andalso true),
+    ?line false = ?GUARD(true andalso false),
+    ?line false = ?GUARD(false andalso true),
+    ?line false = ?GUARD(false andalso false),
 
     ?line false = false andalso glurf,
     ?line false = false andalso exit(exit_now),
@@ -175,6 +184,11 @@ t_orelse(Config) when is_list(Config) ->
     ?line true = true orelse false,
     ?line true = false orelse true,
     ?line false = false orelse false,
+
+    ?line true = ?GUARD(true orelse true),
+    ?line true = ?GUARD(true orelse false),
+    ?line true = ?GUARD(false orelse true),
+    ?line false = ?GUARD(false orelse false),
 
     ?line true = true orelse glurf,
     ?line true = true orelse exit(exit_now),

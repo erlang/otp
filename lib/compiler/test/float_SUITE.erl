@@ -82,6 +82,14 @@ bad_negate(X, Y) when is_float(X) ->
     Y1 = -Y,					%BIF call.
     {X2, Y1}.
 
+%% Some math functions are not implemented on all platforms.
+-define(OPTIONAL(Expected, Expr),
+	try
+	    Expected = Expr
+	catch
+	    error:undef -> ok
+	end).
+
 math_functions(Config) when is_list(Config) ->
     %% Mostly silly coverage.
     ?line 0.0 = math:tan(0),
@@ -93,6 +101,14 @@ math_functions(Config) when is_list(Config) ->
     ?line -1.0 = math:cos(math:pi()),
     ?line 1.0 = math:exp(0),
     ?line 1.0 = math:pow(math:pi(), 0),
+    ?line 0.0 = math:log(1),
+    ?line 0.0 = math:asin(0),
+    ?line 0.0 = math:acos(1),
+    ?line ?OPTIONAL(0.0, math:asinh(0)),
+    ?line ?OPTIONAL(0.0, math:acosh(1)),
+    ?line ?OPTIONAL(0.0, math:atanh(0)),
+    ?line ?OPTIONAL(0.0, math:erf(0)),
+    ?line ?OPTIONAL(1.0, math:erfc(0)),
 
     ?line 0.0 = math:tan(id(0)),
     ?line 0.0 = math:atan2(id(0), 1),
@@ -101,6 +117,14 @@ math_functions(Config) when is_list(Config) ->
     ?line 0.0 = math:tanh(id(0)),
     ?line 1.0 = math:log10(id(10)),
     ?line 1.0 = math:exp(id(0)),
+    ?line 0.0 = math:log(id(1)),
+    ?line 0.0 = math:asin(id(0)),
+    ?line 0.0 = math:acos(id(1)),
+    ?line ?OPTIONAL(0.0, math:asinh(id(0))),
+    ?line ?OPTIONAL(0.0, math:acosh(id(1))),
+    ?line ?OPTIONAL(0.0, math:atanh(id(0))),
+    ?line ?OPTIONAL(0.0, math:erf(id(0))),
+    ?line ?OPTIONAL(1.0, math:erfc(id(0))),
 
     %% Only for coverage (of beam_type.erl).
     ?line {'EXIT',{undef,_}} = (catch math:fnurfla(0)),

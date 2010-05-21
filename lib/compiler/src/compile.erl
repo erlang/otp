@@ -294,15 +294,6 @@ fold_comp([{Name,Pass}|Ps], Run, St0) ->
     end;
 fold_comp([], _Run, St) -> {ok,St}.
 
-os_process_size() ->
-    case os:type() of
-	{unix, sunos} ->
-	    Size = os:cmd("ps -o vsz -p " ++ os:getpid() ++ " | tail -1"),
-	    list_to_integer(lib:nonl(Size));
-	_ ->
-	    0
-    end.
-
 run_tc({Name,Fun}, St) ->
     Before0 = statistics(runtime),
     Val = (catch Fun(St)),
@@ -311,9 +302,8 @@ run_tc({Name,Fun}, St) ->
     {After_c, _} = After0,
     Mem0 = erts_debug:flat_size(Val)*erlang:system_info(wordsize),
     Mem = lists:flatten(io_lib:format("~.1f kB", [Mem0/1024])),
-    Sz = lists:flatten(io_lib:format("~.1f MB", [os_process_size()/1024])),
-    io:format(" ~-30s: ~10.2f s ~12s ~10s\n",
-	      [Name,(After_c-Before_c) / 1000,Mem,Sz]),
+    io:format(" ~-30s: ~10.2f s ~12s\n",
+	      [Name,(After_c-Before_c) / 1000,Mem]),
     Val.
 
 comp_ret_ok(#compile{code=Code,warnings=Warn0,module=Mod,options=Opts}=St) ->

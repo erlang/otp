@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose : Common utilities used by several optimization passes.
@@ -423,12 +423,6 @@ check_liveness(R, [{bs_add,{f,0},Ss,D}|Is], St) ->
 	true -> {used,St};
 	false when R =:= D -> {killed,St};
 	false -> check_liveness(R, Is, St)
-    end;
-check_liveness(R, [{bs_bits_to_bytes2,Src,Dst}|Is], St) ->
-    case R of
-	Src -> {used,St};
-	Dst -> {killed,St};
-	_ -> check_liveness(R, Is, St)
     end;
 check_liveness(R, [{bs_put_binary,{f,0},Sz,_,_,Src}|Is], St) ->
     case member(R, [Sz,Src]) of

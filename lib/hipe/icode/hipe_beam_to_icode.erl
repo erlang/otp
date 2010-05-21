@@ -895,11 +895,6 @@ trans_fun([{bs_init_bits,{f,Lbl},Size,_Words,_LiveRegs,{field_flags,Flags0},X}|
     end,
   trans_bin_call({hipe_bs_primop,Name}, Lbl, Args, [Dst, Base, Offset],
 		 Base, Offset, Env, Instructions);
-trans_fun([{bs_bits_to_bytes2, Bits, Bytes}|Instructions], Env) ->
-  Src = trans_arg(Bits),
-  Dst = mk_var(Bytes),
-  [hipe_icode:mk_primop([Dst], 'bsl', [Src, hipe_icode:mk_const(3)])|
-   trans_fun(Instructions,Env)];
 trans_fun([{bs_add, {f,Lbl}, [Old,New,Unit], Res}|Instructions], Env) ->
   Dst = mk_var(Res),
   Temp = mk_var(new),
@@ -1128,13 +1123,6 @@ trans_fun([{gc_bif,Name,Fail,_Live,SrcRs,DstR}|Instructions], Env) ->
       %% A guard BIF.
       trans_fun([{bif,Name,Fail,SrcRs,DstR}|Instructions], Env)
   end;
-%%--------------------------------------------------------------------
-%% Instruction for constant pool added in February 2007 for R11B-4.
-%%--------------------------------------------------------------------
-trans_fun([{put_literal,{literal,Literal},DstR}|Instructions], Env) ->
-  DstV = mk_var(DstR),
-  Move = hipe_icode:mk_move(DstV, hipe_icode:mk_const(Literal)),
-  [Move | trans_fun(Instructions, Env)];
 %%--------------------------------------------------------------------
 %% New test instruction added in July 2007 for R12.
 %%--------------------------------------------------------------------

@@ -60,11 +60,17 @@ func_info M=a a==am_module_info A=u==0 | label L | move n r => too_old_compiler
 func_info M=a a==am_module_info A=u==1 | label L | move n r => too_old_compiler
 
 # The undocumented and unsupported guard BIF is_constant/1 was removed
-# in R13. The is_constant/2 operation is marked as obosolete in genop.tab,
+# in R13. The is_constant/2 operation is marked as obsolete in genop.tab,
 # so the loader will automatically generate a too_old_compiler message
 # it is used, but we need to handle the is_constant/1 BIF specially here.
 
 bif1 Fail u$func:erlang:is_constant/1 Src Dst => too_old_compiler
+
+# Since the constant pool was introduced in R12B, empty tuples ({})
+# are literals. Therefore we no longer need to allow put_tuple/2
+# with a tuple size of zero.
+
+put_tuple u==0 d => too_old_compiler
 
 #
 # All the other instructions.
@@ -328,10 +334,7 @@ i_is_eq_immed f y c
 # Putting things.
 #
 
-put_tuple u==0 Dst => i_put_tuple_only u Dst
 put_tuple Arity Dst | put V => i_put_tuple Arity V Dst
-
-i_put_tuple_only A d
 
 %macro: i_put_tuple PutTuple -pack
 i_put_tuple A x x
@@ -1176,12 +1179,6 @@ i_bs_init_bits_fail_heap I j I d
 
 i_bs_init_bits I I d
 i_bs_init_bits_heap I I I d
-
-bs_bits_to_bytes Fail Src Dst => i_bs_bits_to_bytes Src Fail Dst
-
-i_bs_bits_to_bytes r j d
-i_bs_bits_to_bytes x j d
-i_bs_bits_to_bytes y j d
 
 bs_add Fail S1=i==0 S2 Unit=u==1 D => move S2 D
 bs_add Fail S1 S2 Unit D => i_fetch S1 S2 | i_bs_add Fail Unit D

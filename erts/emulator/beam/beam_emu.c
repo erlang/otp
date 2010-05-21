@@ -3217,12 +3217,6 @@ apply_bif_or_nif_epilogue:
 	StoreBifResult(1, result);
     }
 
- OpCase(i_put_tuple_only_Ad): {
-     tmp_arg1 = make_tuple(HTOP);
-     *HTOP++ = Arg(0);
-     StoreBifResult(1, tmp_arg1);
- }
-
  OpCase(case_end_s):
     GetArg1(0, tmp_arg1);
     c_p->fvalue = tmp_arg1;
@@ -3533,42 +3527,6 @@ apply_bif_or_nif_epilogue:
 	 }
  }
 
- OpCase(i_bs_bits_to_bytes_rjd): {
-     tmp_arg1 = r(0);
-     goto do_bits_to_bytes;
- }
-
- OpCase(i_bs_bits_to_bytes_yjd): {
-     tmp_arg1 = yb(Arg(0));
-     I++;
-     goto do_bits_to_bytes;
-
- OpCase(i_bs_bits_to_bytes_xjd): {
-     tmp_arg1 = xb(Arg(0));
-     I++;
- }
-
- do_bits_to_bytes:
-     {
-	 if (is_valid_bit_size(tmp_arg1)) {
-	     tmp_arg1 = make_small(unsigned_val(tmp_arg1) >> 3);
-	 } else {
-	     Uint bytes;
-	     if (!term_to_Uint(tmp_arg1, &bytes)) {
-		 goto badarg;
-	     }
-	     tmp_arg1 = bytes;
-	     if ((tmp_arg1 & 0x07) != 0) {
-		 goto badarg;
-	     }
-	     SWAPOUT;
-	     tmp_arg1 = erts_make_integer(tmp_arg1 >> 3, c_p);
-	     HTOP = HEAP_TOP(c_p);
-	 }
-	 StoreBifResult(1, tmp_arg1);
-     }
- }
-
  OpCase(i_bs_add_jId): {
      Uint Unit = Arg(1);
      if (is_both_small(tmp_arg1, tmp_arg2)) {
@@ -3606,7 +3564,7 @@ apply_bif_or_nif_epilogue:
 
 	 /*
 	  * Now we know that one of the arguments is
-	  * not at small. We must convert both arguments
+	  * not a small. We must convert both arguments
 	  * to Uints and check for errors at the same time.
 	  *
 	  * Error checking is tricky.

@@ -104,7 +104,17 @@ silly_coverage(Config) when is_list(Config) ->
     ?line expect_error(fun() -> sys_core_dsetel:module(BadCoreErlang, []) end),
     ?line expect_error(fun() -> v3_kernel:module(BadCoreErlang, []) end),
 
-    %% v3_codgen
+    %% v3_life
+    BadKernel = {k_mdef,[],?MODULE,
+		 [{foo,0}],
+		 [],
+		 [{k_fdef,
+		   {k,[],[],[]},
+		   f,0,[],
+		   seriously_bad_body}]},
+    ?line expect_error(fun() -> v3_life:module(BadKernel, []) end),
+
+    %% v3_codegen
     CodegenInput = {?MODULE,[{foo,0}],[],[{function,foo,0,[a|b],a,b}]},
     ?line expect_error(fun() -> v3_codegen:module(CodegenInput, []) end),
 

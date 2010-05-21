@@ -76,9 +76,6 @@ simplify_basic_1([{set,[D],[{integer,Index},Reg],{bif,element,_}}=I0|Is], Ts0, A
     end,
     Ts = update(I, Ts0),
     simplify_basic_1(Is, Ts, [I|Acc]);
-simplify_basic_1([{set,[_],[_],{bif,_,{f,0}}}=I|Is], Ts0, Acc) ->
-    Ts = update(I, Ts0),
-    simplify_basic_1(Is, Ts, [I|Acc]);
 simplify_basic_1([{set,[D],[TupleReg],{get_tuple_element,0}}=I|Is0], Ts0, Acc) ->
     case tdb_find(TupleReg, Ts0) of
 	{tuple,_,[Contents]} ->
@@ -118,7 +115,6 @@ simplify_basic_1([{test,is_record,_,[R,{atom,_}=Tag,{integer,Arity}]}=I|Is], Ts0
 	    Ts = update(I, Ts0),
 	    simplify_basic_1(Is, Ts, [I|Acc])
     end;
-
 simplify_basic_1([I|Is], Ts0, Acc) ->
     Ts = update(I, Ts0),
     simplify_basic_1(Is, Ts, [I|Acc]);

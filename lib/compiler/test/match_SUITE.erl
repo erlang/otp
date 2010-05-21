@@ -112,6 +112,12 @@ aliases(Config) when is_list(Config) ->
     ?line {42,42,42,42} = multiple_aliases_1(42),
     ?line {7,7,7} = multiple_aliases_2(7),
     ?line {{a,b},{a,b},{a,b}} = multiple_aliases_3({a,b}),
+
+    %% Lists/literals.
+    ?line {a,b} = list_alias1([a,b]),
+    ?line {a,b} = list_alias2([a,b]),
+    ?line {a,b} = list_alias3([a,b]),
+
     ok.
 
 str_alias(V) ->
@@ -205,6 +211,15 @@ multiple_aliases_2((A=B)=(A=C)) ->
 
 multiple_aliases_3((A={_,_}=B)={_,_}=C) ->
     {A,B,C}.
+
+list_alias1([a,b]=[X,Y]) ->
+    {X,Y}.
+
+list_alias2([X,Y]=[a,b]) ->
+    {X,Y}.
+
+list_alias3([X,b]=[a,Y]) ->
+    {X,Y}.
 
 %% OTP-7018.
 
