@@ -39,7 +39,7 @@
 -include_lib("public_key/include/public_key.hrl"). 
 
 %% Internal application API
--export([send/2, send/3, recv/3, connect/7, ssl_accept/6, handshake/2,
+-export([send/2, recv/3, connect/7, ssl_accept/6, handshake/2,
 	 socket_control/3, close/1, shutdown/2,
 	 new_user/2, get_opts/2, set_opts/2, info/1, session_info/1, 
 	 peer_certificate/1, sockname/1, peername/1, renegotiation/1]).
@@ -109,8 +109,7 @@
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
     sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, infinity).
-send(Pid, Data, Timeout) -> 
-    sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, Timeout).
+
 %%--------------------------------------------------------------------
 %% Function:  recv(Socket, Length Timeout) -> {ok, Data} | {error, reason}
 %%
@@ -211,8 +210,6 @@ peername(ConnectionPid) ->
 %%
 %% Description: Same as inet:getopts/2
 %%--------------------------------------------------------------------
-get_opts({ListenSocket, {_SslOpts, SockOpts}, _}, OptTags) ->
-    get_socket_opts(ListenSocket, OptTags, SockOpts, []);
 get_opts(ConnectionPid, OptTags) ->
     sync_send_all_state_event(ConnectionPid, {get_opts, OptTags}).
 %%--------------------------------------------------------------------
@@ -361,7 +358,7 @@ hello(#server_hello{cipher_suite = CipherSuite,
 
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
 	{Version, NewId, ConnectionStates1} ->
-	    {KeyAlgorithm, _, _, _} = 
+	    {KeyAlgorithm, _, _} = 
 		ssl_cipher:suite_definition(CipherSuite),
 	    
 	    PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
@@ -520,8 +517,7 @@ certify(#server_key_exchange{} = KeyExchangeMsg,
 
 certify(#server_key_exchange{}, 
         State = #state{role = client, negotiated_version = Version,
-                       key_algorithm = Alg}) 
-  when Alg == rsa; Alg == dh_dss; Alg == dh_rsa -> 
+                       key_algorithm = rsa}) -> 
     Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE),
     handle_own_alert(Alert, Version, certify_server_key_exchange, State),
     {stop, normal, State};
@@ -1056,16 +1052,10 @@ init_certificates(#ssl_options{cacertfile = CACertFile,
     case ssl_manager:connection_init(CACertFile, Role) of
 	{ok, CertDbRef, CacheRef} ->
 	    init_certificates(CertDbRef, CacheRef, CertFile, Role);
-	{error, {badmatch, _Error}} ->
-	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
-				   [_Error, CACertFile]),
-	    error_logger:error_report(Report),
-	    throw(ecacertfile);
-	{error, _Error} ->
-	    Report = io_lib:format("SSL: Error ~p Initializing: ~p ~n",
-				   [_Error, CACertFile]),
-	    error_logger:error_report(Report),
-	    throw(ecacertfile)
+	{error, {badmatch, Reason}} ->
+	    handle_file_error(error, Reason, CACertFile, ecacertfile);
+	{error, Reason} ->
+	    handle_file_error(error, Reason, CACertFile, ecacertfile)
     end.
 
 init_certificates(CertDbRef, CacheRef, CertFile, client) -> 
@@ -1081,18 +1071,10 @@ init_certificates(CertDbRef, CacheRef, CertFile, server) ->
 	[OwnCert] = ssl_certificate:file_to_certificats(CertFile),
 	{ok, CertDbRef, CacheRef, OwnCert}
      catch
-	 _E:{badmatch, _R={error,_}} ->
-	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-				    [?LINE, _E,_R, CertFile, 
-				     erlang:get_stacktrace()]),
-	     error_logger:error_report(Report),
-	     throw(ecertfile);
-	 _E:_R  ->
-	     Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-				    [?LINE, _E,_R, CertFile, 
-				     erlang:get_stacktrace()]),
-	     error_logger:error_report(Report),
-	     throw(ecertfile)
+	 Error:{badmatch, Reason={error,_}} ->
+	     handle_file_error(Error, Reason, CertFile, ecertfile);
+	 Error:Reason ->
+	     handle_file_error(Error, Reason, CertFile, ecertfile)
      end.
 
 init_private_key(undefined, "", _Password, client) -> 
@@ -1106,21 +1088,22 @@ init_private_key(undefined, KeyFile, Password, _)  ->
 	{ok, Decoded} = public_key:decode_private_key(Der,Password),
 	Decoded
     catch
-	_E:{badmatch, _R={error,_}} ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-				   [?LINE, _E,_R, KeyFile, 
-				    erlang:get_stacktrace()]),
-	    error_logger:error_report(Report),
-	    throw(ekeyfile);
-	_E:_R ->
-	    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
-				   [?LINE, _E,_R, KeyFile, 
-				    erlang:get_stacktrace()]),
-	    error_logger:error_report(Report),
-	    throw(ekeyfile)
+	Error:{badmatch, Reason={error,_}} ->
+	    handle_file_error(Error, Reason, KeyFile, ekeyfile);
+	  Error:Reason ->
+	    handle_file_error(Error, Reason, KeyFile, ekeyfile)
     end;
+
 init_private_key(PrivateKey, _, _,_) ->
     PrivateKey.
+
+
+handle_file_error(Error, Reason, File, Throw) ->
+    Report = io_lib:format("SSL: ~p: ~p:~p ~s~n  ~p~n",
+			   [?LINE, Error, Reason, File, 
+			    erlang:get_stacktrace()]),
+    error_logger:error_report(Report),
+    throw(Throw).
 
 init_diffie_hellman(_, client) ->
     undefined;
@@ -1191,15 +1174,18 @@ verify_client_cert(#state{client_certificate_requested = true, role = client,
     case ssl_handshake:client_certificate_verify(OwnCert, MasterSecret, 
 						 Version, KeyAlg, 
 						 PrivateKey, Hashes0) of
-	ignore -> %% No key or cert or fixed_diffie_hellman
-            State;
-        Verified ->
+        #certificate_verify{} = Verified ->
             {BinVerified, ConnectionStates1, Hashes1} = 
                 encode_handshake(Verified, KeyAlg, Version, 
                                  ConnectionStates0, Hashes0),
             Transport:send(Socket, BinVerified),
             State#state{connection_states = ConnectionStates1,
-                        tls_handshake_hashes = Hashes1}
+                        tls_handshake_hashes = Hashes1};
+	ignore ->
+	    State;
+	 #alert{} = Alert ->
+	    handle_own_alert(Alert, Version, certify, State)
+	    
     end;
 verify_client_cert(#state{client_certificate_requested = false} = State) ->
     State.
@@ -1290,7 +1276,7 @@ server_hello(ServerHello, #state{transport_cb = Transport,
                                  connection_states = ConnectionStates0,
                                  tls_handshake_hashes = Hashes0} = State) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
-    {KeyAlgorithm, _, _, _} = ssl_cipher:suite_definition(CipherSuite),
+    {KeyAlgorithm, _, _} = ssl_cipher:suite_definition(CipherSuite),
     %% Version = ServerHello#server_hello.server_version, TODO ska kontrolleras
     {BinMsg, ConnectionStates1, Hashes1} = 
         encode_handshake(ServerHello, Version, ConnectionStates0, Hashes0),
@@ -1333,19 +1319,8 @@ certify_server(#state{transport_cb = Transport,
 	    throw(Alert)
     end.
 
-key_exchange(#state{role = server, key_algorithm = Algo} = State) 
-  when Algo == rsa;
-       Algo == dh_dss;
-       Algo == dh_rsa ->
+key_exchange(#state{role = server, key_algorithm = rsa} = State) ->
     State;
-
-%% Remove or uncomment when we decide if to support export cipher suites
-%%key_exchange(#state{role = server, key_algorithm = rsa_export} = State) ->
-    %% TODO when the public key in the server certificate is
-    %% less than or equal to 512 bits in length dont send key_exchange
-    %% but do it otherwise
-%%    State;
-
 key_exchange(#state{role = server, key_algorithm = Algo,
 		    diffie_hellman_params = Params,
 		    private_key = PrivateKey,
@@ -1396,7 +1371,6 @@ key_exchange(#state{role = client,
     Transport:send(Socket, BinMsg),
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_hashes = Hashes1};
-
 key_exchange(#state{role = client, 
 		    connection_states = ConnectionStates0,
 		    key_algorithm = Algorithm,
@@ -1415,9 +1389,6 @@ key_exchange(#state{role = client,
     State#state{connection_states = ConnectionStates1,
                 tls_handshake_hashes = Hashes1}.
 
-%% key_algorithm = dh_rsa | dh_dss are not supported. If we want to
-%% support it we need a key_exchange clause for it here.
-
 rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})  
   when Algorithm == ?rsaEncryption;
        Algorithm == ?md2WithRSAEncryption;
@@ -1428,20 +1399,6 @@ rsa_key_exchange(PremasterSecret, PublicKeyInfo = {Algorithm, _, _})
 				PublicKeyInfo});
 rsa_key_exchange(_, _) ->
     throw (?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)).
-
-%% Uncomment if we decide to support cipher suites with key_algorithm
-%% dh_rsa and dh_dss.  Could also be removed if we decide support for
-%% this will not be needed. Not supported by openssl!
-%% dh_key_exchange(OwnCert, DhKeys, true) ->
-%%     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
-%% 	true ->
-%% 	    ssl_handshake:key_exchange(client, fixed_diffie_hellman);
-%% 	false ->
-%% 	    {DhPubKey, _} = DhKeys,
-%% 	    ssl_handshake:key_exchange(client, {dh, DhPubKey})
-%%     end;
-%% dh_key_exchange(_, {DhPubKey, _}, false) ->
-%%     ssl_handshake:key_exchange(client, {dh, DhPubKey}).
 
 request_client_cert(#state{ssl_options = #ssl_options{verify = verify_peer},
 			   connection_states = ConnectionStates0,
@@ -2117,9 +2074,7 @@ handle_unexpected_message(_Msg, StateName, #state{negotiated_version = Version} 
     handle_own_alert(Alert, Version, StateName, State),
     {stop, normal, State}.
 
-make_premaster_secret({MajVer, MinVer}, Alg) when Alg == rsa; 
-						  Alg == dh_dss; 
-						  Alg == dh_rsa ->
+make_premaster_secret({MajVer, MinVer}, rsa) ->
     Rand = crypto:rand_bytes(?NUM_OF_PREMASTERSECRET_BYTES-2),
     <<?BYTE(MajVer), ?BYTE(MinVer), Rand/binary>>;
 make_premaster_secret(_, _) ->
