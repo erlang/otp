@@ -282,7 +282,7 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
 			  PrivateKey, {Hashes0, _}) ->
     case public_key:pkix_is_fixed_dh_cert(OwnCert) of
 	true ->
-	    ignore;
+	    ?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE);
 	false ->	    
 	    Hashes = 
 		calc_certificate_verify(Version, MasterSecret,
@@ -302,7 +302,6 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
 certificate_verify(Signature, {_, PublicKey, _}, Version, 
 		   MasterSecret, Algorithm, {_, Hashes0}) 
   when Algorithm == rsa;
-       Algorithm == dh_rsa;
        Algorithm == dhe_rsa ->
     Hashes = calc_certificate_verify(Version, MasterSecret,
 					   Algorithm, Hashes0),
@@ -346,13 +345,6 @@ key_exchange(client, {premaster_secret, Secret, {_, PublicKey, _}}) ->
 	encrypted_premaster_secret(Secret, PublicKey),
     #client_key_exchange{exchange_keys = EncPremasterSecret};
 
-%% Uncomment if dh_rsa and dh_dss cipher suites should
-%% be supported.
-%% key_exchange(client, fixed_diffie_hellman) -> 
-%%     #client_key_exchange{exchange_keys = 
-%% 			 #client_diffie_hellman_public{
-%% 			   dh_public = <<>>
-%% 			  }};
 key_exchange(client, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
     #client_key_exchange{
 	      exchange_keys = #client_diffie_hellman_public{
@@ -725,12 +717,11 @@ master_secret(Version, MasterSecret, #security_parameters{
 			 hash_size = HashSize,
 			 key_material_length = KML,
 			 expanded_key_material_length = EKML,
-			 iv_size = IVS,
-			 exportable = Exportable},
+			 iv_size = IVS},
 	      ConnectionStates, Role) ->
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV} =
-	setup_keys(Version, Exportable, MasterSecret, ServerRandom, 
+	setup_keys(Version, MasterSecret, ServerRandom, 
 		   ClientRandom, HashSize, KML, EKML, IVS),
     ?DBG_HEX(ClientWriteKey),
     ?DBG_HEX(ClientIV),
@@ -812,14 +803,7 @@ dec_hs(?SERVER_HELLO, <<?BYTE(Major), ?BYTE(Minor), Random:32/binary,
 	renegotiation_info = RenegotiationInfo};
 dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>, _, _) ->
     #certificate{asn1_certificates = certs_to_list(ASN1Certs)};
-%% Uncomment if support for export ciphers is added.
-%% dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen), Mod:ModLen/binary,
-%% 			      ?UINT16(ExpLen),  Exp:ExpLen/binary,
-%% 			      ?UINT16(_),  Sig/binary>>,
-%%        ?KEY_EXCHANGE_RSA, _) ->
-%%     #server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod, 
-%% 						     rsa_exponent = Exp}, 
-%% 			 signed_params = Sig}; 	
+
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
@@ -846,8 +830,7 @@ dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(_), PKEPMS/binary>>,
     PreSecret = #encrypted_premaster_secret{premaster_secret = PKEPMS},
     #client_key_exchange{exchange_keys = PreSecret};
 dec_hs(?CLIENT_KEY_EXCHANGE, <<>>, ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) -> 
-    %% TODO: Should check whether the cert already contains a suitable DH-key (7.4.7.2)
-    throw(?ALERT_REC(?FATAL, implicit_public_value_encoding));
+    throw(?ALERT_REC(?FATAL, ?UNSUPPORTED_CERTIFICATE));
 dec_hs(?CLIENT_KEY_EXCHANGE, <<?UINT16(DH_YLen), DH_Y:DH_YLen/binary>>,
        ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
     #client_key_exchange{exchange_keys = 
@@ -953,17 +936,6 @@ enc_hs(#certificate{asn1_certificates = ASN1CertList}, _Version, _) ->
     ASN1Certs = certs_from_list(ASN1CertList),
     ACLen = erlang:iolist_size(ASN1Certs),
     {?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>};
-%% Uncomment if support for export ciphers is added.
-%% enc_hs(#server_key_exchange{params = #server_rsa_params{rsa_modulus = Mod,
-%% 							rsa_exponent = Exp},
-%% 			    signed_params = SignedParams}, _Version, _) -> 
-%%     ModLen = byte_size(Mod),
-%%     ExpLen = byte_size(Exp),
-%%     SignedLen = byte_size(SignedParams),
-%%     {?SERVER_KEY_EXCHANGE, <<?UINT16(ModLen),Mod/binary,
-%% 			    ?UINT16(ExpLen), Exp/binary,
-%% 			    ?UINT16(SignedLen), SignedParams/binary>>
-%%     };
 enc_hs(#server_key_exchange{params = #server_dh_params{
 			      dh_p = P, dh_g = G, dh_y = Y},
 	signed_params = SignedParams}, _Version, _) ->
@@ -1073,16 +1045,11 @@ from_2bytes(<<?UINT16(N), Rest/binary>>, Acc) ->
 
 certificate_types({KeyExchange, _, _, _})  
   when KeyExchange == rsa;
-       KeyExchange == dh_dss;
-       KeyExchange == dh_rsa;
        KeyExchange == dhe_dss;
        KeyExchange == dhe_rsa ->
     <<?BYTE(?RSA_SIGN), ?BYTE(?DSS_SIGN)>>;
 
 certificate_types(_) ->
-    %%TODO: Is this a good default,
-    %% is there a case where we like to request
-    %% a RSA_FIXED_DH or DSS_FIXED_DH
     <<?BYTE(?RSA_SIGN)>>.
 
 certificate_authorities(CertDbRef) ->
@@ -1125,21 +1092,15 @@ calc_master_secret({3,N},PremasterSecret, ClientRandom, ServerRandom)
   when N == 1; N == 2 ->
     ssl_tls1:master_secret(PremasterSecret, ClientRandom, ServerRandom).
 
-setup_keys({3,0}, Exportable, MasterSecret,
+setup_keys({3,0}, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, EKML, IVS) ->
-    ssl_ssl3:setup_keys(Exportable, MasterSecret, ServerRandom, 
+    ssl_ssl3:setup_keys(MasterSecret, ServerRandom, 
 			ClientRandom, HashSize, KML, EKML, IVS);
 
-setup_keys({3,1}, _Exportable, MasterSecret,
+setup_keys({3,1}, MasterSecret,
 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, IVS) ->
     ssl_tls1:setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize, 
 			KML, IVS).
-
-%% Uncomment when supported
-%% setup_keys({3,2}, _Exportable, MasterSecret,
-%% 	   ServerRandom, ClientRandom, HashSize, KML, _EKML, _IVS) ->
-%%     ssl_tls1:setup_keys(MasterSecret, ServerRandom, 
-%% 			ClientRandom, HashSize, KML).
 
 calc_finished({3, 0}, Role, MasterSecret, Hashes) ->
     ssl_ssl3:finished(Role, MasterSecret, Hashes);
@@ -1154,7 +1115,6 @@ calc_certificate_verify({3, N}, _, Algorithm, Hashes)
     ssl_tls1:certificate_verify(Algorithm, Hashes).
 
 server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
- 						Algorithm == dh_rsa;
  						Algorithm == dhe_rsa ->
     MD5Context = crypto:md5_init(),
     NewMD5Context = crypto:md5_update(MD5Context, Value),
@@ -1166,9 +1126,7 @@ server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
 
     <<MD5/binary, SHA/binary>>;
 
-server_key_exchange_hash(Algorithm, Value) when Algorithm == dh_dss;
-						Algorithm == dhe_dss ->
-
+server_key_exchange_hash(dhe_dss, Value) ->
     SHAContext = crypto:sha_init(),
     NewSHAContext = crypto:sha_update(SHAContext, Value),
     crypto:sha_final(NewSHAContext).
@@ -1176,9 +1134,9 @@ server_key_exchange_hash(Algorithm, Value) when Algorithm == dh_dss;
 
 sig_alg(dh_anon) ->
     ?SIGNATURE_ANONYMOUS;
-sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa; Alg == dh_rsa ->
+sig_alg(Alg) when Alg == dhe_rsa; Alg == rsa ->
     ?SIGNATURE_RSA;
-sig_alg(Alg) when Alg == dh_dss; Alg == dhe_dss ->
+sig_alg(dhe_dss) ->
     ?SIGNATURE_DSA;
 sig_alg(_) ->
     ?NULL.
