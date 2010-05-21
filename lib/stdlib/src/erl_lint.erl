@@ -189,6 +189,8 @@ format_error({unused_function,{F,A}}) ->
     io_lib:format("function ~w/~w is unused", [F,A]);
 format_error({redefine_bif,{F,A}}) ->
     io_lib:format("redefining autoimported BIF ~w/~w", [F,A]);
+format_error({redefine_bif_import,{F,A}}) ->
+    io_lib:format("import directive redefines autoimported BIF ~w/~w", [F,A]);
 
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
     io_lib:format("~s is deprecated and will be removed in ~s; use ~s",
@@ -1091,11 +1093,32 @@ import(Line, {Mod,Fs}, St) ->
                     St#lint{imports=add_imports(list_to_atom(Mod1), Mfs,
                                                 St#lint.imports)};
                 Efs ->
-                    foldl(fun (Ef, St0) ->
-                                  add_error(Line, {redefine_import,Ef},
-                                            St0)
+		    {Err, St1} =
+			foldl(fun ({bif,{F,A},_}, {Err,St0}) ->
+				      Warn = is_warn_enabled(bif_clash, St0),
+				      {Err,if
+					       Warn ->
+						   add_warning
+						     (Line,
+					     {redefine_bif_import, {F,A}},
+						      St0);
+					       true ->
+					  St0
+					   end};
+				  (Ef, {_Err,St0}) ->
+				      {true,add_error(Line,
+						      {redefine_import,Ef},
+						      St0)}
                           end,
-                          St, Efs)
+                          {false,St}, Efs),
+		    if
+			not Err ->
+			    St1#lint{imports=
+				     add_imports(list_to_atom(Mod1), Mfs,
+						 St#lint.imports)};
+			true ->
+			    St1
+		    end
             end;
         false ->
             add_error(Line, {bad_module_name, Mod1}, St)

@@ -407,14 +407,14 @@ expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
 	true ->
 	    {{call,Line,Atom,As},St1};
 	_ ->
-	    case erl_internal:bif(N, Ar) of
-		true ->
-		    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
-		false ->
-		    case imported(N, Ar, St1) of
-			{yes,Mod} ->
-			    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
-			no -> % Let the error come later, this call is to an undefined function...
+	    case imported(N, Ar, St1) of
+		{yes,Mod} ->
+		    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
+		no ->
+		    case erl_internal:bif(N, Ar) of
+			true ->
+			    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
+			false -> %% This should have been handled by erl_lint
 			    {{call,Line,Atom,As},St1}
 		    end
 	    end
