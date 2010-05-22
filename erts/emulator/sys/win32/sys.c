@@ -3010,12 +3010,6 @@ erts_sys_pre_init(void)
     erts_sys_env_init();
 }
 
-/*
- * the last two only used for standalone erlang
- * they should are used by sae_main in beam dll to
- * enable standalone execution via erl_api-routines
- */
-
 void noinherit_std_handle(DWORD type)
 {
     HANDLE h = GetStdHandle(type);

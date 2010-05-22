@@ -336,59 +336,6 @@ init_shared_memory(int argc, char **argv)
 #endif
 }
 
-
-/*
- * Create the very first process.
- */
-
-void
-erts_first_process(Eterm modname, void* code, unsigned size, int argc, char** argv)
-{
-    int i;
-    Eterm args;
-    Eterm pid;
-    Eterm* hp;
-    Process parent;
-    Process* p;
-    ErlSpawnOpts so;
-    
-    if (erts_find_function(modname, am_start, 1) == NULL) {
-	char sbuf[256];
-	Atom* ap;
-
-	ap = atom_tab(atom_val(modname));
-	memcpy(sbuf, ap->name, ap->len);
-	sbuf[ap->len] = '\0';
-	erl_exit(5, "No function %s:start/1\n", sbuf);
-    }
-
-    /*
-     * We need a dummy parent process to be able to call erl_create_process().
-     */
-    erts_init_empty_process(&parent);
-    hp = HAlloc(&parent, argc*2 + 4);
-    args = NIL;
-    for (i = argc-1; i >= 0; i--) {
-	int len = sys_strlen(argv[i]);
-	args = CONS(hp, new_binary(&parent, (byte*)argv[i], len), args);
-	hp += 2;
-    }
-    args = CONS(hp, new_binary(&parent, code, size), args);
-    hp += 2;
-    args = CONS(hp, args, NIL);
-
-    so.flags = 0;
-    pid = erl_create_process(&parent, modname, am_start, args, &so);
-    p = process_tab[internal_pid_index(pid)];
-    p->group_leader = pid;
-
-    erts_cleanup_empty_process(&parent);
-}
-
-/*
- * XXX Old way of starting. Hopefully soon obsolete.
- */
-
 static void
 erl_first_process_otp(char* modname, void* code, unsigned size, int argc, char** argv)
 {
