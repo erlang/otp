@@ -686,8 +686,6 @@ bif 'erl.system.code':make_stub_module/3	ebif_code_make_stub_module_3
 bif code:is_module_native/1
 bif 'erl.system.code':is_native/1	ebif_code_is_native_1 code_is_module_native_1
 
-bif erlang:blocking_read_file/1
-
 #
 # New Bifs in R9C.
 #

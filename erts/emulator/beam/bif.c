@@ -4143,54 +4143,6 @@ void erts_init_bif(void)
     await_proc_exit_trap = erts_export_put(am_erlang,am_await_proc_exit,3);
 }
 
-BIF_RETTYPE blocking_read_file_1(BIF_ALIST_1)
-{
-    Eterm bin;
-    Eterm* hp;
-    byte *buff;
-    int i, buff_size;
-    FILE *file;
-    struct stat file_info;
-    char *filename = NULL;
-    size_t size;
- 
-    i = list_length(BIF_ARG_1);
-    if (i < 0) {
-	BIF_ERROR(BIF_P, BADARG);
-    }
-    filename = erts_alloc(ERTS_ALC_T_TMP, i + 1);
-    if (intlist_to_buf(BIF_ARG_1, filename, i) != i)
-	erl_exit(1, "%s:%d: Internal error\n", __FILE__, __LINE__);
-    filename[i] = '\0';
- 
-    hp = HAlloc(BIF_P, 3);
- 
-    file = fopen(filename, "r");
-    if(file == NULL){
-	erts_free(ERTS_ALC_T_TMP, (void *) filename);
-	BIF_RET(TUPLE2(hp, am_error, am_nofile));
-    }
- 
-    stat(filename, &file_info);
-    erts_free(ERTS_ALC_T_TMP, (void *) filename);
-
-    buff_size = file_info.st_size;
-    buff = (byte *) erts_alloc_fnf(ERTS_ALC_T_TMP, buff_size);
-    if (!buff) {
-	fclose(file);
-	BIF_RET(TUPLE2(hp, am_error, am_allocator));
-    }
-    size = fread(buff, 1, buff_size, file);
-    fclose(file);
-    if (size < 0)
-	size = 0;
-    else if (size > buff_size)
-	size = (size_t) buff_size;
-    bin = new_binary(BIF_P, buff, (int) size);
-    erts_free(ERTS_ALC_T_TMP, (void *) buff);
- 
-    BIF_RET(TUPLE2(hp, am_ok, bin));
-}
 #ifdef HARDDEBUG
 /*
 You'll need this line in bif.tab to be able to use this debug bif
