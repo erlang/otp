@@ -238,6 +238,7 @@ bif(binary_to_existing_atom, 2) -> true;
 bif(binary_to_list, 1) -> true;
 bif(binary_to_list, 3) -> true;
 bif(binary_to_term, 1) -> true;
+bif(binary_to_term, 2) -> true;
 bif(bitsize, 1) -> true;
 bif(bit_size, 1) -> true;
 bif(bitstring_to_list, 1) -> true;
