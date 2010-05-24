@@ -333,7 +333,7 @@ init_session_validator([Cache, CacheCb, LifeTime]) ->
     CacheCb:foldl(fun session_validation/2,
 		  LifeTime, Cache).
 
-session_validation({{Host, Port, _}, Session}, LifeTime) ->
+session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
     validate_session(Host, Port, Session, LifeTime),
     LifeTime;
 session_validation({{Port, _}, Session}, LifeTime) ->
