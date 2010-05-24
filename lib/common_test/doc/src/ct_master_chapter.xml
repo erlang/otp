@@ -186,7 +186,7 @@
     <seealso marker="run_test_chapter#test_specifications">Running Test Suites</seealso>
     chapter). The result is that any test specified to run on a node with the same
     name as the Common Test node in question (typically <c>ct@somehost</c> if started
-    with the <c>run_test</c> script), will be performed. Tests without explicit
+    with the <c>run_test</c> program), will be performed. Tests without explicit
     node association will always be performed too of course!</p>
 
     <note><p>It is recommended that absolute paths are used for log directories,

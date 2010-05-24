@@ -74,7 +74,7 @@
     example).</p>
 
     <p>It is not possible to specify start arguments to the event handlers when
-    using the <c>run_test</c> script. You may however pass along start arguments
+    using the <c>run_test</c> program. You may however pass along start arguments
     if you use the <c>ct:run_test/1</c> function. An event_handler tuple in the argument 
     <c>Opts</c> has the following definition (see also <c>ct:run_test/1</c> in the 
     reference manual):</p>

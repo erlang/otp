@@ -139,7 +139,7 @@ script_start([App]) ->
     DefaultBrowser = 
 	case os:type() of
 	    {win32,_} -> iexplore;
-	    _ -> netscape
+	    _ -> firefox
 	end,
     script_start([App,DefaultBrowser]);
 script_start([App,Browser]) ->
@@ -159,6 +159,8 @@ script_start([App,Browser]) ->
 			  "http://localhost:" ++ PortStr ++ "/" ++ StartPage
 		  end,
 	    case Browser of 
+		none ->
+		    ok;
                 iexplore when OSType == win32->
                     io:format("Starting internet explorer...\n"),
                     {ok,R} = win32reg:open(""),
@@ -170,7 +172,7 @@ script_start([App,Browser]) ->
 		_ when OSType == win32 ->
                     io:format("Starting ~w...\n",[Browser]),
                     os:cmd("\"" ++ atom_to_list(Browser) ++ "\" " ++ Url);
-		B when B==netscape; B==mozilla ->
+		B when B==firefox; B==mozilla ->
 		    io:format("Sending URL to ~w...",[Browser]),
 		    BStr = atom_to_list(Browser),
 		    SendCmd = BStr ++ " -raise -remote \'openUrl(" ++ 
@@ -209,7 +211,7 @@ usage() ->
       "\nUsage: start_webtool application [ browser ]\n"
       "\nAvailable applications are: ~p\n"
       "Default browser is \'iexplore\' (Internet Explorer) on Windows "
-      "or else \'netscape\'\n",
+      "or else \'firefox\'\n",
       [Apps]),
     stop().
 

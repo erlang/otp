@@ -102,10 +102,10 @@
   </section>
 
   <section>
-    <title>Running tests from the UNIX command line</title>
+    <title>Running tests from the OS command line</title>
     
-    <p>The script <c>run_test</c> can be used for running tests from
-      the Unix/Linux command line, e.g.
+    <p>The <c>run_test</c> program can be used for running tests from
+      the OS command line, e.g.
     </p>
     <list>
       <item><c><![CDATA[run_test -config <configfilenames> -dir <dirs>]]></c></item>
@@ -168,7 +168,7 @@
 	     the current working directory of the Erlang Runtime System during the test run!</p>
     </note>
     
-    <p>For details on how to generate the <c>run_test</c> script, see the 
+    <p>For more information about the <c>run_test</c> program, see the
       <seealso marker="install_chapter#general">Installation</seealso> chapter.
     </p>
   </section>
@@ -177,7 +177,7 @@
     <title>Running tests from the Web based GUI</title>
     
     <p>The web based GUI, VTS, is started with the <c>run_test</c>
-      script. From the GUI you can load config files, and select
+      program. From the GUI you can load config files, and select
       directories, suites and cases to run. You can also state the
       config files, directories, suites and cases on the command line
       when starting the web based GUI.
@@ -201,10 +201,11 @@
       <p>Example:</p>
       <p><c><![CDATA[$ run_test -vts -browser 'firefox&']]></c></p>
       <p>Note that the browser must run as a separate OS process or VTS will hang!</p>
-      <p>If no specific browser start command is specified, netscape will
+      <p>If no specific browser start command is specified, Firefox will
         be the default browser on Unix platforms and Internet Explorer on Windows.
-	If Common Test fails to start a browser automatically, start your 
-	favourite browser manually instead and type in the URL that Common Test
+	If Common Test fails to start a browser automatically, or <c>'none'</c> is
+	specified as the value for -browser (i.e. <c>-browser none</c>), start your
+	favourite browser manually and type in the URL that Common Test
 	displays in the shell.</p>    
   </section>
   
@@ -214,7 +215,7 @@
     <p>Common Test provides an Erlang API for running tests. The main (and most
       flexible) function for specifying and executing tests is called
       <c>ct:run_test/1</c>. This function takes the same start parameters as
-      the <c>run_test</c> script described above, only the flags are instead
+      the <c>run_test</c> program described above, only the flags are instead
       given as options in a list of key-value tuples. E.g. a test specified 
       with <c>run_test</c> like:</p>
       <p><c>$ run_test -suite ./my_SUITE -logdir ./results</c></p> 
@@ -240,7 +241,7 @@
       manually and call <c>ct:install/1</c> to install any configuration
       data you might need (use <c>[]</c> as argument otherwise), then
       call <c>ct:start_interactive/0</c> to start Common Test. If you use
-      the <c>run_test</c> script, you may start the Erlang shell and Common Test
+      the <c>run_test</c> program, you may start the Erlang shell and Common Test
       in the same go by using the <c>-shell</c> and, optionally, the <c>-config</c>
       flag:
     </p>

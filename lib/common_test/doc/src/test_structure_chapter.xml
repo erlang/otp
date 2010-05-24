@@ -146,8 +146,8 @@
 
       <tag><em>run_test</em></tag>
       <item>
-        The name of an executable Bourne shell script that may be
-	used on Linux/Unix as an interface for specifying and running
+        The name of an executable program that may be
+	used as an interface for specifying and running
 	tests with Common Test. 
       </item>
 

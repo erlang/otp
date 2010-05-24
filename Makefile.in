@@ -119,7 +119,7 @@ BINDIR      = $(DESTDIR)$(EXTRA_PREFIX)$(bindir)
 #
 # Erlang base public files
 #
-ERL_BASE_PUB_FILES=erl erlc epmd run_erl to_erl dialyzer typer escript
+ERL_BASE_PUB_FILES=erl erlc epmd run_erl to_erl dialyzer typer escript run_test
 
 # ERLANG_INST_LIBDIR is the top directory where the Erlang installation
 # will be located when running.

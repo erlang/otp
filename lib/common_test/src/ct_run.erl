@@ -49,7 +49,7 @@
 %%%-----------------------------------------------------------------
 %%% @spec script_start() -> void()
 %%%
-%%% @doc Start tests via the run_test script.
+%%% @doc Start tests via the run_test program or script.
 %%% 
 %%% <p>Example:<br/><code>./run_test -config config.ctc -dir
 %%% $TEST_DIR</code></p>
@@ -390,7 +390,7 @@ script_start4(shell, _ConfigFiles, _EvHandlers, _Test, _Step, _Args, _LogDir) ->
 
 %%%-----------------------------------------------------------------
 %%% @spec script_usage() -> ok
-%%% @doc Print script usage information for <code>run_test</code>.
+%%% @doc Print usage information for <code>run_test</code>.
 script_usage() ->
     io:format("\n\nUsage:\n\n"),
     io:format("Run tests in web based GUI:\n\n"

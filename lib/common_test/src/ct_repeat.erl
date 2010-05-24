@@ -20,7 +20,7 @@
 %%% @doc Common Test Framework module that handles repeated test runs
 %%%
 %%% <p>This module exports functions for repeating tests. The following
-%%% script flags (or equivalent ct:run_test/1 options) are supported:
+%%% start flags (or equivalent ct:run_test/1 options) are supported:
 %%% -until <StopTime>, StopTime = YYMoMoDDHHMMSS | HHMMSS
 %%% -duration <DurTime>, DurTime = HHMMSS
 %%% -force_stop
