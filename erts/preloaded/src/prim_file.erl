@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(prim_file).
@@ -25,7 +25,7 @@
 %%% Interface towards a single file's contents. Uses ?FD_DRV.
 
 %% Generic file contents operations
--export([open/2, close/1, sync/1, position/2, truncate/1,
+-export([open/2, close/1, datasync/1, sync/1, advise/4, position/2, truncate/1,
 	 write/2, pwrite/2, pwrite/3, read/2, read_line/1, pread/2, pread/3, copy/3]).
 
 %% Specialized file operations
@@ -96,6 +96,8 @@
 -define(FILE_IPREAD,           27).
 -define(FILE_ALTNAME,          28).
 -define(FILE_READ_LINE,        29).
+-define(FILE_FDATASYNC,        30).
+-define(FILE_ADVISE,           31).
 
 %% Driver responses
 -define(FILE_RESP_OK,          0).
@@ -130,6 +132,13 @@
 %% IPREAD variants
 -define(IPREAD_S32BU_P32BU, 0).
 
+%% POSIX file advises
+-define(POSIX_FADV_NORMAL,     0).
+-define(POSIX_FADV_RANDOM,     1).
+-define(POSIX_FADV_SEQUENTIAL, 2).
+-define(POSIX_FADV_WILLNEED,   3).
+-define(POSIX_FADV_DONTNEED,   4).
+-define(POSIX_FADV_NOREUSE,    5).
 
 
 %%%-----------------------------------------------------------------
@@ -220,7 +229,35 @@ close(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->
 close(Port) when is_port(Port) ->
     drv_close(Port).
 
+-define(ADVISE(Offs, Len, Adv),
+	<<?FILE_ADVISE, Offs:64/signed, Len:64/signed,
+	  Adv:32/signed>>).
 
+%% Returns {error, Reason} | ok.
+advise(#file_descriptor{module = ?MODULE, data = {Port, _}},
+       Offset, Length, Advise) ->
+    case Advise of
+	normal ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_NORMAL),
+	    drv_command(Port, Cmd);
+	random ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_RANDOM),
+	    drv_command(Port, Cmd);
+	sequential ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_SEQUENTIAL),
+	    drv_command(Port, Cmd);
+	will_need ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_WILLNEED),
+	    drv_command(Port, Cmd);
+	dont_need ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_DONTNEED),
+	    drv_command(Port, Cmd);
+	no_reuse ->
+	    Cmd = ?ADVISE(Offset, Length, ?POSIX_FADV_NOREUSE),
+	    drv_command(Port, Cmd);
+	_ ->
+	    {error, einval}
+    end.
 
 %% Returns {error, Reason} | ok.
 write(#file_descriptor{module = ?MODULE, data = {Port, _}}, Bytes) ->
@@ -292,6 +329,9 @@ pwrite(#file_descriptor{module = ?MODULE}, _, _) ->
     {error, badarg}.
 
 
+%% Returns {error, Reason} | ok.
+datasync(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->
+    drv_command(Port, [?FILE_FDATASYNC]).
 
 %% Returns {error, Reason} | ok.
 sync(#file_descriptor{module = ?MODULE, data = {Port, _}}) ->

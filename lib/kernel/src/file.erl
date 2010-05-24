@@ -36,11 +36,11 @@
 %% Specialized
 -export([ipread_s32bu_p32bu/3]).
 %% Generic file contents.
--export([open/2, close/1, 
+-export([open/2, close/1, advise/4,
 	 read/2, write/2, 
 	 pread/2, pread/3, pwrite/2, pwrite/3,
 	 read_line/1,
-	 position/2, truncate/1, sync/1,
+	 position/2, truncate/1, datasync/1, sync/1,
 	 copy/2, copy/3]).
 %% High level operations
 -export([consult/1, path_consult/2]).
@@ -89,6 +89,8 @@
 -type date()      :: {pos_integer(), pos_integer(), pos_integer()}.
 -type time()      :: {non_neg_integer(), non_neg_integer(), non_neg_integer()}.
 -type date_time() :: {date(), time()}.
+-type posix_file_advise() :: 'normal' | 'sequential' | 'random' | 'no_reuse' |
+                            'will_need' | 'dont_need'.
 
 %%%-----------------------------------------------------------------
 %%% General functions
@@ -352,6 +354,18 @@ close(#file_descriptor{module = Module} = Handle) ->
 close(_) ->
     {error, badarg}.
 
+-spec advise(File :: io_device(), Offset :: integer(),
+        Length :: integer(), Advise :: posix_file_advise()) ->
+	'ok' | {'error', posix()}.
+
+advise(File, Offset, Length, Advise) when is_pid(File) ->
+    R = file_request(File, {advise, Offset, Length, Advise}),
+    wait_file_reply(File, R);
+advise(#file_descriptor{module = Module} = Handle, Offset, Length, Advise) ->
+    Module:advise(Handle, Offset, Length, Advise);
+advise(_, _, _, _) ->
+    {error, badarg}.
+
 -spec read(File :: io_device(), Size :: non_neg_integer()) ->
 	'eof' | {'ok', [char()] | binary()} | {'error', posix()}.
 
@@ -470,6 +484,16 @@ pwrite(File, At, Bytes) when is_pid(File) ->
 pwrite(#file_descriptor{module = Module} = Handle, Offs, Bytes) ->
     Module:pwrite(Handle, Offs, Bytes);
 pwrite(_, _, _) ->
+    {error, badarg}.
+
+-spec datasync(File :: io_device()) -> 'ok' | {'error', posix()}.
+
+datasync(File) when is_pid(File) ->
+    R = file_request(File, datasync),
+    wait_file_reply(File, R);
+datasync(#file_descriptor{module = Module} = Handle) ->
+    Module:datasync(Handle);
+datasync(_) ->
     {error, badarg}.
 
 -spec sync(File :: io_device()) -> 'ok' | {'error', posix()}.

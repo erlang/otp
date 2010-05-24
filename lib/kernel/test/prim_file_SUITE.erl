@@ -34,7 +34,7 @@
 	 file_info_times_a/1, file_info_times_b/1, 
 	 file_write_file_info_a/1, file_write_file_info_b/1]).
 -export([rename_a/1, rename_b/1, 
-	 access/1, truncate/1, sync/1,
+	 access/1, truncate/1, datasync/1, sync/1,
 	 read_write/1, pread_write/1, append/1]).
 -export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 
@@ -47,6 +47,8 @@
 	 read_link_info_for_non_link/1, 
 	 symlinks_a/1, symlinks_b/1,
 	 list_dir_limit/1]).
+
+-export([advise/1]).
 
 -include("test_server.hrl").
 -include_lib("kernel/include/file.hrl").
@@ -380,7 +382,7 @@ win_cur_dir_1(_Config, Handle) ->
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-files(suite) -> [open,pos,file_info,truncate,sync].
+files(suite) -> [open,pos,file_info,truncate,sync,datasync,advise].
 
 open(suite) -> [open1,modes,close,access,read_write,
 	       pread_write,append].
@@ -1064,6 +1066,24 @@ truncate(Config) when is_list(Config) ->
     ok.
 
 
+datasync(suite) -> [];
+datasync(doc) -> "Tests that ?PRIM_FILE:datasync/1 at least doesn't crash.";
+datasync(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Sync = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_sync.fil"),
+
+    %% Raw open.
+    ?line {ok, Fd} = ?PRIM_FILE:open(Sync, [write]),
+    ?line ok = ?PRIM_FILE:datasync(Fd),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
 sync(suite) -> [];
 sync(doc) -> "Tests that ?PRIM_FILE:sync/1 at least doesn't crash.";
 sync(Config) when is_list(Config) ->
@@ -1077,6 +1097,77 @@ sync(Config) when is_list(Config) ->
     ?line {ok, Fd} = ?PRIM_FILE:open(Sync, [write]),
     ?line ok = ?PRIM_FILE:sync(Fd),
     ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+
+advise(suite) -> [];
+advise(doc) -> "Tests that ?PRIM_FILE:advise/4 at least doesn't crash.";
+advise(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line PrivDir = ?config(priv_dir, Config),
+    ?line Advise = filename:join(PrivDir,
+			       atom_to_list(?MODULE)
+			       ++"_advise.fil"),
+
+    Line1 = "Hello\n",
+    Line2 = "World!\n",
+
+    ?line {ok, Fd} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd, 0, 0, normal),
+    ?line ok = ?PRIM_FILE:write(Fd, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd),
+
+    ?line {ok, Fd2} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd2, 0, 0, random),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd2, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd2),
+
+    ?line {ok, Fd3} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd3, 0, 0, sequential),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd3, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd3),
+
+    ?line {ok, Fd4} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd4, 0, 0, will_need),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd4, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd4),
+
+    ?line {ok, Fd5} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd5, 0, 0, dont_need),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd5, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd5),
+
+    ?line {ok, Fd6} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:advise(Fd6, 0, 0, no_reuse),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd6, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd6),
+
+    ?line {ok, Fd7} = ?PRIM_FILE:open(Advise, [write]),
+    ?line {error, einval} = ?PRIM_FILE:advise(Fd7, 0, 0, bad_advise),
+    ?line ok = ?PRIM_FILE:close(Fd7),
+
+    %% test write without advise, then a read after an advise
+    ?line {ok, Fd8} = ?PRIM_FILE:open(Advise, [write]),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line1),
+    ?line ok = ?PRIM_FILE:write(Fd8, Line2),
+    ?line ok = ?PRIM_FILE:close(Fd8),
+    ?line {ok, Fd9} = ?PRIM_FILE:open(Advise, [read]),
+    Offset = 0,
+    %% same as a 0 length in some implementations
+    Length = length(Line1) + length(Line2),
+    ?line ok = ?PRIM_FILE:advise(Fd9, Offset, Length, sequential),
+    ?line {ok, Line1} = ?PRIM_FILE:read_line(Fd9),
+    ?line {ok, Line2} = ?PRIM_FILE:read_line(Fd9),
+    ?line eof = ?PRIM_FILE:read_line(Fd9),
+    ?line ok = ?PRIM_FILE:close(Fd9),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.

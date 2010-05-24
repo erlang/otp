@@ -774,6 +774,17 @@ efile_closefile(int fd)
 }
 
 int
+efile_fdatasync(Efile_error *errInfo, /* Where to return error codes. */
+	    int fd)               /* File descriptor for file to sync data. */
+{
+#ifdef HAVE_FDATASYNC
+    return check_error(fdatasync(fd), errInfo);
+#else
+    return efile_fsync(errInfo, fd);
+#endif
+}
+
+int
 efile_fsync(Efile_error *errInfo, /* Where to return error codes. */
 	    int fd)               /* File descriptor for file to sync. */
 {
@@ -1435,5 +1446,16 @@ efile_symlink(Efile_error* errInfo, char* old, char* new)
     return vxworks_enotsup(errInfo);
 #else
     return check_error(symlink(old, new), errInfo);
+#endif
+}
+
+int
+efile_fadvise(Efile_error* errInfo, int fd, Sint64 offset,
+		  Sint64 length, int advise)
+{
+#ifdef HAVE_POSIX_FADVISE
+    return check_error(posix_fadvise(fd, offset, length, advise), errInfo);
+#else
+    return check_error(0, errInfo);
 #endif
 }
