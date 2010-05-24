@@ -88,6 +88,10 @@
             extensions are not supported yet. </item>
       <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
       <item>For security reasons sslv2 is not supported.</item>
+      <item>Ephemeral Diffie-Hellman cipher suites are supported
+      but not Diffie Hellman Certificates cipher suites.</item>
+      <item>Export cipher suites are not supported as the
+      U.S. lifted its export restrictions in early 2000.</item>
     </list>
  
   </section>
@@ -148,23 +152,18 @@
     
     <p><c>protocol() = sslv3 | tlsv1 </c></p>
     
-    <p><c>ciphers() = [ciphersuite()] | sting() (according to old API)</c></p>
+    <p><c>ciphers() = [ciphersuite()] | string() (according to old API)</c></p>
     
     <p><c>ciphersuite() =
-      {key_exchange(), cipher(), hash(), exportable()}</c></p>
+      {key_exchange(), cipher(), hash()}</c></p>
     
-    <p><c>key_exchange() =  rsa | dh_dss | dh_rsa | dh_anon | dhe_dss
-      | dhe_rsa | krb5 | KeyExchange_export
+    <p><c>key_exchange() =  rsa | dhe_dss | dhe_rsa
     </c></p>
 
-   <p><c>cipher() = rc4_128 | idea_cbc | des_cbc | '3des_ede_cbc'
-      des40_cbc | dh_dss | aes_128_cbc | aes_256_cbc |
-      rc2_cbc_40 | rc4_40  </c></p>
+   <p><c>cipher() = rc4_128 | des_cbc | '3des_ede_cbc'
+      | aes_128_cbc | aes_256_cbc </c></p>
 
    <p> <c>hash() = md5 | sha
-    </c></p>
-
-   <p> <c>exportable() = export | no_export | ignore
     </c></p>
 
     <p><c>ssl_imp() = new | old - default is old.</c></p>
