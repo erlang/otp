@@ -49,6 +49,8 @@
 
 %% ---------------------------------------------------------------------
 
+-export_type([property/0]).
+
 -type property()   :: atom() | tuple().
 
 -type aliases()    :: [{any(), any()}].
