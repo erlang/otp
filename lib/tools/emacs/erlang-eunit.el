@@ -23,8 +23,15 @@
 (eval-when-compile
   (require 'cl))
 
-(defvar erlang-eunit-separate-src-and-test-directories t
-  "*Whether or not to keep source and EUnit test files in separate directories")
+(defvar erlang-eunit-src-candidate-dirs '("../src" ".")
+  "*Name of directories which to search for source files matching
+an EUnit test file.  The first directory in the list will be used,
+if there is no match.")
+
+(defvar erlang-eunit-test-candidate-dirs '("../test" ".")
+  "*Name of directories which to search for EUnit test files matching
+a source file.  The first directory in the list will be used,
+if there is no match.")
 
 ;;;
 ;;; Switch between src/EUnit test buffers
@@ -55,37 +62,55 @@ buffer and vice versa"
 ;;; Return the name and path of the EUnit test file
 ;;, (input may be either the source filename itself or the EUnit test filename)
 (defun erlang-eunit-test-filename (file-path)
-  (erlang-eunit-rewrite-filename file-path "test" "_tests"))
+  (if (erlang-eunit-test-file-p file-path)
+      file-path
+    (erlang-eunit-rewrite-filename file-path erlang-eunit-test-candidate-dirs)))
 
 ;;; Return the name and path of the source file
 ;;, (input may be either the source filename itself or the EUnit test filename)
 (defun erlang-eunit-src-filename (file-path)
-  (erlang-eunit-rewrite-filename file-path "src" ""))
+  (if (erlang-eunit-src-file-p file-path)
+      file-path
+    (erlang-eunit-rewrite-filename file-path erlang-eunit-src-candidate-dirs)))
 
 ;;; Rewrite a filename from the src or test filename to the other
-(defun erlang-eunit-rewrite-filename (orig-file-path dest-dirname dest-suffix)
-  (let* ((root-dir-name    (erlang-eunit-file-root-dir-name orig-file-path))
-	 (src-module-name  (erlang-eunit-source-module-name orig-file-path))
-	 (dest-base-name   (concat src-module-name dest-suffix ".erl"))
-	 (dest-dir-name-1  (file-name-directory orig-file-path))
-	 (dest-dir-name-2  (filename-join root-dir-name dest-dirname))
-	 (dest-file-name-1 (filename-join dest-dir-name-1 dest-base-name))
-	 (dest-file-name-2 (filename-join dest-dir-name-2 dest-base-name)))
-    ;; This function tries to be a bit intelligent: 
-    ;; * if there already is a test (or source) file in the same
-    ;;   directory as a source (or test) file, it'll be picked
-    ;; * if there already is a test (or source) file in a separate
-    ;;   test (or src) directory, it'll be picked
-    ;; * otherwise it'll resort to whatever alternative (same or
-    ;;   separate directories) that the user has chosen
-    (cond ((file-readable-p dest-file-name-1) 
-	   dest-file-name-1)
-	  ((file-readable-p dest-file-name-2) 
-	   dest-file-name-2)
-	  (erlang-eunit-separate-src-and-test-directories
-	   dest-file-name-2)
-	  (t
-	   dest-file-name-1))))
+(defun erlang-eunit-rewrite-filename (orig-file-path candidate-dirs)
+  (or (erlang-eunit-locate-buddy orig-file-path candidate-dirs)
+      (erlang-eunit-buddy-file-path orig-file-path (car candidate-dirs))))
+
+;;; Search for a file's buddy file (a source file's EUnit test file,
+;;; or an EUnit test file's source file) in a list of candidate
+;;; directories.
+(defun erlang-eunit-locate-buddy (orig-file-path candidate-dirs)
+  (when candidate-dirs
+    (let ((buddy-file-path (erlang-eunit-buddy-file-path
+                            orig-file-path
+                            (car candidate-dirs))))
+      (if (file-readable-p buddy-file-path)
+          buddy-file-path
+        (erlang-eunit-locate-buddy orig-file-path (cdr candidate-dirs))))))
+
+(defun erlang-eunit-buddy-file-path (orig-file-path buddy-dir-name)
+  (let* ((orig-dir-name   (file-name-directory orig-file-path))
+         (buddy-dir-name  (file-truename
+                           (filename-join orig-dir-name buddy-dir-name)))
+         (buddy-base-name (erlang-eunit-buddy-basename orig-file-path)))
+    (filename-join buddy-dir-name buddy-base-name)))
+
+;;; Return the basename of the buddy file:
+;;;     /tmp/foo/src/x.erl        --> x_tests.erl
+;;;     /tmp/foo/test/x_tests.erl --> x.erl
+(defun erlang-eunit-buddy-basename (file-path)
+  (let ((src-module-name (erlang-eunit-source-module-name file-path)))
+    (cond
+     ((erlang-eunit-src-file-p file-path)
+      (concat src-module-name "_tests.erl"))
+     ((erlang-eunit-test-file-p file-path)
+      (concat src-module-name ".erl")))))
+
+;;; Checks whether a file is a source file or not
+(defun erlang-eunit-src-file-p (file-path)
+  (not (erlang-eunit-test-file-p file-path)))
 
 ;;; Checks whether a file is a EUnit test file or not
 (defun erlang-eunit-test-file-p (file-path)
@@ -108,18 +133,6 @@ buffer and vice versa"
 (defun erlang-eunit-module-name (file-path)
   (interactive)
   (file-name-sans-extension (file-name-nondirectory file-path)))
-
-;;; Return the directory name which is common to both src and test
-;;;     /tmp/foo/src/x.erl        --> /tmp/foo
-;;;     /tmp/foo/test/x_tests.erl --> /tmp/foo
-(defun erlang-eunit-file-root-dir-name (file-path)
-  (erlang-eunit-dir-parent-dirname (file-name-directory file-path)))
-
-;;; Return the parent directory name of a directory
-;;;     /tmp/foo/ --> /tmp
-;;;     /tmp/foo  --> /tmp
-(defun erlang-eunit-dir-parent-dirname (dir-name)
-  (file-name-directory (directory-file-name dir-name)))
 
 ;;; Older emacsen don't have string-match-p.
 (defun erlang-eunit-string-match-p (regexp string &optional start)
