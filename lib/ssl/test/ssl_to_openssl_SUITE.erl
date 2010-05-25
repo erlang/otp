@@ -33,6 +33,7 @@
 -define(OPENSSL_RENEGOTIATE, "r\n").
 -define(OPENSSL_QUIT, "Q\n").
 -define(OPENSSL_GARBAGE, "P\n").
+-define(EXPIRE, 10).
 
 %% Test server callback functions
 %%--------------------------------------------------------------------
@@ -81,6 +82,15 @@ end_per_suite(_Config) ->
 %% variable, but should NOT alter/remove any existing entries.
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
+init_per_testcase(expired_session, Config0) ->
+    Config = lists:keydelete(watchdog, 1, Config0),
+    Dog = ssl_test_lib:timetrap(?EXPIRE * 1000 * 5),
+    ssl:stop(),
+    application:load(ssl),
+    application:set_env(ssl, session_lifetime, ?EXPIRE),
+    ssl:start(),
+    [{watchdog, Dog} | Config];
+
 init_per_testcase(TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = ssl_test_lib:timetrap(?TIMEOUT),
@@ -103,14 +113,20 @@ special_init(_, Config) ->
 %%   A list of key/value pairs, holding the test case configuration.
 %% Description: Cleanup after each test case
 %%--------------------------------------------------------------------
-end_per_testcase(_TestCase, Config) ->
+end_per_testcase(reuse_session_expired, Config) ->
+    application:unset_env(ssl, session_lifetime),
+    end_per_testcase(default_action, Config);
+
+end_per_testcase(default_action, Config) ->
     Dog = ?config(watchdog, Config),
     case Dog of 
 	undefined ->
 	    ok;
 	_ ->
 	    test_server:timetrap_cancel(Dog)
-    end.
+    end;
+end_per_testcase(_, Config) ->
+    end_per_testcase(default_action, Config).
 
 %%--------------------------------------------------------------------
 %% Function: all(Clause) -> TestCases
@@ -142,7 +158,9 @@ all(suite) ->
      tls1_erlang_server_openssl_client_client_cert,
      tls1_erlang_server_erlang_client_client_cert,
      ciphers,
-     erlang_client_bad_openssl_server
+     erlang_client_bad_openssl_server,
+     expired_session,
+     ssl2_erlang_server_openssl_client
     ].
 
 %% Test cases starts here.
@@ -991,6 +1009,100 @@ erlang_client_bad_openssl_server(Config) when is_list(Config) ->
     close_port(OpensslPort),
     process_flag(trap_exit, false),
     ok.
+
+%%--------------------------------------------------------------------
+
+expired_session(doc) -> 
+    ["Test our ssl client handling of expired sessions. Will make"
+    "better code coverage of the ssl_manager module"];
+
+expired_session(suite) -> 
+    [];
+
+expired_session(Config) when is_list(Config) -> 
+    process_flag(trap_exit, true),
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+    {ClientNode, _, Hostname} = ssl_test_lib:run_where(Config),
+
+    Port = ssl_test_lib:inet_port(node()),
+    CertFile = proplists:get_value(certfile, ServerOpts),
+    KeyFile = proplists:get_value(keyfile, ServerOpts),
+   
+    Cmd = "openssl s_server -accept " ++ integer_to_list(Port)  ++ 
+	" -cert " ++ CertFile ++ " -key " ++ KeyFile ++ "", 
+    
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+
+    OpensslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+
+    wait_for_openssl_server(),
+    
+    Client0 =
+	ssl_test_lib:start_client([{node, ClientNode}, 
+		      {port, Port}, {host, Hostname},
+			    {mfa, {ssl_test_lib, no_result, []}},
+		      {from, self()},  {options, ClientOpts}]),   
+         
+    ssl_test_lib:close(Client0),
+
+    %% Make sure session is registered
+    test_server:sleep(?SLEEP),
+
+    Client1 =
+	ssl_test_lib:start_client([{node, ClientNode}, 
+				   {port, Port}, {host, Hostname},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {from, self()},  {options, ClientOpts}]),  
+    
+    ssl_test_lib:close(Client1),
+    %% Make sure session is unregistered due to expiration
+    test_server:sleep((?EXPIRE+1) * 1000),
+    
+    Client2 =
+	ssl_test_lib:start_client([{node, ClientNode}, 
+				   {port, Port}, {host, Hostname},
+				   {mfa, {ssl_test_lib, no_result, []}},
+				   {from, self()},  {options, ClientOpts}]),  
+
+    close_port(OpensslPort),
+    ssl_test_lib:close(Client2),
+    process_flag(trap_exit, false).
+
+%%--------------------------------------------------------------------
+ssl2_erlang_server_openssl_client(doc) ->
+    ["Test that ssl v2 clients are rejected"];
+ssl2_erlang_server_openssl_client(suite) ->
+    [];
+ssl2_erlang_server_openssl_client(Config) when is_list(Config) ->
+    process_flag(trap_exit, true),
+    ServerOpts = ?config(server_opts, Config),  
+
+    {_, ServerNode, _} = ssl_test_lib:run_where(Config),
+    
+    Data = "From openssl to erlang",
+
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+			   {options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    
+    Cmd = "openssl s_client -port " ++ integer_to_list(Port)  ++ 
+	" -host localhost -ssl2 -msg",
+
+    test_server:format("openssl cmd: ~p~n", [Cmd]),
+    
+    OpenSslPort =  open_port({spawn, Cmd}, [stderr_to_stdout]), 
+    port_command(OpenSslPort, Data),
+    
+    ssl_test_lib:check_result(Server, {error,"protocol version"}),
+    
+    ssl_test_lib:close(Server),
+
+    close_port(OpenSslPort),
+    process_flag(trap_exit, false),
+    ok.
+
 %%--------------------------------------------------------------------
 
 erlang_ssl_receive(Socket, Data) ->
