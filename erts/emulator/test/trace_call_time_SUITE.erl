@@ -228,20 +228,18 @@ scheduling(Config) when is_list(Config) ->
 
     ?line erlang:trace_pattern({?MODULE,loaded,1}, true, [call_time]),
 
-    ?line Pids = [setup() || _ <- lists:seq(1, F*Np)],
-    ?line T0   = now(),
-    ?line Res  = execute(Pids, {?MODULE,loaded,[M]}),
-    ?line T1   = now(),
-    ?line Time = timer:now_diff(T1,T0),
+    ?line Pids    = [setup() || _ <- lists:seq(1, F*Np)],
+    ?line {Ls,T1} = execute(Pids, {?MODULE,loaded,[M]}),
     ?line [Pid ! quit || Pid <- Pids],
 
     %% logic dictates that each process will get ~ 1/F of the schedulers time
 
-    ?line {call_time,CT} = erlang:trace_info({?MODULE,loaded,1}, call_time),
+    ?line {call_time, CT} = erlang:trace_info({?MODULE,loaded,1}, call_time),
 
     ?line lists:foreach(fun (Pid) ->
-	    ?line ok = check_process_time(lists:keysearch(Pid, 1, CT), M, F, Time)
+	    ?line ok = check_process_time(lists:keysearch(Pid, 1, CT), M, F, T1)
 	end, Pids),
+    ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
     ok.
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -340,8 +338,17 @@ bif(Config) when is_list(Config) ->
     ?line Pid = setup(),
     ?line {L, T1} = execute(Pid, fun() -> with_bif(M) end),
 
-    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M, 0, 0}], T1/2),
-    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M, 0, 0}], T1/2),
+    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M-1, 0, 0}], T1/2),
+    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M-1, 0, 0}], T1/2),
+
+    % disable term2binary
+
+    ?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, false, [call_time]),
+
+    ?line {L, T2} = execute(Pid, fun() -> with_bif(M) end),
+
+    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M*2 - 2, 0, 0}], T1/2 + T2),
+    ?line ok = check_trace_info({erlang, term_to_binary, 1}, false, none),
 
     %%
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
@@ -366,8 +373,8 @@ nif(Config) when is_list(Config) ->
 
     % the nif is called M - 1 times, the last time the function with 'with_nif'
     % returns ok and does not call the nif.
-    ?line ok = check_trace_info({?MODULE, nif_dec, 1},  [{Pid, M-1, 0, 0}], T1/2),
-    ?line ok = check_trace_info({?MODULE, with_nif, 1}, [{Pid, M, 0, 0}], T1/2),
+    ?line ok = check_trace_info({?MODULE, nif_dec,  1}, [{Pid, M-1, 0, 0}], T1/5*4),
+    ?line ok = check_trace_info({?MODULE, with_nif, 1}, [{Pid, M, 0, 0}], T1/5),
 
     %%
     ?line P = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
