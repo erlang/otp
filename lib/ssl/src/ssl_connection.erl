@@ -87,7 +87,6 @@
           from,                % term(), where to reply
           bytes_to_read,       % integer(), # bytes to read in passive mode
           user_data_buffer,    % binary()
-%%	  tls_buffer,          % Keeps a lookahead one packet if available
 	  log_alert,           % boolean() 
 	  renegotiation,        % {boolean(), From | internal | peer}
 	  recv_during_renegotiation,  %boolean() 
@@ -108,7 +107,8 @@
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
 send(Pid, Data) -> 
-    sync_send_all_state_event(Pid, {application_data, erlang:iolist_to_binary(Data)}, infinity).
+    sync_send_all_state_event(Pid, {application_data, 
+				    erlang:iolist_to_binary(Data)}, infinity).
 
 %%--------------------------------------------------------------------
 %% Function:  recv(Socket, Length Timeout) -> {ok, Data} | {error, reason}
@@ -422,7 +422,7 @@ abbreviated(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
 
-abbreviated(Finished = #finished{verify_data = Data},
+abbreviated(#finished{verify_data = Data} = Finished,
 	    #state{role = server,
 		   negotiated_version = Version,
 		   tls_handshake_hashes = Hashes,
@@ -440,7 +440,7 @@ abbreviated(Finished = #finished{verify_data = Data},
             {stop, normal, State} 
     end;
 
-abbreviated(Finished = #finished{verify_data = Data},
+abbreviated(#finished{verify_data = Data} = Finished,
 	    #state{role = client, tls_handshake_hashes = Hashes0,
 		   session = #session{master_secret = MasterSecret},
 		   negotiated_version = Version,
@@ -504,7 +504,7 @@ certify(#certificate{} = Cert,
 certify(#server_key_exchange{} = KeyExchangeMsg, 
         #state{role = client, negotiated_version = Version,
 	       key_algorithm = Alg} = State0) 
-  when Alg == dhe_dss; Alg == dhe_rsa ->%%Not imp:Alg == dh_anon;Alg == krb5 ->
+  when Alg == dhe_dss; Alg == dhe_rsa ->
     case handle_server_key(KeyExchangeMsg, State0) of
 	#state{} = State1 ->
 	    {Record, State} = next_record(State1),
@@ -515,12 +515,9 @@ certify(#server_key_exchange{} = KeyExchangeMsg,
 	    {stop, normal, State0}
     end;
 
-certify(#server_key_exchange{}, 
-        State = #state{role = client, negotiated_version = Version,
-                       key_algorithm = rsa}) -> 
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE),
-    handle_own_alert(Alert, Version, certify_server_key_exchange, State),
-    {stop, normal, State};
+certify(#server_key_exchange{} = Msg, 
+        #state{role = client, key_algorithm = rsa} = State) -> 
+    handle_unexpected_message(Msg, certify_server_keyexchange, State);
 
 certify(#certificate_request{}, State0) ->
     {Record, State} = next_record(State0#state{client_certificate_requested = true}),
@@ -564,17 +561,12 @@ certify(#server_hello_done{},
 	    {stop, normal, State0} 
     end;
 
-certify(#client_key_exchange{},
-	State = #state{role = server,
-		       client_certificate_requested = true,
-		       ssl_options = #ssl_options{fail_if_no_peer_cert = true},
-		       negotiated_version = Version}) ->
+certify(#client_key_exchange{} = Msg,
+	#state{role = server,
+	       client_certificate_requested = true,
+	       ssl_options = #ssl_options{fail_if_no_peer_cert = true}} = State) ->
     %% We expect a certificate here
-    Alert = ?ALERT_REC(?FATAL, ?UNEXPECTED_MESSAGE),
-    handle_own_alert(Alert, Version, 
-		     certify_server_waiting_certificate, State),
-    {stop, normal, State};
-
+    handle_unexpected_message(Msg, certify_client_key_exchange, State);
 
 certify(#client_key_exchange{exchange_keys 
 			     = #encrypted_premaster_secret{premaster_secret 
@@ -814,10 +806,22 @@ handle_sync_event(start, From, StateName, State) ->
 handle_sync_event(close, _, _StateName, State) ->
     {stop, normal, ok, State};
 
-handle_sync_event({shutdown, How}, _, StateName,
-		  #state{transport_cb = CbModule,
+handle_sync_event({shutdown, How0}, _, StateName,
+		  #state{transport_cb = Transport,
+			 negotiated_version = Version,
+			 connection_states = ConnectionStates,
 			 socket = Socket} = State) ->
-    case CbModule:shutdown(Socket, How) of
+    case How0 of
+	How when How == write; How == both ->	    
+	    Alert = ?ALERT_REC(?WARNING, ?CLOSE_NOTIFY),
+	    {BinMsg, _} =
+		encode_alert(Alert, Version, ConnectionStates),
+	    Transport:send(Socket, BinMsg);
+	_ ->
+	    ok
+    end,
+    
+    case Transport:shutdown(Socket, How0) of
 	ok ->
 	    {reply, ok, StateName, State};
 	Error ->
@@ -1709,13 +1713,7 @@ header(N, Binary) ->
     <<?BYTE(ByteN), NewBinary/binary>> = Binary,
     [ByteN | header(N-1, NewBinary)].
 
-%% tcp_closed
-send_or_reply(false, _Pid, undefined, _Data) ->
-    Report = io_lib:format("SSL(debug): Unexpected Data ~p ~n",[_Data]),
-    error_logger:error_report(Report),
-    erlang:error({badarg, _Pid, undefined, _Data}),
-    ok;
-send_or_reply(false, _Pid, From, Data) ->
+send_or_reply(false, _Pid, From, Data) when From =/= undefined ->
     gen_fsm:reply(From, Data);
 send_or_reply(_, Pid, _From, Data) ->
     send_user(Pid, Data).
@@ -1976,34 +1974,19 @@ handle_alerts(_, {stop, _, _} = Stop) ->
 handle_alerts([Alert | Alerts], {next_state, StateName, State}) ->
     handle_alerts(Alerts, handle_alert(Alert, StateName, State)).
 
-handle_alert(#alert{level = ?FATAL} = Alert, connection, 
-	     #state{from = From, user_application = {_Mon, Pid}, 
-		    log_alert = Log,
-		    host = Host, port = Port, session = Session,
-		    role = Role, socket_options = Opts} = State) ->
-    invalidate_session(Role, Host, Port, Session),
-    log_alert(Log, connection, Alert),
-    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
-    {stop, normal, State};
-
-handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     connection, #state{from = From,
-				role = Role,
-				user_application = {_Mon, Pid}, 
-				socket_options = Opts} = State) ->
-    alert_user(Opts#socket_options.active, Pid, From, Alert, Role),
-    {stop, normal, State};
-
 handle_alert(#alert{level = ?FATAL} = Alert, StateName,
 	     #state{from = From, host = Host, port = Port, session = Session,
-		    log_alert = Log, role = Role} = State) ->
+		    user_application = {_Mon, Pid},
+		    log_alert = Log, role = Role, socket_options = Opts} = State) ->
     invalidate_session(Role, Host, Port, Session),
     log_alert(Log, StateName, Alert),
-    alert_user(From, Alert, Role),
+    alert_user(StateName, Opts, Pid, From, Alert, Role),
     {stop, normal, State};
+
 handle_alert(#alert{level = ?WARNING, description = ?CLOSE_NOTIFY} = Alert, 
-	     _, #state{from = From, role = Role} = State) -> 
-    alert_user(From, Alert, Role),
+	     StateName, #state{from = From, role = Role,  
+			       user_application = {_Mon, Pid}, socket_options = Opts} = State) -> 
+    alert_user(StateName, Opts, Pid, From, Alert, Role),
     {stop, normal, State};
 
 handle_alert(#alert{level = ?WARNING, description = ?NO_RENEGOTIATION} = Alert, StateName, 
@@ -2026,6 +2009,11 @@ handle_alert(#alert{level = ?WARNING, description = ?USER_CANCELED} = Alert, Sta
     {Record, State} = next_record(State0),
     next_state(StateName, Record, State).
 
+alert_user(connection, Opts, Pid, From, Alert, Role) ->
+    alert_user(Opts#socket_options.active, Pid, From, Alert, Role);
+alert_user(_, _, _, From, Alert, Role) ->
+    alert_user(From, Alert, Role).
+
 alert_user(From, Alert, Role) ->
     alert_user(false, no_pid, From, Alert, Role).
 
@@ -2045,13 +2033,13 @@ alert_user(Active, Pid, From, Alert, Role) ->
 			  {ssl_error, sslsocket(), ReasonCode})
     end.
 
-log_alert(true, StateName, Alert) ->
+log_alert(true, Info, Alert) ->
     Txt = ssl_alert:alert_txt(Alert),
-    error_logger:format("SSL: ~p: ~s\n", [StateName, Txt]);
+    error_logger:format("SSL: ~p: ~s\n", [Info, Txt]);
 log_alert(false, _, _) ->
     ok.
 
-handle_own_alert(Alert, Version, StateName, 
+handle_own_alert(Alert, Version, Info, 
 		 #state{transport_cb = Transport,
 			socket = Socket,
 			from = User,
@@ -2066,15 +2054,15 @@ handle_own_alert(Alert, Version, StateName,
 	    ignore
     end,
     try %% Try to tell the local user
-	log_alert(Log, StateName, Alert),
+	log_alert(Log, Info, Alert),
 	alert_user(User, Alert, Role)
     catch _:_ ->
 	    ok
     end.
 
-handle_unexpected_message(_Msg, StateName, #state{negotiated_version = Version} = State) ->
+handle_unexpected_message(Msg, Info, #state{negotiated_version = Version} = State) ->
     Alert =  ?ALERT_REC(?FATAL,?UNEXPECTED_MESSAGE),
-    handle_own_alert(Alert, Version, StateName, State),
+    handle_own_alert(Alert, Version, {Info, Msg}, State),
     {stop, normal, State}.
 
 make_premaster_secret({MajVer, MinVer}, rsa) ->
