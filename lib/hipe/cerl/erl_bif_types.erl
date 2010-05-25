@@ -665,6 +665,13 @@ type(erlang, 'bnot', 1, Xs) ->
 %%  strict(arg_types(erlang, 'bnot', 1), Xs, fun (_) -> t_integer() end);
 type(erlang, abs, 1, Xs) ->
   strict(arg_types(erlang, abs, 1), Xs, fun ([X]) -> X end);
+type(erlang, adler32, 1, Xs) ->
+  strict(arg_types(erlang, adler32, 1), Xs, fun (_) -> t_adler32() end);
+type(erlang, adler32, 2, Xs) ->
+  strict(arg_types(erlang, adler32, 2), Xs, fun (_) -> t_adler32() end);
+type(erlang, adler32_combine, 3, Xs) ->
+  strict(arg_types(erlang, adler32_combine, 3), Xs,
+	 fun (_) -> t_adler32() end);
 type(erlang, append_element, 2, Xs) ->
   strict(arg_types(erlang, append_element, 2), Xs, fun (_) -> t_tuple() end);
 type(erlang, apply, 2, Xs) ->
@@ -726,11 +733,11 @@ type(erlang, check_process_code, 2, Xs) ->
 type(erlang, concat_binary, 1, Xs) ->
   strict(arg_types(erlang, concat_binary, 1), Xs, fun (_) -> t_binary() end);
 type(erlang, crc32, 1, Xs) ->
-  strict(arg_types(erlang, crc32, 1), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32, 1), Xs, fun (_) -> t_crc32() end);
 type(erlang, crc32, 2, Xs) ->
-  strict(arg_types(erlang, crc32, 2), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32, 2), Xs, fun (_) -> t_crc32() end);
 type(erlang, crc32_combine, 3, Xs) ->
-  strict(arg_types(erlang, crc32_combine, 3), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32_combine, 3), Xs, fun (_) -> t_crc32() end);
 type(erlang, date, 0, _) ->
   t_date();
 type(erlang, decode_packet, 3, Xs) ->
@@ -2098,7 +2105,7 @@ type(hipe_bifs, set_native_address, 3, Xs) ->
   strict(arg_types(hipe_bifs, set_native_address, 3), Xs,
 	 fun (_) -> t_nil() end);
 type(hipe_bifs, system_crc, 1, Xs) ->
-  strict(arg_types(hipe_bifs, system_crc, 1), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(hipe_bifs, system_crc, 1), Xs, fun (_) -> t_crc32() end);
 type(hipe_bifs, term_to_word, 1, Xs) ->
   strict(arg_types(hipe_bifs, term_to_word, 1), Xs,
 	 fun (_) -> t_integer() end);
@@ -3374,6 +3381,12 @@ arg_types(erlang, 'bnot', 1) ->
   [t_integer()];
 arg_types(erlang, abs, 1) ->
   [t_number()];
+arg_types(erlang, adler32, 1) ->
+  [t_iodata()];
+arg_types(erlang, adler32, 2) ->
+  [t_adler32(), t_iodata()];
+arg_types(erlang, adler32_combine, 3) ->
+  [t_adler32(), t_adler32(), t_non_neg_integer()];
 arg_types(erlang, append_element, 2) ->
   [t_tuple(), t_any()];
 arg_types(erlang, apply, 2) ->
@@ -3422,9 +3435,9 @@ arg_types(erlang, concat_binary, 1) ->
 arg_types(erlang, crc32, 1) ->
   [t_iodata()];
 arg_types(erlang, crc32, 2) ->
-  [t_integer(), t_iodata()];
+  [t_crc32(), t_iodata()];
 arg_types(erlang, crc32_combine, 3) ->
-  [t_integer(), t_integer(), t_integer()];
+  [t_crc32(), t_crc32(), t_non_neg_integer()];
 arg_types(erlang, date, 0) ->
   [];
 arg_types(erlang, decode_packet, 3) ->
@@ -4108,7 +4121,7 @@ arg_types(hipe_bifs, call_count_off, 1) ->
 arg_types(hipe_bifs, call_count_on, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, check_crc, 1) ->
-  [t_integer()];
+  [t_crc32()];
 arg_types(hipe_bifs, enter_code, 2) ->
   [t_binary(), t_sup(t_nil(), t_tuple())];
 arg_types(hipe_bifs, enter_sdesc, 1) ->
@@ -4152,7 +4165,7 @@ arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
 arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
 arg_types(hipe_bifs, system_crc, 1) ->
-  [t_integer()];
+  [t_crc32()];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
 arg_types(hipe_bifs, update_code_size, 3) ->
@@ -4547,6 +4560,12 @@ t_code_loaded_fname_or_status() ->
 %% =====================================================================
 %% These are used for the built-in functions of 'erlang'
 %% =====================================================================
+
+t_adler32() ->
+  t_non_neg_integer().
+
+t_crc32() ->
+  t_non_neg_integer().
 
 t_decode_packet_option() ->
   t_sup([t_tuple([t_atom('packet_size'), t_non_neg_integer()]),
