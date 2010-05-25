@@ -240,6 +240,11 @@ void erts_schedule_time_break(Process *p, Uint out);
 int erts_set_time_break(Eterm mfa[3], int specified, enum erts_break_op);
 int erts_clear_time_break(Eterm mfa[3], int specified);
 
+int erts_is_time_trace_bif(Process *p, BeamInstr *pc, Eterm *call_time);
+void erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op);
+void erts_clear_time_trace_bif(BeamInstr *pc);
+BpData *erts_get_time_break(Process *p, BeamInstr *pc);
+
 BeamInstr *erts_find_local_func(Eterm mfa[3]);
 
 #endif /* _BEAM_BP_H */

@@ -102,6 +102,8 @@ do {                               \
 } while (0)
 
 
+#define BREAK_IS_BIF (1)
+#define BREAK_IS_ERL (0)
 
 
 /* *************************************************************************
@@ -118,7 +120,7 @@ static int set_break(Eterm mfa[3], int specified,
 static int set_module_break(Module *modp, Eterm mfa[3], int specified,
 			    Binary *match_spec, BeamInstr break_op,
 			    enum erts_break_op count_op, Eterm tracer_pid);
-static int set_function_break(Module *modp, BeamInstr *pc,
+static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 			      Binary *match_spec, BeamInstr break_op,
 			      enum erts_break_op count_op, Eterm tracer_pid); 
 
@@ -126,7 +128,7 @@ static int clear_break(Eterm mfa[3], int specified,
 		       BeamInstr break_op);
 static int clear_module_break(Module *modp, Eterm mfa[3], int specified, 
 			      BeamInstr break_op);
-static int clear_function_break(Module *modp, BeamInstr *pc,
+static int clear_function_break(Module *modp, BeamInstr *pc, int bif,
 				BeamInstr break_op);
 
 static BpData *is_break(BeamInstr *pc, BeamInstr break_op);
@@ -178,25 +180,20 @@ erts_set_mtrace_break(Eterm mfa[3], int specified, Binary *match_spec,
 		     (BeamInstr) BeamOp(op_i_mtrace_breakpoint), 0, tracer_pid);
 }
 
+/* set breakpoint data for on exported bif entry */
+
 void
 erts_set_mtrace_bif(BeamInstr *pc, Binary *match_spec, Eterm tracer_pid) {
-    BpDataTrace *bdt;
     ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
+    set_function_break(NULL, pc, BREAK_IS_BIF, match_spec, (BeamInstr) BeamOp(op_i_mtrace_breakpoint), 0, tracer_pid);
+}
 
-    bdt = (BpDataTrace *) pc[-4];
-    if (bdt) {
-	MatchSetUnref(bdt->match_spec);
-	MatchSetRef(match_spec);
-	bdt->match_spec = match_spec;
-	bdt->tracer_pid = tracer_pid;
-    } else {
-	bdt = Alloc(sizeof(BpDataTrace));
-	BpInit((BpData *) bdt, 0);
-	MatchSetRef(match_spec);
-	bdt->match_spec = match_spec;
-	bdt->tracer_pid = tracer_pid;
-	pc[-4] = (BeamInstr) bdt;
-    }
+void erts_set_time_trace_bif(BeamInstr *pc, enum erts_break_op count_op) {
+    set_function_break(NULL, pc, BREAK_IS_BIF, NULL, (BeamInstr) BeamOp(op_i_time_breakpoint), count_op, NIL);
+}
+
+void erts_clear_time_trace_bif(BeamInstr *pc) {
+    clear_function_break(NULL, pc, BREAK_IS_BIF, (BeamInstr) BeamOp(op_i_time_breakpoint));
 }
 
 int 
@@ -236,17 +233,7 @@ erts_clear_mtrace_break(Eterm mfa[3], int specified) {
 
 void
 erts_clear_mtrace_bif(BeamInstr *pc) {
-    BpDataTrace *bdt;
-    ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
-    
-    bdt = (BpDataTrace *) pc[-4];
-    if (bdt) {
-	if (bdt->match_spec) {
-	    MatchSetUnref(bdt->match_spec);
-	}
-	Free(bdt);
-    }
-    pc[-4] = (BeamInstr) NULL;
+    clear_function_break(NULL, pc, BREAK_IS_BIF, (BeamInstr) BeamOp(op_i_mtrace_breakpoint));
 }
 
 int
@@ -287,7 +274,7 @@ int
 erts_clear_function_break(Module *modp, BeamInstr *pc) {
     ERTS_SMP_LC_ASSERT(erts_smp_is_system_blocked(0));
     ASSERT(modp);
-    return clear_function_break(modp, pc, 0);
+    return clear_function_break(modp, pc, BREAK_IS_ERL, 0);
 }
 
 
@@ -404,24 +391,6 @@ erts_is_mtrace_break(BeamInstr *pc, Binary **match_spec_ret, Eterm *tracer_pid_r
 }
 
 int
-erts_is_mtrace_bif(BeamInstr *pc, Binary **match_spec_ret, Eterm *tracer_pid_ret) {
-    BpDataTrace *bdt = (BpDataTrace *) pc[-4];
-    
-    if (bdt) {
-	if (match_spec_ret) {
-	    *match_spec_ret = bdt->match_spec;
-	}
-	if (tracer_pid_ret) {
-	    ErtsSmpBPLock(bdt);
-	    *tracer_pid_ret = bdt->tracer_pid;
-	    ErtsSmpBPUnlock(bdt);
-	}
-	return !0;
-    }
-    return 0;
-}
-
-int
 erts_is_native_break(BeamInstr *pc) {
 #ifdef HIPE
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
@@ -447,12 +416,12 @@ erts_is_count_break(BeamInstr *pc, Sint *count_ret) {
 }
 
 int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
-    BpDataTime *bdt = (BpDataTime *) is_break(pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
     Uint i, ix;
     bp_time_hash_t hash;
     Uint size;
     Eterm *hp, t;
     bp_data_time_item_t *item = NULL;
+    BpDataTime *bdt = (BpDataTime *) is_break(pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
 
     if (bdt) {
 	if (retval) {
@@ -475,8 +444,8 @@ int erts_is_time_break(Process *p, BeamInstr *pc, Eterm *retval) {
 		    }
 		}
 	    }
+	    /* *retval should be NIL or term from previous bif in export entry */
 
-	    *retval = NIL;
 	    if (hash.used > 0) {
 		size = (5 + 2)*hash.used;
 		hp   = HAlloc(p, size);
@@ -926,27 +895,35 @@ static int set_module_break(Module *modp, Eterm mfa[3], int specified,
 	ASSERT(code_ptr[0] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
 	if ((specified < 2 || mfa[1] == ((Eterm) code_ptr[3])) &&
 	    (specified < 3 || ((int) mfa[2]) == ((int) code_ptr[4]))) {
-	    BeamInstr   *pc = code_ptr+5;
+	    BeamInstr *pc = code_ptr+5;
 	    
 	    num_processed +=
-		set_function_break(modp, pc, match_spec, 
+		set_function_break(modp, pc, BREAK_IS_ERL, match_spec,
 				   break_op, count_op, tracer_pid);
 	}
     }
     return num_processed;
 }
 
-static int set_function_break(Module *modp, BeamInstr *pc,
+static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 			      Binary *match_spec, BeamInstr break_op,
 			      enum erts_break_op count_op, Eterm tracer_pid) {
+
+    BeamInstr **code_base = NULL;
     BpData *bd, **r, ***rs;
     size_t size;
     Uint ix = 0;
-    BeamInstr **code_base = (BeamInstr **)modp->code;
     
-    ASSERT(code_base);
-    ASSERT(code_base <= (BeamInstr **)pc);
-    ASSERT((BeamInstr **)pc < code_base + (modp->code_length/sizeof(BeamInstr *)));
+    if (bif == BREAK_IS_ERL) {
+	code_base = (BeamInstr **)modp->code;
+	ASSERT(code_base);
+	ASSERT(code_base <= (BeamInstr **)pc);
+	ASSERT((BeamInstr **)pc < code_base + (modp->code_length/sizeof(BeamInstr *)));
+    } else {
+	ASSERT(*pc == (BeamInstr) em_apply_bif);
+	ASSERT(modp == NULL);
+    }
+
     /*
      * Currently no trace support for native code.
      */
@@ -970,13 +947,14 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    ErtsSmpBPUnlock(bdt);
 	    MatchSetUnref(old_match_spec);
 	} else {
+	    BpDataCount *bdc = (BpDataCount *) bd;
+	    long count = 0;
+	    long res   = 0;
+
 	    ASSERT(! match_spec);
 	    ASSERT(is_nil(tracer_pid));
-	    if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
-		BpDataCount *bdc = (BpDataCount *) bd;
-		long count = 0;
-		long res   = 0;
 		
+	    if (break_op == (BeamInstr) BeamOp(op_i_count_breakpoint)) {
 		if (count_op == erts_break_stop) {
 		    count = erts_smp_atomic_read(&bdc->acount);
 		    if (count >= 0) {
@@ -991,7 +969,7 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 		    erts_smp_atomic_set(&bdc->acount, 0);
 		}
 
-	    } else if (break_op == (Uint) BeamOp(op_i_time_breakpoint)) {
+	    } else if (break_op == (BeamInstr) BeamOp(op_i_time_breakpoint)) {
 		BpDataTime *bdt = (BpDataTime *) bd;
 		Uint i = 0;
 
@@ -1055,8 +1033,10 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	/* First breakpoint; create singleton ring */
 	bd = Alloc(size);
 	BpInit(bd, *pc);
-	*pc = break_op;
 	*r = bd;
+	if (bif == BREAK_IS_ERL) {
+	    *pc = break_op;
+	}
     } else {
 	ASSERT(*pc == (BeamInstr) BeamOp(op_i_trace_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_mtrace_breakpoint) ||
@@ -1070,7 +1050,9 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	    /* Insert new bp first in the ring, i.e second to last. */
 	    bd = Alloc(size);
 	    BpInitAndSpliceNext(bd, *pc, *r);
-	    *pc = break_op;
+	    if (bif == BREAK_IS_ERL) {
+		*pc = break_op;
+	    }
 	} else if ((*r)->prev->orig_instr
 		   == (BeamInstr) BeamOp(op_i_debug_breakpoint)) {
 	    /* Debug bp last in the ring; insert new second to last. */
@@ -1114,7 +1096,10 @@ static int set_function_break(Module *modp, BeamInstr *pc,
 	BpDataCount *bdc = (BpDataCount *) bd;
 	erts_smp_atomic_init(&bdc->acount, 0);
     }
-    ++(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+
+    if (bif == BREAK_IS_ERL) {
+	++(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+    }
     return 1;
 }
 
@@ -1164,26 +1149,34 @@ static int clear_module_break(Module *m, Eterm mfa[3], int specified,
 	    BeamInstr *pc = code_ptr + 5;
 	    
 	    num_processed += 
-		clear_function_break(m, pc, break_op);
+		clear_function_break(m, pc, BREAK_IS_ERL, break_op);
 	}
     }
     return num_processed;
 }
 
-static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
+static int clear_function_break(Module *m, BeamInstr *pc, int bif, BeamInstr break_op) {
     BpData *bd;
     Uint ix = 0;
-    BeamInstr **code_base = (BeamInstr **)m->code;
-    
-    ASSERT(code_base);
-    ASSERT(code_base <= (BeamInstr **)pc);
-    ASSERT((BeamInstr **)pc < code_base + (m->code_length/sizeof(BeamInstr *)));
+    BeamInstr **code_base = NULL;
+
+    if (bif == BREAK_IS_ERL) {
+	code_base = (BeamInstr **)m->code;
+	ASSERT(code_base);
+	ASSERT(code_base <= (BeamInstr **)pc);
+	ASSERT((BeamInstr **)pc < code_base + (m->code_length/sizeof(BeamInstr *)));
+    } else {
+	ASSERT(*pc == (BeamInstr) em_apply_bif);
+	ASSERT(m == NULL);
+    }
+
     /*
      * Currently no trace support for native code.
      */
     if (erts_is_native_break(pc)) {
 	return 0;
     }
+
     while ( (bd = is_break(pc, break_op))) {
 	/* Remove all breakpoints of this type.
 	 * There should be only one of each type, 
@@ -1216,7 +1209,9 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	if (BpSingleton(bd)) {
 	    ASSERT(*r == bd);
 	    /* Only one breakpoint to remove */
-	    *pc = bd->orig_instr;
+	    if (bif == BREAK_IS_ERL) {
+		*pc = bd->orig_instr;
+	    }
 	    Free(*rs);
 	    *rs = NULL;
 	} else {
@@ -1230,7 +1225,9 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 		bd_prev->orig_instr = bd->orig_instr;
 	    } else if (bd_prev == *r) {
 		/* We removed the first breakpoint in the ring */
-		*pc = bd->orig_instr;
+		if (bif == BREAK_IS_ERL) {
+		    *pc = bd->orig_instr;
+		}
 	    } else {
 		bd_prev->orig_instr = bd->orig_instr;
 	    }
@@ -1276,8 +1273,10 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 	    bdt->n = 0;
 	}
 	Free(bd);
-	ASSERT(((BeamInstr) code_base[MI_NUM_BREAKPOINTS]) > 0);
-	--(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+	if (bif == BREAK_IS_ERL) {
+	    ASSERT(((BeamInstr) code_base[MI_NUM_BREAKPOINTS]) > 0);
+	    --(*(BeamInstr*)&code_base[MI_NUM_BREAKPOINTS]);
+	}
 	if (*rs) {
 	    for (ix = 1; ix < erts_no_schedulers; ++ix) {
 		(*rs)[ix] = (*rs)[0];
@@ -1296,44 +1295,11 @@ static int clear_function_break(Module *m, BeamInstr *pc, BeamInstr break_op) {
 ** returned. The program counter must point to the first executable
 ** (breakpoint) instruction of the function.
 */
-static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
-    ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
-    if (! erts_is_native_break(pc)) {
-	BpData **rs = (BpData **) pc[-4];
-	BpData  *bd = NULL, *ebd = NULL;
 
-	if (! rs) {
-	    return NULL;
-	}
-
-	bd = ebd = rs[bp_sched2ix()];
-
-	ASSERT(bd);
-	
-	if (break_op == 0) {
-	    return bd;
-	}
-	if (*pc == break_op) {
-	    ASSERT(bd);
-	    return bd->next;
-	}
-	if (! bd){
-	    return NULL;
-	}
-	bd = bd->next;
-	while (bd != ebd) {
-	    ASSERT(bd);
-	    if (bd->orig_instr == break_op) {
-		bd = bd->next;
-		ASSERT(bd);
-		return bd;
-	    } else {
-		bd = bd->next;
-	    }
-	}
-    }
-    return NULL;
+BpData *erts_get_time_break(Process *p, BeamInstr *pc) {
+    return get_break(p, pc, (BeamInstr) BeamOp(op_i_time_breakpoint));
 }
+
 static BpData *get_break(Process *p, BeamInstr *pc, BeamInstr break_op) {
     ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
     if (! erts_is_native_break(pc)) {
@@ -1359,6 +1325,33 @@ static BpData *get_break(Process *p, BeamInstr *pc, BeamInstr break_op) {
 	    }
 	    bd = bd->next;
 	}
+    }
+    return NULL;
+}
+
+static BpData *is_break(BeamInstr *pc, BeamInstr break_op) {
+    BpData **rs = (BpData **) pc[-4];
+    BpData  *bd = NULL, *ebd = NULL;
+    ASSERT(pc[-5] == (BeamInstr) BeamOp(op_i_func_info_IaaI));
+
+    if (! rs) {
+	return NULL;
+    }
+
+    bd = ebd = rs[bp_sched2ix()];
+    ASSERT(bd);
+    if ( (break_op == 0) || (bd->this_instr == break_op)) {
+	return bd;
+    }
+
+    bd = bd->next;
+    while (bd != ebd) {
+	ASSERT(bd);
+	if (bd->this_instr == break_op) {
+	    ASSERT(bd);
+	    return bd;
+	}
+	bd = bd->next;
     }
     return NULL;
 }

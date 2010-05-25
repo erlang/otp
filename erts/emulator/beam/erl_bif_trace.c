@@ -992,9 +992,12 @@ static int function_is_traced(Process *p,
 				r |= FUNC_TRACE_LOCAL_TRACE;
 				*ms = ep->match_prog_set;
 			    }
-			    if (erts_is_mtrace_bif(ep->code+3, ms_meta, 
+			    if (erts_is_mtrace_break(ep->code+3, ms_meta,
 						   tracer_pid_meta)) {
 				r |= FUNC_TRACE_META_TRACE;
+			    }
+			    if (erts_is_time_break(p, ep->code+3, call_time)) {
+				r |= FUNC_TRACE_TIME_TRACE;
 			    }
 			}
 			return r ? r : FUNC_TRACE_UNTRACED;
@@ -1034,7 +1037,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     Eterm match_spec = am_false;
     Eterm retval = am_false;
     Eterm meta = am_false;
-    Eterm call_time;
+    Eterm call_time = NIL;
     int r;
 
 
@@ -1404,6 +1407,12 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
 			m = 1;
 		    }
+		    if (flags.call_time) {
+			erts_set_time_trace_bif(bif_export[i]->code + 3, on);
+			/* I don't want to remove any other tracers */
+			erts_bif_trace_flags[i] |= BIF_TRACE_AS_CALL_TIME;
+			m = 1;
+		    }
 		    if (erts_bif_trace_flags[i]) {
 			setup_bif_trace(i);
 		    }
@@ -1421,6 +1430,11 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 				((BeamInstr *)bif_export[i]->code + 3);
 			    erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_META;
 			}
+			m = 1;
+		    }
+		    if (flags.call_time) {
+			erts_clear_time_trace_bif(bif_export[i]->code + 3);
+			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_CALL_TIME;
 			m = 1;
 		    }
 		    if (! erts_bif_trace_flags[i]) {
@@ -1591,7 +1605,7 @@ static void reset_bif_trace(int bif_index) {
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
     ASSERT(! ep->match_prog_set);
-    ASSERT(! erts_is_mtrace_bif((BeamInstr *)ep->code+3, NULL, NULL));
+    ASSERT(! erts_is_mtrace_break((BeamInstr *)ep->code+3, NULL, NULL));
     ep->code[4] = (BeamInstr) bif_table[bif_index].f;
 }
 

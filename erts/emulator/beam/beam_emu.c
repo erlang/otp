@@ -231,7 +231,7 @@ BeamInstr* em_call_traced_function;
 BeamInstr beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
 BeamInstr beam_return_trace[1];      /* OpCode(i_return_trace) */
 BeamInstr beam_exception_trace[1];   /* UGLY also OpCode(i_return_trace) */
-BeamInstr beam_return_time_trace[1]; /* OpCode(i_time_return_trace) */
+BeamInstr beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 /*
  * All Beam instructions in numerical order.
@@ -5054,6 +5054,8 @@ apply_bif_or_nif_epilogue:
 	 bif_export[i] = ep;
 	 ep->code[3] = (BeamInstr) OpCode(apply_bif);
 	 ep->code[4] = (BeamInstr) bif_table[i].f;
+	 /* XXX: set func info for bifs */
+	 ((BeamInstr*)ep->code + 3)[-5] = (BeamInstr) BeamOp(op_i_func_info_IaaI);
      }
 
      return;
