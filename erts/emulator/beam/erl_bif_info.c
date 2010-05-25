@@ -1892,6 +1892,37 @@ c_compiler_used(Eterm **hpp, Uint *szp)
 
 }
 
+static int is_snif_term(Eterm module_atom) {
+    int i;
+    Atom *a = atom_tab(atom_val(module_atom));
+    char *aname = (char *) a->name;
+
+    /* if a->name has a '.' then the bif (snif) is bogus i.e a package */
+    for (i = 0; i < a->len; i++) {
+	if (aname[i] == '.')
+	    return 0;
+    }
+
+    return 1;
+}
+
+static Eterm build_snif_term(Eterm **hpp, Uint *szp, int ix, Eterm res) {
+    Eterm tup;
+    tup = erts_bld_tuple(hpp, szp, 3, bif_table[ix].module, bif_table[ix].name, make_small(bif_table[ix].arity));
+    res = erts_bld_cons( hpp, szp, tup, res);
+    return res;
+}
+
+static Eterm build_snifs_term(Eterm **hpp, Uint *szp, Eterm res) {
+    int i;
+    for (i = 0; i < BIF_SIZE; i++) {
+	if (is_snif_term(bif_table[i].module)) {
+	    res = build_snif_term(hpp, szp, i, res);
+	}
+    }
+    return res;
+}
+
 BIF_RETTYPE system_info_1(BIF_ALIST_1)
 {
     Eterm res;
@@ -1940,6 +1971,15 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(db_get_trace_control_word_0(BIF_P));
     } else if (ERTS_IS_ATOM_STR("ets_realloc_moves", BIF_ARG_1)) {
  	BIF_RET((erts_ets_realloc_always_moves) ? am_true : am_false);
+    } else if (ERTS_IS_ATOM_STR("snifs", BIF_ARG_1)) {
+	Uint size = 0;
+	Uint *szp;
+
+	szp = &size;
+	build_snifs_term(NULL, szp, NIL);
+	hp = HAlloc(BIF_P, size);
+	res = build_snifs_term(&hp, NULL, NIL);
+	BIF_RET(res);
     } else if (BIF_ARG_1 == am_sequential_tracer) {
 	val = erts_get_system_seq_tracer();
 	ASSERT(is_internal_pid(val) || is_internal_port(val) || val==am_false)
