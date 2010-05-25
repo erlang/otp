@@ -34,7 +34,6 @@
 -define(EXPIRE, 10).
 -define(SLEEP, 500).
 
-
 -behaviour(ssl_session_cache_api).
 
 %% For the session cache tests
@@ -114,6 +113,22 @@ init_per_testcase(TestCase, Config) when TestCase == ciphers_ssl3;
     ssl:start(),
     Config;
 
+init_per_testcase(protocol_versions, Config)  ->
+    ssl:stop(),
+    application:load(ssl),
+    %% For backwards compatibility sslv2 should be filtered out.
+    application:set_env(ssl, protocol_version, [sslv2, sslv3, tlsv1]),
+    ssl:start(),
+    Config;
+
+init_per_testcase(empty_protocol_versions, Config)  ->
+    ssl:stop(),
+    application:load(ssl),
+    %% For backwards compatibility sslv2 should be filtered out.
+    application:set_env(ssl, protocol_version, []),
+    ssl:start(),
+    Config;
+
 init_per_testcase(_TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
@@ -147,7 +162,9 @@ end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
     end_per_testcase(default_action, Config);
 end_per_testcase(TestCase, Config) when TestCase == ciphers_ssl3; 
-					TestCase == ciphers_ssl3_openssl_names ->
+					TestCase == ciphers_ssl3_openssl_names;
+					TestCase == protocol_versions;
+					TestCase == empty_protocol_versions->
     application:unset_env(ssl, protocol_version),
     end_per_testcase(default_action, Config);
 end_per_testcase(_TestCase, Config) ->
@@ -171,32 +188,31 @@ all(doc) ->
     ["Test the basic ssl functionality"];
 
 all(suite) -> 
-    [app, alerts, connection_info, controlling_process, controller_dies, 
-     client_closes_socket,
-     peercert, connect_dist,
-     peername, sockname, socket_options, misc_ssl_options, versions, cipher_suites,
-     upgrade, upgrade_with_timeout, tcp_connect,
-     ipv6, ekeyfile, ecertfile, ecacertfile, eoptions, shutdown,
-     shutdown_write, shutdown_both, shutdown_error, ciphers, ciphers_ssl3, 
-     ciphers_openssl_names, ciphers_ssl3_openssl_names, 
-     send_close, close_transport_accept, dh_params,
-     server_verify_peer_passive,
-     server_verify_peer_active, server_verify_peer_active_once,
-     server_verify_none_passive, server_verify_none_active, 
-     server_verify_none_active_once, server_verify_no_cacerts,
-     server_require_peer_cert_ok, server_require_peer_cert_fail,
-     server_verify_client_once_passive,
-     server_verify_client_once_active,
-     server_verify_client_once_active_once,
-     client_verify_none_passive,
-     client_verify_none_active, client_verify_none_active_once,
-     %session_cache_process_list, session_cache_process_mnesia,
-     reuse_session, reuse_session_expired, server_does_not_want_to_reuse_session,
-     client_renegotiate, server_renegotiate, client_renegotiate_reused_session,
-     server_renegotiate_reused_session,
-     client_no_wrap_sequence_number, server_no_wrap_sequence_number,
-     extended_key_usage, validate_extensions_fun, no_authority_key_identifier, 
-     invalid_signature_client, invalid_signature_server
+    [app, alerts, connection_info, protocol_versions,
+    empty_protocol_versions, controlling_process, controller_dies,
+    client_closes_socket, peercert, connect_dist, peername, sockname,
+    socket_options, misc_ssl_options, versions, cipher_suites,
+    upgrade, upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
+    ecertfile, ecacertfile, eoptions, shutdown, shutdown_write,
+    shutdown_both, shutdown_error, ciphers, ciphers_ssl3,
+    ciphers_openssl_names, ciphers_ssl3_openssl_names, send_close,
+    close_transport_accept, dh_params, server_verify_peer_passive,
+    server_verify_peer_active, server_verify_peer_active_once,
+    server_verify_none_passive, server_verify_none_active,
+    server_verify_none_active_once, server_verify_no_cacerts,
+    server_require_peer_cert_ok, server_require_peer_cert_fail,
+    server_verify_client_once_passive,
+    server_verify_client_once_active,
+    server_verify_client_once_active_once, client_verify_none_passive,
+    client_verify_none_active, client_verify_none_active_once,
+    %session_cache_process_list, session_cache_process_mnesia,
+    reuse_session, reuse_session_expired,
+    server_does_not_want_to_reuse_session, client_renegotiate,
+    server_renegotiate, client_renegotiate_reused_session,
+    server_renegotiate_reused_session, client_no_wrap_sequence_number,
+    server_no_wrap_sequence_number, extended_key_usage,
+    validate_extensions_fun, no_authority_key_identifier,
+    invalid_signature_client, invalid_signature_server, cert_expired
     ].
 
 %% Test cases starts here.
@@ -269,6 +285,49 @@ connection_info(Config) when is_list(Config) ->
 
 connection_info_result(Socket) ->                                            
     ssl:connection_info(Socket).
+
+%%--------------------------------------------------------------------
+
+protocol_versions(doc) -> 
+    ["Test to set a list of protocol versions in app environment."];
+
+protocol_versions(suite) -> 
+    [];
+
+protocol_versions(Config) when is_list(Config) -> 
+    basic_test(Config).
+
+empty_protocol_versions(doc) -> 
+    ["Test to set an empty list of protocol versions in app environment."];
+
+empty_protocol_versions(suite) -> 
+    [];
+
+empty_protocol_versions(Config) when is_list(Config) -> 
+    basic_test(Config).
+
+
+basic_test(Config) ->
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_opts, Config),
+
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
+					{from, self()}, 
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, ServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client([{node, ClientNode}, {port, Port}, 
+					{host, Hostname},
+					{from, self()}, 
+					{mfa, {?MODULE, send_recv_result_active, []}},
+					{options, ClientOpts}]),
+    
+    ssl_test_lib:check_result(Server, ok, Client, ok),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
 
 %%--------------------------------------------------------------------
 
@@ -684,7 +743,7 @@ socket_options(Config) when is_list(Config) ->
 			   {options, ClientOpts}]),
     
     ssl_test_lib:check_result(Server, ok, Client, ok),
-    
+
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client),
     
@@ -692,6 +751,7 @@ socket_options(Config) when is_list(Config) ->
     {ok,[{mode,list}]} = ssl:getopts(Listen, [mode]),
     ok = ssl:setopts(Listen, [{mode, binary}]),
     {ok,[{mode, binary}]} = ssl:getopts(Listen, [mode]),
+    {ok,[{recbuf, _}]} = ssl:getopts(Listen, [recbuf]),
     ssl:close(Listen).
 
 socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
@@ -701,6 +761,8 @@ socket_options_result(Socket, Options, DefaultValues, NewOptions, NewValues) ->
     {ok, NewValues} = ssl:getopts(Socket, NewOptions),
     %% Test get/set inet opts
     {ok,[{nodelay,false}]} = ssl:getopts(Socket, [nodelay]),  
+    ssl:setopts(Socket, [{nodelay, true}]),
+    {ok,[{nodelay, true}]} = ssl:getopts(Socket, [nodelay]),
     ok.
     
 %%--------------------------------------------------------------------
@@ -2629,6 +2691,75 @@ invalid_signature_client(Config) when is_list(Config) ->
     
     ssl_test_lib:close(Server),
     ssl_test_lib:close(Client).
+
+%%--------------------------------------------------------------------
+cert_expired(doc) -> 
+    ["Test server with invalid signature"];
+
+cert_expired(suite) -> 
+    [];
+
+cert_expired(Config) when is_list(Config) -> 
+    ClientOpts = ?config(client_opts, Config),
+    ServerOpts = ?config(server_verification_opts, Config),
+    PrivDir = ?config(priv_dir, Config),
+   
+    KeyFile = filename:join(PrivDir, "otpCA/private/key.pem"),
+    {ok, [KeyInfo]} = public_key:pem_to_der(KeyFile),
+    {ok, Key} = public_key:decode_private_key(KeyInfo),
+
+    ServerCertFile = proplists:get_value(certfile, ServerOpts),
+    NewServerCertFile = filename:join(PrivDir, "server/expired_cert.pem"),
+    {ok, [{cert, DerCert, _}]} = public_key:pem_to_der(ServerCertFile),
+    {ok, OTPCert} = public_key:pkix_decode_cert(DerCert, otp),
+    OTPTbsCert = OTPCert#'OTPCertificate'.tbsCertificate,
+
+    {Year, Month, Day} = date(),
+    {Hours, Min, Sec} = time(),
+    NotBeforeStr = lists:flatten(io_lib:format("~p~s~s~s~s~sZ",[Year-2, 
+								two_digits_str(Month), 
+								two_digits_str(Day), 
+								two_digits_str(Hours), 
+								two_digits_str(Min), 
+								two_digits_str(Sec)])),
+    NotAfterStr = lists:flatten(io_lib:format("~p~s~s~s~s~sZ",[Year-1, 
+							       two_digits_str(Month), 
+							       two_digits_str(Day), 
+							       two_digits_str(Hours), 
+							       two_digits_str(Min), 
+							       two_digits_str(Sec)])),	
+    NewValidity = {'Validity', {generalTime, NotBeforeStr}, {generalTime, NotAfterStr}}, 
+
+    test_server:format("Validity: ~p ~n NewValidity: ~p ~n", 
+		       [OTPTbsCert#'OTPTBSCertificate'.validity, NewValidity]),
+
+    NewOTPTbsCert =  OTPTbsCert#'OTPTBSCertificate'{validity = NewValidity},
+    NewServerDerCert = public_key:sign(NewOTPTbsCert, Key), 
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
+    
+    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
+    
+    Server = ssl_test_lib:start_server_error([{node, ServerNode}, {port, 0}, 
+					      {from, self()}, 
+					      {options, NewServerOpts}]),
+    Port = ssl_test_lib:inet_port(Server),
+    Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
+					      {host, Hostname},
+					      {from, self()}, 
+					      {options, [{verify, verify_peer} | ClientOpts]}]),
+    
+    ssl_test_lib:check_result(Server, {error, "certificate expired"}, 
+			      Client, {error, "certificate expired"}),
+    
+    ssl_test_lib:close(Server),
+    ssl_test_lib:close(Client).
+
+
+two_digits_str(N) when N < 10 ->
+    lists:flatten(io_lib:format("0~p", [N]));
+two_digits_str(N) ->
+    lists:flatten(io_lib:format("~p", [N])).
 
 %%--------------------------------------------------------------------
 %%% Internal functions
