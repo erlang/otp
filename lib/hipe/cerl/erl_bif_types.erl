@@ -1607,9 +1607,8 @@ type(erlang, system_info, 1, Xs) ->
 		   ['heap_type'] ->
 		     t_sup([t_atom('private'), t_atom('hybrid')]);
 		   ['hipe_architecture'] ->
-		     t_sup([t_atom('amd64'), t_atom('arm'),
-			    t_atom('powerpc'), t_atom('undefined'),
-			    t_atom('ultrasparc'), t_atom('x86')]);
+		     t_atoms(['amd64', 'arm', 'powerpc', 'ppc64',
+			      'undefined', 'ultrasparc', 'x86']);
 		   ['info'] ->
 		     t_binary();
 		   ['internal_cpu_topology'] -> %% Undocumented internal feature
