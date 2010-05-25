@@ -48,6 +48,7 @@
 	 get/2, get/3, get_next/2, get_next/3]).
 -export([mib_of/1, mib_of/2, me_of/1, me_of/2,
 	 invalidate_mibs_cache/1,
+	 which_mibs_cache_size/1, 
 	 enable_mibs_cache/1, disable_mibs_cache/1,
 	 gc_mibs_cache/1, gc_mibs_cache/2, gc_mibs_cache/3,
 	 enable_mibs_cache_autogc/1, disable_mibs_cache_autogc/1,
@@ -243,6 +244,10 @@ enable_mibs_cache(Agent) ->
 
 disable_mibs_cache(Agent) ->
     call(Agent, {mibs_cache_request, disable_cache}).
+
+
+which_mibs_cache_size(Agent) ->
+    call(Agent, {mibs_cache_request, cache_size}).
 
 
 enable_mibs_cache_autogc(Agent) ->
@@ -1219,6 +1224,8 @@ handle_mibs_cache_request(MibServer, Req) ->
 			      snmpa_mib:gc_cache(MibServer, Age);
 			  {gc_cache, Age, GcLimit} ->
 			      snmpa_mib:gc_cache(MibServer, Age, GcLimit);
+			  cache_size ->
+			      snmpa_mib:which_cache_size(MibServer);
 			  enable_cache ->
 			      snmpa_mib:enable_cache(MibServer);
 			  disable_cache ->

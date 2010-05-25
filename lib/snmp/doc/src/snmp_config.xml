@@ -343,7 +343,7 @@
         <p>Defines if the mib server shall perform cache gc automatically or 
           leave it to the user (see 
           <seealso marker="snmpa#gc_mibs_cache">gc_mibs_cache/0,1,2,3</seealso>). </p>
-        <p>Default is <c>false</c>.</p>
+        <p>Default is <c>true</c>.</p>
       </item>
 
       <tag><c><![CDATA[mibs_cache_age() = integer() > 0 <optional>]]></c></tag>

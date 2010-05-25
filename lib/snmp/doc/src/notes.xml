@@ -60,6 +60,12 @@
           <p>Own Id: OTP-8594</p>
         </item>
 
+        <item>
+          <p>Auto [agent] Changed default value for the MIB server cache. 
+            GC is now on by default. </p>
+          <p>Own Id: OTP-8648</p>
+        </item>
+
       </list>
 
     </section>
@@ -81,6 +87,15 @@
           <p>[compiler] Fails to compile non-contiguous BITS. </p>
 	  <p>Per Hedeland</p>
           <p>Own Id: OTP-8595</p>
+        </item>
+
+        <item>
+          <p>[manager] Raise condition causing the manager server process to 
+            crash. Unregistering an agent while traffic (set/get-operations) 
+            is ongoing could cause a crash in the manager server process 
+            (raise condition). </p>
+          <p>Own Id: OTP-8646</p>
+	  <p>Aux Id: Seq 11585</p>
         </item>
 
       </list>
