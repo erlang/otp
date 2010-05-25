@@ -411,16 +411,14 @@ protocol_version(tlsv1) ->
     {3, 1};
 protocol_version(sslv3) ->
     {3, 0};
-protocol_version(sslv2) ->
+protocol_version(sslv2) -> %% Backwards compatibility
     {2, 0};
 protocol_version({3, 2}) ->
     'tlsv1.1';
 protocol_version({3, 1}) ->
     tlsv1;
 protocol_version({3, 0}) ->
-    sslv3;
-protocol_version({2, 0}) ->
-    sslv2.
+    sslv3.
 %%--------------------------------------------------------------------
 %% Function: protocol_version(Version1, Version2) -> #protocol_version{}
 %%     Version1 = Version2 = #protocol_version{}
@@ -468,7 +466,7 @@ highest_protocol_version(_, [Version | Rest]) ->
 %%--------------------------------------------------------------------
 supported_protocol_versions() ->
     Fun = fun(Version) ->
-		  protocol_version(Version)
+		  protocol_version(Version) 
 	  end,
     case application:get_env(ssl, protocol_version) of
 	undefined ->
@@ -476,10 +474,17 @@ supported_protocol_versions() ->
 	{ok, []} ->
 	    lists:map(Fun, ?DEFAULT_SUPPORTED_VERSIONS);
 	{ok, Vsns} when is_list(Vsns) ->
-	    lists:map(Fun, Vsns);
+	    Versions = lists:filter(fun is_acceptable_version/1, lists:map(Fun, Vsns)),
+	    supported_protocol_versions(Versions);
 	{ok, Vsn} ->
-	    [Fun(Vsn)]
+	    Versions = lists:filter(fun is_acceptable_version/1, [Fun(Vsn)]),
+	    supported_protocol_versions(Versions)
     end.
+
+supported_protocol_versions([]) ->
+    ?DEFAULT_SUPPORTED_VERSIONS;
+supported_protocol_versions([_|_] = Vsns) ->
+    Vsns.
 
 %%--------------------------------------------------------------------
 %% Function: is_acceptable_version(Version) -> true | false
@@ -688,7 +693,7 @@ hash_and_bump_seqno(#connection_state{sequence_number = SeqNo,
 check_hash(_, _) ->
     ok. %% TODO check this 
 
-mac_hash(?NULL, {_,_}, _MacSecret, _SeqNo, _Type,
+mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,
 	 _Length, _Fragment) ->
     <<>>;
 mac_hash({3, 0}, MacAlg, MacSecret, SeqNo, Type, Length, Fragment) ->
