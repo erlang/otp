@@ -102,6 +102,13 @@ buffer and vice versa"
 	(substring base-name (match-beginning 1) (match-end 1))
       base-name)))
 
+;;; Return the module name of the file
+;;;     /tmp/foo/src/x.erl        --> x
+;;;     /tmp/foo/test/x_tests.erl --> x_tests
+(defun erlang-eunit-module-name (file-path)
+  (interactive)
+  (file-name-sans-extension (file-name-nondirectory file-path)))
+
 ;;; Return the directory name which is common to both src and test
 ;;;     /tmp/foo/src/x.erl        --> /tmp/foo
 ;;;     /tmp/foo/test/x_tests.erl --> /tmp/foo
@@ -128,25 +135,62 @@ buffer and vice versa"
       (concat dir file)
     (concat dir "/" file)))
 
-;;; Run EUnit tests for the current module
-(defun erlang-eunit-run-tests ()
-  "Run the EUnit test suite for the current module.
+;;; Determine options for EUnit.
+(defun erlang-eunit-opts ()
+  (if current-prefix-arg ", [verbose]" ""))
 
-With prefix arg, runs tests with the verbose flag set."
-  (interactive)
+;;; Determine current test function
+(defun erlang-eunit-test-name ()
+  (save-excursion
+    (erlang-end-of-function 1)
+    (erlang-beginning-of-function 1)
+    (erlang-name-of-function)))
+
+(defun erlang-eunit-simple-test-p (test-name)
+  (if (erlang-eunit-string-match-p "^\\(.+\\)_test$" test-name) t nil))
+
+(defun erlang-eunit-test-generator-p (test-name)
+  (if (erlang-eunit-string-match-p "^\\(.+\\)_test_$" test-name) t nil))
+
+;;; Run the current EUnit test
+(defun erlang-eunit-run-current-test ()
   (let* ((module-name (erlang-add-quotes-if-needed
-		       (erlang-eunit-source-module-name buffer-file-name)))
-	 (opts        (if current-prefix-arg ", [verbose]" ""))
-	 (command     (format "eunit:test(%s%s)." module-name opts)))
+                       (erlang-eunit-module-name buffer-file-name)))
+         (test-name (erlang-eunit-test-name))
+         (command
+          (cond ((erlang-eunit-simple-test-p test-name)
+                 (format "eunit:test({%s, %s}%s)."
+                         module-name test-name (erlang-eunit-opts)))
+                ((erlang-eunit-test-generator-p test-name)
+                 (format "eunit:test({generator, %s, %s}%s)."
+                         module-name test-name (erlang-eunit-opts)))
+                (t (format "%% WARNING: '%s' is not a test function" test-name)))))
     (erlang-eunit-inferior-erlang-send-command command)))
 
-;;; Compile source and EUnit test file and finally run EUnit tests for
-;;; the current module
-(defun erlang-eunit-compile-and-run-tests ()
-  "Compile the source and test files and run the EUnit test suite.
+;;; Run EUnit tests for the current module
+(defun erlang-eunit-run-module-tests ()
+  (let* ((module-name (erlang-add-quotes-if-needed
+                       (erlang-eunit-source-module-name buffer-file-name)))
+         (command (format "eunit:test(%s%s)." module-name (erlang-eunit-opts))))
+    (erlang-eunit-inferior-erlang-send-command command)))
+
+(defun erlang-eunit-compile-and-run-current-test ()
+  "Compile the source and test files and run the current EUnit test.
 
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
+  (erlang-eunit-compile-and-test 'erlang-eunit-run-current-test))
+
+(defun erlang-eunit-compile-and-run-module-tests ()
+  "Compile the source and test files and run all EUnit tests in the module.
+
+With prefix arg, compiles for debug and runs tests with the verbose flag set."
+  (interactive)
+  (erlang-eunit-compile-and-test 'erlang-eunit-run-module-tests))
+
+;;; Compile source and EUnit test file and finally run EUnit tests for
+;;; the current module
+(defun erlang-eunit-compile-and-test (run-tests)
   (let ((src-filename  (erlang-eunit-src-filename  buffer-file-name))
 	(test-filename (erlang-eunit-test-filename buffer-file-name)))
 
@@ -166,7 +210,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 	   (if (file-readable-p test-filename)
 	       (erlang-eunit-compile-file test-filename)
 	     t)
-	   (erlang-eunit-run-tests)))))
+	   (funcall run-tests)))))
 
 (defun erlang-eunit-compile-file (file-path)
   (if (file-readable-p file-path)
@@ -224,22 +268,18 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 ;;; Key bindings
 ;;;====================================================================
 
-(defvar erlang-eunit-toggle-src-and-test-file-other-window-key "\C-c\C-et"
-  "*Key to which the `erlang-eunit-toggle-src-and-test-file-other-window' 
-function will be bound.")
-(defvar erlang-eunit-compile-and-run-tests-key "\C-c\C-ek"
-  "*Key to which the `erlang-eunit-compile-and-run-tests'
-function will be bound.")
+(defconst erlang-eunit-key-bindings
+  '(("\C-c\C-et" erlang-eunit-toggle-src-and-test-file-other-window)
+    ("\C-c\C-ek" erlang-eunit-compile-and-run-module-tests)
+    ("\C-c\C-ej" erlang-eunit-compile-and-run-current-test)))
 
 (defun erlang-eunit-add-key-bindings ()
-  (erlang-eunit-ensure-keymap-for-key
-   erlang-eunit-toggle-src-and-test-file-other-window-key)
-  (local-set-key erlang-eunit-toggle-src-and-test-file-other-window-key
-		 'erlang-eunit-toggle-src-and-test-file-other-window)
-  (erlang-eunit-ensure-keymap-for-key
-   erlang-eunit-compile-and-run-tests-key)
-  (local-set-key erlang-eunit-compile-and-run-tests-key
-		 'erlang-eunit-compile-and-run-tests))
+  (dolist (binding erlang-eunit-key-bindings)
+    (erlang-eunit-bind-key (car binding) (cadr binding))))
+
+(defun erlang-eunit-bind-key (key function)
+  (erlang-eunit-ensure-keymap-for-key key)
+  (local-set-key key function))
 
 (defun erlang-eunit-ensure-keymap-for-key (key-seq)
   (let ((prefix-keys (butlast (append key-seq nil)))
