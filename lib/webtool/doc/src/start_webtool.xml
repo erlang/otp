@@ -56,7 +56,7 @@ Or  http://127.0.0.1:8888/
 Usage: start_webtool application [ browser ]
 
 Available applications are: [orber,appmon,crashdump_viewer,webcover]
-Default browser is 'iexplore' (Internet Explorer) on Windows or else 'netscape'        </pre>
+Default browser is 'iexplore' (Internet Explorer) on Windows or else 'firefox'        </pre>
         <p>To start any of the listed applications, give the
           application name as the first argument, e.g.</p>
         <pre>
@@ -68,7 +68,7 @@ Starting webcover...
 Sending URL to netscape...done        </pre>
         <p>The WebTool application WebCover is then started and the
           default browser is used. The default browser is Internet
-          Explorer on Windows or else Netscape.
+          Explorer on Windows or else Firefox.
           </p>
         <p>To use another browser, give the browser's start command
           as the second argument, e.g.</p>
