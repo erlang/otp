@@ -1142,8 +1142,7 @@ delayed_send(Socket, [ErlData, OpenSslData]) ->
     erlang_ssl_receive(Socket, OpenSslData).
 
 close_port(Port) ->
-    port_command(Port, ?OPENSSL_QUIT),
-    %%catch port_command(Port, "quit\n"), 
+    catch port_command(Port, ?OPENSSL_QUIT),
     close_loop(Port, 500, false).
 
 close_loop(Port, Time, SentClose) ->
