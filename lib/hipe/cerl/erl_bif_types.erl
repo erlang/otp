@@ -672,6 +672,7 @@ type(erlang, adler32, 2, Xs) ->
 type(erlang, adler32_combine, 3, Xs) ->
   strict(arg_types(erlang, adler32_combine, 3), Xs,
 	 fun (_) -> t_adler32() end);
+type(erlang, append, 2, Xs) -> type(erlang, '++', 2, Xs); % alias
 type(erlang, append_element, 2, Xs) ->
   strict(arg_types(erlang, append_element, 2), Xs, fun (_) -> t_tuple() end);
 type(erlang, apply, 2, Xs) ->
@@ -1510,6 +1511,7 @@ type(erlang, statistics, 1, Xs) ->
 		 T_statistics_1
 	     end
 	 end);
+type(erlang, subtract, 2, Xs) -> type(erlang, '--', 2, Xs); % alias
 type(erlang, suspend_process, 1, Xs) ->
   strict(arg_types(erlang, suspend_process, 1), Xs,
 	 fun (_) -> t_atom('true') end);
@@ -3387,6 +3389,8 @@ arg_types(erlang, adler32, 2) ->
   [t_adler32(), t_iodata()];
 arg_types(erlang, adler32_combine, 3) ->
   [t_adler32(), t_adler32(), t_non_neg_integer()];
+arg_types(erlang, append, 2) ->
+  arg_types(erlang, '++', 2);
 arg_types(erlang, append_element, 2) ->
   [t_tuple(), t_any()];
 arg_types(erlang, apply, 2) ->
@@ -3807,6 +3811,8 @@ arg_types(erlang, statistics, 1) ->
 	  t_atom('run_queue'),
 	  t_atom('runtime'),
 	  t_atom('wall_clock')])];
+arg_types(erlang, subtract, 2) ->
+  arg_types(erlang, '--', 2);
 arg_types(erlang, suspend_process, 1) ->
   [t_pid()];
 arg_types(erlang, suspend_process, 2) ->
