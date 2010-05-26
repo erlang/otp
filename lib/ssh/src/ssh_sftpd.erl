@@ -242,7 +242,8 @@ handle_op(?SSH_FXP_REALPATH, ReqId,
     end;
 handle_op(?SSH_FXP_OPENDIR, ReqId,
 	 <<?UINT32(RLen), RPath:RLen/binary>>,
-	  State0 = #state{file_handler = FileMod, file_state = FS0}) ->
+	  State0 = #state{xf = #ssh_xfer{vsn = Vsn}, 
+			  file_handler = FileMod, file_state = FS0}) ->
     RelPath = binary_to_list(RPath),
     AbsPath = relate_file_name(RelPath, State0),
     
@@ -250,8 +251,12 @@ handle_op(?SSH_FXP_OPENDIR, ReqId,
     {IsDir, FS1} = FileMod:is_dir(AbsPath, FS0),
     State1 = State0#state{file_state = FS1},
     case IsDir of
-	false ->
+	false when Vsn > 5 ->
 	    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_NOT_A_DIRECTORY,
+				    "Not a directory"),
+	    State1;
+	false ->
+	    ssh_xfer:xf_send_status(XF, ReqId, ?SSH_FX_FAILURE,
 				    "Not a directory"),
 	    State1;
 	true ->
