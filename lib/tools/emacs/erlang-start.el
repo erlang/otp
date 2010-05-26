@@ -90,6 +90,11 @@
   (or (assoc (car b) auto-mode-alist)
       (setq auto-mode-alist (cons b auto-mode-alist))))
 
+;;
+;; Associate files using interpreter "escript" with Erlang mode.
+;; 
+
+(add-to-list 'interpreter-mode-alist (cons "escript" 'erlang-mode))
 
 ;;
 ;; Ignore files ending in ".jam", ".vee", and ".beam" when performing
