@@ -4900,9 +4900,14 @@ a prompt.  When nil, we will wait forever, or until \\[keyboard-quit].")
 (defvar inferior-erlang-buffer nil
   "Buffer of last invoked inferior Erlang, or nil.")
 
+;; Enable uniquifying Erlang shell buffers based on directory name.
+(eval-after-load "uniquify"
+  '(add-to-list 'uniquify-list-buffers-directory-modes 'erlang-shell-mode))
+
 ;;;###autoload
-(defun inferior-erlang ()
+(defun inferior-erlang (&optional command)
   "Run an inferior Erlang.
+With prefix command, prompt for command to start Erlang with.
 
 This is just like running Erlang in a normal shell, except that
 an Emacs buffer is used for input and output.
@@ -4916,17 +4921,37 @@ Entry to this mode calls the functions in the variables
 The following commands imitate the usual Unix interrupt and
 editing control characters:
 \\{erlang-shell-mode-map}"
-  (interactive)
+  (interactive
+   (when current-prefix-arg
+     (list (if (fboundp 'read-shell-command)
+               ;; `read-shell-command' is a new function in Emacs 23.
+	       (read-shell-command "Erlang command: ")
+	     (read-string "Erlang command: ")))))
   (require 'comint)
-  (let ((opts inferior-erlang-machine-options))
-    (cond ((eq inferior-erlang-shell-type 'oldshell)
-	   (setq opts (cons "-oldshell" opts)))
-	  ((eq inferior-erlang-shell-type 'newshell)
-	   (setq opts (append '("-newshell" "-env" "TERM" "vt100") opts))))
-    (setq inferior-erlang-buffer
-	  (apply 'make-comint
-		 inferior-erlang-process-name inferior-erlang-machine
-		 nil opts)))
+  (let (cmd opts)
+    (if command
+        (setq cmd "sh"
+              opts (list "-c" command))
+      (setq cmd inferior-erlang-machine
+            opts inferior-erlang-machine-options)
+      (cond ((eq inferior-erlang-shell-type 'oldshell)
+             (setq opts (cons "-oldshell" opts)))
+            ((eq inferior-erlang-shell-type 'newshell)
+             (setq opts (append '("-newshell" "-env" "TERM" "vt100") opts)))))
+
+    ;; Using create-file-buffer and list-buffers-directory in this way
+    ;; makes uniquify give each buffer a unique name based on the
+    ;; directory.
+    (let ((fake-file-name (expand-file-name inferior-erlang-buffer-name default-directory)))
+      (setq inferior-erlang-buffer (create-file-buffer fake-file-name))
+      (apply 'make-comint-in-buffer
+             inferior-erlang-process-name
+             inferior-erlang-buffer
+             cmd
+             nil opts)
+      (with-current-buffer inferior-erlang-buffer
+        (setq list-buffers-directory fake-file-name))))
+
   (setq inferior-erlang-process
 	(get-buffer-process inferior-erlang-buffer))
   (if (> 21 erlang-emacs-major-version)	; funcalls to avoid compiler warnings
@@ -4939,10 +4964,6 @@ editing control characters:
   (if (and (not (eq system-type 'windows-nt))
 	   (eq inferior-erlang-shell-type 'newshell))
       (setq comint-process-echoes t))
-  ;; `rename-buffer' takes only one argument in Emacs 18.
-  (condition-case nil
-      (rename-buffer inferior-erlang-buffer-name t)
-    (error (rename-buffer inferior-erlang-buffer-name)))
   (erlang-shell-mode))
 
 
