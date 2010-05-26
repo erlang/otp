@@ -29,7 +29,7 @@ all(suite) ->
 
 
 bif_clashes(Config) when is_list(Config) ->
-    Ts = [{bif_clashes,
+    Ts = [{bif_clashes1,
            <<"
               -export([t/0]).
               t() ->
@@ -40,9 +40,9 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	   {error,
-	    [{4, erl_lint,{redefine_old_bif,{length,1}}}], []} }],
+	    [{4, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
     ?line [] = run(Config, Ts),
-    Ts1 = [{bif_clashes,
+    Ts1 = [{bif_clashes2,
            <<"
               -export([t/0]).
               -import(x,[length/1]).
@@ -53,7 +53,7 @@ bif_clashes(Config) when is_list(Config) ->
 	    {error,
 	     [{3, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
     ?line [] = run(Config, Ts1),
-    Ts00 = [{bif_clashes,
+    Ts00 = [{bif_clashes3,
            <<"
               -export([t/0]).
               -compile({no_auto_import,[length/1]}).
@@ -66,7 +66,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	   []}],
     ?line [] = run(Config, Ts00),
-    Ts11 = [{bif_clashes,
+    Ts11 = [{bif_clashes4,
            <<"
               -export([t/0]).
               -compile({no_auto_import,[length/1]}).
@@ -77,7 +77,7 @@ bif_clashes(Config) when is_list(Config) ->
            [return_warnings],
 	    []}],
     ?line [] = run(Config, Ts11),
-    Ts000 = [{bif_clashes,
+    Ts000 = [{bif_clashes5,
            <<"
               -export([t/0]).
               t() ->
@@ -88,9 +88,9 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [return_warnings],
 	   {warning,
-	    [{4, erl_lint,{redefine_bif,{binary_part,3}}}]} }],
+	    [{4, erl_lint,{call_to_redefined_bif,{binary_part,3}}}]} }],
     ?line [] = run(Config, Ts000),
-    Ts111 = [{bif_clashes,
+    Ts111 = [{bif_clashes6,
            <<"
               -export([t/0]).
               -import(x,[binary_part/3]).
@@ -101,7 +101,7 @@ bif_clashes(Config) when is_list(Config) ->
 	    {warning,
 	     [{3, erl_lint,{redefine_bif_import,{binary_part,3}}}]} }],
     ?line [] = run(Config, Ts111),
-    Ts2 = [{bif_clashes,
+    Ts2 = [{bif_clashes7,
            <<"
               -export([t/0]).
               -compile({no_auto_import,[length/1]}).
@@ -116,7 +116,7 @@ bif_clashes(Config) when is_list(Config) ->
            [{7,erl_lint,{define_import,{length,1}}}],
            []} }],
     ?line [] = run2(Config, Ts2),
-    Ts3 = [{bif_clashes,
+    Ts3 = [{bif_clashes8,
            <<"
               -export([t/1]).
               -compile({no_auto_import,[length/1]}).
@@ -130,7 +130,7 @@ bif_clashes(Config) when is_list(Config) ->
            [{4,erl_lint,illegal_guard_expr}],
            []} }],
     ?line [] = run2(Config, Ts3),
-    Ts4 = [{bif_clashes,
+    Ts4 = [{bif_clashes9,
            <<"
               -export([t/1]).
               -compile({no_auto_import,[length/1]}).
