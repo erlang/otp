@@ -885,15 +885,54 @@ files written in other languages than Erlang.")
 If nil, the inferior shell replaces the window. This is the traditional
 behaviour.")
 
-(defvar erlang-mode-map nil
+(defconst inferior-erlang-use-cmm (boundp 'minor-mode-overriding-map-alist)
+  "Non-nil means use `compilation-minor-mode' in Erlang shell.")
+
+(defvar erlang-mode-map
+  (let ((map (make-sparse-keymap)))
+    (unless (boundp 'indent-line-function)
+      (define-key map "\t"        'erlang-indent-command))
+    (define-key map ";"	      'erlang-electric-semicolon)
+    (define-key map ","	      'erlang-electric-comma)
+    (define-key map "<"         'erlang-electric-lt)
+    (define-key map ">"         'erlang-electric-gt)
+    (define-key map "\C-m"      'erlang-electric-newline)
+    (if (not (boundp 'delete-key-deletes-forward))
+        (define-key map "\177" 'backward-delete-char-untabify)
+      (define-key map [(backspace)] 'backward-delete-char-untabify))
+    ;;(unless (boundp 'fill-paragraph-function)
+    (define-key map "\M-q"      'erlang-fill-paragraph)
+    (unless (boundp 'beginning-of-defun-function)
+      (define-key map "\M-\C-a"   'erlang-beginning-of-function)
+      (define-key map "\M-\C-e"   'erlang-end-of-function)
+      (define-key map '(meta control h)   'erlang-mark-function))	; Xemacs
+    (define-key map "\M-\t"     'erlang-complete-tag)
+    (define-key map "\C-c\M-\t" 'tempo-complete-tag)
+    (define-key map "\M-+"      'erlang-find-next-tag)
+    (define-key map "\C-c\M-a"  'erlang-beginning-of-clause)
+    (define-key map "\C-c\M-b"  'tempo-backward-mark)
+    (define-key map "\C-c\M-e"  'erlang-end-of-clause)
+    (define-key map "\C-c\M-f"  'tempo-forward-mark)
+    (define-key map "\C-c\M-h"  'erlang-mark-clause)
+    (define-key map "\C-c\C-c"  'comment-region)
+    (define-key map "\C-c\C-j"  'erlang-generate-new-clause)
+    (define-key map "\C-c\C-k"  'erlang-compile)
+    (define-key map "\C-c\C-l"  'erlang-compile-display)
+    (define-key map "\C-c\C-s"  'erlang-show-syntactic-information)
+    (define-key map "\C-c\C-q"  'erlang-indent-function)
+    (define-key map "\C-c\C-u"  'erlang-uncomment-region)
+    (define-key map "\C-c\C-y"  'erlang-clone-arguments)
+    (define-key map "\C-c\C-a"  'erlang-align-arrows)
+    (define-key map "\C-c\C-z"  'erlang-shell-display)
+    (unless inferior-erlang-use-cmm
+      (define-key map "\C-x`"    'erlang-next-error))
+    map)
   "*Keymap used in Erlang mode.")
 (defvar erlang-mode-abbrev-table nil
   "Abbrev table in use in Erlang-mode buffers.")
 (defvar erlang-mode-syntax-table nil
   "Syntax table in use in Erlang-mode buffers.")
 
-(defconst inferior-erlang-use-cmm (boundp 'minor-mode-overriding-map-alist)
-  "Non-nil means use `compilation-minor-mode' in Erlang shell.")
 
 
 (defvar erlang-skel-file "erlang-skels"
@@ -1247,7 +1286,7 @@ Other commands:
   (setq major-mode 'erlang-mode)
   (setq mode-name "Erlang")
   (erlang-syntax-table-init)
-  (erlang-keymap-init)
+  (use-local-map erlang-mode-map)
   (erlang-electric-init)
   (erlang-menu-init)
   (erlang-mode-variables)
@@ -1300,53 +1339,6 @@ Other commands:
 	(setq erlang-mode-syntax-table table)))
 
   (set-syntax-table erlang-mode-syntax-table))
-
-
-(defun erlang-keymap-init ()
-  (if erlang-mode-map
-      nil
-    (setq erlang-mode-map (make-sparse-keymap))
-    (erlang-mode-commands erlang-mode-map))
-  (use-local-map erlang-mode-map))
-
-
-(defun erlang-mode-commands (map)
-  (unless (boundp 'indent-line-function)
-    (define-key map "\t"        'erlang-indent-command))
-  (define-key map ";"	      'erlang-electric-semicolon)
-  (define-key map ","	      'erlang-electric-comma)
-  (define-key map "<"         'erlang-electric-lt)
-  (define-key map ">"         'erlang-electric-gt)
-  (define-key map "\C-m"      'erlang-electric-newline)
-  (if (not (boundp 'delete-key-deletes-forward))
-      (define-key map "\177" 'backward-delete-char-untabify)
-    (define-key map [(backspace)] 'backward-delete-char-untabify))
-  ;;(unless (boundp 'fill-paragraph-function)
-  (define-key map "\M-q"      'erlang-fill-paragraph)
-  (unless (boundp 'beginning-of-defun-function)
-    (define-key map "\M-\C-a"   'erlang-beginning-of-function)
-    (define-key map "\M-\C-e"   'erlang-end-of-function)
-    (define-key map '(meta control h)   'erlang-mark-function))	; Xemacs
-  (define-key map "\M-\t"     'erlang-complete-tag)
-  (define-key map "\C-c\M-\t" 'tempo-complete-tag)
-  (define-key map "\M-+"      'erlang-find-next-tag)  
-  (define-key map "\C-c\M-a"  'erlang-beginning-of-clause)
-  (define-key map "\C-c\M-b"  'tempo-backward-mark)
-  (define-key map "\C-c\M-e"  'erlang-end-of-clause)
-  (define-key map "\C-c\M-f"  'tempo-forward-mark)
-  (define-key map "\C-c\M-h"  'erlang-mark-clause)
-  (define-key map "\C-c\C-c"  'comment-region)
-  (define-key map "\C-c\C-j"  'erlang-generate-new-clause)
-  (define-key map "\C-c\C-k"  'erlang-compile)
-  (define-key map "\C-c\C-l"  'erlang-compile-display)
-  (define-key map "\C-c\C-s"  'erlang-show-syntactic-information)
-  (define-key map "\C-c\C-q"  'erlang-indent-function)
-  (define-key map "\C-c\C-u"  'erlang-uncomment-region)
-  (define-key map "\C-c\C-y"  'erlang-clone-arguments)
-  (define-key map "\C-c\C-a"  'erlang-align-arrows)
-  (define-key map "\C-c\C-z"  'erlang-shell-display)
-  (unless inferior-erlang-use-cmm
-    (define-key map "\C-x`"    'erlang-next-error)))
 
 
 (defun erlang-electric-init ()
