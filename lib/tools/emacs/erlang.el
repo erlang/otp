@@ -2925,10 +2925,16 @@ This assumes that the preceding expression is either simple
       (skip-chars-backward " \t")
       ;; Needed to match the colon in "'foo':'bar'".
       (if (not (memq (preceding-char) '(?# ?:)))
-	  col
-	(backward-char 1)
-	(forward-sexp -1)
-	(current-column)))))
+          col
+        ;; Special hack to handle: (note line break)
+        ;; [#myrecord{
+        ;;  foo = foo}]
+        (or
+         (ignore-errors
+           (backward-char 1)
+           (forward-sexp -1)
+           (current-column))
+         col)))))
 
 (defun erlang-indent-parenthesis (stack-position) 
   (let ((previous (erlang-indent-find-preceding-expr)))
