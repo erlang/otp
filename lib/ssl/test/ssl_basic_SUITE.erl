@@ -37,7 +37,7 @@
 -behaviour(ssl_session_cache_api).
 
 %% For the session cache tests
--export([init/0, terminate/1, lookup/2, update/3, 
+-export([init/1, terminate/1, lookup/2, update/3, 
 	 delete/2, foldl/3, select_session/2]).
 
 %% Test server callback functions
@@ -83,11 +83,11 @@ end_per_suite(_Config) ->
 %% Description: Initialization before each test case
 %%--------------------------------------------------------------------
 init_per_testcase(session_cache_process_list, Config) ->
-    init_customized_session_cache(Config);
+    init_customized_session_cache(list, Config);
 
 init_per_testcase(session_cache_process_mnesia, Config) ->
     mnesia:start(),
-    init_customized_session_cache(Config);
+    init_customized_session_cache(mnesia, Config);
 
 init_per_testcase(reuse_session_expired, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
@@ -132,14 +132,15 @@ init_per_testcase(empty_protocol_versions, Config)  ->
 init_per_testcase(_TestCase, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
-    [{watchdog, Dog} | Config].
+   [{watchdog, Dog} | Config].
 
-init_customized_session_cache(Config0) ->
+init_customized_session_cache(Type, Config0) ->
     Config = lists:keydelete(watchdog, 1, Config0),
     Dog = test_server:timetrap(?TIMEOUT),
     ssl:stop(),
     application:load(ssl),
     application:set_env(ssl, session_cb, ?MODULE),
+    application:set_env(ssl, session_cb_init_args, [Type]),
     ssl:start(),
     [{watchdog, Dog} | Config].
 
@@ -156,7 +157,10 @@ end_per_testcase(session_cache_process_list, Config) ->
     end_per_testcase(default_action, Config);
 end_per_testcase(session_cache_process_mnesia, Config) ->
     application:unset_env(ssl, session_cb),
+    application:unset_env(ssl, session_cb_init_args),
     mnesia:stop(),
+    ssl:stop(),
+    ssl:start(),
     end_per_testcase(default_action, Config);
 end_per_testcase(reuse_session_expired, Config) ->
     application:unset_env(ssl, session_lifetime),
@@ -205,7 +209,7 @@ all(suite) ->
     server_verify_client_once_active,
     server_verify_client_once_active_once, client_verify_none_passive,
     client_verify_none_active, client_verify_none_active_once,
-    %session_cache_process_list, session_cache_process_mnesia,
+    session_cache_process_list, session_cache_process_mnesia,
     reuse_session, reuse_session_expired,
     server_does_not_want_to_reuse_session, client_renegotiate,
     server_renegotiate, client_renegotiate_reused_session,
@@ -2820,128 +2824,34 @@ session_cache_process_mnesia(Config) when is_list(Config) ->
     session_cache_process(mnesia,Config).
 
 session_cache_process(Type,Config) when is_list(Config) -> 
-    process_flag(trap_exit, true),
-    setup_session_cb(Type),
+    reuse_session(Config).
 
-    ClientOpts = ?config(client_opts, Config),
-    ServerOpts = ?config(server_opts, Config),
-    {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
-
-    Server = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()},
-				   {mfa, {?MODULE, session_info_result, []}},
-				   {options, 
-				    [{session_cache_cb, ?MODULE}| 
-				     ServerOpts]}]),
-    Port = ssl_test_lib:inet_port(Server),
-    Client0 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port}, {host, Hostname},
-				   {mfa, {ssl_test_lib, no_result, []}},
-				   {from, self()},  {options, ClientOpts}]),   
-    SessionInfo = 
-	receive
-	    {Server, Info} ->
-		Info
-	end,
-
-    Server ! listen,
-    
-    %% Make sure session is registered
-    test_server:sleep(?SLEEP),
-
-    Client1 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),   
-    receive
-	{Client1, SessionInfo} ->
-	    ok;
-	{Client1, Other} ->
-	    test_server:format("Expected: ~p,  Unexpected: ~p~n", 
-			       [SessionInfo, Other]),
-	    test_server:fail(session_not_reused)
-    end,
-
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client0),
-    ssl_test_lib:close(Client1),
-
-    Server1 = 
-	ssl_test_lib:start_server([{node, ServerNode}, {port, 0}, 
-				   {from, self()},
-				   {mfa, {?MODULE, session_info_result, []}},
-				   {options, 
-				    [{reuse_sessions, false} | ServerOpts]}]),
-    Port1 = ssl_test_lib:inet_port(Server1),
-
-    Client3 =
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port1}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]), 
-
-    SessionInfo1 = 
-	receive
-	    {Server1, Info1} ->
-		Info1
-	end,
-
-    Server1 ! listen,
-
-    %% Make sure session is registered
-    test_server:sleep(?SLEEP),
-
-    Client4 = 
-	ssl_test_lib:start_client([{node, ClientNode}, 
-				   {port, Port1}, {host, Hostname},
-				   {mfa, {?MODULE, session_info_result, []}},
-				   {from, self()},  {options, ClientOpts}]),
-
-    receive
-	{Client4, SessionInfo1} ->
-	    test_server:fail(
-	      session_reused_when_session_reuse_disabled_by_server);
-	{Client4, _Other} ->
-	    ok
-    end,
-
-    ssl_test_lib:close(Server1),
-    ssl_test_lib:close(Client3),
-    ssl_test_lib:close(Client4),
-    process_flag(trap_exit, false).
-
-setup_session_cb(Type) ->
-    ssl_test = ets:new(ssl_test,[named_table, set,public]),
-    ets:insert(ssl_test, {type,Type}).
-
-session_cb() ->
-    [{type,Type}] = ets:lookup(ssl_test, type),
-    Type.
-
-init() ->
-    io:format("~p~n",[?LINE]),
-    case session_cb() of
+init([Type]) ->
+    ets:new(ssl_test, [named_table, public, set]),
+    ets:insert(ssl_test, {type, Type}),
+    case Type of
 	list ->
 	    spawn(fun() -> session_loop([]) end);
 	mnesia ->
 	    mnesia:start(),
-	    {atomic,ok} = mnesia:create_table(sess_cache, [])
+	    {atomic,ok} = mnesia:create_table(sess_cache, []),
+	    sess_cache
     end.
 
+session_cb() ->
+    [{type, Type}] = ets:lookup(ssl_test, type),
+    Type.
+
 terminate(Cache) ->
-    io:format("~p~n",[?LINE]),
     case session_cb() of
 	list ->
 	    Cache ! terminate;
 	mnesia ->
-	    {atomic,ok} = mnesia:delete_table(sess_cache, [])
+	    catch {atomic,ok} = 
+		mnesia:delete_table(sess_cache)
     end.
 
-lookup(Cache, Key) ->
-    io:format("~p~n",[?LINE]),
+lookup(Cache, Key) ->        
     case session_cb() of
 	list ->
 	    Cache ! {self(), lookup, Key},
@@ -2951,13 +2861,14 @@ lookup(Cache, Key) ->
 					    mnesia:read(sess_cache, 
 							Key, read) 
 				    end) of
-		{atomic, [Session]} -> Session;
-		_ -> undefined
+		{atomic, [{sess_cache, Key, Value}]} -> 
+		    Value;
+		_ -> 
+		    undefined
 	    end
-    end.
+	end.
 
 update(Cache, Key, Value) ->
-    io:format("~p~n",[?LINE]),
     case session_cb() of
 	list ->
 	    Cache ! {update, Key, Value};
@@ -2965,12 +2876,11 @@ update(Cache, Key, Value) ->
 	    {atomic, ok} = 
 		mnesia:transaction(fun() -> 
 					   mnesia:write(sess_cache, 
-							Key, Value) 
+							{sess_cache, Key, Value}, write) 
 				   end)
     end.
 
 delete(Cache, Key) -> 
-    io:format("~p~n",[?LINE]),
     case session_cb() of
 	list ->
 	    Cache ! {delete, Key};
@@ -2982,7 +2892,6 @@ delete(Cache, Key) ->
     end.
 
 foldl(Fun, Acc, Cache) -> 
-    io:format("~p~n",[?LINE]),
     case session_cb() of
 	list ->
 	    Cache ! {self(),foldl,Fun,Acc},
@@ -2996,15 +2905,17 @@ foldl(Fun, Acc, Cache) ->
     end.
     
 select_session(Cache, PartialKey) ->
-    io:format("~p~n",[?LINE]),
     case session_cb() of
 	list ->
 	    Cache ! {self(),select_session, PartialKey},
-	    receive {Cache, Res} -> Res end;
+	    receive 
+		{Cache, Res} -> 
+		    Res 
+	    end;
 	mnesia ->
 	    Sel = fun() ->
 			  mnesia:select(Cache,
-					[{{{PartialKey,'$1'}, '$2'},
+					[{{sess_cache,{PartialKey,'$1'}, '$2'},
 					  [],['$$']}])
 		  end,
 	    {atomic, Res} = mnesia:transaction(Sel),
@@ -3024,7 +2935,8 @@ session_loop(Sess) ->
 	    end,
 	    session_loop(Sess);
 	{update, Key, Value} ->
-	    session_loop([{Key,Value}|Sess]);
+	    NewSess = [{Key,Value}| lists:keydelete(Key,1,Sess)],
+	    session_loop(NewSess);
 	{delete, Key} ->
 	    session_loop(lists:keydelete(Key,1,Sess));
 	{Pid,foldl,Fun,Acc} ->
@@ -3032,15 +2944,17 @@ session_loop(Sess) ->
 	    Pid ! {self(), Res},
 	    session_loop(Sess);
 	{Pid,select_session,PKey} ->
-	    Sel = fun({{Head, _},Session}, Acc) when Head =:= PKey -> 
-			  [Session|Acc];
+	    Sel = fun({{PKey0, Id},Session}, Acc) when PKey == PKey0 -> 
+			  [[Id, Session]|Acc];
 		     (_,Acc) -> 
 			  Acc
-		  end,
-	    Pid ! {self(), lists:foldl(Sel, [], Sess)},
+		  end, 
+	    Sessions = lists:foldl(Sel, [], Sess),
+	    Pid ! {self(), Sessions},
 	    session_loop(Sess)
     end.
 	    
+
 erlang_ssl_receive(Socket, Data) ->
     receive
 	{ssl, Socket, Data} ->
