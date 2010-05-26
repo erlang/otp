@@ -140,19 +140,19 @@ invalidate_session(Port, Session) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init(Opts) ->
+init([Opts]) ->
     process_flag(trap_exit, true),
-    CacheCb = proplists:get_value(session_cache, Opts, ssl_session_cache),
+    CacheCb = proplists:get_value(session_cb, Opts, ssl_session_cache),
     SessionLifeTime =  
 	proplists:get_value(session_lifetime, Opts, ?'24H_in_sec'),
     CertDb = ssl_certificate_db:create(),
-    SessionCache = CacheCb:init(),
+    SessionCache = CacheCb:init(proplists:get_value(session_cb_init_args, Opts, [])),
     Timer = erlang:send_after(SessionLifeTime * 1000, 
 			      self(), validate_sessions),
     {ok, #state{certificate_db = CertDb,
 		session_cache = SessionCache,
 		session_cache_cb = CacheCb,
-		session_lifetime = SessionLifeTime ,
+		session_lifetime = SessionLifeTime,
 		session_validation_timer = Timer}}.
 
 %%--------------------------------------------------------------------

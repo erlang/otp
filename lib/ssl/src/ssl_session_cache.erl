@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -22,8 +22,8 @@
 
 -behaviour(ssl_session_cache_api).
 
--export([init/0, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
-	 select_session/2]).
+-export([init/1, terminate/1, lookup/2, update/3, delete/2, foldl/3, 
+	 select_session/2]). 
 
 %%--------------------------------------------------------------------
 %% Function: init() -> Cache  
@@ -32,7 +32,7 @@
 %%
 %% Description: Return table reference. Called by ssl_manager process. 
 %%--------------------------------------------------------------------
-init() ->
+init(_) ->
     ets:new(cache_name(), [set, protected]).
 
 %%--------------------------------------------------------------------
