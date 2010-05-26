@@ -2484,7 +2484,7 @@ extended_key_usage(Config) when is_list(Config) ->
 							       [ServerExtKeyUsageExt | 
 								ServerExtensions]},
     NewServerDerCert = public_key:sign(NewServerOTPTbsCert, Key), 
-    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert, not_encrypted}]),
     NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
     
     ClientCertFile = proplists:get_value(certfile, ClientOpts),
@@ -2498,7 +2498,7 @@ extended_key_usage(Config) when is_list(Config) ->
  							       [ClientExtKeyUsageExt |
  								ClientExtensions]},
     NewClientDerCert = public_key:sign(NewClientOTPTbsCert, Key), 
-    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert}]),
+    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert, not_encrypted}]),
     NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2581,7 +2581,7 @@ no_authority_key_identifier(Config) when is_list(Config) ->
     test_server:format("Extensions ~p~n, NewExtensions: ~p~n", [Extensions, NewExtensions]),
 
     NewDerCert = public_key:sign(NewOTPTbsCert, Key), 
-    public_key:der_to_pem(NewCertFile, [{cert, NewDerCert}]),
+    public_key:der_to_pem(NewCertFile, [{cert, NewDerCert, not_encrypted}]),
     NewServerOpts = [{certfile, NewCertFile} | proplists:delete(certfile, ServerOpts)],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2633,7 +2633,7 @@ invalid_signature_server(Config) when is_list(Config) ->
     {ok, ServerOTPCert} = public_key:pkix_decode_cert(ServerDerCert, otp),
     ServerOTPTbsCert = ServerOTPCert#'OTPCertificate'.tbsCertificate,
     NewServerDerCert = public_key:sign(ServerOTPTbsCert, Key), 
-    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert, not_encrypted}]),
     NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2676,7 +2676,7 @@ invalid_signature_client(Config) when is_list(Config) ->
     {ok, ClientOTPCert} = public_key:pkix_decode_cert(ClientDerCert, otp),
     ClientOTPTbsCert = ClientOTPCert#'OTPCertificate'.tbsCertificate,
     NewClientDerCert = public_key:sign(ClientOTPTbsCert, Key), 
-    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert}]),
+    public_key:der_to_pem(NewClientCertFile, [{cert, NewClientDerCert, not_encrypted}]),
     NewClientOpts = [{certfile, NewClientCertFile} | proplists:delete(certfile, ClientOpts)],
 
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
@@ -2739,7 +2739,7 @@ cert_expired(Config) when is_list(Config) ->
 
     NewOTPTbsCert =  OTPTbsCert#'OTPTBSCertificate'{validity = NewValidity},
     NewServerDerCert = public_key:sign(NewOTPTbsCert, Key), 
-    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert}]),
+    public_key:der_to_pem(NewServerCertFile, [{cert, NewServerDerCert, not_encrypted}]),
     NewServerOpts = [{certfile, NewServerCertFile} | proplists:delete(certfile, ServerOpts)],
     
     {ClientNode, ServerNode, Hostname} = ssl_test_lib:run_where(Config),
