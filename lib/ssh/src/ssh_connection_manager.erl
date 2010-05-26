@@ -178,7 +178,7 @@ send_eof(ConnectionManager, ChannelId) ->
 %%                         {stop, Reason}
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
-init([server, _Socket, Opts]) ->  
+init([server, _Socket, Opts, SubSysSup]) ->  
     process_flag(trap_exit, true),
     ssh_bits:install_messages(ssh_connection:messages()),
     Cache = ssh_channel:cache_create(), 
@@ -187,7 +187,8 @@ init([server, _Socket, Opts]) ->
 					       channel_id_seed = 0,
 					       port_bindings = [],
 					       requests = [],
-					       channel_pids = []},
+					       channel_pids = [],
+					       sub_system_supervisor = SubSysSup},
 		opts = Opts,
 		connected = false}};
 
@@ -400,7 +401,7 @@ handle_call({close, ChannelId}, _,
     end;
 
 handle_call(stop, _, #state{role = _client, 
-			    client = ChannelPid,
+			    client = _ChannelPid,
 			    connection = Pid} = State) ->
     DisconnectMsg = 
 	#ssh_msg_disconnect{code = ?SSH_DISCONNECT_BY_APPLICATION,

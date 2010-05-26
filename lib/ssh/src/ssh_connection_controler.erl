@@ -99,8 +99,8 @@ terminate(_Reason, #state{}) ->
 handle_call({handler, Pid, [Role, Socket, Opts]}, _From, State) ->
     {ok, Handler} = ssh_connection_handler:start_link(Role, Pid, Socket, Opts),
     {reply, {ok, Handler}, State#state{handler = Handler}};
-handle_call({manager, [server = Role, Socket, Opts]}, _From, State) ->
-    {ok, Manager} = ssh_connection_manager:start_link([Role, Socket, Opts]),
+handle_call({manager, [server = Role, Socket, Opts, SubSysSup]}, _From, State) ->
+    {ok, Manager} = ssh_connection_manager:start_link([Role, Socket, Opts, SubSysSup]),
     {reply, {ok, Manager}, State#state{manager = Manager}};
 handle_call({manager, [client = Role | Opts]}, _From, State) ->
     {ok, Manager} = ssh_connection_manager:start_link([Role, Opts]),

@@ -79,11 +79,11 @@ acceptor_loop(Callback, Port, Address, Opts, ListenSocket, AcceptTimeout) ->
 
 handle_connection(Callback, Address, Port, Options, Socket) ->
     SystemSup = ssh_system_sup:system_supervisor(Address, Port),
-    ssh_system_sup:start_subsystem(SystemSup, Options),
+    {ok, SubSysSup} = ssh_system_sup:start_subsystem(SystemSup, Options),
     ConnectionSup = ssh_system_sup:connection_supervisor(SystemSup),
     {ok, Pid} = 
 	ssh_connection_controler:start_manager_child(ConnectionSup,
-					       [server, Socket, Options]),
+					       [server, Socket, Options, SubSysSup]),
     Callback:controlling_process(Socket, Pid),
     SshOpts = proplists:get_value(ssh_opts, Options),
     Pid ! {start_connection, server, [Address, Port, Socket, SshOpts]}.

@@ -260,5 +260,6 @@
 	  address, 
 	  port,
 	  options,
-	  exec
+	  exec,
+	  sub_system_supervisor
 	 }).
