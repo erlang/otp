@@ -101,11 +101,6 @@ script_start() ->
     Res.
 
 script_start1(Parent, Args) ->
-    case lists:keymember(preload, 1, Args) of
-	true -> preload();
-	false -> ok
-    end,
-
     VtsOrShell = 
 	case lists:keymember(vts, 1, Args) of
 	    true -> 
@@ -467,7 +462,7 @@ install(Opts, LogDir) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    VarFile = variables_file_name(LogDir),
-	    io:format("Varfile=~p~n", [VarFile]),
+	    %% io:format("Varfile=~p~n", [VarFile]),
 	    case file:open(VarFile, [write]) of
 		{ok,Fd} ->
 		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- Opts],
@@ -1779,45 +1774,6 @@ do_trace(Terms) ->
 stop_trace(true) ->
     dbg:stop_clear();
 stop_trace(false) ->
-    ok.
-
-preload() ->
-    io:format("~nLoading Common Test and Test Server modules...~n~n"),
-    preload_mod([ct_logs,
-		 ct_make,
-		 ct_telnet,
-		 ct,
-		 ct_master,
-		 ct_testspec,
-		 ct_cover,
-		 ct_master_event,
-		 ct_util,
-		 ct_event,           
-		 ct_master_logs,
-		 ct_framework,
-		 teln,
-		 ct_ftp,
-		 ct_rpc,
-		 unix_telnet,
-		 ct_gen_conn,
-		 ct_line,
-		 ct_snmp,
-		 test_server_sup,
-		 test_server,
-		 test_server_ctrl,
-		 test_server_h,
-		 test_server_line,
-		 test_server_node]).
-
-preload_mod([M|Ms]) ->
-    case code:is_loaded(M) of
-	false ->
-	    {module,M} = code:load_file(M),
-	    preload_mod(Ms);
-	_ ->
-	    ok
-    end;
-preload_mod([]) ->
     ok.
     
 ensure_atom(Atom) when is_atom(Atom) ->

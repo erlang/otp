@@ -65,7 +65,7 @@ read_config(ConfigFile) ->
 	    end
     end.
 
-% check against existence of config file
+% check if config file exists
 check_parameter(File)->
     case filelib:is_file(File) of
 	true->

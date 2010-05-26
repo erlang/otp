@@ -33,7 +33,7 @@ read_config(ConfigFile) ->
 	    {error, Error, ErroneousString}
     end.
 
-% check against existence of the file
+% check file exists
 check_parameter(File)->
     case filelib:is_file(File) of
 	true->
@@ -107,8 +107,7 @@ transform_entity({Tag, String})->
 	     throw(Error)
     end.
 
-% transform a string with Erlang terms to the terms
-% stolen from trapexit.org :-)
+% transform a string with Erlang terms
 list_to_term(String) ->
     {ok, T, _} = erl_scan:string(String++"."),
     case catch erl_parse:parse_term(T) of

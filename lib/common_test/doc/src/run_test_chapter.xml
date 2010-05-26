@@ -354,13 +354,17 @@
 
     <p>Below is the test specification syntax. Test specifications can
       be used to run tests both in a single test host environment and in 
-      a distributed Common Test environment. Node parameters are only relevant in the 
-      latter (see the chapter about running Common Test in distributed mode for information). 
-      For details on the event_handler term, see the 
+      a distributed Common Test environment (Large Scale Testing). The init term,
+      as well as node parameters, are only relevant in the latter (see the
+      <seealso marker="ct_master_chapter#test_specifications">Large Scale Testing</seealso>
+      chapter for information). For details on the event_handler term, see the
       <seealso marker="event_handler_chapter#event_handling">Event Handling</seealso>
       chapter.</p>
       <p>Config terms:</p>
     <pre>
+      {init, InitOptions}.
+      {init, [NodeAlias], InitOptions}.
+
       {node, NodeAlias, Node}.
  
       {cover, CoverSpecFile}.
@@ -384,9 +388,6 @@
       {event_handler, NodeRefs, EventHandlers}.
       {event_handler, EventHandlers, InitArgs}.
       {event_handler, NodeRefs, EventHandlers, InitArgs}.
-
-      {init, Options}.
-      {init, [NodeAlias], Options}.
     </pre>
       <p>Test terms:</p>
     <pre>
@@ -404,6 +405,7 @@
     </pre>
       <p>Types:</p>
     <pre>
+      InitOptions   = term()
       NodeAlias     = atom()
       Node          = node()
       NodeRef       = NodeAlias | Node | master

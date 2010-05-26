@@ -30,6 +30,7 @@
   </header>
 
   <section>
+    <marker id="general"></marker>
     <title>General</title>
     <p>Large scale automated testing requires running multiple independent 
       test sessions in parallel. This is accomplished by running
@@ -105,6 +106,7 @@
       <seealso marker="ct_master">manual page</seealso> for this module.</p>
   </section>
   <section>
+    <marker id="test_specifications"></marker>
     <title>Test Specifications</title>
     <p>The test specifications used as input to CT Master are fully compatible with the
     specifications used as input to the regular CT server. The syntax is described in the 
@@ -195,11 +197,12 @@
   </section>
 
   <section>
-    <title>Automatic startup of the test target nodes</title>
+    <title>Automatic startup of test target nodes</title>
     <marker id="ct_slave"></marker>
-    <p>Is is possible to perform initial actions on test target nodes
-    automatically using a new term in the test specification, <c>init</c>.</p>
+    <p>Is is possible to automatically start, and perform initial actions, on
+      test target nodes by using the test specification term <c>init</c>.</p>
     <p>Currently, two sub-terms are supported, <c>node_start</c> and <c>eval</c>.</p>
+    <p>Example:</p>
     <pre>
      {node, node1, node1@host1}.
      {node, node2, node1@host2}.
@@ -207,38 +210,39 @@
      {node, node4, node1@host3}.
      {init, node1, [{node_start, [{callback_module, my_slave_callback}]}]}.
      {init, [node2, node3], {node_start, [{username, "ct_user"}, {password, "ct_password"}]}}.
-     {init, node4, {eval, {module, function, []}}}.
-    </pre>
+     {init, node4, {eval, {module, function, []}}}.</pre>
+
     <p>This test specification declares that <c>node1@host1</c> is to be started using
-    user's callback <c>my_slave_callback</c> with no parameters, and nodes <c>node1@host2</c> and
-    <c>node2@host2</c> will be started with the default callback module <c>ct_slave</c>,
-    using the given user name and password to log into remote host <c>host2</c>.
-    Also, there will be function module:function/0 evaluated on the
-    <c>node1@host3</c>, and result of this call will be printed to the log.</p>
-    <p>Default <seealso marker="ct_slave">ct_slave</seealso> callback module
-    delivered with the Common Test has the following features:
+      the user callback function <c>callback_module:my_slave_callback/0</c>, and nodes
+      <c>node1@host2</c> and <c>node2@host2</c> will be started with the default callback
+      module <c>ct_slave</c>. The given user name and password is used to log into remote
+      host <c>host2</c>. Also, the function <c>module:function/0</c> will be evaluated on
+      <c>node1@host3</c>, and the result of this call will be printed to the log.</p>
+
+    <p>The default <seealso marker="ct_slave">ct_slave</seealso> callback module,
+      which is part of the Common Test application, has the following features:
     <list>
-     <item>Starting the Erlang nodes or local or remote hosts
-       (ssh is used for remote ones);
+     <item>Starting Erlang target nodes on local or remote hosts
+       (ssh is used for communication).
      </item>
-     <item>Ability to start Erlang emulator with the additional flags
-       (any flags supported by <c>erl</c> are supported);
+     <item>Ability to start an Erlang emulator with additional flags
+       (any flags supported by <c>erl</c> are supported).
      </item>
-     <item>Supervision of the node being start using internal callback
-        functions. Used to prevent hanging of started nodes. Configurable;
+     <item>Supervision of a node being started by means of internal callback
+        functions. Used to prevent hanging nodes. (Configurable).
      </item>
-     <item>Monitoring of the master node by the slaves. Slave node may be
-        stopped in case of master node termination. Configurable;
+     <item>Monitoring of the master node by the slaves. A slave node may be
+        stopped in case the master node terminates. (Configurable).
      </item>
-     <item>Execution of the user's functions after slave node is started.
+     <item>Execution of user functions after a slave node is started.
         Functions can be given as a list of {Module, Function, Arguments} tuples.
      </item>
     </list>
     </p>
-    <p>Note that it is possible to specify <c>eval</c> term for the node as well
+    <p>Note that it is possible to specify an <c>eval</c> term for the node as well
     as <c>startup_functions</c> in the <c>node_start</c> options list. In this
-    case first node will be started, then the <c>startup_functions</c> are
-    executed, and finally functions specified with <c>eval</c> will be called.
+    case first the node will be started, then the <c>startup_functions</c> are
+    executed, and finally functions specified with <c>eval</c> are called.
     </p>
   </section>
 

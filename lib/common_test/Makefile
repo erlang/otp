@@ -25,12 +25,12 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 #
 
 ifeq ($(findstring linux,$(TARGET)),linux)
-SUB_DIRECTORIES = doc/src src priv
+SUB_DIRECTORIES = doc/src src
 else
 ifeq ($(findstring solaris,$(TARGET)),solaris)
-SUB_DIRECTORIES = doc/src src priv
+SUB_DIRECTORIES = doc/src src
 else
-SUB_DIRECTORIES = doc/src src priv
+SUB_DIRECTORIES = doc/src src
 endif
 endif
 
