@@ -1394,7 +1394,7 @@ Other commands:
   (set (make-local-variable 'imenu-prev-index-position-function)
        'erlang-beginning-of-function)
   (set (make-local-variable 'imenu-extract-index-name-function)
-       'erlang-get-function-name)
+       'erlang-get-function-name-and-arity)
   (set (make-local-variable 'tempo-match-finder)
        "[^-a-zA-Z0-9_]\\([-a-zA-Z0-9_]*\\)\\=")
   (set (make-local-variable 'beginning-of-defun-function)
@@ -3496,6 +3496,13 @@ Normally used in conjunction with `erlang-beginning-of-clause', e.g.:
 			(forward-sexp 1))))
 	       res)
 	   (error nil)))))
+
+(defun erlang-get-function-name-and-arity ()
+  "Return the name and arity of the function at point, or nil.
+The return value is a string of the form \"foo/1\"."
+  (let ((name (erlang-get-function-name))
+        (arity (erlang-get-function-arity)))
+    (and name arity (format "%s/%d" name arity))))
 
 (defun erlang-get-function-arguments ()
   "Return arguments of current function, or nil."
