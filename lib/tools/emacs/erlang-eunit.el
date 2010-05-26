@@ -121,11 +121,10 @@ buffer and vice versa"
 ;;;     /tmp/foo/test/x_tests.erl --> x
 (defun erlang-eunit-source-module-name (file-path)
   (interactive)
-  (let* ((file-name (file-name-nondirectory file-path))
-	 (base-name (file-name-sans-extension file-name)))
-    (if (string-match "^\\(.+\\)_tests$" base-name)
-	(substring base-name (match-beginning 1) (match-end 1))
-      base-name)))
+  (let ((module-name (erlang-eunit-module-name file-path)))
+    (if (string-match "^\\(.+\\)_tests$" module-name)
+        (substring module-name (match-beginning 1) (match-end 1))
+      module-name)))
 
 ;;; Return the module name of the file
 ;;;     /tmp/foo/src/x.erl        --> x
@@ -177,7 +176,9 @@ buffer and vice versa"
                 ((erlang-eunit-test-generator-p test-name)
                  (format "eunit:test({generator, %s, %s}%s)."
                          module-name test-name (erlang-eunit-opts)))
-                (t (format "%% WARNING: '%s' is not a test function" test-name)))))
+                (t
+                 (format "%% WARNING: '%s' is not a test function"
+                         test-name)))))
     (erlang-eunit-inferior-erlang-send-command command)))
 
 ;;; Run EUnit tests for the current module
@@ -186,6 +187,55 @@ buffer and vice versa"
                        (erlang-eunit-source-module-name buffer-file-name)))
          (command (format "eunit:test(%s%s)." module-name (erlang-eunit-opts))))
     (erlang-eunit-inferior-erlang-send-command command)))
+
+(defun erlang-eunit-cover-compile ()
+  "Cover compile current module."
+  (interactive)
+  (let* ((erlang-compile-extra-opts
+          (append (list 'debug_info) erlang-compile-extra-opts))
+         (module-name
+          (erlang-add-quotes-if-needed
+           (erlang-eunit-module-name buffer-file-name)))
+         (compile-command
+          (format "cover:compile_beam(%s)." module-name)))
+    (erlang-compile)
+    (if (erlang-eunit-last-compilation-successful-p)
+        (erlang-eunit-inferior-erlang-send-command compile-command))))
+
+(defun erlang-eunit-analyze-coverage ()
+  "Analyze the data collected by cover tool for the module in the
+current buffer.
+
+Assumes that the module has been cover compiled prior to this
+call.  This function will do two things: print the number of
+covered and uncovered functions in the erlang shell and display a
+new buffer called *<module name> coverage* which shows the source
+code along with the coverage analysis results."
+  (interactive)
+  (let* ((module-name     (erlang-add-quotes-if-needed
+                           (erlang-eunit-module-name buffer-file-name)))
+         (tmp-filename    (make-temp-file "cover"))
+         (analyze-command (format "cover:analyze_to_file(%s, \"%s\"). "
+                                  module-name tmp-filename))
+         (buf-name        (format "*%s coverage*" module-name)))
+    (erlang-eunit-inferior-erlang-send-command analyze-command)
+    ;; The purpose of the following snippet is to get the result of the
+    ;; analysis from a file into a new buffer (or an old, if one with
+    ;; the specified name already exists).  Also we want the erlang-mode
+    ;; *and* view-mode to be enabled.
+    (save-excursion
+      (let ((buf (get-buffer-create (format "*%s coverage*" module-name))))
+        (set-buffer buf)
+        (setq buffer-read-only nil)
+        (insert-file-contents tmp-filename nil nil nil t)
+        (if (= (buffer-size) 0)
+            (kill-buffer buf)
+          ;; FIXME: this would be a good place to enable (emacs-mode)
+          ;;        to get some nice syntax highlighting in the
+          ;;        coverage report, but it doesn't play well with
+          ;;        flymake.  Leave it off for now.
+          (view-buffer buf))))
+    (delete-file tmp-filename)))
 
 (defun erlang-eunit-compile-and-run-current-test ()
   "Compile the source and test files and run the current EUnit test.
@@ -203,7 +253,17 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 
 ;;; Compile source and EUnit test file and finally run EUnit tests for
 ;;; the current module
-(defun erlang-eunit-compile-and-test (run-tests)
+(defun erlang-eunit-compile-and-test (run-tests &optional under-cover)
+   "Compile the source and test files and run the EUnit test suite.
+
+If under-cover is set to t, the module under test is compile for
+code coverage analysis.  If under-cover is left out or not set,
+coverage analysis is disabled.  The result of the code coverage
+is both printed to the erlang shell (the number of covered vs
+uncovered functions in a module) and written to a buffer called
+*<module> coverage* (which shows the source code for the module
+and the number of times each line is covered).
+With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (let ((src-filename  (erlang-eunit-src-filename  buffer-file-name))
 	(test-filename (erlang-eunit-test-filename buffer-file-name)))
 
@@ -219,23 +279,53 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
       ;; test file on the other hand, is optional, since eunit tests may
       ;; be placed in the source file instead.  Any compilation error
       ;; will prevent the subsequent steps to be run (hence the `and')
-      (and (erlang-eunit-compile-file src-filename)
+      (and (erlang-eunit-compile-file src-filename under-cover)
 	   (if (file-readable-p test-filename)
 	       (erlang-eunit-compile-file test-filename)
 	     t)
-	   (funcall run-tests)))))
+           (funcall run-tests)
+           (if under-cover
+               (save-excursion
+                 (set-buffer (find-file-noselect src-filename))
+                 (erlang-eunit-analyze-coverage)))))))
 
-(defun erlang-eunit-compile-file (file-path)
+(defun erlang-eunit-compile-and-run-module-tests-under-cover ()
+  "Compile the source and test files and run the EUnit test suite and measure
+code coverage.
+
+With prefix arg, compiles for debug and runs tests with the verbose flag set."
+  (interactive)
+  (erlang-eunit-compile-and-test 'erlang-eunit-run-module-tests t))
+
+(defun erlang-eunit-compile-file (file-path &optional under-cover)
   (if (file-readable-p file-path)
       (save-excursion
-	(set-buffer (find-file-noselect file-path))
-	(erlang-compile)
-	(erlang-eunit-last-compilation-successful-p))
+        (set-buffer (find-file-noselect file-path))
+        ;; In order to run a code coverage analysis on a
+        ;; module, we have two options:
+        ;;
+        ;; * either compile the module with cover:compile instead of the
+        ;;   regular compiler
+        ;;
+        ;; * or first compile the module with the regular compiler (but
+        ;;   *with* debug_info) and then compile it for coverage
+        ;;   analysis using cover:compile_beam.
+        ;;
+        ;; We could accomplish the first by changing the
+        ;; erlang-compile-erlang-function to cover:compile, but there's
+        ;; a risk that that's used for other purposes.  Therefore, a
+        ;; safer alternative (although with more steps) is to add
+        ;; debug_info to the list of compiler options and go for the
+        ;; second alternative.
+        (if under-cover
+            (erlang-eunit-cover-compile)
+          (erlang-compile))
+        (erlang-eunit-last-compilation-successful-p))
     (let ((msg (format "Could not read %s" file-path)))
-      (erlang-eunit-inferior-erlang-send-command 
+      (erlang-eunit-inferior-erlang-send-command
        (format "%% WARNING: %s" msg))
       (error msg))))
-  
+
 (defun erlang-eunit-last-compilation-successful-p ()
   (save-excursion
     (set-buffer inferior-erlang-buffer)
@@ -244,7 +334,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
      (lambda (re) (let ((continue t)
 			(result   t))
 		    (while continue ; ignore warnings, stop at errors
-		      (if (re-search-forward re (point-max) t) 
+		      (if (re-search-forward re (point-max) t)
 			  (if (erlang-eunit-is-compilation-warning)
 			      t
 			    (setq result nil)
@@ -255,7 +345,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
      (mapcar (lambda (e) (car e)) erlang-error-regexp-alist))))
 
 (defun erlang-eunit-is-compilation-warning ()
-  (erlang-eunit-string-match-p 
+  (erlang-eunit-string-match-p
    "[0-9]+: Warning:"
    (buffer-substring (line-beginning-position) (line-end-position))))
 
@@ -284,7 +374,10 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 (defconst erlang-eunit-key-bindings
   '(("\C-c\C-et" erlang-eunit-toggle-src-and-test-file-other-window)
     ("\C-c\C-ek" erlang-eunit-compile-and-run-module-tests)
-    ("\C-c\C-ej" erlang-eunit-compile-and-run-current-test)))
+    ("\C-c\C-ej" erlang-eunit-compile-and-run-current-test)
+    ("\C-c\C-ec" erlang-eunit-compile-and-run-module-tests-under-cover)
+    ("\C-c\C-ev" erlang-eunit-cover-compile)
+    ("\C-c\C-ea" erlang-eunit-analyze-coverage)))
 
 (defun erlang-eunit-add-key-bindings ()
   (dolist (binding erlang-eunit-key-bindings)
