@@ -37,6 +37,18 @@
           <p>The function ssh:connect/4 was not exported.</p>
           <p>Own Id: OTP-8550 Aux Id:</p>
         </item>
+        <item>
+          <p>Aligned error message with used version (SSH_FX_FAILURE vs
+             SSH_FX_NOT_A_DIRECTORY, the latter introduced in version 6).</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>Own Id: OTP-8644 Aux Id: seq11574</p>
+        </item>
+        <item>
+          <p>Resolved race condition when another connection is started
+             before a channel is opened in the first connection.</p>
+          <p>Own Id: OTP-8645 Aux Id: seq11577</p>
+        </item>
       </list>
     </section>
 
