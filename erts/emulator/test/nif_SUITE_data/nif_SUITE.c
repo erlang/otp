@@ -630,6 +630,106 @@ static ERL_NIF_TERM release_resource(ErlNifEnv* env, int argc, const ERL_NIF_TER
     return enif_make_atom(env,"ok");
 }
 
+/*
+ * argv[0] an atom
+ * argv[1] a binary
+ * argv[2] a ref
+ * argv[3] 'ok'
+ * argv[4] a fun
+ * argv[5] a pid
+ * argv[6] a port
+ * argv[7] an empty list
+ * argv[8] a non-empty list
+ * argv[9] a tuple
+ */
+static ERL_NIF_TERM check_is(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM ok_atom = enif_make_atom(env, "ok");
+
+    if (!enif_is_atom(env, argv[0])) return enif_make_badarg(env);
+    if (!enif_is_binary(env, argv[1])) return enif_make_badarg(env);
+    if (!enif_is_ref(env, argv[2])) return enif_make_badarg(env);
+    if (!enif_is_identical(env, argv[3], ok_atom)) return enif_make_badarg(env);
+    if (!enif_is_fun(env, argv[4])) return enif_make_badarg(env);
+    if (!enif_is_pid(env, argv[5])) return enif_make_badarg(env);
+    if (!enif_is_port(env, argv[6])) return enif_make_badarg(env);
+    if (!enif_is_empty_list(env, argv[7])) return enif_make_badarg(env);
+    if (!enif_is_list(env, argv[7])) return enif_make_badarg(env);
+    if (!enif_is_list(env, argv[8])) return enif_make_badarg(env);
+    if (!enif_is_tuple(env, argv[9])) return enif_make_badarg(env);
+
+    return ok_atom;
+}
+
+/*
+ * argv[0] atom with length of 6
+ * argv[1] list with length of 6
+ * argv[2] empty list
+ * argv[3] not an atom
+ * argv[4] not a list
+ */
+static ERL_NIF_TERM length_test(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    unsigned len;
+
+    if (!enif_get_atom_length(env, argv[0], &len) || len != 6)
+	return enif_make_badarg(env);
+
+    if (!enif_get_list_length(env, argv[1], &len) || len != 6)
+	return enif_make_badarg(env);
+
+    if (!enif_get_list_length(env, argv[2], &len) || len != 0)
+	return enif_make_badarg(env);
+
+    if (enif_get_atom_length(env, argv[3], &len))
+	return enif_make_badarg(env);
+
+    if (enif_get_list_length(env, argv[4], &len))
+	return enif_make_badarg(env);
+
+    return enif_make_atom(env, "ok");
+}
+
+static ERL_NIF_TERM make_atoms(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    ERL_NIF_TERM arr[7];
+    ERL_NIF_TERM existingatom0a, existingatom0b;
+    ERL_NIF_TERM existing0atom0;
+    const char * const an0atom = "an0atom";
+    const char an0atom0[8] = {'a','n','\0','a','t','o','m',0};
+
+    arr[0] = enif_make_atom(env, "an0atom");
+    arr[1] = enif_make_atom_len(env, "an0atom", 7);
+    arr[2] = enif_make_atom_len(env, an0atom, 7);
+    arr[3] = enif_make_atom_len(env, an0atom0, 8);
+
+    if (!enif_make_existing_atom(env, "an0atom", &existingatom0a))
+	return enif_make_atom(env, "error");
+    arr[4] = existingatom0a;
+
+    if (!enif_make_existing_atom_len(env, an0atom, 7, &existingatom0b))
+	return enif_make_atom(env, "error");
+    arr[5] = existingatom0b;
+
+    if (!enif_make_existing_atom_len(env, an0atom0, 8, &existing0atom0))
+	return enif_make_atom(env, "error");
+    arr[6] = existing0atom0;
+
+    return enif_make_tuple7(env,
+			    arr[0],arr[1],arr[2],arr[3],arr[4],arr[5],arr[6]);
+}
+
+static ERL_NIF_TERM make_strings(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
+{
+    const char a0string[8] = {'a','0','s','t','r','i','n','g'};
+    const char a0string0[9] = {'a','\0','s','t','r','i','n','g',0};
+
+    return enif_make_tuple4(env,
+			    enif_make_string(env, "a0string", ERL_NIF_LATIN1),
+			    enif_make_string_len(env, "a0string", 8, ERL_NIF_LATIN1),
+			    enif_make_string_len(env, a0string, 8, ERL_NIF_LATIN1),
+			    enif_make_string_len(env, a0string0, 9, ERL_NIF_LATIN1));
+}
 
 static ErlNifFunc nif_funcs[] =
 {
@@ -656,7 +756,11 @@ static ErlNifFunc nif_funcs[] =
     {"get_resource", 2, get_resource},
     {"release_resource", 1, release_resource},
     {"last_resource_dtor_call", 0, last_resource_dtor_call},
-    {"make_new_resource", 2, make_new_resource}
+    {"make_new_resource", 2, make_new_resource},
+    {"check_is", 10, check_is},
+    {"length_test", 5, length_test},
+    {"make_atoms", 0, make_atoms},
+    {"make_strings", 0, make_strings}
 
 };
 

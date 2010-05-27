@@ -28,7 +28,7 @@
 -export([all/1, fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_takeover/1,
-	 threading/1, neg/1]).
+	 threading/1, neg/1, is_checks/1, get_length/1, make_atom/1, make_string/1]).
 
 -export([many_args_100/100]).
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -36,7 +36,8 @@
 all(suite) ->
     [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
      get_atom, api_macros, from_array, iolist_as_binary, resource,
-     resource_takeover, threading, neg].
+     resource_takeover, threading, neg, is_checks, get_length, make_atom,
+     make_string].
 
 %%init_per_testcase(_Case, Config) ->
 %%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
@@ -759,7 +760,17 @@ neg(Config) when is_list(Config) ->
     ?line verify_tmpmem(TmpMem),
     ?line ok.
 
+is_checks(doc) -> ["Test all enif_is functions"];
+is_checks(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line ok = check_is(hejsan, <<19,98>>, make_ref(), ok, fun() -> ok end,
+			self(), hd(erlang:ports()), [], [1,9,9,8],
+			{hejsan, "hejsan", [$h,"ejs",<<"an">>]}).
 
+get_length(doc) -> ["Test all enif_get_length functions"];
+get_length(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line ok = length_test(hejsan, "hejsan", [], [], not_a_list).
 
 ensure_lib_loaded(Config) ->
     ensure_lib_loaded(Config, 1).
@@ -772,6 +783,22 @@ ensure_lib_loaded(Config, Ver) ->
 	      Ver when is_integer(Ver) ->
 		  ok
 	  end.
+
+make_atom(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    An0Atom = an0atom,
+    An0Atom0 = 'an\000atom\000',
+    ?line Atoms = make_atoms(),
+    ?line 7 = size(Atoms),
+    ?line Atoms = {An0Atom,An0Atom,An0Atom,An0Atom0,An0Atom,An0Atom,An0Atom0}.
+
+make_string(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line Strings = make_strings(),
+    ?line 4 = size(Strings),
+    A0String = "a0string",
+    A0String0 = [$a,0,$s,$t,$r,$i,$n,$g,0],
+    ?line Strings = {A0String,A0String,A0String,A0String0}.
 
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of
@@ -855,6 +882,10 @@ get_resource(_,_) -> ?nif_stub.
 release_resource(_) -> ?nif_stub.
 last_resource_dtor_call() -> ?nif_stub.
 make_new_resource(_,_) -> ?nif_stub.
+check_is(_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
+length_test(_,_,_,_,_) -> ?nif_stub.
+make_atoms() -> ?nif_stub.
+make_strings() -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
