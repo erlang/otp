@@ -592,6 +592,7 @@ query_retries(_Q, _NSs, _Timer, Retry, Retry, S) ->
 query_retries(Q, NSs, Timer, Retry, I, S0) ->
     Num = length(NSs),
     if Num =:= 0 ->
+	    udp_close(S0),
 	    {error,timeout};
        true ->
 	    case query_nss(Q, NSs, Timer, Retry, I, S0, []) of
