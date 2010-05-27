@@ -129,27 +129,33 @@ do_decode(<<Id:16,
 	   RA:1,PR:1,_:2,Rcode:4,
 	   QdCount:16,AnCount:16,NsCount:16,ArCount:16,
 	   QdBuf/binary>>=Buffer) ->
-    {AnBuf,QdList} = decode_query_section(QdBuf,QdCount,Buffer),
-    {NsBuf,AnList} = decode_rr_section(AnBuf,AnCount,Buffer),
-    {ArBuf,NsList} = decode_rr_section(NsBuf,NsCount,Buffer),
-    {Rest,ArList} = decode_rr_section(ArBuf,ArCount,Buffer),
+    {AnBuf,QdList,QdTC} = decode_query_section(QdBuf,QdCount,Buffer),
+    {NsBuf,AnList,AnTC} = decode_rr_section(AnBuf,AnCount,Buffer),
+    {ArBuf,NsList,NsTC} = decode_rr_section(NsBuf,NsCount,Buffer),
+    {Rest,ArList,ArTC} = decode_rr_section(ArBuf,ArCount,Buffer),
 	case Rest of
 	    <<>> ->
+		HdrTC = decode_boolean(TC),
 		DnsHdr =
 		    #dns_header{id=Id,
 				qr=decode_boolean(QR),
 				opcode=decode_opcode(Opcode),
 				aa=decode_boolean(AA),
-				tc=decode_boolean(TC),
+				tc=HdrTC,
 				rd=decode_boolean(RD),
 				ra=decode_boolean(RA),
 				pr=decode_boolean(PR),
 				rcode=Rcode},
-		#dns_rec{header=DnsHdr,
-			 qdlist=QdList,
-			 anlist=AnList,
-			 nslist=NsList,
-			 arlist=ArList};
+		case QdTC or AnTC or NsTC or ArTC of
+		    true when not HdrTC ->
+			throw(?DECODE_ERROR);
+		    _ ->
+			#dns_rec{header=DnsHdr,
+				 qdlist=QdList,
+				 anlist=AnList,
+				 nslist=NsList,
+				 arlist=ArList}
+		end;
 	    _ ->
 		%% Garbage data after DNS message
 		throw(?DECODE_ERROR)
@@ -161,8 +167,10 @@ do_decode(_) ->
 decode_query_section(Bin, N, Buffer) ->
     decode_query_section(Bin, N, Buffer, []).
 
+decode_query_section(<<>>=Rest, N, _Buffer, Qs) ->
+    {Rest,reverse(Qs),N =/= 0};
 decode_query_section(Rest, 0, _Buffer, Qs) ->
-    {Rest,reverse(Qs)};
+    {Rest,reverse(Qs),false};
 decode_query_section(Bin, N, Buffer, Qs) ->
     case decode_name(Bin, Buffer) of
 	{<<Type:16,Class:16,Rest/binary>>,Name} ->
@@ -179,8 +187,10 @@ decode_query_section(Bin, N, Buffer, Qs) ->
 decode_rr_section(Bin, N, Buffer) ->
     decode_rr_section(Bin, N, Buffer, []).
 
+decode_rr_section(<<>>=Rest, N, _Buffer, RRs) ->
+    {Rest,reverse(RRs),N =/= 0};
 decode_rr_section(Rest, 0, _Buffer, RRs) ->
-    {Rest,reverse(RRs)};
+    {Rest,reverse(RRs),false};
 decode_rr_section(Bin, N, Buffer, RRs) ->
     case decode_name(Bin, Buffer) of
 	{<<T:16/unsigned,C:16/unsigned,TTL:4/binary,
