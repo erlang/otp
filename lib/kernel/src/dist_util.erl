@@ -564,13 +564,16 @@ recv_challenge(#hs_data{socket=Socket,other_node=Node,
     case Recv(Socket, 0, infinity) of
 	{ok,[$n,V1,V0,Fl1,Fl2,Fl3,Fl4,CA3,CA2,CA1,CA0 | Ns]} ->
 	    Flags = ?u32(Fl1,Fl2,Fl3,Fl4),
-	    case {list_to_existing_atom(Ns),?u16(V1,V0)} of
+	    try {list_to_existing_atom(Ns),?u16(V1,V0)} of
 		{Node,Version} ->
 		    Challenge = ?u32(CA3,CA2,CA1,CA0),
 		    ?trace("recv: node=~w, challenge=~w version=~w\n",
 			   [Node, Challenge,Version]),
 		    {Flags,Challenge};
 		_ ->
+		    ?shutdown(no_node)
+	    catch
+		error:badarg ->
 		    ?shutdown(no_node)
 	    end;
 	_ ->
