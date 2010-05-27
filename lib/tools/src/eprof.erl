@@ -50,6 +50,7 @@
 	profiling = false,
 	pattern   = {'_','_','_'},
 	rootset   = [],
+	fd    = undefined,
 	start_ts  = undefined,
 	reply     = undefined,
 	bpd       = #bpd{}
@@ -131,32 +132,33 @@ init([]) ->
 sum_bp_total_n_us(Mfas) ->
     lists:foldl(fun ({_, {Ci,Usi}}, {Co, Uso}) -> {Co + Ci, Uso + Usi} end, {0,0}, Mfas).
 
-print_bp_mfa(Mfas, {_Tn, Tus}, Opts) ->
-    print(["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    print(["--------", "-----", "---", "----", "----------"]),
+print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
+    print(Fd, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
+    print(Fd, ["--------", "-----", "---", "----", "----------"]),
     lists:foreach(fun
 	    ({_, {Count, Time}}) when Count =:= 0; Time < 1 ->
 		ok;
 	    ({Mfa, {Count, Time}}) ->
-		print([s(Mfa), s(Count), s("~.2f", [100*(Time/Tus)]), s(Time), s("~.2f", [Time/Count])]),
+		print(Fd, [s(Mfa), s(Count), s("~.2f", [100*(Time/Tus)]), s(Time), s("~.2f", [Time/Count])]),
 		ok
 	end, filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(thresholds, Opts))),
     ok.
 
 handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
     {reply, nothing_to_analyze, S};
-handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = Bpd} = S) when is_record(Bpd, bpd) ->
+
+handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
     lists:foreach(fun
 	    ({Pid, Mfas}) ->
 		{Pn, Pus} =  sum_bp_total_n_us(Mfas),
-		io:format("~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*(Pus/Tus)])]),
-		print_bp_mfa(Mfas, {Pn,Pus}, Opts),
+		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*(Pus/Tus)])]),
+		print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
 		ok
 	end, gb_trees:to_list(Ps)),
     {reply, ok, S};
 
-handle_call({analyze, total, Opts}, _, #state{ bpd = #bpd{ mfa = Mfas, n = Tn, us = Tus} = Bpd} = S) when is_record(Bpd, bpd) ->
-    print_bp_mfa(Mfas, {Tn, Tus}, Opts),
+handle_call({analyze, total, Opts}, _, #state{ bpd = #bpd{ mfa = Mfas, n = Tn, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
+    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts),
     {reply, ok, S};
 
 handle_call({analyze, Type, _Opts}, _, S) ->
@@ -167,7 +169,7 @@ handle_call({analyze, Type, _Opts}, _, S) ->
 handle_call({profile, _Rootset, _Pattern, _M,_F,_A}, _From, #state{ profiling = true } = S)->
     {reply, {error, already_profiling}, S};
 
-handle_call({profile, Rootset, Pattern, M,F,A}, From, S) ->
+handle_call({profile, Rootset, Pattern, M,F,A}, From, #state{fd = Fd } = S) ->
 
     set_pattern_trace(false, S#state.pattern),
     set_process_trace(false, S#state.rootset),
@@ -183,14 +185,15 @@ handle_call({profile, Rootset, Pattern, M,F,A}, From, S) ->
 		    rootset   = [Pid|Rootset],
 		    start_ts  = T0,
 		    reply     = From,
+		    fd        = Fd,
 		    pattern   = Pattern
 		}};
 	false ->
 	    exit(Pid, kill),
-	    {reply, error, #state{}}
+	    {reply, error, #state{ fd = Fd}}
     end;
 
-handle_call({profile, Rootset, Pattern}, From, S) ->
+handle_call({profile, Rootset, Pattern}, From, #state{ fd = Fd } = S) ->
 
     set_pattern_trace(false, S#state.pattern),
     set_process_trace(false, S#state.rootset),
@@ -204,10 +207,11 @@ handle_call({profile, Rootset, Pattern}, From, S) ->
 		    rootset   = Rootset,
 		    start_ts  = T0,
 		    reply     = From,
+		    fd        = Fd,
 		    pattern   = Pattern
 		}};
 	false ->
-	    {reply, error, #state{}}
+	    {reply, error, #state{ fd = Fd }}
     end;
 
 handle_call(stop_profiling, _From, #state{ profiling = false } = S) ->
@@ -228,6 +232,19 @@ handle_call(stop_profiling, _From, #state{ profiling = true } = S) ->
 	pattern   = {'_','_','_'},
 	bpd       = Bpd
     }};
+
+%% logfile
+handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
+    case file:open(File, [write]) of
+	{ok, Fd} ->
+	    case OldFd of
+		undefined -> ok;
+		OldFd -> file:close(OldFd)
+	    end,
+	    {reply, ok, S#state{ fd = Fd}};
+	Error ->
+	    {reply, Error, S}
+    end;
 
 handle_call(stop, _FromTag, S) ->
     {stop, normal, stopped, S}.
@@ -282,11 +299,7 @@ handle_info({_Pid, {answer, Result}}, #state{ reply = {From,_} = FromTag} = S) -
 	rootset   = [],
 	pattern   = {'_','_','_'},
 	bpd       = Bpd
-    }};
-
-handle_info(Info, State) ->
-    io:format("handle_info: ~p~nstate: ~p~n", [Info,State]),
-    {noreply, State}.
+    }}.
 
 %% -------------------------------------------------------------------- %%
 %%
@@ -294,7 +307,11 @@ handle_info(Info, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
-terminate(_Reason, _State) ->
+terminate(_Reason, #state{ fd = undefined }) ->
+    set_pattern_trace(false, {'_','_','_'}),
+    ok;
+terminate(_Reason, #state{ fd = Fd }) ->
+    file:close(Fd),
     set_pattern_trace(false, {'_','_','_'}),
     ok.
 
@@ -427,11 +444,19 @@ s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
 s(Term) -> s("~p", [Term]).
 s(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
 
-print([_,_,_] = Strings) ->
-    print("~.44s   ~14s ~14s~n", Strings);
-print([_,_,_,_] = Strings) ->
-    print("~.44s   ~14s ~14s ~7s ~n", Strings);
-print(Strings) ->
-    print("~.44s   ~14s ~14s ~7s [~7s]~n", Strings).
-print(Format, Strings) ->
-    io:format(Format, Strings).
+print(Fd, [_,_,_] = Strings) ->
+    print(Fd, "~.44s   ~14s ~14s~n", Strings);
+print(Fd, [_,_,_,_] = Strings) ->
+    print(Fd, "~.44s   ~14s ~14s ~7s ~n", Strings);
+print(Fd, Strings) ->
+    print(Fd, "~.44s   ~14s ~14s ~7s [~7s]~n", Strings).
+print(Fd, Format, Strings) ->
+    format(Fd, Format, Strings).
+
+format(undefined, Format, Strings) ->
+    io:format(Format, Strings),
+    ok;
+format(Fd, Format, Strings) ->
+    io:format(Fd, Format, Strings),
+    io:format(Format, Strings),
+    ok.
