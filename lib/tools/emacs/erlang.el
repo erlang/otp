@@ -659,24 +659,30 @@ resulting regexp is surrounded by \\_< and \\_>."
 (eval-and-compile
   (defconst erlang-guards-regexp (erlang-regexp-opt erlang-guards 'symbols)))
 
-
 (eval-and-compile
   (defvar erlang-predefined-types
     '("any"
       "arity"
+      "boolean"
       "byte"
       "char"
       "cons"
       "deep_string"
+      "iolist"
       "maybe_improper_list"
+      "module"
       "mfa"
       "nil"
+      "neg_integer"
       "none"
       "non_neg_integer"
       "nonempty_list"
       "nonempty_improper_list"
       "nonempty_maybe_improper_list"
+      "no_return"
+      "pos_integer"
       "string"
+      "term"
       "timeout")
     "Erlang type specs types"))
 
@@ -2833,27 +2839,32 @@ Return nil if inside string, t if in a comment."
              (current-column)))
 	  ;; Type and Spec indentation
 	  ((eq (car stack-top) '::)
-	   (cond ((null erlang-argument-indent)
-		  ;; indent to next column.
-		  (+ 2 (nth 2 stack-top)))
-		 ((looking-at "::[^_a-zA-Z0-9]")
-		  (nth 2 stack-top))
-		 (t
-		  (let ((start-alternativ (if (looking-at "|") 2 0)))
-		    (goto-char (nth 1 stack-top))
-		    (- (cond ((looking-at "::\\s *\\($\\|%\\)")
-			      ;; Line ends with ::
-			      (if (eq (car (car (last stack))) 'spec)
+	   (if (looking-at "}")
+	       ;; Closing record definition with types
+	       ;; pop stack and recurse
+	       (erlang-calculate-stack-indent indent-point
+					      (cons (erlang-pop stack) (cdr state)))
+	     (cond ((null erlang-argument-indent)
+		    ;; indent to next column.
+		    (+ 2 (nth 2 stack-top)))
+		   ((looking-at "::[^_a-zA-Z0-9]")
+		    (nth 2 stack-top))
+		   (t
+		    (let ((start-alternativ (if (looking-at "|") 2 0)))
+		      (goto-char (nth 1 stack-top))
+		      (- (cond ((looking-at "::\\s *\\($\\|%\\)")
+				;; Line ends with ::
+				(if (eq (car (car (last stack))) 'spec)
 				  (+ (erlang-indent-find-preceding-expr 1)
 				     erlang-argument-indent)
-				(+ (erlang-indent-find-preceding-expr 2)
-				   erlang-argument-indent)))
-			     (t
-			      ;; Indent to the same column as the first
-			      ;; argument.
-			      (goto-char (+ 2 (nth 1 stack-top)))
-			      (skip-chars-forward " \t")
-			      (current-column))) start-alternativ)))))	
+				  (+ (erlang-indent-find-preceding-expr 2)
+				     erlang-argument-indent)))
+			       (t
+				;; Indent to the same column as the first
+				;; argument.
+				(goto-char (+ 2 (nth 1 stack-top)))
+				(skip-chars-forward " \t")
+				(current-column))) start-alternativ))))))
 	  )))
 
 (defun erlang-indent-standard (indent-point token base inside-parenthesis)

@@ -93,11 +93,27 @@
 -type t13() :: maybe_improper_list(integer(), t11()). 
 -type t14() :: [erl_scan:foo() | 
         %% Should be highlighted
-	non_neg_integer() | nonempty_list() | 
+	term() |
+	bool() |
+	byte() |
+	char() |
+	non_neg_integer() | nonempty_list() |
+	pos_integer() |
+	neg_integer() |
+	number() |
+	list() |
 	nonempty_improper_list() | nonempty_maybe_improper_list() |
+	maybe_improper_list() | string() | iolist() | byte() |
+	module() |
+	mfa() 	|
+	node() 	|
+	timeout() |
+	no_return() |
 	%% Should not be highlighted
 	nonempty_() | nonlist() | 
-erl_scan:bar(34, 92) | t13() | m:f(integer() | <<_:_*16>>)]. 
+ erl_scan:bar(34, 92) | t13() | m:f(integer() | <<_:_*16>>)].
+
+
 -type t15() :: {binary(),<<>>,<<_:34>>,<<_:_*42>>,
 		<<_:3,_:_*14>>,<<>>} | [<<>>|<<_:34>>|<<_:16>>|
 <<_:3,_:_*1472>>|<<_:19,_:_*14>>| <<_:34>>|
@@ -172,6 +188,9 @@ f18 :: 1 | 2 | 'undefined',
 f19 = 3 :: integer()|undefined,
 f5 = 3 :: undefined|integer()}). 
 
+-record(state, {
+  sequence_number = 1          :: integer()
+  }).
 
 
 highlighting(X)			  % Function definitions should be highlighted
