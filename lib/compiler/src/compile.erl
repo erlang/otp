@@ -900,13 +900,8 @@ expand_module(#compile{code=Code,options=Opts0}=St0) ->
     {ok,St0#compile{module=Mod,options=Opts,code={Mod,Exp,Forms}}}.
 
 core_module(#compile{code=Code0,options=Opts}=St) ->
-    case v3_core:module(Code0, Opts) of
-	{ok,Code,Ws} ->
-	    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}};
-	{error,Es,Ws} ->
-	    {error,St#compile{warnings=St#compile.warnings ++ Ws,
-			      errors=St#compile.errors ++ Es}}
-    end.
+    {ok,Code,Ws} = v3_core:module(Code0, Opts),
+    {ok,St#compile{code=Code,warnings=St#compile.warnings ++ Ws}}.
 
 core_fold_module(#compile{code=Code0,options=Opts,warnings=Warns}=St) ->
     {ok,Code,Ws} = sys_core_fold:module(Code0, Opts),

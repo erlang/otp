@@ -122,7 +122,6 @@
            | iclause()  | ifun()      | iletrec()   | imatch() | iprimop()
            | iprotect() | ireceive1() | ireceive2() | iset()   | itry().
 
--type error()   :: {file:filename(), [{integer(), module(), term()}]}.
 -type warning() :: {file:filename(), [{integer(), module(), term()}]}.
 
 -record(core, {vcount=0 :: non_neg_integer(),	%Variable counter
@@ -140,7 +139,7 @@
                    | {attribute, integer(), attribute(), _}.
 
 -spec module({module(), [fa()], [form()]}, [compile:option()]) ->
-        {'ok',cerl:c_module(),[warning()]} | {'error',[error()],[warning()]}.
+        {'ok',cerl:c_module(),[warning()]}.
 
 module({Mod,Exp,Forms}, Opts) ->
     Cexp = map(fun ({_N,_A} = NA) -> #c_var{name=NA} end, Exp),
