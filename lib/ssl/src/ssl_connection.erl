@@ -2049,6 +2049,7 @@ handle_own_alert(Alert, Version, Info,
     try %% Try to tell the other side
 	{BinMsg, _} =
 	encode_alert(Alert, Version, ConnectionStates),
+	linux_workaround_transport_delivery_problems(Alert, Socket),
 	Transport:send(Socket, BinMsg)
     catch _:_ ->  %% Can crash if we are in a uninitialized state
 	    ignore
@@ -2122,12 +2123,19 @@ notify_renegotiater(_) ->
     ok.
 
 workaround_transport_delivery_problems(Socket, Transport) ->
-    %% Should have the side effect that the socket is flushed on some
-    %% platforms e.i. linux, should be harmless otherwise.
-    inet:setopts(Socket, [{nodelay, true}]),
     %% Standard trick to try to make sure all
     %% data sent to to tcp port is really sent
     %% before tcp port is closed.
     inet:setopts(Socket, [{active, false}]),
     Transport:shutdown(Socket, write),
     Transport:recv(Socket, 0).
+
+linux_workaround_transport_delivery_problems(#alert{level = ?FATAL}, Socket) ->
+    case os:type() of
+	{unix, linux} ->
+	    inet:setopts(Socket, [{nodelay, true}]);
+	_ ->
+	    ok
+    end;
+linux_workaround_transport_delivery_problems(_, _) ->
+    ok.
