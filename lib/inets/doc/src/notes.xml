@@ -32,6 +32,61 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.3.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+	  <p>[httpc] - Allow users to pass socket options to the transport 
+            module when making requests. </p> 
+          <p>See the <c>socket_opts</c> option in the 
+            <seealso marker="httpc#request2">request/4</seealso> or 
+            <seealso marker="httpc#set_options">set_options/1,2</seealso>
+            for more info, </p>
+	  <p>Own Id: OTP-8352</p>
+        </item>
+
+      </list>
+-->
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>[httpc] - Made cookie handling more case insensitive.</p>
+	  <p>Own Id: OTP-8609</p>
+          <p>Nicolas Thauvin</p>
+        </item>
+
+        <item>
+	  <p>[httpc|httpd] - Netscape cookie dates can also be given with a 
+            2-digit year (e.g. 06 = 2006). </p>
+	  <p>Own Id: OTP-8610</p>
+          <p>Nicolas Thauvin</p>
+        </item>
+
+        <item>
+	  <p>[httpd] - Added support (again) for the documented debugging 
+            features. See the User's Guide 
+            <seealso marker="http_server#config">Configuration</seealso> 
+            chapter for more info. </p>
+	  <p>Own Id: OTP-8624</p>
+        </item>
+
+      </list>
+    </section>
+
+  </section> <!-- 5.3.3 -->
+
+
   <section><title>Inets 5.3.2</title>
 
     <section><title>Improvements and New Features</title>

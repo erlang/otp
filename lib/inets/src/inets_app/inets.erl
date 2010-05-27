@@ -533,7 +533,7 @@ error_to_exit(Where, {error, Reason}) ->
 
 
 %%-----------------------------------------------------------------
-%% report_event(Serverity, Label, Service, Content)
+%% report_event(Severity, Label, Service, Content)
 %%
 %% Parameters:
 %% Severity -> 0 =< integer() =< 100

@@ -476,13 +476,13 @@ path_sort(Cookies)->
     lists:reverse(lists:keysort(#http_cookie.path, Cookies)).
 
 
-%%  Informally, the Set-Cookie response header comprises the token
-%%  Set-Cookie:, followed by a comma-separated list of one or more
-%%  cookies. Netscape cookies expires attribute may also have a
-%% , in this case the header list will have been incorrectly split
-%% in parse_set_cookies/2 this functions fixs that problem.
+%% Informally, the Set-Cookie response header comprises the token
+%% Set-Cookie:, followed by a comma-separated list of one or more
+%% cookies. Netscape cookies expires attribute may also have a, 
+%% in this case the header list will have been incorrectly split
+%% in parse_set_cookies/2 this functions fix that problem.
 fix_netscape_cookie([Cookie1, Cookie2 | Rest], Acc) ->
-    case inets_regexp:match(Cookie1, "expires=") of
+    case inets_regexp:match(string:to_lower(Cookie1), "expires=") of
 	{_, _, _} ->
 	    fix_netscape_cookie(Rest, [Cookie1 ++ Cookie2 | Acc]);
 	nomatch ->
