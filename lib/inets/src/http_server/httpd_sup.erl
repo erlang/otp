@@ -185,14 +185,14 @@ httpd_child_spec(ConfigFile, AcceptTimeout, Debug) ->
 httpd_child_spec(Config, AcceptTimeout, Debug, Addr, 0) ->
 	case start_listen(Addr, 0, Config) of
 	    {Pid, {NewPort, NewConfig, ListenSocket}} ->
-		Name = {httpd_instance_sup, Addr, NewPort},
+		Name      = {httpd_instance_sup, Addr, NewPort},
 		StartFunc = {httpd_instance_sup, start_link,
 			     [NewConfig, AcceptTimeout, 
 			      {Pid, ListenSocket}, Debug]},
-		Restart = permanent, 
-		Shutdown = infinity,
-		Modules = [httpd_instance_sup],
-		Type = supervisor,
+		Restart   = permanent, 
+		Shutdown  = infinity,
+		Modules   = [httpd_instance_sup],
+		Type      = supervisor,
 		{Name, StartFunc, Restart, Shutdown, Type, Modules};
 	    {Pid, {error, Reason}}  ->
 		exit(Pid, normal),

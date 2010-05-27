@@ -30,6 +30,8 @@
     <date></date>
     <rev></rev>
     <file>http_server.xml</file>
+
+    <marker id="intro"></marker>
   </header>
 
   <section>
@@ -65,6 +67,8 @@
       Server API. This API can be used to advantage by all who wants
       to enhance the server core functionality, for example custom
       logging and authentication.</p>
+
+    <marker id="config"></marker>
   </section>
   
   <section>
@@ -109,6 +113,8 @@
       functions or only exported functions on chosen modules.</p>
     <p>{accept_timeout, integer()} sets the wanted timeout value for
       the server to set up a request connection.</p>
+
+    <marker id="using_http_server_api"></marker>
   </section>
 
   <section>
@@ -173,6 +179,7 @@
       the ip address reported by the info function and can
       not be the hostname that is allowed when inputting bind_address.</p>
     
+    <marker id="htaccess"></marker>
   </section>
 
   <section>
@@ -337,6 +344,8 @@ UserName:Password
           </item>
         </list>
       </section>
+
+      <marker id="dynamic_we_pages"></marker>
     </section>
   
     <section>
@@ -434,6 +443,8 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
           </note>
         </section>
       </section>
+
+      <marker id="logging"></marker>
     </section>
 
   <section>
@@ -467,6 +478,8 @@ http://your.server.org/eval?httpd_example:print(atom_to_list(apply(erlang,halt,[
         </p>
       <p><em>[date]</em> access to <em>path</em> failed for
         <em>remotehost</em>, reason: <em>reason</em></p>
+
+    <marker id="ssi"></marker>
   </section>
 
   <section>
