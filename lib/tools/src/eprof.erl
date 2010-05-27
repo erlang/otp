@@ -40,10 +40,10 @@
 	 terminate/2,
 	 code_change/3]).
 -record(bpd, {
-	n   = 0,
-	us  = 0,
-	p   = gb_trees:empty(),
-	mfa = []
+	n   = 0,                 % number of total calls
+	us  = 0,                 % sum of uS for all calls
+	p   = gb_trees:empty(),  % tree of {Pid, {Mfa, {Count, Us}}}
+	mfa = []                 % list of {Mfa, {Count, Us}}
     }).
 
 -record(state, {
@@ -246,6 +246,9 @@ handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
 	    {reply, Error, S}
     end;
 
+handle_call(dump, _From, #state{ bpd = Bpd } = S) when is_record(Bpd, bpd) ->
+    {reply, gb_trees:to_list(Bpd#bpd.p), S};
+
 handle_call(stop, _FromTag, S) ->
     {stop, normal, stopped, S}.
 
@@ -439,6 +442,7 @@ filter_mfa([], Out, _, _) -> lists:reverse(Out);
 filter_mfa([{_, {C, T}}=Bpf|Bpfs], Out, Ct, Tt) when C >= Ct, T >= Tt -> filter_mfa(Bpfs, [Bpf|Out], Ct, Tt);
 filter_mfa([_|Bpfs], Out, Ct, Tt) -> filter_mfa(Bpfs, Out, Ct, Tt).
 
+%% strings and format
 
 s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
 s(Term) -> s("~p", [Term]).
