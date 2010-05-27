@@ -42,7 +42,7 @@
     {load_module, snmpa_general_db, soft_purge, soft_purge, []},
     {update,      snmpm_net_if, soft, soft_purge, soft_purge, []},
     {update,      snmpm_server, soft, soft_purge, soft_purge, []},
-    {update,      snmpm_mib, soft, soft_purge, soft_purge, []}, 
+    {update,      snmpa_mib, soft, soft_purge, soft_purge, []}, 
     {update,      snmpa_agent, soft, soft_purge, soft_purge, [snmpa_mib]}
    ]
   }, 
