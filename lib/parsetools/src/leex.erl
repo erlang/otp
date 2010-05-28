@@ -35,7 +35,7 @@
 -export([compile/3,file/1,file/2,format_error/1]).
 
 -import(lists, [member/2,reverse/1,sort/1,delete/2,
-                keysearch/3,keysort/2,keydelete/3,keyfind/3,
+                keysort/2,keydelete/3,keyfind/3,
                 map/2,foldl/3,foreach/2,flatmap/2]).
 -import(string, [substr/2,substr/3,span/2]).
 -import(ordsets, [is_element/2,add_element/2,union/2]).
@@ -182,18 +182,18 @@ options(Options0, [Key|Keys], L) when is_list(Options0) ->
                   false ->
                       Options0
               end,
-    V = case keysearch(Key, 1, Options) of
-            {value, {Key, Filename0}} when Key =:= includefile; 
-                                           Key =:= scannerfile ->
+    V = case lists:keyfind(Key, 1, Options) of
+            {Key, Filename0} when Key =:= includefile;
+				  Key =:= scannerfile ->
                 case is_filename(Filename0) of
                     no -> 
                         badarg;
                     Filename -> 
                         {ok,[{Key,Filename}]}
                 end;
-            {value,{Key,Bool}} when Bool; not Bool ->
-                {ok,[{Key, Bool}]};
-            {value,{Key, _}} ->
+            {Key, Bool} = KB when is_boolean(Bool) ->
+                {ok, [KB]};
+            {Key, _} ->
                 badarg;
             false ->
                 {ok,[{Key,default_option(Key)}]}
@@ -231,8 +231,7 @@ atom_option(verbose) -> {verbose,true};
 atom_option(Key) -> Key.
 
 is_filename(T) ->
-    try filename:flatten(T) of
-        Filename -> Filename
+    try filename:flatten(T)
     catch error: _ -> no
     end.    
 
@@ -320,10 +319,10 @@ filenames(File, Opts, St0) ->
     St1 = St0#leex{xfile=Xfile,
                    opts=Opts,
                    module=Module},
-    {value,{includefile,Ifile0}} = keysearch(includefile, 1, Opts),
+    {includefile,Ifile0} = lists:keyfind(includefile, 1, Opts),
     Ifile = inc_file_name(Ifile0),
     %% Test for explicit scanner file.
-    {value,{scannerfile,Ofile}} = keysearch(scannerfile, 1, Opts),
+    {scannerfile,Ofile} = lists:keyfind(scannerfile, 1, Opts),
     if
         Ofile =:= [] ->
             St1#leex{efile=filename:join(Dir, Efile),
@@ -495,7 +494,7 @@ parse_rule(S, Line, Atoks, Ms, N, St) ->
     end.
 
 var_used(Name, Toks) ->
-    case keyfind(Name, 3, Toks) of
+    case lists:keyfind(Name, 3, Toks) of
         {var,_,Name} -> true;                   %It's the var we want
         _ -> false
     end.
@@ -629,7 +628,7 @@ re_seq(Cs0, Sn0, St) ->
         {Rs,Sn1,Cs1} -> {{seq,Rs},Sn1,Cs1}
     end.
 
-re_seq1([C|_]=Cs0, Sn0, St) when C /= $|, C /= $) ->
+re_seq1([C|_]=Cs0, Sn0, St) when C =/= $|, C =/= $) ->
     {L,Sn1,Cs1} = re_repeat(Cs0, Sn0, St),
     {Rs,Sn2,Cs2} = re_seq1(Cs1, Sn1, St),
     {[L|Rs],Sn2,Cs2};
@@ -751,9 +750,9 @@ re_char_class("[:" ++ Cs0, Cc, #leex{posix=true}=St) ->
         {Pcl,":]" ++ Cs1} -> re_char_class(Cs1, [{posix,Pcl}|Cc], St);
         {_,Cs1} -> parse_error({posix_cc,string_between(Cs0, Cs1)})
     end;
-re_char_class([C1|Cs0], Cc, St) when C1 /= $] ->
+re_char_class([C1|Cs0], Cc, St) when C1 =/= $] ->
     case re_char(C1, Cs0) of
-        {Cf,[$-,C2|Cs1]} when C2 /= $] ->
+        {Cf,[$-,C2|Cs1]} when C2 =/= $] ->
             case re_char(C2, Cs1) of
                 {Cl,Cs2} when Cf < Cl ->
                     re_char_class(Cs2, [{range,Cf,Cl}|Cc], St);
@@ -998,7 +997,7 @@ pack_crs([{C1,C2},{C3,C4}|Crs]) when C2 >= C3, C2 < C4 ->
     %% C1    C2
     %%    C3   C4
     pack_crs([{C1,C4}|Crs]);
-pack_crs([{C1,C2},{C3,C4}|Crs]) when C2 + 1 == C3 ->
+pack_crs([{C1,C2},{C3,C4}|Crs]) when C2 + 1 =:= C3 ->
     %% C1   C2
     %%        C3  C4
     pack_crs([{C1,C4}|Crs]);
@@ -1055,7 +1054,7 @@ build_dfa(Set, Us, N, Ts, Ms, NFA) ->
     %% List of all transition sets.
     Crs0 = [Cr || S <- Set,
                   {Crs,_St} <- (element(S, NFA))#nfa_state.edges,
-                  Crs /= epsilon,        % Not an epsilon transition
+                  Crs =/= epsilon,       % Not an epsilon transition
                   Cr <- Crs ],
     Crs1 = lists:usort(Crs0),            % Must remove duplicates!
     %% Build list of disjoint test ranges.
@@ -1072,7 +1071,7 @@ disjoint_crs([{_C1,C2}=Cr1,{C3,_C4}=Cr2|Crs]) when C2 < C3 ->
     %% C1  C2
     %%        C3  C4
     [Cr1|disjoint_crs([Cr2|Crs])];
-disjoint_crs([{C1,C2},{C3,C4}|Crs]) when C1 == C3 ->
+disjoint_crs([{C1,C2},{C3,C4}|Crs]) when C1 =:= C3 ->
     %% C1     C2
     %% C3       C4
     [{C1,C2}|disjoint_crs(add_element({C2+1,C4}, Crs))];
@@ -1080,7 +1079,7 @@ disjoint_crs([{C1,C2},{C3,C4}|Crs]) when C1 < C3, C2 >= C3, C2 < C4 ->
     %% C1     C2
     %%    C3     C4
     [{C1,C3-1}|disjoint_crs(union([{C3,C2},{C2+1,C4}], Crs))];
-disjoint_crs([{C1,C2},{C3,C4}|Crs]) when C1 < C3, C2 == C4 ->
+disjoint_crs([{C1,C2},{C3,C4}|Crs]) when C1 < C3, C2 =:= C4 ->
     %% C1      C2
     %%    C3   C4
     [{C1,C3-1}|disjoint_crs(add_element({C3,C4}, Crs))];
@@ -1093,7 +1092,7 @@ disjoint_crs([]) -> [].
 
 build_dfa([Cr|Crs], Set, Us, N, Ts, Ms, NFA) ->
     case eclosure(move(Set, Cr, NFA), NFA) of
-        S when S /= [] ->
+        S when S =/= [] ->
             case dfa_state_exist(S, Us, Ms) of
                 {yes,T} ->
                     build_dfa(Crs, Set, Us, N, store(Cr, T, Ts), Ms, NFA);
@@ -1110,11 +1109,11 @@ build_dfa([], _, Us, N, Ts, _, _) ->
 %% dfa_state_exist(Set, Unmarked, Marked) -> {yes,State} | no.
 
 dfa_state_exist(S, Us, Ms) ->
-    case keysearch(S, #dfa_state.nfa, Us) of
-        {value,#dfa_state{no=T}} -> {yes,T};
+    case lists:keyfind(S, #dfa_state.nfa, Us) of
+        #dfa_state{no=T} -> {yes,T};
         false ->
-            case keysearch(S, #dfa_state.nfa, Ms) of
-                {value,#dfa_state{no=T}} -> {yes,T};
+            case lists:keyfind(S, #dfa_state.nfa, Ms) of
+                #dfa_state{no=T} -> {yes,T};
                 false -> no
             end
     end.
@@ -1129,7 +1128,7 @@ eclosure(Sts, NFA) -> eclosure(Sts, NFA, []).
 eclosure([St|Sts], NFA, Ec) ->
     #nfa_state{edges=Es} = element(St, NFA),
     eclosure([ N || {epsilon,N} <- Es,
-                    not is_element(N, Ec) ] ++ Sts,
+		    not is_element(N, Ec) ] ++ Sts,
              NFA, add_element(St, Ec));
 eclosure([], _, Ec) -> Ec.
 
@@ -1137,7 +1136,7 @@ move(Sts, Cr, NFA) ->
     %% io:fwrite("move1: ~p\n", [{Sts,Cr}]),
     [ St || N <- Sts,
             {Crs,St} <- (element(N, NFA))#nfa_state.edges,
-            Crs /= epsilon,             % Not an epsilon transition
+            Crs =/= epsilon,             % Not an epsilon transition
             in_crs(Cr, Crs) ].
 
 in_crs({C1,C2}, [{C3,C4}|_Crs]) when C1 >= C3, C2 =< C4 -> true;
@@ -1436,7 +1435,7 @@ pack_trans([{{$\n,Cl},S}|Trs], Pt) ->
 pack_trans([{{Cf,Cl},S}|Trs], Pt) when Cf < $\n, Cl > $\n ->
     pack_trans([{{Cf,$\n-1},S},{{$\n+1,Cl},S}|Trs], [{$\n,S}|Pt]);
 %% Small ranges become singletons.
-pack_trans([{{Cf,Cl},S}|Trs], Pt) when Cl == Cf + 1 ->
+pack_trans([{{Cf,Cl},S}|Trs], Pt) when Cl =:= Cf + 1 ->
     pack_trans(Trs, [{Cf,S},{Cl,S}|Pt]);
 pack_trans([Tr|Trs], Pt) ->                % The default uninteresting case
     pack_trans(Trs, Pt ++ [Tr]);
