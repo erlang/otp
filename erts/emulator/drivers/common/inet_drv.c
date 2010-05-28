@@ -55,6 +55,21 @@
 
 #include "erl_driver.h"
 
+/* The IS_SOCKET_ERROR macro below is used for portability reasons. While
+   POSIX specifies that errors from socket-related system calls should be
+   indicated with a -1 return value, some users have experienced non-Windows
+   OS kernels that return negative values other than -1. While one can argue
+   that such kernels are technically broken, comparing against values less
+   than 0 covers their out-of-spec return values without imposing incorrect
+   semantics on systems that manage to correctly return -1 for errors, thus
+   increasing Erlang's portability.
+*/
+#ifdef __WIN32__
+#define IS_SOCKET_ERROR(val) ((val) == SOCKET_ERROR)
+#else
+#define IS_SOCKET_ERROR(val) ((val) < 0)
+#endif
+
 #ifdef __WIN32__
 #define  STRNCASECMP strncasecmp
 
@@ -279,7 +294,7 @@ static int (*p_sctp_bindx)(int sd, struct sockaddr *addrs,
 #define DEBUGF(X) printf X
 #endif
 
-#if !defined(__WIN32__) && !defined(HAVE_STRNCASECMP)
+#if !defined(HAVE_STRNCASECMP)
 #define STRNCASECMP my_strncasecmp
 
 static int my_strncasecmp(const char *s1, const char *s2, size_t n)
@@ -299,6 +314,7 @@ static int my_strncasecmp(const char *s1, const char *s2, size_t n)
 #define INVALID_SOCKET -1
 #define INVALID_EVENT  -1
 #define SOCKET_ERROR   -1
+
 #define SOCKET int
 #define HANDLE long int
 #define FD_READ    ERL_DRV_READ
@@ -3684,7 +3700,7 @@ static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     unsigned int sz = sizeof(name);
 
     /* check that it is a socket and that the socket is bound */
-    if (sock_name(s, (struct sockaddr*) &name, &sz) == SOCKET_ERROR)
+    if (IS_SOCKET_ERROR(sock_name(s, (struct sockaddr*) &name, &sz)))
 	return ctl_error(sock_errno(), rbuf, rsize);
     desc->s = s;
     if ((desc->event = sock_create_event(desc)) == INVALID_EVENT)
@@ -3696,7 +3712,7 @@ static int inet_ctl_fdopen(inet_descriptor* desc, int domain, int type,
     desc->state = INET_STATE_BOUND; /* assume bound */
     if (type == SOCK_STREAM) { /* check if connected */
 	sz = sizeof(name);
-	if (sock_peer(s, (struct sockaddr*) &name, &sz) != SOCKET_ERROR)
+	if (!IS_SOCKET_ERROR(sock_peer(s, (struct sockaddr*) &name, &sz)))
 	    desc->state = INET_STATE_CONNECTED;
     }
 
@@ -5627,8 +5643,8 @@ static int inet_fill_opts(inet_descriptor* desc,
 		    buf += arg_sz;
 		    len -= arg_sz;
 		}
-		if (sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz) == 
-		    SOCKET_ERROR) {
+		if (IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,
+						arg_ptr,&arg_sz))) {
 		    TRUNCATE_TO(0,ptr); 
 		    continue;
 		}
@@ -5645,7 +5661,7 @@ static int inet_fill_opts(inet_descriptor* desc,
 	    RETURN_ERROR();
 	}
 	/* We have 5 bytes allocated to ptr */
-	if (sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz) == SOCKET_ERROR) {
+	if (IS_SOCKET_ERROR(sock_getopt(desc->s,proto,type,arg_ptr,&arg_sz))) {
 	    TRUNCATE_TO(0,ptr);
 	    continue;
 	}
@@ -6711,7 +6727,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (len != 0)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-	if (sock_hostname(tbuf, MAXHOSTNAMELEN) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_hostname(tbuf, MAXHOSTNAMELEN)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	return ctl_reply(INET_REP_OK, tbuf, strlen(tbuf), rbuf, rsize);
     }
@@ -6728,7 +6744,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	    return ctl_error(ENOTCONN, rbuf, rsize);
 	if ((ptr = desc->peer_ptr) == NULL) {
 	    ptr = &peer;
-	    if (sock_peer(desc->s, (struct sockaddr*)ptr,&sz) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_peer(desc->s, (struct sockaddr*)ptr,&sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
@@ -6765,7 +6781,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 
 	if ((ptr = desc->name_ptr) == NULL) {
 	    ptr = &name;
-	    if (sock_name(desc->s, (struct sockaddr*)ptr, &sz) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_name(desc->s, (struct sockaddr*)ptr, &sz)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 	}
 	if (inet_get_address(desc->sfamily, tbuf, ptr, &sz) < 0)
@@ -6804,7 +6820,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	if (inet_set_address(desc->sfamily, &local, buf, &len) == NULL)
 	    return ctl_error(EINVAL, rbuf, rsize);
 
-	if (sock_bind(desc->s,(struct sockaddr*) &local, len) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_bind(desc->s,(struct sockaddr*) &local, len)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 
 	desc->state = INET_STATE_BOUND;
@@ -7237,7 +7253,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	if (len != 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	backlog = get_int16(buf);
-	if (sock_listen(desc->inet.s, backlog) == SOCKET_ERROR)
+	if (IS_SOCKET_ERROR(sock_listen(desc->inet.s, backlog)))
 	    return ctl_error(sock_errno(), rbuf, rsize);
 	desc->inet.state = TCP_STATE_LISTEN;
 	return ctl_reply(INET_REP_OK, NULL, 0, rbuf, rsize);
@@ -7271,7 +7287,7 @@ static int tcp_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	
 	code = sock_connect(desc->inet.s, 
 			    (struct sockaddr*) &desc->inet.remote, len);
-	if ((code == SOCKET_ERROR) && 
+	if (IS_SOCKET_ERROR(code) &&
 		((sock_errno() == ERRNO_BLOCK) ||  /* Winsock2 */
 		 (sock_errno() == EINPROGRESS))) {	/* Unix & OSE!! */
           sock_select(INETP(desc), FD_CONNECT, 1);
@@ -7947,7 +7963,7 @@ static int tcp_recv(tcp_descriptor* desc, int request_len)
 
     n = sock_recv(desc->inet.s, desc->i_ptr, nread, 0);
 
-    if (n == SOCKET_ERROR) {
+    if (IS_SOCKET_ERROR(n)) {
 	int err = sock_errno();
 	if (err == ECONNRESET) {
 	    DEBUGF((" => detected close (connreset)\r\n"));
@@ -8449,8 +8465,8 @@ static int tcp_sendv(tcp_descriptor* desc, ErlIOVec* ev)
 		(long)desc->inet.port, desc->inet.s, h_len, len));
 	if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
 	    n = 0;
-	} else if (sock_sendv(desc->inet.s, ev->iov, vsize, &n, 0) 
-		   == SOCKET_ERROR) {
+	} else if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, ev->iov,
+					      vsize, &n, 0))) {
 	    if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		int err = sock_errno();
 		DEBUGF(("tcp_sendv(%ld): s=%d, "
@@ -8543,7 +8559,7 @@ static int tcp_send(tcp_descriptor* desc, char* ptr, int len)
 	if (desc->tcp_add_flags & TCP_ADDF_DELAY_SEND) {
 	    sock_send(desc->inet.s, buf, 0, 0);
 	    n = 0;
-	} else 	if (sock_sendv(desc->inet.s,iov,2,&n,0) == SOCKET_ERROR) {
+	} else 	if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s,iov,2,&n,0))) {
 	    if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		int err = sock_errno();
 		DEBUGF(("tcp_send(%ld): s=%d,sock_sendv(size=2) errno = %d\r\n",
@@ -8616,7 +8632,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    int code = sock_peer(desc->inet.s,
 				 (struct sockaddr*) &desc->inet.remote, &sz);
 
-	    if (code == SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(code)) {
 		desc->inet.state = TCP_STATE_BOUND;  /* restore state */
 		ret =  async_error(INETP(desc), sock_errno());
 		goto done;
@@ -8657,7 +8673,7 @@ static int tcp_inet_output(tcp_descriptor* desc, HANDLE event)
 	    vsize = vsize > MAX_VSIZE ? MAX_VSIZE : vsize;
 	    DEBUGF(("tcp_inet_output(%ld): s=%d, About to send %d items\r\n", 
 		    (long)desc->inet.port, desc->inet.s, vsize));
-	    if (sock_sendv(desc->inet.s, iov, vsize, &n, 0)==SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(sock_sendv(desc->inet.s, iov, vsize, &n, 0))) {
 		if ((sock_errno() != ERRNO_BLOCK) && (sock_errno() != EINTR)) {
 		    DEBUGF(("tcp_inet_output(%ld): sock_sendv(%d) errno = %d\r\n",
 			    (long)desc->inet.port, vsize, sock_errno()));
@@ -8926,7 +8942,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    sock_select(desc, FD_CONNECT, 1);
 	    code = sock_connect(desc->s, &remote.sa, len);
 
-	    if ((code == SOCKET_ERROR) && (sock_errno() == EINPROGRESS)) {
+	    if (IS_SOCKET_ERROR(code) && (sock_errno() == EINPROGRESS)) {
 		/* XXX: Unix only -- WinSock would have a different cond! */
 		desc->state = SCTP_STATE_CONNECTING;
 		if (timeout != INET_INFINITY)
@@ -8966,7 +8982,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 	    
 	    code = sock_connect(desc->s,
 				(struct sockaddr*) &desc->remote, len);
-	    if (code == SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(code)) {
 		sock_connect(desc->s, (struct sockaddr*) NULL, 0);
 		desc->state &= ~INET_F_ACTIVE;
 		return ctl_error(sock_errno(), rbuf, rsize);
@@ -9000,7 +9016,7 @@ static int packet_inet_ctl(ErlDrvData e, unsigned int cmd, char* buf, int len,
 		return ctl_error(EINVAL, rbuf, rsize);
 	    flag = get_int8(buf);
 
-	    if (sock_listen(desc->s, flag) == SOCKET_ERROR)
+	    if (IS_SOCKET_ERROR(sock_listen(desc->s, flag)))
 		return ctl_error(sock_errno(), rbuf, rsize);
 
 	    desc->state = SCTP_STATE_LISTEN;   /* XXX: not used? */
@@ -9205,7 +9221,7 @@ static void packet_inet_command(ErlDrvData e, char* buf, int len)
  check_result_code:
     /* "code" analysis is the same for both SCTP and UDP cases above: */
 #endif
-    if (code == SOCKET_ERROR) {
+    if (IS_SOCKET_ERROR(code)) {
 	int err = sock_errno();
 	inet_reply_error(desc, err);
     }
@@ -9304,7 +9320,7 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
     check_result:
 #endif
 	/* Analyse the result: */
-	if (n == SOCKET_ERROR
+	if (IS_SOCKET_ERROR(n)
 #ifdef HAVE_SCTP
 	    || (short_recv = (IS_SCTP(desc) && !(mhdr.msg_flags & MSG_EOR)))
 	    /* NB: here we check for EOR not being set -- this is an error as
@@ -9419,7 +9435,7 @@ static int packet_inet_output(udp_descriptor* udesc, HANDLE event)
 	    int code = sock_peer(desc->s,
 				 (struct sockaddr*) &desc->remote, &sz);
 
-	    if (code == SOCKET_ERROR) {
+	    if (IS_SOCKET_ERROR(code)) {
 		desc->state = PACKET_STATE_BOUND;  /* restore state */
 		ret =  async_error(desc, sock_errno());
 		goto done;
@@ -9860,23 +9876,26 @@ int erts_sock_connect(erts_sock_t socket, byte *ip_addr, int len, Uint16 port)
     if (!inet_set_address(AF_INET, &addr, buf, &blen))
 	return 0;
 
-    if (SOCKET_ERROR == sock_connect(s,
+    if (IS_SOCKET_ERROR(sock_connect(s,
 				     (struct sockaddr *) &addr,
-				     sizeof(struct sockaddr_in)))
+				     sizeof(struct sockaddr_in))))
 	return 0;
     return 1;
 }
 
 Sint erts_sock_send(erts_sock_t socket, const void *buf, Sint len)
 {
-    return (Sint) sock_send((SOCKET) socket, buf, (size_t) len, 0);
+    Sint result = (Sint) sock_send((SOCKET) socket, buf, (size_t) len, 0);
+    if (IS_SOCKET_ERROR(result))
+	return SOCKET_ERROR;
+    return result;
 }
 
 
 int erts_sock_gethostname(char *buf, int bufsz)
 {
-    if (sock_hostname(buf, bufsz) == SOCKET_ERROR)
-	return -1;
+    if (IS_SOCKET_ERROR(sock_hostname(buf, bufsz)))
+	return SOCKET_ERROR;
     return 0;
 }
 
