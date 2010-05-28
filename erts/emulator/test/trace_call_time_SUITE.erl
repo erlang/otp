@@ -65,7 +65,7 @@
 	 pause_and_restart/1, scheduling/1, called_function/1, combo/1, bif/1, nif/1]).
 
 init_per_testcase(_Case, Config) ->
-    ?line Dog=test_server:timetrap(test_server:seconds(30)),
+    ?line Dog=test_server:timetrap(test_server:seconds(120)),
     erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time,call_count]),
     erlang:trace_pattern(on_load, false, [local,meta,call_time,call_count]),
     timer:now_diff(now(),now()),
@@ -219,7 +219,7 @@ scheduling(doc) ->
     ["Tests in/out scheduling of call time counters"];
 scheduling(Config) when is_list(Config) ->
     ?line P  = erlang:trace_pattern({'_','_','_'}, false, [call_time]),
-    ?line M  = 1000000,
+    ?line M  = 100000,
     ?line Np = erlang:system_info(schedulers_online),
     ?line F  = 12,
 
@@ -229,7 +229,7 @@ scheduling(Config) when is_list(Config) ->
     ?line erlang:trace_pattern({?MODULE,loaded,1}, true, [call_time]),
 
     ?line Pids    = [setup() || _ <- lists:seq(1, F*Np)],
-    ?line {Ls,T1} = execute(Pids, {?MODULE,loaded,[M]}),
+    ?line {_Ls,T1} = execute(Pids, {?MODULE,loaded,[M]}),
     ?line [Pid ! quit || Pid <- Pids],
 
     %% logic dictates that each process will get ~ 1/F of the schedulers time
@@ -250,14 +250,23 @@ combo(doc) ->
     ["Tests combining local call trace and meta trace with call time trace"];
 combo(Config) when is_list(Config) ->
     ?line Self = self(),
-    ?line MetaMatchSpec = [{'_',[],[{return_trace}]}],
+    ?line Nbc = 3,
+    ?line MetaMs = [{'_',[],[{return_trace}]}],
     ?line Flags = lists:sort([call, return_to]),
-    ?line LocalTracer = spawn_link(fun () -> relay_n(5, Self) end),
-    ?line MetaTracer = spawn_link(fun () -> relay_n(9, Self) end),
+    ?line LocalTracer = spawn_link(fun () -> relay_n(5 + Nbc + 3, Self) end),
+    ?line MetaTracer = spawn_link(fun () -> relay_n(9 + Nbc + 3, Self) end),
     ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, [], [local]),
     ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_time]),
-    ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, MetaMatchSpec, [{meta,MetaTracer}]),
+    ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, MetaMs, [{meta,MetaTracer}]),
     ?line 2 = erlang:trace_pattern({?MODULE,seq_r,'_'}, true, [call_count]),
+
+    % bifs
+    ?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, [], [local]),
+    ?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_time]),
+    ?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, MetaMs, [{meta,MetaTracer}]),
+    %% not implemented
+    %?line 2 = erlang:trace_pattern({erlang, term_to_binary, '_'}, true, [call_count]),
+
     ?line 1 = erlang:trace(Self, true, [{tracer,LocalTracer} | Flags]),
     %%
     ?line {traced,local} =
@@ -266,27 +275,38 @@ combo(Config) when is_list(Config) ->
 	erlang:trace_info({?MODULE,seq_r,3}, match_spec),
     ?line {meta,MetaTracer} =
 	erlang:trace_info({?MODULE,seq_r,3}, meta),
-    ?line {meta_match_spec,MetaMatchSpec} =
+    ?line {meta_match_spec,MetaMs} =
 	erlang:trace_info({?MODULE,seq_r,3}, meta_match_spec),
     ?line ok = check_trace_info({?MODULE, seq_r, 3}, [], none),
-    %%
-    ?line {all,[_|_]=TraceInfo} =
-	erlang:trace_info({?MODULE,seq_r,3}, all),
-    ?line {value,{traced,local}} =
-	lists:keysearch(traced, 1, TraceInfo),
-    ?line {value,{match_spec,[]}} =
-	lists:keysearch(match_spec, 1, TraceInfo),
-    ?line {value,{meta,MetaTracer}} =
-	lists:keysearch(meta, 1, TraceInfo),
-    ?line {value,{meta_match_spec,MetaMatchSpec}} =
-	lists:keysearch(meta_match_spec, 1, TraceInfo),
-    ?line {value,{call_count,0}} =
-	lists:keysearch(call_count, 1, TraceInfo),
-    ?line {value,{call_time,[]}} =
-	lists:keysearch(call_time, 1, TraceInfo),
+
+    %% check empty trace_info for ?MODULE:seq_r/3
+    ?line {all,[_|_]=TraceInfo}     = erlang:trace_info({?MODULE,seq_r,3}, all),
+    ?line {value,{traced,local}}    = lists:keysearch(traced, 1, TraceInfo),
+    ?line {value,{match_spec,[]}}   = lists:keysearch(match_spec, 1, TraceInfo),
+    ?line {value,{meta,MetaTracer}} = lists:keysearch(meta, 1, TraceInfo),
+    ?line {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfo),
+    ?line {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfo),
+    ?line {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfo),
+
+    %% check empty trace_info for erlang:term_to_binary/1
+    ?line {all, [_|_] = TraceInfoBif} = erlang:trace_info({erlang, term_to_binary, 1}, all),
+    ?line {value,{traced,local}}     = lists:keysearch(traced, 1, TraceInfoBif),
+    ?line {value,{match_spec,[]}}    = lists:keysearch(match_spec, 1, TraceInfoBif),
+    ?line {value,{meta, MetaTracer}}  = lists:keysearch(meta, 1, TraceInfoBif),
+    ?line {value,{meta_match_spec,MetaMs}} = lists:keysearch(meta_match_spec, 1, TraceInfoBif),
+    %% not implemented
+    ?line {value,{call_count,false}} = lists:keysearch(call_count, 1, TraceInfoBif),
+    %?line {value,{call_count,0}} = lists:keysearch(call_count, 1, TraceInfoBif),
+    ?line {value,{call_time,[]}} = lists:keysearch(call_time, 1, TraceInfoBif),
+
     %%
     ?line [3,2,1] = seq_r(1, 3, fun(X) -> X+1 end),
+    ?line T0 = now(),
+    ?line with_bif(Nbc),
+    ?line T1 = now(),
+    ?line TimeB = timer:now_diff(T1,T0),
     %%
+
     ?line List = collect(100),
     ?line {MetaR, LocalR} =
 	lists:foldl(
@@ -307,16 +327,29 @@ combo(Config) when is_list(Config) ->
 	   ?RFT(Self,{?MODULE,seq_r,4},[3,2,1]),
 	   ?RFT(Self,{?MODULE,seq_r,4},[3,2,1]),
 	   ?RFT(Self,{?MODULE,seq_r,4},[3,2,1]),
-	   ?RFT(Self,{?MODULE,seq_r,3},[3,2,1])] = Meta,
+	   ?RFT(Self,{?MODULE,seq_r,3},[3,2,1]),
+	   ?CTT(Self,{erlang,term_to_binary,[3]}), % bif
+	   ?RFT(Self,{erlang,term_to_binary,1},<<131,97,3>>),
+	   ?CTT(Self,{erlang,term_to_binary,[2]}),
+	   ?RFT(Self,{erlang,term_to_binary,1},<<131,97,2>>)
+	] = Meta,
 
     ?line [?CT(Self,{?MODULE,seq_r,[1,3,_]}),
 	   ?CT(Self,{?MODULE,seq_r,[1,3,_,[]]}),
 	   ?CT(Self,{?MODULE,seq_r,[2,3,_,[1]]}),
 	   ?CT(Self,{?MODULE,seq_r,[3,3,_,[2,1]]}),
-	   ?RT(Self,{?MODULE,combo,1})] = Local,
+	   ?RT(Self,{?MODULE,combo,1}),
+	   ?CT(Self,{erlang,term_to_binary,[3]}), % bif
+	   ?RT(Self,{?MODULE,with_bif,1}),
+	   ?CT(Self,{erlang,term_to_binary,[2]}),
+	   ?RT(Self,{?MODULE,with_bif,1})
+	] = Local,
 
     ?line ok = check_trace_info({?MODULE, seq_r, 3}, [{Self,1,0,0}], 1),
     ?line ok = check_trace_info({?MODULE, seq_r, 4}, [{Self,3,0,0}], 1),
+    ?line ok = check_trace_info({?MODULE, seq_r, 3}, [{Self,1,0,0}], 1),
+    ?line ok = check_trace_info({?MODULE, seq_r, 4}, [{Self,3,0,0}], 1),
+    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{self(), Nbc - 1, 0, 0}], TimeB),
     %%
     ?line erlang:trace_pattern({'_','_','_'}, false, [local,meta,call_time]),
     ?line erlang:trace_pattern(on_load, false, [local,meta,call_time]),
@@ -338,8 +371,8 @@ bif(Config) when is_list(Config) ->
     ?line Pid = setup(),
     ?line {L, T1} = execute(Pid, fun() -> with_bif(M) end),
 
-    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M-1, 0, 0}], T1/2),
-    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M-1, 0, 0}], T1/2),
+    ?line ok = check_trace_info({erlang, binary_to_term, 1}, [{Pid, M - 1, 0, 0}], T1/2),
+    ?line ok = check_trace_info({erlang, term_to_binary, 1}, [{Pid, M - 1, 0, 0}], T1/2),
 
     % disable term2binary
 
@@ -440,7 +473,7 @@ a_called_function(N) -> dec(N).
 
 with_bif(1) -> ok;
 with_bif(N) ->
-    with_bif(erlang:binary_to_term(erlang:term_to_binary(N - 1))).
+    with_bif(erlang:binary_to_term(erlang:term_to_binary(N)) - 1).
 
 with_nif(0) -> error;
 with_nif(1) -> ok;
