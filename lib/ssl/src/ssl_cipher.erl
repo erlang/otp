@@ -28,10 +28,11 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 -include("ssl_cipher.hrl").
+-include("ssl_alert.hrl").
 -include("ssl_debug.hrl").
 
 -export([security_parameters/2, suite_definition/1,
-	 decipher/4, cipher/4, 
+	 decipher/5, cipher/4, 
 	 suite/1, suites/1,
 	 openssl_suite/1, openssl_suite_name/1]).
 
@@ -123,7 +124,7 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
-%% Function: decipher(Method, CipherState, Mac, Data) -> 
+%% Function: decipher(Method, CipherState, Mac, Data, Version) -> 
 %%                                           {Decrypted, UpdateCipherState}
 %%
 %% Method - integer() (as defined in ssl_cipher.hrl)
@@ -133,9 +134,9 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
 %% Description: Decrypts the data and the mac using method, updating
 %% the cipher state
 %%-------------------------------------------------------------------
-decipher(?NULL, _HashSz, CipherState, Fragment) ->
+decipher(?NULL, _HashSz, CipherState, Fragment, _) ->
     {Fragment, <<>>, CipherState};
-decipher(?RC4, HashSz, CipherState, Fragment) ->
+decipher(?RC4, HashSz, CipherState, Fragment, _) ->
     ?DBG_TERM(CipherState#cipher_state.key),
     State0 = case CipherState#cipher_state.state of
                  undefined -> crypto:rc4_set_key(CipherState#cipher_state.key);
@@ -148,43 +149,47 @@ decipher(?RC4, HashSz, CipherState, Fragment) ->
     GSC = generic_stream_cipher_from_bin(T, HashSz),
     #generic_stream_cipher{content=Content, mac=Mac} = GSC,
     {Content, Mac, CipherState#cipher_state{state=State1}};
-decipher(?DES, HashSz, CipherState, Fragment) ->
+decipher(?DES, HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(Key, IV, T) ->
 			   crypto:des_cbc_decrypt(Key, IV, T)
-		   end, CipherState, HashSz, Fragment);
-%% decipher(?DES40, HashSz, CipherState, Fragment) ->
+		   end, CipherState, HashSz, Fragment, Version);
+%% decipher(?DES40, HashSz, CipherState, Fragment, Version) ->
 %%     block_decipher(fun(Key, IV, T) ->
 %% 			   crypto:des_cbc_decrypt(Key, IV, T)
-%% 		   end, CipherState, HashSz, Fragment);
-decipher(?'3DES', HashSz, CipherState, Fragment) ->
+%% 		   end, CipherState, HashSz, Fragment, Version);
+decipher(?'3DES', HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(<<K1:8/binary, K2:8/binary, K3:8/binary>>, IV, T) ->
 			   crypto:des3_cbc_decrypt(K1, K2, K3, IV, T)
-		   end, CipherState, HashSz, Fragment);
-decipher(?AES, HashSz, CipherState, Fragment) ->
+		   end, CipherState, HashSz, Fragment, Version);
+decipher(?AES, HashSz, CipherState, Fragment, Version) ->
     block_decipher(fun(Key, IV, T) when byte_size(Key) =:= 16 ->
 			   crypto:aes_cbc_128_decrypt(Key, IV, T);
 		      (Key, IV, T) when byte_size(Key) =:= 32 ->
 			   crypto:aes_cbc_256_decrypt(Key, IV, T)
-		   end, CipherState, HashSz, Fragment).
-%% decipher(?IDEA, HashSz, CipherState, Fragment) ->
+		   end, CipherState, HashSz, Fragment, Version).
+%% decipher(?IDEA, HashSz, CipherState, Fragment, Version) ->
 %%     block_decipher(fun(Key, IV, T) ->
 %%  			   crypto:idea_cbc_decrypt(Key, IV, T)
-%%  		   end, CipherState, HashSz, Fragment);
+%%  		   end, CipherState, HashSz, Fragment, Version);
 
 block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0, 
-	       HashSz, Fragment) ->
+	       HashSz, Fragment, Version) ->
     ?DBG_HEX(Key),
     ?DBG_HEX(IV),
     ?DBG_HEX(Fragment),
     T = Fun(Key, IV, Fragment),
     ?DBG_HEX(T),
     GBC = generic_block_cipher_from_bin(T, HashSz),
-    ok = check_padding(GBC),  %% TODO kolla också...
-    Content = GBC#generic_block_cipher.content,
-    Mac = GBC#generic_block_cipher.mac,
-    CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
-    {Content, Mac, CipherState1}.
-
+    case is_correct_padding(GBC, Version) of  
+	true ->
+	    Content = GBC#generic_block_cipher.content,
+	    Mac = GBC#generic_block_cipher.mac,
+	    CipherState1 = CipherState0#cipher_state{iv=next_iv(Fragment, IV)},
+	    {Content, Mac, CipherState1};
+	false ->
+	    ?ALERT_REC(?FATAL, ?BAD_RECORD_MAC)
+    end.
+	    
 %%--------------------------------------------------------------------
 %% Function: suites(Version) -> [Suite]
 %%
@@ -540,9 +545,12 @@ generic_stream_cipher_from_bin(T, HashSz) ->
     #generic_stream_cipher{content=Content,
 			   mac=Mac}.
 
-check_padding(_GBC) ->
-    ok.
+is_correct_padding(_, {3, 0}) ->
+    true; 
+is_correct_padding(#generic_block_cipher{padding_length = Len, padding = Padding}, _) ->
+    list_to_binary(lists:duplicate(Len, Len))  == Padding.
 
+										      
 get_padding(Length, BlockSize) ->
     get_padding_aux(BlockSize, Length rem BlockSize).
 
