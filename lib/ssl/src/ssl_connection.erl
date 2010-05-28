@@ -1137,6 +1137,8 @@ sync_send_all_state_event(FsmPid, Event, Timeout) ->
  	exit:{timeout, _} ->
  	    {error, timeout};
 	exit:{normal, _} ->
+	    {error, closed};
+	exit:{shutdown, _} -> 
 	    {error, closed}
     end.
 
@@ -1726,6 +1728,9 @@ opposite_role(server) ->
 send_user(Pid, Msg) ->
     Pid ! Msg.
 
+next_state(_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
+    handle_own_alert(Alert, Version, decipher_error, State),
+    {stop, normal, State};
 next_state(Next, no_record, State) ->
     {next_state, Next, State};
 
@@ -1803,8 +1808,12 @@ next_record(#state{tls_cipher_texts = [], socket = Socket} = State) ->
     {no_record, State};
 next_record(#state{tls_cipher_texts = [CT | Rest], 
 		   connection_states = ConnStates0} = State) ->
-    {Plain, ConnStates} = ssl_record:decode_cipher_text(CT, ConnStates0),
-    {Plain, State#state{tls_cipher_texts = Rest, connection_states = ConnStates}}.
+    case ssl_record:decode_cipher_text(CT, ConnStates0) of
+	{Plain, ConnStates} ->		      
+	    {Plain, State#state{tls_cipher_texts = Rest, connection_states = ConnStates}};
+	#alert{} = Alert ->
+	    {Alert, State}
+    end.
 
 next_record_if_active(State = 
 		      #state{socket_options = 
