@@ -2490,9 +2490,10 @@ Value is list (stack token-start token-type in-what)."
 	    ((looking-at "\\(of\\)[^_a-zA-Z0-9]")
 	     ;; Must handle separately, try X of -> catch
 	     (if (and stack (eq (car (car stack)) 'try))
-		 (let ((try-column (nth 2 (car stack))))
+		 (let ((try-column (nth 2 (car stack)))
+		       (try-pos (nth 1 (car stack))))
 		   (erlang-pop stack)
-		   (erlang-push (list 'icr token try-column) stack))))
+		   (erlang-push (list 'icr try-pos try-column) stack))))
 	    
 	    ((looking-at "\\(fun\\)[^_a-zA-Z0-9]")
 	     ;; Push a new layer if we are defining a `fun'
@@ -2753,7 +2754,7 @@ Return nil if inside string, t if in a comment."
            ;;
            ;; `after' should be indented to the same level as the
            ;; corresponding receive.
-           (cond ((looking-at "\\(after\\|catch\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
+           (cond ((looking-at "\\(after\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
 		  (nth 2 stack-top))
 		 ((looking-at "when[^_a-zA-Z0-9]")
 		  ;; Handling one when part
@@ -2772,7 +2773,7 @@ Return nil if inside string, t if in a comment."
 	  ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\)[^_a-zA-Z0-9]"))
 	   (nth 2 (car (cdr stack))))
           ;; Real indentation, where operators create extra indentation etc.
-          ((memq (car stack-top) '(-> || begin try))
+          ((memq (car stack-top) '(-> || try begin))
 	   (if (looking-at "\\(of\\)[^_a-zA-Z0-9]")
 	       (nth 2 stack-top)
 	     (goto-char (nth 1 stack-top))
@@ -2801,19 +2802,24 @@ Return nil if inside string, t if in a comment."
 			    (erlang-caddr (car stack))
 			  0))
 		       ((looking-at "catch\\($\\|[^_a-zA-Z0-9]\\)")
-			(if (or (eq (car stack-top) 'try)
-				(eq (car (car (cdr stack))) 'icr))
-			    (progn 
-			      (if (eq (car stack-top) '->)
-				  (erlang-pop stack))
-			      (if stack
-				  (erlang-caddr (car stack))
-				0))
-			  base)) ;; old catch 
+			;; Are we in a try
+			(let ((start (if (eq (car stack-top) '->)
+					 (car (cdr stack))
+				       stack-top)))
+			  (if (null start) nil
+			    (goto-char (nth 1 start)))
+			  (cond ((looking-at "try\\($\\|[^_a-zA-Z0-9]\\)")
+				 (progn
+				   (if (eq (car stack-top) '->)
+				       (erlang-pop stack))
+				   (if stack
+				       (erlang-caddr (car stack))
+				     0)))
+				(t (erlang-indent-standard indent-point token base 'nil))))) ;; old catch
 		       (t 
 			(erlang-indent-standard indent-point token base 'nil)
 			))))
-	       ))
+	     ))
 	  ((eq (car stack-top) 'when)
 	   (goto-char (nth 1 stack-top))
 	   (if (looking-at "when\\s *\\($\\|%\\)")

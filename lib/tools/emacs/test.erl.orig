@@ -512,7 +512,9 @@ indent_try_catch() ->
   file:close(Xfile)
  end;
 indent_try_catch() ->
- try foo(bar) of
+ try
+   foo(bar)
+ of
  X when true andalso
  kalle ->
   io:format(stdout, "Parsing file ~s, ",
@@ -570,14 +572,57 @@ indent_catch() ->
   C = catch B + 
      float(43.1),
  
-  case catch (X) of 
+  case catch foo(X) of
   A ->
  B
  end,
+
+ case
+  catch foo(X)
+ of
+ A ->
+   B
+  end,
+
+  case
+  foo(X)
+   of
+ A ->
+	  catch B,
+	  X
+   end,
+
  try sune of
-   _ -> foo
- catch _:_ -> baf
- end.
+ _ -> foo
+   catch _:_ -> baf
+   end,
+
+    try
+sune
+   of
+ _ ->
+   X = 5,
+   (catch foo(X)),
+   X + 10
+   catch _:_ -> baf
+   end,
+
+   try
+ (catch sune)
+   of
+ _ ->
+   catch foo()  %% BUGBUG can't handle catch inside try without parentheses
+   catch _:_ ->
+    baf
+   end,
+
+   try
+(catch exit())
+   catch
+_ ->
+    catch baf()
+   end,
+ ok.
 
 indent_binary() ->
   X = lists:foldr(fun(M) ->
