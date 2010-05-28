@@ -19,7 +19,8 @@
 
 {"%VSN%",	
  [
-  {"1.1.7", [{load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
+  {"1.1.8", [{restart_application, ssh}]},
+  {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},
   {"1.1.5", [{restart_application, ssh}]},
   {"1.1.4", [{restart_application, ssh}]},
@@ -27,7 +28,8 @@
   {"1.1.2", [{restart_application, ssh}]}
  ],
  [
-  {"1.1.7", [{load_module, ssh_connection_handler, soft_purge, soft_purge, []}]},
+  {"1.1.8", [{restart_application, ssh}]},
+  {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},
   {"1.1.5", [{restart_application, ssh}]},
   {"1.1.4", [{restart_application, ssh}]},

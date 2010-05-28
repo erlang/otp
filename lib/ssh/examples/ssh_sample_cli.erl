@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -30,19 +30,15 @@
 %% our command functions
 -export([cli_prime/1, cli_primes/1, cli_gcd/2, cli_lcm/2,
 	 cli_factors/1, cli_exit/0, cli_rho/1, cli_help/0,
-	 cli_crash/0, cli_users/0, cli_self/0,
-	 cli_user/0, cli_host/0]).
-
-%% imports
--import(lists, [reverse/1, reverse/2, seq/2, prefix/2]).
--import(math, [sqrt/1]).
-
+	 cli_crash/0, cli_self/0, cli_user/0, cli_host/0]).
 
 listen(Port) ->
     listen(Port, []).
 
 listen(Port, Options) ->
-    ssh_cli:listen(fun(U, H) -> start_our_shell(U, H) end, Port, Options).
+    crypto:start(),
+    ssh:start(),
+    ssh:daemon(any, Port, [{shell, fun(U, H) -> start_our_shell(U, H) end} | Options]).
 
 %% our_routines
 our_routines() ->
@@ -56,7 +52,6 @@ our_routines() ->
      {"prime", cli_prime,    "<int>       check for primality"},
      {"primes", cli_primes,  "<int>       print all primes up to <int>"},
      {"rho", cli_rho,        "<int>       prime factors using rho's alg."},
-     {"who",  cli_users,     "            lists users"},
      {"user", cli_user,      "            print name of user"},
      {"host", cli_host,      "            print host addr"},
      {"self", cli_self,      "            print my pid"}
@@ -85,11 +80,11 @@ our_routines() ->
 common_prefix([C | R1], [C | R2], Acc) ->
     common_prefix(R1, R2, [C | Acc]);
 common_prefix(_, _, Acc) ->
-    reverse(Acc).
+    lists:reverse(Acc).
 
 %% longest prefix in a list, given a prefix
 longest_prefix(List, Prefix) ->
-    case [A || {A, _, _} <- List, prefix(Prefix, A)] of
+    case [A || {A, _, _} <- List, lists:prefix(Prefix, A)] of
 	[] ->
 	    {none, List};
 	[S | Rest] ->
@@ -112,7 +107,7 @@ longest_prefix(List, Prefix) ->
 expand([$  | _]) ->
     {no, "", []};
 expand(RevBefore) ->    
-    Before = reverse(RevBefore),
+    Before = lists:reverse(RevBefore),
     case longest_prefix(our_routines(), Before) of
 	{prefix, P, [_]} ->
 	    {yes, P ++ " ", []};
@@ -139,22 +134,27 @@ start_our_shell(User, Peer) ->
 %%% an ordinary Read-Eval-Print-loop
 our_shell_loop() ->
     % Read
-    Line = io:get_line({format, "CLI> ", []}),
+    Line = io:get_line("CLI> "),
     % Eval
     Result = eval_cli(Line),
     % Print
     io:format("---> ~p\n", [Result]),
     case Result of
-	done -> exit(normal);
-	crash -> 1 / 0;
-	_ -> our_shell_loop()
+	done -> 
+	    exit(normal);
+	crash -> 
+	    1 / 0;
+	_ -> 
+	    our_shell_loop()
     end.
 
 %%% translate a command to a function
 command_to_function(Command) ->
     case lists:keysearch(Command, 1, our_routines()) of
-	{value, {_, Proc, _}} -> Proc;
-	false -> unknown_cli
+	{value, {_, Proc, _}} -> 
+	    Proc;
+	false -> 
+	    unknown_cli
     end.
 
 %%% evaluate a command line
@@ -209,14 +209,6 @@ cli_user() ->
 cli_host() ->
     get(peer_name).
 
-cli_users() ->
-    case ssh_userauth:get_auth_users() of
-	{ok, UsersPids} ->
-	    UsersPids; % [U || {U, _} <- UsersPids];
-	E ->
-	    E
-    end.
-
 cli_self() ->
     self().
 
@@ -243,7 +235,7 @@ cli_help() ->
 
 %% a quite simple Sieve of Erastothenes (not tail-recursive, though)
 primes(Size) ->
-    era(sqrt(Size), seq(2,Size)).
+    era(math:sqrt(Size), lists:seq(2,Size)).
 
 era(Max, [H|T]) when H =< Max ->
     [H | era(Max, sieve([H|T], H))];
@@ -267,7 +259,7 @@ next_prime(Primes, P) ->
 
 next_prime1(Primes, P) ->
     P1 = P + 2,
-    case divides(Primes, trunc(sqrt(P1)), P1) of
+    case divides(Primes, trunc(math:sqrt(P1)), P1) of
 	false -> P1;
 	true -> next_prime1(Primes, P1)
     end.
@@ -282,7 +274,7 @@ divides([_ | R], Nsqrt, N) ->
     divides(R, Nsqrt, N).
 
 is_prime(P) ->
-    lists:all(fun(A) -> P rem A =/= 0 end, primes(trunc(sqrt(P)))).
+    lists:all(fun(A) -> P rem A =/= 0 end, primes(trunc(math:sqrt(P)))).
 
 %% Normal gcd, Euclid
 gcd(R, Q) when abs(Q) < abs(R) -> gcd1(Q,R);
@@ -300,17 +292,17 @@ lcm(R, Q) ->
 
 %%% Prime factors of a number (naïve implementation)
 factors(N) ->
-    Nsqrt = trunc(sqrt(N)),
+    Nsqrt = trunc(math:sqrt(N)),
     factors([], N, 2, Nsqrt, []).
     
 factors(_Primes, N, Prime, Nsqrt, Factors) when Prime > Nsqrt ->
-    reverse(Factors, [N]);
+    lists:reverse(Factors, [N]);
 factors(Primes, N, Prime, Nsqrt, Factors) ->
     case N rem Prime of
 	0 ->
 	    %%io:format("factor ------- ~p\n", [Prime]),
 	    N1 = N div Prime,
-	    factors(Primes, N1, Prime, trunc(sqrt(N1)), [Prime|Factors]);
+	    factors(Primes, N1, Prime, trunc(math:sqrt(N1)), [Prime|Factors]);
 	_ ->
 	    Primes1 = Primes ++ [Prime],
 	    Prime1 = next_prime(Primes1, Prime),

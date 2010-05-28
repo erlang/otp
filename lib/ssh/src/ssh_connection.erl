@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -123,6 +123,8 @@ send(ConnectionManager, ChannelId, Data) ->
     send(ConnectionManager, ChannelId, 0, Data, infinity).
 send(ConnectionManager, ChannelId, Data, TimeOut) when is_integer(TimeOut) ->
     send(ConnectionManager, ChannelId, 0, Data, TimeOut);
+send(ConnectionManager, ChannelId, Data, infinity) ->
+    send(ConnectionManager, ChannelId, 0, Data, infinity);
 send(ConnectionManager, ChannelId, Type, Data) ->
     send(ConnectionManager, ChannelId, Type, Data, infinity).
 send(ConnectionManager, ChannelId, Type, Data, TimeOut) ->
@@ -944,13 +946,12 @@ encode_ip(Addr) when is_list(Addr) ->
 	    end
     end.
 
-start_channel(Address, Port, Cb, Id, Args) ->
-    start_channel(Address, Port, Cb, Id, Args, undefined).
+start_channel(Cb, Id, Args, SubSysSup) ->
+    start_channel(Cb, Id, Args, SubSysSup, undefined).
 
-start_channel(Address, Port, Cb, Id, Args, Exec) ->
+start_channel(Cb, Id, Args, SubSysSup, Exec) ->
     ChildSpec = child_spec(Cb, Id, Args, Exec),
-    SystemSup = ssh_system_sup:system_supervisor(Address, Port),
-    ChannelSup = ssh_system_sup:channel_supervisor(SystemSup),
+    ChannelSup =ssh_subsystem_sup:channel_supervisor(SubSysSup),
     ssh_channel_sup:start_child(ChannelSup, ChildSpec).
     
 %%--------------------------------------------------------------------
@@ -1015,18 +1016,19 @@ start_cli(#connection{address = Address, port = Port, cli_spec = {Fun, [Shell]},
 	    {ok, Pid}
     end;
 
-start_cli(#connection{address = Address, port = Port,
-		      cli_spec = {CbModule, Args}, exec = Exec}, ChannelId) ->
-    start_channel(Address, Port, CbModule, ChannelId, Args, Exec).
+start_cli(#connection{cli_spec = {CbModule, Args}, exec = Exec,
+		      sub_system_supervisor = SubSysSup}, ChannelId) ->
+    start_channel(CbModule, ChannelId, Args, SubSysSup, Exec).
 
 start_subsytem(BinName, #connection{address = Address, port = Port, 
-				    options = Options},
+				    options = Options, 
+				    sub_system_supervisor = SubSysSup},
 	       #channel{local_id = ChannelId, remote_id = RemoteChannelId},
 	       ReplyMsg) ->
     Name = binary_to_list(BinName),
     case check_subsystem(Name, Options) of
 	{Callback, Opts} when is_atom(Callback), Callback =/= none ->
-	    start_channel(Address, Port, Callback, ChannelId, Opts);
+	    start_channel(Callback, ChannelId, Opts, SubSysSup);
 	{Other, _} when Other =/= none ->
 	    handle_backwards_compatibility(Other, self(), 
 					   ChannelId, RemoteChannelId,
