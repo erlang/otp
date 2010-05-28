@@ -42,11 +42,14 @@
 
 -export([i/0, i/1, i/2, i/3]).
 
--export_type([tab/0]).
+-export_type([tab/0, tid/0]).
 
-%%------------------------------------------------------------------------------
+%%-----------------------------------------------------------------------------
 
 -type tab()        :: atom() | tid().
+
+%% a similar definition is also in erl_types
+-opaque tid()      :: integer().
 
 -type ext_info()   :: 'md5sum' | 'object_count'.
 -type protection() :: 'private' | 'protected' | 'public'.
@@ -65,7 +68,7 @@
 -type match_pattern() :: atom() | tuple().
 -type match_specs()   :: [{match_pattern(), [_], [_]}].
 
-%%------------------------------------------------------------------------------
+%%-----------------------------------------------------------------------------
 
 %% The following functions used to be found in this module, but
 %% are now BIFs (i.e. implemented in C).

@@ -18,11 +18,7 @@
 %%
 -module(dbg_iload).
 
-%% External exports
 -export([load_mod/4]).
-
-%% Internal exports
--export([load_mod1/4]).
 
 %%====================================================================
 %% External exports
@@ -36,28 +32,28 @@
 %%   Db = ETS identifier
 %% Load a new module into the database.
 %%
-%% We want the loading of a module to be syncronous  so no other
+%% We want the loading of a module to be synchronous so that no other
 %% process tries to interpret code in a module not being completely
 %% loaded. This is achieved as this function is called from
 %% dbg_iserver. We are suspended until the module has been loaded.
 %%--------------------------------------------------------------------
+-spec load_mod(Mod, file:filename(), binary(), ets:tid()) ->
+        {'ok', Mod} when is_subtype(Mod, atom()).
+
 load_mod(Mod, File, Binary, Db) ->
     Flag = process_flag(trap_exit, true),
-    Pid = spawn_link(?MODULE, load_mod1, [Mod, File, Binary, Db]),
+    Pid = spawn_link(fun () -> load_mod1(Mod, File, Binary, Db) end),
     receive
 	{'EXIT', Pid, What} ->
 	    process_flag(trap_exit, Flag),
 	    What
     end.
 
-%%====================================================================
-%% Internal exports
-%%====================================================================
+-spec load_mod1(atom(), file:filename(), binary(), ets:tid()) -> no_return().
 
 load_mod1(Mod, File, Binary, Db) ->
     store_module(Mod, File, Binary, Db),
     exit({ok, Mod}).
-
 
 %%====================================================================
 %% Internal functions
@@ -84,7 +80,7 @@ store_module(Mod, File, Binary, Db) ->
     Attr = store_forms(Forms, Mod, Db, Exp, []),
     erase(mod_md5),
     erase(current_function),
-%    store_funs(Db, Mod),
+    %% store_funs(Db, Mod),
     erase(vcount),
     erase(funs),
     erase(fun_count),
