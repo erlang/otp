@@ -1042,7 +1042,8 @@ static int set_function_break(Module *modp, BeamInstr *pc, int bif,
 	       *pc == (BeamInstr) BeamOp(op_i_mtrace_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_debug_breakpoint) ||
 	       *pc == (BeamInstr) BeamOp(op_i_time_breakpoint) ||
-	       *pc == (BeamInstr) BeamOp(op_i_count_breakpoint));
+	       *pc == (BeamInstr) BeamOp(op_i_count_breakpoint) ||
+	       *pc == (BeamInstr) em_apply_bif);
 	if (*pc == (BeamInstr) BeamOp(op_i_debug_breakpoint)) {
 	    /* Debug bp must be last, so if it is also first; 
 	     * it must be singleton. */
