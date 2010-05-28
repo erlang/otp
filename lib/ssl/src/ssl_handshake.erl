@@ -143,7 +143,7 @@ hello(#server_hello{cipher_suite = CipherSuite, server_version = Version,
 	    end;
 	false ->
 	    ?ALERT_REC(?FATAL, ?PROTOCOL_VERSION)
-    end.
+    end;
 			       
 hello(#client_hello{client_version = ClientVersion, random = Random,
 		    cipher_suites = CipherSuites,
