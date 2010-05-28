@@ -1286,7 +1286,6 @@ server_hello(ServerHello, #state{transport_cb = Transport,
                                  tls_handshake_hashes = Hashes0} = State) ->
     CipherSuite = ServerHello#server_hello.cipher_suite,
     {KeyAlgorithm, _, _} = ssl_cipher:suite_definition(CipherSuite),
-    %% Version = ServerHello#server_hello.server_version, TODO ska kontrolleras
     {BinMsg, ConnectionStates1, Hashes1} = 
         encode_handshake(ServerHello, Version, ConnectionStates0, Hashes0),
     Transport:send(Socket, BinMsg),

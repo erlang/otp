@@ -2129,9 +2129,7 @@ server_require_peer_cert_fail(Config) when is_list(Config) ->
 					      {options, [{active, false} | BadClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, esslaccept},
-			      Client, {error, esslconnect}),
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+			      Client, {error, esslconnect}).
 
 %%--------------------------------------------------------------------
 
@@ -2648,11 +2646,8 @@ invalid_signature_server(Config) when is_list(Config) ->
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
-			      Client, {error,"bad certificate"}),
+			      Client, {error,"bad certificate"}).
     
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
 %%--------------------------------------------------------------------
 
 invalid_signature_client(doc) -> 
@@ -2691,10 +2686,7 @@ invalid_signature_client(Config) when is_list(Config) ->
 					{options, NewClientOpts}]),
     
     ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
-			      Client, {error,"bad certificate"}),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
+			      Client, {error,"bad certificate"}).
 
 %%--------------------------------------------------------------------
 cert_expired(doc) -> 
@@ -2754,11 +2746,7 @@ cert_expired(Config) when is_list(Config) ->
 					      {options, [{verify, verify_peer} | ClientOpts]}]),
     
     ssl_test_lib:check_result(Server, {error, "certificate expired"}, 
-			      Client, {error, "certificate expired"}),
-    
-    ssl_test_lib:close(Server),
-    ssl_test_lib:close(Client).
-
+			      Client, {error, "certificate expired"}).
 
 two_digits_str(N) when N < 10 ->
     lists:flatten(io_lib:format("0~p", [N]));
