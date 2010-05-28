@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -37,15 +37,15 @@
 
 -export([format_error/1]).
 
--import(lists, 
+-import(lists,
 	[concat/1, foldl/3, nthtail/2, reverse/1, sort/1, sublist/2]).
 
 -import(sofs,
 	[composite/2, difference/2, empty_set/0, from_term/1,
 	 intersection/2, is_empty_set/1, multiple_relative_product/2,
 	 projection/2, relation/1, relation_to_family/1,
-	 restriction/2, substitution/2, to_external/1, union/2,
-	 union_of_family/1]).
+	 restriction/2, specification/2, substitution/2,
+	 to_external/1, union/2, union_of_family/1]).
 
 %%
 %%  Exported functions
@@ -75,7 +75,7 @@ compile(Chars, Table) ->
 	{error, Info, Line} ->
 	    error({parse_error, Line, Info})
     end.
-    
+
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({parse_error, Line, Error}) ->
@@ -115,7 +115,7 @@ statements([Stmt={assign, VarType, Name, E} | Stmts0], Table, L, UV) ->
 	    throw_error({variable_reassigned, xref_parser:t2s(Stmt)});
 	error ->
 	    {Type, OType, NewE} = t_expr(E, Table),
-	    Val = #xref_var{name = Name, vtype = VarType, 
+	    Val = #xref_var{name = Name, vtype = VarType,
 			    otype = OType, type = Type},
 	    NewTable = dict:store(Name, Val, Table),
 	    Stmts = if Stmts0 =:= [] -> [{variable, Name}]; true -> Stmts0 end,
@@ -128,9 +128,9 @@ statements([Expr], Table, L, UV) ->
     E1 = un_familiarize(Type, OType, NewE),
     NE = case {Type, OType} of
 	     %% Edges with empty sets of line numbers are removed.
-	     {{line, _}, edge} -> 
+	     {{line, _}, edge} ->
 		 {relation_to_family, E1};
-	     {_Type, edge_closure} -> 
+	     {_Type, edge_closure} ->
 		 %% Fake a closure usage, just to make sure it is destroyed.
 		 E2 = {fun graph_access/2, E1, E1},
                  {fun(_E) -> 'closure()' end, E2};
@@ -163,7 +163,7 @@ t_expr(E, Table) ->
 %%% Constant = atom() | {atom(), atom()} | MFA | {MFA, MFA}
 %%% Call = atom() % function in the sofs module
 %%%      | fun()
-%%% Type = {line, LineType} | function | module | application | release 
+%%% Type = {line, LineType} | function | module | application | release
 %%%      | number
 %%% LineType = line | local_call | external_call | export_call | all_line_call
 %%% VarType = predef | user | tmp
@@ -182,7 +182,7 @@ check_expr({variable, Name}, Table) ->
     case dict:find(Name, Table) of
 	{ok, #xref_var{vtype = VarType, otype = OType, type = Type}} ->
 	    V0 = {variable, {VarType, Name}},
-	    V = case {VarType, Type, OType} of 
+	    V = case {VarType, Type, OType} of
 		    {predef, release, _} -> V0;
 		    {predef, application, _} -> V0;
 		    {predef, module, _} -> V0;
@@ -212,7 +212,7 @@ check_expr(Expr={set, SOp, E}, Table) ->
 		{edge_set, domain} -> vertex_set;
 		{edge_set, weak} -> edge_set;
 		{edge_set, strict} -> edge_set;
-		_ -> 
+		_ ->
 		    throw_error({type_error, xref_parser:t2s(Expr)})
 	    end,
     Op = set_op(SOp),
@@ -223,10 +223,10 @@ check_expr(Expr={graph, Op, E}, Table) ->
     case Type of
 	{line, _LineType} ->
 	    throw_error({type_error, xref_parser:t2s(Expr)});
-	_Else -> 
+	_Else ->
 	    ok
     end,
-    OType = 
+    OType =
 	case {NOType, Op} of
 	    {edge, components} -> vertex_set;
 	    {edge, condensation} -> edge_set;
@@ -237,7 +237,7 @@ check_expr(Expr={graph, Op, E}, Table) ->
 	    %% Neither need nor want these ones:
 	    %% {edge_set, closure} -> edge_set_closure;
 	    %% {edge_set, components} -> vertex_set_set;
-	    _ -> 
+	    _ ->
 		throw_error({type_error, xref_parser:t2s(Expr)})
 	end,
     E2 = {convert, NOType, edge_closure, E1},
@@ -271,10 +271,10 @@ check_expr(Expr={set, SOp, E1, E2}, Table) ->
 	number ->
 	    {expr, number, number, {call, ari_op(SOp), NE1, NE2}};
 	_Else -> % set
-	    {Type, NewE1, NewE2} = 
+	    {Type, NewE1, NewE2} =
 		case {type_ord(Type1), type_ord(Type2)} of
 		    {T1, T2} when T1 =:= T2 ->
-			%% Example: if Type1 = {line, line} and 
+			%% Example: if Type1 = {line, line} and
 			%% Type2 = {line, export_line}, then this is not
 			%% correct, but works:
 			{Type1, NE1, NE2};
@@ -296,7 +296,7 @@ check_expr(Expr={restr, ROp, E1, E2}, Table) ->
 	    throw_error({type_error, xref_parser:t2s(Expr)});
 	{_Type1, {line, _LineType2}} ->
 	    throw_error({type_error, xref_parser:t2s(Expr)});
-	_ -> 
+	_ ->
 	    ok
     end,
     case {OType1, OType2} of
@@ -307,14 +307,14 @@ check_expr(Expr={restr, ROp, E1, E2}, Table) ->
 	{edge, vertex} ->
 	    restriction(ROp, E1, Type1, NE1, Type2, NE2);
 	{edge_closure, vertex} when ROp =:= '|||' ->
-	    {expr, _, _, R1} = 
+	    {expr, _, _, R1} =
 		closure_restriction('|', Type1, Type2, OType2, NE1, NE2),
-	    {expr, _, _, R2} = 
+	    {expr, _, _, R2} =
 		closure_restriction('||', Type1, Type2, OType2, NE1, NE2),
 	    {expr, Type1, edge, {call, intersection, R1, R2}};
-	{edge_closure, vertex} -> 
+	{edge_closure, vertex} ->
 	    closure_restriction(ROp, Type1, Type2, OType2, NE1, NE2);
-	_ -> 
+	_ ->
 	    throw_error({type_error, xref_parser:t2s(Expr)})
     end;
 check_expr(Expr={path, E1, E2}, Table) ->
@@ -330,7 +330,7 @@ check_expr(Expr={path, E1, E2}, Table) ->
     end,
     E2b = {convert, OType2, Type2, Type1, E2a},
     {OType1, NE1} = path_arg(OType1a, E1a),
-    NE2 = case {OType1, OType2} of 
+    NE2 = case {OType1, OType2} of
 	      {path, edge} -> {convert, OType2, edge_closure, E2b};
 	      {path, edge_closure} when Type1 =:= Type2 -> E2b;
 	      _ -> throw_error({type_error, xref_parser:t2s(Expr)})
@@ -347,7 +347,7 @@ check_expr({regexpr, RExpr, Type0}, _Table) ->
 	    release -> 'R'
 	end,
     Var = {variable, {predef, V}},
-    Call = {call, fun(E, V2) -> xref_utils:regexpr(E, V2) end, 
+    Call = {call, fun(E, V2) -> xref_utils:regexpr(E, V2) end,
 	    {constants, RExpr}, Var},
     {expr, Type, vertex, Call};
 check_expr(C={constant, _Type, _OType, _C}, Table) ->
@@ -368,15 +368,15 @@ check_conversion(OType, Type1, Type2, Expr) ->
     end.
 
 %% Allowed conversions.
-conversions(_OType, {line, LineType}, {line, LineType}) -> ok; 
+conversions(_OType, {line, LineType}, {line, LineType}) -> ok;
 conversions(edge, {line, _}, {line, all_line_call}) -> ok;
-conversions(edge, From, {line, Line}) 
+conversions(edge, From, {line, Line})
                  when is_atom(From), Line =/= all_line_call -> ok;
 conversions(vertex, From, {line, line}) when is_atom(From) -> ok;
 conversions(vertex, From, To) when is_atom(From), is_atom(To) -> ok;
 conversions(edge, From, To) when is_atom(From), is_atom(To) -> ok;
 %% "Extra":
-conversions(edge, {line, Line}, To) 
+conversions(edge, {line, Line}, To)
                  when is_atom(To), Line =/= all_line_call -> ok;
 conversions(vertex, {line, line}, To) when is_atom(To) -> ok;
 conversions(_OType, _From, _To) -> not_ok.
@@ -399,7 +399,7 @@ ari_op(difference) -> fun(X, Y) -> X - Y end.
 
 restriction(ROp, E1, Type1, NE1, Type2, NE2) ->
     {Column, _} = restr_op(ROp),
-    case NE1 of 
+    case NE1 of
 	{call, union_of_family, _E} when ROp =:= '|' ->
 	    restriction(Column, Type1, E1, Type2, NE2);
 	{call, union_of_family, _E} when ROp =:= '||' ->
@@ -455,8 +455,8 @@ check_constants(Cs=[C={constant, Type0, OType, _Con} | Cs1], Table) ->
 	    E = function_vertices_to_family(Type, OType, {constants, S}),
 	    {expr, Type, OType, E};
 	[{Type1, [C1|_]}, {Type2, [C2|_]} | _] ->
-	    throw_error({type_mismatch, 
-			 make_vertex(Type1, C1), 
+	    throw_error({type_mismatch,
+			 make_vertex(Type1, C1),
 			 make_vertex(Type2, C2)})
     end.
 
@@ -467,7 +467,7 @@ check_mix([C={constant, Type, OType, _Con} | Cs], Type0, OType, _C0)
     check_mix(Cs, Type, OType, C);
 check_mix([C | _], _Type0, _OType0, C0) ->
     throw_error({type_mismatch, xref_parser:t2s(C0), xref_parser:t2s(C)});
-check_mix([], _Type0, _OType0, _C0) -> 
+check_mix([], _Type0, _OType0, _C0) ->
     ok.
 
 split(Types, Cs, Table) ->
@@ -478,11 +478,11 @@ split([Type | Types], Vs, AllSoFar, _Type, Table, L) ->
     S0 = known_vertices(Type, Vs, Table),
     S = difference(S0, AllSoFar),
     case is_empty_set(S) of
-	true -> 
+	true ->
 	    split(Types, Vs, AllSoFar, Type, Table, L);
-	false -> 
+	false ->
 	    All = union(AllSoFar, S0),
-	    split(Types, Vs, All, Type, Table, 
+	    split(Types, Vs, All, Type, Table,
 		  [{Type, to_external(S)} | L])
     end;
 split([], Vs, All, Type, _Table, L) ->
@@ -491,7 +491,7 @@ split([], Vs, All, Type, _Table, L) ->
 	[C|_] -> throw_error({unknown_constant, make_vertex(Type, C)})
     end.
 
-make_vertex(Type, C) -> 
+make_vertex(Type, C) ->
     xref_parser:t2s({constant, Type, vertex, C}).
 
 constant_vertices([{constant, _Type, edge, {A,B}} | Cs], L) ->
@@ -504,13 +504,18 @@ constant_vertices([], L) ->
 known_vertices('Fun', Cs, T) ->
     M = projection(1, Cs),
     F = union_of_family(restriction(fetch_value(v, T), M)),
-    intersection(Cs, F);
+    union(bifs(Cs), intersection(Cs, F));
 known_vertices('Mod', Cs, T) ->
     intersection(Cs, fetch_value('M', T));
 known_vertices('App', Cs, T) ->
     intersection(Cs, fetch_value('A', T));
 known_vertices('Rel', Cs, T) ->
     intersection(Cs, fetch_value('R', T)).
+
+bifs(Cs) ->
+    specification({external,
+                   fun({M,F,A}) -> xref_utils:is_builtin(M, F, A) end},
+                  Cs).
 
 function_vertices_to_family(function, vertex, E) ->
     {call, partition_family, 1, E};
@@ -567,11 +572,11 @@ convert(E, OType, FromType, ToType) ->
 
 general(_ObjectType, FromType, ToType, X) when FromType =:= ToType ->
     X;
-general(edge, {line, _LineType}, ToType, LEs) -> 
+general(edge, {line, _LineType}, ToType, LEs) ->
     VEs = {projection, ?Q({external, fun({V1V2,_Ls}) -> V1V2 end}), LEs},
     general(edge, function, ToType, VEs);
 general(edge, function, ToType, VEs) ->
-    MEs = {projection, 
+    MEs = {projection,
 	   ?Q({external, fun({{M1,_,_},{M2,_,_}}) -> {M1,M2} end}),
 	   VEs},
     general(edge, module, ToType, MEs);
@@ -580,7 +585,7 @@ general(edge, module, ToType, MEs) ->
     general(edge, application, ToType, AEs);
 general(edge, application, release, AEs) ->
     {image, {get, ae}, AEs};
-general(vertex, {line, _LineType}, ToType, L) -> 
+general(vertex, {line, _LineType}, ToType, L) ->
     V = {partition_family, ?Q(1), {domain, L}},
     general(vertex, function, ToType, V);
 general(vertex, function, ToType, V) ->
@@ -595,18 +600,18 @@ general(vertex, application, release, A) ->
 special(_ObjectType, FromType, ToType, X) when FromType =:= ToType ->
     X;
 special(edge, {line, _LineType}, {line, all_line_call}, Calls) ->
-   {put, ?T(mods), 
-       {projection, 
-	?Q({external, fun({{{M1,_,_},{M2,_,_}},_}) -> {M1,M2} end}), 
+   {put, ?T(mods),
+       {projection,
+	?Q({external, fun({{{M1,_,_},{M2,_,_}},_}) -> {M1,M2} end}),
 	Calls},
-       {put, ?T(def_at), 
+       {put, ?T(def_at),
            {union, {image, {get, def_at},
-                           {union, {domain, {get, ?T(mods)}}, 
+                           {union, {domain, {get, ?T(mods)}},
                                    {range, {get, ?T(mods)}}}}},
            {fun funs_to_lines/2,
 	           {get, ?T(def_at)}, Calls}}};
 special(edge, function, {line, LineType}, VEs) ->
-    Var = if 
+    Var = if
 	      LineType =:= line -> call_at;
 	      LineType =:= export_call -> e_call_at;
 	      LineType =:= local_call -> l_call_at;
@@ -615,9 +620,9 @@ special(edge, function, {line, LineType}, VEs) ->
     line_edges(VEs, Var);
 special(edge, module, ToType, MEs) ->
     VEs = {image,
-	   {projection, 
+	   {projection,
 	    ?Q({external, fun(FE={{M1,_,_},{M2,_,_}}) -> {{M1,M2},FE} end}),
-	    {union, 
+	    {union,
 	     {image, {get, e},
 	      {projection, ?Q({external, fun({M1,_M2}) -> M1 end}), MEs}}}},
 	   MEs},
@@ -629,7 +634,7 @@ special(edge, release, ToType, REs) ->
     AEs = {inverse_image, {get, ae}, REs},
     special(edge, application, ToType, AEs);
 special(vertex, function, {line, _LineType}, V) ->
-    {restriction, 
+    {restriction,
        {union_of_family, {restriction, {get, def_at}, {domain, V}}},
        {union_of_family, V}};
 special(vertex, module, ToType, M) ->
@@ -643,15 +648,15 @@ special(vertex, release, ToType, R) ->
     special(vertex, application, ToType, A).
 
 line_edges(VEs, CallAt) ->
-    {put, ?T(ves), VEs, 
-        {put, ?T(m1), 
-             {projection, ?Q({external, fun({{M1,_,_},_}) -> M1 end}), 
+    {put, ?T(ves), VEs,
+        {put, ?T(m1),
+             {projection, ?Q({external, fun({{M1,_,_},_}) -> M1 end}),
 	      {get, ?T(ves)}},
 	     {image, {projection, ?Q({external, fun(C={VV,_L}) -> {VV,C} end}),
 		      {union, {image, {get, CallAt}, {get, ?T(m1)}}}},
 		     {get, ?T(ves)}}}}.
 
-%% {(((v1,l1),(v2,l2)),l) : 
+%% {(((v1,l1),(v2,l2)),l) :
 %%       (v1,l1) in DefAt and (v2,l2) in DefAt and ((v1,v2),L) in CallAt}
 funs_to_lines(DefAt, CallAt) ->
     T1 = multiple_relative_product({DefAt, DefAt}, projection(1, CallAt)),
@@ -765,7 +770,7 @@ save_vars([], _D, Vs, UVs, L) ->
 
 %% Traverses the expression again, this time using more or less the
 %% inverse of the table created by find_nodes. The first time a node
-%% is visited, its children are traversed, the following times a 
+%% is visited, its children are traversed, the following times a
 %% get instructions are inserted (using the saved value).
 make_instructions(N, UserVars, D) ->
     {D1, Is0} = make_instrs(N, D, []),
@@ -777,9 +782,9 @@ make_instructions(N, UserVars, D) ->
 
 make_more_instrs([UV | UVs], D, Is) ->
     case dict:find(UV, D) of
-	error -> 
+	error ->
 	    make_more_instrs(UVs, D, Is);
-	_Else -> 
+	_Else ->
 	    {ND, NIs} = make_instrs(UV, D, Is),
 	    make_more_instrs(UVs, ND, [pop | NIs])
     end;
@@ -844,17 +849,17 @@ evaluate([{quote, Val} | P], T, S) ->
     evaluate(P, T, [Val | S]);
 evaluate([{get, Var} | P], T, S) when is_atom(Var) -> % predefined
     Value = fetch_value(Var, T),
-    Val = case Value of 
+    Val = case Value of
 	      {R, _} -> R; % relation
 	      _ -> Value   % simple set
 	  end,
-    evaluate(P, T, [Val | S]);    
+    evaluate(P, T, [Val | S]);
 evaluate([{get, {inverse, Var}} | P], T, S) -> % predefined, inverse
     {_, R} = fetch_value(Var, T),
-    evaluate(P, T, [R | S]);    
+    evaluate(P, T, [R | S]);
 evaluate([{get, {user, Var}} | P], T, S) ->
     Val = fetch_value(Var, T),
-    evaluate(P, T, [Val | S]);    
+    evaluate(P, T, [Val | S]);
 evaluate([{get, Var} | P], T, S) -> % tmp
     evaluate(P, T, [dict:fetch(Var, T) | S]);
 evaluate([{save, Var={tmp, _}} | P], T, S=[Val | _]) ->
@@ -862,7 +867,7 @@ evaluate([{save, Var={tmp, _}} | P], T, S=[Val | _]) ->
     evaluate(P, dict:store(Var, Val, T1), S);
 evaluate([{save, {user, Name}} | P], T, S=[Val | _]) ->
     #xref_var{vtype = user, otype = OType, type = Type} = dict:fetch(Name, T),
-    NewVar = #xref_var{name = Name, value = Val, 
+    NewVar = #xref_var{name = Name, value = Val,
 		       vtype = user, otype = OType, type = Type},
     T1 = update_graph_counter(Val, +1, T),
     NT = dict:store(Name, NewVar, T1),
@@ -889,7 +894,7 @@ update_graph_counter(Value, Inc, T) ->
 		error when Inc =:= 1 ->
 		    dict:store(Value, 1, T)
 	    end;
-	_EXIT -> 
+	_EXIT ->
 	    T
     end.
 

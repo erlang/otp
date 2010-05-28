@@ -106,13 +106,13 @@ funfuns() ->
     apply(m,f,a), % {m,f,-1}
     3(a), % {'$M_EXPR','$F_EXPR',1}
     apply(3,[a]), % {'$M_EXPR','$F_EXPR',1}
-    
+
     %% POS12=POS11+8
     apply(A, A), % number of arguments is not known, {'$M_EXPR','$F_EXPR',-1}
     Args0 = [list],
     Args = [a | Args0], % number of arguments is known
     apply(A, Args), % {'$M_EXPR','$F_EXPR',2}
-    apply(m3, f3, Args), % 
+    apply(m3, f3, Args), %
     NotArgs = [is_not, a | list], % number of arguments is not known
     apply(A, NotArgs), % {'$M_EXPR','$F_EXPR',-1}
     apply(m4, f4, NotArgs), % {m4,f4,-1}
@@ -125,7 +125,7 @@ funfuns() ->
 bi() when length([]) > 17 ->
     foo:module_info(),
     module_info(),
-    A = tjo,
+    A = true andalso tjo ,
     t:foo(A),
     case true of
 	true when integer(1) ->
@@ -133,7 +133,7 @@ bi() when length([]) > 17 ->
 	false ->
 	    X = flopp
     end,
-    X == A;
+    self() ! X == -A orelse false;
 bi() ->
     %% POS14=POS13+18
     Z = fun(Y) -> Y end,
@@ -159,7 +159,7 @@ bi() ->
     D + E + F.
 %bi() ->
 %    %% POS15=POS14+13
-%    try 
+%    try
 %       foo:t(),
 %       bar:t()
 %    of
@@ -169,7 +169,7 @@ bi() ->
 %             foo:t()
 %    catch
 %       {'EXIT',_} -> bar:t()
-%    end.                 
+%    end.
 
 local() ->
     true.

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(xref_reader).
@@ -22,7 +22,7 @@
 
 -import(lists, [keysearch/3, member/2, reverse/1]).
 
--record(xrefr, 
+-record(xrefr,
 	{module=[],
 	 function=[],
 	 def_at=[],
@@ -59,15 +59,15 @@
 module(Module, Forms, CollectBuiltins, X, DF) ->
     Attrs = [{Attr,V} || {attribute,_Line,Attr,V} <- Forms],
     IsAbstract = xref_utils:is_abstract_module(Attrs),
-    S = #xrefr{module = Module, builtins_too = CollectBuiltins, 
+    S = #xrefr{module = Module, builtins_too = CollectBuiltins,
                is_abstr = IsAbstract, x = X, df = DF},
     forms(Forms, S).
 
 forms([F | Fs], S) ->
     S1 = form(F, S),
     forms(Fs, S1);
-forms([], S) -> 
-    #xrefr{module = M, def_at = DefAt, 
+forms([], S) ->
+    #xrefr{module = M, def_at = DefAt,
 	   l_call_at = LCallAt, x_call_at = XCallAt,
 	   el = LC, ex = XC, x = X, df = Depr,
 	   lattrs = AL, xattrs = AX, battrs = B, unresolved = U} = S,
@@ -75,7 +75,7 @@ forms([], S) ->
     {ok, M, {DefAt, LCallAt, XCallAt, LC, XC, X, Attrs, Depr}, U}.
 
 form({attribute, Line, xref, Calls}, S) -> % experimental
-    #xrefr{module = M, function = Fun, 
+    #xrefr{module = M, function = Fun,
 	   lattrs = L, xattrs = X, battrs = B} = S,
     attr(Calls, Line, M, Fun, L, X, B, S);
 form({attribute, _Line, _Attr, _Val}, S) ->
@@ -110,12 +110,12 @@ clauses([{clause, _Line, _H, G, B} | Cs], FunVars, Matches, S) ->
     S2 = expr(B, S1),
     S3 = S2#xrefr{funvars = FunVars, matches = Matches},
     clauses(Cs, S3);
-clauses([], _FunVars, _Matches, S) -> 
+clauses([], _FunVars, _Matches, S) ->
     S.
 
 attr([E={From, To} | As], Ln, M, Fun, AL, AX, B, S) ->
     case mfa(From, M) of
-	{_, _, MFA} when MFA =:= Fun; [] =:= Fun -> 
+	{_, _, MFA} when MFA =:= Fun; [] =:= Fun ->
 	    attr(From, To, Ln, M, Fun, AL, AX, B, S, As, E);
 	{_, _, _} ->
 	    attr(As, Ln, M, Fun, AL, AX, [E | B], S);
@@ -164,7 +164,7 @@ expr({call, Line,
     %% Added in R10B-6. M:F/A.
     expr({'fun', Line, {function, Mod, Fun, Arity}}, S);
 expr({'fun', Line, {function, Mod, Name, Arity}}, S) ->
-    %% Added in R10B-6. M:F/A. 
+    %% Added in R10B-6. M:F/A.
     As = lists:duplicate(Arity, {atom, Line, foo}),
     external_call(Mod, Name, As, Line, false, S);
 expr({'fun', Line, {function, Name, Arity}, _Extra}, S) ->
@@ -183,7 +183,7 @@ expr({call, Line, {remote, _Line, Mod, Name}, As}, S) ->
 expr({call, Line, F, As}, S) ->
     external_call(erlang, apply, [F, list2term(As)], Line, true, S);
 expr({match, _Line, {var,_,Var}, {'fun', _, {clauses, Cs}, _Extra}}, S) ->
-    %% This is what is needed in R7 to avoid warnings for the functions 
+    %% This is what is needed in R7 to avoid warnings for the functions
     %% that are passed around by the "expansion" of list comprehension.
     S1 = S#xrefr{funvars = [Var | S#xrefr.funvars]},
     clauses(Cs, S1);
@@ -192,6 +192,14 @@ expr({match, _Line, {var,_,Var}, E}, S) ->
     %%     Args = [A,B], apply(m, f, Args)
     S1 = S#xrefr{matches = [{Var, E} | S#xrefr.matches]},
     expr(E, S1);
+expr({op, _Line, 'orelse', Op1, Op2}, S) ->
+    expr([Op1, Op2], S);
+expr({op, _Line, 'andalso', Op1, Op2}, S) ->
+    expr([Op1, Op2], S);
+expr({op, Line, Op, Operand1, Operand2}, S) ->
+    external_call(erlang, Op, [Operand1, Operand2], Line, false, S);
+expr({op, Line, Op, Operand}, S) ->
+    external_call(erlang, Op, [Operand], Line, false, S);
 expr(T, S) when is_tuple(T) ->
     expr(tuple_to_list(T), S);
 expr([E | Es], S) ->
@@ -241,13 +249,13 @@ external_call(Mod, Fun, ArgsList, Line, X, S) ->
 	_Else -> % apply2, 1 or 2
 	    check_funarg(W, ArgsList, Line, S1)
     end.
-	    
+
 eval_args(Mod, Fun, ArgsTerm, Line, S, ArgsList, Extra) ->
     {IsSimpleCall, M, F} = mod_fun(Mod, Fun),
     case term2list(ArgsTerm, [], S) of
 	undefined ->
 	    S1 = unresolved(M, F, -1, Line, S),
-	    expr(ArgsList, S1);	    
+	    expr(ArgsList, S1);
 	ArgsList2 when not IsSimpleCall ->
 	    S1 = unresolved(M, F, length(ArgsList2), Line, S),
 	    expr(ArgsList, S1);
@@ -288,14 +296,14 @@ fun_args(apply2, [FunArg, Args]) -> {FunArg, Args};
 fun_args(1, [FunArg | Args]) -> {FunArg, Args};
 fun_args(2, [_Node, FunArg | Args]) -> {FunArg, Args}.
 
-list2term([A | As]) -> 
+list2term([A | As]) ->
     {cons, 0, A, list2term(As)};
-list2term([]) -> 
+list2term([]) ->
     {nil, 0}.
 
 term2list({cons, _Line, H, T}, L, S) ->
     term2list(T, [H | L], S);
-term2list({nil, _Line}, L, _S) -> 
+term2list({nil, _Line}, L, _S) ->
     reverse(L);
 term2list({var, _, Var}, L, S) ->
     case keysearch(Var, 1, S#xrefr.matches) of
@@ -332,11 +340,11 @@ handle_call(Locality, To0, Line, S, IsUnres) ->
              true ->
                  S
          end,
-    case Locality of 
-        local -> 
+    case Locality of
+        local ->
             S1#xrefr{el = [Call | S1#xrefr.el],
                      l_call_at = [CallAt | S1#xrefr.l_call_at]};
-        external -> 
+        external ->
             S1#xrefr{ex = [Call | S1#xrefr.ex],
                      x_call_at = [CallAt | S1#xrefr.x_call_at]}
     end.

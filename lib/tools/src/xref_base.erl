@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -29,7 +29,7 @@
 	 add_release/2, add_release/3,
 	 get_library_path/1, set_library_path/2, set_library_path/3,
 	 set_up/1, set_up/2,
-	 q/2, q/3, info/1, info/2, info/3, update/1, update/2, 
+	 q/2, q/3, info/1, info/2, info/3, update/1, update/2,
 	 forget/1, forget/2, variables/1, variables/2,
 	 analyze/2, analyze/3, analysis/1,
 	 get_default/2, set_default/3,
@@ -38,14 +38,14 @@
 -export([format_error/1]).
 
 %% The following functions are exported for testing purposes only:
--export([do_add_module/4, do_add_application/2, do_add_release/2, 
+-export([do_add_module/4, do_add_application/2, do_add_release/2,
 	 do_remove_module/2]).
 
--import(lists, 
-	[filter/2, flatten/1, foldl/3, keysearch/3, map/2, mapfoldl/3, 
-         member/2, reverse/1, sort/1, usort/1]).
+-import(lists,
+	[filter/2, flatten/1, foldl/3, foreach/2, keysearch/3, map/2,
+         mapfoldl/3, member/2, reverse/1, sort/1, usort/1]).
 
--import(sofs, 
+-import(sofs,
 	[constant_function/2, converse/1, difference/2, domain/1,
          empty_set/0, family/1, family_difference/2, intersection/2,
          family_projection/2, family_to_relation/1, family_union/1,
@@ -103,12 +103,12 @@ delete(State) ->
 			  ok
 		  end
 	     end,
-    map(Fun, dict:to_list(State#xref.variables)),
+    foreach(Fun, dict:to_list(State#xref.variables)),
     ok.
 
 add_directory(State, Dir) ->
     add_directory(State, Dir, []).
-    
+
 %% -> {ok, Modules, NewState} | Error
 add_directory(State, Dir, Options) ->
     ValOptions = option_values([builtins, recurse, verbose, warnings], State),
@@ -277,7 +277,7 @@ q(S, Q, Options) when is_atom(Q) ->
     q(S, atom_to_list(Q), Options);
 q(S, Q, Options) ->
     case xref_utils:is_string(Q, 1) of
-	true -> 
+	true ->
 	    case set_up(S, Options) of
 		{ok, S1} ->
 		    case xref_compiler:compile(Q, S1#xref.variables) of
@@ -336,7 +336,7 @@ forget(State, Variable) when is_atom(Variable) ->
 forget(State, Variables) ->
     Vars = State#xref.variables,
     do_forget(Variables, Vars, Variables, State).
-    
+
 variables(State) ->
     variables(State, [user]).
 
@@ -350,9 +350,9 @@ variables(State, Options) ->
 		{ok, NewState} ->
 		    {U, P} = do_variables(NewState),
 		    R1 = if User -> [{user, U}]; true -> [] end,
-		    R = if 
-			    Predef -> [{predefined,P} | R1]; 
-			    true -> R1 
+		    R = if
+			    Predef -> [{predefined,P} | R1];
+			    true -> R1
 			end,
 		    {{ok, R}, NewState};
 		Error ->
@@ -368,7 +368,7 @@ analyze(State, Analysis) ->
 %% -> {{ok, Answer}, NewState} | {Error, NewState}
 analyze(State, Analysis, Options) ->
     case analysis(Analysis, State#xref.mode) of
-	P when is_list(P) -> 
+	P when is_list(P) ->
 	    q(State, P, Options);
 	error ->
 	    R = case analysis(Analysis, functions) of
@@ -461,7 +461,7 @@ get_default(State, Option) ->
 
 %% -> [{Option, Value}]
 get_default(State) ->
-    Fun = fun(O) -> V = current_default(State, O), {O, V} end, 
+    Fun = fun(O) -> V = current_default(State, O), {O, V} end,
     map(Fun, [builtins, recurse, verbose, warnings]).
 
 %% -> {ok, NewState} -> Error
@@ -478,7 +478,7 @@ set_default(State, Options) ->
 format_error({error, Module, Error}) ->
     Module:format_error(Error);
 format_error({invalid_options, Options}) ->
-    io_lib:format("Unknown option(s) or invalid option value(s): ~p~n", 
+    io_lib:format("Unknown option(s) or invalid option value(s): ~p~n",
 		  [Options]);
 format_error({invalid_filename, Term}) ->
     io_lib:format("A file name (a string) was expected: ~p~n", [Term]);
@@ -540,7 +540,7 @@ updated_modules(State) ->
 		  case xref_utils:file_info(File) of
 		      {ok, {_, file, readable, MTime}} when MTime =/= RTime ->
 			  [{M,File} | L];
-		      _Else -> 
+		      _Else ->
 			  L
 		  end
 	  end,
@@ -591,7 +591,7 @@ do_add_release(Dir, RelName, OB, OV, OW, State) ->
     case xref_utils:release_directory(Dir, true, "ebin") of
 	{ok, ReleaseDirName, ApplDir, Dirs} ->
 	    ApplDirs = xref_utils:select_last_application_version(Dirs),
-	    Release = case RelName of 
+	    Release = case RelName of
 			  [[]] -> ReleaseDirName;
 			  [Name] -> Name
 		      end,
@@ -615,7 +615,7 @@ do_add_release(S, XRel) ->
     end.
 
 add_rel_appls([ApplDir | ApplDirs], Release, OB, OV, OW, State) ->
-    {ok, _AppName,  NewState} = 
+    {ok, _AppName,  NewState} =
 	add_appldir(ApplDir, Release, [[]], OB, OV, OW, State),
     add_rel_appls(ApplDirs, Release, OB, OV, OW, NewState);
 add_rel_appls([], [Release], _OB, _OV, _OW, NewState) ->
@@ -637,10 +637,10 @@ add_appldir(ApplDir, Release, Name, OB, OV, OW, OldState) ->
 		  [[]] -> AppName0;
 		  [N] -> N
 	      end,
-    AppInfo = #xref_app{name = AppName, rel_name = Release, 
+    AppInfo = #xref_app{name = AppName, rel_name = Release,
 			vsn = Vsn, dir = Dir},
     State1 = do_add_application(OldState, AppInfo),
-    {ok, _Modules, NewState} = 
+    {ok, _Modules, NewState} =
 	do_add_directory(Dir, [AppName], OB, false, OV, OW, State1),
     {ok, AppName, NewState}.
 
@@ -662,7 +662,7 @@ do_add_directory(Dir, AppName, Bui, Rec, Ver, War, State) ->
     ok = is_filename(Dir),
     {FileNames, Errors, Jams, Unreadable} =
 	xref_utils:scan_directory(Dir, Rec, [?Suffix], [".jam"]),
-    warnings(War, jam, Jams),	
+    warnings(War, jam, Jams),
     warnings(War, unreadable, Unreadable),
     case Errors of
 	[] ->
@@ -683,7 +683,7 @@ do_add_a_module(File, AppName, Builtins, Verbose, Warnings, State) ->
 	false ->
 	    throw_error({invalid_filename, File});
 	Splitname ->
-	    do_add_module(Splitname, AppName, Builtins, Verbose, 
+	    do_add_module(Splitname, AppName, Builtins, Verbose,
 			  Warnings, State)
     end.
 
@@ -691,7 +691,7 @@ do_add_a_module(File, AppName, Builtins, Verbose, Warnings, State) ->
 %% Options: verbose, warnings, builtins
 do_add_module({Dir, Basename}, AppName, Builtins, Verbose, Warnings, State) ->
     File = filename:join(Dir, Basename),
-    {ok, M, Bad, NewState} = 
+    {ok, M, Bad, NewState} =
 	do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State),
     filter(fun({Tag,B}) -> warnings(Warnings, Tag, [[File,B]]) end, Bad),
     {ok, M, NewState}.
@@ -723,7 +723,7 @@ do_add_module1(Dir, File, AppName, Builtins, Verbose, Warnings, State) ->
 		    {ok, {_, _, _, Time}} -> Time;
 		    Error -> throw(Error)
 		end,
-	    XMod = #xref_mod{name = M, app_name = AppName, dir = Dir, 
+	    XMod = #xref_mod{name = M, app_name = AppName, dir = Dir,
 			     mtime = T, builtins = Builtins,
 			     no_unresolved = NoUnresCalls},
 	    do_add_module(State, XMod, UnresCalls, Data);
@@ -736,13 +736,13 @@ abst(File, Builtins, Mode) when Mode =:= functions ->
     case beam_lib:chunks(File, [abstract_code, exports, attributes]) of
 	{ok, {M,[{abstract_code,NoA},_X,_A]}} when NoA =:= no_abstract_code ->
 	    {ok, M, NoA};
-	{ok, {M, [{abstract_code, {abstract_v1, Forms}}, 
+	{ok, {M, [{abstract_code, {abstract_v1, Forms}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R7.
 	    X = xref_utils:fa_to_mfa(X0, M),
             D = deprecated(A, X, M),
 	    xref_reader:module(M, Forms, Builtins, X, D);
-	{ok, {M, [{abstract_code, {abstract_v2, Forms}}, 
+	{ok, {M, [{abstract_code, {abstract_v2, Forms}},
                   {exports,X0}, {attributes,A}]}} ->
 	    %% R8-R9B.
 	    X = xref_utils:fa_to_mfa(X0, M),
@@ -769,8 +769,8 @@ abst(File, Builtins, Mode) when Mode =:= modules ->
 		    true ->
 			I0;
 		    false ->
-			Fun = fun({M,F,A}) -> 
-				      not xref_utils:is_builtin(M, F, A) 
+			Fun = fun({M,F,A}) ->
+				      not xref_utils:is_builtin(M, F, A)
 			      end,
 			filter(Fun, I0)
 		end,
@@ -790,7 +790,7 @@ mfa_exports(X0, Attributes, M) ->
     xref_utils:fa_to_mfa(X1, M).
 
 adjust_arity(F, A) ->
-    case xref_utils:is_static_function(F, A) of 
+    case xref_utils:is_static_function(F, A) of
         true -> A;
         false -> A - 1
     end.
@@ -885,7 +885,7 @@ do_add_module(S, M, XMod, Unres0, Data) when S#xref.mode =:= functions ->
     Unres = domain(UnresCalls),
 
     DefinedFuns = domain(DefAt),
-    {AXC, ALC, Bad1, LPreCAt2, XPreCAt2} = 
+    {AXC, ALC, Bad1, LPreCAt2, XPreCAt2} =
 	extra_edges(AXC1, ALC1, Bad0, DefinedFuns),
     Bad = map(fun(B) -> {xref_attr, B} end, Bad1),
     LPreCAt = union(LPreCAt1, LPreCAt2),
@@ -904,8 +904,8 @@ do_add_module(S, M, XMod, Unres0, Data) when S#xref.mode =:= functions ->
 
     %% {EE, ECallAt} = inter_graph(X, L, LC, XC, LCallAt, XCallAt),
     Self = self(),
-    Fun = fun() -> inter_graph(Self, X, L, LC, XC, CallAt) end, 
-    {EE, ECallAt} = 
+    Fun = fun() -> inter_graph(Self, X, L, LC, XC, CallAt) end,
+    {EE, ECallAt} =
 	xref_utils:subprocess(Fun, [link, {min_heap_size,100000}]),
 
     [DefAt2,L2,X2,LCallAt2,XCallAt2,CallAt2,LC2,XC2,EE2,ECallAt2,
@@ -977,13 +977,13 @@ extra_edges(CAX, CAL, Bad0, F) ->
     ALC = restriction(2, restriction(ALC0, F), F),
     LPreCAt2 = restriction(CAL, ALC),
     XPreCAt2 = restriction(CAX, AXC),
-    Bad = Bad0 ++ to_external(difference(AXC0, AXC)) 
+    Bad = Bad0 ++ to_external(difference(AXC0, AXC))
 	       ++ to_external(difference(ALC0, ALC)),
     {AXC, ALC, Bad, LPreCAt2, XPreCAt2}.
 
 no_info(X, L, LC, XC, EE, Unres, NoCalls, NoUnresCalls) ->
     NoUnres = no_elements(Unres),
-    [{no_calls, {NoCalls-NoUnresCalls, NoUnresCalls}}, 
+    [{no_calls, {NoCalls-NoUnresCalls, NoUnresCalls}},
      {no_function_calls, {no_elements(LC), no_elements(XC)-NoUnres, NoUnres}},
      {no_functions, {no_elements(L), no_elements(X)}},
      %% Note: this is overwritten in do_set_up():
@@ -1011,10 +1011,10 @@ inter_graph(X, L, LC, XC, CallAt) ->
     Es = union(LEs, XEs),
 
     E1 = to_external(restriction(difference(LC, LEs), XL)),
-    R0 = xref_utils:xset(reachable(E1, G, []), 
+    R0 = xref_utils:xset(reachable(E1, G, []),
 			 [{tspec(func), tspec(fun_edge)}]),
     true = digraph:delete(G),
-    
+
     % RL is a set of indirect local calls to exports.
     RL = restriction(R0, XL),
     % RX is a set of indirect external calls to exports.
@@ -1033,7 +1033,7 @@ inter_graph(X, L, LC, XC, CallAt) ->
 
     ?FORMAT("XL=~p~nXEs=~p~nLEs=~p~nE1=~p~nR0=~p~nRL=~p~nRX=~p~nR=~p~n"
 	    "EE=~p~nECallAt1=~p~nECallAt2=~p~nECallAt=~p~n~n",
-	    [XL, XEs, LEs, E1, R0, RL, RX, R, EE, 
+	    [XL, XEs, LEs, E1, R0, RL, RX, R, EE,
 	     ECallAt1, ECallAt2, ECallAt]),
     {EE, ECallAt}.
 
@@ -1121,7 +1121,7 @@ remove_erase([], D) ->
 
 do_add_libraries(Path, Verbose, State) ->
     message(Verbose, lib_search, []),
-    {C, E} = xref_utils:list_path(Path, [?Suffix]),    
+    {C, E} = xref_utils:list_path(Path, [?Suffix]),
     message(Verbose, done, []),
     MDs = to_external(relation_to_family(relation(C))),
     %% message(Verbose, lib_check, []),
@@ -1160,23 +1160,23 @@ do_set_up(S, VerboseOpt) ->
     Reply.
 
 %% If data has been supplied using add_module/9 (and that is the only
-%% sanctioned way), then DefAt, L, X, LCallAt, XCallAt, CallAt, XC, LC, 
-%% and LU are  guaranteed to be functions (with all supplied 
-%% modules as domain (disregarding unknown modules, that is, modules 
+%% sanctioned way), then DefAt, L, X, LCallAt, XCallAt, CallAt, XC, LC,
+%% and LU are  guaranteed to be functions (with all supplied
+%% modules as domain (disregarding unknown modules, that is, modules
 %% not supplied but hosting unknown functions)).
 %% As a consequence, V and E are also functions. V is defined for unknown
 %% modules also.
 %% UU is also a function (thanks to sofs:family_difference/2...).
-%% XU on the other hand can be a partial function (that is, not defined 
+%% XU on the other hand can be a partial function (that is, not defined
 %% for all modules). U is derived from XU, so U is also partial.
 %% The inverse variables - LC_1, XC_1, E_1 and EE_1 - are all partial.
 %% B is also partial.
 do_set_up(S) when S#xref.mode =:= functions ->
     ModDictList = dict:to_list(S#xref.modules),
-    [DefAt0, L, X0, LCallAt, XCallAt, CallAt, LC, XC, LU, 
+    [DefAt0, L, X0, LCallAt, XCallAt, CallAt, LC, XC, LU,
      EE0, ECallAt, UC, LPredefined,
      Mod_DF,Mod_DF_1,Mod_DF_2,Mod_DF_3] = make_families(ModDictList, 18),
-    
+
     {XC_1, XU, XPredefined} = do_set_up_1(XC),
     LC_1 = user_family(union_of_family(LC)),
     E_1 = family_union(XC_1, LC_1),
@@ -1206,7 +1206,7 @@ do_set_up(S) when S#xref.mode =:= functions ->
 
     AM = domain(F1),
     %% Undef is the union of U0 and Lib:
-    {Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} = 
+    {Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} =
 	make_libs(XU, F1, AM, S#xref.library_path, S#xref.libraries),
     {B, U} = make_builtins(U0),
     X1_B = family_union(X1, B),
@@ -1228,22 +1228,22 @@ do_set_up(S) when S#xref.mode =:= functions ->
     %% way to discard calls to local functions in other modules.
     EE_conv = converse(union_of_family(EE0)),
     EE_exported = restriction(EE_conv, union_of_family(X)),
-    EE_local = 
+    EE_local =
       specification({external, fun({{M1,_,_},{M2,_,_}}) -> M1 =:= M2 end},
                     EE_conv),
     EE_0 = converse(union(EE_local, EE_exported)),
     EE_1 = user_family(EE_0),
-    EE1 = partition_family({external, fun({{M1,_,_}, _MFA2}) -> M1 end}, 
+    EE1 = partition_family({external, fun({{M1,_,_}, _MFA2}) -> M1 end},
                            EE_0),
     %% Make sure EE is defined for all modules:
     EE = family_union(family_difference(EE0, EE0), EE1),
-    IFun = 
-       fun({Mod,EE_M}, XMods) -> 
-               IMFun = 
+    IFun =
+       fun({Mod,EE_M}, XMods) ->
+               IMFun =
                  fun(XrefMod) ->
-                         [NoCalls, NoFunctionCalls, 
+                         [NoCalls, NoFunctionCalls,
                           NoFunctions,  _NoInter] = XrefMod#xref_mod.info,
-                         NewInfo = [NoCalls, NoFunctionCalls, NoFunctions, 
+                         NewInfo = [NoCalls, NoFunctionCalls, NoFunctions,
                                     {no_inter_function_calls,length(EE_M)}],
                          XrefMod#xref_mod{info = NewInfo}
                  end,
@@ -1274,11 +1274,11 @@ do_set_up(S) when S#xref.mode =:= functions ->
     finish_set_up(S1, Vs);
 do_set_up(S) when S#xref.mode =:= modules ->
     ModDictList = dict:to_list(S#xref.modules),
-    [X0, I0, Mod_DF, Mod_DF_1, Mod_DF_2, Mod_DF_3] = 
+    [X0, I0, Mod_DF, Mod_DF_1, Mod_DF_2, Mod_DF_3] =
         make_families(ModDictList, 7),
     I = union_of_family(I0),
     AM = domain(X0),
-    
+
     {XU, Predefined} = make_predefined(I, AM),
     %% Add "hidden" functions to the exports.
     X1 = family_union(X0, Predefined),
@@ -1288,8 +1288,8 @@ do_set_up(S) when S#xref.mode =:= modules ->
     M2A = make_M2A(ModDictList),
     {A2R,A} = make_A2R(S#xref.applications),
     R = set(dict:fetch_keys(S#xref.releases)),
-    
-    ME = projection({external, fun({M1,{M2,_F2,_A2}}) -> {M1,M2} end}, 
+
+    ME = projection({external, fun({M1,{M2,_F2,_A2}}) -> {M1,M2} end},
 		    family_to_relation(I0)),
     ME2AE = multiple_relative_product({M2A, M2A}, ME),
 
@@ -1298,7 +1298,7 @@ do_set_up(S) when S#xref.mode =:= modules ->
     RE = range(AE2RE),
 
     %% Undef is the union of U0 and Lib:
-    {_Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} = 
+    {_Undef, U0, Lib, Lib_DF, Lib_DF_1, Lib_DF_2, Lib_DF_3} =
 	make_libs(XU, X1, AM, S#xref.library_path, S#xref.libraries),
     {B, U} = make_builtins(U0),
     X1_B = family_union(X1, B),
@@ -1312,7 +1312,7 @@ do_set_up(S) when S#xref.mode =:= modules ->
     X = family_union(X1, Lib),
 
     Empty = empty_set(),
-    Vs = [{'X',X},{'U',U},{'B',B},{'XU',XU},{v,V}, 
+    Vs = [{'X',X},{'U',U},{'B',B},{'XU',XU},{v,V},
 	  {e,{Empty,Empty}},
 	  {'M',M},{'A',A},{'R',R},
 	  {'AM',AM},{'UM',UM},{'LM',LM},
@@ -1328,10 +1328,10 @@ finish_set_up(S, Vs) ->
     S1 = S#xref{variables = T},
     %% io:format("~p <= state <= ~p~n", [pack:lsize(S), pack:usize(S)]),
     {ok, S1}.
-    
+
 do_finish_set_up([{Key, Value} | Vs], T) ->
     {Type, OType} = var_type(Key),
-    Val = #xref_var{name = Key, value = Value, vtype = predef, 
+    Val = #xref_var{name = Key, value = Value, vtype = predef,
 		    otype = OType, type = Type},
     T1 = dict:store(Key, Val, T),
     do_finish_set_up(Vs, T1);
@@ -1362,15 +1362,15 @@ var_type('EE')   -> {function, edge};
 var_type('LC')   -> {function, edge};
 var_type('UC')   -> {function, edge};
 var_type('XC')   -> {function, edge};
-var_type('AE')   -> {application, edge};    
-var_type('ME')   -> {module, edge};    
+var_type('AE')   -> {application, edge};
+var_type('ME')   -> {module, edge};
 var_type('RE')   -> {release, edge};
 var_type(_)      -> {foo, bar}.
 
 make_families(ModDictList, N) ->
     Fun1 = fun({_,XMod}) -> XMod#xref_mod.data end,
     Ss = from_sets(map(Fun1, ModDictList)),
-    %% io:format("~n~p <= module data <= ~p~n", 
+    %% io:format("~n~p <= module data <= ~p~n",
     %%           [pack:lsize(Ss), pack:usize(Ss)]),
     make_fams(N, Ss, []).
 
@@ -1389,7 +1389,7 @@ make_M2A(ModDictList) ->
 make_A2R(ApplDict) ->
     AppDict = dict:to_list(ApplDict),
     Fun = fun({A,XApp}) -> {A, XApp#xref_app.rel_name} end,
-    Appl0 = family(map(Fun, AppDict)), 
+    Appl0 = family(map(Fun, AppDict)),
     AllApps = domain(Appl0),
     Appl = family_to_relation(Appl0),
     {Appl, AllApps}.
@@ -1445,13 +1445,13 @@ make_libs(XU, F, AM, LibPath, LibDict) ->
 	     false ->
 		 Libraries = dict:to_list(LibDict),
 		 Lb = restriction(a_function(Libraries), UM),
-		 MFun = fun({M,XLib}) -> 
+		 MFun = fun({M,XLib}) ->
 				#xref_lib{dir = Dir} = XLib,
 				xref_utils:module_filename(Dir, M)
 			end,
 		 map(MFun, to_external(Lb))
 	     end,
-    Fun = fun(FileName, Deprs) -> 
+    Fun = fun(FileName, Deprs) ->
 		  case beam_lib:chunks(FileName, [exports, attributes]) of
 		      {ok, {M, [{exports,X}, {attributes,A}]}} ->
 			  Exports = mfa_exports(X, A, M),
@@ -1496,14 +1496,14 @@ user_family(R) ->
     partition_family({external, fun({_MFA1, {M2,_,_}}) -> M2 end}, R).
 
 do_variables(State) ->
-    Fun = fun({Name, #xref_var{vtype = user}}, {P,U}) -> 
+    Fun = fun({Name, #xref_var{vtype = user}}, {P,U}) ->
 		  {P,[Name | U]};
-	     ({Name, #xref_var{vtype = predef}}, A={P,U}) -> 
+	     ({Name, #xref_var{vtype = predef}}, A={P,U}) ->
 		  case atom_to_list(Name) of
 		      [H|_] when H>= $a, H=<$z -> A;
 		      _Else -> {[Name | P], U}
 		  end;
-	     ({{tmp, V}, _}, A) -> 
+	     ({{tmp, V}, _}, A) ->
 		  io:format("Bug in ~p: temporary ~p~n", [?MODULE, V]), A;
 	     (_V, A) -> A
 	  end,
@@ -1565,7 +1565,7 @@ do_info(S, libraries) ->
     map(fun({_L,XLib}) -> lib_info(XLib) end, D);
 do_info(_S, I) ->
     error({no_such_info, I}).
-		      
+
 do_info(S, Type, E) when is_atom(E) ->
     do_info(S, Type, [E]);
 do_info(S, modules, Modules0) when is_list(Modules0) ->
@@ -1598,7 +1598,7 @@ find_info([E | Es], Dict, Error) ->
 	{ok, X} ->
 	    [X | find_info(Es, Dict, Error)]
     end;
-find_info([], _Dict, _Error) ->    
+find_info([], _Dict, _Error) ->
     [].
 
 %% -> {[{AppName, RelName}], [{RelName, XApp}]}
@@ -1618,7 +1618,7 @@ rel_apps(S) ->
 rel_apps_sums(AR, RRA0, S) ->
     AppMods = app_mods(S), % [{AppName, XMod}]
     RRA1 = relation_to_family(relation(RRA0)),
-    RRA = inverse(substitution(1, RRA1)), 
+    RRA = inverse(substitution(1, RRA1)),
     %% RRA is [{RelName,{RelName,[XApp]}}]
     RelMods = relative_product1(relation(AR), relation(AppMods)),
     RelAppsMods = relative_product1(RRA, RelMods),
@@ -1630,7 +1630,7 @@ rel_apps_sums(AR, RRA0, S) ->
 %% -> [{AppName, XMod}]
 app_mods(S) ->
     D = sort(dict:to_list(S#xref.modules)),
-    Fun = fun({_M,XMod}, Acc) -> 
+    Fun = fun({_M,XMod}, Acc) ->
 		  case XMod#xref_mod.app_name of
 		      [] -> Acc;
 		      [AppName] -> [{AppName, XMod} | Acc]
@@ -1639,7 +1639,7 @@ app_mods(S) ->
     foldl(Fun, [], D).
 
 mod_info(XMod) ->
-    #xref_mod{name = M, app_name = AppName, builtins = BuiltIns, 
+    #xref_mod{name = M, app_name = AppName, builtins = BuiltIns,
 	       dir = Dir, info = Info} = XMod,
     App = sup_info(AppName),
     {M, [{application, App}, {builtins, BuiltIns}, {directory, Dir} | Info]}.
@@ -1649,7 +1649,7 @@ app_info({AppName, ModSums}, S) ->
     #xref_app{rel_name = RelName, vsn = Vsn, dir = Dir} = XApp,
     Release = sup_info(RelName),
     {AppName, [{directory,Dir}, {release, Release}, {version,Vsn} | ModSums]}.
-    
+
 rel_info({{RelName, XApps}, ModSums}, S) ->
     NoApps = length(XApps),
     XRel = dict:fetch(RelName, S#xref.releases),
@@ -1678,16 +1678,16 @@ no_sum(S, L) when S#xref.mode =:= modules ->
     [{no_analyzed_modules, length(L)}].
 
 no_sum([XMod | D], C0, UC0, LC0, XC0, UFC0, L0, X0, EV0, NoM) ->
-    [{no_calls, {C,UC}}, 
+    [{no_calls, {C,UC}},
      {no_function_calls, {LC,XC,UFC}},
      {no_functions, {L,X}},
      {no_inter_function_calls, EV}] = XMod#xref_mod.info,
     no_sum(D, C0+C, UC0+UC, LC0+LC, XC0+XC, UFC0+UFC, L0+L, X0+X, EV0+EV, NoM);
 no_sum([], C, UC, LC, XC, UFC, L, X, EV, NoM) ->
     [{no_analyzed_modules, NoM},
-     {no_calls, {C,UC}}, 
+     {no_calls, {C,UC}},
      {no_function_calls, {LC,XC,UFC}},
-     {no_functions, {L,X}}, 
+     {no_functions, {L,X}},
      {no_inter_function_calls, EV}].
 
 %% -> ok | throw(Error)
@@ -1712,20 +1712,20 @@ warnings(Flag, Message, [F | Fs]) ->
 %% pack(term()) -> term()
 %%
 %% The identify function. The returned term does not use more heap
-%% than the given term. Tuples that are equal (=:=/2) are made 
+%% than the given term. Tuples that are equal (=:=/2) are made
 %% "the same".
 %%
 %% The process dictionary is used because it seems to be faster than
 %% anything else right now...
 %%
 %pack(T) -> T;
-pack(T) ->    
+pack(T) ->
     PD = erase(),
     NT = pack1(T),
     %% true = T =:= NT,
     %% io:format("erasing ~p elements...~n", [length(erase())]),
     erase(), % wasting heap (and time)...
-    map(fun({K,V}) -> put(K, V) end, PD),
+    foreach(fun({K,V}) -> put(K, V) end, PD),
     NT.
 
 pack1(C) when not is_tuple(C), not is_list(C) ->

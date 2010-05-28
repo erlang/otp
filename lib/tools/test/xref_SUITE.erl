@@ -39,11 +39,11 @@
 -export([all/1, init/1, fini/1]).
 
 -export([xref/1,
-	 addrem/1, convert/1, intergraph/1, lines/1, loops/1, 
+	 addrem/1, convert/1, intergraph/1, lines/1, loops/1,
 	 no_data/1, modules/1]).
 
 -export([files/1,
-	 add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1, 
+	 add/1, default/1, info/1, lib/1, read/1, read2/1, remove/1,
 	 replace/1, update/1, deprecated/1, trycatch/1,
          abstract_modules/1, fun_mfa/1, qlc/1]).
 
@@ -82,7 +82,7 @@ init(Conf) when is_list(Conf) ->
     ?line ok = erl_tar:extract(TarFile, [compressed]),
     ?line ok = file:delete(TarFile),
     [{copy_dir, CopyDir} | Conf].
-    
+
 fini(Conf) when is_list(Conf) ->
     %% Nothing.
     Conf.
@@ -120,7 +120,7 @@ addrem(Conf) when is_list(Conf) ->
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -132,7 +132,7 @@ addrem(Conf) when is_list(Conf) ->
     LCallAt_m2 = [],
     XCallAt_m2 = [{E2,96}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
 
     ?line S5 = set_up(S2),
@@ -142,7 +142,7 @@ addrem(Conf) when is_list(Conf) ->
     ?line {ok, XMod2, S6a} = remove_module(S6, m2),
     ?line [a2] = XMod2#xref_mod.app_name,
     ?line S7 = set_up(S6a),
-    
+
     ?line AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
     ?line S9 = add_application(S7, AppInfo1),
     ?line S10 = set_up(S9),
@@ -186,7 +186,7 @@ convert(Conf) when is_list(Conf) ->
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13},{E2,17},{E4,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -200,7 +200,7 @@ convert(Conf) when is_list(Conf) ->
     LCallAt_m2 = [],
     XCallAt_m2 = [{E3,96},{E6,12},{UE1,77}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
 
     D4 = {F4,6},
@@ -213,7 +213,7 @@ convert(Conf) when is_list(Conf) ->
     LCallAt_m3 = [{E5,19}],
     XCallAt_m3 = [{UE2,22}],
     Info3 = #xref_mod{name = m3, app_name = [a3]},
-    ?line S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3, 
+    ?line S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3,
 			  XC_m3, LC_m3),
 
     Info4 = #xref_mod{name = m4, app_name = [a2]},
@@ -303,7 +303,7 @@ convert(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("(XXL) (Lin) (Fun) E", AllCallAt, S),
     ?line {ok, _} = eval("(XXL) (XXL) (Lin) (Fun) E", AllCallAt, S),
 
-    ?line {ok, _} = eval(f("(XXL) (Lin) ~p", [[E1, E6]]), 
+    ?line {ok, _} = eval(f("(XXL) (Lin) ~p", [[E1, E6]]),
 			 [{{D1,D3},[13]}, {{D7,D4},[12]}], S),
     ?line {ok, _} = eval(f("(Fun) ~p", [AllMs]), AllE, S),
     ?line {ok, _} = eval("(Fun) [m1->m2,m2->m3]", [E1,E2,E6], S),
@@ -323,7 +323,7 @@ intergraph(Conf) when is_list(Conf) ->
     F3 = {m1,f3,3},
     F4 = {m1,f4,4},
     F5 = {m1,f5,5},
-    
+
     F6 = {m2,f1,6}, % X
     F7 = {m2,f1,7},
     F8 = {m2,f1,8},
@@ -339,7 +339,7 @@ intergraph(Conf) when is_list(Conf) ->
     E5 = {F4,F2},
     E6 = {F5,F4},
     E7 = {F4,F5},
-    
+
     E8 = {F6,F7},
     E9 = {F7,F8},
     E10 = {F8,F1}, % X
@@ -363,9 +363,9 @@ intergraph(Conf) when is_list(Conf) ->
     LCallAt_m1 = [{E1,1},{E2,2},{E3,3},{E5,5},{E6,6},{E7,7}],
     XCallAt_m1 = [{E1,4}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
-    
+
     D6 = {F6,6},
     D7 = {F7,7},
     D8 = {F8,8},
@@ -380,7 +380,7 @@ intergraph(Conf) when is_list(Conf) ->
     LCallAt_m2 = [{E8,8},{E9,9},{E11,11},{E12,12},{E13,13},{E14,14}],
     XCallAt_m2 = [{E10,10},{E15,15}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
 
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
@@ -397,13 +397,13 @@ intergraph(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("EE | m2", [{F6,F1}], S),
     ?line {ok, _} = eval("EE | m2 + EE | m2", [{F6,F1}], S),
 
-    ?line {ok, _} = eval("(Fun)(Lin)(E | m1)", 
+    ?line {ok, _} = eval("(Fun)(Lin)(E | m1)",
 	      to_external(union(set(XC_m1), set(LC_m1))), S),
-    ?line {ok, _} = eval("(XXL)(ELin) (EE | m1)", 
-	      [{{D2,D1},[1,2,4]},{{D4,D2},[5]},{{D5,D4},[6]},{{D4,D5},[7]}], 
+    ?line {ok, _} = eval("(XXL)(ELin) (EE | m1)",
+	      [{{D2,D1},[1,2,4]},{{D4,D2},[5]},{{D5,D4},[6]},{{D4,D5},[7]}],
 	      S),
     ?line {ok, _} = eval("(XXL)(ELin)(EE | m2)", [{{D6,D1},[8,11,12]}], S),
-    ?line {ok, _} = eval("(XXL)(ELin)(ELin)(EE | m2)", 
+    ?line {ok, _} = eval("(XXL)(ELin)(ELin)(EE | m2)",
 			 [{{D6,D1},[8,11,12]}], S),
 
     %% Combining graphs (equal or different):
@@ -420,15 +420,15 @@ intergraph(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("EE | m1 + E | m1", LC_m1, S),
     ?line {ok, _} = eval(f("EE | ~p + E | ~p", [F2, F2]), [E1,E2], S),
     %% [1,4] from 'calls' is a subset of [1,2,4] from Inter Call Graph:
-    ?line {ok, _} = eval(f("(XXL)(Lin) (E | ~p)", [F2]), 
+    ?line {ok, _} = eval(f("(XXL)(Lin) (E | ~p)", [F2]),
 			 [{{D2,D1},[1,4]},{{D2,D3},[2]}], S),
 
-    ?line {ok, _} = eval(f("(XXL)(ELin) (EE | ~p)", [F2]), 
+    ?line {ok, _} = eval(f("(XXL)(ELin) (EE | ~p)", [F2]),
 			 [{{D2,D1},[1,2,4]}], S),
     ?line {ok, _} = eval(f("(XXL)((ELin)(EE | ~p) + (Lin)(E | ~p))", [F2, F2]),
 			 [{{D2,D1},[1,2,4]},{{D2,D3},[2]}], S),
-    ?line {ok, _} = 
-	eval(f("(XXL)((ELin) ~p + (Lin) ~p)", [{F2, F1}, {F2, F1}]), 
+    ?line {ok, _} =
+	eval(f("(XXL)((ELin) ~p + (Lin) ~p)", [{F2, F1}, {F2, F1}]),
 	     [{{D2,D1},[1,2,4]}], S),
     ?line {ok, _} = eval(f("(Fun)(Lin) ~p", [{F2, F1}]), [E1], S),
     %% The external call E4 is included in the reply:
@@ -438,7 +438,7 @@ intergraph(Conf) when is_list(Conf) ->
     %% The local call E1 is included in the reply:
     ?line {ok, _} = eval("(XXL)(Lin)(XC | m1)", [{{D2,D1},[1,4]}], S),
 
-    ?line {ok, _} = eval(f("(LLin) (E | ~p || ~p) + (XLin) (E | ~p || ~p)", 
+    ?line {ok, _} = eval(f("(LLin) (E | ~p || ~p) + (XLin) (E | ~p || ~p)",
 			   [F2, F1, F2, F1]), [{E4,[1,4]}], S),
 
     ?line {ok, _} = eval("# (ELin) E", 6, S),
@@ -449,7 +449,7 @@ lines(suite) -> [];
 lines(doc) -> ["More test of Inter Call Graph, and regular expressions"];
 lines(Conf) when is_list(Conf) ->
     S0 = new(),
-    
+
     F1 = {m1,f1,1}, % X
     F2 = {m1,f2,2},
     F3 = {m1,f3,3},
@@ -464,14 +464,14 @@ lines(Conf) when is_list(Conf) ->
     E5 = {F2,F4}, % X
     E6 = {F5,F6},
     E7 = {F6,F4}, % X
-    
+
     D1 = {F1,1},
     D2 = {F2,2},
     D3 = {F3,3},
     D4 = {F4,4},
     D5 = {F5,5},
     D6 = {F6,6},
-    
+
     DefAt_m1 = [D1,D2,D3,D5,D6],
     X_m1 = [F1,F5],
     % L_m1 = [F2,F3,F6],
@@ -480,7 +480,7 @@ lines(Conf) when is_list(Conf) ->
     LCallAt_m1 = [{E1,1},{E3,3},{E6,6}],
     XCallAt_m1 = [{E2,2},{E4,4},{E5,5},{E7,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     DefAt_m2 = [D4],
@@ -491,9 +491,9 @@ lines(Conf) when is_list(Conf) ->
     LCallAt_m2 = [],
     XCallAt_m2 = [],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
-    
+
     AppInfo1 = #xref_app{name = a1, rel_name = [r1]},
     ?line S5 = add_application(S2, AppInfo1),
     AppInfo2 = #xref_app{name = a2, rel_name = [r1]},
@@ -509,10 +509,10 @@ lines(Conf) when is_list(Conf) ->
 		    {{D5,D4},[6]}], S),
     ?line {ok, _} = eval("(XXL)(Lin) (E | m1)",
 		   [{{D1,D2},[1]},{{D1,D4},[4]},{{D2,D1},[2]},
-		    {{D2,D4},[5]},{{D3,D2},[3]},{{D5,D6},[6]},{{D6,D4},[7]}], 
+		    {{D2,D4},[5]},{{D3,D2},[3]},{{D5,D6},[6]},{{D6,D4},[7]}],
 		   S),
     ?line {ok, _} = eval("(E | m1) + (EE | m1)",
-		   [E1,E2,E3,E4,E5,E6,E7,{F1,F1},{F3,F1},{F3,F4},{F5,F4}], 
+		   [E1,E2,E3,E4,E5,E6,E7,{F1,F1},{F3,F1},{F3,F4},{F5,F4}],
 		   S),
     ?line {ok, _} = eval("(Lin)(E | m1)",
 		   [{E4,[4]},{E1,[1]},{E2,[2]},{E5,[5]},
@@ -567,7 +567,7 @@ lines(Conf) when is_list(Conf) ->
 loops(suite) -> [];
 loops(doc) -> ["More Inter Call Graph, loops and \"unusual\" cases"];
 loops(Conf) when is_list(Conf) ->
-    S0 = new(),    
+    S0 = new(),
 
     F1 = {m1,f1,1}, % X
     F2 = {m1,f2,2},
@@ -582,7 +582,7 @@ loops(Conf) when is_list(Conf) ->
     E3 = {F3,F4},
     E4 = {F4,F5},
     E5 = {F5,F3}, % X
-    
+
     D1 = {F1,1},
     D2 = {F2,2},
     D3 = {F3,3},
@@ -598,7 +598,7 @@ loops(Conf) when is_list(Conf) ->
     LCallAt_m1 = [{E2,2},{E3,3},{E4,4}],
     XCallAt_m1 = [{E1,1},{E5,5}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     ?line S = set_up(S1),
@@ -659,16 +659,16 @@ modules(Conf) when is_list(Conf) ->
     ?line {ok, y} = compile:file(Y, [debug_info, {outdir,EB1_1}]),
 
     ?line {ok, S0} = xref_base:new([{xref_mode, modules}]),
-    ?line {ok, release2, S1} = 
+    ?line {ok, release2, S1} =
 	xref_base:add_release(S0, Dir, [{name,release2}]),
     ?line S = set_up(S1),
     ?line {{error, _, {unavailable_analysis, undefined_function_calls}}, _} =
 	xref_base:analyze(S, undefined_function_calls),
-    ?line {{error, _, {unavailable_analysis, locals_not_used}}, _} = 
+    ?line {{error, _, {unavailable_analysis, locals_not_used}}, _} =
 	xref_base:analyze(S, locals_not_used),
-    ?line {{error, _, {unavailable_analysis, {call, foo}}}, _} = 
+    ?line {{error, _, {unavailable_analysis, {call, foo}}}, _} =
 	xref_base:analyze(S, {call, foo}),
-    ?line {{error, _, {unavailable_analysis, {use, foo}}}, _} = 
+    ?line {{error, _, {unavailable_analysis, {use, foo}}}, _} =
 	xref_base:analyze(S, {use, foo}),
     ?line analyze(undefined_functions, [{x,undef,0}], S),
     ?line 5 = length(xref_base:info(S)),
@@ -681,7 +681,7 @@ modules(Conf) when is_list(Conf) ->
     ok.
 
 files(suite) ->
-    [add, default, info, lib, read, read2, remove, replace, update, 
+    [add, default, info, lib, read, read2, remove, replace, update,
      deprecated, trycatch, abstract_modules, fun_mfa, qlc].
 
 add(suite) -> [];
@@ -708,7 +708,7 @@ add(Conf) when is_list(Conf) ->
 	      {unix, _} ->
 		  ?line make_udir(UDir),
 		  ?line make_ufile(UFile);
-	      _ -> 
+	      _ ->
 		  true
 	  end,
 
@@ -743,20 +743,20 @@ add(Conf) when is_list(Conf) ->
 	xref_base:add_release(S, foo, [{builtins,not_a_value}]),
     ?line {error, _, {invalid_filename,{foo,bar}}} =
 	xref_base:add_release(S, {foo,bar}, []),
-    ?line {ok, S1} = 
+    ?line {ok, S1} =
 	xref_base:set_default(S, [{verbose,false}, {warnings, false}]),
     ?line case os:type() of
 	      {unix, _} ->
-		  ?line {error, _, {file_error, _, _}} = 
+		  ?line {error, _, {file_error, _, _}} =
 		      xref_base:add_release(S, UDir);
 	      _ ->
 		  true
 	  end,
-    ?line {error, _, {file_error, _, _}} = 
+    ?line {error, _, {file_error, _, _}} =
 	xref_base:add_release(S, fname(["/a/b/c/d/e/f","__foo"])),
-    ?line {ok, release2, S2} = 
+    ?line {ok, release2, S2} =
 	xref_base:add_release(S1, Dir, [{name,release2}]),
-    ?line {error, _, {module_clash, {x, _, _}}} = 
+    ?line {error, _, {module_clash, {x, _, _}}} =
 	xref_base:add_module(S2, Xbeam),
     ?line {ok, S3} = xref_base:remove_release(S2, release2),
     ?line {ok, rel2, S4} = xref_base:add_release(S3, Dir),
@@ -764,11 +764,11 @@ add(Conf) when is_list(Conf) ->
 	xref_base:add_release(S4, Dir),
     ?line {ok, S5} = xref_base:remove_release(S4, rel2),
     %% One unreadable file and one JAM file found (no verification here):
-    ?line {ok, [], S6} = xref_base:add_directory(S5, fname(CopyDir,"dir"), 
+    ?line {ok, [], S6} = xref_base:add_directory(S5, fname(CopyDir,"dir"),
 					   [{recurse,true}, {warnings,true}]),
     ?line case os:type() of
 	      {unix, _} ->
-		  ?line {error, _, {file_error, _, _}} = 
+		  ?line {error, _, {file_error, _, _}} =
 		      xref_base:add_directory(S6, UDir);
 	      _ ->
 		  true
@@ -803,7 +803,7 @@ default(Conf) when is_list(Conf) ->
 	xref_base:set_default(S, [not_an_option]),
 
     ?line D = xref_base:get_default(S),
-    ?line [{builtins,false},{recurse,false},{verbose,false},{warnings,true}] = 
+    ?line [{builtins,false},{recurse,false},{verbose,false},{warnings,true}] =
 	D,
 
     ?line ok = xref_base:delete(S),
@@ -831,7 +831,7 @@ info(Conf) when is_list(Conf) ->
     ?line {error, _, {no_such_info, release}} = xref:info(s, release),
     ?line {error, _, {no_such_info, release}} = xref:info(s, release, rel),
     ?line {error, _, {no_such_module, mod}} = xref:info(s, modules, mod),
-    ?line {error, _, {no_such_application, app}} = 
+    ?line {error, _, {no_such_application, app}} =
 	xref:info(s, applications, app),
     ?line {error, _, {no_such_release, rel}} = xref:info(s, releases, rel),
     ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
@@ -845,9 +845,9 @@ info(Conf) when is_list(Conf) ->
     ?line [{rel2,_}] = xref:info(s, releases, rel2),
     ?line {error, _, {no_such_library, foo}} = xref:info(s, libraries, [foo]),
 
-    ?line {ok, lib1} = 
+    ?line {ok, lib1} =
 	compile:file(fname(LDir,lib1),[debug_info,{outdir,LDir}]),
-    ?line {ok, lib2} = 
+    ?line {ok, lib2} =
 	compile:file(fname(LDir,lib2),[debug_info,{outdir,LDir}]),
     ?line ok = xref:set_library_path(s, [LDir], [{verbose,false}]),
     ?line [{lib1,_}, {lib2, _}] = xref:info(s, libraries),
@@ -883,13 +883,13 @@ lib(Conf) when is_list(Conf) ->
 	xref:set_library_path(s, ["foo"], [not_an_option]),
     ?line {error, _, {invalid_path,otp}} = xref:set_library_path(s,otp),
     ?line {error, _, {invalid_path,[""]}} = xref:set_library_path(s,[""]),
-    ?line {error, _, {invalid_path,[[$a | $b]]}} = 
+    ?line {error, _, {invalid_path,[[$a | $b]]}} =
 	xref:set_library_path(s,[[$a | $b]]),
     ?line {error, _, {invalid_path,[otp]}} = xref:set_library_path(s,[otp]),
     ?line {ok, []} = xref:get_library_path(s),
     ?line ok = xref:set_library_path(s, [Dir], [{verbose,false}]),
     ?line {ok, UnknownFunctions} = xref:q(s, "U"),
-    ?line [{lib1,unknown,0}, {lib2,local,0}, 
+    ?line [{lib1,unknown,0}, {lib2,local,0},
 	   {lib2,unknown,0}, {unknown,unknown,0}]
         = UnknownFunctions,
     ?line {ok, [{lib2,f,0},{lib3,f,0}]} = xref:q(s, "DF"),
@@ -934,7 +934,7 @@ lib(Conf) when is_list(Conf) ->
     ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
     ?line {ok, cp} = xref:add_module(s, fname(Dir,"cp.beam")),
     ?line {ok, [{lists, sort, 1}]} = xref:q(s, "U"),
-    ?line ok = xref:set_library_path(s, code_path),    
+    ?line ok = xref:set_library_path(s, code_path),
     ?line {ok, []} = xref:q(s, "U"),
     ?line check_state(s),
     ?line xref:stop(s),
@@ -1010,18 +1010,18 @@ do_read(File, Version) ->
     ?line {ok, CallsB} = xref:q(s, "(Lin) (E - UC) "),
     ?line ok = check_state(s),
     ?line {ok, XU} = xref:q(s, "XU"),
-    ?line Erl = set([{erlang,length,1},{erlang,integer,1}, 
+    ?line Erl = set([{erlang,length,1},{erlang,integer,1},
 		     {erlang,binary_to_term,1}]),
-    ?line [{erlang,binary_to_term,1},{erlang,length,1}] = 
+    ?line [{erlang,binary_to_term,1},{erlang,length,1}] =
 	to_external(intersection(set(XU), Erl)),
-    ?line xref:stop(s).    
+    ?line xref:stop(s).
 
 %% What is expected when xref_SUITE_data/read/read.erl is added:
 read_expected(Version) ->
     %% Line positions in xref_SUITE_data/read/read.erl:
-    POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10, 
-    POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8, 
-    POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10, 
+    POS1 = 28, POS2 = POS1+10, POS3 = POS2+6, POS4 = POS3+6, POS5 = POS4+10,
+    POS6 = POS5+5, POS7 = POS6+6, POS8 = POS7+6, POS9 = POS8+8,
+    POS10 = POS9+10, POS11 = POS10+7, POS12 = POS11+8, POS13 = POS12+10,
     POS14 = POS13+18, % POS15 = POS14+23,
 
     FF = {read,funfuns,0},
@@ -1162,7 +1162,7 @@ read_expected(Version) ->
 	  {POS14+17,{{read,bi,0},{read,bi,0}}}],
 
     OK = case Version of
-	     abstract_v1 -> 
+	     abstract_v1 ->
 		 [{POS8+3, {FF,{erlang,apply,3}}},
 		  {POS10+1, {FF,{erlang,apply,3}}},
 		  {POS10+6, {FF,{erlang,apply,3}}}]
@@ -1170,7 +1170,7 @@ read_expected(Version) ->
                  [{0,{FF,{read,'$F_EXPR',178}}},
                   {0,{FF,{modul,'$F_EXPR',179}}}]
                  ++ O1;
-	     _ -> 
+	     _ ->
 %                 [{POS15+2,{{read,bi,0},{foo,t,0}}},
 %                  {POS15+3,{{read,bi,0},{bar,t,0}}},
 %                  {POS15+6,{{read,bi,0},{read,local,0}}},
@@ -1183,18 +1183,34 @@ read_expected(Version) ->
 	 end,
 
     %% When builtins =:= true:
-    OKB = [{POS13+1,{FF,{erts_debug,apply,4}}},
-	   {POS13+2,{FF,{erts_debug,apply,4}}},
-	   {POS13+3,{FF,{erts_debug,apply,4}}},
-	   {POS1+3, {FF,{erlang,binary_to_term,1}}},
-	   {POS3+1, {FF,{erlang,spawn,3}}},
-	   {POS3+2, {FF,{erlang,spawn,3}}},
-	   {POS3+3,  {FF,{erlang,spawn_link,3}}},
-	   {POS3+4, {FF,{erlang,spawn_link,3}}},
-	   {POS6+4, {FF,{erlang,spawn,3}}},
-	   {POS13+5, {{read,bi,0},{erlang,length,1}}},
-	   {POS14+3, {{read,bi,0},{erlang,length,1}}}]
-	++ OK,
+    OKB1 = [{POS13+1,{FF,{erts_debug,apply,4}}},
+            {POS13+2,{FF,{erts_debug,apply,4}}},
+            {POS13+3,{FF,{erts_debug,apply,4}}},
+            {POS1+3, {FF,{erlang,binary_to_term,1}}},
+            {POS3+1, {FF,{erlang,spawn,3}}},
+            {POS3+2, {FF,{erlang,spawn,3}}},
+            {POS3+3,  {FF,{erlang,spawn_link,3}}},
+            {POS3+4, {FF,{erlang,spawn_link,3}}},
+            {POS6+4, {FF,{erlang,spawn,3}}},
+            {POS13+5, {{read,bi,0},{erlang,length,1}}},
+            {POS14+3, {{read,bi,0},{erlang,length,1}}}],
+
+    %% Operators (OTP-8647):
+    OKB = case Version of
+              abstract_v1 ->
+                  [];
+              _ ->
+                  [{POS13+16, {{read,bi,0},{erlang,'!',2}}},
+                   {POS13+16, {{read,bi,0},{erlang,'-',1}}},
+                   {POS13+16, {{read,bi,0},{erlang,self,0}}}]
+          end
+        ++ [{POS14+19, {{read,bi,0},{erlang,'+',2}}},
+            {POS14+21, {{read,bi,0},{erlang,'+',2}}},
+            {POS13+16, {{read,bi,0},{erlang,'==',2}}},
+            {POS14+15, {{read,bi,0},{erlang,'==',2}}},
+            {POS13+5,  {{read,bi,0},{erlang,'>',2}}},
+            {POS14+3,  {{read,bi,0},{erlang,'>',2}}}]
+	++ OKB1 ++ OK,
 
     {U, OK, OKB}.
 
@@ -1217,9 +1233,9 @@ read2(Conf) when is_list(Conf) ->
 		  spawn_opt(fun() -> foo end, [link]),
 		  spawn_opt(f(),
 			    {read2,f}, [{min_heap_size,1000}]),
-		  spawn_opt(f(), 
+		  spawn_opt(f(),
 			    fun() -> f() end, [flopp]),
-		  spawn_opt(f(), 
+		  spawn_opt(f(),
 			    read2, f, [], []);
 	      f() ->
 		  %% Duplicated unresolved calls are ignored:
@@ -1237,7 +1253,7 @@ read2(Conf) when is_list(Conf) ->
     ?line {ok, U2} = xref:q(s, "(Lin) UC"),
     ?line {ok, OK2} = xref:q(s, "(Lin) (E - UC)"),
     ?line true = U =:= U2,
-    ?line true = OK =:= OK2,   
+    ?line true = OK =:= OK2,
     ?line ok = check_state(s),
     ?line xref:stop(s),
 
@@ -1304,7 +1320,7 @@ replace(Conf) when is_list(Conf) ->
     ?line {ok, true} = xref:set_default(s, warnings, false),
     ?line {ok, rel2} = xref:add_release(s, Dir, []),
     ?line {error, _, _} = xref:replace_application(s, app1, "no_data"),
-    ?line {error, _, {no_such_application, app12}} = 
+    ?line {error, _, {no_such_application, app12}} =
 	xref:replace_application(s, app12, A1_0, []),
     ?line {error, _, {invalid_filename,{foo,bar}}} =
 	xref:replace_application(s, app1, {foo,bar}, []),
@@ -1312,7 +1328,7 @@ replace(Conf) when is_list(Conf) ->
 	xref:replace_application(s, foo, bar, [not_an_option]),
     ?line {error, _, {invalid_options,[{builtins,not_a_value}]}} =
 	xref:replace_application(s, foo, bar, [{builtins,not_a_value}]),
-    ?line {ok, app1} = 
+    ?line {ok, app1} =
 	xref:replace_application(s, app1, A1_0),
     ?line [{_, AppInfo}] = xref:info(s, applications, app1),
     ?line {value, {release, [rel2]}} = keysearch(release, 1, AppInfo),
@@ -1332,14 +1348,14 @@ replace(Conf) when is_list(Conf) ->
 
     ?line {ok, x} = compile:file(X, [no_debug_info, {outdir,EB1_1}]),
     ?line {error, _, {no_debug_info, _}} = xref:replace_module(s, x, Xbeam),
-    ?line {error, _, {module_mismatch, x,y}} = 
+    ?line {error, _, {module_mismatch, x,y}} =
 	xref:replace_module(s, x, Ybeam),
     ?line case os:type() of
 	      {unix, _} ->
 		  ?line hide_file(Ybeam),
-		  ?line {error, _, {file_error, _, _}} = 
+		  ?line {error, _, {file_error, _, _}} =
 		      xref:replace_module(s, x, Ybeam);
-	      _ -> 
+	      _ ->
 		  true
 	  end,
     ?line ok = xref:remove_module(s, x),
@@ -1362,16 +1378,16 @@ update(Conf) when is_list(Conf) ->
     Source = fname(Dir, "x.erl"),
     Beam = fname(Dir, "x.beam"),
     ?line copy_file(fname(Dir, "x.erl.1"), Source),
-    ?line {ok, x} = compile:file(Source, [debug_info, {outdir,Dir}]),    
-    
+    ?line {ok, x} = compile:file(Source, [debug_info, {outdir,Dir}]),
+
     ?line {ok, _} = start(s),
-    ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),    
+    ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
     ?line {ok, [x]} = xref:add_directory(s, Dir, [{builtins,true}]),
     ?line {error, _, {invalid_options,[not_an_option]}} =
 	xref:update(s, [not_an_option]),
     ?line {ok, []} = xref:update(s),
     ?line {ok, [{erlang,atom_to_list,1}]} = xref:q(s, "XU"),
-    
+
     ?line [{x, ModInfo}] = xref:info(s, modules, x),
     ?line case keysearch(directory, 1, ModInfo) of
 	      {value, {directory, Dir}} -> ok
@@ -1379,7 +1395,7 @@ update(Conf) when is_list(Conf) ->
 
     timer:sleep(2000), % make sure modification time has changed
     ?line copy_file(fname(Dir, "x.erl.2"), Source),
-    ?line {ok, x} = compile:file(Source, [debug_info, {outdir,Dir}]),    
+    ?line {ok, x} = compile:file(Source, [debug_info, {outdir,Dir}]),
     ?line {ok, [x]} = xref:update(s, []),
     ?line {ok, [{erlang,list_to_atom,1}]} = xref:q(s, "XU"),
 
@@ -1454,11 +1470,11 @@ deprecated(Conf) when is_list(Conf) ->
     DF = usort(DF_3++[{{M9,t,0},{M9,f,1}}]),
 
     ?line {ok,DF} = xref:analyze(s, deprecated_function_calls),
-    ?line {ok,DF_1} = 
+    ?line {ok,DF_1} =
         xref:analyze(s, {deprecated_function_calls,next_version}),
-    ?line {ok,DF_2} = 
+    ?line {ok,DF_2} =
         xref:analyze(s, {deprecated_function_calls,next_major_release}),
-    ?line {ok,DF_3} = 
+    ?line {ok,DF_3} =
         xref:analyze(s, {deprecated_function_calls,eventually}),
 
     D = to_external(range(from_term(DF))),
@@ -1467,11 +1483,11 @@ deprecated(Conf) when is_list(Conf) ->
     D_3 = to_external(range(from_term(DF_3))),
 
     ?line {ok,D} = xref:analyze(s, deprecated_functions),
-    ?line {ok,D_1} = 
+    ?line {ok,D_1} =
         xref:analyze(s, {deprecated_functions,next_version}),
-    ?line {ok,D_2} = 
+    ?line {ok,D_2} =
         xref:analyze(s, {deprecated_functions,next_major_release}),
-    ?line {ok,D_3} = 
+    ?line {ok,D_3} =
         xref:analyze(s, {deprecated_functions,eventually}),
 
     ?line ok = check_state(s),
@@ -1516,11 +1532,11 @@ deprecated(Conf) when is_list(Conf) ->
     DFa = DFa_3,
 
     ?line {ok,DFa} = xref:analyze(s, deprecated_function_calls),
-    ?line {ok,DFa_1} = 
+    ?line {ok,DFa_1} =
         xref:analyze(s, {deprecated_function_calls,next_version}),
-    ?line {ok,DFa_2} = 
+    ?line {ok,DFa_2} =
         xref:analyze(s, {deprecated_function_calls,next_major_release}),
-    ?line {ok,DFa_3} = 
+    ?line {ok,DFa_3} =
         xref:analyze(s, {deprecated_function_calls,eventually}),
 
     ?line ok = check_state(s),
@@ -1564,11 +1580,11 @@ deprecated(Conf) when is_list(Conf) ->
     DFb = usort(DFb_2++[{{M,bar,2},{M,t,0}},{{M,g,3},{M,bar,2}}]),
 
     ?line {ok,DFb} = xref:analyze(s, deprecated_function_calls),
-    ?line {ok,DFb_1} = 
+    ?line {ok,DFb_1} =
         xref:analyze(s, {deprecated_function_calls,next_version}),
-    ?line {ok,DFb_2} = 
+    ?line {ok,DFb_2} =
         xref:analyze(s, {deprecated_function_calls,next_major_release}),
-    ?line {ok,DFb_3} = 
+    ?line {ok,DFb_3} =
         xref:analyze(s, {deprecated_function_calls,eventually}),
 
     ?line ok = check_state(s),
@@ -1599,7 +1615,7 @@ trycatch(Conf) when is_list(Conf) ->
                   catch
                      error:a -> err:e1();
                      error:b -> err:e2()
-                  after 
+                  after
                      fini:shed()
                   end.
              ">>,
@@ -1616,7 +1632,7 @@ trycatch(Conf) when is_list(Conf) ->
          {{{A,A,0},{err,e2,0}},[13]},
          {{{A,A,0},{fini,shed,0}},[15]},
          {{{A,A,0},{foo,bar,0}},[7]},
-         {{{A,A,0},{foo,foo,0}},[9]}]} = 
+         {{{A,A,0},{foo,foo,0}},[9]}]} =
         xref:q(s, "(Lin) (E | trycatch:trycatch/0)"),
 
     ?line ok = check_state(s),
@@ -1662,7 +1678,7 @@ abstract_modules(Conf) when is_list(Conf) ->
                 {{{A,args,1},{A,local,1}},[6]},
                 {{{A,args,1},{A,new,2}},[8]},
                 {{{A,local,1},{A,module_info,1}},[12]},
-                {{{param,new,2},{param,instance,2}},[0]}]} = 
+                {{{param,new,2},{param,instance,2}},[0]}]} =
         xref:q(s, "(Lin) E"),
     ?line {ok,[{param,args,1},
                {param,instance,2},
@@ -1747,10 +1763,10 @@ qlc(Conf) when is_list(Conf) ->
               t() ->
                   dets:open_file(t, []),
                   dets:insert(t, [{1,a},{2,b},{3,c},{4,d}]),
-                  MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y} 
+                  MS = ets:fun2ms(fun({X,Y}) when (X > 1) or (X < 5) -> {Y}
                                   end),
                   QH1 = dets:table(t, [{traverse, {select, MS}}]),
-                  QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t), 
+                  QH2 = qlc:q([{Y} || {X,Y} <- dets:table(t),
                                       (X > 1) or (X < 5)]),
                   true = qlc:info(QH1) =:= qlc:info(QH2),
                   dets:close(t),
@@ -1783,7 +1799,7 @@ analyze(Conf) when is_list(Conf) ->
 	xref_base:analyze(S0, undefined_function_calls, [not_an_option]),
     ?line {{error, _, {invalid_query,{q}}}, _} = xref_base:q(S0,{q}),
     ?line {{error, _, {unknown_analysis,foo}}, _} = xref_base:analyze(S0, foo),
-    ?line {{error, _, {unknown_constant,"foo:bar/-1"}}, _} = 
+    ?line {{error, _, {unknown_constant,"foo:bar/-1"}}, _} =
         xref_base:analyze(S0, {use,{foo,bar,-1}}),
 
     CopyDir = ?copydir,
@@ -1803,30 +1819,30 @@ analyze(Conf) when is_list(Conf) ->
     ?line {ok, rel2, S1} = xref_base:add_release(S0, Dir, [{verbose,false}]),
     ?line S = set_up(S1),
 
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze(undefined_function_calls, [{{x,xx,0},{x,undef,0}}], S),
     ?line {ok, _} = analyze(undefined_functions, [{x,undef,0}], S),
     ?line {ok, _} = analyze(locals_not_used, [{x,l,0},{x,l1,0}], S),
     ?line {ok, _} = analyze(exports_not_used, [{x,xx,0},{y,t,0}], S),
 
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze(deprecated_function_calls, [{{y,t,0},{x,t,0}}], S),
     ?line {ok, _} = analyze({deprecated_function_calls,next_version}, [], S),
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze({deprecated_function_calls,next_major_release}, [], S),
-    ?line {ok, _} = analyze({deprecated_function_calls,eventually}, 
+    ?line {ok, _} = analyze({deprecated_function_calls,eventually},
                             [{{y,t,0},{x,t,0}}], S),
     ?line {ok, _} = analyze(deprecated_functions, [{x,t,0}], S),
     ?line {ok, _} = analyze({deprecated_functions,next_version}, [], S),
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze({deprecated_functions,next_major_release}, [], S),
     ?line {ok, _} = analyze({deprecated_functions,eventually}, [{x,t,0}], S),
 
     ?line {ok, _} = analyze({call, {x,xx,0}}, [{x,undef,0}], S),
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze({call, [{x,xx,0},{x,l,0}]}, [{x,l1,0},{x,undef,0}], S),
     ?line {ok, _} = analyze({use, {x,l,0}}, [{x,l1,0}], S),
-    ?line {ok, _} = 
+    ?line {ok, _} =
         analyze({use, [{x,l,0},{x,l1,0}]}, [{x,l,0},{x,l1,0}], S),
 
     ?line {ok, _} = analyze({module_call, x}, [x], S),
@@ -1881,7 +1897,7 @@ basic(Conf) when is_list(Conf) ->
     LCallAt_m1 = [{E7,12}],
     XCallAt_m1 = [{E1,13},{E2,17},{E4,7}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -1895,7 +1911,7 @@ basic(Conf) when is_list(Conf) ->
     LCallAt_m2 = [],
     XCallAt_m2 = [{E3,96},{E6,12},{UE1,77}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
 
     D4 = {F4,6},
@@ -1908,7 +1924,7 @@ basic(Conf) when is_list(Conf) ->
     LCallAt_m3 = [{E5,19}],
     XCallAt_m3 = [{UE2,22}],
     Info3 = #xref_mod{name = m3, app_name = [a3]},
-    ?line S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3, 
+    ?line S3 = add_module(S2, Info3, DefAt_m3, X_m3, LCallAt_m3, XCallAt_m3,
 			  XC_m3, LC_m3),
 
     Info4 = #xref_mod{name = m4, app_name = [a2]},
@@ -1955,7 +1971,7 @@ basic(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval(f("(Mod) ~p", [[F1,F6,F5]]), [m1,m3], S),
     ?line {ok, _} = eval("(Lin) M - (Lin) m1",
 			 [{F2,7},{F3,9},{F7,19},{F4,6},{F5,97},{UF2,0}], S),
-    ?line {ok, _} = eval(f("(Lin) M * (Lin) ~p", [[F1,F6]]), 
+    ?line {ok, _} = eval(f("(Lin) M * (Lin) ~p", [[F1,F6]]),
 			 [{F1,12},{F6,3}], S),
 
     ?line {ok, _} = eval(f("X * ~p", [[F1, F2, F3, F4, F5]]), [F3, F4], S),
@@ -1976,7 +1992,7 @@ basic(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval(f("(XXL) (Lin) (XC | ~p)", [F1]),
 			 [{{D1,D3},[13]},{{D1,D4},[7]}],S),
     ?line {ok, _} = eval(f("XC | (~p + ~p)", [F1, F2]), [E1,E4,E3,UE1], S),
-    ?line {ok, _} = eval(f("(XXL) (Lin) (XC | ~p)", [F1]), 
+    ?line {ok, _} = eval(f("(XXL) (Lin) (XC | ~p)", [F1]),
 			 [{{D1,D3},[13]},{{D1,D4},[7]}], S),
     ?line {ok, _} = eval("LC | m3", [E5], S),
     ?line {ok, _} = eval(f("LC | ~p", [F1]), [E7], S),
@@ -1984,7 +2000,7 @@ basic(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("E | m1", [E1,E2,E4,E7], S),
     ?line {ok, _} = eval(f("E | ~p", [F1]), [E1,E7,E4], S),
     ?line {ok, _} = eval(f("E | (~p + ~p)", [F1, F2]), [E1,E7,E4,E3,UE1], S),
-    
+
     ?line {ok, _} = eval("XC || m1", [E3,UE2], S),
     ?line {ok, _} = eval(f("XC || ~p", [F6]), [E3], S),
     ?line {ok, _} = eval(f("XC || (~p + ~p)", [F4, UF2]), [UE1,E4,E6], S),
@@ -2012,18 +2028,18 @@ basic(Conf) when is_list(Conf) ->
     ?line {ok, _} = eval("components V", type_error, S),
     ?line {ok, _} = eval("components E + components E", type_error, S),
 
-    ?line {ok, _} = eval(f("range (closure E | ~p)", [[F1,F2]]), 
+    ?line {ok, _} = eval(f("range (closure E | ~p)", [[F1,F2]]),
 			 [F6,F3,F7,F4,F5,UF1,UF2], S),
-    ?line {ok, _} = 
+    ?line {ok, _} =
 	eval(f("domain (closure E || ~p)", [[UF2,F7]]), [F1,F2,F6], S),
     ?line {ok, _} = eval("components E", [], S),
     ?line {ok, _} = eval("components (Mod) E", [[m1,m2,m3]], S),
     ?line {ok, _} = eval("components closure (Mod) E", [[m1,m2,m3]], S),
-    ?line {ok, _} = eval("condensation (Mod) E", 
+    ?line {ok, _} = eval("condensation (Mod) E",
 			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
-    ?line {ok, _} = eval("condensation closure (Mod) E", 
+    ?line {ok, _} = eval("condensation closure (Mod) E",
 			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
-    ?line {ok, _} = eval("condensation closure closure closure (Mod) E", 
+    ?line {ok, _} = eval("condensation closure closure closure (Mod) E",
 			 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]}], S),
     ?line {ok, _} = eval("weak condensation (Mod) E",
 	 [{[m1,m2,m3],[m1,m2,m3]},{[m1,m2,m3],[m17]},{[m17],[m17]}], S),
@@ -2035,11 +2051,11 @@ basic(Conf) when is_list(Conf) ->
 			 [[m1,m2,m3]], S),
 
     %% |, ||, |||
-    ?line {ok, _} = eval("(Lin) E || V", type_error, S),    
-    ?line {ok, _} = eval("E ||| (Lin) V", type_error, S),    
+    ?line {ok, _} = eval("(Lin) E || V", type_error, S),
+    ?line {ok, _} = eval("E ||| (Lin) V", type_error, S),
     ?line {ok, _} = eval("E ||| m1", [E7], S),
     ?line {ok, _} = eval("closure E ||| m1", [E7,{F1,UF1},{F6,UF1}], S),
-    ?line {ok, _} = eval("closure E ||| [m1,m2]", 
+    ?line {ok, _} = eval("closure E ||| [m1,m2]",
 	 [{F1,UF1},{F2,F7},{F1,F7},{F6,UF1},{F2,UF1},{F7,UF1},E7,E1,E2,E3], S),
     ?line {ok, _} = eval("AE | a1", [{a1,a1},{a1,a2},{a1,a3}], S),
 
@@ -2095,7 +2111,7 @@ md(Conf) when is_list(Conf) ->
     Y = fname(Dir, "y__y.erl"),
     Xbeam = fname(Dir, "x__x.beam"),
     Ybeam = fname(Dir, "y__y.beam"),
-    
+
     ?line {error, _, {invalid_filename,{foo,bar}}} = xref:m({foo,bar}),
     ?line {error, _, {invalid_filename,{foo,bar}}} = xref:d({foo,bar}),
 
@@ -2171,7 +2187,7 @@ variables(Conf) when is_list(Conf) ->
     LCallAt_m1 = [],
     XCallAt_m1 = [{E1,13},{E3,17}],
     Info1 = #xref_mod{name = m1, app_name = [a1]},
-    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1, 
+    ?line S1 = add_module(S0, Info1, DefAt_m1, X_m1, LCallAt_m1, XCallAt_m1,
 			  XC_m1, LC_m1),
 
     D2 = {F2,7},
@@ -2183,11 +2199,11 @@ variables(Conf) when is_list(Conf) ->
     LCallAt_m2 = [],
     XCallAt_m2 = [{E2,96}],
     Info2 = #xref_mod{name = m2, app_name = [a2]},
-    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2, 
+    ?line S2 = add_module(S1, Info2, DefAt_m2, X_m2, LCallAt_m2, XCallAt_m2,
 			  XC_m2, LC_m2),
 
     ?line S = set_up(S2),
-    
+
     ?line eval("T1=E, T2=E*T1, T3 = T2*T2, T4=range T3, T5=T3|T4, T5",
 	       [E1,E2,E3], S),
     ?line eval("((E*E)*(E*E)) | (range ((E*E)*(E*E)))",
@@ -2202,16 +2218,16 @@ variables(Conf) when is_list(Conf) ->
     ?line {ok, S102} = eval("T2 := E  | m2", [E2], S101),
     ?line {{ok, [{user, ['T0', 'T1', 'T2']}]}, _} = xref_base:variables(S102),
     ?line {ok, S103} = xref_base:forget(S102, 'T0'),
-    ?line {{ok, [{user, ['T1', 'T2']}]}, S104} = 
+    ?line {{ok, [{user, ['T1', 'T2']}]}, S104} =
 	xref_base:variables(S103, [user]),
     ?line {ok, S105} = xref_base:forget(S104),
     ?line {{ok, [{user, []}]}, S106} = xref_base:variables(S105),
-    ?line {{ok, [{predefined,_}]}, S107_0} = 
+    ?line {{ok, [{predefined,_}]}, S107_0} =
 	xref_base:variables(S106, [predefined]),
 
-    ?line {ok, S107_1} = 
+    ?line {ok, S107_1} =
 	eval("TT := E, TT2 := V, TT1 := TT * TT", [E1,E2,E3], S107_0),
-    ?line {{ok, [{user, ['TT', 'TT1', 'TT2']}]}, _} = 
+    ?line {{ok, [{user, ['TT', 'TT1', 'TT2']}]}, _} =
 	xref_base:variables(S107_1),
     ?line {ok, S107} = xref_base:forget(S107_1),
 
@@ -2220,14 +2236,14 @@ variables(Conf) when is_list(Conf) ->
     Beam = fname(Dir, "lib1.beam"),
 
     ?line copy_file(fname(Dir, "lib1.erl"), Beam),
-    ?line {ok, S108} = 
+    ?line {ok, S108} =
 	xref_base:set_library_path(S107, [Dir], [{verbose,false}]),
     ?line {{error, _, _}, _} = xref_base:variables(S108, [{verbose,false}]),
     ?line {ok, S109} = xref_base:set_library_path(S108, [], [{verbose,false}]),
 
     ?line Tabs = length(ets:all()),
 
-    ?line {ok, S110} = eval("Eplus := closure E, TT := Eplus", 
+    ?line {ok, S110} = eval("Eplus := closure E, TT := Eplus",
 			    'closure()', S109),
     ?line {{ok, [{user, ['Eplus','TT']}]}, S111} = xref_base:variables(S110),
     ?line {ok, S112} = xref_base:forget(S111, ['TT','Eplus']),
@@ -2289,7 +2305,7 @@ unused_locals(Conf) when is_list(Conf) ->
     ?line {ok, []} = xref:analyse(s, locals_not_used),
     ?line ok = check_state(s),
     ?line xref:stop(s),
-    
+
     ?line ok = file:delete(File1),
     ?line ok = file:delete(Beam1),
     ?line ok = file:delete(File2),
@@ -2303,7 +2319,7 @@ format_error(suite) -> [];
 format_error(doc) -> ["Format error messages"];
 format_error(Conf) when is_list(Conf) ->
     ?line {ok, _Pid} = start(s),
-    ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),    
+    ?line ok = xref:set_default(s, [{verbose,false}, {warnings, false}]),
 
     %% Parse error messages.
     ?line "Invalid regular expression \"add(\"" ++ _ =
@@ -2332,7 +2348,7 @@ format_error(Conf) when is_list(Conf) ->
     %% Other messages
     ?line 'Variable \'QQ\' used before set\n' =
 	fatom(xref:q(s,"QQ")),
-    ?line 'Unknown constant a\n' = 
+    ?line 'Unknown constant a\n' =
 	fatom(xref:q(s,"{a} of E")),
 
     %% Testing xref_parser:t2s/1.
@@ -2341,12 +2357,12 @@ format_error(Conf) when is_list(Conf) ->
     ?line 'Variable assigned more than once: E = E + E\n' =
 	fatom(xref:q(s,"E=E + E")),
     ?line "Operator applied to argument(s) of different or invalid type(s): "
-	  "E + V * V\n" = 
+	  "E + V * V\n" =
 	flatten(xref:format_error(xref:q(s,"E + (V * V)"))),
     ?line {error,xref_compiler,{type_error,"(V + V) * E"}} =
 	xref:q(s,"(V + V) * E"),
     ?line "Type does not match structure of constant: [m:f/3 -> g:h/17] : "
-	  "App\n" = 
+	  "App\n" =
       flatten(xref:format_error(xref:q(s,"[{{m,f,3},{g,h,17}}] : App"))),
     ?line 'Type does not match structure of constant: [m -> f, g -> h] : Fun\n'
         = fatom(xref:q(s,"[{m,f},g->h] : Fun")),
@@ -2360,11 +2376,11 @@ format_error(Conf) when is_list(Conf) ->
 	xref:q(s,"condensation (# E + # V)"),
     ?line {error,xref_compiler,{type_error,"range (# E + # E)"}} =
 	xref:q(s,"range (#E + #E)"),
-    ?line {error,xref_compiler,{type_error,"range (# E)"}} = 
+    ?line {error,xref_compiler,{type_error,"range (# E)"}} =
 	xref:q(s,"range #E"), % Hm...
     ?line {error,xref_compiler,{type_error,"E + # E"}} =
 	xref:q(s,"E + #E + #E"), % Hm...
-    ?line {error,xref_compiler,{type_error,"V * E || V | V"}} = 
+    ?line {error,xref_compiler,{type_error,"V * E || V | V"}} =
 	xref:q(s,"V * (E || V) | V"),
     ?line {error,xref_compiler,{type_error,"E || (E | V)"}} =
 	xref:q(s,"V * E || (E | V)"),
@@ -2421,7 +2437,7 @@ eval(Query, E, S) ->
     ?format("------------------------------~n", []),
     ?format("Evaluating ~p~n", [Query]),
     ?line {Answer, NewState} = xref_base:q(S, Query, [{verbose, false}]),
-    {Reply, Expected} = 
+    {Reply, Expected} =
 	case Answer of
 	    {ok, R} when is_list(E) ->
 		{unsetify(R), sort(E)};
@@ -2430,7 +2446,7 @@ eval(Query, E, S) ->
 	    {error, _Module, Reason} ->
 		{element(1, Reason), E}
 	end,
-    if 
+    if
 	Reply =:= Expected ->
 	    ?format("As expected, got ~n~p~n", [Expected]),
 	    {ok, NewState};
@@ -2442,7 +2458,7 @@ eval(Query, E, S) ->
 analyze(Query, E, S) ->
     ?format("------------------------------~n", []),
     ?format("Evaluating ~p~n", [Query]),
-    ?line {{ok, L}, NewState} = 
+    ?line {{ok, L}, NewState} =
 	xref_base:analyze(S, Query, [{verbose, false}]),
     case {unsetify(L), sort(E)} of
 	{X,X} ->
@@ -2461,7 +2477,7 @@ unsetify(S) ->
 
 %% Note: assumes S has been set up; the new state is not returned
 eval(Query, S) ->
-    ?line {{ok, Answer}, _NewState} = 
+    ?line {{ok, Answer}, _NewState} =
 	xref_base:q(S, Query, [{verbose, false}]),
     unsetify(Answer).
 
@@ -2514,7 +2530,7 @@ check_state(S) ->
 	    functions_mode_check(S, Info)
     end.
 
-%% The manual mentions some facts that should always hold. 
+%% The manual mentions some facts that should always hold.
 %% Here they are again.
 functions_mode_check(S, Info) ->
     %% F = L + X,
@@ -2526,7 +2542,7 @@ functions_mode_check(S, Info) ->
     ?line {ok, V} = xref:q(S, "X + L + B + U"),
 
     %% X, L, B and U are disjoint.
-    ?line {ok, []} = 
+    ?line {ok, []} =
 	xref:q(S, "X * L + X * B + X * U + L * B + L * U + B * U"),
 
     %% V = UU + XU + LU,
@@ -2577,11 +2593,11 @@ functions_mode_check(S, Info) ->
 
     ?line {Local, Exported} = info(Info, no_functions),
     ?line LX = Local+Exported,
-    ?line {ok, LXs} = xref:q(S, 'Extra = _:module_info/"(0|1)" + LM, 
+    ?line {ok, LXs} = xref:q(S, 'Extra = _:module_info/"(0|1)" + LM,
 				  # (F - Extra)'),
     ?line true = LX =:= LXs,
 
-    ?line {LocalCalls, ExternalCalls, UnresCalls} = 
+    ?line {LocalCalls, ExternalCalls, UnresCalls} =
           info(Info, no_function_calls),
     ?line LEU = LocalCalls + ExternalCalls + UnresCalls,
     ?line {ok, LEU} = xref:q(S, "# LC + # XC"),
@@ -2635,7 +2651,7 @@ check_count(S) ->
     %% {ok, A} = xref:q(S, 'A'),
     {ok, M} = xref:q(S, 'AM'),
 
-    {ok, _} = xref:q(S, 
+    {ok, _} = xref:q(S,
 	      "Extra := _:module_info/\"(0|1)\" + LM"),
 
     %% info/1:
@@ -2670,7 +2686,7 @@ check_count(S) ->
     ok.
 
 info_module([M | Ms], S) ->
-    {ok, NoCalls} = per_module("T = (E | ~p : Mod), # (XLin) T + # (LLin) T", 
+    {ok, NoCalls} = per_module("T = (E | ~p : Mod), # (XLin) T + # (LLin) T",
 			       M, S),
     {ok, NoFunCalls} = per_module("# (E | ~p : Mod)", M, S),
     {ok, NoXCalls} = per_module("# (XC | ~p : Mod)", M, S),
@@ -2719,14 +2735,14 @@ start(Server) ->
 	  end.
 
 add_erts_code_path(KernelPath) ->
-    VersionDirs = 
+    VersionDirs =
 	filelib:is_dir(
 	  filename:join(
 	    [code:lib_dir(),
 	     lists:flatten(
 	       ["kernel-",
-		[X || 
-		    {kernel,_,X} <- 
+		[X ||
+		    {kernel,_,X} <-
 			application_controller:which_applications()]])])),
     case VersionDirs of
 	true ->
@@ -2746,5 +2762,5 @@ add_erts_code_path(KernelPath) ->
 		    [KernelPath]
 	    end
     end.
-		
-	    
+
+
