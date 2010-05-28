@@ -1,0 +1,31 @@
+%% -*- erlang -*-
+%% You can test this file using this command.
+%%    file:script("odbc.dynspec", [{'Os',"Unix"}]).
+
+Exists =
+fun() ->
+	case code:lib_dir(odbc) of
+	    {error,bad_name} ->
+		false;
+	    P ->
+		%% Make sure that the odbc directory really
+		%% contains the application (and not only documentation).
+		case filelib:is_file(filename:join(P, "ebin/odbc.beam")) of
+		    false -> false;
+		    true ->
+			%% We know that we don't have any odbc libraries
+			%% installed on this computer.
+			{ok,Host} = inet:gethostname(),
+			Host =/= "netsim200"
+		end
+	end
+end,
+case Exists() of
+    false ->
+	NoOdbc = "No odbc application",
+	[{skip, {odbc_connect_SUITE, NoOdbc}},
+	 {skip, {odbc_data_type_SUITE, NoOdbc}},
+	 {skip, {odbc_query_SUITE, NoOdbc}}];
+    true ->
+	[]
+end.
