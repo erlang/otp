@@ -198,7 +198,7 @@ des_encrypt(PrivKey, Data, SaltFun) ->
     [A,B,C,D,E,F,G,H | PreIV] = PrivKey,
     DesKey = [A,B,C,D,E,F,G,H],
     Salt = SaltFun(),
-    IV = snmp_misc:str_xor(PreIV, Salt),
+    IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     TailLen = (8 - (length(Data) rem 8)) rem 8,
     Tail = mk_tail(TailLen),
     EncData = crypto:des_cbc_encrypt(DesKey, IV, [Data,Tail]),
@@ -213,13 +213,13 @@ des_decrypt(PrivKey, MsgPrivParams, EncData)
     [A,B,C,D,E,F,G,H | PreIV] = PrivKey,
     DesKey = [A,B,C,D,E,F,G,H],
     Salt = MsgPrivParams,
-    IV = snmp_misc:str_xor(PreIV, Salt),
+    IV = list_to_binary(snmp_misc:str_xor(PreIV, Salt)),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
     Data = binary_to_list(crypto:des_cbc_decrypt(DesKey, IV, EncData)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),
     {ok, Data2};
 des_decrypt(PrivKey, BadMsgPrivParams, EncData) ->
-    ?vtrace("des_decrypt -> entry with when bad MsgPrivParams"
+    ?vtrace("des_decrypt -> entry when bad MsgPrivParams"
 	    "~n   PrivKey:          ~p"
 	    "~n   BadMsgPrivParams: ~p"
 	    "~n   EncData:          ~p", 
@@ -232,7 +232,7 @@ aes_encrypt(PrivKey, Data, SaltFun) ->
     Salt = SaltFun(),
     EngineBoots = snmp_framework_mib:get_engine_boots(),
     EngineTime = snmp_framework_mib:get_engine_time(),
-    IV = [?i32(EngineBoots), ?i32(EngineTime) | Salt],
+    IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     EncData = crypto:aes_cfb_128_encrypt(AesKey, IV, Data),
     {ok, binary_to_list(EncData), Salt}.
 
@@ -240,7 +240,7 @@ aes_decrypt(PrivKey, MsgPrivParams, EncData, EngineBoots, EngineTime)
   when length(MsgPrivParams) =:= 8 ->
     AesKey = PrivKey,
     Salt = MsgPrivParams,
-    IV = [?i32(EngineBoots), ?i32(EngineTime) | Salt],
+    IV = list_to_binary([?i32(EngineBoots), ?i32(EngineTime) | Salt]),
     %% Whatabout errors here???  E.g. not a mulitple of 8!
     Data = binary_to_list(crypto:aes_cfb_128_decrypt(AesKey, IV, EncData)),
     Data2 = snmp_pdus:strip_encrypted_scoped_pdu_data(Data),

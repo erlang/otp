@@ -47,6 +47,7 @@
 	 mib_of/1, mib_of/2, 
 	 me_of/1,  me_of/2, 
 	 invalidate_mibs_cache/0, invalidate_mibs_cache/1, 
+	 which_mibs_cache_size/0, which_mibs_cache_size/1, 
 	 enable_mibs_cache/0, enable_mibs_cache/1, 
 	 disable_mibs_cache/0, disable_mibs_cache/1,
 	 gc_mibs_cache/0, gc_mibs_cache/1, gc_mibs_cache/2, gc_mibs_cache/3,
@@ -300,6 +301,13 @@ invalidate_mibs_cache() ->
 
 invalidate_mibs_cache(Agent) ->
     snmpa_agent:invalidate_mibs_cache(Agent).
+
+
+which_mibs_cache_size() ->
+    which_mibs_cache_size(snmp_master_agent).
+
+which_mibs_cache_size(Agent) ->
+    snmpa_agent:which_mibs_cache_size(Agent).
 
 
 enable_mibs_cache() ->

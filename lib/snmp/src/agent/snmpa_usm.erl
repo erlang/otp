@@ -560,11 +560,15 @@ encrypt(Data, PrivProtocol, PrivKey, SecLevel) ->
 	    ?vtrace("encrypt -> 3.1.4a",[]),
 	    case (catch try_encrypt(PrivProtocol, PrivKey, Data)) of
 		{ok, ScopedPduData, MsgPrivParams} ->
-		    ?vtrace("encrypt -> encode tag",[]),
+		    ?vtrace("encrypt -> encrypted - now encode tag",[]),
 		    {snmp_pdus:enc_oct_str_tag(ScopedPduData), MsgPrivParams};
                 {error, Reason} ->
+		    ?vtrace("encrypt -> error: "
+			    "~n   Reason: ~p", [Reason]),
                     error(Reason);
- 		_Error ->
+ 		Error ->
+		    ?vtrace("encrypt -> other: "
+			    "~n   Error: ~p", [Error]),
 		    error(encryptionError)
 	    end
     end.

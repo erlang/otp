@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -38,7 +38,10 @@
 	 dec_usm_security_parameters/1,
 	 strip_encrypted_scoped_pdu_data/1,
 	 octet_str_to_bits/1, bits_to_str/1,
-	 get_encoded_length/1]).
+	 get_encoded_length/1,
+	 enc_value/2, dec_value/1]).
+
+%% -compile(export_all).
 
 %% Returns the number of octets required to encode Length.
 get_encoded_length(Length) ->
@@ -290,12 +293,18 @@ dec_value([68 | Bytes]) ->
     {Value, Rest} = dec_oct_str_notag(Bytes),
     {{'Opaque', Value}, Rest};
 dec_value([70 | Bytes]) ->
+    %% Counter64 is an unsigned 64 but is actually encoded as 
+    %% a signed integer 64.
     {Value, Rest} = dec_integer_notag(Bytes),
-    if Value >= 0, Value =< 18446744073709551615 ->
-	    {{'Counter64', Value}, Rest};
-       true ->
-	    exit({error, {bad_counter64, Value}})
-    end;
+    Value2 = 
+	if
+	    (Value >= 0) andalso (Value < 16#8000000000000000) ->
+		Value;
+	    (Value < 0) ->
+		18446744073709551615 + Value + 1;
+	    true ->
+		exit({error, {bad_counter64, Value}})	end,
+    {{'Counter64', Value2}, Rest};
 dec_value([128,0|T]) ->
     {{'NULL', noSuchObject}, T};
 dec_value([129,0|T]) ->
@@ -633,6 +642,21 @@ enc_value(_Type, endOfMibView) ->
     [130,0];
 enc_value('NULL', _Val) ->
     [5,0];
+enc_value('Counter64', Val) ->
+    Val2 = 
+	if
+	    Val > 16#ffffffffffffffff ->
+		exit({error, {bad_counter64, Val}});
+	    Val >= 16#8000000000000000 ->
+		(Val band 16#7fffffffffffffff) - 16#8000000000000000;
+	    Val >= 0 ->
+		Val;
+	    true ->
+		exit({error, {bad_counter64, Val}}) 
+	end,
+    Bytes2 = enc_integer_notag(Val2),
+    Len2 = elength(length(Bytes2)),
+    lists:append([70 | Len2],Bytes2);
 enc_value(Type, Val) ->
     Bytes2 = enc_integer_notag(Val),
     Len2 = elength(length(Bytes2)),
@@ -643,10 +667,7 @@ enc_val_tag('Counter32',Val) when (Val >= 0) andalso (Val =< 4294967295) ->
 enc_val_tag('Unsigned32', Val) when (Val >= 0) andalso (Val =< 4294967295) ->
     66;
 enc_val_tag('TimeTicks', Val) when (Val >= 0) andalso (Val =< 4294967295) ->
-    67;
-enc_val_tag('Counter64', Val) when ((Val >= 0) andalso 
-				    (Val =< 18446744073709551615)) ->
-    70.
+    67.
 
 
 %%----------------------------------------------------------------------

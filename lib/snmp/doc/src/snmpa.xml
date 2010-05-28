@@ -4,7 +4,7 @@
 <erlref>
   <header>
     <copyright>
-      <year>2004</year><year>2009</year>
+      <year>2004</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>snmpa</title>
@@ -647,6 +647,20 @@ notification_delivery_info() = #snmpa_notification_delivery_info{}
       </type>
       <desc>
         <p>Disable the mib server cache. </p>
+
+        <marker id="which_mibs_cache_size"></marker>
+      </desc>
+    </func>
+
+    <func>
+      <name>which_mibs_cache_size() -> void()</name>
+      <name>which_mibs_cache_size(Agent) -> void()</name>
+      <fsummary>The size of the mib server cache</fsummary>
+      <type>
+        <v>Agent = pid() | atom()</v>
+      </type>
+      <desc>
+        <p>Retreive the size of the mib server cache. </p>
 
         <marker id="gc_mibs_cache"></marker>
       </desc>
