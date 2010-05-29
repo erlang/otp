@@ -77,6 +77,7 @@ int ei_skip_term(const char* buf, int* index)
 	if (ei_decode_big(buf, index, NULL) < 0) return -1;
 	break;
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	if (ei_decode_double(buf, index, NULL) < 0) return -1;
 	break;
     case ERL_FUN_EXT:

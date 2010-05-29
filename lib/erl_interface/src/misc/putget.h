@@ -54,6 +54,18 @@
   (s) += 4; \
 } while (0)
 
+#define put64be(s,n) do {  \
+  (s)[0] = ((n) >>  56) & 0xff; \
+  (s)[1] = ((n) >>  48) & 0xff; \
+  (s)[2] = ((n) >>  40) & 0xff; \
+  (s)[3] = ((n) >>  32) & 0xff; \
+  (s)[4] = ((n) >>  24) & 0xff; \
+  (s)[5] = ((n) >>  16) & 0xff; \
+  (s)[6] = ((n) >>  8)  & 0xff; \
+  (s)[7] = (n) & 0xff; \
+  (s) += 8; \
+} while (0)
+
 #define get8(s) \
      ((s) += 1, \
       ((unsigned char *)(s))[-1] & 0xff)
@@ -82,4 +94,20 @@
        (((unsigned char *)(s))[-2] << 8) | \
        ((unsigned char *)(s))[-1]))
      
+#define get64be(s) \
+     ((s) += 8, \
+      (((EI_ULONGLONG)((unsigned char *)(s))[-8] << 56) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-7] << 48) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-6] << 40) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-5] << 32) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-4] << 24) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-3] << 16) | \
+       ((EI_ULONGLONG)((unsigned char *)(s))[-2] << 8)  | \
+        (EI_ULONGLONG)((unsigned char *)(s))[-1]))
+
+typedef union float_ext {
+    double d;
+    EI_ULONGLONG val;
+} FloatExt;
+
 #endif /* _PUTGET_H */

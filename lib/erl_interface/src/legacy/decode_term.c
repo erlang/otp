@@ -59,6 +59,7 @@ int ei_decode_term(const char *buf, int *index, void *t)
       return ei_decode_long(buf,index,NULL);
 
     case ERL_FLOAT_EXT:  
+    case NEW_FLOAT_EXT:
       return ei_decode_double(buf,index,NULL);
 
     case ERL_ATOM_EXT:

@@ -102,6 +102,7 @@ void erl_init_marshal(void)
     cmp_array[ERL_SMALL_INTEGER_EXT] = 1;
     cmp_array[ERL_INTEGER_EXT]       = 1;
     cmp_array[ERL_FLOAT_EXT]         = 1;
+    cmp_array[NEW_FLOAT_EXT]         = 1;
     cmp_array[ERL_SMALL_BIG_EXT]     = 1;
     cmp_array[ERL_LARGE_BIG_EXT]     = 1;
     cmp_array[ERL_ATOM_EXT]          = 2;
@@ -124,6 +125,7 @@ void erl_init_marshal(void)
     cmp_num_class[ERL_SMALL_INTEGER_EXT] = SMALL;
     cmp_num_class[ERL_INTEGER_EXT]       = SMALL;
     cmp_num_class[ERL_FLOAT_EXT]         = FLOAT;
+    cmp_num_class[NEW_FLOAT_EXT]         = FLOAT;
     cmp_num_class[ERL_SMALL_BIG_EXT]     = BIG;
     cmp_num_class[ERL_LARGE_BIG_EXT]     = BIG;
     init_cmp_num_class_p = 0;
@@ -1008,10 +1010,13 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	return ep;
 
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	ERL_TYPE(ep) = ERL_FLOAT;
-	if (sscanf((char *) *ext, "%lf", &ff) != 1)
+	cp = (char *) *ext;
+	i = -1;
+	if (ei_decode_double(cp, &i, &ff) == -1)
 	    goto failure;
-	*ext += 31;
+	*ext += i;
 	ep->uval.fval.f = ff;
 	return ep;
 
@@ -1176,6 +1181,7 @@ unsigned char erl_ext_type(unsigned char *ext)
     case ERL_LARGE_TUPLE_EXT:
 	return ERL_TUPLE;
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	return ERL_FLOAT;
     case ERL_BINARY_EXT:
 	return ERL_BINARY;
@@ -1218,6 +1224,7 @@ int erl_ext_size(unsigned char *t)
     case ERL_BINARY_EXT:
     case ERL_STRING_EXT:
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
     case ERL_SMALL_BIG_EXT:
     case ERL_LARGE_BIG_EXT:
 	return 0;
@@ -1331,6 +1338,9 @@ static int jump(unsigned char **ext)
 	break;
     case ERL_FLOAT_EXT:
 	*ext += 31;
+	break;
+    case NEW_FLOAT_EXT:
+	*ext += 8;
 	break;
     case ERL_BINARY_EXT:
 	i = (**ext << 24) | ((*ext)[1] << 16) |((*ext)[2] << 8) | (*ext)[3];
@@ -1696,12 +1706,15 @@ static int cmp_exe2(unsigned char **e1, unsigned char **e2)
       }
       return 0;
     case ERL_FLOAT_EXT:
-      if (sscanf((char *) *e1, "%lf", &ff1) != 1)
-	return -1;
-      *e1 += 31;
-      if (sscanf((char *) *e2, "%lf", &ff2) != 1)
-	return -1;
-      *e2 += 31;
+    case NEW_FLOAT_EXT:
+      i = -1;
+      if (ei_decode_double((char *) *e1, &i, &ff1) != 0)
+        return -1;
+      *e1 += i;
+      j = -1;
+      if (ei_decode_double((char *) *e2, &j, &ff2) != 0)
+        return -1;
+      *e2 += j;
       return cmp_floats(ff1,ff2);
 
     case ERL_BINARY_EXT:

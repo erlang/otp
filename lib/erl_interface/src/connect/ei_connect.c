@@ -1323,7 +1323,8 @@ static int send_name_or_challenge(int fd, char *nodename,
     put32be(s, (DFLAG_EXTENDED_REFERENCES
 		| DFLAG_EXTENDED_PIDS_PORTS
 		| DFLAG_FUN_TAGS
-		| DFLAG_NEW_FUN_TAGS));
+		| DFLAG_NEW_FUN_TAGS
+                | DFLAG_NEW_FLOATS));
     if (f_chall)
 	put32be(s, challenge);
     memcpy(s, nodename, strlen(nodename));
@@ -1393,6 +1394,11 @@ static int recv_challenge(int fd, unsigned *challenge,
 	goto error;
     }
 	    
+    if (!(*flags & DFLAG_NEW_FLOATS)) {
+	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE peer cannot "
+		      "handle binary float encoding");
+	goto error;
+    }
 
     if (getpeername(fd, (struct sockaddr *) &sin, &sin_len) < 0) {
 	EI_TRACE_ERR0("recv_challenge","<- RECV_CHALLENGE can't get peername");

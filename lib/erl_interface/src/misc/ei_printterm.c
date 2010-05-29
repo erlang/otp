@@ -272,6 +272,7 @@ static int print_term(FILE* fp, ei_x_buff* x,
         break;
 
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	if (ei_decode_double(buf, index, &d) < 0) goto err;
 	ch_written += xprintf(fp, x, "%f", d);
 	break;

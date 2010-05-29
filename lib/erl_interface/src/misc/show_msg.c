@@ -400,6 +400,7 @@ static void show_term(const char *termbuf, int *index, FILE *stream)
 	break;
 
     case ERL_FLOAT_EXT:
+    case NEW_FLOAT_EXT:
 	ei_decode_double(termbuf,index,&fnum);
 	fprintf(stream,"%f",fnum);
 	break;

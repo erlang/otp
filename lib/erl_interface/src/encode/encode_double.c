@@ -27,13 +27,13 @@ int ei_encode_double(char *buf, int *index, double p)
   char *s = buf + *index;
   char *s0 = s;
 
-  if (!buf) s ++;
+  if (!buf)
+    s += 9;
   else {
-    put8(s,ERL_FLOAT_EXT);
-    memset(s, 0, 31);
-    sprintf(s, "%.20e", p);
+    /* IEEE 754 format */
+    put8(s, NEW_FLOAT_EXT);
+    put64be(s, ((FloatExt*)&p)->val);
   }
-  s += 31;
 
   *index += s-s0; 
 

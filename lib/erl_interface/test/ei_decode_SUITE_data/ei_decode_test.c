@@ -515,11 +515,10 @@ TESTCASE(test_ei_decode_misc)
 /*
     EI_DECODE_0(decode_version);
 */
-/*
-    EI_DECODE_2(decode_double, 0.0);
-    EI_DECODE_2(decode_double, -1.0);
-    EI_DECODE_2(decode_double, 1.0);
-*/
+    EI_DECODE_2(decode_double, 32, double, 0.0);
+    EI_DECODE_2(decode_double, 32, double, -1.0);
+    EI_DECODE_2(decode_double, 32, double, 1.0);
+
     EI_DECODE_2(decode_boolean, 8, int, 0);
     EI_DECODE_2(decode_boolean, 7, int, 1);
 

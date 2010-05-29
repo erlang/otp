@@ -110,6 +110,7 @@
 #define ERL_SMALL_INTEGER_EXT 'a'
 #define ERL_INTEGER_EXT       'b'
 #define ERL_FLOAT_EXT         'c'
+#define NEW_FLOAT_EXT         'F'
 #define ERL_ATOM_EXT          'd'
 #define ERL_REFERENCE_EXT     'e'
 #define ERL_NEW_REFERENCE_EXT 'r'

@@ -350,13 +350,13 @@ TESTCASE(test_ei_encode_char)
 TESTCASE(test_ei_encode_misc)
 {
     EI_ENCODE_0(encode_version);
-/*
+
     EI_ENCODE_1(encode_double, 0.0);
 
     EI_ENCODE_1(encode_double, -1.0);
 
     EI_ENCODE_1(encode_double, 1.0);
-*/
+
     EI_ENCODE_1(encode_boolean, 0) /* Only case it should be false */;
 
     EI_ENCODE_1(encode_boolean, 1);

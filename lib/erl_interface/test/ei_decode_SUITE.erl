@@ -181,22 +181,9 @@ test_ei_decode_misc(suite) -> [];
 test_ei_decode_misc(Config) when is_list(Config) ->
     ?line P = runner:start(?test_ei_decode_misc),
 
-%    ?line <<131>>  = get_binaries(P),
-
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
-%    ?line {term,F} = get_term(P),
-%    ?line match_float(F, 0.0),
-
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, -1.0),
-
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
-%    ?line {term,F} = get_term(P),
-%    ?line true = match_float(F, 1.0),
+    ?line send_term_as_binary(P,0.0),
+    ?line send_term_as_binary(P,-1.0),
+    ?line send_term_as_binary(P,1.0),
 
     ?line send_term_as_binary(P,false),
     ?line send_term_as_binary(P,true),
