@@ -53,11 +53,15 @@ check on newline and when there are no changes)."
 
 
 (defun erlang-flymake-get-code-path-dirs ()
-  ())
+  (list (concat (erlang-flymake-get-app-dir) "ebin")))
 
 (defun erlang-flymake-get-include-dirs ()
-  ())
+  (list (concat (erlang-flymake-get-app-dir) "include")))
 
+(defun erlang-flymake-get-app-dir () 
+  (let ((src-path (file-name-directory (buffer-file-name))))
+    (file-name-directory (directory-file-name src-path))))
+ 
 (defun erlang-flymake-init ()
   (let* ((temp-file
           (flet ((flymake-get-temp-dir () (erlang-flymake-temp-dir)))
