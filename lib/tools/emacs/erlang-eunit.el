@@ -33,6 +33,10 @@ if there is no match.")
 a source file.  The first directory in the list will be used,
 if there is no match.")
 
+(defvar erlang-eunit-autosave nil
+  "*Set to non-nil to automtically save unsaved buffers before running tests.
+This is useful, reducing the save-compile-load-test cycle to one keychord.")
+
 ;;;
 ;;; Switch between src/EUnit test buffers
 ;;;
@@ -271,7 +275,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
     ;; below, is to ask the question about saving buffers only once,
     ;; instead of possibly several: one for each file to compile,
     ;; for instance for both x.erl and x_tests.erl.
-    (save-some-buffers)
+    (save-some-buffers erlang-eunit-autosave)
     (flet ((save-some-buffers (&optional any) nil))
 
       ;; Compilation of the source file is mandatory (the file must
