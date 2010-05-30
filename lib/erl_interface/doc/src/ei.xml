@@ -581,7 +581,7 @@ ei_x_encode_empty_list(&amp;x);
           <c><![CDATA[term]]></c> union, it is decoded, and the appropriate field
           in <c><![CDATA[term->value]]></c> is set, and <c><![CDATA[*index]]></c> is
           incremented by the term size.</p>
-        <p>The function returns 0 on successful encoding, -1 on error,
+        <p>The function returns 0 on successful decoding, -1 on error,
           and 1 if the term seems alright, but does not fit in the
           <c><![CDATA[term]]></c> structure. If it returns 0, the <c><![CDATA[index]]></c>
           will be incremented, and the <c><![CDATA[term]]></c> contains the
