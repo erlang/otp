@@ -42,7 +42,14 @@ Files\erl-<Ver>:
       (setq erlang-root-dir "C:/Program Files/erl<Ver>")
       (setq exec-path (cons "C:/Program Files/erl<Ver>/bin" exec-path))
       (require 'erlang-start)
-    
 
 
+Miscellaneous addons
+--------------------
 
+In order to check erlang source code on the fly, add the following
+line to your .emacs file (after erlang-start, see above).  See
+erlang-flymake.el for more information on how to customize the syntax
+check.
+
+      (require 'erlang-flymake)
