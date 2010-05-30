@@ -24,6 +24,10 @@
 (eval-when-compile
   (require 'cl))
 
+(defvar erlang-flymake-command
+  "erlc"
+  "The command that will be used to perform the syntax check")
+
 (defvar erlang-flymake-get-code-path-dirs-function
   'erlang-flymake-get-code-path-dirs
   "Return a list of ebin directories to add to the code path.")
@@ -58,10 +62,10 @@ check on newline and when there are no changes)."
 (defun erlang-flymake-get-include-dirs ()
   (list (concat (erlang-flymake-get-app-dir) "include")))
 
-(defun erlang-flymake-get-app-dir () 
+(defun erlang-flymake-get-app-dir ()
   (let ((src-path (file-name-directory (buffer-file-name))))
     (file-name-directory (directory-file-name src-path))))
- 
+
 (defun erlang-flymake-init ()
   (let* ((temp-file
           (flet ((flymake-get-temp-dir () (erlang-flymake-temp-dir)))
@@ -79,7 +83,7 @@ check on newline and when there are no changes)."
           (append inc-dir-opts
                   code-dir-opts
                   erlang-flymake-extra-opts)))
-    (list "erlc" (append compile-opts (list temp-file)))))
+    (list erlang-flymake-command (append compile-opts (list temp-file)))))
 
 (defun erlang-flymake-temp-dir ()
   ;; Squeeze the user's name in there in order to make sure that files
