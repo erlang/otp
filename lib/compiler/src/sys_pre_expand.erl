@@ -43,6 +43,7 @@
                  mod_imports,                   %Module Imports
                  compile=[],                    %Compile flags
                  attributes=[],                 %Attributes
+                 callbacks=[],                  %Callbacks
                  defined=[],                    %Defined functions
                  vcount=0,                      %Variable counter
                  func=[],                       %Current function
@@ -172,10 +173,41 @@ define_functions(Forms, #expand{defined=Predef}=St) ->
                end, Predef, Forms),
     St#expand{defined=ordsets:from_list(Fs)}.
 
-module_attrs(St) ->
-    {[{attribute,Line,Name,Val} || {Name,Line,Val} <- St#expand.attributes],St}.
+module_attrs(#expand{attributes=Attributes}=St) ->
+    Attrs = [{attribute,Line,Name,Val} || {Name,Line,Val} <- Attributes],
+    Callbacks = [Callback || {_,_,callback,_}=Callback <- Attrs],
+    {Attrs,St#expand{callbacks=Callbacks}}.
 
 module_predef_funcs(St) ->
+    {Mpf1,St1}=module_predef_func_beh_info(St),
+    {Mpf2,St2}=module_predef_funcs_mod_info(St1),
+    {Mpf1++Mpf2,St2}.
+
+module_predef_func_beh_info(#expand{callbacks=[]}=St) ->
+    {[], St};
+module_predef_func_beh_info(#expand{callbacks=Callbacks,defined=Defined,
+				    exports=Exports}=St) ->
+    PreDef=[{behaviour_info,1}],
+    PreExp=PreDef,
+    {[gen_beh_info(Callbacks)],
+     St#expand{defined=union(from_list(PreDef), Defined),
+	       exports=union(from_list(PreExp), Exports)}}.
+
+gen_beh_info(Callbacks) ->
+    List = make_list(Callbacks),
+    {function,0,behaviour_info,1,
+     [{clause,0,[{atom,0,callbacks}],[],
+       [List]}]}.
+
+make_list([]) -> {nil,0};
+make_list([{_,_,_,[{{Name,Arity},_}]}|Rest]) ->
+    {cons,0,
+     {tuple,0,
+      [{atom,0,Name},
+       {integer,0,Arity}]},
+     make_list(Rest)}.
+
+module_predef_funcs_mod_info(St) ->
     PreDef = [{module_info,0},{module_info,1}],
     PreExp = PreDef,
     {[{function,0,module_info,0,

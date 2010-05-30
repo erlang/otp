@@ -319,6 +319,9 @@ format_error({undefined_behaviour_callbacks,Behaviour}) ->
 format_error({ill_defined_behaviour_callbacks,Behaviour}) ->
     io_lib:format("behaviour ~w callback functions erroneously defined",
 		  [Behaviour]);
+format_error({behaviour_info, {_M,F,A}}) ->
+    io_lib:format("cannot define callback attibute for ~w/~w when "
+                  "behaviour_info is defined",[F,A]);
 %% --- types and specs ---
 format_error({singleton_typevar, Name}) ->
     io_lib:format("type variable ~w is only used once (is unbound)", [Name]);
@@ -845,7 +848,8 @@ post_traversal_check(Forms, St0) ->
     StB = check_unused_types(Forms, StA),
     StC = check_untyped_records(Forms, StB),
     StD = check_on_load(StC),
-    check_unused_records(Forms, StD).
+    StE = check_unused_records(Forms, StD),
+    check_callback_information(StE).
 
 %% check_behaviour(State0) -> State
 %% Check that the behaviour attribute is valid.
@@ -1142,6 +1146,23 @@ check_unused_records(Forms, St0) ->
                   end, St0, Unused);
         _ ->
             St0
+    end.
+
+check_callback_information(#lint{callbacks = Callbacks,
+				 defined = Defined} = State) ->
+    case gb_sets:is_member({behaviour_info,1}, Defined) of
+	false -> State;
+	true ->
+	    case dict:size(Callbacks) of
+		0 -> State;
+		_ ->
+		    CallbacksList = dict:to_list(Callbacks),
+		    FoldL =
+			fun({Fa,Line},St) ->
+				add_error(Line, {behaviour_info, Fa}, St)
+			end,
+		    lists:foldl(FoldL, State, CallbacksList)
+	    end
     end.
 
 %% For storing the import list we use the orddict module.
