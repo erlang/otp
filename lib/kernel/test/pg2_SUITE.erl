@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2008-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2008-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%----------------------------------------------------------------
 %% Purpose:Test Suite for the 'pg2' module.
@@ -26,8 +26,8 @@
 
 -export([all/1, init_per_testcase/2, fin_per_testcase/2]).
 
--export([tickets/1, 
-             otp_7277/1, otp_8259/1,
+-export([tickets/1,
+             otp_7277/1, otp_8259/1, otp_8653/1,
          compat/1, basic/1]).
 
 % Default timetrap timeout (set in init_per_testcase).
@@ -37,7 +37,8 @@
 -define(testcase, ?config(?TESTCASE, Config)).
 
 %% Internal export.
--export([mk_part_node/3, part1/5, p_init/3, start_proc/1, sane/0]).
+-export([mk_part_node_and_group/3, part2/4,
+         mk_part_node/3, part1/5, p_init/3, start_proc/1, sane/0]).
 
 init_per_testcase(Case, Config) ->
     ?line Dog = ?t:timetrap(?default_timeout),
@@ -48,11 +49,11 @@ fin_per_testcase(_Case, _Config) ->
     test_server:timetrap_cancel(Dog),
     ok.
 
-all(suite) -> 
+all(suite) ->
     [tickets].
 
 tickets(suite) ->
-    [otp_7277, otp_8259, compat, basic].
+    [otp_7277, otp_8259, otp_8653, compat, basic].
 
 otp_7277(doc) ->
     "OTP-7277. Bugfix leave().";
@@ -65,9 +66,9 @@ otp_7277(Config) when is_list(Config) ->
     ?line ok = pg2:leave(b, P),
     ?line true = exit(P, kill),
     case {pg2:get_members(a), pg2:get_local_members(a)} of
-        {[], []} -> 
+        {[], []} ->
             ok;
-        _ -> 
+        _ ->
             timer:sleep(100),
             ?line [] = pg2:get_members(a),
             ?line [] = pg2:get_local_members(a)
@@ -78,6 +79,63 @@ otp_7277(Config) when is_list(Config) ->
 
 -define(UNTIL(Seq), loop_until_true(fun() -> Seq end, Config)).
 -define(UNTIL_LOOP, 300).
+
+otp_8653(suite) -> [];
+otp_8653(doc) ->
+    ["OTP-8259. Member was not removed after being killed."];
+otp_8653(Config) when is_list(Config) ->
+    Timeout = 15,
+    ?line Dog = test_server:timetrap({seconds,Timeout}),
+
+    ?line [A, B, C] = start_nodes([a, b, c], peer, Config),
+
+    ?line wait_for_ready_net(Config),
+
+    % make b and c connected, partitioned from node() and a
+    ?line rpc_cast(B, ?MODULE, part2, [Config, node(), A, C]),
+    ?line ?UNTIL(is_ready_partition(Config)),
+
+    % Connect to the other partition.
+    ?line pong = net_adm:ping(B),
+    timer:sleep(100),
+    ?line pong = net_adm:ping(C),
+    ?line _ = global:sync(),
+    ?line [A, B, C] = lists:sort(nodes()),
+
+    G = pg2_otp_8653,
+    ?line ?UNTIL(begin
+                     GA = lists:sort(rpc:call(A, pg2, get_members, [G])),
+                     GB = lists:sort(rpc:call(B, pg2, get_members, [G])),
+                     GC = lists:sort(rpc:call(C, pg2, get_members, [G])),
+                     GT = lists:sort(pg2:get_members(G)),
+                     GA =:= GB andalso
+                     GB =:= GC andalso
+                     GC =:= GT andalso
+                     8 =:= length(GA)
+                 end),
+    ?line ok = pg2:delete(G),
+    ?line stop_nodes([A,B,C]),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+part2(Config, Main, A, C) ->
+    Function = mk_part_node_and_group,
+    case catch begin
+		   make_partition(Config, [Main, A], [node(), C], Function)
+	       end
+    of
+	ok -> ok
+    end.
+
+mk_part_node_and_group(File, MyPart0, Config) ->
+    touch(File, "start"), % debug
+    MyPart = lists:sort(MyPart0),
+    ?UNTIL(is_node_in_part(File, MyPart)),
+    G = pg2_otp_8653,
+    Pid = spawn(forever()),
+    ok = pg2:create(G),
+    _ = [ok = pg2:join(G, Pid) || _ <- [1,1]],
+    touch(File, "done").
 
 otp_8259(suite) -> [];
 otp_8259(doc) ->
@@ -102,7 +160,7 @@ otp_8259(Config) when is_list(Config) ->
     % make b and c connected, partitioned from node() and a
     ?line rpc_cast(B, ?MODULE, part1, [Config, node(), A, C, Name]),
     ?line ?UNTIL(is_ready_partition(Config)),
-  
+
     % Connect to the other partition.
     % The resolver on node b will be called.
     ?line pong = net_adm:ping(B),
@@ -140,9 +198,9 @@ start_proc(Name) ->
 p_init(Parent, Name, TestServer) ->
     Resolve = fun(_Name, Pid1, Pid2) ->
                       %% The pid on node a will be chosen.
-                      [{_,Min}, {_,Max}] = 
+                      [{_,Min}, {_,Max}] =
                           lists:sort([{node(Pid1),Pid1}, {node(Pid2),Pid2}]),
-                      %% b is connected to test_server. 
+                      %% b is connected to test_server.
                       %% exit(Min, kill), % would ping a
                       rpc:cast(TestServer, erlang, exit, [Min, kill]),
 		      Max
@@ -165,7 +223,7 @@ compat(Config) when is_list(Config) ->
         true ->
             Timeout = 15,
             ?line Dog = test_server:timetrap({seconds,Timeout}),
-            Pid = spawn(forever()),            
+            Pid = spawn(forever()),
             G = a,
             ?line ok = pg2:create(G),
             ?line ok = pg2:join(G, Pid),
@@ -365,7 +423,7 @@ killit(N, P, Ps, Ns) ->
     timer:sleep(100),
     sane(Ns),
     lists:keydelete(P, 1, Ps).
-    
+
 pr(Node, C) ->
     _ = [?t:format("~p: ", [Node]) || Node =/= node()],
     ?t:format("do ~p~n", [C]).
@@ -412,27 +470,27 @@ sane(Ns) ->
 
 wsane(Ns) ->
     %% Same members on all nodes:
-    {[_],gs} = 
+    {[_],gs} =
         {lists:usort([rpc:call(N, pg2, which_groups, []) || N <- Ns]),gs},
-    _ = [{[_],ms,G} = {lists:usort([rpc:call(N, pg2, get_members, [G]) || 
+    _ = [{[_],ms,G} = {lists:usort([rpc:call(N, pg2, get_members, [G]) ||
                                        N <- Ns]),ms,G} ||
             G <- pg2:which_groups()],
     %% The local members are a partitioning of the members:
-    [begin 
-         LocalMembers = 
+    [begin
+         LocalMembers =
              lists:sort(lists:append(
-                          [rpc:call(N, pg2, get_local_members, [G]) || 
+                          [rpc:call(N, pg2, get_local_members, [G]) ||
                               N <- Ns])),
          {part, LocalMembers} = {part, lists:sort(pg2:get_members(G))}
      end || G <- pg2:which_groups()],
     %% The closest pid should run on the local node, if possible.
     [[case rpc:call(N, pg2, get_closest_pid, [G]) of
           Pid when is_pid(Pid), node(Pid) =:= N ->
-              true = 
+              true =
                   lists:member(Pid, rpc:call(N, pg2, get_local_members, [G]));
 %% FIXME. Om annan nod: member, local = [].
           _ -> [] = rpc:call(N, pg2, get_local_members, [G])
-      end || N <- Ns] 
+      end || N <- Ns]
      || G <- pg2:which_groups()].
 
 %% Look inside the pg2_table.
@@ -482,9 +540,9 @@ start_node_rel(Name, Rel, How) ->
 			       {RelList, ""}
 		       end,
     ?line Pa = filename:dirname(code:which(?MODULE)),
-    ?line Res = test_server:start_node(Name, How, 
+    ?line Res = test_server:start_node(Name, How,
                                        [{args,
-                                         Compat ++ 
+                                         Compat ++
                                          " -kernel net_setuptime 100 "
                                          " -pa " ++ Pa},
                                         {erl, Release}]),
@@ -575,29 +633,30 @@ get_known(Node) ->
     case catch gen_server:call({global_name_server,Node},get_known,infinity) of
         {'EXIT', _} ->
             [list, without, nodenames];
-        Known when is_list(Known) -> 
+        Known when is_list(Known) ->
             lists:sort([Node | Known])
     end.
 
 node_name(Name, Config) ->
     U = "_",
     {{Y,M,D}, {H,Min,S}} = calendar:now_to_local_time(now()),
-    Date = io_lib:format("~4w_~2..0w_~2..0w__~2..0w_~2..0w_~2..0w", 
+    Date = io_lib:format("~4w_~2..0w_~2..0w__~2..0w_~2..0w_~2..0w",
                          [Y,M,D, H,Min,S]),
     L = lists:flatten(Date),
     lists:concat([Name,U,?testcase,U,U,L]).
 
-%% this one runs on one node in Part2
-%% The partition is ready when is_ready_partition(Config) returns (true).
-%% this one runs on one node in Part2
+%% This one runs on one node in Part2.
 %% The partition is ready when is_ready_partition(Config) returns (true).
 make_partition(Config, Part1, Part2) ->
+    make_partition(Config, Part1, Part2, mk_part_node).
+
+make_partition(Config, Part1, Part2, Function) ->
     Dir = ?config(priv_dir, Config),
-    Ns = [begin 
+    Ns = [begin
               Name = lists:concat([atom_to_list(N),"_",msec(),".part"]),
               File = filename:join([Dir, Name]),
               file:delete(File),
-              rpc_cast(N, ?MODULE, mk_part_node, [File, Part, Config], File),
+              rpc_cast(N, ?MODULE, Function, [File, Part, Config], File),
               {N, File}
           end || Part <- [Part1, Part2], N <- Part],
     all_nodes_files(Ns, "done", Config),
@@ -614,10 +673,10 @@ mk_part_node(File, MyPart0, Config) ->
 
 %% The calls to append_to_file are for debugging.
 is_node_in_part(File, MyPart) ->
-    lists:foreach(fun(N) -> 
+    lists:foreach(fun(N) ->
                           _ = erlang:disconnect_node(N)
                   end, nodes() -- MyPart),
-    case {(Known = get_known(node())) =:= MyPart, 
+    case {(Known = get_known(node())) =:= MyPart,
           (Nodes = lists:sort([node() | nodes()])) =:= MyPart} of
         {true, true} ->
             %% Make sure the resolvers have been terminated,
@@ -649,7 +708,7 @@ wait_for_ready_net(Nodes0, Config) ->
     ?t:format("wait_for_ready_net ~p~n", [Nodes]),
     ?UNTIL(begin
                lists:all(fun(N) -> Nodes =:= get_known(N) end, Nodes) and
-               lists:all(fun(N) -> 
+               lists:all(fun(N) ->
                                  LNs = rpc:call(N, erlang, nodes, []),
                                  Nodes =:= lists:sort([N | LNs])
                          end, Nodes)
@@ -688,11 +747,11 @@ file_contents(File, ContentsList, Config) ->
     file_contents(File, ContentsList, Config, no_log_file).
 
 file_contents(File, ContentsList, Config, LogFile) ->
-    Contents = list_to_binary(ContentsList),    
+    Contents = list_to_binary(ContentsList),
     Sz = size(Contents),
     ?UNTIL(begin
                case file:read_file(File) of
-                   {ok, FileContents}=Reply -> 
+                   {ok, FileContents}=Reply ->
                        case catch split_binary(FileContents, Sz) of
                            {Contents,_} ->
                                true;

@@ -251,7 +251,9 @@ terminate(_Reason, _S) ->
 %%%    Pid is a member of group Name.
 
 store(List) ->
-    _ = [assure_group(Name) andalso [join_group(Name, P) || P <- Members] ||
+    _ = [(assure_group(Name)
+          andalso
+          [join_group(Name, P) || P <- Members -- group_members(Name)]) ||
             [Name, Members] <- List],
     ok.
 
