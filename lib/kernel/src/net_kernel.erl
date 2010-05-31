@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(net_kernel).
@@ -354,13 +354,13 @@ init({Name, LongOrShortNames, TickT}) ->
 %% The response is delayed until the connection is up and
 %% running.
 %%
-handle_call({connect, _, Node}, _From, State) when Node =:= node() ->
-    {reply, true, State};
+handle_call({connect, _, Node}, From, State) when Node =:= node() ->
+    async_reply({reply, true, State}, From);
 handle_call({connect, Type, Node}, From, State) ->
     verbose({connect, Type, Node}, 1, State),
     case ets:lookup(sys_dist, Node) of
 	[Conn] when Conn#connection.state =:= up ->
-	    {reply, true, State};
+	    async_reply({reply, true, State}, From);
 	[Conn] when Conn#connection.state =:= pending ->
 	    Waiting = Conn#connection.waiting,
 	    ets:insert(sys_dist, Conn#connection{waiting = [From|Waiting]}),
@@ -376,19 +376,19 @@ handle_call({connect, Type, Node}, From, State) ->
 		    {noreply,State#state{conn_owners=Owners}};
 		_  ->
 		    ?connect_failure(Node, {setup_call, failed}),
-		    {reply, false, State}
+		    async_reply({reply, false, State}, From)
 	    end
     end;
 
 %%
 %% Close the connection to Node.
 %%
-handle_call({disconnect, Node}, _From, State) when Node =:= node() ->
-    {reply, false, State};
-handle_call({disconnect, Node}, _From, State) ->
+handle_call({disconnect, Node}, From, State) when Node =:= node() ->
+    async_reply({reply, false, State}, From);
+handle_call({disconnect, Node}, From, State) ->
     verbose({disconnect, Node}, 1, State),
     {Reply, State1} = do_disconnect(Node, State),
-    {reply, Reply, State1};
+    async_reply({reply, Reply, State1}, From);
 
 %% 
 %% The spawn/4 BIF ends up here.
@@ -411,39 +411,40 @@ handle_call({spawn_opt,M,F,A,O,L,Gleader},{From,Tag},State) when is_pid(From) ->
 %% 
 %% Only allow certain nodes.
 %% 
-handle_call({allow, Nodes}, _From, State) ->
+handle_call({allow, Nodes}, From, State) ->
     case all_atoms(Nodes) of
 	true ->
 	    Allowed = State#state.allowed,
-	    {reply,ok,State#state{allowed = Allowed ++ Nodes}};  
+            async_reply({reply,ok,State#state{allowed = Allowed ++ Nodes}},
+                        From);
 	false ->
-	    {reply,error,State}
+	    async_reply({reply,error,State}, From)
     end;
 
 %% 
 %% authentication, used by auth. Simply works as this:
 %% if the message comes through, the other node IS authorized.
 %% 
-handle_call({is_auth, _Node}, _From, State) ->
-    {reply,yes,State};
+handle_call({is_auth, _Node}, From, State) ->
+    async_reply({reply,yes,State}, From);
 
 %% 
 %% Not applicable any longer !?
 %% 
 handle_call({apply,_Mod,_Fun,_Args}, {From,Tag}, State) 
   when is_pid(From), node(From) =:= node() ->
-    gen_server:reply({From,Tag}, not_implemented),
+    async_gen_server_reply({From,Tag}, not_implemented),
 %    Port = State#state.port,
 %    catch apply(Mod,Fun,[Port|Args]),
     {noreply,State};
 
-handle_call(longnames, _From, State) ->
-    {reply, get(longnames), State};
+handle_call(longnames, From, State) ->
+    async_reply({reply, get(longnames), State}, From);
 
-handle_call({update_publish_nodes, Ns}, _From, State) ->
-    {reply, ok, State#state{publish_on_nodes = Ns}};
+handle_call({update_publish_nodes, Ns}, From, State) ->
+    async_reply({reply, ok, State#state{publish_on_nodes = Ns}}, From);
 
-handle_call({publish_on_node, Node}, _From, State) ->
+handle_call({publish_on_node, Node}, From, State) ->
     NewState = case State#state.publish_on_nodes of
 		   undefined ->
 		       State#state{publish_on_nodes =
@@ -457,11 +458,12 @@ handle_call({publish_on_node, Node}, _From, State) ->
 		  Nodes ->
 		      lists:member(Node, Nodes)
 	      end,
-    {reply, Publish, NewState};
+    async_reply({reply, Publish, NewState}, From);
 
 
-handle_call({verbose, Level}, _From, State) ->
-    {reply, State#state.verbose, State#state{verbose = Level}};
+handle_call({verbose, Level}, From, State) ->
+    async_reply({reply, State#state.verbose, State#state{verbose = Level}},
+                From);
 
 %%
 %% Set new ticktime
@@ -471,16 +473,16 @@ handle_call({verbose, Level}, _From, State) ->
 %% #tick_change{} record if the ticker process has been upgraded;
 %% otherwise, an integer or an atom.
 
-handle_call(ticktime, _, #state{tick = #tick{time = T}} = State) ->
-    {reply, T, State};
-handle_call(ticktime, _, #state{tick = #tick_change{time = T}} = State) ->
-    {reply, {ongoing_change_to, T}, State};
+handle_call(ticktime, From, #state{tick = #tick{time = T}} = State) ->
+    async_reply({reply, T, State}, From);
+handle_call(ticktime, From, #state{tick = #tick_change{time = T}} = State) ->
+    async_reply({reply, {ongoing_change_to, T}, State}, From);
 
-handle_call({new_ticktime,T,_TP}, _, #state{tick = #tick{time = T}} = State) ->
+handle_call({new_ticktime,T,_TP}, From, #state{tick = #tick{time = T}} = State) ->
     ?tckr_dbg(no_tick_change),
-    {reply, unchanged, State};
+    async_reply({reply, unchanged, State}, From);
 
-handle_call({new_ticktime,T,TP}, _, #state{tick = #tick{ticker = Tckr,
+handle_call({new_ticktime,T,TP}, From, #state{tick = #tick{ticker = Tckr,
 							time = OT}} = State) ->
     ?tckr_dbg(initiating_tick_change),
     start_aux_ticker(T, OT, TP),
@@ -493,14 +495,15 @@ handle_call({new_ticktime,T,TP}, _, #state{tick = #tick{ticker = Tckr,
 		  ?tckr_dbg(shorter_ticktime),
 		  shorter
 	  end,
-    {reply, change_initiated, State#state{tick = #tick_change{ticker = Tckr,
-							      time = T,
-							      how = How}}};
+    async_reply({reply, change_initiated,
+                 State#state{tick = #tick_change{ticker = Tckr,
+                                                 time = T,
+                                                 how = How}}}, From);
 
-handle_call({new_ticktime,_,_},
+handle_call({new_ticktime,From,_},
 	    _,
 	    #state{tick = #tick_change{time = T}} = State) ->
-    {reply, {ongoing_change_to, T}, State}.
+    async_reply({reply, {ongoing_change_to, T}, State}, From).
 
 %% ------------------------------------------------------------
 %% handle_cast.
@@ -1063,11 +1066,12 @@ safesend(Pid, Mess) -> Pid ! Mess.
 -endif.
 
 do_spawn(SpawnFuncArgs, SpawnOpts, State) ->
+    [_,From|_] = SpawnFuncArgs,
     case catch spawn_opt(?MODULE, spawn_func, SpawnFuncArgs, SpawnOpts) of
-	{'EXIT', {Reason,_}} ->    
-	    {reply, {'EXIT', {Reason,[]}}, State};
-	{'EXIT', Reason} ->    
-	    {reply, {'EXIT', {Reason,[]}}, State};
+	{'EXIT', {Reason,_}} ->
+            async_reply({reply, {'EXIT', {Reason,[]}}, State}, From);
+	{'EXIT', Reason} ->
+	    async_reply({reply, {'EXIT', {Reason,[]}}, State}, From);
 	_ ->
 	    {noreply,State}
     end.
@@ -1079,11 +1083,11 @@ do_spawn(SpawnFuncArgs, SpawnOpts, State) ->
 
 spawn_func(link,{From,Tag},M,F,A,Gleader) ->
     link(From),
-    gen_server:reply({From,Tag},self()),  %% ahhh
+    async_gen_server_reply({From,Tag},self()),  %% ahhh
     group_leader(Gleader,self()),
     apply(M,F,A);
 spawn_func(_,{From,Tag},M,F,A,Gleader) ->
-    gen_server:reply({From,Tag},self()),  %% ahhh
+    async_gen_server_reply({From,Tag},self()),  %% ahhh
     group_leader(Gleader,self()),
     apply(M,F,A).
 
@@ -1409,7 +1413,7 @@ reply_waiting(_Node, Waiting, Rep) ->
     reply_waiting1(lists:reverse(Waiting), Rep).
 
 reply_waiting1([From|W], Rep) ->
-    gen_server:reply(From, Rep),
+    async_gen_server_reply(From, Rep),
     reply_waiting1(W, Rep);
 reply_waiting1([], _) ->
     ok.
@@ -1511,3 +1515,19 @@ verbose(_, _, _) ->
 
 getnode(P) when is_pid(P) -> node(P);
 getnode(P) -> P.
+
+async_reply({reply, Msg, State}, From) ->
+    async_gen_server_reply(From, Msg),
+    {noreply, State}.
+
+async_gen_server_reply(From, Msg) ->
+    {Pid, Tag} = From,
+    M = {Tag, Msg},
+    case catch erlang:send(Pid, M, [nosuspend, noconnect]) of
+        true ->
+            M;
+        false ->
+            spawn(fun() -> gen_server:reply(From, Msg) end);
+        EXIT ->
+            EXIT
+    end.
