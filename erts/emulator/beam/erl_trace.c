@@ -1941,10 +1941,12 @@ trace_proc(Process *c_p, Process *t_p, Eterm what, Eterm data)
     Eterm* hp;
     int need;
 
+    ERTS_SMP_LC_ASSERT((erts_proc_lc_my_proc_locks(t_p) != 0) || erts_is_system_blocked(0));
     if (is_internal_port(t_p->tracer_proc)) {
 #define LOCAL_HEAP_SIZE (5+5)
 	DeclareTmpHeapNoproc(local_heap,LOCAL_HEAP_SIZE);
 	UseTmpHeapNoproc(LOCAL_HEAP_SIZE);
+
 
 	hp = local_heap;
 	mess = TUPLE4(hp, am_trace, t_p->id, what, data);
@@ -2726,6 +2728,8 @@ void
 trace_port(Port *t_p, Eterm what, Eterm data) {
     Eterm mess;
     Eterm* hp;
+
+    ERTS_SMP_LC_ASSERT(erts_lc_is_port_locked(t_p) || erts_is_system_blocked(0));
 
     if (is_internal_port(t_p->tracer_proc)) {
 #define LOCAL_HEAP_SIZE (5+5)

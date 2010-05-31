@@ -489,9 +489,9 @@ int erts_unregister_name(Process *c_p,
     if (is_non_value(name)) {
 	/* Unregister current process name */
 	ASSERT(c_p);
-	if (c_p->reg)
+	if (c_p->reg) {
 	    r.name = c_p->reg->name;
-	else {
+	} else {
 	    /* Name got unregistered while main lock was released */
 	    res = 0;
 	    goto done;
@@ -534,6 +534,7 @@ int erts_unregister_name(Process *c_p,
 
 	} else if (rp->p) {
 	    Process* p = rp->p;
+
 #ifdef ERTS_SMP
 	    erts_proc_safelock(c_p,
 			       current_c_p_locks,
@@ -544,13 +545,13 @@ int erts_unregister_name(Process *c_p,
 	    current_c_p_locks = c_p_locks;
 #endif
 	    p->reg = NULL;
+	    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
+		trace_proc(c_p, p, am_unregister, r.name);
+	    }
 #ifdef ERTS_SMP
 	    if (rp->p != c_p)
 		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
 #endif
-	    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
-		trace_proc(c_p, p, am_unregister, r.name);
-	    }
 	}
 	hash_erase(&process_reg, (void*) &r);
 	res = 1;
