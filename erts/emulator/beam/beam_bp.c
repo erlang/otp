@@ -570,7 +570,7 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_get(bp_time_hash_t *hash, bp_da
 }
 
 static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_data_time_item_t* sitem) {
-    Uint hval = (sitem->pid >> 4) % hash->n;
+    Uint hval;
     float r = 0.0;
     bp_data_time_item_t *item;
 
@@ -582,6 +582,8 @@ static ERTS_INLINE bp_data_time_item_t * bp_hash_put(bp_time_hash_t *hash, bp_da
     if (r > 0.7f) {
 	bp_hash_rehash(hash, hash->n * 2);
     }
+    /* Do hval after rehash */
+    hval = (sitem->pid >> 4) % hash->n;
 
     /* find free slot */
     item = hash->item;
