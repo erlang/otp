@@ -442,6 +442,14 @@ scan1([$\%=C|Cs], St, Line, Col, Toks) ->
     scan_comment(Cs, St, Line, Col, Toks, [C]);
 scan1([C|Cs], St, Line, Col, Toks) when ?DIGIT(C) ->
     scan_number(Cs, St, Line, Col, Toks, [C]);
+scan1("..."++Cs, St, Line, Col, Toks) ->
+    tok2(Cs, St, Line, Col, Toks, "...", '...', 3);
+scan1(".."=Cs, _St, Line, Col, Toks) ->
+    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
+scan1(".."++Cs, St, Line, Col, Toks) ->
+    tok2(Cs, St, Line, Col, Toks, "..", '..', 2);
+scan1("."=Cs, _St, Line, Col, Toks) ->
+    {more,{Cs,Col,Toks,Line,[],fun scan/6}};
 scan1([$.=C|Cs], St, Line, Col, Toks) ->
     scan_dot(Cs, St, Line, Col, Toks, [C]);
 scan1([$"|Cs], St, Line, Col, Toks) -> %" Emacs
@@ -644,8 +652,6 @@ scan_dot([$\n=C|Cs], St, Line, Col, Toks, Ncs) ->
 scan_dot([C|Cs], St, Line, Col, Toks, Ncs) when ?WHITE_SPACE(C) ->
     Attrs = attributes(Line, Col, St, Ncs++[C]),
     {ok,[{dot,Attrs}|Toks],Cs,Line,incr_column(Col, 2)};
-scan_dot([]=Cs, _St, Line, Col, Toks, Ncs) ->
-    {more,{Cs,Col,Toks,Line,Ncs,fun scan_dot/6}};
 scan_dot(eof=Cs, St, Line, Col, Toks, Ncs) ->
     Attrs = attributes(Line, Col, St, Ncs),
     {ok,[{dot,Attrs}|Toks],Cs,Line,incr_column(Col, 1)};

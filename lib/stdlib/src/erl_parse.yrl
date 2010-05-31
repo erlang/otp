@@ -61,7 +61,7 @@ char integer float atom string var
 '++' '--'
 '==' '/=' '=<' '<' '>=' '>' '=:=' '=/=' '<='
 '<<' '>>'
-'!' '=' '::'
+'!' '=' '::' '..' '...'
 'spec' % helper
 dot.
 
@@ -135,7 +135,7 @@ type -> atom ':' atom '(' top_types ')'   : {remote_type, ?line('$1'),
                                              ['$1', '$3', '$5']}.
 type -> '[' ']'                           : {type, ?line('$1'), nil, []}.
 type -> '[' top_type ']'                  : {type, ?line('$1'), list, ['$2']}.
-type -> '[' top_type ',' '.' '.' '.' ']'  : {type, ?line('$1'),
+type -> '[' top_type ',' '...' ']'        : {type, ?line('$1'),
                                              nonempty_list, ['$2']}.
 type -> '{' '}'                           : {type, ?line('$1'), tuple, []}.
 type -> '{' top_types '}'                 : {type, ?line('$1'), tuple, '$2'}.
@@ -144,8 +144,8 @@ type -> '#' atom '{' field_types '}'      : {type, ?line('$1'),
                                              record, ['$2'|'$4']}.
 type -> binary_type                       : '$1'.
 type -> int_type                          : '$1'.
-type -> int_type '.' '.' int_type         : {type, ?line('$1'), range,
-                                             ['$1', '$4']}.
+type -> int_type '..' int_type            : {type, ?line('$1'), range,
+                                             ['$1', '$3']}.
 type -> 'fun' '(' ')'                     : {type, ?line('$1'), 'fun', []}.
 type -> 'fun' '(' fun_type_100 ')'        : '$3'.
 
@@ -153,9 +153,9 @@ int_type -> integer                       : '$1'.
 int_type -> '-' integer                   : abstract(-normalise('$2'),
                                                      ?line('$2')).
 
-fun_type_100 -> '(' '.' '.' '.' ')' '->' top_type
+fun_type_100 -> '(' '...' ')' '->' top_type
                                           : {type, ?line('$1'), 'fun',
-                                             [{type, ?line('$1'), any}, '$7']}.
+                                             [{type, ?line('$1'), any}, '$5']}.
 fun_type_100 -> fun_type                  : '$1'.
 
 fun_type -> '(' ')' '->' top_type  : {type, ?line('$1'), 'fun',

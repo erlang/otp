@@ -185,7 +185,7 @@ reserved_words() ->
          'andalso', 'orelse', 'end', 'fun', 'if', 'let', 'of',
          'query', 'receive', 'when', 'bnot', 'not', 'div',
          'rem', 'band', 'and', 'bor', 'bxor', 'bsl', 'bsr',
-         'or', 'xor'] ,
+         'or', 'xor'],
     [begin
          ?line {RW, true} = {RW, erl_scan:reserved_word(RW)},
          S = atom_to_list(RW),
@@ -244,6 +244,9 @@ punctuations() ->
             {'\\',1},{'^',1},{'`',1},{'~',1}],
     ?line test_string("#&*+/:<>?@\\^`~", PTs2),
 
+    ?line test_string(".. ", [{'..',1}]),
+    ?line test("1 .. 2"),
+    ?line test_string("...", [{'...',1}]),
     ok.
 
 comments() ->
