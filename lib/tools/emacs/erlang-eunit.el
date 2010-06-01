@@ -160,9 +160,9 @@ buffer and vice versa"
 ;;; Record info about the most recent running of EUnit
 ;;; Known modes are 'module-mode and 'test-mode
 (defun erlang-eunit-record-recent (mode module test)
-  (setq erlang-eunit-recent-info (pairlis '(mode module test cover)
-                                          (list mode module test
-                                                (erlang-eunit-recent 'cover)))))
+  (setcdr (assq 'mode erlang-eunit-recent-info) mode)
+  (setcdr (assq 'module erlang-eunit-recent-info) module)
+  (setcdr (assq 'test erlang-eunit-recent-info) test))
 
 ;;; Record whether the most recent running of EUnit included cover
 ;;; compilation
