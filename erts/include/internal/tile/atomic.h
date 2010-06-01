@@ -32,6 +32,8 @@ typedef struct {
     volatile long counter;
 } ethr_native_atomic_t;
 
+#define ETHR_MEMORY_BARRIER __insn_mf()
+
 #ifdef ETHR_TRY_INLINE_FUNCS
 
 static ETHR_INLINE void

@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -374,6 +374,12 @@ ETHR_INLINE_FUNC_NAME_(ethr_mutex_unlock)(ethr_mutex *mtx)
 
 #define ETHR_HAVE_OPTIMIZED_ATOMIC_OPS 1
 #define ETHR_HAVE_OPTIMIZED_LOCKS 1
+
+#define ETHR_MEMORY_BARRIER \
+do { \
+    volatile LONG x___ = 0; \
+    (void) _InterlockedCompareExchange(&x___, (LONG) 1, (LONG) 0); \
+} while (0)
 
 typedef struct {
     volatile LONG value;
@@ -1123,6 +1129,12 @@ ETHR_INLINE_FUNC_NAME_(ethr_write_lock)(ethr_rwlock_t *lock)
  * Fallbacks for atomics used in absence of optimized implementation.
  */
 #ifndef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
+
+/*
+ * ETHR_MEMORY_BARRIER orders between locked and atomic accesses only,
+ * i.e. when this atomic fallback is used a noop is sufficient.
+ */
+#define ETHR_MEMORY_BARRIER
 
 #define ETHR_ATOMIC_ADDR_BITS 4
 #define ETHR_ATOMIC_ADDR_SHIFT 3

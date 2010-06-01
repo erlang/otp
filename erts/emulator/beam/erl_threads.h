@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -33,6 +33,8 @@
 #include "erl_lock_check.h"
 #include "erl_lock_count.h"
 #include "erl_term.h"
+
+#define ERTS_THR_MEMORY_BARRIER ETHR_MEMORY_BARRIER
 
 #ifdef ERTS_ENABLE_LOCK_COUNT
 #define erts_mtx_lock(L) erts_mtx_lock_x(L, __FILE__, __LINE__)
@@ -121,6 +123,8 @@ __decl_noreturn void  __noreturn erts_thr_fatal_error(int, char *);
 
 
 #else /* #ifdef USE_THREADS */
+
+#define ERTS_THR_MEMORY_BARRIER
 
 #define ERTS_THR_OPTS_DEFAULT_INITER 0
 typedef int erts_thr_opts_t;

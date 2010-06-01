@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2007-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 #ifdef HAVE_CONFIG_H
@@ -304,23 +304,50 @@ struct ErtsPollSet_ {
   erts_smp_atomic_set(&(PS)->polled, (long) 0)
 #define ERTS_POLLSET_IS_POLLED(PS) \
   ((int) erts_smp_atomic_read(&(PS)->polled))
-#define ERTS_POLLSET_SET_POLLER_WOKEN_CHK(PS) \
-  ((int) erts_smp_atomic_xchg(&(PS)->woken, (long) 1))
-#define ERTS_POLLSET_SET_POLLER_WOKEN(PS) \
-  erts_smp_atomic_set(&(PS)->woken, (long) 1)
-#define ERTS_POLLSET_UNSET_POLLER_WOKEN(PS) \
-  erts_smp_atomic_set(&(PS)->woken, (long) 0)
-#define ERTS_POLLSET_IS_POLLER_WOKEN(PS) \
+
+#define ERTS_POLLSET_SET_POLLER_WOKEN_CHK(PS) set_poller_woken_chk((PS))
+#define ERTS_POLLSET_SET_POLLER_WOKEN(PS) 				\
+do {									\
+      ERTS_THR_MEMORY_BARRIER;						\
+      erts_smp_atomic_set(&(PS)->woken, (long) 1);			\
+} while (0)
+#define ERTS_POLLSET_UNSET_POLLER_WOKEN(PS)				\
+do {									\
+    erts_smp_atomic_set(&(PS)->woken, (long) 0);			\
+    ERTS_THR_MEMORY_BARRIER;						\
+} while (0)
+#define ERTS_POLLSET_IS_POLLER_WOKEN(PS)				\
   ((int) erts_smp_atomic_read(&(PS)->woken))
 
-#define ERTS_POLLSET_UNSET_INTERRUPTED_CHK(PS) \
-  ((int) erts_smp_atomic_xchg(&(PS)->interrupt, (long) 0))
-#define ERTS_POLLSET_UNSET_INTERRUPTED(PS) \
-  erts_smp_atomic_set(&(PS)->interrupt, (long) 0)
-#define ERTS_POLLSET_SET_INTERRUPTED(PS) \
-  erts_smp_atomic_set(&(PS)->interrupt, (long) 1)
-#define ERTS_POLLSET_IS_INTERRUPTED(PS) \
+#define ERTS_POLLSET_UNSET_INTERRUPTED_CHK(PS) unset_interrupted_chk((PS))
+#define ERTS_POLLSET_UNSET_INTERRUPTED(PS)				\
+do {									\
+    erts_smp_atomic_set(&(PS)->interrupt, (long) 0);			\
+    ERTS_THR_MEMORY_BARRIER;						\
+} while (0)
+#define ERTS_POLLSET_SET_INTERRUPTED(PS) 				\
+do {									\
+      ERTS_THR_MEMORY_BARRIER;						\
+      erts_smp_atomic_set(&(PS)->interrupt, (long) 1);			\
+} while (0)
+#define ERTS_POLLSET_IS_INTERRUPTED(PS)					\
   ((int) erts_smp_atomic_read(&(PS)->interrupt))
+
+static ERTS_INLINE int
+unset_interrupted_chk(ErtsPollSet ps)
+{
+    int res = (int) erts_smp_atomic_xchg(&ps->interrupt, (long) 0);
+    ERTS_THR_MEMORY_BARRIER;
+    return res;
+
+}
+
+static ERTS_INLINE int
+set_poller_woken_chk(ErtsPollSet ps)
+{
+    ERTS_THR_MEMORY_BARRIER;
+    return (int) erts_smp_atomic_xchg(&ps->woken, (long) 1);
+}
 
 #else
 
