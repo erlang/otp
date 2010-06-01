@@ -694,25 +694,33 @@ ETHR_INLINE_FUNC_NAME_(ethr_write_lock)(ethr_rwlock_t *lock)
 #endif
 
 /* For CPU-optimised atomics, spinlocks, and rwlocks. */
-#if !defined(ETHR_DISABLE_NATIVE_IMPLS) && defined(__GNUC__)
-#  if ETHR_SIZEOF_PTR == 4
-#    if defined(__i386__)
-#      include "i386/ethread.h"
-#    elif (defined(__powerpc__) || defined(__ppc__)) && !defined(__powerpc64__)
-#      include "ppc32/ethread.h"
-#    elif defined(__sparc__)
-#      include "sparc32/ethread.h"
-#    elif defined(__tile__)
-#      include "tile/ethread.h"
+#if !defined(ETHR_DISABLE_NATIVE_IMPLS)
+#  if defined(__GNUC__)
+#    if defined(ETHR_PREFER_GCC_NATIVE_IMPLS)
+#      include "gcc/ethread.h"
 #    endif
-#  elif ETHR_SIZEOF_PTR == 8
-#    if defined(__x86_64__)
-#      include "x86_64/ethread.h"
-#    elif defined(__sparc__) && defined(__arch64__)
-#      include "sparc64/ethread.h"
+#    ifndef ETHR_HAVE_NATIVE_ATOMICS
+#      if ETHR_SIZEOF_PTR == 4
+#        if defined(__i386__)
+#          include "i386/ethread.h"
+#        elif (defined(__powerpc__)||defined(__ppc__))&&!defined(__powerpc64__)
+#          include "ppc32/ethread.h"
+#        elif defined(__sparc__)
+#          include "sparc32/ethread.h"
+#        elif defined(__tile__)
+#          include "tile/ethread.h"
+#        endif
+#      elif ETHR_SIZEOF_PTR == 8
+#        if defined(__x86_64__)
+#          include "x86_64/ethread.h"
+#        elif defined(__sparc__) && defined(__arch64__)
+#          include "sparc64/ethread.h"
+#        endif
+#      endif
+#      include "gcc/ethread.h"
 #    endif
 #  endif
-#endif /* !defined(ETHR_DISABLE_NATIVE_IMPLS) && defined(__GNUC__) */
+#endif /* !defined(ETHR_DISABLE_NATIVE_IMPLS) */
 
 #ifdef ETHR_HAVE_OPTIMIZED_ATOMIC_OPS
 #  undef ETHR_HAVE_NATIVE_ATOMICS

@@ -843,6 +843,23 @@ case "$THR_LIB_NAME" in
 			AC_DEFINE(ETHR_HAVE_PTHREAD_ATTR_SETGUARDSIZE, 1, \
 [Define if you have the pthread_attr_setguardsize function.]))
 
+	AC_MSG_CHECKING([for GCC atomic operations])
+	ethr_have_gcc_atomic_ops=no
+	AC_TRY_LINK([],
+		    [
+			long res;
+			volatile long val;
+			res = __sync_val_compare_and_swap(&val, (long) 1, (long) 0);
+			res = __sync_add_and_fetch(&val, (long) 1);
+			res = __sync_sub_and_fetch(&val, (long) 1);
+			res = __sync_fetch_and_and(&val, (long) 1);
+			res = __sync_fetch_and_or(&val, (long) 1);
+		    ],
+		    [ethr_have_native_atomics=yes
+		     ethr_have_gcc_atomic_ops=yes])
+	AC_MSG_RESULT([$ethr_have_gcc_atomic_ops])
+	test $ethr_have_gcc_atomic_ops = yes && AC_DEFINE(ETHR_HAVE_GCC_ATOMIC_OPS, 1, [Define if you have gcc atomic operations])
+
 	dnl Restore LIBS
 	LIBS=$saved_libs
 	dnl restore CPPFLAGS
@@ -872,6 +889,17 @@ AC_DEFINE_UNQUOTED(ETHR_SIZEOF_PTR, $ac_cv_sizeof_void_p, [Define to the size of
 if test "X$disable_native_ethr_impls" = "Xyes"; then
 	AC_DEFINE(ETHR_DISABLE_NATIVE_IMPLS, 1, [Define if you want to disable native ethread implementations])
 fi
+
+AC_ARG_ENABLE(prefer-gcc-native-ethr-impls,
+	      AS_HELP_STRING([--enable-prefer-gcc-native-ethr-impls],
+			     [enable prefer gcc native ethread implementations]),
+[ case "$enableval" in
+    yes) enable_prefer_gcc_native_ethr_impls=yes ;;
+    *)  enable_prefer_gcc_native_ethr_impls=no ;;
+  esac ], enable_prefer_gcc_native_ethr_impls=no)
+
+test $enable_prefer_gcc_native_ethr_impls = yes &&
+  AC_DEFINE(ETHR_PREFER_GCC_NATIVE_IMPLS, 1, [Define if you prefer gcc native ethread implementations])
 
 AC_DEFINE(ETHR_HAVE_ETHREAD_DEFINES, 1, \
 [Define if you have all ethread defines])
