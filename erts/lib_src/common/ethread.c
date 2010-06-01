@@ -3216,7 +3216,7 @@ ethr_rwmutex_tryrlock(ethr_rwmutex *rwmtx)
     res = ethr_mutex_trylock__(&rwmtx->mtx);
     if (res != 0)
 	return res;
-    if (!rwmtx->waiting_writers) {
+    if (rwmtx->waiting_writers) {
 	res = ethr_mutex_unlock__(&rwmtx->mtx);
 	if (res == 0)
 	    return EBUSY;
