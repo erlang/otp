@@ -199,7 +199,7 @@ all(suite) ->
     upgrade, upgrade_with_timeout, tcp_connect, ipv6, ekeyfile,
     ecertfile, ecacertfile, eoptions, shutdown, shutdown_write,
     shutdown_both, shutdown_error, ciphers, ciphers_ssl3,
-    ciphers_openssl_names, ciphers_ssl3_openssl_names, send_close,
+    ciphers_openssl_names, send_close,
     close_transport_accept, dh_params, server_verify_peer_passive,
     server_verify_peer_active, server_verify_peer_active_once,
     server_verify_none_passive, server_verify_none_active,
@@ -1464,26 +1464,6 @@ ciphers_openssl_names(Config) when is_list(Config) ->
     end.
 
 
-ciphers_ssl3_openssl_names(doc) -> 
-    ["Test all ssl cipher suites in ssl3"];
-       
-ciphers_ssl3_openssl_names(suite) -> 
-    [];
-
-ciphers_ssl3_openssl_names(Config) when is_list(Config) ->
-    Version = ssl_record:protocol_version({3,0}),
-    Ciphers = ssl:cipher_suites(openssl),
-    Result =  lists:map(fun(Cipher) -> 
-				cipher(Cipher, Version, Config) end,
-			Ciphers),
-    case lists:flatten(Result) of
-	[] ->
-	    ok;
-	Error ->
-	    test_server:format("Cipher suite errors: ~p~n", [Error]),
-	    test_server:fail(cipher_suite_failed_see_test_case_log) 
-    end.
-
 cipher(CipherSuite, Version, Config) ->   
     process_flag(trap_exit, true),
     test_server:format("Testing CipherSuite ~p~n", [CipherSuite]),
@@ -2681,13 +2661,51 @@ invalid_signature_client(Config) when is_list(Config) ->
 					{options, [{verify, verify_peer} | ServerOpts]}]),
     Port = ssl_test_lib:inet_port(Server),
     Client = ssl_test_lib:start_client_error([{node, ClientNode}, {port, Port}, 
-					{host, Hostname},
-					{from, self()}, 
-					{options, NewClientOpts}]),
+					      {host, Hostname},
+					      {from, self()}, 
+					      {options, NewClientOpts}]),
     
-    ssl_test_lib:check_result(Server, {error, "bad certificate"}, 
-			      Client, {error,"bad certificate"}).
+    tcp_delivery_workaround(Server, {error, "bad certificate"},
+			    Client, {error,"bad certificate"}).
 
+tcp_delivery_workaround(Server, ServMsg, Client, ClientMsg) ->
+    receive 
+	{Server, ServerMsg} ->
+	    receive 
+		{Client, ClientMsg} ->
+		    ok;
+		{Client, {error,closed}} ->
+		    test_server:format("client got close");
+		Unexpected ->
+		    test_server:fail(Unexpected) 
+	    end;
+	{Client, ClientMsg} ->
+	    receive 
+		{Server, ServerMsg} ->
+		    ok;
+		Unexpected ->
+		    test_server:fail(Unexpected) 
+	    end;
+       	{Client, {error,closed}} ->
+	    receive 
+		{Server, ServerMsg} ->
+		    ok;
+		Unexpected ->
+		    test_server:fail(Unexpected) 
+	    end;
+	{Server, {error,closed}} ->
+	    receive 
+		{Client, ClientMsg} ->
+		    ok;
+		{Client, {error,closed}} ->
+		    test_server:format("client got close"),
+		    ok;
+		Unexpected ->
+		    test_server:fail(Unexpected) 
+	    end;
+	Unexpected ->
+	    test_server:fail(Unexpected)
+    end.
 %%--------------------------------------------------------------------
 cert_expired(doc) -> 
     ["Test server with invalid signature"];
