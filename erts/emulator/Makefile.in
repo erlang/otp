@@ -341,7 +341,6 @@ ERLANG_OSTYPE = @ERLANG_OSTYPE@
 
 ENABLE_ALLOC_TYPE_VARS += @ERLANG_OSTYPE@
 
-EMULATOR_EXECUTABLE_SAE = beam_evm$(TF_MARKER)
 EMULATOR_EXECUTABLE_ELIB = beam.elib$(TF_MARKER)
 ifeq ($(TARGET), win32)
 EMULATOR_EXECUTABLE = beam$(TF_MARKER).dll
@@ -406,7 +405,7 @@ endif
 	@set -e ; cd zlib && $(MAKE) clean
 	@set -e ; cd pcre && $(MAKE) clean
 
-.PHONY: all sae zlib pcre clean
+.PHONY: all zlib pcre clean
 
 docs:
 
@@ -640,10 +639,6 @@ $(BINDIR)/$(CS_EXECUTABLE): $(CS_SRC)
 $(OBJDIR)/%.elib.o: beam/%.c
 	$(CC) $(ELIB_FLAGS) $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
-# Disable vfork() for sae (then we don't need the child_setup program)
-$(OBJDIR)/sys_sae.o: sys/$(ERLANG_OSTYPE)/sys.c
-	$(CC) -DDISABLE_VFORK=1 $(CFLAGS) $(INCLUDES) -c $< -o $@
-
 $(OBJDIR)/%.kp.o: sys/common/%.c
 	$(CC) -DERTS_KERNEL_POLL_VERSION $(subst -O2, $(GEN_OPT_FLGS), $(CFLAGS)) $(INCLUDES) -c $< -o $@
 
@@ -688,8 +683,6 @@ endif
 
 
 INIT_OBJS = $(OBJDIR)/erl_main.o		$(PRELOAD)
-
-INIT_OBJS_SAE = $(OBJDIR)/erl9_start.o
 
 EMU_OBJS = \
 	$(OBJDIR)/beam_emu.o		$(OBJDIR)/beam_opcodes.o \
@@ -826,7 +819,6 @@ endif
 BASE_OBJS = $(RUN_OBJS) $(EMU_OBJS) $(OS_OBJS) $(EXTRA_BASE_OBJS)
 
 OBJS =	$(BASE_OBJS) $(DRV_OBJS)
-OBJS_SAE =  $(subst sys.o,sys_sae.o,$(OBJS))
 
 ELIB_C_FILES =	beam/elib_malloc.c \
 		beam/elib_memmove.c \
@@ -932,10 +924,6 @@ $(BINDIR)/$(EMULATOR_EXECUTABLE): $(INIT_OBJS) $(OBJS) $(DEPLIBS)
 $(BINDIR)/$(EMULATOR_EXECUTABLE_ELIB): $(INIT_OBJS) $(OBJS_ELIB) $(DEPLIBS)
 	$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE_ELIB) \
 	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS) $(OBJS_ELIB) $(LIBS)
-
-$(BINDIR)/$(EMULATOR_EXECUTABLE_SAE): $(INIT_OBJS_SAE) $(OBJS_SAE) $(DEPLIBS)
-	$(PURIFY) $(LD) -o $(BINDIR)/$(EMULATOR_EXECUTABLE_SAE) \
-	$(LDFLAGS) $(DEXPORT) $(INIT_OBJS_SAE) $(OBJS_SAE) $(LIBS)
 
 endif
 

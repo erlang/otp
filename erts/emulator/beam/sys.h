@@ -648,7 +648,7 @@ extern char *erts_sys_ddll_error(int code);
 
 
 /*
- * System interfaces for startup/sae code (functions found in respective sys.c)
+ * System interfaces for startup.
  */
 
 
