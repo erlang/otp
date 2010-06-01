@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -267,6 +267,11 @@ static ethr_mutex no_ethrs_mtx;
 
 #if !ETHR_HAVE_PTHREAD_ATFORK
 #warning "Cannot enforce fork-safety"
+#endif
+
+#ifdef ETHR_HAVE_PTHREAD_RWLOCK_INIT
+static pthread_rwlockattr_t write_pref_attr_data;
+static pthread_rwlockattr_t *write_pref_attr;
 #endif
 
 /*
@@ -524,6 +529,24 @@ ethr_init(ethr_init_data *id)
 	}
     }
 #endif
+
+#ifdef ETHR_HAVE_PTHREAD_RWLOCK_INIT
+#if defined(ETHR_HAVE_PTHREAD_RWLOCKATTR_SETKIND_NP) \
+    && defined(ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP)
+    res = pthread_rwlockattr_init(&write_pref_attr_data);
+    if (res != 0)
+	goto error;
+    res = pthread_rwlockattr_setkind_np(
+	&write_pref_attr_data,
+	PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP);
+    if (res != 0)
+	goto error;
+    write_pref_attr = &write_pref_attr_data;
+#else
+    write_pref_attr = NULL;
+#endif
+#endif
+
 
     return 0;
 
@@ -1060,7 +1083,7 @@ ethr_rwmutex_init(ethr_rwmutex *rwmtx)
     }
     rwmtx->initialized = ETHR_RWMUTEX_INITIALIZED;
 #endif
-    return pthread_rwlock_init(&rwmtx->pt_rwlock, NULL);
+    return pthread_rwlock_init(&rwmtx->pt_rwlock, write_pref_attr);
 }
 
 int

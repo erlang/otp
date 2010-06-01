@@ -50,6 +50,13 @@
 /* Define if you have a pthread_rwlock implementation that can be used */
 #undef ETHR_HAVE_PTHREAD_RWLOCK_INIT
 
+/* Define if you have the pthread_rwlockattr_setkind_np() function. */
+#undef ETHR_HAVE_PTHREAD_RWLOCKATTR_SETKIND_NP
+
+/* Define if you have the PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP rwlock
+   attribute. */
+#undef ETHR_HAVE_PTHREAD_RWLOCK_PREFER_WRITER_NONRECURSIVE_NP
+
 /* Define if you have gcc atomic operations */
 #undef ETHR_HAVE_GCC_ATOMIC_OPS
 
