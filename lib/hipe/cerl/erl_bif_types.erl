@@ -809,6 +809,10 @@ type(erlang, demonitor, 2, Xs) ->
 type(erlang, disconnect_node, 1, Xs) ->
   strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_boolean() end);
 type(erlang, display, 1, _) -> t_atom('true');
+type(erlang, display_string, 1, Xs) ->
+  strict(arg_types(erlang, display_string, 1), Xs, fun(_) -> t_atom('true') end);
+type(erlang, display_nl, 0, _) ->
+  t_atom('true');
 type(erlang, dist_exit, 3, Xs) ->
   strict(arg_types(erlang, dist_exit, 3), Xs, fun (_) -> t_atom('true') end);
 type(erlang, element, 2, Xs) ->
@@ -3556,6 +3560,10 @@ arg_types(erlang, disconnect_node, 1) ->
   [t_node()];
 arg_types(erlang, display, 1) ->
   [t_any()];
+arg_types(erlang, display_nl, 0) ->
+  [];
+arg_types(erlang, display_string, 1) ->
+  [t_string()];
 arg_types(erlang, dist_exit, 3) ->
   [t_pid(), t_dist_exit(), t_sup(t_pid(), t_port())];
 arg_types(erlang, element, 2) ->
