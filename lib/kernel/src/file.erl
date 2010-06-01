@@ -369,7 +369,7 @@ advise(_, _, _, _) ->
 -spec read(File :: io_device(), Size :: non_neg_integer()) ->
 	'eof' | {'ok', [char()] | binary()} | {'error', posix()}.
 
-read(File, Sz) when is_pid(File), is_integer(Sz), Sz >= 0 ->
+read(File, Sz) when (is_pid(File) orelse is_atom(File)), is_integer(Sz), Sz >= 0 ->
     case io:request(File, {get_chars, '', Sz}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
@@ -385,7 +385,7 @@ read(_, _) ->
 -spec read_line(File :: io_device()) ->
 	'eof' | {'ok', [char()] | binary()} | {'error', posix()}.
 
-read_line(File) when is_pid(File) ->
+read_line(File) when (is_pid(File) orelse is_atom(File)) ->
     case io:request(File, {get_line, ''}) of
 	Data when is_list(Data); is_binary(Data) ->
 	    {ok, Data};
@@ -439,7 +439,7 @@ pread(_, _, _) ->
 -spec write(File :: io_device(), Byte :: iodata()) ->
 	'ok' | {'error', posix()}.
 
-write(File, Bytes) when is_pid(File) ->
+write(File, Bytes) when (is_pid(File) orelse is_atom(File)) ->
     case make_binary(Bytes) of
 	Bin when is_binary(Bin) ->
 	    io:request(File, {put_chars,Bin});
