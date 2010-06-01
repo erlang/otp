@@ -355,51 +355,34 @@
 
           <tag><c>nowarn_bif_clash</c></tag>
           <item>
-            <p>By default, the compiler will issue an error or warning
-            when replacing an auto-imported BIF. For local functions
-            having names clashing with an auto-imported BIF, the error
-            or warning is issued whenever it is called without using a
-            module prefix. For explicitly imported functions, the
-            error or warning will be issued as soon as it's imported
-            (regardless of calls). If the auto-imported BIF was present
-            before OTP R14A it will be a fatal error to override it,
-            otherwise only a warning will be issued.</p>
+            <p>This option is removed, it will generate a fatal error if used.</p>
 
 	    <warning>
 	    <p>Beginning with R14A, the compiler no longer calls the
 	    auto-imported BIF if the name clashes with a local or
 	    explicitly imported function and a call without explicit
 	    module name is issued. Instead the local or imported
-	    function is called. Use of <c>nowarn_bif_clash</c> makes a
+	    function is called. Still accepting <c>nowarn_bif_clash</c> would makes a
 	    module calling functions clashing with autoimported BIFs
 	    compile with both the old and new compilers, but with
-	    completely different semantics, why a warning is always
-	    issued if any code uses this option.</p>
+	    completely different semantics, why the option was removed.</p>
 
 	    <p>The use of this option has always been strongly discouraged.
-	    From OTP R14A and forward it's also deprecated.</p>
-	    <p>The only module who actually could have some legitimate use for
-	    this option is the module <c>erlang</c>, which in
-	    itself contains auto-imported functions, other modules
-	    should never use it.</p>
+	    From OTP R14A and forward it's an error to use it.</p>
 	    <p>To resolve BIF clashes, use explicit module names or the
-	    <c>{no_auto_import,[F/A]}</c> directive.</p>
-	    <p><c>nowarn_bif_clash</c> <em>will</em> be removed in a future release.</p>
+	    <c>{no_auto_import,[F/A]}</c> compiler directive.</p>
 	    </warning>
           </item>
 
           <tag><c>{nowarn_bif_clash, FAs}</c></tag>
           <item>
-            <p>Turns off warnings as <c>nowarn_bif_clash</c> but only
-	      for the mentioned local functions. <c>FAs</c> is a tuple
-	      <c>{Name,Arity}</c> or a list of such tuples.</p>
+            <p>This option is removed, it will generate a fatal error if used.</p>
+
 	    <warning>
 	    <p>The use of this option has always been strongly discouraged.
-	    From OTP R14A and forward it's also deprecated and a warning will be issued
-	    whenever it is used.</p>
+	    From OTP R14A and forward it's an error to use it.</p>
 	    <p>To resolve BIF clashes, use explicit module names or the
-	    <c>{no_auto_import,[F/A]}</c> directive instead.</p>
-	    <p><c>nowarn_bif_clash</c> <em>will</em> be removed in a future release.</p>
+	    <c>{no_auto_import,[F/A]}</c> compiler directive.</p>
 	    </warning>
           </item>
 

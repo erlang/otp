@@ -163,8 +163,8 @@ format_error({bad_nowarn_unused_function,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
 format_error({bad_nowarn_bif_clash,{F,A}}) ->
     io_lib:format("function ~w/~w undefined", [F,A]);
-format_error(deprecated_nowarn_bif_clash) ->
-    io_lib:format("compile directive nowarn_bif_clash is deprecated,~n"
+format_error(disallowed_nowarn_bif_clash) ->
+    io_lib:format("compile directive nowarn_bif_clash is no longer allowed,~n"
 		  " - use explicit module names or -compile({no_auto_import, [F/A]})", []);
 format_error({bad_nowarn_deprecated_function,{M,F,A}}) ->
     io_lib:format("~w:~w/~w is not a deprecated function", [M,F,A]);
@@ -553,7 +553,7 @@ forms(Forms0, St0) ->
     Forms = eval_file_attribute(Forms0, St0),
     Locals = local_functions(Forms),
     AutoImportSuppressed = auto_import_suppressed(St0#lint.compile),
-    StDeprecated = deprecated_compile_flags(Forms,St0),
+    StDeprecated = disallowed_compile_flags(Forms,St0),
     %% Line numbers are from now on pairs {File,Line}.
     St1 = includes_qlc_hrl(Forms, StDeprecated#lint{locals = Locals,
 						    no_auto = AutoImportSuppressed}),
@@ -762,22 +762,23 @@ not_deprecated(Forms, St0) ->
     St1 = func_line_warning(bad_nowarn_deprecated_function, Bad, St0),
     St1#lint{not_deprecated = ordsets:from_list(Nowarn)}.
 
-deprecated_compile_flags(Forms, St0) ->
+%% The nowarn_bif_clash directive is not only deprecated, it's actually an error from R14A
+disallowed_compile_flags(Forms, St0) ->
     %% There are (still) no line numbers in St0#lint.compile.
-    Warnings0 =  [ {St0#lint.file,{L,erl_lint,deprecated_nowarn_bif_clash}} ||
+    Errors0 =  [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
 		    {attribute,[{line,{_,L}}],compile,nowarn_bif_clash} <- Forms ],
-    Warnings1 = [ {St0#lint.file,{L,erl_lint,deprecated_nowarn_bif_clash}} ||
+    Errors1 = [ {St0#lint.file,{L,erl_lint,disallowed_nowarn_bif_clash}} ||
 		    {attribute,[{line,{_,L}}],compile,{nowarn_bif_clash, {_,_}}} <- Forms ],
     Disabled = (not is_warn_enabled(bif_clash, St0)),
-    Warnings = if
-		   Disabled andalso Warnings0 =:= [] ->
-		       [{St0#lint.file,{erl_lint,deprecated_nowarn_bif_clash}} | St0#lint.warnings];
+    Errors = if
+		   Disabled andalso Errors0 =:= [] ->
+		       [{St0#lint.file,{erl_lint,disallowed_nowarn_bif_clash}} | St0#lint.errors];
                    Disabled ->
-		       Warnings0 ++ Warnings1 ++ St0#lint.warnings;
+		       Errors0 ++ Errors1 ++ St0#lint.errors;
 		   true ->
-		       Warnings1 ++ St0#lint.warnings
+		       Errors1 ++ St0#lint.errors
 	       end,
-    St0#lint{warnings=Warnings}.
+    St0#lint{errors=Errors}.
 
 %% post_traversal_check(Forms, State0) -> State.
 %% Do some further checking after the forms have been traversed and

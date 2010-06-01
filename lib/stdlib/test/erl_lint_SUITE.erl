@@ -1785,7 +1785,7 @@ otp_5362(Config) when is_list(Config) ->
                       {16,erl_lint,{field_name_is_variable,ok,'Var'}}]}},
 
 	  %% Nowarn_bif_clash has changed behaviour as local functions
-	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates a warning
+	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates an error
 	  %% (OTP-8579) /PaN
           {otp_5362_4,
            <<"-compile(nowarn_deprecated_function).
@@ -1810,8 +1810,8 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {warnings,
-            [{2,erl_lint,deprecated_nowarn_bif_clash}]}},
+	   {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           %% The special nowarn_X are not affected by general warn_X.
           {otp_5362_6,
@@ -1824,8 +1824,8 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function, 
              warn_deprecated_function, 
              warn_bif_clash]},
-           {warnings,
-            [{2,erl_lint,deprecated_nowarn_bif_clash}]}},
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           {otp_5362_7,
            <<"-export([spawn/1]).
@@ -1840,10 +1840,10 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {error,[{4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
-            [{3,erl_lint,deprecated_nowarn_bif_clash},
-	     {4,erl_lint,deprecated_nowarn_bif_clash},
-	     {5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
+           {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+            [{5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},hash,-1}}}]}
            },
@@ -1882,8 +1882,8 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function,
              warn_deprecated_function,
              warn_bif_clash]},
-           {warnings,
-            [{2,erl_lint,deprecated_nowarn_bif_clash}]}}
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}}
 
           ],
 
@@ -2409,7 +2409,7 @@ bif_clash(Config) when is_list(Config) ->
            [],
 	   {errors,[{2,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
-	  %% Verify that (some) warnings can be turned off.
+	  %% Verify that warnings can not be turned off in the old way.
 	  {clash2,
            <<"-export([t/1,size/1]).
               t(X) ->
@@ -2425,7 +2425,7 @@ bif_clash(Config) when is_list(Config) ->
               abs(X) -> erlang:abs(X).
              ">>,
 	   {[nowarn_unused_function,nowarn_bif_clash]},
-	   {warnings,[{erl_lint,deprecated_nowarn_bif_clash}]}},
+	   {errors,[{erl_lint,disallowed_nowarn_bif_clash}],[]}},
 	  %% As long as noone calls an overridden BIF, it's totally OK
 	  {clash3,
            <<"-export([size/1]).
