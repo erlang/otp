@@ -6723,6 +6723,17 @@ true</pre>
               See also
               <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
           </item>
+          <tag><c>call_time</c></tag>
+          <item>
+	      <p>Return the call time values for this function or
+              <c>true</c> for the pseudo function <c>on_load</c> if call
+	      time tracing is active. Returns <c>false</c> otherwise.
+	      The call time values returned, <c>[{Pid, Count, S, Us}]</c>,
+	      is a list of each process that has executed the function and its specific counters.
+              See also
+              <seealso marker="#trace_pattern/3">erlang:trace_pattern/3</seealso>.</p>
+          </item>
+
           <tag><c>all</c></tag>
           <item>
             <p>Return a list containing the <c>{Item, Value}</c> tuples
@@ -6825,13 +6836,13 @@ true</pre>
           </item>
           <tag><c>restart</c></tag>
           <item>
-            <p>For the <c>FlagList</c> option <c>call_count</c>:
+	      <p>For the <c>FlagList</c> option <c>call_count</c> and <c>call_time</c>:
               restart the existing counters. The behaviour is undefined
               for other <c>FlagList</c> options.</p>
           </item>
           <tag><c>pause</c></tag>
           <item>
-            <p>For the <c>FlagList</c> option <c>call_count</c>: pause
+	      <p>For the <c>FlagList</c> option <c>call_count</c> and <c>call_time</c>: pause
               the existing counters. The behaviour is undefined for
               other <c>FlagList</c> options.</p>
           </item>
@@ -6886,6 +6897,23 @@ true</pre>
             <p>The counter value can be read with
               <seealso marker="#trace_info/2">erlang:trace_info/2</seealso>.</p>
           </item>
+          <tag><c>call_time</c></tag>
+          <item>
+            <p>Starts (<c>MatchSpec == true</c>) or stops
+              (<c>MatchSpec == false</c>) call time tracing for all
+              types of function calls. For every function a counter is
+	      incremented when the function is called. Time spent in the function
+	      is accumulated in two other counters, seconds and micro-seconds.
+	      The counters are stored for each call traced process.</p>
+            <p>If call time tracing is started while already running,
+              the count and time is restarted from zero. Running counters can be
+              paused with <c>MatchSpec == pause</c>. Paused and running
+              counters can be restarted from zero with
+              <c>MatchSpec == restart</c>.</p>
+            <p>The counter value can be read with
+              <seealso marker="#trace_info/2">erlang:trace_info/2</seealso>.</p>
+          </item>
+
         </taglist>
         <p>The <c>global</c> and <c>local</c> options are mutually
           exclusive and <c>global</c> is the default (if no options are
@@ -6893,7 +6921,7 @@ true</pre>
           perform a kind of local tracing, and can also not be combined
           with <c>global</c>. A function can be either globally or
           locally traced. If global tracing is specified for a
-          specified set of functions; local, meta and call count
+          specified set of functions; local, meta, call time and call count
           tracing for the matching set of local functions will be
           disabled, and vice versa.</p>
         <p>When disabling trace, the option must match the type of trace
