@@ -42,6 +42,7 @@ EMACS_FILES= \
 	erlang_appwiz \
 	erlang-start \
 	erlang-eunit \
+	erlang-flymake \
 	erlang
 
 README_FILES= README
