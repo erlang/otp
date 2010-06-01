@@ -1192,12 +1192,11 @@ erts_smp_port_unlock(Port *prt)
 {
 #ifdef ERTS_SMP
     long refc;
+    erts_smp_mtx_unlock(prt->lock);
     refc = erts_smp_atomic_dectest(&prt->refc);
     ASSERT(refc >= 0);
     if (refc == 0)
 	erts_port_cleanup(prt);
-    else
-	erts_smp_mtx_unlock(prt->lock);
 #endif
 }
 

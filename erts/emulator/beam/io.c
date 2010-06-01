@@ -280,8 +280,34 @@ erts_test_next_port(int set, Uint next)
     return res;
 }
 
+
+static void port_cleanup(Port *prt);
+
+#ifdef ERTS_SMP
+
+static void
+sched_port_cleanup(void *vprt)
+{
+    Port *prt = (Port *) vprt;
+    erts_smp_mtx_lock(prt->lock);
+    port_cleanup(prt);
+}
+
+#endif
+
 void
 erts_port_cleanup(Port *prt)
+{
+#ifdef ERTS_SMP
+    if (erts_smp_mtx_trylock(prt->lock) == EBUSY)
+	erts_schedule_misc_op(sched_port_cleanup, (void *) prt);
+    else
+#endif
+	port_cleanup(prt);
+}
+
+void
+port_cleanup(Port *prt)
 {
 #ifdef ERTS_SMP
     Uint32 port_specific;

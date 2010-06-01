@@ -969,11 +969,11 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
     erts_port_release(pp);
 #else
     {
-	long refc = erts_smp_atomic_dectest(&pp->refc);
+	long refc;
+	erts_smp_mtx_unlock(pp->lock);
+	refc = erts_smp_atomic_dectest(&pp->refc);
 	ASSERT(refc >= 0);
-	if (refc > 0)
-	    erts_smp_mtx_unlock(pp->lock);
-	else {
+	if (refc == 0) {
 	    erts_smp_runq_unlock(runq);
 	    erts_port_cleanup(pp); /* Might aquire runq lock */
 	    erts_smp_runq_lock(runq);
