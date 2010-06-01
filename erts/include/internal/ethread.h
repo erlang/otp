@@ -1144,8 +1144,8 @@ ETHR_INLINE_FUNC_NAME_(ethr_write_lock)(ethr_rwlock_t *lock)
  */
 #define ETHR_MEMORY_BARRIER
 
-#define ETHR_ATOMIC_ADDR_BITS 4
-#define ETHR_ATOMIC_ADDR_SHIFT 3
+#define ETHR_ATOMIC_ADDR_BITS 10
+#define ETHR_ATOMIC_ADDR_SHIFT 6
 
 typedef struct {
     union {
