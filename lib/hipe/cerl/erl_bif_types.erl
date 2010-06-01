@@ -691,6 +691,10 @@ type(erlang, atom_to_binary, 2, Xs) ->
   strict(arg_types(erlang, atom_to_binary, 2), Xs, fun (_) -> t_binary() end);
 type(erlang, atom_to_list, 1, Xs) ->
   strict(arg_types(erlang, atom_to_list, 1), Xs, fun (_) -> t_string() end);
+type(erlang, binary_part, 2, Xs) ->
+  strict(arg_types(erlang, binary_part, 2), Xs, fun (_) -> t_binary() end);
+type(erlang, binary_part, 3, Xs) ->
+  strict(arg_types(erlang, binary_part, 3), Xs, fun (_) -> t_binary() end);
 type(erlang, binary_to_atom, 2, Xs) ->
   strict(arg_types(erlang, binary_to_atom, 2), Xs, fun (_) -> t_atom() end);
 type(erlang, binary_to_existing_atom, 2, Xs) ->
@@ -3404,6 +3408,10 @@ arg_types(erlang, atom_to_binary, 2) ->
   [t_atom(), t_encoding_a2b()];
 arg_types(erlang, atom_to_list, 1) ->
   [t_atom()];
+arg_types(erlang, binary_part, 2) ->
+  [t_binary(), t_tuple([t_integer(),t_integer()])];
+arg_types(erlang, binary_part, 3) ->
+  [t_binary(), t_integer(), t_integer()];
 arg_types(erlang, binary_to_atom, 2) ->
   [t_binary(), t_encoding_a2b()];
 arg_types(erlang, binary_to_existing_atom, 2) ->
