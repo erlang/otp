@@ -659,24 +659,30 @@ resulting regexp is surrounded by \\_< and \\_>."
 (eval-and-compile
   (defconst erlang-guards-regexp (erlang-regexp-opt erlang-guards 'symbols)))
 
-
 (eval-and-compile
   (defvar erlang-predefined-types
     '("any"
       "arity"
+      "boolean"
       "byte"
       "char"
       "cons"
       "deep_string"
+      "iolist"
       "maybe_improper_list"
+      "module"
       "mfa"
       "nil"
+      "neg_integer"
       "none"
       "non_neg_integer"
       "nonempty_list"
       "nonempty_improper_list"
       "nonempty_maybe_improper_list"
+      "no_return"
+      "pos_integer"
       "string"
+      "term"
       "timeout")
     "Erlang type specs types"))
 
@@ -2484,9 +2490,10 @@ Value is list (stack token-start token-type in-what)."
 	    ((looking-at "\\(of\\)[^_a-zA-Z0-9]")
 	     ;; Must handle separately, try X of -> catch
 	     (if (and stack (eq (car (car stack)) 'try))
-		 (let ((try-column (nth 2 (car stack))))
+		 (let ((try-column (nth 2 (car stack)))
+		       (try-pos (nth 1 (car stack))))
 		   (erlang-pop stack)
-		   (erlang-push (list 'icr token try-column) stack))))
+		   (erlang-push (list 'icr try-pos try-column) stack))))
 	    
 	    ((looking-at "\\(fun\\)[^_a-zA-Z0-9]")
 	     ;; Push a new layer if we are defining a `fun'
@@ -2747,7 +2754,7 @@ Return nil if inside string, t if in a comment."
            ;;
            ;; `after' should be indented to the same level as the
            ;; corresponding receive.
-           (cond ((looking-at "\\(after\\|catch\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
+           (cond ((looking-at "\\(after\\|of\\)\\($\\|[^_a-zA-Z0-9]\\)")
 		  (nth 2 stack-top))
 		 ((looking-at "when[^_a-zA-Z0-9]")
 		  ;; Handling one when part
@@ -2766,7 +2773,7 @@ Return nil if inside string, t if in a comment."
 	  ((and (eq (car stack-top) '||) (looking-at "\\(]\\|>>\\)[^_a-zA-Z0-9]"))
 	   (nth 2 (car (cdr stack))))
           ;; Real indentation, where operators create extra indentation etc.
-          ((memq (car stack-top) '(-> || begin try))
+          ((memq (car stack-top) '(-> || try begin))
 	   (if (looking-at "\\(of\\)[^_a-zA-Z0-9]")
 	       (nth 2 stack-top)
 	     (goto-char (nth 1 stack-top))
@@ -2795,19 +2802,24 @@ Return nil if inside string, t if in a comment."
 			    (erlang-caddr (car stack))
 			  0))
 		       ((looking-at "catch\\($\\|[^_a-zA-Z0-9]\\)")
-			(if (or (eq (car stack-top) 'try)
-				(eq (car (car (cdr stack))) 'icr))
-			    (progn 
-			      (if (eq (car stack-top) '->)
-				  (erlang-pop stack))
-			      (if stack
-				  (erlang-caddr (car stack))
-				0))
-			  base)) ;; old catch 
+			;; Are we in a try
+			(let ((start (if (eq (car stack-top) '->)
+					 (car (cdr stack))
+				       stack-top)))
+			  (if (null start) nil
+			    (goto-char (nth 1 start)))
+			  (cond ((looking-at "try\\($\\|[^_a-zA-Z0-9]\\)")
+				 (progn
+				   (if (eq (car stack-top) '->)
+				       (erlang-pop stack))
+				   (if stack
+				       (erlang-caddr (car stack))
+				     0)))
+				(t (erlang-indent-standard indent-point token base 'nil))))) ;; old catch
 		       (t 
 			(erlang-indent-standard indent-point token base 'nil)
 			))))
-	       ))
+	     ))
 	  ((eq (car stack-top) 'when)
 	   (goto-char (nth 1 stack-top))
 	   (if (looking-at "when\\s *\\($\\|%\\)")
@@ -2833,27 +2845,32 @@ Return nil if inside string, t if in a comment."
              (current-column)))
 	  ;; Type and Spec indentation
 	  ((eq (car stack-top) '::)
-	   (cond ((null erlang-argument-indent)
-		  ;; indent to next column.
-		  (+ 2 (nth 2 stack-top)))
-		 ((looking-at "::[^_a-zA-Z0-9]")
-		  (nth 2 stack-top))
-		 (t
-		  (let ((start-alternativ (if (looking-at "|") 2 0)))
-		    (goto-char (nth 1 stack-top))
-		    (- (cond ((looking-at "::\\s *\\($\\|%\\)")
-			      ;; Line ends with ::
-			      (if (eq (car (car (last stack))) 'spec)
+	   (if (looking-at "}")
+	       ;; Closing record definition with types
+	       ;; pop stack and recurse
+	       (erlang-calculate-stack-indent indent-point
+					      (cons (erlang-pop stack) (cdr state)))
+	     (cond ((null erlang-argument-indent)
+		    ;; indent to next column.
+		    (+ 2 (nth 2 stack-top)))
+		   ((looking-at "::[^_a-zA-Z0-9]")
+		    (nth 2 stack-top))
+		   (t
+		    (let ((start-alternativ (if (looking-at "|") 2 0)))
+		      (goto-char (nth 1 stack-top))
+		      (- (cond ((looking-at "::\\s *\\($\\|%\\)")
+				;; Line ends with ::
+				(if (eq (car (car (last stack))) 'spec)
 				  (+ (erlang-indent-find-preceding-expr 1)
 				     erlang-argument-indent)
-				(+ (erlang-indent-find-preceding-expr 2)
-				   erlang-argument-indent)))
-			     (t
-			      ;; Indent to the same column as the first
-			      ;; argument.
-			      (goto-char (+ 2 (nth 1 stack-top)))
-			      (skip-chars-forward " \t")
-			      (current-column))) start-alternativ)))))	
+				  (+ (erlang-indent-find-preceding-expr 2)
+				     erlang-argument-indent)))
+			       (t
+				;; Indent to the same column as the first
+				;; argument.
+				(goto-char (+ 2 (nth 1 stack-top)))
+				(skip-chars-forward " \t")
+				(current-column))) start-alternativ))))))
 	  )))
 
 (defun erlang-indent-standard (indent-point token base inside-parenthesis)
