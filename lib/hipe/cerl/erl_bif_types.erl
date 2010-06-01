@@ -143,6 +143,51 @@ type(M, F, A) ->
 
 -spec type(atom(), atom(), arity(), [erl_types:erl_type()]) -> erl_types:erl_type().
 
+%%-- binary -------------------------------------------------------------------
+type(binary, at, 2, Xs) ->
+  strict(arg_types(binary, at, 2), Xs, fun(_) -> t_integer() end);
+type(binary, bin_to_list, Arity, Xs) when 1 =< Arity, Arity =< 3 ->
+  strict(arg_types(binary, bin_to_list, Arity), Xs,
+	 fun(_) -> t_list(t_integer()) end);
+type(binary, compile_pattern, 1, Xs) ->
+  strict(arg_types(binary, compile_pattern, 1), Xs,
+	 fun(_) -> t_tuple([t_atom(bm),t_binary()]) end);
+type(binary, copy, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, copy, Arity), Xs,
+	 fun(_) -> t_binary() end);
+type(binary, decode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, decode_unsigned, Arity), Xs,
+	 fun(_) -> t_non_neg_integer() end);
+type(binary, encode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, encode_unsigned, Arity), Xs,
+	 fun(_) -> t_binary() end);
+type(binary, first, 1, Xs) ->
+  strict(arg_types(binary, first, 1), Xs, fun(_) -> t_non_neg_integer() end);
+type(binary, last, 1, Xs) ->
+  strict(arg_types(binary, last, 1), Xs, fun(_) -> t_non_neg_integer() end);
+type(binary, list_to_bin, 1, Xs) ->
+  type(erlang, list_to_binary, 1, Xs);
+type(binary, longest_common_prefix, 1, Xs) ->
+  strict(arg_types(binary, longest_common_prefix, 1), Xs,
+	 fun(_) -> t_integer() end);
+type(binary, longest_common_suffix, 1, Xs) ->
+  strict(arg_types(binary, longest_common_suffix, 1), Xs,
+	 fun(_) -> t_integer() end);
+type(binary, match, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(binary, match, Arity), Xs,
+	 fun(_) ->
+	     t_sup(t_atom('nomatch'), t_binary_canonical_part())
+	 end);
+type(binary, matches, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(binary, matches, Arity), Xs,
+	 fun(_) -> t_list(t_binary_canonical_part()) end);
+type(binary, part, 2, Xs) ->
+  type(erlang, binary_part, 2, Xs);
+type(binary, part, 3, Xs) ->
+  type(erlang, binary_part, 3, Xs);
+type(binary, referenced_byte_size, 1, Xs) ->
+  strict(arg_types(binary, referenced_byte_size, 1), Xs,
+	 fun(_) -> t_non_neg_integer() end);
 %%-- code ---------------------------------------------------------------------
 type(code, add_path, 1, Xs) ->
   strict(arg_types(code, add_path, 1), Xs,
@@ -3206,6 +3251,53 @@ arith(Op, X1, X2) ->
 
 -spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
 
+%%------- binary --------------------------------------------------------------
+arg_types(binary, at, 2) ->
+  [t_binary(), t_non_neg_integer()];
+arg_types(binary, bin_to_list, 1) ->
+  [t_binary()];
+arg_types(binary, bin_to_list, 2) ->
+  [t_binary(), t_binary_part()];
+arg_types(binary, bin_to_list, 3) ->
+  [t_binary(), t_integer(), t_non_neg_integer()];
+arg_types(binary, compile_pattern, 1) ->
+  [t_sup(t_binary(), t_list(t_binary()))];
+arg_types(binary, copy, 1) ->
+  [t_binary()];
+arg_types(binary, copy, 2) ->
+  [t_binary(), t_non_neg_integer()];
+arg_types(binary, decode_unsigned, 1) ->
+  [t_binary()];
+arg_types(binary, decode_unsigned, 2) ->
+  [t_binary(), t_endian()];
+arg_types(binary, encode_unsigned, 1) ->
+  [t_non_neg_integer()];
+arg_types(binary, encode_unsigned, 2) ->
+  [t_non_neg_integer(), t_endian()];
+arg_types(binary, first, 1) ->
+  [t_binary()];
+arg_types(binary, last, 1) ->
+  [t_binary()];
+arg_types(binary, list_to_bin, 1) ->
+  arg_types(erlang, list_to_binary, 1);
+arg_types(binary, longest_common_prefix, 1) ->
+  [t_list(t_binary())];
+arg_types(binary, longest_common_suffix, 1) ->
+  [t_list(t_binary())];
+arg_types(binary, match, 2) ->
+  [t_binary(), t_binary_pattern()];
+arg_types(binary, match, 3) ->
+  [t_binary(), t_binary_pattern(), t_binary_options()];
+arg_types(binary, matches, 2) ->
+  [t_binary(), t_binary_pattern()];
+arg_types(binary, matches, 3) ->
+  [t_binary(), t_binary_pattern(), t_binary_options()];
+arg_types(binary, part, 2) ->
+  arg_types(erlang, binary_part, 2);
+arg_types(binary, part, 3) ->
+  arg_types(erlang, binary_part, 3);
+arg_types(binary, referenced_byte_size, 1) ->
+  [t_binary()];
 %%------- code ----------------------------------------------------------------
 arg_types(code, add_path, 1) ->
   [t_string()];
@@ -4495,6 +4587,27 @@ t_httppacket() ->
 
 t_endian() ->
   t_sup([t_atom('big'), t_atom('little')]).
+
+%% =====================================================================
+%% Types for the binary module
+%% =====================================================================
+
+t_binary_part() ->
+  t_tuple([t_non_neg_integer(),t_integer()]).
+
+t_binary_canonical_part() ->
+  t_tuple([t_non_neg_integer(),t_non_neg_integer()]).
+
+t_binary_pattern() ->
+  t_sup([t_binary(),
+	 t_list(t_binary()),
+	 t_binary_compiled_pattern()]).
+
+t_binary_compiled_pattern() ->
+  t_tuple([t_atom('cp'),t_binary()]).
+
+t_binary_options() ->
+  t_list(t_tuple([t_atom('scope'),t_binary_part()])).
 
 %% =====================================================================
 %% HTTP types documented in R12B-4
