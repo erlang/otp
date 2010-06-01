@@ -29,7 +29,7 @@
  	 validate_issuer/4, validate_names/6,
 	 validate_revoked_status/3, validate_extensions/4,
 	 validate_unknown_extensions/3,
-	 normalize_general_name/1, digest_type/1, digest/2, is_self_signed/1,
+	 normalize_general_name/1, digest_type/1, is_self_signed/1,
 	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1]).
 
 -define(NULL, 0).
@@ -130,7 +130,7 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
 validate_names(OtpCert, Permit, Exclude, Last, AccErr, Verify) ->
     case is_self_signed(OtpCert) andalso (not Last) of
 	true -> 
-	    ok;
+	    AccErr;
 	false ->
 	    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
 	    Subject = TBSCert#'OTPTBSCertificate'.subject,
@@ -197,7 +197,7 @@ normalize_general_name({rdnSequence, Issuer}) ->
 normalize_general_name(Issuer) ->
     Normalize = fun([{Description, Type, {printableString, Value}}]) ->
 			NewValue = string:to_lower(strip_spaces(Value)),
-			{Description, Type, {printableString, NewValue}};
+			[{Description, Type, {printableString, NewValue}}];
 		   (Atter)  ->
 			Atter
 		end,
@@ -275,13 +275,6 @@ digest_type(?md5WithRSAEncryption) ->
 digest_type(?'id-dsa-with-sha1') ->
     sha.
 
-digest(?sha1WithRSAEncryption, Msg) ->
-    crypto:sha(Msg);
-digest(?md5WithRSAEncryption, Msg) ->
-    crypto:md5(Msg);
-digest(?'id-dsa-with-sha1', Msg) ->
-    crypto:sha(Msg).
-
 public_key_info(PublicKeyInfo, 
 		#path_validation_state{working_public_key_algorithm =
 				       WorkingAlgorithm,
@@ -328,12 +321,6 @@ is_dir_name([], [], _Exact) ->    true;
 is_dir_name([H|R1],[H|R2], Exact) -> is_dir_name(R1,R2, Exact);
 is_dir_name([[{'AttributeTypeAndValue', Type, What1}]|Rest1],
 	    [[{'AttributeTypeAndValue', Type, What2}]|Rest2],Exact) ->
-    case is_dir_name2(What1,What2) of
-	true -> is_dir_name(Rest1,Rest2,Exact);
-	false -> false
-    end;
-is_dir_name([{'AttributeTypeAndValue', Type, What1}|Rest1],
-	    [{'AttributeTypeAndValue', Type, What2}|Rest2], Exact) ->
     case is_dir_name2(What1,What2) of
 	true -> is_dir_name(Rest1,Rest2,Exact);
 	false -> false

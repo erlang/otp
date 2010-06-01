@@ -124,25 +124,31 @@ decode_file2([L|Rest], RLs, Ens, Tag, Info0) ->
 decode_file2([], _, Ens, _, _) ->
     {ok, lists:reverse(Ens)}.
 
-%% TODO Support same as decode_file
+%% Support same as decode_file
 encode_file(Ds) ->
     lists:map(
-      fun({cert, Bin}) -> 
+      fun({cert, Bin, not_encrypted}) -> 
 	      %% PKIX (X.509)
 	      ["-----BEGIN CERTIFICATE-----\n",
 	       b64encode_and_split(Bin),
 	       "-----END CERTIFICATE-----\n\n"];
-	 ({cert_req, Bin}) -> 
+	 ({cert_req, Bin, not_encrypted}) -> 
 	      %% PKCS#10
 	      ["-----BEGIN CERTIFICATE REQUEST-----\n",
 	       b64encode_and_split(Bin),
 	       "-----END CERTIFICATE REQUEST-----\n\n"];
-	 ({rsa_private_key, Bin}) -> 
+	 ({rsa_private_key, Bin, not_encrypted}) -> 
 	      %% PKCS#?
 	      ["XXX Following key assumed not encrypted\n",
 	       "-----BEGIN RSA PRIVATE KEY-----\n",
 	       b64encode_and_split(Bin),
-	       "-----END RSA PRIVATE KEY-----\n\n"]
+	       "-----END RSA PRIVATE KEY-----\n\n"];
+	 ({dsa_private_key, Bin, not_encrypted}) -> 
+	      %% PKCS#?
+	      ["XXX Following key assumed not encrypted\n",
+	       "-----BEGIN DSA PRIVATE KEY-----\n",
+	       b64encode_and_split(Bin),
+	       "-----END DSA PRIVATE KEY-----\n\n"]
       end, Ds).
 
 dek_info(Line0, Info) ->

@@ -28,6 +28,7 @@ INCLUDES= -I. -I ../include
 # ----------------------------------------------------
 
 MODULES= \
+	pkey_test \
 	public_key_SUITE \
 	pkits_SUITE
 
@@ -39,6 +40,9 @@ TARGET_FILES= \
 	$(MODULES:%=$(EBIN)/%.$(EMULATOR))
 
 SPEC_FILES = public_key.spec
+
+COVER_FILE = public_key.cover
+
 
 # ----------------------------------------------------
 # Release directory specification
@@ -74,7 +78,7 @@ release_spec: opt
 
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
-	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(HRL_FILES)$(RELSYSDIR)
+	$(INSTALL_DATA) $(SPEC_FILES) $(ERL_FILES) $(COVER_FILE) $(HRL_FILES) $(RELSYSDIR)
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)

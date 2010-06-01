@@ -113,13 +113,13 @@ decrypt_public(CipherText, Key, Options)  ->
 encrypt_public(PlainText, Key) ->
     encrypt_public(PlainText, Key, []).
 encrypt_public(PlainText, Key, Options)  ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_oaep_padding),
+    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
     pubkey_crypto:encrypt_public(PlainText, Key, Padding).
 
 encrypt_private(PlainText, Key) ->
     encrypt_private(PlainText, Key, []).
 encrypt_private(PlainText, Key, Options)  ->
-    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_oaep_padding),
+    Padding = proplists:get_value(rsa_pad, Options, rsa_pkcs1_padding),
     pubkey_crypto:encrypt_private(PlainText, Key, Padding).
 
 %%--------------------------------------------------------------------
