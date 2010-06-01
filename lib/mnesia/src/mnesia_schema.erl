@@ -2660,7 +2660,6 @@ merge_schema(UserFun) ->
 do_merge_schema(LockTabs0) ->
     {_Mod, Tid, Ts} = get_tid_ts_and_lock(schema, write),
     LockTabs = [{T, tab_to_nodes(T)} || T <- LockTabs0],
-    io:fwrite("LockTabs = ~p~n", [LockTabs]),
     [get_tid_ts_and_lock(T,write) || {T,_} <- LockTabs],
     Connected = val(recover_nodes),
     Running = val({current, db_nodes}),
@@ -2673,10 +2672,11 @@ do_merge_schema(LockTabs0) ->
 	    mnesia:abort({bad_commit, {missing_lock, Miss}})
     end,
     case Connected -- Running of
-	[Node | _] = NewNodes ->
+	[Node | _] = OtherNodes ->
 	    %% Time for a schema merging party!
 	    mnesia_locker:wlock_no_exist(Tid, Store, schema, [Node]),
-            [mnesia_locker:wlock_no_exist(Tid, Store, T, mnesia_lib:intersect(Ns, NewNodes))
+            [mnesia_locker:wlock_no_exist(
+               Tid, Store, T, mnesia_lib:intersect(Ns, OtherNodes))
              || {T,Ns} <- LockTabs],
 	    case rpc:call(Node, mnesia_controller, get_cstructs, []) of
 		{cstructs, Cstructs, RemoteRunning1} ->
