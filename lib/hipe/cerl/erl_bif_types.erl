@@ -1608,7 +1608,7 @@ type(erlang, system_info, 1, Xs) ->
 		     t_sup([t_atom('false'),
 			    t_list(t_tuple([t_atom(), t_any()]))]);
 		   ['endian'] ->
-		     t_sup([t_atom('big'), t_atom('little')]);
+		     t_endian();
 		   ['fullsweep_after'] ->
 		     t_tuple([t_atom('fullsweep_after'), t_non_neg_integer()]);
 		   ['garbage_collection'] ->
@@ -4492,6 +4492,9 @@ t_packet() ->
 t_httppacket() ->
   t_sup([t_HttpRequest(), t_HttpResponse(),
 	 t_HttpHeader(), t_atom('http_eoh'), t_HttpError()]).
+
+t_endian() ->
+  t_sup([t_atom('big'), t_atom('little')]).
 
 %% =====================================================================
 %% HTTP types documented in R12B-4
