@@ -1234,8 +1234,8 @@ type(erlang, phash2, 2, Xs) ->
   strict(arg_types(erlang, phash2, 2), Xs, fun (_) -> t_non_neg_integer() end);
 type(erlang, pid_to_list, 1, Xs) ->
   strict(arg_types(erlang, pid_to_list, 1), Xs, fun (_) -> t_string() end);
-type(erlang, port_call, 3, Xs) ->
-  strict(arg_types(erlang, port_call, 3), Xs, fun (_) -> t_any() end);
+type(erlang, port_call, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(erlang, port_call, Arity), Xs, fun (_) -> t_any() end);
 type(erlang, port_close, 1, Xs) ->
   strict(arg_types(erlang, port_close, 1), Xs,
 	 fun (_) -> t_atom('true') end);
@@ -3792,6 +3792,8 @@ arg_types(erlang, phash2, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, pid_to_list, 1) ->
   [t_pid()];
+arg_types(erlang, port_call, 2) ->
+  [t_sup(t_port(), t_atom()), t_any()];
 arg_types(erlang, port_call, 3) ->
   [t_sup(t_port(), t_atom()), t_integer(), t_any()];
 arg_types(erlang, port_close, 1) ->
