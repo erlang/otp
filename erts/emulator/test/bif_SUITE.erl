@@ -308,6 +308,18 @@ min_max(Config) when is_list(Config) ->
 
     ?line 42.0 = erlang:min(42.0, 42),
     ?line 42.0 = erlang:max(42.0, 42),
+    %% And now (R14) they are also autoimported!
+    ?line a = min(id(a), a),
+    ?line a = min(id(a), b),
+    ?line a = min(id(b), a),
+    ?line b = min(id(b), b),
+    ?line a = max(id(a), a),
+    ?line b = max(id(a), b),
+    ?line b = max(id(b), a),
+    ?line b = max(id(b), b),
+
+    ?line 42.0 = min(42.0, 42),
+    ?line 42.0 = max(42.0, 42),
 
     ok.
 

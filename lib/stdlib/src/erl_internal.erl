@@ -299,6 +299,8 @@ bif(list_to_pid, 1) -> true;
 bif(list_to_tuple, 1) -> true;
 bif(load_module, 2) -> true;
 bif(make_ref, 0) -> true;
+bif(max,2) -> true;
+bif(min,2) -> true;
 bif(module_loaded, 1) -> true;
 bif(monitor_node, 2) -> true;
 bif(node, 0) -> true;
