@@ -807,23 +807,20 @@ load(Opts) ->
 	    
 	    case get_opt(load_scale, Opts) of
 		linear ->
-		    min(trunc(load_range()*(Td/Tot+Q/6)),
+		    erlang:min(trunc(load_range()*(Td/Tot+Q/6)),
 			load_range());
 		prog ->
-		    min(trunc(load_range()*prog(Td/Tot+Q/6)),
+		    erlang:min(trunc(load_range()*prog(Td/Tot+Q/6)),
 			load_range())
 	    end;
 	queue ->
 	    case get_opt(load_scale, Opts) of
 		linear ->
-		    min(trunc(load_range()*Q/6), load_range());
+		    erlang:min(trunc(load_range()*Q/6), load_range());
 		prog ->
-		    min(trunc(load_range()*prog(Q/6)), load_range())
+		    erlang:min(trunc(load_range()*prog(Q/6)), load_range())
 		end
     end.
-
-min(X,Y) when X<Y -> X;
-min(_,Y)->Y.
 
 
 %%

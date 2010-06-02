@@ -98,7 +98,7 @@ init_grid(GridParentId, GridWidth,
 			     nof_rows_shown      = NofRowsShown
 			    },
 
-    NewNofCols = max(length(ColsShown), NofCols),
+    NewNofCols = erlang:max(length(ColsShown), NofCols),
 
        % The GridColWidths list shall contain the current width of each frame.
     NewColWidths = update_col_widths(ColsShown, ColWidths, FirstColShown, 
@@ -270,7 +270,7 @@ resize_grid_column(RealCol, VirtualCol, Xdiff, ProcVars) ->
 		 lists_as_strings = ListAsStr}  = GridP,
     
        % Get new width!
-    Width = min(MaxColWidth, max((lists:nth(VirtualCol, ColWidths) + Xdiff),
+    Width = erlang:min(MaxColWidth, erlang:max((lists:nth(VirtualCol, ColWidths) + Xdiff),
 				 MinColWidth)),
 
        % Resize the column.
@@ -1336,7 +1336,7 @@ resize_all_grid_columns(RealCol, [ColWidth | Tail], ColFrameIds, MaxColWidth, Mi
 
 
 resize_one_column(RealCol, Width, ColFrameIds, MaxW, MinW) ->
-    NewWidthOfCol = min(MaxW, max(Width, MinW)),
+    NewWidthOfCol = erlang:min(MaxW, erlang:max(Width, MinW)),
     case length(ColFrameIds) of
 	RealCol ->
 	    done;
@@ -1894,46 +1894,3 @@ extract_ids_for_one_row(N, [ColIds | Tail]) ->
 %%%---------------------------------------------------------------------
 %%% END of functions used to create the grid.
 %%%---------------------------------------------------------------------
-
-
-
-
-
-%%======================================================================
-%% Function:      
-%%
-%% Return Value:  
-%%
-%% Description:   
-%%
-%% Parameters:    
-%%======================================================================
-
-
-max(A, B) when A > B ->
-    A;
-max(_, B) ->
-    B.
-
-
-
-
-
-
-
-%%======================================================================
-%% Function:      
-%%
-%% Return Value:  
-%%
-%% Description:   
-%%
-%% Parameters:    
-%%======================================================================
-
-
-min(A, B) when A < B ->
-    A;
-min(_, B) ->
-    B.
-    

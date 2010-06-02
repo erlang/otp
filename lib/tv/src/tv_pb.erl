@@ -522,7 +522,7 @@ handle_col_resizing(RbtnId, RealCol, VirtualCol, Xpos, ProcVars) ->
 get_xdiff(Id, Btn, LastXdiff, LineId, LineXpos, MinAllowedXdiff) ->
     receive
 	{gs, Id, motion, {resbtn, _RealCol, _VirtCol, _OldXpos}, [NewXdiff | _T]} ->
-	    UsedXdiff = max(MinAllowedXdiff, NewXdiff),
+	    UsedXdiff = erlang:max(MinAllowedXdiff, NewXdiff),
 	    gs:config(LineId, [{x, LineXpos + UsedXdiff}]),
 	    get_xdiff(Id, Btn, UsedXdiff, LineId, LineXpos, MinAllowedXdiff);
 	{gs, Id, buttonrelease, _Data, [Btn | _T]} ->
@@ -658,28 +658,3 @@ update_vbtns(Msg, ProcVars) ->
 update_keys(Msg, ProcVars) ->
     #pb_key_info{list_of_keys = KeyList} = Msg,
     tv_pb_funcs:update_keys(KeyList, ProcVars).
-
-
-
-
-
-
-
-
-%%======================================================================
-%% Function:      
-%%
-%% Return Value:  
-%%
-%% Description:   
-%%
-%% Parameters:    
-%%======================================================================
-
-
-max(A, B) when A >= B ->
-    A;
-max(_, B) ->
-    B.
-    
-

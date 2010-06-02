@@ -405,7 +405,7 @@ handle_timeout(State = #state{loader = inet}, Parent) ->
 efile_multi_get_file_from_port(State, ModFiles, Paths, Fun) ->
     Ref = make_ref(),
     %% More than 200 processes is no gain.
-    Max = min(200, erlang:system_info(thread_pool_size)),
+    Max = erlang:min(200, erlang:system_info(thread_pool_size)),
     efile_multi_get_file_from_port2(ModFiles, 0, Max, State, Paths, Fun, Ref, ok).
 
 efile_multi_get_file_from_port2([MF | MFs], Out, Max, State, Paths, Fun, Ref, Ret) when Out < Max ->
@@ -1188,9 +1188,6 @@ keysort(_I, [], Ls) -> Ls.
 keyins(X, I, [Y | T]) when X < element(I,Y) -> [X,Y|T];
 keyins(X, I, [Y | T]) -> [Y | keyins(X, I, T)];
 keyins(X, _I, []) -> [X].
-
-min(X, Y) when X < Y -> X;
-min(_X, Y) -> Y.
 
 to_strs([P|Paths]) when is_atom(P) ->
     [atom_to_list(P)|to_strs(Paths)];

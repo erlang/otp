@@ -73,14 +73,12 @@ depth(T) ->
 	[] ->
 	    0;
 	Gs ->
-	    1 + lists:foldl(fun (G, A) -> max(depth_1(G), A) end, 0, Gs)
+	    1 + lists:foldl(fun (G, A) -> erlang:max(depth_1(G), A) end, 0, Gs)
     end.
 
 depth_1(Ts) ->
-    lists:foldl(fun (T, A) -> max(depth(T), A) end, 0, Ts).
+    lists:foldl(fun (T, A) -> erlang:max(depth(T), A) end, 0, Ts).
 
-max(X, Y) when X > Y -> X; 
-max(_, Y) -> Y.
 
 
 %% @spec size(Tree::cerl()) -> integer()

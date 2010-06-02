@@ -155,10 +155,8 @@ move2(DG, V, LastX, DeltaX) ->
     ChLX = foldl(fun(C, LX) -> move2(DG, C, LX, DeltaX) end,
 		 tll(LastX), 
 		 appmon_dg:get(out, DG, V)),
-    [max(NewX+appmon_dg:get(w, DG, V), hdd(LastX)) | ChLX].
+    [erlang:max(NewX+appmon_dg:get(w, DG, V), hdd(LastX)) | ChLX].
 
-max(A, B) when A>B -> A;
-max(_, B) -> B.
 
 %%------------------------------------------------------------
 %%

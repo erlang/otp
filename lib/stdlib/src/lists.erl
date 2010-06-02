@@ -18,6 +18,9 @@
 %%
 -module(lists).
 
+-compile({no_auto_import,[max/2]}).
+-compile({no_auto_import,[min/2]}).
+
 -export([append/2, append/1, subtract/2, reverse/1,
 	 nth/2, nthtail/2, prefix/2, suffix/2, last/1, 
 	 seq/2, seq/3, sum/1, duplicate/2, min/1, max/1, sublist/2, sublist/3,

@@ -838,7 +838,7 @@ draw_apps(GUI, [App | Apps], X, Lx0, N, GSObjs) ->
     %% Some necessary data
     {_Pid, AppName, _Descr} = App,
     Text = atom_to_list(AppName),
-    Width = max(8*length(Text)+10, ?wBTN),
+    Width = erlang:max(8*length(Text)+10, ?wBTN),
 
     %% Connect the application to the node label with a line
     %% Lx0 = leftmost X coordinate (above previous application button)
@@ -1008,9 +1008,6 @@ bcast(MNodes, Msg) ->
 			  end
 		  end,
 		  MNodes).
-
-max(X, Y) when X>Y -> X;
-max(_, Y) -> Y.
 
 %% parse_nodes(MNodes) -> NodeApps
 %%   MNodes -> [#mnode{}]

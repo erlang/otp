@@ -76,12 +76,9 @@ min_size(Font, Strings, MinW, MinH) ->
 
 min_size(GS, Font, [String|Strings], MinW, MinH) ->
     {W, H} = gs:read(GS, {font_wh, {Font, String}}),
-    min_size(GS, Font, Strings, max(MinW, W), max(MinH, H));
+    min_size(GS, Font, Strings, erlang:max(MinW, W), erlang:max(MinH, H));
 min_size(_GS, _Font, [], W, H) ->
     {W, H}.
-
-max(X, Y) when X>Y -> X;
-max(_X, Y) -> Y.
 
 %%--------------------------------------------------------------------
 %% create_menus(MenuBar, [Menu])

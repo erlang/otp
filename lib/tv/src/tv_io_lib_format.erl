@@ -188,7 +188,7 @@ indentation([], I) -> I.
 
 term(T, none, _Adj, none, _Pad) -> T;
 term(T, none, Adj, P, Pad) -> term(T, P, Adj, P, Pad);
-term(T, F, Adj, none, Pad) -> term(T, F, Adj, min(flat_length(T), F), Pad);
+term(T, F, Adj, none, Pad) -> term(T, F, Adj, erlang:min(flat_length(T), F), Pad);
 term(T, F, Adj, P, Pad) when F >= P ->
     adjust_error(T, F, Adj, P, Pad).
 
@@ -316,7 +316,7 @@ fwrite_g(Fl, F, Adj, P, Pad) ->
 
 string(S, none, _Adj, none, _Pad) -> S;
 string(S, F, Adj, none, Pad) ->
-    string(S, F, Adj, min(flat_length(S), F), Pad);
+    string(S, F, Adj, erlang:min(flat_length(S), F), Pad);
 string(S, none, _Adj, P, Pad) ->
     string:left(flatten(S), P, Pad);
 string(S, F, Adj, P, Pad) when F >= P ->
@@ -361,9 +361,6 @@ reverse(List) ->
 reverse([H|T], Stack) ->
     reverse(T, [H|Stack]);
 reverse([], Stack) -> Stack.
-
-min(L, R) when L < R -> L;
-min(_, R) -> R.
 
 %% flatten(List)
 %%  Flatten a list.
