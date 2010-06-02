@@ -503,7 +503,10 @@ handle_call({new_ticktime,T,TP}, From, #state{tick = #tick{ticker = Tckr,
 handle_call({new_ticktime,From,_},
 	    _,
 	    #state{tick = #tick_change{time = T}} = State) ->
-    async_reply({reply, {ongoing_change_to, T}, State}, From).
+    async_reply({reply, {ongoing_change_to, T}, State}, From);
+
+handle_call(_Msg, _From, State) ->
+    {noreply, State}.
 
 %% ------------------------------------------------------------
 %% handle_cast.
