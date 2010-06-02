@@ -527,7 +527,7 @@ handle_info({Protocol, Socket, Data}, Statename,
     %% Implementations SHOULD decrypt the length after receiving the
     %% first 8 (or cipher block size, whichever is larger) bytes of a
     %% packet. (RFC 4253: Section 6 - Binary Packet Protocol)
-    case size(EncData0) + size(Data) >= max(8, BlockSize) of
+    case size(EncData0) + size(Data) >= erlang:max(8, BlockSize) of
 	true ->
 	    {Ssh, SshPacketLen, DecData, EncData} = 
 
@@ -757,11 +757,6 @@ after_new_keys(#state{renegotiate = false,
 after_new_keys(#state{renegotiate = false,  
 		      ssh_params = #ssh{role = server}} = State) ->
     {userauth, State}.
-
-max(N, M) when N > M ->
-    N;
-max(_, M) ->
-    M.
 
 handle_ssh_packet_data(RemainingSshPacketLen, DecData, EncData, StateName, 
 		       State) ->

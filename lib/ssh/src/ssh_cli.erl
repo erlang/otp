@@ -327,7 +327,7 @@ window_change(Tty, OldTty, Buf)
     {[], Buf};
 window_change(Tty, OldTty, {Buf, BufTail, Col}) ->
     M1 = move_cursor(Col, 0, OldTty),
-    N = max(Tty#ssh_pty.width - OldTty#ssh_pty.width, 0) * 2,
+    N = erlang:max(Tty#ssh_pty.width - OldTty#ssh_pty.width, 0) * 2,
     S = lists:reverse(Buf, [BufTail | lists:duplicate(N, $ )]),
     M2 = move_cursor(length(Buf) + length(BufTail) + N, Col, Tty),
     {[M1, S | M2], {Buf, BufTail, Col}}.
@@ -397,10 +397,6 @@ tl2(_) -> [].
 nthtail(0, A) -> A;
 nthtail(N, [_ | A]) when N > 0 -> nthtail(N-1, A);
 nthtail(_, _) -> [].
-
-%%% utils
-max(A, B) when A > B -> A;
-max(_A, B) -> B.
 
 ifelse(Cond, A, B) ->
     case Cond of
