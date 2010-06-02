@@ -863,6 +863,8 @@ type(erlang, fun_to_list, 1, Xs) ->
 type(erlang, garbage_collect, 0, _) -> t_atom('true');
 type(erlang, garbage_collect, 1, Xs) ->
   strict(arg_types(erlang, garbage_collect, 1), Xs, fun (_) -> t_boolean() end);
+type(erlang, garbage_collect_message_area, 0, _) ->
+  t_boolean();
 type(erlang, get, 0, _) -> t_list(t_tuple(2));
 type(erlang, get, 1, _) -> t_any();          % | t_atom('undefined')
 type(erlang, get_cookie, 0, _) -> t_atom();  % | t_atom('nocookie')
@@ -3612,6 +3614,8 @@ arg_types(erlang, garbage_collect, 0) ->
   [];
 arg_types(erlang, garbage_collect, 1) ->
   [t_pid()];
+arg_types(erlang, garbage_collect_message_area, 0) ->
+  [];
 arg_types(erlang, get, 0) ->
   [];
 arg_types(erlang, get, 1) ->
