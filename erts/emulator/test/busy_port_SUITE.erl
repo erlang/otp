@@ -182,7 +182,7 @@ system_monitor(Config) when is_list(Config) ->
     ?line Master ! {Owner, {command, "u"}},
     ?line {Busy,beta} = rec(Void),
     ?line Void = rec(Void),
-    ?line NewMonitor = erlang:system_monitor(OldMonitor),
+    ?line _NewMonitor = erlang:system_monitor(OldMonitor),
     ?line OldMonitor = erlang:system_monitor(),
     ?line OldMonitor = erlang:system_monitor(OldMonitor),
     %%
@@ -361,7 +361,6 @@ soft_busy_driver(Config) when is_list(Config) ->
     hs_test(Config, false).
 
 hs_test(Config, HardBusy) when is_list(Config) ->
-    ?line Me = self(),
     ?line DrvName = case HardBusy of
 			true -> 'hard_busy_drv';
 			false -> 'soft_busy_drv'
@@ -479,7 +478,7 @@ hs_busy_pcmd(Prt, Opts, StartFun, EndFun) ->
 			   Tester ! {self(), doing_port_command},
 			   Start = os:timestamp(),
 			   Res = try {return,
-				      erlang:port_command(Prt, [], Opts)}
+				      port_command(Prt, [], Opts)}
 				 catch Exception:Error -> {Exception, Error}
 				 end,
 			   End = os:timestamp(),

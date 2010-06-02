@@ -312,6 +312,7 @@ bif(open_port, 2) -> true;
 bif(pid_to_list, 1) -> true;
 bif(port_close, 1) -> true;
 bif(port_command, 2) -> true;
+bif(port_command, 3) -> true;
 bif(port_connect, 2) -> true;
 bif(port_control, 3) -> true;
 bif(pre_loaded, 0) -> true;
