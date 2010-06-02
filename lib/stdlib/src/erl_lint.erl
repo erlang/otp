@@ -741,13 +741,6 @@ bif_clashes(Forms, St) ->
     Clashes = ordsets:subtract(ordsets:from_list(Clashes0), Nowarn),
     St#lint{clashes=Clashes}.
 
-%% -spec is_bif_clash(atom(), byte(), lint_state()) -> boolean().
-
-%% is_bif_clash(_Name, _Arity, #lint{clashes=[]}) ->
-%%     false;
-%% is_bif_clash(Name, Arity, #lint{clashes=Clashes}) ->
-%%     ordsets:is_element({Name,Arity}, Clashes).
-
 %% not_deprecated(Forms, State0) -> State
 
 not_deprecated(Forms, St0) ->
@@ -1733,8 +1726,6 @@ gexpr({cons,_Line,H,T}, Vt, St) ->
     gexpr_list([H,T], Vt, St);
 gexpr({tuple,_Line,Es}, Vt, St) ->
     gexpr_list(Es, Vt, St);
-%%gexpr({struct,_Line,_Tag,Es}, Vt, St) ->
-%%    gexpr_list(Es, Vt, St);
 gexpr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end );
@@ -1952,8 +1943,6 @@ expr({bc,_Line,E,Qs}, Vt0, St0) ->
     {vtold(Vt,Vt0),St};			 %Don't export local variables
 expr({tuple,_Line,Es}, Vt, St) ->
     expr_list(Es, Vt, St);
-%%expr({struct,Line,Tag,Es}, Vt, St) ->
-%%    expr_list(Es, Vt, St);
 expr({record_index,Line,Name,Field}, _Vt, St) ->
     check_record(Line, Name, St,
                  fun (Dfs, St1) -> record_field(Field, Name, Dfs, St1) end);
