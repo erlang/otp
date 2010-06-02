@@ -128,6 +128,7 @@ main(int argc, char** argv)
     int ct_mode;
     int dist_mode;
     int cnt;
+    int erl_args;
     char** argv0 = argv;
 
     emulator = get_default_emulator(argv[0]);
@@ -151,42 +152,50 @@ main(int argc, char** argv)
     dist_mode = SHORT_NAME;
     browser[0] = '\0';
     ct_mode = NORMAL_MODE;
-    cnt = argc;
+    erl_args = argc;
+    cnt = 1;
 
     /*
      * Check various flags before building command line
      */
 
-    while (cnt > 1) {
-	if (strcmp(argv[1], "-vts") == 0) {
-	    ct_mode = VTS_MODE;
-	}
-	else if (strcmp(argv[1], "-browser") == 0) {
-	    strcpy(browser, argv[2]);
-	    cnt--, argv++;
-	}
-	else if (strcmp(argv[1], "-shell") == 0) {
-	    ct_mode = CT_SHELL_MODE;
-	}
-	else if (strcmp(argv[1], "-ctmaster") == 0) {
-	    strcpy(nodename, "ct_master");
-	    ct_mode = MASTER_MODE;
-	}
-	else if (strcmp(argv[1], "-ctname") == 0) {
-	    strcpy(nodename, argv[2]);
-	    ct_mode = ERL_SHELL_MODE;
-	    cnt--, argv++;
+    while (cnt < argc) {
+	if (strcmp(argv[1], "-erl_args") == 0) {
+	    erl_args = cnt;
 	}
 	else if (strcmp(argv[1], "-sname") == 0) {
 	    strcpy(nodename, argv[2]);
-	    cnt--, argv++;
+	    cnt++, argv++;
 	}
 	else if (strcmp(argv[1], "-name") == 0) {
 	    strcpy(nodename, argv[2]);
 	    dist_mode = FULL_NAME;
-	    cnt--, argv++;
+	    cnt++, argv++;
 	}
-	cnt--, argv++;
+	else {
+	    if (cnt < erl_args) {
+		if (strcmp(argv[1], "-vts") == 0) {
+		    ct_mode = VTS_MODE;
+		}
+		else if (strcmp(argv[1], "-browser") == 0) {
+		    strcpy(browser, argv[2]);
+		    cnt++, argv++;
+		}
+		else if (strcmp(argv[1], "-shell") == 0) {
+		    ct_mode = CT_SHELL_MODE;
+		}
+		else if (strcmp(argv[1], "-ctmaster") == 0) {
+		    strcpy(nodename, "ct_master");
+		    ct_mode = MASTER_MODE;
+		}
+		else if (strcmp(argv[1], "-ctname") == 0) {
+		    strcpy(nodename, argv[2]);
+		    ct_mode = ERL_SHELL_MODE;
+		    cnt++, argv++;
+		}
+	    }
+	}
+	cnt++, argv++;
     }
 
     argv = argv0;
@@ -219,19 +228,28 @@ main(int argc, char** argv)
 	PUSH3("-s", "erlang", "halt");
     }
 
-    while (argc > 1) {
-	if (strcmp(argv[1], "-config") == 0)
-	    PUSH("-ct_config");
-	else if (strcmp(argv[1], "-decrypt_key") == 0)
-	    PUSH("-ct_decrypt_key");
-	else if (strcmp(argv[1], "-decrypt_file") == 0)
-	    PUSH("-ct_decrypt_file");
-	else if ((strcmp(argv[1], "-sname") == 0) || (strcmp(argv[1], "-name") == 0))
-	    argc--, argv++;
-	else
+    cnt = 1;
+    while (cnt < argc) {
+	if (strcmp(argv[1], "-erl_args") == 0) {
+	    PUSH("-ct_erl_args");
+	}
+	else if ((strcmp(argv[1], "-sname") == 0) || (strcmp(argv[1], "-name") == 0)) {
+	    cnt++, argv++;
+	}
+	else if (cnt < erl_args) {
+	    if (strcmp(argv[1], "-config") == 0)
+		PUSH("-ct_config");
+	    else if (strcmp(argv[1], "-decrypt_key") == 0)
+		PUSH("-ct_decrypt_key");
+	    else if (strcmp(argv[1], "-decrypt_file") == 0)
+		PUSH("-ct_decrypt_file");
+	    else
+		PUSH(argv[1]);
+	}
+	else {
 	    PUSH(argv[1]);
-
-	argc--, argv++;
+	}
+	cnt++, argv++;
     }
 
     /*
