@@ -46,7 +46,7 @@
          neg_indent/1,
          tickets/1,
             otp_6321/1, otp_6911/1, otp_6914/1, otp_8150/1, otp_8238/1,
-            otp_8473/1, otp_8522/1, otp_8567/1]).
+            otp_8473/1, otp_8522/1, otp_8567/1, otp_8664/1]).
 
 %% Internal export.
 -export([ehook/6]).
@@ -765,7 +765,7 @@ neg_indent(Config) when is_list(Config) ->
 
 tickets(suite) ->
     [otp_6321, otp_6911, otp_6914, otp_8150, otp_8238, otp_8473, otp_8522,
-     otp_8567].
+     otp_8567, otp_8664].
 
 otp_6321(doc) ->
     "OTP_6321. Bug fix of exprs().";
@@ -992,6 +992,38 @@ otp_8567(Config) when is_list(Config) ->
           "t4(A) ->\n"
           "    A.\n">>,
     ?line ok = pp_forms(F),
+
+    ok.
+
+otp_8664(doc) ->
+    "OTP_8664. Types with integer expressions.";
+otp_8664(suite) -> [];
+otp_8664(Config) when is_list(Config) ->
+    FileName = filename('otp_8664.erl', Config),
+    C1 = <<"-module(otp_8664).\n"
+           "-export([t/0]).\n"
+           "-define(A, -3).\n"
+           "-define(B, (?A*(-1 band (((2)))))).\n"
+           "-type t1() :: ?B | ?A.\n"
+           "-type t2() :: ?B-1 .. -?B.\n"
+           "-type t3() :: 9 band (8 - 3) | 1+2 | 5 band 3.\n"
+           "-type b1() :: <<_:_*(3-(-1))>>\n"
+           "            | <<_:(-(?B))>>\n"
+           "            | <<_:4>>.\n"
+           "-type u() :: 1 .. 2 | 3.. 4 | (8-3) ..6 | 5+0..6.\n"
+           "-type t() :: t1() | t2() | t3() | b1() | u().\n"
+           "-spec t() -> t().\n"
+           "t() -> 3.\n">>,
+    ?line ok = file:write_file(FileName, C1),
+    ?line {ok, _, []} = compile:file(FileName, [return]),
+
+    C2 = <<"-module(otp_8664).\n"
+           "-export([t/0]).\n"
+           "-spec t() -> 9 and 4.\n"
+           "t() -> 0.\n">>,
+    ?line ok = file:write_file(FileName, C2),
+    ?line {error,[{_,[{3,erl_lint,{type_syntax,integer}}]}],_} =
+        compile:file(FileName, [return]),
 
     ok.
 

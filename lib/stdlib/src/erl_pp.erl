@@ -115,7 +115,7 @@ lattribute({attribute,_Line,Name,Arg}, Hook) ->
 
 lattribute(module, {M,Vs}, _Hook) ->
     attr("module",[{var,0,pname(M)},
-                   foldr(fun(V, C) -> {cons,0,{var,0,V},C} 
+                   foldr(fun(V, C) -> {cons,0,{var,0,V},C}
                          end, {nil,0}, Vs)]);
 lattribute(module, M, _Hook) ->
     attr("module", [{var,0,pname(M)}]);
@@ -140,7 +140,7 @@ typeattr(Tag, {TypeName,Type,Args}, _Hook) ->
 ltype({ann_type,_Line,[V,T]}) ->
     typed(lexpr(V, none), T);
 ltype({paren_type,_Line,[T]}) ->
-    [$(,ltype(T),$)];    
+    [$(,ltype(T),$)];
 ltype({type,_Line,union,Ts}) ->
     {seq,[],[],[' |'],ltypes(Ts)};
 ltype({type,_Line,list,[T]}) ->
@@ -153,7 +153,7 @@ ltype({type,Line,tuple,any}) ->
     simple_type({atom,Line,tuple}, []);
 ltype({type,_Line,tuple,Ts}) ->
     tuple_type(Ts, fun ltype/1);
-ltype({type,_Line,record,[N|Fs]}) ->
+ltype({type,_Line,record,[{atom,_,N}|Fs]}) ->
     record_type(N, Fs);
 ltype({type,_Line,range,[_I1,_I2]=Es}) ->
     expr_list(Es, '..', fun lexpr/2, none);
@@ -174,12 +174,15 @@ ltype({atom,_,T}) ->
 ltype(E) ->
     lexpr(E, 0, none).
 
-binary_type({integer,_,Int1}=I1, {integer,_,Int2}=I2) ->
-    E1 = [[leaf("_:"),lexpr(I1, 0, none)] || Int1 =/= 0],
-    E2 = [[leaf("_:_*"),lexpr(I2, 0, none)] || Int2 =/= 0],
+binary_type(I1, I2) ->
+    B = [[] || {integer,_,0} <- [I1]] =:= [],
+    U = [[] || {integer,_,0} <- [I2]] =:= [],
+    P = max_prec(),
+    E1 = [[leaf("_:"),lexpr(I1, P, none)] || B],
+    E2 = [[leaf("_:_*"),lexpr(I2, P, none)] || U],
     {seq,'<<','>>',[$,],E1++E2}.
 
-record_type({atom,_,Name}, Fields) ->
+record_type(Name, Fields) ->
     {first,[record_name(Name)],field_types(Fields)}.
 
 field_types(Fs) ->
@@ -443,7 +446,7 @@ lexpr({op,_,Op,Arg}, Prec, Hook) ->
     Ol = leaf(format("~s ", [Op])),
     El = [Ol,lexpr(Arg, R, Hook)],
     maybe_paren(P, Prec, El);
-lexpr({op,_,Op,Larg,Rarg}, Prec, Hook)  when Op =:= 'orelse'; 
+lexpr({op,_,Op,Larg,Rarg}, Prec, Hook)  when Op =:= 'orelse';
                                              Op =:= 'andalso' ->
     %% Breaks lines since R12B.
     {L,P,R} = inop_prec(Op),
@@ -727,15 +730,15 @@ frmt(Item, I) ->
 %%%   and indentation are inserted between IPs.
 %%% - {first,I,IP2}: IP2 follows after I, and is output with an indentation
 %%%   updated with the width of I.
-%%% - {seq,Before,After,Separator,IPs}: a sequence of Is separated by 
-%%%   Separator. Before is output before IPs, and the indentation of IPs 
+%%% - {seq,Before,After,Separator,IPs}: a sequence of Is separated by
+%%%   Separator. Before is output before IPs, and the indentation of IPs
 %%%   is updated with the width of Before. After follows after IPs.
 %%% - {force_nl,ExtraInfo,I}: fun-info (a comment) forces linebreak before I.
 %%% - {prefer_nl,Sep,IPs}: forces linebreak between Is unlesss negative
 %%%   indentation.
 %%% - {string,S}: a string.
 %%% - {hook,...}, {ehook,...}: hook expressions.
-%%% 
+%%%
 %%% list, first, seq, force_nl, and prefer_nl all accept IPs, where each
 %%% element is either an item or a tuple {step|cstep,I1,I2}. step means
 %%% that I2 is output after linebreak and an incremented indentation.
@@ -761,7 +764,7 @@ f({seq,Before,After,Sep,LItems}, I0, ST, WT) ->
     {CharsL,SizeL} = unz(CharsSizeL),
     {BCharsL,BSizeL} = unz1([BCharsSize]),
     Sizes = BSizeL ++ SizeL,
-    NSepChars = if 
+    NSepChars = if
                     is_list(Sep), Sep =/= [] ->
                         erlang:max(0, length(CharsL)-1);
                     true ->
@@ -876,7 +879,7 @@ nl_indent(I, T) when I > 0 ->
     [$\n|spaces(I, T)].
 
 same_line(I0, SizeL, NSepChars) ->
-    try 
+    try
         Size = lists:sum(SizeL) + NSepChars,
         true = incr(I0, Size) =< ?MAXLINE,
         {yes,Size}
@@ -956,9 +959,9 @@ write_a_string(S, N, Len) ->
 -define(N_SPACES, 30).
 
 spacetab() ->
-    {[_|L],_} = mapfoldl(fun(_, A) -> {A,[$\s|A]} 
+    {[_|L],_} = mapfoldl(fun(_, A) -> {A,[$\s|A]}
                          end, [], lists:seq(0, ?N_SPACES)),
-    list_to_tuple(L).    
+    list_to_tuple(L).
 
 spaces(N, T) when N =< ?N_SPACES ->
     element(N, T);
@@ -966,7 +969,7 @@ spaces(N, T) ->
     [element(?N_SPACES, T)|spaces(N-?N_SPACES, T)].
 
 wordtable() ->
-    L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end || 
+    L = [begin {leaf,Sz,S} = leaf(W), {S,Sz} end ||
             W <- [" ->"," =","<<",">>","[]","after","begin","case","catch",
                   "end","fun","if","of","receive","try","when"," ::","..",
                   " |"]],
