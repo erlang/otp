@@ -1541,30 +1541,6 @@ check_pending_limit(Limit, Direction, TransId) ->
 	    aborted
     end.
 
-%% check_pending_limit(infinity, _, _) ->
-%%     {ok, 0};
-%% check_pending_limit(Limit, Direction, TransId) ->
-%%     ?rt2("check pending limit", [Direction, Limit, TransId]),
-%%     case (catch megaco_config:get_pending_counter(Direction, TransId)) of
-%% 	{'EXIT', _} ->
-%% 	    %% This function is only called when we "know" the 
-%% 	    %% counter to exist. So, the only reason that this 
-%% 	    %% would happen is of the counter has been removed.
-%% 	    %% This only happen if the pending limit has been 
-%% 	    %% reached. In any case, this is basically the same 
-%% 	    %% as aborted!
-%% 	    ?rt2("check pending limit - exit", []),
-%% 	    aborted;
-%% 	Val when Val =< Limit ->
-%% 	    %% Since we have no intention to increment here, it
-%% 	    %% is ok to be _at_ the limit
-%% 	    ?rt2("check pending limit - ok", [Val]),
-%% 	    {ok, Val};
-%% 	_Val ->
-%% 	    ?rt2("check pending limit - aborted", [_Val]),
-%% 	    aborted
-%%     end.
-
 
 check_and_maybe_incr_pending_limit(infinity, _, _) ->
     ok;
@@ -1572,57 +1548,40 @@ check_and_maybe_incr_pending_limit(Limit, Direction, TransId) ->
     %% 
     %% We need this kind of test to detect when we _pass_ the limit
     %% 
-    ?rt2("check and maybe incr pending limit", [Direction, Limit, TransId]),
+    ?rt2("check and maybe incr pending limit", [{direction,      Direction}, 
+						{transaction_id, TransId}, 
+						{counter_limit,  Limit}]),
     try megaco_config:get_pending_counter(Direction, TransId) of
 	Val when Val > Limit ->
-	    ?rt2("check and maybe incr - aborted", [Direction, Val, Limit]),
+	    ?rt2("check and maybe incr - aborted", [{counter_value, Val}]),
 	    aborted;      % Already passed the limit
 	Val ->
-	    ?rt2("check and maybe incr - incr", [Direction, Val, Limit]),
+	    ?rt2("check and maybe incr - incr", [{counter_value, Val}]),
 	    megaco_config:incr_pending_counter(Direction, TransId),
 	    if 
 		Val < Limit ->
 		    ok;   % Still within the limit
 		true ->
 		    ?rt2("check and maybe incr - error", 
-			 [Direction, Val, Limit]),
+			 [{counter_value, Val}]),
 		    error % Passed the limit
 	    end
     catch 
 	_:_ ->
 	    %% Has not been created yet (connect).
-	    megaco_config:cre_pending_counter(Direction, TransId, 1),
-	    ok
+	    %% Try create it, but bevare of possible raise condition
+	    try
+		begin
+		    megaco_config:cre_pending_counter(Direction, TransId, 1),
+		    ok
+		end
+	    catch
+		_:_ ->
+		    %% Ouch, raise condition, increment instead...
+		    megaco_config:incr_pending_counter(Direction, TransId),
+		    ok
+	    end
     end.
-
-
-%% check_and_maybe_incr_pending_limit(infinity, _, _) ->
-%%     ok;
-%% check_and_maybe_incr_pending_limit(Limit, Direction, TransId) ->
-%%     %% 
-%%     %% We need this kind of test to detect when we _pass_ the limit
-%%     %% 
-%%     ?rt2("check and maybe incr pending limit", [Direction, Limit, TransId]),
-%%     case (catch megaco_config:get_pending_counter(Direction, TransId)) of
-%% 	{'EXIT', _} ->
-%% 	    %% Has not been created yet (connect).
-%% 	    megaco_config:cre_pending_counter(Direction, TransId, 1),
-%% 	    ok;
-%% 	Val when Val > Limit ->
-%% 	    ?rt2("check and maybe incr - aborted", [Direction, Val, Limit]),
-%% 	    aborted;      % Already passed the limit
-%% 	Val ->
-%% 	    ?rt2("check and maybe incr - incr", [Direction, Val, Limit]),
-%% 	    megaco_config:incr_pending_counter(Direction, TransId),
-%% 	    if 
-%% 		Val < Limit ->
-%% 		    ok;   % Still within the limit
-%% 		true ->
-%% 		    ?rt2("check and maybe incr - error", 
-%% 			 [Direction, Val, Limit]),
-%% 		    error % Passed the limit
-%% 	    end
-%%     end.
 
 
 %% BUGBUG BUGBUG BUGBUG

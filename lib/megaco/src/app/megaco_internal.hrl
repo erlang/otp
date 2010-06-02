@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1999-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1999-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -137,6 +137,22 @@
 -define(megaco_error(F, A),
 	(catch error_logger:error_msg("[ ~w : ~w : ~p ] ~n" ++ F ++ "~n", 
 				      [?APPLICATION, ?MODULE, self()|A]))).
+
+
+-define(megaco_ereport(Label, Report),
+	?megaco_report(error_report, Label, Report)).
+
+-define(megaco_wreport(Label, Report),
+	?megaco_report(warning_report, Label, Report)).
+
+-define(megaco_ireport(Label, Report), 
+	?megaco_report(info_report, Label, Report)).
+
+-define(megaco_report(Func, Label, Report), 
+	(catch error_logger:Func([{label,       Label}, 
+				  {application, ?APPLICATION}, 
+				  {module,      ?MODULE}, 
+				  {process,     self()} | Report]))).
 
 
 %%%----------------------------------------------------------------------

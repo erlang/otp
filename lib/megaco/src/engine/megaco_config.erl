@@ -628,31 +628,19 @@ incr_counter(Item, Incr) ->
 	end
     catch
 	error:_ ->
+	    %% Counter does not exist, so try creat it
 	    try
 		begin
 		    cre_counter(Item, Incr)
 		end
 	    catch
 		exit:_ ->
-		    %% Ok, some other process got there before us,
-		    %% so try again
+		    %% This is a raise condition. 
+		    %% When we tried to update the counter above, it
+		    %% did not exist, but now it does...
 		    ets:update_counter(megaco_config, Item, Incr)
 	    end
     end.
-%% incr_counter(Item, Incr) ->
-%%     case (catch ets:update_counter(megaco_config, Item, Incr)) of
-%%         {'EXIT', _} ->
-%% 	    case (catch cre_counter(Item, Incr)) of
-%% 		{'EXIT', _} ->
-%% 		    %% Ok, some other process got there before us,
-%% 		    %% so try again
-%% 		    ets:update_counter(megaco_config, Item, Incr);
-%% 		NewVal ->
-%% 		    NewVal
-%% 	    end;
-%%         NewVal ->
-%%             NewVal
-%%     end.
 
 cre_counter(Item, Initial) ->
     case whereis(?SERVER) =:= self() of
@@ -660,8 +648,8 @@ cre_counter(Item, Initial) ->
 	    case call({cre_counter, Item, Initial}) of
 		{ok, Value} ->
 		    Value;
-		Error ->
-		    exit(Error)
+		{error, Reason} ->
+		    exit({failed_creating_counter, Item, Initial, Reason})
 	    end;
 	true ->
 	    %% Check that the counter does not already exists
@@ -671,7 +659,7 @@ cre_counter(Item, Initial) ->
 		    ets:insert(megaco_config, {Item, Initial}),
 		    {ok, Initial};
 		[_] ->
-		    %% Ouch, now what?
+		    %% Possibly a raise condition
 		    {error, already_exists}
 		
 		end

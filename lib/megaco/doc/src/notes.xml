@@ -73,6 +73,13 @@
           <p>Own Id: OTP-8627</p>
         </item>
 
+        <item>
+          <p>Eliminated a possible raise condition while creating 
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
       </list>
 
     </section>
