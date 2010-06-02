@@ -2550,8 +2550,56 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(X,{1,2}) =:= fun binary_part/2.
              ">>,
 	   [],
-	   []}
-
+	   []},
+          %% Import directive clashing with old bif is an error, regardless of if it's called or not
+	  {clash15,
+           <<"-export([x/1]).
+              -import(x,[abs/1]).
+              x(X) ->
+                 binary_part(X,{1,2}).
+             ">>,
+	   [],
+	   {errors,[{2,erl_lint,{redefine_old_bif_import,{abs,1}}}],[]}},
+	  %% For a new BIF, it's only a warning
+	  {clash16,
+           <<"-export([x/1]).
+              -import(x,[binary_part/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}},
+	  %% And, you cannot redefine already imported things that aren't auto-imported
+	  {clash17,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              -import(y,[binary_port/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{redefine_import,{{binary_port,3},x}}}],[]}},
+	  %% Not with local functions either
+	  {clash18,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              binary_port(A,B,C) ->
+                 binary_part(A,B,C).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{define_import,{binary_port,3}}}],[]}},
+	  %% Like clash8: Dont accept a guard if it's explicitly module-name called either
+	  {clash19,
+           <<"-export([binary_port/3]).
+              -compile({no_auto_import,[binary_part/3]}).
+              -import(x,[binary_part/3]).
+              binary_port(A,B,C) when x:binary_part(A,B,C) ->
+                 binary_part(A,B,C+1).
+             ">>,
+	   [],
+	   {errors,[{4,erl_lint,illegal_guard_expr}],[]}}
 	 ],
 
     ?line [] = run(Config, Ts),
