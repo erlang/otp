@@ -66,6 +66,16 @@
 
       <list type="bulleted">
         <item>
+          <p>A raise condition when, during high load, processing
+            both the original and a resent message and delivering
+            this as two separate messages to the user. </p>
+          <p>Note that this solution only protects against multiple
+            reply deliveries! </p>
+          <p>Own Id: OTP-8529</p>
+          <p>Aux Id: Seq 10915</p>
+        </item>
+
+        <item>
           <p>Fix shared libraries installation. </p>
           <p>The flex shared lib(s) were incorrectly installed as data 
             files. </p>

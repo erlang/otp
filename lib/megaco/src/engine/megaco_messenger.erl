@@ -2607,33 +2607,84 @@ handle_reply(
 handle_reply(#conn_data{conn_handle = CH} = CD, T, Extra) ->
     TransId = to_local_trans_id(CD),
     ?rt2("handle reply", [T, TransId]),
-    case megaco_monitor:lookup_request(TransId) of
-	[Req] when (is_record(Req, request) andalso 
-		    (CD#conn_data.cancel =:= true)) -> 
+    case {megaco_monitor:request_lockcnt_inc(TransId),
+	  megaco_monitor:lookup_request(TransId)} of
+	{_Cnt, [Req]} when (is_record(Req, request) andalso 
+			    (CD#conn_data.cancel =:= true)) -> 
 	    ?TC_AWAIT_REPLY_EVENT(true),
+	    ?report_trace(CD, "trans reply - cancel(1)", [T]),
 	    do_handle_reply_cancel(CD, Req, T);
 
-	[#request{remote_mid = RMid} = Req] when ((RMid =:= preliminary_mid) orelse 
-						  (RMid =:= CH#megaco_conn_handle.remote_mid)) -> 
+	{Cnt, [#request{remote_mid = RMid} = Req]} when 
+	((Cnt =:= 1) andalso 
+	 ((RMid =:= preliminary_mid) orelse 
+	  (RMid =:= CH#megaco_conn_handle.remote_mid))) -> 
 	    ?TC_AWAIT_REPLY_EVENT(false),
 	    %% Just in case conn_data got update after our lookup
 	    %% but before we looked up the request record, we
 	    %% check the cancel field again.
 	    case megaco_config:conn_info(CD, cancel) of
 		true ->
+		    ?report_trace(CD, "trans reply - cancel(2)", [T]),
+		    megaco_monitor:request_lockcnt_del(TransId), 
+		    do_handle_reply_cancel(CD, Req, T);
+		false ->
+		    ?report_trace(CD, "trans reply", [T]),
+		    do_handle_reply(CD, Req, TransId, T, Extra)
+	    end;
+
+	{Cnt, [#request{remote_mid = RMid} = _Req]} when 
+	(is_integer(Cnt) andalso 
+	 ((RMid =:= preliminary_mid) orelse 
+	  (RMid =:= CH#megaco_conn_handle.remote_mid))) -> 
+	    ?TC_AWAIT_REPLY_EVENT(false),
+	    %% Ok, someone got there before me, now what?
+	    %% This is a plain old raise condition
+	    ?report_important(CD, "trans reply - raise condition", 
+			      [T, {request_lockcnt, Cnt}]),
+	    megaco_monitor:request_lockcnt_dec(TransId);
+
+	%% no counter
+	{_Cnt, [#request{remote_mid = RMid} = Req]} when 
+	 ((RMid =:= preliminary_mid) orelse 
+	  (RMid =:= CH#megaco_conn_handle.remote_mid)) -> 
+	    ?TC_AWAIT_REPLY_EVENT(false),
+	    %% The counter does not exist. 
+	    %% This can only mean a code upgrade raise condition.
+	    %% That is, this request record was created before 
+	    %% this feature (the counters) was instroduced.
+	    %% The simples solution is this is to behave exactly as
+	    %% before, that is pass it along, and leave it to the 
+	    %% user to figure out.
+
+	    %% Just in case conn_data got update after our lookup
+	    %% but before we looked up the request record, we
+	    %% check the cancel field again.
+	    ?report_verbose(CD, "trans reply - old style", [T]),
+	    case megaco_config:conn_info(CD, cancel) of
+		true ->
+		    megaco_monitor:request_lockcnt_del(TransId), 
 		    do_handle_reply_cancel(CD, Req, T);
 		false ->
 		    do_handle_reply(CD, Req, TransId, T, Extra)
 	    end;
 
-	[#request{user_mod     = UserMod,
-		  user_args    = UserArgs, 
-		  reply_action = Action, 
-		  reply_data   = UserData,
-		  remote_mid   = RMid}] ->
+	{Cnt, [#request{user_mod     = UserMod,
+			user_args    = UserArgs, 
+			reply_action = Action, 
+			reply_data   = UserData,
+			remote_mid   = RMid}]} ->
 	    ?report_trace(CD, 
 			  "received trans reply with invalid remote mid", 
-			  [T, RMid]),
+			  [{transaction,     T}, 
+			   {remote_mid,      RMid}, 
+			   {request_lockcnt, Cnt}]),
+	    if
+		is_integer(Cnt) ->
+		    megaco_monitor:request_lockcnt_dec(TransId);
+		true ->
+		    ok
+	    end,
 	    WrongMid = CH#megaco_conn_handle.remote_mid,
 	    T2 = transform_transaction_reply_enc(CD#conn_data.protocol_version,
 						 T),
@@ -2644,7 +2695,15 @@ handle_reply(#conn_data{conn_handle = CH} = CD, T, Extra) ->
 			       reply_data   = UserData},
 	    return_reply(CD2, TransId, UserReply, Extra);
 
-	[] ->
+	{Cnt, []} when is_integer(Cnt) ->
+	    ?TC_AWAIT_REPLY_EVENT(undefined),
+	    ?report_trace(CD, "trans reply (no receiver)", 
+			  [T, {request_lockcnt, Cnt}]),
+	    megaco_monitor:request_lockcnt_dec(TransId),
+	    return_unexpected_trans(CD, T, Extra);
+
+	%% No counter
+	{_Cnt, []} -> 
 	    ?TC_AWAIT_REPLY_EVENT(undefined),
 	    ?report_trace(CD, "trans reply (no receiver)", [T]),
 	    return_unexpected_trans(CD, T, Extra)
@@ -2675,6 +2734,7 @@ do_handle_reply(CD,
 
     %% This is the first reply (maybe of many)
     megaco_monitor:delete_request(TransId),
+    megaco_monitor:request_lockcnt_del(TransId), 
     megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
     megaco_config:del_pending_counter(recv, TransId), % OTP-7189
 
@@ -3698,6 +3758,11 @@ insert_requests(ConnData, ConnHandle,
 
 insert_request(ConnData, ConnHandle, TransId, 
 	       Action, Data, InitTimer, LongTimer) ->
+    %% We dont check the result of the lock-counter creation because
+    %% the only way it could already exist is if the transaction-id
+    %% range has wrapped and an old counter was not deleted.
+    megaco_monitor:request_lockcnt_cre(TransId),
+
     #megaco_conn_handle{remote_mid = RemoteMid} = ConnHandle,
     #conn_data{protocol_version           = Version,
 	       user_mod                   = UserMod,
@@ -4282,6 +4347,7 @@ cancel_request(ConnData, Req, Reason)  ->
 
 cancel_request2(ConnData, TransId, UserReply) ->
     megaco_monitor:delete_request(TransId),
+    megaco_monitor:request_lockcnt_del(TransId), 
     megaco_config:del_pending_counter(recv, TransId), % OTP-7189
     Serial    = TransId#trans_id.serial,
     ConnData2 = ConnData#conn_data{serial = Serial},
@@ -4339,28 +4405,66 @@ receive_reply_remote(ConnData, UserReply) ->
 
 receive_reply_remote(ConnData, UserReply, Extra) ->
     TransId = to_local_trans_id(ConnData),
-    case (catch megaco_monitor:lookup_request(TransId)) of
-        [#request{timer_ref = {_Type, Ref}} = Req] -> %% OTP-4843
+    case {megaco_monitor:request_lockcnt_inc(TransId),
+	  (catch megaco_monitor:lookup_request(TransId))} of
+        {Cnt, [Req]} when (Cnt =:= 1) andalso is_record(Req, request) -> 
             %% Don't care about Req and Rep version diff
-	    megaco_monitor:delete_request(TransId),
-	    megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
-	    megaco_config:del_pending_counter(recv, TransId), % OTP-7189
-	
-	    UserMod   = Req#request.user_mod,
-	    UserArgs  = Req#request.user_args,
-	    Action    = Req#request.reply_action,
-	    UserData  = Req#request.reply_data,
-	    ConnData2 = ConnData#conn_data{user_mod     = UserMod,
-					   user_args    = UserArgs,
-					   reply_action = Action,
-					   reply_data   = UserData},
-	    return_reply(ConnData2, TransId, UserReply, Extra);
-		
+	    do_receive_reply_remote(ConnData, TransId, Req, UserReply, Extra);
+
+        {Cnt, [Req]} when is_integer(Cnt) andalso is_record(Req, request) -> 
+            %% Another process is accessing, handle as unexpected 
+	    %% (so it has a possibillity to get logged).
+	    ?report_important(ConnData, "trans reply (no receiver)", 
+			      [{user_reply,      UserReply}, 
+			       {request_lockcnt, Cnt}]),
+	    megaco_monitor:request_lockcnt_dec(TransId),
+	    return_unexpected_trans_reply(ConnData, TransId, UserReply, Extra);
+
+	%% no counter
+        {_Cnt, [Req]} when is_record(Req, request) -> 
+            %% The counter does not exist. 
+	    %% This can only mean a code upgrade raise condition.
+	    %% That is, this request record was created before 
+	    %% this feature (the counters) was instroduced.
+	    %% The simples solution to this is to behave exactly as
+	    %% before, that is, pass it along, and leave it to the 
+	    %% user to figure out.
+	    ?report_trace(ConnData, 
+			  "remote reply - "
+			  "code upgrade raise condition", 
+			  [{user_reply, UserReply}]),
+	    do_receive_reply_remote(ConnData, TransId, Req, UserReply, Extra);
+
+	{Cnt, _} when is_integer(Cnt) ->
+	    ?report_trace(ConnData, "trans reply (no receiver)", 
+			  [{user_reply, UserReply}, {request_lockcnt, Cnt}]),
+	    megaco_monitor:request_lockcnt_dec(TransId), 
+	    return_unexpected_trans_reply(ConnData, TransId, UserReply, Extra);
+
 	_ ->
 	    ?report_trace(ConnData, "remote reply (no receiver)", 
-			  [UserReply]),
+			  [{user_reply, UserReply}]),
 	    return_unexpected_trans_reply(ConnData, TransId, UserReply, Extra)
     end.
+
+do_receive_reply_remote(ConnData, TransId, 
+			#request{timer_ref    = {_Type, Ref},
+				 user_mod     = UserMod, 
+				 user_args    = UserArgs,
+				 reply_action = Action,
+				 reply_data   = UserData} = _Req, 
+			UserReply, Extra) ->
+    megaco_monitor:delete_request(TransId),
+    megaco_monitor:request_lockcnt_del(TransId), 
+    megaco_monitor:cancel_apply_after(Ref),           % OTP-4843
+    megaco_config:del_pending_counter(recv, TransId), % OTP-7189
+
+    ConnData2 = ConnData#conn_data{user_mod     = UserMod,
+				   user_args    = UserArgs,
+				   reply_action = Action,
+				   reply_data   = UserData},
+    return_reply(ConnData2, TransId, UserReply, Extra).
+
 
 cancel_reply(ConnData, #reply{state     = waiting_for_ack,
 			      user_mod  = UserMod,
