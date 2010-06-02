@@ -50,7 +50,7 @@ find_executable(Name, Path) ->
 	relative ->
 	    find_executable1(Name, split_path(Path), Extensions);
 	_ ->
-	    case verify_executable(Name, Extensions) of
+	    case verify_executable(Name, Extensions, Extensions) of
 		{ok, Complete} ->
 		    Complete;
 		error ->
@@ -60,7 +60,7 @@ find_executable(Name, Path) ->
 
 find_executable1(Name, [Base|Rest], Extensions) ->
     Complete0 = filename:join(Base, Name),
-    case verify_executable(Complete0, Extensions) of
+    case verify_executable(Complete0, Extensions, Extensions) of
 	{ok, Complete} ->
 	    Complete;
 	error ->
@@ -69,7 +69,7 @@ find_executable1(Name, [Base|Rest], Extensions) ->
 find_executable1(_Name, [], _Extensions) ->
     false.
 
-verify_executable(Name0, [Ext|Rest]) ->
+verify_executable(Name0, [Ext|Rest], OrigExtensions) ->
     Name1 = Name0 ++ Ext,
     case os:type() of
 	vxworks ->
@@ -78,7 +78,7 @@ verify_executable(Name0, [Ext|Rest]) ->
 		{ok, _} ->
 		    {ok, Name1};
 		_ ->
-		    verify_executable(Name0, Rest)
+		    verify_executable(Name0, Rest, OrigExtensions)
 	    end;
 	_ ->
 	    case file:read_file_info(Name1) of
@@ -87,11 +87,29 @@ verify_executable(Name0, [Ext|Rest]) ->
 		    %% on Unix, since we test if any execution bit is set.
 		    {ok, Name1};
 		_ ->
-		    verify_executable(Name0, Rest)
+		    verify_executable(Name0, Rest, OrigExtensions)
 	    end
     end;
-verify_executable(_, []) ->
+verify_executable(Name, [], OrigExtensions) when OrigExtensions =/= [""] -> %% Windows
+    %% Will only happen on windows, hence case insensitivity
+    case can_be_full_name(string:to_lower(Name),OrigExtensions) of 
+	true ->
+	    verify_executable(Name,[""],[""]);
+	_ ->
+	    error
+    end;
+verify_executable(_, [], _) ->
     error.
+
+can_be_full_name(_Name,[]) ->
+    false;
+can_be_full_name(Name,[H|T]) ->
+    case lists:suffix(H,Name) of %% Name is in lowercase, cause this is a windows thing
+	true ->
+	    true;
+	_ ->
+	    can_be_full_name(Name,T)
+    end.
 
 split_path(Path) ->
     case type() of
@@ -119,6 +137,7 @@ reverse_element(List) ->
     lists:reverse(List).
 
 -spec extensions() -> [string()].
+%% Extensions in lower case
 extensions() ->
     case type() of
 	{win32, _} -> [".exe",".com",".cmd",".bat"];
