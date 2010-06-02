@@ -1038,6 +1038,8 @@ fold_non_lit_args(Call, lists, append, [Arg1,Arg2], _) ->
     eval_append(Call, Arg1, Arg2);
 fold_non_lit_args(Call, erlang, setelement, [Arg1,Arg2,Arg3], _) ->
     eval_setelement(Call, Arg1, Arg2, Arg3);
+fold_non_lit_args(Call, erlang, is_record, [Arg1,Arg2,Arg3], Sub) ->
+    eval_is_record(Call, Arg1, Arg2, Arg3, Sub);
 fold_non_lit_args(Call, erlang, N, Args, Sub) ->
     NumArgs = length(Args),
     case erl_internal:comp_op(N, NumArgs) of
@@ -1194,19 +1196,22 @@ eval_element(Call, #c_literal{val=Pos}, #c_tuple{es=Es}, _Types) when is_integer
 	true ->
 	    eval_failure(Call, badarg)
     end;
-%% eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
-%%   when is_integer(Pos) ->
-%%     case orddict:find(V, Types#sub.t) of
-%% 	{ok,#c_tuple{es=Elements}} ->
-%% 	    if
-%% 		1 =< Pos, Pos =< length(Elements) ->
-%% 		    lists:nth(Pos, Elements);
-%% 		true ->
-%% 		    eval_failure(Call, badarg)
-%% 	    end;
-%% 	error ->
-%% 	    Call
-%%     end;
+eval_element(Call, #c_literal{val=Pos}, #c_var{name=V}, Types)
+  when is_integer(Pos) ->
+    case orddict:find(V, Types#sub.t) of
+	{ok,#c_tuple{es=Elements}} ->
+	    if
+		1 =< Pos, Pos =< length(Elements) ->
+		    case lists:nth(Pos, Elements) of
+			#c_alias{var=Alias} -> Alias;
+			Res -> Res
+		    end;
+		true ->
+		    eval_failure(Call, badarg)
+	    end;
+	error ->
+	    Call
+    end;
 eval_element(Call, Pos, Tuple, _Types) ->
     case is_not_integer(Pos) orelse is_not_tuple(Tuple) of
 	true ->
@@ -1214,6 +1219,20 @@ eval_element(Call, Pos, Tuple, _Types) ->
 	false ->
 	    Call
     end.
+
+%% eval_is_record(Call, Var, Tag, Size, Types) -> Val.
+%%  Evaluates is_record/3 using type information.
+%%
+eval_is_record(Call, #c_var{name=V}, #c_literal{val=NeededTag}=Lit,
+	       #c_literal{val=Size}, Types) ->
+    case orddict:find(V, Types#sub.t) of
+	{ok,#c_tuple{es=[#c_literal{val=Tag}|_]=Es}} ->
+	    Lit#c_literal{val=Tag =:= NeededTag andalso
+			  length(Es) =:= Size};
+	_ ->
+	    Call
+    end;
+eval_is_record(Call, _, _, _, _) -> Call.
 
 %% is_not_integer(Core) -> true | false.
 %%  Returns true if Core is definitely not an integer.

@@ -3184,7 +3184,9 @@ lookup2(Config) when is_list(Config) ->
                  [] = qlc:e(Q),
                  false = lookup_keys(Q)
          end, [{1,b},{2,3}])">>,
-        {warnings,[{{3,48},qlc,nomatch_filter}]}},
+        {warnings,[{2,sys_core_fold,nomatch_guard},
+		   {3,qlc,nomatch_filter},
+		   {3,sys_core_fold,{eval_failure,badarg}}]}},
 
        <<"etsc(fun(E) ->
                 Q = qlc:q([X || {X} <- ets:table(E), element(1,{X}) =:= 1]),
