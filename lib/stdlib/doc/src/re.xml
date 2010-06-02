@@ -80,7 +80,11 @@
       - a unicode_binary is allowed as the tail of the list</code>
     
       <code type="none">
-    mp() = Opaque datatype containing a compiled regular expression.</code>
+    mp() = Opaque datatype containing a compiled regular expression.
+      - The mp() is guaranteed to be a tuple() having the atom
+	're_pattern' as it's first element, to allow for matching in
+        guards. The arity of the tuple() or the content of the other fields
+	is however not to be trusted.</code>
   </section>
   <funcs>
     <func>
