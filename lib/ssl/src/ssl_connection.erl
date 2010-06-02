@@ -65,6 +65,7 @@
           ssl_options,        % #ssl_options{}
           socket_options,     % #socket_options{}
           connection_states,  % #connection_states{} from ssl_record.hrl
+	  tls_packets = [],        % Not yet handled decode ssl/tls packets.
           tls_record_buffer,  % binary() buffer of incomplete records
           tls_handshake_buffer, % binary() buffer of incomplete handshakes
 	  %% {{md5_hash, sha_hash}, {prev_md5, prev_sha}} (binary())
@@ -1727,9 +1728,23 @@ opposite_role(server) ->
 send_user(Pid, Msg) ->
     Pid ! Msg.
 
+handle_tls_handshake(Handle, StateName, #state{tls_packets = [Packet]} = State) ->
+    FsmReturn = {next_state, StateName, State#state{tls_packets = []}},
+    Handle(Packet, FsmReturn);
+
+handle_tls_handshake(Handle, StateName, #state{tls_packets = [Packet | Packets]} = State0) ->
+    FsmReturn = {next_state, StateName, State0#state{tls_packets = Packets}},
+    case Handle(Packet, FsmReturn) of
+	{next_state, NextStateName, State} ->
+	    handle_tls_handshake(Handle, NextStateName, State);
+	{stop, _,_} = Stop ->
+	    Stop
+    end.
+
 next_state(_, #alert{} = Alert, #state{negotiated_version = Version} = State) ->
     handle_own_alert(Alert, Version, decipher_error, State),
     {stop, normal, State};
+
 next_state(Next, no_record, State) ->
     {next_state, Next, State};
 
@@ -1764,8 +1779,8 @@ next_state(StateName, #ssl_tls{type = ?HANDSHAKE, fragment = Data},
    	end,
     try
    	{Packets, Buf} = ssl_handshake:get_tls_handshake(Data,Buf0, KeyAlg,Version),
-   	Start = {next_state, StateName, State0#state{tls_handshake_buffer = Buf}},
-	lists:foldl(Handle, Start, Packets)
+	State = State0#state{tls_packets = Packets, tls_handshake_buffer = Buf},
+	handle_tls_handshake(Handle, StateName, State)
     catch throw:#alert{} = Alert ->
    	    handle_own_alert(Alert, Version, StateName, State0), 
    	    {stop, normal, State0}
@@ -1802,17 +1817,19 @@ next_tls_record(Data, #state{tls_record_buffer = Buf0,
 	    Alert
     end.
 
-next_record(#state{tls_cipher_texts = [], socket = Socket} = State) ->
+next_record(#state{tls_packets = [], tls_cipher_texts = [], socket = Socket} = State) ->
     inet:setopts(Socket, [{active,once}]),
     {no_record, State};
-next_record(#state{tls_cipher_texts = [CT | Rest], 
+next_record(#state{tls_packets = [], tls_cipher_texts = [CT | Rest],
 		   connection_states = ConnStates0} = State) ->
     case ssl_record:decode_cipher_text(CT, ConnStates0) of
 	{Plain, ConnStates} ->		      
 	    {Plain, State#state{tls_cipher_texts = Rest, connection_states = ConnStates}};
 	#alert{} = Alert ->
 	    {Alert, State}
-    end.
+    end;
+next_record(State) ->
+    {no_record, State}.
 
 next_record_if_active(State = 
 		      #state{socket_options = 
