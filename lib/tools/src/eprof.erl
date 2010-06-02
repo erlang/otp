@@ -132,16 +132,37 @@ init([]) ->
 sum_bp_total_n_us(Mfas) ->
     lists:foldl(fun ({_, {Ci,Usi}}, {Co, Uso}) -> {Co + Ci, Uso + Usi} end, {0,0}, Mfas).
 
+string_bp_mfa(Mfas, Tus) -> string_bp_mfa(Mfas, Tus, {0,0,0,0,0}, []).
+string_bp_mfa([], _, Ws, Strings) -> {Ws, lists:reverse(Strings)};
+string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
+	Smfa   = s(Mfa),
+	Scount = s(Count),
+	Stime  = s(Time),
+	Sperc  = s("~.2f", [100*(Time/Tus)]),
+	Stpc   = s("~.2f", [Time/Count]),
+
+	string_bp_mfa(Mfas, Tus, {
+		erlang:max(MfaW,  length(Smfa)),
+		erlang:max(CountW,length(Scount)),
+		erlang:max(PercW, length(Sperc)),
+		erlang:max(TimeW, length(Stime)),
+		erlang:max(TpCW,  length(Stpc))
+	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
+
 print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
-    print(Fd, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    print(Fd, ["--------", "-----", "---", "----", "----------"]),
-    lists:foreach(fun
-	    ({_, {Count, Time}}) when Count =:= 0; Time < 1 ->
-		ok;
-	    ({Mfa, {Count, Time}}) ->
-		print(Fd, [s(Mfa), s(Count), s("~.2f", [100*(Time/Tus)]), s(Time), s("~.2f", [Time/Count])]),
-		ok
-	end, filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(thresholds, Opts))),
+    Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(thresholds, Opts)),
+    {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
+    Ws = {
+	erlang:max(length("FUNCTION"), MfaW),
+	erlang:max(length("CALLS"), CountW),
+	erlang:max(length("  %"), PercW),
+	erlang:max(length("TIME"), TimeW),
+	erlang:max(length("uS / CALLS"), TpCW)
+    },
+    print(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
+    print(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
+
+    lists:foreach(fun (String) -> print(Fd, Ws, String) end, Strs),
     ok.
 
 handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
@@ -448,6 +469,7 @@ s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
 s(Term) -> s("~p", [Term]).
 s(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
 
+
 print(Fd, [_,_,_] = Strings) ->
     print(Fd, "~.44s   ~14s ~14s~n", Strings);
 print(Fd, [_,_,_,_] = Strings) ->
@@ -457,6 +479,9 @@ print(Fd, Strings) ->
 print(Fd, Format, Strings) ->
     format(Fd, Format, Strings).
 
+
+format(Fd, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
+    format(Fd, s("~~.~ps  ~~~ps  ~~~ps  ~~~ps  [~~~ps]~~n", [MfaW, CountW, PercW, TimeW, TpCW]), Strings);
 format(undefined, Format, Strings) ->
     io:format(Format, Strings),
     ok;
