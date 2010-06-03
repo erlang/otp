@@ -89,7 +89,7 @@ script_start() ->
 						  end, Flags)
 			     end,
 		%% used for purpose of testing the run_test interface
-		io:format(user, "~n--------------- START ARGS ---------------~n", []),
+		io:format(user, "~n-------------------- START ARGS --------------------~n", []),
 		io:format(user, "--- Init args:~n~p~n", [FlagFilter(Init)]),
 		io:format(user, "--- CT args:~n~p~n", [FlagFilter(CtArgs)]),
 		EnvArgs = opts2args(EnvStartOpts),
@@ -97,7 +97,7 @@ script_start() ->
 			  [EnvStartOpts,EnvArgs]),
 		Merged = merge_arguments(CtArgs ++ EnvArgs),
 		io:format(user, "--- Merged args:~n~p~n", [FlagFilter(Merged)]),
-		io:format(user, "------------------------------------------~n~n", []),
+		io:format(user, "----------------------------------------------------~n~n", []),
 		Merged;
 	    _ ->
 		merge_arguments(CtArgs)

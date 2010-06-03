@@ -63,7 +63,8 @@ all(suite) ->
     [
      cfg_error,
      lib_error,
-     no_compile
+     no_compile,
+     timetrap
     ].
      
 
@@ -133,6 +134,23 @@ no_compile(Config) when is_list(Config) ->
     TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
+%%%-----------------------------------------------------------------
+%%%
+timetrap(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suites = [Join(DataDir, "timetrap_1_SUITE")],
+    {Opts,ERPid} = setup({suite,Suites}, Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(timetrap),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -564,4 +582,20 @@ test_events(lib_error) ->
     ];
 
 test_events(no_compile) ->
-    [].
+    [];
+
+test_events(timetrap) ->
+    [
+      {?eh,start_logging,{'DEF','RUNDIR'}},
+      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+      {?eh,start_info,{1,1,1}},
+      {?eh,tc_start,{timetrap_1_SUITE,init_per_suite}},
+      {?eh,tc_done,{timetrap_1_SUITE,init_per_suite,ok}},
+      {?eh,tc_start,{timetrap_1_SUITE,tc1}},
+      {?eh,tc_done,{timetrap_1_SUITE,tc1,{failed,{timetrap_timeout,1000}}}},
+      {?eh,test_stats,{0,1,{0,0}}},
+      {?eh,tc_start,{timetrap_1_SUITE,end_per_suite}},
+      {?eh,tc_done,{timetrap_1_SUITE,end_per_suite,ok}},
+      {?eh,test_done,{'DEF','STOP_TIME'}},
+      {?eh,stop_logging,[]}
+    ].
