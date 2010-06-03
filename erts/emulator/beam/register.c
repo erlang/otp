@@ -476,8 +476,9 @@ int erts_unregister_name(Process *c_p,
      *           on c_prt.
      */
 
-    if (!c_p)
+    if (!c_p) {
 	c_p_locks = 0;
+    }
     current_c_p_locks = c_p_locks;
 
  restart:
@@ -489,9 +490,15 @@ int erts_unregister_name(Process *c_p,
     if (is_non_value(name)) {
 	/* Unregister current process name */
 	ASSERT(c_p);
-	if (c_p->reg)
+#ifdef ERTS_SMP
+	if (current_c_p_locks != c_p_locks) {
+	    erts_smp_proc_lock(c_p, c_p_locks);
+	    current_c_p_locks = c_p_locks;
+	}
+#endif
+	if (c_p->reg) {
 	    r.name = c_p->reg->name;
-	else {
+	} else {
 	    /* Name got unregistered while main lock was released */
 	    res = 0;
 	    goto done;
@@ -533,24 +540,25 @@ int erts_unregister_name(Process *c_p,
 	    }
 
 	} else if (rp->p) {
-	    Process* p = rp->p;
+
 #ifdef ERTS_SMP
 	    erts_proc_safelock(c_p,
 			       current_c_p_locks,
 			       c_p_locks,
 			       rp->p,
-			       0,
+			       (c_p == rp->p) ?  current_c_p_locks : 0,
 			       ERTS_PROC_LOCK_MAIN);
 	    current_c_p_locks = c_p_locks;
 #endif
-	    p->reg = NULL;
-#ifdef ERTS_SMP
-	    if (rp->p != c_p)
-		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
-#endif
-	    if (IS_TRACED_FL(p, F_TRACE_PROCS)) {
-		trace_proc(c_p, p, am_unregister, r.name);
+	    rp->p->reg = NULL;
+	    if (IS_TRACED_FL(rp->p, F_TRACE_PROCS)) {
+		trace_proc(c_p, rp->p, am_unregister, r.name);
 	    }
+#ifdef ERTS_SMP
+	    if (rp->p != c_p) {
+		erts_smp_proc_unlock(rp->p, ERTS_PROC_LOCK_MAIN);
+	    }
+#endif
 	}
 	hash_erase(&process_reg, (void*) &r);
 	res = 1;
@@ -560,14 +568,17 @@ int erts_unregister_name(Process *c_p,
 
     reg_write_unlock();
     if (c_prt != port) {
-	if (port)
+	if (port) {
 	    erts_smp_port_unlock(port);
-	if (c_prt)
+	}
+	if (c_prt) {
 	    erts_smp_port_lock(c_prt);
+	}
     }
 #ifdef ERTS_SMP
-    if (c_p && !current_c_p_locks)
+    if (c_p && !current_c_p_locks) {
 	erts_smp_proc_lock(c_p, c_p_locks);
+    }
 #endif
     return res;
 }
