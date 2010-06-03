@@ -275,6 +275,10 @@ testcase_5a(Config) ->
     test_group_5 = ?config(test_group_5,Config),
     undefined = ?config(testcase_3,Config),
     testcase_5a = ?config(testcase_5a,Config),
+    %% increase chance the done event will come
+    %% during execution of subgroup (could be
+    %% tricky to handle)
+    timer:sleep(3),
     ok.
 testcase_5b() -> 
     [].

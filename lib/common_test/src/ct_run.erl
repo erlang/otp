@@ -76,25 +76,32 @@ script_start() ->
     Init = init:get_arguments(),
     CtArgs = lists:takewhile(fun({ct_erl_args,_}) -> false;
 				(_) -> true end, Init),
-    Args = case application:get_env(common_test, run_test_start_opts) of
-	       {ok,EnvStartOpts} ->
-		   %%! --- Mon May 31 22:59:29 2010 --- peppe was here!
-		   io:format(user, "~nEnv1:~n~p~n~n~p~n", [EnvStartOpts,opts2args(EnvStartOpts)]),
-
-		   merge_arguments(CtArgs ++ opts2args(EnvStartOpts));
-	       _ ->
-		   merge_arguments(CtArgs)
-	   end,
-
-    %%! --- Mon May 31 12:32:48 2010 --- peppe was here!
-    io:format(user, "~nInit:~n~p~n", [Init]),
-
-    %%! --- Mon May 31 12:32:48 2010 --- peppe was here!
-    io:format(user, "~nCtArgs:~n~p~n", [CtArgs]),
-
-    %%! --- Mon May 31 12:32:48 2010 --- peppe was here!
-    io:format(user, "~nArgs:~n~p~n", [Args]),
-
+    Args =
+	case application:get_env(common_test, run_test_start_opts) of
+	    {ok,EnvStartOpts} ->
+		FlagFilter = fun(Flags) ->
+				     lists:filter(fun({root,_}) -> false;
+						     ({progname,_}) -> false;
+						     ({home,_}) -> false;
+						     ({noshell,_}) -> false;
+						     ({noinput,_}) -> false;
+						     (_) -> true
+						  end, Flags)
+			     end,
+		%% used for purpose of testing the run_test interface
+		io:format(user, "~n--------------- START ARGS ---------------~n", []),
+		io:format(user, "--- Init args:~n~p~n", [FlagFilter(Init)]),
+		io:format(user, "--- CT args:~n~p~n", [FlagFilter(CtArgs)]),
+		EnvArgs = opts2args(EnvStartOpts),
+		io:format(user, "--- Env opts -> args:~n~p~n   =>~n~p~n",
+			  [EnvStartOpts,EnvArgs]),
+		Merged = merge_arguments(CtArgs ++ EnvArgs),
+		io:format(user, "--- Merged args:~n~p~n", [FlagFilter(Merged)]),
+		io:format(user, "------------------------------------------~n~n", []),
+		Merged;
+	    _ ->
+		merge_arguments(CtArgs)
+	end,
     case proplists:get_value(help, Args) of
 	undefined -> script_start(Args);
 	_ -> script_usage()
@@ -150,9 +157,6 @@ script_start1(Parent, Args) ->
     MultTT = get_start_opt(multiply_timetraps, fun(MT) -> MT end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps, fun(CT) -> CT end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
-
-    %%! --- Mon May 31 23:16:45 2010 --- peppe was here!
-    io:format(user, "~nEvHandlers = ~p~n~n", [EvHandlers]),
 
     %% check flags and set corresponding application env variables
 
@@ -603,10 +607,6 @@ run_test1(StartOpts) ->
 			    end, Hs))
 	end,
 
-    %%! --- Mon May 31 23:16:45 2010 --- peppe was here!
-    io:format("~nEvHandlers = ~p~n~n", [EvHandlers]),
-    io:format(user, "~nEvHandlers = ~p~n~n", [EvHandlers]),
-
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
 				fun(all) -> [];
@@ -684,7 +684,7 @@ run_test1(StartOpts) ->
 		    run_prepared(Run, Skip, Opts#opts{testspecs = Specs}, StartOpts)
 	    end;
 	Specs ->
-	    Relaxed = get_start_opt(allow_user_term, value, false),
+	    Relaxed = get_start_opt(allow_user_terms, value, false, StartOpts),
 	    %% using testspec(s) as input for test
 	    run_spec_file(Relaxed, Opts#opts{testspecs = Specs}, StartOpts)
     end.
@@ -1855,6 +1855,8 @@ opts2args(EnvStartOpts) ->
 					end, UserCfg),
 			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
 			  [{userconfig,lists:reverse(StrsR)}];
+		     ({testcase,Case}) when is_atom(Case) ->
+			  [{'case',[atom_to_list(Case)]}];
 		     ({testcase,Cases}) ->
 			  [{'case',[atom_to_list(C) || C <- Cases]}];
 		     ({'case',Cases}) ->
@@ -1900,7 +1902,7 @@ opts2args(EnvStartOpts) ->
 		     ({Opt,As=[A|_]}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
 		     ({Opt,Strs=[S|_]}) when is_list(S) ->
-			  [{Opt,[Strs]}];
+			  [{Opt,Strs}];
 		     ({Opt,A}) when is_atom(A) ->
 			  [{Opt,[atom_to_list(A)]}];
 		     ({Opt,I}) when is_integer(I) ->

@@ -44,8 +44,13 @@
 %% there will be clashes with logging processes etc).
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config1 = ct_test_support:init_per_suite(Config),
-    Config1.
+    DataDir = ?config(data_dir, Config),
+    PathDir = filename:join(DataDir, "config/test"),
+    Config1 = ct_test_support:init_per_suite([{path_dirs,[PathDir]} | Config]),
+    PrivDir = ?config(priv_dir, Config1),
+    ConfigDir = filename:join(PrivDir, "config"),
+    ok = file:make_dir(ConfigDir),
+    [{config_dir,ConfigDir} | Config1].
 
 end_per_suite(Config) ->
     ct_test_support:end_per_suite(Config).
@@ -94,46 +99,49 @@ userconfig_dynamic(Config) when is_list(Config) ->
 
 testspec_legacy(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    make_spec(DataDir,
-		"config/spec_legacy.spec",
-		[config_static_SUITE],
-		[{config, filename:join(DataDir, "config/config.txt")}]),
+    ConfigDir = ?config(config_dir, Config),
+    make_spec(DataDir, ConfigDir,
+	      "spec_legacy.spec",
+	      [config_static_SUITE],
+	      [{config, filename:join(DataDir, "config/config.txt")}]),
     run_test(config_static_SUITE,
 	     Config,
-	     {spec, filename:join(DataDir, "config/spec_legacy.spec")},
+	     {spec, filename:join(ConfigDir, "spec_legacy.spec")},
              []),
-    file:delete(filename:join(DataDir, "config/spec_legacy.spec")).
+    file:delete(filename:join(ConfigDir, "spec_legacy.spec")).
 
 testspec_static(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    make_spec(DataDir,
-		"config/spec_static.spec",
-		[config_static_SUITE],
-		[{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}}]),
+    ConfigDir = ?config(config_dir, Config),
+    make_spec(DataDir, ConfigDir,
+	      "spec_static.spec",
+	      [config_static_SUITE],
+	      [{userconfig, {ct_config_xml, filename:join(DataDir, "config/config.xml")}}]),
     run_test(config_static_SUITE,
 	     Config,
-	     {spec, filename:join(DataDir, "config/spec_static.spec")},
+	     {spec, filename:join(ConfigDir, "spec_static.spec")},
              []),
-    file:delete(filename:join(DataDir, "config/spec_static.spec")).
+    file:delete(filename:join(ConfigDir, "spec_static.spec")).
 
 testspec_dynamic(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
-    make_spec(DataDir, "config/spec_dynamic.spec",
-		[config_dynamic_SUITE],
-		[{userconfig, {config_driver, "config_server"}}]),
+    ConfigDir = ?config(config_dir, Config),
+    make_spec(DataDir, ConfigDir, "spec_dynamic.spec",
+	      [config_dynamic_SUITE],
+	      [{userconfig, {config_driver, "config_server"}}]),
     run_test(config_dynamic_SUITE,
 	     Config,
-	     {spec, filename:join(DataDir, "config/spec_dynamic.spec")},
+	     {spec, filename:join(ConfigDir, "spec_dynamic.spec")},
              []),
-    file:delete(filename:join(DataDir, "config/spec_dynamic.spec")).
+    file:delete(filename:join(ConfigDir, "spec_dynamic.spec")).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
-make_spec(DataDir, Filename, Suites, Config)->
-    {ok, Fd} = file:open(filename:join(DataDir, Filename), [write]),
+make_spec(DataDir, ConfigDir, Filename, Suites, Config)->
+    {ok, Fd} = file:open(filename:join(ConfigDir, Filename), [write]),
     ok = file:write(Fd,
-		io_lib:format("{suites, \"~sconfig/test/\", ~p}.~n", [DataDir, Suites])),
+		    io_lib:format("{suites, \"~sconfig/test/\", ~p}.~n", [DataDir, Suites])),
     lists:foreach(fun(C)-> ok=file:write(Fd, io_lib:format("~p.~n", [C])) end, Config),
     ok = file:close(Fd).
 
@@ -142,12 +150,12 @@ run_test(Name, Config, CTConfig, SuiteNames)->
     Joiner = fun(Suite) -> filename:join(DataDir, "config/test/"++Suite) end,
     Suites = lists:map(Joiner, SuiteNames),
     {Opts,ERPid} = setup_env({suite,Suites}, Config, CTConfig),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
     TestEvents = ct_test_support:get_events(ERPid, Config),
     ct_test_support:log_events(Name,
 			       reformat_events(TestEvents, ?eh),
-			       ?config(priv_dir, Config)),
-    ExpEvents = expected_events(Name),
+			       ?config(config_dir, Config)),
+    ExpEvents = events_to_check(Name),
     ok = ct_test_support:verify_events(ExpEvents, TestEvents, Config).
 
 setup_env(Test, Config, CTConfig) ->
@@ -164,6 +172,15 @@ reformat_events(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    expected_events(Test) ++ events_to_check(Test, N-1).
+
 expected_events(config_static_SUITE)->
 [
  {?eh,start_logging,{'DEF','RUNDIR'}},

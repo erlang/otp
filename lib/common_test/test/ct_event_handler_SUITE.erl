@@ -88,7 +88,7 @@ start_stop(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
     
     Events = ct_test_support:get_events(ERPid, Config),    
 
@@ -110,8 +110,7 @@ start_stop(Config) when is_list(Config) ->
 	 {eh_A,test_done,{'DEF','STOP_TIME'}},
 	 {eh_A,stop_logging,[]}],
 
-    ok = ct_test_support:verify_events(TestEvents, Events, Config),
-    {comment,"NOTE! Known problem with test_start event!"}.
+    ok = ct_test_support:verify_events(TestEvents++TestEvents, Events, Config).
 
 
 results(doc) -> 
@@ -135,7 +134,7 @@ results(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    ok = ct_test_support:run(Opts, Config),
     
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -163,7 +162,7 @@ results(Config) when is_list(Config) ->
 	 {eh_A,test_done,{'DEF','STOP_TIME'}},
 	 {eh_A,stop_logging,[]}],
 
-    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+    ok = ct_test_support:verify_events(TestEvents++TestEvents, Events, Config).
 
 
 %%%-----------------------------------------------------------------

@@ -75,14 +75,14 @@ missing_conf(Config) when is_list(Config) ->
     Suite = filename:join(DataDir, "groups_1/missing_conf_SUITE"),
 
     {Opts,ERPid} = setup({suite,Suite}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(missing_conf_SUITE, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(missing_conf),
+    TestEvents = events_to_check(missing_conf),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 %%%-----------------------------------------------------------------
@@ -105,6 +105,32 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
 
 test_events(missing_conf) ->
-    exit(must_handle_this).
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,2}},
+     {?eh,tc_start,{ct_framework,ct_init_per_group}},
+     {?eh,tc_done,{ct_framework,ct_init_per_group,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     {?eh,tc_start,{missing_conf_SUITE,tc1}},
+     {?eh,tc_done,{missing_conf_SUITE,tc1,ok}},
+     {?eh,test_stats,{2,0,{0,0}}},
+     {?eh,tc_start,{missing_conf_SUITE,tc2}},
+     {?eh,tc_done,{missing_conf_SUITE,tc2,ok}},
+     {?eh,test_stats,{3,0,{0,0}}},
+     {?eh,tc_start,{ct_framework,ct_end_per_group}},
+     {?eh,tc_done,{ct_framework,ct_end_per_group,ok}},
+     {?eh,test_stats,{4,0,{0,0}}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

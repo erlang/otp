@@ -87,14 +87,14 @@ cfg_error(Config) when is_list(Config) ->
 	      Join(DataDir, "cfg_error_9_SUITE")
 	     ],
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(cfg_error, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(cfg_error),    
+    TestEvents = events_to_check(cfg_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 
@@ -105,14 +105,14 @@ lib_error(Config) when is_list(Config) ->
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "lib_error_1_SUITE")],
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(lib_error, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(lib_error),    
+    TestEvents = events_to_check(lib_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -123,14 +123,14 @@ no_compile(Config) when is_list(Config) ->
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "no_compile_SUITE")],
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(no_compile, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(no_compile),    
+    TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -154,6 +154,15 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
+
 test_events(cfg_error) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},

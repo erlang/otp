@@ -69,13 +69,14 @@ all(suite) ->
 ct_master_test(Config) when is_list(Config)->
     NodeCount = 5,
     DataDir = ?config(data_dir, Config),
+    PrivDir = ?config(priv_dir, Config),
     NodeNames = [list_to_atom("testnode_"++integer_to_list(N)) ||
 		 N <- lists:seq(1, NodeCount)],
-    FileName = filename:join(DataDir, "ct_master_spec.spec"),
+    FileName = filename:join(PrivDir, "ct_master_spec.spec"),
     Suites = [master_SUITE],
     TSFile = make_spec(DataDir, FileName, NodeNames, Suites, Config),
     [{TSFile, ok}] = run_test(ct_master_test, FileName, Config),
-    file:delete(filename:join(DataDir, FileName)).
+    ok.
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -91,9 +92,9 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
     C = lists:map(fun(NodeName)->
 	Rnd = random:uniform(2),
 	if Rnd == 1->
-	    {config, NodeName, "master/config.txt"};
+	    {config, NodeName, filename:join(DataDir, "master/config.txt")};
 	true->
-	    {userconfig, NodeName, {ct_config_xml, "master/config.xml"}}
+	    {userconfig, NodeName, {ct_config_xml, filename:join(DataDir, "master/config.xml")}}
         end
 	end,
 	NodeNames),
@@ -115,7 +116,7 @@ make_spec(DataDir, FileName, NodeNames, Suites, Config)->
          end,
 	 NodeNames) ++ [{logdir, master, PrivDir}],
 
-    ct_test_support:write_testspec(N++C++S++LD++NS, DataDir, FileName).
+    ct_test_support:write_testspec(N++C++S++LD++NS, FileName).
 
 get_log_dir(PrivDir, NodeName)->
     LogDir = filename:join(PrivDir, io_lib:format("slave.~p", [NodeName])),

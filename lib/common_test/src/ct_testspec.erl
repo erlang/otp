@@ -17,7 +17,7 @@
 %% %CopyrightEnd%
 %%
 
-%%% @doc Common Test Framework functions handlig test specifications.
+%%% @doc Common Test Framework functions handling test specifications.
 %%%
 %%% <p>This module exports functions that are used within CT to
 %%% scan and parse test specifikations.</p>
@@ -384,7 +384,7 @@ filter_init_terms([{init, [], _}|Ts], NewTerms, Spec)->
 filter_init_terms([Term|Ts], NewTerms, Spec)->
     filter_init_terms(Ts, [Term|NewTerms], Spec);
 filter_init_terms([], NewTerms, Spec)->
-    {NewTerms, Spec}.
+    {lists:reverse(NewTerms), Spec}.
 
 add_option([], _, List, _)->
     List;
@@ -471,6 +471,36 @@ add_tests([{cover,Node,File}|Ts],Spec) ->
     add_tests(Ts,Spec#testspec{cover=CoverFs1});
 add_tests([{cover,File}|Ts],Spec) ->
     add_tests([{cover,all_nodes,File}|Ts],Spec);
+
+%% --- multiply_timetraps ---
+add_tests([{multiply_timetraps,all_nodes,MT}|Ts],Spec) ->
+    Tests = lists:map(fun(N) -> {multiply_timetraps,N,MT} end, list_nodes(Spec)),
+    add_tests(Tests++Ts,Spec);
+add_tests([{multiply_timetraps,Nodes,MT}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,multiply_timetraps,[MT],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{multiply_timetraps,Node,MT}|Ts],Spec) ->
+    MTs = Spec#testspec.multiply_timetraps,
+    MTs1 = [{ref2node(Node,Spec#testspec.nodes),MT} |
+	    lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,MTs)],
+    add_tests(Ts,Spec#testspec{multiply_timetraps=MTs1});
+add_tests([{multiply_timetraps,MT}|Ts],Spec) ->
+    add_tests([{multiply_timetraps,all_nodes,MT}|Ts],Spec);
+
+%% --- scale_timetraps ---
+add_tests([{scale_timetraps,all_nodes,ST}|Ts],Spec) ->
+    Tests = lists:map(fun(N) -> {scale_timetraps,N,ST} end, list_nodes(Spec)),
+    add_tests(Tests++Ts,Spec);
+add_tests([{scale_timetraps,Nodes,ST}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,scale_timetraps,[ST],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{scale_timetraps,Node,ST}|Ts],Spec) ->
+    STs = Spec#testspec.scale_timetraps,
+    STs1 = [{ref2node(Node,Spec#testspec.nodes),ST} |
+	    lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,STs)],
+    add_tests(Ts,Spec#testspec{scale_timetraps=STs1});
+add_tests([{scale_timetraps,ST}|Ts],Spec) ->
+    add_tests([{scale_timetraps,all_nodes,ST}|Ts],Spec);
 
 %% --- config ---
 add_tests([{config,all_nodes,Files}|Ts],Spec) ->
@@ -895,7 +925,3 @@ common_letters([L|Ls],Term,Count) ->
     end;
 common_letters([],_,Count) -> 
     Count.
-
-
-    
-	
