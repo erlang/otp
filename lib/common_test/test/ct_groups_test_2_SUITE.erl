@@ -60,7 +60,7 @@ all(doc) ->
     ["Run smoke tests of Common Test."];
 
 all(suite) -> 
-    [missing_conf].
+    [missing_conf, testspec_1].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -83,6 +83,25 @@ missing_conf(Config) when is_list(Config) ->
 			       ?config(priv_dir, Config)),
 
     TestEvents = events_to_check(missing_conf),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+testspec_1(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestSpec = filename:join(DataDir, "specs/groups_2.1.spec"),
+
+    {Opts,ERPid} = setup({spec,TestSpec}, Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(testspec_1,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(testspec_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 %%%-----------------------------------------------------------------
@@ -133,4 +152,7 @@ test_events(missing_conf) ->
      {?eh,test_stats,{4,0,{0,0}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
-    ].
+    ];
+
+test_events(testspec_1) ->
+    [].

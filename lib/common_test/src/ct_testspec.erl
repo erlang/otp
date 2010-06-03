@@ -624,6 +624,25 @@ add_tests([{suites,Node,Dir,Ss}|Ts],Spec) ->
 			   Ss,Tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
+%% --- groups ---
+%% Later make it possible to specify group execution properties
+%% that will override thse in the suite. Also make it possible
+%% create dynamic groups in specification, i.e. to group test cases
+%% by means of groups defined only in the test specification.
+add_tests([{groups,all_nodes,Dir,Suite,Gs}|Ts],Spec) ->
+    add_tests([{groups,list_nodes(Spec),Dir,Suite,Gs}|Ts],Spec);
+add_tests([{groups,Dir,Suite,Gs}|Ts],Spec) ->
+    add_tests([{groups,all_nodes,Dir,Suite,Gs}|Ts],Spec);
+add_tests([{groups,Nodes,Dir,Suite,Gs}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,groups,[Dir,Suite,Gs],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{groups,Node,Dir,Suite,Gs}|Ts],Spec) ->
+    Tests = Spec#testspec.tests,
+    Tests1 = insert_cases(ref2node(Node,Spec#testspec.nodes),
+			   ref2dir(Dir,Spec#testspec.alias),
+			   Suite,Gs,Tests),
+    add_tests(Ts,Spec#testspec{tests=Tests1});
+
 %% --- cases ---
 add_tests([{cases,all_nodes,Dir,Suite,Cs}|Ts],Spec) ->
     add_tests([{cases,list_nodes(Spec),Dir,Suite,Cs}|Ts],Spec);
@@ -652,6 +671,21 @@ add_tests([{skip_suites,Node,Dir,Ss,Cmt}|Ts],Spec) ->
     Tests1 = skip_suites(ref2node(Node,Spec#testspec.nodes),
 			 ref2dir(Dir,Spec#testspec.alias),
 			 Ss,Cmt,Tests),
+    add_tests(Ts,Spec#testspec{tests=Tests1});
+
+%% --- skip_groups ---
+add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
+    add_tests([{skip_groups,list_nodes(Spec),Dir,Suite,Gs,Cmt}|Ts],Spec);
+add_tests([{skip_groups,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
+    add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,Cmt}|Ts],Spec);
+add_tests([{skip_groups,Nodes,Dir,Suite,Gs,Cmt}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,skip_groups,[Dir,Suite,Gs,Cmt],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{skip_groups,Node,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
+    Tests = Spec#testspec.tests,
+    Tests1 = skip_cases(ref2node(Node,Spec#testspec.nodes),
+			ref2dir(Dir,Spec#testspec.alias),
+			Suite,Gs,Cmt,Tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- skip_cases ---
