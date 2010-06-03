@@ -137,6 +137,13 @@ find_executable(Config) when is_list(Config) ->
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
 	    ?line find_exe(Abin, "my_ascii", ".com", Path),
 	    ?line find_exe(Abin, "my_adb", ".bat", Path),
+	    %% OTP-3626 find names of executables given with extension
+	    ?line find_exe(Abin, "my_ar.exe", "", Path),
+	    ?line find_exe(Abin, "my_ascii.com", "", Path),
+	    ?line find_exe(Abin, "my_adb.bat", "", Path),
+	    ?line find_exe(Abin, "my_ar.EXE", "", Path),
+	    ?line find_exe(Abin, "my_ascii.COM", "", Path),
+	    ?line find_exe(Abin, "MY_ADB.BAT", "", Path),
 	    
 	    %% Search for programs in Abin (second element in PATH).
 	    ?line find_exe(Abin, "my_ar", ".exe", Path),
