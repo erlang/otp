@@ -19,12 +19,12 @@
 -module(epp_SUITE).
 -export([all/1]).
 
--export([rec_1/1, predef_mac/1, 
+-export([rec_1/1, predef_mac/1,
 	 upcase_mac/1, upcase_mac_1/1, upcase_mac_2/1,
 	 variable/1, variable_1/1, otp_4870/1, otp_4871/1, otp_5362/1,
          pmod/1, not_circular/1, skip_header/1, otp_6277/1, otp_7702/1,
          otp_8130/1, overload_mac/1, otp_8388/1, otp_8470/1, otp_8503/1,
-         otp_8562/1]).
+         otp_8562/1, otp_8665/1]).
 
 -export([epp_parse_erl_form/2]).
 
@@ -39,7 +39,7 @@
 -define(config(A,B),config(A,B)).
 %% -define(t, test_server).
 -define(t, io).
-config(priv_dir, _) ->    
+config(priv_dir, _) ->
     filename:absname("./epp_SUITE_priv");
 config(data_dir, _) ->
     filename:absname("./epp_SUITE_data").
@@ -64,7 +64,7 @@ all(doc) ->
 all(suite) ->
     [rec_1, upcase_mac, predef_mac, variable, otp_4870, otp_4871, otp_5362,
      pmod, not_circular, skip_header, otp_6277, otp_7702, otp_8130,
-     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562].
+     overload_mac, otp_8388, otp_8470, otp_8503, otp_8562, otp_8665].
 
 rec_1(doc) ->
     ["Recursive macros hang or crash epp (OTP-1398)."];
@@ -192,7 +192,7 @@ variable_1(Config) when is_list(Config) ->
     %% variable_1.erl includes variable_1_include.hrl and
     %% variable_1_include_dir.hrl.
     ?line {ok, List} = epp:parse_file(File, [], []),
-    ?line {value, {attribute,_,a,{value1,value2}}} = 
+    ?line {value, {attribute,_,a,{value1,value2}}} =
 	lists:keysearch(a,3,List),
     ok.
 
@@ -219,13 +219,13 @@ otp_4871(Config) when is_list(Config) ->
     %% Testing crash in erl_scan. Unfortunately there currently is
     %% no known way to crash erl_scan so it is emulated by killing the
     %% file io server. This assumes lots of things about how
-    %% the processes are started and how monitors are set up, 
+    %% the processes are started and how monitors are set up,
     %% so there are some sanity checks before killing.
     ?line {ok,Epp} = epp:open(File, []),
     timer:sleep(1),
     ?line {current_function,{epp,_,_}} = process_info(Epp, current_function),
     ?line {monitored_by,[Io]} = process_info(Epp, monitored_by),
-    ?line {current_function,{file_io_server,_,_}} = 
+    ?line {current_function,{file_io_server,_,_}} =
 	process_info(Io, current_function),
     ?line exit(Io, emulate_crash),
     timer:sleep(1),
@@ -302,7 +302,7 @@ otp_5362(Config) when is_list(Config) ->
     Back_hrl = [<<"
                   -file(\"">>,File_Back,<<"\", 2).
                  ">>],
-    
+
     ?line ok = file:write_file(File_Back, Back),
     ?line ok = file:write_file(File_Back_hrl, list_to_binary(Back_hrl)),
 
@@ -333,7 +333,7 @@ otp_5362(Config) when is_list(Config) ->
 
     ?line ok = file:write_file(File_Change, list_to_binary(Change)),
 
-    ?line {ok, change_5362, ChangeWarnings} = 
+    ?line {ok, change_5362, ChangeWarnings} =
         compile:file(File_Change, Copts),
     ?line true = message_compare(
                    [{File_Change,[{{1002,21},erl_lint,{unused_var,'B'}}]},
@@ -441,9 +441,9 @@ skip_header(Config) when is_list(Config) ->
                                   that should be skipped
                                   -module(epp_test_skip_header).
                                   -export([main/1]).
-                               
+
                                   main(_) -> ?MODULE.
-                               
+
                                   ">>),
     ?line {ok, Fd} = file:open(File, [read]),
     ?line io:get_line(Fd, ''),
@@ -494,9 +494,9 @@ otp_7702(Config) when is_list(Config) ->
                    t() ->
                        ?RECEIVE(foo, bar).">>,
     ?line ok = file:write_file(File, Contents),
-    ?line {ok, file_7702, []} = 
+    ?line {ok, file_7702, []} =
         compile:file(File, [debug_info,return,{outdir,Dir}]),
-    
+
     BeamFile = filename:join(Dir, "file_7702.beam"),
     {ok, AC} = beam_lib:chunks(BeamFile, [abstract_code]),
 
@@ -506,7 +506,7 @@ otp_7702(Config) when is_list(Config) ->
                   L
           end,
     Forms2 = [erl_lint:modify_line(Form, Fun) || Form <- Forms],
-    ?line 
+    ?line
         [{attribute,1,file,_},
          _,
          _,
@@ -637,7 +637,7 @@ otp_8130(Config) when is_list(Config) ->
 
          ],
     ?line [] = run(Config, Ts),
-          
+
     Cs = [{otp_8130_c1,
            <<"-define(M1(A), if\n"
              "A =:= 1 -> B;\n"
@@ -681,7 +681,7 @@ otp_8130(Config) when is_list(Config) ->
            <<"\n-include_lib(\"$apa/foo.hrl\").\n">>,
            {errors,[{{2,2},epp,{include,lib,"$apa/foo.hrl"}}],[]}},
 
-          
+
           {otp_8130_c9,
            <<"-define(S, ?S).\n"
              "t() -> ?S.\n">>,
@@ -775,7 +775,7 @@ otp_8130(Config) when is_list(Config) ->
 
     ?line Dir = ?config(priv_dir, Config),
     ?line File = filename:join(Dir, "otp_8130.erl"),
-    ?line ok = file:write_file(File, 
+    ?line ok = file:write_file(File,
                                "-module(otp_8130).\n"
                                "-define(a, 3.14).\n"
                                "t() -> ?a.\n"),
@@ -788,7 +788,7 @@ otp_8130(Config) when is_list(Config) ->
     ?line {eof,_} = epp:scan_erl_form(Epp),
     ?line ['BASE_MODULE','BASE_MODULE_STRING','BEAM','FILE','LINE',
            'MACHINE','MODULE','MODULE_STRING',a] = macs(Epp),
-    ?line epp:close(Epp),    
+    ?line epp:close(Epp),
 
     %% escript
     ModuleStr = "any_name",
@@ -815,7 +815,7 @@ otp_8130(Config) when is_list(Config) ->
             PreDefMacros = [{a,1},a],
             ?line {error,{redefine,a}} = epp:open(File, [], PreDefMacros)
     end(),
-            
+
     ?line {error,enoent} = epp:open("no such file", []),
     ?line {error,enoent} = epp:parse_file("no such file", [], []),
 
@@ -941,7 +941,7 @@ ifdef(Config) ->
            <<"\n-if.\n"
              "-endif.\n">>,
            {errors,[{{2,2},epp,{'NYI','if'}}],[]}},
-          
+
           {define_c7,
            <<"-ifndef(a).\n"
              "-elif.\n"
@@ -1197,6 +1197,18 @@ otp_8562(Config) when is_list(Config) ->
     ?line [] = compile(Config, Cs),
     ok.
 
+otp_8665(doc) ->
+    ["OTP-8665. Bugfix premature end."];
+otp_8665(suite) ->
+    [];
+otp_8665(Config) when is_list(Config) ->
+    Cs = [{otp_8562,
+           <<"-define(A, a)\n">>,
+           {errors,[{{1,54},epp,premature_end}],[]}}
+         ],
+    ?line [] = compile(Config, Cs),
+    ok.
+
 check(Config, Tests) ->
     eval_tests(Config, fun check_test/2, Tests).
 
@@ -1213,7 +1225,7 @@ eval_tests(Config, Fun, Tests) ->
                 case message_compare(E, Return) of
                     true ->
                         BadL;
-                    false -> 
+                    false ->
                         ?t:format("~nTest ~p failed. Expected~n  ~p~n"
                                   "but got~n  ~p~n", [N, E, Return]),
 			fail()
@@ -1228,9 +1240,9 @@ check_test(Config, Test) ->
     ?line File = filename:join(PrivDir, Filename),
     ?line ok = file:write_file(File, Test),
     ?line case epp:parse_file(File, [PrivDir], []) of
-              {ok,Forms} -> 
+              {ok,Forms} ->
                   [E || E={error,_} <- Forms];
-              {error,Error} -> 
+              {error,Error} ->
                   Error
           end.
 
@@ -1245,7 +1257,7 @@ compile_test(Config, Test0) ->
         {ok, Ws} -> warnings(File, Ws);
         Else -> Else
     end.
-            
+
 warnings(File, Ws) ->
     case lists:append([W || {F, W} <- Ws, F =:= File]) of
         [] -> [];
@@ -1289,7 +1301,7 @@ message_compare(T, T) ->
 message_compare(T1, T2) ->
     ln(T1) =:= T2.
 
-%% Replaces locations like {Line,Column} with Line. 
+%% Replaces locations like {Line,Column} with Line.
 ln({warnings,L}) ->
     {warnings,ln0(L)};
 ln({errors,EL,WL}) ->

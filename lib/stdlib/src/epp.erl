@@ -111,6 +111,8 @@ format_error({bad,W}) ->
     io_lib:format("badly formed '~s'", [W]);
 format_error(missing_parenthesis) ->
     io_lib:format("badly formed define: missing closing right parenthesis",[]);
+format_error(premature_end) ->
+    "premature end";
 format_error({call,What}) ->
     io_lib:format("illegal macro call '~s'",[What]);
 format_error({undefined,M,none}) ->
@@ -163,7 +165,7 @@ parse_file(Epp) ->
 		    case normalize_typed_record_fields(Fields) of
 			{typed, NewFields} ->
 			    [{attribute, La, record, {Record, NewFields}},
-			     {attribute, La, type, 
+			     {attribute, La, type,
 			      {{record, Record}, Fields, []}}
 			     |parse_file(Epp)];
 			not_typed ->
@@ -188,7 +190,7 @@ normalize_typed_record_fields([], NewFields, Typed) ->
 	true -> {typed, lists:reverse(NewFields)};
 	false -> not_typed
     end;
-normalize_typed_record_fields([{typed_record_field,Field,_}|Rest], 
+normalize_typed_record_fields([{typed_record_field,Field,_}|Rest],
 			      NewFields, _Typed) ->
     normalize_typed_record_fields(Rest, [Field|NewFields], true);
 normalize_typed_record_fields([Field|Rest], NewFields, Typed) ->
@@ -324,7 +326,7 @@ wait_req_scan(St) ->
 wait_req_skip(St, Sis) ->
     From = wait_request(St),
     skip_toks(From, St, Sis).
-	
+
 %% enter_file(Path, FileName, IncludeToken, From, EppState)
 %% leave_file(From, EppState)
 %%  Handle entering and leaving included files. Notify caller when the
@@ -380,16 +382,16 @@ file_name(N) when is_atom(N) ->
 
 leave_file(From, St) ->
     case St#epp.istk of
-	[I|Cis] -> 
+	[I|Cis] ->
 	    epp_reply(From,
-		      {error,{St#epp.location,epp, 
+		      {error,{St#epp.location,epp,
                               {illegal,"unterminated",I}}}),
 	    leave_file(wait_request(St),St#epp{istk=Cis});
 	[] ->
 	    case St#epp.sstk of
 		[OldSt|Sts] ->
 		    close_file(St),
-		    enter_file_reply(From, OldSt#epp.name, 
+		    enter_file_reply(From, OldSt#epp.name,
                                      OldSt#epp.location, OldSt#epp.location),
 		    Ms = dict:store({atom,'FILE'},
 				    {none,
@@ -491,9 +493,9 @@ scan_extends(_Ts, _As, Ms) -> Ms.
 
 %% scan_define(Tokens, DefineToken, From, EppState)
 
-scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',_Lc}|Toks], _Def, From, St)
+scan_define([{'(',_Lp},{Type,_Lm,M}=Mac,{',',Lc}|Toks], _Def, From, St)
   when Type =:= atom; Type =:= var ->
-    case catch macro_expansion(Toks) of
+    case catch macro_expansion(Toks, Lc) of
         Expansion when is_list(Expansion) ->
             case dict:find({atom,M}, St#epp.macs) of
                 {ok, Defs} when is_list(Defs) ->
@@ -608,7 +610,7 @@ scan_undef(_Toks, Undef, From, St) ->
 
 %% scan_include(Tokens, IncludeToken, From, St)
 
-scan_include([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc, 
+scan_include([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}], Inc,
 	     From, St) ->
     NewName = expand_var(NewName0),
     enter_file(St#epp.path, NewName, Inc, From, St);
@@ -644,7 +646,7 @@ scan_include_lib([{'(',_Llp},{string,_Lf,NewName0},{')',_Lrp},{dot,_Ld}],
 		    case file:open(LibName, [read]) of
 			{ok,NewF} ->
 			    ExtraPath = [filename:dirname(LibName)],
-			    wait_req_scan(enter_file2(NewF, LibName, From, 
+			    wait_req_scan(enter_file2(NewF, LibName, From,
                                                       St, Loc, ExtraPath));
 			{error,_E2} ->
 			    epp_reply(From,
@@ -773,7 +775,7 @@ scan_file(_Toks, Tf, From, St) ->
 
 new_location(Ln, Le, Lf) when is_integer(Lf) ->
     Ln+(Le-Lf);
-new_location(Ln, {Le,_}, {Lf,_}) -> 
+new_location(Ln, {Le,_}, {Lf,_}) ->
     {Ln+(Le-Lf),1}.
 
 %% skip_toks(From, EppState, SkipIstack)
@@ -814,22 +816,23 @@ skip_else(_Else, From, St, Sis) ->
     skip_toks(From, St, Sis).
 
 %% macro_pars(Tokens, ArgStack)
-%% macro_expansion(Tokens)
+%% macro_expansion(Tokens, Line)
 %%  Extract the macro parameters and the expansion from a macro definition.
 
-macro_pars([{')',_Lp}, {',',_Ld}|Ex], Args) ->
-    {ok, {lists:reverse(Args), macro_expansion(Ex)}};
-macro_pars([{var,_,Name}, {')',_Lp}, {',',_Ld}|Ex], Args) ->
+macro_pars([{')',_Lp}, {',',Ld}|Ex], Args) ->
+    {ok, {lists:reverse(Args), macro_expansion(Ex, Ld)}};
+macro_pars([{var,_,Name}, {')',_Lp}, {',',Ld}|Ex], Args) ->
     false = lists:member(Name, Args),		%Prolog is nice
-    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex)}};
+    {ok, {lists:reverse([Name|Args]), macro_expansion(Ex, Ld)}};
 macro_pars([{var,_L,Name}, {',',_}|Ts], Args) ->
-    false = lists:member(Name, Args),           
+    false = lists:member(Name, Args),
     macro_pars(Ts, [Name|Args]).
 
-macro_expansion([{')',_Lp},{dot,_Ld}]) -> [];
-macro_expansion([{dot,Ld}]) -> throw({error,Ld,missing_parenthesis});
-macro_expansion([T|Ts]) ->
-    [T|macro_expansion(Ts)].
+macro_expansion([{')',_Lp},{dot,_Ld}], _L0) -> [];
+macro_expansion([{dot,Ld}], _L0) -> throw({error,Ld,missing_parenthesis});
+macro_expansion([T|Ts], _L0) ->
+    [T|macro_expansion(Ts, element(2, T))];
+macro_expansion([], L0) -> throw({error,L0,premature_end}).
 
 %% expand_macros(Tokens, Macros)
 %% expand_macro(Tokens, MacroToken, RestTokens)
@@ -1084,11 +1087,11 @@ epp_reply(From, Rep) ->
 
 wait_epp_reply(Epp, Mref) ->
     receive
-	{epp_reply,Epp,Rep} -> 
+	{epp_reply,Epp,Rep} ->
 	    erlang:demonitor(Mref),
 	    receive {'DOWN',Mref,_,_,_} -> ok after 0 -> ok end,
 	    Rep;
-	{'DOWN',Mref,_,_,E} -> 
+	{'DOWN',Mref,_,_,E} ->
 	    receive {epp_reply,Epp,Rep} -> Rep
 	    after 0 -> exit(E)
 	    end
@@ -1145,7 +1148,7 @@ get_line({Line,_Column}) ->
 %% mainly aimed at yecc, the parser generator, which uses the -file
 %% attribute to get correct lines in messages referring to code
 %% supplied by the user (actions etc in .yrl files).
-%% 
+%%
 %% In a perfect world (read: perfectly implemented applications such
 %% as Xref, Cover, Debugger, etc.) it would not be necessary to
 %% distinguish -file attributes from epp and the input file. The
@@ -1165,7 +1168,7 @@ get_line({Line,_Column}) ->
 %% have been output by epp (corresponding to -include and
 %% -include_lib) are kept, but the user's -file attributes are
 %% removed. This seems sufficient for now.
-%% 
+%%
 %% It turns out to be difficult to distinguish -file attributes in the
 %% input file from the ones added by epp unless some action is taken.
 %% The (less than perfect) solution employed is to let epp assign
@@ -1177,7 +1180,7 @@ get_line({Line,_Column}) ->
 interpret_file_attribute(Forms) ->
     interpret_file_attr(Forms, 0, []).
 
-interpret_file_attr([{attribute,Loc,file,{File,Line}}=Form | Forms], 
+interpret_file_attr([{attribute,Loc,file,{File,Line}}=Form | Forms],
                     Delta, Fs) ->
     {line, L} = erl_scan:attributes_info(Loc, line),
     if
