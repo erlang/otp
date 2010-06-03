@@ -164,10 +164,10 @@ delete_default_config(Scope) ->
 update_config(Name, Config) ->
     call({update_config, {Name, Config}}).
 
-reload_config(KeyOrName)->
+reload_config(KeyOrName) ->
     call({reload_config, KeyOrName}).
 
-process_default_configs(Opts)->
+process_default_configs(Opts) ->
     case lists:keysearch(config, 1, Opts) of
 	{value,{_,Files=[File|_]}} when is_list(File) ->
 	    Files;
@@ -179,21 +179,21 @@ process_default_configs(Opts)->
 	    []
     end.
 
-process_user_configs(Opts, Acc)->
+process_user_configs(Opts, Acc) ->
     case lists:keytake(userconfig, 1, Opts) of
 	false->
 	    Acc;
 	{value, {userconfig, {Callback, []}}, NewOpts}->
 	    process_user_configs(NewOpts, [{Callback, []} | Acc]);
 	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when
-	    is_list(File)->
+	    is_list(File) ->
 		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
 	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when
-	    is_integer(C)->
+	    is_integer(C) ->
 		process_user_configs(NewOpts, [{Callback, [File]} | Acc])
     end.
 
-get_config_file_list(Opts)->
+get_config_file_list(Opts) ->
     DefaultConfigs = process_default_configs(Opts),
     CfgFiles =
 	if
@@ -206,16 +206,16 @@ get_config_file_list(Opts)->
     CfgFiles.
 
 read_config_files(Opts) ->
-    AddCallback = fun(CallBack, [])->
+    AddCallback = fun(CallBack, []) ->
 			[{CallBack, []}];
-		     (CallBack, [F|_]=Files) when is_integer(F)->
+		     (CallBack, [F|_]=Files) when is_integer(F) ->
 			[{CallBack, Files}];
-		     (CallBack, [F|_]=Files) when is_list(F)->
-			lists:map(fun(X)-> {CallBack, X} end, Files)
+		     (CallBack, [F|_]=Files) when is_list(F) ->
+			lists:map(fun(X) -> {CallBack, X} end, Files)
 		  end,
     ConfigFiles = case lists:keyfind(config, 1, Opts) of
 	{config, ConfigLists}->
-	    lists:foldr(fun({Callback,Files}, Acc)->
+	    lists:foldr(fun({Callback,Files}, Acc) ->
 				AddCallback(Callback,Files) ++ Acc
 			end,
 			[],
@@ -225,18 +225,18 @@ read_config_files(Opts) ->
     end,
     read_config_files_int(ConfigFiles, fun store_config/3).
 
-read_config_files_int([{Callback, File}|Files], FunToSave)->
+read_config_files_int([{Callback, File}|Files], FunToSave) ->
     case Callback:read_config(File) of
-	{ok, Config}->
+	{ok, Config} ->
 	    FunToSave(Config, Callback, File),
 	    read_config_files_int(Files, FunToSave);
 	{error, ErrorName, ErrorDetail}->
 	    {user_error, {ErrorName, File, ErrorDetail}}
     end;
-read_config_files_int([], _FunToSave)->
+read_config_files_int([], _FunToSave) ->
     ok.
 
-store_config(Config, Callback, File)->
+store_config(Config, Callback, File) ->
     [ets:insert(?attr_table,
 		#ct_conf{key=Key,
 			 value=Val,
@@ -246,35 +246,34 @@ store_config(Config, Callback, File)->
 			 default=false}) ||
 	{Key,Val} <- Config].
 
-keyfindall(Key, Pos, List)->
+keyfindall(Key, Pos, List) ->
     [E || E <- List, element(Pos, E) =:= Key].
 
-rewrite_config(Config, Callback, File)->
+rewrite_config(Config, Callback, File) ->
     OldRows = ets:match_object(?attr_table,
 				#ct_conf{handler=Callback,
 					 config=File,_='_'}),
     ets:match_delete(?attr_table,
 		     #ct_conf{handler=Callback,
 			      config=File,_='_'}),
-    Updater = fun({Key, Value})->
+    Updater = fun({Key, Value}) ->
 	case keyfindall(Key, #ct_conf.key, OldRows) of
 	    []->
 		ets:insert(?attr_table,
 			   #ct_conf{key=Key,
-				   value=Value,
-				   handler=Callback,
-				   config=File,
-				   ref=ct_util:ct_make_ref()});
+				    value=Value,
+				    handler=Callback,
+				    config=File,
+				    ref=ct_util:ct_make_ref()});
 	    RowsToUpdate ->
-		Inserter = fun(Row)->
-		    ets:insert(?attr_table,
-				Row#ct_conf{value=Value,
-					    ref=ct_util:ct_make_ref()})
-		end,
+		Inserter = fun(Row) ->
+				   ets:insert(?attr_table,
+					      Row#ct_conf{value=Value,
+							  ref=ct_util:ct_make_ref()})
+			   end,
 		lists:foreach(Inserter, RowsToUpdate)
 	end
-    end,
-
+	      end,
     [Updater({Key, Value})||{Key, Value}<-Config].
 
 set_config(Config,Default) ->
@@ -397,9 +396,9 @@ lookup_key(Key) ->
 			     [],
 			     [{{'$1','$2'}}]}]).
 
-lookup_handler_for_config({Key, _Subkey})->
+lookup_handler_for_config({Key, _Subkey}) ->
     lookup_handler_for_config(Key);
-lookup_handler_for_config(KeyOrName)->
+lookup_handler_for_config(KeyOrName) ->
     case lookup_handler_for_name(KeyOrName) of
 	[] ->
 	    lookup_handler_for_key(KeyOrName);
@@ -407,12 +406,12 @@ lookup_handler_for_config(KeyOrName)->
 	    Values
     end.
 
-lookup_handler_for_name(Name)->
+lookup_handler_for_name(Name) ->
     ets:select(?attr_table,[{#ct_conf{handler='$1',config='$2',name=Name,_='_'},
 			     [],
 			     [{{'$1','$2'}}]}]).
 
-lookup_handler_for_key(Key)->
+lookup_handler_for_key(Key) ->
     ets:select(?attr_table,[{#ct_conf{handler='$1',config='$2',key=Key,_='_'},
 			     [],
 			     [{{'$1','$2'}}]}]).
@@ -685,7 +684,7 @@ random_bytes(N) ->
 random_bytes_1(0, Acc) -> Acc;
 random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 
-check_callback_load(Callback)->
+check_callback_load(Callback) ->
     case code:is_loaded(Callback) of
 	{file, _Filename}->
 	     {ok, Callback};
@@ -698,16 +697,16 @@ check_callback_load(Callback)->
 	    end
     end.
 
-check_config_files(Configs)->
+check_config_files(Configs) ->
     ConfigChecker = fun
-	({Callback, [F|_R]=Files})->
+	({Callback, [F|_R]=Files}) ->
 	    case check_callback_load(Callback) of
 		{ok, Callback}->
 			if
-			    is_integer(F)->
+			    is_integer(F) ->
 				Callback:check_parameter(Files);
-			    is_list(F)->
-				lists:map(fun(File)->
+			    is_list(F) ->
+				lists:map(fun(File) ->
 				    Callback:check_parameter(File)
 				end,
 				Files)
@@ -715,7 +714,7 @@ check_config_files(Configs)->
 		{error, _}->
 		    {error, {callback, Callback}}
 	    end;
-	({Callback, []})->
+	({Callback, []}) ->
 	    case check_callback_load(Callback) of
 		{ok, Callback}->
 		     Callback:check_parameter([]);
@@ -725,46 +724,46 @@ check_config_files(Configs)->
     end,
     lists:keysearch(error, 1, lists:flatten(lists:map(ConfigChecker, Configs))).
 
-prepare_user_configs([ConfigString|UserConfigs], Acc, new)->
+prepare_user_configs([ConfigString|UserConfigs], Acc, new) ->
     prepare_user_configs(UserConfigs,
 			 [{list_to_atom(ConfigString), []}|Acc],
 			 cur);
-prepare_user_configs(["and"|UserConfigs], Acc, _)->
+prepare_user_configs(["and"|UserConfigs], Acc, _) ->
     prepare_user_configs(UserConfigs, Acc, new);
-prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur)->
+prepare_user_configs([ConfigString|UserConfigs], [{LastMod, LastList}|Acc], cur) ->
     prepare_user_configs(UserConfigs,
 			 [{LastMod, [ConfigString|LastList]}|Acc],
 			 cur);
-prepare_user_configs([], Acc, _)->
+prepare_user_configs([], Acc, _) ->
     Acc.
 
-prepare_config_list(Args)->
+prepare_config_list(Args) ->
     ConfigFiles = case lists:keysearch(ct_config, 1, Args) of
-	{value,{ct_config,Files}}->
-	    [{?ct_config_txt, Files}];
-	false->
-	    []
-    end,
+		      {value,{ct_config,Files}}->
+			  [{?ct_config_txt,[filename:absname(F) || F <- Files]}];
+		      false->
+			  []
+		  end,
     UserConfigs = case lists:keysearch(userconfig, 1, Args) of
-	{value,{userconfig,UserConfigFiles}}->
-	    prepare_user_configs(UserConfigFiles, [], new);
-	false->
-	    []
-    end,
+		      {value,{userconfig,UserConfigFiles}}->
+			  prepare_user_configs(UserConfigFiles, [], new);
+		      false->
+			  []
+		  end,
     ConfigFiles ++ UserConfigs.
 
 % TODO: add logging of the loaded configuration file to the CT FW log!!!
-add_config(Callback, [])->
+add_config(Callback, []) ->
     read_config_files_int([{Callback, []}], fun store_config/3);
-add_config(Callback, [File|_Files]=Config) when is_list(File)->
-    lists:foreach(fun(CfgStr)->
+add_config(Callback, [File|_Files]=Config) when is_list(File) ->
+    lists:foreach(fun(CfgStr) ->
 	read_config_files_int([{Callback, CfgStr}], fun store_config/3) end,
 	Config);
-add_config(Callback, [C|_]=Config) when is_integer(C)->
+add_config(Callback, [C|_]=Config) when is_integer(C) ->
     read_config_files_int([{Callback, Config}], fun store_config/3),
     ok.
 
-remove_config(Callback, Config)->
+remove_config(Callback, Config) ->
     ets:match_delete(?attr_table,
 		     #ct_conf{handler=Callback,
 			      config=Config,_='_'}),

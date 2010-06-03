@@ -958,7 +958,6 @@ job_proxy_msgloop() ->
 
 run_test_case_eval(Mod, Func, Args0, Name, Ref, RunInit,
 		   TimetrapData, TCCallback) ->
-
     put(test_server_multiply_timetraps,TimetrapData),
 
     {{Time,Value},Loc,Opts} =
@@ -1606,12 +1605,13 @@ timetrap_scale_factor() ->
 %%
 %% Creates a time trap, that will kill the calling process if the
 %% trap is not cancelled with timetrap_cancel/1, within Timeout milliseconds.
-
 timetrap(Timeout0) ->
     Timeout = time_ms(Timeout0),
     cancel_default_timetrap(),
     case get(test_server_multiply_timetraps) of
 	undefined -> timetrap1(Timeout, true);
+	{undefined,false} -> timetrap1(Timeout, false);
+	{undefined,_} -> timetrap1(Timeout, true);
 	{infinity,_} -> infinity;
 	{Int,Scale} -> timetrap1(Timeout*Int, Scale)
     end.

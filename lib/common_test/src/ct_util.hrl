@@ -36,6 +36,8 @@
 		   userconfig=[],
 		   event_handler=[],
 		   include=[],
+		   multiply_timetraps,
+		   scale_timetraps,
 		   alias=[],
 		   tests=[]}).
 
