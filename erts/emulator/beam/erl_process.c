@@ -2778,7 +2778,7 @@ erts_block_multi_scheduling(Process *p, ErtsProcLocks plocks, int on, int all)
 	res = ERTS_SCHDLR_SSPND_YIELD_RESTART; /* Yield */
     }
     else if (on) { /* ------ BLOCK ------ */
-	if (erts_is_multi_scheduling_blocked()) {
+	if (schdlr_sspnd.msb.procs) {
 	    plp = proclist_create(p);
 	    plp->next = schdlr_sspnd.msb.procs;
 	    schdlr_sspnd.msb.procs = plp;
@@ -2984,8 +2984,11 @@ erts_dbg_multi_scheduling_return_trap(Process *p, Eterm return_value)
 int
 erts_is_multi_scheduling_blocked(void)
 {
-    return (erts_smp_atomic_read(&schdlr_sspnd.msb.ongoing)
-	    && erts_smp_atomic_read(&schdlr_sspnd.active) == 1);
+    int res;
+    erts_smp_mtx_lock(&schdlr_sspnd.mtx);
+    res = schdlr_sspnd.msb.procs != NULL;
+    erts_smp_mtx_unlock(&schdlr_sspnd.mtx);
+    return res;
 }
 
 Eterm
@@ -2994,7 +2997,7 @@ erts_multi_scheduling_blockers(Process *p)
     Eterm res = NIL;
 
     erts_smp_mtx_lock(&schdlr_sspnd.mtx);
-    if (erts_is_multi_scheduling_blocked()) {
+    if (schdlr_sspnd.msb.procs) {
 	Eterm *hp, *hp_end;
 	ErtsProcList *plp1, *plp2;
 	Uint max_size;
