@@ -349,10 +349,12 @@ make_and_check_dummy() ->
 -define(DFLAG_ATOM_CACHE,2).
 -define(DFLAG_EXTENDED_REFERENCES,4).
 -define(DFLAG_EXTENDED_PIDS_PORTS,16#100).
+-define(DFLAG_NEW_FLOATS,16#800).
 -define(DFLAG_DIST_MONITOR,8).
 
 %% From R9 and forward extended references is compulsory
--define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS)).
+%% From 14 and forward new float is compulsory
+-define(COMPULSORY_DFLAGS, (?DFLAG_EXTENDED_REFERENCES bor ?DFLAG_EXTENDED_PIDS_PORTS bor ?DFLAG_NEW_FLOATS)).
 
 -define(shutdown(X), exit(X)).
 -define(int16(X), [((X) bsr 8) band 16#ff, (X) band 16#ff]).
