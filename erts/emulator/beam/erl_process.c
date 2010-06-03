@@ -180,6 +180,7 @@ static ErtsCpuBindData *scheduler2cpu_map;
 erts_smp_rwmtx_t erts_cpu_bind_rwmtx;
 
 typedef enum {
+    ERTS_CPU_BIND_UNDEFINED,
     ERTS_CPU_BIND_SPREAD,
     ERTS_CPU_BIND_PROCESSOR_SPREAD,
     ERTS_CPU_BIND_THREAD_SPREAD,
@@ -189,6 +190,9 @@ typedef enum {
     ERTS_CPU_BIND_NO_SPREAD,
     ERTS_CPU_BIND_NONE
 } ErtsCpuBindOrder;
+
+#define ERTS_CPU_BIND_DEFAULT_BIND \
+  ERTS_CPU_BIND_THREAD_NO_NODE_PROCESSOR_SPREAD
 
 ErtsCpuBindOrder cpu_bind_order;
 
@@ -3503,14 +3507,15 @@ erts_init_scheduler_bind_type(char *how)
     if (!system_cpudata && !user_cpudata)
 	return ERTS_INIT_SCHED_BIND_TYPE_ERROR_NO_CPU_TOPOLOGY;
 
-    if (sys_strcmp(how, "s") == 0)
+    if (sys_strcmp(how, "db") == 0)
+	cpu_bind_order = ERTS_CPU_BIND_DEFAULT_BIND;
+    else if (sys_strcmp(how, "s") == 0)
 	cpu_bind_order = ERTS_CPU_BIND_SPREAD;
     else if (sys_strcmp(how, "ps") == 0)
 	cpu_bind_order = ERTS_CPU_BIND_PROCESSOR_SPREAD;
     else if (sys_strcmp(how, "ts") == 0)
 	cpu_bind_order = ERTS_CPU_BIND_THREAD_SPREAD;
-    else if (sys_strcmp(how, "db") == 0
-	     || sys_strcmp(how, "tnnps") == 0)
+    else if (sys_strcmp(how, "tnnps") == 0)
 	cpu_bind_order = ERTS_CPU_BIND_THREAD_NO_NODE_PROCESSOR_SPREAD;
     else if (sys_strcmp(how, "nnps") == 0)
 	cpu_bind_order = ERTS_CPU_BIND_NO_NODE_PROCESSOR_SPREAD;
@@ -4153,14 +4158,15 @@ erts_bind_schedulers(Process *c_p, Eterm how)
 
 	old_cpu_bind_order = cpu_bind_order;
 
-	if (ERTS_IS_ATOM_STR("spread", how))
+	if (ERTS_IS_ATOM_STR("default_bind", how))
+	    cpu_bind_order = ERTS_CPU_BIND_DEFAULT_BIND;
+	else if (ERTS_IS_ATOM_STR("spread", how))
 	    cpu_bind_order = ERTS_CPU_BIND_SPREAD;
 	else if (ERTS_IS_ATOM_STR("processor_spread", how))
 	    cpu_bind_order = ERTS_CPU_BIND_PROCESSOR_SPREAD;
 	else if (ERTS_IS_ATOM_STR("thread_spread", how))
 	    cpu_bind_order = ERTS_CPU_BIND_THREAD_SPREAD;
-	else if (ERTS_IS_ATOM_STR("default_bind", how)
-		 || ERTS_IS_ATOM_STR("thread_no_node_processor_spread", how))
+	else if (ERTS_IS_ATOM_STR("thread_no_node_processor_spread", how))
 	    cpu_bind_order = ERTS_CPU_BIND_THREAD_NO_NODE_PROCESSOR_SPREAD;
 	else if (ERTS_IS_ATOM_STR("no_node_processor_spread", how))
 	    cpu_bind_order = ERTS_CPU_BIND_NO_NODE_PROCESSOR_SPREAD;
@@ -4206,14 +4212,15 @@ erts_fake_scheduler_bindings(Process *p, Eterm how)
     int cpudata_size;
     Eterm res;
 
-    if (ERTS_IS_ATOM_STR("spread", how))
+    if (ERTS_IS_ATOM_STR("default_bind", how))
+	fake_cpu_bind_order = ERTS_CPU_BIND_DEFAULT_BIND;
+    else if (ERTS_IS_ATOM_STR("spread", how))
 	fake_cpu_bind_order = ERTS_CPU_BIND_SPREAD;
     else if (ERTS_IS_ATOM_STR("processor_spread", how))
 	fake_cpu_bind_order = ERTS_CPU_BIND_PROCESSOR_SPREAD;
     else if (ERTS_IS_ATOM_STR("thread_spread", how))
 	fake_cpu_bind_order = ERTS_CPU_BIND_THREAD_SPREAD;
-    else if (ERTS_IS_ATOM_STR("default_bind", how)
-	     || ERTS_IS_ATOM_STR("thread_no_node_processor_spread", how))
+    else if (ERTS_IS_ATOM_STR("thread_no_node_processor_spread", how))
 	fake_cpu_bind_order = ERTS_CPU_BIND_THREAD_NO_NODE_PROCESSOR_SPREAD;
     else if (ERTS_IS_ATOM_STR("no_node_processor_spread", how))
 	fake_cpu_bind_order = ERTS_CPU_BIND_NO_NODE_PROCESSOR_SPREAD;
@@ -4438,7 +4445,7 @@ early_cpu_bind_init(void)
 				(sizeof(erts_cpu_topology_t)
 				 * system_cpudata_size));
 
-    cpu_bind_order = ERTS_CPU_BIND_NONE;
+    cpu_bind_order = ERTS_CPU_BIND_UNDEFINED;
 
     if (!erts_get_cpu_topology(erts_cpuinfo, system_cpudata)
 	|| ERTS_INIT_CPU_TOPOLOGY_OK != verify_topology(system_cpudata,
@@ -4462,6 +4469,17 @@ late_cpu_bind_init(void)
     for (ix = 1; ix <= erts_no_schedulers; ix++) {
 	scheduler2cpu_map[ix].bind_id = -1;
 	scheduler2cpu_map[ix].bound_id = -1;
+    }
+
+    if (cpu_bind_order == ERTS_CPU_BIND_UNDEFINED) {
+	int ncpus = erts_get_cpu_configured(erts_cpuinfo);
+	if (ncpus < 1 || erts_no_schedulers < ncpus)
+	    cpu_bind_order = ERTS_CPU_BIND_NONE;
+	else
+	    cpu_bind_order = ((system_cpudata || user_cpudata)
+			      && (erts_bind_to_cpu(erts_cpuinfo, -1) != -ENOTSUP)
+			      ? ERTS_CPU_BIND_DEFAULT_BIND
+			      : ERTS_CPU_BIND_NONE);
     }
 
     if (cpu_bind_order != ERTS_CPU_BIND_NONE) {
