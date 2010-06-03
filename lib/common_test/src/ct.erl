@@ -139,7 +139,7 @@ run(TestDirs) ->
 %%% @spec run_test(Opts) -> Result
 %%%   Opts = [OptTuples]
 %%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
-%%%               {userconfig, Callback, CfgFiles} |
+%%%               {userconfig, UserConfig} |
 %%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} |
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
 %%%               {silent_connections,Conns} | {cover,CoverSpecFile} | 
@@ -149,6 +149,9 @@ run(TestDirs) ->
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {basic_html,Bool}
 %%%   CfgFiles = [string()] | string()
+%%%   UserConfig = [{CallbackMod,CfgStrings}] | {CallbackMod,CfgStrings}
+%%%   CallbackMod = atom()
+%%%   CfgStrings = [string()] | string()
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | string()
 %%%   Cases = [atom()] | atom()

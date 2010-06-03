@@ -78,6 +78,9 @@ script_start() ->
 				(_) -> true end, Init),
     Args = case application:get_env(common_test, run_test_start_opts) of
 	       {ok,EnvStartOpts} ->
+		   %%! --- Mon May 31 22:59:29 2010 --- peppe was here!
+		   io:format(user, "~nEnv1:~n~p~n~n~p~n", [EnvStartOpts,opts2args(EnvStartOpts)]),
+
 		   merge_arguments(CtArgs ++ opts2args(EnvStartOpts));
 	       _ ->
 		   merge_arguments(CtArgs)
@@ -146,12 +149,10 @@ script_start1(Parent, Args) ->
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
     MultTT = get_start_opt(multiply_timetraps, fun(MT) -> MT end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps, fun(CT) -> CT end, false, Args),
-    EvHandlers = get_start_opt(event_handler,
-			       fun(Handlers) ->
-				       lists:map(fun(H) ->
-							 {list_to_atom(H),[]}
-						 end, Handlers) end,
-			       [], Args),
+    EvHandlers = event_handler_args2opts(Args),
+
+    %%! --- Mon May 31 23:16:45 2010 --- peppe was here!
+    io:format(user, "~nEvHandlers = ~p~n~n", [EvHandlers]),
 
     %% check flags and set corresponding application env variables
 
@@ -505,7 +506,10 @@ install(Opts, LogDir) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    VarFile = variables_file_name(LogDir),
+
+	    %%! --- Tue Jun  1 00:20:33 2010 --- peppe was here!
 	    io:format("Varfile = ~p~n", [VarFile]),
+
 	    case file:open(VarFile, [write]) of
 		{ok,Fd} ->
 		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- Opts],
@@ -598,6 +602,10 @@ run_test1(StartOpts) ->
 				    []
 			    end, Hs))
 	end,
+
+    %%! --- Mon May 31 23:16:45 2010 --- peppe was here!
+    io:format("~nEvHandlers = ~p~n~n", [EvHandlers]),
+    io:format(user, "~nEvHandlers = ~p~n~n", [EvHandlers]),
 
     %% silent connections
     SilentConns = get_start_opt(silent_connections,
@@ -777,7 +785,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
-    case lists:keysearch(dir, 1, Opts) of
+    case lists:keysearch(dir, 1, StartOpts) of
 	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
 	                              length(Dirs)>1 ->
 	    %% multiple dirs (no suite)
@@ -790,11 +798,11 @@ run_dir(Opts = #opts{logdir = LogDir,
 		     (A) ->
 			  {".",A}
 		  end,
-	    case lists:keysearch(suite, 1, Opts) of
+	    case lists:keysearch(suite, 1, StartOpts) of
 		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
 		    {Dir,Mod} = S2M(Suite),
-		    case listify(proplists:get_value(group, Opts, [])) ++
-			 listify(proplists:get_value(testcase, Opts, [])) of
+		    case listify(proplists:get_value(group, StartOpts, [])) ++
+			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
 			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
 			GsAndCs ->
@@ -806,13 +814,13 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    exit(no_tests_specified)
 	    end;
 	{value,{_,Dir}} ->
-	    case lists:keysearch(suite, 1, Opts) of
+	    case lists:keysearch(suite, 1, StartOpts) of
 		{value,{_,Suite}} when is_integer(hd(Suite)) ; is_atom(Suite) ->
 		    Mod = if is_atom(Suite) -> Suite;
 			     true -> list_to_atom(Suite)
 			  end,
-		    case listify(proplists:get_value(group, Opts, [])) ++
-			 listify(proplists:get_value(testcase, Opts, [])) of
+		    case listify(proplists:get_value(group, StartOpts, [])) ++
+			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
 			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
 			GsAndCs ->
@@ -1028,7 +1036,7 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
 	    CoverFile ->
 		Opts#opts{cover = CoverFile}
 	end,
-    do_run(Tests, [], Opts1#opts{tests = Tests, logdir = LogDir}, []).
+    do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
 
 do_run(Tests, Skip, Opts, Args) ->
     #opts{cover = Cover} = Opts,
@@ -1759,46 +1767,29 @@ log_ts_names(Specs) ->
 		[lists:flatten(List)]).
 
 merge_arguments(Args) ->
-    case proplists:get_value(ct_ignore, Args) of
-	undefined ->
-	    merge_arguments(Args, [], []);
-	Ignore ->
-	    merge_arguments(Args, [], [list_to_atom(I) || I <- Ignore])
-    end.
+    merge_arguments(Args, []).
 
-merge_arguments([LogDir={logdir,_}|Args], Merged, Ignore) ->
-    case lists:member(logdir, Ignore) of
-	true ->
-	    merge_arguments(Args, Merged, Ignore);
-	false ->
-	    merge_arguments(Args, handle_arg(replace, LogDir, Merged), Ignore)
-    end;
-merge_arguments([CoverFile={cover,_}|Args], Merged, Ignore) ->
-    case lists:member(cover, Ignore) of
-	true ->
-	    merge_arguments(Args, Merged, Ignore);
-	false ->
-	    merge_arguments(Args, handle_arg(replace, CoverFile, Merged), Ignore)
-    end;
-merge_arguments([{'case',TC}|Args], Merged, Ignore) ->
-    case lists:member('case', Ignore) of
-	true ->
-	    merge_arguments(Args, Merged, Ignore);
-	false ->
-	    merge_arguments(Args, handle_arg(merge, {testcase,TC}, Merged), Ignore)
-    end;
-merge_arguments([Arg={Opt,_}|Args], Merged, Ignore) ->
-    case lists:member(Opt, Ignore) of
-	true ->
-	    merge_arguments(Args, Merged, Ignore);
-	false ->
-	    merge_arguments(Args, handle_arg(merge, Arg, Merged), Ignore)
-    end;
-merge_arguments([], Merged, _Ignore) ->
+merge_arguments([LogDir={logdir,_}|Args], Merged) ->
+    merge_arguments(Args, handle_arg(replace, LogDir, Merged));
+
+merge_arguments([CoverFile={cover,_}|Args], Merged) ->
+    merge_arguments(Args, handle_arg(replace, CoverFile, Merged));
+
+merge_arguments([{'case',TC}|Args], Merged) ->
+    merge_arguments(Args, handle_arg(merge, {testcase,TC}, Merged));
+
+merge_arguments([Arg|Args], Merged) ->
+    merge_arguments(Args, handle_arg(merge, Arg, Merged));
+
+merge_arguments([], Merged) ->
     Merged.
 
 handle_arg(replace, {Key,Elems}, [{Key,_}|Merged]) ->
     [{Key,Elems}|Merged];
+handle_arg(merge, {event_handler_init,Elems}, [{event_handler_init,PrevElems}|Merged]) ->
+    [{event_handler_init,PrevElems++["add"|Elems]}|Merged];
+handle_arg(merge, {userconfig,Elems}, [{userconfig,PrevElems}|Merged]) ->
+    [{userconfig,PrevElems++["add"|Elems]}|Merged];
 handle_arg(merge, {Key,Elems}, [{Key,PrevElems}|Merged]) ->
     [{Key,PrevElems++Elems}|Merged];
 handle_arg(Op, Arg, [Other|Merged]) ->
@@ -1823,12 +1814,47 @@ get_start_opt(Key, IfExists, IfNotExists, Args) ->
 	    IfNotExists
     end.
 
+event_handler_args2opts(Args) ->
+    case proplists:get_value(event_handler, Args) of
+	undefined ->
+	    event_handler_args2opts([], Args);
+	EHs ->
+	    event_handler_args2opts([{list_to_atom(EH),[]} || EH <- EHs], Args)
+    end.
+event_handler_args2opts(Default, Args) ->
+    case proplists:get_value(event_handler_init, Args) of
+	undefined ->
+	    Default;
+	EHs ->
+	    event_handler_init_args2opts(EHs)
+    end.
+event_handler_init_args2opts([EH, Arg, "and" | EHs]) ->
+    [{list_to_atom(EH),lists:flatten(io_lib:format("~s",[Arg]))} |
+     event_handler_init_args2opts(EHs)];
+event_handler_init_args2opts([EH, Arg]) ->
+    [{list_to_atom(EH),lists:flatten(io_lib:format("~s",[Arg]))}];
+event_handler_init_args2opts([]) ->
+    [].
+
 %% this function translates ct:run_test/1 start options
 %% to run_test start arguments (on the init arguments format) -
 %% this is useful mainly for testing the ct_run start functions
 opts2args(EnvStartOpts) ->
     lists:flatmap(fun({config,CfgFiles}) ->
-			  [{ct_config,CfgFiles}];
+			  [{ct_config,[CfgFiles]}];
+		     ({userconfig,{CBM,CfgStr=[X|_]}}) when is_integer(X) ->
+			  [{userconfig,[atom_to_list(CBM),CfgStr]}];
+		     ({userconfig,{CBM,CfgStrs}}) when is_list(CfgStrs) ->
+			  [{userconfig,[atom_to_list(CBM) | CfgStrs]}];
+		     ({userconfig,UserCfg}) when is_list(UserCfg) ->
+			  Strs =
+			      lists:map(fun({CBM,CfgStr=[X|_]}) when is_integer(X) ->
+						[atom_to_list(CBM),CfgStr,"and"];
+					   ({CBM,CfgStrs}) when is_list(CfgStrs) ->
+						[atom_to_list(CBM) | CfgStrs] ++ ["and"]
+					end, UserCfg),
+			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
+			  [{userconfig,lists:reverse(StrsR)}];
 		     ({testcase,Cases}) ->
 			  [{'case',[atom_to_list(C) || C <- Cases]}];
 		     ({'case',Cases}) ->
@@ -1850,13 +1876,37 @@ opts2args(EnvStartOpts) ->
 		     ({force_stop,false}) ->
 			  [];
 		     ({decrypt,{key,Key}}) ->
-			  [{ct_decrypt_key,Key}];
+			  [{ct_decrypt_key,[Key]}];
 		     ({decrypt,{file,File}}) ->
-			  [{ct_decrypt_file,File}];
+			  [{ct_decrypt_file,[File]}];
 		     ({basic_html,true}) ->
 			  ({basic_html,[]});
 		     ({basic_html,false}) ->
 			  [];
+		     ({event_handler,EH}) when is_atom(EH) ->
+			  [{event_handler,[atom_to_list(EH)]}];
+		     ({event_handler,EHs}) when is_list(EHs) ->
+			  [{event_handler,[atom_to_list(EH) || EH <- EHs]}];
+		     ({event_handler,{EH,Arg}}) when is_atom(EH) ->
+			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  [{event_handler_init,[atom_to_list(EH),ArgStr]}];
+		     ({event_handler,{EHs,Arg}}) when is_list(EHs) ->
+			  ArgStr = lists:flatten(io_lib:format("~p", [Arg])),
+			  Strs = lists:map(fun(EH) ->
+						   [atom_to_list(EH),ArgStr,"and"]
+					   end, EHs),
+			  [_LastAnd|StrsR] = lists:reverse(lists:flatten(Strs)),
+			  [{event_handler_init,lists:reverse(StrsR)}];
+		     ({Opt,As=[A|_]}) when is_atom(A) ->
+			  [{Opt,[atom_to_list(Atom) || Atom <- As]}];
+		     ({Opt,Strs=[S|_]}) when is_list(S) ->
+			  [{Opt,[Strs]}];
+		     ({Opt,A}) when is_atom(A) ->
+			  [{Opt,[atom_to_list(A)]}];
+		     ({Opt,I}) when is_integer(I) ->
+			  [{Opt,[integer_to_list(I)]}];
+		     ({Opt,S}) when is_list(S) ->
+			  [{Opt,[S]}];
 		     (Opt) ->
 			  Opt
 		  end, EnvStartOpts).

@@ -181,15 +181,22 @@ process_default_configs(Opts) ->
 
 process_user_configs(Opts, Acc) ->
     case lists:keytake(userconfig, 1, Opts) of
-	false->
-	    Acc;
-	{value, {userconfig, {Callback, []}}, NewOpts}->
+	false ->
+	    lists:reverse(Acc);
+	{value, {userconfig, Config=[{_,_}|_]}, NewOpts} ->
+	    Acc1 = lists:map(fun({_Callback, []}=Cfg) ->
+				     Cfg;
+				({Callback, Files=[File|_]}) when is_list(File) ->
+				     {Callback, Files};
+				({Callback, File=[C|_]}) when is_integer(C) ->
+				     {Callback, [File]}
+			     end, Config),
+	    process_user_configs(NewOpts, lists:reverse(Acc1)++Acc);
+	{value, {userconfig, {Callback, []}}, NewOpts} ->
 	    process_user_configs(NewOpts, [{Callback, []} | Acc]);
-	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when
-	    is_list(File) ->
+	{value, {userconfig, {Callback, Files=[File|_]}}, NewOpts} when is_list(File) ->
 		process_user_configs(NewOpts, [{Callback, Files} | Acc]);
-	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when
-	    is_integer(C) ->
+	{value, {userconfig, {Callback, File=[C|_]}}, NewOpts} when is_integer(C) ->
 		process_user_configs(NewOpts, [{Callback, [File]} | Acc])
     end.
 

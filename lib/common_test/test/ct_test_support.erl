@@ -28,7 +28,7 @@
 
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
 	 init_per_testcase/2, end_per_testcase/2, write_testspec/3, 
-	 run/4, get_opts/1, wait_for_ct_stop/1]).
+	 run/2, run/4, get_opts/1, wait_for_ct_stop/1]).
 
 -export([handle_event/2, start_event_receiver/1, get_events/2,
 	 verify_events/3, reformat/2, log_events/3]).
@@ -172,6 +172,23 @@ get_opts(Config) ->
 
 %%%-----------------------------------------------------------------
 %%% 
+run(Opts, Config) ->
+    CTNode = ?config(ct_node, Config),
+    Level = ?config(trace_level, Config),
+    %% use ct interface
+    test_server:format(Level, "Calling ct:run_test(~p) on ~p~n",
+		       [Opts, CTNode]),
+    Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
+
+    %% use run_test interface (simulated)
+    test_server:format(Level, "Saving start opts on ~p: ~p~n", [CTNode,Opts]),
+    rpc:call(CTNode, application, set_env, [common_test, run_test_start_opts, Opts]),
+    test_server:format(Level, "Calling ct_run:script_start() on ~p~n", [CTNode]),
+    Result2 = rpc:call(CTNode, ct_run, script_start, []),
+
+   {Result1,Result2}.
+
+
 run(M, F, A, Config) ->
     CTNode = ?config(ct_node, Config),
     Level = ?config(trace_level, Config),

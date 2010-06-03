@@ -162,7 +162,7 @@ dir1(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
 
@@ -191,7 +191,7 @@ dir2(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -221,7 +221,7 @@ dir1_2(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -251,7 +251,7 @@ suite11(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -280,7 +280,7 @@ suite21(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -311,7 +311,7 @@ suite11_21(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -342,7 +342,7 @@ tc111(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -372,7 +372,7 @@ tc211(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
 
     Events = ct_test_support:get_events(ERPid, Config),
     
@@ -403,7 +403,7 @@ tc111_112(Config) when is_list(Config) ->
 
     ERPid = ct_test_support:start_event_receiver(Config),
 
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),
+    {ok,ok} = ct_test_support:run(Opts, Config),
     
     Events = ct_test_support:get_events(ERPid, Config),
     

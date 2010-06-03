@@ -44,8 +44,20 @@
 %% Description: Whenever a new event handler is added to an event manager,
 %% this function is called to initialize the event handler.
 %%--------------------------------------------------------------------
+init(String = [X|_]) when is_integer(X) ->
+    case erl_scan:string(String++".") of
+	{ok,Ts,_} ->
+	    case erl_parse:parse_term(Ts) of
+		{ok,Args} ->
+		    init(Args);
+		_ ->
+		    init(String)
+	    end;
+	_ ->
+	    init(String)
+    end;
+
 init(Args) ->
-    
     S1 = case lists:keysearch(cbm, 1, Args) of
 	     {_,{cbm,CBM}} ->
 		 #state{cbm=CBM};
@@ -58,7 +70,8 @@ init(Args) ->
 	     _ ->
 		 S1
 	 end,
-    print(S2#state.trace_level, "Event Handler ~w started!~n", [?MODULE]),
+    print(S2#state.trace_level, "Event Handler ~w started with ~p~n",
+	  [?MODULE,Args]),
     {ok,S2}.
 
 %%--------------------------------------------------------------------
