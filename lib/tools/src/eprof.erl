@@ -129,42 +129,6 @@ init([]) ->
 
 %% analyze
 
-sum_bp_total_n_us(Mfas) ->
-    lists:foldl(fun ({_, {Ci,Usi}}, {Co, Uso}) -> {Co + Ci, Uso + Usi} end, {0,0}, Mfas).
-
-string_bp_mfa(Mfas, Tus) -> string_bp_mfa(Mfas, Tus, {0,0,0,0,0}, []).
-string_bp_mfa([], _, Ws, Strings) -> {Ws, lists:reverse(Strings)};
-string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
-	Smfa   = s(Mfa),
-	Scount = s(Count),
-	Stime  = s(Time),
-	Sperc  = s("~.2f", [100*(Time/Tus)]),
-	Stpc   = s("~.2f", [Time/Count]),
-
-	string_bp_mfa(Mfas, Tus, {
-		erlang:max(MfaW,  length(Smfa)),
-		erlang:max(CountW,length(Scount)),
-		erlang:max(PercW, length(Sperc)),
-		erlang:max(TimeW, length(Stime)),
-		erlang:max(TpCW,  length(Stpc))
-	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
-
-print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
-    Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(thresholds, Opts)),
-    {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
-    Ws = {
-	erlang:max(length("FUNCTION"), MfaW),
-	erlang:max(length("CALLS"), CountW),
-	erlang:max(length("  %"), PercW),
-	erlang:max(length("TIME"), TimeW),
-	erlang:max(length("uS / CALLS"), TpCW)
-    },
-    print(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    print(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
-
-    lists:foreach(fun (String) -> print(Fd, Ws, String) end, Strs),
-    ok.
-
 handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
     {reply, nothing_to_analyze, S};
 
@@ -187,7 +151,7 @@ handle_call({analyze, Type, _Opts}, _, S) ->
 
 %% profile
 
-handle_call({profile, _Rootset, _Pattern, _M,_F,_A}, _From, #state{ profiling = true } = S)->
+handle_call({profile, _Rootset, _Pattern, _M,_F,_A}, _From, #state{ profiling = true } = S) ->
     {reply, {error, already_profiling}, S};
 
 handle_call({profile, Rootset, Pattern, M,F,A}, From, #state{fd = Fd } = S) ->
@@ -213,6 +177,9 @@ handle_call({profile, Rootset, Pattern, M,F,A}, From, #state{fd = Fd } = S) ->
 	    exit(Pid, kill),
 	    {reply, error, #state{ fd = Fd}}
     end;
+
+handle_call({profile, _Rootset, _Pattern}, _From, #state{ profiling = true } = S) ->
+    {reply, {error, already_profiling}, S};
 
 handle_call({profile, Rootset, Pattern}, From, #state{ fd = Fd } = S) ->
 
@@ -443,18 +410,22 @@ collect_bpdfp(Mfa, Tree, Data) ->
     end, {0,0, Tree}, Data).
 
 %% manipulators
-
-sort_mfa(Bpfs, ascending) when is_list(Bpfs) ->
+sort_mfa(Bpfs, mfa) when is_list(Bpfs) ->
     lists:sort(fun
-	    ({_,{_,A}}, {_,{_,B}}) when A > B -> true;
+	    ({A,_}, {B,_}) when A < B -> true;
 	    (_, _) -> false
 	end, Bpfs);
-sort_mfa(Bpfs, descending) when is_list(Bpfs) ->
+sort_mfa(Bpfs, time) when is_list(Bpfs) ->
+    lists:sort(fun
+	    ({_,{A,_}}, {_,{B,_}}) when A < B -> true;
+	    (_, _) -> false
+	end, Bpfs);
+sort_mfa(Bpfs, calls) when is_list(Bpfs) ->
     lists:sort(fun
 	    ({_,{_,A}}, {_,{_,B}}) when A < B -> true;
 	    (_, _) -> false
 	end, Bpfs);
-sort_mfa(Bpfs, _) when is_list(Bpfs) -> sort_mfa(Bpfs, ascending).
+sort_mfa(Bpfs, _) when is_list(Bpfs) -> sort_mfa(Bpfs, calls).
 
 filter_mfa(Bpfs, Ts) when is_list(Ts) ->
     filter_mfa(Bpfs, [], proplists:get_value(calls, Ts, 0), proplists:get_value(time, Ts, 0));
@@ -463,7 +434,43 @@ filter_mfa([], Out, _, _) -> lists:reverse(Out);
 filter_mfa([{_, {C, T}}=Bpf|Bpfs], Out, Ct, Tt) when C >= Ct, T >= Tt -> filter_mfa(Bpfs, [Bpf|Out], Ct, Tt);
 filter_mfa([_|Bpfs], Out, Ct, Tt) -> filter_mfa(Bpfs, Out, Ct, Tt).
 
+sum_bp_total_n_us(Mfas) ->
+    lists:foldl(fun ({_, {Ci,Usi}}, {Co, Uso}) -> {Co + Ci, Uso + Usi} end, {0,0}, Mfas).
+
 %% strings and format
+
+string_bp_mfa(Mfas, Tus) -> string_bp_mfa(Mfas, Tus, {0,0,0,0,0}, []).
+string_bp_mfa([], _, Ws, Strings) -> {Ws, lists:reverse(Strings)};
+string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
+	Smfa   = s(Mfa),
+	Scount = s(Count),
+	Stime  = s(Time),
+	Sperc  = s("~.2f", [100*(Time/Tus)]),
+	Stpc   = s("~.2f", [Time/Count]),
+
+	string_bp_mfa(Mfas, Tus, {
+		erlang:max(MfaW,  length(Smfa)),
+		erlang:max(CountW,length(Scount)),
+		erlang:max(PercW, length(Sperc)),
+		erlang:max(TimeW, length(Stime)),
+		erlang:max(TpCW,  length(Stpc))
+	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
+
+print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
+    Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(filter, Opts)),
+    {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
+    Ws = {
+	erlang:max(length("FUNCTION"), MfaW),
+	erlang:max(length("CALLS"), CountW),
+	erlang:max(length("  %"), PercW),
+	erlang:max(length("TIME"), TimeW),
+	erlang:max(length("uS / CALLS"), TpCW)
+    },
+    print(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
+    print(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
+
+    lists:foreach(fun (String) -> print(Fd, Ws, String) end, Strs),
+    ok.
 
 s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
 s(Term) -> s("~p", [Term]).
