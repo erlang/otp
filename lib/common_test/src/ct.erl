@@ -64,7 +64,8 @@
 	 print/1, print/2, print/3,
 	 pal/1, pal/2, pal/3,
 	 fail/1, comment/1,
-	 testcases/2, userdata/2, userdata/3]).
+	 testcases/2, userdata/2, userdata/3,
+	 sleep/1]).
 
 %% New API for manipulating with config handlers
 -export([add_config/2, remove_config/2]).
@@ -143,8 +144,9 @@ run(TestDirs) ->
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
 %%%               {silent_connections,Conns} | {cover,CoverSpecFile} | 
 %%%               {step,StepOpts} | {event_handler,EventHandlers} | {include,InclDirs} | 
-%%%               {auto_compile,Bool} | {repeat,N} | {duration,DurTime} | 
-%%%               {until,StopTime} | {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
+%%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
+%%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
+%%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {basic_html,Bool}
 %%%   CfgFiles = [string()] | string()
 %%%   TestDirs = [string()] | string()
@@ -161,6 +163,7 @@ run(TestDirs) ->
 %%%   EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
 %%%   InitArgs = [term()]
 %%%   InclDirs = [string()] | string()
+%%%   M = integer()
 %%%   N = integer()
 %%%   DurTime = string(HHMMSS)
 %%%   StopTime = string(YYMoMoDDHHMMSS) | string(HHMMSS)
@@ -812,8 +815,7 @@ decrypt_config_file(EncryptFileName, TargetFileName, KeyOrFile) ->
 
 
 %%%-----------------------------------------------------------------
-%%% @spec add_config(Callback, Config) ->
-%%%                                       ok | {error, Reason}
+%%% @spec add_config(Callback, Config) -> ok | {error, Reason}
 %%%       Callback = atom()
 %%%       Config = string()
 %%%       Reason = term()
@@ -827,8 +829,7 @@ add_config(Callback, Config)->
     ct_config:add_config(Callback, Config).
 
 %%%-----------------------------------------------------------------
-%%% @spec remove_config(Callback, Config) ->
-%%%                                          ok
+%%% @spec remove_config(Callback, Config) -> ok
 %%%       Callback = atom()
 %%%       Config = string()
 %%%       Reason = term()
@@ -836,5 +837,27 @@ add_config(Callback, Config)->
 %%% @doc <p>This function removes configuration variables (together with
 %%%	 their aliases) which were loaded with specified callback module and
 %%%	 configuration string.</p>
-remove_config(Callback, Config)->
+remove_config(Callback, Config) ->
     ct_config:remove_config(Callback, Config).
+
+%%%-----------------------------------------------------------------
+%%% @spec sleep(Time) -> ok
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Hours = integer()
+%%%       Mins = integer()
+%%%       Secs = integer()
+%%%       Millisecs = integer() | float()
+%%%
+%%% @doc <p>This function, similar to <c>timer:sleep/1</c>, suspends the test
+%%%      case for specified time. However, this function also multiplies
+%%%      <c>Time</c> with the 'multiply_timetraps' value (if set) and under
+%%%      certain circumstances also scales up the time automatically
+%%%      if 'scale_timetraps' is set to true (default is false).</p>
+sleep({hours,Hs}) ->
+    sleep(trunc(Hs * 1000 * 60 * 60));
+sleep({minutes,Ms}) ->
+    sleep(trunc(Ms * 1000 * 60));
+sleep({seconds,Ss}) ->
+    sleep(trunc(Ss * 1000));
+sleep(Time) ->
+    test_server:adjusted_sleep(Time).

@@ -21,7 +21,7 @@
 %%% Purpose: Test server support functions.
 %%%-------------------------------------------------------------------
 -module(test_server_sup).
--export([timetrap/2, timetrap_cancel/1, capture_get/1, messages_get/1,
+-export([timetrap/2, timetrap/3, timetrap_cancel/1, capture_get/1, messages_get/1,
 	 timecall/3, call_crash/5, app_test/2, check_new_crash_dumps/0,
 	 cleanup_crash_dumps/0, crash_dump_dir/0, tar_crash_dumps/0,
 	 get_username/0, get_os_family/0, 
@@ -34,16 +34,23 @@
 -define(src_listing_ext, ".src.html").
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-%% timetrap(Timeout,Pid) -> Handle
+%% timetrap(Timeout,Scale,Pid) -> Handle
 %% Handle = term()
 %%
 %% Creates a time trap, that will kill the given process if the 
 %% trap is not cancelled with timetrap_cancel/1, within Timeout
 %% milliseconds.
+%% Scale says if the time should be scaled up to compensate for
+%% delays during the test (e.g. if cover is running).
 
 timetrap(Timeout0, Pid) ->
+    timetrap(Timeout0, true, Pid).
+
+timetrap(Timeout0, Scale, Pid) ->
     process_flag(priority, max),
-    Timeout = test_server:timetrap_scale_factor() * Timeout0,
+    Timeout = if not Scale -> Timeout0;
+		 true -> test_server:timetrap_scale_factor() * Timeout0
+	      end,
     receive
     after trunc(Timeout) ->
 	    Line = test_server:get_loc(Pid),
