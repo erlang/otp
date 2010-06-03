@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2002-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2002-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg_ui_win).
@@ -76,12 +76,9 @@ min_size(Font, Strings, MinW, MinH) ->
 
 min_size(GS, Font, [String|Strings], MinW, MinH) ->
     {W, H} = gs:read(GS, {font_wh, {Font, String}}),
-    min_size(GS, Font, Strings, max(MinW, W), max(MinH, H));
+    min_size(GS, Font, Strings, erlang:max(MinW, W), erlang:max(MinH, H));
 min_size(_GS, _Font, [], W, H) ->
     {W, H}.
-
-max(X, Y) when X>Y -> X;
-max(_X, Y) -> Y.
 
 %%--------------------------------------------------------------------
 %% create_menus(MenuBar, [Menu])

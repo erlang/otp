@@ -1784,6 +1784,9 @@ otp_5362(Config) when is_list(Config) ->
                       {15,erl_lint,{undefined_field,ok,nix}},
                       {16,erl_lint,{field_name_is_variable,ok,'Var'}}]}},
 
+	  %% Nowarn_bif_clash has changed behaviour as local functions
+	  %% nowdays supersede auto-imported BIFs, why nowarn_bif_clash in itself generates an error
+	  %% (OTP-8579) /PaN
           {otp_5362_4,
            <<"-compile(nowarn_deprecated_function).
               -compile(nowarn_bif_clash).
@@ -1795,9 +1798,8 @@ otp_5362(Config) when is_list(Config) ->
              warn_deprecated_function,
              warn_bif_clash]},
            {error,
-            [{5,erl_lint,{call_to_redefined_bif,{spawn,1}}}],
-	    [{3,erl_lint,{redefine_bif,{spawn,1}}},
-             {4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
+            [{5,erl_lint,{call_to_redefined_old_bif,{spawn,1}}}],
+	    [{4,erl_lint,{deprecated,{erlang,hash,2},{erlang,phash2,2},
 			  "in a future release"}}]}},
 
           {otp_5362_5,
@@ -1808,8 +1810,8 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {warnings,
-            [{3,erl_lint,{redefine_bif,{spawn,1}}}]}},
+	   {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           %% The special nowarn_X are not affected by general warn_X.
           {otp_5362_6,
@@ -1822,8 +1824,8 @@ otp_5362(Config) when is_list(Config) ->
            {[nowarn_unused_function, 
              warn_deprecated_function, 
              warn_bif_clash]},
-           {warnings,
-            [{3,erl_lint,{redefine_bif,{spawn,1}}}]}},
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}},
 
           {otp_5362_7,
            <<"-export([spawn/1]).
@@ -1838,7 +1840,9 @@ otp_5362(Config) when is_list(Config) ->
                   spawn(A).
            ">>,
            {[nowarn_unused_function]},
-           {error,[{4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
+           {error,[{3,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,disallowed_nowarn_bif_clash},
+		   {4,erl_lint,{bad_nowarn_bif_clash,{spawn,2}}}],
             [{5,erl_lint,{bad_nowarn_deprecated_function,{3,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{erlang,hash,-1}}},
              {5,erl_lint,{bad_nowarn_deprecated_function,{{a,b,c},hash,-1}}}]}
@@ -1865,7 +1869,21 @@ otp_5362(Config) when is_list(Config) ->
               t() -> #a{}.
           ">>,
            {[]},
-           []}
+           []},
+
+          {otp_5362_10,
+           <<"-compile({nowarn_deprecated_function,{erlang,hash,2}}).
+              -compile({nowarn_bif_clash,{spawn,1}}).
+              -import(x,[spawn/1]).
+              spin(A) ->
+                  erlang:hash(A, 3000),
+                  spawn(A).
+           ">>,
+           {[nowarn_unused_function,
+             warn_deprecated_function,
+             warn_bif_clash]},
+           {errors,
+            [{2,erl_lint,disallowed_nowarn_bif_clash}],[]}}
 
           ],
 
@@ -2389,9 +2407,9 @@ bif_clash(Config) when is_list(Config) ->
                 N.
              ">>,
            [],
-	   {errors,[{2,erl_lint,{call_to_redefined_bif,{size,1}}}],[]}},
+	   {errors,[{2,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
 
-	  %% Verify that (some) warnings can be turned off.
+	  %% Verify that warnings can not be turned off in the old way.
 	  {clash2,
            <<"-export([t/1,size/1]).
               t(X) ->
@@ -2400,17 +2418,189 @@ bif_clash(Config) when is_list(Config) ->
               size({N,_}) ->
                 N.
 
-              %% My own abs/1 function works on lists too.
-              %% Unfortunately, it is not exported, so there will
-              %% be a warning that can't be turned off.
+              %% My own abs/1 function works on lists too. From R14 this really works.
               abs([H|T]) when $a =< H, H =< $z -> [H-($a-$A)|abs(T)];
               abs([H|T]) -> [H|abs(T)];
               abs([]) -> [];
               abs(X) -> erlang:abs(X).
              ">>,
-	   {[nowarn_bif_clash]},
-	   {warnings,[{11,erl_lint,{redefine_bif,{abs,1}}},
-		      {11,erl_lint,{unused_function,{abs,1}}}]}}],
+	   {[nowarn_unused_function,nowarn_bif_clash]},
+	   {errors,[{erl_lint,disallowed_nowarn_bif_clash}],[]}},
+	  %% As long as noone calls an overridden BIF, it's totally OK
+	  {clash3,
+           <<"-export([size/1]).
+              size({N,_}) ->
+                N;
+              size(X) ->
+                erlang:size(X).
+             ">>,
+	   [],
+	   []},
+	  %% But this is totally wrong - meaning of the program changed in R14, so this is an error
+	  {clash4,
+           <<"-export([size/1]).
+              size({N,_}) ->
+                N;
+              size(X) ->
+                size(X).
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{call_to_redefined_old_bif,{size,1}}}],[]}},
+	  %% For a post R14 bif, its only a warning
+	  {clash5,
+           <<"-export([binary_part/2]).
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   {warnings,[{3,erl_lint,{call_to_redefined_bif,{binary_part,2}}}]}},
+	  %% If you really mean to call yourself here, you can "unimport" size/1
+	  {clash6,
+           <<"-export([size/1]).
+              -compile({no_auto_import,[size/1]}).
+              size([]) ->
+                0;
+              size({N,_}) ->
+                N;
+              size([_|T]) ->
+                1+size(T).
+             ">>,
+	   [],
+	   []},
+	  %% Same for the post R14 autoimport warning
+	  {clash7,
+           <<"-export([binary_part/2]).
+              -compile({no_auto_import,[binary_part/2]}).
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   []},
+          %% but this doesn't mean the local function is allowed in a guard...
+	  {clash8,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              x(X) when binary_part(X,{1,2}) =:= <<1,2>> ->
+                 hej.
+              binary_part({B,_},{X,Y}) ->
+                binary_part(B,{X,Y});
+              binary_part(B,{X,Y}) ->
+                binary:part(B,X,Y).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,illegal_guard_expr}],[]}},
+          %% no_auto_import is not like nowarn_bif_clash, it actually removes the autoimport
+	  {clash9,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   {errors,[{4,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+          %% but we could import it again...
+	  {clash10,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   []},
+          %% and actually use it in a guard...
+	  {clash11,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= <<1,2>>.
+             ">>,
+	   [],
+	   []},
+          %% but for non-obvious historical reasons, imported functions cannot be used in
+	  %% fun construction without the module name...
+	  {clash12,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(erlang,[binary_part/2]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+          %% Not from erlang and not from anywhere else
+	  {clash13,
+           <<"-export([x/1]).
+              -compile({no_auto_import,[binary_part/2]}).
+              -import(x,[binary_part/2]).
+              x(X) ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   {errors,[{5,erl_lint,{undefined_function,{binary_part,2}}}],[]}},
+	  %% ...while real auto-import is OK.
+	  {clash14,
+           <<"-export([x/1]).
+              x(X) when binary_part(X,{0,1}) =:= <<0>> ->
+                 binary_part(X,{1,2}) =:= fun binary_part/2.
+             ">>,
+	   [],
+	   []},
+          %% Import directive clashing with old bif is an error, regardless of if it's called or not
+	  {clash15,
+           <<"-export([x/1]).
+              -import(x,[abs/1]).
+              x(X) ->
+                 binary_part(X,{1,2}).
+             ">>,
+	   [],
+	   {errors,[{2,erl_lint,{redefine_old_bif_import,{abs,1}}}],[]}},
+	  %% For a new BIF, it's only a warning
+	  {clash16,
+           <<"-export([x/1]).
+              -import(x,[binary_part/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}},
+	  %% And, you cannot redefine already imported things that aren't auto-imported
+	  {clash17,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              -import(y,[binary_port/3]).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{redefine_import,{{binary_port,3},x}}}],[]}},
+	  %% Not with local functions either
+	  {clash18,
+           <<"-export([x/1]).
+              -import(x,[binary_port/3]).
+              binary_port(A,B,C) ->
+                 binary_part(A,B,C).
+              x(X) ->
+                 abs(X).
+             ">>,
+	   [],
+	   {errors,[{3,erl_lint,{define_import,{binary_port,3}}}],[]}},
+	  %% Like clash8: Dont accept a guard if it's explicitly module-name called either
+	  {clash19,
+           <<"-export([binary_port/3]).
+              -compile({no_auto_import,[binary_part/3]}).
+              -import(x,[binary_part/3]).
+              binary_port(A,B,C) when x:binary_part(A,B,C) ->
+                 binary_part(A,B,C+1).
+             ">>,
+	   [],
+	   {errors,[{4,erl_lint,illegal_guard_expr}],[]}}
+	 ],
 
     ?line [] = run(Config, Ts),
     ok.

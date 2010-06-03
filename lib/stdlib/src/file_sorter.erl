@@ -191,7 +191,7 @@ options([{format, Format} | L], Opts) when Format =:= binary;
 options([{format, binary_term} | L], Opts) ->
     options(L, Opts#opts{format = binary_term_fun()});
 options([{size, Size} | L], Opts) when is_integer(Size), Size >= 0 ->
-    options(L, Opts#opts{size = max(Size, 1)});
+    options(L, Opts#opts{size = erlang:max(Size, 1)});
 options([{no_files, NoFiles} | L], Opts) when is_integer(NoFiles), 
                                               NoFiles > 1 ->
     options(L, Opts#opts{no_files = NoFiles});
@@ -997,10 +997,10 @@ close_read_fun(Fd, FileName, fsort) ->
     file:delete(FileName).
 
 read_objs(Fd, FileName, I, L, Bin0, Size0, LSz, W) ->
-    Max = max(Size0, ?CHUNKSIZE),
+    Max = erlang:max(Size0, ?CHUNKSIZE),
     BSz0 = byte_size(Bin0),
     Min = Size0 - BSz0 + W#w.hdlen, % Min > 0
-    NoBytes = max(Min, Max),
+    NoBytes = erlang:max(Min, Max),
     case read(Fd, FileName, NoBytes, W) of
         {ok, Bin} ->
             BSz = byte_size(Bin),
@@ -1179,9 +1179,6 @@ make_key2([Kp], T) ->
     [element(Kp, T)];
 make_key2([Kp | Kps], T) ->
     [element(Kp, T) | make_key2(Kps, T)].
-
-max(A, B) when A < B -> B;
-max(A, _) -> A.
 
 infun(W) ->
     W1 = W#w{in = undefined},

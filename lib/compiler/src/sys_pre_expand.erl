@@ -403,16 +403,21 @@ expr({'fun',Line,Body}, St) ->
 expr({call,Line,{atom,La,N}=Atom,As0}, St0) ->
     {As,St1} = expr_list(As0, St0),
     Ar = length(As),
-    case erl_internal:bif(N, Ar) of
-        true ->
-            {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
-        false ->
-            case imported(N, Ar, St1) of
-                {yes,Mod} ->
-                    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
-                no ->
-                    {{call,Line,Atom,As},St1}
-            end
+    case defined(N,Ar,St1) of
+	true ->
+	    {{call,Line,Atom,As},St1};
+	_ ->
+	    case imported(N, Ar, St1) of
+		{yes,Mod} ->
+		    {{call,Line,{remote,La,{atom,La,Mod},Atom},As},St1};
+		no ->
+		    case erl_internal:bif(N, Ar) of
+			true ->
+			    {{call,Line,{remote,La,{atom,La,erlang},Atom},As},St1};
+			false -> %% This should have been handled by erl_lint
+			    {{call,Line,Atom,As},St1}
+		    end
+	    end
     end;
 expr({call,Line,{record_field,_,_,_}=M,As0}, St0) ->
     expr({call,Line,expand_package(M, St0),As0}, St0);
@@ -685,3 +690,6 @@ imported(F, A, St) ->
         {ok,Mod} -> {yes,Mod};
         error -> no
     end.
+
+defined(F, A, St) ->
+    ordsets:is_element({F,A}, St#expand.defined).

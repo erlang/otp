@@ -217,12 +217,16 @@ lists:keysearch(Name, 1, List)</code>
     <p>In the second form of function calls,
       <c>ExprF(Expr1,...,ExprN)</c>, <c>ExprF</c> must be an atom or
       evaluate to a fun.</p>
+
     <p>If <c>ExprF</c> is an atom the function is said to be called by
-      using the <em>implicitly qualified function name</em>. If
-      <c>ExprF/N</c> is the name of a function explicitly or
-      automatically imported from module <c>M</c>, then the call is
-      short for <c>M:ExprF(Expr1,...,ExprN)</c>. Otherwise,
-      <c>ExprF/N</c> must be a locally defined function. Examples:</p>
+      using the <em>implicitly qualified function name</em>.  If the
+      function <c>ExprF</c> is locally defined, it is called.
+      Alternatively if <c>ExprF</c> is explicitly imported from module
+      <c>M</c>, <c>M:ExprF(Expr1,...,ExprN)</c> is called. If
+      <c>ExprF</c> is neither declared locally nor explicitly
+      imported, <c>ExprF</c> must be the name of an automatically
+      imported BIF. Examples:</p>
+
     <code type="none">
 handle(Msg, State)
 spawn(m, init, [])</code>
@@ -238,16 +242,85 @@ Fun2([1,2], [3,4])
 
 fun lists:append/2([1,2], [3,4])
 => [1,2,3,4]</code>
-    <p>To avoid possible ambiguities, the fully qualified function
-      name must be used when calling a function with the same name as
-      a BIF, and the compiler does not allow defining a function with
-      the same name as an explicitly imported function.</p>
+
     <p>Note that when calling a local function, there is a difference
-      between using the implicitly or fully qualified function name, as
-      the latter always refers to the latest version of the module. See
-      <seealso marker="code_loading">Compilation and Code Loading</seealso>.</p>
+    between using the implicitly or fully qualified function name, as
+    the latter always refers to the latest version of the module. See
+    <seealso marker="code_loading">Compilation and Code Loading</seealso>.</p>
+
     <p>See also the chapter about
       <seealso marker="functions#eval">Function Evaluation</seealso>.</p>
+
+    <section>
+      <title>Local Function Names Clashing With  Auto-imported BIFs</title>
+    <p>If a local function has the same name as an auto-imported BIF,
+    the semantics is that implicitly qualified function calls are
+    directed to the locally defined function, not to the BIF. To avoid
+    confusion, there is a compiler directive available,
+    <c>-compile({no_auto_import,[F/A]})</c>, that makes a BIF not
+    being auto-imported. In certain situations, such a compile-directive
+    is mandatory.</p>
+
+    <warning><p>Before OTP R14A (ERTS version 5.8), an implicitly
+    qualified function call to a function having the same name as an
+    auto-imported BIF always resulted in the BIF being called. In
+    newer versions of the compiler the local function is instead
+    called. The change is there to avoid that future additions to the
+    set of auto-imported BIFs does not silently change the behavior
+    of old code.</p>
+
+    <p>However, to avoid that old (pre R14) code changed it's
+    behavior when compiled with OTP version R14A or later, the
+    following restriction applies: If you override the name of a BIF
+    that was auto-imported in OTP versions prior to R14A (ERTS version
+    5.8) and have an implicitly qualified call to that function in
+    your code, you either need to explicitly remove the auto-import
+    using a compiler directive, or replace the call with a fully
+    qualified function call, otherwise you will get a compilation
+    error. See example below:</p> </warning>
+
+    <code type="none">
+-export([length/1,f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+length([]) ->
+    0;
+length([H|T]) ->
+    1 + length(T). %% Calls the local funtion length/1
+
+f(X) when erlang:length(X) > 3 -> %% Calls erlang:length/1,
+                                  %% which is allowed in guards
+    long.</code>
+
+    <p>The same logic applies to explicitly imported functions from
+    other modules as to locally defined functions. To both import a
+    function from another module and have the function declared in the
+    module at the same time is not allowed.</p>
+
+    <code type="none">
+-export([f/1]).
+
+-compile({no_auto_import,[length/1]}). % erlang:length/1 no longer autoimported
+
+-import(mod,[length/1]).
+
+f(X) when erlang:length(X) > 33 -> %% Calls erlang:lenght/1,
+                                   %% which is allowed in guards
+
+    erlang:length(X);              %% Explicit call to erlang:length in body
+
+f(X) ->
+    length(X).                     %% mod:length/1 is called</code>
+
+
+    <p>For auto-imported BIFs added to Erlang in release R14A and thereafter,
+    overriding the name with a local function or explicit import is always
+    allowed. However, if the <c>-compile({no_auto_import,[F/A])</c>
+    directive is not used, the compiler will issue a warning whenever
+    the function is called in the module using the implicitly qualified
+    function name.</p>
+    </section>
   </section>
 
   <section>

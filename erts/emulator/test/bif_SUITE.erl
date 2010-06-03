@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -308,6 +308,18 @@ min_max(Config) when is_list(Config) ->
 
     ?line 42.0 = erlang:min(42.0, 42),
     ?line 42.0 = erlang:max(42.0, 42),
+    %% And now (R14) they are also autoimported!
+    ?line a = min(id(a), a),
+    ?line a = min(id(a), b),
+    ?line a = min(id(b), a),
+    ?line b = min(id(b), b),
+    ?line a = max(id(a), a),
+    ?line b = max(id(a), b),
+    ?line b = max(id(b), a),
+    ?line b = max(id(b), b),
+
+    ?line 42.0 = min(42.0, 42),
+    ?line 42.0 = max(42.0, 42),
 
     ok.
 

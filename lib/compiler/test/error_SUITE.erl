@@ -21,11 +21,133 @@
 -include("test_server.hrl").
 
 -export([all/1,
-	 head_mismatch_line/1,warnings_as_errors/1]).
+	 head_mismatch_line/1,warnings_as_errors/1, bif_clashes/1]).
 
 all(suite) ->
     test_lib:recompile(?MODULE),
-    [head_mismatch_line,warnings_as_errors].
+    [head_mismatch_line,warnings_as_errors,bif_clashes].
+
+
+bif_clashes(Config) when is_list(Config) ->
+    Ts = [{bif_clashes1,
+           <<"
+              -export([t/0]).
+              t() ->
+                 length([a,b,c]).
+
+              length(X) ->
+               erlang:length(X).
+             ">>,
+           [return_warnings],
+	   {error,
+	    [{4, erl_lint,{call_to_redefined_old_bif,{length,1}}}], []} }],
+    ?line [] = run(Config, Ts),
+    Ts1 = [{bif_clashes2,
+           <<"
+              -export([t/0]).
+              -import(x,[length/1]).
+              t() ->
+                 length([a,b,c]).
+             ">>,
+           [return_warnings],
+	    {error,
+	     [{3, erl_lint,{redefine_old_bif_import,{length,1}}}], []} }],
+    ?line [] = run(Config, Ts1),
+    Ts00 = [{bif_clashes3,
+           <<"
+              -export([t/0]).
+              -compile({no_auto_import,[length/1]}).
+              t() ->
+                 length([a,b,c]).
+
+              length(X) ->
+               erlang:length(X).
+             ">>,
+           [return_warnings],
+	   []}],
+    ?line [] = run(Config, Ts00),
+    Ts11 = [{bif_clashes4,
+           <<"
+              -export([t/0]).
+              -compile({no_auto_import,[length/1]}).
+              -import(x,[length/1]).
+              t() ->
+                 length([a,b,c]).
+             ">>,
+           [return_warnings],
+	    []}],
+    ?line [] = run(Config, Ts11),
+    Ts000 = [{bif_clashes5,
+           <<"
+              -export([t/0]).
+              t() ->
+                 binary_part(<<1,2,3,4>>,1,2).
+
+              binary_part(X,Y,Z) ->
+               erlang:binary_part(X,Y,Z).
+             ">>,
+           [return_warnings],
+	   {warning,
+	    [{4, erl_lint,{call_to_redefined_bif,{binary_part,3}}}]} }],
+    ?line [] = run(Config, Ts000),
+    Ts111 = [{bif_clashes6,
+           <<"
+              -export([t/0]).
+              -import(x,[binary_part/3]).
+              t() ->
+                  binary_part(<<1,2,3,4>>,1,2).
+             ">>,
+           [return_warnings],
+	    {warning,
+	     [{3, erl_lint,{redefine_bif_import,{binary_part,3}}}]} }],
+    ?line [] = run(Config, Ts111),
+    Ts2 = [{bif_clashes7,
+           <<"
+              -export([t/0]).
+              -compile({no_auto_import,[length/1]}).
+              -import(x,[length/1]).
+              t() ->
+                 length([a,b,c]).
+              length(X) ->
+                 erlang:length(X).
+             ">>,
+           [],
+          {error,
+           [{7,erl_lint,{define_import,{length,1}}}],
+           []} }],
+    ?line [] = run2(Config, Ts2),
+    Ts3 = [{bif_clashes8,
+           <<"
+              -export([t/1]).
+              -compile({no_auto_import,[length/1]}).
+              t(X) when length(X) > 3 ->
+                 length([a,b,c]).
+              length(X) ->
+                 erlang:length(X).
+             ">>,
+           [],
+          {error,
+           [{4,erl_lint,illegal_guard_expr}],
+           []} }],
+    ?line [] = run2(Config, Ts3),
+    Ts4 = [{bif_clashes9,
+           <<"
+              -export([t/1]).
+              -compile({no_auto_import,[length/1]}).
+              -import(x,[length/1]).
+              t(X) when length(X) > 3 ->
+                 length([a,b,c]).
+             ">>,
+           [],
+          {error,
+           [{5,erl_lint,illegal_guard_expr}],
+           []} }],
+    ?line [] = run2(Config, Ts4),
+
+    ok.
+
+
+
 
 %% Tests that a head mismatch is reported on the correct line (OTP-2125).
 head_mismatch_line(Config) when is_list(Config) ->
@@ -49,7 +171,7 @@ warnings_as_errors(Config) when is_list(Config) ->
                  A = unused,
                  ok.
              ">>,
-           [warnings_as_errors],
+           [export_all,warnings_as_errors],
           {error,
            [],
            [{3,erl_lint,{unused_var,'A'}}]} }],
@@ -70,6 +192,24 @@ run(Config, Tests) ->
         end,
     lists:foldl(F, [], Tests).
 
+run2(Config, Tests) ->
+    F = fun({N,P,Ws,E}, BadL) ->
+                case catch filter(run_test(Config, P, Ws)) of
+                    E ->
+                        BadL;
+                    Bad ->
+                        ?t:format("~nTest ~p failed. Expected~n  ~p~n"
+                                  "but got~n  ~p~n", [N, E, Bad]),
+			fail()
+                end
+        end,
+    lists:foldl(F, [], Tests).
+
+filter({error,Es,_Ws}) ->
+    {error,Es,[]};
+filter(X) ->
+    X.
+
 
 %% Compiles a test module and returns the list of errors and warnings.
 
@@ -78,17 +218,29 @@ run_test(Conf, Test0, Warnings) ->
     ?line DataDir = ?config(priv_dir, Conf),
     ?line Test = ["-module(errors_test). ", Test0],
     ?line File = filename:join(DataDir, Filename),
-    ?line Opts = [binary,export_all,return|Warnings],
+    ?line Opts = [binary,return_errors|Warnings],
     ?line ok = file:write_file(File, Test),
 
     %% Compile once just to print all errors and warnings.
-    ?line compile:file(File, [binary,export_all,report|Warnings]),
+    ?line compile:file(File, [binary,report|Warnings]),
 
     %% Test result of compilation.
     ?line Res = case compile:file(File, Opts) of
-		    {error,[{_File,Es}],Ws} ->
+		    {ok,errors_test,_,[{_File,Ws}]} ->
+			%io:format("compile:file(~s,~p) ->~n~p~n",
+			%	  [File,Opts,Ws]),
+			{warning,Ws};
+		    {ok,errors_test,_,[]} ->
+			%io:format("compile:file(~s,~p) ->~n~p~n",
+			%	  [File,Opts,Ws]),
+			[];
+		    {error,[{XFile,Es}],Ws} = _ZZ when is_list(XFile) ->
+			%io:format("compile:file(~s,~p) ->~n~p~n",
+			%	  [File,Opts,_ZZ]),
 			{error,Es,Ws};
-		    {error,Es,[{_File,Ws}]} ->
+		    {error,Es,[{_File,Ws}]} = _ZZ->
+			%io:format("compile:file(~s,~p) ->~n~p~n",
+			%	  [File,Opts,_ZZ]),
 			{error,Es,Ws}
 		end,
     file:delete(File),

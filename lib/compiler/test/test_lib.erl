@@ -19,8 +19,8 @@
 -module(test_lib).
 
 -include("test_server.hrl").
-
--export([recompile/1,opt_opts/1,get_data_dir/1,smoke_disasm/1,p_run/2]).
+-compile({no_auto_import,[binary_part/2]}).
+-export([recompile/1,opt_opts/1,get_data_dir/1,smoke_disasm/1,p_run/2,binary_part/2]).
 
 recompile(Mod) when is_atom(Mod) ->
     case whereis(cover_server) of
@@ -104,3 +104,7 @@ p_run_loop(Test, List, N, Refs0, Errors0, Ws0) ->
 	    Refs = Refs0 -- [Ref],
 	    p_run_loop(Test, List, N, Refs, Errors, Ws)
     end.
+
+%% This is for the misc_SUITE:override_bif testcase
+binary_part(_A,_B) ->
+    dummy.

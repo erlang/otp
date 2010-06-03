@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%----------------------------------------------------------------------
@@ -807,23 +807,20 @@ load(Opts) ->
 	    
 	    case get_opt(load_scale, Opts) of
 		linear ->
-		    min(trunc(load_range()*(Td/Tot+Q/6)),
+		    erlang:min(trunc(load_range()*(Td/Tot+Q/6)),
 			load_range());
 		prog ->
-		    min(trunc(load_range()*prog(Td/Tot+Q/6)),
+		    erlang:min(trunc(load_range()*prog(Td/Tot+Q/6)),
 			load_range())
 	    end;
 	queue ->
 	    case get_opt(load_scale, Opts) of
 		linear ->
-		    min(trunc(load_range()*Q/6), load_range());
+		    erlang:min(trunc(load_range()*Q/6), load_range());
 		prog ->
-		    min(trunc(load_range()*prog(Q/6)), load_range())
+		    erlang:min(trunc(load_range()*prog(Q/6)), load_range())
 		end
     end.
-
-min(X,Y) when X<Y -> X;
-min(_,Y)->Y.
 
 
 %%

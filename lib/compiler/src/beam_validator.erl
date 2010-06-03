@@ -18,6 +18,8 @@
 
 -module(beam_validator).
 
+-compile({no_auto_import,[min/2]}).
+
 -export([file/1, files/1]).
 
 %% Interface for compiler.

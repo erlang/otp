@@ -632,7 +632,7 @@ handle_event(#wx{id=?SASH_CODE, event=#wxSash{dragRect={_X,_Y,_W,H}}}, Wi) ->
 	    Change = CH - H, 
 	    ChangeH = fun(Item) ->
 			      {ItemW, ItemH} = wxSizerItem:getMinSize(Item),
-			      wxSizerItem:setInitSize(Item, ItemW, max(ItemH+Change,-1))
+			      wxSizerItem:setInitSize(Item, ItemW, erlang:max(ItemH+Change,-1))
 		      end,
 	    if Enable ->
 		    {IW, IH} = wxSizer:getMinSize(InfoSzr),
@@ -694,7 +694,7 @@ handle_event(#wx{id=?SASH_TRACE, event=#wxSash{dragRect={_X,_Y,_W,H}}}, Wi) ->
 	true ->  %% Change the Eval and Bindings area
 	    ChangeH = fun(Item) ->
 			      {ItemW, ItemH} = wxSizerItem:getMinSize(Item),
-			      wxSizerItem:setInitSize(Item, ItemW, max(ItemH+Change,-1))
+			      wxSizerItem:setInitSize(Item, ItemW, erlang:max(ItemH+Change,-1))
 		      end,
 	    {IW, IH} = wxSizer:getMinSize(InfoSzr),
 	    [ChangeH(Child) || Child <- wxSizer:getChildren(InfoSzr)],
@@ -1021,9 +1021,3 @@ helpwin(Type, WinInfo = #winInfo{sg=Sg =#sub{in=Sa}}) ->
 	search   ->  wxWindow:setFocus(Sa#sa.search)
     end,
     Wi.
-
-max(X,Y) when X > Y -> X;
-max(_,Y) -> Y.
-     
-
-   

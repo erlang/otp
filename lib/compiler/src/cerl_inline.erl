@@ -65,7 +65,6 @@
 	       try_evars/1, try_handler/1, tuple_es/1, tuple_arity/1,
 	       type/1, values_es/1, var_name/1]).
 
--import(erlang, [max/2]).
 -import(lists, [foldl/3, foldr/3, mapfoldl/3, reverse/1]).
 
 %%
@@ -201,9 +200,9 @@ start(Reply, Tree, Ctxt, Opts) ->
         false ->
             ok
     end,
-    Size = max(1, proplists:get_value(inline_size, Opts)),
-    Effort = max(1, proplists:get_value(inline_effort, Opts)),
-    Unroll = max(1, proplists:get_value(inline_unroll, Opts)),
+    Size = erlang:max(1, proplists:get_value(inline_size, Opts)),
+    Effort = erlang:max(1, proplists:get_value(inline_effort, Opts)),
+    Unroll = erlang:max(1, proplists:get_value(inline_unroll, Opts)),
     case proplists:get_bool(verbose, Opts) of
 	true ->
 	    io:fwrite("Inlining: inline_size=~w inline_effort=~w\n",

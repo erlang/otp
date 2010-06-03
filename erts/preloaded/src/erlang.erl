@@ -44,7 +44,14 @@
 -deprecated([hash/2]).
 -deprecated([concat_binary/1]).
 
--compile(nowarn_bif_clash).
+% Get rid of autoimports of spawn to avoid clashes with ourselves.
+-compile({no_auto_import,[spawn/1]}).
+-compile({no_auto_import,[spawn/4]}).
+-compile({no_auto_import,[spawn_link/1]}).
+-compile({no_auto_import,[spawn_link/4]}).
+-compile({no_auto_import,[spawn_opt/2]}).
+-compile({no_auto_import,[spawn_opt/4]}).
+-compile({no_auto_import,[spawn_opt/5]}).
 
 %%--------------------------------------------------------------------------
 
@@ -55,10 +62,10 @@
 %%--------------------------------------------------------------------------
 
 apply(Fun, Args) ->
-    apply(Fun, Args).
+    erlang:apply(Fun, Args).
 
 apply(Mod, Name, Args) ->
-    apply(Mod, Name, Args).
+    erlang:apply(Mod, Name, Args).
 
 %% Spawns with a fun
 

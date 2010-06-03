@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 -module(dbg_ui_trace_win).
@@ -106,7 +106,7 @@ create_win(GS, Title, TraceWin, Menus) ->
 		   gs:read('CodeArea', height) +
 		   gs:read('RB1', height) +
 		   gs:read('ButtonArea', height) +
-		   max(gs:read('EvalArea', height),
+		   erlang:max(gs:read('EvalArea', height),
 		       gs:read('BindArea', height)) +
 		   gs:read('RB2', height) +
 		   gs:read('TraceArea', height)}),
@@ -1032,7 +1032,7 @@ config_v() ->
     gs:config('RB3', {y,Y3}),
     gs:config('BindArea', {y,Y3}),
     
-    Y4 = Y3 + max(gs:read('EvalArea', height),
+    Y4 = Y3 + erlang:max(gs:read('EvalArea', height),
 		  gs:read('BindArea', height)),
     gs:config('RB2', {y,Y4}),
     
@@ -1061,7 +1061,7 @@ configure(WinInfo, NewW, NewH) ->
     OldH = 25+gs:read('CodeArea', height)+
 	gs:read('RB1', height)+
 	gs:read('ButtonArea', height)+
-	max(gs:read('EvalArea', height), gs:read('BindArea', height))+
+	erlang:max(gs:read('EvalArea', height), gs:read('BindArea', height))+
 	gs:read('RB2', height)+
 	gs:read('TraceArea', height),
 
@@ -1112,7 +1112,7 @@ configure_widths(OldW, NewW, Flags) ->
     {_Bu,Ev,Bi,_Tr} = Flags,
 
     %% Difference between old and new width, considering min window width
-    Diff = abs(max(OldW,330)-max(NewW,330)),
+    Diff = abs(erlang:max(OldW,330)-erlang:max(NewW,330)),
     
     %% Check how much the frames can be resized in reality
     Limits = if
@@ -1166,7 +1166,7 @@ configure_heights(OldH, NewH, Flags) ->
 
     %% Difference between old and new height, considering min win height
     MinH = min_height(Flags),
-    Diff = abs(max(OldH,MinH)-max(NewH,MinH)),
+    Diff = abs(erlang:max(OldH,MinH)-erlang:max(NewH,MinH)),
     
     %% Check how much the frames can be resized in reality
     {T,Sf,Ff} = if
@@ -1392,7 +1392,7 @@ rblimits('RB1',_W,H) ->
 		  H-112;
 	      _ ->
 		  Y = gs:read('RB2',y),
-		  max(Min,Y-140)
+		  erlang:max(Min,Y-140)
 	  end,
     
     {Min,Max};
@@ -1403,7 +1403,7 @@ rblimits('RB2',_W,H) ->
     
     %% Min is decided by a minimum distance to 'RB1'
     Y = gs:read('RB1',y),
-    Min = min(Max,Y+140),
+    Min = erlang:min(Max,Y+140),
     
     {Min,Max};
 
@@ -1412,13 +1412,7 @@ rblimits('RB3',W,_H) ->
     %% Neither CodeArea nor BindArea should occupy 
     %% less than 1/3 of the total window width and EvalFrame should
     %% be at least 289 pixels wide
-    {max(round(W/3),289),round(2*W/3)}.
-
-max(A, B) when A>B -> A;
-max(_A, B) -> B.
-
-min(A, B) when A<B -> A;
-min(_A, B) -> B.
+    {erlang:max(round(W/3),289),round(2*W/3)}.
 
 
 %%====================================================================
