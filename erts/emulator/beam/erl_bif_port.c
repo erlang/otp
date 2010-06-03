@@ -579,8 +579,8 @@ BIF_RETTYPE port_get_data_1(BIF_ALIST_1)
     if (prt->bp == NULL) {	/* MUST be CONST! */
 	res = prt->data;
     } else {
-	Eterm* hp = HAlloc(BIF_P, prt->bp->size);
-	res = copy_struct(prt->data, prt->bp->size, &hp, &MSO(BIF_P));
+	Eterm* hp = HAlloc(BIF_P, prt->bp->used_size);
+	res = copy_struct(prt->data, prt->bp->used_size, &hp, &MSO(BIF_P));
     }
     erts_smp_port_unlock(prt);
     BIF_RET(res);

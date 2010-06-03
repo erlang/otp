@@ -264,15 +264,15 @@ static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
 }
 static void* crypto_alloc(size_t size)
 {   
-    return enif_alloc(NULL, size);
+    return enif_alloc(size);
 }
 static void* crypto_realloc(void* ptr, size_t size)
 {
-    return enif_realloc(NULL, ptr, size);
+    return enif_realloc(ptr, size);
 }   
 static void crypto_free(void* ptr)
 {   
-    enif_free(NULL, ptr); 
+    enif_free(ptr); 
 }
 
 static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
@@ -289,7 +289,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
 
     if (sys_info.scheduler_threads > 1) {
 	int i;
-	lock_vec = enif_alloc(env,CRYPTO_num_locks()*sizeof(*lock_vec));
+	lock_vec = enif_alloc(CRYPTO_num_locks()*sizeof(*lock_vec));
 	if (lock_vec==NULL) return -1;
 	memset(lock_vec,0,CRYPTO_num_locks()*sizeof(*lock_vec));
 
@@ -371,7 +371,7 @@ static void unload(ErlNifEnv* env, void* priv_data)
 		    enif_rwlock_destroy(lock_vec[i]);
 		}
 	    }
-	    enif_free(env,lock_vec);
+	    enif_free(lock_vec);
 	}
     }
     /*else NIF library still used by other (new) module code */
@@ -994,7 +994,7 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	RSA_free(rsa);
 	return enif_make_badarg(env);
     }
-    enif_alloc_binary(env, RSA_size(rsa), &ret_bin);
+    enif_alloc_binary(RSA_size(rsa), &ret_bin);
     if (is_sha) {
 	SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
 	ERL_VALGRIND_ASSERT_MEM_DEFINED(hmacbuf, SHA_DIGEST_LENGTH);
@@ -1011,13 +1011,13 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     if (i) {
 	ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, rsa_s_len);
 	if (rsa_s_len != data_bin.size) {
-	    enif_realloc_binary(env, &ret_bin, rsa_s_len);
+	    enif_realloc_binary(&ret_bin, rsa_s_len);
 	    ERL_VALGRIND_ASSERT_MEM_DEFINED(ret_bin.data, rsa_s_len);
 	}
 	return enif_make_binary(env,&ret_bin);
     }
     else {
-	enif_release_binary(env, &ret_bin);
+	enif_release_binary(&ret_bin);
 	return atom_error;
     }
 }
@@ -1049,13 +1049,13 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 
     SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
 
-    enif_alloc_binary(env, DSA_size(dsa), &ret_bin);
+    enif_alloc_binary(DSA_size(dsa), &ret_bin);
     i =  DSA_sign(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,
 		  ret_bin.data, &dsa_s_len, dsa);
     DSA_free(dsa);
     if (i) {
 	if (dsa_s_len != ret_bin.size) {
-	    enif_realloc_binary(env, &ret_bin, dsa_s_len);
+	    enif_realloc_binary(&ret_bin, dsa_s_len);
 	}
 	return enif_make_binary(env, &ret_bin);
     }
@@ -1100,7 +1100,7 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
 	return enif_make_badarg(env);
     }
 
-    enif_alloc_binary(env, RSA_size(rsa), &ret_bin); 
+    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
 
     if (argv[3] == atom_true) {
 	ERL_VALGRIND_ASSERT_MEM_DEFINED(buf+i,data_len);
@@ -1115,7 +1115,7 @@ static ERL_NIF_TERM rsa_public_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TER
 			       ret_bin.data, rsa, padding);    
 	if (i > 0) {
 	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(env, &ret_bin, i);
+	    enif_realloc_binary(&ret_bin, i);
 	}
     }
     RSA_free(rsa);
@@ -1148,7 +1148,7 @@ static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 	return enif_make_badarg(env);
     }
 
-    enif_alloc_binary(env, RSA_size(rsa), &ret_bin); 
+    enif_alloc_binary(RSA_size(rsa), &ret_bin); 
 
     if (argv[3] == atom_true) {
 	ERL_VALGRIND_ASSERT_MEM_DEFINED(buf+i,data_len);
@@ -1163,7 +1163,7 @@ static ERL_NIF_TERM rsa_private_crypt(ErlNifEnv* env, int argc, const ERL_NIF_TE
 				ret_bin.data, rsa, padding);       
 	if (i > 0) {
 	    ERL_VALGRIND_MAKE_MEM_DEFINED(ret_bin.data, i);
-	    enif_realloc_binary(env, &ret_bin, i);
+	    enif_realloc_binary(&ret_bin, i);
 	}
     }
     RSA_free(rsa);
@@ -1293,11 +1293,11 @@ static ERL_NIF_TERM dh_compute_key_nif(ErlNifEnv* env, int argc, const ERL_NIF_T
 	ret = enif_make_badarg(env);
     }
     else {
-	enif_alloc_binary(env, DH_size(dh_params), &ret_bin);
+	enif_alloc_binary(DH_size(dh_params), &ret_bin);
 	i = DH_compute_key(ret_bin.data, pubkey, dh_params);
 	if (i > 0) {
 	    if (i != ret_bin.size) {
-		enif_realloc_binary(env, &ret_bin, i); 
+		enif_realloc_binary(&ret_bin, i); 
 	    }
 	    ret = enif_make_binary(env, &ret_bin);
 	}

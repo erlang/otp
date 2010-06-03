@@ -667,7 +667,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
 	    case TAG_PRIMARY_BOXED:
 		ptr = boxed_val(gval);
 		val = *ptr;
-                if (IS_MOVED(val)) {
+                if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
 		} else if (in_area(ptr, area, area_size)) {
@@ -679,7 +679,7 @@ erts_garbage_collect_literals(Process* p, Eterm* literals, Uint lit_size)
 	    case TAG_PRIMARY_LIST:
                 ptr = list_val(gval);
                 val = *ptr;
-                if (is_non_value(val)) { /* Moved */
+                if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
 		} else if (in_area(ptr, area, area_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
@@ -913,7 +913,7 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
                 val = *ptr;
-                if (IS_MOVED(val)) {
+                if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
                 } else if (in_area(ptr, heap, mature_size)) {
@@ -929,7 +929,7 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 	    case TAG_PRIMARY_LIST: {
                 ptr = list_val(gval);
                 val = *ptr;
-                if (is_non_value(val)) { /* Moved */
+                if (IS_MOVED_CONS(val)) { /* Moved */
                     *g_ptr++ = ptr[1];
                 } else if (in_area(ptr, heap, mature_size)) {
                     MOVE_CONS(ptr,val,old_htop,g_ptr++);
@@ -972,7 +972,7 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
 		val = *ptr;
-		if (IS_MOVED(val)) {
+		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (in_area(ptr, heap, mature_size)) {
@@ -987,7 +987,7 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 	    case TAG_PRIMARY_LIST: {
 		ptr = list_val(gval);
 		val = *ptr;
-		if (is_non_value(val)) {
+		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (in_area(ptr, heap, mature_size)) {
 		    MOVE_CONS(ptr,val,old_htop,n_hp++);
@@ -1008,7 +1008,7 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
 			Eterm* origptr = &(mb->orig);
 			ptr = boxed_val(*origptr);
 			val = *ptr;
-			if (IS_MOVED(val)) {
+			if (IS_MOVED_BOXED(val)) {
 			    *origptr = val;
 			    mb->base = binary_bytes(val);
 			} else if (in_area(ptr, heap, mature_size)) {
@@ -1161,7 +1161,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
 		val = *ptr;
-		if (IS_MOVED(val)) {
+		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *g_ptr++ = val;
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
@@ -1175,7 +1175,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    case TAG_PRIMARY_LIST: {
 		ptr = list_val(gval);
 		val = *ptr;
-		if (is_non_value(val)) {
+		if (IS_MOVED_CONS(val)) {
 		    *g_ptr++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
 		    MOVE_CONS(ptr,val,n_htop,g_ptr++);
@@ -1216,7 +1216,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
 		val = *ptr;
-		if (IS_MOVED(val)) {
+		if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
 		    *n_hp++ = val;
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
@@ -1229,7 +1229,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	    case TAG_PRIMARY_LIST: {
 		ptr = list_val(gval);
 		val = *ptr;
-		if (is_non_value(val)) {
+		if (IS_MOVED_CONS(val)) {
 		    *n_hp++ = ptr[1];
 		} else if (in_area(ptr, src, src_size) || in_area(ptr, oh, oh_size)) {
 		    MOVE_CONS(ptr,val,n_htop,n_hp++);
@@ -1249,7 +1249,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 			origptr = &(mb->orig);
 			ptr = boxed_val(*origptr);
 			val = *ptr;
-			if (IS_MOVED(val)) {
+			if (IS_MOVED_BOXED(val)) {
 			    *origptr = val;
 			    mb->base = binary_bytes(*origptr);
 			} else if (in_area(ptr, src, src_size) ||
@@ -1392,17 +1392,12 @@ combined_message_size(Process* p)
 static void
 remove_message_buffers(Process* p)
 {
-    ErlHeapFragment* bp = MBUF(p);
-
-    MBUF(p) = NULL;
-    MBUF_SIZE(p) = 0;
-    while (bp != NULL) {
-	ErlHeapFragment* next_bp = bp->next;
-	free_message_buffer(bp);
-	bp = next_bp;
-    }
+    if (MBUF(p) != NULL) {
+	free_message_buffer(MBUF(p));
+	MBUF(p) = NULL;
+    }    
+    MBUF_SIZE(p) = 0;    
 }
-
 #ifdef HARDDEBUG
 
 /*
@@ -1433,12 +1428,12 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 	case TAG_PRIMARY_BOXED: {
 	    ptr = _unchecked_boxed_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED(val)) {
+	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		objv++;
 	    } else {
  		for (qb = mbuf; qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1450,11 +1445,11 @@ disallow_heap_frag_ref(Process* p, Eterm* n_htop, Eterm* objv, int nobj)
 	case TAG_PRIMARY_LIST: {
 	    ptr = _unchecked_list_val(gval);
 	    val = *ptr;
-	    if (is_non_value(val)) {
+	    if (IS_MOVED_CONS(val)) {
 		objv++;
 	    } else {
 		for (qb = mbuf; qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1499,7 +1494,7 @@ disallow_heap_frag_ref_in_heap(Process* p)
 	    ptr = _unchecked_boxed_val(val);
 	    if (!in_area(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1509,7 +1504,7 @@ disallow_heap_frag_ref_in_heap(Process* p)
 	    ptr = _unchecked_list_val(val);
 	    if (!in_area(ptr, heap, heap_size)) {
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1557,7 +1552,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 		    abort();
 		}
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1570,7 +1565,7 @@ disallow_heap_frag_ref_in_old_heap(Process* p)
 		    abort();
 		}
 		for (qb = MBUF(p); qb != NULL; qb = qb->next) {
-		    if (in_area(ptr, qb->mem, qb->size*sizeof(Eterm))) {
+		    if (in_area(ptr, qb->mem, qb->alloc_size*sizeof(Eterm))) {
 			abort();
 		    }
 		}
@@ -1610,7 +1605,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 	    case TAG_PRIMARY_BOXED: {
 		ptr = boxed_val(gval);
                 val = *ptr;
-                if (IS_MOVED(val)) {
+                if (IS_MOVED_BOXED(val)) {
 		    ASSERT(is_boxed(val));
                     *g_ptr++ = val;
                 } else if (in_area(ptr, src, src_size)) {
@@ -1623,7 +1618,7 @@ sweep_rootset(Rootset* rootset, Eterm* htop, char* src, Uint src_size)
 	    case TAG_PRIMARY_LIST: {
                 ptr = list_val(gval);
                 val = *ptr;
-                if (is_non_value(val)) { /* Moved */
+                if (IS_MOVED_CONS(val)) {
                     *g_ptr++ = ptr[1];
                 } else if (in_area(ptr, src, src_size)) {
                     MOVE_CONS(ptr,val,htop,g_ptr++);
@@ -1657,7 +1652,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	case TAG_PRIMARY_BOXED: {
 	    ptr = boxed_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED(val)) {
+	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*n_hp++ = val;
 	    } else if (in_area(ptr, src, src_size)) {
@@ -1670,7 +1665,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 	case TAG_PRIMARY_LIST: {
 	    ptr = list_val(gval);
 	    val = *ptr;
-	    if (is_non_value(val)) {
+	    if (IS_MOVED_CONS(val)) {
 		*n_hp++ = ptr[1];
 	    } else if (in_area(ptr, src, src_size)) {
 		MOVE_CONS(ptr,val,n_htop,n_hp++);
@@ -1690,7 +1685,7 @@ sweep_one_area(Eterm* n_hp, Eterm* n_htop, char* src, Uint src_size)
 		    origptr = &(mb->orig);
 		    ptr = boxed_val(*origptr);
 		    val = *ptr;
-		    if (IS_MOVED(val)) {
+		    if (IS_MOVED_BOXED(val)) {
 			*origptr = val;
 			mb->base = binary_bytes(*origptr);
 		    } else if (in_area(ptr, src, src_size)) {
@@ -1722,7 +1717,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	case TAG_PRIMARY_BOXED: {
 	    ptr = boxed_val(gval);
 	    val = *ptr;
-	    if (IS_MOVED(val)) {
+	    if (IS_MOVED_BOXED(val)) {
 		ASSERT(is_boxed(val));
 		*heap_ptr++ = val;
 	    } else if (in_area(ptr, src, src_size)) {
@@ -1735,7 +1730,7 @@ sweep_one_heap(Eterm* heap_ptr, Eterm* heap_end, Eterm* htop, char* src, Uint sr
 	case TAG_PRIMARY_LIST: {
 	    ptr = list_val(gval);
 	    val = *ptr;
-	    if (is_non_value(val)) {
+	    if (IS_MOVED_CONS(val)) {
 		*heap_ptr++ = ptr[1];
 	    } else if (in_area(ptr, src, src_size)) {
 		MOVE_CONS(ptr,val,htop,heap_ptr++);
@@ -1829,28 +1824,6 @@ collect_heap_frags(Process* p, Eterm* n_hstart, Eterm* n_htop,
     }
     return n_htop;
 }
-
-#ifdef DEBUG
-static Eterm follow_moved(Eterm term)
-{
-    Eterm* ptr;
-    switch (primary_tag(term)) {
-    case TAG_PRIMARY_IMMED1:
-	break;
-    case TAG_PRIMARY_BOXED:
-	ptr = boxed_val(term);
-	if (IS_MOVED(*ptr)) term = *ptr;
-	break;
-    case TAG_PRIMARY_LIST:
-	ptr = list_val(term);
-	if (is_non_value(ptr[0])) term = ptr[1];
-	break;
-    default:
-	abort();
-    }
-    return term;
-}
-#endif
 
 static Uint
 setup_rootset(Process *p, Eterm *objv, int nobj, Rootset *rootset)
@@ -2090,7 +2063,7 @@ sweep_proc_externals(Process *p, int fullsweep)
     while (ptr) {
         Eterm* ppt = (Eterm *) ptr;
 
-        if (IS_MOVED(*ppt)) {        /* Object is alive */
+        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
             ExternalThing* ro = external_thing_ptr(*ppt);
 
             *prev = ro;         /* Patch to moved pos */
@@ -2130,7 +2103,7 @@ sweep_proc_funs(Process *p, int fullsweep)
     while (ptr) {
         Eterm* ppt = (Eterm *) ptr;
 
-        if (IS_MOVED(*ppt)) {        /* Object is alive */
+        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
             ErlFunThing* ro = (ErlFunThing *) fun_val(*ppt);
 
             *prev = ro;         /* Patch to moved pos */
@@ -2244,7 +2217,7 @@ sweep_proc_bins(Process *p, int fullsweep)
     while (ptr) {
         Eterm* ppt = (Eterm *) ptr;
 
-        if (IS_MOVED(*ppt)) {        /* Object is alive */
+        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
 	    bin_vheap += ptr->size / sizeof(Eterm);
             ptr = (ProcBin*) binary_val(*ppt);		   
 	    link_live_proc_bin(&shrink,
@@ -2542,7 +2515,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
         return 1;
     }
     while (bp != NULL) {
-        if (bp->mem <= ptr && ptr < bp->mem + bp->size) {
+        if (bp->mem <= ptr && ptr < bp->mem + bp->used_size) {
             return 1;
         }
         bp = bp->next;
@@ -2556,7 +2529,7 @@ within2(Eterm *ptr, Process *p, Eterm *real_htop)
 		hfp = erts_dist_ext_trailer(mp->data.dist_ext);
 	    else
 		hfp = NULL;
-	    if (hfp && hfp->mem <= ptr && ptr < hfp->mem + hfp->size)
+	    if (hfp && hfp->mem <= ptr && ptr < hfp->mem + hfp->used_size)
 		return 1;
 	}
         mp = mp->next;

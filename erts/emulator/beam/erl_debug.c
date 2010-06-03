@@ -261,7 +261,7 @@ static int verify_eterm(Process *p,Eterm element)
             return 1;
 
         for (mbuf = p->mbuf; mbuf; mbuf = mbuf->next) {
-            if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->size)) {
+            if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->used_size)) {
                 return 1;
             }
         }
@@ -308,7 +308,7 @@ void erts_check_stack(Process *p)
 	if (IN_HEAP(p, ptr))
 	    continue;
 	for (mbuf = p->mbuf; mbuf; mbuf = mbuf->next)
-	    if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->size)) {
+	    if (WITHIN(ptr, &mbuf->mem[0], &mbuf->mem[0] + mbuf->used_size)) {
 		in_mbuf = 1;
 		break;
 	    }
@@ -746,7 +746,7 @@ static void print_process_memory(Process *p)
                     PTR_SIZE, "heap fragments",
                     dashes, dashes, dashes, dashes);
     while (bp) {
-	print_untagged_memory(bp->mem,bp->mem + bp->size);
+	print_untagged_memory(bp->mem,bp->mem + bp->used_size);
         bp = bp->next;
     }
 }

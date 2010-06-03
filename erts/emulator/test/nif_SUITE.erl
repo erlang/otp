@@ -20,24 +20,39 @@
 -module(nif_SUITE).
 
 %%-define(line_trace,true).
-%%-define(CHECK(Exp,Got), ?line check(Exp,Got,?LINE)).
--define(CHECK(Exp,Got), ?line Exp = Got).
+-define(CHECK(Exp,Got), check(Exp,Got,?LINE)).
+%%-define(CHECK(Exp,Got), ?line Exp = Got).
 
 -include("test_server.hrl").
 
--export([all/1, fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
+-export([all/1, 
+	 %%init_per_testcase/2, 
+	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
-	 from_array/1, iolist_as_binary/1, resource/1, resource_takeover/1,
-	 threading/1, neg/1, is_checks/1, get_length/1, make_atom/1, make_string/1]).
+	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, resource_takeover/1,
+	 threading/1, send/1, send2/1, send_threaded/1, neg/1, is_checks/1,
+	 get_length/1, make_atom/1, make_string/1]).
 
 -export([many_args_100/100]).
+
+
+%% -export([lib_version/0,call_history/0,hold_nif_mod_priv_data/1,nif_mod_call_history/0,
+%% 	 list_seq/1,type_test/0,tuple_2_list/1,is_identical/2,compare/2,
+%% 	 clone_bin/1,make_sub_bin/3,string_to_bin/2,atom_to_bin/2,macros/1,
+%% 	 tuple_2_list_and_tuple/1,iolist_2_bin/1,get_resource_type/1,alloc_resource/2,
+%% 	 make_resource/1,get_resource/2,release_resource/1,last_resource_dtor_call/0,
+%% 	 make_new_resource/2,make_new_resource_binary/1,send_list_seq/2,send_new_blob/2,
+%% 	 alloc_msgenv/0,clear_msgenv/1,grow_blob/2,send_blob/2,send_blob_thread/3,
+%% 	 join_send_thread/1]).
+
+
 -define(nif_stub,nif_stub_error(?LINE)).
 
 all(suite) ->
     [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
-     get_atom, api_macros, from_array, iolist_as_binary, resource,
-     resource_takeover, threading, neg, is_checks, get_length, make_atom,
-     make_string].
+     get_atom, api_macros, from_array, iolist_as_binary, resource, resource_binary,
+     resource_takeover, threading, send, send2, send_threaded, neg, is_checks,
+     get_length, make_atom, make_string].
 
 %%init_per_testcase(_Case, Config) ->
 %%    ?line Dog = ?t:timetrap(?t:seconds(60*60*24)),
@@ -474,12 +489,51 @@ resource_new_do2(Type) ->
     {{PtrA,BinA}, {ResB,PtrB,BinB}}.
 
 resource_neg(TypeA) ->
-    TypeB = get_resource_type(1),
-    Aptr = alloc_resource(TypeA, <<"Arnold">>),
-    Bptr = alloc_resource(TypeB, <<"Bobo">>),
-    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeA, Bptr)),
-    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeB, Aptr)),
+    resource_neg_do(TypeA),
+
+    catch exit(42), % dummy exception to purge saved stacktraces from earlier exception
+    erlang:garbage_collect(),
+    ?line {_,_,2} = last_resource_dtor_call(),
     ok.
+
+resource_neg_do(TypeA) ->
+    TypeB = get_resource_type(1),
+    ResA = make_new_resource(TypeA, <<"Arnold">>),
+    ResB= make_new_resource(TypeB, <<"Bobo">>),
+    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeA, ResB)),
+    ?line {'EXIT',{badarg,_}} = (catch get_resource(TypeB, ResA)),
+    ok.
+
+resource_binary(doc) -> ["Test enif_make_resource_binary"];
+resource_binary(suite) -> [];
+resource_binary(Config) when is_list(Config) ->
+    ?line ensure_lib_loaded(Config, 1),
+    ?line {Ptr,Bin} = resource_binary_do(),
+    erlang:garbage_collect(),
+    Last = last_resource_dtor_call(),
+    ?CHECK({Ptr,Bin,1}, Last),
+    ok.
+
+resource_binary_do() ->
+    Bin = <<"Hej Hopp i lingonskogen">>,
+    ?line {Ptr,ResBin1} = make_new_resource_binary(Bin),
+    ?line ResBin1 = Bin,          
+    ?line ResInfo = {Ptr,_} = get_resource(binary_resource_type,ResBin1),
+
+    Papa = self(),
+    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    io:format("sending to forwarder pid=~p\n",[Forwarder]),  
+    Forwarder ! ResBin1,
+    ResBin2 = receive_any(),
+    ?line ResBin2 = ResBin1,
+    ?line ResInfo = get_resource(binary_resource_type,ResBin2),
+    Forwarder ! terminate,
+    ?line {Forwarder, 1} = receive_any(),
+    erlang:garbage_collect(),
+    ?line ResInfo = get_resource(binary_resource_type,ResBin1),
+    ?line ResInfo = get_resource(binary_resource_type,ResBin2),
+    ResInfo.
+
     
 -define(RT_CREATE,1).
 -define(RT_TAKEOVER,2).
@@ -744,6 +798,124 @@ threading(Config) when is_list(Config) ->
 
     ?line ok = tester:load_nif_lib(Config, "tsd"),
     ?line ok = tester:run().
+
+send(doc) -> ["Test NIF message sending"];
+send(Config) when is_list(Config) ->    
+    ensure_lib_loaded(Config),
+
+    N = 1500,
+    List = lists:seq(1,N),
+    ?line {ok,1} = send_list_seq(N, self),
+    ?line {ok,1} = send_list_seq(N, self()),
+    ?line List = receive_any(),
+    ?line List = receive_any(),
+    Papa = self(),
+    spawn_link(fun() -> ?line {ok,1} = send_list_seq(N, Papa) end),
+    ?line List = receive_any(),
+
+    ?line {ok, 1, BlobS} = send_new_blob(self(), other_term()),
+    ?line BlobR = receive_any(),
+    io:format("Sent ~p\nGot ~p\n", [BlobS, BlobR]),
+    ?line BlobR = BlobS,
+
+    %% send to dead pid
+    {DeadPid, DeadMon} = spawn_monitor(fun() -> void end),
+    ?line {'DOWN', DeadMon, process, DeadPid, normal} = receive_any(),
+    {ok,0} = send_list_seq(7, DeadPid),
+    ok.
+
+send2(doc) -> ["More NIF message sending"];
+send2(Config) when is_list(Config) ->
+    ensure_lib_loaded(Config),
+
+    send2_do1(fun send_blob_dbg/2),
+    ok.
+
+send_threaded(doc) -> ["Send msg from user thread"];
+send_threaded(Config) when is_list(Config) ->
+    case erlang:system_info(smp_support) of
+	true ->
+	    send2_do1(fun(ME,To) -> send_blob_thread_dbg(ME,To,join) end),
+	    send2_do1(fun(ME,To) -> send_blob_thread_and_join(ME,To) end),
+	    ok;
+	false ->
+	    {skipped,"No threaded send on non-SMP"}
+    end.
+
+
+send2_do1(SendBlobF) ->
+    io:format("sending to self=~p\n",[self()]),
+    send2_do2(SendBlobF, self()),
+
+    Papa = self(),
+    Forwarder = spawn_link(fun() -> forwarder(Papa) end),
+    io:format("sending to forwarder pid=~p\n",[Forwarder]),
+    send2_do2(SendBlobF, Forwarder),
+    Forwarder ! terminate,
+    ?line {Forwarder, 4} = receive_any(),
+    ok.
+
+send2_do2(SendBlobF, To) ->   
+    MsgEnv = alloc_msgenv(),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob0} = SendBlobF(MsgEnv, To),
+    ?line Blob1 = receive_any(),
+    ?line Blob1 = Blob0,
+    
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob2} = SendBlobF(MsgEnv, To),
+    ?line Blob3 = receive_any(),
+    ?line Blob3 = Blob2,
+
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob4} = SendBlobF(MsgEnv, To),
+    ?line Blob5 = receive_any(),
+    ?line Blob5 = Blob4,
+
+    clear_msgenv(MsgEnv),
+    clear_msgenv(MsgEnv),
+    repeat(50, fun(_) -> grow_blob(MsgEnv,other_term()) end, []),
+    ?line {ok,1,Blob6} = SendBlobF(MsgEnv, To),
+    ?line Blob7 = receive_any(),
+    ?line Blob7 = Blob6,
+
+    ok.
+
+
+send_blob_thread_and_join(MsgEnv, To) ->
+    ?line {ok,Blob} = send_blob_thread_dbg(MsgEnv, To, no_join),
+    ?line {ok,SendRes} = join_send_thread(MsgEnv),
+    {ok,SendRes,Blob}.
+
+send_blob_dbg(MsgEnv, To) ->
+    Ret = send_blob(MsgEnv, To),
+    %%io:format("send_blob to ~p returned ~p\n",[To,Ret]),
+    Ret.
+
+send_blob_thread_dbg(MsgEnv, To, Join) ->
+    Ret = send_blob_thread(MsgEnv, To, Join),
+    %%io:format("send_blob_thread to ~p Join=~p returned ~p\n",[To,Join,Ret]),
+    Ret.
+
+
+forwarder(To) ->
+    forwarder(To, 0).
+forwarder(To, N) ->
+    case receive_any() of
+	terminate ->
+	    To ! {self(), N};
+	Msg ->	    
+	    To ! Msg,	   
+	    forwarder(To, N+1)
+    end.
+
+other_term() ->
+    {fun(X,Y) -> X*Y end, make_ref()}.
     
 neg(doc) -> ["Negative testing of load_nif"];
 neg(Config) when is_list(Config) ->
@@ -848,13 +1020,18 @@ call(Pid,Cmd) ->
 receive_any() ->
     receive M -> M end.	     
 
-%% check(Exp,Got,Line) ->
-%%     case Got of
-%% 	Exp -> Exp;	    
-%% 	_ ->
-%% 	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
-%% 	    Got
-%%     end.
+repeat(0, _, Arg) ->
+    Arg;
+repeat(N, Fun, Arg0) ->
+    repeat(N-1, Fun, Fun(Arg0)).
+
+check(Exp,Got,Line) ->
+    case Got of
+ 	Exp -> Exp;	    
+  	_ ->
+  	    io:format("CHECK at ~p: Expected ~p but got ~p\n",[Line,Exp,Got]),
+ 	    Got
+    end.
 	    
 
 %% The NIFs:
@@ -886,6 +1063,16 @@ check_is(_,_,_,_,_,_,_,_,_,_) -> ?nif_stub.
 length_test(_,_,_,_,_) -> ?nif_stub.
 make_atoms() -> ?nif_stub.
 make_strings() -> ?nif_stub.
+make_new_resource_binary(_) -> ?nif_stub.
+send_list_seq(_,_) -> ?nif_stub.     
+send_new_blob(_,_) -> ?nif_stub.     
+alloc_msgenv() -> ?nif_stub.
+clear_msgenv(_) -> ?nif_stub.
+grow_blob(_,_) -> ?nif_stub.
+send_blob(_,_) -> ?nif_stub.
+send_blob_thread(_,_,_) -> ?nif_stub.
+join_send_thread(_) -> ?nif_stub.
+
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).

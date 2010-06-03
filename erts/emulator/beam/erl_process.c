@@ -7187,8 +7187,6 @@ erts_debug_verify_clean_empty_process(Process* p)
 void
 erts_cleanup_empty_process(Process* p)
 {
-    ErlHeapFragment* mbufp;
-
     /* We only check fields that are known to be used... */
 
     erts_cleanup_offheap(&p->off_heap);
@@ -7199,13 +7197,10 @@ erts_cleanup_empty_process(Process* p)
     p->off_heap.externals = NULL;
     p->off_heap.overhead = 0;
 
-    mbufp = p->mbuf;
-    while (mbufp) {
-	ErlHeapFragment *next = mbufp->next;
-	free_message_buffer(mbufp);
-	mbufp = next;
+    if (p->mbuf != NULL) {
+	free_message_buffer(p->mbuf);
+	p->mbuf = NULL;
     }
-    p->mbuf = NULL;
 #if defined(ERTS_ENABLE_LOCK_COUNT) && defined(ERTS_SMP)
     erts_lcnt_proc_lock_destroy(p);
 #endif
@@ -7221,7 +7216,6 @@ static void
 delete_process(Process* p)
 {
     ErlMessage* mp;
-    ErlHeapFragment* bp;
 
     VERBOSE(DEBUG_PROCESSES, ("Removing process: %T\n",p->id));
 
@@ -7271,11 +7265,8 @@ delete_process(Process* p)
     /*
      * Free all pending message buffers.
      */
-    bp = p->mbuf;
-    while (bp != NULL) {
-	ErlHeapFragment* next_bp = bp->next;
-	free_message_buffer(bp);
-	bp = next_bp;
+    if (p->mbuf != NULL) {	
+	free_message_buffer(p->mbuf);
     }
 
     erts_erase_dicts(p);

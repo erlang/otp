@@ -357,7 +357,7 @@ bif_timer_timeout(ErtsBifTimer* btm)
 						 rp,
 						 &rp_locks);
 		} else {
-		    Eterm old_size = bp->size;
+		    Eterm old_size = bp->used_size;
 		    bp = erts_resize_message_buffer(bp, old_size + wrap_size,
 						    &message, 1);
 		    hp = &bp->mem[0] + old_size;

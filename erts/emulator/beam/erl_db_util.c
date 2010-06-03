@@ -1547,10 +1547,9 @@ restart:
      */  
     context.save = NULL;
 error: /* Here is were we land when compilation failed. */
-    while (context.save != NULL) {
-	ErlHeapFragment *ll = context.save->next;
+    if (context.save != NULL) {
 	free_message_buffer(context.save);
-	context.save = ll;
+	context.save = NULL;
     }
     DMC_FREE(stack);
     DMC_FREE(text);
@@ -1567,15 +1566,11 @@ error: /* Here is were we land when compilation failed. */
 void erts_db_match_prog_destructor(Binary *bprog)
 {
     MatchProg *prog;
-    ErlHeapFragment *tmp, *ll;
     if (bprog == NULL)
 	return;
     prog = Binary2MatchProg(bprog);
-    tmp = prog->term_save; 
-    while (tmp != NULL) {
-	ll = tmp->next;
-	free_message_buffer(tmp);
-	tmp = ll;
+    if (prog->term_save != NULL) {
+	free_message_buffer(prog->term_save); 
     }
     if (prog->saved_program_buf != NULL)
 	free_message_buffer(prog->saved_program_buf);
@@ -4125,7 +4120,7 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
     DMC_INIT_STACK(heap);
 
     p = expr->mem;
-    i = expr->size;
+    i = expr->used_size;
     while (i--) {
 	if (is_thing(*p)) {
 	    a = thing_arityval(*p);
@@ -4154,7 +4149,7 @@ static int match_compact(ErlHeapFragment *expr, DMCErrInfo *err_info)
     }
 
     p = expr->mem;
-    i = expr->size;
+    i = expr->used_size;
     while (i--) {
 	if (is_thing(*p)) {
 	    a = thing_arityval(*p);

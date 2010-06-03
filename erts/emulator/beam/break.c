@@ -258,12 +258,10 @@ print_process_info(int to, void *to_arg, Process *p)
     }
 
     {
-       long s = 0;
        int frags = 0;
        ErlHeapFragment *m = p->mbuf;
        while (m != NULL) {
 	   frags++;
-	   s += m->size;
 	   m = m->next;
        }
        erts_print(to, to_arg, "Number of heap fragments: %d\n", frags);

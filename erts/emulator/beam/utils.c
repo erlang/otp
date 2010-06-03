@@ -32,6 +32,7 @@
 #include "erl_binary.h"
 #include "erl_bits.h"
 #include "packet_parser.h"
+#include "erl_gc.h"
 #define ERTS_WANT_DB_INTERNAL__
 #include "erl_db.h"
 #include "erl_threads.h"
@@ -125,7 +126,7 @@ erts_heap_alloc(Process* p, Uint need)
 
     n = need;
     bp = MBUF(p);
-    if (bp != NULL && need <= (bp->size - bp->used_size)) {
+    if (bp != NULL && need <= (bp->alloc_size - bp->used_size)) {
 	Eterm* ret = bp->mem + bp->used_size;
 	bp->used_size += need;
 	return ret;
@@ -158,7 +159,7 @@ erts_heap_alloc(Process* p, Uint need)
 
     bp->next = MBUF(p);
     MBUF(p) = bp;
-    bp->size = n;
+    bp->alloc_size = n;
     bp->used_size = n;
     MBUF_SIZE(p) += n;
     bp->off_heap.mso = NULL;

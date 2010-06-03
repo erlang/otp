@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 1996-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 1996-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -36,6 +36,8 @@ MA_STACK_DECLARE(src);
 MA_STACK_DECLARE(dst);
 MA_STACK_DECLARE(offset);
 #endif
+
+static void move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap*);
 
 void
 init_copy(void)
@@ -86,7 +88,7 @@ size_object(Eterm obj)
 	    obj = *ptr++;
 	    if (!IS_CONST(obj)) {
 		ESTACK_PUSH(s, obj);
-	    }
+	    }	    
 	    obj = *ptr;
 	    break;
 	case TAG_PRIMARY_BOXED:
@@ -99,7 +101,7 @@ size_object(Eterm obj)
 		    arity = header_arity(hdr);
 		    sum += arity + 1;
 		    if (arity == 0) { /* Empty tuple -- unusual. */
-			goto size_common;
+			goto pop_next;
 		    }
 		    while (arity-- > 1) {
 			obj = *++ptr;
@@ -115,7 +117,6 @@ size_object(Eterm obj)
 			ErlFunThing* funp = (ErlFunThing *) bptr;
 			unsigned eterms = 1 /* creator */ + funp->num_free;
 			unsigned sz = thing_arityval(hdr);
-
 			sum += 1 /* header */ + sz + eterms;
 			bptr += 1 /* header */ + sz;
 			while (eterms-- > 1) {
@@ -151,7 +152,7 @@ size_object(Eterm obj)
 			} else {
 			    sum += heap_bin_size(binary_size(obj)+extra_bytes);
 			}
-			goto size_common;
+			goto pop_next;
 		    }
 		    break;
 		case BIN_MATCHSTATE_SUBTAG:
@@ -159,18 +160,12 @@ size_object(Eterm obj)
 			     "size_object: matchstate term not allowed");
 		default:
 		    sum += thing_arityval(hdr) + 1;
-		    /* Fall through */
-		size_common:
-		    if (ESTACK_ISEMPTY(s)) {
-			DESTROY_ESTACK(s);
-			return sum;
-		    }
-		    obj = ESTACK_POP(s);
-		    break;
+		    goto pop_next;
 		}
 	    }
 	    break;
 	case TAG_PRIMARY_IMMED1:
+	pop_next:
 	    if (ESTACK_ISEMPTY(s)) {
 		DESTROY_ESTACK(s);
 		return sum;
@@ -979,3 +974,104 @@ copy_shallow(Eterm* ptr, Uint sz, Eterm** hpp, ErlOffHeap* off_heap)
     *hpp = hp;
     return make_tuple(ptr + offs); 
 }
+
+/* Move all terms in heap fragments into heap. The terms must be guaranteed to 
+ * be contained within the fragments. The source terms are destructed with
+ * move markers.
+ * Typically used to copy a multi-fragmented message (from NIF).
+ */
+void move_multi_frags(Eterm** hpp, ErlOffHeap* off_heap, ErlHeapFragment* first,
+		      Eterm* refs, unsigned nrefs)
+{
+    ErlHeapFragment* bp;
+    Eterm* hp_start = *hpp;
+    Eterm* hp_end;
+    Eterm* hp;
+    unsigned i;
+
+    for (bp=first; bp!=NULL; bp=bp->next) {
+	move_one_frag(hpp, bp->mem, bp->used_size, off_heap);
+	off_heap->overhead += bp->off_heap.overhead;
+    }
+    hp_end = *hpp;
+    for (hp=hp_start; hp<hp_end; ++hp) {
+	Eterm* ptr;
+	Eterm val;
+	Eterm gval = *hp;
+	switch (primary_tag(gval)) {
+	case TAG_PRIMARY_BOXED:
+	    ptr = boxed_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_BOXED(val)) {
+		ASSERT(is_boxed(val));
+		*hp = val;
+	    }
+	    break;
+	case TAG_PRIMARY_LIST:
+	    ptr = list_val(gval);
+	    val = *ptr;
+	    if (IS_MOVED_CONS(val)) {
+		*hp = ptr[1];
+	    }
+	    break;
+	case TAG_PRIMARY_HEADER:
+	    if (header_is_thing(gval)) {
+		hp += thing_arityval(gval);
+	    }
+	    break;
+	}
+    }
+    for (i=0; i<nrefs; ++i) {
+	refs[i] = follow_moved(refs[i]);
+    }
+}
+
+static void
+move_one_frag(Eterm** hpp, Eterm* src, Uint src_sz, ErlOffHeap* off_heap)
+{
+    union {
+	Uint *up;
+	ProcBin *pbp;
+	ErlFunThing *efp;
+	ExternalThing *etp;
+    } ohe;
+    Eterm* ptr = src;
+    Eterm* end = ptr + src_sz;
+    Eterm dummy_ref;
+    Eterm* hp = *hpp;
+
+    while (ptr != end) {
+	Eterm val;
+	ASSERT(ptr < end);
+	val = *ptr;
+	ASSERT(val != ERTS_HOLE_MARKER);
+	if (is_header(val)) {
+	    ASSERT(ptr + header_arity(val) < end);
+	    ohe.up = hp;
+	    MOVE_BOXED(ptr, val, hp, &dummy_ref);	    
+	    switch (val & _HEADER_SUBTAG_MASK) {
+	    case REFC_BINARY_SUBTAG:
+		ohe.pbp->next = off_heap->mso;
+		off_heap->mso = ohe.pbp;
+		break;
+	    case FUN_SUBTAG:
+		ohe.efp->next = off_heap->funs;
+		off_heap->funs = ohe.efp;
+		break;
+	    case EXTERNAL_PID_SUBTAG:
+	    case EXTERNAL_PORT_SUBTAG:
+	    case EXTERNAL_REF_SUBTAG:
+		ohe.etp->next = off_heap->externals;
+		off_heap->externals = ohe.etp;
+		break;
+	    }
+	}
+	else { /* must be a cons cell */
+	    ASSERT(ptr+1 < end);
+	    MOVE_CONS(ptr, val, hp, &dummy_ref);
+	    ptr += 2;
+	}
+    }
+    *hpp = hp;
+}
+

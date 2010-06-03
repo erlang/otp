@@ -48,7 +48,7 @@ struct erl_module_nif {
     struct enif_entry_t* entry;
     erts_refc_t rt_cnt;       /* number of resource types */
     erts_refc_t rt_dtor_cnt;  /* number of resource types with destructors */
-    int is_orphan;            /* if erlang module has been purged */
+    Module* mod;           /* Can be NULL if orphan with dtor-resources left */ 
 };
 
 #ifdef DEBUG
@@ -59,6 +59,10 @@ struct erl_module_nif {
 static void add_readonly_check(ErlNifEnv*, unsigned char* ptr, unsigned sz);
 #else
 #  define ADD_READONLY_CHECK(ENV,PTR,SIZE) ((void)0)
+#endif
+
+#ifdef DEBUG
+static int is_offheap(const ErlOffHeap* off_heap);
 #endif
 
 
@@ -84,7 +88,8 @@ static Eterm* alloc_heap_heavy(ErlNifEnv* env, unsigned need, Eterm* hp)
 	HEAP_TOP(env->proc) = env->hp;	
     }
     else {
-	HRelease(env->proc, env->hp_end, env->hp);
+	env->heap_frag->used_size = hp - env->heap_frag->mem;
+	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
     frag_sz = need + MIN_HEAP_FRAG_SZ;
     hp = erts_heap_alloc(env->proc, frag_sz);
@@ -143,8 +148,9 @@ void erts_post_nif(ErlNifEnv* env)
     }
     else {
 	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	ASSERT(env->hp_end - env->hp <= env->heap_frag->size);
-	HRelease(env->proc, env->hp_end, env->hp);
+	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
+	env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
     free_tmp_objs(env);
 }
@@ -158,7 +164,7 @@ static void post_nif_noproc(ErlNifEnv* env)
 
 /* Flush out our cached heap pointers to allow an ordinary HAlloc
 */
-static void enable_halloc(ErlNifEnv* env)
+static void flush_env(ErlNifEnv* env)
 {
     if (env->heap_frag == NULL) {
 	ASSERT(env->hp_end == HEAP_LIMIT(env->proc));
@@ -168,14 +174,15 @@ static void enable_halloc(ErlNifEnv* env)
     }
     else {
 	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	ASSERT(env->hp_end - env->hp <= env->heap_frag->size);
-	HRelease(env->proc, env->hp_end, env->hp);
+	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);
+	env->heap_frag->used_size = env->hp - env->heap_frag->mem;
+	ASSERT(env->heap_frag->used_size <= env->heap_frag->alloc_size);
     }
 }
 
-/* Restore cached heap pointers
+/* Restore cached heap pointers to allow alloc_heap again.
 */
-static void disable_halloc(ErlNifEnv* env)
+static void cache_env(ErlNifEnv* env)
 {
     if (env->heap_frag == NULL) {
 	ASSERT(env->hp_end == HEAP_LIMIT(env->proc));
@@ -185,32 +192,190 @@ static void disable_halloc(ErlNifEnv* env)
     }
     else {
 	ASSERT(env->hp_end != HEAP_LIMIT(env->proc));
-	ASSERT(env->hp_end - env->hp <= env->heap_frag->size);       
+	ASSERT(env->hp_end - env->hp <= env->heap_frag->alloc_size);       
 	env->heap_frag = MBUF(env->proc);
 	ASSERT(env->heap_frag != NULL);
 	env->hp = env->heap_frag->mem + env->heap_frag->used_size;
-	env->hp_end = env->heap_frag->mem + env->heap_frag->size;
+	env->hp_end = env->heap_frag->mem + env->heap_frag->alloc_size;
     }
 }
-
 void* enif_priv_data(ErlNifEnv* env)
 {
     return env->mod_nif->priv_data;
 }
 
-void* enif_alloc(ErlNifEnv* env, size_t size)
+void* enif_alloc(size_t size)
 {
     return erts_alloc_fnf(ERTS_ALC_T_NIF, (Uint) size);
 }
 
-void* enif_realloc(ErlNifEnv* env, void* ptr, size_t size)
+void* enif_realloc(void* ptr, size_t size)
 {
     return erts_realloc_fnf(ERTS_ALC_T_NIF, ptr, size);
 }
 
-void enif_free(ErlNifEnv* env, void* ptr)
+void enif_free(void* ptr)
 {
     erts_free(ERTS_ALC_T_NIF, ptr);
+}
+
+struct enif_msg_environment_t
+{
+    ErlNifEnv env;
+    Process phony_proc;
+};
+
+ErlNifEnv* enif_alloc_env(void)
+{
+    struct enif_msg_environment_t* msg_env =
+	erts_alloc_fnf(ERTS_ALC_T_NIF, sizeof(struct enif_msg_environment_t));
+    Eterm* phony_heap = (Eterm*) msg_env; /* dummy non-NULL ptr */
+	
+    msg_env->env.hp = phony_heap; 
+    msg_env->env.hp_end = phony_heap;
+    msg_env->env.heap_frag = NULL;
+    msg_env->env.mod_nif = NULL;
+    msg_env->env.tmp_obj_list = (struct enif_tmp_obj_t*) 1; /* invalid non-NULL */
+    msg_env->env.proc = &msg_env->phony_proc;
+    memset(&msg_env->phony_proc, 0, sizeof(Process));
+    HEAP_START(&msg_env->phony_proc) = phony_heap;
+    HEAP_TOP(&msg_env->phony_proc) = phony_heap;
+    HEAP_LIMIT(&msg_env->phony_proc) = phony_heap;
+    HEAP_END(&msg_env->phony_proc) = phony_heap;
+    MBUF(&msg_env->phony_proc) = NULL;
+    msg_env->phony_proc.id = ERTS_INVALID_PID;
+#ifdef FORCE_HEAP_FRAGS
+    msg_env->phony_proc.space_verified = 0;
+    msg_env->phony_proc.space_verified_from = NULL;
+#endif
+    return &msg_env->env;
+}
+void enif_free_env(ErlNifEnv* env)
+{
+    enif_clear_env(env);
+    erts_free(ERTS_ALC_T_NIF, env);
+}
+
+static ERTS_INLINE void clear_offheap(ErlOffHeap* oh)
+{
+    oh->mso = NULL;
+    oh->externals = NULL;
+    oh->funs = NULL;
+    oh->overhead = 0;
+}
+
+void enif_clear_env(ErlNifEnv* env)
+{
+    struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)env;
+    Process* p = &menv->phony_proc;
+    ASSERT(p == menv->env.proc);
+    ASSERT(p->id == ERTS_INVALID_PID);
+    ASSERT(MBUF(p) == menv->env.heap_frag);
+    if (MBUF(p) != NULL) {
+	erts_cleanup_offheap(&MSO(p));
+	clear_offheap(&MSO(p));
+	free_message_buffer(MBUF(p));
+	MBUF(p) = NULL;
+	menv->env.heap_frag = NULL;
+    }
+    ASSERT(HEAP_TOP(p) == HEAP_END(p));
+    menv->env.hp = menv->env.hp_end = HEAP_TOP(p);
+    
+    ASSERT(!is_offheap(&MSO(p)));
+}
+int enif_send(ErlNifEnv* env, const ErlNifPid* to_pid,
+	      ErlNifEnv* msg_env, ERL_NIF_TERM msg)
+{
+    struct enif_msg_environment_t* menv = (struct enif_msg_environment_t*)msg_env;
+    ErtsProcLocks rp_locks = 0;
+    Process* rp;
+    Process* c_p;
+    ErlHeapFragment* frags;
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+    ErtsProcLocks rp_had_locks;
+#endif
+    Eterm receiver = to_pid->pid;
+    int flush_me = 0;
+
+    if (env != NULL) {
+	c_p = env->proc;
+	if (receiver == c_p->id) {
+	    rp_locks = ERTS_PROC_LOCK_MAIN;
+	    flush_me = 1;
+	}
+    }
+    else {
+#ifdef ERTS_SMP
+	c_p = NULL;
+#else
+	erl_exit(ERTS_ABORT_EXIT,"enif_send: env==NULL on non-SMP VM");
+#endif
+    }    
+
+#if defined(ERTS_ENABLE_LOCK_CHECK) && defined(ERTS_SMP)
+    rp_had_locks = rp_locks;
+#endif
+    rp = erts_pid2proc_opt(c_p, ERTS_PROC_LOCK_MAIN,
+			   receiver, rp_locks, ERTS_P2P_FLG_SMP_INC_REFC);
+    if (rp == NULL) {
+	ASSERT(env == NULL || receiver != c_p->id);
+	return 0;
+    }
+    flush_env(msg_env);
+    frags = menv->env.heap_frag; 
+    ASSERT(frags == MBUF(&menv->phony_proc));
+    if (frags != NULL) {
+	/* Move all offheap's from phony proc to the first fragment.
+	   Quick and dirty, but erts_move_msg_mbuf_to_heap doesn't care. */
+	ASSERT(!is_offheap(&frags->off_heap));
+	frags->off_heap = MSO(&menv->phony_proc);
+	clear_offheap(&MSO(&menv->phony_proc));
+	menv->env.heap_frag = NULL; 
+	MBUF(&menv->phony_proc) = NULL;
+    }
+    ASSERT(!is_offheap(&MSO(&menv->phony_proc)));
+
+    if (flush_me) {	
+	flush_env(env); /* Needed for ERTS_HOLE_CHECK */ 
+    }
+    erts_queue_message(rp, &rp_locks, frags, msg, am_undefined);
+    if (rp_locks) {	
+	ERTS_SMP_LC_ASSERT(rp_locks == (rp_had_locks | (ERTS_PROC_LOCK_MSGQ | 
+							ERTS_PROC_LOCK_STATUS)));
+	erts_smp_proc_unlock(rp, (ERTS_PROC_LOCK_MSGQ | ERTS_PROC_LOCK_STATUS));
+    }
+    erts_smp_proc_dec_refc(rp);
+    if (flush_me) {
+	cache_env(env);
+    }
+    return 1;
+}
+
+ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
+{
+    Uint sz;
+    Eterm* hp;
+    sz = size_object(src_term);
+    hp = alloc_heap(dst_env, sz);
+    return copy_struct(src_term, sz, &hp, &MSO(dst_env->proc));
+}
+
+
+#ifdef DEBUG
+static int is_offheap(const ErlOffHeap* oh)
+{
+    return oh->mso != NULL || oh->funs != NULL || oh->externals != NULL;
+}
+#endif
+
+ErlNifPid* enif_self(ErlNifEnv* caller_env, ErlNifPid* pid)
+{
+    pid->pid = caller_env->proc->id;
+    return pid;
+}
+int enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)
+{
+    return is_internal_pid(term) ? (pid->pid=term, 1) : 0;
 }
 
 int enif_is_atom(ErlNifEnv* env, ERL_NIF_TERM term)
@@ -324,7 +489,7 @@ int enif_inspect_iolist_as_binary(ErlNifEnv* env, Eterm term, ErlNifBinary* bin)
     return 1;
 }
 
-int enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)
+int enif_alloc_binary(size_t size, ErlNifBinary* bin)
 {
     Binary* refbin;
 
@@ -343,7 +508,7 @@ int enif_alloc_binary(ErlNifEnv* env, unsigned size, ErlNifBinary* bin)
     return 1;
 }
 
-int enif_realloc_binary(ErlNifEnv* env, ErlNifBinary* bin, unsigned size)
+int enif_realloc_binary(ErlNifBinary* bin, size_t size)
 {
     if (bin->ref_bin != NULL) {
 	Binary* oldbin;
@@ -361,15 +526,15 @@ int enif_realloc_binary(ErlNifEnv* env, ErlNifBinary* bin, unsigned size)
     }
     else {
 	unsigned char* old_data = bin->data;
-	unsigned cpy_sz = (size < bin->size ? size : bin->size);  
-	enif_alloc_binary(env, size, bin);
+	size_t cpy_sz = (size < bin->size ? size : bin->size);  
+	enif_alloc_binary(size, bin);
 	sys_memcpy(bin->data, old_data, cpy_sz); 
     }
     return 1;
 }
 
 
-void enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)
+void enif_release_binary(ErlNifBinary* bin)
 {
     if (bin->ref_bin != NULL) {
 	Binary* refbin = bin->ref_bin;
@@ -385,21 +550,21 @@ void enif_release_binary(ErlNifEnv* env, ErlNifBinary* bin)
 #endif
 }
 
-unsigned char* enif_make_new_binary(ErlNifEnv* env, unsigned size,
+unsigned char* enif_make_new_binary(ErlNifEnv* env, size_t size,
 				    ERL_NIF_TERM* termp)
 {
-    enable_halloc(env);
+    flush_env(env);
     *termp = new_binary(env->proc, NULL, size);
-    disable_halloc(env);
+    cache_env(env);
     return binary_bytes(*termp);
 }
 
-int enif_is_identical(ErlNifEnv* env, Eterm lhs, Eterm rhs)
+int enif_is_identical(Eterm lhs, Eterm rhs)
 {
     return EQ(lhs,rhs);
 }
 
-int enif_compare(ErlNifEnv* env, Eterm lhs, Eterm rhs)
+int enif_compare(Eterm lhs, Eterm rhs)
 {
     return cmp(lhs,rhs);
 }
@@ -478,15 +643,15 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	return bin_term;
     }
     else {
-	enable_halloc(env);
+	flush_env(env);
 	bin->bin_term = new_binary(env->proc, bin->data, bin->size);
-	disable_halloc(env);
+	cache_env(env);
 	return bin->bin_term;
     }
 }
 
 Eterm enif_make_sub_binary(ErlNifEnv* env, ERL_NIF_TERM bin_term,
-			   unsigned pos, unsigned size)
+			   size_t pos, size_t size)
 {
     ErlSubBin* sb;
     Eterm orig;
@@ -516,9 +681,11 @@ Eterm enif_make_badarg(ErlNifEnv* env)
     BIF_ERROR(env->proc, BADARG);
 }
 
-int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len)
+int enif_get_atom(ErlNifEnv* env, Eterm atom, char* buf, unsigned len,
+		  ErlNifCharEncoding encoding)
 {
     Atom* ap;
+    ASSERT(encoding == ERL_NIF_LATIN1);
     if (is_not_atom(atom)) {
 	return 0;
     }
@@ -566,10 +733,8 @@ int enif_get_long(ErlNifEnv* env, Eterm term, long* ip)
 #if SIZEOF_LONG == ERTS_SIZEOF_ETERM
     return term_to_Sint(term, ip);
 #elif SIZEOF_INT == ERTS_SIZEOF_ETERM
-    Uint u;
-    term_to_Sint(term, u);
-    *ip = (long) u;
-    return 1;
+    Sint i;
+    return term_to_Sint(term, &i) ? (*ip = (long) i, 1) : 0;
 #else
 #  error Unknown long word size 
 #endif     
@@ -581,10 +746,7 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
     return term_to_Uint(term, ip);
 #elif SIZEOF_INT == ERTS_SIZEOF_ETERM
     Uint u;
-    int r;
-    r = term_to_Uint(term, &u);
-    *ip = (unsigned long) u;
-    return r;
+    return term_to_Uint(term, &u) ? (*ip = (unsigned long) u, 1) : 0;
 #else
 #  error Unknown long word size 
 #endif     
@@ -601,9 +763,11 @@ int enif_get_double(ErlNifEnv* env, Eterm term, double* dp)
     return 1;
 }
 
-int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len)
+int enif_get_atom_length(ErlNifEnv* env, Eterm atom, unsigned* len,
+			 ErlNifCharEncoding enc)
 {
     Atom* ap;
+    ASSERT(enc == ERL_NIF_LATIN1);
     if (is_not_atom(atom)) return 0;
     ap = atom_tab(atom_val(atom));
     *len = ap->len;
@@ -674,14 +838,16 @@ ERL_NIF_TERM enif_make_atom_len(ErlNifEnv* env, const char* name, size_t len)
     return am_atom_put(name, len);
 }
 
-int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom)
+int enif_make_existing_atom(ErlNifEnv* env, const char* name, ERL_NIF_TERM* atom,
+			    ErlNifCharEncoding enc)
 {
-    return enif_make_existing_atom_len(env, name, sys_strlen(name), atom);
+    return enif_make_existing_atom_len(env, name, sys_strlen(name), atom, enc);
 }
 
 int enif_make_existing_atom_len(ErlNifEnv* env, const char* name, size_t len,
-				ERL_NIF_TERM* atom)
+				ERL_NIF_TERM* atom, ErlNifCharEncoding encoding)
 {
+    ASSERT(encoding == ERL_NIF_LATIN1);
     return erts_atom_get(name, len, atom);
 }
 
@@ -841,7 +1007,8 @@ struct enif_resource_type_t
     ErlNifResourceDtor* dtor;      /* user destructor function */
     erts_refc_t refc;  /* num of resources of this type (HOTSPOT warning)
                           +1 for active erl_module_nif */
-    char name[1];
+    Eterm module;
+    Eterm name;
 };
 
 /* dummy node in circular list */
@@ -859,14 +1026,14 @@ typedef struct enif_resource_t
 #define SIZEOF_ErlNifResource(SIZE) (offsetof(ErlNifResource,data) + (SIZE))
 #define DATA_TO_RESOURCE(PTR) ((ErlNifResource*)((char*)(PTR) - offsetof(ErlNifResource,data)))
 
-static ErlNifResourceType* find_resource_type(const char* name)
+static ErlNifResourceType* find_resource_type(Eterm module, Eterm name)
 {
     ErlNifResourceType* type;
     for (type = resource_type_list.next;
 	 type != &resource_type_list;
 	 type = type->next) {
 
-	if (sys_strcmp(type->name, name) == 0) {
+	if (type->module == module && type->name == name) {
 	    return type;
 	}
     }
@@ -899,33 +1066,42 @@ static void steal_resource_type(ErlNifResourceType* type)
 
     if (type->dtor != NULL
 	&& erts_refc_dectest(&lib->rt_dtor_cnt, 0) == 0
-	&& lib->is_orphan) {
+	&& lib->mod == NULL) {
 	/* last type with destructor gone, close orphan lib */
 
 	close_lib(lib);
     }
     if (erts_refc_dectest(&lib->rt_cnt, 0) == 0
-	&& lib->is_orphan) {
+	&& lib->mod == NULL) {
 	erts_free(ERTS_ALC_T_NIF, lib);
     }
 }
 
 ErlNifResourceType*
-enif_open_resource_type(ErlNifEnv* env, const char* type_name, 
-			  ErlNifResourceDtor* dtor,
-			  enum ErlNifResourceFlags flags,
-			  enum ErlNifResourceFlags* tried)
+enif_open_resource_type(ErlNifEnv* env,
+			const char* module_str, 
+			const char* name_str, 
+			ErlNifResourceDtor* dtor,
+			ErlNifResourceFlags flags,
+			ErlNifResourceFlags* tried)
 {
-    ErlNifResourceType* type = find_resource_type(type_name);
-    enum ErlNifResourceFlags op = flags;
+    ErlNifResourceType* type = NULL;
+    ErlNifResourceFlags op = flags;
+    Eterm module_am, name_am;
+
     ASSERT(erts_smp_is_system_blocked(0));
+    ASSERT(module_str == NULL); /* for now... */
+    module_am = make_atom(env->mod_nif->mod->module);
+    name_am = enif_make_atom(env, name_str);
+
+    type = find_resource_type(module_am, name_am);
     if (type == NULL) {
 	if (flags & ERL_NIF_RT_CREATE) {
 	    type = erts_alloc(ERTS_ALC_T_NIF,
-			      sizeof(struct enif_resource_type_t) 
-			      + sys_strlen(type_name));
+			      sizeof(struct enif_resource_type_t)); 
 	    type->dtor = dtor;
-	    sys_strcpy(type->name, type_name);
+	    type->module = module_am;
+	    type->name = name_am;
 	    erts_refc_init(&type->refc, 1);
 	    type->owner = env->mod_nif;
 	    type->prev = &resource_type_list;
@@ -973,13 +1149,13 @@ static void nif_resource_dtor(Binary* bin)
     if (erts_refc_dectest(&type->refc, 0) == 0) {
 	ASSERT(type->next == NULL);
 	ASSERT(type->owner != NULL);
-	ASSERT(type->owner->is_orphan);
+	ASSERT(type->owner->mod == NULL);
 	steal_resource_type(type);
 	erts_free(ERTS_ALC_T_NIF, type);
     }
 }
 
-void* enif_alloc_resource(ErlNifEnv* env, ErlNifResourceType* type, unsigned size)
+void* enif_alloc_resource(ErlNifResourceType* type, size_t size)
 {
     Binary* bin = erts_create_magic_binary(SIZEOF_ErlNifResource(size), &nif_resource_dtor);
     ErlNifResource* resource = ERTS_MAGIC_BIN_DATA(bin);
@@ -992,7 +1168,7 @@ void* enif_alloc_resource(ErlNifEnv* env, ErlNifResourceType* type, unsigned siz
     return resource->data;
 }
 
-void enif_release_resource(ErlNifEnv* env, void* obj)
+void enif_release_resource(void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
     ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
@@ -1006,6 +1182,18 @@ void enif_release_resource(ErlNifEnv* env, void* obj)
     }
 }
 
+void enif_keep_resource(void* obj)
+{
+    ErlNifResource* resource = DATA_TO_RESOURCE(obj);
+    ErtsBinary* bin = ERTS_MAGIC_BIN_FROM_DATA(resource);
+
+    ASSERT(ERTS_MAGIC_BIN_DESTRUCTOR(bin) == &nif_resource_dtor);
+#ifdef DEBUG
+    erts_refc_inc(&resource->nif_refc, 1);
+#endif
+    erts_refc_inc(&bin->binary.refc, 2);
+}
+
 ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
@@ -1014,15 +1202,30 @@ ERL_NIF_TERM enif_make_resource(ErlNifEnv* env, void* obj)
     return erts_mk_magic_binary_term(&hp, &MSO(env->proc), &bin->binary);
 }
 
+ERL_NIF_TERM enif_make_resource_binary(ErlNifEnv* env, void* obj,
+				       const void* data, size_t size)
+{
+    Eterm bin = enif_make_resource(env, obj);
+    ProcBin* pb = (ProcBin*) binary_val(bin);
+    pb->bytes = (byte*) data;
+    pb->size = size;
+    return bin;
+}
+
 int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* type,
 		      void** objp)
 {
+    ProcBin* pb;
     Binary* mbin;
     ErlNifResource* resource;
     if (!ERTS_TERM_IS_MAGIC_BINARY(term)) {
 	return 0;
     }
-    mbin = ((ProcBin*) binary_val(term))->val;
+    pb = (ProcBin*) binary_val(term);
+    /*if (pb->size != 0) {	
+	return 0; / * Or should we allow "resource binaries" as handles? * /
+    }*/
+    mbin = pb->val;
     resource = (ErlNifResource*) ERTS_MAGIC_BIN_DATA(mbin);
     if (ERTS_MAGIC_BIN_DESTRUCTOR(mbin) != &nif_resource_dtor
 	|| resource->type != type) {	
@@ -1032,7 +1235,7 @@ int enif_get_resource(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifResourceType* typ
     return 1;
 }
 
-unsigned enif_sizeof_resource(ErlNifEnv* env, void* obj)
+size_t enif_sizeof_resource(void* obj)
 {
     ErlNifResource* resource = DATA_TO_RESOURCE(obj);
     Binary* bin = &ERTS_MAGIC_BIN_FROM_DATA(resource)->binary;
@@ -1262,7 +1465,7 @@ BIF_RETTYPE load_nif_2(BIF_ALIST_2)
     lib->entry = entry;
     erts_refc_init(&lib->rt_cnt, 0);
     erts_refc_init(&lib->rt_dtor_cnt, 0);
-    lib->is_orphan = 0;
+    lib->mod = mod;
     env.mod_nif = lib;
     if (mod->nif != NULL) { /* Reload */
 	int k;
@@ -1376,7 +1579,7 @@ erts_unload_nif(struct erl_module_nif* lib)
     ErlNifResourceType* next;
     ASSERT(erts_smp_is_system_blocked(0));
     ASSERT(lib != NULL);
-    ASSERT(!lib->is_orphan);
+    ASSERT(lib->mod != NULL);
     for (rt = resource_type_list.next;
 	 rt != &resource_type_list;
 	 rt = next) {
@@ -1406,7 +1609,7 @@ erts_unload_nif(struct erl_module_nif* lib)
     else {
 	ASSERT(erts_refc_read(&lib->rt_cnt, 1) > 0);
     }
-    lib->is_orphan = 1;
+    lib->mod = NULL;   /* orphan lib */
 }	
 
 void erl_nif_init()
@@ -1415,7 +1618,8 @@ void erl_nif_init()
     resource_type_list.prev = &resource_type_list;
     resource_type_list.dtor = NULL;
     resource_type_list.owner = NULL;
-    resource_type_list.name[0] = '\0';
+    resource_type_list.module = THE_NON_VALUE;
+    resource_type_list.name = THE_NON_VALUE;
 }
 
 #ifdef READONLY_CHECK

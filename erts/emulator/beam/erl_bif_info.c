@@ -1140,9 +1140,9 @@ process_info_aux(Process *BIF_P,
 			}
 			else {
 			    /* Make our copy of the message */
-			    ASSERT(size_object(msg) == hfp->size);
+			    ASSERT(size_object(msg) == hfp->used_size);
 			    msg = copy_struct(msg,
-					      hfp->size,
+					      hfp->used_size,
 					      &hp,
 					      &MSO(BIF_P));
 			}
@@ -2715,7 +2715,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	erts_doforall_links(prt->nlinks, &one_link_size, &size);
 
 	for (bp = prt->bp; bp; bp = bp->next)
-	    size += sizeof(ErlHeapFragment) + (bp->size - 1)*sizeof(Eterm);
+	    size += sizeof(ErlHeapFragment) + (bp->alloc_size - 1)*sizeof(Eterm);
 
 	if (prt->linebuf)
 	    size += sizeof(LineBuf) + prt->linebuf->ovsiz;

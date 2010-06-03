@@ -765,7 +765,7 @@ ERTS_GLB_INLINE void erts_heap_frag_shrink(Process* p, Eterm* hp)
 {
     ErlHeapFragment* hf = MBUF(p);
 
-    ASSERT(hf!=NULL && (hp - hf->mem < (unsigned long)hf->size));
+    ASSERT(hf!=NULL && (hp - hf->mem < (unsigned long)hf->alloc_size));
 
     hf->used_size = hp - hf->mem;
 }	

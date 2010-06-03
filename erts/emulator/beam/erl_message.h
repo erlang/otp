@@ -49,7 +49,7 @@ typedef struct erl_heap_fragment ErlHeapFragment;
 struct erl_heap_fragment {
     ErlHeapFragment* next;	/* Next heap fragment */
     ErlOffHeap off_heap;	/* Offset heap data. */
-    unsigned size;		/* Size in (half)words of mem */
+    unsigned alloc_size;	/* Size in (half)words of mem */
     unsigned used_size;         /* With terms to be moved to heap by GC */
     Eterm mem[1];		/* Data */
 };
@@ -199,7 +199,7 @@ do {									\
 #define ERTS_INIT_HEAP_FRAG(HEAP_FRAG_P, DATA_WORDS)	\
 do {							\
     (HEAP_FRAG_P)->next = NULL;				\
-    (HEAP_FRAG_P)->size = (DATA_WORDS);			\
+    (HEAP_FRAG_P)->alloc_size = (DATA_WORDS);		\
     (HEAP_FRAG_P)->used_size = (DATA_WORDS);            \
     (HEAP_FRAG_P)->off_heap.mso = NULL;			\
     (HEAP_FRAG_P)->off_heap.funs = NULL;		\
@@ -227,14 +227,25 @@ void erts_move_msg_attached_data_to_heap(Eterm **, ErlOffHeap *, ErlMessage *);
 Eterm erts_msg_distext2heap(Process *, ErtsProcLocks *, ErlHeapFragment **,
 			    Eterm *, ErtsDistExternal *);
 
+ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg);
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
+ERTS_GLB_INLINE Uint erts_msg_used_frag_sz(const ErlMessage *msg)
+{
+    const ErlHeapFragment *bp;
+    Uint sz = 0;
+    for (bp = msg->data.heap_frag; bp!=NULL; bp=bp->next) {
+	sz += bp->used_size;
+    }
+    return sz;
+}
+
 ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 {
     ASSERT(msg->data.attached);
     if (is_value(ERL_MESSAGE_TERM(msg)))
-	return msg->data.heap_frag->size;
+	return erts_msg_used_frag_sz(msg);
     else if (msg->data.dist_ext->heap_size < 0)
 	return erts_msg_attached_data_size_aux(msg);
     else {
@@ -242,7 +253,7 @@ ERTS_GLB_INLINE Uint erts_msg_attached_data_size(ErlMessage *msg)
 	if (is_not_nil(ERL_MESSAGE_TOKEN(msg))) {
 	    ErlHeapFragment *heap_frag;
 	    heap_frag = erts_dist_ext_trailer(msg->data.dist_ext);
-	    sz += heap_frag->size;
+	    sz += heap_frag->used_size;
 	}
 	return sz;
     }

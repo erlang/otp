@@ -881,6 +881,8 @@ Eterm copy_object(Eterm, Process*);
 Uint size_object(Eterm);
 Eterm copy_struct(Eterm, Uint, Eterm**, ErlOffHeap*);
 Eterm copy_shallow(Eterm*, Uint, Eterm**, ErlOffHeap*);
+void move_multi_frags(Eterm** hpp, ErlOffHeap*, ErlHeapFragment* first,
+		      Eterm* refs, unsigned nrefs);
 
 #ifdef HYBRID
 #define RRMA_DEFAULT_SIZE 256
@@ -1078,6 +1080,7 @@ Eterm erts_heap_sizes(Process* p);
 void erts_offset_off_heap(ErlOffHeap *, Sint, Eterm*, Eterm*);
 void erts_offset_heap_ptr(Eterm*, Uint, Sint, Eterm*, Eterm*);
 void erts_offset_heap(Eterm*, Uint, Sint, Eterm*, Eterm*);
+void erts_free_heap_frags(Process* p);
 
 #ifdef HYBRID
 int erts_global_garbage_collect(Process*, int, Eterm*, int);

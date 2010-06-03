@@ -23,14 +23,16 @@
 #ifndef __ERL_NIF_H__
 #define __ERL_NIF_H__
 
+
 #include "erl_drv_nif.h"
 
 /* Version history:
 ** 0.1: R13B03
 ** 1.0: R13B04
+** 2.0: R14A
 */
-#define ERL_NIF_MAJOR_VERSION 1
-#define ERL_NIF_MINOR_VERSION 1
+#define ERL_NIF_MAJOR_VERSION 2
+#define ERL_NIF_MINOR_VERSION 0
 
 #include <stdlib.h>
 
@@ -59,6 +61,10 @@
 #  undef HALFWORD_HEAP_EMULATOR
 #endif
 #include "erl_int_sizes_config.h"
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #ifdef HALFWORD_HEAP_EMULATOR
 typedef unsigned int ERL_NIF_TERM;
@@ -93,7 +99,7 @@ typedef struct enif_entry_t
 
 typedef struct
 {
-    unsigned size;
+    size_t size;
     unsigned char* data;
 
     /* Internals (avert your eyes) */
@@ -103,16 +109,21 @@ typedef struct
 
 typedef struct enif_resource_type_t ErlNifResourceType;
 typedef void ErlNifResourceDtor(ErlNifEnv*, void*);
-enum ErlNifResourceFlags
+typedef enum
 {
     ERL_NIF_RT_CREATE = 1,
     ERL_NIF_RT_TAKEOVER = 2
-};
+}ErlNifResourceFlags;
 
 typedef enum
 {
     ERL_NIF_LATIN1 = 1
 }ErlNifCharEncoding;
+
+typedef struct
+{
+    ERL_NIF_TERM pid;  /* internal, may change */
+}ErlNifPid;
 
 typedef ErlDrvSysInfo ErlNifSysInfo;
 
@@ -146,8 +157,6 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #endif
 
 
-
-
 #if (defined(__WIN32__) || defined(_WIN32) || defined(_WIN32_))
 #  define ERL_NIF_INIT_GLOB TWinDynNifCallbacks WinDynNifCallbacks;
 #  define ERL_NIF_INIT_DECL(MODNAME) __declspec(dllexport) ErlNifEntry* nif_init(TWinDynNifCallbacks* callbacks)
@@ -163,7 +172,18 @@ extern TWinDynNifCallbacks WinDynNifCallbacks;
 #endif
 
 
+#ifdef __cplusplus
+}
+#  define ERL_NIF_INIT_PROLOGUE extern "C" {
+#  define ERL_NIF_INIT_EPILOGUE }
+#else
+#  define ERL_NIF_INIT_PROLOGUE
+#  define ERL_NIF_INIT_EPILOGUE
+#endif
+
+
 #define ERL_NIF_INIT(NAME, FUNCS, LOAD, RELOAD, UPGRADE, UNLOAD) \
+ERL_NIF_INIT_PROLOGUE                   \
 ERL_NIF_INIT_GLOB                       \
 ERL_NIF_INIT_DECL(NAME)			\
 {					\
@@ -178,7 +198,9 @@ ERL_NIF_INIT_DECL(NAME)			\
     };                                  \
     ERL_NIF_INIT_BODY;                  \
     return &entry;			\
-}
+}                                       \
+ERL_NIF_INIT_EPILOGUE
+
 
 #endif /* __ERL_NIF_H__ */
 

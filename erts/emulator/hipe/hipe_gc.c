@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 /* $Id$
@@ -86,7 +86,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 		if (is_boxed(gval)) {
 		    Eterm *ptr = boxed_val(gval);
 		    Eterm val = *ptr;
-		    if (IS_MOVED(val)) {
+		    if (IS_MOVED_BOXED(val)) {
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
 		    } else if (in_area(ptr, src, src_size) ||
@@ -96,7 +96,7 @@ Eterm *fullsweep_nstack(Process *p, Eterm *n_htop)
 		} else if (is_list(gval)) {
 		    Eterm *ptr = list_val(gval);
 		    Eterm val = *ptr;
-		    if (is_non_value(val)) {
+		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
 		    } else if (in_area(ptr, src, src_size) ||
 			       in_area(ptr, oh, oh_size)) {
@@ -193,7 +193,7 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		if (is_boxed(gval)) {
 		    Eterm *ptr = boxed_val(gval);
 		    Eterm val = *ptr;
-		    if (IS_MOVED(val)) {
+		    if (IS_MOVED_BOXED(val)) {
 			ASSERT(is_boxed(val));
 			*nsp_i = val;
 		    } else if (in_area(ptr, heap, mature_size)) {
@@ -205,7 +205,7 @@ void gensweep_nstack(Process *p, Eterm **ptr_old_htop, Eterm **ptr_n_htop)
 		} else if (is_list(gval)) {
 		    Eterm *ptr = list_val(gval);
 		    Eterm val = *ptr;
-		    if (is_non_value(val)) {
+		    if (IS_MOVED_CONS(val)) {
 			*nsp_i = ptr[1];
 		    } else if (in_area(ptr, heap, mature_size)) {
 			MOVE_CONS(ptr, val, old_htop, nsp_i);
