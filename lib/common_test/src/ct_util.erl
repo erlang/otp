@@ -679,7 +679,7 @@ call(Msg) ->
     ct_util_server ! {Msg,{self(),Ref}},
     receive
 	{Ref, Result} -> 
-	    erlang:demonitor(MRef),
+	    erlang:demonitor(MRef, [flush]),
 	    Result;
 	{'DOWN',MRef,process,_,Reason}  -> 
 	    {error,{ct_util_server_down,Reason}}

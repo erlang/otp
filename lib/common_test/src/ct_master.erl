@@ -697,7 +697,7 @@ call(Pid,Msg) ->
 		 {'DOWN', Ref, _, _, _} ->
 		     {error,master_died}
 	     end,	    
-    erlang:demonitor(Ref),
+    erlang:demonitor(Ref, [flush]),
     Return.
 
 reply(Result,To) ->

@@ -80,7 +80,7 @@ init(Mode) ->
     MRef = erlang:monitor(process,Pid),
     receive 
 	{started,Pid,Result} -> 
-	    erlang:demonitor(MRef),
+	    erlang:demonitor(MRef, [flush]),
 	    Result;
 	{'DOWN',MRef,process,_,Reason} ->
 	    exit({could_not_start_process,?MODULE,Reason})
@@ -163,7 +163,7 @@ call(Msg) ->
 	    ?MODULE ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{process_down,?MODULE,Reason}}

@@ -100,7 +100,7 @@ start_link() ->
 	    MRef = erlang:monitor(process,Pid),
 	    receive
 		{Pid,started} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    {ok,Pid};
 		{'DOWN',MRef,process,_,Reason} -> 
 		    {error,{vts,died,Reason}}
@@ -259,7 +259,7 @@ call(Msg) ->
 	    Pid ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{process_down,Pid,Reason}}

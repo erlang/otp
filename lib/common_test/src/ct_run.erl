@@ -1473,7 +1473,7 @@ count_test_cases(Tests, Skip) ->
     Ref = erlang:monitor(process, TSPid),
     add_jobs(Tests, Skip, #opts{}, []),
     {Suites,NoOfCases} = count_test_cases1(length(Tests), 0, [], Ref),
-    erlang:demonitor(Ref),
+    erlang:demonitor(Ref, [flush]),
     test_server_ctrl:stop_get_totals(),
     {Suites,NoOfCases}.
 
@@ -1594,7 +1594,7 @@ wait_for_idle() ->
 			 idle -> ok;
 			 {'DOWN', Ref, _, _, _} -> error
 		     end,
-	    erlang:demonitor(Ref),
+	    erlang:demonitor(Ref, [flush]),
 	    ct_util:update_last_run_index(),
 	    Result
     end.

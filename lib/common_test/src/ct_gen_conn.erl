@@ -76,7 +76,7 @@ start(Name,Address,InitData,CallbackMod) ->
 	    MRef = erlang:monitor(process,Pid),
 	    receive 
 		{connected,Pid} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    ct_util:register_connection(Name,Address,CallbackMod,Pid),
 		    {ok,Pid};
 		{Error,Pid} ->
@@ -182,7 +182,7 @@ call(Pid,Msg) ->
     Pid ! {Msg,{self(),Ref}},
     receive
 	{Ref, Result} -> 
-	    erlang:demonitor(MRef),
+	    erlang:demonitor(MRef, [flush]),
 	    case Result of
 		{retry,_Data} ->
 		    call(Pid,Result);
