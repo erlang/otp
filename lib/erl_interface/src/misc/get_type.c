@@ -122,7 +122,12 @@ int ei_get_type_internal(const char *buf, const int *index,
   case ERL_STRING_EXT:
     *len = get16be(s);
     break;
-    
+
+  case ERL_FLOAT_EXT:
+  case NEW_FLOAT_EXT:
+    *type = ERL_FLOAT_EXT;
+    break;
+
   case ERL_LARGE_TUPLE_EXT:
   case ERL_LIST_EXT:
   case ERL_BINARY_EXT:
