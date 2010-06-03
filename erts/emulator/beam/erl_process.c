@@ -2082,11 +2082,13 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
 
     erts_aligned_run_queues = erts_alloc(ERTS_ALC_T_RUNQS,
 					 (sizeof(ErtsAlignedRunQueue)*(n+1)));
-    if ((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0)
+    if ((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) != 0)
 	erts_aligned_run_queues = ((ErtsAlignedRunQueue *)
 				   ((((UWord) erts_aligned_run_queues)
 				     & ~ERTS_CACHE_LINE_MASK)
 				    + ERTS_CACHE_LINE_SIZE));
+
+    ASSERT((((UWord) erts_aligned_run_queues) & ERTS_CACHE_LINE_MASK) == 0);
 
 #ifdef ERTS_SMP
     erts_smp_atomic_init(&no_empty_run_queues, 0);
@@ -2179,11 +2181,14 @@ erts_init_scheduling(int mrq, int no_schedulers, int no_schedulers_online)
     erts_aligned_scheduler_data = erts_alloc(ERTS_ALC_T_SCHDLR_DATA,
 					     (sizeof(ErtsAlignedSchedulerData)
 					      *(n+1)));
-    if ((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0)
+    if ((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) != 0)
 	erts_aligned_scheduler_data = ((ErtsAlignedSchedulerData *)
 				       ((((UWord) erts_aligned_scheduler_data)
 					 & ~ERTS_CACHE_LINE_MASK)
 					+ ERTS_CACHE_LINE_SIZE));
+
+    ASSERT((((UWord) erts_aligned_scheduler_data) & ERTS_CACHE_LINE_MASK) == 0);
+
     for (ix = 0; ix < n; ix++) {
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(ix);
 #ifdef ERTS_SMP
