@@ -510,7 +510,7 @@ erts_bld_string_n(Uint **hpp, Uint *szp, const char *str, Sint len)
     if (hpp) {
 	res = NIL;
 	while (--i >= 0) {
-	    res = CONS(*hpp, make_small(str[i]), res);
+	    res = CONS(*hpp, make_small((byte) str[i]), res);
 	    *hpp += 2;
 	}
     }
