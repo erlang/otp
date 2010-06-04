@@ -902,7 +902,8 @@ scheduler_suspend_test(Config, Schedulers) ->
     ?line [SState] = mcall(Node, [fun () ->
 					  erlang:system_info(schedulers_state)
 				  end]),
-    ?line {Sched, _, _} = SState,
+    ?line ?t:format("SState=~p~n", [SState]),
+    ?line {Sched, SchedOnln, _SchedAvail} = SState,
     ?line true = is_integer(Sched),
     ?line [ok] = mcall(Node, [fun () -> sst0_loop(300) end]),
     ?line [ok] = mcall(Node, [fun () -> sst1_loop(300) end]),
@@ -914,6 +915,14 @@ scheduler_suspend_test(Config, Schedulers) ->
 					fun () -> sst2_loop(200) end,
 					fun () -> sst3_loop(Sched, 200) end]),
     ?line [SState] = mcall(Node, [fun () ->
+					  case Sched == SchedOnln of
+					      false ->
+						  Sched = erlang:system_flag(
+							    schedulers_online,
+							    SchedOnln);
+					      true ->
+						  ok
+					  end,
 					  erlang:system_info(schedulers_state)
 				  end]),
     ?line stop_node(Node),
