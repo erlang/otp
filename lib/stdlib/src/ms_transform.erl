@@ -213,7 +213,7 @@ transform_from_shell(Dialect, Clauses, BoundEnvironment) ->
 %%
 parse_transform(Forms, _Options) ->
     SaveFilename = setup_filename(),
-    %io:format("~p~n",[Forms]),
+    %io:format("Forms: ~p~n",[Forms]),
     case catch forms(Forms) of
 	{'EXIT',Reason} ->
 	    cleanup_filename(SaveFilename),
@@ -340,11 +340,22 @@ copy({call,Line,{remote,_Line2,{record_field,_Line3,
 copy({call,Line,{remote,_Line2,{atom,_Line3,dbg},{atom,_Line4,fun2ms}},
       As0},Bound) ->
     {transform_call(dbg,Line,As0,Bound),Bound};
+copy({match,Line,A,B},Bound) ->
+    {B1,Bound1} = copy(B,Bound),
+    {A1,Bound2} = copy(A,Bound),
+    {{match,Line,A1,B1},gb_sets:union(Bound1,Bound2)};
 copy({var,_Line,'_'} = VarDef,Bound) ->
     {VarDef,Bound};
 copy({var,_Line,Name} = VarDef,Bound) ->
     Bound1 = gb_sets:add(Name,Bound),
     {VarDef,Bound1};
+copy({'fun',Line,{clauses,Clauses}},Bound) -> % Dont export bindings from funs
+    {NewClauses,_IgnoredBindings} = copy_list(Clauses,Bound),
+    {{'fun',Line,{clauses,NewClauses}},Bound};
+copy({'case',Line,Of,ClausesList},Bound) -> % Dont export bindings from funs
+    {NewOf,NewBind0} = copy(Of,Bound),
+    {NewClausesList,NewBindings} = copy_case_clauses(ClausesList,NewBind0,[]),
+    {{'case',Line,NewOf,NewClausesList},NewBindings};
 copy(T,Bound) when is_tuple(T) ->
     {L,Bound1} = copy_list(tuple_to_list(T),Bound),
     {list_to_tuple(L),Bound1};
@@ -352,6 +363,20 @@ copy(L,Bound) when is_list(L) ->
     copy_list(L,Bound);
 copy(AnyOther,Bound) ->
     {AnyOther,Bound}.
+
+copy_case_clauses([],Bound,AddSets) ->
+    ReallyAdded = gb_sets:intersection(AddSets),
+    {[],gb_sets:union(Bound,ReallyAdded)};
+copy_case_clauses([{clause,Line,Match,Guard,Clauses}|T],Bound,AddSets) ->
+    {NewMatch,MatchBinds} = copy(Match,Bound),
+    {NewGuard,GuardBinds} = copy(Guard,MatchBinds), %% Really no new binds
+    {NewClauses,AllBinds} = copy(Clauses,GuardBinds),
+    %% To limit the setsizes, I subtract what I had before the case clause
+    %% and add it in the end
+    AddedBinds = gb_sets:subtract(AllBinds,Bound),
+    {NewTail,ExportedBindings} =
+	copy_case_clauses(T,Bound,[AddedBinds | AddSets]),
+    {[{clause,Line,NewMatch,NewGuard,NewClauses}|NewTail],ExportedBindings}.
 
 copy_list([H|T],Bound) ->
     {C1,Bound1} = copy(H,Bound),
