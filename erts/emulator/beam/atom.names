@@ -123,6 +123,7 @@ atom busy_dist_port
 atom busy_port
 atom call
 atom call_count
+atom call_time
 atom caller
 atom capture
 atom case_clause

@@ -40,8 +40,7 @@
 
 #define DECL_AM(S) Eterm AM_ ## S = am_atom_put(#S, sizeof(#S) - 1)
 
-static erts_smp_mtx_t              trace_pattern_mutex;
-const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0};
+const struct trace_pattern_flags   erts_trace_pattern_flags_off = {0, 0, 0, 0, 0};
 static int                         erts_default_trace_pattern_is_on;
 static Binary                     *erts_default_match_spec;
 static Binary                     *erts_default_meta_match_spec;
@@ -65,7 +64,6 @@ static void clear_trace_bif(int bif_index);
 void
 erts_bif_trace_init(void)
 {
-    erts_smp_mtx_init(&trace_pattern_mutex, "trace_pattern");
     erts_default_trace_pattern_is_on = 0;
     erts_default_match_spec = NULL;
     erts_default_meta_match_spec = NULL;
@@ -186,6 +184,14 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		flags.breakpoint = 1;
 		flags.call_count = 1;
 		break;
+	    case am_call_time:
+		if (is_global) {
+		    goto error;
+		}
+		flags.breakpoint = 1;
+		flags.call_time = 1;
+		break;
+
 	    default:
 		goto error;
 	    }
@@ -195,8 +201,8 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	goto error;
     }
     
-    if (match_prog_set && !flags.local && !flags.meta && flags.call_count) {
-	/* A match prog is not allowed with just call_count */
+    if (match_prog_set && !flags.local && !flags.meta && (flags.call_count || flags.call_time)) {
+	/* A match prog is not allowed with just call_count or call_time*/
 	goto error;
     }
 
@@ -235,6 +241,8 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		    |= flags.meta;
 		erts_default_trace_pattern_flags.call_count
 		    |= (on == 1) ? flags.call_count : 0;
+		erts_default_trace_pattern_flags.call_time
+		    |= (on == 1) ? flags.call_time : 0;
 	    } else {
 		erts_default_trace_pattern_flags.local
 		    &= ~flags.local;
@@ -242,10 +250,13 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 		    &= ~flags.meta;
 		erts_default_trace_pattern_flags.call_count
 		    &= ~flags.call_count;
+		erts_default_trace_pattern_flags.call_time
+		    &= ~flags.call_time;
 		if (! (erts_default_trace_pattern_flags.breakpoint =
 		       erts_default_trace_pattern_flags.local |
 		       erts_default_trace_pattern_flags.meta |
-		       erts_default_trace_pattern_flags.call_count)) {
+		       erts_default_trace_pattern_flags.call_count |
+		       erts_default_trace_pattern_flags.call_time)) {
 		    erts_default_trace_pattern_is_on = !!on; /* i.e off */
 		}
 	    }
@@ -267,8 +278,9 @@ trace_pattern_3(Process* p, Eterm MFA, Eterm Pattern, Eterm flaglist)
 	    if (on) {
 		if (on != 1) {
 		    flags.call_count = 0;
+		    flags.call_time  = 0;
 		}
-		flags.breakpoint = flags.local | flags.meta | flags.call_count;
+		flags.breakpoint = flags.local | flags.meta | flags.call_count | flags.call_time;
 		erts_default_trace_pattern_flags = flags; /* Struct copy */
 		erts_default_trace_pattern_is_on = !!flags.breakpoint;
 	    }
@@ -336,7 +348,6 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 			       struct trace_pattern_flags *trace_pattern_flags,
 			       Eterm *meta_tracer_pid)
 {
-    erts_smp_mtx_lock(&trace_pattern_mutex);
     if (trace_pattern_is_on)
 	*trace_pattern_is_on = erts_default_trace_pattern_is_on;
     if (match_spec)
@@ -347,12 +358,10 @@ erts_get_default_trace_pattern(int *trace_pattern_is_on,
 	*trace_pattern_flags = erts_default_trace_pattern_flags;
     if (meta_tracer_pid)
 	*meta_tracer_pid = erts_default_meta_tracer_pid;
-    erts_smp_mtx_unlock(&trace_pattern_mutex);
 }
 
 
 
-
 Uint 
 erts_trace_flag2bit(Eterm flag) 
 {
@@ -380,7 +389,7 @@ erts_trace_flag2bit(Eterm flag)
     default: return 0;
     }
 }
-
+
 /* Scan the argument list and sort out the trace flags.
 **
 ** Returns !0 on success, 0 on failure.
@@ -931,6 +940,7 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
 #define FUNC_TRACE_LOCAL_TRACE  (1<<2)
 #define FUNC_TRACE_META_TRACE   (1<<3)
 #define FUNC_TRACE_COUNT_TRACE  (1<<4)
+#define FUNC_TRACE_TIME_TRACE   (1<<5)
 /*
  * Returns either FUNC_TRACE_NOEXIST, FUNC_TRACE_UNTRACED,
  * FUNC_TRACE_GLOBAL_TRACE, or,
@@ -945,11 +955,13 @@ trace_info_pid(Process* p, Eterm pid_spec, Eterm key)
  *
  * If the return value contains FUNC_TRACE_COUNT_TRACE, *count is set.
  */
-static int function_is_traced(Eterm mfa[3], 
-			      Binary **ms, /* out */
-			      Binary **ms_meta,  /* out */
+static int function_is_traced(Process *p,
+			      Eterm mfa[3],
+			      Binary **ms,              /* out */
+			      Binary **ms_meta,         /* out */
 			      Eterm   *tracer_pid_meta, /* out */
-			      Sint    *count)    /* out */
+			      Sint    *count,           /* out */
+			      Eterm   *call_time)       /* out */
 {
     Export e;
     Export* ep;
@@ -980,9 +992,12 @@ static int function_is_traced(Eterm mfa[3],
 				r |= FUNC_TRACE_LOCAL_TRACE;
 				*ms = ep->match_prog_set;
 			    }
-			    if (erts_is_mtrace_bif(ep->code+3, ms_meta, 
+			    if (erts_is_mtrace_break(ep->code+3, ms_meta,
 						   tracer_pid_meta)) {
 				r |= FUNC_TRACE_META_TRACE;
+			    }
+			    if (erts_is_time_break(p, ep->code+3, call_time)) {
+				r |= FUNC_TRACE_TIME_TRACE;
 			    }
 			}
 			return r ? r : FUNC_TRACE_UNTRACED;
@@ -1001,7 +1016,9 @@ static int function_is_traced(Eterm mfa[3],
 	    | (erts_is_mtrace_break(code, ms_meta, tracer_pid_meta)
 	       ? FUNC_TRACE_META_TRACE : 0)
 	    | (erts_is_count_break(code, count)
-	       ? FUNC_TRACE_COUNT_TRACE : 0);
+	       ? FUNC_TRACE_COUNT_TRACE : 0)
+	    | (erts_is_time_break(p, code, call_time)
+	       ? FUNC_TRACE_TIME_TRACE : 0);
 	
 	return r ? r : FUNC_TRACE_UNTRACED;
     } 
@@ -1020,6 +1037,7 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     Eterm match_spec = am_false;
     Eterm retval = am_false;
     Eterm meta = am_false;
+    Eterm call_time = NIL;
     int r;
 
 
@@ -1039,7 +1057,22 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
     mfa[1] = tp[2];
     mfa[2] = signed_val(tp[3]);
 
-    r = function_is_traced(mfa, &ms, &ms_meta, &meta, &count);
+#ifdef ERTS_SMP
+    if ( (key == am_call_time) || (key == am_all)) {
+	erts_smp_proc_unlock(p, ERTS_PROC_LOCK_MAIN);
+	erts_smp_block_system(0);
+    }
+#endif
+
+    r = function_is_traced(p, mfa, &ms, &ms_meta, &meta, &count, &call_time);
+
+#ifdef ERTS_SMP
+    if ( (key == am_call_time) || (key == am_all)) {
+	erts_smp_release_system();
+	erts_smp_proc_lock(p, ERTS_PROC_LOCK_MAIN);
+    }
+#endif
+
     switch (r) {
     case FUNC_TRACE_NOEXIST:
 	UnUseTmpHeap(3,p);
@@ -1092,8 +1125,13 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 		erts_make_integer(count, p);
 	}
 	break;
+    case am_call_time:
+	if (r & FUNC_TRACE_TIME_TRACE) {
+	    retval = call_time;
+	}
+	break;
     case am_all: {
-	Eterm match_spec_meta = am_false, c = am_false, t;
+	Eterm match_spec_meta = am_false, c = am_false, t, ct = am_false;
 	
 	if (ms) {
 	    match_spec = MatchSetGetSource(ms);
@@ -1111,9 +1149,14 @@ trace_info_func(Process* p, Eterm func_spec, Eterm key)
 		erts_make_integer(-count-1, p) : 
 		erts_make_integer(count, p);
 	}
-	hp = HAlloc(p, (3+2)*5);
+	if (r & FUNC_TRACE_TIME_TRACE) {
+	    ct = call_time;
+	}
+	hp = HAlloc(p, (3+2)*6);
 	retval = NIL;
 	t = TUPLE2(hp, am_call_count, c); hp += 3;
+	retval = CONS(hp, t, retval); hp += 2;
+	t = TUPLE2(hp, am_call_time, ct); hp += 3;
 	retval = CONS(hp, t, retval); hp += 2;
 	t = TUPLE2(hp, am_meta_match_spec, match_spec_meta); hp += 3;
 	retval = CONS(hp, t, retval); hp += 2;
@@ -1210,6 +1253,13 @@ trace_info_on_load(Process* p, Eterm key)
 	} else {
 	    return TUPLE2(hp, key, am_false);
 	}
+    case am_call_time:
+	hp = HAlloc(p, 3);
+	if (erts_default_trace_pattern_flags.call_time) {
+	    return TUPLE2(hp, key, am_true);
+	} else {
+	    return TUPLE2(hp, key, am_false);
+	}
     case am_all:
 	{
 	    Eterm match_spec = am_false, meta_match_spec = am_false, r = NIL, t;
@@ -1284,6 +1334,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	for (j = 0; j < specified && mfa[j] == ep->code[j]; j++) {
 	    /* Empty loop body */
 	}
+
 	if (j == specified) {
 	    if (on) {
 		if (! flags.breakpoint)
@@ -1356,6 +1407,12 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_GLOBAL;
 			m = 1;
 		    }
+		    if (flags.call_time) {
+			erts_set_time_trace_bif(bif_export[i]->code + 3, on);
+			/* I don't want to remove any other tracers */
+			erts_bif_trace_flags[i] |= BIF_TRACE_AS_CALL_TIME;
+			m = 1;
+		    }
 		    if (erts_bif_trace_flags[i]) {
 			setup_bif_trace(i);
 		    }
@@ -1375,6 +1432,11 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 			}
 			m = 1;
 		    }
+		    if (flags.call_time) {
+			erts_clear_time_trace_bif(bif_export[i]->code + 3);
+			erts_bif_trace_flags[i] &= ~BIF_TRACE_AS_CALL_TIME;
+			m = 1;
+		    }
 		    if (! erts_bif_trace_flags[i]) {
 			reset_bif_trace(i);
 		    }
@@ -1392,6 +1454,7 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	    erts_clear_trace_break(mfa, specified);
 	    erts_clear_mtrace_break(mfa, specified);
 	    erts_clear_count_break(mfa, specified);
+	    erts_clear_time_break(mfa, specified);
 	} else {
 	    int m = 0;
 	    if (flags.local) {
@@ -1404,6 +1467,9 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	    }
 	    if (flags.call_count) {
 		m = erts_set_count_break(mfa, specified, on);
+	    }
+	    if (flags.call_time) {
+		m = erts_set_time_break(mfa, specified, on);
 	    }
 	    /* All assignments to 'm' above should give the same value,
 	     * so just use the last */
@@ -1419,6 +1485,9 @@ erts_set_trace_pattern(Eterm* mfa, int specified,
 	}
 	if (flags.call_count) {
 	    m = erts_clear_count_break(mfa, specified);
+	}
+	if (flags.call_time) {
+	    m = erts_clear_time_break(mfa, specified);
 	}
 	/* All assignments to 'm' above should give the same value,
 	 * so just use the last */
@@ -1536,7 +1605,7 @@ static void reset_bif_trace(int bif_index) {
     ASSERT(ExportIsBuiltIn(ep));
     ASSERT(ep->code[4]);
     ASSERT(! ep->match_prog_set);
-    ASSERT(! erts_is_mtrace_bif((BeamInstr *)ep->code+3, NULL, NULL));
+    ASSERT(! erts_is_mtrace_break((BeamInstr *)ep->code+3, NULL, NULL));
     ep->code[4] = (BeamInstr) bif_table[bif_index].f;
 }
 

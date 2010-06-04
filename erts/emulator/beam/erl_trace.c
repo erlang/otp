@@ -43,8 +43,9 @@
 #undef DEBUG_PRINTOUTS
 #endif
 
-extern Eterm beam_return_to_trace[1]; /* OpCode(i_return_to_trace) */
-extern Eterm beam_return_trace[1];    /* OpCode(i_return_trace) */
+extern Eterm beam_return_to_trace[1];   /* OpCode(i_return_to_trace) */
+extern Eterm beam_return_trace[1];      /* OpCode(i_return_trace) */
+extern Eterm beam_return_time_trace[1]; /* OpCode(i_return_time_trace) */
 
 /* Pseudo export entries. Never filled in with data, only used to
    yield unique pointers of the correct type. */
@@ -2116,6 +2117,7 @@ erts_bif_trace(int bif_index, Process* p,
 	Uint32 flags = 0, flags_meta = 0;
 	int global = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_GLOBAL);
 	int local  = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_LOCAL);
+	int time   = !!(erts_bif_trace_flags[bif_index] & BIF_TRACE_AS_CALL_TIME);
 	Eterm meta_tracer_pid = NIL;
 	int applying = (I == &(ep->code[3])); /* Yup, the apply code for a bif
 					       * is actually in the 
@@ -2139,6 +2141,17 @@ erts_bif_trace(int bif_index, Process* p,
 	    flags_meta = erts_bif_mtrace(p, ep->code+3, args, local, 
 					 &meta_tracer_pid);
 	}
+	if (time) {
+	    BpDataTime *bdt = NULL;
+	    BeamInstr *pc = (BeamInstr *)ep->code+3;
+
+	    bdt = (BpDataTime *) erts_get_time_break(p, pc);
+	    ASSERT(bdt);
+
+	    if (!bdt->pause) {
+		erts_trace_time_break(p, pc, bdt, ERTS_BP_CALL_TIME_CALL);
+	    }
+	}
 	/* Restore original continuation pointer (if changed). */
 	p->cp = cp;
 	
@@ -2147,8 +2160,9 @@ erts_bif_trace(int bif_index, Process* p,
 	result = func(p, arg1, arg2, arg3, I);
 	
 	if (applying && (flags & MATCH_SET_RETURN_TO_TRACE)) {
-	    Uint i_return_trace = beam_return_trace[0];
-	    Uint i_return_to_trace = beam_return_to_trace[0];
+	    BeamInstr i_return_trace      = beam_return_trace[0];
+	    BeamInstr i_return_to_trace   = beam_return_to_trace[0];
+	    BeamInstr i_return_time_trace = beam_return_time_trace[0];
 	    Eterm *cpp;
 	    /* Maybe advance cp to skip trace stack frames */
 	    for (cpp = p->stop;  ;  cp = cp_val(*cpp++)) {
@@ -2156,6 +2170,10 @@ erts_bif_trace(int bif_index, Process* p,
 		    /* Skip stack frame variables */
 		    while (is_not_CP(*cpp)) cpp++;
 		    cpp += 2; /* Skip return_trace parameters */
+		} else if (*cp == i_return_time_trace) {
+		    /* Skip stack frame variables */
+		    while (is_not_CP(*cpp)) cpp++;
+		    cpp += 1; /* Skip return_time_trace parameters */
 		} else if (*cp == i_return_to_trace) {
 		    /* A return_to trace message is going to be generated
 		     * by normal means, so we do not have to.

@@ -368,7 +368,6 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
     BIF_RET(am_true);
 }
 
-
 static void
 set_default_trace_pattern(Eterm module)
 {

@@ -84,6 +84,8 @@ i_trace_breakpoint
 i_mtrace_breakpoint
 i_debug_breakpoint
 i_count_breakpoint
+i_time_breakpoint
+i_return_time_trace
 i_return_to_trace
 i_yield
 i_global_cons
