@@ -631,16 +631,29 @@ add_tests([{suites,Node,Dir,Ss}|Ts],Spec) ->
 %% by means of groups defined only in the test specification.
 add_tests([{groups,all_nodes,Dir,Suite,Gs}|Ts],Spec) ->
     add_tests([{groups,list_nodes(Spec),Dir,Suite,Gs}|Ts],Spec);
+add_tests([{groups,all_nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
+    add_tests([{groups,list_nodes(Spec),Dir,Suite,Gs,{cases,TCs}}|Ts],Spec);
 add_tests([{groups,Dir,Suite,Gs}|Ts],Spec) ->
     add_tests([{groups,all_nodes,Dir,Suite,Gs}|Ts],Spec);
+add_tests([{groups,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
+    add_tests([{groups,all_nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec);
 add_tests([{groups,Nodes,Dir,Suite,Gs}|Ts],Spec) when is_list(Nodes) ->
     Ts1 = separate(Nodes,groups,[Dir,Suite,Gs],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
+add_tests([{groups,Nodes,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,groups,[Dir,Suite,Gs,{cases,TCs}],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
 add_tests([{groups,Node,Dir,Suite,Gs}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
-    Tests1 = insert_cases(ref2node(Node,Spec#testspec.nodes),
+    Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
 			   ref2dir(Dir,Spec#testspec.alias),
-			   Suite,Gs,Tests),
+			   Suite,Gs,all,Tests),
+    add_tests(Ts,Spec#testspec{tests=Tests1});
+add_tests([{groups,Node,Dir,Suite,Gs,{cases,TCs}}|Ts],Spec) ->
+    Tests = Spec#testspec.tests,
+    Tests1 = insert_groups(ref2node(Node,Spec#testspec.nodes),
+			   ref2dir(Dir,Spec#testspec.alias),
+			   Suite,Gs,TCs,Tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- cases ---
@@ -676,16 +689,29 @@ add_tests([{skip_suites,Node,Dir,Ss,Cmt}|Ts],Spec) ->
 %% --- skip_groups ---
 add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
     add_tests([{skip_groups,list_nodes(Spec),Dir,Suite,Gs,Cmt}|Ts],Spec);
+add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
+    add_tests([{skip_groups,list_nodes(Spec),Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec);
 add_tests([{skip_groups,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
     add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,Cmt}|Ts],Spec);
+add_tests([{skip_groups,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
+    add_tests([{skip_groups,all_nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec);
 add_tests([{skip_groups,Nodes,Dir,Suite,Gs,Cmt}|Ts],Spec) when is_list(Nodes) ->
     Ts1 = separate(Nodes,skip_groups,[Dir,Suite,Gs,Cmt],Ts,Spec#testspec.nodes),
     add_tests(Ts1,Spec);
+add_tests([{skip_groups,Nodes,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,skip_groups,[Dir,Suite,Gs,{cases,TCs},Cmt],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
 add_tests([{skip_groups,Node,Dir,Suite,Gs,Cmt}|Ts],Spec) ->
     Tests = Spec#testspec.tests,
-    Tests1 = skip_cases(ref2node(Node,Spec#testspec.nodes),
-			ref2dir(Dir,Spec#testspec.alias),
-			Suite,Gs,Cmt,Tests),
+    Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
+			 ref2dir(Dir,Spec#testspec.alias),
+			 Suite,Gs,all,Cmt,Tests),
+    add_tests(Ts,Spec#testspec{tests=Tests1});
+add_tests([{skip_groups,Node,Dir,Suite,Gs,{cases,TCs},Cmt}|Ts],Spec) ->
+    Tests = Spec#testspec.tests,
+    Tests1 = skip_groups(ref2node(Node,Spec#testspec.nodes),
+			 ref2dir(Dir,Spec#testspec.alias),
+			 Suite,Gs,TCs,Cmt,Tests),
     add_tests(Ts,Spec#testspec{tests=Tests1});
 
 %% --- skip_cases ---
@@ -756,8 +782,11 @@ separate([],_,_,_) ->
     
 
 %% Representation:
-%% {{Node,Dir},[{Suite1,[case11,case12,...]},{Suite2,[case21,case22,...]},...]}
-%% {{Node,Dir},[{Suite1,{skip,Cmt}},{Suite2,[{case21,{skip,Cmt}},case22,...]},...]}
+%% {{Node,Dir},[{Suite1,[GrOrCase11,GrOrCase12,...]},
+%%              {Suite2,[GrOrCase21,GrOrCase22,...]},...]}
+%% {{Node,Dir},[{Suite1,{skip,Cmt}},
+%%              {Suite2,[{GrOrCase21,{skip,Cmt}},GrOrCase22,...]},...]}
+%% GrOrCase = {GroupName,[Case1,Case2,...]} | Case
 
 insert_suites(Node,Dir,[S|Ss],Tests) ->
     Tests1 = insert_cases(Node,Dir,S,all,Tests),
@@ -766,6 +795,54 @@ insert_suites(_Node,_Dir,[],Tests) ->
     Tests;
 insert_suites(Node,Dir,S,Tests) ->
     insert_suites(Node,Dir,[S],Tests).
+
+insert_groups(Node,Dir,Suite,Group,Cases,Tests) when is_atom(Group) ->
+    insert_groups(Node,Dir,Suite,[Group],Cases,Tests);
+insert_groups(Node,Dir,Suite,Groups,Cases,Tests) when
+      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+    case lists:keysearch({Node,Dir},1,Tests) of
+	{value,{{Node,Dir},[{all,_}]}} ->
+	    Tests;
+	{value,{{Node,Dir},Suites0}} ->
+	    Suites1 = insert_groups1(Suite,
+				     [{Gr,Cases} || Gr <- Groups],
+				     Suites0),
+	    insert_in_order({{Node,Dir},Suites1},Tests);
+	false ->
+	    Groups1 = [{Gr,Cases} || Gr <- Groups],
+	    insert_in_order({{Node,Dir},[{Suite,Groups1}]},Tests)
+    end;
+insert_groups(Node,Dir,Suite,Groups,Case,Tests) when is_atom(Case) ->
+    Cases = if Case == all -> all; true -> [Case] end,
+    insert_groups(Node,Dir,Suite,Groups,Cases,Tests).
+
+insert_groups1(_Suite,_Groups,all) ->
+    all;
+insert_groups1(Suite,Groups,Suites0) ->
+    case lists:keysearch(Suite,1,Suites0) of
+	{value,{Suite,all}} ->
+	    Suites0;
+	{value,{Suite,GrAndCases0}} ->
+	    GrAndCases = insert_groups2(Groups,GrAndCases0),
+	    insert_in_order({Suite,GrAndCases},Suites0);
+	false ->
+	    insert_in_order({Suite,Groups},Suites0)
+    end.
+
+insert_groups2(_Groups,all) ->
+    all;
+insert_groups2([Group={GrName,Cases}|Groups],GrAndCases) ->
+    case lists:keysearch(GrName,1,GrAndCases) of
+	{value,{GrName,all}} ->
+	    GrAndCases;
+	{value,{GrName,Cases0}} ->
+	    Cases1 = insert_in_order(Cases,Cases0),
+	    insert_groups2(Groups,insert_in_order({GrName,Cases1},GrAndCases));
+	false ->
+	    insert_groups2(Groups,insert_in_order(Group,GrAndCases))
+    end;
+insert_groups2([],GrAndCases) ->
+    GrAndCases.
 
 insert_cases(Node,Dir,Suite,Cases,Tests) when is_list(Cases) ->
     case lists:keysearch({Node,Dir},1,Tests) of
@@ -800,6 +877,35 @@ skip_suites(_Node,_Dir,[],_Cmt,Tests) ->
     Tests;
 skip_suites(Node,Dir,S,Cmt,Tests) ->
     skip_suites(Node,Dir,[S],Cmt,Tests).
+
+skip_groups(Node,Dir,Suite,Group,Case,Cmt,Tests) when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],[Case],Cmt,Tests);
+skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests) when
+      ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
+    Suites =
+	case lists:keysearch({Node,Dir},1,Tests) of
+	    {value,{{Node,Dir},Suites0}} ->
+		Suites0;
+	    false ->
+		[]
+	end,
+    Suites1 = skip_groups1(Suite,[{Gr,Cases} || Gr <- Groups],Cmt,Suites),
+    insert_in_order({{Node,Dir},Suites1},Tests);
+skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests) when is_atom(Case) ->
+    Cases = if Case == all -> all; true -> [Case] end,
+    skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests).
+
+skip_groups1(Suite,Groups,Cmt,Suites0) ->
+    SkipGroups = lists:map(fun(Group) ->
+				   {Group,{skip,Cmt}}
+			   end,Groups),
+    case lists:keysearch(Suite,1,Suites0) of
+	{value,{Suite,GrAndCases0}} ->
+	    GrAndCases1 = GrAndCases0 ++ SkipGroups,
+	    insert_in_order({Suite,GrAndCases1},Suites0);
+	false ->
+	    insert_in_order({Suite,SkipGroups},Suites0)
+    end.
 
 skip_cases(Node,Dir,Suite,Cases,Cmt,Tests) when is_list(Cases) ->
     Suites =

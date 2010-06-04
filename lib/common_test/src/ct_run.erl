@@ -510,10 +510,6 @@ install(Opts, LogDir) ->
     case whereis(ct_util_server) of
 	undefined ->
 	    VarFile = variables_file_name(LogDir),
-
-	    %%! --- Tue Jun  1 00:20:33 2010 --- peppe was here!
-	    io:format("Varfile = ~p~n", [VarFile]),
-
 	    case file:open(VarFile, [write]) of
 		{ok,Fd} ->
 		    [io:format(Fd, "~p.\n", [Opt]) || Opt <- Opts],
@@ -1535,13 +1531,27 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 	Error ->
 	    Error
     end;
+
+%% group
+add_jobs([{TestDir,Suite,[{GroupName,_Cases}]}|Tests], Skip, Opts, CleanUp) when
+      is_atom(GroupName) ->
+    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
+add_jobs([{TestDir,Suite,{GroupName,_Cases}}|Tests], Skip, Opts, CleanUp) when
+      is_atom(GroupName) ->
+    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
+
+%% test case
 add_jobs([{TestDir,Suite,[Case]}|Tests], Skip, Opts, CleanUp) when is_atom(Case) ->
     add_jobs([{TestDir,Suite,Case}|Tests], Skip, Opts, CleanUp);
+
 add_jobs([{TestDir,Suite,Cases}|Tests], Skip, Opts, CleanUp) when is_list(Cases) ->
-    case maybe_interpret(Suite, Cases, Opts) of
+    Cases1 = lists:map(fun({GroupName,_}) when is_atom(GroupName) -> GroupName;
+			  (Case) -> Case
+		       end, Cases),
+    case maybe_interpret(Suite, Cases1, Opts) of
 	ok ->
 	    Name =  get_name(TestDir) ++ "." ++	atom_to_list(Suite) ++ ".cases",
-	    case catch test_server_ctrl:add_cases_with_skip(Name, Suite, Cases,
+	    case catch test_server_ctrl:add_cases_with_skip(Name, Suite, Cases1,
 							    skiplist(TestDir,Skip)) of
 		{'EXIT',_} ->
 		    CleanUp;

@@ -631,7 +631,7 @@ group_or_func(Func, _Config) ->
 %%%      and every test case. If the former, all test cases in the suite
 %%%      should be returned. 
 
-get_suite(Mod, all) ->    
+get_suite(Mod, all) ->
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    get_all(Mod, []);
@@ -667,12 +667,18 @@ get_suite(Mod, Name) ->
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
 		ConfTests ->
+
+		    %%! --- Thu Jun  3 19:13:22 2010 --- peppe was here!
+		    %%! HEERE!
+		    %%! Must be able to search recursively for group Name,
+		    %%! this only handles top level groups!
+
 		    FindConf = fun({conf,Props,_,_,_}) ->
 				       case proplists:get_value(name, Props) of
 					   Name -> true;
 					   _    -> false
 				       end
-			       end,					 
+			       end,
 		    case lists:filter(FindConf, ConfTests) of
 			[] ->			% must be a test case
 			    get_seq(Mod, Name);
