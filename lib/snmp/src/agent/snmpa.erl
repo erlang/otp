@@ -61,7 +61,7 @@
 	 register_subagent/3, unregister_subagent/2, 
 
 	 send_notification/3, send_notification/4, send_notification/5,
-	 send_notification/6,
+	 send_notification/6, send_notification/7, 
 	 send_trap/3, send_trap/4,
 
 	 discovery/2, discovery/3, discovery/4, discovery/5, discovery/6, 
@@ -423,13 +423,22 @@ send_notification(Agent, Notification, Recv, Varbinds) ->
 send_notification(Agent, Notification, Recv, NotifyName, Varbinds) ->
     send_notification(Agent, Notification, Recv, NotifyName, "", Varbinds).
 
-send_notification(Agent, Notification, Recv, 
-		  NotifyName, ContextName, Varbinds) 
+send_notification(Agent, Notification, Recv, NotifyName, 
+		  ContextName, Varbinds) 
   when (is_list(NotifyName)  andalso 
 	is_list(ContextName) andalso 
 	is_list(Varbinds)) ->
     snmpa_agent:send_trap(Agent, Notification, NotifyName, 
 			  ContextName, Recv, Varbinds).
+
+send_notification(Agent, Notification, Recv, 
+		  NotifyName, ContextName, Varbinds, LocalEngineID) 
+  when (is_list(NotifyName)  andalso 
+	is_list(ContextName) andalso 
+	is_list(Varbinds) andalso 
+	is_list(LocalEngineID)) ->
+    snmpa_agent:send_trap(Agent, Notification, NotifyName, 
+			  ContextName, Recv, Varbinds, LocalEngineID).
 
 %% Kept for backwards compatibility
 send_trap(Agent, Trap, Community) ->

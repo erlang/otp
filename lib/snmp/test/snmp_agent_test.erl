@@ -1046,7 +1046,7 @@ v1_cases() ->
      sparse_table, 
      cnt_64, 
      opaque,
- 
+
      change_target_addr_config
     ].  
 
@@ -1977,7 +1977,8 @@ inform_i(Config) ->
 
     ?P1("unload TestTrap & TestTrapv2..."), 
     ?line unload_master("TestTrap"),
-    ?line unload_master("TestTrapv2").
+    ?line unload_master("TestTrapv2"),
+    ok.
 
 v3_inform_i(X) -> 
     %% <CONDITIONAL-SKIP>
@@ -3446,7 +3447,7 @@ do_mul_set_err() ->
     ?line ?v1_2(expect(2, noSuchName, 1, any),
 		expect(2, [{[friendsEntry, [2,3]], noSuchInstance}])),
     g([NewKeyc4]),
-    ?line ?v1_2(expect(3, noSuchName, 1, any),
+    ?line ?v1_2(expect(3, noSuchName, 1, any), 
 		expect(3, [{NewKeyc4, noSuchInstance}])).
 
 %% Req. SA-MIB
@@ -3457,10 +3458,10 @@ sa_mib() ->
     ?line expect(2, [{[sa, [1,0]], "sa_test"}]).
 
 ma_trap1(MA) ->
-    snmpa:send_trap(MA, testTrap2, "standard trap"),
+    ok = snmpa:send_trap(MA, testTrap2, "standard trap"), 
     ?line expect(1, trap, [system], 6, 1, [{[system, [4,0]],
 				    "{mbj,eklas}@erlang.ericsson.se"}]),
-    snmpa:send_trap(MA, testTrap1, "standard trap"),
+    ok = snmpa:send_trap(MA, testTrap1, "standard trap"),
     ?line expect(2, trap, [1,2,3] , 1, 0, [{[system, [4,0]],
 				      "{mbj,eklas}@erlang.ericsson.se"}]).
 
@@ -3509,7 +3510,8 @@ ma_v2_trap1(MA) ->
     ?DBG("ma_v2_traps -> send standard trap: testTrapv21",[]),
     snmpa:send_trap(MA, testTrapv21, "standard trap"),
     ?line expect(2, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?snmp ++ [1]}]).
+			     {[snmpTrapOID, 0], ?snmp ++ [1]}]),
+    ok.
 
 ma_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
@@ -3517,7 +3519,7 @@ ma_v2_trap2(MA) ->
 			     {[snmpTrapOID, 0], ?system ++ [0,1]},
 			     {[system, [4,0]], "pelle"}]).
 
-%% Note:  This test case takes a while... actually a couple of minutes.
+%% Note: This test case takes a while... actually a couple of minutes.
 ma_v2_inform1(MA) ->
     ?DBG("ma_v2_inform1 -> entry with" 
 	 "~n   MA = ~p => "
@@ -6219,12 +6221,15 @@ verify_old_info([Key|Keys], Info) ->
 is(S) -> [length(S) | S].
 
 try_test(Func) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func).
 
 try_test(Func, A) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func, A).
 
 try_test(Func, A, Opts) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func, A, Opts).
 
 
