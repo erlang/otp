@@ -110,11 +110,11 @@ init_per_testcase(_TestCase, Config) ->
     {_,{_,LogDir}} = lists:keysearch(logdir, 1, get_opts(Config)),
     case lists:keysearch(master, 1, Config) of
 	false->
-	    test_server:format("See Common Test logs here:\n"
+	    test_server:format("See Common Test logs here:\n\n"
 		       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>",
 		       [LogDir,LogDir]);
 	{value, _}->
-	    test_server:format("See CT Master Test logs here:\n"
+	    test_server:format("See CT Master Test logs here:\n\n"
 		       "<a href=\"file://~s/master_runs.html\">~s/master_runs.html</a>",
 		       [LogDir,LogDir])
     end,
@@ -183,14 +183,14 @@ run(Opts, Config) ->
     CTNode = ?config(ct_node, Config),
     Level = ?config(trace_level, Config),
     %% use ct interface
-    test_server:format(Level, "Calling ct:run_test(~p) on ~p~n",
+    test_server:format(Level, "[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
     Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
 
     %% use run_test interface (simulated)
     test_server:format(Level, "Saving start opts on ~p: ~p~n", [CTNode,Opts]),
     rpc:call(CTNode, application, set_env, [common_test, run_test_start_opts, Opts]),
-    test_server:format(Level, "Calling ct_run:script_start() on ~p~n", [CTNode]),
+    test_server:format(Level, "[RUN #2] Calling ct_run:script_start() on ~p~n", [CTNode]),
     Result2 = rpc:call(CTNode, ct_run, script_start, []),
     case {Result1,Result2} of
 	{ok,ok} ->

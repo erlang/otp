@@ -65,7 +65,7 @@
 	 pal/1, pal/2, pal/3,
 	 fail/1, comment/1,
 	 testcases/2, userdata/2, userdata/3,
-	 sleep/1]).
+	 timetrap/1, sleep/1]).
 
 %% New API for manipulating with config handlers
 -export([add_config/2, remove_config/2]).
@@ -842,6 +842,18 @@ add_config(Callback, Config)->
 %%%	 configuration string.</p>
 remove_config(Callback, Config) ->
     ct_config:remove_config(Callback, Config).
+
+%%%-----------------------------------------------------------------
+%%% @spec timetrap(Time) -> ok
+%%%       Time = {hours,Hours} | {minutes,Mins} | {seconds,Secs} | Millisecs | infinity
+%%%       Hours = integer()
+%%%       Mins = integer()
+%%%       Secs = integer()
+%%%       Millisecs = integer() | float()
+%%%
+%%% @doc <p>Use this function to set a new timetrap for the running test case.</p>
+timetrap(Time) ->
+    test_server:timetrap(Time).
 
 %%%-----------------------------------------------------------------
 %%% @spec sleep(Time) -> ok

@@ -152,10 +152,12 @@ script_start1(Parent, Args) ->
     %% read general start flags
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
-    Cover = get_start_opt(cover, fun(CoverFile) -> ?abs(CoverFile) end, Args),
+    Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
     LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
-    MultTT = get_start_opt(multiply_timetraps, fun(MT) -> MT end, 1, Args),
-    ScaleTT = get_start_opt(scale_timetraps, fun(CT) -> CT end, false, Args),
+    MultTT = get_start_opt(multiply_timetraps,
+			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
+    ScaleTT = get_start_opt(scale_timetraps,
+			    fun([CT]) -> list_to_atom(CT) end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
 
     %% check flags and set corresponding application env variables
@@ -335,8 +337,8 @@ check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
 	    {error,{cant_read_config_file,File}};
 	{value,{error,{wrong_config,Message}}}->
 	    {error,{wrong_config,Message}};
-	{value,{error,{callback,File}}} ->
-	    {error,{cant_load_callback_module,File}}
+	{value,{error,{callback,Info}}} ->
+	    {error,{cant_load_callback_module,Info}}
     end.
 
 script_start3(StartOpts, Args) ->
@@ -745,14 +747,23 @@ run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
     end.
 
 check_config_file(Callback, File)->
+    case code:is_loaded(Callback) of
+	false ->
+	    case code:load_file(Callback) of
+		{module,_} -> ok;
+		{error,Why} -> exit({cant_load_callback_module,Why})
+	    end;
+	_ ->
+	    ok
+    end,
     case Callback:check_parameter(File) of
 	{ok,{file,File}}->
 	    ?abs(File);
 	{ok,{config,_}}->
 	    File;
-	{nok,{wrong_config,Message}}->
+	{error,{wrong_config,Message}}->
 	    exit({wrong_config,{Callback,Message}});
-	{nok,{nofile,File}}->
+	{error,{nofile,File}}->
 	    exit({no_such_file,?abs(File)})
     end.
 

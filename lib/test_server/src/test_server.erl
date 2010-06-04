@@ -784,7 +784,6 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 					   {value,{default_timeout,Tmo}} -> Tmo;
 					   _ -> ?DEFAULT_TIMETRAP_SECS*1000
 				       end,
-				ErrorMsg = {testcase_aborted,AbortReason},
 				EndConfPid =
 				    call_end_conf(Mod,Func,Pid,ErrorMsg,
 						  Loc1,[{tc_status,{failed,ErrorMsg}}|Conf],

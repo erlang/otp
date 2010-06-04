@@ -694,39 +694,48 @@ random_bytes_1(N, Acc) -> random_bytes_1(N-1, [random:uniform(255)|Acc]).
 check_callback_load(Callback) ->
     case code:is_loaded(Callback) of
 	{file, _Filename}->
-	     {ok, Callback};
+	    check_exports(Callback);
 	false->
 	    case code:load_file(Callback) of
 		{module, Callback}->
-		    {ok, Callback};
+		    check_exports(Callback);
 		{error, Error}->
 		    {error, Error}
 	    end
+    end.
+
+check_exports(Callback) ->
+    Fs = Callback:module_info(exports),
+    case {lists:member({check_parameter,1},Fs),
+	  lists:member({read_config,1},Fs)} of
+	{true, true} ->
+	    {ok, Callback};
+	_ ->
+	    {error, missing_callback_functions}
     end.
 
 check_config_files(Configs) ->
     ConfigChecker = fun
 	({Callback, [F|_R]=Files}) ->
 	    case check_callback_load(Callback) of
-		{ok, Callback}->
-			if
-			    is_integer(F) ->
+		{ok, Callback} ->
+			if is_integer(F) ->
 				Callback:check_parameter(Files);
-			    is_list(F) ->
+			   is_list(F) ->
 				lists:map(fun(File) ->
-				    Callback:check_parameter(File)
-				end,
-				Files)
+						  Callback:check_parameter(File)
+					  end,
+					  Files)
 			end;
-		{error, _}->
-		    {error, {callback, Callback}}
+		{error, Why}->
+		    {error, {callback, {Callback,Why}}}
 	    end;
 	({Callback, []}) ->
 	    case check_callback_load(Callback) of
 		{ok, Callback}->
 		     Callback:check_parameter([]);
-		{error, _}->
-		     {error, {callback, Callback}}
+		{error, Why}->
+		     {error, {callback, {Callback,Why}}}
 	    end
     end,
     lists:keysearch(error, 1, lists:flatten(lists:map(ConfigChecker, Configs))).

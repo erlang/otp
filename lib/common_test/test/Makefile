@@ -27,6 +27,7 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	ct_test_support \
 	ct_test_support_eh \
+	ct_userconfig_callback \
 	ct_smoke_test_SUITE \
 	ct_event_handler_SUITE \
 	ct_groups_test_1_SUITE \
@@ -63,17 +64,17 @@ EBIN = .
 # Targets
 # ----------------------------------------------------
 
-#.PHONY: make_emakefile
+.PHONY: make_emakefile
 
-#make_emakefile:
-#	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-#	'*_SUITE_make' > $(EMAKEFILE)
-#	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
-#	>> $(EMAKEFILE)
+make_emakefile:
+	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
+	> $(EMAKEFILE)
 
-tests debug opt:
+tests debug opt: make_emakefile
+	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
+	rm -f $(EMAKEFILE)
 	rm -f $(TARGET_FILES)
 	rm -f core
 
@@ -86,7 +87,7 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 
-release_tests_spec:
+release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
 	$(INSTALL_PROGRAM) common_test.spec $(RELSYSDIR)
