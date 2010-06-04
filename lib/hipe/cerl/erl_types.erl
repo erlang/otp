@@ -178,7 +178,7 @@
 	 t_remote/3,
 	 t_string/0,
 	 t_struct_from_opaque/2,
-	 t_solve_remote/2,
+	 t_solve_remote/3,
 	 t_subst/2,
 	 t_subtract/2,
 	 t_subtract_list/2,
@@ -221,6 +221,8 @@
 -ifndef(NO_UNUSED).
 -export([t_is_identifier/1]).
 -endif.
+
+-export_type([erl_type/0]).
 
 %%=============================================================================
 %%
@@ -399,7 +401,8 @@ t_is_none(_) -> false.
 -spec t_opaque(module(), atom(), [_], erl_type()) -> erl_type().
 
 t_opaque(Mod, Name, Args, Struct) ->
-  ?opaque(set_singleton(#opaque{mod=Mod, name=Name, args=Args, struct=Struct})).
+  O = #opaque{mod = Mod, name = Name, args = Args, struct = Struct},
+  ?opaque(set_singleton(O)).
 
 -spec t_is_opaque(erl_type()) -> boolean().
 
@@ -428,7 +431,7 @@ t_opaque_structure(?opaque(Elements)) ->
 t_opaque_module(?opaque(Elements)) ->
   case ordsets:size(Elements) of
     1 ->
-      [#opaque{mod=Module}] = ordsets:to_list(Elements),
+      [#opaque{mod = Module}] = ordsets:to_list(Elements),
       Module;
     _ -> throw({error, "Unexpected multiple opaque types"})
   end.
@@ -632,7 +635,7 @@ t_unopaque_on_mismatch(GenType, Type, Opaques) ->
   case t_inf(GenType, Type) of
     ?none ->
       Unopaqued = t_unopaque(Type, Opaques),
-      %% Unions might be a problem, must investigate.
+      %% XXX: Unions might be a problem, must investigate.
       case t_inf(GenType, Unopaqued) of
 	?none -> Type;
 	_ -> Unopaqued
@@ -644,10 +647,10 @@ t_unopaque_on_mismatch(GenType, Type, Opaques) ->
 
 module_builtin_opaques(Module) ->
   [O || O <- all_opaque_builtins(), t_opaque_module(O) =:= Module].
-           
+
 %%-----------------------------------------------------------------------------
-%% Remote types
-%% These types are used for preprocessing they should never reach the analysis stage
+%% Remote types: these types are used for preprocessing;
+%% they should never reach the analysis stage.
 
 -spec t_remote(module(), atom(), [_]) -> erl_type().
 
@@ -659,126 +662,133 @@ t_remote(Mod, Name, Args) ->
 t_is_remote(?remote(_)) -> true;
 t_is_remote(_) -> false.
 
--spec t_solve_remote(erl_type(), dict()) -> erl_type().
+-spec t_solve_remote(erl_type(), set(), dict()) -> erl_type().
 
-t_solve_remote(Type , Records) ->
-  {RT, _RR} = t_solve_remote(Type, Records, []),
+t_solve_remote(Type, ExpTypes, Records) ->
+  {RT, _RR} = t_solve_remote(Type, ExpTypes, Records, []),
   RT.
 
-t_solve_remote(?function(Domain, Range), R, C) ->
-  {RT1, RR1} = t_solve_remote(Domain, R, C),
-  {RT2, RR2} = t_solve_remote(Range, R, C),
+t_solve_remote(?function(Domain, Range), ET, R, C) ->
+  {RT1, RR1} = t_solve_remote(Domain, ET, R, C),
+  {RT2, RR2} = t_solve_remote(Range, ET, R, C),
   {?function(RT1, RT2), RR1 ++ RR2};
-t_solve_remote(?list(Types, Term, Size), R, C) ->
-  {RT, RR} = t_solve_remote(Types, R, C),
+t_solve_remote(?list(Types, Term, Size), ET, R, C) ->
+  {RT, RR} = t_solve_remote(Types, ET, R, C),
   {?list(RT, Term, Size), RR};
-t_solve_remote(?product(Types), R, C) ->
-  {RL, RR} = list_solve_remote(Types, R, C),
+t_solve_remote(?product(Types), ET, R, C) ->
+  {RL, RR} = list_solve_remote(Types, ET, R, C),
   {?product(RL), RR};
-t_solve_remote(?opaque(Set), R, C) ->
+t_solve_remote(?opaque(Set), ET, R, C) ->
   List = ordsets:to_list(Set),
-  {NewList, RR} = opaques_solve_remote(List, R, C),
+  {NewList, RR} = opaques_solve_remote(List, ET, R, C),
   {?opaque(ordsets:from_list(NewList)), RR};
-t_solve_remote(?tuple(?any, _, _) = T, _R, _C) -> {T, []};
-t_solve_remote(?tuple(Types, Arity, Tag), R, C)  ->
-  {RL, RR} = list_solve_remote(Types, R, C),
+t_solve_remote(?tuple(?any, _, _) = T, _ET, _R, _C) -> {T, []};
+t_solve_remote(?tuple(Types, Arity, Tag), ET, R, C)  ->
+  {RL, RR} = list_solve_remote(Types, ET, R, C),
   {?tuple(RL, Arity, Tag), RR};
-t_solve_remote(?tuple_set(Set), R, C) ->
-  {NewSet, RR} = tuples_solve_remote(Set, R, C),
+t_solve_remote(?tuple_set(Set), ET, R, C) ->
+  {NewSet, RR} = tuples_solve_remote(Set, ET, R, C),
   {?tuple_set(NewSet), RR};
-t_solve_remote(?remote(Set), R, C) ->
+t_solve_remote(?remote(Set), ET, R, C) ->
   RemoteList = ordsets:to_list(Set),
-  {RL, RR} = list_solve_remote_type(RemoteList, R, C),
+  {RL, RR} = list_solve_remote_type(RemoteList, ET, R, C),
   {t_sup(RL), RR};
-t_solve_remote(?union(List), R, C) ->
-  {RL, RR} = list_solve_remote(List, R, C),
+t_solve_remote(?union(List), ET, R, C) ->
+  {RL, RR} = list_solve_remote(List, ET, R, C),
   {t_sup(RL), RR};
-t_solve_remote(T, _R, _C) -> {T, []}.
+t_solve_remote(T, _ET, _R, _C) -> {T, []}.
 
 t_solve_remote_type(#remote{mod = RemMod, name = Name, args = Args} = RemType,
-                    R, C) ->
+                    ET, R, C) ->
+  ArgsLen = length(Args),
   case dict:find(RemMod, R) of
     error ->
-      Msg = io_lib:format("Cannot locate module ~w to "
-                          "resolve the remote type: ~w:~w()~n",
-                          [RemMod, RemMod, Name]),
-      throw({error, Msg});
+      self() ! {self(), ext_types, {RemMod, Name, ArgsLen}},
+      {t_any(), []};
     {ok, RemDict} ->
-      case lookup_type(Name, RemDict) of
-        {type, {_Mod, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
-          {NewType, NewCycle, NewRR} =
-            case unfold(RemType, C) of
-              true ->
-                List = lists:zip(ArgNames, Args),
-                TmpVarDict = dict:from_list(List),
-                {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-              false -> {t_any(), C, [RemType]}
-            end,
-          {RT, RR} = t_solve_remote(NewType, R, NewCycle),
-          RetRR = NewRR ++ RR,
-          RT1 =
-            case lists:member(RemType, RetRR) of
-              true -> t_limit(RT, ?REC_TYPE_LIMIT);
-              false -> RT
-            end,
-          {RT1, RetRR};
-        {opaque, {Mod, Type, ArgNames}} when length(Args) =:= length(ArgNames) ->
-          List = lists:zip(ArgNames, Args),
-          TmpVarDict = dict:from_list(List),
-          {Rep, NewCycle, NewRR} =
-            case unfold(RemType, C) of
-              true -> {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
-              false -> {t_any(), C, [RemType]}
-            end,
-          {NewRep, RR} = t_solve_remote(Rep, R, NewCycle),
-          RetRR = NewRR ++ RR,
-          RT1 =
-            case lists:member(RemType, RetRR) of
-              true -> t_limit(NewRep, ?REC_TYPE_LIMIT);
-              false -> NewRep
-            end,
-          {t_from_form({opaque, -1, Name, {Mod, Args, RT1}},
-                       RemDict, TmpVarDict),
-           RetRR};
-        {type, _} ->
-          Msg = io_lib:format("Unknown remote type ~w\n", [Name]),
-          throw({error, Msg});
-        {opaque, _} ->
-          Msg = io_lib:format("Unknown remote opaque type ~w\n", [Name]),
-          throw({error, Msg});
-        error ->
-          Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
-                              [RemMod, Name]),
+      MFA = {RemMod, Name, ArgsLen},
+      case sets:is_element(MFA, ET) of
+        true ->
+          case lookup_type(Name, RemDict) of
+            {type, {_Mod, Type, ArgNames}} when ArgsLen =:= length(ArgNames) ->
+              {NewType, NewCycle, NewRR} =
+                case unfold(RemType, C) of
+                  true ->
+                    List = lists:zip(ArgNames, Args),
+                    TmpVarDict = dict:from_list(List),
+                    {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
+                  false -> {t_any(), C, [RemType]}
+                end,
+              {RT, RR} = t_solve_remote(NewType, ET, R, NewCycle),
+              RetRR = NewRR ++ RR,
+              RT1 =
+                case lists:member(RemType, RetRR) of
+                  true -> t_limit(RT, ?REC_TYPE_LIMIT);
+                  false -> RT
+                end,
+              {RT1, RetRR};
+            {opaque, {Mod, Type, ArgNames}} when ArgsLen =:= length(ArgNames) ->
+              List = lists:zip(ArgNames, Args),
+              TmpVarDict = dict:from_list(List),
+              {Rep, NewCycle, NewRR} =
+                case unfold(RemType, C) of
+                  true -> {t_from_form(Type, RemDict, TmpVarDict), [RemType|C], []};
+                  false -> {t_any(), C, [RemType]}
+                end,
+              {NewRep, RR} = t_solve_remote(Rep, ET, R, NewCycle),
+              RetRR = NewRR ++ RR,
+              RT1 =
+                case lists:member(RemType, RetRR) of
+                  true -> t_limit(NewRep, ?REC_TYPE_LIMIT);
+                  false -> NewRep
+                end,
+              {t_from_form({opaque, -1, Name, {Mod, Args, RT1}},
+                           RemDict, TmpVarDict),
+               RetRR};
+            {type, _} ->
+              Msg = io_lib:format("Unknown remote type ~w\n", [Name]),
+              throw({error, Msg});
+            {opaque, _} ->
+              Msg = io_lib:format("Unknown remote opaque type ~w\n", [Name]),
+              throw({error, Msg});
+            error ->
+              Msg = io_lib:format("Unable to find remote type ~w:~w()\n",
+                                  [RemMod, Name]),
+              throw({error, Msg})
+          end;
+        false ->
+          Msg = io_lib:format("Unable to find exported type ~w:~w/~w\n",
+                              [RemMod, Name, ArgsLen]),
           throw({error, Msg})
       end
   end.
 
-list_solve_remote([], _R, _C) ->
+list_solve_remote([], _ET, _R, _C) ->
   {[], []};
-list_solve_remote([Type|Types], R, C) ->
-  {RT, RR1} = t_solve_remote(Type, R, C),
-  {RL, RR2} = list_solve_remote(Types, R, C),
+list_solve_remote([Type|Types], ET, R, C) ->
+  {RT, RR1} = t_solve_remote(Type, ET, R, C),
+  {RL, RR2} = list_solve_remote(Types, ET, R, C),
   {[RT|RL], RR1 ++ RR2}.
 
-list_solve_remote_type([], _R, _C) ->
+list_solve_remote_type([], _ET, _R, _C) ->
   {[], []};
-list_solve_remote_type([Type|Types], R, C) ->
-  {RT, RR1} = t_solve_remote_type(Type, R, C),
-  {RL, RR2} = list_solve_remote_type(Types, R, C),
+list_solve_remote_type([Type|Types], ET, R, C) ->
+  {RT, RR1} = t_solve_remote_type(Type, ET, R, C),
+  {RL, RR2} = list_solve_remote_type(Types, ET, R, C),
   {[RT|RL], RR1 ++ RR2}.
 
-opaques_solve_remote([], _R, _C) ->
+opaques_solve_remote([], _ET, _R, _C) ->
   {[], []};
-opaques_solve_remote([#opaque{struct = Struct} = Remote|Tail], R, C) ->
-  {RT, RR1} = t_solve_remote(Struct, R, C),
-  {LOp, RR2} = opaques_solve_remote(Tail, R, C),
+opaques_solve_remote([#opaque{struct = Struct} = Remote|Tail], ET, R, C) ->
+  {RT, RR1} = t_solve_remote(Struct, ET, R, C),
+  {LOp, RR2} = opaques_solve_remote(Tail, ET, R, C),
   {[Remote#opaque{struct = RT}|LOp], RR1 ++ RR2}.
 
-tuples_solve_remote([], _R, _C) ->
+tuples_solve_remote([], _ET, _R, _C) ->
   {[], []};
-tuples_solve_remote([{Sz, Tuples}|Tail], R, C) ->
-  {RL, RR1} = list_solve_remote(Tuples, R, C),
-  {LSzTpls, RR2} = tuples_solve_remote(Tail, R, C),
+tuples_solve_remote([{Sz, Tuples}|Tail], ET, R, C) ->
+  {RL, RR1} = list_solve_remote(Tuples, ET, R, C),
+  {LSzTpls, RR2} = tuples_solve_remote(Tail, ET, R, C),
   {[{Sz, RL}|LSzTpls], RR1 ++ RR2}.
 
 %%-----------------------------------------------------------------------------
@@ -802,7 +812,7 @@ t_is_none_or_unit(?unit) -> true;
 t_is_none_or_unit(_) -> false.
 
 %%-----------------------------------------------------------------------------
-%% Atoms and the derived type bool
+%% Atoms and the derived type boolean
 %%
 
 -spec t_atom() -> erl_type().
@@ -2524,12 +2534,14 @@ t_subst(T, _Dict, _Fun) ->
 %% Unification
 %%
 
--spec t_unify(erl_type(), erl_type()) -> {erl_type(), [{_, erl_type()}]}.
+-type t_unify_ret() :: {erl_type(), [{_, erl_type()}]}.
+
+-spec t_unify(erl_type(), erl_type()) -> t_unify_ret().
 
 t_unify(T1, T2) ->
   t_unify(T1, T2, []).
 
--spec t_unify(erl_type(), erl_type(), [erl_type()]) -> {erl_type(), [{_, erl_type()}]}.
+-spec t_unify(erl_type(), erl_type(), [erl_type()]) -> t_unify_ret().
 
 t_unify(T1, T2, Opaques) ->
   {T, Dict} = t_unify(T1, T2, dict:new(), Opaques),
@@ -2542,7 +2554,7 @@ t_unify(?var(Id1) = T, ?var(Id2), Dict, Opaques) ->
     error -> 
       case dict:find(Id2, Dict) of
 	error -> {T, dict:store(Id2, T, Dict)};
-	{ok, Type} -> {Type, t_unify(T, Type, Dict, Opaques)}
+	{ok, Type} -> t_unify(T, Type, Dict, Opaques)
       end;
     {ok, Type1} ->
       case dict:find(Id2, Dict) of
@@ -3339,8 +3351,8 @@ sequence([], [], _Delimiter) ->
   [];
 sequence([T], Acc, _Delimiter) ->
   lists:flatten(lists:reverse([T|Acc]));
-sequence([T|Left], Acc, Delimiter) -> 
-  sequence(Left, [T ++ Delimiter|Acc], Delimiter).
+sequence([T|Ts], Acc, Delimiter) ->
+  sequence(Ts, [T ++ Delimiter|Acc], Delimiter).
 
 %%=============================================================================
 %% 

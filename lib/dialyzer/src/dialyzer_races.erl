@@ -39,6 +39,8 @@
          let_tag_new/2, new/0, put_curr_fun/3, put_fun_args/2,
          put_race_analysis/2, put_race_list/3]).
 
+-export_type([races/0]).
+
 -include("dialyzer.hrl").
 
 %%% ===========================================================================
@@ -1704,7 +1706,6 @@ compare_types(VarArgs, WarnVarArgs, RaceWarnTag, RaceVarMap) ->
             false ->
               compare_var_list(VA1, WVA1, RaceVarMap) orelse
                 compare_argtypes(VA2, WVA2)
-
           end
       end;
     ?WARN_ETS_LOOKUP_INSERT ->

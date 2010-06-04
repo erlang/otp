@@ -309,6 +309,7 @@
 	 data/1,
 	 is_tree/1]).
 
+-export_type([forms/0, syntaxTree/0, syntaxTreeAttributes/0]).
 
 %% =====================================================================
 %% IMPLEMENTATION NOTES:

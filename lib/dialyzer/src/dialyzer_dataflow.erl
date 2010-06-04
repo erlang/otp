@@ -38,6 +38,8 @@
 %% Debug and test interfaces.
 -export([get_top_level_signatures/2, pp/1]).
 
+-export_type([state/0]).
+
 -include("dialyzer.hrl").
 
 -import(erl_types, 

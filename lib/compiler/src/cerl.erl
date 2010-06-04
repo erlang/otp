@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 
 %% =====================================================================
@@ -121,6 +121,9 @@
 	 ann_c_bitstr/6, is_c_bitstr/1, bitstr_val/1, bitstr_size/1,
 	 bitstr_bitsize/1, bitstr_unit/1, bitstr_type/1,
 	 bitstr_flags/1]).
+
+-export_type([c_binary/0, c_call/0, c_clause/0, c_cons/0, c_fun/0, c_literal/0,
+              c_module/0, c_tuple/0, c_values/0, c_var/0, cerl/0, var_name/0]).
 
 %%
 %% needed by the include file below -- do not move

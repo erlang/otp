@@ -42,6 +42,7 @@
 	 merge_records/2,
 	 pp_hook/0,
 	 process_record_remote_types/1,
+         sets_filter/2,
 	 src_compiler_opts/0
 	]).
 
@@ -78,7 +79,7 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 %%
 
 -type abstract_code() :: [tuple()]. %% XXX: refine
--type comp_options()  :: [atom()].  %% XXX: only a resticted set of options used
+-type comp_options()  :: [atom()].  %% XXX: a restricted set of options is used
 
 %% ============================================================================
 %%
@@ -169,7 +170,7 @@ get_record_and_type_info(AbstractCode) ->
   Module = get_module(AbstractCode),
   get_record_and_type_info(AbstractCode, Module, dict:new()).
 
--spec get_record_and_type_info(abstract_code(), atom(), dict()) ->
+-spec get_record_and_type_info(abstract_code(), module(), dict()) ->
 	{'ok', dict()} | {'error', string()}.
 
 get_record_and_type_info(AbstractCode, Module, RecDict) ->
@@ -278,13 +279,16 @@ type_record_fields([RecKey|Recs], RecDict) ->
 
 process_record_remote_types(CServer) ->
   TempRecords = dialyzer_codeserver:get_temp_records(CServer),
+  TempExpTypes = dialyzer_codeserver:get_temp_exported_types(CServer),
   RecordFun =
     fun(Key, Value) ->
 	case Key of
 	  {record, _Name} ->
 	    FieldFun =
 	      fun(_Arity, Fields) ->
-		  [{Name, erl_types:t_solve_remote(Field, TempRecords)} || {Name, Field} <- Fields]
+		  [{Name, erl_types:t_solve_remote(Field, TempExpTypes,
+                                                   TempRecords)}
+                   || {Name, Field} <- Fields]
 	      end,
 	    orddict:map(FieldFun, Value);
 	  _Other -> Value
@@ -295,7 +299,8 @@ process_record_remote_types(CServer) ->
 	dict:map(RecordFun, Record)
     end,
   NewRecords = dict:map(ModuleFun, TempRecords),
-  dialyzer_codeserver:finalize_records(NewRecords, CServer).
+  CServer1 = dialyzer_codeserver:finalize_records(NewRecords, CServer),
+  dialyzer_codeserver:finalize_exported_types(TempExpTypes, CServer1).
 
 -spec merge_records(dict(), dict()) -> dict().
 
@@ -350,6 +355,20 @@ get_spec_info([_Other|Left], SpecDict, RecordsDict, ModName, File) ->
   get_spec_info(Left, SpecDict, RecordsDict, ModName, File);
 get_spec_info([], SpecDict, _RecordsDict, _ModName, _File) ->
   {ok, SpecDict}.
+
+%% ============================================================================
+%%
+%% Exported types
+%%
+%% ============================================================================
+
+-spec sets_filter([module()], set()) -> set().
+
+sets_filter([], ExpTypes) ->
+  ExpTypes;
+sets_filter([Mod|Mods], ExpTypes) ->
+  NewExpTypes = sets:filter(fun({M, _F, _A}) -> M =/= Mod end, ExpTypes),
+  sets_filter(Mods, NewExpTypes).
 
 %% ============================================================================
 %%

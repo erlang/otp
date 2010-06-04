@@ -38,6 +38,7 @@
 	{backend_pid                      :: pid(),
 	 erlang_mode     = false          :: boolean(),
 	 external_calls  = []             :: [mfa()],
+         external_types  = []             :: [mfa()],
 	 legal_warnings  = ordsets:new()  :: [dial_warn_tag()],
 	 mod_deps        = dict:new()     :: dict(),
 	 output          = standard_io	  :: io:device(),
@@ -538,6 +539,8 @@ cl_loop(State, LogCache) ->
       return_value(State, NewPlt);
     {BackendPid, ext_calls, ExtCalls} ->
       cl_loop(State#cl_state{external_calls = ExtCalls}, LogCache);
+    {BackendPid, ext_types, ExtTypes} ->
+      cl_loop(State#cl_state{external_types = ExtTypes}, LogCache);
     {BackendPid, mod_deps, ModDeps} ->
       NewState = State#cl_state{mod_deps = ModDeps},
       cl_loop(NewState, LogCache);
@@ -613,6 +616,7 @@ return_value(State = #cl_state{erlang_mode = ErlangMode,
     false ->
       print_warnings(State),
       print_ext_calls(State),
+      print_ext_types(State),
       print_unknown_behaviours(State),
       maybe_close_output_file(State),
       {RetValue, []};
@@ -649,10 +653,41 @@ do_print_ext_calls(Output, [{M,F,A}|T], Before) ->
 do_print_ext_calls(_, [], _) ->
   ok.
 
+print_ext_types(#cl_state{report_mode = quiet}) ->
+  ok;
+print_ext_types(#cl_state{output = Output,
+                          external_calls = Calls,
+                          external_types = Types,
+                          stored_warnings = Warnings,
+                          output_format = Format}) ->
+  case Types =:= [] of
+    true -> ok;
+    false ->
+      case Warnings =:= [] andalso Calls =:= [] of
+        true -> io:nl(Output); %% Need to do a newline first
+        false -> ok
+      end,
+      case Format of
+        formatted ->
+          io:put_chars(Output, "Unknown types:\n"),
+          do_print_ext_types(Output, Types, "  ");
+        raw ->
+          io:put_chars(Output, "%% Unknown types:\n"),
+          do_print_ext_types(Output, Types, "%%  ")
+      end
+  end.
+
+do_print_ext_types(Output, [{M,F,A}|T], Before) ->
+  io:format(Output, "~s~p:~p/~p\n", [Before,M,F,A]),
+  do_print_ext_types(Output, T, Before);
+do_print_ext_types(_, [], _) ->
+  ok.
+
 %%print_unknown_behaviours(#cl_state{report_mode = quiet}) ->
 %%  ok;
 print_unknown_behaviours(#cl_state{output = Output,
 				   external_calls = Calls,
+				   external_types = Types,
 				   stored_warnings = Warnings,
 				   unknown_behaviours = DupBehaviours,
 				   legal_warnings = LegalWarnings,
@@ -662,7 +697,7 @@ print_unknown_behaviours(#cl_state{output = Output,
     false -> ok;
     true ->
       Behaviours = lists:usort(DupBehaviours),
-      case Warnings =:= [] andalso Calls =:= [] of
+      case Warnings =:= [] andalso Calls =:= [] andalso Types =:= [] of
 	true -> io:nl(Output); %% Need to do a newline first
 	false -> ok
       end,

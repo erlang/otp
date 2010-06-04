@@ -33,6 +33,8 @@
 	 process_contract_remote_types/1,
 	 store_tmp_contract/5]).
 
+-export_type([file_contract/0, plt_contracts/0]).
+
 %%-----------------------------------------------------------------------
 
 -include("dialyzer.hrl").
@@ -50,7 +52,7 @@
 %% to expand records and/or remote types that they might contain.
 %%-----------------------------------------------------------------------
 
--type tmp_contract_fun() :: fun((dict()) -> contract_pair()).
+-type tmp_contract_fun() :: fun((set(), dict()) -> contract_pair()).
 
 -record(tmp_contract, {contract_funs = [] :: [tmp_contract_fun()],
 		       forms	     = [] :: [{_, _}]}).
@@ -140,10 +142,11 @@ sequence([H|T], Delimiter) -> H ++ Delimiter ++ sequence(T, Delimiter).
 
 process_contract_remote_types(CodeServer) ->
   TmpContractDict = dialyzer_codeserver:get_temp_contracts(CodeServer),
+  ExpTypes = dialyzer_codeserver:get_exported_types(CodeServer),
   RecordDict = dialyzer_codeserver:get_records(CodeServer),
   ContractFun =
     fun({_M, _F, _A}, {File, #tmp_contract{contract_funs = CFuns, forms = Forms}}) ->
-	NewCs = [CFun(RecordDict) || CFun <- CFuns],
+	NewCs = [CFun(ExpTypes, RecordDict) || CFun <- CFuns],
 	Args = general_domain(NewCs),
 	{File, #contract{contracts = NewCs, args = Args, forms = Forms}}
     end,
@@ -354,9 +357,9 @@ contract_from_form(Forms, RecDict) ->
 contract_from_form([{type, _, 'fun', [_, _]} = Form | Left], RecDict, 
 		   TypeAcc, FormAcc) ->
   TypeFun = 
-    fun(AllRecords) ->
+    fun(ExpTypes, AllRecords) ->
 	Type = erl_types:t_from_form(Form, RecDict),
-	NewType = erl_types:t_solve_remote(Type, AllRecords),
+	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
 	{NewType, []}
     end,
   NewTypeAcc = [TypeFun | TypeAcc],
@@ -366,11 +369,12 @@ contract_from_form([{type, _L1, bounded_fun,
 		     [{type, _L2, 'fun', [_, _]} = Form, Constr]}| Left],
 		   RecDict, TypeAcc, FormAcc) ->
   TypeFun = 
-    fun(AllRecords) ->
-	Constr1 = [constraint_from_form(C, RecDict, AllRecords) || C <- Constr],
+    fun(ExpTypes, AllRecords) ->
+	Constr1 = [constraint_from_form(C, RecDict, ExpTypes, AllRecords)
+                   || C <- Constr],
 	VarDict = insert_constraints(Constr1, dict:new()),
 	Type = erl_types:t_from_form(Form, RecDict, VarDict),
-	NewType = erl_types:t_solve_remote(Type, AllRecords),
+	NewType = erl_types:t_solve_remote(Type, ExpTypes, AllRecords),
 	{NewType, Constr1}
     end,  
   NewTypeAcc = [TypeFun | TypeAcc],
@@ -380,13 +384,15 @@ contract_from_form([], _RecDict, TypeAcc, FormAcc) ->
   {lists:reverse(TypeAcc), lists:reverse(FormAcc)}.
 
 constraint_from_form({type, _, constraint, [{atom, _, is_subtype}, 
-					    [Type1, Type2]]}, RecDict, AllRecords) ->
+					    [Type1, Type2]]}, RecDict,
+                     ExpTypes, AllRecords) ->
   T1 = erl_types:t_from_form(Type1, RecDict),
   T2 = erl_types:t_from_form(Type2, RecDict),
-  T3 = erl_types:t_solve_remote(T1, AllRecords),
-  T4 = erl_types:t_solve_remote(T2, AllRecords),
+  T3 = erl_types:t_solve_remote(T1, ExpTypes, AllRecords),
+  T4 = erl_types:t_solve_remote(T2, ExpTypes, AllRecords),
   {subtype, T3, T4};
-constraint_from_form({type, _, constraint, [{atom,_,Name}, List]}, _RecDict, _) ->
+constraint_from_form({type, _, constraint, [{atom,_,Name}, List]}, _RecDict,
+                     _ExpTypes, _AllRecords) ->
   N = length(List),
   throw({error, io_lib:format("Unsupported type guard ~w/~w\n", [Name, N])}).
 
