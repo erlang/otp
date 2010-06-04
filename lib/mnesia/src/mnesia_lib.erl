@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -113,6 +113,9 @@
 	 mkcore/1,
 	 not_active_here/1,
 	 other_val/2,
+         overload_read/0,
+         overload_read/1,
+         overload_set/2,
 	 pad_name/3,
 	 random_time/2,
 	 read_counter/1,
@@ -551,6 +554,33 @@ cs_to_nodes(Cs) ->
     Cs#cstruct.disc_only_copies ++
     Cs#cstruct.disc_copies ++
     Cs#cstruct.ram_copies.
+
+overload_types() ->
+    [mnesia_tm, mnesia_dump_log].
+
+valid_overload_type(T) ->
+    case lists:member(T, overload_types()) of
+        false ->
+            erlang:error(bad_type);
+        true ->
+            true
+    end.
+
+overload_set(Type, Bool) when is_boolean(Bool) ->
+    valid_overload_type(Type),
+    set({overload, Type}, Bool).
+
+overload_read() ->
+    [{T, overload_read(T)} || T <- overload_types()].
+
+overload_read(T) ->
+    case ?catch_val({overload, T}) of
+        {'EXIT',_} ->
+            valid_overload_type(T),
+            false;
+        Flag when is_boolean(Flag) ->
+            Flag
+    end.
  
 dist_coredump() ->
     dist_coredump(all_nodes()).
