@@ -161,6 +161,7 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	    _ ->
 		MergeResult
 	end,
+
     %% timetrap must be handled before require
     MergedInfo1 = timetrap_first(MergedInfo, [], []),
     %% tell logger to use specified style sheet
@@ -244,8 +245,8 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 	_ ->
 	    {suite0_failed,bad_return_value}
     end.
-    
-add_defaults1(_Mod,init_per_suite,[],SuiteInfo,_) ->
+
+add_defaults1(_Mod,init_per_suite,[],SuiteInfo,_DoInit) ->
     SuiteInfo;
 
 add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) ->
@@ -253,14 +254,26 @@ add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) ->
     %% can result in weird behaviour (suite values get overwritten)
     SuiteReqs = 
 	[SDDef || SDDef <- SuiteInfo,
-		  require == element(1,SDDef)],
-    case [element(2,Clash) || Clash <- SuiteReqs, 
-	  true == lists:keymember(element(2,Clash),2,FuncInfo)] of
+		  ((require == element(1,SDDef)) or
+		   (default_config == element(1,SDDef)))],
+    FuncReqs =
+	[FIDef || FIDef <- FuncInfo,
+		  require == element(1,FIDef)],
+    case [element(2,Clash) || Clash <- SuiteReqs,
+			      require == element(1, Clash),
+			      true == lists:keymember(element(2,Clash),2,
+						      FuncReqs)] of
 	[] ->
 	    add_defaults2(Mod,Func,FuncInfo,SuiteInfo,SuiteReqs,DoInit);
 	Clashes ->
 	    {error,{config_name_already_in_use,Clashes}}
     end.
+
+add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,false) ->
+    %% not common practise to use a test case info function for
+    %% init_per_suite (usually handled by suite/0), but let's support
+    %% it just in case...
+    add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,true);
 
 add_defaults2(_Mod,_Func,FuncInfo,SuiteInfo,_,false) ->
     %% include require elements from test case info, but not from suite/0

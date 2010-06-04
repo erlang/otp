@@ -87,7 +87,9 @@ cfg_error(Config) when is_list(Config) ->
 	      Join(DataDir, "cfg_error_6_SUITE"),
 	      Join(DataDir, "cfg_error_7_SUITE"),
 	      Join(DataDir, "cfg_error_8_SUITE"),
-	      Join(DataDir, "cfg_error_9_SUITE")
+	      Join(DataDir, "cfg_error_9_SUITE"),
+	      Join(DataDir, "cfg_error_10_SUITE"),
+	      Join(DataDir, "cfg_error_11_SUITE")
 	     ],
     {Opts,ERPid} = setup([{suite,Suites}], Config),
     ok = ct_test_support:run(Opts, Config),
@@ -228,7 +230,7 @@ test_events(cfg_error) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{9,9,33}},
+     {?eh,start_info,{11,11,36}},
 
      {?eh,tc_start,{cfg_error_1_SUITE,init_per_suite}},
      {?eh,tc_done,
@@ -539,6 +541,28 @@ test_events(cfg_error) ->
 
      {?eh,tc_start,{cfg_error_9_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_9_SUITE,end_per_suite,ok}},
+
+     {?eh,tc_start,{cfg_error_10_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_10_SUITE,init_per_suite,
+		   {failed,{error,fail_init_per_suite}}}},
+     {?eh,tc_auto_skip,{cfg_error_10_SUITE,tc1,
+			{failed,{cfg_error_10_SUITE,init_per_suite,
+				 {failed,fail_init_per_suite}}}}},
+     {?eh,test_stats,{12,3,{0,19}}},
+     {?eh,tc_auto_skip,{cfg_error_10_SUITE,end_per_suite,
+			{failed,{cfg_error_10_SUITE,init_per_suite,
+				 {failed,fail_init_per_suite}}}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_11_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_11_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_11_SUITE,tc1,
+		   {skipped,{config_name_already_in_use,[dummy0]}}}},
+     {?eh,test_stats,{12,3,{1,19}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,tc2}},
+     {?eh,tc_done,{cfg_error_11_SUITE,tc2,ok}},
+     {?eh,test_stats,{13,3,{1,19}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,end_per_suite}},
+     {?eh,tc_done,{cfg_error_11_SUITE,end_per_suite,ok}},
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}

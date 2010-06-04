@@ -1171,10 +1171,14 @@ process_return_val(Return, M,F,A, Loc, Final) ->
 process_return_val1([Failed={E,TCError}|_], M,F,A=[Args], Loc, _, SaveOpts) when E=='EXIT';
 										 E==failed ->
     fw_error_notify(M,F,A, TCError, mod_loc(Loc)),
-    test_server_sup:framework_call(end_tc,
-				   [?pl2a(M),F,{{error,TCError},
-						[[{tc_status,{failed,TCError}}|Args]]}]),
-    {Failed,SaveOpts};
+    case test_server_sup:framework_call(end_tc,
+					[?pl2a(M),F,{{error,TCError},
+						     [[{tc_status,{failed,TCError}}|Args]]}]) of
+	{fail,FWReason} ->
+	    {{failed,FWReason},SaveOpts};
+	_ ->
+	    {Failed,SaveOpts}
+    end;
 process_return_val1([SaveCfg={save_config,_}|Opts], M,F,[Args], Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,[[SaveCfg|Args]], Loc, Final, SaveOpts);
 process_return_val1([{skip_and_save,Why,SaveCfg}|Opts], M,F,[Args], Loc, _, SaveOpts) ->
@@ -1187,8 +1191,12 @@ process_return_val1([RetVal={Tag,_}|Opts], M,F,A, Loc, _, SaveOpts) when Tag==sk
 process_return_val1([_|Opts], M,F,A, Loc, Final, SaveOpts) ->
     process_return_val1(Opts, M,F,A, Loc, Final, SaveOpts);
 process_return_val1([], M,F,A, _Loc, Final, SaveOpts) ->
-    test_server_sup:framework_call(end_tc, [?pl2a(M),F,{Final,A}]),
-    {Final,lists:reverse(SaveOpts)}.
+    case test_server_sup:framework_call(end_tc, [?pl2a(M),F,{Final,A}]) of
+	{fail,FWReason} ->
+	    {{failed,FWReason},SaveOpts};
+	_ ->
+	    {Final,lists:reverse(SaveOpts)}
+    end.
 
 user_callback(undefined, _, _, _, Args) ->
     Args;
