@@ -60,7 +60,7 @@ all(doc) ->
     ["Run smoke tests of Common Test."];
 
 all(suite) -> 
-    [missing_conf, testspec_1].
+    [missing_conf, testspec_1, repeat_1].
 
 %%--------------------------------------------------------------------
 %% TEST CASES
@@ -104,6 +104,25 @@ testspec_1(Config) when is_list(Config) ->
     TestEvents = events_to_check(testspec_1),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
+%%%-----------------------------------------------------------------
+%%%
+
+repeat_1(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    Suite = filename:join(DataDir, "groups_1/repeat_1_SUITE"),
+
+    {Opts,ERPid} = setup({suite,Suite}, Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(repeat_1,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(repeat_1),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
 %%%-----------------------------------------------------------------
@@ -155,4 +174,99 @@ test_events(missing_conf) ->
     ];
 
 test_events(testspec_1) ->
-    [].
+    [];
+
+test_events(repeat_1) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,unknown}},
+     {?eh,tc_start,{repeat_1_SUITE,init_per_suite}},
+     {?eh,tc_done,{repeat_1_SUITE,init_per_suite,ok}},
+     [{?eh,tc_start,
+       {repeat_1_SUITE,{init_per_group,test_group_1,[{repeat,1}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{init_per_group,test_group_1,[{repeat,1}]},ok}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_1a}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_1a,ok}},
+      {?eh,test_stats,{1,0,{0,0}}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_1b}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_1b,ok}},
+      {?eh,test_stats,{2,0,{0,0}}},
+      {?eh,tc_start,
+       {repeat_1_SUITE,{end_per_group,test_group_1,[{repeat,1}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{end_per_group,test_group_1,[{repeat,1}]},ok}}],
+     [{?eh,tc_start,
+       {repeat_1_SUITE,{init_per_group,test_group_1,[]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{init_per_group,test_group_1,[]},ok}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_1a}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_1a,ok}},
+      {?eh,test_stats,{3,0,{0,0}}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_1b}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_1b,ok}},
+      {?eh,test_stats,{4,0,{0,0}}},
+      {?eh,tc_start,
+       {repeat_1_SUITE,{end_per_group,test_group_1,[]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{end_per_group,test_group_1,[]},ok}}],
+     [{?eh,tc_start,
+       {repeat_1_SUITE,{init_per_group,test_group_2,[{repeat,0}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{init_per_group,test_group_2,[{repeat,0}]},ok}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_2a}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_2a,ok}},
+      {?eh,test_stats,{5,0,{0,0}}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_2b}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_2b,ok}},
+      {?eh,test_stats,{6,0,{0,0}}},
+      {?eh,tc_start,
+       {repeat_1_SUITE,{end_per_group,test_group_2,[{repeat,0}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,{end_per_group,test_group_2,[{repeat,0}]},ok}}],
+     [{?eh,tc_start,
+       {repeat_1_SUITE,
+	{init_per_group,test_group_3,[{repeat_until_all_fail,0}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,
+	{init_per_group,test_group_3,[{repeat_until_all_fail,0}]},
+	ok}},
+      {?eh,tc_start,{repeat_1_SUITE,testcase_3a}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_3a,ok}},
+      {?eh,test_stats,{7,0,{0,0}}},
+      [{?eh,tc_start,
+        {repeat_1_SUITE,
+	 {init_per_group,test_group_4,[{repeat_until_any_fail,0}]}}},
+       {?eh,tc_done,
+        {repeat_1_SUITE,
+	 {init_per_group,test_group_4,[{repeat_until_any_fail,0}]},
+	 ok}},
+       {?eh,tc_start,{repeat_1_SUITE,testcase_4a}},
+       {?eh,tc_done,{repeat_1_SUITE,testcase_4a,ok}},
+       {?eh,test_stats,{8,0,{0,0}}},
+       {?eh,tc_start,{repeat_1_SUITE,testcase_4b}},
+       {?eh,tc_done,{repeat_1_SUITE,testcase_4b,ok}},
+       {?eh,test_stats,{9,0,{0,0}}},
+       {?eh,tc_start,
+        {repeat_1_SUITE,
+	 {end_per_group,test_group_4,[{repeat_until_any_fail,0}]}}},
+       {?eh,tc_done,
+        {repeat_1_SUITE,
+	 {end_per_group,test_group_4,[{repeat_until_any_fail,0}]},
+	 ok}}],
+      {?eh,tc_start,{repeat_1_SUITE,testcase_3b}},
+      {?eh,tc_done,{repeat_1_SUITE,testcase_3b,ok}},
+      {?eh,test_stats,{10,0,{0,0}}},
+      {?eh,tc_start,
+       {repeat_1_SUITE,
+	{end_per_group,test_group_3,[{repeat_until_all_fail,0}]}}},
+      {?eh,tc_done,
+       {repeat_1_SUITE,
+	{end_per_group,test_group_3,[{repeat_until_all_fail,0}]},
+	ok}}],
+     {?eh,tc_start,{repeat_1_SUITE,end_per_suite}},
+     {?eh,tc_done,{repeat_1_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

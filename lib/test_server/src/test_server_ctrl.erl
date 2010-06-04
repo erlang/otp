@@ -1572,6 +1572,8 @@ remove_conf([{conf, _Ref, Props, _MF}|Cases], NoConf, Repeats) ->
     case get_repeat(Props) of
 	undefined ->
 	    remove_conf(Cases, NoConf, Repeats);
+	{_RepType,0} ->
+	    remove_conf(Cases, NoConf, Repeats);
 	_ ->
 	    remove_conf(Cases, NoConf, true)
     end;
@@ -2488,6 +2490,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			%% will continously update status with test case results
 			%% without knowing the Ref (but update hd(Status))
 			{false,new_status(Ref, Status1),Cases1,?void_fun};
+		    {_RepType,0} ->
+			{false,new_status(Ref, Status1),Cases1,?void_fun};
 		    _ ->
 			{Copied,_} = copy_cases(Ref, make_ref(), Cs1),
 			{true,new_status(Ref, Copied, Status1),Cases1,?void_fun}
@@ -2504,6 +2508,8 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		%% check in Mode0 if this is a repeat conf
 		case RepVal of
 		    undefined ->
+			{false,EndStatus,Cases1,?void_fun};
+		    {_RepType,0} ->
 			{false,EndStatus,Cases1,?void_fun};
 		    {repeat,_} ->
 			{true,EndStatus,CopiedCases++Cases1,?void_fun};
