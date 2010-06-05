@@ -280,7 +280,6 @@ verify_events1([TestEv|_], [{TEH,#event{name=stop_logging,node=Node,data=_}}|_],
     exit({event_not_found,TestEv});
 
 verify_events1(TEvs = [TestEv | TestEvs], Evs = [_|Events], Node, Config) ->
-%%    test_server:format("Next expected event: ~p~n", [TestEv]),
     case catch locate(TestEv, Node, Evs, Config) of
 	nomatch ->
 	    verify_events1(TEvs, Events, Node, Config);

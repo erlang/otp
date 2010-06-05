@@ -160,9 +160,9 @@ init(Parent) ->
 
 loop(State) ->
     receive
-	{{init_data,ConfigFiles,EvHandlers,LogDir,Tests},From} ->
-	    ct:pal("State#state.current_log_dir=~p", [State#state.current_log_dir]),
-	    NewState = State#state{config=ConfigFiles,event_handler=EvHandlers,
+	{{init_data,Config,EvHandlers,LogDir,Tests},From} ->
+	    %% ct:pal("State#state.current_log_dir=~p", [State#state.current_log_dir]),
+	    NewState = State#state{config=Config,event_handler=EvHandlers,
 			current_log_dir=LogDir,tests=Tests},
 	    ct_install(NewState),
 	    return(From,ok),

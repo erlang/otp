@@ -125,7 +125,6 @@ do_start(Parent,Mode,LogDir) ->
 		   Parent ! {self(),Error},
 		   exit(Error)
 	   end,
-
     %% start an event manager (if not already started by master)
     case ct_event:start_link() of
 	{error,{already_started,_}} ->
@@ -305,9 +304,9 @@ loop(Mode,TestData,StartDir) ->
 	    ets:delete(?board_table),
 	    ets:delete(?suite_table),
 	    ct_logs:close(How),
-	    file:set_cwd(StartDir),
 	    ct_event:stop(),
 	    ct_config:stop(),
+	    file:set_cwd(StartDir),
 	    return(From,ok);
 	{get_mode,From} ->
 	    return(From,Mode),

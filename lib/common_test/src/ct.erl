@@ -142,8 +142,9 @@ run(TestDirs) ->
 %%%               {userconfig, UserConfig} |
 %%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} |
 %%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
-%%%               {silent_connections,Conns} | {cover,CoverSpecFile} | 
-%%%               {step,StepOpts} | {event_handler,EventHandlers} | {include,InclDirs} | 
+%%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
+%%%               {cover,CoverSpecFile} | {step,StepOpts} |
+%%%               {event_handler,EventHandlers} | {include,InclDirs} |
 %%%               {auto_compile,Bool} | {multiply_timetraps,M} | {scale_timetraps,Bool} |
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
@@ -159,6 +160,7 @@ run(TestDirs) ->
 %%%   TestSpecs = [string()] | string()
 %%%   LogDir = string()
 %%%   Conns = all | [atom()]
+%%%   CSSFile = string()
 %%%   CoverSpecFile = string()
 %%%   StepOpts = [StepOpt] | []
 %%%   StepOpt = config | keep_inactive

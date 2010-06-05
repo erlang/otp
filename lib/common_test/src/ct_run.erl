@@ -55,6 +55,7 @@
 	       event_handlers = [],
 	       include = [],
 	       silent_connections,
+	       stylesheet,
 	       multiply_timetraps = 1,
 	       scale_timetraps = false,
 	       testspecs = [],
@@ -170,7 +171,7 @@ script_start1(Parent, Args) ->
 	    case proplists:get_value(ct_decrypt_file, Args) of
 		[DecryptFile] ->
 		    application:set_env(common_test, decrypt,
-					{file,filename:absname(DecryptFile)});
+					{file,?abs(DecryptFile)});
 		undefined ->
 		    application:unset_env(common_test, decrypt)
 	    end
@@ -182,9 +183,9 @@ script_start1(Parent, Args) ->
 		application:set_env(common_test, auto_compile, true),
 		InclDirs =
 		    case proplists:get_value(include, Args) of
-			{include,Incl} when is_list(hd(Incl)) ->
+			Incl when is_list(hd(Incl)) ->
 			    Incl;
-			{include,Incl} when is_list(Incl) ->
+			Incl when is_list(Incl) ->
 			    [Incl];
 			undefined ->
 			    []
@@ -203,6 +204,15 @@ script_start1(Parent, Args) ->
 		application:set_env(common_test, auto_compile, false),
 		[]
 	end,
+    %% silent connections
+    SilentConns =
+	get_start_opt(silent_connections,
+		      fun(["all"]) -> [];
+			 (Conns) -> [list_to_atom(Conn) || Conn <- Conns]
+		      end, Args),
+    %% stylesheet
+    Stylesheet = get_start_opt(stylesheet,
+			       fun([SS]) -> ?abs(SS) end, Args),
     %% basic_html - used by ct_logs
     case proplists:get_value(basic_html, Args) of
 	undefined ->
@@ -214,6 +224,8 @@ script_start1(Parent, Args) ->
    StartOpts = #opts{vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
 		     include = IncludeDirs,
+		     silent_connections = SilentConns,
+		     stylesheet = Stylesheet,
 		     multiply_timetraps = MultTT,
 		     scale_timetraps = ScaleTT},
 
@@ -326,7 +338,16 @@ script_start2(StartOpts = #opts{vts = undefined,
     end;
 
 script_start2(StartOpts, Args) ->
-    script_start3(StartOpts, Args).
+    %% read config/userconfig from start flags
+    InitConfig = ct_config:prepare_config_list(Args),
+    case check_and_install_configfiles(InitConfig,
+				       which(logdir,StartOpts#opts.logdir),
+				       StartOpts#opts.event_handlers) of
+	ok ->      % go on read tests from start flags
+	    script_start3(StartOpts#opts{config=InitConfig}, Args);
+	Error ->
+	    Error
+    end.
 
 check_and_install_configfiles(Configs, LogDir, EvHandlers) ->
     case ct_config:check_config_files(Configs) of
@@ -386,7 +407,17 @@ script_start3(StartOpts, Args) ->
 
 script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		    tests = Tests, logdir = LogDir}, _Args) ->
-    vts:init_data(Config, EvHandlers, ?abs(LogDir), Tests);
+    ConfigFiles =
+	lists:foldl(fun({ct_config_plain,CfgFiles}, AllFiles) when
+			      is_list(hd(CfgFiles)) ->
+			    AllFiles ++ CfgFiles;
+		       ({ct_config_plain,CfgFile}, AllFiles) when
+			      is_integer(hd(CfgFile)) ->
+			    AllFiles ++ [CfgFile];
+		       (_, AllFiles) ->
+			    AllFiles
+		    end, [], Config),
+    vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
 
 script_start4(#opts{shell = true, config = Config, event_handlers = EvHandlers,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
@@ -396,6 +427,12 @@ script_start4(#opts{shell = true, config = Config, event_handlers = EvHandlers,
        true ->
 	    io:format("\nInstalling: ~p\n\n", [Config])
     end,
+
+    %%! --- Sun Jun  6 00:58:41 2010 --- peppe was here!
+    %%! HERE!!
+    %%! Something's not right here. Can't start shell mode
+    %%! properly!
+
     case install(InstallOpts) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
@@ -610,8 +647,13 @@ run_test1(StartOpts) ->
 				fun(all) -> [];
 				   (Conns) -> Conns
 				end, StartOpts),
+    %% stylesheet
+    Stylesheet = get_start_opt(stylesheet,
+			       fun(SS) -> ?abs(SS) end,
+			       StartOpts),
     %% code coverage
-    Cover = get_start_opt(cover, fun(CoverFile) -> ?abs(CoverFile) end, StartOpts),
+    Cover = get_start_opt(cover,
+			  fun(CoverFile) -> ?abs(CoverFile) end, StartOpts),
 
     %% timetrap manipulation
     MultiplyTT = get_start_opt(multiply_timetraps, value, 1, StartOpts),
@@ -653,7 +695,7 @@ run_test1(StartOpts) ->
 	Key={key,_} ->
 	    application:set_env(common_test, decrypt, Key);
 	{file,KeyFile} ->
-	    application:set_env(common_test, decrypt, {file,filename:absname(KeyFile)})
+	    application:set_env(common_test, decrypt, {file,?abs(KeyFile)})
     end,
 
     %% basic html - used by ct_logs
@@ -669,7 +711,9 @@ run_test1(StartOpts) ->
 
     Opts = #opts{cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
 		 event_handlers = EvHandlers, include = Include,
-		 silent_connections = SilentConns, multiply_timetraps = MultiplyTT,
+		 silent_connections = SilentConns,
+		 stylesheet = Stylesheet,
+		 multiply_timetraps = MultiplyTT,
 		 scale_timetraps = ScaleTT},
 
     %% test specification
@@ -1079,25 +1123,14 @@ do_run(Tests, Skip, Opts, Args) ->
 			      "run ct:start_interactive()\n\n",[]),
 		    {error,interactive_mode};
 		_Pid ->
-		    %% save style sheet info
-		    case lists:keysearch(stylesheet, 1, Args) of
-			{value,{_,SSFile}} ->
-			    ct_util:set_testdata({stylesheet,SSFile});
-			_ ->
-			    ct_util:set_testdata({stylesheet,undefined})
-		    end,
-
-		    case lists:keysearch(silent_connections, 1, Args) of
-			{value,{silent_connections,undefined}} ->
-			    ok;
-			{value,{silent_connections,[]}} ->
+		    %% save stylesheet info
+		    ct_util:set_testdata({stylesheet,Opts#opts.stylesheet}),
+		    %% enable silent connections
+		    case Opts#opts.silent_connections of
+			[] ->
 			    Conns = ct_util:override_silence_all_connections(),
 			    ct_logs:log("Silent connections", "~p", [Conns]);
-			{value,{silent_connections,Cs}} ->
-			    Conns = lists:map(fun(S) when is_list(S) ->
-						      list_to_atom(S);
-						 (A) -> A
-					      end, Cs),
+			Conns when is_list(Conns) ->
 			    ct_util:override_silence_connections(Conns),
 			    ct_logs:log("Silent connections", "~p", [Conns]);
 			_ ->

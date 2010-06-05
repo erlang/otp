@@ -505,7 +505,7 @@ logger_loop(State) ->
 	    logger_loop(State);
 	{set_stylesheet,TC,SSFile} ->
 	    Fd = State#logger_state.ct_log_fd,
-	    io:format(Fd, "~p uses external style sheet: ~s~n", [TC,SSFile]),
+	    io:format(Fd, "~p loading external style sheet: ~s~n", [TC,SSFile]),
 	    logger_loop(State#logger_state{stylesheet=SSFile});
 	{clear_stylesheet,_} when State#logger_state.stylesheet == undefined ->
 	    logger_loop(State);
