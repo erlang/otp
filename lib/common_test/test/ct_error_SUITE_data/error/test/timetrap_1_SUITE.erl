@@ -36,13 +36,19 @@ suite() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
-    Config.
+    TabPid = spawn(fun() ->
+			   ets:new(?MODULE, [named_table, set, public]),
+			   ets:insert(?MODULE, {last_case,ok}),
+			   receive _ -> ok end
+		   end),
+    [{tab,TabPid} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config0) -> void() | {save_config,Config1}
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
-end_per_suite(_Config) ->
+end_per_suite(Config) ->
+    exit(?config(tab, Config), kill),
     ok.
 
 %%--------------------------------------------------------------------
@@ -71,10 +77,29 @@ end_per_group(_GroupName, _Config) ->
 %% Config0 = Config1 = [tuple()]
 %% Reason = term()
 %%--------------------------------------------------------------------
-init_per_testcase(tc3, Config) ->
-    [{default_timeout,5000}|Config];
-init_per_testcase(_TestCase, Config) ->
-    Config.
+init_per_testcase(TC, Config) ->
+    {_,_} = process_info(?config(tab, Config), priority),
+    [{_,ok}] = ets:lookup(?MODULE, last_case),
+    ets:insert(?MODULE, {last_case,fail}),
+    init_per_testcase1(TC, Config).
+
+init_per_testcase1(tc1, Config) ->
+    [{tc,tc1}|Config];
+
+init_per_testcase1(tc2, Config) ->
+    [{tc,tc2}|Config];
+
+init_per_testcase1(tc3, Config) ->
+    [{tc,tc3}|Config];
+
+init_per_testcase1(tc4, Config) ->
+    [{tc,tc4},{default_timeout,5000}|Config];
+
+init_per_testcase1(tc5, Config) ->
+    [{tc,tc5}|Config];
+
+init_per_testcase1(tc6, Config) ->
+    [{tc,tc6}|Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(TestCase, Config0) ->
@@ -82,18 +107,45 @@ init_per_testcase(_TestCase, Config) ->
 %% TestCase = atom()
 %% Config0 = Config1 = [tuple()]
 %%--------------------------------------------------------------------
-end_per_testcase(tc1, Config) ->
-    ct:pal("tc1: ~p", [Config]),
+end_per_testcase(TC, Config) ->
+    {_,_} = process_info(?config(tab, Config), priority),
+    [{_,fail}] = ets:lookup(?MODULE, last_case),
+    ets:insert(?MODULE, {last_case,ok}),
+    end_per_testcase1(TC, Config).
+
+end_per_testcase1(tc1, Config) ->
+    ct:pal("end_per_testcase(tc1): ~p", [Config]),
+    tc1 = ?config(tc, Config),
+    {failed,timetrap_timeout} = ?config(tc_status, Config),
     ok;
 
-end_per_testcase(tc2, Config) ->
-    ct:pal("tc2: ~p", [Config]),
+end_per_testcase1(tc2, Config) ->
+    ct:pal("end_per_testcase(tc2): ~p", [Config]),
+    tc2 = ?config(tc, Config),
+    {failed,timetrap_timeout} = ?config(tc_status, Config),
+    timer:sleep(2000);
+
+end_per_testcase1(tc3, Config) ->
+    ct:pal("end_per_testcase(tc3): ~p", [Config]),
+    tc3 = ?config(tc, Config),
+    {failed,{testcase_aborted,testing_end_conf}} = ?config(tc_status, Config),
     ok;
 
-end_per_testcase(tc3, Config) ->
-    ct:pal("tc3: ~p", [Config]),
-    ct:sleep(10000),
-    ok.
+end_per_testcase1(tc4, Config) ->
+    ct:pal("end_per_testcase(tc4): ~p", [Config]),
+    tc4 = ?config(tc, Config),
+    {failed,{testcase_aborted,testing_end_conf}} = ?config(tc_status, Config),
+    timer:sleep(2000);
+
+end_per_testcase1(tc5, Config) ->
+    ct:pal("end_per_testcase(tc5): ~p", [Config]),
+    tc5 = ?config(tc, Config),
+    exit(end_per_tc_fail_after_timeout);
+
+end_per_testcase1(tc6, Config) ->
+    ct:pal("end_per_testcase(tc6): ~p", [Config]),
+    tc6 = ?config(tc, Config),
+    exit(end_per_tc_fail_after_abort).
 
 %%--------------------------------------------------------------------
 %% Function: groups() -> [Group]
@@ -118,18 +170,25 @@ groups() ->
 %% Reason = term()
 %%--------------------------------------------------------------------
 all() ->
-    [tc1,tc2,tc3].
+    [tc1, tc2, tc3, tc4, tc5, tc6].
 
 tc1(_) ->
-    ct:sleep(3000),
-    ok.
+    timer:sleep(2000).
 
 tc2(_) ->
-    spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(3000),
-    ok.
+    timer:sleep(2000).
 
 tc3(_) ->
     spawn(ct, abort_current_testcase, [testing_end_conf]),
-    timer:sleep(3000),
-    ok.
+    timer:sleep(2000).
+
+tc4(_) ->
+    spawn(ct, abort_current_testcase, [testing_end_conf]),
+    timer:sleep(2000).
+
+tc5(_) ->
+    timer:sleep(2000).
+
+tc6(_) ->
+    spawn(ct, abort_current_testcase, [testing_end_conf]),
+    timer:sleep(2000).

@@ -1106,14 +1106,15 @@ do_run(Tests, Skip, Opts, Args) ->
 		    log_ts_names(Opts1#opts.testspecs),
 		    TestSuites = suite_tuples(Tests),
 
-		    {SuiteMakeErrors,AllMakeErrors} =
+		    {_TestSuites1,SuiteMakeErrors,AllMakeErrors} =
 			case application:get_env(common_test, auto_compile) of
 			    {ok,false} ->
-				SuitesNotFound = verify_suites(TestSuites),
-				{SuitesNotFound,SuitesNotFound};
+				{TestSuites1,SuitesNotFound} =
+				    verify_suites(TestSuites),
+				{TestSuites1,SuitesNotFound,SuitesNotFound};
 			    _ ->
 				{SuiteErrs,HelpErrs} = auto_compile(TestSuites),
-				{SuiteErrs,SuiteErrs++HelpErrs}
+				{TestSuites,SuiteErrs,SuiteErrs++HelpErrs}
 			end,
 
 		    case continue(AllMakeErrors) of
@@ -1190,30 +1191,55 @@ auto_compile(TestSuites) ->
 verify_suites(TestSuites) ->
     io:nl(),
     Verify =
-	fun({Dir,Suite},NotFound) ->
+	fun({Dir,Suite}=DS,{Found,NotFound}) ->
 		case locate_test_dir(Dir, Suite) of
 		    {ok,TestDir} ->
 			if Suite == all ->
-				NotFound;
+				{[DS|Found],NotFound};
 			   true ->
-				Beam = filename:join(TestDir, atom_to_list(Suite)++".beam"),
+				Beam = filename:join(TestDir,
+						     atom_to_list(Suite)++".beam"),
 				case filelib:is_regular(Beam) of
 				    true  ->
-					NotFound;
+					{[DS|Found],NotFound};
 				    false ->
-					Name = filename:join(TestDir, atom_to_list(Suite)),
-					io:format("Suite ~w not found in directory ~s~n",
-						  [Suite,TestDir]),
-					[{{Dir,Suite},[Name]} | NotFound]
+					case code:is_loaded(Suite) of
+					    {file,SuiteFile} ->
+						%% test suite is already loaded and
+						%% since auto_compile == false,
+						%% let's assume the user has
+						%% loaded the beam file explicitly
+						ActualDir = filename:dirname(SuiteFile),
+						{[{ActualDir,Suite}|Found],NotFound};
+					    false ->
+						Name =
+						    filename:join(TestDir,
+								  atom_to_list(Suite)),
+						io:format(user,
+							  "Suite ~w not found"
+							  "in directory ~s~n",
+							  [Suite,TestDir]),
+						{Found,[{DS,[Name]}|NotFound]}
+					end
 				end
 			end;
 		    {error,_Reason} ->
-			io:format("Directory ~s is invalid~n", [Dir]),
-			Name = filename:join(Dir, atom_to_list(Suite)),
-			[{{Dir,Suite},[Name]} | NotFound]
+			case code:is_loaded(Suite) of
+			    {file,SuiteFile} ->
+				%% test suite is already loaded and since
+				%% auto_compile == false, let's assume the
+				%% user has loaded the beam file explicitly
+				ActualDir = filename:dirname(SuiteFile),
+				{[{ActualDir,Suite}|Found],NotFound};
+			    false ->
+				io:format(user, "Directory ~s is invalid~n", [Dir]),
+				Name = filename:join(Dir, atom_to_list(Suite)),
+				{Found,[{DS,[Name]}|NotFound]}
+			end
 		end
 	end,
-    lists:reverse(lists:foldl(Verify, [], TestSuites)).
+    {ActualFound,Missing} = lists:foldl(Verify, {[],[]}, TestSuites),
+    {lists:reverse(ActualFound),lists:reverse(Missing)}.
 
 save_make_errors([]) ->
     [];

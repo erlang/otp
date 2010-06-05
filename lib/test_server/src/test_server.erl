@@ -876,10 +876,19 @@ call_end_conf(Mod,Func,TCPid,TCExitReason,Loc,Conf,TVal) ->
     EndConfProc =
 	fun() ->
 		Supervisor = self(),
-		EndConfApply = fun() ->
-				       apply(Mod,end_per_testcase,[Func,Conf]),
-				       Supervisor ! {self(),end_conf}
-			       end,
+		EndConfApply =
+		    fun() ->
+			    case catch apply(Mod,end_per_testcase,[Func,Conf]) of
+				{'EXIT',Why} ->
+				    group_leader() ! {printout,12,
+						      "ERROR! ~p:end_per_testcase(~p, ~p)"
+						      " crashed!\n\tReason: ~p\n",
+						      [Mod,Func,Conf,Why]};
+				_ ->
+				    ok
+			    end,
+			    Supervisor ! {self(),end_conf}
+		       end,
 		Pid = spawn_link(EndConfApply),
 		receive
 		    {Pid,end_conf} ->

@@ -76,15 +76,15 @@ beam_me_up(Config) when is_list(Config) ->
     CTNode = ?config(ct_node, Config),
 
     %% Path = rpc:call(CTNode, code, get_path, []),
-    [_ | Parts] = lists:reverse(filename:split(DataDir)),
-    TSDir = filename:join(lists:reverse(Parts)),
-    true = rpc:call(CTNode, code, del_path, [TSDir]),
+    %% [_ | Parts] = lists:reverse(filename:split(DataDir)),
+    %% TSDir = filename:join(lists:reverse(Parts)),
+    %% true = rpc:call(CTNode, code, del_path, [TSDir]),
 
     Mods = [beam_1_SUITE, beam_2_SUITE],
     Suites = [atom_to_list(M) || M <- Mods],
     [{error,_} = rpc:call(CTNode, code, load_file, [M]) || M <- Mods],
 
-    code:add_path(TSDir),
+    code:add_path(DataDir),
     CRes =
 	[compile:file(filename:join(DataDir,F),
 		      [verbose,report_errors,
@@ -95,6 +95,7 @@ beam_me_up(Config) when is_list(Config) ->
 	{ok,Mod,Bin} <- CRes],
 
     {Opts,ERPid} = setup([{suite,Suites},{auto_compile,false}], Config),
+
     ok = ct_test_support:run(ct, run_test, [Opts], Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
@@ -135,4 +136,30 @@ events_to_check(Test, N) ->
     test_events(Test) ++ events_to_check(Test, N-1).
 
 test_events(beam_me_up) ->
-    [].
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{2,2,4}},
+     {?eh,tc_start,{beam_1_SUITE,init_per_suite}},
+     {?eh,tc_done,{beam_1_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{beam_1_SUITE,tc1}},
+     {?eh,tc_done,{beam_1_SUITE,tc1,ok}},
+     {?eh,test_stats,{1,0,{0,0}}},
+     {?eh,tc_start,{beam_1_SUITE,tc2}},
+     {?eh,tc_done,{beam_1_SUITE,tc2,{failed,{error,'tc2 failed'}}}},
+     {?eh,test_stats,{1,1,{0,0}}},
+     {?eh,tc_start,{beam_1_SUITE,end_per_suite}},
+     {?eh,tc_done,{beam_1_SUITE,end_per_suite,ok}},
+     {?eh,tc_start,{beam_2_SUITE,init_per_suite}},
+     {?eh,tc_done,{beam_2_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{beam_2_SUITE,tc1}},
+     {?eh,tc_done,{beam_2_SUITE,tc1,ok}},
+     {?eh,test_stats,{2,1,{0,0}}},
+     {?eh,tc_start,{beam_2_SUITE,tc2}},
+     {?eh,tc_done,{beam_2_SUITE,tc2,{failed,{error,'tc2 failed'}}}},
+     {?eh,test_stats,{2,2,{0,0}}},
+     {?eh,tc_start,{beam_2_SUITE,end_per_suite}},
+     {?eh,tc_done,{beam_2_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].
