@@ -183,7 +183,7 @@ run(Opts, Config) ->
     CTNode = ?config(ct_node, Config),
     Level = ?config(trace_level, Config),
     %% use ct interface
-    test_server:format(Level, "[RUN #1] Calling ct:run_test(~p) on ~p~n",
+    test_server:format(Level, "~n[RUN #1] Calling ct:run_test(~p) on ~p~n",
 		       [Opts, CTNode]),
     Result1 = rpc:call(CTNode, ct, run_test, [Opts]),
 
@@ -204,7 +204,7 @@ run(Opts, Config) ->
 run(M, F, A, Config) ->
     CTNode = ?config(ct_node, Config),
     Level = ?config(trace_level, Config),
-    test_server:format(Level, "Calling ~w:~w(~p) on ~p~n", 
+    test_server:format(Level, "~nCalling ~w:~w(~p) on ~p~n",
 		       [M, F, A, CTNode]),
     rpc:call(CTNode, M, F, A).
 
