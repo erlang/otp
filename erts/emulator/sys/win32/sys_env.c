@@ -145,15 +145,17 @@ merge_environment(char *old, char *add)
     for(j = 0; a_arg[j] != NULL; ++j){
 	char **tmp;
 	char *current = a_arg[j];
+	char *eq_p = strchr(current,'=');
+	int unset = (eq_p!=NULL && eq_p[1]=='\0');
 
 	if ((tmp = find_arg(c_arg, current)) != NULL) {
-	    if (current[strlen(current)-1] != '=') {
+	    if (!unset) {
 		*tmp = current;
 	    } else {
 		*tmp = c_arg[--i];
 		c_arg[i] = NULL;
 	    }
-	} else if (current[strlen(current)-1] != '=') {
+	} else if (!unset) {
 	    c_arg[i++] = current;
 	    c_arg[i] = NULL;
 	}
