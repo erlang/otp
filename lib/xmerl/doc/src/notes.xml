@@ -50,6 +50,18 @@
             Own Id: OTP-8537
           </p>
         </item>
+        <item>
+          <p>
+           An empty element declared as a simpleContent was not properly validated.
+          </p>
+          <p>
+            Own Id: OTP-8599
+          </p>
+        </item>
+      </list>
+    </section>
+
+
       </list>
     </section>
 
