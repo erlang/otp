@@ -33,6 +33,13 @@ if there is no match.")
 a source file.  The first directory in the list will be used,
 if there is no match.")
 
+(defvar erlang-eunit-autosave nil
+  "*Set to non-nil to automtically save unsaved buffers before running tests.
+This is useful, reducing the save-compile-load-test cycle to one keychord.")
+
+(defvar erlang-eunit-recent-info '((mode . nil) (module . nil) (test . nil) (cover . nil))
+  "Info about the most recent running of an EUnit test representation.")
+
 ;;;
 ;;; Switch between src/EUnit test buffers
 ;;;
@@ -50,7 +57,6 @@ buffer and vice versa"
 (defun erlang-eunit-open-test-file-other-window (src-file-path)
   "Open the EUnit test file which corresponds to a src file"
   (find-file-other-window (erlang-eunit-test-filename src-file-path)))
-
 
 ;;;
 ;;; Open the src file which corresponds to the an EUnit test file
@@ -147,12 +153,28 @@ buffer and vice versa"
       (concat dir file)
     (concat dir "/" file)))
 
+;;; Get info about the most recent running of EUnit
+(defun erlang-eunit-recent (key)
+  (cdr (assq key erlang-eunit-recent-info)))
+
+;;; Record info about the most recent running of EUnit
+;;; Known modes are 'module-mode and 'test-mode
+(defun erlang-eunit-record-recent (mode module test)
+  (setcdr (assq 'mode erlang-eunit-recent-info) mode)
+  (setcdr (assq 'module erlang-eunit-recent-info) module)
+  (setcdr (assq 'test erlang-eunit-recent-info) test))
+
+;;; Record whether the most recent running of EUnit included cover
+;;; compilation
+(defun erlang-eunit-record-recent-compile (under-cover)
+  (setcdr (assq 'cover erlang-eunit-recent-info) under-cover))
+
 ;;; Determine options for EUnit.
 (defun erlang-eunit-opts ()
   (if current-prefix-arg ", [verbose]" ""))
 
 ;;; Determine current test function
-(defun erlang-eunit-test-name ()
+(defun erlang-eunit-current-test ()
   (save-excursion
     (erlang-end-of-function 1)
     (erlang-beginning-of-function 1)
@@ -164,29 +186,40 @@ buffer and vice versa"
 (defun erlang-eunit-test-generator-p (test-name)
   (if (erlang-eunit-string-match-p "^\\(.+\\)_test_$" test-name) t nil))
 
-;;; Run the current EUnit test
-(defun erlang-eunit-run-current-test ()
-  (let* ((module-name (erlang-add-quotes-if-needed
-                       (erlang-eunit-module-name buffer-file-name)))
-         (test-name (erlang-eunit-test-name))
-         (command
-          (cond ((erlang-eunit-simple-test-p test-name)
-                 (format "eunit:test({%s, %s}%s)."
-                         module-name test-name (erlang-eunit-opts)))
-                ((erlang-eunit-test-generator-p test-name)
-                 (format "eunit:test({generator, %s, %s}%s)."
-                         module-name test-name (erlang-eunit-opts)))
-                (t
-                 (format "%% WARNING: '%s' is not a test function"
-                         test-name)))))
+;;; Run one EUnit test
+(defun erlang-eunit-run-test (module-name test-name)
+  (let ((command
+         (cond ((erlang-eunit-simple-test-p test-name)
+                (format "eunit:test({%s, %s}%s)."
+                        module-name test-name (erlang-eunit-opts)))
+               ((erlang-eunit-test-generator-p test-name)
+                (format "eunit:test({generator, %s, %s}%s)."
+                        module-name test-name (erlang-eunit-opts)))
+               (t (format "%% WARNING: '%s' is not a test function" test-name)))))
+    (erlang-eunit-record-recent 'test-mode module-name test-name)
     (erlang-eunit-inferior-erlang-send-command command)))
 
 ;;; Run EUnit tests for the current module
-(defun erlang-eunit-run-module-tests ()
-  (let* ((module-name (erlang-add-quotes-if-needed
-                       (erlang-eunit-source-module-name buffer-file-name)))
-         (command (format "eunit:test(%s%s)." module-name (erlang-eunit-opts))))
+(defun erlang-eunit-run-module-tests (module-name)
+  (let ((command (format "eunit:test(%s%s)." module-name (erlang-eunit-opts))))
+    (erlang-eunit-record-recent 'module-mode module-name nil)
     (erlang-eunit-inferior-erlang-send-command command)))
+
+(defun erlang-eunit-compile-and-run-recent ()
+  "Compile the source and test files and repeat the most recent EUnit test run.
+
+With prefix arg, compiles for debug and runs tests with the verbose flag set."
+  (interactive)
+  (case (erlang-eunit-recent 'mode)
+    ('test-mode
+     (erlang-eunit-compile-and-test
+      'erlang-eunit-run-test (list (erlang-eunit-recent 'module)
+                                   (erlang-eunit-recent 'test))))
+    ('module-mode
+     (erlang-eunit-compile-and-test
+      'erlang-eunit-run-module-tests (list (erlang-eunit-recent 'module))
+      (erlang-eunit-recent 'cover)))
+    (t (error "EUnit has not yet been run.  Please run a test first."))))
 
 (defun erlang-eunit-cover-compile ()
   "Cover compile current module."
@@ -242,18 +275,25 @@ code along with the coverage analysis results."
 
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
-  (erlang-eunit-compile-and-test 'erlang-eunit-run-current-test))
+  (let ((module-name (erlang-add-quotes-if-needed
+                      (erlang-eunit-module-name buffer-file-name)))
+        (test-name (erlang-eunit-current-test)))
+    (erlang-eunit-compile-and-test
+     'erlang-eunit-run-test (list module-name test-name))))
 
 (defun erlang-eunit-compile-and-run-module-tests ()
   "Compile the source and test files and run all EUnit tests in the module.
 
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
-  (erlang-eunit-compile-and-test 'erlang-eunit-run-module-tests))
+  (let ((module-name (erlang-add-quotes-if-needed
+                      (erlang-eunit-source-module-name buffer-file-name))))
+    (erlang-eunit-compile-and-test
+     'erlang-eunit-run-module-tests (list module-name))))
 
 ;;; Compile source and EUnit test file and finally run EUnit tests for
 ;;; the current module
-(defun erlang-eunit-compile-and-test (run-tests &optional under-cover)
+(defun erlang-eunit-compile-and-test (test-fun test-args &optional under-cover)
    "Compile the source and test files and run the EUnit test suite.
 
 If under-cover is set to t, the module under test is compile for
@@ -264,6 +304,7 @@ uncovered functions in a module) and written to a buffer called
 *<module> coverage* (which shows the source code for the module
 and the number of times each line is covered).
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
+  (erlang-eunit-record-recent-compile under-cover)
   (let ((src-filename  (erlang-eunit-src-filename  buffer-file-name))
 	(test-filename (erlang-eunit-test-filename buffer-file-name)))
 
@@ -271,7 +312,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
     ;; below, is to ask the question about saving buffers only once,
     ;; instead of possibly several: one for each file to compile,
     ;; for instance for both x.erl and x_tests.erl.
-    (save-some-buffers)
+    (save-some-buffers erlang-eunit-autosave)
     (flet ((save-some-buffers (&optional any) nil))
 
       ;; Compilation of the source file is mandatory (the file must
@@ -283,7 +324,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
 	   (if (file-readable-p test-filename)
 	       (erlang-eunit-compile-file test-filename)
 	     t)
-           (funcall run-tests)
+           (apply test-fun test-args)
            (if under-cover
                (save-excursion
                  (set-buffer (find-file-noselect src-filename))
@@ -295,7 +336,10 @@ code coverage.
 
 With prefix arg, compiles for debug and runs tests with the verbose flag set."
   (interactive)
-  (erlang-eunit-compile-and-test 'erlang-eunit-run-module-tests t))
+  (let ((module-name (erlang-add-quotes-if-needed
+                      (erlang-eunit-source-module-name buffer-file-name))))
+    (erlang-eunit-compile-and-test
+     'erlang-eunit-run-module-tests (list module-name) t)))
 
 (defun erlang-eunit-compile-file (file-path &optional under-cover)
   (if (file-readable-p file-path)
@@ -375,6 +419,7 @@ With prefix arg, compiles for debug and runs tests with the verbose flag set."
   '(("\C-c\C-et" erlang-eunit-toggle-src-and-test-file-other-window)
     ("\C-c\C-ek" erlang-eunit-compile-and-run-module-tests)
     ("\C-c\C-ej" erlang-eunit-compile-and-run-current-test)
+    ("\C-c\C-el" erlang-eunit-compile-and-run-recent)
     ("\C-c\C-ec" erlang-eunit-compile-and-run-module-tests-under-cover)
     ("\C-c\C-ev" erlang-eunit-cover-compile)
     ("\C-c\C-ea" erlang-eunit-analyze-coverage)))
