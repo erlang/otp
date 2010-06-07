@@ -154,7 +154,7 @@ script_start1(Parent, Args) ->
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
-    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
+    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, ".", Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -427,12 +427,6 @@ script_start4(#opts{shell = true, config = Config, event_handlers = EvHandlers,
        true ->
 	    io:format("\nInstalling: ~p\n\n", [Config])
     end,
-
-    %%! --- Sun Jun  6 00:58:41 2010 --- peppe was here!
-    %%! HERE!!
-    %%! Something's not right here. Can't start shell mode
-    %%! properly!
-
     case install(InstallOpts) of
 	ok ->
 	    ct_util:start(interactive, LogDir),
