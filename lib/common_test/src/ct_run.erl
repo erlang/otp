@@ -77,6 +77,12 @@ script_start() ->
     Init = init:get_arguments(),
     CtArgs = lists:takewhile(fun({ct_erl_args,_}) -> false;
 				(_) -> true end, Init),
+
+    %% convert relative dirs added with pa or pz (pre erl_args on
+    %% the run_test command line) to absolute so that app modules
+    %% can be found even after CT changes CWD to logdir
+    rel_to_abs(CtArgs),
+
     Args =
 	case application:get_env(common_test, run_test_start_opts) of
 	    {ok,EnvStartOpts} ->
@@ -1910,9 +1916,51 @@ event_handler_init_args2opts([EH, Arg]) ->
 event_handler_init_args2opts([]) ->
     [].
 
-%% this function translates ct:run_test/1 start options
+%% This function reads pa and pz arguments, converts dirs from relative
+%% to absolute, and re-inserts them in the code path. The order of the
+%% dirs in the code path remain the same. Note however that since this
+%% function is only used for arguments "pre run_test erl_args", the order
+%% relative dirs "post run_test erl_args" is not kept!
+rel_to_abs(CtArgs) ->
+    {PA,PZ} = get_pa_pz(CtArgs, [], []),
+    io:format(user, "~n", []),
+    [begin
+	 code:del_path(filename:basename(D)),
+	 Abs = filename:absname(D),
+	 code:add_pathz(Abs),
+	 if D /= Abs ->
+		 io:format(user, "Converting ~p to ~p and re-inserting "
+			   "with add_pathz/1~n",
+			   [D, Abs]);
+	    true ->
+		 ok
+	 end
+     end || D <- PZ],
+    [begin
+	 code:del_path(filename:basename(D)),
+	 Abs = filename:absname(D),
+	 code:add_patha(Abs),
+	 if D /= Abs ->
+		 io:format(user, "Converting ~p to ~p and re-inserting "
+			   "with add_patha/1~n",
+			   [D, Abs]);
+	    true ->ok
+	 end
+     end || D <- PA],
+    io:format(user, "~n", []).
+
+get_pa_pz([{pa,Dirs} | Args], PA, PZ) ->
+    get_pa_pz(Args, PA ++ Dirs, PZ);
+get_pa_pz([{pz,Dirs} | Args], PA, PZ) ->
+    get_pa_pz(Args, PA, PZ ++ Dirs);
+get_pa_pz([_ | Args], PA, PZ) ->
+    get_pa_pz(Args, PA, PZ);
+get_pa_pz([], PA, PZ) ->
+    {PA,PZ}.
+
+%% This function translates ct:run_test/1 start options
 %% to run_test start arguments (on the init arguments format) -
-%% this is useful mainly for testing the ct_run start functions
+%% this is useful mainly for testing the ct_run start functions.
 opts2args(EnvStartOpts) ->
     lists:flatmap(fun({config,CfgFiles}) ->
 			  [{ct_config,[CfgFiles]}];

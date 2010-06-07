@@ -737,64 +737,91 @@ run_test_case_msgloop(Ref, Pid, CaptureStdout, Terminate, Comment, CurrConf) ->
 	    case Reason of
 		{timetrap_timeout,TVal,Loc} ->
 		    %% convert Loc to form that can be formatted
-		    Loc1 = mod_loc(Loc),
-		    {Mod,Func} = get_mf(Loc1),
-		    %% call end_per_testcase on a separate process, only so that the
-		    %% user has a chance to clean up after init_per_testcase, even
-		    %% after a timetrap timeout
-		    NewCurrConf =
-			case CurrConf of
-			    {{Mod,Func},Conf} ->
-				EndConfPid =
-				    call_end_conf(Mod,Func,Pid,
-						  {timetrap_timeout,TVal},
-						  Loc1,[{tc_status,
-							 {failed,
-							  timetrap_timeout}}|Conf],
-						  TVal),
-				{EndConfPid,{Mod,Func},Conf};
-			    _ ->
-				%% The framework functions mustn't execute on this
-				%% group leader process or io will cause deadlock,
-				%% so we spawn a dedicated process for the operation
-				%% and let the group leader go back to handle io.
-				spawn_fw_call(Mod,Func,Pid,{timetrap_timeout,TVal},
-					      Loc1,self(),Comment),
-				undefined
-			end,
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
-					  Comment,NewCurrConf);
+		    case mod_loc(Loc) of
+			{FwMod,FwFunc,framework} ->
+			    %% timout during framework call
+			    spawn_fw_call(FwMod,FwFunc,Pid,
+					  {framework_error,{timetrap,TVal}},
+					  unknown,self(),Comment),
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,undefined);
+			Loc1 ->
+			    {Mod,Func} = get_mf(Loc1),
+			    %% call end_per_testcase on a separate process,
+			    %% only so that the user has a chance to clean up
+			    %% after init_per_testcase, even after a timetrap timeout
+			    NewCurrConf =
+				case CurrConf of
+				    {{Mod,Func},Conf} ->
+					EndConfPid =
+					    call_end_conf(Mod,Func,Pid,
+							  {timetrap_timeout,TVal},
+							  Loc1,[{tc_status,
+								 {failed,
+								  timetrap_timeout}}|Conf],
+							  TVal),
+					{EndConfPid,{Mod,Func},Conf};
+				    _ ->
+					%% The framework functions mustn't execute on this
+					%% group leader process or io will cause deadlock,
+					%% so we spawn a dedicated process for the operation
+					%% and let the group leader go back to handle io.
+					spawn_fw_call(Mod,Func,Pid,{timetrap_timeout,TVal},
+						      Loc1,self(),Comment),
+					undefined
+				end,
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,NewCurrConf)
+		    end;
 		{timetrap_timeout,TVal,Loc,InitOrEnd} ->
-		    Loc1 = mod_loc(Loc),
-		    {Mod,_Func} = get_mf(Loc1),
-		    spawn_fw_call(Mod,InitOrEnd,Pid,{timetrap_timeout,TVal},
-				  Loc1,self(),Comment),
+		    case mod_loc(Loc) of
+			{FwMod,FwFunc,framework} ->
+			    %% timout during framework call
+			    spawn_fw_call(FwMod,FwFunc,Pid,
+					  {framework_error,{timetrap,TVal}},
+					  unknown,self(),Comment);
+			Loc1 ->
+			    {Mod,_Func} = get_mf(Loc1),
+			    spawn_fw_call(Mod,InitOrEnd,Pid,{timetrap_timeout,TVal},
+					  Loc1,self(),Comment)
+		    end,
 		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,CurrConf);
 		{testcase_aborted,AbortReason,AbortLoc} ->
-		    Loc1 = mod_loc(AbortLoc),
-		    {Mod,Func} = get_mf(Loc1),
-		    %% call end_per_testcase on a separate process, only so that the
-		    %% user has a chance to clean up after init_per_testcase, even
-		    %% after abortion
 		    ErrorMsg = {testcase_aborted,AbortReason},
-		    NewCurrConf =
-			case CurrConf of
-			    {{Mod,Func},Conf} ->
-				TVal = case lists:keysearch(default_timeout,1,Conf) of
-					   {value,{default_timeout,Tmo}} -> Tmo;
-					   _ -> ?DEFAULT_TIMETRAP_SECS*1000
-				       end,
-				EndConfPid =
-				    call_end_conf(Mod,Func,Pid,ErrorMsg,
-						  Loc1,[{tc_status,{failed,ErrorMsg}}|Conf],
-						  TVal),
-				{EndConfPid,{Mod,Func},Conf};
-			    _ ->
-				spawn_fw_call(Mod,Func,Pid,ErrorMsg,
-					      Loc1,self(),Comment),
-				undefined
-			end,
-		    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,Comment,NewCurrConf);
+		    case mod_loc(AbortLoc) of
+			{FwMod,FwFunc,framework} ->
+			    %% abort during framework call
+			    spawn_fw_call(FwMod,FwFunc,Pid,
+					  {framework_error,ErrorMsg},
+					  unknown,self(),Comment),
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,undefined);
+			Loc1 ->
+			    {Mod,Func} = get_mf(Loc1),
+			    %% call end_per_testcase on a separate process, only so
+			    %% that the user has a chance to clean up after init_per_testcase,
+			    %% even after abortion
+			    NewCurrConf =
+				case CurrConf of
+				    {{Mod,Func},Conf} ->
+					TVal = case lists:keysearch(default_timeout,1,Conf) of
+						   {value,{default_timeout,Tmo}} -> Tmo;
+						   _ -> ?DEFAULT_TIMETRAP_SECS*1000
+					       end,
+					EndConfPid =
+					    call_end_conf(Mod,Func,Pid,ErrorMsg,
+							  Loc1,
+							  [{tc_status,{failed,ErrorMsg}}|Conf],
+							  TVal),
+					{EndConfPid,{Mod,Func},Conf};
+				    _ ->
+					spawn_fw_call(Mod,Func,Pid,ErrorMsg,
+						      Loc1,self(),Comment),
+					undefined
+				end,
+			    run_test_case_msgloop(Ref,Pid,CaptureStdout,Terminate,
+						  Comment,NewCurrConf)
+		    end;
 		killed ->
 		    %% result of an exit(TestCase,kill) call, which is the
 		    %% only way to abort a testcase process that traps exits
@@ -920,6 +947,7 @@ spawn_fw_call(Mod,{init_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
 		      {TVal/1000,Skip,Loc,[],Comment}}
 	end,
     spawn_link(FwCall);
+
 spawn_fw_call(Mod,{end_per_testcase,Func},Pid,{timetrap_timeout,TVal}=Why,
 	      Loc,SendTo,_Comment) ->
     FwCall =

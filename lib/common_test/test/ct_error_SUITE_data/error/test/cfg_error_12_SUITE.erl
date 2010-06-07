@@ -22,14 +22,20 @@
 
 -include_lib("common_test/include/ct.hrl").
 
+init_per_testcase(_, Config) ->
+    Config.
+
 end_per_testcase(tc2, _Config) ->
+    timer:sleep(2000),
+    exit(this_should_not_be_printed);
+end_per_testcase(tc4, _Config) ->
     timer:sleep(2000),
     exit(this_should_not_be_printed);
 end_per_testcase(_, _) ->
     ok.
 
 all() ->
-    [tc1, tc2, tc3].
+    [tc1, tc2, tc3, tc4].
 
 %%%-----------------------------------------------------------------
 tc1() ->
@@ -66,3 +72,17 @@ tc3(_) ->
 	   (_, Default) -> Default
 	end),
     {comment,"should succeed since ct_fw cancels timetrap in end_tc"}.
+
+%%%-----------------------------------------------------------------
+tc4() ->
+    put('$test_server_framework_test',
+	fun(end_tc, _Default) ->
+		ct:pal("end_tc(~p): Night time...",[self()]),
+		timer:sleep(1000),
+		ct:pal("end_tc(~p): Day time!",[self()]);
+	   (_, Default) -> Default
+	end),
+    [{timetrap,500}].
+
+tc4(_) ->
+    ok.
