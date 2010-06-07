@@ -127,7 +127,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [],
           {error,
-           [{4,erl_lint,illegal_guard_expr}],
+           [{4,erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
     ?line [] = run2(Config, Ts3),
     Ts4 = [{bif_clashes9,
@@ -140,7 +140,7 @@ bif_clashes(Config) when is_list(Config) ->
              ">>,
            [],
           {error,
-           [{5,erl_lint,illegal_guard_expr}],
+           [{5,erl_lint,{illegal_guard_local_call,{length,1}}}],
            []} }],
     ?line [] = run2(Config, Ts4),
 

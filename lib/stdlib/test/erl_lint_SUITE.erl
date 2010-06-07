@@ -2252,7 +2252,7 @@ otp_5878(Config) when is_list(Config) ->
                    {15,erl_lint,{undefined_field,r3,q}},
                    {17,erl_lint,{undefined_field,r,q}},
                    {21,erl_lint,illegal_guard_expr},
-                   {23,erl_lint,illegal_guard_expr}],
+                   {23,erl_lint,{illegal_guard_local_call,{l,0}}}],
            []} = 
         run_test2(Config, Ill1, [warn_unused_record]),
 
@@ -2492,7 +2492,7 @@ bif_clash(Config) when is_list(Config) ->
                 binary:part(B,X,Y).
              ">>,
 	   [],
-	   {errors,[{3,erl_lint,illegal_guard_expr}],[]}},
+	   {errors,[{3,erl_lint,{illegal_guard_local_call,{binary_part,2}}}],[]}},
           %% no_auto_import is not like nowarn_bif_clash, it actually removes the autoimport
 	  {clash9,
            <<"-export([x/1]).
@@ -2599,7 +2599,16 @@ bif_clash(Config) when is_list(Config) ->
                  binary_part(A,B,C+1).
              ">>,
 	   [],
-	   {errors,[{4,erl_lint,illegal_guard_expr}],[]}}
+	   {errors,[{4,erl_lint,illegal_guard_expr}],[]}},
+	  %% Not with local functions either
+	  {clash20,
+           <<"-export([binary_port/3]).
+              -import(x,[binary_part/3]).
+              binary_port(A,B,C) ->
+                 binary_part(A,B,C).
+             ">>,
+	   [warn_unused_import],
+	   {warnings,[{2,erl_lint,{redefine_bif_import,{binary_part,3}}}]}}
 	 ],
 
     ?line [] = run(Config, Ts),
