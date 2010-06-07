@@ -457,6 +457,10 @@ thr_create_prepare_child(void *vtcdp)
 {
     erts_thr_create_data_t *tcdp = (erts_thr_create_data_t *) vtcdp;
 
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_thread_setup();
+#endif
+
 #ifndef NO_FPE_SIGNALS
     /*
      * We do not want fp exeptions in other threads than the

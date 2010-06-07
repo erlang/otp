@@ -2897,17 +2897,10 @@ unsigned long erts_alc_test(unsigned long op,
 	}
 	case 0xf10: {
 	    ethr_tid *tid = erts_alloc(ERTS_ALC_T_UNDEF, sizeof(ethr_tid));
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	    if (erts_lcnt_thr_create(tid,
-				(void * (*)(void *)) a1,
-				(void *) a2,
-				NULL) != 0)
-#else
 	    if (ethr_thr_create(tid,
 				(void * (*)(void *)) a1,
 				(void *) a2,
 				NULL) != 0)
-#endif
 		ERTS_ALC_TEST_ABORT;
 	    return (unsigned long) tid;
 	}

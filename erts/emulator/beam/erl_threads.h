@@ -294,11 +294,7 @@ erts_thr_create(erts_tid_t *tid, void * (*func)(void *), void *arg,
 		erts_thr_opts_t *opts)
 {
 #ifdef USE_THREADS
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    int res = erts_lcnt_thr_create(tid, func, arg, opts);
-#else
     int res = ethr_thr_create(tid, func, arg, opts);
-#endif
     if (res)
 	erts_thr_fatal_error(res, "create thread");
 #endif

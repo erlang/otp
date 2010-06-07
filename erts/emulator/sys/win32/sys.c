@@ -2986,7 +2986,15 @@ static void ethr_internal_free(void *ptr)
 {
     erts_free(ERTS_ALC_T_ETHR_INTERNAL, ptr);
 }
-#endif
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+static void
+thr_create_prepare_child(void *vtcdp)
+{
+    erts_lcnt_thread_setup();
+}
+#endif /* ERTS_ENABLE_LOCK_COUNT */
+#endif /* USE_THREADS */
 
 void
 erts_sys_pre_init(void)
@@ -3000,6 +3008,11 @@ erts_sys_pre_init(void)
 	eid.alloc = ethr_internal_alloc;
 	eid.realloc = ethr_internal_realloc;
 	eid.free = ethr_internal_free;
+
+#ifdef ERTS_ENABLE_LOCK_COUNT
+	eid.thread_create_child_func = thr_create_prepare_child;
+#endif
+
 	erts_thr_init(&eid);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 	erts_lcnt_init();

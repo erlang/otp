@@ -3114,11 +3114,7 @@ erts_start_schedulers(void)
 	ErtsSchedulerData *esdp = ERTS_SCHEDULER_IX(actual);
 	actual++;
 	ASSERT(actual == esdp->no);
-#ifdef ERTS_ENABLE_LOCK_COUNT
-	res = erts_lcnt_thr_create(&esdp->tid,sched_thread_func,(void*)esdp,&opts);
-#else
 	res = ethr_thr_create(&esdp->tid,sched_thread_func,(void*)esdp,&opts);
-#endif
 	if (res != 0) {
 	    actual--;
 	    break;

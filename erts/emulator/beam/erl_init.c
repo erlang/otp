@@ -702,6 +702,10 @@ early_init(int *argc, char **argv) /*
 #ifdef ERTS_ENABLE_LOCK_CHECK
     erts_lc_late_init();
 #endif
+    
+#ifdef ERTS_ENABLE_LOCK_COUNT
+    erts_lcnt_late_init();
+#endif
 
 #if defined(HIPE)
     hipe_signal_init();	/* must be done very early */

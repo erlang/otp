@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2007-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2007-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -603,11 +603,7 @@ erl_drv_thread_create(char *name,
 	dtid->name = ((char *) dtid) + sizeof(struct ErlDrvTid_);
 	sys_strcpy(dtid->name, name);
     }
-#ifdef ERTS_ENABLE_LOCK_COUNT
-    res = erts_lcnt_thr_create(&dtid->tid, erl_drv_thread_wrapper, dtid, use_opts);
-#else
     res = ethr_thr_create(&dtid->tid, erl_drv_thread_wrapper, dtid, use_opts);
-#endif
 
     if (res != 0) {
 	erts_free(ERTS_ALC_T_DRV_TID, dtid);

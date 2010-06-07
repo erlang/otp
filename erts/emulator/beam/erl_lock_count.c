@@ -257,6 +257,10 @@ void erts_lcnt_init() {
     erts_lcnt_clear_counters();
 }
 
+void erts_lcnt_late_init() {
+    erts_thr_install_exit_handler(erts_lcnt_thread_exit_handler);
+}
+
 /* list operations */
 
 /* BEGIN ASSUMPTION: lcnt_data_lock taken */
@@ -570,36 +574,26 @@ void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
 
 /* thread operations */
 
-static void *lcnt_thr_init(erts_lcnt_thread_data_t *eltd) {
-    void *(*function)(void *);
-    void *argument;
-    void *res;
-    function = eltd->function;
-    argument = eltd->argument;
-    
-    ethr_tsd_set(lcnt_thr_data_key, eltd);
-    
-    res = (void *)function(argument);
-    free(eltd);
-    return (void *)res;
-}
-
-    
-
-int erts_lcnt_thr_create(ethr_tid *tid, void * (*function)(void *), void *arg, ethr_thr_opts *opts) {
+void erts_lcnt_thread_setup(void) {
     erts_lcnt_thread_data_t *eltd;
-    
+
     lcnt_lock();
     /* lock for thread id global update */
     eltd = lcnt_thread_data_alloc();
     lcnt_unlock();
-    
-    eltd->function = function;
-    eltd->argument = arg;
-
-    return ethr_thr_create(tid, (void *)lcnt_thr_init, (void *)eltd, opts);
+    ASSERT(eltd);
+    ethr_tsd_set(lcnt_thr_data_key, eltd);
 }
 
+void erts_lcnt_thread_exit_handler() {
+    erts_lcnt_thread_data_t *eltd;
+
+    eltd = ethr_tsd_get(lcnt_thr_data_key);
+
+    if (eltd) {
+        free(eltd);
+    }
+}
 
 /* bindings for bifs */
 

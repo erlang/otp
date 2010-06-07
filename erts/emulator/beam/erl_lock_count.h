@@ -155,11 +155,6 @@ typedef struct {
     erts_lcnt_time_t timer;	/* timer         */
     int timer_set;		/* bool          */
     int lock_in_conflict;       /* bool          */
-    
-    /* function pointer */
-    void *(*function)(void *);
-    void *argument;
-    
 } erts_lcnt_thread_data_t;
 
 /* globals */
@@ -169,6 +164,11 @@ extern Uint16 erts_lcnt_rt_options;
 /* function declerations */
 
 void erts_lcnt_init(void);
+void erts_lcnt_late_init(void);
+
+/* thread operations */
+void erts_lcnt_thread_setup(void);
+void erts_lcnt_thread_exit_handler(void);
 
 /* list operations (local)  */
 erts_lcnt_lock_list_t *erts_lcnt_list_init(void);
@@ -194,12 +194,7 @@ void erts_lcnt_unlock_opt(erts_lcnt_lock_t *lock, Uint16 option);
 void erts_lcnt_trylock_opt(erts_lcnt_lock_t *lock, int res, Uint16 option);
 void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res);
 
-/* thread operations */
-
-int erts_lcnt_thr_create(ethr_tid *tid, void * (*function)(void *), void *arg, ethr_thr_opts *opts);
-
 /* bif interface */
-
 Uint16 erts_lcnt_set_rt_opt(Uint16 opt);
 Uint16 erts_lcnt_clear_rt_opt(Uint16 opt);
 void   erts_lcnt_clear_counters(void);
