@@ -31,11 +31,11 @@
 -include("ssl_debug.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
--export([master_secret/4, client_hello/5, server_hello/4, hello/4,
+-export([master_secret/4, client_hello/6, server_hello/4, hello/4,
 	 hello_request/0, certify/7, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
-	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
+	 key_exchange/2, server_key_exchange_plain/2,  finished/4,
 	 verify_connection/5, 
 	 get_tls_handshake/4,
 	 server_hello_done/0, sig_alg/1,
@@ -46,7 +46,7 @@
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: client_hello(Host, Port, ConnectionStates, SslOpts) -> 
+%% Function: client_hello(Host, Port, ConnectionStates, SslOpts, Cert, Renegotiation) -> 
 %%                                                  #client_hello{} 
 %%      Host
 %%      Port
@@ -56,8 +56,8 @@
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
 client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
-							ciphers = Ciphers} 
-	     = SslOpts, Renegotiation) ->
+							ciphers = UserSuites} 
+	     = SslOpts, Cert, Renegotiation) ->
     
     Fun = fun(Version) ->
 		  ssl_record:protocol_version(Version)
@@ -65,7 +65,8 @@ client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
     Version = ssl_record:highest_protocol_version(lists:map(Fun, Versions)),
     Pending = ssl_record:pending_connection_state(ConnectionStates, read),
     SecParams = Pending#connection_state.security_parameters,
-   
+    Ciphers = available_suites(Cert, UserSuites, Version),
+
     Id = ssl_manager:client_session_id(Host, Port, SslOpts),
 
     #client_hello{session_id = Id, 
@@ -150,14 +151,14 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
 		    renegotiation_info = Info} = Hello,
       #ssl_options{versions = Versions, 
 		   secure_renegotiate = SecureRenegotation} = SslOpts,
-      {Port, Session0, Cache, CacheCb, ConnectionStates0}, Renegotiation) ->
+      {Port, Session0, Cache, CacheCb, ConnectionStates0, Cert}, Renegotiation) ->
     Version = select_version(ClientVersion, Versions),
     case ssl_record:is_acceptable_version(Version) of
 	true ->
 	    {Type, #session{cipher_suite = CipherSuite,
 			    compression_method = Compression} = Session} 
 		= select_session(Hello, Port, Session0, Version, 
-				 SslOpts, Cache, CacheCb),
+				 SslOpts, Cache, CacheCb, Cert),
 	    case CipherSuite of 
 		no_suite ->
 		    ?ALERT_REC(?FATAL, ?INSUFFICIENT_SECURITY);
@@ -316,8 +317,12 @@ certificate_verify(Signature, {_, PublicKey, _}, Version,
 	    valid;
 	_ ->
 	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
-    end.
-%% TODO dsa clause
+    end;
+certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version, 
+		   MasterSecret, dhe_dss = Algorithm, {_, Hashes0}) ->
+     Hashes = calc_certificate_verify(Version, MasterSecret,
+				      Algorithm, Hashes0),
+     public_key:verify_signature(Hashes, sha, Signature, PublicKey, PublicKeyParams). 
 
 %%--------------------------------------------------------------------
 %% Function: certificate_request(ConnectionStates, CertDbRef) -> 
@@ -356,7 +361,7 @@ key_exchange(client, {dh, <<?UINT32(Len), PublicKey:Len/binary>>}) ->
 		dh_public = PublicKey}
 	       };
 
-key_exchange(server, {dh, {<<?UINT32(_), PublicKey/binary>>, _}, 
+key_exchange(server, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _}, 
 		      #'DHParameter'{prime = P, base = G},
 		      KeyAlgo, ClientRandom, ServerRandom, PrivateKey}) ->
     <<?UINT32(_), PBin/binary>> = crypto:mpint(P),
@@ -365,15 +370,14 @@ key_exchange(server, {dh, {<<?UINT32(_), PublicKey/binary>>, _},
     GLen = byte_size(GBin),
     YLen = byte_size(PublicKey),
     ServerDHParams = #server_dh_params{dh_p = PBin, 
-				       dh_g = GBin, dh_y = PublicKey},
-    
-    Hash = 
-	server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary, 
-					   ServerRandom/binary, 
-					   ?UINT16(PLen), PBin/binary, 
-					   ?UINT16(GLen), GBin/binary,
-					   ?UINT16(YLen), PublicKey/binary>>),
-    Signed = digitally_signed(Hash, PrivateKey),
+				       dh_g = GBin, dh_y = PublicKey},    
+    Plain = 
+	server_key_exchange_plain(KeyAlgo, <<ClientRandom/binary, 
+					    ServerRandom/binary, 
+					    ?UINT16(PLen), PBin/binary, 
+					    ?UINT16(GLen), GBin/binary,
+					    ?UINT16(YLen), PublicKey/binary>>),
+    Signed = digitally_signed(Plain, PrivateKey),
     #server_key_exchange{params = ServerDHParams,
 			 signed_params = Signed}.
 
@@ -524,18 +528,12 @@ path_validation_alert(_, _) ->
     ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE).
 
 select_session(Hello, Port, Session, Version, 
-	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb) ->
+	       #ssl_options{ciphers = UserSuites} = SslOpts, Cache, CacheCb, Cert) ->
     SuggestedSessionId = Hello#client_hello.session_id,
     SessionId = ssl_manager:server_session_id(Port, SuggestedSessionId, 
 					      SslOpts),
     
-    Suites = case UserSuites of
-		 [] ->
-		     ssl_cipher:suites(Version);
-		 _ ->
-		   UserSuites
-	     end,
-
+    Suites = available_suites(Cert, UserSuites, Version), 
     case ssl_session:is_new(SuggestedSessionId, SessionId) of
         true ->
 	    CipherSuite = 
@@ -549,7 +547,14 @@ select_session(Hello, Port, Session, Version,
 	    {resumed, CacheCb:lookup(Cache, {Port, SessionId})}
     end.
 
-
+available_suites(Cert, UserSuites, Version) ->
+    case UserSuites of
+	[] ->
+	    ssl_cipher:filter(Cert, ssl_cipher:suites(Version));
+	_ ->
+	    ssl_cipher:filter(Cert, UserSuites)
+    end.
+ 
 cipher_suites(Suites, false) ->
     [?TLS_EMPTY_RENEGOTIATION_INFO_SCSV | Suites];
 cipher_suites(Suites, true) ->
@@ -812,7 +817,7 @@ dec_hs(?CERTIFICATE, <<?UINT24(ACLen), ASN1Certs:ACLen/binary>>, _, _) ->
 dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 			      ?UINT16(GLen), G:GLen/binary,
 			      ?UINT16(YLen), Y:YLen/binary,
-			      ?UINT16(_), Sig/binary>>,
+			      ?UINT16(Len), Sig:Len/binary>>,
        ?KEY_EXCHANGE_DIFFIE_HELLMAN, _) ->
     #server_key_exchange{params = #server_dh_params{dh_p = P,dh_g = G, 
 						    dh_y = Y},
@@ -820,7 +825,6 @@ dec_hs(?SERVER_KEY_EXCHANGE, <<?UINT16(PLen), P:PLen/binary,
 dec_hs(?CERTIFICATE_REQUEST,
        <<?BYTE(CertTypesLen), CertTypes:CertTypesLen/binary,
 	?UINT16(CertAuthsLen), CertAuths:CertAuthsLen/binary>>, _, _) ->
-    %% TODO: maybe we should chop up CertAuths into a list?
     #certificate_request{certificate_types = CertTypes,
 			 certificate_authorities = CertAuths};
 dec_hs(?SERVER_HELLO_DONE, <<>>, _, _) ->
@@ -1086,9 +1090,8 @@ certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
 digitally_signed(Hashes, #'RSAPrivateKey'{} = Key) ->
     public_key:encrypt_private(Hashes, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-digitally_signed(Hashes, #'DSAPrivateKey'{} = Key) ->
-    public_key:sign(Hashes, Key).
-
+digitally_signed(Plain, #'DSAPrivateKey'{} = Key) ->
+    public_key:sign(Plain, Key).
 
 calc_master_secret({3,0}, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
@@ -1119,23 +1122,15 @@ calc_certificate_verify({3, N}, _, Algorithm, Hashes)
   when  N == 1; N == 2 ->
     ssl_tls1:certificate_verify(Algorithm, Hashes).
 
-server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
+server_key_exchange_plain(Algorithm, Value) when Algorithm == rsa;
  						Algorithm == dhe_rsa ->
-    MD5Context = crypto:md5_init(),
-    NewMD5Context = crypto:md5_update(MD5Context, Value),
-    MD5 = crypto:md5_final(NewMD5Context),
-    
-    SHAContext = crypto:sha_init(),
-    NewSHAContext = crypto:sha_update(SHAContext, Value),
-    SHA =  crypto:sha_final(NewSHAContext),
-
+    MD5 = crypto:md5(Value),     
+    SHA =  crypto:sha(Value), 
     <<MD5/binary, SHA/binary>>;
 
-server_key_exchange_hash(dhe_dss, Value) ->
-    SHAContext = crypto:sha_init(),
-    NewSHAContext = crypto:sha_update(SHAContext, Value),
-    crypto:sha_final(NewSHAContext).
-
+server_key_exchange_plain(dhe_dss, Value) ->
+    %% Hash will be done by crypto.
+    Value.
 
 sig_alg(dh_anon) ->
     ?SIGNATURE_ANONYMOUS;

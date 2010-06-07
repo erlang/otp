@@ -72,7 +72,7 @@
           tls_handshake_hashes, % see above 
           tls_cipher_texts,     % list() received but not deciphered yet
           own_cert,             % binary()  
-          session,              % #session{} from ssl_handshake.erl
+          session,              % #session{} from ssl_handshake.hrl
 	  session_cache,        % 
 	  session_cache_cb,     %
           negotiated_version,   % #protocol_version{}
@@ -281,12 +281,12 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 %% gen_fsm:start_link/3,4, this function is called by the new process to 
 %% initialize. 
 %%--------------------------------------------------------------------
-init([Role, Host, Port, Socket, {SSLOpts, _} = Options, 
+init([Role, Host, Port, Socket, {SSLOpts0, _} = Options, 
       User, CbInfo]) ->
     State0 = initial_state(Role, Host, Port, Socket, Options, User, CbInfo),
     Hashes0 = ssl_handshake:init_hashes(),    
 
-    try ssl_init(SSLOpts, Role) of
+    try ssl_init(SSLOpts0, Role) of
 	{ok, Ref, CacheRef, OwnCert, Key, DHParams} ->	   
 	    State = State0#state{tls_handshake_hashes = Hashes0,
 				 own_cert = OwnCert,
@@ -318,10 +318,14 @@ hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
 		    transport_cb = Transport, socket = Socket,
 		    connection_states = ConnectionStates,
+		    own_cert = Cert,
 		    renegotiation = {Renegotiation, _}}
       = State0) ->
+
     Hello = ssl_handshake:client_hello(Host, Port, 
-				       ConnectionStates, SslOpts, Renegotiation),
+				       ConnectionStates, 
+				       SslOpts, Cert,
+				       Renegotiation),
 
     Version = Hello#client_hello.client_version,
     Hashes0 = ssl_handshake:init_hashes(),
@@ -402,10 +406,11 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 		     renegotiation = {Renegotiation, _},
 		     session_cache = Cache,		  
 		     session_cache_cb = CacheCb,
-		     ssl_options = SslOpts}) ->
+		     ssl_options = SslOpts,
+		     own_cert = Cert}) ->
     
     case ssl_handshake:hello(Hello, SslOpts, {Port, Session0, Cache, CacheCb,
-				     ConnectionStates0}, Renegotiation) of
+				     ConnectionStates0, Cert}, Renegotiation) of
         {Version, {Type, Session}, ConnectionStates} ->       
             do_server_hello(Type, State#state{connection_states  = 
 					      ConnectionStates,
@@ -701,13 +706,14 @@ connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
 				    ssl_options = SslOpts,
 				    negotiated_version = Version,
+				    own_cert = Cert,
 				    transport_cb = Transport,
 				    connection_states = ConnectionStates0,
 				    renegotiation = {Renegotiation, _},
 				    tls_handshake_hashes = Hashes0} = State0) ->
    
     Hello = ssl_handshake:client_hello(Host, Port, 
-				       ConnectionStates0, SslOpts, Renegotiation),
+				       ConnectionStates0, SslOpts, Cert, Renegotiation),
   
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Hello, Version, ConnectionStates0, Hashes0),
@@ -1486,15 +1492,15 @@ handle_server_key(
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
-    Hash = ssl_handshake:server_key_exchange_hash(KeyAlgo,
-						  <<ClientRandom/binary, 
+    Plain = ssl_handshake:server_key_exchange_plain(KeyAlgo,
+						    <<ClientRandom/binary, 
 						   ServerRandom/binary, 
-						   ?UINT16(PLen), P/binary, 
-						   ?UINT16(GLen), G/binary,
-						   ?UINT16(YLen),
+						     ?UINT16(PLen), P/binary, 
+						     ?UINT16(GLen), G/binary,
+						     ?UINT16(YLen),
 						   ServerPublicDhKey/binary>>),
-    
-    case verify_dh_params(Signed, Hash, PubKeyInfo) of
+   
+    case verify_dh_params(Signed, Plain, PubKeyInfo) of
 	true ->
 	    PMpint = mpint_binary(P),
 	    GMpint = mpint_binary(G),	
@@ -1518,14 +1524,18 @@ handle_server_key(
 	    ?ALERT_REC(?FATAL,?HANDSHAKE_FAILURE)
     end.
 
-verify_dh_params(Signed, Hash, {?rsaEncryption, PubKey, _PubKeyparams}) ->
+
+verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
     case public_key:decrypt_public(Signed, PubKey, 
 				   [{rsa_pad, rsa_pkcs1_padding}]) of
-	Hash ->
+	Hashes ->
 	    true;
 	_ ->
 	    false
-    end.
+    end;
+verify_dh_params(Signed, Plain, {?'id-dsa', PublicKey, PublicKeyParams}) ->
+    public_key:verify_signature(Plain, sha, Signed, PublicKey, PublicKeyParams). 
+
 
 encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
     ?DBG_TERM(Alert),

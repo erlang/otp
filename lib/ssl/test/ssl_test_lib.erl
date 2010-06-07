@@ -318,6 +318,25 @@ cert_options(Config) ->
      | Config].
 
 
+make_dsa_cert(Config) ->
+    ServerCaInfo = {ServerCaCert, _} = erl_make_certs:make_cert([{key, dsa}]),
+    {ServerCert, ServerCertKey} = erl_make_certs:make_cert([{key, dsa}, {issuer, ServerCaInfo}]),
+    ServerCaCertFile = filename:join([?config(priv_dir, Config), 
+				      "server", "dsa_cacerts.pem"]),
+    ServerCertFile = filename:join([?config(priv_dir, Config), 
+				      "server", "dsa_cert.pem"]),
+    ServerKeyFile = filename:join([?config(priv_dir, Config), 
+				   "server", "dsa_key.pem"]),
+
+    public_key:der_to_pem(ServerCaCertFile, [{cert, ServerCaCert, not_encrypted}]),
+    public_key:der_to_pem(ServerCertFile, [{cert, ServerCert, not_encrypted}]),
+    public_key:der_to_pem(ServerKeyFile, [ServerCertKey]),
+
+    [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
+				 {cacertfile, ServerCaCertFile},
+				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]} | Config].
+    
+    
 start_upgrade_server(Args) ->
     Result = spawn_link(?MODULE, run_upgrade_server, [Args]),
     receive
@@ -529,3 +548,42 @@ send_selected_port(Pid, 0, Socket) ->
     Pid ! {self(), {port, NewPort}};
 send_selected_port(_,_,_) ->
     ok.
+
+rsa_suites() ->
+    lists:filter(fun({dhe_dss, _, _}) ->
+			 false;
+		    (_) ->
+			 true
+		 end,
+		 ssl:cipher_suites()).
+
+dsa_suites() ->
+     lists:filter(fun({dhe_dss, _, _}) ->
+			 true;
+		    (_) ->
+			 false
+		 end,
+		 ssl:cipher_suites()).
+
+
+openssl_rsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"DSS",[]) of
+			     nomatch ->
+				 true;
+			     _ ->
+				 false
+			 end 
+		 end, Ciphers).
+
+openssl_dsa_suites() ->
+    Ciphers = ssl:cipher_suites(openssl),
+    lists:filter(fun(Str) ->
+			 case re:run(Str,"DSS",[]) of
+			     nomatch ->
+				 false;
+			     _ ->
+				 true
+			 end 
+		 end, Ciphers).

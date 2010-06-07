@@ -34,7 +34,13 @@
 -export([trusted_cert_and_path/3, 
 	 certificate_chain/2, 
 	 file_to_certificats/1,
-	 validate_extensions/6]).
+	 validate_extensions/6,
+	 is_valid_extkey_usage/2,
+	 is_valid_key_usage/2,
+	 select_extension/2,
+	 extensions_list/1,
+	 signature_type/1
+	]).
  
 %%====================================================================
 %% Internal application API
@@ -112,7 +118,28 @@ validate_extensions([Extension | Rest],  ValidationState, UnknownExtensions,
 		    Verify, AccErr, Role) ->
     validate_extensions(Rest, ValidationState, [Extension | UnknownExtensions],
 		       Verify, AccErr, Role).
-    
+
+is_valid_key_usage(KeyUse, Use) ->
+    lists:member(Use, KeyUse).
+ 
+    select_extension(_, []) ->
+    undefined;
+select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
+    Extension;
+select_extension(Id, [_ | Extensions]) ->
+    select_extension(Id, Extensions).
+
+extensions_list(asn1_NOVALUE) ->
+    [];
+extensions_list(Extensions) ->
+    Extensions.
+
+signature_type(RSA) when RSA == ?sha1WithRSAEncryption;
+			 RSA == ?md5WithRSAEncryption ->
+    rsa;
+signature_type(?'id-dsa-with-sha1') ->
+    dsa.
+
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -187,9 +214,6 @@ is_valid_extkey_usage(KeyUse, client) ->
 is_valid_extkey_usage(KeyUse, server) ->
     %% Server wants to verify client
     is_valid_key_usage(KeyUse, ?'id-kp-clientAuth').
-
-is_valid_key_usage(KeyUse, Use) ->
-    lists:member(Use, KeyUse).
 
 not_valid_extension(Error, true, _) ->
     throw(Error);

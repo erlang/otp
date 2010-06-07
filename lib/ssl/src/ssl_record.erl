@@ -705,7 +705,6 @@ hash_and_bump_seqno(#connection_state{sequence_number = SeqNo,
 is_correct_mac(Mac, Mac) ->
     true;
 is_correct_mac(_M,_H) ->
-    io:format("Mac ~p ~n Hash: ~p~n",[_M, _H]),
     false.
 
 mac_hash({_,_}, ?NULL, _MacSecret, _SeqNo, _Type,

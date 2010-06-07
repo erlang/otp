@@ -30,11 +30,12 @@
 -include("ssl_cipher.hrl").
 -include("ssl_alert.hrl").
 -include("ssl_debug.hrl").
+-include_lib("public_key/include/public_key.hrl").
 
 -export([security_parameters/2, suite_definition/1,
 	 decipher/5, cipher/4, 
 	 suite/1, suites/1,
-	 openssl_suite/1, openssl_suite_name/1]).
+	 openssl_suite/1, openssl_suite_name/1, filter/2]).
 
 -compile(inline).
 
@@ -240,7 +241,7 @@ suite_definition(?TLS_RSA_WITH_3DES_EDE_CBC_SHA) ->
 suite_definition(?TLS_DHE_DSS_WITH_DES_CBC_SHA) ->
     {dhe_dss, des_cbc, sha};
 suite_definition(?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA) ->
-    {dhe_dss, '3des_ede_cbc'};
+    {dhe_dss, '3des_ede_cbc', sha};
 suite_definition(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     {dhe_rsa, des_cbc, sha};
 suite_definition(?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA) ->
@@ -259,25 +260,6 @@ suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
     {dhe_dss, aes_256_cbc, sha};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     {dhe_rsa, aes_256_cbc, sha}.
-
-%% TODO: support kerbos key exchange?
-%% TSL V1.1 KRB SUITES 
-%% suite_definition(?TLS_KRB5_WITH_DES_CBC_SHA) ->
-%%     {krb5, des_cbc, sha};
-%% suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_SHA) ->
-%%     {krb5, '3des_ede_cbc', sha};
-%% suite_definition(?TLS_KRB5_WITH_RC4_128_SHA) ->
-%%     {krb5, rc4_128, sha};
-%% suite_definition(?TLS_KRB5_WITH_IDEA_CBC_SHA) ->
-%%     {krb5, idea_cbc, sha};
-%% suite_definition(?TLS_KRB5_WITH_DES_CBC_MD5) ->
-%%     {krb5, des_cbc, md5};
-%% suite_definition(?TLS_KRB5_WITH_3DES_EDE_CBC_MD5) ->
-%%     {krb5, '3des_ede_cbc', md5};
-%% suite_definition(?TLS_KRB5_WITH_RC4_128_MD5) ->
-%%     {krb5, rc4_128, md5};
-%% suite_definition(?TLS_KRB5_WITH_IDEA_CBC_MD5) ->
-%%     {krb5, idea_cbc, md5};
 
 %% TLS v1.1 suites
 %%suite({rsa, null, md5}) ->
@@ -312,8 +294,8 @@ suite({dhe_rsa, '3des_ede_cbc', sha}) ->
 %%% TSL V1.1 AES suites
 suite({rsa, aes_128_cbc, sha}) ->
     ?TLS_RSA_WITH_AES_128_CBC_SHA; 
-%% suite({dhe_dss, aes_128_cbc, sha}) ->
-%%     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
+suite({dhe_dss, aes_128_cbc, sha}) ->
+    ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA; 
 suite({dhe_rsa, aes_128_cbc, sha}) ->
     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA;
 %% suite({dh_anon, aes_128_cbc, sha}) ->
@@ -327,29 +309,8 @@ suite({dhe_rsa, aes_256_cbc, sha}) ->
 %% suite({dh_anon, aes_256_cbc, sha}) ->
 %%     ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
 
-%% TODO: support kerbos key exchange?
-%% TSL V1.1 KRB SUITES
-%% suite({krb5, des_cbc, sha}) ->
-%%     ?TLS_KRB5_WITH_DES_CBC_SHA;
-%% suite({krb5_cbc, '3des_ede_cbc', sha}) ->
-%%     ?TLS_KRB5_WITH_3DES_EDE_CBC_SHA;
-%% suite({krb5, rc4_128, sha}) ->
-%%      ?TLS_KRB5_WITH_RC4_128_SHA;
-%% suite({krb5_cbc, idea_cbc, sha}) ->
-%%     ?TLS_KRB5_WITH_IDEA_CBC_SHA;
-%% suite({krb5_cbc, md5}) ->
-%%     ?TLS_KRB5_WITH_DES_CBC_MD5;
-%% suite({krb5_ede_cbc, des_cbc, md5}) ->
-%%     ?TLS_KRB5_WITH_3DES_EDE_CBC_MD5;
-%% suite({krb5_128, rc4_128, md5}) ->
-%%     ?TLS_KRB5_WITH_RC4_128_MD5;
-%% suite({krb5, idea_cbc, md5}) ->
-%%     ?TLS_KRB5_WITH_IDEA_CBC_MD5;
 
 %% translate constants <-> openssl-strings
-%% TODO: Is there a pattern in the nameing
-%% that is useable to make a nicer function defention?
-
 openssl_suite("DHE-RSA-AES256-SHA") ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
 openssl_suite("DHE-DSS-AES256-SHA") ->
@@ -368,17 +329,12 @@ openssl_suite("DHE-DSS-AES128-SHA") ->
     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA;
 openssl_suite("AES128-SHA") ->
     ?TLS_RSA_WITH_AES_128_CBC_SHA;
-%% TODO: Do we want to support this?
-%% openssl_suite("DHE-DSS-RC4-SHA") ->
-%%     ?TLS_DHE_DSS_WITH_RC4_128_SHA;
 %%openssl_suite("IDEA-CBC-SHA") ->
 %%    ?TLS_RSA_WITH_IDEA_CBC_SHA;
 openssl_suite("RC4-SHA") ->
     ?TLS_RSA_WITH_RC4_128_SHA;
 openssl_suite("RC4-MD5") -> 
     ?TLS_RSA_WITH_RC4_128_MD5;
-%% openssl_suite("DHE-DSS-RC4-SHA") ->
-%%     ?TLS_DHE_DSS_WITH_RC4_128_SHA;
 openssl_suite("EDH-RSA-DES-CBC-SHA") ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 openssl_suite("DES-CBC-SHA") ->
@@ -412,14 +368,22 @@ openssl_suite_name(?TLS_DHE_RSA_WITH_DES_CBC_SHA) ->
     "EDH-RSA-DES-CBC-SHA";
 openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
     "DES-CBC-SHA";
-
-%% openssl_suite_name(?TLS_DHE_DSS_WITH_RC4_128_SHA) ->
-%%     "DHE-DSS-RC4-SHA";
-
 %% No oppenssl name
 openssl_suite_name(Cipher) ->
     suite_definition(Cipher).
 
+filter(undefined, Ciphers) -> 
+    Ciphers;
+filter(DerCert, Ciphers) ->
+    {ok, OtpCert} = public_key:pkix_decode_cert(DerCert, otp),
+    SigAlg = OtpCert#'OTPCertificate'.signatureAlgorithm,
+    case ssl_certificate:signature_type(SigAlg#'SignatureAlgorithm'.algorithm) of
+	rsa ->
+	    filter_rsa(OtpCert, Ciphers -- dsa_signed_suites());
+	dsa ->
+	    Ciphers -- rsa_signed_suites()
+    end.
+	
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
@@ -566,4 +530,54 @@ next_iv(Bin, IV) ->
     FirstPart = BinSz - IVSz,
     <<_:FirstPart/binary, NextIV:IVSz/binary>> = Bin,
     NextIV.
+
+rsa_signed_suites() ->
+    dhe_rsa_suites() ++ rsa_suites().
+
+dhe_rsa_suites() ->
+    [?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_AES_128_CBC_SHA,
+     ?TLS_DHE_RSA_WITH_DES_CBC_SHA].
+
+rsa_suites() ->
+    [?TLS_RSA_WITH_AES_256_CBC_SHA,
+     ?TLS_RSA_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_RSA_WITH_AES_128_CBC_SHA,
+     %%?TLS_RSA_WITH_IDEA_CBC_SHA,
+     ?TLS_RSA_WITH_RC4_128_SHA,
+     ?TLS_RSA_WITH_RC4_128_MD5,
+     ?TLS_RSA_WITH_DES_CBC_SHA].
+    
+dsa_signed_suites() ->
+    dhe_dss_suites().
+
+dhe_dss_suites()  ->
+    [?TLS_DHE_DSS_WITH_AES_256_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_AES_128_CBC_SHA,
+     ?TLS_DHE_DSS_WITH_3DES_EDE_CBC_SHA].
+
+filter_rsa(OtpCert, RsaCiphers) ->
+    TBSCert = OtpCert#'OTPCertificate'.tbsCertificate, 
+    TBSExtensions = TBSCert#'OTPTBSCertificate'.extensions,
+    Extensions = ssl_certificate:extensions_list(TBSExtensions),
+    case ssl_certificate:select_extension(?'id-ce-keyUsage', Extensions) of
+	undefined ->
+	    RsaCiphers;
+	#'Extension'{extnValue = KeyUse} ->
+	    Result = filter_rsa_suites(keyEncipherment, 
+				       KeyUse, RsaCiphers, rsa_suites()),
+	    filter_rsa_suites(digitalSignature, 
+			      KeyUse, Result, dhe_rsa_suites())
+    end.
+
+filter_rsa_suites(Use, KeyUse, CipherSuits, RsaSuites) ->
+    case ssl_certificate:is_valid_key_usage(KeyUse, Use) of
+	true ->
+	    CipherSuits;
+	false ->
+	    CipherSuits -- RsaSuites
+    end.
+
 
