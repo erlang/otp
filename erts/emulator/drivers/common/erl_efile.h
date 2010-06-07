@@ -32,7 +32,8 @@
 #define EFILE_MODE_READ_WRITE 	3
 #define EFILE_MODE_APPEND	4
 #define EFILE_COMPRESSED 	8
-#define EFILE_NO_TRUNCATE      16 /* Special for reopening on VxWorks */
+#define EFILE_MODE_EXCL        16
+#define EFILE_NO_TRUNCATE      32 /* Special for reopening on VxWorks */
 
 /*
  * Seek modes for efile_seek().

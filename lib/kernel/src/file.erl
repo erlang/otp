@@ -84,7 +84,7 @@
 -type mode()      :: 'read' | 'write' | 'append' | 'raw' | 'binary' | 
 		     {'delayed_write', non_neg_integer(), non_neg_integer()} | 
 		     'delayed_write' | {'read_ahead', pos_integer()} | 
-		     'read_ahead' | 'compressed'.
+		     'read_ahead' | 'compressed' | 'exclusive'.
 -type name()      :: string() | atom() | [name()].
 -type posix()     :: atom().
 -type bindings()  :: any().

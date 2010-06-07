@@ -689,6 +689,9 @@ Sint64* pSize;			/* Where to store the size of the file. */
     if (flags & EFILE_MODE_APPEND) {
 	crFlags = OPEN_ALWAYS;
     }
+    if (flags & EFILE_MODE_EXCL) {
+	crFlags = CREATE_NEW;
+    }
     fd = CreateFile(name, access,
 		    FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
 		    NULL, crFlags, FILE_ATTRIBUTE_NORMAL, NULL);

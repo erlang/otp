@@ -116,9 +116,10 @@
 -define(EFILE_MODE_READ_WRITE, 3).  
 -define(EFILE_MODE_APPEND,     4).
 -define(EFILE_COMPRESSED,      8).
+-define(EFILE_MODE_EXCL,       16).
 
 %% Use this mask to get just the mode bits to be passed to the driver.
--define(EFILE_MODE_MASK, 15).
+-define(EFILE_MODE_MASK, 31).
 
 %% Seek modes for the driver's seek function.
 -define(EFILE_SEEK_SET, 0).
@@ -958,6 +959,8 @@ open_mode([compressed|Rest], Mode, Portopts, Setopts) ->
 open_mode([append|Rest], Mode, Portopts, Setopts) ->
     open_mode(Rest, Mode bor ?EFILE_MODE_APPEND bor ?EFILE_MODE_WRITE, 
 	      Portopts, Setopts);
+open_mode([exclusive|Rest], Mode, Portopts, Setopts) ->
+    open_mode(Rest, Mode bor ?EFILE_MODE_EXCL, Portopts, Setopts);
 open_mode([delayed_write|Rest], Mode, Portopts, Setopts) ->
     open_mode([{delayed_write, 64*1024, 2000}|Rest], Mode,
 	      Portopts, Setopts);

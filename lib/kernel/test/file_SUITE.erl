@@ -53,7 +53,7 @@
 -export([file_info/1, file_info_basic_file/1, file_info_basic_directory/1,
 	 file_info_bad/1, file_info_times/1, file_write_file_info/1]).
 -export([rename/1, access/1, truncate/1, datasync/1, sync/1,
-	 read_write/1, pread_write/1, append/1]).
+	 read_write/1, pread_write/1, append/1, exclusive/1]).
 -export([errors/1, e_delete/1, e_rename/1, e_make_dir/1, e_del_dir/1]).
 -export([otp_5814/1]).
 
@@ -466,7 +466,7 @@ files(suite) ->
      sync,datasync,advise].
 
 open(suite) -> [open1,old_modes,new_modes,path_open,close,access,read_write,
-	       pread_write,append,open_errors].
+	       pread_write,append,open_errors,exclusive].
 
 open1(suite) -> [];
 open1(doc) -> [];
@@ -837,6 +837,22 @@ open_errors(Config) when is_list(Config) ->
     ?line {eisdir,eisdir,eisdir,eisdir} = {E1,E2,E3,E4},
 
     ?line [] = flush(),
+    ?line test_server:timetrap_cancel(Dog),
+    ok.
+
+exclusive(suite) -> [];
+exclusive(doc) -> "Test exclusive access to a file.";
+exclusive(Config) when is_list(Config) ->
+    ?line Dog = test_server:timetrap(test_server:seconds(5)),
+    ?line RootDir = ?config(priv_dir,Config),
+    ?line NewDir = filename:join(RootDir,
+				 atom_to_list(?MODULE)
+				 ++"_exclusive"),
+    ?line ok = ?FILE_MODULE:make_dir(NewDir),
+    ?line Name = filename:join(NewDir, "ex_file.txt"),
+    ?line {ok, Fd} = ?FILE_MODULE:open(Name, [write, exclusive]),
+    ?line {error, eexist} = ?FILE_MODULE:open(Name, [write, exclusive]),
+    ?line ok = ?FILE_MODULE:close(Fd),
     ?line test_server:timetrap_cancel(Dog),
     ok.
 
