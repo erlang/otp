@@ -808,7 +808,7 @@ take_work({Queue0, Set0}) ->
 is_escape_op(match_fail, 1) -> false; 
 is_escape_op(F, A) when is_atom(F), is_integer(A) -> true.
 
--spec is_escape_op(module(), atom(), arity()) -> boolean().
+-spec is_escape_op(atom(), atom(), arity()) -> boolean().
 
 is_escape_op(erlang, error, 1) -> false;
 is_escape_op(erlang, error, 2) -> false;
@@ -825,7 +825,7 @@ is_escape_op(M, F, A) when is_atom(M), is_atom(F), is_integer(A) -> true.
 is_literal_op(match_fail, 1) -> true;
 is_literal_op(F, A) when is_atom(F), is_integer(A) -> false.
 
--spec is_literal_op(module(), atom(), arity()) -> boolean().
+-spec is_literal_op(atom(), atom(), arity()) -> boolean().
 
 is_literal_op(erlang, '+', 2) -> true;
 is_literal_op(erlang, '-', 2) -> true;

@@ -33,8 +33,8 @@
 %% NOTE: Only functions exported by this module are available to
 %%       other applications.
 %%--------------------------------------------------------------------
--export([plain_cl/0, 
-	 run/1, 
+-export([plain_cl/0,
+	 run/1,
 	 gui/0,
 	 gui/1,
 	 plt_info/1,
@@ -55,7 +55,7 @@
 
 plain_cl() ->
   case dialyzer_cl_parse:start() of
-    {check_init, Opts} -> 
+    {check_init, Opts} ->
       cl_halt(cl_check_init(Opts), Opts);
     {plt_info, Opts} ->
       cl_halt(cl_print_plt_info(Opts), Opts);
@@ -72,7 +72,7 @@ plain_cl() ->
 	false ->
 	  gui_halt(internal_gui(Type, Opts), Opts)
       end;
-    {cl, Opts} -> 
+    {cl, Opts} ->
       case Opts#options.check_plt of
 	true ->
 	  case cl_check_init(Opts#options{get_warnings = false}) of
@@ -82,7 +82,7 @@ plain_cl() ->
 	false ->
 	  cl_halt(cl(Opts), Opts)
       end;
-    {error, Msg} -> 
+    {error, Msg} ->
       cl_error(Msg)
   end.
 
@@ -146,7 +146,7 @@ cl(Opts) ->
 -spec run(dial_options()) -> [dial_warning()].
 
 run(Opts) ->
-  try dialyzer_options:build([{report_mode, quiet}, 
+  try dialyzer_options:build([{report_mode, quiet},
 			      {erlang_mode, true}|Opts]) of
     {error, Msg} ->
       throw({dialyzer_error, Msg});
@@ -161,7 +161,7 @@ run(Opts) ->
 	  throw({dialyzer_error, ErrorMsg1})
       end
   catch
-    throw:{dialyzer_error, ErrorMsg} -> 
+    throw:{dialyzer_error, ErrorMsg} ->
       erlang:error({dialyzer_error, lists:flatten(ErrorMsg)})
   end.
 
@@ -226,7 +226,7 @@ plt_info(Plt) ->
 %%-----------
 
 doit(F) ->
-  try 
+  try
     {ok, F()}
   catch
     throw:{dialyzer_error, Msg} ->
@@ -241,9 +241,9 @@ gui_halt(R, Opts) ->
 
 -spec cl_halt({'ok',dial_ret()} | {'error',string()}, #options{}) -> no_return().
 
-cl_halt({ok, R = ?RET_NOTHING_SUSPICIOUS}, #options{report_mode = quiet}) -> 
+cl_halt({ok, R = ?RET_NOTHING_SUSPICIOUS}, #options{report_mode = quiet}) ->
   halt(R);
-cl_halt({ok, R = ?RET_DISCREPANCIES}, #options{report_mode = quiet}) -> 
+cl_halt({ok, R = ?RET_DISCREPANCIES}, #options{report_mode = quiet}) ->
   halt(R);
 cl_halt({ok, R = ?RET_NOTHING_SUSPICIOUS}, #options{}) ->
   io:put_chars("done (passed successfully)\n"),
@@ -267,7 +267,7 @@ cl_check_log(Output) ->
 
 -spec format_warning(dial_warning()) -> string().
 
-format_warning({_Tag, {File, Line}, Msg}) when is_list(File), 
+format_warning({_Tag, {File, Line}, Msg}) when is_list(File),
 					       is_integer(Line) ->
   BaseName = filename:basename(File),
   String = lists:flatten(message_to_string(Msg)),
@@ -290,7 +290,7 @@ message_to_string({app_call, [M, F, Args, Culprit, ExpectedType, FoundType]}) ->
 message_to_string({bin_construction, [Culprit, Size, Seg, Type]}) ->
   io_lib:format("Binary construction will fail since the ~s field ~s in"
 		" segment ~s has type ~s\n", [Culprit, Size, Seg, Type]);
-message_to_string({call, [M, F, Args, ArgNs, FailReason, 
+message_to_string({call, [M, F, Args, ArgNs, FailReason,
 			  SigArgs, SigRet, Contract]}) ->
   io_lib:format("The call ~w:~w~s ", [M, F, Args]) ++
     call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet, Contract);
@@ -329,9 +329,9 @@ message_to_string({no_return, [Type|Name]}) ->
     only_normal -> NameString ++ "has no local return\n";
     both -> NameString ++ "has no local return\n"
   end;
-message_to_string({record_constr, [Types, Name]}) ->
+message_to_string({record_constr, [RecConstr, FieldDiffs]}) ->
   io_lib:format("Record construction ~s violates the"
-		" declared type for #~w{}\n", [Types, Name]);
+		" declared type of field ~s\n", [RecConstr, FieldDiffs]);
 message_to_string({record_constr, [Name, Field, Type]}) ->
   io_lib:format("Record construction violates the declared type for #~w{}"
 		" since ~s cannot be of type ~s\n", [Name, Field, Type]);
@@ -358,7 +358,7 @@ message_to_string({contract_diff, [M, F, _A, Contract, Sig]}) ->
 		[M, F, Contract, M, F, Sig]);
 message_to_string({contract_subtype, [M, F, _A, Contract, Sig]}) ->
   io_lib:format("Type specification ~w:~w~s"
-		" is a subtype of the success typing: ~w:~w~s\n", 
+		" is a subtype of the success typing: ~w:~w~s\n",
 		[M, F, Contract, M, F, Sig]);
 message_to_string({contract_supertype, [M, F, _A, Contract, Sig]}) ->
   io_lib:format("Type specification ~w:~w~s"
@@ -427,7 +427,7 @@ message_to_string({spec_missing, [B, F, A]}) ->
 %% Auxiliary functions below
 %%-----------------------------------------------------------------------------
 
-call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet, 
+call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 			{IsOverloaded, Contract}) ->
   PositionString = form_position_string(ArgNs),
   case FailReason of
@@ -442,7 +442,7 @@ call_or_apply_to_string(ArgNs, FailReason, SigArgs, SigRet,
 			" from the success typing arguments: ~s\n",
 			[PositionString, SigArgs])
       end;
-    only_contract -> 
+    only_contract ->
       case (ArgNs =:= []) orelse IsOverloaded of
 	true ->
 	  %% We do not know which arguments caused the failure
@@ -494,7 +494,7 @@ form_position_string(ArgNs) ->
   case ArgNs of
     [] -> "";
     [N1] -> ordinal(N1);
-    [_,_|_] -> 
+    [_,_|_] ->
       [Last|Prevs] = lists:reverse(ArgNs),
       ", " ++ Head = lists:flatten([io_lib:format(", ~s",[ordinal(N)]) ||
 				     N <- lists:reverse(Prevs)]),

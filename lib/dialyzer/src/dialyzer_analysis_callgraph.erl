@@ -398,7 +398,7 @@ store_core(Mod, Core, NoWarn, Callgraph, CServer) ->
   store_code_and_build_callgraph(Mod, LabeledCore, Callgraph, CServer3, NoWarn).
 
 abs_get_nowarn(Abs, M) ->
-  [{M, F, A} 
+  [{M, F, A}
    || {attribute, _, compile, {nowarn_unused_function, {F, A}}} <- Abs].
 
 get_exported_types_from_core(Core) ->
@@ -421,7 +421,7 @@ label_core(Core, CServer) ->
   NextLabel = dialyzer_codeserver:get_next_core_label(CServer),
   CoreTree = cerl:from_records(Core),
   {LabeledTree, NewNextLabel} = cerl_trees:label(CoreTree, NextLabel),
-  {cerl:to_records(LabeledTree), 
+  {cerl:to_records(LabeledTree),
    dialyzer_codeserver:set_next_core_label(NewNextLabel, CServer)}.
 
 store_code_and_build_callgraph(Mod, Core, Callgraph, CServer, NoWarn) ->
@@ -489,7 +489,8 @@ rcv_and_send_ext_types(Parent) ->
   Self = self(),
   Self ! {Self, done},
   ExtTypes = rcv_ext_types(Self, []),
-  Parent ! {Self, ext_types, ExtTypes}.
+  Parent ! {Self, ext_types, ExtTypes},
+  ok.
 
 rcv_ext_types(Self, ExtTypes) ->
   receive
@@ -515,7 +516,7 @@ filter_warnings(LegalWarnings, Warnings) ->
 send_analysis_done(Parent, Plt, DocPlt) ->
   Parent ! {self(), done, Plt, DocPlt},
   ok.
-  
+
 send_ext_calls(Parent, ExtCalls) ->
   Parent ! {self(), ext_calls, ExtCalls},
   ok.
@@ -539,7 +540,7 @@ send_mod_deps(Parent, ModuleDeps) ->
   Parent ! {self(), mod_deps, ModuleDeps},
   ok.
 
-format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc) 
+format_bad_calls([{{_, _, _}, {_, module_info, A}}|Left], CodeServer, Acc)
   when A =:= 0; A =:= 1 ->
   format_bad_calls(Left, CodeServer, Acc);
 format_bad_calls([{FromMFA, {M, F, A} = To}|Left], CodeServer, Acc) ->
@@ -552,7 +553,7 @@ format_bad_calls([], _CodeServer, Acc) ->
   Acc.
 
 find_call_file_and_line(Tree, MFA) ->
-  Fun = 
+  Fun =
     fun(SubTree, Acc) ->
 	case cerl:is_c_call(SubTree) of
 	  true ->

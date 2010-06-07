@@ -1043,7 +1043,7 @@ get_deps(L, Dep) ->
 
 %% is_escape_op(_F, _A) -> [].
 
--spec is_escape_op(module(), atom(), arity()) -> [arity()].
+-spec is_escape_op(atom(), atom(), arity()) -> [arity()].
 
 is_escape_op(erlang, '!', 2) -> [2];
 is_escape_op(erlang, send, 2) -> [2];
@@ -1064,7 +1064,7 @@ is_escape_op(_M, _F, _A) -> [].
 is_imm_op(match_fail, 1) -> true; 
 is_imm_op(_, _) -> false.
 
--spec is_imm_op(module(), atom(), arity()) -> boolean().
+-spec is_imm_op(atom(), atom(), arity()) -> boolean().
 
 is_imm_op(erlang, self, 0) -> true;
 is_imm_op(erlang, '=:=', 2) -> true;
@@ -1102,4 +1102,4 @@ is_imm_op(erlang, throw, 1) -> true;
 is_imm_op(erlang, exit, 1) -> true;
 is_imm_op(erlang, error, 1) -> true;
 is_imm_op(erlang, error, 2) -> true;
-is_imm_op(_, _, _) -> false.
+is_imm_op(_M, _F, _A) -> false.
