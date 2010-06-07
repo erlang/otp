@@ -97,7 +97,7 @@ forms([], St) -> {[],St}.
 clauses([{clause,Line,H0,G0,B0} | Cs0], St0) ->
     {H1,St1} = head(H0, St0),
     {G1,St2} = guard(G0, St1),
-    {H,G} = optimize_is_record(H1, G1),
+    {H,G} = optimize_is_record(H1, G1, St2),
     {B,St3} = exprs(B0, St2),
     {Cs,St4} = clauses(Cs0, St3),
     {[{clause,Line,H,G,B} | Cs],St4};
@@ -805,14 +805,19 @@ imported(F, A, St) ->
 %%% Replace is_record/3 in guards with matching if possible.
 %%%
 
-optimize_is_record(H0, G0) ->
+optimize_is_record(H0, G0, #exprec{compile=Opts}) ->
     case opt_rec_vars(G0) of
 	[] ->
 	    {H0,G0};
 	Rs0 ->
-	    {H,Rs} = opt_pattern_list(H0, Rs0),
-	    G = opt_remove(G0, Rs),
-	    {H,G}
+	    case lists:member(no_is_record_optimization, Opts) of
+		true ->
+		    {H0,G0};
+		false ->
+		    {H,Rs} = opt_pattern_list(H0, Rs0),
+		    G = opt_remove(G0, Rs),
+		    {H,G}
+	    end
     end.
 
 

@@ -380,7 +380,8 @@ sets_filter([Mod|Mods], ExpTypes) ->
 
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors, 
-   no_inline, strict_record_tests, strict_record_updates].
+   no_inline, strict_record_tests, strict_record_updates,
+   no_is_record_optimization].
 
 -spec get_module(abstract_code()) -> module().
 
