@@ -37,7 +37,7 @@ groups() ->
       
       {test_group_2, [parallel], [testcase_2a,
 				  
-				  {test_group_3, [{repeat,1}], 
+				  {test_group_3, [{repeat,2}],
 				   [testcase_3a, testcase_3b]},			  
 				  
 				  testcase_2b]},
@@ -102,8 +102,8 @@ init_per_group(Group, Config) ->
 		io_lib:format("shuffled, ~w", [S]);
 	    {test_group_1b,[{name,test_group_1b},parallel]} -> "parallel";
 	    {test_group_2,[{name,test_group_2},parallel]} -> "parallel";
-	    {test_group_3,[{name,test_group_3},{repeat,1}]} -> "repeat 1";
-	    {test_group_3,[{name,test_group_3}]} -> "repeat 0";
+	    {test_group_3,[{name,test_group_3},{repeat,2}]} -> "repeat 2";
+	    {test_group_3,[{name,test_group_3}]} -> "repeat 1";
 	    {test_group_4,[{name,test_group_4}]} -> ok;
 	    {test_group_5,[{name,test_group_5},parallel]} -> "parallel";
 	    {test_group_6,[{name,test_group_6},parallel]} -> "parallel";

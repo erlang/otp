@@ -31,12 +31,12 @@ suite() ->
 
 groups() ->
     [
-      {test_group_1, [{repeat,1}], [testcase_1a,testcase_1b]},
-      {test_group_2, [{repeat,0}], [testcase_2a,testcase_2b]},
+      {test_group_1, [{repeat,2}], [testcase_1a,testcase_1b]},
+      {test_group_2, [{repeat,1}], [testcase_2a,testcase_2b]},
 
-      {test_group_3, [{repeat_until_all_fail,0}],
+      {test_group_3, [{repeat_until_all_fail,1}],
        [testcase_3a,
-	{test_group_4, [{repeat_until_any_fail,0}],
+	{test_group_4, [{repeat_until_any_fail,1}],
 	 [testcase_4a, testcase_4b]},
 	testcase_3b]}
      ].

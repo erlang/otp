@@ -1572,7 +1572,7 @@ remove_conf([{conf, _Ref, Props, _MF}|Cases], NoConf, Repeats) ->
     case get_repeat(Props) of
 	undefined ->
 	    remove_conf(Cases, NoConf, Repeats);
-	{_RepType,0} ->
+	{_RepType,1} ->
 	    remove_conf(Cases, NoConf, Repeats);
 	_ ->
 	    remove_conf(Cases, NoConf, true)
@@ -2248,7 +2248,7 @@ maybe_get_privdir() ->
 
 run_test_cases_loop([{auto_skip_case,{Type,Ref,Case,Comment},SkipMode}|Cases],
 		    Config, TimetrapData, Mode, Status) when Type==conf;
-								 Type==make ->
+							     Type==make ->
 
     file:set_cwd(filename:dirname(get(test_server_dir))),
     CurrIOHandler = get(test_server_common_io_handler),
@@ -2490,7 +2490,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 			%% will continously update status with test case results
 			%% without knowing the Ref (but update hd(Status))
 			{false,new_status(Ref, Status1),Cases1,?void_fun};
-		    {_RepType,0} ->
+		    {_RepType,N} when N =< 1 ->
 			{false,new_status(Ref, Status1),Cases1,?void_fun};
 		    _ ->
 			{Copied,_} = copy_cases(Ref, make_ref(), Cs1),
@@ -2509,7 +2509,7 @@ run_test_cases_loop([{conf,Ref,Props,{Mod,Func}}|_Cases]=Cs0,
 		case RepVal of
 		    undefined ->
 			{false,EndStatus,Cases1,?void_fun};
-		    {_RepType,0} ->
+		    {_RepType,N} when N =< 1 ->
 			{false,EndStatus,Cases1,?void_fun};
 		    {repeat,_} ->
 			{true,EndStatus,CopiedCases++Cases1,?void_fun};
@@ -2903,9 +2903,9 @@ update_repeat(Props) ->
 	    Props1 =
 		if N == forever ->
 			[{RepType,N}|lists:keydelete(RepType, 1, Props)];
-		   N < 2 ->
+		   N < 3 ->
 			lists:keydelete(RepType, 1, Props);
-		   N >= 2 ->
+		   N >= 3 ->
 			[{RepType,N-1}|lists:keydelete(RepType, 1, Props)]
 		end,
 	    %% if shuffle is used in combination with repeat, a new
@@ -4454,9 +4454,19 @@ collect_cases({conf,InitMF,CaseList,FinF}, St) when is_atom(FinF) ->
 collect_cases({conf,InitMF,CaseList,FinMF}, St0) ->
     collect_cases({conf,[],InitMF,CaseList,FinMF}, St0);
 collect_cases({conf,Props,InitF,CaseList,FinMF}, St) when is_atom(InitF) ->
-    collect_cases({conf,Props,{St#cc.mod,InitF},CaseList,FinMF}, St);
+    case init_props(Props) of
+	{error,_} ->
+	    {ok,[],St};
+	Props1 ->
+	    collect_cases({conf,Props1,{St#cc.mod,InitF},CaseList,FinMF}, St)
+    end;
 collect_cases({conf,Props,InitMF,CaseList,FinF}, St) when is_atom(FinF) ->
-    collect_cases({conf,Props,InitMF,CaseList,{St#cc.mod,FinF}}, St);
+    case init_props(Props) of
+	{error,_} ->
+	    {ok,[],St};
+	Props1 ->
+	    collect_cases({conf,Props1,InitMF,CaseList,{St#cc.mod,FinF}}, St)
+    end;
 collect_cases({conf,Props,InitMF,CaseList,FinMF}, St0) ->
     case collect_cases(CaseList, St0) of
 	{ok,[],_St}=Empty ->
@@ -4468,8 +4478,15 @@ collect_cases({conf,Props,InitMF,CaseList,FinMF}, St0) ->
 		    {ok,[{skip_case,{conf,Ref,InitMF,Comment}} |
 			 FlatCases ++ [{conf,Ref,[],FinMF}]],St};
 		false ->
-		    {ok,[{conf,Ref,Props,InitMF} |
-			 FlatCases ++ [{conf,Ref,keep_name(Props),FinMF}]],St}
+		    case init_props(Props) of
+			{error,_} ->
+			    {ok,[],St};
+			Props1 ->
+			    {ok,[{conf,Ref,Props1,InitMF} |
+				 FlatCases ++ [{conf,Ref,
+						keep_name(Props1),
+						FinMF}]],St}
+		    end
 	    end;
 	{error,_Reason}=Error ->
 	    Error
@@ -4626,6 +4643,19 @@ in_skip_list({Mod,Func}, [_|SkipList]) ->
     in_skip_list({Mod,Func}, SkipList);
 in_skip_list(_, []) ->
     false.
+
+%% remove unnecessary properties
+init_props(Props) ->
+    case get_repeat(Props) of
+	Repeat = {_RepType,N} when N < 2 ->
+	    if N == 0 ->
+		    {error,{invalid_property,Repeat}};
+	       true ->
+		    lists:delete(Repeat, Props)
+	    end;
+	_ ->
+	    Props
+    end.
 
 keep_name(Props) ->
     lists:filter(fun({name,_}) -> true; (_) -> false end, Props).
