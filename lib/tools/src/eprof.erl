@@ -76,14 +76,14 @@ profile(Pids, Fun) ->
     profile(Pids, Fun, {'_','_','_'}).
 
 profile(Pids, Fun, Pattern) ->
-    profile(Pids, Pattern, erlang, apply, [Fun,[]]).
+    profile(Pids, erlang, apply, [Fun,[]], Pattern).
 
 profile(Pids, M, F, A) ->
-    profile(Pids, {'_','_','_'}, M, F, A).
+    profile(Pids, M, F, A, {'_','_','_'}).
 
-profile(Pids, Pattern, M, F, A) ->
+profile(Pids, M, F, A, Pattern) ->
     start(),
-    gen_server:call(?MODULE, {profile,Pids,Pattern, M,F,A},infinity).
+    gen_server:call(?MODULE, {profile,Pids,Pattern,M,F,A},infinity).
 
 dump() -> 
     gen_server:call(?MODULE, dump, infinity).

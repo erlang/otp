@@ -76,7 +76,7 @@ basic(Config) when is_list(Config) ->
     %% with mfa
 
     ?line {ok, _} = eprof:profile([], eprof_test, go, [10]),
-    ?line {ok, _} = eprof:profile([], {eprof_test, dec, 1}, eprof_test, go, [10]),
+    ?line {ok, _} = eprof:profile([], eprof_test, go, [10], {eprof_test, dec, 1}),
 
     %% dump
 
