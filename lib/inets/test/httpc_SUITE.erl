@@ -87,8 +87,14 @@ all(suite) ->
      http_headers_dummy,
      http_bad_response,
      ssl_head, 
+     ossl_head, 
+     essl_head, 
      ssl_get, 
+     ossl_get, 
+     essl_get, 
      ssl_trace, 
+     ossl_trace, 
+     essl_trace, 
      http_redirect, 
      http_redirect_loop,
      http_internal_server_error,
@@ -179,49 +185,66 @@ init_per_testcase(otp_8154_1 = Case, Config) ->
 init_per_testcase(Case, Config) ->
     init_per_testcase(Case, 2, Config).
 
+init_per_testcase_ssl(Tag, PrivDir, SslConfFile, Config) ->
+    tsp("init_per_testcase_ssl -> stop ssl"),
+    application:stop(ssl),
+    Config2 = lists:keydelete(local_ssl_server, 1, Config),
+    %% Will start inets 
+    tsp("init_per_testcase_ssl -> try start http server (including inets)"),
+    Server = inets_test_lib:start_http_server(
+	       filename:join(PrivDir, SslConfFile), Tag),
+    tsp("init_per_testcase -> Server: ~p", [Server]),
+    [{local_ssl_server, Server} | Config2].
+
 init_per_testcase(Case, Timeout, Config) ->
-    io:format(user, "~n~n*** INIT ~w:~w[~w] ***~n~n", 
+    io:format(user, "~n~n*** INIT ~w:[~w][~w] ***~n~n", 
 	      [?MODULE, Timeout, Case]),
-    PrivDir = ?config(priv_dir, Config),
+    PrivDir     = ?config(priv_dir, Config),
+    tsp("init_per_testcase -> stop inets"),
     application:stop(inets),
-    Dog = test_server:timetrap(inets_test_lib:minutes(Timeout)),
-    TmpConfig = lists:keydelete(watchdog, 1, Config),
-    IpConfFile = integer_to_list(?IP_PORT) ++ ".conf",
+    Dog         = test_server:timetrap(inets_test_lib:minutes(Timeout)),
+    TmpConfig   = lists:keydelete(watchdog, 1, Config),
+    IpConfFile  = integer_to_list(?IP_PORT) ++ ".conf",
     SslConfFile = integer_to_list(?SSL_PORT) ++ ".conf",
+
+    %% inets:enable_trace(max, io, httpd),
+    %% inets:enable_trace(max, io, httpc),
+    inets:enable_trace(max, io, all),
 
     NewConfig = 
 	case atom_to_list(Case) of
-	    "ssl" ++ _ ->
-		application:stop(ssl),
-		TmpConfig2 = 
-		    lists:keydelete(local_ssl_server, 1, TmpConfig),
-		%% Will start inets 
-		Server = 
-		    inets_test_lib:start_http_server(
-		      filename:join(PrivDir, SslConfFile)),
-		[{watchdog, Dog}, {local_ssl_server, Server} | TmpConfig2];
+	    [$s, $s, $l | _] ->
+		init_per_testcase_ssl(ssl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+
+	    [$o, $s, $s, $l | _] ->
+		init_per_testcase_ssl(ossl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+
+	    [$e, $s, $s, $l | _] ->
+		init_per_testcase_ssl(essl, PrivDir, SslConfFile, [{watchdog, Dog} | TmpConfig]);
+
 	    "proxy" ++ Rest ->
-		   case Rest of			       
-		       "_https_not_supported" ->	
-			   inets:start(),
-			   case (catch application:start(ssl)) of
-			       ok ->
-				   [{watchdog, Dog} | TmpConfig];
-			       _ ->
-				  [{skip, 
-				    "SSL does not seem to be supported"} 
-				   | TmpConfig]
-			   end;
-		       _ ->
-			   case is_proxy_available(?PROXY, ?PROXY_PORT) of
-			       true ->
-				   inets:start(),
-				   [{watchdog, Dog} | TmpConfig];
-			       false ->
-				   [{skip, "Failed to contact proxy"} | 
-				    TmpConfig]
-			   end
-		   end;
+		case Rest of			       
+		    "_https_not_supported" ->	
+			tsp("init_per_testcase -> [proxy case] start inets"),
+			inets:start(),
+			tsp("init_per_testcase -> [proxy case] start ssl"),
+			case (catch application:start(ssl)) of
+			    ok ->
+				[{watchdog, Dog} | TmpConfig];
+			    _ ->
+				[{skip, "SSL does not seem to be supported"} 
+				 | TmpConfig]
+			end;
+		    _ ->
+			case is_proxy_available(?PROXY, ?PROXY_PORT) of
+			    true ->
+				inets:start(),
+				[{watchdog, Dog} | TmpConfig];
+			    false ->
+				[{skip, "Failed to contact proxy"} | 
+				 TmpConfig]
+			end
+		end;
 	    _ -> 
 		TmpConfig2 = lists:keydelete(local_server, 1, TmpConfig),
 		Server = 
@@ -231,12 +254,11 @@ init_per_testcase(Case, Timeout, Config) ->
 		[{watchdog, Dog}, {local_server, Server} | TmpConfig2]
 	end,
     
-    http:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
-			       ["localhost", ?IPV6_LOCAL_HOST]}}]),
-    inets:enable_trace(max, io, httpc),
-    %% inets:enable_trace(max, io, all),
+    httpc:set_options([{proxy, {{?PROXY, ?PROXY_PORT}, 
+				["localhost", ?IPV6_LOCAL_HOST]}}]),
     %% snmp:set_trace([gen_tcp, inet_tcp, prim_inet]),
     NewConfig.
+
 
 %%--------------------------------------------------------------------
 %% Function: end_per_testcase(Case, Config) -> _
@@ -306,7 +328,7 @@ http_head(Config) when is_list(Config) ->
 	ok ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    case http:request(head, {URL, []}, [], []) of
+	    case httpc:request(head, {URL, []}, [], []) of
 		{ok, {{_,200,_}, [_ | _], []}} ->
 		    ok;
 		{ok, WrongReply} ->
@@ -337,7 +359,7 @@ http_get(Config) when is_list(Config) ->
 	    HttpOptions1 = [{timeout, Timeout}, {connect_timeout, ConnTimeout}], 
 	    Options1     = [], 
 	    Body = 
-		case http:request(Method, Request, HttpOptions1, Options1) of
+		case httpc:request(Method, Request, HttpOptions1, Options1) of
 		    {ok, {{_,200,_}, [_ | _], ReplyBody = [_ | _]}} ->
 			ReplyBody;
 		    {ok, UnexpectedReply1} ->
@@ -346,12 +368,12 @@ http_get(Config) when is_list(Config) ->
 			tsf({bad_reply, Error1})
 		end,
 
-	    %% eqvivivalent to http:request(get, {URL, []}, [], []),
+	    %% eqvivivalent to httpc:request(get, {URL, []}, [], []),
 	    inets_test_lib:check_body(Body),
 
 	    HttpOptions2 = [], 
 	    Options2     = [{body_format, binary}], 
-	    case http:request(Method, Request, HttpOptions2, Options2) of
+	    case httpc:request(Method, Request, HttpOptions2, Options2) of
 		{ok, {{_,200,_}, [_ | _], Bin}} when is_binary(Bin) ->
 		    ok;
 		{ok, {{_,200,_}, [_ | _], BadBin}} ->
@@ -390,11 +412,11 @@ http_post(Config) when is_list(Config) ->
 	  Body = lists:duplicate(100, "1"),
 	  
 	  {ok, {{_,200,_}, [_ | _], [_ | _]}} =
-	      http:request(post, {URL, [{"expect","100-continue"}],
+	      httpc:request(post, {URL, [{"expect","100-continue"}],
 				  "text/plain", Body}, [], []),
       
 	  {ok, {{_,504,_}, [_ | _], []}} =
-	      http:request(post, {URL, [{"expect","100-continue"}],
+	      httpc:request(post, {URL, [{"expect","100-continue"}],
 				  "text/plain", "foobar"}, [], []);
       _ ->
 	  {skip, "Failed to start local http-server"}
@@ -411,13 +433,13 @@ http_emulate_lower_versions(Config) when is_list(Config) ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    {ok, Body0} =
-  		http:request(get, {URL, []}, [{version, "HTTP/0.9"}], []),
+  		httpc:request(get, {URL, []}, [{version, "HTTP/0.9"}], []),
 	    inets_test_lib:check_body(Body0),
  	    {ok, {{"HTTP/1.0", 200, _}, [_ | _], Body1 = [_ | _]}} =
-		http:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
+		httpc:request(get, {URL, []}, [{version, "HTTP/1.0"}], []),
 	    inets_test_lib:check_body(Body1),
 	    {ok, {{"HTTP/1.1", 200, _}, [_ | _], Body2 = [_ | _]}} =
-		http:request(get, {URL, []}, [{version, "HTTP/1.1"}], []),
+		httpc:request(get, {URL, []}, [{version, "HTTP/1.1"}], []),
 	    inets_test_lib:check_body(Body2);
         _->
 	    {skip, "Failed to start local http-server"}
@@ -431,24 +453,24 @@ http_relaxed(doc) ->
 http_relaxed(suite) ->
     [];
 http_relaxed(Config) when is_list(Config) ->
-    ok = http:set_options([{ipv6, disabled}]), % also test the old option 
-    %% ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipv6, disabled}]), % also test the old option 
+    %% ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/missing_reason_phrase.html",
         
     {error, Reason} =
-	http:request(get, {URL, []}, [{relaxed, false}], []),
+	httpc:request(get, {URL, []}, [{relaxed, false}], []),
 
     test_server:format("Not relaxed: ~p~n", [Reason]),
     
     {ok, {{_, 200, _}, [_ | _], [_ | _]}} =
-	http:request(get, {URL, []}, [{relaxed, true}], []),
+	httpc:request(get, {URL, []}, [{relaxed, true}], []),
 
     DummyServerPid ! stop,
-    ok = http:set_options([{ipv6, enabled}]),   
-    %% ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipv6, enabled}]),   
+    %% ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -458,7 +480,7 @@ http_dummy_pipe(doc) ->
 http_dummy_pipe(suite) ->
     [];
 http_dummy_pipe(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/foobar.html",
@@ -466,7 +488,7 @@ http_dummy_pipe(Config) when is_list(Config) ->
     test_pipeline(URL),
 
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 http_inets_pipe(doc) ->
@@ -488,11 +510,11 @@ test_pipeline(URL) ->
     p("test_pipeline -> entry with"
       "~n   URL: ~p", [URL]),
 
-    http:set_options([{pipeline_timeout, 50000}]),
+    httpc:set_options([{pipeline_timeout, 50000}]),
     
     p("test_pipeline -> issue (async) request 1"), 
     {ok, RequestId1} = 
-	http:request(get, {URL, []}, [], [{sync, false}]),
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
     test_server:format("RequestId1: ~p~n", [RequestId1]),
     p("test_pipeline -> RequestId1: ~p", [RequestId1]),
 
@@ -502,13 +524,13 @@ test_pipeline(URL) ->
 
     p("test_pipeline -> issue (async) request 2"),
     {ok, RequestId2} = 
-	http:request(get, {URL, []}, [], [{sync, false}]),
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
     tsp("RequestId2: ~p", [RequestId2]),
     p("test_pipeline -> RequestId2: ~p", [RequestId2]),
 
     p("test_pipeline -> issue (sync) request 3"),
     {ok, {{_,200,_}, [_ | _], [_ | _]}} = 
-	http:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [], []),
 
     p("test_pipeline -> expect reply for (async) request 1 or 2"),
     receive 
@@ -544,18 +566,18 @@ test_pipeline(URL) ->
 
     p("test_pipeline -> issue (async) request 4"),
     {ok, RequestId3} = 
-	http:request(get, {URL, []}, [], [{sync, false}]),
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
     tsp("RequestId3: ~p", [RequestId3]),
     p("test_pipeline -> RequestId3: ~p", [RequestId3]),
 
     p("test_pipeline -> issue (async) request 5"),
     {ok, RequestId4} = 
-	http:request(get, {URL, []}, [], [{sync, false}]),
+	httpc:request(get, {URL, []}, [], [{sync, false}]),
     tsp("RequestId4: ~p~n", [RequestId4]),
     p("test_pipeline -> RequestId4: ~p", [RequestId4]),
 
     p("test_pipeline -> cancel (async) request 4"),
-    ok = http:cancel_request(RequestId3),
+    ok = httpc:cancel_request(RequestId3),
 
     p("test_pipeline -> expect *no* reply for cancelled (async) request 4 (for 3 secs)"),
     receive 
@@ -607,7 +629,7 @@ http_trace(Config) when is_list(Config) ->
 	ok ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    case http:request(trace, {URL, []}, [], []) of
+	    case httpc:request(trace, {URL, []}, [], []) of
 		{ok, {{_,200,_}, [_ | _], "TRACE /dummy.html" ++ _}} ->
 		    ok;
 		{ok, {{_,200,_}, [_ | _], WrongBody}} ->
@@ -631,7 +653,7 @@ http_async(Config) when is_list(Config) ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    {ok, RequestId} = 
-		http:request(get, {URL, []}, [], [{sync, false}]),
+		httpc:request(get, {URL, []}, [], [{sync, false}]),
 	    
 	    Body = 
 		receive 
@@ -644,8 +666,8 @@ http_async(Config) when is_list(Config) ->
 	    inets_test_lib:check_body(binary_to_list(Body)),
 	    
 	    {ok, NewRequestId} = 
-		http:request(get, {URL, []}, [], [{sync, false}]),
-	    ok = http:cancel_request(NewRequestId),
+		httpc:request(get, {URL, []}, [], [{sync, false}]),
+	    ok = httpc:cancel_request(NewRequestId),
 	    receive 
 		{http, {NewRequestId, _NewResult}} ->
 		    test_server:fail(http_cancel_request_failed)
@@ -669,9 +691,9 @@ http_save_to_file(Config) when is_list(Config) ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    {ok, saved_to_file} 
-		= http:request(get, {URL, []}, [], [{stream, FilePath}]),
+		= httpc:request(get, {URL, []}, [], [{stream, FilePath}]),
 	    {ok, Bin} = file:read_file(FilePath), 
-	    {ok, {{_,200,_}, [_ | _], Body}} = http:request(URL),
+	    {ok, {{_,200,_}, [_ | _], Body}} = httpc:request(URL),
 	    Bin == Body;
 	_ ->
 	    {skip, "Failed to start local http-server"}
@@ -690,7 +712,7 @@ http_save_to_file_async(Config) when is_list(Config) ->
 	    FilePath = filename:join(PrivDir, "dummy.html"),
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    {ok, RequestId} = http:request(get, {URL, []}, [], 
+	    {ok, RequestId} = httpc:request(get, {URL, []}, [], 
 					   [{stream, FilePath}, 
 					    {sync, false}]),
 	    receive
@@ -701,7 +723,7 @@ http_save_to_file_async(Config) when is_list(Config) ->
 	    end,
 
 	    {ok, Bin} = file:read_file(FilePath), 
-	    {ok, {{_,200,_}, [_ | _], Body}} = http:request(URL),
+	    {ok, {{_,200,_}, [_ | _], Body}} = httpc:request(URL),
 	    Bin == Body;
 	_ ->
 	    {skip, "Failed to start local http-server"}
@@ -731,7 +753,7 @@ http_headers(Config) when is_list(Config) ->
 	    Date = httpd_util:rfc1123_date({date(), time()}),
 	    
 	    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
-		http:request(get, {URL, [{"If-Modified-Since",
+		httpc:request(get, {URL, [{"If-Modified-Since",
 					  Mod}, 
 					 {"From","webmaster@erlang.se"},
 					 {"Date", Date}
@@ -742,7 +764,7 @@ http_headers(Config) when is_list(Config) ->
 			CreatedSec+1)),
 	    
 	    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
-		http:request(get, {URL, [{"If-UnModified-Since",
+		httpc:request(get, {URL, [{"If-UnModified-Since",
 					  Mod1}
 					]}, [], []),
 	    
@@ -750,12 +772,12 @@ http_headers(Config) when is_list(Config) ->
 	    
 	    
 	    {ok, {{_,200,_}, [_ | _], [_ | _]}} =
-		http:request(get, {URL, [{"If-Match",
+		httpc:request(get, {URL, [{"If-Match",
 					  Tag}
 					]}, [], []),
 
 	    {ok, {{_,200,_}, [_ | _], _}} =
-		     http:request(get, {URL, [{"If-None-Match",
+		     httpc:request(get, {URL, [{"If-None-Match",
 					       "NotEtag,NeihterEtag"},
 					      {"Connection", "Close"}
 					     ]}, [], []),
@@ -773,7 +795,7 @@ http_headers_dummy(doc) ->
 http_headers_dummy(suite) ->
     [];
 http_headers_dummy(Config) when is_list(Config) -> 
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy_headers.html",
@@ -789,7 +811,7 @@ http_headers_dummy(Config) when is_list(Config) ->
     %% that the client header-handling code. This would not
     %% be a vaild http-request!
     {ok, {{_,200,_}, [_ | _], [_|_]}} = 
-	http:request(post, 
+	httpc:request(post, 
 		     {URL, 
 		      [{"Via",
 			"1.0 fred, 1.1 nowhere.com (Apache/1.1)"}, 
@@ -828,7 +850,7 @@ http_headers_dummy(Config) when is_list(Config) ->
 		      ], "text/plain", FooBar}, 
 		     [], []),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
     
 
@@ -838,21 +860,21 @@ http_bad_response(doc) ->
 http_bad_response(suite) ->
     [];
 http_bad_response(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_crlf.html",
     
     URL1 = ?URL_START ++ integer_to_list(Port) ++ "/wrong_statusline.html",
     
-    {error, timeout} = http:request(get, {URL, []}, [{timeout, 400}], []),
+    {error, timeout} = httpc:request(get, {URL, []}, [{timeout, 400}], []),
       
-    {error, Reason} = http:request(URL1),
+    {error, Reason} = httpc:request(URL1),
     
     test_server:format("Wrong Statusline: ~p~n", [Reason]),
 
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -862,69 +884,168 @@ ssl_head(doc) ->
 ssl_head(suite) ->
     [];
 ssl_head(Config) when is_list(Config) ->   
+    ssl_head(ssl, Config).
+
+ossl_head(doc) ->
+    ["Same as http_head/1 but over ssl sockets."];
+ossl_head(suite) ->
+    [];
+ossl_head(Config) when is_list(Config) ->   
+    ssl_head(ossl, Config).
+
+essl_head(doc) ->
+    ["Same as http_head/1 but over ssl sockets."];
+essl_head(suite) ->
+    [];
+essl_head(Config) when is_list(Config) ->   
+    ssl_head(essl, Config).
+
+ssl_head(SslTag, Config) ->
+    tsp("ssl_head -> entry with"
+	"~n   SslTag: ~p"
+	"~n   Config: ~p", [SslTag, Config]), 
     case ?config(local_ssl_server, Config) of 
  	ok ->
-	    DataDir = ?config(data_dir, Config),
-	    Port = ?config(local_ssl_port, Config),
-	    URL = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    CertFile = filename:join(DataDir, "ssl_client_cert.pem"),
+	    DataDir    = ?config(data_dir, Config),
+	    Port       = ?config(local_ssl_port, Config),
+	    URL        = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    CertFile   = filename:join(DataDir, "ssl_client_cert.pem"),
 	    SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
+	    SSLConfig     = 
+		case SslTag of
+		    ssl ->
+			SSLOptions;
+		    ossl ->
+			{ossl, SSLOptions};
+		    essl ->
+			{essl, SSLOptions}
+		end,
+	    tsp("ssl_head -> make request using: "
+		"~n   URL:        ~p"
+		"~n   SslTag:     ~p"
+		"~n   SSLOptions: ~p", [URL, SslTag, SSLOptions]),
 	    {ok, {{_,200, _}, [_ | _], []}} =
-		http:request(head, {URL, []}, [{ssl, SSLOptions}], []);
+		httpc:request(head, {URL, []}, [{ssl, SSLConfig}], []);
  	{ok, _} ->
- 	    {skip, "Failed to start local http-server"};
+ 	    {skip, "local http-server not started"};
  	_ ->
- 	    {skip, "Failed to start SSL"}
+ 	    {skip, "SSL not started"}
     end.  
+
+    
 %%-------------------------------------------------------------------------
 ssl_get(doc) ->
     ["Same as http_get/1 but over ssl sockets."];
 ssl_get(suite) ->
     [];
 ssl_get(Config) when is_list(Config) ->
+    ssl_get(ssl, Config).
+
+ossl_get(doc) ->
+    ["Same as http_get/1 but over ssl sockets."];
+ossl_get(suite) ->
+    [];
+ossl_get(Config) when is_list(Config) ->
+    ssl_get(ossl, Config).
+
+essl_get(doc) ->
+    ["Same as http_get/1 but over ssl sockets."];
+essl_get(suite) ->
+    [];
+essl_get(Config) when is_list(Config) ->
+    ssl_get(essl, Config).
+
+ssl_get(SslTag, Config) when is_list(Config) ->
     case ?config(local_ssl_server, Config) of 
 	ok ->
-	    DataDir = ?config(data_dir, Config),
- 	    Port = ?config(local_ssl_port, Config),
-	    URL = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    CertFile = filename:join(DataDir, "ssl_client_cert.pem"),
+	    DataDir    = ?config(data_dir, Config),
+ 	    Port       = ?config(local_ssl_port, Config),
+	    URL        = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    CertFile   = filename:join(DataDir, "ssl_client_cert.pem"),
 	    SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
-	     {ok, {{_,200, _}, [_ | _], Body = [_ | _]}} =
-		 http:request(get, {URL, []}, [{ssl, SSLOptions}], []),
-	     inets_test_lib:check_body(Body);
+	    SSLConfig  = 
+		case SslTag of
+		    ssl ->
+			SSLOptions;
+		    ossl ->
+			{ossl, SSLOptions};
+		    essl ->
+			{essl, SSLOptions}
+		end,
+	    tsp("ssl_get -> make request using: "
+		"~n   URL:        ~p"
+		"~n   SslTag:     ~p"
+		"~n   SSLOptions: ~p", [URL, SslTag, SSLOptions]),
+	    {ok, {{_,200, _}, [_ | _], Body = [_ | _]}} =
+		httpc:request(get, {URL, []}, [{ssl, SSLConfig}], []),
+	    inets_test_lib:check_body(Body);
 	 {ok, _} ->
 	     {skip, "Failed to start local http-server"}; 
 	 _ ->
 	     {skip, "Failed to start SSL"}
      end.
+
+
 %%-------------------------------------------------------------------------
 ssl_trace(doc) ->
     ["Same as http_trace/1 but over ssl sockets."];
 ssl_trace(suite) ->
     [];
 ssl_trace(Config) when is_list(Config) ->
+    ssl_trace(ssl, Config).
+
+ossl_trace(doc) ->
+    ["Same as http_trace/1 but over ssl sockets."];
+ossl_trace(suite) ->
+    [];
+ossl_trace(Config) when is_list(Config) ->
+    ssl_trace(ossl, Config).
+
+essl_trace(doc) ->
+    ["Same as http_trace/1 but over ssl sockets."];
+essl_trace(suite) ->
+    [];
+essl_trace(Config) when is_list(Config) ->
+    ssl_trace(essl, Config).
+
+ssl_trace(SslTag, Config) when is_list(Config) ->
     case ?config(local_ssl_server, Config) of 
 	ok ->
-	    DataDir = ?config(data_dir, Config),
- 	    Port = ?config(local_ssl_port, Config),
-	    URL = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
-	    CertFile = filename:join(DataDir, "ssl_client_cert.pem"),
+	    DataDir    = ?config(data_dir, Config),
+ 	    Port       = ?config(local_ssl_port, Config),
+	    URL        = ?SSL_URL_START ++ integer_to_list(Port) ++ "/dummy.html",
+	    CertFile   = filename:join(DataDir, "ssl_client_cert.pem"),
 	    SSLOptions = [{certfile, CertFile}, {keyfile, CertFile}],
-	    case http:request(trace, {URL, []}, [{ssl, SSLOptions}], []) of
+	    SSLConfig  = 
+		case SslTag of
+		    ssl ->
+			SSLOptions;
+		    ossl ->
+			{ossl, SSLOptions};
+		    essl ->
+			{essl, SSLOptions}
+		end,
+	    tsp("ssl_trace -> make request using: "
+		"~n   URL:        ~p"
+		"~n   SslTag:     ~p"
+		"~n   SSLOptions: ~p", [URL, SslTag, SSLOptions]),
+	    case httpc:request(trace, {URL, []}, [{ssl, SSLConfig}], []) of
 		{ok, {{_,200, _}, [_ | _], "TRACE /dummy.html" ++ _}} ->
 		    ok;
 		{ok, {{_,200,_}, [_ | _], WrongBody}} ->
-		    test_server:fail({wrong_body, WrongBody});
+		    tsf({wrong_body,  WrongBody});
 		{ok, WrongReply} ->
-		    test_server:fail({wrong_reply, WrongReply});
+		    tsf({wrong_reply, WrongReply});
 		Error ->
-		    test_server:fail({failed, Error})
+		    tsf({failed, Error})
 	    end;
 	{ok, _} ->
 	    {skip, "Failed to start local http-server"}; 
 	_ ->
 	    {skip, "Failed to start SSL"}
     end.
+
+
 %%-------------------------------------------------------------------------
 http_redirect(doc) ->
     ["Test redirect with dummy server as httpd does not implement"
@@ -937,7 +1058,7 @@ http_redirect(Config) when is_list(Config) ->
     case ?config(local_server, Config) of 
 	ok ->
 	    tsp("http_redirect -> set ipfamily option to inet"),
-	    ok = http:set_options([{ipfamily, inet}]),
+	    ok = httpc:set_options([{ipfamily, inet}]),
 
 	    tsp("http_redirect -> start dummy server inet"),
 	    {DummyServerPid, Port} = dummy_server(self(), ipv4),
@@ -948,29 +1069,29 @@ http_redirect(Config) when is_list(Config) ->
 	    tsp("http_redirect -> issue request 1: "
 		"~n   ~p", [URL300]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 		= http:request(get, {URL300, []}, [], []),
+ 		= httpc:request(get, {URL300, []}, [], []),
 	    
 	    tsp("http_redirect -> issue request 2: "
 		"~n   ~p", [URL300]),
 	    {ok, {{_,300,_}, [_ | _], _}} = 
-		http:request(get, {URL300, []}, [{autoredirect, false}], []),
+		httpc:request(get, {URL300, []}, [{autoredirect, false}], []),
 
 	    URL301 = ?URL_START ++ integer_to_list(Port) ++ "/301.html",
 
 	    tsp("http_redirect -> issue request 3: "
 		"~n   ~p", [URL301]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 		= http:request(get, {URL301, []}, [], []),
+ 		= httpc:request(get, {URL301, []}, [], []),
 	    
 	    tsp("http_redirect -> issue request 4: "
 		"~n   ~p", [URL301]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
- 		= http:request(head, {URL301, []}, [], []),
+ 		= httpc:request(head, {URL301, []}, [], []),
 	    
 	    tsp("http_redirect -> issue request 5: "
 		"~n   ~p", [URL301]),
 	    {ok, {{_,301,_}, [_ | _], [_|_]}} 
- 		= http:request(post, {URL301, [],"text/plain", "foobar"},
+ 		= httpc:request(post, {URL301, [],"text/plain", "foobar"},
 			       [], []),
 
 	    URL302 = ?URL_START ++ integer_to_list(Port) ++ "/302.html",
@@ -978,8 +1099,8 @@ http_redirect(Config) when is_list(Config) ->
 	    tsp("http_redirect -> issue request 6: "
 		"~n   ~p", [URL302]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 		= http:request(get, {URL302, []}, [], []),	 
-	    case http:request(get, {URL302, []}, [], []) of
+ 		= httpc:request(get, {URL302, []}, [], []),	 
+	    case httpc:request(get, {URL302, []}, [], []) of
 		{ok, Reply7} ->
 		    case Reply7 of
 			{{_,200,_}, [_ | _], [_|_]} ->
@@ -1006,12 +1127,12 @@ http_redirect(Config) when is_list(Config) ->
 	    tsp("http_redirect -> issue request 7: "
 		"~n   ~p", [URL302]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
- 		= http:request(head, {URL302, []}, [], []),	 
+ 		= httpc:request(head, {URL302, []}, [], []),	 
 	    
 	    tsp("http_redirect -> issue request 8: "
 		"~n   ~p", [URL302]),
 	    {ok, {{_,302,_}, [_ | _], [_|_]}} 
- 		= http:request(post, {URL302, [],"text/plain", "foobar"},
+ 		= httpc:request(post, {URL302, [],"text/plain", "foobar"},
 			       [], []),
    
 	    URL307 = ?URL_START ++ integer_to_list(Port) ++ "/307.html",
@@ -1019,23 +1140,23 @@ http_redirect(Config) when is_list(Config) ->
 	    tsp("http_redirect -> issue request 9: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 		= http:request(get, {URL307, []}, [], []),
+ 		= httpc:request(get, {URL307, []}, [], []),
 	
 	    tsp("http_redirect -> issue request 10: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,200,_}, [_ | _], []}} 
- 		= http:request(head, {URL307, []}, [], []),
+ 		= httpc:request(head, {URL307, []}, [], []),
 	    
 	    tsp("http_redirect -> issue request 11: "
 		"~n   ~p", [URL307]),
 	    {ok, {{_,307,_}, [_ | _], [_|_]}} 
- 		= http:request(post, {URL307, [],"text/plain", "foobar"},
+ 		= httpc:request(post, {URL307, [],"text/plain", "foobar"},
 			       [], []),
 	    
 	    tsp("http_redirect -> stop dummy server"),
 	    DummyServerPid ! stop,
 	    tsp("http_redirect -> reset ipfamily option (to inet6fb4)"),
-	    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+	    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
 	    tsp("http_redirect -> done"),
 	    ok;
 
@@ -1051,15 +1172,15 @@ http_redirect_loop(doc) ->
 http_redirect_loop(suite) ->
     [];
 http_redirect_loop(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/redirectloop.html",
     
     {ok, {{_,300,_}, [_ | _], _}} 
- 	= http:request(get, {URL, []}, [], []),
+ 	= httpc:request(get, {URL, []}, [], []),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1068,13 +1189,13 @@ http_internal_server_error(doc) ->
 http_internal_server_error(suite) ->
     [];
 http_internal_server_error(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL500 = ?URL_START ++ integer_to_list(Port) ++ "/500.html",
     
     {ok, {{_,500,_}, [_ | _], _}} 
- 	= http:request(get, {URL500, []}, [], []),
+ 	= httpc:request(get, {URL500, []}, [], []),
 
 
     URL503 = ?URL_START ++ integer_to_list(Port) ++ "/503.html",
@@ -1084,16 +1205,16 @@ http_internal_server_error(Config) when is_list(Config) ->
     ets:insert(unavailable, {503, unavailable}),
     
     {ok, {{_,200, _}, [_ | _], [_|_]}} =
-	http:request(get, {URL503, []}, [], []),
+	httpc:request(get, {URL503, []}, [], []),
     
     ets:insert(unavailable, {503, long_unavailable}),
 
     {ok, {{_,503, _}, [_ | _], [_|_]}} =
-	http:request(get, {URL503, []}, [], []),
+	httpc:request(get, {URL503, []}, [], []),
 
     ets:delete(unavailable),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1103,7 +1224,7 @@ http_userinfo(doc) ->
 http_userinfo(suite) ->
     [];
 http_userinfo(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
 
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
@@ -1111,16 +1232,16 @@ http_userinfo(Config) when is_list(Config) ->
 	++ integer_to_list(Port) ++ "/userinfo.html",
     
     {ok, {{_,200,_}, [_ | _], _}} 
- 	= http:request(get, {URLAuth, []}, [], []),
+ 	= httpc:request(get, {URLAuth, []}, [], []),
 
     URLUnAuth = "http://alladin:foobar@localhost:" 
 	++ integer_to_list(Port) ++ "/userinfo.html",
     
     {ok, {{_,401, _}, [_ | _], _}} =
-	http:request(get, {URLUnAuth, []}, [], []),
+	httpc:request(get, {URLUnAuth, []}, [], []),
     
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1130,7 +1251,7 @@ http_cookie(doc) ->
 http_cookie(suite) ->
     [];
 http_cookie(Config) when is_list(Config) ->
-    ok = http:set_options([{cookies, enabled}, {ipfamily, inet}]),
+    ok = httpc:set_options([{cookies, enabled}, {ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URLStart = ?URL_START  
@@ -1139,19 +1260,19 @@ http_cookie(Config) when is_list(Config) ->
     URLCookie = URLStart ++ "/cookie.html",
    
     {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 	= http:request(get, {URLCookie, []}, [], []),
+ 	= httpc:request(get, {URLCookie, []}, [], []),
 
     ets:new(cookie, [named_table, public, set]),
     ets:insert(cookie, {cookies, true}),
 
     {ok, {{_,200,_}, [_ | _], [_|_]}} 
- 	= http:request(get, {URLStart ++ "/", []}, [], []),
+ 	= httpc:request(get, {URLStart ++ "/", []}, [], []),
     
     ets:delete(cookie),
 
-    ok = http:set_options([{cookies, disabled}, {ipfamily, inet6fb4}]), % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{cookies, disabled}, {ipfamily, inet6fb4}]), % ********** ipfamily = inet6 *************
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),                      % ********** ipfamily = inet6************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),                      % ********** ipfamily = inet6************
     ok.
 
 %%-------------------------------------------------------------------------
@@ -1162,7 +1283,7 @@ proxy_options(suite) ->
 proxy_options(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
         undefined ->
-	    case http:request(options, {?PROXY_URL, []}, [], []) of
+	    case httpc:request(options, {?PROXY_URL, []}, [], []) of
 		{ok, {{_,200,_}, Headers, _}} ->
 		    case lists:keysearch("allow", 1, Headers) of
 			{value, {"allow", _}} ->
@@ -1186,7 +1307,7 @@ proxy_head(suite) ->
 proxy_head(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
-	    case http:request(head, {?PROXY_URL, []}, [], []) of
+	    case httpc:request(head, {?PROXY_URL, []}, [], []) of
 		{ok, {{_,200, _}, [_ | _], []}} ->
 		    ok;
 		Unexpected ->
@@ -1205,7 +1326,7 @@ proxy_get(suite) ->
 proxy_get(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
-	    case http:request(get, {?PROXY_URL, []}, [], []) of
+	    case httpc:request(get, {?PROXY_URL, []}, [], []) of
 		{ok, {{_,200,_}, [_ | _], Body = [_ | _]}} ->
 		    inets_test_lib:check_body(Body);
 		Unexpected ->
@@ -1257,7 +1378,7 @@ proxy_emulate_lower_versions(Config) when is_list(Config) ->
     end.
 
 pelv_get(Version) ->
-    http:request(get, {?PROXY_URL, []}, [{version, Version}], []).
+    httpc:request(get, {?PROXY_URL, []}, [{version, Version}], []).
 
 %%-------------------------------------------------------------------------
 proxy_trace(doc) ->
@@ -1266,7 +1387,7 @@ proxy_trace(suite) ->
     [];
 proxy_trace(Config) when is_list(Config) ->
     %%{ok, {{_,200,_}, [_ | _], "TRACE " ++ _}} =
-    %%	http:request(trace, {?PROXY_URL, []}, [], []),
+    %%	httpc:request(trace, {?PROXY_URL, []}, [], []),
     {skip, "HTTP TRACE is no longer allowed on the ?PROXY_URL server due "
      "to security reasons"}.
 
@@ -1281,7 +1402,7 @@ proxy_post(suite) ->
 proxy_post(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
-	    case http:request(post, {?PROXY_URL, [], 
+	    case httpc:request(post, {?PROXY_URL, [], 
 				     "text/plain", "foobar"}, [],[]) of
 		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
 		    ok;
@@ -1303,7 +1424,7 @@ proxy_put(suite) ->
 proxy_put(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined -> 
-	    case http:request(put, {"http://www.erlang.org/foobar.html", [], 
+	    case httpc:request(put, {"http://www.erlang.org/foobar.html", [], 
 				    "html", "<html> <body><h1> foo </h1>" 
 				    "<p>bar</p> </body></html>"}, [], []) of
 		{ok, {{_,405,_}, [_ | _], [_ | _]}} ->
@@ -1328,7 +1449,7 @@ proxy_delete(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined -> 
 	    URL = ?PROXY_URL ++ "/foobar.html",
-	    case http:request(delete, {URL, []}, [], []) of
+	    case httpc:request(delete, {URL, []}, [], []) of
 		{ok, {{_,404,_}, [_ | _], [_ | _]}} ->
 		    ok;
 		Unexpected ->
@@ -1348,7 +1469,7 @@ proxy_headers(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
 	    {ok, {{_,200,_}, [_ | _], [_ | _]}} 
-		= http:request(get, {?PROXY_URL,
+		= httpc:request(get, {?PROXY_URL,
 				     [
 				      {"Accept",
 				       "text/*, text/html,"
@@ -1383,7 +1504,7 @@ proxy_auth(Config) when is_list(Config) ->
     %% atleast the code for sending the header does not crash!
     case ?config(skip, Config) of 
 	undefined ->	    
-	    case http:request(get, {?PROXY_URL, []}, 
+	    case httpc:request(get, {?PROXY_URL, []}, 
 			      [{proxy_auth, {"foo", "bar"}}], []) of
 		{ok, {{_,200, _}, [_ | _], [_|_]}} ->
 		    ok;
@@ -1403,7 +1524,7 @@ http_server_does_not_exist(suite) ->
     [];
 http_server_does_not_exist(Config) when is_list(Config) ->
     {error, _} = 
-	http:request(get, {"http://localhost:" ++ 
+	httpc:request(get, {"http://localhost:" ++ 
 			   integer_to_list(?NOT_IN_USE_PORT) 
 			   ++ "/", []},[], []),
     ok.
@@ -1418,7 +1539,7 @@ page_does_not_exist(Config) when is_list(Config) ->
     Port = ?config(local_port, Config),
     URL = ?URL_START ++ integer_to_list(Port) ++ "/doesnotexist.html",
     {ok, {{_,404,_}, [_ | _], [_ | _]}} 
-	= http:request(get, {URL, []}, [], []),
+	= httpc:request(get, {URL, []}, [], []),
     ok.
 
 
@@ -1432,7 +1553,7 @@ proxy_page_does_not_exist(Config) when is_list(Config) ->
 	undefined ->
 	    URL = ?PROXY_URL ++ "/doesnotexist.html",
 	    {ok, {{_,404,_}, [_ | _], [_ | _]}} = 
-		http:request(get, {URL, []}, [], []),
+		httpc:request(get, {URL, []}, [], []),
 	    ok;
 	Reason ->
 	    {skip, Reason}
@@ -1446,7 +1567,7 @@ proxy_https_not_supported(doc) ->
 proxy_https_not_supported(suite) ->
     [];
 proxy_https_not_supported(Config) when is_list(Config) ->
-    Result = http:request(get, {"https://login.yahoo.com", []}, [], []),
+    Result = httpc:request(get, {"https://login.yahoo.com", []}, [], []),
     case Result of
 	{error, Reason} ->
 	    %% ok so far
@@ -1478,10 +1599,10 @@ http_stream(Config) when is_list(Config) ->
     Port = ?config(local_port, Config),
     URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
     {ok, {{_,200,_}, [_ | _], Body}} = 
-	http:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [], []),
     
     {ok, RequestId} =
-	http:request(get, {URL, []}, [], [{sync, false}, 
+	httpc:request(get, {URL, []}, [], [{sync, false}, 
 					  {stream, self}]),
     
     receive 
@@ -1506,7 +1627,7 @@ http_stream_once(Config) when is_list(Config) ->
       "~n   Config: ~p", [Config]),
       
     p("http_stream_once -> set ipfamily to inet", []),
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     p("http_stream_once -> start dummy server", []),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),    
     
@@ -1521,18 +1642,18 @@ http_stream_once(Config) when is_list(Config) ->
     p("http_stream_once -> stop dummy server", []),
     DummyServerPid ! stop,
     p("http_stream_once -> set ipfamily to inet6fb4", []),
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     p("http_stream_once -> done", []),
     ok.
   
 once(URL) ->
     p("once -> issue sync request for ~p", [URL]),
     {ok, {{_,200,_}, [_ | _], Body}} = 
-	http:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [], []),
     
     p("once -> issue async (self stream) request for ~p", [URL]),
     {ok, RequestId} =
-	http:request(get, {URL, []}, [], [{sync, false}, 
+	httpc:request(get, {URL, []}, [], [{sync, false}, 
 					  {stream, {self, once}}]),
     
     p("once -> await stream_start reply for (async) request ~p", [RequestId]),
@@ -1576,10 +1697,10 @@ proxy_stream(Config) when is_list(Config) ->
     case ?config(skip, Config) of 
 	undefined ->
 	    {ok, {{_,200,_}, [_ | _], Body}} = 
-		http:request(get, {?PROXY_URL, []}, [], []),
+		httpc:request(get, {?PROXY_URL, []}, [], []),
 	    
 	    {ok, RequestId} =
-		http:request(get, {?PROXY_URL, []}, [], 
+		httpc:request(get, {?PROXY_URL, []}, [], 
 			     [{sync, false}, {stream, self}]),
 	    
 	    receive 
@@ -1659,7 +1780,7 @@ ipv6(Config) when is_list(Config) ->
 	    URL = "http://[" ++ ?IPV6_LOCAL_HOST ++ "]:" ++ 
 		integer_to_list(Port) ++ "/foobar.html",
 	    {ok, {{_,200,_}, [_ | _], [_|_]}} =
-		http:request(get, {URL, []}, [], []),
+		httpc:request(get, {URL, []}, [], []),
 	    
 	    DummyServerPid ! stop,
 	    ok;
@@ -1677,11 +1798,11 @@ headers_as_is(Config) when is_list(Config) ->
     Port = ?config(local_port, Config),
     URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
     {ok, {{_,200,_}, [_|_], [_|_]}} =
-	http:request(get, {URL, [{"Host", "localhost"},{"Te", ""}]}, 
+	httpc:request(get, {URL, [{"Host", "localhost"},{"Te", ""}]}, 
 		     [], [{headers_as_is, true}]),
      
     {ok, {{_,400,_}, [_|_], [_|_]}} = 
-	http:request(get, {URL, [{"Te", ""}]},[], [{headers_as_is, true}]),
+	httpc:request(get, {URL, [{"Te", ""}]},[], [{headers_as_is, true}]),
     ok.
 
 
@@ -1696,13 +1817,13 @@ options(Config) when is_list(Config) ->
 	    Port = ?config(local_port, Config),
 	    URL = ?URL_START ++ integer_to_list(Port) ++ "/dummy.html",
 	    {ok, {{_,200,_}, [_ | _], Bin}} 
-		= http:request(get, {URL, []}, [{foo, bar}], 
+		= httpc:request(get, {URL, []}, [{foo, bar}], 
 			       %% Ignore unknown options
 			       [{body_format, binary}, {foo, bar}]),
 
 	    true = is_binary(Bin),
 	    {ok, {200, [_|_]}} 
-		= http:request(get, {URL, []}, [{timeout, infinity}],
+		= httpc:request(get, {URL, []}, [{timeout, infinity}],
 			       [{full_result, false}]);
 	_ ->
 	    {skip, "Failed to start local http-server"}
@@ -1715,17 +1836,17 @@ http_invalid_http(doc) ->
 http_invalid_http(suite) ->
     [];
 http_invalid_http(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/invalid_http.html",
     
     {error, {could_not_parse_as_http, _} = Reason} =
-	http:request(get, {URL, []}, [], []),
+	httpc:request(get, {URL, []}, [], []),
     
     test_server:format("Parse error: ~p ~n", [Reason]),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1762,7 +1883,7 @@ empty_body_otp_6243(Config) when is_list(Config) ->
     Port = ?config(local_port, Config),
     URL = ?URL_START ++ integer_to_list(Port) ++ "/empty.html",
     {ok, {{_,200,_}, [_ | _], []}} =
-	http:request(get, {URL, []}, [{timeout, 500}], []).
+	httpc:request(get, {URL, []}, [{timeout, 500}], []).
 
 
 %%-------------------------------------------------------------------------
@@ -1772,14 +1893,14 @@ transfer_encoding_otp_6807(doc) ->
 transfer_encoding_otp_6807(suite) ->
     [];
 transfer_encoding_otp_6807(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/capital_transfer_encoding.html",
-    {ok, {{_,200,_}, [_|_], [_ | _]}} = http:request(URL),
+    {ok, {{_,200,_}, [_|_], [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1805,13 +1926,13 @@ empty_response_header_otp_6830(doc) ->
 empty_response_header_otp_6830(suite) ->
     [];
 empty_response_header_otp_6830(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_headers.html",
-    {ok, {{_,200,_}, [], [_ | _]}} = http:request(URL),
+    {ok, {{_,200,_}, [], [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1822,13 +1943,13 @@ no_content_204_otp_6982(doc) ->
 no_content_204_otp_6982(suite) ->
     [];
 no_content_204_otp_6982(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/no_content.html",
-    {ok, {{_,204,_}, [], []}} = http:request(URL),
+    {ok, {{_,204,_}, [], []}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1840,13 +1961,13 @@ missing_CR_otp_7304(doc) ->
 missing_CR_otp_7304(suite) ->
     [];
 missing_CR_otp_7304(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/missing_CR.html",
-    {ok, {{_,200,_}, _, [_ | _]}} = http:request(URL),
+    {ok, {{_,200,_}, _, [_ | _]}} = httpc:request(URL),
     DummyServerPid ! stop,
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1860,15 +1981,15 @@ otp_7883_1(doc) ->
 otp_7883_1(suite) ->
     [];
 otp_7883_1(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
 
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ "/just_close.html",
-    {error, socket_closed_remotely} = http:request(URL),
+    {error, socket_closed_remotely} = httpc:request(URL),
     DummyServerPid ! stop,
 
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 otp_7883_2(doc) ->
@@ -1876,7 +1997,7 @@ otp_7883_2(doc) ->
 otp_7883_2(suite) ->
     [];
 otp_7883_2(Config) when is_list(Config) ->
-    ok = http:set_options([{ipfamily, inet}]),
+    ok = httpc:set_options([{ipfamily, inet}]),
 
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
@@ -1885,9 +2006,9 @@ otp_7883_2(Config) when is_list(Config) ->
     Request     = {URL, []}, 
     HttpOptions = [], 
     Options     = [{sync, false}], 
-    Profile     = http:default_profile(), 
+    Profile     = httpc:default_profile(), 
     {ok, RequestId} = 
-	http:request(Method, Request, HttpOptions, Options, Profile),
+	httpc:request(Method, Request, HttpOptions, Options, Profile),
     ok = 
 	receive
 	    {http, {RequestId, {error, socket_closed_remotely}}} ->
@@ -1895,7 +2016,7 @@ otp_7883_2(Config) when is_list(Config) ->
     end,
     DummyServerPid ! stop,
 
-    ok = http:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
+    ok = httpc:set_options([{ipfamily, inet6fb4}]),   % ********** ipfamily = inet6 *************
     ok.
 
 
@@ -1966,7 +2087,7 @@ run_clients(NumClients, ServerPort, SeqNumServer) ->
 		      fun() ->
 			      io:format("[~w] client started - "
 					"issue request~n", [Id]),
-			      case http:request(Url) of
+			      case httpc:request(Url) of
 				  {ok, {{_,200,_}, _, Resp}} ->
 				      io:format("[~w] 200 response: "
 						"~p~n", [Id, Resp]),
@@ -2354,7 +2475,7 @@ otp_8352(Config) when is_list(Config) ->
 	    ConnOptions = [{max_sessions,          MaxSessions}, 
 			   {max_keep_alive_length, MaxKeepAlive}, 
 			   {keep_alive_timeout,    KeepAliveTimeout}], 
-	    http:set_options(ConnOptions), 
+	    httpc:set_options(ConnOptions), 
 
 	    Method       = get, 
 	    Port         = ?config(local_port, Config),
@@ -2366,9 +2487,9 @@ otp_8352(Config) when is_list(Config) ->
 	    Options1     = [{socket_opts, [{tos,    87}, 
 					   {recbuf, 16#FFFF}, 
 					   {sndbuf, 16#FFFF}]}], 
-	    case http:request(Method, Request, HttpOptions1, Options1) of
+	    case httpc:request(Method, Request, HttpOptions1, Options1) of
 		{ok, {{_,200,_}, [_ | _], ReplyBody1 = [_ | _]}} ->
-		    %% equivaliant to http:request(get, {URL, []}, [], []),
+		    %% equivaliant to httpc:request(get, {URL, []}, [], []),
 		    inets_test_lib:check_body(ReplyBody1);
 		{ok, UnexpectedReply1} ->
 		    tsf({unexpected_reply, UnexpectedReply1});
@@ -2382,9 +2503,9 @@ otp_8352(Config) when is_list(Config) ->
 	    Options2     = [{socket_opts, [{tos,    84}, 
 					   {recbuf, 32#1FFFF}, 
 					   {sndbuf, 32#1FFFF}]}], 
-	    case http:request(Method, Request, HttpOptions2, Options2) of
+	    case httpc:request(Method, Request, HttpOptions2, Options2) of
 		{ok, {{_,200,_}, [_ | _], ReplyBody2 = [_ | _]}} ->
-		    %% equivaliant to http:request(get, {URL, []}, [], []),
+		    %% equivaliant to httpc:request(get, {URL, []}, [], []),
 		    inets_test_lib:check_body(ReplyBody2);
 		{ok,  UnexpectedReply2} ->
 		    tsf({unexpected_reply, UnexpectedReply2});
@@ -2406,13 +2527,13 @@ otp_8371(doc) ->
 otp_8371(suite) ->
     [];
 otp_8371(Config) when is_list(Config) ->
-    ok = http:set_options([{ipv6, disabled}]), % also test the old option 
+    ok = httpc:set_options([{ipv6, disabled}]), % also test the old option 
     {DummyServerPid, Port} = dummy_server(self(), ipv4),
     
     URL = ?URL_START ++ integer_to_list(Port) ++ 
 	"/ensure_host_header_with_port.html",
         
-    case http:request(get, {URL, []}, [], []) of
+    case httpc:request(get, {URL, []}, [], []) of
 	{ok, Result} ->
 	    case Result of
 		{{_, 200, _}, _Headers, Body} ->
@@ -2436,7 +2557,7 @@ otp_8371(Config) when is_list(Config) ->
     end,
 
     DummyServerPid ! stop,
-    ok = http:set_options([{ipv6, enabled}]),   
+    ok = httpc:set_options([{ipv6, enabled}]),   
     ok.
 
 
@@ -2537,7 +2658,7 @@ receive_streamed_body(RequestId, Body) ->
     end.
 
 receive_streamed_body(RequestId, Body, Pid) ->
-    http:stream_next(Pid),
+    httpc:stream_next(Pid),
     test_server:format("~p:receive_streamed_body -> requested next stream ~n", [?MODULE]),
     receive 
 	{http, {RequestId, stream, BinBodyPart}} ->
@@ -2921,11 +3042,11 @@ provocate_not_modified_bug(Url) ->
     Timeout = 15000, %% 15s should be plenty
 
     {ok, {{_, 200, _}, ReplyHeaders, _Body}} =
-	http:request(get, {Url, []}, [{timeout, Timeout}], []),
+	httpc:request(get, {Url, []}, [{timeout, Timeout}], []),
     Etag = pick_header(ReplyHeaders, "ETag"),
     Last = pick_header(ReplyHeaders, "last-modified"),
     
-    case http:request(get, {Url, [{"If-None-Match", Etag},
+    case httpc:request(get, {Url, [{"If-None-Match", Etag},
 				  {"If-Modified-Since", Last}]},
 		      [{timeout, 15000}],
 		      []) of

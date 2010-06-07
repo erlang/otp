@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2005-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -36,6 +36,7 @@
 	]).
 
 %% Help functions 
+-export([httpd_block/3, httpd_block/4, httpd_unblock/2, httpd_restart/2]).
 -export([do_block_server/4, do_block_nd_server/5, do_long_poll/6]).
 
 -define(report(Label, Content), 
@@ -47,18 +48,24 @@
 %% Test cases starts here.
 %%-------------------------------------------------------------------------
 block_disturbing_idle(_Type, Port, Host, Node) ->
-    unblocked = get_admin_state(Node, Host, Port),
+    io:format("block_disturbing_idle -> entry~n", []),
+    validate_admin_state(Node, Host, Port, unblocked),
     block_server(Node, Host, Port),
-    blocked = get_admin_state(Node, Host, Port),
+    validate_admin_state(Node, Host, Port, blocked),
     unblock_server(Node, Host, Port),
-    unblocked = get_admin_state(Node, Host, Port).
+    validate_admin_state(Node, Host, Port, unblocked),
+    io:format("block_disturbing_idle -> done~n", []),
+    ok.
+
 %%--------------------------------------------------------------------
 block_non_disturbing_idle(_Type, Port, Host, Node) ->
     unblocked = get_admin_state(Node, Host, Port),
     block_nd_server(Node, Host, Port),
     blocked = get_admin_state(Node, Host, Port),
     unblock_server(Node, Host, Port),
-    unblocked = get_admin_state(Node, Host, Port).
+    unblocked = get_admin_state(Node, Host, Port),
+    ok.
+
 %%--------------------------------------------------------------------
 block_503(Type, Port, Host, Node) ->
     Req = "GET / HTTP/1.0\r\ndummy-host.ericsson.se:\r\n\r\n",
@@ -76,6 +83,7 @@ block_503(Type, Port, Host, Node) ->
     ok = httpd_test_lib:verify_request(Type, Host, Port, Node, Req, 
 				  [{statuscode, 200},
 				   {version, "HTTP/1.0"}]).
+
 %%--------------------------------------------------------------------
 block_disturbing_active(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
@@ -87,6 +95,7 @@ block_disturbing_active(Type, Port, Host, Node) ->
     blocked = get_admin_state(Node, Host, Port),
     process_flag(trap_exit, false),
     ok.
+
 %%--------------------------------------------------------------------
 block_non_disturbing_active(Type, Port, Host, Node) ->
     process_flag(trap_exit, true),
@@ -219,31 +228,90 @@ do_block_nd_server(Node, Host, Port, Timeout, Reply) ->
 
 restart_server(Node, _Host, Port) ->
     Addr = undefined, 
-    rpc:call(Node, httpd, restart, [Addr, Port]).
+    rpc:call(Node, ?MODULE, httpd_restart, [Addr, Port]).
+
 
 block_server(Node, _Host,  Port) ->
+    io:format("block_server -> entry~n", []),    
     Addr = undefined, 
-    rpc:call(Node, httpd, block, [Addr, Port]).
+    rpc:call(Node, ?MODULE, httpd_block, [Addr, Port, disturbing]).
+
 
 block_server(Node, _Host, Port, Timeout) ->
     Addr = undefined, 
-    rpc:call(Node, httpd, block, [Addr, Port, disturbing, Timeout]).
+    rpc:call(Node, ?MODULE, httpd_block, [Addr, Port, disturbing, Timeout]).
+
 
 block_nd_server(Node, _Host, Port) ->
     Addr = undefined, 
-    rpc:call(Node, httpd, block, [Addr, Port, non_disturbing]).
+    rpc:call(Node, ?MODULE, httpd_block, [Addr, Port, non_disturbing]).
 
 block_nd_server(Node, _Host, Port, Timeout) ->
     Addr = undefined, 
-    rpc:call(Node, httpd, block, [Addr, Port, non_disturbing, Timeout]).
+    rpc:call(Node, ?MODULE, httpd_block, [Addr, Port, non_disturbing, Timeout]).
 
 unblock_server(Node, _Host, Port) ->
+    io:format("~p:~p:block_server -> entry~n", [node(),self()]),    
     Addr = undefined, 
-    rpc:call(Node, httpd, unblock, [Addr, Port]).
+    rpc:call(Node, ?MODULE, httpd_unblock, [Addr, Port]).
 
-get_admin_state(Node,_Host,Port) ->
+
+httpd_block(Addr, Port, Mode) ->
+    io:format("~p:~p:httpd_block -> entry~n", [node(),self()]), 
+    Name = make_name(Addr, Port),
+    case whereis(Name) of
+	Pid when is_pid(Pid) ->
+	    httpd_manager:block(Pid, Mode);
+	_ ->
+	    {error, not_started}
+    end.
+    
+httpd_block(Addr, Port, Mode, Timeout) ->
+    Name = make_name(Addr, Port),
+    case whereis(Name) of
+	Pid when is_pid(Pid) ->
+	    httpd_manager:block(Pid, Mode, Timeout);
+	_ ->
+	    {error, not_started}
+    end.
+    
+httpd_unblock(Addr, Port) ->
+    io:format("~p:~p:httpd_unblock -> entry~n", [node(),self()]), 
+    Name = make_name(Addr, Port),
+    case whereis(Name) of
+	Pid when is_pid(Pid) ->
+	    httpd_manager:unblock(Pid);
+	_ ->
+	    {error, not_started}
+    end.
+    
+httpd_restart(Addr, Port) ->
+    Name = make_name(Addr, Port),
+    case whereis(Name) of
+	Pid when is_pid(Pid) ->
+	    httpd_manager:reload(Pid, undefined);
+	_ ->
+	    {error, not_started}
+    end.
+    
+make_name(Addr, Port) ->
+    httpd_util:make_name("httpd", Addr, Port).
+
+get_admin_state(Node, _Host, Port) ->
     Addr = undefined, 
     rpc:call(Node, httpd, get_admin_state, [Addr, Port]).
+
+validate_admin_state(Node, Host, Port, Expect) ->
+    io:format("try validating server admin state: ~p~n", [Expect]),
+    case get_admin_state(Node, Host, Port) of
+	Expect ->
+	    ok;
+	Unexpected ->
+	    io:format("failed validating server admin state: ~p~n", 
+		      [Unexpected]),
+	    exit({unexpected_admin_state, Unexpected, Expect})
+    end.
+
 
 await_normal_process_exit(Pid, Name, Timeout) ->
     receive
@@ -259,6 +327,7 @@ await_normal_process_exit(Pid, Name, Timeout) ->
     after Timeout ->
 	   test_server:fail("timeout while waiting for " ++ Name)
     end.
+
 
 await_suite_failed_process_exit(Pid, Name, Timeout, Why) ->
     receive 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1997-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1997-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -25,14 +25,12 @@
 -behaviour(gen_server).
 -behaviour(inets_service).
 
--deprecated({open, 3, next_major_release}).
--deprecated({force_active, 1, next_major_release}).
 
 %%  API - Client interface
 -export([cd/2, close/1, delete/2, formaterror/1, 
 	 lcd/2, lpwd/1, ls/1, ls/2, 
 	 mkdir/2, nlist/1, nlist/2, 
-	 open/1, open/2, open/3, force_active/1,
+	 open/1, open/2, 
 	 pwd/1, quote/2,
 	 recv/2, recv/3, recv_bin/2, 
 	 recv_chunk_start/2, recv_chunk/1, 
@@ -133,11 +131,6 @@ open(Host, Port) when is_integer(Port) ->
     open(Host, [{port, Port}]);
 %% </BACKWARD-COMPATIBILLITY>
 
-%% <BACKWARD-COMPATIBILLITY>
-open(Host, [H|_] = Flags) when is_atom(H) ->
-    open(Host, ?FTP_PORT, Flags);
-%% </BACKWARD-COMPATIBILLITY>
-
 open(Host, Opts) when is_list(Opts) ->
     ?fcrt("open", [{host, Host}, {opts, Opts}]), 
     try
@@ -158,32 +151,6 @@ open(Host, Opts) when is_list(Opts) ->
 	    ?fcrt("open - error", [{error2, Error2}]), 
 	    Error2
     end.
-
-
-%% <BACKWARD-COMPATIBILLITY>
-open(Host, Port, Flags) when is_integer(Port) andalso is_list(Flags) ->
-    ?fcrt("open", [{host, Host}, {port, Port}, {flags, Flags}]), 
-    try
-	{ok, StartOptions} = start_options([{flags, Flags}]), 
-	?fcrt("open", [{start_options, StartOptions}]), 
-	{ok, OpenOptions}  = open_options([{host, Host}, {port, Port}|Flags]), 
-	?fcrt("open", [{open_options, OpenOptions}]), 
-	case ftp_sup:start_child([[{client, self()} | StartOptions], []]) of
-	    {ok, Pid} ->
-		?fcrt("open - ok", [{pid, Pid}]), 
-		call(Pid, {open, ip_comm, OpenOptions}, plain);
-	    Error1 ->
-		?fcrt("open - error", [{error1, Error1}]), 
-		Error1
-	end
-    catch
-	throw:Error2 ->
-	    Error2
-    end.
-%% </BACKWARD-COMPATIBILLITY>
-
-
-
 
 
 %%--------------------------------------------------------------------------
@@ -528,16 +495,6 @@ close(Pid) ->
     cast(Pid, close),
     ok.
 
-%%--------------------------------------------------------------------------
-%% force_active(Pid) -> ok
-%%	Pid = pid()
-%%
-%% Description: Force connection to use active mode. 
-%%--------------------------------------------------------------------------
-force_active(Pid) ->
-    error_logger:info_report("This function is deprecated use the mode flag "
-			     "instead"),
-    call(Pid, force_active, atom).
 
 %%--------------------------------------------------------------------------
 %% formaterror(Tag) -> string()
@@ -885,9 +842,6 @@ handle_call({_, {open, ip_comm, Host, Opts}}, From, State) ->
 	    gen_server:reply(From, {error, ehost}),
 	    {stop, normal, State2#state{client = undefined}}
     end;	
-
-handle_call({_, force_active}, _, State) ->
-    {reply, ok, State#state{mode = active}};
 
 handle_call({_, {user, User, Password}}, From, 
 	    #state{csock = CSock} = State) when (CSock =/= undefined) ->

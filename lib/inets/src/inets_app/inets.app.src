@@ -107,5 +107,6 @@
             tftp_sup
         ]},
   {registered,[inets_sup, httpc_manager]},
+  %% If the "new" ssl is used then 'crypto' must be started before inets.
   {applications,[kernel,stdlib]},
   {mod,{inets_app,[]}}]}.

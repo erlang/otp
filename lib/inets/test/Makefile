@@ -143,6 +143,8 @@ else
   INETS_FLAGS += -Dhttpd_security_verbosity=log
 endif
 
+INETS_FLAGS += -pa ../../inets/ebin
+
 INETS_ROOT = ../../inets
 
 MODULES =                 		\
@@ -241,8 +243,11 @@ RELTESTSYSBINDIR     = $(RELTESTSYSALLDATADIR)/bin
 # The path to the test_server ebin dir is needed when 
 # running the target "targets".
 # ----------------------------------------------------
-ERL_COMPILE_FLAGS += -pa ../../../internal_tools/test_server/ebin \
-                     $(INCLUDES) $(FTP_FLAGS) $(INETS_FLAGS)
+ERL_COMPILE_FLAGS += \
+	-pa ../../../internal_tools/test_server/ebin \
+	$(INCLUDES) \
+	$(FTP_FLAGS) \
+	$(INETS_FLAGS)
 
 # ----------------------------------------------------
 # Targets

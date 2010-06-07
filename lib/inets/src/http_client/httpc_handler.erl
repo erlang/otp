@@ -22,8 +22,8 @@
 
 -behaviour(gen_server).
 
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
--include("http_internal.hrl").
 
 
 %%--------------------------------------------------------------------
@@ -177,8 +177,8 @@ stream(BodyPart, Request = #request{stream = Self}, Code)
 stream(BodyPart, Request = #request{stream = Self}, 404) 
   when (Self =:= self) orelse (Self =:= {self, once}) ->
     ?hcrt("stream - self with 404", [{stream, Self}]),
-    httpc_response:send(Request#request.from,
-                       {Request#request.id, stream, BodyPart}),
+    httpc_response:send(Request#request.from, 
+			{Request#request.id, stream, BodyPart}),
     {<<>>, Request};
 
 %% Stream to file
@@ -286,8 +286,7 @@ handle_call({connect_and_send, #request{address = Address0,
 	
 handle_call(#request{address = Addr} = Request, _, 
 	    #state{status  = Status,
-		   session = #tcp_session{socket = Socket,
-					  type   = pipeline} = Session,
+		   session = #session{type = pipeline} = Session,
 		   timers  = Timers,
 		   options = #options{proxy = Proxy} = _Options, 
 		   profile_name = ProfileName} = State) 
@@ -301,7 +300,7 @@ handle_call(#request{address = Addr} = Request, _,
 
     Address = handle_proxy(Addr, Proxy),
 
-    case httpc_request:send(Address, Request, Socket) of
+    case httpc_request:send(Address, Session, Request) of
         ok ->
 
 	    ?hcrd("request sent", []),
@@ -320,10 +319,10 @@ handle_call(#request{address = Addr} = Request, _,
 		    NewTimers   = NewState#state.timers,
                     NewPipeline = queue:in(Request, State#state.pipeline),
 		    NewSession  = 
-			Session#tcp_session{queue_length = 
-					    %% Queue + current
-					    queue:len(NewPipeline) + 1,
-					    client_close = ClientClose},
+			Session#session{queue_length = 
+					%% Queue + current
+					queue:len(NewPipeline) + 1,
+					client_close = ClientClose},
 		    httpc_manager:insert_session(NewSession, ProfileName),
 		    ?hcrd("session updated", []),
                     {reply, ok, State#state{pipeline = NewPipeline,
@@ -336,8 +335,8 @@ handle_call(#request{address = Addr} = Request, _,
 		    cancel_timer(Timers#timers.queue_timer, 
 				 timeout_queue),
 		    NewSession = 
-			Session#tcp_session{queue_length = 1,
-					    client_close = ClientClose},
+			Session#session{queue_length = 1,
+					client_close = ClientClose},
 		    httpc_manager:insert_session(NewSession, ProfileName),
 		    Relaxed = 
 			(Request#request.settings)#http_options.relaxed, 
@@ -357,8 +356,7 @@ handle_call(#request{address = Addr} = Request, _,
 
 handle_call(#request{address = Addr} = Request, _, 
 	    #state{status  = Status,
-		   session = #tcp_session{socket = Socket,
-					  type   = keep_alive} = Session,
+		   session = #session{type = keep_alive} = Session,
 		   timers  = Timers,
 		   options = #options{proxy = Proxy} = _Options,
 		   profile_name = ProfileName} = State) 
@@ -370,7 +368,7 @@ handle_call(#request{address = Addr} = Request, _,
 	   {status,  Status}]),
 
     Address = handle_proxy(Addr, Proxy),
-    case httpc_request:send(Address, Request, Socket) of
+    case httpc_request:send(Address, Session, Request) of
 	ok ->
 
 	    ?hcrd("request sent", []),
@@ -389,10 +387,10 @@ handle_call(#request{address = Addr} = Request, _,
 		    NewTimers    = NewState#state.timers,
                     NewKeepAlive = queue:in(Request, State#state.keep_alive),
 		    NewSession   = 
-			Session#tcp_session{queue_length = 
-					    %% Queue + current
-					    queue:len(NewKeepAlive) + 1,
-					    client_close = ClientClose},
+			Session#session{queue_length = 
+					%% Queue + current
+					queue:len(NewKeepAlive) + 1,
+					client_close = ClientClose},
 		    httpc_manager:insert_session(NewSession, ProfileName),
 		    ?hcrd("session updated", []),
                     {reply, ok, State#state{keep_alive = NewKeepAlive,
@@ -405,8 +403,8 @@ handle_call(#request{address = Addr} = Request, _,
 		    cancel_timer(Timers#timers.queue_timer, 
 				 timeout_queue),
 		    NewSession = 
-			Session#tcp_session{queue_length = 1,
-					    client_close = ClientClose},
+			Session#session{queue_length = 1,
+					client_close = ClientClose},
 		    httpc_manager:insert_session(NewSession, ProfileName),
 		    Relaxed = 
 			(Request#request.settings)#http_options.relaxed,
@@ -589,13 +587,13 @@ handle_info({ssl_closed, _}, State = #state{request = undefined}) ->
 
 %%% Error cases
 handle_info({tcp_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#tcp_session.socket,
-    Session = Session0#tcp_session{socket = {remote_close, Socket}},
+    Socket  = Session0#session.socket,
+    Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
 handle_info({ssl_closed, _}, #state{session = Session0} = State) ->
-    Socket  = Session0#tcp_session.socket,
-    Session = Session0#tcp_session{socket = {remote_close, Socket}},
+    Socket  = Session0#session.socket,
+    Session = Session0#session{socket = {remote_close, Socket}},
     %% {stop, session_remotly_closed, State};
     {stop, normal, State#state{session = Session}};
 handle_info({tcp_error, _, _} = Reason, State) ->
@@ -699,19 +697,18 @@ terminate(normal, #state{session = undefined}) ->
 %% Init error sending, no session information has been setup but
 %% there is a socket that needs closing.
 terminate(normal, 
-	  #state{request = Request,
-		 session = #tcp_session{id     = undefined,
-					socket = Socket}}) ->  
-    http_transport:close(socket_type(Request), Socket);
+	  #state{session = #session{id = undefined} = Session}) ->  
+    close_socket(Session);
 
 %% Socket closed remotely
 terminate(normal, 
-	  #state{session = #tcp_session{socket = {remote_close, Socket},
-					id     = Id}, 
+	  #state{session = #session{socket      = {remote_close, Socket},
+				    socket_type = SocketType, 
+				    id          = Id}, 
 		 profile_name = ProfileName,
-		 request = Request,
-		 timers  = Timers,
-		 pipeline = Pipeline}) ->  
+		 request      = Request,
+		 timers       = Timers,
+		 pipeline     = Pipeline}) ->  
     ?hcrt("terminate(normal) - remote close", 
 	  [{id, Id}, {profile, ProfileName}]),
 
@@ -728,11 +725,11 @@ terminate(normal,
     deliver_answers([Request | queue:to_list(Pipeline)]),
 
     %% And, just in case, close our side (**really** overkill)
-    http_transport:close(socket_type(Request), Socket);
+    http_transport:close(SocketType, Socket);
 
-terminate(_, #state{session      = #tcp_session{id     = Id,
-						socket = Socket, 
-						scheme = Scheme},
+terminate(_, #state{session      = #session{id          = Id,
+					    socket      = Socket, 
+					    socket_type = SocketType},
 		    request      = undefined,
 		    profile_name = ProfileName,
 		    timers       = Timers,
@@ -744,7 +741,7 @@ terminate(_, #state{session      = #tcp_session{id     = Id,
     maybe_retry_queue(KeepAlive, State),
 
     cancel_timer(Timers#timers.queue_timer, timeout_queue),
-    http_transport:close(socket_type(Scheme), Socket);
+    http_transport:close(SocketType, Socket);
 
 terminate(Reason, #state{request = undefined}) -> 
     ?hcrt("terminate", [{reason, Reason}]),
@@ -878,22 +875,23 @@ connect_and_send_first_request(Address,
     ConnTimeout = Settings#http_options.connect_timeout,
     case connect(SocketType, Address, Options, ConnTimeout) of
 	{ok, Socket} ->
+	    Session = #session{id          = {OrigAddress, self()},
+			       scheme      = Scheme,
+			       socket      = Socket,
+			       socket_type = SocketType}, 
 	    ?hcrd("connected - now send first request", [{socket, Socket}]),
-	    case httpc_request:send(Address, Request, Socket) of
+	    case httpc_request:send(Address, Session, Request) of
 		ok ->
 		    ?hcrd("first request sent", []),
 		    ClientClose = 
 			httpc_request:is_client_closing(Headers),
 		    SessionType = httpc_manager:session_type(Options),
-		    Session =
-			#tcp_session{id           = {OrigAddress, self()},
-				     scheme       = Scheme,
-				     socket       = Socket,
-				     client_close = ClientClose,
-				     type         = SessionType},
+		    Session2 =
+			Session#session{client_close = ClientClose,
+					type         = SessionType},
 		    TmpState = 
 			State#state{request     = Request, 
-				    session     = Session, 
+				    session     = Session2, 
 				    mfa         = init_mfa(Request, State),
 				    status_line = init_status_line(Request),
 				    headers     = undefined,
@@ -947,21 +945,20 @@ handler_info(#state{request     = Request,
     ?hcrt("handler info", [{request_info, RequestInfo}]),
 
     %% Info about the current session/socket
-    SessionType = Session#tcp_session.type, 
-    QueueLen    = case Session#tcp_session.type of
+    SessionType = Session#session.type, 
+    QueueLen    = case SessionType of
 		      pipeline ->
 			  queue:len(Pipeline);
 		      keep_alive ->
 			  queue:len(KeepAlive)
 		  end,
-    Socket      = Session#tcp_session.socket, 
-    Scheme      = Session#tcp_session.scheme, 
-    SocketType  = socket_type(Scheme),
+    Scheme     = Session#session.scheme, 
+    Socket     = Session#session.socket, 
+    SocketType = Session#session.socket_type, 
 
     ?hcrt("handler info", [{session_type, SessionType}, 
 			   {queue_length, QueueLen}, 
 			   {scheme,       Scheme}, 
-			   {socket_type,  SocketType}, 
 			   {socket,       Socket}]),
 
     SocketOpts  = http_transport:getopts(SocketType, Socket), 
@@ -1118,9 +1115,7 @@ handle_response(#state{request      = Request,
 	    ?hcrd("handle response - continue", []),
 	    %% Send request body
 	    {_, RequestBody} = Request#request.content,
-	    http_transport:send(socket_type(Session#tcp_session.scheme), 
-					    Session#tcp_session.socket, 
-				RequestBody),
+	    send_raw(Session, RequestBody),
 	    %% Wait for next response
 	    activate_once(Session),
 	    Relaxed = (Request#request.settings)#http_options.relaxed,
@@ -1217,7 +1212,7 @@ handle_pipeline(#state{status       = pipeline,
 	    %% If a pipeline that has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
 	    NewState   = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#tcp_session{queue_length = 0},
+	    NewSession = Session#session{queue_length = 0},
 	    httpc_manager:insert_session(NewSession, ProfileName),
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
@@ -1239,9 +1234,9 @@ handle_pipeline(#state{status       = pipeline,
 		false ->
 		    ?hcrv("next request", [{request, NextRequest}]),
 		    NewSession = 
-			Session#tcp_session{queue_length =
-					    %% Queue + current
-					    queue:len(Pipeline) + 1},
+			Session#session{queue_length =
+					%% Queue + current
+					queue:len(Pipeline) + 1},
 		    httpc_manager:insert_session(NewSession, ProfileName),
 		    Relaxed = 
 			(NextRequest#request.settings)#http_options.relaxed,
@@ -1290,16 +1285,16 @@ handle_keep_alive_queue(
 	    %% If a keep_alive session has been idle for some time is not
 	    %% closed by the server, the client may want to close it.
 	    NewState = activate_queue_timeout(TimeOut, State),
-	    NewSession = Session#tcp_session{queue_length = 0},
+	    NewSession = Session#session{queue_length = 0},
 	    httpc_manager:insert_session(NewSession, ProfileName),
 	    %% Note mfa will be initilized when a new request 
 	    %% arrives.
 	    {noreply, 
-	     NewState#state{request = undefined, 
-			    mfa = undefined,
+	     NewState#state{request     = undefined, 
+			    mfa         = undefined,
 			    status_line = undefined,
-			    headers = undefined,
-			    body = undefined
+			    headers     = undefined,
+			    body        = undefined
 			   } 
 	    };
 	{{value, NextRequest}, KeepAlive} ->    
@@ -1342,9 +1337,11 @@ case_insensitive_header(Str) when is_list(Str) ->
 case_insensitive_header(Str) ->
     Str.
 
-activate_once(#tcp_session{scheme = Scheme, socket = Socket}) ->
-    SocketType = socket_type(Scheme),
+activate_once(#session{socket = Socket, socket_type = SocketType}) ->
     http_transport:setopts(SocketType, Socket, [{active, once}]).
+
+close_socket(#session{socket = Socket, socket_type = SocketType}) ->
+    http_transport:close(SocketType, Socket).
 
 activate_request_timeout(
   #state{request = #request{timer = undefined} = Request} = State) ->
@@ -1378,7 +1375,7 @@ activate_queue_timeout(Time, State) ->
     State#state{timers = #timers{queue_timer = Ref}}.
 
 
-is_pipeline_enabled_client(#tcp_session{type = pipeline}) ->
+is_pipeline_enabled_client(#session{type = pipeline}) ->
     true;
 is_pipeline_enabled_client(_) ->
     false.
@@ -1391,7 +1388,7 @@ is_keep_alive_enabled_server("HTTP/1.0",
 is_keep_alive_enabled_server(_,_) ->
     false.
 
-is_keep_alive_connection(Headers, #tcp_session{client_close = ClientClose}) ->
+is_keep_alive_connection(Headers, #session{client_close = ClientClose}) ->
     (not ((ClientClose) orelse httpc_response:is_server_closing(Headers))).
 
 try_to_enable_pipeline_or_keep_alive(
@@ -1416,7 +1413,7 @@ try_to_enable_pipeline_or_keep_alive(
 		    httpc_manager:insert_session(Session, ProfileName),
 		    %% Make sure type is keep_alive in session
 		    %% as it in this case might be pipeline
-		    NewSession = Session#tcp_session{type = keep_alive}, 
+		    NewSession = Session#session{type = keep_alive}, 
 		    State#state{status  = keep_alive,
 				session = NewSession}
 	    end;
@@ -1551,11 +1548,11 @@ init_status_line(#request{settings = Settings}) ->
 socket_type(#request{scheme = http}) ->
     ip_comm;
 socket_type(#request{scheme = https, settings = Settings}) ->
-    {ssl, Settings#http_options.ssl};
-socket_type(http) ->
-    ip_comm;
-socket_type(https) ->
-    {ssl, []}. %% Dummy value ok for ex setopts that does not use this value
+    Settings#http_options.ssl.
+%% socket_type(http) ->
+%%     ip_comm;
+%% socket_type(https) ->
+%%     {ssl1, []}. %% Dummy value ok for ex setopts that does not use this value
 
 start_stream({_Version, _Code, _ReasonPhrase}, _Headers, 
 	     #request{stream = none} = Request) ->
@@ -1624,18 +1621,15 @@ end_stream(SL, R) ->
 
 
 next_body_chunk(#state{request = #request{stream = {self, once}}, 
-		       once = once, session = Session} = State) ->
-    http_transport:setopts(socket_type(Session#tcp_session.scheme), 
-			   Session#tcp_session.socket, 
-			   [{active, once}]),
+		       once    = once, 
+		       session = Session} = State) ->
+    activate_once(Session), 
     State#state{once = inactive};
 next_body_chunk(#state{request = #request{stream = {self, once}}, 
 		       once = inactive} = State) ->
     State; %% Wait for user to call stream_next
 next_body_chunk(#state{session = Session} = State) ->
-    http_transport:setopts(socket_type(Session#tcp_session.scheme), 
-			   Session#tcp_session.socket, 
-			   [{active, once}]),
+    activate_once(Session), 
     State.
 
 handle_verbose(verbose) ->
@@ -1710,6 +1704,11 @@ handle_verbose(_) ->
 %%     io:format(user, "~w:~w:" ++ F ++ "~n", [self(), ?MODULE | A]);
 %% d(_, _, _) ->
 %%     ok.
+
+
+send_raw(#session{socket = Socket, socket_type = SocketType}, Body) ->
+    http_transport:send(SocketType, Socket, Body).
+
 
 
 call(Msg, Pid) ->

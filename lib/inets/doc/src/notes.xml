@@ -32,6 +32,67 @@
     <file>notes.xml</file>
   </header>
   
+  <section><title>Inets 5.4</title>
+
+    <section><title>Improvements and New Features</title>
+<!--
+      <p>-</p>
+-->
+
+      <list>
+        <item>
+	  <p>[httpc|httpd] - Now allow the use of the "new" ssl, by using
+            the <c>essl</c> tag instead. </p> 
+          <p>See the <c>http_option</c> option in the 
+            <seealso marker="httpc#request2">request/4,5</seealso> or 
+            the <seealso marker="httpd#comm_prop">socket-type</seealso>
+            section of the Communication properties chapter for more info, </p>
+	  <p>Own Id: OTP-7907</p>
+        </item>
+
+        <item>
+	  <p>Deprecated functions designated to be removed in R14 has been
+            removed. Also, some new functions has been marked as deprecated
+            (the old http client api module). </p>
+	  <p>Own Id: OTP-8564</p>
+	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
+        </item>
+
+        <item>
+	  <p>[httpd] - Improved mod_alias. 
+            Now able to do better URL rewrites. </p> 
+          <p>See 
+            <seealso marker="httpd#alias_prop">URL aliasing properties</seealso> 
+            and the 
+            <seealso marker="httpd#cgi_prop">CGI properties</seealso>
+            section(s) for more info, </p>
+	  <p>Own Id: OTP-8573</p>
+        </item>
+
+      </list>
+    </section>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+
+      <p>-</p>
+
+<!--
+      <list>
+        <item>
+	  <p>[httpd] The server did not fully support the documented module
+            callback api. Specifically, the load function should be able to
+            return the atom <c>ok</c>, but this was not accepted. </p>
+	  <p>Own Id: OTP-8359</p>
+        </item>
+
+      </list>
+-->
+
+    </section>
+
+  </section> <!-- 5.4 -->
+
+
   <section><title>Inets 5.3.3</title>
 
     <section><title>Improvements and New Features</title>
@@ -304,6 +365,7 @@
           <p>Own Id: OTP-8016</p>
 	  <p>*** POTENTIAL INCOMPATIBILITY ***</p>
         </item>
+
       </list>
     </section>
 

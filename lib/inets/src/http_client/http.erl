@@ -18,21 +18,38 @@
 %%
 %%
 
-%% Description:
-%%% This version of the HTTP/1.1 client supports:
-%%%      - RFC 2616 HTTP 1.1 client part
-%%%      - RFC 2818 HTTP Over TLS
+%%% Description: OLD API MODULE - USE httpc INSTEAD
 
 -module(http).
 
-%% API
--export([request/1, request/2, request/4, request/5,
+-deprecated({request,         1, next_major_release}).
+-deprecated({request,         2, next_major_release}).
+-deprecated({request,         4, next_major_release}).
+-deprecated({request,         5, next_major_release}).
+-deprecated({cancel_request,  1, next_major_release}).
+-deprecated({cancel_request,  2, next_major_release}).
+-deprecated({set_option,      2, next_major_release}).
+-deprecated({set_option,      3, next_major_release}).
+-deprecated({set_options,     1, next_major_release}).
+-deprecated({set_options,     2, next_major_release}).
+-deprecated({verify_cookies,  2, next_major_release}).
+-deprecated({verify_cookies,  3, next_major_release}).
+-deprecated({cookie_header,   1, next_major_release}).
+-deprecated({cookie_header,   2, next_major_release}).
+-deprecated({stream_next,     1, next_major_release}).
+-deprecated({default_profile, 0, next_major_release}).
+
+%% Deprecated
+-export([
+	 request/1, request/2, request/4, request/5,
 	 cancel_request/1, cancel_request/2,
 	 set_option/2, set_option/3,
 	 set_options/1, set_options/2,
-	 verify_cookies/2, verify_cookies/3, cookie_header/1, 
-	 cookie_header/2, stream_next/1,
-	 default_profile/0]).
+	 verify_cookies/2, verify_cookies/3, 
+	 cookie_header/1, cookie_header/2, 
+	 stream_next/1,
+	 default_profile/0
+	]).
 
 
 %%%=========================================================================

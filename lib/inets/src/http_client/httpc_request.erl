@@ -19,11 +19,12 @@
 
 -module(httpc_request).
 
--include("http_internal.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
 %%% Internal API
 -export([send/3, is_idempotent/1, is_client_closing/1]).
+
 
 %%%=========================================================================
 %%%  Internal application API
@@ -39,10 +40,9 @@
 %%                                   
 %% Description: Composes and sends a HTTP-request. 
 %%-------------------------------------------------------------------------
-send(SendAddr, #request{scheme = Scheme, socket_opts = SocketOpts} = Request, 
-     Socket) 
+send(SendAddr, #session{socket = Socket, socket_type = SocketType}, 
+     #request{socket_opts = SocketOpts} = Request) 
   when is_list(SocketOpts) -> 
-    SocketType = socket_type(Scheme), 
     case http_transport:setopts(SocketType, Socket, SocketOpts) of
 	ok ->
 	    send(SendAddr, Socket, SocketType, 
@@ -50,8 +50,7 @@ send(SendAddr, #request{scheme = Scheme, socket_opts = SocketOpts} = Request,
 	{error, Reason} ->
 	    {error, {setopts_failed, Reason}}
     end;
-send(SendAddr, #request{scheme = Scheme} = Request, Socket) ->
-    SocketType = socket_type(Scheme), 
+send(SendAddr, #session{socket = Socket, socket_type = SocketType}, Request) ->
     send(SendAddr, Socket, SocketType, Request).
     
 send(SendAddr, Socket, SocketType, 
@@ -209,10 +208,6 @@ headers(_, "HTTP/0.9") ->
 headers(Headers, _) ->
     Headers.
 
-socket_type(http) ->
-    ip_comm;
-socket_type(https) ->
-    {ssl, []}.
 
 http_headers([], Headers) ->
     lists:flatten(Headers);

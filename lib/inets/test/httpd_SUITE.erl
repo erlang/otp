@@ -32,44 +32,176 @@
 	 init_per_suite/1, end_per_suite/1]).
 
 %% Test cases must be exported.
--export([ip/1, ssl/1, http_1_1_ip/1, http_1_0_ip/1, http_0_9_ip/1,
-	 ipv6/1, tickets/1]).
+-export([
+	 ip/1, 
+	 ssl/1, pssl/1, ossl/1, essl/1, 
+	 http_1_1_ip/1, 
+	 http_1_0_ip/1, 
+	 http_0_9_ip/1,
+	 ipv6/1, 
+	 tickets/1
+	]).
 
 %% Core Server tests
--export([ip_mod_alias/1, ip_mod_actions/1, ip_mod_security/1, ip_mod_auth/1,
-	 ip_mod_auth_api/1, ip_mod_auth_mnesia_api/1, 
-	 ip_mod_htaccess/1, ip_mod_cgi/1, ip_mod_esi/1,
-	 ip_mod_get/1, ip_mod_head/1, ip_mod_all/1, ip_load_light/1,
-	 ip_load_medium/1, ip_load_heavy/1, ip_dos_hostname/1, 
-	 ip_time_test/1, ip_block_disturbing_idle/1, 
-	 ip_block_non_disturbing_idle/1, ip_block_503/1, 
-	 ip_block_disturbing_active/1, ip_block_non_disturbing_active/1, 
+-export([
+	 ip_mod_alias/1, 
+	 ip_mod_actions/1, 
+	 ip_mod_security/1, 
+	 ip_mod_auth/1,
+	 ip_mod_auth_api/1, 
+	 ip_mod_auth_mnesia_api/1, 
+	 ip_mod_htaccess/1, 
+	 ip_mod_cgi/1, 
+	 ip_mod_esi/1,
+	 ip_mod_get/1, 
+	 ip_mod_head/1, 
+	 ip_mod_all/1, 
+	 ip_load_light/1,
+	 ip_load_medium/1, 
+	 ip_load_heavy/1, 
+	 ip_dos_hostname/1, 
+	 ip_time_test/1, 
+	 ip_block_disturbing_idle/1, 
+	 ip_block_non_disturbing_idle/1, 
+	 ip_block_503/1, 
+	 ip_block_disturbing_active/1, 
+	 ip_block_non_disturbing_active/1, 
 	 ip_block_disturbing_active_timeout_not_released/1, 
 	 ip_block_disturbing_active_timeout_released/1, 
 	 ip_block_non_disturbing_active_timeout_not_released/1, 
 	 ip_block_non_disturbing_active_timeout_released/1, 
 	 ip_block_disturbing_blocker_dies/1, 
 	 ip_block_non_disturbing_blocker_dies/1, 
-	 ip_restart_no_block/1, ip_restart_disturbing_block/1, 
+	 ip_restart_no_block/1, 
+	 ip_restart_disturbing_block/1, 
 	 ip_restart_non_disturbing_block/1
 	]).
 
--export([ssl_mod_alias/1, ssl_mod_actions/1, ssl_mod_security/1, 
-	 ssl_mod_auth/1, ssl_mod_auth_api/1,  
-	 ssl_mod_auth_mnesia_api/1, ssl_mod_htaccess/1, 
-	 ssl_mod_cgi/1, ssl_mod_esi/1, ssl_mod_get/1, ssl_mod_head/1, 
-	 ssl_mod_all/1, ssl_load_light/1, ssl_load_medium/1, 
-	 ssl_load_heavy/1, ssl_dos_hostname/1, ssl_time_test/1,
-	 ssl_restart_no_block/1, ssl_restart_disturbing_block/1,
-	 ssl_restart_non_disturbing_block/1, ssl_block_disturbing_idle/1, 
-	 ssl_block_non_disturbing_idle/1, ssl_block_503/1, 
-	 ssl_block_disturbing_active/1, ssl_block_non_disturbing_active/1, 
-	 ssl_block_disturbing_active_timeout_not_released/1, 
-	 ssl_block_disturbing_active_timeout_released/1, 
-	 ssl_block_non_disturbing_active_timeout_not_released/1, 
-	 ssl_block_non_disturbing_active_timeout_released/1, 
-	 ssl_block_disturbing_blocker_dies/1, 
-	 ssl_block_non_disturbing_blocker_dies/1]).
+-export([
+	 pssl_mod_alias/1, 
+	 ossl_mod_alias/1, 
+	 essl_mod_alias/1, 
+	 
+	 pssl_mod_actions/1, 
+	 ossl_mod_actions/1, 
+	 essl_mod_actions/1, 
+	 
+	 pssl_mod_security/1, 
+	 ossl_mod_security/1, 
+	 essl_mod_security/1, 
+	 
+	 pssl_mod_auth/1, 
+	 ossl_mod_auth/1, 
+	 essl_mod_auth/1, 
+
+	 pssl_mod_auth_api/1,  
+	 ossl_mod_auth_api/1,  
+	 essl_mod_auth_api/1,  
+	 
+	 pssl_mod_auth_mnesia_api/1, 
+	 ossl_mod_auth_mnesia_api/1, 
+	 essl_mod_auth_mnesia_api/1, 
+	 
+	 pssl_mod_htaccess/1, 
+	 ossl_mod_htaccess/1, 
+	 essl_mod_htaccess/1, 
+	 
+	 pssl_mod_cgi/1, 
+	 ossl_mod_cgi/1, 
+	 essl_mod_cgi/1,
+ 
+	 pssl_mod_esi/1, 
+	 ossl_mod_esi/1, 
+	 essl_mod_esi/1, 
+
+	 pssl_mod_get/1, 
+	 ossl_mod_get/1, 
+	 essl_mod_get/1, 
+
+	 pssl_mod_head/1, 
+	 ossl_mod_head/1, 
+	 essl_mod_head/1, 
+	 
+	 pssl_mod_all/1, 
+	 ossl_mod_all/1, 
+	 essl_mod_all/1, 
+	 
+	 pssl_load_light/1, 
+	 ossl_load_light/1, 
+	 essl_load_light/1, 
+	 
+	 pssl_load_medium/1, 
+	 ossl_load_medium/1, 
+	 essl_load_medium/1, 
+
+	 pssl_load_heavy/1, 
+	 ossl_load_heavy/1, 
+	 essl_load_heavy/1, 
+
+	 pssl_dos_hostname/1, 
+	 ossl_dos_hostname/1, 
+	 essl_dos_hostname/1, 
+
+	 pssl_time_test/1, 
+	 ossl_time_test/1, 
+	 essl_time_test/1,
+	 
+	 pssl_restart_no_block/1, 
+	 ossl_restart_no_block/1, 
+	 essl_restart_no_block/1, 
+	 
+	 pssl_restart_disturbing_block/1, 
+	 ossl_restart_disturbing_block/1, 
+	 essl_restart_disturbing_block/1,
+	 
+	 pssl_restart_non_disturbing_block/1, 
+	 ossl_restart_non_disturbing_block/1, 
+	 essl_restart_non_disturbing_block/1, 
+	 
+	 pssl_block_disturbing_idle/1, 
+	 ossl_block_disturbing_idle/1, 
+	 essl_block_disturbing_idle/1, 
+
+	 pssl_block_non_disturbing_idle/1, 
+	 ossl_block_non_disturbing_idle/1, 
+	 essl_block_non_disturbing_idle/1, 
+	 
+	 pssl_block_503/1, 
+	 ossl_block_503/1, 
+	 essl_block_503/1, 
+
+	 pssl_block_disturbing_active/1, 
+	 ossl_block_disturbing_active/1, 
+	 essl_block_disturbing_active/1, 
+
+	 pssl_block_non_disturbing_active/1, 
+	 ossl_block_non_disturbing_active/1, 
+	 essl_block_non_disturbing_active/1, 
+
+	 pssl_block_disturbing_active_timeout_not_released/1, 
+	 ossl_block_disturbing_active_timeout_not_released/1, 
+	 essl_block_disturbing_active_timeout_not_released/1, 
+
+	 pssl_block_disturbing_active_timeout_released/1, 
+	 ossl_block_disturbing_active_timeout_released/1, 
+	 essl_block_disturbing_active_timeout_released/1, 
+
+	 pssl_block_non_disturbing_active_timeout_not_released/1, 
+	 ossl_block_non_disturbing_active_timeout_not_released/1, 
+	 essl_block_non_disturbing_active_timeout_not_released/1, 
+	 
+	 pssl_block_non_disturbing_active_timeout_released/1, 
+	 ossl_block_non_disturbing_active_timeout_released/1, 
+	 essl_block_non_disturbing_active_timeout_released/1, 
+
+	 pssl_block_disturbing_blocker_dies/1, 
+	 ossl_block_disturbing_blocker_dies/1, 
+	 essl_block_disturbing_blocker_dies/1, 
+
+	 pssl_block_non_disturbing_blocker_dies/1, 
+	 ossl_block_non_disturbing_blocker_dies/1, 
+	 essl_block_non_disturbing_blocker_dies/1
+	]).
 
 %%% HTTP 1.1 tests
 -export([ip_host/1, ip_chunked/1, ip_expect/1, ip_range/1,
@@ -103,8 +235,8 @@
 %% Seconds before successful auths timeout.
 -define(AUTH_TIMEOUT,5).
 
--record(httpd_user, {user_name, password, user_data}).
--record(httpd_group,{group_name, userlist}).
+-record(httpd_user,  {user_name, password, user_data}).
+-record(httpd_group, {group_name, userlist}).
 
 
 %%--------------------------------------------------------------------
@@ -197,9 +329,9 @@ init_per_testcase2(Case, Config) ->
 	      "~n   Config: ~p"
 	      "~n", [?MODULE, Case, Config]),
 
-    IpNormal = integer_to_list(?IP_PORT)    ++ ".conf",
-    IpHtacess = integer_to_list(?IP_PORT)   ++ "htacess.conf",
-    SslNormal = integer_to_list(?SSL_PORT)  ++ ".conf",
+    IpNormal   = integer_to_list(?IP_PORT)    ++ ".conf",
+    IpHtacess  = integer_to_list(?IP_PORT)   ++ "htacess.conf",
+    SslNormal  = integer_to_list(?SSL_PORT)  ++ ".conf",
     SslHtacess = integer_to_list(?SSL_PORT) ++ "htacess.conf",
 
     DataDir     = ?config(data_dir, Config),
@@ -210,8 +342,8 @@ init_per_testcase2(Case, Config) ->
 	      "~n   DataDir: ~p"
 	      "~n", [?MODULE, Case, SuiteTopDir, DataDir]),
     
-    TcTopDir  = filename:join(SuiteTopDir, Case),
-    ?line ok  = file:make_dir(TcTopDir),
+    TcTopDir = filename:join(SuiteTopDir, Case),
+    ?line ok = file:make_dir(TcTopDir),
 
     io:format(user, "~w:init_per_testcase2(~w) -> "
 	      "~n   TcTopDir: ~p"
@@ -267,9 +399,21 @@ init_per_testcase2(Case, Config) ->
     %% To be used by SSL test cases
     io:format(user, "~w:init_per_testcase2(~w) -> ssl testcase setups~n", 
 	      [?MODULE, Case]),
-    create_config([{port, ?SSL_PORT}, {sock_type, ssl} | NewConfig], 
+    SocketType = 
+	case atom_to_list(Case) of
+	    [X, $s, $s, $l | _] ->
+		case X of
+		    $p -> ssl;
+		    $o -> ossl;
+		    $e -> essl
+		end;
+	    _ ->
+		ssl
+	end,
+
+    create_config([{port, ?SSL_PORT}, {sock_type, SocketType} | NewConfig], 
 		  normal_acess, SslNormal),
-    create_config([{port, ?SSL_PORT}, {sock_type, ssl} | NewConfig],
+    create_config([{port, ?SSL_PORT}, {sock_type, SocketType} | NewConfig],
     		  mod_htaccess, SslHtacess),  
   
     %% To be used by IPv6 test cases. Case-clause is so that
@@ -300,8 +444,14 @@ init_per_testcase3(Case, Config) ->
     io:format(user, "~w:init_per_testcase3(~w) -> entry with"
 	      "~n   Config: ~p", [?MODULE, Case, Config]),
 
+    
+%%     %% Create a new fresh node to be used by the server in this test-case
+    
+%%     NodeName = list_to_atom(atom_to_list(Case) ++ "_httpd"), 
+%%     Node     = inets_test_lib:start_node(NodeName),
+    
     %% Clean up (we do not want this clean up in end_per_testcase
-    %% if init_per_testcase crases for some testcase it will
+    %% if init_per_testcase crashes for some testcase it will
     %% have contaminated the environment and there will be no clean up.)
     %% This init can take a few different paths so that one crashes
     %% does not mean that all invocations will.
@@ -310,15 +460,26 @@ init_per_testcase3(Case, Config) ->
     application:stop(inets),
     application:stop(ssl),
     cleanup_mnesia(),
-    
-    %% TraceLevel = max, 
-    TraceLevel = 70, 
-    TraceDest  = io, 
-    inets:enable_trace(TraceLevel, TraceDest),
 
+    %% Set trace
+    case lists:reverse(atom_to_list(Case)) of
+	"tset_emit" ++ _Rest -> % test-cases ending with time_test
+	    io:format(user, "~w:init_per_testcase3(~w) -> disabling trace", 
+		      [?MODULE, Case]),
+	    inets:disable_trace();
+	_ ->
+	    %% TraceLevel = max, 
+	    io:format(user, "~w:init_per_testcase3(~w) -> enabling trace", 
+		      [?MODULE, Case]),
+	    TraceLevel = 70, 
+	    TraceDest  = io, 
+	    inets:enable_trace(TraceLevel, TraceDest, httpd)
+    end,
+	    
     %% Start initialization
     io:format(user, "~w:init_per_testcase3(~w) -> start init", 
 	      [?MODULE, Case]),
+    
 
     Dog = test_server:timetrap(inets_test_lib:minutes(10)),
     NewConfig = lists:keydelete(watchdog, 1, Config),
@@ -351,22 +512,35 @@ init_per_testcase3(Case, Config) ->
 		  filename:join(TcTopDir,
 				integer_to_list(?IP_PORT) ++ ".conf")}]),
 		Rest;
-	    "ssl_mod_htaccess" ->
+
+	    [X, $s, $s, $l, $_, $m, $o, $d, $_, $h, $t, $a, $c, $c, $e, $s, $s] ->
+		SslTag = 
+		    case X of
+			$p -> ssl;  % plain
+			$o -> ossl; % OpenSSL based ssl
+			$e -> essl  % Erlang based ssl
+		    end,
 		case inets_test_lib:start_http_server_ssl(
 		       filename:join(TcTopDir,
 				     integer_to_list(?SSL_PORT) ++ 
-				     "htacess.conf")) of
+				     "htacess.conf"), SslTag) of
 		    ok ->
 			"mod_htaccess";
 		    Other ->
 			error_logger:info_report("Other: ~p~n", [Other]),
 			{skip, "SSL does not seem to be supported"}
 		end;
-	    "ssl_" ++ Rest ->
+	    [X, $s, $s, $l, $_ | Rest] ->
+		SslTag = 
+		    case X of
+			$p -> ssl;
+			$o -> ossl;
+			$e -> essl
+		    end,
 		case inets_test_lib:start_http_server_ssl(
 		       filename:join(TcTopDir,
 				     integer_to_list(?SSL_PORT) ++ 
-				     ".conf")) of
+				     ".conf"), SslTag) of
 		    ok ->
 			Rest;
 		    Other ->
@@ -431,6 +605,7 @@ end_per_testcase2(Case, Config) ->
     application:unset_env(inets, services),
     application:stop(inets),
     application:stop(ssl),     
+    application:stop(crypto), % used by the new ssl (essl test cases)  
     cleanup_mnesia(),
     io:format(user, "~w:end_per_testcase2(~w) -> done~n", 
 	      [?MODULE, Case]),
@@ -461,6 +636,9 @@ ip(suite) ->
      ip_load_heavy,
      ip_dos_hostname, 
      ip_time_test, 
+     ip_restart_no_block, 
+     ip_restart_disturbing_block, 
+     ip_restart_non_disturbing_block, 
      ip_block_disturbing_idle, 
      ip_block_non_disturbing_idle, 
      ip_block_503, 
@@ -471,10 +649,7 @@ ip(suite) ->
      ip_block_non_disturbing_active_timeout_not_released, 
      ip_block_non_disturbing_active_timeout_released, 
      ip_block_disturbing_blocker_dies, 
-     ip_block_non_disturbing_blocker_dies, 
-     ip_restart_no_block, 
-     ip_restart_disturbing_block, 
-     ip_restart_non_disturbing_block
+     ip_block_non_disturbing_blocker_dies
     ].
 
 %%-------------------------------------------------------------------------
@@ -482,38 +657,123 @@ ssl(doc) ->
     ["HTTP test using SSL"];
 ssl(suite) ->
     [
-     ssl_mod_alias, 
-     ssl_mod_actions, 
-     ssl_mod_security, 
-     ssl_mod_auth,
-     ssl_mod_auth_api, 
-     ssl_mod_auth_mnesia_api,
-     ssl_mod_htaccess, 
-     ssl_mod_cgi, 
-     ssl_mod_esi,
-     ssl_mod_get, 
-     ssl_mod_head, 
-     ssl_mod_all, 
-     ssl_load_light, 
-     ssl_load_medium,
-     ssl_load_heavy, 
-     ssl_dos_hostname, 
-     ssl_time_test,
-     ssl_restart_no_block, 
-     ssl_restart_disturbing_block,
-     ssl_restart_non_disturbing_block, 
-     ssl_block_disturbing_idle, 
-     ssl_block_non_disturbing_idle, 
-     ssl_block_503,
-     ssl_block_disturbing_active, 
-     ssl_block_non_disturbing_active, 
-     ssl_block_disturbing_active_timeout_not_released, 
-     ssl_block_disturbing_active_timeout_released, 
-     ssl_block_non_disturbing_active_timeout_not_released, 
-     ssl_block_non_disturbing_active_timeout_released, 
-     ssl_block_disturbing_blocker_dies,
-     ssl_block_non_disturbing_blocker_dies
+     pssl, 
+     ossl, 
+     essl
     ].
+
+
+pssl(doc) ->
+    ["HTTP test using SSL - using old way of configuring SSL"];
+pssl(suite) ->
+    [
+     pssl_mod_alias, 
+     pssl_mod_actions, 
+     pssl_mod_security, 
+     pssl_mod_auth,
+     pssl_mod_auth_api, 
+     pssl_mod_auth_mnesia_api,
+     pssl_mod_htaccess, 
+     pssl_mod_cgi, 
+     pssl_mod_esi,
+     pssl_mod_get, 
+     pssl_mod_head, 
+     pssl_mod_all, 
+     pssl_load_light, 
+     pssl_load_medium,
+     pssl_load_heavy, 
+     pssl_dos_hostname, 
+     pssl_time_test,
+     pssl_restart_no_block, 
+     pssl_restart_disturbing_block,
+     pssl_restart_non_disturbing_block, 
+     pssl_block_disturbing_idle, 
+     pssl_block_non_disturbing_idle, 
+     pssl_block_503,
+     pssl_block_disturbing_active, 
+     pssl_block_non_disturbing_active, 
+     pssl_block_disturbing_active_timeout_not_released, 
+     pssl_block_disturbing_active_timeout_released, 
+     pssl_block_non_disturbing_active_timeout_not_released, 
+     pssl_block_non_disturbing_active_timeout_released, 
+     pssl_block_disturbing_blocker_dies,
+     pssl_block_non_disturbing_blocker_dies
+    ].
+
+ossl(doc) ->
+    ["HTTP test using SSL - using new way of configuring usage of old SSL"];
+ossl(suite) ->
+    [
+     ossl_mod_alias, 
+     ossl_mod_actions, 
+     ossl_mod_security,  
+     ossl_mod_auth,
+     ossl_mod_auth_api, 
+     ossl_mod_auth_mnesia_api,
+     ossl_mod_htaccess, 
+     ossl_mod_cgi, 
+     ossl_mod_esi,
+     ossl_mod_get, 
+     ossl_mod_head, 
+     ossl_mod_all, 
+     ossl_load_light, 
+     ossl_load_medium,
+     ossl_load_heavy, 
+     ossl_dos_hostname, 
+     ossl_time_test,
+     ossl_restart_no_block, 
+     ossl_restart_disturbing_block,
+     ossl_restart_non_disturbing_block, 
+     ossl_block_disturbing_idle, 
+     ossl_block_non_disturbing_idle, 
+     ossl_block_503,
+     ossl_block_disturbing_active, 
+     ossl_block_non_disturbing_active, 
+     ossl_block_disturbing_active_timeout_not_released, 
+     ossl_block_disturbing_active_timeout_released, 
+     ossl_block_non_disturbing_active_timeout_not_released, 
+     ossl_block_non_disturbing_active_timeout_released, 
+     ossl_block_disturbing_blocker_dies,
+     ossl_block_non_disturbing_blocker_dies
+    ].
+
+essl(doc) ->
+    ["HTTP test using SSL - using new way of configuring usage of new SSL"];
+essl(suite) ->
+    [
+     essl_mod_alias, 
+     essl_mod_actions, 
+     essl_mod_security, 
+     essl_mod_auth,
+     essl_mod_auth_api, 
+     essl_mod_auth_mnesia_api,
+     essl_mod_htaccess, 
+     essl_mod_cgi, 
+     essl_mod_esi,
+     essl_mod_get, 
+     essl_mod_head, 
+     essl_mod_all, 
+     essl_load_light, 
+     essl_load_medium,
+     essl_load_heavy, 
+     essl_dos_hostname, 
+     essl_time_test,
+     essl_restart_no_block, 
+     essl_restart_disturbing_block,
+     essl_restart_non_disturbing_block, 
+     essl_block_disturbing_idle, 
+     essl_block_non_disturbing_idle, 
+     essl_block_503,
+     essl_block_disturbing_active, 
+     essl_block_non_disturbing_active, 
+     essl_block_disturbing_active_timeout_not_released, 
+     essl_block_disturbing_active_timeout_released, 
+     essl_block_non_disturbing_active_timeout_not_released, 
+     essl_block_non_disturbing_active_timeout_released, 
+     essl_block_disturbing_blocker_dies,
+     essl_block_non_disturbing_blocker_dies
+    ].
+
 
 %%-------------------------------------------------------------------------
 http_1_1_ip(doc) ->
@@ -721,6 +981,8 @@ ip_load_heavy(Config) when is_list(Config) ->
 			  ?config(node, Config),
 			  get_nof_clients(ip_comm, heavy)),
     ok.
+
+
 %%-------------------------------------------------------------------------
 ip_dos_hostname(doc) ->
     ["Denial Of Service (DOS) attack test case"];
@@ -730,6 +992,8 @@ ip_dos_hostname(Config) when is_list(Config) ->
     dos_hostname(ip_comm, ?IP_PORT, ?config(host, Config), 
 		 ?config(node, Config), ?MAX_HEADER_SIZE),
     ok.
+
+
 %%-------------------------------------------------------------------------
 ip_time_test(doc) ->
     [""];
@@ -966,352 +1230,1042 @@ ip_restart_non_disturbing_block(Config) when is_list(Config) ->
     ok.
 
 %%-------------------------------------------------------------------------
-ssl_mod_alias(doc) -> 
-    ["Module test: mod_alias"];
-ssl_mod_alias(suite) -> 
+
+pssl_mod_alias(doc) -> 
+    ["Module test: mod_alias - old SSL config"];
+pssl_mod_alias(suite) -> 
     [];
-ssl_mod_alias(Config) when is_list(Config) ->
-    httpd_mod:alias(ssl, ?SSL_PORT, 
+pssl_mod_alias(Config) when is_list(Config) ->
+    ssl_mod_alias(ssl, Config).
+
+ossl_mod_alias(doc) -> 
+    ["Module test: mod_alias - using new of configure old SSL"];
+ossl_mod_alias(suite) -> 
+    [];
+ossl_mod_alias(Config) when is_list(Config) ->
+    ssl_mod_alias(ossl, Config).
+
+essl_mod_alias(doc) -> 
+    ["Module test: mod_alias - using new of configure new SSL"];
+essl_mod_alias(suite) -> 
+    [];
+essl_mod_alias(Config) when is_list(Config) ->
+    ssl_mod_alias(essl, Config).
+
+
+ssl_mod_alias(Tag, Config) ->
+    httpd_mod:alias(Tag, ?SSL_PORT, 
 		    ?config(host, Config), ?config(node, Config)),
     ok. 
-%%-------------------------------------------------------------------------
-ssl_mod_actions(doc) -> 
-    ["Module test: mod_actions"];
-ssl_mod_actions(suite) -> 
-    [];
-ssl_mod_actions(Config) when is_list(Config) ->
-    httpd_mod:actions(ssl, ?SSL_PORT, 
-		      ?config(host, Config), ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_mod_security(doc) -> 
-    ["Module test: mod_security"];
-ssl_mod_security(suite) -> 
-    [];
-ssl_mod_security(Config) when is_list(Config) ->
-    ServerRoot = ?config(server_root, Config), 
-    httpd_mod:security(ServerRoot, ssl, ?SSL_PORT, 
-		       ?config(host, Config), ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_mod_auth(doc) -> 
-    ["Module test: mod_auth"];
-ssl_mod_auth(suite) -> 
-    [];
-ssl_mod_auth(Config) when is_list(Config) ->
-    httpd_mod:auth(ssl, ?SSL_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_mod_auth_api(doc) -> 
-    ["Module test: mod_auth"];
-ssl_mod_auth_api(suite) -> 
-    [];
-ssl_mod_auth_api(Config) when is_list(Config) ->
-    ServerRoot = ?config(server_root, Config), 
-    Host =  ?config(host, Config),
-    Node = ?config(node, Config),
-    httpd_mod:auth_api(ServerRoot, "", ssl, ?SSL_PORT, Host, Node),
-    httpd_mod:auth_api(ServerRoot, "dets_", ssl, ?SSL_PORT, Host, Node),
-    httpd_mod:auth_api(ServerRoot, "mnesia_", ssl, ?SSL_PORT, Host, Node),
-    ok. 
+
 
 %%-------------------------------------------------------------------------
-ssl_mod_auth_mnesia_api(doc) -> 
-    ["Module test: mod_auth_mnesia_api"];
-ssl_mod_auth_mnesia_api(suite) -> 
+
+pssl_mod_actions(doc) -> 
+    ["Module test: mod_actions - old SSL config"];
+pssl_mod_actions(suite) -> 
     [];
-ssl_mod_auth_mnesia_api(Config) when is_list(Config) ->
-    httpd_mod:auth_mnesia_api(ssl, ?SSL_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
+pssl_mod_actions(Config) when is_list(Config) ->
+    ssl_mod_actions(ssl, Config).
+
+ossl_mod_actions(doc) -> 
+    ["Module test: mod_actions - using new of configure old SSL"];
+ossl_mod_actions(suite) -> 
+    [];
+ossl_mod_actions(Config) when is_list(Config) ->
+    ssl_mod_actions(ossl, Config).
+
+essl_mod_actions(doc) -> 
+    ["Module test: mod_actions - using new of configure new SSL"];
+essl_mod_actions(suite) -> 
+    [];
+essl_mod_actions(Config) when is_list(Config) ->
+    ssl_mod_actions(essl, Config).
+
+
+ssl_mod_actions(Tag, Config) ->
+    httpd_mod:actions(Tag, 
+		      ?SSL_PORT, 
+		      ?config(host, Config), 
+		      ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_mod_htaccess(doc) -> 
-    ["Module test: mod_htaccess"];
-ssl_mod_htaccess(suite) -> 
+
+pssl_mod_security(doc) -> 
+    ["Module test: mod_security - old SSL config"];
+pssl_mod_security(suite) -> 
     [];
-ssl_mod_htaccess(Config) when is_list(Config) ->
-    httpd_mod:htaccess(ssl, ?SSL_PORT, 
-		       ?config(host, Config), ?config(node, Config)),
+pssl_mod_security(Config) when is_list(Config) ->
+    ssl_mod_security(ssl, Config).
+
+ossl_mod_security(doc) -> 
+    ["Module test: mod_security - using new of configure old SSL"];
+ossl_mod_security(suite) -> 
+    [];
+ossl_mod_security(Config) when is_list(Config) ->
+    ssl_mod_security(ossl, Config).
+
+essl_mod_security(doc) -> 
+    ["Module test: mod_security - using new of configure new SSL"];
+essl_mod_security(suite) -> 
+    [];
+essl_mod_security(Config) when is_list(Config) ->
+    ssl_mod_security(essl, Config).
+
+ssl_mod_security(Tag, Config) ->
+    ServerRoot = ?config(server_root, Config), 
+    httpd_mod:security(ServerRoot, 
+		       Tag, 
+		       ?SSL_PORT, 
+		       ?config(host, Config), 
+		       ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_mod_cgi(doc) ->
-    ["Module test: mod_cgi"];
-ssl_mod_cgi(suite) ->
+
+pssl_mod_auth(doc) -> 
+    ["Module test: mod_auth - old SSL config"];
+pssl_mod_auth(suite) -> 
     [];
-ssl_mod_cgi(Config) when is_list(Config) ->
+pssl_mod_auth(Config) when is_list(Config) ->
+    ssl_mod_auth(ssl, Config).
+
+ossl_mod_auth(doc) -> 
+    ["Module test: mod_auth - using new of configure old SSL"];
+ossl_mod_auth(suite) -> 
+    [];
+ossl_mod_auth(Config) when is_list(Config) ->
+    ssl_mod_auth(ossl, Config).
+
+essl_mod_auth(doc) -> 
+    ["Module test: mod_auth - using new of configure new SSL"];
+essl_mod_auth(suite) -> 
+    [];
+essl_mod_auth(Config) when is_list(Config) ->
+    ssl_mod_auth(essl, Config).
+
+ssl_mod_auth(Tag, Config) ->
+    httpd_mod:auth(Tag, 
+		   ?SSL_PORT, 
+		   ?config(host, Config), 
+		   ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_auth_api(doc) -> 
+    ["Module test: mod_auth - old SSL config"];
+pssl_mod_auth_api(suite) -> 
+    [];
+pssl_mod_auth_api(Config) when is_list(Config) ->
+    ssl_mod_auth_api(ssl, Config).
+
+ossl_mod_auth_api(doc) -> 
+    ["Module test: mod_auth - using new of configure old SSL"];
+ossl_mod_auth_api(suite) -> 
+    [];
+ossl_mod_auth_api(Config) when is_list(Config) ->
+    ssl_mod_auth_api(ossl, Config).
+
+essl_mod_auth_api(doc) -> 
+    ["Module test: mod_auth - using new of configure new SSL"];
+essl_mod_auth_api(suite) -> 
+    [];
+essl_mod_auth_api(Config) when is_list(Config) ->
+    ssl_mod_auth_api(essl, Config).
+
+ssl_mod_auth_api(Tag, Config) ->
+    ServerRoot = ?config(server_root, Config), 
+    Host       =  ?config(host, Config),
+    Node       = ?config(node, Config),
+    httpd_mod:auth_api(ServerRoot, "",        Tag, ?SSL_PORT, Host, Node),
+    httpd_mod:auth_api(ServerRoot, "dets_",   Tag, ?SSL_PORT, Host, Node),
+    httpd_mod:auth_api(ServerRoot, "mnesia_", Tag, ?SSL_PORT, Host, Node),
+    ok. 
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_auth_mnesia_api(doc) -> 
+    ["Module test: mod_auth_mnesia_api - old SSL config"];
+pssl_mod_auth_mnesia_api(suite) -> 
+    [];
+pssl_mod_auth_mnesia_api(Config) when is_list(Config) ->
+    ssl_mod_auth_mnesia_api(ssl, Config).
+
+ossl_mod_auth_mnesia_api(doc) -> 
+    ["Module test: mod_auth_mnesia_api - using new of configure old SSL"];
+ossl_mod_auth_mnesia_api(suite) -> 
+    [];
+ossl_mod_auth_mnesia_api(Config) when is_list(Config) ->
+    ssl_mod_auth_mnesia_api(ossl, Config).
+
+essl_mod_auth_mnesia_api(doc) -> 
+    ["Module test: mod_auth_mnesia_api - using new of configure new SSL"];
+essl_mod_auth_mnesia_api(suite) -> 
+    [];
+essl_mod_auth_mnesia_api(Config) when is_list(Config) ->
+    ssl_mod_auth_mnesia_api(essl, Config).
+
+ssl_mod_auth_mnesia_api(Tag, Config) ->
+    httpd_mod:auth_mnesia_api(Tag, 
+			      ?SSL_PORT, 
+			      ?config(host, Config), 
+			      ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_htaccess(doc) -> 
+    ["Module test: mod_htaccess - old SSL config"];
+pssl_mod_htaccess(suite) -> 
+    [];
+pssl_mod_htaccess(Config) when is_list(Config) ->
+    ssl_mod_htaccess(ssl, Config).
+
+ossl_mod_htaccess(doc) -> 
+    ["Module test: mod_htaccess - using new of configure old SSL"];
+ossl_mod_htaccess(suite) -> 
+    [];
+ossl_mod_htaccess(Config) when is_list(Config) ->
+    ssl_mod_htaccess(ossl, Config).
+
+essl_mod_htaccess(doc) -> 
+    ["Module test: mod_htaccess - using new of configure new SSL"];
+essl_mod_htaccess(suite) -> 
+    [];
+essl_mod_htaccess(Config) when is_list(Config) ->
+    ssl_mod_htaccess(essl, Config).
+
+ssl_mod_htaccess(Tag, Config) ->
+    httpd_mod:htaccess(Tag, 
+		       ?SSL_PORT, 
+		       ?config(host, Config), 
+		       ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_cgi(doc) ->
+    ["Module test: mod_cgi - old SSL config"];
+pssl_mod_cgi(suite) ->
+    [];
+pssl_mod_cgi(Config) when is_list(Config) ->
+    ssl_mod_cgi(ssl, Config).
+
+ossl_mod_cgi(doc) ->
+    ["Module test: mod_cgi - using new of configure old SSL"];
+ossl_mod_cgi(suite) ->
+    [];
+ossl_mod_cgi(Config) when is_list(Config) ->
+    ssl_mod_cgi(ossl, Config).
+
+essl_mod_cgi(doc) ->
+    ["Module test: mod_cgi - using new of configure new SSL"];
+essl_mod_cgi(suite) ->
+    [];
+essl_mod_cgi(Config) when is_list(Config) ->
+    ssl_mod_cgi(essl, Config).
+
+ssl_mod_cgi(Tag, Config) ->
     case test_server:os_type() of
 	vxworks ->
 	    {skip, cgi_not_supported_on_vxwoks};
 	_ ->
-	    httpd_mod:cgi(ssl, ?SSL_PORT, 
-			  ?config(host, Config), ?config(node, Config)),
+	    httpd_mod:cgi(Tag, 
+			  ?SSL_PORT, 
+			  ?config(host, Config), 
+			  ?config(node, Config)),
 	    ok
     end.
-%%-------------------------------------------------------------------------
-ssl_mod_esi(doc) ->
-    ["Module test: mod_esi"];
-ssl_mod_esi(suite) ->
-    [];
-ssl_mod_esi(Config) when is_list(Config) ->
-    httpd_mod:esi(ssl, ?SSL_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
-    ok.
+
 
 %%-------------------------------------------------------------------------
-ssl_mod_get(doc) ->
-    ["Module test: mod_get"];
-ssl_mod_get(suite) ->
+
+pssl_mod_esi(doc) ->
+    ["Module test: mod_esi - old SSL config"];
+pssl_mod_esi(suite) ->
     [];
-ssl_mod_get(Config) when is_list(Config) ->
-    httpd_mod:get(ssl, ?SSL_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_mod_head(doc) ->
-    ["Module test: mod_head"];
-ssl_mod_head(suite) ->
+pssl_mod_esi(Config) when is_list(Config) ->
+    ssl_mod_esi(ssl, Config).
+
+ossl_mod_esi(doc) ->
+    ["Module test: mod_esi - using new of configure old SSL"];
+ossl_mod_esi(suite) ->
     [];
-ssl_mod_head(Config) when is_list(Config) ->
-    httpd_mod:head(ssl, ?SSL_PORT, 
-		   ?config(host, Config), ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_mod_all(doc) ->
-    ["All modules test"];
-ssl_mod_all(suite) ->
+ossl_mod_esi(Config) when is_list(Config) ->
+    ssl_mod_esi(ossl, Config).
+
+essl_mod_esi(doc) ->
+    ["Module test: mod_esi - using new of configure new SSL"];
+essl_mod_esi(suite) ->
     [];
-ssl_mod_all(Config) when is_list(Config) ->
-    httpd_mod:all(ssl, ?SSL_PORT, 
-		  ?config(host, Config), ?config(node, Config)),
+essl_mod_esi(Config) when is_list(Config) ->
+    ssl_mod_esi(essl, Config).
+
+ssl_mod_esi(Tag, Config) ->
+    httpd_mod:esi(Tag, 
+		  ?SSL_PORT, 
+		  ?config(host, Config), 
+		  ?config(node, Config)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_load_light(doc) ->
-    ["Test light load"];
-ssl_load_light(suite) ->
+
+pssl_mod_get(doc) ->
+    ["Module test: mod_get - old SSL config"];
+pssl_mod_get(suite) ->
     [];
-ssl_load_light(Config) when is_list(Config) ->
-    httpd_load:load_test(ssl, ?SSL_PORT, ?config(host, Config), 
+pssl_mod_get(Config) when is_list(Config) ->
+    ssl_mod_get(ssl, Config).
+
+ossl_mod_get(doc) ->
+    ["Module test: mod_get - using new of configure old SSL"];
+ossl_mod_get(suite) ->
+    [];
+ossl_mod_get(Config) when is_list(Config) ->
+    ssl_mod_get(ossl, Config).
+
+essl_mod_get(doc) ->
+    ["Module test: mod_get - using new of configure new SSL"];
+essl_mod_get(suite) ->
+    [];
+essl_mod_get(Config) when is_list(Config) ->
+    ssl_mod_get(essl, Config).
+
+ssl_mod_get(Tag, Config) ->
+    httpd_mod:get(Tag, 
+		  ?SSL_PORT, 
+		  ?config(host, Config), 
+		  ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_head(doc) ->
+    ["Module test: mod_head - old SSL config"];
+pssl_mod_head(suite) ->
+    [];
+pssl_mod_head(Config) when is_list(Config) ->
+    ssl_mod_head(ssl, Config).
+
+ossl_mod_head(doc) ->
+    ["Module test: mod_head - using new of configure old SSL"];
+ossl_mod_head(suite) ->
+    [];
+ossl_mod_head(Config) when is_list(Config) ->
+    ssl_mod_head(ossl, Config).
+
+essl_mod_head(doc) ->
+    ["Module test: mod_head - using new of configure new SSL"];
+essl_mod_head(suite) ->
+    [];
+essl_mod_head(Config) when is_list(Config) ->
+    ssl_mod_head(essl, Config).
+
+ssl_mod_head(Tag, Config) ->
+    httpd_mod:head(Tag, 
+		   ?SSL_PORT, 
+		   ?config(host, Config), 
+		   ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_mod_all(doc) ->
+    ["All modules test - old SSL config"];
+pssl_mod_all(suite) ->
+    [];
+pssl_mod_all(Config) when is_list(Config) ->
+    ssl_mod_all(ssl, Config).
+
+ossl_mod_all(doc) ->
+    ["All modules test - using new of configure old SSL"];
+ossl_mod_all(suite) ->
+    [];
+ossl_mod_all(Config) when is_list(Config) ->
+    ssl_mod_all(ossl, Config).
+
+essl_mod_all(doc) ->
+    ["All modules test - using new of configure new SSL"];
+essl_mod_all(suite) ->
+    [];
+essl_mod_all(Config) when is_list(Config) ->
+    ssl_mod_all(essl, Config).
+
+ssl_mod_all(Tag, Config) ->
+    httpd_mod:all(Tag, 
+		  ?SSL_PORT, 
+		  ?config(host, Config), 
+		  ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_load_light(doc) ->
+    ["Test light load - old SSL config"];
+pssl_load_light(suite) ->
+    [];
+pssl_load_light(Config) when is_list(Config) ->
+    ssl_load_light(ssl, Config).
+
+ossl_load_light(doc) ->
+    ["Test light load - using new of configure old SSL"];
+ossl_load_light(suite) ->
+    [];
+ossl_load_light(Config) when is_list(Config) ->
+    ssl_load_light(ossl, Config).
+
+essl_load_light(doc) ->
+    ["Test light load - using new of configure new SSL"];
+essl_load_light(suite) ->
+    [];
+essl_load_light(Config) when is_list(Config) ->
+    ssl_load_light(essl, Config).
+
+ssl_load_light(Tag, Config) ->
+    httpd_load:load_test(Tag, 
+			 ?SSL_PORT, 
+			 ?config(host, Config), 
 			 ?config(node, Config),
 			 get_nof_clients(ssl, light)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_load_medium(doc) ->
-    ["Test medium load"];
-ssl_load_medium(suite) ->
+
+pssl_load_medium(doc) ->
+    ["Test medium load - old SSL config"];
+pssl_load_medium(suite) ->
     [];
-ssl_load_medium(Config) when is_list(Config) ->
+pssl_load_medium(Config) when is_list(Config) ->
+    ssl_load_medium(ssl, Config).
+
+ossl_load_medium(doc) ->
+    ["Test medium load - using new of configure old SSL"];
+ossl_load_medium(suite) ->
+    [];
+ossl_load_medium(Config) when is_list(Config) ->
+    ssl_load_medium(ossl, Config).
+
+essl_load_medium(doc) ->
+    ["Test medium load - using new of configure new SSL"];
+essl_load_medium(suite) ->
+    [];
+essl_load_medium(Config) when is_list(Config) ->
+    ssl_load_medium(essl, Config).
+
+ssl_load_medium(Tag, Config) ->
     %% <CONDITIONAL-SKIP>
     Skippable = [win32],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
 
-    httpd_load:load_test(ssl, ?SSL_PORT, ?config(host, Config), 
+    httpd_load:load_test(Tag, 
+			 ?SSL_PORT, 
+			 ?config(host, Config), 
 			 ?config(node, Config),
 			 get_nof_clients(ssl, medium)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_load_heavy(doc) ->
-    ["Test heavy load"];
-ssl_load_heavy(suite) ->
+
+pssl_load_heavy(doc) ->
+    ["Test heavy load - old SSL config"];
+pssl_load_heavy(suite) ->
     [];
-ssl_load_heavy(Config) when is_list(Config) ->
+pssl_load_heavy(Config) when is_list(Config) ->
+    ssl_load_heavy(ssl, Config).
+
+ossl_load_heavy(doc) ->
+    ["Test heavy load - using new of configure old SSL"];
+ossl_load_heavy(suite) ->
+    [];
+ossl_load_heavy(Config) when is_list(Config) ->
+    ssl_load_heavy(ossl, Config).
+
+essl_load_heavy(doc) ->
+    ["Test heavy load - using new of configure new SSL"];
+essl_load_heavy(suite) ->
+    [];
+essl_load_heavy(Config) when is_list(Config) ->
+    ssl_load_heavy(essl, Config).
+
+ssl_load_heavy(Tag, Config) ->
     %% <CONDITIONAL-SKIP>
     Skippable = [win32],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
 
-    httpd_load:load_test(ssl, ?SSL_PORT, ?config(host, Config), 
+    httpd_load:load_test(Tag, 
+			 ?SSL_PORT, 
+			 ?config(host, Config), 
 			 ?config(node, Config),
 			 get_nof_clients(ssl, heavy)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_dos_hostname(doc) ->
-    ["Denial Of Service (DOS) attack test case"];
-ssl_dos_hostname(suite) ->
+
+pssl_dos_hostname(doc) ->
+    ["Denial Of Service (DOS) attack test case - old SSL config"];
+pssl_dos_hostname(suite) ->
     [];
-ssl_dos_hostname(Config) when is_list(Config) ->
-    dos_hostname(ssl, ?SSL_PORT, ?config(host, Config), 
-		 ?config(node, Config), ?MAX_HEADER_SIZE),
+pssl_dos_hostname(Config) when is_list(Config) ->
+    ssl_dos_hostname(ssl, Config).
+
+ossl_dos_hostname(doc) ->
+    ["Denial Of Service (DOS) attack test case - using new of configure old SSL"];
+ossl_dos_hostname(suite) ->
+    [];
+ossl_dos_hostname(Config) when is_list(Config) ->
+    ssl_dos_hostname(ossl, Config).
+
+essl_dos_hostname(doc) ->
+    ["Denial Of Service (DOS) attack test case - using new of configure new SSL"];
+essl_dos_hostname(suite) ->
+    [];
+essl_dos_hostname(Config) when is_list(Config) ->
+    ssl_dos_hostname(essl, Config).
+
+ssl_dos_hostname(Tag, Config) ->
+    dos_hostname(Tag, 
+		 ?SSL_PORT, 
+		 ?config(host, Config), 
+		 ?config(node, Config), 
+		 ?MAX_HEADER_SIZE),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_time_test(doc) ->
-    [""];
-ssl_time_test(suite) ->
+
+pssl_time_test(doc) ->
+    ["old SSL config"];
+pssl_time_test(suite) ->
     [];
-ssl_time_test(Config) when is_list(Config) ->
+pssl_time_test(Config) when is_list(Config) ->
+    ssl_time_test(ssl, Config).
+
+ossl_time_test(doc) ->
+    ["using new of configure old SSL"];
+ossl_time_test(suite) ->
+    [];
+ossl_time_test(Config) when is_list(Config) ->
+    ssl_time_test(ossl, Config).
+
+essl_time_test(doc) ->
+    ["using new of configure new SSL"];
+essl_time_test(suite) ->
+    [];
+essl_time_test(Config) when is_list(Config) ->
+    ssl_time_test(essl, Config).
+
+ssl_time_test(Tag, Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
-    Condition = fun() -> true end,
+    Skippable = [win32],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
     
-    httpd_time_test:t(ssl, ?config(host, Config), ?SSL_PORT),
+    httpd_time_test:t(Tag, 
+		      ?config(host, Config), 
+		      ?SSL_PORT),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_block_503(doc) ->
+
+pssl_block_503(doc) ->
     ["Check that you will receive status code 503 when the server"
-     " is blocked and 200 when its not blocked."];
-ssl_block_503(suite) ->
+     " is blocked and 200 when its not blocked - old SSL config."];
+pssl_block_503(suite) ->
     [];
-ssl_block_503(Config) when is_list(Config) ->
-    httpd_block:block_503(ssl, ?SSL_PORT, ?config(host, Config), 
+pssl_block_503(Config) when is_list(Config) ->
+    ssl_block_503(ssl, Config).
+
+ossl_block_503(doc) ->
+    ["Check that you will receive status code 503 when the server"
+     " is blocked and 200 when its not blocked - using new of configure old SSL."];
+ossl_block_503(suite) ->
+    [];
+ossl_block_503(Config) when is_list(Config) ->
+    ssl_block_503(ossl, Config).
+
+essl_block_503(doc) ->
+    ["Check that you will receive status code 503 when the server"
+     " is blocked and 200 when its not blocked - using new of configure new SSL."];
+essl_block_503(suite) ->
+    [];
+essl_block_503(Config) when is_list(Config) ->
+    ssl_block_503(essl, Config).
+
+ssl_block_503(Tag, Config) ->
+    httpd_block:block_503(Tag, 
+			  ?SSL_PORT, 
+			  ?config(host, Config), 
 			  ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_block_disturbing_idle(doc) ->
+
+pssl_block_disturbing_idle(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
-     "distribing does not really make a difference in this case."];
-ssl_block_disturbing_idle(suite) ->
+     "distribing does not really make a difference in this case." 
+     "Old SSL config"];
+pssl_block_disturbing_idle(suite) ->
     [];
-ssl_block_disturbing_idle(Config) when is_list(Config) ->
-    httpd_block:block_disturbing_idle(ssl, ?SSL_PORT, 
+pssl_block_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_disturbing_idle(ssl, Config).
+
+ossl_block_disturbing_idle(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "distribing does not really make a difference in this case." 
+     "Using new of configure old SSL"];
+ossl_block_disturbing_idle(suite) ->
+    [];
+ossl_block_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_disturbing_idle(ossl, Config).
+
+essl_block_disturbing_idle(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "distribing does not really make a difference in this case." 
+     "Using new of configure new SSL"];
+essl_block_disturbing_idle(suite) ->
+    [];
+essl_block_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_disturbing_idle(essl, Config).
+
+ssl_block_disturbing_idle(Tag, Config) ->
+    httpd_block:block_disturbing_idle(Tag, 
+				      ?SSL_PORT, 
 				      ?config(host, Config), 
 				      ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_block_non_disturbing_idle(doc) ->
+
+pssl_block_non_disturbing_idle(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
-     "non distribing does not really make a difference in this case."];
-ssl_block_non_disturbing_idle(suite) ->
+     "non distribing does not really make a difference in this case." 
+     "Old SSL config"];
+pssl_block_non_disturbing_idle(suite) ->
     [];
-ssl_block_non_disturbing_idle(Config) when is_list(Config) ->
-    httpd_block:block_non_disturbing_idle(ssl, ?SSL_PORT, 
-					  ?config(host, Config), 
-					  ?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_block_disturbing_active(doc) ->
-    ["Check that you can block/unblock an active server. The strategy " 
-     "distribing means ongoing requests should be terminated."];
-ssl_block_disturbing_active(suite) ->
-    [];
-ssl_block_disturbing_active(Config) when is_list(Config) ->
-    httpd_block:block_disturbing_active(ssl, ?SSL_PORT, 
-					?config(host, Config), 
-					?config(node, Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_block_non_disturbing_active(doc) ->
+pssl_block_non_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_idle(ssl, Config).
+
+ossl_block_non_disturbing_idle(doc) ->
     ["Check that you can block/unblock an idle server. The strategy " 
-     "non distribing means the ongoing requests should be compleated."];
-ssl_block_non_disturbing_active(suite) ->
+     "non distribing does not really make a difference in this case." 
+     "Using new of configure old SSL"];
+ossl_block_non_disturbing_idle(suite) ->
     [];
-ssl_block_non_disturbing_active(Config) when is_list(Config) ->
-    httpd_block:block_non_disturbing_idle(ssl, ?SSL_PORT, 
+ossl_block_non_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_idle(ossl, Config).
+
+essl_block_non_disturbing_idle(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "non distribing does not really make a difference in this case." 
+     "Using new of configure new SSL"];
+essl_block_non_disturbing_idle(suite) ->
+    [];
+essl_block_non_disturbing_idle(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_idle(essl, Config).
+
+ssl_block_non_disturbing_idle(Tag, Config) ->
+    httpd_block:block_non_disturbing_idle(Tag, 
+					  ?SSL_PORT, 
 					  ?config(host, Config), 
 					  ?config(node, Config)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_block_disturbing_active_timeout_not_released(doc) ->
+
+pssl_block_disturbing_active(doc) ->
+    ["Check that you can block/unblock an active server. The strategy " 
+     "distribing means ongoing requests should be terminated." 
+     "Old SSL config"];
+pssl_block_disturbing_active(suite) ->
+    [];
+pssl_block_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_disturbing_active(ssl, Config).
+
+ossl_block_disturbing_active(doc) ->
+    ["Check that you can block/unblock an active server. The strategy " 
+     "distribing means ongoing requests should be terminated." 
+     "Using new of configure old SSL"];
+ossl_block_disturbing_active(suite) ->
+    [];
+ossl_block_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_disturbing_active(ossl, Config).
+
+essl_block_disturbing_active(doc) ->
+    ["Check that you can block/unblock an active server. The strategy " 
+     "distribing means ongoing requests should be terminated." 
+     "Using new of configure new SSL"];
+essl_block_disturbing_active(suite) ->
+    [];
+essl_block_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_disturbing_active(essl, Config).
+
+ssl_block_disturbing_active(Tag, Config) ->
+    httpd_block:block_disturbing_active(Tag, 
+					?SSL_PORT, 
+					?config(host, Config), 
+					?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_block_non_disturbing_active(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "non distribing means the ongoing requests should be compleated." 
+     "Old SSL config"];
+pssl_block_non_disturbing_active(suite) ->
+    [];
+pssl_block_non_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_active(ssl, Config).
+
+ossl_block_non_disturbing_active(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "non distribing means the ongoing requests should be compleated." 
+     "Using new of configure old SSL"];
+ossl_block_non_disturbing_active(suite) ->
+    [];
+ossl_block_non_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_active(ossl, Config).
+
+essl_block_non_disturbing_active(doc) ->
+    ["Check that you can block/unblock an idle server. The strategy " 
+     "non distribing means the ongoing requests should be compleated." 
+     "Using new of configure new SSL"];
+essl_block_non_disturbing_active(suite) ->
+    [];
+essl_block_non_disturbing_active(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_active(essl, Config).
+
+ssl_block_non_disturbing_active(Tag, Config) ->
+    httpd_block:block_non_disturbing_idle(Tag, 
+					  ?SSL_PORT, 
+					  ?config(host, Config), 
+					  ?config(node, Config)),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_block_disturbing_active_timeout_not_released(doc) ->
     ["Check that you can block an active server. The strategy " 
      "distribing means ongoing requests should be compleated"
-     "if the timeout does not occur."];
-ssl_block_disturbing_active_timeout_not_released(suite) ->
+     "if the timeout does not occur." 
+     "Old SSL config"];
+pssl_block_disturbing_active_timeout_not_released(suite) ->
     [];
-ssl_block_disturbing_active_timeout_not_released(Config) 
+pssl_block_disturbing_active_timeout_not_released(Config) 
   when is_list(Config) ->
-    httpd_block:
-	block_disturbing_active_timeout_not_released(ssl, 
-						     ?SSL_PORT, 
-						     ?config(host,
-							     Config), 
-						     ?config(node, 
-							     Config)),
+    ssl_block_disturbing_active_timeout_not_released(ssl, Config).
+
+ossl_block_disturbing_active_timeout_not_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "distribing means ongoing requests should be compleated"
+     "if the timeout does not occur." 
+    "Using new of configure old SSL"];
+ossl_block_disturbing_active_timeout_not_released(suite) ->
+    [];
+ossl_block_disturbing_active_timeout_not_released(Config) 
+  when is_list(Config) ->
+    ssl_block_disturbing_active_timeout_not_released(ossl, Config).
+
+essl_block_disturbing_active_timeout_not_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "distribing means ongoing requests should be compleated"
+     "if the timeout does not occur." 
+    "Using new of configure new SSL"];
+essl_block_disturbing_active_timeout_not_released(suite) ->
+    [];
+essl_block_disturbing_active_timeout_not_released(Config) 
+  when is_list(Config) ->
+    ssl_block_disturbing_active_timeout_not_released(essl, Config).
+
+ssl_block_disturbing_active_timeout_not_released(Tag, Config) ->
+    Port = ?SSL_PORT, 
+    Host = ?config(host, Config), 
+    Node = ?config(node, Config), 
+    httpd_block:block_disturbing_active_timeout_not_released(Tag, 
+							     Port, Host, Node),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_block_disturbing_active_timeout_released(doc) ->
+
+pssl_block_disturbing_active_timeout_released(doc) ->
     ["Check that you can block an active server. The strategy " 
      "distribing means ongoing requests should be terminated when"
-     "the timeout occurs."];
-ssl_block_disturbing_active_timeout_released(suite) ->
+     "the timeout occurs." 
+     "Old SSL config"];
+pssl_block_disturbing_active_timeout_released(suite) ->
     [];
-ssl_block_disturbing_active_timeout_released(Config) 
+pssl_block_disturbing_active_timeout_released(Config) 
   when is_list(Config) ->
-    httpd_block:block_disturbing_active_timeout_released(ssl, 
-							 ?SSL_PORT, 
-							 ?config(host,
-								 Config), 
-							 ?config(node, 
-								 Config)),
+    ssl_block_disturbing_active_timeout_released(ssl, Config).
+
+ossl_block_disturbing_active_timeout_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "distribing means ongoing requests should be terminated when"
+     "the timeout occurs." 
+    "Using new of configure old SSL"];
+ossl_block_disturbing_active_timeout_released(suite) ->
+    [];
+ossl_block_disturbing_active_timeout_released(Config) 
+  when is_list(Config) ->
+    ssl_block_disturbing_active_timeout_released(ossl, Config).
+
+essl_block_disturbing_active_timeout_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "distribing means ongoing requests should be terminated when"
+     "the timeout occurs." 
+    "Using new of configure new SSL"];
+essl_block_disturbing_active_timeout_released(suite) ->
+    [];
+essl_block_disturbing_active_timeout_released(Config) 
+  when is_list(Config) ->
+    ssl_block_disturbing_active_timeout_released(essl, Config).
+
+ssl_block_disturbing_active_timeout_released(Tag, Config) ->
+    Port = ?SSL_PORT, 
+    Host = ?config(host, Config), 
+    Node = ?config(node, Config),     
+    httpd_block:block_disturbing_active_timeout_released(Tag, 
+							 Port, 
+							 Host, 
+							 Node), 
     ok.
 
-%%-------------------------------------------------------------------------
-ssl_block_non_disturbing_active_timeout_not_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "non non distribing means ongoing requests should be completed."];
-ssl_block_non_disturbing_active_timeout_not_released(suite) ->
-    [];
-ssl_block_non_disturbing_active_timeout_not_released(Config)
-  when is_list(Config) ->
-    httpd_block:
-	block_non_disturbing_active_timeout_not_released(ssl,
-							 ?SSL_PORT, 
-							 ?config(host, 
-								 Config), 
-							 ?config(node, 
-								 Config)),
-    ok.
-%%-------------------------------------------------------------------------
-ssl_block_non_disturbing_active_timeout_released(doc) ->
-    ["Check that you can block an active server. The strategy " 
-     "non non distribing means ongoing requests should be completed. "
-     "When the timeout occurs the block operation sohould be canceled." ];
-ssl_block_non_disturbing_active_timeout_released(suite) ->
-    [];
-ssl_block_non_disturbing_active_timeout_released(Config)
-  when is_list(Config) ->
-    httpd_block:
-	block_non_disturbing_active_timeout_released(ssl,
-						     ?SSL_PORT, 
-						     ?config(host, 
-							     Config), 
-						     ?config(node, 
-							     Config)),
-    ok.
 
 %%-------------------------------------------------------------------------
-ssl_block_disturbing_blocker_dies(doc) ->
+
+pssl_block_non_disturbing_active_timeout_not_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non non distribing means ongoing requests should be completed." 
+     "Old SSL config"];
+pssl_block_non_disturbing_active_timeout_not_released(suite) ->
     [];
-ssl_block_disturbing_blocker_dies(suite) ->
+pssl_block_non_disturbing_active_timeout_not_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_not_released(ssl, Config).
+
+ossl_block_non_disturbing_active_timeout_not_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non non distribing means ongoing requests should be completed." 
+    "Using new of configure old SSL"];
+ossl_block_non_disturbing_active_timeout_not_released(suite) ->
     [];
-ssl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
-    httpd_block:disturbing_blocker_dies(ssl, ?SSL_PORT, 
+ossl_block_non_disturbing_active_timeout_not_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_not_released(ossl, Config).
+
+essl_block_non_disturbing_active_timeout_not_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non non distribing means ongoing requests should be completed." 
+    "Using new of configure new SSL"];
+essl_block_non_disturbing_active_timeout_not_released(suite) ->
+    [];
+essl_block_non_disturbing_active_timeout_not_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_not_released(essl, Config).
+
+ssl_block_non_disturbing_active_timeout_not_released(Tag, Config) ->
+    Port = ?SSL_PORT, 
+    Host = ?config(host, Config), 
+    Node = ?config(node, Config), 
+    httpd_block:block_non_disturbing_active_timeout_not_released(Tag,
+								 Port, 
+								 Host, 
+								 Node),
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_block_non_disturbing_active_timeout_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non distribing means ongoing requests should be completed. "
+     "When the timeout occurs the block operation sohould be canceled." 
+     "Old SSL config"];
+pssl_block_non_disturbing_active_timeout_released(suite) ->
+    [];
+pssl_block_non_disturbing_active_timeout_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_released(ssl, Config).
+
+ossl_block_non_disturbing_active_timeout_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non distribing means ongoing requests should be completed. "
+     "When the timeout occurs the block operation sohould be canceled." 
+     "Using new of configure old SSL"];
+ossl_block_non_disturbing_active_timeout_released(suite) ->
+    [];
+ossl_block_non_disturbing_active_timeout_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_released(ossl, Config).
+
+essl_block_non_disturbing_active_timeout_released(doc) ->
+    ["Check that you can block an active server. The strategy " 
+     "non distribing means ongoing requests should be completed. "
+     "When the timeout occurs the block operation sohould be canceled." 
+     "Using new of configure new SSL"];
+essl_block_non_disturbing_active_timeout_released(suite) ->
+    [];
+essl_block_non_disturbing_active_timeout_released(Config)
+  when is_list(Config) ->
+    ssl_block_non_disturbing_active_timeout_released(essl, Config).
+
+ssl_block_non_disturbing_active_timeout_released(Tag, Config)
+  when is_list(Config) ->
+    Port = ?SSL_PORT, 
+    Host = ?config(host, Config), 
+    Node = ?config(node, Config), 
+    httpd_block:block_non_disturbing_active_timeout_released(Tag, 
+							     Port, 
+							     Host, 
+							     Node), 
+
+    ok.
+
+
+%%-------------------------------------------------------------------------
+
+pssl_block_disturbing_blocker_dies(doc) ->
+    ["old SSL config"];
+pssl_block_disturbing_blocker_dies(suite) ->
+    [];
+pssl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_disturbing_blocker_dies(ssl, Config).
+
+ossl_block_disturbing_blocker_dies(doc) ->
+    ["using new of configure old SSL"];
+ossl_block_disturbing_blocker_dies(suite) ->
+    [];
+ossl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_disturbing_blocker_dies(ossl, Config).
+
+essl_block_disturbing_blocker_dies(doc) ->
+    ["using new of configure new SSL"];
+essl_block_disturbing_blocker_dies(suite) ->
+    [];
+essl_block_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_disturbing_blocker_dies(essl, Config).
+
+ssl_block_disturbing_blocker_dies(Tag, Config) ->
+    httpd_block:disturbing_blocker_dies(Tag, 
+					?SSL_PORT, 
 					?config(host, Config), 
 					?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_block_non_disturbing_blocker_dies(doc) ->
+
+pssl_block_non_disturbing_blocker_dies(doc) ->
+    ["old SSL config"];
+pssl_block_non_disturbing_blocker_dies(suite) ->
     [];
-ssl_block_non_disturbing_blocker_dies(suite) ->
+pssl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_blocker_dies(ssl, Config).
+
+ossl_block_non_disturbing_blocker_dies(doc) ->
+    ["using new of configure old SSL"];
+ossl_block_non_disturbing_blocker_dies(suite) ->
     [];
-ssl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
-    httpd_block:non_disturbing_blocker_dies(ssl, ?SSL_PORT, 
+ossl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_blocker_dies(ossl, Config).
+
+essl_block_non_disturbing_blocker_dies(doc) ->
+    ["using new of configure new SSL"];
+essl_block_non_disturbing_blocker_dies(suite) ->
+    [];
+essl_block_non_disturbing_blocker_dies(Config) when is_list(Config) ->
+    ssl_block_non_disturbing_blocker_dies(essl, Config).
+
+ssl_block_non_disturbing_blocker_dies(Tag, Config) ->
+    httpd_block:non_disturbing_blocker_dies(Tag, 
+					    ?SSL_PORT, 
 					    ?config(host, Config), 
 					    ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_restart_no_block(doc) ->
-    [""];
-ssl_restart_no_block(suite) ->
+
+pssl_restart_no_block(doc) ->
+    ["old SSL config"];
+pssl_restart_no_block(suite) ->
     [];
-ssl_restart_no_block(Config) when is_list(Config) ->
-    httpd_block:restart_no_block(ssl, ?SSL_PORT, ?config(host, Config), 
+pssl_restart_no_block(Config) when is_list(Config) ->
+    ssl_restart_no_block(ssl, Config).
+
+ossl_restart_no_block(doc) ->
+    ["using new of configure old SSL"];
+ossl_restart_no_block(suite) ->
+    [];
+ossl_restart_no_block(Config) when is_list(Config) ->
+    ssl_restart_no_block(ossl, Config).
+
+essl_restart_no_block(doc) ->
+    ["using new of configure new SSL"];
+essl_restart_no_block(suite) ->
+    [];
+essl_restart_no_block(Config) when is_list(Config) ->
+    ssl_restart_no_block(essl, Config).
+
+ssl_restart_no_block(Tag, Config) ->
+    httpd_block:restart_no_block(Tag, 
+				 ?SSL_PORT, 
+				 ?config(host, Config), 
 				 ?config(node, Config)),
     ok.
+
+
 %%-------------------------------------------------------------------------
-ssl_restart_disturbing_block(doc) ->
-    [""];
-ssl_restart_disturbing_block(suite) ->
+
+pssl_restart_disturbing_block(doc) ->
+    ["old SSL config"];
+pssl_restart_disturbing_block(suite) ->
     [];
-ssl_restart_disturbing_block(Config) when is_list(Config) ->
+pssl_restart_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_disturbing_block(ssl, Config).
+
+ossl_restart_disturbing_block(doc) ->
+    ["using new of configure old SSL"];
+ossl_restart_disturbing_block(suite) ->
+    [];
+ossl_restart_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_disturbing_block(ossl, Config).
+
+essl_restart_disturbing_block(doc) ->
+    ["using new of configure new SSL"];
+essl_restart_disturbing_block(suite) ->
+    [];
+essl_restart_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_disturbing_block(essl, Config).
+
+ssl_restart_disturbing_block(Tag, Config) ->
     %% <CONDITIONAL-SKIP>
     Condition = 
 	fun() -> 
@@ -1336,17 +2290,36 @@ ssl_restart_disturbing_block(Config) when is_list(Config) ->
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
 
-    httpd_block:restart_disturbing_block(ssl, ?SSL_PORT, 
+    httpd_block:restart_disturbing_block(Tag, ?SSL_PORT, 
 					 ?config(host, Config), 
 					 ?config(node, Config)),
     ok.
 
+
 %%-------------------------------------------------------------------------
-ssl_restart_non_disturbing_block(doc) ->
-    [""];
-ssl_restart_non_disturbing_block(suite) ->
+
+pssl_restart_non_disturbing_block(doc) ->
+    ["old SSL config"];
+pssl_restart_non_disturbing_block(suite) ->
     [];
-ssl_restart_non_disturbing_block(Config) when is_list(Config) ->
+pssl_restart_non_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_non_disturbing_block(ssl, Config).
+
+ossl_restart_non_disturbing_block(doc) ->
+    ["using new of configure old SSL"];
+ossl_restart_non_disturbing_block(suite) ->
+    [];
+ossl_restart_non_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_non_disturbing_block(ossl, Config).
+
+essl_restart_non_disturbing_block(doc) ->
+    ["using new of configure new SSL"];
+essl_restart_non_disturbing_block(suite) ->
+    [];
+essl_restart_non_disturbing_block(Config) when is_list(Config) ->
+    ssl_restart_non_disturbing_block(essl, Config).
+
+ssl_restart_non_disturbing_block(Tag, Config) ->
     %% <CONDITIONAL-SKIP>
     Condition = 
 	fun() -> 
@@ -1371,10 +2344,12 @@ ssl_restart_non_disturbing_block(Config) when is_list(Config) ->
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
 
-    httpd_block:restart_non_disturbing_block(ssl, ?SSL_PORT, 
-					    ?config(host, Config), 
-					    ?config(node, Config)),
+    httpd_block:restart_non_disturbing_block(Tag, 
+					     ?SSL_PORT, 
+					     ?config(host, Config), 
+					     ?config(node, Config)),
     ok.
+
 
 %%-------------------------------------------------------------------------
 ip_host(doc) ->   
@@ -1665,17 +2640,29 @@ dos_hostname(Type, Port, Host, Node, Max) ->
 %% Other help functions
 create_config(Config, Access, FileName) ->
     ServerRoot = ?config(server_root, Config),
-    TcTopDir = ?config(tc_top_dir, Config),
-    Port =  ?config(port, Config),
-    Type = ?config(sock_type, Config),
-    Host =  ?config(host, Config),
-    Mods         = io_lib:format("~p", [httpd_mod]),
-    Funcs        = io_lib:format("~p", [ssl_password_cb]),
-    MaxHdrSz     = io_lib:format("~p", [256]),
-    MaxHdrAct    = io_lib:format("~p", [close]),
+    TcTopDir   = ?config(tc_top_dir,  Config),
+    Port       = ?config(port,        Config),
+    Type       = ?config(sock_type,   Config),
+    Host       = ?config(host,        Config),
+    Mods       = io_lib:format("~p", [httpd_mod]),
+    Funcs      = io_lib:format("~p", [ssl_password_cb]),
+    MaxHdrSz   = io_lib:format("~p", [256]),
+    MaxHdrAct  = io_lib:format("~p", [close]),
+
+    io:format(user, 
+	      "create_config -> "
+	      "~n   ServerRoot: ~p"
+	      "~n   TcTopDir:   ~p"
+	      "~n   Type:       ~p"
+	      "~n   Port:       ~p"
+	      "~n   Host:       ~p"
+	      "~n", [ServerRoot, TcTopDir, Port, Type, Host]),
+
     SSL =
-	case Type of
-	    ssl ->
+	if
+	    (Type =:= ssl)  orelse 
+	    (Type =:= ossl) orelse 
+	    (Type =:= essl) ->
 		[cline(["SSLCertificateFile ", 
 			filename:join(ServerRoot, "ssl/ssl_server.pem")]),
 		 cline(["SSLCertificateKeyFile ",
@@ -1686,25 +2673,25 @@ create_config(Config, Access, FileName) ->
 		 cline(["SSLPasswordCallbackFunction ", Funcs]),
 		 cline(["SSLVerifyClient 0"]),
 		 cline(["SSLVerifyDepth 1"])];
-	    _ ->
+	    true ->
 		[]
 	end,
-    Mod_order = case Access of
-		    mod_htaccess ->
-			"Modules mod_alias mod_htaccess mod_auth "
-			    "mod_security "
-			    "mod_responsecontrol mod_trace mod_esi "
-			    "mod_actions mod_cgi mod_include mod_dir "
-			    "mod_range mod_get "
-			    "mod_head mod_log mod_disk_log";
-		    _ ->
-			"Modules mod_alias mod_auth mod_security "
-			    "mod_responsecontrol mod_trace mod_esi "
-			    "mod_actions mod_cgi mod_include mod_dir "
-			    "mod_range mod_get "
-			    "mod_head mod_log mod_disk_log"
-		    end,
-	    
+    ModOrder = case Access of
+		   mod_htaccess ->
+		       "Modules mod_alias mod_htaccess mod_auth "
+			   "mod_security "
+			   "mod_responsecontrol mod_trace mod_esi "
+			   "mod_actions mod_cgi mod_include mod_dir "
+			   "mod_range mod_get "
+			   "mod_head mod_log mod_disk_log";
+		   _ ->
+		       "Modules mod_alias mod_auth mod_security "
+			   "mod_responsecontrol mod_trace mod_esi "
+			   "mod_actions mod_cgi mod_include mod_dir "
+			   "mod_range mod_get "
+			   "mod_head mod_log mod_disk_log"
+	       end,
+    
 %% The test suite currently does not handle an explicit BindAddress.
 %% They assume any has been used, that is Addr is always set to undefined!
 
@@ -1720,7 +2707,7 @@ create_config(Config, Access, FileName) ->
 		  cline(["Port ", integer_to_list(Port)]),
 		  cline(["ServerName ", Host]),
 		  cline(["SocketType ", atom_to_list(Type)]),
-		  cline([Mod_order]),
+		  cline([ModOrder]),
 		  %% cline(["LogFormat ", "erlang"]),
 		  cline(["ServerAdmin mattias@erix.ericsson.se"]),
 		  cline(["BindAddress ", BindAddress]),
@@ -1882,18 +2869,18 @@ start_mnesia(Node) ->
 	ok ->
 	    ok;
 	Other ->
-	    test_server:fail({failed_to_cleanup_mnesia, Other})
+	    tsf({failed_to_cleanup_mnesia, Other})
     end,
-       case rpc:call(Node, ?MODULE, setup_mnesia, []) of
+    case rpc:call(Node, ?MODULE, setup_mnesia, []) of
 	{atomic, ok} ->
 	    ok;
 	Other2 ->
-	   test_server:fail({failed_to_setup_mnesia, Other2})
+	    tsf({failed_to_setup_mnesia, Other2})
     end,
     ok.
 
 setup_mnesia() ->
-  setup_mnesia([node()]).
+    setup_mnesia([node()]).
 
 setup_mnesia(Nodes) ->
     ok = mnesia:create_schema(Nodes),
@@ -2029,20 +3016,20 @@ dos_hostname_request(Host) ->
 get_nof_clients(Mode, Load) ->
     get_nof_clients(test_server:os_type(), Mode, Load).
 
-get_nof_clients(vxworks, _, light)        -> 1;
+get_nof_clients(vxworks, _,       light)  -> 1;
 get_nof_clients(vxworks, ip_comm, medium) -> 3;
-get_nof_clients(vxworks, ssl, medium)     -> 3;
+get_nof_clients(vxworks, ssl,     medium) -> 3;
 get_nof_clients(vxworks, ip_comm, heavy)  -> 5;
-get_nof_clients(vxworks, ssl, heavy)      -> 5;
-get_nof_clients(_, ip_comm, light)        -> 5;
-get_nof_clients(_, ssl, light)            -> 2;
-get_nof_clients(_, ip_comm, medium)       -> 10;
-get_nof_clients(_, ssl, medium)           -> 4;
-get_nof_clients(_, ip_comm, heavy)        -> 20;
-get_nof_clients(_, ssl, heavy)            -> 6.
+get_nof_clients(vxworks, ssl,     heavy)  -> 5;
+get_nof_clients(_,       ip_comm, light)  -> 5;
+get_nof_clients(_,       ssl,     light)  -> 2;
+get_nof_clients(_,       ip_comm, medium) -> 10;
+get_nof_clients(_,       ssl,     medium) -> 4;
+get_nof_clients(_,       ip_comm, heavy)  -> 20;
+get_nof_clients(_,       ssl,     heavy)  -> 6.
 
 %% Make a file 100 bytes long containing 012...9*10
-create_range_data(Path)->
+create_range_data(Path) ->
     PathAndFileName=filename:join([Path,"range.txt"]),
     file:write_file(PathAndFileName,list_to_binary(["12345678901234567890",
 						   "12345678901234567890",
@@ -2079,3 +3066,6 @@ create_range_data(Path)->
 %%     {ok, Fd} = file:open(ConfigFile, [write]),
 %%     ok = file:write(Fd, lists:flatten(HttpConfig)),
 %%     ok = file:close(Fd).
+
+tsf(Reason) ->
+    test_server:fail(Reason).

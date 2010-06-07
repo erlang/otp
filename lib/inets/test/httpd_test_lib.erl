@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2001-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2001-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -72,6 +72,8 @@
  	  'last-modified',
 	  other=[]        % list() - Key/Value list with other headers
 	 }).
+
+
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %%--------------------------------------------------------------------
@@ -81,7 +83,8 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options) ->
     verify_request(SocketType, Host, Port, Node, RequestStr, Options, 30000).
 verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) ->
     {ok, Socket} = inets_test_lib:connect_bin(SocketType, Host, Port),
-    inets_test_lib:send(SocketType, Socket, RequestStr),
+
+    _SendRes = inets_test_lib:send(SocketType, Socket, RequestStr),
     
     State = case inets_regexp:match(RequestStr, "printenv") of
 		nomatch ->
@@ -90,18 +93,26 @@ verify_request(SocketType, Host, Port, Node, RequestStr, Options, TimeOut) ->
 		    #state{print = true}
 	    end,
 		
-    case request(State#state{request = RequestStr, socket = Socket}, TimeOut) of
-	{error, Reson} ->
-	    {error, Reson};
+    case request(State#state{request = RequestStr, 
+			     socket  = Socket}, TimeOut) of
+	{error, Reason} ->
+	    tsp("request failed: "
+		"~n   Reason: ~p", [Reason]),
+	    {error, Reason};
 	NewState ->
+	    tsp("validate reply: "
+		"~n   NewState: ~p", [NewState]),
 	    ValidateResult = validate(RequestStr, NewState, Options,
 				      Node, Port),
+	    tsp("validation result: "
+		"~n   ~p", [ValidateResult]),
 	    inets_test_lib:close(SocketType, Socket),
 	    ValidateResult
     end.
 
 request(#state{mfa = {Module, Function, Args}, 
 	       request = RequestStr, socket = Socket} = State, TimeOut) ->
+            
     HeadRequest = lists:sublist(RequestStr, 1, 4),
     receive 
 	{tcp, Socket, Data} ->
@@ -109,12 +120,12 @@ request(#state{mfa = {Module, Function, Args},
 	    case Module:Function([Data | Args]) of
 		{ok, Parsed} ->
 		    handle_http_msg(Parsed, State); 
-		{_, whole_body, _} when HeadRequest == "HEAD" ->
+		{_, whole_body, _} when HeadRequest =:= "HEAD" ->
 		    State#state{body = <<>>}; 
 		NewMFA ->
 		    request(State#state{mfa = NewMFA}, TimeOut)
 	    end;
-	{tcp_closed, Socket} when Function == whole_body ->
+	{tcp_closed, Socket} when Function =:= whole_body ->
 	    print(tcp, "closed", State),
 	    State#state{body = hd(Args)}; 
 	{tcp_closed, Socket} ->
@@ -126,12 +137,12 @@ request(#state{mfa = {Module, Function, Args},
 	    case Module:Function([Data | Args]) of
 		{ok, Parsed} ->
 		    handle_http_msg(Parsed, State); 
-		{_, whole_body, _} when HeadRequest == "HEAD" ->
+		{_, whole_body, _} when HeadRequest =:= "HEAD" ->
 		    State#state{body = <<>>}; 
 		NewMFA ->
 		    request(State#state{mfa = NewMFA}, TimeOut)
 	    end;
-	{ssl_closed, Socket}  when Function == whole_body ->
+	{ssl_closed, Socket}  when Function =:= whole_body ->
 	    print(ssl, "closed", State),
 	    State#state{body = hd(Args)};
 	{ssl_closed, Socket} ->
@@ -329,4 +340,10 @@ print(Proto, Data, #state{print = true}) ->
     test_server:format("Received ~p: ~p~n", [Proto, Data]);
 print(_, _,  #state{print = false}) ->
     ok.
+
+
+%% tsp(F) ->
+%%     tsp(F, []).
+tsp(F, A) ->
+    test_server:format("~p ~p:" ++ F ++ "~n", [self(), ?MODULE | A]).
 

@@ -1,4 +1,5 @@
-#
+#-*-makefile-*-   ; force emacs to enter makefile-mode
+
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 2010. All Rights Reserved.
@@ -15,21 +16,29 @@
 # under the License.
 #
 # %CopyrightEnd%
-#
-#
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-# ----------------------------------------------------
-# Common Macros
-# ----------------------------------------------------
+SCRIPT_SKELETONS = \
+	hdlt.sh.skel
 
-include subdirs.mk
+CONF_SKELETONS = \
+	hdlt.config.skel
 
-SPECIAL_TARGETS = 
+CERT_FILES = \
+	hdlt_ssl_client_cert.pem \
+	hdlt_ssl_server_cert.pem
 
-# ----------------------------------------------------
-# Default Subdir Targets
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_subdir.mk
+README = HDLT_README
+
+MODULES = \
+        hdlt \
+        hdlt_ctrl \
+        hdlt_client \
+	hdlt_logger \
+	hdlt_random_html \
+	hdlt_server \
+	hdlt_slave
+
+INTERNAL_HRL_FILES = \
+        hdlt_logger.hrl
+
 

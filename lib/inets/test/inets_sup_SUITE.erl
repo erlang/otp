@@ -372,11 +372,11 @@ httpc_subtree(Config) when is_list(Config) ->
 	"~n   Config: ~p", [Config]),
 
     tsp("httpc_subtree -> start inets service httpc with profile foo"),
-    {ok, Foo} = inets:start(httpc, [{profile, foo}]),
+    {ok, _Foo} = inets:start(httpc, [{profile, foo}]),
 
     tsp("httpc_subtree -> "
 	"start stand-alone inets service httpc with profile bar"),
-    {ok, Bar} = inets:start(httpc, [{profile, bar}], stand_alone),
+    {ok, _Bar} = inets:start(httpc, [{profile, bar}], stand_alone),
 
     tsp("httpc_subtree -> retreive list of httpc instances"),
     HttpcChildren = supervisor:which_children(httpc_profile_sup),

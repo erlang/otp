@@ -48,7 +48,7 @@
 	 stop_service/1, 
 	 services/0, service_info/1]).
 
--include("http_internal.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
 -define(DEFAULT_PROFILE, default).
@@ -104,8 +104,14 @@ request(Url, Profile) ->
 %%	HTTPOptions - [HttpOption]
 %%	HTTPOption - {timeout, Time} | {connect_timeout, Time} | 
 %%                   {ssl, SSLOptions} | {proxy_auth, {User, Password}}
-%%	Ssloptions = [SSLOption]
-%%	SSLOption =  {verify, code()} | {depth, depth()} | {certfile, path()} |
+%%	Ssloptions = ssl_options() | 
+%%                   {ssl,  ssl_options()} | 
+%%                   {ossl, ssl_options()} | 
+%%                   {essl, ssl_options()}
+%%      ssl_options() = [ssl_option()]
+%%	ssl_option() =  {verify, code()} | 
+%%                      {depth, depth()} | 
+%%                      {certfile, path()} |
 %%	{keyfile, path()} | {password, string()} | {cacertfile, path()} |
 %%	{ciphers, string()} 
 %%	Options - [Option]
@@ -579,7 +585,13 @@ http_options_default() ->
 			       error
 		       end,
     SslPost = fun(Value) when is_list(Value) ->
-		      {ok, Value};
+		      {ok, {?HTTP_DEFAULT_SSL_KIND, Value}};
+		 ({ssl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {?HTTP_DEFAULT_SSL_KIND, SslOptions}};
+		 ({ossl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {ossl, SslOptions}};
+		 ({essl, SslOptions}) when is_list(SslOptions) ->
+		      {ok, {essl, SslOptions}};
 		 (_) ->
 		      error
 	      end,
@@ -604,14 +616,14 @@ http_options_default() ->
 		error
 	end,
     [
-     {version,         {value, "HTTP/1.1"},              #http_options.version,         VersionPost}, 
-     {timeout,         {value, ?HTTP_REQUEST_TIMEOUT},   #http_options.timeout,         TimeoutPost},
-     {autoredirect,    {value, true},                    #http_options.autoredirect,    AutoRedirectPost},
-     {ssl,             {value, []},                      #http_options.ssl,             SslPost},
-     {proxy_auth,      {value, undefined},               #http_options.proxy_auth,      ProxyAuthPost},
-     {relaxed,         {value, false},                   #http_options.relaxed,         RelaxedPost},
-     %% this field has to be *after* the timeout field (as that field is used for the default value)
-     {connect_timeout, {field,   #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
+     {version,         {value, "HTTP/1.1"},            #http_options.version,         VersionPost}, 
+     {timeout,         {value, ?HTTP_REQUEST_TIMEOUT}, #http_options.timeout,         TimeoutPost},
+     {autoredirect,    {value, true},                  #http_options.autoredirect,    AutoRedirectPost},
+     {ssl,             {value, {?HTTP_DEFAULT_SSL_KIND, []}}, #http_options.ssl,             SslPost},
+     {proxy_auth,      {value, undefined},             #http_options.proxy_auth,      ProxyAuthPost},
+     {relaxed,         {value, false},                 #http_options.relaxed,         RelaxedPost},
+     %% this field has to be *after* the timeout option (as that field is used for the default value)
+     {connect_timeout, {field, #http_options.timeout}, #http_options.connect_timeout, ConnTimeoutPost}
     ].
 
 

@@ -19,7 +19,7 @@
 
 -module(httpc_response).
 
--include("http_internal.hrl").
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
 
 %% API

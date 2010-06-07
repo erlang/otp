@@ -1,7 +1,7 @@
-#
+# 
 # %CopyrightBegin%
 #
-# Copyright Ericsson AB 2005-2010. All Rights Reserved.
+# Copyright Ericsson AB 2010. All Rights Reserved.
 #
 # The contents of this file are subject to the Erlang Public License,
 # Version 1.1, (the "License"); you may not use this file except in
@@ -15,89 +15,109 @@
 # under the License.
 #
 # %CopyrightEnd%
-#
-#
 
 include $(ERL_TOP)/make/target.mk
-EBIN = ../../ebin
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
+EBIN = .
+
+include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
 # ----------------------------------------------------
 # Application version
 # ----------------------------------------------------
 include ../../vsn.mk
 
-VSN = $(INETS_VSN)
+VSN=$(INETS_VSN)
 
 
 # ----------------------------------------------------
 # Release directory specification
 # ----------------------------------------------------
-RELSYSDIR = $(RELEASE_PATH)/lib/$(APPLICATION)-$(VSN)
+RELSYSDIR         = $(RELEASE_PATH)/lib/inets-$(VSN)
+EXAMPLE_RELSYSDIR = $(RELSYSDIR)/examples
+HDLT_RELSYSDIR    = $(EXAMPLE_RELSYSDIR)/httpd_load_test
 
 
 # ----------------------------------------------------
 # Target Specs
 # ----------------------------------------------------
-MODULES = \
-	ftp \
-	ftp_progress \
-	ftp_response \
-	ftp_sup 
 
-HRL_FILES = ftp_internal.hrl
+include modules.mk
 
 ERL_FILES = $(MODULES:%=%.erl)
 
-TARGET_FILES= $(MODULES:%=$(EBIN)/%.$(EMULATOR))
+SOURCE = $(ERL_FILES) $(INTERNAL_HRL_FILES)
+
+TARGET_FILES =  \
+	$(ERL_FILES:%.erl=$(EBIN)/%.$(EMULATOR))
+
+ifeq ($(TYPE),debug)
+ERL_COMPILE_FLAGS += -Ddebug -W
+endif
 
 
 # ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
-include ../inets_app/inets.mk
-
-ifeq ($(FTP_DEBUG),true)
-  INETS_FLAGS += -Dftp_debug
-endif
+include ../../src/inets_app/inets.mk
 
 ERL_COMPILE_FLAGS += \
 	$(INETS_FLAGS) \
-        $(INETS_ERL_COMPILE_FLAGS) \
-	-I../../include \
-	-I../inets_app
+	$(INETS_ERL_COMPILE_FLAGS) \
+	-I../../include
+
+
+# ----------------------------------------------------
+# Special Build Targets
+# ----------------------------------------------------
 
 
 # ----------------------------------------------------
 # Targets
 # ----------------------------------------------------
+debug:
+	@${MAKE} TYPE=debug opt
 
-debug opt: $(TARGET_FILES)
+opt: $(TARGET_FILES) 
 
 clean:
-	rm -f $(TARGET_FILES)
-	rm -f core
+	rm -f $(TARGET_FILES) 
+	rm -f errs core *~
 
 docs:
+
 
 # ----------------------------------------------------
 # Release Target
 # ---------------------------------------------------- 
 include $(ERL_TOP)/make/otp_release_targets.mk
 
+
 release_spec: opt
-	$(INSTALL_DIR)  $(RELSYSDIR)/src
-	$(INSTALL_DIR)  $(RELSYSDIR)/src/ftp
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/ftp
-	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
-	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
+	$(INSTALL_DIR)  $(EXAMPLE_RELSYSDIR)
+	$(INSTALL_DIR)  $(HDLT_RELSYSDIR)
+	$(INSTALL_DATA) $(SCRIPT_SKELETONS) $(HDLT_RELSYSDIR)
+	$(INSTALL_DATA) $(CONF_SKELETONS)   $(HDLT_RELSYSDIR)
+	$(INSTALL_DATA) $(CERT_FILES)       $(HDLT_RELSYSDIR)
+	$(INSTALL_DATA) $(TARGET_FILES)     $(HDLT_RELSYSDIR)
+	$(INSTALL_DATA) $(ERL_FILES)        $(HDLT_RELSYSDIR)
+
 
 release_docs_spec:
 
-info:
-	@echo "APPLICATION       = $(APPLICATION)"
-	@echo "INETS_DEBUG       = $(INETS_DEBUG)"
-	@echo "INETS_FLAGS       = $(INETS_FLAGS)"
-	@echo "ERL_COMPILE_FLAGS = $(ERL_COMPILE_FLAGS)"
+
+# ----------------------------------------------------
+# Include dependencies
+# ----------------------------------------------------
+
+megaco_codec_transform.$(EMULATOR): megaco_codec_transform.erl
+
+megaco_codec_meas.$(EMULATOR): megaco_codec_meas.erl
+
+megaco_codec_mstone1.$(EMULATOR): megaco_codec_mstone1.erl
+
+megaco_codec_mstone2.$(EMULATOR): megaco_codec_mstone2.erl
+
+megaco_codec_mstone_lib.$(EMULATOR): megaco_codec_mstone_lib.erl
+

@@ -21,8 +21,8 @@
 
 -behaviour(gen_server).
 
+-include_lib("inets/src/http_lib/http_internal.hrl").
 -include("httpc_internal.hrl").
--include("http_internal.hrl").
 
 %% Internal Application API
 -export([
@@ -333,7 +333,7 @@ do_init(ProfileName, CookiesDir) ->
     ?hcrt("create session db", []),
     SessionDbName = session_db_name(ProfileName), 
     ets:new(SessionDbName, 
-	    [public, set, named_table, {keypos, #tcp_session.id}]),
+	    [public, set, named_table, {keypos, #session.id}]),
 
     %% Create handler db
     ?hcrt("create handler/request db", []),
@@ -876,12 +876,12 @@ select_session(Method, HostPort, Scheme, SessionType,
 	    %% client_close, scheme and type specified. 
 	    %% The fields id (part of: HandlerPid) and queue_length
 	    %% specified.
-	    Pattern = #tcp_session{id           = {HostPort, '$1'},
-				   client_close = false,
-				   scheme       = Scheme,
-				   socket       = '_',
-				   queue_length = '$2',
-				   type         = SessionType},
+	    Pattern = #session{id           = {HostPort, '$1'},
+			       client_close = false,
+			       scheme       = Scheme,
+			       queue_length = '$2',
+			       type         = SessionType,
+			       _            = '_'},
 	    %% {'_', {HostPort, '$1'}, false, Scheme, '_', '$2', SessionTyp}, 
 	    Candidates = ets:match(SessionDb, Pattern), 
 	    ?hcrd("select session", [{host_port,  HostPort}, 

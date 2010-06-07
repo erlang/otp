@@ -1,3 +1,5 @@
+#!/bin/sh
+
 #
 # %CopyrightBegin%
 #
@@ -15,21 +17,28 @@
 # under the License.
 #
 # %CopyrightEnd%
+
+# Skeleton for a script intended to run the hdlt(N) 
+# performance test.
+# 
+# This test can be used for several things depending on the 
+# configuration: SMP or SocketType performance tests
 #
-#
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-# ----------------------------------------------------
-# Common Macros
-# ----------------------------------------------------
+ERL_HOME=<path to otp top dir>
+INETS_HOME=$ERL_HOME/lib/erlang/lib/<inets dir>
+HDLT_HOME=$INETS_HOME/examples/httpd_load_test
+PATH=$ERL_HOME/bin:$PATH
 
-include subdirs.mk
+HDLT="-s hdlt start"
+STOP="-s init stop"
 
-SPECIAL_TARGETS = 
+ERL="erl \
+     -noshell \
+     -pa $HDLT_HOME \
+     $HDLT \
+     $STOP"
 
-# ----------------------------------------------------
-# Default Subdir Targets
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_subdir.mk
+echo $ERL
+$ERL | tee hdlt.log
 

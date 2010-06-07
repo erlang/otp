@@ -73,7 +73,8 @@
         <v>SessionID = term()</v>
         <v>Env  = [EnvironmentDirectives] ++ ParsedHeader</v>
         <v>EnvironmentDirectives = {Key,Value}</v>
-        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name. &lt;v>Input = string()</v>
+        <v>Key = query_string | content_length | server_software | gateway_interface | server_protocol | server_port | request_method | remote_addr | script_name</v>
+        <v>Input = string()</v>
       </type>
       <desc>
         <p>The <c>Module</c> must be found in the code path and export

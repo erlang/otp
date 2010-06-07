@@ -1,7 +1,7 @@
 %%
 %% %CopyrightBegin%
 %%
-%% Copyright Ericsson AB 2005-2010. All Rights Reserved.
+%% Copyright Ericsson AB 2010. All Rights Reserved.
 %%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
@@ -18,15 +18,16 @@
 %%
 %%
 
--ifndef(ftp_internal_hrl).
--define(ftp_internal_hrl, true).
+-ifndef(hdlt_logger_hrl).
+-define(hdlt_logger_hrl, true).
 
--include_lib("inets/src/inets_app/inets_internal.hrl").
+%% Various log macros
+-define(SET_LEVEL(N), hdlt_logger:set_level(N)).
+-define(GET_LEVEL(),  hdlt_logger:get_level()).
+-define(SET_NAME(N),  hdlt_logger:set_name(N)).
 
--define(SERVICE, ftpc).
--define(fcri(Label, Content), ?report_important(Label, ?SERVICE, Content)).
--define(fcrv(Label, Content), ?report_verbose(Label,   ?SERVICE, Content)).
--define(fcrd(Label, Content), ?report_debug(Label,     ?SERVICE, Content)).
--define(fcrt(Label, Content), ?report_trace(Label,     ?SERVICE, Content)).
+-define(INFO(F, A),   hdlt_logger:info(F, A)).
+-define(LOG(F, A),    hdlt_logger:log(F, A)).
+-define(DEBUG(F, A),  hdlt_logger:debug(F, A)).
 
--endif. % -ifdef(ftp_internal_hrl).
+-endif. % -ifdef(hdlt_logger_hrl).

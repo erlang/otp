@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2000-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2000-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %%
@@ -238,24 +238,25 @@ init([ConfigFile, ConfigList, AcceptTimeout, Addr, Port]) ->
     case (catch do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port)) of
 	{error, Reason} ->
 	    String = lists:flatten(
-		       io_lib:format("Failed initiating "
-				     "web server: ~n~p~n~p~n",
-				     [ConfigFile,Reason])),
+		       io_lib:format("Failed initiating web server: "
+				     "~n~p"
+				     "~n~p"
+				     "~n", [ConfigFile, Reason])),
 	    error_logger:error_report(String),
 	    {stop, {error, Reason}};
 	{ok, State} ->
 	    {ok, State}
     end;
-init([ConfigFile, ConfigList, AcceptTimeout, Addr, Port, 
-      ListenInfo]) ->
+init([ConfigFile, ConfigList, AcceptTimeout, Addr, Port, ListenInfo]) ->
     process_flag(trap_exit, true),
     case (catch do_init(ConfigFile, ConfigList, AcceptTimeout, 
 			Addr, Port, ListenInfo)) of
 	{error, Reason} ->
 	    String = lists:flatten(
-		       io_lib:format("Failed initiating "
-				     "web server: ~n~p~n~p~n",
-				     [ConfigFile,Reason])),
+		       io_lib:format("Failed initiating web server: "
+				     "~n~p"
+				     "~n~p"
+				     "~n", [ConfigFile, Reason])),
 	    error_logger:error_report(String),
 	    {stop, {error, Reason}};
 	{ok, State} ->
@@ -264,13 +265,14 @@ init([ConfigFile, ConfigList, AcceptTimeout, Addr, Port,
 
 do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port) ->
     NewConfigFile = proplists:get_value(file, ConfigList, ConfigFile),
-    ConfigDB   = do_initial_store(ConfigList),
-    SocketType = httpd_conf:config(ConfigDB),
+    ConfigDB      = do_initial_store(ConfigList),
+    SocketType    = httpd_conf:lookup_socket_type(ConfigDB),
     case httpd_acceptor_sup:start_acceptor(SocketType, Addr,
 					   Port, ConfigDB, AcceptTimeout) of
 	{ok, _Pid} ->
-	    Status = [{max_conn,0}, {last_heavy_load,never}, 
-		      {last_connection,never}],
+	    Status = [{max_conn,        0}, 
+		      {last_heavy_load, never}, 
+		      {last_connection, never}],
 	    State  = #state{socket_type = SocketType,
 			    config_file = NewConfigFile,
 			    config_db   = ConfigDB,
@@ -284,7 +286,7 @@ do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port) ->
 do_init(ConfigFile, ConfigList, AcceptTimeout, Addr, Port, ListenInfo) ->
     NewConfigFile = proplists:get_value(file, ConfigList, ConfigFile),
     ConfigDB   = do_initial_store(ConfigList),
-    SocketType = httpd_conf:config(ConfigDB),
+    SocketType = httpd_conf:lookup_socket_type(ConfigDB),
     case httpd_acceptor_sup:start_acceptor(SocketType, Addr,
 					   Port, ConfigDB, 
 					   AcceptTimeout, ListenInfo) of

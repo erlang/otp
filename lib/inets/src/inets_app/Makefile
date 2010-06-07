@@ -67,18 +67,15 @@ APPUP_TARGET = $(EBIN)/$(APPUP_FILE)
 
 
 # ----------------------------------------------------
-# INETS FLAGS
-# ----------------------------------------------------
-INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
-
-
-# ----------------------------------------------------
 # FLAGS
 # ----------------------------------------------------
 
-ERL_COMPILE_FLAGS += $(INETS_FLAGS) \
-                     +'{parse_transform,sys_pre_attributes}' \
-                     +'{attribute,insert,app_vsn,$(APP_VSN)}'
+include inets.mk
+
+ERL_COMPILE_FLAGS += \
+	$(INETS_FLAGS) \
+	$(INETS_ERL_COMPILE_FLAGS) \
+	-I../../include
 
 
 # ----------------------------------------------------
@@ -112,7 +109,8 @@ include $(ERL_TOP)/make/otp_release_targets.mk
 
 release_spec: opt
 	$(INSTALL_DIR)  $(RELSYSDIR)/src
-	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src
+	$(INSTALL_DIR)  $(RELSYSDIR)/src/inets_app
+	$(INSTALL_DATA) $(HRL_FILES) $(ERL_FILES) $(RELSYSDIR)/src/inets_app
 	$(INSTALL_DIR)  $(RELSYSDIR)/ebin
 	$(INSTALL_DATA) $(TARGET_FILES) $(RELSYSDIR)/ebin
 

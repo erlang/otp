@@ -18,7 +18,11 @@
 %%
 %%
 
--include("inets_internal.hrl").
+-ifndef(httpc_internal_hrl).
+-define(httpc_internal_hrl, true).
+
+-include_lib("inets/src/inets_app/inets_internal.hrl").
+
 -define(SERVICE, httpc).
 -define(hcri(Label, Data), ?report_important(Label, ?SERVICE, Data)).
 -define(hcrv(Label, Data), ?report_verbose(Label,   ?SERVICE, Data)).
@@ -104,13 +108,14 @@
 	}
        ).               
 
--record(tcp_session,
+-record(session,
 	{
 	  id,           % {{Host, Port}, HandlerPid}
 	  client_close, % true | false
 	  scheme,       % http (HTTP/TCP) | https (HTTP/SSL/TCP)
 	  socket,       % Open socket, used by connection
-	  queue_length = 1, % Current length of pipeline or keep alive queue  
+	  socket_type,  % socket-type, used by connection
+	  queue_length = 1, % Current length of pipeline or keep-alive queue  
 	  type          % pipeline | keep_alive (wait for response before sending new request) 
 	 }).
 
@@ -138,3 +143,6 @@
 %% 	  path,   % string()
 %% 	  q       % query: string()
 %% 	 }).
+
+
+-endif. % -ifdef(httpc_internal_hrl).

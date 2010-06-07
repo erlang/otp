@@ -167,6 +167,8 @@ ssl_options() = {verify,     code()}   |
         <v>http_option() = {timeout,         timeout()} | 
                            {connect_timeout, timeout()} | 
                            {ssl,             ssl_options()} | 
+                           {ossl,            ssl_options()} | 
+                           {essl,            ssl_options()} | 
                            {autoredirect,    boolean()} | 
                            {proxy_auth, {userstring(), passwordstring()}} | 
                            {version,         http_version()} | 
@@ -222,7 +224,22 @@ ssl_options() = {verify,     code()}   |
 
           <tag><c><![CDATA[ssl]]></c></tag>
           <item>
-            <p>If using SSL, these SSL-specific options are used. </p>
+            <p>This is the default ssl config option, currently defaults to 
+              <c>ossl</c>, see below. </p>
+            <p>Defaults to <c>[]</c>. </p>
+	  </item>
+
+          <tag><c><![CDATA[ossl]]></c></tag>
+          <item>
+            <p>If using the OpenSSL based (old) implementation of SSL, 
+              these SSL-specific options are used. </p>
+            <p>Defaults to <c>[]</c>. </p>
+	  </item>
+
+          <tag><c><![CDATA[essl]]></c></tag>
+          <item>
+            <p>If using the Erlang based (new) implementation of SSL, 
+              these SSL-specific options are used. </p>
             <p>Defaults to <c>[]</c>. </p>
 	  </item>
 

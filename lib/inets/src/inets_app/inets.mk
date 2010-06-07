@@ -1,4 +1,5 @@
-#
+#-*-makefile-*-   ; force emacs to enter makefile-mode
+
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 2010. All Rights Reserved.
@@ -15,21 +16,30 @@
 # under the License.
 #
 # %CopyrightEnd%
-#
-#
-include $(ERL_TOP)/make/target.mk
-include $(ERL_TOP)/make/$(TARGET)/otp.mk
 
-# ----------------------------------------------------
-# Common Macros
-# ----------------------------------------------------
+ifeq ($(INETS_TRACE), io)
+ERL_COMPILE_FLAGS += -Dinets_trace_io
+endif
 
-include subdirs.mk
+ifeq ($(INETS_DEBUG), true)
+ERL_COMPILE_FLAGS += -Dinets_debug
+endif
 
-SPECIAL_TARGETS = 
+ifeq ($(USE_INETS_HIPE), true)
+ERL_COMPILE_FLAGS += +native
+endif
 
-# ----------------------------------------------------
-# Default Subdir Targets
-# ----------------------------------------------------
-include $(ERL_TOP)/make/otp_subdir.mk
+ifeq ($(WARN_UNUSED_WARS), true)
+ERL_COMPILE_FLAGS += +warn_unused_vars
+endif
+
+INETS_APP_VSN_COMPILE_FLAGS = \
+	+'{parse_transform,sys_pre_attributes}' \
+	+'{attribute,insert,app_vsn,$(APP_VSN)}'
+
+INETS_FLAGS = -D'SERVER_SOFTWARE="$(APPLICATION)/$(VSN)"'
+
+INETS_ERL_COMPILE_FLAGS += \
+	-pa $(ERL_TOP)/lib/inets/ebin  \
+	$(INETS_APP_VSN_COMPILE_FLAGS) 
 

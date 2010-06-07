@@ -48,14 +48,17 @@
 
 -ifdef(ftp_debug_client).
 -define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [debug, {timeout, timer:seconds(15)}] ++ Flags)).
+	do_ftp_open(Host, [{debug, debug}, 
+			   {timeout, timer:seconds(15)} | Flags])).
 -else.
 -ifdef(ftp_trace_client).
 -define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [trace, {timeout, timer:seconds(15)}] ++ Flags)).
+	do_ftp_open(Host, [{debug, trace}, 
+			   {timeout, timer:seconds(15)} | Flags])).
 -else.
 -define(ftp_open(Host, Flags), 
-	do_ftp_open(Host, [verbose, {timeout, timer:seconds(15)}] ++ Flags)).
+	do_ftp_open(Host, [{verbose, true}, 
+			   {timeout, timer:seconds(15)} | Flags])).
 -endif.
 -endif.
 
@@ -113,9 +116,7 @@ get_ftpd_host([Host|Hosts]) ->
     p("get_ftpd_host -> entry with"
       "~n   Host: ~p"
       "~n", [Host]),
-    case (catch ftp:open({option_list, 
-			  [{host, Host}, {port, ?FTP_PORT}, 
-			   {timeout, 20000}]})) of
+    case (catch ftp:open(Host, [{port, ?FTP_PORT}, {timeout, 20000}])) of
 	{ok, Pid} ->
 	    (catch ftp:close(Pid)),
 	    {ok, Host};
@@ -212,7 +213,7 @@ do_init_per_testcase(Case, Config)
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
     Host = ftp_host(Config), 
-    case (catch ?ftp_open(Host, [])) of
+    case (catch ?ftp_open(Host, [{mode, passive}])) of
 	{ok, Pid} ->
 	    [{ftp, Pid} | data_dir(NewConfig)];
 	{skip, _} = SKIP ->
@@ -225,9 +226,8 @@ do_init_per_testcase(Case, Config)
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
     Host = ftp_host(Config), 
-    case (catch ?ftp_open(Host, [])) of
+    case (catch ?ftp_open(Host, [{mode, active}])) of
 	{ok, Pid} ->
-	    ok = ftp:force_active(Pid),
 	    [{ftp, Pid} | data_dir(NewConfig)];
 	{skip, _} = SKIP ->
 	    SKIP
@@ -240,11 +240,10 @@ do_init_per_testcase(Case, Config)
     io:format(user, "~n~n*** INIT ~w:~w ***~n~n", [?MODULE, Case]),
     NewConfig = close_connection(watch_dog(Config)),
     Host = ftp_host(Config), 
-    Opts = [{host, Host}, 
-	    {port, ?FTP_PORT},
-	    {flags, [verbose]},
+    Opts = [{port,     ?FTP_PORT},
+	    {verbose,  true},
 	    {progress, {?MODULE, progress, #progress{}}}], 
-    case ftp:open({option_list, Opts}) of
+    case ftp:open(Host, Opts) of
 	{ok, Pid} ->
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),
 	    [{ftp, Pid} | data_dir(NewConfig)];
@@ -257,22 +256,23 @@ do_init_per_testcase(Case, Config) ->
     inets:start(),
     NewConfig = close_connection(watch_dog(Config)),
     Host = ftp_host(Config), 
-    Flags = 
+    Opts1 = 
 	if 
 	    ((Case =:= passive_ip_v6_disabled) orelse
 	     (Case =:= active_ip_v6_disabled)) ->
- 		[ip_v6_disabled];
+ 		[{ipfamily, inet}];
  	    true ->
  		[]
  	end,
-    case (catch ?ftp_open(Host, Flags)) of
+    Opts2 = 
+	case string:tokens(atom_to_list(Case), [$_]) of
+	    [_, "active" | _] ->
+		[{mode, active}  | Opts1];
+	    _ ->
+		[{mode, passive} | Opts1]
+	end,
+    case (catch ?ftp_open(Host, Opts2)) of
 	{ok, Pid} ->
-	    case string:tokens(atom_to_list(Case), [$_]) of
-		[_, "active"|_] ->
-		    ok = ftp:force_active(Pid);
-		_ ->
-		    ok
-	    end,
 	    ok = ftp:user(Pid, ?FTP_USER, ?FTP_PASS),
 	    [{ftp, Pid} | data_dir(NewConfig)];
 	{skip, _} = SKIP ->
@@ -365,6 +365,7 @@ open(Config) when is_list(Config) ->
     Host = ftp_host(Config), 
     (catch tc_open(Host)).
 
+
 tc_open(Host) ->
     {ok, Pid} = ?ftp_open(Host, []),
     ok = ftp:close(Pid),
@@ -374,8 +375,9 @@ tc_open(Host) ->
 				{flags, [verbose]}, 
 				{timeout, 30000}]}),
     ok = ftp:close(Pid1),
-    {error, ehost} = ftp:open({option_list, [{port, ?FTP_PORT}, 
-					     {flags, [verbose]}]}),
+    
+    {error, ehost} = 
+	ftp:open({option_list, [{port, ?FTP_PORT}, {flags, [verbose]}]}),
     {ok, Pid2} = ftp:open(Host),
     ok = ftp:close(Pid2),
     
@@ -408,6 +410,15 @@ tc_open(Host) ->
 				{mode, cool}]}),
     test_server:sleep(100),
     ok = ftp:close(Pid6),
+
+    {ok, Pid7} = 
+	ftp:open(Host, [{port, ?FTP_PORT}, {verbose, true}, {timeout, 30000}]),
+    ok = ftp:close(Pid7),
+
+    {ok, Pid8} = 
+	ftp:open(Host, ?FTP_PORT),
+    ok = ftp:close(Pid8),
+
     ok.
 
     
@@ -420,7 +431,7 @@ open_port(suite) ->
     [];
 open_port(Config) when is_list(Config) ->
     Host = ftp_host(Config), 
-    {ok, Pid} = ftp:open(Host, ?FTP_PORT),
+    {ok, Pid} = ftp:open(Host, [{port, ?FTP_PORT}]),
     ok = ftp:close(Pid),
     {error, ehost} = ftp:open(?BAD_HOST, []),
     ok.
@@ -954,26 +965,39 @@ api_missuse(doc)->
     ["Test that behaviour of the ftp process if the api is abused"];
 api_missuse(suite) -> [];
 api_missuse(Config) when is_list(Config) ->
+    io:format("api_missuse -> entry~n", []),
+    Flag =  process_flag(trap_exit, true),
     Pid = ?config(ftp, Config),
     Host = ftp_host(Config), 
-
+    
     %% Serious programming fault, connetion will be shut down 
-    {error, {connection_terminated, 'API_violation'}} =
-	gen_server:call(Pid, {self(), foobar, 10}, infinity),
+    io:format("api_missuse -> verify bad call termination (~p)~n", [Pid]),
+    case (catch gen_server:call(Pid, {self(), foobar, 10}, infinity)) of
+	{error, {connection_terminated, 'API_violation'}} ->
+	    ok;
+	Unexpected1 ->
+	    exit({unexpected_result, Unexpected1})
+    end,
     test_server:sleep(500),
     undefined = process_info(Pid, status),
 
+    io:format("api_missuse -> start new client~n", []),
     {ok, Pid2} =  ?ftp_open(Host, []),
     %% Serious programming fault, connetion will be shut down 
+    io:format("api_missuse -> verify bad cast termination~n", []),
     gen_server:cast(Pid2, {self(), foobar, 10}),
     test_server:sleep(500),
     undefined = process_info(Pid2, status),
 
+    io:format("api_missuse -> start new client~n", []),
     {ok, Pid3} =  ?ftp_open(Host, []),
     %% Could be an innocent misstake the connection lives. 
+    io:format("api_missuse -> verify bad bang~n", []),
     Pid3 ! foobar, 
     test_server:sleep(500),
     {status, _} = process_info(Pid3, status),
+    process_flag(trap_exit, Flag),
+    io:format("api_missuse -> done~n", []),
     ok.
 
 
@@ -1525,11 +1549,11 @@ split([C| Cs], I, Is) ->
 split([], I, Is) ->
     lists:reverse([lists:reverse(I)| Is]).
 
-do_ftp_open(Host, Flags) ->
+do_ftp_open(Host, Opts) ->
     io:format("do_ftp_open -> entry with"
-	      "~n   Host:  ~p"
-	      "~n   Flags: ~p", [Host, Flags]), 
-    case ftp:open(Host, Flags) of
+	      "~n   Host: ~p"
+	      "~n   Opts: ~p", [Host, Opts]), 
+    case ftp:open(Host, Opts) of
 	{ok, _} = OK ->
 	    OK;
 	{error, Reason} ->
