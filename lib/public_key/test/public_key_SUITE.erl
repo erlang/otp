@@ -320,12 +320,12 @@ pkix_path_validation(Config) when is_list(Config) ->
 					{org_unit, "testing dep"}
 				       ]}
 			    ]),
-    ok = pkey_test:write_pem("/tmp", "cacert", CaK),
+    ok = pkey_test:write_pem("./", "public_key_cacert", CaK),
 
     CertK1 = {Cert1, _} = pkey_test:make_cert([{issuer, CaK}]),
     CertK2 = {Cert2,_} = pkey_test:make_cert([{issuer, CertK1}, {digest, md5}, {extensions, false}]),
-    ok = pkey_test:write_pem("/tmp", "cert", CertK2),
-
+    ok = pkey_test:write_pem("./", "public_key_cert", CertK2),
+    
     {ok, _} = public_key:pkix_path_validation(Trusted, [Cert1], []),
     
     {error, {bad_cert,invalid_issuer}} = public_key:pkix_path_validation(Trusted, [Cert2], []),
