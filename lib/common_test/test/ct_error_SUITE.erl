@@ -89,7 +89,8 @@ cfg_error(Config) when is_list(Config) ->
 	      Join(DataDir, "cfg_error_8_SUITE"),
 	      Join(DataDir, "cfg_error_9_SUITE"),
 	      Join(DataDir, "cfg_error_10_SUITE"),
-	      Join(DataDir, "cfg_error_11_SUITE")
+	      Join(DataDir, "cfg_error_11_SUITE"),
+	      Join(DataDir, "cfg_error_12_SUITE")
 	     ],
     {Opts,ERPid} = setup([{suite,Suites}], Config),
     ok = ct_test_support:run(Opts, Config),
@@ -230,7 +231,7 @@ test_events(cfg_error) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{11,11,36}},
+     {?eh,start_info,{12,12,39}},
 
      {?eh,tc_start,{cfg_error_1_SUITE,init_per_suite}},
      {?eh,tc_done,
@@ -563,6 +564,18 @@ test_events(cfg_error) ->
      {?eh,test_stats,{13,3,{1,19}}},
      {?eh,tc_start,{cfg_error_11_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_11_SUITE,end_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc1,{failed,{timetrap_timeout,500}}}},
+     {?eh,test_stats,{13,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc2}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc2,
+		   {failed,
+		    {cfg_error_12_SUITE,end_per_testcase,
+                     {timetrap_timeout,500}}}}},
+     {?eh,test_stats,{14,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc3}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc3,ok}},
+     {?eh,test_stats,{15,4,{1,19}}},
 
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}

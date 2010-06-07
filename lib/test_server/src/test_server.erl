@@ -1126,6 +1126,7 @@ run_test_case_eval1(Mod, Func, Args, Name, RunInit, TCCallback) ->
 			    _ ->
 				{FWReturn,TSReturn,EndConf1}
 			end,
+		    put(test_server_init_or_end_conf,undefined),
 		    case test_server_sup:framework_call(end_tc, [?pl2a(Mod), Func,
 								 {FWReturn1,[EndConf2]}]) of
 			{fail,Reason} ->
