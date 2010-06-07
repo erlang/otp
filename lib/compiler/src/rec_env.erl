@@ -34,8 +34,6 @@
 
 -export_type([environment/0]).
 
--import(erlang, [max/2]).
-
 -ifdef(DEBUG).
 -export([test/1, test_custom/1, test_custom/2]).
 -endif.
@@ -588,7 +586,7 @@ new_key(N, R, _T, F, Env) ->
     new_key(generate(N, R1), R1, 0, F, Env).
 
 start_range(Env) ->
-    max(env_size(Env) * ?START_RANGE_FACTOR, ?MINIMUM_RANGE).
+    erlang:max(env_size(Env) * ?START_RANGE_FACTOR, ?MINIMUM_RANGE).
 
 %% The previous key might or might not be used to compute the next key
 %% to be tried. It is currently not used.
