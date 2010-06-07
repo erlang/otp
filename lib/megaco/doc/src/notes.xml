@@ -36,6 +36,68 @@
     section is the version number of Megaco.</p>
 
   <section>
+    <title>Megaco 3.14.1</title>
+
+    <p>Version 3.14.1 supports code replacement in runtime from/to
+      version 3.14, 3.13, 3.12 and 3.11.3.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A minor compiler related performance improvement. </p>
+          <p>Own Id: OTP-8561</p>
+        </item>
+
+     </list>
+
+    </section>
+
+    <section>
+      <title>Fixed bugs and malfunctions</title>
+<!--
+      <p>-</p>
+-->
+
+      <list type="bulleted">
+        <item>
+          <p>A raise condition when, during high load, processing
+            both the original and a resent message and delivering
+            this as two separate messages to the user. </p>
+          <p>Note that this solution only protects against multiple
+            reply deliveries! </p>
+          <p>Own Id: OTP-8529</p>
+          <p>Aux Id: Seq 10915</p>
+        </item>
+
+        <item>
+          <p>Fix shared libraries installation. </p>
+          <p>The flex shared lib(s) were incorrectly installed as data 
+            files. </p>
+          <p>Peter Lemenkov</p>
+          <p>Own Id: OTP-8627</p>
+        </item>
+
+        <item>
+          <p>Eliminated a possible raise condition while creating 
+            pending counters. </p>
+          <p>Own Id: OTP-8634</p>
+	  <p>Aux Id: Seq 11579</p>
+        </item>
+
+      </list>
+
+    </section>
+
+  </section> <!-- 3.14.1 -->
+
+
+  <section>
     <title>Megaco 3.14</title>
 
     <p>Version 3.14 supports code replacement in runtime from/to
