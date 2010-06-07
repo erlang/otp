@@ -1328,10 +1328,18 @@ static char **build_unix_environment(char *block)
 	}
     }
 
-    for (j = 0; j < i; j++) {
+    for (j = 0; j < i; ) {
         size_t last = strlen(cpp[j])-1;
 	if (cpp[j][last] == '=' && strchr(cpp[j], '=') == cpp[j]+last) {
 	    cpp[j] = cpp[--len];
+	    if (len < i) {
+		i--;
+	    } else {
+		j++;
+	    }
+	}
+	else {
+	    j++;
 	}
     }
 
