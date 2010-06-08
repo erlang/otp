@@ -5260,7 +5260,35 @@ otp_1131_2(X) -> ?P(otp_1131_2), otp_1131(X).
 
 otp_1131_3(X) -> 
     %% <CONDITIONAL-SKIP>
-    Skippable = [{unix, [darwin]}],
+    %% This is intended to catch Montavista Linux 4.0/ppc (2.6.5)
+    %% Montavista Linux looks like a Debian distro (/etc/issue)
+    LinuxVersionVerify = 
+	fun() ->
+		case os:cmd("uname -m") of
+		    "ppc" ++ _ ->
+			case file:read_file_info("/etc/issue") of
+			    {ok, _} ->
+				case os:cmd("grep -i montavista /etc/issue") of
+				    Info when (is_list(Info) andalso 
+					       (length(Info) > 0)) ->
+					case os:version() of
+					    {2, 6, 10} ->
+						true;
+					    _ ->
+						false
+					end;
+				    _ -> % Maybe plain Debian or Ubuntu
+					false
+				end;
+			    _ ->
+				%% Not a Debian based distro
+				false
+			end;
+		    _ ->
+			false
+		end
+	end,
+    Skippable = [{unix, [darwin, {linux, LinuxVersionVerify}]}],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(X, Condition),
     %% </CONDITIONAL-SKIP>
