@@ -143,6 +143,51 @@ type(M, F, A) ->
 
 -spec type(atom(), atom(), arity(), [erl_types:erl_type()]) -> erl_types:erl_type().
 
+%%-- binary -------------------------------------------------------------------
+type(binary, at, 2, Xs) ->
+  strict(arg_types(binary, at, 2), Xs, fun(_) -> t_integer() end);
+type(binary, bin_to_list, Arity, Xs) when 1 =< Arity, Arity =< 3 ->
+  strict(arg_types(binary, bin_to_list, Arity), Xs,
+	 fun(_) -> t_list(t_integer()) end);
+type(binary, compile_pattern, 1, Xs) ->
+  strict(arg_types(binary, compile_pattern, 1), Xs,
+	 fun(_) -> t_tuple([t_atom(bm),t_binary()]) end);
+type(binary, copy, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, copy, Arity), Xs,
+	 fun(_) -> t_binary() end);
+type(binary, decode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, decode_unsigned, Arity), Xs,
+	 fun(_) -> t_non_neg_integer() end);
+type(binary, encode_unsigned, Arity, Xs)  when Arity =:= 1; Arity =:= 2 ->
+  strict(arg_types(binary, encode_unsigned, Arity), Xs,
+	 fun(_) -> t_binary() end);
+type(binary, first, 1, Xs) ->
+  strict(arg_types(binary, first, 1), Xs, fun(_) -> t_non_neg_integer() end);
+type(binary, last, 1, Xs) ->
+  strict(arg_types(binary, last, 1), Xs, fun(_) -> t_non_neg_integer() end);
+type(binary, list_to_bin, 1, Xs) ->
+  type(erlang, list_to_binary, 1, Xs);
+type(binary, longest_common_prefix, 1, Xs) ->
+  strict(arg_types(binary, longest_common_prefix, 1), Xs,
+	 fun(_) -> t_integer() end);
+type(binary, longest_common_suffix, 1, Xs) ->
+  strict(arg_types(binary, longest_common_suffix, 1), Xs,
+	 fun(_) -> t_integer() end);
+type(binary, match, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(binary, match, Arity), Xs,
+	 fun(_) ->
+	     t_sup(t_atom('nomatch'), t_binary_canonical_part())
+	 end);
+type(binary, matches, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(binary, matches, Arity), Xs,
+	 fun(_) -> t_list(t_binary_canonical_part()) end);
+type(binary, part, 2, Xs) ->
+  type(erlang, binary_part, 2, Xs);
+type(binary, part, 3, Xs) ->
+  type(erlang, binary_part, 3, Xs);
+type(binary, referenced_byte_size, 1, Xs) ->
+  strict(arg_types(binary, referenced_byte_size, 1), Xs,
+	 fun(_) -> t_non_neg_integer() end);
 %%-- code ---------------------------------------------------------------------
 type(code, add_path, 1, Xs) ->
   strict(arg_types(code, add_path, 1), Xs,
@@ -665,6 +710,14 @@ type(erlang, 'bnot', 1, Xs) ->
 %%  strict(arg_types(erlang, 'bnot', 1), Xs, fun (_) -> t_integer() end);
 type(erlang, abs, 1, Xs) ->
   strict(arg_types(erlang, abs, 1), Xs, fun ([X]) -> X end);
+type(erlang, adler32, 1, Xs) ->
+  strict(arg_types(erlang, adler32, 1), Xs, fun (_) -> t_adler32() end);
+type(erlang, adler32, 2, Xs) ->
+  strict(arg_types(erlang, adler32, 2), Xs, fun (_) -> t_adler32() end);
+type(erlang, adler32_combine, 3, Xs) ->
+  strict(arg_types(erlang, adler32_combine, 3), Xs,
+	 fun (_) -> t_adler32() end);
+type(erlang, append, 2, Xs) -> type(erlang, '++', 2, Xs); % alias
 type(erlang, append_element, 2, Xs) ->
   strict(arg_types(erlang, append_element, 2), Xs, fun (_) -> t_tuple() end);
 type(erlang, apply, 2, Xs) ->
@@ -683,6 +736,10 @@ type(erlang, atom_to_binary, 2, Xs) ->
   strict(arg_types(erlang, atom_to_binary, 2), Xs, fun (_) -> t_binary() end);
 type(erlang, atom_to_list, 1, Xs) ->
   strict(arg_types(erlang, atom_to_list, 1), Xs, fun (_) -> t_string() end);
+type(erlang, binary_part, 2, Xs) ->
+  strict(arg_types(erlang, binary_part, 2), Xs, fun (_) -> t_binary() end);
+type(erlang, binary_part, 3, Xs) ->
+  strict(arg_types(erlang, binary_part, 3), Xs, fun (_) -> t_binary() end);
 type(erlang, binary_to_atom, 2, Xs) ->
   strict(arg_types(erlang, binary_to_atom, 2), Xs, fun (_) -> t_atom() end);
 type(erlang, binary_to_existing_atom, 2, Xs) ->
@@ -726,11 +783,11 @@ type(erlang, check_process_code, 2, Xs) ->
 type(erlang, concat_binary, 1, Xs) ->
   strict(arg_types(erlang, concat_binary, 1), Xs, fun (_) -> t_binary() end);
 type(erlang, crc32, 1, Xs) ->
-  strict(arg_types(erlang, crc32, 1), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32, 1), Xs, fun (_) -> t_crc32() end);
 type(erlang, crc32, 2, Xs) ->
-  strict(arg_types(erlang, crc32, 2), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32, 2), Xs, fun (_) -> t_crc32() end);
 type(erlang, crc32_combine, 3, Xs) ->
-  strict(arg_types(erlang, crc32_combine, 3), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(erlang, crc32_combine, 3), Xs, fun (_) -> t_crc32() end);
 type(erlang, date, 0, _) ->
   t_date();
 type(erlang, decode_packet, 3, Xs) ->
@@ -752,6 +809,10 @@ type(erlang, demonitor, 2, Xs) ->
 type(erlang, disconnect_node, 1, Xs) ->
   strict(arg_types(erlang, disconnect_node, 1), Xs, fun (_) -> t_boolean() end);
 type(erlang, display, 1, _) -> t_atom('true');
+type(erlang, display_string, 1, Xs) ->
+  strict(arg_types(erlang, display_string, 1), Xs, fun(_) -> t_atom('true') end);
+type(erlang, display_nl, 0, _) ->
+  t_atom('true');
 type(erlang, dist_exit, 3, Xs) ->
   strict(arg_types(erlang, dist_exit, 3), Xs, fun (_) -> t_atom('true') end);
 type(erlang, element, 2, Xs) ->
@@ -802,6 +863,8 @@ type(erlang, fun_to_list, 1, Xs) ->
 type(erlang, garbage_collect, 0, _) -> t_atom('true');
 type(erlang, garbage_collect, 1, Xs) ->
   strict(arg_types(erlang, garbage_collect, 1), Xs, fun (_) -> t_boolean() end);
+type(erlang, garbage_collect_message_area, 0, _) ->
+  t_boolean();
 type(erlang, get, 0, _) -> t_list(t_tuple(2));
 type(erlang, get, 1, _) -> t_any();          % | t_atom('undefined')
 type(erlang, get_cookie, 0, _) -> t_atom();  % | t_atom('nocookie')
@@ -1177,8 +1240,8 @@ type(erlang, phash2, 2, Xs) ->
   strict(arg_types(erlang, phash2, 2), Xs, fun (_) -> t_non_neg_integer() end);
 type(erlang, pid_to_list, 1, Xs) ->
   strict(arg_types(erlang, pid_to_list, 1), Xs, fun (_) -> t_string() end);
-type(erlang, port_call, 3, Xs) ->
-  strict(arg_types(erlang, port_call, 3), Xs, fun (_) -> t_any() end);
+type(erlang, port_call, Arity, Xs) when Arity =:= 2; Arity =:= 3 ->
+  strict(arg_types(erlang, port_call, Arity), Xs, fun (_) -> t_any() end);
 type(erlang, port_close, 1, Xs) ->
   strict(arg_types(erlang, port_close, 1), Xs,
 	 fun (_) -> t_atom('true') end);
@@ -1507,6 +1570,7 @@ type(erlang, statistics, 1, Xs) ->
 		 T_statistics_1
 	     end
 	 end);
+type(erlang, subtract, 2, Xs) -> type(erlang, '--', 2, Xs); % alias
 type(erlang, suspend_process, 1, Xs) ->
   strict(arg_types(erlang, suspend_process, 1), Xs,
 	 fun (_) -> t_atom('true') end);
@@ -1599,7 +1663,7 @@ type(erlang, system_info, 1, Xs) ->
 		     t_sup([t_atom('false'),
 			    t_list(t_tuple([t_atom(), t_any()]))]);
 		   ['endian'] ->
-		     t_sup([t_atom('big'), t_atom('little')]);
+		     t_endian();
 		   ['fullsweep_after'] ->
 		     t_tuple([t_atom('fullsweep_after'), t_non_neg_integer()]);
 		   ['garbage_collection'] ->
@@ -1611,9 +1675,8 @@ type(erlang, system_info, 1, Xs) ->
 		   ['heap_type'] ->
 		     t_sup([t_atom('private'), t_atom('hybrid')]);
 		   ['hipe_architecture'] ->
-		     t_sup([t_atom('amd64'), t_atom('arm'),
-			    t_atom('powerpc'), t_atom('undefined'),
-			    t_atom('ultrasparc'), t_atom('x86')]);
+		     t_atoms(['amd64', 'arm', 'powerpc', 'ppc64',
+			      'undefined', 'ultrasparc', 'x86']);
 		   ['info'] ->
 		     t_binary();
 		   ['internal_cpu_topology'] -> %% Undocumented internal feature
@@ -1789,11 +1852,21 @@ type(erts_debug, disassemble, 1, Xs) ->
 	 fun (_) -> t_sup([t_atom('false'),
 			   t_atom('undef'),
 			   t_tuple([t_integer(), t_binary(), t_mfa()])]) end);
+type(erts_debug, display, 1, _) ->
+  t_string();
 type(erts_debug, dist_ext_to_term, 2, Xs) ->
   strict(arg_types(erts_debug, dist_ext_to_term, 2), Xs,
 	 fun (_) -> t_any() end);
+type(erts_debug, dump_monitors, 1, Xs) ->
+  strict(arg_types(erts_debug, dump_monitors, 1), Xs,
+	 fun(_) -> t_atom('true') end);
+type(erts_debug, dump_links, 1, Xs) ->
+  strict(arg_types(erts_debug, dump_links, 1), Xs,
+	 fun(_) -> t_atom('true') end);
 type(erts_debug, flat_size, 1, Xs) ->
   strict(arg_types(erts_debug, flat_size, 1), Xs, fun (_) -> t_integer() end);
+type(erts_debug, get_internal_state, 1, _) ->
+  t_any();
 type(erts_debug, lock_counters, 1, Xs) ->
   strict(arg_types(erts_debug, lock_counters, 1), Xs,
 	 fun ([Arg]) ->
@@ -1814,6 +1887,8 @@ type(erts_debug, lock_counters, 1, Xs) ->
 	 end);
 type(erts_debug, same, 2, Xs) ->
   strict(arg_types(erts_debug, same, 2), Xs, fun (_) -> t_boolean() end);
+type(erts_debug, set_internal_state, 2, _) ->
+  t_any();
 %%-- ets ----------------------------------------------------------------------
 type(ets, all, 0, _) ->
   t_list(t_tab());
@@ -2103,7 +2178,7 @@ type(hipe_bifs, set_native_address, 3, Xs) ->
   strict(arg_types(hipe_bifs, set_native_address, 3), Xs,
 	 fun (_) -> t_nil() end);
 type(hipe_bifs, system_crc, 1, Xs) ->
-  strict(arg_types(hipe_bifs, system_crc, 1), Xs, fun (_) -> t_integer() end);
+  strict(arg_types(hipe_bifs, system_crc, 1), Xs, fun (_) -> t_crc32() end);
 type(hipe_bifs, term_to_word, 1, Xs) ->
   strict(arg_types(hipe_bifs, term_to_word, 1), Xs,
 	 fun (_) -> t_integer() end);
@@ -3198,6 +3273,53 @@ arith(Op, X1, X2) ->
 
 -spec arg_types(atom(), atom(), arity()) -> [erl_types:erl_type()] | 'unknown'.
 
+%%------- binary --------------------------------------------------------------
+arg_types(binary, at, 2) ->
+  [t_binary(), t_non_neg_integer()];
+arg_types(binary, bin_to_list, 1) ->
+  [t_binary()];
+arg_types(binary, bin_to_list, 2) ->
+  [t_binary(), t_binary_part()];
+arg_types(binary, bin_to_list, 3) ->
+  [t_binary(), t_integer(), t_non_neg_integer()];
+arg_types(binary, compile_pattern, 1) ->
+  [t_sup(t_binary(), t_list(t_binary()))];
+arg_types(binary, copy, 1) ->
+  [t_binary()];
+arg_types(binary, copy, 2) ->
+  [t_binary(), t_non_neg_integer()];
+arg_types(binary, decode_unsigned, 1) ->
+  [t_binary()];
+arg_types(binary, decode_unsigned, 2) ->
+  [t_binary(), t_endian()];
+arg_types(binary, encode_unsigned, 1) ->
+  [t_non_neg_integer()];
+arg_types(binary, encode_unsigned, 2) ->
+  [t_non_neg_integer(), t_endian()];
+arg_types(binary, first, 1) ->
+  [t_binary()];
+arg_types(binary, last, 1) ->
+  [t_binary()];
+arg_types(binary, list_to_bin, 1) ->
+  arg_types(erlang, list_to_binary, 1);
+arg_types(binary, longest_common_prefix, 1) ->
+  [t_list(t_binary())];
+arg_types(binary, longest_common_suffix, 1) ->
+  [t_list(t_binary())];
+arg_types(binary, match, 2) ->
+  [t_binary(), t_binary_pattern()];
+arg_types(binary, match, 3) ->
+  [t_binary(), t_binary_pattern(), t_binary_options()];
+arg_types(binary, matches, 2) ->
+  [t_binary(), t_binary_pattern()];
+arg_types(binary, matches, 3) ->
+  [t_binary(), t_binary_pattern(), t_binary_options()];
+arg_types(binary, part, 2) ->
+  arg_types(erlang, binary_part, 2);
+arg_types(binary, part, 3) ->
+  arg_types(erlang, binary_part, 3);
+arg_types(binary, referenced_byte_size, 1) ->
+  [t_binary()];
 %%------- code ----------------------------------------------------------------
 arg_types(code, add_path, 1) ->
   [t_string()];
@@ -3379,6 +3501,14 @@ arg_types(erlang, 'bnot', 1) ->
   [t_integer()];
 arg_types(erlang, abs, 1) ->
   [t_number()];
+arg_types(erlang, adler32, 1) ->
+  [t_iodata()];
+arg_types(erlang, adler32, 2) ->
+  [t_adler32(), t_iodata()];
+arg_types(erlang, adler32_combine, 3) ->
+  [t_adler32(), t_adler32(), t_non_neg_integer()];
+arg_types(erlang, append, 2) ->
+  arg_types(erlang, '++', 2);
 arg_types(erlang, append_element, 2) ->
   [t_tuple(), t_any()];
 arg_types(erlang, apply, 2) ->
@@ -3392,6 +3522,10 @@ arg_types(erlang, atom_to_binary, 2) ->
   [t_atom(), t_encoding_a2b()];
 arg_types(erlang, atom_to_list, 1) ->
   [t_atom()];
+arg_types(erlang, binary_part, 2) ->
+  [t_binary(), t_tuple([t_integer(),t_integer()])];
+arg_types(erlang, binary_part, 3) ->
+  [t_binary(), t_integer(), t_integer()];
 arg_types(erlang, binary_to_atom, 2) ->
   [t_binary(), t_encoding_a2b()];
 arg_types(erlang, binary_to_existing_atom, 2) ->
@@ -3427,9 +3561,9 @@ arg_types(erlang, concat_binary, 1) ->
 arg_types(erlang, crc32, 1) ->
   [t_iodata()];
 arg_types(erlang, crc32, 2) ->
-  [t_integer(), t_iodata()];
+  [t_crc32(), t_iodata()];
 arg_types(erlang, crc32_combine, 3) ->
-  [t_integer(), t_integer(), t_integer()];
+  [t_crc32(), t_crc32(), t_non_neg_integer()];
 arg_types(erlang, date, 0) ->
   [];
 arg_types(erlang, decode_packet, 3) ->
@@ -3444,6 +3578,10 @@ arg_types(erlang, disconnect_node, 1) ->
   [t_node()];
 arg_types(erlang, display, 1) ->
   [t_any()];
+arg_types(erlang, display_nl, 0) ->
+  [];
+arg_types(erlang, display_string, 1) ->
+  [t_string()];
 arg_types(erlang, dist_exit, 3) ->
   [t_pid(), t_dist_exit(), t_sup(t_pid(), t_port())];
 arg_types(erlang, element, 2) ->
@@ -3480,6 +3618,8 @@ arg_types(erlang, garbage_collect, 0) ->
   [];
 arg_types(erlang, garbage_collect, 1) ->
   [t_pid()];
+arg_types(erlang, garbage_collect_message_area, 0) ->
+  [];
 arg_types(erlang, get, 0) ->
   [];
 arg_types(erlang, get, 1) ->
@@ -3676,6 +3816,8 @@ arg_types(erlang, phash2, 2) ->
   [t_any(), t_pos_integer()];
 arg_types(erlang, pid_to_list, 1) ->
   [t_pid()];
+arg_types(erlang, port_call, 2) ->
+  [t_sup(t_port(), t_atom()), t_any()];
 arg_types(erlang, port_call, 3) ->
   [t_sup(t_port(), t_atom()), t_integer(), t_any()];
 arg_types(erlang, port_close, 1) ->
@@ -3803,6 +3945,8 @@ arg_types(erlang, statistics, 1) ->
 	  t_atom('run_queue'),
 	  t_atom('runtime'),
 	  t_atom('wall_clock')])];
+arg_types(erlang, subtract, 2) ->
+  arg_types(erlang, '--', 2);
 arg_types(erlang, suspend_process, 1) ->
   [t_pid()];
 arg_types(erlang, suspend_process, 2) ->
@@ -3925,9 +4069,17 @@ arg_types(erts_debug, breakpoint, 2) ->
   [t_tuple([t_atom(), t_atom(), t_sup(t_integer(), t_atom('_'))]), t_boolean()];
 arg_types(erts_debug, disassemble, 1) ->
   [t_sup(t_mfa(), t_integer())];
+arg_types(erts_debug, display, 1) ->
+  [t_any()];
 arg_types(erts_debug, dist_ext_to_term, 2) ->
   [t_tuple(), t_binary()];
+arg_types(erts_debug, dump_monitors, 1) ->
+  [t_sup([t_pid(),t_atom()])];
+arg_types(erts_debug, dump_links, 1) ->
+  [t_sup([t_pid(),t_atom(),t_port()])];
 arg_types(erts_debug, flat_size, 1) ->
+  [t_any()];
+arg_types(erts_debug, get_internal_state, 1) ->
   [t_any()];
 arg_types(erts_debug, lock_counters, 1) ->
   [t_sup([t_atom(enabled),
@@ -3936,6 +4088,8 @@ arg_types(erts_debug, lock_counters, 1) ->
 	  t_tuple([t_atom(copy_save), t_boolean()]),
 	  t_tuple([t_atom(process_locks), t_boolean()])])];
 arg_types(erts_debug, same, 2) ->
+  [t_any(), t_any()];
+arg_types(erts_debug, set_internal_state, 2) ->
   [t_any(), t_any()];
 %%------- ets -----------------------------------------------------------------
 arg_types(ets, all, 0) ->
@@ -4117,7 +4271,7 @@ arg_types(hipe_bifs, call_count_off, 1) ->
 arg_types(hipe_bifs, call_count_on, 1) ->
   [t_mfa()];
 arg_types(hipe_bifs, check_crc, 1) ->
-  [t_integer()];
+  [t_crc32()];
 arg_types(hipe_bifs, enter_code, 2) ->
   [t_binary(), t_sup(t_nil(), t_tuple())];
 arg_types(hipe_bifs, enter_sdesc, 1) ->
@@ -4161,7 +4315,7 @@ arg_types(hipe_bifs, set_funinfo_native_address, 3) ->
 arg_types(hipe_bifs, set_native_address, 3) ->
   [t_mfa(), t_integer(), t_boolean()];
 arg_types(hipe_bifs, system_crc, 1) ->
-  [t_integer()];
+  [t_crc32()];
 arg_types(hipe_bifs, term_to_word, 1) ->
   [t_any()];
 arg_types(hipe_bifs, update_code_size, 3) ->
@@ -4475,6 +4629,30 @@ t_httppacket() ->
   t_sup([t_HttpRequest(), t_HttpResponse(),
 	 t_HttpHeader(), t_atom('http_eoh'), t_HttpError()]).
 
+t_endian() ->
+  t_sup([t_atom('big'), t_atom('little')]).
+
+%% =====================================================================
+%% Types for the binary module
+%% =====================================================================
+
+t_binary_part() ->
+  t_tuple([t_non_neg_integer(),t_integer()]).
+
+t_binary_canonical_part() ->
+  t_tuple([t_non_neg_integer(),t_non_neg_integer()]).
+
+t_binary_pattern() ->
+  t_sup([t_binary(),
+	 t_list(t_binary()),
+	 t_binary_compiled_pattern()]).
+
+t_binary_compiled_pattern() ->
+  t_tuple([t_atom('cp'),t_binary()]).
+
+t_binary_options() ->
+  t_list(t_tuple([t_atom('scope'),t_binary_part()])).
+
 %% =====================================================================
 %% HTTP types documented in R12B-4
 %% =====================================================================
@@ -4556,6 +4734,12 @@ t_code_loaded_fname_or_status() ->
 %% =====================================================================
 %% These are used for the built-in functions of 'erlang'
 %% =====================================================================
+
+t_adler32() ->
+  t_non_neg_integer().
+
+t_crc32() ->
+  t_non_neg_integer().
 
 t_decode_packet_option() ->
   t_sup([t_tuple([t_atom('packet_size'), t_non_neg_integer()]),

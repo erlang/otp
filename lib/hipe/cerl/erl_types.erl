@@ -206,7 +206,8 @@
 	 %% t_assign_variables_to_subtype/2,
 	 type_is_defined/3,
 	 subst_all_vars_to_any/1,
-	 lift_list_to_pos_empty/1
+	 lift_list_to_pos_empty/1,
+	 is_erl_type/1
 	]).
 
 %%-define(DO_ERL_TYPES_TEST, true).
@@ -3775,6 +3776,8 @@ any_none_or_unit([?none|_]) -> true;
 any_none_or_unit([?unit|_]) -> true;
 any_none_or_unit([_|Left]) -> any_none_or_unit(Left);
 any_none_or_unit([]) -> false.
+
+-spec is_erl_type(any()) -> boolean().
 
 is_erl_type(?any) -> true;
 is_erl_type(?none) -> true;

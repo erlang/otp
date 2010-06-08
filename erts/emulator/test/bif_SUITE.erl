@@ -22,12 +22,13 @@
 -include("test_server.hrl").
 
 -export([all/1,init_per_testcase/2,fin_per_testcase/2,
+	 types/1,
 	 t_list_to_existing_atom/1,os_env/1,otp_7526/1,
 	 binary_to_atom/1,binary_to_existing_atom/1,
 	 atom_to_binary/1,min_max/1]).
 
 all(suite) ->
-    [t_list_to_existing_atom,os_env,otp_7526,
+    [types,t_list_to_existing_atom,os_env,otp_7526,
      atom_to_binary,binary_to_atom,binary_to_existing_atom,
      min_max].
 
@@ -38,6 +39,73 @@ init_per_testcase(Func, Config) when is_atom(Func), is_list(Config) ->
 fin_per_testcase(_Func, Config) ->
     Dog=?config(watchdog, Config),
     ?t:timetrap_cancel(Dog).
+
+types(Config) when is_list(Config) ->
+    c:l(erl_bif_types),
+    case erlang:function_exported(erl_bif_types, module_info, 0) of
+	false ->
+	    %% Fail cleanly.
+	    ?line ?t:fail("erl_bif_types not compiled");
+	true ->
+	    types_1()
+    end.
+
+types_1() ->
+    ?line List0 = erlang:system_info(snifs),
+
+    %% Ignore missing type information for hipe BIFs.
+    ?line List = [MFA || {M,_,_}=MFA <- List0, M =/= hipe_bifs],
+
+    case [MFA || MFA <- List, not known_types(MFA)] of
+	[] ->
+	    types_2(List);
+	BadTypes ->
+	    io:put_chars("No type information:\n"),
+	    io:format("~p\n", [lists:sort(BadTypes)]),
+	    ?line ?t:fail({length(BadTypes),bifs_without_types})
+    end.
+
+types_2(List) ->
+    BadArity = [MFA || {M,F,A}=MFA <- List,
+		       begin
+			   Types = erl_bif_types:arg_types(M, F, A),
+			   length(Types) =/= A
+		       end],
+    case BadArity of
+	[] ->
+	    types_3(List);
+	[_|_] ->
+	    io:put_chars("Bifs with bad arity\n"),
+	    io:format("~p\n", [BadArity]),
+	    ?line ?t:fail({length(BadArity),bad_arity})
+    end.
+
+types_3(List) ->
+    BadSmokeTest = [MFA || {M,F,A}=MFA <- List,
+			   begin
+			       try erl_bif_types:type(M, F, A) of
+				   Type ->
+				       %% Test that type is returned.
+				       not erl_types:is_erl_type(Type)
+			       catch
+				   Class:Error ->
+				       io:format("~p: ~p ~p\n",
+						 [MFA,Class,Error]),
+				       true
+			       end
+			   end],
+    case BadSmokeTest of
+	[] ->
+	    ok;
+	[_|_] ->
+	    io:put_chars("Bifs with failing calls to erlang_bif_types:type/3 "
+			 "(or with bogus return values):\n"),
+	    io:format("~p\n", [BadSmokeTest]),
+	    ?line ?t:fail({length(BadSmokeTest),bad_smoke_test})
+    end.
+
+known_types({M,F,A}) ->
+    erl_bif_types:is_known(M, F, A).
 
 t_list_to_existing_atom(Config) when is_list(Config) ->
     ?line all = list_to_existing_atom("all"),
