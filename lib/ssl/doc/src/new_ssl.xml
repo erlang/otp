@@ -22,7 +22,6 @@
 
   The Initial Developer of the Original Code is Ericsson AB.
     </legalnotice>
-
     <title>ssl</title>
     <prepared>Ingela Anderton Andin</prepared>
     <responsible>Ingela Anderton Andin</responsible>
@@ -83,7 +82,7 @@
             meaningless pid.</item>
       <item>New API functions are
             ssl:shutdown/2, ssl:cipher_suites/[0,1] and
-            ssl:versions/0</item>
+            ssl:versions/0, ssl:renegotiate/1</item>
       <item>CRL and policy certificate
             extensions are not supported yet. </item>
       <item>Supported SSL/TLS-versions are SSL-3.0 and TLS-1.0 </item>
@@ -408,6 +407,17 @@ end
       </desc>
     </func>
 
+     <func>
+      <name>format_error(Reason) -> string()</name>
+      <fsummary>Return an error string.</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Presents the error returned by an ssl function as a printable string.</p>
+      </desc>
+    </func>
+   
     <func>
       <name>getopts(Socket) -> </name>
       <name>getopts(Socket, OptionNames) ->

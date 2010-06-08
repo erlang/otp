@@ -30,6 +30,73 @@
   </header>
   <p>This document describes the changes made to the SSL application.
     </p>
+
+    <section><title>SSL 3.11.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Fixed handling of several ssl/tls packets arriving at the
+            same time. This was broken during a refactoring of the
+            code.</p>
+          <p>
+            Own Id: OTP-8679</p>
+        </item>
+      </list>
+    </section>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added missing checks for padding and Mac value. Removed
+            code for export ciphers and DH certificates as we decided
+            not to support them.</p>
+          <p>
+            Own Id: OTP-7047</p>
+        </item>
+        <item>
+          <p>
+            New ssl will no longer return esslerrssl to be backwards
+            compatible with old ssl as this hids infomation from the
+            user. format_error/1 has been updated to support new ssl.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-7049</p>
+        </item>
+        <item>
+          <p>
+            New ssl now supports secure renegotiation as described by
+            RFC 5746.</p>
+          <p>
+            Own Id: OTP-8568</p>
+        </item>
+        <item>
+          <p>
+            New ssl now support client/server-certificates signed by
+            dsa keys.</p>
+          <p>
+            Own Id: OTP-8587</p>
+        </item>
+        <item>
+          <p>
+            Alert handling has been improved to better handle
+            unexpected but valid messages and the implementation is
+            also changed to avoid timing related issues that could
+            cause different error messages depending on network
+            latency. Packet handling was sort of broken but would
+            mostly work as expected when socket was in binary mode.
+            This has now been fixed.</p>
+          <p>
+            Own Id: OTP-8588</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+    
 <section><title>SSL 3.11</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
