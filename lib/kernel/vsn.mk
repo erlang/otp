@@ -17,4 +17,4 @@
 # %CopyrightEnd%
 #
 
-KERNEL_VSN = 2.13.5.2
+KERNEL_VSN = 2.13.5.3
