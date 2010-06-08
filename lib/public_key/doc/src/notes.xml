@@ -33,6 +33,35 @@
     <rev>A</rev>
     <file>notes.xml</file>
   </header>
+
+<section><title>Public_Key 0.7</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Certificates without any extensions could not be handled
+            by public_key.</p>
+          <p>
+            Own Id: OTP-8626</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Code cleanup and minor bugfixes.</p>
+          <p>
+            Own Id: OTP-8649</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Public_Key 0.6</title>
 
 <section><title>Improvements and New Features</title>

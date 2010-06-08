@@ -1,39 +1,43 @@
 %% -*- erlang -*-
 {"%VSN%",
  [
-  {"0.5",
+  {"0.6",
    [
+    {update, 'OTP-PUB-KEY', soft, soft_purge, soft_purge, []},
     {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_crypto, soft, soft_purge, soft_purge, []},
     {update, pubkey_pem, soft, soft_purge, soft_purge, []},
+    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []}
     {update, pubkey_cert, soft, soft_purge, soft_purge, []}
    ]
   },
-  {"0.4",
+  {"0.5",
    [
+    {update, 'OTP-PUB-KEY', soft, soft_purge, soft_purge, []},
     {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []},
     {update, pubkey_crypto, soft, soft_purge, soft_purge, []},
     {update, pubkey_pem, soft, soft_purge, soft_purge, []},
+    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []},
     {update, pubkey_cert, soft, soft_purge, soft_purge, []}
-    ]
+   ]
   }
  ],
  [
-  {"0.5",
+  {"0.6",
    [
+    {update, 'OTP-PUB-KEY', soft, soft_purge, soft_purge, []},
     {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_crypto, soft, soft_purge, soft_purge, []},
     {update, pubkey_pem, soft, soft_purge, soft_purge, []},
+    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []}
     {update, pubkey_cert, soft, soft_purge, soft_purge, []}
    ]
   },
-  {"0.4",
+  {"0.5",
    [
+    {update, 'OTP-PUB-KEY', soft, soft_purge, soft_purge, []},
     {update, public_key, soft, soft_purge, soft_purge, []},
-    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []},
     {update, pubkey_crypto, soft, soft_purge, soft_purge, []},
     {update, pubkey_pem, soft, soft_purge, soft_purge, []},
+    {update, pubkey_cert_records, soft, soft_purge, soft_purge, []},
     {update, pubkey_cert, soft, soft_purge, soft_purge, []}
    ]
   }
