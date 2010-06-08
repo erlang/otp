@@ -1086,11 +1086,11 @@ do_spawn(SpawnFuncArgs, SpawnOpts, State) ->
 
 spawn_func(link,{From,Tag},M,F,A,Gleader) ->
     link(From),
-    async_gen_server_reply({From,Tag},self()),  %% ahhh
+    gen_server:reply({From,Tag},self()),  %% ahhh
     group_leader(Gleader,self()),
     apply(M,F,A);
 spawn_func(_,{From,Tag},M,F,A,Gleader) ->
-    async_gen_server_reply({From,Tag},self()),  %% ahhh
+    gen_server:reply({From,Tag},self()),  %% ahhh
     group_leader(Gleader,self()),
     apply(M,F,A).
 
@@ -1527,10 +1527,12 @@ async_gen_server_reply(From, Msg) ->
     {Pid, Tag} = From,
     M = {Tag, Msg},
     case catch erlang:send(Pid, M, [nosuspend, noconnect]) of
-        true ->
-            M;
-        false ->
-            spawn(fun() -> gen_server:reply(From, Msg) end);
-        EXIT ->
+        ok ->
+            ok;
+        nosuspend ->
+            spawn(fun() -> catch erlang:send(Pid, M, [noconnect]) end);
+        noconnect ->
+            ok; % The gen module takes care of this case.
+        {'EXIT', _}=EXIT ->
             EXIT
     end.
