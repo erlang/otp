@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the wxErlang
     application.</p>
 
+<section><title>Wx 0.98.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Calling <c>sys:get_status()</c> for processes that have
+            globally registered names that were not atoms would cause
+            a crash. Corrected. (Thanks to Steve Vinoski.)</p>
+          <p>
+            Own Id: OTP-8656</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Wx 0.98.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
