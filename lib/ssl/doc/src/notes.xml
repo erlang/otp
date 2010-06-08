@@ -32,22 +32,23 @@
     </p>
 
     <section><title>SSL 3.11.1</title>
-
+    
     <section><title>Fixed Bugs and Malfunctions</title>
-      <list>
-        <item>
+    <list>
+      <item>
           <p>
             Fixed handling of several ssl/tls packets arriving at the
-            same time. This was broken during a refactoring of the
+	    same time. This was broken during a refactoring of the
             code.</p>
-          <p>
-            Own Id: OTP-8679</p>
-        </item>
+	    <p>
+	    Own Id: OTP-8679</p>
+      </item>
       </list>
     </section>
+    
 
     <section><title>Improvements and New Features</title>
-      <list>
+    <list>
         <item>
           <p>
             Added missing checks for padding and Mac value. Removed
@@ -75,13 +76,6 @@
         </item>
         <item>
           <p>
-            New ssl now support client/server-certificates signed by
-            dsa keys.</p>
-          <p>
-            Own Id: OTP-8587</p>
-        </item>
-        <item>
-          <p>
             Alert handling has been improved to better handle
             unexpected but valid messages and the implementation is
             also changed to avoid timing related issues that could
@@ -94,7 +88,7 @@
         </item>
       </list>
     </section>
-
+    
 </section>
     
 <section><title>SSL 3.11</title>

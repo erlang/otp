@@ -319,24 +319,34 @@ cert_options(Config) ->
 
 
 make_dsa_cert(Config) ->
-    ServerCaInfo = {ServerCaCert, _} = erl_make_certs:make_cert([{key, dsa}]),
-    {ServerCert, ServerCertKey} = erl_make_certs:make_cert([{key, dsa}, {issuer, ServerCaInfo}]),
-    ServerCaCertFile = filename:join([?config(priv_dir, Config), 
-				      "server", "dsa_cacerts.pem"]),
-    ServerCertFile = filename:join([?config(priv_dir, Config), 
-				      "server", "dsa_cert.pem"]),
-    ServerKeyFile = filename:join([?config(priv_dir, Config), 
-				   "server", "dsa_key.pem"]),
-
-    public_key:der_to_pem(ServerCaCertFile, [{cert, ServerCaCert, not_encrypted}]),
-    public_key:der_to_pem(ServerCertFile, [{cert, ServerCert, not_encrypted}]),
-    public_key:der_to_pem(ServerKeyFile, [ServerCertKey]),
-
+    
+    {ServerCaCertFile, ServerCertFile, ServerKeyFile} = make_dsa_cert_files("server", Config),
+    {ClientCaCertFile, ClientCertFile, ClientKeyFile} = make_dsa_cert_files("client", Config),
     [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 				 {cacertfile, ServerCaCertFile},
-				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]} | Config].
+				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
+			{cacertfile, ClientCaCertFile},
+			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
+     | Config].
+
+
     
+make_dsa_cert_files(RoleStr, Config) ->    
+    CaInfo = {CaCert, _} = erl_make_certs:make_cert([{key, dsa}]),
+    {Cert, CertKey} = erl_make_certs:make_cert([{key, dsa}, {issuer, CaInfo}]),
+    CaCertFile = filename:join([?config(priv_dir, Config), 
+				RoleStr, "dsa_cacerts.pem"]),
+    CertFile = filename:join([?config(priv_dir, Config), 
+			      RoleStr, "dsa_cert.pem"]),
+    KeyFile = filename:join([?config(priv_dir, Config), 
+				   RoleStr, "dsa_key.pem"]),
     
+    public_key:der_to_pem(CaCertFile, [{cert, CaCert, not_encrypted}]),
+    public_key:der_to_pem(CertFile, [{cert, Cert, not_encrypted}]),
+    public_key:der_to_pem(KeyFile, [CertKey]),
+    {CaCertFile, CertFile, KeyFile}.
+
 start_upgrade_server(Args) ->
     Result = spawn_link(?MODULE, run_upgrade_server, [Args]),
     receive
