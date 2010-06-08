@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2001-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2001-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  *
 
@@ -25,9 +25,9 @@
 #include "ei_decode_term.h"
 #include "putget.h"
 
-/* Returns 1 if term is decoded, 0 if term is OK, but not decoded here
-   and -1 if something is wrong.
-   ONLY changes index if term is decoded (return value 1)! */
+/* Returns 0 on successful encoding, -1 on error, and 1 if the term seems
+   alright, but does not fit in the term structure. If it returns 0, the
+   index will be incremented, and the term contains the decoded term. */
 
 int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 {
@@ -46,11 +46,8 @@ int ei_decode_ei_term(const char* buf, int* index, ei_term* term)
 	term->value.i_val = get32be(s);
 	break;
     case ERL_FLOAT_EXT:
-    	if (s[30]) return -1;
-	if (sscanf(s, "%lf", &f) != 1) return -1;
-	s += 31;
-	term->value.d_val = f;
-	break;
+    case NEW_FLOAT_EXT:
+        return ei_decode_double(buf, index, &term->value.d_val);
     case ERL_ATOM_EXT:
 	len = get16be(s);
 	memcpy(term->value.atom_name, s, len); 
