@@ -1354,15 +1354,29 @@ final_tests([{TestDir,Suite,Cases}|Tests],
 	    Final, Skip, Bad) when Cases==[]; Cases==all  ->
     final_tests([{TestDir,[Suite],all}|Tests], Final, Skip, Bad);
 
-final_tests([{TestDir,Suite,Cases}|Tests], Final, Skip, Bad) ->
+final_tests([{TestDir,Suite,Groups}|Tests], Final, Skip, Bad) when
+      is_atom(element(1,hd(Groups))) ->
+    Confs =
+	lists:map(fun({Group,TCs}) ->
+			  ct_framework:make_conf(TestDir, Suite,
+						 Group, [], TCs)
+		  end, Groups),
+    Do = {TestDir,Suite,Confs},
     case lists:keymember({TestDir,Suite}, 1, Bad) of
 	false ->
-	    Do = {TestDir,Suite,Cases},
 	    final_tests(Tests, [Do|Final], Skip, Bad);
 	true ->
-	    Do = {TestDir,Suite,Cases},
-	    Skip1 = Skip ++ [{TestDir,Suite,Cases,"Make failed"}],
+	    Skip1 = Skip ++ [{TestDir,Suite,Confs,"Make failed"}],
 	    final_tests(Tests, [Do|Final], Skip1, Bad)
+    end;
+
+final_tests([Do={TestDir,Suite,Cases}|Tests], Final, Skip, Bad) ->
+    case lists:keymember({TestDir,Suite}, 1, Bad) of
+	true ->
+	    Skip1 = Skip ++ [{TestDir,Suite,Cases,"Make failed"}],
+	    final_tests(Tests, [Do|Final], Skip1, Bad);
+	false ->
+	    final_tests(Tests, [Do|Final], Skip, Bad)
     end;
 
 final_tests([], Final, Skip, _Bad) ->
@@ -1604,13 +1618,36 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 	    Error
     end;
 
-%% group
-add_jobs([{TestDir,Suite,[{GroupName,_Cases}]}|Tests], Skip, Opts, CleanUp) when
-      is_atom(GroupName) ->
-    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
-add_jobs([{TestDir,Suite,{GroupName,_Cases}}|Tests], Skip, Opts, CleanUp) when
-      is_atom(GroupName) ->
-    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
+%% group (= conf case in test_server)
+add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
+      element(1, hd(Confs)) == conf ->
+    Group = fun(Conf) -> proplists:get_value(name, element(2, Conf)) end,
+    TestCases = fun(Conf) -> element(4, Conf) end,
+    TCTestName = fun(all) -> "";
+		    ([C]) when is_atom(C) -> "." ++ atom_to_list(C);
+		    (Cs) when is_list(Cs) -> ".cases"
+		 end,
+    GrTestName =
+	case Confs of
+	    [Conf] ->
+		"." ++ atom_to_list(Group(Conf)) ++ TCTestName(TestCases(Conf));
+	    _ ->
+		".groups"
+	end,
+    TestName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ GrTestName,
+    case maybe_interpret(Suite, init_per_group, Opts) of
+	ok ->
+	    case catch test_server_ctrl:add_conf_with_skip(TestName, Suite, Confs,
+							   skiplist(TestDir,Skip)) of
+		{'EXIT',_} ->
+		    CleanUp;
+		_ ->
+		    wait_for_idle(),
+		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+	    end;
+	Error ->
+	    Error
+    end;
 
 %% test case
 add_jobs([{TestDir,Suite,[Case]}|Tests], Skip, Opts, CleanUp) when is_atom(Case) ->

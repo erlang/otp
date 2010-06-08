@@ -151,10 +151,12 @@
 
 %%% OPERATOR INTERFACE %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -export([add_spec/1, add_dir/2, add_dir/3]).
--export([add_module/1, add_module/2, add_case/2, add_case/3, add_cases/2,
-	 add_cases/3]).
+-export([add_module/1, add_module/2,
+	 add_conf/3,
+	 add_case/2, add_case/3, add_cases/2, add_cases/3]).
 -export([add_dir_with_skip/3, add_dir_with_skip/4, add_tests_with_skip/3]).
 -export([add_module_with_skip/2, add_module_with_skip/3,
+	 add_conf_with_skip/4,
 	 add_case_with_skip/3, add_case_with_skip/4,
 	 add_cases_with_skip/3, add_cases_with_skip/4]).
 -export([jobs/0, run_test/1, wait_finish/0, idle_notify/1,
@@ -236,8 +238,15 @@ add_dir(Name, Dir, Pattern) ->
 
 add_module(Mod) when is_atom(Mod) ->
     add_job(atom_to_list(Mod), {Mod,all}).
+
 add_module(Name, Mods) when is_list(Mods) ->
     add_job(cast_to_list(Name), lists:map(fun(Mod) -> {Mod,all} end, Mods)).
+
+add_conf(Name, Mod, Conf) when is_tuple(Conf) ->
+    add_job(cast_to_list(Name), {Mod,[Conf]});
+
+add_conf(Name, Mod, Confs) when is_list(Confs) ->
+    add_job(cast_to_list(Name), {Mod,Confs}).
 
 add_case(Mod, Case) when is_atom(Mod), is_atom(Case) ->
     add_job(atom_to_list(Mod), {Mod,Case}).
@@ -282,6 +291,12 @@ add_module_with_skip(Mod, Skip) when is_atom(Mod) ->
 
 add_module_with_skip(Name, Mods, Skip) when is_list(Mods) ->
     add_job(cast_to_list(Name), lists:map(fun(Mod) -> {Mod,all} end, Mods), Skip).
+
+add_conf_with_skip(Name, Mod, Conf, Skip) when is_tuple(Conf) ->
+    add_job(cast_to_list(Name), {Mod,[Conf]}, Skip);
+
+add_conf_with_skip(Name, Mod, Confs, Skip) when is_list(Confs) ->
+    add_job(cast_to_list(Name), {Mod,Confs}, Skip).
 
 add_case_with_skip(Mod, Case, Skip) when is_atom(Mod), is_atom(Case) ->
     add_job(atom_to_list(Mod), {Mod,Case}, Skip).
@@ -1549,7 +1564,7 @@ temp_nodename([Chr|Base], Acc) ->
 %% of cases can not be calculated and NoOfCases = unknown.
 count_test_cases(TopCases, SkipCases) when is_list(TopCases) ->
     case collect_all_cases(TopCases, SkipCases) of
-	{error,_} ->
+	{error,_Why} ->
 	    error;
 	TestSpec ->
 	    {get_suites(TestSpec, []),
@@ -4517,8 +4532,8 @@ collect_cases({_Mod,_Case,_Args}=Spec, St) ->
     collect_case(Spec, St);
 collect_cases(Case, St) when is_atom(Case), is_atom(St#cc.mod) ->
     collect_case({St#cc.mod,Case}, St);
-collect_cases(Other, _St) ->
-    {error,{bad_subtest_spec,Other}}.
+collect_cases(Other, St) ->
+    {error,{bad_subtest_spec,St#cc.mod,Other}}.
 
 collect_case(MFA, St) ->
     case in_skip_list(MFA, St#cc.skip) of
