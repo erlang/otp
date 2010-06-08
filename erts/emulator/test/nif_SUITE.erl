@@ -967,10 +967,11 @@ make_atom(Config) when is_list(Config) ->
 make_string(Config) when is_list(Config) ->
     ?line ensure_lib_loaded(Config, 1),
     ?line Strings = make_strings(),
-    ?line 4 = size(Strings),
+    ?line 5 = size(Strings),
     A0String = "a0string",
     A0String0 = [$a,0,$s,$t,$r,$i,$n,$g,0],
-    ?line Strings = {A0String,A0String,A0String,A0String0}.
+    AStringWithAccents = [$E,$r,$l,$a,$n,$g,$ ,16#e4,$r,$ ,$e,$t,$t,$ ,$g,$e,$n,$e,$r,$e,$l,$l,$t,$ ,$p,$r,$o,$g,$r,$a,$m,$s,$p,$r,16#e5,$k],
+    ?line Strings = {A0String,A0String,A0String,A0String0, AStringWithAccents}.
 
 tmpmem() ->
     case erlang:system_info({allocator,temp_alloc}) of

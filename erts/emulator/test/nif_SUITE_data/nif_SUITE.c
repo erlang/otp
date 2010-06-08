@@ -808,12 +808,14 @@ static ERL_NIF_TERM make_strings(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 {
     const char a0string[8] = {'a','0','s','t','r','i','n','g'};
     const char a0string0[9] = {'a','\0','s','t','r','i','n','g',0};
+    const char astringwith8bits[37] = {'E','r','l','a','n','g',' ',0xE4 /* 'ä' */,'r',' ','e','t','t',' ','g','e','n','e','r','e','l','l','t',' ','p','r','o','g','r','a','m','s','p','r', 0xE5 /* 'å' */,'k',0};
 
-    return enif_make_tuple4(env,
+    return enif_make_tuple5(env,
 			    enif_make_string(env, "a0string", ERL_NIF_LATIN1),
 			    enif_make_string_len(env, "a0string", 8, ERL_NIF_LATIN1),
 			    enif_make_string_len(env, a0string, 8, ERL_NIF_LATIN1),
-			    enif_make_string_len(env, a0string0, 9, ERL_NIF_LATIN1));
+			    enif_make_string_len(env, a0string0, 9, ERL_NIF_LATIN1),
+			    enif_make_string(env, astringwith8bits, ERL_NIF_LATIN1));
 }
 static ERL_NIF_TERM send_list_seq(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
 {
