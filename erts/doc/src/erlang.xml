@@ -2644,6 +2644,37 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
+      <name>erlang:nif_error(Reason)</name>
+      <fsummary>Stop execution with a given reason</fsummary>
+      <type>
+        <v>Reason = term()</v>
+      </type>
+      <desc>
+        <p>Works exactly like
+	 <seealso marker="#error/1">erlang:error/1</seealso>,
+	 but Dialyzer thinks that this BIF will return an arbitrary term.
+	 When used in a stub function for a NIF to generate an
+	 exception when the NIF library is not loaded, Dialyzer
+	 will not generate false warnings.</p>
+      </desc>
+    </func>
+    <func>
+      <name>erlang:nif_error(Reason, Args)</name>
+      <fsummary>Stop execution with a given reason</fsummary>
+      <type>
+        <v>Reason = term()</v>
+        <v>Args = [term()]</v>
+      </type>
+      <desc>
+        <p>Works exactly like
+	 <seealso marker="#error/2">erlang:error/2</seealso>,
+	 but Dialyzer thinks that this BIF will return an arbitrary term.
+	 When used in a stub function for a NIF to generate an
+	 exception when the NIF library is not loaded, Dialyzer
+	 will not generate false warnings.</p>
+      </desc>
+    </func>
+    <func>
       <name>node() -> Node</name>
       <fsummary>Name of the local node</fsummary>
       <type>
