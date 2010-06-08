@@ -31,9 +31,15 @@
 -export([info/4, log/4, debug/4, print/4]).
 -export([check_body/1]).
 -export([millis/0, millis_diff/2, hours/1, minutes/1, seconds/1, sleep/1]).
+-export([oscmd/1]).
 -export([non_pc_tc_maybe_skip/4, os_based_skip/1]).
 -export([flush/0]).
 -export([start_node/1, stop_node/1]).
+
+%% -- Misc os command and stuff
+
+oscmd(Cmd) ->
+  string:strip(os:cmd(Cmd), right, $\n).
 
 %% -- Misc node operation wrapper functions --
 

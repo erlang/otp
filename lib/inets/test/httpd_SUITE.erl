@@ -1775,7 +1775,16 @@ essl_time_test(Config) when is_list(Config) ->
 
 ssl_time_test(Tag, Config) when is_list(Config) ->
     %% <CONDITIONAL-SKIP>
-    Skippable = [win32],
+    FreeBSDVersionVerify = 
+	fun() ->
+		case os:version() of
+		    {7, 1, _} -> % We only have one such machine, so...
+			true;
+		    _ ->
+			false
+		end
+	end,
+    Skippable = [win32, {unix, [{freebsd, FreeBSDVersionVerify}]}],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
     %% </CONDITIONAL-SKIP>
@@ -2271,12 +2280,22 @@ ssl_restart_disturbing_block(Tag, Config) ->
 	fun() -> 
 		case os:type() of
 		    {unix, linux} ->
-			HW = string:strip(os:cmd("uname -m"), right, $\n),
-			case HW of
+			case ?OSCMD("uname -m") of
 			    "ppc" ->
-				case inet:gethostname() of
-				    {ok, "peach"} ->
-					true;
+				case file:read_file_info("/etc/fedora-release") of
+				    {ok, _} ->
+					case ?OSCMD("awk '{print $2}' /etc/fedora-release") of
+					    "release" ->
+						%% Fedora 7 and later
+						case ?OSCMD("awk '{print $3}' /etc/fedora-release") of
+						    "7" ->
+							true;
+						    _ ->
+							false
+						end;
+					    _ ->
+						false
+					end;
 				    _ ->
 					false
 				end;
