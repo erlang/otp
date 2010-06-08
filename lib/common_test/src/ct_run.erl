@@ -164,7 +164,9 @@ script_start1(Parent, Args) ->
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
-			    fun([CT]) -> list_to_atom(CT) end, false, Args),
+			    fun([CT]) -> list_to_atom(CT);
+			       ([]) -> true
+			    end, false, Args),
     EvHandlers = event_handler_args2opts(Args),
 
     %% check flags and set corresponding application env variables
@@ -478,7 +480,7 @@ script_usage() ->
 	      "\n\t[-suite Suite [-case Case]]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
-	      "\n\t[-multiply_timetraps]"
+	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-basic_html]\n\n"),
     io:format("Run tests from command line:\n\n"
@@ -495,7 +497,7 @@ script_usage() ->
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
-	      "\n\t[-multiply_timetraps]"
+	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-basic_html]"
 	      "\n\t[-repeat N [-force_stop]] |"
@@ -513,7 +515,7 @@ script_usage() ->
 	      "\n\t[-event_handler EvHandler1 EvHandler2 .. EvHandlerN]"
 	      "\n\t[-include InclDir1 InclDir2 .. InclDirN]"
 	      "\n\t[-no_auto_compile]"
-	      "\n\t[-multiply_timetraps]"
+	      "\n\t[-multiply_timetraps N]"
 	      "\n\t[-scale_timetraps]"
 	      "\n\t[-basic_html]"
 	      "\n\t[-repeat N [-force_stop]] |"
