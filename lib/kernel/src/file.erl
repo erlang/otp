@@ -369,7 +369,7 @@ advise(#file_descriptor{module = Module} = Handle, Offset, Length, Advise) ->
 advise(_, _, _, _) ->
     {error, badarg}.
 
--spec read(File :: io_device(), Size :: non_neg_integer()) ->
+-spec read(File :: io_device() | atom(), Size :: non_neg_integer()) ->
 	'eof' | {'ok', [char()] | binary()} | {'error', posix()}.
 
 read(File, Sz) when (is_pid(File) orelse is_atom(File)), is_integer(Sz), Sz >= 0 ->
@@ -385,7 +385,7 @@ read(#file_descriptor{module = Module} = Handle, Sz)
 read(_, _) ->
     {error, badarg}.
 
--spec read_line(File :: io_device()) ->
+-spec read_line(File :: io_device() | atom()) ->
 	'eof' | {'ok', [char()] | binary()} | {'error', posix()}.
 
 read_line(File) when (is_pid(File) orelse is_atom(File)) ->
@@ -439,7 +439,7 @@ pread(#file_descriptor{module = Module} = Handle, Offs, Sz)
 pread(_, _, _) ->
     {error, badarg}.
 
--spec write(File :: io_device(), Byte :: iodata()) ->
+-spec write(File :: io_device() | atom(), Byte :: iodata()) ->
 	'ok' | {'error', posix()}.
 
 write(File, Bytes) when (is_pid(File) orelse is_atom(File)) ->
