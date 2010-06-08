@@ -799,8 +799,17 @@ sys_chars_to_double(char* buf, double* fp)
     }
 
 #ifdef NO_FPE_SIGNALS
-    if (errno == ERANGE && (*fp == 0.0 || *fp == HUGE_VAL || *fp == -HUGE_VAL)) {
-	return -1;
+    if (errno == ERANGE) {
+	if (*fp == HUGE_VAL || *fp == -HUGE_VAL) {
+	    /* overflow, should give error */
+	    return -1;
+	} else if (t == s && *fp == 0.0) {
+	    /* This should give 0.0 - OTP-7178 */
+	    errno = 0;
+
+	} else if (*fp == 0.0) {
+	    return -1;
+	}
     }
 #endif
     return 0;
