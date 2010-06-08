@@ -80,7 +80,7 @@ if [ "X$RC_SH_DEBUG_LOG" != "X" ]; then
 fi
 eval $RCC "$CMD"  >/tmp/rc.exe.${p}.1 2>/tmp/rc.exe.${p}.2
 RES=$?
-tail +2 /tmp/rc.exe.${p}.2 >&2
+tail -n +2 /tmp/rc.exe.${p}.2 >&2
 cat /tmp/rc.exe.${p}.1
 rm -f /tmp/rc.exe.${p}.2 /tmp/rc.exe.${p}.1
 exit $RES
