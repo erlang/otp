@@ -337,7 +337,7 @@
       </func>
       
     <func>
-      <name>Module:testcase() -> [Info] </name>
+      <name>Module:Testcase() -> [Info] </name>
       <fsummary>Test case info function. </fsummary>
       <type>
 	<v> Info = {timetrap,Time} | {require,Required} | 
@@ -396,7 +396,7 @@
       
     
     <func>
-	<name>Module:testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
+	<name>Module:Testcase(Config) ->  void() | {skip,Reason} | {comment,Comment} | {save_config,SaveConfig} | {skip_and_save,Reason,SaveConfig} | exit() </name>
       <fsummary>A test case</fsummary>
       <type>
 	<v> Config = SaveConfig = [{Key,Value}]</v>
