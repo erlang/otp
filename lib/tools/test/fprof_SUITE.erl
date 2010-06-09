@@ -356,7 +356,7 @@ imm_tail_seq(Config) when is_list(Config) ->
     ?line profiling_stopped = eprof:stop_profiling(),
     ?line R2 = R0,
     %%
-    ?line eprof:analyse(),
+    ?line eprof:analyze(),
     ?line stopped = eprof:stop(),
     %%
     ?line {ok, Tracer} = fprof:profile(start),
@@ -471,7 +471,7 @@ imm_compile(Config) when is_list(Config) ->
     ?line TS3 = erlang:now(),
     ?line profiling_stopped = eprof:stop_profiling(),
     %%
-    ?line eprof:analyse(),
+    ?line eprof:analyze(),
     ?line stopped = eprof:stop(),
     %%
     ?line {ok, Tracer} = fprof:profile(start),
