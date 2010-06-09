@@ -184,7 +184,7 @@ build_options([], Options) ->
 assert_filenames(Term, [FileName|Left]) when length(FileName) >= 0 ->
   case filelib:is_file(FileName) orelse filelib:is_dir(FileName) of
     true -> ok;
-    false -> bad_option("No such file or directory", FileName)
+    false -> bad_option("No such file, directory or application", FileName)
   end,
   assert_filenames(Term, Left);
 assert_filenames(_Term, []) ->

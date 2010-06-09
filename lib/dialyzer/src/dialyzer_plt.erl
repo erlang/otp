@@ -21,7 +21,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_plt.erl
 %%% Author  : Tobias Lindahl <tobiasl@it.uu.se>
-%%% Description : Interface to display information in the persistent 
+%%% Description : Interface to display information in the persistent
 %%%               lookup tables.
 %%%
 %%% Created : 23 Jul 2004 by Tobias Lindahl <tobiasl@it.uu.se>
@@ -101,7 +101,7 @@
 new() ->
   #plt{}.
 
--spec delete_module(plt(), module()) -> plt().
+-spec delete_module(plt(), atom()) -> plt().
 
 delete_module(#plt{info = Info, types = Types, contracts = Contracts,
                    exported_types = ExpTypes}, Mod) ->
@@ -136,7 +136,7 @@ delete_contract_list(#plt{contracts = Contracts} = PLT, List) ->
   PLT#plt{contracts = table_delete_list(Contracts, List)}.
 
 %% -spec insert(plt(), mfa() | integer(), {_, _}) -> plt().
-%% 
+%%
 %% insert(#plt{info = Info} = PLT, Id, Types) ->
 %%   PLT#plt{info = table_insert(Info, Id, Types)}.
 
@@ -177,12 +177,12 @@ get_exported_types(#plt{exported_types = ExpTypes}) ->
 
 -type mfa_types() :: {mfa(), erl_types:erl_type(), [erl_types:erl_type()]}.
 
--spec lookup_module(plt(), module()) -> 'none' | {'value', [mfa_types()]}.
+-spec lookup_module(plt(), atom()) -> 'none' | {'value', [mfa_types()]}.
 
 lookup_module(#plt{info = Info}, M) when is_atom(M) ->
   table_lookup_module(Info, M).
 
--spec contains_module(plt(), module()) -> boolean().
+-spec contains_module(plt(), atom()) -> boolean().
 
 contains_module(#plt{info = Info, contracts = Cs}, M) when is_atom(M) ->
   table_contains_module(Info, M) orelse table_contains_module(Cs, M).
@@ -190,7 +190,7 @@ contains_module(#plt{info = Info, contracts = Cs}, M) when is_atom(M) ->
 -spec contains_mfa(plt(), mfa()) -> boolean().
 
 contains_mfa(#plt{info = Info, contracts = Contracts}, MFA) ->
-  (table_lookup(Info, MFA) =/= none) 
+  (table_lookup(Info, MFA) =/= none)
     orelse (table_lookup(Contracts, MFA) =/= none).
 
 -spec get_default_plt() -> file:filename().
@@ -221,10 +221,10 @@ from_file(FileName, ReturnInfo) ->
   case get_record_from_file(FileName) of
     {ok, Rec} ->
       case check_version(Rec) of
-	error -> 
+	error ->
 	  Msg = io_lib:format("Old PLT file ~s\n", [FileName]),
 	  error(Msg);
-	ok -> 
+	ok ->
 	  Plt = #plt{info = Rec#file_plt.info,
 		     types = Rec#file_plt.types,
 		     contracts = Rec#file_plt.contracts,
@@ -238,12 +238,12 @@ from_file(FileName, ReturnInfo) ->
 	  end
       end;
     {error, Reason} ->
-      error(io_lib:format("Could not read PLT file ~s: ~p\n", 
+      error(io_lib:format("Could not read PLT file ~s: ~p\n",
 			  [FileName, Reason]))
   end.
 
 -type inc_file_err_rsn() :: 'no_such_file' | 'read_error'.
--spec included_files(file:filename()) -> {'ok', [file:filename()]} 
+-spec included_files(file:filename()) -> {'ok', [file:filename()]}
 				      |  {'error', inc_file_err_rsn()}.
 
 included_files(FileName) ->
@@ -268,12 +268,12 @@ get_record_from_file(FileName) ->
       try binary_to_term(Bin) of
 	  #file_plt{} = FilePLT -> {ok, FilePLT};
 	  _ -> {error, not_valid}
-      catch 
+      catch
 	_:_ -> {error, not_valid}
       end;
     {error, enoent} ->
       {error, no_such_file};
-    {error, _} -> 
+    {error, _} ->
       {error, read_error}
   end.
 
@@ -295,9 +295,9 @@ to_file(FileName,
 	#plt{info = Info, types = Types, contracts = Contracts,
              exported_types = ExpTypes},
 	ModDeps, {MD5, OldModDeps}) ->
-  NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) -> 
+  NewModDeps = dict:merge(fun(_Key, OldVal, NewVal) ->
 			      ordsets:union(OldVal, NewVal)
-			  end, 
+			  end,
 			  OldModDeps, ModDeps),
   ImplMd5 = compute_implementation_md5(),
   Record = #file_plt{version = ?VSN,
@@ -312,7 +312,7 @@ to_file(FileName,
   case file:write_file(FileName, Bin) of
     ok -> ok;
     {error, Reason} ->
-      Msg = io_lib:format("Could not write PLT file ~s: ~w\n", 
+      Msg = io_lib:format("Could not write PLT file ~s: ~w\n",
 			  [FileName, Reason]),
       throw({dialyzer_error, Msg})
   end.
@@ -320,8 +320,8 @@ to_file(FileName,
 -type md5_diff()    :: [{'differ', atom()} | {'removed', atom()}].
 -type check_error() :: 'not_valid' | 'no_such_file' | 'read_error'
                      | {'no_file_to_remove', file:filename()}.
-      
--spec check_plt(file:filename(), [file:filename()], [file:filename()]) -> 
+
+-spec check_plt(file:filename(), [file:filename()], [file:filename()]) ->
 	 'ok'
        | {'error', check_error()}
        | {'differ', [file_md5()], md5_diff(), mod_deps()}
@@ -331,7 +331,7 @@ check_plt(FileName, RemoveFiles, AddFiles) ->
   case get_record_from_file(FileName) of
     {ok, #file_plt{file_md5_list = Md5, mod_deps = ModDeps} = Rec} ->
       case check_version(Rec) of
-	ok -> 
+	ok ->
 	  case compute_new_md5(Md5, RemoveFiles, AddFiles) of
 	    ok -> ok;
 	    {differ, NewMd5, DiffMd5} -> {differ, NewMd5, DiffMd5, ModDeps};
@@ -388,7 +388,7 @@ compute_md5_from_files(Files) ->
 
 compute_md5_from_file(File) ->
   case filelib:is_regular(File) of
-    false -> 
+    false ->
       Msg = io_lib:format("Not a regular file: ~s\n", [File]),
       throw({dialyzer_error, Msg});
     true ->
@@ -419,7 +419,7 @@ init_md5_list_1([{File, _Md5}|Md5Left], [{remove, File}|DiffLeft], Acc) ->
   init_md5_list_1(Md5Left, DiffLeft, Acc);
 init_md5_list_1([{File, _Md5} = Entry|Md5Left], [{add, File}|DiffLeft], Acc) ->
   init_md5_list_1(Md5Left, DiffLeft, [Entry|Acc]);
-init_md5_list_1([{File1, _Md5} = Entry|Md5Left] = Md5List, 
+init_md5_list_1([{File1, _Md5} = Entry|Md5Left] = Md5List,
 		[{Tag, File2}|DiffLeft] = DiffList, Acc) ->
   case File1 < File2 of
     true -> init_md5_list_1(Md5Left, DiffList, [Entry|Acc]);
@@ -450,7 +450,7 @@ get_specs(#plt{info = Info}) ->
 beam_file_to_module(Filename) ->
   list_to_atom(filename:basename(Filename, ".beam")).
 
--spec get_specs(plt(), module(), atom(), arity_patt()) -> 'none' | string().
+-spec get_specs(plt(), atom(), atom(), arity_patt()) -> 'none' | string().
 
 get_specs(#plt{info = Info}, M, F, A) when is_atom(M), is_atom(F) ->
   MFA = {M, F, A},
@@ -460,7 +460,7 @@ get_specs(#plt{info = Info}, M, F, A) when is_atom(M), is_atom(F) ->
   end.
 
 create_specs([{{M, F, _A}, {Ret, Args}}|Left], M) ->
-  [io_lib:format("-spec ~w(~s) -> ~s\n", 
+  [io_lib:format("-spec ~w(~s) -> ~s\n",
 		 [F, expand_args(Args), erl_types:t_to_string(Ret)])
    | create_specs(Left, M)];
 create_specs(List = [{{M, _F, _A}, {_Ret, _Args}}| _], _M) ->
@@ -516,7 +516,7 @@ table_insert_list(Plt, [{Key, Val}|Left]) ->
 table_insert_list(Plt, []) ->
   Plt.
 
-table_insert(Plt, Key, {_Ret, _Arg} = Obj) -> 
+table_insert(Plt, Key, {_Ret, _Arg} = Obj) ->
   dict:store(Key, Obj, Plt);
 table_insert(Plt, Key, #contract{} = C) ->
   dict:store(Key, C, Plt).
@@ -592,7 +592,7 @@ pp_non_returning() ->
 			      [M, F, dialyzer_utils:format_sig(Type)])
 		end, lists:sort(None)).
 
--spec pp_mod(module()) -> 'ok'.
+-spec pp_mod(atom()) -> 'ok'.
 
 pp_mod(Mod) when is_atom(Mod) ->
   PltFile = get_default_plt(),

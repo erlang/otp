@@ -21,7 +21,7 @@
 %%%----------------------------------------------------------------------
 %%% File    : dialyzer_races.erl
 %%% Author  : Maria Christakis <christakismaria@gmail.com>
-%%% Description : Utility functions for race condition detection 
+%%% Description : Utility functions for race condition detection
 %%%
 %%% Created : 21 Nov 2008 by Maria Christakis <christakismaria@gmail.com>
 %%%----------------------------------------------------------------------
@@ -39,7 +39,7 @@
          let_tag_new/2, new/0, put_curr_fun/3, put_fun_args/2,
          put_race_analysis/2, put_race_list/3]).
 
--export_type([races/0]).
+-export_type([races/0, mfa_or_funlbl/0, core_vars/0]).
 
 -include("dialyzer.hrl").
 
@@ -82,7 +82,7 @@
 -type call()       :: 'whereis' | 'register' | 'unregister' | 'ets_new'
                     | 'ets_lookup' | 'ets_insert' | 'mnesia_dirty_read1'
                     | 'mnesia_dirty_read2' | 'mnesia_dirty_write1'
-                    | 'mnesia_dirty_write2' | 'function_call'. 
+                    | 'mnesia_dirty_write2' | 'function_call'.
 -type race_tag()   :: 'whereis_register' | 'whereis_unregister'
                     | 'ets_lookup_insert' | 'mnesia_dirty_read_write'.
 
@@ -159,7 +159,7 @@
 %%% ===========================================================================
 
 -spec store_race_call(mfa_or_funlbl(), [erl_types:erl_type()], [core_vars()],
-                      file_line(), dialyzer_dataflow:state()) -> 
+                      file_line(), dialyzer_dataflow:state()) ->
   dialyzer_dataflow:state().
 
 store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
@@ -168,7 +168,7 @@ store_race_call(Fun, ArgTypes, Args, FileLine, State) ->
   CurrFunLabel = Races#races.curr_fun_label,
   RaceTags = Races#races.race_tags,
   CleanState = dialyzer_dataflow:state__records_only(State),
-  {NewRaceList, NewRaceListSize, NewRaceTags, NewTable} = 
+  {NewRaceList, NewRaceListSize, NewRaceTags, NewTable} =
     case CurrFun of
       {_Module, module_info, A} when A =:= 0 orelse A =:= 1 ->
         {[], 0, RaceTags, no_t};
@@ -424,7 +424,7 @@ fixup_race_forward_pullout(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                 Races = dialyzer_dataflow:state__get_races(State),
                 {RetCurrFun, RetCurrFunLabel, RetCalls, RetCode,
                  RetRaceList, RetRaceVarMap, RetFunDefVars, RetFunCallVars,
-                 RetFunArgTypes, RetNestingLevel} = 
+                 RetFunArgTypes, RetNestingLevel} =
                   fixup_race_forward_helper(NewCurrFun,
                       NewCurrFunLabel, Fun, Int, NewCalls, NewCalls,
                       [#curr_fun{status = out, mfa = NewCurrFun,
@@ -578,7 +578,7 @@ fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
           RaceTag ->
             PublicTables = dialyzer_callgraph:get_public_tables(Callgraph),
             NamedTables = dialyzer_callgraph:get_named_tables(Callgraph),
-            WarnVarArgs1 = 
+            WarnVarArgs1 =
               var_type_analysis(FunDefVars, FunArgTypes, WarnVarArgs,
                                 RaceWarnTag, RaceVarMap,
                                 dialyzer_dataflow:state__records_only(State)),
@@ -600,7 +600,7 @@ fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                     [#warn_call{call_name = ets_insert, args = WarnVarArgs,
                                 var_map = RaceVarMap}],
                   [Tab, Names, _, _] = WarnVarArgs,
-                  case IsPublic orelse 
+                  case IsPublic orelse
                     compare_var_list(Tab, PublicTables, RaceVarMap)
                     orelse
                     length(Names -- NamedTables) < length(Names) of
@@ -638,7 +638,7 @@ fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                  #curr_fun{mfa = CurrFun2, label = CurrFunLabel2,
                            var_map = RaceVarMap2, def_vars = FunDefVars2,
                            call_vars = FunCallVars2, arg_types = FunArgTypes2},
-                 Code2, NestingLevel2} = 
+                 Code2, NestingLevel2} =
                   remove_clause(NewRL,
                                 #curr_fun{mfa = CurrFun, label = CurrFunLabel,
                                           var_map = RaceVarMap1,
@@ -650,7 +650,7 @@ fixup_race_forward(CurrFun, CurrFunLabel, Calls, Code, RaceList,
                  RaceVarMap2, FunDefVars2, FunCallVars2, FunArgTypes2,
                  NestingLevel2, false};
               false ->
-                {CurrFun, CurrFunLabel, Tail, NewRL, RaceVarMap1, 
+                {CurrFun, CurrFunLabel, Tail, NewRL, RaceVarMap1,
                  FunDefVars, FunCallVars, FunArgTypes, NewNL, false}
             end;
           #end_clause{arg = Arg, pats = Pats, guard = Guard} ->
@@ -895,7 +895,7 @@ do_clause(RaceList, WarnVarArgs, RaceWarnTag, RaceVarMap, CurrLevel,
           PublicTables, NamedTables) ->
   {DepList, IsPublic, Continue} =
     get_deplist_paths(fixup_case_path(RaceList, 0), WarnVarArgs,
-		      RaceWarnTag, RaceVarMap, CurrLevel, 
+		      RaceWarnTag, RaceVarMap, CurrLevel,
                       PublicTables, NamedTables),
   {fixup_case_rest_paths(RaceList, 0), DepList, IsPublic, Continue}.
 
@@ -965,7 +965,7 @@ fixup_race_forward_helper(CurrFun, CurrFunLabel, Fun, FunLabel,
        #curr_fun{mfa = NewCurrFun, label = NewCurrFunLabel,
                  var_map = NewRaceVarMap, def_vars = NewFunDefVars,
                  call_vars = NewFunCallVars, arg_types = NewFunArgTypes},
-       NewCode, NewNestingLevel} = 
+       NewCode, NewNestingLevel} =
         remove_clause(RaceList,
         #curr_fun{mfa = CurrFun, label = CurrFunLabel, var_map = RaceVarMap,
                   def_vars = FunDefVars, call_vars = FunCallVars,
@@ -997,7 +997,7 @@ fixup_race_forward_helper(CurrFun, CurrFunLabel, Fun, FunLabel,
                        arg_types = NewFunTypes}],
             [#curr_fun{status = in, mfa = Fun,
                        label = FunLabel, var_map = NewRaceVarMap,
-                       def_vars = Args, call_vars = NewFunArgs, 
+                       def_vars = Args, call_vars = NewFunArgs,
                        arg_types = NewFunTypes}|
             lists:reverse(StateRaceList)] ++
             RetC, NewRaceVarMap),
@@ -1062,7 +1062,7 @@ fixup_race_backward(CurrFun, Calls, CallsToAnalyze, Parents, Height) ->
   case Height =:= 0 of
     true -> Parents;
     false ->
-      case Calls of 
+      case Calls of
         [] ->
           case is_integer(CurrFun) orelse lists:member(CurrFun, Parents) of
             true -> Parents;
@@ -1221,7 +1221,7 @@ are_bound_vars(Vars1, Vars2, RaceVarMap) ->
 callgraph__renew_tables(Table, Callgraph) ->
   case Table of
     {named, NameLabel, Names} ->
-      PTablesToAdd = 
+      PTablesToAdd =
         case NameLabel of
           ?no_label -> [];
           _Other -> [NameLabel]
@@ -1440,7 +1440,7 @@ lists_key_members_lists_helper(Elem, List, N) when is_integer(Elem) ->
   end;
 lists_key_members_lists_helper(_Elem, _List, _N) ->
   [0].
-          
+
 lists_key_replace(N, List, NewMember) ->
   {Before, [_|After]} = lists:split(N - 1, List),
   Before ++ [NewMember|After].
@@ -1490,7 +1490,7 @@ refine_race_helper(RaceCall, VarArgs, WarnVarArgs, RaceWarnTag, DependencyList,
     false -> DependencyList
   end.
 
-remove_clause(RaceList, CurrTuple, Code, NestingLevel) -> 
+remove_clause(RaceList, CurrTuple, Code, NestingLevel) ->
   NewRaceList = fixup_case_rest_paths(RaceList, 0),
   {NewCurrTuple, NewCode} =
     cleanup_clause_code(CurrTuple, Code, 0, NestingLevel),
@@ -1623,7 +1623,7 @@ compare_ets_insert(OldWarnVarArgs, NewWarnVarArgs, RaceVarMap) ->
         end
     end,
   case Bool of
-    true -> 
+    true ->
       case any_args(Old4) of
         true ->
           case compare_list_vars(Old3, ets_list_args(New3), [], RaceVarMap) of
@@ -1692,7 +1692,6 @@ compare_types(VarArgs, WarnVarArgs, RaceWarnTag, RaceVarMap) ->
             false ->
               compare_var_list(VA1, WVA1, RaceVarMap) orelse
                 compare_argtypes(VA2, WVA2)
-                
           end
       end;
     ?WARN_WHEREIS_UNREGISTER ->
@@ -1717,12 +1716,12 @@ compare_types(VarArgs, WarnVarArgs, RaceWarnTag, RaceVarMap) ->
           false ->
             case any_args(WVA2) of
               true -> compare_var_list(VA1, WVA1, RaceVarMap);
-              false -> 
+              false ->
                 compare_var_list(VA1, WVA1, RaceVarMap) orelse
                   compare_argtypes(VA2, WVA2)
             end
         end,
-      Bool andalso  
+      Bool andalso
         (case any_args(VA4) of
            true ->
              compare_var_list(VA3, WVA3, RaceVarMap);
@@ -2159,7 +2158,7 @@ race_var_map_guard_helper1(Arg, Pats, RaceVarMap, Op) ->
                     _Else -> {RaceVarMap, false}
                   end;
                 false -> {RaceVarMap, false}
-              end;                   
+              end;
             _Other -> {RaceVarMap, false}
           end;
         _Other -> {RaceVarMap, false}
@@ -2242,7 +2241,7 @@ var_analysis(FunDefArgs, FunCallArgs, WarnVarArgs, RaceWarnTag) ->
       [WVA1, WVA2|T] = WarnVarArgs,
       ArgNos = lists_key_members_lists(WVA1, FunDefArgs),
       [[lists_get(N, FunCallArgs) || N <- ArgNos], WVA2|T]
-  end.     
+  end.
 
 var_type_analysis(FunDefArgs, FunCallTypes, WarnVarArgs, RaceWarnTag,
                   RaceVarMap, CleanState) ->
@@ -2287,7 +2286,7 @@ var_type_analysis(FunDefArgs, FunCallTypes, WarnVarArgs, RaceWarnTag,
             ets_tuple_argtypes1(lists:nth(N2 + 1, FunVarArgs), [], [], 0),
             []),
           FirstVarArg ++ [Vars2, NewWVA4]
-          
+
       end;
     ?WARN_MNESIA_DIRTY_READ_WRITE ->
       [WVA1, WVA2|T] = WarnVarArgs,
@@ -2331,7 +2330,7 @@ get_race_warn(Fun, Args, ArgTypes, DepList, State) ->
 
 -spec get_race_warnings(races(), dialyzer_dataflow:state()) ->
   {races(), dialyzer_dataflow:state()}.
-  
+
 get_race_warnings(#races{race_warnings = RaceWarnings}, State) ->
   get_race_warnings_helper(RaceWarnings, State).
 
@@ -2431,12 +2430,12 @@ end_clause_new(Arg, Pats, Guard) ->
   #end_clause{arg = Arg, pats = Pats, guard = Guard}.
 
 -spec get_curr_fun(races()) -> mfa_or_funlbl().
-  
+
 get_curr_fun(#races{curr_fun = CurrFun}) ->
   CurrFun.
 
 -spec get_curr_fun_args(races()) -> core_args().
-  
+
 get_curr_fun_args(#races{curr_fun_args = CurrFunArgs}) ->
   CurrFunArgs.
 
@@ -2446,17 +2445,17 @@ get_new_table(#races{new_table = Table}) ->
   Table.
 
 -spec get_race_analysis(races()) -> boolean().
-  
+
 get_race_analysis(#races{race_analysis = RaceAnalysis}) ->
   RaceAnalysis.
 
 -spec get_race_list(races()) -> code().
-  
+
 get_race_list(#races{race_list = RaceList}) ->
   RaceList.
 
 -spec get_race_list_size(races()) -> non_neg_integer().
-  
+
 get_race_list_size(#races{race_list_size = RaceListSize}) ->
   RaceListSize.
 
@@ -2484,10 +2483,10 @@ put_fun_args(Args, #races{curr_fun_args = CurrFunArgs} = Races) ->
     empty -> Races#races{curr_fun_args = Args};
     _Other -> Races
   end.
-  
+
 -spec put_race_analysis(boolean(), races()) ->
   races().
-  
+
 put_race_analysis(Analysis, Races) ->
   Races#races{race_analysis = Analysis}.
 

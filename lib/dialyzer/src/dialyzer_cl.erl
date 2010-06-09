@@ -48,7 +48,7 @@
 	 report_mode     = normal         :: rep_mode(),
 	 return_status= ?RET_NOTHING_SUSPICIOUS	:: dial_ret(),
 	 stored_warnings = []             :: [dial_warning()],
-	 unknown_behaviours = []          :: [atom()]
+	 unknown_behaviours = []          :: [dialyzer_behaviours:behaviour()]
 	}).
 
 %%--------------------------------------------------------------------
@@ -577,7 +577,7 @@ format_log_cache(LogCache) ->
 store_warnings(#cl_state{stored_warnings = StoredWarnings} = St, Warnings) ->
   St#cl_state{stored_warnings = StoredWarnings ++ Warnings}.
 
--spec store_unknown_behaviours(#cl_state{}, [_]) -> #cl_state{}.
+-spec store_unknown_behaviours(#cl_state{}, [dialyzer_behaviours:behaviour()]) -> #cl_state{}.
 
 store_unknown_behaviours(#cl_state{unknown_behaviours = Behs} = St, Beh) ->
   St#cl_state{unknown_behaviours = Beh ++ Behs}.

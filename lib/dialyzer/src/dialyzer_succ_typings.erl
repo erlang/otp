@@ -435,7 +435,7 @@ format_scc(SCC) ->
 %%
 %% ============================================================================
 
--spec doit(module() | string()) -> 'ok'.
+-spec doit(atom() | file:filename()) -> 'ok'.
 
 doit(Module) ->
   {ok, AbstrCode} = dialyzer_utils:get_abstract_code_from_src(Module),

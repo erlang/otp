@@ -21,7 +21,7 @@
 %%%-------------------------------------------------------------------
 %%% File    : dialyzer_utils.erl
 %%% Author  : Tobias Lindahl <tobiasl@it.uu.se>
-%%% Description : 
+%%% Description :
 %%%
 %%% Created :  5 Dec 2006 by Tobias Lindahl <tobiasl@it.uu.se>
 %%%-------------------------------------------------------------------
@@ -74,12 +74,11 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 -define(debug(D_), ok).
 -endif.
 
-%%
-%%  Types that need to be imported from somewhere else
-%%
+%% ----------------------------------------------------------------------------
 
--type abstract_code() :: [tuple()]. %% XXX: refine
--type comp_options()  :: [atom()].  %% XXX: a restricted set of options is used
+-type abstract_code() :: [tuple()]. %% XXX: import from somewhere
+-type comp_options()  :: [compile:option()].
+-type mod_or_fname()  :: atom() | file:filename().
 
 %% ============================================================================
 %%
@@ -87,13 +86,13 @@ print_types1([{record, _Name} = Key|T], RecDict) ->
 %%
 %% ============================================================================
 
--spec get_abstract_code_from_src(atom() | file:filename()) ->
+-spec get_abstract_code_from_src(mod_or_fname()) ->
 	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File) ->
   get_abstract_code_from_src(File, src_compiler_opts()).
 
--spec get_abstract_code_from_src(atom() | file:filename(), comp_options()) ->
+-spec get_abstract_code_from_src(mod_or_fname(), comp_options()) ->
 	{'ok', abstract_code()} | {'error', [string()]}.
 
 get_abstract_code_from_src(File, Opts) ->
@@ -176,7 +175,7 @@ get_record_and_type_info(AbstractCode) ->
 get_record_and_type_info(AbstractCode, Module, RecDict) ->
   get_record_and_type_info(AbstractCode, Module, [], RecDict).
 
-get_record_and_type_info([{attribute, _, record, {Name, Fields0}}|Left], 
+get_record_and_type_info([{attribute, _, record, {Name, Fields0}}|Left],
 			 Module, Records, RecDict) ->
   {ok, Fields} = get_record_fields(Fields0, RecDict),
   Arity = length(Fields),
@@ -189,7 +188,7 @@ get_record_and_type_info([{attribute, _, type, {{record, Name}, Fields0, []}}
   Arity = length(Fields),
   NewRecDict = dict:store({record, Name}, [{Arity, Fields}], RecDict),
   get_record_and_type_info(Left, Module, Records, NewRecDict);
-get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left], 
+get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left],
 			 Module, Records, RecDict) when Attr =:= 'type';
                                                         Attr =:= 'opaque' ->
   try
@@ -198,7 +197,7 @@ get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm}}|Left],
   catch
     throw:{error, _} = Error -> Error
   end;
-get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm, Args}}|Left], 
+get_record_and_type_info([{attribute, _, Attr, {Name, TypeForm, Args}}|Left],
 			 Module, Records, RecDict) when Attr =:= 'type';
                                                         Attr =:= 'opaque' ->
   try
@@ -220,7 +219,7 @@ get_record_and_type_info([], _Module, Records, RecDict) ->
   end.
 
 add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
-  case erl_types:type_is_defined(TypeOrOpaque, Name, RecDict) of 
+  case erl_types:type_is_defined(TypeOrOpaque, Name, RecDict) of
     true ->
       throw({error, io_lib:format("Type already defined: ~w\n", [Name])});
     false ->
@@ -238,7 +237,7 @@ add_new_type(TypeOrOpaque, Name, TypeForm, ArgForms, Module, RecDict) ->
 get_record_fields(Fields, RecDict) ->
   get_record_fields(Fields, RecDict, []).
 
-get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left], 
+get_record_fields([{typed_record_field, OrdRecField, TypeForm}|Left],
 		  RecDict, Acc) ->
   Name =
     case OrdRecField of
@@ -313,19 +312,19 @@ merge_records(NewRecords, OldRecords) ->
 %%
 %% ============================================================================
 
--spec get_spec_info(module(), abstract_code(), dict()) ->
+-spec get_spec_info(atom(), abstract_code(), dict()) ->
         {'ok', dict()} | {'error', string()}.
 
 get_spec_info(ModName, AbstractCode, RecordsDict) ->
   get_spec_info(AbstractCode, dict:new(), RecordsDict, ModName, "nofile").
 
-%% TypeSpec is a list of conditional contracts for a function. 
+%% TypeSpec is a list of conditional contracts for a function.
 %% Each contract is of the form {[Argument], Range, [Constraint]} where
 %%  - Argument and Range are in erl_types:erl_type() format and
 %%  - Constraint is of the form {subtype, T1, T2} where T1 and T2
 %%    are erl_types:erl_type()
 
-get_spec_info([{attribute, Ln, spec, {Id, TypeSpec}}|Left], 
+get_spec_info([{attribute, Ln, spec, {Id, TypeSpec}}|Left],
 	      SpecDict, RecordsDict, ModName, File) when is_list(TypeSpec) ->
   MFA = case Id of
 	  {_, _, _} = T -> T;
@@ -340,7 +339,7 @@ get_spec_info([{attribute, Ln, spec, {Id, TypeSpec}}|Left],
     {ok, {{OtherFile, L},_C}} ->
       {Mod, Fun, Arity} = MFA,
       Msg = io_lib:format("  Contract for function ~w:~w/~w "
-			  "already defined in ~s:~w\n", 
+			  "already defined in ~s:~w\n",
 			  [Mod, Fun, Arity, OtherFile, L]),
       throw({error, Msg})
   catch
@@ -376,7 +375,7 @@ sets_filter([Mod|Mods], ExpTypes) ->
 %%
 %% ============================================================================
 
--spec src_compiler_opts() -> comp_options().
+-spec src_compiler_opts() -> [compile:option(),...].
 
 src_compiler_opts() ->
   [no_copt, to_core, binary, return_errors, 
@@ -401,7 +400,7 @@ cleanup_parse_transforms([]) ->
 -spec format_errors([{module(), string()}]) -> [string()].
 
 format_errors([{Mod, Errors}|Left]) ->
-  FormatedError = 
+  FormatedError =
     [io_lib:format("~s:~w: ~s\n", [Mod, Line, M:format_error(Desc)])
      || {Line, M, Desc} <- Errors],
   [lists:flatten(FormatedError) | format_errors(Left)];
@@ -476,7 +475,7 @@ pp_size(Size, Ctxt, Cont) ->
   end.
 
 pp_opts(Type, Flags) ->
-  FinalFlags = 
+  FinalFlags =
     case cerl:atom_val(Type) of
       binary -> [];
       float -> keep_endian(cerl:concrete(Flags));
