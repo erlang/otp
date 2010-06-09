@@ -2209,7 +2209,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:max(Term1, Term2) -> Maximum</name>
+      <name>max(Term1, Term2) -> Maximum</name>
       <fsummary>Return the largest of two term</fsummary>
       <type>
         <v>Term1 = Term2 = Maximum = term()</v>
@@ -2458,7 +2458,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:min(Term1, Term2) -> Minimum</name>
+      <name>min(Term1, Term2) -> Minimum</name>
       <fsummary>Return the smallest of two term</fsummary>
       <type>
         <v>Term1 = Term2 = Minimum = term()</v>
@@ -3231,7 +3231,7 @@ os_prompt%</pre>
       </desc>
     </func>
     <func>
-      <name>erlang:port_command(Port, Data, OptionList) -> true|false</name>
+      <name>port_command(Port, Data, OptionList) -> true|false</name>
       <fsummary>Send data to a port</fsummary>
       <type>
         <v>Port = port() | atom()</v>
@@ -3266,10 +3266,6 @@ os_prompt%</pre>
         </taglist>
         <note>
           <p>More options may be added in the future.</p>
-        </note>
-        <note>
-          <p><c>erlang:port_command/3</c> is currently not auto imported, but
-	     it is planned to be auto imported in OTP R14.</p>
         </note>
         <p>Failures:</p>
         <taglist>
