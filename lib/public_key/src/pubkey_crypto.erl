@@ -106,6 +106,11 @@ sign(DigestType, PlainText, #'RSAPrivateKey'{modulus = N, publicExponent = E,
 						    crypto:mpint(N),
 						    crypto:mpint(D)]);
 
+sign(none, Hash, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
+    crypto:dss_sign(none, Hash, 
+		    [crypto:mpint(P), crypto:mpint(Q), 
+		     crypto:mpint(G), crypto:mpint(X)]);
+  
 sign(sha, PlainText, #'DSAPrivateKey'{p = P, q = Q, g = G, x = X}) ->
     crypto:dss_sign(sized_binary(PlainText), 
 		    [crypto:mpint(P), crypto:mpint(Q), 
@@ -128,6 +133,12 @@ verify(DigestType, PlainText, Signature,
 		      sized_binary(Signature), 
 		      [crypto:mpint(Exp), crypto:mpint(Mod)]);
 
+verify(none, Hash, Signature, Key,  #'Dss-Parms'{p = P, q = Q, g = G}) ->
+    crypto:dss_verify(none, Hash, 
+		      sized_binary(Signature), 
+		      [crypto:mpint(P), crypto:mpint(Q), 
+		       crypto:mpint(G), crypto:mpint(Key)]);
+    
 verify(sha, PlainText, Signature, Key,  #'Dss-Parms'{p = P, q = Q, g = G}) ->
     crypto:dss_verify(sized_binary(PlainText), 
 		      sized_binary(Signature), 

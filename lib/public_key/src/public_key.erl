@@ -360,7 +360,9 @@ verify_signature(PlainText, DigestType, Signature, #'RSAPublicKey'{} = Key,
     pubkey_crypto:verify(DigestType, PlainText, Signature, Key, KeyParams);
 verify_signature(PlainText, sha, Signature, Key, #'Dss-Parms'{} = KeyParams) 
   when is_binary(PlainText), is_binary(Signature), is_integer(Key) ->
-    pubkey_crypto:verify(sha, PlainText, Signature, Key, KeyParams).
+    pubkey_crypto:verify(sha, PlainText, Signature, Key, KeyParams);
+verify_signature(Hash, none, Signature, Key, KeyParams) ->
+    pubkey_crypto:verify(none, Hash, Signature, Key, KeyParams).
 
 verify_signature(DerCert, Key, #'Dss-Parms'{} = KeyParams) 
   when is_binary(DerCert), is_integer(Key) ->
