@@ -13,7 +13,7 @@
 tok_val(T) -> element(3, T).
 tok_line(T) -> element(2, T).
 
--file("/usr/local/otp/releases/otp_beam_linux_sles10_x64_r13b02_patched/lib/parsetools-2.0/include/yeccpre.hrl", 0).
+-file("/usr/local/otp/releases/sles10_32_R13B04_patched/lib/parsetools-2.0.2/include/yeccpre.hrl", 0).
 %%
 %% %CopyrightBegin%
 %%
@@ -36,33 +36,32 @@ tok_line(T) -> element(2, T).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % The parser generator will insert appropriate declarations before this line.%
 
--type(yecc_ret() :: {'error', _} | {'ok', _}).
+-type yecc_ret() :: {'error', _} | {'ok', _}.
 
 -spec parse(Tokens :: list()) -> yecc_ret().
 parse(Tokens) ->
     yeccpars0(Tokens, {no_func, no_line}, 0, [], []).
 
--spec(parse_and_scan/1 ::
-      ({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
-            yecc_ret()).
+-spec parse_and_scan({function() | {atom(), atom()}, [_]} | {atom(), atom(), [_]}) ->
+            yecc_ret().
 parse_and_scan({F, A}) -> % Fun or {M, F}
     yeccpars0([], {{F, A}, no_line}, 0, [], []);
 parse_and_scan({M, F, A}) ->
     yeccpars0([], {{{M, F}, A}, no_line}, 0, [], []).
 
--spec(format_error/1 :: (any()) -> [char() | list()]).
+-spec format_error(any()) -> [char() | list()].
 format_error(Message) ->
     case io_lib:deep_char_list(Message) of
-	true ->
-	    Message;
-	_ ->
-	    io_lib:write(Message)
+        true ->
+            Message;
+        _ ->
+            io_lib:write(Message)
     end.
 
-% To be used in grammar files to throw an error message to the parser
-% toplevel. Doesn't have to be exported!
--compile({nowarn_unused_function, return_error/2}).
--spec(return_error/2 :: (integer(), any()) -> no_return()).
+%% To be used in grammar files to throw an error message to the parser
+%% toplevel. Doesn't have to be exported!
+-compile({nowarn_unused_function,{return_error,2}}).
+-spec return_error(integer(), any()) -> no_return().
 return_error(Line, Message) ->
     throw({error, {Line, ?MODULE, Message}}).
 
@@ -101,7 +100,7 @@ yeccpars1([Token | Tokens], Tzr, State, States, Vstack) ->
 yeccpars1([], {{F, A},_Line}, State, States, Vstack) ->
     case apply(F, A) of
         {ok, Tokens, Endline} ->
-	    yeccpars1(Tokens, {{F, A}, Endline}, State, States, Vstack);
+            yeccpars1(Tokens, {{F, A}, Endline}, State, States, Vstack);
         {eof, Endline} ->
             yeccpars1([], {no_func, Endline}, State, States, Vstack);
         {error, Descriptor, _Endline} ->
@@ -134,7 +133,7 @@ yeccpars1(State1, State, States, Vstack, Token0, [], {no_func, Line}) ->
     yeccpars2(State, '$end', [State1 | States], [Token0 | Vstack],
               yecc_end(Line), [], {no_func, Line}).
 
-% For internal use only.
+%% For internal use only.
 yecc_end({Line,_Column}) ->
     {'$end', Line};
 yecc_end(Line) ->
@@ -195,7 +194,7 @@ yecctoken2string(Other) ->
 
 
 
--file("/ldisk/pan/git/otp/bootstrap/lib/compiler/egen/core_parse.erl", 198).
+-file("/clearcase/otp/erts/bootstrap/lib/compiler/egen/core_parse.erl", 197).
 
 yeccpars2(0=S, Cat, Ss, Stack, T, Ts, Tzr) ->
  yeccpars2_0(S, Cat, Ss, Stack, T, Ts, Tzr);
