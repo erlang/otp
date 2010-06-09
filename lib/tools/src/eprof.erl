@@ -348,12 +348,12 @@ set_process_trace(Flag, Pids) ->
 set_process_trace(_, [], _) -> true;
 set_process_trace(Flag, [Pid|Pids], Options) when is_pid(Pid) ->
     try
-	erlang:trace(Pid, Flag, Options)
+	erlang:trace(Pid, Flag, Options),
+	set_process_trace(Flag, Pids, Options)
     catch
 	_:_ ->
 	    false
-    end,
-    set_process_trace(Flag, Pids, Options);
+    end;
 set_process_trace(Flag, [Name|Pids], Options) when is_atom(Name) ->
     case whereis(Name) of
 	undefined ->
@@ -466,25 +466,15 @@ print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
 	erlang:max(length("TIME"), TimeW),
 	erlang:max(length("uS / CALLS"), TpCW)
     },
-    print(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
-    print(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
+    format(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
+    format(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
 
-    lists:foreach(fun (String) -> print(Fd, Ws, String) end, Strs),
+    lists:foreach(fun (String) -> format(Fd, Ws, String) end, Strs),
     ok.
 
 s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
 s(Term) -> s("~p", [Term]).
 s(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
-
-
-print(Fd, [_,_,_] = Strings) ->
-    print(Fd, "~.44s   ~14s ~14s~n", Strings);
-print(Fd, [_,_,_,_] = Strings) ->
-    print(Fd, "~.44s   ~14s ~14s ~7s ~n", Strings);
-print(Fd, Strings) ->
-    print(Fd, "~.44s   ~14s ~14s ~7s [~7s]~n", Strings).
-print(Fd, Format, Strings) ->
-    format(Fd, Format, Strings).
 
 
 format(Fd, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->

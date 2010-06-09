@@ -59,18 +59,17 @@ basic(Config) when is_list(Config) ->
     ?line profiling_stopped = eprof:stop_profiling(),
 
     %% with fun
-
     ?line {ok, _} = eprof:profile(fun() -> eprof_test:go(10) end),
     ?line profiling = eprof:profile([self()]),
     ?line {error, already_profiling} = eprof:profile(fun() -> eprof_test:go(10) end),
     ?line profiling_stopped = eprof:stop_profiling(),
     ?line {ok, _} = eprof:profile(fun() -> eprof_test:go(10) end),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end),
-    ?line {ok, _} = eprof:profile(erlang:processes(), fun() -> eprof_test:go(10) end),
+    ?line Pid     = whereis(eprof),
+    ?line {ok, _} = eprof:profile(erlang:processes() -- [Pid], fun() -> eprof_test:go(10) end),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, '_', '_'}),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, go, '_'}),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, go, 1}),
-    ?line {ok, _} = eprof:profile([self()], fun() -> eprof_test:go(10) end, {eprof_test, go, 1}),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, dec, 1}),
 
     %% with mfa

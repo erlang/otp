@@ -4026,7 +4026,8 @@ arg_types(erlang, trace_info, 2) ->
 	  t_atom('flags'), t_atom('tracer'),
 	  %% while the following are items about a func
 	  t_atom('traced'), t_atom('match_spec'), t_atom('meta'),
-	  t_atom('meta_match_spec'), t_atom('call_count'), t_atom('all')])];
+	  t_atom('meta_match_spec'), t_atom('call_count'),
+	  t_atom('call_time'), t_atom('all')])];
 arg_types(erlang, trace_pattern, 2) ->
   [t_sup(t_tuple([t_atom(), t_atom(), t_sup(t_arity(), t_atom('_'))]),
 	 t_atom('on_load')),
@@ -4035,7 +4036,7 @@ arg_types(erlang, trace_pattern, 3) ->
   arg_types(erlang, trace_pattern, 2) ++
     [t_list(t_sup([t_atom('global'), t_atom('local'),
 		   t_atom('meta'), t_tuple([t_atom('meta'), t_pid()]),
-		   t_atom('call_count')]))];
+		   t_atom('call_count'), t_atom('call_time')]))];
 arg_types(erlang, trunc, 1) ->
   [t_number()];
 arg_types(erlang, tuple_size, 1) ->
