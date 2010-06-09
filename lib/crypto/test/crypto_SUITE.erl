@@ -770,18 +770,18 @@ dsa_verify_test(Config) when is_list(Config) ->
 		crypto:mpint(Key)
 	       ],
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(SigBlob),
 			      ValidKey), true),
 
     BadMsg  = one_bit_wrong(Msg),
-    ?line m(crypto:dss_verify(sized_binary(BadMsg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(BadMsg), sized_binary(SigBlob),
 			      ValidKey), false),
     BadSig = one_bit_wrong(SigBlob),
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(BadSig),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(BadSig),
 			      ValidKey), false),
     SizeErr = size(SigBlob) - 13,
     
-    BadArg = (catch crypto:dss_verify(sized_binary(Msg), <<SizeErr:32, SigBlob/binary>>,
+    BadArg = (catch my_dss_verify(sized_binary(Msg), <<SizeErr:32, SigBlob/binary>>,
 				      ValidKey)),
     ?line m(element(1,element(2,BadArg)), badarg),
     
@@ -791,9 +791,12 @@ dsa_verify_test(Config) when is_list(Config) ->
 		  crypto:mpint(Key+17)
 		 ],
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(SigBlob),
+    ?line m(my_dss_verify(sized_binary(Msg), sized_binary(SigBlob),
 			      InValidKey), false).
 
+
+one_bit_wrong(List) when is_list(List) ->
+    lists:map(fun(Bin) -> one_bit_wrong(Bin) end, List);
 one_bit_wrong(Bin) ->
     Half = size(Bin) div 2,
     <<First:Half/binary, Byte:8, Last/binary>> = Bin,
@@ -843,15 +846,15 @@ dsa_sign_test(Config) when is_list(Config) ->
     ParamG = 18320614775012672475365915366944922415598782131828709277168615511695849821411624805195787607930033958243224786899641459701930253094446221381818858674389863050420226114787005820357372837321561754462061849169568607689530279303056075793886577588606958623645901271866346406773590024901668622321064384483571751669,
 
     Params = [crypto:mpint(ParamP), crypto:mpint(ParamQ), crypto:mpint(ParamG)],
-    ?line Sig1 = crypto:dss_sign(sized_binary(Msg), Params ++ [crypto:mpint(PrivKey)]),
+    ?line Sig1 = my_dss_sign(sized_binary(Msg), Params ++ [crypto:mpint(PrivKey)]),
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(Sig1), 
+    ?line m(my_dss_verify(sized_binary(Msg), Sig1, 
 			      Params ++ [crypto:mpint(PubKey)]), true),
     
-    ?line m(crypto:dss_verify(sized_binary(one_bit_wrong(Msg)), sized_binary(Sig1), 
+    ?line m(my_dss_verify(sized_binary(one_bit_wrong(Msg)), Sig1, 
 			      Params ++ [crypto:mpint(PubKey)]), false),
     
-    ?line m(crypto:dss_verify(sized_binary(Msg), sized_binary(one_bit_wrong(Sig1)), 
+    ?line m(my_dss_verify(sized_binary(Msg), one_bit_wrong(Sig1), 
 			      Params ++ [crypto:mpint(PubKey)]), false),
 
     %%?line Bad = crypto:dss_sign(sized_binary(Msg), [Params, crypto:mpint(PubKey)]),
@@ -1132,3 +1135,24 @@ zero_bin(N) when is_integer(N) ->
     <<0:N8/integer>>;
 zero_bin(B) when is_binary(B) ->
     zero_bin(size(B)).
+
+my_dss_verify(Data,[Sign|Tail],Key) ->
+    Res = my_dss_verify(Data,sized_binary(Sign),Key),
+    case Tail of
+        [] ->  Res;
+        _ -> ?line Res = my_dss_verify(Data,Tail,Key)
+    end;       
+my_dss_verify(Data,Sign,Key) ->
+    ?line Res = crypto:dss_verify(Data, Sign, Key),
+    ?line Res = crypto:dss_verify(sha, Data, Sign, Key),
+    ?line <<_:32,Raw/binary>> = Data,
+    ?line Res = crypto:dss_verify(none, crypto:sha(Raw), Sign, Key),
+    Res.
+
+my_dss_sign(Data,Key) ->
+    ?line S1 = crypto:dss_sign(Data, Key),
+    ?line S2 = crypto:dss_sign(sha, Data, Key),
+    ?line <<_:32,Raw/binary>> = Data,
+    ?line S3 = crypto:dss_sign(none, crypto:sha(Raw), Key),
+    [S1,S2,S3].
+

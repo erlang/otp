@@ -198,7 +198,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rand_bytes", 3, rand_bytes_3},
     {"rand_uniform_nif", 2, rand_uniform_nif},
     {"mod_exp_nif", 3, mod_exp_nif},
-    {"dss_verify", 3, dss_verify},
+    {"dss_verify", 4, dss_verify},
     {"rsa_verify", 4, rsa_verify},
     {"aes_cbc_crypt", 4, aes_cbc_crypt},
     {"exor", 2, exor},
@@ -207,7 +207,7 @@ static ErlNifFunc nif_funcs[] = {
     {"rc4_encrypt_with_state", 2, rc4_encrypt_with_state},
     {"rc2_40_cbc_crypt", 4, rc2_40_cbc_crypt},
     {"rsa_sign_nif", 3, rsa_sign_nif},
-    {"dss_sign_nif", 2, dss_sign_nif},
+    {"dss_sign_nif", 3, dss_sign_nif},
     {"rsa_public_crypt", 4, rsa_public_crypt},
     {"rsa_private_crypt", 4, rsa_private_crypt},
     {"dh_generate_parameters_nif", 2, dh_generate_parameters_nif},
@@ -255,6 +255,7 @@ static ERL_NIF_TERM atom_unable_to_check_generator;
 static ERL_NIF_TERM atom_not_suitable_generator;
 static ERL_NIF_TERM atom_check_failed;
 static ERL_NIF_TERM atom_unknown;
+static ERL_NIF_TERM atom_none;
 
 
 static int is_ok_load_info(ErlNifEnv* env, ERL_NIF_TERM load_info)
@@ -322,6 +323,7 @@ static int load(ErlNifEnv* env, void** priv_data, ERL_NIF_TERM load_info)
     atom_not_suitable_generator = enif_make_atom(env,"not_suitable_generator");
     atom_check_failed = enif_make_atom(env,"check_failed");
     atom_unknown = enif_make_atom(env,"unknown");
+    atom_none = enif_make_atom(env,"none");
 
     *priv_data = NULL;
     library_refc++;
@@ -766,7 +768,7 @@ static int inspect_mpint(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifBinary* bin)
 }
 
 static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data,Signature,Key=[P, Q, G, Y]) */
+{/* (DigestType,Data,Signature,Key=[P, Q, G, Y]) */
     ErlNifBinary data_bin, sign_bin;
     BIGNUM *dsa_p, *dsa_q, *dsa_g, *dsa_y;
     unsigned char hmacbuf[SHA_DIGEST_LENGTH];
@@ -774,9 +776,8 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
     DSA *dsa;
     int i;
 
-    if (!inspect_mpint(env,argv[0],&data_bin)
-	|| !inspect_mpint(env,argv[1],&sign_bin)
-	|| !enif_get_list_cell(env, argv[2], &head, &tail)
+    if (!inspect_mpint(env, argv[2], &sign_bin)
+	|| !enif_get_list_cell(env, argv[3], &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa_p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa_q)
@@ -785,10 +786,18 @@ static ERL_NIF_TERM dss_verify(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa_y)
 	|| !enif_is_empty_list(env,tail)) {
-
 	return enif_make_badarg(env);
     }
-    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+    if (argv[0] == atom_sha && inspect_mpint(env, argv[1], &data_bin)) {
+	SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+    }
+    else if (argv[0] == atom_none && enif_inspect_binary(env, argv[1], &data_bin)
+	     && data_bin.size == SHA_DIGEST_LENGTH) {
+	memcpy(hmacbuf, data_bin.data, SHA_DIGEST_LENGTH);
+    }
+    else {
+	return enif_make_badarg(env);
+    }
 
     dsa = DSA_new();
     dsa->p = dsa_p;
@@ -1023,7 +1032,7 @@ static ERL_NIF_TERM rsa_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 }
 
 static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM argv[])
-{/* (Data,Key=[P,Q,G,PrivKey]) */
+{/* (DigesType, Data, Key=[P,Q,G,PrivKey]) */
     ErlNifBinary data_bin, ret_bin;
     ERL_NIF_TERM head, tail;
     unsigned char hmacbuf[SHA_DIGEST_LENGTH];
@@ -1032,8 +1041,7 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
     int i;
 
     dsa->pub_key  = NULL;
-    if (!inspect_mpint(env, argv[0], &data_bin)
-	|| !enif_get_list_cell(env, argv[1], &head, &tail)
+    if (!enif_get_list_cell(env, argv[2], &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa->p)
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa->q)
@@ -1042,12 +1050,20 @@ static ERL_NIF_TERM dss_sign_nif(ErlNifEnv* env, int argc, const ERL_NIF_TERM ar
 	|| !enif_get_list_cell(env, tail, &head, &tail)
 	|| !get_bn_from_mpint(env, head, &dsa->priv_key)
 	|| !enif_is_empty_list(env,tail)) {
-
+	goto badarg;	
+    }
+    if (argv[0] == atom_sha && inspect_mpint(env, argv[1], &data_bin)) {
+	SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
+    }
+    else if (argv[0] == atom_none && enif_inspect_binary(env,argv[1],&data_bin) 
+	     && data_bin.size == SHA_DIGEST_LENGTH) {
+	memcpy(hmacbuf, data_bin.data, SHA_DIGEST_LENGTH);
+    }
+    else {
+    badarg:
 	DSA_free(dsa);
 	return enif_make_badarg(env);
     }
-
-    SHA1(data_bin.data+4, data_bin.size-4, hmacbuf);
 
     enif_alloc_binary(DSA_size(dsa), &ret_bin);
     i =  DSA_sign(NID_sha1, hmacbuf, SHA_DIGEST_LENGTH,

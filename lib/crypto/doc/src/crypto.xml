@@ -755,39 +755,44 @@ Mpint() = <![CDATA[<<ByteLen:32/integer-big, Bytes:ByteLen/binary>>]]>
       
     <func>
       <name>dss_sign(Data, Key) -> Signature</name>
+      <name>dss_sign(DigestType, Data, Key) -> Signature</name>
       <fsummary>Sign the data using dsa with given private key.</fsummary>
       <type>
-        <v>Digest = Mpint</v>
+        <v>DigestType = sha | none (default is sha)</v>
+        <v>Data = Mpint | ShaDigest</v>
         <v>Key = [P, Q, G, X]</v>
         <v>P, Q, G, X = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>X</c> is the private key.</d>
-        <v>Mpint = binary()</v>
+        <v>ShaDigest = binary() with length 20 bytes</v>
         <v>Signature = binary()</v>
       </type>
       <desc>
-        <p>Calculates the sha digest of the <c>Data</c>
-	  and creates a DSS signature with the private key <c>Key</c>
-	  of the digest.</p>
+        <p>Creates a DSS signature with the private key <c>Key</c> of a digest.
+        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
+        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
       </desc>
     </func>
 
     <func>
       <name>dss_verify(Data, Signature, Key) -> Verified</name>
+      <name>dss_verify(DigestType, Data, Signature, Key) -> Verified</name>
       <fsummary>Verify the data and signature using dsa with given public key.</fsummary>
       <type>
         <v>Verified = boolean()</v>
-        <v>Digest, Signature = Mpint</v>
+        <v>DigestType = sha | none</v>
+        <v>Data = Mpint | ShaDigest</v>
+        <v>Signature = Mpint</v>
         <v>Key = [P, Q, G, Y]</v>
         <v>P, Q, G, Y = Mpint</v>
 	<d> Where <c>P</c>, <c>Q</c> and <c>G</c> are the dss
 	  parameters and <c>Y</c> is the public key.</d>
-        <v>Mpint = binary()</v>
+        <v>ShaDigest = binary() with length 20 bytes</v>
       </type>
       <desc>
-        <p>Calculates the sha digest of the <c>Data</c> and verifies that the
-          digest matches the DSS signature using the public key <c>Key</c>.
-	</p>
+        <p>Verifies that a digest matches the DSS signature using the public key <c>Key</c>.
+        If <c>DigestType</c> is 'sha', the digest is calculated as SHA1 of <c>Data</c>.
+        If <c>DigestType</c> is 'none', <c>Data</c> is the precalculated SHA1 digest.</p>
       </desc>
     </func>
 

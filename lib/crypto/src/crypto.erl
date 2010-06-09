@@ -40,8 +40,8 @@
 -export([exor/2]).
 -export([rc4_encrypt/2, rc4_set_key/1, rc4_encrypt_with_state/2]).
 -export([rc2_40_cbc_encrypt/3, rc2_40_cbc_decrypt/3]).
--export([dss_verify/3, rsa_verify/3, rsa_verify/4]).
--export([dss_sign/2, rsa_sign/2, rsa_sign/3]).
+-export([dss_verify/3, dss_verify/4, rsa_verify/3, rsa_verify/4]).
+-export([dss_sign/2, dss_sign/3, rsa_sign/2, rsa_sign/3]).
 -export([rsa_public_encrypt/3, rsa_private_decrypt/3]).
 -export([rsa_private_encrypt/3, rsa_public_decrypt/3]).
 -export([dh_generate_key/1, dh_generate_key/2, dh_compute_key/3]).
@@ -82,7 +82,8 @@
 		    aes_cbc_256_encrypt, aes_cbc_256_decrypt,
 		    info_lib]).
 
--type digest_type() :: 'md5' | 'sha'.
+-type rsa_digest_type() :: 'md5' | 'sha'.
+-type dss_digest_type() :: 'none' | 'sha'.
 -type crypto_integer() :: binary() | integer().
 
 -define(nif_stub,nif_stub_error(?LINE)).
@@ -385,12 +386,15 @@ mod_exp_nif(_Base,_Exp,_Mod) -> ?nif_stub.
 %% DSS, RSA - verify
 %%
 -spec dss_verify(binary(), binary(), [binary()]) -> boolean().
+-spec dss_verify(dss_digest_type(), binary(), binary(), [binary()]) -> boolean().
 -spec rsa_verify(binary(), binary(), [binary()]) -> boolean().
--spec rsa_verify(digest_type(), binary(), binary(), [binary()]) ->
+-spec rsa_verify(rsa_digest_type(), binary(), binary(), [binary()]) ->
 			boolean().
 
 %% Key = [P,Q,G,Y]   P,Q,G=DSSParams  Y=PublicKey
-dss_verify(_Data,_Signature,_Key) -> ?nif_stub.    
+dss_verify(Data,Signature,Key) ->
+    dss_verify(sha, Data, Signature, Key).    
+dss_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.    
 
 % Key = [E,N]  E=PublicExponent N=PublicModulus
 rsa_verify(Data,Signature,Key) ->
@@ -403,16 +407,19 @@ rsa_verify(_Type,_Data,_Signature,_Key) -> ?nif_stub.
 %%
 %% Key = [P,Q,G,X]   P,Q,G=DSSParams  X=PrivateKey
 -spec dss_sign(binary(), [binary()]) -> binary().
+-spec dss_sign(dss_digest_type(), binary(), [binary()]) -> binary().
 -spec rsa_sign(binary(), [binary()]) -> binary().
--spec rsa_sign(digest_type(), binary(), [binary()]) -> binary().
+-spec rsa_sign(rsa_digest_type(), binary(), [binary()]) -> binary().
 
-dss_sign(Data, Key) ->
-    case dss_sign_nif(Data,Key) of
+dss_sign(Data,Key) ->
+    dss_sign(sha,Data,Key).
+dss_sign(Type, Data, Key) ->
+    case dss_sign_nif(Type,Data,Key) of
 	error -> erlang:error(badkey, [Data, Key]);
 	Sign -> Sign
     end.
 
-dss_sign_nif(_Data,_Key) -> ?nif_stub.
+dss_sign_nif(_Type,_Data,_Key) -> ?nif_stub.
 
 %% Key = [E,N,D]  E=PublicExponent N=PublicModulus  D=PrivateExponent
 rsa_sign(Data,Key) ->
