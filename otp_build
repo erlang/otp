@@ -505,6 +505,15 @@ EOF
     return 0
 }
 
+maybe_copy_static_cache ()
+{
+    if [ '!' -z "$OVERRIDE_CONFIG_CACHE_STATIC" ]; then
+	if [ '!' -z "$OVERRIDE_CONFIG_CACHE" ]; then
+	    cp -f "$OVERRIDE_CONFIG_CACHE_STATIC" "$OVERRIDE_CONFIG_CACHE"
+	fi
+    fi
+}
+
 do_configure ()
 {
     setup_make
@@ -534,6 +543,7 @@ do_configure ()
 		exit 1;;
 	esac
     else
+	maybe_copy_static_cache
 	try_cross_configure "$@"
 	if [ $cross_configure = no ]; then
 	    CONFIG_FLAGS=
@@ -550,6 +560,7 @@ do_lazy_configure ()
 	echo "Not supported for cross compilation" >&2
 	exit 1
     fi
+    maybe_copy_static_cache
     CONFIG_FLAGS=
     set_config_flags "$@"
     CONFIGURE_FLAGS="$@"
@@ -756,8 +767,11 @@ echo_env_win32 ()
     echo_setenv CXX cc.sh ';'
     echo_setenv AR ar.sh ';'
     echo_setenv RANLIB true ';'
-    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache"
-    echo_setenv PATH "$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools:$P3"
+    if [ -f "$ERL_TOP/erts/autoconf/win32.config.cache.static" ]; then
+	echo_setenv OVERRIDE_CONFIG_CACHE_STATIC  "$ERL_TOP/erts/autoconf/win32.config.cache.static" ';'
+    fi
+    echo_setenv OVERRIDE_CONFIG_CACHE "$ERL_TOP/erts/autoconf/win32.config.cache" ';'
+    echo_setenv PATH "$ERL_TOP/erts/etc/win32/cygwin_tools/vc:$ERL_TOP/erts/etc/win32/cygwin_tools:$P3" ';'
     echo_envinfo
 }
 
