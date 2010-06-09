@@ -50,9 +50,15 @@
       of these configurations for each codec. The figures presented are 
       the average of all used messages.</p>
 
-    <p>For comparison, also included are performance figures 
-      where the flex driver was built as <c>non-reentrant</c> flex
-      (figures within parenthesis). </p>
+    <p>For comparison, also included are first, performance figures with
+      megaco (including the measurement software) and asn1 applications 
+      hipe-compiled (second figure in the time columns, note that per bin 
+      decode had some issues so those figures are not included), and second, 
+      performance figures where the flex driver was built as 
+      <c>non-reentrant</c> flex
+      (third figure in the time columns, 
+      only valid for text codecs using the flex-scanner, 
+      figures within parenthesis). </p>
 
     <table>
       <row>
@@ -67,122 +73,122 @@
       <row>
         <cell align="left" valign="middle">pretty</cell>
         <cell align="right" valign="middle">336</cell>
-        <cell align="right" valign="middle">22</cell>
-        <cell align="right" valign="middle">76</cell>
-        <cell align="right" valign="middle">98</cell>
+        <cell align="right" valign="middle">20 / 13</cell>
+        <cell align="right" valign="middle">75 / 40</cell>
+        <cell align="right" valign="middle">95 / 53</cell>
       </row>
       <row>
         <cell align="left" valign="middle">pretty [flex]</cell>
         <cell align="right" valign="middle">336</cell>
-        <cell align="right" valign="middle">22 (22)</cell>
-        <cell align="right" valign="middle">41 (40)</cell>
-        <cell align="right" valign="middle">63 (62)</cell>
+        <cell align="right" valign="middle">20 / 13 / 20</cell>
+        <cell align="right" valign="middle">39 / 33 / 38</cell>
+        <cell align="right" valign="middle">59 / 46 / 58</cell>
       </row>
 
       <!-- COMPACT -->
       <row>
         <cell align="left" valign="middle">compact</cell>
         <cell align="right" valign="middle">181</cell>
-        <cell align="right" valign="middle">19</cell>
-        <cell align="right" valign="middle">63</cell>
-        <cell align="right" valign="middle">82</cell>
+        <cell align="right" valign="middle">17 / 10</cell>
+        <cell align="right" valign="middle">62 / 35</cell>
+        <cell align="right" valign="middle">79 / 45</cell>
       </row>
       <row>
         <cell align="left" valign="middle">compact [flex]</cell>
         <cell align="right" valign="middle">181</cell>
-        <cell align="right" valign="middle">19 (19)</cell>
-        <cell align="right" valign="middle">38 (36)</cell>
-        <cell align="right" valign="middle">57 (55)</cell>
+        <cell align="right" valign="middle">17 / 10 / 17</cell>
+        <cell align="right" valign="middle">37 / 31 / 36</cell>
+	<cell align="right" valign="middle">54 / 41 / 53</cell>
       </row>
 
       <!-- PER -->
       <row>
         <cell align="left" valign="middle">per bin</cell>
         <cell align="right" valign="middle">91</cell>
-        <cell align="right" valign="middle">63</cell>
-        <cell align="right" valign="middle">69</cell>
-        <cell align="right" valign="middle">132</cell>
+        <cell align="right" valign="middle">60 / 29</cell>
+        <cell align="right" valign="middle">64 / -</cell>
+        <cell align="right" valign="middle">124 / -</cell>
       </row>
       <row>
         <cell align="left" valign="middle">per bin [driver]</cell>
         <cell align="right" valign="middle">91</cell>
-        <cell align="right" valign="middle">43</cell>
-        <cell align="right" valign="middle">45</cell>
-        <cell align="right" valign="middle">88</cell>
+        <cell align="right" valign="middle">39 / 24</cell>
+        <cell align="right" valign="middle">42 / 26</cell>
+        <cell align="right" valign="middle">81 / 50</cell>
       </row>
       <row>
         <cell align="left" valign="middle">per bin [native]</cell>
         <cell align="right" valign="middle">91</cell>
-        <cell align="right" valign="middle">47</cell>
-        <cell align="right" valign="middle">51</cell>
-        <cell align="right" valign="middle">99</cell>
+        <cell align="right" valign="middle">45 / 21</cell>
+        <cell align="right" valign="middle">48 / -</cell>
+        <cell align="right" valign="middle">93 / -</cell>
       </row>
       <row>
         <cell align="left" valign="middle">per bin [driver,native]</cell>
         <cell align="right" valign="middle">91</cell>
-        <cell align="right" valign="middle">26</cell>
-        <cell align="right" valign="middle">29</cell>
-        <cell align="right" valign="middle">55</cell>
+        <cell align="right" valign="middle">25 / 15</cell>
+        <cell align="right" valign="middle">27 / 18</cell>
+        <cell align="right" valign="middle">52 / 33</cell>
       </row>
 
       <!-- BER -->
       <row>
         <cell align="left" valign="middle">ber bin</cell>
         <cell align="right" valign="middle">165</cell>
-        <cell align="right" valign="middle">35</cell>
-        <cell align="right" valign="middle">42</cell>
-        <cell align="right" valign="middle">77</cell>
+        <cell align="right" valign="middle">32 / 19</cell>
+        <cell align="right" valign="middle">38 / 21</cell>
+        <cell align="right" valign="middle">70 / 40</cell>
       </row>
       <row>
         <cell align="left" valign="middle">ber bin [driver]</cell>
         <cell align="right" valign="middle">165</cell>
-        <cell align="right" valign="middle">35</cell>
-        <cell align="right" valign="middle">37</cell>
-        <cell align="right" valign="middle">72</cell>
+        <cell align="right" valign="middle">32 / 19</cell>
+        <cell align="right" valign="middle">33 / 20</cell>
+        <cell align="right" valign="middle">65 / 39</cell>
       </row>
       <row>
         <cell align="left" valign="middle">ber bin [native]</cell>
         <cell align="right" valign="middle">165</cell>
-        <cell align="right" valign="middle">19</cell>
-        <cell align="right" valign="middle">26</cell>
-        <cell align="right" valign="middle">45</cell>
+        <cell align="right" valign="middle">17 / 11</cell>
+        <cell align="right" valign="middle">25 / 13</cell>
+        <cell align="right" valign="middle">42 / 24</cell>
       </row>
       <row>
         <cell align="left" valign="middle">ber bin [driver,native]</cell>
         <cell align="right" valign="middle">165</cell>
-        <cell align="right" valign="middle">19</cell>
-        <cell align="right" valign="middle">20</cell>
-        <cell align="right" valign="middle">39</cell>
+        <cell align="right" valign="middle">17 / 11</cell>
+        <cell align="right" valign="middle">17 / 12</cell>
+        <cell align="right" valign="middle">34 / 23</cell>
       </row>
 
       <!-- ERLANG -->
       <row>
         <cell align="left" valign="middle">erl_dist</cell>
         <cell align="right" valign="middle">875</cell>
-        <cell align="right" valign="middle">5</cell>
-        <cell align="right" valign="middle">10</cell>
-        <cell align="right" valign="middle">15</cell>
+        <cell align="right" valign="middle">5  /  5</cell>
+        <cell align="right" valign="middle">10 / 10</cell>
+        <cell align="right" valign="middle">15 / 15</cell>
       </row>
       <row>
         <cell align="left" valign="middle">erl_dist [megaco_compressed]</cell>
         <cell align="right" valign="middle">405</cell>
-        <cell align="right" valign="middle">6</cell>
-        <cell align="right" valign="middle">7</cell>
-        <cell align="right" valign="middle">13</cell>
+        <cell align="right" valign="middle">6  / 4</cell>
+        <cell align="right" valign="middle">7  / 4</cell>
+        <cell align="right" valign="middle">13 / 8</cell>
       </row>
       <row>
         <cell align="left" valign="middle">erl_dist [compressed]</cell>
         <cell align="right" valign="middle">345</cell>
-        <cell align="right" valign="middle">86</cell>
-        <cell align="right" valign="middle">21</cell>
-        <cell align="right" valign="middle">107</cell>
+        <cell align="right" valign="middle">47 / 47</cell>
+        <cell align="right" valign="middle">20 / 20</cell>
+        <cell align="right" valign="middle">67 / 67</cell>
       </row>
       <row>
         <cell align="left" valign="middle">erl_dist [megaco_compressed,compressed]</cell>
         <cell align="right" valign="middle">200</cell>
-        <cell align="right" valign="middle">71</cell>
-        <cell align="right" valign="middle">12</cell>
-        <cell align="right" valign="middle">83</cell>
+        <cell align="right" valign="middle">34 / 33</cell>
+        <cell align="right" valign="middle">11 /  9</cell>
+        <cell align="right" valign="middle">45 / 42</cell>
       </row>
 
       <tcaption>Codec performance</tcaption>
@@ -201,8 +207,8 @@
     <p>When running SMP erlang on a multi-core machine the "throughput"
       is significantly higher. The mstone1 test is an extreme test,
       but it shows what is gained by using the reentrant flex-scanner. </p>
-    <image file="mstone1.gif">
-        <icaption>MStone1 with mstone1.sh -d flex -s 8</icaption>
+    <image file="mstone1.jpg">
+        <icaption>MStone1 with mstone1.sh -d flex -s 4</icaption>
     </image>
   </section>
 
@@ -276,10 +282,10 @@ MEGACO/1 [124.124.124.222]
   <section>
     <title>Setup</title>
     <p>The measurements has been performed on a 
-      Dell PowerEdge 1950iii with 
-      2* Intel Xeon L5430 @ 2.66 GHz, with 8 GB memory and 
-      running SLES 10 SP2 x86_64, kernel 2.6.16.60-0.34-smp. 
-      Software versions was open source OTP R13B and megaco-3.11.</p>
+      HP xw4600 Workstation with 
+      a Intel(R) Core(TM)2 Quad CPU Q9550 @ 2.83GHz, with 4 GB memory and 
+      running Ubuntu 10.04 x86_64, kernel 2.6.32-22-generic. 
+      Software versions was open source OTP R13B04 (megaco-3.14).</p>
   </section>
 
   <section>
@@ -302,7 +308,7 @@ MEGACO/1 [124.124.124.222]
           to our fastest text encoder (compact). </p>
       </item>
       <item>
-        <p>our fastest binary decoder (ber) is about 47% (44%) faster than our 
+        <p>our fastest binary decoder (ber) is about 54% (61%) faster than our 
           fastest text decoder (compact). </p>
       </item>
     </list> 
