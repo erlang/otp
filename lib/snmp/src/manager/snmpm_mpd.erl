@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -257,11 +257,11 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
 	end,
 
     ?vlog("7.2.7"
-	  "~n   ContextEngineID: \"~s\" "
+	  "~n   ContextEngineID: ~p "
 	  "~n   context:         \"~s\" ",
 	  [CtxEngineID, CtxName]),
     if
-	SecLevel == 3 -> % encrypted message - log decrypted pdu
+	SecLevel =:= 3 -> % encrypted message - log decrypted pdu
 	    Log({Hdr, ScopedPDUBytes});
 	true -> % otherwise, log binary
 	    Log(Msg)
@@ -338,7 +338,8 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
 	    SnmpEngineID = get_engine_id(),
 	    case SecEngineID of
 		SnmpEngineID -> % 7.2.13.b
-		    ?vtrace("valid securityEngineID: ~p", [SecEngineID]),
+		    ?vtrace("7.2.13d - valid securityEngineID: ~p", 
+			    [SecEngineID]),
 		    %% 4.2.2.1.1 - we don't handle proxys yet => we only 
 		    %% handle CtxEngineID to ourselves
 		    %% Check that we actually know of an agent with this
@@ -353,7 +354,9 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
 				{MsgID, MsgSecModel, SecName, SecLevel,
 				 CtxEngineID, CtxName, SecData},
 			    {ok, 'version-3', PDU, PduMMS, ACMData};
-			_ ->
+			UnknownEngineID ->
+			    ?vtrace("4.2.2.1.2 - UnknownEngineId: ~p", 
+				    [UnknownEngineID]),
 			    %% 4.2.2.1.2
 			    NIsReportable = snmp_misc:is_reportable_pdu(Type),
 			    Val = inc(snmpUnknownPDUHandlers),
@@ -377,7 +380,8 @@ process_v3_msg(NoteStore, Msg, Hdr, Data, Addr, Port, Log) ->
 			    end
 		    end;
 		_ -> % 7.2.13.a
-		    ?vinfo("invalid securityEngineID: ~p",[SecEngineID]),
+		    ?vinfo("7.2.13a - invalid securityEngineID: ~p", 
+			   [SecEngineID]),
 		    discard({badSecurityEngineID, SecEngineID})
 	    end;
 

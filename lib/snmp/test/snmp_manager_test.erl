@@ -795,6 +795,35 @@ notify_started02(suite) -> [];
 notify_started02(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     put(tname,ns02),
+
+    %% <CONDITIONAL-SKIP>
+    %% The point of this is to catch machines running 
+    %% SLES9 (2.6.5)
+    LinuxVersionVerify = 
+	fun() ->
+		case os:cmd("uname -m") of
+		    "i686" ++ _ ->
+%% 			io:format("found an i686 machine, "
+%% 				  "now check version~n", []),
+			case os:version() of
+			    {2, 6, Rev} when Rev >= 16 ->
+				true;
+			    {2, Min, _} when Min > 6 ->
+				true;
+			    {Maj, _, _} when Maj > 2 ->
+				true;
+			    _ ->
+				false
+			end;
+		    _ ->
+			true
+		end
+	end,
+    Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+    ?NON_PC_TC_MAYBE_SKIP(Config, Condition),
+    %% </CONDITIONAL-SKIP>
+
     p("starting with Config: ~n~p", [Config]),
 
     ConfDir = ?config(manager_conf_dir, Config),

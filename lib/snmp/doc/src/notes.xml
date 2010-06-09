@@ -33,6 +33,61 @@
   </header>
 
   <section>
+    <title>SNMP Development Toolkit 4.17</title>
+    <p>Version 4.17 supports code replacement in runtime from/to
+      version 4.16.2, 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>
+
+    <section>
+      <title>Improvements and new features</title>
+      <!-- 
+      <p>-</p> 
+      -->
+      <list type="bulleted">
+        <item>
+          <p>[agent] Added very basic support for multiple SNMPv3 
+            EngineIDs in a single agent. See 
+            <seealso marker="snmpa#send_notification">send_notification/7</seealso>, 
+            <seealso marker="snmpa_mpd#process_packet">process_packet/7</seealso>, 
+            <seealso marker="snmpa_mpd#generate_response_msg">generate_response_msg/6</seealso> or 
+            <seealso marker="snmpa_mpd#generate_msg">generate_msg/6</seealso> 
+            for more info. </p> 
+
+          <p>Own Id: OTP-8478</p>
+        </item>
+
+      </list>
+
+    </section>
+
+    <section>
+      <title>Reported Fixed Bugs and Malfunctions</title>
+      <p>-</p>
+
+      <!-- 
+      <list type="bulleted">
+        <item>
+          <p>The config utility 
+            (<seealso marker="snmp#config">snmp:config/0</seealso>)
+            generated a default notify.conf 
+            with a bad name for the starndard trap entry (was "stadard trap", 
+            but should have been "standard trap"). This has been corrected. </p>
+          <p>Kenji Rikitake</p>
+          <p>Own Id: OTP-8433</p>
+        </item>
+
+      </list>
+      -->
+
+    </section>
+
+    <section>
+      <title>Incompatibilities</title>
+      <p>-</p>
+    </section>
+  </section> <!-- 4.17 -->
+
+
+  <section>
     <title>SNMP Development Toolkit 4.16.2</title>
     <p>Version 4.16.2 supports code replacement in runtime from/to
       version 4.16.1, 4.16, 4.15, 4.14 and 4.13.5.</p>

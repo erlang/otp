@@ -881,6 +881,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
       <name>send_notification(Agent, Notification, Receiver, Varbinds)</name>
       <name>send_notification(Agent, Notification, Receiver, NotifyName, Varbinds)</name>
       <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds) -> void() </name>
+      <name>send_notification(Agent, Notification, Receiver, NotifyName, ContextName, Varbinds, LocalEngineID) -> void() </name>
       <fsummary>Send a notification</fsummary>
       <type>
         <v>Agent = pid() | atom()</v>
@@ -902,6 +903,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <v>OID = oid()</v>
         <v>Value = term()</v>
         <v>RowIndex = [int()]</v>
+        <v>LocalEngineID = string()</v>
       </type>
       <desc>
         <p>Sends the notification <c>Notification</c> to the
@@ -1041,6 +1043,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           <item><c>{?sysLocation_instance, "upstairs"}</c> (provided
            that the generated <c>.hrl</c> file is included)</item>
         </list>
+
         <p>If a variable in the notification is a table element, the
           <c>RowIndex</c> for the element must be given in the
           <c>Varbinds</c> list. In this case, the OBJECT IDENTIFIER sent
@@ -1048,15 +1051,27 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
           element.  This OBJECT IDENTIFIER could be used in a get
           operation later.
           </p>
+
         <p>This function is asynchronous, and does not return any
           information.  If an error occurs, <c>user_err/2</c> of the error
           report module is called and the notification is discarded.
           </p>
 
+        <note>
+          <p>Note that the use of the LocalEngineID argument is only intended 
+            for special cases, if the agent is to "emulate" multiple EngineIDs!
+            By default, the agent uses the value of <c>SnmpEngineID</c> 
+            (see SNMP-FRAMEWORK-MIB). </p>
+	</note>
+
+<!--
           <marker id="send_trap"></marker>
+-->
+	  <marker id="discovery"></marker>
       </desc>
     </func>
 
+<!--
     <func>
       <name>send_trap(Agent,Trap,Community)</name>
       <name>send_trap(Agent,Trap,Community,Varbinds) -> void()</name>
@@ -1128,6 +1143,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
         <marker id="discovery"></marker>
       </desc>
     </func>
+-->
 
     <func>
       <name>discovery(TargetName, Notification) -> {ok, ManagerEngineID} | {error, Reason}</name>

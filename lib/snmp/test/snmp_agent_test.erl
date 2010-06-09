@@ -1046,7 +1046,7 @@ v1_cases() ->
      sparse_table, 
      cnt_64, 
      opaque,
- 
+
      change_target_addr_config
     ].  
 
@@ -1977,7 +1977,8 @@ inform_i(Config) ->
 
     ?P1("unload TestTrap & TestTrapv2..."), 
     ?line unload_master("TestTrap"),
-    ?line unload_master("TestTrapv2").
+    ?line unload_master("TestTrapv2"),
+    ok.
 
 v3_inform_i(X) -> 
     %% <CONDITIONAL-SKIP>
@@ -3446,7 +3447,7 @@ do_mul_set_err() ->
     ?line ?v1_2(expect(2, noSuchName, 1, any),
 		expect(2, [{[friendsEntry, [2,3]], noSuchInstance}])),
     g([NewKeyc4]),
-    ?line ?v1_2(expect(3, noSuchName, 1, any),
+    ?line ?v1_2(expect(3, noSuchName, 1, any), 
 		expect(3, [{NewKeyc4, noSuchInstance}])).
 
 %% Req. SA-MIB
@@ -3457,10 +3458,10 @@ sa_mib() ->
     ?line expect(2, [{[sa, [1,0]], "sa_test"}]).
 
 ma_trap1(MA) ->
-    snmpa:send_trap(MA, testTrap2, "standard trap"),
+    ok = snmpa:send_trap(MA, testTrap2, "standard trap"), 
     ?line expect(1, trap, [system], 6, 1, [{[system, [4,0]],
 				    "{mbj,eklas}@erlang.ericsson.se"}]),
-    snmpa:send_trap(MA, testTrap1, "standard trap"),
+    ok = snmpa:send_trap(MA, testTrap1, "standard trap"),
     ?line expect(2, trap, [1,2,3] , 1, 0, [{[system, [4,0]],
 				      "{mbj,eklas}@erlang.ericsson.se"}]).
 
@@ -3509,7 +3510,8 @@ ma_v2_trap1(MA) ->
     ?DBG("ma_v2_traps -> send standard trap: testTrapv21",[]),
     snmpa:send_trap(MA, testTrapv21, "standard trap"),
     ?line expect(2, v2trap, [{[sysUpTime, 0], any},
-			     {[snmpTrapOID, 0], ?snmp ++ [1]}]).
+			     {[snmpTrapOID, 0], ?snmp ++ [1]}]),
+    ok.
 
 ma_v2_trap2(MA) ->
     snmpa:send_trap(MA,testTrapv22,"standard trap",[{sysContact,"pelle"}]),
@@ -3517,7 +3519,7 @@ ma_v2_trap2(MA) ->
 			     {[snmpTrapOID, 0], ?system ++ [0,1]},
 			     {[system, [4,0]], "pelle"}]).
 
-%% Note:  This test case takes a while... actually a couple of minutes.
+%% Note: This test case takes a while... actually a couple of minutes.
 ma_v2_inform1(MA) ->
     ?DBG("ma_v2_inform1 -> entry with" 
 	 "~n   MA = ~p => "
@@ -5258,7 +5260,35 @@ otp_1131_2(X) -> ?P(otp_1131_2), otp_1131(X).
 
 otp_1131_3(X) -> 
     %% <CONDITIONAL-SKIP>
-    Skippable = [{unix, [darwin]}],
+    %% This is intended to catch Montavista Linux 4.0/ppc (2.6.5)
+    %% Montavista Linux looks like a Debian distro (/etc/issue)
+    LinuxVersionVerify = 
+	fun() ->
+		case os:cmd("uname -m") of
+		    "ppc" ++ _ ->
+			case file:read_file_info("/etc/issue") of
+			    {ok, _} ->
+				case os:cmd("grep -i montavista /etc/issue") of
+				    Info when (is_list(Info) andalso 
+					       (length(Info) > 0)) ->
+					case os:version() of
+					    {2, 6, 10} ->
+						true;
+					    _ ->
+						false
+					end;
+				    _ -> % Maybe plain Debian or Ubuntu
+					false
+				end;
+			    _ ->
+				%% Not a Debian based distro
+				false
+			end;
+		    _ ->
+			false
+		end
+	end,
+    Skippable = [{unix, [darwin, {linux, LinuxVersionVerify}]}],
     Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
     ?NON_PC_TC_MAYBE_SKIP(X, Condition),
     %% </CONDITIONAL-SKIP>
@@ -6219,12 +6249,15 @@ verify_old_info([Key|Keys], Info) ->
 is(S) -> [length(S) | S].
 
 try_test(Func) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func).
 
 try_test(Func, A) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func, A).
 
 try_test(Func, A, Opts) ->
+    ?P2("try test ~w...", [Func]),     
     snmp_agent_test_lib:try_test(?MODULE, Func, A, Opts).
 
 

@@ -1,19 +1,19 @@
 %% 
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2004-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2004-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %% 
 
@@ -822,10 +822,39 @@ register_monitor_and_crash3(doc) ->
     "Start a single user process, "
 	"register-monitor one user and register one user, "
 	"crash the single user process.";
-register_monitor_and_crash3(Conf) when is_list(Conf) ->
-    put(tname,rlac3),
-    p("start"),
+register_monitor_and_crash3(Conf) when is_list(Conf) -> 
     process_flag(trap_exit, true),
+    put(tname,rlac3),
+
+    %% <CONDITIONAL-SKIP>
+    %% The point of this is to catch machines running 
+    %% SLES9 (2.6.5)
+    LinuxVersionVerify = 
+	fun() ->
+		case os:cmd("uname -m") of
+		    "i686" ++ _ ->
+%% 			io:format("found an i686 machine, "
+%% 				  "now check version~n", []),
+			case os:version() of
+			    {2, 6, Rev} when Rev >= 16 ->
+				true;
+			    {2, Min, _} when Min > 6 ->
+				true;
+			    {Maj, _, _} when Maj > 2 ->
+				true;
+			    _ ->
+				false
+			end;
+		    _ ->
+			true
+		end
+	end,
+    Skippable = [{unix, [{linux, LinuxVersionVerify}]}],
+    Condition = fun() -> ?OS_BASED_SKIP(Skippable) end,
+    ?NON_PC_TC_MAYBE_SKIP(Conf, Condition),
+    %% </CONDITIONAL-SKIP>
+
+    p("start"),
 
     ConfDir = ?config(manager_conf_dir, Conf),
     DbDir = ?config(manager_db_dir, Conf),
