@@ -59,6 +59,7 @@ basic(Config) when is_list(Config) ->
     ?line profiling_stopped = eprof:stop_profiling(),
 
     %% with fun
+
     ?line {ok, _} = eprof:profile(fun() -> eprof_test:go(10) end),
     ?line profiling = eprof:profile([self()]),
     ?line {error, already_profiling} = eprof:profile(fun() -> eprof_test:go(10) end),
@@ -71,6 +72,17 @@ basic(Config) when is_list(Config) ->
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, go, '_'}),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, go, 1}),
     ?line {ok, _} = eprof:profile([], fun() -> eprof_test:go(10) end, {eprof_test, dec, 1}),
+
+    %% error case
+
+    ?line error     = eprof:profile([Pid], fun() -> eprof_test:go(10) end),
+    ?line Pid       = whereis(eprof),
+    ?line error     = eprof:profile([Pid], fun() -> eprof_test:go(10) end),
+    ?line A         = spawn(fun() -> receive _ -> ok end end),
+    ?line profiling = eprof:profile([A]),
+    ?line true      = exit(A, kill_it),
+    ?line profiling_stopped = eprof:stop_profiling(),
+    ?line {error,_} = eprof:profile(fun() -> a = b end),
 
     %% with mfa
 

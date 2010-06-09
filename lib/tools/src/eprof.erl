@@ -174,7 +174,7 @@ handle_call({profile, Rootset, Pattern, M,F,A}, From, #state{fd = Fd } = S) ->
 		    pattern   = Pattern
 		}};
 	false ->
-	    exit(Pid, kill),
+	    exit(Pid, eprof_kill),
 	    {reply, error, #state{ fd = Fd}}
     end;
 
@@ -255,11 +255,9 @@ handle_cast(_Msg, State) ->
 %%
 %% -------------------------------------------------------------------- %%
 
-handle_info({trace, _Pid, _Cmd, _Type}, S) ->
-    {noreply, S};
-handle_info({trace, _Parent, spawn, _Pid, _Mfa}, S) ->
-    {noreply, S};
 handle_info({'EXIT', _, normal}, S) ->
+    {noreply, S};
+handle_info({'EXIT', _, eprof_kill}, S) ->
     {noreply, S};
 handle_info({'EXIT', _, Reason}, #state{ reply = FromTag } = S) ->
 
