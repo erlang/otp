@@ -197,19 +197,19 @@ format_error({define_import,{F,A}}) ->
 format_error({unused_function,{F,A}}) ->
     io_lib:format("function ~w/~w is unused", [F,A]);
 format_error({call_to_redefined_bif,{F,A}}) ->
-    io_lib:format("ambiguous call of redefined auto-imported BIF ~w/~w~n"
+    io_lib:format("ambiguous call of overridden auto-imported BIF ~w/~w~n"
 		  " - use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" "
 		  "to resolve name clash", [F,A,F,A,F,A]);
 format_error({call_to_redefined_old_bif,{F,A}}) ->
-    io_lib:format("ambiguous call of redefined pre R14 auto-imported BIF ~w/~w~n"
+    io_lib:format("ambiguous call of overridden pre R14 auto-imported BIF ~w/~w~n"
 		  " - use erlang:~w/~w or \"-compile({no_auto_import,[~w/~w]}).\" "
 		  "to resolve name clash", [F,A,F,A,F,A]);
 format_error({redefine_old_bif_import,{F,A}}) ->
-    io_lib:format("import directive redefines pre R14 auto-imported BIF ~w/~w~n"
+    io_lib:format("import directive overrides pre R14 auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" "
 		  "to resolve name clash", [F,A,F,A]);
 format_error({redefine_bif_import,{F,A}}) ->
-    io_lib:format("import directive redefines auto-imported BIF ~w/~w~n"
+    io_lib:format("import directive overrides auto-imported BIF ~w/~w~n"
 		  " - use \"-compile({no_auto_import,[~w/~w]}).\" to resolve name clash", [F,A,F,A]);
 
 format_error({deprecated, MFA, ReplacementMFA, Rel}) ->
@@ -231,6 +231,9 @@ format_error(illegal_pattern) -> "illegal pattern";
 format_error(illegal_bin_pattern) ->
     "binary patterns cannot be matched in parallel using '='";
 format_error(illegal_expr) -> "illegal expression";
+format_error({illegal_guard_local_call, {F,A}}) -> 
+    io_lib:format("call to local/imported function ~w/~w is illegal in guard",
+		  [F,A]);
 format_error(illegal_guard_expr) -> "illegal guard expression";
 %% --- exports ---
 format_error({explicit_export,F,A}) ->
@@ -1811,7 +1814,13 @@ gexpr({call,Line,{atom,_La,F},As}, Vt, St0) ->
 		false -> {Asvt,add_error(Line, {explicit_export,F,A}, St1)}
 	    end;
         false ->
-	    {Asvt,add_error(Line, illegal_guard_expr, St1)}
+	    case is_local_function(St1#lint.locals,{F,A}) orelse
+		is_imported_function(St1#lint.imports,{F,A}) of
+		true ->
+		    {Asvt,add_error(Line, {illegal_guard_local_call,{F,A}}, St1)};
+		_ ->
+		    {Asvt,add_error(Line, illegal_guard_expr, St1)}
+	    end
     end;
 gexpr({call,Line,{remote,_Lr,{atom,_Lm,erlang},{atom,_Lf,F}},As}, Vt, St0) ->
     {Asvt,St1} = gexpr_list(As, Vt, St0),
@@ -2076,12 +2085,14 @@ expr({call,Line,{atom,La,F},As}, Vt, St0) ->
     IsAutoBif = erl_internal:bif(F, A),
     AutoSuppressed = is_autoimport_suppressed(St2#lint.no_auto,{F,A}),
     Warn = is_warn_enabled(bif_clash, St2) and (not bif_clash_specifically_disabled(St2,{F,A})),
-    case ((not IsLocal) andalso IsAutoBif andalso (not AutoSuppressed)) of
+    Imported = imported(F, A, St2),
+    case ((not IsLocal) andalso (Imported =:= no) andalso 
+	  IsAutoBif andalso (not AutoSuppressed)) of
         true ->
 	    St3 = deprecated_function(Line, erlang, F, As, St2),
 	    {Asvt,St3};
         false ->
-            {Asvt,case imported(F, A, St2) of
+            {Asvt,case Imported of
                       {yes,M} ->
                           St3 = check_remote_function(Line, M, F, As, St2),
                           U0 = St3#lint.usage,
