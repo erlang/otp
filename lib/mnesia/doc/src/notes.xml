@@ -37,6 +37,22 @@
     bugfixes for every release of Mnesia. Each release of Mnesia
     thus constitutes one section in this document. The title of each
     section is the version number of Mnesia.</p>
+
+  <section><title>Mnesia 4.4.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+            Added mnesia:subscribe(activity) contributed by Bernard
+            Duggan.</p>
+          <p>
+            Own Id: OTP-8519</p>
+        </item>
+      </list>
+    </section>
+    
+  </section>  
   
   <section><title>Mnesia 4.4.13</title>
 

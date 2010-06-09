@@ -1,69 +1,7 @@
 %% -*- erlang -*-
 {"%VSN%",  
- [
-  {"4.4.12",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.11",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []},
-    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
-    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.10",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []},
-    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
-    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.9", [{restart_application, mnesia}]},
-  {"4.4.8", [{restart_application, mnesia}]},
-  {"4.4.7", [{restart_application, mnesia}]}
+ [  
  ],
  [
-  {"4.4.12",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.11",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []},
-    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
-    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.10",
-   [
-    {update, mnesia, soft, soft_purge, soft_purge, []},
-    {update, mnesia_loader, soft, soft_purge, soft_purge, []},
-    {update, mnesia_monitor, soft, soft_purge, soft_purge, []},    
-    {update, mnesia_tm, soft, soft_purge, soft_purge, []},
-    {update, mnesia_locker, soft, soft_purge, soft_purge, []},
-    {update, mnesia_controller, soft, soft_purge, soft_purge, []}
-   ]
-  },
-  {"4.4.9", [{restart_application, mnesia}]},
-  {"4.4.8", [{restart_application, mnesia}]},
-  {"4.4.7", [{restart_application, mnesia}]}
  ]
 }.
