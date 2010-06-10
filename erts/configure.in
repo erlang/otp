@@ -1698,6 +1698,9 @@ AC_CHECK_FUNCS([ieee_handler fpsetmask finite isnan isinf res_gethostbyname dlop
 		gethrtime localtime_r gmtime_r mmap mremap memcpy mallopt \
 		sbrk _sbrk __sbrk brk _brk __brk \
 		flockfile fstat strlcpy strlcat setsid posix2time setlocale nl_langinfo poll])
+
+AC_CHECK_DECLS([posix2time],,,[#include <time.h>])
+
 if test "X$host" = "Xwin32"; then
 	ac_cv_func_setvbuf_reversed=yes
 fi
