@@ -16,4 +16,4 @@
 #
 # %CopyrightEnd%
 
-APPMON_VSN = 2.1.11
+APPMON_VSN = 2.1.12

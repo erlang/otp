@@ -16,7 +16,7 @@
 #
 # %CopyrightEnd%
 
-RELTOOL_VSN = 0.5.3
+RELTOOL_VSN = 0.5.4
 
 TICKETS       = OTP-8057
 TICKETS_0_5_2 = OTP-8254
