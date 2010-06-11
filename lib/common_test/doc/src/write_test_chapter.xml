@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2003</year><year>2009</year>
+      <year>2003</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Writing Test Suites</title>
@@ -156,6 +156,15 @@
       info from <c>exit/1</c>, or details of a run-time error), or 
       <c>{skipped,Reason}</c> (where Reason is a user specific term).
     </p>
+
+    <p>The <c>end_per_testcase/2</c> function is called even after a
+      test case terminates due to a call to <c>ct:abort_current_testcase/1</c>,
+      or after a timetrap timeout. However, <c>end_per_testcase</c>
+      will then execute on a different process than the test case
+      function, and in this situation, <c>end_per_testcase</c> will
+      not be able to change the reason for test case termination by
+      returning <c>{fail,Reason}</c>, nor will it be able to save data with
+      <c>{save_config,Data}</c>.</p>
 
     <p>If <c>init_per_testcase</c> crashes, the test case itself is skipped 
     automatically (so called <em>auto skipped</em>). If <c>init_per_testcase</c>
@@ -682,12 +691,33 @@
       <c>end_per_suite</c> execute, like test cases, on dedicated Erlang
       processes.
     </p>
+  </section>
 
+  <section>
+    <title>Timetrap timeouts</title>
+    <marker id="timetraps"></marker>
     <p>The default time limit for a test case is 30 minutes, unless a
-      <c>timetrap</c> is specified either by the test case info function
-      or the <c>suite/0</c> function.
-    </p>
-
+      <c>timetrap</c> is specified either by the suite info function
+      or a test case info function. The timetrap timeout value defined
+      in <c>suite/0</c> is the value that will be used for each test case
+      in the suite (as well as for the configuration functions
+      <c>init_per_suite/1</c> and <c>end_per_suite</c>). A timetrap timeout
+      value set with the test case info function will override the value set
+      by <c>suite/0</c>, but only for that particular test case.</p>
+    <p>It is also possible to set/reset a timetrap during test case (or
+      configuration function) execution. This is done by calling
+      <c>ct:timetrap/1</c>. This function will cancel the current timetrap
+      and start a new one.</p>
+    <p>Timetrap values can be extended with a multiplier value specified at
+      startup with the <c>multiply_timetraps</c> option. It is also possible
+      to let Test Server decide to scale up timetrap timeout values
+      automatically, e.g. if tools such as cover or trace are running during
+      the test. This feature is disabled by default and can be enabled with
+      the <c>scale_timetraps</c> start option.</p>
+    <p>If a test case needs to suspend itself for a time that also gets
+      multipled by <c>multiply_timetraps</c>, and possibly scaled up if
+      <c>scale_timetraps</c> is enabled, the function <c>ct:sleep/1</c>
+      may be called.</p>
   </section>
 
   <section>

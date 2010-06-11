@@ -89,6 +89,7 @@ cp -p $ERL_ROOT/erts-%I_VSN%/bin/erl .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/erlc .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/dialyzer .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/typer .
+cp -p $ERL_ROOT/erts-%I_VSN%/bin/run_test .
 cp -p $ERL_ROOT/erts-%I_VSN%/bin/escript .
 
 #

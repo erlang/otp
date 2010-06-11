@@ -89,14 +89,14 @@ auto_skip(Config) when is_list(Config) ->
 	     ],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(auto_skip, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(auto_skip),    
+    TestEvents = events_to_check(auto_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -112,14 +112,14 @@ user_skip(Config) when is_list(Config) ->
 	      Join(DataDir, "user_skip_5_SUITE")],
 
     {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(user_skip, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(user_skip),    
+    TestEvents = events_to_check(user_skip),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
@@ -142,6 +142,15 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
+
 test_events(auto_skip) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},

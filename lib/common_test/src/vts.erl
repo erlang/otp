@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -100,7 +100,7 @@ start_link() ->
 	    MRef = erlang:monitor(process,Pid),
 	    receive
 		{Pid,started} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    {ok,Pid};
 		{'DOWN',MRef,process,_,Reason} -> 
 		    {error,{vts,died,Reason}}
@@ -160,11 +160,13 @@ init(Parent) ->
 
 loop(State) ->
     receive
-	{{init_data,ConfigFiles,EvHandlers,LogDir,Tests},From} ->
-	    ct_install(State),
+	{{init_data,Config,EvHandlers,LogDir,Tests},From} ->
+	    %% ct:pal("State#state.current_log_dir=~p", [State#state.current_log_dir]),
+	    NewState = State#state{config=Config,event_handler=EvHandlers,
+			current_log_dir=LogDir,tests=Tests},
+	    ct_install(NewState),
 	    return(From,ok),
-	    loop(#state{config=ConfigFiles,event_handler=EvHandlers,
-			current_log_dir=LogDir,tests=Tests});
+	    loop(NewState);
 	{start_page,From} ->
 	    return(From,start_page1()),
 	    loop(State);
@@ -257,7 +259,7 @@ call(Msg) ->
 	    Pid ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{process_down,Pid,Reason}}

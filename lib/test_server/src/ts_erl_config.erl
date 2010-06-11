@@ -70,18 +70,18 @@ dl_vars(Vars, _) ->
     ShlibRules = ts_lib:subst(ShlibRules0, Vars),
     [{'SHLIB_RULES', ShlibRules}|Vars].
 
-erts_lib_name(multi_threaded, win32) ->
+erts_lib_name(multi_threaded, {win32, V}) ->
     link_library("erts_MD" ++ case is_debug_build() of
 				  true -> "d";
 				  false -> ""
 			      end,
-		 win32);
-erts_lib_name(single_threaded, win32) ->
+		 {win32, V});
+erts_lib_name(single_threaded, {win32, V}) ->
     link_library("erts_ML" ++ case is_debug_build() of
 				  true -> "d";
 				  false -> ""
 			      end,
-		 win32);
+		 {win32, V});
 erts_lib_name(multi_threaded, OsType) ->
     link_library("erts_r", OsType);
 erts_lib_name(single_threaded, OsType) ->
@@ -349,10 +349,7 @@ sock_libraries({unix, _}) ->
 sock_libraries(vxworks) ->
     "";
 sock_libraries(ose) ->
-    "";
-sock_libraries(_Other) ->
-    exit({sock_libraries, not_supported}).
-
+    "".
 
 link_library(LibName,{win32, _}) ->
     LibName ++ ".lib";

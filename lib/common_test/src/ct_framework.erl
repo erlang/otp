@@ -113,9 +113,9 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
 	    ok;
 	true ->
 	    %% delete all default values used in previous suite
-	    ct_util:delete_default_config(suite),
+	    ct_config:delete_default_config(suite),
 	    %% release all name -> key bindings (once per suite)
-	    ct_util:release_allocated()
+	    ct_config:release_allocated()
     end,
     TestCaseInfo =
 	case catch apply(Mod,Func,[]) of
@@ -125,7 +125,7 @@ init_tc1(Mod,Func,[Config0],DoInit) when is_list(Config0) ->
     %% clear all config data default values set by previous
     %% testcase info function (these should only survive the
     %% testcase, not the whole suite)
-    ct_util:delete_default_config(testcase),
+    ct_config:delete_default_config(testcase),
     case add_defaults(Mod,Func,TestCaseInfo,DoInit) of
 	Error = {suite0_failed,_} ->
 	    ct_logs:init_tc(),
@@ -161,6 +161,7 @@ init_tc2(Mod,Func,SuiteInfo,MergeResult,Config,DoInit) ->
 	    _ ->
 		MergeResult
 	end,
+
     %% timetrap must be handled before require
     MergedInfo1 = timetrap_first(MergedInfo, [], []),
     %% tell logger to use specified style sheet
@@ -244,8 +245,8 @@ add_defaults(Mod,Func,FuncInfo,DoInit) ->
 	_ ->
 	    {suite0_failed,bad_return_value}
     end.
-    
-add_defaults1(_Mod,init_per_suite,[],SuiteInfo,_) ->
+
+add_defaults1(_Mod,init_per_suite,[],SuiteInfo,_DoInit) ->
     SuiteInfo;
 
 add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) ->
@@ -253,14 +254,26 @@ add_defaults1(Mod,Func,FuncInfo,SuiteInfo,DoInit) ->
     %% can result in weird behaviour (suite values get overwritten)
     SuiteReqs = 
 	[SDDef || SDDef <- SuiteInfo,
-		  require == element(1,SDDef)],
-    case [element(2,Clash) || Clash <- SuiteReqs, 
-	  true == lists:keymember(element(2,Clash),2,FuncInfo)] of
+		  ((require == element(1,SDDef)) or
+		   (default_config == element(1,SDDef)))],
+    FuncReqs =
+	[FIDef || FIDef <- FuncInfo,
+		  require == element(1,FIDef)],
+    case [element(2,Clash) || Clash <- SuiteReqs,
+			      require == element(1, Clash),
+			      true == lists:keymember(element(2,Clash),2,
+						      FuncReqs)] of
 	[] ->
 	    add_defaults2(Mod,Func,FuncInfo,SuiteInfo,SuiteReqs,DoInit);
 	Clashes ->
 	    {error,{config_name_already_in_use,Clashes}}
     end.
+
+add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,false) ->
+    %% not common practise to use a test case info function for
+    %% init_per_suite (usually handled by suite/0), but let's support
+    %% it just in case...
+    add_defaults2(Mod,init_per_suite,IPSInfo,SuiteInfo,SuiteReqs,true);
 
 add_defaults2(_Mod,_Func,FuncInfo,SuiteInfo,_,false) ->
     %% include require elements from test case info, but not from suite/0
@@ -381,10 +394,10 @@ try_set_default(Name,Key,Info,Where) ->
 	{_,[]} -> 
 	    no_default;
 	{'_UNDEF',_} ->
-    	    [ct_util:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
+	    [ct_config:set_default_config([CfgVal],Where) || CfgVal <- CfgElems],
 	    ok;
 	_ ->
-    	    [ct_util:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
+	    [ct_config:set_default_config(Name,[CfgVal],Where) || CfgVal <- CfgElems],
 	    ok
     end.
 	    
@@ -631,7 +644,7 @@ group_or_func(Func, _Config) ->
 %%%      and every test case. If the former, all test cases in the suite
 %%%      should be returned. 
 
-get_suite(Mod, all) ->    
+get_suite(Mod, all) ->
     case catch apply(Mod, groups, []) of
 	{'EXIT',_} ->
 	    get_all(Mod, []);
@@ -667,12 +680,18 @@ get_suite(Mod, Name) ->
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
 		ConfTests ->
+
+		    %%! --- Thu Jun  3 19:13:22 2010 --- peppe was here!
+		    %%! HEERE!
+		    %%! Must be able to search recursively for group Name,
+		    %%! this only handles top level groups!
+
 		    FindConf = fun({conf,Props,_,_,_}) ->
 				       case proplists:get_value(name, Props) of
 					   Name -> true;
 					   _    -> false
 				       end
-			       end,					 
+			       end,
 		    case lists:filter(FindConf, ConfTests) of
 			[] ->			% must be a test case
 			    get_seq(Mod, Name);

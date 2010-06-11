@@ -183,7 +183,7 @@ multiply_timetrap(suite) -> [];
 multiply_timetrap(doc) -> ["Test multiply timetrap"];
 multiply_timetrap(Config) when is_list(Config) ->
     %% This simulates the call to test_server_ctrl:multiply_timetraps/1:
-    put(test_server_multiply_timetraps,2),
+    put(test_server_multiply_timetraps,{2,true}),
 
     Dog = ?t:timetrap(500),
     timer:sleep(800),

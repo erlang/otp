@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2006-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2006-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -28,7 +28,7 @@
 
 -export([abort/0,abort/1,progress/0]).
 
--export([init_master/6, init_node_ctrl/3]).
+-export([init_master/7, init_node_ctrl/3]).
 
 -export([status/2]).
 
@@ -49,7 +49,8 @@
 %%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
 %%%               {testcase,Cases} | {spec,TestSpecs} | {allow_user_terms,Bool} | 
 %%%               {logdir,LogDir} | {event_handler,EventHandlers} | 
-%%%               {silent_connections,Conns} | {cover,CoverSpecFile}
+%%%               {silent_connections,Conns} | {cover,CoverSpecFile} |
+%%%		  {userconfig, UserCfgFiles}
 %%%       CfgFiles = string() | [string()]
 %%%       TestDirs = string() | [string()]
 %%%       Suites = atom() | [atom()]
@@ -98,11 +99,14 @@ run([TS|TestSpecs],AllowUserTerms,InclNodes,ExclNodes) when is_list(TS),
 	    {error,Reason} ->
 		{error,Reason};
 	    TSRec=#testspec{logdir=AllLogDirs,
-			    config=AllCfgFiles,
+			    config=StdCfgFiles,
+			    userconfig=UserCfgFiles,
+			    init=AllInitOpts,
 			    event_handler=AllEvHs} ->
+	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		RunSkipPerNode = ct_testspec:prepare_tests(TSRec),
 		RunSkipPerNode2 = exclude_nodes(ExclNodes,RunSkipPerNode),
-		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,[],[],TS1)
+		run_all(RunSkipPerNode2,AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run(TestSpecs,AllowUserTerms,InclNodes,ExclNodes)];
 run([],_,_,_) ->
@@ -157,10 +161,13 @@ run_on_node([TS|TestSpecs],AllowUserTerms,Node) when is_list(TS),is_atom(Node) -
 	    {error,Reason} ->
 		{error,Reason};
 	    TSRec=#testspec{logdir=AllLogDirs,
-			    config=AllCfgFiles,
+			    config=StdCfgFiles,
+			    init=AllInitOpts,
+			    userconfig=UserCfgFiles,
 			    event_handler=AllEvHs} ->
+	        AllCfgFiles = {StdCfgFiles, UserCfgFiles},
 		{Run,Skip} = ct_testspec:prepare_tests(TSRec,Node),
-		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,[],[],TS1)
+		run_all([{Node,Run,Skip}],AllLogDirs,AllCfgFiles,AllEvHs,[],[],AllInitOpts,TS1)
 	end,
     [{TS,Result} | run_on_node(TestSpecs,AllowUserTerms,Node)];
 run_on_node([],_,_) ->
@@ -180,7 +187,9 @@ run_on_node(TestSpecs,Node) ->
 
 
 
-run_all([{Node,Run,Skip}|Rest],AllLogDirs,AllCfgFiles,AllEvHs,NodeOpts,LogDirs,Specs) ->
+run_all([{Node,Run,Skip}|Rest],AllLogDirs,
+	{AllStdCfgFiles, AllUserCfgFiles}=AllCfgFiles,
+	AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
     LogDir =
 	lists:foldl(fun({N,Dir},_Found) when N == Node ->
 			    Dir;
@@ -191,29 +200,36 @@ run_all([{Node,Run,Skip}|Rest],AllLogDirs,AllCfgFiles,AllEvHs,NodeOpts,LogDirs,S
 		       (_Dir,Found) ->
 			    Found
 		    end,".",AllLogDirs),
-    CfgFiles =
+
+    StdCfgFiles =
 	lists:foldr(fun({N,F},Fs) when N == Node -> [F|Fs];
 		       ({_N,_F},Fs) -> Fs;
 		       (F,Fs) -> [F|Fs]
-		    end,[],AllCfgFiles),
+		    end,[],AllStdCfgFiles),
+    UserCfgFiles =
+         lists:foldr(fun({N,F},Fs) when N == Node -> [{userconfig, F}|Fs];
+		       ({_N,_F},Fs) -> Fs;
+		       (F,Fs) -> [{userconfig, F}|Fs]
+		    end,[],AllUserCfgFiles),
     EvHs =
 	lists:foldr(fun({N,H,A},Hs) when N == Node -> [{H,A}|Hs];
 		       ({_N,_H,_A},Hs) -> Hs;
 		       ({H,A},Hs) -> [{H,A}|Hs]
 		    end,[],AllEvHs),
+
     NO = {Node,[{prepared_tests,{Run,Skip},Specs},
 		{logdir,LogDir},
-		{config,CfgFiles},
-		{event_handler,EvHs}]},
-    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,[NO|NodeOpts],[LogDir|LogDirs],Specs);
-run_all([],AllLogDirs,_,AllEvHs,NodeOpts,LogDirs,Specs) ->
+		{config,StdCfgFiles},
+		{event_handler,EvHs}] ++ UserCfgFiles},
+    run_all(Rest,AllLogDirs,AllCfgFiles,AllEvHs,[NO|NodeOpts],[LogDir|LogDirs],InitOptions,Specs);
+run_all([],AllLogDirs,_,AllEvHs,NodeOpts,LogDirs,InitOptions,Specs) ->
     Handlers = [{H,A} || {Master,H,A} <- AllEvHs, Master == master],
     MasterLogDir = case lists:keysearch(master,1,AllLogDirs) of
 		       {value,{_,Dir}} -> Dir;
 		       false -> "."
 		   end,
     log(tty,"Master Logdir","~s",[MasterLogDir]),
-    start_master(lists:reverse(NodeOpts),Handlers,MasterLogDir,LogDirs,Specs),
+    start_master(lists:reverse(NodeOpts),Handlers,MasterLogDir,LogDirs,InitOptions,Specs),
     ok.
     
 
@@ -251,17 +267,17 @@ progress() ->
 %%% MASTER, runs on central controlling node.
 %%%-----------------------------------------------------------------
 start_master(NodeOptsList) ->
-    start_master(NodeOptsList,[],".",[],[]).
+    start_master(NodeOptsList,[],".",[],[],[]).
 
-start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,Specs) ->
+start_master(NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
     Master = spawn_link(?MODULE,init_master,[self(),NodeOptsList,EvHandlers,
-					     MasterLogDir,LogDirs,Specs]),
+					     MasterLogDir,LogDirs,InitOptions,Specs]),
     receive 
 	{Master,Result} -> Result
     end.	    
 
 %%% @hidden
-init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,Specs) ->
+init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,InitOptions,Specs) ->
     case whereis(ct_master) of
 	undefined ->
 	    register(ct_master,self()),
@@ -314,10 +330,10 @@ init_master(Parent,NodeOptsList,EvHandlers,MasterLogDir,LogDirs,Specs) ->
 	Pid when is_pid(Pid) ->
 	    ok
     end,
-    init_master1(Parent,NodeOptsList,LogDirs).
+    init_master1(Parent,NodeOptsList,InitOptions,LogDirs).
 
-init_master1(Parent,NodeOptsList,LogDirs) ->
-    {Inaccessible,NodeOptsList1} = ping_nodes(NodeOptsList,[],[]),
+init_master1(Parent,NodeOptsList,InitOptions,LogDirs) ->
+    {Inaccessible,NodeOptsList1,InitOptions1} = init_nodes(NodeOptsList,InitOptions),
     case Inaccessible of
 	[] ->
 	    init_master2(Parent,NodeOptsList,LogDirs);
@@ -331,7 +347,7 @@ init_master1(Parent,NodeOptsList,LogDirs) ->
 			"Proceeding without: ~p",[Inaccessible]),
 		    init_master2(Parent,NodeOptsList1,LogDirs);
 		"r\n" ->
-		    init_master1(Parent,NodeOptsList,LogDirs);
+		    init_master1(Parent,NodeOptsList,InitOptions1,LogDirs);
 		_ ->
 		    log(html,"Aborting Tests","",[]),
 		    ct_master_event:stop(),
@@ -542,6 +558,9 @@ get_pid(Node,NodeCtrlPids) ->
 	    undefined
     end.
 
+ping_nodes(NodeOptions)->
+    ping_nodes(NodeOptions, [], []).
+
 ping_nodes([NO={Node,_Opts}|NOs],Inaccessible,NodeOpts) ->
     case net_adm:ping(Node) of
 	pong ->
@@ -678,11 +697,78 @@ call(Pid,Msg) ->
 		 {'DOWN', Ref, _, _, _} ->
 		     {error,master_died}
 	     end,	    
-    erlang:demonitor(Ref),
+    erlang:demonitor(Ref, [flush]),
     Return.
 
 reply(Result,To) ->
     To ! {self(),Result},
+    ok.
+
+init_nodes(NodeOptions, InitOptions)->
+    ping_nodes(NodeOptions),
+    start_nodes(InitOptions),
+    eval_on_nodes(InitOptions),
+    {Inaccessible, NodeOptions1}=ping_nodes(NodeOptions),
+    InitOptions1 = filter_accessible(InitOptions, Inaccessible),
+    {Inaccessible, NodeOptions1, InitOptions1}.
+
+% only nodes which are inaccessible now, should be initiated later
+filter_accessible(InitOptions, Inaccessible)->
+    [{Node,Option}||{Node,Option}<-InitOptions, lists:member(Node, Inaccessible)].
+
+start_nodes(InitOptions)->
+    lists:foreach(fun({NodeName, Options})->
+	[NodeS,HostS]=string:tokens(atom_to_list(NodeName), "@"),
+	Node=list_to_atom(NodeS),
+	Host=list_to_atom(HostS),
+	HasNodeStart = lists:keymember(node_start, 1, Options),
+	IsAlive = lists:member(NodeName, nodes()),
+	case {HasNodeStart, IsAlive} of
+	    {false, false}->
+		io:format("WARNING: Node ~p is not alive but has no node_start option~n", [NodeName]);
+	    {false, true}->
+		io:format("Node ~p is alive~n", [NodeName]);
+	    {true, false}->
+		{node_start, NodeStart} = lists:keyfind(node_start, 1, Options),
+		{value, {callback_module, Callback}, NodeStart2}=
+		    lists:keytake(callback_module, 1, NodeStart),
+		case Callback:start(Host, Node, NodeStart2) of
+		    {ok, NodeName} ->
+			io:format("Node ~p started successfully with callback ~p~n", [NodeName,Callback]);
+		    {error, Reason, _NodeName} ->
+			io:format("Failed to start node ~p with callback ~p! Reason: ~p~n", [NodeName, Callback, Reason])
+		end;
+	    {true, true}->
+		io:format("WARNING: Node ~p is alive but has node_start option~n", [NodeName])
+	end
+    end,
+    InitOptions).
+
+eval_on_nodes(InitOptions)->
+    lists:foreach(fun({NodeName, Options})->
+	HasEval = lists:keymember(eval, 1, Options),
+	IsAlive = lists:member(NodeName, nodes()),
+	case {HasEval, IsAlive} of
+	    {false,_}->
+		ok;
+	    {true,false}->
+		io:format("WARNING: Node ~p is not alive but has eval option ~n", [NodeName]);
+	    {true,true}->
+		{eval, MFAs} = lists:keyfind(eval, 1, Options),
+		evaluate(NodeName, MFAs)
+        end
+    end,
+    InitOptions).
+
+evaluate(Node, [{M,F,A}|MFAs])->
+    case rpc:call(Node, M, F, A) of
+        {badrpc,Reason}->
+	    io:format("WARNING: Failed to call ~p:~p/~p on node ~p due to ~p~n", [M,F,length(A),Node,Reason]);
+	Result->
+	    io:format("Called ~p:~p/~p on node ~p, result: ~p~n", [M,F,length(A),Node,Result])
+    end,
+    evaluate(Node, MFAs);
+evaluate(_Node, [])->
     ok.
 
 %cast(Msg) ->

@@ -167,6 +167,22 @@
       </desc>
     </func>
     <func>
+      <name>adjusted_sleep(MSecs) -> ok</name>
+      <fsummary>Suspens the calling task for a specified time.</fsummary>
+      <type>
+        <v>MSecs = integer() | float() | infinity</v>
+        <d>The default number of milliseconds to sleep</d>
+      </type>
+      <desc>
+        <p>This function suspends the calling process for at least the
+          supplied number of milliseconds. The function behaves the same
+	  way as <c>test_server:sleep/1</c>, only <c>MSecs</c>
+	  will be multiplied by the 'multiply_timetraps' value, if set,
+	  and also automatically scaled up if 'scale_timetraps' is set
+	  to true (which it is by default).</p>
+      </desc>
+    </func>
+    <func>
       <name>hours(N) -> MSecs</name>
       <name>minutes(N) -> MSecs</name>
       <name>seconds(N) -> MSecs</name>

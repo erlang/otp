@@ -35,8 +35,6 @@
 -export([open/1, open/2, open/3, open/4, close/1]).
 -export([send_data/2, get_data/1]).
 
--define(DBG, false).
-
 -define(TELNET_PORT, 23).
 -define(OPEN_TIMEOUT,10000).
 -define(IDLE_TIMEOUT,10000).
@@ -287,35 +285,38 @@ get_subcmd([?SE | Rest], Acc) ->
 get_subcmd([Opt | Rest], Acc) ->
     get_subcmd(Rest, [Opt | Acc]).
 
-
+-ifdef(debug).
 dbg(_Str,_Args) ->
-    if ?DBG -> io:format(_Str,_Args);
-       true -> ok
-    end.
+    io:format(_Str,_Args).
 
 cmd_dbg(_Cmd) ->
-     if ?DBG ->
- 	    case _Cmd of
- 		[?IAC|Cmd1] ->
- 		    cmd_dbg(Cmd1);
- 		[Ctrl|Opts] ->
- 		    CtrlStr = 
- 			case Ctrl of
- 			    ?DO ->   "DO";
- 			    ?DONT -> "DONT";
- 			    ?WILL -> "WILL";
- 			    ?WONT -> "WONT";
- 			    ?NOP ->  "NOP";
- 			    _ ->     "CMD"
- 			end,
- 		    Opts1 =
- 			case Opts of 
- 			    [Opt] -> Opt;
- 			    _ -> Opts
- 			end,
- 		    io:format("~s(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
- 		Any  ->
- 		    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
- 	    end;
-        true -> ok
-     end.
+    case _Cmd of
+	[?IAC|Cmd1] ->
+	    cmd_dbg(Cmd1);
+	[Ctrl|Opts] ->
+	    CtrlStr =
+		case Ctrl of
+		    ?DO ->   "DO";
+		    ?DONT -> "DONT";
+		    ?WILL -> "WILL";
+		    ?WONT -> "WONT";
+		    ?NOP ->  "NOP";
+		    _ ->     "CMD"
+		end,
+	    Opts1 =
+		case Opts of
+		    [Opt] -> Opt;
+		    _ -> Opts
+		end,
+	    io:format("~s(~w): ~w\n", [CtrlStr,Ctrl,Opts1]);
+	Any  ->
+	    io:format("Unexpected in cmd_dbg:~n~w~n",[Any])
+    end.
+
+-else.
+dbg(_Str,_Args) ->
+    ok.
+
+cmd_dbg(_Cmd) ->
+    ok.
+-endif.

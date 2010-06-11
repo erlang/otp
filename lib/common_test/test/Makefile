@@ -27,13 +27,17 @@ include $(ERL_TOP)/make/$(TARGET)/otp.mk
 MODULES= \
 	ct_test_support \
 	ct_test_support_eh \
+	ct_userconfig_callback \
 	ct_smoke_test_SUITE \
 	ct_event_handler_SUITE \
 	ct_groups_test_1_SUITE \
 	ct_groups_test_2_SUITE \
 	ct_skip_SUITE \
 	ct_error_SUITE \
-	ct_test_server_if_1_SUITE
+	ct_test_server_if_1_SUITE \
+	ct_config_SUITE \
+	ct_master_SUITE \
+	ct_misc_1_SUITE
 
 ERL_FILES= $(MODULES:%=%.erl)
 
@@ -64,15 +68,15 @@ EBIN = .
 #.PHONY: make_emakefile
 
 #make_emakefile:
-#	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) \
-#	'*_SUITE_make' > $(EMAKEFILE)
 #	$(ERL_TOP)/make/make_emakefile $(ERL_COMPILE_FLAGS) -o$(EBIN) $(MODULES)\
-#	>> $(EMAKEFILE)
+#	> $(EMAKEFILE)
 
 tests debug opt:
+	erl $(ERL_MAKE_FLAGS) -make
 
 clean:
 	rm -f $(TARGET_FILES)
+#	rm -f $(EMAKEFILE)
 	rm -f core
 
 docs:

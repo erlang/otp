@@ -37,7 +37,8 @@ suite() ->
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     timer:sleep(5000),
-    Config.
+    exit(shouldnt_happen).
+%    Config.
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config0) -> void() | {save_config,Config1}

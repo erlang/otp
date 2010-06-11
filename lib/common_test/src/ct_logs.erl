@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -80,7 +80,7 @@ init(Mode) ->
     MRef = erlang:monitor(process,Pid),
     receive 
 	{started,Pid,Result} -> 
-	    erlang:demonitor(MRef),
+	    erlang:demonitor(MRef, [flush]),
 	    Result;
 	{'DOWN',MRef,process,_,Reason} ->
 	    exit({could_not_start_process,?MODULE,Reason})
@@ -163,7 +163,7 @@ call(Msg) ->
 	    ?MODULE ! {Msg,{self(),Ref}},
 	    receive
 		{Ref, Result} -> 
-		    erlang:demonitor(MRef),
+		    erlang:demonitor(MRef, [flush]),
 		    Result;
 		{'DOWN',MRef,process,_,Reason}  -> 
 		    {error,{process_down,?MODULE,Reason}}
@@ -505,7 +505,7 @@ logger_loop(State) ->
 	    logger_loop(State);
 	{set_stylesheet,TC,SSFile} ->
 	    Fd = State#logger_state.ct_log_fd,
-	    io:format(Fd, "~p uses external style sheet: ~s~n", [TC,SSFile]),
+	    io:format(Fd, "~p loading external style sheet: ~s~n", [TC,SSFile]),
 	    logger_loop(State#logger_state{stylesheet=SSFile});
 	{clear_stylesheet,_} when State#logger_state.stylesheet == undefined ->
 	    logger_loop(State);

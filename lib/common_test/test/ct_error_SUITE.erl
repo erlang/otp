@@ -63,7 +63,10 @@ all(suite) ->
     [
      cfg_error,
      lib_error,
-     no_compile
+     no_compile,
+     timetrap_end_conf,
+     timetrap_normal,
+     timetrap_extended
     ].
      
 
@@ -84,17 +87,22 @@ cfg_error(Config) when is_list(Config) ->
 	      Join(DataDir, "cfg_error_6_SUITE"),
 	      Join(DataDir, "cfg_error_7_SUITE"),
 	      Join(DataDir, "cfg_error_8_SUITE"),
-	      Join(DataDir, "cfg_error_9_SUITE")
+	      Join(DataDir, "cfg_error_9_SUITE"),
+	      Join(DataDir, "cfg_error_10_SUITE"),
+	      Join(DataDir, "cfg_error_11_SUITE"),
+	      Join(DataDir, "cfg_error_12_SUITE"),
+	      Join(DataDir, "cfg_error_13_SUITE"),
+	      Join(DataDir, "cfg_error_14_SUITE")
 	     ],
-    {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(cfg_error, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(cfg_error),    
+    TestEvents = events_to_check(cfg_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 
@@ -104,15 +112,15 @@ lib_error(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "lib_error_1_SUITE")],
-    {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(lib_error, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(lib_error),    
+    TestEvents = events_to_check(lib_error),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
 
@@ -122,17 +130,75 @@ no_compile(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
     Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
     Suites = [Join(DataDir, "no_compile_SUITE")],
-    {Opts,ERPid} = setup({suite,Suites}, Config),
-    ok = ct_test_support:run(ct, run_test, [Opts], Config),    
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
     Events = ct_test_support:get_events(ERPid, Config),
 
     ct_test_support:log_events(no_compile, 
 			       reformat(Events, ?eh), 
 			       ?config(priv_dir, Config)),
 
-    TestEvents = test_events(no_compile),    
+    TestEvents = events_to_check(no_compile),
     ok = ct_test_support:verify_events(TestEvents, Events, Config).
     
+%%%-----------------------------------------------------------------
+%%%
+timetrap_end_conf(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suites = [Join(DataDir, "timetrap_1_SUITE")],
+    {Opts,ERPid} = setup([{suite,Suites}], Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_end_conf,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(timetrap_end_conf),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+timetrap_normal(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suite = Join(DataDir, "timetrap_2_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {userconfig,{ct_userconfig_callback,
+				       "multiply 1 scale false"}}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_normal,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(timetrap_normal),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+timetrap_extended(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+    Join = fun(D, S) -> filename:join(D, "error/test/"++S) end,
+    Suite = Join(DataDir, "timetrap_2_SUITE"),
+    {Opts,ERPid} = setup([{suite,Suite},
+			  {multiply_timetraps,2},
+			  {scale_timetraps,false},
+			  {userconfig,{ct_userconfig_callback,
+				       "multiply 2 scale false"}}],
+			 Config),
+    ok = ct_test_support:run(Opts, Config),
+    Events = ct_test_support:get_events(ERPid, Config),
+
+    ct_test_support:log_events(timetrap_extended,
+			       reformat(Events, ?eh),
+			       ?config(priv_dir, Config)),
+
+    TestEvents = events_to_check(timetrap_extended),
+    ok = ct_test_support:verify_events(TestEvents, Events, Config).
 
 %%%-----------------------------------------------------------------
 %%% HELP FUNCTIONS
@@ -142,7 +208,7 @@ setup(Test, Config) ->
     Opts0 = ct_test_support:get_opts(Config),
     Level = ?config(trace_level, Config),
     EvHArgs = [{cbm,ct_test_support},{trace_level,Level}],
-    Opts = Opts0 ++ [Test,{event_handler,{?eh,EvHArgs}}],
+    Opts = Opts0 ++ [{event_handler,{?eh,EvHArgs}}|Test],
     ERPid = ct_test_support:start_event_receiver(Config),
     {Opts,ERPid}.
 
@@ -154,11 +220,20 @@ reformat(Events, EH) ->
 %%%-----------------------------------------------------------------
 %%% TEST EVENTS
 %%%-----------------------------------------------------------------
+events_to_check(Test) ->
+    %% 2 tests (ct:run_test + script_start) is default
+    events_to_check(Test, 2).
+
+events_to_check(_, 0) ->
+    [];
+events_to_check(Test, N) ->
+    test_events(Test) ++ events_to_check(Test, N-1).
+
 test_events(cfg_error) ->
     [
      {?eh,start_logging,{'DEF','RUNDIR'}},
      {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
-     {?eh,start_info,{9,9,33}},
+     {?eh,start_info,{14,14,42}},
 
      {?eh,tc_start,{cfg_error_1_SUITE,init_per_suite}},
      {?eh,tc_done,
@@ -470,6 +545,59 @@ test_events(cfg_error) ->
      {?eh,tc_start,{cfg_error_9_SUITE,end_per_suite}},
      {?eh,tc_done,{cfg_error_9_SUITE,end_per_suite,ok}},
 
+     {?eh,tc_start,{cfg_error_10_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_10_SUITE,init_per_suite,
+		   {failed,{error,fail_init_per_suite}}}},
+     {?eh,tc_auto_skip,{cfg_error_10_SUITE,tc1,
+			{failed,{cfg_error_10_SUITE,init_per_suite,
+				 {failed,fail_init_per_suite}}}}},
+     {?eh,test_stats,{12,3,{0,19}}},
+     {?eh,tc_auto_skip,{cfg_error_10_SUITE,end_per_suite,
+			{failed,{cfg_error_10_SUITE,init_per_suite,
+				 {failed,fail_init_per_suite}}}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_11_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_11_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_11_SUITE,tc1,
+		   {skipped,{config_name_already_in_use,[dummy0]}}}},
+     {?eh,test_stats,{12,3,{1,19}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,tc2}},
+     {?eh,tc_done,{cfg_error_11_SUITE,tc2,ok}},
+     {?eh,test_stats,{13,3,{1,19}}},
+     {?eh,tc_start,{cfg_error_11_SUITE,end_per_suite}},
+     {?eh,tc_done,{cfg_error_11_SUITE,end_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc1,{failed,{timetrap_timeout,500}}}},
+     {?eh,test_stats,{13,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc2}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc2,{failed,
+					   {cfg_error_12_SUITE,end_per_testcase,
+					    {timetrap_timeout,500}}}}},
+     {?eh,test_stats,{14,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc3}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc3,ok}},
+     {?eh,test_stats,{15,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_12_SUITE,tc4}},
+     {?eh,tc_done,{cfg_error_12_SUITE,tc4,{failed,
+					   {cfg_error_12_SUITE,end_per_testcase,
+					    {timetrap_timeout,500}}}}},
+     {?eh,test_stats,{16,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_13_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_13_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_13_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_13_SUITE,tc1,ok}},
+     {?eh,test_stats,{17,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_13_SUITE,end_per_suite}},
+     {?eh,tc_done,{cfg_error_13_SUITE,end_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_14_SUITE,init_per_suite}},
+     {?eh,tc_done,{cfg_error_14_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{cfg_error_14_SUITE,tc1}},
+     {?eh,tc_done,{cfg_error_14_SUITE,tc1,ok}},
+     {?eh,test_stats,{18,4,{1,19}}},
+     {?eh,tc_start,{cfg_error_14_SUITE,end_per_suite}},
+     {?eh,tc_done,{cfg_error_14_SUITE,end_per_suite,
+		   {comment,
+		    "should succeed since ct_fw cancels timetrap in end_tc"}}},
      {?eh,test_done,{'DEF','STOP_TIME'}},
      {?eh,stop_logging,[]}
     ];
@@ -555,4 +683,91 @@ test_events(lib_error) ->
     ];
 
 test_events(no_compile) ->
-    [].
+    [];
+
+test_events(timetrap_end_conf) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,6}},
+     {?eh,tc_start,{timetrap_1_SUITE,init_per_suite}},
+     {?eh,tc_done,{timetrap_1_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc1,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc2,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,2,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc3}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc3,{failed,{testcase_aborted,testing_end_conf}}}},
+     {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc4}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc4,{failed,{testcase_aborted,testing_end_conf}}}},
+     {?eh,test_stats,{0,4,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc5}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc5,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,5,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,tc6}},
+     {?eh,tc_done,
+      {timetrap_1_SUITE,tc6,{failed,{testcase_aborted,testing_end_conf}}}},
+     {?eh,test_stats,{0,6,{0,0}}},
+     {?eh,tc_start,{timetrap_1_SUITE,end_per_suite}},
+     {?eh,tc_done,{timetrap_1_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(timetrap_normal) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,3}},
+     {?eh,tc_start,{timetrap_2_SUITE,init_per_suite}},
+     {?eh,tc_done,{timetrap_2_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc0,{failed,{timetrap_timeout,3000}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc1,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,2,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc2,{failed,{timetrap_timeout,500}}}},
+     {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,end_per_suite}},
+     {?eh,tc_done,{timetrap_2_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ];
+
+test_events(timetrap_extended) ->
+    [
+     {?eh,start_logging,{'DEF','RUNDIR'}},
+     {?eh,test_start,{'DEF',{'START_TIME','LOGDIR'}}},
+     {?eh,start_info,{1,1,3}},
+     {?eh,tc_start,{timetrap_2_SUITE,init_per_suite}},
+     {?eh,tc_done,{timetrap_2_SUITE,init_per_suite,ok}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc0}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc0,{failed,{timetrap_timeout,6000}}}},
+     {?eh,test_stats,{0,1,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc1}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc1,{failed,{timetrap_timeout,2000}}}},
+     {?eh,test_stats,{0,2,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,tc2}},
+     {?eh,tc_done,
+      {timetrap_2_SUITE,tc2,{failed,{timetrap_timeout,1000}}}},
+     {?eh,test_stats,{0,3,{0,0}}},
+     {?eh,tc_start,{timetrap_2_SUITE,end_per_suite}},
+     {?eh,tc_done,{timetrap_2_SUITE,end_per_suite,ok}},
+     {?eh,test_done,{'DEF','STOP_TIME'}},
+     {?eh,stop_logging,[]}
+    ].

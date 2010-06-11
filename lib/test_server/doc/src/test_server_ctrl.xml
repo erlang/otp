@@ -376,6 +376,31 @@ Optional, if not given the test server controller node
       </desc>
     </func>
     <func>
+      <name>scale_timetraps(Bool) -> ok</name>
+      <fsummary>.</fsummary>
+      <type>
+        <v>Bool = true | false</v>
+      </type>
+      <desc>
+        <p>This function should be called before a test is started.
+	  The parameter specifies if test_server should attempt
+	  to automatically scale the timetrap value in order to compensate
+	  for delays caused by e.g. the cover tool.</p>
+      </desc>
+    </func>
+    <func>
+      <name>get_timetrap_parameters() -> {N,Bool} </name>
+      <fsummary>Read the parameter values that affect timetraps.</fsummary>
+      <type>
+        <v>N = integer() | infinity</v>
+        <v>Bool = true | false</v>
+      </type>
+      <desc>
+        <p>This function may be called to read the values set by
+	<c>multiply_timetraps/1</c> and <c>scale_timetraps/1</c>.</p>
+      </desc>
+    </func>
+    <func>
       <name>cover(Application,Analyse) -> ok</name>
       <name>cover(CoverFile,Analyse) -> ok</name>
       <name>cover(App,CoverFile,Analyse) -> ok</name>

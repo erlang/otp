@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Event Handling</title>
@@ -68,29 +68,27 @@
     Example:</p>
     <p><c>$ run_test -suite test/my_SUITE -event_handler handlers/my_evh1 
     handlers/my_evh2 -pa $PWD/handlers</c></p>
+    <p>Use the <c><![CDATA[run_test -event_handler_init]]></c> option instead of
+      <c><![CDATA[-event_handler]]></c> to pass start arguments to the event handler
+      init function.</p>
     <p>All event handler modules must have gen_event behaviour. Note also that 
     these modules must be precompiled, and that their locations must be
     added explicitly to the Erlang code server search path (like in the
     example).</p>
 
-    <p>It is not possible to specify start arguments to the event handlers when
-    using the <c>run_test</c> script. You may however pass along start arguments
-    if you use the <c>ct:run_test/1</c> function. An event_handler tuple in the argument 
-    <c>Opts</c> has the following definition (see also <c>ct:run_test/1</c> in the 
-    reference manual):</p>
+    <p>An event_handler tuple in the argument <c>Opts</c> has the following
+      definition (see also <c>ct:run_test/1</c> in the reference manual):</p>
 
     <pre>
     {event_handler,EventHandlers}
 
     EventHandlers = EH | [EH]
     EH = atom() | {atom(),InitArgs} | {[atom()],InitArgs}
-    InitArgs = [term()] 
-    </pre>
+    InitArgs = [term()]</pre>
 
     <p>Example:</p>
     <pre>
-    1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).
-    </pre>
+    1> ct:run_test([{suite,"test/my_SUITE"},{event_handler,[my_evh1,{my_evh2,[node()]}]}]).</pre>
     <p>This will install two event handlers for the <c>my_SUITE</c> test. Event handler
     <c>my_evh1</c> is started with <c>[]</c> as argument to the init function. Event handler
     <c>my_evh2</c> is started with the name of the current node in the init argument list.</p>
