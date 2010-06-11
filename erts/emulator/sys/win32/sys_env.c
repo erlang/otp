@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2002-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2002-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -145,15 +145,17 @@ merge_environment(char *old, char *add)
     for(j = 0; a_arg[j] != NULL; ++j){
 	char **tmp;
 	char *current = a_arg[j];
+	char *eq_p = strchr(current,'=');
+	int unset = (eq_p!=NULL && eq_p[1]=='\0');
 
 	if ((tmp = find_arg(c_arg, current)) != NULL) {
-	    if (current[strlen(current)-1] != '=') {
+	    if (!unset) {
 		*tmp = current;
 	    } else {
 		*tmp = c_arg[--i];
 		c_arg[i] = NULL;
 	    }
-	} else if (current[strlen(current)-1] != '=') {
+	} else if (!unset) {
 	    c_arg[i++] = current;
 	    c_arg[i] = NULL;
 	}

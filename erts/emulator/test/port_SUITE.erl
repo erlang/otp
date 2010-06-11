@@ -878,12 +878,19 @@ env2(Config) ->
 			    "nisse" = os:getenv(Long)
 		    end),
 
-
+    
     ?line env_slave(Temp, [{"must_define_something","some_value"},
-			   {"certainly_not_existing",false},
+			    {"certainly_not_existing",false},
                            {"ends_with_equal", "value="},
 			   {Long,false},
 			   {"glurf","a glorfy string"}]),
+
+    %% A lot of non existing variables (mingled with existing)
+    NotExistingList = [{lists:flatten(io_lib:format("V~p_not_existing",[X])),false} 
+                        ||  X <- lists:seq(1,150)],
+    ExistingList = [{lists:flatten(io_lib:format("V~p_existing",[X])),"a_value"} 
+                        ||  X <- lists:seq(1,150)],
+    ?line env_slave(Temp, lists:sort(ExistingList ++ NotExistingList)),
 
     ?line test_server:timetrap_cancel(Dog),
     ok.
