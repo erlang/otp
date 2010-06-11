@@ -182,7 +182,7 @@ Frequently Asked Questions
     include workarounds for the bugs I've found in different Cygwin
     releases, please help me to add workarounds for new Cygwin-related
     bugs as soon as you encounter them. Also please do submit bug reports
-    to the appropriate Cygwin developers. The Cygwin GCC we used for R13B
+    to the appropriate Cygwin developers. The Cygwin GCC we used for %OTP-REL%
     was version 3.4.4. We used VC++ 8.0 (i.e. Visual studio 2005 SP1),
     Sun's JDK 1.5.0\_17, NSIS 2.37, and Win32 OpenSSL 0.9.8e. Please read
     the next section for details on what you need.
