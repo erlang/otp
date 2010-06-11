@@ -59,12 +59,10 @@ ERL_FILES = $(MODULES:%=%.erl)
 HRL_FILES = ssl_test_MACHINE.hrl 
 
 HRL_FILES_SRC = \
-	ssl_pkix.hrl \
 	ssl_alert.hrl \
 	ssl_handshake.hrl
 
-HRL_FILES_INC = \
-	OTP-PKIX.hrl
+HRL_FILES_INC = 
 
 HRL_FILES_NEEDED_IN_TEST = \
 	$(HRL_FILES_SRC:%=../src/%) \

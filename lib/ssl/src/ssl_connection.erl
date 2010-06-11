@@ -125,8 +125,12 @@ recv(Pid, Length, Timeout) ->
 %% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
 connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
-    start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
-	      Timeout).
+    try start_fsm(client, Host, Port, Socket, Options, User, CbInfo,
+		  Timeout)
+    catch
+	exit:{noproc, _} ->
+	    {error, ssl_not_started}
+    end.
 %%--------------------------------------------------------------------
 %% Function: accept(Port, Socket, Opts, User, 
 %%                  CbInfo, Timeout) -> {ok, Socket} | {error, Reason}
@@ -135,8 +139,12 @@ connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 %%              ssl handshake. 
 %%--------------------------------------------------------------------
 ssl_accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
-    start_fsm(server, "localhost", Port, Socket, Opts, User, 
-	      CbInfo, Timeout).
+    try start_fsm(server, "localhost", Port, Socket, Opts, User, 
+		  CbInfo, Timeout)
+    catch
+	exit:{noproc, _} ->
+	    {error, ssl_not_started}
+    end.	
 
 %%--------------------------------------------------------------------
 %% Function: handshake(SslSocket, Timeout) -> ok | {error, Reason}
@@ -1492,15 +1500,15 @@ handle_server_key(
     SecParams = ConnectionState#connection_state.security_parameters,
     #security_parameters{client_random = ClientRandom,
 			 server_random = ServerRandom} = SecParams, 
-    Plain = ssl_handshake:server_key_exchange_plain(KeyAlgo,
-						    <<ClientRandom/binary, 
+    Hash = ssl_handshake:server_key_exchange_hash(KeyAlgo,
+						  <<ClientRandom/binary, 
 						   ServerRandom/binary, 
-						     ?UINT16(PLen), P/binary, 
-						     ?UINT16(GLen), G/binary,
-						     ?UINT16(YLen),
+						   ?UINT16(PLen), P/binary, 
+						   ?UINT16(GLen), G/binary,
+						   ?UINT16(YLen),
 						   ServerPublicDhKey/binary>>),
-   
-    case verify_dh_params(Signed, Plain, PubKeyInfo) of
+    
+    case verify_dh_params(Signed, Hash, PubKeyInfo) of
 	true ->
 	    PMpint = mpint_binary(P),
 	    GMpint = mpint_binary(G),	
@@ -1533,8 +1541,8 @@ verify_dh_params(Signed, Hashes, {?rsaEncryption, PubKey, _PubKeyParams}) ->
 	_ ->
 	    false
     end;
-verify_dh_params(Signed, Plain, {?'id-dsa', PublicKey, PublicKeyParams}) ->
-    public_key:verify_signature(Plain, sha, Signed, PublicKey, PublicKeyParams). 
+verify_dh_params(Signed, Hash, {?'id-dsa', PublicKey, PublicKeyParams}) ->
+    public_key:verify_signature(Hash, none, Signed, PublicKey, PublicKeyParams). 
 
 
 encode_alert(#alert{} = Alert, Version, ConnectionStates) ->

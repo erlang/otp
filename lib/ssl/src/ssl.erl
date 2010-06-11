@@ -39,6 +39,8 @@
 -include("ssl_internal.hrl").
 -include("ssl_record.hrl").
 
+-include_lib("public_key/include/public_key.hrl"). 
+
 -record(config, {ssl,               %% SSL parameters
 		 inet_user,         %% User set inet options
 		 emulated,          %% #socket_option{} emulated
@@ -50,15 +52,18 @@
 %% Function: start([, Type]) -> ok
 %%
 %%  Type =  permanent | transient | temporary
-%%  Vsns = [Vsn] 
-%%  Vsn = ssl3 | tlsv1 | 'tlsv1.1'
 %%
 %% Description: Starts the ssl application. Default type
 %% is temporary. see application(3)
 %%--------------------------------------------------------------------
 start() ->
+    application:start(crypto),
+    application:start(public_key),
     application:start(ssl).
+
 start(Type) ->
+    application:start(crypto, Type),
+    application:start(public_key, Type),
     application:start(ssl, Type).
 
 %%--------------------------------------------------------------------
@@ -123,7 +128,7 @@ connect(Address, Port, Options0, Timeout) ->
 listen(_Port, []) ->
     {error, enooptions};
 listen(Port, Options0) ->
-    case proplists:get_value(ssl_imp, Options0, old) of
+    case proplists:get_value(ssl_imp, Options0, new) of
 	new ->
 	    new_listen(Port, Options0);
 	old ->
@@ -293,14 +298,7 @@ peercert(#sslsocket{pid = Pid, fd = new_ssl}, Opts) ->
 	{ok, undefined} ->
 	    {error, no_peercert};
         {ok, BinCert} ->
-	    PKOpts = [case Opt of ssl -> otp; pkix -> plain end || 
-			 Opt <- Opts, Opt =:= ssl orelse Opt =:= pkix],
-	    case PKOpts of
-		[Opt] ->
-		    public_key:pkix_decode_cert(BinCert, Opt);
-		[] ->
-		    {ok, BinCert}
-	    end;
+	    decode_peercert(BinCert, Opts);
         {error, Reason}  ->
             {error, Reason}
     end;
@@ -309,9 +307,38 @@ peercert(#sslsocket{} = Socket, Opts) ->
     ensure_old_ssl_started(),
     case ssl_broker:peercert(Socket) of
         {ok, Bin} ->
-            ssl_pkix:decode_cert(Bin, Opts);
+	    decode_peercert(Bin, Opts);
         {error, Reason}  ->
             {error, Reason}
+    end.
+
+
+decode_peercert(BinCert, Opts) ->
+    PKOpts = [case Opt of ssl -> otp; pkix -> plain end || 
+		 Opt <- Opts, Opt =:= ssl orelse Opt =:= pkix],
+    case PKOpts of
+	[Opt] ->
+	    select_part(Opt, public_key:pkix_decode_cert(BinCert, Opt), Opts);
+	[] ->
+	    {ok, BinCert}
+    end.
+
+select_part(otp, {ok, Cert}, Opts) ->
+    case lists:member(subject, Opts) of 
+	true ->
+	    TBS = Cert#'OTPCertificate'.tbsCertificate,
+	    {ok, TBS#'OTPTBSCertificate'.subject};
+	false ->
+	    {ok, Cert}
+    end;
+
+select_part(plain, {ok, Cert}, Opts) ->
+    case lists:member(subject, Opts) of 
+	true ->
+	    TBS = Cert#'Certificate'.tbsCertificate,
+	    {ok,  TBS#'TBSCertificate'.subject};
+	false ->
+	    {ok, Cert}
     end.
 
 %%--------------------------------------------------------------------

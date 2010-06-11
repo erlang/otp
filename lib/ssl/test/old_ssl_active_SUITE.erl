@@ -87,6 +87,8 @@ config(Config) ->
     %% operating system, version of OTP, Erts, kernel and stdlib. 
 
     %% Check if SSL exists. If this case fails, all other cases are skipped
+    crypto:start(),
+    application:start(public_key),
     case ssl:start() of
 	ok -> ssl:stop();
 	{error, {already_started, _}} -> ssl:stop();

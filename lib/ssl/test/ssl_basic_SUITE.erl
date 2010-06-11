@@ -50,18 +50,21 @@
 %% Note: This function is free to add any key/value pairs to the Config
 %% variable, but should NOT alter/remove any existing entries.
 %%--------------------------------------------------------------------
-init_per_suite(Config) ->
+init_per_suite(Config0) ->
+    Dog = ssl_test_lib:timetrap(?TIMEOUT *2),
     crypto:start(),
+    application:start(public_key),
     ssl:start(),
     
     %% make rsa certs using oppenssl
     Result = 
-	(catch make_certs:all(?config(data_dir, Config), 
-			      ?config(priv_dir, Config))),
+	(catch make_certs:all(?config(data_dir, Config0), 
+			      ?config(priv_dir, Config0))),
     test_server:format("Make certs  ~p~n", [Result]),
 
-    NewConfig = ssl_test_lib:make_dsa_cert(Config),
-    ssl_test_lib:cert_options(NewConfig).
+    Config1 = ssl_test_lib:make_dsa_cert(Config0),
+    Config = ssl_test_lib:cert_options(Config1),
+    [{watchdog, Dog} | Config].
 
 %%--------------------------------------------------------------------
 %% Function: end_per_suite(Config) -> _

@@ -35,7 +35,7 @@
 	 hello_request/0, certify/7, certificate/3, 
 	 client_certificate_verify/6, 
 	 certificate_verify/6, certificate_request/2,
-	 key_exchange/2, server_key_exchange_plain/2,  finished/4,
+	 key_exchange/2, server_key_exchange_hash/2,  finished/4,
 	 verify_connection/5, 
 	 get_tls_handshake/4,
 	 server_hello_done/0, sig_alg/1,
@@ -371,13 +371,13 @@ key_exchange(server, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
     YLen = byte_size(PublicKey),
     ServerDHParams = #server_dh_params{dh_p = PBin, 
 				       dh_g = GBin, dh_y = PublicKey},    
-    Plain = 
-	server_key_exchange_plain(KeyAlgo, <<ClientRandom/binary, 
+    Hash = 
+	server_key_exchange_hash(KeyAlgo, <<ClientRandom/binary, 
 					    ServerRandom/binary, 
 					    ?UINT16(PLen), PBin/binary, 
 					    ?UINT16(GLen), GBin/binary,
 					    ?UINT16(YLen), PublicKey/binary>>),
-    Signed = digitally_signed(Plain, PrivateKey),
+    Signed = digitally_signed(Hash, PrivateKey),
     #server_key_exchange{params = ServerDHParams,
 			 signed_params = Signed}.
 
@@ -1087,12 +1087,12 @@ certificate_authorities_from_db(CertDbRef, PrevKey, Acc) ->
 	    certificate_authorities_from_db(CertDbRef, Key, Acc)
     end.
 
-digitally_signed(Hashes, #'RSAPrivateKey'{} = Key) ->
-    public_key:encrypt_private(Hashes, Key,
+digitally_signed(Hash, #'RSAPrivateKey'{} = Key) ->
+    public_key:encrypt_private(Hash, Key,
 			       [{rsa_pad, rsa_pkcs1_padding}]);
-digitally_signed(Plain, #'DSAPrivateKey'{} = Key) ->
-    public_key:sign(Plain, Key).
-
+digitally_signed(Hash, #'DSAPrivateKey'{} = Key) ->
+    public_key:sign(none, Hash, Key).
+    
 calc_master_secret({3,0}, PremasterSecret, ClientRandom, ServerRandom) ->
     ssl_ssl3:master_secret(PremasterSecret, ClientRandom, ServerRandom);
 
@@ -1122,15 +1122,14 @@ calc_certificate_verify({3, N}, _, Algorithm, Hashes)
   when  N == 1; N == 2 ->
     ssl_tls1:certificate_verify(Algorithm, Hashes).
 
-server_key_exchange_plain(Algorithm, Value) when Algorithm == rsa;
+server_key_exchange_hash(Algorithm, Value) when Algorithm == rsa;
  						Algorithm == dhe_rsa ->
     MD5 = crypto:md5(Value),     
     SHA =  crypto:sha(Value), 
     <<MD5/binary, SHA/binary>>;
 
-server_key_exchange_plain(dhe_dss, Value) ->
-    %% Hash will be done by crypto.
-    Value.
+server_key_exchange_hash(dhe_dss, Value) ->
+    crypto:sha(Value).
 
 sig_alg(dh_anon) ->
     ?SIGNATURE_ANONYMOUS;

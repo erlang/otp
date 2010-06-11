@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2007-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2007-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -254,7 +254,8 @@ mk_node_cmdline(ListenPort, Name, Args) ->
     Prog ++ " "
 	++ Static ++ " "
 	++ NameSw ++ " " ++ Name ++ " "
-	++ "-pa " ++ Pa ++ " "
+	++ "-pa " ++ Pa ++ " " 
+ 	++ "-run application start crypto -run application start public_key "
 	++ "-run " ++ atom_to_list(?MODULE) ++ " cnct2tstsrvr "
 	++ host_name() ++ " "
 	++ integer_to_list(ListenPort) ++ " "
@@ -524,23 +525,10 @@ add_ssl_opts_config(Config) ->
 	KrnlDir = filename:join([LibDir, "kernel-" ++ KRNL_VSN]),
 	{ok, _} = file:read_file_info(StdlDir),
 	{ok, _} = file:read_file_info(KrnlDir),
-	SSL_VSN = case lists:keysearch(ssl, 1, Apps) of
-		      {value, {ssl, _, VSN}} ->
-			  VSN;
-		      _ ->
-			  application:start(ssl),
-			  try
-			      {value,
-			       {ssl,
-				_,
-				VSN}} = lists:keysearch(ssl,
-							1,
-							application:which_applications()),
-			      VSN
-			  after
-			      application:stop(ssl)
-			  end
-		  end,
+	SSL_VSN = vsn(ssl),
+	VSN_CRYPTO = vsn(crypto),
+	VSN_PKEY = vsn(public_key),
+	
 	SslDir = filename:join([LibDir, "ssl-" ++ SSL_VSN]),
 	{ok, _} = file:read_file_info(SslDir),
 	%% We are using an installed otp system, create the boot script.
@@ -552,6 +540,8 @@ add_ssl_opts_config(Config) ->
 		  " {erts, \"~s\"},~n"
 		  " [{kernel, \"~s\"},~n"
 		  "  {stdlib, \"~s\"},~n"
+		  "  {crypto, \"~s\"},~n"
+		  "  {public_key, \"~s\"},~n"
 		  "  {ssl, \"~s\"}]}.~n",
 		  [case catch erlang:system_info(otp_release) of
 		       {'EXIT', _} -> "R11B";
@@ -560,6 +550,8 @@ add_ssl_opts_config(Config) ->
 		   erlang:system_info(version),
 		   KRNL_VSN,
 		   STDL_VSN,
+		   VSN_CRYPTO,
+		   VSN_PKEY,
 		   SSL_VSN]),
 	ok = file:close(RelFile),
 	ok = systools:make_script(Script, []),
@@ -593,3 +585,17 @@ success(Config) ->
 	{value, {comment, _} = Res} -> Res;
 	_ -> ok
     end.
+
+vsn(App) ->
+    application:start(App),
+    try
+	{value,
+	 {ssl,
+	  _,
+	  VSN}} = lists:keysearch(App,
+				  1,
+				  application:which_applications()),
+	VSN
+     after
+	 application:stop(ssl)
+     end.

@@ -31,6 +31,31 @@
   <p>This document describes the changes made to the SSL application.
     </p>
 
+    <section><title>SSL 4.0</title>
+    
+    <section><title>Improvements and New Features</title>
+    <list>
+      <item>
+	<p>
+	  New ssl now support client/server-certificates signed by
+	dsa keys.</p>
+	<p>
+	Own Id: OTP-8587</p>
+      </item>
+      <item>
+	<p>
+	  Ssl has now switched default implementation and removed
+	  deprecated certificate handling. All certificate handling
+	is done by the public_key application.</p>
+	<p>
+	Own Id: OTP-8695</p>
+      </item>
+    </list>
+    </section>
+    
+    </section>
+
+    
     <section><title>SSL 3.11.1</title>
     
     <section><title>Fixed Bugs and Malfunctions</title>

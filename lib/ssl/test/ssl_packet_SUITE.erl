@@ -54,6 +54,7 @@
 %%--------------------------------------------------------------------
 init_per_suite(Config) ->
     crypto:start(),
+    application:start(public_key),
     ssl:start(),
     Result = 
 	(catch make_certs:all(?config(data_dir, Config), 

@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 2003-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 2003-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 
@@ -60,10 +60,12 @@ many_conns_1() ->
 %% 
 mk_ssl_cert_opts(_Config) ->
     Dir = filename:join([code:lib_dir(ssl), "examples", "certs", "etc"]),
-    COpts = [{cacertfile, filename:join([Dir, "client", "cacerts.pem"])}, 
+    COpts = [{ssl_imp, old},
+	     {cacertfile, filename:join([Dir, "client", "cacerts.pem"])}, 
 	     {certfile, filename:join([Dir, "client", "cert.pem"])}, 
 	     {keyfile, filename:join([Dir, "client", "key.pem"])}], 
-    SOpts = [{cacertfile, filename:join([Dir, "server", "cacerts.pem"])}, 
+    SOpts = [{ssl_imp, old},
+	     {cacertfile, filename:join([Dir, "server", "cacerts.pem"])}, 
 	     {certfile, filename:join([Dir, "server", "cert.pem"])}, 
 	     {keyfile, filename:join([Dir, "server", "key.pem"])}], 
     {ok, {COpts, SOpts}}.
@@ -225,11 +227,13 @@ start_ssl(Nodes, Config) ->
     ok.
 
 do_start(Env) ->
+    application:start(crypto),
+    application:start(public_key),
     application:load(ssl),
     lists:foreach(
       fun({Par, Val}) -> application:set_env(ssl, Par, Val) end, Env),
-    application:start(ssl),
-    application:start(crypto).
+    application:start(ssl).
+
     
 %%
 %% start_node(Name) -> {ok, Node}
@@ -542,7 +546,7 @@ get_active(St) ->
 listen(St, LPort) ->
     case St#st.protomod of
 	ssl ->
-	    ssl:listen(LPort, St#st.sockopts ++ St#st.sslopts);
+	    ssl:listen(LPort, [{ssl_imp, old} | St#st.sockopts ++ St#st.sslopts]);
 	gen_tcp ->
 	    gen_tcp:listen(LPort, St#st.sockopts)
     end.
@@ -584,7 +588,8 @@ connect(St, Host, Port) ->
     
     case St#st.protomod of
 	ssl ->
-	    case ssl:connect(Host, Port, St#st.sockopts ++ St#st.sslopts, 
+	    case ssl:connect(Host, Port, 
+			     [{ssl_imp, old} | St#st.sockopts ++ St#st.sslopts], 
 			     St#st.timeout) of
 		{ok, Sock} ->
 		    {ok, LPort} = ssl:sockname(Sock),

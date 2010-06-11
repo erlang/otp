@@ -4,7 +4,7 @@
 <part xmlns:xi="http://www.w3.org/2001/XInclude">
   <header>
     <copyright>
-      <year>2000</year><year>2009</year>
+      <year>2000</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>SSL User's Guide</title>
@@ -30,7 +30,9 @@
   </header>
   <description>
     <p>The <em>SSL</em> application provides secure communication over
-      sockets.
+      sockets. Note that this users guide was written for
+      the old ssl implementation that is now being phased out and
+      will be replaced by a new guide in a future release.
       </p>
     <p>This product includes software developed by the OpenSSL Project for
       use in the OpenSSL Toolkit (http://www.openssl.org/).
