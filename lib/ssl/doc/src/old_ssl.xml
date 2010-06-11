@@ -45,7 +45,7 @@
       that coexists with the new one until it has been
       totally phased out. </p>
 
-   <p>The new implementation can be
+   <p>The old implementation can be
       accessed by providing the option {ssl_imp, old} to the
       ssl:connect and ssl:listen functions.</p>
       
