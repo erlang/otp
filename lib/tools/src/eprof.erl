@@ -1,19 +1,19 @@
 %%
 %% %CopyrightBegin%
-%% 
-%% Copyright Ericsson AB 1996-2009. All Rights Reserved.
-%% 
+%%
+%% Copyright Ericsson AB 1996-2010. All Rights Reserved.
+%%
 %% The contents of this file are subject to the Erlang Public License,
 %% Version 1.1, (the "License"); you may not use this file except in
 %% compliance with the License. You should have received a copy of the
 %% Erlang Public License along with this software. If not, it can be
 %% retrieved online at http://www.erlang.org/.
-%% 
+%%
 %% Software distributed under the License is distributed on an "AS IS"
 %% basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
 %% the License for the specific language governing rights and limitations
 %% under the License.
-%% 
+%%
 %% %CopyrightEnd%
 %%
 %% Purpose: Profile a system in order to figure out where the 
@@ -23,456 +23,464 @@
 -module(eprof).
 -behaviour(gen_server).
 
--export([start/0, stop/0, dump/0, total_analyse/0,
-	 start_profiling/1, profile/2, profile/4, profile/1,
-	 stop_profiling/0, analyse/0, log/1]).
+-export([start/0,
+	 stop/0,
+	 dump/0,
+	 start_profiling/1, start_profiling/2,
+	 profile/1, profile/2, profile/3, profile/4, profile/5,
+	 stop_profiling/0,
+	 analyze/0, analyze/1, analyze/2,
+	 log/1]).
 
 %% Internal exports 
 -export([init/1,
-	 call/4,
 	 handle_call/3,
 	 handle_cast/2,
 	 handle_info/2,
 	 terminate/2,
 	 code_change/3]).
+-record(bpd, {
+	n   = 0,                 % number of total calls
+	us  = 0,                 % sum of uS for all calls
+	p   = gb_trees:empty(),  % tree of {Pid, {Mfa, {Count, Us}}}
+	mfa = []                 % list of {Mfa, {Count, Us}}
+    }).
 
--include_lib("stdlib/include/qlc.hrl").
-
--import(lists, [flatten/1,reverse/1,keysort/2]).
-
-
--record(state, {table = notable,
-		proc = noproc,
-		profiling = false, 
-		pfunc = undefined,
-		pop = running,
-		ptime = 0,
-		overhead = 0,
-		rootset = []}).
-
-%%%%%%%%%%%%%%
-
-start() -> gen_server:start({local, eprof}, eprof, [], []).
-stop()  -> gen_server:call(eprof, stop, infinity).
+-record(state, {
+	profiling = false,
+	pattern   = {'_','_','_'},
+	rootset   = [],
+	fd    = undefined,
+	start_ts  = undefined,
+	reply     = undefined,
+	bpd       = #bpd{}
+    }).
 
 
-profile(Pids, Fun) ->
-    start(),
-    gen_server:call(eprof, {profile,Pids,erlang,apply,[Fun,[]]},infinity).
 
-profile(Pids, M, F, A) ->
-    start(),
-    gen_server:call(eprof, {profile,Pids,M,F,A},infinity).
+%% -------------------------------------------------------------------- %%
+%%
+%% API
+%%
+%% -------------------------------------------------------------------- %%
 
-dump() -> 
-    gen_server:call(eprof, dump, infinity).
+start() -> gen_server:start({local, ?MODULE}, ?MODULE, [], []).
+stop()  -> gen_server:call(?MODULE, stop, infinity).
 
-analyse() ->
-    gen_server:call(eprof, analyse, infinity).
-
-log(File) ->
-    gen_server:call(eprof, {logfile, File}, infinity).
-
-total_analyse() ->
-    gen_server:call(eprof, total_analyse, infinity).
-
-start_profiling(Rootset) ->
-    start(),
-    gen_server:call(eprof, {profile, Rootset}, infinity).
-
-stop_profiling() ->
-    gen_server:call(eprof, stop_profiling, infinity).
-
-profile(Rs) ->
+profile(Fun) when is_function(Fun) ->
+    profile([], Fun);
+profile(Rs) when is_list(Rs) ->
     start_profiling(Rs).
 
-%%%%%%%%%%%%%%%%
+profile(Pids, Fun) ->
+    profile(Pids, Fun, {'_','_','_'}).
 
-init(_) ->
+profile(Pids, Fun, Pattern) ->
+    profile(Pids, erlang, apply, [Fun,[]], Pattern).
+
+profile(Pids, M, F, A) ->
+    profile(Pids, M, F, A, {'_','_','_'}).
+
+profile(Pids, M, F, A, Pattern) ->
+    start(),
+    gen_server:call(?MODULE, {profile,Pids,Pattern,M,F,A},infinity).
+
+dump() -> 
+    gen_server:call(?MODULE, dump, infinity).
+
+analyze() ->
+    analyze(procs).
+
+analyze(Type) when is_atom(Type) ->
+    analyze(Type, []);
+analyze(Opts) when is_list(Opts) ->
+    analyze(procs, Opts).
+analyze(Type, Opts) when is_list(Opts) ->
+    gen_server:call(?MODULE, {analyze, Type, Opts}, infinity).
+
+log(File) ->
+    gen_server:call(?MODULE, {logfile, File}, infinity).
+
+start_profiling(Rootset) ->
+    start_profiling(Rootset, {'_','_','_'}).
+start_profiling(Rootset, Pattern) ->
+    start(),
+    gen_server:call(?MODULE, {profile, Rootset, Pattern}, infinity).
+
+stop_profiling() ->
+    gen_server:call(?MODULE, stop_profiling, infinity).
+
+
+%% -------------------------------------------------------------------- %%
+%%
+%% init
+%%
+%% -------------------------------------------------------------------- %%
+
+init([]) ->
     process_flag(trap_exit, true),
-    process_flag(priority, max),
-    put(three_one, {3,1}),			%To avoid building garbage.
     {ok, #state{}}.
 
-subtr({X1,Y1,Z1}, {X1,Y1,Z2}) ->
-    Z1 - Z2;
-subtr({X1,Y1,Z1}, {X2,Y2,Z2}) ->
-    (((X1-X2) * 1000000) + Y1 - Y2) * 1000000 + Z1 - Z2.
+%% -------------------------------------------------------------------- %%
+%%
+%% handle_call
+%%
+%% -------------------------------------------------------------------- %%
 
-update_call_statistics(Tab, Key, Time) ->
-    try ets:update_counter(Tab, Key, Time) of
-	NewTime when is_integer(NewTime) ->
-	    ets:update_counter(Tab, Key, get(three_one))
-    catch
-	error:badarg ->
-	    ets:insert(Tab, {Key,Time,1})
-    end.
+%% analyze
 
-update_other_statistics(Tab, Key, Time) ->
-    try
-	ets:update_counter(Tab, Key, Time)
-    catch
-	error:badarg ->
-	    ets:insert(Tab, {Key,Time,0})
-    end.
+handle_call({analyze, _, _}, _, #state{ bpd = #bpd{ p = {0,nil}, us = 0, n = 0} = Bpd } = S) when is_record(Bpd, bpd) ->
+    {reply, nothing_to_analyze, S};
 
-do_messages({trace_ts,From,Op,Mfa,Time}, Tab, undefined,_PrevOp0,_PrevTime0) ->
-    PrevFunc = [From|Mfa],
-    receive
-	{trace_ts,_,_,_,_}=Ts -> do_messages(Ts, Tab, PrevFunc, Op, Time)
-    after 0 ->
-	    {PrevFunc,Op,Time}
-    end;
-do_messages({trace_ts,From,Op,Mfa,Time}, Tab, PrevFunc0, call, PrevTime0) ->
-    update_call_statistics(Tab, PrevFunc0, subtr(Time, PrevTime0)),
-    PrevFunc = case Op of
-		   exit -> undefined;
-		   out -> undefined;
-		   _ -> [From|Mfa]
-	       end,
-    receive
-	{trace_ts,_,_,_,_}=Ts -> do_messages(Ts, Tab, PrevFunc, Op, Time)
-    after 0 ->
-	    {PrevFunc,Op,Time}
-    end;
-do_messages({trace_ts,From,Op,Mfa,Time}, Tab, PrevFunc0, _PrevOp0, PrevTime0) ->
-    update_other_statistics(Tab, PrevFunc0, subtr(Time, PrevTime0)),
-    PrevFunc = case Op of
-		   exit -> undefined;
-		   out -> undefined;
-		   _ -> [From|Mfa]
-	       end,
-    receive
-	{trace_ts,_,_,_,_}=Ts -> do_messages(Ts, Tab, PrevFunc, Op, Time)
-    after 0 ->
-	    {PrevFunc,Op,Time}
-    end.
+handle_call({analyze, procs, Opts}, _, #state{ bpd = #bpd{ p = Ps, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
+    lists:foreach(fun
+	    ({Pid, Mfas}) ->
+		{Pn, Pus} =  sum_bp_total_n_us(Mfas),
+		format(Fd, "~n****** Process ~w    -- ~s % of profiled time *** ~n", [Pid, s("~.2f", [100.0*(Pus/Tus)])]),
+		print_bp_mfa(Mfas, {Pn,Pus}, Fd, Opts),
+		ok
+	end, gb_trees:to_list(Ps)),
+    {reply, ok, S};
 
-%%%%%%%%%%%%%%%%%%
+handle_call({analyze, total, Opts}, _, #state{ bpd = #bpd{ mfa = Mfas, n = Tn, us = Tus} = Bpd, fd = Fd} = S) when is_record(Bpd, bpd) ->
+    print_bp_mfa(Mfas, {Tn, Tus}, Fd, Opts),
+    {reply, ok, S};
 
-handle_cast(_Req, S) -> {noreply, S}.
+handle_call({analyze, Type, _Opts}, _, S) ->
+    {reply, {error, {undefined, Type}}, S};
 
-terminate(_Reason,_S) ->
-    call_trace_for_all(false),
-    normal.
+%% profile
 
-%%%%%%%%%%%%%%%%%%
+handle_call({profile, _Rootset, _Pattern, _M,_F,_A}, _From, #state{ profiling = true } = S) ->
+    {reply, {error, already_profiling}, S};
 
-handle_call({logfile, F}, _FromTag, Status) ->
-    case file:open(F, [write]) of
-	{ok, Fd} ->
-	    case get(fd) of
-		undefined -> ok;
-		FdOld -> file:close(FdOld)
-	    end,
-	    put(fd, Fd),
-	    {reply, ok, Status};
-	{error, _} ->
-	    {reply, error, Status}
-    end;
+handle_call({profile, Rootset, Pattern, M,F,A}, From, #state{fd = Fd } = S) ->
 
-handle_call({profile, Rootset}, {From, _Tag}, S) ->
-    link(From),
-    maybe_delete(S#state.table),
-    io:format("eprof: Starting profiling ..... ~n",[]),
-    ptrac(S#state.rootset, false, all()),
-    flush_receive(),
-    Tab = ets:new(eprof, [set, public]),
-    case ptrac(Rootset, true, all()) of
-	false ->
-	    {reply, error,  #state{}};
+    set_pattern_trace(false, S#state.pattern),
+    set_process_trace(false, S#state.rootset),
+
+    Pid = setup_profiling(M,F,A),
+    case set_process_trace(true, [Pid|Rootset]) of
 	true ->
-	    uni_schedule(),
-	    call_trace_for_all(true),
-	    erase(replyto),
-	    {reply, profiling, #state{table = Tab,
-				      proc = From,
-				      profiling = true,
-				      rootset = Rootset}}
+	    set_pattern_trace(true, Pattern),
+	    T0 = now(),
+	    execute_profiling(Pid),
+	    {noreply, #state{
+		    profiling = true,
+		    rootset   = [Pid|Rootset],
+		    start_ts  = T0,
+		    reply     = From,
+		    fd        = Fd,
+		    pattern   = Pattern
+		}};
+	false ->
+	    exit(Pid, eprof_kill),
+	    {reply, error, #state{ fd = Fd}}
     end;
 
-handle_call(stop_profiling, _FromTag, S) when S#state.profiling ->
-    ptrac(S#state.rootset, false, all()),
-    call_trace_for_all(false),
-    multi_schedule(),
-    io:format("eprof: Stop profiling~n",[]),
-    ets:delete(S#state.table, nofunc),
-    {reply, profiling_stopped, S#state{profiling = false}};
+handle_call({profile, _Rootset, _Pattern}, _From, #state{ profiling = true } = S) ->
+    {reply, {error, already_profiling}, S};
 
-handle_call(stop_profiling, _FromTag, S) ->
+handle_call({profile, Rootset, Pattern}, From, #state{ fd = Fd } = S) ->
+
+    set_pattern_trace(false, S#state.pattern),
+    set_process_trace(false, S#state.rootset),
+
+    case set_process_trace(true, Rootset) of
+	true ->
+	    T0 = now(),
+	    set_pattern_trace(true, Pattern),
+	    {reply, profiling, #state{
+		    profiling = true,
+		    rootset   = Rootset,
+		    start_ts  = T0,
+		    reply     = From,
+		    fd        = Fd,
+		    pattern   = Pattern
+		}};
+	false ->
+	    {reply, error, #state{ fd = Fd }}
+    end;
+
+handle_call(stop_profiling, _From, #state{ profiling = false } = S) ->
     {reply, profiling_already_stopped, S};
 
-handle_call({profile, Rootset, M, F, A}, FromTag, S) ->
-    io:format("eprof: Starting profiling..... ~n", []),
-    maybe_delete(S#state.table),
-    ptrac(S#state.rootset, false, all()),
-    flush_receive(),
-    put(replyto, FromTag),
-    Tab = ets:new(eprof, [set, public]),
-    P = spawn_link(eprof, call, [self(), M, F, A]),
-    case ptrac([P|Rootset], true, all()) of
-	true ->
-	    uni_schedule(),
-	    call_trace_for_all(true),
-	    P ! {self(),go},
-	    {noreply, #state{table     = Tab, 
-			     profiling = true,
-			     rootset   = [P|Rootset]}};
-	false ->
-	    exit(P, kill),
-	    erase(replyto),
-	    {reply, error, #state{}}
+handle_call(stop_profiling, _From, #state{ profiling = true } = S) ->
+
+    set_pattern_trace(pause, S#state.pattern),
+
+    Bpd = collect_bpd(),
+
+    set_process_trace(false, S#state.rootset),
+    set_pattern_trace(false, S#state.pattern),
+
+    {reply, profiling_stopped, S#state{
+	profiling = false,
+	rootset   = [],
+	pattern   = {'_','_','_'},
+	bpd       = Bpd
+    }};
+
+%% logfile
+handle_call({logfile, File}, _From, #state{ fd = OldFd } = S) ->
+    case file:open(File, [write]) of
+	{ok, Fd} ->
+	    case OldFd of
+		undefined -> ok;
+		OldFd -> file:close(OldFd)
+	    end,
+	    {reply, ok, S#state{ fd = Fd}};
+	Error ->
+	    {reply, Error, S}
     end;
 
-handle_call(dump, _FromTag, S) ->
-    {reply, dump(S#state.table), S};
-
-handle_call(analyse, _FromTag, S) ->
-    {reply, analyse(S), S};
-
-handle_call(total_analyse, _FromTag, S) ->
-    {reply, total_analyse(S), S};
+handle_call(dump, _From, #state{ bpd = Bpd } = S) when is_record(Bpd, bpd) ->
+    {reply, gb_trees:to_list(Bpd#bpd.p), S};
 
 handle_call(stop, _FromTag, S) ->
-    multi_schedule(),
     {stop, normal, stopped, S}.
 
-%%%%%%%%%%%%%%%%%%%
+%% -------------------------------------------------------------------- %%
+%%
+%% handle_cast
+%%
+%% -------------------------------------------------------------------- %%
 
-handle_info({trace_ts,_From,_Op,_Func,_Time}=M, S0) when S0#state.profiling ->
-    Start = erlang:now(),
-    #state{table=Tab,pop=PrevOp0,ptime=PrevTime0,pfunc=PrevFunc0,
-	   overhead=Overhead0} = S0,
-    {PrevFunc,PrevOp,PrevTime} = do_messages(M, Tab, PrevFunc0, PrevOp0, PrevTime0),
-    Overhead = Overhead0 + subtr(erlang:now(), Start),
-    S = S0#state{overhead=Overhead,pfunc=PrevFunc,pop=PrevOp,ptime=PrevTime},
-    {noreply,S};
+handle_cast(_Msg, State) ->
+    {noreply, State}.
 
-handle_info({trace_ts, From, _, _, _}, S) when not S#state.profiling ->
-    ptrac([From], false, all()),
+%% -------------------------------------------------------------------- %%
+%%
+%% handle_info
+%%
+%% -------------------------------------------------------------------- %%
+
+handle_info({'EXIT', _, normal}, S) ->
     {noreply, S};
+handle_info({'EXIT', _, eprof_kill}, S) ->
+    {noreply, S};
+handle_info({'EXIT', _, Reason}, #state{ reply = FromTag } = S) ->
 
-handle_info({_P, {answer, A}}, S) ->
-    ptrac(S#state.rootset, false, all()),
-    io:format("eprof: Stop profiling~n",[]),
-    {From,_Tag} = get(replyto),
+    set_process_trace(false, S#state.rootset),
+    set_pattern_trace(false, S#state.pattern),
+
+    gen_server:reply(FromTag, {error, Reason}),
+    {noreply, S#state{
+	profiling = false,
+	rootset   = [],
+	pattern   = {'_','_','_'}
+    }};
+
+% check if Pid is spawned process?
+handle_info({_Pid, {answer, Result}}, #state{ reply = {From,_} = FromTag} = S) ->
+
+    set_pattern_trace(pause, S#state.pattern),
+
+    Bpd = collect_bpd(),
+
+    set_process_trace(false, S#state.rootset),
+    set_pattern_trace(false, S#state.pattern),
+
     catch unlink(From),
-    ets:delete(S#state.table, nofunc),
-    gen_server:reply(erase(replyto), {ok, A}),
-    multi_schedule(),
-    {noreply, S#state{profiling = false,
-		      rootset = []}};
+    gen_server:reply(FromTag, {ok, Result}),
+    {noreply, S#state{
+	profiling = false,
+	rootset   = [],
+	pattern   = {'_','_','_'},
+	bpd       = Bpd
+    }}.
 
-handle_info({'EXIT', P, Reason},
-	    #state{profiling=true,proc=P,table=T,rootset=RootSet}) ->
-    maybe_delete(T),
-    ptrac(RootSet, false, all()),
-    multi_schedule(),
-    io:format("eprof: Profiling failed\n",[]),
-    case erase(replyto) of
-	undefined ->
-	    {noreply, #state{}};
-	FromTag ->
-	    gen_server:reply(FromTag, {error, Reason}),
-	    {noreply, #state{}}
-    end;
+%% -------------------------------------------------------------------- %%
+%%
+%% termination
+%%
+%% -------------------------------------------------------------------- %%
 
-handle_info({'EXIT',_P,_Reason}, S) ->
-    {noreply, S}.
-
-uni_schedule() ->
-    erlang:system_flag(multi_scheduling, block).
-
-multi_schedule() ->
-    erlang:system_flag(multi_scheduling, unblock).
-
-%%%%%%%%%%%%%%%%%%
-
-call(Top, M, F, A) ->
-    receive
-	{Top,go} ->
-	    Top ! {self(), {answer, apply(M,F,A)}}
-    end.
-
-call_trace_for_all(Flag) ->
-    erlang:trace_pattern(on_load, Flag, [local]),
-    erlang:trace_pattern({'_','_','_'}, Flag, [local]).
-
-ptrac([P|T], How, Flags) when is_pid(P) ->
-    case dotrace(P, How, Flags) of
-	true ->
-	    ptrac(T, How, Flags);
-	false when How ->
-	    false;
-	false ->
-	    ptrac(T, How, Flags)
-    end;
-
-ptrac([P|T], How, Flags) when is_atom(P) ->
-    case whereis(P) of
-	undefined when How ->
-	    false;
-	undefined when not How ->
-	    ptrac(T, How, Flags);
-	Pid ->
-	    ptrac([Pid|T], How, Flags)
-    end;
-
-ptrac([H|_],_How,_Flags) ->
-    io:format("** eprof bad process ~w~n",[H]),
-    false;
-
-ptrac([],_,_) -> true.
-
-dotrace(P, How, What) ->
-    case (catch erlang:trace(P, How, What)) of
-	1 ->
-	    true;
-	_Other when not How ->
-	    true;
-	_Other ->
-	    io:format("** eprof: bad process: ~p,~p,~p~n", [P,How,What]),
-	    false
-    end.
-
-all() -> [call,arity,return_to,running,timestamp,set_on_spawn].
-
-total_analyse(#state{table=notable}) ->
-    nothing_to_analyse;
-total_analyse(S) ->
-    #state{table = T, overhead = Overhead} = S,
-    QH = qlc:q([{{From,Mfa},Time,Count} ||
-		   {[From|Mfa],Time,Count} <- ets:table(T)]),
-    Pcalls = reverse(keysort(2, replicas(qlc:eval(QH)))),
-    Time = collect_times(Pcalls),
-    format("FUNCTION~44s      TIME ~n", ["CALLS"]),   
-    printit(Pcalls, Time),
-    format("\nTotal time: ~.2f\n", [Time / 1000000]),
-    format("Measurement overhead: ~.2f\n", [Overhead / 1000000]).
-
-analyse(#state{table=notable}) ->
-    nothing_to_analyse;
-analyse(S) ->
-    #state{table = T, overhead = Overhead} = S,
-    Pids = ordsets:from_list(flatten(ets:match(T, {['$1'|'_'],'_', '_'}))),
-    Times = sum(ets:match(T, {'_','$1', '_'})),
-    format("FUNCTION~44s      TIME ~n", ["CALLS"]),     
-    do_pids(Pids, T, 0, Times),
-    format("\nTotal time: ~.2f\n", [Times / 1000000]),
-    format("Measurement overhead: ~.2f\n", [Overhead / 1000000]).
-
-do_pids([Pid|Tail], T, AckTime, Total) ->
-    Pcalls = 
-     reverse(keysort(2, to_tups(ets:match(T, {[Pid|'$1'], '$2','$3'})))),
-    Time = collect_times(Pcalls),
-    PercentTotal = 100 * (divide(Time, Total)),
-    format("~n****** Process ~w    -- ~s % of profiled time *** ~n", 
-	   [Pid, fpf(PercentTotal)]),
-    printit(Pcalls, Time),
-    do_pids(Tail, T, AckTime + Time, Total);
-do_pids([], _, _, _) -> 
+terminate(_Reason, #state{ fd = undefined }) ->
+    set_pattern_trace(false, {'_','_','_'}),
+    ok;
+terminate(_Reason, #state{ fd = Fd }) ->
+    file:close(Fd),
+    set_pattern_trace(false, {'_','_','_'}),
     ok.
 
-printit([],_) -> ok;
-printit([{{Mod,Fun,Arity}, Time, Calls} |Tail], ProcTime)  ->
-    format("~s  ~s ~s % ~n", [ff(Mod,Fun,Arity), fint(Calls),
-			      fpf(100*(divide(Time,ProcTime)))]),
-    printit(Tail, ProcTime);
-printit([{{_,{Mod,Fun,Arity}}, Time, Calls} |Tail], ProcTime)  ->
-    format("~s  ~s ~s % ~n", [ff(Mod,Fun,Arity), fint(Calls),
-			      fpf(100*(divide(Time,ProcTime)))]),
-    printit(Tail, ProcTime); 
-printit([_|T], Time) ->
-    printit(T, Time).
-
-ff(Mod,Fun,Arity) ->
-    pad(flatten(io_lib:format("~w:~w/~w", [Mod,Fun, Arity])),45).
-
-pad(Str, Len) -> 
-    Strlen = length(Str),
-    if
-	Strlen > Len -> strip_tail(Str, 45);
-	true -> lists:append(Str, mklist(Len-Strlen))
-    end.
-
-strip_tail([_|_], 0) ->[];
-strip_tail([H|T], I) -> [H|strip_tail(T, I-1)];
-strip_tail([],_I) -> [].
-
-fpf(F) -> strip_tail(flatten(io_lib:format("~w", [round(F)])), 5).
-fint(Int) -> pad(flatten(io_lib:format("~w",[Int])), 10).
-
-mklist(0) -> [];
-mklist(I) -> [$ |mklist(I-1)].
-
-to_tups(L) -> lists:map(fun(List) -> erlang:list_to_tuple(List) end, L).
-
-divide(X,Y) -> X / Y.
-
-collect_times([]) -> 0;
-collect_times([Tup|Tail]) -> element(2, Tup) + collect_times(Tail).
-
-dump(T) ->
-    L = ets:tab2list(T),
-    format(L).
-
-format([H|T]) -> 
-    format("~p~n", [H]), format(T);
-format([]) -> ok.
-
-format(F, A) ->
-    io:format(F,A),
-    case get(fd) of
-	undefined -> ok;
-	Fd -> io:format(Fd, F,A)
-    end.
-
-maybe_delete(T) ->
-    catch ets:delete(T).
-
-sum([[H]|T]) -> H + sum(T);
-sum([]) -> 0.
-
-replicas(L) ->
-    replicas(L, []).
-
-replicas([{{Pid, {Mod,Fun,Arity}}, Ack,Calls} |Tail], Result) ->
-    case search({Mod,Fun,Arity},Result) of
-	false ->
-	    replicas(Tail, [{{Pid, {Mod,Fun,Arity}}, Ack,Calls} |Result]);
-	{Ack2, Calls2} ->
-	    Result2 = del({Mod,Fun,Arity}, Result),
-	    replicas(Tail, [{{Pid, {Mod,Fun,Arity}}, 
-			     Ack+Ack2,Calls+Calls2} |Result2])
-    end;
-
-replicas([_|T], Ack) ->  %% Whimpy
-    replicas(T, Ack);
-
-replicas([], Res) -> Res.
-
-search(Key, [{{_,Key}, Ack, Calls}|_]) -> 
-    {Ack, Calls};
-search(Key, [_|T]) -> 
-    search(Key, T);
-search(_Key,[]) -> false.
-
-del(Key, [{{_,Key},_Ack,_Calls}|T]) ->
-    T;
-del(Key, [H | Tail]) ->
-    [H|del(Key, Tail)];
-del(_Key,[]) -> [].
-
-flush_receive() ->
-    receive 
-	{trace_ts, From, _, _, _} when is_pid(From) ->
-	    ptrac([From], false, all()),
-	    flush_receive();
-	_ ->
-	    flush_receive()
-    after 0 ->
-	    ok
-    end.
+%% -------------------------------------------------------------------- %%
+%%
+%% code_change
+%%
+%% -------------------------------------------------------------------- %%
 
 code_change(_OldVsn, State, _Extra) ->
-    {ok,State}.
+    {ok, State}.
+
+
+%% -------------------------------------------------------------------- %%
+%%
+%% AUX Functions
+%%
+%% -------------------------------------------------------------------- %%
+
+setup_profiling(M,F,A) ->
+    spawn_link(fun() -> spin_profile(M,F,A) end).
+
+spin_profile(M, F, A) ->
+    receive
+	{Pid, execute} ->
+	    Pid ! {self(), {answer, erlang:apply(M,F,A)}}
+    end.
+
+execute_profiling(Pid) ->
+    Pid ! {self(), execute}.
+
+set_pattern_trace(Flag, Pattern) ->
+    erlang:system_flag(multi_scheduling, block),
+    erlang:trace_pattern(on_load, Flag, [call_time]),
+    erlang:trace_pattern(Pattern, Flag, [call_time]),
+    erlang:system_flag(multi_scheduling, unblock),
+    ok.
+
+set_process_trace(Flag, Pids) ->
+    % do we need procs for meta info?
+    % could be useful
+    set_process_trace(Flag, Pids, [call, set_on_spawn]).
+set_process_trace(_, [], _) -> true;
+set_process_trace(Flag, [Pid|Pids], Options) when is_pid(Pid) ->
+    try
+	erlang:trace(Pid, Flag, Options),
+	set_process_trace(Flag, Pids, Options)
+    catch
+	_:_ ->
+	    false
+    end;
+set_process_trace(Flag, [Name|Pids], Options) when is_atom(Name) ->
+    case whereis(Name) of
+	undefined ->
+	    set_process_trace(Flag, Pids, Options);
+	Pid ->
+	    set_process_trace(Flag, [Pid|Pids], Options)
+    end.
+
+collect_bpd() ->
+    collect_bpd([M || M <- [element(1, Mi) || Mi <- code:all_loaded()], M =/= ?MODULE]).
+
+collect_bpd(Ms) when is_list(Ms) ->
+    collect_bpdf(collect_mfas(Ms) ++ erlang:system_info(snifs)).
+
+collect_mfas(Ms) ->
+    lists:foldl(fun
+	    (M, Mfas) ->
+		Mfas ++ [{M, F, A} || {F, A} <- M:module_info(functions)]
+	end, [], Ms).
+
+collect_bpdf(Mfas) ->
+    collect_bpdf(Mfas, #bpd{}).
+collect_bpdf([], Bpd) ->
+    Bpd;
+collect_bpdf([Mfa|Mfas], #bpd{n = N, us = Us, p = Tree, mfa = Code } = Bpd) ->
+    case erlang:trace_info(Mfa, call_time) of
+	{call_time, []} ->
+	    collect_bpdf(Mfas, Bpd);
+	{call_time, Data} when is_list(Data) ->
+	    {CTn, CTus, CTree} = collect_bpdfp(Mfa, Tree, Data),
+	    collect_bpdf(Mfas, Bpd#bpd{
+		    n   = CTn  + N,
+		    us  = CTus + Us,
+		    p   = CTree,
+		    mfa = [{Mfa, {CTn, CTus}}|Code]
+		});
+	{call_time, false} ->
+	    collect_bpdf(Mfas, Bpd);
+	{call_time, _Other} ->
+	    collect_bpdf(Mfas, Bpd)
+    end.
+
+collect_bpdfp(Mfa, Tree, Data) ->
+     lists:foldl(fun
+	({Pid, Ni, Si, Usi}, {PTno, PTuso, To}) ->
+	    Time = Si * 1000000 + Usi,
+	    Ti1  = case gb_trees:lookup(Pid, To) of
+		none ->
+		    gb_trees:enter(Pid, [{Mfa, {Ni, Time}}], To);
+		{value, Pmfas} ->
+		    gb_trees:enter(Pid, [{Mfa, {Ni, Time}}|Pmfas], To)
+	    end,
+	    {PTno + Ni, PTuso + Time, Ti1}
+    end, {0,0, Tree}, Data).
+
+%% manipulators
+sort_mfa(Bpfs, mfa) when is_list(Bpfs) ->
+    lists:sort(fun
+	    ({A,_}, {B,_}) when A < B -> true;
+	    (_, _) -> false
+	end, Bpfs);
+sort_mfa(Bpfs, time) when is_list(Bpfs) ->
+    lists:sort(fun
+	    ({_,{A,_}}, {_,{B,_}}) when A < B -> true;
+	    (_, _) -> false
+	end, Bpfs);
+sort_mfa(Bpfs, calls) when is_list(Bpfs) ->
+    lists:sort(fun
+	    ({_,{_,A}}, {_,{_,B}}) when A < B -> true;
+	    (_, _) -> false
+	end, Bpfs);
+sort_mfa(Bpfs, _) when is_list(Bpfs) -> sort_mfa(Bpfs, calls).
+
+filter_mfa(Bpfs, Ts) when is_list(Ts) ->
+    filter_mfa(Bpfs, [], proplists:get_value(calls, Ts, 0), proplists:get_value(time, Ts, 0));
+filter_mfa(Bpfs, _) -> Bpfs.
+filter_mfa([], Out, _, _) -> lists:reverse(Out);
+filter_mfa([{_, {C, T}}=Bpf|Bpfs], Out, Ct, Tt) when C >= Ct, T >= Tt -> filter_mfa(Bpfs, [Bpf|Out], Ct, Tt);
+filter_mfa([_|Bpfs], Out, Ct, Tt) -> filter_mfa(Bpfs, Out, Ct, Tt).
+
+sum_bp_total_n_us(Mfas) ->
+    lists:foldl(fun ({_, {Ci,Usi}}, {Co, Uso}) -> {Co + Ci, Uso + Usi} end, {0,0}, Mfas).
+
+%% strings and format
+
+string_bp_mfa(Mfas, Tus) -> string_bp_mfa(Mfas, Tus, {0,0,0,0,0}, []).
+string_bp_mfa([], _, Ws, Strings) -> {Ws, lists:reverse(Strings)};
+string_bp_mfa([{Mfa, {Count, Time}}|Mfas], Tus, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
+	Smfa   = s(Mfa),
+	Scount = s(Count),
+	Stime  = s(Time),
+	Sperc  = s("~.2f", [100*(Time/Tus)]),
+	Stpc   = s("~.2f", [Time/Count]),
+
+	string_bp_mfa(Mfas, Tus, {
+		erlang:max(MfaW,  length(Smfa)),
+		erlang:max(CountW,length(Scount)),
+		erlang:max(PercW, length(Sperc)),
+		erlang:max(TimeW, length(Stime)),
+		erlang:max(TpCW,  length(Stpc))
+	    }, [[Smfa, Scount, Sperc, Stime, Stpc] | Strings]).
+
+print_bp_mfa(Mfas, {_Tn, Tus}, Fd, Opts) ->
+    Fmfas = filter_mfa(sort_mfa(Mfas, proplists:get_value(sort, Opts)), proplists:get_value(filter, Opts)),
+    {{MfaW, CountW, PercW, TimeW, TpCW}, Strs} = string_bp_mfa(Fmfas, Tus),
+    Ws = {
+	erlang:max(length("FUNCTION"), MfaW),
+	erlang:max(length("CALLS"), CountW),
+	erlang:max(length("  %"), PercW),
+	erlang:max(length("TIME"), TimeW),
+	erlang:max(length("uS / CALLS"), TpCW)
+    },
+    format(Fd, Ws, ["FUNCTION", "CALLS", "  %", "TIME", "uS / CALLS"]),
+    format(Fd, Ws, ["--------", "-----", "---", "----", "----------"]),
+
+    lists:foreach(fun (String) -> format(Fd, Ws, String) end, Strs),
+    ok.
+
+s({M,F,A}) -> s("~w:~w/~w",[M,F,A]);
+s(Term) -> s("~p", [Term]).
+s(Format, Terms) -> lists:flatten(io_lib:format(Format, Terms)).
+
+
+format(Fd, {MfaW, CountW, PercW, TimeW, TpCW}, Strings) ->
+    format(Fd, s("~~.~ps  ~~~ps  ~~~ps  ~~~ps  [~~~ps]~~n", [MfaW, CountW, PercW, TimeW, TpCW]), Strings);
+format(undefined, Format, Strings) ->
+    io:format(Format, Strings),
+    ok;
+format(Fd, Format, Strings) ->
+    io:format(Fd, Format, Strings),
+    io:format(Format, Strings),
+    ok.
