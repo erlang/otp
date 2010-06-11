@@ -1229,7 +1229,7 @@ f.txt:  {person, "kalle", 25}.
           </item>
           <tag><c>{no_translation, unicode, latin1}</c></tag>
           <item>
-            <p>The file is was opened with another <c>encoding</c> than <c>latin1</c> and the data on the file can not be translated to the byte-oriented data that this function returns.</p>
+            <p>The file was opened with another <c>encoding</c> than <c>latin1</c> and the data in the file can not be translated to the byte-oriented data that this function returns.</p>
           </item>
         </taglist>
       </desc>
