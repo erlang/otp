@@ -349,14 +349,18 @@ obsolete_1(ssh_sftp, stop, 1) ->
 
 %% Added in R13B01.
 obsolete_1(ssl_pkix, decode_cert_file, A) when A =:= 1; A =:= 2 ->
-    {deprecated,"deprecated (will be removed in R14B); use public_key:pem_to_der/1 and public_key:pkix_decode_cert/2 instead"};
+    {removed,"removed in R14A; use public_key:pem_to_der/1 and public_key:pkix_decode_cert/2 instead"};
 obsolete_1(ssl_pkix, decode_cert, A) when A =:= 1; A =:= 2 ->
-    {deprecated,{public_key,pkix_decode_cert,2},"R14B"};
+    {removed,{public_key,pkix_decode_cert,2},"R14A"};
 
 %% Added in R13B04.
 obsolete_1(erlang, concat_binary, 1) ->
     {deprecated,{erlang,list_to_binary,1},"R15B"};
-    
+
+%% Added in R14A.
+obsolete_1(ssl, peercert, 2) ->
+    {deprecated,"deprecated (will be removed in R15A); use ssl:peercert/1 and public_key:pkix_decode_cert/2 instead"};
+
 obsolete_1(_, _, _) ->
     no.
 
