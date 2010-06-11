@@ -32,6 +32,30 @@
   <p>This document describes the changes made to the Debugger
     application.</p>
 
+<section><title>Debugger 3.2.3</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Warnings due to new autoimported BIFs removed</p>
+          <p>
+	    Own Id: OTP-8674 Aux Id: OTP-8579 </p>
+        </item>
+        <item>
+          <p>
+	    The predefined builtin type tid() has been removed.
+	    Instead, ets:tid() should be used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Debugger 3.2.2</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,283 @@
   </header>
   <p>This document describes the changes made to the STDLIB application.</p>
 
+<section><title>STDLIB 1.17</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>The Erlang code preprocessor (<c>epp</c>) sent extra
+	    messages on the form <c>{eof,Location}</c> to the client
+	    when parsing the <c>file</c> attribute. This bug,
+	    introduced in R11B, has been fixed.</p>
+          <p>
+	    Own Id: OTP-8470</p>
+        </item>
+        <item>
+	    <p>The abstract type 'fun' could not be printed by the
+	    Erlang pretty printer (<c>erl_pp</c>). This bug has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8473</p>
+        </item>
+        <item>
+	    <p>The function <c>erl_scan:reserved_word/1</c> no longer
+	    returns <c>true</c> when given the word <c>spec</c>. This
+	    bug was introduced in STDLIB-1.15.3 (R12B-3).</p>
+          <p>
+	    Own Id: OTP-8567</p>
+        </item>
+        <item>
+	    <p>The documentation of <c>lists:keysort/2</c> states
+	    that the sort is stable.</p>
+          <p>
+	    Own Id: OTP-8628 Aux Id: seq11576 </p>
+        </item>
+        <item>
+          <p>
+	    The shell's line editing has been improved to more
+	    resemble the behaviour of readline and other shells.
+	    (Thanks to Dave Peticolas)</p>
+          <p>
+	    Own Id: OTP-8635</p>
+        </item>
+        <item>
+	    <p>The Erlang code preprocessor (<c>epp</c>) did not
+	    correctly handle premature end-of-input when defining
+	    macros. This bug, introduced in STDLIB 1.16, has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8665 Aux Id: OTP-7810 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The module binary from EEP31 (and EEP9) is implemented.</p>
+          <p>
+	    Own Id: OTP-8217</p>
+        </item>
+        <item>
+	    <p>The erlang pretty printer (<c>erl_pp</c>) no longer
+	    quotes atoms in types.</p>
+          <p>
+	    Own Id: OTP-8501</p>
+        </item>
+        <item>
+	    <p>The Erlang code preprocessor (<c>epp</c>) now
+	    considers records with no fields as typed.</p>
+          <p>
+	    Own Id: OTP-8503</p>
+        </item>
+        <item>
+          <p>
+	    Added function <c>zip:foldl/3</c> to iterate over zip
+	    archives.</p>
+          <p>
+	    Added functions to create and extract escripts. See
+	    <c>escript:create/2</c> and <c>escript:extract/2</c>.</p>
+          <p>
+	    The undocumented function <c>escript:foldl/3</c> has been
+	    removed. The same functionality can be achieved with the
+	    more flexible functions <c>escript:extract/2</c> and
+	    <c>zip:foldl/3</c>.</p>
+          <p>
+	    Record fields has been annotated with type info. Source
+	    files as been adapted to fit within 80 chars and trailing
+	    whitespace has been removed.</p>
+          <p>
+	    Own Id: OTP-8521</p>
+        </item>
+        <item>
+	    <p>The Erlang parser no longer duplicates the singleton
+	    type <c>undefined</c> in the type of record fields
+	    without initial value.</p>
+          <p>
+	    Own Id: OTP-8522</p>
+        </item>
+        <item>
+	    <p>A regular expression with many levels of parenthesis
+	    could cause a buffer overflow. That has been corrected.
+	    (Thanks to Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8539</p>
+        </item>
+        <item>
+	    <p>When defining macros the closing right parenthesis
+	    before the dot is now mandatory.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8562</p>
+        </item>
+        <item>
+          <p>
+	    Some properties of a compiled re pattern are defined to
+	    allow for guard tests.</p>
+          <p>
+	    Own Id: OTP-8577</p>
+        </item>
+        <item>
+	    <p>Local and imported functions now override the
+	    auto-imported BIFs when the names clash. The pre R14
+	    behaviour was that auto-imported BIFs would override
+	    local functions. To avoid that old programs change
+	    behaviour, the following will generate an error:</p>
+	    <list><item><p>Doing a call without explicit module name
+	    to a local function having a name clashing with the name
+	    of an auto-imported BIF that was present (and
+	    auto-imported) before OTP R14A</p></item>
+	    <item><p>Explicitly importing a function having a name
+	    clashing with the name of an autoimported BIF that was
+	    present (and autoimported) before OTP R14A</p></item>
+	    <item><p>Using any form of the old compiler directive
+	    <c>nowarn_bif_clash</c></p></item> </list> <p>If the BIF
+	    was added or auto-imported in OTP R14A or later,
+	    overriding it with an import or a local function will
+	    only result in a warning,</p> <p>To resolve clashes, you
+	    can either use the explicit module name <c>erlang</c> to
+	    call the BIF, or you can remove the auto-import of that
+	    specific BIF by using the new compiler directive
+	    <c>-compile({no_auto_import,[F/A]}).</c>, which makes all
+	    calls to the local or imported function without explicit
+	    module name pass without warnings or errors.</p> <p>The
+	    change makes it possible to add auto-imported BIFs
+	    without breaking or silently changing old code in the
+	    future. However some current code ingeniously utilizing
+	    the old behaviour or the <c>nowarn_bif_clash</c> compiler
+	    directive, might need changing to be accepted by the
+	    compiler.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8579</p>
+        </item>
+        <item>
+	    <p>The undocumented, unsupport, and deprecated function
+	    <c>lists:flat_length/1</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-8584</p>
+        </item>
+        <item>
+          <p>
+	    A bug in re that could cause certain regular expression
+	    matches never to terminate is corrected. (Thanks to
+	    Michael Santos and Gordon Guthrie.)</p>
+          <p>
+	    Own Id: OTP-8589</p>
+        </item>
+        <item>
+	    <p>Nested records can now be accessed without
+	    parenthesis. See the Reference Manual for examples.
+	    (Thanks to YAMASHINA Hio and Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8597</p>
+        </item>
+        <item>
+	    <p><c>receive</c> statements that can only read out a
+	    newly created reference are now specially optimized so
+	    that it will execute in constant time regardless of the
+	    number of messages in the receive queue for the process.
+	    That optimization will benefit calls to
+	    <c>gen_server:call()</c>. (See <c>gen:do_call/4</c> for
+	    an example of a receive statement that will be
+	    optimized.)</p>
+          <p>
+	    Own Id: OTP-8623</p>
+        </item>
+        <item>
+	    <p>The beam_lib:cmp/2 function now compares BEAM files in
+	    stricter way. The BEAM files will be considered different
+	    if there are any changes except in the compilation
+	    information ("CInf") chunk. beam_lib:cmp/2 used to ignore
+	    differences in the debug information (significant for
+	    Dialyzer) and other chunks that did not directly change
+	    the run-time behavior.</p>
+          <p>
+	    Own Id: OTP-8625</p>
+        </item>
+        <item>
+          <p>
+	    When a gen_server, gen_fsm process, or gen_event
+	    terminates abnormally, sometimes the text representation
+	    of the process state can occupy many lines of the error
+	    log, depending on the definition of the state term. A
+	    mechanism to trim out parts of the state from the log has
+	    been added (using a format_status/2 callback). See the
+	    documentation.</p>
+          <p>
+	    Own Id: OTP-8630</p>
+        </item>
+        <item>
+          <p>
+	    Calling <c>sys:get_status()</c> for processes that have
+	    globally registered names that were not atoms would cause
+	    a crash. Corrected. (Thanks to Steve Vinoski.)</p>
+          <p>
+	    Own Id: OTP-8656</p>
+        </item>
+        <item>
+	    <p>The Erlang scanner has been augmented with two new
+	    tokens: <c>..</c> and <c>...</c>.</p>
+          <p>
+	    Own Id: OTP-8657</p>
+        </item>
+        <item>
+	    <p>Expressions evaluating to integers can now be used in
+	    types and function specifications where hitherto only
+	    integers were allowed ("Erlang_Integer").</p>
+          <p>
+	    Own Id: OTP-8664</p>
+        </item>
+        <item>
+	    <p>The compiler optimizes record operations better.</p>
+          <p>
+	    Own Id: OTP-8668</p>
+        </item>
+        <item>
+          <p>
+	    The recently added BIFs erlang:min/2, erlang:max/2 and
+	    erlang:port_command/3 are now auto-imported (as they were
+	    originally intended to be). Due to the recent compiler
+	    change (OTP-8579), the only impact on old code defining
+	    it's own min/2, max/2 or port_command/3 functions will be
+	    a warning, the local functions will still be used. The
+	    warning can be removed by using
+	    -compile({no_auto_import,[min/2,max/2,port_command/3]}).
+	    in the source file.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8669 Aux Id: OTP-8579 </p>
+        </item>
+        <item>
+          <p>
+	    Now, binary_to_term/2 is auto-imported. This will cause a
+	    compile warning if and only if a module has got a local
+	    function with that name.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8671</p>
+        </item>
+        <item>
+          <p>
+	    The predefined builtin type tid() has been removed.
+	    Instead, ets:tid() should be used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8687</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>STDLIB 1.16.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

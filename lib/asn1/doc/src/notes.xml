@@ -31,6 +31,25 @@
   <p>This document describes the changes made to the asn1 application.</p>
 
 
+<section><title>Asn1 1.6.14</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    By default, the ASN.1 compiler is now silent in the
+	    absence of warnings or errors. The new '<c>verbose</c>'
+	    option or the '<c>-v</c>' option for <c>erlc</c> can be
+	    given to show extra information (for instance, about the
+	    files that are generated). (Thanks to Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8565</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Asn1 1.6.13</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

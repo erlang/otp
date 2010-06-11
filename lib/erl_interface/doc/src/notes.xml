@@ -30,6 +30,45 @@
   </header>
   <p>This document describes the changes made to the Erl_interface application.</p>
 
+<section><title>Erl_Interface 3.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>compact IEEE 754 double encoding in external binary
+	    format for ei</p> <list><item><p>Implement the compact
+	    IEEE 754 double encoding in external binary format for
+	    ei. Encoding for ei now always produces the NEW_FLOAT_EXT
+	    format. Decoding and term printing handle both the old
+	    ERL_FLOAT_EXT encoding and the new NEW_FLOAT_EXT
+	    encoding. </p></item> <item><p>Legacy erl_interface code
+	    also handles the new encoding, but still produces the
+	    ERL_FLOAT_EXT encoding by default.</p></item>
+	    <item><p>Also enable the DFLAG_NEW_FLOATS distribution
+	    flag.</p></item> <item><p>ei_get_type() will return
+	    ERL_FLOAT_EXT regardless if the external format is
+	    encoded with ERL_FLOAT_EXT or NEW_FLOAT_EXT for
+	    doubles.</p></item> <item><p>Reduce the number of copies
+	    of the code for encoding and decoding doubles throughout
+	    ei and erl_interface by instead calling the ei encoding
+	    and decoding functions wherever possible.</p></item>
+	    <item><p>Restore commented-out float tests in
+	    ei_decode_SUITE and ei_encode_SUITE in
+	    lib/erl_interface/test. Modify them to make them match
+	    the style of other tests in the same suites.</p></item>
+	    </list> <p>These changes are based on an ei float patch
+	    from Serge Aleynikov originally submitted against R12B-2
+	    in July 2008 and reworked by Steve Vinoski May 2010.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8684</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erl_Interface 3.6.5</title>
 
     <section><title>Improvements and New Features</title>

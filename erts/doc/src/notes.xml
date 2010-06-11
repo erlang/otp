@@ -30,6 +30,485 @@
   </header>
   <p>This document describes the changes made to the ERTS application.</p>
 
+<section><title>Erts 5.8</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Driver threads, such as async threads, using <seealso
+	    marker="erl_driver#ErlDrvPDL">port data locks</seealso>
+	    peeked at the port status field without proper locking
+	    when looking up the driver queue.</p>
+          <p>
+	    Own Id: OTP-8475</p>
+        </item>
+        <item>
+          <p>
+	    The use of <c>mmap()</c> was unnecessarily disabled when
+	    cross compiling.</p>
+          <p>
+	    The <c>configure</c> arguments <c>--with-ssl</c>, and
+	    <c>--with-odbc</c> refused to accept libraries outside of
+	    <c>$erl_xcomp_sysroot</c> when cross compiling for no
+	    good reason.</p>
+          <p>
+	    The <c>configure</c> argument <c>--with-odbc</c> didn't
+	    handle the value <c>yes</c> correct.</p>
+          <p>
+	    The <c>configure</c> arguments <c>--with-odbc</c>, and
+	    <c>--without-odbc</c> have also been added to the
+	    configure help.</p>
+          <p>
+	    (Thanks to Steve Vinoski for reporting these issues)</p>
+          <p>
+	    Own Id: OTP-8484</p>
+        </item>
+        <item>
+          <p>
+	    A call to the BIF <c>unregister(RegName)</c> when a port
+	    had the name <c>RegName</c> registered in the runtime
+	    system without SMP support caused a runtime system crash.
+	    (Thanks to Per Hedeland for the bugfix and test case.)</p>
+          <p>
+	    Own Id: OTP-8487</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system crashed if fewer logical processors
+	    were found than reported by <c>sysconf(
+	    SC_NPROCESSORS_CONF)</c>.</p>
+          <p>
+	    Own Id: OTP-8549</p>
+        </item>
+        <item>
+          <p>
+	    Fix memory management bug causing crash of non-SMP
+	    emulator with async threads enabled. The bug did first
+	    appear in R13B03.</p>
+          <p>
+	    Own Id: OTP-8591 Aux Id: seq11554 </p>
+        </item>
+        <item>
+          <p>
+	    Port locks could be prematurely destroyed.</p>
+          <p>
+	    Own Id: OTP-8612</p>
+        </item>
+        <item>
+	    <p>The <c>empd</c> program could loop and consume 100%
+	    CPU time if an unexpected error ocurred in
+	    <c>listen()</c> or <c>accept()</c>. Now <c>epmd</c> will
+	    terminate if a non-recoverable error occurs. (Thanks to
+	    Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8618</p>
+        </item>
+        <item>
+          <p>
+	    When kernel poll has been enabled, a livelock could in
+	    rare circumstances occur. Problem reported by Chetan
+	    Ahuja, fix by Mikael Pettersson.</p>
+          <p>
+	    Own Id: OTP-8632</p>
+        </item>
+        <item>
+          <p>
+	    Windows: Closing port of program that stalled without
+	    reading all data could deadlock scheduler thread.</p>
+          <p>
+	    Own Id: OTP-8641</p>
+        </item>
+        <item>
+          <p>
+	    On some combination of Montavista Linux on Cavium Octeon
+	    processors, some socket-related system calls returned
+	    other numbers than -1 for errors. This caused a core dump
+	    in inet_drv.c. Now the code works around this problem.</p>
+          <p>
+	    Own Id: OTP-8654</p>
+        </item>
+        <item>
+          <p>
+	    Missing memory barriers in <c>erts_poll()</c> could cause
+	    the runtime system to hang indefinitely.</p>
+          <p>
+	    Own Id: OTP-8658</p>
+        </item>
+        <item>
+          <p>
+	    <c>ethr_rwmutex_tryrlock()</c> acquired and refused to
+	    acquire a lock with inverted logic. The lock was however
+	    never acquired in a thread unsafe manner. (Thanks to JR
+	    Zhang for noting this issue)</p>
+          <p>
+	    Own Id: OTP-8662</p>
+        </item>
+        <item>
+          <p>
+	    Extreme combinations of register/unregister in a highly
+	    parallell SMP application could crash the VM. The error
+	    is corrected.</p>
+          <p>
+	    Own Id: OTP-8663</p>
+        </item>
+        <item>
+          <p>
+	    On Windows, files are now opened with FILE_SHARE_DELETE
+	    to get closer to Unix semantics.</p>
+          <p>
+	    Own Id: OTP-8667</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:system_info(multi_scheduling)</c> sometimes
+	    erroneously returned <c>enabled</c> when it should have
+	    returned <c>blocked</c>.</p>
+          <p>
+	    Own Id: OTP-8675</p>
+        </item>
+        <item>
+          <p>
+	    Fix bug causing <c>erlang:decode_packet</c> and
+	    <c>enif_make_string</c> to generate faulty strings with
+	    negative character values for ascii values larger than
+	    127. (Thanks to Paul Guyot)</p>
+          <p>
+	    Own Id: OTP-8685</p>
+        </item>
+        <item>
+          <p>
+	    <c>open_port/2</c> with the <c>spawn</c> and
+	    <c>spawn_executable</c> options can include an
+	    <c>{env,Env}</c> option. In some cases unsetting
+	    variables would not work on Unix (typically if more
+	    variables were unset than were actually present in the
+	    environment).</p>
+          <p>
+	    Own Id: OTP-8701</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    The grammar for match specifications in ERTS users guide
+	    only described the tracing dialect of match
+	    specifications. An informal grammar for the ETS dialect
+	    is added.</p>
+          <p>
+	    Own Id: OTP-8086 Aux Id: seq11333 </p>
+        </item>
+        <item>
+          <p>
+	    The module binary from EEP31 (and EEP9) is implemented.</p>
+          <p>
+	    Own Id: OTP-8217</p>
+        </item>
+        <item>
+          <p>
+	    New NIF API function <c>enif_make_new_binary</c></p>
+          <p>
+	    Own Id: OTP-8474</p>
+        </item>
+        <item>
+          <p>
+	    The guard BIF <c>is_boolean/1</c> (introduced in R10B)
+	    has now been included in the lists of BIFs allowed in
+	    guards in the Reference Manual.</p>
+          <p>
+	    Own Id: OTP-8477</p>
+        </item>
+        <item>
+          <p>
+	    Added function <c>zip:foldl/3</c> to iterate over zip
+	    archives.</p>
+          <p>
+	    Added functions to create and extract escripts. See
+	    <c>escript:create/2</c> and <c>escript:extract/2</c>.</p>
+          <p>
+	    The undocumented function <c>escript:foldl/3</c> has been
+	    removed. The same functionality can be achieved with the
+	    more flexible functions <c>escript:extract/2</c> and
+	    <c>zip:foldl/3</c>.</p>
+          <p>
+	    Record fields has been annotated with type info. Source
+	    files as been adapted to fit within 80 chars and trailing
+	    whitespace has been removed.</p>
+          <p>
+	    Own Id: OTP-8521</p>
+        </item>
+        <item>
+	    <p>A regular expression with many levels of parenthesis
+	    could cause a buffer overflow. That has been corrected.
+	    (Thanks to Michael Santos.)</p>
+          <p>
+	    Own Id: OTP-8539</p>
+        </item>
+        <item>
+          <p>
+	    <c>erlang:decode_packet(httph_bin,..)</c> could return
+	    corrupt header strings or even crash the VM. This has
+	    been fixed. It only happened on 32-bit VM if the header
+	    name was unknown and between 16 and 20 characters long.
+	    Sockets with simular <c>packet</c> option did not suffer
+	    from this bug.</p>
+          <p>
+	    Own Id: OTP-8548</p>
+        </item>
+        <item>
+	    <p>New NIF features:</p> <list><item> Send messages from
+	    a NIF, or from thread created by NIF, to any local
+	    process (<c>enif_send</c>) </item><item> Store terms
+	    between NIF calls (<c>enif_alloc_env</c>,
+	    <c>enif_make_copy</c>) </item><item> Create binary terms
+	    with user defined memory management
+	    (<c>enif_make_resource_binary</c>) </item></list> <p>And
+	    some incompatible changes made to the API. For more
+	    information see the warning text in <seealso
+	    marker="erl_nif">erl_nif(3)</seealso>.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8555</p>
+        </item>
+        <item>
+	    <p>If the '<c>fop</c>' program (needed for building PDF
+	    files) cannot not be found, it is now possible to build
+	    the HTML and man pages anyway (there will also be dummy
+	    PDF files with no real content created). (Thanks to
+	    Tuncer Ayaz.)</p>
+          <p>
+	    Own Id: OTP-8559</p>
+        </item>
+        <item>
+	    <p>When defining macros the closing right parenthesis
+	    before the dot is now mandatory.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8562</p>
+        </item>
+        <item>
+	    <p>Local and imported functions now override the
+	    auto-imported BIFs when the names clash. The pre R14
+	    behaviour was that auto-imported BIFs would override
+	    local functions. To avoid that old programs change
+	    behaviour, the following will generate an error:</p>
+	    <list><item><p>Doing a call without explicit module name
+	    to a local function having a name clashing with the name
+	    of an auto-imported BIF that was present (and
+	    auto-imported) before OTP R14A</p></item>
+	    <item><p>Explicitly importing a function having a name
+	    clashing with the name of an autoimported BIF that was
+	    present (and autoimported) before OTP R14A</p></item>
+	    <item><p>Using any form of the old compiler directive
+	    <c>nowarn_bif_clash</c></p></item> </list> <p>If the BIF
+	    was added or auto-imported in OTP R14A or later,
+	    overriding it with an import or a local function will
+	    only result in a warning,</p> <p>To resolve clashes, you
+	    can either use the explicit module name <c>erlang</c> to
+	    call the BIF, or you can remove the auto-import of that
+	    specific BIF by using the new compiler directive
+	    <c>-compile({no_auto_import,[F/A]}).</c>, which makes all
+	    calls to the local or imported function without explicit
+	    module name pass without warnings or errors.</p> <p>The
+	    change makes it possible to add auto-imported BIFs
+	    without breaking or silently changing old code in the
+	    future. However some current code ingeniously utilizing
+	    the old behaviour or the <c>nowarn_bif_clash</c> compiler
+	    directive, might need changing to be accepted by the
+	    compiler.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8579</p>
+        </item>
+        <item>
+          <p>
+	    A bug in re that could cause certain regular expression
+	    matches never to terminate is corrected. (Thanks to
+	    Michael Santos and Gordon Guthrie.)</p>
+          <p>
+	    Own Id: OTP-8589</p>
+        </item>
+        <item>
+	    <p>The erlang:open_port spawn and spawn_executable
+	    directives can include an <c>{env,Env}</c> directive to
+	    set up environment variables for the spawned process. A
+	    bug prevented applications from using <c>{env,Env}</c> to
+	    set an environment variable whose value ended with a
+	    '<c>=</c>' (equal sign) character; the trailing equal
+	    sign was mistaken as an indication that an environment
+	    variable was to be cleared from the environment of the
+	    spawned process. (Thanks to Steve Vinoski.)</p>
+          <p>
+	    Own Id: OTP-8614</p>
+        </item>
+        <item>
+	    <p><c>receive</c> statements that can only read out a
+	    newly created reference are now specially optimized so
+	    that it will execute in constant time regardless of the
+	    number of messages in the receive queue for the process.
+	    That optimization will benefit calls to
+	    <c>gen_server:call()</c>. (See <c>gen:do_call/4</c> for
+	    an example of a receive statement that will be
+	    optimized.)</p>
+          <p>
+	    Own Id: OTP-8623</p>
+        </item>
+        <item>
+          <p>
+	    The functions file:advise/4 and file:datasync/1 have been
+	    added. (Thanks to Filipe David Manana.)</p>
+          <p>
+	    Own Id: OTP-8637</p>
+        </item>
+        <item>
+          <p>
+	    New NIF API functions: <c>enif_make_atom_len</c>,
+	    <c>enif_make_existing_atom_len</c>,
+	    <c>enif_make_string_len</c>, <c>enif_get_atom_length</c>,
+	    <c>enif_get_list_length</c>, <c>enif_is_list</c>,
+	    <c>enif_is_tuple</c> (by Tuncer Ayaz)</p>
+          <p>
+	    Own Id: OTP-8640</p>
+        </item>
+        <item>
+          <p>
+	    Support for using gcc's built-in functions for atomic
+	    memory access has been added. This functionallity will be
+	    used if available and no other native atomic
+	    implementation in ERTS is available.</p>
+          <p>
+	    Own Id: OTP-8659</p>
+        </item>
+        <item>
+          <p>
+	    The number of spinlocks used when implementing atomic
+	    fall-backs when no native atomic implementation is
+	    available has been increased from 16 to 1024.</p>
+          <p>
+	    Own Id: OTP-8660</p>
+        </item>
+        <item>
+          <p>
+	    Writer preferred pthread read/write locks has been
+	    enabled on Linux.</p>
+          <p>
+	    Own Id: OTP-8661</p>
+        </item>
+        <item>
+          <p>
+	    The runtime system will by default bind schedulers to
+	    logical processors using the <c>default_bind</c> bind
+	    type if the amount of schedulers are at least equal to
+	    the amount of logical processors configured, binding of
+	    schedulers is supported, and a CPU topology is available
+	    at startup. </p>
+          <p>
+	    <em>NOTE:</em> If the Erlang runtime system is the only
+	    operating system process that binds threads to logical
+	    processors, this improves the performance of the runtime
+	    system. However, if other operating system processes (as
+	    for example another Erlang runtime system) also bind
+	    threads to logical processors, there might be a
+	    performance penalty instead. If this is the case you, are
+	    are advised to unbind the schedulers using the <seealso
+	    marker="erl#+sbt">+sbtu</seealso> command line argument,
+	    or by invoking <seealso
+	    marker="erlang#system_flag_scheduler_bind_type">erlang:system_flag(scheduler_bind_type,
+	    unbound)</seealso>.</p>
+          <p>
+	    Own Id: OTP-8666</p>
+        </item>
+        <item>
+          <p>
+	    The recently added BIFs erlang:min/2, erlang:max/2 and
+	    erlang:port_command/3 are now auto-imported (as they were
+	    originally intended to be). Due to the recent compiler
+	    change (OTP-8579), the only impact on old code defining
+	    it's own min/2, max/2 or port_command/3 functions will be
+	    a warning, the local functions will still be used. The
+	    warning can be removed by using
+	    -compile({no_auto_import,[min/2,max/2,port_command/3]}).
+	    in the source file.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8669 Aux Id: OTP-8579 </p>
+        </item>
+        <item>
+          <p>
+	    There is a new option 'exclusive' to file:open/2 that
+	    uses the OS O_EXCL flag where supported to open the file
+	    in exclusive mode.</p>
+          <p>
+	    Own Id: OTP-8670</p>
+        </item>
+        <item>
+          <p>
+	    Now, binary_to_term/2 is auto-imported. This will cause a
+	    compile warning if and only if a module has got a local
+	    function with that name.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8671</p>
+        </item>
+        <item>
+          <p>
+	    Alignment of scheduler data and run queues were adjusted.</p>
+          <p>
+	    Own Id: OTP-8673</p>
+        </item>
+        <item>
+	    <p>Call time breakpoint tracing</p> <list><item>Introduce
+	    a <c>call_time</c> option to
+	    <c>erlang:trace_pattern/3</c>.This option enables call
+	    time breakpoint tracing on code that is executed by
+	    processes with call tracing enabled. Call time tracing
+	    stores the number of calls and the time spent of each
+	    function with this trace pattern enabled. The information
+	    can be retrieved with <c>erlang:trace_info/2</c></item>
+	    <item>Add a scheduler array for BpData. To solve the
+	    issue of multiple schedulers constantly updating the head
+	    pointer to the bp data wheel, each scheduler now has its
+	    own entrypoint to the wheel. This head pointer can be
+	    updated without a locking being taken.</item></list>
+	    <p>Teach call count tracing to use atomics</p>
+	    <list><item>Call count previously used a global lock for
+	    accessing and writing its counter in the breakpoint. This
+	    is now changed to atomics instead.</item> <item>The
+	    change will let call count tracing and cprof to scale
+	    better when increasing the number of
+	    schedulers.</item></list>
+          <p>
+	    Own Id: OTP-8677</p>
+        </item>
+        <item>
+	    <p><c>eprof</c> has been reimplemented with support in
+	    the Erlang virtual machine and is now both faster (i.e.
+	    slows down the code being measured less) and scales much
+	    better. In measurements we saw speed-ups compared to the
+	    old eprof ranging from 6 times (for sequential code that
+	    only uses one scheduler/core) up to 84 times (for
+	    parallel code that uses 8 cores).</p>
+	    <p>Note: The API for the <c>eprof</c> has been cleaned up
+	    and extended. See the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

@@ -30,6 +30,43 @@
   </header>
   <p>This document describes the changes made to the Crypto application.</p>
 
+<section><title>Crypto 2.0</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    crypto application changed to use NIFs instead of driver.</p>
+          <p>
+	    Own Id: OTP-8333</p>
+        </item>
+        <item>
+          <p>
+	    des_ecb_encrypt/2 and des_ecb_decrypt/2 has been added to
+	    the crypto module. The crypto:md4/1 function has been
+	    documented.</p>
+          <p>
+	    Own Id: OTP-8551</p>
+        </item>
+        <item>
+	    <p>The undocumented, unsupport, and deprecated function
+	    <c>lists:flat_length/1</c> has been removed.</p>
+          <p>
+	    Own Id: OTP-8584</p>
+        </item>
+        <item>
+          <p>
+	    New variants of <c>crypto:dss_sign</c> and
+	    <c>crypto:dss_verify</c> with an extra argument to
+	    control how the digest is calculated.</p>
+          <p>
+	    Own Id: OTP-8700</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Crypto 1.6.4</title>
 
     <section><title>Improvements and New Features</title>

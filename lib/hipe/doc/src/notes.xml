@@ -30,6 +30,68 @@
   </header>
   <p>This document describes the changes made to HiPE.</p>
 
+<section><title>Hipe 3.7.6</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p><c>receive</c> statements that can only read out a
+	    newly created reference are now specially optimized so
+	    that it will execute in constant time regardless of the
+	    number of messages in the receive queue for the process.
+	    That optimization will benefit calls to
+	    <c>gen_server:call()</c>. (See <c>gen:do_call/4</c> for
+	    an example of a receive statement that will be
+	    optimized.)</p>
+          <p>
+	    Own Id: OTP-8623</p>
+        </item>
+        <item>
+          <p>
+	    Various changes to dialyzer-related files for R14.</p>
+          <p>
+	    - Dialyzer properly supports the new attribute
+	    -export_type and checks that remote types only refer to
+	    exported types. A warning is produced if some
+	    files/applications refer to types defined in modules
+	    which are neither in the PLT nor in the analyzed
+	    applications.</p>
+          <p>
+	    - Support for detecting data races involving whereis/1
+	    and unregister/1.</p>
+          <p>
+	    - More precise identification of the reason(s) why a
+	    record construction violates the types declared for its
+	    fields.</p>
+          <p>
+	    - Fixed bug in the handling of the 'or' guard.</p>
+          <p>
+	    - Better handling of the erlang:element/2 BIF.</p>
+          <p>
+	    - Complete handling of Erlang BIFs.</p>
+          <p>
+	    Own Id: OTP-8699</p>
+        </item>
+        <item>
+	    <p><c>eprof</c> has been reimplemented with support in
+	    the Erlang virtual machine and is now both faster (i.e.
+	    slows down the code being measured less) and scales much
+	    better. In measurements we saw speed-ups compared to the
+	    old eprof ranging from 6 times (for sequential code that
+	    only uses one scheduler/core) up to 84 times (for
+	    parallel code that uses 8 cores).</p>
+	    <p>Note: The API for the <c>eprof</c> has been cleaned up
+	    and extended. See the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Hipe 3.7.5</title>
 
     <section><title>Improvements and New Features</title>

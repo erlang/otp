@@ -30,6 +30,28 @@
   </header>
   <p>This document describes the changes made to the Parsetools application.</p>
 
+<section><title>Parsetools 2.0.3</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>Yecc failed to report reduce/reduce conflicts where
+	    one of the reductions involved the root symbol. This bug
+	    has been fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8483</p>
+        </item>
+        <item>
+	    <p>A bug introduced in Parsetools 1.4.4 (R12B-2) has been
+	    fixed. (Thanks to Manolis Papadakis.)</p>
+          <p>
+	    Own Id: OTP-8486</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Parsetools 2.0.2</title>
 
     <section><title>Improvements and New Features</title>

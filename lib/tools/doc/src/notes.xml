@@ -30,6 +30,76 @@
   </header>
   <p>This document describes the changes made to the Tools application.</p>
 
+<section><title>Tools 2.6.6</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+	    <p>A race condition affecting Cover has been removed.</p>
+          <p>
+	    Own Id: OTP-8469</p>
+        </item>
+        <item>
+          <p>
+	    Emacs improvements:</p>
+          <p>
+	    Fixed emacs-mode installation problems.</p>
+          <p>
+	    Fixed a couple of -spec and -type indentation and
+	    font-lock problems.</p>
+          <p>
+	    Fixed error messages on emacs-21.</p>
+          <p>
+	    Magnus Henoch fixed several issues.</p>
+          <p>
+	    Ralf Doering, Klas Johansson and Chris Bernard
+	    contributed various emacs-eunit improvements.</p>
+          <p>
+	    Klas Johansson and Dave Peticolas added emacs-flymake
+	    support.</p>
+          <p>
+	    Own Id: OTP-8530</p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>Xref has been updated to use the <c>re</c> module
+	    instead of the deprecated <c>regexp</c> module.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8472</p>
+        </item>
+        <item>
+	    <p>When given the option <c>{builtins,true}</c> Xref now
+	    adds calls to operators.</p>
+          <p>
+	    Own Id: OTP-8647</p>
+        </item>
+        <item>
+	    <p><c>eprof</c> has been reimplemented with support in
+	    the Erlang virtual machine and is now both faster (i.e.
+	    slows down the code being measured less) and scales much
+	    better. In measurements we saw speed-ups compared to the
+	    old eprof ranging from 6 times (for sequential code that
+	    only uses one scheduler/core) up to 84 times (for
+	    parallel code that uses 8 cores).</p>
+	    <p>Note: The API for the <c>eprof</c> has been cleaned up
+	    and extended. See the documentation.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8706</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Tools 2.6.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

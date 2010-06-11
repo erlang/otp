@@ -31,6 +31,23 @@
   <p>This document describes the changes made to the Webtool
     application.</p>
 
+<section><title>WebTool 0.8.7</title>
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    Up until now Netscape has been the default web browser on
+	    Unix/Linux. Webtool has now been updated to start Firefox
+	    as default browser instead.</p>
+          <p>
+	    Own Id: OTP-8651 Aux Id: OTP-8650 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>WebTool 0.8.6</title>
 
     <section><title>Improvements and New Features</title>

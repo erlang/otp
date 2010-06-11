@@ -32,6 +32,152 @@
     <file>notes.xml</file>
     </header>
 
+<section><title>Common_Test 1.5</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Process calls using monitors in Common Test would not
+	    clear the inbox of remaining DOWN messages. This has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8621 Aux Id: seq11560 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible for the user to provide specific
+	    callback modules that handle test configuration data, so
+	    that data on arbitray form can be accessed (e.g. by
+	    reading files or by communicating with a configuration
+	    server process). Two default callback modules have been
+	    introduced in Common Test: ct_config_plain and
+	    ct_config_xml. The former is used to handle the
+	    traditional Common Test configuration files (with terms
+	    on key-value tuple form) and the latter to handle
+	    configuration data on XML representation.</p>
+          <p>
+	    Own Id: OTP-8485</p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to execute test suites that are not
+	    necessarily available on the local file system, but have
+	    been loaded on the test node in advance (e.g. sent as
+	    binaries from a remote node and loaded by RPC). A
+	    requirement is that the no_auto_compile (or
+	    {auto_compile,false}) parameter has been set.</p>
+          <p>
+	    Own Id: OTP-8490 Aux Id: seq11500 </p>
+        </item>
+        <item>
+          <p>
+	    Test Server will now call the end_per_testcase/2 function
+	    even if the test case has been terminated explicitly
+	    (with abort_current_testcase/1), or after a timetrap
+	    timeout. Under these circumstances the return value of
+	    end_per_testcase is completely ignored. Therefore the
+	    function will not be able to change the reason for test
+	    case termination by returning {fail,Reason}, nor will it
+	    be able to save data with {save_config,Data}.</p>
+          <p>
+	    Own Id: OTP-8500 Aux Id: seq11521 </p>
+        </item>
+        <item>
+          <p>
+	    It is now possible to use the test specification term
+	    'init' to start Common Test nodes automatically, as well
+	    as have initial function calls evaluated on the nodes. A
+	    default callback module for the 'init' term, ct_slave,
+	    has been introduced to enable Common Test Master to
+	    perform host login and node startup operations over ssh.</p>
+          <p>
+	    Own Id: OTP-8570</p>
+        </item>
+        <item>
+          <p>
+	    The run_test script has been replaced by a program (with
+	    the same name) which can be executed without explicit
+	    installation. The start flags are the same as for the
+	    legacy start script.</p>
+          <p>
+	    Own Id: OTP-8650</p>
+        </item>
+        <item>
+          <p>
+	    Previously, a repeat property of a test case group
+	    specified the number of times the group should be
+	    repeated after the main test run. I.e. {repeat,N} would
+	    case the group to execute 1+N times. To be consistent
+	    with the behaviour of the run_test repeat option, this
+	    has been changed. N now specifies the absolute number of
+	    executions instead.</p>
+          <p>
+	    Own Id: OTP-8689 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    With the run_test -erl_args option, it's possible to
+	    divide the options on the run_test command line into ones
+	    that Common Test should process (those preceding
+	    -erl_args, and ones it should ignore (those succeeding
+	    -erl_args). Options preceding -erl_args that Common Test
+	    doesn't recognize are also ignored (i.e. the same
+	    behaviour as earlier versions of Common Test).</p>
+          <p>
+	    Own Id: OTP-8690 Aux Id: OTP-8650 </p>
+        </item>
+        <item>
+          <p>
+	    Directories added with -pa or -pz in the pre-erl_args
+	    part of the run_test command line will be converted from
+	    relative to absolute, this to avoid problems loading user
+	    modules when Common Test switches working directory
+	    during the test run.</p>
+          <p>
+	    Own Id: OTP-8691 Aux Id: OTP-8650 </p>
+        </item>
+        <item>
+          <p>
+	    The timetrap handling has been made more user
+	    controllable by means of new start options and new ct
+	    interface functions. With the 'multiply_timetraps' start
+	    option, it's possible to specify a value which all
+	    timetrap timeout values get multiplied by. This is useful
+	    e.g. to extend the timetraps temporarily while running
+	    cover or trace. The 'scale_timetraps' start option
+	    switches on or off the Test Server timetrap scaling
+	    feature (which tries to detect if the tests may benefit
+	    from extended timetraps, e.g. due to running certain test
+	    tools, and performs the scaling automatically).
+	    Furthermore, the ct:timetrap/1 function has been
+	    introduced, which makes it possible to set/reset
+	    timetraps during test execution. Also, a ct:sleep/1
+	    function is now available, which takes the timetrap
+	    parameters into account when calculating the time to
+	    suspend the process.</p>
+          <p>
+	    Own Id: OTP-8693</p>
+        </item>
+        <item>
+          <p>
+	    A new run_test start option, event_handler_init, has been
+	    added that takes a start argument which gets passed to
+	    the init function of the event handler.</p>
+          <p>
+	    Own Id: OTP-8694</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Common_Test 1.4.7</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

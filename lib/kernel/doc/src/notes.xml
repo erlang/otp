@@ -30,6 +30,96 @@
   </header>
   <p>This document describes the changes made to the Kernel application.</p>
 
+<section><title>Kernel 2.14</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    os:find_executable can now be fed with the complete name
+	    of the executable on Windows and still find it. I.e
+	    os:find_executable("werl.exe") will work as
+	    os:find_executable("werl").</p>
+          <p>
+	    Own Id: OTP-3626</p>
+        </item>
+        <item>
+          <p>
+	    The shell's line editing has been improved to more
+	    resemble the behaviour of readline and other shells.
+	    (Thanks to Dave Peticolas)</p>
+          <p>
+	    Own Id: OTP-8635</p>
+        </item>
+        <item>
+	    <p>Under certain circumstances the net kernel could hang.
+	    (Thanks to Scott Lystig Fritchie.)</p>
+          <p>
+	    Own Id: OTP-8643 Aux Id: seq11584 </p>
+        </item>
+        <item>
+          <p>
+	    The kernel DNS resolver was leaking one or two ports if
+	    the DNS reply could not be parsed or if the resolver(s)
+	    caused noconnection type errors. Bug now fixed. A DNS
+	    specification borderline truncated reply triggering the
+	    port leakage bug has also been fixed.</p>
+          <p>
+	    Own Id: OTP-8652</p>
+        </item>
+        <item>
+	    <p>A bug introduced in kernel-2.13.5.3 has been
+	    fixed.</p>
+          <p>
+	    Own Id: OTP-8686 Aux Id: OTP-8643, seq11584 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+	    <p>As of this version, the global name server no longer
+	    supports nodes running Erlang/OTP R11B.</p>
+          <p>
+	    Own Id: OTP-8527</p>
+        </item>
+        <item>
+          <p>
+	    The file module's functions write,read and read_line now
+	    handles named io_servers like 'standard_io' and
+	    'standard_error' correctly.</p>
+          <p>
+	    Own Id: OTP-8611</p>
+        </item>
+        <item>
+          <p>
+	    The functions file:advise/4 and file:datasync/1 have been
+	    added. (Thanks to Filipe David Manana.)</p>
+          <p>
+	    Own Id: OTP-8637</p>
+        </item>
+        <item>
+	    <p>When exchanging groups between nodes <c>pg2</c> did
+	    not remove duplicated members. This bug was introduced in
+	    R13B03 (kernel-2.13.4).</p>
+          <p>
+	    Own Id: OTP-8653</p>
+        </item>
+        <item>
+          <p>
+	    There is a new option 'exclusive' to file:open/2 that
+	    uses the OS O_EXCL flag where supported to open the file
+	    in exclusive mode.</p>
+          <p>
+	    Own Id: OTP-8670</p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Kernel 2.13.5.1</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

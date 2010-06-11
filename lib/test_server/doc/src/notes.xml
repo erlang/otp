@@ -32,6 +32,70 @@
     <file>notes.xml</file>
   </header>
 
+<section><title>Test_Server 3.4</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+	    Returning {fail,Reason} from the framework end_tc
+	    function was not handled properly by Test Server for all
+	    test suite functions.</p>
+          <p>
+	    Own Id: OTP-8492 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    If the framework end_tc function would hang and get
+	    aborted by Test Server, there was no indication of
+	    failure in the logs. This has been fixed.</p>
+          <p>
+	    Own Id: OTP-8682 Aux Id: seq11504 </p>
+        </item>
+      </list>
+    </section>
+
+
+    <section><title>Improvements and New Features</title>
+      <list>
+        <item>
+          <p>
+	    It is now possible for the Test Server framework end_tc
+	    function to change the status of the test case from ok or
+	    auto-skipped to failed by returning {fail,Reason}.</p>
+          <p>
+	    Own Id: OTP-8495 Aux Id: seq11502 </p>
+        </item>
+        <item>
+          <p>
+	    Test Server will now call the end_per_testcase/2 function
+	    even if the test case has been terminated explicitly
+	    (with abort_current_testcase/1), or after a timetrap
+	    timeout. Under these circumstances the return value of
+	    end_per_testcase is completely ignored. Therefore the
+	    function will not be able to change the reason for test
+	    case termination by returning {fail,Reason}, nor will it
+	    be able to save data with {save_config,Data}.</p>
+          <p>
+	    Own Id: OTP-8500 Aux Id: seq11521 </p>
+        </item>
+        <item>
+          <p>
+	    Previously, a repeat property of a test case group
+	    specified the number of times the group should be
+	    repeated after the main test run. I.e. {repeat,N} would
+	    case the group to execute 1+N times. To be consistent
+	    with the behaviour of the run_test repeat option, this
+	    has been changed. N now specifies the absolute number of
+	    executions instead.</p>
+          <p>
+	    Own Id: OTP-8689 Aux Id: seq11502 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Test_Server 3.3.6</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>
