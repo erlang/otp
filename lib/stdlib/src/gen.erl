@@ -29,6 +29,8 @@
 
 -export([init_it/6, init_it/7]).
 
+-export([format_status_header/2]).
+
 -define(default_timeout, 5000).
 
 %%-----------------------------------------------------------------
@@ -315,3 +317,10 @@ debug_options(Opts) ->
 	{ok, Options} -> sys:debug_options(Options);
 	_ -> []
     end.
+
+format_status_header(TagLine, Pid) when is_pid(Pid) ->
+    lists:concat([TagLine, " ", pid_to_list(Pid)]);
+format_status_header(TagLine, RegName) when is_atom(RegName) ->
+    lists:concat([TagLine, " ", RegName]);
+format_status_header(TagLine, Name) ->
+    {TagLine, Name}.
