@@ -719,10 +719,8 @@ int ei_x_encode_bignum(ei_x_buff *x, mpz_t obj);
 #define EI_LONGLONG __int64
 #define EI_ULONGLONG unsigned __int64
 #else
-#ifndef VXWORKS
 #define EI_LONGLONG long long
 #define EI_ULONGLONG unsigned long long
-#endif
 #endif
 
 #ifndef VXWORKS
