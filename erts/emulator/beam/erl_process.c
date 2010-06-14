@@ -3787,11 +3787,11 @@ verify_topology(erts_cpu_topology_t *cpudata, int size)
 	/* Verify logical ids */
 	logical = erts_alloc(ERTS_ALC_T_TMP, sizeof(int)*size);
 
-	for (i = 0; i < user_cpudata_size; i++)
-	    logical[i] = user_cpudata[i].logical;
+	for (i = 0; i < size; i++)
+	    logical[i] = cpudata[i].logical;
 
-	qsort(logical, user_cpudata_size, sizeof(int), int_cmp);
-	for (i = 0; i < user_cpudata_size-1; i++) {
+	qsort(logical, size, sizeof(int), int_cmp);
+	for (i = 0; i < size-1; i++) {
 	    if (logical[i] == logical[i+1]) {
 		erts_free(ERTS_ALC_T_TMP, logical);
 		return ERTS_INIT_CPU_TOPOLOGY_NOT_UNIQUE_LIDS;
@@ -3804,13 +3804,13 @@ verify_topology(erts_cpu_topology_t *cpudata, int size)
 
 	/* Verify unique entities */
 
-	for (i = 1; i < user_cpudata_size; i++) {
-	    if (user_cpudata[i-1].processor == user_cpudata[i].processor
-		&& user_cpudata[i-1].node == user_cpudata[i].node
-		&& (user_cpudata[i-1].processor_node
-		    == user_cpudata[i].processor_node)
-		&& user_cpudata[i-1].core == user_cpudata[i].core
-		&& user_cpudata[i-1].thread == user_cpudata[i].thread) {
+	for (i = 1; i < size; i++) {
+	    if (cpudata[i-1].processor == cpudata[i].processor
+		&& cpudata[i-1].node == cpudata[i].node
+		&& (cpudata[i-1].processor_node
+		    == cpudata[i].processor_node)
+		&& cpudata[i-1].core == cpudata[i].core
+		&& cpudata[i-1].thread == cpudata[i].thread) {
 		return ERTS_INIT_CPU_TOPOLOGY_NOT_UNIQUE_ENTITIES;
 	    }
 	}

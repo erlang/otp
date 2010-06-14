@@ -187,6 +187,17 @@
           <p>
 	    Own Id: OTP-8701</p>
         </item>
+        <item>
+          <p>
+	    A user defined CPU topology set via a call to <seealso
+	    marker="erlang#system_flag_cpu_topology">erlang:system_flag(cpu_topology,
+	    CPUTopology)</seealso> was not properly verified, and
+	    could in worst case cause an emulator crash. The emulator
+	    crash could only occur when a user defined CPU topology
+	    already existed and was redefined.</p>
+          <p>
+	    Own Id: OTP-8710</p>
+        </item>
       </list>
     </section>
 
