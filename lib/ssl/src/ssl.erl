@@ -105,7 +105,7 @@ connect(Address, Port, Options) ->
     connect(Address, Port, Options, infinity).
 
 connect(Address, Port, Options0, Timeout) ->
-    case proplists:get_value(ssl_imp, Options0, old) of
+    case proplists:get_value(ssl_imp, Options0, new) of
         new ->
             new_connect(Address, Port, Options0, Timeout);
         old ->
