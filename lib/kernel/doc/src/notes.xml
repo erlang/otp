@@ -67,12 +67,6 @@
           <p>
 	    Own Id: OTP-8652</p>
         </item>
-        <item>
-	    <p>A bug introduced in kernel-2.13.5.3 has been
-	    fixed.</p>
-          <p>
-	    Own Id: OTP-8686 Aux Id: OTP-8643, seq11584 </p>
-        </item>
       </list>
     </section>
 
