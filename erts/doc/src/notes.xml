@@ -520,6 +520,41 @@
 
 </section>
 
+<section><title>Erts 5.7.5.1</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            Driver threads, such as async threads, using <seealso
+            marker="erl_driver#ErlDrvPDL">port data locks</seealso>
+            peeked at the port status field without proper locking
+            when looking up the driver queue.</p>
+          <p>
+            Own Id: OTP-8475</p>
+        </item>
+        <item>
+          <p>
+            A call to the BIF <c>unregister(RegName)</c> when a port
+            had the name <c>RegName</c> registered in the runtime
+            system without SMP support caused a runtime system crash.
+            (Thanks to Per Hedeland for the bugfix and test case.)</p>
+          <p>
+            Own Id: OTP-8487</p>
+        </item>
+        <item>
+          <p>
+            Fix memory management bug causing crash of non-SMP
+            emulator with async threads enabled. The bug did first
+            appear in R13B03.</p>
+          <p>
+            Own Id: OTP-8591 Aux Id: seq11554 </p>
+        </item>
+      </list>
+    </section>
+
+</section>
+
 <section><title>Erts 5.7.5</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

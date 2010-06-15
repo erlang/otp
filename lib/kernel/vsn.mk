@@ -1,4 +1,4 @@
-# 
+#
 # %CopyrightBegin%
 #
 # Copyright Ericsson AB 1997-2010. All Rights Reserved.
@@ -15,6 +15,6 @@
 # under the License.
 #
 # %CopyrightEnd%
-# 
+#
 
 KERNEL_VSN = 2.14

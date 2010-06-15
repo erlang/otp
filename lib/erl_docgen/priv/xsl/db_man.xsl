@@ -336,6 +336,16 @@
     <xsl:text>&gt;</xsl:text>
   </xsl:template>
 
+  <!-- Do not noramlize any text within pre and code tags. -->
+  <xsl:template match="pre/text()">
+    <xsl:value-of select="."/>
+  </xsl:template>
+
+  <xsl:template match="code/text()">
+    <xsl:value-of select="."/>
+  </xsl:template>
+
+
   <!-- Replace ' by \&' ans . by \&. -->
   <xsl:template match="text()">
     <xsl:variable name="startstring">

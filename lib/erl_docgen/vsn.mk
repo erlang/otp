@@ -17,6 +17,6 @@
 # %CopyrightEnd%
 #
 
-ERL_DOCGEN_VSN = 0.2
+ERL_DOCGEN_VSN = 0.2.1
 
 TICKETS	= 
