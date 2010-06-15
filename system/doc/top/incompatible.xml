@@ -4,7 +4,7 @@
 <chapter>
   <header>
     <copyright>
-      <year>2006</year><year>2009</year>
+      <year>2006</year><year>2010</year>
       <holder>Ericsson AB. All Rights Reserved.</holder>
     </copyright>
     <legalnotice>
@@ -13,12 +13,12 @@
       compliance with the License. You should have received a copy of the
       Erlang Public License along with this software. If not, it can be
       retrieved online at http://www.erlang.org/.
-    
+
       Software distributed under the License is distributed on an "AS IS"
       basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
       the License for the specific language governing rights and limitations
       under the License.
-    
+
     </legalnotice>
 
     <title>Potential Incompatibilities</title>
@@ -29,353 +29,241 @@
     <file>incompatible.xml</file>
   </header>
   <p>This document contains a list of potential incompatibilities
-    between Erlang 5.7/OTP R12A and Erl 5.6.5/OTP R12B-5,
+    between Erlang 5.8/OTP R14A and Erl 5.7.5/OTP R13B04,
     and is an extract from the release notes for the respective applications.</p>
 
   <section>
-    <title>compiler</title>
+    <title>Tools</title>
     <list type="bulleted">
         <item>
           <p>
-	    The undocumented, unsupported, and deprecated guard BIF
-	    <c>is_constant/1</c> has been removed.</p>
+	  Xref has been updated to use the re module instead of the
+	  deprecated regexp module.</p>          
+	  <p>*** INCOMPATIBILITY with R12B ***</p>
           <p>
-	    *** INCOMPATIBILITY with R12B ***</p>
-          <p>
-	    Own Id: OTP-7673</p>
+	    Own Id: OTP-8472</p>
         </item>
         <item>
-	    <p>The short-circuit operators <c>andalso</c> and
-	    <c>orelse</c> no longer guarantees that their second
-	    argument is either <c>true</c> or <c>false</c>. As a
-	    consequence, <c>andalso</c>/<c>orelse</c> are now
-	    tail-recursive.</p>
+	    <p>eprof has been reimplemented with support in the Erlang
+	      virtual machine and is now both faster (i.e. slows down the
+	      code being measured less) and scales much better. In
+	      measurements we saw speed-ups compared to the old eprof
+	      ranging from 6 times (for sequential code that only uses one
+	      scheduler/core) up to 84 times (for parallel code that uses 8
+	      cores).</p>
+
+	      <p>Note: The API for the eprof has been cleaned up and extended.
+	      See the documentation.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7748</p>
-        </item>
-        <item>
-	    <p>The compiler will refuse to a compile file where the
-	    module name in the file differs from the output file
-	    name.</p>
-	    <p>When compiling using <c>erlc</c>, the current working
-	    directory will no be included in the code path (unless
-	    explicitly added using "-pa .").</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7793</p>
-        </item>
-        <item>
-	    <p>If a module contains an exported function with the
-	    same name as an auto-imported BIF (such as
-	    <c>length/1</c>), any calls to the BIF must have an
-	    explicit <c>erlang:</c> prefix, or there will be a
-	    compilation error (such calls would only generate a
-	    warning in previous releases).</p>
-	    <p>(The reason for the change is to avoid breaking code
-	    in a future major release, R14 or R15, in which we plan
-	    to make calls without a module prefix always call the
-	    local function in the same module even if there is an
-	    auto-imported BIF with the same name.)</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7873</p>
+	    Own Id: OTP-8706</p>
         </item>
     </list>
   </section>
 
   <section>
-    <title>Erts</title>
+    <title>Odbc</title>
     <list type="bulleted">
         <item>
-	    <p>Support for Unicode is implemented as described in
-	    EEP10. Formatting and reading of unicode data both from
-	    terminals and files is supported by the io and io_lib
-	    modules. Files can be opened in modes with automatic
-	    translation to and from different unicode formats. The
-	    module 'unicode' contains functions for conversion
-	    between external and internal unicode formats and the re
-	    module has support for unicode data. There is also
-	    language syntax for specifying string and character data
-	    beyond the ISO-latin-1 range.</p>
-	    <p>The interactive shell will support input and output of
-	    unicode characters when the terminal and operating system
-	    supports it.</p>
-	    <p>Please see the EEP and the io/io_lib manual pages as
-	    well as the stdlib users guide for details.</p>
-	    <p><em>I/O-protocol incompatibilities:</em></p>
-	    <p>The io_protocol between io_Server and client is
-	    updated to handle protocol data in unicode formats. The
-	    updated protocol is now documented. The specification
-	    resides in the stdlib <em>users manual</em>, which is a
-	    new part of the manual.</p>
-	    <p><em>io module incompatibilities:</em></p>
-	    <p>The io:put_chars, io:get_chars and io:get_line all
-	    handle and return unicode data. In the case where
-	    binaries can be provided (as to io:put_chars), they shall
-	    be encoded in UTF-8. When binaries are returned (as by
-	    io:get_line/get_chars when the io_server is set in
-	    <em>binary mode</em>) the returned data is also
-	    <em>always</em> encoded as UTF-8. The file module however
-	    still returns byte-oriented data, why file:read can be
-	    used instead of io:get_chars to read binary data in
-	    ISO-latin-1.</p>
-	    <p><em>io_lib module incompatibilities:</em></p>
-	    <p>io_lib:format can, given new format directives (i.e
-	    "~ts" and "~tc"), return lists containing integers larger
-	    than 255. </p>
+	    <p>
+	      Now supports SQL_TYPE_TIMESTAMP on the format {{YY, MM, DD},
+	      {HH, MM, SS}}. Thanks to Juhani Ränkimies.
+	    </p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7648 Aux Id: OTP-7580 OTP-7514 OTP-7494
-	    OTP-7443 OTP-7181 EEP10 EEP11 </p>
-        </item>
-        <item>
-          <p>
-	    The undocumented, unsupported, and deprecated guard BIF
-	    <c>is_constant/1</c> has been removed.</p>
-          <p>
-	    *** INCOMPATIBILITY with R12B ***</p>
-          <p>
-	    Own Id: OTP-7673</p>
-        </item>
-        <item>
-	    <p>The short-circuit operators <c>andalso</c> and
-	    <c>orelse</c> no longer guarantees that their second
-	    argument is either <c>true</c> or <c>false</c>. As a
-	    consequence, <c>andalso</c>/<c>orelse</c> are now
-	    tail-recursive.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7748</p>
-        </item>
-        <item>
-	    <p>The compiler will refuse to a compile file where the
-	    module name in the file differs from the output file
-	    name.</p>
-	    <p>When compiling using <c>erlc</c>, the current working
-	    directory will no be included in the code path (unless
-	    explicitly added using "-pa .").</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7793</p>
-        </item>
-        <item>
-	    <p>The deprecated functions <c>erlang:fault/1</c>,
-	    <c>erlang:fault/2</c>, and <c>file:rawopen/2</c> have
-	    been removed.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7812</p>
-        </item>
-        <item>
-	    <p>The escape sequences <c>\x</c> and <c>\{</c> have been
-	    assigned new interpretations (they used to return the
-	    ASCII code for <c>x</c> and <c>{</c> respectively). One
-	    or more octal characters inside curly brackets after a
-	    leading backslash is from now on an alternative to the
-	    existing syntax <c>\NNN</c>, but can also be used for
-	    codes greater than 255. In a similar fashion, one or more
-	    hexadecimal characters can be put inside curly brackets
-	    after a leading <c>\x</c>. Furthermore, the escape
-	    sequences <c>\xH</c> and <c>\xHH</c>, where N is a
-	    hexadecimal character, can be used for codes less than
-	    256.</p>
-	    <p>NOTE: These new escape sequences are still considered
-	    experimental and may be changed in the R13B release.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7855</p>
+	    Own Id: OTP-8511</p>
         </item>
     </list>
   </section>
 
   <section>
-    <title>Inets</title>
+    <title>Ssh</title>
     <list type="bulleted">
      <item>
           <p>
-            [httpc] - The inets http client will now use persistent
-            connections without pipelining as default and if a
-            pipeline timeout is set it will pipeline the requests on
-            the persistent connections.</p>
+            The configuration parameter ip_v6_disabled is now available,
+	      which makes it possible for the user to alter the IP version
+	      SSH shall use.</p>
           <p>
             *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-            Own Id: OTP-7463</p>
-        </item>
+            Own Id: OTP-8535</p>
+     </item>
+     <item>
+          <p>
+            Removed deprecated modules (ssh_ssh, ssh_sshd and ssh_cm) and
+	      functions (ssh_sftp:connect and ssh_sftp:stop).</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8596</p>
+     </item>
+     <item>
+          <p>
+            Aligned error message with used version (SSH_FX_FAILURE vs
+	      SSH_FX_NOT_A_DIRECTORY, the latter introduced in version 6).</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8644</p>
+     </item>
     </list>
   </section>
 
     <section>
-    <title>Jinterface</title>
+    <title>ERTS</title>
       <list>
         <item>
-          <p>
-	    A number of fixes and improvements from the ErlIDE group;
-	    Vlad Dumitrescu and Jakob Cederlund: JDK 1.5 is now a
-	    minimal requirement for building Jinterface. New method:
-	    OtpEpmd.lookupNames. OtpErlangList is now iterable.
-	    Non-proper lists are now allowed - you have to test if a
-	    list is proper or not. Non-proper lists can also be
-	    created. New methods: isProper, getHead, getTail and
-	    getNthTail. The get tail methods creates a sublist object
-	    that re-uses the original list. OtpErlangPid is now
-	    Comparable. Empty atoms can now be constructed, a missing
-	    feature pointed out by Sebastien Boisgerault on
-	    erlang-questions.</p>
+          <p>Some incompatible changes made to the NIF API. For more
+	      information see the warning text in erl_nif(3).</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7832</p>
+	    Own Id: OTP-8555</p>
         </item>
       </list>
     </section>
 
   <section>
-    <title>Kernel</title>
-    <list type="bulleted">
-        <item>
-	    <p>The deprecated functions <c>erlang:fault/1</c>,
-	    <c>erlang:fault/2</c>, and <c>file:rawopen/2</c> have
-	    been removed.</p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7812</p>
-        </item>
-    </list>
-  </section>
-
-  <section>
-    <title>SSH</title>
-    <list type="bulleted">
-        <item>
-          <p>
-            Ssh timeouts will now behave as expected i.e. defaults to
-            infinity. Only the user of the ssh application can know of
-            a reasonable timeout value for their application.</p>
-          <p>
-            *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-            Own Id: OTP-7807</p>
-        </item>
-        <item>
-          <p>
-            Added the message {ssh_channel_up, ChannelId,
-            ConnectionManager} that shall be handled by the channel
-            callback handle_msg/2. This makes the function
-            handle_msg/2 a mandatory function for ssh channels
-            implementations which it was not in ssh-1.1.</p>
-          <p>
-            *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-            Own Id: OTP-7828</p>
-        </item>
-    </list>
-  </section>
-
-  <section>
     <title>STDLIB</title>
     <list type="bulleted">
         <item>
-	    <p>The functions <c>lists:seq/1,2</c> return the empty
-	    list in a few cases when they used to generate an
-	    exception, for example <c>lists:seq(1, 0)</c>. See
-	    lists(3) for details. (Thanks to Richard O'Keefe.)</p>
+	    <p>When defining macros the closing right parenthesis before the
+	      dot is now mandatory.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7230</p>
+	    Own Id: OTP-8562</p>
         </item>
-        <item>
-	    <p>Support for Unicode is implemented as described in
-	    EEP10. Formatting and reading of unicode data both from
-	    terminals and files is supported by the io and io_lib
-	    modules. Files can be opened in modes with automatic
-	    translation to and from different unicode formats. The
-	    module 'unicode' contains functions for conversion
-	    between external and internal unicode formats and the re
-	    module has support for unicode data. There is also
-	    language syntax for specifying string and character data
-	    beyond the ISO-latin-1 range.</p>
-	    <p>The interactive shell will support input and output of
-	    unicode characters when the terminal and operating system
-	    supports it.</p>
-	    <p>Please see the EEP and the io/io_lib manual pages as
-	    well as the stdlib users guide for details.</p>
-	    <p><em>I/O-protocol incompatibilities:</em></p>
-	    <p>The io_protocol between io_Server and client is
-	    updated to handle protocol data in unicode formats. The
-	    updated protocol is now documented. The specification
-	    resides in the stdlib <em>users manual</em>, which is a
-	    new part of the manual.</p>
-	    <p><em>io module incompatibilities:</em></p>
-	    <p>The io:put_chars, io:get_chars and io:get_line all
-	    handle and return unicode data. In the case where
-	    binaries can be provided (as to io:put_chars), they shall
-	    be encoded in UTF-8. When binaries are returned (as by
-	    io:get_line/get_chars when the io_server is set in
-	    <em>binary mode</em>) the returned data is also
-	    <em>always</em> encoded as UTF-8. The file module however
-	    still returns byte-oriented data, why file:read can be
-	    used instead of io:get_chars to read binary data in
-	    ISO-latin-1.</p>
-	    <p><em>io_lib module incompatibilities:</em></p>
-	    <p>io_lib:format can, given new format directives (i.e
-	    "~ts" and "~tc"), return lists containing integers larger
-	    than 255. </p>
-          <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
-          <p>
-	    Own Id: OTP-7648 Aux Id: OTP-7580 OTP-7514 OTP-7494
-	    OTP-7443 OTP-7181 EEP10 EEP11 </p>
-        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Compiler and STDLIB</title>
+    <list type="bulleted">
         <item>
           <p>
-	    <c>filelib:fold_files/5</c> now uses the <c>re</c> module
-	    instead of the <c>regexp</c> module for regular
-	    expression matching. In practice, this change will not be
-	    a problem for most regular expressions used for
-	    <c>filelib:fold_files/5</c>. (The major difference in
-	    regular expression is that parenthesis and curly brackets
-	    is treated as literal characters by <c>regexp</c> but as
-	    special characters by <c>re</c>; fortunately, those
-	    characters are rarely used in filenames.)</p>
+             Local and imported functions now override the auto-imported
+	      BIFs when the names clash. The pre R14 behaviour was that
+	      auto-imported BIFs would override local functions. To avoid
+	      that old programs change behaviour, the following will
+	      generate an error:</p>
+
+	      <list type="bulleted">
+	      <item>Doing a call without explicit module name to a local function
+	      having a name clashing with the name of an auto-imported BIF
+	      that was present (and auto-imported) before OTP R14A</item>
+
+	      <item>Explicitly importing a function having a name clashing with
+	      the name of an autoimported BIF that was present (and
+	      autoimported) before OTP R14A</item>
+
+	      <item>Using any form of the old compiler directive nowarn_bif_clash</item>
+	      </list>
+
+	      <p>If the BIF was added or auto-imported in OTP R14A or later,
+	      overriding it with an import or a local function will only
+	      result in a warning.</p>
+
+	      <p>To resolve clashes, you can either use the explicit module
+	      name erlang to call the BIF, or you can remove the
+	      auto-import of that specific BIF by using the new compiler
+	      directive -compile({no_auto_import,[F/A]})., which makes all
+	      calls to the local or imported function without explicit
+	      module name pass without warnings or errors.</p>
+
+	      <p>The change makes it possible to add auto-imported BIFs
+	      without breaking or silently changing old code in the future.
+	      However some current code ingeniously utilizing the old
+	      behaviour or the nowarn_bif_clash compiler directive, might
+	      need changing to be accepted by the compiler.</p>
           <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7819</p>
+            Own Id: OTP-8579</p>
         </item>
         <item>
           <p>
-	    <c>digraph:new(Type)</c> will now cause a <c>badarg</c>
-	    exception if <c>Type</c> is not a valid type. Similarly,
-	    <c>digraph_utils:subgraph/2,3</c> will now cause a
-	    <c>badarg</c> if the arguments are invalid. (Those
-	    functions used to return error tuples if something was
-	    wrong.)</p>
+            The recently added BIFs erlang:min/2, erlang:max/2 and
+	      erlang:port_command/3 are now auto-imported (as they were
+	      originally intended to be). Due to the recent compiler change
+	      (OTP-8579), the only impact on old code defining it's own
+	      min/2, max/2 or port_command/3 functions will be a warning,
+	      the local functions will still be used. The warning can be
+	      removed by using
+	      -compile({no_auto_import,[min/2,max/2,port_command/3]}). in
+	      the source file.</p>
           <p>
-	    *** POTENTIAL INCOMPATIBILITY ***</p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7824</p>
+            Own Id: OTP-8669</p>
         </item>
         <item>
-	    <p>The argument passed to <c>random:uniform/1</c> must
-	    now be an integer (as stated in the documentation). In
-	    previous releases, a floating point number was also
-	    allowed.</p>
+          <p>
+           Now, binary_to_term/2 is auto-imported. This will cause a
+	      compile warning if and only if a module has got a local
+	      function with that name.</p>
+          <p>
+            *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+            Own Id: OTP-8671</p>
+        </item>
+    </list>
+  </section>
+
+  <section>
+    <title>Erl_interface</title>
+    <list type="bulleted">
+        <item>
+	    <p>Compact IEEE 754 double encoding in external binary format
+	      for ei</p>
+
+	      <p>Implement the compact IEEE 754 double encoding in external
+	      binary format for ei. Encoding for ei now always produces the
+	      NEW_FLOAT_EXT format. Decoding and term printing handle both
+	      the old ERL_FLOAT_EXT encoding and the new NEW_FLOAT_EXT
+	      encoding.</p> 
+
+	      <p>Legacy erl_interface code also handles the new encoding, but
+	      still produces the ERL_FLOAT_EXT encoding by default.</p>
+
+	      <p>Also enable the DFLAG_NEW_FLOATS distribution flag.</p>
+
+	      <p>ei_get_type() will return ERL_FLOAT_EXT regardless if the
+	      external format is encoded with ERL_FLOAT_EXT or
+	      NEW_FLOAT_EXT for doubles.</p>
+
+	      <p>Reduce the number of copies of the code for encoding and
+	      decoding doubles throughout ei and erl_interface by instead
+	      calling the ei encoding and decoding functions wherever
+	      possible.</p>
+
+	      <p>Restore commented-out float tests in ei_decode_SUITE and
+	      ei_encode_SUITE in lib/erl_interface/test. Modify them to
+	      make them match the style of other tests in the same suites.</p>
+
+	      <p>These changes are based on an ei float patch from Serge
+	      Aleynikov originally submitted against R12B-2 in July 2008
+	      and reworked by Steve Vinoski May 2010.</p>
           <p>
 	    *** POTENTIAL INCOMPATIBILITY ***</p>
           <p>
-	    Own Id: OTP-7827</p>
+	    Own Id: OTP-8684</p>
+        </item>
+    </list>
+  </section>
+  <section>
+    <title>Debugger and STDLIB</title>
+    <list type="bulleted">
+        <item>
+	    <p> The predefined builtin type tid() has been removed. Instead,
+	      ets:tid() should be used.</p>
+          <p>
+	    *** POTENTIAL INCOMPATIBILITY ***</p>
+          <p>
+	    Own Id: OTP-8687</p>
         </item>
     </list>
   </section>
