@@ -30,7 +30,7 @@
 	 fin_per_testcase/2, basic/1, reload/1, upgrade/1, heap_frag/1,
 	 types/1, many_args/1, binaries/1, get_string/1, get_atom/1, api_macros/1,
 	 from_array/1, iolist_as_binary/1, resource/1, resource_binary/1, resource_takeover/1,
-	 threading/1, send/1, send2/1, send_threaded/1, neg/1, is_checks/1,
+	 threading/1, send/1, send2/1, send3/1, send_threaded/1, neg/1, is_checks/1,
 	 get_length/1, make_atom/1, make_string/1]).
 
 -export([many_args_100/100]).
@@ -51,7 +51,7 @@
 all(suite) ->
     [basic, reload, upgrade, heap_frag, types, many_args, binaries, get_string,
      get_atom, api_macros, from_array, iolist_as_binary, resource, resource_binary,
-     resource_takeover, threading, send, send2, send_threaded, neg, is_checks,
+     resource_takeover, threading, send, send2, send3, send_threaded, neg, is_checks,
      get_length, make_atom, make_string].
 
 %%init_per_testcase(_Case, Config) ->
@@ -916,7 +916,164 @@ forwarder(To, N) ->
 
 other_term() ->
     {fun(X,Y) -> X*Y end, make_ref()}.
-    
+
+send3(doc) -> ["Message sending stress test"];
+send3(Config) when is_list(Config) ->
+    %% Let a number of processes send random message blobs between each other
+    %% using enif_send. Kill and spawn new ones randomly to keep a ~constant
+    %% number of workers running.
+    Seed = now(),
+    io:format("seed: ~p\n",[Seed]), 
+    random:seed(Seed),    
+    ets:new(nif_SUITE,[named_table,public]),
+    ?line true = ets:insert(nif_SUITE,{send3,0,0,0,0}),
+    timer:send_after(10000, timeout), % Run for 10 seconds
+    SpawnCnt = send3_controller(0, [], [], 20),
+    ?line [{_,Rcv,SndOk,SndFail,Balance}] = ets:lookup(nif_SUITE,send3),
+    io:format("spawns=~p received=~p, sent=~p send-failure=~p balance=~p\n",
+              [SpawnCnt,Rcv,SndOk,SndFail,Balance]),
+    ets:delete(nif_SUITE).
+
+send3_controller(SpawnCnt, [], _, infinity) ->
+    SpawnCnt;
+send3_controller(SpawnCnt0, Mons0, Pids0, Tick) ->
+    receive 
+        timeout ->
+            io:format("Timeout. Sending 'halt' to ~p\n",[Pids0]),            
+            lists:foreach(fun(P) -> P ! {halt,self()} end, Pids0),
+            lists:foreach(fun(P) -> receive {halted,P} -> ok end end, Pids0),
+            QTot = lists:foldl(fun(P,QSum) ->
+                                 {message_queue_len,QLen} = 
+                                    erlang:process_info(P,message_queue_len),
+                                 QSum + QLen
+                               end, 0, Pids0),
+            io:format("Total queue length ~p\n",[QTot]),            
+            lists:foreach(fun(P) -> P ! die end, Pids0),
+            send3_controller(SpawnCnt0, Mons0, [], infinity);
+        {'DOWN', MonRef, process, _Pid, _} ->
+            Mons1 = lists:delete(MonRef, Mons0),
+            %%io:format("Got DOWN from ~p. Monitors left: ~p\n",[Pid,Mons1]),            
+            send3_controller(SpawnCnt0, Mons1, Pids0, Tick)
+    after Tick -> 
+        Max = 20,
+        N = length(Pids0),
+        PidN = random:uniform(Max),
+        %%io:format("N=~p PidN=~p Pids0=~p\n", [N,PidN,Pids0]), 
+        case PidN > N of
+            true ->
+                {NewPid,Mon} = spawn_opt(fun send3_proc/0, [link,monitor]),                
+                lists:foreach(fun(P) -> P ! {is_born,NewPid} end, Pids0),
+                ?line Balance = ets:lookup_element(nif_SUITE,send3,5),
+                Inject = (Balance =< 0),
+                case Inject of
+                    true ->  ok;
+                    false -> ets:update_element(nif_SUITE,send3,{5,-1})
+                end,
+                NewPid ! {pids,Pids0,Inject},
+                send3_controller(SpawnCnt0+1, [Mon|Mons0], [NewPid|Pids0], Tick);
+            false ->
+                KillPid = lists:nth(PidN,Pids0),
+                KillPid ! die,
+                Pids1 = lists:delete(KillPid, Pids0),
+                lists:foreach(fun(P) -> P ! {is_dead,KillPid} end, Pids1),
+                send3_controller(SpawnCnt0, Mons0, Pids1, Tick)
+        end        
+   end.
+
+send3_proc() ->
+    %%io:format("Process ~p spawned\n",[self()]),
+    send3_proc([self()], {0,0,0}, {1,2,3,4,5}).
+send3_proc(Pids0, Counters={Rcv,SndOk,SndFail}, State0) ->
+    %%io:format("~p: Pids0=~p", [self(), Pids0]),
+    %%timer:sleep(10),
+    receive 
+        {pids, Pids1, Inject} ->
+            %%io:format("~p: got ~p Inject=~p\n", [self(), Pids1, Inject]), 
+            ?line Pids0 = [self()],
+            Pids2 = [self() | Pids1],
+            case Inject of
+                true -> send3_proc_send(Pids2, Counters, State0);
+                false -> send3_proc(Pids2, Counters, State0)
+            end;
+        {is_born, Pid} ->
+            %%io:format("~p: is_born ~p, got ~p\n", [self(), Pid, Pids0]), 
+            send3_proc([Pid | Pids0], Counters, State0);
+        {is_dead, Pid} ->            
+            Pids1 = lists:delete(Pid,Pids0),
+            %%io:format("~p: is_dead ~p, got ~p\n", [self(), Pid, Pids1]),
+            send3_proc(Pids1, Counters, State0);
+        {blob, Blob0} ->
+            %%io:format("~p: blob ~p\n", [self(), Blob0]),
+            State1 = send3_new_state(State0, Blob0),
+            send3_proc_send(Pids0, {Rcv+1,SndOk,SndFail}, State1);
+        die ->
+            %%io:format("Process ~p terminating, stats = ~p\n",[self(),Counters]),
+            {message_queue_len,Dropped} = erlang:process_info(self(),message_queue_len),
+            _R = ets:update_counter(nif_SUITE,send3,
+                               [{2,Rcv},{3,SndOk},{4,SndFail},{5,1-Dropped}]),
+            %%io:format("~p: dies R=~p\n", [self(), R]),
+            ok;
+        {halt,Papa} ->
+            Papa ! {halted,self()},
+            io:format("~p halted\n",[self()]),
+            receive die -> ok end,
+            io:format("~p dying\n",[self()])
+    end.
+
+send3_proc_send(Pids, {Rcv,SndOk,SndFail}, State0) ->
+    To = lists:nth(random:uniform(length(Pids)),Pids),
+    Blob = send3_make_blob(),
+    State1 = send3_new_state(State0,Blob), 
+    case send3_send(To, Blob) of
+        true ->
+            send3_proc(Pids, {Rcv,SndOk+1,SndFail}, State1);
+        false ->
+            send3_proc(Pids, {Rcv,SndOk,SndFail+1}, State1)
+    end.
+
+
+send3_make_blob() ->    
+    case random:uniform(20)-1 of
+        0 -> {term,[]};
+        N ->
+            MsgEnv = alloc_msgenv(), 
+            repeat(N bsr 1,
+                   fun(_) -> grow_blob(MsgEnv,other_term(),random:uniform(1 bsl 20))
+                   end, void),
+            case (N band 1) of
+                0 -> {term,copy_blob(MsgEnv)};
+                1 -> {msgenv,MsgEnv}
+            end
+    end.
+
+send3_send(Pid, Msg) ->
+    %% 90% enif_send and 10% normal bang
+    case random:uniform(10) of
+        1 -> send3_send_bang(Pid,Msg);
+        _ -> send3_send_nif(Pid,Msg)
+    end.
+send3_send_nif(Pid, {term,Blob}) ->
+    %%io:format("~p send term nif\n",[self()]),
+    send_term(Pid, {blob, Blob}) =:= 1;
+send3_send_nif(Pid, {msgenv,MsgEnv}) ->
+    %%io:format("~p send blob nif\n",[self()]),   
+    send3_blob(MsgEnv, Pid, blob) =:= 1.
+
+send3_send_bang(Pid, {term,Blob}) ->
+    %%io:format("~p send term bang\n",[self()]),   
+    Pid ! {blob, Blob},
+    true;
+send3_send_bang(Pid, {msgenv,MsgEnv}) ->
+    %%io:format("~p send blob bang\n",[self()]),   
+    Pid ! {blob, copy_blob(MsgEnv)},
+    true.
+
+send3_new_state(State, Blob) ->
+    case random:uniform(5+2) of
+        N when N =< 5-> setelement(N, State, Blob);
+        _ -> State  % Don't store blob
+    end.
+
 neg(doc) -> ["Negative testing of load_nif"];
 neg(Config) when is_list(Config) ->
     TmpMem = tmpmem(),
@@ -1070,10 +1227,13 @@ send_new_blob(_,_) -> ?nif_stub.
 alloc_msgenv() -> ?nif_stub.
 clear_msgenv(_) -> ?nif_stub.
 grow_blob(_,_) -> ?nif_stub.
+grow_blob(_,_,_) -> ?nif_stub.
 send_blob(_,_) -> ?nif_stub.
+send3_blob(_,_,_) -> ?nif_stub.
 send_blob_thread(_,_,_) -> ?nif_stub.
 join_send_thread(_) -> ?nif_stub.
-
+copy_blob(_) -> ?nif_stub.
+send_term(_,_) -> ?nif_stub.
 
 nif_stub_error(Line) ->
     exit({nif_not_loaded,module,?MODULE,line,Line}).
