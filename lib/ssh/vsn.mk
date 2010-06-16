@@ -1,9 +1,11 @@
 #-*-makefile-*-   ; force emacs to enter makefile-mode
 
-SSH_VSN = 1.1.9
+SSH_VSN = 1.1.10
 APP_VSN    = "ssh-$(SSH_VSN)"
 
-TICKETS = OTP-8524 \
+TICKETS = OTP-8714
+
+TICKETS_1.1.9 = OTP-8524 \
 	OTP-8534 \
 	OTP-8535 \
 	OTP-8550 \

@@ -29,6 +29,22 @@
     <file>notes.xml</file>
   </header>
 
+ <section><title>Ssh 1.1.10</title>
+
+    <section><title>Fixed Bugs and Malfunctions</title>
+      <list>
+        <item>
+          <p>
+            SSH in some cases terminated channels with reason
+            normal when it should have been shutdown.</p>
+          <p>
+            Own Id: OTP-8714 Aux Id:</p>
+        </item>
+      </list>
+    </section>
+
+ </section>
+
  <section><title>Ssh 1.1.9</title>
 
     <section><title>Fixed Bugs and Malfunctions</title>

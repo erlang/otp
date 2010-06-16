@@ -19,6 +19,7 @@
 
 {"%VSN%",	
  [
+  {"1.1.9", [{load_module, ssh_channel, soft_purge, soft_purge, []}]},
   {"1.1.8", [{restart_application, ssh}]},
   {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},
@@ -28,6 +29,7 @@
   {"1.1.2", [{restart_application, ssh}]}
  ],
  [
+  {"1.1.9", [{load_module, ssh_channel, soft_purge, soft_purge, []}]},
   {"1.1.8", [{restart_application, ssh}]},
   {"1.1.7", [{restart_application, ssh}]},
   {"1.1.6", [{restart_application, ssh}]},
