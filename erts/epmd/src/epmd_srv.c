@@ -591,7 +591,7 @@ static void do_request(g, fd, s, buf, bsize)
 	
       if (bsize <= 1)
 	{
-	  dbg_printf(g,0,"packet to small for request PORT2_REQ (%d)", bsize);
+	  dbg_printf(g,0,"packet too small for request PORT2_REQ (%d)", bsize);
 	  return;
 	}
 
@@ -740,7 +740,7 @@ static void do_request(g, fd, s, buf, bsize)
       dbg_printf(g,1,"** got STOP_REQ");
       if (bsize <= 1 )
 	{
-	  dbg_printf(g,0,"packet to small for request STOP_REQ (%d)",bsize);
+	  dbg_printf(g,0,"packet too small for request STOP_REQ (%d)",bsize);
 	  return;
 	}
 
@@ -902,7 +902,7 @@ static void node_init(EpmdVars *g)
 
 
 /* We have got a close on a connection and it may be a
-   EPMD_ALIVE_CLOSE_REQ. Note that this call shouild be called
+   EPMD_ALIVE_CLOSE_REQ. Note that this call should be called
    *before* calling conn_close() */
 
 static int node_unreg(EpmdVars *g,char *name)

@@ -226,6 +226,12 @@ int main(int argc, char** argv)
 	    else
 		usage(g);
 	    epmd_cleanup_exit(g,0);
+	} else if (strcmp(argv[0], "-stop") == 0) {
+	    if (argc == 2)
+		stop_cli(g, argv[1]);
+	    else
+		usage(g);
+	    epmd_cleanup_exit(g,0);
 	}
 	else
 	    usage(g);
@@ -382,7 +388,7 @@ static void run_daemon(EpmdVars *g)
 static void usage(EpmdVars *g)
 {
     fprintf(stderr, "usage: epmd [-d|-debug] [DbgExtra...] [-port No] [-daemon]\n");
-    fprintf(stderr, "            [-d|-debug] [-port No] [-names|-kill]\n\n");
+    fprintf(stderr, "            [-d|-debug] [-port No] [-names|-kill|-stop name]\n\n");
     fprintf(stderr, "See the Erlang epmd manual page for info about the usage.\n");
     fprintf(stderr, "The -port and DbgExtra options are\n\n");
     fprintf(stderr, "    -port No\n");
