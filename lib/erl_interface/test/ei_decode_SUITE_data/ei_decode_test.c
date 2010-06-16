@@ -246,13 +246,23 @@ TESTCASE(test_ei_decode_long)
     EI_DECODE_2     (decode_long,  5, long, 256);
     EI_DECODE_2     (decode_long,  5, long, -1);
 
+    /* Old 28 bit limits for INTEGER_EXT */
     EI_DECODE_2     (decode_long,  5, long,  0x07ffffff);
     EI_DECODE_2     (decode_long,  5, long, -0x08000000);
-    EI_DECODE_2     (decode_long,  7, long,  0x08000000);
-    EI_DECODE_2     (decode_long,  7, long, -0x08000001);
+    EI_DECODE_2     (decode_long,  5, long,  0x08000000);  
+    EI_DECODE_2     (decode_long,  5, long, -0x08000001);
 
-    EI_DECODE_2     (decode_long,  7, long,  0x7fffffff);
-    EI_DECODE_2     (decode_long,  7, long, -ll(0x80000000)); /* Strange :-( */
+    /* New 32 bit limits for INTEGER_EXT */
+    EI_DECODE_2     (decode_long,  5, long,     0x7fffffff);
+    EI_DECODE_2     (decode_long,  5, long, -ll(0x80000000)); /* Strange :-( */
+    if (sizeof(long) > 4) {
+	EI_DECODE_2(decode_long,  7, long,     0x80000000);
+	EI_DECODE_2(decode_long,  7, long, -ll(0x80000001));
+    }
+    else {
+	EI_DECODE_2_FAIL(decode_long,  7, long,     0x80000000);
+	EI_DECODE_2_FAIL(decode_long,  7, long, -ll(0x80000001));       
+    }
 
     EI_DECODE_2_FAIL(decode_long,  7, long,  0x80000000);
     EI_DECODE_2_FAIL(decode_long,  7, long,  0xffffffff);
@@ -280,11 +290,13 @@ TESTCASE(test_ei_decode_ulong)
 
     EI_DECODE_2     (decode_ulong,  5, unsigned long,  0x07ffffff);
     EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -0x08000000);
-    EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x08000000);
-    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -0x08000001);
+    EI_DECODE_2     (decode_ulong,  5, unsigned long,  0x08000000);
+    EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -0x08000001);
 
-    EI_DECODE_2     (decode_ulong,  7, unsigned long,  0x7fffffff);
-    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -ll(0x80000000));
+    EI_DECODE_2     (decode_ulong,  5, unsigned long,     0x7fffffff);
+    EI_DECODE_2_FAIL(decode_ulong,  5, unsigned long, -ll(0x80000000));
+    EI_DECODE_2     (decode_ulong,  7, unsigned long,     0x80000000);
+    EI_DECODE_2_FAIL(decode_ulong,  7, unsigned long, -ll(0x80000001));
 
     if (sizeof(long) > 4) {
       EI_DECODE_2     (decode_ulong,  11, unsigned long,  ll(0x8000000000000000));
@@ -319,13 +331,14 @@ TESTCASE(test_ei_decode_longlong)
 
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x07ffffff);
     EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -0x08000000);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x08000000);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -0x08000001);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x08000000);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -0x08000001);
 
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x7fffffff);
-    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -ll(0x80000000));
-
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG,  0x7fffffff);
+    EI_DECODE_2     (decode_longlong,  5, EI_LONGLONG, -ll(0x80000000));
     EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0x80000000);
+    EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG, -ll(0x80000001));
+
     EI_DECODE_2     (decode_longlong,  7, EI_LONGLONG,  0xffffffff);
 
     EI_DECODE_2     (decode_longlong,  9, EI_LONGLONG,  ll(0x7fffffffffff));
@@ -352,13 +365,14 @@ TESTCASE(test_ei_decode_ulonglong)
 
     EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x07ffffff);
     EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -0x08000000);
-    EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x08000000);
-    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -0x08000001);
+    EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x08000000);
+    EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -0x08000001);
 
-    EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x7fffffff);
-    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -ll(0x80000000));
-
+    EI_DECODE_2     (decode_ulonglong, 5, EI_ULONGLONG,  0x7fffffff);
+    EI_DECODE_2_FAIL(decode_ulonglong, 5, EI_ULONGLONG, -ll(0x80000000));
     EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0x80000000);
+    EI_DECODE_2_FAIL(decode_ulonglong, 7, EI_ULONGLONG, -0x80000001);
+
     EI_DECODE_2     (decode_ulonglong, 7, EI_ULONGLONG,  0xffffffff);
 
     EI_DECODE_2     (decode_ulonglong, 9, EI_ULONGLONG,  ll(0x7fffffffffff));

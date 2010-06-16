@@ -480,14 +480,14 @@ otp_5292_test() ->
     S2 = md5([md5(hash_int(S, E, PH)) || {Start, N, Sz} <- d(), 
                                          {S, E} <- int(Start, N, Sz)]),
     ?line Comment = case S1 of 
-                        <<43,186,76,102,87,4,110,245,203,177,206,6,130,69,43,99>> ->
+			<<4,248,208,156,200,131,7,1,173,13,239,173,112,81,16,174>> ->
 			    ?line big = erlang:system_info(endian),
                             "Big endian machine";
-                        <<21,206,139,15,149,28,167,81,98,225,132,254,49,125,174,195>> ->
+                        <<180,28,33,231,239,184,71,125,76,47,227,241,78,184,176,233>> ->
 			    ?line little = erlang:system_info(endian),
                             "Little endian machine"
                     end,
-    ?line <<140,37,79,80,26,242,130,22,20,229,123,240,223,244,43,99>> = S2,
+    ?line <<124,81,198,121,174,233,19,137,10,83,33,80,226,111,238,99>> = S2,
     ?line 2 = erlang:hash(1, (1 bsl 27) -1),
     ?line {'EXIT', _} = (catch erlang:hash(1, (1 bsl 27))),
     {comment, Comment}.
@@ -507,7 +507,7 @@ hash_int(Start, End, F) ->
     {Start, End, md5(HL)}.
 
 md5(T) ->
-    erlang:md5(term_to_binary(T)).
+    erlang:md5(term_to_binary(T)).   
 
 bit_level_binaries() ->
     ?line [3511317,7022633,14044578,28087749,56173436,112344123,90467083|_] =
