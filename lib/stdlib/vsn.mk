@@ -17,5 +17,4 @@
 # %CopyrightEnd%
 # 
 
-STDLIB_VSN = 1.17
-
+STDLIB_VSN = 1.17.1
