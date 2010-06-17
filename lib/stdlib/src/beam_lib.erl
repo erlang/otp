@@ -105,6 +105,7 @@
                    | info_rsn().
 -type cmp_rsn()   :: {'modules_different', module(), module()}
                    | {'chunks_different', chunkid()}
+                   | 'different_chunks'
                    | info_rsn().
 
 %%-------------------------------------------------------------------------
