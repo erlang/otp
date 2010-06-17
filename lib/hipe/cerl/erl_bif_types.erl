@@ -2337,8 +2337,7 @@ type(lists, flatten, 1, Xs) ->
 		     t_list();
 		   false ->
 		     X2 = type(lists, flatten, 1, [t_inf(X1, t_list())]),
-		     t_sup(t_list(t_subtract(X1, t_list())),
-			   X2)
+		     t_sup(t_list(t_subtract(X1, t_list())), X2)
 		 end
 	     end
 	 end);
@@ -2349,10 +2348,20 @@ type(lists, flatmap, 2, Xs) ->
 	       true -> t_nil();
 	       false ->
 		 case check_fun_application(F, [t_list_elements(List)]) of
-		   ok -> 
-		     case t_is_cons(List) of
-		       true -> t_nonempty_list(t_list_elements(t_fun_range(F)));
-		       false -> t_list(t_list_elements(t_fun_range(F)))
+		   ok ->
+		     R = t_fun_range(F),
+		     case t_is_nil(R) of
+		       true -> t_nil();
+		       false ->
+			 Elems = t_list_elements(R),
+			 case t_is_cons(List) of
+			   true ->
+			     case t_is_subtype(t_nil(), R) of
+			       true -> t_list(Elems);
+			       false -> t_nonempty_list(Elems)
+			     end;
+			   false -> t_list(Elems)
+			 end
 		     end;
 		   error ->
 		     case t_is_cons(List) of
