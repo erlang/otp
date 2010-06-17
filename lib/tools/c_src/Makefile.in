@@ -128,12 +128,13 @@ EMEM_ERTS_LIB=erts_r$(TYPEMARKER)
 
 endif
 
+EMEM_ETHR_LIBS=$(subst -l$(ETHR_LIB_NAME),-l$(ETHR_LIB_NAME)$(TYPEMARKER),$(subst -lerts_internal_r,-lerts_internal_r$(TYPEMARKER),$(ETHR_LIBS)))
+
 EMEM_LIBS =	$(LIBS) \
 		-L$(ERL_TOP)/erts/lib/$(TARGET) \
 		-L$(ERL_TOP)/erts/lib/internal/$(TARGET) \
 		-l$(EMEM_ERTS_LIB) \
-		-l$(ETHR_LIB_NAME)$(TYPEMARKER) \
-		$(ETHR_X_LIBS)
+		$(EMEM_ETHR_LIBS)
 
 EMEM_OBJS = $(addprefix $(EMEM_OBJ_DIR)/,$(notdir $(EMEM_SRCS:.c=.o)))
 

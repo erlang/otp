@@ -89,6 +89,7 @@ extern int erts_sched_thread_suggested_stack_size;
 #define ERTS_SCHED_THREAD_MAX_STACK_SIZE 8192	/* Kilo words */
 
 #ifdef ERTS_SMP
+extern Uint erts_max_main_threads;
 #include "erl_bits.h"
 #endif
 
@@ -219,6 +220,51 @@ typedef enum {
     ERTS_MIGRATE_FAILED_RUNQ_SUSPENDED
 } ErtsMigrateResult;
 
+#define ERTS_SSI_FLG_SLEEPING		(((long) 1) << 0)
+#define ERTS_SSI_FLG_POLL_SLEEPING 	(((long) 1) << 1)
+#define ERTS_SSI_FLG_TSE_SLEEPING 	(((long) 1) << 2)
+#define ERTS_SSI_FLG_WAITING		(((long) 1) << 3)
+#define ERTS_SSI_FLG_SUSPENDED	 	(((long) 1) << 4)
+
+#define ERTS_SSI_FLGS_SLEEP_TYPE			\
+ (ERTS_SSI_FLG_TSE_SLEEPING|ERTS_SSI_FLG_POLL_SLEEPING)
+
+#define ERTS_SSI_FLGS_SLEEP				\
+ (ERTS_SSI_FLG_SLEEPING|ERTS_SSI_FLGS_SLEEP_TYPE)
+
+#define ERTS_SSI_FLGS_ALL				\
+ (ERTS_SSI_FLGS_SLEEP					\
+  | ERTS_SSI_FLG_WAITING				\
+  | ERTS_SSI_FLG_SUSPENDED)
+
+
+#if !defined(ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK) \
+    && defined(ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN)
+#define ERTS_SCHED_NEED_BLOCKABLE_AUX_WORK
+#endif
+
+#define ERTS_SSI_AUX_WORK_CHECK_CHILDREN	(((long) 1) << 0)
+
+#define ERTS_SSI_BLOCKABLE_AUX_WORK_MASK \
+  (ERTS_SSI_AUX_WORK_CHECK_CHILDREN)
+#define ERTS_SSI_NONBLOCKABLE_AUX_WORK_MASK \
+  (0)
+
+typedef struct ErtsSchedulerSleepInfo_ ErtsSchedulerSleepInfo;
+
+typedef struct {
+    erts_smp_spinlock_t lock;
+    ErtsSchedulerSleepInfo *list;
+} ErtsSchedulerSleepList;
+
+struct ErtsSchedulerSleepInfo_ {
+    ErtsSchedulerSleepInfo *next;
+    ErtsSchedulerSleepInfo *prev;
+    erts_smp_atomic_t flags;
+    erts_tse_t *event;
+    erts_smp_atomic_t aux_work;
+};
+
 /* times to reschedule low prio process before running */
 #define RESCHEDULE_LOW        8
 
@@ -271,8 +317,9 @@ struct ErtsRunQueue_ {
     erts_smp_mtx_t mtx;
     erts_smp_cnd_t cnd;
 
-    erts_smp_atomic_t spin_waiter;
-    erts_smp_atomic_t spin_wake;
+#ifdef ERTS_SMP
+    ErtsSchedulerSleepList sleepers;
+#endif
 
     ErtsSchedulerData *scheduler;
     int waiting; /* < 0 in sys schedule; > 0 on cnd variable */
@@ -353,6 +400,7 @@ struct ErtsSchedulerData_ {
     ethr_tid tid;		/* Thread id */
     struct erl_bits_state erl_bits_state; /* erl_bits.c state */
     void *match_pseudo_process; /* erl_db_util.c:db_prog_match() */
+    ErtsSchedulerSleepInfo *ssi;
     Process *free_process;
 #endif
 #if !HEAP_ON_C_STACK
@@ -374,11 +422,6 @@ struct ErtsSchedulerData_ {
 
 #ifdef ERTS_SMP
     /* NOTE: These fields are modified under held mutexes by other threads */
-#ifdef ERTS_SMP_SCHEDULERS_NEED_TO_CHECK_CHILDREN
-    int check_children; /* run queue mutex */
-    int blocked_check_children; /* schdlr_sspnd mutex */
-#endif
-    erts_smp_atomic_t suspended; /* Only used when common run queue */
     erts_smp_atomic_t chk_cpu_bind; /* Only used when common run queue */
 #endif
 };
@@ -1085,6 +1128,9 @@ void erts_handle_pending_exit(Process *, ErtsProcLocks);
 
 void erts_deep_process_dump(int, void *);
 
+Eterm erts_get_reader_groups_map(Process *c_p);
+Eterm erts_debug_reader_groups_map(Process *c_p, int groups);
+
 Sint erts_test_next_pid(int, Uint);
 Eterm erts_debug_processes(Process *c_p);
 Eterm erts_debug_processes_bif_info(Process *c_p);
@@ -1509,28 +1555,29 @@ extern int erts_disable_proc_not_running_opt;
 #define ERTS_MIN_PROCESSES		16
 #endif
 
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-ERTS_GLB_INLINE void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
-void erts_smp_notify_inc_runq__(ErtsRunQueue *runq);
-#endif /* ERTS_INCLUDE_SCHEDULER_INTERNALS */
+void erts_smp_notify_inc_runq(ErtsRunQueue *runq);
+
+#ifdef ERTS_SMP
+void erts_sched_finish_poke(ErtsSchedulerSleepInfo *, long);
+ERTS_GLB_INLINE void erts_sched_poke(ErtsSchedulerSleepInfo *ssi);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
-#ifdef ERTS_INCLUDE_SCHEDULER_INTERNALS
-
 ERTS_GLB_INLINE void
-erts_smp_notify_inc_runq(ErtsRunQueue *runq)
+erts_sched_poke(ErtsSchedulerSleepInfo *ssi)
 {
-#ifdef ERTS_SMP
-    ERTS_SMP_LC_ASSERT(erts_smp_lc_runq_is_locked(runq));
-    if (runq->waiting)
-	erts_smp_notify_inc_runq__(runq);
-#endif
+    long flags = erts_smp_atomic_read(&ssi->flags);
+    ASSERT(!(flags & ERTS_SSI_FLG_SLEEPING)
+	   || (flags & ERTS_SSI_FLG_WAITING));
+    if (flags & ERTS_SSI_FLG_SLEEPING) {
+	flags = erts_smp_atomic_band(&ssi->flags, ~ERTS_SSI_FLGS_SLEEP);
+	erts_sched_finish_poke(ssi, flags);
+    }
 }
 
-#endif /* ERTS_INCLUDE_SCHEDULER_INTERNALS */
-
 #endif /* #if ERTS_GLB_INLINE_INCL_FUNC_DEF */
+
+#endif /* #ifdef ERTS_SMP */
 
 #include "erl_process_lock.h"
 

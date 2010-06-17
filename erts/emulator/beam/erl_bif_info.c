@@ -2563,6 +2563,8 @@ BIF_RETTYPE system_info_1(BIF_ALIST_1)
 	BIF_RET(erts_sched_stat_term(BIF_P, 1));
     } else if (ERTS_IS_ATOM_STR("taints", BIF_ARG_1)) {
 	BIF_RET(erts_nif_taints(BIF_P));
+    } else if (ERTS_IS_ATOM_STR("reader_groups_map", BIF_ARG_1)) {
+	BIF_RET(erts_get_reader_groups_map(BIF_P));
     }
 
     BIF_ERROR(BIF_P, BADARG);
@@ -3426,6 +3428,16 @@ BIF_RETTYPE erts_debug_get_internal_state_1(BIF_ALIST_1)
 	    else if (ERTS_IS_ATOM_STR("fake_scheduler_bindings", tp[1])) {
 		return erts_fake_scheduler_bindings(BIF_P, tp[2]);
 	    }
+	    else if (ERTS_IS_ATOM_STR("reader_groups_map", tp[1])) {
+		Sint groups;
+		if (is_not_small(tp[2]))
+		    BIF_ERROR(BIF_P, BADARG);
+		groups = signed_val(tp[2]);
+		if (groups < (Sint) 1 || groups > (Sint) INT_MAX)
+		    BIF_ERROR(BIF_P, BADARG);
+
+		BIF_RET(erts_debug_reader_groups_map(BIF_P, (int) groups));
+	    }
 	    break;
 	}
 	default:
@@ -3730,8 +3742,8 @@ static Eterm lcnt_build_lock_stats_term(Eterm **hpp, Uint *szp, erts_lcnt_lock_s
      * [{{file, line}, {tries, colls, {seconds, nanoseconds, n_blocks}}}]
      */
     
-    ethr_atomic_read(&stats->tries, (long *)&tries);
-    ethr_atomic_read(&stats->colls, (long *)&colls);
+    tries = (unsigned long) ethr_atomic_read(&stats->tries);
+    colls = (unsigned long) ethr_atomic_read(&stats->colls);
    
     line     = stats->line; 
     timer_s  = stats->timer.s;

@@ -255,11 +255,7 @@ void erts_proc_lc_unrequire_lock(Process *p, ErtsProcLocks locks);
 
 typedef struct {
     union {
-#if ERTS_PROC_LOCK_MUTEX_IMPL
-	erts_smp_mtx_t mtx;
-#else
 	erts_smp_spinlock_t spnlck;
-#endif
 	char buf[64]; /* Try to get locks in different cache lines */
     } u;
 } erts_pix_lock_t;
@@ -277,9 +273,12 @@ typedef struct {
   ((ErtsProcLocks) erts_smp_atomic_band(&(L)->flags, (long) (MSK)))
 #define ERTS_PROC_LOCK_FLGS_BOR_(L, MSK) \
   ((ErtsProcLocks) erts_smp_atomic_bor(&(L)->flags, (long) (MSK)))
-#define ERTS_PROC_LOCK_FLGS_CMPXCHG_(L, NEW, EXPECTED) \
-  ((ErtsProcLocks) erts_smp_atomic_cmpxchg(&(L)->flags, \
-                                           (long) (NEW), (long) (EXPECTED)))
+#define ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(L, NEW, EXPECTED) \
+  ((ErtsProcLocks) erts_smp_atomic_cmpxchg_acqb(&(L)->flags, \
+                                                (long) (NEW), (long) (EXPECTED)))
+#define ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(L, NEW, EXPECTED) \
+  ((ErtsProcLocks) erts_smp_atomic_cmpxchg_relb(&(L)->flags, \
+                                                (long) (NEW), (long) (EXPECTED)))
 #define ERTS_PROC_LOCK_FLGS_READ_(L) \
   ((ErtsProcLocks) erts_smp_atomic_read(&(L)->flags))
 
@@ -289,6 +288,9 @@ ERTS_GLB_INLINE ErtsProcLocks erts_proc_lock_flags_band(erts_proc_lock_t *,
 							ErtsProcLocks);
 ERTS_GLB_INLINE ErtsProcLocks erts_proc_lock_flags_bor(erts_proc_lock_t *,
 						       ErtsProcLocks);
+ERTS_GLB_INLINE ErtsProcLocks erts_proc_lock_flags_cmpxchg(erts_proc_lock_t *,
+							   ErtsProcLocks,
+							   ErtsProcLocks);
 
 #if ERTS_GLB_INLINE_INCL_FUNC_DEF
 
@@ -322,7 +324,9 @@ erts_proc_lock_flags_cmpxchg(erts_proc_lock_t *lck, ErtsProcLocks new,
 
 #define ERTS_PROC_LOCK_FLGS_BAND_(L, MSK) erts_proc_lock_flags_band((L), (MSK))
 #define ERTS_PROC_LOCK_FLGS_BOR_(L, MSK) erts_proc_lock_flags_bor((L), (MSK))
-#define ERTS_PROC_LOCK_FLGS_CMPXCHG_(L, NEW, EXPECTED) \
+#define ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(L, NEW, EXPECTED) \
+  erts_proc_lock_flags_cmpxchg((L), (NEW), (EXPECTED))
+#define ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(L, NEW, EXPECTED) \
   erts_proc_lock_flags_cmpxchg((L), (NEW), (EXPECTED))
 #define ERTS_PROC_LOCK_FLGS_READ_(L) ((L)->flags)
 
@@ -348,9 +352,9 @@ ERTS_GLB_INLINE ErtsProcLocks erts_smp_proc_raw_trylock__(Process *p,
 							  ErtsProcLocks locks);
 #ifdef ERTS_ENABLE_LOCK_COUNT
 ERTS_GLB_INLINE void erts_smp_proc_lock_x__(Process *,
-					  erts_pix_lock_t *,
-					  ErtsProcLocks,
-					  char *file, unsigned int line);
+					    erts_pix_lock_t *,
+					    ErtsProcLocks,
+					    char *file, unsigned int line);
 #else
 ERTS_GLB_INLINE void erts_smp_proc_lock__(Process *,
 					  erts_pix_lock_t *,
@@ -372,30 +376,18 @@ ERTS_GLB_INLINE void erts_proc_lock_op_debug(Process *, ErtsProcLocks, int);
 ERTS_GLB_INLINE void erts_pix_lock(erts_pix_lock_t *pixlck)
 {
     ERTS_LC_ASSERT(pixlck);
-#if ERTS_PROC_LOCK_MUTEX_IMPL
-    erts_smp_mtx_lock(&pixlck->u.mtx);
-#else
     erts_smp_spin_lock(&pixlck->u.spnlck);
-#endif
 }
 
 ERTS_GLB_INLINE void erts_pix_unlock(erts_pix_lock_t *pixlck)
 {
     ERTS_LC_ASSERT(pixlck);
-#if ERTS_PROC_LOCK_MUTEX_IMPL
-    erts_smp_mtx_unlock(&pixlck->u.mtx);
-#else
     erts_smp_spin_unlock(&pixlck->u.spnlck);
-#endif
 }
 
 ERTS_GLB_INLINE int erts_lc_pix_lock_is_locked(erts_pix_lock_t *pixlck)
 {
-#if ERTS_PROC_LOCK_MUTEX_IMPL
-    return erts_smp_lc_mtx_is_locked(&pixlck->u.mtx);
-#else
     return erts_smp_lc_spinlock_is_locked(&pixlck->u.spnlck);
-#endif
 }
 
 /*
@@ -417,9 +409,9 @@ erts_smp_proc_raw_trylock__(Process *p, ErtsProcLocks locks)
     ErtsProcLocks expct_lflgs = 0;
 
     while (1) {
-        ErtsProcLocks lflgs = ERTS_PROC_LOCK_FLGS_CMPXCHG_(&p->lock,
-							   expct_lflgs | locks,
-							   expct_lflgs);
+        ErtsProcLocks lflgs = ERTS_PROC_LOCK_FLGS_CMPXCHG_ACQB_(&p->lock,
+								expct_lflgs | locks,
+								expct_lflgs);
         if (ERTS_LIKELY(lflgs == expct_lflgs)) {
             /* We successfully grabbed all locks. */
             return 0;
@@ -535,7 +527,7 @@ erts_smp_proc_unlock__(Process *p,
 
         if (want_lflgs != old_lflgs) {
             ErtsProcLocks new_lflgs =
-                ERTS_PROC_LOCK_FLGS_CMPXCHG_(&p->lock, want_lflgs, old_lflgs);
+                ERTS_PROC_LOCK_FLGS_CMPXCHG_RELB_(&p->lock, want_lflgs, old_lflgs);
 
             if (new_lflgs != old_lflgs) {
                 /* cmpxchg failed, try again. */

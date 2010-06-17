@@ -77,6 +77,7 @@ void erts_lc_check(erts_lc_lock_t *have, int have_len,
 void erts_lc_check_exact(erts_lc_lock_t *have, int have_len);
 void erts_lc_have_locks(int *resv, erts_lc_lock_t *lcks, int len);
 void erts_lc_have_lock_ids(int *resv, int *ids, int len);
+void erts_lc_check_no_locked_of_type(Uint16 flags);
 int erts_lc_trylock_force_busy_flg(erts_lc_lock_t *lck, Uint16 op_flags);
 void erts_lc_trylock_flg(int locked, erts_lc_lock_t *lck, Uint16 op_flags);
 void erts_lc_lock_flg(erts_lc_lock_t *lck, Uint16 op_flags);

@@ -32,7 +32,7 @@ typedef struct {
   __asm__ __volatile__("membar #LoadLoad|#LoadStore|#StoreLoad|#StoreStore\n" \
                        : : : "memory")
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 #if defined(__arch64__)
 #define CASX "casx"
@@ -171,6 +171,43 @@ ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, long new, long old)
     __asm__ __volatile__("membar #StoreLoad|#StoreStore");
     return new;
 }
+
+/*
+ * Atomic ops with at least specified barriers.
+ */
+
+static ETHR_INLINE long
+ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+{
+    long res = ethr_native_atomic_read(var);
+    __asm__ __volatile__("membar #StoreLoad|#StoreStore");
+    return res;
+}
+
+static ETHR_INLINE void
+ethr_native_atomic_set_relb(ethr_native_atomic_t *var, long i)
+{
+    __asm__ __volatile__("membar #LoadStore|#StoreStore");
+    ethr_native_atomic_set(var, i);
+}
+
+static ETHR_INLINE void
+ethr_native_atomic_dec_relb(ethr_native_atomic_t *var)
+{
+    __asm__ __volatile__("membar #LoadStore|#StoreStore");
+    ethr_native_atomic_dec(var);
+}
+
+static ETHR_INLINE long
+ethr_native_atomic_dec_return_relb(ethr_native_atomic_t *var)
+{
+    __asm__ __volatile__("membar #LoadStore|#StoreStore");
+    return ethr_native_atomic_dec_return(var);
+}
+
+#define ethr_native_atomic_inc_return_acqb ethr_native_atomic_inc_return
+#define ethr_native_atomic_cmpxchg_acqb ethr_native_atomic_cmpxchg
+#define ethr_native_atomic_cmpxchg_relb ethr_native_atomic_cmpxchg
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 

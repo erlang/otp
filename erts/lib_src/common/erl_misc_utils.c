@@ -59,8 +59,25 @@
 #  endif
 #endif
 
-#ifdef HAVE_SCHED_xETAFFINITY
+#if defined(HAVE_SCHED_xETAFFINITY)
 #  include <sched.h>
+#  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
+#define ERTS_MU_GET_PROC_AFFINITY__(CPUINFOP)				\
+     (sched_getaffinity((CPUINFOP)->pid,				\
+			sizeof(cpu_set_t),				\
+			&(CPUINFOP)->cpuset) != 0 ? -errno : 0)
+#define ERTS_MU_SET_THR_AFFINITY__(SETP)				\
+     (sched_setaffinity(0, sizeof(cpu_set_t), (SETP)) != 0 ? -errno : 0)
+#elif defined(__WIN32__)
+#  define ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__
+#  define cpu_set_t DWORD
+#  define CPU_SETSIZE (sizeof(DWORD)*8)
+#  define CPU_ZERO(SETP) (*(SETP) = (DWORD) 0)
+#  define CPU_SET(CPU, SETP) (*(SETP) |= (((DWORD) 1) << (CPU)))
+#  define CPU_CLR(CPU, SETP) (*(SETP) &= ~(((DWORD) 1) << (CPU)))
+#  define CPU_ISSET(CPU, SETP) ((*(SETP) & (((DWORD) 1) << (CPU))) != (DWORD) 0)
+#define ERTS_MU_GET_PROC_AFFINITY__ get_proc_affinity
+#define ERTS_MU_SET_THR_AFFINITY__ set_thr_affinity
 #endif
 #ifdef HAVE_PSET_INFO
 #  include <sys/pset.h>
@@ -105,15 +122,46 @@ struct erts_cpu_info_t_ {
     int available;
     int topology_size;
     erts_cpu_topology_t *topology;
-#if defined(HAVE_SCHED_xETAFFINITY)
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     char *affinity_str;
     char affinity_str_buf[CPU_SETSIZE/4+2];
     cpu_set_t cpuset;
+#if defined(HAVE_SCHED_xETAFFINITY)
     pid_t pid;
+#endif
 #elif defined(HAVE_PSET_INFO)
     processorid_t *cpuids;
 #endif
 };
+
+#if defined(__WIN32__)
+
+static __forceinline int
+get_proc_affinity(erts_cpu_info_t *cpuinfo)
+{
+    DWORD pamask, samask;
+    if (GetProcessAffinityMask(GetCurrentProcess(), &pamask, &samask)) {
+	cpuinfo->cpuset = (cpu_set_t) pamask;
+	return 0;
+    }
+    else {
+	cpuinfo->cpuset = (cpu_set_t) 0;
+	return -erts_get_last_win_errno();
+    }
+}
+
+static __forceinline int
+set_thr_affinity(cpu_set_t *set)
+{
+    if (*set == (cpu_set_t) 0)
+	return -ENOTSUP;
+    if (SetThreadAffinityMask(GetCurrentThread(), *set) == 0)
+	return -erts_get_last_win_errno();
+    else
+	return 0;
+}
+
+#endif
 
 erts_cpu_info_t *
 erts_cpu_info_create(void)
@@ -121,9 +169,11 @@ erts_cpu_info_create(void)
     erts_cpu_info_t *cpuinfo = malloc(sizeof(erts_cpu_info_t));
     if (!cpuinfo)
 	return NULL;
-#if defined(HAVE_SCHED_xETAFFINITY)
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     cpuinfo->affinity_str = NULL;
+#if defined(HAVE_SCHED_xETAFFINITY)
     cpuinfo->pid = getpid();
+#endif
 #elif defined(HAVE_PSET_INFO)
     cpuinfo->cpuids = NULL;
 #endif
@@ -162,10 +212,13 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
 
 #ifdef __WIN32__
     {
+	int i;
 	SYSTEM_INFO sys_info;
 	GetSystemInfo(&sys_info);
 	cpuinfo->configured = (int) sys_info.dwNumberOfProcessors;
-	
+	for (i = 0; i < sizeof(DWORD)*8; i++)
+	    if (sys_info.dwActiveProcessorMask & (((DWORD) 1) << i))
+		cpuinfo->online++;
     }
 #elif !defined(NO_SYSCONF) && (defined(_SC_NPROCESSORS_CONF) \
 			       || defined(_SC_NPROCESSORS_ONLN))
@@ -205,8 +258,8 @@ erts_cpu_info_update(erts_cpu_info_t *cpuinfo)
     if (cpuinfo->online > cpuinfo->configured)
 	cpuinfo->online = cpuinfo->configured;
 
-#ifdef HAVE_SCHED_xETAFFINITY
-    if (sched_getaffinity(cpuinfo->pid, sizeof(cpu_set_t), &cpuinfo->cpuset) == 0) {
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+    if (ERTS_MU_GET_PROC_AFFINITY__(cpuinfo) == 0) {
 	int i, c, cn, si;
 	c = cn = 0;
 	si = sizeof(cpuinfo->affinity_str_buf) - 1;
@@ -289,7 +342,7 @@ erts_get_cpu_available(erts_cpu_info_t *cpuinfo)
 char *
 erts_get_unbind_from_cpu_str(erts_cpu_info_t *cpuinfo)
 {
-#if defined(HAVE_SCHED_xETAFFINITY)
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     if (!cpuinfo)
 	return "false";
     return cpuinfo->affinity_str;
@@ -303,7 +356,7 @@ erts_get_available_cpu(erts_cpu_info_t *cpuinfo, int no)
 {
     if (!cpuinfo || no < 1 || cpuinfo->available < no)
 	return -EINVAL;
-#ifdef HAVE_SCHED_xETAFFINITY
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     {
 	cpu_set_t *allowed = &cpuinfo->cpuset;
 	int ix, n;
@@ -335,8 +388,8 @@ int
 erts_is_cpu_available(erts_cpu_info_t *cpuinfo, int id)
 {
     if (cpuinfo && 0 <= id) {
-#ifdef HAVE_SCHED_xETAFFINITY
-	if (id <= CPU_SETSIZE)
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+	if (id < CPU_SETSIZE)
 	    return CPU_ISSET(id, &cpuinfo->cpuset);
 #elif defined(HAVE_PROCESSOR_BIND)
 	int no;
@@ -388,7 +441,7 @@ erts_bind_to_cpu(erts_cpu_info_t *cpuinfo, int cpu)
      */
     if (!cpuinfo)
 	return -EINVAL;
-#ifdef HAVE_SCHED_xETAFFINITY
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     {
 	cpu_set_t bind_set;
 	if (cpu < 0)
@@ -398,9 +451,7 @@ erts_bind_to_cpu(erts_cpu_info_t *cpuinfo, int cpu)
 
 	CPU_ZERO(&bind_set);
 	CPU_SET(cpu, &bind_set);
-	if (sched_setaffinity(0, sizeof(cpu_set_t), &bind_set) != 0)
-	    return -errno;
-	return 0;
+	return ERTS_MU_SET_THR_AFFINITY__(&bind_set);
     }
 #elif defined(HAVE_PROCESSOR_BIND)
     if (cpu < 0)
@@ -418,10 +469,8 @@ erts_unbind_from_cpu(erts_cpu_info_t *cpuinfo)
 {
     if (!cpuinfo)
 	return -EINVAL;
-#if defined(HAVE_SCHED_xETAFFINITY)
-    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuinfo->cpuset) != 0)
-	return -errno;
-    return 0;
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
+    return ERTS_MU_SET_THR_AFFINITY__(&cpuinfo->cpuset);
 #elif defined(HAVE_PROCESSOR_BIND)
     if (processor_bind(P_LWPID, P_MYID, PBIND_NONE, NULL) != 0)
 	return -errno;
@@ -434,7 +483,7 @@ erts_unbind_from_cpu(erts_cpu_info_t *cpuinfo)
 int
 erts_unbind_from_cpu_str(char *str)
 {
-#if defined(HAVE_SCHED_xETAFFINITY)
+#if defined(ERTS_HAVE_MISC_UTIL_AFFINITY_MASK__)
     char *c = str;
     int cpus = 0;
     int shft = 0;
@@ -486,9 +535,7 @@ erts_unbind_from_cpu_str(char *str)
     if (!cpus)
 	return -EINVAL;
 
-    if (sched_setaffinity(0, sizeof(cpu_set_t), &cpuset) != 0)
-	return -errno;
-    return 0;
+    return ERTS_MU_SET_THR_AFFINITY__(&cpuset);
 #elif defined(HAVE_PROCESSOR_BIND)
     if (processor_bind(P_LWPID, P_MYID, PBIND_NONE, NULL) != 0)
 	return -errno;
@@ -962,6 +1009,94 @@ static int
 read_topology(erts_cpu_info_t *cpuinfo)
 {
     return -ENOTSUP;
+}
+
+#endif
+
+#if defined(__WIN32__)
+
+int
+erts_get_last_win_errno(void)
+{
+    switch (GetLastError()) {
+    case ERROR_INVALID_FUNCTION:		return EINVAL;	/* 1	*/
+    case ERROR_FILE_NOT_FOUND:			return ENOENT;	/* 2	*/
+    case ERROR_PATH_NOT_FOUND:			return ENOENT;	/* 3	*/
+    case ERROR_TOO_MANY_OPEN_FILES:		return EMFILE;	/* 4	*/
+    case ERROR_ACCESS_DENIED:			return EACCES;	/* 5	*/
+    case ERROR_INVALID_HANDLE:			return EBADF;	/* 6	*/
+    case ERROR_ARENA_TRASHED:			return ENOMEM;	/* 7	*/
+    case ERROR_NOT_ENOUGH_MEMORY:		return ENOMEM;	/* 8	*/
+    case ERROR_INVALID_BLOCK:			return ENOMEM;	/* 9	*/
+    case ERROR_BAD_ENVIRONMENT:			return E2BIG;	/* 10	*/
+    case ERROR_BAD_FORMAT:			return ENOEXEC;	/* 11	*/
+    case ERROR_INVALID_ACCESS:			return EINVAL;	/* 12	*/
+    case ERROR_INVALID_DATA:			return EINVAL;	/* 13	*/
+    case ERROR_OUTOFMEMORY:			return ENOMEM;	/* 14	*/
+    case ERROR_INVALID_DRIVE:			return ENOENT;	/* 15	*/
+    case ERROR_CURRENT_DIRECTORY:		return EACCES;	/* 16	*/
+    case ERROR_NOT_SAME_DEVICE:			return EXDEV;	/* 17	*/
+    case ERROR_NO_MORE_FILES:			return ENOENT;	/* 18	*/
+    case ERROR_WRITE_PROTECT:			return EACCES;	/* 19	*/
+    case ERROR_BAD_UNIT:			return EACCES;	/* 20	*/
+    case ERROR_NOT_READY:			return EACCES;	/* 21	*/
+    case ERROR_BAD_COMMAND:			return EACCES;	/* 22	*/
+    case ERROR_CRC:				return EACCES;	/* 23	*/
+    case ERROR_BAD_LENGTH:			return EACCES;	/* 24	*/
+    case ERROR_SEEK:				return EACCES;	/* 25	*/
+    case ERROR_NOT_DOS_DISK:			return EACCES;	/* 26	*/
+    case ERROR_SECTOR_NOT_FOUND:		return EACCES;	/* 27	*/
+    case ERROR_OUT_OF_PAPER:			return EACCES;	/* 28	*/
+    case ERROR_WRITE_FAULT:			return EACCES;	/* 29	*/
+    case ERROR_READ_FAULT:			return EACCES;	/* 30	*/
+    case ERROR_GEN_FAILURE:			return EACCES;	/* 31	*/
+    case ERROR_SHARING_VIOLATION:		return EACCES;	/* 32	*/
+    case ERROR_LOCK_VIOLATION:			return EACCES;	/* 33	*/
+    case ERROR_WRONG_DISK:			return EACCES;	/* 34	*/
+    case ERROR_SHARING_BUFFER_EXCEEDED:		return EACCES;	/* 36	*/
+    case ERROR_BAD_NETPATH:			return ENOENT;	/* 53	*/
+    case ERROR_NETWORK_ACCESS_DENIED:		return EACCES;	/* 65	*/
+    case ERROR_BAD_NET_NAME:			return ENOENT;	/* 67	*/
+    case ERROR_FILE_EXISTS:			return EEXIST;	/* 80	*/
+    case ERROR_CANNOT_MAKE:			return EACCES;	/* 82	*/
+    case ERROR_FAIL_I24:			return EACCES;	/* 83	*/
+    case ERROR_INVALID_PARAMETER:		return EINVAL;	/* 87	*/
+    case ERROR_NO_PROC_SLOTS:			return EAGAIN;	/* 89	*/
+    case ERROR_DRIVE_LOCKED:			return EACCES;	/* 108	*/
+    case ERROR_BROKEN_PIPE:			return EPIPE;	/* 109	*/
+    case ERROR_DISK_FULL:			return ENOSPC;	/* 112	*/
+    case ERROR_INVALID_TARGET_HANDLE:		return EBADF;	/* 114	*/
+    case ERROR_WAIT_NO_CHILDREN:		return ECHILD;	/* 128	*/
+    case ERROR_CHILD_NOT_COMPLETE:		return ECHILD;	/* 129	*/
+    case ERROR_DIRECT_ACCESS_HANDLE:		return EBADF;	/* 130	*/
+    case ERROR_NEGATIVE_SEEK:			return EINVAL;	/* 131	*/
+    case ERROR_SEEK_ON_DEVICE:			return EACCES;	/* 132	*/
+    case ERROR_DIR_NOT_EMPTY:			return ENOTEMPTY;/* 145	*/
+    case ERROR_NOT_LOCKED:			return EACCES;	/* 158	*/
+    case ERROR_BAD_PATHNAME:			return ENOENT;	/* 161	*/
+    case ERROR_MAX_THRDS_REACHED:		return EAGAIN;	/* 164	*/
+    case ERROR_LOCK_FAILED:			return EACCES;	/* 167	*/
+    case ERROR_ALREADY_EXISTS:			return EEXIST;	/* 183	*/
+    case ERROR_INVALID_STARTING_CODESEG:	return ENOEXEC;	/* 188	*/
+    case ERROR_INVALID_STACKSEG:		return ENOEXEC;	/* 189	*/
+    case ERROR_INVALID_MODULETYPE:		return ENOEXEC;	/* 190	*/
+    case ERROR_INVALID_EXE_SIGNATURE:		return ENOEXEC;	/* 191	*/
+    case ERROR_EXE_MARKED_INVALID:		return ENOEXEC;	/* 192	*/
+    case ERROR_BAD_EXE_FORMAT:			return ENOEXEC;	/* 193	*/
+    case ERROR_ITERATED_DATA_EXCEEDS_64k:	return ENOEXEC;	/* 194	*/
+    case ERROR_INVALID_MINALLOCSIZE:		return ENOEXEC;	/* 195	*/
+    case ERROR_DYNLINK_FROM_INVALID_RING:	return ENOEXEC;	/* 196	*/
+    case ERROR_IOPL_NOT_ENABLED:		return ENOEXEC;	/* 197	*/
+    case ERROR_INVALID_SEGDPL:			return ENOEXEC;	/* 198	*/
+    case ERROR_AUTODATASEG_EXCEEDS_64k:		return ENOEXEC;	/* 199	*/
+    case ERROR_RING2SEG_MUST_BE_MOVABLE:	return ENOEXEC;	/* 200	*/
+    case ERROR_RELOC_CHAIN_XEEDS_SEGLIM:	return ENOEXEC;	/* 201	*/
+    case ERROR_INFLOOP_IN_RELOC_CHAIN:		return ENOEXEC;	/* 202	*/
+    case ERROR_FILENAME_EXCED_RANGE:		return ENOENT;	/* 206	*/
+    case ERROR_NESTING_NOT_ALLOWED:		return EAGAIN;	/* 215	*/
+    case ERROR_NOT_ENOUGH_QUOTA:		return ENOMEM;	/* 1816	*/
+    default:					return EINVAL;
+    }
 }
 
 #endif

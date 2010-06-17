@@ -80,6 +80,8 @@ dist_table_alloc(void *dep_tmpl)
     Eterm chnl_nr;
     Eterm sysname;
     DistEntry *dep;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
 
     if(((DistEntry *) dep_tmpl) == erts_this_dist_entry)
 	return dep_tmpl;
@@ -92,7 +94,7 @@ dist_table_alloc(void *dep_tmpl)
 
     dep->prev				= NULL;
     erts_refc_init(&dep->refc, -1);
-    erts_smp_rwmtx_init_x(&dep->rwmtx, "dist_entry", chnl_nr);
+    erts_smp_rwmtx_init_opt_x(&dep->rwmtx, &rwmtx_opt, "dist_entry", chnl_nr);
     dep->sysname			= sysname;
     dep->cid				= NIL;
     dep->connection_id			= 0;
@@ -580,6 +582,18 @@ ErlNode *erts_find_or_insert_node(Eterm sysname, Uint creation)
     ErlNode ne;
     ne.sysname = sysname;
     ne.creation = creation;
+
+    erts_smp_rwmtx_rlock(&erts_node_table_rwmtx);
+    res = hash_get(&erts_node_table, (void *) &ne);
+    if (res && res != erts_this_node) {
+	long refc = erts_refc_inctest(&res->refc, 0);
+	if (refc < 2) /* New or pending delete */
+	    erts_refc_inc(&res->refc, 1);
+    }
+    erts_smp_rwmtx_runlock(&erts_node_table_rwmtx);
+    if (res)
+	return res;
+
     erts_smp_rwmtx_rwlock(&erts_node_table_rwmtx);
     res = hash_put(&erts_node_table, (void *) &ne);
     ASSERT(res);
@@ -696,7 +710,11 @@ erts_set_this_node(Eterm sysname, Uint creation)
 
 void erts_init_node_tables(void)
 {
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
     HashFunctions f;
+
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
     f.hash  = (H_FUN)			dist_table_hash;
     f.cmp   = (HCMP_FUN)		dist_table_cmp;
@@ -719,9 +737,10 @@ void erts_init_node_tables(void)
     erts_this_dist_entry->prev				= NULL;
     erts_refc_init(&erts_this_dist_entry->refc, 1); /* erts_this_node */
 
-    erts_smp_rwmtx_init_x(&erts_this_dist_entry->rwmtx,
-			  "dist_entry",
-			  make_small(ERST_INTERNAL_CHANNEL_NO));
+    erts_smp_rwmtx_init_opt_x(&erts_this_dist_entry->rwmtx,
+			      &rwmtx_opt,
+			      "dist_entry",
+			      make_small(ERST_INTERNAL_CHANNEL_NO));
     erts_this_dist_entry->sysname			= am_Noname;
     erts_this_dist_entry->cid				= NIL;
     erts_this_dist_entry->connection_id			= 0;
@@ -772,8 +791,8 @@ void erts_init_node_tables(void)
 
     (void) hash_put(&erts_node_table, (void *) erts_this_node);
 
-    erts_smp_rwmtx_init(&erts_node_table_rwmtx, "node_table");
-    erts_smp_rwmtx_init(&erts_dist_table_rwmtx, "dist_table");
+    erts_smp_rwmtx_init_opt(&erts_node_table_rwmtx, &rwmtx_opt, "node_table");
+    erts_smp_rwmtx_init_opt(&erts_dist_table_rwmtx, &rwmtx_opt, "dist_table");
 
     references_atoms_need_init = 1;
 }

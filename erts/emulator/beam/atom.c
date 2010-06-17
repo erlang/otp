@@ -41,8 +41,7 @@ static erts_smp_rwmtx_t atom_table_lock;
 #define atom_read_unlock()	erts_smp_rwmtx_runlock(&atom_table_lock)
 #define atom_write_lock()	erts_smp_rwmtx_rwlock(&atom_table_lock)
 #define atom_write_unlock()	erts_smp_rwmtx_rwunlock(&atom_table_lock)
-#define atom_init_lock()	erts_smp_rwmtx_init(&atom_table_lock, \
-						    "atom_tab")
+
 #if 0
 #define ERTS_ATOM_PUT_OPS_STAT
 #endif
@@ -304,12 +303,17 @@ init_atom_table(void)
     HashFunctions f;
     int i;
     Atom a;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
 #ifdef ERTS_ATOM_PUT_OPS_STAT
     erts_smp_atomic_init(&atom_put_ops, 0);
 #endif
 
-    atom_init_lock();
+    erts_smp_rwmtx_init_opt(&atom_table_lock, &rwmtx_opt, "atom_tab");
+
     f.hash = (H_FUN) atom_hash;
     f.cmp  = (HCMP_FUN) atom_cmp;
     f.alloc = (HALLOC_FUN) atom_alloc;

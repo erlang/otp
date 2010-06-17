@@ -34,7 +34,7 @@ typedef struct {
 
 #define ETHR_MEMORY_BARRIER __asm__ __volatile__("sync" : : : "memory")
 
-#ifdef ETHR_TRY_INLINE_FUNCS
+#if defined(ETHR_TRY_INLINE_FUNCS) || defined(ETHR_AUX_IMPL__)
 
 static ETHR_INLINE void
 ethr_native_atomic_init(ethr_native_atomic_t *var, int i)
@@ -204,6 +204,26 @@ ethr_native_atomic_cmpxchg(ethr_native_atomic_t *var, int new, int expected)
 
     return old;
 }
+
+/*
+ * Atomic ops with at least specified barriers.
+ */
+
+static ETHR_INLINE long
+ethr_native_atomic_read_acqb(ethr_native_atomic_t *var)
+{
+    long res = ethr_native_atomic_read(var);
+    ETHR_MEMORY_BARRIER;
+    return res;
+}
+
+#define ethr_native_atomic_set_relb ethr_native_atomic_xchg
+#define ethr_native_atomic_inc_return_acqb ethr_native_atomic_inc_return
+#define ethr_native_atomic_dec_relb ethr_native_atomic_dec_return
+#define ethr_native_atomic_dec_return_relb ethr_native_atomic_dec_return
+
+#define ethr_native_atomic_cmpxchg_acqb ethr_native_atomic_cmpxchg
+#define ethr_native_atomic_cmpxchg_relb ethr_native_atomic_cmpxchg
 
 #endif /* ETHR_TRY_INLINE_FUNCS */
 

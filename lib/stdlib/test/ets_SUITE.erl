@@ -33,7 +33,7 @@
 -export([misc/1, dups/1, misc1/1, safe_fixtable/1, info/1, tab2list/1]).
 -export([files/1, tab2file/1, tab2file2/1, tab2file3/1, tabfile_ext1/1,
 	tabfile_ext2/1, tabfile_ext3/1, tabfile_ext4/1]).
--export([heavy/1, heavy_lookup/1, heavy_lookup_element/1]).
+-export([heavy/1, heavy_lookup/1, heavy_lookup_element/1, heavy_concurrent/1]).
 -export([lookup_element/1, lookup_element_mult/1]).
 -export([fold/1]).
 -export([foldl_ordered/1, foldr_ordered/1, foldl/1, foldr/1, fold_empty/1]).
@@ -89,7 +89,8 @@
 	 match_delete_do/1, match_delete3_do/1, firstnext_do/1, 
 	 slot_do/1, match1_do/1, match2_do/1, match_object_do/1, match_object2_do/1,
 	 misc1_do/1, safe_fixtable_do/1, info_do/1, dups_do/1, heavy_lookup_do/1,
-	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1
+	 heavy_lookup_element_do/1, member_do/1, otp_5340_do/1, otp_7665_do/1, meta_wb_do/1,
+	 do_heavy_concurrent/1
 	]).
 
 -include("test_server.hrl").
@@ -3877,7 +3878,7 @@ make_sub_binary(List, Num) when is_list(List) ->
     {_,B} = split_binary(Bin, N+1),
     B.
 
-heavy(suite) -> [heavy_lookup, heavy_lookup_element].
+heavy(suite) -> [heavy_lookup, heavy_lookup_element, heavy_concurrent].
 
 %% Lookup stuff like crazy...
 heavy_lookup(doc) -> ["Performs multiple lookups for every key ",
@@ -3939,6 +3940,44 @@ do_lookup_element(Tab, N, M) ->
 	      _ -> ?line do_lookup_element(Tab, N, M+1)
     end.
 
+
+heavy_concurrent(Config) ->
+    repeat_for_opts(do_heavy_concurrent).
+
+do_heavy_concurrent(Opts) ->
+    ?line Size = 20000,
+    ?line EtsMem = etsmem(),
+    ?line Tab = ets:new(blupp, [set, public, {keypos, 2} | Opts]),
+    ?line ok = fill_tab2(Tab, 0, Size),
+    ?line Procs = lists:map(
+		    fun (N) ->
+			    spawn_link(
+			      fun () ->
+				      do_heavy_concurrent_proc(Tab, Size, N)
+			      end)
+		    end,
+		    lists:seq(1, 500)),
+    ?line lists:foreach(fun (P) ->
+				M = erlang:monitor(process, P),
+				receive
+				    {'DOWN', Mon, process, P, _} ->
+					ok
+				end
+			end,
+			Procs),
+    ?line true = ets:delete(Tab),
+    ?line verify_etsmem(EtsMem).
+
+do_heavy_concurrent_proc(_Tab, 0, _Offs) ->
+    done;
+do_heavy_concurrent_proc(Tab, N, Offs) when (N+Offs) rem 100 == 0 ->
+    Data = {"here", are, "S O M E ", data, "toooooooooooooooooo", insert,
+	    make_ref(), make_ref(), make_ref()},
+    true=ets:insert(Tab, {{self(),Data}, N}),
+    do_heavy_concurrent_proc(Tab, N-1, Offs);
+do_heavy_concurrent_proc(Tab, N, Offs) ->
+    _ = ets:lookup(Tab, N),
+    do_heavy_concurrent_proc(Tab, N-1, Offs).
 
 fold(suite) -> [foldl_ordered, foldr_ordered,
 		foldl, foldr,
@@ -5336,7 +5375,7 @@ only_if_smp(Schedulers, Func) ->
 %% Repeat test function with different combination of table options
 %%       
 repeat_for_opts(F) ->
-    repeat_for_opts(F, [write_concurrency]).
+    repeat_for_opts(F, [write_concurrency, read_concurrency]).
 
 repeat_for_opts(F, OptGenList) when is_atom(F) ->
     repeat_for_opts(fun(Opts) -> ?MODULE:F(Opts) end, OptGenList);
@@ -5356,6 +5395,7 @@ repeat_for_opts(F, [Atom | Tail], AccList) when is_atom(Atom) ->
     repeat_for_opts(F, [repeat_for_opts_atom2list(Atom) | Tail ], AccList).
 
 repeat_for_opts_atom2list(all_types) -> [set,ordered_set,bag,duplicate_bag];
-repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}].
+repeat_for_opts_atom2list(write_concurrency) -> [{write_concurrency,false},{write_concurrency,true}];
+repeat_for_opts_atom2list(read_concurrency) -> [{read_concurrency,false},{read_concurrency,true}].
 
     

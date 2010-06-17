@@ -625,6 +625,7 @@ erts_port_task_schedule(Eterm id,
 
     if (!enq_port) {
 	ERTS_PT_CHK_PRES_PORTQ(runq, pp);
+	erts_smp_runq_unlock(runq);
     }
     else {
 	enqueue_port(runq, pp);
@@ -634,9 +635,10 @@ erts_port_task_schedule(Eterm id,
 	    profile_runnable_port(pp, am_active);
 	}
 
+	erts_smp_runq_unlock(runq);
+
 	erts_smp_notify_inc_runq(runq);
     }
-    erts_smp_runq_unlock(runq);
     return 0;
 }
 
@@ -944,8 +946,8 @@ erts_port_task_execute(ErtsRunQueue *runq, Port **curr_port_pp)
 	    enqueue_port(xrunq, pp);
 	    ASSERT(pp->sched.exe_taskq);
 	    pp->sched.exe_taskq = NULL;
-	    erts_smp_notify_inc_runq(xrunq);
 	    erts_smp_runq_unlock(xrunq);
+	    erts_smp_notify_inc_runq(xrunq);
 	}
 #endif
 	port_was_enqueued = 1;
@@ -1112,7 +1114,6 @@ erts_port_migrate(Port *prt, int *prt_locked,
     dequeue_port(from_rq, prt);
     erts_smp_atomic_set(&prt->run_queue, (long) to_rq);
     enqueue_port(to_rq, prt);
-    erts_smp_notify_inc_runq(to_rq);
     return ERTS_MIGRATE_SUCCESS;
 }
 

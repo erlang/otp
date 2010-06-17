@@ -166,8 +166,8 @@ static void print_lock_x(erts_lcnt_lock_t *lock, Uint16 flag, char *action, char
     int i;
     
     type = lcnt_lock_type(lock->flag);
-    ethr_atomic_read(&lock->r_state, &r_state);
-    ethr_atomic_read(&lock->w_state, &w_state);
+    r_state = ethr_atomic_read(&lock->r_state);
+    w_state = ethr_atomic_read(&lock->w_state);
 
     
     if (lock->flag & flag) {
@@ -394,10 +394,10 @@ void erts_lcnt_lock_opt(erts_lcnt_lock_t *lock, Uint16 option) {
 
     ASSERT(eltd);
     
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     
     if (option & ERTS_LCNT_LO_WRITE) {
-        ethr_atomic_read(&lock->r_state, &r_state);
+        r_state = ethr_atomic_read(&lock->r_state);
         ethr_atomic_inc( &lock->w_state);
     }
     if (option & ERTS_LCNT_LO_READ) {
@@ -423,7 +423,7 @@ void erts_lcnt_lock(erts_lcnt_lock_t *lock) {
     
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
 
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     ethr_atomic_inc( &lock->w_state);
 
     eltd = lcnt_get_thread_data();
@@ -478,7 +478,7 @@ void erts_lcnt_lock_post_x(erts_lcnt_lock_t *lock, char *file, unsigned int line
     
 #ifdef DEBUG
     if (!(lock->flag & (ERTS_LCNT_LT_RWMUTEX | ERTS_LCNT_LT_RWSPINLOCK))) {
-    	ethr_atomic_read(&lock->flowstate, &flowstate);
+	flowstate = ethr_atomic_read(&lock->flowstate);
 	ASSERT(flowstate == 0);
     	ethr_atomic_inc( &lock->flowstate);
     }
@@ -522,12 +522,12 @@ void erts_lcnt_unlock(erts_lcnt_lock_t *lock) {
     if (erts_lcnt_rt_options & ERTS_LCNT_OPT_SUSPEND) return;
 #ifdef DEBUG
     /* flowstate */
-    ethr_atomic_read(&lock->flowstate, &flowstate);
+    flowstate = ethr_atomic_read(&lock->flowstate);
     ASSERT(flowstate == 1);
     ethr_atomic_dec( &lock->flowstate);
     
     /* write state */
-    ethr_atomic_read(&lock->w_state, &w_state);
+    w_state = ethr_atomic_read(&lock->w_state);
     ASSERT(w_state > 0)
 #endif
     ethr_atomic_dec(&lock->w_state);
@@ -558,7 +558,7 @@ void erts_lcnt_trylock(erts_lcnt_lock_t *lock, int res) {
     if (res != EBUSY) {
 	
 #ifdef DEBUG
-    	ethr_atomic_read(&lock->flowstate, &flowstate);
+	flowstate = ethr_atomic_read(&lock->flowstate);
 	ASSERT(flowstate == 0);
     	ethr_atomic_inc( &lock->flowstate);
 #endif

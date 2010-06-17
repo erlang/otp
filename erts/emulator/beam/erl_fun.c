@@ -37,8 +37,6 @@ static erts_smp_rwmtx_t erts_fun_table_lock;
 #define erts_fun_read_unlock()	erts_smp_rwmtx_runlock(&erts_fun_table_lock)
 #define erts_fun_write_lock()	erts_smp_rwmtx_rwlock(&erts_fun_table_lock)
 #define erts_fun_write_unlock()	erts_smp_rwmtx_rwunlock(&erts_fun_table_lock)
-#define erts_fun_init_lock()	erts_smp_rwmtx_init(&erts_fun_table_lock, \
-						    "fun_tab")
 
 static HashValue fun_hash(ErlFunEntry* obj);
 static int fun_cmp(ErlFunEntry* obj1, ErlFunEntry* obj2);
@@ -57,8 +55,12 @@ void
 erts_init_fun_table(void)
 {
     HashFunctions f;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    erts_fun_init_lock();
+    erts_smp_rwmtx_init_opt(&erts_fun_table_lock, &rwmtx_opt, "fun_tab");
+
     f.hash = (H_FUN) fun_hash;
     f.cmp  = (HCMP_FUN) fun_cmp;
     f.alloc = (HALLOC_FUN) fun_alloc;

@@ -61,6 +61,9 @@ if test x"${ERL_TOP}/erts" != x"$srcdir"; then
 fi
 erl_top=${ERL_TOP}
 
+# Remove old configuration information
+/bin/rm -f "$ERL_TOP/erts/CONF_INFO"
+
 # echo XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
 # echo X
 # echo "X srcdir  = $srcdir"
@@ -276,20 +279,6 @@ AC_ARG_ENABLE(clock-gettime,
     no) clock_gettime_correction=no ;;
     *) clock_gettime_correction=yes ;;
   esac ], clock_gettime_correction=unknown)
-
-AC_ARG_ENABLE(native-ethr-impls,
-[  --enable-native-ethr-impls enable native ethread implementations
-  --disable-native-ethr-impls disable native ethread implementations],
-[ case "$enableval" in
-    no) disable_native_ethr_impls=yes ;;
-    *)  disable_native_ethr_impls=no ;;
-  esac ], disable_native_ethr_impls=no)
-
-dnl Defined in libraries/megaco/configure.in but we need it here
-dnl also in order to show it to the "top user"
-
-AC_ARG_ENABLE(megaco_flex_scanner_lineno,
-[  --disable-megaco-flex-scanner-lineno disable megaco flex scanner lineno])
 
 dnl Magic test for clearcase.
 OTP_RELEASE=
@@ -1049,6 +1038,42 @@ if test $ERTS_BUILD_SMP_EMU = yes; then
 	fi
 
 	AC_DEFINE(ERTS_HAVE_SMP_EMU, 1, [Define if the smp emulator is built])
+
+	case "$ethr_have_native_atomics-$ethr_have_native_spinlock" in
+	  yes-*)
+		;;
+
+	  no-yes)
+
+		test -f "$ERL_TOP/erts/CONF_INFO" ||
+		    echo "" > "$ERL_TOP/erts/CONF_INFO"
+		cat >> $ERL_TOP/erts/CONF_INFO <<EOF
+
+                 No native atomic implementation available.
+                 Fallbacks implemented using spinlocks will be
+                 used. Note that the performance of the SMP
+                 runtime system will suffer due to this.
+
+EOF
+		;;
+
+	  no-no)
+
+		test -f "$ERL_TOP/erts/CONF_INFO" ||
+		    echo "" > "$ERL_TOP/erts/CONF_INFO"
+		cat >> "$ERL_TOP/erts/CONF_INFO" <<EOF
+
+                 No native atomic implementation, nor no native
+                 spinlock implementation available. Fallbacks
+                 implemented using mutexes will be used. Note
+                 that the performance of the SMP runtime system
+                 will suffer much due to this.
+
+EOF
+		;;
+
+	esac
+
 	enable_threads=force
 fi
 
@@ -1221,13 +1246,7 @@ fi
 
 AC_SUBST(EMU_LOCK_CHECKING)
 
-ERTS_INTERNAL_X_LIBS=
-
-AC_CHECK_LIB(kstat, kstat_open,
-[AC_DEFINE(HAVE_KSTAT, 1, [Define if you have kstat])
-ERTS_INTERNAL_X_LIBS="$ERTS_INTERNAL_X_LIBS -lkstat"])
-
-AC_SUBST(ERTS_INTERNAL_X_LIBS)
+ERL_INTERNAL_LIBS
 
 dnl THR_LIBS and THR_DEFS are only used by odbc
 THR_LIBS=$ETHR_X_LIBS

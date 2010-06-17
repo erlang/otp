@@ -1,19 +1,19 @@
 /*
  * %CopyrightBegin%
- * 
- * Copyright Ericsson AB 2004-2009. All Rights Reserved.
- * 
+ *
+ * Copyright Ericsson AB 2004-2010. All Rights Reserved.
+ *
  * The contents of this file are subject to the Erlang Public License,
  * Version 1.1, (the "License"); you may not use this file except in
  * compliance with the License. You should have received a copy of the
  * Erlang Public License along with this software. If not, it can be
  * retrieved online at http://www.erlang.org/.
- * 
+ *
  * Software distributed under the License is distributed on an "AS IS"
  * basis, WITHOUT WARRANTY OF ANY KIND, either express or implied. See
  * the License for the specific language governing rights and limitations
  * under the License.
- * 
+ *
  * %CopyrightEnd%
  */
 
@@ -90,10 +90,12 @@ static void print_line(char *frmt,...)
     print_eol();
 }
 
+#if 0 /* Currently not used; silence annoying warning... */
 static void print(char *frmt,...)
 {
     PRINT_VA_LIST(frmt);
 }
+#endif
 
 static void fail(char *frmt,...)
 {
@@ -197,8 +199,8 @@ create_join_thread_test(void)
     }
 
     for (i = 1; i <= CJTT_NO_THREADS; i++) {
-	int *tres;
-	res = ethr_thr_join(cjtt_tids[i], (void **) &tres);
+	void *tres;
+	res = ethr_thr_join(cjtt_tids[i], &tres);
 	ASSERT(res == 0);
 	ASSERT(tres == &cjtt_res[i]);
 	ASSERT(cjtt_res[i] == i);
@@ -216,8 +218,8 @@ create_join_thread_test(void)
 #define ETT_THREADS 100000
 
 static ethr_tid ett_tids[3];
-static ethr_mutex ett_mutex = ETHR_MUTEX_INITER;
-static ethr_cond ett_cond = ETHR_COND_INITER;
+static ethr_mutex ett_mutex;
+static ethr_cond ett_cond;
 static int ett_terminate;
 
 static void *
@@ -234,14 +236,12 @@ static void *
 ett_thread2(void *unused)
 {
     int res;
-    res = ethr_mutex_lock(&ett_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&ett_mutex);
     while (!ett_terminate) {
 	res = ethr_cond_wait(&ett_cond, &ett_mutex);
 	ASSERT(res == 0);
     }
-    res = ethr_mutex_unlock(&ett_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&ett_mutex);
     return NULL;
 }
 
@@ -250,6 +250,10 @@ equal_tids_test(void)
 {
     int res, i;
 
+    res = ethr_mutex_init(&ett_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&ett_cond);
+    ASSERT(res == 0);
     ett_tids[0] = ethr_self();
     
     res = ethr_thr_create(&ett_tids[1], ett_thread, (void *) &ett_tids[1], NULL);
@@ -298,13 +302,10 @@ equal_tids_test(void)
 	ASSERT(res == 0);
     }
 
-    res = ethr_mutex_lock(&ett_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&ett_mutex);
     ett_terminate = 1;
-    res = ethr_cond_signal(&ett_cond);
-    ASSERT(res == 0);
-    res = ethr_mutex_unlock(&ett_mutex);
-    ASSERT(res == 0);
+    ethr_cond_signal(&ett_cond);
+    ethr_mutex_unlock(&ett_mutex);
     res = ethr_thr_join(ett_tids[1], NULL);
     ASSERT(res == 0);
 
@@ -321,17 +322,14 @@ equal_tids_test(void)
  * Tests mutexes.
  */
 
-static ethr_mutex mt_mutex = ETHR_MUTEX_INITER;
+static ethr_mutex mt_mutex;
 static int mt_data;
 
 void *
 mt_thread(void *unused)
 {
-    int res;
-
     print_line("Aux thread tries to lock mutex");
-    res = ethr_mutex_lock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&mt_mutex);
     print_line("Aux thread locked mutex");
 
     ASSERT(mt_data == 0);
@@ -345,8 +343,7 @@ mt_thread(void *unused)
 
     ASSERT(mt_data == 1);
 
-    res = ethr_mutex_unlock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&mt_mutex);
     print_line("Aux thread unlocked mutex");
 
     return NULL;
@@ -356,18 +353,18 @@ mt_thread(void *unused)
 static void
 mutex_test(void)
 {
-    int do_restart = 1;
     int res;
     ethr_tid tid;
 
-    print_line("Running test with statically initialized mutex");
+    print_line("Trying to initialize mutex");
+    res = ethr_mutex_init(&mt_mutex);
+    ASSERT(res == 0);
+    print_line("Initialized mutex");
 
- restart:
     mt_data = 0;
 
     print_line("Main thread tries to lock mutex");
-    res = ethr_mutex_lock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&mt_mutex);
     print_line("Main thread locked mutex");
 
     ASSERT(mt_data == 0);
@@ -383,8 +380,7 @@ mutex_test(void)
 
     ASSERT(mt_data == 0);
 
-    res = ethr_mutex_unlock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&mt_mutex);
     print_line("Main thread unlocked mutex");
 
     print_line("Main thread goes to sleep for 1 second");
@@ -392,8 +388,7 @@ mutex_test(void)
     print_line("Main thread woke up");
 
     print_line("Main thread tries to lock mutex");
-    res = ethr_mutex_lock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&mt_mutex);
     print_line("Main thread locked mutex");
 
     ASSERT(mt_data == 1);
@@ -404,8 +399,7 @@ mutex_test(void)
 
     ASSERT(mt_data == 1);
 
-    res = ethr_mutex_unlock(&mt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&mt_mutex);
     print_line("Main thread unlocked mutex");
 
     res = ethr_thr_join(tid, NULL);
@@ -416,20 +410,6 @@ mutex_test(void)
     ASSERT(res == 0);
     print_line("Main thread destroyed mutex");
 
-    if (do_restart) {
-	do_restart = 0;
-
-	print_line("Running test with dynamically initialized mutex");
-
-	print_line("Trying to initialize mutex");
-	res = ethr_mutex_init(&mt_mutex);
-	ASSERT(res == 0);
-	print_line("Initialized mutex");
-
-	goto restart;
-
-    }
-
 }
 
 /*
@@ -438,9 +418,9 @@ mutex_test(void)
  * Tests try lock mutex operation.
  */
 
-static ethr_mutex tlmt_mtx1 = ETHR_MUTEX_INITER;
-static ethr_mutex tlmt_mtx2 = ETHR_MUTEX_INITER;
-static ethr_cond tlmt_cnd2 = ETHR_COND_INITER;
+static ethr_mutex tlmt_mtx1;
+static ethr_mutex tlmt_mtx2;
+static ethr_cond tlmt_cnd2;
 
 static int tlmt_mtx1_locked;
 static int tlmt_mtx1_do_unlock;
@@ -450,32 +430,24 @@ tlmt_thread(void *unused)
 {
     int res;
 
-    res = ethr_mutex_lock(&tlmt_mtx1);
-    ASSERT(res == 0);
-    res = ethr_mutex_lock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&tlmt_mtx1);
+    ethr_mutex_lock(&tlmt_mtx2);
 
     tlmt_mtx1_locked = 1;
-    res = ethr_cond_signal(&tlmt_cnd2);
-    ASSERT(res == 0);
+    ethr_cond_signal(&tlmt_cnd2);
 
     while (!tlmt_mtx1_do_unlock) {
 	res = ethr_cond_wait(&tlmt_cnd2, &tlmt_mtx2);
 	ASSERT(res == 0 || res == EINTR);
     }
 
-    res = ethr_mutex_unlock(&tlmt_mtx2);
-    ASSERT(res == 0);
-    res = ethr_mutex_unlock(&tlmt_mtx1);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&tlmt_mtx2);
+    ethr_mutex_unlock(&tlmt_mtx1);
 
-    res = ethr_mutex_lock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&tlmt_mtx2);
     tlmt_mtx1_locked = 0;
-    res = ethr_cond_signal(&tlmt_cnd2);
-    ASSERT(res == 0);
-    res = ethr_mutex_unlock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_cond_signal(&tlmt_cnd2);
+    ethr_mutex_unlock(&tlmt_mtx2);
 
     return NULL;
 }
@@ -486,48 +458,49 @@ try_lock_mutex_test(void)
     int i, res;
     ethr_tid tid;
 
+    res = ethr_mutex_init(&tlmt_mtx1);
+    ASSERT(res == 0);
+    res = ethr_mutex_init(&tlmt_mtx2);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&tlmt_cnd2);
+    ASSERT(res == 0);
+
     tlmt_mtx1_locked = 0;
     tlmt_mtx1_do_unlock = 0;
 
     res = ethr_thr_create(&tid, tlmt_thread, NULL, NULL);
     ASSERT(res == 0);
 
-    res = ethr_mutex_lock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&tlmt_mtx2);
 
     while (!tlmt_mtx1_locked) {
 	res = ethr_cond_wait(&tlmt_cnd2, &tlmt_mtx2);
 	ASSERT(res == 0 || res == EINTR);
     }
 
-    res = ethr_mutex_unlock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&tlmt_mtx2);
 
     for (i = 0; i < 10; i++) {
 	res = ethr_mutex_trylock(&tlmt_mtx1);
 	ASSERT(res == EBUSY);
     }
 
-    res = ethr_mutex_lock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&tlmt_mtx2);
 
     tlmt_mtx1_do_unlock = 1;
-    res = ethr_cond_signal(&tlmt_cnd2);
-    ASSERT(res == 0);
+    ethr_cond_signal(&tlmt_cnd2);
 
     while (tlmt_mtx1_locked) {
 	res = ethr_cond_wait(&tlmt_cnd2, &tlmt_mtx2);
 	ASSERT(res == 0 || res == EINTR);
     }
 
-    res = ethr_mutex_unlock(&tlmt_mtx2);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&tlmt_mtx2);
 
     res = ethr_mutex_trylock(&tlmt_mtx1);
     ASSERT(res == 0);
 
-    res = ethr_mutex_unlock(&tlmt_mtx1);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&tlmt_mtx1);
 
     res = ethr_thr_join(tid, NULL);
     ASSERT(res == 0);
@@ -538,159 +511,6 @@ try_lock_mutex_test(void)
     ASSERT(res == 0);
     res = ethr_cond_destroy(&tlmt_cnd2);
     ASSERT(res == 0);
-}
-
-/*
- * The recursive mutex test case.
- *
- * Tests recursive mutexes.
- */
-
-#ifdef ETHR_HAVE_ETHR_REC_MUTEX_INIT
-
-static ethr_mutex rmt_mutex
-#ifdef ETHR_REC_MUTEX_INITER 
-                            = ETHR_REC_MUTEX_INITER
-#endif
-                                                   ;
-static int rmt_data;
-
-void *
-rmt_thread(void *unused)
-{
-    int res;
-
-    print_line("Aux thread tries to lock mutex");
-    res = ethr_mutex_lock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Aux thread locked mutex");
-
-    ASSERT(rmt_data == 0);
-
-    rmt_data = 1;
-    print_line("Aux thread wrote");
-
-    print_line("Aux thread goes to sleep for 1 second");
-    do_sleep(1);
-    print_line("Aux thread woke up");
-
-    ASSERT(rmt_data == 1);
-
-    res = ethr_mutex_unlock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Aux thread unlocked mutex");
-
-    return NULL;
-}
-
-#endif
-
-static void
-recursive_mutex_test(void)
-{
-#ifdef ETHR_HAVE_ETHR_REC_MUTEX_INIT
-    int do_restart = 1;
-    int res;
-    ethr_tid tid;
-
-#ifdef ETHR_REC_MUTEX_INITER
-    print_line("Running test with statically initialized mutex");
-#else
-    goto dynamic_init;
-#endif
-
- restart:
-    rmt_data = 0;
-
-    print_line("Main thread tries to lock mutex");
-    res = ethr_mutex_lock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread locked mutex");
-
-    print_line("Main thread tries to lock mutex again");
-    res = ethr_mutex_lock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread locked mutex again");
-
-    ASSERT(rmt_data == 0);
-
-    print_line("Main thread about to create aux thread");
-    res = ethr_thr_create(&tid, rmt_thread, NULL, NULL);
-    ASSERT(res == 0);
-    print_line("Main thread created aux thread");
-
-    print_line("Main thread goes to sleep for 1 second");
-    do_sleep(1);
-    print_line("Main thread woke up");
-
-    ASSERT(rmt_data == 0);
-
-    res = ethr_mutex_unlock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread unlocked mutex");
-
-    print_line("Main thread goes to sleep for 1 second");
-    do_sleep(1);
-    print_line("Main thread woke up");
-
-    ASSERT(rmt_data == 0);
-
-    res = ethr_mutex_unlock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread unlocked mutex again");
-
-    print_line("Main thread goes to sleep for 1 second");
-    do_sleep(1);
-    print_line("Main thread woke up");
-
-    print_line("Main thread tries to lock mutex");
-    res = ethr_mutex_lock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread locked mutex");
-
-    ASSERT(rmt_data == 1);
-
-    print_line("Main thread goes to sleep for 1 second");
-    do_sleep(1);
-    print_line("Main thread woke up");
-
-    ASSERT(rmt_data == 1);
-
-    res = ethr_mutex_unlock(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread unlocked mutex");
-
-    res = ethr_thr_join(tid, NULL);
-    ASSERT(res == 0);
-    print_line("Main thread joined aux thread");
-
-    res = ethr_mutex_destroy(&rmt_mutex);
-    ASSERT(res == 0);
-    print_line("Main thread destroyed mutex");
-
-    if (do_restart) {
-#ifndef ETHR_REC_MUTEX_INITER
-    dynamic_init:
-#endif
-	do_restart = 0;
-
-	print_line("Running test with dynamically initialized mutex");
-
-	print_line("Trying to initialize mutex");
-	res = ethr_rec_mutex_init(&rmt_mutex);
-	ASSERT(res == 0);
-	print_line("Initialized mutex");
-
-	goto restart;
-    }
-
-#ifndef ETHR_REC_MUTEX_INITER
-    succeed("Static initializer for recursive mutexes not supported");
-#endif
-
-#else /* #ifdef ETHR_HAVE_ETHR_REC_MUTEX_INIT */
-    skip("Recursive mutexes not supported");
-#endif /* #ifdef ETHR_HAVE_ETHR_REC_MUTEX_INIT */
 }
 
 /*
@@ -763,106 +583,82 @@ time_now_test(void)
  */
 
 
-static ethr_mutex cwt_mutex = ETHR_MUTEX_INITER;
-static ethr_cond cwt_cond = ETHR_COND_INITER;
+static ethr_mutex cwt_mutex;
+static ethr_cond cwt_cond;
 static int cwt_counter;
 
 void *
-cwt_thread(void *is_timedwait_test_ptr)
+cwt_thread(void *unused)
 {
-    int use_timedwait = *((int *) is_timedwait_test_ptr);
     int res;
 
-    res = ethr_mutex_lock(&cwt_mutex);
+    ethr_mutex_lock(&cwt_mutex);
+
+    do {
+	res = ethr_cond_wait(&cwt_cond, &cwt_mutex);
+    } while (res == EINTR);
     ASSERT(res == 0);
-
-    if (use_timedwait) {
-	ethr_timeval tv;
-	res = ethr_time_now(&tv);
-	ASSERT(res == 0);
-	tv.tv_sec += 3600; /* Make sure we won't time out */
-
-	do {
-	    res = ethr_cond_timedwait(&cwt_cond, &cwt_mutex, &tv);
-	} while (res == EINTR);
-	ASSERT(res == 0);
-    }
-    else {
-	do {
-	    res = ethr_cond_wait(&cwt_cond, &cwt_mutex);
-	} while (res == EINTR);
-	ASSERT(res == 0);
-    }
 
     cwt_counter++;
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     return NULL;
 }
 
 static void
-cond_wait_test(int is_timedwait_test)
+cond_wait_test(void)
 {
-    int do_restart = !is_timedwait_test;
     ethr_tid tid1, tid2;
     int res;
 
-    if (!is_timedwait_test)
-	print_line("Running test with statically initialized mutex and cond");
+    res = ethr_mutex_init(&cwt_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&cwt_cond);
+    ASSERT(res == 0);
 
- restart:
     /* Wake with signal */
 
     cwt_counter = 0;
 
-    res = ethr_thr_create(&tid1, cwt_thread, (void *) &is_timedwait_test, NULL);
+    res = ethr_thr_create(&tid1, cwt_thread, NULL, NULL);
     ASSERT(res == 0);
-    res = ethr_thr_create(&tid2, cwt_thread, (void *) &is_timedwait_test, NULL);
+    res = ethr_thr_create(&tid2, cwt_thread, NULL, NULL);
     ASSERT(res == 0);
 
     do_sleep(1); /* Make sure threads waits on cond var */
 
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&cwt_mutex);
 
-    res = ethr_cond_signal(&cwt_cond); /* Wake one thread */
-    ASSERT(res == 0);
+    ethr_cond_signal(&cwt_cond); /* Wake one thread */
 
     do_sleep(1); /* Make sure awakened thread waits on mutex */
 
     ASSERT(cwt_counter == 0);
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     do_sleep(1);  /* Let awakened thread proceed */
 
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&cwt_mutex);
 
     ASSERT(cwt_counter == 1);
 
-    res = ethr_cond_signal(&cwt_cond); /* Wake the other thread */
-    ASSERT(res == 0);
+    ethr_cond_signal(&cwt_cond); /* Wake the other thread */
 
     do_sleep(1); /* Make sure awakened thread waits on mutex */
 
     ASSERT(cwt_counter == 1);
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     do_sleep(1);  /* Let awakened thread proceed */
 
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&cwt_mutex);
 
     ASSERT(cwt_counter == 2);
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     res = ethr_thr_join(tid1, NULL);
     ASSERT(res == 0);
@@ -875,35 +671,30 @@ cond_wait_test(int is_timedwait_test)
 
     cwt_counter = 0;
 
-    res = ethr_thr_create(&tid1, cwt_thread, (void *) &is_timedwait_test, NULL);
+    res = ethr_thr_create(&tid1, cwt_thread, NULL, NULL);
     ASSERT(res == 0);
-    res = ethr_thr_create(&tid2, cwt_thread, (void *) &is_timedwait_test, NULL);
+    res = ethr_thr_create(&tid2, cwt_thread, NULL, NULL);
     ASSERT(res == 0);
 
     do_sleep(1); /* Make sure threads waits on cond var */
 
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&cwt_mutex);
 
-    res = ethr_cond_broadcast(&cwt_cond); /* Wake the threads */
-    ASSERT(res == 0);
+    ethr_cond_broadcast(&cwt_cond); /* Wake the threads */
 
     do_sleep(1); /* Make sure awakened threads wait on mutex */
 
     ASSERT(cwt_counter == 0);
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     do_sleep(1);  /* Let awakened threads proceed */
 
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&cwt_mutex);
 
     ASSERT(cwt_counter == 2);
 
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&cwt_mutex);
 
     res = ethr_thr_join(tid1, NULL);
     ASSERT(res == 0);
@@ -916,113 +707,6 @@ cond_wait_test(int is_timedwait_test)
     res = ethr_cond_destroy(&cwt_cond);
     ASSERT(res == 0);
 
-    if (do_restart) {
-	do_restart = 0;
-	res = ethr_mutex_init(&cwt_mutex);
-	ASSERT(res == 0);
-	res = ethr_cond_init(&cwt_cond);
-	ASSERT(res == 0);
-	print_line("Running test with dynamically initialized mutex and cond");
-	goto restart;
-    }
-}
-
-/*
- * The cond timedwait test case.
- *
- * Tests ethr_cond_timedwait with ethr_cond_signal and ethr_cond_broadcast.
- */
-
-#define CTWT_MAX_TIME_DIFF 100000
-
-static long
-ctwt_check_timeout(long to)
-{
-    int res;
-    ethr_timeval tva, tvb;
-    long diff, abs_diff;
-
-    res = ethr_time_now(&tva);
-    ASSERT(res == 0);
-
-    tva.tv_sec += to / 1000;
-    tva.tv_nsec += (to % 1000) * 1000000;
-    if (tva.tv_nsec >= 1000000000) {
-	tva.tv_sec++;
-	tva.tv_nsec -= 1000000000;
-	ASSERT(tva.tv_nsec < 1000000000);
-    }
-
-    do {
-	res = ethr_cond_timedwait(&cwt_cond, &cwt_mutex, &tva);
-    } while (res == EINTR);
-    ASSERT(res == ETIMEDOUT);
-
-    res = ethr_time_now(&tvb);
-    ASSERT(res == 0);
-
-    diff = (tvb.tv_sec - tva.tv_sec) * 1000000;
-    diff += (tvb.tv_nsec - tva.tv_nsec)/1000;
-
-    print("Timeout=%ld; ", to);
-    print("tva.tv_sec=%ld tva.tv_nsec=%ld; ", tva.tv_sec, tva.tv_nsec);
-    print("tvb.tv_sec=%ld tvb.tv_nsec=%ld; ", tvb.tv_sec, tvb.tv_nsec);
-    print_line("diff (tvb - tva) = %ld us", diff);
-
-    abs_diff = (long) abs((int) diff);
-
-    ASSERT(CTWT_MAX_TIME_DIFF >= abs_diff);
-    return abs_diff;
-}
-
-static void
-cond_timedwait_test(void)
-{
-    int do_restart = 1;
-    long abs_diff, max_abs_diff = 0;
-    int res;
-
-#define CTWT_UPD_MAX_DIFF if (abs_diff > max_abs_diff) max_abs_diff = abs_diff;
-
-    print_line("Running test with statically initialized mutex and cond");
-
-    print_line("CTWT_MAX_TIME_DIFF=%d", CTWT_MAX_TIME_DIFF);
-
- restart:
-
-    res = ethr_mutex_lock(&cwt_mutex);
-    ASSERT(res == 0);
-
-    abs_diff = ctwt_check_timeout(300);
-    CTWT_UPD_MAX_DIFF;
-    abs_diff = ctwt_check_timeout(700);
-    CTWT_UPD_MAX_DIFF;
-    abs_diff = ctwt_check_timeout(1000);
-    CTWT_UPD_MAX_DIFF;
-    abs_diff = ctwt_check_timeout(2300);
-    CTWT_UPD_MAX_DIFF;
-    abs_diff = ctwt_check_timeout(5100);
-    CTWT_UPD_MAX_DIFF;
-
-    res = ethr_mutex_unlock(&cwt_mutex);
-    ASSERT(res == 0);
-
-    cond_wait_test(1);
-
-    if (do_restart) {
-	do_restart = 0;
-	res = ethr_mutex_init(&cwt_mutex);
-	ASSERT(res == 0);
-	res = ethr_cond_init(&cwt_cond);
-	ASSERT(res == 0);
-	print_line("Running test with dynamically initialized mutex and cond");
-	goto restart;
-    }
-
-    print_line("Max absolute diff = %d us", max_abs_diff);
-    succeed("Max absolute diff = %d us", max_abs_diff);
-
-#undef CTWT_UPD_MAX_DIFF
 }
 
 /*
@@ -1037,9 +721,9 @@ cond_timedwait_test(void)
 static int bct_woken = 0;
 static int bct_waiting = 0;
 static int bct_done = 0;
-static ethr_mutex bct_mutex = ETHR_MUTEX_INITER;
-static ethr_cond bct_cond = ETHR_COND_INITER;
-static ethr_cond bct_cntrl_cond = ETHR_COND_INITER;
+static ethr_mutex bct_mutex;
+static ethr_cond bct_cond;
+static ethr_cond bct_cntrl_cond;
 
 
 static void *
@@ -1047,30 +731,24 @@ bct_thread(void *unused)
 {
     int res;
 
-    res = ethr_mutex_lock(&bct_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&bct_mutex);
 
     while (!bct_done) {
 
 	bct_waiting++;
-	if (bct_waiting == BCT_THREADS) {
-	    res = ethr_cond_signal(&bct_cntrl_cond);
-	    ASSERT(res == 0);
-	}
+	if (bct_waiting == BCT_THREADS)
+	    ethr_cond_signal(&bct_cntrl_cond);
 	do {
 	    res = ethr_cond_wait(&bct_cond, &bct_mutex);
 	} while (res == EINTR);
 	ASSERT(res == 0);
 	bct_woken++;
-	if (bct_woken == BCT_THREADS) {
-	    res = ethr_cond_signal(&bct_cntrl_cond);
-	    ASSERT(res == 0);
-	}
+	if (bct_woken == BCT_THREADS)
+	    ethr_cond_signal(&bct_cntrl_cond);
 
     }
 
-    res = ethr_mutex_unlock(&bct_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&bct_mutex);
 
     return NULL;
 }
@@ -1081,14 +759,20 @@ broadcast_test(void)
     int res, i;
     ethr_tid tid[BCT_THREADS];
 
+    res = ethr_mutex_init(&bct_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&bct_cntrl_cond);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&bct_cond);
+    ASSERT(res == 0);
+
     for (i = 0; i < BCT_THREADS; i++) {
 	res = ethr_thr_create(&tid[i], bct_thread, NULL, NULL);
 	ASSERT(res == 0);
 
     }
 
-    res = ethr_mutex_lock(&bct_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&bct_mutex);
 
     for (i = 0; i < BCT_NO_OF_WAITS; i++) {
 
@@ -1101,8 +785,7 @@ broadcast_test(void)
 	bct_woken = 0;
 
 	/* Wake all threads */
-	res = ethr_cond_broadcast(&bct_cond);
-	ASSERT(res == 0);
+	ethr_cond_broadcast(&bct_cond);
 
 	while (bct_woken != BCT_THREADS) {
 	    res = ethr_cond_wait(&bct_cntrl_cond, &bct_mutex);
@@ -1114,13 +797,11 @@ broadcast_test(void)
     bct_done = 1;
 
     /* Wake all threads */
-    res = ethr_cond_broadcast(&bct_cond);
-    ASSERT(res == 0);
+    ethr_cond_broadcast(&bct_cond);
 
-    res = ethr_mutex_unlock(&bct_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&bct_mutex);
 
-    for (i = 0; i < BCT_THREADS - 1; i++) {
+    for (i = 0; i < BCT_THREADS; i++) {
 	res = ethr_thr_join(tid[i], NULL);
 	ASSERT(res == 0);
     }
@@ -1143,26 +824,22 @@ broadcast_test(void)
 #define DT_THREADS (50*1024)
 #define DT_BATCH_SIZE 64
 
-static ethr_mutex dt_mutex = ETHR_MUTEX_INITER;
-static ethr_cond dt_cond = ETHR_COND_INITER;
+static ethr_mutex dt_mutex;
+static ethr_cond dt_cond;
 static int dt_count;
 static int dt_limit;
 
 static void *
 dt_thread(void *unused)
 {
-    int res;
-
-    res = ethr_mutex_lock(&dt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&dt_mutex);
 
     dt_count++;
 
     if (dt_count >= dt_limit)
 	ethr_cond_signal(&dt_cond);
 
-    res = ethr_mutex_unlock(&dt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&dt_mutex);
 
     return NULL;
 }
@@ -1173,6 +850,11 @@ detached_thread_test(void)
     ethr_thr_opts thr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
     ethr_tid tid[DT_BATCH_SIZE];
     int i, j, res;
+
+    res = ethr_mutex_init(&dt_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&dt_cond);
+    ASSERT(res == 0);
 
     thr_opts.detached = 1;
     dt_count = 0;
@@ -1187,14 +869,12 @@ detached_thread_test(void)
 	    ASSERT(res == 0);
 	}
 
-	res = ethr_mutex_lock(&dt_mutex);
-	ASSERT(res == 0);
+	ethr_mutex_lock(&dt_mutex);
 	while (dt_count < dt_limit) {
 	    res = ethr_cond_wait(&dt_cond, &dt_mutex);
 	    ASSERT(res == 0 || res == EINTR);
 	}
-	res = ethr_mutex_unlock(&dt_mutex);
-	ASSERT(res == 0);
+	ethr_mutex_unlock(&dt_mutex);
 
 	print_line("dt_count = %d", dt_count);
     }
@@ -1211,8 +891,8 @@ detached_thread_test(void)
 #define MTT_TIMES 10
 
 static int mtt_terminate;
-static ethr_mutex mtt_mutex = ETHR_MUTEX_INITER;
-static ethr_cond mtt_cond = ETHR_COND_INITER;
+static ethr_mutex mtt_mutex;
+static ethr_cond mtt_cond;
 static char mtt_string[22*MTT_TIMES]; /* 22 is enough for ", %d" */
 
 
@@ -1220,16 +900,14 @@ void *mtt_thread(void *unused)
 {
     int res;
 
-    res = ethr_mutex_lock(&mtt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&mtt_mutex);
 
     while (!mtt_terminate) {
 	res = ethr_cond_wait(&mtt_cond, &mtt_mutex);
 	ASSERT(res == 0 || res == EINTR);
     }
 
-    res = ethr_mutex_unlock(&mtt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&mtt_mutex);
 
     return NULL; 
 }
@@ -1265,16 +943,13 @@ mtt_create_join_threads(void)
     print_line("%d = ethr_thr_create()", res);
     print_line("Number of created threads: %d", no_threads);
 
-    res = ethr_mutex_lock(&mtt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_lock(&mtt_mutex);
 
     mtt_terminate = 1;
 
-    res = ethr_cond_broadcast(&mtt_cond);
-    ASSERT(res == 0);
+    ethr_cond_broadcast(&mtt_cond);
 
-    res = ethr_mutex_unlock(&mtt_mutex);
-    ASSERT(res == 0);
+    ethr_mutex_unlock(&mtt_mutex);
 
     while (ix) {
 	res = ethr_thr_join(tids[--ix], NULL);
@@ -1292,8 +967,13 @@ mtt_create_join_threads(void)
 static void
 max_threads_test(void)
 {
-    int no_threads[MTT_TIMES], i, up, down, eq;
+    int no_threads[MTT_TIMES], i, up, down, eq, res;
     char *str;
+
+    res = ethr_mutex_init(&mtt_mutex);
+    ASSERT(res == 0);
+    res = ethr_cond_init(&mtt_cond);
+    ASSERT(res == 0);
 
     for (i = 0; i < MTT_TIMES; i++) {
 	no_threads[i] = mtt_create_join_threads();
@@ -1325,272 +1005,6 @@ max_threads_test(void)
     succeed("Max created threads: %s", mtt_string);
 
 }
-
-
-/*
- * The forksafety test case.
- *
- * Tests forksafety.
- */
-#ifdef __WIN32__
-#define NO_FORK_PRESENT
-#endif
-
-#ifndef NO_FORK_PRESENT
-
-static ethr_mutex ft_test_inner_mutex = ETHR_MUTEX_INITER;
-static ethr_mutex ft_test_outer_mutex = ETHR_MUTEX_INITER;
-static ethr_mutex ft_go_mutex = ETHR_MUTEX_INITER;
-static ethr_cond ft_go_cond = ETHR_COND_INITER;
-static int ft_go;
-static int ft_have_forked;
-
-static void *
-ft_thread(void *unused)
-{
-    int res;
-
-    res = ethr_mutex_lock(&ft_test_outer_mutex);
-    ASSERT(res == 0);
-
-    res = ethr_mutex_lock(&ft_go_mutex);
-    ASSERT(res == 0);
-
-    ft_go = 1;
-    res = ethr_cond_signal(&ft_go_cond);
-    ASSERT(res == 0);
-    res = ethr_mutex_unlock(&ft_go_mutex);
-    ASSERT(res == 0);
-
-    do_sleep(1);
-    ASSERT(!ft_have_forked);
-
-    res = ethr_mutex_lock(&ft_test_inner_mutex);
-    ASSERT(res == 0);
-
-    res = ethr_mutex_unlock(&ft_test_inner_mutex);
-    ASSERT(res == 0);
-
-    do_sleep(1);
-    ASSERT(!ft_have_forked);
-
-    res = ethr_mutex_unlock(&ft_test_outer_mutex);
-    ASSERT(res == 0);
-
-    do_sleep(1);
-    ASSERT(ft_have_forked);
-    
-
-    return NULL;
-}
-
-#endif /* #ifndef NO_FORK_PRESENT */
-
-static void
-forksafety_test(void)
-{
-#ifdef NO_FORK_PRESENT
-    skip("No fork() present; nothing to test");
-#elif defined(DEBUG)
-    skip("Doesn't work in debug build");
-#else
-    char snd_msg[] = "ok, bye!";
-    char rec_msg[sizeof(snd_msg)*2];
-    ethr_tid tid;
-    int res;
-    int fds[2];
-
-
-    res = ethr_mutex_set_forksafe(&ft_test_inner_mutex);
-    if (res == ENOTSUP) {
-	skip("Forksafety not supported on this platform!");
-    }
-    ASSERT(res == 0);
-    res = ethr_mutex_set_forksafe(&ft_test_outer_mutex);
-    ASSERT(res == 0);
-
-
-    res = pipe(fds);
-    ASSERT(res == 0);
-
-    ft_go = 0;
-    ft_have_forked = 0;
-
-    res = ethr_mutex_lock(&ft_go_mutex);
-    ASSERT(res == 0);
-    
-    res = ethr_thr_create(&tid, ft_thread, NULL, NULL);
-    ASSERT(res == 0);
-
-    do {
-	res = ethr_cond_wait(&ft_go_cond, &ft_go_mutex);
-    } while (res == EINTR || !ft_go);
-    ASSERT(res == 0);
-
-    res = ethr_mutex_unlock(&ft_go_mutex);
-    ASSERT(res == 0);
-
-    res = fork();
-    ft_have_forked = 1;
-    if (res == 0) {
-	close(fds[0]);
-	res = ethr_mutex_lock(&ft_test_outer_mutex);
-	if (res != 0)
-	    _exit(1);
-	res = ethr_mutex_lock(&ft_test_inner_mutex);
-	if (res != 0)
-	    _exit(1);
-	res = ethr_mutex_unlock(&ft_test_inner_mutex);
-	if (res != 0)
-	    _exit(1);
-	res = ethr_mutex_unlock(&ft_test_outer_mutex);
-	if (res != 0)
-	    _exit(1);
-
-	res = ethr_mutex_destroy(&ft_test_inner_mutex);
-	if (res != 0)
-	    _exit(1);
-	res = ethr_mutex_destroy(&ft_test_outer_mutex);
-	if (res != 0)
-	    _exit(1);
-
-	res = (int) write(fds[1], (void *) snd_msg, sizeof(snd_msg));
-	if (res != sizeof(snd_msg))
-	    _exit(1);
-	close(fds[1]);
-	_exit(0);
-    }
-    ASSERT(res > 0);
-    close(fds[1]);
-
-    res = (int) read(fds[0], (void *) rec_msg, sizeof(rec_msg));
-    ASSERT(res == (int) sizeof(snd_msg));
-    ASSERT(strcmp(snd_msg, rec_msg) == 0);
-
-    close(fds[0]);
-#endif
-}
-
-
-/*
- * The vfork test case.
- *
- * Tests vfork with threads.
- */
-
-#ifdef __WIN32__
-#define NO_VFORK_PRESENT
-#endif
-
-#ifndef NO_VFORK_PRESENT
-
-#undef vfork
-
-static ethr_mutex vt_mutex = ETHR_MUTEX_INITER;
-
-static void *
-vt_thread(void *vprog)
-{
-    char *prog = (char *) vprog;
-    int res;
-    char snd_msg[] = "ok, bye!";
-    char rec_msg[sizeof(snd_msg)*2];
-    int fds[2];
-    char closefd[20];
-    char writefd[20];
-
-    res = pipe(fds);
-    ASSERT(res == 0);
-
-    res = sprintf(closefd, "%d", fds[0]);
-    ASSERT(res <= 20);
-    res = sprintf(writefd, "%d", fds[1]);
-    ASSERT(res <= 20);
-
-    print("parent: About to vfork and execute ");
-    print("execlp(\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%s\", NULL)",
-	  prog, prog, "vfork", "exec", snd_msg, closefd, writefd);
-    print_line(" in child");
-    res = vfork();
-    if (res == 0) {
-	execlp(prog, prog, "vfork", "exec", snd_msg, closefd, writefd, NULL);
-	_exit(1);
-    }
-    ASSERT(res > 0);
-
-    print_line("parent: I'm back");
-
-    close(fds[1]);
-
-    res = (int) read(fds[0], (void *) rec_msg, sizeof(rec_msg));
-    print_line("parent: %d = read()", res);
-    print_line("parent: rec_msg=\"%s\"", rec_msg);
-    ASSERT(res == (int) sizeof(snd_msg));
-    ASSERT(strcmp(snd_msg, rec_msg) == 0);
-
-    close(fds[0]);
-
-    return NULL;
-}
-
-#endif /* #ifndef NO_VFORK_PRESENT */
-
-static void
-vfork_test(int argc, char *argv[])
-{
-#ifdef NO_VFORK_PRESENT
-    skip("No vfork() present; nothing to test");
-#else
-    int res;
-    ethr_tid tid;
-
-    if (argc == 6 && strcmp("exec", argv[2]) == 0) {
-	/* We are child after vfork() and execlp() ... */
-
-	char *snd_msg;
-	int closefd;
-	int writefd;
-
-	snd_msg = argv[3];
-	closefd = atoi(argv[4]);
-	writefd = atoi(argv[5]);
-
-	print_line("child: snd_msg=\"%s\"; closefd=%d writefd=%d",
-		   snd_msg, closefd, writefd);
-
-	close(closefd);
-
-	res = (int) write(writefd, (void *) snd_msg, strlen(snd_msg)+1);
-	print_line("child: %d = write()", res);
-	if (res != strlen(snd_msg)+1)
-	    exit(1);
-	close(writefd);
-	print_line("child: bye");
-	exit(0);
-    }
-    ASSERT(argc == 2);
-
-    res = ethr_mutex_set_forksafe(&vt_mutex);
-    ASSERT(res == 0 || res == ENOTSUP);
-    res = ethr_mutex_lock(&vt_mutex);
-    ASSERT(res == 0);
-
-    res = ethr_thr_create(&tid, vt_thread, (void *) argv[0], NULL);
-    ASSERT(res == 0);
-
-    do_sleep(1);
-
-    res = ethr_mutex_unlock(&vt_mutex);
-    ASSERT(res == 0);
-
-    res = ethr_thr_join(tid, NULL);
-    ASSERT(res == 0);
-
-    res = ethr_mutex_destroy(&vt_mutex);
-    ASSERT(res == 0);
-#endif
-}
-
 
 /*
  * The tsd test case.
@@ -1651,11 +1065,8 @@ static int st_data;
 void *
 st_thread(void *unused)
 {
-    int res;
-
     print_line("Aux thread tries to lock spinlock");
-    res = ethr_spin_lock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_lock(&st_spinlock);
     print_line("Aux thread locked spinlock");
 
     ASSERT(st_data == 0);
@@ -1669,8 +1080,7 @@ st_thread(void *unused)
 
     ASSERT(st_data == 1);
 
-    res = ethr_spin_unlock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_unlock(&st_spinlock);
     print_line("Aux thread unlocked spinlock");
 
     return NULL;
@@ -1691,8 +1101,7 @@ spinlock_test(void)
     st_data = 0;
 
     print_line("Main thread tries to lock spinlock");
-    res = ethr_spin_lock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_lock(&st_spinlock);
     print_line("Main thread locked spinlock");
 
     ASSERT(st_data == 0);
@@ -1708,8 +1117,7 @@ spinlock_test(void)
 
     ASSERT(st_data == 0);
 
-    res = ethr_spin_unlock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_unlock(&st_spinlock);
     print_line("Main thread unlocked spinlock");
 
     print_line("Main thread goes to sleep for 1 second");
@@ -1717,8 +1125,7 @@ spinlock_test(void)
     print_line("Main thread woke up");
 
     print_line("Main thread tries to lock spinlock");
-    res = ethr_spin_lock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_lock(&st_spinlock);
     print_line("Main thread locked spinlock");
 
     ASSERT(st_data == 1);
@@ -1729,8 +1136,7 @@ spinlock_test(void)
 
     ASSERT(st_data == 1);
 
-    res = ethr_spin_unlock(&st_spinlock);
-    ASSERT(res == 0);
+    ethr_spin_unlock(&st_spinlock);
     print_line("Main thread unlocked spinlock");
 
     res = ethr_thr_join(tid, NULL);
@@ -1757,23 +1163,19 @@ void *
 rwst_thread(void *unused)
 {
     int data;
-    int res;
 
     print_line("Aux thread tries to read lock rwspinlock");
-    res = ethr_read_lock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_read_lock(&rwst_rwspinlock);
     print_line("Aux thread read locked rwspinlock");
 
     ASSERT(rwst_data == 4711);
 
     print_line("Aux thread tries to read unlock rwspinlock");
-    res = ethr_read_unlock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_read_unlock(&rwst_rwspinlock);
     print_line("Aux thread read unlocked rwspinlock");
 
     print_line("Aux thread tries to write lock rwspinlock");
-    res = ethr_write_lock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_write_lock(&rwst_rwspinlock);
     print_line("Aux thread write locked rwspinlock");
 
     data = ++rwst_data;
@@ -1787,8 +1189,7 @@ rwst_thread(void *unused)
     ++rwst_data;
 
     print_line("Aux thread tries to write unlock rwspinlock");
-    res = ethr_write_unlock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_write_unlock(&rwst_rwspinlock);
     print_line("Aux thread write unlocked rwspinlock");
 
     return NULL;
@@ -1810,8 +1211,7 @@ rwspinlock_test(void)
     rwst_data = 4711;
 
     print_line("Main thread tries to read lock rwspinlock");
-    res = ethr_read_lock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_read_lock(&rwst_rwspinlock);
     print_line("Main thread read locked rwspinlock");
 
     ASSERT(rwst_data == 4711);
@@ -1828,13 +1228,11 @@ rwspinlock_test(void)
     ASSERT(rwst_data == 4711);
 
     print_line("Main thread tries to read unlock rwspinlock");
-    res = ethr_read_unlock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_read_unlock(&rwst_rwspinlock);
     print_line("Main thread read unlocked rwspinlock");
 
     print_line("Main thread tries to write lock rwspinlock");
-    res = ethr_write_lock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_write_lock(&rwst_rwspinlock);
     print_line("Main thread write locked rwspinlock");
 
     data = ++rwst_data;
@@ -1847,8 +1245,7 @@ rwspinlock_test(void)
     ++rwst_data;
 
     print_line("Main thread tries to write unlock rwspinlock");
-    res = ethr_write_unlock(&rwst_rwspinlock);
-    ASSERT(res == 0);
+    ethr_write_unlock(&rwst_rwspinlock);
     print_line("Main thread write unlocked rwspinlock");
 
     res = ethr_thr_join(tid, NULL);
@@ -1875,23 +1272,19 @@ void *
 rwmt_thread(void *unused)
 {
     int data;
-    int res;
 
     print_line("Aux thread tries to read lock rwmutex");
-    res = ethr_rwmutex_rlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rlock(&rwmt_rwmutex);
     print_line("Aux thread read locked rwmutex");
 
     ASSERT(rwmt_data == 4711);
 
     print_line("Aux thread tries to read unlock rwmutex");
-    res = ethr_rwmutex_runlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_runlock(&rwmt_rwmutex);
     print_line("Aux thread read unlocked rwmutex");
 
     print_line("Aux thread tries to write lock rwmutex");
-    res = ethr_rwmutex_rwlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rwlock(&rwmt_rwmutex);
     print_line("Aux thread write locked rwmutex");
 
     data = ++rwmt_data;
@@ -1905,8 +1298,7 @@ rwmt_thread(void *unused)
     ++rwmt_data;
 
     print_line("Aux thread tries to write unlock rwmutex");
-    res = ethr_rwmutex_rwunlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rwunlock(&rwmt_rwmutex);
     print_line("Aux thread write unlocked rwmutex");
 
     return NULL;
@@ -1928,8 +1320,7 @@ rwmutex_test(void)
     rwmt_data = 4711;
 
     print_line("Main thread tries to read lock rwmutex");
-    res = ethr_rwmutex_rlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rlock(&rwmt_rwmutex);
     print_line("Main thread read locked rwmutex");
 
     ASSERT(rwmt_data == 4711);
@@ -1946,13 +1337,11 @@ rwmutex_test(void)
     ASSERT(rwmt_data == 4711);
 
     print_line("Main thread tries to read unlock rwmutex");
-    res = ethr_rwmutex_runlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_runlock(&rwmt_rwmutex);
     print_line("Main thread read unlocked rwmutex");
 
     print_line("Main thread tries to write lock rwmutex");
-    res = ethr_rwmutex_rwlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rwlock(&rwmt_rwmutex);
     print_line("Main thread write locked rwmutex");
 
     data = ++rwmt_data;
@@ -1965,8 +1354,7 @@ rwmutex_test(void)
     ++rwmt_data;
 
     print_line("Main thread tries to write unlock rwmutex");
-    res = ethr_rwmutex_rwunlock(&rwmt_rwmutex);
-    ASSERT(res == 0);
+    ethr_rwmutex_rwunlock(&rwmt_rwmutex);
     print_line("Main thread write unlocked rwmutex");
 
     res = ethr_thr_join(tid, NULL);
@@ -1998,65 +1386,53 @@ static ethr_atomic_t at_data;
 void *
 at_thread(void *unused)
 {
-    int res, i;
+    int i;
     long val, go;
     
 
-    res = ethr_atomic_inctest(&at_ready, &val);
-    ASSERT(res == 0);
+    val = ethr_atomic_inc_read(&at_ready);
     ASSERT(val > 0);
     ASSERT(val <= AT_THREADS);
 
     do {
-	res = ethr_atomic_read(&at_go, &go);
-	ASSERT(res == 0);
+	go = ethr_atomic_read(&at_go);
     } while (!go);
 
     for (i = 0; i < AT_ITER; i++) {
-	res = ethr_atomic_or_old(&at_data, at_set_val, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_read_bor(&at_data, at_set_val);
 	ASSERT(val >= (i == 0 ? 0 : at_set_val) + (long) 4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_and_old(&at_data, ~at_rm_val, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_read_band(&at_data, ~at_rm_val);
 	ASSERT(val >= at_set_val + (long) 4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_read(&at_data, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_read(&at_data);
 	ASSERT(val >= at_set_val + (long) 4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_inctest(&at_data, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_inc_read(&at_data);
 	ASSERT(val > at_set_val + (long) 4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_dectest(&at_data, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_dec_read(&at_data);
 	ASSERT(val >= at_set_val + (long) 4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_inc(&at_data);
-	ASSERT(res == 0);
+	ethr_atomic_inc(&at_data);
 
-	res = ethr_atomic_dec(&at_data);
-	ASSERT(res == 0);
+	ethr_atomic_dec(&at_data);
 
-	res = ethr_atomic_addtest(&at_data, (long) 4711, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_add_read(&at_data, (long) 4711);
 	ASSERT(val >= at_set_val + (long) 2*4711);
 	ASSERT(val <= at_max_val);
 
-	res = ethr_atomic_add(&at_data, (long) -4711);
-	ASSERT(res == 0);
+	ethr_atomic_add(&at_data, (long) -4711);
 	ASSERT(val >= at_set_val + (long) 4711);
 	ASSERT(val <= at_max_val);
     }
 
-    res = ethr_atomic_inc(&at_done);
-    ASSERT(res == 0);
+    ethr_atomic_inc(&at_done);
     return NULL;
 }
 
@@ -2069,14 +1445,13 @@ atomic_test(void)
     ethr_tid tid[AT_THREADS];
     ethr_thr_opts thr_opts = ETHR_THR_OPTS_DEFAULT_INITER;
 
-    if (sizeof(long) > 4) {
+#if ETHR_SIZEOF_PTR > 4
 	at_rm_val = ((long) 1) << 57;
 	at_set_val = ((long) 1) << 60;
-    }
-    else {
+#else
 	at_rm_val = ((long) 1) << 27;
 	at_set_val = ((long) 1) << 30;
-    }
+#endif
 
     at_max_val = at_set_val + at_rm_val + ((long) AT_THREADS + 1) * 4711;
     data_init = at_rm_val + (long) 4711;
@@ -2085,22 +1460,15 @@ atomic_test(void)
     thr_opts.detached = 1;
 
     print_line("Initializing");
-    res = ethr_atomic_init(&at_ready, 0);
-    ASSERT(res == 0);
-    res = ethr_atomic_init(&at_go, 0);
-    ASSERT(res == 0);
-    res = ethr_atomic_init(&at_done, data_init);
-    ASSERT(res == 0);
-    res = ethr_atomic_init(&at_data, data_init);
-    ASSERT(res == 0);
+    ethr_atomic_init(&at_ready, 0);
+    ethr_atomic_init(&at_go, 0);
+    ethr_atomic_init(&at_done, data_init);
+    ethr_atomic_init(&at_data, data_init);
 
-    res = ethr_atomic_read(&at_data, &val);
-    ASSERT(res == 0);
+    val = ethr_atomic_read(&at_data);
     ASSERT(val == data_init);
-    res = ethr_atomic_set(&at_done, 0);
-    ASSERT(res == 0);
-    res = ethr_atomic_read(&at_done, &val);
-    ASSERT(res == 0);
+    ethr_atomic_set(&at_done, 0);
+    val = ethr_atomic_read(&at_done);
     ASSERT(val == 0);
 
     print_line("Creating threads");
@@ -2111,221 +1479,33 @@ atomic_test(void)
 
     print_line("Waiting for threads to ready up");
     do {
-	res = ethr_atomic_read(&at_ready, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_read(&at_ready);
 	ASSERT(val >= 0);
 	ASSERT(val <= AT_THREADS);
     } while (val != AT_THREADS);
 
     print_line("Letting threads loose");
-    res = ethr_atomic_xchg(&at_go, 17, &val);
-    ASSERT(res == 0);
+    val = ethr_atomic_xchg(&at_go, 17);
     ASSERT(val == 0);
-    res = ethr_atomic_read(&at_go, &val);
-    ASSERT(res == 0);
+    val = ethr_atomic_read(&at_go);
     ASSERT(val == 17);
 
 
     print_line("Waiting for threads to finish");
     do {
-	res = ethr_atomic_read(&at_done, &val);
-	ASSERT(res == 0);
+	val = ethr_atomic_read(&at_done);
 	ASSERT(val >= 0);
 	ASSERT(val <= AT_THREADS);
     } while (val != AT_THREADS);
 
     print_line("Checking result");
-    res = ethr_atomic_read(&at_data, &val);
+    val = ethr_atomic_read(&at_data);
     ASSERT(res == 0);
     ASSERT(val == data_final);
     print_line("Result ok");
     
 }
 
-
-/*
- * The gate test case.
- *
- * Tests gates.
- */
-
-#define GT_THREADS 10
-
-static ethr_atomic_t gt_wait1;
-static ethr_atomic_t gt_wait2;
-static ethr_atomic_t gt_done;
-
-static ethr_gate gt_gate1;
-static ethr_gate gt_gate2;
-
-void *
-gt_thread(void *thr_no)
-{
-    int no = (int)(long) thr_no;
-    int swait = no % 2 == 0;
-    int res;
-    long done;
-
-
-    do {
-
-	res = ethr_atomic_inc(&gt_wait1);
-	ASSERT(res == 0);
-
-	if (swait)
-	    res = ethr_gate_swait(&gt_gate1, INT_MAX);
-	else
-	    res = ethr_gate_wait(&gt_gate1);
-	ASSERT(res == 0);
-
-	res = ethr_atomic_dec(&gt_wait1);
-	ASSERT(res == 0);
-
-	res = ethr_atomic_inc(&gt_wait2);
-	ASSERT(res == 0);
-
-	if (swait)
-	    res = ethr_gate_swait(&gt_gate2, INT_MAX);
-	else
-	    res = ethr_gate_wait(&gt_gate2);
-	ASSERT(res == 0);
-
-	res = ethr_atomic_dec(&gt_wait2);
-	ASSERT(res == 0);
-
-	res = ethr_atomic_read(&gt_done, &done);
-	ASSERT(res == 0);
-    } while (!done);
-    return NULL;
-}
-
-
-static void
-gate_test(void)
-{
-    long val;
-    int res, i;
-    ethr_tid tid[GT_THREADS];
-
-    print_line("Initializing");
-    res = ethr_atomic_init(&gt_wait1, 0);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_atomic_init(&gt_wait2, 0);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_atomic_init(&gt_done, 0);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_gate_init(&gt_gate1);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_gate_init(&gt_gate2);
-    ASSERT_EQ(res, 0, "%d");
-
-    print_line("Creating threads");
-    for (i = 0; i < GT_THREADS; i++) {
-	res = ethr_thr_create(&tid[i], gt_thread, (void *) i, NULL);
-	ASSERT_EQ(res, 0, "%d");
-    }
-
-    print_line("Waiting for threads to ready up");
-    do {
-	res = ethr_atomic_read(&gt_wait1, &val);
-	ASSERT_EQ(res, 0, "%d");
-	ASSERT(0 <= val && val <= GT_THREADS);
-    } while (val != GT_THREADS);
-
-    print_line("Testing");
-
-    res = ethr_gate_let_through(&gt_gate1, 8);
-    ASSERT_EQ(res, 0, "%d");
-
-    WAIT_UNTIL_LIM((res = ethr_atomic_read(&gt_wait2, &val),
-		    (res != 0 || val == 8)),
-		   60);
-
-    res = ethr_atomic_read(&gt_wait1, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, GT_THREADS - 8, "%ld");
-
-    res = ethr_atomic_read(&gt_wait2, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 8, "%ld");
-    
-    res = ethr_gate_let_through(&gt_gate2, 4);
-    ASSERT_EQ(res, 0, "%d");
-
-    WAIT_UNTIL_LIM((res = ethr_atomic_read(&gt_wait2, &val),
-		    (res != 0 || val == 4)),
-		   60);
-
-    res = ethr_atomic_read(&gt_wait1, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, GT_THREADS - 4, "%ld");
-
-    res = ethr_atomic_read(&gt_wait2, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 4, "%ld");
-    
-    res = ethr_gate_let_through(&gt_gate1, GT_THREADS);
-    ASSERT_EQ(res, 0, "%d");
-
-    WAIT_UNTIL_LIM((res = ethr_atomic_read(&gt_wait2, &val),
-		    (res != 0 || val == GT_THREADS)),
-		   60);
-    res = ethr_atomic_read(&gt_wait1, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 0, "%ld");
-
-    res = ethr_atomic_read(&gt_wait2, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, GT_THREADS, "%ld");
-    
-    res = ethr_gate_let_through(&gt_gate2, GT_THREADS);
-    ASSERT_EQ(res, 0, "%d");
-
-    WAIT_UNTIL_LIM((res = ethr_atomic_read(&gt_wait2, &val),
-		    (res != 0 || val == 4)),
-		   60);
-    res = ethr_atomic_read(&gt_wait1, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, GT_THREADS - 4, "%ld");
-
-    res = ethr_atomic_read(&gt_wait2, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 4, "%ld");
-    
-    res = ethr_atomic_set(&gt_done, 1);
-    ASSERT_EQ(res, 0, "%d");
-
-    res = ethr_gate_let_through(&gt_gate2, GT_THREADS);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_gate_let_through(&gt_gate1, GT_THREADS - 4);
-    ASSERT_EQ(res, 0, "%d");
-
-    WAIT_UNTIL_LIM(((res = ethr_atomic_read(&gt_wait1, &val)) != 0
-		    || (val == 0
-			&& ((res = ethr_atomic_read(&gt_wait2, &val)) != 0
-			    || val == 0))),
-		   60);
-
-    res = ethr_atomic_read(&gt_wait1, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 0, "%ld");
-
-    res = ethr_atomic_read(&gt_wait2, &val);
-    ASSERT_EQ(res, 0, "%d");
-    ASSERT_EQ(val, 0, "%ld");
-    
-    print_line("Joining threads");
-    for (i = 0; i < GT_THREADS; i++) {
-	res = ethr_thr_join(tid[i], NULL);
-	ASSERT_EQ(res, 0, "%d");
-    }
-
-    res = ethr_gate_destroy(&gt_gate1);
-    ASSERT_EQ(res, 0, "%d");
-    res = ethr_gate_destroy(&gt_gate2);
-    ASSERT_EQ(res, 0, "%d");
-
-}
 
 #endif /* #ifndef ETHR_NO_THREAD_LIB */
 
@@ -2342,14 +1522,12 @@ main(int argc, char *argv[])
 #ifndef ETHR_NO_THREAD_LIB
     {
 	char *testcase;
-	int res;
 
 	send_my_pid();
 
 	testcase = argv[1];
-	res = ethr_init(NULL);
 
-	if (res != 0)
+	if (ethr_init(NULL) != 0 || ethr_late_init(NULL) != 0)
 	    fail("Failed to initialize the ethread library");
 
 	if (strcmp(testcase, "create_join_thread") == 0)
@@ -2360,24 +1538,16 @@ main(int argc, char *argv[])
 	    mutex_test();
 	else if (strcmp(testcase, "try_lock_mutex") == 0)
 	    try_lock_mutex_test();
-	else if (strcmp(testcase, "recursive_mutex") == 0)
-	    recursive_mutex_test();
 	else if (strcmp(testcase, "time_now") == 0)
 	    time_now_test();
 	else if (strcmp(testcase, "cond_wait") == 0)
-	    cond_wait_test(0);
-	else if (strcmp(testcase, "cond_timedwait") == 0)
-	    cond_timedwait_test();
+	    cond_wait_test();
 	else if (strcmp(testcase, "broadcast") == 0)
 	    broadcast_test();
 	else if (strcmp(testcase, "detached_thread") == 0)
 	    detached_thread_test();
 	else if (strcmp(testcase, "max_threads") == 0)
 	    max_threads_test();
-	else if (strcmp(testcase, "forksafety") == 0)
-	    forksafety_test();
-	else if (strcmp(testcase, "vfork") == 0)
-	    vfork_test(argc, argv);
 	else if (strcmp(testcase, "tsd") == 0)
 	    tsd_test();
 	else if (strcmp(testcase, "spinlock") == 0)
@@ -2388,8 +1558,6 @@ main(int argc, char *argv[])
 	    rwmutex_test();
 	else if (strcmp(testcase, "atomic") == 0)
 	    atomic_test();
-	else if (strcmp(testcase, "gate") == 0)
-	    gate_test();
 	else
 	    skip("Test case \"%s\" not implemented yet", testcase);
 

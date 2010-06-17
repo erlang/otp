@@ -43,8 +43,6 @@ static erts_smp_rwmtx_t export_table_lock; /* Locks the secondary export table. 
 #define export_read_unlock()	erts_smp_rwmtx_runlock(&export_table_lock)
 #define export_write_lock()	erts_smp_rwmtx_rwlock(&export_table_lock)
 #define export_write_unlock()	erts_smp_rwmtx_rwunlock(&export_table_lock)
-#define export_init_lock()	erts_smp_rwmtx_init(&export_table_lock, \
-						    "export_tab")
 
 extern BeamInstr* em_call_error_handler;
 extern BeamInstr* em_call_traced_function;
@@ -111,8 +109,12 @@ void
 init_export_table(void)
 {
     HashFunctions f;
+    erts_smp_rwmtx_opt_t rwmtx_opt = ERTS_SMP_THR_OPTS_DEFAULT_INITER;
+    rwmtx_opt.type = ERTS_SMP_RWMTX_TYPE_FREQUENT_READ;
+    rwmtx_opt.lived = ERTS_SMP_RWMTX_LONG_LIVED;
 
-    export_init_lock();
+    erts_smp_rwmtx_init_opt(&export_table_lock, &rwmtx_opt, "export_tab");
+
     f.hash = (H_FUN) export_hash;
     f.cmp  = (HCMP_FUN) export_cmp;
     f.alloc = (HALLOC_FUN) export_alloc;

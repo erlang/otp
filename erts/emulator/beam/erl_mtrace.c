@@ -585,9 +585,7 @@ void erts_mtrace_init(char *receiver, char *nodename)
 	Uint16 port;
 
 	erts_mtx_init(&mtrace_buf_mutex, "mtrace_buf");
-	erts_mtx_set_forksafe(&mtrace_buf_mutex);
 	erts_mtx_init(&mtrace_op_mutex, "mtrace_op");
-	erts_mtx_set_forksafe(&mtrace_op_mutex);
 
 	socket_desc = erts_sock_open();
 	if (socket_desc == ERTS_SOCK_INVALID_SOCKET) {
