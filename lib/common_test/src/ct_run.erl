@@ -160,7 +160,7 @@ script_start1(Parent, Args) ->
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
-    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, ".", Args),
+    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -317,29 +317,30 @@ script_start2(StartOpts = #opts{vts = undefined,
 	end,
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
+    TheLogDir = which(logdir, Opts#opts.logdir),
     case {TestSpec,Terms} of
 	{_,{error,_}=Error} ->
 	    Error;
 	{[],_} ->
 	    {error,no_testspec_specified};
 	{undefined,_} ->   % no testspec used
-	    case check_and_install_configfiles(InitConfig,
-					       which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(InitConfig, TheLogDir,
 					       Opts#opts.event_handlers) of
 		ok ->      % go on read tests from start flags
-		    script_start3(Opts#opts{config=InitConfig}, Args);
+		    script_start3(Opts#opts{config=InitConfig,
+					    logdir=TheLogDir}, Args);
 		Error ->
 		    Error
 	    end;
 	{_,_} ->           % testspec used
 	    %% merge config from start flags with config from testspec
 	    AllConfig = merge_vals([InitConfig, Opts#opts.config]),
-	    case check_and_install_configfiles(AllConfig,
-					       which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(AllConfig, TheLogDir,
 					       Opts#opts.event_handlers) of
 		ok ->      % read tests from spec
 		    {Run,Skip} = ct_testspec:prepare_tests(Terms, node()),
-		    do_run(Run, Skip, Opts#opts{config=AllConfig}, Args);
+		    do_run(Run, Skip, Opts#opts{config=AllConfig,
+						logdir=TheLogDir}, Args);
 		Error ->
 		    Error
 	    end
@@ -348,11 +349,12 @@ script_start2(StartOpts = #opts{vts = undefined,
 script_start2(StartOpts, Args) ->
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
-    case check_and_install_configfiles(InitConfig,
-				       which(logdir,StartOpts#opts.logdir),
+    LogDir = which(logdir, StartOpts#opts.logdir),
+    case check_and_install_configfiles(InitConfig, LogDir,
 				       StartOpts#opts.event_handlers) of
 	ok ->      % go on read tests from start flags
-	    script_start3(StartOpts#opts{config=InitConfig}, Args);
+	    script_start3(StartOpts#opts{config=InitConfig,
+					 logdir=LogDir}, Args);
 	Error ->
 	    Error
     end.
@@ -615,7 +617,7 @@ run_test(StartOpts) when is_list(StartOpts) ->
 run_test1(StartOpts) ->
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
-			   ".", StartOpts),
+			   StartOpts),
     %% config & userconfig
     CfgFiles = ct_config:get_config_file_list(StartOpts),
 
@@ -767,7 +769,7 @@ run_spec_file(Relaxed,
 					       AllEvHs) of
 		ok ->
 		    Opts1 = Opts#opts{cover = Cover,
-				      logdir = LogDir,
+				      logdir = which(logdir, LogDir),
 				      config = AllConfig,
 				      event_handlers = AllEvHs,
 				      include = AllInclude,
@@ -785,9 +787,10 @@ run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
 				     config = CfgFiles,
 				     event_handlers = EvHandlers},
 	     StartOpts) ->
-    case check_and_install_configfiles(CfgFiles, LogDir, EvHandlers) of
+    LogDir1 = which(logdir, LogDir),
+    case check_and_install_configfiles(CfgFiles, LogDir1, EvHandlers) of
 	ok ->
-	    do_run(Run, Skip, Opts, StartOpts);
+	    do_run(Run, Skip, Opts#opts{logdir = LogDir1}, StartOpts);
 	{error,Reason} ->
 	    exit(Reason)
     end.
@@ -816,6 +819,8 @@ check_config_file(Callback, File)->
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers}, StartOpts) ->
+    LogDir1 = which(logdir, LogDir),
+    Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
 	lists:map(fun({Callback,FileList})->
 			  case code:is_loaded(Callback) of
@@ -834,7 +839,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 					     check_config_file(Callback, File)
 				     end, FileList)}
 		  end, CfgFiles),
-    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir) of
+    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir1) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
@@ -842,7 +847,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
 	                              length(Dirs)>1 ->
 	    %% multiple dirs (no suite)
-	    do_run(tests(Dirs), [], Opts, StartOpts);
+	    do_run(tests(Dirs), [], Opts1, StartOpts);
 	false ->				% no dir
 	    %% fun for converting suite name to {Dir,Mod} tuple
 	    S2M = fun(S) when is_list(S) ->
@@ -857,12 +862,12 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
+			    do_run(tests(Dir, listify(Mod)), [], Opts1, StartOpts);
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts, StartOpts)
+			    do_run(tests(Dir, Mod, GsAndCs), [], Opts1, StartOpts)
 		    end;
 		{value,{_,Suites}} ->
-		    do_run(tests(lists:map(S2M, Suites)), [], Opts, StartOpts);
+		    do_run(tests(lists:map(S2M, Suites)), [], Opts1, StartOpts);
 		_ ->
 		    exit(no_tests_specified)
 	    end;
@@ -875,17 +880,17 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
+			    do_run(tests(Dir, listify(Mod)), [], Opts1, StartOpts);
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts, StartOpts)
+			    do_run(tests(Dir, Mod, GsAndCs), [], Opts1, StartOpts)
 		    end;
 		{value,{_,Suites=[Suite|_]}} when is_list(Suite) ->
 		    Mods = lists:map(fun(Str) -> list_to_atom(Str) end, Suites),
-		    do_run(tests(delistify(Dir), Mods), [], Opts, StartOpts);
+		    do_run(tests(delistify(Dir), Mods), [], Opts1, StartOpts);
 		{value,{_,Suites}} ->
-		    do_run(tests(delistify(Dir), Suites), [], Opts, StartOpts);
+		    do_run(tests(delistify(Dir), Suites), [], Opts1, StartOpts);
 	        false ->			% no suite, only dir
-		    do_run(tests(listify(Dir)), [], Opts, StartOpts)
+		    do_run(tests(listify(Dir)), [], Opts1, StartOpts)
 	    end
     end.
 
@@ -925,12 +930,12 @@ run_testspec1(TestSpec) ->
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),
-
-	    case check_and_install_configfiles(Opts#opts.config,
-					       which(logdir,Opts#opts.logdir),
+	    LogDir1 = which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
 					       Opts#opts.event_handlers) of
 		ok ->
 		    Opts1 = Opts#opts{testspecs = [TestSpec],
+				      logdir = LogDir1,
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
 		    do_run(Run, Skip, Opts1, []);
