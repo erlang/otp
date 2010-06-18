@@ -1,0 +1,2 @@
+
+whereis_control_flow5.erl:11: The call erlang:unregister(AnAtom::atom()) might fail due to a possible race condition caused by its combination with the erlang:whereis(AnAtom::any()) call in whereis_control_flow5.erl on line 8

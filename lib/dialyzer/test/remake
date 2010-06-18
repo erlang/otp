@@ -1,0 +1,5 @@
+#!/bin/bash
+
+erlc +warn_exported_vars +warn_unused_import +warn_untyped_record +warn_missing_spec generator.erl
+erl -noshell -run generator suite "$1" -s erlang halt
+rm generator.beam

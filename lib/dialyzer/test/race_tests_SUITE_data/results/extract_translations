@@ -1,0 +1,5 @@
+
+extract_translations.erl:140: The call ets:insert('files',{atom() | [atom() | [any()] | char()]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('files',File::atom() | [atom() | [any()] | char()]) call in extract_translations.erl on line 135
+extract_translations.erl:146: The call ets:insert('translations',{_,[]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('translations',Str::any()) call in extract_translations.erl on line 126
+extract_translations.erl:152: The call ets:insert('files',{atom() | [atom() | [any()] | char()]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('files',File::atom() | [atom() | [any()] | char()]) call in extract_translations.erl on line 148
+extract_translations.erl:154: The call ets:insert('translations',{_,[]}) might have an unintended effect due to a possible race condition caused by its combination with the ets:lookup('translations',Str::any()) call in extract_translations.erl on line 126

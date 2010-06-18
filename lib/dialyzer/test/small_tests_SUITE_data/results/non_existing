@@ -1,0 +1,3 @@
+
+non_existing.erl:12: Call to missing or unexported function lists:non_existing_fun/1
+non_existing.erl:9: Call to missing or unexported function lists:non_existing_call/1

@@ -1,0 +1,2 @@
+
+record_send_test.erl:30: The call erlang:'!'(Rec1::#rec1{a::'a',b::'b',c::'c'},'hello_again') will never return since it differs in the 1st argument from the success typing arguments: (atom() | pid() | port() | {atom(),atom()},any())
