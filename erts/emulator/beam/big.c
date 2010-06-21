@@ -1509,14 +1509,14 @@ Eterm erts_uint64_to_big(Uint64 x, Eterm **hpp)
 	*hp = make_pos_bignum_header(2);
 	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
 	BIG_DIGIT(hp, 1) = (Uint) ((x >> 32) & ((Uint) 0xffffffff));
-	*hpp += 2;
+	*hpp += 3;
     }
     else
 #endif
     {
 	*hp = make_pos_bignum_header(1);
 	BIG_DIGIT(hp, 0) = (Uint) x;
-	*hpp += 1;
+	*hpp += 2;
     }
     return make_big(hp);
 }
@@ -1539,7 +1539,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	    *hp = make_pos_bignum_header(2);
 	BIG_DIGIT(hp, 0) = (Uint) (x & ((Uint) 0xffffffff));
 	BIG_DIGIT(hp, 1) = (Uint) ((x >> 32) & ((Uint) 0xffffffff));
-	*hpp += 2;
+	*hpp += 3;
     }
     else
 #endif
@@ -1549,7 +1549,7 @@ Eterm erts_sint64_to_big(Sint64 x, Eterm **hpp)
 	else
 	    *hp = make_pos_bignum_header(1);
 	BIG_DIGIT(hp, 0) = (Uint) x;
-	*hpp += 1;
+	*hpp += 2;
     }
     return make_big(hp);
 }
