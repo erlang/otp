@@ -34,12 +34,12 @@
 
 -export([send_to_closed/1, 
 	 buffer_size/1, binary_passive_recv/1, bad_address/1,
-	 read_packets/1, open_fd/1]).
+	 read_packets/1, open_fd/1, connect/1]).
 
 all(suite) ->
     [send_to_closed, 
      buffer_size, binary_passive_recv, bad_address, read_packets,
-     open_fd].
+     open_fd, connect].
 
 init_per_testcase(_Case, Config) ->
     ?line Dog=test_server:timetrap(?default_timeout),
@@ -408,3 +408,20 @@ start_node(Name) ->
 
 stop_node(Node) ->
     ?t:stop_node(Node).
+
+
+connect(suite) ->
+    [];
+connect(doc) ->
+    ["Test that connect/3 has effect"];
+connect(Config) when is_list(Config) ->
+    Addr = {127,0,0,1},
+    {ok,S1} = gen_udp:open(0),
+    {ok,P1} = inet:port(S1),
+    {ok,S2} = gen_udp:open(0),
+    ok = inet:setopts(S2, [{active,false}]),
+    ok = gen_udp:close(S1),
+    ok = gen_udp:connect(S2, Addr, P1),
+    ok = gen_udp:send(S2, <<16#deadbeef:32>>),
+    {error,econnrefused} = gen_udp:recv(S2, 0, 5),
+    ok.
