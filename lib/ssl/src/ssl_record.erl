@@ -66,10 +66,9 @@
 %%====================================================================
 %% Internal application API
 %%====================================================================
+
 %%--------------------------------------------------------------------
-%% Function: init_connection_states(Role) -> #connection_states{} 
-%%	Role = client | server
-%%      Random = binary()
+-spec init_connection_states(client | server) -> #connection_states{}.
 %%
 %% Description: Creates a connection_states record with appropriate
 %% values for the initial SSL connection setup. 
@@ -85,9 +84,8 @@ init_connection_states(Role) ->
                       }.
 
 %%--------------------------------------------------------------------
-%% Function: current_connection_state(States, Type) -> #connection_state{}
-%%	States = #connection_states{}
-%%      Type = read | write
+-spec current_connection_state(#connection_states{}, read | write) ->
+				      #connection_state{}.
 %%
 %% Description: Returns the instance of the connection_state record
 %% that is currently defined as the current conection state.
@@ -100,9 +98,8 @@ current_connection_state(#connection_states{current_write = Current},
     Current.
 
 %%--------------------------------------------------------------------
-%% Function: pending_connection_state(States, Type) -> #connection_state{}
-%%	States = #connection_states{}
-%%      Type = read | write
+-spec pending_connection_state(#connection_states{}, read | write) ->
+				      #connection_state{}.
 %%
 %% Description: Returns the instance of the connection_state record
 %% that is currently defined as the pending conection state.
@@ -115,14 +112,11 @@ pending_connection_state(#connection_states{pending_write = Pending},
     Pending.
 
 %%--------------------------------------------------------------------
-%% Function: update_security_params(Params, States) -> 
-%%                                                     #connection_states{}
-%%      Params = #security_parameters{}
-%%	States = #connection_states{}
+-spec update_security_params(#security_parameters{}, #security_parameters{},
+			     #connection_states{}) -> #connection_states{}.
 %%
 %% Description: Creates a new instance of the connection_states record
-%% where the pending states gets its security parameters
-%% updated to <Params>.
+%% where the pending states gets its security parameters updated.
 %%--------------------------------------------------------------------  
 update_security_params(ReadParams, WriteParams, States = 
 		       #connection_states{pending_read = Read,
@@ -135,14 +129,10 @@ update_security_params(ReadParams, WriteParams, States =
                                                     WriteParams}
                             }.
 %%--------------------------------------------------------------------
-%% Function: set_mac_secret(ClientWriteMacSecret,
-%%                            ServerWriteMacSecret, Role, States) -> 
-%%                                       #connection_states{}
-%%      MacSecret = binary()
-%%	States = #connection_states{}
-%%	Role = server | client
+-spec set_mac_secret(binary(), binary(), client | server, 
+			#connection_states{}) -> #connection_states{}.			       
 %%
-%% update the mac_secret field in pending connection states
+%% Description: update the mac_secret field in pending connection states
 %%--------------------------------------------------------------------
 set_mac_secret(ClientWriteMacSecret, ServerWriteMacSecret, client, States) ->
     set_mac_secret(ServerWriteMacSecret, ClientWriteMacSecret, States);
@@ -159,12 +149,9 @@ set_mac_secret(ReadMacSecret, WriteMacSecret,
 
 
 %%--------------------------------------------------------------------
-%% Function: set_master_secret(MasterSecret, States) -> 
-%%                                                #connection_states{}
-%%      MacSecret = 
-%%	States = #connection_states{}
+-spec set_master_secret(binary(), #connection_state{}) -> #connection_states{}.
 %%
-%% Set master_secret in pending connection states
+%% Description: Set master_secret in pending connection states
 %%--------------------------------------------------------------------
 set_master_secret(MasterSecret,
                   States = #connection_states{pending_read = Read,
@@ -180,12 +167,9 @@ set_master_secret(MasterSecret,
     States#connection_states{pending_read = Read1, pending_write = Write1}.
 
 %%--------------------------------------------------------------------
-%% Function: set_renegotiation_flag(Flag, States) -> 
-%%                                                #connection_states{}
-%%      Flag = boolean()
-%%	States = #connection_states{}
+-spec set_renegotiation_flag(boolean(), #connection_states{}) -> #connection_states{}.
 %%
-%% Set master_secret in pending connection states
+%% Description: Set secure_renegotiation in pending connection states
 %%--------------------------------------------------------------------
 set_renegotiation_flag(Flag, #connection_states{
 			 current_read = CurrentRead0,
@@ -203,13 +187,11 @@ set_renegotiation_flag(Flag, #connection_states{
 				       pending_write = PendingWrite}.
 
 %%--------------------------------------------------------------------
-%% Function: set_client_verify_data(State, Data, States) -> 
-%%                                                #connection_states{}
-%%      State = atom()
-%%      Data = binary()
-%%	States = #connection_states{}
+-spec set_client_verify_data(current_read | current_write | current_both,
+			     binary(), #connection_states{})->
+				    #connection_states{}.
 %%
-%% Set verify data in connection states.                 
+%% Description: Set verify data in connection states.                 
 %%--------------------------------------------------------------------
 set_client_verify_data(current_read, Data, 
 		       #connection_states{current_read = CurrentRead0,
@@ -235,15 +217,12 @@ set_client_verify_data(current_both, Data,
     CurrentWrite = CurrentWrite0#connection_state{client_verify_data = Data},
     ConnectionStates#connection_states{current_read = CurrentRead,
 				       current_write = CurrentWrite}.
-
 %%--------------------------------------------------------------------
-%% Function: set_server_verify_data(State, Data, States) -> 
-%%                                                #connection_states{}
-%%      State = atom()
-%%      Data = binary()
-%%	States = #connection_states{}
+-spec set_server_verify_data(current_read | current_write | current_both,
+			     binary(), #connection_states{})->
+				    #connection_states{}.
 %%
-%% Set verify data in pending connection states.
+%% Description: Set verify data in pending connection states.
 %%--------------------------------------------------------------------
 set_server_verify_data(current_write, Data, 
 		       #connection_states{pending_read = PendingRead0,
@@ -273,10 +252,8 @@ set_server_verify_data(current_both, Data,
 				       current_write = CurrentWrite}.
 
 %%--------------------------------------------------------------------
-%% Function: activate_pending_connection_state(States, Type) -> 
-%%                                                   #connection_states{} 
-%%	States = #connection_states{}
-%%      Type = read | write
+-spec activate_pending_connection_state(#connection_states{}, read | write) ->
+					       #connection_states{}.
 %%
 %% Description: Creates a new instance of the connection_states record
 %% where the pending state of <Type> has been activated. 
@@ -308,11 +285,9 @@ activate_pending_connection_state(States =
                             }.
 
 %%--------------------------------------------------------------------
-%% Function: set_pending_cipher_state(States, ClientState, 
-%%                                    ServerState, Role) -> 
-%%                                                #connection_states{}
-%%       ClientState = ServerState = #cipher_state{}
-%%	 States = #connection_states{}
+-spec set_pending_cipher_state(#connection_states{}, #cipher_state{},
+			       #cipher_state{}, client | server) ->
+				      #connection_states{}.
 %%
 %% Description: Set the cipher state in the specified pending connection state.
 %%--------------------------------------------------------------------
@@ -331,12 +306,10 @@ set_pending_cipher_state(#connection_states{pending_read = Read,
         pending_write = Write#connection_state{cipher_state = ClientState}}.
 
 %%--------------------------------------------------------------------
-%% Function: get_tls_record(Data, Buffer) -> Result
-%%      Result = {[#tls_compressed{}], NewBuffer}
-%%      Data = Buffer = NewBuffer = binary()
-%%
-%% Description: given old buffer and new data from TCP, packs up a records
-%% and returns it as a list of #tls_compressed, also returns leftover
+-spec get_tls_records(binary(), binary()) -> {[binary()], binary()}.
+%%			     
+%% Description: Given old buffer and new data from TCP, packs up a records
+%% and returns it as a list of tls_compressed binaries also returns leftover
 %% data
 %%--------------------------------------------------------------------
 get_tls_records(Data, <<>>) ->
@@ -399,8 +372,7 @@ get_tls_records_aux(Data, Acc) ->
     {lists:reverse(Acc), Data}.
 
 %%--------------------------------------------------------------------
-%% Function: protocol_version(Version) -> #protocol_version{}
-%%     Version = atom()
+-spec protocol_version(tls_atom_version()) -> tls_version().		      
 %%     
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
@@ -420,8 +392,7 @@ protocol_version({3, 1}) ->
 protocol_version({3, 0}) ->
     sslv3.
 %%--------------------------------------------------------------------
-%% Function: protocol_version(Version1, Version2) -> #protocol_version{}
-%%     Version1 = Version2 = #protocol_version{}
+-spec lowest_protocol_version(tls_version(), tls_version()) -> tls_version().
 %%     
 %% Description: Lowes protocol version of two given versions 
 %%--------------------------------------------------------------------
@@ -436,8 +407,7 @@ lowest_protocol_version(Version = {M,_},
 lowest_protocol_version(_,Version) ->
     Version.
 %%--------------------------------------------------------------------
-%% Function: protocol_version(Versions) -> #protocol_version{}
-%%     Versions = [#protocol_version{}]
+-spec highest_protocol_version([tls_version()]) -> tls_version().
 %%     
 %% Description: Highest protocol version present in a list
 %%--------------------------------------------------------------------
@@ -459,9 +429,8 @@ highest_protocol_version(_, [Version | Rest]) ->
     highest_protocol_version(Version, Rest).
 
 %%--------------------------------------------------------------------
-%% Function: supported_protocol_versions() -> Versions
-%%     Versions = [#protocol_version{}]
-%%     
+-spec supported_protocol_versions() -> [tls_version()].					 
+%%
 %% Description: Protocol versions supported
 %%--------------------------------------------------------------------
 supported_protocol_versions() ->
@@ -487,8 +456,7 @@ supported_protocol_versions([_|_] = Vsns) ->
     Vsns.
 
 %%--------------------------------------------------------------------
-%% Function: is_acceptable_version(Version) -> true | false
-%%     Version = #protocol_version{}
+-spec is_acceptable_version(tls_version()) -> boolean().
 %%     
 %% Description: ssl version 2 is not acceptable security risks are too big.
 %%--------------------------------------------------------------------
@@ -499,7 +467,7 @@ is_acceptable_version(_) ->
     false.
 
 %%--------------------------------------------------------------------
-%% Function: compressions() -> binary()
+-spec compressions() -> binary().
 %%     
 %% Description: return a list of compressions supported (currently none)
 %%--------------------------------------------------------------------
@@ -507,8 +475,8 @@ compressions() ->
     [?byte(?NULL)].
 
 %%--------------------------------------------------------------------
-%% Function: decode_cipher_text(CipherText, ConnectionStates0) -> 
-%%                                     {Plain, ConnectionStates}
+-spec decode_cipher_text(#ssl_tls{}, #connection_states{}) ->
+				{#ssl_tls{}, #connection_states{}}.
 %%     
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------

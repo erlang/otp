@@ -144,7 +144,7 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     ?DBG_HEX(Mac),
     Mac.
 
--spec suites() -> list().
+-spec suites() -> [cipher_suite()].
     
 suites() ->
     [ 

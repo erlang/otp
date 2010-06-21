@@ -95,13 +95,14 @@
 -type port_num()	  :: integer().
 -type session_id()        :: binary().
 -type tls_version()       :: {integer(), integer()}.
+-type tls_atom_version()  :: sslv3 | tlsv1.
 -type cache_ref()         :: term(). 
 -type certdb_ref()        :: term(). 
 -type key_algo()          :: rsa | dhe_rsa | dhe_dss.
--type oid_algo()          :: integer().
+-type enum_algo()          :: integer().
 -type public_key()        :: #'RSAPublicKey'{} | integer().
 -type public_key_params() :: #'Dss-Parms'{} | term().
--type public_key_info()   :: {oid_algo(), public_key(), public_key_params()}.
+-type public_key_info()   :: {enum_algo(), public_key(), public_key_params()}.
 -type der_cert()          :: binary().
 -type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
 

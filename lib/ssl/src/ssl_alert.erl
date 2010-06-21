@@ -32,6 +32,17 @@
 
 -export([alert_txt/1, reason_code/2]).
 
+%%====================================================================
+%% Internal application API
+%%====================================================================
+%%--------------------------------------------------------------------
+-spec reason_code(#alert{}, client | server) -> closed | esslconnect |
+						esslaccept | string().
+%%
+%% Description: Returns the error reason that will be returned to the
+%% user.
+%%--------------------------------------------------------------------
+
 reason_code(#alert{description = ?CLOSE_NOTIFY}, _) ->
     closed;
 reason_code(#alert{description = ?HANDSHAKE_FAILURE}, client) ->
@@ -41,10 +52,19 @@ reason_code(#alert{description = ?HANDSHAKE_FAILURE}, server) ->
 reason_code(#alert{description = Description}, _) ->
     description_txt(Description).
 
+%%--------------------------------------------------------------------
+-spec alert_txt(#alert{}) -> string().
+%%
+%% Description: Returns the error string for given alert.
+%%--------------------------------------------------------------------
+
 alert_txt(#alert{level = Level, description = Description, where = {Mod,Line}}) ->
     Mod ++ ":" ++ integer_to_list(Line) ++ ":" ++ 
 	level_txt(Level) ++" "++ description_txt(Description).
 
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 level_txt(?WARNING) ->
     "Warning:";
 level_txt(?FATAL) ->
@@ -96,8 +116,3 @@ description_txt(?USER_CANCELED) ->
     "user canceled";
 description_txt(?NO_RENEGOTIATION) ->
     "no renegotiation".
-
-
-
-
-

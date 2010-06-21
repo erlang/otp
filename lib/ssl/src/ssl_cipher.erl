@@ -40,11 +40,8 @@
 -compile(inline).
 
 %%--------------------------------------------------------------------
-%% Function: security_parameters(CipherSuite, SecParams) -> 
-%%                                              #security_parameters{}
-%%
-%% CipherSuite - as defined in ssl_cipher.hrl
-%% SecParams - #security_parameters{}
+-spec security_parameters(erl_cipher_suite(), #security_parameters{}) ->				 
+				 #security_parameters{}.
 %%
 %% Description: Returns a security parameters record where the
 %% cipher values has been updated according to <CipherSuite> 
@@ -63,15 +60,11 @@ security_parameters(CipherSuite, SecParams) ->
       hash_size = hash_size(Hash)}.
 
 %%--------------------------------------------------------------------
-%% Function: cipher(Method, CipherState, Mac, Data) -> 
-%%                                         {Encrypted, UpdateCipherState}
+-spec cipher(cipher_enum(), #cipher_state{}, binary(), binary()) -> 
+		    {binary(), #cipher_state{}}. 
 %%
-%% Method - integer() (as defined in ssl_cipher.hrl)
-%% CipherState, UpdatedCipherState - #cipher_state{}
-%% Data, Encrypted - binary()
-%%
-%% Description: Encrypts the data and the mac using method, updating
-%% the cipher state
+%% Description: Encrypts the data and the MAC using chipher described
+%% by cipher_enum() and updating the cipher state
 %%-------------------------------------------------------------------
 cipher(?NULL, CipherState, <<>>, Fragment) ->
     GenStreamCipherList = [Fragment, <<>>],
@@ -125,15 +118,11 @@ block_cipher(Fun, BlockSz, #cipher_state{key=Key, iv=IV} = CS0,
     {T, CS0#cipher_state{iv=NextIV}}.
 
 %%--------------------------------------------------------------------
-%% Function: decipher(Method, CipherState, Mac, Data, Version) -> 
-%%                                           {Decrypted, UpdateCipherState}
+-spec decipher(cipher_enum(), integer(), #cipher_state{}, binary(), tls_version()) ->
+		      {binary(), #cipher_state{}}.
 %%
-%% Method - integer() (as defined in ssl_cipher.hrl)
-%% CipherState, UpdatedCipherState - #cipher_state{}
-%% Data, Encrypted - binary()
-%%
-%% Description: Decrypts the data and the mac using method, updating
-%% the cipher state
+%% Description: Decrypts the data and the MAC using cipher described
+%% by cipher_enum() and updating the cipher state.
 %%-------------------------------------------------------------------
 decipher(?NULL, _HashSz, CipherState, Fragment, _) ->
     {Fragment, <<>>, CipherState};
@@ -192,10 +181,7 @@ block_decipher(Fun, #cipher_state{key=Key, iv=IV} = CipherState0,
     end.
 	    
 %%--------------------------------------------------------------------
-%% Function: suites(Version) -> [Suite]
-%%
-%% Version = version()
-%% Suite = binary() from ssl_cipher.hrl
+-spec suites(tls_version()) -> [cipher_suite()].
 %%
 %% Description: Returns a list of supported cipher suites.
 %%--------------------------------------------------------------------
@@ -205,19 +191,9 @@ suites({3, N}) when N == 1; N == 2 ->
     ssl_tls1:suites().
 
 %%--------------------------------------------------------------------
-%% Function: suite_definition(CipherSuite) -> 
-%%                                {KeyExchange, Cipher, Hash}
-%%                                             
+-spec suite_definition(cipher_suite()) -> erl_cipher_suite().
 %%
-%% CipherSuite - as defined in ssl_cipher.hrl
-%% KeyExchange - rsa | dh_anon | dhe_dss | dhe_rsa | kerb5
-%%                
-%% Cipher      - null | rc4_128 | idea_cbc | des_cbc | '3des_ede_cbc'
-%%               des40_cbc | aes_128_cbc | aes_256_cbc  
-%% Hash        - null | md5 | sha
-%%
-%% Description: Returns a security parameters tuple where the
-%% cipher values has been updated according to <CipherSuite> 
+%% Description: Return erlang cipher suite definition.
 %% Note: Currently not supported suites are commented away.
 %% They should be supported or removed in the future.
 %%-------------------------------------------------------------------
@@ -260,6 +236,12 @@ suite_definition(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
     {dhe_dss, aes_256_cbc, sha};
 suite_definition(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     {dhe_rsa, aes_256_cbc, sha}.
+
+%%--------------------------------------------------------------------
+-spec suite(erl_cipher_suite()) -> cipher_suite().
+%%
+%% Description: Return TLS cipher suite definition.
+%%--------------------------------------------------------------------
 
 %% TLS v1.1 suites
 %%suite({rsa, null, md5}) ->
@@ -309,7 +291,11 @@ suite({dhe_rsa, aes_256_cbc, sha}) ->
 %% suite({dh_anon, aes_256_cbc, sha}) ->
 %%     ?TLS_DH_anon_WITH_AES_256_CBC_SHA.
 
-
+%%--------------------------------------------------------------------
+-spec openssl_suite(openssl_cipher_suite()) -> cipher_suite().
+%%
+%% Description: Return TLS cipher suite definition.
+%%--------------------------------------------------------------------
 %% translate constants <-> openssl-strings
 openssl_suite("DHE-RSA-AES256-SHA") ->
     ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA;
@@ -339,7 +325,11 @@ openssl_suite("EDH-RSA-DES-CBC-SHA") ->
     ?TLS_DHE_RSA_WITH_DES_CBC_SHA;
 openssl_suite("DES-CBC-SHA") ->
     ?TLS_RSA_WITH_DES_CBC_SHA.
-
+%%--------------------------------------------------------------------
+-spec openssl_suite_name(cipher_suite()) -> openssl_cipher_suite().
+%%
+%% Description: Return openssl cipher suite name.
+%%-------------------------------------------------------------------
 openssl_suite_name(?TLS_DHE_RSA_WITH_AES_256_CBC_SHA) ->
     "DHE-RSA-AES256-SHA";
 openssl_suite_name(?TLS_DHE_DSS_WITH_AES_256_CBC_SHA) ->
@@ -372,6 +362,11 @@ openssl_suite_name(?TLS_RSA_WITH_DES_CBC_SHA) ->
 openssl_suite_name(Cipher) ->
     suite_definition(Cipher).
 
+%%--------------------------------------------------------------------
+-spec filter(undefined | binary(), [cipher_suite()]) -> [cipher_suite()].
+%%
+%% Description: .
+%%-------------------------------------------------------------------
 filter(undefined, Ciphers) -> 
     Ciphers;
 filter(DerCert, Ciphers) ->

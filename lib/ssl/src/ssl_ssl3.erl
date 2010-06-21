@@ -148,7 +148,7 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
 
--spec suites() -> list().
+-spec suites() -> [cipher_suite()].
 
 suites() ->
     [ 
