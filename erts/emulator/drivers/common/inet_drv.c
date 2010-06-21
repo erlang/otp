@@ -9333,11 +9333,13 @@ static int packet_inet_input(udp_descriptor* udesc, HANDLE event)
 	    if (err != ERRNO_BLOCK) {
 		if (!desc->active) {
 #ifdef HAVE_SCTP
-		    if (short_recv)
+		    if (short_recv) {
 			async_error_am(desc, am_short_recv);
-		    else
-#else
+		    } else {
 			async_error(desc, err);
+		    }
+#else
+		    async_error(desc, err);
 #endif
 		    driver_cancel_timer(desc->port);
 		    sock_select(desc,FD_READ,0);
