@@ -28,9 +28,6 @@
     <rev>A</rev>
     <file>book.sgml</file>
   </header>
-  <insidecover>
-    <include file="insidecover"></include>
-  </insidecover>
   <pagetext>SSL Application</pagetext>
   <preamble>
     <contents level="2"></contents>

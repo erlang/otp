@@ -23,6 +23,8 @@
 -ifndef(ssl_internal).
 -define(ssl_internal, true).
 
+-include_lib("public_key/include/public_key.hrl"). 
+
 %% basic binary constructors
 -define(BOOLEAN(X),  X:8/unsigned-big-integer).
 -define(BYTE(X),     X:8/unsigned-big-integer).
@@ -87,6 +89,21 @@
 	  header = 0,
 	  active = true
 	 }).
+
+-type reason()            :: term().
+-type host()		  :: string() | tuple().
+-type port_num()	  :: integer().
+-type session_id()        :: binary().
+-type tls_version()       :: {integer(), integer()}.
+-type cache_ref()         :: term(). 
+-type certdb_ref()        :: term(). 
+-type key_algo()          :: rsa | dhe_rsa | dhe_dss.
+-type oid_algo()          :: integer().
+-type public_key()        :: #'RSAPublicKey'{} | integer().
+-type public_key_params() :: #'Dss-Parms'{} | term().
+-type public_key_info()   :: {oid_algo(), public_key(), public_key_params()}.
+-type der_cert()          :: binary().
+-type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
 
 -endif. % -ifdef(ssl_internal).
 

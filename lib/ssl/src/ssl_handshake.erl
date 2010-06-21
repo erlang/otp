@@ -42,16 +42,15 @@
          encode_handshake/3, init_hashes/0, 
          update_hashes/2, decrypt_premaster_secret/2]).
 
+-type tls_handshake()  :: #client_hello{} | #server_hello{} | #server_hello_done{} |
+#certificate{} | #client_key_exchange{} | #finished{} | #certificate_verify{}.
+
 %%====================================================================
 %% Internal application API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: client_hello(Host, Port, ConnectionStates, SslOpts, Cert, Renegotiation) -> 
-%%                                                  #client_hello{} 
-%%      Host
-%%      Port
-%%      ConnectionStates = #connection_states{}
-%%      SslOpts = #ssl_options{}
+-spec client_hello(host(), port_num(), #connection_states{},
+		   #ssl_options{}, binary(), boolean()) -> #client_hello{}.
 %%
 %% Description: Creates a client hello message.
 %%--------------------------------------------------------------------
@@ -79,13 +78,8 @@ client_hello(Host, Port, ConnectionStates, #ssl_options{versions = Versions,
 		 }.
 
 %%--------------------------------------------------------------------
-%% Function: server_hello(SessionId, Version, 
-%%                        ConnectionStates, Renegotiation) -> #server_hello{} 
-%%      SessionId
-%%      Version
-%%      ConnectionStates
-%%      Renegotiation 
-%%	
+-spec server_hello(session_id(), tls_version(), #connection_states{}, 
+		   boolean()) -> #server_hello{}.
 %%
 %% Description: Creates a server hello message.
 %%--------------------------------------------------------------------
@@ -103,7 +97,7 @@ server_hello(SessionId, Version, ConnectionStates, Renegotiation) ->
 		 }.
 
 %%--------------------------------------------------------------------
-%% Function: hello_request() -> #hello_request{} 
+-spec hello_request() -> #hello_request{}.
 %%
 %% Description: Creates a hello request message sent by server to 
 %% trigger renegotiation.
@@ -112,15 +106,12 @@ hello_request() ->
     #hello_request{}.
 
 %%--------------------------------------------------------------------
-%% Function: hello(Hello, Info, Renegotiation) -> 
-%%                                   {Version, Id, NewConnectionStates} |
-%%                                   #alert{}
-%%
-%%      Hello = #client_hello{} | #server_hello{}
-%%      Info = ConnectionStates | {Port, #ssl_options{}, Session, 
-%%                                 Cahce, CahceCb, ConnectionStates}
-%%      ConnectionStates = #connection_states{}
-%%      Renegotiation = boolean()
+-spec hello(#server_hello{} | #client_hello{}, #ssl_options{},
+ 	    #connection_states{} | {port_num(), #session{}, cache_ref(),
+ 				    atom(), #connection_states{}, binary()},
+ 	    boolean()) -> {tls_version(), session_id(), #connection_states{}}| 
+ 			  {tls_version(), {resumed | new, session_id()}, 
+ 			   #connection_states{}} | #alert{}.
 %%
 %% Description: Handles a recieved hello message
 %%--------------------------------------------------------------------
@@ -183,12 +174,9 @@ hello(#client_hello{client_version = ClientVersion, random = Random,
     end.
 
 %%--------------------------------------------------------------------
-%% Function: certify(Certs, CertDbRef, MaxPathLen) ->
-%%                                 {PeerCert, PublicKeyInfo}  | #alert{}
-%%
-%%      Certs = #certificate{}
-%%	CertDbRef = reference()
-%%      MaxPathLen = integer() | nolimit
+-spec certify(#certificate{}, term(), integer() | nolimit,
+	      verify_peer | verify_none, fun(), fun(), 
+	      client | server) ->  {der_cert(), public_key_info()} | #alert{}.
 %%
 %% Description: Handles a certificate handshake message
 %%--------------------------------------------------------------------
@@ -244,10 +232,7 @@ certify(#certificate{asn1_certificates = ASN1Certs}, CertDbRef,
     end.
 	    
 %%--------------------------------------------------------------------
-%% Function: certificate(OwnCert, CertDbRef, Role) -> #certificate{}
-%%
-%%      OwnCert = binary()
-%%      CertDbRef = term() as returned by ssl_certificate_db:create()
+-spec certificate(der_cert(), term(), client | server) -> #certificate{}. 
 %%
 %% Description: Creates a certificate message.
 %%--------------------------------------------------------------------
@@ -273,10 +258,10 @@ certificate(OwnCert, CertDbRef, server) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: client_certificate_verify(Cert, ConnectionStates) -> 
-%%                                          #certificate_verify{} | ignore
-%% Cert             = #'OTPcertificate'{}
-%% ConnectionStates = #connection_states{}
+-spec client_certificate_verify(undefined | der_cert(), binary(),
+				tls_version(), key_algo(), private_key(),
+				{binary(), binary()}) ->  
+    #certificate_verify{} | ignore.
 %%
 %% Description: Creates a certificate_verify message, called by the client.
 %%--------------------------------------------------------------------
@@ -298,10 +283,9 @@ client_certificate_verify(OwnCert, MasterSecret, Version, Algorithm,
     end.
 
 %%--------------------------------------------------------------------
-%% Function: certificate_verify(Signature, PublicKeyInfo) -> valid | #alert{}
-%%
-%% Signature     = binary()
-%% PublicKeyInfo = {Algorithm, PublicKey, PublicKeyParams}
+-spec certificate_verify(binary(), public_key_info(), tls_version(),
+			 binary(), key_algo(), 
+			 {binary(), binary()}) -> valid | #alert{}.
 %%
 %% Description: Checks that the certificate_verify message is valid.
 %%--------------------------------------------------------------------
@@ -325,8 +309,8 @@ certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version,
      public_key:verify_signature(Hashes, sha, Signature, PublicKey, PublicKeyParams). 
 
 %%--------------------------------------------------------------------
-%% Function: certificate_request(ConnectionStates, CertDbRef) -> 
-%%                                                #certificate_request{}
+-spec certificate_request(#connection_states{}, certdb_ref()) -> 
+    #certificate_request{}.
 %%
 %% Description: Creates a certificate_request message, called by the server.
 %%--------------------------------------------------------------------
@@ -342,11 +326,12 @@ certificate_request(ConnectionStates, CertDbRef) ->
 		   }.
 
 %%--------------------------------------------------------------------
-%% Function: key_exchange(Role, Secret, Params) -> 
-%%                         #client_key_exchange{} | #server_key_exchange{}
-%%
-%%      Secret -
-%%      Params - 
+-spec key_exchange(client | server, 
+		   {premaster_secret, binary(), public_key_info()} |
+		   {dh, binary()} |
+		   {dh, binary(), #'DHParameter'{}, key_algo(),
+		   binary(), binary(), private_key()}) ->
+    #client_key_exchange{} | #server_key_exchange{}.
 %%
 %% Description: Creates a keyexchange message.
 %%--------------------------------------------------------------------
@@ -382,15 +367,9 @@ key_exchange(server, {dh, {<<?UINT32(Len), PublicKey:Len/binary>>, _},
 			 signed_params = Signed}.
 
 %%--------------------------------------------------------------------
-%% Function: master_secret(Version, Session/PremasterSecret, 
-%%                         ConnectionStates, Role) -> 
-%%                          {MasterSecret, NewConnectionStates} | #alert{}
-%%      Version = #protocol_version{}
-%%      Session = #session{} (session contains master secret)
-%%      PremasterSecret = binary()  
-%%      ConnectionStates = #connection_states{}
-%%      Role = client | server
-%%
+-spec master_secret(tls_version(), #session{} | binary(), #connection_states{},
+		   client | server) -> {binary(), #connection_states{}} | #alert{}.
+%%    
 %% Description: Sets or calculates the master secret and calculate keys,
 %% updating the pending connection states. The Mastersecret and the update
 %% connection states are returned or an alert if the calculation fails.
@@ -427,9 +406,8 @@ master_secret(Version, PremasterSecret, ConnectionStates, Role) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: finished(Version, Role, MacSecret, Hashes) -> #finished{}
-%%
-%%      ConnectionStates = #connection_states{}
+-spec finished(tls_version(), client | server, binary(), {binary(), binary()}) ->
+    #finished{}.
 %%
 %% Description: Creates a handshake finished message
 %%-------------------------------------------------------------------
@@ -438,15 +416,8 @@ finished(Version, Role, MasterSecret, {Hashes, _}) -> % use the current hashes
 	      calc_finished(Version, Role, MasterSecret, Hashes)}.
 
 %%--------------------------------------------------------------------
-%% Function: verify_connection(Finished, Role, 
-%%                             MasterSecret, Hashes) -> verified | #alert{}
-%% 
-%% Finished = #finished{}
-%% Role = client | server - the role of the process that sent the finished
-%% message.
-%% MasterSecret = binary()
-%% Hashes = binary() -  {md5_hash, sha_hash} 
-%%
+-spec verify_connection(tls_version(), #finished{}, client | server, binary(), 
+			{binary(), binary()}) -> verified | #alert{}.
 %%
 %% Description: Checks the ssl handshake finished message to verify
 %%              the connection.
@@ -462,17 +433,18 @@ verify_connection(Version, #finished{verify_data = Data},
 	_E ->
  	    ?ALERT_REC(?FATAL, ?HANDSHAKE_FAILURE)
     end.
-	    
+%%--------------------------------------------------------------------
+-spec server_hello_done() ->  #server_hello_done{}.
+%%     
+%% Description: Creates a server hello done message.
+%%--------------------------------------------------------------------	    
 server_hello_done() ->
     #server_hello_done{}.
 
 %%--------------------------------------------------------------------
-%% Function: encode_handshake(HandshakeRec) -> BinHandshake
-%% HandshakeRec = #client_hello | #server_hello{} | server_hello_done |
-%%              #certificate{} | #client_key_exchange{} | #finished{} |
-%%              #client_certify_request{}
+-spec encode_handshake(tls_handshake(), tls_version(), key_algo()) -> binary().
 %%     
-%% encode a handshake packet to binary
+%% Description: Encode a handshake packet to binary
 %%--------------------------------------------------------------------
 encode_handshake(Package, Version, KeyAlg) ->
     SigAlg = sig_alg(KeyAlg),
@@ -481,12 +453,11 @@ encode_handshake(Package, Version, KeyAlg) ->
     [MsgType, ?uint24(Len), Bin].
 
 %%--------------------------------------------------------------------
-%% Function: get_tls_handshake(Data, Buffer) -> Result
-%%      Result = {[#handshake{}], [Raw], NewBuffer}
-%%      Data = Buffer = NewBuffer = Raw = binary()
+-spec get_tls_handshake(binary(), binary(), key_algo(), tls_version()) ->
+     {[tls_handshake()], [binary()], binary()}.
 %%
 %% Description: Given buffered and new data from ssl_record, collects
-%% and returns it as a list of #handshake, also returns leftover
+%% and returns it as a list of handshake messages, also returns leftover
 %% data.
 %%--------------------------------------------------------------------
 get_tls_handshake(Data, <<>>, KeyAlg, Version) ->
@@ -495,6 +466,9 @@ get_tls_handshake(Data, Buffer, KeyAlg, Version) ->
     get_tls_handshake_aux(list_to_binary([Buffer, Data]), 
 			  KeyAlg, Version, []).
 
+%%--------------------------------------------------------------------
+%%% Internal functions
+%%--------------------------------------------------------------------
 get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length), 
 		       Body:Length/binary,Rest/binary>>, KeyAlg, 
 		      Version, Acc) ->
@@ -504,9 +478,6 @@ get_tls_handshake_aux(<<?BYTE(Type), ?UINT24(Length),
 get_tls_handshake_aux(Data, _KeyAlg, _Version, Acc) ->
     {lists:reverse(Acc), Data}.
 
-%%--------------------------------------------------------------------
-%%% Internal functions
-%%--------------------------------------------------------------------
 verify_bool(verify_peer) ->
     true;
 verify_bool(verify_none) ->

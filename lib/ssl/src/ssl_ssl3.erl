@@ -38,6 +38,8 @@
 %% Internal application API
 %%====================================================================
 
+-spec master_secret(binary(), binary(), binary()) -> binary().
+
 master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
     ?DBG_HEX(PremasterSecret),
     ?DBG_HEX(ClientRandom),
@@ -57,6 +59,8 @@ master_secret(PremasterSecret, ClientRandom, ServerRandom) ->
     ?DBG_HEX(B),
     B.
 
+-spec finished(client | server, binary(), {binary(), binary()}) -> binary().
+
 finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
    %%  draft-ietf-tls-ssl-version3-00 - 5.6.9 Finished
    %%     struct {
@@ -74,6 +78,8 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     MD5 = handshake_hash(?MD5, MasterSecret, Sender, MD5Hash),
     SHA = handshake_hash(?SHA, MasterSecret, Sender, SHAHash),
     <<MD5/binary, SHA/binary>>.
+
+-spec certificate_verify(key_algo(), binary(), {binary(), binary()}) -> binary().
 
 certificate_verify(Algorithm, MasterSecret, {MD5Hash, SHAHash}) 
   when Algorithm == rsa; Algorithm == dhe_rsa ->
@@ -94,6 +100,8 @@ certificate_verify(dhe_dss, MasterSecret, {_, SHAHash}) ->
      %%               SHA(handshake_messages + master_secret + pad_1));
     handshake_hash(?SHA, MasterSecret, undefined, SHAHash).
 
+-spec mac_hash(integer(), binary(), integer(), integer(), integer(), binary()) -> binary(). 
+
 mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
     %% draft-ietf-tls-ssl-version3-00 - 5.2.3.1 
     %% hash(MAC_write_secret + pad_2 +
@@ -112,6 +120,10 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, Length, Fragment) ->
 		     ?UINT16(Length)>>, Fragment]),
     ?DBG_HEX(Mac),
     Mac.
+
+-spec setup_keys(binary(), binary(), binary(), binary(), 
+		 integer(), integer(), binary()) -> {binary(), binary(), binary(), 
+						     binary(), binary(), binary()}.  
 
 setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     KeyBlock = generate_keyblock(MasterSecret, ServerRandom, ClientRandom,
@@ -135,6 +147,8 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HS, KML, _EKML, IVS) ->
     ?DBG_HEX(ServerIV),
     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
      ServerWriteKey, ClientIV, ServerIV}.
+
+-spec suites() -> list().
 
 suites() ->
     [ 
