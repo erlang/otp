@@ -23,7 +23,7 @@
 %%%
 -module(ct_test_support).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,

@@ -1564,8 +1564,8 @@ temp_nodename([Chr|Base], Acc) ->
 %% of cases can not be calculated and NoOfCases = unknown.
 count_test_cases(TopCases, SkipCases) when is_list(TopCases) ->
     case collect_all_cases(TopCases, SkipCases) of
-	{error,_Why} ->
-	    error;
+	{error,_Why} = Error ->
+	    Error;
 	TestSpec ->
 	    {get_suites(TestSpec, []),
 	     case remove_conf(TestSpec) of
@@ -2066,10 +2066,6 @@ run_test_cases(TestSpec, Config, TimetrapData) ->
     maybe_open_job_sock(),
 
     html_convert_modules(TestSpec, Config),
-
-    %%! For readable tracing...
-    %%! Config1 = [{data_dir,""},{priv_dir,""},{nodes,[]}],
-    %%! run_test_cases_loop(TestSpec, [[]], TimetrapData, [], []),
 
     run_test_cases_loop(TestSpec, [Config], TimetrapData, [], []),
 
@@ -3552,7 +3548,7 @@ run_test_case1(Ref, Num, Mod, Func, Args, RunInit, Where,
 	    case test_server_sup:framework_call(warn, [nodes], true) of
 		true ->
 		    case catch controller_call(kill_slavenodes) of
-			{'EXIT',_}=Exit ->
+			{'EXIT',_} = Exit ->
 			    print(minor,
 				  "WARNING: There might be slavenodes left in the"
 				  " system. I tried to kill them, but I failed: ~p\n",
@@ -4444,9 +4440,9 @@ collect_cases([Case|Cs0], St0) ->
 	    case collect_cases(Cs0, St1) of
 		{ok,FlatCases2,St} ->
 		    {ok,FlatCases1 ++ FlatCases2,St};
-		{error,_Reason}=Error -> Error
+		{error,_Reason} = Error -> Error
 	    end;
-	{error,_Reason}=Error -> Error
+	{error,_Reason} = Error -> Error
     end;
 
 
@@ -4482,39 +4478,55 @@ collect_cases({conf,Props,InitMF,CaseList,FinF}, St) when is_atom(FinF) ->
 	Props1 ->
 	    collect_cases({conf,Props1,InitMF,CaseList,{St#cc.mod,FinF}}, St)
     end;
-collect_cases({conf,Props,InitMF,CaseList,FinMF}, St0) ->
-    case collect_cases(CaseList, St0) of
-	{ok,[],_St}=Empty ->
-	    Empty;
-	{ok,FlatCases,St} ->
+collect_cases({conf,Props,InitMF,CaseList,FinMF} = Conf, St) ->
+    case init_props(Props) of
+	{error,_} ->
+	    {ok,[],St};
+	Props1 ->
 	    Ref = make_ref(),
-	    case in_skip_list(InitMF, St#cc.skip) of
-		{true,Comment} ->
+	    Skips = St#cc.skip,
+	    case in_skip_list({St#cc.mod,Conf}, Skips) of
+		{true,Comment} ->	    	           % conf init skipped
 		    {ok,[{skip_case,{conf,Ref,InitMF,Comment}} |
-			 FlatCases ++ [{conf,Ref,[],FinMF}]],St};
-		false ->
-		    case init_props(Props) of
-			{error,_} ->
-			    {ok,[],St};
-			Props1 ->
+			 [] ++ [{conf,Ref,[],FinMF}]],St};
+		{true,Name,Comment} when is_atom(Name) ->  % all cases skipped
+		    {ok,[{skip_case,{{St#cc.mod,{group,Name}},Comment}}],St};
+		{true,ToSkip,_} when is_list(ToSkip) ->    % some cases skipped
+		    case collect_cases(CaseList,
+				       St#cc{skip=ToSkip++Skips}) of
+			{ok,[],_St} = Empty ->
+			    Empty;
+			{ok,FlatCases,St1} ->
 			    {ok,[{conf,Ref,Props1,InitMF} |
 				 FlatCases ++ [{conf,Ref,
 						keep_name(Props1),
-						FinMF}]],St}
+						FinMF}]],St1#cc{skip=Skips}};
+			{error,_Reason} = Error ->
+			    Error
+		    end;
+		false ->
+		    case collect_cases(CaseList, St) of
+			{ok,[],_St} = Empty ->
+			    Empty;
+			{ok,FlatCases,St1} ->
+			    {ok,[{conf,Ref,Props1,InitMF} |
+				 FlatCases ++ [{conf,Ref,
+						keep_name(Props1),
+						FinMF}]],St1};
+			{error,_Reason} = Error ->
+			    Error
 		    end
-	    end;
-	{error,_Reason}=Error ->
-	    Error
+	    end
     end;
 
 collect_cases({make,InitMFA,CaseList,FinMFA}, St0) ->
     case collect_cases(CaseList, St0) of
-	{ok,[],_St}=Empty -> Empty;
+	{ok,[],_St} = Empty -> Empty;
 	{ok,FlatCases,St} ->
 	    Ref = make_ref(),
 	    {ok,[{make,Ref,InitMFA}|FlatCases ++
 		 [{make,Ref,FinMFA}]],St};
-	{error,_Reason}=Error -> Error
+	{error,_Reason} = Error -> Error
     end;
 
 collect_cases({Module, Cases}, St) when is_list(Cases)  ->
@@ -4534,6 +4546,9 @@ collect_cases(Case, St) when is_atom(Case), is_atom(St#cc.mod) ->
     collect_case({St#cc.mod,Case}, St);
 collect_cases(Other, St) ->
     {error,{bad_subtest_spec,St#cc.mod,Other}}.
+
+collect_case({_Mod,{conf,_,_,_,_}=Conf}, St) ->
+    collect_cases(Conf, St);
 
 collect_case(MFA, St) ->
     case in_skip_list(MFA, St#cc.skip) of
@@ -4580,6 +4595,8 @@ collect_subcases(Mod, Case, MFA, St, Suite) ->
 %%%! --- END Kept for backwards compatibilty ---
 	{Skip,Reason} when Skip==skip; Skip==skipped ->
 	    {ok,[{skip_case,{MFA,Reason}}],St};
+	{error,Reason} ->
+	    throw(Reason);
 	SubCases ->
 	    collect_case_subcases(Mod, Case, SubCases, St)
     end.
@@ -4640,6 +4657,45 @@ check_deny_req(Req, DenyList) ->
 	true -> {denied,io_lib:format("Requirement ~p", [Req])};
 	false -> granted
     end.
+
+in_skip_list({Mod,{conf,Props,InitMF,_CaseList,_FinMF}}, SkipList) ->
+    case in_skip_list(InitMF, SkipList) of
+	{true,_} = Yes ->
+	    Yes;
+	_ ->
+	    case proplists:get_value(name, Props) of
+		undefined ->
+		    false;
+		Name ->
+		    ToSkip =
+			lists:flatmap(
+			  fun({M,{conf,SProps,_,SCaseList,_},Cmt}) when
+				    M == Mod ->
+				  case proplists:get_value(name, SProps) of
+				      Name ->
+					  case SCaseList of
+					      all ->
+						  [{M,all,Cmt}];
+					      _ ->
+						  [{M,F,Cmt} || F <- SCaseList]
+					  end;
+				      _ ->
+					  []
+				  end;
+			     (_) ->
+				  []
+			  end, SkipList),
+		    case ToSkip of
+			[] ->
+			    false;
+			_ ->
+			    case lists:keysearch(all, 2, ToSkip) of
+				{value,{_,_,Cmt}} -> {true,Name,Cmt};
+				_                 -> {true,ToSkip,""}
+			    end
+		    end
+	    end
+    end;
 
 in_skip_list({Mod,Func,_Args}, SkipList) ->
     in_skip_list({Mod,Func}, SkipList);

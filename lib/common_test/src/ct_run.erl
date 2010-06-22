@@ -153,6 +153,7 @@ script_start(Args) ->
 		Result
 	end,
     stop_trace(Tracing),
+    timer:sleep(1000),
     Res.
 
 script_start1(Parent, Args) ->
@@ -777,7 +778,7 @@ run_spec_file(Relaxed,
 				      multiply_timetraps = MultTT,
 				      scale_timetraps = ScaleTT},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-		    do_run(Run, Skip, Opts1, StartOpts);
+		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
 		    exit(GCFReason)
 	    end
@@ -790,7 +791,8 @@ run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
     LogDir1 = which(logdir, LogDir),
     case check_and_install_configfiles(CfgFiles, LogDir1, EvHandlers) of
 	ok ->
-	    do_run(Run, Skip, Opts#opts{logdir = LogDir1}, StartOpts);
+	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
+					 StartOpts));
 	{error,Reason} ->
 	    exit(Reason)
     end.
@@ -847,7 +849,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
 	                              length(Dirs)>1 ->
 	    %% multiple dirs (no suite)
-	    do_run(tests(Dirs), [], Opts1, StartOpts);
+	    reformat_result(catch do_run(tests(Dirs), [], Opts1, StartOpts));
 	false ->				% no dir
 	    %% fun for converting suite name to {Dir,Mod} tuple
 	    S2M = fun(S) when is_list(S) ->
@@ -862,12 +864,15 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts1, StartOpts);
+			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+							 [], Opts1, StartOpts));
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts1, StartOpts)
+			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+							 [], Opts1, StartOpts))
 		    end;
 		{value,{_,Suites}} ->
-		    do_run(tests(lists:map(S2M, Suites)), [], Opts1, StartOpts);
+		    reformat_result(catch do_run(tests(lists:map(S2M, Suites)),
+						 [], Opts1, StartOpts));
 		_ ->
 		    exit(no_tests_specified)
 	    end;
@@ -880,17 +885,22 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts1, StartOpts);
+			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+							 [], Opts1, StartOpts));
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts1, StartOpts)
+			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+							 [], Opts1, StartOpts))
 		    end;
 		{value,{_,Suites=[Suite|_]}} when is_list(Suite) ->
 		    Mods = lists:map(fun(Str) -> list_to_atom(Str) end, Suites),
-		    do_run(tests(delistify(Dir), Mods), [], Opts1, StartOpts);
+		    reformat_result(catch do_run(tests(delistify(Dir), Mods),
+						 [], Opts1, StartOpts));
 		{value,{_,Suites}} ->
-		    do_run(tests(delistify(Dir), Suites), [], Opts1, StartOpts);
+		    reformat_result(catch do_run(tests(delistify(Dir), Suites),
+						 [], Opts1, StartOpts));
 	        false ->			% no suite, only dir
-		    do_run(tests(listify(Dir)), [], Opts1, StartOpts)
+		    reformat_result(catch do_run(tests(listify(Dir)),
+						 [], Opts1, StartOpts))
 	    end
     end.
 
@@ -934,11 +944,11 @@ run_testspec1(TestSpec) ->
 	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
 					       Opts#opts.event_handlers) of
 		ok ->
-		    Opts1 = Opts#opts{testspecs = [TestSpec],
+		    Opts1 = Opts#opts{testspecs = [],
 				      logdir = LogDir1,
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-		    do_run(Run, Skip, Opts1, []);
+		    reformat_result(catch do_run(Run, Skip, Opts1, []));
 		{error,GCFReason} ->
 		    exit(GCFReason)
 	    end
@@ -1028,21 +1038,26 @@ delistify(E)   -> E.
 %%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
     install([]),
-    do_run(tests(TestDir, Suite, Cases), []).
+    reformat_result(catch do_run(tests(TestDir, Suite, Cases), [])).
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
     install([]),
-    do_run(tests(TestDir, Suite), []).
+    reformat_result(catch do_run(tests(TestDir, Suite), [])).
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/1
 run(TestDirs) ->
     install([]),
-    do_run(tests(TestDirs), []).
+    reformat_result(catch do_run(tests(TestDirs), [])).
+
+reformat_result({user_error,Reason}) ->
+    {error,Reason};
+reformat_result(Result) ->
+    Result.
 
 suite_to_test(Suite) ->
     {filename:dirname(Suite),list_to_atom(filename:rootname(filename:basename(Suite)))}.
@@ -1161,10 +1176,19 @@ do_run(Tests, Skip, Opts, Args) ->
 			true ->
 			    SavedErrors = save_make_errors(SuiteMakeErrors),
 			    ct_repeat:log_loop_info(Args),
-			    {Tests1,Skip1} = final_tests(Tests,[],Skip,SavedErrors),
-			    R = do_run_test(Tests1, Skip1, Opts1),
-			    ct_util:stop(normal),
-			    R;
+
+			    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
+
+			    R = (catch do_run_test(Tests1, Skip1, Opts1)),
+			    case R of
+				{EType,_} = Error when EType == user_error ;
+						       EType == error ->
+				    ct_util:stop(clean),
+				    exit(Error);
+				_ ->
+				    ct_util:stop(normal),
+				    R
+			    end;
 			false ->
 			    io:nl(),
 			    ct_util:stop(clean),
@@ -1321,8 +1345,20 @@ suite_tuples([{TestDir,Suite,_} | Tests]) when is_atom(Suite) ->
 suite_tuples([]) ->
     [].
 
-final_tests([{TestDir,Suites,_}|Tests],
-	    Final, Skip, Bad) when is_list(Suites), is_atom(hd(Suites)) ->
+final_tests(Tests, Skip, Bad) ->
+
+%%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
+
+    {Tests1,Skip1} = final_tests1(Tests, [], Skip, Bad),
+
+%%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip1]),
+
+    {Tests1,final_skip(Skip1, [])}.
+
+final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
+      is_list(Suites), is_atom(hd(Suites)) ->
 %     Separate =
 % 	fun(S,{DoSuite,Dont}) ->		
 % 		case lists:keymember({TestDir,S},1,Bad) of
@@ -1341,9 +1377,9 @@ final_tests([{TestDir,Suites,_}|Tests],
     Skip1 = [{TD,S,"Make failed"} || {{TD,S},_} <- Bad, S1 <- Suites,
 				     S == S1, TD == TestDir],
     Final1 = [{TestDir,S,all} || S <- Suites],
-    final_tests(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
+    final_tests1(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
 
-final_tests([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
+final_tests1([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
     MissingSuites =
 	case lists:keysearch({TestDir,all}, 1, Bad) of
 	    {value,{_,Failed}} ->
@@ -1353,39 +1389,46 @@ final_tests([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
 	end,
     Missing = [{TestDir,S,"Make failed"} || S <- MissingSuites],
     Final1 = [{TestDir,all,all}|Final],
-    final_tests(Tests, Final1, Skip++Missing, Bad);
+    final_tests1(Tests, Final1, Skip++Missing, Bad);
 
-final_tests([{TestDir,Suite,Cases}|Tests],
-	    Final, Skip, Bad) when Cases==[]; Cases==all  ->
-    final_tests([{TestDir,[Suite],all}|Tests], Final, Skip, Bad);
+final_tests1([{TestDir,Suite,Cases}|Tests], Final, Skip, Bad) when
+      Cases==[]; Cases==all  ->
+    final_tests1([{TestDir,[Suite],all}|Tests], Final, Skip, Bad);
 
-final_tests([{TestDir,Suite,Groups}|Tests], Final, Skip, Bad) when
-      is_atom(element(1,hd(Groups))) ->
-    Confs =
-	lists:map(fun({Group,TCs}) ->
+final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
+      is_list(GrsOrCs) ->
+    case lists:keymember({TestDir,Suite}, 1, Bad) of
+	true ->
+	    Skip1 = Skip ++ [{TestDir,Suite,all,"Make failed"}],
+	    final_tests1(Tests, [{TestDir,Suite,all}|Final], Skip1, Bad);
+	false ->
+	    GrsOrCs1 =
+		lists:map(
+		  %% for now, only flat group defs are allowed as
+		  %% start options and test spec terms
+		  fun({Group,TCs}) ->
 			  ct_framework:make_conf(TestDir, Suite,
-						 Group, [], TCs)
-		  end, Groups),
-    Do = {TestDir,Suite,Confs},
-    case lists:keymember({TestDir,Suite}, 1, Bad) of
-	false ->
-	    final_tests(Tests, [Do|Final], Skip, Bad);
-	true ->
-	    Skip1 = Skip ++ [{TestDir,Suite,Confs,"Make failed"}],
-	    final_tests(Tests, [Do|Final], Skip1, Bad)
+						 Group, [], TCs);
+		     (TC) ->
+			  TC
+		  end, GrsOrCs),
+	    Do = {TestDir,Suite,GrsOrCs1},
+	    final_tests1(Tests, [Do|Final], Skip, Bad)
     end;
 
-final_tests([Do={TestDir,Suite,Cases}|Tests], Final, Skip, Bad) ->
-    case lists:keymember({TestDir,Suite}, 1, Bad) of
-	true ->
-	    Skip1 = Skip ++ [{TestDir,Suite,Cases,"Make failed"}],
-	    final_tests(Tests, [Do|Final], Skip1, Bad);
-	false ->
-	    final_tests(Tests, [Do|Final], Skip, Bad)
-    end;
-
-final_tests([], Final, Skip, _Bad) ->
+final_tests1([], Final, Skip, _Bad) ->
     {lists:reverse(Final),Skip}.
+
+final_skip([{TestDir,Suite,{Group,TCs},Reason}|Skips], Final) ->
+    Conf =  ct_framework:make_conf(TestDir, Suite, Group, [], TCs),
+    Skip = {TestDir,Suite,Conf,Reason},
+    final_skip(Skips, [Skip|Final]);
+
+final_skip([Skip|Skips], Final) ->
+    final_skip(Skips, [Skip|Final]);
+
+final_skip([], Final) ->
+    lists:reverse(Final).
 
 continue([]) ->
     true;
@@ -1508,6 +1551,7 @@ do_run_test(Tests, Skip, Opts) ->
 		_ ->
 		    false
 	    end,
+
 	    %% let test_server expand the test tuples and count no of cases
 	    {Suites,NoOfCases} = count_test_cases(Tests, Skip),
 	    Suites1 = delete_dups(Suites),
@@ -1563,19 +1607,30 @@ count_test_cases(Tests, Skip) ->
     TSPid = test_server_ctrl:start_get_totals(SendResult),
     Ref = erlang:monitor(process, TSPid),
     add_jobs(Tests, Skip, #opts{}, []),
-    {Suites,NoOfCases} = count_test_cases1(length(Tests), 0, [], Ref),
+    Counted = (catch count_test_cases1(length(Tests), 0, [], Ref)),
     erlang:demonitor(Ref, [flush]),
-    test_server_ctrl:stop_get_totals(),
-    {Suites,NoOfCases}.
+    case Counted of
+	{error,{test_server_died}} = Error ->
+	    throw(Error);
+	{error,Reason} ->
+	    unlink(whereis(test_server_ctrl)),
+	    test_server_ctrl:stop(),
+	    throw({user_error,Reason});
+	Result ->
+	    test_server_ctrl:stop_get_totals(),
+	    Result
+    end.
 
 count_test_cases1(0, N, Suites, _) ->
     {lists:flatten(Suites), N};
 count_test_cases1(Jobs, N, Suites, Ref) ->
     receive
+	{_,{error,_Reason} = Error} ->
+	    throw(Error);
 	{no_of_cases,{Ss,N1}} ->
 	    count_test_cases1(Jobs-1, add_known(N,N1), [Ss|Suites], Ref);
-	{'DOWN', Ref, _, _, _} ->
-	    {[],0}
+	{'DOWN', Ref, _, _, Info} ->
+	    throw({error,{test_server_died,Info}})
     end.
 
 add_known(unknown, _) ->

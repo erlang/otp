@@ -185,7 +185,15 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 	    {[{{Node,Dir},{Suite,all}}],SkipAll};
 	Skipped ->
 	    %% note: this adds a test even if only skip is specified
-	    PrepC = lists:foldr(fun({C,{skip,_Cmt}},Acc) ->
+	    PrepC = lists:foldr(fun({{G,_}=Group,{skip,_Cmt}}, Acc) when
+					  is_atom(G) ->
+					case lists:keymember(G, 1, Cases) of
+					    true ->
+						Acc;
+					    false ->
+						[Group|Acc]
+					end;
+				   ({C,{skip,_Cmt}},Acc) ->
 					case lists:member(C,Cases) of
 					    true ->
 						Acc;
@@ -194,7 +202,7 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 					end;
 				   (C,Acc) -> [C|Acc]
 				end, [], Cases),
-	    {{{Node,Dir},{Suite,PrepC}},Skipped}
+    {{{Node,Dir},{Suite,PrepC}},Skipped}
     end.
 
 get_skipped_suites(Node,Dir,Suites) ->
@@ -878,8 +886,12 @@ skip_suites(_Node,_Dir,[],_Cmt,Tests) ->
 skip_suites(Node,Dir,S,Cmt,Tests) ->
     skip_suites(Node,Dir,[S],Cmt,Tests).
 
-skip_groups(Node,Dir,Suite,Group,Case,Cmt,Tests) when is_atom(Group) ->
-    skip_groups(Node,Dir,Suite,[Group],[Case],Cmt,Tests);
+skip_groups(Node,Dir,Suite,Group,all,Cmt,Tests) when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],all,Cmt,Tests);
+skip_groups(Node,Dir,Suite,Group,Cases,Cmt,Tests) when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],Cases,Cmt,Tests);
+skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests) when is_atom(Case) ->
+    skip_groups(Node,Dir,Suite,Groups,[Case],Cmt,Tests);
 skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
     Suites =

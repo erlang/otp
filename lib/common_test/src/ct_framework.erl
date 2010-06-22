@@ -682,6 +682,8 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 		    %% this makes test_server call error_in_suite as first
 		    %% (and only) test case so we can report Error properly
 		    [{?MODULE,error_in_suite,[[Error]]}];
+		[] ->
+		    {error,{invalid_group_spec,Name}};
 		ConfTests ->
 		    ConfTests
 	    end;
