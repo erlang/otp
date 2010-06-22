@@ -2668,7 +2668,7 @@ static __inline__ int check_fpe(double f)
  * Implement SIGFPE handler based on CPU/OS combination
  */
 
-#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__i386__) || defined(__x86_64__))) || (defined(__OpenBSD__) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
+#if (defined(__linux__) && (defined(__i386__) || defined(__x86_64__) || defined(__sparc__) || defined(__powerpc__))) || (defined(__DARWIN__) && (defined(__i386__) || defined(__x86_64__) || defined(__ppc__))) || (defined(__FreeBSD__) && (defined(__i386__) || defined(__x86_64__))) || ((defined(__OpenBSD__) || defined(__NetBSD__)) && defined(__x86_64__)) || (defined(__sun__) && defined(__x86_64__))
 
 #if defined(__linux__) && defined(__i386__)
 #if !defined(X86_FXSR_MAGIC)
@@ -2780,6 +2780,11 @@ static void fpe_sig_action(int sig, siginfo_t *si, void *puc)
     }
 #elif defined(__OpenBSD__) && defined(__x86_64__)
     struct fxsave64 *fxsave = uc->sc_fpstate;
+    fxsave->fx_mxcsr = 0x1F80;
+    fxsave->fx_fsw &= ~0xFF;
+#elif defined(__NetBSD__) && defined(__x86_64__)
+    mcontext_t *mc = &uc->uc_mcontext;
+    struct fxsave64 *fxsave = (struct fxsave64 *)&mc->__fpregs;
     fxsave->fx_mxcsr = 0x1F80;
     fxsave->fx_fsw &= ~0xFF;
 #elif defined(__sun__) && defined(__x86_64__)
