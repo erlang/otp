@@ -72,7 +72,8 @@ release_spec: opt
 release_tests_spec: opt
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) et.spec $(ERL_FILES) $(HRL_FILES) $(RELSYSDIR)
-	$(INSTALL_PROGRAM) ett $(INSTALL_PROGS) $(RELSYSDIR)
+	$(INSTALL_SCRIPT) ett $(RELSYSDIR)
+	$(INSTALL_DATA) $(INSTALL_PROGS) $(RELSYSDIR)
 #	chmod -f -R u+w $(RELSYSDIR)
 #	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 

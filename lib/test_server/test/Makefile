@@ -88,7 +88,7 @@ release_spec: opt
 release_tests_spec: make_emakefile
 	$(INSTALL_DIR) $(RELSYSDIR)
 	$(INSTALL_DATA) $(EMAKEFILE) $(ERL_FILES) $(COVERFILE) $(RELSYSDIR)
-	$(INSTALL_PROGRAM) test_server.spec $(RELSYSDIR)
+	$(INSTALL_DATA) test_server.spec $(RELSYSDIR)
 	chmod -f -R u+w $(RELSYSDIR)
 	@tar cf - *_SUITE_data | (cd $(RELSYSDIR); tar xf -)
 
