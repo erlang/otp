@@ -205,8 +205,12 @@ The following tags can be used anywhere within a module:
       the text. See {@section Type specifications} for syntax and
       examples.
       All data type descriptions are placed in a separate section of
-      the documentation, regardless of where the tags occur.</dd>
+      the documentation, regardless of where the tags occur.
 
+      Instead of specifying the complete type alias in an EDoc
+      documentation comment, type definitions from the actual
+      Erlang code can be re-used for documentation.
+      See {@section Type specifications} for examples.</dd>
 </dl>
 
 
@@ -405,7 +409,12 @@ The following tags can be used before a function definition:
       included in the specification, it must match the name in the
       actual code. When parameter names are not given in the
       specification, suitable names will be taken from the source
-      code if possible, and otherwise synthesized.</dd>
+      code if possible, and otherwise synthesized.
+
+      Instead of specifying the complete function type in an EDoc
+      documentation comment, specifications from the actual
+      Erlang code can be re-used for documentation.
+      See {@section Type specifications} for examples.</dd>
 
   <dt><a name="ftag-throws">`@throws'</a></dt>
       <dd>Specifies which types of terms may be thrown by the
@@ -763,6 +772,17 @@ following escape sequences may be used: <dl>
 
  === Function specifications ===
 
+<note>Although the syntax described in the following can still be used
+for specifying functions we recommend that Erlang specifications as
+described in <seealso marker="doc/reference_manual:typespec"> Types
+and Function Specification</seealso> should be added to the source
+code instead. This way the analyses of <seealso
+marker="dialyzer:dialyzer">Dialyzer</seealso>'s can be utilized in the
+process of keeping the documentation consistent and up-to-date.
+Erlang specifications will be used unless there is also a function
+specification (a `@spec' tag followed by a type) with the same name.
+</note>
+
 The following grammar describes the form of the specifications following
 a `@spec' tag. A '`?'' suffix implies that the element is optional.
 Function types have higher precedence than union types; e.g., "`(atom())
@@ -818,14 +838,49 @@ not as `(atom()) -> (atom() | integer())'.
 	  <br/>| Atom
 	  <br/>| Integer
 	  <br/>| Float
+          <br/>| Integer ".." Integer
 	  <br/>| FunType
+          <br/>| "fun(" FunType ")"
+          <br/>| "fun(...)"
 	  <br/>| "{" UnionTypes? "}"
+          <br/>| "#" Atom "{" Fields? "}"
 	  <br/>| "[" "]"
 	  <br/>| "[" UnionType "]"
+          <br/>| "[" UnionType "," "..." "]"
 	  <br/>| "(" UnionType ")"
+          <br/>| BinType
 	  <br/>| TypeName "(" UnionTypes? ")"
 	  <br/>| ModuleName ":" TypeName "(" UnionTypes? ")"
 	  <br/>| "//" AppName "/" ModuleName ":" TypeName "(" UnionTypes? ")"</code></td>
+  </tr>
+  <tr>
+    <td><code>Fields</code></td>
+    <td>::=</td>
+    <td><code>Field
+          <br/>| Fields "," Fields</code></td>
+  </tr>
+  <tr>
+    <td><code>Field</code></td>
+    <td>::=</td>
+    <td><code>Atom "=" UnionList</code></td>
+  </tr>
+  <tr>
+    <td><code>BinType</code></td>
+    <td>::=</td>
+    <td><code>"&lt;&lt;&gt;&gt;"
+          <br/>| "&lt;&lt;" BaseType "&gt;&gt;"
+          <br/>| "&lt;&lt;" UnitType "&gt;&gt;"
+          <br/>| "&lt;&lt;" BaseType "," UnitType "&gt;&gt;"</code></td>
+  </tr>
+  <tr>
+    <td><code>BaseType</code></td>
+    <td>::=</td>
+    <td><code>"_" ":" Integer</code></td>
+  </tr>
+  <tr>
+    <td><code>UnitType</code></td>
+    <td>::=</td>
+    <td><code>"_" ":" "_" "*" Integer</code></td>
   </tr>
   <tr>
     <td><code>TypeVariable</code></td>
@@ -858,7 +913,7 @@ not as `(atom()) -> (atom() | integer())'.
   <tr>
     <td><code>Def</code></td>
     <td>::=</td>
-    <td><code>TypeVariable "=" UnionType
+    <td><code>TypeVariable "=" UnionList
 	  <br/>| TypeName "(" TypeVariables? ")" "=" UnionType</code></td>
   </tr>
   <tr>
@@ -872,6 +927,9 @@ not as `(atom()) -> (atom() | integer())'.
 
 
 Examples:
+```
+    -spec my_function(X :: integer()) -> integer().
+    %% @doc Creates ...'''
 ```
     %% @spec my_function(X::integer()) -> integer()'''
 ```
@@ -894,6 +952,8 @@ Examples:
     %%       FileDescriptor = term()'''
 ```
     %% @spec close(graphics:window()) -> ok'''
+
+The first example shows the recommended way of specifying functions.
 
 In the above examples, `X', `A', `B',
 and `File' are parameter names, used for referring to the
@@ -930,6 +990,13 @@ contain any annotations at all.
 
  === Type definitions ===
 
+<note>Although the syntax described in the following can still be used
+for specifying types we recommend that Erlang types as described in
+<seealso marker="doc/reference_manual:typespec"> Types and Function
+Specification</seealso> should be added to the source code instead.
+Erlang types will be used unless there is a type alias with the same
+name.</note>
+
 The following grammar (see above for auxiliary definitions) describes
 the form of the definitions that may follow a `@type' tag:
 
@@ -939,13 +1006,18 @@ the form of the definitions that may follow a `@type' tag:
     <td><code>Typedef</code></td>
     <td>::=</td>
     <td><code>TypeName "(" TypeVariables? ")" DefList?
-	  <br/>| TypeName "(" TypeVariables? ")" "=" UnionType DefList?</code></td>
+	  <br/>| TypeName "(" TypeVariables? ")" "=" UnionList DefList?</code></td>
   </tr>
 </tbody>
 </table>
 
 (For a truly abstract data type, no equivalence is specified.) The main
 definition may be followed by additional local definitions. Examples:
+```
+    -type my_list(X) :: [X]. %% A special kind of lists ...'''
+```
+    -opaque another_list(X) :: [X].
+    %% another_list() is a kind of list...'''
 ```
     %% @type myList(X). A special kind of lists ...'''
 ```
@@ -955,6 +1027,7 @@ definition may be followed by additional local definitions. Examples:
     %%           A = term().
     %%   A kind of wrapper type thingy.'''
 
+The first two examples show the recommended way of specifying types.
 
  === Pre-defined data types ===
 
@@ -962,24 +1035,42 @@ The following data types are predefined by EDoc, and may not be
 redefined:
 ```
     any()
+    arity()
     atom()
     binary()
-    bool()
+    bitstring()
+    bool()        (allowed, but use boolean() instead)
+    boolean()
+    byte()
     char()
     cons()
     deep_string()
     float()
     function()
     integer()
+    iodata()
+    iolist()
     list()
+    maybe_improper_list()
+    mfa()
+    module()
     nil()
+    neg_integer()
+    node()
+    non_neg_integer()
+    nonempty_improper_list()
+    nonempty_list()
+    nonempty_maybe_improper_list()
+    nonempty_string()
     none()
     number()
     pid()
     port()
+    pos_integer()
     reference()
     string()
     term()
+    timeout()
     tuple()
 '''
 Details:
@@ -991,7 +1082,7 @@ Details:
       `integer()', `pid()', `port()'
       and `reference()' are primitive data types of
       the Erlang programming language.</li>
-  <li>`bool()' is the subset of `atom()' consisting
+  <li>`boolean()' is the subset of `atom()' consisting
       of the atoms `true' and `false'.</li>
   <li>`char()' is a subset of
       `integer()' representing character codes.</li>
