@@ -520,7 +520,7 @@ static int do_write(FILETYPE fd, unsigned char *buff, int siz) {
 */
 static int my_write(TraceFileData *data, unsigned char *buff, int siz) 
 {
-    int wrote, w;
+    int wrote;
 
     if (data->buff_siz - data->buff_pos >= siz) {
 	memcpy(data->buff + data->buff_pos, buff, siz);

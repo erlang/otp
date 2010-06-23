@@ -1407,7 +1407,6 @@ int decode_partial(ErlDrvBinary **drv_binary,unsigned char *in_buf, int in_buf_l
   int msg_index_val;
   int *msg_index, *tag_index, tmp_index;
   int tag_seq_length;
-  char tag_code; /* one of ASN1_SKIPPED, ASN1_OPTIONAL, ASN1_CHOOSEN */
   int wanted_tag, next_tag;
   int buf_end_index = in_buf_len;
   int ret = 0, length, old_index;
@@ -1600,7 +1599,7 @@ int get_value(char *out_buf,
 {
   int len, lenoflen, indef=0, skip_len;
   int ret=0;
-  int start_index, out_index = 0;
+  int start_index;
   
 /*   printf("get_value 1\n\r"); */
   if (in_buf[*msg_index] < 0x80){ /* short definite length */
