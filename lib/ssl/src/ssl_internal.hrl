@@ -91,6 +91,9 @@
 	 }).
 
 -type reason()            :: term().
+-type reply()             :: term().
+-type msg()               :: term().
+-type from()              :: term().
 -type host()		  :: string() | tuple().
 -type port_num()	  :: integer().
 -type session_id()        :: binary().
@@ -105,6 +108,9 @@
 -type public_key_info()   :: {enum_algo(), public_key(), public_key_params()}.
 -type der_cert()          :: binary().
 -type private_key()       :: #'RSAPrivateKey'{} | #'DSAPrivateKey'{}.
+-type issuer()            :: tuple().
+-type serialnumber()      :: integer().
+-type cert_key()          :: {reference(), integer(), issuer()}.
 
 -endif. % -ifdef(ssl_internal).
 

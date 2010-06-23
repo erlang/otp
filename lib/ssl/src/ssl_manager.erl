@@ -24,8 +24,10 @@
 -module(ssl_manager).
 -behaviour(gen_server).
 
+-include("ssl_internal.hrl").
+
 %% Internal application API
--export([start_link/0, start_link/1, 
+-export([start_link/1, 
 	 connection_init/2, cache_pem_file/1,
 	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/3, server_session_id/3,
 	 register_session/2, register_session/3, invalidate_session/2,
@@ -58,21 +60,25 @@
 %% API
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
+-spec start_link(list()) -> {ok, pid()} | ignore | {error, term()}.
+%%
 %% Description: Starts the server
 %%--------------------------------------------------------------------
-start_link() ->
-    gen_server:start_link({local, ?MODULE}, ?MODULE, [], []).
 start_link(Opts) ->
     gen_server:start_link({local, ?MODULE}, ?MODULE, [Opts], []).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec connection_init(string(), client | server) -> {ok, reference(), cache_ref()}.
+%%			     
+%% Description: Do necessary initializations for a new connection.
 %%--------------------------------------------------------------------
 connection_init(TrustedcertsFile, Role) ->
     call({connection_init, TrustedcertsFile, Role}).
-
+%%--------------------------------------------------------------------
+-spec cache_pem_file(string()) -> {ok, term()}.	
+%%		    
+%% Description: Cach a pem file and 
+%%--------------------------------------------------------------------
 cache_pem_file(File) ->   
     case ssl_certificate_db:lookup_cached_certs(File) of
 	[{_,Content}] ->
@@ -80,48 +86,51 @@ cache_pem_file(File) ->
 	[] ->
 	    call({cache_pem, File})
     end.
-
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
+				 {der_cert(), #'OTPCertificate'{}}.
+%%				 
+%% Description: Lookup the trusted cert with Key = {reference(), serialnumber(), issuer()}. 
 %%--------------------------------------------------------------------
 lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
-
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec issuer_candidate(cert_key()) -> {cert_key(), der_cert()} | no_more_candidates.      
+%%
+%% Description: Return next issuer candidate.
 %%--------------------------------------------------------------------
 issuer_candidate(PrevCandidateKey) ->
     ssl_certificate_db:issuer_candidate(PrevCandidateKey).
-
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec client_session_id(host(), port_num(), #ssl_options{}) -> session_id().
+%%
+%% Description: Select a session id for the client.
 %%--------------------------------------------------------------------
 client_session_id(Host, Port, SslOpts) ->
     call({client_session_id, Host, Port, SslOpts}).
-   
+
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec server_session_id(host(), port_num(), #ssl_options{}) -> session_id().
+%%
+%% Description: Select a session id for the server.
 %%--------------------------------------------------------------------
 server_session_id(Port, SuggestedSessionId, SslOpts) ->
     call({server_session_id, Port, SuggestedSessionId, SslOpts}).
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec register_session(host(), port_num(), #session{}) -> ok.
+%%
+%% Description: Make the session available for reuse.
 %%--------------------------------------------------------------------
 register_session(Host, Port, Session) ->
     cast({register_session, Host, Port, Session}).
 
 register_session(Port, Session) ->
     cast({register_session, Port, Session}).
-
 %%--------------------------------------------------------------------
-%% Function: 
-%% Description: 
+-spec invalidate_session(host(), port_num(), #session{}) -> ok.
+%%
+%% Description: Make the session unavilable for reuse.
 %%--------------------------------------------------------------------
 invalidate_session(Host, Port, Session) ->
     cast({invalidate_session, Host, Port, Session}).
@@ -134,10 +143,9 @@ invalidate_session(Port, Session) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, State} |
-%%                         {ok, State, Timeout} |
-%%                         ignore               |
-%%                         {stop, Reason}
+-spec init(list()) -> {ok, #state{}} |  {ok, #state{}, timeout()} |
+		      ignore | {stop, term()}.		  
+%%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
 init([Opts]) ->
@@ -156,12 +164,13 @@ init([Opts]) ->
 		session_validation_timer = Timer}}.
 
 %%--------------------------------------------------------------------
-%% Function: %% handle_call(Request, From, State) -> {reply, Reply, State} |
-%%                                      {reply, Reply, State, Timeout} |
-%%                                      {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, Reply, State} |
-%%                                      {stop, Reason, State}
+-spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}} |
+					      {reply, reply(), #state{}, timeout()} |
+					      {noreply, #state{}} |
+					      {noreply, #state{}, timeout()} |
+					      {stop, reason(), reply(), #state{}} |
+					      {stop, reason(), #state{}}.
+%%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
 handle_call({{connection_init, "", _Role}, Pid}, _From, 
@@ -207,9 +216,10 @@ handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
 	    {reply, {error, Reason}, State}
     end.
 %%--------------------------------------------------------------------
-%% Function: handle_cast(Msg, State) -> {noreply, State} |
-%%                                      {noreply, State, Timeout} |
-%%                                      {stop, Reason, State}
+-spec  handle_cast(msg(), #state{}) -> {noreply, #state{}} |
+				       {noreply, #state{}, timeout()} |
+				       {stop, reason(), #state{}}.
+%%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
 handle_cast({register_session, Host, Port, Session}, 
@@ -243,9 +253,10 @@ handle_cast({invalidate_session, Port, #session{session_id = ID}},
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% Function: handle_info(Info, State) -> {noreply, State} |
-%%                                       {noreply, State, Timeout} |
-%%                                       {stop, Reason, State}
+-spec handle_info(msg(), #state{}) -> {noreply, #state{}} |
+				      {noreply, #state{}, timeout()} |
+				      {stop, reason(), #state{}}.
+%%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------- 
 handle_info(validate_sessions, #state{session_cache_cb = CacheCb,
@@ -278,7 +289,8 @@ handle_info(_Info, State) ->
     {noreply, State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, State) -> void()
+-spec terminate(reason(), #state{}) -> term().
+%%		       
 %% Description: This function is called by a gen_server when it is about to
 %% terminate. It should be the opposite of Module:init/1 and do any necessary
 %% cleaning up. When it returns, the gen_server terminates with Reason.
@@ -294,7 +306,8 @@ terminate(_Reason, #state{certificate_db = Db,
     ok.
 
 %%--------------------------------------------------------------------
-%% Func: code_change(OldVsn, State, Extra) -> {ok, NewState}
+-spec code_change(term(), #state{}, list()) -> {ok, #state{}}.			 
+%%
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
 code_change(_OldVsn, State, _Extra) ->
@@ -339,4 +352,3 @@ session_validation({{{Host, Port}, _}, Session}, LifeTime) ->
 session_validation({{Port, _}, Session}, LifeTime) ->
     validate_session(Port, Session, LifeTime),
     LifeTime.
-    

@@ -47,8 +47,8 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec trusted_cert_and_path([binary()], certdb_ref(), boolean()) -> 
-				   {binary(), [binary()], list()}.
+-spec trusted_cert_and_path([der_cert()], certdb_ref(), boolean()) -> 
+				   {der_cert(), [der_cert()], list()}.
 %%
 %% Description: Extracts the root cert (if not presents tries to 
 %% look it up, if not found {bad_cert, unknown_ca} will be added verification
@@ -94,7 +94,7 @@ trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
 
 %%--------------------------------------------------------------------
 -spec certificate_chain(undefined | binary(), certdb_ref()) -> 
-			  {error, no_cert} | [binary()].
+			  {error, no_cert} | [der_cert()].
 %%
 %% Description: Return the certificate chain to send to peer.
 %%--------------------------------------------------------------------
@@ -104,7 +104,7 @@ certificate_chain(OwnCert, CertsDbRef) ->
     {ok, ErlCert} = public_key:pkix_decode_cert(OwnCert, otp),
     certificate_chain(ErlCert, OwnCert, CertsDbRef, [OwnCert]).
 %%--------------------------------------------------------------------
--spec file_to_certificats(string()) -> [binary()].
+-spec file_to_certificats(string()) -> [der_cert()].
 %%
 %% Description: Return list of DER encoded certificates.
 %%--------------------------------------------------------------------

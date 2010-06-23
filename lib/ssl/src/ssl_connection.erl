@@ -100,8 +100,8 @@
 
 -type state_name()           :: hello | abbreviated | certify | cipher | connection.
 -type gen_fsm_state_return() :: {next_state, state_name(), #state{}} |
-{next_state, state_name(), #state{}, timeout()} |
-{stop, term(), #state{}}.
+				{next_state, state_name(), #state{}, timeout()} |
+				{stop, term(), #state{}}.
 
 %%====================================================================
 %% Internal application API
@@ -315,10 +315,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
     end.
    
 %%--------------------------------------------------------------------
-%% Function: state_name(Event, State) -> {next_state, NextStateName, NextState}|
-%%                             {next_state, NextStateName, 
-%%                                NextState, Timeout} |
-%%                             {stop, Reason, NewState}
+%% -spec state_name(event(), #state{}) -> gen_fsm_state_return()
 %%
 %% Description:There should be one instance of this function for each
 %% possible state name. Whenever a gen_fsm receives an event sent
@@ -329,7 +326,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 %%--------------------------------------------------------------------
 -spec hello(start | #hello_request{} | #client_hello{} | #server_hello{} | term(),
 	    #state{}) -> gen_fsm_state_return().    
-
+%%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
 		    transport_cb = Transport, socket = Socket,
@@ -420,10 +417,10 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 
 hello(Msg, State) ->
     handle_unexpected_message(Msg, hello, State).
-
+%%--------------------------------------------------------------------
 -spec abbreviated(#hello_request{} | #finished{} | term(),
 		  #state{}) -> gen_fsm_state_return().   
-
+%%--------------------------------------------------------------------
 abbreviated(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -469,10 +466,11 @@ abbreviated(#finished{verify_data = Data} = Finished,
 abbreviated(Msg, State) ->
     handle_unexpected_message(Msg, abbreviated, State).
 
+%%--------------------------------------------------------------------
 -spec certify(#hello_request{} | #certificate{} |  #server_key_exchange{} |
 	      #certificate_request{} | #server_hello_done{} | #client_key_exchange{} | term(),
 	      #state{}) -> gen_fsm_state_return().   
-
+%%--------------------------------------------------------------------
 certify(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -642,9 +640,10 @@ certify(#client_key_exchange{exchange_keys = #client_diffie_hellman_public{
 certify(Msg, State) ->
     handle_unexpected_message(Msg, certify, State).
 
+%%--------------------------------------------------------------------
 -spec cipher(#hello_request{} | #certificate_verify{} | #finished{} | term(),
 	     #state{}) -> gen_fsm_state_return().  
-
+%%--------------------------------------------------------------------
 cipher(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -691,9 +690,10 @@ cipher(#finished{verify_data = Data} = Finished,
 cipher(Msg, State) ->
     handle_unexpected_message(Msg, cipher, State).
 
+%%--------------------------------------------------------------------
 -spec connection(#hello_request{} | #client_hello{} | term(),
 		 #state{}) -> gen_fsm_state_return().  
-
+%%--------------------------------------------------------------------
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
 				    ssl_options = SslOpts,
@@ -720,30 +720,22 @@ connection(#client_hello{} = Hello, #state{role = server} = State) ->
 connection(Msg, State) ->
     handle_unexpected_message(Msg, connection, State).
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_event(Event, StateName, State) -> {next_state, NextStateName, 
-%%                                                  NextState} |
-%%                                          {next_state, NextStateName, 
-%%                                                  NextState, Timeout} |
-%%                                          {stop, Reason, NewState}
+-spec handle_event(term(), state_name(), #state{}) -> gen_fsm_state_return(). 
+%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:send_all_state_event/2, this function is called to handle
-%% the event.
+%% the event. Not currently used!
 %%--------------------------------------------------------------------
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_sync_event(Event, From, StateName, 
-%%                   State) -> {next_state, NextStateName, NextState} |
-%%                             {next_state, NextStateName, NextState, 
-%%                              Timeout} |
-%%                             {reply, Reply, NextStateName, NextState}|
-%%                             {reply, Reply, NextStateName, NextState, 
-%%                              Timeout} |
-%%                             {stop, Reason, NewState} |
-%%                             {stop, Reason, Reply, NewState}
+-spec handle_sync_event(term(), from(), state_name(), #state{}) -> 
+			       gen_fsm_state_return() |  
+			       {reply, reply(), state_name(), #state{}} |
+			       {reply, reply(), state_name(), #state{}, timeout()} |
+			       {stop, reason(), reply(), #state{}}.
+%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:sync_send_all_state_event/2,3, this function is called to handle
 %% the event.
@@ -920,11 +912,11 @@ handle_sync_event(peer_certificate, _, StateName,
     {reply, {ok, Cert}, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_info(Info,StateName,State)-> {next_state, NextStateName, NextState}|
-%%                                     {next_state, NextStateName, NextState, 
-%%                                       Timeout} |
-%%                                     {stop, Reason, NewState}
+-spec handle_info(msg(),state_name(), #state{}) -> 
+			 {next_state, state_name(), #state{}}|
+			 {next_state, state_name(), #state{}, timeout()} |
+			 {stop, reason(), #state{}}.
+%%
 %% Description: This function is called by a gen_fsm when it receives any
 %% other message than a synchronous or asynchronous event
 %% (or a system message).
@@ -984,7 +976,8 @@ handle_info(Msg, StateName, State) ->
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, StateName, State) -> void()
+-spec terminate(reason(), state_name(), #state{}) -> term().
+%%
 %% Description:This function is called by a gen_fsm when it is about
 %% to terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_fsm terminates with
@@ -1011,7 +1004,8 @@ terminate(_Reason, _StateName, #state{transport_cb = Transport,
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
-%% Function:
+-spec code_change(term(), state_name(), #state{}, list()) -> {ok, state_name(), #state{}}.
+%%			 
 %% code_change(OldVsn, StateName, State, Extra) -> {ok, StateName, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------

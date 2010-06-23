@@ -22,7 +22,7 @@
 %%----------------------------------------------------------------------
 
 -module(ssl_certificate_db).
-
+-include("ssl_internal.hrl").
 -include_lib("public_key/include/public_key.hrl").
 
 -export([create/0, remove/1, add_trusted_certs/3, 
@@ -34,8 +34,7 @@
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: create() -> Db
-%% Db = term() - Reference to the crated database 
+-spec create() -> certdb_ref().
 %% 
 %% Description: Creates a new certificate db.
 %% Note: lookup_trusted_cert/3 may be called from any process but only
@@ -47,8 +46,7 @@ create() ->
      ets:new(ssl_pid_to_file, [bag, private])]. 
 
 %%--------------------------------------------------------------------
-%% Function: delete(Db) -> _
-%% Db = Database refererence as returned by create/0
+-spec remove(certdb_ref()) -> term().
 %%
 %% Description: Removes database db  
 %%--------------------------------------------------------------------
@@ -56,11 +54,10 @@ remove(Dbs) ->
     lists:foreach(fun(Db) -> true = ets:delete(Db) end, Dbs).
 
 %%--------------------------------------------------------------------
-%% Function: lookup_trusted_cert(Ref, SerialNumber, Issuer) -> {BinCert,DecodedCert}
-%% Ref = ref()
+-spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> {der_cert(), #'OTPCertificate'{}}.
+
 %% SerialNumber = integer()
 %% Issuer = {rdnSequence, IssuerAttrs}
-%% BinCert = binary()
 %%
 %% Description: Retrives the trusted certificate identified by 
 %% <SerialNumber, Issuer>. Ref is used as it is specified  
@@ -78,11 +75,7 @@ lookup_cached_certs(File) ->
     ets:lookup(certificate_db_name(), {file, File}).
 
 %%--------------------------------------------------------------------
-%% Function: add_trusted_certs(Pid, File, Db) -> {ok, Ref}
-%% Pid = pid() 
-%% File = string()
-%% Db = Database refererence as returned by create/0
-%% Ref = ref()
+-spec add_trusted_certs(pid(), string(), certdb_ref()) -> {ok, certdb_ref()}.			       
 %%
 %% Description: Adds the trusted certificates from file <File> to the
 %% runtime database. Returns Ref that should be handed to lookup_trusted_cert
@@ -103,7 +96,7 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
     {ok, Ref}.
 
 %%--------------------------------------------------------------------
-%% Function: cache_pem_file(Pid, File, Db) -> FileContent
+-spec cache_pem_file(pid(), string(), certdb_ref()) -> term().
 %%
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
@@ -114,7 +107,8 @@ cache_pem_file(Pid, File, [CertsDb, _FileToRefDb, PidToFileDb]) ->
     Res.
 
 %%--------------------------------------------------------------------
-%% Function: remove_trusted_certs(Pid, Db) -> _ 
+-spec remove_trusted_certs(pid(), certdb_ref()) -> term().
+				  
 %%
 %% Description: Removes trusted certs originating from 
 %% the file associated to Pid from the runtime database.  
@@ -144,11 +138,9 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: issuer_candidate() -> {Key, Candidate} | no_more_candidates   
+-spec issuer_candidate(no_candidate | cert_key()) -> 
+			      {cert_key(), der_cert()} | no_more_candidates.				
 %%
-%%     Candidate
-%%     
-%%     
 %% Description: If a certificat does not define its issuer through
 %%              the extension 'ce-authorityKeyIdentifier' we can
 %%              try to find the issuer in the database over known
