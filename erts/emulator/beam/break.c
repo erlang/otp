@@ -611,29 +611,29 @@ static void
 bin_check(void)
 {
     Process  *rp;
-    ProcBin *bp;
-    int i, printed;
+    struct erl_off_heap_header* hdr;
+    int i, printed = 0;
 
     for (i=0; i < erts_max_processes; i++) {
 	if ((rp = process_tab[i]) == NULL)
 	    continue;
-	if (!(bp = rp->off_heap.mso))
-	    continue;
-	printed = 0;
-	while (bp) {
-	    if (printed == 0) {
-		erts_printf("Process %T holding binary data \n", rp->id);
-		printed = 1;
+	for (hdr = rp->off_heap.first; hdr; hdr = hdr->next) {
+	    if (hdr->thing_word == HEADER_PROC_BIN) {
+		ProcBin *bp = (ProcBin*) hdr;
+		if (!printed) {
+		    erts_printf("Process %T holding binary data \n", rp->id);
+		    printed = 1;
+		}
+		erts_printf("0x%08lx orig_size: %ld, norefs = %ld\n",
+			    (unsigned long)bp->val, 
+			    (long)bp->val->orig_size, 
+			    erts_smp_atomic_read(&bp->val->refc));
 	    }
-	    erts_printf("0x%08lx orig_size: %ld, norefs = %ld\n",
-		       (unsigned long)bp->val, 
-		       (long)bp->val->orig_size, 
-		       erts_smp_atomic_read(&bp->val->refc));
-
-	    bp = bp->next;
 	}
-	if (printed == 1)
+	if (printed) {
 	    erts_printf("--------------------------------------\n");
+	    printed = 0;
+	}
     }
     /* db_bin_check() has to be rewritten for the AVL trees... */
     /*db_bin_check();*/ 

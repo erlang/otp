@@ -828,7 +828,7 @@ extern struct erts_system_profile_flags_t erts_system_profile_flags;
 #define F_INSLPQUEUE         (1 <<  1) /* Set if in timer queue */
 #define F_TIMO               (1 <<  2) /* Set if timeout */
 #define F_HEAP_GROW          (1 <<  3)
-#define F_NEED_FULLSWEEP     (1 <<  4) /* If process has old binaries & funs. */
+#define F_NEED_FULLSWEEP     (1 <<  4)
 #define F_USING_DB           (1 <<  5) /* If have created tables */
 #define F_DISTRIBUTION       (1 <<  6) /* Process used in distribution */
 #define F_USING_DDLL         (1 <<  7) /* Process has used the DDLL interface */

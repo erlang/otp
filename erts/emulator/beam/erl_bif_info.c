@@ -122,22 +122,26 @@ static char erts_system_version[] = ("Erlang " ERLANG_OTP_RELEASE
 #endif
 
 static Eterm
-bld_bin_list(Uint **hpp, Uint *szp, ProcBin* pb)
+bld_bin_list(Uint **hpp, Uint *szp, ErlOffHeap* oh)
 {
+    struct erl_off_heap_header* ohh;
     Eterm res = NIL;
     Eterm tuple;
 
-    for (; pb; pb = pb->next) {
-	Eterm val = erts_bld_uword(hpp, szp, (UWord) pb->val);
-	Eterm orig_size = erts_bld_uint(hpp, szp, pb->val->orig_size);
-
-	if (szp)
-	    *szp += 4+2;
-	if (hpp) {
-	    Uint refc = (Uint) erts_smp_atomic_read(&pb->val->refc);
-	    tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
-	    res = CONS(*hpp + 4, tuple, res);
-	    *hpp += 4+2;
+    for (ohh = oh->first; ohh; ohh = ohh->next) {
+	if (ohh->thing_word == HEADER_PROC_BIN) {
+	    ProcBin* pb = (ProcBin*) ohh;
+	    Eterm val = erts_bld_uword(hpp, szp, (UWord) pb->val);
+	    Eterm orig_size = erts_bld_uint(hpp, szp, pb->val->orig_size);
+    
+	    if (szp)
+		*szp += 4+2;
+	    if (hpp) {
+		Uint refc = (Uint) erts_smp_atomic_read(&pb->val->refc);
+		tuple = TUPLE3(*hpp, val, orig_size, make_small(refc));
+		res = CONS(*hpp + 4, tuple, res);
+		*hpp += 4+2;
+	    }
 	}
     }
     return res;
@@ -176,10 +180,10 @@ static void do_make_one_mon_element(ErtsMonitor *mon, void * vpmlc)
     Eterm tup;
     Eterm r = (IS_CONST(mon->ref)
 	       ? mon->ref
-	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p).externals, mon->ref));
+	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->ref));
     Eterm p = (IS_CONST(mon->pid)
 	       ? mon->pid
-	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p).externals, mon->pid));
+	       : STORE_NC(&(pmlc->hp), &MSO(pmlc->p), mon->pid));
     tup = TUPLE5(pmlc->hp, pmlc->tag, make_small(mon->type), r, p, mon->name);
     pmlc->hp += 6;
     pmlc->res = CONS(pmlc->hp, tup, pmlc->res);
@@ -240,7 +244,7 @@ static void do_make_one_lnk_element(ErtsLink *lnk, void * vpllc)
     Eterm old_res, targets = NIL;
     Eterm p = (IS_CONST(lnk->pid)
 	       ? lnk->pid
-	       : STORE_NC(&(pllc->hp), &MSO(pllc->p).externals, lnk->pid));
+	       : STORE_NC(&(pllc->hp), &MSO(pllc->p), lnk->pid));
     if (lnk->type == LINK_NODE) {
 	targets = make_small(ERTS_LINK_REFC(lnk));
     } else if (ERTS_LINK_ROOT(lnk) != NULL) {
@@ -1225,7 +1229,7 @@ process_info_aux(Process *BIF_P,
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
-	    item = STORE_NC(&hp, &MSO(BIF_P).externals, mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -1258,9 +1262,7 @@ process_info_aux(Process *BIF_P,
 	    else {
 		/* Monitor by pid. Build {process, Pid} and cons it. */
 		Eterm t;
-		Eterm pid = STORE_NC(&hp,
-				     &MSO(BIF_P).externals,
-				     mic.mi[i].entity);
+		Eterm pid = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity);
 		t = TUPLE2(hp, am_process, pid);
 		hp += 3;
 		res = CONS(hp, t, res);
@@ -1282,7 +1284,7 @@ process_info_aux(Process *BIF_P,
 
 	res = NIL;
 	for (i = 0; i < mic.mi_i; ++i) {
-	    item = STORE_NC(&hp, &MSO(BIF_P).externals, mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -1491,7 +1493,7 @@ process_info_aux(Process *BIF_P,
     case am_group_leader: {
 	int sz = NC_HEAP_SIZE(rp->group_leader);
 	hp = HAlloc(BIF_P, 3 + sz);
-	res = STORE_NC(&hp, &MSO(BIF_P).externals, rp->group_leader);
+	res = STORE_NC(&hp, &MSO(BIF_P), rp->group_leader);
 	break;
     }
 
@@ -1516,9 +1518,9 @@ process_info_aux(Process *BIF_P,
 
     case am_binary: {
 	Uint sz = 3;
-	(void) bld_bin_list(NULL, &sz, MSO(rp).mso);
+	(void) bld_bin_list(NULL, &sz, &MSO(rp));
 	hp = HAlloc(BIF_P, sz);
-	res = bld_bin_list(&hp, NULL, MSO(rp).mso);
+	res = bld_bin_list(&hp, NULL, &MSO(rp));
 	break;
     }
 
@@ -2678,7 +2680,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	hp = HAlloc(BIF_P, 3 + mic.sz);
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
-	    item = STORE_NC(&hp, &MSO(BIF_P).externals, mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
 	    res = CONS(hp, item, res);
 	    hp += 2;
 	}
@@ -2698,7 +2700,7 @@ BIF_RETTYPE port_info_2(BIF_ALIST_2)
 	res = NIL;
 	for (i = 0; i < mic.mi_i; i++) {
 	    Eterm t;
-	    item = STORE_NC(&hp, &MSO(BIF_P).externals, mic.mi[i].entity); 
+	    item = STORE_NC(&hp, &MSO(BIF_P), mic.mi[i].entity); 
 	    t = TUPLE2(hp, am_process, item);
 	    hp += 3;
 	    res = CONS(hp, t, res);

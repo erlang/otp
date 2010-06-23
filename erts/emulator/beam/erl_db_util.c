@@ -363,12 +363,7 @@ static ErtsMatchPseudoProcess *match_pseudo_process;
 static ERTS_INLINE void
 cleanup_match_pseudo_process(ErtsMatchPseudoProcess *mpsp, int keep_heap)
 {
-    if (mpsp->process.mbuf
-	|| mpsp->process.off_heap.mso
-#ifndef HYBRID /* FIND ME! */
-	|| mpsp->process.off_heap.funs
-#endif
-	|| mpsp->process.off_heap.externals) {
+    if (mpsp->process.mbuf || mpsp->process.off_heap.first) {
 	erts_cleanup_empty_process(&mpsp->process);
     }
 #ifdef DEBUG
@@ -2495,11 +2490,7 @@ void* db_get_term(DbTableCommon *tb, DbTerm* old, Uint offset, Eterm obj)
 	p = (DbTerm*) ((void *)(((char *) structp) + offset));
     }
     p->size = size;
-    p->off_heap.mso = NULL;
-    p->off_heap.externals = NULL;
-#ifndef HYBRID /* FIND ME! */
-    p->off_heap.funs = NULL;
-#endif
+    p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
 
     top = DBTERM_BUF(p);

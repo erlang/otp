@@ -849,9 +849,9 @@ create_refc_binary(Base, Size, Flags, Dst) ->
 
 heap_arch_spec(HP) ->
   Tmp1 = hipe_rtl:mk_new_reg(), % MSO state
-  [hipe_rtl_arch:pcb_load(Tmp1, ?P_OFF_HEAP_MSO),
+  [hipe_rtl_arch:pcb_load(Tmp1, ?P_OFF_HEAP_FIRST),
    set_field_from_pointer({proc_bin, next}, HP, Tmp1),
-   hipe_rtl_arch:pcb_store(?P_OFF_HEAP_MSO, HP)].
+   hipe_rtl_arch:pcb_store(?P_OFF_HEAP_FIRST, HP)].
 
 test_heap_binary(Binary, TrueLblName, FalseLblName) ->
   Tmp1 = hipe_rtl:mk_new_reg_gcsafe(),

@@ -2511,8 +2511,8 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 	pb = (ProcBin *) HAlloc(BIF_P, PROC_BIN_SIZE);
 	pb->thing_word = HEADER_PROC_BIN;
 	pb->size = target_size;
-	pb->next = MSO(BIF_P).mso;
-	MSO(BIF_P).mso = pb;
+	pb->next = MSO(BIF_P).first;
+	MSO(BIF_P).first = (struct erl_off_heap_header*) pb;
 	pb->val = save;
 	pb->bytes = t;
 	pb->flags = 0;

@@ -857,8 +857,8 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */
-    struct external_thing_ *next;       /*  > External thing head   */
-    struct erl_node_       *node;       /* |                        */
+    struct erl_node_*       node;       /*  > External thing head   */
+    struct erl_off_heap_header* next;   /* |                        */
     /*                                 ----+                        */
     union {
 	Uint32              ui32[1];

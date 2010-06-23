@@ -1575,8 +1575,8 @@ static void deliver_read_message(Port* prt, Eterm to,
 	pb = (ProcBin *) hp;
 	pb->thing_word = HEADER_PROC_BIN;
 	pb->size = len;
-	pb->next = ohp->mso;
-	ohp->mso = pb;
+	pb->next = ohp->first;
+	ohp->first = (struct erl_off_heap_header*)pb;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = 0;
@@ -1725,8 +1725,8 @@ deliver_vec_message(Port* prt,			/* Port */
 	    }
 	    pb->thing_word = HEADER_PROC_BIN;
 	    pb->size = iov->iov_len;
-	    pb->next = ohp->mso;
-	    ohp->mso = pb;
+	    pb->next = ohp->first;
+	    ohp->first = (struct erl_off_heap_header*)pb;
 	    pb->val = ErlDrvBinary2Binary(b);
 	    pb->bytes = base;
 	    pb->flags = 0;
@@ -2259,8 +2259,8 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
 		ProcBin* pb = (ProcBin *) HAlloc(p, PROC_BIN_SIZE);
 		pb->thing_word = HEADER_PROC_BIN;
 		pb->size = dbin->orig_size;
-		pb->next = MSO(p).mso;
-		MSO(p).mso = pb;
+		pb->next = MSO(p).first;
+		MSO(p).first = (struct erl_off_heap_header*)pb;
 		pb->val = ErlDrvBinary2Binary(dbin);
 		pb->bytes = (byte*) dbin->orig_bytes;
 		pb->flags = 0;
@@ -3033,8 +3033,8 @@ driver_deliver_term(ErlDrvPort port,
 		driver_binary_inc_refc(b);  /* caller will free binary */
 		pb->thing_word = HEADER_PROC_BIN;
 		pb->size = size;
-		pb->next = ohp->mso;
-		ohp->mso = pb;
+		pb->next = ohp->first;
+		ohp->first = (struct erl_off_heap_header*)pb;
 		pb->val = ErlDrvBinary2Binary(b);
 		pb->bytes = ((byte*) b->orig_bytes) + offset;
 		pb->flags = 0;
@@ -3072,8 +3072,8 @@ driver_deliver_term(ErlDrvPort port,
 		hp += PROC_BIN_SIZE;
 		pbp->thing_word = HEADER_PROC_BIN;
 		pbp->size = size;
-		pbp->next = ohp->mso;
-		ohp->mso = pbp;
+		pbp->next = ohp->first;
+		ohp->first = (struct erl_off_heap_header*)pbp;
 		pbp->val = bp;
 		pbp->bytes = (byte*) bp->orig_bytes;
 		pbp->flags = 0;

@@ -258,9 +258,7 @@ void enif_free_env(ErlNifEnv* env)
 
 static ERTS_INLINE void clear_offheap(ErlOffHeap* oh)
 {
-    oh->mso = NULL;
-    oh->externals = NULL;
-    oh->funs = NULL;
+    oh->first = NULL;
     oh->overhead = 0;
 }
 
@@ -364,7 +362,7 @@ ERL_NIF_TERM enif_make_copy(ErlNifEnv* dst_env, ERL_NIF_TERM src_term)
 #ifdef DEBUG
 static int is_offheap(const ErlOffHeap* oh)
 {
-    return oh->mso != NULL || oh->funs != NULL || oh->externals != NULL;
+    return oh->first != NULL;
 }
 #endif
 
@@ -627,8 +625,8 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	pb = (ProcBin *) alloc_heap(env, PROC_BIN_SIZE);
 	pb->thing_word = HEADER_PROC_BIN;
 	pb->size = bptr->orig_size;
-	pb->next = MSO(env->proc).mso;
-	MSO(env->proc).mso = pb;
+	pb->next = MSO(env->proc).first;
+	MSO(env->proc).first = (struct erl_off_heap_header*) pb;
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = 0;

@@ -701,9 +701,9 @@ gen_cons(Dst, [Arg1, Arg2]) ->
 %%  Increase refcount
 %%    fe->refc++;
 %%
-%%  Link to the process off_heap.funs list
-%%    funp->next = p->off_heap.funs;
-%%    p->off_heap.funs = funp;
+%%  Link to the process off_heap list
+%%    funp->next = p->off_heap.first;
+%%    p->off_heap.first = funp;
 %%
 %%  Tag the thing
 %%    return make_fun(funp);
@@ -729,9 +729,9 @@ gen_mkfun([Dst], {_Mod, _FunId, _Arity} = MFidA, MagicNr, Index, FreeVars) ->
   %%    fe->refc++;
   SkeletonCode = gen_fun_thing_skeleton(HP, MFidA, NumFree, MagicNr, Index),
 
-  %%  Link to the process off_heap.funs list
-  %%    funp->next = p->off_heap.funs;
-  %%    p->off_heap.funs = funp;
+  %%  Link to the process off_heap list
+  %%    funp->next = p->off_heap.first;
+  %%    p->off_heap.first = funp;
   LinkCode = gen_link_closure(HP),
 
   %%  Tag the thing and increase the heap_pointer.
@@ -797,14 +797,14 @@ gen_link_closure(FUNP) ->
   end.
 
 gen_link_closure_private(FUNP) ->
-  %% Link to the process off_heap.funs list
-  %%   funp->next = p->off_heap.funs;
-  %%   p->off_heap.funs = funp;
+  %% Link fun to the process off_heap list
+  %%   funp->next = p->off_heap.first;
+  %%   p->off_heap.first = funp;
   FunsVar = hipe_rtl:mk_new_reg(),
 
-  [load_p_field(FunsVar,?P_OFF_HEAP_FUNS),
+  [load_p_field(FunsVar,?P_OFF_HEAP_FIRST),
    hipe_rtl:mk_store(FUNP, hipe_rtl:mk_imm(?EFT_NEXT), FunsVar),
-   store_p_field(FUNP,?P_OFF_HEAP_FUNS)].
+   store_p_field(FUNP,?P_OFF_HEAP_FIRST)].
 
 gen_link_closure_non_private(_FUNP) -> [].
 
