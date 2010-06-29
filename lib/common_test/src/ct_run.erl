@@ -1434,14 +1434,17 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 	    final_tests1(Tests, [{TestDir,Suite,all}|Final], Skip1, Bad);
 	false ->
 	    GrsOrCs1 =
-		lists:map(
+		lists:flatmap(
 		  %% for now, only flat group defs are allowed as
 		  %% start options and test spec terms
-		  fun({Group,TCs}) ->
-			  ct_framework:make_conf(TestDir, Suite,
-						 Group, [], TCs);
+		  fun({all,all}) ->
+			  ct_framework:make_all_conf(TestDir,
+						      Suite, []);
+		      ({Group,TCs}) ->
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, [], TCs)];
 		     (TC) ->
-			  TC
+			  [TC]
 		  end, GrsOrCs),
 	    Do = {TestDir,Suite,GrsOrCs1},
 	    final_tests1(Tests, [Do|Final], Skip, Bad)

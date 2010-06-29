@@ -218,7 +218,7 @@ get_skipped_cases(Node,Dir,Suite,Cases) ->
     case lists:keysearch(all,1,Cases) of
 	{value,{all,{skip,Cmt}}} ->
 	    [{{Node,Dir},{Suite,Cmt}}];
-	false ->
+	_ ->
 	    get_skipped_cases1(Node,Dir,Suite,Cases)
     end.
 

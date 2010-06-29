@@ -57,7 +57,7 @@
 -define(table_color2,"#E4F0FE").
 -define(table_color3,"#F0F8FF").
 
--define(testname_width, 70).
+-define(testname_width, 55).
 
 -define(abs(Name), filename:absname(Name)).
 
@@ -766,7 +766,7 @@ make_last_run_index([Name|Rest], Result, TotSucc, TotFail, UserSkip, AutoSkip,
 				TotNotBuilt, Missing);
 	LastLogDir ->
 	    SuiteName = filename:rootname(filename:basename(Name)),
-	    case make_one_index_entry(SuiteName, LastLogDir, false, Missing) of
+	    case make_one_index_entry(SuiteName, LastLogDir, "-", false, Missing) of
 		{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
 		    %% for backwards compatibility
 		    AutoSkip1 = case catch AutoSkip+ASkip of
@@ -785,18 +785,18 @@ make_last_run_index([], Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuil
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt, false)],
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
 
-make_one_index_entry(SuiteName, LogDir, All, Missing) ->
+make_one_index_entry(SuiteName, LogDir, Label, All, Missing) ->
     case count_cases(LogDir) of
 	{Succ,Fail,UserSkip,AutoSkip} ->
 	    NotBuilt = not_built(SuiteName, LogDir, All, Missing),
-	    NewResult = make_one_index_entry1(SuiteName, LogDir, Succ, Fail, 
+	    NewResult = make_one_index_entry1(SuiteName, LogDir, Label, Succ, Fail,
 					      UserSkip, AutoSkip, NotBuilt, All),
 	    {NewResult,Succ,Fail,UserSkip,AutoSkip,NotBuilt};
 	error ->
 	    error
     end.
 
-make_one_index_entry1(SuiteName, Link, Success, Fail, UserSkip, AutoSkip, 
+make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		      NotBuilt, All) ->
     LogFile = filename:join(Link, ?suitelog_name ++ ".html"),
     CrashDumpName = SuiteName ++ "_erl_crash.dump",
@@ -857,6 +857,7 @@ make_one_index_entry1(SuiteName, Link, Success, Fail, UserSkip, AutoSkip,
 	end,
     ["<TR valign=top>\n",
      "<TD><A HREF=\"",LogFile,"\">",SuiteName,"</A>",CrashDumpLink,"</TD>\n",
+     Label,
      Timestamp,
      "<TD ALIGN=right>",integer_to_list(Success),"</TD>\n",
      "<TD ALIGN=right>",FailStr,"</TD>\n",
@@ -956,7 +957,7 @@ index_header(Label, StartTime) ->
       "<P><A HREF=\"",?ct_log_name,"\">Common Test Framework Log</A></P>",
       "<TABLE border=\"3\" cellpadding=\"5\" "
       "BGCOLOR=\"",?table_color3,"\">\n"
-      "<th><B>Name</B></th>\n",
+      "<th><B>Test Name</B></th>\n",
             "<th><font color=\"",?table_color3,"\">_</font>Ok"
           "<font color=\"",?table_color3,"\">_</font></th>\n"
       "<th>Failed</th>\n",
@@ -965,13 +966,17 @@ index_header(Label, StartTime) ->
       "\n"]].
 
 all_suites_index_header() ->
+    {ok,Cwd} = file:get_cwd(),
+    LogDir = filename:basename(Cwd),
+    AllRuns = "All test runs in \"" ++ LogDir ++ "\"",
     [header("Test Results") | 
      ["<CENTER>\n",
-      "<A HREF=\"",?all_runs_name,"\">All Test Runs in this directory</A>\n",
+      "<A HREF=\"",?all_runs_name,"\">",AllRuns,"</A>\n",
       "<br><br>\n",
       "<TABLE border=\"3\" cellpadding=\"5\" "
       "BGCOLOR=\"",?table_color2,"\">\n"
-      "<th>Name</th>\n",
+      "<th>Test Name</th>\n",
+      "<th>Label</th>\n",
       "<th>Test Run Started</th>\n",
       "<th><font color=\"",?table_color2,"\">_</font>Ok"
           "<font color=\"",?table_color2,"\">_</font></th>\n"
@@ -984,14 +989,17 @@ all_suites_index_header() ->
       "\n"]].
 
 all_runs_header() ->
-    [header("All test runs in current directory") |
+    {ok,Cwd} = file:get_cwd(),
+    LogDir = filename:basename(Cwd),
+    Title = "All test runs in \"" ++ LogDir ++ "\"",
+    [header(Title) |
      ["<CENTER><TABLE border=\"3\" cellpadding=\"5\" "
       "BGCOLOR=\"",?table_color1,"\">\n"
       "<th><B>History</B></th>\n"
       "<th><B>Node</B></th>\n"
       "<th><B>Label</B></th>\n"
       "<th>Tests</th>\n"
-      "<th><B>Names</B></th>\n"
+      "<th><B>Test Names</B></th>\n"
       "<th>Total</th>\n"
       "<th><font color=\"",?table_color1,"\">_</font>Ok"
           "<font color=\"",?table_color1,"\">_</font></th>\n"
@@ -1451,7 +1459,7 @@ make_all_suites_index1(When,AllSuitesLogDirs) ->
 make_all_suites_index2(IndexName,AllSuitesLogDirs) ->
     {ok,Index0,_Totals} = make_all_suites_index3(AllSuitesLogDirs,
 						 all_suites_index_header(),
-						 0, 0, 0, 0, 0),
+						 0, 0, 0, 0, 0, []),
     Index = [Index0|index_footer()],
     case force_write_file(IndexName, Index) of
 	ok ->
@@ -1461,14 +1469,25 @@ make_all_suites_index2(IndexName,AllSuitesLogDirs) ->
     end.
 
 make_all_suites_index3([{SuiteName,[LastLogDir|OldDirs]}|Rest],
-		       Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt) ->
+		       Result, TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,
+		       Labels) ->
     [EntryDir|_] = filename:split(LastLogDir),
     Missing = 
 	case file:read_file(filename:join(EntryDir,?missing_suites_info)) of
 	    {ok,Bin} -> binary_to_term(Bin);
 	    _ -> []
 	end,
-    case make_one_index_entry(SuiteName, LastLogDir, {true,OldDirs}, Missing) of
+    {Label,Labels1} =
+	case proplists:get_value(EntryDir, Labels) of
+	    undefined ->
+		case read_totals_file(filename:join(EntryDir,?totals_name)) of
+		    {_,Lbl,_,_} -> {Lbl,[{EntryDir,Lbl}|Labels]};
+		    _           -> {"-",[{EntryDir,"-"}|Labels]}
+		end;
+	    Lbl ->
+		{Lbl,Labels}
+	end,
+    case make_one_index_entry(SuiteName, LastLogDir, Label, {true,OldDirs}, Missing) of
 	{Result1,Succ,Fail,USkip,ASkip,NotBuilt} ->
 	    %% for backwards compatibility
 	    AutoSkip1 = case catch AutoSkip+ASkip of
@@ -1477,13 +1496,13 @@ make_all_suites_index3([{SuiteName,[LastLogDir|OldDirs]}|Rest],
 			end,
 	    make_all_suites_index3(Rest, [Result|Result1], TotSucc+Succ, 
 				   TotFail+Fail, UserSkip+USkip, AutoSkip1,
-				   TotNotBuilt+NotBuilt);
+				   TotNotBuilt+NotBuilt,Labels1);
 	error ->
 	    make_all_suites_index3(Rest, Result, TotSucc, TotFail, 
-				   UserSkip, AutoSkip, TotNotBuilt)
+				   UserSkip, AutoSkip, TotNotBuilt,Labels1)
     end;
 make_all_suites_index3([], Result, TotSucc, TotFail, UserSkip, AutoSkip, 
-		       TotNotBuilt) ->
+		       TotNotBuilt,_) ->
     {ok, [Result|total_row(TotSucc, TotFail, UserSkip, AutoSkip, TotNotBuilt,true)], 
      {TotSucc,TotFail,UserSkip,AutoSkip,TotNotBuilt}}.
 

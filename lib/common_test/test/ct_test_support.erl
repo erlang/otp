@@ -111,8 +111,9 @@ init_per_testcase(_TestCase, Config) ->
     case lists:keysearch(master, 1, Config) of
 	false->
 	    test_server:format("See Common Test logs here:\n\n"
-		       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>",
-		       [LogDir,LogDir]);
+			       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>\n"
+			       "<a href=\"file://~s/index.html\">~s/index.html</a>",
+			       [LogDir,LogDir,LogDir,LogDir]);
 	{value, _}->
 	    test_server:format("See CT Master Test logs here:\n\n"
 		       "<a href=\"file://~s/master_runs.html\">~s/master_runs.html</a>",

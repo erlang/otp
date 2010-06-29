@@ -29,7 +29,7 @@
 
 -export([error_in_suite/1, ct_init_per_group/2, ct_end_per_group/2]).
 
--export([make_conf/5]).
+-export([make_all_conf/3, make_conf/5]).
 
 -include("ct_event.hrl").
 -include("ct_util.hrl").
@@ -848,6 +848,32 @@ expand(Mod, Name, Defs) ->
 	    E = "Invalid group "++atom_to_list(Name)++
 		" in "++atom_to_list(Mod)++":groups/0",
 	    throw({error,list_to_atom(E)})
+    end.
+
+make_all_conf(Dir, Mod, _Props) ->
+    case code:is_loaded(Mod) of
+	false ->
+	    code:load_abs(filename:join(Dir,atom_to_list(Mod)));
+	_ ->
+	    ok
+    end,
+    make_all_conf(Mod).
+
+make_all_conf(Mod) ->
+    case catch apply(Mod, groups, []) of
+	{'EXIT',_} ->
+	    {error,{invalid_group_definition,Mod}};
+	GroupDefs when is_list(GroupDefs) ->
+	    case catch find_groups(Mod, all, all, GroupDefs) of
+		{error,_} = Error ->
+		    %% this makes test_server call error_in_suite as first
+		    %% (and only) test case so we can report Error properly
+		    [{?MODULE,error_in_suite,[[Error]]}];
+		[] ->
+		    {error,{invalid_group_spec,Mod}};
+		ConfTests ->
+		    ConfTests
+	    end
     end.
 
 make_conf(Dir, Mod, Name, Props, TestSpec) ->
