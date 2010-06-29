@@ -27,14 +27,16 @@
 
 -export([start/2, stop/1]).
 
-%% start/2(Type, StartArgs) -> {ok, Pid} | {ok, Pid, State} | 
-%%                             {error, Reason}
-%%
+%%--------------------------------------------------------------------
+-spec start(normal | {takeover, node()} | {failover, node()}, list()) -> 
+		   {ok, pid()} | {ok, pid(), term()} | {error, term()}.
+%%--------------------------------------------------------------------
 start(_Type, _StartArgs) ->
     ssl_sup:start_link().
 
-%% stop(State) -> void()
-%%
+%--------------------------------------------------------------------
+-spec stop(term())-> ok.
+%%--------------------------------------------------------------------		  
 stop(_State) ->
     ok.
 

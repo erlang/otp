@@ -32,7 +32,13 @@
     <file>ssl_distribution.xml</file>
   </header>
   <p>This chapter describes how the Erlang distribution can use 
-    SSL to get additional verification and security.</p>
+    SSL to get additional verification and security.
+
+    <note><p>Note this
+    documentation is written for the old ssl implementation and
+    will be updated for the new one once this functionallity is
+    supported by the new implementation.</p></note>
+  </p>
 
   <section>
     <title>Introduction</title>

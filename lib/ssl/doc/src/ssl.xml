@@ -21,13 +21,6 @@
 
     </legalnotice>
     <title>ssl</title>
-    <prepared>Ingela Anderton Andin</prepared>
-    <responsible>Ingela Anderton Andin</responsible>
-    <docno></docno>
-    <approved></approved>
-    <checked></checked>
-    <date>2003-03-25</date>
-    <rev></rev>
     <file>ssl.xml</file>
   </header>
   <module>ssl</module>
@@ -185,8 +178,17 @@ end
        {bad_cert, cert_expired}, {bad_cert, invalid_issuer},
        {bad_cert, invalid_signature}, {bad_cert, name_not_permitted},
        {bad_cert, cert_revoked} (not implemented yet),
-       {bad_cert, unknown_critical_extension} or {bad_cert, term()} (Will
-								    be relevant later when an option is added for the user to be able to verify application specific extensions.) 
+       {bad_cert, unknown_critical_extension} or {bad_cert, term()}
+      </item>
+
+      
+      <tag>{validate_extensions_fun, fun()}</tag>
+      <item>
+	This options makes it possible to supply a fun to validate
+	possible application specific certificate extensions
+	during the certificat path validation. This option
+	will be better documented onec the public_key API is more
+	mature.
       </item>
       
       <tag>{depth, integer()}</tag>
@@ -231,7 +233,8 @@ end
       </item>
 
       <tag>{ssl_imp, ssl_imp()}</tag>
-      <item>Specify which ssl implementation you want to use.
+      <item>Specify which ssl implementation you want to use. Defaults to
+      new.
       </item>
 
       <tag>{reuse_sessions, boolean()}</tag>
@@ -248,6 +251,15 @@ end
       certificate, Compression is an enumeration integer
       and CipherSuite of type ciphersuite().      
       </item>
+
+      <tag>{secure_renegotiate, boolean()}</tag>
+      <item>Specifies if to reject renegotiation attempt that does
+      not live up to RFC 5746. By default secure_renegotiate is
+      set to false e.i. secure renegotiation will be used if possible
+      but it will fallback to unsecure renegotiation if the peer
+      does not support  RFC 5746.
+      </item>
+
     </taglist>
   </section>
   
@@ -414,7 +426,6 @@ end
      <type>
         <v>Socket = sslsocket()</v>
         <v>Cert = binary()</v>
-        <v>Subject = term()</v>
       </type>
       <desc>
         <p>The peer certificate is returned as a DER encoded binary.

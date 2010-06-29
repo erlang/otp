@@ -46,6 +46,14 @@
 %% Internal application API
 %%====================================================================
 
+%%--------------------------------------------------------------------
+-spec trusted_cert_and_path([der_cert()], certdb_ref(), boolean()) -> 
+				   {der_cert(), [der_cert()], list()}.
+%%
+%% Description: Extracts the root cert (if not presents tries to 
+%% look it up, if not found {bad_cert, unknown_ca} will be added verification
+%% errors. Returns {RootCert, Path, VerifyErrors}
+%%--------------------------------------------------------------------
 trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
     [Cert | RestPath] = lists:reverse(CertChain),
     {ok, OtpCert} = public_key:pkix_decode_cert(Cert, otp),
@@ -84,19 +92,31 @@ trusted_cert_and_path(CertChain, CertDbRef, Verify) ->
 	    end
     end.
 
-
+%%--------------------------------------------------------------------
+-spec certificate_chain(undefined | binary(), certdb_ref()) -> 
+			  {error, no_cert} | [der_cert()].
+%%
+%% Description: Return the certificate chain to send to peer.
+%%--------------------------------------------------------------------
 certificate_chain(undefined, _CertsDbRef) ->
     {error, no_cert};
 certificate_chain(OwnCert, CertsDbRef) ->
     {ok, ErlCert} = public_key:pkix_decode_cert(OwnCert, otp),
     certificate_chain(ErlCert, OwnCert, CertsDbRef, [OwnCert]).
-
+%%--------------------------------------------------------------------
+-spec file_to_certificats(string()) -> [der_cert()].
+%%
+%% Description: Return list of DER encoded certificates.
+%%--------------------------------------------------------------------
 file_to_certificats(File) -> 
     {ok, List} = ssl_manager:cache_pem_file(File),
     [Bin || {cert, Bin, not_encrypted} <- List].
-
-
-%% Validates ssl/tls specific extensions
+%%--------------------------------------------------------------------
+-spec validate_extensions([#'Extension'{}], term(), [#'Extension'{}],
+			  boolean(), list(), client | server) -> {[#'Extension'{}], term(), list()}.
+%%
+%% Description:  Validates ssl/tls specific extensions
+%%--------------------------------------------------------------------
 validate_extensions([], ValidationState, UnknownExtensions, _, AccErr, _) -> 
     {UnknownExtensions, ValidationState, AccErr};
 
@@ -119,21 +139,42 @@ validate_extensions([Extension | Rest],  ValidationState, UnknownExtensions,
     validate_extensions(Rest, ValidationState, [Extension | UnknownExtensions],
 		       Verify, AccErr, Role).
 
+%%--------------------------------------------------------------------
+-spec is_valid_key_usage(list(), term()) -> boolean().
+%%
+%% Description: Checks if Use is a valid key usage.
+%%--------------------------------------------------------------------
 is_valid_key_usage(KeyUse, Use) ->
     lists:member(Use, KeyUse).
  
-    select_extension(_, []) ->
+%%--------------------------------------------------------------------
+-spec select_extension(term(), list()) -> undefined | #'Extension'{}.
+%%
+%% Description: Selects the extension identified by Id if present in
+%% a list of extensions.
+%%--------------------------------------------------------------------
+select_extension(_, []) ->
     undefined;
 select_extension(Id, [#'Extension'{extnID = Id} = Extension | _]) ->
     Extension;
 select_extension(Id, [_ | Extensions]) ->
     select_extension(Id, Extensions).
 
+%%--------------------------------------------------------------------
+-spec extensions_list(asn1_NOVALUE | list()) -> list().
+%%
+%% Description: Handles that 
+%%--------------------------------------------------------------------
 extensions_list(asn1_NOVALUE) ->
     [];
 extensions_list(Extensions) ->
     Extensions.
 
+%%--------------------------------------------------------------------
+-spec signature_type(term()) -> rsa | dsa .
+%%
+%% Description: 
+%%--------------------------------------------------------------------
 signature_type(RSA) when RSA == ?sha1WithRSAEncryption;
 			 RSA == ?md5WithRSAEncryption ->
     rsa;

@@ -36,12 +36,16 @@
 %% Internal application API
 %%====================================================================
 
+-spec master_secret(binary(), binary(), binary()) -> binary().
+
 master_secret(PreMasterSecret, ClientRandom, ServerRandom) ->
     %% RFC 2246 & 4346 - 8.1 %% master_secret = PRF(pre_master_secret,
     %%                           "master secret", ClientHello.random +
     %%                           ServerHello.random)[0..47];
     prf(PreMasterSecret, <<"master secret">>, 
 	[ClientRandom, ServerRandom], 48).
+
+-spec finished(client | server, binary(), {binary(), binary()}) -> binary().
 
 finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     %% RFC 2246 & 4346 - 7.4.9. Finished
@@ -56,6 +60,7 @@ finished(Role, MasterSecret, {MD5Hash, SHAHash}) ->
     SHA = hash_final(?SHA, SHAHash),
     prf(MasterSecret, finished_label(Role), [MD5, SHA], 12).
 
+-spec certificate_verify(key_algo(), {binary(), binary()}) -> binary().
 
 certificate_verify(Algorithm, {MD5Hash, SHAHash}) when Algorithm == rsa;
 						       Algorithm == dhe_rsa ->
@@ -65,7 +70,11 @@ certificate_verify(Algorithm, {MD5Hash, SHAHash}) when Algorithm == rsa;
 
 certificate_verify(dhe_dss, {_, SHAHash}) ->
     hash_final(?SHA, SHAHash).
-    
+
+-spec setup_keys(binary(), binary(), binary(), integer(), 
+		 integer(), integer()) -> {binary(), binary(), binary(), 
+					  binary(), binary(), binary()}.  
+
 setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
 	   KeyMatLen, IVSize) ->
     %% RFC 2246 - 6.3. Key calculation
@@ -112,6 +121,9 @@ setup_keys(MasterSecret, ServerRandom, ClientRandom, HashSize,
 %%     {ClientWriteMacSecret, ServerWriteMacSecret, ClientWriteKey,
 %%      ServerWriteKey, undefined, undefined}.
 
+-spec mac_hash(integer(), binary(), integer(), integer(), tls_version(),
+	       integer(), binary()) -> binary(). 
+
 mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor}, 
 	 Length, Fragment) ->
     %% RFC 2246 & 4346 - 6.2.3.1.
@@ -132,6 +144,8 @@ mac_hash(Method, Mac_write_secret, Seq_num, Type, {Major, Minor},
     ?DBG_HEX(Mac),
     Mac.
 
+-spec suites() -> [cipher_suite()].
+    
 suites() ->
     [ 
       ?TLS_DHE_RSA_WITH_AES_256_CBC_SHA,

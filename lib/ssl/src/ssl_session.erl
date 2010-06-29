@@ -32,11 +32,10 @@
 
 -define(GEN_UNIQUE_ID_MAX_TRIES, 10).
 
+-type seconds()   :: integer(). 
+
 %%--------------------------------------------------------------------
-%% Function: is_new(ClientSuggestedId, ServerDecidedId) -> true | false
-%%
-%%      ClientSuggestedId = binary() 
-%%      ServerDecidedId = binary()
+-spec is_new(binary(), binary()) -> boolean().
 %%
 %% Description: Checks if the session id decided by the server is a
 %%              new or resumed sesion id.
@@ -45,17 +44,11 @@ is_new(<<>>, _) ->
     true;
 is_new(SessionId, SessionId) ->
     false;
-is_new(_, _) ->
+is_new(_ClientSuggestion, _ServerDecision) ->
     true.
 
 %%--------------------------------------------------------------------
-%% Function: id(ClientInfo, Cache, CacheCb) -> SessionId 
-%%
-%%      ClientInfo = {HostIP, Port, SslOpts}
-%%      HostIP = ipadress()
-%%      Port = integer() 
-%%      CacheCb = atom()
-%%      SessionId = binary()
+-spec id({host(), port_num(), #ssl_options{}}, cache_ref(), atom()) -> binary().
 %%
 %% Description: Should be called by the client side to get an id 
 %%              for the client hello message.
@@ -69,14 +62,8 @@ id(ClientInfo, Cache, CacheCb) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function: id(Port, SuggestedSessionId, ReuseFun, CacheCb,
-%%              SecondLifeTime) -> SessionId 
-%%
-%%      Port = integer() 
-%%      SuggestedSessionId = SessionId = binary()
-%%      ReuseFun = fun(SessionId, PeerCert, Compression, CipherSuite) -> 
-%%                                                             true | false 
-%%      CacheCb = atom()
+-spec id(port_num(), binary(), #ssl_options{}, cache_ref(), 
+	 atom(), seconds()) -> binary().
 %%
 %% Description: Should be called by the server side to get an id 
 %%              for the server hello message.
@@ -95,10 +82,7 @@ id(Port, SuggestedSessionId, #ssl_options{reuse_sessions = ReuseEnabled,
 	    new_id(Port, ?GEN_UNIQUE_ID_MAX_TRIES, Cache, CacheCb)
     end.
 %%--------------------------------------------------------------------
-%% Function: valid_session(Session, LifeTime) -> true | false 
-%%
-%%	Session  = #session{}
-%%      LifeTime = integer() - seconds
+-spec valid_session(#session{}, seconds()) -> boolean().
 %%
 %% Description: Check that the session has not expired
 %%--------------------------------------------------------------------

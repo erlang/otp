@@ -26,6 +26,14 @@
 -ifndef(ssl_cipher).
 -define(ssl_cipher, true).
 
+-type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
+			   | aes_128_cbc |  aes_256_cbc.
+-type hash()              :: sha | md5.
+-type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
+-type cipher_suite()      :: binary().
+-type cipher_enum()        :: integer().
+-type openssl_cipher_suite()  :: string().
+
 %%% SSL cipher protocol  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 -define(CHANGE_CIPHER_SPEC_PROTO, 1).           % _PROTO to not clash with 
 						% SSL record protocol

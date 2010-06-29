@@ -45,7 +45,8 @@
   </description>
   <xi:include href="ssl_app.xml"/>
   <xi:include href="ssl.xml"/>
-  <xi:include href="old_ssl.xml"/>  
+  <xi:include href="old_ssl.xml"/>
+  <xi:include href="ssl_session_cache_api.xml"/>
 </application>
 
 

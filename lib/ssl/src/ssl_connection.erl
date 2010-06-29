@@ -98,12 +98,17 @@
 	#'DHParameter'{prime = ?DEFAULT_DIFFIE_HELLMAN_PRIME, 
 		       base = ?DEFAULT_DIFFIE_HELLMAN_GENERATOR}).
 
+-type state_name()           :: hello | abbreviated | certify | cipher | connection.
+-type gen_fsm_state_return() :: {next_state, state_name(), #state{}} |
+				{next_state, state_name(), #state{}, timeout()} |
+				{stop, term(), #state{}}.
+
 %%====================================================================
 %% Internal application API
 %%====================================================================	     
 
 %%--------------------------------------------------------------------
-%% Function: send(Pid, Data) ->  ok | {error, Reason} 
+-spec send(pid(), iolist()) -> ok | {error, reason()}.
 %%
 %% Description: Sends data over the ssl connection
 %%--------------------------------------------------------------------
@@ -112,15 +117,16 @@ send(Pid, Data) ->
 				    erlang:iolist_to_binary(Data)}, infinity).
 
 %%--------------------------------------------------------------------
-%% Function:  recv(Socket, Length Timeout) -> {ok, Data} | {error, reason}
+-spec recv(pid(), integer(), timeout()) ->  
+    {ok, binary() | list()} | {error, reason()}.
 %%
 %% Description:  Receives data when active = false
 %%--------------------------------------------------------------------
 recv(Pid, Length, Timeout) -> 
     sync_send_all_state_event(Pid, {recv, Length}, Timeout).
 %%--------------------------------------------------------------------
-%% Function: : connect(Host, Port, Socket, Options, 
-%%                     User, CbInfo, Timeout) -> {ok, Socket}
+-spec connect(host(), port_num(), port(), list(), pid(), tuple(), timeout()) ->
+    {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Connect to a ssl server.
 %%--------------------------------------------------------------------
@@ -132,8 +138,8 @@ connect(Host, Port, Socket, Options, User, CbInfo, Timeout) ->
 	    {error, ssl_not_started}
     end.
 %%--------------------------------------------------------------------
-%% Function: accept(Port, Socket, Opts, User, 
-%%                  CbInfo, Timeout) -> {ok, Socket} | {error, Reason}
+-spec ssl_accept(port_num(), port(), list(), pid(), tuple(), timeout()) ->
+    {ok, #sslsocket{}} | {error, reason()}.
 %%
 %% Description: Performs accept on a ssl listen socket. e.i. performs
 %%              ssl handshake. 
@@ -147,7 +153,7 @@ ssl_accept(Port, Socket, Opts, User, CbInfo, Timeout) ->
     end.	
 
 %%--------------------------------------------------------------------
-%% Function: handshake(SslSocket, Timeout) -> ok | {error, Reason}
+-spec handshake(#sslsocket{}, timeout()) ->  ok | {error, reason()}.
 %%
 %% Description: Starts ssl handshake. 
 %%--------------------------------------------------------------------
@@ -159,7 +165,8 @@ handshake(#sslsocket{pid = Pid}, Timeout) ->
 	    Error
     end.
 %--------------------------------------------------------------------
-%% Function: socket_control(Pid) -> {ok, SslSocket} | {error, Reason}
+-spec socket_control(port(), pid(), atom()) -> 
+    {ok, #sslsocket{}} | {error, reason()}.  
 %%
 %% Description: Set the ssl process to own the accept socket
 %%--------------------------------------------------------------------	    
@@ -172,7 +179,7 @@ socket_control(Socket, Pid, CbModule) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function:  close() -> ok 
+-spec close(pid()) -> ok | {error, reason()}.  
 %%
 %% Description:  Close a ssl connection
 %%--------------------------------------------------------------------
@@ -185,7 +192,7 @@ close(ConnectionPid) ->
     end.
 
 %%--------------------------------------------------------------------
-%% Function:  shutdown(Socket, How) -> ok | {error, Reason}
+-spec shutdown(pid(), atom()) -> ok | {error, reason()}.  
 %%
 %% Description: Same as gen_tcp:shutdown/2
 %%--------------------------------------------------------------------
@@ -193,7 +200,7 @@ shutdown(ConnectionPid, How) ->
     sync_send_all_state_event(ConnectionPid, {shutdown, How}).
 
 %%--------------------------------------------------------------------
-%% Function: new_user(ConnectionPid, User) -> ok | {error, Reason}
+-spec new_user(pid(), pid()) ->  ok | {error, reason()}.
 %%
 %% Description:  Changes process that receives the messages when active = true
 %% or once. 
@@ -201,28 +208,28 @@ shutdown(ConnectionPid, How) ->
 new_user(ConnectionPid, User) ->
     sync_send_all_state_event(ConnectionPid, {new_user, User}).
 %%--------------------------------------------------------------------
-%% Function: sockname(ConnectionPid) -> {ok, {Address, Port}} | {error, Reason}
+-spec sockname(pid()) -> {ok, {tuple(), port_num()}} | {error, reason()}.
 %%
 %% Description:  Same as inet:sockname/1
 %%--------------------------------------------------------------------
 sockname(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, sockname).
 %%--------------------------------------------------------------------
-%% Function: peername(ConnectionPid) -> {ok, {Address, Port}} | {error, Reason}
+-spec peername(pid()) -> {ok, {tuple(), port_num()}} | {error, reason()}.
 %%
 %% Description:  Same as inet:peername/1
 %%--------------------------------------------------------------------
 peername(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, peername).
 %%--------------------------------------------------------------------
-%% Function: get_opts(ConnectionPid, OptTags) -> {ok, Options} | {error, Reason}
+-spec get_opts(pid(), list()) -> {ok, list()} | {error, reason()}.    
 %%
 %% Description: Same as inet:getopts/2
 %%--------------------------------------------------------------------
 get_opts(ConnectionPid, OptTags) ->
     sync_send_all_state_event(ConnectionPid, {get_opts, OptTags}).
 %%--------------------------------------------------------------------
-%% Function:  setopts(Socket, Options) -> ok | {error, Reason}
+-spec set_opts(pid(), list()) -> ok | {error, reason()}. 
 %%
 %% Description:  Same as inet:setopts/2
 %%--------------------------------------------------------------------
@@ -230,8 +237,7 @@ set_opts(ConnectionPid, Options) ->
     sync_send_all_state_event(ConnectionPid, {set_opts, Options}).
 
 %%--------------------------------------------------------------------
-%% Function: info(ConnectionPid) ->  {ok, {Protocol, CipherSuite}} | 
-%%                                      {error, Reason}
+-spec info(pid()) ->  {ok, {atom(), tuple()}} | {error, reason()}. 
 %%
 %% Description:  Returns ssl protocol and cipher used for the connection
 %%--------------------------------------------------------------------
@@ -239,7 +245,7 @@ info(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, info). 
 
 %%--------------------------------------------------------------------
-%% Function: session_info(ConnectionPid) -> {ok, PropList} | {error, Reason} 
+-spec session_info(pid()) -> {ok, list()} | {error, reason()}. 
 %%
 %% Description:  Returns info about the ssl session
 %%--------------------------------------------------------------------
@@ -247,7 +253,7 @@ session_info(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, session_info). 
 
 %%--------------------------------------------------------------------
-%% Function:  peercert(ConnectionPid) -> {ok, Cert} | {error, Reason}
+-spec peer_certificate(pid()) -> {ok, binary()} | {error, reason()}.
 %%
 %% Description: Returns the peer cert
 %%--------------------------------------------------------------------
@@ -255,7 +261,7 @@ peer_certificate(ConnectionPid) ->
     sync_send_all_state_event(ConnectionPid, peer_certificate). 
 
 %%--------------------------------------------------------------------
-%% Function: renegotiation(ConnectionPid) -> ok | {error, Reason}
+-spec renegotiation(pid()) -> ok | {error, reason()}.
 %%
 %% Description: Starts a renegotiation of the ssl session.
 %%--------------------------------------------------------------------
@@ -267,7 +273,8 @@ renegotiation(ConnectionPid) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
-%% Function: start_link() -> {ok,Pid} | ignore | {error,Error}
+-spec start_link(atom(), host(), port_num(), port(), list(), pid(), tuple()) ->
+    {ok, pid()} | ignore |  {error, reason()}.
 %%
 %% Description: Creates a gen_fsm process which calls Module:init/1 to
 %% initialize. To ensure a synchronized start-up procedure, this function
@@ -281,10 +288,9 @@ start_link(Role, Host, Port, Socket, Options, User, CbInfo) ->
 %% gen_fsm callbacks
 %%====================================================================
 %%--------------------------------------------------------------------
-%% Function: init(Args) -> {ok, StateName, State} |
-%%                         {ok, StateName, State, Timeout} |
-%%                         ignore                              |
-%%                         {stop, StopReason}                   
+-spec init(list()) -> {ok, state_name(), #state{}} 
+			  | {ok, state_name(), #state{}, timeout()} |
+			  ignore | {stop, term()}.                   
 %% Description:Whenever a gen_fsm is started using gen_fsm:start/[3,4] or
 %% gen_fsm:start_link/3,4, this function is called by the new process to 
 %% initialize. 
@@ -309,11 +315,7 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
     end.
    
 %%--------------------------------------------------------------------
-%% Function: 
-%% state_name(Event, State) -> {next_state, NextStateName, NextState}|
-%%                             {next_state, NextStateName, 
-%%                                NextState, Timeout} |
-%%                             {stop, Reason, NewState}
+%% -spec state_name(event(), #state{}) -> gen_fsm_state_return()
 %%
 %% Description:There should be one instance of this function for each
 %% possible state name. Whenever a gen_fsm receives an event sent
@@ -321,6 +323,9 @@ init([Role, Host, Port, Socket, {SSLOpts0, _} = Options,
 %% same name as the current state name StateName is called to handle
 %% the event. It is also called if a timeout occurs.
 %%
+%%--------------------------------------------------------------------
+-spec hello(start | #hello_request{} | #client_hello{} | #server_hello{} | term(),
+	    #state{}) -> gen_fsm_state_return().    
 %%--------------------------------------------------------------------
 hello(start, #state{host = Host, port = Port, role = client,
 		    ssl_options = SslOpts, 
@@ -359,49 +364,30 @@ hello(#hello_request{}, #state{role = client} = State0) ->
 
 hello(#server_hello{cipher_suite = CipherSuite,
 		    compression_method = Compression} = Hello,
-      #state{session = Session0 = #session{session_id = OldId},
+      #state{session = #session{session_id = OldId},
 	     connection_states = ConnectionStates0,
 	     role = client,
 	     negotiated_version = ReqVersion,
-	     host = Host, port = Port,
 	     renegotiation = {Renegotiation, _},
-	     ssl_options = SslOptions,
-	     session_cache = Cache,
-	     session_cache_cb = CacheCb} = State0) ->
+	     ssl_options = SslOptions} = State0) ->
 
     case ssl_handshake:hello(Hello, SslOptions, ConnectionStates0, Renegotiation) of
-	{Version, NewId, ConnectionStates1} ->
+	{Version, NewId, ConnectionStates} ->
 	    {KeyAlgorithm, _, _} = 
 		ssl_cipher:suite_definition(CipherSuite),
 	    
 	    PremasterSecret = make_premaster_secret(ReqVersion, KeyAlgorithm),
 	    
-	    State1 = State0#state{key_algorithm = KeyAlgorithm,
-				  negotiated_version = Version,
-				  connection_states = ConnectionStates1,
-				  premaster_secret = PremasterSecret},
+	    State = State0#state{key_algorithm = KeyAlgorithm,
+				 negotiated_version = Version,
+				 connection_states = ConnectionStates,
+				 premaster_secret = PremasterSecret},
 	    
 	    case ssl_session:is_new(OldId, NewId) of
 		true ->
-		    Session = Session0#session{session_id = NewId,
-					       cipher_suite = CipherSuite,
-				       compression_method = Compression}, 
-		    {Record, State} = next_record(State1#state{session = Session}),
-		    next_state(certify, Record, State);
+		    handle_new_session(NewId, CipherSuite, Compression, State);
 		false ->
-		    Session = CacheCb:lookup(Cache, {{Host, Port}, NewId}),
-		    case ssl_handshake:master_secret(Version, Session, 
-						     ConnectionStates1, client) of
-			{_, ConnectionStates2} ->	
-			    {Record, State} = 
-				next_record(State1#state{
-					      connection_states = ConnectionStates2,
-					      session = Session}),
-			    next_state(abbreviated, Record, State);
-			#alert{} = Alert ->
-			    handle_own_alert(Alert, Version, hello, State1), 
-			    {stop, normal, State1}
-		    end
+		    handle_resumed_session(NewId, State#state{connection_states = ConnectionStates}) 
 	    end;
 	#alert{} = Alert ->
 	    handle_own_alert(Alert, ReqVersion, hello, State0), 
@@ -431,7 +417,10 @@ hello(Hello = #client_hello{client_version = ClientVersion},
 
 hello(Msg, State) ->
     handle_unexpected_message(Msg, hello, State).
-
+%%--------------------------------------------------------------------
+-spec abbreviated(#hello_request{} | #finished{} | term(),
+		  #state{}) -> gen_fsm_state_return().   
+%%--------------------------------------------------------------------
 abbreviated(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -477,6 +466,11 @@ abbreviated(#finished{verify_data = Data} = Finished,
 abbreviated(Msg, State) ->
     handle_unexpected_message(Msg, abbreviated, State).
 
+%%--------------------------------------------------------------------
+-spec certify(#hello_request{} | #certificate{} |  #server_key_exchange{} |
+	      #certificate_request{} | #server_hello_done{} | #client_key_exchange{} | term(),
+	      #state{}) -> gen_fsm_state_return().   
+%%--------------------------------------------------------------------
 certify(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -646,6 +640,10 @@ certify(#client_key_exchange{exchange_keys = #client_diffie_hellman_public{
 certify(Msg, State) ->
     handle_unexpected_message(Msg, certify, State).
 
+%%--------------------------------------------------------------------
+-spec cipher(#hello_request{} | #certificate_verify{} | #finished{} | term(),
+	     #state{}) -> gen_fsm_state_return().  
+%%--------------------------------------------------------------------
 cipher(#hello_request{}, State0) ->
     {Record, State} = next_record(State0),
     next_state(hello, Record, State);
@@ -676,31 +674,14 @@ cipher(#finished{verify_data = Data} = Finished,
 	      role = Role,
 	      session = #session{master_secret = MasterSecret} 
 	      = Session0,
-	      tls_handshake_hashes = Hashes0,
-	     connection_states = ConnectionStates0} = State) ->    
+	      tls_handshake_hashes = Hashes0} = State) ->    
     
     case ssl_handshake:verify_connection(Version, Finished, 
 					 opposite_role(Role), 
                                          MasterSecret, Hashes0) of
         verified ->
 	    Session = register_session(Role, Host, Port, Session0),
-            case Role of
-                client ->
-		    ConnectionStates = ssl_record:set_server_verify_data(current_both, Data, ConnectionStates0),
-                    next_state_connection(cipher, ack_connection(State#state{session = Session,
-									     connection_states = ConnectionStates}));
-                server ->
-		    ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data, ConnectionStates0),
-                    {ConnectionStates, Hashes} = 
-                        finalize_handshake(State#state{ 
-						    connection_states = ConnectionStates1,
-						    session = Session}, cipher),
-                    next_state_connection(cipher, ack_connection(State#state{connection_states = 
-									     ConnectionStates,
-									     session = Session,
-									     tls_handshake_hashes =
-									     Hashes}))
-            end;
+	    cipher_role(Role, Data, Session, State);
         #alert{} = Alert ->
 	    handle_own_alert(Alert, Version, cipher, State),
             {stop, normal, State} 
@@ -709,7 +690,10 @@ cipher(#finished{verify_data = Data} = Finished,
 cipher(Msg, State) ->
     handle_unexpected_message(Msg, cipher, State).
 
-
+%%--------------------------------------------------------------------
+-spec connection(#hello_request{} | #client_hello{} | term(),
+		 #state{}) -> gen_fsm_state_return().  
+%%--------------------------------------------------------------------
 connection(#hello_request{}, #state{host = Host, port = Port,
 				    socket = Socket,
 				    ssl_options = SslOpts,
@@ -736,30 +720,22 @@ connection(#client_hello{} = Hello, #state{role = server} = State) ->
 connection(Msg, State) ->
     handle_unexpected_message(Msg, connection, State).
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_event(Event, StateName, State) -> {next_state, NextStateName, 
-%%                                                  NextState} |
-%%                                          {next_state, NextStateName, 
-%%                                                  NextState, Timeout} |
-%%                                          {stop, Reason, NewState}
+-spec handle_event(term(), state_name(), #state{}) -> gen_fsm_state_return(). 
+%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:send_all_state_event/2, this function is called to handle
-%% the event.
+%% the event. Not currently used!
 %%--------------------------------------------------------------------
 handle_event(_Event, StateName, State) ->
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_sync_event(Event, From, StateName, 
-%%                   State) -> {next_state, NextStateName, NextState} |
-%%                             {next_state, NextStateName, NextState, 
-%%                              Timeout} |
-%%                             {reply, Reply, NextStateName, NextState}|
-%%                             {reply, Reply, NextStateName, NextState, 
-%%                              Timeout} |
-%%                             {stop, Reason, NewState} |
-%%                             {stop, Reason, Reply, NewState}
+-spec handle_sync_event(term(), from(), state_name(), #state{}) -> 
+			       gen_fsm_state_return() |  
+			       {reply, reply(), state_name(), #state{}} |
+			       {reply, reply(), state_name(), #state{}, timeout()} |
+			       {stop, reason(), reply(), #state{}}.
+%%
 %% Description: Whenever a gen_fsm receives an event sent using
 %% gen_fsm:sync_send_all_state_event/2,3, this function is called to handle
 %% the event.
@@ -936,11 +912,11 @@ handle_sync_event(peer_certificate, _, StateName,
     {reply, {ok, Cert}, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: 
-%% handle_info(Info,StateName,State)-> {next_state, NextStateName, NextState}|
-%%                                     {next_state, NextStateName, NextState, 
-%%                                       Timeout} |
-%%                                     {stop, Reason, NewState}
+-spec handle_info(msg(),state_name(), #state{}) -> 
+			 {next_state, state_name(), #state{}}|
+			 {next_state, state_name(), #state{}, timeout()} |
+			 {stop, reason(), #state{}}.
+%%
 %% Description: This function is called by a gen_fsm when it receives any
 %% other message than a synchronous or asynchronous event
 %% (or a system message).
@@ -1000,7 +976,8 @@ handle_info(Msg, StateName, State) ->
     {next_state, StateName, State}.
 
 %%--------------------------------------------------------------------
-%% Function: terminate(Reason, StateName, State) -> void()
+-spec terminate(reason(), state_name(), #state{}) -> term().
+%%
 %% Description:This function is called by a gen_fsm when it is about
 %% to terminate. It should be the opposite of Module:init/1 and do any
 %% necessary cleaning up. When it returns, the gen_fsm terminates with
@@ -1027,7 +1004,8 @@ terminate(_Reason, _StateName, #state{transport_cb = Transport,
     Transport:close(Socket).
 
 %%--------------------------------------------------------------------
-%% Function:
+-spec code_change(term(), state_name(), #state{}, list()) -> {ok, state_name(), #state{}}.
+%%			 
 %% code_change(OldVsn, StateName, State, Extra) -> {ok, StateName, NewState}
 %% Description: Convert process state when code is changed
 %%--------------------------------------------------------------------
@@ -1039,24 +1017,17 @@ code_change(_OldVsn, StateName, State, _Extra) ->
 %%--------------------------------------------------------------------
 start_fsm(Role, Host, Port, Socket, Opts,  User, {CbModule, _,_, _} = CbInfo, 
 	  Timeout) -> 
-    case ssl_connection_sup:start_child([Role, Host, Port, Socket, 
-                                         Opts, User, CbInfo]) of
-        {ok, Pid} -> 
-	    case socket_control(Socket, Pid, CbModule) of
-		{ok, SslSocket} ->
-		    case handshake(SslSocket, Timeout) of
-			ok  ->
-			    {ok, SslSocket};
-			{error, Reason} ->
-			    {error, Reason} 
-		    end;
-		{error, Reason} ->
-		    {error, Reason}
-            end;
-	{error, Reason} ->
-            {error, Reason}
+    try 
+	{ok, Pid} = ssl_connection_sup:start_child([Role, Host, Port, Socket, 
+						    Opts, User, CbInfo]), 
+	{ok, SslSocket} = socket_control(Socket, Pid, CbModule),
+	ok = handshake(SslSocket, Timeout),
+	{ok, SslSocket} 
+    catch
+	error:{badmatch, {error, _} = Error} ->
+	    Error
     end.
- 
+
 ssl_init(SslOpts, Role) ->
     {ok, CertDbRef, CacheRef, OwnCert} = init_certificates(SslOpts, Role),
     PrivateKey =
@@ -1267,6 +1238,33 @@ do_server_hello(#server_hello{cipher_suite = CipherSuite,
 	    {stop, normal, State0}
     end.
 
+handle_new_session(NewId, CipherSuite, Compression, #state{session = Session0} = State0) ->
+    Session = Session0#session{session_id = NewId,
+			       cipher_suite = CipherSuite,
+			       compression_method = Compression}, 
+    {Record, State} = next_record(State0#state{session = Session}),
+    next_state(certify, Record, State).
+
+handle_resumed_session(SessId, #state{connection_states = ConnectionStates0,
+				      negotiated_version = Version,
+				      host = Host, port = Port,
+				      session_cache = Cache,
+				      session_cache_cb = CacheCb} = State0) ->
+    Session = CacheCb:lookup(Cache, {{Host, Port}, SessId}),
+    case ssl_handshake:master_secret(Version, Session, 
+				     ConnectionStates0, client) of
+	{_, ConnectionStates1} ->	
+	    {Record, State} = 
+		next_record(State0#state{
+			      connection_states = ConnectionStates1,
+			      session = Session}),
+	    next_state(abbreviated, Record, State);
+	#alert{} = Alert ->
+	    handle_own_alert(Alert, Version, hello, State0), 
+	    {stop, normal, State0}
+    end.
+
+
 client_certify_and_key_exchange(#state{negotiated_version = Version} = 
 				State0) ->
     try do_client_certify_and_key_exchange(State0) of 
@@ -1354,9 +1352,7 @@ key_exchange(#state{role = server, key_algorithm = Algo,
 		    transport_cb = Transport
 		   } = State) 
   when Algo == dhe_dss;
-       Algo == dhe_dss_export;
-       Algo == dhe_rsa;
-       Algo == dhe_rsa_export  ->
+       Algo == dhe_rsa ->
 
     Keys = public_key:gen_key(Params),
     ConnectionState = 
@@ -1402,9 +1398,7 @@ key_exchange(#state{role = client,
 		    socket = Socket, transport_cb = Transport,
 		    tls_handshake_hashes = Hashes0} = State) 
   when Algorithm == dhe_dss;
-       Algorithm == dhe_dss_export;
-       Algorithm == dhe_rsa;
-       Algorithm == dhe_rsa_export ->
+       Algorithm == dhe_rsa ->
     Msg =  ssl_handshake:key_exchange(client, {dh, DhPubKey}),
     {BinMsg, ConnectionStates1, Hashes1} =
         encode_handshake(Msg, Version, ConnectionStates0, Hashes0),
@@ -1545,6 +1539,21 @@ verify_dh_params(Signed, Hash, {?'id-dsa', PublicKey, PublicKeyParams}) ->
     public_key:verify_signature(Hash, none, Signed, PublicKey, PublicKeyParams). 
 
 
+cipher_role(client, Data, Session, #state{connection_states = ConnectionStates0} = State) -> 
+    ConnectionStates = ssl_record:set_server_verify_data(current_both, Data, ConnectionStates0),
+    next_state_connection(cipher, ack_connection(State#state{session = Session,
+							     connection_states = ConnectionStates}));
+     
+cipher_role(server, Data, Session,  #state{connection_states = ConnectionStates0} = State) -> 
+    ConnectionStates1 = ssl_record:set_client_verify_data(current_read, Data, ConnectionStates0),
+    {ConnectionStates, Hashes} = 
+	finalize_handshake(State#state{connection_states = ConnectionStates1,
+				       session = Session}, cipher),
+    next_state_connection(cipher, ack_connection(State#state{connection_states = 
+							     ConnectionStates,
+							     session = Session,
+							     tls_handshake_hashes =
+							     Hashes})).
 encode_alert(#alert{} = Alert, Version, ConnectionStates) ->
     ?DBG_TERM(Alert),
     ssl_record:encode_alert_record(Alert, Version, ConnectionStates).
