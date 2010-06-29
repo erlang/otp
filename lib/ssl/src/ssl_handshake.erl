@@ -304,9 +304,15 @@ certificate_verify(Signature, {_, PublicKey, _}, Version,
     end;
 certificate_verify(Signature, {_, PublicKey, PublicKeyParams}, Version, 
 		   MasterSecret, dhe_dss = Algorithm, {_, Hashes0}) ->
-     Hashes = calc_certificate_verify(Version, MasterSecret,
-				      Algorithm, Hashes0),
-     public_key:verify_signature(Hashes, sha, Signature, PublicKey, PublicKeyParams). 
+    Hashes = calc_certificate_verify(Version, MasterSecret,
+				     Algorithm, Hashes0),
+    case public_key:verify_signature(Hashes, none, Signature, PublicKey, PublicKeyParams) of
+    	true ->
+    	    valid;
+    	false ->
+    	    ?ALERT_REC(?FATAL, ?BAD_CERTIFICATE)
+    end.
+
 
 %%--------------------------------------------------------------------
 -spec certificate_request(#connection_states{}, certdb_ref()) -> 

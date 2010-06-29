@@ -325,6 +325,10 @@ make_dsa_cert(Config) ->
     [{server_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 				 {cacertfile, ServerCaCertFile},
 				 {certfile, ServerCertFile}, {keyfile, ServerKeyFile}]},
+     {server_dsa_verify_opts, [{ssl_imp, new},{reuseaddr, true}, 
+			       {cacertfile, ServerCaCertFile},
+			       {certfile, ServerCertFile}, {keyfile, ServerKeyFile},
+			       {verify, verify_peer}]},
      {client_dsa_opts, [{ssl_imp, new},{reuseaddr, true}, 
 			{cacertfile, ClientCaCertFile},
 			{certfile, ClientCertFile}, {keyfile, ClientKeyFile}]}
