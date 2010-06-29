@@ -440,6 +440,15 @@ save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
 list_nodes(#testspec{nodes=NodeRefs}) ->
     lists:map(fun({_Ref,Node}) -> Node end, NodeRefs).		      
 
+
+
+%%     ---------------------------------------------------------
+%%   /                                                           \
+%%  |  When adding tests, remember to update valid_terms/0 also!  |
+%%   \                                                           /
+%%     ---------------------------------------------------------
+
+
 %% Associate a "global" logdir with all nodes
 %% except those with specific logdir, e.g:
 %% ["/tmp/logdir",{ct1@finwe,"/tmp/logdir2"}]
@@ -464,6 +473,24 @@ add_tests([{logdir,Node,Dir}|Ts],Spec) ->
     add_tests(Ts,Spec#testspec{logdir=Dirs1});
 add_tests([{logdir,Dir}|Ts],Spec) ->
     add_tests([{logdir,all_nodes,Dir}|Ts],Spec);
+
+%% --- label ---
+add_tests([{label,all_nodes,Lbl}|Ts],Spec) ->
+    Labels = Spec#testspec.label,
+    Tests = [{label,N,Lbl} || N <- list_nodes(Spec),
+			      lists:keymember(ref2node(N,Spec#testspec.nodes),
+					      1,Labels) == false],
+    add_tests(Tests++Ts,Spec);
+add_tests([{label,Nodes,Lbl}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,label,[Lbl],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{label,Node,Lbl}|Ts],Spec) ->
+    Labels = Spec#testspec.label,
+    Labels1 = [{ref2node(Node,Spec#testspec.nodes),Lbl} |
+	       lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,Labels)],
+    add_tests(Ts,Spec#testspec{label=Labels1});
+add_tests([{label,Lbl}|Ts],Spec) ->
+    add_tests([{label,all_nodes,Lbl}|Ts],Spec);
 
 %% --- cover ---
 add_tests([{cover,all_nodes,File}|Ts],Spec) ->
@@ -1013,22 +1040,32 @@ valid_terms() ->
      {cover,3},
      {config,2},
      {config,3},
-     {userconfig, 2},
-     {userconfig, 3},
+     {userconfig,2},
+     {userconfig,3},
      {alias,3},
      {logdir,2},
      {logdir,3},
      {event_handler,2},
      {event_handler,3},
      {event_handler,4},
+     {multiply_timetraps,2},
+     {multiply_timetraps,3},
+     {scale_timetraps,2},
+     {scale_timetraps,3},
      {include,2},
      {include,3},
      {suites,3},
      {suites,4},
+     {groups,4},
+     {groups,5},
+     {groups,6},
      {cases,4},
      {cases,5},
      {skip_suites,4},
      {skip_suites,5},
+     {skip_groups,5},
+     {skip_groups,6},
+     {skip_groups,7},
      {skip_cases,5},
      {skip_cases,6}
     ].

@@ -45,7 +45,8 @@
 -define(abs(Name), filename:absname(Name)).
 -define(testdir(Name, Suite), ct_util:get_testdir(Name, Suite)).
 
--record(opts, {vts,
+-record(opts, {label,
+	       vts,
 	       shell,
 	       cover,
 	       coverspec,
@@ -158,6 +159,7 @@ script_start(Args) ->
 
 script_start1(Parent, Args) ->
     %% read general start flags
+    Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
@@ -230,7 +232,7 @@ script_start1(Parent, Args) ->
 	    application:set_env(common_test, basic_html, true)
     end,
 
-   StartOpts = #opts{vts = Vts, shell = Shell, cover = Cover,
+   StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
@@ -289,6 +291,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 		    TS ->
 			SpecStartOpts = get_data_for_node(TS, node()),
 
+			Label = choose_val(StartOpts#opts.label,
+					   SpecStartOpts#opts.label),
+
 			LogDir = choose_val(StartOpts#opts.logdir,
 					    SpecStartOpts#opts.logdir),
 
@@ -304,7 +309,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 						 SpecStartOpts#opts.include]),
 			application:set_env(common_test, include, AllInclude),
 
-			{TS,StartOpts#opts{testspecs = Specs,
+			{TS,StartOpts#opts{label = Label,
+					   testspecs = Specs,
 					   cover = Cover,
 					   logdir = LogDir,
 					   config = SpecStartOpts#opts.config,
@@ -430,8 +436,12 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		    end, [], Config),
     vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
 
-script_start4(#opts{shell = true, config = Config, event_handlers = EvHandlers,
+script_start4(#opts{label = Label, shell = true, config = Config,
+		    event_handlers = EvHandlers,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
+    %% label - used by ct_logs
+    application:set_env(common_test, test_label, Label),
+
     InstallOpts = [{config,Config},{event_handler,EvHandlers}],
     if Config == [] ->
 	    ok;
@@ -616,6 +626,10 @@ run_test(StartOpts) when is_list(StartOpts) ->
     end.
 
 run_test1(StartOpts) ->
+    %% label
+    Label = get_start_opt(label, fun(Lbl) when is_list(Lbl) -> Lbl;
+				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
+				 end, StartOpts),
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
 			   StartOpts),
@@ -714,7 +728,8 @@ run_test1(StartOpts) ->
     %% stepped execution
     Step = get_start_opt(step, value, StartOpts),
 
-    Opts = #opts{cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
+    Opts = #opts{label = Label,
+		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
 		 event_handlers = EvHandlers, include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -750,6 +765,8 @@ run_spec_file(Relaxed,
 	    exit(CTReason);
 	TS ->
 	    SpecOpts = get_data_for_node(TS, node()),
+	    Label = choose_val(Opts#opts.label,
+			       SpecOpts#opts.label),
 	    LogDir = choose_val(Opts#opts.logdir,
 				SpecOpts#opts.logdir),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
@@ -769,7 +786,8 @@ run_spec_file(Relaxed,
 					       which(logdir,LogDir),
 					       AllEvHs) of
 		ok ->
-		    Opts1 = Opts#opts{cover = Cover,
+		    Opts1 = Opts#opts{label = Label,
+				      cover = Cover,
 				      logdir = which(logdir, LogDir),
 				      config = AllConfig,
 				      event_handlers = AllEvHs,
@@ -954,14 +972,16 @@ run_testspec1(TestSpec) ->
 	    end
     end.
 
-get_data_for_node(#testspec{logdir=LogDirs,
-			    cover=CoverFs,
-			    config=Cfgs,
-			    userconfig=UsrCfgs,
-			    event_handler=EvHs,
-			    include=Incl,
-			    multiply_timetraps=MTs,
-			    scale_timetraps=STs}, Node) ->
+get_data_for_node(#testspec{label = Labels,
+			    logdir = LogDirs,
+			    cover = CoverFs,
+			    config = Cfgs,
+			    userconfig = UsrCfgs,
+			    event_handler = EvHs,
+			    include = Incl,
+			    multiply_timetraps = MTs,
+			    scale_timetraps = STs}, Node) ->
+    Label = proplists:get_value(Node, Labels),
     LogDir = case proplists:get_value(Node, LogDirs) of
 		 undefined -> ".";
 		 Dir -> Dir
@@ -973,7 +993,8 @@ get_data_for_node(#testspec{logdir=LogDirs,
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
-    #opts{logdir = LogDir,
+    #opts{label = Label,
+	  logdir = LogDir,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1112,7 +1133,17 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
     do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
 
 do_run(Tests, Skip, Opts, Args) ->
-    #opts{cover = Cover} = Opts,
+    #opts{label = Label, cover = Cover} = Opts,
+
+    %% label - used by ct_logs
+    TestLabel =
+	if Label == undefined -> undefined;
+	   is_atom(Label)     -> atom_to_list(Label);
+	   is_list(Label)     -> Label;
+	   true               -> undefined
+	end,
+    application:set_env(common_test, test_label, TestLabel),
+
     case code:which(test_server) of
 	non_existing ->
 	    exit({error,no_path_to_test_server});
