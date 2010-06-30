@@ -337,7 +337,6 @@ BIF_RETTYPE finish_after_on_load_2(BIF_ALIST_2)
 		ep->code[0] == BIF_ARG_1 &&
 		ep->code[4] != 0) {
 		ep->address = (void *) ep->code[4];
-		ep->code[3] = 0;
 		ep->code[4] = 0;
 	    }
 	}
