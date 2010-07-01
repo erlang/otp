@@ -687,7 +687,20 @@ get_suite(Mod, Group={conf,Props,_Init,TCs,_End}) ->
 		[] ->
 		    {error,{invalid_group_spec,Name}};
 		ConfTests ->
-		    ConfTests
+		    case lists:member(skipped, Props) of
+			true ->
+			    %% a *subgroup* specified *only* as skipped (and not
+			    %% as an explicit test) should not be returned, or
+			    %% init/end functions for top groups will be executed
+			    case catch proplists:get_value(name, element(2, hd(ConfTests))) of
+				Name ->		% top group
+				    ConfTests;
+				_ ->
+				    []
+			    end;
+			false ->
+			    ConfTests
+		    end
 	    end;
 	_ ->
 	    E = "Bad return value from "++atom_to_list(Mod)++":groups/0",
@@ -874,7 +887,7 @@ make_all_conf(Mod) ->
 		[] ->
 		    {error,{invalid_group_spec,Mod}};
 		ConfTests ->
-		    ConfTests
+		    [{conf,Props,Init,all,End} || {conf,Props,Init,_,End} <- ConfTests]
 	    end
     end.
 

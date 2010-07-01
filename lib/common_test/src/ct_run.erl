@@ -1378,15 +1378,17 @@ suite_tuples([]) ->
 
 final_tests(Tests, Skip, Bad) ->
 
-%%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
+    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+    %%! io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
 
     {Tests1,Skip1} = final_tests1(Tests, [], Skip, Bad),
+    Skip2 = final_skip(Skip1, []),
 
-%%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
-io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip1]),
 
-    {Tests1,final_skip(Skip1, [])}.
+    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+    %%! io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip2]),
+
+    {Tests1,Skip2}.
 
 final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
       is_list(Suites), is_atom(hd(Suites)) ->
@@ -1440,7 +1442,10 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 		  fun({all,all}) ->
 			  ct_framework:make_all_conf(TestDir,
 						      Suite, []);
-		      ({Group,TCs}) ->
+		     ({skipped,Group,TCs}) ->
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, [skipped], TCs)];
+		     ({Group,TCs}) ->
 			  [ct_framework:make_conf(TestDir, Suite,
 						  Group, [], TCs)];
 		     (TC) ->
@@ -1452,6 +1457,11 @@ final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
 
 final_tests1([], Final, Skip, _Bad) ->
     {lists:reverse(Final),Skip}.
+
+final_skip([{TestDir,Suite,{all,all},Reason}|Skips], Final) ->
+    SkipConf =  ct_framework:make_conf(TestDir, Suite, all, [], all),
+    Skip = {TestDir,Suite,SkipConf,Reason},
+    final_skip(Skips, [Skip|Final]);
 
 final_skip([{TestDir,Suite,{Group,TCs},Reason}|Skips], Final) ->
     Conf =  ct_framework:make_conf(TestDir, Suite, Group, [], TCs),

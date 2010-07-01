@@ -48,9 +48,12 @@ groups() ->
 
 						  testcase_5b]}]},
 
-      {test_group_6, [parallel], [{group, test_group_7}]},
+      {test_group_6, [parallel], [{group, test_group_7},
+				  {group, test_group_8}]},
 
-      {test_group_7, [sequence], [testcase_7a,testcase_7b]}
+      {test_group_7, [sequence], [testcase_7a,testcase_7b]},
+
+      {test_group_8, [shuffle,sequence], [testcase_8a,testcase_8b]}
      ].
 
 all() ->
@@ -68,7 +71,8 @@ grs_and_tcs() ->
       test_group_1a, test_group_1b,
       test_group_2, test_group_3,
       test_group_4, test_group_5,
-      test_group_6, test_group_7
+      test_group_6, test_group_7,
+      test_group_8
      ],
      [
       testcase_1a, testcase_1b, testcase_1c,
@@ -78,7 +82,8 @@ grs_and_tcs() ->
       testcase_3a, testcase_3b,
       testcase_3,
       testcase_5a, testcase_5b,
-      testcase_7a, testcase_7b
+      testcase_7a, testcase_7b,
+      testcase_8a, testcase_8b
      ]}.
 
 %%--------------------------------------------------------------------
@@ -107,7 +112,9 @@ init_per_group(Group, Config) ->
 	    {test_group_4,[{name,test_group_4}]} -> ok;
 	    {test_group_5,[{name,test_group_5},parallel]} -> "parallel";
 	    {test_group_6,[{name,test_group_6},parallel]} -> "parallel";
-	    {test_group_7,[{name,test_group_7},sequence]} -> "sequence"
+	    {test_group_7,[{name,test_group_7},sequence]} -> "sequence";
+	    {test_group_8,[{shuffle,_},{name,test_group_8},sequence]} ->
+		"shuffle & sequence"
 	end,
     {Grs,_} = grs_and_tcs(),
     case lists:member(Group, Grs) of
@@ -311,4 +318,27 @@ testcase_7b(Config) ->
     test_group_7 = ?config(test_group_7,Config),
     undefined = ?config(testcase_7a,Config),
     testcase_7b = ?config(testcase_7b,Config),
+    ok.
+
+testcase_8a() ->
+    [].
+testcase_8a(Config) ->
+    init = ?config(suite,Config),
+    undefined = ?config(test_group_3,Config),
+    test_group_4 = ?config(test_group_4,Config),
+    test_group_5 = ?config(test_group_5,Config),
+    test_group_6 = ?config(test_group_6,Config),
+    test_group_8 = ?config(test_group_8,Config),
+    testcase_8a = ?config(testcase_8a,Config),
+    ok.
+testcase_8b() ->
+    [].
+testcase_8b(Config) ->
+    init = ?config(suite,Config),
+    test_group_4 = ?config(test_group_4,Config),
+    test_group_5 = ?config(test_group_5,Config),
+    test_group_6 = ?config(test_group_6,Config),
+    test_group_8 = ?config(test_group_8,Config),
+    undefined = ?config(testcase_8a,Config),
+    testcase_8b = ?config(testcase_8b,Config),
     ok.

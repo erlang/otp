@@ -72,6 +72,7 @@ all(suite) ->
      subgroup, skip_subgroup,
      subgroup_all_testcases, skip_subgroup_all_testcases,
      subgroup_testcase, skip_subgroup_testcase,
+     sub_skipped_by_top,
      testcase_in_multiple_groups].
 
 %%--------------------------------------------------------------------
@@ -174,9 +175,6 @@ all_groups(Config) when is_list(Config) ->
 
     setup_and_execute(all_groups, TestSpec, Config).
 
-
-%%! --- Wed Jun 30 00:12:31 2010 --- peppe was here!
-%%! NOT WORKING
 skip_all_groups(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
@@ -189,8 +187,6 @@ skip_all_groups(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%%
 
-%%! --- Wed Jun 30 00:12:31 2010 --- peppe was here!
-%%! NOT WORKING
 group(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
@@ -206,7 +202,7 @@ skip_group(Config) when is_list(Config) ->
     TestSpec = [{groups,TestDir,groups_11_SUITE,[test_group_1a,
 						 test_group_1b]},
 		{skip_groups,TestDir,groups_11_SUITE,
-		 [test_group_1b,test_group_2],"SKIPPED!"}],
+		 [test_group_1b,test_group_2,test_group_7],"SKIPPED!"}],
 
     setup_and_execute(skip_group, TestSpec, Config).
 
@@ -214,8 +210,6 @@ skip_group(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%%
 
-%%! --- Wed Jun 30 00:18:11 2010 --- peppe was here!
-%%! NOT WORKING
 group_all_testcases(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
@@ -255,7 +249,7 @@ skip_group_testcase(Config) when is_list(Config) ->
     TestSpec = [{groups,TestDir,groups_11_SUITE,test_group_1a,
 		 {cases,[testcase_1a,testcase_1b]}},
 		{groups,TestDir,groups_11_SUITE,test_group_1b,
-		 {cases,[testcase_1a,testcase_1b]}},
+		 {cases,[testcase_1b,testcase_1a]}},
 		{skip_groups,TestDir,groups_11_SUITE,
 		 test_group_1a,{cases,testcase_1b},"SKIPPED!"},
 		{skip_groups,TestDir,groups_11_SUITE,
@@ -266,21 +260,18 @@ skip_group_testcase(Config) when is_list(Config) ->
 %%%-----------------------------------------------------------------
 %%%
 
-%%! --- Wed Jun 30 00:25:59 2010 --- peppe was here!
-%%! NOT WORKING! Group props disappear from get_suite?
 topgroup(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
     TestDir = filename:join(DataDir, "groups_1"),
-    TestSpec = [{groups,TestDir,groups_12_SUITE,test_group_2}],
+    TestSpec = [{groups,TestDir,groups_12_SUITE,test_group_2},
+		{groups,TestDir,groups_12_SUITE,test_group_4}],
 
     setup_and_execute(topgroup, TestSpec, Config).
 
 %%%-----------------------------------------------------------------
 %%%
 
-%%! --- Wed Jun 30 00:25:59 2010 --- peppe was here!
-%%! NOT WORKING!
 subgroup(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
@@ -289,15 +280,13 @@ subgroup(Config) when is_list(Config) ->
 
     setup_and_execute(subgroup, TestSpec, Config).
 
-%%! --- Wed Jun 30 00:25:59 2010 --- peppe was here!
-%%! NOT WORKING!
 skip_subgroup(Config) when is_list(Config) ->
     DataDir = ?config(data_dir, Config),
 
     TestDir = filename:join(DataDir, "groups_1"),
-    TestSpec = [{groups,TestDir,groups_12_SUITE,[test_group_2]},
+    TestSpec = [{groups,TestDir,groups_12_SUITE,[test_group_4]},
 		{skip_groups,TestDir,groups_12_SUITE,
-		 test_group_3,"SKIPPED!"}],
+		 test_group_8,"SKIPPED!"}],
 
     setup_and_execute(skip_subgroup, TestSpec, Config).
 
@@ -309,7 +298,9 @@ subgroup_all_testcases(Config) when is_list(Config) ->
 
     TestDir = filename:join(DataDir, "groups_1"),
     TestSpec = [{groups,TestDir,groups_12_SUITE,
-		 test_group_5,{cases,all}}],
+		 test_group_5,{cases,all}},
+		{groups,TestDir,groups_12_SUITE,
+		 test_group_3,{cases,all}}],
 
     setup_and_execute(subgroup_all_testcases, TestSpec, Config).
 
@@ -331,7 +322,9 @@ subgroup_testcase(Config) when is_list(Config) ->
 
     TestDir = filename:join(DataDir, "groups_1"),
     TestSpec = [{groups,TestDir,groups_12_SUITE,
-		 test_group_7,{cases,testcase_7a}}],
+		 test_group_7,{cases,testcase_7a}},
+		{groups,TestDir,groups_12_SUITE,
+		 test_group_3,{cases,testcase_3b}}],
 
     setup_and_execute(subgroup_testcase, TestSpec, Config).
 
@@ -344,6 +337,21 @@ skip_subgroup_testcase(Config) when is_list(Config) ->
 		 test_group_7,{cases,[testcase_7a,testcase_7b]},"SKIPPED!"}],
 
     setup_and_execute(skip_subgroup_testcase, TestSpec, Config).
+
+%%%-----------------------------------------------------------------
+%%%
+
+%%!
+%%! Somewhat weird result from this one:
+%%!
+sub_skipped_by_top(Config) when is_list(Config) ->
+    DataDir = ?config(data_dir, Config),
+
+    TestDir = filename:join(DataDir, "groups_1"),
+    TestSpec = [{groups,TestDir,groups_12_SUITE,test_group_5},
+		{skip_groups,TestDir,groups_12_SUITE,test_group_4,"SKIPPED!"}],
+
+    setup_and_execute(sub_skipped_by_top, TestSpec, Config).
 
 %%%-----------------------------------------------------------------
 %%%

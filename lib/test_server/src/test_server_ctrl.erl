@@ -1671,6 +1671,7 @@ do_test_cases(TopCases, SkipCases,
 	    put(test_server_case_num, 0),
 	    TestSpec =
 		add_init_and_end_per_suite(TestSpec0, undefined, undefined),
+
 	    TI = get_target_info(),
 	    print(1, "Starting test~s", [print_if_known(N, {", ~w test cases",[N]},
 							{" (with repeated test cases)",[]})]),
@@ -4436,7 +4437,7 @@ collect_all_cases(Top, Skip) when is_list(Skip) ->
     Result =
 	case collect_cases(Top, #cc{mod=[],skip=Skip}) of
 	    {ok,Cases,_St} -> Cases;
-	    Other -> Other
+	    Other          -> Other
 	end,
     Result.
 
@@ -4555,8 +4556,8 @@ collect_cases(Case, St) when is_atom(Case), is_atom(St#cc.mod) ->
 collect_cases(Other, St) ->
     {error,{bad_subtest_spec,St#cc.mod,Other}}.
 
-collect_case({_Mod,{conf,_,_,_,_}=Conf}, St) ->
-    collect_cases(Conf, St);
+collect_case({Mod,{conf,_,_,_,_}=Conf}, St) ->
+    collect_case_invoke(Mod, Conf, [], St);
 
 collect_case(MFA, St) ->
     case in_skip_list(MFA, St#cc.skip) of
@@ -4593,6 +4594,7 @@ collect_case_invoke(Mod, Case, MFA, St) ->
 collect_subcases(Mod, Case, MFA, St, Suite) ->
     case Suite of
 	[] when Case == all -> {ok,[],St};
+	[] when element(1, Case) == conf -> {ok,[],St};
 	[] -> {ok,[MFA],St};
 %%%! --- START Kept for backwards compatibilty ---
 %%%! Requirements are not used
@@ -4680,6 +4682,8 @@ in_skip_list({Mod,{conf,Props,InitMF,_CaseList,_FinMF}}, SkipList) ->
 			  fun({M,{conf,SProps,_,SCaseList,_},Cmt}) when
 				    M == Mod ->
 				  case proplists:get_value(name, SProps) of
+				      all ->
+					  [{M,all,Cmt}];
 				      Name ->
 					  case SCaseList of
 					      all ->
