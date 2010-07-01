@@ -36,7 +36,8 @@
 -export([make_all_suites_index/1,make_all_runs_index/1]).
 
 %% Logging stuff directly from testcase
--export([tc_log/3,tc_print/3,tc_pal/3]).
+-export([tc_log/3,tc_print/3,tc_pal/3,
+	 basic_html/0]).
 
 %% Simulate logger process for use without ct environment running
 -export([simulate/0]).
@@ -57,7 +58,7 @@
 -define(table_color2,"#E4F0FE").
 -define(table_color3,"#F0F8FF").
 
--define(testname_width, 55).
+-define(testname_width, 60).
 
 -define(abs(Name), filename:absname(Name)).
 
@@ -808,7 +809,7 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 	    false ->
 		""
 	end,
-    {Timestamp,Node,AllInfo} = 
+    {Lbl,Timestamp,Node,AllInfo} =
 	case All of
 	    {true,OldRuns} -> 
 		[_Prefix,NodeOrDate|_] = string:tokens(Link,"."),
@@ -816,20 +817,21 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 			    0 -> "-";
 			    _ -> NodeOrDate
 			end,
-		N = ["<TD ALIGN=right>",Node1,"</TD>\n"],
+		N = ["<TD ALIGN=right><FONT SIZE=-1>",Node1,"</FONT></TD>\n"],
 		CtRunDir = filename:dirname(filename:dirname(Link)),
-		T = ["<TD>",timestamp(CtRunDir),"</TD>\n"],
+		L = ["<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</FONT></B></TD>\n"],
+		T = ["<TD><FONT SIZE=-1>",timestamp(CtRunDir),"</FONT></TD>\n"],
 		CtLogFile = filename:join(CtRunDir,?ct_log_name),
 		OldRunsLink = 
 		    case OldRuns of
 			[] -> "none";
 			_ ->  "<A HREF=\""++?all_runs_name++"\">Old Runs</A>"
 		    end,
-		A=["<TD><A HREF=\"",CtLogFile,"\">CT Log</A></TD>\n",
-		   "<TD>",OldRunsLink,"</TD>\n"],
-		{T,N,A};
+		A=["<TD><FONT SIZE=-1><A HREF=\"",CtLogFile,"\">CT Log</A></FONT></TD>\n",
+		   "<TD><FONT SIZE=-1>",OldRunsLink,"</FONT></TD>\n"],
+		{L,T,N,A};
 	    false ->
-		{"","",""}
+		{"","","",""}
 	end,
     NotBuiltStr =
 	if NotBuilt == 0 ->
@@ -856,8 +858,8 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
 		{UserSkip+AutoSkip,integer_to_list(UserSkip),ASStr}
 	end,
     ["<TR valign=top>\n",
-     "<TD><A HREF=\"",LogFile,"\">",SuiteName,"</A>",CrashDumpLink,"</TD>\n",
-     Label,
+     "<TD><FONT SIZE=-1><A HREF=\"",LogFile,"\">",SuiteName,"</A>",CrashDumpLink,"</FONT></TD>\n",
+     Lbl,
      Timestamp,
      "<TD ALIGN=right>",integer_to_list(Success),"</TD>\n",
      "<TD ALIGN=right>",FailStr,"</TD>\n",
@@ -868,12 +870,14 @@ make_one_index_entry1(SuiteName, Link, Label, Success, Fail, UserSkip, AutoSkip,
      AllInfo,
      "</TR>\n"].
 total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
-    {TimestampCell,AllInfo} = 
+    {Label,TimestampCell,AllInfo} =
 	case All of
-	    true -> 
-		{"<TD>&nbsp;</TD>\n","<TD>&nbsp;</TD>\n<TD>&nbsp;</TD>\n"};
+	    true ->
+		{"<TD>&nbsp;</TD>\n",
+		 "<TD>&nbsp;</TD>\n",
+		 "<TD>&nbsp;</TD>\n<TD>&nbsp;</TD>\n"};
 	    false ->
-		{"",""}
+		{"","",""}
 	end,
 
     {AllSkip,UserSkipStr,AutoSkipStr} =
@@ -883,6 +887,7 @@ total_row(Success, Fail, UserSkip, AutoSkip, NotBuilt, All) ->
 	end,
     ["<TR valign=top>\n",
      "<TD><B>Total</B></TD>",
+     Label,
      TimestampCell,
      "<TD ALIGN=right><B>",integer_to_list(Success),"<B></TD>\n",
      "<TD ALIGN=right><B>",integer_to_list(Fail),"<B></TD>\n",
@@ -1047,19 +1052,28 @@ index_footer() ->
 
 footer() ->
      ["<P><CENTER>\n"
-     "<HR>\n"
-     "<P><FONT SIZE=-1>\n"
-     "Copyright &copy; ", year(),
-     " <A HREF=\"http://erlang.ericsson.se\">Open Telecom Platform</A><BR>\n"
-     "Updated: <!date>", current_time(), "<!/date><BR>\n"
-     "</FONT>\n"
-     "</CENTER>\n"
-     "</body>\n"].
+      "<BR><BR>\n"
+      "<HR>\n"
+      "<P><FONT SIZE=-1>\n"
+      "Copyright &copy; ", year(),
+      " <A HREF=\"http://erlang.ericsson.se\">Open Telecom Platform</A><BR>\n"
+      "Updated: <!date>", current_time(), "<!/date><BR>\n"
+      "</FONT>\n"
+      "</CENTER>\n"
+      "</body>\n"].
 
 
 body_tag() ->
-    "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\""
-	"vlink=\"#800080\" alink=\"#FF0000\">\n".
+    case basic_html() of
+	true ->
+	    "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
+		"vlink=\"#800080\" alink=\"#FF0000\">\n";
+	false ->
+	    CTPath = ct_util:get_ct_root(),
+	    TileFile = filename:join(filename:join(filename:join(CTPath),"priv"),"tile1.jpg"),
+	    "<body background=\"" ++ TileFile ++ "\" bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
+		"vlink=\"#800080\" alink=\"#FF0000\">\n"
+    end.
 
 current_time() ->
     format_time(calendar:local_time()).
@@ -1297,7 +1311,7 @@ runentry(Dir, BasicHtml) ->
 		    end,
 		Total = TotSucc+TotFail+AllSkip,
 		A = ["<TD ALIGN=center><FONT SIZE=-1>",Node,"</FONT></TD>\n",
-		     "<TD ALIGN=center><FONT SIZE=-1>",Label,"</FONT></TD>\n",
+		     "<TD ALIGN=center><FONT SIZE=-1><B>",Label,"</B></FONT></TD>\n",
 		     "<TD ALIGN=right>",NoOfTests,"</TD>\n"],
 		B = if BasicHtml ->
 			    ["<TD ALIGN=center><FONT SIZE=-1>",TestNamesTrunc,"</FONT></TD>\n"];
@@ -1318,7 +1332,7 @@ runentry(Dir, BasicHtml) ->
 	end,	    
     Index = filename:join(Dir,?index_name),
     ["<TR>\n"
-     "<TD><A HREF=\"",Index,"\">",timestamp(Dir),"</A>",TotalsStr,"</TD>\n"
+     "<TD><FONT SIZE=-1><A HREF=\"",Index,"\">",timestamp(Dir),"</A>",TotalsStr,"</FONT></TD>\n"
      "</TR>\n"].
 
 write_totals_file(Name,Label,Logs,Totals) ->

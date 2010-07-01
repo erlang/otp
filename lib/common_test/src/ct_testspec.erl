@@ -1045,6 +1045,8 @@ valid_terms() ->
      {alias,3},
      {logdir,2},
      {logdir,3},
+     {label,2},
+     {label,3},
      {event_handler,2},
      {event_handler,3},
      {event_handler,4},
