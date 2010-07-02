@@ -5032,8 +5032,8 @@ static int sctp_set_opts(inet_descriptor* desc, char* ptr, int len)
 	}
 	case INET_OPT_LINGER:
 	{
-	    CHKLEN(curr, ASSOC_ID_LEN + 2 + 4);
-	    arg.lin.l_onoff  = get_int16 (curr);  curr += 2;
+	    CHKLEN(curr, 2*4);
+	    arg.lin.l_onoff  = get_int32 (curr);  curr += 4;
 	    arg.lin.l_linger = get_int32 (curr);  curr += 4;
 
 	    proto   = SOL_SOCKET;
