@@ -1069,8 +1069,8 @@ body_tag() ->
 	    "<body bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
 		"vlink=\"#800080\" alink=\"#FF0000\">\n";
 	false ->
-	    CTPath = ct_util:get_ct_root(),
-	    TileFile = filename:join(filename:join(filename:join(CTPath),"priv"),"tile1.jpg"),
+	    CTPath = code:lib_dir(common_test),
+	    TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
 	    "<body background=\"" ++ TileFile ++ "\" bgcolor=\"#FFFFFF\" text=\"#000000\" link=\"#0000FF\" "
 		"vlink=\"#800080\" alink=\"#FF0000\">\n"
     end.

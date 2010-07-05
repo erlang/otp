@@ -1247,9 +1247,8 @@ overview_html_header(TestName) ->
 	      true ->
 		  "";
 	      false ->
-		  CTPath = ct_util:get_ct_root(),
-		  TileFile = filename:join(filename:join(filename:join(CTPath),
-							 "priv"),"tile1.jpg"),
+		  CTPath = code:lib_dir(common_test),
+		  TileFile = filename:join(filename:join(CTPath,"priv"),"tile1.jpg"),
 		  " background=\"" ++ TileFile ++ "\""
 	  end,
 

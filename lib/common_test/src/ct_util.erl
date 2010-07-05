@@ -45,7 +45,7 @@
 
 -export([get_mode/0, create_table/3, read_opts/0]).
 
--export([set_cwd/1, reset_cwd/0, get_ct_root/0]).
+-export([set_cwd/1, reset_cwd/0]).
 
 -export([parse_table/1]).
 
@@ -618,14 +618,6 @@ get_testdir(Dir, Suite) when is_list(Suite) ->
 
 get_testdir(Dir, _) ->
     get_testdir(Dir, all).
-
-%%%-----------------------------------------------------------------
-%%% @spec
-%%%
-%%% @doc
-get_ct_root() ->
-    [_Ebin|CTPath] = lists:reverse(filename:split(filename:dirname(code:which(?MODULE)))),
-    lists:reverse(CTPath).
 
 %%%-----------------------------------------------------------------
 %%% @spec 
