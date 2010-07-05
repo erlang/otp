@@ -1173,7 +1173,7 @@ client_loop(S, Peer1, Port1, AssocId1, Peer2, Port2, AssocId2) -&gt;
     <title>SEE ALSO</title>
     <p><seealso marker="inet">inet(3)</seealso>,
       <seealso marker="gen_tcp">gen_tcp(3)</seealso>,
-      <seealso marker="gen_udp">gen_upd(3)</seealso>,
+      <seealso marker="gen_udp">gen_udp(3)</seealso>,
       <url href="http://www.rfc-archive.org/getrfc.php?rfc=2960">RFC2960</url> (Stream Control Transmission Protocol),
       <url href="http://tools.ietf.org/html/draft-ietf-tsvwg-sctpsocket-13">Sockets API Extensions for SCTP.</url></p>
     <marker id="authors"></marker>
