@@ -23,14 +23,14 @@
 
 -include("public_key.hrl").
 
--export([verify_signature/3,
-	 init_validation_state/3, prepare_for_next_cert/2,
+-export([init_validation_state/3, prepare_for_next_cert/2,
  	 validate_time/3, validate_signature/6,
  	 validate_issuer/4, validate_names/6,
 	 validate_revoked_status/3, validate_extensions/4,
 	 validate_unknown_extensions/3,
 	 normalize_general_name/1, digest_type/1, is_self_signed/1,
-	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1]).
+	 is_issuer/2, issuer_id/2, is_fixed_dh_cert/1,
+	 verify_data/1]).
 
 -define(NULL, 0).
  
@@ -38,10 +38,22 @@
 %% Internal application API
 %%====================================================================
 
-verify_signature(DerCert, Key, KeyParams) ->
-    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert, otp),
-    verify_signature(OtpCert, DerCert, Key, KeyParams).
+%%--------------------------------------------------------------------
+-spec verify_data(der_encoded()) -> {md5 | sha,  binary(), binary()}.
+%%
+%% Description: Extracts data from DerCert needed to call public_key:verify/4.
+%%--------------------------------------------------------------------	 
+verify_data(DerCert) ->
+    {ok, OtpCert} = pubkey_cert_records:decode_cert(DerCert),
+    extract_verify_data(OtpCert, DerCert).
 
+%%--------------------------------------------------------------------
+-spec init_validation_state(#'OTPCertificate'{}, integer(), list()) ->
+				   #path_validation_state{}.
+%%
+%% Description: Creates inital version of path_validation_state for
+%% basic path validation of x509 certificates.
+%%--------------------------------------------------------------------	 
 init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen, 
 		      Options) ->
     PolicyTree = #policy_tree_node{valid_policy = ?anyPolicy,
@@ -66,6 +78,12 @@ init_validation_state(#'OTPCertificate'{} = OtpCert, DefaultPathLen,
 				   cert_num =           0},
     prepare_for_next_cert(OtpCert, State).
 
+%%--------------------------------------------------------------------
+-spec prepare_for_next_cert(#'OTPCertificate'{}, #path_validation_state{}) ->
+				   #path_validation_state{}.
+%%
+%% Description: Update path_validation_state for next iteration.
+%%--------------------------------------------------------------------	
 prepare_for_next_cert(OtpCert, ValidationState = #path_validation_state{
 				 working_public_key_algorithm = PrevAlgo,
 				 working_public_key_parameters = 
@@ -92,7 +110,13 @@ prepare_for_next_cert(OtpCert, ValidationState = #path_validation_state{
       working_issuer_name = Issuer,
       cert_num = ValidationState#path_validation_state.cert_num + 1
      }.
-   
+
+ %%--------------------------------------------------------------------
+-spec validate_time(#'OTPCertificate'{}, list(), boolean()) -> list().
+%%
+%% Description: Check that the certificate validity period includes the 
+%% current time.
+%%--------------------------------------------------------------------	  
 validate_time(OtpCert, AccErr, Verify) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     {'Validity', NotBeforeStr, NotAfterStr} 
@@ -107,7 +131,12 @@ validate_time(OtpCert, AccErr, Verify) ->
 	false ->
 	    not_valid({bad_cert, cert_expired}, Verify, AccErr)
     end.
-
+%%--------------------------------------------------------------------
+-spec validate_issuer(#'OTPCertificate'{}, term(), list(), boolean()) -> list().
+%%
+%% Description: Check that the certificate issuer name is the working_issuer_name
+%% in path_validation_state.
+%%--------------------------------------------------------------------	
 validate_issuer(OtpCert, Issuer, AccErr, Verify) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     case is_issuer(Issuer, TBSCert#'OTPTBSCertificate'.issuer) of
@@ -116,7 +145,15 @@ validate_issuer(OtpCert, Issuer, AccErr, Verify) ->
 	_ ->
 	    not_valid({bad_cert, invalid_issuer}, Verify, AccErr)
     end. 
-
+%%--------------------------------------------------------------------
+-spec validate_signature(#'OTPCertificate'{}, der_encoded(),
+			 term(),term(), list(), boolean()) -> list().
+				
+%%
+%% Description: Check that the signature on the certificate can be verified using
+%% working_public_key_algorithm, the working_public_key, and
+%% the working_public_key_parameters in path_validation_state.
+%%--------------------------------------------------------------------	
 validate_signature(OtpCert, DerCert, Key, KeyParams,
 		   AccErr, Verify) ->
     
@@ -126,7 +163,12 @@ validate_signature(OtpCert, DerCert, Key, KeyParams,
 	false ->
 	    not_valid({bad_cert, invalid_signature}, Verify, AccErr)
     end.
-
+%%--------------------------------------------------------------------
+-spec validate_names(#'OTPCertificate'{}, list(), list(),
+		     term(), list(), boolean())-> list().
+%%
+%% Description: Validate Subject Alternative Name.
+%%--------------------------------------------------------------------	
 validate_names(OtpCert, Permit, Exclude, Last, AccErr, Verify) ->
     case is_self_signed(OtpCert) andalso (not Last) of
 	true -> 
@@ -143,8 +185,10 @@ validate_names(OtpCert, Permit, Exclude, Last, AccErr, Verify) ->
 	    Name = [{directoryName, Subject}|EmailAddress],
 	    
 	    AltNames = case AltSubject of
-			   undefined -> [];
-			   _ ->	        AltSubject#'Extension'.extnValue
+			   undefined -> 
+			       [];
+			   _ ->	
+			       AltSubject#'Extension'.extnValue
 		       end,
 	    
 	    case (is_permitted(Name, Permit) andalso 
@@ -159,28 +203,36 @@ validate_names(OtpCert, Permit, Exclude, Last, AccErr, Verify) ->
 	    end
     end.
 
-
-%% See rfc3280 4.1.2.6 Subject: regarding emails.
-extract_email({rdnSequence, List}) ->
-    extract_email2(List).
-extract_email2([[#'AttributeTypeAndValue'{type=?'id-emailAddress', 
-					  value=Mail}]|_]) ->
-    [{rfc822Name, Mail}];
-extract_email2([_|Rest]) ->
-    extract_email2(Rest);
-extract_email2([]) -> [].
-
+%%--------------------------------------------------------------------
+-spec validate_revoked_status(#'OTPCertificate'{}, boolean(), list()) ->
+				      list().
+%%
+%% Description: Check if certificate has been revoked.
+%%--------------------------------------------------------------------	
 validate_revoked_status(_OtpCert, _Verify, AccErr) ->
+    %% TODO: Implement or leave for application?!
     %% true |
     %% throw({bad_cert, cert_revoked})
     AccErr.
-
+%%--------------------------------------------------------------------
+-spec validate_extensions(#'OTPCertificate'{}, #path_validation_state{},
+			  boolean(), list())-> 
+				 {#path_validation_state{}, 
+				  UnknownExtensions :: list(), AccErrors :: list()}.			 
+%%
+%% Description: Check extensions included in basic path validation.
+%%--------------------------------------------------------------------	
 validate_extensions(OtpCert, ValidationState, Verify, AccErr) ->
     TBSCert = OtpCert#'OTPCertificate'.tbsCertificate,
     Extensions = TBSCert#'OTPTBSCertificate'.extensions,
     validate_extensions(Extensions, ValidationState, no_basic_constraint,
 			is_self_signed(OtpCert), [], Verify, AccErr).
 
+%--------------------------------------------------------------------
+ -spec validate_unknown_extensions(list(), list(), boolean())-> list().
+%%
+%% Description: Check that all critical extensions has been handled. 
+%%--------------------------------------------------------------------	
 validate_unknown_extensions([], AccErr, _Verify) -> 
     AccErr;
 validate_unknown_extensions([#'Extension'{critical = true} | _],
@@ -190,27 +242,38 @@ validate_unknown_extensions([#'Extension'{critical = false} | Rest],
 			    AccErr, Verify) ->
     validate_unknown_extensions(Rest, AccErr, Verify).
 
+%%--------------------------------------------------------------------
+-spec normalize_general_name({rdnSequence, term()}) -> {rdnSequence, term()}. 
+%%
+%% Description: Normalizes a general name so that it can be easily
+%%              compared to another genral name. 
+%%--------------------------------------------------------------------	
 normalize_general_name({rdnSequence, Issuer}) ->
-    NormIssuer = normalize_general_name(Issuer),
-    {rdnSequence, NormIssuer};
+    NormIssuer = do_normalize_general_name(Issuer),
+    {rdnSequence, NormIssuer}.
 
-normalize_general_name(Issuer) ->
-    Normalize = fun([{Description, Type, {printableString, Value}}]) ->
-			NewValue = string:to_lower(strip_spaces(Value)),
-			[{Description, Type, {printableString, NewValue}}];
-		   (Atter)  ->
-			Atter
-		end,
-    lists:sort(lists:map(Normalize, Issuer)).
-
+%%--------------------------------------------------------------------
+-spec is_self_signed(#'OTPCertificate'{}) -> boolean().
+%%
+%% Description: Checks if the certificate is self signed.
+%%--------------------------------------------------------------------	
 is_self_signed(#'OTPCertificate'{tbsCertificate=
 				 #'OTPTBSCertificate'{issuer = Issuer, 
 						      subject = Subject}}) ->
     is_issuer(Issuer, Subject).
-
+%%--------------------------------------------------------------------
+-spec is_issuer({rdnSequence, term()}, {rdnSequence, term()}) -> boolean().		       
+%%
+%% Description:  Checks if <Issuer> issued <Candidate>.
+%%--------------------------------------------------------------------	
 is_issuer({rdnSequence, Issuer}, {rdnSequence, Candidate}) ->
     is_dir_name(Issuer, Candidate, true).
-
+%%--------------------------------------------------------------------
+-spec issuer_id(#'OTPCertificate'{}, self | other) -> 
+		       {ok, {integer(), term()}}  | {error, issuer_not_found}.
+%%
+%% Description: Extracts the issuer id from a certificate if possible.
+%%--------------------------------------------------------------------	
 issuer_id(Otpcert, other) ->
     TBSCert = Otpcert#'OTPCertificate'.tbsCertificate,
     Extensions = extensions_list(TBSCert#'OTPTBSCertificate'.extensions),
@@ -227,7 +290,12 @@ issuer_id(Otpcert, self) ->
     SerialNr = TBSCert#'OTPTBSCertificate'.serialNumber,
     {ok, {SerialNr, normalize_general_name(Issuer)}}.  
 
-
+%%--------------------------------------------------------------------
+-spec is_fixed_dh_cert(#'OTPCertificate'{}) -> boolean().  
+%%
+%% Description: Checks if the certificate can be be used
+%% for DH key agreement.
+%%--------------------------------------------------------------------	
 is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 				   #'OTPTBSCertificate'{subjectPublicKeyInfo = 
 							SubjectPublicKeyInfo,
@@ -238,6 +306,24 @@ is_fixed_dh_cert(#'OTPCertificate'{tbsCertificate =
 %%--------------------------------------------------------------------
 %%% Internal functions
 %%--------------------------------------------------------------------
+do_normalize_general_name(Issuer) ->
+    Normalize = fun([{Description, Type, {printableString, Value}}]) ->
+			NewValue = string:to_lower(strip_spaces(Value)),
+			[{Description, Type, {printableString, NewValue}}];
+		   (Atter)  ->
+			Atter
+		end,
+    lists:sort(lists:map(Normalize, Issuer)).
+
+%% See rfc3280 4.1.2.6 Subject: regarding emails.
+extract_email({rdnSequence, List}) ->
+    extract_email2(List).
+extract_email2([[#'AttributeTypeAndValue'{type=?'id-emailAddress', 
+					  value=Mail}]|_]) ->
+    [{rfc822Name, Mail}];
+extract_email2([_|Rest]) ->
+    extract_email2(Rest);
+extract_email2([]) -> [].
 
 extensions_list(asn1_NOVALUE) ->
     [];
@@ -249,17 +335,22 @@ not_valid(Error, true, _) ->
 not_valid(Error, false, AccErrors) ->
     [Error | AccErrors].
 
-verify_signature(OtpCert, DerCert, Key, KeyParams) ->
-    %% Signature is an ASN1 compact bit string 
+extract_verify_data(OtpCert, DerCert) ->
     {0, Signature} = OtpCert#'OTPCertificate'.signature,
     SigAlgRec = OtpCert#'OTPCertificate'.signatureAlgorithm,
     SigAlg = SigAlgRec#'SignatureAlgorithm'.algorithm,
-    EncTBSCert = encoded_tbs_cert(DerCert),
-    verify(SigAlg, EncTBSCert, Signature, Key, KeyParams).
+    PlainText = encoded_tbs_cert(DerCert),
+    DigestType = digest_type(SigAlg),
+    {DigestType, PlainText, Signature}.
 
-verify(Alg, PlainText, Signature, Key, KeyParams) ->
-    public_key:verify_signature(PlainText, digest_type(Alg), 
-				Signature, Key, KeyParams).
+verify_signature(OtpCert, DerCert, Key, KeyParams) ->
+    {DigestType, PlainText, Signature} = extract_verify_data(OtpCert, DerCert),
+    case Key of
+	#'RSAPublicKey'{} ->
+	    public_key:verify(PlainText, DigestType, Signature, Key);
+	_ ->
+	    public_key:verify(PlainText, DigestType, Signature, {Key, KeyParams})
+    end.
 
 encoded_tbs_cert(Cert) ->
     {ok, PKIXCert} = 
@@ -411,8 +502,8 @@ validate_extensions([#'Extension'{extnID = ?'id-ce-basicConstraints',
 		    ValidationState = 
 		    #path_validation_state{max_path_length = Len}, _,
 		    SelfSigned, UnknownExtensions, Verify, AccErr) ->
-    Length = if SelfSigned -> min(N, Len);
-		true -> min(N, Len-1)
+    Length = if SelfSigned -> erlang:min(N, Len);
+		true -> erlang:min(N, Len-1)
 	     end,
     validate_extensions(Rest,
 			ValidationState#path_validation_state{max_path_length =
@@ -603,11 +694,6 @@ is_valid_subject_alt_name({_, [_|_]}) ->
 is_valid_subject_alt_name({_, _}) ->
     false.
 
-min(N, M) when N =< M ->
-    N;
-min(_, M) ->
-    M.
-
 is_ip_address(Address) ->
     case inet_parse:address(Address) of
 	{ok, _} ->
@@ -670,10 +756,11 @@ split_auth_path(URIPart) ->
     end.
 
 split_uri(UriPart, SplitChar, NoMatchResult, SkipLeft, SkipRight) ->
-    case regexp:first_match(UriPart, SplitChar) of
-	{match, Match, _} ->
-	    {string:substr(UriPart, 1, Match - SkipLeft),
-	     string:substr(UriPart, Match + SkipRight, length(UriPart))}; 
+    case re:run(UriPart, SplitChar) of
+	{match,[{Start, _}]} ->
+	    StrPos = Start + 1,
+	    {string:substr(UriPart, 1, StrPos - SkipLeft),
+	     string:substr(UriPart, StrPos + SkipRight, length(UriPart))}; 
 	nomatch ->
 	    NoMatchResult
     end.
@@ -926,7 +1013,7 @@ add_policy_constraints(ExpPolicy, MapPolicy,
 policy_constraint(Current, asn1_NOVALUE, _) ->
     Current;
 policy_constraint(Current, New, CertNum) ->
-    min(Current, New + CertNum).
+    erlang:min(Current, New + CertNum).
 
 process_policy_tree(_,_, ?NULL) ->
     ?NULL;

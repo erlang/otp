@@ -29,7 +29,8 @@
 %% Internal application API
 -export([start_link/1, 
 	 connection_init/2, cache_pem_file/1,
-	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/3, server_session_id/3,
+	 lookup_trusted_cert/3, issuer_candidate/1, client_session_id/3, 
+	 server_session_id/3,
 	 register_session/2, register_session/3, invalidate_session/2,
 	 invalidate_session/3]).
 
@@ -88,14 +89,17 @@ cache_pem_file(File) ->
     end.
 %%--------------------------------------------------------------------
 -spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
-				 {der_cert(), #'OTPCertificate'{}}.
+				 undefined | 
+				 {ok, {der_cert(), #'OTPCertificate'{}}}.
 %%				 
-%% Description: Lookup the trusted cert with Key = {reference(), serialnumber(), issuer()}. 
-%%--------------------------------------------------------------------
+%% Description: Lookup the trusted cert with Key = {reference(),
+%% serialnumber(), issuer()}.
+%% --------------------------------------------------------------------
 lookup_trusted_cert(Ref, SerialNumber, Issuer) ->
     ssl_certificate_db:lookup_trusted_cert(Ref, SerialNumber, Issuer).
 %%--------------------------------------------------------------------
--spec issuer_candidate(cert_key()) -> {cert_key(), der_cert()} | no_more_candidates.      
+-spec issuer_candidate(cert_key() | no_candidate) -> 
+			      {cert_key(), {der_cert(), #'OTPCertificate'{}}} | no_more_candidates.      
 %%
 %% Description: Return next issuer candidate.
 %%--------------------------------------------------------------------
@@ -143,8 +147,9 @@ invalidate_session(Port, Session) ->
 %%====================================================================
 
 %%--------------------------------------------------------------------
--spec init(list()) -> {ok, #state{}} |  {ok, #state{}, timeout()} |
-		      ignore | {stop, term()}.		  
+-spec init(list()) -> {ok, #state{}}.
+%% Possible return values not used now. 
+%% |  {ok, #state{}, timeout()} | ignore | {stop, term()}.		  
 %%
 %% Description: Initiates the server
 %%--------------------------------------------------------------------
@@ -164,12 +169,13 @@ init([Opts]) ->
 		session_validation_timer = Timer}}.
 
 %%--------------------------------------------------------------------
--spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}} |
-					      {reply, reply(), #state{}, timeout()} |
-					      {noreply, #state{}} |
-					      {noreply, #state{}, timeout()} |
-					      {stop, reason(), reply(), #state{}} |
-					      {stop, reason(), #state{}}.
+-spec handle_call(msg(), from(), #state{}) -> {reply, reply(), #state{}}. 
+%% Possible return values not used now.  
+%%					      {reply, reply(), #state{}, timeout()} |
+%%					      {noreply, #state{}} |
+%%					      {noreply, #state{}, timeout()} |
+%%					      {stop, reason(), reply(), #state{}} |
+%%					      {stop, reason(), #state{}}.
 %%
 %% Description: Handling call messages
 %%--------------------------------------------------------------------
@@ -216,9 +222,10 @@ handle_call({{cache_pem, File},Pid}, _, State = #state{certificate_db = Db}) ->
 	    {reply, {error, Reason}, State}
     end.
 %%--------------------------------------------------------------------
--spec  handle_cast(msg(), #state{}) -> {noreply, #state{}} |
-				       {noreply, #state{}, timeout()} |
-				       {stop, reason(), #state{}}.
+-spec  handle_cast(msg(), #state{}) -> {noreply, #state{}}.
+%% Possible return values not used now.  
+%%				      | {noreply, #state{}, timeout()} |
+%%				       {stop, reason(), #state{}}.
 %%
 %% Description: Handling cast messages
 %%--------------------------------------------------------------------
@@ -253,9 +260,10 @@ handle_cast({invalidate_session, Port, #session{session_id = ID}},
     {noreply, State}.
 
 %%--------------------------------------------------------------------
--spec handle_info(msg(), #state{}) -> {noreply, #state{}} |
-				      {noreply, #state{}, timeout()} |
-				      {stop, reason(), #state{}}.
+-spec handle_info(msg(), #state{}) -> {noreply, #state{}}.
+%% Possible return values not used now.
+%%				      |{noreply, #state{}, timeout()} |
+%%				      {stop, reason(), #state{}}.
 %%
 %% Description: Handling all non call/cast messages
 %%-------------------------------------------------------------------- 

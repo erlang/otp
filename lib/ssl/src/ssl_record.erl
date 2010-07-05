@@ -149,7 +149,7 @@ set_mac_secret(ReadMacSecret, WriteMacSecret,
 
 
 %%--------------------------------------------------------------------
--spec set_master_secret(binary(), #connection_state{}) -> #connection_states{}.
+-spec set_master_secret(binary(), #connection_states{}) -> #connection_states{}.
 %%
 %% Description: Set master_secret in pending connection states
 %%--------------------------------------------------------------------
@@ -306,7 +306,7 @@ set_pending_cipher_state(#connection_states{pending_read = Read,
         pending_write = Write#connection_state{cipher_state = ClientState}}.
 
 %%--------------------------------------------------------------------
--spec get_tls_records(binary(), binary()) -> {[binary()], binary()}.
+-spec get_tls_records(binary(), binary()) -> {[binary()], binary()} | #alert{}.
 %%			     
 %% Description: Given old buffer and new data from TCP, packs up a records
 %% and returns it as a list of tls_compressed binaries also returns leftover
@@ -372,7 +372,8 @@ get_tls_records_aux(Data, Acc) ->
     {lists:reverse(Acc), Data}.
 
 %%--------------------------------------------------------------------
--spec protocol_version(tls_atom_version()) -> tls_version().		      
+-spec protocol_version(tls_atom_version() | tls_version()) -> 
+			      tls_version() | tls_atom_version().		      
 %%     
 %% Description: Creates a protocol version record from a version atom
 %% or vice versa.
@@ -467,7 +468,7 @@ is_acceptable_version(_) ->
     false.
 
 %%--------------------------------------------------------------------
--spec compressions() -> binary().
+-spec compressions() -> [binary()].
 %%     
 %% Description: return a list of compressions supported (currently none)
 %%--------------------------------------------------------------------
@@ -476,7 +477,7 @@ compressions() ->
 
 %%--------------------------------------------------------------------
 -spec decode_cipher_text(#ssl_tls{}, #connection_states{}) ->
-				{#ssl_tls{}, #connection_states{}}.
+				{#ssl_tls{}, #connection_states{}}| #alert{}.
 %%     
 %% Description: Decode cipher text
 %%--------------------------------------------------------------------

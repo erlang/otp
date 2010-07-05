@@ -28,7 +28,7 @@
 
 -type cipher()            :: null |rc4_128 | idea_cbc | des40_cbc | des_cbc | '3des_ede_cbc' 
 			   | aes_128_cbc |  aes_256_cbc.
--type hash()              :: sha | md5.
+-type hash()              :: null | sha | md5.
 -type erl_cipher_suite()  :: {key_algo(), cipher(), hash()}.
 -type cipher_suite()      :: binary().
 -type cipher_enum()        :: integer().

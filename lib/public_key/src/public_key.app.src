@@ -4,7 +4,6 @@
    {modules, [
 	          public_key,
 		  pubkey_pem, 
-		  pubkey_crypto,
 		  pubkey_cert,
 		  pubkey_cert_records,
 		  'OTP-PUB-KEY'

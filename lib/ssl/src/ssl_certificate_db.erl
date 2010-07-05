@@ -54,10 +54,9 @@ remove(Dbs) ->
     lists:foreach(fun(Db) -> true = ets:delete(Db) end, Dbs).
 
 %%--------------------------------------------------------------------
--spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> {der_cert(), #'OTPCertificate'{}}.
+-spec lookup_trusted_cert(reference(), serialnumber(), issuer()) -> 
+				 undefined | {ok, {der_cert(), #'OTPCertificate'{}}}.
 
-%% SerialNumber = integer()
-%% Issuer = {rdnSequence, IssuerAttrs}
 %%
 %% Description: Retrives the trusted certificate identified by 
 %% <SerialNumber, Issuer>. Ref is used as it is specified  
@@ -101,10 +100,11 @@ add_trusted_certs(Pid, File, [CertsDb, FileToRefDb, PidToFileDb]) ->
 %% Description: Cache file as binary in DB
 %%--------------------------------------------------------------------
 cache_pem_file(Pid, File, [CertsDb, _FileToRefDb, PidToFileDb]) ->
-    Res = {ok, Content} = public_key:pem_to_der(File),
+    {ok, PemBin} = file:read_file(File), 
+    Content = public_key:pem_decode(PemBin),
     insert({file, File}, Content, CertsDb),
     insert(Pid, File, PidToFileDb),
-    Res.
+    {ok, Content}.
 
 %%--------------------------------------------------------------------
 -spec remove_trusted_certs(pid(), certdb_ref()) -> term().
@@ -138,13 +138,13 @@ remove_trusted_certs(Pid, [CertsDb, FileToRefDb, PidToFileDb]) ->
     end.
 
 %%--------------------------------------------------------------------
--spec issuer_candidate(no_candidate | cert_key()) -> 
-			      {cert_key(), der_cert()} | no_more_candidates.				
+-spec issuer_candidate(no_candidate | cert_key() | {file, term()}) -> 
+			      {cert_key(),{der_cert(), #'OTPCertificate'{}}} | no_more_candidates.
 %%
 %% Description: If a certificat does not define its issuer through
 %%              the extension 'ce-authorityKeyIdentifier' we can
 %%              try to find the issuer in the database over known
-%%              certificates.
+%%              certificates. 
 %%--------------------------------------------------------------------
 issuer_candidate(no_candidate) ->
     Db = certificate_db_name(),
@@ -203,14 +203,15 @@ remove_certs(Ref, CertsDb) ->
     ets:match_delete(CertsDb, {{Ref, '_', '_'}, '_'}).
 
 add_certs_from_file(File, Ref, CertsDb) ->   
-    Decode = fun(Cert) ->
-		     {ok, ErlCert} = public_key:pkix_decode_cert(Cert, otp),
+    Add = fun(Cert) ->
+		     ErlCert = public_key:pkix_decode_cert(Cert, otp),
 		     TBSCertificate = ErlCert#'OTPCertificate'.tbsCertificate,
 		     SerialNumber = TBSCertificate#'OTPTBSCertificate'.serialNumber,
-		     Issuer = public_key:pkix_normalize_general_name(
+		     Issuer = public_key:pkix_normalize_name(
 				TBSCertificate#'OTPTBSCertificate'.issuer),
 		     insert({Ref, SerialNumber, Issuer}, {Cert,ErlCert}, CertsDb)
 	     end,
-    {ok,Der} = public_key:pem_to_der(File),
-    [Decode(Cert) || {cert, Cert, not_encrypted} <- Der].
+    {ok, PemBin} = file:read_file(File),
+    PemEntries = public_key:pem_decode(PemBin),
+    [Add(Cert) || {'Certificate', Cert, not_encrypted} <- PemEntries].
     

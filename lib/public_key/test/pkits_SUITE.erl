@@ -187,9 +187,9 @@ run([],_) -> ok.
 read_certs(Test) ->
     File = test_file(Test),
     %% io:format("Read ~p ",[File]),
-    {ok, Ders} = public_key:pem_to_der(File),
+    Ders = pkey_test:pem_to_der(File),
     %% io:format("Ders ~p ~n",[length(Ders)]),
-    [Cert || {cert,Cert,not_encrypted} <- Ders].
+    [Cert || {'Certificate', Cert, not_encrypted} <- Ders].
 
 test_file(Test) ->
     file(?CONV, lists:append(string:tokens(Test, " -")) ++ ".pem").

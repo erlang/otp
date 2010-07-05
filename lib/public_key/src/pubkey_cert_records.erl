@@ -23,30 +23,61 @@
 
 -include("public_key.hrl").
 
--export([decode_cert/2, encode_cert/1, encode_tbs_cert/1, transform/2]).
+-export([decode_cert/1, transform/2]).
 
 %%====================================================================
 %% Internal application API
 %%====================================================================
 
-decode_cert(DerCert, plain) ->
-    'OTP-PUB-KEY':decode('Certificate', DerCert);
-decode_cert(DerCert, otp) ->
+%%--------------------------------------------------------------------
+-spec decode_cert(der_encoded()) -> {ok, #'OTPCertificate'{}}.
+%%
+%% Description: Recursively decodes a Certificate. 
+%%-------------------------------------------------------------------- 
+decode_cert(DerCert) ->
     {ok, Cert} = 'OTP-PUB-KEY':decode('OTPCertificate', DerCert),
     #'OTPCertificate'{tbsCertificate = TBS} = Cert,
     {ok, Cert#'OTPCertificate'{tbsCertificate = decode_tbs(TBS)}}.
 
-encode_cert(Cert = #'Certificate'{}) ->
-    {ok, EncCert} = 'OTP-PUB-KEY':encode('Certificate', Cert),
-    list_to_binary(EncCert);
-encode_cert(C = #'OTPCertificate'{tbsCertificate = TBS}) ->
-    Cert = C#'OTPCertificate'{tbsCertificate=encode_tbs(TBS)},
-    {ok, EncCert} = 'OTP-PUB-KEY':encode('OTPCertificate', Cert),
-    list_to_binary(EncCert).
+%%--------------------------------------------------------------------
+-spec transform(term(), encode | decode) ->term().
+%%
+%% Description: Transforms between encoded and decode otp formated
+%% certificate parts.
+%%-------------------------------------------------------------------- 
 
-encode_tbs_cert(TBS) ->
-    {ok, EncTBSCert} = 'OTP-PUB-KEY':encode('OTPTBSCertificate', encode_tbs(TBS)),
-    list_to_binary(EncTBSCert).
+transform(#'OTPCertificate'{tbsCertificate = TBS} = Cert, encode) ->
+    Cert#'OTPCertificate'{tbsCertificate=encode_tbs(TBS)};
+transform(#'OTPCertificate'{tbsCertificate = TBS} = Cert, decode) ->
+    Cert#'OTPCertificate'{tbsCertificate=decode_tbs(TBS)};
+transform(#'OTPTBSCertificate'{}= TBS, encode) ->
+    encode_tbs(TBS);
+transform(#'OTPTBSCertificate'{}= TBS, decode) ->
+    decode_tbs(TBS);
+transform(#'AttributeTypeAndValue'{type=Id,value=Value0} = ATAV, Func) ->
+    {ok, Value} =
+        case attribute_type(Id) of
+            Type when is_atom(Type) -> 'OTP-PUB-KEY':Func(Type, Value0);
+            _UnknownType            -> {ok, Value0}
+        end,
+    ATAV#'AttributeTypeAndValue'{value=Value};
+transform(AKI = #'AuthorityKeyIdentifier'{authorityCertIssuer=ACI},Func) ->
+    AKI#'AuthorityKeyIdentifier'{authorityCertIssuer=transform(ACI,Func)};
+transform(List = [{directoryName, _}],Func) ->
+    [{directoryName, transform(Value,Func)} || {directoryName, Value} <- List];
+transform({directoryName, Value},Func) ->
+    {directoryName, transform(Value,Func)};
+transform({rdnSequence, SeqList},Func) when is_list(SeqList) ->
+    {rdnSequence, 
+     lists:map(fun(Seq) -> 
+		       lists:map(fun(Element) -> transform(Element,Func) end, Seq)
+	       end, SeqList)};
+transform(#'NameConstraints'{permittedSubtrees=Permitted, excludedSubtrees=Excluded}, Func) ->
+    #'NameConstraints'{permittedSubtrees=transform_sub_tree(Permitted,Func),
+		       excludedSubtrees=transform_sub_tree(Excluded,Func)};
+	  
+transform(Other,_) ->
+    Other.
 
 %%--------------------------------------------------------------------
 %%% Internal functions
@@ -131,31 +162,6 @@ encode_extensions(Exts) ->
 			      Ext#'Extension'{extnValue=list_to_binary(Value)}
 		      end
 	      end, Exts).
-
-transform(#'AttributeTypeAndValue'{type=Id,value=Value0} = ATAV, Func) ->
-    {ok, Value} =
-        case attribute_type(Id) of
-            Type when is_atom(Type) -> 'OTP-PUB-KEY':Func(Type, Value0);
-            _UnknownType            -> {ok, Value0}
-        end,
-    ATAV#'AttributeTypeAndValue'{value=Value};
-transform(AKI = #'AuthorityKeyIdentifier'{authorityCertIssuer=ACI},Func) ->
-    AKI#'AuthorityKeyIdentifier'{authorityCertIssuer=transform(ACI,Func)};
-transform(List = [{directoryName, _}],Func) ->
-    [{directoryName, transform(Value,Func)} || {directoryName, Value} <- List];
-transform({directoryName, Value},Func) ->
-    {directoryName, transform(Value,Func)};
-transform({rdnSequence, SeqList},Func) when is_list(SeqList) ->
-    {rdnSequence, 
-     lists:map(fun(Seq) -> 
-		       lists:map(fun(Element) -> transform(Element,Func) end, Seq)
-	       end, SeqList)};
-transform(#'NameConstraints'{permittedSubtrees=Permitted, excludedSubtrees=Excluded}, Func) ->
-    #'NameConstraints'{permittedSubtrees=transform_sub_tree(Permitted,Func),
-		       excludedSubtrees=transform_sub_tree(Excluded,Func)};
-	  
-transform(Other,_) ->
-    Other.
 
 encode_tbs(TBS=#'OTPTBSCertificate'{issuer=Issuer0,
 				    subject=Subject0,

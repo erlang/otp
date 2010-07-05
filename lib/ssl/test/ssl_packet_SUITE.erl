@@ -1770,7 +1770,7 @@ packet_asn1_decode(Config) when is_list(Config) ->
     File = proplists:get_value(certfile, ServerOpts),
 
     %% A valid asn1 BER packet (DER is stricter BER)
-    {ok,[{cert, Data, _}]} = public_key:pem_to_der(File),
+    [{'Certificate', Data, _}] = ssl_test_lib:pem_to_der(File),
     
     Server = ssl_test_lib:start_server([{node, ClientNode}, {port, 0},
 					{from, self()},

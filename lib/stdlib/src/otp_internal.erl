@@ -361,6 +361,12 @@ obsolete_1(erlang, concat_binary, 1) ->
 obsolete_1(ssl, peercert, 2) ->
     {deprecated,"deprecated (will be removed in R15A); use ssl:peercert/1 and public_key:pkix_decode_cert/2 instead"};
 
+%% Added in R14B.
+obsolete_1(public_key, pem_to_der, 1) ->
+    {deprecated,"deprecated (will be removed in R15A); use file:read_file/1 and public_key:pem_decode/1"};
+obsolete_1(public_key, decode_private_key, A) when A =:= 1; A =:= 2 ->
+    {deprecated,{public_key,pem_entry_decode,1},"R15A"};
+
 obsolete_1(_, _, _) ->
     no.
 
