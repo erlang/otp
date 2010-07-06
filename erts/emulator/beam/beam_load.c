@@ -1379,8 +1379,10 @@ read_code_header(LoaderState* stp)
     stp->ci = MI_FUNCTIONS + stp->num_functions + 1;
 
     stp->code[MI_ATTR_PTR] = 0;
+    stp->code[MI_ATTR_SIZE] = 0;
     stp->code[MI_ATTR_SIZE_ON_HEAP] = 0;
     stp->code[MI_COMPILE_PTR] = 0;
+    stp->code[MI_COMPILE_SIZE] = 0;
     stp->code[MI_COMPILE_SIZE_ON_HEAP] = 0;
     stp->code[MI_NUM_BREAKPOINTS] = 0;
 
@@ -5198,8 +5200,10 @@ erts_make_stub_module(Process* p, Eterm Mod, Eterm Beam, Eterm Info)
 
     code[MI_NUM_FUNCTIONS] = n;
     code[MI_ATTR_PTR] = 0;
+    code[MI_ATTR_SIZE] = 0;
     code[MI_ATTR_SIZE_ON_HEAP] = 0;
     code[MI_COMPILE_PTR] = 0;
+    code[MI_COMPILE_SIZE] = 0;
     code[MI_COMPILE_SIZE_ON_HEAP] = 0;
     code[MI_NUM_BREAKPOINTS] = 0;
     code[MI_ON_LOAD_FUNCTION_PTR] = 0;
