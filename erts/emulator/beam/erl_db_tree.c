@@ -1081,11 +1081,12 @@ static int db_select_continue_tree(Process *p,
 static int db_select_tree(Process *p, DbTable *tbl, 
 			  Eterm pattern, int reverse, Eterm *ret)
 {
+    /* Strategy: Traverse backwards to build resulting list from tail to head */
     DbTableTree *tb = &tbl->tree;
     DbTreeStack* stack;
     struct select_context sc;
     struct mp_info mpi;
-    Eterm lastkey = NIL;
+    Eterm lastkey = THE_NON_VALUE;
     Eterm key;
     Eterm continuation;
     unsigned sz;
@@ -1293,7 +1294,7 @@ static int db_select_count_tree(Process *p, DbTable *tbl,
     DbTreeStack* stack;
     struct select_count_context sc;
     struct mp_info mpi;
-    Eterm lastkey = NIL;
+    Eterm lastkey = THE_NON_VALUE;
     Eterm key;
     Eterm continuation;
     unsigned sz;
@@ -1395,7 +1396,7 @@ static int db_select_chunk_tree(Process *p, DbTable *tbl,
     DbTreeStack* stack;
     struct select_context sc;
     struct mp_info mpi;
-    Eterm lastkey = NIL;
+    Eterm lastkey = THE_NON_VALUE;
     Eterm key;
     Eterm continuation;
     unsigned sz;
@@ -1636,7 +1637,7 @@ static int db_select_delete_tree(Process *p, DbTable *tbl,
     DbTableTree *tb = &tbl->tree;
     struct select_delete_context sc;
     struct mp_info mpi;
-    Eterm lastkey = NIL;
+    Eterm lastkey = THE_NON_VALUE;
     Eterm key;
     Eterm continuation;
     unsigned sz;
@@ -2628,7 +2629,7 @@ static void traverse_backwards(DbTableTree *tb,
 {
     TreeDbTerm *this, *next;
 
-    if (lastkey == NIL) {
+    if (lastkey == THE_NON_VALUE) {
 	stack->pos = stack->slot = 0;
 	if (( this = tb->root ) == NULL) {
 	    return;
@@ -2666,7 +2667,7 @@ static void traverse_forward(DbTableTree *tb,
 {
     TreeDbTerm *this, *next;
 
-    if (lastkey == NIL) {
+    if (lastkey == THE_NON_VALUE) {
 	stack->pos = stack->slot = 0;
 	if (( this = tb->root ) == NULL) {
 	    return;

@@ -63,7 +63,8 @@
 	 meta_lookup_unnamed_read/1, meta_lookup_unnamed_write/1, 
 	 meta_lookup_named_read/1, meta_lookup_named_write/1,
 	 meta_newdel_unnamed/1, meta_newdel_named/1]).
--export([smp_insert/1, smp_fixed_delete/1, smp_unfix_fix/1, smp_select_delete/1, otp_8166/1]).
+-export([smp_insert/1, smp_fixed_delete/1, smp_unfix_fix/1, smp_select_delete/1,
+         otp_8166/1, otp_8732/1]).
 -export([exit_large_table_owner/1,
 	 exit_many_large_table_owner/1,
 	 exit_many_tables_owner/1,
@@ -129,7 +130,7 @@ all(suite) ->
      t_select_delete, t_ets_dets, memory,
      t_bucket_disappears,
      select_fail,t_insert_new, t_repair_continuation, otp_5340, otp_6338,
-     otp_6842_select_1000, otp_7665,
+     otp_6842_select_1000, otp_7665, otp_8732,
      meta_wb,
      grow_shrink, grow_pseudo_deleted, shrink_pseudo_deleted,
      meta_smp,
@@ -5010,8 +5011,14 @@ verify_table_load(T) ->
 	       end.
     
 		  
-    
-    
+otp_8732(doc) -> ["ets:select on a tree with NIL key object"];
+otp_8732(Config) when is_list(Config) ->
+    Tab = ets:new(noname,[ordered_set]),
+    filltabstr(Tab,999),
+    ets:insert(Tab,{[],"nasty NIL object"}),
+    ?line [] = ets:match(Tab,{'_',nomatch}), %% Will hang if bug not fixed
+    ok.
+
 
 smp_select_delete(suite) -> [];
 smp_select_delete(doc) ->
