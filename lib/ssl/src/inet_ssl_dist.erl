@@ -31,9 +31,7 @@
 
 -import(error_logger,[error_msg/2]).
 
--include("net_address.hrl").
-
-
+-include_lib("kernel/src/net_address.hrl").
 
 -define(to_port(Socket, Data, Opts),
 	case ssl_prim:send(Socket, Data, Opts) of
@@ -44,9 +42,8 @@
 	        R
         end).
 
-
--include("dist.hrl").
--include("dist_util.hrl").
+-include_lib("kernel/src/dist.hrl").
+-include_lib("kernel/src/dist_util.hrl").
 
 %% -------------------------------------------------------------
 %% This function should return a valid childspec, so that 
