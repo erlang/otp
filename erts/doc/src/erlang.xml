@@ -2767,8 +2767,10 @@ os_prompt%</pre>
           Otherwise, some other point in time is chosen. It is also
           guaranteed that subsequent calls to this BIF returns
           continuously increasing values. Hence, the return value from
-          <c>now()</c> can be used to generate unique time-stamps. It
-          can only be used to check the local time of day if
+          <c>now()</c> can be used to generate unique time-stamps,
+          and if it is called in a tight loop on a fast machine
+          the time of the node can become skewed.</p>
+        <p>It can only be used to check the local time of day if
           the time-zone info of the underlying operating system is
           properly configured.</p>
       </desc>

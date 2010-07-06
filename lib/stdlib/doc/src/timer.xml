@@ -211,7 +211,8 @@
       </type>
       <desc>
         <p>Evaluates <c>apply(Module, Function, Arguments)</c> and measures
-          the elapsed real time. Returns <c>{Time, Value}</c>, where 
+          the elapsed real time as reported by <c>now/0</c>.
+          Returns <c>{Time, Value}</c>, where 
           <c>Time</c> is the elapsed real time in <em>microseconds</em>,
           and <c>Value</c> is what is returned from the apply.</p>
       </desc>
