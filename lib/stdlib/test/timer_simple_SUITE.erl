@@ -224,11 +224,19 @@ cancel2(Config) when is_list(Config) ->
 tc(doc) -> "Test sleep/1 and tc/3.";
 tc(suite) -> [];
 tc(Config) when is_list(Config) ->
-    % This should both sleep and tc 
-    ?line {Res, ok} = timer:tc(timer, sleep, [500]),  
-    ?line ok = 	if 
-		    Res < 500*1000 -> {too_early, Res};  % Too early
-		    Res > 800*1000 -> {too_late, Res};  % Too much time
+    % This should both sleep and tc/3
+    ?line {Res1, ok} = timer:tc(timer, sleep, [500]),
+    ?line ok = 	if
+		    Res1 < 500*1000 -> {too_early, Res1}; % Too early
+		    Res1 > 800*1000 -> {too_late, Res1};  % Too much time
+		    true -> ok
+		end,
+
+    % This should both sleep and tc/2
+    ?line {Res2, ok} = timer:tc(fun(T) -> timer:sleep(T) end, [500]),
+    ?line ok = 	if
+		    Res2 < 500*1000 -> {too_early, Res2}; % Too early
+		    Res2 > 800*1000 -> {too_late, Res2};  % Too much time
 		    true -> ok
 		end,
 

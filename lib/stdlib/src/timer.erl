@@ -22,7 +22,7 @@
 	 send_after/3, send_after/2,
 	 exit_after/3, exit_after/2, kill_after/2, kill_after/1,
 	 apply_interval/4, send_interval/3, send_interval/2,
-	 cancel/1, sleep/1, tc/3, now_diff/2,
+	 cancel/1, sleep/1, tc/2, tc/3, now_diff/2,
 	 seconds/1, minutes/1, hours/1, hms/3]).
 
 -export([start_link/0, start/0, 
@@ -97,6 +97,17 @@ sleep(T) ->
     receive
     after T -> ok
     end.
+
+
+%%
+%% Measure the execution time (in microseconds) for Fun(Args).
+%%
+-spec tc(function(), [_]) -> {time(), term()}.
+tc(F, A) ->
+    Before = erlang:now(),
+    Val = (catch apply(F, A)),
+    After = erlang:now(),
+    {now_diff(After, Before), Val}.
 
 %%
 %% Measure the execution time (in microseconds) for an MFA.
