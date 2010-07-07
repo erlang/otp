@@ -115,11 +115,11 @@ interpret_all(Dir, [File0|Files], Mode, Window, Errors) ->
 interpret_all(_Dir, [], _Mode, _Window, []) ->
     true;
 interpret_all(Dir, [], _Mode, Window, Errors) ->
-    Msg = lists:map(fun(Name) ->		      
-			    File = filename:join(Dir, Name),
-			    Error = format_error(int:interpretable(File)),
-			    ["\n   ",Name,": ",Error]
-		    end, Errors),
+    Msg = [begin
+	       File = filename:join(Dir, Name),
+	       Error = format_error(int:interpretable(File)),
+	       ["\n   ",Name,": ",Error]
+	   end || Name <- Errors],
     All = ["Error when interpreting: ", Msg],
     dbg_wx_win:confirm(Window, lists:flatten(All)),
     true.

@@ -155,11 +155,8 @@ handle_call(get_stack_trace, _From, State) ->
 
 %% Retrieving information
 handle_call(snapshot, _From, State) ->
-    Reply = lists:map(fun(Proc) ->
-			      {Proc#proc.pid, Proc#proc.function,
-			       Proc#proc.status, Proc#proc.info}
-		      end,
-		      State#state.procs),
+    Reply = [{Proc#proc.pid, Proc#proc.function,
+	      Proc#proc.status, Proc#proc.info} || Proc <- State#state.procs],
     {reply, Reply, State};
 handle_call({get_meta, Pid}, _From, State) ->
     Reply = case get_proc({pid, Pid}, State#state.procs) of
@@ -181,21 +178,21 @@ handle_call({get_attpid, Pid}, _From, State) ->
 
 %% Breakpoint handling
 handle_call({new_break, Point, Options}, _From, State) ->
-    case lists:keysearch(Point, 1, State#state.breaks) of
+    case lists:keymember(Point, 1, State#state.breaks) of
 	false ->
 	    Break = {Point, Options},
 	    send_all([subscriber, meta, attached],
 		     {new_break, Break}, State),
 	    Breaks = keyinsert(Break, 1, State#state.breaks),
 	    {reply, ok, State#state{breaks=Breaks}};
-	{value, _Break} ->
+	true ->
 	    {reply, {error, break_exists}, State}
     end;
 handle_call(all_breaks, _From, State) ->
     {reply, State#state.breaks, State};
 handle_call({all_breaks, Mod}, _From, State) ->
     Reply = lists:filter(fun({{M,_L}, _Options}) ->
-				 if M==Mod -> true; true -> false end
+				 M =/= Mod
 			 end,
 			 State#state.breaks),
     {reply, Reply, State};
@@ -276,7 +273,7 @@ handle_call({contents, Mod, Pid}, _From, State) ->
     Db = State#state.db,
     [{{Mod, refs}, ModDbs}] = ets:lookup(Db, {Mod, refs}),
     ModDb = if
-		Pid==any -> hd(ModDbs);
+		Pid =:= any -> hd(ModDbs);
 		true ->
 		    lists:foldl(fun(T, not_found) ->
 					[{T, Pids}] = ets:lookup(Db, T),
@@ -295,7 +292,7 @@ handle_call({raw_contents, Mod, Pid}, _From, State) ->
     Db = State#state.db,
     [{{Mod, refs}, ModDbs}] = ets:lookup(Db, {Mod, refs}),
     ModDb = if
-		Pid==any -> hd(ModDbs);
+		Pid =:= any -> hd(ModDbs);
 		true ->
 		    lists:foldl(fun(T, not_found) ->
 					[{T, Pids}] = ets:lookup(Db, T),
@@ -360,15 +357,15 @@ handle_cast({set_stack_trace, Flag}, State) ->
 %% Retrieving information
 handle_cast(clear, State) ->
     Procs = lists:filter(fun(#proc{status=Status}) ->
-				 if Status==exit -> false; true -> true end
+				 Status =/= exit
 			 end,
 			 State#state.procs),
     {noreply, State#state{procs=Procs}};
 
 %% Breakpoint handling
 handle_cast({delete_break, Point}, State) ->
-    case lists:keysearch(Point, 1, State#state.breaks) of
-	{value, _Break} ->
+    case lists:keymember(Point, 1, State#state.breaks) of
+	true ->
 	    send_all([subscriber, meta, attached],
 		     {delete_break, Point}, State),
 	    Breaks = lists:keydelete(Point, 1, State#state.breaks),
@@ -377,8 +374,8 @@ handle_cast({delete_break, Point}, State) ->
 	    {noreply, State}
     end;
 handle_cast({break_option, Point, Option, Value}, State) ->
-    case lists:keysearch(Point, 1, State#state.breaks) of
-	{value, {Point, Options}} ->
+    case lists:keyfind(Point, 1, State#state.breaks) of
+	{Point, Options} ->
 	    N = case Option of
 		    status -> 1;
 		    action -> 2;
@@ -399,7 +396,7 @@ handle_cast(no_break, State) ->
 handle_cast({no_break, Mod}, State) ->
     send_all([subscriber, meta, attached], {no_break, Mod}, State),
     Breaks = lists:filter(fun({{M, _L}, _O}) ->
-				  if M==Mod -> false; true -> true end
+				  M =/= Mod
 			  end,
 			  State#state.breaks),
     {noreply, State#state{breaks=Breaks}};
@@ -409,7 +406,7 @@ handle_cast({set_status, Meta, Status, Info}, State) ->
     {true, Proc} = get_proc({meta, Meta}, State#state.procs),
     send_all(subscriber, {new_status, Proc#proc.pid, Status, Info}, State),
     if
-	Status==break ->
+	Status =:= break ->
 	    auto_attach(break, State#state.auto, Proc);
 	true -> ignore
     end,
@@ -526,11 +523,10 @@ code_change(_OldVsn, State, _Extra) ->
 %% Internal functions
 %%====================================================================
 
-auto_attach(Why, Auto, Proc) when is_record(Proc, proc) ->
-    case Proc#proc.attpid of
-	AttPid when is_pid(AttPid) -> ignore;
-	undefined ->
-	    auto_attach(Why, Auto, Proc#proc.pid)
+auto_attach(Why, Auto, #proc{attpid = Attpid, pid = Pid}) ->
+    case Attpid of
+	undefined -> auto_attach(Why, Auto, Pid);
+	_ when is_pid(Attpid) -> ignore
     end;
 auto_attach(Why, Auto, Pid) when is_pid(Pid) ->
     case Auto of
@@ -545,7 +541,7 @@ auto_attach(Why, Auto, Pid) when is_pid(Pid) ->
 
 keyinsert(Tuple1, N, [Tuple2|Tuples]) ->
     if
-	element(N, Tuple1)<element(N, Tuple2) ->
+	element(N, Tuple1) < element(N, Tuple2) ->
 	    [Tuple1, Tuple2|Tuples];
 	true ->
 	    [Tuple2 | keyinsert(Tuple1, N, Tuples)]
@@ -576,7 +572,7 @@ send_all([], _Msg, _State) -> ok;
 send_all(subscriber, Msg, State) ->
     send_all(State#state.subs, Msg);
 send_all(meta, Msg, State) ->
-    Metas = lists:map(fun(Proc) -> Proc#proc.meta end, State#state.procs),
+    Metas = [Proc#proc.meta || Proc <- State#state.procs],
     send_all(Metas, Msg);
 send_all(attached, Msg, State) ->
     AttPids= mapfilter(fun(Proc) ->
@@ -600,7 +596,7 @@ get_proc({Type, Pid}, Procs) ->
 		meta -> #proc.meta;
 		attpid -> #proc.attpid
 	    end,
-    case lists:keysearch(Pid, Index, Procs) of
-	{value, Proc} -> {true, Proc};
-	false -> false
+    case lists:keyfind(Pid, Index, Procs) of
+	false -> false;
+	Proc -> {true, Proc}
     end.

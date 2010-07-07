@@ -266,8 +266,7 @@ select(MenuItem, Bool) ->
 add_module(WinInfo, MenuName, Mod) ->
     Win = WinInfo#winInfo.window,
     Modules = WinInfo#winInfo.modules,
-    case lists:keysearch(Mod, #moduleInfo.module, Modules) of
-	{value, _ModInfo} -> WinInfo;
+    case lists:keymember(Mod, #moduleInfo.module, Modules) of
 	false ->
 	    %% Create a menu for the module
 	    Menu = get(MenuName),
@@ -284,8 +283,9 @@ add_module(WinInfo, MenuName, Mod) ->
 	    wxListBox:append(WinInfo#winInfo.listbox, atom_to_list(Mod)),
 	    
 	    ModInfo = #moduleInfo{module=Mod, menubtn={Menu,MenuBtn}},
-	    WinInfo#winInfo{modules=[ModInfo | Modules]}
-    end.
+	    WinInfo#winInfo{modules=[ModInfo | Modules]};
+	true -> WinInfo
+   end.
     
 %%--------------------------------------------------------------------
 %% delete_module(WinInfo, Mod) -> WinInfo
@@ -559,8 +559,7 @@ handle_event(#wx{event=#wxCommand{type=command_checkbox_clicked}},
 handle_event(#wx{event=#wxList{type=command_list_item_selected,
 			       itemIndex=Row}}, WinInfo) ->
     #winInfo{processes=Pids} = WinInfo,
-    {value, #procInfo{pid=Pid}} = 
-	lists:keysearch(Row, #procInfo.row, Pids),
+    #procInfo{pid=Pid} = lists:keyfind(Row, #procInfo.row, Pids),
     {focus, Pid, WinInfo#winInfo{focus=Row}};
 handle_event(#wx{event=#wxList{type=command_list_item_activated}}, 
 	     _WinInfo) ->

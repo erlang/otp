@@ -47,7 +47,7 @@ term(Term) ->
 %% the next line to need an "extra" indent!).
 term([], Indent) ->
     {Indent, [$[,$]]};
-term(L, Indent) when list(L) ->
+term(L, Indent) when is_list(L) ->
     case is_string(L) of
 	true ->
 	    {Indent, io_lib:write_string(L)};
@@ -59,7 +59,7 @@ term(L, Indent) when list(L) ->
 		    write_simple_list(L, Indent)
 	    end
     end;
-term(T, Indent) when tuple(T) ->
+term(T, Indent) when is_tuple(T) ->
     case complex_tuple(T) of
 	true ->
 	    write_complex_tuple(T, Indent);

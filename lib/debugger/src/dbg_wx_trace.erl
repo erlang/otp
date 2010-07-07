@@ -180,12 +180,12 @@ init_contents(Breaks, State) ->
 
     State#state{win=Win}.
 
-loop(#state{meta=Meta} = State) ->
+loop(#state{meta=Meta, win=Win} = State) ->
     receive
 	%% From the GUI main window
-	GuiEvent when element(1, GuiEvent)==wx ->
+	GuiEvent when element(1, GuiEvent) =:= wx ->
 	    Cmd = wx:batch(fun() -> 
-				   dbg_wx_trace_win:handle_event(GuiEvent,State#state.win)
+				   dbg_wx_trace_win:handle_event(GuiEvent,Win)
 			   end),
 	    State2 = gui_cmd(Cmd, State),
 	    loop(State2);
@@ -211,11 +211,11 @@ loop(#state{meta=Meta} = State) ->
 
 	%% From the dbg_wx_winman process (Debugger window manager)
 	{dbg_ui_winman, update_windows_menu, Data} ->
-	    Window = dbg_wx_trace_win:get_window(State#state.win),
+	    Window = dbg_wx_trace_win:get_window(Win),
 	    dbg_wx_winman:update_windows_menu(Window,Data),
 	    loop(State);
 	{dbg_ui_winman, destroy} ->
-	    dbg_wx_trace_win:stop(State#state.win),
+	    dbg_wx_trace_win:stop(Win),
 	    exit(stop)
     end.
 
@@ -269,7 +269,7 @@ gui_cmd('Continue', State) ->
     int:meta(State#state.meta, continue),
     {Status, Mod, Line} = State#state.status,
     if
-	Status==wait_break ->
+	Status =:= wait_break ->
 	    Win = dbg_wx_trace_win:unmark_line(State#state.win),
 	    gui_enable_functions(wait_running),
 	    State#state{win=Win, status={wait_running,Mod,Line}};
@@ -291,7 +291,7 @@ gui_cmd('Stop', State) ->
     int:meta(State#state.meta, stop),
     {Status, Mod, Line} = State#state.status,
     if
-	Status==wait_running ->
+	Status =:= wait_running ->
 	    Win = dbg_wx_trace_win:mark_line(State#state.win, Line,
 					     break),
 	    gui_enable_functions(wait_break),
@@ -421,7 +421,7 @@ gui_cmd('Function Break...', State) ->
 gui_cmd('Enable All', State) ->
     Breaks = int:all_breaks(),
     ThisMod = State#state.cm,
-    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod==ThisMod ->
+    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod =:= ThisMod ->
 			  int:enable_break(Mod, Line);
 		      (_Break) ->
 			  ignore
@@ -431,7 +431,7 @@ gui_cmd('Enable All', State) ->
 gui_cmd('Disable All', State) ->
     Breaks = int:all_breaks(),
     ThisMod = State#state.cm,
-    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod==ThisMod ->
+    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod =:= ThisMod ->
 			  int:disable_break(Mod, Line);
 		      (_Break) ->
 			  ignore
@@ -458,7 +458,7 @@ gui_cmd({'Trace Window', TraceWin}, State) ->
     Win = dbg_wx_trace_win:configure(State#state.win, TraceWin),
     {Status,_,_} = State#state.status,
     if
-	Status==break; Status==wait_break ->
+	Status =:= break; Status =:= wait_break ->
 	    gui_enable_btrace(Trace, State#state.stack_trace);
 	true -> ignore
     end,
@@ -467,7 +467,7 @@ gui_cmd({'Stack Trace', [Name]}, State) ->
     int:meta(State#state.meta, stack_trace, map(Name)),
     {Status,_,_} = State#state.status,
     if
-	Status==break; Status==wait_break ->
+	Status =:= break; Status =:= wait_break ->
 	    gui_enable_btrace(State#state.trace, map(Name));
 	true -> ignore
     end,
@@ -490,9 +490,9 @@ gui_cmd('Debugger', State) ->
 gui_cmd({user_command, Cmd}, State) ->
     {Status, _Mod, _Line} = State#state.status,
     if
-	Status==break;
-	Status==wait_break;
-	Status==wait_running ->
+	Status =:= break;
+	Status =:= wait_break;
+	Status =:= wait_running ->
 	    Cm = State#state.cm,
 	    Arg = case State#state.stack of
 		      {Cur, Max} when Cur<Max -> {Cm, Cmd, Cur};
@@ -531,14 +531,14 @@ add_break(WI, Coords, Type, Mod, Line) ->
 
 int_cmd({interpret, Mod}, State) ->
     if
-	Mod==State#state.cm ->
+	Mod =:= State#state.cm ->
 	    State#state{cm_obsolete=true};
 	true ->
 	    State
     end;
 int_cmd({no_interpret, Mod}, State) ->
     if
-	Mod==State#state.cm ->
+	Mod =:= State#state.cm ->
 	    State#state{cm_obsolete=true};
 	true ->
 	    Win = dbg_wx_trace_win:remove_code(State#state.win, Mod),
@@ -584,7 +584,7 @@ meta_cmd({re_entry, dbg_ieval, eval_fun}, State) ->
 meta_cmd({re_entry, Mod, _Func}, State) ->
     Obs = State#state.cm_obsolete,
     case State#state.cm of
-	Mod when Obs==true ->
+	Mod when Obs =:= true ->
 	    Win = gui_load_module(State#state.win, Mod,State#state.pid),
 	    State#state{win=Win, cm_obsolete=false};
 	Mod -> State;
@@ -630,11 +630,11 @@ meta_cmd({func_at, Mod, Line, Cur}, State) ->
     gui_enable_functions(idle),
     dbg_wx_trace_win:display(State#state.win, idle),
     State#state{win=Win, cm=Mod, status={idle,Mod,Line}, stack=Stack};
-meta_cmd({wait_at, Mod, Line, Cur}, #state{status={Status,_,_}}=State)
-  when Status/=init, Status/=break ->
+meta_cmd({wait_at, Mod, Line, Cur}, #state{status={Status,_,_}, win=Win}=State)
+  when Status =/= init, Status =/= break ->
     Stack = {Cur,Cur},
     gui_enable_functions(wait_running),
-    dbg_wx_trace_win:display(State#state.win, {wait,Mod,Line}),
+    dbg_wx_trace_win:display(Win, {wait,Mod,Line}),
     State#state{status={wait_running,Mod,Line}, stack=Stack};
 meta_cmd({wait_at, Mod, Line, Cur}, State) ->
     Stack = {Cur,Cur},
@@ -675,7 +675,7 @@ meta_cmd({stack_trace, Flag}, State) ->
     gui_enable_updown(Flag, State#state.stack),
     {Status,_,_} = State#state.status,
     if
-	Status==break; Status==wait_break ->
+	Status =:= break; Status =:= wait_break ->
 	    gui_enable_btrace(State#state.trace, Flag);
 	true -> ignore
     end,
@@ -813,7 +813,7 @@ gui_enable_functions(Status) ->
 gui_enable_updown(Flag, Stack) ->
     {Enable, Disable} =
 	if
-	    Flag==false -> {[], ['Up', 'Down']};
+	    Flag =:= false -> {[], ['Up', 'Down']};
 	    true ->
 		case Stack of
 		    {1,1} -> {[], ['Up', 'Down']};
@@ -826,14 +826,14 @@ gui_enable_updown(Flag, Stack) ->
     dbg_wx_trace_win:enable(Enable, true),
     dbg_wx_trace_win:enable(Disable, false),
     if
-	Enable==[] -> dbg_wx_trace_win:enable(['Where'], false);
+	Enable =:= [] -> dbg_wx_trace_win:enable(['Where'], false);
 	true -> dbg_wx_trace_win:enable(['Where'], true)
     end.
 
 gui_enable_btrace(Trace, StackTrace) ->
     Bool = if
-	       Trace==false -> false;
-	       StackTrace==false -> false;
+	       Trace =:= false -> false;
+	       StackTrace =:= false -> false;
 	       true -> true
 	   end,
     dbg_wx_trace_win:enable(['Back Trace'], Bool).

@@ -135,8 +135,8 @@ parse([Opt | _RawOpts], _Opts) ->
 get_defs(Type, File, Opts) ->
     Key = {defs,Type},
     {PrevDefs, Opts2} =
-	case lists:keysearch(Key, 1, Opts) of
-	    {value, {_, Defs0}} ->
+	case lists:keyfind(Key, 1, Opts) of
+	    {_, Defs0} ->
 		{Defs0, lists:keydelete(Key, 1, Opts)};
 	    false ->
 		{[], Opts}

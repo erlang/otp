@@ -478,31 +478,29 @@ otp_xmlify_a_href("#"++_ = Marker, Es0) -> % <seealso marker="#what">
 otp_xmlify_a_href("http:"++_ = URL, Es0) -> % external URL
     {URL, Es0};
 otp_xmlify_a_href("OTPROOT"++AppRef, Es0) -> % <.. marker="App:FileRef
-    case split(AppRef, "/") of
-	[AppS, "doc", FileRef1] ->
-	    FileRef = AppS++":"++otp_xmlify_a_fileref(FileRef1, AppS),
-	    [#xmlText{value=Str0} = T] = Es0,
-	    Str = case split(Str0, "/") of
-		      %% //Application
-		      [AppS2] ->
-			  %% AppS2 can differ from AppS
-			  %% Example: xmerl/XMerL
-			  AppS2;
-		      [_AppS,ModRef] ->
-			  case split(ModRef, ":") of
-			      %% //Application/Module
-			      [Module] ->
-				  Module++"(3)";
-			      %% //Application/Module:Type()
-			      [_Module,_Type] ->
-				  ModRef
-			  end;
-		      %% //Application/Module:Function/Arity
-		      [_AppS,ModFunc,Arity] ->
-			  ModFunc++"/"++Arity
-		  end,
-	    {FileRef, [T#xmlText{value=Str}]}
-    end;
+    [AppS, "doc", FileRef1] = split(AppRef, "/"),
+    FileRef = AppS++":"++otp_xmlify_a_fileref(FileRef1, AppS),
+    [#xmlText{value=Str0} = T] = Es0,
+    Str = case split(Str0, "/") of
+	      %% //Application
+	      [AppS2] ->
+		  %% AppS2 can differ from AppS
+		  %% Example: xmerl/XMerL
+		  AppS2;
+	      [_AppS,ModRef] ->
+		  case split(ModRef, ":") of
+		      %% //Application/Module
+		      [Module] ->
+			  Module++"(3)";
+		      %% //Application/Module:Type()
+		      [_Module,_Type] ->
+			  ModRef
+		  end;
+	      %% //Application/Module:Function/Arity
+	      [_AppS,ModFunc,Arity] ->
+		  ModFunc++"/"++Arity
+	  end,
+    {FileRef, [T#xmlText{value=Str}]};
 otp_xmlify_a_href("../"++File, Es0) ->
     %% Special case: This kind of relative path is used on some
     %% places within i.e. EDoc and refers to a file within the same
@@ -639,13 +637,13 @@ otp_xmlify_table([#xmlText{} = E|Es]) ->
     [E | otp_xmlify_table(Es)];
 otp_xmlify_table([#xmlElement{name=tbody} = E|Es]) ->
     otp_xmlify_table(E#xmlElement.content)++otp_xmlify_table(Es);
-otp_xmlify_table([#xmlElement{name=tr} = E|Es]) ->
+otp_xmlify_table([#xmlElement{name=tr, content=Content}|Es]) ->
     %% Insert newlines between table rows
-    otp_xmlify_table(E#xmlElement.content)++[{br,[]}]++otp_xmlify_table(Es);
-otp_xmlify_table([#xmlElement{name=th} = E|Es]) ->
-    [{em, E#xmlElement.content} | otp_xmlify_table(Es)];
-otp_xmlify_table([#xmlElement{name=td} = E|Es]) ->
-    otp_xmlify_e(E#xmlElement.content) ++ otp_xmlify_table(Es);
+    otp_xmlify_table(Content)++[{br,[]}]++otp_xmlify_table(Es);
+otp_xmlify_table([#xmlElement{name=th, content=Content}|Es]) ->
+    [{em, Content} | otp_xmlify_table(Es)];
+otp_xmlify_table([#xmlElement{name=td, content=Content}|Es]) ->
+    otp_xmlify_e(Content) ++ otp_xmlify_table(Es);
 otp_xmlify_table([]) ->
     [].
 
@@ -1155,8 +1153,8 @@ get_text(#xmlElement{content=[E]}) ->
 
 %% text_only(Es) -> Ts
 %% Takes a list of xmlElement and xmlText and return a lists of xmlText.
-text_only([#xmlElement{} = E |Es]) ->
-    text_only(E#xmlElement.content) ++ text_only(Es);
+text_only([#xmlElement{content = Content}|Es]) ->
+    text_only(Content) ++ text_only(Es);
 text_only([#xmlText{} = E |Es]) ->
     [E | text_only(Es)];
 text_only([]) ->

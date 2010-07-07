@@ -21,9 +21,6 @@
 %% External exports
 -export([start/2]).
 
-%% Internal exports
--export([init/3]).
-
 -record(state, {gs,                % term() Graphics system id
 		win,               % term() Attach process window data
 		coords,            % {X,Y} Mouse point position
@@ -42,7 +39,7 @@ start(GS, Mod) ->
     Title = "View Module " ++ atom_to_list(Mod),
     case dbg_ui_winman:is_started(Title) of
 	true -> ignore;
-	false -> spawn(?MODULE, init, [GS, Mod, Title])
+	false -> spawn(fun () -> init(GS, Mod, Title) end)
     end.
 
 
@@ -51,7 +48,6 @@ start(GS, Mod) ->
 %%====================================================================
 
 init(GS, Mod, Title) ->
-
     %% Subscribe to messages from the interpreter
     int:subscribe(),
 

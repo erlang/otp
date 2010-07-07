@@ -94,7 +94,7 @@ break_p(Mod, Line, Le, Bs) ->
 		    Bool = case Cond of
 			       null -> true;
 			       {CM, CN} ->
-				   try apply(CM, CN, [Bs]) of
+				   try CM:CN(Bs) of
 				       true -> true;
 				       false -> false;
 				       _Term -> false
@@ -245,7 +245,7 @@ handle_int_msg({attached, AttPid}, Status, _Bs,
 
     %% Tell attached process in which module evalution is located
     if
-	Le==1 ->
+	Le =:= 1 ->
 	    tell_attached({attached, undefined, -1, get(trace)});
 	true ->
 	    tell_attached({attached, M, Line, get(trace)}),
@@ -269,7 +269,7 @@ handle_int_msg(detached, _Status, _Bs, _Ieval) ->
 handle_int_msg({old_code,Mod}, Status, Bs,
 	       #ieval{level=Le,module=M}=Ieval) ->
     if
-	Status==idle, Le==1 ->
+	Status =:= idle, Le =:= 1 ->
 	    erase([Mod|db]),
 	    put(cache, []);
 	true ->
@@ -352,9 +352,9 @@ set_stack_trace(true) ->
     set_stack_trace(all);
 set_stack_trace(Flag) ->    
     if
-	Flag==false ->
+	Flag =:= false ->
 	    put(stack, []);
-	Flag==no_tail; Flag==all ->
+	Flag =:= no_tail; Flag =:= all ->
 	    ignore
     end,
     put(trace_stack, Flag),
@@ -367,7 +367,7 @@ bindings(Bs, nostack) ->
     Bs;
 bindings(Bs, SP) ->
     case dbg_ieval:stack_level() of
-	Le when SP>Le ->
+	Le when SP > Le ->
 	    Bs;
 	_ ->
 	    dbg_ieval:bindings(SP)
@@ -376,7 +376,6 @@ bindings(Bs, SP) ->
 messages() ->
     {messages, Msgs} = erlang:process_info(get(self), messages),
     Msgs.
-
 
 %%====================================================================
 %% Evaluating expressions within process context
@@ -398,7 +397,7 @@ eval_restricted({From,_Mod,Cmd,SP}, Bs) ->
 	    From ! {self(), {eval_rsp, Rsp}}
     end.
 
-eval_nonrestricted({From,Mod,Cmd,SP}, Bs, #ieval{level=Le}) when SP<Le->
+eval_nonrestricted({From,Mod,Cmd,SP}, Bs, #ieval{level=Le}) when SP < Le->
     %% Evaluate in stack
     eval_restricted({From, Mod, Cmd, SP}, Bs),
     Bs;
@@ -424,15 +423,15 @@ eval_nonrestricted({From, _Mod, Cmd, _SP}, Bs,
 eval_nonrestricted_1({match,_,{var,_,Var},Expr}, Bs, Ieval) ->
     {value,Res,Bs2} = 
 	dbg_ieval:eval_expr(Expr, Bs, Ieval#ieval{last_call=false}),
-    Bs3 = case lists:keysearch(Var, 1, Bs) of
-	      {value, {Var,_Value}} ->
+    Bs3 = case lists:keyfind(Var, 1, Bs) of
+	      {Var,_Value} ->
 		  lists:keyreplace(Var, 1, Bs2, {Var,Res});
 	      false -> [{Var,Res} | Bs2]
 	  end,
     {Res,Bs3};
 eval_nonrestricted_1({var,_,Var}, Bs, _Ieval) ->
-    Res = case lists:keysearch(Var, 1, Bs) of
-	      {value, {Var, Value}} -> Value;
+    Res = case lists:keyfind(Var, 1, Bs) of
+	      {Var, Value} -> Value;
 	      false -> unbound
 	  end,
     {Res,Bs};
@@ -458,7 +457,6 @@ parse_cmd(Cmd, LineNo) ->
     {ok,Forms} = erl_parse:parse_exprs(Tokens),
     Forms.
 
-
 %%====================================================================
 %% Library functions for attached process handling
 %%====================================================================
@@ -470,13 +468,12 @@ tell_attached(Msg) ->
 	    AttPid ! {self(), Msg}
     end.
 
-
 %%====================================================================
 %% get_binding/2
 %%====================================================================
 
 get_binding(Var, Bs) ->
-    case lists:keysearch(Var, 1, Bs) of
-	{value, {Var, Value}} -> {value, Value};
+    case lists:keyfind(Var, 1, Bs) of
+	{Var, Value} -> {value, Value};
 	false -> unbound
     end.

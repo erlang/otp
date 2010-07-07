@@ -147,17 +147,17 @@ configure(WinInfo, TraceWin) ->
     H = gs:read(Win, height),
 
     H2 = if
-	     Bu1==close, Bu2==open ->
+	     Bu1 =:= close, Bu2 =:= open ->
 		 resize_button_area(open, width, W-4),
 		 gs:config('ButtonArea', {height, 30}),
 		 H+30;
-	     Bu1==open, Bu2==close ->
+	     Bu1 =:= open, Bu2 =:= close ->
 		 gs:config('ButtonArea', [{width, 0}, {height, 0}]),
 		 H-30;
 	     true -> H
 	 end,
     H3 = if
-	     Ev1==close, Ev2==open, Bi1==open ->
+	     Ev1 =:= close, Ev2 =:= open, Bi1 =:= open ->
 		 Wnew1 = round((W-10-4)/2), % W = window/2 - rb - pads
 		 Hbi1 = gs:read('BindArea', height), % H = bind area h
 		 resize_eval_area(open, width, Wnew1),
@@ -167,25 +167,25 @@ configure(WinInfo, TraceWin) ->
 		 resize_bind_area(open, width,
 				  Wnew1-gs:read('BindArea', width)),
 		 H2;
-	     Ev1==close, Ev2==open, Bi1==close ->
+	     Ev1 =:= close, Ev2 =:= open, Bi1 =:= close ->
 		 resize_eval_area(open, width, W-4),
 		 resize_eval_area(open, height, 200),
 		 H2+200;
-	     Ev1==open, Ev2==close, Bi1==open ->
+	     Ev1 =:= open, Ev2 =:= close, Bi1 =:= open ->
 		 gs:config('EvalArea', [{width,0}, {height,0}]),
 		 gs:config('RB3', [{width, 0}, {height, 0}]),
 		 Wnew2 = W-4,
 		 resize_bind_area(open, width,
 				  Wnew2-gs:read('BindArea', width)),
 		 H2;
-	     Ev1==open, Ev2==close, Bi1==close ->
+	     Ev1 =:= open, Ev2 =:= close, Bi1 =:= close ->
 		 Hs1 = gs:read('EvalArea', height),
 		 gs:config('EvalArea', [{width, 0}, {height, 0}]),
 		 H2-Hs1;
 	     true -> H2
 	 end,
     H4 = if
-	     Bi1==close, Bi2==open, Ev2==open ->
+	     Bi1 =:= close, Bi2 =:= open, Ev2 =:= open ->
 		 Wnew3 = round((W-10-4)/2), % W = window/2 - rb - pads
 		 Hs2 = gs:read('EvalArea', height), % H = eval area h
 		 resize_bind_area(open, width, Wnew3),
@@ -194,29 +194,29 @@ configure(WinInfo, TraceWin) ->
 		 resize_eval_area(open, width,
 				  Wnew3-gs:read('EvalArea', width)),
 		 H3;
-	     Bi1==close, Bi2==open, Ev2==close ->
+	     Bi1 =:= close, Bi2 =:= open, Ev2 =:= close ->
 		 resize_bind_area(open, width, W-4),
 		 resize_bind_area(open, height, 200),
 		 H3+200;
-	     Bi1==open, Bi2==close, Ev2==open ->
+	     Bi1 =:= open, Bi2 =:= close, Ev2 =:= open ->
 		 gs:config('BindArea', [{width, 0}, {height, 0}]),
 		 gs:config('RB3', [{width, 0}, {height, 0}]),
 		 Wnew4 = W-4,
 		 resize_eval_area(open, width,
 				  Wnew4-gs:read('EvalArea', width)),
 		 H3;
-	     Bi1==open, Bi2==close, Ev2==close ->
+	     Bi1 =:= open, Bi2 =:= close, Ev2 =:= close ->
 		 Hbi2 = gs:read('BindArea', height),
 		 gs:config('BindArea', [{width, 0}, {height, 0}]),
 		 H3-Hbi2;
 	     true -> H3
 	 end,
     H5 = if
-	     Tr1==close, Tr2==open ->
+	     Tr1 =:= close, Tr2 =:= open ->
 		 resize_trace_area(open, width, W-4),
 		 resize_trace_area(open, height, 200),
 		 H4+200;
-	     Tr1==open, Tr2==close ->
+	     Tr1 =:= open, Tr2 =:= close ->
 		 Hf = gs:read('TraceArea', height),
 		 gs:config('TraceArea', [{width, 0}, {height, 0}]),
 		 H4-Hf;
@@ -226,10 +226,10 @@ configure(WinInfo, TraceWin) ->
 
     RB1old = rb1(OldFlags), RB1new = rb1(NewFlags),
     if
-	RB1old==close, RB1new==open ->
+	RB1old =:= close, RB1new =:= open ->
 	    gs:config('RB1', [{width, W-4}, {height, 10}]),
 	    gs:config(Win, {height, gs:read(Win, height)+10});
-	RB1old==open, RB1new==close ->
+	RB1old =:= open, RB1new =:= close ->
 	    gs:config('RB1', [{width, 0}, {height, 0}, lower]),
 	    gs:config(Win, {height, gs:read(Win, height)-10});
 	true -> ignore
@@ -237,10 +237,10 @@ configure(WinInfo, TraceWin) ->
 
     RB2old = rb2(OldFlags), RB2new = rb2(NewFlags),
     if
-	RB2old==close, RB2new==open ->
+	RB2old =:= close, RB2new =:= open ->
 	    gs:config('RB2', [{width, W-4}, {height, 10}]),
 	    gs:config(Win, {height,gs:read(Win, height)+10});
-	RB2old==open, RB2new==close ->		
+	RB2old =:= open, RB2new =:= close ->
 	    gs:config('RB2', [{width, 0}, {height, 0}, lower]),
 	    gs:config(Win, {height, gs:read(Win, height)-10});
 	true -> ignore
@@ -301,15 +301,15 @@ select(MenuItem, Bool) ->
 %%     Cond = null | {Mod, Func}
 %%--------------------------------------------------------------------
 add_break(WinInfo, Menu, {{Mod,Line},[Status|_Options]}=Break) ->
-    case lists:keysearch(Mod, 1, WinInfo#winInfo.editors) of
-	{value, {Mod, Editor}} ->
+    case lists:keyfind(Mod, 1, WinInfo#winInfo.editors) of
+	{Mod, Editor} ->
 	    add_break_to_code(Editor, Line, Status);
 	false -> ignore
     end,
     add_break_to_menu(WinInfo, Menu, Break).
 
 add_break_to_code(Editor, Line, Status) ->
-    Color = if Status==active -> red; Status==inactive -> blue end,
+    Color = if Status =:= active -> red; Status =:= inactive -> blue end,
     config_editor(Editor, [{overwrite,{{Line,0},"-@-  "}},
 			   {fg,{{{Line,0},{Line,lineend}}, Color}}]).
 
@@ -330,8 +330,8 @@ add_break_to_menu(WinInfo, Menu, {Point, [Status|_Options]=Options}) ->
 %%     Cond = null | {Mod, Func}
 %%--------------------------------------------------------------------
 update_break(WinInfo, {{Mod,Line},[Status|_Options]}=Break) ->
-    case lists:keysearch(Mod, 1, WinInfo#winInfo.editors) of
-	{value, {Mod, Editor}} ->
+    case lists:keyfind(Mod, 1, WinInfo#winInfo.editors) of
+	{Mod, Editor} ->
 	    add_break_to_code(Editor, Line, Status);
 	false -> ignore
     end,
@@ -352,8 +352,8 @@ update_break_in_menu(WinInfo, {Point, [Status|_Options]=Options}) ->
 %%   Point = {Mod, Line}
 %%--------------------------------------------------------------------
 delete_break(WinInfo, {Mod,Line}=Point) ->
-    case lists:keysearch(Mod, 1, WinInfo#winInfo.editors) of
-	{value, {Mod, Editor}} -> delete_break_from_code(Editor, Line);
+    case lists:keyfind(Mod, 1, WinInfo#winInfo.editors) of
+	{Mod, Editor} -> delete_break_from_code(Editor, Line);
 	false -> ignore
     end,
     delete_break_from_menu(WinInfo, Point).
@@ -379,11 +379,11 @@ clear_breaks(WinInfo) ->
     clear_breaks(WinInfo, all).
 clear_breaks(WinInfo, Mod) ->
     Remove = if
-		 Mod==all -> WinInfo#winInfo.breaks;
+		 Mod =:= all -> WinInfo#winInfo.breaks;
 		 true ->
 		     lists:filter(fun(#breakInfo{point={Mod2,_L}}) ->
 					  if
-					      Mod2==Mod -> true;
+					      Mod2 =:= Mod -> true;
 					      true -> false
 					  end
 				  end,
@@ -450,8 +450,8 @@ display(Arg) ->
 %% Note: remove_code/2 should not be used for currently shown module.
 %%--------------------------------------------------------------------
 is_shown(WinInfo, Mod) ->
-    case lists:keysearch(Mod, 1, WinInfo#winInfo.editors) of
-	{value, {Mod, Editor}} ->
+    case lists:keyfind(Mod, 1, WinInfo#winInfo.editors) of
+	{Mod, Editor} ->
 	    gs:config(Editor, raise),
 	    {true, WinInfo#winInfo{editor={Mod, Editor}}};
 	false -> false
@@ -459,24 +459,22 @@ is_shown(WinInfo, Mod) ->
 
 show_code(WinInfo, Mod, Contents) ->
     Editors = WinInfo#winInfo.editors,
-    {Flag, Editor} = case lists:keysearch(Mod, 1, Editors) of
-			 {value, {Mod, Ed}} -> {existing, Ed};
+    {Flag, Editor} = case lists:keyfind(Mod, 1, Editors) of
+			 {Mod, Ed} -> {existing, Ed};
 			 false -> {new, code_editor()}
 		     end,
-
     %% Insert code and update breakpoints, if any
     config_editor(Editor, [raise, clear]),
     show_code(Editor, Contents),
     lists:foreach(fun(BreakInfo) ->
 			  case BreakInfo#breakInfo.point of
-			      {Mod2, Line} when Mod2==Mod ->
+			      {Mod2, Line} when Mod2 =:= Mod ->
 				  Status = BreakInfo#breakInfo.status,
 				  add_break_to_code(Editor, Line,Status);
 			      _Point -> ignore
 			  end
 		  end,
 		  WinInfo#winInfo.breaks),
-
     case Flag of
 	existing ->
 	    WinInfo#winInfo{editor={Mod, Editor}};
@@ -485,7 +483,7 @@ show_code(WinInfo, Mod, Contents) ->
 			    editors=[{Mod, Editor} | Editors]}
     end.
 	
-show_code(Editor, Text) when length(Text)>1500 ->
+show_code(Editor, Text) when length(Text) > 1500 ->
     %% Add some text at a time so that other processes may get scheduled
     Str = string:sub_string(Text, 1, 1500),
     config_editor(Editor, {insert,{'end', Str}}),
@@ -494,21 +492,19 @@ show_code(Editor, Text) ->
     config_editor(Editor, {insert,{'end',Text}}).
 
 show_no_code(WinInfo) ->
-    {value, {'$top', Editor}} =
-	lists:keysearch('$top', 1, WinInfo#winInfo.editors),
+    {'$top', Editor} = lists:keyfind('$top', 1, WinInfo#winInfo.editors),
     gs:config(Editor, raise),
     WinInfo#winInfo{editor={'$top', Editor}}.
 
 remove_code(WinInfo, Mod) ->
     Editors = WinInfo#winInfo.editors,
-    case lists:keysearch(Mod, 1, Editors) of
-	{value, {Mod, Editor}} ->
+    case lists:keyfind(Mod, 1, Editors) of
+	{Mod, Editor} ->
 	    gs:destroy(Editor),
 	    WinInfo#winInfo{editors=lists:keydelete(Mod, 1, Editors)};
 	false ->
 	    WinInfo
     end.
-    
 
 %%--------------------------------------------------------------------
 %% mark_line(WinInfo, Line, How) -> WinInfo
@@ -522,7 +518,7 @@ mark_line(WinInfo, Line, How) ->
     mark_line2(Editor, WinInfo#winInfo.marked_line, false),
     mark_line2(Editor, Line, How),
     if
-	Line/=0 -> config_editor(Editor, {vscrollpos, Line-5});
+	Line =/= 0 -> config_editor(Editor, {vscrollpos, Line-5});
 	true -> ignore
     end,
     WinInfo#winInfo{marked_line=Line}.
@@ -537,7 +533,7 @@ mark_line2(Editor, Line, How) ->
 		 false -> "   "
 	     end,
     Font = if
-	       How==false -> dbg_ui_win:font(normal);
+	       How =:= false -> dbg_ui_win:font(normal);
 	       true -> dbg_ui_win:font(bold)
 	   end,
     config_editor(Editor, [{overwrite, {{Line,5}, Prefix}},
@@ -558,10 +554,10 @@ select_line(WinInfo, Line) ->
     %% help window, it must be checked that it is correct
     Size = gs:read(Editor, size),
     if
-	Line==0 ->
+	Line =:= 0 ->
 	    select_line(Editor, WinInfo#winInfo.selected_line, false),
 	    WinInfo#winInfo{selected_line=0};
-	Line<Size ->
+	Line < Size ->
 	    select_line(Editor, Line, true),
 	    config_editor(Editor, {vscrollpos, Line-5}),
 	    WinInfo#winInfo{selected_line=Line};
@@ -712,10 +708,10 @@ handle_event({gs, Editor, buttonpress, code_editor, _Arg}, WinInfo) ->
 	{Row, _} ->
 	    {Mod, _Editor} = WinInfo#winInfo.editor,
 	    Point = {Mod, Row},
-	    case lists:keysearch(Point, #breakInfo.point,
+	    case lists:keymember(Point, #breakInfo.point,
 				 WinInfo#winInfo.breaks) of
-		{value, _BreakInfo} -> {break, Point, delete};
-		false -> {break, Point, add}
+		false -> {break, Point, add};
+		true  -> {break, Point, delete}
 	    end;
 	{Row2, _} ->
 	    select_line(Editor, Row2, true),
@@ -776,7 +772,7 @@ code_editor() ->
 
 code_editor(Name, W, H) ->
     Editor = if
-		 Name==null -> gs:editor('CodeArea', []);
+		 Name =:= null -> gs:editor('CodeArea', []);
 		 true -> gs:editor(Name, 'CodeArea', [])
 	     end,
     gs:config(Editor, [{x,5}, {y,30}, {width,W}, {height,H},
@@ -814,8 +810,8 @@ buttons() ->
      {'Where','WhereButton'}, {'Up','UpButton'}, {'Down','DownButton'}].
 
 is_button(Name) ->
-    case lists:keysearch(Name, 1, buttons()) of
-	{value, {Name, Button}} -> {true, Button};
+    case lists:keyfind(Name, 1, buttons()) of
+	{Name, Button} -> {true, Button};
 	false -> false
     end.
 
@@ -847,7 +843,7 @@ resize_button_area(open, width, Diff) ->
 
 eval_area({Ev,Bi}, X, Y, FrameOpts, Win) ->
     {W,H} = if
-		Ev==open -> {289,200};
+		Ev =:= open -> {289,200};
 		true -> {0,0}
 	    end,
     Font = dbg_ui_win:font(normal),
@@ -870,7 +866,7 @@ eval_area({Ev,Bi}, X, Y, FrameOpts, Win) ->
 	       {font_style,{{{1,0},'end'},Font}}]),
     gs:config('EvalEditor', {enable, false}),
     if
-	Ev==open, Bi==close -> resize_eval_area(Ev, width, 257);
+	Ev =:= open, Bi =:= close -> resize_eval_area(Ev, width, 257);
 	true -> ignore
     end.
 
@@ -891,7 +887,7 @@ resize_eval_area(open, Key, Diff) ->
 
 bind_area({Ev,Bi}, X, Y, FrameOpts, Win) ->
     {W,H} = if
-		Bi==open -> {249,200};
+		Bi =:= open -> {249,200};
 		true -> {0,0}
 	    end,
     gs:frame('BindArea', Win,
@@ -908,7 +904,7 @@ bind_area({Ev,Bi}, X, Y, FrameOpts, Win) ->
 		 {text,{1,"Name"}}, {text,{2,"Value"}}, {font,Font}]),
     gs:config('BindGrid', {rows,{1,1}}),
     if
-	Bi==open, Ev==close -> resize_bind_area(Bi, width, 297);
+	Bi =:= open, Ev =:= close -> resize_bind_area(Bi, width, 297);
 	true -> ignore
     end.
 
@@ -993,15 +989,15 @@ resizebar(Flag, Name, X, Y, W, H, Obj) ->
 
 rb1({_Bu,Ev,Bi,Tr}) ->
     if
-	Ev==close, Bi==close, Tr==close -> close;
+	Ev =:= close, Bi =:= close, Tr =:= close -> close;
 	true -> open
     end.
     
 rb2({_Bu,Ev,Bi,Tr}) ->
     if
-	Tr==open ->
+	Tr =:= open ->
 	    if
-		Ev==close, Bi==close -> close;
+		Ev =:= close, Bi =:= close -> close;
 		true -> open
 	    end;
 	true -> close
@@ -1009,7 +1005,7 @@ rb2({_Bu,Ev,Bi,Tr}) ->
     
 rb3({_Bu,Ev,Bi,_Tr}) ->
     if
-	Ev==open, Bi==open -> open;
+	Ev =:= open, Bi =:= open -> open;
 	true -> close
     end.
 
@@ -1067,7 +1063,7 @@ configure(WinInfo, NewW, NewH) ->
 
     %% Adjust width unless it is unchanged or less than minimum width
     if
-	OldW/=NewW ->
+	OldW =/= NewW ->
 	    {Dcode,Deval,Dbind} = configure_widths(OldW,NewW,Flags),
 	    resize_code_area(WinInfo, width, Dcode),
 	    case rb1(Flags) of
@@ -1090,7 +1086,7 @@ configure(WinInfo, NewW, NewH) ->
     
     %% Adjust height unless it is unchanged or less than minimum height
     if
-	OldH/=NewH ->
+	OldH =/= NewH ->
 	    {Dcode2,Deval2,Dtrace} = configure_heights(OldH,NewH,Flags),
 	    resize_code_area(WinInfo, height, Dcode2),
 	    resize_eval_area(Ev, height, Deval2),
@@ -1117,11 +1113,11 @@ configure_widths(OldW, NewW, Flags) ->
     %% Check how much the frames can be resized in reality
     Limits = if
 		 %% Window larger
-		 NewW>OldW ->
+		 NewW > OldW ->
 		     if
-			 Ev==open,Bi==open -> {0,Diff,Diff};
-			 Ev==open -> {0,Diff,0};
-			 Bi==open -> {0,0,Diff};
+			 Ev =:= open, Bi =:= open -> {0,Diff,Diff};
+			 Ev =:= open -> {0,Diff,0};
+			 Bi =:= open -> {0,0,Diff};
 			 true -> {Diff,0,0}
 		     end;
 		 
@@ -1129,12 +1125,12 @@ configure_widths(OldW, NewW, Flags) ->
 		 %% and current size
 		 OldW>NewW ->
 		     if
-			 Ev==open,Bi==open ->
+			 Ev =:= open, Bi =:= open ->
 			     {0,
 			      gs:read('EvalArea',width)-204,
 			      gs:read('BindArea',width)-112};
-			 Ev==open -> {0,Diff,0};
-			 Bi==open -> {0,0,Diff};
+			 Ev =:= open -> {0,Diff,0};
+			 Bi =:= open -> {0,0,Diff};
 			 true -> {Diff,0,0}
 		     end
 	     end,
@@ -1142,13 +1138,13 @@ configure_widths(OldW, NewW, Flags) ->
     case Limits of
 
 	%% No Shell or Bind frame, larger window
-	{T,0,0} when NewW>OldW -> {T,0,0};
+	{T,0,0} when NewW > OldW -> {T,0,0};
 	
 	%% No Shell or Bind frame, smaller window
-	{T,0,0} when OldW>NewW -> {-T,0,0};
+	{T,0,0} when OldW > NewW -> {-T,0,0};
 
 	%% Window larger; divide Diff among the frames and return result
-	{_,Sf,B} when NewW>OldW ->
+	{_,Sf,B} when NewW > OldW ->
 	    {_,Sf2,B2} = divide([{0,0},{0,Sf},{0,B}],Diff),
 	    {Sf2+B2,Sf2,B2};
 
@@ -1171,33 +1167,33 @@ configure_heights(OldH, NewH, Flags) ->
     %% Check how much the frames can be resized in reality
     {T,Sf,Ff} = if
 		  %% Window larger
-		  NewH>OldH ->
+		  NewH > OldH ->
 		      {Diff,
 		       if
-			   Ev==close, Bi==close -> 0;
+			   Ev =:= close, Bi =:= close -> 0;
 			   true -> Diff
 		       end,
 		       if
-			   Tr==open -> Diff;
+			   Tr =:= open -> Diff;
 			   true -> 0
 		       end};
 
 		  %% Window smaller; get difference between min size
 		  %% and current size
-		  OldH>NewH ->
+		  OldH > NewH ->
 		      {gs:read('CodeArea',height)-100,
 		       if
-			   Ev==close, Bi==close -> 0;
+			   Ev =:= close, Bi =:= close -> 0;
 			   true ->
 			       if
-				   Ev==open ->
+				   Ev =:= open ->
 				       gs:read('EvalArea',height)-100;
-				   Bi==open ->
+				   Bi =:= open ->
 				       gs:read('BindArea',height)-100
 			       end
 		       end,
 		       if
-			   Tr==open -> gs:read('TraceArea',height)-100;
+			   Tr =:= open -> gs:read('TraceArea',height)-100;
 			   true -> 0
 		       end}
 	      end,
@@ -1251,10 +1247,8 @@ divide(L, Diff) ->
 
     if
 	%% All of Diff has been distributed
-	D==0 -> {T,S,F};
-	
+	D =:= 0 -> {T,S,F};
 	true ->
-    
 	    %% For each element, try to add as much as possible of D
 	    {NewT,Dt} = divide2(D,T,Tmax),
 	    {NewS,Ds} = divide2(D,S,Smax),
@@ -1296,25 +1290,25 @@ resize(WinInfo, ResizeBar) ->
 	       rblimits('RB2',W,H),
 	       rblimits('RB3',W,H)).
 
-resizeloop(WI, RB, Prev, {Min1,Max1},{Min2,Max2},{Min3,Max3}) ->
+resizeloop(WI, RB, Prev, {Min1,Max1}, {Min2,Max2}, {Min3,Max3}) ->
     receive
-	{gs,_,motion,_,[_,Y]} when RB=='RB1', Y>Min1,Y<Max1 ->
+	{gs,_,motion,_,[_,Y]} when RB =:= 'RB1', Y > Min1, Y < Max1 ->
 	    gs:config('RB1', {y,Y}),
-	    resizeloop(WI, RB, Y, {Min1,Max1},{Min2,Max2},{Min3,Max3});
-	{gs,_,motion,_,_} when RB=='RB1' ->
-	    resizeloop(WI, RB, Prev,{Min1,Max1},{Min2,Max2},{Min3,Max3});
+	    resizeloop(WI, RB, Y, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
+	{gs,_,motion,_,_} when RB =:= 'RB1' ->
+	    resizeloop(WI, RB, Prev, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
 	
-	{gs,_,motion,_,[_,Y]} when RB=='RB2', Y>Min2,Y<Max2 ->
+	{gs,_,motion,_,[_,Y]} when RB =:= 'RB2', Y > Min2, Y < Max2 ->
 	    gs:config('RB2', {y,Y}),
-	    resizeloop(WI, RB, Y, {Min1,Max1},{Min2,Max2},{Min3,Max3});
-	{gs,_,motion,_,_} when RB=='RB2' ->
-	    resizeloop(WI, RB, Prev,{Min1,Max1},{Min2,Max2},{Min3,Max3});
+	    resizeloop(WI, RB, Y, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
+	{gs,_,motion,_,_} when RB =:= 'RB2' ->
+	    resizeloop(WI, RB, Prev, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
 	 
-	{gs,_,motion,_,[X,_]} when RB=='RB3', X>Min3,X<Max3 ->
+	{gs,_,motion,_,[X,_]} when RB =:= 'RB3', X > Min3, X < Max3 ->
 	    gs:config('RB3', {x,X}),
-	    resizeloop(WI, RB, X, {Min1,Max1},{Min2,Max2},{Min3,Max3});
-	{gs,_,motion,_,_} when RB=='RB3' ->
-	    resizeloop(WI, RB, Prev,{Min1,Max1},{Min2,Max2},{Min3,Max3});
+	    resizeloop(WI, RB, X, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
+	{gs,_,motion,_,_} when RB =:= 'RB3' ->
+	    resizeloop(WI, RB, Prev, {Min1,Max1}, {Min2,Max2}, {Min3,Max3});
 	
 	{gs,_,buttonrelease,_,_} ->
 	    resize_win(WI, RB, Prev)
@@ -1329,7 +1323,7 @@ resize_win(WinInfo, 'RB1', Y) ->
     %% Resize Code, Evaluator and Binding areas
     resize_code_area(WinInfo, height, -Diff),
     if
-	S==close, Bi==close, F==open ->
+	S =:= close, Bi =:= close, F =:= open ->
 	    resize_trace_area(open, height, Diff);
 	true ->
 	    resize_eval_area(S, height, Diff),
@@ -1388,7 +1382,7 @@ rblimits('RB1',_W,H) ->
     RB2 = gs:read('RB2',height),
     FF = gs:read('TraceArea',height),
     Max = case RB2 of
-	      0 when FF/=0 ->
+	      0 when FF =/= 0 ->
 		  H-112;
 	      _ ->
 		  Y = gs:read('RB2',y),
@@ -1397,18 +1391,14 @@ rblimits('RB1',_W,H) ->
     
     {Min,Max};
 rblimits('RB2',_W,H) ->
-
-    %% TraceFrame should not have height <100
+    %% TraceFrame should not have height < 100
     Max = H-112,
-    
     %% Min is decided by a minimum distance to 'RB1'
     Y = gs:read('RB1',y),
     Min = erlang:min(Max,Y+140),
-    
     {Min,Max};
 
 rblimits('RB3',W,_H) ->
-    
     %% Neither CodeArea nor BindArea should occupy 
     %% less than 1/3 of the total window width and EvalFrame should
     %% be at least 289 pixels wide
@@ -1484,7 +1474,7 @@ helpwin_action(gotoline, default, AttPid, _Editor, Data, Win) ->
     end,
     Data;
 helpwin_action(search, case_sensitive, _AttPid, _Ed, {Pos, CS}, _Win) ->
-    Bool = if CS==true -> false; CS==false -> true end,
+    Bool = if CS =:= true -> false; CS =:= false -> true end,
     {Pos, Bool};
 helpwin_action(search, default, _AttPid, Editor, {Pos, CS}, Win) ->
     gs:config(lbl(Win), {label, {text, ""}}),
@@ -1517,13 +1507,9 @@ search(Str, Editor, Max, {Row, Col}, CS) ->
 
 lowercase(true, Str) -> Str;
 lowercase(false, Str) ->
-    lists:map(fun(Char) ->
-		      if
-			  Char>=$A, Char=<$Z -> Char+32;
-			  true -> Char
-		      end
-	      end,
-	      Str).
+    [if Char >= $A, Char =< $Z -> Char+32;
+	true -> Char
+     end || Char <- Str].
 
 mark_string(Editor, {Row, Col}, Str) ->
     Between = {{Row,Col}, {Row,Col+length(Str)}},
@@ -1540,10 +1526,9 @@ unmark_string(Editor, {Row, Col}) ->
 		       {fg, {Between, black}}]).
 
 helpwin(Type, GS, {X, Y}) ->
-    W = 200, Pad=10, Wbtn = 50,
+    W = 200, Pad = 10, Wbtn = 50,
 
-    Title =
-	case Type of search -> "Search"; gotoline -> "Go To Line" end,
+    Title = case Type of search -> "Search"; gotoline -> "Go To Line" end,
     Win = gs:window(GS, [{title, Title}, {x, X}, {y, Y}, {width, W},
 			 {destroy, true}]),
     

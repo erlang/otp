@@ -24,7 +24,6 @@
 	 create_menus/2, select/2, selected/1,
 	 add_break/2, update_break/2, delete_break/1,
 	 motion/2
-	 
 	]).
 
 -record(break, {mb, smi, emi, dimi, demi}).
@@ -49,11 +48,11 @@ init() ->
 font(Style) ->
     GS = init(),
     Style2 = if
-		 Style==normal -> [];
+		 Style =:= normal -> [];
 		 true -> [Style]
 	     end,
     case gs:read(GS, {choose_font, {screen,Style2,12}}) of
-	Font when element(1, Font)==screen ->
+	Font when element(1, Font) =:= screen ->
 	    Font;
 	_ ->
 	    gs:read(GS, {choose_font, {courier,Style2,12}})
@@ -168,8 +167,7 @@ select(MenuItem, Bool) ->
 %%--------------------------------------------------------------------
 selected(Menu) ->
     Children = gs:read(Menu, children),
-    Selected = lists:filter(fun(Child) -> gs:read(Child, select) end,
-			    Children),
+    Selected = [gs:read(Child, select) || Child <- Children],
     lists:map(fun(Child) ->
 		      {text, Name} = gs:read(Child, label),
 		      list_to_atom(Name)

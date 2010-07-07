@@ -119,8 +119,8 @@ transform(File, {application, _Attrs, [Header|Rest]}, Opts0) ->
 		case docb_main:parse1("fascicules", Opts0) of
 		    {ok, Parse} ->
 			FascData = get_fasc_data(Parse),
-                        case lists:keysearch(File, 1, FascData) of
-			    {value, {_, _, "YES", _}} ->
+                        case lists:keyfind(File, 1, FascData) of
+			    {_, _, "YES", _} ->
 				OrigFile =
 				    docb_util:outfile(File++"_frame",
 						      ".html", Opts0),
@@ -167,7 +167,7 @@ concat_files([File|Rest], Body, Opts) ->
 	    %% Remove the reference manual header
 	    [{Ref, [], [_Hdr| NewBody]}] = NewParse,
 	    RefParse = [{Ref, [], NewBody}],
-	    lists:append(Body, concat_files(Rest, RefParse, Opts));
+	    Body ++ concat_files(Rest, RefParse, Opts);
 	errors ->
 	    errors
     end;
@@ -216,7 +216,7 @@ make_toc([{lib, Attrs, More}|Rest]) ->
 make_toc([{com, Attrs, More}|Rest]) ->
     [{com, Attrs, More}|make_toc(Rest)];
 make_toc([{_Tag, _Attrs, More}|Rest]) ->
-    lists:append(make_toc(More), make_toc(Rest)).
+    make_toc(More) ++ make_toc(Rest).
 
 rule([module|_], {_, [File], _}) ->
     {"<small><a target=\"document\" href=\"" ++
@@ -280,9 +280,7 @@ get_fasc_data({fascicules, _, Fascs}) ->
       Fascs).
 
 get_avals(Atts) ->
-    lists:map(fun(Tuple) ->
-		      element(3, Tuple) end,
-	      Atts).
+    [element(3, Tuple) || Tuple <- Atts].
 
 get_pc_text([{pcdata, _, Text}]) ->
     Text.

@@ -24,35 +24,41 @@
 %% Internal API.
 -export([start/0, start/1]).
 
--include_lib("kernel/include/file.hrl").
+%%-----------------------------------------------------------------------
 
 -define(SHEBANG,  "/usr/bin/env escript").
 -define(COMMENT,  "This is an -*- erlang -*- file").
 
--record(state, {file,
-                module,
+%%-----------------------------------------------------------------------
+
+-type mode()   :: 'compile' | 'debug' | 'interpret' | 'run'.
+-type source() :: 'archive' | 'beam' | 'text'.
+
+-record(state, {file         :: file:filename(),
+                module       :: module(),
                 forms_or_bin,
-                source,
-                n_errors,
-                mode,
-                exports_main,
-                has_records}).
--record(sections, {type,
-		   shebang,
-		   comment,
-		   emu_args,
-		   body}).
--record(extract_options, {compile_source}).
+                source       :: source(),
+                n_errors     :: non_neg_integer(),
+                mode         :: mode(),
+                exports_main :: boolean(),
+                has_records  :: boolean()}).
 
 -type shebang() :: string().
 -type comment() :: string().
 -type emu_args() :: string().
--type escript_filename() :: string().
--type filename() :: string().
+
+-record(sections, {type,
+		   shebang  :: shebang(),
+		   comment  :: comment(),
+		   emu_args :: emu_args(),
+		   body}).
+
+-record(extract_options, {compile_source}).
+
 -type zip_file() ::
-	filename()
-	| {filename(), binary()}
-	| {filename(), binary(), #file_info{}}.
+	  file:filename()
+	| {file:filename(), binary()}
+	| {file:filename(), binary(), file:file_info()}.
 -type zip_create_option() :: term().
 -type section() ::
 	  shebang
@@ -60,13 +66,15 @@
 	| comment
 	| {comment, comment()}
 	| {emu_args, emu_args()}
-	| {source, filename() | binary()}
-	| {beam, filename() | binary()}
-	| {archive, filename() | binary()}
+	| {source, file:filename() | binary()}
+	| {beam, file:filename() | binary()}
+	| {archive, file:filename() | binary()}
 	| {archive, [zip_file()], [zip_create_option()]}.
 
+%%-----------------------------------------------------------------------
+
 %% Create a complete escript file with both header and body
--spec create(escript_filename() | binary, [section()]) ->
+-spec create(file:filename() | binary, [section()]) ->
 		    ok | {ok, binary()} | {error, term()}.
 
 create(File, Options) when is_list(Options) ->
@@ -149,7 +157,9 @@ prepare(BadOptions, _) ->
 
 -type section_name() :: shebang | comment | emu_args | body .
 -type extract_option() :: compile_source | {section, [section_name()]}.
--spec extract(filename(), [extract_option()]) -> {ok, [section()]} | {error, term()}.
+-spec extract(file:filename(), [extract_option()]) ->
+        {ok, [section()]} | {error, term()}.
+
 extract(File, Options) when is_list(File), is_list(Options) ->
     try
 	EO = parse_extract_options(Options,
@@ -239,6 +249,7 @@ normalize_section(Name, Chars) ->
     {Name, Chars}.
 
 -spec script_name() -> string().
+
 script_name() ->
     [ScriptName|_] = init:get_plain_arguments(),
     ScriptName.
@@ -248,10 +259,12 @@ script_name() ->
 %%
 
 -spec start() -> no_return().
+
 start() ->
     start([]).
 
 -spec start([string()]) -> no_return().
+
 start(EscriptOptions) ->
     try
         %% Commands run using -run or -s are run in a process
@@ -484,18 +497,12 @@ find_first_body_line(Fd, HeaderSz0, LineNo, KeepFirst, Sections) ->
 
 classify_line(Line) ->
     case Line of
-        [$\#, $\! | _] ->
-	    shebang;
-	[$P, $K | _] ->
-	    archive;
-	[$F, $O, $R, $1 | _] ->
-	    beam;
-	[$%, $%, $\! | _] ->
-	    emu_args;
-	[$% | _] ->
-	    comment;
-	 _ ->
-	    undefined
+        "#!" ++ _ -> shebang;
+        "PK" ++ _ -> archive;
+        "FOR1" ++ _ -> beam;
+        "%%!" ++ _ -> emu_args;
+        "%" ++ _ -> comment;
+        _ -> undefined
    end.
 
 guess_type(Line) ->
@@ -531,7 +538,6 @@ parse_archive(S, File, HeaderSz) ->
                             end,
                         list_to_atom(lists:reverse(RevBase2))
 		end,
-
 	    S#state{source = archive,
 		    mode = run,
 		    module = Mod,
@@ -587,8 +593,8 @@ parse_source(S, File, Fd, StartLine, HeaderSz, CheckOnly) ->
                         epp_parse_file2(Epp, S2, [ModForm, FileForm], OptModRes);
                     {error, _} ->
                         epp_parse_file2(Epp, S2, [FileForm], OptModRes);
-                    {eof,LastLine} ->
-                        S#state{forms_or_bin = [FileForm, {eof,LastLine}]}
+                    {eof, _LastLine} = Eof ->
+                        S#state{forms_or_bin = [FileForm, Eof]}
                 end,
             ok = epp:close(Epp),
             ok = file:close(Fd),
@@ -683,8 +689,8 @@ epp_parse_file2(Epp, S, Forms, Parsed) ->
             io:format("~s:~w: ~s\n",
                       [S#state.file,Ln,Mod:format_error(Args)]),
             epp_parse_file(Epp, S#state{n_errors = S#state.n_errors + 1}, [Form | Forms]);
-        {eof,LastLine} ->
-            S#state{forms_or_bin = lists:reverse([{eof, LastLine} | Forms])}
+        {eof, _LastLine} = Eof ->
+            S#state{forms_or_bin = lists:reverse([Eof | Forms])}
     end.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%

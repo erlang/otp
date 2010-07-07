@@ -23,9 +23,6 @@
 %% External exports
 -export([start/2]).
 
-%% Internal exports
--export([init/4]).
-
 -record(state, {gs,                % term() Graphics system id
 		win,               % term() Attach process window data
 		coords,            % {X,Y} Mouse point position
@@ -46,7 +43,7 @@ start(GS, Mod) ->
 	true -> ignore;
 	false -> 
 	    Env = wx:get_env(),
-	    spawn_link(?MODULE, init, [GS, Env, Mod, Title])
+	    spawn_link(fun () -> init(GS, Env, Mod, Title) end)
     end.
 
 
@@ -84,7 +81,7 @@ loop(State) ->
     receive
 
 	%% From the GUI main window
-	GuiEvent when element(1, GuiEvent)==wx ->
+	GuiEvent when element(1, GuiEvent) =:= wx ->
 	    Cmd = wx:batch(fun() -> 
 				   dbg_wx_trace_win:handle_event(GuiEvent, State#state.win)
 			   end),
@@ -167,7 +164,7 @@ gui_cmd('Function Break...', State) ->
 gui_cmd('Enable All', State) ->
     Breaks = int:all_breaks(),
     ThisMod = State#state.mod,
-    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod==ThisMod ->
+    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod =:= ThisMod ->
 			  int:enable_break(Mod, Line);
 		      (_Break) ->
 			  ignore
@@ -177,7 +174,7 @@ gui_cmd('Enable All', State) ->
 gui_cmd('Disable All', State) ->
     Breaks = int:all_breaks(),
     ThisMod = State#state.mod,
-    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod==ThisMod ->
+    lists:foreach(fun ({{Mod, Line}, _Options}) when Mod =:= ThisMod ->
 			  int:disable_break(Mod, Line);
 		      (_Break) ->
 			  ignore
@@ -214,21 +211,19 @@ add_break(GS, Coords, Type, Mod, Line) ->
 
 %%--Commands from the interpreter-------------------------------------
 
-int_cmd({new_break, {{Mod,_Line},_Options}=Break}, #state{mod=Mod}=State) ->
-    Win = dbg_wx_trace_win:add_break(State#state.win, 'Break', Break),
-    State#state{win=Win};
-int_cmd({delete_break, {Mod,_Line}=Point}, #state{mod=Mod}=State) ->
-    Win = dbg_wx_trace_win:delete_break(State#state.win, Point),
-    State#state{win=Win};
-int_cmd({break_options, {{Mod,_Line},_Options}=Break}, #state{mod=Mod}=State) ->
-    Win = dbg_wx_trace_win:update_break(State#state.win, Break),
-    State#state{win=Win};
-int_cmd(no_break, State) ->
-    Win = dbg_wx_trace_win:clear_breaks(State#state.win),
-    State#state{win=Win};
-int_cmd({no_break, _Mod}, State) ->
-    Win = dbg_wx_trace_win:clear_breaks(State#state.win),
-    State#state{win=Win};
+int_cmd({new_break, {{Mod,_Line},_Options}=Break},
+	#state{mod = Mod, win = Win}=State) ->
+    State#state{win = dbg_wx_trace_win:add_break(Win, 'Break', Break)};
+int_cmd({delete_break, {Mod,_Line}=Point},
+	#state{mod = Mod, win = Win}=State) ->
+    State#state{win = dbg_wx_trace_win:delete_break(Win, Point)};
+int_cmd({break_options, {{Mod,_Line},_Options}=Break},
+	#state{mod = Mod, win = Win}=State) ->
+    State#state{win = dbg_wx_trace_win:update_break(Win, Break)};
+int_cmd(no_break, #state{win = Win}=State) ->
+    State#state{win = dbg_wx_trace_win:clear_breaks(Win)};
+int_cmd({no_break, _Mod}, #state{win = Win}=State) ->
+    State#state{win = dbg_wx_trace_win:clear_breaks(Win)};
 int_cmd(_, State) ->
     State.
 

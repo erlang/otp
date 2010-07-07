@@ -268,12 +268,7 @@ handle_event({gs, _Id, click, _Data, ["Ok"|_]}, WinInfo) ->
 		IndexL ->
 		    Funcs = WinInfo#winInfo.funcs,
 		    Breaks =
-			lists:map(fun(Index) ->
-					  Func = lists:nth(Index+1,
-							   Funcs),
-					  [Mod | Func]
-				  end,
-				  IndexL),
+			[[Mod|lists:nth(Index+1, Funcs)] || Index <- IndexL],
 		    {break, Breaks, enable}
 	    end
     end;

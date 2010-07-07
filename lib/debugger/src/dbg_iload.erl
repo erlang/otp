@@ -26,7 +26,7 @@
 
 %%--------------------------------------------------------------------
 %% load_mod(Mod, File, Binary, Db) -> {ok, Mod}
-%%   Mod = atom()
+%%   Mod = module()
 %%   File = string() Source file (including path)
 %%   Binary = binary()
 %%   Db = ETS identifier
@@ -408,8 +408,7 @@ expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,fault}},[_]=As}) ->
     {dbg,Line,fault,expr_list(As)};
 expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,exit}},[_]=As}) ->
     {dbg,Line,exit,expr_list(As)};
-expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},As0}) 
-  when length(As0) == 3 ->
+expr({call,Line,{remote,_,{atom,_,erlang},{atom,_,apply}},[_,_,_]=As0}) ->
     As = expr_list(As0),
     {apply,Line,As};
 expr({call,Line,{remote,_,{atom,_,Mod},{atom,_,Func}},As0}) ->
@@ -517,15 +516,9 @@ expr(Other) ->
 %%  here as sys_pre_expand has transformed source.
 
 is_guard_test({op,_,Op,L,R}) ->
-    case erl_internal:comp_op(Op, 2) of
-	true -> is_gexpr_list([L,R]);
-	false -> false
-    end;
+    erl_internal:comp_op(Op, 2) andalso is_gexpr_list([L,R]);
 is_guard_test({call,_,{remote,_,{atom,_,erlang},{atom,_,Test}},As}) ->
-    case erl_internal:type_test(Test, length(As)) of
-	true -> is_gexpr_list(As);
-	false -> false
-    end;
+    erl_internal:type_test(Test, length(As)) andalso is_gexpr_list(As);
 is_guard_test({atom,_,true}) -> true;
 is_guard_test(_) -> false.
 
@@ -542,22 +535,12 @@ is_gexpr({call,_,{remote,_,{atom,_,erlang},{atom,_,F}},As}) ->
     Ar = length(As),
     case erl_internal:guard_bif(F, Ar) of
 	true -> is_gexpr_list(As);
-	false ->
-	    case erl_internal:arith_op(F, Ar) of
-		true -> is_gexpr_list(As);
-		false -> false
-	    end
+	false -> erl_internal:arith_op(F, Ar) andalso is_gexpr_list(As)
     end;
 is_gexpr({op,_,Op,A}) ->
-    case erl_internal:arith_op(Op, 1) of
-	true -> is_gexpr(A);
-	false -> false
-    end;
+    erl_internal:arith_op(Op, 1) andalso is_gexpr(A);
 is_gexpr({op,_,Op,A1,A2}) ->
-    case erl_internal:arith_op(Op, 2) of
-	true -> is_gexpr_list([A1,A2]);
-	false -> false
-    end;
+    erl_internal:arith_op(Op, 2) andalso is_gexpr_list([A1,A2]);
 is_gexpr(_) -> false.
 
 is_gexpr_list(Es) -> lists:all(fun (E) -> is_gexpr(E) end, Es).

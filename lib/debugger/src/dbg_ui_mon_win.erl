@@ -224,8 +224,7 @@ select(MenuItem, Bool) ->
 %%--------------------------------------------------------------------
 add_module(WinInfo, Menu, Mod) ->
     Modules = WinInfo#winInfo.modules,
-    case lists:keysearch(Mod, #moduleInfo.module, Modules) of
-	{value, _ModInfo} -> WinInfo;
+    case lists:keymember(Mod, #moduleInfo.module, Modules) of
 	false ->
 	    %% Create a menu for the module
 	    Font = dbg_ui_win:font(normal),
@@ -244,7 +243,8 @@ add_module(WinInfo, Menu, Mod) ->
 	    gs:config(WinInfo#winInfo.listbox, {add, Mod}),
 
 	    ModInfo = #moduleInfo{module=Mod, menubtn=MenuBtn},
-	    WinInfo#winInfo{modules=[ModInfo | Modules]}
+	    WinInfo#winInfo{modules=[ModInfo | Modules]};
+	true -> WinInfo
     end.
     
 %%--------------------------------------------------------------------
@@ -491,14 +491,13 @@ handle_event({gs, _Id, click, autoattach, _Arg}, WinInfo) ->
 
 %% Process grid
 handle_event({gs, _Id, keypress, _Data, [Key|_]}, WinInfo) when
-  Key=='Up'; Key=='Down' ->
-    Dir = if Key=='Up' -> up; Key=='Down' -> down end,
+  Key =:= 'Up'; Key =:= 'Down' ->
+    Dir = if Key =:= 'Up' -> up; Key =:= 'Down' -> down end,
     Row = move(WinInfo, Dir),
-
     if Row>1 ->
 	    WinInfo2 = highlight(WinInfo, Row),
-	    {value, #procInfo{pid=Pid}} =
-		lists:keysearch(Row, #procInfo.row, WinInfo#winInfo.processes),
+	    #procInfo{pid=Pid} =
+		lists:keyfind(Row, #procInfo.row, WinInfo#winInfo.processes),
 	    {focus, Pid, WinInfo2};
        true ->
 	    ignore
@@ -515,10 +514,9 @@ handle_event(_GSEvent, _WinInfo) ->
 move(WinInfo, Dir) ->
     Row = WinInfo#winInfo.focus,
     Last = WinInfo#winInfo.row,
-
     if
-	Dir==up, Row>1 -> Row-1;
-	Dir==down, Row<Last -> Row+1;
+	Dir =:= up, Row > 1 -> Row-1;
+	Dir =:= down, Row < Last -> Row+1;
 	true -> Row
     end.
 
@@ -533,7 +531,6 @@ highlight(WinInfo, Row) ->
     GridLine2 = gs:read(Grid, {obj_at_row, Row}),
     gs:config(GridLine2, {fg, white}),
     WinInfo#winInfo{focus=Row}.
-    
 
 %%====================================================================
 %% Internal functions
@@ -545,7 +542,7 @@ configure(WinInfo, {W, H}) ->
     Dx = NewW - gs:read(Grid, width),
     Dy = H-42 - gs:read(Grid, height),
     if
-	(Dx+Dy)=/=0 ->
+	(Dx+Dy) =/= 0 ->
 	    gs:config(Grid, [{width, NewW}, {height, H-30}]),
 	    Cols = calc_columnwidths(NewW),
 	    gs:config(Grid, Cols);
@@ -555,10 +552,9 @@ configure(WinInfo, {W, H}) ->
 
 calc_columnwidths(Width) ->
     W = if
-	    Width=<?Wg -> ?Wg;
+	    Width =< ?Wg -> ?Wg;
 	    true -> Width
 	end,
-    First = lists:map(fun (X) -> round(X) end,
-		      [0.13*W, 0.27*W, 0.18*W, 0.18*W]),
+    First = [round(X) || X <- [0.13*W, 0.27*W, 0.18*W, 0.18*W]],
     Last = W - lists:sum(First) - 30,
     {columnwidths, First++[Last]}.
