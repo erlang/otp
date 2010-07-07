@@ -309,7 +309,7 @@ tls1_erlang_server_openssl_client_dsa_cert(suite) ->
 tls1_erlang_server_openssl_client_dsa_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_dsa_opts, Config),
-    ServerOpts = ?config(server_dsa_opts, Config),  
+    ServerOpts = ?config(server_dsa_verify_opts, Config),  
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
@@ -398,7 +398,7 @@ ssl3_erlang_server_openssl_client_dsa_cert(suite) ->
 ssl3_erlang_server_openssl_client_dsa_cert(Config) when is_list(Config) ->
     process_flag(trap_exit, true),
     ClientOpts = ?config(client_dsa_opts, Config),
-    ServerOpts = ?config(server_dsa_opts, Config),  
+    ServerOpts = ?config(server_dsa_verify_opts, Config),  
 
     {_, ServerNode, _} = ssl_test_lib:run_where(Config),
     
