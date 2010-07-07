@@ -304,6 +304,10 @@ http(Config) when is_list(Config) ->
 		   {ok, {http_request, 'GET', ResB, {1,1}}, Rest} = decode_pkt(http_bin,Bin) 
 	   end,
     lists:foreach(UriF, http_uri_variants()),
+
+    %% Response with empty phrase
+    ?line {ok,{http_response,{1,1},200,[]},<<>>} = decode_pkt(http, <<"HTTP/1.1 200\r\n">>, []),
+    ?line {ok,{http_response,{1,1},200,<<>>},<<>>} = decode_pkt(http_bin, <<"HTTP/1.1 200\r\n">>, []),
     ok.
 	     
 http_with_bin(http) ->

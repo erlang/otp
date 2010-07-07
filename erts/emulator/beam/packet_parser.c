@@ -679,7 +679,7 @@ int packet_parse_http(const char* buf, int len, int* statep,
             while (n && SP(ptr)) {
                 ptr++; n--;
             }
-            if (ptr==p0) return -1;
+            if (ptr==p0 && n>0) return -1;
             
             /* NOTE: the syntax allows empty reason phrases */
             (*statep) = !0;
