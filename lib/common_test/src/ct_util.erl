@@ -619,7 +619,6 @@ get_testdir(Dir, Suite) when is_list(Suite) ->
 get_testdir(Dir, _) ->
     get_testdir(Dir, all).
 
-
 %%%-----------------------------------------------------------------
 %%% @spec 
 %%%

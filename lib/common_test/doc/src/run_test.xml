@@ -45,6 +45,11 @@
     flags start an Erlang node prepared for running Common Test in a
     particular mode.</p>
 
+  <p>There is an interface function that corresponds to this program,
+    called <c>ct:run_test/1</c>, for starting Common Test from the Erlang
+    shell (or an Erlang program). Please see the <c>ct</c> man page for
+    details.</p>
+
   <p><c>run_test</c> also accepts Erlang emulator flags. These are used
     when <c>run_test</c> calls <c>erl</c> to start the Erlang node
     (making it possible to e.g. add directories to the code server path,
@@ -72,6 +77,8 @@
     <p>it prints all valid start flags to stdout.</p>
   </description>
 
+  <marker id="run_test"></marker>
+
   <section>
     <title>Run tests from command line</title>
     <pre>
@@ -83,6 +90,7 @@
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
 	 ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
+	[-label Label]
 	[-logdir LogDir]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
 	[-stylesheet CSSFile]
@@ -107,6 +115,7 @@
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
          ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
+	[-label Label]
 	[-logdir LogDir]
 	[-allow_user_terms]
 	[-silent_connections [ConnType1 ConnType2 .. ConnTypeN]]
@@ -128,12 +137,12 @@
     <title>Run tests in web based GUI</title>
     <pre>
         run_test -vts [-browser Browser]
+        [-dir TestDir1 TestDir2 .. TestDirN] |
+        [-suite Suite [[-group Group] [-case Case]]]
 	[-config ConfigFile1 ConfigFile2 .. ConfigFileN]
 	[-userconfig CallbackModule1 ConfigString1 and CallbackModule2
          ConfigString2 and .. and CallbackModuleN ConfigStringN]
 	[-decrypt_key Key] | [-decrypt_file KeyFile]
-        [-dir TestDir1 TestDir2 .. TestDirN] |
-        [-suite Suite [[-group Group] [-case Case]]]
 	[-include InclDir1 InclDir2 .. InclDirN]
 	[-no_auto_compile]
 	[-muliply_timetraps Multiplier]

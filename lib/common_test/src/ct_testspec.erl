@@ -185,7 +185,15 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 	    {[{{Node,Dir},{Suite,all}}],SkipAll};
 	Skipped ->
 	    %% note: this adds a test even if only skip is specified
-	    PrepC = lists:foldr(fun({C,{skip,_Cmt}},Acc) ->
+	    PrepC = lists:foldr(fun({{G,Cs},{skip,_Cmt}}, Acc) when
+					  is_atom(G) ->
+					case lists:keymember(G, 1, Cases) of
+					    true ->
+						Acc;
+					    false ->
+						[{skipped,G,Cs}|Acc]
+					end;
+				   ({C,{skip,_Cmt}},Acc) ->
 					case lists:member(C,Cases) of
 					    true ->
 						Acc;
@@ -194,7 +202,7 @@ prepare_cases(Node,Dir,Suite,Cases) ->
 					end;
 				   (C,Acc) -> [C|Acc]
 				end, [], Cases),
-	    {{{Node,Dir},{Suite,PrepC}},Skipped}
+    {{{Node,Dir},{Suite,PrepC}},Skipped}
     end.
 
 get_skipped_suites(Node,Dir,Suites) ->
@@ -210,7 +218,7 @@ get_skipped_cases(Node,Dir,Suite,Cases) ->
     case lists:keysearch(all,1,Cases) of
 	{value,{all,{skip,Cmt}}} ->
 	    [{{Node,Dir},{Suite,Cmt}}];
-	false ->
+	_ ->
 	    get_skipped_cases1(Node,Dir,Suite,Cases)
     end.
 
@@ -432,6 +440,15 @@ save_nodes(Nodes,Spec=#testspec{nodes=NodeRefs}) ->
 list_nodes(#testspec{nodes=NodeRefs}) ->
     lists:map(fun({_Ref,Node}) -> Node end, NodeRefs).		      
 
+
+
+%%     ---------------------------------------------------------
+%%   /                                                           \
+%%  |  When adding tests, remember to update valid_terms/0 also!  |
+%%   \                                                           /
+%%     ---------------------------------------------------------
+
+
 %% Associate a "global" logdir with all nodes
 %% except those with specific logdir, e.g:
 %% ["/tmp/logdir",{ct1@finwe,"/tmp/logdir2"}]
@@ -456,6 +473,24 @@ add_tests([{logdir,Node,Dir}|Ts],Spec) ->
     add_tests(Ts,Spec#testspec{logdir=Dirs1});
 add_tests([{logdir,Dir}|Ts],Spec) ->
     add_tests([{logdir,all_nodes,Dir}|Ts],Spec);
+
+%% --- label ---
+add_tests([{label,all_nodes,Lbl}|Ts],Spec) ->
+    Labels = Spec#testspec.label,
+    Tests = [{label,N,Lbl} || N <- list_nodes(Spec),
+			      lists:keymember(ref2node(N,Spec#testspec.nodes),
+					      1,Labels) == false],
+    add_tests(Tests++Ts,Spec);
+add_tests([{label,Nodes,Lbl}|Ts],Spec) when is_list(Nodes) ->
+    Ts1 = separate(Nodes,label,[Lbl],Ts,Spec#testspec.nodes),
+    add_tests(Ts1,Spec);
+add_tests([{label,Node,Lbl}|Ts],Spec) ->
+    Labels = Spec#testspec.label,
+    Labels1 = [{ref2node(Node,Spec#testspec.nodes),Lbl} |
+	       lists:keydelete(ref2node(Node,Spec#testspec.nodes),1,Labels)],
+    add_tests(Ts,Spec#testspec{label=Labels1});
+add_tests([{label,Lbl}|Ts],Spec) ->
+    add_tests([{label,all_nodes,Lbl}|Ts],Spec);
 
 %% --- cover ---
 add_tests([{cover,all_nodes,File}|Ts],Spec) ->
@@ -878,8 +913,13 @@ skip_suites(_Node,_Dir,[],_Cmt,Tests) ->
 skip_suites(Node,Dir,S,Cmt,Tests) ->
     skip_suites(Node,Dir,[S],Cmt,Tests).
 
-skip_groups(Node,Dir,Suite,Group,Case,Cmt,Tests) when is_atom(Group) ->
-    skip_groups(Node,Dir,Suite,[Group],[Case],Cmt,Tests);
+skip_groups(Node,Dir,Suite,Group,all,Cmt,Tests) when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],all,Cmt,Tests);
+skip_groups(Node,Dir,Suite,Group,Cases,Cmt,Tests) when is_atom(Group) ->
+    skip_groups(Node,Dir,Suite,[Group],Cases,Cmt,Tests);
+skip_groups(Node,Dir,Suite,Groups,Case,Cmt,Tests) when is_atom(Case),
+						       Case =/= all ->
+    skip_groups(Node,Dir,Suite,Groups,[Case],Cmt,Tests);
 skip_groups(Node,Dir,Suite,Groups,Cases,Cmt,Tests) when
       ((Cases == all) or is_list(Cases)) and is_list(Groups) ->
     Suites =
@@ -1001,22 +1041,34 @@ valid_terms() ->
      {cover,3},
      {config,2},
      {config,3},
-     {userconfig, 2},
-     {userconfig, 3},
+     {userconfig,2},
+     {userconfig,3},
      {alias,3},
      {logdir,2},
      {logdir,3},
+     {label,2},
+     {label,3},
      {event_handler,2},
      {event_handler,3},
      {event_handler,4},
+     {multiply_timetraps,2},
+     {multiply_timetraps,3},
+     {scale_timetraps,2},
+     {scale_timetraps,3},
      {include,2},
      {include,3},
      {suites,3},
      {suites,4},
+     {groups,4},
+     {groups,5},
+     {groups,6},
      {cases,4},
      {cases,5},
      {skip_suites,4},
      {skip_suites,5},
+     {skip_groups,5},
+     {skip_groups,6},
+     {skip_groups,7},
      {skip_cases,5},
      {skip_cases,6}
     ].

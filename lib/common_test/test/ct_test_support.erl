@@ -23,7 +23,7 @@
 %%%
 -module(ct_test_support).
 
--include("test_server.hrl").
+-include_lib("test_server/include/test_server.hrl").
 -include_lib("common_test/include/ct_event.hrl").
 
 -export([init_per_suite/1, init_per_suite/2, end_per_suite/1,
@@ -111,8 +111,9 @@ init_per_testcase(_TestCase, Config) ->
     case lists:keysearch(master, 1, Config) of
 	false->
 	    test_server:format("See Common Test logs here:\n\n"
-		       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>",
-		       [LogDir,LogDir]);
+			       "<a href=\"file://~s/all_runs.html\">~s/all_runs.html</a>\n"
+			       "<a href=\"file://~s/index.html\">~s/index.html</a>",
+			       [LogDir,LogDir,LogDir,LogDir]);
 	{value, _}->
 	    test_server:format("See CT Master Test logs here:\n\n"
 		       "<a href=\"file://~s/master_runs.html\">~s/master_runs.html</a>",

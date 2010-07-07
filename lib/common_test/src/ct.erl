@@ -138,10 +138,10 @@ run(TestDirs) ->
 %%%-----------------------------------------------------------------
 %%% @spec run_test(Opts) -> Result
 %%%   Opts = [OptTuples]
-%%%   OptTuples = {config,CfgFiles} | {dir,TestDirs} | {suite,Suites} |
-%%%               {userconfig, UserConfig} |
-%%%               {testcase,Cases} | {group,Groups} | {spec,TestSpecs} |
-%%%               {allow_user_terms,Bool} | {logdir,LogDir} | 
+%%%   OptTuples = {dir,TestDirs} | {suite,Suites} | {group,Groups} |
+%%%               {testcase,Cases} | {spec,TestSpecs} | {label,Label} |
+%%%               {config,CfgFiles} | {userconfig, UserConfig} |
+%%%               {allow_user_terms,Bool} | {logdir,LogDir} |
 %%%               {silent_connections,Conns} | {stylesheet,CSSFile} |
 %%%               {cover,CoverSpecFile} | {step,StepOpts} |
 %%%               {event_handler,EventHandlers} | {include,InclDirs} |
@@ -149,15 +149,16 @@ run(TestDirs) ->
 %%%               {repeat,N} | {duration,DurTime} | {until,StopTime} |
 %%%               {force_stop,Bool} | {decrypt,DecryptKeyOrFile} |
 %%%               {refresh_logs,LogDir} | {basic_html,Bool}
-%%%   CfgFiles = [string()] | string()
-%%%   UserConfig = [{CallbackMod,CfgStrings}] | {CallbackMod,CfgStrings}
-%%%   CallbackMod = atom()
-%%%   CfgStrings = [string()] | string()
 %%%   TestDirs = [string()] | string()
 %%%   Suites = [string()] | string()
 %%%   Cases = [atom()] | atom()
 %%%   Groups = [atom()] | atom()
 %%%   TestSpecs = [string()] | string()
+%%%   Label = string() | atom()
+%%%   CfgFiles = [string()] | string()
+%%%   UserConfig = [{CallbackMod,CfgStrings}] | {CallbackMod,CfgStrings}
+%%%   CallbackMod = atom()
+%%%   CfgStrings = [string()] | string()
 %%%   LogDir = string()
 %%%   Conns = all | [atom()]
 %%%   CSSFile = string()
@@ -177,7 +178,8 @@ run(TestDirs) ->
 %%%   DecryptFile = string()
 %%%   Result = [TestResult] | {error,Reason}
 %%% @doc Run tests as specified by the combination of options in <code>Opts</code>.
-%%% The options are the same as those used with the <code>run_test</code> program.
+%%% The options are the same as those used with the
+%%% <seealso marker="run_test#run_test"><code>run_test</code></seealso> program.
 %%% Note that here a <code>TestDir</code> can be used to point out the path to 
 %%% a <code>Suite</code>. Note also that the option <code>testcase</code>
 %%% corresponds to the <code>-case</code> option in the <code>run_test</code> 

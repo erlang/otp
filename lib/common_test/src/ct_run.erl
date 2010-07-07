@@ -45,7 +45,8 @@
 -define(abs(Name), filename:absname(Name)).
 -define(testdir(Name, Suite), ct_util:get_testdir(Name, Suite)).
 
--record(opts, {vts,
+-record(opts, {label,
+	       vts,
 	       shell,
 	       cover,
 	       coverspec,
@@ -153,14 +154,16 @@ script_start(Args) ->
 		Result
 	end,
     stop_trace(Tracing),
+    timer:sleep(1000),
     Res.
 
 script_start1(Parent, Args) ->
     %% read general start flags
+    Label = get_start_opt(label, fun([Lbl]) -> Lbl end, Args),
     Vts = get_start_opt(vts, true, Args),
     Shell = get_start_opt(shell, true, Args),
     Cover = get_start_opt(cover, fun([CoverFile]) -> ?abs(CoverFile) end, Args),
-    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, ".", Args),
+    LogDir = get_start_opt(logdir, fun([LogD]) -> LogD end, Args),
     MultTT = get_start_opt(multiply_timetraps,
 			   fun([MT]) -> list_to_integer(MT) end, 1, Args),
     ScaleTT = get_start_opt(scale_timetraps,
@@ -229,7 +232,7 @@ script_start1(Parent, Args) ->
 	    application:set_env(common_test, basic_html, true)
     end,
 
-   StartOpts = #opts{vts = Vts, shell = Shell, cover = Cover,
+   StartOpts = #opts{label = Label, vts = Vts, shell = Shell, cover = Cover,
 		     logdir = LogDir, event_handlers = EvHandlers,
 		     include = IncludeDirs,
 		     silent_connections = SilentConns,
@@ -288,6 +291,9 @@ script_start2(StartOpts = #opts{vts = undefined,
 		    TS ->
 			SpecStartOpts = get_data_for_node(TS, node()),
 
+			Label = choose_val(StartOpts#opts.label,
+					   SpecStartOpts#opts.label),
+
 			LogDir = choose_val(StartOpts#opts.logdir,
 					    SpecStartOpts#opts.logdir),
 
@@ -303,7 +309,8 @@ script_start2(StartOpts = #opts{vts = undefined,
 						 SpecStartOpts#opts.include]),
 			application:set_env(common_test, include, AllInclude),
 
-			{TS,StartOpts#opts{testspecs = Specs,
+			{TS,StartOpts#opts{label = Label,
+					   testspecs = Specs,
 					   cover = Cover,
 					   logdir = LogDir,
 					   config = SpecStartOpts#opts.config,
@@ -317,29 +324,30 @@ script_start2(StartOpts = #opts{vts = undefined,
 	end,
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
+    TheLogDir = which(logdir, Opts#opts.logdir),
     case {TestSpec,Terms} of
 	{_,{error,_}=Error} ->
 	    Error;
 	{[],_} ->
 	    {error,no_testspec_specified};
 	{undefined,_} ->   % no testspec used
-	    case check_and_install_configfiles(InitConfig,
-					       which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(InitConfig, TheLogDir,
 					       Opts#opts.event_handlers) of
 		ok ->      % go on read tests from start flags
-		    script_start3(Opts#opts{config=InitConfig}, Args);
+		    script_start3(Opts#opts{config=InitConfig,
+					    logdir=TheLogDir}, Args);
 		Error ->
 		    Error
 	    end;
 	{_,_} ->           % testspec used
 	    %% merge config from start flags with config from testspec
 	    AllConfig = merge_vals([InitConfig, Opts#opts.config]),
-	    case check_and_install_configfiles(AllConfig,
-					       which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(AllConfig, TheLogDir,
 					       Opts#opts.event_handlers) of
 		ok ->      % read tests from spec
 		    {Run,Skip} = ct_testspec:prepare_tests(Terms, node()),
-		    do_run(Run, Skip, Opts#opts{config=AllConfig}, Args);
+		    do_run(Run, Skip, Opts#opts{config=AllConfig,
+						logdir=TheLogDir}, Args);
 		Error ->
 		    Error
 	    end
@@ -348,11 +356,12 @@ script_start2(StartOpts = #opts{vts = undefined,
 script_start2(StartOpts, Args) ->
     %% read config/userconfig from start flags
     InitConfig = ct_config:prepare_config_list(Args),
-    case check_and_install_configfiles(InitConfig,
-				       which(logdir,StartOpts#opts.logdir),
+    LogDir = which(logdir, StartOpts#opts.logdir),
+    case check_and_install_configfiles(InitConfig, LogDir,
 				       StartOpts#opts.event_handlers) of
 	ok ->      % go on read tests from start flags
-	    script_start3(StartOpts#opts{config=InitConfig}, Args);
+	    script_start3(StartOpts#opts{config=InitConfig,
+					 logdir=LogDir}, Args);
 	Error ->
 	    Error
     end.
@@ -427,8 +436,12 @@ script_start4(#opts{vts = true, config = Config, event_handlers = EvHandlers,
 		    end, [], Config),
     vts:init_data(ConfigFiles, EvHandlers, ?abs(LogDir), Tests);
 
-script_start4(#opts{shell = true, config = Config, event_handlers = EvHandlers,
+script_start4(#opts{label = Label, shell = true, config = Config,
+		    event_handlers = EvHandlers,
 		    logdir = LogDir, testspecs = Specs}, _Args) ->
+    %% label - used by ct_logs
+    application:set_env(common_test, test_label, Label),
+
     InstallOpts = [{config,Config},{event_handler,EvHandlers}],
     if Config == [] ->
 	    ok;
@@ -613,9 +626,13 @@ run_test(StartOpts) when is_list(StartOpts) ->
     end.
 
 run_test1(StartOpts) ->
+    %% label
+    Label = get_start_opt(label, fun(Lbl) when is_list(Lbl) -> Lbl;
+				    (Lbl) when is_atom(Lbl) -> atom_to_list(Lbl)
+				 end, StartOpts),
     %% logdir
     LogDir = get_start_opt(logdir, fun(LD) when is_list(LD) -> LD end,
-			   ".", StartOpts),
+			   StartOpts),
     %% config & userconfig
     CfgFiles = ct_config:get_config_file_list(StartOpts),
 
@@ -711,7 +728,8 @@ run_test1(StartOpts) ->
     %% stepped execution
     Step = get_start_opt(step, value, StartOpts),
 
-    Opts = #opts{cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
+    Opts = #opts{label = Label,
+		 cover = Cover, step = Step, logdir = LogDir, config = CfgFiles,
 		 event_handlers = EvHandlers, include = Include,
 		 silent_connections = SilentConns,
 		 stylesheet = Stylesheet,
@@ -747,6 +765,8 @@ run_spec_file(Relaxed,
 	    exit(CTReason);
 	TS ->
 	    SpecOpts = get_data_for_node(TS, node()),
+	    Label = choose_val(Opts#opts.label,
+			       SpecOpts#opts.label),
 	    LogDir = choose_val(Opts#opts.logdir,
 				SpecOpts#opts.logdir),
 	    AllConfig = merge_vals([CfgFiles, SpecOpts#opts.config]),
@@ -766,8 +786,9 @@ run_spec_file(Relaxed,
 					       which(logdir,LogDir),
 					       AllEvHs) of
 		ok ->
-		    Opts1 = Opts#opts{cover = Cover,
-				      logdir = LogDir,
+		    Opts1 = Opts#opts{label = Label,
+				      cover = Cover,
+				      logdir = which(logdir, LogDir),
 				      config = AllConfig,
 				      event_handlers = AllEvHs,
 				      include = AllInclude,
@@ -775,7 +796,7 @@ run_spec_file(Relaxed,
 				      multiply_timetraps = MultTT,
 				      scale_timetraps = ScaleTT},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-		    do_run(Run, Skip, Opts1, StartOpts);
+		    reformat_result(catch do_run(Run, Skip, Opts1, StartOpts));
 		{error,GCFReason} ->
 		    exit(GCFReason)
 	    end
@@ -785,9 +806,11 @@ run_prepared(Run, Skip, Opts = #opts{logdir = LogDir,
 				     config = CfgFiles,
 				     event_handlers = EvHandlers},
 	     StartOpts) ->
-    case check_and_install_configfiles(CfgFiles, LogDir, EvHandlers) of
+    LogDir1 = which(logdir, LogDir),
+    case check_and_install_configfiles(CfgFiles, LogDir1, EvHandlers) of
 	ok ->
-	    do_run(Run, Skip, Opts, StartOpts);
+	    reformat_result(catch do_run(Run, Skip, Opts#opts{logdir = LogDir1},
+					 StartOpts));
 	{error,Reason} ->
 	    exit(Reason)
     end.
@@ -816,6 +839,8 @@ check_config_file(Callback, File)->
 run_dir(Opts = #opts{logdir = LogDir,
 		     config = CfgFiles,
 		     event_handlers = EvHandlers}, StartOpts) ->
+    LogDir1 = which(logdir, LogDir),
+    Opts1 = Opts#opts{logdir = LogDir1},
     AbsCfgFiles =
 	lists:map(fun({Callback,FileList})->
 			  case code:is_loaded(Callback) of
@@ -834,7 +859,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 					     check_config_file(Callback, File)
 				     end, FileList)}
 		  end, CfgFiles),
-    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir) of
+    case install([{config,AbsCfgFiles},{event_handler,EvHandlers}], LogDir1) of
 	ok -> ok;
 	{error,IReason} -> exit(IReason)
     end,
@@ -842,7 +867,7 @@ run_dir(Opts = #opts{logdir = LogDir,
 	{value,{_,Dirs=[Dir|_]}} when not is_integer(Dir),
 	                              length(Dirs)>1 ->
 	    %% multiple dirs (no suite)
-	    do_run(tests(Dirs), [], Opts, StartOpts);
+	    reformat_result(catch do_run(tests(Dirs), [], Opts1, StartOpts));
 	false ->				% no dir
 	    %% fun for converting suite name to {Dir,Mod} tuple
 	    S2M = fun(S) when is_list(S) ->
@@ -857,12 +882,15 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
+			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+							 [], Opts1, StartOpts));
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts, StartOpts)
+			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+							 [], Opts1, StartOpts))
 		    end;
 		{value,{_,Suites}} ->
-		    do_run(tests(lists:map(S2M, Suites)), [], Opts, StartOpts);
+		    reformat_result(catch do_run(tests(lists:map(S2M, Suites)),
+						 [], Opts1, StartOpts));
 		_ ->
 		    exit(no_tests_specified)
 	    end;
@@ -875,17 +903,22 @@ run_dir(Opts = #opts{logdir = LogDir,
 		    case listify(proplists:get_value(group, StartOpts, [])) ++
 			 listify(proplists:get_value(testcase, StartOpts, [])) of
 			[] ->
-			    do_run(tests(Dir, listify(Mod)), [], Opts, StartOpts);
+			    reformat_result(catch do_run(tests(Dir, listify(Mod)),
+							 [], Opts1, StartOpts));
 			GsAndCs ->
-			    do_run(tests(Dir, Mod, GsAndCs), [], Opts, StartOpts)
+			    reformat_result(catch do_run(tests(Dir, Mod, GsAndCs),
+							 [], Opts1, StartOpts))
 		    end;
 		{value,{_,Suites=[Suite|_]}} when is_list(Suite) ->
 		    Mods = lists:map(fun(Str) -> list_to_atom(Str) end, Suites),
-		    do_run(tests(delistify(Dir), Mods), [], Opts, StartOpts);
+		    reformat_result(catch do_run(tests(delistify(Dir), Mods),
+						 [], Opts1, StartOpts));
 		{value,{_,Suites}} ->
-		    do_run(tests(delistify(Dir), Suites), [], Opts, StartOpts);
+		    reformat_result(catch do_run(tests(delistify(Dir), Suites),
+						 [], Opts1, StartOpts));
 	        false ->			% no suite, only dir
-		    do_run(tests(listify(Dir)), [], Opts, StartOpts)
+		    reformat_result(catch do_run(tests(listify(Dir)),
+						 [], Opts1, StartOpts))
 	    end
     end.
 
@@ -925,28 +958,30 @@ run_testspec1(TestSpec) ->
 			EnvInclude++Opts#opts.include
 		end,
 	    application:set_env(common_test, include, AllInclude),
-
-	    case check_and_install_configfiles(Opts#opts.config,
-					       which(logdir,Opts#opts.logdir),
+	    LogDir1 = which(logdir,Opts#opts.logdir),
+	    case check_and_install_configfiles(Opts#opts.config, LogDir1,
 					       Opts#opts.event_handlers) of
 		ok ->
-		    Opts1 = Opts#opts{testspecs = [TestSpec],
+		    Opts1 = Opts#opts{testspecs = [],
+				      logdir = LogDir1,
 				      include = AllInclude},
 		    {Run,Skip} = ct_testspec:prepare_tests(TS, node()),
-		    do_run(Run, Skip, Opts1, []);
+		    reformat_result(catch do_run(Run, Skip, Opts1, []));
 		{error,GCFReason} ->
 		    exit(GCFReason)
 	    end
     end.
 
-get_data_for_node(#testspec{logdir=LogDirs,
-			    cover=CoverFs,
-			    config=Cfgs,
-			    userconfig=UsrCfgs,
-			    event_handler=EvHs,
-			    include=Incl,
-			    multiply_timetraps=MTs,
-			    scale_timetraps=STs}, Node) ->
+get_data_for_node(#testspec{label = Labels,
+			    logdir = LogDirs,
+			    cover = CoverFs,
+			    config = Cfgs,
+			    userconfig = UsrCfgs,
+			    event_handler = EvHs,
+			    include = Incl,
+			    multiply_timetraps = MTs,
+			    scale_timetraps = STs}, Node) ->
+    Label = proplists:get_value(Node, Labels),
     LogDir = case proplists:get_value(Node, LogDirs) of
 		 undefined -> ".";
 		 Dir -> Dir
@@ -958,7 +993,8 @@ get_data_for_node(#testspec{logdir=LogDirs,
 	[CBF || {N,CBF} <- UsrCfgs, N==Node],
     EvHandlers =  [{H,A} || {N,H,A} <- EvHs, N==Node],
     Include =  [I || {N,I} <- Incl, N==Node],
-    #opts{logdir = LogDir,
+    #opts{label = Label,
+	  logdir = LogDir,
 	  cover = Cover,
 	  config = ConfigFiles,
 	  event_handlers = EvHandlers,
@@ -1023,21 +1059,26 @@ delistify(E)   -> E.
 %%% @equiv ct:run/3
 run(TestDir, Suite, Cases) ->
     install([]),
-    do_run(tests(TestDir, Suite, Cases), []).
+    reformat_result(catch do_run(tests(TestDir, Suite, Cases), [])).
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/2
 run(TestDir, Suite) when is_list(TestDir), is_integer(hd(TestDir)) ->
     install([]),
-    do_run(tests(TestDir, Suite), []).
+    reformat_result(catch do_run(tests(TestDir, Suite), [])).
 
 %%%-----------------------------------------------------------------
 %%% @hidden
 %%% @equiv ct:run/1
 run(TestDirs) ->
     install([]),
-    do_run(tests(TestDirs), []).
+    reformat_result(catch do_run(tests(TestDirs), [])).
+
+reformat_result({user_error,Reason}) ->
+    {error,Reason};
+reformat_result(Result) ->
+    Result.
 
 suite_to_test(Suite) ->
     {filename:dirname(Suite),list_to_atom(filename:rootname(filename:basename(Suite)))}.
@@ -1092,7 +1133,17 @@ do_run(Tests, Misc, LogDir) when is_list(Misc) ->
     do_run(Tests, [], Opts1#opts{logdir = LogDir}, []).
 
 do_run(Tests, Skip, Opts, Args) ->
-    #opts{cover = Cover} = Opts,
+    #opts{label = Label, cover = Cover} = Opts,
+
+    %% label - used by ct_logs
+    TestLabel =
+	if Label == undefined -> undefined;
+	   is_atom(Label)     -> atom_to_list(Label);
+	   is_list(Label)     -> Label;
+	   true               -> undefined
+	end,
+    application:set_env(common_test, test_label, TestLabel),
+
     case code:which(test_server) of
 	non_existing ->
 	    exit({error,no_path_to_test_server});
@@ -1156,10 +1207,19 @@ do_run(Tests, Skip, Opts, Args) ->
 			true ->
 			    SavedErrors = save_make_errors(SuiteMakeErrors),
 			    ct_repeat:log_loop_info(Args),
-			    {Tests1,Skip1} = final_tests(Tests,[],Skip,SavedErrors),
-			    R = do_run_test(Tests1, Skip1, Opts1),
-			    ct_util:stop(normal),
-			    R;
+
+			    {Tests1,Skip1} = final_tests(Tests,Skip,SavedErrors),
+
+			    R = (catch do_run_test(Tests1, Skip1, Opts1)),
+			    case R of
+				{EType,_} = Error when EType == user_error ;
+						       EType == error ->
+				    ct_util:stop(clean),
+				    exit(Error);
+				_ ->
+				    ct_util:stop(normal),
+				    R
+			    end;
 			false ->
 			    io:nl(),
 			    ct_util:stop(clean),
@@ -1316,8 +1376,22 @@ suite_tuples([{TestDir,Suite,_} | Tests]) when is_atom(Suite) ->
 suite_tuples([]) ->
     [].
 
-final_tests([{TestDir,Suites,_}|Tests],
-	    Final, Skip, Bad) when is_list(Suites), is_atom(hd(Suites)) ->
+final_tests(Tests, Skip, Bad) ->
+
+    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+    %%! io:format(user, "FINAL0 = ~p~nSKIP0 = ~p~n", [Tests, Skip]),
+
+    {Tests1,Skip1} = final_tests1(Tests, [], Skip, Bad),
+    Skip2 = final_skip(Skip1, []),
+
+
+    %%! --- Thu Jun 24 15:47:27 2010 --- peppe was here!
+    %%! io:format(user, "FINAL1 = ~p~nSKIP1 = ~p~n", [Tests1, Skip2]),
+
+    {Tests1,Skip2}.
+
+final_tests1([{TestDir,Suites,_}|Tests], Final, Skip, Bad) when
+      is_list(Suites), is_atom(hd(Suites)) ->
 %     Separate =
 % 	fun(S,{DoSuite,Dont}) ->		
 % 		case lists:keymember({TestDir,S},1,Bad) of
@@ -1336,9 +1410,9 @@ final_tests([{TestDir,Suites,_}|Tests],
     Skip1 = [{TD,S,"Make failed"} || {{TD,S},_} <- Bad, S1 <- Suites,
 				     S == S1, TD == TestDir],
     Final1 = [{TestDir,S,all} || S <- Suites],
-    final_tests(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
+    final_tests1(Tests, lists:reverse(Final1)++Final, Skip++Skip1, Bad);
 
-final_tests([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
+final_tests1([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
     MissingSuites =
 	case lists:keysearch({TestDir,all}, 1, Bad) of
 	    {value,{_,Failed}} ->
@@ -1348,25 +1422,57 @@ final_tests([{TestDir,all,all}|Tests], Final, Skip, Bad) ->
 	end,
     Missing = [{TestDir,S,"Make failed"} || S <- MissingSuites],
     Final1 = [{TestDir,all,all}|Final],
-    final_tests(Tests, Final1, Skip++Missing, Bad);
+    final_tests1(Tests, Final1, Skip++Missing, Bad);
 
-final_tests([{TestDir,Suite,Cases}|Tests],
-	    Final, Skip, Bad) when Cases==[]; Cases==all  ->
-    final_tests([{TestDir,[Suite],all}|Tests], Final, Skip, Bad);
+final_tests1([{TestDir,Suite,Cases}|Tests], Final, Skip, Bad) when
+      Cases==[]; Cases==all  ->
+    final_tests1([{TestDir,[Suite],all}|Tests], Final, Skip, Bad);
 
-final_tests([{TestDir,Suite,Cases}|Tests], Final, Skip, Bad) ->
+final_tests1([{TestDir,Suite,GrsOrCs}|Tests], Final, Skip, Bad) when
+      is_list(GrsOrCs) ->
     case lists:keymember({TestDir,Suite}, 1, Bad) of
-	false ->
-	    Do = {TestDir,Suite,Cases},
-	    final_tests(Tests, [Do|Final], Skip, Bad);
 	true ->
-	    Do = {TestDir,Suite,Cases},
-	    Skip1 = Skip ++ [{TestDir,Suite,Cases,"Make failed"}],
-	    final_tests(Tests, [Do|Final], Skip1, Bad)
+	    Skip1 = Skip ++ [{TestDir,Suite,all,"Make failed"}],
+	    final_tests1(Tests, [{TestDir,Suite,all}|Final], Skip1, Bad);
+	false ->
+	    GrsOrCs1 =
+		lists:flatmap(
+		  %% for now, only flat group defs are allowed as
+		  %% start options and test spec terms
+		  fun({all,all}) ->
+			  ct_framework:make_all_conf(TestDir,
+						      Suite, []);
+		     ({skipped,Group,TCs}) ->
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, [skipped], TCs)];
+		     ({Group,TCs}) ->
+			  [ct_framework:make_conf(TestDir, Suite,
+						  Group, [], TCs)];
+		     (TC) ->
+			  [TC]
+		  end, GrsOrCs),
+	    Do = {TestDir,Suite,GrsOrCs1},
+	    final_tests1(Tests, [Do|Final], Skip, Bad)
     end;
 
-final_tests([], Final, Skip, _Bad) ->
+final_tests1([], Final, Skip, _Bad) ->
     {lists:reverse(Final),Skip}.
+
+final_skip([{TestDir,Suite,{all,all},Reason}|Skips], Final) ->
+    SkipConf =  ct_framework:make_conf(TestDir, Suite, all, [], all),
+    Skip = {TestDir,Suite,SkipConf,Reason},
+    final_skip(Skips, [Skip|Final]);
+
+final_skip([{TestDir,Suite,{Group,TCs},Reason}|Skips], Final) ->
+    Conf =  ct_framework:make_conf(TestDir, Suite, Group, [], TCs),
+    Skip = {TestDir,Suite,Conf,Reason},
+    final_skip(Skips, [Skip|Final]);
+
+final_skip([Skip|Skips], Final) ->
+    final_skip(Skips, [Skip|Final]);
+
+final_skip([], Final) ->
+    lists:reverse(Final).
 
 continue([]) ->
     true;
@@ -1489,6 +1595,7 @@ do_run_test(Tests, Skip, Opts) ->
 		_ ->
 		    false
 	    end,
+
 	    %% let test_server expand the test tuples and count no of cases
 	    {Suites,NoOfCases} = count_test_cases(Tests, Skip),
 	    Suites1 = delete_dups(Suites),
@@ -1544,19 +1651,30 @@ count_test_cases(Tests, Skip) ->
     TSPid = test_server_ctrl:start_get_totals(SendResult),
     Ref = erlang:monitor(process, TSPid),
     add_jobs(Tests, Skip, #opts{}, []),
-    {Suites,NoOfCases} = count_test_cases1(length(Tests), 0, [], Ref),
+    Counted = (catch count_test_cases1(length(Tests), 0, [], Ref)),
     erlang:demonitor(Ref, [flush]),
-    test_server_ctrl:stop_get_totals(),
-    {Suites,NoOfCases}.
+    case Counted of
+	{error,{test_server_died}} = Error ->
+	    throw(Error);
+	{error,Reason} ->
+	    unlink(whereis(test_server_ctrl)),
+	    test_server_ctrl:stop(),
+	    throw({user_error,Reason});
+	Result ->
+	    test_server_ctrl:stop_get_totals(),
+	    Result
+    end.
 
 count_test_cases1(0, N, Suites, _) ->
     {lists:flatten(Suites), N};
 count_test_cases1(Jobs, N, Suites, Ref) ->
     receive
+	{_,{error,_Reason} = Error} ->
+	    throw(Error);
 	{no_of_cases,{Ss,N1}} ->
 	    count_test_cases1(Jobs-1, add_known(N,N1), [Ss|Suites], Ref);
-	{'DOWN', Ref, _, _, _} ->
-	    {[],0}
+	{'DOWN', Ref, _, _, Info} ->
+	    throw({error,{test_server_died,Info}})
     end.
 
 add_known(unknown, _) ->
@@ -1604,13 +1722,36 @@ add_jobs([{TestDir,Suite,all}|Tests], Skip, Opts, CleanUp) ->
 	    Error
     end;
 
-%% group
-add_jobs([{TestDir,Suite,[{GroupName,_Cases}]}|Tests], Skip, Opts, CleanUp) when
-      is_atom(GroupName) ->
-    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
-add_jobs([{TestDir,Suite,{GroupName,_Cases}}|Tests], Skip, Opts, CleanUp) when
-      is_atom(GroupName) ->
-    add_jobs([{TestDir,Suite,GroupName}|Tests], Skip, Opts, CleanUp);
+%% group (= conf case in test_server)
+add_jobs([{TestDir,Suite,Confs}|Tests], Skip, Opts, CleanUp) when
+      element(1, hd(Confs)) == conf ->
+    Group = fun(Conf) -> proplists:get_value(name, element(2, Conf)) end,
+    TestCases = fun(Conf) -> element(4, Conf) end,
+    TCTestName = fun(all) -> "";
+		    ([C]) when is_atom(C) -> "." ++ atom_to_list(C);
+		    (Cs) when is_list(Cs) -> ".cases"
+		 end,
+    GrTestName =
+	case Confs of
+	    [Conf] ->
+		"." ++ atom_to_list(Group(Conf)) ++ TCTestName(TestCases(Conf));
+	    _ ->
+		".groups"
+	end,
+    TestName = get_name(TestDir) ++ "." ++ atom_to_list(Suite) ++ GrTestName,
+    case maybe_interpret(Suite, init_per_group, Opts) of
+	ok ->
+	    case catch test_server_ctrl:add_conf_with_skip(TestName, Suite, Confs,
+							   skiplist(TestDir,Skip)) of
+		{'EXIT',_} ->
+		    CleanUp;
+		_ ->
+		    wait_for_idle(),
+		    add_jobs(Tests, Skip, Opts, [Suite|CleanUp])
+	    end;
+	Error ->
+	    Error
+    end;
 
 %% test case
 add_jobs([{TestDir,Suite,[Case]}|Tests], Skip, Opts, CleanUp) when is_atom(Case) ->

@@ -21,7 +21,7 @@
 
     </legalnotice>
 
-    <title>Running Test Suites</title>
+    <title>Running Tests</title>
     <prepared>Peter Andersson, Kenneth Lundin</prepared>
     <docno></docno>
     <date></date>
@@ -130,6 +130,8 @@
     <p>Other flags that may be used with <c>run_test</c>:</p>
     <list>
       <item><c><![CDATA[-logdir <dir>]]></c>, specifies where the HTML log files are to be written.</item>
+      <item><c><![CDATA[-label <name_of_test_run>]]></c>, associates the test run with a name that gets printed
+	in the overview HTML log files.</item>
       <item><c>-refresh_logs</c>, refreshes the top level HTML index files.</item>
       <item><c>-vts</c>, start web based GUI (see below).</item>
       <item><c>-shell</c>, start interactive shell mode (see below).</item>
@@ -335,43 +337,72 @@
     <marker id="test_specifications"></marker>
     <title>Using test specifications</title>
     
-    <p>The most expressive way to specify what to test is to use a so 
-      called test specification. A test specification is a sequence of 
-      Erlang terms. The terms may be declared in a text file or passed 
-      to the test server at runtime as a list (see <c>run_testspec/1</c>
-      in the manual page for <c>ct</c>). There are two general types 
-      of terms: configuration terms and test specification terms.</p>
-    <p>With configuration terms it is possible to import configuration 
-      data (similar to <c>run_test -config</c>), specify HTML log 
-      directories (similar to <c>run_test -logdir</c>), give aliases 
-      to test nodes and test directories (to make a specification
-      easier to read and maintain), enable code coverage analysis
-      (see the <seealso marker="cover_chapter#cover">Code Coverage 
-       Analysis</seealso> chapter) and specify event_handler plugins 
+    <p>The most flexible way to specify what to test, is to use a so
+      called test specification. A test specification is a sequence of
+      Erlang terms. The terms may be declared in a text file or passed
+      to the test server at runtime as a list
+      (see <c>run_testspec/1</c> in the manual page
+      for <c>ct</c>). There are two general types of terms:
+      configuration terms and test specification terms.</p>
+    <p>With configuration terms it is possible to e.g. label the test
+      run (similar to <c>run_test -label</c>), evaluate arbitrary expressions
+      before starting a test, import configuration
+      data (similar to
+      <c>run_test -config/-userconfig</c>), specify HTML log directories (similar
+      to
+      <c>run_test -logdir</c>), give aliases to test nodes and test
+      directories (to make a specification easier to read and
+      maintain), enable code coverage analysis (see
+      the <seealso marker="cover_chapter#cover">Code Coverage
+      Analysis</seealso> chapter) and specify event_handler plugins
       (see the <seealso marker="event_handler_chapter#event_handling">
-       Event Handling</seealso> chapter). There is also a term
-       for specifying include directories that should be passed on
-       to the compiler when automatic compilation is performed 
-       (similar to <c>run_test -include</c>, see above).</p>
-    <p>With test specification terms it is possible to state exactly which
-      tests should run and in which order. A test term specifies either
-      one or more suites or one or more test cases. An arbitrary number of test 
-      terms may be declared in sequence. A test term can also specify one or 
-      more test suites or test cases to be skipped. Skipped suites and cases 
-      are not executed and show up in the HTML test log as SKIPPED.</p>
-
-    <note><p>It is not yet possible to specify test case groups in
-      test specifications. This will be supported in a soon upcoming 
-      release.</p></note>
+      Event Handling</seealso> chapter). There is also a term for
+      specifying include directories that should be passed on to the
+      compiler when automatic compilation is performed (similar
+      to <c>run_test -include</c>, see above).</p>
+    <p>With test specification terms it is possible to state exactly
+      which tests should run and in which order. A test term specifies
+      either one or more suites, one or more test case groups, or one
+      or more test cases in a group or suite.</p>
+    <p>An arbitrary number of test terms may be declared in sequence.
+      Common Test will compile the terms into one or more tests to be
+      performed in one resulting test run. Note that a term that
+      specifies a set of test cases will "swallow" one that only
+      specifies a subset of these cases. E.g. the result of merging
+      one term that specifies that all cases in suite S should be
+      executed, with another term specifying only test case X and Y in
+      S, is a test of all cases in S. However, if a term specifying
+      test case X and Y in S is merged with a term specifying case Z
+      in S, the result is a test of X, Y and Z in S.</p>
+    <p>A test term can also specify one or more test suites, groups,
+      or test cases to be skipped. Skipped suites, groups and cases
+      are not executed and show up in the HTML test log files as
+      SKIPPED.</p>
+    <p>When a test case group is specified, the resulting test
+      executes the
+      <c>init_per_group</c> function, followed by all test cases and
+      sub groups (including their configuration functions), and
+      finally the <c>end_per_group</c> function. Also if particular
+      test cases in a group are specified, <c>init_per_group</c>
+      and <c>end_per_group</c> for the group in question are
+      called. If a group which is defined (in <c>Suite:group/0</c>) to
+      be a sub group of another group, is specified (or particular test
+      cases of a sub group are), Common Test will call the configuration
+      functions for the top level groups as well as for the sub group
+      in question (making it possible to pass configuration data all
+      the way from <c>init_per_suite</c> down to the test cases in the
+      sub group).</p>
 
     <p>Below is the test specification syntax. Test specifications can
-      be used to run tests both in a single test host environment and in 
-      a distributed Common Test environment (Large Scale Testing). The init term,
-      as well as node parameters, are only relevant in the latter (see the
-      <seealso marker="ct_master_chapter#test_specifications">Large Scale Testing</seealso>
-      chapter for information). For details on the event_handler term, see the
-      <seealso marker="event_handler_chapter#event_handling">Event Handling</seealso>
-      chapter.</p>
+      be used to run tests both in a single test host environment and
+      in a distributed Common Test environment (Large Scale
+      Testing). The node parameters in the init term are only
+      relevant in the latter (see the
+      <seealso marker="ct_master_chapter#test_specifications">Large
+      Scale Testing</seealso> chapter for information). For details on
+      the event_handler term, see the
+      <seealso marker="event_handler_chapter#event_handling">Event
+      Handling</seealso> chapter.</p>
       <p>Config terms:</p>
     <pre>
       {node, NodeAlias, Node}.
@@ -379,11 +410,17 @@
       {init, InitOptions}.
       {init, [NodeAlias], InitOptions}.
 
+      {label, Label}.
+      {label, NodeRefs, Label}.
+
       {multiply_timetraps, N}.
+      {multiply_timetraps, NodeRefs, N}.
+
       {scale_timetraps, Bool}.
+      {scale_timetraps, NodeRefs, Bool}.
  
       {cover, CoverSpecFile}.
-      {cover, NodeRef, CoverSpecFile}.
+      {cover, NodeRefs, CoverSpecFile}.
       
       {include, IncludeDirs}.
       {include, NodeRefs, IncludeDirs}.
@@ -409,6 +446,12 @@
       {suites, DirRef, Suites}.                                
       {suites, NodeRefs, DirRef, Suites}.
       
+      {groups, DirRef, Suite, Groups}.
+      {groups, NodeRefsDirRef, Suite, Groups}.
+
+      {groups, DirRef, Suite, Group, {cases,Cases}}.
+      {groups, NodeRefsDirRef, Suite, Group, {cases,Cases}}.
+
       {cases, DirRef, Suite, Cases}.                           
       {cases, NodeRefs, DirRef, Suite, Cases}.
 
@@ -437,6 +480,9 @@
       InitArgs      = [term()]
       DirRef        = DirAlias | Dir
       Suites        = atom() | [atom()] | all
+      Suite         = atom()
+      Groups        = atom() | [atom()] | all
+      Group         = atom()
       Cases         = atom() | [atom()] | all
       Comment       = string() | ""
     </pre>
