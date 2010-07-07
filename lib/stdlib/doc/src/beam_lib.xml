@@ -341,6 +341,7 @@ chunkref() = chunkname() | chunkid()</code>
         <v>Beam1 = Beam2 = beam()</v>
         <v>Reason = {modules_different, Module1, Module2}</v>
         <v>&nbsp;&nbsp;| {chunks_different, ChunkId}</v>
+        <v>&nbsp;&nbsp;| different_chunks</v>
         <v>&nbsp;&nbsp;| Reason1 -- see info/1</v>
         <v>&nbsp;Module1 = Module2 = atom()</v>
         <v>&nbsp;ChunkId = chunkid()</v>
