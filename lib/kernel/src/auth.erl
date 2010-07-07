@@ -50,6 +50,8 @@
 %% Exported functions
 %%----------------------------------------------------------------------
 
+-spec start_link() -> {'ok',pid()} | {'error', term()} | 'ignore'.
+
 start_link() ->
     gen_server:start_link({local, auth}, auth, [], []).
 
@@ -134,7 +136,9 @@ init([]) ->
 %% The net kernel will let all message to the auth server 
 %% through as is
 
--type calls() :: 'echo' | 'sync_cookie' | {'set_cookie', node(), term()}.
+-type calls() :: 'echo' | 'sync_cookie'
+               | {'get_cookie', node()}
+               | {'set_cookie', node(), term()}.
 
 -spec handle_call(calls(), {pid(), term()}, state()) ->
         {'reply', 'hello' | 'true' | 'nocookie' | cookie(), state()}.
