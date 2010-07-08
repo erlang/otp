@@ -22,7 +22,7 @@
 %common.refs;
 
 <!ELEMENT erlref              (header,module,modulesummary,description, 
-			       (section|funcs)*,authors?) >
+			       (section|funcs|datatypes)*,authors?) >
 <!ELEMENT module              (#PCDATA) >
 <!ELEMENT modulesummary       (#PCDATA) >
 

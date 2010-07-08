@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--      
+<!--
      #
      # %CopyrightBegin%
      #
@@ -17,7 +17,7 @@
      # under the License.
      #
      # %CopyrightEnd%
-     
+
      -->
 <xsl:stylesheet version="1.0"
   xmlns:xsl="http://www.w3.org/1999/XSL/Transform"
@@ -27,16 +27,310 @@
 
   <xsl:include href="db_pdf_params.xsl"/>
 
+  <!-- Start of Dialyzer type/spec tags.
+       See also the template matching "name" and the template "bookmarks6"
+  -->
+
+  <xsl:param name="specs_file" select="''"/>
+  <xsl:variable name="i" select="document($specs_file)"></xsl:variable>
+
+  <xsl:template name="err">
+    <xsl:param name="m"/>
+    <xsl:param name="n"/>
+    <xsl:param name="a"/>
+    <xsl:param name="s"/>
+    <xsl:message terminate="yes">
+  Error <xsl:if test="$m != ''"><xsl:value-of select ="$m"/>:</xsl:if>
+	 <xsl:value-of
+		   select="$n"/>/<xsl:value-of
+		   select="$a"/>: <xsl:value-of select="$s"/>
+    </xsl:message>
+  </xsl:template>
+
+  <xsl:template name="spec_name">
+    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+    <xsl:variable name="mod" select="@mod"/>
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="arity" select="@arity"/>
+    <xsl:variable name="clause" select="@clause"/>
+    <xsl:variable name="spec0" select=
+        "$i/specs/module[@name=$curModule]/spec
+             [name=$name and arity=$arity
+              and (string-length($mod) = 0 or module = $mod)]"/>
+    <xsl:variable name="spec" select="$spec0[string-length($clause) = 0
+                                             or position() = $clause]"/>
+    <xsl:if test="count($spec) = 0">
+      <xsl:call-template name="err">
+	<xsl:with-param name="m" select="$mod"/>
+	<xsl:with-param name="n" select="$name"/>
+	<xsl:with-param name="a" select="$arity"/>
+	<xsl:with-param name="s">unknown spec</xsl:with-param>
+      </xsl:call-template>
+    </xsl:if>
+
+    <xsl:choose>
+      <xsl:when test="ancestor::cref">
+	<xsl:message terminate="yes">
+          Error: did not expect a 'name' tag with name/arity attributes here!
+	</xsl:message>
+      </xsl:when>
+      <xsl:when test="ancestor::erlref">
+        <fo:block id="{generate-id()}">
+	  <xsl:choose>
+            <xsl:when test="string(@with_guards) = 'no'">
+               <xsl:apply-templates select="$spec/contract/clause/head"/>
+            </xsl:when>
+            <xsl:otherwise>
+	      <xsl:call-template name="contract">
+		<xsl:with-param name="contract" select="$spec/contract"/>
+	      </xsl:call-template>
+            </xsl:otherwise>
+          </xsl:choose>
+        </fo:block>
+      </xsl:when>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template name="contract">
+    <xsl:param name="contract"/>
+    <xsl:call-template name="clause">
+      <xsl:with-param name="clause" select="$contract/clause"/>
+    </xsl:call-template>
+  </xsl:template>
+
+  <xsl:template name="clause">
+    <xsl:param name="clause"/>
+    <xsl:variable name="type_desc" select="../type_desc"/>
+    <xsl:for-each select="$clause">
+      <xsl:apply-templates select="head"/>
+      <xsl:if test="count(guard) > 0">
+	<xsl:call-template name="guard">
+	  <xsl:with-param name="guard" select="guard"/>
+	  <xsl:with-param name="type_desc" select="$type_desc"/>
+	</xsl:call-template>
+      </xsl:if>
+    </xsl:for-each>
+  </xsl:template>
+
+  <xsl:template match="head">
+    <fo:block xsl:use-attribute-sets="function-name">
+      <xsl:apply-templates/>
+    </fo:block>
+  </xsl:template>
+
+  <xsl:template name="guard">
+    <fo:block>
+      <xsl:text>Types:</xsl:text>
+    </fo:block>
+    <fo:list-block xsl:use-attribute-sets="type-listblock">
+      <xsl:call-template name="subtype">
+	<xsl:with-param name="subtype" select="$guard/subtype"/>
+	<xsl:with-param name="type_desc" select="$type_desc"/>
+      </xsl:call-template>
+    </fo:list-block>
+  </xsl:template>
+
+  <xsl:template name="subtype">
+    <xsl:param name="subtype"/>
+    <xsl:param name="type_desc"/>
+    <xsl:for-each select="$subtype">
+      <xsl:variable name="tname" select="typename"/>
+      <xsl:variable name="tdesc" select="$type_desc[@name = $tname]"/>
+      <fo:list-item xsl:use-attribute-sets="type-listitem">
+	<fo:list-item-label end-indent="label-end()">
+	  <fo:block>
+	  </fo:block>
+	</fo:list-item-label>
+	<fo:list-item-body start-indent="body-start()" format="justify">
+	  <fo:block font-weight="bold">
+            <xsl:apply-templates select="string"/>
+	  </fo:block>
+	</fo:list-item-body>
+      </fo:list-item>
+      <xsl:apply-templates select="$type_desc[@name = $tname]"/>
+    </xsl:for-each>
+  </xsl:template>
+
+  <!-- Note: <type_desc> has not been implemented for data types. -->
+
+  <!-- Similar to <d> -->
+  <xsl:template match="type_desc">
+    <fo:list-item xsl:use-attribute-sets="type-listitem">
+      <fo:list-item-label end-indent="label-end()"><fo:block></fo:block>
+      </fo:list-item-label>
+      <fo:list-item-body start-indent="body-start()" format="justify">
+        <fo:block>
+          <xsl:apply-templates/>
+        </fo:block>
+      </fo:list-item-body>
+    </fo:list-item>
+  </xsl:template>
+
+  <!-- Datatypes -->
+  <xsl:template match="datatypes">
+    <fo:block  xsl:use-attribute-sets="h3">
+      <xsl:text>Data Types</xsl:text>
+    </fo:block>
+    <xsl:apply-templates/>
+  </xsl:template>
+
+  <!-- Datatype -->
+  <xsl:template match="datatype">
+    <fo:block xsl:use-attribute-sets="function-name">
+      <xsl:apply-templates select="name"/>
+    </fo:block>
+    <xsl:apply-templates select="desc"/>
+  </xsl:template>
+
+  <!-- Like <head>... -->
+  <xsl:template match="typehead">
+    <fo:block xsl:use-attribute-sets="function-name">
+      <xsl:apply-templates/>
+    </fo:block>
+  </xsl:template>
+
+  <!-- Like <guard>, except "Types:"... -->
+  <xsl:template match="local_defs">
+    <fo:list-block xsl:use-attribute-sets="type-listblock">
+      <xsl:apply-templates/>
+    </fo:list-block>
+  </xsl:template>
+
+  <!-- Like <subtype>... -->
+  <xsl:template match="local_def">
+    <fo:list-item xsl:use-attribute-sets="type-listitem">
+      <fo:list-item-label end-indent="label-end()">
+        <fo:block>
+        </fo:block>
+      </fo:list-item-label>
+      <fo:list-item-body start-indent="body-start()" format="justify">
+        <fo:block font-weight="bold">
+          <xsl:apply-templates/>
+        </fo:block>
+      </fo:list-item-body>
+    </fo:list-item>
+  </xsl:template>
+
+  <xsl:template name="type_name">
+    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+    <xsl:variable name="mod" select="@mod"/>
+    <xsl:variable name="name" select="@name"/>
+    <xsl:variable name="n_vars">
+      <xsl:choose>
+	<xsl:when test="string-length(@n_vars) > 0">
+	  <xsl:value-of select="@n_vars"/>
+	</xsl:when>
+	<xsl:otherwise>
+          <xsl:value-of select="0"/>
+	</xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+
+    <xsl:choose>
+      <xsl:when test="string-length($name) > 0">
+	<xsl:variable name="type" select=
+	    "$i/specs/module[@name=$curModule]/type
+		 [name=$name and n_vars=$n_vars
+		  and (string-length($mod) = 0 or module = $mod)]"/>
+
+	<xsl:if test="count($type) != 1">
+	  <xsl:call-template name="err">
+	    <xsl:with-param name="m" select="$mod"/>
+	    <xsl:with-param name="n" select="$name"/>
+	    <xsl:with-param name="a" select="$n_vars"/>
+	    <xsl:with-param name="s">unknown type</xsl:with-param>
+	  </xsl:call-template>
+	</xsl:if>
+	<xsl:apply-templates select="$type/typedecl"/>
+      </xsl:when>
+      <xsl:otherwise>
+	<fo:inline font-weight="bold" xsl:use-attribute-sets="type-listitem">
+	<xsl:value-of select="."/>
+	</fo:inline>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <!-- Used both in <datatype> and in <func>! -->
+  <xsl:template match="anno">
+    <xsl:variable name="curModule" select="ancestor::erlref/module"/>
+    <xsl:variable name="anno" select="normalize-space(text())"/>
+    <xsl:variable name="namespec"
+                  select="ancestor::desc/preceding-sibling::name"/>
+    <xsl:if test="count($namespec) = 0 and string-length($specs_file) > 0">
+      <xsl:call-template name="err">
+	<xsl:with-param name="s">cannot find 'name' (<xsl:value-of select="$anno"/>)
+	</xsl:with-param>
+      </xsl:call-template>
+    </xsl:if>
+
+    <xsl:variable name="mod" select="$namespec/@mod"/>
+    <xsl:variable name="name" select="$namespec/@name"/>
+    <xsl:variable name="arity" select="$namespec/@arity"/>
+    <xsl:variable name="clause" select="$namespec/@clause"/>
+    <xsl:variable name="tmp_n_vars" select="$namespec/@n_vars"/>
+    <xsl:variable name="n_vars">
+      <xsl:choose>
+	<xsl:when test="string-length($tmp_n_vars) > 0">
+	  <xsl:value-of select="$tmp_n_vars"/>
+	</xsl:when>
+	<xsl:otherwise>
+          <xsl:value-of select="0"/>
+	</xsl:otherwise>
+      </xsl:choose>
+    </xsl:variable>
+    <xsl:variable name="spec0" select=
+        "$i/specs/module[@name=$curModule]/spec
+             [name=$name and arity=$arity
+              and (string-length($mod) = 0 or module = $mod)]"/>
+    <xsl:variable name="spec_annos" select=
+         "$spec0[string-length($clause) = 0
+                 or position() = $clause]/anno[.=$anno]"/>
+    <xsl:variable name="type_annos" select=
+        "$i/specs/module[@name=$curModule]/type
+             [name=$name and n_vars=$n_vars
+              and (string-length($mod) = 0 or module = $mod)]/anno[.=$anno]"/>
+
+    <xsl:if test="count($spec_annos) = 0
+                  and count($type_annos) = 0
+	          and string-length($specs_file) > 0">
+      <xsl:variable name="n">
+        <xsl:choose>
+          <xsl:when test="string-length($arity) = 0">
+            <xsl:value-of select="$n_vars"/>
+          </xsl:when>
+          <xsl:otherwise>
+            <xsl:value-of select="$arity"/>
+          </xsl:otherwise>
+        </xsl:choose>
+      </xsl:variable>
+      <xsl:call-template name="err">
+	<xsl:with-param name="m" select="$mod"/>
+	<xsl:with-param name="n" select="$name"/>
+	<xsl:with-param name="a" select="$n"/>
+	<xsl:with-param name="s">unknown annotation <xsl:value-of select="$anno"/>
+	</xsl:with-param>
+      </xsl:call-template>
+    </xsl:if>
+    <xsl:value-of select="$anno"/>
+  </xsl:template>
+
+  <!-- Used for indentation of formatted types and specs -->
+  <xsl:template match="nbsp">
+    <xsl:text>&#160;</xsl:text>
+  </xsl:template>
+
+  <!-- End of Dialyzer type/spec tags -->
 
   <xsl:template match="/">
     <xsl:apply-templates select="book"/>
   </xsl:template>
 
-  
+
   <xsl:template match="book">
     <fo:root xmlns:fo="http://www.w3.org/1999/XSL/Format">
 
-      <!-- Master pages -->          
+      <!-- Master pages -->
       <fo:layout-master-set>
         <fo:simple-page-master
             master-name="cover"
@@ -47,7 +341,7 @@
           <xsl:attribute name="page-width">
             <xsl:value-of select="$page-width"/>
           </xsl:attribute>
-          <fo:region-body 
+          <fo:region-body
               margin="0mm"/>
         </fo:simple-page-master>
 
@@ -63,7 +357,7 @@
           <xsl:attribute name="page-width">
             <xsl:value-of select="$page-width"/>
           </xsl:attribute>
-          <fo:region-body 
+          <fo:region-body
               margin-top="15mm"
               margin-bottom="20mm"/>
           <fo:region-before
@@ -100,10 +394,10 @@
 
         <fo:page-sequence-master master-name="document">
           <fo:repeatable-page-master-alternatives>
-            <fo:conditional-page-master-reference 
+            <fo:conditional-page-master-reference
                 master-reference="left-page"
                 odd-or-even="even"/>
-            <fo:conditional-page-master-reference 
+            <fo:conditional-page-master-reference
                 master-reference="right-page"
                 odd-or-even="odd"/>
           </fo:repeatable-page-master-alternatives>
@@ -166,7 +460,7 @@
 
         <fo:flow flow-name="xsl-region-body">
           <fo:block>
-            
+
           </fo:block>
           <xsl:apply-templates select="parts"/>
 
@@ -189,7 +483,7 @@
 
   <!-- Cover page -->
   <xsl:template match="header/title">
-    <fo:page-sequence 
+    <fo:page-sequence
         font-family="sans-serif"
         force-page-count="even"
         master-reference="cover">
@@ -242,7 +536,7 @@
   the License for the specific language governing rights and limitations
   under the License.
 
-  The Initial Developer of the Original Code is 
+  The Initial Developer of the Original Code is
 -->
           <xsl:value-of select="$companyname"/>.
         </fo:block>
@@ -281,22 +575,22 @@
   <xsl:template name="bookmarks1">
     <xsl:param name="entries"/>
     <xsl:if test="$entries != ''">
-      
+
       <fo:bookmark internal-destination="{generate-id(/book/parts/part)}"
         starting-state="hide">
         <fo:bookmark-title>User's Guide</fo:bookmark-title>
-        
+
         <xsl:for-each select="$entries">
           <xsl:call-template name="bookmarks2">
             <xsl:with-param name="entries"
               select="chapter[header/title]"/>
           </xsl:call-template>
         </xsl:for-each>
-        
+
       </fo:bookmark>
     </xsl:if>
   </xsl:template>
-  
+
   <xsl:template name="bookmarks2">
     <xsl:param name="entries"/>
     <xsl:for-each select="$entries">
@@ -341,7 +635,7 @@
         starting-state="hide">
         <fo:bookmark-title>Reference Manual</fo:bookmark-title>
         <xsl:for-each select="$entries">
-          
+
           <xsl:call-template name="bookmarks5">
             <xsl:with-param name="entries"
               select="erlref[module]|comref[com]|cref[lib]|fileref[file]|appref[app]"/>
@@ -387,7 +681,7 @@
           <fo:bookmark internal-destination="{generate-id(nametext)}" starting-state="hide">
             <xsl:variable name="fname">
               <xsl:value-of select="substring-before(nametext, '(')"/>
-            </xsl:variable> 
+            </xsl:variable>
             <fo:bookmark-title>
               <xsl:choose>
                 <xsl:when test="string-length($fname) > 0">
@@ -396,7 +690,7 @@
                 <xsl:otherwise>
                   <xsl:value-of select="nametext"/>()
                 </xsl:otherwise>
-              </xsl:choose>                 
+              </xsl:choose>
             </fo:bookmark-title>
           </fo:bookmark>
         </xsl:when>
@@ -404,45 +698,61 @@
           <fo:bookmark internal-destination="{generate-id(.)}" starting-state="hide">
             <xsl:variable name="tmpstring">
               <xsl:value-of select="substring-before(substring-after(., '('), '->')"/>
-            </xsl:variable>     
+            </xsl:variable>
 
             <xsl:variable name="ustring">
               <xsl:choose>
                 <xsl:when test="string-length($tmpstring) > 0">
                   <xsl:call-template name="remove-paren">
                     <xsl:with-param name="string" select="$tmpstring"/>
-                  </xsl:call-template>            
+                  </xsl:call-template>
                 </xsl:when>
                 <xsl:otherwise>
                   <xsl:call-template name="remove-paren">
                     <xsl:with-param name="string" select="substring-after(., '(')"/>
-                  </xsl:call-template>                      
+                  </xsl:call-template>
                 </xsl:otherwise>
               </xsl:choose>
-            </xsl:variable>      
+            </xsl:variable>
 
             <xsl:variable name="arity">
-              <xsl:call-template name="calc-arity">
-                <xsl:with-param name="string" select="substring-before($ustring, ')')"/>
-                <xsl:with-param name="no-of-pars" select="0"/> 
-              </xsl:call-template>
-            </xsl:variable> 
-
-            <xsl:variable name="fname">
-              <xsl:variable name="fname1">
-                <xsl:value-of select="substring-before(., '(')"/>
-              </xsl:variable>
-              <xsl:variable name="fname2">
-                <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
-              </xsl:variable>
-              <xsl:choose>
-                <xsl:when test="string-length($fname2) > 0">   
-                  <xsl:value-of select="$fname2"/>
-                </xsl:when>
+	      <xsl:choose>
+		<xsl:when test="string-length(@arity) > 0">
+		  <!-- Dialyzer spec -->
+		  <xsl:value-of select="@arity"/>
+		</xsl:when>
                 <xsl:otherwise>
-                  <xsl:value-of select="$fname1"/>
+                  <xsl:call-template name="calc-arity">
+                    <xsl:with-param name="string" select="substring-before($ustring, ')')"/>
+                    <xsl:with-param name="no-of-pars" select="0"/>
+                  </xsl:call-template>
                 </xsl:otherwise>
               </xsl:choose>
+            </xsl:variable>
+
+            <xsl:variable name="fname">
+	      <xsl:choose>
+		<xsl:when test="string-length(@name) > 0">
+		  <!-- Dialyzer spec -->
+		  <xsl:value-of select="@name"/>
+		</xsl:when>
+		<xsl:otherwise>
+		  <xsl:variable name="fname1">
+		    <xsl:value-of select="substring-before(., '(')"/>
+		  </xsl:variable>
+		  <xsl:variable name="fname2">
+		    <xsl:value-of select="substring-after($fname1, 'erlang:')"/>
+		  </xsl:variable>
+		  <xsl:choose>
+		    <xsl:when test="string-length($fname2) > 0">
+		      <xsl:value-of select="$fname2"/>
+		    </xsl:when>
+		    <xsl:otherwise>
+		      <xsl:value-of select="$fname1"/>
+		    </xsl:otherwise>
+		  </xsl:choose>
+		</xsl:otherwise>
+	      </xsl:choose>
             </xsl:variable>
 
             <fo:bookmark-title>
@@ -451,13 +761,13 @@
           </fo:bookmark>
         </xsl:when>
       </xsl:choose>
-      
+
     </xsl:for-each>
   </xsl:template>
 
 
   <!-- UG part -->
-  
+
   <!-- Parts -->
   <xsl:template match="parts">
     <xsl:apply-templates select="part"/>
@@ -491,7 +801,7 @@
         <xsl:value-of select="$partnum"/>.<xsl:number/>&#160;&#160;<xsl:value-of select="header/title"/>
       </fo:marker>
       <xsl:value-of select="$partnum"/>.<xsl:number/>&#160;&#160;<xsl:value-of select="header/title"/>
-      
+
     </fo:block>
 
     <xsl:apply-templates select="section|quote|warning|note|br|image|marker|table|p|pre|code|list|taglist|codeinclude|erleval">
@@ -567,7 +877,7 @@
  </xsl:template>
 
   <!-- Lists -->
-  
+
   <xsl:template match="list">
     <xsl:param name="partnum"/>
     <fo:list-block xsl:use-attribute-sets="listblock">
@@ -692,7 +1002,7 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="code">
-      <xsl:apply-templates select="text()"/> 
+      <xsl:apply-templates select="text()"/>
     </fo:block>
 
     <xsl:if test="@caption">
@@ -711,7 +1021,7 @@
     </xsl:variable>
 
     <fo:block xsl:use-attribute-sets="code">
-      <xsl:apply-templates/> 
+      <xsl:apply-templates/>
     </fo:block>
 
     <xsl:if test="@caption">
@@ -734,23 +1044,23 @@
     <xsl:variable name="partnum">
       <xsl:number level="any" from="book" count="part|application"/>
     </xsl:variable>
-    
-    <fo:block xsl:use-attribute-sets="h1" id="{generate-id()}">         
+
+    <fo:block xsl:use-attribute-sets="h1" id="{generate-id()}">
       <xsl:if test="/book/header/title">
         <xsl:value-of select="$partnum"/>&#160;&#160;&#160;
       <xsl:text>Reference Manual</xsl:text>
-      </xsl:if>          
+      </xsl:if>
     </fo:block>
-    
-    
+
+
     <xsl:apply-templates select="description">
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
-    
+
     <xsl:apply-templates select="erlref|comref|cref|fileref|appref">
       <xsl:with-param name="partnum" select="$partnum"/>
     </xsl:apply-templates>
-    
+
   </xsl:template>
 
   <!-- Erlref -->
@@ -763,7 +1073,7 @@
         <fo:marker marker-class-name="chapter-title">
           <xsl:value-of select="module"/>
         </fo:marker>
-        <xsl:value-of select="module"/>                  
+        <xsl:value-of select="module"/>
       </fo:block>
       <xsl:text>Erlang module</xsl:text>
     </fo:block>
@@ -784,7 +1094,7 @@
         <fo:marker marker-class-name="chapter-title">
           <xsl:value-of select="com"/>
         </fo:marker>
-        <xsl:value-of select="com"/>                  
+        <xsl:value-of select="com"/>
       </fo:block>
       <xsl:text>Command</xsl:text>
     </fo:block>
@@ -805,7 +1115,7 @@
         <fo:marker marker-class-name="chapter-title">
           <xsl:value-of select="lib"/>
         </fo:marker>
-        <xsl:value-of select="lib"/>                  
+        <xsl:value-of select="lib"/>
       </fo:block>
       <xsl:text>C Library</xsl:text>
     </fo:block>
@@ -826,7 +1136,7 @@
         <fo:marker marker-class-name="chapter-title">
           <xsl:value-of select="file"/>
         </fo:marker>
-        <xsl:value-of select="file"/>                  
+        <xsl:value-of select="file"/>
       </fo:block>
       <xsl:text>Name</xsl:text>
     </fo:block>
@@ -847,7 +1157,7 @@
         <fo:marker marker-class-name="chapter-title">
           <xsl:value-of select="app"/>
         </fo:marker>
-        <xsl:value-of select="app"/>                  
+        <xsl:value-of select="app"/>
       </fo:block>
       <xsl:text>Application</xsl:text>
     </fo:block>
@@ -900,9 +1210,7 @@
   <xsl:template match="func">
     <xsl:param name="partnum"/>
 
-    <fo:block xsl:use-attribute-sets="function-name">
-      <xsl:apply-templates select="name"/>
-    </fo:block>
+    <xsl:apply-templates select="name"/>
 
     <xsl:apply-templates select="fsummary|type|desc">
       <xsl:with-param name="partnum" select="$partnum"/>
@@ -914,15 +1222,35 @@
   <xsl:template match="name">
     <xsl:param name="partnum"/>
     <xsl:choose>
+      <!-- @arity is mandatory when referring to a specification -->
+      <xsl:when test="string-length(@arity) > 0">
+        <xsl:call-template name="spec_name"/>
+      </xsl:when>
+      <xsl:when test="ancestor::datatype">
+        <xsl:call-template name="type_name"/>
+      </xsl:when>
+      <xsl:otherwise>
+        <fo:block xsl:use-attribute-sets="function-name">
+          <xsl:call-template name="name">
+            <xsl:with-param name="partnum" select="$partnum"/>
+          </xsl:call-template>
+        </fo:block>
+      </xsl:otherwise>
+    </xsl:choose>
+  </xsl:template>
+
+  <xsl:template name="name">
+    <xsl:param name="partnum"/>
+    <xsl:choose>
       <xsl:when test="ancestor::cref">
         <fo:block id="{generate-id(nametext)}">
-          <xsl:value-of select="ret"/><xsl:text> </xsl:text><xsl:value-of select="nametext"/>        
-        </fo:block>   
+          <xsl:value-of select="ret"/><xsl:text> </xsl:text><xsl:value-of select="nametext"/>
+        </fo:block>
       </xsl:when>
       <xsl:otherwise>
         <fo:block id="{generate-id(.)}">
-          <xsl:value-of select="."/>                  
-        </fo:block>   
+          <xsl:value-of select="."/>
+        </fo:block>
       </xsl:otherwise>
     </xsl:choose>
   </xsl:template>
@@ -931,9 +1259,9 @@
   <!-- Type -->
   <xsl:template match="type">
     <xsl:param name="partnum"/>
-    
+
     <fo:block>
-      <xsl:text>Types:</xsl:text>      
+      <xsl:text>Types:</xsl:text>
     </fo:block>
 
     <fo:list-block xsl:use-attribute-sets="type-listblock">
@@ -1001,9 +1329,9 @@
     <xsl:param name="chapnum"/>
     <xsl:variable name="tabnum">
       <xsl:number level="any" from="chapter" count="table"/>
-    </xsl:variable>   
+    </xsl:variable>
     <fo:table xsl:use-attribute-sets="table">
-    <fo:table-body>      
+    <fo:table-body>
       <xsl:apply-templates select="row">
         <xsl:with-param name="chapnum" select="$chapnum"/>
         <xsl:with-param name="tabnum" select="$tabnum"/>
@@ -1107,7 +1435,7 @@
   <xsl:template name="calc-arity">
     <xsl:param name="string"/>
     <xsl:param name="no-of-pars"/>
-   
+
     <xsl:variable name="length">
       <xsl:value-of select="string-length($string)"/>
     </xsl:variable>
@@ -1116,8 +1444,8 @@
       <xsl:when test="$length > 0">
         <xsl:call-template name="calc-arity">
           <xsl:with-param name="string" select="substring-after($string, ',')"/>
-          <xsl:with-param name="no-of-pars" select="$no-of-pars+1"/> 
-        </xsl:call-template>        
+          <xsl:with-param name="no-of-pars" select="$no-of-pars+1"/>
+        </xsl:call-template>
       </xsl:when>
       <xsl:otherwise>
         <xsl:value-of select="$no-of-pars"/>
@@ -1131,9 +1459,9 @@
     <xsl:variable name="str1">
       <xsl:call-template name="remove-paren-1">
         <xsl:with-param name="string" select="$string"/>
-        <xsl:with-param name="start">(</xsl:with-param> 
-        <xsl:with-param name="end">)</xsl:with-param> 
-      </xsl:call-template>    
+        <xsl:with-param name="start">(</xsl:with-param>
+        <xsl:with-param name="end">)</xsl:with-param>
+      </xsl:call-template>
     </xsl:variable>
 
     <xsl:variable name="str2">
@@ -1141,7 +1469,7 @@
         <xsl:with-param name="string" select="$str1"/>
         <xsl:with-param name="start">{</xsl:with-param>
         <xsl:with-param name="end">}</xsl:with-param>
-      </xsl:call-template>    
+      </xsl:call-template>
     </xsl:variable>
 
     <xsl:variable name="str3">
@@ -1149,7 +1477,7 @@
         <xsl:with-param name="string" select="$str2"/>
         <xsl:with-param name="start">[</xsl:with-param>
         <xsl:with-param name="end">]</xsl:with-param>
-      </xsl:call-template>    
+      </xsl:call-template>
     </xsl:variable>
 
     <xsl:value-of select="$str3"/>
@@ -1161,7 +1489,7 @@
     <xsl:param name="string"/>
     <xsl:param name="start"/>
     <xsl:param name="end"/>
-   
+
     <xsl:variable name="tmp1">
       <xsl:value-of select="substring-before($string, $start)"/>
     </xsl:variable>
@@ -1174,7 +1502,7 @@
         <xsl:variable name="retstring">
           <xsl:call-template name="remove-paren">
             <xsl:with-param name="string" select="$tmp2"/>
-          </xsl:call-template>        
+          </xsl:call-template>
         </xsl:variable>
         <xsl:value-of select="concat(concat($tmp1, 'x'), $retstring)"/>
       </xsl:when>
