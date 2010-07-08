@@ -222,14 +222,16 @@ send_integers(P) ->
     ?line send_term_as_binary(P,256),		% INTEGER_EXT smallest pos (*)
     ?line send_term_as_binary(P,-1),		% INTEGER_EXT largest  neg 
 
-    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT largest (28 bits)
-    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT smallest 
-    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT smallest pos(*)
-    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT largest neg (*)
+    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT old largest (28 bits)
+    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT old smallest
+    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT old smallest pos(*)
+    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT old largest neg (*)
 
-    ?line send_term_as_binary(P, 16#7fffffff),	% SMALL_BIG_EXT largest  i32
-    ?line send_term_as_binary(P,-16#80000000),	% SMALL_BIG_EXT smallest i32
-
+    ?line send_term_as_binary(P, 16#7fffffff),	% INTEGER_EXT new largest (32 bits)
+    ?line send_term_as_binary(P,-16#80000000),	% INTEGER_EXT new smallest (32 bis)
+    ?line send_term_as_binary(P, 16#80000000),  % SMALL_BIG_EXT new smallest pos(*)
+    ?line send_term_as_binary(P,-16#80000001),	% SMALL_BIG_EXT new largest neg (*)
+ 
     case erlang:system_info(wordsize) of
 	4 ->	 
           ?line send_term_as_binary(P, 16#80000000),% SMALL_BIG_EXT u32
@@ -266,15 +268,17 @@ send_integers2(P) ->
     ?line send_term_as_binary(P,255),		% SMALL_INTEGER_EXT largest
     ?line send_term_as_binary(P,256),		% INTEGER_EXT smallest pos (*)
     ?line send_term_as_binary(P,-1),		% INTEGER_EXT largest  neg 
+    
+    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT old largest (28 bits)
+    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT old smallest 
+    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT old smallest pos(*)
+    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT old largest neg (*)
 
-    ?line send_term_as_binary(P, 16#07ffffff),	% INTEGER_EXT largest (28 bits)
-    ?line send_term_as_binary(P,-16#08000000),	% INTEGER_EXT smallest 
-    ?line send_term_as_binary(P, 16#08000000),  % SMALL_BIG_EXT smallest pos(*)
-    ?line send_term_as_binary(P,-16#08000001),	% SMALL_BIG_EXT largest neg (*)
+    ?line send_term_as_binary(P, 16#7fffffff),	% INTEGER_EXT new largest (32 bits)
+    ?line send_term_as_binary(P,-16#80000000),	% INTEGER_EXT new smallest
+    ?line send_term_as_binary(P, 16#80000000),  % SMALL_BIG_EXT new smallest pos(*)
+    ?line send_term_as_binary(P,-16#80000001),	% SMALL_BIG_EXT new largest neg (*)
 
-    ?line send_term_as_binary(P, 16#7fffffff),	% SMALL_BIG_EXT largest  i32
-    ?line send_term_as_binary(P,-16#80000000),	% SMALL_BIG_EXT smallest i32
-    ?line send_term_as_binary(P, 16#80000000),% SMALL_BIG_EXT u32
     ?line send_term_as_binary(P, 16#ffffffff),% SMALL_BIG_EXT largest u32
 
     ?line send_term_as_binary(P, 16#7fffffffffff), % largest  i48

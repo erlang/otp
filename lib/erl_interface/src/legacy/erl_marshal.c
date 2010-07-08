@@ -26,6 +26,7 @@
 #include <ctype.h>
 #include <sys/types.h>
 #include <string.h>
+#include <limits.h>
 
 #include "erl_interface.h"
 #include "erl_marshal.h"
@@ -178,26 +179,14 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	return 0;
 
     case ERL_INTEGER:
-	i = ep->uval.ival.i;
-	/* ERL_SMALL_BIG */
-	if ((i > ERL_MAX) || (i < ERL_MIN)) { 
-	    *(*ext)++ = ERL_SMALL_BIG_EXT;
-	    *(*ext)++ = 4;		/* four bytes */
-	    if ((*(*ext)++ = ((i>>31) & 0x01))) /* sign byte  */ 
-	      i = -i;
-	    *(*ext)++ = i  & 0xff;	/* LSB first  */
-	    *(*ext)++ = (i >> 8) & 0xff;
-	    *(*ext)++ = (i >> 16) & 0xff;
-	    *(*ext)++ = (i >> 24) & 0x7f; /* Don't include the sign bit */
-	    return 0;
-	} 
+	i = ep->uval.ival.i;	
 	/* SMALL_INTEGER */
 	if ((i < 256) && (i >= 0)) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = i & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (i >> 24) & 0xff;
 	*(*ext)++ = (i >> 16) & 0xff;
@@ -208,23 +197,23 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_U_INTEGER:
 	u = ep->uval.uival.u;
 	/* ERL_U_SMALL_BIG */
-	if (u > ERL_MAX) {
-	*(*ext)++ = ERL_SMALL_BIG_EXT;
-	*(*ext)++ = 4;		/* four bytes */
-	*(*ext)++ = 0;		/* sign byte  */ 
-	*(*ext)++ = u  & 0xff;	/* LSB first  */
-	*(*ext)++ = (u >> 8) & 0xff;
-	*(*ext)++ = (u >> 16) & 0xff;
-	*(*ext)++ = (u >> 24) & 0xff; 
-	return 0;
+	if ((int)u < 0) {
+	    *(*ext)++ = ERL_SMALL_BIG_EXT;
+	    *(*ext)++ = 4;		/* four bytes */
+	    *(*ext)++ = 0;		/* sign byte  */ 
+	    *(*ext)++ = u  & 0xff;	/* LSB first  */
+	    *(*ext)++ = (u >> 8) & 0xff;
+	    *(*ext)++ = (u >> 16) & 0xff;
+	    *(*ext)++ = (u >> 24) & 0xff; 
+	    return 0;
 	}
 	/* SMALL_INTEGER */
-	if ((u < 256) && (u >= 0)) {
+	if (u < 256) {
 	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
 	    *(*ext)++ = u & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (u >> 24) & 0xff;
 	*(*ext)++ = (u >> 16) & 0xff;
@@ -234,29 +223,28 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_LONGLONG:
 	l = ep->uval.llval.i;
 	/* ERL_SMALL_BIG */
-	if ((l > ((long long) ERL_MAX)) ||
-	    (l < ((long long) ERL_MIN))) { 
-	    *(*ext)++ = ERL_SMALL_BIG_EXT; 
-	    *(*ext)++ = 8;              /* eight bytes */ 
-	    if ((*(*ext)++ = ((l>>63) & 0x01))) /* sign byte  */ 
+	if (l > ((long long) INT_MAX) || l < ((long long) INT_MIN)) {
+	    *(*ext)++ = ERL_SMALL_BIG_EXT;
+	    *(*ext)++ = 8;
+	    if ((*(*ext)++ = (l<0))) /* sign byte  */ 
 	    	l = -l;
-	    *(*ext)++ = l  & 0xff;      /* LSB first  */
+	    *(*ext)++ =  l        & 0xff; /* LSB first  */
 	    *(*ext)++ = (l >>  8) & 0xff;
 	    *(*ext)++ = (l >> 16) & 0xff;
-	    *(*ext)++ = (l >> 24) & 0xff;
-	    *(*ext)++ = (l >> 32) & 0xff;
-	    *(*ext)++ = (l >> 40) & 0xff;
-	    *(*ext)++ = (l >> 48) & 0xff;
-	    *(*ext)++ = (l >> 56) & 0x7f; /* Don't include the sign bit */
+	    *(*ext)++ = (l >> 24) & 0xff; 
+	    *(*ext)++ = (l >> 32) & 0xff; 
+	    *(*ext)++ = (l >> 40) & 0xff; 
+	    *(*ext)++ = (l >> 48) & 0xff; 
+	    *(*ext)++ = (l >> 56) & 0xff; 
 	    return 0;
 	} 
 	/* SMALL_INTEGER */
 	if ((l < 256) && (l >= 0)) {
-	*(*ext)++ = ERL_SMALL_INTEGER_EXT;
-	*(*ext)++ = l & 0xff;
-	return 0;
+	    *(*ext)++ = ERL_SMALL_INTEGER_EXT;
+	    *(*ext)++ = l & 0xff;
+	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (l >> 24) & 0xff;
 	*(*ext)++ = (l >> 16) & 0xff;
@@ -267,7 +255,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
     case ERL_U_LONGLONG:
 	ul = ep->uval.ullval.u;
 	/* ERL_U_SMALL_BIG */
-	if (ul > ((unsigned long long) ERL_MAX)) {
+	if (ul > ((unsigned long long) INT_MAX)) {
 	    *(*ext)++ = ERL_SMALL_BIG_EXT;
 	    *(*ext)++ = 8; /* eight bytes */
 	    *(*ext)++ = 0; /* sign byte  */ 
@@ -287,7 +275,7 @@ int erl_encode_it(ETERM *ep, unsigned char **ext, int dist)
 	    *(*ext)++ = ul & 0xff;
 	    return 0;
 	}
-	/* INTEGER */
+	/* R14B: Use all 32 bits of INTEGER_EXT */
 	*(*ext)++ = ERL_INTEGER_EXT;
 	*(*ext)++ = (ul >> 24) & 0xff;
 	*(*ext)++ = (ul >> 16) & 0xff;
@@ -732,11 +720,6 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	if (arity > 8)             
 	    goto big_truncate;
 
-	if (arity == 8 && ((*ext)[7] & 0x80) && sign) {
-	    /* MSB already occupied ! */
-	    goto big_truncate;
-	}
-
 	if (arity == 4 && ((*ext)[3] & 0x80) && !sign) {
 	    /* It will fit into an unsigned int !! */
 	    u = (((*ext)[3] << 24)|((*ext)[2])<< 16|((*ext)[1]) << 8 |(**ext));
@@ -747,14 +730,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    return ep;
 	} else if (arity == 4 && !((*ext)[3] & 0x80)) {
 	    /* It will fit into an int !! 
-	     * Note: It comes in "one's-complement notation" 
 	     */
-	    if (sign)
-		i = (int) (~(((*ext)[3] << 24) | ((*ext)[2])<< 16 |
-			     ((*ext)[1]) << 8 | (**ext)) | (unsigned int) sign);
-	    else
-		i = (int) (((*ext)[3] << 24) | ((*ext)[2])<< 16 |
-			   ((*ext)[1]) << 8 | (**ext));
+	    i = (int) (((*ext)[3] << 24) | ((*ext)[2])<< 16 |
+		       ((*ext)[1]) << 8 | (**ext));
+	    if (sign) i = -i;
 	    ERL_TYPE(ep) = ERL_INTEGER;
 	    ep->uval.ival.i = i;
 	    *ext += arity;
@@ -780,8 +759,10 @@ static ETERM *erl_decode_it(unsigned char **ext)
 	    for(x = 0 ; x < arity ; x++) {
 		l |= ((long long)(*ext)[x]) << ((long long)(8*x));
 	    }
-
-	    if (sign) l = (long long) (~l | (unsigned long long) sign);
+	    if (sign) {
+		l = -l;
+		if (l > 0) goto big_truncate;
+	    }
 
 	    ERL_TYPE(ep) = ERL_LONGLONG;
 	    ep->uval.llval.i = l;

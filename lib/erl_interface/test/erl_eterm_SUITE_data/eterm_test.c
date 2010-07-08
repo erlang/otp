@@ -63,32 +63,108 @@ TESTCASE(build_terms)
     report(1);
 }
 
+static int abs_and_sign(ETERM* v, unsigned long long* av, int* sign)
+{
+    long long sv;
+    switch (ERL_TYPE(v)) {
+    case ERL_INTEGER: sv = ERL_INT_VALUE(v); break;
+    case ERL_U_INTEGER: *av = ERL_INT_UVALUE(v); *sign = 0; return 1;
+    case ERL_LONGLONG: sv = ERL_LL_VALUE(v); break;
+    case ERL_U_LONGLONG: *av = ERL_LL_UVALUE(v); *sign = 0; return 1;
+    default: return 0;
+    }
+    if (sv < 0) {
+	*av = -sv;
+	*sign = 1;
+    }
+    else {
+	*av = sv;
+	*sign = 0;
+    }
+    return 1;
+}
+
+/* Shouldn't erl_match() cope with this?
+*/
+static int eq_ints(ETERM* a, ETERM* b)
+{
+    unsigned long long a_abs, b_abs;
+    int a_sign, b_sign;
+    return abs_and_sign(a, &a_abs, &a_sign) && abs_and_sign(b, &b_abs, &b_sign)
+           && (a_abs == b_abs) && (a_sign == b_sign);
+}
+
+static void encode_decode(ETERM* original, const char* text)
+{
+    static unsigned char encoded[16*1024];
+    ETERM* new_terms;
+    int bytes = erl_encode(original, encoded);
+
+    if (bytes == 0) {
+	fail("failed to encode terms");
+    } 
+    else if (bytes > sizeof(encoded)) {
+	fail("encoded terms buffer overflow");
+    }
+    else if ((new_terms = erl_decode(encoded)) == NULL) {
+	fail("failed to decode terms");
+    }
+    else if (!erl_match(original, new_terms) && !eq_ints(original, new_terms)) {
+	erl_print_term(stderr, original);
+	fprintf(stderr, "(%i) != (%i)", ERL_TYPE(original), ERL_TYPE(new_terms));
+	erl_print_term(stderr, new_terms);
+	fprintf(stderr, " [%s]\r\n", text);
+	fail("decoded terms didn't match original");
+    }
+    erl_free_term(original);
+    erl_free_term(new_terms);
+}
 /*
  * Converts an Erlang term to the external term format and back again.
  */
 
 TESTCASE(round_trip_conversion)
 {
-    ETERM* original;
-    ETERM* new_terms;
-    char encoded[16*1024];
-    int n;
+    int n, i;
 
     erl_init(NULL, 0);
-    original = all_types();
-    if (erl_encode(original, encoded) == 0) 
+    encode_decode(all_types(), "ALL");
+
     {
-	fail("failed to encode terms");
-    } else if ((new_terms = erl_decode(encoded)) == NULL)
+	int v;
+	for (v = 8; v; v <<= 1) {
+	    for (i=-4; i<4; i++) {
+		encode_decode(erl_mk_int(v+i), "INT");
+		encode_decode(erl_mk_int(-(v+i)), "NEG INT");
+	    }
+	}
+    }
     {
-	fail("failed to decode terms");
-    } else if (!erl_match(original, new_terms))
+	unsigned int v;
+	for (v = 8; v; v <<= 1) {
+	    for (i=-4; i<4; i++) {
+		encode_decode(erl_mk_uint(v+i), "UINT");
+	    }
+	}
+    }
     {
-	fail("decoded terms didn't match original");
+	long long v;
+	for (v = 8; v; v <<= 1) {
+	    for (i=-4; i<4; i++) {
+		encode_decode(erl_mk_longlong(v+i), "LONGLONG");
+		encode_decode(erl_mk_longlong(-(v+i)), "NEG LONGLONG");
+	    }
+	}
+    }
+    {
+	unsigned long long v;
+	for (v = 8; v; v <<= 1) {
+	    for (i=-4; i<4; i++) {
+		encode_decode(erl_mk_ulonglong(v+i), "ULONGLONG");
+	    }
+	}
     }
 
-    erl_free_term(original);
-    erl_free_term(new_terms);
     report(1);
 }
 

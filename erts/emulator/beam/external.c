@@ -65,11 +65,9 @@
 #  endif
 #endif
 
-/*
- * For backward compatibility reasons, only encode integers that
- * fit in 28 bits (signed) using INTEGER_EXT.
+/* Does Sint fit in Sint32?
  */
-#define IS_SSMALL28(x) (((Uint) (((x) >> (28-1)) + 1)) < 2)
+#define IS_SSMALL32(x) (((Uint) (((x) >> (32-1)) + 1)) < 2)
 
 /*
  *   Valid creations for nodes are 1, 2, or 3. 0 can also be sent
@@ -1571,13 +1569,15 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 
 	case SMALL_DEF:
 	    {
+		/* From R14B we no longer restrict INTEGER_EXT to 28 bits,
+		 * as done earlier for backward compatibility reasons. */
 		Sint val = signed_val(obj);
 
 		if ((Uint)val < 256) {
 		    *ep++ = SMALL_INTEGER_EXT;
 		    put_int8(val, ep);
 		    ep++;
-		} else if (sizeof(Sint) == 4 || IS_SSMALL28(val)) {
+		} else if (sizeof(Sint) == 4 || IS_SSMALL32(val)) {
 		    *ep++ = INTEGER_EXT;
 		    put_int32(val, ep);
 		    ep += 4;
@@ -1599,18 +1599,32 @@ enc_term(ErtsAtomCacheMap *acmp, Eterm obj, byte* ep, Uint32 dflags)
 	    break;
 
 	case BIG_DEF:
-	    if ((n = big_bytes(obj)) < 256) {
-		*ep++ = SMALL_BIG_EXT;
-		put_int8(n, ep);
-		ep += 1;
+	    {
+		int sign = big_sign(obj);
+		n = big_bytes(obj);
+		if (sizeof(Sint)==4 && n<=4) {
+		    Uint dig = big_digit(obj,0);		   
+		    Sint val = sign ? -dig : dig;
+		    if ((val<0) == sign) {
+			*ep++ = INTEGER_EXT;
+			put_int32(val, ep);
+			ep += 4;
+			break;
+		    }
+		}
+		if (n < 256) {
+		    *ep++ = SMALL_BIG_EXT;
+		    put_int8(n, ep);
+		    ep += 1;
+		}
+		else {
+		    *ep++ = LARGE_BIG_EXT;
+		    put_int32(n, ep);
+		    ep += 4;
+		}
+		*ep++ = sign;
+		ep = big_to_bytes(obj, ep);
 	    }
-	    else {
-		*ep++ = LARGE_BIG_EXT;
-		put_int32(n, ep);
-		ep += 4;
-	    }
-	    *ep++ = big_sign(obj);
-	    ep = big_to_bytes(obj, ep);
 	    break;
 
 	case PID_DEF:
@@ -2687,7 +2701,7 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 
 		if ((Uint)val < 256)
 		    result += 1 + 1;		/* SMALL_INTEGER_EXT */
-		else if (sizeof(Sint) == 4 || IS_SSMALL28(val))
+		else if (sizeof(Sint) == 4 || IS_SSMALL32(val))
 		    result += 1 + 4;		/* INTEGER_EXT */
 		else {
 		    DeclareTmpHeapNoproc(tmp_big,2);
@@ -2699,7 +2713,10 @@ encode_size_struct2(ErtsAtomCacheMap *acmp, Eterm obj, unsigned dflags)
 	    }
 	    break;
 	case BIG_DEF:
-	    if ((i = big_bytes(obj)) < 256)
+	    i = big_bytes(obj);
+	    if (sizeof(Sint)==4 && i <= 4 && (big_digit(obj,0)-big_sign(obj)) < (1<<31))
+		result += 1 + 4;          /* INTEGER_EXT */
+	    else if (i < 256)
 		result += 1 + 1 + 1 + i;  /* tag,size,sign,digits */
 	    else
 		result += 1 + 4 + 1 + i;  /* tag,size,sign,digits */
