@@ -409,7 +409,7 @@ erts_bld_uint64(Uint **hpp, Uint *szp, Uint64 ui64)
     }
     else {
 	if (szp)
-	    *szp = ERTS_UINT64_HEAP_SIZE(ui64);
+	    *szp += ERTS_UINT64_HEAP_SIZE(ui64);
 	if (hpp)
 	    res = erts_uint64_to_big(ui64, hpp);
     }
@@ -426,7 +426,7 @@ erts_bld_sint64(Uint **hpp, Uint *szp, Sint64 si64)
     }
     else {
 	if (szp)
-	    *szp = ERTS_SINT64_HEAP_SIZE(si64);
+	    *szp += ERTS_SINT64_HEAP_SIZE(si64);
 	if (hpp)
 	    res = erts_sint64_to_big(si64, hpp);
     }

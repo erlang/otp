@@ -76,40 +76,43 @@ basic(Config) when is_list(Config) ->
     ?line ExpectedBinTup = term(P, 7),
 
     %% single terms
-    ?line [] = term(P, 8), % ERL_DRV_NIL
-    ?line '' = term(P, 9), % ERL_DRV_ATOM
-    ?line an_atom = term(P, 10), % ERL_DRV_ATOM
-    ?line -4711 = term(P, 11), % ERL_DRV_INT
-    ?line 4711 = term(P, 12), % ERL_DRV_UINT
-    ?line P = term(P, 13), % ERL_DRV_PORT
-    ?line <<>> = term(P, 14), % ERL_DRV_BINARY
-    ?line <<"hejsan">> = term(P, 15), % ERL_DRV_BINARY
-    ?line <<>> = term(P, 16), % ERL_DRV_BUF2BINARY
-    ?line <<>> = term(P, 17), % ERL_DRV_BUF2BINARY
-    ?line <<"hoppsan">> = term(P, 18), % ERL_DRV_BUF2BINARY
-    ?line "" = term(P, 19), % ERL_DRV_STRING
-    ?line "" = term(P, 20), % ERL_DRV_STRING
-    ?line "hippsan" = term(P, 21), % ERL_DRV_STRING
-    ?line {} = term(P, 22), % ERL_DRV_TUPLE
-    ?line [] = term(P, 23), % ERL_DRV_LIST
-    ?line Self = term(P, 24), % ERL_DRV_PID
-    ?line [] = term(P, 25), % ERL_DRV_STRING_CONS
-    ?line AFloat = term(P, 26), % ERL_DRV_FLOAT
+    Singles = [{[], 8}, % ERL_DRV_NIL
+               {'', 9}, % ERL_DRV_ATOM
+               {an_atom, 10}, % ERL_DRV_ATOM
+               {-4711, 11}, % ERL_DRV_INT
+               {4711, 12}, % ERL_DRV_UINT
+               {P, 13}, % ERL_DRV_PORT
+               {<<>>, 14}, % ERL_DRV_BINARY
+               {<<"hejsan">>, 15}, % ERL_DRV_BINARY
+               {<<>>, 16}, % ERL_DRV_BUF2BINARY
+               {<<>>, 17}, % ERL_DRV_BUF2BINARY
+               {<<"hoppsan">>, 18}, % ERL_DRV_BUF2BINARY
+               {"", 19}, % ERL_DRV_STRING
+               {"", 20}, % ERL_DRV_STRING
+               {"hippsan", 21}, % ERL_DRV_STRING
+               {{}, 22}, % ERL_DRV_TUPLE
+               {[], 23}, % ERL_DRV_LIST
+               {Self, 24}, % ERL_DRV_PID
+               {[], 25}, % ERL_DRV_STRING_CONS
+               {[], 27}, % ERL_DRV_EXT2TERM
+               {18446744073709551615, 28}, % ERL_DRV_UINT64
+               {20233590931456, 29}, % ERL_DRV_UINT64
+               {4711, 30}, % ERL_DRV_UINT64
+               {0, 31}, % ERL_DRV_UINT64
+               {9223372036854775807, 32}, % ERL_DRV_INT64
+               {20233590931456, 33}, % ERL_DRV_INT64
+               {4711, 34}, % ERL_DRV_INT64
+               {0, 35}, % ERL_DRV_INT64
+               {-1, 36}, % ERL_DRV_INT64
+               {-4711, 37}, % ERL_DRV_INT64
+               {-20233590931456, 38}, % ERL_DRV_INT64
+               {-9223372036854775808, 39}], % ERL_DRV_INT64
+    ?line {Terms, Ops} = lists:unzip(Singles),
+    ?line Terms = term(P,Ops),
+
+    AFloat = term(P, 26), % ERL_DRV_FLOAT
     ?line true = AFloat < 0.001,
     ?line true = AFloat > -0.001,
-    ?line [] = term(P, 27), % ERL_DRV_EXT2TERM
-    ?line 18446744073709551615 = term(P, 28), % ERL_DRV_UINT64
-    ?line 20233590931456 = term(P, 29), % ERL_DRV_UINT64
-    ?line 4711 = term(P, 30), % ERL_DRV_UINT64
-    ?line 0 = term(P, 31), % ERL_DRV_UINT64
-    ?line 9223372036854775807 = term(P, 32), % ERL_DRV_INT64
-    ?line 20233590931456 = term(P, 33), % ERL_DRV_INT64
-    ?line 4711 = term(P, 34), % ERL_DRV_INT64
-    ?line 0 = term(P, 35), % ERL_DRV_INT64
-    ?line -1 = term(P, 36), % ERL_DRV_INT64
-    ?line -4711 = term(P, 37), % ERL_DRV_INT64
-    ?line -20233590931456 = term(P, 38), % ERL_DRV_INT64
-    ?line -9223372036854775808 = term(P, 39), % ERL_DRV_INT64
 
     %% Failure cases.
     ?line [] = term(P, 127),
