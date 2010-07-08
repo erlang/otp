@@ -195,8 +195,8 @@ sha_final(_Context) -> ?nif_stub.
 %%
 %%  MD5_MAC
 %%
--spec md5_mac(iodata(), iodata()) -> binary.
--spec md5_mac_96(iodata(), iodata()) -> binary.
+-spec md5_mac(iodata(), iodata()) -> binary().
+-spec md5_mac_96(iodata(), iodata()) -> binary().
 
 md5_mac(Key, Data) ->
     md5_mac_n(Key,Data,16).
@@ -209,8 +209,8 @@ md5_mac_n(_Key,_Data,_MacSz) -> ?nif_stub.
 %%
 %%  SHA_MAC
 %%
--spec sha_mac(iodata(), iodata()) -> binary.
--spec sha_mac_96(iodata(), iodata()) -> binary.
+-spec sha_mac(iodata(), iodata()) -> binary().
+-spec sha_mac_96(iodata(), iodata()) -> binary().
 
 sha_mac(Key, Data) ->
     sha_mac_n(Key,Data,20).
