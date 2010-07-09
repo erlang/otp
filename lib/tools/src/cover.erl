@@ -2174,6 +2174,8 @@ escape_lt_and_gt1([$<|T],Acc) ->
     escape_lt_and_gt1(T,[$;,$t,$l,$&|Acc]);
 escape_lt_and_gt1([$>|T],Acc) ->
     escape_lt_and_gt1(T,[$;,$t,$g,$&|Acc]);
+escape_lt_and_gt1([$&|T],Acc) ->
+    escape_lt_and_gt1(T,[$;,$p,$m,$a,$&|Acc]);
 escape_lt_and_gt1([],Acc) ->
     lists:reverse(Acc);
 escape_lt_and_gt1([H|T],Acc) ->
