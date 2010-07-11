@@ -304,6 +304,8 @@ do_start(Flags) ->
 			true ->
 			    ok
 		    end,
+		    % Quietly load the native code for all modules loaded so far.
+		    catch load_native_code_for_all_loaded(),
 		    Ok2;
 		Other ->
 		    Other
@@ -496,3 +498,19 @@ has_ext(Ext, Extlen,File) ->
 
 to_path(X) ->
     filename:join(packages:split(X)).
+
+-spec load_native_code_for_all_loaded() -> ok.
+load_native_code_for_all_loaded() ->
+    Architecture = erlang:system_info(hipe_architecture),
+    ChunkName = hipe_unified_loader:chunk_name(Architecture),
+    lists:foreach(fun({Module, BeamFilename}) ->
+        case code:is_module_native(Module) of
+            false ->
+                case beam_lib:chunks(BeamFilename, [ChunkName]) of
+                    {ok,{_,[{_,Bin}]}} when is_binary(Bin) ->
+                        load_native_partial(Module, Bin);
+                    {error, beam_lib, _} -> ok
+                end;
+            true -> ok
+        end
+    end, all_loaded()).

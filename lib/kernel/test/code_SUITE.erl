@@ -31,7 +31,7 @@
 	 where_is_file_cached/1, where_is_file_no_cache/1,
 	 purge_stacktrace/1, mult_lib_roots/1, bad_erl_libs/1,
 	 code_archive/1, code_archive2/1, on_load/1,
-	 on_load_embedded/1, on_load_errors/1]).
+	 on_load_embedded/1, on_load_errors/1, native_early_modules/1]).
 
 -export([init_per_testcase/2, fin_per_testcase/2, 
 	 init_per_suite/1, end_per_suite/1,
@@ -53,7 +53,7 @@ all(suite) ->
      where_is_file_no_cache, where_is_file_cached,
      purge_stacktrace, mult_lib_roots, bad_erl_libs,
      code_archive, code_archive2, on_load, on_load_embedded,
-     on_load_errors].
+     on_load_errors, native_early_modules].
 
 init_per_suite(Config) ->
     %% The compiler will no longer create a Beam file if
@@ -1331,6 +1331,34 @@ do_on_load_error(ReturnValue) ->
     receive
 	{'DOWN',Ref,process,_,Exit} ->
 	    ?line {undef,[{on_load_error,main,[]}|_]} = Exit
+    end.
+
+native_early_modules(suite) -> [];
+native_early_modules(doc) -> ["Test that the native code of early loaded modules is loaded"];
+native_early_modules(Config) when is_list(Config) ->
+    case erlang:system_info(hipe_architecture) of
+	undefined ->
+	    {skip,"Native code support is not enabled"};
+	Architecture ->
+	    native_early_modules_1(Architecture)
+    end.
+
+native_early_modules_1(Architecture) ->
+    ?line {lists, ListsBinary, _ListsFilename} = code:get_object_code(lists),
+    ?line ChunkName = hipe_unified_loader:chunk_name(Architecture),
+    ?line NativeChunk = beam_lib:chunks(ListsBinary, [ChunkName]),
+    ?line IsHipeCompiled = case NativeChunk of
+        {ok,{_,[{_,Bin}]}} when is_binary(Bin) -> true;
+        {error, beam_lib, _} -> false
+    end,
+    case IsHipeCompiled of
+        false ->
+	    {skip,"OTP apparently not configured with --enable-native-libs"};
+        true ->
+            ?line true = lists:all(fun code:is_module_native/1,
+				   [ets,file,filename,gb_sets,gb_trees,
+				    hipe_unified_loader,lists,os,packages]),
+            ok
     end.
 
 %%-----------------------------------------------------------------
