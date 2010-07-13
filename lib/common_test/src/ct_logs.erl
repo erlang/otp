@@ -384,11 +384,14 @@ maybe_log_timestamp() ->
 		  [{"<i>~s</i>",[log_timestamp({MS,S,US})]}]})
     end.
 
-log_timestamp(Now) ->
-    put(log_timestamp,Now),
-    {_,{H,M,S}} = calendar:now_to_local_time(Now),
-    lists:flatten(io_lib:format("~2.2.0w:~2.2.0w:~2.2.0w",
-				[H,M,S])).
+log_timestamp({MS,S,US}) ->
+    put(log_timestamp, {MS,S,US}),
+    {{Year,Month,Day}, {Hour,Min,Sec}} =
+        calendar:now_to_local_time({MS,S,US}),
+    MilliSec = trunc(US/1000),
+    lists:flatten(io_lib:format("~4.10.0B-~2.10.0B-~2.10.0B "
+                                "~2.10.0B:~2.10.0B:~2.10.0B.~3.10.0B",
+                                [Year,Month,Day,Hour,Min,Sec,MilliSec])).
 
 %%%-----------------------------------------------------------------
 %%% The logger server
