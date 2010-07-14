@@ -157,8 +157,20 @@ void run(EpmdVars *g)
 
   dbg_printf(g,2,"starting");
 
-  listen(listensock, SOMAXCONN);
-
+  if(listen(listensock, SOMAXCONN) < 0)
+    {
+      if (errno == EADDRINUSE)
+	{
+	  dbg_tty_printf(g,1,"there is already a epmd running at port %d",
+			 g->port);
+	  epmd_cleanup_exit(g,0);
+	}
+      else
+	{
+	  dbg_perror(g,"failed to listen on socket");
+	  epmd_cleanup_exit(g,1);
+	}
+    }
 
   FD_ZERO(&g->orig_read_mask);
   FD_SET(listensock,&g->orig_read_mask);
