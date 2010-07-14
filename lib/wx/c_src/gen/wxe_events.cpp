@@ -266,41 +266,41 @@ void initEventTable()
    {wxEVT_COMMAND_SPLITTER_DOUBLECLICKED, 217, "command_splitter_doubleclicked"},
    {wxEVT_COMMAND_SPLITTER_UNSPLIT, 217, "command_splitter_unsplit"},
    {wxEVT_COMMAND_HTML_LINK_CLICKED, 219, "command_html_link_clicked"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSE, 220, "command_auinotebook_page_close"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGED, 220, "command_auinotebook_page_changed"},
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGING, 220, "command_auinotebook_page_changing"},
-   {wxEVT_COMMAND_AUINOTEBOOK_BUTTON, 220, "command_auinotebook_button"},
-   {wxEVT_COMMAND_AUINOTEBOOK_BEGIN_DRAG, 220, "command_auinotebook_begin_drag"},
-   {wxEVT_COMMAND_AUINOTEBOOK_END_DRAG, 220, "command_auinotebook_end_drag"},
-   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_MOTION, 220, "command_auinotebook_drag_motion"},
-   {wxEVT_COMMAND_AUINOTEBOOK_ALLOW_DND, 220, "command_auinotebook_allow_dnd"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSE, 221, "command_auinotebook_page_close"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGED, 221, "command_auinotebook_page_changed"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CHANGING, 221, "command_auinotebook_page_changing"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BUTTON, 221, "command_auinotebook_button"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BEGIN_DRAG, 221, "command_auinotebook_begin_drag"},
+   {wxEVT_COMMAND_AUINOTEBOOK_END_DRAG, 221, "command_auinotebook_end_drag"},
+   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_MOTION, 221, "command_auinotebook_drag_motion"},
+   {wxEVT_COMMAND_AUINOTEBOOK_ALLOW_DND, 221, "command_auinotebook_allow_dnd"},
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_DOWN, 220, "command_auinotebook_tab_middle_down"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_DOWN, 221, "command_auinotebook_tab_middle_down"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_UP, 220, "command_auinotebook_tab_middle_up"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_MIDDLE_UP, 221, "command_auinotebook_tab_middle_up"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_DOWN, 220, "command_auinotebook_tab_right_down"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_DOWN, 221, "command_auinotebook_tab_right_down"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_UP, 220, "command_auinotebook_tab_right_up"},
+   {wxEVT_COMMAND_AUINOTEBOOK_TAB_RIGHT_UP, 221, "command_auinotebook_tab_right_up"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSED, 220, "command_auinotebook_page_closed"},
+   {wxEVT_COMMAND_AUINOTEBOOK_PAGE_CLOSED, 221, "command_auinotebook_page_closed"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_DONE, 220, "command_auinotebook_drag_done"},
+   {wxEVT_COMMAND_AUINOTEBOOK_DRAG_DONE, 221, "command_auinotebook_drag_done"},
 #endif
 #if wxCHECK_VERSION(2,8,5)
-   {wxEVT_COMMAND_AUINOTEBOOK_BG_DCLICK, 220, "command_auinotebook_bg_dclick"},
+   {wxEVT_COMMAND_AUINOTEBOOK_BG_DCLICK, 221, "command_auinotebook_bg_dclick"},
 #endif
-   {wxEVT_AUI_PANE_BUTTON, 221, "aui_pane_button"},
-   {wxEVT_AUI_PANE_CLOSE, 221, "aui_pane_close"},
-   {wxEVT_AUI_PANE_MAXIMIZE, 221, "aui_pane_maximize"},
-   {wxEVT_AUI_PANE_RESTORE, 221, "aui_pane_restore"},
-   {wxEVT_AUI_RENDER, 221, "aui_render"},
-   {wxEVT_AUI_FIND_MANAGER, 221, "aui_find_manager"},
+   {wxEVT_AUI_PANE_BUTTON, 222, "aui_pane_button"},
+   {wxEVT_AUI_PANE_CLOSE, 222, "aui_pane_close"},
+   {wxEVT_AUI_PANE_MAXIMIZE, 222, "aui_pane_maximize"},
+   {wxEVT_AUI_PANE_RESTORE, 222, "aui_pane_restore"},
+   {wxEVT_AUI_RENDER, 222, "aui_render"},
+   {wxEVT_AUI_FIND_MANAGER, 222, "aui_find_manager"},
    {-1, 0, }
   };
   for(int i=0; event_types[i].ev_type != -1; i++) {
@@ -778,7 +778,7 @@ case 219: {// wxHtmlLinkEvent
     rt.addTupleCount(3);
   break;
 }
-case 220: {// wxAuiNotebookEvent
+case 221: {// wxAuiNotebookEvent
  wxAuiNotebookEvent * ev = (wxAuiNotebookEvent *) event;
  wxAuiNotebook * GetDragSource = ev->GetDragSource();
     evClass = (char*)"wxAuiNotebookEvent";
@@ -790,7 +790,7 @@ case 220: {// wxAuiNotebookEvent
     rt.addTupleCount(5);
   break;
 }
-case 221: {// wxAuiManagerEvent
+case 222: {// wxAuiManagerEvent
  wxAuiManagerEvent * ev = (wxAuiManagerEvent *) event;
  wxAuiManager * GetManager = ev->GetManager();
  wxAuiPaneInfo * GetPane = ev->GetPane();
