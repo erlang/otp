@@ -54,7 +54,7 @@
       the operation, if the primitive does not complete within the time
       specified, the function will return an error and
       <c><![CDATA[erl_errno]]></c> will be set to <c><![CDATA[ETIMEDOUT]]></c>. With
-      communication primitive is ment an operation on the socket, like
+      communication primitive is meant an operation on the socket, like
       <c><![CDATA[connect]]></c>, <c><![CDATA[accept]]></c>, <c><![CDATA[recv]]></c> or <c><![CDATA[send]]></c>.</p>
     <p>Obviously the timeouts are for implementing fault tolerance,
       not to keep hard realtime promises. The <c><![CDATA[_tmo]]></c> functions

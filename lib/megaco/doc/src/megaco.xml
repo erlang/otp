@@ -662,7 +662,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <taglist>
               <tag><c><![CDATA[none]]></c></tag>
               <item>
-                <p>Do not segment outgoing reply messages. This is usefull when
+                <p>Do not segment outgoing reply messages. This is useful when
                   either it is known that messages are never to large or
                   that the transport protocol can handle such things
                   on its own (e.g. TCP or SCTP).</p>
@@ -1182,7 +1182,7 @@ megaco_incr_timer() = #megaco_incr_timer{}
             <taglist>
               <tag><c><![CDATA[none]]></c></tag>
               <item>
-                <p>Do not segment outgoing reply messages. This is usefull when
+                <p>Do not segment outgoing reply messages. This is useful when
                   either it is known that messages are never to large or
                   that the transport protocol can handle such things
                   on its own (e.g. TCP or SCTP).</p>

@@ -258,7 +258,7 @@ when p >= 16 </cell>
         that contains more than one SQL query. For example, the
         following SQLServer-specific statement creates a procedure that
         returns a result set containing information about employees
-        that work at the department and and a result set listing the
+        that work at the department and a result set listing the
         customers of that department. </p>
       <code type="none">
  CREATE PROCEDURE DepartmentInfo (@DepartmentID INT) AS

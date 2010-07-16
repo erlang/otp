@@ -1233,7 +1233,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
       </type>
       <desc>
         <p>Restart the worker process of a multi-threaded agent.</p>
-        <p>This is a utility function, that can be usefull when 
+        <p>This is a utility function, that can be useful when
           e.g. debugging instrumentation functions.</p>
 
         <marker id="restart_set_worker"></marker>
@@ -1249,7 +1249,7 @@ snmp_agent:register_subagent(SA1,[1,2,3], SA2).
       </type>
       <desc>
         <p>Restart the set worker process of a multi-threaded agent.</p>
-        <p>This is a utility function, that can be usefull when 
+        <p>This is a utility function, that can be useful when
           e.g. debugging instrumentation functions.</p>
 
         <marker id="verbosity"></marker>
