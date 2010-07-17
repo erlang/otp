@@ -333,6 +333,8 @@ nbif_3_gc_after_bif:
 	st	TEMP_RA, [P+P_NRA]
 	st	NSP, [P+P_NSP]
 	mov	RA, TEMP_RA
+	mov	0, %o3			/* Pass 0 in arity */
+	mov	0, %o2			/* Pass NULL in regs */
 	mov	%o0, %o1
 	call	erts_gc_after_bif_call
 	mov	P, %o0			/* delay slot */

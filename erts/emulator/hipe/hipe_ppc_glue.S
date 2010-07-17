@@ -476,6 +476,8 @@ CSYM(nbif_3_gc_after_bif):
 	STORE	TEMP_LR, P_NRA(P)
 	STORE	NSP, P_NSP(P)
 	mflr	TEMP_LR
+	li	r6, 0			/* Pass 0 in arity */
+	li	r5, 0			/* Pass NULL in regs */
 	mr	r4, r3
 	mr	r3, P
 	bl	CSYM(erts_gc_after_bif_call)
