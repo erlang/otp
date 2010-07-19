@@ -1881,6 +1881,9 @@ term_to_Uint(Eterm term, Uint *up)
 int
 term_to_UWord(Eterm term, UWord *up)
 {
+#if SIZEOF_VOID_P == ERTS_SIZEOF_ETERM
+    return term_to_Uint(term,up);
+#else
     if (is_small(term)) {
 	Sint i = signed_val(term);
 	if (i < 0) {
@@ -1903,7 +1906,7 @@ term_to_UWord(Eterm term, UWord *up)
 	    return 0;
 	}
 	while (xl-- > 0) {
-	    uval |= ((Uint)(*xr++)) << n;
+	    uval |= ((UWord)(*xr++)) << n;
 	    n += D_EXP;
 	}
 	*up = uval;
@@ -1912,7 +1915,49 @@ term_to_UWord(Eterm term, UWord *up)
 	*up = BADARG;
 	return 0;
     }
+#endif
 }
+
+int
+term_to_Uint64(Eterm term, Uint64 *up)
+{
+#if SIZEOF_VOID_P == 8
+    return term_to_UWord(term,up);
+#else
+    if (is_small(term)) {
+	Sint i = signed_val(term);
+	if (i < 0) {
+	    *up = BADARG;
+	    return 0;
+	}
+	*up = (Uint64) i;
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t  xl = big_size(term);
+	Uint64 uval = 0;
+	int n = 0;
+
+	if (big_sign(term)) {
+	    *up = BADARG;
+	    return 0;
+	} else if (xl*D_EXP > sizeof(Uint64)*8) {
+	    *up = SYSTEM_LIMIT;
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((Uint64)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	*up = uval;
+	return 1;
+    } else {
+	*up = BADARG;
+	return 0;
+    }
+#endif
+}
+
 
 int term_to_Sint(Eterm term, Sint *sp)
 {
@@ -1947,6 +1992,47 @@ int term_to_Sint(Eterm term, Sint *sp)
 	return 0;
     }
 }
+
+#if HAVE_INT64
+int term_to_Sint64(Eterm term, Sint64 *sp)
+{
+#if ERTS_SIZEOF_ETERM == 8
+    return term_to_Sint(term, sp);
+#else
+    if (is_small(term)) {
+	*sp = signed_val(term);
+	return 1;
+    } else if (is_big(term)) {
+	ErtsDigit* xr = big_v(term);
+	dsize_t xl = big_size(term);
+	int sign = big_sign(term);
+	Uint64 uval = 0;
+	int n = 0;
+
+	if (xl*D_EXP > sizeof(Uint64)*8) {
+	    return 0;
+	}
+	while (xl-- > 0) {
+	    uval |= ((Uint64)(*xr++)) << n;
+	    n += D_EXP;
+	}
+	if (sign) {
+	    uval = -uval;
+	    if ((Sint64)uval > 0)
+		return 0;
+	} else {
+	    if ((Sint64)uval < 0)
+		return 0;
+	}
+	*sp = uval;
+	return 1;
+    } else {
+	return 0;
+    }
+#endif
+}
+#endif /* HAVE_INT64 */
+
 
 /*
 ** Add and subtract

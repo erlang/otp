@@ -152,6 +152,10 @@ byte* big_to_bytes(Eterm, byte*);
 int term_to_Uint(Eterm, Uint*);
 int term_to_UWord(Eterm, UWord*);
 int term_to_Sint(Eterm, Sint*);
+#if HAVE_INT64
+int term_to_Uint64(Eterm, Uint64*);
+int term_to_Sint64(Eterm, Sint64*);
+#endif
 
 Uint32 big_to_uint32(Eterm b);
 int term_equals_2pow32(Eterm);

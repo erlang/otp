@@ -750,7 +750,19 @@ int enif_get_ulong(ErlNifEnv* env, Eterm term, unsigned long* ip)
 #endif     
 }
 
-int enif_get_double(ErlNifEnv* env, Eterm term, double* dp)
+#if HAVE_INT64 && SIZEOF_LONG != 8
+int enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)
+{
+    return term_to_Sint64(term, ip);
+}
+
+int enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)
+{
+    return term_to_Uint64(term, ip);
+}
+#endif /* HAVE_INT64 && SIZEOF_LONG != 8 */
+
+int enif_get_double(ErlNifEnv* env, ERL_NIF_TERM term, double* dp)
 {
     FloatDef f;
     if (is_not_float(term)) {
@@ -816,6 +828,26 @@ ERL_NIF_TERM enif_make_ulong(ErlNifEnv* env, unsigned long i)
 {
     return IS_USMALL(0,i) ? make_small(i) : uint_to_big(i,alloc_heap(env,2));
 }
+
+#if HAVE_INT64 && SIZEOF_LONG != 8
+ERL_NIF_TERM enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)
+{
+    Uint* hp;
+    Uint need = 0;
+    erts_bld_sint64(NULL, &need, i);
+    hp = alloc_heap(env, need);
+    return erts_bld_sint64(&hp, NULL, i);
+}
+
+ERL_NIF_TERM enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)
+{
+    Uint* hp;
+    Uint need = 0;
+    erts_bld_uint64(NULL, &need, i);
+    hp = alloc_heap(env, need);
+    return erts_bld_uint64(&hp, NULL, i);
+}
+#endif /* HAVE_INT64 && SIZEOF_LONG != 8 */
 
 ERL_NIF_TERM enif_make_double(ErlNifEnv* env, double d)
 {

@@ -456,6 +456,10 @@ typedef enum {
                 to return information about the runtime system. Contains currently
                 the exact same content as <seealso marker="erl_driver#ErlDrvSysInfo">ErlDrvSysInfo</seealso>.</p>
               </item>
+              <tag><marker id="ErlNifSInt64"/>ErlNifSInt64</tag>
+               <item><p>A native signed 64-bit integer type.</p></item>
+              <tag><marker id="ErlNifUInt64"/>ErlNifUInt64</tag>
+               <item><p>A native unsigned 64-bit integer type.</p></item>
 
     </taglist>
   </section>
@@ -571,7 +575,13 @@ typedef enum {
       <fsummary>Read an integer term</fsummary>
       <desc><p>Set <c>*ip</c> to the integer value of
       <c>term</c>. Return true on success or false if <c>term</c> is not an
-      integer or is outside the bounds of type <c>int</c></p></desc>
+      integer or is outside the bounds of type <c>int</c>.</p></desc>
+    </func>
+    <func><name><ret>int</ret><nametext>enif_get_int64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifSInt64* ip)</nametext></name>
+      <fsummary>Read a 64-bit integer term</fsummary>
+      <desc><p>Set <c>*ip</c> to the integer value of
+      <c>term</c>. Return true on success or false if <c>term</c> is not an
+      integer or is outside the bounds of a signed 64-bit integer.</p></desc>
     </func>
     <func><name><ret>int</ret><nametext>enif_get_local_pid(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifPid* pid)</nametext></name>
     <fsummary>Read an local pid term</fsummary>
@@ -633,7 +643,12 @@ typedef enum {
       return true, or return false if <c>term</c> is not an unsigned integer or
       is outside the bounds of type <c>unsigned int</c>.</p></desc>
     </func>
-
+    <func><name><ret>int</ret><nametext>enif_get_uint64(ErlNifEnv* env, ERL_NIF_TERM term, ErlNifUInt64* ip)</nametext></name>
+      <fsummary>Read an unsigned 64-bit integer term.</fsummary>
+      <desc><p>Set <c>*ip</c> to the unsigned integer value of <c>term</c> and
+      return true, or return false if <c>term</c> is not an unsigned integer or
+      is outside the bounds of an unsigned 64-bit integer.</p></desc>
+    </func>
     <func><name><ret>int</ret><nametext>enif_get_ulong(ErlNifEnv* env, ERL_NIF_TERM term, unsigned long* ip)</nametext></name>
       <fsummary>Read an unsigned integer term.</fsummary>
       <desc><p>Set <c>*ip</c> to the unsigned long integer value of <c>term</c>
@@ -757,6 +772,10 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int(ErlNifEnv* env, int i)</nametext></name>
       <fsummary>Create an integer term</fsummary>
       <desc><p>Create an integer term.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_int64(ErlNifEnv* env, ErlNifSInt64 i)</nametext></name>
+      <fsummary>Create an integer term</fsummary>
+      <desc><p>Create an integer term from a signed 64-bit integer.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_list(ErlNifEnv* env, unsigned cnt, ...)</nametext></name>
       <fsummary>Create a list term.</fsummary>
@@ -893,6 +912,10 @@ typedef enum {
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint(ErlNifEnv* env, unsigned int i)</nametext></name>
       <fsummary>Create an unsigned integer term</fsummary>
       <desc><p>Create an integer term from an <c>unsigned int</c>.</p></desc>
+    </func>
+    <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_uint64(ErlNifEnv* env, ErlNifUInt64 i)</nametext></name>
+      <fsummary>Create an unsigned integer term</fsummary>
+      <desc><p>Create an integer term from an unsigned 64-bit integer.</p></desc>
     </func>
     <func><name><ret>ERL_NIF_TERM</ret><nametext>enif_make_ulong(ErlNifEnv* env, unsigned long i)</nametext></name>
       <fsummary>Create an integer term from an unsigned long int</fsummary>
