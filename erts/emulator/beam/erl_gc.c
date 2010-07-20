@@ -110,9 +110,7 @@ static Uint adjust_after_fullsweep(Process *p, int size_before,
 				   int need, Eterm *objv, int nobj);
 static void shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj);
 static void grow_new_heap(Process *p, Uint new_sz, Eterm* objv, int nobj);
-static void sweep_proc_bins(Process *p, int fullsweep);
-static void sweep_proc_funs(Process *p, int fullsweep);
-static void sweep_proc_externals(Process *p, int fullsweep);
+static void sweep_off_heap(Process *p, int fullsweep);
 static void offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size);
 static void offset_rootset(Process *p, Sint offs, char* area, Uint area_size,
@@ -144,6 +142,13 @@ void
 erts_init_gc(void)
 {
     int i = 0;
+
+    ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
+    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
+    ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
+    ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
+    ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
+    ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
 
     erts_smp_spinlock_init(&info_lck, "gc_info");
     garbage_cols = 0;
@@ -286,25 +291,14 @@ erts_offset_heap_ptr(Eterm* hp, Uint sz, Sint offs,
     offset_heap_ptr(hp, sz, offs, (char *) low, ((char *)high)-((char *)low));
 }
 
+
 #define ptr_within(ptr, low, high) ((ptr) < (high) && (ptr) >= (low))
 
 void
 erts_offset_off_heap(ErlOffHeap *ohp, Sint offs, Eterm* low, Eterm* high)
 {
-    if (ohp->mso && ptr_within((Eterm *)ohp->mso, low, high)) {
-        Eterm** uptr = (Eterm**) (void *) &ohp->mso;
-        *uptr += offs;
-    }
-
-#ifndef HYBRID /* FIND ME! */
-    if (ohp->funs && ptr_within((Eterm *)ohp->funs, low, high)) {
-        Eterm** uptr = (Eterm**) (void *) &ohp->funs;
-        *uptr += offs;
-    }
-#endif
-
-    if (ohp->externals && ptr_within((Eterm *)ohp->externals, low, high)) {
-        Eterm** uptr = (Eterm**) (void *) &ohp->externals;
+    if (ohp->first && ptr_within((Eterm *)ohp->first, low, high)) {
+        Eterm** uptr = (Eterm**) (void *) &ohp->first;
         *uptr += offs;
     }
 }
@@ -504,14 +498,8 @@ erts_garbage_collect_hibernate(Process* p)
 
     cleanup_rootset(&rootset);
 
-    if (MSO(p).mso) {
-        sweep_proc_bins(p, 1);
-    }
-    if (MSO(p).funs) {
-        sweep_proc_funs(p, 1);
-    }
-    if (MSO(p).externals) {
-        sweep_proc_externals(p, 1);
+    if (MSO(p).first) {
+        sweep_off_heap(p, 1);
     }
 
     /*
@@ -1041,15 +1029,8 @@ do_minor(Process *p, int new_sz, Eterm* objv, int nobj)
     OLD_HTOP(p) = old_htop;
     HIGH_WATER(p) = (HEAP_START(p) != HIGH_WATER(p)) ? n_heap : n_htop;
 
-    if (MSO(p).mso) {
-        sweep_proc_bins(p, 0);
-    }
-
-    if (MSO(p).funs) {
-        sweep_proc_funs(p, 0);
-    }
-    if (MSO(p).externals) {
-        sweep_proc_externals(p, 0);
+    if (MSO(p).first) {
+	sweep_off_heap(p, 0);
     }
 
 #ifdef HARDDEBUG
@@ -1271,17 +1252,11 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
 	}
     }
 
-    if (MSO(p).mso) {
-	sweep_proc_bins(p, 1);
-    }
-    if (MSO(p).funs) {
-	sweep_proc_funs(p, 1);
-    }
-    if (MSO(p).externals) {
-	sweep_proc_externals(p, 1);
+    if (MSO(p).first) {
+	sweep_off_heap(p, 1);
     }
 
-    if (OLD_HEAP(p) != NULL) {
+    if (OLD_HEAP(p) != NULL) {       
 	ERTS_HEAP_FREE(ERTS_ALC_T_OLD_HEAP,
 		       OLD_HEAP(p),
 		       (OLD_HEND(p) - OLD_HEAP(p)) * sizeof(Eterm));
@@ -1305,6 +1280,7 @@ major_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
     HIGH_WATER(p) = HEAP_TOP(p);
 
     ErtsGcQuickSanityCheck(p);
+
     /*
      * Copy newly received message onto the end of the new heap.
      */
@@ -2044,108 +2020,24 @@ next_vheap_size(Process* p, Uint vheap, Uint vheap_sz) {
     return vheap_sz < p->min_vheap_size ? p->min_vheap_size : vheap_sz;
 }
 
-static void
-sweep_proc_externals(Process *p, int fullsweep)
-{
-    ExternalThing** prev;
-    ExternalThing* ptr;
-    char* oh = 0;
-    Uint oh_size = 0;
-
-    if (fullsweep == 0) {
-	oh = (char *) OLD_HEAP(p);
-	oh_size = (char *) OLD_HEND(p) - oh;
-    }
-
-    prev = &MSO(p).externals;
-    ptr = MSO(p).externals;
-
-    while (ptr) {
-        Eterm* ppt = (Eterm *) ptr;
-
-        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
-            ExternalThing* ro = external_thing_ptr(*ppt);
-
-            *prev = ro;         /* Patch to moved pos */
-            prev = &ro->next;
-            ptr = ro->next;
-        } else if (in_area(ppt, oh, oh_size)) {
-            /*
-             * Object resides on old heap, and we just did a
-             * generational collection - keep object in list.
-             */
-            prev = &ptr->next;
-            ptr = ptr->next;
-        } else {                /* Object has not been moved - deref it */
-	    erts_deref_node_entry(ptr->node);
-            *prev = ptr = ptr->next;
-        }
-    }
-    ASSERT(*prev == NULL);
-}
-
-static void
-sweep_proc_funs(Process *p, int fullsweep)
-{
-    ErlFunThing** prev;
-    ErlFunThing* ptr;
-    char* oh = 0;
-    Uint oh_size = 0;
-
-    if (fullsweep == 0) {
-	oh = (char *) OLD_HEAP(p);
-	oh_size = (char *) OLD_HEND(p) - oh;
-    }
-		      
-    prev = &MSO(p).funs;
-    ptr = MSO(p).funs;
-
-    while (ptr) {
-        Eterm* ppt = (Eterm *) ptr;
-
-        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
-            ErlFunThing* ro = (ErlFunThing *) fun_val(*ppt);
-
-            *prev = ro;         /* Patch to moved pos */
-            prev = &ro->next;
-            ptr = ro->next;
-        } else if (in_area(ppt, oh, oh_size)) {
-            /*
-             * Object resides on old heap, and we just did a
-             * generational collection - keep object in list.
-             */
-            prev = &ptr->next;
-            ptr = ptr->next;
-        } else {                /* Object has not been moved - deref it */
-            ErlFunEntry* fe = ptr->fe;
-
-            *prev = ptr = ptr->next;
-	    if (erts_refc_dectest(&fe->refc, 0) == 0) {
-                erts_erase_fun_entry(fe);
-            }
-        }
-    }
-    ASSERT(*prev == NULL);
-}
-
 struct shrink_cand_data {
-    ProcBin* new_candidates;
-    ProcBin* new_candidates_end;
-    ProcBin* old_candidates;
+    struct erl_off_heap_header* new_candidates;
+    struct erl_off_heap_header* new_candidates_end;
+    struct erl_off_heap_header* old_candidates;
     Uint no_of_candidates;
     Uint no_of_active;
 };
 
 static ERTS_INLINE void
 link_live_proc_bin(struct shrink_cand_data *shrink,
-		   ProcBin ***prevppp,
-		   ProcBin **pbpp,
+		   struct erl_off_heap_header*** prevppp,
+		   struct erl_off_heap_header** currpp,
 		   int new_heap)
 {
-    ProcBin *pbp = *pbpp;
+    ProcBin *pbp = (ProcBin*) *currpp;
+    ASSERT(**prevppp == *currpp);
 
-    *pbpp = pbp->next;
-
+    *currpp = pbp->next;
     if (pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE)) {
 	ASSERT(((pbp->flags & (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
 		== (PB_ACTIVE_WRITER|PB_IS_WRITABLE))
@@ -2162,15 +2054,16 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 	    /* Our allocators are 8 byte aligned, i.e., shrinking with
 	       less than 8 bytes will have no real effect */
 	    if (unused >= 8) { /* A shrink candidate; save in candidate list */
+		**prevppp = pbp->next;
 		if (new_heap) {
 		    if (!shrink->new_candidates)
-			shrink->new_candidates_end = pbp;
+			shrink->new_candidates_end = (struct erl_off_heap_header*)pbp;
 		    pbp->next = shrink->new_candidates;
-		    shrink->new_candidates = pbp;
+		    shrink->new_candidates = (struct erl_off_heap_header*)pbp;
 		}
 		else {
 		    pbp->next = shrink->old_candidates;
-		    shrink->old_candidates = pbp;
+		    shrink->old_candidates = (struct erl_off_heap_header*)pbp;
 		}
 		shrink->no_of_candidates++;
 		return;
@@ -2178,67 +2071,101 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 	}
     }
 
-    /* Not a shrink candidate; keep in original mso list */
-    **prevppp = pbp;
+    /* Not a shrink candidate; keep in original mso list */ 
     *prevppp = &pbp->next;
-
 }
 
 
 static void 
-sweep_proc_bins(Process *p, int fullsweep)
+sweep_off_heap(Process *p, int fullsweep)
 {
     struct shrink_cand_data shrink = {0};
-    ProcBin** prev;
-    ProcBin* ptr;
-    Binary* bptr;
-    char* oh = NULL;
-    Uint oh_size = 0;
+    struct erl_off_heap_header* ptr;
+    struct erl_off_heap_header** prev;
+    char* oheap = NULL;
+    Uint oheap_sz = 0;
     Uint bin_vheap = 0;
+#ifdef DEBUG
+    int seen_mature = 0;
+#endif
 
     if (fullsweep == 0) {
-	oh = (char *) OLD_HEAP(p);
-	oh_size = (char *) OLD_HEND(p) - oh;
+	oheap = (char *) OLD_HEAP(p);
+	oheap_sz = (char *) OLD_HEND(p) - oheap;
     }
 
     BIN_OLD_VHEAP(p) = 0;
 
-    prev = &MSO(p).mso;
-    ptr = MSO(p).mso;
+    prev = &MSO(p).first;
+    ptr = MSO(p).first;
 
-    /*
-     * Note: In R7 we no longer force a fullsweep when we find binaries
-     * on the old heap. The reason is that with the introduction of the
-     * bit syntax we can expect binaries to be used a lot more. Note that
-     * in earlier releases a brand new binary (or any other term) could
-     * be put on the old heap during a gen-gc fullsweep, but this is
-     * no longer the case in R7.
+    /* Firts part of the list will reside on the (old) new-heap.
+     * Keep if moved, otherwise deref.
      */
     while (ptr) {
-        Eterm* ppt = (Eterm *) ptr;
+	if (IS_MOVED_BOXED(ptr->thing_word)) {
+	    ASSERT(!in_area(ptr, oheap, oheap_sz));
+	    *prev = ptr = (struct erl_off_heap_header*) boxed_val(ptr->thing_word);
+	    ASSERT(!IS_MOVED_BOXED(ptr->thing_word));
+	    if (ptr->thing_word == HEADER_PROC_BIN) {
+		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
+		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
+		if (to_new_heap) {
+		    bin_vheap += ptr->u.size / sizeof(Eterm);
+		} else {
+		    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
+		}		
+		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
+	    }
+	    else {
+		prev = &ptr->next;
+		ptr = ptr->next;
+	    }
+	}
+	else if (!in_area(ptr, oheap, oheap_sz)) {
+	    /* garbage */
+	    switch (thing_subtag(ptr->thing_word)) {
+	    case REFC_BINARY_SUBTAG:
+		{
+		    Binary* bptr = ((ProcBin*)ptr)->val;	
+		    if (erts_refc_dectest(&bptr->refc, 0) == 0) {
+			erts_bin_free(bptr);
+		    }
+		    break;
+		}
+	    case FUN_SUBTAG:
+		{
+		    ErlFunEntry* fe = ((ErlFunThing*)ptr)->fe;
+		    if (erts_refc_dectest(&fe->refc, 0) == 0) {
+			erts_erase_fun_entry(fe);
+		    }
+		    break;
+		}
+	    default:
+		ASSERT(is_external_header(ptr->thing_word));
+		erts_deref_node_entry(((ExternalThing*)ptr)->node);
+	    }
+	    *prev = ptr = ptr->next;
+	}
+	else break; /* and let old-heap loop continue */
+    }
 
-        if (IS_MOVED_BOXED(*ppt)) {        /* Object is alive */
-	    bin_vheap += ptr->size / sizeof(Eterm);
-            ptr = (ProcBin*) binary_val(*ppt);		   
-	    link_live_proc_bin(&shrink,
-			       &prev,
-			       &ptr,
-			       !in_area(ptr, oh, oh_size)); 
-        } else if (in_area(ppt, oh, oh_size)) {
-            /*
-             * Object resides on old heap, and we just did a
-             * generational collection - keep object in list.
-             */
-            BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
-	    link_live_proc_bin(&shrink, &prev, &ptr, 0); 
-        } else {                /* Object has not been moved - deref it */
-
-            *prev = ptr->next;
-            bptr = ptr->val;
-            if (erts_refc_dectest(&bptr->refc, 0) == 0)
-		erts_bin_free(bptr);
-            ptr = *prev;
-        }
+    /* The rest of the list resides on old-heap, and we just did a
+     * generational collection - keep objects in list.
+     */
+    while (ptr) {
+	ASSERT(in_area(ptr, oheap, oheap_sz));
+	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
+	if (ptr->thing_word == HEADER_PROC_BIN) {
+	    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
+	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
+	}
+	else {
+	    ASSERT(is_fun_header(ptr->thing_word) ||
+		   is_external_header(ptr->thing_word));
+	    prev = &ptr->next;
+	    ptr = ptr->next;
+	}
     }
 
     if (BIN_OLD_VHEAP(p) >= BIN_OLD_VHEAP_SZ(p)) {
@@ -2254,7 +2181,8 @@ sweep_proc_bins(Process *p, int fullsweep)
      */
 
     if (shrink.no_of_candidates) {
-	ProcBin *candlist[] = {shrink.new_candidates, shrink.old_candidates};
+	ProcBin *candlist[] = { (ProcBin*)shrink.new_candidates,
+	                        (ProcBin*)shrink.old_candidates };
 	Uint leave_unused = 0;
 	int i;
 
@@ -2266,21 +2194,21 @@ sweep_proc_bins(Process *p, int fullsweep)
 	}
 
 	for (i = 0; i < sizeof(candlist)/sizeof(candlist[0]); i++) {
-
-	    for (ptr = candlist[i]; ptr; ptr = ptr->next) {
-		Uint new_size = ptr->size;
+	    ProcBin* pb;
+	    for (pb = candlist[i]; pb; pb = (ProcBin*)pb->next) {
+		Uint new_size = pb->size;
 
 		if (leave_unused) {
 		    new_size += (new_size * 100) / leave_unused;
 		    /* Our allocators are 8 byte aligned, i.e., shrinking with
 		       less than 8 bytes will have no real effect */
-		    if (new_size + 8 >= ptr->val->orig_size)
+		    if (new_size + 8 >= pb->val->orig_size)
 			continue;
 		}
 
-		ptr->val = erts_bin_realloc(ptr->val, new_size);
-		ptr->val->orig_size = new_size;
-		ptr->bytes = (byte *) ptr->val->orig_bytes;
+		pb->val = erts_bin_realloc(pb->val, new_size);
+		pb->val->orig_size = new_size;
+		pb->bytes = (byte *) pb->val->orig_bytes;
 	    }
 	}
 
@@ -2289,21 +2217,20 @@ sweep_proc_bins(Process *p, int fullsweep)
 	 * We now potentially have the mso list divided into three lists:
 	 * - shrink candidates on new heap (inactive writable with unused data)
 	 * - shrink candidates on old heap (inactive writable with unused data)
-	 * - other binaries (read only + active writable ...)
+	 * - other binaries (read only + active writable ...) + funs and externals
 	 *
 	 * Put them back together: new candidates -> other -> old candidates
 	 * This order will ensure that the list only refers from new
 	 * generation to old and never from old to new *which is important*.
 	 */
 	if (shrink.new_candidates) {
-	    if (prev == &MSO(p).mso) /* empty other binaries list */
+	    if (prev == &MSO(p).first) /* empty other binaries list */
 		prev = &shrink.new_candidates_end->next;
 	    else
-		shrink.new_candidates_end->next = MSO(p).mso;
-	    MSO(p).mso = shrink.new_candidates;
+		shrink.new_candidates_end->next = MSO(p).first;
+	    MSO(p).first = shrink.new_candidates;
 	}
     }
-
     *prev = shrink.old_candidates;
 }
 
@@ -2334,15 +2261,17 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 	      tari = thing_arityval(val);
 	      switch (thing_subtag(val)) {
 	      case REFC_BINARY_SUBTAG:
+	      case FUN_SUBTAG:
+	      case EXTERNAL_PID_SUBTAG:
+	      case EXTERNAL_PORT_SUBTAG:
+	      case EXTERNAL_REF_SUBTAG:
 		  {
-		      ProcBin* pb = (ProcBin*) hp;
-		      Eterm** uptr = (Eterm **) (void *) &pb->next;
+		      struct erl_off_heap_header* oh = (struct erl_off_heap_header*) hp;
 
-		      if (*uptr && in_area((Eterm *)pb->next, area, area_size)) {
+		      if (in_area(oh->next, area, area_size)) {
+			  Eterm** uptr = (Eterm **) (void *) &oh->next;
 			  *uptr += offs; /* Patch the mso chain */
 		      }
-		      sz -= tari;
-		      hp += tari + 1;
 		  }
 		  break;
 	      case BIN_MATCHSTATE_SUBTAG:
@@ -2353,40 +2282,11 @@ offset_heap(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 		      mb->orig = offset_ptr(mb->orig, offs);
 		      mb->base = binary_bytes(mb->orig);
 		  }
-		  sz -= tari;
-		  hp += tari + 1;
 		}
 		break;
-	      case FUN_SUBTAG:
-		  {
-		      ErlFunThing* funp = (ErlFunThing *) hp;
-		      Eterm** uptr = (Eterm **) (void *) &funp->next;
-
-		      if (*uptr && in_area((Eterm *)funp->next, area, area_size)) {
-			  *uptr += offs;
-		      }
-		      sz -= tari;
-		      hp += tari + 1;
-		  }
-		  break;
-	      case EXTERNAL_PID_SUBTAG:
-	      case EXTERNAL_PORT_SUBTAG:
-	      case EXTERNAL_REF_SUBTAG:
-		  {
-		      ExternalThing* etp = (ExternalThing *) hp;
-		      Eterm** uptr = (Eterm **) (void *) &etp->next;
-
-		      if (*uptr && in_area((Eterm *)etp->next, area, area_size)) {
-			  *uptr += offs;
-		      }
-		      sz -= tari;
-		      hp += tari + 1;
-		  }
-		  break;
-	      default:
-		  sz -= tari;
-		  hp += tari + 1;
 	      }
+	      sz -= tari;
+	      hp += tari + 1;
 	      break;
 	  }
 	  default:
@@ -2423,18 +2323,8 @@ offset_heap_ptr(Eterm* hp, Uint sz, Sint offs, char* area, Uint area_size)
 static void
 offset_off_heap(Process* p, Sint offs, char* area, Uint area_size)
 {
-    if (MSO(p).mso && in_area((Eterm *)MSO(p).mso, area, area_size)) {
-        Eterm** uptr = (Eterm**) (void *) &MSO(p).mso;
-        *uptr += offs;
-    }
-
-    if (MSO(p).funs && in_area((Eterm *)MSO(p).funs, area, area_size)) {
-        Eterm** uptr = (Eterm**) (void *) &MSO(p).funs;
-        *uptr += offs;
-    }
-
-    if (MSO(p).externals && in_area((Eterm *)MSO(p).externals, area, area_size)) {
-        Eterm** uptr = (Eterm**) (void *) &MSO(p).externals;
+    if (MSO(p).first && in_area((Eterm *)MSO(p).first, area, area_size)) {
+        Eterm** uptr = (Eterm**) (void *) &MSO(p).first;
         *uptr += offs;
     }
 }
@@ -2555,8 +2445,8 @@ do {							\
 		 __FILE__, __LINE__, #EXP);		\
 } while (0)
 
-#ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_EXTERNAL_LIST
-#  define ERTS_EXTERNAL_VISITED_BIT ((Eterm) 1 << 31)
+#ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_LIST
+#  define ERTS_OFFHEAP_VISITED_BIT ((Eterm) 1 << 31)
 #endif
 
 
@@ -2566,62 +2456,45 @@ erts_check_off_heap2(Process *p, Eterm *htop)
     Eterm *oheap = (Eterm *) OLD_HEAP(p);
     Eterm *ohtop = (Eterm *) OLD_HTOP(p);
     int old;
-    ProcBin *pb;
-    ErlFunThing *eft;
-    ExternalThing *et;
+    union erl_off_heap_ptr u;
 
     old = 0;
-    for (pb = MSO(p).mso; pb; pb = pb->next) {
-	Eterm *ptr = (Eterm *) pb;
-	long refc = erts_refc_read(&pb->val->refc, 1);
-	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
-	if (old) {
-	    ERTS_CHK_OFFHEAP_ASSERT(oheap <= ptr && ptr < ohtop);
+    for (u.hdr = MSO(p).first; u.hdr; u.hdr = u.hdr->next) {
+	long refc;
+	switch (thing_subtag(u.hdr->thing_word)) {
+	case REFC_BINARY_SUBTAG:
+	    refc = erts_refc_read(&u.pb->val->refc, 1);		
+	    break;
+	case FUN_SUBTAG:
+	    refc = erts_refc_read(&u.fun->fe->refc, 1);
+	    break;
+	case EXTERNAL_PID_SUBTAG:
+	case EXTERNAL_PORT_SUBTAG:
+	case EXTERNAL_REF_SUBTAG:
+	    refc = erts_refc_read(&u.ext->node->refc, 1);
+	    break;
+	default:
+	    ASSERT(!!"erts_check_off_heap2: Invalid thing_word");
 	}
-	else if (oheap <= ptr && ptr < ohtop)
+	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
+#ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_LIST
+	ERTS_CHK_OFFHEAP_ASSERT(!(u.hdr->thing_word & ERTS_EXTERNAL_VISITED_BIT));
+	u.hdr->thing_word |= ERTS_OFFHEAP_VISITED_BIT;
+#endif
+	if (old) {
+	    ERTS_CHK_OFFHEAP_ASSERT(oheap <= u.ep && u.ep < ohtop);
+	}
+	else if (oheap <= u.ep && u.ep < ohtop)
 	    old = 1;
 	else {
-	    ERTS_CHK_OFFHEAP_ASSERT(within2(ptr, p, htop));
+	    ERTS_CHK_OFFHEAP_ASSERT(within2(u.ep, p, htop));
 	}
     }
 
-    old = 0;
-    for (eft = MSO(p).funs; eft; eft = eft->next) {
-	Eterm *ptr = (Eterm *) eft;
-	long refc = erts_refc_read(&eft->fe->refc, 1);
-	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
-	if (old)
-	    ERTS_CHK_OFFHEAP_ASSERT(oheap <= ptr && ptr < ohtop);
-	else if (oheap <= ptr && ptr < ohtop)
-	    old = 1;
-	else
-	    ERTS_CHK_OFFHEAP_ASSERT(within2(ptr, p, htop));
-    }
-
-    old = 0;
-    for (et = MSO(p).externals; et; et = et->next) {
-	Eterm *ptr = (Eterm *) et;
-	long refc = erts_refc_read(&et->node->refc, 1);
-	ERTS_CHK_OFFHEAP_ASSERT(refc >= 1);
 #ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_EXTERNAL_LIST
-	ERTS_CHK_OFFHEAP_ASSERT(!(et->header & ERTS_EXTERNAL_VISITED_BIT));
+    for (u.hdr = MSO(p).first; u.hdr; u.hdr = u.hdr->next)
+	u.hdr->thing_word &= ~ERTS_OFFHEAP_VISITED_BIT;
 #endif
-	if (old)
-	    ERTS_CHK_OFFHEAP_ASSERT(oheap <= ptr && ptr < ohtop);
-	else if (oheap <= ptr && ptr < ohtop)
-	    old = 1;
-	else
-	    ERTS_CHK_OFFHEAP_ASSERT(within2(ptr, p, htop));
-#ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_EXTERNAL_LIST
-	et->header |= ERTS_EXTERNAL_VISITED_BIT;
-#endif
-    }
-
-#ifdef ERTS_OFFHEAP_DEBUG_CHK_CIRCULAR_EXTERNAL_LIST
-    for (et = MSO(p).externals; et; et = et->next)
-	et->header &= ~ERTS_EXTERNAL_VISITED_BIT;
-#endif
-	
 }
 
 void

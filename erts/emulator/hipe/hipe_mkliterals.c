@@ -261,7 +261,7 @@ static const struct literal {
     /* Field offsets in a process struct */
     { "P_HP", offsetof(struct process, htop) },
     { "P_HP_LIMIT", offsetof(struct process, stop) },
-    { "P_OFF_HEAP_MSO", offsetof(struct process, off_heap.mso) },
+    { "P_OFF_HEAP_FIRST", offsetof(struct process, off_heap.first) },
     { "P_MBUF", offsetof(struct process, mbuf) },
     { "P_ID", offsetof(struct process, id) },
     { "P_FLAGS", offsetof(struct process, flags) },
@@ -456,7 +456,7 @@ static const struct rts_param {
 } rts_params[] = {
     { 1, "P_OFF_HEAP_FUNS",
 #if !defined(HYBRID)
-      1, offsetof(struct process, off_heap.funs)
+      1, offsetof(struct process, off_heap.first)
 #endif
     },
 

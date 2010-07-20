@@ -6761,11 +6761,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     /*
      * Must initialize binary lists here before copying binaries to process.
      */
-    p->off_heap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    p->off_heap.funs = NULL;
-#endif
-    p->off_heap.externals = NULL;
+    p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
 
     heap_need +=
@@ -6855,7 +6851,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
 	p->group_leader =
 	    IS_CONST(parent->group_leader)
 	    ? parent->group_leader
-	    : STORE_NC(&p->htop, &p->off_heap.externals, parent->group_leader);
+	    : STORE_NC(&p->htop, &p->off_heap, parent->group_leader);
     }
 
     erts_get_default_tracing(&p->trace_flags, &p->tracer_proc);
@@ -7056,11 +7052,7 @@ void erts_init_empty_process(Process *p)
     memset(&(p->u.tm), 0, sizeof(ErlTimer));
 #endif
     p->next = NULL;
-    p->off_heap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    p->off_heap.funs = NULL;
-#endif
-    p->off_heap.externals = NULL;
+    p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
     p->reg = NULL;
     p->heap_sz = 0;
@@ -7207,11 +7199,7 @@ erts_debug_verify_clean_empty_process(Process* p)
 
     /* Thing that erts_cleanup_empty_process() cleans up */
 
-    ASSERT(p->off_heap.mso == NULL);
-#ifndef HYBRID /* FIND ME! */
-    ASSERT(p->off_heap.funs == NULL);
-#endif
-    ASSERT(p->off_heap.externals == NULL);
+    ASSERT(p->off_heap.first == NULL);
     ASSERT(p->off_heap.overhead == 0);
 
     ASSERT(p->mbuf == NULL);
@@ -7225,11 +7213,7 @@ erts_cleanup_empty_process(Process* p)
     /* We only check fields that are known to be used... */
 
     erts_cleanup_offheap(&p->off_heap);
-    p->off_heap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    p->off_heap.funs = NULL;
-#endif
-    p->off_heap.externals = NULL;
+    p->off_heap.first = NULL;
     p->off_heap.overhead = 0;
 
     if (p->mbuf != NULL) {
@@ -7266,7 +7250,7 @@ delete_process(Process* p)
      * The mso list should not be used anymore, but if it is, make sure that
      * we'll notice.
      */
-    p->off_heap.mso = (void *) 0x8DEFFACD;
+    p->off_heap.first = (void *) 0x8DEFFACD;
 
     if (p->arg_reg != p->def_arg_reg) {
 	erts_free(ERTS_ALC_T_ARG_REG, p->arg_reg);

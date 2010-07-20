@@ -3385,8 +3385,8 @@ apply_bif_or_nif_epilogue:
 	 HTOP += PROC_BIN_SIZE;
 	 pb->thing_word = HEADER_PROC_BIN;
 	 pb->size = num_bytes;
-	 pb->next = MSO(c_p).mso;
-	 MSO(c_p).mso = pb;
+	 pb->next = MSO(c_p).first;
+	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
@@ -3486,8 +3486,8 @@ apply_bif_or_nif_epilogue:
 	 HTOP += PROC_BIN_SIZE;
 	 pb->thing_word = HEADER_PROC_BIN;
 	 pb->size = tmp_arg1;
-	 pb->next = MSO(c_p).mso;
-	 MSO(c_p).mso = pb;
+	 pb->next = MSO(c_p).first;
+	 MSO(c_p).first = (struct erl_off_heap_header*) pb;
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
@@ -6323,8 +6323,8 @@ new_fun(Process* p, Eterm* reg, ErlFunEntry* fe, int num_free)
     erts_refc_inc(&fe->refc, 2);
     funp->thing_word = HEADER_FUN;
 #ifndef HYBRID /* FIND ME! */
-    funp->next = MSO(p).funs;
-    MSO(p).funs = funp;
+    funp->next = MSO(p).first;
+    MSO(p).first = (struct erl_off_heap_header*) funp;
 #endif
     funp->fe = fe;
     funp->num_free = num_free;

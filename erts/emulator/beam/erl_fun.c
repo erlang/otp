@@ -192,20 +192,6 @@ erts_erase_fun_entry(ErlFunEntry* fe)
     erts_fun_write_unlock();
 }
 
-#ifndef HYBRID /* FIND ME! */
-void
-erts_cleanup_funs(ErlFunThing* funp)
-{
-    while (funp) {
-	ErlFunEntry* fe = funp->fe;
-	if (erts_refc_dectest(&fe->refc, 0) == 0) {
-	    erts_erase_fun_entry(fe);
-	}
-	funp = funp->next;
-    }
-}
-#endif
-
 void
 erts_cleanup_funs_on_purge(BeamInstr* start, BeamInstr* end)
 {

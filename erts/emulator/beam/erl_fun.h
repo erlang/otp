@@ -53,10 +53,10 @@ typedef struct erl_fun_entry {
 
 typedef struct erl_fun_thing {
     Eterm thing_word;		/* Subtag FUN_SUBTAG. */
-#ifndef HYBRID /* FIND ME! */
-    struct erl_fun_thing* next;	/* Next fun in mso list. */
-#endif
     ErlFunEntry* fe;		/* Pointer to fun entry. */
+#ifndef HYBRID /* FIND ME! */
+    struct erl_off_heap_header* next;
+#endif
 #ifdef HIPE
     UWord* native_address;	/* Native code for the fun. */
 #endif

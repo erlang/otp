@@ -1087,30 +1087,24 @@ insert_offheap2(ErlOffHeap *oh, void *arg)
 static void
 insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 {
-    if(oh->externals) {
-	ExternalThing *etp = oh->externals;
-	while (etp) {
-	    insert_node(etp->node, type, id);
-	    etp = etp->next;
-	}
-    }
+    union erl_off_heap_ptr u;
+    struct insert_offheap2_arg a;
+    a.type = BIN_REF;
 
-    if(oh->mso) {
-	ProcBin *pb;
-	struct insert_offheap2_arg a;
-	a.type = BIN_REF;
-	for(pb = oh->mso; pb; pb = pb->next) {
-	    if(IsMatchProgBinary(pb->val)) {
+    for (u.hdr = oh->first; u.hdr; u.hdr = u.hdr->next) {
+	switch (thing_subtag(u.hdr->thing_word)) {
+	case REFC_BINARY_SUBTAG:
+	    if(IsMatchProgBinary(u.pb->val)) {
 		InsertedBin *ib;
 		int insert_bin = 1;
 		for (ib = inserted_bins; ib; ib = ib->next)
-		    if(ib->bin_val == pb->val) {
+		    if(ib->bin_val == u.pb->val) {
 			insert_bin = 0;
 			break;
 		    }
 		if (insert_bin) {
 #if HALFWORD_HEAP
-		    UWord val = (UWord) pb->val;
+		    UWord val = (UWord) u.pb->val;
 		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE*2); /* extra place allocated */
 #else
 		    DeclareTmpHeapNoproc(id_heap,BIG_UINT_HEAP_SIZE);
@@ -1124,13 +1118,13 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    a.id = erts_bld_uword(&hp, NULL, (UWord) val);
 #else
 		    UseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
-		    a.id = erts_bld_uint(&hp, NULL, (Uint) pb->val);
+		    a.id = erts_bld_uint(&hp, NULL, (Uint) u.pb->val);
 #endif
-		    erts_match_prog_foreach_offheap(pb->val,
+		    erts_match_prog_foreach_offheap(u.pb->val,
 						    insert_offheap2,
 						    (void *) &a);
 		    nib = erts_alloc(ERTS_ALC_T_NC_TMP, sizeof(InsertedBin));
-		    nib->bin_val = pb->val;
+		    nib->bin_val = u.pb->val;
 		    nib->next = inserted_bins;
 		    inserted_bins = nib;
 #if HALFWORD_HEAP
@@ -1139,15 +1133,16 @@ insert_offheap(ErlOffHeap *oh, int type, Eterm id)
 		    UnUseTmpHeapNoproc(BIG_UINT_HEAP_SIZE);
 #endif
 		}
-	    }
+	    }		
+	    break;
+	case FUN_SUBTAG:
+	    break; /* No need to */
+	default:
+	    ASSERT(is_external_header(u.hdr->thing_word));
+	    insert_node(u.ext->node, type, id);
+	    break;
 	}
     }
-
-#if 0
-    if(oh->funs) {
-	/* No need to */
-    }
-#endif
 }
 
 static void doit_insert_monitor(ErtsMonitor *monitor, void *p)
@@ -1289,6 +1284,7 @@ setup_reference_table(void)
     for (i = 0; i < erts_max_processes; i++)
 	if (process_tab[i]) {
 	    ErlMessage *msg;
+
 	    /* Insert Heap */
 	    insert_offheap(&(process_tab[i]->off_heap),
 			   HEAP_REF,
@@ -1375,21 +1371,22 @@ setup_reference_table(void)
 
     { /* Add binaries stored elsewhere ... */
 	ErlOffHeap oh;
-	ProcBin pb[2] = {{0},{0}};
-	ProcBin *mso = NULL;
+	ProcBin pb[2];
 	int i = 0;
 	Binary *default_match_spec;
 	Binary *default_meta_match_spec;
 
-	/* Only the ProcBin members val and next will be inspected
+	oh.first = NULL;
+	/* Only the ProcBin members thing_word, val and next will be inspected
 	   (by insert_offheap()) */
 #undef  ADD_BINARY
-#define ADD_BINARY(Bin)					\
-	if ((Bin)) {					\
-	    pb[i].val = (Bin);				\
-	    pb[i].next = mso;				\
-	    mso = &pb[i];				\
-	    i++;					\
+#define ADD_BINARY(Bin)				 	     \
+	if ((Bin)) {					     \
+	    pb[i].thing_word = REFC_BINARY_SUBTAG;           \
+	    pb[i].val = (Bin);				     \
+	    pb[i].next = oh.first;		             \
+	    oh.first = (struct erl_off_heap_header*) &pb[i]; \
+	    i++;				             \
 	}
 
 	erts_get_default_trace_pattern(NULL,
@@ -1401,11 +1398,6 @@ setup_reference_table(void)
 	ADD_BINARY(default_match_spec);
 	ADD_BINARY(default_meta_match_spec);
 
-	oh.mso = mso;
-	oh.externals = NULL;
-#ifndef HYBRID /* FIND ME! */
-	oh.funs = NULL;
-#endif
 	insert_offheap(&oh, BIN_REF, AM_match_spec);
 #undef  ADD_BINARY
     }

@@ -162,13 +162,8 @@ erts_heap_alloc(Process* p, Uint need)
     bp->alloc_size = n;
     bp->used_size = n;
     MBUF_SIZE(p) += n;
-    bp->off_heap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    bp->off_heap.funs = NULL;
-#endif
-    bp->off_heap.externals = NULL;
+    bp->off_heap.first = NULL;
     bp->off_heap.overhead = 0;
-
     return bp->mem;
 }
 
@@ -2729,21 +2724,8 @@ not_equal:
 }
 
 
-void
-erts_cleanup_externals(ExternalThing *etp)
-{
-    ExternalThing *tetp;
-
-    tetp = etp;
-
-    while(tetp) {
-	erts_deref_node_entry(tetp->node);
-	tetp = tetp->next;
-    }
-}
-
 Eterm
-store_external_or_ref_(Uint **hpp, ExternalThing **etpp, Eterm ns)
+store_external_or_ref_(Uint **hpp, ErlOffHeap* oh, Eterm ns)
 {
     Uint i;
     Uint size;
@@ -2762,8 +2744,8 @@ store_external_or_ref_(Uint **hpp, ExternalThing **etpp, Eterm ns)
 
 	erts_refc_inc(&((ExternalThing *) to_hp)->node->refc, 2);
 
-	((ExternalThing *) to_hp)->next = *etpp;
-	*etpp = (ExternalThing *) to_hp;
+	((struct erl_off_heap_header*) to_hp)->next = oh->first;
+	oh->first = (struct erl_off_heap_header*) to_hp;
 
 	return make_external(to_hp);
     }
@@ -2792,7 +2774,7 @@ store_external_or_ref_in_proc_(Process *proc, Eterm ns)
     sz = NC_HEAP_SIZE(ns);
     ASSERT(sz > 0);
     hp = HAlloc(proc, sz);
-    return store_external_or_ref_(&hp, &MSO(proc).externals, ns);
+    return store_external_or_ref_(&hp, &MSO(proc), ns);
 }
 
 void bin_write(int to, void *to_arg, byte* buf, int sz)

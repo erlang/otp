@@ -2751,11 +2751,7 @@ static void db_finalize_dbterm_hash(DbUpdateHandle* handle)
 	newDbTerm = &newp->dbterm;
     
 	newDbTerm->size = handle->new_size;
-	newDbTerm->off_heap.mso = NULL;
-	newDbTerm->off_heap.externals = NULL;
-    #ifndef HYBRID /* FIND ME! */
-	newDbTerm->off_heap.funs = NULL;
-    #endif
+	newDbTerm->off_heap.first = NULL;
 	newDbTerm->off_heap.overhead = 0;
 	
 	/* make a flat copy */

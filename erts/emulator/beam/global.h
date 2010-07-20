@@ -464,7 +464,10 @@ typedef union {
 typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
-    struct proc_bin *next;	/* Pointer to next ProcBin. */
+#if HALFWORD_HEAP
+    char alignment__[SIZEOF_VOID_P - ERTS_SIZEOF_ETERM];
+#endif
+    struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */
     byte *bytes;		/* Pointer to the actual data bytes. */
     Uint flags;			/* Flag word. */
@@ -494,8 +497,8 @@ erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
 
     pb->thing_word = HEADER_PROC_BIN;
     pb->size = 0;
-    pb->next = ohp->mso;
-    ohp->mso = pb;
+    pb->next = ohp->first;
+    ohp->first = (struct erl_off_heap_header*) pb;
     pb->val = mbp;
     pb->bytes = (byte *) mbp->orig_bytes;
     pb->flags = 0;
@@ -511,6 +514,15 @@ erts_mk_magic_binary_term(Eterm **hpp, ErlOffHeap *ohp, Binary *mbp)
   (is_binary((T)) \
    && (thing_subtag(*binary_val((T))) == REFC_BINARY_SUBTAG) \
    && (((ProcBin *) binary_val((T)))->val->flags & BIN_FLAG_MAGIC))
+
+
+union erl_off_heap_ptr {
+    struct erl_off_heap_header* hdr;
+    ProcBin *pb;
+    struct erl_fun_thing* fun;
+    struct external_thing_* ext;
+    Eterm* ep;
+};
 
 /* arrays that get malloced at startup */
 extern Port* erts_port;
@@ -823,7 +835,6 @@ Eterm erts_new_heap_binary(Process *p, byte *buf, int len, byte** datap);
 Eterm erts_new_mso_binary(Process*, byte*, int);
 Eterm new_binary(Process*, byte*, int);
 Eterm erts_realloc_binary(Eterm bin, size_t size);
-void erts_cleanup_mso(ProcBin* pb);
 
 /* erl_bif_info.c */
 
@@ -1499,7 +1510,6 @@ void p_slpq(_VOID_);
 void erts_silence_warn_unused_result(long unused);
 
 void erts_cleanup_offheap(ErlOffHeap *offheap);
-void erts_cleanup_externals(ExternalThing *);
 
 Uint erts_fit_in_bits(Uint);
 int list_length(Eterm);
@@ -1532,7 +1542,7 @@ erts_bld_atom_2uint_3tup_list(Uint **hpp, Uint *szp, Sint length,
 			      Eterm atoms[], Uint uints1[], Uint uints2[]);
 
 Eterm store_external_or_ref_in_proc_(Process *, Eterm);
-Eterm store_external_or_ref_(Uint **, ExternalThing **, Eterm);
+Eterm store_external_or_ref_(Uint **, ErlOffHeap*, Eterm);
 
 #define NC_HEAP_SIZE(NC) \
  (ASSERT_EXPR(is_node_container((NC))), \
@@ -1957,5 +1967,5 @@ erts_alloc_message_heap(Uint size,
 #  define UnUseTmpHeap(Size,Proc) /* Nothing */
 #  define UseTmpHeapNoproc(Size) /* Nothing */
 #  define UnUseTmpHeapNoproc(Size) /* Nothing */
-#endif
-#endif
+#endif /* HEAP_ON_C_STACK */
+#endif /* !__GLOBAL_H__ */

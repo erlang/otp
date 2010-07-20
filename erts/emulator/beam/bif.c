@@ -3611,11 +3611,11 @@ BIF_RETTYPE list_to_pid_1(BIF_ALIST_1)
 
       etp = (ExternalThing *) HAlloc(BIF_P, EXTERNAL_THING_HEAD_SIZE + 1);
       etp->header = make_external_pid_header(1);
-      etp->next = MSO(BIF_P).externals;
+      etp->next = MSO(BIF_P).first;
       etp->node = enp;
       etp->data.ui[0] = make_pid_data(c, b);
 
-      MSO(BIF_P).externals = etp;
+      MSO(BIF_P).first = (struct erl_off_heap_header*) etp;
       erts_deref_dist_entry(dep);
       BIF_RET(make_external_pid(etp));
     }

@@ -2161,7 +2161,7 @@ trace_delivered_1(BIF_ALIST_1)
 #ifdef ERTS_SMP
     bp = new_message_buffer(REF_THING_SIZE + 4);
     hp = &bp->mem[0];
-    msg_ref = STORE_NC(&hp, &bp->off_heap.externals, ref);
+    msg_ref = STORE_NC(&hp, &bp->off_heap, ref);
 #else
     hp = HAlloc(BIF_P, 4);
     msg_ref = ref;

@@ -922,12 +922,8 @@ int erts_net_message(Port *prt,
 
     UseTmpHeapNoproc(DIST_CTL_DEFAULT_SIZE);
     /* Thanks to Luke Gorrie */
-    off_heap.mso = NULL;
-#ifndef HYBRID /* FIND ME! */
-    off_heap.funs = NULL;
-#endif
+    off_heap.first = NULL;
     off_heap.overhead = 0;
-    off_heap.externals = NULL;
 
     ERTS_SMP_CHK_NO_PROC_LOCKS;
 
@@ -1434,16 +1430,8 @@ int erts_net_message(Port *prt,
 	}
     }
 
-    if (off_heap.mso) {
-	erts_cleanup_mso(off_heap.mso);
-    }
-    if (off_heap.externals) {
-	erts_cleanup_externals(off_heap.externals);
-    }
+    erts_cleanup_offheap(&off_heap);
 #ifndef HYBRID /* FIND ME! */
-    if (off_heap.funs) {
-	erts_cleanup_funs(off_heap.funs);
-    }
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
@@ -1453,16 +1441,8 @@ int erts_net_message(Port *prt,
     return 0;
 
  data_error:
-    if (off_heap.mso) {
-	erts_cleanup_mso(off_heap.mso);
-    }
-    if (off_heap.externals) {
-	erts_cleanup_externals(off_heap.externals);
-    }
+    erts_cleanup_offheap(&off_heap);
 #ifndef HYBRID /* FIND ME! */
-    if (off_heap.funs) {
-	erts_cleanup_funs(off_heap.funs);
-    }
     if (ctl != ctl_default) {
 	erts_free(ERTS_ALC_T_DCTRL_BUF, (void *) ctl);
     }
