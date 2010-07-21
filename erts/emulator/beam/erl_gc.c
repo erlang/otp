@@ -1996,18 +1996,27 @@ do_next_vheap_size(Uint vheap, Uint vheap_sz) {
      *
      *          ----------------------
      */
+    Uint vheap_max = heap_sizes[num_heap_sizes - 1];
+    if (vheap_sz == vheap_max) {
+	return vheap_sz;
+    }
 
-    if (vheap > (Uint) (vheap_sz*3/4)) {
+    if ((Uint) vheap/3 > (Uint) (vheap_sz/4)) {
+	Uint new_vheap_sz = vheap_sz;
 
-	while(vheap > (Uint) (vheap_sz*3/4)) {
-	    vheap_sz = vheap_sz*2;
+	while((Uint) vheap/3 > (Uint) (vheap_sz/4)) {
+	    new_vheap_sz = (vheap_sz << 1);
+	    if (new_vheap_sz < vheap_sz || new_vheap_sz > vheap_max ) {
+		return vheap_max;
+	    }
+	    vheap_sz = new_vheap_sz;
 	}
 
 	return erts_next_heap_size(vheap_sz, 0);
     }
 
     if (vheap < (Uint) (vheap_sz/4)) {
-	return erts_next_heap_size((Uint) (vheap_sz / 2), 0);
+	return erts_next_heap_size((Uint) (vheap_sz >> 1), 0);
     }
 
     return vheap_sz;
