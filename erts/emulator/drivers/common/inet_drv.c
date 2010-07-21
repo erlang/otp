@@ -48,6 +48,12 @@
 #include <sys/uio.h>
 #endif
 
+#ifdef HAVE_NET_IF_DL_H
+#include <net/if_dl.h>
+#endif
+#ifdef HAVE_IFADDRS_H
+#include <ifaddrs.h>
+#endif
 
 /* All platforms fail on malloc errors. */
 #define FATAL_MALLOC
@@ -4089,6 +4095,10 @@ static int inet_ctl_getiflist(inet_descriptor* desc, char** rbuf, int rsize)
 }
 
 
+/* FIXME: temporary hack */
+#ifndef IFHWADDRLEN
+#define IFHWADDRLEN 6
+#endif
 
 static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)
@@ -4128,6 +4138,32 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	    /* raw memcpy (fix include autoconf later) */
 	    sys_memcpy(sptr, (char*)(&ifreq.ifr_hwaddr.sa_data), IFHWADDRLEN);
 	    sptr += IFHWADDRLEN;
+#elif defined(HAVE_GETIFADDRS)
+        struct ifaddrs *ifa, *ifp;
+        int found = 0;
+
+        if (getifaddrs(&ifa) == -1)
+        goto error;
+
+        for (ifp = ifa; ifp; ifp = ifp->ifa_next) {
+        if ((ifp->ifa_addr->sa_family == AF_LINK) &&
+        (sys_strcmp(ifp->ifa_name, ifreq.ifr_name) == 0)) {
+            found = 1;
+            break;
+        }
+        }
+
+        if (found == 0) {
+            freeifaddrs(ifa);
+            break;
+        }
+
+        buf_check(sptr, s_end, 1+IFHWADDRLEN);
+        *sptr++ = INET_IFOPT_HWADDR;
+        sys_memcpy(sptr, ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_data +
+            ((struct sockaddr_dl *)ifp->ifa_addr)->sdl_nlen, IFHWADDRLEN);
+        freeifaddrs(ifa);
+        sptr += IFHWADDRLEN;
 #endif
 	    break;
 	}
@@ -4240,10 +4276,6 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
     return ctl_error(EINVAL, rbuf, rsize);
 }
 
-/* FIXME: temporary hack */
-#ifndef IFHWADDRLEN
-#define IFHWADDRLEN 6
-#endif
 
 static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 			  char** rbuf, int rsize)

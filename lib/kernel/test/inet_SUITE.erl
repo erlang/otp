@@ -877,6 +877,17 @@ getif(Config) when is_list(Config) ->
     ?line {ok,Address} = inet:getaddr(Hostname, inet),
     ?line {ok,Loopback} = inet:getaddr("localhost", inet),
     ?line {ok,Interfaces} = inet:getiflist(),
+    ?line HWAs =
+	lists:sort(
+	  lists:foldl(
+	    fun (I, Acc) ->
+		    case inet:ifget(I, [hwaddr]) of
+			{ok,[{hwaddr,A}]} -> [A|Acc];
+			{ok,[]} -> Acc
+		    end
+	    end, [], Interfaces)),
+    ?line io:format("HWAs = ~p~n", [HWAs]),
+    ?line length(HWAs) > 0 orelse ?t:fail(no_HWAs),
     ?line Addresses = 
 	lists:sort(
 	  lists:foldl(
