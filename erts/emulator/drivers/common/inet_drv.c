@@ -4103,7 +4103,7 @@ static int inet_ctl_ifget(inet_descriptor* desc, char* buf, int len,
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
     sptr = sbuf;
@@ -4256,7 +4256,7 @@ static int inet_ctl_ifset(inet_descriptor* desc, char* buf, int len,
 	goto error;
     sys_memset(ifreq.ifr_name, '\0', IFNAMSIZ);
     sys_memcpy(ifreq.ifr_name, buf+1, 
-	       (namlen > IFNAMSIZ) ? IFNAMSIZ : namlen);
+	       (namlen >= IFNAMSIZ) ? IFNAMSIZ-1 : namlen);
     buf += (namlen+1);
     len -= (namlen+1);
 
