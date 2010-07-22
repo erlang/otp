@@ -3390,7 +3390,7 @@ apply_bif_or_nif_epilogue:
 	 pb->val = bptr;
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
-	 MSO(c_p).overhead += pb->size / sizeof(Eterm);
+	 OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
 	 new_binary = make_binary(pb);
 	 goto do_bits_sub_bin;
      }
@@ -3492,7 +3492,7 @@ apply_bif_or_nif_epilogue:
 	 pb->bytes = (byte*) bptr->orig_bytes;
 	 pb->flags = 0;
 	 
-	 MSO(c_p).overhead += tmp_arg1 / sizeof(Eterm);
+	 OH_OVERHEAD(&(MSO(c_p)), tmp_arg1 / sizeof(Eterm));
 
 	 StoreBifResult(2, make_binary(pb));
      }

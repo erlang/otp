@@ -1582,7 +1582,7 @@ static void deliver_read_message(Port* prt, Eterm to,
 	pb->flags = 0;
 	hp += PROC_BIN_SIZE;
 
-	ohp->overhead += pb->size / sizeof(Eterm);
+	OH_OVERHEAD(ohp, pb->size / sizeof(Eterm));
 	listp = make_binary(pb);
     }
 
@@ -1732,7 +1732,7 @@ deliver_vec_message(Port* prt,			/* Port */
 	    pb->flags = 0;
 	    hp += PROC_BIN_SIZE;
 	    
-	    ohp->overhead += iov->iov_len / sizeof(Eterm);
+	    OH_OVERHEAD(ohp, iov->iov_len / sizeof(Eterm));
 
 	    if (listp == NIL) {  /* compatible with deliver_bin_message */
 		listp = make_binary(pb);
@@ -2264,7 +2264,7 @@ erts_port_control(Process* p, Port* prt, Uint command, Eterm iolist)
 		pb->val = ErlDrvBinary2Binary(dbin);
 		pb->bytes = (byte*) dbin->orig_bytes;
 		pb->flags = 0;
-		MSO(p).overhead += dbin->orig_size / sizeof(Eterm);
+		OH_OVERHEAD(&(MSO(p)), dbin->orig_size / sizeof(Eterm));
 		return make_binary(pb);
 	    }
 	    port_resp = dbin->orig_bytes;
@@ -3040,7 +3040,7 @@ driver_deliver_term(ErlDrvPort port,
 		pb->flags = 0;
 		mess =  make_binary(pb);
 		hp += PROC_BIN_SIZE;
-		ohp->overhead += pb->size / sizeof(Eterm);
+		OH_OVERHEAD(ohp, pb->size / sizeof(Eterm));
 	    }
 	    ptr += 3;
 	    break;
@@ -3077,7 +3077,7 @@ driver_deliver_term(ErlDrvPort port,
 		pbp->val = bp;
 		pbp->bytes = (byte*) bp->orig_bytes;
 		pbp->flags = 0;
-		ohp->overhead += (pbp->size / sizeof(Eterm));
+		OH_OVERHEAD(ohp, pbp->size / sizeof(Eterm));
 		mess = make_binary(pbp);
 	    }
 	    ptr += 2;

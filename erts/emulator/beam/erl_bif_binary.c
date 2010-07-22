@@ -2517,7 +2517,7 @@ BIF_RETTYPE binary_copy_trap(BIF_ALIST_2)
 	pb->bytes = t;
 	pb->flags = 0;
 
-	MSO(BIF_P).overhead += target_size / sizeof(Eterm);
+	OH_OVERHEAD(&(MSO(BIF_P)), target_size / sizeof(Eterm));
 	BUMP_REDS(BIF_P,(pos - opos) / BINARY_COPY_LOOP_FACTOR);
 
 	BIF_RET(make_binary(pb));
