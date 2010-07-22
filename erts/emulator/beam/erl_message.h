@@ -30,10 +30,10 @@ struct external_thing_;
 
 struct erl_off_heap_header {
     Eterm thing_word;
-    union {
-	Uint size;
-	void* ptr;
-    }u;
+    Uint size;
+#if HALFWORD_HEAP
+    void* dummy_ptr_padding__;
+#endif
     struct erl_off_heap_header* next;
 };
 

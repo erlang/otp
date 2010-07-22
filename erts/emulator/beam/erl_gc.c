@@ -146,6 +146,9 @@ erts_init_gc(void)
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(struct erl_off_heap_header,thing_word));
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(ErlFunThing,thing_word));
     ASSERT(offsetof(ProcBin,thing_word) == offsetof(ExternalThing,header));
+    ASSERT(offsetof(ProcBin,size) == offsetof(struct erl_off_heap_header,size));
+    ASSERT(offsetof(ProcBin,size) == offsetof(ErlSubBin,size));
+    ASSERT(offsetof(ProcBin,size) == offsetof(ErlHeapBin,size));
     ASSERT(offsetof(ProcBin,next) == offsetof(struct erl_off_heap_header,next));
     ASSERT(offsetof(ProcBin,next) == offsetof(ErlFunThing,next));
     ASSERT(offsetof(ProcBin,next) == offsetof(ExternalThing,next));
@@ -2111,9 +2114,9 @@ sweep_off_heap(Process *p, int fullsweep)
 		int to_new_heap = !in_area(ptr, oheap, oheap_sz);
 		ASSERT(to_new_heap == !seen_mature || (!to_new_heap && (seen_mature=1)));
 		if (to_new_heap) {
-		    bin_vheap += ptr->u.size / sizeof(Eterm);
+		    bin_vheap += ptr->size / sizeof(Eterm);
 		} else {
-		    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
+		    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 		}		
 		link_live_proc_bin(&shrink, &prev, &ptr, to_new_heap);
 	    }
@@ -2157,7 +2160,7 @@ sweep_off_heap(Process *p, int fullsweep)
 	ASSERT(in_area(ptr, oheap, oheap_sz));
 	ASSERT(!IS_MOVED_BOXED(ptr->thing_word));       
 	if (ptr->thing_word == HEADER_PROC_BIN) {
-	    BIN_OLD_VHEAP(p) += ptr->u.size / sizeof(Eterm); /* for binary gc (words)*/
+	    BIN_OLD_VHEAP(p) += ptr->size / sizeof(Eterm); /* for binary gc (words)*/
 	    link_live_proc_bin(&shrink, &prev, &ptr, 0);
 	}
 	else {

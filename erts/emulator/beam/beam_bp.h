@@ -123,7 +123,7 @@ typedef struct {
     Uint ms;
     Uint s;
     Uint us;
-    Uint *pc;
+    BeamInstr *pc;
 } process_breakpoint_time_t; /* used within psd */
 
 extern erts_smp_spinlock_t erts_bp_lock;
