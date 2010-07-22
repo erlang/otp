@@ -1340,7 +1340,7 @@ erts_bs_append(Process* c_p, Eterm* reg, Uint live, Eterm build_size_term,
 	pb->val = bptr;
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-	MSO(c_p).overhead += pb->size / sizeof(Eterm);
+	OH_OVERHEAD(&(MSO(c_p)), pb->size / sizeof(Eterm));
 
 	/*
 	 * Now allocate the sub binary and set its size to include the
@@ -1511,7 +1511,7 @@ erts_bs_init_writable(Process* p, Eterm sz)
     pb->val = bptr;
     pb->bytes = (byte*) bptr->orig_bytes;
     pb->flags = PB_IS_WRITABLE | PB_ACTIVE_WRITER;
-    MSO(p).overhead += pb->size / sizeof(Eterm);
+    OH_OVERHEAD(&(MSO(p)), pb->size / sizeof(Eterm));
     
     /*
      * Now allocate the sub binary.

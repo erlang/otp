@@ -220,7 +220,7 @@ link_mbuf_to_proc(Process *proc, ErlHeapFragment *bp)
 	    *next_p = MSO(proc).first;
 	    MSO(proc).first = bp->off_heap.first;
 	    bp->off_heap.first = NULL;
-	    MSO(proc).overhead += bp->off_heap.overhead;
+	    OH_OVERHEAD(&(MSO(proc)), bp->off_heap.overhead);
 	}
     }
 }
@@ -535,7 +535,7 @@ erts_move_msg_mbuf_to_heap(Eterm** hpp, ErlOffHeap* off_heap, ErlMessage *msg)
 	goto copy_done;
     }
 
-    off_heap->overhead += bp->off_heap.overhead;
+    OH_OVERHEAD(off_heap, bp->off_heap.overhead);
     sz = bp->used_size;
 
     ASSERT(is_immed(term) || in_heapfrag(ptr_val(term),bp));

@@ -7799,6 +7799,7 @@ erl_create_process(Process* parent, /* Parent of process (default group leader).
     p->bin_vheap_sz     = p->min_vheap_size;
     p->bin_old_vheap_sz = p->min_vheap_size;
     p->bin_old_vheap    = 0;
+    p->bin_vheap_mature = 0;
 
     /* No need to initialize p->fcalls. */
 
@@ -8051,6 +8052,7 @@ void erts_init_empty_process(Process *p)
     p->bin_vheap_sz = BIN_VH_MIN_SIZE;
     p->bin_old_vheap_sz = BIN_VH_MIN_SIZE;
     p->bin_old_vheap = 0;
+    p->bin_vheap_mature = 0;
 #ifdef ERTS_SMP
     p->u.ptimer = NULL;
     p->bound_runq = NULL;

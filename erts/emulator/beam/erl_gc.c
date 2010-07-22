@@ -743,7 +743,10 @@ minor_collection(Process* p, int need, Eterm* objv, int nobj, Uint *recl)
      * is large enough.
      */
 
-    if (OLD_HEAP(p) && mature <= OLD_HEND(p) - OLD_HTOP(p)) {
+    if (OLD_HEAP(p) &&
+	    ((mature <= OLD_HEND(p) - OLD_HTOP(p)) &&
+	    ((BIN_VHEAP_MATURE(p) < ( BIN_OLD_VHEAP_SZ(p) - BIN_OLD_VHEAP(p)))) &&
+	    ((BIN_OLD_VHEAP_SZ(p) > BIN_OLD_VHEAP(p))) ) ) {
 	ErlMessage *msgp;
 	Uint size_after;
 	Uint need_after;
@@ -1982,8 +1985,8 @@ shrink_new_heap(Process *p, Uint new_sz, Eterm *objv, int nobj)
     HEAP_SIZE(p) = new_sz;
 }
 
-static Uint
-do_next_vheap_size(Uint vheap, Uint vheap_sz) {
+static Uint64
+do_next_vheap_size(Uint64 vheap, Uint64 vheap_sz) {
 
     /*                grow
      *
@@ -1999,37 +2002,34 @@ do_next_vheap_size(Uint vheap, Uint vheap_sz) {
      *
      *          ----------------------
      */
-    Uint vheap_max = heap_sizes[num_heap_sizes - 1];
-    if (vheap_sz == vheap_max) {
-	return vheap_sz;
-    }
 
-    if ((Uint) vheap/3 > (Uint) (vheap_sz/4)) {
-	Uint new_vheap_sz = vheap_sz;
+    if ((Uint64) vheap/3 > (Uint64) (vheap_sz/4)) {
+	Uint64 new_vheap_sz = vheap_sz;
 
-	while((Uint) vheap/3 > (Uint) (vheap_sz/4)) {
-	    new_vheap_sz = (vheap_sz << 1);
-	    if (new_vheap_sz < vheap_sz || new_vheap_sz > vheap_max ) {
-		return vheap_max;
+	while((Uint64) vheap/3 > (Uint64) (vheap_sz/4)) {
+	    /* the golden ratio = 1.618 */
+	    new_vheap_sz = (Uint64) vheap_sz * 1.618;
+	    if (new_vheap_sz < vheap_sz ) {
+	        return vheap_sz;
 	    }
 	    vheap_sz = new_vheap_sz;
 	}
 
-	return erts_next_heap_size(vheap_sz, 0);
+	return vheap_sz;
     }
 
-    if (vheap < (Uint) (vheap_sz/4)) {
-	return erts_next_heap_size((Uint) (vheap_sz >> 1), 0);
+    if (vheap < (Uint64) (vheap_sz/4)) {
+	return (vheap_sz >> 1);
     }
 
     return vheap_sz;
 
 }
 
-static Uint
-next_vheap_size(Process* p, Uint vheap, Uint vheap_sz) {
-    vheap_sz = do_next_vheap_size(vheap, vheap_sz);
-    return vheap_sz < p->min_vheap_size ? p->min_vheap_size : vheap_sz;
+static Uint64
+next_vheap_size(Process* p, Uint64 vheap, Uint64 vheap_sz) {
+    Uint64 new_vheap_sz = do_next_vheap_size(vheap, vheap_sz);
+    return new_vheap_sz < p->min_vheap_size ? p->min_vheap_size : new_vheap_sz;
 }
 
 struct shrink_cand_data {
@@ -2088,7 +2088,7 @@ link_live_proc_bin(struct shrink_cand_data *shrink,
 }
 
 
-static void 
+static void
 sweep_off_heap(Process *p, int fullsweep)
 {
     struct shrink_cand_data shrink = {0};
@@ -2096,7 +2096,7 @@ sweep_off_heap(Process *p, int fullsweep)
     struct erl_off_heap_header** prev;
     char* oheap = NULL;
     Uint oheap_sz = 0;
-    Uint bin_vheap = 0;
+    Uint64 bin_vheap = 0;
 #ifdef DEBUG
     int seen_mature = 0;
 #endif
@@ -2180,13 +2180,12 @@ sweep_off_heap(Process *p, int fullsweep)
 	}
     }
 
-    if (BIN_OLD_VHEAP(p) >= BIN_OLD_VHEAP_SZ(p)) {
-        FLAGS(p) |= F_NEED_FULLSWEEP;
+    if (fullsweep) {
+	BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p) + MSO(p).overhead, BIN_OLD_VHEAP_SZ(p));
     }
-
-    BIN_VHEAP_SZ(p) = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
-    BIN_OLD_VHEAP_SZ(p) = next_vheap_size(p, BIN_OLD_VHEAP(p), BIN_OLD_VHEAP_SZ(p));
-    MSO(p).overhead = bin_vheap;
+    BIN_VHEAP_SZ(p)     = next_vheap_size(p, bin_vheap, BIN_VHEAP_SZ(p));
+    MSO(p).overhead     = bin_vheap;
+    BIN_VHEAP_MATURE(p) = bin_vheap;
 
     /*
      * If we got any shrink candidates, check them out.

@@ -631,7 +631,7 @@ Eterm enif_make_binary(ErlNifEnv* env, ErlNifBinary* bin)
 	pb->bytes = (byte*) bptr->orig_bytes;
 	pb->flags = 0;
 	
-	MSO(env->proc).overhead += pb->size / sizeof(Eterm);
+	OH_OVERHEAD(&(MSO(env->proc)), pb->size / sizeof(Eterm));
 	bin_term = make_binary(pb);	
 	if (erts_refc_read(&bptr->refc, 1) == 1) {
 	    /* Total ownership transfer */
