@@ -34,11 +34,10 @@
   <lib>erl_nif</lib>
   <libsummary>API functions for an Erlang NIF library</libsummary>
   <description>
-     <warning><p>The NIF concept was introduced in R13B03 as an
-	EXPERIMENTAL feature. The interfaces may be changed in any way
-	in coming releases. The plan is however to lift the experimental label and
-  maintain interface backward compatibility from R14B.</p>
-  <p>Incompatible changes in <em>R14A</em>:</p>
+     <note><p>The NIF concept is officially supported from R14B. NIF source code
+     written for earlier experimental versions might need adaption to run on R14B.</p>
+    <p>No incompatible changes between <em>R14B</em> and R14A.</p>
+    <p>Incompatible changes between <em>R14A</em> and R13B04:</p>
   <list>
     <item>Environment argument removed for <c>enif_alloc</c>,
     <c>enif_realloc</c>, <c>enif_free</c>, <c>enif_alloc_binary</c>,
@@ -50,14 +49,14 @@
     <item>Module argument added to <c>enif_open_resource_type</c>
       while changing name spaces of resource types from global to module local.</item>
   </list>
-  <p>Incompatible changes in <em>R13B04</em>:</p>
+  <p>Incompatible changes between <em>R13B04</em> and R13B03:</p>
   <list>
     <item>The function prototypes of the NIFs have  changed to expect <c>argc</c> and <c>argv</c>
 	  arguments. The arity of a NIF is by that no longer limited to 3.</item>
     <item><c>enif_get_data</c> renamed as <c>enif_priv_data</c>.</item>
     <item><c>enif_make_string</c> got a third argument for character encoding.</item>
   </list>
-  </warning>
+  </note>
 
     <p>A NIF library contains native implementation of some functions
     of an Erlang module. The native implemented functions (NIFs) are
