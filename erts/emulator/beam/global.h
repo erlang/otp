@@ -465,7 +465,7 @@ typedef struct proc_bin {
     Eterm thing_word;		/* Subtag REFC_BINARY_SUBTAG. */
     Uint size;			/* Binary size in bytes. */
 #if HALFWORD_HEAP
-    char alignment__[SIZEOF_VOID_P - ERTS_SIZEOF_ETERM];
+    void* dummy_ptr_padding__;
 #endif
     struct erl_off_heap_header *next;
     Binary *val;		/* Pointer to Binary structure. */

@@ -4463,7 +4463,7 @@ apply_bif_or_nif_epilogue:
 	     E -= 2;
 	     E[0] = make_cp(I);
 	     E[1] = make_cp(c_p->cp);     /* original return address */
-	     c_p->cp = (BeamInstr *) make_cp(beam_return_time_trace);
+	     c_p->cp = beam_return_time_trace;
 	 }
      }
 
@@ -4493,20 +4493,20 @@ apply_bif_or_nif_epilogue:
      BeamInstr real_I;
      Uint32 flags;
      Eterm tracer_pid;
-     BeamInstr *cpp;
+     Uint* cpp;
      int return_to_trace = 0, need = 0;
      flags = 0;
      SWAPOUT;
      reg[0] = r(0);
 
      if (*(c_p->cp) == (BeamInstr) OpCode(return_trace)) {
-	 cpp = (BeamInstr*)&E[2];
+	 cpp = &E[2];
      } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_to_trace)) {
 	 return_to_trace = !0;
-	 cpp = (BeamInstr*)&E[0];
+	 cpp = &E[0];
      } else if (*(c_p->cp) == (BeamInstr) OpCode(i_return_time_trace)) {
 	 return_to_trace = !0;
-	 cpp = (BeamInstr*)&E[0];
+	 cpp = &E[0];
      } else {
 	 cpp = NULL;
      }

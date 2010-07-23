@@ -821,9 +821,9 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |A A A A A A A A A A A A A A A A A A A A A A A A A A|t t t t|0 0| Thing
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
- *  |N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N| Next
- *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |E E E E E E E E E E E E E E E E E E E E E E E E E E E E E E E E| ErlNode
+ *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+ *  |N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N N| Next
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  *  |X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X X| Data 0
  *  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -835,7 +835,7 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
  *  t : External pid thing tag  (1100)
  *  t : External port thing tag (1101)
  *  t : External ref thing tag  (1110)
- *  N : Next (external thing) pointer
+ *  N : Next (off_heap) pointer
  *  E : ErlNode pointer
  *  X : Type specific data
  *
@@ -852,8 +852,11 @@ _ET_DECLARE_CHECKED(struct erl_node_*,internal_ref_node,Eterm)
 /* XXX:PaN - this structure is not perfect for halfword heap, it takes
    a lot of memory due to padding, and the array will not begin at the end of the
    structure, as otherwise expected. Be sure to access data.ui32 array and not try
-   to do pointer manipulation on an Eterm * to reach the actual data... */
+   to do pointer manipulation on an Eterm * to reach the actual data...
 
+   XXX:Sverk - Problem made worse by "one off-heap list" when 'next' pointer
+     must align with 'next' in ProcBin, erl_fun_thing and erl_off_heap_header.
+*/
 typedef struct external_thing_ {
     /*                                 ----+                        */
     Eterm                   header;     /* |                        */
