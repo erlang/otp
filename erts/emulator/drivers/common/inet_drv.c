@@ -6847,13 +6847,13 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 
 	if (len < 2)
 	    return ctl_error(EINVAL, rbuf, rsize);
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n >= len) /* the = sign makes the test inklude next length byte */
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(namebuf, buf, n);
 	namebuf[n] = '\0';
 	len -= n; buf += n;
-	n = buf[0]; buf++; len--;
+	n = get_int8(buf); buf++; len--;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
@@ -6876,7 +6876,7 @@ static int inet_ctl(inet_descriptor* desc, int cmd, char* buf, int len,
 	port = get_int16(buf);
 	port = sock_htons(port);
 	buf += 2;
-	n = buf[0]; buf++; len -= 3;
+	n = get_int8(buf); buf++; len -= 3;
 	if (n > len)
 	    return ctl_error(EINVAL, rbuf, rsize);
 	memcpy(protobuf, buf, n);
